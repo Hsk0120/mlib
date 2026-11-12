@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+
+# Sphinx documentation
+_docs/_build/
+_docs/source/autoapi/
+_docs/.venv/
+_docs/.mayapy-site/
+
+# Test output
+__tests__/_output/
+__tests__/.logs/
+
+# Local research notes (not published)
+_docs/research/
+_docs/*_research.rst
+_docs/*_survey.rst
+_docs/*_inventory.json
+_docs/concept_classes.rst
