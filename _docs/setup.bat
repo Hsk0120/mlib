@@ -93,9 +93,9 @@ set "PYTHONPATH=%MLIB_DOCS_SITE%"
 set "MLIB_DOCS_PYTHON=%MLIB_DOCS_MAYAPY%"
 
 :verify
-"%MLIB_DOCS_PYTHON%" -m sphinx --version
+"%MLIB_DOCS_PYTHON%" -P -m sphinx --version
 if errorlevel 1 goto finish
-"%MLIB_DOCS_PYTHON%" -c "import autoapi; from importlib.metadata import version; print('sphinx-autoapi: ' + version('sphinx-autoapi'))"
+"%MLIB_DOCS_PYTHON%" -P -c "import autoapi; from importlib.metadata import version; print('sphinx-autoapi: ' + version('sphinx-autoapi'))"
 if errorlevel 1 goto finish
 
 set "MLIB_DOCS_RESULT=0"

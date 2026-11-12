@@ -82,7 +82,7 @@ python -m venv .venv
 Sphinxを直接実行してHTMLを作り、ブラウザで開きます。
 
 ```powershell
-& .\.venv\Scripts\python.exe -m sphinx -E -a -b html -n -W --keep-going .\source .\_build\html
+& .\.venv\Scripts\python.exe -P -m sphinx -E -a -b html -n -W --keep-going .\source .\_build\html
 if ($LASTEXITCODE -eq 0) { Invoke-Item .\_build\html\index.html }
 ```
 

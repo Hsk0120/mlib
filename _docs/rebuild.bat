@@ -30,8 +30,10 @@ if exist "%MLIB_DOCS_OUTPUT%" (
     goto finish
 )
 
+rem -P keeps the current folder off sys.path: run from the mlib folder, its json package
+rem would shadow the standard json module that Sphinx imports.
 rem -n reports cross references that do not resolve (nitpick_ignore_regex in conf.py lists the allowed ones).
-"%MLIB_DOCS_PYTHON%" -m sphinx -E -a -b html -n -W --keep-going "%MLIB_DOCS_SOURCE%" "%MLIB_DOCS_OUTPUT%"
+"%MLIB_DOCS_PYTHON%" -P -m sphinx -E -a -b html -n -W --keep-going "%MLIB_DOCS_SOURCE%" "%MLIB_DOCS_OUTPUT%"
 set "MLIB_DOCS_RESULT=%ERRORLEVEL%"
 if not "%MLIB_DOCS_RESULT%"=="0" (
     echo.

@@ -28,7 +28,7 @@ jobs:
       - name: Run Maya-free tests and source checks
         run: python __tests__/runStatic.py
       - name: Build Sphinx documentation
-        run: python -m sphinx -E -a -b html -n -W --keep-going _docs/source _docs/_build/html
+        run: python -P -m sphinx -E -a -b html -n -W --keep-going _docs/source _docs/_build/html
       - name: Check pinned Mermaid in built HTML
         run: python __tests__/checks/check_mlib_docs.py --check-directory _docs/_build/html
       - name: Check preferred getter and predicate names and reference links
