@@ -62,7 +62,7 @@ class StubGenerationTest(unittest.TestCase):
         stale = sorted(str(path) for path in set(fresh) | set(current)
                        if fresh.get(path) != current.get(path)
                        and (path in fresh or current[path].startswith(self.generator.HEADER_MARK)))
-        self.assertEqual(stale, [], "run: python _tools/generate_mlib_stubs.py")
+        self.assertEqual(stale, [], "run: _tools/generate_mlib_stubs.bat (or generate_mlib_stubs.py)")
 
     def test_docstring_types_are_all_usable(self):
         """docstring の型をすべて注釈にできる(省いたものは --report で場所と理由が分かる)。"""

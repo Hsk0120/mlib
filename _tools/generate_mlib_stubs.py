@@ -23,11 +23,12 @@ import した場合も補完が効く。
 
 使い方::
 
-    python _tools/generate_mlib_stubs.py            # スタブを作り直す
-    python _tools/generate_mlib_stubs.py --report   # 省いた注釈も表示する
-    python _tools/generate_mlib_stubs.py --check    # 現在のスタブが最新かだけを確かめる(古ければ終了コード1)
+    py -3 _tools/generate_mlib_stubs.py            # スタブを作り直す
+    py -3 _tools/generate_mlib_stubs.py --report   # 省いた注釈も表示する
+    py -3 _tools/generate_mlib_stubs.py --check    # 現在のスタブが最新かだけを確かめる(古ければ終了コード1)
 
-通常のPython 3.9以降で動き、Mayaは不要。
+通常のPython 3.9以降で動き、Mayaは不要。Pythonが無い環境では mayapy(Maya 2023以降)でも動く
+(``generate_mlib_stubs.bat`` は ``py`` の 3.14〜3.9 を新しい順に探し、無ければ mayapy を使う)。どのPythonでも同じ内容を生成する。
 """
 
 import argparse
@@ -1250,6 +1251,20 @@ def _forwards(modules, collections, index):
     return result
 
 
+def _write_text(path, text):
+    """スタブをUTF-8・LFの改行で書き出す。
+
+    ``Path.write_text`` の ``newline`` はPython 3.10以降の引数のため、3.9(Maya 2023のmayapy)でも
+    動くように ``open`` で書く。
+
+    Args:
+        path (Path): 書き出すファイル。
+        text (str): 内容。
+    """
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(text)
+
+
 def generate(dest):
     """スタブを ``dest`` の下に書き出す。
 
@@ -1271,9 +1286,9 @@ def generate(dest):
         text = stub.render()
         target = dest / path.relative_to(SOURCE).with_suffix(".pyi")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8", newline="\n")
+        _write_text(target, text)
         unresolved += [(name,) + item for item in stub.unresolved]
-    (dest / "_stubtypes.pyi").write_text(STUB_TYPES, encoding="utf-8", newline="\n")
+    _write_text(dest / "_stubtypes.pyi", STUB_TYPES)
     return unresolved
 
 
@@ -1318,7 +1333,7 @@ def _sync(work, dest):
         if current.get(relative) != text:
             target = dest / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text, encoding="utf-8", newline="\n")
+            _write_text(target, text)
             written += 1
     for relative, text in current.items():
         if relative not in fresh and text.startswith(HEADER_MARK):

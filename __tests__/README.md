@@ -38,7 +38,7 @@ PowerShellで実行します。
 
 ```powershell
 # 通常Pythonで動く単体テストと、公開名・コード配置の検査
-python .\runStatic.py
+py -3 .\runStatic.py
 
 # Mayaのインストール状況を確認するだけ
 .\run.bat --list
@@ -60,7 +60,7 @@ python .\runStatic.py
 ```
 
 `run.bat`は検出したmayapyを制御用Pythonに使い、実テストには各版のmayapyを使います。
-通常Pythonからは`python .\runMaya.py --versions 2027 --suite unit`でも実行できます。
+通常Pythonからは`py -3 .\runMaya.py --versions 2027 --suite unit`でも実行できます。
 引数を付けず`run.bat`を実行すると、2022〜2027の全版を対象にします。
 未インストールは`missing`と記録します。`--allow-missing`はこの状態による終了コードだけを抑制します。
 
@@ -95,9 +95,9 @@ fastの更新はどちらのコンテキストでもUndo対象にしません。
 ## GUIで確認する
 
 ```powershell
-python .\runGui.py --versions 2027 --suite unit
-python .\runGui.py --versions 2027 --suite integration
-python .\runGui.py --versions 2027 --suite visual
+py -3 .\runGui.py --versions 2027 --suite unit
+py -3 .\runGui.py --versions 2027 --suite integration
+py -3 .\runGui.py --versions 2027 --suite visual
 ```
 
 `unit`・`integration`は同名フォルダのテスト、`visual`は実パネルへの適用と画像保存です。
@@ -160,8 +160,8 @@ Maya不要のものは`unit/test_static_spec_<領域>_<名前>.py`とします�
 
 ```powershell
 # 本体全体、または指定ファイルを検査する
-python .\checks\check_mlib_layout.py --check
-python .\checks\check_mlib_layout.py --check ..\nodes\node.py
+py -3 .\checks\check_mlib_layout.py --check
+py -3 .\checks\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
 違反があればファイル・行番号・検査コード・内容を表示し、終了コード1を返します。
@@ -182,8 +182,8 @@ Sphinxの説明コメント`#:`は維持し、コードとの間の空白だけ�
 次は`node.py`の12行目がL040として報告された場合の例です。実際の対象と行番号へ置き換えてください。
 
 ```powershell
-python .\checks\check_mlib_layout.py --fix-asserts TypeError ..\nodes\node.py --line 12
-python .\checks\check_mlib_layout.py --check ..\nodes\node.py
+py -3 .\checks\check_mlib_layout.py --fix-asserts TypeError ..\nodes\node.py --line 12
+py -3 .\checks\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
 値の範囲等の検証には`ValueError`も選べます。`--line`は繰り返し指定できます。
@@ -202,4 +202,4 @@ python .\checks\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
 ブラウザ自動確認を使う場合だけ`checks/browser-requirements.txt`からPlaywrightを入れ、
-`python -m playwright install chromium`を実行します。静的検査やMayaテストには不要です。
+`py -3 -m playwright install chromium`を実行します。静的検査やMayaテストには不要です。

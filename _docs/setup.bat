@@ -11,16 +11,23 @@ rem Reuse an existing environment. Do not replace a broken one automatically.
 if exist "%MLIB_DOCS_ENV%" goto existing_environment
 if exist "%MLIB_DOCS_SITE%" goto existing_mayapy
 
-rem Prefer the Windows Python launcher, then Python available on PATH.
-py -3 -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>&1
-if not errorlevel 1 (
-    py -3 -m venv "%MLIB_DOCS_ENV%"
-    if errorlevel 1 goto create_failed
-    goto install
+rem Ask the Windows Python launcher for each version, newest first.
+rem "python" is not used: it can be the Microsoft Store placeholder, which
+rem opens the Store instead of running Python. "py -3" is not used either:
+rem it picks the newest installed Python, and with 3.15 or later pip cannot
+rem get a prebuilt PyYAML (needed by sphinx-autoapi) and stops at building it.
+rem Only look for an installed Python: never let the launcher install one.
+set "PYLAUNCHER_ALLOW_INSTALL="
+set "MLIB_DOCS_PY="
+for %%V in (3.14 3.13 3.12 3.11) do (
+    if not defined MLIB_DOCS_PY (
+        py -%%V -c "import sys" >nul 2>&1
+        if not errorlevel 1 set "MLIB_DOCS_PY=%%V"
+    )
 )
-python -c "import sys; sys.exit(sys.version_info < (3, 11))" >nul 2>&1
-if not errorlevel 1 (
-    python -m venv "%MLIB_DOCS_ENV%"
+if defined MLIB_DOCS_PY (
+    echo Using Python %MLIB_DOCS_PY% of the Python launcher.
+    py -%MLIB_DOCS_PY% -m venv "%MLIB_DOCS_ENV%"
     if errorlevel 1 goto create_failed
     goto install
 )
@@ -34,8 +41,9 @@ for %%V in (2027 2026 2025) do (
         goto install_mayapy
     )
 )
-echo Python 3.11 or newer was not found, and neither was mayapy of Maya 2027-2025.
-echo Install Python for Windows, then run this batch again.
+echo Python 3.11 to 3.14 was not found with the Python launcher (py),
+echo and neither was mayapy of Maya 2027-2025.
+echo Install Python 3.14 for Windows, then run this batch again.
 echo See "%~dp0README.md" for the download link and setup steps.
 goto finish
 
@@ -57,9 +65,9 @@ echo It was left unchanged. See the troubleshooting section in README.md.
 goto finish
 
 :install
-"%MLIB_DOCS_PYTHON%" -c "import sys; print(sys.version); sys.exit(sys.version_info < (3, 11))"
+"%MLIB_DOCS_PYTHON%" -c "import sys; print(sys.version); sys.exit(not ((3, 11) <= sys.version_info[:2] <= (3, 14)))"
 if errorlevel 1 (
-    echo The existing .venv requires Python 3.11 or newer.
+    echo The existing .venv must use Python 3.11 to 3.14.
     echo See the troubleshooting section in README.md.
     goto finish
 )

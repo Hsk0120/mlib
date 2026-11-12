@@ -8,20 +8,20 @@ Mayaの起動は不要です。SphinxとAutoAPIがPythonソースから説明ペ
 
 | 必要なもの | 用意する方法 |
 | --- | --- |
-| Python 3.11以上 | [Python公式のWindows版](https://www.python.org/downloads/windows/)をインストール。手元の確認は3.12・3.13、CIの指定は3.11です。無い場合はMaya 2027〜2025のmayapyを使います。 |
+| Python 3.11〜3.14 | [Python公式のWindows版](https://www.python.org/downloads/windows/)をインストール。手元の確認は3.12・3.13、CIの指定は3.11です。3.15以降は使いません(pipがPyYAMLのビルド済みパッケージを取得できず、ビルドが必要になって止まるため)。無い場合はMaya 2027〜2025のmayapyを使います。 |
 | Sphinx・sphinx-autoapi | 下の`setup.bat`が`requirements.txt`からインストールします。 |
 | インターネット接続 | 初回のパッケージ取得と、ブラウザでの継承図表示に使います。 |
 
 現在の継承図はMermaidをブラウザで描画するため、**Graphviz（dot）・Node.js・Mayaは不要**です。
 Mermaid自体もバッチでインストールする必要はありません。
 
-1. Pythonをインストールし、PowerShellで`py -3 --version`または`python --version`が3.11以上になることを確認します。従来のPythonインストーラーでは、`Add python.exe to PATH`を有効にすると`python`で呼び出せます。
+1. Python 3.11〜3.14をインストールし、PowerShellで`py -0p`の一覧に3.11〜3.14のどれかが出ることを確認します。`python`は使いません(Pythonを入れていても、Microsoft Storeを開くだけの`python`が先に見つかることがあるため)。
 2. このフォルダの[setup.bat](setup.bat)をダブルクリックします。
 3. `Documentation setup succeeded`が出たら[rebuild.bat](rebuild.bat)を実行します。
 4. `Documentation build succeeded`が出たら`_build/html/index.html`をブラウザで開きます。
 
 `setup.bat`は、このフォルダの`.venv`だけに文書用パッケージを入れます。
-Python 3.11以上が見つからないときは、Maya 2027→2026→2025の順に見つかったmayapyを使い、このフォルダの`.mayapy-site`へ`pip install --target`で入れます（mayapyではvenvを作れないため）。使ったmayapyの場所は`.mayapy-site/mayapy-path.txt`に記録し、`rebuild.bat`は`.venv`が無ければそのmayapyでビルドします。
+Pythonは`py -3.14`→`py -3.13`→`py -3.12`→`py -3.11`の順に探し、最初に動いた版で`.venv`を作ります。どれも見つからないときは、Maya 2027→2026→2025の順に見つかったmayapyを使い、このフォルダの`.mayapy-site`へ`pip install --target`で入れます（mayapyではvenvを作れないため）。使ったmayapyの場所は`.mayapy-site/mayapy-path.txt`に記録し、`rebuild.bat`は`.venv`が無ければそのmayapyでビルドします。
 既存の`.venv`・`.mayapy-site`は再利用し、Python本体のインストールやシステムのPATH変更は行いません。
 PowerShellから実行するときは、リポジトリルートで次を使います。
 
@@ -37,8 +37,9 @@ if ($LASTEXITCODE -eq 0) { Invoke-Item .\_build\html\index.html }
 
 ### セットアップで止まる場合
 
-- **Pythonが見つからない**: インストール後にPowerShellを開き直し、上のバージョン確認を行ってください。`setup.bat`は`py -3`、次に`python`、最後にMaya 2027〜2025のmayapyを探します。
+- **Pythonが見つからない**: インストール後にPowerShellを開き直し、上のバージョン確認を行ってください。`setup.bat`は`py -3.14`〜`py -3.11`(新しい順)、最後にMaya 2027〜2025のmayapyを探します。
 - **古い・壊れた`.venv`がある**: ビルドを終了し、`.venv`を`.venv-backup`などへ名前変更してから`setup.bat`を再実行します。別PCからコピーした`.venv`も作り直してください。`.mayapy-site`も同じです。
+- **`.venv`がPython 3.15以降**: `The existing .venv must use Python 3.11 to 3.14`と出ます。Python 3.14以前をインストールし、`.venv`を削除してから`setup.bat`を再実行します。
 - **mayapyからPythonへ切り替える**: Pythonをインストールしてから`.mayapy-site`を削除し、`setup.bat`を再実行します。`.venv`があれば`rebuild.bat`は`.venv`を優先します。
 - **パッケージの取得に失敗する**: 表示されたpipのエラーとネット接続・プロキシ設定を確認し、`setup.bat`を再実行します。
 - **本文は出るが図が出ない**: ブラウザから`cdn.jsdelivr.net`に接続できるか確認してください。Graphvizを入れる必要はありません。
@@ -71,11 +72,11 @@ Set-Location .\maya\inhouse\mlib\_docs
 ```
 
 通常は初回セットアップ後、そのまま`rebuild.bat`を実行できます。
-バッチを使わず環境を作る場合は、Python 3.11以上で次を実行します。
+バッチを使わず環境を作る場合は、Python 3.11〜3.14で次を実行します(`-3.14`は入っている版に合わせます)。
 既存の`.venv`は作り直す必要はありません。
 
 ```powershell
-python -m venv .venv
+py -3.14 -m venv .venv
 & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 

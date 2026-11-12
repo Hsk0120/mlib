@@ -396,19 +396,22 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 ## 型スタブ(.pyi)
 
 - 公開 API の型は docstring にしか無いので、`_tools/generate_mlib_stubs.py`(`.bat`)が docstring から各 `.py` の隣に `.pyi` を生成する。
-- `.pyi` は手で編集しない。docstring の型・引数・公開名を変えたら `python _tools/generate_mlib_stubs.py` で作り直し、`.py` と一緒にコミットする
-  (`--check` で最新か確認、`--report` で省いた注釈を表示)。古いスタブは `__tests__/unit/test_static_stub_generation.py` が検出する。
+- `.pyi` は手で編集しない。docstring の型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat`(`py -3 _tools/generate_mlib_stubs.py`)で作り直し、`.py` と一緒にコミットする
+  (`--check` で最新か確認、`--report` で省いた注釈を表示)。Python 3.9 以降で動き、Maya 2023 以降の mayapy でも同じ内容を生成する(`.bat` は `py -3.14`〜`py -3.9` を新しい順 → mayapy の順に探す)。生成スクリプトは 3.9 で動く書き方を保つ。古いスタブは `__tests__/unit/test_static_stub_generation.py` が検出する。
 - 引数で戻り値が変わる API(`ls`・`createNode`・`getConnections` 等)の `@overload`、ルートの `__init__.pyi` の再公開、
   複数形の転送メソッドは同スクリプトに書く。`Nodes` は要素の型を引数に取る(`Nodes[Transform]`)。
 
 ## テスト
 
 - pytest は使わない。Maya のテストは mayapy 経由で実行する。すべて `__tests__` フォルダから実行する。
-  - Maya 不要の検査: `python runStatic.py`(`unit/test_static_*.py` と `check_mlib_exports.py`・`check_mlib_layout.py --check`)。
+  - Maya 不要の検査: `py -3 runStatic.py`(`unit/test_static_*.py` と `check_mlib_exports.py`・`check_mlib_layout.py --check`)。
     公開名の追加・削除、レイアウト変更の後は必ず通す。
-  - Maya: `.\run.bat --versions 2027 --suite all`(`python runMaya.py ...` も同じ)。`--suite unit|integration|all`、
+  - Maya: `.\run.bat --versions 2027 --suite all`(`py -3 runMaya.py ...` も同じ)。`--suite unit|integration|all`、
     `--tests test_xxx.py`、`--versions 2022 2027` で複数版。結果は `_output/`(Git 対象外)。
-  - GUI 限定の確認: `python runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI)。
+  - GUI 限定の確認: `py -3 runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI)。
+- Windows でコマンドを書くときは `python` でなく `py -3`(Python ランチャー)を使う。`python` は Microsoft Store を開くだけの
+  ものが先に見つかることがある。バッチは `py -3.14` から新しい順に探し、3.15 以降は使わない(Sphinx の依存の PyYAML をpipが
+  ビルド済みで取得できず止まるため)。GitHub Actions の `python` はそのままでよい。
 - テストはシーンを初期化するので、作業中の Maya GUI へ一式を送らない。`manual/` は自動実行しない調査用。
 - 配置: 単体は `unit/`、結合は `integration/`、`test_<名前>.py`。Maya 不要のものは `unit/test_static_<名前>.py`。
   各ファイルの末尾に `if __name__ == "__main__": unittest.main()` を置く(ランナーがファイル単位で実行する)。
