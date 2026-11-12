@@ -397,7 +397,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 - 公開 API の型は docstring にしか無いので、`_tools/generate_mlib_stubs.py`(`.bat`)が docstring から各 `.py` の隣に `.pyi` を生成する。
 - `.pyi` は手で編集しない。docstring の型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat`(`py -3 _tools/generate_mlib_stubs.py`)で作り直し、`.py` と一緒にコミットする
-  (`--check` で最新か確認、`--report` で省いた注釈を表示)。Python 3.9 以降で動き、Maya 2023 以降の mayapy でも同じ内容を生成する(`.bat` は `py -3.14`〜`py -3.9` を新しい順 → mayapy の順に探す)。生成スクリプトは 3.9 で動く書き方を保つ。古いスタブは `__tests__/unit/test_static_stub_generation.py` が検出する。
+  (`--check` で最新か確認、`--report` で省いた注釈を表示)。Python 3.9 以降で動き、Maya 2023 以降の mayapy でも同じ内容を生成する(`.bat` は `py -3.14`〜`py -3.9` を新しい順 → mayapy の順に探し、最後に pause する。端末・スクリプトからは `--no-pause`)。生成スクリプトは 3.9 で動く書き方を保つ。古いスタブは `__tests__/unit/test_static_stub_generation.py` が検出する。
 - 引数で戻り値が変わる API(`ls`・`createNode`・`getConnections` 等)の `@overload`、ルートの `__init__.pyi` の再公開、
   複数形の転送メソッドは同スクリプトに書く。`Nodes` は要素の型を引数に取る(`Nodes[Transform]`)。
 

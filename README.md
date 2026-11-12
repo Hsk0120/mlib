@@ -60,4 +60,4 @@ print(mlib.ls(type="transform"))
 - コードを書くときのルールは [`.github/copilot-instructions.md`](.github/copilot-instructions.md) にまとめています。
 - Maya不要の検査: `__tests__` で `py -3 runStatic.py`
 - Mayaでのテスト: `__tests__` で `run.bat --versions 2027 --suite all`
-- 型スタブ: docstringの型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat` で作り直し、一緒にコミットします(`py` の Python 3.14〜3.9 を新しい順に探し、無ければ Maya 2027〜2023 の mayapy を使います)。
+- 型スタブ: docstringの型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat` で作り直し、一緒にコミットします(`py` の Python 3.14〜3.9 を新しい順に探し、無ければ Maya 2027〜2023 の mayapy を使います。最後にキー入力を待つので、ターミナルからは `--no-pause` を付けます)。
