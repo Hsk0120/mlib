@@ -268,6 +268,108 @@ class DagNode(Node):
         self_uuid = self.getUuid()
         return [candidate for candidate in candidates if candidate.getUuid() != self_uuid]
 
+    def getOutlinerOrder(self):
+        """親の直接の子の中で、保持パスが何番目にあるかを取得する(アウトライナーの並び順)。
+
+        Transform・Shape・中間オブジェクトを区別せず、親の直接の子すべてを DAG の子順で数える
+        (同じ種類だけを返す :meth:`getSiblings` とは数え方が違う)。ワールド直下のノードは
+        ``cmds.ls(assemblies=True)`` の並び(既定のカメラを含む)の中で数える。
+
+        Returns:
+            int: 0 始まりの番号。
+
+        Raises:
+            RuntimeError: ノードが無効、または並びの中に保持パスが見つからない場合。
+
+        Examples:
+            >>> node.getOutlinerOrder()    # 親の最初の子なら 0
+        """
+        self._require_valid("query the outliner order of")
+        return self._sibling_position()[0]
+
+    def setOutlinerOrder(self, index):
+        """親の直接の子の中での順番を、指定した番号へ変える(アウトライナーの並び順)。
+
+        番号の数え方は :meth:`getOutlinerOrder` と同じ。他の子は互いの順番を保ったまま詰める。
+        保持パスの親の下だけを変え、インスタンスの別の親の下の順番は変えない。
+        fast引数は持たない(OpenMayaに子の順番を変える機能が無い)。Undo有効時は1回で戻せる。
+
+        Args:
+            index (int): 移動先の番号(0 始まり)。負の値は末尾から数える(-1 は最後)。
+
+        Returns:
+            DagNode: 自身。
+
+        Raises:
+            TypeError: index が int でない場合。
+            IndexError: index が範囲外の場合。
+            RuntimeError: ノードが無効、または Maya が拒否した場合(ロックされたノード等)。
+
+        Examples:
+            >>> node.setOutlinerOrder(0)     # 先頭へ
+            >>> node.setOutlinerOrder(-1)    # 最後へ
+        """
+        if isinstance(index, bool) or not isinstance(index, int):
+            raise TypeError(f"index must be an int, got {type(index).__name__}")
+        with undoChunk("mlibDagNodeSetOutlinerOrder"):
+            self._require_valid("reorder")
+            current, count = self._sibling_position()
+            target = index + count if index < 0 else index
+            if not 0 <= target < count:
+                raise IndexError(f"Outliner order out of range: {index}")
+            if target != current:
+                # 範囲内の relative は循環せず、その数だけ前後へ動く。
+                cmds.reorder(self.getFullName(), relative=target - current)
+            return self
+
+    def reorder(self, *, front=_UNSET, f=_UNSET, back=_UNSET, b=_UNSET, relative=_UNSET, r=_UNSET):
+        """親の直接の子の中での順番を変える(アウトライナーの並び順。``cmds.reorder`` 相当)。
+
+        ``front``・``back``・``relative`` のどれか1つを指定する。他の子は互いの順番を保つ。
+        並びの数え方は :meth:`getOutlinerOrder` と同じで、保持パスの親の下だけを変える。
+        ``relative`` は端を越えると反対側へ回る(最後の子に 1 を指定すると先頭になる)。
+        端で止めたいとき、番号で指定したいときは :meth:`setOutlinerOrder` を使う。
+        fast引数は持たない(OpenMayaに子の順番を変える機能が無い)。Undo有効時は1回で戻せる。
+
+        Args:
+            front (bool): True で先頭へ移動する。
+            f (bool): frontの別名。同時指定は不可。
+            back (bool): True で最後へ移動する。
+            b (bool): backの別名。同時指定は不可。
+            relative (int): 移動する数。正の値は後ろ、負の値は前へ動かす。
+            r (int): relativeの別名。同時指定は不可。
+
+        Returns:
+            DagNode: 自身。
+
+        Raises:
+            TypeError: 長短フラグを同時指定した場合、front・back が bool でない場合、relative が
+                int でない場合、または front・back・relative のちょうど1つを指定していない場合。
+            RuntimeError: ノードが無効、または Maya が拒否した場合(ロックされたノード等)。
+
+        Examples:
+            >>> node.reorder(front=True)     # 先頭へ
+            >>> node.reorder(back=True)      # 最後へ
+            >>> node.reorder(relative=-1)    # 1つ前へ
+        """
+        front = _require_bool(_pick_alias(front, f, "front", "f", default=False), "front")
+        back = _require_bool(_pick_alias(back, b, "back", "b", default=False), "back")
+        relative = _pick_alias(relative, r, "relative", "r", default=None)
+        if relative is not None and (isinstance(relative, bool) or not isinstance(relative, int)):
+            raise TypeError(f"relative must be an int, got {type(relative).__name__}")
+        if front + back + (relative is not None) != 1:
+            raise TypeError("Specify exactly one of front, back and relative")
+        if front:
+            flags = {"front": True}
+        elif back:
+            flags = {"back": True}
+        else:
+            flags = {"relative": relative}
+        with undoChunk("mlibDagNodeReorder"):
+            self._require_valid("reorder")
+            cmds.reorder(self.getFullName(), **flags)
+            return self
+
     def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET):
         """バウンディングボックスを取得する。
 
@@ -966,6 +1068,44 @@ class DagNode(Node):
                 assemblies.append(Node._wrap_dag_path(path))
             iterator.next()
         return assemblies
+
+    def _sibling_position(self):
+        """保持パスが親の直接の子の何番目にあるかと、その子の総数を返す。
+
+        Returns:
+            tuple[int, int]: (0 始まりの番号, 子の総数)。
+
+        Raises:
+            RuntimeError: 並びの中に保持パスが見つからない場合(アンダーワールドのノード等)。
+        """
+        path = self.mpath()
+        node = path.node()
+        position = None
+        if path.length() > 1:
+            parent = om2.MDagPath(path)
+            parent.pop()
+            count = parent.childCount()
+            for index in range(count):
+                if parent.child(index) == node:
+                    position = index
+                    break
+        else:
+            # ワールド直下は cmds.reorder が数える並び(ls -assemblies と同じ順。非表示の既定ノードを
+            # 含まない)を幅優先でたどる。深さ1を読み終えたら打ち切る。
+            iterator = om2.MItDag(om2.MItDag.kBreadthFirst)
+            count = 0
+            while not iterator.isDone():
+                depth = iterator.depth()
+                if depth > 1:
+                    break
+                if depth == 1:
+                    if position is None and iterator.currentItem() == node:
+                        position = count
+                    count += 1
+                iterator.next()
+        if position is None:
+            raise RuntimeError(f"Cannot find the outliner order of {type(self).__name__}: {self.getFullName()}")
+        return position, count
 
     def _direct_children(self, shapes, intermediates, shapes_only=False):
         """直接の子をAPIで列挙し、インスタンスの親パスを維持する。

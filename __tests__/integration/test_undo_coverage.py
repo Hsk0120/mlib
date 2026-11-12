@@ -554,6 +554,15 @@ def s_child(c):
     c.na = mlib.getNode(c.a)
 
 
+def s_siblings(c):
+    """親 p の子 a・b・d を作る(並び順の確認用)。"""
+    c.p = _xf("p")
+    c.a = _xf("a", parent=c.p)
+    _xf("b", parent=c.p)
+    _xf("d", parent=c.p)
+    c.na = mlib.getNode(c.a)
+
+
 def s_hidden(c):
     """visibility=False の transform a を作る。"""
     s_one(c)
@@ -1291,6 +1300,9 @@ CASES = [
       lambda c, **kw: c.ncrv.setOverrideColor(13, shape=True, **kw)),
     C("DagNode.setOutlinerColor", "setOutlinerColor rgb", s_one,
       lambda c, **kw: c.na.setOutlinerColor((1.0, 0.5, 0.0), **kw)),
+    C("DagNode.setOutlinerOrder", "setOutlinerOrder", s_siblings, lambda c, **kw: c.na.setOutlinerOrder(2)),
+    C("DagNode.reorder", "reorder back", s_siblings, lambda c, **kw: c.na.reorder(back=True)),
+    C("DagNode.reorder", "reorder relative", s_siblings, lambda c, **kw: c.na.reorder(relative=1)),
     # Transform
     C("Transform.setParent", "setParent", s_child, lambda c, **kw: c.na.setParent(c.q, **kw)),
     C("Transform.setParent", "setParent world", s_child, lambda c, **kw: c.na.setParent(None, **kw)),

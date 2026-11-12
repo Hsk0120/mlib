@@ -191,7 +191,7 @@ def setFoo(self, value, *, fast=False):
 - mlib 独自メソッドは長名だけを持ち、通常の既定値を置く(`index=0` 等)。短縮名の別名・`_UNSET` の省略判定を追加しない。
 - 短縮名の別名は Maya コマンドのフラグを受ける入口だけに置く: `cmds/` の関数(`ls`・`createNode`・`duplicate`・`select`・
   作成関数の Maya の短縮フラグ。`parent` の `p` は付けない)、`Node.addAttr`・`Transform.addConstraint`・`Transform.makeIdentity`・
-  `Plug.setKey`、`getConnections` の `s/d/c/t/et/scn`、`Plug.connect/disconnect` の `f/l/na`。`delete` はフラグを受けない。
+  `Plug.setKey`・`DagNode.reorder`(`f/b/r`)、`getConnections` の `s/d/c/t/et/scn`、`Plug.connect/disconnect` の `f/l/na`。`delete` はフラグを受けない。
 - 例外: `worldSpace` を受ける公開メソッドはすべて keyword-only の短縮名 `ws` も受ける(`test_world_space_has_short_alias` が検査)。
 
 ```python
