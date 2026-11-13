@@ -38,8 +38,8 @@ def main(output_dir, finished):
             raise RuntimeError("This suite resets the scene; run it only through runGui.py")
         sys.path.insert(0, str(ROOT.parent))
         sys.path.insert(0, str(TESTS_DIR))
-        sys.path.insert(0, str(TESTS_DIR / "checks"))
-        namespace = runpy.run_path(str(TESTS_DIR / "run_all_tests.py"))
+        sys.path.insert(0, str(ROOT / "_tools"))
+        namespace = runpy.run_path(str(TESTS_DIR / "runAll.py"))
         namespace["run_all"].__globals__["LOG_DIR"] = output
         suite = namespace["run_all"](suite=os.environ.get("MLIB_TEST_SUITE", "all"))
         result.update(status="passed" if suite["ok"] else "failed",
@@ -48,7 +48,7 @@ def main(output_dir, finished):
                       tests_run=suite["tests_run"], skipped=suite["skipped"],
                       failure_details=suite.get("failure_details", []),
                       suite_log=str(suite["log_path"]), summary=suite["summary"],
-                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"run_all_tests.py"}))
+                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}))
     except BaseException:
         result.update(status="error", error=traceback.format_exc())
     write_json(output / "result.json", result)

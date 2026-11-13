@@ -10,7 +10,7 @@ import した場合も補完が効く。
 
 - 本体の ``.py`` は読むだけで変更しない。Python は実行時に ``.pyi`` を読まないため、Maya 2022
   (Python 3.7)の動作にも影響しない。スタブは Git で管理し、docstring の型を変えたら作り直して
-  一緒にコミットする(``__tests__/unit/test_static_stub_generation.py`` が古いスタブを検出する)。
+  一緒にコミットする(``__tests__/static/test_generateMlibStubs.py`` が古いスタブを検出する)。
 - 内容が変わったファイルだけを書き換え、元の ``.py`` が無くなったスタブ(先頭行が生成の印のもの)を削除する。
 - 引数で戻り値の型が変わる ``ls``・``createNode``・``getConnections`` 等は、引数ごとの戻り値を
   ``@overload`` で補う。

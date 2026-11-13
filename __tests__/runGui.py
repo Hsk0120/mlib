@@ -2,7 +2,7 @@
 
 起動済みのMayaは不要。各スイートは使い捨てのGUIを1回ずつ起動し、終了後にそのGUIだけを終了する。
 
-- ``unit``: mlib/__tests__ の単体テスト一式(``run_all_tests.py``)。GUI専用ケースを含む。
+- ``unit``: mlib/__tests__ の単体テスト一式(``runAll.py``)。GUI専用ケースを含む。
 - ``integration``: 複数のmlib機能を組み合わせる結合テスト。
 - ``visual``: 実パネルへの適用と画像保存を行う ``support/visualGui.py``。
 - ``all``: 上記の3スイート(既定)。

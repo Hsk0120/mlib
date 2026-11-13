@@ -64,8 +64,8 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
         sys.path.insert(0, str(ROOT.parent))
         tests = TESTS_DIR
         sys.path.insert(0, str(TESTS_DIR))
-        sys.path.insert(0, str(TESTS_DIR / "checks"))
-        namespace = runpy.run_path(str(suite_file or tests / "run_all_tests.py"))
+        sys.path.insert(0, str(ROOT / "_tools"))
+        namespace = runpy.run_path(str(suite_file or tests / "runAll.py"))
         # 各バージョンの詳細ログを同じ結果ディレクトリに格納する。
         namespace["run_all"].__globals__["LOG_DIR"] = result_path.parent
         if suite_file:
@@ -77,7 +77,7 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
                       tests_run=suite["tests_run"], skipped=suite["skipped"],
                       failure_details=suite.get("failure_details", []),
                       suite_log=str(suite["log_path"]), summary=suite["summary"],
-                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"run_all_tests.py"}))
+                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}))
     except BaseException:
         result["status"] = "error"
         result["error"] = traceback.format_exc()
@@ -167,7 +167,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=600, help="1バージョンの制限秒数")
     parser.add_argument("--list", action="store_true", help="検出だけ行う")
     parser.add_argument("--allow-missing", action="store_true", help="未インストールのみなら終了コードを0にする")
-    parser.add_argument("--tests", nargs="+", help="実行するファイル名。例: test_datatypes.py")
+    parser.add_argument("--tests", nargs="+", help="実行するファイル。名前かフォルダー付きの相対パス。例: test_joint.py json/test_file.py")
     parser.add_argument("--suite", choices=("unit", "integration", "all"), default="all",
                         help="単体/結合/全体を選ぶ（既定: all）")
     parser.add_argument("--suite-file", type=Path, help="連携テストなど別のrun_all入口（通常は指定不要）")

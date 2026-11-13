@@ -12,18 +12,17 @@ __tests__/
 ├─ runMaya.py         mayapyで単体・結合テストを実行
 ├─ runStatic.py       Maya不要の単体テスト・静的検査
 ├─ runGui.py          専用Maya GUIで単体・結合・表示を確認
-├─ run_all_tests.py   テスト探索・実行・ログ集計
-├─ unit/             個々の関数・クラス・APIを確認する単体テスト
-│  └─ test_static_*.py  通常のPythonで動くもの
-├─ integration/      複数のmlib機能を組み合わせる結合テスト
-├─ checks/           公開名・配置・生成文書の検査ツール
-├─ support/          仕様テストの共通基底(specCase.py)、GUI内の実行・プロセス監視の補助
-├─ manual/           自動実行しない個別確認・API調査
+├─ runAll.py          テスト探索・実行・ログ集計
+├─ static/           通常のPythonで動くテスト(Maya不要。runStatic.py)
+├─ unit/             1つのモジュールを確かめるテスト。ソースと同じパッケージ名のフォルダーに分ける
+│  ├─ cmds/ nodes/ plugs/ components/ maths/ common/ core/ json/
+│  └─ root/          mlib直下のモジュール(decorator.py・util.py・logger.py・__init__.py 等)
+├─ integration/      複数のパッケージにまたがる確認。フォルダーを作らず、名前の先頭に観点を書く
+├─ support/          共通基底(namespaceCase.py)、GUI内の実行・プロセス監視の補助
 └─ _output/          結果・ログ・専用Maya設定（Git対象外）
 ```
 
-`unit`は例えばノード生成や数学型の演算、`integration`は接続と値設定、
-TRSと行列の往復、通常更新とUndoなどを一緒に確認します。
+公開名・コード配置・生成文書の検査ツールは mlib の `_tools/` にあります。
 単体テストでもOpenMayaやシーンを使うものはMayaが必要です。
 
 ## 準備
@@ -53,7 +52,9 @@ py -3 .\runStatic.py
 .\run.bat --versions 2027 --suite all
 
 # 対象ファイルだけ実行。指定ミスは失敗として報告する
-.\run.bat --versions 2027 --tests test_datatypes.py
+.\run.bat --versions 2027 --tests test_joint.py
+# 同じ名前のファイルが別のフォルダーにあるときは、フォルダー付きで絞る
+.\run.bat --versions 2027 --tests json/test_file.py
 
 # 複数バージョンで同じテストを実行
 .\run.bat --versions 2022 2027 --suite all
@@ -75,17 +76,17 @@ Mayaが標準配置にない場合は、`--install-root D:\Autodesk`、または
 
 | 区分 | ファイル | 主な確認内容 |
 | --- | --- | --- |
-| 単体 | `unit/test_delete_basics.py` | 入力型、削除前の拒否、接続された子孫の保護、保持参照の復元 |
-| 単体 | `unit/test_plug_basics.py` | 基本型の値、接続の置換・切断、ロック、疎なマルチアトリビュート、内部単位 |
-| 単体 | `unit/test_transform_basics.py` | ローカル/ワールド、TRS、回転順序、親変更、反転不能な親 |
-| 結合 | `integration/test_basic_scene_workflows.py` | DG評価、接続と削除、親子変更、複数操作のUndoと例外時の巻戻し |
+| 単体 | `unit/cmds/test_delete.py` | 入力型、削除前の拒否、接続された子孫の保護、保持参照の復元 |
+| 単体 | `unit/plugs/test_plug_basics.py` | 基本型の値、接続の置換・切断、ロック、疎なマルチアトリビュート、内部単位 |
+| 単体 | `unit/nodes/test_transform.py` | ローカル/ワールド、TRS、回転順序、親変更、反転不能な親 |
+| 結合 | `integration/test_workflow_scene.py` | DG評価、接続と削除、親子変更、複数操作のUndoと例外時の巻戻し |
 
 ```powershell
 # 基本操作の単体テストだけ
-.\run.bat --versions 2027 --suite unit --tests test_delete_basics.py test_plug_basics.py test_transform_basics.py
+.\run.bat --versions 2027 --suite unit --tests cmds/test_delete.py test_plug_basics.py nodes/test_transform.py
 
 # 基本操作を組み合わせる結合テストだけ
-.\run.bat --versions 2027 --suite integration --tests test_basic_scene_workflows.py
+.\run.bat --versions 2027 --suite integration --tests test_workflow_scene.py
 ```
 
 これは既存テストを補う重点確認です。全体の回帰確認には`--suite all`を使います。
@@ -127,28 +128,40 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 
 ## テストを追加する
 
-1. 単体は`unit/`、本体機能同士の結合は`integration/`へ`test_名前.py`を追加します。
-2. `unittest.TestCase`または`unittest.FunctionTestCase`で期待値を判定します。
-3. 末尾に`if __name__ == "__main__": unittest.main()`などの実行入口を置きます。
-4. `--tests ファイル名`で確認してから、同じスイート全体を実行します。
+フォルダーは「どう動かすか・どの範囲か」、ファイル名は「何を確かめるか」で決めます。
+`static/test_runAll.py` がこの規則を検査します。
 
-通常Pythonで動くものは`unit/test_static_名前.py`とします。`runStatic.py`が検出し、
-Maya版ランナーはそのファイルを除外します。各テストは作ったノード・設定を後片付けしてください。
-他パッケージとの連携はmlib本体に混ぜず、利用側のリポジトリへ置きます。
+| 置き場所 | 置くもの | ファイル名 |
+|---|---|---|
+| `static/` | Maya不要のもの(`runStatic.py` が実行し、Maya版ランナーは探さない) | `test_<対象>[_<話題>].py` |
+| `unit/<パッケージ>/` | 1つのモジュールを確かめるもの | `test_<モジュール>[_<話題>].py` |
+| `integration/` | 複数のパッケージにまたがるもの | `test_<観点>[_<話題>].py` |
 
-### 仕様テスト(test_spec_*.py)
+- `_` は区切りにだけ使い、各部分は lowerCamelCase にします(`test_skinCluster_weights.py`)。
+- 対象はソースのファイル名をそのまま書きます(`nodes/skinCluster.py` → `unit/nodes/test_skinCluster.py`)。
+  パッケージの `__init__.py` は `init`、先頭の `_` は付けません(`nodes/_calculation.py` → `test_calculation.py`)。
+  mlib直下のモジュールは `unit/root/` に置きます。スネークケースのツール(`_tools/check_mlib_exports.py`)は
+  lowerCamelCase に直して書きます(`static/test_checkMlibExports.py`)。
+- `integration/` の観点は `naming`(公開名・引数名) `units`(角度・時間・長さ) `fast`(fast経路)
+  `parity`(cmds・OpenMayaとの突き合わせ) `undo` `errors`(例外・案内文・事前検査) `interop`(cmdsとの受け渡し)
+  `performance` `workflow`(実作業の流れ) `reload` `compat`(Mayaの版の違い) のどれかです。
+- GUIが要るものは話題を `gui` にします(`unit/common/test_scriptJobs_gui.py`)。
+- 名前に `spec`・`refactoring`・`consolidated`・`changes`・`additions`・`backlog`・`misc`・`api`・`contracts`
+  や `_A` などの記号・番号を使いません。何を確かめるかが分からなくなるためです。
+- 調査用の使い捨てスクリプトはリポジトリに入れません。残す価値がある確認はテストとして書きます。
 
-公開APIの約束を固定する仕様テストは、対象の領域ごとに次の名前にします。
+手順:
 
-| 領域 | ファイル名 |
-|---|---|
-| 計算ノード | `test_spec_calc_<領域>.py` |
-| Plug | `test_spec_plug_<領域>.py` |
-| Node・DAG・Transform・Joint・Skin | `test_spec_node_*`・`test_spec_dag_*`・`test_spec_transform_*`・`test_spec_joint*`・`test_spec_skin*` |
-| common・components・core・decorator・maths・cmds | `test_spec_common_*`・`test_spec_components*`・`test_spec_core*`・`test_spec_decorator*`・`test_spec_maths*`・`test_spec_cmds_*` |
+1. 上の表に従って、既存のファイルへ足すか、新しいファイルを作ります。
+2. `unittest.TestCase`で期待値を判定し、末尾に`if __name__ == "__main__": unittest.main(argv=[sys.argv[0]])`を置きます
+   (ランナーがファイル単位で実行します)。
+3. `--tests ファイル名`で確認してから、同じスイート全体を実行します。
 
-Maya不要のものは`unit/test_static_spec_<領域>_<名前>.py`とします。
-一時名前空間でノードを作るテストは`from support.specCase import NamespaceCase`を基底にします。
+各テストは作ったノード・設定を後片付けしてください。他パッケージとの連携はmlib本体に混ぜず、利用側のリポジトリへ置きます。
+公開APIの約束を確かめるときは、変えたAPIごとに`subTest`で、フラグの組合せ・cmds/om2の突き合わせ・
+通常はUndo 1回/fastはUndoなし・不正入力の例外型・複数形(一括)を確かめます。
+
+一時名前空間でノードを作るテストは`from support.namespaceCase import NamespaceCase`を基底にします。
 名前空間・Undoの設定・UI単位(linear・angle)・選択を終了時に元へ戻し、`name()`・`make()`・
 `flushUndo()`・`assertUndoesInOneStep()`・`assertUndoEmpty()`等の補助を持ちます。
 ファイルごとの差分は薄い派生クラスのクラス属性(`PREFIX`・`ENABLE_UNDO`・`CLEAR_SELECTION`・
@@ -160,8 +173,8 @@ Maya不要のものは`unit/test_static_spec_<領域>_<名前>.py`とします�
 
 ```powershell
 # 本体全体、または指定ファイルを検査する
-py -3 .\checks\check_mlib_layout.py --check
-py -3 .\checks\check_mlib_layout.py --check ..\nodes\node.py
+py -3 ..\_tools\check_mlib_layout.py --check
+py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
 違反があればファイル・行番号・検査コード・内容を表示し、終了コード1を返します。
@@ -182,8 +195,8 @@ Sphinxの説明コメント`#:`は維持し、コードとの間の空白だけ�
 次は`node.py`の12行目がL040として報告された場合の例です。実際の対象と行番号へ置き換えてください。
 
 ```powershell
-py -3 .\checks\check_mlib_layout.py --fix-asserts TypeError ..\nodes\node.py --line 12
-py -3 .\checks\check_mlib_layout.py --check ..\nodes\node.py
+py -3 ..\_tools\check_mlib_layout.py --fix-asserts TypeError ..\nodes\node.py --line 12
+py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
 値の範囲等の検証には`ValueError`も選べます。`--line`は繰り返し指定できます。
@@ -197,9 +210,9 @@ py -3 .\checks\check_mlib_layout.py --check ..\nodes\node.py
 `_docs`のビルド後、同じ文書用Pythonで実行します。
 
 ```powershell
-..\_docs\.venv\Scripts\python.exe .\checks\check_mlib_docs.py --check-directory ..\_docs\_build\html
-..\_docs\.venv\Scripts\python.exe .\checks\check_mlib_doc_getter_names.py ..\_docs\_build\html
+..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_docs.py --check-directory ..\_docs\_build\html
+..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_doc_getter_names.py ..\_docs\_build\html
 ```
 
-ブラウザ自動確認を使う場合だけ`checks/browser-requirements.txt`からPlaywrightを入れ、
+ブラウザ自動確認を使う場合だけ`_docs/browser-requirements.txt`からPlaywrightを入れ、
 `py -3 -m playwright install chromium`を実行します。静的検査やMayaテストには不要です。

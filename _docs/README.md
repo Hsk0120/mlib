@@ -133,10 +133,10 @@ _docs/
 以下のコマンドは、リポジトリルート(mlibのフォルダー)で実行します。
 
 ```powershell
-& .\_docs\.venv\Scripts\python.exe __tests__/checks/check_mlib_exports.py
-& .\_docs\.venv\Scripts\python.exe __tests__/unit/test_static_constructor_docs.py
-& .\_docs\.venv\Scripts\python.exe __tests__/checks/check_mlib_docs.py --check-directory _docs/_build/html
-& .\_docs\.venv\Scripts\python.exe __tests__/checks/check_mlib_doc_getter_names.py _docs/_build/html
+& .\_docs\.venv\Scripts\python.exe _tools/check_mlib_exports.py
+& .\_docs\.venv\Scripts\python.exe __tests__/static/test_constructorSignatures.py
+& .\_docs\.venv\Scripts\python.exe _tools/check_mlib_docs.py --check-directory _docs/_build/html
+& .\_docs\.venv\Scripts\python.exe _tools/check_mlib_doc_getter_names.py _docs/_build/html
 ```
 
 HTMLの確認では目次・APIリンク・継承図も見ます。Mermaid本体はCDNから読み込むため、図の表示にはネット接続が必要です。

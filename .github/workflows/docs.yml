@@ -30,17 +30,17 @@ jobs:
       - name: Build Sphinx documentation
         run: python -P -m sphinx -E -a -b html -n -W --keep-going _docs/source _docs/_build/html
       - name: Check pinned Mermaid in built HTML
-        run: python __tests__/checks/check_mlib_docs.py --check-directory _docs/_build/html
+        run: python _tools/check_mlib_docs.py --check-directory _docs/_build/html
       - name: Check preferred getter and predicate names and reference links
-        run: python __tests__/checks/check_mlib_doc_getter_names.py _docs/_build/html
+        run: python _tools/check_mlib_doc_getter_names.py _docs/_build/html
       - name: Stamp build revision
-        run: python __tests__/checks/check_mlib_docs.py --stamp-directory _docs/_build/html --sha "$GITHUB_SHA"
+        run: python _tools/check_mlib_docs.py --stamp-directory _docs/_build/html --sha "$GITHUB_SHA"
       - name: Install browser tests
         run: |
-          python -m pip install -r __tests__/checks/browser-requirements.txt
+          python -m pip install -r _docs/browser-requirements.txt
           python -m playwright install --with-deps chromium
       - name: Verify browser navigation before publication
-        run: python __tests__/checks/check_mlib_docs.py --directory _docs/_build/html --sha "$GITHUB_SHA"
+        run: python _tools/check_mlib_docs.py --directory _docs/_build/html --sha "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -78,12 +78,12 @@ jobs:
           python-version: '3.11'
       - name: Install browser tests
         run: |
-          python -m pip install -r __tests__/checks/browser-requirements.txt
+          python -m pip install -r _docs/browser-requirements.txt
           python -m playwright install --with-deps chromium
       - name: Verify published revision and browser navigation
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
-        run: python __tests__/checks/check_mlib_docs.py --url "$PAGES_URL" --sha "$GITHUB_SHA"
+        run: python _tools/check_mlib_docs.py --url "$PAGES_URL" --sha "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

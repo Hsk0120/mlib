@@ -41,7 +41,7 @@ from mlib.common.scalarGraph import ScalarGraph
 from mlib.common.selection import Selection
 from mlib.maths import Matrix
 from mlib.nodes import BlendShape, Container, DagContainer, DagPose, IkHandle, Joints, Nodes, NurbsCurve, SkinCluster
-from support.specCase import NamespaceCase
+from support.namespaceCase import NamespaceCase
 
 
 #: 関係ノードとして常にスナップショットへ含める既定ノード(割当て・レイヤー移動の検出用)。
