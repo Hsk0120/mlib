@@ -53,7 +53,7 @@ print(mlib.ls(type="transform"))
 | `core/` | 共通基底・型の登録・編集の基盤 |
 | `__tests__/` | テスト(手順は [`__tests__/README.md`](__tests__/README.md)) |
 | `_docs/` | Sphinx文書(手順は [`_docs/README.md`](_docs/README.md)) |
-| `_tools/` | 型スタブ(`.pyi`)の生成スクリプト |
+| `_tools/` | 型スタブ(`.pyi`)の生成スクリプトと、公開名・コードの書式・文書の検査ツール |
 
 ## 開発
 
@@ -61,3 +61,4 @@ print(mlib.ls(type="transform"))
 - Maya不要の検査: `__tests__` で `py -3 runStatic.py`
 - Mayaでのテスト: `__tests__` で `run.bat --versions 2027 --suite all`
 - 型スタブ: docstringの型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat` で作り直し、一緒にコミットします(`py` の Python 3.14〜3.9 を新しい順に探し、無ければ Maya 2027〜2023 の mayapy を使います。最後にキー入力を待つので、ターミナルからは `--no-pause` を付けます)。
+- コードの書式: `_tools/check_mlib_layout.bat` でコードを書くときのルール(import順・クラス内の順・空行・空白・入力assert・文字コード)を検査します。`--fix` を付けると、import順・クラス内の順・空行を直してから、残った違反を表示します(空白・行末コメント・名前付きlambdaは自動で直さないので手で直します)。Pythonの探し方と `--no-pause` は型スタブのバッチと同じです。

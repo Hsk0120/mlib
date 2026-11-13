@@ -177,6 +177,21 @@ py -3 ..\_tools\check_mlib_layout.py --check
 py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
+Windowsでは`_tools\check_mlib_layout.bat`でも同じ検査と修正ができます。ダブルクリックすると本体全体を検査し、
+最後にキー入力を待ちます(ターミナルや他のスクリプトからは`--no-pause`を付けます)。
+`py`のPython 3.14〜3.9を新しい順に探し、無ければMaya 2027〜2023のmayapyを使います。
+
+```powershell
+# 本体全体、または指定ファイルを検査する(--checkは省ける)
+..\_tools\check_mlib_layout.bat --no-pause
+..\_tools\check_mlib_layout.bat ..\nodes\node.py --no-pause
+# import順・クラス内の順・空行を直してから、残った違反を表示する
+..\_tools\check_mlib_layout.bat --fix --no-pause
+..\_tools\check_mlib_layout.bat --fix ..\nodes\node.py --no-pause
+```
+
+`--fix-asserts`・`--outline`等のほかの引数は、そのまま`check_mlib_layout.py`へ渡します。
+
 違反があればファイル・行番号・検査コード・内容を表示し、終了コード1を返します。
 `L030`は代入・比較演算子、`L031`はカンマ・括弧、`L032`は引数の`=`、
 `L033`は行末コメントの空白、`L034`は名前へ直接代入するlambdaです。

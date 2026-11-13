@@ -372,6 +372,8 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 検査は `_tools/check_mlib_layout.py --check`(L030〜L034 は空白・lambda、L040 は公開入口の入力 assert、L043 は encoding 未指定。
   L041/L042 は確認候補の表示)。`--fix` は import 順・クラス内の順・空行だけを直す。入力 assert の修正は
   `--fix-asserts TypeError|ValueError <ファイル> --line <行>` で対象を明示し、例外型を推測しない。
+  Windows では `_tools/check_mlib_layout.bat` でも同じ(引数なしは検査、`--fix` は直してから残りを検査、ほかの引数はそのまま渡す。
+  `py -3.14`〜`py -3.9` を新しい順に探し、無ければ Maya 2027〜2023 の mayapy。ターミナルからは `--no-pause`)。
 
 ## docstring とコメント
 
