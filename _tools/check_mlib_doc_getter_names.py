@@ -129,8 +129,13 @@ def _canonical_definitions(package_root):
 
 
 def check(build_dir, package_root=_PACKAGE_ROOT):
-    """実ASTの正式名をAutoAPI・参照登録・HTMLと照合する。"""
+    """実ASTの正式名をAutoAPI・参照登録・HTMLと照合する。
+
+    build_dir の ``.doctrees/environment.pickle`` を pickle で読み込む。pickle は読み込むだけで
+    中のコードを実行できる形式なので、自分の環境でビルドした結果だけを渡す(受け取ったビルド結果には使わない)。
+    """
     build_dir = Path(build_dir)
+    # Sphinx の環境は pickle でしか保存されない。読むのは手元でビルドした結果だけ。
     with (build_dir / ".doctrees/environment.pickle").open("rb") as stream:
         environment = pickle.load(stream)
     objects = environment.autoapi_all_objects

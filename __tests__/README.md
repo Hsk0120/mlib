@@ -208,6 +208,7 @@ py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
 ## 文書の検査
 
 `_docs`のビルド後、同じ文書用Pythonで実行します。
+`check_mlib_doc_getter_names.py`はSphinxがビルド時に保存したpickleを読み込むので、自分でビルドした結果だけに使います。
 
 ```powershell
 ..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_docs.py --check-directory ..\_docs\_build\html
