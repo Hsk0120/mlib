@@ -166,7 +166,6 @@ class VisibilityTest(_SpecCase):
         cmds.flushUndo()
         self.assertIs(self.node.hide(), self.node)
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setVisibility( |$)")
         cmds.undo()
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
         self.node.setVisibility(False)

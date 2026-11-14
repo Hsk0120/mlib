@@ -45,6 +45,39 @@ class CodecTest(unittest.TestCase):
         self.assertTrue(decoded["q"].isEquivalent(values["q"], 1e-9))
         self.assertIs(type(decoded["list"][4][0]), Vector)
 
+    def test_transformation_round_trip(self):
+        """Transformation は成分の辞書で書き、既定値の補助の成分は省く。"""
+        simple = mlib.Transformation(translate=(1, 2, 3), scale=(2, 2, 2))
+        data = encode(simple)
+        self.assertEqual(data["type"], "Transformation")
+        self.assertEqual(sorted(data["value"]), ["rotate", "rotateOrder", "scale", "shear", "translate"])
+        self.assertEqual(data["value"]["rotateOrder"], "xyz")
+        full = mlib.Transformation(
+            rotateOrder=3,
+            translate=(1, 2, 3),
+            rotate=(0.1, 0.2, 0.3),
+            scale=(2, 3, 4),
+            shear=(0.1, 0.2, 0.3),
+            rotateAxis=(0.05, 0.1, 0.15),
+            rotatePivot=(1, 0, 2),
+            rotatePivotTranslate=(0.1, 0.2, 0.3),
+            scalePivot=(0, 1, 0),
+            scalePivotTranslate=(0.3, 0.2, 0.1),
+            jointOrient=(0.2, 0.1, 0.3),
+            inverseScale=(2, 2, 4),
+        )
+        for value in (simple, full):
+            with self.subTest(order=value.rotateOrder):
+                restored = decode(std_json.loads(std_json.dumps(encode(value))))
+                self.assertIs(type(restored), mlib.Transformation)
+                self.assertEqual(restored.rotateOrder, value.rotateOrder)
+                self.assertTrue(restored.isEquivalent(value, 1e-9))
+                self.assertTrue(restored.matrix.isEquivalent(value.matrix, 1e-9))
+        with self.assertRaises(ValueError):
+            decode({"type": "Transformation", "value": {"translate": [1, 2]}})
+        with self.assertRaises(ValueError):
+            decode({"type": "Transformation", "value": {"unknown": [1, 2, 3]}})
+
     def test_plain_dicts_with_type_key_stay_dicts(self):
         data = {"node": {"name": "a", "path": None, "type": "joint"}, "x": {"type": "Vector", "value": [1, 2]}}
         with self.assertRaises(ValueError):

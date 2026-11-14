@@ -919,7 +919,7 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
         _require_bool(fast, "fast")
-        with nullcontext() if fast else undoChunk("mlibPlugSetKeyable"):
+        with undoChunk("mlibPlugSetKeyable") if leaf and not fast else nullcontext():
             return self._set_flags(leaf, keyable=val, fast=fast)
 
     def setFlags(self, *, locked=None, keyable=None, channelBox=None, children=False, fast=False):
@@ -949,7 +949,8 @@ class Plug(Object):
         """
         _require_bool(fast, "fast")
         _require_bool(children, "children")
-        with nullcontext() if fast else undoChunk("mlibPlugSetFlags"):
+        # 自身だけなら1回のsetAttrなので、チャンクを開かない。
+        with undoChunk("mlibPlugSetFlags") if children and not fast else nullcontext():
             flags = _validated_flags(locked, keyable, channelBox)
             self._require_valid()
             if flags:
@@ -993,7 +994,7 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
         _require_bool(fast, "fast")
-        with nullcontext() if fast else undoChunk("mlibPlugSetChannelBox"):
+        with undoChunk("mlibPlugSetChannelBox") if leaf and not fast else nullcontext():
             return self._set_flags(leaf, channelBox=val, fast=fast)
 
     def show(self, keyable=True, *, fast=False):
@@ -1667,10 +1668,10 @@ class Plug(Object):
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
         """
         kwargs = _key_flags_to_ui(self._mplug, kwargs, unit, timeUnit, uiUnits)
-        with undoChunk("mlibPlugSetKey"):
-            self._require_valid()
-            cmds.setKeyframe(self.getFullName(), **kwargs)
-            return self
+        # setKeyframeの1回だけなので、チャンクを開かない。
+        self._require_valid()
+        cmds.setKeyframe(self.getFullName(), **kwargs)
+        return self
 
     def removeKey(self, *, time=None, timeUnit=None):
         """このアトリビュートのキーを削除する。
@@ -1919,7 +1920,7 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
         _require_bool(fast, "fast")
-        with nullcontext() if fast else undoChunk("mlibPlugSetLocked"):
+        with undoChunk("mlibPlugSetLocked") if leaf and not fast else nullcontext():
             return self._set_flags(leaf, locked=val, fast=fast)
 
     def isMuted(self):
@@ -2503,7 +2504,11 @@ class Plug(Object):
         """
         _require_bool(fast, "fast")
         _require_bool(safe, "safe")
-        with nullcontext() if fast else undoChunk("mlibPlugConnect"):
+        force, lock = force or f, lock or l
+        # 通常の接続は1回のconnectAttrなので、チャンクを開かない。ロックの操作と、マルチアトリビュートの
+        # 要素への接続(接続前の値をUndoへ記録する)は、1回のUndoにまとめる。
+        chunk = not fast and (lock or (force and unlock) or (self.isValid() and self._under_multi_element(self._mplug)))
+        with undoChunk("mlibPlugConnect") if chunk else nullcontext():
             self._require_valid()
             source = Plug._resolve_input(source)
             if not source.isValid():
@@ -2512,7 +2517,6 @@ class Plug(Object):
             if source.mplug() == self.mplug():
                 # cmds.connectAttr は自己接続を拒否するが、MDGModifier は通すため fast でも揃えて拒否する。
                 raise RuntimeError(f"アトリビュートを自分自身へは接続できません: {self.getFullName()}")
-            force, lock = force or f, lock or l
             if safe:
                 existing = self._existing_connection_target(source, nextAvailable or na)
                 if existing is not None:
@@ -2612,7 +2616,9 @@ class Plug(Object):
             接続が無いときに何もしない入力の切断には :meth:`disconnectInput` を使う。
         """
         _require_bool(fast, "fast")
-        with nullcontext() if fast else undoChunk("mlibPlugDisconnect"):
+        force = force or f
+        # 1件の切断は1回のdisconnectAttrなので、チャンクを開かない。ロックの一時解除と複数の要素の切断はまとめる。
+        with undoChunk("mlibPlugDisconnect") if not fast and (force or nextAvailable or na) else nullcontext():
             self._require_valid()
             if isinstance(source, bool):
                 raise TypeError("sourceは入力のPlugの参照で指定してください(boolは指定できません)。方向の指定にはdisconnectAllを使います")
@@ -2624,7 +2630,7 @@ class Plug(Object):
                     raise RuntimeError(f"入力の接続が見つかりません: {self.getFullName()}")
                 names = [target.getFullName() for target in targets]
                 for target in targets:
-                    target.disconnect(source, force=force or f, fast=fast)
+                    target.disconnect(source, force=force, fast=fast)
                 return [Plug._resolve_input(name) for name in names]
             if source is None:
                 # 現在の直接入力はconnectedTo(True, False)の先頭なので、接続済みの再判定を省く。
@@ -2637,7 +2643,6 @@ class Plug(Object):
                 source_mplug = source.mplug()
                 if not any(connected == source_mplug for connected in self._mplug.connectedTo(True, False)):
                     raise RuntimeError(f"入力の接続が見つかりません: {self.getFullName()}")
-            force = force or f
             # 接続から得たMPlug(networked)は切断すると破棄され、後の比較・使用でMayaが異常終了する。
             # 返すsrcと自身は、切断前に同じアトリビュートを指す非networkedのMPlugへ持ち替える。
             source._mplug = Plug._unnetworked(source._mplug)
@@ -2932,7 +2937,7 @@ class Plug(Object):
     def _set_template(self, value, safe, *, fast, unit=None, timeUnit=None, uiUnits=False, _writer=None, **options):
         """set()の共通の流れを受け持つ。
 
-        受け持つのは、Undoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
+        受け持つのは、safeでのUndoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
         safeでの例外の吸収。派生クラスが上書きするのは、値を書き込む :meth:`_set_value` と、
         safeでやり直す :meth:`_set_children_safely` だけ。Undoチャンクの名前は ``mlib<クラス名>Set``。
 
@@ -2960,7 +2965,9 @@ class Plug(Object):
         """
         _require_bool(fast, "fast")
         options["uiUnits"] = uiUnits
-        with nullcontext() if fast else undoChunk(f"mlib{type(self).__name__}Set"):
+        # 通常の書き込みは1回のsetAttrなので、チャンクを開かない(子ごとに書く経路は、その場所で開く)。
+        # safeのやり直しは子ごとに書くため、1回のUndoにまとめる。
+        with undoChunk(f"mlib{type(self).__name__}Set") if safe and not fast else nullcontext():
             if self.isMulti():
                 raise TypeError(_MULTI_SET_MESSAGE)
             if safe and fast and self.isValid() and self.mplug().isCompound:
@@ -3124,13 +3131,37 @@ class Plug(Object):
             return tuple(value[0])
         return value
 
+    @staticmethod
+    def _under_multi_element(mplug):
+        """Plugが、マルチアトリビュート・その要素・要素の下のアトリビュートのどれかかを判定する。
+
+        Args:
+            mplug (om2.MPlug): 調べるPlug。
+
+        Returns:
+            bool: 自身がマルチアトリビュートか、自身か親のどれかがマルチアトリビュートの要素ならTrue。
+        """
+        if mplug.isArray:
+            return True
+        current = mplug
+        while True:
+            if current.isElement:
+                return True
+            if not current.isChild:
+                return False
+            current = current.parent()
+
     def _record_connection_value(self):
         """今の(接続されていない)値をUndoに記録し、接続をUndoしたときに元の値へ戻せるようにする。
 
+        対象は、マルチアトリビュートの要素とその下のアトリビュートだけ。それ以外は、接続のUndoで
+        Mayaが元の値へ戻す(``blendWeighted.input[n]`` のような要素は、Undoで値が0になる)。
         まだ無いマルチアトリビュートの要素は作らない。対象は、数値・単位付き・enumなど、
         共通の数値の操作で扱えるものだけ。Undoが無効なら記録されないので、同じ値の書き込みそのものを省く。
         """
         mp = self._mplug
+        if not self._under_multi_element(mp):
+            return
         for current in _ancestor_plugs(mp):
             if current.isElement and current.logicalIndex() not in current.array().getExistingArrayAttributeIndices():
                 return
@@ -3350,12 +3381,14 @@ class Plug(Object):
             for child in self.getChildren():
                 child._set_flags(True, **flags, fast=fast)
         else:
-            # Mayaのkeyable/channelBoxのUndo順序を保つ。
-            if flags.get("keyable") and self.isChannelBox():
-                self.setFlags(channelBox=False, fast=fast)
-            if flags.get("channelBox"):
-                flags["keyable"] = False
-            self.setFlags(**flags, fast=fast)
+            # Mayaのkeyable/channelBoxのUndo順序を保つ。2回の書き込みになるときだけ、1回のUndoにまとめる。
+            both = bool(flags.get("keyable")) and self.isChannelBox()
+            with undoChunk("mlibPlugSetFlags") if both and not fast else nullcontext():
+                if both:
+                    self.setFlags(channelBox=False, fast=fast)
+                if flags.get("channelBox"):
+                    flags["keyable"] = False
+                self.setFlags(**flags, fast=fast)
         return self
 
     @staticmethod

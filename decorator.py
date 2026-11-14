@@ -5,9 +5,6 @@
 
 import contextlib
 import functools
-import os
-import re
-import sys
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
@@ -31,12 +28,6 @@ if TYPE_CHECKING:
 _chunk_active = ContextVar("mlib_undo_chunk_active", default=False)
 _CHUNK_SKIPPED = "skipped"
 
-#: 読みやすい表示名へ置き換える、mlib内部の定型のチャンク名(``mlib<Class><Method>``)。
-_INTERNAL_CHUNK_NAME = re.compile(r"mlib[A-Z]\w*\Z")
-#: 表示名に含める対象名の最大の長さ。
-_CHUNK_TARGET_LIMIT = 80
-#: このモジュールのファイル(表示名を組み立てるとき、with文・デコレーターのフレームを飛ばすために使う)。
-_THIS_FILE = os.path.normcase(os.path.abspath(__file__))
 #: worldSpaceの代わりに書かれやすいキーワード。``ws`` は worldSpace の短縮名として受ける。
 _SPACE_KEYWORDS = ("space",)
 
@@ -59,99 +50,6 @@ for _obsolete_name in (
     "_maya_aliases",
 ):
     globals().pop(_obsolete_name, None)
-
-
-def _chunk_target(value):
-    """Undoの表示名に使う対象名を返す。
-
-    Args:
-        value (object): メソッドの ``self``、または関数の先頭の引数。
-
-    Returns:
-        str: Node・Plug・Componentなら今の名前、コレクションなら型名と要素の数、文字列ならそのまま。
-            名前を得られない値なら空文字列。
-    """
-    # Nodeなどはこのモジュールを参照するので、importが循環しないよう関数の中で読み込む。
-    from .core.object import Object
-
-    try:
-        if isinstance(value, Object):
-            text = str(value)
-        elif isinstance(value, str):
-            text = value
-        elif isinstance(getattr(value, "_items", None), list):
-            text = f"{type(value).__name__}({len(value._items)})"
-        else:
-            return ""
-    except Exception:
-        return ""  # 表示名を取得できなくても、編集は止めない。
-    return text if len(text) <= _CHUNK_TARGET_LIMIT else text[: _CHUNK_TARGET_LIMIT - 3] + "..."
-
-
-def _readable_chunk_name(name, frame):
-    """mlib内部の決まった形のチャンク名を、操作と対象が分かる表示名にする。
-
-    ``mlibTransformSetTranslation`` のような名前を、呼び出したメソッド名と対象から作った
-    ``mlib setTranslation L_arm_CTRL``・``mlib set L_elbow_JNT.rotateX`` の形へ置き換える。
-
-    公開のメソッドを探すとき、with文・デコレーター・``_`` で始まる内部のメソッドのフレームは飛ばす。
-    決まった形でない名前と、mlibの外(利用者のコード)で開いたチャンクの名前は、そのまま返す。
-
-    Args:
-        name (object): 指定されたチャンク名。
-        frame (types.FrameType | None): チャンクを開いた場所を呼び出した側のフレーム。
-
-    Returns:
-        object: 表示名。置き換えないときは name。
-    """
-    if not isinstance(name, str) or not _INTERNAL_CHUNK_NAME.match(name):
-        return name
-    try:
-        method, owner, target = None, None, None
-        for _ in range(8):
-            if frame is None:
-                break
-            code = frame.f_code
-            filename = code.co_filename
-            if logger._transparent_file(filename) or os.path.normcase(os.path.abspath(filename)) == _THIS_FILE:
-                local = frame.f_locals
-                function = local.get("func")
-                if code.co_name == "inner" and callable(function):
-                    # ContextDecorator(デコレーターとしてのundoChunk)が包んだ関数。利用者の関数の名前は変えない。
-                    if not logger._internal_file(getattr(getattr(function, "__code__", None), "co_filename", "")):
-                        return name
-                    method = getattr(function, "__name__", None)
-                    args = local.get("args") or ()
-                    target = args[0] if args else None
-                    break
-                frame = frame.f_back
-                continue
-            if not logger._internal_file(filename):
-                # 利用者のコード(テストを含む)が付けた名前は、mlibの定型と同じ形でもそのまま使う。
-                return name
-            if code.co_name.startswith(("_", "<")):
-                frame = frame.f_back
-                continue
-            method = code.co_name
-            local = frame.f_locals
-            if "self" in local:
-                target = local["self"]
-            elif isinstance(local.get("cls"), type):
-                owner = local["cls"].__name__
-            elif code.co_argcount:
-                target = local.get(code.co_varnames[0])
-            break
-        if not method or method.startswith(("_", "<")):
-            return name
-        if isinstance(target, type):
-            owner, target = target.__name__, None
-        label = f"mlib {owner}.{method}" if owner else f"mlib {method}"
-        text = _chunk_target(target) if target is not None else ""
-        return f"{label} {text}" if text else label
-    except Exception:
-        return name  # 表示名を組み立てられなくても、編集は止めない。
-    finally:
-        del frame
 
 
 class _UndoChunk(contextlib.ContextDecorator):
@@ -188,8 +86,7 @@ class _UndoChunk(contextlib.ContextDecorator):
             self._token = _chunk_active.set(_CHUNK_SKIPPED)
             return
         if self._name:
-            name = _readable_chunk_name(self._name, sys._getframe(1))
-            cmds.undoInfo(openChunk=True, chunkName=str(name))
+            cmds.undoInfo(openChunk=True, chunkName=str(self._name))
         else:
             cmds.undoInfo(openChunk=True)
         self._opened = True
@@ -357,7 +254,7 @@ def _validated_flags(locked=None, keyable=None, channelBox=None):
     return flags
 
 
-def _edit_context(name, fast, *, transaction=False):
+def _edit_context(name, fast, *, transaction=False, single=False):
     """書き込むメソッドの中身を包む、Undoのコンテキストを返す。
 
     fastがboolかも確かめる。
@@ -365,9 +262,10 @@ def _edit_context(name, fast, *, transaction=False):
     (``nullcontext() if fast else undoChunk(name)``)が1行で済む。
 
     Args:
-        name (str): 通常の経路のUndoチャンク名(``mlib<Class><Method>``)。Mayaに表示する名前は、
-            呼び出したメソッドと対象から ``mlib setTranslation L_arm_CTRL`` の形で作る。
+        name (str): 通常の経路のUndoチャンク名(``mlib<Class><Method>``)。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+        single (bool): Trueなら、通常の経路でもチャンクを開かない。Mayaのコマンドを1回だけ呼ぶメソッドで使う
+            (1回のコマンドは、チャンクが無くても1回のUndoで戻る。複数のコマンドになる場所は、その場所で開く)。
         transaction (bool): Trueなら、通常の経路で ``undoTransaction`` を使う
             (Undoが無効なときに止める必要がある、作成の処理で使う)。Falseなら ``undoChunk`` を使う。既定はFalse。
 
@@ -378,7 +276,7 @@ def _edit_context(name, fast, *, transaction=False):
         TypeError: fastがboolでない場合。
     """
     _require_bool(fast, "fast")
-    if fast:
+    if fast or single:
         return contextlib.nullcontext()
     return undoTransaction(name) if transaction else undoChunk(name)
 
@@ -436,9 +334,7 @@ def undoChunk(name=None):
     二重に開く呼び出しや、開かずに閉じる呼び出しは何もしない。
 
     Args:
-        name (str | None): Undoキューのチャンク名。省略するとMayaの既定の表示になる。mlib内部の決まった形の
-            名前(``mlib<Class><Method>``)は、呼び出したメソッドと対象から
-            ``mlib setTranslation L_arm_CTRL`` の形の表示名にする。
+        name (str | None): Undoキューのチャンク名。省略するとMayaの既定の表示になる。
 
     Returns:
         contextlib.ContextDecorator: withかデコレーターとして使うコンテキスト。
@@ -476,7 +372,7 @@ def undoTransaction(name=None):
         recording = cmds.undoInfo(query=True, state=True)
     kwargs: Dict[str, Any] = {"openChunk": True}
     if name:
-        kwargs["chunkName"] = str(_readable_chunk_name(name, sys._getframe(1)))
+        kwargs["chunkName"] = str(name)
     cmds.undoInfo(**kwargs)
     if outermost:
         token = _chunk_active.set(True if recording else _CHUNK_SKIPPED)

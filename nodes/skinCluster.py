@@ -2629,8 +2629,11 @@ class SkinCluster(GeometryFilter):
     def _set_weight_values_fast(self, values, width, vertex_indices, logical_indices):
         """全対象ウェイトPlugを検査し、頂点・指定列の順にOpenMayaで生値を書き込む。
 
-        writable/check_rangeを全件に適用してからsetDoubleを始める。MFnSkinCluster.setWeightsは
-        未指定列を再配分し得るため使わない。liwや正規化設定も変更しない。
+        writable/check_rangeを全件に適用してから書き込む。書き込みは
+        ``MFnSkinCluster.setWeights(normalize=False)`` の1回で行い、指定していない列は変えない。
+        normalizeWeightsが1(interactive)のときは、書く間だけ0にして元へ戻す(liwは変えない)。
+        値が0の要素はMayaが削除する(読み取る値は0のまま)。メッシュ以外の形状・同じ頂点や列の重複・登録の無い列は、
+        MPlugへ1値ずつ書き込む。
         事前検査後のAPI書込み失敗は自動で戻さず、Undo設定を変更しない。
 
         Args:
@@ -2648,11 +2651,11 @@ class SkinCluster(GeometryFilter):
         # 頂点ごとに毎回調べる。拒否する要素ではrequire_writable()を呼び、従来と同じ例外を送出する。
         attribute_fn = range_fn = None
         attribute_writable = has_limits = True
-        edits = []
+        shared = len(values) == width
         for position, vertex in enumerate(vertex_indices):
             row = weights_plug.elementByLogicalIndex(vertex).child(0)
             row_blocked = self._plug_chain_blocked(row)
-            offset = 0 if len(values) == width else position * width
+            offset = 0 if shared else position * width
             for column, index in enumerate(logical_indices):
                 plug = row.elementByLogicalIndex(index)
                 if attribute_fn is None:
@@ -2666,11 +2669,49 @@ class SkinCluster(GeometryFilter):
                     require_writable(plug, attribute_fn)
                 if has_limits:
                     require_range(plug, values[offset + column], range_fn)
-                edits.append((plug, values[offset + column]))
-        # MFnSkinCluster.setWeightsはliw等の設定によって未指定値を再配分する。
-        # 通常モードと同じ生値を維持するため、MPlugに直接書き込む。
-        for plug, value in edits:
-            plug.setDouble(value)
+        count = len(vertex_indices)
+        if not count or not width:
+            return
+        skin_fn = self._skin_fn
+        physical = {skin_fn.indexForInfluenceObject(path): index for index, path in enumerate(skin_fn.influenceObjects())}
+        mesh_path = self.mesh_path
+        if (
+            mesh_path is not None
+            and mesh_path.hasFn(om2.MFn.kMesh)
+            and all(index in physical for index in logical_indices)
+            and len(set(logical_indices)) == width
+            and len(set(vertex_indices)) == count
+        ):
+            # normalize=Falseなら指定した列の生値だけを書き、ほかの列を再配分しない。
+            component_fn = om2.MFnSingleIndexedComponent()
+            component = component_fn.create(om2.MFn.kMeshVertComponent)
+            component_fn.addElements(om2.MIntArray(list(vertex_indices)))
+            # コンポーネントは番号の昇順に並ぶため、値も頂点番号の昇順に並べ替える。
+            order = sorted(range(count), key=vertex_indices.__getitem__)
+            if shared:
+                flat = values * count
+            elif order == list(range(count)):
+                flat = values
+            else:
+                flat = [value for position in order for value in values[position * width : (position + 1) * width]]
+            # normalizeWeightsが1(interactive)だと、normalize=Falseでも合計が1になるよう書き換えられる。
+            # 書く間だけ0(none)にして、生の値のまま書く。変えられないときは1値ずつ書く。
+            mode_plug = self._dependency_fn().findPlug("normalizeWeights", False)
+            mode = mode_plug.asInt()
+            if mode != 1 or not (mode_plug.isLocked or mode_plug.isDestination):
+                if mode == 1:
+                    mode_plug.setInt(0)
+                try:
+                    skin_fn.setWeights(mesh_path, component, om2.MIntArray([physical[index] for index in logical_indices]), om2.MDoubleArray(flat), False)
+                finally:
+                    if mode == 1:
+                        mode_plug.setInt(mode)
+                return
+        for position, vertex in enumerate(vertex_indices):
+            row = weights_plug.elementByLogicalIndex(vertex).child(0)
+            offset = 0 if shared else position * width
+            for column, index in enumerate(logical_indices):
+                row.elementByLogicalIndex(index).setDouble(values[offset + column])
 
     @staticmethod
     def _plug_chain_blocked(plug):

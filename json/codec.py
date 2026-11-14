@@ -3,24 +3,42 @@
 数学型は ``{"type": "Matrix", "value": [...]}`` のように型名を付けた辞書にする。
 ``EulerRotate`` は度で書き、回転順の名前を ``"order"`` に付ける。``Quaternion``・``Matrix`` は
 単位を持たないため、om2の成分をそのまま書く。小数は丸めない。
+``Transformation`` は ``"value"`` を成分の辞書にし、角度は度、回転順は名前で書く。既定値のままの
+rotateAxis・ピボット・jointOrient・inverseScale は書かず、読むときに既定値で補う。
 """
 
 import math
 
 import maya.api.OpenMaya as om2
 
-from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
+from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Transformation, Translate, Vector
+from ..maths.eulerRotate import orderIndex
 
 #: 型名と、読み込むときに作るmlibのクラス。Vectorの派生クラスは、Vectorより先に判定する。
 _VECTOR_TYPES = (("Translate", Translate), ("Scale", Scale), ("Shear", Shear), ("Vector", Vector))
 _TYPE_NAMES = frozenset(name for name, _cls in _VECTOR_TYPES) | {"Quaternion", "EulerRotate", "Matrix"}
+#: Transformationの成分の名前と、既定値(Noneは必ず書く成分)。角度の成分は度で書く。
+_TRANSFORMATION_VECTORS = {
+    "translate": None,
+    "rotate": None,
+    "scale": None,
+    "shear": None,
+    "rotateAxis": (0.0, 0.0, 0.0),
+    "rotatePivot": (0.0, 0.0, 0.0),
+    "rotatePivotTranslate": (0.0, 0.0, 0.0),
+    "scalePivot": (0.0, 0.0, 0.0),
+    "scalePivotTranslate": (0.0, 0.0, 0.0),
+    "jointOrient": (0.0, 0.0, 0.0),
+    "inverseScale": (1.0, 1.0, 1.0),
+}
+_TRANSFORMATION_ANGLES = frozenset(("rotate", "rotateAxis", "jointOrient"))
 
 
 def encode(value):
     """値をJSONで書ける値へ変換する。
 
     辞書・list・tupleの中もたどって変換する。辞書のキーは文字列だけ使える。tupleはlistになる。
-    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix`` も、mlibの型名で書く。
+    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix``・``MTransformationMatrix`` も、mlibの型名で書く。
 
     Args:
         value (object): 変換する値。None・bool・int・float・str・数学型と、それらを入れた辞書とlist。
@@ -38,6 +56,8 @@ def encode(value):
         if not math.isfinite(value):
             raise ValueError(f"有限でない数値はJSONへ書き出せません: {value!r}")
         return value
+    if isinstance(value, om2.MTransformationMatrix):
+        return {"type": "Transformation", "value": _encode_transformation(value)}
     if isinstance(value, om2.MEulerRotation):
         rotate = value if isinstance(value, EulerRotate) else EulerRotate(value.x, value.y, value.z, value.order)
         return {"type": "EulerRotate", "value": [_finite(item) for item in rotate.asDegrees()], "order": rotate.orderName}
@@ -111,6 +131,8 @@ def _is_math(value):
         bool: 数学型として戻す辞書ならTrue。
     """
     name = value.get("type")
+    if name == "Transformation":
+        return isinstance(value.get("value"), dict) and set(value) == {"type", "value"}
     if name not in _TYPE_NAMES or not isinstance(value.get("value"), list):
         return False
     expected = {"type", "value", "order"} if name == "EulerRotate" else {"type", "value"}
@@ -124,12 +146,14 @@ def _decode_math(value):
         value (dict): :func:`_is_math` がTrueの辞書。
 
     Returns:
-        Vector | Translate | Scale | Shear | Quaternion | EulerRotate | Matrix: 新しい値。
+        Vector | Translate | Scale | Shear | Quaternion | EulerRotate | Matrix | Transformation: 新しい値。
 
     Raises:
         ValueError: 成分の数が型と合わない場合、または回転順が正しくない場合。
     """
     name, items = value["type"], value["value"]
+    if name == "Transformation":
+        return _decode_transformation(items)
     sizes = {"Quaternion": 4, "Matrix": 16, "EulerRotate": 3}
     size = sizes.get(name, 3)
     if len(items) != size or not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in items):
@@ -141,3 +165,63 @@ def _decode_math(value):
     if name == "Matrix":
         return Matrix(items)
     return dict(_VECTOR_TYPES)[name](items[0], items[1], items[2])
+
+
+def _encode_transformation(value):
+    """Transformationの成分を、JSONで書ける辞書にする。
+
+    Args:
+        value (om2.MTransformationMatrix): 書き出す値。Transformationでなければ、Transformationへ写してから書く。
+
+    Returns:
+        dict: 成分の名前と値。角度は度、回転順は名前。既定値のままの補助の成分は入れない。
+
+    Raises:
+        ValueError: 成分がNaNか無限大の場合。
+    """
+    source = value if isinstance(value, Transformation) else Transformation(value)
+    rotate = source.rotate
+    result = {"rotateOrder": rotate.orderName}
+    for name, default in _TRANSFORMATION_VECTORS.items():
+        item = getattr(source, name)
+        if name == "rotate":
+            items = tuple(rotate.asDegrees())
+        elif name in _TRANSFORMATION_ANGLES:
+            items = tuple(item.asEulerRotation().asDegrees())
+        else:
+            items = tuple(item)
+        items = [_finite(component) for component in items]
+        if default is None or any(abs(component - base) > 1e-12 for component, base in zip(items, default)):
+            result[name] = items
+    return result
+
+
+def _decode_transformation(items):
+    """成分の辞書からTransformationを作る。
+
+    Args:
+        items (dict): :func:`_encode_transformation` が書いた辞書。
+
+    Returns:
+        Transformation: 新しい値。書かれていない成分は既定値。
+
+    Raises:
+        ValueError: 知らない成分がある場合、成分が3個の数値でない場合、または回転順が正しくない場合。
+    """
+    unknown = set(items) - set(_TRANSFORMATION_VECTORS) - {"rotateOrder"}
+    if unknown:
+        raise ValueError(f"TransformationのJSONに知らない成分があります: {', '.join(sorted(unknown))}")
+    order = orderIndex(items.get("rotateOrder", "xyz"))
+    arguments = {}
+    for name, item in items.items():
+        if name == "rotateOrder":
+            continue
+        if not isinstance(item, list) or len(item) != 3 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in item):
+            raise ValueError(f"Transformationの{name}は3個の数値で指定してください: {item!r}")
+        if name == "rotate":
+            arguments[name] = EulerRotate.fromDegrees(item[0], item[1], item[2], order)
+        elif name in _TRANSFORMATION_ANGLES:
+            arguments[name] = EulerRotate.fromDegrees(item[0], item[1], item[2])
+        else:
+            arguments[name] = item
+    return Transformation(rotateOrder=order, **arguments)

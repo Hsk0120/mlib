@@ -1339,6 +1339,14 @@ CASES = [
     C("Transform.mirrorTransform", "mirrorTransform worldSpace", s_child, lambda c, **kw: c.na.mirrorTransform("yz", worldSpace=True, **kw)),
     C("Transform.setMatrix", "setMatrix", s_one, lambda c, **kw: c.na.setMatrix(_matrix(4.0, 5.0, 6.0), **kw)),
     C("Transform.setMatrix", "setMatrix worldSpace", s_child, lambda c, **kw: c.na.setMatrix(_matrix(4.0, 5.0, 6.0), worldSpace=True, **kw)),
+    C(
+        "Transform.setTransformation",
+        "setTransformation",
+        s_one,
+        lambda c, **kw: c.na.setTransformation(
+            mlib.Transformation(rotateOrder=2, translate=(1.0, 2.0, 3.0), rotate=(0.1, 0.2, 0.3), scale=(2.0, 3.0, 4.0), rotatePivot=(0.5, 0.0, 1.0)), **kw
+        ),
+    ),
     C("Transform.setTranslation", "setTranslation", s_one, lambda c, **kw: c.na.setTranslation((1.0, 2.0, 3.0), **kw)),
     C("Transform.setTranslation", "setTranslation worldSpace", s_child, lambda c, **kw: c.na.setTranslation((1.0, 2.0, 3.0), worldSpace=True, **kw)),
     C("Transform.setRotate", "setRotate", s_one, lambda c, **kw: c.na.setRotate((0.1, 0.2, 0.3), **kw)),

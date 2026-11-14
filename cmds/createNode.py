@@ -1,5 +1,7 @@
 """Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す(``cmds.createNode`` 相当)。"""
 
+from contextlib import nullcontext
+
 from ..decorator import _edit_context, _merge_flags
 from ..util import _UNSET
 
@@ -76,7 +78,10 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
         >>> transform = shape.getTransform()
     """
     _merge_flags(kwargs, ((name, n, "name", "n"), (parent, p, "parent", "p"), (shared, s, "shared", "s"), (skipSelect, ss, "skipSelect", "ss")))
-    with _edit_context("mlibCreateNode", fast):
+    # 親を指定しない作成は1回のcreateNodeなので、チャンクを開かない(親がjointなら inverseScale の接続もまとめる)。
+    chunk = kwargs.get("parent") is not None or kwargs.get("p") is not None
+    context = _edit_context("mlibCreateNode", fast)
+    with context if chunk or fast else nullcontext():
         # 作成の実体はNodeの内部ヘルパー。nodesはcmdsを参照するため循環importを避けて関数内で読み込む。
         from ..nodes import Node
 

@@ -2,7 +2,7 @@
 
 対象: 位置・回転・マトリクスの ``space=``/``ws=`` と成分を分けた指定の案内、ロック・接続された成分の案内、
 DrivenKey.setKey の既存の入力の案内、getChildren(type=)、resetAttrs/setAttrFlags の Plug 指定、
-複数形の一括の書込み(Undo 1回・fast)、Undo の表示名(``mlib setTranslation <対象>``)。
+複数形の一括の書込み(Undo 1回・fast)、利用者が付けた Undo のチャンク名。
 
 あわせて次も確かめる。
 
@@ -174,7 +174,6 @@ class BulkWriteTest(_SpecCase):
         self.flushUndo()
         self.assertIs(joints.setRadius(3.0), joints)
         self.assertEqual([joint.getRadius() for joint in joints], [3.0, 3.0])
-        self.assertTrue(cmds.undoInfo(query=True, undoName=True).startswith("mlib setRadius"))
         cmds.undo()
         self.assertEqual([joint.getRadius() for joint in joints], [1.0, 1.0])
 
@@ -188,20 +187,6 @@ class BulkWriteTest(_SpecCase):
 
 class UndoNameTest(_SpecCase):
     """Undo の表示名。"""
-
-    def test_names_show_method_and_target(self):
-        name = self.make(text="L_arm_CTRL")
-        node = Node(name)
-        cases = (
-            (lambda: node.setTranslation((1, 2, 3)), "mlib setTranslation " + node.getName()),
-            (lambda: node.getPlug("rx").set(10), f"mlib set {node.getName()}.rotateX"),
-            (lambda: node.setAttrFlags("tx", keyable=False), "mlib setAttrFlags " + node.getName()),
-            (lambda: mlib.createNode("transform", name=self.name("made")), "mlib createNode transform"),
-        )
-        for action, expected in cases:
-            with self.subTest(expected=expected):
-                action()
-                self.assertEqual(cmds.undoInfo(query=True, undoName=True), expected)
 
     def test_user_chunk_names_are_kept(self):
         node = Node(self.make())

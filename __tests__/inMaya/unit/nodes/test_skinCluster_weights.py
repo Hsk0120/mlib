@@ -257,12 +257,37 @@ class SetWeightsTest(_SkinCase):
         self.flushUndo()
         self.skin.setWeights([self.joints[1]], [0.7, 0.1], vertices=[3, 8], normalize=True)
         after = self.rows()
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setWeights( |$)")
         self.assertUndoesInOneStep(lambda: self.assertRowsAlmostEqual(self.rows(), before), lambda: self.assertRowsAlmostEqual(self.rows(), after))
         self.flushUndo()
         self.skin.setWeights([self.joints[1]], [0.7, 0.1], vertices=[3, 8], normalize=True, fast=True)
         self.assertUndoEmpty()
         self.assertRowsAlmostEqual(self.rows(), after)
+
+    def test_fast_bulk_write_matches_normal_path(self):
+        """fast(一括の書き込み)は、通常の経路と同じ生の値を書き、指定していない列を変えない。"""
+        j0, j1, j2 = self.joints
+        cases = {
+            "all": {"joints": self.joints, "weights": [0.25, 0.5, 0.125] * self.count},
+            "subset_unsorted": {"joints": [j2, j0], "weights": [0.9, 0.3, 0.2, 0.6, 0.4, 0.1], "vertices": [8, 3, 5]},
+            "broadcast": {"joints": [j1], "weights": [0.75], "broadcast": True},
+            "not_normalized_sum": {"joints": [j0, j1], "weights": [2.0, 3.0, 0.0, 0.0], "vertices": [1, 2]},
+        }
+        initial = self.rows()
+        for locked, mode in ((False, 1), (True, 1), (False, 0), (True, 2)):
+            cmds.setAttr(j1 + ".liw", locked)
+            cmds.setAttr(self.skinName + ".normalizeWeights", mode)
+            for label, kwargs in cases.items():
+                with self.subTest(label=label, locked=locked, normalizeWeights=mode):
+                    for vertex, row in enumerate(initial):
+                        self.writeRow(vertex, row)
+                    self.skin.setWeights(**kwargs)
+                    expected = self.rows()
+                    for vertex, row in enumerate(initial):
+                        self.writeRow(vertex, row)
+                    self.flushUndo()
+                    self.skin.setWeights(fast=True, **kwargs)
+                    self.assertUndoEmpty()
+                    self.assertRowsAlmostEqual(self.rows(), expected, places=12)
 
 
 class VertexWeightsTest(_SkinCase):
@@ -315,7 +340,6 @@ class VertexWeightsTest(_SkinCase):
         self.flushUndo()
         self.skin.setVertexWeights(2, {j0: 0.9})
         after = self.row(2)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setVertexWeights( |$)")
         self.assertUndoesInOneStep(lambda: self.assertSequenceAlmostEqual(self.row(2), before), lambda: self.assertSequenceAlmostEqual(self.row(2), after))
         self.flushUndo()
         self.skin.setVertexWeights(2, {j0: 0.9}, fast=True)
@@ -359,7 +383,6 @@ class PruneWeightsTest(_SkinCase):
                 self.assertIs(self.skin.pruneWeights(threshold), self.skin)
                 self.assertRowsAlmostEqual(self.rows(), expected)
                 if self.rows() != before:
-                    self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib pruneWeights( |$)")
                     self.assertUndoesInOneStep(
                         lambda: self.assertRowsAlmostEqual(self.rows(), before), lambda: self.assertRowsAlmostEqual(self.rows(), expected)
                     )
@@ -434,7 +457,6 @@ class MirrorWeightsTest(NamespaceCase):
         self.assertIs(self.skin.mirrorWeights(), self.skin)
         for index in self.minus:
             self.assertSequenceAlmostEqual(self.row(index), [0.0, 0.0, 1.0], places=6)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib mirrorWeights( |$)")
         cmds.undo()
         self.assertEqual([self.row(i) for i in self.minus], before)
 
@@ -501,7 +523,6 @@ class CopyWeightsToGeometryTest(NamespaceCase):
                 self.assertEqual(result.getMaxInfluences(), 2)
                 self.assertSequenceAlmostEqual(self.weights(result, 5), [1.0, 0.0], places=6)
                 self.assertSequenceAlmostEqual(self.weights(result, 45), [0.0, 1.0], places=6)
-                self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib copyWeightsTo( |$)")
                 cmds.undo()
                 self.assertFalse(Node(self.target).getSkinClusters())
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))

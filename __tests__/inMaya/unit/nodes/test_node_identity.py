@@ -105,7 +105,6 @@ class SetLockedTest(_SpecCase):
         """通常経路は 1 回の Undo で戻り、チャンク名は mlibNodeSetLocked。"""
         cmds.flushUndo()
         self.node.setLocked(True)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setLocked( |$)")
         cmds.undo()
         self.assertFalse(self.locked())
         cmds.redo()

@@ -20,6 +20,7 @@ from mlib.components.component import Component
 from mlib.components.component import Components
 from mlib.maths.quaternion import Quaternion
 from mlib.maths.shear import Shear
+from mlib.maths.transformation import Transformation
 from mlib.maths.translate import Translate
 from mlib.nodes.constraint import Constraint
 from mlib.nodes.dagNode import DagNode
@@ -1091,6 +1092,12 @@ class Joints(Nodes[Joint]):
         ...
     def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform | dict[str, Translate | EulerRotate | Scale | Shear]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getTransformation(self) -> list[Transformation]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.getTransformation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setTransformation(self, value: Transformation, *, fast: bool = ...) -> list[Transform]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.setTransformation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

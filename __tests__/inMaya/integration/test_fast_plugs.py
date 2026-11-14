@@ -125,6 +125,26 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         cmds.redo()
         self.assertEqual(target.get(), 21)
 
+    def test_normal_connection_undo_restores_plain_constant_without_extra_write(self):
+        """要素でないアトリビュートは、記録用の書き込みをせずに接続し、Undo 1回で元の値へ戻る。"""
+        target_node = mlib.createNode("multiplyDivide")
+        source = self.node.getPlug("tx")
+        source.set(21)
+        for name, value in (("input1X", 7.0), ("operation", 2)):
+            with self.subTest(attribute=name):
+                target = target_node.getPlug(name)
+                target.set(value)
+                cmds.flushUndo()
+                with patch.object(cmds, "setAttr", side_effect=AssertionError("cmds setAttr")), patch.object(
+                    cmds, "undoInfo", side_effect=AssertionError("cmds undoInfo")
+                ):
+                    target.connect(source)
+                self.assertEqual(target.getSource(), source)
+                cmds.undo()
+                self.assertIsNone(target.getSource(skipConversionNodes=True))
+                self.assertEqual(target.get(), value)
+                self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
+
     def test_fast_multi_remove_and_dynamic_attr_delete(self):
         """要素・動的アトリビュートをcmdsなしに削除し、Undoへ積まない。"""
         cmds.addAttr(str(self.node), ln="values", at="double", multi=True)

@@ -145,7 +145,6 @@ class JointDeleteTest(NamespaceCase):
         self.assertEqual(self._influences(), {self.root.getUuid(), self.other.getUuid()})
         self.assertColumn(self.root, 0.6)
         self.assertColumn(self.other, 0.4)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib delete( |$)")
         cmds.undo()
         self.assertUntouched()
 
@@ -345,7 +344,6 @@ class JointDeleteTest(NamespaceCase):
         self.assertFalse(self.mid.isValid())
         self.assertFalse(self.tip.isValid())
         self.assertColumn(self.root, 0.6)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib delete( |$)")
         cmds.undo()
         self.assertUntouched()
 

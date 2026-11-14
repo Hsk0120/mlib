@@ -72,9 +72,16 @@ def delete(nodes, *, fast=False):
         from ..nodes.joint import Joint
         from ..nodes.node import Node
 
-        names = _InputObject._input_names(nodes, allow_plugs=False)
-        if not names:
-            raise ValueError("nodesにはノードを1つ以上指定してください")
+        given = [nodes] if isinstance(nodes, Node) else nodes if isinstance(nodes, (list, tuple)) else None
+        if given and all(isinstance(node, Node) and node.isValid() for node in given):
+            # 有効なNodeだけの入力は、名前へ直して作り直さず、そのまま使う。
+            names = []
+            direct = list(given)
+        else:
+            direct = []
+            names = _InputObject._input_names(nodes, allow_plugs=False)
+            if not names:
+                raise ValueError("nodesにはノードを1つ以上指定してください")
         # アトリビュート・コンポーネント文字列は所有ノードへ変換せず、標準の扱いを維持する。
         node_names = [name for name in names if "." not in name]
         components = [name for name in names if "." in name]
@@ -84,7 +91,7 @@ def delete(nodes, *, fast=False):
                 raise TypeError(f"アトリビュート名は指定できません: {name}(持ち主のノードを削除するにはノード名を指定します)")
         if components and fast:
             raise NotImplementedError("fastはコンポーネントとトポロジーの削除に対応していません")
-        nodes = []
+        nodes = direct
         for name in node_names:
             # Maya標準のワイルドカード指定を実ノードへ展開してから検証する。
             if any(char in name for char in "*?["):

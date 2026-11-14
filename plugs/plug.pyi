@@ -2070,7 +2070,7 @@ class Plug(Object):
     def _set_template(self, value: object, safe: bool, *, fast: bool, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., _writer: Callable[..., Any] | None = ..., **options) -> Plug | int:
         """set()の共通の流れを受け持つ。
 
-        受け持つのは、Undoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
+        受け持つのは、safeでのUndoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
         safeでの例外の吸収。派生クラスが上書きするのは、値を書き込む :meth:`_set_value` と、
         safeでやり直す :meth:`_set_children_safely` だけ。Undoチャンクの名前は ``mlib<クラス名>Set``。
 
@@ -2148,9 +2148,22 @@ class Plug(Object):
                 :func:`mlib.core.attributeType.is_internal_data_type`)。
         """
         ...
+    @staticmethod
+    def _under_multi_element(mplug: om2.MPlug) -> bool:
+        """Plugが、マルチアトリビュート・その要素・要素の下のアトリビュートのどれかかを判定する。
+
+        Args:
+            mplug (om2.MPlug): 調べるPlug。
+
+        Returns:
+            bool: 自身がマルチアトリビュートか、自身か親のどれかがマルチアトリビュートの要素ならTrue。
+        """
+        ...
     def _record_connection_value(self):
         """今の(接続されていない)値をUndoに記録し、接続をUndoしたときに元の値へ戻せるようにする。
 
+        対象は、マルチアトリビュートの要素とその下のアトリビュートだけ。それ以外は、接続のUndoで
+        Mayaが元の値へ戻す(``blendWeighted.input[n]`` のような要素は、Undoで値が0になる)。
         まだ無いマルチアトリビュートの要素は作らない。対象は、数値・単位付き・enumなど、
         共通の数値の操作で扱えるものだけ。Undoが無効なら記録されないので、同じ値の書き込みそのものを省く。
         """

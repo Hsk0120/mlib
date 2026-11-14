@@ -3,6 +3,7 @@
 
 import math
 import numbers
+from contextlib import nullcontext
 from typing import Any, Dict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -14,7 +15,7 @@ from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
 from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _transform_argument_hints, nativeUnits, undoChunk, undoTransaction
-from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
+from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Transformation, Translate, Vector
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
 from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
@@ -182,6 +183,16 @@ def _quaternion_value(value: om2.MQuaternion | Iterable[float]) -> om2.MQuaterni
         ValueError: 成分の数が4でない場合、または有限でない場合。
     """
     ...
+
+def _euler_values(rotation):
+    """MEulerRotationの3成分(rad)をtupleにする。"""
+    ...
+
+def _point_values(point):
+    """MPointのXYZをtupleにする。"""
+    ...
+_CHANNEL_KINDS: dict
+_TRANSFORM_READERS: dict
 
 
 class Transform(DagNode):
@@ -830,6 +841,43 @@ class Transform(DagNode):
                 ``safe=True`` を案内する)。
         """
         ...
+    def getTransformation(self) -> Transformation:
+        """ローカルのトランスフォームの値を、ピボットや回転順序も含めて取得する。
+
+        translate・rotate・scale・shear・回転順序・rotateAxis・ピボット4種を読む。Jointなら、jointOrient と、
+        segmentScaleCompensate が有効なときの inverseScale も入れる。offsetParentMatrix は含まない。
+
+        Returns:
+            Transformation: 距離がcm、角度がラジアンの値。シーンとはつながっていない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+
+        Examples:
+            >>> value = node.getTransformation()
+            >>> value.translate = (0, 5, 0)
+            >>> other.setTransformation(value)
+        """
+        ...
+    def setTransformation(self, value: Transformation, *, fast: bool = ...) -> Transform:
+        """トランスフォームの値を、ピボットや回転順序も含めてローカルのアトリビュートへ設定する。
+
+        回転順序・rotateAxis・ピボット4種・(Jointなら)jointOrient を書いてから、translate・rotate・scale・shear を書く。
+        今の値と同じアトリビュートには書き込まない。inverseScale と offsetParentMatrix は変えない。
+        Undoが有効なら、1回のUndoで戻せる。
+
+        Args:
+            value (Transformation): 設定する値。距離はcm、角度はラジアン。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            Transform: 自身。
+
+        Raises:
+            TypeError: valueがTransformationでない場合、またはfastがboolでない場合。
+            RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが書き込みを拒否した場合。
+        """
+        ...
     def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> Translate:
         """基準の位置を取得する。既定は回転ピボットの位置。
 
@@ -1469,6 +1517,7 @@ class Transform(DagNode):
         """ノード型に組み込みの数値アトリビュートの内部単位の値を、Plugのオブジェクトを作らずに読む。
 
         ``getPlug(name).get()`` と同じ読取関数(距離cm・角度rad)をMPlugへ直接適用する。
+        translate・rotate・scale・shearとピボットは、MFnTransformでまとめて読む。
         コンパウンドアトリビュートは子の値のtuple、単一の値はその値を返す。計算の途中で何度も読む
         translate・ピボット等のために使い、値はキャッシュしない。ノードが無効な場合と
         読取関数を持たない型は、従来どおり ``getPlug(name).get()`` の結果・例外に委ねる。
@@ -1676,7 +1725,22 @@ class Transform(DagNode):
             bool: 成分数と各成分が完全に一致すればTrue。読取れない場合はFalse(書込みへ委ねる)。
         """
         ...
-    def _set_channel_value(self, name: str, value: Iterable[float], safe: bool = ..., *, fast: bool = ...) -> Plug | int:
+    def _write_channel_directly(self, name: str, value: Iterable[float], fast: bool) -> bool:
+        """translate・rotate・scale・shearへ、Plugのオブジェクトを作らずに内部単位の3つの値を書く。
+
+        通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書けない場合(ロック・入力の接続・
+        数値でない値など)は何も書かずにFalseを返し、呼び出し元がこれまでの書き込みで例外にする。
+
+        Args:
+            name (str): チャンネル名。
+            value (Iterable[float]): 3つの値。距離はcm、角度はラジアン。
+            fast (bool): TrueならOpenMayaで直接更新する。
+
+        Returns:
+            bool: 書き込めたらTrue。
+        """
+        ...
+    def _set_channel_value(self, name: str, value: Iterable[float], safe: bool = ..., *, fast: bool = ...) -> Plug | int | None:
         """内部単位のチャンネル値を、基底Plug.setへ渡す。
 
         Double3の回転変換を再実行せず、入力された順序の数値を使う。
@@ -1690,7 +1754,8 @@ class Transform(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Plug | int: Plug.setの戻り値。通常はPlug、safe=Trueは失敗数。
+            Plug | int | None: Plug.setの戻り値。通常はPlug、safe=Trueは失敗数。
+                translate・rotate・scale・shearへ直接書けたときはNone。
         """
         ...
     def _matrix_channel_values(self, matrix, scale_reference=...):

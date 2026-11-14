@@ -118,10 +118,11 @@ class SkinMfnTest(_SkinCase):
 
 class SetWeightsFastTest(_SkinCase):
     def test_fast_matches_normal_raw_values(self):
-        """normalizeWeights の各設定と liw で、fast は通常と同じ値・同じ既存要素になる。
+        """normalizeWeights の各設定と liw で、fast は通常と同じ値になる。
 
-        MFnSkinCluster.setWeights(normalize=False) は normalizeWeights=interactive で
-        未指定列を書き換え、0 の要素を削除するため、fast は MPlug への直接書込みを続ける。
+        fast は MFnSkinCluster.setWeights(normalize=False) で一括して書く。normalizeWeights=interactive では
+        未指定列が書き換わるため、書く間だけ none にする。値が 0 の要素は Maya が削除するので、
+        無い要素は 0 として比べる。
         """
         for mode in (0, 1, 2):
             for locked in (False, True):
@@ -138,7 +139,11 @@ class SetWeightsFastTest(_SkinCase):
                         skin.setWeights([self.tip, self.root], values, fast=fast)
                         results.append(self.raw(skin))
                         cmds.setAttr(self.tip + ".liw", False)
-                    self.assertEqual(results[0], results[1])
+                    self.assertEqual(len(results[0]), len(results[1]))
+                    for normal, bulk in zip(results[0], results[1]):
+                        for index in set(normal) | set(bulk):
+                            self.assertAlmostEqual(normal.get(index, 0.0), bulk.get(index, 0.0), places=12)
+                    self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), mode)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す(``cmds.createNode`` 相当)。"""
 
+from contextlib import nullcontext
 from ..decorator import _edit_context, _merge_flags
 from ..util import _UNSET
 from typing import Literal

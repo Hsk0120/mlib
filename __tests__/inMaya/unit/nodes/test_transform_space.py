@@ -483,7 +483,6 @@ class TranslationTest(_SpecCaseTranslationMirrorErrors):
         cmds.flushUndo()
         self.assertIs(self.node.setTranslation((20, 5, 0), worldSpace=True), self.node)
         self.assertSequenceAlmostEqual(cmds.xform(self.name_, query=True, worldSpace=True, rotatePivot=True), (20, 5, 0))
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setTranslation ")
         cmds.undo()
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".translate")[0], (1, 2, 3))
         cmds.flushUndo()

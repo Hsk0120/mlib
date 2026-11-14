@@ -251,7 +251,6 @@ class BatchDeleteTest(unittest.TestCase):
         short = [name.rpartition(":")[2] for name in removed]
         # 渡した順(dc, dmd, d0...)ではなく、Mayaがまとめて削除するときの順になる。
         self.assertEqual(short, ["dc", "d0", "dmd", "d1", "d2"])
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib delete( |$)")
         cmds.undo()
         self.assertEqual(sorted(cmds.ls(long=True)), before)
 

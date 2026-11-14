@@ -156,7 +156,6 @@ class MatchTransformTest(_CommonCase):
         before = self.snapshot(source)
         cmds.flushUndo()
         mlib.getNode(source).matchTransform(target, pivots=True)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib matchTransform( |$)")
         result = self.snapshot(source)
         cmds.undo()
         self.assertSequenceAlmostEqual(self.snapshot(source), before)

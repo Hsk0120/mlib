@@ -118,7 +118,6 @@ class JointInverseScaleTest(_SpecCase):
         self.flushUndo()
         child = mlib.createNode("joint", name=self.name("child"), parent=root)
         name = child.getFullName()
-        self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlib createNode joint")
         self.assertUndoesInOneStep(
             lambda: (self.assertFalse(cmds.objExists(name)), self.assertEqual(cmds.listConnections(root.getFullName() + ".scale") or [], [])),
             lambda: self.assertTrue(cmds.objExists(name)),

@@ -160,6 +160,13 @@ def setFoo(self, value, *, fast=False):
 - 通常の公開書き込みは1回の呼び出しを Undo 1回にまとめる(複数形・一括更新も1回)。
 - `undoChunk` は例外時に先行更新を残す。自動ロールバックを意味しない。巻き戻しが必要なものは `undoTransaction`。
 - 一括更新では、検証できる項目(対象名・所属・入力値)を更新前に全件検証する。
+- 2026-11-14のユーザー指定により、Mayaのコマンドを1回だけ呼ぶ操作ではチャンクを開かない(1回のコマンドは、チャンクが無くても1回の Undo で戻る。
+  `cmds.undoInfo` の3回の呼び出しを省くため)。`_edit_context(name, fast, single=True)` か、複数のコマンドになる場所だけの `undoChunk` で書く。
+  対象は `Plug.set`・1件の `disconnect`・要素以外への `connect`・`setFlags`/`setLocked`・`setKey`・親を指定しない `createNode`・
+  `Node.rename`・`Transform.setParent`/`setTranslation`/`setRotate`/`setQuaternion`/`setMatrix`(書くチャンネルが1つのとき)。
+  Undo の表示名は Maya の既定になる。呼び出したメソッドと対象から表示名を作る処理は置かない(チャンク名は決めた名前をそのまま付ける)。
+- 接続前の値を Undo へ記録する書き込み(`Plug.connect`)は、接続先がマルチアトリビュートの要素かその下のときだけ行う。
+  それ以外は、接続の Undo で Maya が元の値へ戻す(Maya 2022〜2027で確認。`blendWeighted.input[n]` のような要素は値が0になる)。
 
 ## 例外と通知
 
@@ -326,12 +333,19 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 継承メソッドの数学値の戻り型も対応する mlib 型へ揃える。対応型の無いもの(MPoint・単位値・クラス定数)はそのまま。
 - 独自の正規化・分解補助は `asUnitMatrix`・`asCanonicalAxisAngle`・`asDecomposedEulerRotate` 等の独自名で標準名と区別する。
   ゼロ値を拒否する正規化は `unit`/`unitIt`、標準のコピー正規化は `normal`。
+- `Transformation` は `om2.MTransformationMatrix` を継承し、translate・rotate(回転順序つき)・scale・shear・rotateAxis・ピボット4種に加えて、
+  Joint のための jointOrient と inverseScale を持つ(距離 cm・角度 rad)。値はプロパティで読み書きし、取得した値は複製。
+  `matrix` プロパティは Maya の transform・joint のローカルのマトリクスと同じ決まりで合成する(jointOrient・inverseScale を含む)。
+  継承した `asMatrix()` は om2 の計算のままで、この2つを含まない。基底クラスの `scale()`・`shear()`・`rotatePivot()`・`scalePivot()` は
+  同じ名前のプロパティに置き換えている。ノード側は `Transform.getTransformation()`・`setTransformation(value, *, fast=False)`(ローカルだけ)。
 - 型付きデータ配列の getter は常に list(空は `[]`)。点・ベクトルは 1 要素でも外側の list を省かない。
 
 ## JSON 保存・復元(json)
 
 - 下の層: `codec`(数学型を `{"type": ..., "value": [...]}` で書く。EulerRotate は度と回転順の名前)、`file`(`{"header", "data"}`。
   ヘッダーは形式名・版・mlib/Maya の版・単位(cm・度・保存時の UI フレームと fps))、`NodeRef`・`PlugRef`・`ComponentRef`(名前・完全パス・型で記録。UUID は持たない)、`NameMapping`。
+- `Transformation` は `{"type": "Transformation", "value": {成分名: [x, y, z], "rotateOrder": "xyz"}}` で書く。角度は度。
+  既定値のままの rotateAxis・ピボット・jointOrient・inverseScale は書かず、読むときに既定値で補う。
 - 中の層: `Snapshot` 基底と `ValidationReport`。
 - 1つのノードが持つデータはノードクラスのメソッドに直接書く(`SkinCluster.exportWeights`・`Transform.exportCurveShapes`・
   `BlendShape.exportTargets` と、それぞれの `get…Data`・`set…Data`・`import…`)。`exportData` のような汎用名にしない。

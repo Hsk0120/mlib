@@ -6,9 +6,6 @@
 
 import contextlib
 import functools
-import os
-import re
-import sys
 from contextvars import ContextVar
 from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
@@ -23,45 +20,11 @@ from mlib._stubtypes import ContextDecorator
 from mlib._stubtypes import GeneratorContextManager
 from mlib.nodes.joint import Joint
 from mlib.nodes.skinCluster import SkinClusters
-import types
 
 __all__ = ['nativeUnits', 'preservedSelection', 'preservedSkinShape', 'undoChunk', 'undoTransaction', 'viewportOff']
 _chunk_active: 'ContextVar[Union[bool, str]]'
 _CHUNK_SKIPPED: str
-_INTERNAL_CHUNK_NAME: Any
-_CHUNK_TARGET_LIMIT: int
-_THIS_FILE: Any
 _SPACE_KEYWORDS: tuple
-
-def _chunk_target(value: object) -> str:
-    """Undoの表示名に使う対象名を返す。
-
-    Args:
-        value (object): メソッドの ``self``、または関数の先頭の引数。
-
-    Returns:
-        str: Node・Plug・Componentなら今の名前、コレクションなら型名と要素の数、文字列ならそのまま。
-            名前を得られない値なら空文字列。
-    """
-    ...
-
-def _readable_chunk_name(name: object, frame: types.FrameType | None) -> Any:
-    """mlib内部の決まった形のチャンク名を、操作と対象が分かる表示名にする。
-
-    ``mlibTransformSetTranslation`` のような名前を、呼び出したメソッド名と対象から作った
-    ``mlib setTranslation L_arm_CTRL``・``mlib set L_elbow_JNT.rotateX`` の形へ置き換える。
-
-    公開のメソッドを探すとき、with文・デコレーター・``_`` で始まる内部のメソッドのフレームは飛ばす。
-    決まった形でない名前と、mlibの外(利用者のコード)で開いたチャンクの名前は、そのまま返す。
-
-    Args:
-        name (object): 指定されたチャンク名。
-        frame (types.FrameType | None): チャンクを開いた場所を呼び出した側のフレーム。
-
-    Returns:
-        object: 表示名。置き換えないときは name。
-    """
-    ...
 
 
 class _UndoChunk(contextlib.ContextDecorator):
@@ -200,7 +163,7 @@ def _validated_flags(locked: bool | None = ..., keyable: bool | None = ..., chan
     """
     ...
 
-def _edit_context(name: str, fast: bool, *, transaction: bool = ...) -> contextlib.AbstractContextManager:
+def _edit_context(name: str, fast: bool, *, transaction: bool = ..., single: bool = ...) -> contextlib.AbstractContextManager:
     """書き込むメソッドの中身を包む、Undoのコンテキストを返す。
 
     fastがboolかも確かめる。
@@ -208,9 +171,10 @@ def _edit_context(name: str, fast: bool, *, transaction: bool = ...) -> contextl
     (``nullcontext() if fast else undoChunk(name)``)が1行で済む。
 
     Args:
-        name (str): 通常の経路のUndoチャンク名(``mlib<Class><Method>``)。Mayaに表示する名前は、
-            呼び出したメソッドと対象から ``mlib setTranslation L_arm_CTRL`` の形で作る。
+        name (str): 通常の経路のUndoチャンク名(``mlib<Class><Method>``)。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+        single (bool): Trueなら、通常の経路でもチャンクを開かない。Mayaのコマンドを1回だけ呼ぶメソッドで使う
+            (1回のコマンドは、チャンクが無くても1回のUndoで戻る。複数のコマンドになる場所は、その場所で開く)。
         transaction (bool): Trueなら、通常の経路で ``undoTransaction`` を使う
             (Undoが無効なときに止める必要がある、作成の処理で使う)。Falseなら ``undoChunk`` を使う。既定はFalse。
 
@@ -258,9 +222,7 @@ def undoChunk(name: str | None = ...) -> ContextDecorator:
     二重に開く呼び出しや、開かずに閉じる呼び出しは何もしない。
 
     Args:
-        name (str | None): Undoキューのチャンク名。省略するとMayaの既定の表示になる。mlib内部の決まった形の
-            名前(``mlib<Class><Method>``)は、呼び出したメソッドと対象から
-            ``mlib setTranslation L_arm_CTRL`` の形の表示名にする。
+        name (str | None): Undoキューのチャンク名。省略するとMayaの既定の表示になる。
 
     Returns:
         contextlib.ContextDecorator: withかデコレーターとして使うコンテキスト。

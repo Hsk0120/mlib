@@ -186,7 +186,6 @@ class ShowHideTest(HierarchyFixture):
         cmds.flushUndo()
         self.assertIs(node.hide(), node)
         self.assertFalse(self.visible())
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib setVisibility( |$)")
         cmds.undo()
         self.assertTrue(self.visible())
         node.hide()

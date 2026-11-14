@@ -1245,7 +1245,7 @@ class Node(Object):
                 fastも同じ)、このオブジェクトが持つDAGパスのインスタンスが削除された場合、
                 またはMayaが名前の変更を拒否した場合。
         """
-        with _edit_context("mlibNodeRename", fast):
+        with _edit_context("mlibNodeRename", fast, single=True):
             _require_node_name(name)
             # cmds.renameへ空の名前を渡すと文言の無いRuntimeErrorになるため、先に判定する。
             self._require_valid("名前の変更")
@@ -2442,17 +2442,19 @@ class Node(Object):
         if known:
             created = cmds.createNode(node_type, **flags)
         else:
-            unknown_types = ["unknown", "unknownDag", "unknownTransform"]
-            existing = set(cmds.ls(type=unknown_types, uuid=True) or [])
-            selection = cmds.ls(selection=True, long=True) or []
-            created = cmds.createNode(node_type, **flags)
-            if isinstance(created, str) and cmds.objExists(created):
-                uuid = (cmds.ls(created, uuid=True) or [None])[0]
-                if cmds.nodeType(created) in unknown_types and uuid not in existing:
-                    # 未知の名前でMayaが作ったunknownノードは消し、作成前の選択へ戻してから拒否する。
-                    cmds.delete(created)
-                    cmds.select(selection, replace=True) if selection else cmds.select(clear=True)
-                    raise RuntimeError(_unknown_node_type_message(node_type))
+            # 作成・削除・選択の復元を、1回のUndoにまとめる。
+            with undoChunk("mlibCreateNode"):
+                unknown_types = ["unknown", "unknownDag", "unknownTransform"]
+                existing = set(cmds.ls(type=unknown_types, uuid=True) or [])
+                selection = cmds.ls(selection=True, long=True) or []
+                created = cmds.createNode(node_type, **flags)
+                if isinstance(created, str) and cmds.objExists(created):
+                    uuid = (cmds.ls(created, uuid=True) or [None])[0]
+                    if cmds.nodeType(created) in unknown_types and uuid not in existing:
+                        # 未知の名前でMayaが作ったunknownノードは消し、作成前の選択へ戻してから拒否する。
+                        cmds.delete(created)
+                        cmds.select(selection, replace=True) if selection else cmds.select(clear=True)
+                        raise RuntimeError(_unknown_node_type_message(node_type))
         if created is None:
             # shared=Trueで同名・同型のノードが既にある場合、cmds.createNodeは作成せずNoneを返す。
             name = flags.get("name") or flags.get("n")

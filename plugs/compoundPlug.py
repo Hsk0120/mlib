@@ -5,7 +5,7 @@ import maya.api.OpenMaya as om2
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, attributeType, value_reader
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
-from ..decorator import _require_bool
+from ..decorator import _require_bool, undoChunk
 from .plug import Plug
 
 
@@ -201,8 +201,9 @@ class CompoundPlug(Plug):
             if not uiUnits:
                 self._set_child_values(values, writable_checked=True)
                 return
-            for index, child_value in enumerate(values):
-                self._child_at(index).set(child_value, safe=False, uiUnits=uiUnits, fast=fast)
+            with undoChunk(f"mlib{type(self).__name__}Set"):
+                for index, child_value in enumerate(values):
+                    self._child_at(index).set(child_value, safe=False, uiUnits=uiUnits, fast=fast)
 
     def _set_child_values(self, values, *, writable_checked=False):
         """内部単位の値を、cmdsを使って定義順に子へ書き込む。
@@ -215,7 +216,7 @@ class CompoundPlug(Plug):
 
         それ以外の場合と、まとめた書き込みが失敗した場合は、これまでどおり子ごとに ``set()`` する。
         そのため、例外の種類・文言と、途中まで書いたときの順序は、子ごとの書き込みと同じになる。
-        Undoチャンクは呼び出し元で開く。
+        子ごとに書くときは、1回のUndoで戻せるようにチャンクを開く。
 
         Args:
             values (tuple): 子の数と同じ長さの、内部単位の値(距離はcm・角度はrad・時間は秒)。
@@ -242,8 +243,9 @@ class CompoundPlug(Plug):
                     return
                 except (RuntimeError, TypeError, ValueError):
                     pass  # 子ごとに書き直し、従来の例外と更新順にする。
-        for index, child_value in enumerate(values):
-            self._child_at(index).set(child_value, safe=False, unit="rad", timeUnit="sec", fast=False)
+        with undoChunk(f"mlib{type(self).__name__}Set"):
+            for index, child_value in enumerate(values):
+                self._child_at(index).set(child_value, safe=False, unit="rad", timeUnit="sec", fast=False)
 
     def _can_set_at_once(self, values):
         """子を1回のsetAttrでまとめて書けるか判定する。シーンは変更しない。

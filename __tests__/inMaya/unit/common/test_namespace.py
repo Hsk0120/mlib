@@ -311,7 +311,6 @@ class NamespaceTest(_CommonCase):
         root = ":" + self.ns
         cmds.flushUndo()
         Namespace.create("x:y", parent=root)
-        self.assertRegex(cmds.undoInfo(query=True, undoName=True), r"^mlib Namespace\.create( |$)")
         cmds.undo()
         self.assertFalse(cmds.namespace(exists=root + ":x"))
 

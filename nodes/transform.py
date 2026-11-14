@@ -2,6 +2,7 @@
 
 import math
 import numbers
+from contextlib import nullcontext
 from typing import Any, Dict
 
 import maya.api.OpenMaya as om2
@@ -15,7 +16,7 @@ from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
 from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _transform_argument_hints, nativeUnits, undoChunk, undoTransaction
-from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
+from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Transformation, Translate, Vector
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
 from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
@@ -311,6 +312,31 @@ def _quaternion_value(value):
     if len(items) != 4:
         raise ValueError(f"Quaternionは4つの成分で指定してください: {len(items)}個")
     return om2.MQuaternion(*[_finite(item, "value") for item in items])
+
+
+def _euler_values(rotation):
+    """MEulerRotationの3成分(rad)をtupleにする。"""
+    return (rotation.x, rotation.y, rotation.z)
+
+
+def _point_values(point):
+    """MPointのXYZをtupleにする。"""
+    return (point.x, point.y, point.z)
+
+
+#: 直接書き込めるチャンネルと、値の種類(UIの単位への換算に使う)。
+_CHANNEL_KINDS = {"translate": "distance", "rotate": "angle", "scale": "number", "shear": "number"}
+#: Transformの組み込みアトリビュートの内部単位の値を、MFnTransformから読む関数(アトリビュートのロング名ごと)。
+_TRANSFORM_READERS = {
+    "translate": lambda fn: tuple(fn.translation(om2.MSpace.kTransform)),
+    "rotate": lambda fn: _euler_values(fn.rotation()),
+    "scale": lambda fn: tuple(fn.scale()),
+    "shear": lambda fn: tuple(fn.shear()),
+    "rotatePivot": lambda fn: _point_values(fn.rotatePivot(om2.MSpace.kTransform)),
+    "rotatePivotTranslate": lambda fn: tuple(fn.rotatePivotTranslation(om2.MSpace.kTransform)),
+    "scalePivot": lambda fn: _point_values(fn.scalePivot(om2.MSpace.kTransform)),
+    "scalePivotTranslate": lambda fn: tuple(fn.scalePivotTranslation(om2.MSpace.kTransform)),
+}
 
 
 class Transform(DagNode):
@@ -1312,7 +1338,7 @@ class Transform(DagNode):
                 またはfastで、ロック・リファレンスのために変えられない場合。
             NotImplementedError: fastで、Joint・インスタンス・add=Trueを指定した場合。
         """
-        with _edit_context("mlibTransformSetParent", fast):
+        with _edit_context("mlibTransformSetParent", fast, single=True):
             self._require_valid("親子付け")
             if fast:
                 return self._set_parent_fast(parent, relative, add)
@@ -1503,7 +1529,7 @@ class Transform(DagNode):
                 ``safe=True`` を案内する)。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        with _edit_context("mlibTransformSetMatrix", fast):
+        with _edit_context("mlibTransformSetMatrix", fast, single=True):
             local_matrix = self._local_matrix(matrix, _world_space(worldSpace))
             if safe or get:
                 values = self._matrix_channel_values(local_matrix)
@@ -1512,6 +1538,78 @@ class Transform(DagNode):
                 self._apply_channel_values(values, safe=True, fast=fast)
             else:
                 self._apply_local_matrix(local_matrix, fast=fast)
+            return self
+
+    def getTransformation(self):
+        """ローカルのトランスフォームの値を、ピボットや回転順序も含めて取得する。
+
+        translate・rotate・scale・shear・回転順序・rotateAxis・ピボット4種を読む。Jointなら、jointOrient と、
+        segmentScaleCompensate が有効なときの inverseScale も入れる。offsetParentMatrix は含まない。
+
+        Returns:
+            Transformation: 距離がcm、角度がラジアンの値。シーンとはつながっていない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+
+        Examples:
+            >>> value = node.getTransformation()
+            >>> value.translate = (0, 5, 0)
+            >>> other.setTransformation(value)
+        """
+        self._require_valid("値の取得")
+        result = Transformation(om2.MFnTransform(self.mnode()).transformation())
+        if self._require_mnode().hasFn(om2.MFn.kJoint):
+            result.jointOrient = self._component_quaternion("jointOrient")
+            result.inverseScale = self._inverse_scale_values()
+        return result
+
+    def setTransformation(self, value, *, fast=False):
+        """トランスフォームの値を、ピボットや回転順序も含めてローカルのアトリビュートへ設定する。
+
+        回転順序・rotateAxis・ピボット4種・(Jointなら)jointOrient を書いてから、translate・rotate・scale・shear を書く。
+        今の値と同じアトリビュートには書き込まない。inverseScale と offsetParentMatrix は変えない。
+        Undoが有効なら、1回のUndoで戻せる。
+
+        Args:
+            value (Transformation): 設定する値。距離はcm、角度はラジアン。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            Transform: 自身。
+
+        Raises:
+            TypeError: valueがTransformationでない場合、またはfastがboolでない場合。
+            RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが書き込みを拒否した場合。
+        """
+        if not isinstance(value, Transformation):
+            raise TypeError("valueはTransformationで指定してください")
+        with _edit_context("mlibTransformSetTransformation", fast):
+            self._require_valid("値の設定")
+            order = value.rotateOrder
+            if self._static_value("rotateOrder") != order:
+                self.getPlug("rotateOrder").set(order, fast=fast)
+            axis = value.rotateAxis.asEulerRotation()
+            values = {
+                "rotateAxis": (axis.x, axis.y, axis.z),
+                "rotatePivot": tuple(value.rotatePivot),
+                "rotatePivotTranslate": tuple(value.rotatePivotTranslate),
+                "scalePivot": tuple(value.scalePivot),
+                "scalePivotTranslate": tuple(value.scalePivotTranslate),
+            }
+            if self._require_mnode().hasFn(om2.MFn.kJoint):
+                orient = value.jointOrient.asEulerRotation()
+                values["jointOrient"] = (orient.x, orient.y, orient.z)
+            for name in ("rotateAxis", "jointOrient"):
+                # クォータニオンからオイラー角へ直すときの丸めの差だけなら、書き込まない。
+                if name in values and all(abs(a - b) <= 1e-10 for a, b in zip(values[name], self._static_value(name))):
+                    del values[name]
+            rotate = value.rotate
+            values["translate"] = tuple(value.translate)
+            values["rotate"] = (rotate.x, rotate.y, rotate.z)
+            values["scale"] = tuple(value.scale)
+            values["shear"] = tuple(value.shear)
+            self._apply_channel_values(values, fast=fast)
             return self
 
     @_transform_argument_hints
@@ -1590,7 +1688,7 @@ class Transform(DagNode):
                 (原因の成分と ``safe=True`` を案内する)。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        with _edit_context("mlibTransformSetTranslation", fast):
+        with _edit_context("mlibTransformSetTranslation", fast, single=True):
             ws = _world_space(worldSpace)
             point = om2.MPoint(tuple(value))
             if ws:
@@ -1721,7 +1819,7 @@ class Transform(DagNode):
                 成分と、``safe=True`` を案内する)。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        with _edit_context("mlibTransformSetRotate", fast):
+        with _edit_context("mlibTransformSetRotate", fast, single=True):
             ws = _world_space(worldSpace)
             angle_unit = _angle_unit(unit)
             # 既定値 "deg" を持つため、unit=None でも None にならない。
@@ -2072,7 +2170,7 @@ class Transform(DagNode):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ra, r, jo = _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient)
-        with _edit_context("mlibTransformSetQuaternion", fast):
+        with _edit_context("mlibTransformSetQuaternion", fast, single=True):
             angle_unit = _angle_unit(unit)
             # 既定値 "deg" を持つため、unit=None でも None にならない。
             assert angle_unit is not None
@@ -2511,14 +2609,16 @@ class Transform(DagNode):
         current = self.getParent()
         if (current is None and target is None) or (current is not None and target is not None and current.mnode() == target.mnode()):
             return self
-        world = None if relative else self.getMatrix(worldSpace=True)
+        # ラッパーを作らず、OpenMayaの値とMPlugで直接確かめる(1回の呼び出しを軽くするため)。
+        world = None if relative else Matrix(path.inclusiveMatrix())
         if world is not None:
-            parent_matrix = Matrix() if target is None else target.getMatrix(worldSpace=True)
-            opm = self.getPlug("offsetParentMatrix").get()
+            parent_matrix = om2.MMatrix() if target is None else target.mpath().inclusiveMatrix()
+            dependency_fn = self._dependency_fn()
+            opm = om2.MFnMatrixData(dependency_fn.findPlug("offsetParentMatrix", False).asMObject()).matrix()
             if abs(parent_matrix.det4x4()) <= 1e-12 or abs(opm.det4x4()) <= 1e-12:
                 raise RuntimeError("親かオフセットのマトリクスが特異なため、ワールドのトランスフォームを保てません")
             for name in ("translate", "rotate", "scale", "shear"):
-                plug = self.getPlug(name).mplug()
+                plug = dependency_fn.findPlug(name, False)
                 require_writable(plug)
                 for index in range(plug.numChildren()):
                     require_writable(plug.child(index))
@@ -2531,7 +2631,8 @@ class Transform(DagNode):
         # 自分の操作で変えたパスだけ再束縛し、無関係なインスタンスへ切り替えない。
         self._dag_path = om2.MDagPath.getAPathTo(self.mnode())
         if world is not None:
-            self.setMatrix(world, worldSpace=True, fast=True)
+            # setMatrix(world, worldSpace=True, fast=True) と同じ計算を、入口の引数の検査を通さずに行う。
+            self._apply_local_matrix(self._local_matrix(world, True), fast=True)
         return self
 
     def _require_not_own_descendant(self, target):
@@ -2557,6 +2658,7 @@ class Transform(DagNode):
         """ノード型に組み込みの数値アトリビュートの内部単位の値を、Plugのオブジェクトを作らずに読む。
 
         ``getPlug(name).get()`` と同じ読取関数(距離cm・角度rad)をMPlugへ直接適用する。
+        translate・rotate・scale・shearとピボットは、MFnTransformでまとめて読む。
         コンパウンドアトリビュートは子の値のtuple、単一の値はその値を返す。計算の途中で何度も読む
         translate・ピボット等のために使い、値はキャッシュしない。ノードが無効な場合と
         読取関数を持たない型は、従来どおり ``getPlug(name).get()`` の結果・例外に委ねる。
@@ -2570,6 +2672,10 @@ class Transform(DagNode):
         if not self.isValid():
             # 無効なノードでは、従来と同じgetPlugの例外を送出する。
             return self.getPlug(name).get(unit="rad")
+        reader = _TRANSFORM_READERS.get(name)
+        if reader is not None:
+            # 位置・ピボット・スケールなどは、MFnTransformの1回の呼び出しで3成分をまとめて読む(値は同じ)。
+            return reader(om2.MFnTransform(self.mnode()))
         plug = self._dependency_fn().findPlug(name, False)
         targets = [plug.child(index) for index in range(plug.numChildren())] if plug.isCompound else [plug]
         values = []
@@ -2863,11 +2969,15 @@ class Transform(DagNode):
         Returns:
             None: 値を返さない。
         """
+        changed = []
         for name, value in values.items():
             value = tuple(value)
-            if self._channel_equals(name, value):
-                continue
-            self._set_channel_value(name, value, safe=safe, fast=fast)
+            if not self._channel_equals(name, value):
+                changed.append((name, value))
+        # 書くチャンネルが1つなら1回のコマンドなので、チャンクを開かない。
+        with undoChunk("mlibTransformApplyChannels") if len(changed) > 1 and not fast else nullcontext():
+            for name, value in changed:
+                self._set_channel_value(name, value, safe=safe, fast=fast)
 
     def _channel_equals(self, name, value):
         """内部単位の書込み値が、チャンネルの現在値と完全に一致するかを返す。
@@ -2887,6 +2997,55 @@ class Transform(DagNode):
             return isinstance(current, tuple) and len(current) == len(value) and all(float(a) == float(b) for a, b in zip(current, value))
         return current == value
 
+    def _write_channel_directly(self, name, value, fast):
+        """translate・rotate・scale・shearへ、Plugのオブジェクトを作らずに内部単位の3つの値を書く。
+
+        通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書けない場合(ロック・入力の接続・
+        数値でない値など)は何も書かずにFalseを返し、呼び出し元がこれまでの書き込みで例外にする。
+
+        Args:
+            name (str): チャンネル名。
+            value (Iterable[float]): 3つの値。距離はcm、角度はラジアン。
+            fast (bool): TrueならOpenMayaで直接更新する。
+
+        Returns:
+            bool: 書き込めたらTrue。
+        """
+        kind = _CHANNEL_KINDS.get(name)
+        if kind is None or not self.isValid():
+            return False
+        values = tuple(value)
+        if len(values) != 3:
+            return False
+        for item in values:
+            if (type(item) is not float and type(item) is not int) or not math.isfinite(item):
+                return False
+        if fast:
+            plug = self._dependency_fn().findPlug(name, False)
+            children = [plug.child(index) for index in range(3)]
+            free = om2.MPlug.kFreeToChange
+            if plug.isFreeToChange() != free or any(child.isFreeToChange() != free for child in children):
+                return False
+            for child, item in zip(children, values):
+                if kind == "distance":
+                    child.setMDistance(om2.MDistance(item))
+                elif kind == "angle":
+                    child.setMAngle(om2.MAngle(item))
+                else:
+                    child.setDouble(item)
+            return True
+        if kind == "distance":
+            unit = om2.MDistance.uiUnit()
+            values = tuple(om2.MDistance(item).asUnits(unit) for item in values)
+        elif kind == "angle":
+            unit = om2.MAngle.uiUnit()
+            values = tuple(om2.MAngle(item).asUnits(unit) for item in values)
+        try:
+            cmds.setAttr(self.getFullName() + "." + name, *values)
+        except RuntimeError:
+            return False
+        return True
+
     def _set_channel_value(self, name, value, safe=False, *, fast=False):
         """内部単位のチャンネル値を、基底Plug.setへ渡す。
 
@@ -2901,8 +3060,11 @@ class Transform(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Plug | int: Plug.setの戻り値。通常はPlug、safe=Trueは失敗数。
+            Plug | int | None: Plug.setの戻り値。通常はPlug、safe=Trueは失敗数。
+                translate・rotate・scale・shearへ直接書けたときはNone。
         """
+        if not safe and self._write_channel_directly(name, value, fast):
+            return None
         # Double3Plug._set_value の回転変換・単位処理を通さず、基底 Plug の書込みを骨格ごと使う。
         plug = self.getPlug(name)
         try:
@@ -2942,17 +3104,20 @@ class Transform(DagNode):
         orient = rotate_axis * rotation.asQuaternion()
         if self._require_mnode().hasFn(om2.MFn.kJoint):
             orient *= self._component_quaternion("jointOrient")
-        base = (
-            Matrix(translate=tuple(-v for v in sp))
-            * Matrix(scale=scale, shear=shear)
-            * Matrix(translate=sp)
-            * Matrix(translate=spt)
-            * Matrix(translate=tuple(-v for v in rp))
-            * Matrix(rotate=orient)
-            * Matrix(translate=rp)
-            * Matrix(translate=rpt)
-            * Matrix(scale=tuple(1.0 / v for v in inv_scale))
-        )
+        # ピボットが0のとき(よくある場合)は、その移動のマトリクス(単位マトリクス)を掛けない。結果は同じ。
+        base = Matrix(scale=scale, shear=shear)
+        if any(sp):
+            base = Matrix(translate=tuple(-v for v in sp)) * base * Matrix(translate=sp)
+        if any(spt):
+            base = base * Matrix(translate=spt)
+        if any(rp):
+            base = base * Matrix(translate=tuple(-v for v in rp)) * Matrix(rotate=orient) * Matrix(translate=rp)
+        else:
+            base = base * Matrix(rotate=orient)
+        if any(rpt):
+            base = base * Matrix(translate=rpt)
+        if any(v != 1.0 for v in inv_scale):
+            base = base * Matrix(scale=tuple(1.0 / v for v in inv_scale))
         assert isinstance(base, Matrix)
         translate = source.translate - base.translate
         return {"translate": Translate(*translate), "rotate": EulerRotate._wrap(rotation), "scale": Scale(*scale), "shear": Shear(*shear)}

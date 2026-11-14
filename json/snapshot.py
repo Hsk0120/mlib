@@ -339,7 +339,7 @@ def _copy_data(value):
         return {key: _copy_data(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_copy_data(item) for item in value]
-    if isinstance(value, (om2.MVector, om2.MQuaternion, om2.MEulerRotation, om2.MMatrix)):
+    if isinstance(value, (om2.MVector, om2.MQuaternion, om2.MEulerRotation, om2.MMatrix, om2.MTransformationMatrix)):
         return type(value)(value)
     return value
 

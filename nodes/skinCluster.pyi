@@ -1549,8 +1549,11 @@ class SkinCluster(GeometryFilter):
     def _set_weight_values_fast(self, values: list[float], width: int, vertex_indices: Sequence[int], logical_indices: list[int]) -> None:
         """全対象ウェイトPlugを検査し、頂点・指定列の順にOpenMayaで生値を書き込む。
 
-        writable/check_rangeを全件に適用してからsetDoubleを始める。MFnSkinCluster.setWeightsは
-        未指定列を再配分し得るため使わない。liwや正規化設定も変更しない。
+        writable/check_rangeを全件に適用してから書き込む。書き込みは
+        ``MFnSkinCluster.setWeights(normalize=False)`` の1回で行い、指定していない列は変えない。
+        normalizeWeightsが1(interactive)のときは、書く間だけ0にして元へ戻す(liwは変えない)。
+        値が0の要素はMayaが削除する(読み取る値は0のまま)。メッシュ以外の形状・同じ頂点や列の重複・登録の無い列は、
+        MPlugへ1値ずつ書き込む。
         事前検査後のAPI書込み失敗は自動で戻さず、Undo設定を変更しない。
 
         Args:
