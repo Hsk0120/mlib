@@ -16,7 +16,7 @@ class NoQtDependencyTest(unittest.TestCase):
         forbidden = ("PySide", "PyQt", "shiboken", "qtpy", "Qt")
         violations = []
         for path in Path(mlib.__file__).parent.rglob("*.py"):
-            if any(part in (".venv", "_build", "_docs", "__tests__", "__pycache__") for part in path.parts):
+            if any(part in (".venv", ".mayapy-site", "_build", "_docs", "__tests__", "__pycache__") for part in path.parts):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
             for node in ast.walk(tree):

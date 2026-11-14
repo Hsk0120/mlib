@@ -4,10 +4,11 @@ __pycache__/
 # Sphinx documentation
 _docs/_build/
 _docs/source/autoapi/
+# Left over from an older checkout, before _tools/setup.bat took over both tools.
 _docs/.venv/
 _docs/.mayapy-site/
 
-# Tools used while writing mlib (ruff)
+# The one environment of the tools used while writing mlib (ruff and Sphinx)
 _tools/.venv/
 _tools/.mayapy-site/
 

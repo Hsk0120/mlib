@@ -51,16 +51,17 @@ print(mlib.ls(type="transform"))
 | `common/` | 選択・名前空間・単位・プラグイン・イベント等 |
 | `json/` | シーンのデータのJSON保存・復元 |
 | `core/` | 共通基底・型の登録・編集の基盤 |
-| `__tests__/` | テスト(手順は [`__tests__/README.md`](__tests__/README.md)) |
-| `_docs/` | Sphinx文書(手順は [`_docs/README.md`](_docs/README.md)) |
-| `_tools/` | 整形(ruff)の入口、型スタブ(`.pyi`)の生成スクリプト、公開名・文書の検査ツール |
+| `__tests__/` | テストの中身(手順は [`__tests__/README.md`](__tests__/README.md)) |
+| `_docs/` | Sphinx文書の中身(手順は [`_docs/README.md`](_docs/README.md)) |
+| `_tools/` | 開発で実行する入口のバッチ(準備・整形と検査・テスト・型スタブ・文書)と、その検査・生成スクリプト |
 | `ruff.toml` | 整形と検査の設定(ruff。行幅160) |
 
 ## 開発
 
 - コードを書くときのルールは [`.github/copilot-instructions.md`](.github/copilot-instructions.md) にまとめています。
-- ゲートを一括で通す: `_tools/verify.bat`(整形とlint → 公開名 → Maya不要のテスト → Maya 2027のテスト。手順は [CONTRIBUTING.md](CONTRIBUTING.md))
-- Maya不要のテストだけ: `__tests__` で `py -3 runNoMaya.py`
-- Mayaでのテスト: `__tests__` で `run.bat --versions 2027 --suite all`
+- 書いた後に流すのは2本。コードは `_tools/format_mlib.bat`、テストは `_tools/test_mlib.bat`(手順は [CONTRIBUTING.md](CONTRIBUTING.md))
+- Maya不要のテストだけ: `_tools/test_mlib.bat --no-maya --no-pause`
+- Mayaでのテスト: `_tools/test_mlib.bat --no-pause --versions 2027 --suite all`(バッチは最後にキー入力を待つ。ターミナルからは `--no-pause`)
+- 文書(任意): `_tools/build_mlib_docs.bat`
 - 型スタブ: docstringの型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat` で作り直し、一緒にコミットします(`py` の Python 3.14〜3.9 を新しい順に探し、無ければ Maya 2027〜2023 の mayapy を使います。最後にキー入力を待つので、ターミナルからは `--no-pause` を付けます)。
-- コードの書式: `_tools/format_mlib.bat` が `ruff format`(空白・空行・改行位置・引用符) → `ruff check --fix`(import順・未使用名・Mayaのimport形式・文字コード・pathlib) → `check_mlib_layout.py --check`(ruffに無い検査) の順に実行します。`--check` を付けると何も変えずに検査します(コミット前の確認用)。ruffは `_tools/setup.bat` で `_tools/.venv` へ入れ(文書の `_docs/setup.bat` と同じ作りで、PCの環境は変えません)、版は固定しています(`ruff.toml` の `required-version` で、別の版は実行を拒否します)。
+- コードの書式: `_tools/format_mlib.bat` が `ruff format`(空白・空行・改行位置・引用符) → `ruff check --fix`(import順・未使用名・Mayaのimport形式・文字コード・pathlib) → `check_mlib_layout.py --check`(ruffに無い検査) → `check_mlib_exports.py`(公開名と明示宣言の一致) の順に実行します。`--check` を付けると何も変えずに検査します(コミット前の確認用)。ruffとSphinxは `_tools/setup.bat` の1本で `_tools/.venv` へまとめて入れ(環境はこの1つだけ。PCの環境は変えません)、版は固定しています(`ruff.toml` の `required-version` で、別の版は実行を拒否します)。

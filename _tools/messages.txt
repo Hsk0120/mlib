@@ -1,0 +1,102 @@
+# _tools のバッチが表示する日本語のメッセージ(UTF-8)。_message.bat が読む。
+#
+# 書式は「キー=表示する行」。同じキーの行は上から順に全部表示する。
+# %名前% はバッチが設定した環境変数の値に置き換わる。# で始まる行と空行は読み飛ばす。
+# バッチ本体へ日本語を書かないのは、cmd がUTF-8のバッチを読み誤ることがあるため。
+# 結果の行は [OK] か [NG] で始める(文字コードに関係なく探せるようにする)。
+
+line=============================================================
+rule=------------------------------------------------------------
+legend=      ([--] は実行していない手順です)
+blank=
+
+# ---- setup.bat ----
+setup.usingPython=Pythonランチャーの Python %MLIB_TOOLS_PY% で環境を作ります。
+setup.usingMayapy=Pythonが見つからないため、次のmayapyを使います。
+setup.usingMayapy=    "%MLIB_TOOLS_MAYAPY%"
+setup.installing=ruff と Sphinx を入れています(初回は数分かかります)...
+setup.noPython= [NG] Pythonが見つかりません。
+setup.noPython=      Pythonランチャー(py)の Python 3.11〜3.14 も、Maya 2027〜2025 のmayapyもありません。
+setup.noPython=      Windows用のPythonをインストールしてから、もう一度実行してください。
+setup.brokenVenv= [NG] 既存の .venv に Scripts\python.exe がありません(壊れています)。
+setup.brokenVenv=      .venv は変更していません。.venv-backup などへ名前を変えてから、もう一度実行してください。
+setup.brokenMayapy= [NG] 既存の .mayapy-site が指すmayapyが見つかりません。
+setup.brokenMayapy=      .mayapy-site は変更していません。削除してから、もう一度実行してください。
+setup.createFailed= [NG] ツール用のPython環境(.venv)を作れませんでした。
+setup.createFailed=      上のメッセージを確認してください。
+setup.installFailed= [NG] ツールのインストールに失敗しました。
+setup.installFailed=      上のpipのメッセージと、ネットワーク接続・プロキシ設定を確認してください。
+setup.verifyFailed= [NG] インストールは終わりましたが、ruff か Sphinx を実行できません。
+setup.verifyFailed=      上のメッセージを確認してください。
+setup.ok= [OK] ツールの準備ができました。
+setup.ok=      次は format_mlib.bat(整形と検査)、test_mlib.bat(テスト)を実行します。
+
+# ---- format_mlib.bat ----
+format.badArgument= [NG] 知らない引数です: %MLIB_MESSAGE_VALUE%
+format.badArgument=      使える引数は --check と --no-pause だけです。
+format.noRuff= [NG] ruff が見つかりません。先に次のバッチを1回実行して入れてください。
+format.noRuff=      "%MLIB_TOOLS_DIR%setup.bat"
+format.step1.fix=
+format.step1.fix==== 1/4 ruff format: 空白・改行・引用符を整形します ===
+format.step2.fix=
+format.step2.fix==== 2/4 ruff check --fix: 直せるものを直し、残りを表示します ===
+format.step1.check=
+format.step1.check==== 1/4 ruff format --check: 整形済みかを調べます(書き換えません) ===
+format.step2.check=
+format.step2.check==== 2/4 ruff check: ルール違反を調べます(書き換えません) ===
+format.step3=
+format.step3==== 3/4 check_mlib_layout: ruffに無い配置・docstringの検査 ===
+format.step4=
+format.step4==== 4/4 check_mlib_exports: 公開名と明示した公開の一致 ===
+format.steps= [%MLIB_FORMAT_STEP_FORMAT%] 1/4 ruff format          整形
+format.steps= [%MLIB_FORMAT_STEP_CHECK%] 2/4 ruff check           ルールの検査
+format.steps= [%MLIB_FORMAT_STEP_LAYOUT%] 3/4 check_mlib_layout    配置・docstringの検査
+format.steps= [%MLIB_FORMAT_STEP_EXPORTS%] 4/4 check_mlib_exports   公開名の検査
+format.ok= [OK] 整形と検査はすべて通りました。
+format.ng= [NG] 問題が残っています。[NG] の手順の出力を上で確認してください。
+format.notRun= [NG] 実行できませんでした。上のメッセージを確認してください。
+
+# ---- test_mlib.bat ----
+test.step1==== 1/2 Maya不要のテスト(noMaya/) ===
+test.step2=
+test.step2==== 2/2 Mayaのテスト(inMaya/) ===
+test.skipMaya=
+test.skipMaya==== 2/2 Mayaのテスト: --no-maya の指定により実行しません ===
+test.noMayapy= [NG] mayapy が見つかりません。
+test.noMayapy=      使うmayapyのパスを環境変数 MLIB_TEST_PYTHON に設定してください。
+test.steps= [%MLIB_TEST_STEP_NOMAYA%] 1/2 Maya不要のテスト(noMaya/)
+test.steps= [%MLIB_TEST_STEP_MAYA%] 2/2 Mayaのテスト(inMaya/)
+test.ok= [OK] テストはすべて成功しました。
+test.ng.noMaya= [NG] Maya不要のテストが失敗しました(Mayaのテストは実行していません)。
+test.ng.noMaya=      上の出力で FAIL / ERROR の行を確認してください。
+test.ng.maya= [NG] Mayaのテストが失敗しました(終了コード %MLIB_TEST_RESULT%)。
+test.ng.maya=      失敗したファイルは上の表の Failed files、詳しい内容は「詳細ログ:」のパスで確認してください。
+test.ng.maya=      指定した版のMayaが入っていない場合(missing)も失敗になります。
+test.notRun= [NG] 実行できませんでした。上のメッセージを確認してください。
+
+# ---- generate_mlib_stubs.bat ----
+stubs.usingMayapy=Pythonが見つからないため、次のmayapyを使います。
+stubs.usingMayapy=    "%MLIB_STUBS_MAYAPY%"
+stubs.noPython= [NG] Pythonが見つかりません。
+stubs.noPython=      Pythonランチャー(py)の Python 3.9〜3.14 も、Maya 2027〜2023 のmayapyもありません。
+stubs.ok= [OK] 型スタブ(.pyi)を作り直しました。
+stubs.ok=      変わった .pyi は、元の .py と一緒にコミットしてください。
+stubs.ng= [NG] 型スタブの生成に失敗しました(終了コード %MLIB_STUBS_RESULT%)。
+stubs.ng=      上の出力を確認してください。
+stubs.check.ok= [OK] 型スタブ(.pyi)は最新です。
+stubs.check.ng= [NG] 型スタブ(.pyi)が古いか、検査に失敗しました(終了コード %MLIB_STUBS_RESULT%)。
+stubs.check.ng=      generate_mlib_stubs.bat を --check なしで実行して作り直してください。
+
+# ---- build_mlib_docs.bat ----
+docs.noEnvironment= [NG] ツール用のPython環境が見つかりません。
+docs.noEnvironment=      先に次のバッチを1回実行してください(詳しくは CONTRIBUTING.md)。
+docs.noEnvironment=      "%MLIB_TOOLS_DIR%setup.bat"
+docs.cannotClean= [NG] 前回の出力を削除できませんでした。
+docs.cannotClean=      "%MLIB_DOCS_OUTPUT%"
+docs.cannotClean=      このフォルダーのファイルを開いているプログラム(ブラウザ等)を閉じて、もう一度実行してください。
+docs.building=Sphinxで文書を作っています(1〜2分かかります)...
+docs.ng= [NG] 文書のビルドに失敗しました(終了コード %MLIB_DOCS_RESULT%)。
+docs.ng=      上の WARNING / ERROR の行を確認してください(警告も失敗として扱います)。
+docs.ok= [OK] 文書のビルドに成功しました。
+docs.ok=      次のファイルをブラウザで開いて確認します。
+docs.ok=      "%MLIB_DOCS_OUTPUT%\index.html"

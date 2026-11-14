@@ -15,7 +15,7 @@ class PackageNameTest(unittest.TestCase):
     def test_no_absolute_package_imports(self):
         root = Path(__file__).resolve().parents[4]
         for path in root.rglob("*.py"):
-            if any(part in {"_docs", "__tests__", "__pycache__"} for part in path.parts):
+            if any(part in {"_docs", "__tests__", "__pycache__", ".venv", ".mayapy-site"} for part in path.parts):
                 continue
             for node in ast.walk(ast.parse(path.read_text(encoding="utf8"))):
                 names = []

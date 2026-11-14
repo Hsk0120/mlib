@@ -25,7 +25,7 @@ class CanonicalGettersTest(unittest.TestCase):
         """製品と拡張に取得専用の重複defを残さない。"""
         root = Path(mlib.__file__).parent
         for path in root.rglob("*.py"):
-            if any(p in ("__tests__", "_docs") for p in path.parts):
+            if any(p in ("__tests__", "_docs", "_tools") for p in path.parts):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
             for node in ast.walk(tree):

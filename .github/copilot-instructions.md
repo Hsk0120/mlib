@@ -234,7 +234,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   毎回所属パッケージから返す(推奨の書き方)。ルートへ import して保持しない。名前が重なればルート→nodes→plugs→components→maths→common→生成クラスの順。
   定数・関数・`Object` は対象外。ルートの `__all__` は `_names + sorted(_classes)`。
 - コマンドの追加は `cmds/__init__.py` とルート `__init__.py` の両方の import と `__all__`(`_names`)へ足す。
-- 追加・削除後は `_tools/check_mlib_exports.py`(`_tools/verify.bat` に含まれる)を通す。
+- 追加・削除後は `_tools/check_mlib_exports.py`(`_tools/format_mlib.bat` に含まれる)を通す。
 - `mlib.reload()` は依存順に再読み込みする。reload 後は保持中の Node/Plug・クラス・生成クラスを取り直す。改名・移動は reload 後も廃止名が残らないことを確かめる。
 
 ### 動的クラス
@@ -382,7 +382,8 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   選ぶルールと除外の理由は `ruff.toml` に1行ずつ書く。別の版の ruff は `required-version` で拒否し、preview のルールは
   `explicit-preview-rules` でコードを明示したものだけ有効にする。日本語の文中でも括弧は半角 `()` で書く(`RUF001`〜`003`)。
   `--check` は何も変えずに検査するので、コミット前と workflow で使う。ターミナルからは `--no-pause` を付ける。
-  ruff の導入は `_tools/setup.bat`(`_tools/.venv` へ入れる。`_docs/setup.bat` と同じ作り)。版は `_tools/requirements-dev.txt` で固定する。
+  導入は `_tools/setup.bat` 1本で、`_tools/.venv` へ ruff と Sphinx をまとめて入れる(環境はこの1つだけ。
+  Sphinx 8.2 の都合で Python 3.11 以上、mayapy 代替は Maya 2027〜2025)。ruff の版は `_tools/requirements-dev.txt` で固定する。
 - `check_mlib_layout.py --check` に残る検査は、定数・`__all__`・`if TYPE_CHECKING:` の位置(L004〜L006)・
   クラス内メンバー順と対になる操作の隣接(L020〜L023)・公開入口の入力 assert(L040)・列挙(L041 は確認候補)・
   内部名と function set の取得・関数内 import の理由コメント(L050〜L052)・例外の文言と Undo チャンク名・
@@ -425,9 +426,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## 型スタブ(.pyi)
 
-- 型スタブと Sphinx は任意の工程で、ゲート(`_tools/verify.bat`)の後に行う。ゲートはスタブと Sphinx を
+- 型スタブと Sphinx は任意の工程で、2本のバッチ(`_tools/format_mlib.bat` と `_tools/test_mlib.bat`)の後に行う。どちらもスタブと Sphinx を
   検査しないので、スタブの鮮度は `--check`、注釈にできなかった型は `--report`、Sphinx の参照切れは
-  `rebuild.bat` の `-n -W` で確かめる。書いた後に流す順番の正本は `CONTRIBUTING.md`。
+  `_tools/build_mlib_docs.bat` の `-n -W` で確かめる。書いた後に流す順番の正本は `CONTRIBUTING.md`。
 
 - 公開 API の型は docstring にしか無いので、`_tools/generate_mlib_stubs.py`(`.bat`)が docstring から各 `.py` の隣に `.pyi` を生成する。
 - `.pyi` は手で編集しない。docstring の型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat`(`py -3 _tools/generate_mlib_stubs.py`)で作り直し、`.py` と一緒にコミットする
@@ -437,13 +438,16 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## テスト
 
-- pytest は使わない。Maya のテストは mayapy 経由で実行する。すべて `__tests__` フォルダから実行する。
-  - ゲートは `_tools/verify.bat` 1つで通す(整形と lint → 公開名の一致 → `runNoMaya.py` → `run.bat`。
-    `--check` は書き換えず検査だけ、`--no-maya` は前半3つだけ)。公開名の追加・削除、レイアウト変更の後は必ず通す。
-  - Maya 不要のテストだけ: `py -3 runNoMaya.py`(`noMaya/test_*.py`)。リントは `verify.bat` が持つので含まない。
-  - Maya: `.\run.bat --versions 2027 --suite all`(`py -3 runMaya.py ...` も同じ)。`--suite unit|integration|all`、
-    `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `_output/`(Git 対象外)。
-  - GUI 限定の確認: `py -3 runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI)。
+- pytest は使わない。Maya のテストは mayapy 経由で実行する。入口のバッチはすべて `_tools/` に置き(`setup.bat`・`format_mlib.bat`・
+  `test_mlib.bat`・`generate_mlib_stubs.bat`・`build_mlib_docs.bat`)、`__tests__/`・`_docs/` には中身だけを置く。
+  - 流れは2本。コードは `_tools/format_mlib.bat`(整形 → ruff → レイアウト → 公開名の一致。`--check` は書き換えない)、
+    テストは `_tools/test_mlib.bat`(`noMaya/` → `inMaya/`。`--no-maya` で前半だけ)。入口のバッチは5本とも、最後に結果を日本語で表示して(最後の行が `[OK]` か `[NG]`。`format_mlib.bat`・`test_mlib.bat` は手順ごとの `[OK]`・`[NG]`・`[--]` も並べる)キー入力を待つので、ターミナル・スクリプトからは `--no-pause` を付ける。バッチ本体はASCIIだけで書き、表示する日本語は `_tools/messages.txt`(UTF-8。`キー=表示する行`、`%名前%` は環境変数)へ置いて `_tools/_message.bat` で表示する(cmd がUTF-8のバッチを GOTO の後で読み誤るため。`chcp` でコードページも変えない)。公開名の追加・削除、レイアウト変更の後は必ず通す。
+  - Maya 不要のテストだけ: `_tools/test_mlib.bat --no-maya --no-pause`(`py -3 __tests__/runNoMaya.py` も同じ。`noMaya/test_*.py`)。リントは `format_mlib.bat` が持つので含まない。
+  - Maya: `_tools/test_mlib.bat --no-pause --versions 2027 --suite all`(`py -3 __tests__/runMaya.py ...` は `inMaya/` だけを実行する)。`--suite unit|integration|all`、
+    `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `__tests__/_output/`(Git 対象外)。
+    `--versions` を省いたときの既定は Maya 2025 の1版だけ(`runMaya.py` の `DEFAULT_VERSIONS`。1回のテストが重くなりすぎないようにする)。対応する全版を確かめるときは年を並べて指定する。
+  - GUI 限定の確認: `py -3 __tests__/runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI。`--versions` の既定は `runMaya.py` と同じ1版)。
+  - ruff に無い検査を個別に使うときは `py -3 _tools/check_mlib_layout.py --check`(`--fix`・`--fix-asserts`・`--template-docstrings`・`--outline` も同じ入口。専用のバッチは置かない)。
 - Windows でコマンドを書くときは `python` でなく `py -3`(Python ランチャー)を使う。`python` は Microsoft Store を開くだけの
   ものが先に見つかることがある。バッチは `py -3.14` から新しい順に探し、3.15 以降は使わない(Sphinx の依存の PyYAML をpipが
   ビルド済みで取得できず止まるため)。GitHub Actions の `python` はそのままでよい。
@@ -467,7 +471,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## Sphinx 文書(_docs)
 
-- 初回は `_docs/setup.bat`、ビルドは `_docs/rebuild.bat --no-pause`(`_build/html/` に出力。生成物の `source/autoapi/`・`_build/` は編集しない)。
+- 初回は `_tools/setup.bat`(ruff と共通)、ビルドは `_tools/build_mlib_docs.bat --no-pause`(`_docs/_build/html/` に出力。生成物の `source/autoapi/`・`_build/` は編集しない)。
 - 検査は `_tools/check_mlib_docs.py --check-directory ..\_docs\_build\html` と `check_mlib_doc_getter_names.py`(文書用の Python で実行)。
 - API の本文は docstring から AutoAPI が作る。説明を直すときは docstring か `source/` の元の RST を編集する。
 - 公開文書には実装済み機能の仕様・使い方だけを書く。検討中の案・経緯・調査メモ・変更履歴は載せない。

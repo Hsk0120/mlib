@@ -1,6 +1,6 @@
 """inMaya/unit/・inMaya/integration/ の test_*.py(サブフォルダーを含む)を実行し、件数・失敗・skipと詳細ログをまとめる。
 
-通常はrun.bat/runMaya.pyから隔離したmayapyで実行する。
+通常は_tools/test_mlib.bat(runMaya.py)から隔離したmayapyで実行する。
 テストはシーンを初期化することがあるため、作業中のMaya GUIへ送信しない。
 Maya不要のテスト(noMaya/)はrunNoMaya.py、外部パッケージとの連携は利用側で実行する。
 """

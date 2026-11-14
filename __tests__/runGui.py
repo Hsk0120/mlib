@@ -19,7 +19,7 @@ import time
 import traceback
 from pathlib import Path
 
-from runMaya import TESTS_DIR, VERSIONS, _print_failure_details, isolated_environment, maya_executable, write_json
+from runMaya import DEFAULT_VERSIONS, TESTS_DIR, VERSIONS, _print_failure_details, isolated_environment, maya_executable, write_json
 
 #: スイート名と (Maya内で実行するファイル, 追加の環境変数)。
 SUITES = {
@@ -182,7 +182,7 @@ def combine(version, results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(VERSIONS))
+    parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(DEFAULT_VERSIONS), help="既定: " + " ".join(DEFAULT_VERSIONS))
     parser.add_argument("--suite", choices=("all",) + tuple(SUITES), default="all", help="実行するスイート(既定: all)")
     parser.add_argument("--install-root", type=Path, default=Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Autodesk")
     parser.add_argument("--timeout", type=int, default=600, help="起動・テストの各段階の制限秒数")

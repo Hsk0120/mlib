@@ -14,6 +14,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TESTS_DIR = Path(__file__).resolve().parent
 VERSIONS = tuple(str(year) for year in range(2022, 2028))
+#: --versions を省いたときに実行する版。1回のテストが重くなりすぎないよう1つだけにする。
+DEFAULT_VERSIONS = ("2025",)
 
 
 def write_json(path, value):
@@ -172,7 +174,7 @@ def run_version(version, executable, directory, timeout, suite_file=None, select
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(VERSIONS))
+    parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(DEFAULT_VERSIONS), help="既定: " + " ".join(DEFAULT_VERSIONS))
     parser.add_argument("--install-root", type=Path, default=Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Autodesk")
     parser.add_argument("--output", type=Path, default=TESTS_DIR / "_output/maya")
     parser.add_argument("--timeout", type=int, default=600, help="1バージョンの制限秒数")

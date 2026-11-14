@@ -93,7 +93,8 @@ def _canonical_definitions(package_root):
     definitions, forbidden = set(), set()
     for path in sorted(package_root.rglob("*.py")):
         relative = path.relative_to(package_root)
-        if any(part in {"__tests__", "_docs", "cmds"} for part in relative.parts):
+        # AutoAPIが載せないフォルダー(_tools はツールの環境 .venv も含む)は対象にしない。
+        if any(part in {"__tests__", "_docs", "_tools", "cmds"} for part in relative.parts):
             continue
         if path.stem.startswith("_"):
             continue

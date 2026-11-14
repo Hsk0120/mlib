@@ -20,7 +20,7 @@ def _predicate_definitions():
     """製品の正式判定を、Mayaを追加評価せずソースから列挙する。"""
     root = Path(mlib.__file__).resolve().parent
     for path in sorted(root.rglob("*.py")):
-        if any(part in {"__tests__", "_docs"} for part in path.parts):
+        if any(part in {"__tests__", "_docs", "_tools"} for part in path.parts):
             continue
         module = "mlib." + ".".join(path.relative_to(root).with_suffix("").parts)
         for statement in ast.parse(path.read_text(encoding="utf-8-sig")).body:

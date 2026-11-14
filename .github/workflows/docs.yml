@@ -3,7 +3,7 @@ name: Publish documentation
 # This is the only workflow, because publishing to GitHub Pages is the only step
 # that cannot be done from a local batch without committing the built HTML.
 # Formatting, linting and the tests are gates of the developer's own machine
-# (_tools/verify.bat). See CONTRIBUTING.md.
+# (_tools/format_mlib.bat and _tools/test_mlib.bat). See CONTRIBUTING.md.
 
 on:
   push:

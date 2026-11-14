@@ -1,7 +1,7 @@
 """Mayaを起動せず、``noMaya/`` のテストを実行する。
 
 リント(``_tools/check_mlib_exports.py``・``_tools/check_mlib_layout.py --check``)は
-``_tools/verify.bat`` が実行する。同じ検査を2経路で持たないため、ここでは行わない。
+``_tools/format_mlib.bat`` が実行する。同じ検査を2経路で持たないため、ここでは行わない。
 """
 
 import sys

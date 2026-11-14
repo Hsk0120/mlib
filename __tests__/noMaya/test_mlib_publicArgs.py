@@ -66,7 +66,7 @@ def _iter_source_files():
     """検査対象のPythonファイルを(相対パス, Path)で返す。"""
     for package in _PACKAGES:
         for directory, subdirectories, files in os.walk(str(_PACKAGE_PARENT / package)):
-            # 文書のビルド環境(_docs/.venv)等を走査しないよう、除外フォルダーへ降りない。
+            # ツールの環境(_tools/.venv)等を走査しないよう、除外フォルダーへ降りない。
             subdirectories[:] = sorted(name for name in subdirectories if name not in _SKIPPED_DIRECTORIES and not name.startswith("."))
             for filename in sorted(files):
                 if filename.endswith(".py"):

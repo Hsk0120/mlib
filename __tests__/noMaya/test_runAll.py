@@ -113,8 +113,7 @@ class FileNamingTest(unittest.TestCase):
     def test_integration_files_start_with_a_view(self):
         integration = self.tests / "inMaya/integration"
         self.assertFalse(
-            [path for path in integration.iterdir() if path.is_dir() and not path.name.startswith("__")],
-            "inMaya/integration/ にはフォルダーを作らない",
+            [path for path in integration.iterdir() if path.is_dir() and not path.name.startswith("__")], "inMaya/integration/ にはフォルダーを作らない"
         )
         for path in sorted(integration.glob("*.py")):
             with self.subTest(path=path.name):

@@ -3,29 +3,31 @@
 mlib本体とこのフォルダだけで実行できます。
 外部ライブラリ・mlibを使う側のパッケージ・mlib拡張は、本体テストの必須依存に含めません。
 
-書いた後に流す順番は[../CONTRIBUTING.md](../CONTRIBUTING.md)を正とします。ゲートは1つの入口で通せます。
+書いた後に流す順番は[../CONTRIBUTING.md](../CONTRIBUTING.md)を正とします。バッチは2本です。
 
 ```powershell
-..\_tools\verify.bat --no-pause
+..\_tools\format_mlib.bat --no-pause
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite all
 ```
 
-`verify.bat`は 整形とlint → 公開名の一致 → `runNoMaya.py` → `run.bat`(Maya 2027)を順に実行し、
-最初に失敗した工程で止まります。`--check`は書き換えずに検査だけ、`--no-maya`は前半3つだけを実行します。
-型スタブ(`..\_tools\generate_mlib_stubs.bat`)とSphinx(`..\_docs\rebuild.bat`)はその後の任意の工程で、
-ゲートはどちらも検査しません。
+1本目がコードの静的解析と修正(整形・ruff・レイアウト・公開名の一致)、2本目がテストです。
+`test_mlib.bat`は`noMaya/`を先に実行し、通ったら`inMaya/`をmayapyで実行します。`--no-maya`で前半だけ、
+`format_mlib.bat --check`で書き換えずに検査だけ行います。
+型スタブ(`..\_tools\generate_mlib_stubs.bat`)とSphinx(`..\_tools\build_mlib_docs.bat`)はその後の任意の工程で、
+どちらの検査もこの2本には含まれません。入口のバッチはすべて`..\_tools\`にあり、このフォルダーにはテストの中身と
+ランナー(`run*.py`)だけを置きます。
 
 ## フォルダ
 
 ```text
 __tests__/
 ├─ README.md          この手順
-├─ run.bat            Maya版テストのWindows用入口
 ├─ runMaya.py         mayapyで単体・結合テストを実行
 ├─ runNoMaya.py       Maya不要のテストを実行
 ├─ runGui.py          専用Maya GUIで単体・結合・表示を確認
 ├─ runAll.py          テスト探索・実行・ログ集計
 ├─ noMaya/           Mayaを起動せずに動くテスト(runNoMaya.py)
-├─ inMaya/           mayapyで動くテスト(run.bat・runMaya.py)
+├─ inMaya/           mayapyで動くテスト(runMaya.py)
 │  ├─ unit/          1つのモジュールを確かめるテスト。ソースと同じパッケージ名のフォルダーに分ける
 │  │  ├─ cmds/ nodes/ plugs/ components/ maths/ common/ core/ json/
 │  │  └─ root/       mlib直下のモジュール(decorator.py・util.py・logger.py・__init__.py 等)
@@ -34,13 +36,13 @@ __tests__/
 └─ _output/          結果・ログ・専用Maya設定（Git対象外）
 ```
 
-公開名・コード配置・生成文書の検査ツールは mlib の `_tools/` にあります。
+テストの入口(`test_mlib.bat`)と、公開名・コード配置・生成文書の検査ツールは mlib の `_tools/` にあります。
 単体テストでもOpenMayaやシーンを使うものはMayaが必要です。
 
 ## 準備
 
 - Maya版: 検証対象のMayaと、その実行に必要なライセンスを用意します。GUIの事前起動は不要です。
-- 静的検査: 通常のPython 3.11以上を使います。`_docs/.venv`のPythonでも実行できます。
+- 静的検査: 通常のPython 3.11以上を使います。`_tools/setup.bat`が作る`_tools/.venv`のPythonでも実行できます。
 - 以下のコマンドは**この`__tests__`フォルダ**から実行します。Mayaのテスト環境はランナーが用意します。
 
 ## 単体・結合を分けて実行
@@ -48,33 +50,36 @@ __tests__/
 PowerShellで実行します。
 
 ```powershell
-# Maya不要のテスト(リントは ..\_tools\verify.bat が持つ)
+# Maya不要のテストだけ(リントは ..\_tools\format_mlib.bat が持つ)
+..\_tools\test_mlib.bat --no-pause --no-maya
 py -3 .\runNoMaya.py
 
 # Mayaのインストール状況を確認するだけ
-.\run.bat --list
+py -3 .\runMaya.py --list
 
 # 個々のAPIの単体テスト
-.\run.bat --versions 2027 --suite unit
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite unit
 
 # 複数のmlib機能を組み合わせる結合テスト
-.\run.bat --versions 2027 --suite integration
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite integration
 
 # 両方を実行（--suite省略時もall）
-.\run.bat --versions 2027 --suite all
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite all
 
 # 対象ファイルだけ実行。指定ミスは失敗として報告する
-.\run.bat --versions 2027 --tests test_joint.py
+..\_tools\test_mlib.bat --no-pause --versions 2027 --tests test_joint.py
 # 同じ名前のファイルが別のフォルダーにあるときは、フォルダー付きで絞る
-.\run.bat --versions 2027 --tests json/test_file.py
+..\_tools\test_mlib.bat --no-pause --versions 2027 --tests json/test_file.py
 
 # 複数バージョンで同じテストを実行
-.\run.bat --versions 2022 2027 --suite all
+..\_tools\test_mlib.bat --no-pause --versions 2022 2027 --suite all
 ```
 
-`run.bat`は検出したmayapyを制御用Pythonに使い、実テストには各版のmayapyを使います。
-通常Pythonからは`py -3 .\runMaya.py --versions 2027 --suite unit`でも実行できます。
-引数を付けず`run.bat`を実行すると、2022〜2027の全版を対象にします。
+`test_mlib.bat`は毎回`noMaya/`を先に実行し、その後に検出したmayapyを制御用Pythonに使って`runMaya.py`を呼びます。
+実テストには各版のmayapyを使います。ダブルクリックで実行したときに結果を読めるよう最後にキー入力を待つので、ターミナルからは`--no-pause`を付けます。
+`inMaya/`だけを実行するときは、通常Pythonから`py -3 .\runMaya.py --versions 2027 --suite unit`を使います。
+`--versions`を付けずに実行すると、Maya 2025だけを対象にします(1回のテストが重くならないよう既定は1版です。
+対応する2022〜2027すべてを確かめるときは`--versions 2022 2023 2024 2025 2026 2027`を指定します)。
 未インストールは`missing`と記録します。`--allow-missing`はこの状態による終了コードだけを抑制します。
 
 Mayaが標準配置にない場合は、`--install-root D:\Autodesk`、または
@@ -95,10 +100,10 @@ Mayaが標準配置にない場合は、`--install-root D:\Autodesk`、または
 
 ```powershell
 # 基本操作の単体テストだけ
-.\run.bat --versions 2027 --suite unit --tests cmds/test_delete.py test_plug_basics.py nodes/test_transform.py
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite unit --tests cmds/test_delete.py test_plug_basics.py nodes/test_transform.py
 
 # 基本操作を組み合わせる結合テストだけ
-.\run.bat --versions 2027 --suite integration --tests test_workflow_scene.py
+..\_tools\test_mlib.bat --no-pause --versions 2027 --suite integration --tests test_workflow_scene.py
 ```
 
 これは既存テストを補う重点確認です。全体の回帰確認には`--suite all`を使います。
@@ -115,6 +120,7 @@ py -3 .\runGui.py --versions 2027 --suite visual
 
 `unit`・`integration`は同名フォルダのテスト、`visual`は実パネルへの適用と画像保存です。
 `--suite all`では3つを別々の専用GUIで実行します。
+`--versions`の既定は`runMaya.py`と同じMaya 2025の1版だけです。
 各GUIは専用設定を使い、ランナーが起動したMayaだけを終了します。
 自動判定と、保存画像の目視確認は別の結果です。
 
@@ -200,9 +206,9 @@ previewのルールは`explicit-preview-rules`でコードを明示したもの�
 設定は`ruff.toml`(行幅160)、ruffの版は`_tools/requirements-dev.txt`で固定しています。
 `logger.py`・`decorator.py`はフレームのファイル名を`os.path.normcase`で大小を無視して比べるため`PTH`の対象外で、
 テストはパスをMayaのコマンドへ文字列で渡すため`PTH`と`B023`(ループ内で作って同じ周回で呼び切る関数)の対象外です。
-`setup.bat`は`_tools/.venv`を作ってそこへruffを入れます(Sphinxの`_docs/setup.bat`と同じ作りで、`py -3.14`〜`py -3.9`を新しい順に探し、Pythonが無ければMaya 2027〜2023のmayapyで`_tools/.mayapy-site`へ入れます)。
+`setup.bat`は`_tools/.venv`を作り、ruffとSphinxを**まとめて**入れます(環境はこの1つだけです)。`py -3.14`〜`py -3.11`を新しい順に探し、Pythonが無ければMaya 2027〜2025のmayapyで`_tools/.mayapy-site`へ入れます(Sphinx 8.2がPython 3.11以上を必要とするため、ruff単体より範囲が狭くなります)。
 既存の`.venv`は再利用します。壊れたときは`.venv`を`.venv-backup`へ名前変更してから`setup.bat`を実行し直してください。
-`format_mlib.bat`と`check_mlib_layout.bat`はこの`.venv`を優先して使い、無ければPATHのruffや`py`のPythonを探します。
+`format_mlib.bat`はこの`.venv`を優先して使い、無ければPATHのruffや`py`のPythonを探します。
 `.pyi`(生成物)・`_docs`・`*.md`は対象外です。
 
 以下は、ruffが扱わない検査(定数・`__all__`・`if TYPE_CHECKING:`の位置、クラス内メンバー順、公開入口の入力assert、列挙、
@@ -216,28 +222,18 @@ Python 3.7で動く書き方とpropertyのgetter)を
 # 本体全体、または指定ファイルを検査する
 py -3 ..\_tools\check_mlib_layout.py --check
 py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
-```
-
-Windowsでは`_tools\check_mlib_layout.bat`でも同じ検査と修正ができます。ダブルクリックすると本体全体を検査し、
-最後にキー入力を待ちます(ターミナルや他のスクリプトからは`--no-pause`を付けます)。
-`py`のPython 3.14〜3.9を新しい順に探し、無ければMaya 2027〜2023のmayapyを使います。
-
-```powershell
-# 本体全体、または指定ファイルを検査する(--checkは省ける)
-..\_tools\check_mlib_layout.bat --no-pause
-..\_tools\check_mlib_layout.bat ..\nodes\node.py --no-pause
 # クラス内メンバーの順を直してから、残った違反を表示する(その後に`format_mlib.bat`で整形する)
-..\_tools\check_mlib_layout.bat --fix --no-pause
-..\_tools\check_mlib_layout.bat --fix ..\nodes\node.py --no-pause
+py -3 ..\_tools\check_mlib_layout.py --fix
+py -3 ..\_tools\check_mlib_layout.py --fix ..\nodes\node.py
 ```
 
-`--fix-asserts`・`--outline`等のほかの引数は、そのまま`check_mlib_layout.py`へ渡します。
+このスクリプトは標準ライブラリだけで動くので、専用のバッチは置いていません(`py`のPython 3.9以降、またはmayapyで実行します)。
 
 違反があればファイル・行番号・検査コード・内容を表示し、終了コード1を返します。
 `L004`は定数、`L005`は文字列の並びの`__all__`(他の名前から組み立てる`__all__`は定義の後ろでもよい)、`L006`は`if TYPE_CHECKING:`の位置、
 `L020`〜`L022`はクラス内メンバーの順と対になる操作の隣接、`L023`はその並び検査をスキップしたクラスです。
 `--fix`が直すのはクラス内メンバーの順だけで、並べ替えた後の空行は`ruff format`が直します。
-`..\_tools\verify.bat`からも同じ検査を実行します(`runNoMaya.py`はテストだけを実行します)。
+`..\_tools\format_mlib.bat`からも同じ検査を実行します(`runNoMaya.py`はテストだけを実行します)。
 
 `L040`は公開入口の冒頭にある入力検証のassertを報告し、`L041`（単純な列挙）は確認候補の情報表示です。
 これらはコードの意図を完全には判別しません。テスト・内部整合性のassertや添字更新は一律に変更しません。
@@ -273,8 +269,8 @@ py -3 ..\_tools\check_mlib_layout.py --template-docstrings ..\nodes\joint.py
 この検査も任意の工程で、静的解析とMayaのテストには含まれません。
 
 ```powershell
-..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_docs.py --check-directory ..\_docs\_build\html
-..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_doc_getter_names.py ..\_docs\_build\html
+..\_tools\.venv\Scripts\python.exe ..\_tools\check_mlib_docs.py --check-directory ..\_docs\_build\html
+..\_tools\.venv\Scripts\python.exe ..\_tools\check_mlib_doc_getter_names.py ..\_docs\_build\html
 ```
 
 ブラウザ自動確認を使う場合だけ`_docs/browser-requirements.txt`からPlaywrightを入れ、
