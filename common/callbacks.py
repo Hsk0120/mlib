@@ -1,4 +1,4 @@
-"""OpenMayaのメッセージコールバックを所有者単位でまとめて登録・解除する。"""
+"""OpenMayaのメッセージコールバックを、持ち主ごとにまとめて登録・解除する。"""
 
 import maya.api.OpenMaya as om2
 
@@ -47,11 +47,13 @@ _SCENE_EVENTS = (
 
 
 class Callbacks:
-    """複数のOpenMayaコールバックを所有者単位で管理する。GC時には自動解除しない。
+    """複数のOpenMayaコールバックを、持ち主ごとにまとめて管理する。
 
-    登録したコールバックはMayaが保持するため、このオブジェクトを捨てても解除されない。
-    :meth:`remove` を呼ぶか、``with Callbacks() as cb:`` で使う。登録した関数の中の例外は
-    警告として通知して握りつぶし、Mayaへ伝えない。バッチ(mayapy)でも登録できる。
+    登録したコールバックはMayaが持っているため、このオブジェクトを捨てても解除されない
+    (ガベージコレクションでも自動では解除しない)。:meth:`remove` を呼ぶか、
+    ``with Callbacks() as cb:`` の形で使う。
+    登録した関数の中で起きた例外は、警告として知らせるだけで、Mayaへは伝えない。
+    バッチ(mayapy)でも登録できる。
 
     .. code-block:: python
 
@@ -64,12 +66,12 @@ class Callbacks:
     """
 
     def __init__(self):
-        """登録を伴わない空のグループを作る。"""
+        """何も登録していない空のグループを作る。"""
         self._ids = []
         self._context_active = False
 
     def __enter__(self):
-        """``with`` の開始。登録はしない。
+        """``with`` を始める。ここでは何も登録しない。
 
         Returns:
             Callbacks: 自身。
@@ -78,23 +80,23 @@ class Callbacks:
             RuntimeError: 同じインスタンスで入れ子にした場合。
         """
         if self._context_active:
-            raise RuntimeError("Callbacks cannot be nested on the same instance")
+            raise RuntimeError("同じインスタンスでCallbacksを入れ子にはできません")
         self._context_active = True
         return self
 
     def __exit__(self, *excInfo):
-        """``with`` の終了時に、このグループが持つコールバックをすべて解除する。
+        """``with`` を抜けるときに、このグループが持つコールバックをすべて解除する。
 
-        本文が失敗した場合は、解除時の例外で本文の例外を置き換えない。
+        本文で例外が起きた場合は、解除で起きた例外で本文の例外を置き換えない。
 
         Args:
-            *excInfo (object): 本文の例外型・例外・トレースバック(正常終了ならすべてNone)。
+            *excInfo (object): 本文の例外の型・例外・トレースバック(正常に終わったならすべてNone)。
 
         Returns:
-            bool: 常にFalse(本文の例外は再送出する)。
+            bool: 常にFalse(本文の例外はそのまま送出し直す)。
 
         Raises:
-            RuntimeError: 本文が正常終了し、解除が失敗した場合。
+            RuntimeError: 本文は正常に終わったが、解除に失敗した場合。
         """
         try:
             self.remove()
@@ -109,68 +111,69 @@ class Callbacks:
         """シーンのイベント(``om2.MSceneMessage``)のコールバックを登録する。
 
         Args:
-            event (str): イベント名。``"afterOpen"``・``"beforeSave"``・``"afterNew"`` のように
-                ``MSceneMessage.k*`` の ``k`` を除いたlowerCamelCase。Check系とPluginLoad系は扱わない。
+            event (str): イベント名。``"afterOpen"``・``"beforeSave"``・``"afterNew"`` のように、
+                ``MSceneMessage.k*`` から ``k`` を除いたlowerCamelCaseで書く。Check系とPluginLoad系は扱わない。
             function (Callable): 引数なしで呼ぶ処理。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventが文字列でない、またはfunctionが呼び出せない場合。
-            ValueError: 未知のイベント名、またはこのMayaに無いイベントの場合。
+            TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
+            ValueError: 知らないイベント名の場合、またはこの版のMayaに無いイベントの場合。
         """
         if not isinstance(event, str):
-            raise TypeError("event must be a str")
+            raise TypeError("eventはstrで指定してください")
         _require_callable(function)
         message = None
         if event in _SCENE_EVENTS:
             message = getattr(om2.MSceneMessage, "k" + event[:1].upper() + event[1:], None)
         if message is None:
-            raise ValueError(f"Unknown scene event: {event!r}")
+            raise ValueError(f"知らないシーンイベントです: {event!r}")
         return self._register(om2.MSceneMessage.addCallback(message, _guarded(function, event)))
 
     def addEventCallback(self, eventName, function):
         """Mayaのイベント(``om2.MEventMessage``)のコールバックを登録する。
 
         Args:
-            eventName (str): Mayaのイベント名そのまま(``"timeChanged"``・``"SelectionChanged"`` 等。
-                ``cmds.scriptJob(listEvents=True)`` と同じ一覧。大文字小文字を区別する)。
+            eventName (str): Mayaのイベント名をそのまま書く(``"timeChanged"``・``"SelectionChanged"`` など)。
+                ``cmds.scriptJob(listEvents=True)`` と同じ一覧にある名前で、大文字と小文字を区別する。
             function (Callable): 引数なしで呼ぶ処理。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventNameが文字列でない、またはfunctionが呼び出せない場合。
+            TypeError: eventNameが文字列でない場合、またはfunctionが呼び出せない場合。
             ValueError: Mayaに無いイベント名の場合。
         """
         if not isinstance(eventName, str):
-            raise TypeError("eventName must be a str")
+            raise TypeError("eventNameはstrで指定してください")
         _require_callable(function)
         # scriptJob(listEvents=True)はバッチでNoneを返すため、同じ一覧をom2から取得する。
         if eventName not in om2.MEventMessage.getEventNames():
-            raise ValueError(f"Unknown event name: {eventName!r}")
+            raise ValueError(f"知らないイベント名です: {eventName!r}")
         return self._register(om2.MEventMessage.addEventCallback(eventName, _guarded(function, eventName)))
 
     def addAttributeChangedCallback(self, node, function):
-        """ノードのアトリビュート変更(``om2.MNodeMessage.addAttributeChangedCallback``)のコールバックを登録する。
+        """ノードのアトリビュートが変わったときのコールバックを登録する。
 
-        値の設定だけでなく、接続・接続解除・アトリビュートの追加/削除などでも呼ばれる。
-        どの変更かはmessageの ``om2.MNodeMessage.k*`` のビットで判定する。
+        ``om2.MNodeMessage.addAttributeChangedCallback`` を使う。値を設定したときだけでなく、
+        接続・接続の解除・アトリビュートの追加や削除などでも呼ばれる。
+        どの変更かは、messageの ``om2.MNodeMessage.k*`` のビットで見分ける。
 
         Args:
-            node (Node | str): 監視するノード。
-            function (Callable): ``function(message, plug)`` で呼ぶ処理。messageは
-                ``om2.MNodeMessage.AttributeMessage`` のビット(int)、plugは変更された
+            node (Node | str): 見張るノード。
+            function (Callable): ``function(message, plug)`` の形で呼ぶ処理。messageは
+                ``om2.MNodeMessage.AttributeMessage`` のビット(int)、plugは変わった
                 アトリビュートの :class:`~mlib.plugs.plug.Plug`。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: nodeが対応しない型、またはfunctionが呼び出せない場合。
-            RuntimeError: nodeを解決できない場合。
+            TypeError: nodeが対応していない型の場合、またはfunctionが呼び出せない場合。
+            RuntimeError: nodeが見つからない場合。
         """
         # commonの初期化時にnodes・plugsを読み込まないよう、使用時に読み込む。
         from ..nodes.node import Node
@@ -186,16 +189,17 @@ class Callbacks:
         return self._register(om2.MNodeMessage.addAttributeChangedCallback(target.mnode(), _guarded(forward, label)))
 
     def remove(self):
-        """このグループが登録した全コールバックの解除を試み、成功分だけを保持表から除く。
+        """このグループが登録したコールバックを、すべて解除する。
 
-        解除の例外は警告して残りも処理し、失敗したものは後からremove()で再試行できる。
-        他の所有者のコールバックは解除しない。
+        解除できたものだけを、このグループの一覧から除く。解除で例外が起きても警告を出して
+        残りを続け、失敗したものはあとでremove()を呼べばもう一度試せる。
+        ほかの持ち主のコールバックは解除しない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            RuntimeError: 解除失敗が一つ以上ある場合。最初の原因例外を__cause__に保持する。
+            RuntimeError: 解除に失敗したものが1つ以上ある場合。最初に失敗した原因の例外を__cause__に入れる。
         """
         failures = []
         for callback_id in list(self._ids):
@@ -203,14 +207,14 @@ class Callbacks:
                 om2.MMessage.removeCallback(callback_id)
             except Exception as exc:
                 failures.append((callback_id, exc))
-                logger.warning("Callback cleanup failed for %r: %s", callback_id, exc)
+                logger.warning("コールバックの後始末に失敗しました(%r): %s", callback_id, exc)
             else:
                 self._ids.remove(callback_id)
         if failures:
-            raise RuntimeError(f"Failed to remove callbacks: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
+            raise RuntimeError(f"コールバックを削除できませんでした: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
 
     def _register(self, callback_id):
-        """登録したコールバックの識別子を保持する。
+        """登録したコールバックの識別子を、このグループの一覧に加える。
 
         Args:
             callback_id (int): Mayaが返した識別子。
@@ -223,27 +227,27 @@ class Callbacks:
 
 
 def _require_callable(function):
-    """関数が呼び出せるか検証する。
+    """関数が呼び出せるか確かめる。
 
     Args:
-        function (object): 検証対象。
+        function (object): 確かめる対象。
 
     Raises:
         TypeError: 呼び出せない場合。
     """
     if not callable(function):
-        raise TypeError("function must be callable")
+        raise TypeError("functionは呼び出せるオブジェクトにしてください")
 
 
 def _guarded(function, label):
-    """例外を警告にして握りつぶすom2用のコールバックを作る。
+    """om2へ渡すコールバックを作る。中で起きた例外は警告にして、外へは伝えない。
 
     Args:
         function (Callable): 実際の処理。
         label (str): 警告に表示する登録先の名前。
 
     Returns:
-        Callable: om2へ渡すコールバック。sceneとeventではclientDataだけを受け取る。
+        Callable: om2へ渡すコールバック。sceneとeventでは、clientDataだけを受け取る。
     """
 
     def callback(*args):
@@ -254,6 +258,6 @@ def _guarded(function, label):
             else:
                 function(*args)
         except Exception as exc:
-            logger.warning("Callback for %s failed: %s: %s", label, type(exc).__name__, exc)
+            logger.warning("%sのコールバックが失敗しました: %s: %s", label, type(exc).__name__, exc)
 
     return callback

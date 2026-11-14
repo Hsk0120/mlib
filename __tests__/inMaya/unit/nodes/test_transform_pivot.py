@@ -79,9 +79,9 @@ class ResetPivotTest(_SpecCase):
             self.node.setPivot((0, 0, 0), worldSpace=True, kind="both2")
         with self.assertRaises(TypeError):
             self.node.setPivot((0, 0, 0), worldSpace=1, kind="both")
-        with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+        with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             self.node.setPivot((0, 0, 0), worldSpace=True, fast=1, kind="both")
-        with self.assertRaisesRegex(TypeError, "Joint does not support"):
+        with self.assertRaisesRegex(TypeError, "Jointは回転とスケールのピボットを別々に持てません"):
             Node(self.make("joint", "jointPivot")).setPivot((0, 0, 0), worldSpace=True, kind="both")
 
     def test_locked_pivot(self):
@@ -91,11 +91,11 @@ class ResetPivotTest(_SpecCase):
         cmds.flushUndo()
         for fast in (True, False):
             for kind in ("rotate", "both"):
-                with self.assertRaisesRegex(RuntimeError, "locked or connected"):
+                with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
                     self.node.setPivot((0, 0, 0), worldSpace=True, kind=kind, fast=fast)
-                with self.assertRaisesRegex(RuntimeError, "locked or connected"):
+                with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
                     self.node.setPivot((0, 0, 0), kind=kind, fast=fast)
-            with self.assertRaisesRegex(RuntimeError, "locked or connected"):
+            with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
                 self.node.centerPivot(fast=fast)
         after = [cmds.getAttr(self.name_ + "." + name)[0] for name in ("rotatePivot", "rotatePivotTranslate", "scalePivot", "scalePivotTranslate")]
         self.assertEqual(after, before)
@@ -109,7 +109,7 @@ class ResetPivotTest(_SpecCase):
         """preserve=True で書き換える補償値のロックも通常・fast とも拒否し、preserve=False は通る。"""
         cmds.setAttr(self.name_ + ".rotatePivotTranslateY", lock=True)
         for fast in (True, False):
-            with self.assertRaisesRegex(RuntimeError, "locked or connected"):
+            with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
                 self.node.setPivot((0, 0, 0), worldSpace=True, fast=fast)
         translate_before = cmds.getAttr(self.name_ + ".rotatePivotTranslate")[0]
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".worldMatrix[0]"), self.matrix)

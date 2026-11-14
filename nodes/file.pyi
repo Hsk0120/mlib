@@ -7,19 +7,23 @@ from .texture2d import Texture2d
 
 
 class File(Texture2d):
-    """Mayaの継承型に対応するFile。値と接続はPlugで操作する。"""
+    """Mayaのfileノードを表すクラス。値の設定や接続はPlugで行う。"""
     def getFilePath(self) -> str:
-        """ファイルパス。UDIM等のトークンは展開せず返す。
+        """ファイルパスを取得する。
+
+        UDIMなどのトークンは展開せず、書かれたまま返す。
 
         Returns:
-            str: ファイルパス。UDIM等のトークンは展開せず返す。
+            str: ファイルパス。UDIMなどのトークンは展開しない。
         """
         ...
     def setFilePath(self, path: str, *, fast: bool = ...) -> File:
-        """ファイルパスを設定する。存在確認・コピーは行わない。
+        """ファイルパスを設定する。
+
+        ファイルがあるかどうかは確かめず、ファイルのコピーもしない。
 
         Args:
-            path (str): パスまたはUDIM等のトークンを含むパターン。
+            path (str): ファイルパス。UDIMなどのトークンを含むパターンでもよい。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -27,35 +31,35 @@ class File(Texture2d):
 
         Raises:
             TypeError: fastがbool以外、またはpathがstr以外の場合。
-            RuntimeError: ロックや入力接続により設定できない場合。
+            RuntimeError: アトリビュートがロックされている、または入力が接続されていて設定できない場合。
 
         Note:
             ``fast=True`` は通常と同じ検証の後にOpenMayaで直接更新する(Undoなし)。
         """
         ...
     def getColorSpace(self) -> str:
-        """現在の入力色空間名。
+        """入力色空間の名前を取得する。
 
         Returns:
-            str: 現在の入力色空間名。
+            str: 今設定されている入力色空間の名前。
         """
         ...
     def setColorSpace(self, name: str, *, fast: bool = ...) -> File:
         """入力色空間を設定する。
 
-        名前は検証せず、そのまま保持する。利用できる色空間は色管理の設定(OCIO構成など)で
-        変わるため、現在の設定に無い名前も設定できる。
+        名前が正しいかは確かめず、そのまま書き込む。使える色空間は色管理の設定(OCIOの構成など)で
+        変わるので、今の設定に無い名前も設定できる。
 
         Args:
-            name (str): 色空間名。現在のMaya色管理設定で利用可能な名前を指定する。
+            name (str): 色空間の名前。今のMayaの色管理の設定で使える名前を指定する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            File: 自身。パス変更時の自動ルール設定は変更しない。
+            File: 自身。パスを変えたときに色空間を自動で決めるルールの設定は変えない。
 
         Raises:
             TypeError: fastがbool以外、またはnameがstr以外の場合。
-            RuntimeError: ロックや入力接続により設定できない場合。
+            RuntimeError: アトリビュートがロックされている、または入力が接続されていて設定できない場合。
 
         Note:
             ``fast=True`` は通常と同じ検証の後にOpenMayaで直接更新する(Undoなし)。

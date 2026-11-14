@@ -51,9 +51,9 @@ class FileTest(unittest.TestCase):
 
     def test_format_and_version_mismatch(self):
         dump({}, self.path, "mlib.test", 1)
-        with self.assertRaisesRegex(ValueError, "format"):
+        with self.assertRaisesRegex(ValueError, "の形式は"):
             load(self.path, "mlib.other", 1)
-        with self.assertRaisesRegex(ValueError, "version"):
+        with self.assertRaisesRegex(ValueError, "のバージョン"):
             load(self.path, "mlib.test", 2)
         with open(self.path, "w", encoding="utf-8") as stream:
             stream.write("{broken")

@@ -132,9 +132,9 @@ class JointOrientTest(_SpecCase):
             with self.subTest(args=args):
                 with self.assertRaises(error):
                     joint.orient(*args)
-        with self.assertRaisesRegex(TypeError, "children must be a bool"):
+        with self.assertRaisesRegex(TypeError, "childrenはboolで指定してください"):
             joint.orient(children=1)
-        with self.assertRaisesRegex(TypeError, "zeroScaleOrient must be a bool"):
+        with self.assertRaisesRegex(TypeError, "zeroScaleOrientはboolで指定してください"):
             Joints(self.joints).orient(zeroScaleOrient=None)
         self.assertOrients(self.orients(self.joints), before)
         cmds.setAttr(self.joints[-1] + ".jointOrient", lock=True)

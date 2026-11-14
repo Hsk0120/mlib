@@ -38,7 +38,8 @@ def _load(relative, name, package=None):
 def _load_helpers():
     """util・decoratorを読み込み、(util, decorator)を返す。"""
     saved = {
-        name: sys.modules.get(name) for name in ("maya", "maya.api", "maya.api.OpenMaya", "maya.cmds", _PACKAGE, f"{_PACKAGE}.util", f"{_PACKAGE}.decorator")
+        name: sys.modules.get(name)
+        for name in ("maya", "maya.api", "maya.api.OpenMaya", "maya.cmds", "maya.mel", _PACKAGE, f"{_PACKAGE}.util", f"{_PACKAGE}.decorator")
     }
     try:
         maya = types.ModuleType("maya")
@@ -46,7 +47,8 @@ def _load_helpers():
         maya.api = api
         api.OpenMaya = types.ModuleType("maya.api.OpenMaya")
         maya.cmds = types.ModuleType("maya.cmds")
-        sys.modules.update({"maya": maya, "maya.api": api, "maya.api.OpenMaya": api.OpenMaya, "maya.cmds": maya.cmds})
+        maya.mel = types.ModuleType("maya.mel")
+        sys.modules.update({"maya": maya, "maya.api": api, "maya.api.OpenMaya": api.OpenMaya, "maya.cmds": maya.cmds, "maya.mel": maya.mel})
         package = types.ModuleType(_PACKAGE)
         package.__path__ = [str(_MLIB_ROOT)]
         sys.modules[_PACKAGE] = package
@@ -77,37 +79,37 @@ class FiniteTest(unittest.TestCase):
     def test_finite_rejects_bool_and_non_number(self):
         for value in (True, "1", None, [1]):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(TypeError, r"^radius must be a number$"):
+                with self.assertRaisesRegex(TypeError, r"^radiusは数値で指定してください$"):
                     util._finite(value, "radius")
 
     def test_finite_rejects_inf_and_nan(self):
         for value in (float("inf"), float("-inf"), float("nan")):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(ValueError, r"^radius must be finite$"):
+                with self.assertRaisesRegex(ValueError, r"^radiusは有限な数値で指定してください$"):
                     util._finite(value, "radius")
 
     def test_finite_vector(self):
         self.assertEqual(util._finite_vector((1, 2, 3), 3, "pivot"), (1.0, 2.0, 3.0))
         self.assertEqual(util._finite_vector(iter([1, 2]), 2, "uv"), (1.0, 2.0))
-        with self.assertRaisesRegex(TypeError, r"^pivot must be a sequence of 3 numbers$"):
+        with self.assertRaisesRegex(TypeError, r"^pivotは3個の数値の並びで指定してください$"):
             util._finite_vector(1, 3, "pivot")
-        with self.assertRaisesRegex(ValueError, r"^pivot must have 3 components$"):
+        with self.assertRaisesRegex(ValueError, r"^pivotは3個の成分で指定してください$"):
             util._finite_vector((1, 2), 3, "pivot")
-        with self.assertRaisesRegex(TypeError, r"^pivot must be a number$"):
+        with self.assertRaisesRegex(TypeError, r"^pivotは数値で指定してください$"):
             util._finite_vector((1, "2", 3), 3, "pivot")
-        with self.assertRaisesRegex(ValueError, r"^pivot must be finite$"):
+        with self.assertRaisesRegex(ValueError, r"^pivotは有限な数値で指定してください$"):
             util._finite_vector((1, float("nan"), 3), 3, "pivot")
 
     def test_checked_tolerance(self):
         self.assertEqual(util._checked_tolerance(0), 0.0)
         self.assertEqual(util._checked_tolerance(1e-3, positive=True), 1e-3)
-        with self.assertRaisesRegex(ValueError, r"^tolerance must be non-negative$"):
+        with self.assertRaisesRegex(ValueError, r"^toleranceは0以上で指定してください$"):
             util._checked_tolerance(-1)
-        with self.assertRaisesRegex(ValueError, r"^tolerance must be positive$"):
+        with self.assertRaisesRegex(ValueError, r"^toleranceは正の値で指定してください$"):
             util._checked_tolerance(0, positive=True)
-        with self.assertRaisesRegex(TypeError, r"^tolerance must be a number$"):
+        with self.assertRaisesRegex(TypeError, r"^toleranceは数値で指定してください$"):
             util._checked_tolerance("0.1")
-        with self.assertRaisesRegex(ValueError, r"^tolerance must be finite$"):
+        with self.assertRaisesRegex(ValueError, r"^toleranceは有限な数値で指定してください$"):
             util._checked_tolerance(float("inf"))
 
 
@@ -132,7 +134,7 @@ class WorldSpaceTest(unittest.TestCase):
     def test_rejects_non_bool_with_type_error(self):
         for value in (1, 0, None, "ws"):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(TypeError, r"^worldSpace \(ws\) must be a bool$"):
+                with self.assertRaisesRegex(TypeError, r"^worldSpace\(ws\)はboolで指定してください$"):
                     util._world_space(value)
 
 

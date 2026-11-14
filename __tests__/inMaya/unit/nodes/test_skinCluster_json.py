@@ -231,7 +231,7 @@ class VertexMethodTest(SkinWeightsCase):
         before = self.allWeights(skin)
         with self.assertRaises(ValueError) as caught:
             skin.importWeights(self.path)
-        self.assertIn("vertex count", str(caught.exception))
+        self.assertIn("頂点数", str(caught.exception))
         self.assertRowsAlmostEqual(self.allWeights(skin), before)
 
     def test_position_on_different_resolution(self):
@@ -493,7 +493,7 @@ class NgSkinLayersTest(SkinWeightsCase):
         data["ngSkinLayers"] = None
         report = self.skin.setWeightsData(data)
         self.assertEqual(len(report.skipped), 1)
-        self.assertIn("ngSkinTools layers", report.skipped[0])
+        self.assertIn("ngSkinToolsのレイヤー", report.skipped[0])
         self.assertEqual(len(self.layers.list()), 3)
 
 

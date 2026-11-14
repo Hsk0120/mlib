@@ -1,22 +1,22 @@
 __pycache__/
 *.pyc
 
-# Sphinx documentation
+# Sphinxの文書(生成物)
 _docs/_build/
 _docs/source/autoapi/
-# Left over from an older checkout, before _tools/setup.bat took over both tools.
+# 古い取得物の残り(_tools/setup.bat が両方のツールを受け持つ前の環境)
 _docs/.venv/
 _docs/.mayapy-site/
 
-# The one environment of the tools used while writing mlib (ruff and Sphinx)
+# mlibを書くときに使うツール(ruffとSphinx)の、1つだけの環境
 _tools/.venv/
 _tools/.mayapy-site/
 
-# Test output
+# テストの出力
 __tests__/_output/
 __tests__/.logs/
 
-# Local research notes (not published)
+# 手元の調査メモ(公開しない)
 _docs/research/
 _docs/*_research.rst
 _docs/*_survey.rst

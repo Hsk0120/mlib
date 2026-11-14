@@ -2,26 +2,27 @@
 setlocal
 
 ::----------------------------------------------------------------
-:: Generate the mlib type stubs (*.pyi next to each *.py of mlib)
-:: for VS Code (Pylance) completion and signature help, from the docstrings.
-:: The .py sources are not changed. Commit the updated .pyi with the .py.
+:: mlibの型スタブ(各 .py の隣の .pyi)を、docstringの型から作る。
+:: VS Code(Pylance)の補完と引数の表示に使われる。.py は書き換えない。
+:: 作り直した .pyi は、元の .py と一緒にコミットする。
 ::
-::   generate_mlib_stubs.bat            regenerate the stubs
-::   generate_mlib_stubs.bat --report   also list annotations left out
-::   generate_mlib_stubs.bat --check    only check that the stubs are current
-::   --no-pause                         do not wait for a key at the end
-::                                      (for terminals and other scripts)
+::   generate_mlib_stubs.bat            スタブを作り直す
+::   generate_mlib_stubs.bat --report   注釈にできなかった型も一覧表示する
+::   generate_mlib_stubs.bat --check    スタブが最新かどうかだけを調べる
+::   --no-pause                         最後にキー入力を待たない
+::                                      (ターミナル・スクリプトから呼ぶとき)
 ::
-:: Needs Python 3.9 to 3.14 of the Windows Python launcher (py),
-:: or mayapy of Maya 2027-2023. Every one of them generates the same stubs.
+:: Pythonランチャー(py)の Python 3.9〜3.14、または Maya 2027〜2023 のmayapyが必要。
+:: どれで実行しても同じスタブができる。
 ::
-:: Exit code: the code of generate_mlib_stubs.py (0 when it succeeded, or
-:: when the stubs are current with --check). 2 when no Python was found.
+:: 終了コード: generate_mlib_stubs.py の終了コード(成功、または --check で
+:: 最新のとき 0)。Pythonが見つからなければ 2。
 ::
-:: The Japanese messages are in messages.txt and shown by _message.bat (this
-:: file stays ASCII). The last message starts with [OK] or [NG].
+:: 表示する文は messages.txt にあり、_message.bat が表示する。最後の文は [OK] か [NG] で始まる。
+::
+:: このファイルは Shift-JIS(CP932)・CRLF で保存する(.gitattributes を参照)。
 ::----------------------------------------------------------------
-rem Keep the paths before the argument loop: SHIFT changes %0.
+rem 引数を読む前にパスを控える(SHIFT すると %0 も変わるため)。
 SET "SCRIPT=%~dp0generate_mlib_stubs.py"
 SET "SAY=CALL "%~dp0_message.bat""
 SET "MLIB_STUBS_PY="
@@ -29,11 +30,11 @@ SET "MLIB_STUBS_MAYAPY="
 SET "MLIB_STUBS_RESULT=2"
 SET "MLIB_STUBS_PAUSE=1"
 SET "MLIB_STUBS_ARGS="
-rem The key of the result message: stubs or stubs.check, then .ok or .ng.
+rem 結果の文のキー。stubs か stubs.check に、.ok か .ng を付ける。
 SET "MLIB_STUBS_KIND=stubs"
 SET "MLIB_STUBS_MESSAGE=stubs.noPython"
 
-rem Take --no-pause out of the arguments; pass the others to the script.
+rem 引数から --no-pause を取り出し、残りはスクリプトへ渡す。
 :parse_args
 IF "%~1"=="" GOTO :args_done
 IF /I "%~1"=="--check" SET "MLIB_STUBS_KIND=stubs.check"
@@ -45,14 +46,13 @@ IF /I "%~1"=="--no-pause" (
 SHIFT
 GOTO :parse_args
 :args_done
-rem Only look for an installed Python: never let the launcher install one.
+rem 入っているPythonだけを探す(ランチャーに新しいPythonを入れさせない)。
 SET "PYLAUNCHER_ALLOW_INSTALL="
 
-rem Ask the Windows Python launcher for each version, newest first.
-rem "python" is not used: it can be the Microsoft Store placeholder, which
-rem opens the Store instead of running Python. "py -3" is not used either:
-rem it picks the newest installed Python, and 3.15 or later is not accepted
-rem (setup.bat starts at 3.11, because Sphinx needs it; the stubs do not).
+rem Pythonランチャーへ、新しい版から順に問い合わせる。
+rem "python" は使わない(Microsoft Storeを開くだけの代役が先に見つかることがある)。
+rem "py -3" も使わない(入っている中で最新を選ぶため、対応していない 3.15 以降に
+rem なることがある)。setup.bat はSphinxの都合で 3.11 からだが、スタブは 3.9 から作れる。
 FOR %%V IN (3.14 3.13 3.12 3.11 3.10 3.9) DO (
     IF NOT DEFINED MLIB_STUBS_PY (
         py -%%V -c "import sys" >NUL 2>&1
@@ -64,7 +64,7 @@ py -%MLIB_STUBS_PY% "%SCRIPT%"%MLIB_STUBS_ARGS%
 GOTO :done
 
 :find_mayapy
-rem Fall back to mayapy of Maya 2027-2023 (Python 3.9 or newer).
+rem 代わりに Maya 2027〜2023 のmayapy(Python 3.9 以上)を使う。
 FOR %%V IN (2027 2026 2025 2024 2023) DO (
     IF NOT DEFINED MLIB_STUBS_MAYAPY IF EXIST "C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe" SET "MLIB_STUBS_MAYAPY=C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe"
 )
@@ -80,8 +80,7 @@ IF "%MLIB_STUBS_RESULT%"=="0" SET "MLIB_STUBS_MESSAGE=%MLIB_STUBS_KIND%.ok"
 :finish
 %SAY% blank line %MLIB_STUBS_MESSAGE% line
 
-rem Wait for a key so that the result stays readable when the batch was
-rem started by a double click (the same as the other batch files).
+rem ダブルクリックで実行したときも結果を読めるよう、キー入力を待つ。
 IF DEFINED MLIB_STUBS_PAUSE (
     ECHO.
     PAUSE

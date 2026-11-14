@@ -59,7 +59,7 @@ class SetAttrTest(_SpecCase):
 
     def test_unknown_name_raises_and_adds_nothing(self):
         node = Node(self.make())
-        with self.assertRaisesRegex(AttributeError, r"^'Transform' has no Maya attribute 'noSuchAttr'"):
+        with self.assertRaisesRegex(AttributeError, "^'Transform'にMayaのアトリビュート'noSuchAttr'はありません"):
             node.noSuchAttr = 1
         self.assertNotIn("noSuchAttr", vars(node))
 
@@ -76,7 +76,7 @@ class SetAttrTest(_SpecCase):
         with self.assertRaises(RuntimeError):
             node.tx = 2
         cmds.delete(name)
-        with self.assertRaisesRegex(RuntimeError, "invalid"):
+        with self.assertRaisesRegex(RuntimeError, "無効な"):
             node.tx = 2
 
 
@@ -88,34 +88,34 @@ class MissingMemberTest(_SpecCase):
         with self.assertRaises(AttributeError) as context:
             joint.orientJoint
         message = str(context.exception)
-        self.assertTrue(message.startswith("'Joint' has no method or Maya attribute 'orientJoint'"), message)
-        self.assertIn("use orient()", message)
-        self.assertIn("Did you mean: orient", message)
+        self.assertTrue(message.startswith("'Joint'にメソッドやMayaのアトリビュート'orientJoint'はありません"), message)
+        self.assertIn("orient()を使います", message)
+        self.assertIn("近い名前: orient", message)
         for name, hint in (
             ("getAttr", "getPlug(name).get()"),
             ("setAttr", "getPlug(name).set(value)"),
             ("lockAndHide", "setAttrFlags("),
             ("listConnections", "getConnections()"),
-            ("listRelatives", "getChildren() or getParent()"),
+            ("listRelatives", "getChildren()かgetParent()"),
             ("nodeType", "getType()"),
         ):
             with self.subTest(name=name):
-                with self.assertRaisesRegex(AttributeError, r"use " + hint.replace("(", r"\(").replace(")", r"\)")):
+                with self.assertRaisesRegex(AttributeError, hint.replace("(", r"\(").replace(")", r"\)") + ".*を使います"):
                     getattr(joint, name)
         self.assertFalse(hasattr(joint, "noSuchThing"))
         self.assertIsNone(getattr(joint, "noSuchThing", None))
 
     def test_plug_and_component_messages(self):
         node = Node(self.make())
-        with self.assertRaisesRegex(AttributeError, r"^'DoubleLinearPlug' has no method 'lockAndHide'; use setFlags"):
+        with self.assertRaisesRegex(AttributeError, "^'DoubleLinearPlug'にメソッド'lockAndHide'はありません。setFlags"):
             node.tx.lockAndHide
-        with self.assertRaisesRegex(AttributeError, r"Did you mean: .*isLocked"):
+        with self.assertRaisesRegex(AttributeError, "近い名前: .*isLocked"):
             node.tx.isLockd
-        with self.assertRaisesRegex(AttributeError, r"has no method or child attribute 'w'"):
+        with self.assertRaisesRegex(AttributeError, "にメソッドや子のアトリビュート'w'はありません"):
             node.translate.w
         cube = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
         vertex = mlib.ls(cube + ".vtx[0]")[0]
-        with self.assertRaisesRegex(AttributeError, r"^'Vertex' has no method 'getPositon'. Did you mean: getPosition"):
+        with self.assertRaisesRegex(AttributeError, "^'Vertex'にメソッド'getPositon'はありません。近い名前: getPosition"):
             vertex.getPositon
 
 
@@ -129,7 +129,7 @@ class NameTest(_SpecCase):
         self.assertFalse(node.isValid())
         for method in ("getName", "getNodeName"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, r"Transform was deleted or undone; check isValid\(\)"):
+                with self.assertRaisesRegex(RuntimeError, r"Transformは削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
                     getattr(node, method)()
         self.assertEqual(str(node), "")
         self.assertEqual(repr(node), "<Transform invalid>")
@@ -138,11 +138,11 @@ class NameTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 before = set(cmds.ls(long=True))
-                with self.assertRaisesRegex(ValueError, r"must not contain '\|'"):
+                with self.assertRaisesRegex(ValueError, r"に'\|'は使えません"):
                     mlib.createNode("transform", name=self.name("grp|child"), fast=fast)
                 self.assertEqual(set(cmds.ls(long=True)), before)
                 node = Node(self.make())
-                with self.assertRaisesRegex(ValueError, r"must not contain '\|'"):
+                with self.assertRaisesRegex(ValueError, r"に'\|'は使えません"):
                     node.rename("a|b", fast=fast)
 
     def test_rename_and_set_namespace_return_self(self):
@@ -166,11 +166,11 @@ class NameTest(_SpecCase):
         with self.assertRaises(RuntimeError) as context:
             mlib.getNode(name)
         message = str(context.exception)
-        self.assertIn(f"Name is not unique: {name!r} matches 4 objects", message)
-        self.assertIn("and 1 more", message)
+        self.assertIn(f"名前が一意ではありません: {name!r}は4個のオブジェクトに一致します", message)
+        self.assertIn("、ほか1個", message)
         self.assertIn(f"mlib.ls({name!r})", message)
         self.assertEqual(sum(f"'|{group}|{name}'" in message for group in groups), 3)
-        with self.assertRaisesRegex(RuntimeError, f"Name is not unique: '{name}.tx'"):
+        with self.assertRaisesRegex(RuntimeError, f"名前が一意ではありません: '{name}.tx'"):
             mlib.getPlug(name + ".tx")
 
 
@@ -190,11 +190,11 @@ class NoDuplicateErrorLogTest(_SpecCase):
         logger = mlib.logger.getLogger()
         logger.addHandler(handler)
         try:
-            with self.assertRaisesRegex(RuntimeError, "Node not found"):
+            with self.assertRaisesRegex(RuntimeError, "ノードが見つかりません"):
                 mlib.getNode(self.name("missing"))
             for group in (self.make(text="g1"), self.make(text="g2")):
                 self.make(text="same", parent=group)
-            with self.assertRaisesRegex(RuntimeError, "Name is not unique"):
+            with self.assertRaisesRegex(RuntimeError, "名前が一意ではありません"):
                 mlib.getNode(self.name("same"))
         finally:
             logger.removeHandler(handler)

@@ -188,7 +188,7 @@ class AttributeEditsTest(unittest.TestCase):
         self.node.addAttr("second")
         om2.MFnAttribute(first.mplug().attribute()).connectable = False
         before = [p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)]
-        with self.assertRaisesRegex(TypeError, "non-connectable"):
+        with self.assertRaisesRegex(TypeError, "接続できないアトリビュート"):
             self.node.moveAttrOrder("first", 1)
         self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)
         self.assertTrue(first.isValid())
@@ -202,7 +202,7 @@ class AttributeEditsTest(unittest.TestCase):
         before = [p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)]
         cmds.undoInfo(state=False)
         try:
-            with self.assertRaisesRegex(RuntimeError, "requires Undo"):
+            with self.assertRaisesRegex(RuntimeError, "Undoが必要です"):
                 self.node.moveAttrOrder("first", 1)
             self.assertFalse(cmds.undoInfo(query=True, state=True))
             self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)

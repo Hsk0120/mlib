@@ -11,29 +11,31 @@ class FourByFourMatrix(Node):
     """``in00``〜``in33`` の16個の値(行優先)からマトリクスを作り、``output`` へ出力する。"""
 
     def setInput(self, matrix=None, **elements):
-        """成分をまとめて設定する。値は書き込み、Plug は接続する。1回のUndoで戻せる。
+        """成分をまとめて設定する。
+
+        値を渡した成分は書き込み、Plugを渡した成分は接続する。1回のUndoで戻せる。
 
         Args:
-            matrix (Matrix | Iterable[float] | None): 16個の値(行優先)。Noneは変更しない。
-            **elements (float | Plug | str): 個別の成分(``in03=5.0`` や ``in30=node.tx`` など)。
-                matrix の後に適用する。
+            matrix (Matrix | Iterable[float] | None): 16個の値(行優先)。Noneなら変更しない。
+            **elements (float | Plug | str): 成分を1つずつ指定する(``in03=5.0`` や ``in30=node.tx`` など)。
+                matrixを書き込んだ後に反映する。
 
         Returns:
             FourByFourMatrix: 自身。
 
         Raises:
-            TypeError: elements に ``in00``〜``in33`` 以外の名前がある場合、または接続元の型が不正な場合。
-            ValueError: matrix の値が16個でない場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
+            TypeError: elementsに ``in00``〜``in33`` 以外の名前がある場合、または接続元の型が不正な場合。
+            ValueError: matrixの値が16個でない場合。
+            RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
         unknown = sorted(set(elements) - set(_ELEMENTS))
         if unknown:
-            raise TypeError(f"Unknown matrix elements: {', '.join(unknown)} (expected in00 to in33)")
+            raise TypeError(f"知らないマトリクスの要素です: {', '.join(unknown)}(in00〜in33で指定します)")
         values = {}
         if matrix is not None:
             numbers = [float(value) for value in matrix]
             if len(numbers) != 16:
-                raise ValueError(f"matrix must have 16 values, got {len(numbers)}")
+                raise ValueError(f"matrixは16個の値で指定してください: {len(numbers)}個")
             values.update(zip(_ELEMENTS, numbers))
         values.update(elements)
         return _calculation.set_inputs(self, "setInput", values)

@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""DAGコンテナを作成し、指定ノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。
+"""DAGコンテナを作り、指定したノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。
 
 .. code-block:: python
 
@@ -17,18 +17,20 @@ from mlib.nodes.node import Node
 
 
 def createDagContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, n: str = ...) -> DagContainer:
-    """DAGコンテナを作成し、指定ノードを所属させる(作成 + ``addMembers``)。
+    """DAGコンテナを作り、指定したノードを所属させる。
 
-    処理は :func:`~mlib.cmds.createContainer.createContainer` と同じで、型だけが違う。fast引数は持たない。
-    nameは ``cmds.container`` と同じ短縮名 ``n`` でも受ける(長名と短縮名の同時指定はできない)。
+    作成のあとに ``addMembers`` を行うのと同じ。処理は :func:`~mlib.cmds.createContainer.createContainer` と同じで、
+    作るノードの型だけが違う。fast引数は無い。
+    nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
-        name (str): 希望名。衝突時はMayaが一意名にする。既定 ``"dagContainer"``。
-        members (str | Node | Iterable[Node | str]): 作成後に所属させるノード。省略時は空のまま。
-        n (str): nameの短縮名。同時指定はできない。
+        name (str): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
+            既定は ``"dagContainer"``。
+        members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
+        n (str): nameの短縮名。nameと同時には指定できない。
 
     Returns:
-        DagContainer: 作成したコンテナ。
+        DagContainer: 作ったコンテナ。
 
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合。

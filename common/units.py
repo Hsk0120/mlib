@@ -8,7 +8,7 @@ from ..util import _angle_unit, _time_unit
 
 
 def distanceToUi(centimeters):
-    """cm距離を現在のUI距離単位の数値へ変換する。
+    """cmの距離を、現在のUI距離単位の数値へ変換する。
 
     Args:
         centimeters (float): cm単位の距離。
@@ -23,7 +23,7 @@ def _distance_unit(unit):
     """距離単位名をOpenMayaの単位へ解決する。
 
     Args:
-        unit (str | None): Mayaの長名・短名。Noneは現在のUI単位。
+        unit (str | None): 単位の名前。Mayaの長い名前と短い名前のどちらでもよい。Noneなら現在のUI単位。
 
     Returns:
         int: MDistanceの単位定数。
@@ -35,7 +35,7 @@ def _distance_unit(unit):
     if unit is None:
         return om2.MDistance.uiUnit()
     if not isinstance(unit, str):
-        raise TypeError("unit must be a string or None")
+        raise TypeError("unitは文字列かNoneで指定してください")
     names = {
         "mm": om2.MDistance.kMillimeters,
         "millimeter": om2.MDistance.kMillimeters,
@@ -55,25 +55,27 @@ def _distance_unit(unit):
         "mile": om2.MDistance.kMiles,
     }
     if unit not in names:
-        raise ValueError(f"Unsupported distance unit: {unit}")
+        raise ValueError(f"対応していない距離の単位です: {unit}")
     return names[unit]
 
 
 def convertDistance(value, fromUnit=None, toUnit=None):
-    """シーン設定を変更せず距離を変換する。
+    """距離の単位を変換する。
+
+    シーンの単位の設定は変えない。
 
     Args:
         value (float): 変換する距離。
-        fromUnit (str | None): 入力単位。Noneは現在のシーン単位。
-        toUnit (str | None): 出力単位。Noneは現在のシーン単位。
-            mm/cm/m/km/in/ft/yd/mi、またはMayaの長名を指定する。
+        fromUnit (str | None): valueの単位。Noneなら現在のシーンの単位。
+        toUnit (str | None): 戻り値の単位。Noneなら現在のシーンの単位。
+            fromUnitとtoUnitには、mm/cm/m/km/in/ft/yd/miか、Mayaの長い名前(meterなど)を指定する。
 
     Returns:
-        float: 出力単位での距離。
+        float: toUnitの単位で表した距離。
 
     Raises:
-        TypeError: 単位の型が不正な場合。
-        ValueError: 単位名が未対応の場合。
+        TypeError: 単位が文字列でもNoneでもない場合。
+        ValueError: 対応していない単位名の場合。
     """
     source = _distance_unit(fromUnit)
     target = _distance_unit(toUnit)
@@ -81,7 +83,7 @@ def convertDistance(value, fromUnit=None, toUnit=None):
 
 
 def distanceFromUi(value):
-    """現在のUI距離単位の数値をcmへ変換する。
+    """現在のUI距離単位の数値を、cmへ変換する。
 
     Args:
         value (float): 現在のUI距離単位で表した値。
@@ -113,8 +115,8 @@ def angleToUi(value, *, unit="deg"):
 
     Args:
         value (float): unitの単位の角度。
-        unit (str): valueの単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-            (``"degree"`` / ``"radians"`` 等の別名も可)。
+        unit (str): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            ``"degree"`` / ``"radians"`` などの別名も使える。
 
     Returns:
         float: 現在のUI角度単位で表した値。
@@ -131,8 +133,8 @@ def angleFromUi(value, *, unit="deg"):
 
     Args:
         value (float): 現在のUI角度単位で表した値。
-        unit (str): 戻り値の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-            (``"degree"`` / ``"radians"`` 等の別名も可)。
+        unit (str): 戻り値の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            ``"degree"`` / ``"radians"`` などの別名も使える。
 
     Returns:
         float: unitの単位の角度。
@@ -145,20 +147,22 @@ def angleFromUi(value, *, unit="deg"):
 
 
 def convertAngle(value, fromUnit="deg", toUnit="rad"):
-    """シーン設定を変更せず角度を変換する。
+    """角度の単位を変換する。
+
+    シーンの単位の設定は変えない。
 
     Args:
         value (float): 変換する角度。
-        fromUnit (str | None): 入力単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-            (``"degree"`` / ``"radians"`` 等の別名も可)。Noneは現在のUI角度単位。
-        toUnit (str | None): 出力単位。既定 ``"rad"``。指定の仕方はfromUnitと同じ。
+        fromUnit (str | None): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            ``"degree"`` / ``"radians"`` などの別名も使える。Noneなら現在のUI角度単位。
+        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。既定は ``"rad"``。
 
     Returns:
-        float: 出力単位での角度。
+        float: toUnitの単位で表した角度。
 
     Raises:
-        TypeError: 単位が文字列・None以外の場合。
-        ValueError: 単位名が未対応の場合。
+        TypeError: 単位が文字列でもNoneでもない場合。
+        ValueError: 対応していない単位名の場合。
     """
     source = om2.MAngle.uiUnit() if fromUnit is None else _angle_constant(fromUnit)
     target = om2.MAngle.uiUnit() if toUnit is None else _angle_constant(toUnit)
@@ -183,7 +187,7 @@ def _time_constant(unit):
     if unit is None:
         return om2.MTime.uiUnit()
     if not isinstance(unit, str):
-        raise TypeError("unit must be a string or None")
+        raise TypeError("unitは文字列かNoneで指定してください")
     names = {
         "hour": om2.MTime.kHours,
         "min": om2.MTime.kMinutes,
@@ -206,26 +210,28 @@ def _time_constant(unit):
     try:
         normalized = _time_unit(unit)
     except ValueError:
-        raise ValueError(f"Unsupported time unit: {unit}") from None
+        raise ValueError(f"対応していない時間の単位です: {unit}") from None
     return om2.MTime.uiUnit() if normalized == "frame" else om2.MTime.kSeconds
 
 
 def convertTime(value, fromUnit=None, toUnit=None):
-    """シーン設定を変更せず時間を変換する。
+    """時間の単位を変換する。
+
+    シーンの単位の設定は変えない。
 
     Args:
         value (float): 変換する時間。
-        fromUnit (str | None): 入力単位。Noneと ``"frame"`` は現在のUI時間単位のフレーム、``"sec"`` は秒
-            (``"frames"`` / ``"seconds"`` 等の別名も可)。Mayaの時間単位の名前(``"film"``・``"ntsc"``・
-            ``"pal"``・``"game"``・``"hour"``・``"min"``・``"millisec"``・``"24fps"``・``"29.97df"`` 等)も指定できる。
-        toUnit (str | None): 出力単位。指定の仕方はfromUnitと同じ。
+        fromUnit (str | None): valueの単位。Noneと ``"frame"`` は現在のUI時間単位のフレーム、``"sec"`` は秒。
+            ``"frames"`` / ``"seconds"`` などの別名も使える。Mayaの時間単位の名前(``"film"``・``"ntsc"``・
+            ``"pal"``・``"game"``・``"hour"``・``"min"``・``"millisec"``・``"24fps"``・``"29.97df"`` など)も指定できる。
+        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。
 
     Returns:
-        float: 出力単位での時間。
+        float: toUnitの単位で表した時間。
 
     Raises:
-        TypeError: 単位の型が不正な場合。
-        ValueError: 単位名が未対応の場合。
+        TypeError: 単位が文字列でもNoneでもない場合。
+        ValueError: 対応していない単位名の場合。
     """
     source = _time_constant(fromUnit)
     target = _time_constant(toUnit)
@@ -233,7 +239,7 @@ def convertTime(value, fromUnit=None, toUnit=None):
 
 
 def secondsPerFrame():
-    """現在の時間単位の1フレームの秒数を取得する。
+    """現在の時間単位で、1フレームが何秒かを取得する。
 
     Returns:
         float: 1フレームの秒数。

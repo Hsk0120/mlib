@@ -66,21 +66,28 @@ def _roll_bend_axes(aimAxis: str, upAxis: str) -> tuple[om2.MVector, om2.MVector
 
 
 class Quaternion(om2.MQuaternion):
-    """om2.MQuaternionを継承した、可変・ハッシュ不可のXYZWクォータニオン。
+    """om2.MQuaternionを継承した、XYZWのクォータニオン。
 
-    OpenMaya APIへそのまま渡せる。生成形式は ``__init__`` に従い、入力から独立した値を作る。
-    軸角の角度はrad。生成時と積の計算時に正規化しない。
+    値は後から書き換えられ、ハッシュはできない(dictのキーやsetの要素にできない)。
+    OpenMayaのAPIへそのまま渡せる。作り方は ``__init__`` を参照する。渡した値はコピーして使う。
+    軸と角度で作るときの角度はラジアン。作るときも積を計算するときも、正規化はしない。
 
-    ``q1 * q2`` はq1、q2の順に適用する回転で、マトリクスの積の順序と同じ(Hamilton積の ``q2 ⊗ q1``)。
-    加減算・単項の ``-`` は成分ごとの演算。``数値 * q`` は4成分のスカラー倍で、
-    ``q * 数値`` と除算は未対応。演算結果はQuaternionで、左辺が ``om2.MQuaternion`` でも同じ。
-    ただし ``om2.MEulerRotation * q`` はOM2型を返し、``EulerRotate * q`` はEulerRotateを返す。
-    ``*=`` / ``+=`` / ``-=`` は自身更新で、OM2にない ``+=`` / ``-=`` も同じオブジェクトを更新する。
-    数学値を返す継承メソッドも対応するmlib型を返し、コピー操作とIt付きの自身更新を区別する。
+    演算子の意味は次のとおり。
 
-    成分へ代入できる。lenは4、番号は-4〜3、範囲外はIndexError。スライスは成分tuple、反復はXYZW順。
-    ``==`` は成分の完全一致で、同じ回転でもqと-qは等しくない。
-    異種型との比較は :class:`~mlib.maths.vector.Vector` と同じ扱い。
+    - ``q1 * q2`` は、q1、q2の順に適用する回転。マトリクスの積と同じ順序になる(Hamilton積では ``q2 ⊗ q1``)。
+    - 足し算・引き算・単項の ``-`` は、成分ごとの演算。
+    - ``数値 * q`` は4成分それぞれのスカラー倍。``q * 数値`` と割り算はできない。
+    - 結果はQuaternionになる。左辺が ``om2.MQuaternion`` でも同じ。
+      ただし ``om2.MEulerRotation * q`` はOpenMayaの型を、``EulerRotate * q`` はEulerRotateを返す。
+    - ``*=`` / ``+=`` / ``-=`` は自身を書き換える。OpenMayaに無い ``+=`` / ``-=`` も同じオブジェクトを書き換える。
+
+    継承したメソッドのうち数学値を返すものも、対応するmlibの型を返す。
+    名前にItが付かない操作は新しい値を返し、Itが付く操作は自身を書き換える。
+
+    成分へ代入できる。lenは4で、番号は-4〜3。範囲外はIndexErrorになる。
+    スライスでは成分のtupleを返し、反復はXYZWの順になる。
+    ``==`` は成分の完全一致を比べる。同じ回転を表していても、qと-qは等しくない。
+    違う型との比較は :class:`~mlib.maths.vector.Vector` と同じ扱いになる。
     """
     __slots__: tuple
     __hash__: None
@@ -102,13 +109,15 @@ class Quaternion(om2.MQuaternion):
         """成分を設定する。
 
         Args:
-            *args: ``()``、``(x, y, z, w)``、``(values)``、``(MQuaternion)``、
-                ``(angle, axis)``、``(a, b[, factor])`` など om2 の MQuaternion の
-                コンストラクタが受け付ける引数。加えて ``(EulerRotate | om2.MEulerRotation)`` は
-                ``asQuaternion()`` と同じ回転、``(Matrix | om2.MMatrix)`` は
-                ``om2.MTransformationMatrix`` で分解した回転成分(スケール・シアー・平行移動を除く)。
-            **kwargs: ``x``、``y``、``z``、``w``。位置引数と合わせて使える。
-                省略した成分は (0, 0, 0, 1) の値。
+            *args: om2のMQuaternionのコンストラクタが受け付ける引数。
+                ``()``、``(x, y, z, w)``、``(values)``、``(MQuaternion)``、``(angle, axis)``、``(a, b[, factor])`` など。
+                このほか、次の形も受け付ける。
+
+                - ``(EulerRotate | om2.MEulerRotation)``: ``asQuaternion()`` と同じ回転。
+                - ``(Matrix | om2.MMatrix)``: ``om2.MTransformationMatrix`` で分解した回転の成分
+                  (スケール・シアー・平行移動は除く)。
+            **kwargs: ``x``、``y``、``z``、``w``。位置引数と組み合わせて使える。
+                省略した成分は (0, 0, 0, 1) の値になる。
 
         Returns:
             None: 値を返さない。
@@ -327,71 +336,73 @@ class Quaternion(om2.MQuaternion):
         ...
     @classmethod
     def fromAxisAngle(cls, axis: om2.MVector | Iterable[float], angle: float, *, unit: str = ...) -> Quaternion:
-        """軸と角度から回転クォータニオンを生成する。
+        """軸と角度から、回転のクォータニオンを作る。
 
         Args:
-            axis (om2.MVector | Iterable[float]): 回転軸。内部で正規化する。
-            angle (float): 回転角度。単位はunitに従う。
-            unit (str): angleの単位。既定 ``"rad"`` はラジアン(om2と同じ)、``"deg"`` は度
-                (``"degree"`` / ``"radians"`` 等の別名も可)。
+            axis (om2.MVector | Iterable[float]): 回転軸。中で正規化してから使う。
+            angle (float): 回転の角度。単位はunitで決まる。
+            unit (str): angleの単位。``"rad"`` はラジアン(om2と同じ)、``"deg"`` は度。既定は ``"rad"``。
+                ``"degree"`` / ``"radians"`` などの別名も使える。
 
         Returns:
-            Quaternion: axis を中心に angle だけ回転する単位クォータニオン。
+            Quaternion: axisを中心にangleだけ回転する単位クォータニオン。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
-            ValueError: axis がゼロベクトルの場合(om2 は単位クォータニオンを返す)、またはunitが未対応の場合。
+            ValueError: axisが0のベクトルの場合(om2はこの場合に単位クォータニオンを返す)、またはunitに対応していない場合。
         """
         ...
     @classmethod
     def fromRollBend(cls, roll: float, bendH: float, bendV: float, aimAxis: str = ..., upAxis: str = ..., *, unit: str = ...) -> Quaternion:
-        """ロール(捻り)と横・縦の曲げの角度から、回転クォータニオンを合成する(:meth:`asRollBend` の逆)。
+        """ロール(捻り)と、横・縦の曲げの角度から、回転のクォータニオンを作る。
 
-        aimAxis周りに roll だけ捻ってから、aimAxisを曲げる回転(om2の積の順序で ``捻り * 曲げ``)を作る。
-        曲げは、upAxis周りの bendH と、横の軸(``aimAxis × upAxis``)周りの bendV の組で表し、
-        片方が0ならその軸周りの回転そのものになる。
+        :meth:`asRollBend` の逆の計算になる。aimAxis周りにrollだけ捻ってから、aimAxisを曲げる回転を作る
+        (om2の積の順序で ``捻り * 曲げ``)。
+        曲げは、upAxis周りのbendHと、横の軸(``aimAxis × upAxis``)周りのbendVの組で表す。
+        片方が0なら、もう片方の軸周りの回転そのものになる。
 
         Args:
             roll (float): aimAxis周りの捻りの角度。
-            bendH (float): upAxis周りの曲げの角度(aimAxisを横の軸の負の側へ倒す向きが正)。
-            bendV (float): 横の軸周りの曲げの角度(aimAxisをupAxisの側へ倒す向きが正)。
-            aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。既定 ``"x"``。
-            upAxis (str): アップ軸。aimAxisと別の軸。既定 ``"y"``。
-            unit (str): 角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン。
+            bendH (float): upAxis周りの曲げの角度。aimAxisを横の軸の負の側へ倒す向きが正。
+            bendV (float): 横の軸周りの曲げの角度。aimAxisをupAxisの側へ倒す向きが正。
+            aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
+            upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
+            unit (str): 角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
 
         Returns:
             Quaternion: 呼び出したクラスの新しい単位クォータニオン。
 
         Raises:
-            TypeError: 角度が数値でない、aimAxis・upAxisが文字列でない、またはunitが文字列・None以外の場合。
-            ValueError: 角度が有限でない、軸の名前が不正、aimAxisとupAxisが同じ軸、またはunitが未対応の場合。
+            TypeError: 角度が数値でない場合、aimAxis・upAxisが文字列でない場合、またはunitが文字列・None以外の場合。
+            ValueError: 角度が有限でない場合、軸の名前が正しくない場合、aimAxisとupAxisが同じ軸の場合、
+                またはunitに対応していない場合。
         """
         ...
     @staticmethod
     def squad(*args) -> Quaternion:
-        """クォータニオン空間の三次曲線上で補間したQuaternionを返す。
+        """クォータニオンの空間での三次曲線(squad)で補間したQuaternionを返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        計算はOpenMayaのMQuaternion.squadで行う。入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
-            *args: 両端p/q、中間制御点a/b、補間値tをp, a, b, q, tの順で指定する。
-                任意のspinは一周する回数。
+            *args: p, a, b, q, tの順に指定する。pとqは両端、aとbは中間の制御点、tは補間の割合。
+                省略できるspinは、何周余分に回るか。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しいQuaternion。
         """
         ...
     @staticmethod
     def squadPt(*args) -> Quaternion:
-        """squadで滑らかにつながる曲線の中間制御回転を計算する。
+        """squadの曲線を滑らかにつなぐための、中間の制御点の回転を計算する。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        計算はOpenMayaのMQuaternion.squadPtで行う。入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
-            *args: 隣接する3個のクォータニオンq0, q1, q2を指定する。
+            *args: 隣り合う3つのクォータニオンq0, q1, q2を指定する。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しいQuaternion。
         """
         ...
     def dot(self, other: om2.MQuaternion) -> float:
@@ -419,183 +430,191 @@ class Quaternion(om2.MQuaternion):
         """
         ...
     def unitIt(self) -> Quaternion:
-        """ゼロ値を拒否して自身を正規化する。
+        """自身を正規化する。
+
+        0のクォータニオンは正規化できないので、例外にする。
 
         Returns:
             Quaternion: 更新した自身。
 
         Raises:
-            ValueError: ゼロ値の場合。自身は変更しない。
+            ValueError: 0のクォータニオンの場合。自身は変更しない。
         """
         ...
     def unit(self) -> Quaternion:
         """正規化した新しいクォータニオンを返す。
 
-        om2 の ``normal()`` はゼロクォータニオンに単位クォータニオンを返すが、このメソッドは拒否する。
+        om2の ``normal()`` は、0のクォータニオンに対して単位クォータニオンを返す。
+        このメソッドは、0のクォータニオンを例外にする。
 
         Returns:
-            Quaternion: 長さ 1 のクォータニオン。
+            Quaternion: 長さ1のクォータニオン。
 
         Raises:
-            ValueError: ゼロクォータニオンの場合。
+            ValueError: 0のクォータニオンの場合。
         """
         ...
     def conjugate(self) -> Quaternion:
-        """共役クォータニオンを返す(om2 の同名メソッドを mlib の型で返すよう上書き)。
+        """共役クォータニオンを返す。
+
+        om2の同名メソッドを上書きして、mlibの型で返す。
 
         Returns:
             Quaternion: XYZ 成分の符号を反転した新しいクォータニオン。
         """
         ...
     def inverse(self) -> Quaternion:
-        """逆クォータニオン(共役を長さの2乗で割った値)を返す。
+        """逆クォータニオンを返す。
 
-        om2 の同名メソッドを上書きし、mlib の型で返す。om2 はゼロクォータニオンに NaN を
-        返すが、このメソッドは拒否する。単位クォータニオンなら conjugate() と同じ。
+        逆クォータニオンは、共役を長さの2乗で割った値。単位クォータニオンならconjugate()と同じになる。
+        om2の同名メソッドを上書きして、mlibの型で返す。
+        om2は0のクォータニオンに対してNaNを返すが、このメソッドは例外にする。
 
         Returns:
             Quaternion: 逆クォータニオン。
 
         Raises:
-            ValueError: ゼロクォータニオンの場合。
+            ValueError: 0のクォータニオンの場合。
         """
         ...
     def rotateVector(self, vector: om2.MVector | Iterable[float]) -> Vector:
-        """Quaternionの正規化したコピーで、XYZベクトルを回転する。
+        """XYZのベクトルを、このクォータニオンで回転する。
 
-        正規化は独立したコピー上で行い、自身と入力ベクトルは変更しない。
-        非単位QuaternionをMVector.rotateBy()へ直接渡す場合と異なり、
-        Quaternionの長さを使ってベクトルを拡縮するものではない。位置の平行移動は含まない。
+        自身のコピーを正規化してから使う。自身と入力のベクトルは変更しない。
+        長さが1でないQuaternionをMVector.rotateBy()へ直接渡すと、その長さでベクトルの大きさも変わる。
+        このメソッドは正規化してから回すので、大きさは変わらない。平行移動も含まない。
 
         Args:
-            vector (om2.MVector | Iterable[float]): 回転するXYZ。MPoint入力ではwを無視する。
+            vector (om2.MVector | Iterable[float]): 回転するXYZ。MPointを渡した場合、wは無視する。
 
         Returns:
-            Vector: 新しい回転結果。入力の派生型や追加Python状態は引き継がない。
+            Vector: 回転した新しいベクトル。入力の型が派生クラスでも引き継がず、派生クラスで足したPythonの状態も引き継がない。
 
         Raises:
-            ValueError: 自身がゼロQuaternionの場合。
+            ValueError: 自身が0のクォータニオンの場合。
         """
         ...
     def angleTo(self, other: om2.MQuaternion) -> float:
-        """別のクォータニオンが表す回転との角度差をラジアンで返す。
+        """別のクォータニオンが表す回転との角度の差を、ラジアンで返す。
 
-        両方を正規化し、二重被覆(q と -q が同じ回転)を考慮する。acos を使わず
-        ``4 * atan2(|p - q|, |p + q|)`` で計算するため、角度差が 0 や pi に近くても
-        精度を保つ。
+        両方を正規化してから比べる。qと-qは同じ回転を表すので、その場合の差は0になる。
+        acosを使わず ``4 * atan2(|p - q|, |p + q|)`` で計算するので、差が0やpiに近くても精度が落ちない。
 
         Args:
-            other (om2.MQuaternion): 角度差を測る相手の回転。
+            other (om2.MQuaternion): 角度の差を測る相手の回転。
 
         Returns:
-            float: 0 から pi の範囲のラジアン角度。
+            float: 0からpiまでのラジアンの角度。
 
         Raises:
-            ValueError: 自身または other がゼロクォータニオンの場合。
+            ValueError: 自身またはotherが0のクォータニオンの場合。
         """
         ...
     def slerp(self, other: om2.MQuaternion, t: float, spin: int = ...) -> Quaternion:
         """別のクォータニオンとの球面線形補間を返す。
 
-        om2 の静的メソッド ``MQuaternion.slerp(p, q, t, spin=0)`` を上書きする。
-        インスタンスメソッドとして ``p.slerp(q, t)`` と呼べるほか、
-        ``Quaternion.slerp(p, q, t)`` の静的呼び出しの形でも使える。入力を正規化
-        してからom2のslerpへ渡す。spin=0では最短経路を補間する。
+        om2の静的メソッド ``MQuaternion.slerp(p, q, t, spin=0)`` を上書きする。
+        ``p.slerp(q, t)`` のようにインスタンスから呼べるほか、``Quaternion.slerp(p, q, t)`` の形でも使える。
+        入力を正規化してから、om2のslerpへ渡す。spinが0なら最短経路で補間する。
 
         Args:
             other (om2.MQuaternion): 補間先の回転。
-            t (float): 補間係数。0 で自身、1 で other。
-            spin (int): om2 の slerp に渡す追加回転数。既定は 0。
+            t (float): 補間の割合。0で自身、1でotherになる。
+            spin (int): om2のslerpへ渡す、余分に回る回数。既定は0。
 
         Returns:
-            Quaternion: 補間結果。
+            Quaternion: 補間した結果。
 
         Raises:
-            ValueError: 自身または other がゼロクォータニオンの場合。
+            ValueError: 自身またはotherが0のクォータニオンの場合。
         """
         ...
     def asCanonicalAxisAngle(self) -> tuple[Vector, float]:
         """軸と角度の組へ分解する。
 
-        om2 の ``asAxisAngle`` と異なり、w が負なら符号を反転して角度を 0 から pi の
-        範囲に収め、回転が無い場合の軸は (1, 0, 0) とする。角度は
-        ``2 * atan2(|xyz|, w)`` で求めるため、微小な回転でも精度を保つ。
+        om2の ``asAxisAngle`` とは次の点が違う。
+
+        - wが負なら符号を反転して、角度を0からpiの範囲に収める。
+        - 回転が無い場合の軸は (1, 0, 0) にする。
+        - 角度を ``2 * atan2(|xyz|, w)`` で求めるので、ごく小さい回転でも精度が落ちない。
 
         Returns:
-            tuple[Vector, float]: 正規化した回転軸と、ラジアンの回転角度(0 から pi)。
+            tuple[Vector, float]: 正規化した回転軸と、ラジアンの回転の角度(0からpi)。
 
         Raises:
-            ValueError: 自身がゼロクォータニオンの場合。
+            ValueError: 自身が0のクォータニオンの場合。
         """
         ...
     def asSwingTwist(self, axis: om2.MVector | Iterable[float] = ...) -> tuple[Quaternion, Quaternion]:
-        """指定軸まわりの捻り(twist)と、それ以外の曲げ(swing)へ分解する。
+        """指定した軸周りの捻り(twist)と、それ以外の曲げ(swing)へ分解する。
 
-        ``twist`` は axis 周りだけの回転、``swing`` は axis の向きを変える残りの
-        回転。om2 の積の順序で ``twist * swing`` が自身と同じ回転になる
-        (twist を先に適用し、続けて swing を適用する)。
+        ``twist`` はaxis周りだけの回転、``swing`` はaxisの向きを変える残りの回転。
+        om2の積の順序で ``twist * swing`` が自身と同じ回転になる(twistを先に、swingを後に適用する)。
 
         Args:
-            axis (om2.MVector | Iterable[float]): 捻り軸。内部で正規化する。
+            axis (om2.MVector | Iterable[float]): 捻りの軸。中で正規化してから使う。
 
         Returns:
-            tuple[Quaternion, Quaternion]: (swing, twist)。どちらも正規化済み。
+            tuple[Quaternion, Quaternion]: (swing, twist)。どちらも正規化してある。
 
         Raises:
-            ValueError: axis がゼロベクトルの場合、または自身がゼロクォータニオンの場合。
+            ValueError: axisが0のベクトルの場合、または自身が0のクォータニオンの場合。
         """
         ...
     def asRollBend(self, aimAxis: str = ..., upAxis: str = ..., *, unit: str = ...) -> tuple[float, float, float]:
-        """ボーンの回転として、ロール(aimAxis周りの捻り)と横・縦の曲げの角度へ分解する。
+        """ボーンの回転を、ロール(aimAxis周りの捻り)と、横・縦の曲げの角度へ分解する。
 
-        自身を正規化して ``捻り * 曲げ`` (捻りを先に適用し、続けてaimAxisを最短経路で倒す曲げ)へ分け、
-        曲げを upAxis 周りの bendH と横の軸(``aimAxis × upAxis``)周りの bendV で表す。曲げの2つの角度は
-        半角の正接で組み合わせる(``tan(全体の曲げ/2)² = tan(bendH/2)² + tan(bendV/2)²``)ため、
-        片方が0ならその軸周りの回転角そのものになり、オイラー角のような回転順序の影響を受けない。
-        ツイストの抽出や、ポーズに応じたドライバーの値に使う。:meth:`fromRollBend` で元の回転へ戻る。
+        自身を正規化して、``捻り * 曲げ`` に分ける。捻りを先に適用し、続けてaimAxisを最短経路で倒すのが曲げ。
+        曲げは、upAxis周りのbendHと、横の軸(``aimAxis × upAxis``)周りのbendVで表す。
+
+        曲げの2つの角度は、半角の正接で組み合わせる(``tan(全体の曲げ/2)² = tan(bendH/2)² + tan(bendV/2)²``)。
+        そのため、片方が0なら、もう片方はその軸周りの回転角そのものになる。オイラー角と違い、回転順序の影響も受けない。
+        ツイストの取り出しや、ポーズに応じたドライバーの値に使う。:meth:`fromRollBend` で元の回転へ戻せる。
 
         Args:
-            aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。既定 ``"x"``。
-            upAxis (str): アップ軸。aimAxisと別の軸。既定 ``"y"``。
-            unit (str): 戻り値の角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン。
+            aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
+            upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
+            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
 
         Returns:
-            tuple[float, float, float]: (roll, bendH, bendV)。roll は -180〜180 度、曲げは -180〜180 度。
-                aimAxisが真後ろへ向く180度の曲げは、曲げの向きが定まらない。
+            tuple[float, float, float]: (roll, bendH, bendV)。rollも曲げも-180〜180度。
+                aimAxisが真後ろへ向く180度の曲げでは、曲げの向きが決まらない。
 
         Raises:
-            TypeError: aimAxis・upAxisが文字列でない、またはunitが文字列・None以外の場合。
-            ValueError: 軸の名前が不正、aimAxisとupAxisが同じ軸(符号違いを含む)、unitが未対応、
-                または自身がゼロクォータニオンの場合。
+            TypeError: aimAxis・upAxisが文字列でない場合、またはunitが文字列・None以外の場合。
+            ValueError: 軸の名前が正しくない場合、aimAxisとupAxisが同じ軸(符号だけ違う場合を含む)の場合、
+                unitに対応していない場合、または自身が0のクォータニオンの場合。
         """
         ...
     def asDecomposedEulerRotate(self, order: str | int = ...) -> EulerRotate:
-        """EulerRotate へ変換する。
+        """EulerRotateへ変換する。
 
-        正規化した回転マトリクスを ``om2.MEulerRotation.decompose`` で分解するため、
-        ``Matrix.euler`` と同じ規約の角度になる。中間軸が 90 度を超える等価な角度を
-        返すことがある。
+        正規化した回転マトリクスを ``om2.MEulerRotation.decompose`` で分解する。
+        そのため、``Matrix.euler`` と同じ規約の角度になる。
+        同じ向きを表す別の解として、中間の軸が90度を超える角度を返すことがある。
 
         Args:
             order (str | int): 回転順序。``"xyz"``/``"yzx"``/``"zxy"``/``"xzy"``/
-                ``"yxz"``/``"zyx"``、または om2 の番号 0〜5。
+                ``"yxz"``/``"zyx"``、またはom2の番号0〜5。
 
         Returns:
-            EulerRotate: ラジアンの Euler 回転値。
+            EulerRotate: ラジアンのEulerの回転値。
 
         Raises:
-            ValueError: order が未対応の場合、またはゼロクォータニオンの場合。
+            ValueError: orderに対応していない場合、または0のクォータニオンの場合。
         """
         ...
     def mirror(self, axis: str | int = ...) -> Quaternion:
-        """Matrixと同じ規約で向きをビヘイビアミラーした複製を返す。
+        """向きを「ビヘイビア」でミラーした、新しいクォータニオンを返す。
+
+        ミラーの規約は :meth:`Matrix.mirror <mlib.maths.matrix.Matrix.mirror>` と同じ。
 
         Args:
-            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、またはミラー面 ``"YZ"``・``"XZ"``・``"XY"``
-                (x⇔YZ、y⇔XZ、z⇔XY。文字の順序・大文字小文字は問わない)、または0/1/2。
+            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"``・``"XZ"``・``"XY"``、
+                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。
 
         Returns:
-            Quaternion: 同型の新しい回転。
+            Quaternion: 自身と同じ型の新しい回転。
 
         Raises:
             TypeError: axisが文字列・int以外の場合。
@@ -603,117 +622,122 @@ class Quaternion(om2.MQuaternion):
         """
         ...
     def mirrorIt(self, axis: str | int = ...) -> Quaternion:
-        """自身の向きをビヘイビアミラーする。
+        """自身の向きを「ビヘイビア」でミラーする。
 
         Args:
-            axis (str | int): mirrorと同じ反転軸。
+            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
 
         Returns:
             Quaternion: 更新した自身。
         """
         ...
     def asUnitMatrix(self) -> Matrix:
-        """Quaternionの正規化したコピーから、独立した回転Matrixを作る。
+        """自身のコピーを正規化して、回転のマトリクスを作る。
 
-        自身を正規化する操作ではない。元のQuaternionやその成分参照は変更しない。
-        OpenMayaへそのまま委譲するasMatrix()とは別に、コピーの正規化とゼロ拒否を行う。
+        正規化するのはコピーで、自身は変更しない。
+        OpenMayaの計算をそのまま使うasMatrix()と違い、正規化してから変換し、0のクォータニオンは例外にする。
 
         Returns:
-            Matrix: 回転だけを持つ新しい4行4列のマトリクス。追加Python状態は引き継がない。
+            Matrix: 回転だけを持つ新しい4行4列のマトリクス。派生クラスで足したPythonの状態は引き継がない。
 
         Raises:
-            ValueError: 自身がゼロQuaternionの場合。
+            ValueError: 自身が0のクォータニオンの場合。
         """
         ...
     def normal(self, *args) -> Quaternion:
-        """OpenMayaの規則で正規化したQuaternionの複製を返す。
+        """OpenMayaの規則で正規化した、新しいQuaternionを返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しい値。
         """
         ...
     def exp(self, *args) -> Quaternion:
         """クォータニオンの指数を、新しいQuaternionとして返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しい値。
         """
         ...
     def log(self, *args) -> Quaternion:
         """クォータニオンの自然対数を、新しいQuaternionとして返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しい値。
         """
         ...
     def safeLog(self) -> Quaternion:
-        """w が負なら符号を反転してから(同じ回転のまま)、自然対数を新しいQuaternionとして返す。
+        """自然対数を、新しいQuaternionとして返す。wが負なら、先に符号を反転する。
 
-        単位クォータニオンでは、結果の虚部の長さ(回転角の半分)が pi/2 以下になる。
-        :meth:`log` の結果を足し合わせて回転を平均・補間するときに、二重被覆による遠回りを避ける。
+        符号を反転しても、表す回転は同じ。単位クォータニオンでは、結果の虚部の長さ(回転角の半分)がpi/2以下になる。
+        qと-qは同じ回転を表すので、:meth:`log` の結果をそのまま足し合わせて回転を平均・補間すると、遠回りすることがある。
+        このメソッドはそれを避けるために使う。
 
         Returns:
             Quaternion: 対数。自身は変更しない。
         """
         ...
     def asMatrix(self, *args) -> Matrix:
-        """保持する回転を、等価な回転マトリクスへ変換する。
+        """この回転を、同じ回転を表すマトリクスへ変換する。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            Matrix: 演算結果を保持する新しいmlib値。
+            Matrix: 計算結果の新しい値。
         """
         ...
     def asEulerRotation(self, *args) -> EulerRotate:
-        """保持する回転を、等価なEulerRotateへ変換する。
+        """この回転を、同じ回転を表すEulerRotateへ変換する。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            EulerRotate: 演算結果を保持する新しいmlib値。
+            EulerRotate: 計算結果の新しい値。
         """
         ...
     def asEulerRotate(self, *args) -> EulerRotate:
-        """標準のasEulerRotationへ委譲し、EulerRotateの新しい値を返す。
+        """この回転を、EulerRotateの新しい値として返す。
+
+        中ではasEulerRotationを呼ぶ。
 
         Args:
-            *args: OpenMayaの標準メソッドへ渡す位置引数。
+            *args: OpenMayaのasEulerRotationへ渡す位置引数。
 
         Returns:
-            EulerRotate: ラジアンのEuler回転値。元の標準メソッドと同じ演算結果。
+            EulerRotate: ラジアンのEulerの回転値。asEulerRotationと同じ結果になる。
 
         Note:
-            OpenMaya標準のasEulerRotationも引き続き使用できる。
-            引数・例外・自身を変更しない動作は標準メソッドと同じ。
+            OpenMayaのasEulerRotationも、これまでどおり使える。
+            引数・例外・自身を変更しない点は、asEulerRotationと同じ。
         """
         ...
     def asAxisAngle(self) -> tuple[Vector, float]:
-        """OpenMayaの軸角表現をmlibの軸ベクトルで返す。
+        """軸と角度の組へ分解する。軸はmlibのVectorで返す。
+
+        計算はOpenMayaのMQuaternion.asAxisAngleで行う。
 
         Returns:
-            tuple[Vector, float]: 軸とラジアン角度。角度範囲はOpenMayaに従う。
+            tuple[Vector, float]: 軸と、ラジアンの角度。角度の範囲はOpenMayaに従う。
         """
         ...
     @classmethod

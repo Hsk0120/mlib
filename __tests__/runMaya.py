@@ -64,7 +64,7 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
         actual = str(cmds.about(version=True))
         result.update(maya_version=actual, api_version=cmds.about(apiVersion=True), python_version=sys.version, executable=sys.executable)
         if actual.split(".")[0] != version:
-            raise RuntimeError(f"Requested Maya {version} but started {actual}")
+            raise RuntimeError(f"Maya {version}を指定しましたが、{actual}が起動しました")
         sys.path.insert(0, str(ROOT.parent))
         tests = TESTS_DIR
         sys.path.insert(0, str(TESTS_DIR))
@@ -188,11 +188,11 @@ def main():
     if args.suite_file:
         args.suite_file = args.suite_file.resolve()
         if not args.suite_file.is_file():
-            parser.error("suite file does not exist: " + str(args.suite_file))
+            parser.error("スイートのファイルが存在しません: " + str(args.suite_file))
     if args.worker:
         return worker(args.worker[0], Path(args.worker[1]), args.suite_file, args.tests, args.suite)
     if args.timeout <= 0:
-        parser.error("--timeout must be positive")
+        parser.error("--timeout は正の値で指定してください")
     versions = list(dict.fromkeys(args.versions))
     if args.list:
         for version in versions:

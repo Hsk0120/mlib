@@ -1,8 +1,8 @@
-"""点を順につないだjointのチェーンを作り、各jointを次の点へ向けたjointのlistを返す。
+"""点を順につないだjointのチェーンを作り、jointのlistを返す。
 
-各jointの aimAxis を次の点へ、upAxis を up の向きへ向ける(最後のjointは1つ前と同じ向き)。
-向きは jointOrient に入れ、rotate は0にする。``cmds.joint`` で1つずつ作って ``orientJoint`` で揃える手順を
-1回で行う。
+各jointは次の点へ向ける。aimAxis を次の点へ、upAxis を up の向きへ向ける(最後のjointは1つ前と同じ向き)。
+向きは jointOrient に入れ、rotate は0にする。
+``cmds.joint`` で1つずつ作って ``orientJoint`` で向きを揃える手順を、1回で行う。
 
 .. code-block:: python
 
@@ -26,7 +26,7 @@ _AXES = {"x": (0, 1.0), "y": (1, 1.0), "z": (2, 1.0), "-x": (0, -1.0), "-y": (1,
 
 
 def _axis(value, label):
-    """軸の名前を検証し、(軸の番号, 符号) を返す。
+    """軸の名前を確かめ、(軸の番号, 符号) を返す。
 
     Args:
         value (str): ``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。
@@ -40,41 +40,48 @@ def _axis(value, label):
         ValueError: 対応しない名前の場合。
     """
     if not isinstance(value, str):
-        raise TypeError(f"{label} must be a string")
+        raise TypeError(f"{label}は文字列で指定してください")
     if value.lower() not in _AXES:
-        raise ValueError(f"{label} must be one of {', '.join(_AXES)}: {value!r}")
+        raise ValueError(f"{label}は{', '.join(_AXES)}のどれかで指定してください: {value!r}")
     return _AXES[value.lower()]
 
 
 def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=None, parent=None):
     """点を順につないだjointのチェーンを作る。
 
-    1つ目のjointを parent の子に、以降を1つ前のjointの子に作る。各jointの aimAxis を次の点へ向け、
-    upAxis を up を aim に垂直にした向きへ向ける(最後のjointは1つ前のjointと同じ向き)。向きは
-    jointOrient に入れ、rotate・rotateAxis は0のまま。inverseScale は親がjointならその scale へ接続する。
-    選択は変更しない。fast引数は持たない。Undo有効時は1回で戻せる。
+    1つ目のjointは parent の子に、2つ目からは1つ前のjointの子に作る。
+
+    - 各jointの aimAxis を、次の点へ向ける。
+    - upAxis は、up を aim に垂直にした向きへ向ける。
+    - 最後のjointは、1つ前のjointと同じ向きにする。
+
+    向きは jointOrient に入れ、rotate・rotateAxis は0のままにする。
+    親がjointなら、inverseScale を親の scale へ接続する。
+    選択は変えない。fast引数は無い。Undoが有効なら1回で戻せる。
 
     Args:
-        points (Iterable[Sequence[float]]): ワールド空間の位置(cm)の列。2点以上で、隣り合う点は別の位置。
+        points (Iterable[Sequence[float]]): ワールド空間の位置(cm)の並び。2点以上で、隣り合う点は別の位置にする。
         aimAxis (str): 次の点へ向ける軸。``"x"`` (既定)・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。
-        upAxis (str): up の向きへ向ける軸。aimAxis と別の軸。既定 ``"y"``。
-        up (Sequence[float]): ワールド空間の上方向の目安。既定 ``(0, 1, 0)``。
-        names (Sequence[str] | None): jointの名前。points と同じ数。Noneは ``joint#`` (Mayaの連番)。
-        parent (str | Node | None): 1つ目のjointの親のtransform。Noneはワールド。
+        upAxis (str): up の向きへ向ける軸。aimAxis と別の軸にする。既定は ``"y"``。
+        up (Sequence[float]): ワールド空間で、上の向きの目安。既定は ``(0, 1, 0)``。
+        names (Sequence[str] | None): jointの名前。points と同じ数だけ指定する。
+            Noneなら ``joint#`` (Mayaの連番)。
+        parent (str | Node | None): 1つ目のjointの親のtransform。Noneならワールド。
 
     Returns:
-        list[Joint]: 作ったjoint。points の順。
+        list[Joint]: 作ったjoint。points の順に並ぶ。
 
     Raises:
-        TypeError: points・up の成分が数値でない、aimAxis・upAxis が文字列でない、names が文字列の列・None以外、
-            または parent がtransformでない場合。
-        ValueError: 点が2つ未満、隣り合う点が同じ位置、軸の名前が不正・同じ軸、names の数が points と違う・空の名前を含む、
-            up が0、または up が向ける方向とほぼ平行な場合。
-        RuntimeError: parent の名前が存在しない、またはMayaが作成を拒否した場合。
+        TypeError: points・up の成分が数値でない場合、aimAxis・upAxis が文字列でない場合、
+            names が文字列の並びでもNoneでもない場合、または parent がtransformでない場合。
+        ValueError: 点が2つ未満の場合、隣り合う点が同じ位置の場合、軸の名前が正しくないか同じ軸の場合、
+            names の数が points と違うか空の名前を含む場合、up が0の場合、
+            または up が向ける方向とほぼ平行な場合。
+        RuntimeError: parent の名前のノードが無い場合、またはMayaが作成を拒否した場合。
 
     Note:
-        parent のスケールが1でない場合も位置と向きは parent のワールドのマトリクスで換算するが、
-        segmentScaleCompensate による補正は考慮しない。
+        parent のスケールが1でない場合も、位置と向きは parent のワールドのマトリクスで換算する。
+        ただし、segmentScaleCompensate による補正は考えに入れない。
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.joint import Joint
@@ -82,46 +89,46 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
     from ..nodes.transform import Transform
 
     if isinstance(points, (str, bytes)):
-        raise TypeError("points must be a sequence of 3D positions")
+        raise TypeError("pointsは3Dの位置の並びで指定してください")
     try:
         items = list(points)
     except TypeError:
-        raise TypeError("points must be a sequence of 3D positions") from None
+        raise TypeError("pointsは3Dの位置の並びで指定してください") from None
     positions = [om2.MVector(*_finite_vector(item, 3, "points")) for item in items]
     if len(positions) < 2:
-        raise ValueError(f"points must contain 2 or more positions, got {len(positions)}")
+        raise ValueError(f"pointsには位置を2つ以上指定してください: {len(positions)}個")
     aim_axis = _axis(aimAxis, "aimAxis")
     up_axis = _axis(upAxis, "upAxis")
     if aim_axis[0] == up_axis[0]:
-        raise ValueError(f"aimAxis and upAxis must be different axes: {aimAxis!r}, {upAxis!r}")
+        raise ValueError(f"aimAxisとupAxisは別の軸で指定してください: {aimAxis!r}, {upAxis!r}")
     up_vector = om2.MVector(*_finite_vector(up, 3, "up"))
     if up_vector.length() <= 1e-12:
-        raise ValueError("up must not be a zero vector")
+        raise ValueError("upに0のベクトルは指定できません")
     up_vector.normalize()
     if names is not None:
         if isinstance(names, str):
-            raise TypeError("names must be a sequence of strings or None")
+            raise TypeError("namesは文字列の並びかNoneで指定してください")
         names = list(names)
         if not all(isinstance(name, str) for name in names):
-            raise TypeError("names must be a sequence of strings or None")
+            raise TypeError("namesは文字列の並びかNoneで指定してください")
         if len(names) != len(positions):
-            raise ValueError(f"names must have {len(positions)} items, got {len(names)}")
+            raise ValueError(f"namesは{len(positions)}個で指定してください: {len(names)}個")
         if not all(names):
-            raise ValueError("names must not contain empty strings")
+            raise ValueError("namesに空の文字列は指定できません")
     parent_node = None
     if parent is not None:
         parent_node = Node(Object._input_name(parent))
         if not isinstance(parent_node, Transform):
-            raise TypeError(f"parent must be a transform: {parent_node.getFullName()}")
+            raise TypeError(f"parentはtransformで指定してください: {parent_node.getFullName()}")
     rotations = []
     for index, position in enumerate(positions[:-1]):
         aim = positions[index + 1] - position
         if aim.length() <= 1e-9:
-            raise ValueError(f"points {index} and {index + 1} are at the same position")
+            raise ValueError(f"点{index}と点{index + 1}が同じ位置にあります")
         try:
             rotation = Matrix.fromAim(aim, up_vector, aimAxis=aimAxis.lower(), upAxis=upAxis.lower())
         except ValueError:
-            raise ValueError(f"up is parallel to the direction from point {index} to {index + 1}") from None
+            raise ValueError(f"upが、点{index}から点{index + 1}への方向と平行です") from None
         rotations.append(rotation)
     rotations.append(rotations[-1])
     unit = om2.MDistance.uiUnit()

@@ -58,14 +58,14 @@ class EulerShearTest(_SpecCase):
     def test_get_euler_with_zero_scale_raises(self):
         """自身・親のスケールが0(Maya は 1e-12 として評価)なら ValueError。"""
         cmds.setAttr(self.parent + ".scale", 0, 1, 1)
-        with self.assertRaisesRegex(ValueError, "zero scale axis"):
+        with self.assertRaisesRegex(ValueError, "スケールが0の軸"):
             self.child.getRotate(worldSpace=True, order=0)
         self.assertIsInstance(self.child.getRotate(order=0), EulerRotate)
         cmds.setAttr(self.parent + ".scale", 1, 1, 1)
         cmds.setAttr(self.child_name + ".scale", 1, 0, 1)
-        with self.assertRaisesRegex(ValueError, "zero scale axis"):
+        with self.assertRaisesRegex(ValueError, "スケールが0の軸"):
             self.child.getRotate(order=0)
-        with self.assertRaisesRegex(ValueError, "zero scale axis"):
+        with self.assertRaisesRegex(ValueError, "スケールが0の軸"):
             self.child.getRotate(worldSpace=True, order=0)
 
     def test_get_euler_with_small_scale(self):
@@ -115,10 +115,10 @@ class MakeIdentityTest(_SpecCase):
 
     def test_errors(self):
         """長短名の同時指定は TypeError、削除済みは RuntimeError。"""
-        with self.assertRaisesRegex(TypeError, "Specify only one of 'translate' and 't'"):
+        with self.assertRaisesRegex(TypeError, "'translate'と't'は同時に指定できません"):
             self.node.makeIdentity(apply=True, t=True, translate=True)
         cmds.delete(self.name_)
-        with self.assertRaisesRegex(RuntimeError, r"(?i)invalid (transform|joint)"):
+        with self.assertRaisesRegex(RuntimeError, "無効な(Transform|Joint)のため"):
             self.node.makeIdentity(apply=True)
 
 
@@ -140,7 +140,7 @@ class TransformSequenceTest(_SpecCase):
         for name in names:
             self.assertSequenceAlmostEqual(cmds.xform(name, query=True, worldSpace=True, rotatePivot=True), [0, 0, 0])
         joint = Node(self.make("joint", "bulkJoint"))
-        with self.assertRaisesRegex(TypeError, "Joint does not support independent"):
+        with self.assertRaisesRegex(TypeError, "Jointは回転とスケールのピボットを別々に持てません"):
             joint.setPivot((0, 0, 0), worldSpace=True, kind="both")
 
 

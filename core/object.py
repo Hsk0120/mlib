@@ -1,76 +1,77 @@
-"""Mayaシーン内の単一対象を表す共通基底と、選択リストによる対象の判別補助。"""
+"""シーンの中の1つの対象を表す共通の基底クラスと、選択リストで対象の種類を見分ける補助。"""
 
 import maya.api.OpenMaya as om2
 
 #: maya.cmdsやほかのライブラリでよく使う名前と、mlibでの書き方の対応。値は (必要なメソッド名, 案内)、またはその組の列。
-#: 必要なメソッドが対象のクラスに無い案内は表示せず、列では最初に当てはまる案内を使う(None は常に表示する)。
+#: 必要なメソッドが対象のクラスに無ければ、その案内は表示しない。列では最初に当てはまる案内を使う(None は常に表示する)。
 _MEMBER_HINTS = {
-    "getAttr": ("getPlug", "use getPlug(name).get()"),
-    "setAttr": ("getPlug", "use getPlug(name).set(value)"),
-    "attr": ("getPlug", "use getPlug(name)"),
-    "listAttr": ("getPlugs", "use getPlugs()"),
-    "hasAttribute": ("hasAttr", "use hasAttr(name)"),
-    "attributeExists": ("hasAttr", "use hasAttr(name)"),
-    "addAttribute": ("addAttr", "use addAttr(name, ...)"),
-    "deleteAttr": ("getPlug", "use getPlug(name).delete()"),
-    "connectAttr": ("getPlug", "use getPlug(name).connectTo(destination)"),
-    "disconnectAttr": ("getPlug", "use getPlug(name).disconnect()"),
+    "getAttr": ("getPlug", "getPlug(name).get()を使います"),
+    "setAttr": ("getPlug", "getPlug(name).set(value)を使います"),
+    "attr": ("getPlug", "getPlug(name)を使います"),
+    "listAttr": ("getPlugs", "getPlugs()を使います"),
+    "hasAttribute": ("hasAttr", "hasAttr(name)を使います"),
+    "attributeExists": ("hasAttr", "hasAttr(name)を使います"),
+    "addAttribute": ("addAttr", "addAttr(name, ...)を使います"),
+    "deleteAttr": ("getPlug", "getPlug(name).delete()を使います"),
+    "connectAttr": ("getPlug", "getPlug(name).connectTo(destination)を使います"),
+    "disconnectAttr": ("getPlug", "getPlug(name).disconnect()を使います"),
     "lockAndHide": (
-        ("setAttrFlags", "use setAttrFlags(names, locked=True, keyable=False, channelBox=False)"),
-        ("setFlags", "use setFlags(locked=True, keyable=False, channelBox=False)"),
+        ("setAttrFlags", "setAttrFlags(names, locked=True, keyable=False, channelBox=False)を使います"),
+        ("setFlags", "setFlags(locked=True, keyable=False, channelBox=False)を使います"),
     ),
-    "lockNode": ("setLocked", "use setLocked(True)"),
-    "listConnections": ("getConnections", "use getConnections()"),
-    "connections": ("getConnections", "use getConnections()"),
-    "inputs": ("getSource", "use getSource()"),
-    "outputs": ("getDestinations", "use getDestinations()"),
-    "listRelatives": ("getChildren", "use getChildren() or getParent()"),
-    "getAllChildren": ("getChildren", "use getChildren(allDescendents=True)"),
-    "listHistory": ("getHistory", "use getHistory()"),
-    "history": ("getHistory", "use getHistory()"),
-    "firstParent": ("getParent", "use getParent()"),
-    "getAllParents": ("getParents", "use getParents()"),
-    "parent": ("setParent", "use setParent(parent) or getParent()"),
-    "nodeType": ("getType", "use getType()"),
-    "type": ("getType", "use getType()"),
-    "name": ("getName", "use getName(), or getNodeName() for the name without the DAG path"),
-    "nodeName": ("getNodeName", "use getNodeName()"),
-    "longName": ("getFullName", "use getFullName()"),
-    "fullPath": ("getFullName", "use getFullName()"),
-    "fullPathName": ("getFullName", "use getFullName()"),
-    "shortName": ("getNodeName", "use getNodeName()"),
-    "exists": ("isValid", "use isValid()"),
-    "getTranslate": ("getTranslation", "use getTranslation(), or t.get() for the translate channel"),
-    "setTranslate": ("setTranslation", "use setTranslation((x, y, z)), or t.set((x, y, z)) for the translate channel"),
-    "getRotation": ("getRotate", "use getRotate()"),
-    "setRotation": ("setRotate", "use setRotate((x, y, z))"),
-    "xform": ("setMatrix", "use getMatrix()/setMatrix() or getTranslation()/setTranslation()"),
-    "getTransformation": ("getMatrix", "use getMatrix()"),
-    "setTransformation": ("setMatrix", "use setMatrix(matrix)"),
-    "orientJoint": ("orient", "use orient()"),
-    "getValue": ("get", "use get()"),
-    "setValue": ("set", "use set(value)"),
-    "lock": ("setLocked", "use setLocked(True)"),
-    "unlock": ("setLocked", "use setLocked(False)"),
-    "mute": ("setMuted", "use setMuted(True)"),
-    "unmute": ("setMuted", "use setMuted(False)"),
-    "getAttrName": ("getShortName", "use getName().partition('.')[2] for the attribute path, or getShortName()"),
-    "connect": ("connectTo", "use connectTo(destination)"),
-    "select": (None, "use mlib.select(obj)"),
+    "lockNode": ("setLocked", "setLocked(True)を使います"),
+    "listConnections": ("getConnections", "getConnections()を使います"),
+    "connections": ("getConnections", "getConnections()を使います"),
+    "inputs": ("getSource", "getSource()を使います"),
+    "outputs": ("getDestinations", "getDestinations()を使います"),
+    "listRelatives": ("getChildren", "getChildren()かgetParent()を使います"),
+    "getAllChildren": ("getChildren", "getChildren(allDescendents=True)を使います"),
+    "listHistory": ("getHistory", "getHistory()を使います"),
+    "history": ("getHistory", "getHistory()を使います"),
+    "firstParent": ("getParent", "getParent()を使います"),
+    "getAllParents": ("getParents", "getParents()を使います"),
+    "parent": ("setParent", "setParent(parent)かgetParent()を使います"),
+    "nodeType": ("getType", "getType()を使います"),
+    "type": ("getType", "getType()を使います"),
+    "name": ("getName", "getName()を使います。DAGパスを含まない名前はgetNodeName()です"),
+    "nodeName": ("getNodeName", "getNodeName()を使います"),
+    "longName": ("getFullName", "getFullName()を使います"),
+    "fullPath": ("getFullName", "getFullName()を使います"),
+    "fullPathName": ("getFullName", "getFullName()を使います"),
+    "shortName": ("getNodeName", "getNodeName()を使います"),
+    "exists": ("isValid", "isValid()を使います"),
+    "getTranslate": ("getTranslation", "getTranslation()を使います。translateのチャンネルはt.get()です"),
+    "setTranslate": ("setTranslation", "setTranslation((x, y, z))を使います。translateのチャンネルはt.set((x, y, z))です"),
+    "getRotation": ("getRotate", "getRotate()を使います"),
+    "setRotation": ("setRotate", "setRotate((x, y, z))を使います"),
+    "xform": ("setMatrix", "getMatrix()/setMatrix()か、getTranslation()/setTranslation()を使います"),
+    "getTransformation": ("getMatrix", "getMatrix()を使います"),
+    "setTransformation": ("setMatrix", "setMatrix(matrix)を使います"),
+    "orientJoint": ("orient", "orient()を使います"),
+    "getValue": ("get", "get()を使います"),
+    "setValue": ("set", "set(value)を使います"),
+    "lock": ("setLocked", "setLocked(True)を使います"),
+    "unlock": ("setLocked", "setLocked(False)を使います"),
+    "mute": ("setMuted", "setMuted(True)を使います"),
+    "unmute": ("setMuted", "setMuted(False)を使います"),
+    "getAttrName": ("getShortName", "アトリビュートのパスはgetName().partition('.')[2]、短い名前はgetShortName()を使います"),
+    "connect": ("connectTo", "connectTo(destination)を使います"),
+    "select": (None, "mlib.select(obj)を使います"),
 }
 
 
 def _exists(name):
-    """名前がシーンの対象に解決できるか、選択リストへの追加で調べる。
+    """名前がシーンの対象を指しているかを調べる。
 
-    一意な完全名に対しては ``cmds.objExists`` と同じ結果になる(範囲外のコンポーネント番号や
-    マルチアトリビュートの未作成要素も True)。
+    選択リストへ追加できるかどうかで判定する。
+    ほかと区別できる完全名なら、``cmds.objExists`` と同じ結果になる。
+    範囲外のコンポーネント番号や、マルチアトリビュートのまだ作られていない要素も True になる。
 
     Args:
         name (str): 調べる完全名。
 
     Returns:
-        bool: 選択リストへ追加できた場合 True。
+        bool: 選択リストへ追加できたら True。
     """
     try:
         om2.MSelectionList().add(name)
@@ -82,8 +83,8 @@ def _exists(name):
 def _selection_plug(selection, index):
     """選択リストの要素がアトリビュートなら、そのMPlugを取得する。
 
-    ``MSelectionList.getPlug`` はノード・コンポーネントの要素で RuntimeError または
-    TypeError(Mayaの版で異なる)になるため、両方をNoneに読み替える。
+    ``MSelectionList.getPlug`` は、要素がノードやコンポーネントのとき RuntimeError か
+    TypeError になる(どちらになるかはMayaの版で違う)。そのため、どちらもNoneとして扱う。
 
     Args:
         selection (om2.MSelectionList): 選択リスト。
@@ -102,18 +103,18 @@ def _selection_plug(selection, index):
 
 
 def _selection_component(selection, index):
-    """選択リストの要素がコンポーネントなら、所有DAGパスとコンポーネントを取得する。
+    """選択リストの要素がコンポーネントなら、持ち主のDAGパスとコンポーネントを取得する。
 
-    ``MSelectionList.getComponent`` はDGノードの要素で RuntimeError または TypeError になり、
-    DAGノード単体ではnullのコンポーネントを返すため、どちらもNoneに読み替える。
+    ``MSelectionList.getComponent`` は、要素がDGノードのとき RuntimeError か TypeError になる。
+    要素がDAGノードだけのときは、nullのコンポーネントを返す。そのため、どちらもNoneとして扱う。
 
     Args:
         selection (om2.MSelectionList): 選択リスト。
         index (int): 要素の番号。
 
     Returns:
-        tuple[om2.MDagPath, om2.MObject] | None: コンポーネントの要素なら(所有DAGパス, コンポーネント)。
-            DGノード・DAGノード単体ならNone。
+        tuple[om2.MDagPath, om2.MObject] | None: コンポーネントの要素なら(持ち主のDAGパス, コンポーネント)。
+            DGノードやDAGノードだけの要素ならNone。
     """
     try:
         path, component = selection.getComponent(index)
@@ -124,16 +125,16 @@ def _selection_component(selection, index):
     return path, component
 
 
-def _missing_member_message(obj, name, what="method"):
-    """存在しないメソッド・アトリビュートを参照したときのAttributeErrorの文言を作る。
+def _missing_member_message(obj, name, what="メソッド"):
+    """無いメソッドやアトリビュートを参照したときの、AttributeErrorの文言を作る。
 
-    クラスの公開メンバーから近い名前を候補に挙げ、maya.cmdsやほかのライブラリの名前にはmlibでの
-    書き方を案内する。
+    クラスの公開メンバーから近い名前を候補に挙げる。
+    maya.cmdsやほかのライブラリの名前なら、mlibでの書き方を案内する。
 
     Args:
         obj (object): 参照した対象。
         name (str): 参照した名前。
-        what (str): 文言に使う種類(``"method or Maya attribute"`` 等)。
+        what (str): 文言に使う種類(``"メソッドやMayaのアトリビュート"`` など)。
 
     Returns:
         str: 例外の文言。
@@ -142,34 +143,35 @@ def _missing_member_message(obj, name, what="method"):
     import difflib
 
     cls = type(obj)
-    message = f"'{cls.__name__}' has no {what} '{name}'"
+    message = f"'{cls.__name__}'に{what}'{name}'はありません"
     hint = _MEMBER_HINTS.get(name, ())
     for required, text in hint if hint and isinstance(hint[0], tuple) else (hint,) if hint else ():
         if required is None or hasattr(cls, required):
-            message += f"; {text}"
+            message += f"。{text}"
             break
     public = sorted({member for member in dir(cls) if not member.startswith("_")})
     # 0.6では短い名前に無関係な候補が出る(``nope`` に ``mnode``)ため、少し厳しくする。
     close = difflib.get_close_matches(name, public, n=3, cutoff=0.7)
     if close:
-        message += ". Did you mean: " + ", ".join(close) + "?"
+        message += f"。近い名前: {', '.join(close)}"
     return message
 
 
 class _ObjectType(type):
-    """Objectへの入力だけを振り分け、派生クラスの構築は通常通り行う。"""
+    """Objectを呼んだときだけ入力の種類を見分けるメタクラス。派生クラスは通常どおり作る。"""
 
     def __call__(cls, *args, **kwargs):
-        """Objectの呼出しだけを参照の型判別へ渡し、派生クラスは通常どおり構築する。
+        """Objectを呼んだときは、入力の種類を見分けて対応するオブジェクトを返す。
 
-        Objectが解決したNode・Plug・Componentへ、再び初期化を行わない。
+        派生クラスを呼んだときは、通常どおりインスタンスを作る。
+        Objectが見分けて返したNode・Plug・Componentを、もう一度初期化することはない。
 
         Args:
-            *args: Objectでは単一の参照入力。派生クラスではその構築に渡す位置引数。
-            **kwargs: 参照の入力解決、または派生クラスの構築に渡すキーワード引数。
+            *args: Objectでは、対象を1つ指定する。派生クラスでは、インスタンスを作るときに渡す位置引数。
+            **kwargs: 入力を見分けるとき、または派生クラスのインスタンスを作るときに渡すキーワード引数。
 
         Returns:
-            Object: 解決した参照、または構築した派生クラスのインスタンス。
+            Object: 見分けた対象のオブジェクト、または作った派生クラスのインスタンス。
         """
         if cls is Object:
             return cls._resolve_input(*args, **kwargs)
@@ -177,45 +179,48 @@ class _ObjectType(type):
 
 
 class Object(metaclass=_ObjectType):
-    """Node・Plug・単数Componentの共通基底。
+    """Node・Plug・単数のComponentに共通する基底クラス。
 
-    対象の検索には :func:`~mlib.ls` を使う。
-    入力した単一対象の種類を保って解決し、所有ノードへの変換は行わない。
-    既存のObjectは削除済みでも同じインスタンスを返す。
-    複数対象は受け付けず、ノード作成・複製・選択変更は行わない。
+    対象を探すときは :func:`~mlib.ls` を使う。
+
+    Objectに対象を1つ渡すと、その種類に合ったオブジェクトを返す。
+    アトリビュートやコンポーネントを渡しても、持ち主のノードには置き換えない。
+    すでにあるObjectを渡すと、削除されていても同じインスタンスを返す。
+    複数の対象は受け付けない。ノードの作成・複製や、選択の変更はしない。
     """
 
     def asString(self):
-        """現在の対象名を文字列へ変換する。
+        """今の対象の名前を文字列で返す。
 
         Node・Plug・Componentそれぞれの ``str()`` と同じ名前を返す。
-        名前変更や親子付け替えに追従し、名前をキャッシュしない。
-        無効な参照の扱いも各型の ``str()`` に従う。
+        名前は保存せず、毎回取得し直すので、名前の変更や親の付け替えにも追いつく。
+        対象が無効なときの扱いも、それぞれの型の ``str()`` と同じ。
 
         Returns:
-            str: Mayaコマンドへ渡す対象名。
+            str: Mayaのコマンドへ渡せる対象の名前。
 
         Raises:
-            RuntimeError: 各型の文字列変換が無効な参照を拒否する場合。
+            RuntimeError: 対象が無効で、それぞれの型の文字列への変換が止める場合。
         """
         return str(self)
 
     @staticmethod
     def _resolve_input(value):
-        """単一対象をNode・Plug・Componentへ解決する。
+        """1つの対象から、Node・Plug・Componentのどれかを作る。
 
         Args:
             value (str | Object | om2.MObject | om2.MDagPath | om2.MPlug | tuple):
-                名前・既存ラッパー・API参照。APIコンポーネントは ``(MDagPath, MObject)`` の組。
+                名前、すでにあるオブジェクト、またはOpenMayaの参照。
+                OpenMayaのコンポーネントは ``(MDagPath, MObject)`` の組で渡す。
 
         Returns:
-            Object: 既存ラッパーなら無効でも同じインスタンス。それ以外は種類に応じた新しい参照。
+            Object: すでにあるオブジェクトなら、無効でも同じインスタンス。それ以外は種類に合った新しいオブジェクト。
 
         Raises:
-            TypeError: 入力型・MObjectの種類・APIコンポーネントの組や種類が未対応の場合。
-            ValueError: 空文字列・空MPlug、またはコンポーネントが単一要素でない場合。
-            IndexError: APIコンポーネントの番号がシェイプの範囲外の場合。
-            RuntimeError: 名前が存在しない・一意でない、またはAPI参照が無効の場合。
+            TypeError: 入力の型、MObjectの種類、OpenMayaのコンポーネントの組や種類に対応していない場合。
+            ValueError: 空文字列や空のMPlugの場合、またはコンポーネントが1つの要素でない場合。
+            IndexError: OpenMayaのコンポーネントの番号が、シェイプの範囲の外の場合。
+            RuntimeError: 名前の対象が無い場合、1つに決まらない場合、またはOpenMayaの参照が無効な場合。
         """
         # 循環参照の回避: components は core を参照するため、使う時点で読み込む。
         from ..components.component import Component
@@ -231,13 +236,13 @@ class Object(metaclass=_ObjectType):
         if isinstance(value, tuple):
             return Component._resolve_input(value)
         if not isinstance(value, str):
-            raise TypeError("Expected a scene object reference or name")
+            raise TypeError("シーン内のオブジェクトの参照か名前を指定してください")
         if not value:
-            raise ValueError("Expected a non-empty object name")
+            raise ValueError("オブジェクト名は空でない文字列で指定してください")
         selection = om2.MSelectionList()
         selection.add(value)
         if selection.length() != 1:
-            raise RuntimeError(f"Object requires one unambiguous target: {value}")
+            raise RuntimeError(f"対象を1つに決められません: {value}")
         if _selection_plug(selection, 0) is not None:
             return Plug._resolve_input(value)
         found = _selection_component(selection, 0)
@@ -247,7 +252,9 @@ class Object(metaclass=_ObjectType):
 
     @staticmethod
     def _classes():
-        """循環 import を避けるため、判定に使う mlib クラスを呼び出し時に取得する。
+        """種類の判定に使う mlib のクラスを取得する。
+
+        import が循環しないように、呼んだときに読み込む。
 
         Returns:
             tuple[type, type, type, type]: Node、Plug、Component、Components。
@@ -269,14 +276,14 @@ class Object(metaclass=_ObjectType):
         Returns:
             TypeError: 送出する例外。
         """
-        return TypeError(f"Expected str, Node, Plug, Component, om2.MObject, om2.MDagPath or om2.MPlug, not {type(value).__name__}")
+        return TypeError(f"str・Node・Plug・Component・om2.MObject・om2.MDagPath・om2.MPlugのどれかを指定してください: {type(value).__name__}")
 
     @staticmethod
     def _name(value, node_class, plug_class, component_class):
-        """単一の対象を名前へ変換する(Object._input_name の本体)。
+        """1つの対象を名前へ変換する。Object._input_name の中身。
 
         Args:
-            value (object): 変換対象。
+            value (object): 変換する対象。
             node_class (type): Node クラス。
             plug_class (type): Plug クラス。
             component_class (type): Component クラス。
@@ -297,70 +304,72 @@ class Object(metaclass=_ObjectType):
         elif isinstance(value, node_class):
             name = value.getFullName()
             if not name:
-                raise ValueError("Cannot use an invalid (deleted) Node")
+                raise ValueError("無効な(削除された)Nodeは使えません")
         elif isinstance(value, plug_class):
             name = value.getFullName()
             if not name:
-                raise ValueError("Cannot use an invalid Plug (its node or attribute was deleted)")
+                raise ValueError("無効なPlugは使えません(ノードかアトリビュートが削除されています)")
         elif isinstance(value, component_class):
             try:
                 name = value.getFullName()
             except (RuntimeError, IndexError) as error:
-                raise ValueError(f"Cannot use an invalid Component: {error}") from error
+                raise ValueError(f"無効なComponentは使えません: {error}") from error
         elif isinstance(value, om2.MPlug):
             name = _InputPlug._mplug_name(value)
         elif isinstance(value, om2.MDagPath):
             if not value.isValid() or not om2.MObjectHandle(value.node()).isValid():
-                raise ValueError("Cannot use an invalid (deleted) MDagPath")
+                raise ValueError("無効な(削除された)MDagPathは使えません")
             name = value.fullPathName()
         elif isinstance(value, om2.MObject):
             name = _InputNode._mobject_name(value)
         else:
             raise Object._unsupported(value)
         if not name:
-            raise ValueError("Expected a non-empty object name")
+            raise ValueError("オブジェクト名は空でない文字列で指定してください")
         return name
 
     @staticmethod
     def _input_name(value):
-        """単一の対象を maya.cmds へ渡せる一意な名前へ変換する。
+        """1つの対象を、maya.cmds へ渡せる名前へ変換する。
 
-        文字列は解決せず(Maya へ問い合わせず)そのまま返す。解決済みの Node が
-        必要な場合は Node._resolve_input を使う。変換規則はモジュールの説明を参照。
+        名前は、ほかと区別できるものにする。文字列は Maya へ問い合わせず、そのまま返す。
+        対象が実在する Node が必要なときは、Node._resolve_input を使う。変換の決まりはモジュールの説明を参照。
 
         Args:
             value (str | Node | Plug | Component | om2.MObject | om2.MDagPath | om2.MPlug):
-                変換対象。
+                変換する対象。
 
         Returns:
-            str: maya.cmds で解決できる名前。
+            str: maya.cmds が対象を見つけられる名前。
 
         Raises:
-            TypeError: 対応しない型、依存ノード以外を指す MObject、または
-                Components などの複数の対象を渡した場合(Object._input_names を使う)。
-            ValueError: 空文字列、または無効な(削除済み・範囲外の)対象の場合。
+            TypeError: 対応しない型の場合、MObject が依存ノード以外を指す場合、または
+                Components などの複数の対象を渡した場合(その場合は Object._input_names を使う)。
+            ValueError: 空文字列の場合、または対象が無効な(削除された・範囲外の)場合。
         """
         node_class, plug_class, component_class, _ = Object._classes()
         return Object._name(value, node_class, plug_class, component_class)
 
     @staticmethod
     def _flatten_inputs(values):
-        """対象列を一度だけ展開する。型別の混在規則は呼出し側が検証する。
+        """入れ子になった対象の並びを、平らな1つのリストにする。
+
+        どの型どうしを混ぜてよいかは、呼び出し側が確かめる。
 
         Args:
-            values (object): 単数参照または入れ子の反復可能な対象列。
+            values (object): 1つの対象、または入れ子にもなる対象の並び。
 
         Returns:
-            list: 順序を保持した対象。Componentsは範囲圧縮のため展開しない。
+            list: 元の順番のままの対象。Componentsは、番号を範囲にまとめるため展開しない。
 
         Raises:
-            TypeError: 未対応型の場合。
+            TypeError: 対応していない型の場合。
         """
         singles = (str,) + Object._classes() + (om2.MObject, om2.MDagPath, om2.MPlug)
         result = []
 
         def collect(value):
-            """単数参照を保持し、容器だけを展開する。"""
+            """1つの対象はそのまま入れ、入れ物だけを展開する。"""
             if isinstance(value, singles):
                 result.append(value)
                 return
@@ -376,29 +385,31 @@ class Object(metaclass=_ObjectType):
 
     @staticmethod
     def _input_names(values, allow_plugs=True):
-        """単一の対象・コレクション・反復可能オブジェクトを名前のリストへ正規化する。
+        """対象を名前のリストへ変換する。
 
-        単一の対象(Object._input_name が受け付ける型)は1要素のリストになる。``Components``・
-        ``Selection``・``Joints`` などのコレクションと、list/tuple/set/ジェネレーター
-        などの反復可能オブジェクトは、入れ子も含めて保持順に展開する。
-        ``MultiPlug`` は要素へ展開せず、マルチアトリビュートそのものの名前として扱う。
-        ``Components`` は全番号をまとめて1回だけ検証し、保持順で連続する番号を
-        ``|cube|cubeShape.vtx[0:9]`` のような範囲指定の名前にまとめる(要素数が多くても
-        maya.cmds へ渡す名前が増えない)。
+        1つの対象、コレクション、順に取り出せるもののどれでも受け付ける。
+
+        - 1つの対象(Object._input_name が受け付ける型)は、要素が1つのリストになる。
+        - ``Components``・``Selection``・``Joints`` などのコレクションと、list・tuple・set・ジェネレーター
+          などは、入れ子も含めて元の順番のまま展開する。
+        - ``MultiPlug`` は要素へ展開せず、マルチアトリビュートそのものの名前にする。
+        - ``Components`` はすべての番号をまとめて1回だけ確かめる。並び順で続いている番号は、
+          ``|cube|cubeShape.vtx[0:9]`` のような範囲の名前にまとめる(要素が多くても、
+          maya.cmds へ渡す名前は増えない)。
 
         Args:
-            values (object): 変換対象。単一の対象、または対象を要素に持つ反復可能オブジェクト。
-            allow_plugs (bool): False の場合、Plug(``MultiPlug`` を含む)と ``om2.MPlug`` を
-                TypeError にする(アトリビュートを渡しても maya.cmds が何もしないコマンド用。文字列は
-                解決しないため対象外)。
+            values (object): 変換する対象。1つの対象、または対象を要素に持つ、順に取り出せるもの。
+            allow_plugs (bool): False なら、Plug(``MultiPlug`` を含む)と ``om2.MPlug`` を
+                TypeError にする。アトリビュートを渡しても maya.cmds が何もしないコマンドで使う
+                (文字列は Maya へ問い合わせないので、この検査の対象外)。
 
         Returns:
-            list[str]: 正規化した名前のリスト。空の反復可能オブジェクトは空リスト。
+            list[str]: 変換した名前のリスト。空のものを渡したら空リスト。
 
         Raises:
-            TypeError: いずれかの要素が対応しない型の場合。allow_plugs が False で、
-                Plug・MPlug が含まれる場合。同じ対象列に文字列とNodeが混在する場合。
-            ValueError: いずれかの要素が空文字列、または無効な対象の場合。
+            TypeError: どれかの要素が対応しない型の場合。allow_plugs が False で、
+                Plug・MPlug が含まれる場合。同じ並びに文字列とNodeが混ざっている場合。
+            ValueError: どれかの要素が空文字列の場合、または対象が無効な場合。
         """
         # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
         from ..nodes.node import Nodes as _InputNodes
@@ -408,18 +419,20 @@ class Object(metaclass=_ObjectType):
         names = []
 
         def collect(value):
-            """単数参照を名前にし、Componentsは範囲名へまとめ、容器だけを展開する。"""
+            """1つの対象は名前にし、Componentsは範囲の名前へまとめ、入れ物だけを展開する。"""
             if not allow_plugs and isinstance(value, (plug_class, om2.MPlug)):
-                raise TypeError(f"Attributes (Plug, MPlug) are not accepted here: {type(value).__name__} (pass plug.getNode() to target the owning node)")
+                raise TypeError(
+                    f"ここではアトリビュート(Plug・MPlug)を指定できません: {type(value).__name__}(持ち主のノードを対象にするにはplug.getNode()を渡します)"
+                )
             if isinstance(value, singles):
                 names.append(Object._name(value, node_class, plug_class, component_class))
                 return
             if isinstance(value, components_class):
                 try:
-                    # 全番号の検証はコレクションごとに1回だけ行い、連続する番号は範囲指定にまとめる。
+                    # すべての番号の確認はコレクションごとに1回だけ行い、続いている番号は範囲にまとめる。
                     names.extend(value.getCompactNames())
                 except (RuntimeError, IndexError) as error:
-                    raise ValueError(f"Cannot use an invalid Component: {error}") from error
+                    raise ValueError(f"無効なComponentは使えません: {error}") from error
                 return
             try:
                 iterator = iter(value)

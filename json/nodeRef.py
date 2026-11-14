@@ -1,4 +1,4 @@
-"""ノードを名前・DAGパス・型で記録し、読み込み先のシーンのノードへ対応付ける。"""
+"""ノードを名前・DAGパス・型で記録し、読み込み先のシーンのノードへ対応づける。"""
 
 import maya.cmds as cmds
 
@@ -8,31 +8,31 @@ from .nameMapping import NameMapping
 class NodeRef:
     """ノードを名前・DAGパス・ノード型で記録した参照。
 
-    読み込み時は :meth:`resolve` が、:class:`NameMapping` で変換した名前でシーンを探す。
-    同じ名前が複数あれば変換したDAGパスで絞り、ノード型が違うものは対応させない。
+    読み込むときは、:meth:`resolve` が :class:`NameMapping` で変換した名前でシーンを探す。
+    同じ名前が複数あれば、変換したDAGパスで絞る。ノード型が違うものは対応させない。
     """
 
     __hash__ = None  # type: ignore[assignment]
 
     def __init__(self, name, path=None, type=None):
-        """記録する値を保持する。
+        """記録する値を持たせる。
 
         Args:
             name (str): 名前空間付きの短い名前(``"chrA:arm_L_jnt"``)。
-            path (str | None): DAGノードの完全パス。DGノードやパス不明はNone。
-            type (str | None): ノード型(``"joint"`` 等)。Noneは型を検査しない。
+            path (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
+            type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。
 
         Raises:
-            TypeError: nameが文字列でない、またはpath・typeが文字列・None以外の場合。
-            ValueError: nameが空、または ``"|"`` を含む場合。
+            TypeError: nameが文字列でない場合、またはpath・typeが文字列でもNoneでもない場合。
+            ValueError: nameが空の場合、または ``"|"`` を含む場合。
         """
         if not isinstance(name, str):
-            raise TypeError("name must be a string")
+            raise TypeError("nameは文字列で指定してください")
         if not name or "|" in name:
-            raise ValueError("name must be a non-empty node name without '|'")
+            raise ValueError("nameは'|'を含まない空でないノード名で指定してください")
         for value, label in ((path, "path"), (type, "type")):
             if value is not None and not isinstance(value, str):
-                raise TypeError(f"{label} must be a string or None")
+                raise TypeError(f"{label}は文字列かNoneで指定してください")
         self._name = name
         self._path = path or None
         self._type = type or None
@@ -70,16 +70,16 @@ class NodeRef:
 
         Raises:
             TypeError: nodeが対応しない型の場合。
-            ValueError: ノードが存在しない場合。
+            ValueError: ノードが無い場合。
             RuntimeError: ノードが無効な場合。
         """
-        # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
+        # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使うので、使うときに読み込む。
         from ..nodes.node import Node
 
         node = node if isinstance(node, Node) else Node(node)
         full = node.getFullName()
         if not full:
-            raise RuntimeError("Cannot record a deleted node")
+            raise RuntimeError("削除されたノードは記録できません")
         path = full if full.startswith("|") else None
         return cls(full.rpartition("|")[2], path, node.getType())
 
@@ -94,14 +94,14 @@ class NodeRef:
             NodeRef: 新しい参照。
 
         Raises:
-            ValueError: 辞書の形が違う場合。
+            ValueError: 辞書の形が正しくない場合。
         """
         if not isinstance(data, dict) or "name" not in data:
-            raise ValueError(f"Invalid node reference in JSON: {data!r}")
+            raise ValueError(f"JSONのノードの参照が不正です: {data!r}")
         try:
             return cls(data["name"], data.get("path"), data.get("type"))
         except TypeError as error:
-            raise ValueError(f"Invalid node reference in JSON: {data!r}") from error
+            raise ValueError(f"JSONのノードの参照が不正です: {data!r}") from error
 
     @property
     def name(self):
@@ -114,10 +114,10 @@ class NodeRef:
 
     @property
     def path(self):
-        """記録した完全DAGパスを返す。
+        """記録した完全なDAGパスを返す。
 
         Returns:
-            str | None: DGノードやパス不明はNone。
+            str | None: DGノードやパスが分からないときはNone。
         """
         return self._path
 
@@ -139,10 +139,10 @@ class NodeRef:
         return {"name": self._name, "path": self._path, "type": self._type}
 
     def mappedName(self, mapping=None):
-        """対応付けを当てた名前を返す。
+        """名前の対応づけを当てた名前を返す。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。Noneは変換しない。
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
 
         Returns:
             str: 変換後の名前。警告や報告の表示に使う。
@@ -150,22 +150,22 @@ class NodeRef:
         return self._name if mapping is None else mapping.apply(self._name)
 
     def resolve(self, mapping=None):
-        """対応付けを当てた名前で、シーンのノードを探す。
+        """名前の対応づけを当てた名前で、シーンのノードを探す。
 
-        候補が1つならそれを返す。複数あれば変換したDAGパスと一致するものを返す。
+        候補が1つならそれを返す。複数あれば、変換したDAGパスと一致するものを返す。
         記録した型と違うノードは候補にしない。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。Noneは保存時の名前で探す。
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら保存したときの名前で探す。
 
         Returns:
-            Node | None: 見つかったノード。見つからない、または1つに絞れない場合はNone。
+            Node | None: 見つかったノード。見つからない場合と、1つに絞れない場合はNone。
 
         Raises:
-            TypeError: mappingがNameMapping・None以外の場合。
+            TypeError: mappingがNameMappingでもNoneでもない場合。
         """
         if mapping is not None and not isinstance(mapping, NameMapping):
-            raise TypeError("mapping must be a NameMapping or None")
+            raise TypeError("mappingはNameMappingかNoneで指定してください")
         name = self.mappedName(mapping)
         candidates = cmds.ls(name, long=True) or []
         if self._type is not None:
@@ -175,7 +175,7 @@ class NodeRef:
             candidates = [candidate for candidate in candidates if candidate == path]
         if len(candidates) != 1:
             return None
-        # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
+        # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使うので、使うときに読み込む。
         from ..nodes.node import Node
 
         return Node(candidates[0])

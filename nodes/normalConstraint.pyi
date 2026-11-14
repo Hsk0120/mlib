@@ -6,4 +6,4 @@ from .constraint import Constraint
 
 
 class NormalConstraint(Constraint):
-    """ターゲット表面の法線方向へ向けるラッパー。"""
+    """ターゲットの表面の法線の方向へ向けるnormalConstraintを扱うクラス。"""

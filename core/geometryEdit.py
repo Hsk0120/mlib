@@ -1,4 +1,4 @@
-"""形状座標の照会と通常/fast更新。通常はcmds、fastは履歴なし形状へ直接書く。"""
+"""形状の座標を取得・設定する処理。通常はcmdsを使い、fastはヒストリの無い形状へ直接書き込む。"""
 
 from collections import namedtuple
 
@@ -12,31 +12,36 @@ from .fastWrite import require_writable
 #: 点として受け付ける、wを持つom2の型。XYZだけを使い、wでは割らない。
 _OM2_POINTS = (om2.MPoint, om2.MFloatPoint)
 
-#: :func:`geometry` の戻り値。保持DAGパス・関数セット・Meshかどうか。
+#: :func:`geometry` の戻り値。オブジェクトが持つDAGパス・関数セット・Meshかどうか。
 _Geometry = namedtuple("_Geometry", ("path", "fn", "is_mesh"))
 
 
 def geometry(shape, indices, edit=False):
-    """Shapeの保持DAGパスと関数セットを取得し、必要なら直接編集の前提を検査する。
+    """ShapeのDAGパスと関数セットを取得する。
 
-    呼出し側がShape型と番号範囲を検証済みであることを前提とする。edit=Trueでは
-    inMesh/createへの入力、Shapeノードのロックを検査する。
-    指定点のpnts/controlPointsとその子についても、上位を含むロック・入力接続と、各対象アトリビュートの書込み可否を調べる。
-    周期カーブでは、指定した独立CVに重なる末尾の重複CVも調べる。
-    indicesが空のUV更新では、点Plugごとの検査は行わない。
+    edit=Trueなら、直接書き込めるかどうかも調べる。
+    Shapeの型と番号の範囲は、呼び出し側で確かめてあるものとする。
+
+    edit=Trueで調べる内容は次のとおり。
+
+    - inMesh・createへの入力と、Shapeノードのロック。
+    - 指定した点のpnts・controlPointsとその子について、上の階層を含むロックと入力接続、
+      それぞれのアトリビュートへ書き込めるかどうか。
+    - 周期カーブでは、指定した独立CVに重なる末尾の重複CVも調べる。
+    - indicesが空のUV更新では、点のPlugごとの検査はしない。
 
     Args:
-        shape (Mesh | NurbsCurve): 型を解決済みのShapeラッパー。
-        indices (Iterable[int]): 範囲検証済みのAPI点番号。UV番号ではない。
-        edit (bool): Trueで直接編集の制限を検査する。Falseは照会用。
+        shape (Mesh | NurbsCurve): 型が決まっているShapeのオブジェクト。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。UVの番号ではない。
+        edit (bool): Trueなら直接書き込むときの制限を調べる。Falseは取得だけに使う。
 
     Returns:
-        _Geometry: ``path`` (保持DAGパス)・``fn`` (MFnMeshまたはMFnNurbsCurve)・``is_mesh`` (MeshならTrue)
-            のnamedtuple。tupleとして展開できる。関数セットの取得自体では座標を書き換えない。
+        _Geometry: ``path`` (このオブジェクトが持つDAGパス)・``fn`` (MFnMeshまたはMFnNurbsCurve)・``is_mesh`` (MeshならTrue)
+            のnamedtuple。tupleとして展開できる。関数セットを取得するだけでは座標を書き換えない。
 
     Raises:
-        RuntimeError: 直接編集時のロック・入力接続・書込み禁止、またはShapeを参照できない場合。
-        NotImplementedError: edit=TrueでinMesh/create入力がある場合。
+        RuntimeError: 直接書き込むときにロック・入力接続・書き込み禁止がある場合、またはShapeを参照できない場合。
+        NotImplementedError: edit=Trueで、inMesh・createへの入力がある場合。
     """
     path = shape.mpath()
     mesh = path.node().hasFn(om2.MFn.kMesh)
@@ -50,9 +55,9 @@ def geometry(shape, indices, edit=False):
         dependency = om2.MFnDependencyNode(path.node())
         source = dependency.findPlug("inMesh" if mesh else "create", False)
         if source.isDestination:
-            raise NotImplementedError("fast geometry edits require a shape without input history")
+            raise NotImplementedError("fastのジオメトリ編集には、入力ヒストリのないシェイプが必要です")
         if dependency.isLocked:
-            raise RuntimeError("Shape node is locked")
+            raise RuntimeError("シェイプノードがロックされています")
         points = dependency.findPlug("pnts" if mesh else "controlPoints", False)
         for index in indices:
             point = points.elementByLogicalIndex(index)
@@ -63,11 +68,13 @@ def geometry(shape, indices, edit=False):
 
 
 def _points(shape, indices, ws=False):
-    """指定した点のom2.MPointを保持順に返す。単点では全点を取得しない。
+    """指定した点をom2.MPointで取得する。
+
+    点は指定した順に並ぶ。1点だけのときは、すべての点を取得しない。
 
     Args:
         shape (Shape): 有効なMeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みの点番号。
+        indices (Sequence[int]): 確かめてある点番号。
         ws (bool): Trueならワールド空間へ変換する。
 
     Returns:
@@ -84,42 +91,48 @@ def _points(shape, indices, ws=False):
 
 
 def positions(shape, indices, ws=False):
-    """指定した点を保持順・cm単位のtupleで取得する(内部の座標計算用)。
+    """指定した点の座標をtupleで取得する。
+
+    内部の座標計算に使う。単位はcmで、指定した順に並ぶ。
 
     Args:
         shape (Shape): 有効なMeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みの点番号。
+        indices (Sequence[int]): 確かめてある点番号。
         ws (bool): Trueならワールド空間へ変換する。
 
     Returns:
-        list[tuple[float, float, float]]: 指定順の座標。単点では全点を取得しない。
+        list[tuple[float, float, float]]: 指定した順の座標。1点だけのときは、すべての点を取得しない。
     """
     return [(point.x, point.y, point.z) for point in _points(shape, indices, ws)]
 
 
 def vectors(shape, indices, ws=False):
-    """指定した点を保持順・cm単位の :class:`~mlib.maths.vector.Vector` で取得する。
+    """指定した点の座標を :class:`~mlib.maths.vector.Vector` で取得する。
+
+    単位はcmで、指定した順に並ぶ。
 
     Args:
         shape (Shape): 有効なMeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みの点番号。
+        indices (Sequence[int]): 確かめてある点番号。
         ws (bool): Trueならワールド空間へ変換する。
 
     Returns:
-        list[Vector]: 指定順の新しい座標値。CVのwでは割らない。
+        list[Vector]: 指定した順の新しい座標。CVのwでは割らない。
     """
     return _vectors_of_points(_points(shape, indices, ws))
 
 
 def command_indices(shape, indices):
-    """検証済みのAPI番号をcmds用番号へ写す。順序と重複は維持する。
+    """APIの点番号を、cmdsで使う番号へ置き換える。
+
+    番号の順番と重複はそのまま保つ。
 
     Args:
         shape (Shape): MeshまたはNurbsCurve。
-        indices (Sequence[int]): APIの番号。
+        indices (Sequence[int]): 確かめてあるAPIの番号。
 
     Returns:
-        list[int]: 周期カーブでは末尾の重複CVを先頭の独立CVへ写した番号。
+        list[int]: cmds用の番号。周期カーブでは、末尾の重複CVを先頭の独立CVの番号に置き換える。
     """
     _, fn, mesh = geometry(shape, indices)
     if not mesh and fn.form == om2.MFnNurbsCurve.kPeriodic:
@@ -128,21 +141,23 @@ def command_indices(shape, indices):
 
 
 def set_positions(shape, indices, values, ws=False, *, fast=False):
-    """検証済みのcm座標を書き込む。Undo範囲は呼出元が管理する。
+    """点の座標を書き込む。
+
+    座標はcmで、確かめてあるものを渡す。Undoのまとまりは呼び出し元が管理する。
 
     Args:
         shape (Shape): MeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みのAPI番号。重複は後の値を優先。
-        values (Sequence[Sequence[float]]): 番号と同数の有限なXYZ。
-        ws (bool): Trueならワールド座標。
+        indices (Sequence[int]): 確かめてあるAPIの番号。同じ番号が重なれば、後の値が残る。
+        values (Sequence[Sequence[float]]): 番号と同じ数の、有限なXYZ。
+        ws (bool): Trueならワールド座標として扱う。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        RuntimeError: Mayaが書込みを拒否した場合。完了済みの変更は戻さない。
-        NotImplementedError: fastで未対応の形状の場合。
+        RuntimeError: Mayaが書き込みを拒否した場合。すでに済んだ変更は元に戻さない。
+        NotImplementedError: fastで、対応していない形状の場合。
     """
     if not indices:
         return
@@ -162,21 +177,23 @@ def set_positions(shape, indices, values, ws=False, *, fast=False):
 
 
 def _set_positions_fast(shape, indices, values, ws=False):
-    """検証済みのcm座標をOpenMayaで一括設定する。CVのwは変更しない。
+    """点の座標をOpenMayaでまとめて設定する。
+
+    座標はcmで、確かめてあるものを渡す。CVのwは変えない。
 
     Args:
-        shape (Shape): 履歴なしMeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みの番号。
+        shape (Shape): ヒストリの無いMeshまたはNurbsCurve。
+        indices (Sequence[int]): 確かめてある番号。
         values (Sequence[Sequence[float]]): 設定するXYZ。
-        ws (bool): TrueならAPIワールド座標、Falseならローカル座標。
+        ws (bool): TrueならAPIのワールド座標、Falseならローカル座標として扱う。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        ValueError: ワールド空間で変換マトリクスが特異な場合。
-        RuntimeError: ロック・入力接続・書込み禁止がある場合。
-        NotImplementedError: 入力履歴のある形状の場合。
+        ValueError: ワールド空間で、変換マトリクスが特異な(逆マトリクスを持たない)場合。
+        RuntimeError: ロック・入力接続・書き込み禁止がある場合。
+        NotImplementedError: 入力ヒストリのある形状の場合。
     """
     if not indices:
         return
@@ -184,7 +201,7 @@ def _set_positions_fast(shape, indices, values, ws=False):
     points = fn.getPoints() if mesh else fn.cvPositions()
     transform = path.inclusiveMatrix()
     if ws and abs(transform.det4x4()) < 1e-12:
-        raise ValueError("Cannot edit in world space with a singular transform")
+        raise ValueError("トランスフォームが特異なため、ワールド空間では編集できません")
     inverse = transform.inverse() if ws else om2.MMatrix()
     independent = len(points) if mesh or fn.form != om2.MFnNurbsCurve.kPeriodic else fn.numCVs - fn.degree
     for index, value in zip(indices, values):
@@ -206,23 +223,25 @@ def _set_positions_fast(shape, indices, values, ws=False):
 
 
 def object_positions(shape, indices, values):
-    """APIのワールド座標を、CVのウェイトを保持したローカルXYZへ変換する。
+    """APIのワールド座標を、ローカルのXYZへ変換する。
+
+    CVのウェイト(w)はそのまま保つ。
 
     Args:
         shape (Shape): MeshまたはNurbsCurve。
-        indices (Sequence[int]): 検証済みの番号。
+        indices (Sequence[int]): 確かめてある番号。
         values (Sequence[Sequence[float]]): APIのワールドXYZ。距離はcm。
 
     Returns:
         list[tuple[float, float, float]]: cmdsのobjectSpaceへ渡すcmの座標。
 
     Raises:
-        ValueError: ワールドマトリクスが特異な場合。
+        ValueError: ワールドマトリクスが特異な(逆マトリクスを持たない)場合。
     """
     path, fn, mesh = geometry(shape, indices)
     matrix = path.inclusiveMatrix()
     if abs(matrix.det4x4()) < 1e-12:
-        raise ValueError("Cannot edit in world space with a singular transform")
+        raise ValueError("トランスフォームが特異なため、ワールド空間では編集できません")
     inverse = matrix.inverse()
     if mesh:
         weights = [1.0] * len(indices)
@@ -236,29 +255,31 @@ def object_positions(shape, indices, values):
 
 
 def point_list(points):
-    """点列を検証し、XYZのfloat tupleのリストへ変換する。
+    """点の並びを、XYZのfloatのtupleのリストへ変換する。
+
+    変換する前に、点の並びとして正しいかを確かめる。
 
     Args:
-        points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): 点列。
+        points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): 点の並び。
 
     Returns:
         list[tuple[float, float, float]]: 変換済みの点。
 
     Raises:
-        TypeError: 点列が反復できない、または点・成分の型が不正な場合。
-        ValueError: 成分数が3でない、または有限でない場合。
+        TypeError: 点の並びを順に取り出せない場合、または点や成分の型が正しくない場合。
+        ValueError: 成分の数が3でない場合、または有限の値でない場合。
     """
     if isinstance(points, (str, bytes)) or isinstance(points, _OM2_POINTS + (om2.MVector,)):
-        raise TypeError("points must be an iterable of points")
+        raise TypeError("pointsは点の並びで指定してください")
     try:
         items = list(points)
     except TypeError:
-        raise TypeError("points must be an iterable of points") from None
+        raise TypeError("pointsは点の並びで指定してください") from None
     result = []
     for item in items:
         if isinstance(item, _OM2_POINTS):
             item = (item.x, item.y, item.z)
         elif isinstance(item, (str, bytes)):
-            raise TypeError("each point must be a sequence of 3 numbers")
+            raise TypeError("各点は3つの数値の並びで指定してください")
         result.append(_finite_vector(item, 3, "point"))
     return result

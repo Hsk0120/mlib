@@ -1,7 +1,7 @@
-"""クラスに属さない汎用関数と、数学値・空間指定の内部補助を提供する。
+"""クラスに属さない汎用の関数と、数学の値・空間の指定を扱う内部の補助関数を提供する。
 
-公開関数は名前の整形・操作の計測・ミラー入力の検証を扱う。
-型の番号・比較・派生状態の複製と空間指定の検証は、先頭 ``_`` の内部関数へ分ける。
+公開する関数は、名前の整形・処理時間の計測・ミラーの指定の確認の3つ。
+番号の確認・比較・派生クラスの状態のコピーや、空間の指定の確認は、先頭が ``_`` の内部の関数に分けてある。
 """
 
 import copy
@@ -17,7 +17,7 @@ __all__ = ["legalizeName", "measure", "mirrorArguments"]
 # 長短のどちらを省略したかを区別する。値として渡すための定数ではない。
 _UNSET = ...
 
-#: カラーインデックスの上限(0〜31)。
+#: Mayaの色の番号の上限(0〜31)。
 _MAX_COLOR_INDEX = 31
 
 #: 名前空間の区切り文字。区切りとして残し、区間ごとに検査する。
@@ -44,38 +44,42 @@ _ANGLE_UNITS = {"deg": "deg", "degree": "deg", "degrees": "deg", "rad": "rad", "
 _MIRROR_PLANES = ("YZ", "XZ", "XY")
 
 #: ミラーの axis に指定できる書き方の案内(例外の文言用)。
-_MIRROR_AXIS_CHOICES = "a flip axis 'x', 'y', 'z' (or 0, 1, 2) or a mirror plane 'YZ', 'XZ', 'XY'"
+_MIRROR_AXIS_CHOICES = "反転する軸'x'・'y'・'z'(または0・1・2)か、ミラー平面'YZ'・'XZ'・'XY'"
 
 #: 時間の単位名と正規化した名前。シーン操作の数値の時間は既定で現在のUI時間単位のフレーム(``"frame"``)。
 _TIME_UNITS = {"frame": "frame", "frames": "frame", "sec": "sec", "second": "sec", "seconds": "sec"}
 
 
 class _ArgumentError(TypeError):
-    """長短引数の競合・必須値の欠落を、複数形でもTypeErrorとして伝える。"""
+    """長い名前と短縮名の引数の重複や、必須の値の不足を伝える例外。複数形でもTypeErrorとして伝える。"""
 
 
 def legalizeName(name):
-    """Mayaノード名用の文字列を整形する。ノードや名前空間は作成しない。
+    """文字列を、Mayaのノード名に使える形に整える。
 
-    コロンを名前空間区切りとして残し、各区間の前後の空白を除く。
-    ASCII英数字・_以外の連続範囲は一つの_に変え、数字で始まる区間には_を付ける。
-    空区間は捨て、先頭のコロンは一つ残す。有効な区間がなければ_を返す。
+    文字列を整えるだけで、ノードや名前空間は作らない。
+
+    - コロンは名前空間の区切りとして残し、区切った各部分の前後の空白を除く。
+    - ASCIIの英数字と_以外の文字が続く部分は、まとめて1つの_に変える。
+    - 数字で始まる部分には、先頭に_を付ける。
+    - 空の部分は捨てる。先頭のコロンは1つだけ残す。
+    - 使える部分が1つも残らなければ、_を返す。
 
     Args:
-        name (str): 整形する文字列。
+        name (str): 整える文字列。
 
     Returns:
-        str: 整形後の名前。既存ノード名との重複は検査しない。
+        str: 整えた名前。すでにあるノードの名前と重なるかは調べない。
 
     Raises:
-        TypeError: nameがstr以外の場合。
+        TypeError: nameがstrでない場合。
 
     Examples:
         >>> legalizeName("rig:2nd joint")
         'rig:_2nd_joint'
     """
     if not isinstance(name, str):
-        raise TypeError(f"name must be a str, not {type(name).__name__}")
+        raise TypeError(f"nameはstrで指定してください: {type(name).__name__}")
     text = name.strip()
     segments = []
     for part in text.split(_SEPARATOR):
@@ -91,28 +95,28 @@ def legalizeName(name):
 
 
 def measure(operation, samples=30, warmup=3):
-    """操作の所要時間を秒単位で返す。
+    """処理にかかる時間を、秒で計測する。
 
     Args:
-        operation (callable): 入力更新と評価を含む操作。各回で呼ぶ。
-        samples (int): 記録する回数。
-        warmup (int): 記録前の実行回数。
+        operation (callable): 計測する処理。入力の更新と評価を含める。計測の各回で呼ぶ。
+        samples (int): 時間を記録する回数。
+        warmup (int): 記録を始める前に、空で実行する回数。
 
     Returns:
-        dict: samples、median_seconds、min_seconds、max_seconds。
+        dict: samples(記録した回数)、median_seconds(中央値)、min_seconds(最小)、max_seconds(最大)。
 
     Raises:
         TypeError: operationが呼び出せない場合。
-        ValueError: samplesが1以上のint、またはwarmupが0以上のintでない場合(int以外も含む)。
+        ValueError: samplesが1以上のintでない場合、またはwarmupが0以上のintでない場合(intでない場合も含む)。
 
     Note:
-        同じ値を読むだけではキャッシュの速度になる。必要なdirty化は
-        呼び出し側で行う。処理の副作用や時間位置も呼び出し側が管理する。
+        同じ値を読むだけでは、キャッシュから返る速さを計ることになる。必要なdirty化は呼び出し側で行う。
+        処理の副作用や、現在の時間の位置も、呼び出し側で管理する。
     """
     if not callable(operation):
-        raise TypeError("operation must be callable")
+        raise TypeError("operationは呼び出せるオブジェクトにしてください")
     if type(samples) is not int or samples <= 0 or type(warmup) is not int or warmup < 0:
-        raise ValueError("Invalid sample count")
+        raise ValueError("サンプル数が不正です")
     # statisticsはfractions・decimalも読むため、import mlibの時間を増やさないよう計測前に読む。
     import statistics
 
@@ -146,57 +150,57 @@ def _mirror_axis(axis):
     if type(axis) is int:
         if axis in (0, 1, 2):
             return axis
-        raise ValueError(f"axis must be {_MIRROR_AXIS_CHOICES}: {axis!r}")
+        raise ValueError(f"axisは{_MIRROR_AXIS_CHOICES}で指定してください: {axis!r}")
     if not isinstance(axis, str):
-        raise TypeError(f"axis must be a str or an int, got {type(axis).__name__}")
+        raise TypeError(f"axisはstrかintで指定してください: {type(axis).__name__}")
     letters = axis.lower()
     if letters in ("x", "y", "z"):
         return "xyz".index(letters)
     if len(letters) == 2 and letters[0] != letters[1] and all(letter in "xyz" for letter in letters):
         # ミラー面に含まれない残りの1軸が、反転する軸になる。
         return next(index for index, letter in enumerate("xyz") if letter not in letters)
-    raise ValueError(f"axis must be {_MIRROR_AXIS_CHOICES}: {axis!r}")
+    raise ValueError(f"axisは{_MIRROR_AXIS_CHOICES}で指定してください: {axis!r}")
 
 
 def mirrorArguments(axis, pivot):
-    """ミラーの軸と有限な中心座標を検証する。
+    """ミラーの軸と中心座標を確かめて、使いやすい形で返す。
 
-    axis は反転する軸(``"x"``)とミラー面(``"YZ"``)のどちらの書き方でもよい。
-    対応は x⇔YZ、y⇔XZ(``"ZX"`` も可)、z⇔XY で、文字の順序と大文字小文字は問わない。
+    axis は、反転する軸(``"x"``)でも、ミラー面(``"YZ"``)でも書ける。
+    対応は x⇔YZ、y⇔XZ(``"ZX"`` も可)、z⇔XY。文字の順番と大文字・小文字は問わない。
 
     Args:
         axis (str | int): ``"x"``・``"y"``・``"z"``、``"YZ"``・``"XZ"``・``"XY"``、または0/1/2。
-        pivot (Iterable[float]): 3成分の中心座標。
+        pivot (Iterable[float]): ミラーの中心座標(3成分)。
 
     Returns:
-        tuple: 反転する軸の番号1つのtuple(例 ``(0,)``)と、中心座標のtuple。
+        tuple: 2つの値の組。1つ目は反転する軸の番号を1つだけ入れたtuple(例 ``(0,)``)、
+            2つ目は中心座標のtuple。
 
     Raises:
-        TypeError: axis が文字列・int 以外の場合。
-        ValueError: axis が未対応の値、または中心が有限の3成分でない場合。
+        TypeError: axis が文字列でもintでもない場合。
+        ValueError: axis が対応していない値の場合、または中心が有限な3成分でない場合。
     """
     flip = _mirror_axis(axis)
     try:
         center = tuple(float(value) for value in pivot)
     except (TypeError, ValueError):
-        raise ValueError("pivot must contain three finite numbers") from None
+        raise ValueError("pivotは3つの有限な数値で指定してください") from None
     if len(center) != 3 or not all(math.isfinite(value) for value in center):
-        raise ValueError("pivot must contain three finite numbers")
+        raise ValueError("pivotは3つの有限な数値で指定してください")
     return (flip,), center
 
 
 def _clean_segment(segment):
-    """コロンで区切られた1区間を、単独で有効な識別子へ整える。
+    """コロンで区切った1つの部分を、それだけで使える名前に整える。
 
-    前後の空白を落とし、使えない文字が連続する箇所は1文字の ``_`` に
-    まとめる。入力にもともと含まれる ``_`` はそのまま残す。整えた結果が
-    数字で始まる場合は先頭に ``_`` を足す。
+    前後の空白を除き、使えない文字が続く部分は1文字の ``_`` にまとめる。
+    もともと入っていた ``_`` はそのまま残す。整えた結果が数字で始まるなら、先頭に ``_`` を足す。
 
     Args:
-        segment (str): コロンを含まない1区間。
+        segment (str): コロンを含まない1つの部分。
 
     Returns:
-        str: 整えた区間。空白だけ、または空の区間なら空文字。
+        str: 整えた部分。空白だけの部分や空の部分なら空文字列。
     """
     out = []
     in_bad_run = False
@@ -215,11 +219,11 @@ def _clean_segment(segment):
 
 
 def _checked_index(index, size, name):
-    """番号を検査し、0〜size-1 へ正規化する。
+    """番号を確かめて、0〜size-1 の範囲の番号に直す。
 
-    om2 の番号は負の範囲外の値を検査しない(Python が長さを1回だけ足して渡すため、
-    MVector の ``v[-4]`` が最後の成分を返し、MMatrix の -17 以下は範囲外のメモリを
-    読み書きする)ため、om2 へ渡す前に必ずここで検査する。
+    om2 は、範囲外の負の番号を確かめない。Python が長さを1回だけ足して渡すため、
+    MVector の ``v[-4]`` は最後の成分を返し、MMatrix の -17 以下は範囲外のメモリを読み書きしてしまう。
+    そのため、om2 へ渡す前に必ずここで確かめる。
 
     Args:
         index (int): 番号。負の値は末尾から数える。
@@ -236,11 +240,11 @@ def _checked_index(index, size, name):
     try:
         position = _as_index(index)
     except TypeError:
-        raise TypeError(f"{name} indices must be integers or slices, not {type(index).__name__}") from None
+        raise TypeError(f"{name}の番号は整数かスライスで指定してください: {type(index).__name__}") from None
     if position < 0:
         position += size
     if not 0 <= position < size:
-        raise IndexError(f"{name} index out of range")
+        raise IndexError(f"{name}の番号が範囲外です")
     return position
 
 
@@ -268,13 +272,13 @@ def _is_om2_type(cls):
 
 
 def _foreign_comparison(other, result):
-    """om2 の同じ系統に属さない値との ``==`` / ``!=`` の結果を返す。
+    """om2 の同じ系統に属さない値と ``==`` / ``!=`` で比べたときの結果を返す。
 
-    om2 の型(MPoint や MObject など。OpenMaya API 1.0 の型を含む)は、相手の型を
-    知らない比較で TypeError を送出するため、反射側へ回さずに result で確定する。
-    それ以外の型には NotImplemented を返し、相手の ``__eq__`` (反射側の比較)に
-    判断を委ねる。どちらも判断しなければ Python の既定の比較(同一性)になるため、
-    ``None`` や文字列との比較は例外にならない(``None`` は同じ結果を直接返す)。
+    - 相手が om2 の型(MPoint や MObject など。OpenMaya API 1.0 の型を含む)なら、result で結果を決める。
+      om2 の型は、知らない型と比べると TypeError を送出するため、相手側の比較へは回さない。
+    - それ以外の型には NotImplemented を返し、相手の ``__eq__`` (反対側からの比較)に判断を任せる。
+      どちらも判断しなければ Python の既定の比較(同じオブジェクトか)になる。そのため、
+      ``None`` や文字列と比べても例外にならない(``None`` には result を直接返す)。
 
     Args:
         other (object): 比較対象。
@@ -343,20 +347,24 @@ def _restore_state(target, state, slots):
 
 
 def _copy_state(source, target, memo=None):
-    """数学成分を作成済みの複製先へ、派生クラスの追加Python状態だけを写す。
+    """派生クラスが追加したPythonの状態だけを、コピー先へ写す。
 
-    数学成分の確保・コピーは呼出し側が担当する。この関数は__dict__/__slots__を
-    取り出して設定し、memo=Noneでは追加値の参照を浅く写す。memo指定時は
-    source→targetを先に登録してから深くコピーし、自己参照を複製先へ対応付ける。
-    通常の演算や型変換へ暗黙に追加状態を伝播する仕組みではない。
+    数学の成分はコピー先にすでに作ってある前提で、その確保とコピーは呼び出し側が受け持つ。
+    この関数は __dict__・__slots__ の値を取り出して、コピー先へ設定する。
+
+    - memo=Noneなら、追加した値への参照をそのまま(浅く)写す。
+    - memoを指定したら、先に source→target を登録してから深くコピーする。
+      自分自身への参照は、コピー先への参照に置き換わる。
+
+    ふつうの演算や型の変換で、追加した状態を自動で引き継ぐ仕組みではない。
 
     Args:
-        source (object): コピー元の数学値。
-        target (object): 数学成分を独立確保した同型のコピー先。
-        memo (dict | None): copy.deepcopyの共有辞書。Noneは浅いコピー。
+        source (object): コピー元の数学の値。
+        target (object): 同じ型のコピー先。数学の成分は別に確保してある。
+        memo (dict | None): copy.deepcopyで共有する辞書。Noneなら浅いコピー。
 
     Returns:
-        object: 渡されたtarget自身。sourceの数学成分は変更しない。
+        object: 渡されたtarget自身。sourceの数学の成分は変えない。
     """
     if memo is not None:
         memo[id(source)] = target
@@ -389,14 +397,14 @@ def _angle_unit(unit, default="deg"):
     if unit is None:
         return default
     if not isinstance(unit, str):
-        raise TypeError(f"Angle unit must be a string: {unit!r}")
+        raise TypeError(f"角度の単位は文字列で指定してください: {unit!r}")
     try:
         return _ANGLE_UNITS[unit]
     except KeyError:
         if unit in _TIME_UNITS:
             # 時間の単位を角度の引数へ渡した誤りを、正しい引数名で伝える。
-            raise ValueError(f"Unsupported angle unit: {unit!r} (use timeUnit for time values)") from None
-        raise ValueError(f"Unsupported angle unit: {unit!r} (use 'deg' or 'rad')") from None
+            raise ValueError(f"対応していない角度の単位です: {unit!r}(時間の値にはtimeUnitを使います)") from None
+        raise ValueError(f"対応していない角度の単位です: {unit!r}('deg'か'rad'を使います)") from None
 
 
 def _time_unit(unit, default="frame"):
@@ -419,13 +427,13 @@ def _time_unit(unit, default="frame"):
     if unit is None:
         return default
     if not isinstance(unit, str):
-        raise TypeError(f"Time unit must be a string: {unit!r}")
+        raise TypeError(f"時間の単位は文字列で指定してください: {unit!r}")
     try:
         return _TIME_UNITS[unit]
     except KeyError:
         if unit in _ANGLE_UNITS:
-            raise ValueError(f"Unsupported time unit: {unit!r} (use unit for angle values)") from None
-        raise ValueError(f"Unsupported time unit: {unit!r} (use 'frame' or 'sec')") from None
+            raise ValueError(f"対応していない時間の単位です: {unit!r}(角度の値にはunitを使います)") from None
+        raise ValueError(f"対応していない時間の単位です: {unit!r}('frame'か'sec'を使います)") from None
 
 
 def _to_radians(value, unit):
@@ -467,7 +475,7 @@ def _world_space(value):
         TypeError: bool以外を指定した場合。
     """
     if type(value) is not bool:
-        raise TypeError("worldSpace (ws) must be a bool")
+        raise TypeError("worldSpace(ws)はboolで指定してください")
     return value
 
 
@@ -486,10 +494,10 @@ def _finite(value, name):
         ValueError: 無限大・NaNの場合。
     """
     if isinstance(value, bool) or not isinstance(value, numbers.Real):
-        raise TypeError(f"{name} must be a number")
+        raise TypeError(f"{name}は数値で指定してください")
     result = float(value)
     if not math.isfinite(result):
-        raise ValueError(f"{name} must be finite")
+        raise ValueError(f"{name}は有限な数値で指定してください")
     return result
 
 
@@ -511,21 +519,21 @@ def _finite_vector(value, size, name):
     try:
         items = tuple(value)
     except TypeError:
-        raise TypeError(f"{name} must be a sequence of {size} numbers") from None
+        raise TypeError(f"{name}は{size}個の数値の並びで指定してください") from None
     if len(items) != size:
-        raise ValueError(f"{name} must have {size} components")
+        raise ValueError(f"{name}は{size}個の成分で指定してください")
     return tuple(_finite(item, name) for item in items)
 
 
 def _color_value(color):
-    """表示色の指定を検証する。
+    """表示色の指定を確かめる。
 
     Args:
-        color (int | Sequence[float] | None): カラーインデックス、(r, g, b)、または無効にするNone。
+        color (int | Sequence[float] | None): Mayaの色の番号(0〜31)、(r, g, b)、または色を無効にするNone。
 
     Returns:
-        tuple[int | None, tuple[float, float, float] | None]: インデックス指定なら (番号, None)、
-            RGB指定なら (None, (r, g, b))、Noneなら (None, None)。
+        tuple[int | None, tuple[float, float, float] | None]: 番号で指定したら (番号, None)、
+            RGBで指定したら (None, (r, g, b))、Noneなら (None, None)。
 
     Raises:
         TypeError: 型が不正な場合。
@@ -534,16 +542,16 @@ def _color_value(color):
     if color is None:
         return None, None
     if isinstance(color, bool):
-        raise TypeError("color must be an int index, an (r, g, b) sequence or None, not bool")
+        raise TypeError("colorはintの番号か(r, g, b)の並びかNoneで指定してください(boolは指定できません)")
     if isinstance(color, int):
         if not 0 <= color <= _MAX_COLOR_INDEX:
-            raise ValueError(f"color index must be between 0 and {_MAX_COLOR_INDEX}, got {color}")
+            raise ValueError(f"colorの番号は0〜{_MAX_COLOR_INDEX}で指定してください: {color}")
         return color, None
     if isinstance(color, (str, bytes)) or not hasattr(color, "__iter__"):
-        raise TypeError("color must be an int index, an (r, g, b) sequence or None")
+        raise TypeError("colorはintの番号か(r, g, b)の並びかNoneで指定してください")
     rgb = _finite_vector(color, 3, "color")
     if not all(0.0 <= value <= 1.0 for value in rgb):
-        raise ValueError("color RGB components must be between 0 and 1")
+        raise ValueError("colorのRGBの各成分は0〜1で指定してください")
     return None, rgb
 
 
@@ -563,9 +571,9 @@ def _checked_tolerance(value, *, positive=False):
     """
     result = _finite(value, "tolerance")
     if positive and result <= 0:
-        raise ValueError("tolerance must be positive")
+        raise ValueError("toleranceは正の値で指定してください")
     if result < 0:
-        raise ValueError("tolerance must be non-negative")
+        raise ValueError("toleranceは0以上で指定してください")
     return result
 
 
@@ -584,7 +592,7 @@ def _checked_digits(ndigits):
     if ndigits is None:
         return None
     if isinstance(ndigits, bool) or not isinstance(ndigits, numbers.Integral):
-        raise TypeError(f"ndigits must be an int or None: {ndigits!r}")
+        raise TypeError(f"ndigitsはintかNoneで指定してください: {ndigits!r}")
     return int(ndigits)
 
 
@@ -624,7 +632,7 @@ def _unique_ordered(items, key=None):
 
 
 def _rethrow_init_error(cls, error):
-    """キーワード解析のTypeErrorを、構築中のクラス名を先頭にした文言で送り直す。
+    """キーワード引数の解析で起きたTypeErrorを、作っているクラスの名前を先頭にした文言で送り直す。
 
     maths の ``__init__`` が ``_vector_keywords`` 等の補助関数から受けた
     ``"<helper>() <理由>"`` 形式のメッセージを、``"<Class>() <理由>"`` に書き換える。
@@ -645,8 +653,8 @@ def _rethrow_init_error(cls, error):
 class _PointGrid:
     """最も近い点を探すための一様な格子(標準ライブラリだけで計算する)。
 
-    点の範囲の対角線と点の数から格子の大きさを決め、問い合わせ点の格子から外側へ広げて探す。
-    見つかった点より近い点が外側の格子に無いと分かった時点で探索を終える。
+    格子の大きさは、点が広がる範囲の対角線と点の数から決める。探すときは、調べたい点が入る格子から
+    外側へ広げていく。見つかった点より近い点が、それより外側の格子に無いと分かった時点で終える。
 
     Args:
         points (Sequence[Sequence[float]]): 3成分の点の並び。空でないこと。
@@ -655,7 +663,7 @@ class _PointGrid:
     def __init__(self, points):
         self.points = [tuple(float(value) for value in point) for point in points]
         if not self.points:
-            raise ValueError("points must not be empty")
+            raise ValueError("pointsは空にできません")
         lows = [min(point[axis] for point in self.points) for axis in range(3)]
         highs = [max(point[axis] for point in self.points) for axis in range(3)]
         diagonal = math.sqrt(sum((high - low) ** 2 for low, high in zip(lows, highs))) or 1.0

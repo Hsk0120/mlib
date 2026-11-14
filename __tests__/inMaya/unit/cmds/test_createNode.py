@@ -167,7 +167,7 @@ class FlagTest(_CreateCase):
         for value in ("", 5, None):
             for fast in (False, True):
                 with self.subTest(type=value, fast=fast):
-                    with self.assertRaisesRegex(ValueError, "type must be a non-empty string"):
+                    with self.assertRaisesRegex(ValueError, "typeは空でない文字列で指定してください"):
                         mlib.createNode(value, fast=fast)
         self.assertEqual(self.nodes(), before)
         self.assertFalse(cmds.objExists(self.name("rejected")))
@@ -303,7 +303,7 @@ class RejectionTest(_CreateCase):
             with self.subTest(fast=fast):
                 cmds.select(keep, replace=True)
                 before = set(cmds.ls(type=["unknown", "unknownDag", "unknownTransform"]) or [])
-                with self.assertRaisesRegex(RuntimeError, "Unknown Maya nodeType: mlibSpecNoSuchType"):
+                with self.assertRaisesRegex(RuntimeError, "Mayaにないノード型です: mlibSpecNoSuchType"):
                     mlib.createNode("mlibSpecNoSuchType", name=self.name("unknownNode"), fast=fast)
                 self.assertFalse(cmds.objExists(self.name("unknownNode")))
                 self.assertEqual(set(cmds.ls(type=["unknown", "unknownDag", "unknownTransform"]) or []), before)
@@ -318,7 +318,7 @@ class RejectionTest(_CreateCase):
         cmds.lockNode(parent, lock=True)
         try:
             before = self.nodes()
-            with self.assertRaisesRegex(RuntimeError, "locked or referenced"):
+            with self.assertRaisesRegex(RuntimeError, "ロックされているか、リファレンスです"):
                 mlib.createNode("transform", name=self.name("child"), parent=parent, fast=True)
             self.assertEqual(self.nodes(), before)
             self.assertFalse(cmds.objExists(self.name("child")))
@@ -342,7 +342,7 @@ class RejectionTest(_CreateCase):
             parent = cmds.ls(ref_namespace + ":mlibSpecCreateNodeRefHelper", long=True)[0]
             self.assertTrue(cmds.referenceQuery(parent, isNodeReferenced=True))
             before = set(cmds.ls(uuid=True))
-            with self.assertRaisesRegex(RuntimeError, "locked or referenced"):
+            with self.assertRaisesRegex(RuntimeError, "ロックされているか、リファレンスです"):
                 mlib.createNode("transform", name=self.name("child"), parent=parent, fast=True)
             self.assertEqual(set(cmds.ls(uuid=True)), before)
         finally:
@@ -599,7 +599,7 @@ class CreateNodeSpecTest(_CmdsCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 before = set(cmds.ls(type="unknown") or [])
-                with self.assertRaisesRegex(RuntimeError, "Unknown Maya nodeType: mlibNoSuchNodeType"):
+                with self.assertRaisesRegex(RuntimeError, "Mayaにないノード型です: mlibNoSuchNodeType"):
                     mlib.createNode("mlibNoSuchNodeType", name=self.name("unknownNode"), fast=fast)
                 self.assertFalse(cmds.objExists(self.name("unknownNode")))
                 self.assertEqual(set(cmds.ls(type="unknown") or []), before)

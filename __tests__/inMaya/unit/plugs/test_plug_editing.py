@@ -343,7 +343,7 @@ class RerunSafeTest(_Case):
         source, destination = self.other.getPlug("rx"), self.node.getPlug("tx")
         source.connectTo(destination)
         self.assertEqual(source.connectTo(destination, safe=True), destination)
-        with self.assertRaisesRegex(RuntimeError, "Already connected"):
+        with self.assertRaisesRegex(RuntimeError, "すでに接続されています"):
             source.connectTo(destination)
         self.assertEqual(len(cmds.ls(cmds.listConnections(destination.getFullName(), source=True) or [], type="unitConversion")), 1)
 

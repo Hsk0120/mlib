@@ -1,4 +1,4 @@
-"""パッケージ内の参照関係に従ってモジュールを再読み込みする。"""
+"""パッケージの中のモジュールを、参照の関係に合わせた順で読み直す。"""
 
 import importlib
 import pkgutil
@@ -9,21 +9,27 @@ __all__ = ["reload_package"]
 
 
 def reload_package(package_name):
-    """読み込み済みパッケージの現存モジュールを再探索し、推定した依存順で再読み込みする。
+    """読み込み済みのパッケージを読み直す。
 
-    新規モジュールを取り込み、削除済みはsys.modulesと親の同一モジュール属性から除く。
-    依存順はglobalsのモジュール/クラス/関数参照から推定し、関数内の遅延importは検出しない。
-    利用側のfrom-importや保持済みインスタンスは差し替えない。再読込み後は必要な参照を取り直す。
-    既存モジュール辞書に残る削除済み定義まで一律に消す処理ではなく、途中失敗の自動復元も行わない。
+    パッケージの中にある今のモジュールを探し直し、依存する側が後になる順で読み直す。
+
+    - 新しく増えたモジュールは読み込む。
+    - ファイルが消えたモジュールは、sys.modulesと、親のモジュールの同じ名前の属性から取り除く。
+    - 読み直す順は、globalsにあるモジュール・クラス・関数の参照から推し量る。
+      関数の中で後から行うimportは見つけられない。
+
+    使う側がfrom-importで取り込んだ名前や、手元に持っているインスタンスは差し替えない。
+    読み直した後は、必要な参照を取り直す。
+    モジュールの辞書に残っている、消された定義までまとめて消すわけではない。途中で失敗しても、自動では元に戻さない。
 
     Args:
-        package_name (str): 読み込み済みパッケージの完全修飾名。
+        package_name (str): 読み込み済みのパッケージの完全な名前(``mlib`` など)。
 
     Returns:
-        tuple[module]: 再読み込みしたモジュールを処理順に格納したtuple。
+        tuple[module]: 読み直したモジュール。処理した順に並ぶ。
     """
-    # 新規ファイルの発見をimport machineryへ通知する。各モジュール所有の
-    # キャッシュはreload時に再生成し、ここに個別のキャッシュ一覧は持たない。
+    # 新しいファイルが見つかるように、importの仕組みへ知らせる。各モジュールが持つ
+    # キャッシュはreloadのときにそれぞれ作り直すので、ここではキャッシュの一覧を持たない。
     importlib.invalidate_caches()
     module_names = _discover_module_names(package_name)
     loaded_names = {name for name in sys.modules if name == package_name or name.startswith(f"{package_name}.")}
@@ -47,13 +53,13 @@ def reload_package(package_name):
 
 
 def _discover_module_names(package_name):
-    """パッケージ配下の現在存在する Python module 名を取得する。
+    """パッケージの中に今あるモジュールの名前を取得する。
 
     Args:
-        package_name (str): module を走査する package の完全修飾名。
+        package_name (str): モジュールを探すパッケージの完全な名前。
 
     Returns:
-        tuple[str]: package 自身を含む検出済み module 名。
+        tuple[str]: 見つかったモジュールの名前。パッケージ自身も含む。
     """
     package = sys.modules[package_name]
     names = {package_name}
@@ -63,13 +69,15 @@ def _discover_module_names(package_name):
 
 
 def _reload_order(module_names):
-    """module 内の参照から依存先を推定し、reload 順を作る。
+    """読み直す順番を決める。
+
+    モジュールの中の参照から、どのモジュールに依存しているかを推し量る。
 
     Args:
-        module_names (iterable[str]): reload 対象の完全修飾 module 名。
+        module_names (iterable[str]): 読み直すモジュールの完全な名前。
 
     Returns:
-        list[str]: 依存先が先になる reload 順の module 名。
+        list[str]: 読み直す順に並べたモジュール名。依存されている側が先になる。
     """
     module_set = set(module_names)
     dependencies = {name: _module_dependencies(sys.modules[name], module_set) for name in module_names}
@@ -78,9 +86,10 @@ def _reload_order(module_names):
     visiting = set()
 
     def visit(name):
-        """依存先から再帰的に訪問し、再読み込み順を組み立てる。
+        """依存しているモジュールから順にたどり、読み直す順番を組み立てる。
 
-        訪問済み、または現在訪問中なら処理を打ち切り、循環依存による無限再帰を避ける。
+        すでにたどった、または今たどっている途中のモジュールなら、そこで止める。
+        こうして、お互いに依存しているときに終わらなくなるのを防ぐ。
 
         Args:
             name (str): 訪問するモジュールの完全修飾名。
@@ -105,19 +114,19 @@ def _reload_order(module_names):
 
 
 def _module_dependencies(module, module_names):
-    """module の globals から mlib 内の依存 module 名を抽出する。
+    """モジュールが依存しているmlibのモジュール名を取り出す。
 
-    循環依存を避けるために関数内で遅延 import している参照(例: nodes.node と
-    plugs.plug の相互参照)は module の globals に現れないため、ここでは検出でき
-    ない。これらは reload 順序に影響しないが、実行時には呼び出しの都度その時点の
-    sys.modules から解決されるため、reload 漏れにはならない。
+    モジュールの globals を調べる。import の循環を避けるため関数の中で import している参照
+    (例: nodes.node と plugs.plug がお互いを参照する場合)は globals に出てこないので、
+    ここでは見つけられない。これらは読み直す順番に関係しない。実行時には、呼ぶたびにその時点の
+    sys.modules から取り出すので、読み直し忘れにはならない。
 
     Args:
-        module (types.ModuleType): 依存関係を調べる module。
-        module_names (set[str]): reload 対象として許可する module 名。
+        module (types.ModuleType): 依存を調べるモジュール。
+        module_names (set[str]): 読み直す対象として扱うモジュール名。
 
     Returns:
-        set[str]: module が参照している mlib module 名。
+        set[str]: モジュールが参照しているmlibのモジュール名。
     """
     dependencies = set()
     for value in vars(module).values():

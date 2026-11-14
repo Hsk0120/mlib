@@ -1,14 +1,15 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Mayaノードを作成し、実際のノード型に対応するラッパーを返す。
+"""Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す。
 
-mlibでノードを作成する唯一の入口。``cmds.createNode`` に相当し、``Node.create`` や
-``Node(name, create=True)`` のような作成経路は無い。戻り値は作成したノードの実際のnodeTypeに
-対応するラッパー(登録済みクラス、未登録型は登録表の規則で選ぶクラス)で、``getType()`` は
-MayaのnodeType名を返す。
+mlibでノードを作る入口はこれだけ。``cmds.createNode`` に相当する。``Node.create`` や
+``Node(name, create=True)`` のような作り方は無い。
 
-通常はMayaのUndoに対応し、1回のUndoで作成(shapeの自動生成transformを含む)を戻せる。
-``fast=True`` は対応する作成条件をOpenMayaで直接処理し、Undo履歴を追加しない。
-未対応の条件はノードを作る前に拒否する。
+戻り値は、作ったノードの実際のnodeTypeに合ったクラスのオブジェクト。登録済みの型はそのクラス、
+登録の無い型は登録表の規則で選んだクラスになる。``getType()`` はMayaのnodeType名を返す。
+
+通常はMayaのUndoに対応し、1回のUndoで作成を戻せる(shapeと一緒に自動で作られたtransformも戻る)。
+``fast=True`` なら、対応している作成条件をOpenMayaで直接処理し、Undoの履歴に残さない。
+対応していない条件は、ノードを作る前にエラーにする。
 
 .. code-block:: python
 
@@ -279,53 +280,57 @@ def createNode(type: Literal["unitConversion"], *, fast: bool = ..., name: str =
 def createNode(type: Literal["vectorProduct"], *, fast: bool = ..., name: str = ..., n: str = ..., parent: object = ..., p: object = ..., shared: bool = ..., s: bool = ..., skipSelect: bool = ..., ss: bool = ..., **kwargs: object) -> VectorProduct: ...
 @overload
 def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., parent: object = ..., p: object = ..., shared: bool = ..., s: bool = ..., skipSelect: bool = ..., ss: bool = ..., **kwargs: object) -> Node:
-    """Mayaノードを作成し、実際の型に対応するラッパーを返す。
+    """Mayaのノードを作り、実際の型に合ったオブジェクトを返す。
 
-    フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
-    長名と短名の同時指定は入力解決やUndo開始の前に拒否する。対応しないMaya版のフラグはMayaが拒否する。
-    ``cmds.createNode`` に無い ``query``/``edit`` は受け付けない(他のフラグと同様にMayaがTypeErrorにする)。
+    フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
+    Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
+    Undoを始める前にエラーにする。その版のMayaに無いフラグは、Mayaがエラーにする。
+    ``cmds.createNode`` に無い ``query``/``edit`` は受け付けない(ほかのフラグと同じく、MayaがTypeErrorにする)。
 
-    shape型(``"mesh"``・``"nurbsCurve"``・``"locator"`` 等)を指定するとshapeが返り、``name=`` も
-    shapeの名前になる。親を省略した場合は ``getParent()``・``getTransform()`` がMayaの自動生成した
+    shapeの型(``"mesh"``・``"nurbsCurve"``・``"locator"`` など)を指定するとshapeが返り、``name=`` も
+    shapeの名前になる。親を省略した場合、``getParent()``・``getTransform()`` はMayaが自動で作った
     transformになる(transformの名前は ``rename()`` で付け直す)。
 
-    作成したノードは ``cmds.createNode`` と同じく選択される(``skipSelect=True`` を除く)。作成前の
-    選択を使う場合は、先に ``mlib.ls(selection=True)`` で取得しておく。
-    ``shared=True`` で同名・同型のノードが既にある場合は作成せずそのノードを返す(cmds.createNodeが
-    作成せずNoneを返す場合。cmdsはルート名前空間の名前だけ再利用し、名前空間付きの名前は連番名で作る)。
-    fast=Trueは名前で既存の同型ノードを探す近似で、名前空間付きでも既存ノードを返し、同名ノードの型が
-    違う場合は新しい連番名で作らず RuntimeError にする。
+    作ったノードは、``cmds.createNode`` と同じく選択される(``skipSelect=True`` の場合を除く)。
+    作る前の選択を使う場合は、先に ``mlib.ls(selection=True)`` で取得しておく。
 
-    jointの下へ作ったjointは ``cmds.joint`` と同じく親の ``scale`` を ``inverseScale`` へ接続する
-    (通常は作成と同じ1回のUndoで戻る。fastも接続する)。2026で改名された型は、どの版でも
-    ``multDoubleLinear``/``multDL``・``addDoubleLinear``/``addDL`` のどちらの名前でも作成でき、
-    その版の実際の型のノードになる。
+    ``shared=True`` で、同じ名前・同じ型のノードがすでにある場合は、作らずにそのノードを返す
+    (cmds.createNodeが作らずにNoneを返す場合にあたる)。cmdsはルート名前空間の名前だけを使い回し、
+    名前空間付きの名前では連番の名前で新しく作る。
+    fast=Trueでは、名前で既存の同じ型のノードを探す近い動きになる。名前空間付きでも既存のノードを返す。
+    同じ名前のノードの型が違う場合は、連番の名前で新しく作らず、RuntimeErrorにする。
+
+    jointの下へjointを作ると、``cmds.joint`` と同じく親の ``scale`` を ``inverseScale`` へ接続する
+    (通常は作成と同じ1回のUndoで戻る。fastでも接続する)。
+    2026で名前が変わった型は、どの版でも ``multDoubleLinear``/``multDL``・``addDoubleLinear``/``addDL`` の
+    どちらの名前でも作れる。作られるのは、その版での実際の型のノード。
 
     Args:
-        type (str): Mayaノード型名。
+        type (str): Mayaのノード型名。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-        name (str): Mayaへ渡すノード名。DAGパスの区切り ``|`` は含められない(Mayaは黙って置き換えるため拒否する)。
-        n (str): nameの短縮名。同時指定はできない。
-        parent (object): 親ノード。Node・Plug・Component・API参照は所有ノードの完全パスへ変換する。
-        p (object): parentの短縮名。同時指定はできない。
-        shared (bool): 同名の共有ノードがある場合のMaya標準の共有指定。
-        s (bool): sharedの短縮名。同時指定はできない。
-        skipSelect (bool): 作成したノードを選択しない指定。
-        ss (bool): skipSelectの短縮名。同時指定はできない。
-        **kwargs (object): 通常処理では追加のMayaフラグをそのまま渡す。
-            fast=Trueでは対応しないフラグを作成前に拒否する。
+        name (str): Mayaへ渡すノード名。DAGパスの区切り ``|`` は含められない
+            (Mayaは黙って置き換えてしまうため、エラーにする)。
+        n (str): nameの短縮名。nameと同時には指定できない。
+        parent (object): 親のノード。Node・Plug・Component・APIのオブジェクトは、持ち主のノードの完全パスに変える。
+        p (object): parentの短縮名。parentと同時には指定できない。
+        shared (bool): Maya標準の共有の指定。同じ名前の共有ノードがある場合に使う。
+        s (bool): sharedの短縮名。sharedと同時には指定できない。
+        skipSelect (bool): Trueなら、作ったノードを選択しない。
+        ss (bool): skipSelectの短縮名。skipSelectと同時には指定できない。
+        **kwargs (object): 通常の処理では、そのほかのMayaのフラグとしてそのまま渡す。
+            fast=Trueでは、対応していないフラグを作る前にエラーにする。
 
     Returns:
-        Node: 作成したノードの実際のnodeTypeに対応するラッパー。
+        Node: 作ったノードの、実際のnodeTypeに合ったオブジェクト。
 
     Raises:
-        TypeError: 長名・短名の同時指定、fastがbool以外、parentが対応しない型、
-            またはcmds.createNodeに無いフラグ(query/edit等)を指定した場合。
-        ValueError: typeが空文字列・文字列以外、nameに ``|`` を含む、parent が空文字列、または削除済みの対象の場合。
-        RuntimeError: Mayaが認識しないノード型名の場合(unknownノードを残さない。この版に無い型は
-            「not available in this Maya version」と示す)、
-            parent を解決できない場合、fast=Trueでロック・参照された親を指定した場合、
-            またはMayaが作成を拒否した場合。
-        NotImplementedError: fast=Trueで未対応のフラグを指定した場合。
+        TypeError: 長い名前と短い名前を同時に指定した場合、fastがboolでない場合、parentが対応していない型の場合、
+            またはcmds.createNodeに無いフラグ(query/editなど)を指定した場合。
+        ValueError: typeが空文字列か文字列でない場合、nameに ``|`` を含む場合、parent が空文字列の場合、
+            または削除済みの対象を指定した場合。
+        RuntimeError: Mayaが知らないノード型名の場合(unknownノードは残さない。この版に無い型は
+            「not available in this Maya version」と示す)、parent が見つからない場合、
+            fast=Trueでロックされた親かリファレンスされた親を指定した場合、またはMayaが作成を拒否した場合。
+        NotImplementedError: fast=Trueで、対応していないフラグを指定した場合。
     """
     ...

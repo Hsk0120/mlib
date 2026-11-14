@@ -11,7 +11,7 @@ import maya.api.OpenMaya as om2
 
 from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
 
-#: 型名と、読み込み時に作るmlibのクラス。Vectorの派生は派生を先に判定する。
+#: 型名と、読み込むときに作るmlibのクラス。Vectorの派生クラスは、Vectorより先に判定する。
 _VECTOR_TYPES = (("Translate", Translate), ("Scale", Scale), ("Shear", Shear), ("Vector", Vector))
 _TYPE_NAMES = frozenset(name for name, _cls in _VECTOR_TYPES) | {"Quaternion", "EulerRotate", "Matrix"}
 
@@ -19,24 +19,24 @@ _TYPE_NAMES = frozenset(name for name, _cls in _VECTOR_TYPES) | {"Quaternion", "
 def encode(value):
     """値をJSONで書ける値へ変換する。
 
-    辞書・list・tupleの中もたどって変換する。辞書のキーは文字列に限る。tupleはlistになる。
-    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix`` もmlibの型名で書く。
+    辞書・list・tupleの中もたどって変換する。辞書のキーは文字列だけ使える。tupleはlistになる。
+    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix`` も、mlibの型名で書く。
 
     Args:
-        value (object): 変換する値。None・bool・int・float・str・数学型・それらの辞書とlist。
+        value (object): 変換する値。None・bool・int・float・str・数学型と、それらを入れた辞書とlist。
 
     Returns:
         object: JSONで書ける値。入力の辞書・listは変更しない。
 
     Raises:
-        TypeError: 対応しない型、または辞書のキーが文字列でない場合。
-        ValueError: floatがNaN・無限大の場合。
+        TypeError: 対応しない型の場合、または辞書のキーが文字列でない場合。
+        ValueError: floatがNaNか無限大の場合。
     """
     if value is None or isinstance(value, (bool, int, str)):
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise ValueError(f"Cannot write a non-finite number to JSON: {value!r}")
+            raise ValueError(f"有限でない数値はJSONへ書き出せません: {value!r}")
         return value
     if isinstance(value, om2.MEulerRotation):
         rotate = value if isinstance(value, EulerRotate) else EulerRotate(value.x, value.y, value.z, value.order)
@@ -52,19 +52,19 @@ def encode(value):
         result = {}
         for key, item in value.items():
             if not isinstance(key, str):
-                raise TypeError(f"JSON object keys must be strings, not {type(key).__name__}")
+                raise TypeError(f"JSONのオブジェクトのキーは文字列で指定してください: {type(key).__name__}")
             result[key] = encode(item)
         return result
     if isinstance(value, (list, tuple)):
         return [encode(item) for item in value]
-    raise TypeError(f"Cannot write {type(value).__name__} to JSON")
+    raise TypeError(f"{type(value).__name__}はJSONへ書き出せません")
 
 
 def decode(value):
     """:func:`encode` で書いた値を、数学型を含む元の値へ戻す。
 
-    ``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけを数学型にし、
-    ほかの辞書・listは中をたどって同じ形で返す。
+    数学型にするのは、``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけ。
+    ほかの辞書・listは、中をたどって同じ形で返す。
 
     Args:
         value (object): JSONから読んだ値。
@@ -97,7 +97,7 @@ def _finite(value):
         ValueError: NaN・無限大の場合。
     """
     if not math.isfinite(value):
-        raise ValueError(f"Cannot write a non-finite number to JSON: {value!r}")
+        raise ValueError(f"有限でない数値はJSONへ書き出せません: {value!r}")
     return float(value)
 
 
@@ -127,13 +127,13 @@ def _decode_math(value):
         Vector | Translate | Scale | Shear | Quaternion | EulerRotate | Matrix: 新しい値。
 
     Raises:
-        ValueError: 成分の数が型と合わない、または回転順が不正な場合。
+        ValueError: 成分の数が型と合わない場合、または回転順が正しくない場合。
     """
     name, items = value["type"], value["value"]
     sizes = {"Quaternion": 4, "Matrix": 16, "EulerRotate": 3}
     size = sizes.get(name, 3)
     if len(items) != size or not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in items):
-        raise ValueError(f"{name} expects {size} numbers in JSON, got {items!r}")
+        raise ValueError(f"{name}のJSONは{size}個の数値で指定してください: {items!r}")
     if name == "EulerRotate":
         return EulerRotate.fromDegrees(items[0], items[1], items[2], value["order"])
     if name == "Quaternion":

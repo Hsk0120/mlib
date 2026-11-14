@@ -9,39 +9,45 @@ from .node import Node
 
 
 class ObjectSet(Node):
-    """objectSetノードの参照を保持し、ノード・アトリビュート・コンポーネントの所属を扱う。
+    """objectSet(セット)を扱うクラス。
 
-    セットへの登録はDAGの親子付けやContainerの所属とは別の関係として扱う。
-    照会はMFnSet、編集はcmds.setsを使う。
+    ノード・アトリビュート・コンポーネントが、セットに入っているかどうかを扱う。
+    セットへの登録は、DAGの親子付けやContainerへの所属とは別の関係になる。
+    取得にはMFnSet、編集にはcmds.setsを使う。
     """
 
     def getMembers(self):
-        """objectSetの直接メンバーを、入れ子のセットを展開せず取得する。
+        """セットに直接入っているメンバーを取得する。
 
-        MFnSet.getMembers(False)の選択文字列を使う。名前にドットがある
-        アトリビュート/コンポーネント表記は文字列、それ以外はNode参照へ変換する。
-        Maya APIの列挙順と圧縮された範囲表記を使い、独自のソートや全要素展開は行わない。
+        入れ子になったセットの中身は展開しない。MFnSet.getMembers(False)が返す選択の文字列を使う。
+
+        - 名前にドットがあるもの(アトリビュートやコンポーネント): 文字列のまま返す。
+        - それ以外: Nodeのオブジェクトにする。
+
+        順番はMaya APIが列挙する順のまま。``vtx[0:3]`` のようにまとめられた範囲も、そのまま返す。
+        独自に並べ替えたり、範囲を1要素ずつに展開したりはしない。
 
         Returns:
-            list[Node | str]: 新しいリスト。空セットは空。文字列をPlug/Componentへ自動変換しない。
+            list[Node | str]: 新しいリスト。空のセットなら空リスト。文字列をPlugやComponentへ自動では変換しない。
         """
         names = om2.MFnSet(self.mnode()).getMembers(False).getSelectionStrings()
         return [name if "." in name else Node(name) for name in names]
 
     def addMembers(self, *members):
-        """ノードやコンポーネント等を、このobjectSetへ追加する。
+        """ノードやコンポーネントなどを、このセットへ追加する。
 
-        共通の入力解決からcmds.setsへ渡す。空引数は変更せず自身を返す。ノードの複製や
-        親子付けは行わない。fast引数は持たない(MFnSetの更新はcmds.setsより遅いため)。
+        入力はほかのメソッドと同じ方法で解決し、cmds.setsへ渡す。何も渡さなければ、何も変えずに自身を返す。
+        ノードを複製したり、親子付けしたりはしない。
+        fast引数は持たない(MFnSetでの更新はcmds.setsより遅いため)。
 
         Args:
-            members (Node | str): 追加するノードやコンポーネント表記などの入力。
+            members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
             ObjectSet: 自身。
 
         Raises:
-            TypeError: 未対応型の入力、または名前とNode等の参照を混在させた場合。
+            TypeError: 対応していない型を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
             ValueError: 名前に一致するものが無い場合。
             RuntimeError: Mayaが追加を拒否した場合。
         """
@@ -51,18 +57,19 @@ class ObjectSet(Node):
             return self
 
     def removeMembers(self, *members):
-        """objectSetから指定メンバーの所属だけを外す。ノード自体は削除しない。
+        """指定したメンバーを、このセットから外す。
 
-        空引数は変更しない。入力解決は :meth:`addMembers` と同じ。
+        外すのはセットへの所属だけで、ノードそのものは削除しない。何も渡さなければ何も変えない。
+        入力の解決のしかたは :meth:`addMembers` と同じ。
 
         Args:
-            *members (Node | str): 除外するノードやコンポーネント表記などの入力。
+            *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
             ObjectSet: 自身。
 
         Raises:
-            RuntimeError: Mayaが除外を拒否した場合。
+            RuntimeError: Mayaが外すのを拒否した場合。
         """
         with undoChunk("mlibObjectSetRemoveMembers"):
             if members:
@@ -70,19 +77,23 @@ class ObjectSet(Node):
             return self
 
     def isMember(self, member):
-        """指定入力の全要素が、このセットの直接メンバーに含まれるか調べる。
+        """渡したものが、すべてこのセットに直接入っているか調べる。
 
-        入力を選択リストへ解決し、各要素をアトリビュート(MPlug)、DAG/コンポーネント
-        (DAGパスとコンポーネント)、DGノード(MObject)の順に取り出してhasItem()で照合する。
-        DGノード・DGノードのアトリビュート・DAGノードのアトリビュートも
+        入力を選択リストへ解決し、その要素を1つずつhasItem()で調べる。各要素は次の順に試して取り出す。
+
+        1. アトリビュート(MPlug)
+        2. DAGノードやコンポーネント(DAGパスとコンポーネント)
+        3. DGノード(MObject)
+
+        DGノード・DGノードのアトリビュート・DAGノードのアトリビュートも、
         ``cmds.sets(member, isMember=set)`` と同じ結果になる。
-        入れ子セットを展開した集合を使わず、名前文字列だけで同一性を判定しない。
+        入れ子になったセットの中身は展開しない。名前の文字列だけで同じものかを判定することもしない。
 
         Args:
-            member (Node | str): 判定対象。コンポーネント範囲表記も指定できる。
+            member (Node | str): 調べる対象。コンポーネントの範囲の表記も指定できる。
 
         Returns:
-            bool: 解決した全要素が含まれる場合はTrue。一部でも未登録ならFalse。
+            bool: 解決したすべての要素が入っていればTrue。1つでも入っていなければFalse。
         """
         query = om2.MSelectionList()
         query.add(Object._input_name(member))
@@ -104,26 +115,27 @@ class ObjectSet(Node):
         return True
 
     def clear(self):
-        """objectSetの直接メンバーをすべて外す(``cmds.sets(clear=set)``)。ノード自体は削除しない。
+        """セットに直接入っているメンバーを、すべて外す(``cmds.sets(clear=set)``)。
 
-        fast引数は持たない(:meth:`addMembers` と同じ理由)。Undo有効時は1回で戻せる。
+        ノードそのものは削除しない。fast引数は持たない(:meth:`addMembers` と同じ理由)。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Returns:
             ObjectSet: 自身。
 
         Raises:
-            RuntimeError: ノードが無効(削除済み)、またはMayaが処理を拒否した場合。
+            RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
         """
-        self._require_valid("clear")
+        self._require_valid("クリア")
         with undoChunk("mlibObjectSetClear"):
             cmds.sets(clear=self.getName())
             return self
 
     def getUnion(self, other):
-        """このセットと別のセットの、どちらかの直接メンバーであるものを取得する。
+        """このセットと別のセットの、少なくとも一方に直接入っているものを取得する(和集合)。
 
-        入れ子のセットは展開しない。戻り値の形は :meth:`getMembers` と同じで、コンポーネントの範囲は
-        Mayaの選択リストの規則でまとめる。シーンは変更しない。
+        入れ子になったセットの中身は展開しない。戻り値の形は :meth:`getMembers` と同じ。
+        コンポーネントの範囲は、Mayaの選択リストの決まりでまとめる。シーンは変更しない。
 
         Args:
             other (ObjectSet | str): 比べるobjectSet。
@@ -140,10 +152,10 @@ class ObjectSet(Node):
         return self._member_names(members)
 
     def getIntersection(self, other):
-        """このセットと別のセットの、両方の直接メンバーであるものを取得する。
+        """このセットと別のセットの、両方に直接入っているものを取得する(共通部分)。
 
-        コンポーネントは要素単位で比べる(``cube.vtx[0:3]`` と ``cube.vtx[2:5]`` の共通は ``cube.vtx[2:3]``)。
-        入れ子のセットは展開しない。シーンは変更しない。
+        コンポーネントは1要素ずつ比べる。たとえば ``cube.vtx[0:3]`` と ``cube.vtx[2:5]`` の共通部分は
+        ``cube.vtx[2:3]`` になる。入れ子になったセットの中身は展開しない。シーンは変更しない。
 
         Args:
             other (ObjectSet | str): 比べるobjectSet。
@@ -162,9 +174,9 @@ class ObjectSet(Node):
         return self._member_names(members)
 
     def getDifference(self, other):
-        """このセットの直接メンバーのうち、別のセットの直接メンバーでないものを取得する。
+        """このセットに直接入っているもののうち、別のセットに直接入っていないものを取得する(差集合)。
 
-        コンポーネントは要素単位で除く。入れ子のセットは展開しない。シーンは変更しない。
+        コンポーネントは1要素ずつ除く。入れ子になったセットの中身は展開しない。シーンは変更しない。
 
         Args:
             other (ObjectSet | str): 除くメンバーを持つobjectSet。
@@ -181,9 +193,9 @@ class ObjectSet(Node):
         return self._member_names(members)
 
     def isSubSet(self, other):
-        """このセットの直接メンバーがすべて、別のセットの直接メンバーに含まれるか判定する。
+        """このセットに直接入っているものが、すべて別のセットにも直接入っているか調べる。
 
-        空のセットはどのセットにも含まれる(True)。入れ子のセットは展開しない。
+        空のセットは、どのセットに対してもTrueになる。入れ子になったセットの中身は展開しない。
 
         Args:
             other (ObjectSet | str): 含む側のobjectSet。
@@ -208,7 +220,7 @@ class ObjectSet(Node):
         Raises:
             RuntimeError: ノードが無効(削除済み)の場合。
         """
-        self._require_valid("access members of")
+        self._require_valid("メンバーの取得")
         return om2.MFnSet(self.mnode()).getMembers(False)
 
     @staticmethod
@@ -226,9 +238,9 @@ class ObjectSet(Node):
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         node = other if isinstance(other, Node) else Node(Object._input_name(other))
-        node._require_valid("access members of")
+        node._require_valid("メンバーの取得")
         if not node.isType("objectSet"):
-            raise TypeError(f"Expected an objectSet, got {node.getType()}: {node.getName()}")
+            raise TypeError(f"objectSetを指定してください: {node.getType()}: {node.getName()}")
         return om2.MFnSet(node.mnode()).getMembers(False)
 
     @staticmethod

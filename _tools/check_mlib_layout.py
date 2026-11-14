@@ -45,6 +45,9 @@ EXCLUDED_DIRS = {"__tests__", "tests", "docs", "_docs", "_tools", "__pycache__",
 MAYA_PACKAGES = {"maya", "maya.api"}
 MAYA_SUBMODULES = {"cmds", "mel", "utils", "standalone", "OpenMaya", "OpenMayaAnim", "OpenMayaUI", "OpenMayaRender"}
 CONSTANT_NAME = re.compile(r"^_?[A-Z][A-Z0-9_]*$")
+# 例外の文言の言語を見分ける。英語の文は「英単語が空白や区切りを挟んで2つ以上続く」で判定する。
+JAPANESE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+ENGLISH_PROSE = re.compile(r"[A-Za-z]{2,}[ ,:;]+[A-Za-z]{2,}")
 PUBLIC_CONSTANT_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 #: 使わない内部名の接頭辞と、代わりに使う名前。
 BANNED_INTERNAL_PREFIXES = {
@@ -911,17 +914,20 @@ def check_inner_imports(src, violations):
 
 
 def check_raise_messages(src, violations):
-    """例外の文言が英語の f-string 1つで書かれているかを調べる。"""
+    """例外の文言が日本語の f-string 1つで書かれているかを調べる。
+
+    引数名・型名・パスだけの文言(``f"{name}: {error}"`` など)は対象にせず、
+    英語の文(英単語が空白で2つ以上続く)になっていて日本語を含まないものを報告する。
+    """
     for node in ast.walk(src.tree):
         if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call) or not node.exc.args:
             continue
         message = node.exc.args[0]
         if isinstance(message, ast.BinOp) and isinstance(message.op, ast.Add):
             violations.append(Violation(src.path, node.lineno, "L061", "例外の文言は f-string 1つで書く(+ での連結は使わない)"))
-        for part in ast.walk(message):
-            if isinstance(part, ast.Constant) and isinstance(part.value, str) and any(ord(char) > 127 for char in part.value):
-                violations.append(Violation(src.path, node.lineno, "L060", "例外の文言は英語で書く(Mayaを英語で使うため)"))
-                break
+        text = " ".join(part.value for part in ast.walk(message) if isinstance(part, ast.Constant) and isinstance(part.value, str))
+        if ENGLISH_PROSE.search(text) and not JAPANESE.search(text):
+            violations.append(Violation(src.path, node.lineno, "L060", "例外の文言は日本語で書く(引数名・型名などの識別子は英字のまま)"))
 
 
 def check_notify_and_raise(src, violations):
@@ -1455,7 +1461,7 @@ def main(argv=None):
             print(f"修正中止: {error}", file=sys.stderr)
             return 1
         write_source(path, fixed, eol, bom)
-        print(f"fixed input assertions: {relative(path)} ({args.fix_asserts})")
+        print(f"直した入力assert: {relative(path)} ({args.fix_asserts})")
         return 0
     if args.template_docstrings:
         if len(args.paths) != 1 or not Path(args.paths[0]).is_file():
@@ -1467,7 +1473,7 @@ def main(argv=None):
             print(f"docstringが無いdefはありません: {relative(path)}")
             return 0
         write_source(path, text, eol, bom)
-        print(f"inserted docstring templates: {relative(path)} ({len(inserted)})")
+        print(f"入れたdocstringの雛形: {relative(path)} ({len(inserted)})")
         for name, lineno in inserted:
             print(f"  {lineno}: {name}")
         print(f"{TEMPLATE_MARK} を書き換えてから、_tools/format_mlib.bat で整形・検査してください(残りはL077に出ます)。")

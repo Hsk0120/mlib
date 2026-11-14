@@ -129,7 +129,7 @@ class MaterialTest(_SpecCase):
         self.assertEqual(group.getShaderPlug().getFullName(), self.material + ".outColor")
         self.assertIsNone(group.getShaderPlug("volume"))
         self.assertIsNone(group.getShaderPlug("displacement"))
-        with self.assertRaisesRegex(ValueError, "kind must be"):
+        with self.assertRaisesRegex(ValueError, "kindは"):
             group.getShaderPlug("light")
         empty = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=self.name("emptySG"))
         self.assertIsNone(Node(empty).getShaderPlug())

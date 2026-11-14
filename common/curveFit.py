@@ -1,27 +1,30 @@
-"""外部数値ライブラリなしで3次B-splineの制御点を近似する。"""
+"""点の並びに近い3次B-splineの制御点を求める(外部の数値計算ライブラリは使わない)。"""
 
 import math
 
 
 class CurveFit:
-    """等間隔clamped knotを持つ3次カーブの正則化最小二乗フィット。"""
+    """3次カーブを点の並びへ当てはめる(フィットする)。
+
+    ノットは等間隔で両端を固定した形(clamped knot)にし、正則化した最小二乗法で求める。
+    """
 
     @staticmethod
     def basis(count, parameter):
-        """0〜1のパラメータで基底ウェイトを計算する。
+        """0〜1のパラメータでの、各CVの基底のウェイトを計算する。
 
         Args:
-            count (int): 4以上のCV数。
-            parameter (float): 正規化カーブパラメータ。
+            count (int): CVの数。4以上。
+            parameter (float): カーブのパラメータ。0〜1に正規化した値。
 
         Returns:
             list[float]: CVごとのウェイト。
 
         Raises:
-            ValueError: countが4未満、またはparameterが0〜1の範囲外の場合。
+            ValueError: countが4より小さい場合、またはparameterが0〜1の範囲にない場合。
         """
         if count < 4 or not 0 <= parameter <= 1:
-            raise ValueError("Use count >= 4 and parameter in 0..1")
+            raise ValueError("countは4以上、parameterは0〜1で指定してください")
         if parameter == 1:
             return [0.0] * (count - 1) + [1.0]
         knots = [0.0] * 4 + [i / (count - 3) for i in range(1, count - 3)] + [1.0] * 4
@@ -39,31 +42,34 @@ class CurveFit:
 
     @classmethod
     def fit(cls, points, count):
-        """折れ線の弦長をパラメータとしてCVを近似する。
+        """点の並びに近いカーブのCVを求める。
+
+        カーブのパラメータには、点を結んだ折れ線の長さ(弦長)を使う。
 
         Args:
-            points (Sequence[Sequence[float]]): 同一空間・単位の3次元点、2点以上。
-            count (int): CV数、4〜32。
+            points (Sequence[Sequence[float]]): 3次元の点。2点以上。すべて同じ空間・同じ単位にする。
+            count (int): CVの数。4〜32。
 
         Returns:
-            list[list[float]]: 同じ空間・単位のCV座標。
+            list[list[float]]: CVの座標。pointsと同じ空間・同じ単位。
 
         Raises:
-            ValueError: countが4〜32のint(int以外も含む)でない、点が2点未満・有限の3次元点でない、
-                または折れ線の長さが0の場合。
+            ValueError: countが4〜32のintでない場合(intでないものも含む)、点が2つより少ないか
+                有限な3次元の点でない場合、または折れ線の長さが0の場合。
 
         Note:
-            少ないサンプルでは直線配置へ弱く正則化する。折れ角や弧長の完全一致は保証しない。
+            点が少ないときは、CVを直線上に並べる方向へ弱く寄せる(正則化する)。
+            折れた角や弧の長さが、元の点の並びと完全に一致することは保証しない。
         """
         if type(count) is not int or not 4 <= count <= 32 or len(points) < 2:
-            raise ValueError("Expected >=2 points and 4..32 controls")
+            raise ValueError("点は2個以上、コントロールは4〜32個で指定してください")
         if any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
-            raise ValueError("Expected finite 3D points")
+            raise ValueError("有限な3Dの点を指定してください")
         distances = [0.0]
         for a, b in zip(points, points[1:]):
             distances.append(distances[-1] + math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b))))
         if distances[-1] <= 1e-10:
-            raise ValueError("Point chain has zero length")
+            raise ValueError("点の並びの長さが0です")
         basis = [cls.basis(count, d / distances[-1]) for d in distances]
         matrix = [[0.0] * (count + 3) for _ in range(count)]
         for row, point in zip(basis, points):

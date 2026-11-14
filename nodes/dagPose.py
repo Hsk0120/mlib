@@ -15,15 +15,19 @@ from .node import Node, Nodes
 
 
 class DagPose(Node):
-    """dagPoseノードの参照を保持し、DAGメンバーの保存姿勢とバインドポーズを扱う。
+    """dagPoseノードを扱うクラス。DAGのメンバーの保存した姿勢と、バインドポーズを扱う。
 
-    membersの接続と保存マトリクス/親情報を照会・編集する。バインドポーズも同じノード型で、
-    isBindPose()で区別する。reset()は保存姿勢を現在の姿勢へ更新し、restore()はシーンの
-    姿勢を保存姿勢へ戻す。skinCluster.bindPreMatrixの再設定は担当しない。
+    membersの接続と、保存したマトリクスや親の情報を、調べたり変えたりできる。
+    バインドポーズも同じノード型なので、isBindPose()で見分ける。
 
-    保存・復元・メンバー編集はMaya標準の ``cmds.dagPose`` を使い、fast引数は提供しない
-    (Mayaの階層補完・復元規則をom2で再現しないため)。merge()は保存情報の統合と
-    skinCluster.bindPoseの再接続を行う。作成は ``mlib.createDagPose`` で行う。
+    - reset()は、保存した姿勢を今の姿勢で上書きする。
+    - restore()は、シーンの姿勢を保存した姿勢へ戻す。
+    - merge()は、保存した情報をまとめ、skinCluster.bindPoseをつなぎ直す。
+
+    skinCluster.bindPreMatrixの設定し直しはしない。作成は ``mlib.createDagPose`` で行う。
+
+    保存・復元・メンバーの変更にはMaya標準の ``cmds.dagPose`` を使い、fast引数は無い
+    (階層を補ったり姿勢を戻したりするMayaの決まりを、om2で作り直さないため)。
     """
 
     #: 保存情報を持つマルチアトリビュート。members と共通の論理番号を使う。
@@ -34,30 +38,30 @@ class DagPose(Node):
         """skinClusterに接続されているバインドポーズを取得する。
 
         Args:
-            skinCluster (Node | str): 照会するskinCluster。
+            skinCluster (Node | str): 調べるskinCluster。
 
         Returns:
-            DagPose | None: bindPoseアトリビュートに接続されたポーズ。未接続ならNone。
+            DagPose | None: bindPoseアトリビュートに接続されたポーズ。接続されていなければNone。
 
         Raises:
             ValueError: skinCluster以外を指定した場合。
-            RuntimeError: 無効なノード、またはdagPose以外が接続されている場合。
+            RuntimeError: 無効なノードの場合、またはdagPose以外が接続されている場合。
         """
         skin = Node._resolve_input(skinCluster)
         if not skin.isValid():
-            raise RuntimeError("Cannot access an invalid skinCluster")
+            raise RuntimeError("無効なskinClusterは使えません")
         if not skin.isType("skinCluster"):
-            raise ValueError("Expected a skinCluster")
+            raise ValueError("skinClusterを指定してください")
         source = skin.getPlug("bindPose").getSource()
         if source is None:
             return None
         pose = source.getNode()
         if not pose.isType("dagPose"):
-            raise RuntimeError("skinCluster.bindPose is not connected to a dagPose")
+            raise RuntimeError("skinCluster.bindPoseがdagPoseに接続されていません")
         return pose
 
     def isBindPose(self):
-        """バインドポーズとして保存されたノードか判定する。
+        """バインドポーズとして保存されたノードか調べる。
 
         Returns:
             bool: bindPoseアトリビュートがTrueならTrue。
@@ -69,13 +73,13 @@ class DagPose(Node):
         return bool(self.getPlug("bindPose").mplug().asBool())
 
     def getMemberIndices(self):
-        """現在も接続された保存メンバーの論理番号を取得する。
+        """今も接続されているメンバーの論理番号を取得する。
 
-        members マルチアトリビュートの既存番号のうち、入力接続がある要素だけを返す。切断済みの空要素を除き、
-        欠番を詰めずにworldMatrix・xformMatrixとの対応を保つ。
+        membersマルチアトリビュートにある番号のうち、入力が接続されている要素だけを返す。
+        接続が外れた空の要素は除く。抜けた番号は詰めないので、worldMatrix・xformMatrixの番号と対応したままになる。
 
         Returns:
-            list[int]: membersの論理番号の昇順。物理位置ではない。
+            list[int]: membersの論理番号。小さい順に並ぶ。並びの位置(物理番号)ではない。
 
         Raises:
             RuntimeError: 無効なノードの場合。
@@ -83,10 +87,12 @@ class DagPose(Node):
         return [index for index, _ in self._member_sources()]
 
     def getMembers(self):
-        """保存対象をmembers マルチアトリビュートの論理番号順に取得する。
+        """メンバーを取得する。
+
+        membersマルチアトリビュートの論理番号の順に並べる。
 
         Returns:
-            list[Node]: 保存対象。getMemberIndices()と同じ順序。
+            list[Node]: メンバー。getMemberIndices()と同じ順に並ぶ。
 
         Raises:
             RuntimeError: 無効なノードの場合。
@@ -94,17 +100,17 @@ class DagPose(Node):
         return [Node(source.node()) for _, source in self._member_sources()]
 
     def getMemberIndex(self, member):
-        """指定メンバーの論理番号を取得する。
+        """指定したメンバーの論理番号を取得する。
 
         Args:
-            member (Node | str): 保存対象のノード。
+            member (Node | str): メンバーのノード。
 
         Returns:
             int: members・worldMatrix・xformMatrixに共通の論理番号。
 
         Raises:
             TypeError: 対応しない型を指定した場合。
-            ValueError: 存在しないノード、またはこのポーズのメンバーでない場合。
+            ValueError: ノードが無い場合、またはこのポーズのメンバーでない場合。
             RuntimeError: 無効なdagPoseの場合。
         """
         name = self._pose_name()
@@ -113,25 +119,25 @@ class DagPose(Node):
         for index, source in self._member_sources():
             if source.node() == target:
                 return index
-        raise ValueError(f"Not a member of {name}: {node.getFullName()}")
+        raise ValueError(f"{name}のメンバーではありません: {node.getFullName()}")
 
     def getMatrix(self, member, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定メンバーの保存マトリクスを、独立したMatrixとして取得する。
+        """指定したメンバーの、保存したマトリクスを取得する。
 
-        membersと共通の論理番号でworldMatrixまたはxformMatrixを読む。現在のTransformの
-        マトリクスの照会や姿勢の復元は行わない。
+        membersと同じ論理番号で、worldMatrixかxformMatrixを読む。
+        今のTransformのマトリクスを調べたり、姿勢を戻したりはしない。
 
         Args:
-            member (Node | str): このポーズの保存メンバー。
-            worldSpace (bool): Trueは保存したワールドマトリクス、Falseは保存したローカルの
-                マトリクス(xformMatrix)。
+            member (Node | str): このポーズのメンバー。
+            worldSpace (bool): Trueなら保存したワールドマトリクス、Falseなら保存したローカルの
+                マトリクス(xformMatrix)を取得する。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Matrix: 保存マトリクスの新しいコピー。変更してもポーズやシーンは変化しない。
+            Matrix: 保存したマトリクスの新しいコピー。変えてもポーズやシーンは変わらない。
 
         Raises:
-            TypeError: worldSpaceがbool以外、memberが対応しない型の場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがbool以外の場合、memberが使えない型の場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: このポーズのメンバーでない場合。
             RuntimeError: 無効なdagPoseの場合。
         """
@@ -143,13 +149,13 @@ class DagPose(Node):
         return Matrix.fromMMatrix(om2.MFnMatrixData(plug.asMObject()).matrix())
 
     def getNotAtPose(self):
-        """Mayaが保存姿勢と異なると判定したメンバーを取得する。
+        """保存した姿勢から外れているメンバーを取得する。
 
-        ``cmds.dagPose(query=True, atPose=True)`` (Bind Poseメニューの判定と同じ)を使い、
-        許容誤差はMayaの判定に従う。
+        ``cmds.dagPose(query=True, atPose=True)`` で調べる(Bind Poseメニューの判定と同じ)。
+        どこまでの差を許すかはMayaの判定に従う。
 
         Returns:
-            list[Node]: 保存姿勢と異なるメンバー。全員が保存姿勢なら空。
+            list[Node]: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空リスト。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
@@ -158,7 +164,7 @@ class DagPose(Node):
         return [Node(name) for name in names]
 
     def isAtPose(self):
-        """全メンバーが保存姿勢にあるか判定する。
+        """すべてのメンバーが保存した姿勢にあるか調べる。
 
         Returns:
             bool: getNotAtPose()が空ならTrue。
@@ -169,10 +175,10 @@ class DagPose(Node):
         return not cmds.dagPose(self._pose_name(), query=True, atPose=True)
 
     def getSkinClusters(self):
-        """このポーズをbindPoseとして参照するskinClusterを取得する。
+        """このポーズをバインドポーズとして使っているskinClusterを取得する。
 
         Returns:
-            list[SkinCluster]: message→skinCluster.bindPoseの接続先。重複なし。
+            list[SkinCluster]: messageからskinCluster.bindPoseへの接続先。同じものは1回だけ含む。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
@@ -187,18 +193,20 @@ class DagPose(Node):
         return nodes
 
     def restore(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """保存した姿勢へ戻す。接続やロックの解除は行わない。
+        """保存した姿勢へ戻す。
+
+        接続やロックを外すことはしない。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で戻す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             DagPose: 自身。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: 無効なノード、またはMayaが復元を拒否した場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: 無効なノードの場合、またはMayaが姿勢を戻すのを拒否した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         with undoChunk("mlibDagPoseRestore"):
@@ -207,23 +215,23 @@ class DagPose(Node):
             return self
 
     def reset(self, members=None):
-        """指定メンバーの保存姿勢を、シーンの現在姿勢へ更新する。
+        """保存した姿勢を、シーンの今の姿勢で上書きする。
 
-        ノードを保存姿勢へ動かすrestore()とは異なり、保存側だけを更新する。
-        skinCluster.bindPreMatrixやウェイトは変更しない。対象を全件検証してから
-        Mayaの ``dagPose -reset`` を呼び、1回のUndoにまとめる。
+        ノードを保存した姿勢へ動かすrestore()とは逆に、保存している側だけを変える。
+        skinCluster.bindPreMatrixやウェイトは変えない。
+        対象をすべて確かめてからMayaの ``dagPose -reset`` を呼び、1回のUndoにまとめる。
 
         Args:
-            members (Node | str | Iterable[Node | str] | None): 更新対象。Noneは全メンバー。
-                Noneでメンバーがなければ何も変更しない。
+            members (Node | str | Iterable[Node | str] | None): 上書きするメンバー。Noneなら全メンバー。
+                Noneでメンバーが1つも無ければ、何も変えない。
 
         Returns:
             DagPose: 自身。
 
         Raises:
-            TypeError: 対応しない型を指定した場合。
-            ValueError: 明示入力が空、Transform以外、またはメンバー以外を含む場合。
-            RuntimeError: 無効なノード、またはMayaが保存姿勢の更新を拒否した場合。
+            TypeError: 使えない型を指定した場合。
+            ValueError: 指定したものが空の場合、またはTransform以外かメンバー以外を含む場合。
+            RuntimeError: 無効なノードの場合、またはMayaが上書きを拒否した場合。
         """
         with undoChunk("mlibDagPoseReset"):
             name = self._pose_name()
@@ -239,21 +247,21 @@ class DagPose(Node):
             return self
 
     def addMembers(self, *members):
-        """TransformまたはJointを現在の姿勢でポーズへ追加する。
+        """TransformやJointを、今の姿勢でポーズへ加える。
 
-        Mayaの ``dagPose -addToPose`` を使い、復元に必要な親の情報もMayaの規則で保存する。
-        既存メンバーは無視し、その保存姿勢も更新しない(更新はreset()を使う)。
+        Mayaの ``dagPose -addToPose`` を使う。姿勢を戻すのに要る親の情報も、Mayaの決まりで保存する。
+        すでにメンバーのものは飛ばし、その保存した姿勢も変えない(変えるにはreset()を使う)。
 
         Args:
-            *members (Node | str | Iterable[Node | str]): 追加する対象。空は不可。
+            *members (Node | str | Iterable[Node | str]): 加えるノード。空にはできない。
 
         Returns:
             DagPose: 自身。
 
         Raises:
-            TypeError: 対応しない型を指定した場合。
-            ValueError: 空入力、またはTransform以外を含む場合。
-            RuntimeError: 無効なノード、またはMayaが追加を拒否した場合。
+            TypeError: 使えない型を指定した場合。
+            ValueError: 何も指定しなかった場合、またはTransform以外を含む場合。
+            RuntimeError: 無効なノードの場合、またはMayaが追加を拒否した場合。
         """
         with undoChunk("mlibDagPoseAddMembers"):
             name = self._pose_name()
@@ -265,20 +273,21 @@ class DagPose(Node):
             return self
 
     def removeMembers(self, *members):
-        """メンバーをポーズから外す。シーンのノード自体は削除しない。
+        """メンバーをポーズから外す。
 
-        残るメンバーの親として必要なノードはMayaによって保持される場合がある。
+        シーンのノードそのものは削除しない。
+        残るメンバーの親として必要なノードは、Mayaがポーズに残すことがある。
 
         Args:
-            *members (Node | str | Iterable[Node | str]): 除外する既存メンバー。空は不可。
+            *members (Node | str | Iterable[Node | str]): 外すメンバー。空にはできない。
 
         Returns:
             DagPose: 自身。
 
         Raises:
-            TypeError: 対応しない型を指定した場合。
-            ValueError: 空入力、Transform以外、またはメンバー以外を含む場合。
-            RuntimeError: 無効なノード、またはMayaが除外を拒否した場合。
+            TypeError: 使えない型を指定した場合。
+            ValueError: 何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
+            RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合。
         """
         with undoChunk("mlibDagPoseRemoveMembers"):
             name = self._pose_name()
@@ -289,29 +298,36 @@ class DagPose(Node):
             return self
 
     def merge(self, sources, *, currentPose=False, deleteSources=True):
-        """他の保存ポーズを自身へ統合し、skinClusterのbindPose参照先を自身へ揃える。
+        """ほかのポーズをこのポーズへまとめる。
 
-        currentPose=Falseでは保存姿勢・親情報・xformの内部情報の競合を変更前に拒否する。
-        currentPose=Trueは競合を許容し、自身の既存メンバーを含めて現在姿勢を保存する。
-        既存の疎な論理番号は保持する。ジョイントの姿勢・ウェイト・bindPreMatrixは変更しない。
+        まとめた後、skinClusterのbindPoseがつながる先を、このポーズへ揃える。
 
-        変更前に入力・競合・ロック・参照・削除可否を検査し、変更は1回のUndoにまとめる。
-        Undo有効時は途中の失敗をUndoで巻き戻す(undoTransaction)。完了は保証しない。
+        - currentPose=False: 保存した姿勢・親の情報・xformの内部情報が食い違っていれば、
+          何も変える前にエラーにする。
+        - currentPose=True: 食い違っていてもかまわない。このポーズのメンバーも含めて、今の姿勢を保存する。
+
+        すでにある論理番号は、間が空いていてもそのまま使う。ジョイントの姿勢・ウェイト・bindPreMatrixは変えない。
+
+        変える前に、入力・食い違い・ロック・リファレンス・削除できるかを確かめ、変更は1回のUndoにまとめる。
+        Undoが有効なら、途中で失敗したときにUndoで元に戻す(undoTransaction)。ただし、必ず戻せるとは限らない。
 
         Args:
-            sources (DagPose | str | Iterable[DagPose | str]): 統合元のdagPose。
-                自身や重複の指定は無視する。空入力は不可。
-            currentPose (bool): 保存済み姿勢ではなく現在の姿勢・階層を保存する。
-            deleteSources (bool): 統合後に統合元を削除する。メンバー・親情報・
-                skinCluster.bindPose・joint.bindPoseからの保存マトリクス以外の接続があれば拒否する。
+            sources (DagPose | str | Iterable[DagPose | str]): まとめる元のdagPose。
+                このポーズ自身や、2回以上指定したものは無視する。空にはできない。
+            currentPose (bool): Trueなら、保存した姿勢ではなく今の姿勢と階層を保存する。既定はFalse。
+            deleteSources (bool): Trueなら、まとめた後に元のポーズを削除する。既定はTrue。
+                元のポーズに、メンバー・親の情報・skinCluster.bindPose・joint.bindPoseからの
+                保存したマトリクス以外の接続があればエラーにする。
 
         Returns:
             DagPose: 自身。
 
         Raises:
-            TypeError: currentPose・deleteSourcesがbool以外、またはsourcesが対応しない型の場合。
-            ValueError: 空入力・dagPose以外・保存情報の競合・通常ポーズとbindPoseの混在。
-            RuntimeError: ロック・参照・インスタンス・不正な保存情報、またはMayaの編集失敗。
+            TypeError: currentPose・deleteSourcesがbool以外の場合、またはsourcesが使えない型の場合。
+            ValueError: 何も指定しなかった場合、dagPose以外を含む場合、保存した情報が食い違う場合、
+                または通常のポーズとバインドポーズが混ざっている場合。
+            RuntimeError: ロック・リファレンス・インスタンス・不正な保存情報がある場合、
+                またはMayaでの変更が失敗した場合。
         """
         _require_bool(currentPose, "currentPose")
         _require_bool(deleteSources, "deleteSources")
@@ -365,12 +381,12 @@ class DagPose(Node):
         name = self._pose_name()
         nodes = Nodes._resolve_inputs(sources)
         if not nodes:
-            raise ValueError("At least one source pose is required")
+            raise ValueError("元のポーズを1つ以上指定してください")
         poses = {name: self}
         for value in nodes:
             node = Node._resolve_input(value)
             if not node.isValid() or not node.isType("dagPose"):
-                raise ValueError(f"Expected a dagPose: {value}")
+                raise ValueError(f"dagPoseを指定してください: {value}")
             poses.setdefault(node.getFullName(), node)
         others = [pose for key, pose in poses.items() if key != name]
         return name, poses, others
@@ -392,14 +408,14 @@ class DagPose(Node):
         bind_pose = self.isBindPose()
         for pose in poses.values():
             if pose.isBindPose() != bind_pose:
-                raise ValueError("Cannot mix bind poses and ordinary poses")
+                raise ValueError("バインドポーズと通常のポーズは混ぜられません")
             snapshot = pose._merge_snapshot()
             if pose is self:
                 target_rows = snapshot
             for member, row in snapshot.items():
                 if not current_pose and member in rows:
                     if not self._merge_rows_equal(rows[member], row):
-                        raise ValueError(f"Conflicting saved pose: {member}")
+                        raise ValueError(f"保存されたポーズが矛盾しています: {member}")
                 else:
                     rows[member] = row
             if pose is not self:
@@ -408,7 +424,7 @@ class DagPose(Node):
                 if delete_sources:
                     pose._merge_check_delete()
         if not rows:
-            raise ValueError("Cannot merge empty poses")
+            raise ValueError("空のポーズはマージできません")
         return rows, target_rows, skins
 
     def _merge_check_targets(self, skins):
@@ -421,11 +437,11 @@ class DagPose(Node):
         for attr in self._POSE_ARRAYS:
             plug = self.getPlug(attr).mplug()
             if plug.isLocked or any(plug.elementByLogicalIndex(i).isLocked for i in plug.getExistingArrayAttributeIndices()):
-                raise RuntimeError(f"Locked pose attribute: {plug.name()}")
+                raise RuntimeError(f"ポーズのアトリビュートがロックされています: {plug.name()}")
         for skin in skins.values():
             require_editable(skin.mnode())
             if skin.getPlug("bindPose").mplug().isLocked:
-                raise RuntimeError(f"Locked bindPose: {skin.getFullName()}")
+                raise RuntimeError(f"bindPoseがロックされています: {skin.getFullName()}")
 
     def _merge_allocate_indices(self, rows, target_rows):
         """既存の疎な保存番号を保ち、未登録メンバーへ後続の番号を割り当てる。
@@ -513,13 +529,13 @@ class DagPose(Node):
         """
         commands = plug.getSetAttrCmds(om2.MPlug.kAll, True)
         if len(commands) != 1:
-            raise RuntimeError(f"Unsupported matrix data: {plug.name()}")
+            raise RuntimeError(f"対応していないマトリクスのデータです: {plug.name()}")
         tokens = shlex.split(commands[0].strip().rstrip(";"))
         if "-type" not in tokens:
-            raise RuntimeError(f"Unsupported matrix data: {plug.name()}")
+            raise RuntimeError(f"対応していないマトリクスのデータです: {plug.name()}")
         start = tokens.index("-type")
         if tokens[start + 1] != "matrix":
-            raise RuntimeError(f"Expected matrix data: {plug.name()}")
+            raise RuntimeError(f"マトリクスのデータが必要です: {plug.name()}")
         values = []
         for token in tokens[start + 2 :]:
             if token == "xform":
@@ -529,7 +545,7 @@ class DagPose(Node):
             else:
                 value = float(token)
                 if not math.isfinite(value):
-                    raise ValueError(f"Non-finite pose data: {plug.name()}")
+                    raise ValueError(f"ポーズのデータが有限な数値ではありません: {plug.name()}")
                 values.append(value)
         if values and values[0] == "xform":
             # rotationOrderはcmdsが整数を要求する。
@@ -548,18 +564,18 @@ class DagPose(Node):
         for index, source in self._member_sources():
             node = Node(source.node())
             if not node.isType("transform") or source.partialName(useLongNames=True) != "message":
-                raise RuntimeError(f"Unsupported pose member: {members.name()}[{index}]")
+                raise RuntimeError(f"対応していないポーズのメンバーです: {members.name()}[{index}]")
             if om2.MFnDagNode(source.node()).isInstanced():
-                raise RuntimeError(f"Instanced pose member: {node.getFullName()}")
+                raise RuntimeError(f"ポーズのメンバーがインスタンスです: {node.getFullName()}")
             indices[index] = node.getFullName()
         if len(set(indices.values())) != len(indices):
-            raise RuntimeError(f"Duplicate pose members: {self.getFullName()}")
+            raise RuntimeError(f"ポーズのメンバーが重複しています: {self.getFullName()}")
         world = self.getPlug("world").mplug()
         rows = {}
         for index, member in indices.items():
             parent_plug = self.getPlug("parents").mplug().elementByLogicalIndex(index)
             if not parent_plug.isDestination:
-                raise RuntimeError(f"Missing saved parent: {member}")
+                raise RuntimeError(f"保存された親がありません: {member}")
             source = parent_plug.source()
             external_parent = False
             if source == world:
@@ -570,7 +586,7 @@ class DagPose(Node):
                 parent = Node(source.node()).getFullName()
                 external_parent = True
             else:
-                raise RuntimeError(f"Unsupported saved parent: {member}")
+                raise RuntimeError(f"対応していない保存された親です: {member}")
             row = {"index": index, "parent": parent, "externalParent": external_parent}
             member_node = Node(member)
             for attr in ("worldMatrix", "xformMatrix", "global"):
@@ -580,7 +596,7 @@ class DagPose(Node):
                     # Maya標準のbindPoseはjoint.bindPoseから保存ワールドマトリクスを受け取る。
                     expected = member_node.getPlug("bindPose").mplug() if member_node.isType("joint") else None
                     if attr != "worldMatrix" or source != expected or source.isDestination:
-                        raise RuntimeError(f"Driven pose data: {plug.name()}")
+                        raise RuntimeError(f"ポーズのデータが駆動されています: {plug.name()}")
                     plug = source
                 row[attr] = plug.asBool() if attr == "global" else self._merge_matrix_payload(plug)
             rows[member] = row
@@ -629,7 +645,7 @@ class DagPose(Node):
                     continue
                 if attr == "message" and other_attr == "bindPose" and other.node().hasFn(om2.MFn.kSkinClusterFilter):
                     continue
-                raise RuntimeError(f"Source pose has another connection: {plug.name()}")
+                raise RuntimeError(f"元のポーズに別の接続があります: {plug.name()}")
 
     @staticmethod
     def _transform_names(members):
@@ -649,14 +665,14 @@ class DagPose(Node):
         for name in Object._input_names(members, allow_plugs=False):
             node = Node(name)
             if not node.isValid() or not node.isType("transform"):
-                raise ValueError(f"Expected a valid transform or joint: {name}")
+                raise ValueError(f"有効なtransformかjointを指定してください: {name}")
             if node.getFullName() not in names:
                 names.append(node.getFullName())
         if not names:
-            raise ValueError("At least one transform or joint is required")
+            raise ValueError("transformかjointを1つ以上指定してください")
         return names
 
     def _pose_name(self):
         """有効なdagPoseの名前を返す。削除済みならRuntimeError。"""
-        self._require_valid("access")
+        self._require_valid("値の取得")
         return self.getFullName()

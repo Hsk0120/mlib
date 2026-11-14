@@ -1,13 +1,15 @@
-"""MayaのUndo状態を変更せず照会する。"""
+"""MayaのUndoの状態を、変更せずに調べる。"""
 
 import maya.cmds as cmds
 
 
 def isEnabled():
-    """現在のUndo記録が有効か問い合わせる。
+    """今、Undoの記録が有効になっているか調べる。
+
+    Undoの履歴や設定は変えない。
 
     Returns:
-        bool: Undo記録が有効ならTrue。履歴や設定は変更しない。
+        bool: Undoの記録が有効ならTrue。
     """
     return bool(cmds.undoInfo(query=True, state=True))
 

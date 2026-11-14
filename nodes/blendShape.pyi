@@ -32,30 +32,37 @@ _TARGETS_MODES: tuple
 
 
 class BlendShape(GeometryFilter):
-    """blendShapeデフォーマの参照と、ターゲットの照会・編集・JSON保存を提供する。
+    """blendShapeデフォーマを扱うクラス。ターゲットを調べる・変える・JSONに保存する操作を持つ。
 
-    ターゲット名はウェイト(``weight[i]``)のエイリアスで、Shape Editorやチャンネルボックスに
-    表示される名前と同じ。``"smile_L" in blendShape`` はターゲット名の有無を返す。
-    ターゲットを受け取るメソッドは、ターゲット名(str)・論理番号(int。boolは不可)・自身の
-    ``weight`` の要素のPlugのいずれでも指定できる。複数のベース(変形対象)を持つ場合、ベースごとの
-    操作は ``base`` で対象の形状(またはそのtransform)を選び、省略時は論理番号が最小のベースを使う。
+    ターゲット名は、ウェイト(``weight[i]``)のエイリアスのこと。Shape Editorやチャンネルボックスに
+    表示される名前と同じになる。``"smile_L" in blendShape`` で、そのターゲット名があるかを調べられる。
 
-    デルタはベースのオブジェクト空間の変位(cm)で、頂点番号と組にして扱う。in-betweenは
-    ``fullWeight`` (1.0以外の項目のウェイト)で選ぶ。通常の更新はMaya標準コマンドで1回のUndoにまとめる。
-    ``fast=True`` はデルタ・頂点マスクの書込みだけが持ち、OpenMayaで書き込んでUndoに記録しない。
+    ターゲットを受け取るメソッドには、次のどれを渡してもよい。
+
+    - ターゲット名(str)
+    - 論理番号(int。boolは不可)
+    - このノードの ``weight`` の要素のPlug
+
+    ベース(変形される形状)が複数あるときは、ベースごとの操作で ``base`` に対象の形状(かそのTransform)を渡す。
+    省略すると、論理番号がいちばん小さいベースを使う。
+
+    デルタは、ベースのオブジェクト空間での変位(cm)で、頂点番号と組にして扱う。
+    in-betweenは ``fullWeight`` (1.0以外の項目のウェイト)で選ぶ。
+    通常の変更はMaya標準のコマンドで行い、1回のUndoにまとめる。
+    ``fast=True`` を使えるのは、デルタと頂点マスクの書き込みだけ。OpenMayaで書き込み、Undoには記録しない。
 
     Note:
-        ターゲットの除去は :meth:`removeTarget` を使う。``getPlug("weight").removeElement(i)`` は
-        ウェイトの要素だけを消し、エイリアスと ``inputTarget[].inputTargetGroup[i]`` を残す。
+        ターゲットを取り除くには :meth:`removeTarget` を使う。``getPlug("weight").removeElement(i)`` は
+        ウェイトの要素だけを消し、エイリアスと ``inputTarget[].inputTargetGroup[i]`` は残ってしまう。
     """
     def __contains__(self, name: str) -> bool:
-        """ターゲット名(ウェイトのエイリアス)が存在するかを返す。
+        """ターゲット名(ウェイトのエイリアス)があるかを返す。
 
         Args:
             name (str): ターゲット名。
 
         Returns:
-            bool: ターゲットが存在すればTrue。
+            bool: ターゲットがあればTrue。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -63,10 +70,10 @@ class BlendShape(GeometryFilter):
         """
         ...
     def getTargetNames(self) -> list[str]:
-        """ターゲット名を論理番号の順に取得する。
+        """ターゲット名を、論理番号の順に取得する。
 
         Returns:
-            list[str]: ウェイトのエイリアス。エイリアスの無いウェイト要素は含めない。
+            list[str]: ウェイトのエイリアス。エイリアスの無いウェイトの要素は含まない。
 
         Raises:
             RuntimeError: ノードが無効な場合。
@@ -76,29 +83,29 @@ class BlendShape(GeometryFilter):
         """ターゲットのウェイトの論理番号を取得する。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
-            int: ``weight`` の論理番号(``inputTargetGroup`` の番号と同じ)。
+            int: ``weight`` の論理番号。``inputTargetGroup`` の番号と同じ。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
             RuntimeError: ノードが無効な場合。
         """
         ...
     def getWeightPlug(self, target: str | int | Plug) -> Plug:
-        """ターゲットのウェイトのPlug(``weight[i]``)を取得する。
+        """ターゲットのウェイトのアトリビュート(``weight[i]``)を取得する。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
-            Plug: ``weight`` の要素のPlug。接続・値の設定に使う。
+            Plug: ``weight`` の要素のPlug。接続や値の設定に使う。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
             RuntimeError: ノードが無効な場合。
         """
         ...
@@ -106,367 +113,395 @@ class BlendShape(GeometryFilter):
         """変形する形状(出力ジオメトリ)を取得する。
 
         Returns:
-            list[Node]: 変形対象の形状。geometryFilterの出力順。
+            list[Node]: 変形される形状。geometryFilterの出力の順に並ぶ。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         ...
     def addTarget(self, mesh: str | Node, name: str | None = ...) -> Plug:
-        """ターゲットを空いている次の論理番号へ追加する(``cmds.blendShape(edit=True, target=...)`` 相当)。
+        """ターゲットを追加する。
 
-        最初の変形対象(:meth:`getBaseGeometry` の先頭)に対するターゲットとして追加し、ウェイトは0。
-        ターゲット形状との接続はMayaの既定どおり残す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, target=...)`` と同じ処理で、空いている次の論理番号へ追加する。
+        最初のベース(:meth:`getBaseGeometry` の先頭)のターゲットとして追加し、ウェイトは0になる。
+        ターゲット形状との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            mesh (str | Node): ターゲットの形状またはtransform。
-            name (str | None): ターゲット名。Noneはメッシュの名前(Mayaの既定)。
+            mesh (str | Node): ターゲットの形状、またはそのTransform。
+            name (str | None): ターゲット名。Noneならメッシュの名前になる(Mayaの既定)。
 
         Returns:
             Plug: 追加したターゲットのウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: nameが文字列・None以外、またはmeshが対応しない型の場合。
-            ValueError: nameが空文字列、同名のターゲットが既にある、またはmeshが無効な場合。
-            RuntimeError: ノードが無効、変形対象が無い、またはMayaが追加を拒否した場合。
+            TypeError: nameが文字列・None以外の場合、またはmeshが使えない型の場合。
+            ValueError: nameが空文字列の場合、同じ名前のターゲットがすでにある場合、またはmeshが無効な場合。
+            RuntimeError: ノードが無効な場合、ベースが無い場合、またはMayaが追加を拒否した場合。
         """
         ...
     def removeTarget(self, target: str | int | Plug) -> BlendShape:
-        """ターゲットを完全に取り除く。ターゲット形状が削除済みでもよい。
+        """ターゲットを完全に取り除く。
 
-        ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、ウェイトの要素・エイリアス・
-        全変形対象の ``inputTarget[].inputTargetGroup[i]``・Shape Editorの所属情報を取り除く
-        (Maya標準の ``blendShapeDeleteTargetGroup`` を使う)。ウェイトへの入力接続は切断し、
-        ウェイトを駆動するcombinationShapeノードはMayaの規則どおり削除する。ターゲット形状のノードは
-        削除しない。Undo有効時は1回で戻せる。
+        ターゲット形状がすでに削除されていてもよい。
+        ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、次のものを取り除く
+        (Maya標準の ``blendShapeDeleteTargetGroup`` を使う)。
+
+        - ウェイトの要素とエイリアス
+        - すべてのベースの ``inputTarget[].inputTargetGroup[i]``
+        - Shape Editorでどこに入っているかの情報
+
+        ウェイトへの入力の接続は外し、ウェイトを動かしているcombinationShapeノードはMayaの決まりどおり削除する。
+        ターゲット形状のノードは削除しない。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない場合。
-            RuntimeError: ノードが無効、ウェイトがロックされている、またはMayaが除去を拒否した場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合。
+            RuntimeError: ノードが無効な場合、ウェイトがロックされている場合、またはMayaが取り除くのを拒否した場合。
         """
         ...
     def getInBetweenWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:
-        """ターゲットのin-betweenの項目のウェイトを昇順で取得する。
+        """ターゲットのin-betweenの項目のウェイトを取得する。
 
-        ``inputTargetItem`` の論理番号を `` (番号 - 5000) / 1000`` で換算し、1.0(ターゲット本体)を除く。
-        現在の ``weight`` の値は参照しない。
+        ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0(ターゲット本体)は除く。
+        今の ``weight`` の値は見ない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
-            list[float]: in-betweenの項目のウェイト。in-betweenが無ければ空。
+            list[float]: in-betweenの項目のウェイト。小さい順に並ぶ。in-betweenが無ければ空リスト。
 
         Raises:
-            TypeError: target・baseが対応しない型の場合。
-            ValueError: ターゲットが存在しない、baseがこのblendShapeのベースでない、
-                またはターゲットがそのベースにデータを持たない場合。
+            TypeError: target・baseが使えない型の場合。
+            ValueError: ターゲットが無い場合、baseがこのblendShapeのベースでない場合、
+                またはターゲットがそのベースのデータを持たない場合。
         """
         ...
     def addInBetween(self, target: str | int | Plug, geometry: str | Node, weight: float, base: str | Node | None = ..., relative: bool = ...) -> BlendShape:
-        """既存のターゲットへin-betweenを追加する(``cmds.blendShape(edit=True, inBetween=True)`` 相当)。
+        """すでにあるターゲットへin-betweenを追加する。
 
-        ``geometry`` との接続はMayaの既定どおり残す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。
+        ``geometry`` との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 親のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            geometry (str | Node): in-betweenの形状。ベースと頂点数が同じメッシュ(またはそのtransform)。
-            weight (float): in-betweenが完全に効くウェイト。0・1以外で、-5以上、0.001刻み。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            relative (bool): Trueはターゲット本体からの相対、Falseは絶対(Mayaの既定)のin-between。
+            target (str | int | Plug): 追加先のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            geometry (str | Node): in-betweenの形状。ベースと頂点数が同じメッシュ(かそのTransform)。
+            weight (float): in-betweenが完全に効くウェイト。0と1以外の、-5以上で0.001刻みの値。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: target・geometry・base・weightの型が不正、relativeがbool以外、
+            TypeError: target・geometry・base・weightの型が不正な場合、relativeがbool以外の場合、
                 またはgeometryがメッシュでない場合。
-            ValueError: ターゲットが存在しない、weightが0・1・既存の項目・範囲外・0.001刻みでない、
+            ValueError: ターゲットが無い場合、weightが0か1・すでにある項目・範囲外・0.001刻みでない場合、
                 または頂点数がベースと違う場合。
         """
         ...
     def removeInBetween(self, target: str | int | Plug, weight: float) -> BlendShape:
-        """指定ウェイトのin-betweenを全ベースから取り除く(Maya標準の ``blendShapeDeleteInBetweenTarget``)。
+        """指定したウェイトのin-betweenを取り除く。
 
-        Undo有効時は1回で戻せる。
+        すべてのベースから取り除く。Maya標準の ``blendShapeDeleteInBetweenTarget`` を使う。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 親のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は不可。
+            target (str | int | Plug): in-betweenを持つターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は指定できない。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetの型が不正、またはweightが数値でない場合。
-            ValueError: ターゲットが存在しない、またはそのウェイトのin-betweenが無い場合。
+            TypeError: targetの型が不正な場合、またはweightが数値でない場合。
+            ValueError: ターゲットが無い場合、またはそのウェイトのin-betweenが無い場合。
         """
         ...
     def getTargetWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:
-        """ターゲットの頂点マスク(``inputTargetGroup[i].targetWeights``)を頂点番号順に取得する。
+        """ターゲットの頂点マスクを、頂点番号の順に取得する。
 
+        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
         値が書かれていない頂点は、Mayaの既定どおり1.0として返す。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             list[float]: ベースの頂点数と同じ長さの新しいlist。
 
         Raises:
-            TypeError: target・baseが対応しない型、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、baseがこのblendShapeのベースでない、
-                またはターゲットがそのベースにデータを持たない場合。
+            TypeError: target・baseが使えない型の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、baseがこのblendShapeのベースでない場合、
+                またはターゲットがそのベースのデータを持たない場合。
         """
         ...
     def setTargetWeights(self, target: str | int | Plug, weights: Sequence[float] | dict[int, float], base: str | Node | None = ..., *, fast: bool = ...) -> BlendShape:
-        """ターゲットの頂点マスク(``inputTargetGroup[i].targetWeights``)を設定する。
+        """ターゲットの頂点マスクを設定する。
 
-        全頂点の並びは頂点番号順に全頂点を、辞書は指定した頂点だけを書き換える。値は0〜1へ制限しない。
-        通常は番号が1ずつ増える頂点を範囲指定の1回の ``setAttr`` にまとめ、全体を1回のUndoにする。
+        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。値は0〜1に制限しない。
+
+        - 並び(list等)を渡すと、頂点番号の順にすべての頂点を書き換える。
+        - 辞書を渡すと、指定した頂点だけを書き換える。
+
+        通常は、番号が1ずつ続く頂点を範囲指定の1回の ``setAttr`` にまとめ、全体を1回のUndoにする。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            weights (Sequence[float] | dict[int, float]): 頂点数分の値、または頂点番号と値の辞書。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            weights (Sequence[float] | dict[int, float]): 頂点数と同じ数の値、または頂点番号から値への辞書。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: target・base・値の型が不正、fastがbool以外、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、並びの長さが頂点数と違う、値が有限でない場合。
+            TypeError: target・base・値の型が不正な場合、fastがbool以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、並びの長さが頂点数と違う場合、または有限でない値がある場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: アトリビュートがロック・入力接続されている、またはMayaが書込みを拒否した場合。
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         ...
     def getTargetDeltas(self, target: str | int | Plug, base: str | Node | None = ..., fullWeight: float = ...) -> dict[int, Vector]:
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
-        ターゲット形状が接続中なら、Mayaが評価した現在のデルタを返す。値はベースのオブジェクト空間の
-        変位(cm)で、変位を持つ頂点だけを含む。
+        ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
+        値はベースのオブジェクト空間での変位(cm)で、変位を持つ頂点だけを含む。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
-            dict[int, Vector]: 頂点番号と変位。
+            dict[int, Vector]: 頂点番号から変位への辞書。
 
         Raises:
-            TypeError: target・baseの型が不正、またはfullWeightが数値でない場合。
-            ValueError: ターゲットまたはそのウェイトの項目が存在しない場合。
+            TypeError: target・baseの型が不正な場合、またはfullWeightが数値でない場合。
+            ValueError: ターゲット、またはそのウェイトの項目が無い場合。
         """
         ...
     def setTargetDeltas(self, target: str | int | Plug, deltas: dict[int, Sequence[float]], base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, fast: bool = ...) -> BlendShape:
-        """ターゲット(またはin-between)の項目のデルタ全体を置き換える。指定しない頂点は変位0になる。
+        """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
-        ターゲット形状が接続中の場合、既定では変更せずに拒否する(接続から再計算されて上書きされるため)。
-        ``disconnect=True`` は接続を切ってから書き込む。他の項目のデルタは変えない。
+        指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
+        ターゲット形状が接続されている場合、既定では何も変えずにエラーにする
+        (接続から計算し直されて上書きされてしまうため)。``disconnect=True`` なら接続を外してから書き込む。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            deltas (dict[int, Sequence[float]]): 頂点番号と変位(xyz、cm)。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            deltas (dict[int, Sequence[float]]): 頂点番号から変位(xyz、cm)への辞書。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、disconnect・fastがbool以外、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または変位が3個の有限な数値でない場合。
+            TypeError: 引数の型が不正な場合、disconnect・fastがbool以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または変位が3つの有限な数値でない場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
     def getTargetVertices(self, target: str | int | Plug, base: str | Node | None = ..., fullWeight: float = ..., *, tolerance: float = ...) -> Vertices:
         """デルタの長さがしきい値を超える頂点を取得する。
 
-        現在の ``weight``・envelope・頂点マスクは判定に使わない。
+        今の ``weight``・envelope・頂点マスクは判定に使わない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            tolerance (float): これ以下の長さ(cm)の変位を除く。有限の0以上。既定0は変位0だけを除く。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            tolerance (float): この長さ(cm)以下の変位の頂点を除く。0以上の有限な数値。既定は0で、変位0の頂点だけを除く。
 
         Returns:
-            Vertices: ベースの頂点。番号の昇順。
+            Vertices: ベースの頂点。番号の小さい順に並ぶ。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、またはtoleranceが負・有限でない場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
         """
         ...
     def resetTargetVertices(self, target: str | int | Plug, vertices: int | Vertex | Vertices | Iterable[int | Vertex], base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, fast: bool = ...) -> BlendShape:
-        """指定した頂点の変位を0に戻す。残りの頂点の変位はそのまま残す。
+        """指定した頂点の変位を0に戻す。
 
-        ターゲット形状が接続中の場合の扱いは :meth:`setTargetDeltas` と同じ。変位を持たない頂点だけを
-        指定した場合は何も変えない。
+        ほかの頂点の変位はそのまま残す。ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
+        変位を持たない頂点だけを指定した場合は、何も変えない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点または頂点番号。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点、または頂点番号。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または頂点が別の形状のものの場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または頂点が別の形状のものの場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
     def reduceTargetDeltas(self, target: str | int | Plug, tolerance: float = ..., base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, fast: bool = ...) -> BlendShape:
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
 
-        結果の変形は変わらず(しきい値以下の変位は0になる)、保存するデータが減る。
-        ターゲット形状が接続中の場合の扱いは :meth:`setTargetDeltas` と同じ。
+        保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。
+        正の値を指定すると、その長さ以下の小さな変位は0になるため、変形の結果もわずかに変わる。
+        ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            tolerance (float): これ以下の長さ(cm)の変位を取り除く。有限の0以上。既定0は変位0だけ。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            tolerance (float): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。既定は0で、変位0の頂点だけを取り除く。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブ等でもよい)。
-            ValueError: ターゲット・項目が存在しない、またはtoleranceが負・有限でない場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブなどでもよい)。
+            ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
     def mirrorTarget(self, target: str | int | Plug, axis: str | int = ..., positiveToNegative: bool = ..., base: str | Node | None = ...) -> BlendShape:
-        """ターゲットの片側の変形を反対側へミラーする(``cmds.blendShape(edit=True, mirrorTarget=...)``)。
+        """ターゲットの片側の変形を、反対側へミラーする。
 
-        オブジェクト空間の座標で対称の頂点を探す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。対称の頂点は、オブジェクト空間の座標で探す。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"`` (大文字小文字は問わない)、
-                ミラー面の ``"YZ"`` 等、または0〜2。
-            positiveToNegative (bool): Trueは正の側を負の側へ、Falseは負の側を正の側へ写す。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"`` (大文字・小文字は問わない)、
+                ミラー面の ``"YZ"`` など、または0〜2で指定する。
+            positiveToNegative (bool): Trueなら正の側を負の側へ、Falseなら負の側を正の側へ写す。既定はTrue。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはaxisが軸でない場合。
-            RuntimeError: ターゲット形状が接続中の場合(先に :meth:`duplicateTarget` 等でベイクする)。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
+            RuntimeError: ターゲット形状が接続されている場合(先に :meth:`duplicateTarget` などでベイクしておく)。
         """
         ...
     def flipTarget(self, target: str | int | Plug, axis: str | int = ..., base: str | Node | None = ...) -> BlendShape:
-        """ターゲットの変形を左右反転する(``cmds.blendShape(edit=True, flipTarget=...)``)。
+        """ターゲットの変形を左右反転する。
 
-        左右別のターゲットを作る場合は、:meth:`duplicateTarget` で複製してから反転する。
-        Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
+        左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` 等、または0〜2。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` など、または0〜2で指定する。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはaxisが軸でない場合。
-            RuntimeError: ターゲット形状が接続中の場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
+            RuntimeError: ターゲット形状が接続されている場合。
         """
         ...
     def duplicateTarget(self, target: str | int | Plug, name: str | None = ...) -> Plug:
-        """ターゲットを、全ベースのデルタ・in-between・頂点マスクごと新しい論理番号へ複製する。
+        """ターゲットを複製する。
 
-        接続中のターゲット形状は現在の形をベイクし、複製は接続を持たない。新しいウェイトは0で、
-        外部のドライバーは複製しない。Shape Editorでは元のターゲットと同じフォルダの末尾に置く。
-        Undo有効時は1回で戻せる。
+        すべてのベースのデルタ・in-between・頂点マスクごと、新しい論理番号へ複製する。
+
+        - ターゲット形状が接続されていれば、今の形をベイクする。複製したほうは接続を持たない。
+        - 新しいウェイトは0になる。外からウェイトを動かしているドライバーは複製しない。
+        - Shape Editorでは、元のターゲットと同じフォルダーの最後に置く。
+
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 複製元のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            name (str | None): 新しいターゲット名。Noneは ``<元の名前>Copy`` (重なれば末尾に番号)。
+            target (str | int | Plug): 複製元のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            name (str | None): 新しいターゲット名。Noneなら ``<元の名前>Copy`` になる(重なれば末尾に番号が付く)。
 
         Returns:
             Plug: 新しいターゲットのウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: targetの型が不正、nameが文字列・None以外、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはnameが空・既存のアトリビュートと重なる場合。
+            TypeError: targetの型が不正な場合、nameが文字列・None以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはnameが空かすでにあるアトリビュートと重なる場合。
         """
         ...
     def replaceTarget(self, target: str | int | Plug, geometry: str | Node, base: str | Node | None = ..., fullWeight: float = ...) -> BlendShape:
-        """ターゲット(またはin-between)の項目の形状を、別のメッシュへの接続に差し替える。
+        """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
-        ターゲット名・ウェイトの値と接続・頂点マスクは保つ。以後のデルタは接続したメッシュから
-        計算される。Undo有効時は1回で戻せる。
+        別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
+        ターゲット名・ウェイトの値と接続・頂点マスクはそのまま残る。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(またはそのtransform)。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(かそのTransform)。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはgeometry・ベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または頂点数がベースと違う場合。
+            TypeError: 引数の型が不正な場合、またはgeometryかベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または頂点数がベースと違う場合。
             RuntimeError: Mayaが接続を拒否した場合。
         """
         ...
     def targetEdit(self, target: str | int | Plug | None = ..., state: bool = ..., fullWeight: float = ...) -> BlendShape:
-        """ターゲットの編集モード(Shape EditorのEdit)を開始・終了する(``cmds.sculptTarget``)。
+        """ターゲットの編集モード(Shape EditorのEdit)を始める、または終える。
 
-        開始中はベースのスカルプトがターゲットのデルタへ書き込まれる。Undo有効時は1回で戻せる。
+        ``cmds.sculptTarget`` を使う。編集モードの間は、ベースをスカルプトした結果がターゲットのデルタへ書き込まれる。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug | None): 開始するターゲット。開始時は必須で、終了時は使わない。
-            state (bool): Trueは開始、FalseはこのblendShapeの編集モードを終了する。
-            fullWeight (float): 編集する項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定し、終えるときは使わない。
+            state (bool): Trueなら編集を始め、FalseならこのblendShapeの編集モードを終える。既定はTrue。
+            fullWeight (float): 編集する項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetの型が不正、stateがbool以外、またはfullWeightが数値でない場合。
-            ValueError: 開始時にtargetが無い、またはターゲット・項目が存在しない場合。
+            TypeError: targetの型が不正な場合、stateがbool以外の場合、またはfullWeightが数値でない場合。
+            ValueError: 始めるときにtargetが無い場合、またはターゲットや項目が無い場合。
         """
         ...
     def getTargetsData(self) -> dict:
-        """全ターゲットを、JSONへ書ける辞書として取得する(:meth:`setTargetsData` で戻せる)。
+        """すべてのターゲットを、JSONへ書ける辞書として取得する。
 
-        ベースごとの頂点数と頂点マスク(baseWeights)、ターゲットごとの名前・論理番号・現在のウェイト・
-        ウェイトの入力接続(ドライバー)・頂点マスク・デルタ・in-between、Shape Editorのフォルダを含む。
-        接続中のターゲット形状は現在の形をベイクしたデルタとして記録する。
+        :meth:`setTargetsData` に渡せば元に戻せる。辞書には次のものが入る。
+
+        - ベースごと: 頂点数と頂点マスク(baseWeights)
+        - ターゲットごと: 名前・論理番号・今のウェイト・ウェイトへの入力の接続(ドライバー)・頂点マスク・
+          デルタ・in-between
+        - Shape Editorのフォルダー
+
+        ターゲット形状が接続されていれば、今の形をベイクしたデルタとして記録する。
 
         Returns:
-            dict: ``bases``・``targets``・``folders`` を持つ新しい辞書。数学型を含まない。
+            dict: ``bases``・``targets``・``folders`` を持つ新しい辞書。数学型は含まない。
 
         Raises:
             TypeError: ベースがメッシュでない場合。
@@ -474,33 +509,38 @@ class BlendShape(GeometryFilter):
         """
         ...
     def setTargetsData(self, data: dict, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., mode: str = ...) -> ValidationReport:
-        """:meth:`getTargetsData` の辞書からターゲットを復元する。
+        """:meth:`getTargetsData` の辞書からターゲットを元に戻す。
 
-        ベースは論理番号で対応させ、頂点数が違えば何も変えずにValueErrorにする。``mode="replace"`` (既定)は
-        同じ名前のターゲットの中身を置き換え、無いターゲットを追加する。``mode="empty"`` はターゲットの
-        無いblendShapeにだけ読み込む。ウェイトのドライバーは ``nameMap``・``replace``・``namespaceMap``
-        (:class:`mlib.json.NameMapping` の規則)で対応付けて再接続し、見つからないものは値だけを設定して
-        警告する。全体を1回のUndoにまとめ、途中で失敗した場合は巻き戻す。
+        ベースは論理番号で対応させる。頂点数が違えば、何も変えずにValueErrorにする。
+
+        - ``mode="replace"`` (既定): 同じ名前のターゲットの中身を置き換え、無いターゲットは追加する。
+        - ``mode="empty"``: ターゲットが1つも無いblendShapeにだけ読み込む。
+
+        ウェイトのドライバーは、``nameMap``・``replace``・``namespaceMap`` で名前を対応させてつなぎ直す
+        (やり方は :class:`mlib.json.NameMapping` と同じ)。見つからないものは値だけを設定して警告する。
+        全体を1回のUndoにまとめ、途中で失敗したら元に戻す。
 
         Args:
             data (dict): :meth:`getTargetsData` の形の辞書。
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
-            mode (str): ``"replace"`` または ``"empty"``。
+            mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
             ValidationReport: 見つからなかったドライバー(``missing``)と、書けずに飛ばしたもの(``skipped``)。
 
         Raises:
-            TypeError: dataが辞書でない、またはmodeが文字列でない場合。
-            ValueError: データの形が違う、modeが不正、``mode="empty"`` でターゲットがある、
-                ベースが無い・頂点数が違う、またはターゲット名が既存のアトリビュートと重なる場合。
-            RuntimeError: Undoが無効、またはMayaが書込みを拒否した場合。
+            TypeError: dataが辞書でない場合、またはmodeが文字列でない場合。
+            ValueError: データの形が違う場合、modeが不正な場合、``mode="empty"`` なのにターゲットがある場合、
+                ベースが無いか頂点数が違う場合、またはターゲット名がすでにあるアトリビュートと重なる場合。
+            RuntimeError: Undoが無効な場合、またはMayaが書き込みを拒否した場合。
         """
         ...
     def exportTargets(self, path: str | os.PathLike) -> pathlib.Path:
-        """全ターゲットをJSONファイルへ書き出す(:meth:`getTargetsData` の内容。形式 ``mlib.blendShapeTargets``)。
+        """すべてのターゲットをJSONファイルへ書き出す。
+
+        中身は :meth:`getTargetsData` の辞書で、形式名は ``mlib.blendShapeTargets``。
 
         Args:
             path (str | os.PathLike): 書き出し先。
@@ -514,20 +554,22 @@ class BlendShape(GeometryFilter):
         """
         ...
     def importTargets(self, path: str | os.PathLike, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., mode: str = ...) -> ValidationReport:
-        """:meth:`exportTargets` で書き出したファイルからターゲットを復元する(:meth:`setTargetsData`)。
+        """:meth:`exportTargets` で書き出したファイルからターゲットを元に戻す。
+
+        読み込んだ内容を :meth:`setTargetsData` に渡す。
 
         Args:
             path (str | os.PathLike): 読み込むファイル。
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
-            mode (str): ``"replace"`` または ``"empty"``。
+            mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
             ValidationReport: :meth:`setTargetsData` の結果。
 
         Raises:
-            ValueError: 形式名・版が違う、または :meth:`setTargetsData` が拒否した場合。
+            ValueError: 形式名や版が違う場合、または :meth:`setTargetsData` が拒否した場合。
             OSError: 読み込みに失敗した場合。
         """
         ...
@@ -578,14 +620,14 @@ class BlendShape(GeometryFilter):
         """ターゲットの指定を論理番号にする。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
             int: 存在するターゲットの論理番号。
 
         Raises:
             TypeError: 対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
         """
         ...
     def _base_indices(self) -> list[int]:
@@ -599,7 +641,7 @@ class BlendShape(GeometryFilter):
         """ベースの指定を論理番号にする。
 
         Args:
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             int: ベースの論理番号。

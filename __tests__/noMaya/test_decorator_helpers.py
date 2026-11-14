@@ -38,7 +38,8 @@ def _load(relative, name, package=None):
 def _load_helpers():
     """util・decoratorを読み込み、(util, decorator)を返す。"""
     saved = {
-        name: sys.modules.get(name) for name in ("maya", "maya.api", "maya.api.OpenMaya", "maya.cmds", _PACKAGE, f"{_PACKAGE}.util", f"{_PACKAGE}.decorator")
+        name: sys.modules.get(name)
+        for name in ("maya", "maya.api", "maya.api.OpenMaya", "maya.cmds", "maya.mel", _PACKAGE, f"{_PACKAGE}.util", f"{_PACKAGE}.decorator")
     }
     try:
         maya = types.ModuleType("maya")
@@ -46,7 +47,8 @@ def _load_helpers():
         maya.api = api
         api.OpenMaya = types.ModuleType("maya.api.OpenMaya")
         maya.cmds = types.ModuleType("maya.cmds")
-        sys.modules.update({"maya": maya, "maya.api": api, "maya.api.OpenMaya": api.OpenMaya, "maya.cmds": maya.cmds})
+        maya.mel = types.ModuleType("maya.mel")
+        sys.modules.update({"maya": maya, "maya.api": api, "maya.api.OpenMaya": api.OpenMaya, "maya.cmds": maya.cmds, "maya.mel": maya.mel})
         package = types.ModuleType(_PACKAGE)
         package.__path__ = [str(_MLIB_ROOT)]
         sys.modules[_PACKAGE] = package
@@ -77,7 +79,7 @@ class RequireBoolTest(unittest.TestCase):
     def test_rejects_non_bool_with_type_error(self):
         for value in (0, 1, None, "True", 1.0):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(TypeError, r"^fast must be a bool$"):
+                with self.assertRaisesRegex(TypeError, r"^fastはboolで指定してください$"):
                     decorator._require_bool(value, "fast")
 
 
@@ -93,11 +95,11 @@ class PickAliasTest(unittest.TestCase):
         self.assertIsNone(decorator._pick_alias(_UNSET, _UNSET, "worldSpace", "ws", default=None))
 
     def test_conflict_is_argument_error_long_then_short(self):
-        with self.assertRaisesRegex(util._ArgumentError, r"^Specify only one of 'worldSpace' and 'ws'$"):
+        with self.assertRaisesRegex(util._ArgumentError, r"^'worldSpace'と'ws'は同時に指定できません$"):
             decorator._pick_alias(True, False, "worldSpace", "ws")
 
     def test_missing_required_is_argument_error(self):
-        with self.assertRaisesRegex(util._ArgumentError, r"^Missing required argument: 'attributes'$"):
+        with self.assertRaisesRegex(util._ArgumentError, r"^必須の引数がありません: 'attributes'$"):
             decorator._pick_alias(_UNSET, _UNSET, "attributes", "attrs")
 
     def test_argument_error_is_type_error(self):
@@ -114,7 +116,7 @@ class MergeFlagsTest(unittest.TestCase):
         self.assertEqual(kwargs, {"name": "new", "skipSelect": True})
 
     def test_conflict_is_argument_error(self):
-        with self.assertRaisesRegex(util._ArgumentError, r"^Specify only one of 'name' and 'n'$"):
+        with self.assertRaisesRegex(util._ArgumentError, r"^'name'と'n'は同時に指定できません$"):
             decorator._merge_flags({}, [("a", "b", "name", "n")])
 
 

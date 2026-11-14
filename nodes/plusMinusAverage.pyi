@@ -26,10 +26,10 @@ def _attributes(dimension: int) -> tuple[str, str]:
 
 
 class PlusMinusAverage(ShadingDependNode):
-    """マルチアトリビュートの入力の加算・減算・平均を計算する。
+    """マルチアトリビュートの入力の加算・減算・平均を計算するplusMinusAverageを扱うクラス。
 
-    入力は1次元(``input1D``)・2次元(``input2D``)・3次元(``input3D``)の3組があり、各メソッドの
-    ``dimension`` で選ぶ(既定は1)。
+    入力は1次元(``input1D``)・2次元(``input2D``)・3次元(``input3D``)の3組がある。
+    どれを使うかは、各メソッドの ``dimension`` で選ぶ(既定は1)。
     """
     def getOperation(self) -> str:
         """演算の種類を名前で取得する(``operation``)。
@@ -39,39 +39,45 @@ class PlusMinusAverage(ShadingDependNode):
         """
         ...
     def setOperation(self, operation: str | int) -> PlusMinusAverage:
-        """演算の種類を名前または番号で設定する(``operation``)。1回のUndoで戻せる。
+        """演算の種類を設定する(``operation``)。
+
+        名前か番号で指定する。1回のUndoで戻せる。
 
         Args:
             operation (str | int): ``"noOperation"``・``"sum"``・``"subtract"``・``"average"`` のいずれか、
-                またはMayaの番号(0から)。
+                Mayaの番号(0から)でもよい。
 
         Returns:
             PlusMinusAverage: 自身。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...
     def addInput(self, value: float | Iterable[float] | Plug | str, dimension: int = ...) -> int:
-        """入力を末尾(既存の最大の番号+1)へ足し、その番号を返す。1回のUndoで戻せる。
+        """入力を末尾へ足す。
+
+        足す位置の論理番号は、すでにある番号の最大値+1になる。1回のUndoで戻せる。
 
         Args:
-            value (float | Iterable[float] | Plug | str): 値(2・3次元は成分の列)、または接続元。
+            value (float | Iterable[float] | Plug | str): 書き込む値、または接続元。2・3次元では成分を並べて渡す。
             dimension (int): 入力の次元。1・2・3。
 
         Returns:
             int: 足した入力の論理番号。
 
         Raises:
-            TypeError: 接続元の型が不正、またはdimensionがハッシュできない型(list等)の場合。
+            TypeError: 接続元の型が不正な場合、またはdimensionがハッシュできない型(list等)の場合。
             ValueError: dimensionが1・2・3以外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
         ...
     def removeInput(self, index: int, dimension: int = ...) -> PlusMinusAverage:
-        """入力の要素を接続ごと削除する。1回のUndoで戻せる。
+        """入力の要素を削除する。
+
+        接続されていれば、接続ごと取り除く。1回のUndoで戻せる。
 
         Args:
             index (int): 入力の論理番号。
@@ -81,13 +87,13 @@ class PlusMinusAverage(ShadingDependNode):
             PlusMinusAverage: 自身。
 
         Raises:
-            TypeError: indexがint以外、またはdimensionがハッシュできない型(list等)の場合。
-            ValueError: dimensionが1・2・3以外、または index の入力が無い場合。
+            TypeError: indexがint以外の場合、またはdimensionがハッシュできない型(list等)の場合。
+            ValueError: dimensionが1・2・3以外の場合、またはindexの入力が無い場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
         ...
     def getInputIndices(self, dimension: int = ...) -> list[int]:
-        """既存の入力の論理番号を昇順で取得する。
+        """すでにある入力の論理番号を、小さい順に取得する。
 
         Args:
             dimension (int): 入力の次元。1・2・3。

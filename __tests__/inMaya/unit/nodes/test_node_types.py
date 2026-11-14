@@ -88,7 +88,7 @@ class UnavailableTypeTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 before = set(cmds.ls())
-                with self.assertRaisesRegex(RuntimeError, r"not available in this Maya version"):
+                with self.assertRaisesRegex(RuntimeError, "このMaya"):
                     mlib.createNode("mlibNoSuchNodeTypeX", name=self.name("unknown"), fast=fast)
                 self.assertEqual(set(cmds.ls()), before)
 
@@ -96,11 +96,7 @@ class UnavailableTypeTest(_SpecCase):
         if _version() >= 2024:
             self.assertEqual(mlib.createNode("parentMatrix", name=self.name("pm")).getType(), "parentMatrix")
             return
-        with self.assertRaisesRegex(
-            RuntimeError,
-            r"parentMatrix \(not available in this Maya version \d+; "
-            r"it requires Maya 2024 or later\)",
-        ):
+        with self.assertRaisesRegex(RuntimeError, r"parentMatrix\(このMaya \d+にはありません。Maya 2024以降が必要です\)"):
             mlib.createNode("parentMatrix", name=self.name("pm"))
 
 

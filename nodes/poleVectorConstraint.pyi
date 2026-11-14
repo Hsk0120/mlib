@@ -6,7 +6,8 @@ from .pointConstraint import PointConstraint
 
 
 class PoleVectorConstraint(PointConstraint):
-    """RP IKハンドルのポールベクトルをコンストレイントするラッパー。
+    """RP IKハンドルのポールベクトルをコンストレイントするクラス。
 
-    Maya の poleVectorConstraint は pointConstraint の派生型なので、基底も PointConstraint にする。
+    Mayaのノード型ではpoleVectorConstraintはpointConstraintの派生型になっている。
+    そのため、このクラスもPointConstraintを基底にする。
     """

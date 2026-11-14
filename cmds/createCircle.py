@@ -1,7 +1,7 @@
-"""NURBSの円を作成し、シェイプを返す(``cmds.circle(constructionHistory=False)`` 相当)。
+"""NURBSの円を作り、シェイプを返す(``cmds.circle(constructionHistory=False)`` 相当)。
 
-半径はMaya APIの内部単位(cm)で、現在のUI単位に依存しない。構築履歴は作らない。
-作成・親子付けを1回のUndoにまとめ、現在の選択は変更しない。
+半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
 
 .. code-block:: python
 
@@ -19,31 +19,32 @@ from ..util import _UNSET, _finite, _finite_vector
 
 
 def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
-    """原点を中心とするNURBSの円を作成し、そのシェイプを返す。
+    """原点を中心とするNURBSの円を作り、そのシェイプを返す。
 
-    fast引数は持たない(OpenMayaに円の作成の同等機能が無いため)。
-    parent以外は ``cmds.circle`` と同じ短縮名でも受ける(長名と短縮名の同時指定はできない)。
+    fast引数は無い(OpenMayaに円を作る同じ機能が無いため)。
+    parent以外は ``cmds.circle`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
-        radius (float): 半径(cm)。正の有限値。既定1。
-        normal (Sequence[float]): 円の面の法線。0でない有限な3成分。既定(0, 0, 1)。
-        sections (int): 区間数。degree=1は3以上、degree=3は4以上。既定8。
-        degree (int): 1(直線)または3(曲線)。既定3。
-        name (str | None): Transformの希望名。シェイプは ``<名前>Shape``。NoneはMayaの既定名(``nurbsCircle1`` 等)。
-            既定None。
-        parent (Node | str | None): Transformの親。Noneはワールド直下。親のローカル空間に単位マトリクスで置く。
-        r (float): radiusの短縮名。同時指定はできない。
-        nr (Sequence[float]): normalの短縮名。同時指定はできない。
-        s (int): sectionsの短縮名。同時指定はできない。
-        d (int): degreeの短縮名。同時指定はできない。
-        n (str | None): nameの短縮名。同時指定はできない。
+        radius (float): 半径(cm)。正の有限な値。既定は1。
+        normal (Sequence[float]): 円の面の法線。0でない有限な3成分。既定は(0, 0, 1)。
+        sections (int): 区間の数。degree=1なら3以上、degree=3なら4以上。既定は8。
+        degree (int): 1(直線)または3(曲線)。既定は3。
+        name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
+            NoneならMayaの既定の名前(``nurbsCircle1`` など)。既定はNone。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。
+        r (float): radiusの短縮名。radiusと同時には指定できない。
+        nr (Sequence[float]): normalの短縮名。normalと同時には指定できない。
+        s (int): sectionsの短縮名。sectionsと同時には指定できない。
+        d (int): degreeの短縮名。degreeと同時には指定できない。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:
-        NurbsCurve: 作成した円のシェイプ。Transformは ``getTransform()`` で取得する。
+        NurbsCurve: 作った円のシェイプ。Transformは ``getTransform()`` で取得する。
 
     Raises:
-        TypeError: 長名と短縮名を同時に指定した場合、または引数の型が不正な場合。
-        ValueError: 半径・法線・区間数・次数が不正な場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
+        ValueError: 半径・法線・区間の数・次数が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
     """
     radius = _pick_alias(radius, r, "radius", "r", default=1.0)
@@ -53,16 +54,16 @@ def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, n
     name = _pick_alias(name, n, "name", "n", default=None)
     radius = _finite(radius, "radius")
     if radius <= 0:
-        raise ValueError("radius must be positive")
+        raise ValueError("radiusは正の値で指定してください")
     normal = _finite_vector(normal, 3, "normal")
     if not any(normal):
-        raise ValueError("normal must not be zero")
+        raise ValueError("normalに0のベクトルは指定できません")
     if isinstance(degree, bool) or degree not in (1, 3):
-        raise ValueError("degree must be 1 or 3")
+        raise ValueError("degreeは1か3で指定してください")
     if isinstance(sections, bool) or not isinstance(sections, int):
-        raise TypeError("sections must be an int")
+        raise TypeError("sectionsはintで指定してください")
     if sections < (3 if degree == 1 else 4):
-        raise ValueError(f"sections must be at least {3 if degree == 1 else 4} for degree {degree}")
+        raise ValueError(f"degree {degree}のsectionsは{3 if degree == 1 else 4}以上で指定してください")
     name = require_name(name)
     parent_node = resolve_parent(parent)
     flags = {"radius": radius, "normal": tuple(normal), "sections": sections, "degree": degree, "constructionHistory": False}

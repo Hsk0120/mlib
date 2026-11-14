@@ -15,37 +15,39 @@ from .transform import Transform
 
 
 class Shape(DagNode):
-    """Maya DAG shape ノードの共通ラッパー。"""
+    """MayaのDAGのShapeノードに共通する操作を扱うクラス。"""
 
     def setParent(self, parent, *, fast=False):
-        """このシェイプを別のTransformの下へ移す(``cmds.parent(shape, transform, shape=True, relative=True)``)。
+        """このシェイプを別のTransformの下へ移す。
 
-        シェイプは常にローカルの形を保って移る(ワールドの位置は新しい親に従う)。元のTransformは
-        シェイプが無くなっても削除しない。:meth:`~mlib.nodes.transform.Transform.addShape` は同じ操作を
-        受け側から行う。
+        ``cmds.parent(shape, transform, shape=True, relative=True)`` と同じ。
+        シェイプはローカルの形のまま移る。そのため、ワールドでの位置は新しい親に合わせて変わる。
+        シェイプが無くなっても、元のTransformは削除しない。
+        :meth:`~mlib.nodes.transform.Transform.addShape` は、同じ操作を受け取る側から行う。
 
         Args:
-            parent (Transform | str): 新しい親のTransform(Jointを含む)。
+            parent (Transform | str): 新しい親のTransform(Jointも指定できる)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
 
         Returns:
             Shape: 自身。移した後のパスを指す。
 
         Raises:
-            TypeError: parentがTransformでない、またはfastがbool以外の場合。
-            RuntimeError: 自身・親が無効、シェイプがインスタンス化されている、fastでロック・参照された
-                ノードを含む、またはMayaが親の変更を拒否した場合。
-            NotImplementedError: fastで、移す先に同じ名前の子がある場合(Mayaの改名の規則を再現しないため)。
+            TypeError: parentがTransformでない場合、またはfastがboolでない場合。
+            RuntimeError: 自身か親が無効な場合、シェイプがインスタンス化されている場合、
+                fastで、ロックされたノードやリファレンスのノードを含む場合、
+                またはMayaが親の変更を拒否した場合。
+            NotImplementedError: fastで、移す先に同じ名前の子がある場合。Mayaが名前を付け直す規則を再現しないため。
         """
         with _edit_context("mlibShapeSetParent", fast):
-            self._require_valid("parent")
+            self._require_valid("親子付け")
             target = parent if isinstance(parent, DagNode) else DagNode._resolve_input(parent)
             if not target.isValid():
-                raise RuntimeError("parent is not a valid node")
+                raise RuntimeError("parentが有効なノードではありません")
             if not isinstance(target, Transform):
-                raise TypeError(f"parent must be a transform: {target.getFullName()}")
+                raise TypeError(f"parentはtransformで指定してください: {target.getFullName()}")
             if self.mpath().isInstanced():
-                raise RuntimeError(f"Cannot move an instanced shape: {self.getFullName()}")
+                raise RuntimeError(f"インスタンスのシェイプは移動できません: {self.getFullName()}")
             current = self.getParent()
             if current is not None and current.mpath().fullPathName() == target.mpath().fullPathName():
                 return self
@@ -56,30 +58,36 @@ class Shape(DagNode):
             return self
 
     def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, ws=_UNSET):
-        """メッシュ頂点・NURBSのCVを指定中心で拡縮する。
+        """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
-        Transformのマトリクス・面の頂点順は変えず、共有形状は全インスタンスに影響する。
-        周期CVの連動を考慮して拡縮する。途中失敗の先行変更は戻さない。
+        Transformのマトリクスと、フェースの頂点の順は変えない。
+        形状を共有しているインスタンスでは、すべてのインスタンスに影響する。
+        周期的なカーブ・サーフェスで連動して動くCVも考えに入れて拡大・縮小する。
+        途中で失敗しても、それまでに変えた分は戻さない。
 
         Args:
-            scale (float | Iterable[float]): 有限な一様倍率、またはXYZ倍率。負数・0も可。
-            worldSpace (bool): Trueはワールド空間、FalseはShapeのオブジェクト空間。
+            scale (float | Iterable[float]): 倍率。1つの数ならXYZに同じ倍率、3つならXYZごとの倍率。
+                有限な数で指定する。負の数や0も指定できる。
+            worldSpace (bool): Trueならワールド空間、FalseならShapeのオブジェクト空間で拡大・縮小する。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            pivot (Iterable[float]): 指定空間の中心。cm。既定は原点で、Transformのピボットは使わない。
-            indices (Iterable[int | tuple[int, int]] | None): 頂点/CV番号。サーフェスは(U, V)。
-                Noneは全要素。空列は書込みなし。ただしShape型とfastのサーフェス拒否は先に検査する。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは履歴なしメッシュ・カーブが対象。
-                FalseはMaya標準コマンドをUndo有効時にまとめる。
+            pivot (Iterable[float]): 拡大・縮小の中心。worldSpaceで選んだ空間での位置で、単位はcm。
+                既定は原点。Transformのピボットは使わない。
+            indices (Iterable[int | tuple[int, int]] | None): 対象の頂点またはCVの番号。サーフェスでは(U, V)の組。
+                Noneならすべてが対象。空なら何も書き込まない。ただし、Shapeの種類の確認と、
+                fastでサーフェスを拒否する確認は、その前に行う。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueで使えるのは、ヒストリの無いメッシュとカーブだけ。
+                Falseなら、Maya標準のコマンドで書き込み、Undoが有効なら1回にまとめる。
 
         Returns:
             Shape: 自身。
 
         Raises:
-            TypeError: fast・番号の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 倍率・中心・空間が不正、world変換がほぼ特異、またはメッシュ・NURBS以外のShapeの場合。
-            IndexError: 対象番号が範囲外の場合。
+            TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 倍率・中心・空間の指定が正しくない場合、ワールドへの変換がほぼ特異(逆に戻せない)な場合、
+                またはメッシュ・NURBS以外のShapeの場合。
+            IndexError: 番号が範囲外の場合。
             RuntimeError: Mayaが編集を拒否した場合。
-            NotImplementedError: fastでサーフェス・入力履歴付き形状の場合。
+            NotImplementedError: fastで、サーフェスやヒストリのある形状を指定した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         with _edit_context("mlibShapeScaleGeometry", fast):
@@ -88,9 +96,9 @@ class Shape(DagNode):
                 factors = (float(scale),) * 3 if isinstance(scale, numbers.Real) else tuple(float(v) for v in scale)
                 center = tuple(float(v) for v in pivot)
             except (TypeError, ValueError):
-                raise ValueError("scale and pivot must contain finite numbers") from None
+                raise ValueError("scaleとpivotは有限な数値で指定してください") from None
             if len(factors) != 3 or len(center) != 3 or not all(math.isfinite(v) for v in factors + center):
-                raise ValueError("scale and pivot must contain three finite numbers")
+                raise ValueError("scaleとpivotは3つの有限な数値で指定してください")
             path = self.mpath()
             if path.node().hasFn(om2.MFn.kMesh):
                 counts = (om2.MFnMesh(path).numVertices,)
@@ -104,9 +112,9 @@ class Shape(DagNode):
                 counts = (fn.numCVsInU, fn.numCVsInV)
                 token = "cv"
             else:
-                raise ValueError("scaleGeometry supports meshes and NURBS shapes")
+                raise ValueError("scaleGeometryはメッシュとNURBSのシェイプに対応しています")
             if fast and len(counts) == 2:
-                raise NotImplementedError("fast scaleGeometry does not support NURBS surfaces")
+                raise NotImplementedError("fastのscaleGeometryはNURBSサーフェスに対応していません")
             selected = []
             if indices is None:
                 components = []
@@ -128,10 +136,10 @@ class Shape(DagNode):
                 for value in indices:
                     row = (value,) if len(counts) == 1 else tuple(value)
                     if len(row) != len(counts) or any(isinstance(v, bool) for v in row):
-                        raise TypeError("Invalid component index")
+                        raise TypeError("コンポーネントの番号が不正です")
                     row = tuple(operator.index(v) for v in row)
                     if any(v < 0 or v >= count for v, count in zip(row, counts)):
-                        raise IndexError("Component index out of range")
+                        raise IndexError("コンポーネントの番号が範囲外です")
                     if path.node().hasFn(om2.MFn.kNurbsCurve):
                         row = (geometry_edit.command_indices(self, row)[0],)
                     elif path.node().hasFn(om2.MFn.kNurbsSurface):
@@ -153,13 +161,13 @@ class Shape(DagNode):
                 matrix = path.inclusiveMatrix()
                 magnitude = max(1.0, *(sum(abs(matrix[r * 4 + c]) for c in range(3)) for r in range(3)))
                 if abs(matrix.det4x4()) <= 1e-12 * magnitude**3:
-                    raise ValueError("Cannot scale in world space with a near-singular transform")
+                    raise ValueError("トランスフォームが特異に近いため、ワールド空間ではスケールできません")
             if len(counts) == 1:
                 # 全座標を先にAPIで読む。周期CVも独立番号にまとめ、二重に拡縮しない。
                 positions = geometry_edit.positions(self, selected, ws)
                 values = [tuple(center[i] + (point[i] - center[i]) * factors[i] for i in range(3)) for point in positions]
                 if not all(math.isfinite(v) for row in values for v in row):
-                    raise ValueError("Scaled positions must be finite")
+                    raise ValueError("スケールした位置が有限な数値になりません")
                 geometry_edit.set_positions(self, selected, values, ws, fast=fast)
                 return self
             center = tuple(om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in center)
@@ -188,7 +196,7 @@ class Shape(DagNode):
         return self.getParent()
 
     def _set_parent_fast(self, target):
-        """変更前に編集できるか確かめ、MDagModifierでシェイプの親を変える。
+        """編集できるかを先に確かめてから、MDagModifierでシェイプの親を変える。
 
         Args:
             target (Transform): 新しい親。
@@ -197,7 +205,7 @@ class Shape(DagNode):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: シェイプ・元の親・新しい親がロック・参照されている場合。
+            RuntimeError: シェイプ・元の親・新しい親のどれかが、ロックされているかリファレンスのノードの場合。
             NotImplementedError: 新しい親に同じ名前の子がある場合。
         """
         # core は nodes を参照するため、循環importを避けて関数内で読み込む。
@@ -210,7 +218,7 @@ class Shape(DagNode):
         name = om2.MFnDagNode(self.mnode()).name()
         parent_fn = om2.MFnDagNode(target.mpath())
         if any(om2.MFnDagNode(parent_fn.child(i)).name() == name for i in range(parent_fn.childCount())):
-            raise NotImplementedError(f"fast setParent does not rename shapes: {target.getFullName()} has a child named {name}")
+            raise NotImplementedError(f"fastのsetParentはシェイプの名前を変更しません: {target.getFullName()}には{name}という名前の子があります")
         modifier = om2.MDagModifier()
         modifier.reparentNode(self.mnode(), target.mnode())
         modifier.doIt()

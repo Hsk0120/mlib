@@ -151,7 +151,7 @@ class PoseSnapshotTest(_SnapshotCase):
         snap = PoseSnapshot.capture([self.joint])
         cmds.deleteAttr(self.joint_b + ".blend")
         report = snap.apply(namespaceMap={self.ns: self.other})
-        self.assertTrue(any(item.endswith("blend: missing attribute") for item in report.skipped))
+        self.assertTrue(any(item.endswith("blend: アトリビュートがありません") for item in report.skipped))
 
     def test_invalid_data(self):
         node = {"name": "a", "path": None, "type": None}

@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""公開するMayaコマンドラッパーを明示する。"""
+"""公開するコマンドの関数を明示する。"""
 
 from .bakeDeformer import bakeDeformer
 from .bakeResults import bakeResults

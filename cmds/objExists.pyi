@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""名前・参照がシーンに存在するかを返す(``cmds.objExists`` 相当)。
+"""名前やオブジェクトが指すものが、シーンに存在するかを返す(``cmds.objExists`` 相当)。
 
 .. code-block:: python
 
@@ -18,18 +18,18 @@ from mlib.plugs.plug import Plug
 
 
 def objExists(target: str | Node | Plug | Component) -> bool:
-    """名前・参照がシーンに存在するかを返す。
+    """名前やオブジェクトが指すものが、シーンに存在するかを返す。
 
     文字列は ``cmds.objExists`` と同じく、ノード名・``"node.attr"``・コンポーネントを調べる。
-    Node・Plug・Component は、参照先が生きているか(``isValid()``)で判定する。
+    Node・Plug・Component は、指す先がまだ有効か(``isValid()``)で判定する。
 
     Args:
-        target (str | Node | Plug | Component): 調べる名前または参照。列は受け付けない。
+        target (str | Node | Plug | Component): 調べる名前、またはオブジェクト。並びは受け付けない。
 
     Returns:
         bool: 存在すればTrue。
 
     Raises:
-        TypeError: 文字列・Node・Plug・Component以外(列を含む)を渡した場合。
+        TypeError: 文字列・Node・Plug・Componentのどれでもないもの(並びを含む)を渡した場合。
     """
     ...

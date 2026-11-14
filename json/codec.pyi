@@ -17,26 +17,26 @@ _TYPE_NAMES: Any
 def encode(value: object) -> Any:
     """値をJSONで書ける値へ変換する。
 
-    辞書・list・tupleの中もたどって変換する。辞書のキーは文字列に限る。tupleはlistになる。
-    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix`` もmlibの型名で書く。
+    辞書・list・tupleの中もたどって変換する。辞書のキーは文字列だけ使える。tupleはlistになる。
+    om2の ``MVector``・``MQuaternion``・``MEulerRotation``・``MMatrix`` も、mlibの型名で書く。
 
     Args:
-        value (object): 変換する値。None・bool・int・float・str・数学型・それらの辞書とlist。
+        value (object): 変換する値。None・bool・int・float・str・数学型と、それらを入れた辞書とlist。
 
     Returns:
         object: JSONで書ける値。入力の辞書・listは変更しない。
 
     Raises:
-        TypeError: 対応しない型、または辞書のキーが文字列でない場合。
-        ValueError: floatがNaN・無限大の場合。
+        TypeError: 対応しない型の場合、または辞書のキーが文字列でない場合。
+        ValueError: floatがNaNか無限大の場合。
     """
     ...
 
 def decode(value: object) -> Any:
     """:func:`encode` で書いた値を、数学型を含む元の値へ戻す。
 
-    ``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけを数学型にし、
-    ほかの辞書・listは中をたどって同じ形で返す。
+    数学型にするのは、``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけ。
+    ほかの辞書・listは、中をたどって同じ形で返す。
 
     Args:
         value (object): JSONから読んだ値。
@@ -84,6 +84,6 @@ def _decode_math(value: dict) -> Vector | Translate | Scale | Shear | Quaternion
         Vector | Translate | Scale | Shear | Quaternion | EulerRotate | Matrix: 新しい値。
 
     Raises:
-        ValueError: 成分の数が型と合わない、または回転順が不正な場合。
+        ValueError: 成分の数が型と合わない場合、または回転順が正しくない場合。
     """
     ...

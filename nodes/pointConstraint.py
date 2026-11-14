@@ -4,4 +4,4 @@ from .constraint import Constraint
 
 
 class PointConstraint(Constraint):
-    """位置をコンストレイントする pointConstraint ラッパー。"""
+    """位置をコンストレイントするpointConstraintを扱うクラス。"""

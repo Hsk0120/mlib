@@ -69,7 +69,7 @@ def worker(version, directory, suite_path=None):
         try:
             actual = str(cmds.about(version=True)).split(".")[0]
             if actual != version or cmds.about(batch=True):
-                raise RuntimeError(f"Requested GUI {version} but started {actual}")
+                raise RuntimeError(f"GUIのMaya {version}を指定しましたが、{actual}が起動しました")
             write_json(directory / "started.json", {"maya_version": actual, "pid": os.getpid()})
             suite = runpy.run_path(str(suite_path or TESTS_DIR / "support/visualGui.py"))
             suite["main"](output_dir=directory, finished=finish)
@@ -190,11 +190,11 @@ def main():
     parser.add_argument("--allow-missing", action="store_true")
     args = parser.parse_args()
     if args.timeout <= 0 or args.shutdown_timeout <= 0:
-        parser.error("timeouts must be positive")
+        parser.error("タイムアウトは正の値で指定してください")
     suites = list(SUITES) if args.suite == "all" else [args.suite]
     output = TESTS_DIR / "_output/gui" / datetime.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     output.mkdir(parents=True)
-    print("GUI results: " + str(output), flush=True)
+    print("GUIテストの結果: " + str(output), flush=True)
     results = []
     lines = ["Maya\tSuite\tStatus\tFailed files"]
     for version in dict.fromkeys(args.versions):

@@ -1,4 +1,4 @@
-"""サブパッケージ・公開コマンドと再読み込みの入口を提供する。"""
+"""mlibの入口。サブパッケージ・公開するコマンド・再読み込みの関数をまとめる。"""
 
 # reloadは辞書を保持するため、前回の公開値を明示importの前に解除する。
 for _name in globals().get("__all__", ()):
@@ -143,8 +143,10 @@ _names = [
 def _class_sources():
     """ルートから取得できるクラス名と、その所属パッケージの対応を作る。
 
-    各パッケージの ``__all__`` のうちクラスだけを対象にし、ルートの名前と ``_CLASS_PACKAGES`` の
-    先にあるパッケージを優先する。commonは遅延公開のためimportせず、大文字だけの名前(定数)を除く。
+    対象は各パッケージの ``__all__`` にあるクラスだけ。名前が重なるときは、ルートの名前を優先し、
+    次に ``_CLASS_PACKAGES`` で先にあるパッケージを優先する。
+    commonは必要になるまでimportしない仕組みのため、ここではimportしない。
+    また、大文字だけの名前(定数)は除く。
 
     Returns:
         dict[str, str]: クラス名から所属パッケージ名への対応。
@@ -170,17 +172,23 @@ from ._version import __version__
 
 
 def reload():
-    """本体を再読み込みし、拡張を再探索して型登録を作り直す。
+    """mlibを読み込み直す。
 
-    宣言済み・読込み失敗の拡張モジュールを先に解除し、本体の再読込み中に拡張を再初期化する。
-    外部SDKやMayaプラグイン自体は解除対象にしない。保持済みのクラス・関数・ラッパーは取り直す。
-    拡張単位の読込み/登録失敗はcore.extensions.status()で確認する。途中状態の自動復元は保証しない。
+    本体を読み込み直したあと、拡張を探し直し、型の登録を作り直す。
+
+    - 宣言済みの拡張モジュールと、読み込みに失敗した拡張モジュールは、先に解除する。
+      拡張は本体の読み込み直しの途中で初期化し直す。
+    - 外部SDKやMayaプラグインそのものは解除しない。
+    - 読み込み直す前に取得していたクラス・関数・オブジェクトは、取得し直す。
+
+    拡張ごとの読み込み・登録の失敗は、core.extensions.status()で確かめる。
+    途中で失敗した場合に、元の状態へ自動で戻すことは保証しない。
 
     Returns:
-        tuple[module]: 本体側で再読み込みしたモジュール群。拡張モジュールの一覧ではない。
+        tuple[module]: 本体側で読み込み直したモジュール。拡張モジュールの一覧ではない。
 
     Raises:
-        RuntimeError: 拡張初期化中の再入で、再読み込みを開始できない場合。
+        RuntimeError: 拡張の初期化中に呼ばれたため、読み込み直しを始められない場合。
     """
     _extensions._prepare_reload()
     return _reload_package(__name__)
@@ -189,15 +197,17 @@ def reload():
 def __getattr__(name):
     """各パッケージのクラスを ``mlib.<クラス名>`` で取得する。
 
-    ``mlib.Joint`` は ``mlib.nodes.Joint`` と同じクラスを返す。値は保持せず毎回所属パッケージから
-    取得するため、再読み込み後も現在のクラスを返す。どのパッケージにも無い先頭が大文字の名前は、
-    ``mlib.nodes`` と同じく登録の無いMayaのnodeTypeの生成クラスとして解決する(例: ``mlib.PointLight``)。
+    ``mlib.Joint`` は ``mlib.nodes.Joint`` と同じクラスを返す。クラスはルートに保持せず、
+    毎回所属パッケージから取得する。そのため、読み込み直したあとも現在のクラスを返す。
+
+    先頭が大文字で、どのパッケージにも無い名前は、``mlib.nodes`` と同じく、
+    登録の無いMayaのnodeTypeから作ったクラスとして返す(例: ``mlib.PointLight``)。
 
     Args:
         name (str): クラス名。
 
     Returns:
-        type: 所属パッケージのクラス、または生成クラス。
+        type: 所属パッケージのクラス、またはnodeTypeから作ったクラス。
 
     Raises:
         AttributeError: 対象のクラスが無い場合。
@@ -210,14 +220,14 @@ def __getattr__(name):
             return nodes.__getattr__(name)
         except AttributeError:
             pass
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    raise AttributeError(f"モジュール{__name__!r}にアトリビュート{name!r}はありません")
 
 
 def __dir__():
     """モジュール内の名前と、ルートから取得できるクラス名を列挙する。
 
     Returns:
-        list[str]: 補完・探索に使用する名前の一覧。
+        list[str]: 補完や探索に使う名前の一覧。
     """
     return sorted(set(globals()) | set(__all__))
 

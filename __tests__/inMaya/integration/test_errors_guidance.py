@@ -48,7 +48,7 @@ class ArgumentHintTest(_SpecCase):
             for keyword, value in (("space", "world"),):
                 with self.subTest(method=method, keyword=keyword):
                     self.flushUndo()
-                    with self.assertRaisesRegex(TypeError, rf"unexpected keyword argument '{keyword}'; use worldSpace=True"):
+                    with self.assertRaisesRegex(TypeError, rf"想定外のキーワード引数'{keyword}'が渡されました。ワールド空間はworldSpace=True"):
                         getattr(node, method)(*args, **{keyword: value})
                     self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
@@ -56,7 +56,7 @@ class ArgumentHintTest(_SpecCase):
         node = Node(self.make())
         for method in ("setTranslation", "setRotate", "setScale"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(TypeError, rf"pass a sequence: {method}\(\(x, y, z\)\)"):
+                with self.assertRaisesRegex(TypeError, rf"並びで渡してください: {method}\(\(x, y, z\)\)"):
                     getattr(node, method)(1, 2, 3)
         self.assertEqual(cmds.getAttr(str(node) + ".t")[0], (0.0, 0.0, 0.0))
 
@@ -64,13 +64,13 @@ class ArgumentHintTest(_SpecCase):
         name = self.make()
         node = Node(name)
         cmds.setAttr(name + ".ty", lock=True)
-        with self.assertRaisesRegex(RuntimeError, rf"{name}\.translateY is locked; .*safe=True"):
+        with self.assertRaisesRegex(RuntimeError, rf"{name}\.translateYはロックされています。.*safe=True"):
             node.setTranslation((1, 2, 3))
         node.setTranslation((1, 2, 3), safe=True)
         self.assertEqual(cmds.getAttr(name + ".t")[0], (1.0, 0.0, 3.0))
         source = self.make("plusMinusAverage", "pma")
         cmds.connectAttr(source + ".output1D", name + ".rz")
-        with self.assertRaisesRegex(RuntimeError, rf"rotateZ is connected from {source}\.output1D"):
+        with self.assertRaisesRegex(RuntimeError, rf"rotateZは{source}\.output1Dから接続されています"):
             node.setRotate((10, 20, 30))
 
     def test_driven_key_existing_input_is_explained(self):
@@ -79,7 +79,7 @@ class ArgumentHintTest(_SpecCase):
         source = self.make("plusMinusAverage", "pma")
         cmds.connectAttr(source + ".output1D", str(driven) + ".tx")
         key = DrivenKey(driver.getPlug("tx"), driven.getPlug("tx"))
-        with self.assertRaisesRegex(RuntimeError, rf"already has an input from {source}\.output1D .*blendWeighted"):
+        with self.assertRaisesRegex(RuntimeError, rf"すでに{source}\.output1D\(.*blendWeighted"):
             key.setKey(0, 1)
 
 
@@ -124,7 +124,7 @@ class PlugArgumentTest(_SpecCase):
             lambda: self.assertFalse(cmds.getAttr(str(node) + ".tx", lock=True)), lambda: self.assertTrue(cmds.getAttr(str(node) + ".tx", lock=True))
         )
         other = Node(self.make())
-        with self.assertRaisesRegex(ValueError, "does not belong to"):
+        with self.assertRaisesRegex(ValueError, "のものではありません"):
             node.setAttrFlags(other.tx, locked=True)
         with self.assertRaises(TypeError):
             node.setAttrFlags([1], locked=True)
@@ -181,7 +181,7 @@ class BulkWriteTest(_SpecCase):
     def test_unsupported_items_are_rejected_before_writing(self):
         dg = self.make("multiplyDivide", "md")
         transform = self.make(text="dag")
-        with self.assertRaisesRegex(TypeError, r"requires every item to support setVisibility"):
+        with self.assertRaisesRegex(TypeError, r"すべての要素がsetVisibility\(\)に対応している必要があります"):
             Nodes([transform, dg]).setVisibility(False)
         self.assertTrue(cmds.getAttr(transform + ".v"))
 
@@ -242,7 +242,7 @@ class AddConstraintOrderTest(_SpecCaseTranslationMirrorErrors):
             with self.subTest(kind=kind):
                 with self.assertRaisesRegex(TypeError, rf"addConstraint\(target, type='{kind}'\)"):
                     node.addConstraint(kind, ctrl)
-        with self.assertRaisesRegex(TypeError, r"type must be a string.*addConstraint\(target, type=\"parent\"\)"):
+        with self.assertRaisesRegex(TypeError, r"のような文字列で指定してください.*addConstraint\(target, type=\"parent\"\)"):
             node.addConstraint(ctrl, 1)
         self.assertEqual(cmds.ls(type="constraint"), before)
         constraint = node.addConstraint(ctrl, type="parent")
@@ -252,7 +252,7 @@ class AddConstraintOrderTest(_SpecCaseTranslationMirrorErrors):
 class SetParentCycleTest(_SpecCaseTranslationMirrorErrors):
     """自身・子孫を親にした場合は、Maya の分かりにくいエラーでなく原因が分かる RuntimeError。"""
 
-    MESSAGE = "Cannot parent a node under itself or one of its descendants"
+    MESSAGE = "ノードを自分自身や自分の子孫の下へは親子付けできません"
 
     def setUp(self):
         super().setUp()

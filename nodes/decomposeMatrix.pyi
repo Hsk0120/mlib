@@ -13,12 +13,20 @@ _OUTPUTS: dict
 
 
 class DecomposeMatrix(Node):
-    """マトリクスを移動・回転・スケール・せん断・クォータニオンへ分解する。親空間やjointOrientの補正は行わない。"""
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> DecomposeMatrix:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+    """マトリクスを移動・回転・スケール・せん断・クォータニオンへ分解する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+    親の空間やjointOrientに合わせた補正はしない。
+    """
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> DecomposeMatrix:
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
+
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 分解するマトリクス。
@@ -28,28 +36,33 @@ class DecomposeMatrix(Node):
 
         Raises:
             TypeError: 接続元の型が不正な場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
+            RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
         ...
     def getRotateOrder(self) -> str:
-        """出力する回転の回転順を名前で取得する(``inputRotateOrder``)。
+        """出力する回転の回転順を名前で取得する。
+
+        ``inputRotateOrder`` の値を名前に直して返す。
 
         Returns:
             str: ``"xyz"``・``"yzx"``・``"zxy"``・``"xzy"``・``"yxz"``・``"zyx"`` のいずれか。
         """
         ...
     def setRotateOrder(self, order: str | int) -> DecomposeMatrix:
-        """出力する回転の回転順を名前または番号で設定する(``inputRotateOrder``)。1回のUndoで戻せる。
+        """出力する回転の回転順を設定する。
+
+        ``inputRotateOrder`` へ書き込む。名前でも番号でも指定できる。1回のUndoで戻せる。
 
         Args:
-            order (str | int): ``"xyz"``・``"yzx"``・``"zxy"``・``"xzy"``・``"yxz"``・``"zyx"`` のいずれか、またはMayaの番号(0から)。
+            order (str | int): ``"xyz"``・``"yzx"``・``"zxy"``・``"xzy"``・``"yxz"``・``"zyx"`` のいずれか。
+                またはMayaの番号(0から)。
 
         Returns:
             DecomposeMatrix: 自身。
 
         Raises:
             TypeError: orderが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 使えない名前、または範囲外の番号を指定した場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...
@@ -57,16 +70,20 @@ class DecomposeMatrix(Node):
         """出力の現在の値を取得する。
 
         Args:
-            kind (str): 出力の種類。``"translate"`` は ``outputTranslate``、``"rotate"`` は ``outputRotate``、
-                ``"scale"`` は ``outputScale``、``"shear"`` は ``outputShear``、
-                ``"quaternion"`` は ``outputQuat``。
+            kind (str): 出力の種類。既定は ``"translate"``。
+
+                - ``"translate"``: ``outputTranslate``
+                - ``"rotate"``: ``outputRotate``
+                - ``"scale"``: ``outputScale``
+                - ``"shear"``: ``outputShear``
+                - ``"quaternion"``: ``outputQuat``
 
         Returns:
-            Vector | tuple[float, float, float, float]: 分解した値。回転は度の ``Vector``
-                (``inputRotateOrder`` の回転順)、クォータニオンは ``(x, y, z, w)``。
+            Vector | tuple[float, float, float, float]: 分解した値。
+                回転は度の ``Vector`` で、回転順は ``inputRotateOrder`` に従う。クォータニオンは ``(x, y, z, w)``。
 
         Raises:
-            ValueError: kindが未対応の名前の場合。
+            ValueError: kindに使えない名前を指定した場合。
         """
         ...
     def getOutputPlug(self, kind: str = ...) -> Plug:
@@ -79,6 +96,6 @@ class DecomposeMatrix(Node):
             Plug: 出力のアトリビュート。
 
         Raises:
-            ValueError: kindが未対応の名前の場合。
+            ValueError: kindに使えない名前を指定した場合。
         """
         ...

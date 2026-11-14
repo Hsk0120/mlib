@@ -55,7 +55,7 @@ class TextureNodesTest(_GeometryCase):
         cmds.undo()
         self.assertEqual(node.getFilePath(), "first.png")
         for bad in (None, b"x.png", 5):
-            with self.assertRaisesRegex(TypeError, "path must be a string"):
+            with self.assertRaisesRegex(TypeError, "pathは文字列で指定してください"):
                 node.setFilePath(bad)
         self.assertEqual(node.getFilePath(), "first.png")
 
@@ -79,7 +79,7 @@ class TextureNodesTest(_GeometryCase):
         self.assertEqual(node.getColorSpace(), "NoSuchColorSpace_specA")
         for bad in (3, None, b"sRGB", ("sRGB",)):
             with self.subTest(bad=bad):
-                with self.assertRaisesRegex(TypeError, "name must be a string"):
+                with self.assertRaisesRegex(TypeError, "nameは文字列で指定してください"):
                     node.setColorSpace(bad)
                 self.assertEqual(node.getColorSpace(), "NoSuchColorSpace_specA")
 
@@ -141,7 +141,7 @@ class TextureNodesTest(_GeometryCase):
         self.assertTrue(texture.getPlacement().sameNode(second))
         self.assertIsNone(cmds.listConnections(first.getFullName(), source=False, destination=True))
         for bad in (mlib.createNode("composeMatrix"), cmds.createNode("transform")):
-            with self.assertRaisesRegex(TypeError, "texture must be Texture2d"):
+            with self.assertRaisesRegex(TypeError, "textureはTexture2dで指定してください"):
                 second.connectTexture(bad)
 
     def test_get_placement_other_source(self):

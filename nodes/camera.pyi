@@ -11,48 +11,54 @@ from .shape import Shape
 
 
 class Camera(Shape):
-    """Maya camera shape ノードのラッパー。"""
+    """Mayaのcameraシェイプノードを扱うクラス。"""
     def mfn(self) -> om2.MFnCamera:
-        """この camera で最も具体的な om2 function set を取得する。
+        """このカメラのfunction set(``om2.MFnCamera``)を取得する。
 
-        呼び出すたびに新しい ``om2.MFnCamera`` を保持する DAG パスから作る。
+        呼び出すたびに、このオブジェクトが持つDAGパスから新しく作る。
 
         Returns:
-            om2.MFnCamera: この camera の function set。
+            om2.MFnCamera: このカメラのfunction set。
         """
         ...
     def getFocalLength(self) -> float:
         """焦点距離を取得する。
 
         Returns:
-            float: Maya の焦点距離。
+            float: Mayaの焦点距離。
         """
         ...
     def getFieldOfView(self, *, unit: str = ...) -> tuple[float, float]:
-        """水平・垂直の画角(``MFnCamera.horizontalFieldOfView``・``verticalFieldOfView``)を取得する。
+        """水平と垂直の画角を取得する。
 
-        焦点距離とフィルムバック(``horizontalFilmAperture``・``verticalFilmAperture``)から求めた値。式は
-        ``2 * atan(フィルムバック(インチ) / 0.03937 / 2 / 焦点距離(mm))`` で、Mayaの換算は1mm=0.03937インチ。
-        Film Fit・解像度の縦横比による切り抜きは含まない。
+        ``MFnCamera.horizontalFieldOfView``・``verticalFieldOfView`` の値を返す。
+        画角は、焦点距離とフィルムバック(``horizontalFilmAperture``・``verticalFilmAperture``)から次の式で求まる。
+        Mayaは1mmを0.03937インチとして換算する。
+
+        ``2 * atan(フィルムバック(インチ) / 0.03937 / 2 / 焦点距離(mm))``
+
+        Film Fitや解像度の縦横比で切り取られる分は含まない。
 
         Args:
-            unit (str): 戻り値の角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-                (``"degree"`` 等の別名も可)。
+            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+                ``"degree"`` などの別名も使える。
 
         Returns:
             tuple[float, float]: (水平の画角, 垂直の画角)。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
-            ValueError: unitが未対応の単位名の場合。
+            ValueError: unitに使えない単位名を指定した場合。
             RuntimeError: ノードが削除済みの場合。
         """
         ...
     def getEyePoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの位置(``MFnCamera.eyePoint``)を取得する。
+        """カメラの位置を取得する。
+
+        ``MFnCamera.eyePoint`` の値を返す。
 
         Args:
-            worldSpace (bool): Trueはワールド空間(既定)、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -64,10 +70,12 @@ class Camera(Shape):
         """
         ...
     def getViewDirection(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの視線の向き(``MFnCamera.viewDirection``。ローカル空間の -Z)を取得する。
+        """カメラの視線の向きを取得する。
+
+        ``MFnCamera.viewDirection`` の値を返す。ローカル空間では -Z の向きになる。
 
         Args:
-            worldSpace (bool): Trueはワールド空間(既定)、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -79,10 +87,12 @@ class Camera(Shape):
         """
         ...
     def getUpDirection(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの上の向き(``MFnCamera.upDirection``。ローカル空間の +Y)を取得する。
+        """カメラの上の向きを取得する。
+
+        ``MFnCamera.upDirection`` の値を返す。ローカル空間では +Y の向きになる。
 
         Args:
-            worldSpace (bool): Trueはワールド空間(既定)、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -94,10 +104,16 @@ class Camera(Shape):
         """
         ...
     def getProjectionMatrix(self) -> Matrix:
-        """カメラ空間からクリップ空間への投影マトリクス(``MFnCamera.projectionMatrix``)を取得する。
+        """投影マトリクスを取得する。
 
-        ワールドの点を画面へ写すには、カメラのTransformの逆マトリクス(``worldInverseMatrix``)を掛けてから
-        このマトリクスを掛け、w で割る(行ベクトルの規約)。焦点距離・フィルムバック・クリップ面に基づく。
+        カメラ空間からクリップ空間へ写すマトリクスで、``MFnCamera.projectionMatrix`` の値を返す。
+        焦点距離・フィルムバック・クリップ面から決まる。
+
+        ワールドの点を画面へ写すには、次の順に計算する(行ベクトルの規約)。
+
+        1. カメラのTransformの逆マトリクス(``worldInverseMatrix``)を掛ける。
+        2. このマトリクスを掛ける。
+        3. w で割る。
 
         Returns:
             Matrix: 投影マトリクス(``om2.MFloatMatrix`` の値を倍精度にしたもの)。
@@ -107,7 +123,9 @@ class Camera(Shape):
         """
         ...
     def isOrtho(self) -> bool:
-        """正投影のカメラかを取得する(``orthographic`` アトリビュート)。
+        """正投影のカメラか調べる。
+
+        ``orthographic`` アトリビュートの値を返す。
 
         Returns:
             bool: 正投影ならTrue、透視投影ならFalse。

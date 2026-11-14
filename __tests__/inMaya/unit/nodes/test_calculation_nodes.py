@@ -119,7 +119,7 @@ class ScalarNodesTest(_Case):
 
     def test_enum_errors(self):
         node = self.node("condition")
-        with self.assertRaisesRegex(ValueError, "choices: equal, notEqual"):
+        with self.assertRaisesRegex(ValueError, "選択肢: equal, notEqual"):
             node.setOperation("bigger")
         for bad in (6, -1):
             with self.assertRaises(ValueError):

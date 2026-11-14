@@ -52,7 +52,7 @@ class ScriptJobContextsTest(unittest.TestCase):
         job.stop.side_effect = RuntimeError("cannot kill")
         with patch("mlib.common.scriptJobs.ScriptJob", return_value=job), patch("mlib.logger.warning"):
             jobs = mlib.ScriptJobs()
-            with self.assertRaisesRegex(RuntimeError, "Failed to stop scriptJobs"):
+            with self.assertRaisesRegex(RuntimeError, "scriptJobを停止できませんでした"):
                 with jobs.temporary():
                     jobs.add("failed", event="SelectionChanged", callback=lambda: None)
             job.stop.side_effect = None
@@ -67,7 +67,7 @@ class ScriptJobContextsTest(unittest.TestCase):
             jobs = mlib.ScriptJobs()
             with jobs.temporary():
                 jobs.add("outer", event="SelectionChanged", callback=lambda: None)
-                with self.assertRaisesRegex(RuntimeError, "cannot be nested"):
+                with self.assertRaisesRegex(RuntimeError, "入れ子にはできません"):
                     with jobs.temporary():
                         self.fail("Nested context should not enter")
                 job.stop.assert_not_called()

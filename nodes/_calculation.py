@@ -49,27 +49,31 @@ def _source(value, geometry):
     if not node.isType(geometry) and node.hasFn(om2.MFn.kTransform):
         shapes = [shape for shape in node.getShapes() if shape.isType(geometry)]
         if len(shapes) != 1:
-            raise ValueError(f"Expected exactly one {geometry} shape under {node}, got {len(shapes)}")
+            raise ValueError(f"{node}の下には{geometry}のシェイプが1つだけ必要です: {len(shapes)}個")
         node = shapes[0]
     if not node.isType(geometry):
-        raise TypeError(f"Expected a {geometry} shape, got {node.getType()}: {node}")
+        raise TypeError(f"{geometry}のシェイプを指定してください: {node.getType()}: {node}")
     return node.getPlug("worldSpace")[node.mpath().instanceNumber()]
 
 
 def set_inputs(node, method, values, geometry=None):
     """入力をまとめて設定し、ノードを返す。
 
-    値は書き込み、Plug・MPlug・``"node.attr"`` の文字列は接続元として接続する(既存の入力は置き換える)。
-    接続されている入力へ値を書く場合は、先に接続を外す。Noneの入力は変更しない。
-    全ての接続元を解決してから書き込み、1回のUndoにまとめる。途中でMayaが拒否した場合は
-    それまでの変更を戻す。
+    各入力は、渡したものの種類で扱いが変わる。
+
+    - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+    - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+    - None: その入力は変更しない。
+
+    先にすべての接続元を確かめてから書き込み、1回のUndoにまとめる。
+    途中でMayaが拒否した場合は、それまでの変更を戻す。
 
     Args:
         node (Node): 対象の計算ノード。
         method (str): 公開メソッド名(例外・Undoチャンク名に使う)。
-        values (dict[str, object]): アトリビュート名から入力の値。
-        geometry (dict[str, str] | None): ジオメトリの入力のアトリビュート名からシェイプのMaya型名。
-            シェイプ(またはそれを1つだけ持つTransform)を渡すと、そのworldSpaceを接続する。
+        values (dict[str, object]): アトリビュート名から入力の値への辞書。
+        geometry (dict[str, str] | None): ジオメトリの入力のアトリビュート名から、シェイプのMaya型名への辞書。
+            その入力へシェイプ(またはシェイプを1つだけ持つTransform)を渡すと、シェイプのworldSpaceを接続する。
 
     Returns:
         Node: node自身。
@@ -115,8 +119,8 @@ def enum_index(value, names, label):
         if 0 <= value < len(names):
             return value
     else:
-        raise TypeError(f"{label} must be a name or an index, got {type(value).__name__}")
-    raise ValueError(f"Unsupported {label} {value!r} (choices: {', '.join(names)})")
+        raise TypeError(f"{label}は名前か番号で指定してください: {type(value).__name__}")
+    raise ValueError(f"対応していない{label}です: {value!r}(選択肢: {', '.join(names)})")
 
 
 def set_enum(node, method, attribute, value, names, label):
@@ -175,7 +179,7 @@ def choice(value, choices, label):
     """
     choices = tuple(choices)
     if value not in choices:
-        raise ValueError(f"Unsupported {label} {value!r} (choices: {', '.join(choices)})")
+        raise ValueError(f"対応していない{label}です: {value!r}(選択肢: {', '.join(choices)})")
     return value
 
 
@@ -193,13 +197,15 @@ def element_indices(node, attribute):
 
 
 def add_element(node, method, attribute, values, geometry=None):
-    """マルチアトリビュートの末尾(既存の最大の番号+1)へ要素を足し、その番号を返す。
+    """マルチアトリビュートの末尾へ要素を足し、その番号を返す。
+
+    足す番号は、すでにある最大の番号+1になる。
 
     Args:
         node (Node): 対象の計算ノード。
         method (str): 公開メソッド名。
         attribute (str): 番号を決めるマルチアトリビュート名。
-        values (dict[str, object]): ``{index}`` を論理番号に置き換えるアトリビュートのパスから入力の値
+        values (dict[str, object]): アトリビュートのパスから入力の値への辞書。パスの ``{index}`` は論理番号に置き換える
             (例: ``{"input[{index}]": 1.0, "weight[{index}]": 0.5}``)。
         geometry (dict[str, str] | None): :func:`set_inputs` と同じ。
 
@@ -222,7 +228,7 @@ def remove_elements(node, method, attributes, index):
     Args:
         node (Node): 対象の計算ノード。
         method (str): 公開メソッド名。
-        attributes (Iterable[str]): マルチアトリビュート名。先頭で番号の存在を確かめる。
+        attributes (Iterable[str]): マルチアトリビュート名。番号の要素があるかは、先頭の名前で確かめる。
         index (int): 論理番号。
 
     Returns:
@@ -234,11 +240,11 @@ def remove_elements(node, method, attributes, index):
         RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
     """
     if not isinstance(index, int) or isinstance(index, bool):
-        raise TypeError(f"index must be an int, got {type(index).__name__}")
+        raise TypeError(f"indexはintで指定してください: {type(index).__name__}")
     attributes = tuple(attributes)
     node._require_valid(method)
     if index not in element_indices(node, attributes[0]):
-        raise ValueError(f"{node}.{attributes[0]} has no element {index}")
+        raise ValueError(f"{node}.{attributes[0]}に要素{index}はありません")
     with _edit_context(chunk_name(node, method), False):
         for attribute in attributes:
             if index in element_indices(node, attribute):

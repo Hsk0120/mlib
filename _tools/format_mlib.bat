@@ -2,46 +2,38 @@
 setlocal
 
 ::----------------------------------------------------------------
-:: Format the mlib sources with ruff and check what ruff cannot fix.
-:: The settings are in mlib\ruff.toml, so every run gives the same result.
-:: Maya is not needed.
+:: mlibのコードをruffで整形し、ruffでは直せない点を検査する。
+:: 設定は mlib\ruff.toml にあるので、誰が実行しても同じ結果になる。Mayaは不要。
 ::
-::   format_mlib.bat             format the files, fix what can be fixed,
-::                               then list what is left
-::   format_mlib.bat --check     change nothing; only report what is not
-::                               formatted or still wrong (for a check before
-::                               a commit, and for the workflow)
-::   --no-pause                  do not wait for a key at the end
-::                               (for terminals and other scripts)
+::   format_mlib.bat             整形して直せるものを直し、残った指摘を表示する
+::   format_mlib.bat --check     何も書き換えず、整形されていない所と指摘だけを
+::                               表示する(コミット前の確認用)
+::   --no-pause                  最後にキー入力を待たない
+::                               (ターミナル・スクリプトから呼ぶとき)
 ::
-:: It runs, in this order:
-::   ruff format                 the layout of the code (spaces, blank lines,
-::                               line breaks, quotes)
-::   ruff check --fix            import order and grouping, unused names,
-::                               pathlib, encodings, and the other rules of
-::                               ruff.toml
-::   check_mlib_layout.py        what ruff does not cover: the position of the
-::                               constants, __all__ and TYPE_CHECKING, the order
-::                               of the members of a class, and the input
-::                               assertions of the public entries
-::   check_mlib_exports.py       the public names match the explicit exports
+:: 次の順に実行する。
+::   ruff format                 コードの見た目(空白・空行・改行位置・引用符)
+::   ruff check --fix            importの並びと分類、使っていない名前、pathlib、
+::                               文字コード指定など、ruff.toml で選んだルール
+::   check_mlib_layout.py        ruffに無い検査。定数・__all__・TYPE_CHECKING の位置、
+::                               クラス内メンバーの順、公開入口の入力assert など
+::   check_mlib_exports.py       公開名と、明示した公開(__all__ など)の一致
 ::
-:: This is the batch for the code itself. The tests are run by
-:: test_mlib.bat, and the type stubs and the documentation are separate,
-:: optional steps (generate_mlib_stubs.bat and build_mlib_docs.bat).
+:: これはコードそのもののためのバッチ。テストは test_mlib.bat が受け持ち、
+:: 型スタブ(generate_mlib_stubs.bat)と文書(build_mlib_docs.bat)は別の任意の工程。
 ::
-:: Needs ruff. Run setup.bat once to put the pinned version into
-:: _tools\.venv (or into _tools\.mayapy-site when no Python is installed).
-:: A ruff on the PATH or in a Python of the launcher (py) is used as well.
+:: ruffが必要。setup.bat を1回実行すると、版を固定したruffが _tools\.venv
+:: (Pythonが無いときは _tools\.mayapy-site)に入る。PATH上のruffや、
+:: Pythonランチャー(py)のPythonに入っているruffも使える。
 ::
-:: Exit code: 0 when everything passed, 1 when something is reported,
-:: 2 when ruff or Python was not found.
+:: 終了コード: 全部通れば 0、指摘が残れば 1、ruff か Python が見つからなければ 2。
 ::
-:: The Japanese messages are in messages.txt and shown by _message.bat (this
-:: file stays ASCII). The summary at the end lists each step with [OK], [NG]
-:: or [--] (not run), and its last line starts with [OK] or [NG].
+:: 表示する文は messages.txt にあり、_message.bat が表示する。最後のまとめは
+:: 手順ごとに [OK]・[NG]・[--](実行していない)を並べ、最後の行が [OK] か [NG] になる。
+::
+:: このファイルは Shift-JIS(CP932)・CRLF で保存する(.gitattributes を参照)。
 ::----------------------------------------------------------------
-rem Keep the folder before the argument loop: SHIFT changes %0.
+rem 引数を読む前にフォルダーを控える(SHIFT すると %0 も変わるため)。
 SET "MLIB_TOOLS_DIR=%~dp0"
 SET "SAY=CALL "%~dp0_message.bat""
 SET "PACKAGE=%~dp0.."
@@ -57,13 +49,13 @@ SET "MLIB_FORMAT_PYTHON="
 SET "MLIB_FORMAT_RESULT=2"
 SET "MLIB_FORMAT_PAUSE=1"
 SET "MLIB_FORMAT_CHECK="
-rem The result of each step for the summary: OK, NG, or -- (not run).
+rem まとめに出す各手順の結果。OK・NG・--(実行していない)のどれか。
 SET "MLIB_FORMAT_STEP_FORMAT=--"
 SET "MLIB_FORMAT_STEP_CHECK=--"
 SET "MLIB_FORMAT_STEP_LAYOUT=--"
 SET "MLIB_FORMAT_STEP_EXPORTS=--"
 
-rem Take --no-pause and --check out of the arguments.
+rem 引数から --no-pause と --check を取り出す。
 :parse_args
 IF "%~1"=="" GOTO :args_done
 IF /I "%~1"=="--no-pause" SET "MLIB_FORMAT_PAUSE=" & GOTO :next_arg
@@ -75,14 +67,14 @@ GOTO :summary
 SHIFT
 GOTO :parse_args
 :args_done
-rem Only look for an installed Python: never let the launcher install one.
+rem 入っているPythonだけを探す(ランチャーに新しいPythonを入れさせない)。
 SET "PYLAUNCHER_ALLOW_INSTALL="
 
-rem Prefer what setup.bat installed, so that everyone uses the same version:
-rem .venv, then .mayapy-site, then a ruff on the PATH, then a Python of the
-rem launcher. The checks that need Python use the same environment.
-rem The version is put together outside the brackets: inside them the value of
-rem a variable set in the same block is not yet available.
+rem 全員が同じ版を使えるよう、setup.bat が入れたものを優先する。
+rem .venv → .mayapy-site → PATH上のruff → ランチャーのPython の順に探す。
+rem Pythonが要る検査も同じ環境を使う。
+rem 版の文字列は括弧の外で組み立てる(括弧の中では、同じブロックで
+rem SET した変数の値がまだ使えないため)。
 IF EXIST "%MLIB_FORMAT_ENV_RUFF%" SET "MLIB_FORMAT_RUFF="%MLIB_FORMAT_ENV_RUFF%""
 IF EXIST "%MLIB_FORMAT_ENV_PYTHON%" SET "MLIB_FORMAT_PYTHON="%MLIB_FORMAT_ENV_PYTHON%""
 IF NOT DEFINED MLIB_FORMAT_RUFF IF EXIST "%MLIB_FORMAT_SITE_RUFF%" SET "MLIB_FORMAT_RUFF="%MLIB_FORMAT_SITE_RUFF%""
@@ -107,10 +99,9 @@ GOTO :summary
 :ruff_found
 %MLIB_FORMAT_RUFF% --version
 
-rem The tool was found, so from here a non-zero result means a real finding.
-rem Each step uses "IF ERRORLEVEL 1" on its own line: inside a block in
-rem brackets, %ERRORLEVEL% is expanded before the command runs, which would
-rem throw the result away.
+rem ここから先はツールが見つかっているので、0以外の結果は実際の指摘を表す。
+rem 各手順の結果は、次の行の "IF ERRORLEVEL 1" で拾う(括弧のブロックの中では
+rem %ERRORLEVEL% がコマンドの実行前に展開され、結果を取りこぼすため)。
 SET "MLIB_FORMAT_RESULT=0"
 IF DEFINED MLIB_FORMAT_CHECK GOTO :check_only
 
@@ -135,7 +126,7 @@ SET "MLIB_FORMAT_STEP_CHECK=OK"
 IF ERRORLEVEL 1 SET "MLIB_FORMAT_STEP_CHECK=NG"
 
 :layout
-rem The checks that ruff does not cover. Python is needed only for these.
+rem ruffに無い検査。Pythonが要るのはここだけ。
 IF NOT DEFINED MLIB_FORMAT_PYTHON IF DEFINED MLIB_FORMAT_PY SET "MLIB_FORMAT_PYTHON=py -%MLIB_FORMAT_PY%"
 IF NOT DEFINED MLIB_FORMAT_PYTHON SET "MLIB_FORMAT_PYTHON=py -3"
 %SAY% format.step3
@@ -158,8 +149,7 @@ IF "%MLIB_FORMAT_RESULT%"=="0" SET "MLIB_FORMAT_MESSAGE=format.ok"
 IF "%MLIB_FORMAT_RESULT%"=="2" SET "MLIB_FORMAT_MESSAGE=format.notRun"
 %SAY% blank line format.steps rule %MLIB_FORMAT_MESSAGE% legend line
 
-rem Wait for a key so that the result stays readable when the batch was
-rem started by a double click (the same as the other batch files).
+rem ダブルクリックで実行したときも結果を読めるよう、キー入力を待つ。
 IF DEFINED MLIB_FORMAT_PAUSE (
     ECHO.
     PAUSE

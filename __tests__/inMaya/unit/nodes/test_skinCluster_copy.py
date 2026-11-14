@@ -77,17 +77,17 @@ class SkinCopyTest(unittest.TestCase):
     def test_errors(self):
         """自身は ValueError、存在しない名前は RuntimeError、skinCluster・形状以外は TypeError。"""
         skin = SkinCluster(self.source_skin)
-        with self.assertRaisesRegex(ValueError, "must differ"):
+        with self.assertRaisesRegex(ValueError, "別のskinClusterで指定してください"):
             skin.copyWeightsTo(self.source_skin)
         with self.assertRaises(RuntimeError):
             skin.copyWeightsTo(self.name("missing"))
-        with self.assertRaisesRegex(ValueError, "must differ"):
+        with self.assertRaisesRegex(ValueError, "別のskinClusterで指定してください"):
             skin.copyWeightsTo(self.source)
-        with self.assertRaisesRegex(TypeError, "requires a skinCluster or a geometry, got joint"):
+        with self.assertRaisesRegex(TypeError, "skinClusterかジオメトリを指定してください: joint"):
             skin.copyWeightsTo(self.root)
-        with self.assertRaisesRegex(TypeError, "without a shape"):
+        with self.assertRaisesRegex(TypeError, "シェイプのない"):
             skin.copyWeightsTo(cmds.createNode("transform", name=self.name("empty")))
-        with self.assertRaisesRegex(TypeError, "requires a skinCluster or a geometry"):
+        with self.assertRaisesRegex(TypeError, "skinClusterかジオメトリを指定してください"):
             skin.copyWeightsTo(cmds.createNode("multiplyDivide", name=self.name("md")))
 
     def test_deforms(self):

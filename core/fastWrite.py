@@ -1,4 +1,4 @@
-"""対応する値更新のcmds/OpenMayaバックエンド。独自プラグインは使わない。"""
+"""アトリビュートの値を書き込む処理(cmdsとOpenMayaの両方)。独自プラグインは使わない。"""
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -17,13 +17,16 @@ _TYPED_DATA_FACTORIES = {
 
 
 def require_supported_type(plug):
-    """fastで書ける型か全子の定義から確認する。値や書込み可否は検査しない。
+    """fastで書き込める型かを確かめる。
 
-    safeの部分更新前に呼び、ロックや不正な値によって後続の未対応型が隠れるのを防ぐ。
-    対応するデータ型(``doubleArray`` 等)の型表は、実データを構築するprepare_dataと共有する。
+    子を持つ場合は、すべての子の定義を調べる。値と書き込めるかどうかは調べない。
+
+    safeの部分更新の前に呼ぶ。こうすると、ロックや不正な値のエラーが先に出て、
+    その後ろにある未対応の型が見えなくなるのを防げる。
+    対応するデータ型(``doubleArray`` など)の表は、実際のデータを作るprepare_dataと共通にしている。
 
     Args:
-        plug (om2.MPlug): 有効性を確認済みの更新対象。
+        plug (om2.MPlug): 書き込み先。有効なことは確かめてあるもの。
 
     Returns:
         None: 値を返さない。
@@ -47,19 +50,20 @@ def require_supported_type(plug):
         kind = om2.MFnTypedAttribute(attribute).attrType()
         if kind in (om2.MFnData.kString, om2.MFnData.kMatrix) or kind in _TYPED_DATA_FACTORIES:
             return
-    raise NotImplementedError(f"fast attribute type is not supported: {plug.name()}")
+    raise NotImplementedError(f"fastはこのアトリビュートの型に対応していません: {plug.name()}")
 
 
 def _ancestor_plugs(mplug):
-    """プラグ自身から、コンパウンドアトリビュートの親・マルチアトリビュートを順に遡って列挙する。
+    """プラグ自身と、その上にあるプラグを順に列挙する。
 
-    ロック・入力接続は親(コンパウンドアトリビュート)やマルチアトリビュートにも設定できるため、書込み可否の検査で使う。
+    コンパウンドアトリビュートの親や、要素が属するマルチアトリビュートを上へたどる。
+    ロックと入力接続は親やマルチアトリビュートにも付けられるので、書き込めるかどうかの検査で使う。
 
     Args:
-        mplug (om2.MPlug): 起点のプラグ。
+        mplug (om2.MPlug): たどり始めるプラグ。
 
     Yields:
-        om2.MPlug: mplug自身、次に親またはマルチアトリビュート、最上位に達するまで。
+        om2.MPlug: まずmplug自身。次に親またはマルチアトリビュートを、いちばん上に着くまで順に返す。
     """
     current = mplug
     while True:
@@ -73,12 +77,14 @@ def _ancestor_plugs(mplug):
 
 
 def require_writable(plug, _fn=None):
-    """ロック・入力接続・書込み不能アトリビュートをAPIで検査する。
+    """プラグへ書き込めるかを調べる。
+
+    ロック・入力接続・書き込めないアトリビュートかどうかを、OpenMayaで調べる。
 
     Args:
-        plug (om2.MPlug): 検査するプラグ。
-        _fn (om2.MFnAttribute | None): 同じ更新内で生成したアトリビュートの
-            function set。省略時は新しく生成する。値や検査結果はキャッシュしない。
+        plug (om2.MPlug): 調べるプラグ。
+        _fn (om2.MFnAttribute | None): 同じ更新の中で作ったアトリビュートの
+            function set。省略すると新しく作る。値や検査の結果は保存しない。
 
     Returns:
         None: 値を返さない。
@@ -88,19 +94,21 @@ def require_writable(plug, _fn=None):
     """
     for current in _ancestor_plugs(plug):
         if current.isLocked or current.isDestination:
-            raise RuntimeError(f"Attribute is locked or connected: {plug.name()}")
+            raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {plug.name()}")
     fn = _fn
     if fn is None:
         fn = om2.MFnAttribute(plug.attribute())
     if not fn.writable:
-        raise RuntimeError(f"Attribute is not writable: {plug.name()}")
+        raise RuntimeError(f"アトリビュートは書き込めません: {plug.name()}")
 
 
 def writable_compound(mplug):
-    """プラグ自身と、コンパウンドアトリビュートなら全ての子の書込み可否を検査する。
+    """プラグとその子へ書き込めるかを調べる。
+
+    コンパウンドアトリビュートなら、すべての子も調べる。
 
     Args:
-        mplug (om2.MPlug): 検査するプラグ。
+        mplug (om2.MPlug): 調べるプラグ。
 
     Returns:
         None: 値を返さない。
@@ -115,13 +123,15 @@ def writable_compound(mplug):
 
 
 def require_range(plug, value, _fn=None):
-    """cmds.setAttrと同様、アトリビュートに設定されたハード範囲を検査する。
+    """値がアトリビュートのハード範囲に収まるかを調べる。
+
+    cmds.setAttrと同じ検査をする。
 
     Args:
-        plug (om2.MPlug): 検査するプラグ。
-        value (float): 設定予定の値。単位型ではcm/rad/秒。
-        _fn (om2.MFnNumericAttribute | om2.MFnUnitAttribute | None): 同じ更新内で
-            生成したfunction set。範囲と単位定義は呼出しごとに照会する。
+        plug (om2.MPlug): 調べるプラグ。
+        value (float): 書き込む予定の値。単位を持つ型ではcm・rad・秒で渡す。
+        _fn (om2.MFnNumericAttribute | om2.MFnUnitAttribute | None): 同じ更新の中で
+            作ったfunction set。範囲と単位の定義は、呼ぶたびに取得し直す。
 
     Returns:
         None: 値を返さない。
@@ -145,27 +155,30 @@ def require_range(plug, value, _fn=None):
         if isinstance(limit, (om2.MAngle, om2.MDistance, om2.MTime)):
             limit = _convert_units(plug, limit, to_ui=False)
         if (lower and value < limit) or (not lower and value > limit):
-            raise RuntimeError(f"Value outside attribute limits: {plug.name()}")
+            raise RuntimeError(f"値がアトリビュートの範囲を超えています: {plug.name()}")
 
 
 def _prepared_writes(plug, value, _writable_checked=False):
-    """全成分の型・制限を更新前に検査し、直接書込みの列を組み立てる。
+    """書き込む内容の一覧を作る。
+
+    書き込む前に、すべての成分の型と制限を調べる。そのうえで、OpenMayaで直接書き込む内容を並べる。
 
     Args:
-        plug (om2.MPlug): 書込み先。
-        value (object): 内部単位の入力値。
-        _writable_checked (bool): Trueなら、呼出し元が同じ更新の直前に自身と全子へ
-            :func:`require_writable` を適用済みとして、ここでは書込み可否を調べ直さない。
+        plug (om2.MPlug): 書き込み先。
+        value (object): 内部単位(cm・rad・秒)の値。
+        _writable_checked (bool): Trueなら、書き込めるかどうかを調べ直さない。
+            呼び出し元が同じ更新の直前に、自身とすべての子へ :func:`require_writable` を済ませているときに使う。
             型・値・範囲の検査は省かない。
 
     Returns:
-        list[tuple]: setter・プラグ・変換済み値・書込み終了まで保持するfunction setの列。
+        list[tuple]: 書き込む内容の一覧。各要素は(setter, プラグ, 変換した値, function set)。
+            function setは書き込みが終わるまで持っておく。
 
     Raises:
         TypeError: 数値型への数値以外、または文字列型への文字列以外の入力の場合。
-        ValueError: コンパウンドアトリビュートの値の成分数が子数と異なる場合。
-        RuntimeError: 書込み不能、またはハード範囲外(enumはフィールドの最小〜最大の外)の場合。
-        NotImplementedError: API 2.0で値を構築できない型の場合。
+        ValueError: コンパウンドアトリビュートの値の成分の数が、子の数と違う場合。
+        RuntimeError: 書き込めない場合、またはハード範囲の外の場合(enumはフィールドの最小〜最大の外)。
+        NotImplementedError: API 2.0で値を作れない型の場合。
     """
     attribute = plug.attribute()
     unit = attribute.hasFn(om2.MFn.kUnitAttribute)
@@ -181,7 +194,7 @@ def _prepared_writes(plug, value, _writable_checked=False):
     if plug.isCompound:
         values = tuple(value)
         if len(values) != plug.numChildren():
-            raise ValueError("Compound attribute value length mismatch")
+            raise ValueError("コンパウンドアトリビュートの値の数が合っていません")
         writes = []
         for i, item in enumerate(values):
             writes.extend(_prepared_writes(plug.child(i), item, _writable_checked))
@@ -202,14 +215,14 @@ def _prepared_writes(plug, value, _writable_checked=False):
         enum_fn = om2.MFnEnumAttribute(attribute)
         # cmds.setAttrと同じく、四捨五入前の値をフィールドの最小〜最大と比べる。
         if value < enum_fn.getMin() or value > enum_fn.getMax():
-            raise RuntimeError(f"Value outside attribute limits: {plug.name()}")
+            raise RuntimeError(f"値がアトリビュートの範囲を超えています: {plug.name()}")
         setter, result = om2.MPlug.setInt, _round_integer(value)
     elif numeric:
         _require_number(plug, value)
         require_range(plug, value, fn)
         writer = NUMERIC_WRITERS.get(fn.numericType())
         if writer is None:
-            raise NotImplementedError(f"fast numeric type is not supported: {plug.name()}")
+            raise NotImplementedError(f"fastはこの数値型に対応していません: {plug.name()}")
         setter, converter = writer
         result = converter(value)
     else:
@@ -218,29 +231,33 @@ def _prepared_writes(plug, value, _writable_checked=False):
 
 
 def set_plug(plug, value, _writable_checked=False):
-    """全成分を事前検証してMPlugへ設定する。Undoには記録しない。
+    """MPlugへ値を書き込む。Undoには記録しない。
 
-    最初に全子の型がfastに対応するかを確かめ(未対応ならロック等より先にNotImplementedError)、
-    次に書込み可否・入力の型・ハード範囲を確認し、型付きデータを構築してから準備順に書き込む。
-    入力の意味は通常経路(cmds.setAttr)と同じにする: 整数型・enum・boolへの小数は四捨五入し、
-    数値型への文字列や文字列型への数値は変換せずTypeErrorにする。
-    function setはデータの受渡しが終わるまで保持する。Undo設定は変更しない。
-    事前検証後のAPI書込みで失敗した場合、先に書いた成分の自動復元は行わない。
+    書き込む前に、すべての成分を調べる。順番は次のとおり。
+
+    - すべての子の型がfastに対応するかを確かめる。未対応なら、ロックなどより先にNotImplementedErrorにする。
+    - 書き込めるかどうか、入力の型、ハード範囲を確かめる。
+    - 型付きデータを作り、準備した順に書き込む。
+
+    入力の扱いは通常の経路(cmds.setAttr)と同じにする。整数型・enum・boolへ小数を渡すと四捨五入する。
+    数値型への文字列や、文字列型への数値は変換せず、TypeErrorにする。
+    function setは、データを渡し終えるまで持っておく。Undoの設定は変えない。
+    検査を通った後のOpenMayaでの書き込みで失敗しても、先に書いた成分は自動では元に戻さない。
 
     Args:
-        plug (om2.MPlug): 更新対象。
-        value (object): 角度rad、距離cm、時間秒の値。
-        _writable_checked (bool): 内部用。呼出し元が直前に自身と全子の書込み可否を
-            :func:`require_writable` で検査済みならTrue。その検査だけを重ねて行わない。
+        plug (om2.MPlug): 書き込み先。
+        value (object): 角度はrad、距離はcm、時間は秒の値。
+        _writable_checked (bool): 内部用。呼び出し元が直前に、自身とすべての子へ
+            :func:`require_writable` を済ませているならTrue。その検査だけを繰り返さない。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: 入力の型の不一致(数値型への数値以外・文字列型への文字列以外)の場合。
-        ValueError: コンパウンドアトリビュートの値の成分数が子数と異なる場合。
-        RuntimeError: 書込み不能、またはハード範囲外の場合。
-        NotImplementedError: API 2.0で未対応の型の場合。書込み可否より先に、更新前に拒否する。
+        TypeError: 入力の型が合わない場合(数値型へ数値以外、文字列型へ文字列以外を渡した場合)。
+        ValueError: コンパウンドアトリビュートの値の成分の数が、子の数と違う場合。
+        RuntimeError: 書き込めない場合、またはハード範囲の外の場合。
+        NotImplementedError: API 2.0で対応していない型の場合。書き込めるかどうかより先に、書き込む前に止める。
     """
     require_supported_type(plug)
     writes = _prepared_writes(plug, value, _writable_checked)
@@ -250,20 +267,22 @@ def set_plug(plug, value, _writable_checked=False):
 
 
 def set_attr(name, *values, fast=False, **kwargs):
-    """既存のsetAttrと同じ値入力を、明示fast時だけMPlugへ渡す。
+    """アトリビュートへ値を設定する。
+
+    値はcmds.setAttrと同じ形で受け取る。fast=Trueを指定したときだけ、cmds.setAttrを使わずMPlugへ直接書き込む。
 
     Args:
         name (str): アトリビュート名。
-        *values: cmds.setAttr と同じ形・現在の Maya 単位の値。
+        *values: cmds.setAttr と同じ形で、現在の Maya の単位の値。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。呼出元が明示的に指定する。
-        **kwargs: setAttr のフラグ。fast 時の対応フラグは限定される。
+        **kwargs: setAttr のフラグ。fast のときに使えるフラグは限られる。
 
     Returns:
-        object | None: 通常経路は ``cmds.setAttr`` の戻り値。fastはNone。
+        object | None: 通常の経路では ``cmds.setAttr`` の戻り値。fastではNone。
 
     Raises:
-        TypeError: fastがbool以外、またはfastで入力の型が一致しない場合。
-        NotImplementedError: fastで ``type`` と状態フラグ以外のフラグを指定した場合。
+        TypeError: fastがboolでない場合、またはfastで入力の型が合わない場合。
+        NotImplementedError: fastで、``type`` と状態のフラグ以外のフラグを指定した場合。
     """
     _require_bool(fast, "fast")
     if not fast:
@@ -278,22 +297,24 @@ def set_attr(name, *values, fast=False, **kwargs):
         return None
     unsupported = set(kwargs) - {"type"}
     if unsupported:
-        raise NotImplementedError(f"fast setAttr does not support flags: {', '.join(sorted(unsupported))}")
+        raise NotImplementedError(f"fastのsetAttrは次のフラグに対応していません: {', '.join(sorted(unsupported))}")
     value = values[0] if len(values) == 1 else values
     set_plug(plug, _convert_units(plug, value, to_ui=False))
     return None
 
 
 def prepare_data(attribute, value, *, name=None):
-    """MPlugを必要とせず、マトリクス・typed dataの型と値を検査する。
+    """マトリクスとtyped dataの値を、書き込める形に用意する。
+
+    型と値を調べてから用意する。MPlugが無くても使える。
 
     Args:
-        attribute (om2.MObject): 登録前でもよいアトリビュート定義。
-        value (object): 設定予定の値。
-        name (str | None): エラー表示用の名前。
+        attribute (om2.MObject): アトリビュートの定義。ノードへ追加する前のものでもよい。
+        value (object): 書き込む予定の値。
+        name (str | None): エラーのメッセージに出す名前。
 
     Returns:
-        tuple: setter、変換済み値、書込み終了まで保持するfunction set。
+        tuple: (setter, 変換した値, function set)。function setは書き込みが終わるまで持っておく。
 
     Raises:
         TypeError: 文字列型へ文字列以外を渡した場合。
@@ -310,7 +331,7 @@ def prepare_data(attribute, value, *, name=None):
         if kind == om2.MFnData.kString:
             if not isinstance(value, str):
                 # cmds.setAttr(type="string")と同じく、文字列以外を変換せずに拒否する。
-                raise TypeError(f"Expected a string value for {label}: {value!r}")
+                raise TypeError(f"{label}には文字列を指定してください: {value!r}")
             setter, result = om2.MPlug.setString, value
         elif kind == om2.MFnData.kMatrix:
             matrix = value if isinstance(value, om2.MMatrix) else om2.MMatrix(value)
@@ -322,7 +343,7 @@ def prepare_data(attribute, value, *, name=None):
             owner = _TYPED_DATA_FACTORIES[kind]()
             setter, result = om2.MPlug.setMObject, owner.create(value)
         else:
-            raise NotImplementedError(f"fast typed data is not supported: {label}")
+            raise NotImplementedError(f"fastはこのデータ型に対応していません: {label}")
     else:
-        raise NotImplementedError(f"fast attribute type is not supported: {label}")
+        raise NotImplementedError(f"fastはこのアトリビュートの型に対応していません: {label}")
     return setter, result, owner

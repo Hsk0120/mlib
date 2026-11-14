@@ -8,42 +8,47 @@ from .transform import Transform
 
 
 class Constraint(Transform):
-    """標準コンストレイントのノード参照を保持し、ターゲットと生ウェイトを扱う。
+    """Maya標準のコンストレイントに共通する、ターゲットとウェイトの操作を持つクラス。
 
-    具象型はparentConstraintなどのMaya nodeTypeごとに定義する。ターゲットと
-    weight aliasの対応は各標準コマンドの問い合わせ順を使い、独自に並べ替えない。
-    コンストレイント先の探索やリグ構築を担当するクラスではない。
+    ウェイトは正規化せず、ノードに書かれたままの値を扱う。
+    実際のクラスは、parentConstraintなどMayaのノード型ごとに作る。
+    ターゲットとウェイトのエイリアスは、各標準コマンドで調べた順のまま対応させ、独自に並べ替えない。
+    コンストレイントする相手を探したり、リグを組み立てたりするクラスではない。
 
-    fast対応のウェイト書込みはPlugへ委譲するが、ターゲット/alias照会には
-    cmdsを使う。fast呼出し全体がOpenMayaだけになるわけではない。
+    fastを指定したときのウェイトの書き込みはPlugに任せるが、ターゲットやエイリアスを調べるにはcmdsを使う。
+    そのため、fastを指定しても、全体がOpenMayaだけで動くわけではない。
     """
 
     def getTargets(self):
-        """Maya標準コンストレイントコマンドで、登録ターゲットを問い合わせる。
+        """登録されているターゲットを取得する。
 
-        nodeTypeに対応するコマンドのtargetList順を保つ。targetのマルチアトリビュートの論理番号で
-        独自にソートせず、getWeightAliases()の対応順として使う。
+        ノード型に対応するMaya標準のコンストレイントコマンドで調べる。
+        並びはコマンドのtargetListの順のままで、targetマルチアトリビュートの論理番号では並べ替えない。
+        この順はgetWeightAliases()の並びと対応する。
 
         Returns:
-            list[Node]: 新しいNode参照のリスト。登録がなければ空。値やノードの複製ではない。
+            list[Node]: ターゲットの新しいオブジェクトのリスト。登録が無ければ空リスト。
+                ノードを複製したものではない。
         """
         names = getattr(cmds, self.getType())(self.getFullName(), query=True, targetList=True) or []
         return [Node(name) for name in names]
 
     def getWeightAliases(self):
-        """登録ターゲットに対応するweight aliasを標準コマンドで問い合わせる。
+        """登録されているターゲットの、ウェイトのエイリアスを取得する。
+
+        Maya標準のコンストレイントコマンドで調べる。
 
         Returns:
-            list[str]: getTargets()と同じ問い合わせ順のalias名。
-                ノード上の全aliasを列挙するgetAliases()とは対象が異なる。
+            list[str]: エイリアスの名前。getTargets()と同じ順に並ぶ。
+                ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
         """
         return getattr(cmds, self.getType())(self.getFullName(), query=True, weightAliasList=True) or []
 
     def getWeightPlugs(self):
-        """ターゲットのウェイトプラグを取得する。
+        """ターゲットのウェイトのアトリビュートを取得する。
 
         Returns:
-            list[Plug]: getTargets() と同じ順序のプラグ。set() で値を変更できる。
+            list[Plug]: getTargets()と同じ順に並ぶ。set()で値を変更できる。
         """
         return [self.getPlug(alias) for alias in self.getWeightAliases()]
 
@@ -51,18 +56,18 @@ class Constraint(Transform):
         """ターゲットの現在のウェイトを取得する。
 
         Returns:
-            list[float]: getTargets() と同じ順序の値。正規化は行わない。
+            list[float]: getTargets()と同じ順に並ぶ値。正規化はしない。
         """
         return [plug.get() for plug in self.getWeightPlugs()]
 
     def getWeight(self, target):
-        """指定ターゲットの現在のウェイトを取得する。
+        """指定したターゲットの現在のウェイトを取得する。
 
         Args:
             target (Node | str): このコンストレイントに登録されたターゲット。
 
         Returns:
-            float: 正規化していないウェイト値。
+            float: ウェイトの値。正規化はしない。
 
         Raises:
             ValueError: ターゲットが登録されていない場合。
@@ -71,29 +76,34 @@ class Constraint(Transform):
         for node, plug in zip(self.getTargets(), self.getWeightPlugs()):
             if node.getFullName() == requested:
                 return plug.get()
-        raise ValueError(f"Target not found on this constraint: {requested}")
+        raise ValueError(f"このコンストレイントにターゲットが見つかりません: {requested}")
 
     def setWeight(self, weight, *targets, fast=False):
-        """登録ターゲットの生ウェイトを、Mayaのターゲット順で更新する。
+        """ターゲットのウェイトを設定する。
 
-        明示ターゲットは全件を解決して登録の有無を検査し、重複をまとめてから更新する。
-        照合は解決した完全名で行い、呼出し側の指定順には並べ替えない。
-        書込み可否と値は各Plug.set()へ逐次委譲するため、後半の失敗では先行更新が
-        残り得る。全Plugの事前検査や自動ロールバックは行わない。
+        値は正規化せず、そのまま書き込む。書き込む順はMayaのターゲットの順になる。
+
+        ターゲットを指定した場合は、まず全部が登録されているかを確かめ、重なりをまとめてから書き込む。
+        ターゲットは完全名で照らし合わせ、指定した順には並べ替えない。
+
+        書き込めるかの確認と書き込みは、Plug.set()に1つずつ任せる。
+        そのため、途中で失敗すると、それより前の書き込みは残ることがある。
+        前もって全部のPlugを確かめたり、失敗時に自動で元に戻したりはしない。
 
         Args:
-            weight (float): 全対象へ設定する値。ここでは正規化や0〜1への制限を行わない。
-            targets (Node | str): 更新対象。省略時は全ターゲット。対象がなければ値を検証せず返す。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Plugの書込みを対象にする。
-                Falseは通常更新をUndo有効時にまとめ、Undo設定は変えない。
-                ターゲット/alias照会にはfastでもcmdsを使う。
+            weight (float): 対象すべてへ設定する値。正規化も、0〜1への制限もしない。
+            targets (Node | str): 設定するターゲット。省略すると全ターゲット。
+                ターゲットが1つも無ければ、値を確かめずにそのまま返る。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Plugの書き込みに使う。
+                Falseなら、Undoが有効なときに通常の書き込みを1回のUndoにまとめる。Undoの設定は変えない。
+                ターゲットやエイリアスを調べるには、fastでもcmdsを使う。
 
         Returns:
             Constraint: 自身。
 
         Raises:
             TypeError: fastがbool以外の場合。
-            ValueError: 明示ターゲットがこのコンストレイントに登録されていない場合。
+            ValueError: 指定したターゲットがこのコンストレイントに登録されていない場合。
         """
         with _edit_context("mlibConstraintSetWeight", fast):
             weight_plugs = self.getWeightPlugs()
@@ -105,7 +115,7 @@ class Constraint(Transform):
             available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
             missing = requested - available.keys()
             if missing:
-                raise ValueError(f"Targets not found on this constraint: {sorted(missing)}")
+                raise ValueError(f"このコンストレイントにターゲットが見つかりません: {sorted(missing)}")
             # 全ターゲットを解決してから更新する。無効な指定で部分更新しない。
             for name, plug in available.items():
                 if name in requested:
@@ -113,10 +123,12 @@ class Constraint(Transform):
             return self
 
     def removeTarget(self, *targets):
-        """ターゲットをコンストレイントから外す(``cmds.<コンストレイント>(target, self, edit=True, remove=True)``)。
+        """ターゲットをコンストレイントから外す。
 
-        Mayaの標準コマンドと同じく、ターゲットのウェイトのアトリビュートと接続も消える。最後のターゲットを
-        外すとMayaはコンストレイント自体を削除する。Undo有効時は1回のUndoで戻る。
+        ``cmds.<コンストレイント>(target, self, edit=True, remove=True)`` と同じ処理をする。
+        Mayaの標準コマンドと同じく、ターゲットのウェイトのアトリビュートと接続も消える。
+        最後のターゲットを外すと、Mayaはコンストレイントそのものを削除する。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
             targets (Node | str): 外すターゲット。1つ以上。
@@ -125,18 +137,18 @@ class Constraint(Transform):
             Constraint: 自身。
 
         Raises:
-            TypeError: ターゲットを1つも指定しない、またはターゲットの型が不正な場合。
-            ValueError: ターゲットがこのコンストレイントに登録されていない場合(何も外さない)。
-            RuntimeError: コンストレイントが無効、またはMayaが変更を拒否した場合。
+            TypeError: ターゲットを1つも指定しない場合、またはターゲットの型が不正な場合。
+            ValueError: ターゲットがこのコンストレイントに登録されていない場合。このときは何も外さない。
+            RuntimeError: コンストレイントが無効な場合、またはMayaが変更を拒否した場合。
         """
         if not targets:
-            raise TypeError("removeTarget requires at least one target")
-        self._require_valid("remove targets from")
+            raise TypeError("removeTargetにはターゲットを1つ以上指定してください")
+        self._require_valid("ターゲットの削除")
         requested = [Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)]
         registered = {node.getFullName() for node in self.getTargets()}
         missing = sorted(set(requested) - registered)
         if missing:
-            raise ValueError(f"Targets not found on this constraint: {missing}")
+            raise ValueError(f"このコンストレイントにターゲットが見つかりません: {missing}")
         with undoChunk("mlibConstraintRemoveTarget"):
             getattr(cmds, self.getType())(*(requested + [self.getFullName()]), edit=True, remove=True)
         return self

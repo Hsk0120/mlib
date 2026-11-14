@@ -11,4 +11,4 @@ _SurfaceBase: Any
 
 
 class Lambert(ShadingDependNode if TYPE_CHECKING else _SurfaceBase):
-    """Mayaの継承型に対応するLambert。値と接続はPlugで操作する。"""
+    """Mayaのlambertノードを表すクラス。値の設定や接続はPlugで行う。"""

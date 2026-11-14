@@ -289,7 +289,7 @@ class NodeDuplicateTest(NamespaceCase):
     def test_invalid_inputs(self):
         node = mlib.createNode("transform", name=self.ns + ":gone")
         cmds.delete(node.getFullName())
-        with self.assertRaisesRegex(RuntimeError, "Cannot duplicate an invalid"):
+        with self.assertRaisesRegex(RuntimeError, "のため、複製はできません"):
             node.duplicate()
         root = mlib.getNode(self.root)
         before = set(cmds.ls(long=True))

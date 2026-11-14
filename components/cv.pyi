@@ -9,28 +9,36 @@ from typing import overload
 
 
 class CV(PointComponent):
-    """NurbsCurveのShape参照とOpenMayaのCV番号を保持する。
+    """NURBSカーブのCV1つを表すクラス。
 
-    NurbsSurfaceの二次元CVは対象外。周期カーブもnumCVs範囲のAPI番号を保持し、
-    cmds用の名前では末尾の重複CVを先頭の対応番号へ写す。
+    NurbsCurveのShapeと、OpenMayaでのCVの番号を持つ。
+    NurbsSurfaceのCV(番号が2つあるもの)は扱わない(SurfaceCVを使う)。
+
+    周期カーブでも、番号はnumCVsの範囲のAPIの番号で持つ。
+    cmdsへ渡す名前では、末尾で重なっているCVを、先頭側の同じCVの番号に直す。
     """
     shape_type: str
     component_type: str
     count_attribute: str
     def getFullName(self) -> str:
-        """cmds用のCV名を返す。周期末尾の重複CVは先頭の対応番号へ写す。
+        """cmdsへ渡すCVの名前を返す。
+
+        周期カーブの末尾で重なっているCVは、先頭側の同じCVの番号に直す。
 
         Returns:
-            str: 同じ位置を編集するMayaコンポーネント名。indexはAPI番号を保持する。
+            str: 同じ位置を編集できるMayaのコンポーネント名。indexはAPIの番号のまま変わらない。
         """
         ...
 
 
 class CVs(PointComponents):
-    """同一NurbsCurveのCV番号列を保持し、CVの列挙と座標の一括操作を担当する。
+    """同じNURBSカーブにあるCVの集まりを表すクラス。
 
-    番号列はOpenMayaの番号と保持順を保つ。周期末尾と先頭は別のAPI番号として保持できるが、
-    cmds用の名前では同じ独立CV番号へ写る場合がある。名前の取得では範囲圧縮しない。
+    CVを1つずつ取り出したり、座標をまとめて扱ったりする。
+    番号はOpenMayaの番号で、持っている順を保つ。
+
+    周期カーブの末尾と先頭のCVは、APIでは別の番号として持てる。
+    ただしcmdsへ渡す名前では、同じCVの番号になることがある。そのため、名前は範囲にまとめない。
     """
     def __iter__(self) -> Iterator[CV]: ...
     @overload
@@ -39,36 +47,40 @@ class CVs(PointComponents):
     def __getitem__(self, index: slice) -> CVs: ...
     component_class: Any
     def getFullNames(self) -> list[str]:
-        """保持順のcmds用CV名を返す。周期末尾は対応する独立CVの名前となる。
+        """cmdsへ渡すCVの名前を、持っている順に返す。
+
+        周期カーブの末尾で重なっているCVは、先頭側の同じCVの名前になる。
 
         Returns:
-            list[str]: 保持順のMayaコンポーネント名。indicesはAPI番号を保持する。
+            list[str]: 持っている順のMayaのコンポーネント名。indicesはAPIの番号のまま変わらない。
 
         Raises:
-            TypeError: 所有シェイプの種類がNurbsCurveでない場合。
-            IndexError: 保持番号が現在のCV範囲外になった場合。
-            RuntimeError: 所有シェイプが無効な場合。
+            TypeError: シェイプの種類がNurbsCurveでない場合。
+            IndexError: 持っている番号が、今のCVの範囲の外になった場合。
+            RuntimeError: シェイプが無効な場合。
         """
         ...
     def getCompactNames(self) -> list[str]:
-        """cmds用CV名を返す。周期CVの対応を保つため範囲へ圧縮しない。
+        """cmdsへ渡すCVの名前を返す。
+
+        周期カーブのCVの対応を保つため、範囲にはまとめない。
 
         Returns:
-            list[str]: getFullNamesと同じ、保持順のMayaコンポーネント名。
+            list[str]: getFullNamesと同じ、持っている順のMayaのコンポーネント名。
 
         Raises:
-            TypeError: 所有シェイプの種類がNurbsCurveでない場合。
-            IndexError: 保持番号が現在のCV範囲外になった場合。
-            RuntimeError: 所有シェイプが無効な場合。
+            TypeError: シェイプの種類がNurbsCurveでない場合。
+            IndexError: 持っている番号が、今のCVの範囲の外になった場合。
+            RuntimeError: シェイプが無効な場合。
         """
         ...
     def _repr_indices(self) -> list[int]:
-        """repr に表示する番号を、cmds用の独立CV番号へ写して返す。
+        """reprに表示する番号を、cmdsで使うCVの番号に直して返す。
 
-        周期カーブの末尾の重複CVは先頭の独立CVと同じ名前になるため、表示では重複を除く。
+        周期カーブの末尾で重なっているCVは、先頭側のCVと同じ名前になるので、表示では重なりを除く。
 
         Returns:
-            list[int]: 保持順で重複を除いた表示用番号。
+            list[int]: 表示用の番号。持っている順に並び、重なりは除く。
         """
         ...
     def getFullName(self) -> list[str]:

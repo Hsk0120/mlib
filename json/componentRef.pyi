@@ -11,23 +11,24 @@ _COLLECTIONS: dict
 
 
 class ComponentRef:
-    """同じシェイプ・同じ種類のコンポーネントを、シェイプの :class:`NodeRef`・種類・番号で記録した参照。
+    """コンポーネントの参照。
 
+    同じシェイプ・同じ種類のコンポーネントを、シェイプの :class:`NodeRef`・種類・番号で記録する。
     種類はMayaの表記(``"vtx"``・``"e"``・``"f"``・``"map"``・``"cv"``)。番号は記録した順のまま保つ。
-    名前の対応付けはシェイプの部分にだけ当てる。
+    名前の対応づけは、シェイプの部分にだけ当てる。
     """
     __hash__: None
     def __init__(self, node: NodeRef, type: str, indices: Iterable[int]) -> None:
-        """記録する値を保持する。
+        """記録する値を持たせる。
 
         Args:
             node (NodeRef): シェイプの参照。
-            type (str): コンポーネントの種類(``"vtx"`` 等)。
+            type (str): コンポーネントの種類(``"vtx"`` など)。
             indices (Iterable[int]): 番号。
 
         Raises:
-            TypeError: nodeがNodeRefでない、または番号がint以外(boolを含む)の場合。
-            ValueError: 種類が対応外、または番号が負の場合。
+            TypeError: nodeがNodeRefでない場合、または番号がintでない場合(boolも不可)。
+            ValueError: 種類が対応していないものの場合、または番号が負の場合。
         """
         ...
     def __repr__(self) -> str:
@@ -49,7 +50,7 @@ class ComponentRef:
         ...
     @classmethod
     def capture(cls, components: Component | Components) -> ComponentRef:
-        """mlibのコンポーネントまたはその集まりから参照を作る。
+        """mlibのコンポーネントか、その集まりから参照を作る。
 
         Args:
             components (Component | Components): 記録するコンポーネント。
@@ -73,7 +74,7 @@ class ComponentRef:
             ComponentRef: 新しい参照。
 
         Raises:
-            ValueError: 辞書の形が違う場合。
+            ValueError: 辞書の形が正しくない場合。
         """
         ...
     @property
@@ -81,7 +82,7 @@ class ComponentRef:
         """シェイプの参照を返す。
 
         Returns:
-            NodeRef: 保持する参照。
+            NodeRef: 持っている参照。
         """
         ...
     @property
@@ -108,26 +109,28 @@ class ComponentRef:
         """
         ...
     def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """対応付けを当てたシェイプ名と種類を返す。
+        """名前の対応づけを当てたシェイプ名と、種類を返す。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
             str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
         """
         ...
     def resolve(self, mapping: NameMapping | None = ...) -> Components | None:
-        """対応付けを当てたシェイプの、同じ番号のコンポーネントの集まりを返す。
+        """シーンのコンポーネントの集まりを返す。
+
+        名前の対応づけを当てたシェイプから、記録した番号のコンポーネントを取得する。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
-            Components | None: ``Vertices`` 等の集まり。シェイプが無い、型が合わない、または
-                番号が範囲外ならNone。
+            Components | None: ``Vertices`` などの集まり。シェイプが無い場合、型が合わない場合、
+                番号が範囲の外の場合はNone。
 
         Raises:
-            TypeError: mappingがNameMapping・None以外の場合。
+            TypeError: mappingがNameMappingでもNoneでもない場合。
         """
         ...

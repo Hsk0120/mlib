@@ -4,4 +4,4 @@ from .constraint import Constraint
 
 
 class PointOnPolyConstraint(Constraint):
-    """ポリゴン表面上の点へコンストレイントするラッパー。"""
+    """ポリゴンの表面上の点へコンストレイントするpointOnPolyConstraintを扱うクラス。"""

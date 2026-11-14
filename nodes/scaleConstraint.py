@@ -4,4 +4,4 @@ from .constraint import Constraint
 
 
 class ScaleConstraint(Constraint):
-    """スケールをコンストレイントする scaleConstraint ラッパー。"""
+    """スケールをコンストレイントするscaleConstraintを扱うクラス。"""

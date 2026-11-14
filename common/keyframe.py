@@ -1,10 +1,12 @@
-"""アニメーションカーブのキーを「カーブ + キーの番号」の参照として扱う。
+"""アニメーションカーブのキーを、「カーブ + キーの番号」で指すオブジェクトとして扱う。
 
-:class:`Keyframe` は1つのキー、:class:`Keyframes` は複数のキー(複数のカーブにまたがってよい)。
-頂点(:class:`~mlib.components.vertex.Vertex`)と同じく作成時の番号を保つ参照で、キーの追加・削除・
-入力の入れ替わりの後に同じキーを指すことは保証しない。ドリブンキーのカーブ(入力が時間でない animCurveU*)の
-キーも同じクラスで扱い、その場合の「時刻」はカーブの入力値を指す。値・時刻の単位は
-:class:`~mlib.nodes.animCurve.AnimCurve` と同じ(角度は度、距離はcm、時間はフレーム)。
+:class:`Keyframe` は1つのキー、:class:`Keyframes` は複数のキー(複数のカーブにまたがってよい)を表す。
+
+- 頂点(:class:`~mlib.components.vertex.Vertex`)と同じく、作ったときの番号を持ち続ける。
+  キーを追加・削除したり、入力の順が入れ替わったりしたあとも同じキーを指すことは保証しない。
+- ドリブンキーのカーブ(入力が時間でない animCurveU*)のキーも同じクラスで扱う。
+  その場合の「時刻」は、カーブの入力の値を指す。
+- 値と時刻の単位は :class:`~mlib.nodes.animCurve.AnimCurve` と同じ(角度は度、距離はcm、時間はフレーム)。
 
 .. code-block:: python
 
@@ -22,7 +24,7 @@ from ..decorator import _require_bool, undoChunk
 
 
 class Keyframe:
-    """アニメーションカーブの1つのキーの参照。
+    """アニメーションカーブの1つのキーを指すオブジェクト。
 
     Args:
         curve (AnimCurve): キーを持つカーブ。
@@ -30,7 +32,7 @@ class Keyframe:
 
     Raises:
         TypeError: curveがAnimCurveでない場合。
-        IndexError: indexが範囲外の場合。
+        IndexError: indexがキーの数の範囲にない場合。
     """
 
     __slots__ = ("_curve", "_index")
@@ -40,7 +42,7 @@ class Keyframe:
         from ..nodes.animCurve import AnimCurve
 
         if not isinstance(curve, AnimCurve):
-            raise TypeError(f"curve must be an AnimCurve, not {type(curve).__name__}")
+            raise TypeError(f"curveはAnimCurveで指定してください: {type(curve).__name__}")
         curve._index(index)
         self._curve = curve
         self._index = index
@@ -61,7 +63,7 @@ class Keyframe:
 
     def __repr__(self):
         """``Keyframe('pCube1_translateX', 3)`` の形で表示する。"""
-        name = self._curve.getName() if self._curve.isValid() else "<deleted>"
+        name = self._curve.getName() if self._curve.isValid() else "<削除済み>"
         return f"{type(self).__name__}({name!r}, {self._index})"
 
     def getCurve(self):
@@ -81,24 +83,24 @@ class Keyframe:
         return self._index
 
     def isValid(self):
-        """カーブが有効で、番号がキー数の範囲内ならTrue。
+        """カーブが有効で、番号がキーの数の範囲内にあるか調べる。
 
         Returns:
-            bool: 参照できればTrue。番号が同じキーを指し続けているかは確かめない。
+            bool: 有効ならTrue。番号が同じキーを指し続けているかまでは確かめない。
         """
         return self._curve.isValid() and self._index < self._curve.getKeyCount()
 
     def getTime(self, *, timeUnit="frame"):
-        """キーの入力(時刻、またはドリブンキーの入力値)を返す。
+        """キーの入力(時刻、またはドリブンキーの入力の値)を返す。
 
         Args:
-            timeUnit (str): T型入力の単位。``"frame"`` / ``"sec"``。
+            timeUnit (str): 入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            float: 入力。
+            float: 入力の値。
 
         Raises:
-            IndexError: 番号がキー数の範囲外になった場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._require_valid()
@@ -108,42 +110,44 @@ class Keyframe:
         """キーの値を返す。
 
         Args:
-            unit (str): 角度出力(A型)の単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 時間出力の単位。``"frame"`` / ``"sec"``。
+            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
+            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
             float: 値。
 
         Raises:
-            IndexError: 番号がキー数の範囲外になった場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._require_valid()
         return self._curve.getKeyValues(unit=unit, timeUnit=timeUnit)[self._index]
 
     def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False):
-        """キーの値を、接線型を保ったまま変える。
+        """キーの値を、接線の型を保ったまま変える。
 
         Args:
             value (float): 新しい値(:meth:`getValue` と同じ単位)。
-            unit (str): 角度出力(A型)の単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 時間出力の単位。``"frame"`` / ``"sec"``。
+            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
+            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Keyframe: 自身。
 
         Raises:
-            TypeError: 数値へ変換できない型、またはfastがbool以外の場合。
-            ValueError: 非有限値、または単位名が未対応の場合。
-            IndexError: 番号がキー数の範囲外になった場合。
+            TypeError: 数値に変換できない型の場合、またはfastがboolでない場合。
+            ValueError: 値が有限でない場合、または単位名に対応していない場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._curve._set_key_values(self._index, value, unit=unit, timeUnit=timeUnit, fast=fast)
         return self
 
     def getTangent(self, *, unit="deg"):
-        """接線の型・角度・ウェイト・ロックを返す(:meth:`AnimCurve.getTangent <mlib.nodes.animCurve.AnimCurve.getTangent>`)。
+        """接線の型・角度・ウェイト・ロックを返す。
+
+        :meth:`AnimCurve.getTangent <mlib.nodes.animCurve.AnimCurve.getTangent>` と同じ。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
@@ -154,7 +158,9 @@ class Keyframe:
         return self._curve.getTangent(self._index, unit=unit)
 
     def setTangent(self, *, unit="deg", fast=False, **kwargs):
-        """接線を変える(:meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>`)。
+        """接線を変える。
+
+        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じ。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
@@ -168,13 +174,15 @@ class Keyframe:
         return self
 
     def isBreakdown(self):
-        """ブレイクダウンキーか判定する(:meth:`AnimCurve.isBreakdown <mlib.nodes.animCurve.AnimCurve.isBreakdown>`)。
+        """ブレイクダウンキーか調べる。
+
+        :meth:`AnimCurve.isBreakdown <mlib.nodes.animCurve.AnimCurve.isBreakdown>` と同じ。
 
         Returns:
             bool: ブレイクダウンキーならTrue。
 
         Raises:
-            IndexError: 番号がキー数の範囲外になった場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._require_valid()
@@ -186,28 +194,29 @@ class Keyframe:
         :meth:`AnimCurve.setBreakdown <mlib.nodes.animCurve.AnimCurve.setBreakdown>` と同じ。
 
         Args:
-            state (bool): Trueはブレイクダウンキー、Falseは通常のキー。既定True。
+            state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
 
         Returns:
             Keyframe: 自身。
 
         Raises:
-            TypeError: stateがbool以外の場合。
-            IndexError: 番号がキー数の範囲外になった場合。
+            TypeError: stateがboolでない場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._curve.setBreakdown(self._index, state)
         return self
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
-        """キーの入力と値をずらす(:meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>`)。
+        """キーの入力と値をずらす。
 
+        :meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>` と同じ。
         入力は隣のキーを越えない(Mayaの ``keyframe -relative`` と同じ)。番号は変わらない。
 
         Args:
-            timeOffset (float): 入力の移動量。
-            valueOffset (float): 値の移動量。
-            unit (str): 角度出力の単位。
+            timeOffset (float): 入力をずらす量。
+            valueOffset (float): 値をずらす量。
+            unit (str): 出力が角度のときの単位。
             timeUnit (str): 時間の単位。
 
         Returns:
@@ -217,10 +226,12 @@ class Keyframe:
         return self
 
     def remove(self, *, keepCurve=True, fast=False):
-        """キーを削除する。削除後、この参照と同じカーブの後ろの番号の参照は別のキーを指す。
+        """キーを削除する。
+
+        削除したあとは、同じカーブでこれより後ろの番号を持つオブジェクトが、別のキーを指すようになる。
 
         Args:
-            keepCurve (bool): Trueは最後のキーを消してもカーブを残す。
+            keepCurve (bool): Trueなら、最後のキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -229,10 +240,10 @@ class Keyframe:
         self._curve.removeKey(self._index, keepCurve=keepCurve, fast=fast)
 
     def select(self, *, add=False):
-        """Graph Editor・Dope Sheet でこのキーを選ぶ。
+        """Graph Editor・Dope Sheet でこのキーを選択する。
 
         Args:
-            add (bool): Trueは今のキーの選択へ足す。Falseは置き換える。
+            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
             Keyframe: 自身。
@@ -242,28 +253,30 @@ class Keyframe:
 
     def _require_valid(self):
         """カーブが有効で、番号が範囲内であることを確かめる。"""
-        self._curve._require_valid("access attributes of")
+        self._curve._require_valid("アトリビュートの取得")
         self._curve._index(self._index)
 
 
 class Keyframes:
-    """キーの参照の集まり。複数のカーブにまたがってよく、カーブの初出順・カーブ内は番号の昇順で保持する。
+    """キーの集まり。
+
+    複数のカーブにまたがってよい。カーブは最初に出てきた順に、カーブの中のキーは番号の小さい順に並べて持つ。
 
     Args:
-        keyframes (Iterable[Keyframe]): キーの参照。同じキーは1つにまとめる。
+        keyframes (Iterable[Keyframe]): キーのオブジェクト。同じキーは1つにまとめる。
 
     Raises:
-        TypeError: Keyframe以外を含む場合。
+        TypeError: Keyframeでないものを含む場合。
     """
 
-    #: 中身を変えられる集まりなのでハッシュ不可(Components と同じ)。
+    #: 中身を変えられる集まりなので、ハッシュは作れない(Components と同じ)。
     __hash__ = None
 
     def __init__(self, keyframes=()):
         groups = {}
         for keyframe in keyframes:
             if not isinstance(keyframe, Keyframe):
-                raise TypeError(f"Expected Keyframe, not {type(keyframe).__name__}")
+                raise TypeError(f"Keyframeを指定してください: {type(keyframe).__name__}")
             groups.setdefault(keyframe._curve, set()).add(keyframe._index)
         self._groups = [(curve, sorted(indices)) for curve, indices in groups.items()]
 
@@ -272,7 +285,7 @@ class Keyframes:
         return sum(len(indices) for _, indices in self._groups)
 
     def __iter__(self):
-        """カーブごと・番号の昇順に :class:`Keyframe` を返す。"""
+        """カーブごとに、番号の小さい順で :class:`Keyframe` を返す。"""
         for curve, indices in self._groups:
             for index in indices:
                 yield _keyframe(curve, index)
@@ -281,7 +294,7 @@ class Keyframes:
         """位置で :class:`Keyframe` を返す。
 
         Args:
-            index (int): 並びの位置。負値は末尾から。
+            index (int): 並びの位置。負の値なら末尾から数える。
 
         Returns:
             Keyframe: その位置のキー。
@@ -295,7 +308,7 @@ class Keyframes:
         return any(curve == item._curve and item._index in indices for curve, indices in self._groups)
 
     def __eq__(self, other):
-        """同じカーブ・番号の組を同じ順で持つか比較する。"""
+        """同じカーブと番号の組を、同じ順で持つか比べる。"""
         if not isinstance(other, Keyframes):
             return NotImplemented
         return self._groups == other._groups
@@ -308,7 +321,7 @@ class Keyframes:
         """キーを持つカーブを返す。
 
         Returns:
-            list[AnimCurve]: カーブ(初出順、重複なし)。
+            list[AnimCurve]: カーブ(最初に出てきた順。同じものは1回だけ)。
         """
         return [curve for curve, _ in self._groups]
 
@@ -316,19 +329,19 @@ class Keyframes:
         """カーブごとに、そのカーブのキーの集まりを返す。
 
         Yields:
-            tuple[AnimCurve, Keyframes]: カーブと、そのカーブのキー(番号の昇順)。
+            tuple[AnimCurve, Keyframes]: カーブと、そのカーブのキー(番号の小さい順)。
         """
         for curve, indices in self._groups:
             yield curve, Keyframes(_keyframe(curve, index) for index in indices)
 
     def getIndices(self, curve):
-        """指定カーブのキーの番号を返す。
+        """指定したカーブのキーの番号を返す。
 
         Args:
             curve (AnimCurve): カーブ。
 
         Returns:
-            list[int]: 番号の昇順。このカーブのキーが無ければ空。
+            list[int]: 番号(小さい順)。このカーブのキーが無ければ空。
         """
         for held, indices in self._groups:
             if held == curve:
@@ -336,13 +349,13 @@ class Keyframes:
         return []
 
     def getTimes(self, *, timeUnit="frame"):
-        """各キーの入力を返す(並びは反復と同じ)。
+        """各キーの入力を返す(並びはforで取り出す順と同じ)。
 
         Args:
-            timeUnit (str): T型入力の単位。
+            timeUnit (str): 入力が時間(T型)のときの単位。
 
         Returns:
-            list[float]: 入力。
+            list[float]: 入力の値。
         """
         result = []
         for curve, indices in self._groups:
@@ -351,11 +364,11 @@ class Keyframes:
         return result
 
     def getValues(self, *, unit="deg", timeUnit="frame"):
-        """各キーの値を返す(並びは反復と同じ)。
+        """各キーの値を返す(並びはforで取り出す順と同じ)。
 
         Args:
-            unit (str): 角度出力の単位。
-            timeUnit (str): 時間出力の単位。
+            unit (str): 出力が角度のときの単位。
+            timeUnit (str): 出力が時間のときの単位。
 
         Returns:
             list[float]: 値。
@@ -367,12 +380,12 @@ class Keyframes:
         return result
 
     def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False):
-        """全てのキーへ同じ値を書く(1回のUndo)。
+        """すべてのキーに同じ値を書き込む(1回のUndoで戻せる)。
 
         Args:
             value (float): 新しい値。
-            unit (str): 角度出力の単位。
-            timeUnit (str): 時間出力の単位。
+            unit (str): 出力が角度のときの単位。
+            timeUnit (str): 出力が時間のときの単位。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -384,9 +397,9 @@ class Keyframes:
         return self
 
     def setTangent(self, *, unit="deg", fast=False, **kwargs):
-        """全てのキーの接線を変える(1回のUndo)。引数は :meth:`Keyframe.setTangent` と同じ。
+        """すべてのキーの接線を変える(1回のUndoで戻せる)。引数は :meth:`Keyframe.setTangent` と同じ。
 
-        fast=Trueでも全体を1つのUndoチャンクの中で呼ぶが、OpenMayaの更新はUndoに記録されない。
+        fast=Trueでも全体を1つのUndoチャンクの中で呼ぶ。ただし、OpenMayaでの更新はUndoに記録されない。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
@@ -397,11 +410,12 @@ class Keyframes:
             Keyframes: 自身。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
-            IndexError: キー番号が不正な場合。
+            TypeError: unitが文字列でもNoneでもない場合。
+            ValueError: フラグが空か知らないものの場合、unitに対応していない場合、
+                またはfastで正しくない値や、global・知らない接線の型を指定した場合。
+            IndexError: キーの番号が正しくない場合。
             RuntimeError: カーブが無効(削除済み)の場合。
-            NotImplementedError: fastで入力接線にstepnextを指定した場合。
+            NotImplementedError: fastで、入力側の接線にstepnextを指定した場合。
         """
         with undoChunk("mlibKeyframesSetTangent"):
             for curve, indices in self._groups:
@@ -410,14 +424,15 @@ class Keyframes:
         return self
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
-        """全てのキーの入力と値をずらす(カーブごとに1回で動かし、全体で1回のUndo)。
+        """すべてのキーの入力と値をずらす。
 
-        同じカーブの対象のキー同士は一緒に動くため、互いを越える制限は受けない。
+        カーブごとに1回で動かし、全体を1回のUndoで戻せる。
+        同じカーブの対象のキーどうしは一緒に動くため、互いを越えられない制限は受けない。
 
         Args:
-            timeOffset (float): 入力の移動量。
-            valueOffset (float): 値の移動量。
-            unit (str): 角度出力の単位。
+            timeOffset (float): 入力をずらす量。
+            valueOffset (float): 値をずらす量。
+            unit (str): 出力が角度のときの単位。
             timeUnit (str): 時間の単位。
 
         Returns:
@@ -429,10 +444,12 @@ class Keyframes:
         return self
 
     def remove(self, *, keepCurve=True, fast=False):
-        """全てのキーを削除する(1回のUndo)。削除後、この集まりの参照は別のキーを指しうる。
+        """すべてのキーを削除する(1回のUndoで戻せる)。
+
+        削除したあとは、この集まりのオブジェクトが別のキーを指すことがある。
 
         Args:
-            keepCurve (bool): Trueは全キーを消してもカーブを残す。
+            keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -443,16 +460,18 @@ class Keyframes:
                 curve.removeKey(indices, keepCurve=keepCurve, fast=fast)
 
     def select(self, *, add=False):
-        """Graph Editor・Dope Sheet でこれらのキーを選ぶ。空の集まりで add=False ならキーの選択を外す。
+        """Graph Editor・Dope Sheet でこれらのキーを選択する。
+
+        空の集まりで add=False なら、キーの選択を外す。
 
         Args:
-            add (bool): Trueは今のキーの選択へ足す。Falseは置き換える。
+            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
             Keyframes: 自身。
 
         Raises:
-            TypeError: addがbool以外の場合。
+            TypeError: addがboolでない場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         _require_bool(add, "add")
@@ -469,7 +488,7 @@ class Keyframes:
 
 
 def _keyframe(curve, index):
-    """検査を省いて :class:`Keyframe` を作る(番号を検査済みの集まりの反復用)。"""
+    """確認を省いて :class:`Keyframe` を作る(番号を確認済みの集まりから取り出すときに使う)。"""
     keyframe = Keyframe.__new__(Keyframe)
     keyframe._curve = curve
     keyframe._index = index

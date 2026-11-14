@@ -14,10 +14,15 @@ _SECONDARY_MODES: tuple
 class AimMatrix(Node):
     """入力マトリクスの主軸・副軸を、ターゲットのマトリクスまたはベクトルへ向けたマトリクスを出力する。"""
     def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryInputAxis: Iterable[float] | Plug | str | None = ..., primaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryTargetVector: Iterable[float] | Plug | str | None = ..., secondaryInputAxis: Iterable[float] | Plug | str | None = ..., secondaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., secondaryTargetVector: Iterable[float] | Plug | str | None = ...) -> AimMatrix:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 向きを変える元のマトリクス。
@@ -44,7 +49,9 @@ class AimMatrix(Node):
         """
         ...
     def setPrimaryMode(self, mode: str | int) -> AimMatrix:
-        """主軸の向け方を名前または番号で設定する(``primaryMode``)。1回のUndoで戻せる。
+        """主軸の向け方を、名前または番号で設定する(``primaryMode``)。
+
+        1回のUndoで戻せる。
 
         Args:
             mode (str | int): ``"lockAxis"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
@@ -54,7 +61,7 @@ class AimMatrix(Node):
 
         Raises:
             TypeError: modeが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 対応していない名前の場合、または番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...
@@ -66,7 +73,9 @@ class AimMatrix(Node):
         """
         ...
     def setSecondaryMode(self, mode: str | int) -> AimMatrix:
-        """副軸の向け方を名前または番号で設定する(``secondaryMode``)。1回のUndoで戻せる。
+        """副軸の向け方を、名前または番号で設定する(``secondaryMode``)。
+
+        1回のUndoで戻せる。
 
         Args:
             mode (str | int): ``"none"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
@@ -76,7 +85,7 @@ class AimMatrix(Node):
 
         Raises:
             TypeError: modeが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 対応していない名前の場合、または番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...

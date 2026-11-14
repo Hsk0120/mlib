@@ -15,10 +15,11 @@ from mlib.plugs.plug import Plug
 
 
 class ShadingEngine(ObjectSet):
-    """Mayaのレンダー用セット。表面・ボリューム・変位シェーダーを保持する。
+    """Mayaのレンダー用のセット(shadingEngine)を扱うクラス。
 
-    マテリアルの割り当ては、シェーダーを :meth:`setShader` で接続し、形状・フェースへ
-    :meth:`assign` で割り当てる。
+    表面・ボリューム・ディスプレイスメントの3種類のシェーダーを接続して持つ。
+    マテリアルを割り当てるには、まず :meth:`setShader` でシェーダーを接続し、
+    次に :meth:`assign` で形状やフェースへ割り当てる。
 
     .. code-block:: python
 
@@ -33,13 +34,13 @@ class ShadingEngine(ObjectSet):
         engine.assign(mlib.getNode("pCube1"))  # 形状全体。フェースは Face/Faces や "pCube1.f[0:3]"
     """
     def getShaderPlug(self, kind: str = ...) -> Plug | None:
-        """シェーダー接続元を取得する。
+        """接続しているシェーダーの出力アトリビュートを取得する。
 
         Args:
-            kind (str): surface/volume/displacement。
+            kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
 
         Returns:
-            Plug | None: 接続元の出力Plug。未接続ならNone。
+            Plug | None: 接続元の出力のPlug。接続されていなければNone。
 
         Raises:
             ValueError: kindがsurface/volume/displacement以外の場合。
@@ -47,13 +48,13 @@ class ShadingEngine(ObjectSet):
         """
         ...
     def getShader(self, kind: str = ...) -> Node | None:
-        """接続元のシェーダーノードを取得する。
+        """接続しているシェーダーのノードを取得する。
 
         Args:
-            kind (str): surface/volume/displacement。
+            kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
 
         Returns:
-            Node | None: 型付きノード。未接続ならNone。
+            Node | None: シェーダーのノード。ノード型に合ったクラスのオブジェクトになる。接続されていなければNone。
 
         Raises:
             ValueError: kindがsurface/volume/displacement以外の場合。
@@ -61,63 +62,66 @@ class ShadingEngine(ObjectSet):
         """
         ...
     def setShader(self, shader: Node | Plug | str, kind: str = ..., output: str | None = ..., *, fast: bool = ...) -> ShadingEngine:
-        """指定シェーダーの出力へ接続を置き換える。
+        """シェーダーを接続する。
 
-        例えば ``engine.setShader(lambert)`` は ``lambert.outColor`` を ``surfaceShader`` へ接続する
-        (既存の接続は置き換える。同じ接続元が既に接続済みなら何も変更しない)。形状への割り当ては
-        :meth:`assign` で行う(クラスの説明の例を参照)。
+        例えば ``engine.setShader(lambert)`` は、``lambert.outColor`` を ``surfaceShader`` へ接続する。
+        すでにある接続は置き換える。同じ接続元がすでに接続されていれば、何も変えない。
+        形状への割り当ては :meth:`assign` で行う(クラスの説明の例を参照)。
 
         Args:
-            shader (Node | Plug | str): ノードまたは出力Plug。
-            kind (str): surface/volume/displacement。
-            output (str | None): ノード指定時の出力名。既定はoutColor、変位はdisplacement。
+            shader (Node | Plug | str): シェーダーのノード、またはその出力のPlug。
+            kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
+            output (str | None): shaderにノードを渡したときに使う出力のアトリビュート名。
+                Noneならdisplacementではdisplacement、それ以外ではoutColorを使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             ShadingEngine: 自身。
 
         Raises:
-            ValueError: 種別が不正な場合。
-            RuntimeError: 接続元が接続先のアトリビュート自身の場合(fastの有無によらない)、
+            ValueError: kindが対応していない値の場合。
+            RuntimeError: 接続元と接続先が同じアトリビュートの場合(fastの指定に関係なく)、
                 またはMayaが接続を拒否した場合。
         """
         ...
     def assign(self, targets: Node | Face | Faces | str | Iterable) -> ShadingEngine:
-        """形状またはフェースへ割り当て、既存の割り当てを置き換える。
+        """形状またはフェースへ割り当てる。
 
-        例えば ``engine.assign(mlib.getNode("pCube1"))`` は形状全体、``engine.assign("pCube1.f[0:3]")``
-        はフェースだけへ割り当てる(``cmds.sets(forceElement=...)`` 相当)。シェーダーの接続は
-        :meth:`setShader` で行う(クラスの説明の例を参照)。fast引数は持たない(OpenMayaの
-        割り当ては ``cmds.sets`` より遅いため)。
+        すでにある割り当ては、この割り当てに置き換わる。``cmds.sets(forceElement=...)`` と同じ。
+        例えば ``engine.assign(mlib.getNode("pCube1"))`` は形状全体へ、
+        ``engine.assign("pCube1.f[0:3]")`` はそのフェースだけへ割り当てる。
+        シェーダーの接続は :meth:`setShader` で行う(クラスの説明の例を参照)。
+        OpenMayaでの割り当ては ``cmds.sets`` より遅いため、fast引数は持たない。
 
         Args:
-            targets (Node | Face | Faces | str | Iterable): 対象。選択に依存しない。
+            targets (Node | Face | Faces | str | Iterable): 割り当てる対象。選択されているものには関係しない。
 
         Returns:
-            ShadingEngine: 自身。空列では変更しない。
+            ShadingEngine: 自身。targetsが空なら何も変えない。
 
         Raises:
             RuntimeError: Mayaが割り当てを拒否した場合。
         """
         ...
     def getMembers(self) -> list[Node | Face]:
-        """割り当て先を型付き参照で取得する。
+        """割り当てている先を取得する。
 
         Returns:
-            list[Node | Face]: オブジェクトまたは単体フェース。インスタンスパスを保持する。
+            list[Node | Face]: 形状全体に割り当てていればそのノード、フェースに割り当てていれば
+                フェース1つずつのオブジェクト。どれもインスタンスのDAGパスを保つ。
         """
         ...
     @staticmethod
     def _shader_attribute(kind: str) -> str:
-        """接続種別をMayaのアトリビュート名へ変換する。
+        """シェーダーの種類を、接続先のアトリビュート名へ変える。
 
         Args:
-            kind (str): surface/volume/displacement。
+            kind (str): surface・volume・displacementのどれか。
 
         Returns:
-            str: 対応する接続先名。
+            str: 接続先のアトリビュート名。
 
         Raises:
-            ValueError: 未対応の種別の場合。
+            ValueError: kindが対応していない値の場合。
         """
         ...

@@ -10,19 +10,27 @@ from mlib.plugs.plug import Plug
 
 
 class PickMatrix(Node):
-    """入力マトリクスの移動・回転・スケール・せん断のうち、使うものだけを残したマトリクスを出力する。"""
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., useTranslate: bool | Plug | str | None = ..., useRotate: bool | Plug | str | None = ..., useScale: bool | Plug | str | None = ..., useShear: bool | Plug | str | None = ...) -> PickMatrix:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+    """マトリクスの成分の一部だけを取り出すpickMatrixを扱うクラス。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+    入力のマトリクスの移動・回転・スケール・せん断のうち、使うものだけを残したマトリクスを出力する。
+    """
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., useTranslate: bool | Plug | str | None = ..., useRotate: bool | Plug | str | None = ..., useScale: bool | Plug | str | None = ..., useShear: bool | Plug | str | None = ...) -> PickMatrix:
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
+
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 元のマトリクス。
-            useTranslate (bool | Plug | str | None): 移動を残すか。
-            useRotate (bool | Plug | str | None): 回転を残すか。
-            useScale (bool | Plug | str | None): スケールを残すか。
-            useShear (bool | Plug | str | None): せん断を残すか。
+            useTranslate (bool | Plug | str | None): Trueなら移動を残す。
+            useRotate (bool | Plug | str | None): Trueなら回転を残す。
+            useScale (bool | Plug | str | None): Trueならスケールを残す。
+            useShear (bool | Plug | str | None): Trueならせん断を残す。
 
         Returns:
             PickMatrix: 自身。

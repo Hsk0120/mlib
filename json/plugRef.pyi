@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Plugを、所有ノードの参照とアトリビュートのパスで記録する。"""
+"""Plugを、持ち主のノードの参照とアトリビュートのパスで記録する。"""
 
 from .nameMapping import NameMapping
 from .nodeRef import NodeRef
@@ -9,21 +9,23 @@ import maya.api.OpenMaya as om2
 
 
 class PlugRef:
-    """Plugを所有ノードの :class:`NodeRef` とアトリビュートのパスで記録した参照。
+    """Plugの参照。
 
-    アトリビュートのパスはロング名で、マルチアトリビュートの要素は ``weight[3]``、コンパウンドの子は
-    ``translate.translateX`` のように書く。エイリアスは使わない。名前の対応付けはノードの部分にだけ当てる。
+    持ち主のノードの :class:`NodeRef` と、アトリビュートのパスで記録する。
+    アトリビュートのパスはロング名で書く。マルチアトリビュートの要素は ``weight[3]``、
+    コンパウンドアトリビュートの子は ``translate.translateX`` のように書く。エイリアスは使わない。
+    名前の対応づけは、ノードの部分にだけ当てる。
     """
     __hash__: None
     def __init__(self, node: NodeRef, attribute: str) -> None:
-        """記録する値を保持する。
+        """記録する値を持たせる。
 
         Args:
-            node (NodeRef): 所有ノードの参照。
-            attribute (str): アトリビュートのパス(ノード名を含めない)。
+            node (NodeRef): 持ち主のノードの参照。
+            attribute (str): アトリビュートのパス(ノード名は含めない)。
 
         Raises:
-            TypeError: nodeがNodeRefでない、またはattributeが文字列でない場合。
+            TypeError: nodeがNodeRefでない場合、またはattributeが文字列でない場合。
             ValueError: attributeが空の場合。
         """
         ...
@@ -52,11 +54,11 @@ class PlugRef:
             plug (Plug | str | om2.MPlug): 記録するPlug。
 
         Returns:
-            PlugRef: 所有ノードとアトリビュートのパスを記録した参照。
+            PlugRef: 持ち主のノードとアトリビュートのパスを記録した参照。
 
         Raises:
             TypeError: plugが対応しない型の場合。
-            ValueError: Plugが存在しない場合。
+            ValueError: Plugが無い場合。
             RuntimeError: Plugが無効な場合。
         """
         ...
@@ -71,15 +73,15 @@ class PlugRef:
             PlugRef: 新しい参照。
 
         Raises:
-            ValueError: 辞書の形が違う場合。
+            ValueError: 辞書の形が正しくない場合。
         """
         ...
     @property
     def node(self) -> NodeRef:
-        """所有ノードの参照を返す。
+        """持ち主のノードの参照を返す。
 
         Returns:
-            NodeRef: 保持する参照。
+            NodeRef: 持っている参照。
         """
         ...
     @property
@@ -87,7 +89,7 @@ class PlugRef:
         """アトリビュートのパスを返す。
 
         Returns:
-            str: ``"translateX"``・``"weight[3]"`` 等。
+            str: ``"translateX"``・``"weight[3]"`` など。
         """
         ...
     def toData(self) -> dict:
@@ -98,25 +100,27 @@ class PlugRef:
         """
         ...
     def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """対応付けを当てたPlug名を返す。
+        """名前の対応づけを当てたPlug名を返す。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
             str: ``<ノード名>.<アトリビュート>``。警告や報告の表示に使う。
         """
         ...
     def resolve(self, mapping: NameMapping | None = ...) -> Plug | None:
-        """対応付けを当てたノードの、同じアトリビュートのPlugを返す。
+        """シーンのPlugを返す。
+
+        名前の対応づけを当てたノードから、記録したアトリビュートのPlugを取得する。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
-            Plug | None: 見つかったPlug。ノードまたはアトリビュートが無ければNone。
+            Plug | None: 見つかったPlug。ノードかアトリビュートが無ければNone。
 
         Raises:
-            TypeError: mappingがNameMapping・None以外の場合。
+            TypeError: mappingがNameMappingでもNoneでもない場合。
         """
         ...

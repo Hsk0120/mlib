@@ -10,22 +10,23 @@ from .node import Node
 
 
 class DisplayLayer(Node):
-    """Maya の displayLayer ラッパー。メンバー管理とカレントレイヤー操作を提供する。"""
+    """MayaのdisplayLayerを扱うクラス。メンバーの管理と、カレントレイヤーの切り替えができる。"""
     def getMembers(self) -> list[Node]:
         """レイヤーのメンバーを取得する。
 
         Returns:
-            list[Node]: メンバーのラッパー。メンバーが無ければ空リスト。
+            list[Node]: メンバーのオブジェクト。メンバーが無ければ空リスト。
 
         Note:
-            2024以降はMFnDisplayLayerを使用する。2022/2023のdefaultLayerは
-            同APIがないため、既存のカメラ除外規則を標準コマンドで維持する。
+            Maya 2024以降はMFnDisplayLayerを使う。2022/2023にはこのAPIが無いので、defaultLayerでは
+            標準コマンドを使い、カメラを除くなどのMayaの決まりをそのまま守る。
         """
         ...
     def addMembers(self, *members: Node | str) -> DisplayLayer:
-        """子階層を含めてメンバーを排他的にこのレイヤーへ移動する。
+        """メンバーをこのレイヤーへ移す。
 
-        fast引数は持たない(OpenMayaで接続を移す処理はcmdsより遅いため)。
+        子の階層もまとめて移す。ノードが入れるレイヤーは1つだけなので、元のレイヤーからは外れる。
+        fast引数は無い(OpenMayaで接続を移すほうがcmdsより遅いため)。
 
         Args:
             members (Node | str): 追加するDAGノード。
@@ -35,17 +36,21 @@ class DisplayLayer(Node):
         """
         ...
     def removeMembers(self, *members: Node | str) -> DisplayLayer:
-        """子階層を含めてdefaultLayerへ移す。
+        """ノードをdefaultLayerへ移して、レイヤーから外す。
+
+        子の階層もまとめて移す。
 
         Args:
-            members (Node | str): 除外するDAGノード。
+            members (Node | str): 外すDAGノード。
 
         Returns:
             DisplayLayer: 自身。
         """
         ...
     def setCurrent(self) -> DisplayLayer:
-        """このレイヤーを新規作成ノードの追加先にする。
+        """このレイヤーをカレントレイヤーにする。
+
+        以後に新しく作ったノードは、このレイヤーへ入る。
 
         Returns:
             DisplayLayer: 自身。

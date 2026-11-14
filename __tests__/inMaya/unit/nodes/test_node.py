@@ -400,7 +400,7 @@ class TypeSelectionTest(_SpecCase):
         joint = self.make("joint")
         transform = self.make("transform")
         self.assertIs(type(Transform(joint)), Joint)
-        with self.assertRaisesRegex(TypeError, "Joint requires a compatible node, got Transform"):
+        with self.assertRaisesRegex(TypeError, "Jointには対応するノードが必要です: Transform"):
             Joint(transform)
         with self.assertRaises(TypeError):
             Mesh(transform)
@@ -518,13 +518,13 @@ class DeletedNodeTest(_SpecCase):
         self.assertFalse(node.isValid())
         self.assertTrue(node.isAlive())
         self.assertEqual(str(node), "")
-        with self.assertRaisesRegex(RuntimeError, r"was deleted or undone; check isValid\(\)"):
+        with self.assertRaisesRegex(RuntimeError, r"削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
             node.getName()
         self.assertEqual(node.getFullName(), "")
         self.assertIsNone(node.getUuid())
         self.assertEqual(repr(node), "<Transform invalid>")
         self.assertEqual(node.getType(), "transform")
-        with self.assertRaisesRegex(RuntimeError, "was deleted or undone"):
+        with self.assertRaisesRegex(RuntimeError, "削除されたか、Undoで取り消されました"):
             node.getNodeName(removeNamespace=True)
         self.assertFalse(node.hasAttr("tx"))
         self.assertFalse(node.isType("transform"))
@@ -541,7 +541,7 @@ class DeletedNodeTest(_SpecCase):
                 with self.assertRaises(RuntimeError):
                     getattr(node, method)(*args)
         self.assertEqual(node.getConnections(skipConversionNodes=True), [])
-        with self.assertRaisesRegex(RuntimeError, r"Cannot delete an invalid \w+"):
+        with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため、削除はできません"):
             node.delete()
 
     def test_deleted_node_rename_message(self):
@@ -550,9 +550,9 @@ class DeletedNodeTest(_SpecCase):
         cmds.delete(node.getFullName())
         for fast in (False, True):
             with self.subTest(fast=fast):
-                with self.assertRaisesRegex(RuntimeError, r"^Cannot rename an invalid \w+$"):
+                with self.assertRaisesRegex(RuntimeError, r"^無効な\w+のため、名前の変更はできません$"):
                     node.rename(self.name("renamed"), fast=fast)
-                with self.assertRaisesRegex(RuntimeError, r"Cannot rename an invalid \w+"):
+                with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため、名前の変更はできません"):
                     node.setNamespace(self.ns, fast=fast)
         self.assertFalse(cmds.objExists(self.name("renamed")))
 
@@ -730,9 +730,9 @@ class NamePathTest(_SpecCase):
         self.assertEqual(node.getNodeName(), self.name("moved"))
         for value in ("", 1, None):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(ValueError, "non-empty string"):
+                with self.assertRaisesRegex(ValueError, "空でない文字列で指定してください"):
                     node.setNamespace(value)
-        with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+        with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             node.setNamespace(target, fast=1)
 
     def test_set_namespace_fast(self):
@@ -752,11 +752,11 @@ class NamePathTest(_SpecCase):
         node = Node(self.make("network", "orig"))
         self.assertIs(node.rename(self.name("1bad")), node)
         self.assertEqual(node.getNodeName(), self.name("bad"))
-        with self.assertRaisesRegex(ValueError, r"must not contain '\|'"):
+        with self.assertRaisesRegex(ValueError, r"に'\|'は使えません"):
             node.rename("grp|child")
         with self.assertRaises(RuntimeError):
             node.rename("")
-        with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+        with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             node.rename(self.name("x"), fast="yes")
         cmds.flushUndo()
         self.assertIs(node.rename(self.name("fastName"), fast=True), node)
@@ -997,9 +997,9 @@ class HistoryInvalidNodeTest(unittest.TestCase):
     def test_deleted_node_raises_runtime_error(self):
         node = mlib.getNode(cmds.createNode("transform", name="mlibContractA_history_" + uuid.uuid4().hex))
         cmds.delete(node.getFullName())
-        with self.assertRaisesRegex(RuntimeError, r"Cannot get the history of an invalid \w+"):
+        with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため、ヒストリの取得はできません"):
             node.getHistory()
-        with self.assertRaisesRegex(RuntimeError, r"invalid \w+"):
+        with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため"):
             node.getHistory(future=True)
 
     def test_history_matches_cmds_order(self):
@@ -1031,12 +1031,12 @@ class DestroyedNodeTest(unittest.TestCase):
             self.skipTest("the deleted node is still alive in this Maya version")
         for method in ("getType", "getTypeId", "getPluginName", "isLocked", "isFromReferencedFile", "getClassification"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, r"Cannot access an invalid \w+"):
+                with self.assertRaisesRegex(RuntimeError, "無効なノードは使えません"):
                     getattr(node, method)()
         # 名前の取得は無効なノードでRuntimeError。str()だけは空文字列を返す。
         for method in ("getName", "getNodeName"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, r"was deleted or undone; check isValid\(\)"):
+                with self.assertRaisesRegex(RuntimeError, r"削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
                     getattr(node, method)()
         self.assertEqual(str(node), "")
         self.assertFalse(node.isType("multiplyDivide"))

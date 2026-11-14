@@ -151,7 +151,7 @@ class SelectionSnapshotTest(_SnapshotCase):
         cmds.polyPlane(name=self.other_name("cube"), subdivisionsX=1, subdivisionsY=1, constructionHistory=False)
         report = snap.apply(namespaceMap={self.ns: self.other})
         self.assertEqual(len(report.skipped), 1)
-        self.assertIn("index out of range", report.skipped[0])
+        self.assertIn("番号が範囲外です", report.skipped[0])
 
     def test_invalid_data(self):
         for data in ({}, {"items": [{}]}, {"items": [{"other": {}}]}, {"items": [{"components": {"node": {"name": "a"}, "type": "pt", "indices": [0]}}]}):

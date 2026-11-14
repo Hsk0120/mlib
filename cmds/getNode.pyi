@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""既存のMayaノードを参照する新しいラッパーを、登録されたノード型に応じて返す。
+"""既存のMayaノードを指す新しいオブジェクトを、ノードの型に合ったクラスで返す。
 
-ノードの作成や複製は行わない。Plug入力は所有ノード、Component入力は
-所有シェイプへ解決する。複数のノードを探す場合は ``mlib.ls()`` を使う。
+ノードを作ったり複製したりはしない。Plugを渡すとその持ち主のノードを、Componentを渡すと
+その持ち主のシェイプを返す。複数のノードを探すときは ``mlib.ls()`` を使う。
 
 .. code-block:: python
 
@@ -19,25 +19,29 @@ import maya.api.OpenMaya as om2
 
 
 def getNode(value: str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> Node:
-    """既存のMayaノードを参照する新しいラッパーを取得する。
+    """既存のMayaノードを指す新しいオブジェクトを取得する。
 
-    入力がNodeでも同じMayaノードへの参照を作り、シーンのノードを複製しない。
-    ラッパー型はnodeTypeの登録、無ければMayaの継承に沿って生成したクラス(基底は最寄りの登録クラス)、Mayaが認識しない型名だけNodeの順に選ぶ。
+    Nodeを渡しても、同じMayaノードを指す新しいオブジェクトを作る。シーンのノードは複製しない。
+    クラスは次の順に選ぶ。
+
+    - nodeTypeに登録されたクラス。
+    - 登録が無ければ、Mayaの継承に沿って作ったクラス(基底は最も近い登録クラス)。
+    - Mayaが知らない型名の場合だけNode。
 
     Args:
         value (str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-            ノード名、mlib のラッパー、または Maya API 2.0 の参照。Plug・MPlug は
-            所有ノード、Component・Components は所有シェイプとして解決する。
+            ノード名、mlib のオブジェクト、または Maya API 2.0 のオブジェクト。Plug・MPlug は
+            持ち主のノード、Component・Components は持ち主のシェイプとして扱う。
 
     Returns:
-        Node: 実際のノード型に対応するラッパー。
+        Node: 実際のノード型に合ったオブジェクト。
 
     Raises:
-        TypeError: 未対応の入力型、または依存ノード以外(アトリビュートなど)を指す MObject の場合。
-        ValueError: 所有ノードは有効で、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
+        TypeError: 対応していない型を渡した場合、または依存ノード以外(アトリビュートなど)を指す MObject の場合。
+        ValueError: 持ち主のノードは有効だが、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
             (``mlib.plugs.plug.DeletedAttributeError``。RuntimeError の派生でもある)。
-        RuntimeError: ノードを解決できない(存在しない、または ``"bulk*"`` のようなパターンを
-            含めて複数の対象に一致する)場合、または空・削除済みのラッパーや om2 オブジェクトを
-            指定した場合。
+        RuntimeError: ノードが1つに決まらない場合(存在しない場合や、``"bulk*"`` のようなパターンを
+            含めて複数の対象に一致する場合)、または空か削除済みのオブジェクトや om2 のオブジェクトを
+            渡した場合。
     """
     ...

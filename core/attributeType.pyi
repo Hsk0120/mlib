@@ -1,14 +1,20 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""アトリビュートの型名を Maya API 2.0 のアトリビュート定義から求める(シーンを変更しない)。
+"""アトリビュートの型名を、Maya API 2.0のアトリビュートの定義から求める(シーンは変えない)。
 
-Plug の派生クラスの選択(:class:`~mlib.core.registry.NodeRegistry` のアトリビュート型キー)と、
-``Plug.set()`` の配列型の判定に使う型名を、``cmds.getAttr(<プラグ名>, type=True)`` と
-同じ文字列で返す。``cmds.getAttr(type=True)`` は存在しないマルチアトリビュートの要素を問い合わせると
-要素を作り(blendShape の ``weight[i]`` では ``parentDirectory[i]`` なども作られる)、
-nurbsSurface の ``patchUVIds`` の存在しない要素では Maya が異常終了し、mesh の内部アトリビュート
-(``edge[i]``・``face[i]`` など)では例外になる。この関数はプラグの値を読まず、
-アトリビュート定義(``MFnAttribute`` の各派生クラス)だけから型名を決めるため、存在しない要素でも
-シーンを変更せず、評価も起こさない。
+型名は ``cmds.getAttr(<プラグ名>, type=True)`` と同じ文字列で返す。次の2つに使う。
+
+- Plugの派生クラスを選ぶ(:class:`~mlib.core.registry.NodeRegistry` のアトリビュート型のキー)。
+- ``Plug.set()`` で、doubleArrayなどのデータ型かを判定する。
+
+``cmds.getAttr(type=True)`` には、次のような問題がある。
+
+- 存在しないマルチアトリビュートの要素を問い合わせると、要素を作ってしまう
+  (blendShapeの ``weight[i]`` では ``parentDirectory[i]`` なども作られる)。
+- nurbsSurfaceの ``patchUVIds`` の存在しない要素では、Mayaが異常終了する。
+- meshの内部アトリビュート(``edge[i]``・``face[i]`` など)では例外になる。
+
+このモジュールの関数はプラグの値を読まず、アトリビュートの定義(``MFnAttribute`` の各派生クラス)だけから
+型名を決める。そのため、存在しない要素でもシーンを変えず、評価も起こさない。
 
 アトリビュートの種類と結果:
 
@@ -35,13 +41,13 @@ nurbsSurface の ``patchUVIds`` の存在しない要素では Maya が異常終
    * - 不透明(opaque)
      - ``getAddAttrCmd()`` のアトリビュート型名(``TattributeCtypeOf<...>``)
 
-保持する値によって ``cmds.getAttr(type=True)`` の結果が変わるアトリビュート(generic アトリビュート、
-任意のデータを受け付ける typed アトリビュート、``geometry`` 型など)は、値を読まない限り
-型名が決まらないため ``None`` を返す。
+持っている値によって ``cmds.getAttr(type=True)`` の結果が変わるアトリビュートは、
+値を読まないと型名が決まらないので ``None`` を返す。genericアトリビュート、どんなデータでも受け付けるtypedアトリビュート、
+``geometry`` 型などがこれに当たる。
 
-例外として、mesh の ``controlPoints`` はアトリビュート定義が ``double3`` でも、Maya が内部で
-float の頂点座標として扱い ``cmds.getAttr(type=True)`` が ``float3`` を返すため、
-``float3`` を返す(nurbsCurve・nurbsSurface・lattice は ``double3``)。
+例外として、meshの ``controlPoints`` は ``float3`` を返す。アトリビュートの定義は ``double3`` だが、
+Mayaは内部でfloatの頂点座標として扱い、``cmds.getAttr(type=True)`` も ``float3`` を返すためである
+(nurbsCurve・nurbsSurface・latticeは ``double3``)。
 """
 
 import math
@@ -66,166 +72,172 @@ _ADD_ATTR_ATTRIBUTE_TYPE: Any
 _SELF_UNIT_VALUES: tuple
 
 def _add_attr_type_name(attribute: om2.MObject) -> str | None:
-    """``MFnAttribute.getAddAttrCmd()`` の型指定から型名を求める。
+    """``MFnAttribute.getAddAttrCmd()`` の型の指定から、型名を求める。
 
-    API 2.0 の列挙値で表せないデータ型(``Int64Array``、データ型指定の ``double3`` など)や
-    アトリビュート型(``reflectance``、opaque アトリビュート)に使う。
+    API 2.0の列挙値で表せない型に使う。データ型(``Int64Array``、データ型として指定した ``double3`` など)と、
+    アトリビュート型(``reflectance``、opaqueアトリビュート)がある。
 
     Args:
-        attribute (om2.MObject): アトリビュートの MObject。
+        attribute (om2.MObject): アトリビュートのMObject。
 
     Returns:
-        str | None: 型名。データ型を複数受け付けるアトリビュート、または値によって型が変わる
-            アトリビュートは None。
+        str | None: 型名。データ型を複数受け付けるアトリビュートと、値によって型が変わるアトリビュートはNone。
     """
     ...
 
 def _is_mesh_control_points(mplug: om2.MPlug, attribute: om2.MObject) -> bool:
-    """mesh の ``controlPoints`` (Maya が float3 として扱うアトリビュート)のプラグか判定する。
+    """meshの ``controlPoints`` (Mayaがfloat3として扱うアトリビュート)のプラグか調べる。
 
     Args:
-        mplug (om2.MPlug): 対象のプラグ。
+        mplug (om2.MPlug): 調べるプラグ。
         attribute (om2.MObject): プラグのアトリビュート。
 
     Returns:
-        bool: mesh の ``controlPoints`` の場合は True。
+        bool: meshの ``controlPoints`` ならTrue。
     """
     ...
 
 def attributeType(mplug: om2.MPlug) -> str | None:
-    """プラグのアトリビュート型名を、``cmds.getAttr(<プラグ名>, type=True)`` と同じ文字列で取得する。
+    """プラグのアトリビュートの型名を、``cmds.getAttr(<プラグ名>, type=True)`` と同じ文字列で取得する。
 
-    core の関数は snake_case を基本とするが、この名前は ``Plug`` 側のアトリビュート型 dispatch
-    (``Plug._registry`` のキー)と ``cmds.getAttr(type=True)`` の呼び方に合わせた既存名として維持する。
+    coreの関数の名前はsnake_caseが基本だが、この関数は今の名前のまま残している。
+    ``Plug`` 側でアトリビュートの型ごとにクラスを選ぶ処理(``Plug._registry`` のキー)と、
+    ``cmds.getAttr(type=True)`` の呼び方に合わせた名前のため。
 
-    アトリビュート定義だけから求めるため、存在しないマルチアトリビュートの要素や、``cmds.getAttr`` が例外になる
-    mesh の内部アトリビュートにも使え、シーンを変更しない。マルチアトリビュートのプラグは要素の型名を返す
-    (``cmds.getAttr(type=True)`` をマルチアトリビュート全体に使った結果とは異なる)。規則はモジュールの
-    説明を参照。
+    アトリビュートの定義だけから求めるので、シーンを変えない。存在しないマルチアトリビュートの要素や、
+    ``cmds.getAttr`` が例外になるmeshの内部アトリビュートにも使える。
+    マルチアトリビュートのプラグでは、要素の型名を返す
+    (マルチアトリビュート全体に ``cmds.getAttr(type=True)`` を使った結果とは違う)。
+    細かい規則はモジュールの説明を参照する。
 
     Args:
-        mplug (om2.MPlug): 対象のプラグ。
+        mplug (om2.MPlug): 調べるプラグ。
 
     Returns:
-        str | None: ``double3``/``doubleLinear``/``matrix`` などの型名。値によって型が
-            変わるアトリビュート(generic アトリビュートなど)は None。
+        str | None: ``double3``/``doubleLinear``/``matrix`` などの型名。値によって型が変わる
+            アトリビュート(genericアトリビュートなど)はNone。
 
     Raises:
-        RuntimeError: アトリビュートが削除されて存在しない場合(Undo の対象から外れた削除済みの
-            動的アトリビュートなど)。
+        RuntimeError: アトリビュートが削除されて存在しない場合(Undoで戻せなくなった、
+            削除済みの動的アトリビュートなど)。
     """
     ...
 
 def is_internal_data_type(mplug: om2.MPlug) -> bool:
-    """Maya 内部のデータ型(``cmds.addAttr`` で作成できない型)の型付きアトリビュートか判定する。
+    """Mayaの内部のデータ型を持つtypedアトリビュートか調べる。
 
-    nurbsSurface の ``patchUVIds`` (``nurbsPatchUVIds``)のような内部のデータ型は、
-    存在しないマルチアトリビュートの要素の値や型を maya.cmds・MPlug で読むと Maya が異常終了する場合がある。
-    mlibはこれらの存在しない要素の値を読まず、``Plug.get()`` でRuntimeErrorにする。
-    要素の参照取得だけでは値を評価しない。任意のデータを受け付ける
-    型付きアトリビュート(値によって型が変わるアトリビュート)は対象外。
+    内部のデータ型とは、``cmds.addAttr`` では作れない型のこと。
+    nurbsSurfaceの ``patchUVIds`` (``nurbsPatchUVIds``)などがある。
+    こうした型では、存在しないマルチアトリビュートの要素の値や型をmaya.cmdsやMPlugで読むと、
+    Mayaが異常終了することがある。
+
+    mlibは、こうした存在しない要素の値を読まず、``Plug.get()`` でRuntimeErrorにする。
+    要素のPlugを取得するだけなら、値は評価しない。
+    どんなデータでも受け付けるtypedアトリビュート(値によって型が変わるアトリビュート)は対象外。
 
     Args:
-        mplug (om2.MPlug): 対象のプラグ。
+        mplug (om2.MPlug): 調べるプラグ。
 
     Returns:
-        bool: 内部のデータ型の型付きアトリビュートの場合は True。
+        bool: 内部のデータ型のtypedアトリビュートならTrue。
     """
     ...
 
 def _require_number(plug: om2.MPlug, value: object) -> None:
-    """数値・単位・enumへの入力が数値か確かめる(cmds.setAttrと同じ拒否)。
+    """数値・単位・enumのアトリビュートへの入力が、数値か確かめる。
 
-    通常経路の ``cmds.setAttr`` は数値アトリビュートへの文字列・None・列を拒否するため、
-    fastと単位アトリビュートの換算でも変換せず、型違いの規則に合わせてTypeErrorで拒否する。
-    boolは数値として受け付ける。
+    fastでない ``cmds.setAttr`` は、数値アトリビュートへの文字列・None・並びを受け付けない。
+    fastと、単位アトリビュートの換算でもこれに合わせ、値を変換せずに例外にする。
+    型が違うときの規則に合わせて、例外はTypeErrorにする。boolは数値として受け付ける。
 
     Args:
-        plug (om2.MPlug): エラー表示に使う書込み先。
+        plug (om2.MPlug): 書き込み先。例外のメッセージに使う。
         value (object): 書き込む値。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: 文字列・bytes・None、またはfloatへ変換できない値の場合。
+        TypeError: 文字列・bytes・Noneの場合、またはfloatへ変換できない値の場合。
     """
     ...
 
 def _convert_units(plug: om2.MPlug, value: object, to_ui: bool = ...) -> Any:
-    """数値・コンパウンドアトリビュートの値を変換する。単位のない型はそのまま返す。
+    """数値やコンパウンドアトリビュートの値の単位を変換する。
+
+    単位の無い型は、そのまま返す。
 
     Args:
-        plug (om2.MPlug): 型を判定するプラグ。
+        plug (om2.MPlug): 型を調べるプラグ。
         value (object): 変換する値。
-        to_ui (bool): Trueはcm/rad/秒からUI単位、Falseは逆方向。
+        to_ui (bool): Trueならcm/rad/秒からUI単位へ、Falseならその逆へ変換する。既定はTrue。
 
     Returns:
-        object: 変換した値。マトリクスや型付き配列の成分は単位変換しない。
+        object: 変換した値。マトリクスや、doubleArrayなどのデータ型の成分は単位を変換しない。
 
     Raises:
-        RuntimeError: 単位アトリビュートへ数値以外(文字列・None等)を指定した場合。
+        RuntimeError: 単位アトリビュートへ数値でない値(文字列・Noneなど)を指定した場合。
     """
     ...
 
 def _plain_angle_unit(unit: str | None, ui_units: bool) -> str | None:
-    """get/setの ``unit`` と ``uiUnits`` から、数値の角度の単位を決める。
+    """get/setの ``unit`` と ``uiUnits`` から、数値で表す角度の単位を決める。
 
     Args:
-        unit (str | None): 角度の単位名。Noneは度。
-        ui_units (bool): Trueは現在のUI単位を使う(unitとは同時に指定できない)。
+        unit (str | None): 角度の単位名。Noneなら度。
+        ui_units (bool): Trueなら現在のUI単位を使う(unitとは同時に指定できない)。
 
     Returns:
-        str | None: ``"deg"`` / ``"rad"``。uiUnits=TrueではNone(UI単位の換算に任せる)。
+        str | None: ``"deg"`` / ``"rad"``。uiUnits=TrueならNone(UI単位への換算に任せる)。
 
     Raises:
-        TypeError: unitが文字列・None以外の場合。
-        ValueError: 未対応の単位名、またはuiUnits=Trueとunitを同時に指定した場合。
+        TypeError: unitが文字列でもNoneでもない場合。
+        ValueError: 対応していない単位名の場合、またはuiUnits=Trueとunitを同時に指定した場合。
     """
     ...
 
 def _plain_time_unit(time_unit: str | None, ui_units: bool) -> str | None:
-    """get/setの ``timeUnit`` と ``uiUnits`` から、数値の時間の単位を決める。
+    """get/setの ``timeUnit`` と ``uiUnits`` から、数値で表す時間の単位を決める。
 
     Args:
-        time_unit (str | None): 時間の単位名。Noneは現在のUI時間単位のフレーム。
-        ui_units (bool): Trueは現在のUI単位を使う(timeUnitとは同時に指定できない)。
+        time_unit (str | None): 時間の単位名。Noneなら現在のUI時間単位のフレーム。
+        ui_units (bool): Trueなら現在のUI単位を使う(timeUnitとは同時に指定できない)。
 
     Returns:
-        str | None: ``"frame"`` / ``"sec"``。uiUnits=TrueではNone(UI単位の換算に任せる)。
+        str | None: ``"frame"`` / ``"sec"``。uiUnits=TrueならNone(UI単位への換算に任せる)。
 
     Raises:
-        TypeError: timeUnitが文字列・None以外の場合。
-        ValueError: 未対応の単位名、またはuiUnits=TrueとtimeUnitを同時に指定した場合。
+        TypeError: timeUnitが文字列でもNoneでもない場合。
+        ValueError: 対応していない単位名の場合、またはuiUnits=TrueとtimeUnitを同時に指定した場合。
     """
     ...
 
 def _to_seconds(value: float, time_unit: str) -> float:
-    """正規化済みの時間単位の数値を秒へ変換する。
+    """時間の数値を、秒へ変換する。
 
     Args:
         value (float): 時間の数値。
         time_unit (str): ``"frame"`` (現在のUI時間単位) または ``"sec"``。
 
     Returns:
-        float: 秒の値。secはそのまま返す。
+        float: 秒の値。secならそのまま返す。
     """
     ...
 
 def _from_seconds(value: float, time_unit: str) -> float:
-    """秒の数値を正規化済みの時間単位へ変換する。
+    """秒の数値を、指定した時間単位へ変換する。
 
     Args:
         value (float): 秒の値。
         time_unit (str): ``"frame"`` (現在のUI時間単位) または ``"sec"``。
 
     Returns:
-        float: 指定単位の値。secはそのまま返す。
+        float: time_unitの単位で表した値。secならそのまま返す。
     """
     ...
 
 def _time_quantity(value: float, time_unit: str) -> om2.MTime:
-    """数値の時間を指定単位の ``om2.MTime`` にする。
+    """時間の数値を、指定した単位の ``om2.MTime`` にする。
 
     Args:
         value (float): 時間の数値。
@@ -237,10 +249,10 @@ def _time_quantity(value: float, time_unit: str) -> om2.MTime:
     ...
 
 def _is_angle_attribute(attribute: om2.MObject) -> bool:
-    """角度の単位アトリビュート(doubleAngle・floatAngle)か判定する。
+    """角度の単位アトリビュート(doubleAngle・floatAngle)か調べる。
 
     Args:
-        attribute (om2.MObject): アトリビュート定義。
+        attribute (om2.MObject): アトリビュートの定義。
 
     Returns:
         bool: 角度の単位アトリビュートならTrue。
@@ -248,11 +260,11 @@ def _is_angle_attribute(attribute: om2.MObject) -> bool:
     ...
 
 def _is_unit_attribute(attribute: om2.MObject, unit_type: int) -> bool:
-    """指定した種類の単位アトリビュートか判定する。
+    """指定した種類の単位アトリビュートか調べる。
 
     Args:
-        attribute (om2.MObject): アトリビュート定義。
-        unit_type (int): ``om2.MFnUnitAttribute.kAngle`` 等の単位の種類。
+        attribute (om2.MObject): アトリビュートの定義。
+        unit_type (int): ``om2.MFnUnitAttribute.kAngle`` などの単位の種類。
 
     Returns:
         bool: 指定した種類の単位アトリビュートならTrue。
@@ -260,57 +272,62 @@ def _is_unit_attribute(attribute: om2.MObject, unit_type: int) -> bool:
     ...
 
 def _convert_unit_numbers(plug: om2.MPlug, value: object, unit_type: int, convert: Callable[..., Any]) -> Any:
-    """指定した種類の単位アトリビュートの数値だけを換算する(角度・時間の共通処理)。
+    """指定した種類の単位アトリビュートの数値だけを換算する。
 
-    コンパウンドアトリビュートは子の定義ごとに換算し、対象外の子・型付きの値
-    (EulerRotate・Quaternion・MAngle・MTime・マトリクス等の単位を持つ値)・数値以外はそのまま返す。
-    成分数が子数と違う入力も換算せず、検証は書込み側に任せる。
+    角度と時間で共通の処理。コンパウンドアトリビュートは、子の定義ごとに換算する。
+    次のものは換算せず、そのまま返す。
+
+    - 指定した種類でない子。
+    - 自分で単位を持つ値(EulerRotate・Quaternion・MAngle・MTime・マトリクスなど)。
+    - 数値でない値。
+    - 成分の数が子の数と違う入力(正しいかは書き込む側で確かめる)。
 
     Args:
-        plug (om2.MPlug): 型を判定するプラグ。
+        plug (om2.MPlug): 型を調べるプラグ。
         value (object): 換算する値。
-        unit_type (int): 換算する単位の種類(``om2.MFnUnitAttribute.kAngle`` 等)。
+        unit_type (int): 換算する単位の種類(``om2.MFnUnitAttribute.kAngle`` など)。
         convert (callable): 数値1つを換算する関数。
 
     Returns:
-        object: 換算した値。換算した成分を含むコンパウンドアトリビュートはtuple、
-            換算の無い値は入力そのもの。
+        object: 換算した値。換算した成分を含むコンパウンドアトリビュートはtupleで返し、
+            換算しなかった値は入力をそのまま返す。
     """
     ...
 
 def _convert_angles(plug: om2.MPlug, value: object, unit: str | None, to_internal: bool = ...) -> Any:
-    """角度アトリビュートの数値を、指定単位とラジアン(内部単位)の間で換算する。
+    """角度アトリビュートの数値を、指定した単位とラジアン(内部の単位)の間で換算する。
 
-    コンパウンドアトリビュートは子の定義ごとに換算し、角度以外の子・型付きの値
-    (EulerRotate・Quaternion・MAngle・マトリクス等の単位を持つ値)・数値以外はそのまま返す。
-    成分数が子数と違う入力も換算せず、検証は書込み側に任せる。
+    コンパウンドアトリビュートは、子の定義ごとに換算する。
+    角度でない子、自分で単位を持つ値(EulerRotate・Quaternion・MAngle・マトリクスなど)、数値でない値は、そのまま返す。
+    成分の数が子の数と違う入力も換算しない(正しいかは書き込む側で確かめる)。
 
     Args:
-        plug (om2.MPlug): 型を判定するプラグ。
+        plug (om2.MPlug): 型を調べるプラグ。
         value (object): 換算する値。
-        unit (str | None): ``"deg"`` / ``"rad"``。``"rad"`` とNoneは換算しない。
-        to_internal (bool): Trueは指定単位からrad、Falseはradから指定単位。
+        unit (str | None): ``"deg"`` / ``"rad"``。``"rad"`` とNoneなら換算しない。
+        to_internal (bool): Trueなら指定した単位からradへ、Falseならradから指定した単位へ換算する。既定はTrue。
 
     Returns:
-        object: 換算した値。換算した成分を含むコンパウンドアトリビュートはtuple、
-            換算の無い値は入力そのもの。
+        object: 換算した値。換算した成分を含むコンパウンドアトリビュートはtupleで返し、
+            換算しなかった値は入力をそのまま返す。
     """
     ...
 
 def _convert_times(plug: om2.MPlug, value: object, time_unit: str | None, to_internal: bool = ...) -> Any:
-    """時間アトリビュートの数値を、指定単位と秒(内部単位)の間で換算する。
+    """時間アトリビュートの数値を、指定した単位と秒(内部の単位)の間で換算する。
 
-    コンパウンドアトリビュートは子の定義ごとに換算し、時間以外の子・``om2.MTime`` 等の
-    単位を持つ値・数値以外はそのまま返す(:func:`_convert_angles` と同じ規則)。
+    コンパウンドアトリビュートは、子の定義ごとに換算する。
+    時間でない子、``om2.MTime`` などの自分で単位を持つ値、数値でない値は、そのまま返す
+    (:func:`_convert_angles` と同じ規則)。
 
     Args:
-        plug (om2.MPlug): 型を判定するプラグ。
+        plug (om2.MPlug): 型を調べるプラグ。
         value (object): 換算する値。
-        time_unit (str | None): ``"frame"`` / ``"sec"``。``"sec"`` とNoneは換算しない。
-        to_internal (bool): Trueは指定単位から秒、Falseは秒から指定単位。
+        time_unit (str | None): ``"frame"`` / ``"sec"``。``"sec"`` とNoneなら換算しない。
+        to_internal (bool): Trueなら指定した単位から秒へ、Falseなら秒から指定した単位へ換算する。既定はTrue。
 
     Returns:
-        object: 換算した値。換算の無い値は入力そのもの。
+        object: 換算した値。換算しなかった値は入力をそのまま返す。
     """
     ...
 
@@ -350,13 +367,14 @@ def _read_time(mplug: om2.MPlug) -> float:
     ...
 
 def _round_integer(value: int | float) -> int:
-    """cmds.setAttrと同じく、小数を0から遠い側への四捨五入で整数にする。
+    """小数を四捨五入して整数にする。
 
-    整数型・enum・boolのfast書込みで、通常経路(``cmds.setAttr``)と入力の意味を揃える
-    (2.5は3、-2.5は-3、2.4999は2)。整数はそのまま返す。
+    ``cmds.setAttr`` と同じく、0から遠い側へ丸める(2.5は3、-2.5は-3、2.4999は2)。
+    整数型・enum・boolのfastの書き込みで、fastでない ``cmds.setAttr`` と入力の意味をそろえるために使う。
+    整数はそのまま返す。
 
     Args:
-        value (int | float): 数値。型の検査は呼出し元が行う。
+        value (int | float): 数値。型は呼び出し元で確かめる。
 
     Returns:
         int: 四捨五入した整数。
@@ -368,10 +386,12 @@ def _round_integer(value: int | float) -> int:
     ...
 
 def _round_bool(value: int | float) -> bool:
-    """cmds.setAttrと同じく、四捨五入した値が0以外ならTrueにする(0.4はFalse、0.6はTrue)。
+    """数値をboolにする。
+
+    ``cmds.setAttr`` と同じく、四捨五入した値が0でなければTrueにする(0.4はFalse、0.6はTrue)。
 
     Args:
-        value (int | float): 数値。範囲(0〜1)の検査は呼出し元が行う。
+        value (int | float): 数値。範囲(0〜1)は呼び出し元で確かめる。
 
     Returns:
         bool: 四捨五入した値が0以外ならTrue。
@@ -384,47 +404,49 @@ _UNIT_READERS: dict
 _CMDS_READER: bool
 
 def typed_data(mplug: om2.MPlug) -> om2.MObject:
-    """型付きデータを取得し、未初期化値だけをnullとして扱う。
+    """typedアトリビュートのデータを取得する。
+
+    値がまだ設定されていない(初期化されていない)場合だけ、nullとして返す。
 
     Args:
-        mplug (om2.MPlug): 所有ノードとアトリビュートの有効性を検証済みのプラグ。
+        mplug (om2.MPlug): ノードとアトリビュートが有効であることを確かめてあるプラグ。
 
     Returns:
-        om2.MObject: 読み出した型付きデータのAPI参照。未初期化値はnull。
-            list等の独立したPython値への変換は呼出元が担当する。
+        om2.MObject: 読み出したデータのMObject。初期化されていなければnull。
+            listなどのPythonの値への変換は、呼び出し元が行う。
 
     Raises:
-        RuntimeError: null以外の理由でデータを取得できない場合。
+        RuntimeError: nullであること以外の理由で、データを取得できない場合。
     """
     ...
 
 def _read_array(mplug: om2.MPlug, factory: type, tuples: bool = ...) -> list | None:
-    """型付き配列を要素数によらずlistとして返す。
+    """doubleArrayなどのデータ型の値を、要素の数にかかわらずlistで返す。
 
     Args:
-        mplug (om2.MPlug): 読取対象。
-        factory (type): データfunction set。
-        tuples (bool): 点・ベクトル・マトリクスの各要素をtupleへ変換する。
+        mplug (om2.MPlug): 読み取るプラグ。
+        factory (type): データのfunction set。
+        tuples (bool): Trueなら、点・ベクトル・マトリクスの各要素をtupleへ変換する。既定はFalse。
 
     Returns:
-        list | None: 値のコピー。空配列は[]、未初期化データはNone。
+        list | None: 値のコピー。要素が無ければ[]、初期化されていないデータならNone。
     """
     ...
 _ARRAY_READERS: dict
 
 def value_reader(attribute: om2.MObject) -> Callable[..., Any] | Literal[False]:
-    """``Plug.get()`` が MPlug から直接値を読む関数を、アトリビュート定義から選ぶ。
+    """``Plug.get()`` がMPlugから直接値を読むための関数を、アトリビュートの定義から選ぶ。
 
-    関数を選ぶだけで値は読み取らない。呼出元のPlugが読取関数を保持し、
-    getのたびに現在値を取得する。
+    関数を選ぶだけで、値は読まない。呼び出し元のPlugがこの関数を持っておき、getのたびに今の値を取得する。
 
     Args:
-        attribute (om2.MObject): アトリビュートの MObject。
+        attribute (om2.MObject): アトリビュートのMObject。
 
     Returns:
-        callable | Literal[False]: MPlug を受け取って値を返す関数。bool/int/float 系の数値アトリビュート、
-            角度・距離・時間の単位アトリビュート、enum、文字列、doubleArray/Int32Array/
-            stringArray/vectorArray/pointArray/matrixArrayが対象。それ以外は
-            ``_CMDS_READER``。この場合は呼出元がgenericマトリクスの判定やcmdsへの読取委譲を行う。
+        callable | Literal[False]: MPlugを受け取って値を返す関数。対象は、bool/int/float系の数値アトリビュート、
+            角度・距離・時間の単位アトリビュート、enum、文字列、
+            doubleArray/Int32Array/stringArray/vectorArray/pointArray/matrixArray。
+            それ以外は ``_CMDS_READER`` を返す。この場合、genericのマトリクスかの判定や、
+            cmdsでの読み取りは呼び出し元が行う。
     """
     ...

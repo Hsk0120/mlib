@@ -40,7 +40,7 @@ class TextureTest(_SpecCase):
         self.assertEqual(self.file.getFilePath(), "C:/textures/a.<UDIM>.png")
         cmds.undo()
         self.assertEqual(self.file.getFilePath(), "")
-        with self.assertRaisesRegex(TypeError, "path must be a string"):
+        with self.assertRaisesRegex(TypeError, "pathは文字列で指定してください"):
             self.file.setFilePath(5)
 
     def test_color_space(self):
@@ -75,7 +75,7 @@ class TextureTest(_SpecCase):
         self.assertIs(other.connectTexture(self.file, force=True), other)
         self.assertEqual(self.file.getPlacement(), other)
         material = cmds.shadingNode("lambert", asShader=True, name=self.name("notTexture"))
-        with self.assertRaisesRegex(TypeError, "texture must be Texture2d"):
+        with self.assertRaisesRegex(TypeError, "textureはTexture2dで指定してください"):
             other.connectTexture(material)
 
 

@@ -15,10 +15,13 @@ from typing_extensions import Self
 
 
 class Time:
-    """現在時刻と時間範囲の照会・変更をまとめた静的メソッドの集まり。インスタンスは作らない。
+    """現在時刻と時間範囲を取得・変更する静的メソッドをまとめたクラス。
 
-    時間の数値は既定で現在のUI時間単位のフレーム(``timeUnit="sec"`` で秒)。
-    変更は Maya の ``currentTime``・``playbackOptions`` と同じ扱い(Undo も同じ)。fast引数は持たない。
+    インスタンスは作らず、``Time.getCurrent()`` のようにクラスから直接呼ぶ。
+
+    時間の数値は、既定では現在のUI時間単位のフレームで扱う。``timeUnit="sec"`` を指定すると秒になる。
+    変更はMayaの ``currentTime``・``playbackOptions`` と同じように行い、Undoの扱いも同じになる。
+    fast引数は持たない。
 
     .. code-block:: python
 
@@ -50,12 +53,14 @@ class Time:
         ...
     @staticmethod
     def setCurrent(value: float, *, timeUnit: str = ..., update: bool = ...) -> float:
-        """現在時刻を変える(``cmds.currentTime(value, update=update)`` 相当)。
+        """現在時刻を変える。
+
+        ``cmds.currentTime(value, update=update)`` と同じ働きをする。
 
         Args:
             value (float): 新しい時刻。
             timeUnit (str): valueの単位。``"frame"`` または ``"sec"``。
-            update (bool): Trueは変えた時刻でシーンを評価し直す(既定。直後に値を読める)。
+            update (bool): Trueなら、変えた時刻でシーンを評価し直す。直後に値を読める。既定はTrue。
 
         Returns:
             float: 設定した時刻(timeUnitの単位)。
@@ -123,19 +128,21 @@ class Time:
         ...
     @staticmethod
     def getSelectedRange(*, timeUnit: str = ...) -> tuple[float, float] | None:
-        """タイムスライダーで選んだ範囲(Shift+ドラッグの赤い範囲)を取得する。
+        """タイムスライダーで選んだ範囲を取得する。
 
-        ``cmds.timeControl($gPlayBackSlider, query=True, rangeVisible=True)`` と ``rangeArray`` を使う。
-        Mayaの ``rangeArray`` の終わりは範囲の次のフレームを指すため、1フレーム引いて
-        選んだ最後のフレームを返す(1〜10を選べば ``(1.0, 10.0)``。クリックで1フレームだけ
-        選んだ場合は開始と終了が同じ)。
+        Shift+ドラッグで選んだ、赤く表示される範囲を返す。
+        ``cmds.timeControl($gPlayBackSlider, query=True, rangeVisible=True)`` と ``rangeArray`` で調べる。
+
+        Mayaの ``rangeArray`` の終わりは、範囲の次のフレームを指す。そこで1フレーム引いて、
+        選んだ最後のフレームを返す。たとえば1〜10を選べば ``(1.0, 10.0)`` になる。
+        クリックで1フレームだけ選んだ場合は、開始と終了が同じ値になる。
 
         Args:
             timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。
 
         Returns:
-            tuple[float, float] | None: (開始, 選んだ最後のフレーム)。範囲を選んでいない、
-                バッチ(mayapy)、またはタイムスライダーが無い場合はNone。
+            tuple[float, float] | None: (開始, 選んだ最後のフレーム)。次の場合はNone。
+                範囲を選んでいない場合、バッチ(mayapy)の場合、タイムスライダーが無い場合。
 
         Raises:
             ValueError: timeUnitが未対応の単位名の場合。
@@ -143,7 +150,9 @@ class Time:
         ...
     @staticmethod
     def preserved() -> GeneratorContextManager[float]:
-        """``with`` の間は時刻を変えてよく、抜けると(例外でも)元の時刻へ戻すコンテキスト。
+        """``with`` を抜けたときに元の時刻へ戻すコンテキストを作る。
+
+        ``with`` の中では時刻を自由に変えてよい。抜けるときは、例外で抜けた場合も元の時刻へ戻す。
 
         Yields:
             float: 入る前の時刻(現在のUI時間単位のフレーム)。

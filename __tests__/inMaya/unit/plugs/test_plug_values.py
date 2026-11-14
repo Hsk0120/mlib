@@ -449,7 +449,7 @@ class LockSpecTest(_ValueSpecCase):
                 self.assertFalse(hasattr(plugs.Plug, name))
                 with self.assertRaises(AttributeError) as context:
                     getattr(tx, name)
-                self.assertIn("use " + hint, str(context.exception))
+                self.assertIn(hint + "を使います", str(context.exception))
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""点を順につないだjointのチェーンを作り、各jointを次の点へ向けたjointのlistを返す。
+"""点を順につないだjointのチェーンを作り、jointのlistを返す。
 
-各jointの aimAxis を次の点へ、upAxis を up の向きへ向ける(最後のjointは1つ前と同じ向き)。
-向きは jointOrient に入れ、rotate は0にする。``cmds.joint`` で1つずつ作って ``orientJoint`` で揃える手順を
-1回で行う。
+各jointは次の点へ向ける。aimAxis を次の点へ、upAxis を up の向きへ向ける(最後のjointは1つ前と同じ向き)。
+向きは jointOrient に入れ、rotate は0にする。
+``cmds.joint`` で1つずつ作って ``orientJoint`` で向きを揃える手順を、1回で行う。
 
 .. code-block:: python
 
@@ -27,7 +27,7 @@ from mlib.nodes.node import Node
 _AXES: dict
 
 def _axis(value: str, label: str) -> tuple[int, float]:
-    """軸の名前を検証し、(軸の番号, 符号) を返す。
+    """軸の名前を確かめ、(軸の番号, 符号) を返す。
 
     Args:
         value (str): ``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。
@@ -45,31 +45,38 @@ def _axis(value: str, label: str) -> tuple[int, float]:
 def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., upAxis: str = ..., up: Sequence[float] = ..., names: Sequence[str] | None = ..., parent: str | Node | None = ...) -> list[Joint]:
     """点を順につないだjointのチェーンを作る。
 
-    1つ目のjointを parent の子に、以降を1つ前のjointの子に作る。各jointの aimAxis を次の点へ向け、
-    upAxis を up を aim に垂直にした向きへ向ける(最後のjointは1つ前のjointと同じ向き)。向きは
-    jointOrient に入れ、rotate・rotateAxis は0のまま。inverseScale は親がjointならその scale へ接続する。
-    選択は変更しない。fast引数は持たない。Undo有効時は1回で戻せる。
+    1つ目のjointは parent の子に、2つ目からは1つ前のjointの子に作る。
+
+    - 各jointの aimAxis を、次の点へ向ける。
+    - upAxis は、up を aim に垂直にした向きへ向ける。
+    - 最後のjointは、1つ前のjointと同じ向きにする。
+
+    向きは jointOrient に入れ、rotate・rotateAxis は0のままにする。
+    親がjointなら、inverseScale を親の scale へ接続する。
+    選択は変えない。fast引数は無い。Undoが有効なら1回で戻せる。
 
     Args:
-        points (Iterable[Sequence[float]]): ワールド空間の位置(cm)の列。2点以上で、隣り合う点は別の位置。
+        points (Iterable[Sequence[float]]): ワールド空間の位置(cm)の並び。2点以上で、隣り合う点は別の位置にする。
         aimAxis (str): 次の点へ向ける軸。``"x"`` (既定)・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"``。
-        upAxis (str): up の向きへ向ける軸。aimAxis と別の軸。既定 ``"y"``。
-        up (Sequence[float]): ワールド空間の上方向の目安。既定 ``(0, 1, 0)``。
-        names (Sequence[str] | None): jointの名前。points と同じ数。Noneは ``joint#`` (Mayaの連番)。
-        parent (str | Node | None): 1つ目のjointの親のtransform。Noneはワールド。
+        upAxis (str): up の向きへ向ける軸。aimAxis と別の軸にする。既定は ``"y"``。
+        up (Sequence[float]): ワールド空間で、上の向きの目安。既定は ``(0, 1, 0)``。
+        names (Sequence[str] | None): jointの名前。points と同じ数だけ指定する。
+            Noneなら ``joint#`` (Mayaの連番)。
+        parent (str | Node | None): 1つ目のjointの親のtransform。Noneならワールド。
 
     Returns:
-        list[Joint]: 作ったjoint。points の順。
+        list[Joint]: 作ったjoint。points の順に並ぶ。
 
     Raises:
-        TypeError: points・up の成分が数値でない、aimAxis・upAxis が文字列でない、names が文字列の列・None以外、
-            または parent がtransformでない場合。
-        ValueError: 点が2つ未満、隣り合う点が同じ位置、軸の名前が不正・同じ軸、names の数が points と違う・空の名前を含む、
-            up が0、または up が向ける方向とほぼ平行な場合。
-        RuntimeError: parent の名前が存在しない、またはMayaが作成を拒否した場合。
+        TypeError: points・up の成分が数値でない場合、aimAxis・upAxis が文字列でない場合、
+            names が文字列の並びでもNoneでもない場合、または parent がtransformでない場合。
+        ValueError: 点が2つ未満の場合、隣り合う点が同じ位置の場合、軸の名前が正しくないか同じ軸の場合、
+            names の数が points と違うか空の名前を含む場合、up が0の場合、
+            または up が向ける方向とほぼ平行な場合。
+        RuntimeError: parent の名前のノードが無い場合、またはMayaが作成を拒否した場合。
 
     Note:
-        parent のスケールが1でない場合も位置と向きは parent のワールドのマトリクスで換算するが、
-        segmentScaleCompensate による補正は考慮しない。
+        parent のスケールが1でない場合も、位置と向きは parent のワールドのマトリクスで換算する。
+        ただし、segmentScaleCompensate による補正は考えに入れない。
     """
     ...

@@ -10,12 +10,17 @@ _OPERATIONS: tuple
 
 
 class Condition(Node):
-    """2値の比較により出力を切り替える。"""
+    """2つの値を比べ、その結果で出力を切り替える。"""
     def setInput(self, firstTerm: float | Plug | str | None = ..., secondTerm: float | Plug | str | None = ..., colorIfTrue: Iterable[float] | Plug | str | None = ..., colorIfFalse: Iterable[float] | Plug | str | None = ...) -> Condition:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             firstTerm (float | Plug | str | None): 比較する1つ目の値。
@@ -28,11 +33,13 @@ class Condition(Node):
 
         Raises:
             TypeError: 接続元の型が不正な場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
+            RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
         ...
     def getOperation(self) -> str:
-        """比較の種類を名前で取得する(``operation``)。
+        """比較の種類を名前で取得する。
+
+        ``operation`` の値を名前に直して返す。
 
         Returns:
             str: ``"equal"``・``"notEqual"``・``"greaterThan"``・``"greaterOrEqual"``・``"lessThan"``・
@@ -40,18 +47,20 @@ class Condition(Node):
         """
         ...
     def setOperation(self, operation: str | int) -> Condition:
-        """比較の種類を名前または番号で設定する(``operation``)。1回のUndoで戻せる。
+        """比較の種類を設定する。
+
+        ``operation`` へ書き込む。名前でも番号でも指定できる。1回のUndoで戻せる。
 
         Args:
             operation (str | int): ``"equal"``・``"notEqual"``・``"greaterThan"``・``"greaterOrEqual"``・``"lessThan"``・
-                ``"lessOrEqual"`` のいずれか、またはMayaの番号(0から)。
+                ``"lessOrEqual"`` のいずれか。またはMayaの番号(0から)。
 
         Returns:
             Condition: 自身。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 使えない名前、または範囲外の番号を指定した場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...

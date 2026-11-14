@@ -147,14 +147,14 @@ class SkinWeightRangeWriteTest(unittest.TestCase):
         cmds.setAttr(f"{self.prefix}[3].weights", lock=True)
         with self.assertRaises(RuntimeError) as context:
             self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True)
-        self.assertEqual(str(context.exception), "Attribute is locked or connected: " + self.skin.getName() + ".weightList[3].weights[0]")
+        self.assertEqual(str(context.exception), "アトリビュートがロックされているか、接続されています: " + self.skin.getName() + ".weightList[3].weights[0]")
         self.assertEqual(self.raw(range(4)), before)
         cmds.setAttr(f"{self.prefix}[3].weights", lock=False)
         source = cmds.createNode("transform", name=self.ns + ":driver")
         cmds.connectAttr(source + ".translateX", self.element(4, 2))
         with self.assertRaises(RuntimeError) as context:
             self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True)
-        self.assertEqual(str(context.exception), "Attribute is locked or connected: " + self.skin.getName() + ".weightList[4].weights[2]")
+        self.assertEqual(str(context.exception), "アトリビュートがロックされているか、接続されています: " + self.skin.getName() + ".weightList[4].weights[2]")
         self.assertEqual(self.raw(range(4))[:4], before[:4])
         cmds.disconnectAttr(source + ".translateX", self.element(4, 2))
         self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True)

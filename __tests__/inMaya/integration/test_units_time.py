@@ -145,7 +145,7 @@ class AnimCurveTimeTest(_SpecCase):
             curve.setKey(1, 1, timeUnit=1)
         with self.assertRaises(ValueError):
             curve.setKey(1, 1, timeUnit="minute")
-        with self.assertRaisesRegex(ValueError, "unit for angle"):
+        with self.assertRaisesRegex(ValueError, "角度の値にはunitを使います"):
             curve.getKeyInputs(timeUnit="rad")
         self.assertEqual(curve.getKeyCount(), 0)
 

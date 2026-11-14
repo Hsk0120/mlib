@@ -92,7 +92,7 @@ class GetWeightsTest(_SkinCase):
 
     def test_influence_errors(self):
         """未登録・綴り違いは名前付きの ValueError、頂点や属性は TypeError、空・重複は ValueError。"""
-        message = f"'arm_R_JNT' is not an influence of {self.skin.getName()}"
+        message = f"'arm_R_JNT'は{self.skin.getName()}のインフルエンスではありません"
         for method in ("get", "set"):
             with self.subTest(method=method):
                 call = self.skin.getWeights if method == "get" else lambda joints: self.skin.setWeights(joints, [1.0], broadcast=True)
@@ -100,17 +100,17 @@ class GetWeightsTest(_SkinCase):
                     call(["arm_R_JNT"])
                 self.assertEqual(str(context.exception), message)
                 other = cmds.createNode("joint", name=self.name("other"))
-                with self.assertRaisesRegex(ValueError, "is not an influence of"):
+                with self.assertRaisesRegex(ValueError, "のインフルエンスではありません"):
                     call([other])
                 vertex = Vertex(Node(self.mesh).getShape(), 0)
                 for components in (vertex, [vertex], Vertices(Node(self.mesh).getShape(), [0, 1])):
                     with self.assertRaisesRegex(TypeError, "vertices=.*getVertexWeights"):
                         call(components)
-                with self.assertRaisesRegex(TypeError, "component or attribute name"):
+                with self.assertRaisesRegex(TypeError, "コンポーネントかアトリビュートの名前"):
                     call(self.vtx(0))
-                with self.assertRaisesRegex(ValueError, "at least one influence"):
+                with self.assertRaisesRegex(ValueError, "インフルエンスを1つ以上指定してください"):
                     call([])
-        with self.assertRaisesRegex(ValueError, "more than once"):
+        with self.assertRaisesRegex(ValueError, "複数回指定されています"):
             self.skin.getWeights([self.joints[0], self.joints[0]])
 
     def test_vertex_errors(self):
@@ -144,12 +144,13 @@ class SetWeightsTest(_SkinCase):
             self.skin.setWeights(self.joints, [0.2, 0.3, 0.5])
         self.assertIn("broadcast=True", str(context.exception))
         self.assertIn("vertices=", str(context.exception))
-        with self.assertRaisesRegex(ValueError, "broadcast=True requires exactly 3 weights"):
+        with self.assertRaisesRegex(ValueError, "broadcast=Trueにはウェイトをちょうど3個"):
             self.skin.setWeights(self.joints, [0.2, 0.3, 0.5] * self.count, broadcast=True)
-        with self.assertRaisesRegex(ValueError, "vertex count times influence count"):
+        with self.assertRaisesRegex(ValueError, "頂点数 × インフルエンス数"):
             self.skin.setWeights(self.joints, [0.2, 0.3])
         self.assertRowsAlmostEqual(self.rows(), before)
-        self.skin.setWeights(self.joints, [0.2, 0.3, 0.5], broadcast=True)
+        # ほかの set 系と同じく自身を返す。
+        self.assertIs(self.skin.setWeights(self.joints, [0.2, 0.3, 0.5], broadcast=True), self.skin)
         self.assertRowsAlmostEqual(self.rows(), [[0.2, 0.3, 0.5]] * self.count)
         # 1 頂点なら K 個は V*K 個と同じなので broadcast は不要。
         self.skin.setWeights(self.joints, [0.5, 0.5, 0.0], vertices=[3])
@@ -238,13 +239,13 @@ class SetWeightsTest(_SkinCase):
         """負値・合計0・ロック値の超過は ValueError で、頂点を書き換えない。"""
         j0, j1, j2 = self.joints
         self.writeRow(0, [0.0, 0.0, 0.0])
-        with self.assertRaisesRegex(ValueError, "zero-total"):
+        with self.assertRaisesRegex(ValueError, "合計が0のため"):
             self.skin.setWeights([j0], [0.0], vertices=[0], normalize=True)
-        with self.assertRaisesRegex(ValueError, "negative"):
+        with self.assertRaisesRegex(ValueError, "負の値"):
             self.skin.setWeights([j0], [-0.5], vertices=[1], normalize=True)
         self.writeRow(2, [0.2, 0.3, 1.5])
         cmds.setAttr(j2 + ".liw", True)
-        with self.assertRaisesRegex(ValueError, "exceed 1.0"):
+        with self.assertRaisesRegex(ValueError, "1.0を超えています"):
             self.skin.setWeights([j0], [0.5], vertices=[2], normalize=True)
         cmds.setAttr(j2 + ".liw", False)
         self.assertSequenceAlmostEqual(self.row(0), [0.0, 0.0, 0.0])
@@ -280,9 +281,9 @@ class VertexWeightsTest(_SkinCase):
         self.writeRow(1, [0.0, 0.25, 0.75])
         weights = self.skin.getVertexWeights(1, nonzero=True)
         self.assertEqual([node.getName() for node in weights], [cmds.ls(j)[0] for j in self.joints[1:]])
-        with self.assertRaisesRegex(ValueError, "exactly one vertex"):
+        with self.assertRaisesRegex(ValueError, "頂点を1つだけ指定してください"):
             self.skin.getVertexWeights([0, 1])
-        with self.assertRaisesRegex(ValueError, "exactly one vertex"):
+        with self.assertRaisesRegex(ValueError, "頂点を1つだけ指定してください"):
             self.skin.getVertexWeights(self.mesh + ".vtx[0:1]")
         with self.assertRaises(TypeError):
             self.skin.getVertexWeights(None)

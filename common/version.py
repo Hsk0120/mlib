@@ -8,11 +8,13 @@ from functools import total_ordering
 @total_ordering
 @dataclass(frozen=True, eq=False, repr=False, init=False)
 class Version:
-    """数値の各桁と末尾情報を保持する不変の版番号。
+    """版番号を表すクラス。
 
-    比較では末尾のゼロを補い、ビルド情報等の接尾辞は無視する。
-    例えば3.0と3.0.0-buildは等しい。SemVerのプレリリース順位は扱わない。
-    Mayaへの問い合わせやプラグインの更新は行わない。
+    「3.0.1」のような数字の並びと、その後ろに付く文字(接尾辞)を持つ。作った後は値を変えられない。
+
+    比べるときは、足りない桁を0とみなし、ビルド情報などの接尾辞は無視する。
+    たとえば3.0と3.0.0-buildは等しい。SemVerのプレリリースの順位は扱わない。
+    Mayaへ問い合わせたり、プラグインを更新したりはしない。
     """
 
     __slots__ = ("_parts", "_suffix")
@@ -20,16 +22,16 @@ class Version:
     _suffix: str
 
     def __init__(self, value):
-        """文字列・整数・整数列から版番号を作る。
+        """文字列・整数・整数の並びから版番号を作る。
 
         Args:
-            value (Version | str | int | tuple | list): 版番号。文字列は先頭の
-                数字とドットを版として読み、残りを接尾辞として保持する。
-                列の要素には非負整数か数字だけの文字列を指定する。
+            value (Version | str | int | tuple | list): 版番号。
+                文字列は、先頭の数字とドットを版番号として読み、残りを接尾辞として持つ。
+                tupleやlistの要素には、0以上の整数か、数字だけの文字列を指定する。
 
         Raises:
-            TypeError: 未対応の型、bool、整数でない列要素を指定した場合。
-            ValueError: 空、負の数、数字で始まらない文字列を指定した場合。
+            TypeError: 対応していない型やboolを指定した場合、または並びの要素が整数でない場合。
+            ValueError: 空の並び、負の数、数字で始まらない文字列を指定した場合。
         """
         suffix = ""
         if isinstance(value, type(self)):
@@ -37,78 +39,86 @@ class Version:
         elif isinstance(value, str):
             match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)*)(.*)", value.strip())
             if match is None:
-                raise ValueError(f"Version must start with a numeric release: {value!r}")
+                raise ValueError(f"バージョンは数字のリリース番号で始めてください: {value!r}")
             parts = tuple(int(part) for part in match.group(1).split("."))
             suffix = match.group(2)
         elif isinstance(value, (int, tuple, list)):
             values = (value,) if isinstance(value, int) else value
             parts = tuple(self._component(part) for part in values)
             if not parts:
-                raise ValueError("Version needs at least one component")
+                raise ValueError("バージョンには部分が1つ以上必要です")
         else:
-            raise TypeError("Expected a Version, string, integer or integer sequence")
+            raise TypeError("Version・文字列・整数・整数の並びのどれかを指定してください")
         object.__setattr__(self, "_parts", parts)
         object.__setattr__(self, "_suffix", suffix)
 
     def __eq__(self, other):
-        """版番号同士の数値列を比較する。
+        """版番号どうしが等しいか比べる。
+
+        数字の並びだけを比べ、接尾辞は無視する。
 
         Args:
-            other (object): 比較対象。
+            other (object): 比べる相手。
 
         Returns:
-            bool | NotImplementedType: Version以外はNotImplemented。
+            bool | NotImplementedType: 等しければTrue。相手がVersionでなければNotImplemented。
         """
         if not isinstance(other, type(self)):
             return NotImplemented
         return self._comparison_key() == other._comparison_key()
 
     def __hash__(self):
-        """等しい版番号に同じハッシュを返す。
+        """ハッシュ値を返す。
+
+        等しい版番号には同じ値を返す。
 
         Returns:
-            int: ゼロ埋めと接尾辞に依存しないハッシュ。
+            int: ハッシュ値。末尾の0の有無と接尾辞では変わらない。
         """
         return hash(self._comparison_key())
 
     def __lt__(self, other):
-        """数値列の大小を比較する。接尾辞は順位に影響しない。
+        """版番号がもう一方より小さいか比べる。
+
+        数字の並びだけを比べ、接尾辞は順番に影響しない。
 
         Args:
-            other (Version): 比較対象。
+            other (Version): 比べる相手。
 
         Returns:
-            bool | NotImplementedType: Version以外はNotImplemented。
+            bool | NotImplementedType: 小さければTrue。相手がVersionでなければNotImplemented。
         """
         if not isinstance(other, type(self)):
             return NotImplemented
         return self._comparison_key() < other._comparison_key()
 
     def __repr__(self):
-        """デバッグ用にクラス名と版番号を表示する。
+        """デバッグ用に、クラス名と版番号を表す文字列を返す。
 
         Returns:
-            str: Versionのコンストラクター形式。
+            str: ``Version('3.0.1')`` のように、Versionを作るときの書き方の文字列。
         """
         return f"{type(self).__name__}({str(self)!r})"
 
     def __str__(self):
-        """数値列と接尾辞を文字列へ変換する。
+        """数字の並びと接尾辞を、文字列にする。
 
         Returns:
-            str: 3.0.0.0-buildのような文字列。先頭のゼロ・外側の空白は正規化する。
+            str: 3.0.0.0-buildのような文字列。各桁の先頭の0と、前後の空白は取り除いた形になる。
         """
         return ".".join(str(part) for part in self._parts) + self._suffix
 
     @classmethod
     def parse(cls, value):
-        """版番号を解釈し、未取得・不正な値はNoneにする。
+        """値を版番号として読む。
+
+        版番号として読めない値は、例外にせずNoneを返す。
 
         Args:
             value (object): Mayaなどから取得した版番号。
 
         Returns:
-            Version | None: 解釈できた版番号。Noneや空文字列もNoneになる。
+            Version | None: 読めた版番号。読めない値、None、空文字列の場合はNone。
         """
         try:
             return cls(value)
@@ -117,45 +127,48 @@ class Version:
 
     @property
     def parts(self):
-        """tuple[int, ...]: 指定時の桁数を維持した数値列。"""
+        """tuple[int, ...]: 数字の並び。作ったときの桁数のまま持つ。"""
         return self._parts
 
     @property
     def suffix(self):
-        """str: 数値列より後ろのビルド情報等。指定がなければ空文字列。"""
+        """str: 数字の並びより後ろの、ビルド情報などの文字。無ければ空文字列。"""
         return self._suffix
 
     @property
     def major(self):
-        """int: 第1桁のメジャー番号。"""
+        """int: 1桁目のメジャー番号。"""
         return self._parts[0]
 
     @property
     def minor(self):
-        """int: 第2桁のマイナー番号。省略時は0。"""
+        """int: 2桁目のマイナー番号。桁が無ければ0。"""
         return self._parts[1] if len(self._parts) > 1 else 0
 
     @property
     def patch(self):
-        """int: 第3桁のパッチ番号。省略時は0。"""
+        """int: 3桁目のパッチ番号。桁が無ければ0。"""
         return self._parts[2] if len(self._parts) > 2 else 0
 
     @property
     def build(self):
-        """int: 第4桁のビルド番号。省略時は0。接尾辞とは別の値。"""
+        """int: 4桁目のビルド番号。桁が無ければ0。接尾辞とは別の値。"""
         return self._parts[3] if len(self._parts) > 3 else 0
 
     def replace(self, *, major=None, minor=None, patch=None, build=None):
-        """指定した桁を変更した新しい版番号を返す。元の値は変更しない。
+        """指定した桁を変えた、新しい版番号を返す。
+
+        元の版番号は変えない。
 
         Args:
-            major (int | None): 第1桁。Noneは現在値を維持する。
-            minor (int | None): 第2桁。Noneは現在値を維持する。
-            patch (int | None): 第3桁。Noneは現在値を維持する。
-            build (int | None): 第4桁。Noneは現在値を維持する。
+            major (int | None): 1桁目。Noneなら今の値のまま。既定はNone。
+            minor (int | None): 2桁目。Noneなら今の値のまま。既定はNone。
+            patch (int | None): 3桁目。Noneなら今の値のまま。既定はNone。
+            build (int | None): 4桁目。Noneなら今の値のまま。既定はNone。
 
         Returns:
-            Version: 未指定の桁と接尾辞を維持した値。必要な中間桁は0で補う。
+            Version: 新しい版番号。指定しなかった桁と接尾辞は元のまま。
+                途中の桁が足りなければ0で埋める。
 
         Raises:
             TypeError: 整数でない値を指定した場合。
@@ -173,31 +186,31 @@ class Version:
         return result
 
     def isAtLeast(self, minimum):
-        """必要な版番号以上か判定する。
+        """必要な版番号以上か調べる。
 
         Args:
             minimum (Version | str | int | tuple | list): 必要な最小の版番号。
 
         Returns:
-            bool: 数値列を比較し、必要な版以上ならTrue。
+            bool: 数字の並びを比べて、minimum以上ならTrue。
 
         Raises:
-            ValueError: 最小の版番号を解釈できない場合。
+            ValueError: minimumを版番号として読めない場合。
         """
         required = type(self).parse(minimum)
         if required is None:
-            raise ValueError(f"Invalid minimum version: {minimum!r}")
+            raise ValueError(f"最小バージョンが不正です: {minimum!r}")
         return self >= required
 
     @staticmethod
     def _component(value):
-        """版番号の一桁を非負整数へ変換する。
+        """版番号の1桁を、0以上の整数へ変換する。
 
         Args:
-            value (int | str): 整数または数字だけの文字列。
+            value (int | str): 整数、または数字だけの文字列。
 
         Returns:
-            int: 検証済みの非負整数。
+            int: 確かめた後の、0以上の整数。
 
         Raises:
             TypeError: bool・小数など整数でない場合。
@@ -206,16 +219,16 @@ class Version:
         if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
             return int(value)
         if isinstance(value, bool) or not isinstance(value, int):
-            raise TypeError("Version components must be integers")
+            raise TypeError("バージョンの各部分は整数で指定してください")
         if value < 0:
-            raise ValueError("Version components must be non-negative")
+            raise ValueError("バージョンの各部分は0以上で指定してください")
         return value
 
     def _comparison_key(self):
-        """比較とハッシュ用に、末尾のゼロを除いた数値列を返す。
+        """比較とハッシュに使う、末尾の0を除いた数字の並びを返す。
 
         Returns:
-            tuple[int, ...]: 最低1桁を保持する数値列。
+            tuple[int, ...]: 数字の並び。少なくとも1桁は残す。
         """
         parts = self._parts
         while len(parts) > 1 and parts[-1] == 0:

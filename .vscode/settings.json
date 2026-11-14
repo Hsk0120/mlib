@@ -1,0 +1,6 @@
+{
+  // バッチは Shift-JIS(CP932)で保存する(.gitattributes を参照)。UTF-8で保存し直すと cmd が読み誤る。
+  "[bat]": {
+    "files.encoding": "shiftjis"
+  }
+}

@@ -6,4 +6,4 @@ from .constraint import Constraint
 
 
 class GeometryConstraint(Constraint):
-    """ターゲット表面上の位置へコンストレイントするラッパー。"""
+    """ターゲットの表面上の位置へコンストレイントするクラス。"""

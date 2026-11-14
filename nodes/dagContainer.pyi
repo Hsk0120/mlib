@@ -7,15 +7,17 @@ from .transform import Transform
 
 
 class DagContainer(Transform, Container):
-    """Transform操作とContainerの所属・公開操作を持つコンテナ。
+    """Transformとしての操作と、Containerのメンバー・公開の操作を両方持つコンテナ。
 
-    所属・公開操作は非公開の ``_ContainerMixin`` に定義したものを
-    Container と共有する。DAGの子もMaya標準の所属管理に従う。removeMembersは子を階層からも
-    外し、removeContainerはメンバーを残して箱を解除する。
-    解除時はローカル値が維持されるため、ワールド姿勢は変化する場合がある。
+    メンバー・公開の操作は、非公開の ``_ContainerMixin`` に書いたものをContainerと共有する。
+    DAGの子のメンバー管理も、Maya標準の仕組みに従う。
 
-    基底の例外: Maya の dagContainer は transform の派生で container を継承しないが、
-    このクラスは所属・公開操作を共有し ``isinstance(x, Container)`` を保つため Container も基底に持つ。
-    Maya の継承チェーン上の抽象祖先(entity・containerBase)に対応するクラスは無く、``isinstance`` は
-    Maya の継承を表さない。継承の判定は ``isType()`` を使う。
+    - removeMembersは、メンバーから外すと同時に、子を階層からも外す。
+    - removeContainerは、メンバーを残したままコンテナを解除する。
+      解除してもローカルの値はそのまま残るので、ワールドでの姿勢は変わることがある。
+
+    基底クラスの例外: MayaのdagContainerはtransformの派生で、containerを継承しない。
+    しかしこのクラスは、メンバー・公開の操作を共有し、``isinstance(x, Container)`` がTrueになるように、
+    Containerも基底に持つ。Mayaの継承の途中にある抽象型(entity・containerBase)に対応するクラスは無い。
+    つまり ``isinstance`` はMayaの継承を表さないので、継承の判定には ``isType()`` を使う。
     """

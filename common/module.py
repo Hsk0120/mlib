@@ -10,10 +10,10 @@ for _name in ("parse_version", "is_at_least", "format_version"):
 
 
 class Module:
-    """名前で参照する Maya モジュール。生成時に存在確認しない。
+    """名前で指す Maya のモジュール。作るときには、存在するかを確かめない。
 
     Autodesk 製品(Bifrost・MayaUSD・Arnold など)や ``maya/modules/*.mod`` は、
-    プラグインとは別に「モジュール」として登録され、版と場所を持つ。
+    プラグインとは別に「モジュール」として登録される。モジュールは版と場所を持つ。
     """
 
     def __init__(self, name):
@@ -23,23 +23,23 @@ class Module:
             name (str): モジュール名(``.mod`` の ``+`` 行に書いた名前。例: ``"Bifrost"``)。
 
         Raises:
-            TypeError: name が文字列以外の場合。
+            TypeError: name が文字列でない場合。
             ValueError: name が空文字列の場合。
         """
         if not isinstance(name, str):
-            raise TypeError("name must be a str")
+            raise TypeError("nameはstrで指定してください")
         if not name:
-            raise ValueError("name must be a non-empty string")
+            raise ValueError("nameは空でない文字列で指定してください")
         self._name = name
 
     def __eq__(self, other):
-        """モジュール名を基準に同一性を判定する。
+        """モジュール名で、同じモジュールか判定する。
 
         Args:
-            other (object): 比較対象。
+            other (object): 比べる相手。
 
         Returns:
-            bool | types.NotImplementedType: Module 同士は名前の一致。異なる型では NotImplemented。
+            bool | types.NotImplementedType: Module どうしなら、名前が同じときTrue。型が違えば NotImplemented。
         """
         if not isinstance(other, Module):
             return NotImplemented
@@ -54,10 +54,10 @@ class Module:
         return hash(self._name)
 
     def __repr__(self):
-        """デバッグ用にクラス名とモジュール名を含む表現を返す。
+        """デバッグ用に、クラス名とモジュール名を含む表示を返す。
 
         Returns:
-            str: 型名とモジュール名を含む文字列表現。
+            str: 型名とモジュール名を含む文字列。
         """
         return f"Module({self._name!r})"
 
@@ -82,26 +82,26 @@ class Module:
         """Maya がこのモジュールを認識しているか判定する。
 
         Returns:
-            bool: 登録済みなら True。未登録の名前でも例外にならず False。
+            bool: 登録されていれば True。登録されていない名前でも、例外にはならず False を返す。
         """
         return self._name in (cmds.moduleInfo(listModules=True) or [])
 
     def getVersionText(self):
-        """Mayaが返すモジュールの版文字列をそのまま取得する。
+        """Mayaが返すモジュールの版の文字列を、そのまま取得する。
 
         Returns:
-            str | None: 生の版文字列。未登録・空の場合はNone。
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
         """
         if not self.isRegistered():
             return None
         return cmds.moduleInfo(version=True, moduleName=self._name) or None
 
     def getVersion(self):
-        """モジュールの現在の版を値オブジェクトとして取得する。
+        """モジュールの現在の版を、Versionの値として取得する。
 
         Returns:
-            Version | None: 問い合わせ時点の版。未登録・解釈不能ならNone。
-                取得した値をreplaceしてもMaya側の版は変更されない。
+            Version | None: 問い合わせたときの版。登録されていない場合と、版として読み取れない場合はNone。
+                取得した値をreplaceで変えても、Maya側の版は変わらない。
         """
         return Version.parse(self.getVersionText())
 
@@ -112,14 +112,14 @@ class Module:
             minimum (Version | str | int | tuple[int, ...]): 必要な最小の版(``"3.0.0"`` など)。
 
         Returns:
-            bool: 未登録なら False。
+            bool: minimum以上ならTrue。登録されていなければ False。
 
         Raises:
-            ValueError: minimum が版として解釈できない場合。
+            ValueError: minimum を版として読み取れない場合。
         """
         required = Version.parse(minimum)
         if required is None:
-            raise ValueError(f"Invalid minimum version: {minimum!r}")
+            raise ValueError(f"最小バージョンが不正です: {minimum!r}")
         version = self.getVersion()
         return version is not None and version >= required
 
@@ -127,7 +127,7 @@ class Module:
         """モジュールのフォルダーを取得する。
 
         Returns:
-            str | None: モジュールの場所。未登録の場合は None。
+            str | None: モジュールの場所。登録されていない場合は None。
         """
         if not self.isRegistered():
             return None

@@ -1,4 +1,4 @@
-"""モジュールとプラグインの組で導入される製品(Bifrost など)の導入確認とロード。"""
+"""モジュールとプラグインの組で入る製品(Bifrost など)が入っているか確かめ、ロードする。"""
 
 import maya.cmds as cmds
 
@@ -15,50 +15,52 @@ for _name in ("parse_version", "is_at_least", "format_version"):
     globals().pop(_name, None)
 
 SKIPPED = "skipped"
-"""str: 対象外の Maya バージョンのため何もしなかった。"""
+"""str: 対象外の Maya の版なので、何もしなかった。"""
 LOADED = "loaded"
-"""str: ロード失敗がなく、版の検査も通過した。"""
+"""str: ロードに失敗したものが無く、版の確認も通った。"""
 MISSING = "missing"
-"""str: 最小版を満たさない、または未検出製品の全プラグインがロードに失敗した。"""
+"""str: 最小の版に足りない。または、見つからなかった製品のプラグインが、すべてロードに失敗した。"""
 OUTDATED = "outdated"
-"""str: 導入済みだが、既にロードされているプラグインが古い版だった。"""
+"""str: 入ってはいるが、すでにロードされているプラグインが古い版だった。"""
 LOAD_FAILED = "load-failed"
 """str: 1個以上のプラグインのロードに失敗した。"""
 
 
 class PluginPackage:
-    """モジュール・プラグイン群と必要版を保持し、導入確認とロードを担当する。
+    """製品が入っているかを確かめ、ロードする。
 
-    生成時は照会・ロードせず、tryLoadでMayaの対象版、導入版、ロード結果を順に判定する。
-    ロード済みのプラグインを自動アンロードする責務は持たない。
+    モジュール・プラグインと、必要な版を持つ。作るときはMayaへの問い合わせもロードもしない。
+    tryLoadで、対象のMayaの版・入っている版・ロードの結果を順に判定する。
+    ロードしたプラグインを自動でアンロードすることはしない。
     """
 
     def __init__(self, name, plugins=(), module=None, versionPlugin=None, minimumVersion=None, minimumMaya=None, installHint=None):
-        """製品名・ロード対象・必要版を保持する。Mayaへは問い合わせない。
+        """製品名・ロードするもの・必要な版を持つ。Mayaへは問い合わせない。
 
         Args:
             name (str): 通知に表示する製品名。
-            plugins (Iterable[str | Plugin]): ロード順のプラグイン。
-            module (str | Module | None): 版の取得元。未取得ならversionPluginの版を使う。
+            plugins (Iterable[str | Plugin]): ロードするプラグイン。ロードする順に並べる。
+            module (str | Module | None): 版を取得するモジュール。版が取れなければversionPluginの版を使う。
             versionPlugin (str | Plugin | None): 版を調べるプラグイン。既定はpluginsの先頭。
-            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小版。Noneは版を問わない。
-            minimumMaya (int | None): 対象Mayaの最小年版。それ未満ではtryLoadを省略する。
-            installHint (str | None): 導入不足の通知へ加える説明。
+            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小の版。Noneなら版を問わない。
+            minimumMaya (int | None): 対象とするMayaの、最小の年の版。それより前の版では、tryLoadで何もしない。
+            installHint (str | None): 製品が足りないときの通知に加える説明。
 
         Raises:
-            TypeError: 名前・プラグイン名が文字列以外、pluginsを反復できない、
+            TypeError: 名前やプラグイン名が文字列でない場合、pluginsを順に取り出せない場合、
                 またはminimumMayaを整数に変換できない型の場合。
-            ValueError: 名前・プラグイン名が空文字列、最小版が不正、またはpluginsもmoduleも指定されない場合。
+            ValueError: 名前やプラグイン名が空文字列の場合、最小の版が正しくない場合、
+                またはpluginsもmoduleも指定していない場合。
         """
         if not isinstance(name, str):
-            raise TypeError("name must be a str")
+            raise TypeError("nameはstrで指定してください")
         if not name:
-            raise ValueError("name must be a non-empty string")
+            raise ValueError("nameは空でない文字列で指定してください")
         self._name = name
         self._plugins = tuple(item if isinstance(item, Plugin) else Plugin(item) for item in plugins)
         self._module = module if isinstance(module, Module) or module is None else Module(module)
         if not self._plugins and self._module is None:
-            raise ValueError("plugins or module is required")
+            raise ValueError("pluginsかmoduleを指定してください")
         if versionPlugin is None:
             self._version_plugin = self._plugins[0] if self._plugins else None
         else:
@@ -68,22 +70,22 @@ class PluginPackage:
         else:
             self._minimum_version = Version.parse(minimumVersion)
             if self._minimum_version is None:
-                raise ValueError(f"minimumVersion must be a version such as '3.0.0': {minimumVersion!r}")
+                raise ValueError(f"minimumVersionは'3.0.0'のようなバージョンで指定してください: {minimumVersion!r}")
         self._minimum_maya = None if minimumMaya is None else int(minimumMaya)
         self._install_hint = installHint
 
     def __repr__(self):
-        """デバッグ用に製品名と最小の版を含む表現を返す。
+        """デバッグ用に、製品名と最小の版を含む表示を返す。
 
         Returns:
-            str: 型名・製品名・最小の版を含む文字列表現。
+            str: 型名・製品名・最小の版を含む文字列。
         """
         minimum = str(self._minimum_version) if self._minimum_version is not None else "なし"
         return f"PluginPackage({self._name!r}, minimumVersion={minimum})"
 
     @staticmethod
     def showDialog(message, title="インストールが必要です"):
-        """警告ダイアログを表示する。GUI がないバッチ・スタンドアロンでは何もしない。
+        """警告のダイアログを表示する。GUI の無いバッチ・スタンドアロンでは何もしない。
 
         Args:
             message (str): 表示する文章。
@@ -107,16 +109,16 @@ class PluginPackage:
 
     @property
     def plugins(self):
-        """ロード対象のプラグインを取得する。
+        """ロードするプラグインを取得する。
 
         Returns:
-            list[Plugin]: ロード順のプラグイン。
+            list[Plugin]: プラグイン。ロードする順に並ぶ。
         """
         return list(self._plugins)
 
     @property
     def module(self):
-        """版の取得元のモジュールを取得する。
+        """版を取得するモジュールを取得する。
 
         Returns:
             Module | None: モジュール。指定していない場合は None。
@@ -142,10 +144,10 @@ class PluginPackage:
         return self._minimum_maya
 
     def isMayaSupported(self):
-        """現在の Maya が対象のバージョンか判定する。
+        """現在の Maya が対象の版か判定する。
 
         Returns:
-            bool: ``minimumMaya`` が未指定、または現在の Maya の年がそれ以上なら True。
+            bool: ``minimumMaya`` を指定していない場合と、現在の Maya の年がそれ以上の場合は True。
         """
         return self._minimum_maya is None or self._maya_year() >= self._minimum_maya
 
@@ -155,7 +157,7 @@ class PluginPackage:
         モジュールが登録されていればその版、無ければ版を調べるプラグインの版を使う。
 
         Returns:
-            Version | None: 版。未導入・版が取れない場合は None。
+            Version | None: 版。製品が入っていない場合と、版が取れない場合は None。
         """
         version = self._module.getVersion() if self._module is not None else None
         if version is None and self._version_plugin is not None:
@@ -163,7 +165,7 @@ class PluginPackage:
         return version
 
     def getLoadedVersion(self):
-        """ロード済みの、版を調べるプラグインの版を取得する。
+        """版を調べるプラグインの、ロードされている版を取得する。
 
         Returns:
             Version | None: 版。ロードされていない場合は None。
@@ -174,14 +176,14 @@ class PluginPackage:
         return plugin.getVersion()
 
     def isInstalled(self):
-        """必要な版が導入されているか判定する。
+        """必要な版が入っているか判定する。
 
-        ロード前のプラグインは Maya に登録されていない場合がある。``minimumVersion`` を
-        指定しない製品は、この判定が False でも :meth:`tryLoad` がロードを試みる。
+        ロードする前のプラグインは、Maya に登録されていないことがある。そのため ``minimumVersion`` を
+        指定していない製品では、この判定が False でも :meth:`tryLoad` がロードを試す。
 
         Returns:
-            bool: ``minimumVersion`` 以上が導入されていれば True。``minimumVersion`` を指定していない
-            場合は、版が取れるか、モジュールまたはプラグインが 1 つでも登録されていれば True。
+            bool: ``minimumVersion`` 以上が入っていれば True。``minimumVersion`` を指定していない
+            場合は、版が取れるか、モジュールかプラグインが 1 つでも登録されていれば True。
         """
         version = self.getInstalledVersion()
         if self._minimum_version is not None:
@@ -193,13 +195,13 @@ class PluginPackage:
         return any(plugin.isRegistered() for plugin in self._plugins)
 
     def getMessage(self, found=None):
-        """導入が必要なときの警告文を作る。
+        """製品を入れる必要があるときの、警告の文を作る。
 
         Args:
-            found (Version | None): 検出した版。省略すると現在の導入状況から求める。
+            found (Version | None): 見つかった版。省略すると、今入っているものから求める。
 
         Returns:
-            str: 日本語と英語の警告文。
+            str: 日本語と英語の警告の文。
         """
         if found is None:
             found = self.getInstalledVersion()
@@ -214,10 +216,10 @@ class PluginPackage:
         )
 
     def loadPlugins(self):
-        """全プラグインをロードする。ロードできない名前があっても続行する。
+        """すべてのプラグインをロードする。ロードできないものがあっても続ける。
 
         Returns:
-            list[str]: ロードに失敗したプラグイン名。失敗ごとに警告を出す。
+            list[str]: ロードに失敗したプラグインの名前。失敗するたびに警告を出す。
         """
         failed = []
         for plugin in self._plugins:
@@ -225,25 +227,28 @@ class PluginPackage:
                 plugin.load(quiet=True)
             except Exception as error:
                 failed.append(plugin.name)
-                logger.warning("[mlib] Cannot load plugin %s for %s: %s", plugin.name, self._name, error)
+                logger.warning("[mlib] プラグイン%sを読み込めません(%s用): %s", plugin.name, self._name, error)
         return failed
 
     def tryLoad(self, dialog=True, warn=True):
-        """対象Mayaと必要版を確認してロードし、結果の定数を返す。
+        """対象のMayaと必要な版を確かめてからロードし、結果の定数を返す。
 
-        minimumMaya未満なら何もしない。最小版指定時は未導入・版不足ならロードしない。
-        最小版なしでは未検出でもロードを試し、全プラグインが失敗すればMISSINGとする。
-        失敗時も成功済みプラグインを自動ではアンロードしない。
+        - minimumMayaより前の版のMayaでは、何もしない。
+        - 最小の版を指定した場合、製品が入っていないか版が足りなければ、ロードしない。
+        - 最小の版を指定していない場合、製品が見つからなくてもロードを試す。
+          すべてのプラグインが失敗すればMISSINGにする。
+
+        失敗しても、ロードできたプラグインを自動ではアンロードしない。
 
         Args:
-            dialog (bool | Callable[[str], None]): TrueはshowDialog、False/Noneは表示なし。
-                callableには不足時の通知文を渡す。
-            warn (bool): 導入・版不足をlogger.warningへ通知するか。
-                個別のロード失敗警告はこのフラグで抑制しない。
+            dialog (bool | Callable[[str], None]): TrueならshowDialogで表示し、False/Noneなら表示しない。
+                呼び出せるものを渡すと、足りないときの通知の文を渡して呼ぶ。
+            warn (bool): Trueなら、製品が入っていないことや版が足りないことをlogger.warningで知らせる。
+                プラグインごとのロード失敗の警告は、このフラグでは止めない。
 
         Returns:
-            str: SKIPPED(対象外)、LOADED(成功)、MISSING(未導入・版不足)、
-                OUTDATED(ロード済み版が古い)、LOAD_FAILED(ロード失敗あり)。
+            str: SKIPPED(対象外)、LOADED(成功)、MISSING(入っていない・版が足りない)、
+                OUTDATED(ロードされている版が古い)、LOAD_FAILED(ロードに失敗したものがある)。
         """
         if not self.isMayaSupported():
             return SKIPPED
@@ -266,10 +271,10 @@ class PluginPackage:
 
     @staticmethod
     def _maya_year():
-        """現在のMayaの年版を照会する。
+        """現在のMayaの年の版を調べる。
 
         Returns:
-            int: 2025などの年版。
+            int: 2025などの年の版。
         """
         return int(str(cmds.about(version=True)).split(".")[0])
 
@@ -277,9 +282,9 @@ class PluginPackage:
         """指定した通知先へメッセージを送る。
 
         Args:
-            show (callable | None): メッセージ全体を渡す表示コールバック。
-            warn (bool): 最初の行を warning にも渡すか。
-            message (str): 通知内容。コールバックの例外は伝播する。
+            show (callable | None): メッセージ全体を渡して表示するコールバック。
+            warn (bool): Trueなら、最初の行を warning にも渡す。
+            message (str): 知らせる内容。コールバックで起きた例外は、そのまま外へ伝わる。
 
         Returns:
             None: 値を返さない。

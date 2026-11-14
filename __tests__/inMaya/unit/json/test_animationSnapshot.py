@@ -223,7 +223,7 @@ class AnimationSnapshotTest(_AnimCase):
         report = snap.apply(namespaceMap={self.ns: self.other})
         self.assertEqual(len(report.skipped), 2)
         self.assertTrue(any("locked" in item for item in report.skipped))
-        self.assertTrue(any("connected to transform" in item for item in report.skipped))
+        self.assertTrue(any("transformに接続されています" in item for item in report.skipped))
         self.assertIsNotNone(self.curve(self.b + ".visibility"))
 
     def test_one_undo_restores(self):
@@ -338,7 +338,7 @@ class AnimationLayerTest(_AnimCase):
         report = snap.apply(namespaceMap={self.ns: self.other}, createLayers=False)
         self.assertFalse(cmds.objExists(self.layer2))
         self.assertEqual(len(report.skipped), 1)
-        self.assertIn(self.layer2 + " not found", report.skipped[0])
+        self.assertIn("アニメーションレイヤー" + self.layer2 + "が見つかりません", report.skipped[0])
         self.assertTrue(cmds.animLayer(self.layer1, query=True, override=True))
         self.assertCurveData(self.layerCurve(self.layer1, self.b + ".tx"), self.layerCurve(self.layer1, self.a + ".tx"))
 

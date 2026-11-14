@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Mesh の頂点と頂点コレクション。"""
+"""メッシュの頂点と、頂点の集まり。"""
 
 import maya.api.OpenMaya as om2
 from ..decorator import _pick_alias, _require_bool
@@ -16,7 +16,7 @@ from typing import overload
 
 
 class Vertex(PointComponent):
-    """Mesh 上の単一頂点。番号はゼロ始まり。"""
+    """メッシュの頂点1つを表すクラス。番号は0から始まる。"""
     shape_type: str
     component_type: str
     count_attribute: str
@@ -26,7 +26,7 @@ class Vertex(PointComponent):
         :meth:`Vertices.getFaces` と同じ規則。
 
         Returns:
-            Faces: 番号の昇順の面(重複なし)。
+            Faces: 面。番号の小さい順に並び、重なりは無い。
         """
         ...
     def getEdges(self) -> Edges:
@@ -35,122 +35,133 @@ class Vertex(PointComponent):
         ``cmds.polyListComponentConversion(toEdge=True)`` と同じエッジになる。
 
         Returns:
-            Edges: 番号の昇順のエッジ(重複なし)。
+            Edges: エッジ。番号の小さい順に並び、重なりは無い。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def getConnectedVertices(self) -> Vertices:
-        """エッジでつながった隣の頂点(自身を含まない)を取得する。
+        """エッジでつながった隣の頂点を取得する。
+
+        自身は含めない。
 
         Returns:
-            Vertices: 番号の昇順の頂点(重複なし)。
+            Vertices: 頂点。番号の小さい順に並び、重なりは無い。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def getVertexFaces(self) -> VertexFaces:
-        """この頂点の頂点フェース(頂点に触れる各フェースとの組)を取得する。
+        """この頂点の頂点フェースを取得する。
+
+        頂点フェースは、この頂点と、頂点に触れている各フェースとの組。
 
         Returns:
-            VertexFaces: フェース番号の昇順の頂点フェース。
+            VertexFaces: 頂点フェース。フェース番号の小さい順に並ぶ。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def getUVs(self) -> UVs:
         """この頂点に割り当てられた、現在のUVセットのUVを取得する。
 
-        UVの境界(シーム)上の頂点は複数のUVを持つ。
+        UVの境界(シーム)の上にある頂点は、UVを複数持つ。
 
         Returns:
-            UVs: 番号の昇順のUV(重複なし)。UVが無ければ空。
+            UVs: UV。番号の小さい順に並び、重なりは無い。UVが無ければ空。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def isOnBoundary(self) -> bool:
-        """メッシュの縁(接する面が1つだけのエッジ)上の頂点か照会する(``MItMeshVertex.onBoundary``)。
+        """メッシュの縁の上にある頂点か調べる。
+
+        縁とは、接する面が1つだけのエッジのこと。``MItMeshVertex.onBoundary`` で調べる。
 
         Returns:
             bool: 縁の上ならTrue。:meth:`Mesh.getBorderVertices <mlib.nodes.mesh.Mesh.getBorderVertices>` に
-                含まれる頂点と同じ。
+                含まれる頂点と同じになる。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def getColor(self, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
         """頂点の色を取得する。
 
-        :meth:`Mesh.getVertexColors <mlib.nodes.mesh.Mesh.getVertexColors>` のこの頂点の値と同じ
-        (面ごとに違う色を持つ頂点は、その平均)。
+        :meth:`Mesh.getVertexColors <mlib.nodes.mesh.Mesh.getVertexColors>` で得られる、この頂点の値と同じ。
+        面ごとに違う色を持つ頂点では、その平均になる。
 
         Args:
-            colorSet (str | None): カラーセットの名前。Noneは現在のカラーセット。
+            colorSet (str | None): カラーセットの名前。Noneなら現在のカラーセット。既定はNone。
 
         Returns:
             tuple[float, float, float, float] | None: (R, G, B, A)。色が無い場合はNone。
 
         Raises:
-            TypeError: colorSetが文字列・None以外の場合。
+            TypeError: colorSetが文字列でもNoneでもない場合。
             ValueError: 指定した名前のカラーセットが無い場合。
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def setColor(self, color: Sequence[float] | om2.MColor, colorSet: str | None = ..., *, fast: bool = ...) -> Vertex:
-        """頂点の色を設定し、自身を返す。
+        """頂点の色を設定する。
 
-        :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` でこの頂点だけを書く。
-        通常は ``cmds.polyColorPerVertex`` で1回のUndoにまとめ、``fast=True`` はUndoに記録しない。
-        頂点のすべての頂点フェースの色を同じ色にする。
+        :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` で、この頂点だけを書き込む。
+        この頂点のすべての頂点フェースを、同じ色にする。
+
+        - ふだんは ``cmds.polyColorPerVertex`` で書き込み、1回のUndoで戻せるようにまとめる。
+        - ``fast=True`` ならUndoには記録しない。
 
         Args:
-            color (Sequence[float] | om2.MColor): (R, G, B) または (R, G, B, A) の有限な数値(Aの省略は1.0)。
-            colorSet (str | None): カラーセットの名前。Noneは現在のカラーセット(無ければMayaが
-                ``colorSet1`` を作る)。名前を指定した場合は既にある必要がある。
+            color (Sequence[float] | om2.MColor): (R, G, B) または (R, G, B, A) の有限な数値。Aを省くと1.0になる。
+            colorSet (str | None): カラーセットの名前。Noneなら現在のカラーセット(無ければMayaが ``colorSet1`` を作る)。
+                名前を指定する場合は、そのカラーセットがすでにある必要がある。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Vertex: 自身。
 
         Raises:
-            TypeError: fastがbool以外、colorSetが文字列・None以外、または色の型が不正な場合。
-            ValueError: 成分の数が3・4以外か有限でない、またはカラーセットが無い場合。
-            IndexError: 番号が現在の範囲外の場合。
-            RuntimeError: Shapeが無効、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: fastがboolでない場合、colorSetが文字列でもNoneでもない場合、または色の型が合わない場合。
+            ValueError: 成分の数が3でも4でもないか有限でない場合、またはカラーセットが無い場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
     def getNormal(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, ws: bool = ...) -> Vector:
-        """頂点の法線(``MFnMesh.getVertexNormal``。接する面の法線の平均)を、長さ1で取得する。
+        """頂点の法線を、長さ1で取得する。
+
+        接する面の法線の平均で、``MFnMesh.getVertexNormal`` で求める。
 
         Args:
-            worldSpace (bool): Trueは保持DAGパスのワールド空間、FalseはShapeのオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            angleWeighted (bool): Trueは面の角度で重み付けした平均。既定Falseは単純平均。
+            angleWeighted (bool): Trueなら面の角度で重みを付けた平均、Falseならそのままの平均にする。既定はFalse。
 
         Returns:
-            Vector: 長さ1の法線。ロックした法線・ハードエッジは考慮しない(面の法線から計算する)。
+            Vector: 長さ1の法線。面の法線から計算するので、ロックした法線やハードエッジは反映しない。
 
         Raises:
-            TypeError: worldSpace・angleWeightedがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            IndexError: 番号が現在の範囲外の場合。
+            TypeError: worldSpaceかangleWeightedがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
     def _iterator(self) -> om2.MItMeshVertex:
-        """番号を検証し、この頂点へ移した ``om2.MItMeshVertex`` を返す。
+        """番号を確かめて、この頂点に合わせた ``om2.MItMeshVertex`` を返す。
 
         Returns:
             om2.MItMeshVertex: この頂点を指す反復子。
@@ -159,7 +170,10 @@ class Vertex(PointComponent):
 
 
 class Vertices(PointComponents):
-    """同一 Mesh の頂点群。座標取得・部分列取得・ミラーに対応する。"""
+    """同じメッシュにある頂点の集まりを表すクラス。
+
+    座標の取得、一部の取り出し、ミラーができる。
+    """
     def __iter__(self) -> Iterator[Vertex]: ...
     @overload
     def __getitem__(self, index: int) -> Vertex: ...
@@ -167,42 +181,46 @@ class Vertices(PointComponents):
     def __getitem__(self, index: slice) -> Vertices: ...
     component_class: Any
     def grow(self) -> Vertices:
-        """辺でつながった隣の頂点を加えた頂点群を取得する。選択は変えない。
+        """エッジでつながった隣の頂点を加えた、頂点の集まりを取得する。
+
+        選択は変えない。
 
         Returns:
-            Vertices: 保持順の頂点のあとに、加えた頂点を番号の昇順で続けた新しい頂点群。
+            Vertices: 新しい頂点の集まり。持っている順の頂点のあとに、加えた頂点を番号の小さい順に続ける。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         ...
     def shrink(self) -> Vertices:
-        """保持していない頂点と辺でつながる頂点(縁)を除いた頂点群を取得する。選択は変えない。
+        """縁の頂点を除いた、頂点の集まりを取得する。
+
+        縁の頂点とは、この集まりに無い頂点とエッジでつながっている頂点のこと。選択は変えない。
 
         Returns:
-            Vertices: 保持順を保った新しい頂点群。全てが縁なら空。
+            Vertices: 新しい頂点の集まり。持っている順を保つ。すべてが縁なら空。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         ...
     def getFaces(self) -> Faces:
-        """保持している頂点のどれかに触れている面を取得する。選択は変えない。
+        """持っている頂点のどれかに触れている面を取得する。
 
-        ``cmds.polyListComponentConversion(toFace=True)`` と同じ面になる。
+        ``cmds.polyListComponentConversion(toFace=True)`` と同じ面になる。選択は変えない。
 
         Returns:
-            Faces: 番号の昇順の面(重複なし)。頂点が空なら空。
+            Faces: 面。番号の小さい順に並び、重なりは無い。頂点が空なら空。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         ...
     def _neighbor_indices(self) -> dict[int, list[int]]:
-        """保持している頂点ごとに、辺でつながった頂点番号を返す。
+        """持っている頂点ごとに、エッジでつながった頂点の番号を返す。
 
         Returns:
             dict[int, list[int]]: {頂点番号: 隣の頂点番号}。

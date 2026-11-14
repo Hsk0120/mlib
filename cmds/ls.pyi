@@ -1,10 +1,13 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""名前や条件でMayaの対象を検索し、結果の種類に応じた集まり(コレクション)で返す。
+"""名前や条件でMayaの対象を探し、結果の種類に合った集まり(コレクション)で返す。
 
-ノードだけなら :class:`~mlib.nodes.node.Nodes` (``type="joint"`` は Joints、``type="skinCluster"`` は
-SkinClusters)、アトリビュートだけなら :class:`~mlib.plugs.plug.Plugs`、同じシェイプの同じ種類の
-コンポーネントだけなら Vertices・Edges・Faces・UVs・CVs を返す。種類が混在する場合だけ list を返す。
-型名などシーン参照以外を返すMayaフラグには対応しない。
+- ノードだけなら :class:`~mlib.nodes.node.Nodes` (``type="joint"`` なら Joints、``type="skinCluster"`` なら
+  SkinClusters)。
+- アトリビュートだけなら :class:`~mlib.plugs.plug.Plugs`。
+- 同じシェイプの同じ種類のコンポーネントだけなら、Vertices・Edges・Faces・UVs・CVs。
+- 種類が混ざっている場合だけ list。
+
+型名など、シーンの対象以外を返すMayaのフラグには対応しない。
 
 .. code-block:: python
 
@@ -297,143 +300,145 @@ def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool =
 def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool = ..., ap: bool = ..., assemblies: bool = ..., cameras: bool = ..., ca: bool = ..., containerType: str | Iterable[str] = ..., ct: str | Iterable[str] = ..., containers: bool = ..., con: bool = ..., dagObjects: bool = ..., dag: bool = ..., defaultNodes: bool = ..., dn: bool = ..., dependencyNodes: bool = ..., dep: bool = ..., exactType: str | Iterable[str] = ..., et: str | Iterable[str] = ..., excludeType: str | Iterable[str] = ..., ext: str | Iterable[str] = ..., flatten: bool = ..., fl: bool = ..., geometry: bool = ..., g: bool = ..., ghost: bool = ..., gh: bool = ..., head: int = ..., hd: int = ..., hilite: bool = ..., hl: bool = ..., intermediateObjects: bool = ..., io: bool = ..., invisible: bool = ..., iv: bool = ..., leaf: bool = ..., lf: bool = ..., lights: bool = ..., lt: bool = ..., live: bool = ..., lv: bool = ..., lockedNodes: bool = ..., ln: bool = ..., long: bool = ..., l: bool = ..., materials: bool = ..., mat: bool = ..., modified: bool = ..., mod: bool = ..., noIntermediate: bool = ..., ni: bool = ..., nodeTypes: bool = ..., nt: bool = ..., objectsOnly: bool = ..., o: bool = ..., orderedComponentSelection: bool = ..., ocs: bool = ..., orderedSelection: bool = ..., os: bool = ..., partitions: bool = ..., pr: bool = ..., persistentNodes: bool = ..., pn: bool = ..., planes: bool = ..., pl: bool = ..., preSelectHilite: bool = ..., psh: bool = ..., readOnly: bool = ..., ro: bool = ..., recursive: bool = ..., r: bool = ..., referencedNodes: bool = ..., rn: bool = ..., references: bool = ..., rf: bool = ..., renderGlobals: bool = ..., rg: bool = ..., renderQualities: bool = ..., rq: bool = ..., renderResolutions: bool = ..., rr: bool = ..., renderSetups: bool = ..., rs: bool = ..., selection: bool = ..., sl: bool = ..., selectedKeyframes: bool = ..., sets: bool = ..., set: bool = ..., shapes: bool = ..., s: bool = ..., shortNames: bool = ..., sn: bool = ..., showNamespace: bool = ..., sns: bool = ..., showType: bool = ..., st: bool = ..., tail: int = ..., tl: int = ..., templated: bool = ..., tm: bool = ..., textures: bool = ..., tex: bool = ..., transforms: bool = ..., tr: bool = ..., type: str, typ: str | Iterable[str] = ..., ufeObjects: bool = ..., ufe: bool = ..., undeletable: bool = ..., ud: bool = ..., untemplated: bool = ..., ut: bool = ..., uuid: bool = ..., uid: bool = ..., visible: bool = ..., v: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> Nodes: ...
 @overload
 def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool = ..., ap: bool = ..., assemblies: bool = ..., cameras: bool = ..., ca: bool = ..., containerType: str | Iterable[str] = ..., ct: str | Iterable[str] = ..., containers: bool = ..., con: bool = ..., dagObjects: bool = ..., dag: bool = ..., defaultNodes: bool = ..., dn: bool = ..., dependencyNodes: bool = ..., dep: bool = ..., exactType: str | Iterable[str] = ..., et: str | Iterable[str] = ..., excludeType: str | Iterable[str] = ..., ext: str | Iterable[str] = ..., flatten: bool = ..., fl: bool = ..., geometry: bool = ..., g: bool = ..., ghost: bool = ..., gh: bool = ..., head: int = ..., hd: int = ..., hilite: bool = ..., hl: bool = ..., intermediateObjects: bool = ..., io: bool = ..., invisible: bool = ..., iv: bool = ..., leaf: bool = ..., lf: bool = ..., lights: bool = ..., lt: bool = ..., live: bool = ..., lv: bool = ..., lockedNodes: bool = ..., ln: bool = ..., long: bool = ..., l: bool = ..., materials: bool = ..., mat: bool = ..., modified: bool = ..., mod: bool = ..., noIntermediate: bool = ..., ni: bool = ..., nodeTypes: bool = ..., nt: bool = ..., objectsOnly: bool = ..., o: bool = ..., orderedComponentSelection: bool = ..., ocs: bool = ..., orderedSelection: bool = ..., os: bool = ..., partitions: bool = ..., pr: bool = ..., persistentNodes: bool = ..., pn: bool = ..., planes: bool = ..., pl: bool = ..., preSelectHilite: bool = ..., psh: bool = ..., readOnly: bool = ..., ro: bool = ..., recursive: bool = ..., r: bool = ..., referencedNodes: bool = ..., rn: bool = ..., references: bool = ..., rf: bool = ..., renderGlobals: bool = ..., rg: bool = ..., renderQualities: bool = ..., rq: bool = ..., renderResolutions: bool = ..., rr: bool = ..., renderSetups: bool = ..., rs: bool = ..., selection: bool = ..., sl: bool = ..., selectedKeyframes: bool = ..., sets: bool = ..., set: bool = ..., shapes: bool = ..., s: bool = ..., shortNames: bool = ..., sn: bool = ..., showNamespace: bool = ..., sns: bool = ..., showType: bool = ..., st: bool = ..., tail: int = ..., tl: int = ..., templated: bool = ..., tm: bool = ..., textures: bool = ..., tex: bool = ..., transforms: bool = ..., tr: bool = ..., type: str | Iterable[str] = ..., typ: str | Iterable[str] = ..., ufeObjects: bool = ..., ufe: bool = ..., undeletable: bool = ..., ud: bool = ..., untemplated: bool = ..., ut: bool = ..., uuid: bool = ..., uid: bool = ..., visible: bool = ..., v: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> Nodes | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]:
-    """Mayaの参照を検索し、対応するラッパーとして返す。
+    """Mayaの対象を探し、型に合ったオブジェクトとして返す。
 
-    フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
-    長名と短名の同時指定は入力解決やUndo開始の前に拒否する。対応しないMaya版のフラグはMayaが拒否する。
+    フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
+    Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
+    Undoを始める前にエラーにする。その版のMayaに無いフラグは、Mayaがエラーにする。
 
     Args:
-        *args (object): 名前・パターン、Node・Plug・Component・API参照またはその列。
-            Noneや空の列だけを渡した場合は空の結果を返す。
-        absoluteName (bool): 名前空間を絶対表記にする指定。
-        an (bool): absoluteNameの短縮名。同時指定はできない。
-        allPaths (bool): DAGインスタンスの全パスを列挙する指定。
-        ap (bool): allPathsの短縮名。同時指定はできない。
-        assemblies (bool): 最上位のTransformを検索する指定。短名asはPython予約語のため ``**{"as": value}`` で渡す。
-        cameras (bool): カメラを検索する指定。
-        ca (bool): camerasの短縮名。同時指定はできない。
-        containerType (str | Iterable[str]): コンテナ型の名前による検索条件。
-        ct (str | Iterable[str]): containerTypeの短縮名。同時指定はできない。
-        containers (bool): コンテナを検索する指定。
-        con (bool): containersの短縮名。同時指定はできない。
-        dagObjects (bool): DAGノードを検索する指定。
-        dag (bool): dagObjectsの短縮名。同時指定はできない。
-        defaultNodes (bool): 既定ノードを検索する指定。
-        dn (bool): defaultNodesの短縮名。同時指定はできない。
-        dependencyNodes (bool): 依存ノードを検索する指定。
-        dep (bool): dependencyNodesの短縮名。同時指定はできない。
-        exactType (str | Iterable[str]): 型との完全一致による検索条件。複数指定の扱いはMayaに従う。
-            type・excludeTypeと同じく、2026で改名された型(``multDoubleLinear``/``multDL``・
-            ``addDoubleLinear``/``addDL``)はどちらの名前でもその版の型名で検索する。
-        et (str | Iterable[str]): exactTypeの短縮名。同時指定はできない。
-        excludeType (str | Iterable[str]): 検索から除外するノード型。
-        ext (str | Iterable[str]): excludeTypeの短縮名。同時指定はできない。
-        flatten (bool): Maya側の範囲展開指定。mlibのComponent結果はこの値によらず単体へ展開する。
-        fl (bool): flattenの短縮名。同時指定はできない。
-        geometry (bool): ジオメトリを検索する指定。
-        g (bool): geometryの短縮名。同時指定はできない。
-        ghost (bool): ゴースト表示されたノードを検索する指定。
-        gh (bool): ghostの短縮名。同時指定はできない。
-        head (int): 取得する先頭件数。型ごとの上限の扱いはMayaに従う。
-        hd (int): headの短縮名。同時指定はできない。
-        hilite (bool): ハイライトされた対象を検索する指定。
-        hl (bool): hiliteの短縮名。同時指定はできない。
-        intermediateObjects (bool): 中間Shapeを検索する指定。
-        io (bool): intermediateObjectsの短縮名。同時指定はできない。
-        invisible (bool): 非表示の対象を検索する指定。
-        iv (bool): invisibleの短縮名。同時指定はできない。
-        leaf (bool): 末端のDAGノードを検索する指定。
-        lf (bool): leafの短縮名。同時指定はできない。
-        lights (bool): ライトを検索する指定。
-        lt (bool): lightsの短縮名。同時指定はできない。
-        live (bool): ライブ状態の対象を検索する指定。
-        lv (bool): liveの短縮名。同時指定はできない。
-        lockedNodes (bool): ロックされたノードを検索する指定。
-        ln (bool): lockedNodesの短縮名。同時指定はできない。
-        long (bool): 完全DAGパスで結果名を受け取る指定。
-        l (bool): longの短縮名。同時指定はできない。
-        materials (bool): マテリアルを検索する指定。
-        mat (bool): materialsの短縮名。同時指定はできない。
-        modified (bool): 変更されたノードを検索する指定。
-        mod (bool): modifiedの短縮名。同時指定はできない。
-        noIntermediate (bool): 中間Shapeを除く指定。
-        ni (bool): noIntermediateの短縮名。同時指定はできない。
-        nodeTypes (bool): ノード型名の一覧を返すMayaフラグ。シーン参照を返さないためmlibでは非対応。
-        nt (bool): nodeTypesの短縮名。同時指定はできない。
-        objectsOnly (bool): アトリビュート・コンポーネントを除いてノードを検索する指定。
-        o (bool): objectsOnlyの短縮名。同時指定はできない。
-        orderedComponentSelection (bool): コンポーネントの選択順を使う指定。Maya2025以降で利用可能。
-        ocs (bool): orderedComponentSelectionの短縮名。同時指定はできない。
-        orderedSelection (bool): 選択順で取得する指定。Mayaの選択順追跡設定に従う。
-        os (bool): orderedSelectionの短縮名。同時指定はできない。
-        partitions (bool): パーティションを検索する指定。
-        pr (bool): partitionsの短縮名。同時指定はできない。
-        persistentNodes (bool): 永続ノードを検索する指定。
-        pn (bool): persistentNodesの短縮名。同時指定はできない。
-        planes (bool): プレーンを検索するMayaフラグ。
-        pl (bool): planesの短縮名。同時指定はできない。
-        preSelectHilite (bool): 選択前ハイライトの対象を検索する指定。
-        psh (bool): preSelectHiliteの短縮名。同時指定はできない。
-        readOnly (bool): 読み取り専用ノードを検索するMayaフラグ。
-        ro (bool): readOnlyの短縮名。同時指定はできない。
-        recursive (bool): 名前空間を再帰的に検索する指定。
-        r (bool): recursiveの短縮名。同時指定はできない。
-        referencedNodes (bool): 参照ファイル内のノードを検索する指定。
-        rn (bool): referencedNodesの短縮名。同時指定はできない。
-        references (bool): 参照ノードを検索する指定。
-        rf (bool): referencesの短縮名。同時指定はできない。
-        renderGlobals (bool): レンダーグローバルを検索するMayaフラグ。
-        rg (bool): renderGlobalsの短縮名。同時指定はできない。
-        renderQualities (bool): レンダー品質ノードを検索するMayaフラグ。
-        rq (bool): renderQualitiesの短縮名。同時指定はできない。
-        renderResolutions (bool): レンダー解像度ノードを検索するMayaフラグ。
-        rr (bool): renderResolutionsの短縮名。同時指定はできない。
-        renderSetups (bool): レンダーセットアップを検索するMayaフラグ。
-        rs (bool): renderSetupsの短縮名。同時指定はできない。
-        selection (bool): 現在の選択を検索する指定。
-        sl (bool): selectionの短縮名。同時指定はできない。
-        selectedKeyframes (bool): mlib独自の指定。TrueはGraph Editor・Dope Sheetで選んでいるキーを
+        *args (object): 名前・パターン、Node・Plug・Component・APIのオブジェクト、またはその並び。
+            Noneや空の並びだけを渡した場合は、空の結果を返す。
+        absoluteName (bool): Trueなら、名前空間を絶対表記にする。
+        an (bool): absoluteNameの短縮名。absoluteNameと同時には指定できない。
+        allPaths (bool): Trueなら、DAGのインスタンスのパスをすべて返す。
+        ap (bool): allPathsの短縮名。allPathsと同時には指定できない。
+        assemblies (bool): Trueなら、最上位のTransformを検索する。短縮名asはPythonの予約語のため、``**{"as": value}`` で渡す。
+        cameras (bool): Trueなら、カメラを検索する。
+        ca (bool): camerasの短縮名。camerasと同時には指定できない。
+        containerType (str | Iterable[str]): コンテナの型の名前で絞る。
+        ct (str | Iterable[str]): containerTypeの短縮名。containerTypeと同時には指定できない。
+        containers (bool): Trueなら、コンテナを検索する。
+        con (bool): containersの短縮名。containersと同時には指定できない。
+        dagObjects (bool): Trueなら、DAGノードを検索する。
+        dag (bool): dagObjectsの短縮名。dagObjectsと同時には指定できない。
+        defaultNodes (bool): Trueなら、既定のノードを検索する。
+        dn (bool): defaultNodesの短縮名。defaultNodesと同時には指定できない。
+        dependencyNodes (bool): Trueなら、依存ノードを検索する。
+        dep (bool): dependencyNodesの短縮名。dependencyNodesと同時には指定できない。
+        exactType (str | Iterable[str]): 型が完全に一致するもので絞る。複数を指定したときの扱いはMayaに従う。
+            type・excludeTypeと同じく、2026で名前が変わった型(``multDoubleLinear``/``multDL``・
+            ``addDoubleLinear``/``addDL``)は、どちらの名前でもその版の型名で検索する。
+        et (str | Iterable[str]): exactTypeの短縮名。exactTypeと同時には指定できない。
+        excludeType (str | Iterable[str]): 検索から除くノード型。
+        ext (str | Iterable[str]): excludeTypeの短縮名。excludeTypeと同時には指定できない。
+        flatten (bool): Mayaの範囲を展開する指定。mlibのComponentの結果は、この値によらず1つずつに展開する。
+        fl (bool): flattenの短縮名。flattenと同時には指定できない。
+        geometry (bool): Trueなら、ジオメトリを検索する。
+        g (bool): geometryの短縮名。geometryと同時には指定できない。
+        ghost (bool): Trueなら、ゴースト表示されたノードを検索する。
+        gh (bool): ghostの短縮名。ghostと同時には指定できない。
+        head (int): 先頭から取得する件数。型ごとの上限の扱いはMayaに従う。
+        hd (int): headの短縮名。headと同時には指定できない。
+        hilite (bool): Trueなら、ハイライトされた対象を検索する。
+        hl (bool): hiliteの短縮名。hiliteと同時には指定できない。
+        intermediateObjects (bool): Trueなら、中間Shapeを検索する。
+        io (bool): intermediateObjectsの短縮名。intermediateObjectsと同時には指定できない。
+        invisible (bool): Trueなら、非表示の対象を検索する。
+        iv (bool): invisibleの短縮名。invisibleと同時には指定できない。
+        leaf (bool): Trueなら、末端のDAGノードを検索する。
+        lf (bool): leafの短縮名。leafと同時には指定できない。
+        lights (bool): Trueなら、ライトを検索する。
+        lt (bool): lightsの短縮名。lightsと同時には指定できない。
+        live (bool): Trueなら、ライブにした対象を検索する。
+        lv (bool): liveの短縮名。liveと同時には指定できない。
+        lockedNodes (bool): Trueなら、ロックされたノードを検索する。
+        ln (bool): lockedNodesの短縮名。lockedNodesと同時には指定できない。
+        long (bool): Trueなら、結果の名前を完全なDAGパスで受け取る。
+        l (bool): longの短縮名。longと同時には指定できない。
+        materials (bool): Trueなら、マテリアルを検索する。
+        mat (bool): materialsの短縮名。materialsと同時には指定できない。
+        modified (bool): Trueなら、変更されたノードを検索する。
+        mod (bool): modifiedの短縮名。modifiedと同時には指定できない。
+        noIntermediate (bool): Trueなら、中間Shapeを除く。
+        ni (bool): noIntermediateの短縮名。noIntermediateと同時には指定できない。
+        nodeTypes (bool): ノード型名の一覧を返すMayaのフラグ。シーンの対象を返さないため、mlibでは対応しない。
+        nt (bool): nodeTypesの短縮名。nodeTypesと同時には指定できない。
+        objectsOnly (bool): Trueなら、アトリビュートとコンポーネントを除き、ノードだけを検索する。
+        o (bool): objectsOnlyの短縮名。objectsOnlyと同時には指定できない。
+        orderedComponentSelection (bool): Trueなら、コンポーネントの選択順を使う。Maya2025以降で使える。
+        ocs (bool): orderedComponentSelectionの短縮名。orderedComponentSelectionと同時には指定できない。
+        orderedSelection (bool): Trueなら、選択した順に取得する。Mayaの選択順を記録する設定に従う。
+        os (bool): orderedSelectionの短縮名。orderedSelectionと同時には指定できない。
+        partitions (bool): Trueなら、パーティションを検索する。
+        pr (bool): partitionsの短縮名。partitionsと同時には指定できない。
+        persistentNodes (bool): Trueなら、永続的なノードを検索する。
+        pn (bool): persistentNodesの短縮名。persistentNodesと同時には指定できない。
+        planes (bool): Trueなら、プレーンを検索する(Mayaのフラグ)。
+        pl (bool): planesの短縮名。planesと同時には指定できない。
+        preSelectHilite (bool): Trueなら、選択前のハイライト(プリセレクト)の対象を検索する。
+        psh (bool): preSelectHiliteの短縮名。preSelectHiliteと同時には指定できない。
+        readOnly (bool): Trueなら、読み取り専用のノードを検索する(Mayaのフラグ)。
+        ro (bool): readOnlyの短縮名。readOnlyと同時には指定できない。
+        recursive (bool): Trueなら、名前空間を再帰的に検索する。
+        r (bool): recursiveの短縮名。recursiveと同時には指定できない。
+        referencedNodes (bool): Trueなら、リファレンスしたファイルのノードを検索する。
+        rn (bool): referencedNodesの短縮名。referencedNodesと同時には指定できない。
+        references (bool): Trueなら、リファレンスノードを検索する。
+        rf (bool): referencesの短縮名。referencesと同時には指定できない。
+        renderGlobals (bool): Trueなら、レンダーグローバルを検索する(Mayaのフラグ)。
+        rg (bool): renderGlobalsの短縮名。renderGlobalsと同時には指定できない。
+        renderQualities (bool): Trueなら、レンダー品質のノードを検索する(Mayaのフラグ)。
+        rq (bool): renderQualitiesの短縮名。renderQualitiesと同時には指定できない。
+        renderResolutions (bool): Trueなら、レンダー解像度のノードを検索する(Mayaのフラグ)。
+        rr (bool): renderResolutionsの短縮名。renderResolutionsと同時には指定できない。
+        renderSetups (bool): Trueなら、レンダーセットアップを検索する(Mayaのフラグ)。
+        rs (bool): renderSetupsの短縮名。renderSetupsと同時には指定できない。
+        selection (bool): Trueなら、現在の選択を検索する。
+        sl (bool): selectionの短縮名。selectionと同時には指定できない。
+        selectedKeyframes (bool): mlib独自の指定。Trueなら、Graph Editor・Dope Sheetで選んでいるキーを
             :class:`~mlib.common.keyframe.Keyframes` で返す(:meth:`Selection.getKeyframes
-            <mlib.common.selection.Selection.getKeyframes>` と同じ)。他の位置引数・フラグとは併用できない。
-        sets (bool): セットを検索する指定。
-        set (bool): setsの短縮名。同時指定はできない。
-        shapes (bool): Shapeを検索する指定。
-        s (bool): shapesの短縮名。同時指定はできない。
-        shortNames (bool): アトリビュート名を短名で受け取る指定。
-        sn (bool): shortNamesの短縮名。同時指定はできない。
-        showNamespace (bool): 名前空間を併記する指定。参照名以外を返す使い方は非対応。
-        sns (bool): showNamespaceの短縮名。同時指定はできない。
-        showType (bool): 型名を併記するMayaフラグ。参照名以外を返す使い方は非対応。
-        st (bool): showTypeの短縮名。同時指定はできない。
-        tail (int): 取得する末尾件数。型ごとの上限の扱いはMayaに従う。
-        tl (int): tailの短縮名。同時指定はできない。
-        templated (bool): テンプレート表示の対象を検索する指定。
-        tm (bool): templatedの短縮名。同時指定はできない。
-        textures (bool): テクスチャを検索する指定。
-        tex (bool): texturesの短縮名。同時指定はできない。
-        transforms (bool): Transformを検索する指定。
-        tr (bool): transformsの短縮名。同時指定はできない。
-        type (str | Iterable[str]): ノード型、またはvertex/edge/face/uv/controlVertex。joint/skinClusterは専用コレクションを返す。
-        typ (str | Iterable[str]): typeの短縮名。同時指定はできない。
-        ufeObjects (bool): UFE項目を含めるMayaフラグ。mlib参照へ解決できない結果は非対応。
-        ufe (bool): ufeObjectsの短縮名。同時指定はできない。
-        undeletable (bool): 削除不可のノードを検索する指定。
-        ud (bool): undeletableの短縮名。同時指定はできない。
-        untemplated (bool): テンプレートでない対象を検索する指定。
-        ut (bool): untemplatedの短縮名。同時指定はできない。
-        uuid (bool): UUID文字列を返すMayaフラグ。シーン参照を返さないためmlibでは非対応。
-        uid (bool): uuidの短縮名。同時指定はできない。
-        visible (bool): 表示中の対象を検索する指定。
-        v (bool): visibleの短縮名。同時指定はできない。
-        query (bool): 照会モード。コマンドが対応しない場合はMayaが拒否する。
-        q (bool): queryの短縮名。同時指定はできない。
-        edit (bool): 編集モード。コマンドが対応しない場合はMayaが拒否する。
-        e (bool): editの短縮名。同時指定はできない。
-        **kwargs (object): 今後追加される未知のMayaフラグ。そのままMayaへ渡す。
+            <mlib.common.selection.Selection.getKeyframes>` と同じ)。ほかの位置引数・フラグとは同時に指定できない。
+        sets (bool): Trueなら、セットを検索する。
+        set (bool): setsの短縮名。setsと同時には指定できない。
+        shapes (bool): Trueなら、Shapeを検索する。
+        s (bool): shapesの短縮名。shapesと同時には指定できない。
+        shortNames (bool): Trueなら、アトリビュート名を短い名前で受け取る。
+        sn (bool): shortNamesの短縮名。shortNamesと同時には指定できない。
+        showNamespace (bool): Trueなら、名前空間を一緒に返す。シーンの対象の名前以外を返す使い方には対応しない。
+        sns (bool): showNamespaceの短縮名。showNamespaceと同時には指定できない。
+        showType (bool): 型名を一緒に返すMayaのフラグ。シーンの対象の名前以外を返す使い方には対応しない。
+        st (bool): showTypeの短縮名。showTypeと同時には指定できない。
+        tail (int): 末尾から取得する件数。型ごとの上限の扱いはMayaに従う。
+        tl (int): tailの短縮名。tailと同時には指定できない。
+        templated (bool): Trueなら、テンプレート表示にした対象を検索する。
+        tm (bool): templatedの短縮名。templatedと同時には指定できない。
+        textures (bool): Trueなら、テクスチャを検索する。
+        tex (bool): texturesの短縮名。texturesと同時には指定できない。
+        transforms (bool): Trueなら、Transformを検索する。
+        tr (bool): transformsの短縮名。transformsと同時には指定できない。
+        type (str | Iterable[str]): ノード型、またはvertex/edge/face/uv/controlVertex。
+            joint/skinClusterを指定すると、専用のコレクションを返す。
+        typ (str | Iterable[str]): typeの短縮名。typeと同時には指定できない。
+        ufeObjects (bool): UFEの項目を含めるMayaのフラグ。mlibのオブジェクトにできない結果には対応しない。
+        ufe (bool): ufeObjectsの短縮名。ufeObjectsと同時には指定できない。
+        undeletable (bool): Trueなら、削除できないノードを検索する。
+        ud (bool): undeletableの短縮名。undeletableと同時には指定できない。
+        untemplated (bool): Trueなら、テンプレートでない対象を検索する。
+        ut (bool): untemplatedの短縮名。untemplatedと同時には指定できない。
+        uuid (bool): UUIDの文字列を返すMayaのフラグ。シーンの対象を返さないため、mlibでは対応しない。
+        uid (bool): uuidの短縮名。uuidと同時には指定できない。
+        visible (bool): Trueなら、表示されている対象を検索する。
+        v (bool): visibleの短縮名。visibleと同時には指定できない。
+        query (bool): 問い合わせのモード。コマンドが対応していない場合はMayaがエラーにする。
+        q (bool): queryの短縮名。queryと同時には指定できない。
+        edit (bool): 編集のモード。コマンドが対応していない場合はMayaがエラーにする。
+        e (bool): editの短縮名。editと同時には指定できない。
+        **kwargs (object): 今後Mayaに追加される、mlibが知らないフラグ。そのままMayaへ渡す。
 
     Returns:
         Nodes | Joints | SkinClusters | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]:
-            結果の種類に応じた集まり。selectedKeyframes=Trueは :class:`~mlib.common.keyframe.Keyframes`。
+            結果の種類に合った集まり。selectedKeyframes=Trueなら :class:`~mlib.common.keyframe.Keyframes`。
 
             * ノードだけ: :class:`~mlib.nodes.node.Nodes`。typeまたはtypがjointなら
               :class:`~mlib.nodes.joint.Joints`、skinClusterなら :class:`~mlib.nodes.skinCluster.SkinClusters`
@@ -442,35 +447,36 @@ def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool =
             * 同じシェイプの同じ種類のコンポーネントだけ: :class:`~mlib.components.vertex.Vertices`・
               :class:`~mlib.components.edge.Edges`・:class:`~mlib.components.face.Faces`・
               :class:`~mlib.components.uv.UVs`・:class:`~mlib.components.cv.CVs`
-              (コンポーネント型のtype指定時も同じ)。
-            * ノードとアトリビュート、複数のシェイプ、複数の種類のコンポーネント等が混在する場合:
-              Mayaの結果の順の list。
-            * 上記以外で0件: 空の :class:`~mlib.nodes.node.Nodes` (コンポーネント型のtype指定で0件の場合も、
-              シェイプが決まらないため空のNodes)。
+              (typeでコンポーネントの型を指定したときも同じ)。
+            * ノードとアトリビュート、複数のシェイプ、複数の種類のコンポーネントなどが混ざる場合:
+              Mayaの結果の順に並べた list。
+            * 上のどれでもなく0件の場合: 空の :class:`~mlib.nodes.node.Nodes`。typeでコンポーネントの型を
+              指定して0件の場合も、シェイプが決まらないため空のNodesになる。
 
     Raises:
-        TypeError: 長名・短名を同時指定した場合、位置引数に対応しない型が含まれる場合、
-            またはselectedKeyframes=Trueに他の位置引数・フラグを併用した場合。
+        TypeError: 長い名前と短い名前を同時に指定した場合、位置引数に対応していない型が含まれる場合、
+            またはselectedKeyframes=Trueと、ほかの位置引数・フラグを同時に指定した場合。
         ValueError: 位置引数に削除済みの対象が含まれる場合。
-        RuntimeError: 検索結果をノードとして解決できない場合。
+        RuntimeError: 検索の結果から、ノードを取得できない場合。
 
     Note:
-        型名等を返すMayaフラグは非対応。
-        結果の名前はまとめて解決するが、並び順はMayaが返した順のまま変えない。集まりで返す場合は、
-        各集まりの構築と同じ規則で重複(同じノード・同じDAGパス、同じアトリビュート、同じ番号)を
-        先に現れた方だけ残す。list で返す混在の結果では重複を統合しない。
+        型名などを返すMayaのフラグには対応しない。
+        結果の名前はまとめてオブジェクトにするが、並び順はMayaが返した順のまま変えない。
+        集まりで返す場合は、それぞれの集まりを作るときと同じ規則で、重なり(同じノード・同じDAGパス、
+        同じアトリビュート、同じ番号)は先に出てきた方だけを残す。
+        種類が混ざって list で返す場合は、重なりをまとめない。
     """
     ...
 
 def _collect(items: list[Node | Plug | Component]) -> Nodes | Plugs | Components | list:
-    """lsの結果を、要素の種類がそろっていれば対応する集まりへまとめる。
+    """lsの結果を、要素の種類がそろっていれば、その種類の集まりにまとめる。
 
     Args:
-        items (list[Node | Plug | Component]): Mayaの結果の順に解決した参照。
+        items (list[Node | Plug | Component]): Mayaの結果の順に並べたオブジェクト。
 
     Returns:
         Nodes | Plugs | Components | list: ノードだけならNodes、アトリビュートだけならPlugs、
-            同じシェイプの同じ種類のコンポーネントだけなら対応するComponents、混在ならitemsそのもの。
-            0件は空のNodes。
+            同じシェイプの同じ種類のコンポーネントだけならそのComponents、混ざっていればitemsそのもの。
+            0件なら空のNodes。
     """
     ...

@@ -94,7 +94,7 @@ class SkinQueryTest(_SkinCase):
         """bind は既スキンの形状を listHistory を使わずに拒否する。"""
         mesh, _ = self.skin()
         with patch.object(cmds, "listHistory", side_effect=AssertionError("listHistory")):
-            with self.assertRaisesRegex(ValueError, "already has a skinCluster"):
+            with self.assertRaisesRegex(ValueError, "すでにskinClusterがあります"):
                 mlib.bindSkin([self.root, self.mid], mesh)
         fresh = cmds.polyCube(name=self.name("fresh"))[0]
         with patch.object(cmds, "listHistory", side_effect=AssertionError("listHistory")):

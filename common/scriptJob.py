@@ -8,36 +8,39 @@ from .environment import Environment
 
 
 class ScriptJob:
-    """Maya GUIへ登録したscriptJobのIDと停止状態を保持する。
+    """Maya GUIへ登録した1つのscriptJobを扱うクラス。
 
-    構築時に監視を登録する。オブジェクト回収時の自動解除は行わず、stop()で自身の監視を止める。
-    callbackはMayaへ渡し、その実行時期や例外処理はMaya側に従う。独自のUndoチャンクは追加しない。
+    scriptJobのIDと、止めたかどうかを持つ。オブジェクトを作ると監視を登録する。
+    オブジェクトが破棄されても監視は自動では解除されないので、stop()で止める。
+
+    callbackはそのままMayaへ渡す。いつ呼ばれるか、例外をどう扱うかはMayaに従う。
+    mlibが独自のUndoチャンクを足すことはない。
     """
 
     def __init__(self, *, event=None, attribute=None, callback, killWithScene=False, compressUndo=False):
-        """イベントまたはアトリビュート変更の監視を開始する。
+        """イベントまたはアトリビュートの変更の監視を始める。
 
         Args:
-            event (str | None): Mayaのイベント名。attributeと排他的。
-            attribute (str | Plug | MPlug | None): 監視するアトリビュート。eventと排他的。
+            event (str | None): Mayaのイベント名。attributeとは同時に指定できない。
+            attribute (str | Plug | MPlug | None): 監視するアトリビュート。eventとは同時に指定できない。
             callback (Callable): 引数なしで呼ぶ処理。
-            killWithScene (bool): シーンをクリアするときに解除する。
-            compressUndo (bool): コールバックの更新を直前の操作のUndoにまとめる。
+            killWithScene (bool): Trueなら、シーンをクリアするときに監視を解除する。既定はFalse。
+            compressUndo (bool): Trueなら、callbackでの変更を直前の操作のUndoにまとめる。既定はFalse。
 
         Raises:
             TypeError: callbackが呼び出せない場合。
-            ValueError: eventとattributeの指定が一方だけでない場合。
+            ValueError: eventとattributeのどちらか1つだけを指定していない場合。
             RuntimeError: バッチ実行中、またはMayaが登録を拒否した場合。
         """
         # commonの初期化時にplugsを読み込まないよう、使用時にPlugを読み込む。
         from ..plugs.plug import Plug as _InputPlug
 
         if (event is None) == (attribute is None):
-            raise ValueError("Specify exactly one of event or attribute")
+            raise ValueError("eventかattributeのどちらか1つだけを指定してください")
         if not callable(callback):
-            raise TypeError("callback must be callable")
+            raise TypeError("callbackは呼び出せるオブジェクトにしてください")
         if Environment.isBatch():
-            raise RuntimeError("scriptJob requires a Maya GUI session")
+            raise RuntimeError("scriptJobにはMayaのGUIセッションが必要です")
         options: Dict[str, Any] = {"killWithScene": killWithScene, "compressUndo": compressUndo}
         # 先頭の検査により、attributeがNoneならeventが指定されている。
         if attribute is None:
@@ -53,15 +56,17 @@ class ScriptJob:
         return self._id
 
     def exists(self):
-        """自身の監視が現在もMayaへ登録されているか照会する。
+        """この監視が今もMayaに登録されているか調べる。
 
         Returns:
-            bool: stop済みならFalse。それ以外はMayaのscriptJob(exists=ID)の結果。
+            bool: stop()を呼んだ後ならFalse。それ以外はMayaのscriptJob(exists=ID)の結果。
         """
         return not self._stopped and bool(cmds.scriptJob(exists=self._id))
 
     def stop(self):
-        """自身の監視だけを解除する。解除済みの場合は何もしない。
+        """この監視だけを解除する。
+
+        すでに解除してある場合は何もしない。
 
         Returns:
             None: 値を返さない。

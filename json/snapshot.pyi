@@ -1,7 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""JSONへ保存・復元するデータの共通の流れ(取得・保存・読み込み・検査・適用)を提供する。
+"""JSONへ保存・復元するデータに共通する流れ(取得・保存・読み込み・検査・適用)。
 
-``ValidationReport`` は :class:`Snapshot` の検査と適用だけが返す小さな結果クラスなので、同じファイルに置く。
+``ValidationReport`` は、:class:`Snapshot` の検査と適用だけが返す小さな結果のクラスなので、同じファイルに置く。
 """
 
 import maya.api.OpenMaya as om2
@@ -16,18 +16,20 @@ import pathlib
 
 
 class ValidationReport:
-    """適用前の検査と、適用の結果を保持する。
+    """適用する前の検査の結果と、適用した結果を持つ。
 
-    ``missing`` は対応するノードが見つからなかったもの、``skipped`` はロック・接続等で書けずに
-    飛ばしたもの、``errors`` は適用できない問題(頂点数の違い等)。``errors`` があれば
-    各種類の ``apply`` (:meth:`PoseSnapshot.apply <mlib.json.poseSnapshot.PoseSnapshot.apply>` 等)は
-    何も変えずに例外にする。
+    - ``missing``: 対応するノードが見つからなかったもの。
+    - ``skipped``: ロックや接続などで書けず、飛ばしたもの。
+    - ``errors``: 適用できない問題(頂点数の違いなど)。
+
+    ``errors`` があると、それぞれの種類の ``apply``
+    (:meth:`PoseSnapshot.apply <mlib.json.poseSnapshot.PoseSnapshot.apply>` など)は何も変えずに例外にする。
     """
     def __init__(self) -> None:
         """空の報告を作る。"""
         ...
     def __repr__(self) -> str:
-        """各項目の件数を含む表記を返す。
+        """それぞれの項目の件数を含む表記を返す。
 
         Returns:
             str: ``ValidationReport(missing=1, skipped=0, errors=0)`` の形式。
@@ -35,10 +37,10 @@ class ValidationReport:
         ...
     @property
     def missing(self) -> list[str]:
-        """見つからなかったノード等の名前を返す。
+        """見つからなかったノードなどの名前を返す。
 
         Returns:
-            list[str]: 対応付けを当てた後の名前。新しいlist。
+            list[str]: 名前の対応づけを当てた後の名前。新しいlist。
         """
         ...
     @property
@@ -59,17 +61,17 @@ class ValidationReport:
         ...
     @property
     def valid(self) -> bool:
-        """適用できる(``errors`` が無い)かを返す。
+        """適用できるか(``errors`` が無いか)を返す。
 
         Returns:
             bool: errorsが空ならTrue。missing・skippedがあってもTrue。
         """
         ...
     def addMissing(self, name: str):
-        """見つからなかったものを記録する。同じ名前は一度だけ記録する。
+        """見つからなかったものを記録する。同じ名前は1回だけ記録する。
 
         Args:
-            name (str): 対応付けを当てた後の名前。
+            name (str): 名前の対応づけを当てた後の名前。
         """
         ...
     def addSkipped(self, name: str, reason: str):
@@ -77,7 +79,7 @@ class ValidationReport:
 
         Args:
             name (str): 飛ばしたものの名前。
-            reason (str): 理由(``"locked"`` 等)。
+            reason (str): 理由(``"locked"`` など)。
         """
         ...
     def addError(self, message: str):
@@ -91,25 +93,25 @@ class ValidationReport:
         """missing・skippedがあれば、まとめて警告を1回出す。
 
         Args:
-            label (str): 警告の先頭に付ける名前(``"PoseSnapshot"`` 等)。
+            label (str): 警告の先頭に付ける名前(``"PoseSnapshot"`` など)。
         """
         ...
 
 
 class Snapshot:
-    """シーンのデータを取得し、JSONへ保存・復元するクラスの共通基底。
+    """シーンのデータを取得し、JSONへ保存・復元するクラスに共通する基底クラス。
 
-    各種類は :attr:`FORMAT`・:attr:`VERSION` と、``capture`` (取得)・``_validate`` (検査)・
-    ``_apply`` (適用)を実装する。保持するデータは数学型を含む辞書で、:meth:`toData` で取得できる。
-    名前の対応付け(``nameMap``・``replace``・``namespaceMap``)は :class:`NameMapping` の規則に従う。
+    それぞれの種類は、:attr:`FORMAT`・:attr:`VERSION` と、``capture`` (取得)・``_validate`` (検査)・
+    ``_apply`` (適用)を書く。持っているデータは数学型を含む辞書で、:meth:`toData` で取得できる。
+    名前の対応づけ(``nameMap``・``replace``・``namespaceMap``)は :class:`NameMapping` の規則に従う。
     """
     FORMAT: None
     VERSION: None
     def __init__(self, data: dict, header: file.Header | None = ...) -> None:
-        """データを保持する。通常は ``capture`` か :meth:`load` で作る。
+        """データを持たせる。ふつうは ``capture`` か :meth:`load` で作る。
 
         Args:
-            data (dict): 各種類の形式のデータ。複製して保持する。
+            data (dict): それぞれの種類の形式のデータ。コピーして持つ。
             header (file.Header | None): 読み込んだファイルのヘッダー。取得したばかりならNone。
 
         Raises:
@@ -126,11 +128,11 @@ class Snapshot:
         ...
     @classmethod
     def capture(cls, *args: object, **kwargs: object):
-        """シーンからデータを取得する。各種類が実装する。
+        """シーンからデータを取得する。それぞれの種類が書く。
 
         Args:
-            *args (object): 各種類の ``capture`` の位置引数。
-            **kwargs (object): 各種類の ``capture`` のキーワード引数。
+            *args (object): それぞれの種類の ``capture`` の位置引数。
+            **kwargs (object): それぞれの種類の ``capture`` のキーワード引数。
 
         Raises:
             NotImplementedError: 基底クラスで呼んだ場合。
@@ -162,7 +164,7 @@ class Snapshot:
             Snapshot: 呼び出したクラスの新しいインスタンス。:attr:`header` を持つ。
 
         Raises:
-            ValueError: 形式名・版が違う、またはデータの形が種類と合わない場合。
+            ValueError: 形式名・版が違う場合、またはデータの形が種類と合わない場合。
             OSError: 読み込みに失敗した場合。
         """
         ...
@@ -175,10 +177,10 @@ class Snapshot:
         """
         ...
     def toData(self) -> dict:
-        """保持するデータの複製を返す。
+        """持っているデータのコピーを返す。
 
         Returns:
-            dict: 数学型を含む辞書。変更しても自身には影響しない。
+            dict: 数学型を含む辞書。変えても、このオブジェクトには影響しない。
         """
         ...
     def save(self, path: str | os.PathLike) -> pathlib.Path:
@@ -195,11 +197,11 @@ class Snapshot:
         """
         ...
     def validate(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
-        """適用する前に、シーンとの対応を確かめる。シーンは変更しない。
+        """適用する前に、シーンとの対応を確かめる。シーンは変えない。
 
         Args:
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
 
         Returns:
@@ -207,14 +209,14 @@ class Snapshot:
         """
         ...
     def _run_apply(self, mapping_args: dict, options: dict, fast: bool = ...) -> ValidationReport:
-        """検査してから、1回のUndoで適用する(各種類の ``apply`` の本体)。
+        """検査してから、1回のUndoで適用する(それぞれの種類の ``apply`` の中身)。
 
-        errorsがあれば何も変えずにValueErrorにする。適用中の失敗は通常経路では巻き戻す。
-        最後にmissing・skippedをまとめて警告する。
+        errorsがあれば、何も変えずにValueErrorにする。通常の経路では、適用の途中で失敗したら元に戻す。
+        最後に、missing・skippedをまとめて警告する。
 
         Args:
             mapping_args (dict): ``nameMap``・``replace``・``namespaceMap``。
-            options (dict): 種類ごとの追加の指定。``_validate``・``_apply`` へ渡す。
+            options (dict): 種類ごとに追加する指定。``_validate``・``_apply`` へ渡す。
             fast (bool): TrueはUndoなしのOpenMaya更新(対応する種類だけが渡す)。
 
         Returns:
@@ -225,45 +227,45 @@ class Snapshot:
         """
         ...
     def _convert_time(self, frame: float, timing: str) -> float:
-        """保存時のフレームを、現在のシーンのフレームへ換算する。
+        """保存したときのフレームを、今のシーンのフレームへ換算する。
 
         Args:
-            frame (float): 保存時のフレーム。
-            timing (str): ``"frame"`` または ``"second"``。
+            frame (float): 保存したときのフレーム。
+            timing (str): ``"frame"`` か ``"second"``。
 
         Returns:
-            float: 現在のシーンのフレーム。取得したばかり(ヘッダー無し)ならそのまま。
+            float: 今のシーンのフレーム。取得したばかり(ヘッダーが無い)ならそのまま。
         """
         ...
     def _require_data(self, data: dict):
-        """データの形を確かめる。各種類が上書きする。
+        """データの形を確かめる。それぞれの種類が上書きする。
 
         Args:
-            data (dict): 保持する前のデータ。
+            data (dict): 持たせる前のデータ。
 
         Raises:
             ValueError: データの形が種類と合わない場合。
         """
         ...
     def _validate(self, mapping: NameMapping, report: ValidationReport, options: dict):
-        """シーンとの対応を確かめ、reportへ記録する。各種類が実装する。
+        """シーンとの対応を確かめ、reportへ記録する。それぞれの種類が書く。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
-            options (dict): 種類ごとの追加の指定。
+            options (dict): 種類ごとに追加する指定。
 
         Raises:
             NotImplementedError: 基底クラスで呼んだ場合。
         """
         ...
     def _apply(self, mapping: NameMapping, report: ValidationReport, options: dict, fast: bool):
-        """シーンへ書き戻し、書けなかったものをreportへ記録する。各種類が実装する。
+        """シーンへ書き戻し、書けなかったものをreportへ記録する。それぞれの種類が書く。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
-            options (dict): 種類ごとの追加の指定。
+            options (dict): 種類ごとに追加する指定。
             fast (bool): TrueはUndoなしのOpenMaya更新。
 
         Raises:
@@ -272,15 +274,15 @@ class Snapshot:
         ...
 
 def _copy_data(value: object) -> Any:
-    """辞書・listをたどって複製する。数学型は同じ型の新しい値にする。
+    """辞書・listをたどってコピーする。数学型は、同じ型の新しい値にする。
 
-    om2の値は ``copy.deepcopy`` で複製できないため、自前でたどる。
+    om2の値は ``copy.deepcopy`` でコピーできないので、自分でたどる。
 
     Args:
-        value (object): 複製する値。
+        value (object): コピーする値。
 
     Returns:
-        object: 複製。文字列・数値・Noneはそのまま。
+        object: コピー。文字列・数値・Noneはそのまま返す。
     """
     ...
 
@@ -292,6 +294,6 @@ def _summary(items: list[str], limit: int = ...) -> str:
         limit (int): 表示する件数。
 
     Returns:
-        str: カンマ区切りの文字列。超えた分は ``"..."``。
+        str: カンマで区切った文字列。表示する件数を超えた分は ``"..."`` にする。
     """
     ...

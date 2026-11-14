@@ -1,9 +1,9 @@
 """ノードまたはコンポーネントを削除する。戻り値はNone。
 
-Plug・MPlugは受け付けない。アトリビュートの削除は ``plug.delete()``、
-マルチアトリビュートの要素の削除は ``multi_plug.removeElement(index)`` を使う。
-通常はMayaのUndoに対応する。``fast=True`` はノードの直接削除に限り、
-コンポーネントを含む入力は何も削除せず拒否する。
+Plug・MPlugは受け付けない。アトリビュートを削除するときは ``plug.delete()`` を、
+マルチアトリビュートの要素を削除するときは ``multi_plug.removeElement(index)`` を使う。
+通常はMayaのUndoに対応する。``fast=True`` で削除できるのはノードだけで、
+コンポーネントを含む入力では何も削除せずエラーにする。
 
 .. code-block:: python
 
@@ -21,47 +21,54 @@ from ..decorator import _edit_context
 
 
 def delete(nodes, *, fast=False):
-    """指定したノード・コンポーネントを削除する。
+    """指定したノードやコンポーネントを削除する。
 
-    ノードは全対象を1回の削除にまとめる。通常は1回の ``cmds.delete`` (1回のUndoで全て戻る)、
-    fastは1つの MDagModifier の doIt 1回で削除する。削除の順(削除通知の順)と連鎖して消える
-    ノード(unitConversion・構築履歴など)は、Mayaがまとめて削除するときの規則に従う
-    (DGとDAGが混ざると渡した順にならない場合がある)。
+    ノードは、対象をすべて1回の削除にまとめる。通常は ``cmds.delete`` を1回呼ぶ(1回のUndoですべて戻る)。
+    fastでは、1つの MDagModifier の doIt を1回呼んで削除する。
+    削除の順(削除の通知の順)と、一緒に消えるノード(unitConversion・コンストラクションヒストリなど)は、
+    Mayaがまとめて削除するときの規則に従う(DGとDAGが混ざると、渡した順にならないことがある)。
 
-    削除の前に全対象とDAG子孫を検査し、ロックされたノード・参照のノード・Mayaが削除を拒否する
-    ノード(既定・共有ノード等。time1・persp・defaultLayer など)が一つでも含まれる場合は、
-    コンポーネントを含めて何も削除せずRuntimeErrorにする。
+    削除の前に、対象のすべてとそのDAGの子孫を調べる。次のノードが1つでも含まれていれば、
+    コンポーネントも含めて何も削除せず、RuntimeErrorにする。
+
+    - ロックされたノード
+    - リファレンスのノード
+    - Mayaが削除を拒否するノード(既定のノード・共有ノードなど。time1・persp・defaultLayer など)
 
     Args:
         nodes (Node | Component | Components | Selection | str | om2.MObject | om2.MDagPath | Iterable):
-            削除する対象、またはその列(入れ子のコレクションも展開する)。
-            同じノードの重複、親と子の両方の指定はまとめて1回だけ削除する(親と一緒に消える)。
-            ワイルドカードは一致したノードへ展開する。
+            削除する対象、またはその並び(入れ子になったコレクションも展開する)。
+            同じノードを何度指定しても、親と子の両方を指定しても、1回だけ削除する(子は親と一緒に消える)。
+            ワイルドカードは、一致したノードへ展開する。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: 要素が対応しない型の場合、またはfastがbool以外の場合。要素に Plug(MultiPlug を含む)・
-            om2.MPlug、またはアトリビュートに解決される文字列(``"node.tx"`` 等)が含まれる場合
-            (maya.cmds.delete はアトリビュートを削除せずエラーを表示するだけのため。何も削除しない)。
-        ValueError: nodes が空、または要素が空文字列・削除済みの対象の場合(何も削除しない)。
+        TypeError: 要素が対応していない型の場合、またはfastがboolでない場合。
+            要素に Plug(MultiPlug を含む)・om2.MPlug、またはアトリビュートを指す文字列(``"node.tx"`` など)が
+            含まれる場合もTypeErrorにし、何も削除しない(maya.cmds.delete はアトリビュートを削除せず、
+            エラーを表示するだけのため)。
+        ValueError: nodes が空の場合、または要素が空文字列か削除済みの対象の場合(何も削除しない)。
         RuntimeError: 存在しない名前を含む場合(``getNode`` と同じ文言。何も削除しない)。
-            ロック・参照・削除できないノードを含む場合(何も削除しない。文言は
-            cmds.delete の要素ごとの表示に合わせ、例えば ``Cannot delete locked node 'x'.``、
-            ``Cannot delete 'x' as it has locked or read-only children.``、
-            ``Non-deletable node 'x' cannot be deleted.``。fastのロック・参照は
-            ``Node is locked or referenced: x``)、または Maya が削除を拒否した場合。
-        NotImplementedError: fast=Trueでコンポーネントを含む入力を指定した場合(何も削除しない)。
+            ロックされたノード・リファレンスのノード・削除できないノードを含む場合(何も削除しない)。
+            このときの文言は cmds.delete と同じく要素ごとに示す。例えば ``ロックされたノード'x'は削除できません``、
+            ``'x'は削除できません。ロックされた子か、読み取り専用の子があります``、
+            ``削除できないノードです: 'x'``。fastでロックかリファレンスの場合は
+            ``ノードがロックされているか、リファレンスです: x``。
+            または Maya が削除を拒否した場合。
+        NotImplementedError: fast=Trueで、コンポーネントを含む入力を指定した場合(何も削除しない)。
 
     Note:
-        fastはノードの直接削除に限る。コンポーネントのトポロジー削除には
-        対応せず、入力に含まれる場合は何も削除せずNotImplementedErrorにする。
-        専用のdeleteを上書きした派生クラスのノードを含む場合だけ、従来どおり各ノードの
-        deleteを順に呼ぶ(親の削除で既に消えた対象は飛ばす)。Jointはこの対象に含めず、
-        :meth:`Joint.delete <mlib.nodes.joint.Joint.delete>` のinfluence解除を行わずにMaya標準で削除する。
-        コンポーネントは、ノードの検査の後、ノードより先に別の1回の ``cmds.delete`` で削除する。
+        fastで削除できるのはノードだけ。コンポーネントのトポロジーの削除には対応しない。
+        入力にコンポーネントが含まれる場合は、何も削除せずNotImplementedErrorにする。
+
+        deleteを上書きした派生クラスのノードが含まれる場合だけは、これまでどおり各ノードの
+        deleteを順に呼ぶ(親の削除ですでに消えた対象は飛ばす)。Jointはこれに含めない。
+        :meth:`Joint.delete <mlib.nodes.joint.Joint.delete>` のインフルエンスの解除は行わず、Maya標準で削除する。
+
+        コンポーネントは、ノードを調べたあと、ノードより先に、別の1回の ``cmds.delete`` で削除する。
     """
     with _edit_context("mlibDelete", fast):
         # 循環参照の回避: core は cmds を参照するため、使う時点で読み込む。
@@ -72,16 +79,16 @@ def delete(nodes, *, fast=False):
 
         names = _InputObject._input_names(nodes, allow_plugs=False)
         if not names:
-            raise ValueError("nodes must contain at least one node")
+            raise ValueError("nodesにはノードを1つ以上指定してください")
         # アトリビュート・コンポーネント文字列は所有ノードへ変換せず、標準の扱いを維持する。
         node_names = [name for name in names if "." not in name]
         components = [name for name in names if "." in name]
         for name in components:
             # "node.tx" のようなアトリビュート名の文字列も、Plugと同じく削除の前に拒否する。
             if _resolves_to_plug(name):
-                raise TypeError(f"Attribute names are not accepted: {name} (specify the node name to delete the owning node)")
+                raise TypeError(f"アトリビュート名は指定できません: {name}(持ち主のノードを削除するにはノード名を指定します)")
         if components and fast:
-            raise NotImplementedError("fast component/topology deletion is not supported")
+            raise NotImplementedError("fastはコンポーネントとトポロジーの削除に対応していません")
         nodes = []
         for name in node_names:
             # Maya標準のワイルドカード指定を実ノードへ展開してから検証する。
@@ -115,15 +122,15 @@ def delete(nodes, *, fast=False):
 
 
 def _resolves_to_plug(name):
-    """文字列がアトリビュート(プラグ)を指すか判定する。
+    """文字列がアトリビュート(プラグ)を指すか調べる。
 
-    Mayaが解決できない名前・コンポーネント名は False にし、従来どおり ``cmds.delete`` の扱いに任せる。
+    Mayaが見つけられない名前とコンポーネント名は False にし、これまでどおり ``cmds.delete`` の扱いに任せる。
 
     Args:
-        name (str): ``"."`` を含む対象名。
+        name (str): ``"."`` を含む対象の名前。
 
     Returns:
-        bool: 一致した要素のいずれかがプラグの場合は True。
+        bool: 一致したもののどれかがプラグなら True。
     """
     selection = om2.MSelectionList()
     try:

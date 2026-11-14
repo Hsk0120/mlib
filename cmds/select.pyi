@@ -1,9 +1,9 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ノード・アトリビュート・コンポーネントの選択状態を変更する。戻り値はNone。
+"""ノード・アトリビュート・コンポーネントの選択を変える。戻り値はNone。
 
-mlibの参照やコレクションを名前へ変換し、``maya.cmds.select`` へ渡す。
-対象を省略するとフラグだけで呼び出し、空の列は空の列として渡す。
-MayaのUndoに対応する。fast引数は持たない。
+mlibのオブジェクトやコレクションを名前に変えて、``maya.cmds.select`` へ渡す。
+対象を省略するとフラグだけで呼び出す。空の並びは、空の並びのまま渡す。
+MayaのUndoに対応する。fast引数は無い。
 
 .. code-block:: python
 
@@ -21,50 +21,52 @@ from ..util import _UNSET
 def select(nodes: object = ..., *, add: bool = ..., addFirst: bool = ..., af: bool = ..., all: bool = ..., allDagObjects: bool = ..., ado: bool = ..., allDependencyNodes: bool = ..., adn: bool = ..., clear: bool = ..., cl: bool = ..., containerCentric: bool = ..., cc: bool = ..., deselect: bool = ..., d: bool = ..., hierarchy: bool = ..., hi: bool = ..., noExpand: bool = ..., ne: bool = ..., replace: bool = ..., r: bool = ..., symmetry: bool = ..., sym: bool = ..., symmetrySide: int = ..., sys: int = ..., toggle: bool = ..., tgl: bool = ..., visible: bool = ..., vis: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> None:
     """指定したノード・アトリビュート・コンポーネントを選択する。
 
-    フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
-    長名と短名の同時指定は入力解決やUndo開始の前に拒否する。対応しないMaya版のフラグはMayaが拒否する。
+    フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
+    Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
+    Undoを始める前にエラーにする。その版のMayaに無いフラグは、Mayaがエラーにする。
 
     Args:
-        nodes (object): 選択する対象またはその列。NoneはフラグだけでMayaを呼び、空列は空列として渡す。
-        add (bool): 既存の選択に追加する指定。
-        addFirst (bool): 既存の選択の先頭へ追加する指定。
-        af (bool): addFirstの短縮名。同時指定はできない。
-        all (bool): 削除可能な全ノードを選択するMayaフラグ。
-        allDagObjects (bool): 全DAG対象を選択する指定。
-        ado (bool): allDagObjectsの短縮名。同時指定はできない。
-        allDependencyNodes (bool): 全依存ノードを選択する指定。
-        adn (bool): allDependencyNodesの短縮名。同時指定はできない。
-        clear (bool): 選択を解除する指定。
-        cl (bool): clearの短縮名。同時指定はできない。
-        containerCentric (bool): コンテナ中心の選択規則を使う指定。
-        cc (bool): containerCentricの短縮名。同時指定はできない。
-        deselect (bool): 指定対象を選択から外す指定。
-        d (bool): deselectの短縮名。同時指定はできない。
-        hierarchy (bool): 子階層も選択する指定。
-        hi (bool): hierarchyの短縮名。同時指定はできない。
-        noExpand (bool): セットのメンバーへ展開しない指定。
-        ne (bool): noExpandの短縮名。同時指定はできない。
-        replace (bool): 既存の選択を置き換える指定。省略時のMaya既定動作は変更しない。
-        r (bool): replaceの短縮名。同時指定はできない。
-        symmetry (bool): 対称選択を使うMayaフラグ。
-        sym (bool): symmetryの短縮名。同時指定はできない。
-        symmetrySide (int): 対称選択に使う側の指定。
-        sys (int): symmetrySideの短縮名。同時指定はできない。
-        toggle (bool): 指定対象の選択状態を切り替える指定。
-        tgl (bool): toggleの短縮名。同時指定はできない。
-        visible (bool): 表示中の対象だけを選択する指定。
-        vis (bool): visibleの短縮名。同時指定はできない。
-        query (bool): 照会モード。コマンドが対応しない場合はMayaが拒否する。
-        q (bool): queryの短縮名。同時指定はできない。
-        edit (bool): 編集モード。コマンドが対応しない場合はMayaが拒否する。
-        e (bool): editの短縮名。同時指定はできない。
-        **kwargs (object): 今後追加される未知のMayaフラグ。そのままMayaへ渡す。
+        nodes (object): 選択する対象、またはその並び。NoneならフラグだけでMayaを呼ぶ。
+            空の並びは、空の並びのまま渡す。
+        add (bool): Trueなら、今の選択に追加する。
+        addFirst (bool): Trueなら、今の選択の先頭へ追加する。
+        af (bool): addFirstの短縮名。addFirstと同時には指定できない。
+        all (bool): Trueなら、削除できるノードをすべて選択する(Mayaのフラグ)。
+        allDagObjects (bool): Trueなら、DAGの対象をすべて選択する。
+        ado (bool): allDagObjectsの短縮名。allDagObjectsと同時には指定できない。
+        allDependencyNodes (bool): Trueなら、依存ノードをすべて選択する。
+        adn (bool): allDependencyNodesの短縮名。allDependencyNodesと同時には指定できない。
+        clear (bool): Trueなら、選択を解除する。
+        cl (bool): clearの短縮名。clearと同時には指定できない。
+        containerCentric (bool): Trueなら、コンテナを中心にした選択の規則を使う。
+        cc (bool): containerCentricの短縮名。containerCentricと同時には指定できない。
+        deselect (bool): Trueなら、指定した対象を選択から外す。
+        d (bool): deselectの短縮名。deselectと同時には指定できない。
+        hierarchy (bool): Trueなら、子の階層も選択する。
+        hi (bool): hierarchyの短縮名。hierarchyと同時には指定できない。
+        noExpand (bool): Trueなら、セットをメンバーへ展開しない。
+        ne (bool): noExpandの短縮名。noExpandと同時には指定できない。
+        replace (bool): Trueなら、今の選択を置き換える。省略したときのMayaの既定の動きは変えない。
+        r (bool): replaceの短縮名。replaceと同時には指定できない。
+        symmetry (bool): Trueなら、対称の選択を使う(Mayaのフラグ)。
+        sym (bool): symmetryの短縮名。symmetryと同時には指定できない。
+        symmetrySide (int): 対称の選択で使う側。
+        sys (int): symmetrySideの短縮名。symmetrySideと同時には指定できない。
+        toggle (bool): Trueなら、指定した対象の選択を切り替える。
+        tgl (bool): toggleの短縮名。toggleと同時には指定できない。
+        visible (bool): Trueなら、表示されている対象だけを選択する。
+        vis (bool): visibleの短縮名。visibleと同時には指定できない。
+        query (bool): 問い合わせのモード。コマンドが対応していない場合はMayaがエラーにする。
+        q (bool): queryの短縮名。queryと同時には指定できない。
+        edit (bool): 編集のモード。コマンドが対応していない場合はMayaがエラーにする。
+        e (bool): editの短縮名。editと同時には指定できない。
+        **kwargs (object): 今後Mayaに追加される、mlibが知らないフラグ。そのままMayaへ渡す。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: 長名・短名を同時指定した場合、またはnodesの要素が対応しない型の場合。
+        TypeError: 長い名前と短い名前を同時に指定した場合、またはnodesの要素が対応していない型の場合。
         ValueError: nodes の要素に空文字列、または削除済みの対象が含まれる場合。
         RuntimeError: Maya が選択を拒否した場合。
     """

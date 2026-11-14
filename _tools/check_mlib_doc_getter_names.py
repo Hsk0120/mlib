@@ -21,7 +21,7 @@ def _command_names():
     for item in tree.body:
         if isinstance(item, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in item.targets):
             return set(ast.literal_eval(item.value))
-    raise RuntimeError("mlib/cmds/__init__.py has no __all__")
+    raise RuntimeError("mlib/cmds/__init__.py に __all__ がありません")
 
 
 _COMMAND_NAMES = _command_names()

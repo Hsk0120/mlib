@@ -96,7 +96,7 @@ class InstancedPathTest(_SpecCase):
         self.assertTrue(self.second.isValid())
         for method in ("getName", "getFullName", "getName", "getParents", "getChildren", "mpath", "mfn"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, "no longer exists"):
+                with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
                     getattr(self.second, method)()
         self.assertEqual(self.first.getFullName(), self.paths[0])
 
@@ -121,10 +121,10 @@ class DeletedDagNodeTest(_SpecCase):
         self.assertTrue(self.node.isAlive())
         for method in self.PATH_METHODS:
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, "no longer exists"):
+                with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
                     getattr(self.node, method)()
         # 名前の取得は無効なノードでRuntimeError(str()は空文字列、getFullNameは従来どおり)。
-        with self.assertRaisesRegex(RuntimeError, "was deleted or undone"):
+        with self.assertRaisesRegex(RuntimeError, "削除されたか、Undoで取り消されました"):
             self.node.getName()
         self.assertEqual(str(self.node), "")
         self.assertEqual(self.node.getFullName(), "")
@@ -147,7 +147,7 @@ class DeletedDagNodeTest(_SpecCase):
         cmds.flushUndo()
         for method in self.PATH_METHODS:
             with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, "no longer exists"):
+                with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
                     getattr(self.node, method)()
         self.assertEqual(self.node.getChildren(), [])
 
@@ -190,9 +190,9 @@ class VisibilityTest(_SpecCase):
 
     def test_set_visibility_type_checks(self):
         """state・fast は bool だけ。"""
-        with self.assertRaisesRegex(TypeError, "state must be a bool"):
+        with self.assertRaisesRegex(TypeError, "stateはboolで指定してください"):
             self.node.setVisibility(1)
-        with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+        with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             self.node.setVisibility(True, fast=1)
 
     def test_locked_or_connected(self):
@@ -215,7 +215,7 @@ class VisibilityTest(_SpecCase):
 
     def test_get_children_argument_checks(self):
         """探索フラグは bool、order は2種類、leaves と shapes は併用できない。"""
-        with self.assertRaisesRegex(TypeError, "must be a bool"):
+        with self.assertRaisesRegex(TypeError, "はboolで指定してください"):
             self.node.getChildren(allDescendents=1)
         with self.assertRaisesRegex(ValueError, "order"):
             self.node.getChildren(order="random")

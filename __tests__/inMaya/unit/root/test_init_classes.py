@@ -87,7 +87,7 @@ class RootClassTest(unittest.TestCase):
         for name in ("MlibNoSuchTypeXYZ", "joint", "pointLight", "_Joint"):
             with self.subTest(name=name):
                 self.assertFalse(hasattr(mlib, name))
-        with self.assertRaisesRegex(AttributeError, "module 'mlib' has no attribute 'MlibNoSuchTypeXYZ'"):
+        with self.assertRaisesRegex(AttributeError, "モジュール'mlib'にアトリビュート'MlibNoSuchTypeXYZ'はありません"):
             mlib.MlibNoSuchTypeXYZ
 
     def test_all_dir_and_import(self):

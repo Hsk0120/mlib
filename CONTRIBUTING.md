@@ -42,7 +42,9 @@ _tools\test_mlib.bat --no-pause --versions 2027 --suite all
 どのバッチも、最後に結果を日本語で表示してからキー入力を待ちます。最後の行が`[OK]`なら成功、`[NG]`なら失敗です。
 `format_mlib.bat`と`test_mlib.bat`は手順ごとの`[OK]`・`[NG]`・`[--]`(実行していない)も並べます。
 ターミナルやスクリプトから呼ぶときは`--no-pause`を付けます。終了コードは成功が0、失敗が0以外です。
-表示する文は`_tools/messages.txt`にあり、バッチ本体には日本語を書きません(cmdがUTF-8のバッチを読み誤ることがあるため。`_tools/_message.bat`が表示します)。
+
+バッチは**Shift-JIS(CP932)・CRLF**で保存します(日本語Windowsのcmdがそのまま読める形。UTF-8で保存すると、cmdが日本語の行を読み誤ります)。`.gitattributes`の指定で、リポジトリの中とGitHubの表示はUTF-8、cloneした作業フォルダーはShift-JISになります。GitHubからZIPでダウンロードした場合はUTF-8のままなので、バッチを使うときは`git clone`で取得してください。VS Codeは`.vscode/settings.json`の指定でShift-JISとして開きます。
+バッチに書く日本語はコメントだけにし、表示する文は`_tools/messages.txt`(UTF-8)へ置きます(`_tools/_message.bat`が表示します。コンソールのコードページが違っても文字化けしません)。この決まりは`__tests__/noMaya/test_mlib_batchFiles.py`が検査します。
 
 ### 1. コードの静的解析と修正
 

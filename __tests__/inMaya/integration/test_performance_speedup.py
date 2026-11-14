@@ -277,7 +277,7 @@ class CompoundBulkSetTest(unittest.TestCase):
     def test_locked_and_connected_children_keep_partial_update_rules(self):
         node = mlib.getNode(self.node)
         cmds.setAttr(self.node + ".translateY", lock=True)
-        with self.assertRaisesRegex(RuntimeError, "Attribute is locked or connected: .*translateY"):
+        with self.assertRaisesRegex(RuntimeError, "アトリビュートがロックされているか、接続されています: .*translateY"):
             node.translate.set((1.0, 2.0, 3.0))
         self.assertEqual(self.values("translate"), [0.0, 0.0, 0.0])
         self.assertEqual(node.translate.set((1.0, 2.0, 3.0), safe=True), 1)
@@ -286,7 +286,7 @@ class CompoundBulkSetTest(unittest.TestCase):
         plug = node.getPlug("vecD")
         # CompoundPlug.setも全子の書込み可否を事前に確かめ、何も書かずに止まる。
         cmds.setAttr(self.node + ".vecDY", lock=True)
-        with self.assertRaisesRegex(RuntimeError, "locked or connected"):
+        with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
             CompoundPlug.set(plug, (4.0, 5.0, 6.0))
         self.assertEqual(self.values("vecD"), [0.0, 0.0, 0.0])
         self.assertEqual(CompoundPlug.set(plug, (7.0, 8.0, 9.0), safe=True), 2)
@@ -439,11 +439,11 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
                     self.assertEqual(result.getFullName(), source.getFullName())
                     self.assertEqual(type(result), type(source))
                     self.assertFalse(cmds.isConnected(source.getFullName(), destination))
-                    with self.assertRaisesRegex(RuntimeError, "Input connection not found"):
+                    with self.assertRaisesRegex(RuntimeError, "入力の接続が見つかりません"):
                         plug.disconnect(source if explicit else None, fast=fast)
                     cmds.connectAttr(source.getFullName(), destination)
         # コンパウンドアトリビュートの子を入力元に指定しても、親同士の接続とは一致しない。
-        with self.assertRaisesRegex(RuntimeError, "Input connection not found"):
+        with self.assertRaisesRegex(RuntimeError, "入力の接続が見つかりません"):
             node_b.getPlug("r").disconnect(node_a.getPlug("rx"))
         self.assertTrue(cmds.isConnected(self.a + ".r", self.b + ".r"))
 
@@ -491,13 +491,13 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
         lookalike = cmds.createNode("transform", name=self.ns + ":qx")
         cmds.lockNode(lookalike, lock=True)
         nodes = [mlib.getNode(parent), mlib.getNode(lookalike)]
-        with self.assertRaisesRegex(RuntimeError, "Node is locked or referenced"):
+        with self.assertRaisesRegex(RuntimeError, "ノードがロックされているか、リファレンスです"):
             mlib.delete(nodes, fast=True)
         self.assertTrue(all(node.isValid() for node in nodes))
         # 子がロックされていれば、子を後に渡しても親の検証で拒否する。
         child = cmds.createNode("transform", name=self.ns + ":qc", parent=parent)
         cmds.lockNode(child, lock=True)
-        with self.assertRaisesRegex(RuntimeError, "Node is locked or referenced"):
+        with self.assertRaisesRegex(RuntimeError, "ノードがロックされているか、リファレンスです"):
             mlib.delete([mlib.getNode(parent), mlib.getNode(child)], fast=True)
         self.assertTrue(cmds.objExists(child))
 
@@ -527,7 +527,7 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
         cmds.undo()
         self.assertEqual(sorted(cmds.ls(long=True)), before)
         cmds.lockNode(names[1], lock=True)
-        with self.assertRaisesRegex(RuntimeError, "Cannot delete locked node"):
+        with self.assertRaisesRegex(RuntimeError, "ロックされたノード'.*'は削除できません"):
             mlib.delete(names)
         self.assertEqual([cmds.objExists(name) for name in names], [True, True, True])
 
@@ -702,7 +702,7 @@ class CollectionWrapperTest(unittest.TestCase):
         self.assertEqual(len(Nodes(paths + paths)), len(paths))
         full = cmds.ls(self.joints, long=True)
         self.assertEqual([node.getFullName() for node in Joints(full + full)], full)
-        with self.assertRaisesRegex(TypeError, "Joints requires Joint, got MultiplyDivide"):
+        with self.assertRaisesRegex(TypeError, "JointsにはJointを指定してください: MultiplyDivide"):
             Joints(self.joints + [self.md])
 
     def test_nodes_reject_removed_instance_without_duplicates(self):
@@ -713,7 +713,7 @@ class CollectionWrapperTest(unittest.TestCase):
         wrappers = [mlib.getNode(path) for path in cmds.ls(self.ns + ":boxShape", allPaths=True, long=True)]
         cmds.delete(holder)
         # 重複が無くても、保持インスタンスの消えた参照は従来どおり例外にする。
-        with self.assertRaisesRegex(RuntimeError, "The referenced DAG instance no longer exists"):
+        with self.assertRaisesRegex(RuntimeError, "参照していたDAGのインスタンスはすでに存在しません"):
             Nodes(wrappers)
 
     def test_api_listing_wrappers_match_node_construction(self):
@@ -905,7 +905,7 @@ class MultiAndWeightRunTest(unittest.TestCase):
         # 削除済みアトリビュート・ノードは従来どおりRuntimeError。
         array = wrapped.getPlug("lng")
         cmds.deleteAttr(node + ".lng")
-        with self.assertRaisesRegex(RuntimeError, "attribute was deleted"):
+        with self.assertRaisesRegex(RuntimeError, "アトリビュートが削除されています"):
             array.get()
 
     def test_multi_get_world_space_instances(self):
@@ -1055,11 +1055,11 @@ class FastPathOverheadTest(unittest.TestCase):
         cmds.setAttr(node + ".dvY", lock=True)
         with self.assertRaises(RuntimeError) as caught:
             plug.set((1.0, 0.0, 0.0), fast=True)
-        self.assertRegex(str(caught.exception), r"^Attribute is locked or connected: \S+\.dvY$")
+        self.assertRegex(str(caught.exception), r"^アトリビュートがロックされているか、接続されています: \S+\.dvY$")
         cmds.setAttr(node + ".dvY", lock=False)
         with self.assertRaises(RuntimeError) as caught:
             plug.set((1.0, 0.0, 0.0), fast=True)
-        self.assertRegex(str(caught.exception), r"^Value outside attribute limits: \S+\.dvX$")
+        self.assertRegex(str(caught.exception), r"^値がアトリビュートの範囲を超えています: \S+\.dvX$")
         self.assertEqual(cmds.getAttr(node + ".dv")[0], (0.25, 1.5, -2.0))
         self.assertEqual(plug.set((0.5, 2.0, 3.0), safe=True, fast=True), 0)
         self.assertIs(plug.set((0.5, 2.0, 3.0), fast=True), plug)
@@ -1077,11 +1077,11 @@ class FastPathOverheadTest(unittest.TestCase):
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
         with self.assertRaises(RuntimeError) as caught:
             dst.connect(mlib.getNode(c).getPlug("tx"), fast=True)
-        self.assertEqual(str(caught.exception), "Attribute is locked: " + dst.getFullName())
+        self.assertEqual(str(caught.exception), "アトリビュートがロックされています: " + dst.getFullName())
         cmds.setAttr(b + ".tx", lock=False)
         with self.assertRaises(RuntimeError) as caught:
             dst.connect(mlib.getNode(c).getPlug("tx"), fast=True)
-        self.assertEqual(str(caught.exception), "Destination already has an input: " + dst.getFullName())
+        self.assertEqual(str(caught.exception), "接続先にはすでに入力があります: " + dst.getFullName())
         self.assertIs(dst.connect(mlib.getNode(c).getPlug("tx"), force=True, fast=True), dst)
         self.assertTrue(cmds.isConnected(c + ".tx", b + ".tx"))
         self.assertFalse(cmds.isConnected(a + ".tx", b + ".tx"))
@@ -1295,7 +1295,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
         cmds.delete(dead.getFullName())
         # 削除済みノードは docstring どおり RuntimeError(2026-10-26 に実装を docstring へ揃えた。
         # 従来は cmds.listHistory("") の ValueError だった)。
-        with self.assertRaisesRegex(RuntimeError, r"invalid \w+"):
+        with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため"):
             dead.getHistory()
 
     def test_extra_attrs_skip_static_and_extension(self):
@@ -1336,7 +1336,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
             [(type(m), m.getFullName()) for m in cont.getMembers()],
             [(type(Node(o)), Node(o).getFullName()) for o in om2.MFnContainerNode(cont.mnode()).getMembers()],
         )
-        with self.assertRaisesRegex(ValueError, "nodes must all be members of this container"):
+        with self.assertRaisesRegex(ValueError, "nodesはすべてこのコンテナのメンバーで指定してください"):
             cont.removeMembers(names[0], outsider)
         self.assertEqual(len(cont.getMembers()), 3)
         cmds.undoInfo(state=True)

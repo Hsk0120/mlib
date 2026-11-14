@@ -1,10 +1,11 @@
-"""mlib の数学型と変換演算を公開する。
+"""mlib の数学型と、変換の計算。
 
-Vector 系・Quaternion・EulerRotate・Matrix は OpenMaya API 2.0
+Vector 系・Quaternion・EulerRotate・Matrix は、OpenMaya API 2.0
 (``maya.api.OpenMaya``)の MVector / MQuaternion / MEulerRotation / MMatrix を
-継承した可変の値型で、そのまま om2 の関数へ渡せる。演算は om2 の意味論に従う。
-easing だけは標準ライブラリの math のみを使う純粋な関数群。
-``MSpace`` は ``maya.api.OpenMaya.MSpace`` (空間の指定)をそのまま再公開したもの。
+継承した、値を書き換えられる型。そのまま om2 の関数へ渡せる。計算の意味は om2 と同じ。
+
+easing だけは、標準ライブラリの math だけを使う関数の集まり(シーンには触れない)。
+``MSpace`` は ``maya.api.OpenMaya.MSpace`` (空間の指定)を、そのままここからも使えるようにしたもの。
 """
 
 from maya.api.OpenMaya import MSpace
@@ -18,7 +19,7 @@ from .shear import Shear
 from .translate import Translate
 from .vector import Vector
 
-# importlib.reloadは辞書を保持するため、廃止した公開名を明示的に除く。
+# importlib.reloadしてもモジュールの辞書は残るので、廃止した公開名をはっきり取り除く。
 for _obsolete in ("Translation", "EulerRotation", "Rotate", "Transformation"):
     globals().pop(_obsolete, None)
 

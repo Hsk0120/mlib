@@ -508,7 +508,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         """存在しないアトリビュートは mlib.getPlug・node.getPlug とも MissingAttributeError で文言も同じ。"""
         self.assertTrue(issubclass(MissingAttributeError, AttributeError))
         self.assertTrue(issubclass(MissingAttributeError, RuntimeError))
-        expected = f"Attribute not found: {self.name}.nope"
+        expected = f"アトリビュートが見つかりません: {self.name}.nope"
         for label, call in (("mlib.getPlug", lambda: mlib.getPlug(self.name + ".nope")), ("Node.getPlug", lambda: self.node.getPlug("nope"))):
             for error in (MissingAttributeError, AttributeError, RuntimeError):
                 with self.subTest(call=label, error=error.__name__):
@@ -521,7 +521,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         with self.assertRaises(AttributeError) as context:
             self.node.nope
         self.assertIsInstance(context.exception.__cause__, MissingAttributeError)
-        self.assertNotIn("Did you mean", str(context.exception))
+        self.assertNotIn("近い名前", str(context.exception))
 
     def test_deleted_node(self):
         """所有ノードの削除後は無効、Undoで同じ参照が再び有効になる。"""

@@ -8,11 +8,13 @@ from .snapshot import Snapshot, ValidationReport
 
 
 class PoseSnapshot(Snapshot):
-    """キー可能なアトリビュートと、チャンネルボックスに表示されるアトリビュートの値を保持する。
+    """キーを打てるアトリビュートと、チャンネルボックスに表示されるアトリビュートの値を持つ。
 
-    値はスカラー(数値・bool・enumの番号)だけで、mlibの既定の単位(角度は度、距離はcm)で保存するため、
-    保存時・適用時のUI単位に左右されない。ロック・接続中のアトリビュートも保存し、適用時に書けないものは
-    飛ばして報告する。適用でキーは打たず、ワールド空間は扱わない。
+    値はスカラー(数値・bool・enumの番号)だけを扱う。mlibの既定の単位(角度は度、距離はcm)で保存するので、
+    保存したとき・適用するときのUIの単位には左右されない。
+
+    ロックされたアトリビュートや、接続されているアトリビュートも保存する。適用するときに書けないものは、
+    飛ばして報告する。適用してもキーは打たない。ワールド空間は扱わない。
 
     データの形::
 
@@ -29,20 +31,21 @@ class PoseSnapshot(Snapshot):
 
     @classmethod
     def capture(cls, nodes):
-        """ノードのキー可能・チャンネルボックス表示のアトリビュートの現在値を取得する。
+        """ノードのアトリビュートの今の値を取得する。
 
-        ユーザー定義アトリビュートも含む。スカラー以外の値になるものは保存しない。
-        同じノードを複数回指定した場合は最初の1回だけ記録する。
+        対象は、キーを打てるアトリビュートと、チャンネルボックスに表示されるアトリビュート。
+        ユーザー定義アトリビュートも含む。値がスカラーでないものは保存しない。
+        同じノードを何回か指定した場合は、最初の1回だけ記録する。
 
         Args:
-            nodes (Iterable[Node | str]): 対象のノード。1つのNode・名前も受け付ける。
+            nodes (Iterable[Node | str]): 対象のノード。Nodeや名前を1つだけ渡してもよい。
 
         Returns:
             PoseSnapshot: 取得した値を持つ新しいインスタンス。
 
         Raises:
-            TypeError: nodesがノードまたはその並びでない場合。
-            RuntimeError: ノードが存在しない場合。
+            TypeError: nodesがノードでもその並びでもない場合。
+            RuntimeError: ノードが無い場合。
         """
         entries = []
         seen = set()
@@ -55,14 +58,15 @@ class PoseSnapshot(Snapshot):
         return cls({"nodes": entries})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存した値を、対応付けたノードのアトリビュートへ書き戻す。
+        """保存した値を、対応づけたノードのアトリビュートへ書き戻す。
 
-        1回のUndoにまとめる。見つからないノードは ``missing``、ロック・入力接続(アニメカーブを含む)・
-        対象に無いアトリビュートは ``skipped`` に記録して飛ばし、まとめて警告する。キーは打たない。
+        1回のUndoにまとめる。キーは打たない。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+        見つからないノードは ``missing`` に、ロック・入力接続(アニメカーブを含む)のあるアトリビュートと
+        対象に無いアトリビュートは ``skipped`` に記録する。
 
         Args:
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
 
         Returns:
@@ -71,32 +75,32 @@ class PoseSnapshot(Snapshot):
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def _require_data(self, data):
-        """``nodes`` の各項目がノード参照とスカラー値の辞書を持つか確かめる。
+        """``nodes`` のそれぞれの項目が、ノードの参照とスカラー値の辞書を持つか確かめる。
 
         Args:
-            data (dict): 保持する前のデータ。
+            data (dict): 持たせる前のデータ。
 
         Raises:
-            ValueError: データの形が違う場合。
+            ValueError: データの形が正しくない場合。
         """
         entries = data.get("nodes")
         if not isinstance(entries, list):
-            raise ValueError("pose data must have a 'nodes' list")
+            raise ValueError("ポーズのデータには'nodes'のリストが必要です")
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("attrs"), dict):
-                raise ValueError(f"Invalid pose entry: {entry!r}")
+                raise ValueError(f"ポーズの項目が不正です: {entry!r}")
             NodeRef.fromData(entry.get("node"))
             for name, value in entry["attrs"].items():
                 if not isinstance(name, str) or not name:
-                    raise ValueError(f"Invalid attribute name in pose data: {name!r}")
+                    raise ValueError(f"ポーズのデータのアトリビュート名が不正です: {name!r}")
                 if not isinstance(value, (bool, int, float)):
-                    raise ValueError(f"Pose values must be numbers or bools: {name!r}={value!r}")
+                    raise ValueError(f"ポーズの値は数値かboolで指定してください: {name!r}={value!r}")
 
     def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
-        """ノードの対応と、書けないアトリビュートを記録する。
+        """見つからないノードと、書けないアトリビュートを記録する。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): 使わない。
         """
@@ -105,10 +109,10 @@ class PoseSnapshot(Snapshot):
     def _apply(self, mapping, report, options, fast):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """書けるアトリビュートへ値を書き込む。
 
-        飛ばすものは :meth:`_validate` で記録済みのため、ここでは書込みに失敗したものだけを記録する。
+        飛ばすものは :meth:`_validate` で記録してあるので、ここでは書き込みに失敗したものだけを記録する。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): 使わない。
             fast (bool): 使わない(常にcmdsで書く)。
@@ -117,10 +121,12 @@ class PoseSnapshot(Snapshot):
             _write_plug(plug, value, report)
 
     def _plan(self, mapping, report):
-        """書き込む (Plug, 値) を集め、見つからないもの・書けないものをreportへ記録する。
+        """書き込む (Plug, 値) を集める。
+
+        見つからないものと書けないものは、reportへ記録する。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
 
         Returns:
@@ -137,7 +143,7 @@ class PoseSnapshot(Snapshot):
                 plug = _find_plug(node, name)
                 label = node.getName() + "." + name
                 if plug is None:
-                    report.addSkipped(label, "missing attribute")
+                    report.addSkipped(label, "アトリビュートがありません")
                     continue
                 reason = _block_reason(plug.mplug())
                 if reason:
@@ -148,19 +154,19 @@ class PoseSnapshot(Snapshot):
 
 
 def _require_nodes(nodes):
-    """ノードの指定をmlibのNodeのlistにする。
+    """指定したノードを、mlibのNodeのlistにする。
 
     Args:
-        nodes (Iterable[Node | str] | Node | str): ノードの指定。
+        nodes (Iterable[Node | str] | Node | str): 指定したノード。
 
     Returns:
-        list[Node]: 指定順のNode。
+        list[Node]: 指定した順のNode。
 
     Raises:
-        TypeError: nodesがノードまたはその並びでない場合。
-        RuntimeError: ノードが存在しない場合。
+        TypeError: nodesがノードでもその並びでもない場合。
+        RuntimeError: ノードが無い場合。
     """
-    # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
+    # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使うので、使うときに読み込む。
     from ..nodes.node import Node
 
     if isinstance(nodes, (str, Node)):
@@ -168,18 +174,18 @@ def _require_nodes(nodes):
     try:
         items = list(nodes)
     except TypeError:
-        raise TypeError("nodes must be a node or an iterable of nodes") from None
+        raise TypeError("nodesはノードかノードの並びで指定してください") from None
     return [item if isinstance(item, Node) else Node(item) for item in items]
 
 
 def _capture_pose_attributes(node):
-    """キー可能・チャンネルボックス表示のアトリビュートのスカラー値を集める。
+    """キーを打てるアトリビュートと、チャンネルボックスに表示されるアトリビュートのスカラー値を集める。
 
     Args:
         node (Node): 対象のノード。
 
     Returns:
-        dict[str, bool | int | float]: ロング名のアトリビュートパスと値。listAttrの順。
+        dict[str, bool | int | float]: ロング名のアトリビュートのパスと値。listAttrの順に並ぶ。
     """
     name = node.getFullName()
     names = (cmds.listAttr(name, keyable=True) or []) + (cmds.listAttr(name, channelBox=True) or [])
@@ -217,13 +223,13 @@ def _find_plug(node, attribute):
 
 
 def _attribute_path(mplug):
-    """ノード名を含めない、ロング名のアトリビュートパスを返す。
+    """ロング名のアトリビュートのパスを返す。ノード名は含めない。
 
     Args:
         mplug (om2.MPlug): 対象のPlug。
 
     Returns:
-        str: ``"translateX"``・``"weight[3]"`` 等。
+        str: ``"translateX"``・``"weight[3]"`` など。
     """
     return mplug.partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=True)
 
@@ -231,7 +237,7 @@ def _attribute_path(mplug):
 def _block_reason(mplug):
     """アトリビュートへ値を書けない理由を返す。
 
-    自身・コンパウンドアトリビュートの親と子のロック、入力接続(アニメカーブを含む)を見る。
+    自身と、コンパウンドアトリビュートの親と子について、ロックと入力接続(アニメカーブを含む)を調べる。
 
     Args:
         mplug (om2.MPlug): 対象のPlug。

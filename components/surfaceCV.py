@@ -1,4 +1,4 @@
-"""NURBS 曲面の CV と CV コレクション。"""
+"""NURBS曲面のCVと、CVの集まり。"""
 
 import maya.api.OpenMaya as om2
 
@@ -7,14 +7,15 @@ from .pointComponent import PointComponent, PointComponents
 
 
 def _surface_layout(shape):
-    """曲面のCVの並びを照会する。
+    """曲面のCVの並び方を取得する。
 
     Args:
-        shape (NurbsSurface): 型を検査済みの曲面。
+        shape (NurbsSurface): 型を確かめてある曲面。
 
     Returns:
         tuple[int, int, int, int]: (U方向のCV数, V方向のCV数, U方向の独立CV数, V方向の独立CV数)。
-            周期方向の独立CV数は ``CV数 - 次数`` (cmds の ``cv[u][v]`` の番号の範囲)。
+            独立CV数は、重なっているCVを数えない数。周期方向では ``CV数 - 次数`` になり、
+            cmdsの ``cv[u][v]`` で使える番号の範囲と同じ。
 
     Raises:
         RuntimeError: 形状データを持たない空のシェイプの場合。
@@ -28,13 +29,17 @@ def _surface_layout(shape):
 
 
 class SurfaceCV(_MultiIndexComponent, PointComponent):
-    """NurbsSurfaceのShape参照とCVの番号(``cv[u][v]``)を保持し、現在のXYZ座標を照会・編集する。
+    """NURBS曲面のCV1つを表すクラス。
 
-    保持する :attr:`index` は ``u * V方向のCV数 + v`` の平坦な番号で、
-    :meth:`NurbsSurface.getCvPositions <mlib.nodes.nurbsSurface.NurbsSurface.getCvPositions>` の並びと同じ。
-    ``(u, v)`` は :meth:`getMultiIndex` で照会する。周期曲面もOpenMayaの番号(重複CVを含む)を保持し、
-    cmds用の名前では末尾の重複CVを先頭の対応番号へ写す。座標の書込みでは重複CVも同じ位置に揃う。
-    座標の照会・書込み・反転は :class:`~mlib.components.pointComponent.PointComponent` と同じ。
+    NurbsSurfaceのShapeとCVの番号(``cv[u][v]``)を持ち、今のXYZ座標を取得・編集する。
+
+    - 持っている :attr:`index` は、``u * V方向のCV数 + v`` の通し番号。
+      :meth:`NurbsSurface.getCvPositions <mlib.nodes.nurbsSurface.NurbsSurface.getCvPositions>` の並びと同じになる。
+      ``(u, v)`` は :meth:`getMultiIndex` で取得する。
+    - 周期曲面でも、OpenMayaの番号(重なっているCVを含む)で持つ。
+      cmdsへ渡す名前では、末尾で重なっているCVを、先頭側の同じCVの番号に直す。
+      座標を書き込むと、重なっているCVも同じ位置になる。
+    - 座標の取得・書き込み・反転は :class:`~mlib.components.pointComponent.PointComponent` と同じ。
     """
 
     shape_type = "nurbsSurface"
@@ -43,28 +48,29 @@ class SurfaceCV(_MultiIndexComponent, PointComponent):
 
     @classmethod
     def _element_count(cls, shape):
-        """曲面のCV数(``U方向のCV数 * V方向のCV数``)を返す。
+        """曲面のCVの数(``U方向のCV数 * V方向のCV数``)を返す。
 
         Args:
-            shape (NurbsSurface): 型を検査済みの曲面。
+            shape (NurbsSurface): 型を確かめてある曲面。
 
         Returns:
-            int: 周期曲面の重複CVを含むCV数。
+            int: CVの数。周期曲面で重なっているCVも数える。
         """
         count_u, count_v, _, _ = _surface_layout(shape)
         return count_u * count_v
 
     @classmethod
     def _multi_indices(cls, shape, indices, command=False):
-        """平坦な番号を ``(u, v)`` へ変換する。
+        """通し番号を ``(u, v)`` へ変換する。
 
         Args:
-            shape (NurbsSurface): 型を検査済みの曲面。
-            indices (Iterable[int]): 範囲を検証済みの平坦な番号。
-            command (bool): Trueならcmds用の番号(周期方向の重複CVを先頭の対応番号へ写す)。
+            shape (NurbsSurface): 型を確かめてある曲面。
+            indices (Iterable[int]): 範囲を確かめてある通し番号。
+            command (bool): Trueならcmdsで使う番号にする(周期方向で重なっているCVを、先頭側の番号に直す)。
+                既定はFalse。
 
         Returns:
-            list[tuple[int, int]]: 指定順の ``(u, v)``。
+            list[tuple[int, int]]: ``(u, v)``。指定した順に並ぶ。
         """
         _, count_v, independent_u, independent_v = _surface_layout(shape)
         result = []
@@ -78,31 +84,32 @@ class SurfaceCV(_MultiIndexComponent, PointComponent):
 
     @classmethod
     def _flat_indices(cls, shape, numbers):
-        """``(u, v)`` を平坦な番号へ変換する。
+        """``(u, v)`` を通し番号へ変換する。
 
         Args:
-            shape (NurbsSurface): 型を検査済みの曲面。
+            shape (NurbsSurface): 型を確かめてある曲面。
             numbers (Iterable[tuple[int, int]]): 0以上の ``(u, v)``。
 
         Returns:
-            list[int]: 指定順の平坦な番号。
+            list[int]: 通し番号。指定した順に並ぶ。
 
         Raises:
-            IndexError: U・V方向のCV数の範囲外の場合。
+            IndexError: 番号がU・V方向のCV数の範囲の外にある場合。
         """
         count_u, count_v, _, _ = _surface_layout(shape)
         result = []
         for u, v in numbers:
             if u >= count_u or v >= count_v:
-                raise IndexError(f"Component index out of range: {(u, v)}")
+                raise IndexError(f"コンポーネントの番号が範囲外です: {(u, v)}")
             result.append(u * count_v + v)
         return result
 
 
 class SurfaceCVs(_MultiIndexComponents, PointComponents):
-    """同一NurbsSurfaceのCVの番号列を保持し、CVの列挙と座標の一括操作を担当する。
+    """同じNURBS曲面にあるCVの集まりを表すクラス。
 
-    番号の指定には平坦な番号と ``(u, v)`` を混ぜられる。名前は範囲へまとめない。
+    CVを1つずつ取り出したり、座標をまとめて扱ったりする。
+    番号の指定には、通し番号と ``(u, v)`` を混ぜて使える。名前は範囲にまとめない。
     """
 
     component_class = SurfaceCV

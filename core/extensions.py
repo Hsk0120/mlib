@@ -1,4 +1,4 @@
-"""Python探索パス直下のmlib_*拡張を検出する。独自Mayaプラグインはロードしない。"""
+"""Pythonの探索パスの直下にあるmlib_*の拡張を見つけて登録する。独自のMayaプラグインはロードしない。"""
 
 import ast
 import importlib
@@ -31,27 +31,29 @@ _attempted = globals().get("_attempted", set())
 
 
 def status():
-    """最後の初期化で得た拡張名ごとの状態と理由をコピーして返す。
+    """最後に初期化したときの、拡張ごとの状態と理由を返す。
 
-    現在の依存可用性は再照会しない。診断だけを更新する場合はgetDiagnosticsを使う。
+    依存するものが今使えるかは、調べ直さない。調べ直すときはgetDiagnosticsを使う。
 
     Returns:
-        dict: 拡張名ごとの状態と理由をコピーして返す。
+        dict: 拡張の名前ごとの状態と理由。コピーを返す。
     """
     return {name: dict(state) for name, state in _states.items()}
 
 
 def getDiagnostics():
-    """初期化時の記録と、読込み済み宣言の現在の可用性を分けて取得する。
+    """拡張ごとに、初期化したときの記録と、今使えるかどうかを分けて取得する。
 
-    status()は初期化記録だけを返す。この関数はis_available()を再照会するが、拡張の新規import・
-    型登録・reload・Mayaプラグインのロードは行わない。is_available側は依存を遅延importできるが、
-    シーン/UIを変更しないことが宣言の契約となる。
+    status()は初期化したときの記録だけを返す。この関数は、読み込み済みの拡張のis_available()を呼び直して、
+    今使えるかを調べる。ただし、拡張を新しくimportしたり、型を登録したり、reloadしたり、
+    Mayaプラグインをロードしたりはしない。
+    is_availableの中で依存するものをimportしてもよいが、シーンやUIを変えないことが拡張側の決まりになっている。
 
     Returns:
-        dict[str, dict]: initializationは初期化記録のコピー(未記録ならNone)、availableはbool。
-            宣言未読込・初期化中・宣言不正・再入・照会失敗ではavailable=Noneで、reasonへ理由を入れる。
-            初期化記録と登録表は変更しない。
+        dict[str, dict]: 拡張の名前ごとの記録。initializationは初期化したときの記録のコピー(記録が無ければNone)、
+            availableはbool。次の場合はavailableをNoneにし、reasonに理由を入れる:
+            拡張がまだimportされていない、初期化中、宣言が正しくない、呼び出しが入れ子になった、調べるのに失敗した。
+            初期化の記録と登録表は変えない。
     """
     global _diagnosing
     modules = {name: module for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name)}
@@ -67,11 +69,11 @@ def getDiagnostics():
             result[name] = record
             module = modules.get(name)
             if module is None:
-                record["reason"] = "Extension declaration is not imported"
+                record["reason"] = "拡張の宣言がimportされていません"
             elif _loading or getattr(getattr(module, "__spec__", None), "_initializing", False):
-                record["reason"] = "Extension initialization is in progress"
+                record["reason"] = "拡張を初期化しています"
             elif reentered:
-                record["reason"] = "Availability query is in progress"
+                record["reason"] = "利用できるかどうかを問い合わせています"
             elif vars(module).get("MLIB_EXTENSION_API") != 1:
                 record["reason"] = "MLIB_EXTENSION_API != 1"
             else:
@@ -79,7 +81,7 @@ def getDiagnostics():
                     available = _is_available(module)
                     record["available"] = available
                     if not available:
-                        record["reason"] = "Optional dependency unavailable"
+                        record["reason"] = "任意の依存が利用できません"
                 except Exception as exc:
                     record["reason"] = str(exc) or type(exc).__name__
     finally:
@@ -89,15 +91,16 @@ def getDiagnostics():
 
 
 def _prepare_reload():
-    """本体の再読み込み前に、宣言済み・読み込み失敗の拡張をまとめて解除する。
+    """mlib本体を読み込み直す前に、拡張をまとめて解除する。
 
-    外部SDKやMayaプラグインは対象外。保持済みのPython参照は利用側で取得し直す。
-    初期化途中の再入では、モジュールを一つも削除せず拒否する。
+    拡張として宣言しているものと、読み込みに失敗したものを解除する。外部のSDKやMayaプラグインは対象外。
+    利用側が持っているPythonのオブジェクトは、利用側で取得し直す。
+    初期化の途中で呼ばれた場合は、モジュールを1つも削除せずに例外にする。
     """
     roots = {name for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name) and getattr(module, "MLIB_EXTENSION_API", None) == 1}
     roots.update(_attempted)
     if _loading or any(getattr(getattr(sys.modules.get(name), "__spec__", None), "_initializing", False) for name in roots):
-        raise RuntimeError(f"Cannot reload {_package_name} while an extension is initializing")
+        raise RuntimeError(f"拡張の初期化中は{_package_name}をリロードできません")
     for name in list(sys.modules):
         if name.split(".", 1)[0] in roots:
             del sys.modules[name]
@@ -105,41 +108,45 @@ def _prepare_reload():
 
 
 def _is_available(package):
-    """宣言の可用性を照会し、初期化と診断で同じ型検証を使う。
+    """拡張のis_available()を呼んで、今使えるかを調べる。
+
+    初期化と診断で、同じように戻り値の型を確かめるために使う。
 
     Args:
-        package (ModuleType): 宣言の読み込みを完了した拡張パッケージ。
+        package (ModuleType): 宣言を読み終えた拡張のパッケージ。
 
     Returns:
-        bool: 拡張が現在利用可能か。
+        bool: 拡張が今使えるならTrue。
 
     Raises:
-        TypeError: is_availableがcallableでない、またはboolを返さない場合。
+        TypeError: is_availableが呼び出せない場合、またはboolを返さない場合。
     """
     query = vars(package).get("is_available")
     if not callable(query):
-        raise TypeError("is_available must be callable")
+        raise TypeError("is_availableは呼び出せるオブジェクトにしてください")
     available = query()
     if not isinstance(available, bool):
-        raise TypeError("is_available() must return bool")
+        raise TypeError("is_available()はboolを返してください")
     return available
 
 
 def _require_dependencies(name, locations):
-    """拡張のPythonソースにある他拡張へのimportを登録前に拒否する。
+    """拡張がほかの拡張をimportしていないか、登録する前に確かめる。
+
+    拡張のPythonのソースを読んで調べる。
 
     Args:
-        name (str): 検査する拡張名。
-        locations (Iterable[str]): パッケージの親フォルダー。
+        name (str): 調べる拡張の名前。
+        locations (Iterable[str]): パッケージがある親フォルダー。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        ValueError: 他のmlib_*へのimportがある場合。
+        ValueError: ほかのmlib_*をimportしている場合。
 
     Note:
-        動的importまで実行して解析しない。拡張作者は動的importでも同じ規則に従う。
+        動的なimportは、実行してまで調べない。拡張を作る人は、動的なimportでも同じ規則を守る。
     """
     for location in locations:
         root = Path(location) / name
@@ -157,14 +164,16 @@ def _require_dependencies(name, locations):
                 for target in imports:
                     package = target.split(".", 1)[0]
                     if package != name and _extension_pattern.fullmatch(package):
-                        raise ValueError(f"Extensions must not depend on each other: {name} -> {package}")
+                        raise ValueError(f"拡張どうしは依存できません: {name} -> {package}")
 
 
 def _find_candidates():
-    """探索パスの重複を除き、拡張名ごとの実配置を収集する。
+    """拡張ごとに、実際に置いてある場所を集める。
+
+    探索パスの重なりは除く。importはしない。
 
     Returns:
-        dict[str, set[str]]: 拡張名と正規化した配置先。importは行わない。
+        dict[str, set[str]]: 拡張の名前と、置いてある場所(形を整えたパス)。
     """
     candidates = {}
     for path in dict.fromkeys(sys.path):
@@ -178,12 +187,14 @@ def _find_candidates():
 
 
 def _may_contain_candidate(path):
-    """探索パスの直下に拡張名と一致する項目があり得るかを、パッケージ判定の前に調べる。
+    """探索パスの直下に、拡張の名前と一致するものがありそうか調べる。
 
-    pkgutil.iter_modulesは通常のフォルダーに対して全サブフォルダーの中身を一覧するため、
-    Mayaの長い探索パスでは起動が遅くなる。通常のフォルダー(FileFinder)でパッケージとして
-    返る名前はフォルダー名そのものなので、直下に名前が一致する項目が無ければ結果は空になる。
-    zip等の他のimporterは判定せず、従来どおりiter_modulesへ任せる。
+    パッケージかどうかを調べる前に、手早く絞り込むために使う。
+    pkgutil.iter_modulesは、ふつうのフォルダーではすべてのサブフォルダーの中身を一覧する。
+    そのため、Mayaの長い探索パスでは起動が遅くなる。
+    ふつうのフォルダー(FileFinder)でパッケージとして返る名前はフォルダーの名前そのものなので、
+    直下に一致するものが無ければ、結果は必ず空になる。
+    zipなど、ほかのimporterは調べずに、これまでどおりiter_modulesに任せる。
 
     Args:
         path (str): sys.pathの1項目。
@@ -204,25 +215,27 @@ def _may_contain_candidate(path):
 
 
 def _load_candidate(name, locations):
-    """拡張の軽量な宣言を読み、対象外・利用不可ならその状態を返す。
+    """拡張の軽い宣言(パッケージの__init__)を読む。
+
+    対象外の拡張や、今使えない拡張なら、その状態を返す。
 
     Args:
-        name (str): 検出した拡張名。
-        locations (set[str]): 拡張が存在する親フォルダー。
+        name (str): 見つけた拡張の名前。
+        locations (set[str]): 拡張がある親フォルダー。
 
     Returns:
-        dict | None: 読み飛ばす場合の状態。利用可能な拡張ならNone。
+        dict | None: 読み飛ばす場合の状態。使える拡張ならNone。
 
     Raises:
-        TypeError: 可用性判定がboolを返さない場合。
-        ValueError: 同じ名前の拡張が複数箇所にある場合。
-        RuntimeError: 拡張の初期化中に再入した場合。
+        TypeError: 使えるかの判定(is_available)がboolを返さない場合。
+        ValueError: 同じ名前の拡張が複数の場所にある場合。
+        RuntimeError: 拡張の初期化中に、また呼ばれた場合。
     """
     if len(locations) != 1:
-        raise ValueError(f"Duplicate extension package: {name}")
+        raise ValueError(f"拡張パッケージが重複しています: {name}")
     previous = sys.modules.get(name)
     if getattr(getattr(previous, "__spec__", None), "_initializing", False):
-        raise RuntimeError(f"Extension __init__ must not import {_package_name} or wrappers; finish its declarations before loading submodules")
+        raise RuntimeError(f"拡張の__init__で{_package_name}やラッパーをimportしないでください。サブモジュールを読み込む前に宣言を終えてください")
     _attempted.add(name)
     package = importlib.import_module(name)
     if getattr(package, "MLIB_EXTENSION_API", None) != 1:
@@ -230,23 +243,25 @@ def _load_candidate(name, locations):
         return {"state": "skipped", "reason": "MLIB_EXTENSION_API != 1"}
     available = _is_available(package)
     if not available:
-        return {"state": "unavailable", "reason": "Optional dependency unavailable"}
+        return {"state": "unavailable", "reason": "任意の依存が利用できません"}
     return None
 
 
 def _validated_entries(name, bases):
-    """全種類の明示宣言を検証し、まだ登録せずに対応表を集める。
+    """拡張が宣言した型とクラスの対応を、すべての種類について確かめて集める。
+
+    この時点では、まだ登録しない。
 
     Args:
-        name (str): 利用可能な拡張名。
-        bases (Iterable[tuple[str, type]]): サブパッケージ名と必須の基底型。
+        name (str): 使える拡張の名前。
+        bases (Iterable[tuple[str, type]]): サブパッケージの名前と、クラスが継承していなければならない基底クラス。
 
     Returns:
-        list[tuple[NodeRegistry, dict[str, type]]]: 登録表と検証済みの型対応。
+        list[tuple[NodeRegistry, dict[str, type]]]: 登録表と、確かめてある型とクラスの対応。
 
     Raises:
-        TypeError: 宣言・基底型・他拡張からの継承が不正な場合。
-        ValueError: 型名が不正、または既存登録と衝突する場合。
+        TypeError: 宣言や基底クラスが正しくない場合、またはほかの拡張のクラスを継承している場合。
+        ValueError: 型名が正しくない場合、またはすでに登録された型名と重なる場合。
     """
     entries = []
     for suffix, base in bases:
@@ -256,36 +271,38 @@ def _validated_entries(name, bases):
         # 公開名は拡張の__init__で定義する。ここでは型対応だけを検証する。
         declared = getattr(namespace, "_WRAPPER_CLASSES", {})
         if not isinstance(declared, Mapping):
-            raise TypeError("_WRAPPER_CLASSES must be a mapping")
+            raise TypeError("_WRAPPER_CLASSESはマッピングにしてください")
         wrappers = dict(declared)
         for key, cls in wrappers.items():
             if not isinstance(key, str):
-                raise TypeError("Wrapper type must be a str")
+                raise TypeError("ラッパーの型名はstrで指定してください")
             if not key:
-                raise ValueError("Wrapper type must be a non-empty string")
+                raise ValueError("ラッパーの型名は空でない文字列で指定してください")
             if not isinstance(cls, type) or not issubclass(cls, base):
-                raise TypeError(f"Invalid wrapper base: {key}")
+                raise TypeError(f"ラッパーの基底クラスが不正です: {key}")
             if any(
                 _extension_pattern.fullmatch(base_cls.__module__.split(".", 1)[0]) and base_cls.__module__.split(".", 1)[0] != name for base_cls in cls.__mro__
             ):
-                raise TypeError("Extension wrappers must not inherit from another extension")
+                raise TypeError("拡張のラッパーは、ほかの拡張のクラスを継承できません")
             if base._registry.lookup(key) is not None:
-                raise ValueError(f"Duplicate wrapper type: {key}")
+                raise ValueError(f"ラッパーの型名が重複しています: {key}")
         entries.append((base._registry, wrappers))
     return entries
 
 
 def _apply_entries(entries):
-    """検証済みの全登録表を更新し、途中の障害では全表を元に戻す。
+    """確かめてある型とクラスの対応を、すべての登録表へ登録する。
+
+    途中で失敗した場合は、すべての登録表を元に戻す。
 
     Args:
-        entries (list[tuple[NodeRegistry, dict[str, type]]]): 適用する型対応。
+        entries (list[tuple[NodeRegistry, dict[str, type]]]): 登録する型とクラスの対応。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        Exception: 復元後、登録中の例外をそのまま再送出する。
+        Exception: 登録中に出た例外。登録表を元に戻してから、そのまま送出し直す。
     """
     snapshots = [(registry, registry._snapshot()) for registry, _ in entries]
     try:
@@ -299,7 +316,7 @@ def _apply_entries(entries):
 
 
 def _initialize():
-    """標準登録完了後に拡張を検出し、拡張単位で検証して登録する。"""
+    """mlib標準の登録が終わった後に、拡張を見つけて、拡張ごとに確かめて登録する。"""
     global _loading, _states
     if _loading:
         return
@@ -321,6 +338,6 @@ def _initialize():
                 _states[name] = state
             except Exception as exc:
                 _states[name] = {"state": "error", "reason": str(exc)}
-                logger.warning("%s extension %s: %s", _package_name, name, exc)
+                logger.warning("%sの拡張%s: %s", _package_name, name, exc)
     finally:
         _loading = False

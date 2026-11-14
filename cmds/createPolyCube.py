@@ -1,7 +1,7 @@
-"""ポリゴンの立方体を作成し、シェイプを返す(``cmds.polyCube(constructionHistory=False)`` 相当)。
+"""ポリゴンの立方体を作り、シェイプを返す(``cmds.polyCube(constructionHistory=False)`` 相当)。
 
-大きさはMaya APIの内部単位(cm)で、現在のUI単位に依存しない。構築履歴は作らない。
-作成・親子付けを1回のUndoにまとめ、現在の選択は変更しない。
+大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
 
 .. code-block:: python
 
@@ -19,30 +19,32 @@ from ..util import _UNSET
 
 
 def createPolyCube(width=_UNSET, height=_UNSET, depth=_UNSET, subdivisions=(1, 1, 1), name=_UNSET, parent=None, *, w=_UNSET, h=_UNSET, d=_UNSET, n=_UNSET):
-    """原点を中心とするポリゴンの直方体を作成し、そのシェイプを返す。
+    """原点を中心とするポリゴンの直方体を作り、そのシェイプを返す。
 
-    fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
-    width・height・depth・nameは ``cmds.polyCube`` と同じ短縮名でも受ける(長名と短縮名の同時指定はできない)。
-    subdivisionsは ``subdivisionsX/Y/Z`` をまとめた独自の引数のため短縮名は無い。
+    fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
+    width・height・depth・nameは ``cmds.polyCube`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
+    subdivisionsは ``subdivisionsX/Y/Z`` をまとめたmlib独自の引数のため、短縮名は無い。
 
     Args:
-        width (float): X方向の幅(cm)。既定1。
-        height (float): Y方向の高さ(cm)。既定1。
-        depth (float): Z方向の奥行き(cm)。既定1。
-        subdivisions (Sequence[int]): X・Y・Zの分割数(``subdivisionsX/Y/Z``)。既定(1, 1, 1)。
-        name (str | None): Transformの希望名。シェイプは ``<名前>Shape``。NoneはMayaの既定名。既定None。
-        parent (Node | str | None): Transformの親。Noneはワールド直下。親のローカル空間に単位マトリクスで置く。
-        w (float): widthの短縮名。同時指定はできない。
-        h (float): heightの短縮名。同時指定はできない。
-        d (float): depthの短縮名。同時指定はできない。
-        n (str | None): nameの短縮名。同時指定はできない。
+        width (float): X方向の幅(cm)。既定は1。
+        height (float): Y方向の高さ(cm)。既定は1。
+        depth (float): Z方向の奥行き(cm)。既定は1。
+        subdivisions (Sequence[int]): X・Y・Zの分割数(``subdivisionsX/Y/Z``)。既定は(1, 1, 1)。
+        name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
+            NoneならMayaの既定の名前。既定はNone。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。
+        w (float): widthの短縮名。widthと同時には指定できない。
+        h (float): heightの短縮名。heightと同時には指定できない。
+        d (float): depthの短縮名。depthと同時には指定できない。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:
-        Mesh: 作成したメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
+        Mesh: 作ったメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
 
     Raises:
-        TypeError: 長名と短縮名を同時に指定した場合、または引数の型が不正な場合。
-        ValueError: 大きさが0以下・有限でない、分割数・軸が不正な場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
+        ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
     """
     width = _pick_alias(width, w, "width", "w", default=1.0)

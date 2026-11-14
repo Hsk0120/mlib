@@ -1,4 +1,4 @@
-"""マルチアトリビュートの論理番号と要素プラグを扱う。"""
+"""マルチアトリビュートの論理番号と、要素のPlugを扱う。"""
 
 import operator
 from contextlib import nullcontext
@@ -12,14 +12,16 @@ from .plug import MAX_LOGICAL_INDEX, Plug, _instance_count
 
 
 def _descendants(mplug, steps=()):
-    """プラグ自身と、コンパウンドアトリビュートの子・マルチアトリビュートの既存要素を深さ優先で列挙する。
+    """Plug自身と、その下のPlugを深さ優先で1つずつ返す。
+
+    下へたどるのは、コンパウンドアトリビュートの子と、マルチアトリビュートのすでにある要素。
 
     Args:
-        mplug (om2.MPlug): 起点のプラグ。
+        mplug (om2.MPlug): 起点のPlug。
         steps (tuple[tuple[str, int], ...]): 起点までのたどり方(``("child", 番号)``・``("element", 論理番号)``)。
 
     Yields:
-        tuple[tuple[tuple[str, int], ...], om2.MPlug]: 起点からのたどり方とプラグ。
+        tuple[tuple[tuple[str, int], ...], om2.MPlug]: 起点からのたどり方と、Plug。
     """
     yield steps, mplug
     if mplug.isArray:
@@ -31,14 +33,16 @@ def _descendants(mplug, steps=()):
 
 
 def _follow(mplug, steps):
-    """_descendants のたどり方に従い、別の要素から同じ位置のプラグを取得する(要素は作らない)。
+    """_descendants のたどり方に従って、別の要素から同じ位置のPlugを取得する。
+
+    要素は作らない。
 
     Args:
-        mplug (om2.MPlug): 起点のプラグ。
+        mplug (om2.MPlug): 起点のPlug。
         steps (tuple[tuple[str, int], ...]): たどり方。
 
     Returns:
-        om2.MPlug: たどった先のプラグ。
+        om2.MPlug: たどった先のPlug。
     """
     for kind, index in steps:
         mplug = mplug.child(index) if kind == "child" else mplug.elementByLogicalIndex(index)
@@ -46,52 +50,62 @@ def _follow(mplug, steps):
 
 
 class MultiPlug(Plug):
-    """マルチアトリビュート全体を参照し、疎な論理番号と要素Plugを扱う。
+    """マルチアトリビュート全体を扱うPlug。とびとびの論理番号と、要素のPlugを扱う。
 
-    doubleArray等の単一Plugの配列データとは異なる。``multi[index]`` は論理番号の
-    参照、反復は既存要素、get()は値の取得。欠番は参照だけでは作られず、set/connectで実体化する。
-    maya.cmdsへは ``str(multi)`` で渡す。要素がコンパウンドアトリビュートのPlugの場合も文字列化し、mlib.selectにはそのまま渡せる。
+    doubleArrayなど、1つのPlugが持つ並びのデータとは別のもの。
+
+    - ``multi[index]`` は、論理番号で要素を取得する。
+    - 反復すると、すでにある要素を返す。
+    - get()は値を取得する。
+
+    欠けている番号の要素は、取得しただけでは作られず、set・connectしたときに作られる。
+    maya.cmdsへは ``str(multi)`` で渡す。要素がコンパウンドアトリビュートのPlugでも文字列にして渡す。
+    mlib.selectにはそのまま渡せる。
     """
 
     def __getitem__(self, index):
-        """論理番号を指定し、既存または未作成のマルチアトリビュートの要素を参照する。
+        """論理番号で、マルチアトリビュートの要素を取得する。
 
-        リスト上の位置ではないため、既存番号が[2, 10]なら[10]で後者を参照する。
-        取得だけでは値を読み出さず、欠番も実体化しない。要素へのset/connectが作成を担当する。
+        すでにある要素も、まだ作られていない要素も取得できる。番号はリスト上の位置ではない。
+        たとえば、すでにある番号が[2, 10]なら、[10]で後ろの要素を取得する。
+        取得しただけでは値を読み出さず、欠けている番号の要素も作らない。要素はset・connectしたときに作られる。
 
         Args:
-            index (int): 0〜2147483647の論理番号。負数・sliceは使えない。
+            index (int): 0〜2147483647の論理番号。負の数とsliceは使えない。
 
         Returns:
-            Plug: 同じ所有Nodeを共有する新しい要素ラッパー。値やノードの複製ではない。
-                worldSpace要素の番号を指定しても、所有Nodeの保持DAGパスは切り替えない。
+            Plug: 要素の新しいオブジェクト。ノードはマルチアトリビュートと共有し、値やノードを複製するわけではない。
+                worldSpaceの要素の番号を指定しても、ノードが持つDAGパスは切り替えない。
 
         Raises:
-            TypeError: indexがboolまたは整数以外の場合。
+            TypeError: indexがboolの場合、または整数でない場合。
             IndexError: 論理番号が0〜2147483647の範囲外の場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         self._require_valid()
         index = self._validated_logical_index(index)
         return Plug(self._node, self._mplug.elementByLogicalIndex(index))
 
     def __contains__(self, item):
-        """論理番号または要素Plugが、既存要素に含まれるかを返す。
+        """論理番号または要素のPlugが、すでにある要素に含まれるか判定する。
 
-        整数は論理番号として getIndices() と照合する(リスト上の位置ではない)。Plugは、このマルチアトリビュートの
-        既存要素と同じ参照かを比べる。値は読み出さず、欠番を実体化しない。
-        ``__len__`` は持たない(maya.cmdsが位置0〜len-1の並びとして展開し、論理番号と食い違う値を黙って返すため)。
-        要素数は ``len(multi.getIndices())`` で求める。
+        - 整数は論理番号として、getIndices()と比べる。リスト上の位置ではない。
+        - Plugは、このマルチアトリビュートのすでにある要素と同じものかを比べる。
+
+        値は読み出さず、欠けている番号の要素も作らない。
+
+        ``__len__`` は持たない。持つとmaya.cmdsが位置0〜len-1の並びとして展開し、
+        論理番号と食い違う値を黙って返してしまうため。要素の数は ``len(multi.getIndices())`` で求める。
 
         Args:
             item (int | Plug): 論理番号、または要素のPlug。
 
         Returns:
-            bool: 既存要素に含まれる場合True。範囲外の番号・別のアトリビュートのPlugはFalse。
+            bool: すでにある要素に含まれればTrue。範囲外の番号や、別のアトリビュートのPlugはFalse。
 
         Raises:
-            TypeError: boolまたは整数・Plug以外の場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            TypeError: boolの場合、または整数でもPlugでもない場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         if isinstance(item, Plug):
             self._require_valid()
@@ -99,44 +113,46 @@ class MultiPlug(Plug):
                 return False
             return item.getMulti() == self and item.getIndex() in self.getIndices()
         if isinstance(item, bool):
-            raise TypeError("Logical index must be an integer or element plug")
+            raise TypeError("論理番号は整数か要素のPlugで指定してください")
         try:
             index = operator.index(item)
         except TypeError:
-            raise TypeError("Logical index must be an integer or element plug") from None
+            raise TypeError("論理番号は整数か要素のPlugで指定してください") from None
         return index in self.getIndices()
 
     def __iter__(self):
-        """既存要素の参照一覧を取得し、論理番号順に反復する。
+        """すでにある要素を、論理番号の順に1つずつ返す。
 
-        反復子を作る時点のgetElements()を使い、欠番は列挙しない。要素値は読み出さない。
+        反復を始めた時点のgetElements()の結果を使う。欠けている番号は返さない。要素の値は読み出さない。
 
         Returns:
-            Iterator[Plug]: 作成時に集めた要素参照の反復子。
+            Iterator[Plug]: 反復を始めた時点で集めた要素のイテレーター。
         """
         return iter(self.getElements())
 
     def get(self, *, unit=None, timeUnit=None, uiUnits=False):
-        """既存要素の値を、論理番号をキーとするdictで取得する。
+        """すでにある要素の値を、論理番号をキーにしたdictで取得する。
 
-        getElements()の各要素でget()を呼ぶため、値取得に伴うDG評価が発生し得る。
-        番号は詰め直さず、コンパウンドアトリビュートや ``doubleArray`` 等のデータ型の要素値も平坦化しない。
+        getElements()の要素ごとに値を読むので、DGの評価が起きることがある。
+        番号は詰め直さない。要素がコンパウンドアトリビュートや ``doubleArray`` などのデータ型でも、
+        値を平らにならさない。
 
         Args:
             unit (str | None): 各要素のgetへ渡す角度の単位。None(既定)は度、``"rad"`` はラジアン。
                 uiUnits=Trueとは同時に指定できない。
-            timeUnit (str | None): 各要素のgetへ渡す時間の単位。None(既定)は現在のUI時間単位のフレーム、
+            timeUnit (str | None): 各要素のgetへ渡す時間の単位。None(既定)は現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。uiUnits=Trueとは同時に指定できない。
-            uiUnits (bool): 各要素のgetへ渡す。TrueはUI単位、既定Falseは角度が度、距離cm、時間がフレーム。
+            uiUnits (bool): 各要素のgetへ渡す。TrueならUIの単位。
+                既定はFalseで、角度は度、距離はcm、時間はフレームになる。
 
         Returns:
-            dict[int, object]: 新しいdict。値の型・単位は各要素のgetに従う。
-                worldSpaceアトリビュートは、DAGインスタンス番号の要素も含む。
+            dict[int, object]: 新しいdict。値の型と単位は各要素のgetのとおり。
+                worldSpaceのアトリビュートでは、DAGのインスタンス番号の要素も含む。
 
         Raises:
-            TypeError: uiUnitsがbool以外、またはunit・timeUnitが文字列・None以外の場合。
-            ValueError: unit・timeUnitが未対応の単位名、またはuiUnits=Trueと同時に指定した場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効、または要素値を取得できない場合。
+            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
+            ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合、または要素の値を取得できない場合。
         """
         _require_bool(uiUnits, "uiUnits")
         angle_unit = _plain_angle_unit(unit, uiUnits)
@@ -174,60 +190,67 @@ class MultiPlug(Plug):
         return result
 
     def getElement(self, index):
-        """論理番号の要素を、評価・実体化せず参照する(``multi[index]`` と同じ)。
+        """論理番号で要素を取得する(``multi[index]`` と同じ)。
 
-        まだ存在しない要素(欠番)も参照を返し、その要素へのset/connectで作成される。
-        参照の取得だけでは要素を作らない。存在する要素だけが必要なら :meth:`getElements`
-        (既存要素の一覧)または ``index in multi`` (存在の判定)を使う。
+        値の評価も、要素の作成もしない。まだ無い要素(欠けている番号)も取得でき、
+        その要素へset・connectしたときに作られる。
+        すでにある要素だけが必要なら、:meth:`getElements` (すでにある要素の一覧)か
+        ``index in multi`` (あるかどうかの判定)を使う。
 
         Args:
             index (int): 0〜2147483647の論理番号。
 
         Returns:
-            Plug: 同じ所有Nodeを持つ新しい要素参照。
+            Plug: 要素の新しいオブジェクト。ノードはマルチアトリビュートと同じもの。
 
         Raises:
-            TypeError: index未指定、boolまたは整数以外の場合。
+            TypeError: indexを指定していない場合、boolの場合、または整数でない場合。
             IndexError: 番号が0〜2147483647の範囲外の場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         return self[index]
 
     def getElements(self):
-        """既存要素のPlugを、論理番号の昇順で取得する。
+        """すでにある要素のPlugを、論理番号の小さい順に取得する。
 
-        getIndices()の番号だけを参照し、欠番を埋めず、要素値も読み出さない
-        (未作成の要素も参照する :meth:`getElement` とは異なる)。
-        worldSpaceアトリビュートは、評価前でもDAGインスタンス番号の要素を含む。
+        getIndices()の番号の要素だけを返す。欠けている番号は埋めず、要素の値も読み出さない。
+        まだ作られていない要素も取得できる :meth:`getElement` とは、この点が違う。
+        worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
 
         Returns:
-            list[Plug]: 新しいリストと要素ラッパー。所有Nodeは共有し、シーンを複製しない。
+            list[Plug]: 要素の新しいオブジェクトのリスト。ノードは共有し、シーンのものを複製しない。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         # 要素ごとに存在を確かめ直さず、既存の番号から直接 Plug を作る。
         return [Plug(self._node, self._mplug.elementByLogicalIndex(index)) for index in self.getIndices()]
 
     def getNextAvailable(self, start=-1, checkLocked=True, checkChildren=True, *, vacant=False):
-        """次に使えるマルチアトリビュートの要素Plugを探す。要素の作成・予約はしない。
+        """次に使える、マルチアトリビュートの要素のPlugを探す。
 
-        論理番号は戻り値の :meth:`~mlib.plugs.plug.Plug.getIndex` で取る
-        (``multi.getNextAvailable().getIndex()``)。番号を返す指定(``asPlug`` 引数)は無い。
+        要素を作ったり、予約したりはしない。論理番号は、戻り値の
+        :meth:`~mlib.plugs.plug.Plug.getIndex` で取得する(``multi.getNextAvailable().getIndex()``)。
+        番号を返す指定(``asPlug`` 引数)は無い。
 
-        既定(``vacant=False``)は ``cmds.connectAttr(nextAvailable=True)`` と同じ規則で、
-        :meth:`Plug.connectTo` / :meth:`Plug.connect` の ``nextAvailable=True`` もこの結果へ接続する。
-        要素は入力接続が無ければ使える(値を持つだけの要素・出力接続だけの要素も候補)。``start`` が負なら
-        接続(子の接続を含む)のある最後の要素の次から探し、途中の空きは飛ばす。``checkLocked`` ならロック、
-        ``checkChildren`` なら子(とそのマルチアトリビュート)の入力接続・ロックも避ける。
+        既定(``vacant=False``)は、``cmds.connectAttr(nextAvailable=True)`` と同じ決まりで探す。
+        :meth:`Plug.connectTo` / :meth:`Plug.connect` の ``nextAvailable=True`` も、この結果へ接続する。
 
-        ``vacant=True`` はMayaの規則とは別の「未使用の番号」の探索で、既存番号
-        (``getExistingArrayAttributeIndices()``。値を持つ要素も含む)に無い最初の番号を探す。
-        ``start`` が負なら0から。checkLocked/checkChildren は無視し、マルチアトリビュートのロックも例外にしない。
-        worldSpaceのマルチアトリビュートのインスタンス番号補完(:meth:`getIndices`)も使わない。
-        値を設定する空き要素を探す用途に使う。
+        - 入力の接続が無い要素は使える。値を持つだけの要素や、出力の接続だけがある要素も候補になる。
+        - ``start`` が負なら、接続(子の接続を含む)のある最後の要素の次から探す。途中の空きは飛ばす。
+        - ``checkLocked`` ならロックされた要素を避ける。
+        - ``checkChildren`` なら、子(とそのマルチアトリビュート)の入力の接続とロックも避ける。
 
-        3つの探索規則の対比:
+        ``vacant=True`` は、Mayaの決まりとは別に「使われていない番号」を探す。すでにある番号
+        (``getExistingArrayAttributeIndices()``。値を持つ要素も含む)に無い、最初の番号を返す。
+
+        - ``start`` が負なら0から探す。
+        - checkLocked・checkChildren は無視し、マルチアトリビュートのロックも例外にしない。
+        - worldSpaceのマルチアトリビュートでの、インスタンス番号の補い(:meth:`getIndices`)も使わない。
+
+        値を設定するための空いた要素を探すときに使う。
+
+        3つの探し方の比較:
 
         .. list-table::
            :header-rows: 1
@@ -246,24 +269,26 @@ class MultiPlug(Plug):
              - 既存番号すべて(穴は再利用しない)
 
         Args:
-            start (int): 探索開始番号。負数は上記の既定開始位置。bool は受け付けない。
-            checkLocked (bool): ロックされた要素(とマルチアトリビュート全体のロック)を避ける。vacantでは無視。
-            checkChildren (bool): コンパウンドアトリビュートの子とそのマルチアトリビュートも調べる。vacantでは無視。
-            vacant (bool): Trueは既存番号(値・接続のある要素)に無い最初の番号を探す。
+            start (int): 探し始める番号。負の数なら、上に書いた既定の位置から探す。bool は受け付けない。
+            checkLocked (bool): Trueなら、ロックされた要素(とマルチアトリビュート全体のロック)を避ける。
+                vacantでは無視する。
+            checkChildren (bool): Trueなら、コンパウンドアトリビュートの子と、そのマルチアトリビュートも調べる。
+                vacantでは無視する。
+            vacant (bool): Trueなら、すでにある番号(値や接続のある要素)に無い、最初の番号を探す。
 
         Returns:
-            Plug: 空き番号の要素の参照(未作成の要素も実体化しない)。番号は ``getIndex()`` で取る。
+            Plug: 空いている番号の要素。まだ無い要素でも作らない。番号は ``getIndex()`` で取得する。
 
         Raises:
-            TypeError: startがboolまたは整数以外、checkLocked/checkChildren/vacantがbool以外の場合。
-            IndexError: startが上限(2147483647)を超える、または空きが無い場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効、または ``vacant=False`` かつ
-                ``checkLocked=True`` でマルチアトリビュート全体がロックされている場合。
+            TypeError: startがboolの場合や整数でない場合、またはcheckLocked・checkChildren・vacantがboolでない場合。
+            IndexError: startが上限(2147483647)を超える場合、または空きが無い場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。または ``vacant=False`` かつ
+                ``checkLocked=True`` で、マルチアトリビュート全体がロックされている場合。
         """
         for name, flag in (("checkLocked", checkLocked), ("checkChildren", checkChildren), ("vacant", vacant)):
             _require_bool(flag, name)
         if isinstance(start, bool) or not isinstance(start, int):
-            raise TypeError("start must be an integer")
+            raise TypeError("startは整数で指定してください")
         self._require_valid()
         mp = self._mplug
         if vacant:
@@ -272,17 +297,17 @@ class MultiPlug(Plug):
             while index in existing:
                 index += 1
             if index > MAX_LOGICAL_INDEX:
-                raise IndexError("No available logical index in the multi attribute")
+                raise IndexError("マルチアトリビュートに空いている論理番号がありません")
             return Plug(self._node, mp.elementByLogicalIndex(index))
         if checkLocked and mp.isLocked:
-            raise RuntimeError(f"Multi attribute is locked: {self.getFullName()}")
+            raise RuntimeError(f"マルチアトリビュートがロックされています: {self.getFullName()}")
         if start < 0:
             count = mp.numConnectedElements()
             start = mp.connectionByPhysicalIndex(count - 1).logicalIndex() + 1 if count else 0
         index = self._validated_logical_index(start)
 
         def occupied(value):
-            """子階層を含む入力とロックを確認する。"""
+            """子の階層も含めて、入力の接続とロックがあるか調べる。"""
             if value.isDestination or (checkLocked and value.isLocked):
                 return True
             if checkChildren:
@@ -297,47 +322,50 @@ class MultiPlug(Plug):
             if not occupied(candidate):
                 return Plug(self._node, candidate)
             index += 1
-        raise IndexError("No available logical index in the multi attribute")
+        raise IndexError("マルチアトリビュートに空いている論理番号がありません")
 
     def removeElement(self, index, shift=False, *, fast=False):
-        """実体のあるマルチアトリビュートの要素を、接続を切断して削除する。
+        """マルチアトリビュートの要素を削除する。接続も切る。
 
-        OpenMayaの既存要素番号を対象とし、getIndices()によるworldSpaceの補完だけでは
-        削除対象にしない。通常はcmds.removeMultiInstanceを使い、Undoが有効なら記録する。
-        fastはMDGModifierで削除し、Undo設定を変更しない。
-        ``shift=True`` は削除した番号より後ろの既存要素を1つずつ前の番号へ移す
-        (値と入力・出力の接続を移す。移し方は :meth:`compact` と同じ)。
+        削除できるのは、実際にある要素(OpenMayaが返す、すでにある要素の番号)だけ。
+        worldSpaceでgetIndices()が補っただけの番号は削除の対象にしない。
+
+        - 通常はcmds.removeMultiInstanceを使い、Undoが有効なら記録する。
+        - fastではMDGModifierで削除し、Undoの設定は変えない。
+        - ``shift=True`` なら、削除した番号より後ろのすでにある要素を、1つずつ前の番号へ移す。
+          値と、入力・出力の接続を移す。移し方は :meth:`compact` と同じ。
 
         Args:
             index (int): 削除する論理番号。
-            shift (bool): Trueは後ろの要素を1つずつ前へ詰める。既定False。
+            shift (bool): Trueなら、後ろの要素を1つずつ前へ詰める。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             MultiPlug: 自身。
 
         Raises:
-            TypeError: indexがboolまたは整数以外、shift・fastがbool以外の場合。
-            IndexError: 論理番号が範囲外、または実体のある要素が存在しない場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効、またはMayaが削除を拒否した場合。
-                ``shift=True`` で、マルチアトリビュートか移す要素がロックされている、または参照ノードの場合。
+            TypeError: indexがboolの場合や整数でない場合、またはshift・fastがboolでない場合。
+            IndexError: 論理番号が範囲外の場合、またはその番号の要素が実際には無い場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合、またはMayaが削除を拒否した場合。
+                ``shift=True`` で、マルチアトリビュートか移す要素がロックされている場合や、
+                リファレンスのノードの場合も含む。
             NotImplementedError: ``fast=True`` と ``shift=True`` を同時に指定した場合。
 
         Note:
-            デフォーマのターゲットはこの方法で除去しない。例えばblendShapeの ``weight`` の要素を
+            デフォーマーのターゲットは、この方法では取り除かない。たとえばblendShapeの ``weight`` の要素を
             消しても、エイリアスと ``inputTarget[].inputTargetGroup[i]`` が残る。blendShapeのターゲットは
-            :meth:`mlib.nodes.BlendShape.removeTarget` で除去する。
+            :meth:`mlib.nodes.BlendShape.removeTarget` で取り除く。
         """
         _require_bool(shift, "shift")
         _require_bool(fast, "fast")
         if fast and shift:
-            raise NotImplementedError("fast removeElement does not support shift=True")
+            raise NotImplementedError("fastのremoveElementはshift=Trueに対応していません")
         with _edit_context("mlibMultiPlugRemoveElement", fast):
             self._require_valid()
             index = self._validated_logical_index(index)
             existing = sorted(self._mplug.getExistingArrayAttributeIndices())
             if index not in existing:
-                raise IndexError(f"No multi element at logical index {index} on {self.getFullName()}")
+                raise IndexError(f"{self.getFullName()}に論理番号{index}の要素はありません")
             moves = [(source, source - 1) for source in existing if source > index] if shift else []
             if shift:
                 self._require_movable([index] + [source for source, _ in moves])
@@ -352,23 +380,23 @@ class MultiPlug(Plug):
             return self
 
     def compact(self):
-        """空き番号を詰め、既存要素の論理番号を0から連続する番号に並べ直す。
+        """空いた番号を詰めて、要素の論理番号を0からの連番に並べ直す。
 
-        既存要素を論理番号の昇順に0, 1, 2…へ移す。各要素の値(コンパウンドアトリビュートの子・
-        入れ子のマルチアトリビュートの要素を含む)と、入力・出力の接続を移す。
-        既に連続している場合は何も変更しない。cmdsで編集し、Undo 1回で戻る。
+        すでにある要素を、論理番号の小さい順に0, 1, 2…へ移す。移すのは、各要素の値
+        (コンパウンドアトリビュートの子と、入れ子のマルチアトリビュートの要素を含む)と、入力・出力の接続。
+        すでに連番になっていれば何も変えない。cmdsで編集し、1回のUndoで戻せる。
 
         Returns:
             MultiPlug: 自身。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効、マルチアトリビュートか移す要素(子を含む)が
-                ロックされている、または参照ノードの場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。マルチアトリビュートか移す要素(子を含む)が
+                ロックされている場合。またはリファレンスのノードの場合。
 
         Note:
             値はmlibの :meth:`~mlib.plugs.plug.Plug.get` / :meth:`~mlib.plugs.plug.Plug.set` で移す。
-            書込みできない・保存されない子と、接続の無いmessageの要素は移せない(移した先に作られない)。
-            同じマルチアトリビュートの要素どうしの接続は想定しない。
+            書き込めない子・保存されない子と、接続の無いmessageの要素は移せない(移した先に作られない)。
+            同じマルチアトリビュートの要素どうしの接続は考慮していない。
         """
         with undoChunk("mlibMultiPlugCompact"):
             self._require_valid()
@@ -380,10 +408,11 @@ class MultiPlug(Plug):
             return self
 
     def getSourceNodes(self):
-        """マルチアトリビュートの要素への接続元ノードを論理番号順に取得する。
+        """各要素へつながっている接続元のノードを、論理番号の順に取得する。
 
         Returns:
-            dict[int, Node]: 接続のある要素のみ。未接続の穴を維持して返す。
+            dict[int, Node]: 論理番号をキーにした接続元のノード。接続のある要素だけを含み、
+                接続の無い番号は詰めずに抜けたままにする。
         """
         result = {}
         for element in self.getElements():
@@ -393,19 +422,21 @@ class MultiPlug(Plug):
         return result
 
     def appendMessage(self, node, *, fast=False):
-        """messageのマルチアトリビュートの最大番号の次へノード参照を追加する。
+        """messageのマルチアトリビュートへ、ノードをつないで追加する。
+
+        いちばん大きい番号の次の要素へ、ノードの ``message`` を接続する。
 
         Args:
-            node (str | Node): 保存する参照。
+            node (str | Node): つなぐノード。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            int: 追加した論理番号。途中の穴は再利用しない。
+            int: 追加した論理番号。途中の空いた番号は使わない。
 
         Raises:
-            TypeError: messageのマルチアトリビュートでない、またはfastがbool以外の場合。
+            TypeError: messageのマルチアトリビュートでない場合、またはfastがboolでない場合。
             IndexError: 論理番号が上限に達した場合。
-            RuntimeError: 所有ノード・アトリビュートが無効、nodeが存在しない、または接続に失敗した場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合、nodeが無い場合、または接続に失敗した場合。
         """
         _require_bool(fast, "fast")
         with nullcontext() if fast else undoChunk("mlibMultiPlugAppendMessage"):
@@ -414,25 +445,26 @@ class MultiPlug(Plug):
 
             self._require_valid()
             if not self._mplug.attribute().hasFn(om2.MFn.kMessageAttribute):
-                raise TypeError("Expected a message multi attribute")
+                raise TypeError("messageのマルチアトリビュートを指定してください")
             index = max(self.getIndices(), default=-1) + 1
             if index > MAX_LOGICAL_INDEX:
-                raise IndexError("Message multi attribute logical index limit reached")
+                raise IndexError("messageのマルチアトリビュートの論理番号が上限に達しました")
             Node(node).getPlug("message").connectTo(self._element_at(index), fast=fast)
             return index
 
     def getIndices(self):
-        """既存要素の論理番号を、値を評価せず昇順で取得する。
+        """すでにある要素の論理番号を、小さい順に取得する。
 
-        疎な番号が[2, 10]なら[2, 10]を返し、物理的な列挙位置の[0, 1]へ詰め直さない。
-        worldSpaceのマルチアトリビュートはOpenMayaの既存番号に全DAGインスタンスの0〜数-1を補完する
-        (祖先による間接インスタンスを含む)。欠番を実体化せず、getElements()も同じ番号を使う。
+        値は評価しない。番号がとびとびの[2, 10]なら[2, 10]を返し、並びの位置の[0, 1]へ詰め直さない。
+        worldSpaceのマルチアトリビュートでは、OpenMayaが返す番号に、DAGのすべてのインスタンスの
+        番号(0から数-1まで)を補う。祖先がインスタンス化されたことによる間接的なインスタンスも含む。
+        欠けている番号の要素は作らない。getElements()も同じ番号を使う。
 
         Returns:
-            list[int]: 新しい論理番号リスト。
+            list[int]: 論理番号の新しいリスト。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         self._require_valid()
         indices = list(self._mplug.getExistingArrayAttributeIndices())
@@ -442,23 +474,25 @@ class MultiPlug(Plug):
         return indices
 
     def getConnectedIndices(self):
-        """接続のある要素の論理番号を昇順で取得する。
+        """接続のある要素の論理番号を、小さい順に取得する。
 
-        要素自身または子孫(コンパウンドアトリビュートの子・入れ子の要素)に入力・出力のどちらかの接続がある要素を
+        要素自身か、その下(コンパウンドアトリビュートの子・入れ子の要素)に、入力か出力の接続がある要素を返す。
         ``MPlug.numConnectedElements`` / ``connectionByPhysicalIndex`` で求める。値だけを持つ要素は含まない。
 
         Returns:
-            list[int]: 新しい論理番号リスト。接続が無ければ空リスト。
+            list[int]: 論理番号の新しいリスト。接続が無ければ空リスト。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         self._require_valid()
         mplug = self._mplug
         return sorted(mplug.connectionByPhysicalIndex(index).logicalIndex() for index in range(mplug.numConnectedElements()))
 
     def _require_movable(self, indices):
-        """要素を別の番号へ移せるかを、シーンを変更せずに確かめる(compact・removeElementのshift用)。
+        """要素を別の番号へ移せるか確かめる。シーンは変えない。
+
+        compactと、removeElementのshiftで使う。
 
         Args:
             indices (list[int]): 移す要素の論理番号。
@@ -467,23 +501,24 @@ class MultiPlug(Plug):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: マルチアトリビュートか移す要素(子孫を含む)がロックされている、または参照ノードの場合。
+            RuntimeError: マルチアトリビュートか移す要素(その下を含む)がロックされている場合、
+                またはリファレンスのノードの場合。
         """
         name = self.getFullName()
         if self._node._dependency_fn().isFromReferencedFile:
-            raise RuntimeError(f"Multi attribute is referenced: {name}")
+            raise RuntimeError(f"マルチアトリビュートがリファレンスです: {name}")
         if self._mplug.isLocked:
-            raise RuntimeError(f"Multi attribute is locked: {name}")
+            raise RuntimeError(f"マルチアトリビュートがロックされています: {name}")
         for index in indices:
             for _, mplug in _descendants(self._mplug.elementByLogicalIndex(index)):
                 if mplug.isLocked:
-                    raise RuntimeError(f"Multi element is locked: {name}[{index}]")
+                    raise RuntimeError(f"マルチアトリビュートの要素がロックされています: {name}[{index}]")
 
     def _move_elements(self, moves):
-        """既存要素の値と入力・出力の接続を、別の番号の要素へcmdsで移す。
+        """要素の値と、入力・出力の接続を、cmdsで別の番号の要素へ移す。
 
-        先に全要素の値と接続を集めてから移す元をすべて削除し、移す先へ値を設定して接続し直す。
-        移す先は、移す元の削除後に空いている番号であること(compact・shiftの順序で満たす)。
+        先にすべての要素の値と接続を集め、移す元をすべて削除する。そのあと移す先へ値を設定し、接続し直す。
+        移す先は、移す元を削除したあとに空いている番号でなければならない(compact・shiftの順番ならそうなる)。
 
         Args:
             moves (list[tuple[int, int]]): (移す元の論理番号, 移す先の論理番号)の並び。
@@ -507,10 +542,11 @@ class MultiPlug(Plug):
                     cmds.connectAttr(plug_name, destination.getFullName())
 
     def _capture_element(self, index):
-        """要素の値と入力・出力の接続を、要素からのたどり方と組にして集める。
+        """要素の値と、入力・出力の接続を、要素からのたどり方と組にして集める。
 
-        入力接続のあるプラグの値も集める(接続する前に設定して移す先の要素を作り、Undoで要素ごと戻すため。
-        接続しただけで作られた要素はUndoで消えない)。messageと、書込みできない・保存されないプラグの値は集めない。
+        入力の接続があるPlugの値も集める。接続する前に値を設定して移す先の要素を作り、Undoで要素ごと戻せるようにするため
+        (接続しただけで作られた要素は、Undoしても消えない)。
+        messageと、書き込めない・保存されないPlugの値は集めない。
 
         Args:
             index (int): 既存要素の論理番号。
@@ -540,7 +576,7 @@ class MultiPlug(Plug):
 
     @staticmethod
     def _validated_logical_index(index):
-        """マルチアトリビュートの要素への参照・編集に使う論理番号を検証し、intで返す。
+        """要素の取得・編集に使う論理番号を確かめて、intで返す。
 
         Args:
             index (int): 対象要素の論理番号。``operator.index`` で整数へ変換できる値(boolを除く)。
@@ -553,27 +589,27 @@ class MultiPlug(Plug):
             IndexError: 0〜2147483647の範囲外の場合。
         """
         if isinstance(index, bool):
-            raise TypeError("Logical index must be an integer")
+            raise TypeError("論理番号は整数で指定してください")
         try:
             index = operator.index(index)
         except TypeError:
-            raise TypeError("Logical index must be an integer") from None
+            raise TypeError("論理番号は整数で指定してください") from None
         if not 0 <= index <= MAX_LOGICAL_INDEX:
-            raise IndexError("Logical index must be in 0..2147483647")
+            raise IndexError("論理番号は0〜2147483647で指定してください")
         return index
 
     def _element_at(self, index):
-        """書込み・接続用の参照のみを取得し、欠番の要素を作成しない。
+        """書き込み・接続に使う要素を取得する。欠けている番号の要素は作らない。
 
         Args:
             index (int): 論理番号。
 
         Returns:
-            Plug: 型付き参照。危険な内部データ型の未作成要素は拒否する。
+            Plug: 型に合ったPlug。作ると危険な内部データ型の要素で、まだ無いものは拒否する。
         """
         self._require_valid()
         index = self._validated_logical_index(index)
         mplug = self._mplug.elementByLogicalIndex(index)
         if is_internal_data_type(mplug) and index not in self._mplug.getExistingArrayAttributeIndices():
-            raise RuntimeError(f"Cannot create an internal data multi element: {self.getFullName()}")
+            raise RuntimeError(f"内部データ型のマルチアトリビュートの要素は作成できません: {self.getFullName()}")
         return Plug(self._node, mplug)

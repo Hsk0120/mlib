@@ -849,7 +849,7 @@ def _wrapper_classes():
                 for key, value in zip(stmt.value.keys, stmt.value.values)
                 if isinstance(key, ast.Constant) and isinstance(value, ast.Name)
             }
-    raise RuntimeError("_WRAPPER_CLASSES is not found in nodes/__init__.py")
+    raise RuntimeError("nodes/__init__.py に _WRAPPER_CLASSES が見つかりません")
 
 
 # ls(type=...) の特別な戻り値。joint・skinCluster は専用コレクション、component はその要素群
@@ -1113,7 +1113,7 @@ def _package_names(path):
                     ):
                         return sorted(str(key.value) for key in other.value.keys if isinstance(key, ast.Constant))
             return list(ast.literal_eval(stmt.value))
-    raise RuntimeError(f"__all__ is not found in {path}")
+    raise RuntimeError(f"__all__ が見つかりません: {path}")
 
 
 def _root_classes():
@@ -1227,7 +1227,7 @@ def _collections(modules):
                 continue
             singles = [n for n in names if not is_collection(n) and not n.startswith("_")]
             if not singles:
-                raise RuntimeError(f"the element class of {module}.{cls} is not found")
+                raise RuntimeError(f"{module}.{cls}の要素のクラスが見つかりません")
             result.setdefault(module, {})[cls] = max(singles, key=lambda n: common(n, cls))
     return result
 

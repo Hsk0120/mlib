@@ -148,16 +148,16 @@ class ConstructionTest(_SpecCase):
     def test_mixed_names_and_nodes_rejected(self):
         """同じ列に名前と Node を混在させると TypeError。"""
         a, b = self.make(), self.make()
-        with self.assertRaisesRegex(TypeError, "cannot be mixed"):
+        with self.assertRaisesRegex(TypeError, "混ぜられません"):
             Nodes([a, Node(b)])
 
     def test_item_class_checked(self):
         """派生コレクションは item_class の派生だけを受け、Nodes は全ノードを受ける。"""
         a, j, dg = self.make(), self.make("joint"), self.make("network")
         # network は Node を親にした自動生成クラス Network で包まれる。
-        with self.assertRaisesRegex(TypeError, "Joints requires Joint, got Network"):
+        with self.assertRaisesRegex(TypeError, "JointsにはJointを指定してください: Network"):
             Joints([j, dg])
-        with self.assertRaisesRegex(TypeError, "Joints requires Joint, got Transform"):
+        with self.assertRaisesRegex(TypeError, "JointsにはJointを指定してください: Transform"):
             Joints([a])
         self.assertEqual([type(item) for item in Joints([j])], [Joint])
         self.assertEqual(len(Nodes([a, j, dg])), 3)
@@ -168,7 +168,7 @@ class ConstructionTest(_SpecCase):
             Nodes([self.ns + ":missing"])
         node = Node(self.make())
         cmds.delete(node.getFullName())
-        with self.assertRaisesRegex(RuntimeError, "Cannot collect an invalid node"):
+        with self.assertRaisesRegex(RuntimeError, "無効なノードは収集できません"):
             Nodes([node])
         with self.assertRaises(TypeError):
             Nodes(5)

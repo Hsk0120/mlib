@@ -14,23 +14,27 @@ from .shape import Shape
 
 
 class NurbsSurface(Shape):
-    """NURBS曲面の型付き参照。アトリビュート・親Transform操作はShapeから継承する。
+    """NURBS曲面のシェイプを扱うクラス。
 
-    CVの番号は ``cv[u][v]`` の (u, v) で、:meth:`getCvPositions` 等の並びは U を外側・V を内側にした
-    ``u * numCVsInV + v`` の順(``om2.MFnNurbsSurface.cvPositions`` と同じ)。距離はMayaの内部単位(cm)。
+    アトリビュートや親のTransformの操作はShapeから受け継ぐ。
+
+    CVの番号は ``cv[u][v]`` の (u, v) で表す。:meth:`getCvPositions` などが返すCVの並びは、
+    Uを外側・Vを内側にした ``u * numCVsInV + v`` の順になる(``om2.MFnNurbsSurface.cvPositions`` と同じ)。
+    距離はMayaの内部単位(cm)。
     """
 
     def mfn(self):
-        """この曲面の om2 function set を、呼び出すたびに新しく作って返す。
+        """この曲面のOpenMayaのfunction setを取得する。
 
-        形状データを持たない空のシェイプ(``mlib.createNode("nurbsSurface")`` 直後等)は
-        ``om2.MFnNurbsSurface`` が使えないため ``om2.MFnDagNode`` を返す。
+        呼び出すたびに新しく作る。形状のデータを持たない空のシェイプ
+        (``mlib.createNode("nurbsSurface")`` の直後など)では ``om2.MFnNurbsSurface`` が使えない。
+        その場合は ``om2.MFnDagNode`` を返す。
 
         Returns:
             om2.MFnNurbsSurface | om2.MFnDagNode: この曲面の function set。空のシェイプでは MFnDagNode。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: このオブジェクトが持つDAGパスが無効な場合。
         """
         path = self.mpath()
         try:
@@ -42,7 +46,9 @@ class NurbsSurface(Shape):
         return fn
 
     def getNumCVs(self):
-        """U・V方向のCV数を取得する(周期曲面は重複CVを含む)。
+        """U・V方向のCVの数を取得する。
+
+        周期曲面では、重なっているCVも数に含む。
 
         Returns:
             tuple[int, int]: (U方向のCV数, V方向のCV数)。
@@ -78,10 +84,10 @@ class NurbsSurface(Shape):
         return fn.degreeInU, fn.degreeInV
 
     def getForm(self):
-        """U・V方向の開閉形式を取得する。
+        """U・V方向の形式(開いているか閉じているか)を取得する。
 
         Returns:
-            tuple[int, int]: ``om2.MFnNurbsSurface`` の kOpen・kClosed・kPeriodic のいずれかを U・V の順に。
+            tuple[int, int]: U・Vの順の形式。それぞれ ``om2.MFnNurbsSurface`` の kOpen・kClosed・kPeriodic のいずれか。
 
         Raises:
             RuntimeError: 形状データを持たない空のシェイプの場合。
@@ -105,28 +111,29 @@ class NurbsSurface(Shape):
         return (u_start, u_end), (v_start, v_end)
 
     def getCV(self, u, v):
-        """``(u, v)`` の番号から CV の単体ラッパーを取得する。
+        """``(u, v)`` の番号から、CVを1つ取得する。
 
         Args:
             u (int): U方向のCV番号。
             v (int): V方向のCV番号。
 
         Returns:
-            SurfaceCV: シーン上の CV(``cv[u][v]``)を参照するラッパー。
+            SurfaceCV: シーン上のCV(``cv[u][v]``)を指すオブジェクト。
 
         Raises:
-            IndexError: CV 番号が範囲外の場合。
+            IndexError: CVの番号が範囲外の場合。
         """
         return SurfaceCV(self, (u, v))
 
     def getCVs(self, indices=None):
-        """CV の番号列を保持するコレクションを取得する。
+        """複数のCVをまとめて取得する。
 
         Args:
-            indices (Iterable[int | tuple[int, int]] | None): 平坦な番号か ``(u, v)``。None は現在の全CV。
+            indices (Iterable[int | tuple[int, int]] | None): CVの番号。1つの通し番号か ``(u, v)`` で指定する。
+                Noneなら、今あるすべてのCV。
 
         Returns:
-            SurfaceCVs: 同じ Shape を共有し、重複を除いたコレクション。
+            SurfaceCVs: CVをまとめたオブジェクト。どのCVも同じShapeを使う。重なった番号は1つにまとめる。
         """
         return SurfaceCVs(self, indices)
 
@@ -138,7 +145,7 @@ class NurbsSurface(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[Vector]: ``u * numCVsInV + v`` の順の位置(cm)。有理曲面のウェイト(w)では割らない。
+            list[Vector]: ``u * numCVsInV + v`` の順に並べた位置(cm)。有理曲面のウェイト(w)では割らない。
                 そのまま :meth:`setCvPositions` へ渡せる。
 
         Raises:
@@ -150,15 +157,18 @@ class NurbsSurface(Shape):
         return _vectors_of_points(self._geometry_fn().cvPositions(space))
 
     def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, ws=_UNSET):
-        """全CVの位置を一度に書き込み、自身を返す。
+        """全CVの位置をまとめて設定する。
 
-        :meth:`getCvPositions` と同じ並び・単位(cm)の点列を受け付け、通常は ``cmds.xform`` で書き込んで
-        1回のUndoにまとめる。``fast=True`` は ``MFnNurbsSurface.setCVPositions`` で1回で書き込み、Undoに
-        記録しない。CVの数・次数・ノット・ウェイトは変更しない。周期曲面の重複CVは、対応する先頭のCVと
-        同じ位置を渡す(違う場合は後に書いた値になる)。
+        :meth:`getCvPositions` と同じ並び・単位(cm)の点を受け付ける。
+
+        - 通常: ``cmds.xform`` で書き込み、1回のUndoにまとめる。
+        - ``fast=True``: ``MFnNurbsSurface.setCVPositions`` で一度に書き込む。Undoには記録しない。
+
+        CVの数・次数・ノット・ウェイトは変更しない。周期曲面で重なっているCVには、対応する先頭のCVと
+        同じ位置を渡す(違う位置を渡すと、後に書いた値になる)。
 
         Args:
-            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CV順の位置。各点は3個の有限な数値。
+            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの順の位置。各点は有限な数値3つ。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -167,10 +177,11 @@ class NurbsSurface(Shape):
             NurbsSurface: 自身。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外、点の型・成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 点の数がCV数と合わない、成分が有限でない、またはworldSpace=Trueで変換マトリクスが
-                特異な場合。
-            RuntimeError: 形状データが無い・無効なシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 点の数がCVの数と合わない場合、成分が有限でない場合、
+                またはworldSpace=Trueでトランスフォームのマトリクスが特異(逆マトリクスが無い)な場合。
+            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -181,14 +192,14 @@ class NurbsSurface(Shape):
         count_v = fn.numCVsInV
         count = fn.numCVsInU * count_v
         if len(values) != count:
-            raise ValueError(f"Expected {count} points, got {len(values)}")
+            raise ValueError(f"点を{count}個指定してください: {len(values)}個")
         path = self.mpath()
         current = fn.cvPositions()
         inverse = om2.MMatrix()
         if world:
             matrix = path.inclusiveMatrix()
             if abs(matrix.det4x4()) < 1e-12:
-                raise ValueError("Cannot edit in world space with a singular transform")
+                raise ValueError("トランスフォームが特異なため、ワールド空間では編集できません")
             inverse = matrix.inverse()
         # cvPositions(kWorld)はCVのwもマトリクスの積に使うため、同じwで逆変換してローカルのXYZにする。
         local = []
@@ -211,10 +222,10 @@ class NurbsSurface(Shape):
         return self
 
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定した位置に最も近い曲面上の点と、そのパラメーター (u, v) を取得する。
+        """指定した位置に最も近い、曲面上の点とパラメーター (u, v) を取得する。
 
-        ``closestPointOnSurface`` ノードの ``result.position``・``parameterU``・``parameterV`` に相当する。
-        シーンに計算ノードを作成しない。follicle・uvPin の配置に使える。
+        ``closestPointOnSurface`` ノードの ``result.position``・``parameterU``・``parameterV`` にあたる。
+        計算用のノードをシーンに作らない。follicleやuvPinの配置に使える。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。worldSpaceと同じ空間で指定する。
@@ -225,7 +236,7 @@ class NurbsSurface(Shape):
             tuple[Vector, float, float]: 最も近い点(cm)と u・v のパラメーター。
 
         Raises:
-            TypeError: 点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: 点の型や成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 成分が有限でない場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
@@ -259,7 +270,7 @@ class NurbsSurface(Shape):
         return _vectors_of_points([fn.getPointAtParam(u, v, space)])[0]
 
     def getNormalAtParam(self, u, v, worldSpace=_UNSET, *, ws=_UNSET):
-        """パラメーター (u, v) の位置の、正規化した法線を取得する。
+        """パラメーター (u, v) の位置の法線を、長さ1にして取得する。
 
         Args:
             u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
@@ -272,7 +283,7 @@ class NurbsSurface(Shape):
 
         Raises:
             TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でない・範囲外、または退化した位置で法線が0になる場合。
+            ValueError: u・vが有限でないか範囲外の場合、または形がつぶれた位置で法線が0になる場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -281,11 +292,11 @@ class NurbsSurface(Shape):
         u, v = self._require_params(fn, u, v)
         normal = Vector(fn.normal(u, v, space))
         if normal.length() < 1e-12:
-            raise ValueError(f"Normal is undefined at ({u}, {v}): {self.getFullName()}")
+            raise ValueError(f"({u}, {v})では法線が定義できません: {self.getFullName()}")
         return normal.normal()
 
     def getTangentsAtParam(self, u, v, worldSpace=_UNSET, *, ws=_UNSET):
-        """パラメーター (u, v) の位置の、U方向とV方向の正規化した接線を取得する。
+        """パラメーター (u, v) の位置の、U方向とV方向の接線を長さ1にして取得する。
 
         Args:
             u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
@@ -294,13 +305,13 @@ class NurbsSurface(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            tuple[Vector, Vector]: U・Vのパラメーターの増える向きの単位ベクトル。
+            tuple[Vector, Vector]: U・Vのパラメーターが増える向きの、長さ1のベクトル。
                 ``pointOnSurfaceInfo`` の ``normalizedTangentU``・``normalizedTangentV`` と同じ向き。
                 互いに直交するとは限らない。
 
         Raises:
             TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でない・範囲外、または重なったCV等で接線が0になる位置の場合。
+            ValueError: u・vが有限でないか範囲外の場合、または重なったCVなどで接線が0になる位置の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -309,33 +320,37 @@ class NurbsSurface(Shape):
         u, v = self._require_params(fn, u, v)
         tangent_u, tangent_v = self._tangents(fn, u, v, world)
         if tangent_u is None or tangent_v is None:
-            raise ValueError(f"Tangent is undefined at ({u}, {v}): {self.getFullName()}")
+            raise ValueError(f"({u}, {v})ではタンジェントが定義できません: {self.getFullName()}")
         return Vector(tangent_u), Vector(tangent_v)
 
     def getMatrixAtParam(self, u, v, *, aimAxis="x", upAxis="y", worldSpace=_UNSET, ws=_UNSET):
-        """パラメーター (u, v) の位置に、U方向の接線を aimAxis、法線を upAxis へ向けたマトリクスを取得する。
+        """パラメーター (u, v) の位置の向きを、マトリクスで取得する。
 
-        リボンの上にジョイント等を並べる用途に使う。マトリクスは正規直交の右手系(スケール1)で、
-        平行移動は曲面上の位置(cm)。upAxis は法線から接線方向の成分を除いた向きで、残りの軸は
-        aimAxis・upAxis から右手系で決まる(既定の x・y では z がおおむね V 方向の逆か同じ向き)。
-        :meth:`NurbsCurve.getMatricesAlong <mlib.nodes.nurbsCurve.NurbsCurve.getMatricesAlong>` と同じ軸の指定。
+        aimAxisの軸をU方向の接線へ、upAxisの軸を法線へ向けたマトリクスを返す。
+        リボンの上にジョイントなどを並べるときに使う。
+
+        - マトリクスは正規直交の右手系(スケール1)。移動は曲面上の位置(cm)。
+        - upAxisは、法線から接線方向の成分を除いた向きになる。
+        - 残りの軸は、aimAxisとupAxisから右手系で決まる。既定のx・yでは、zはおおむねV方向と同じ向きか逆向きになる。
+
+        軸の指定のしかたは :meth:`NurbsCurve.getMatricesAlong <mlib.nodes.nurbsCurve.NurbsCurve.getMatricesAlong>` と同じ。
 
         Args:
             u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
             v (float): :meth:`getParamRange` の V の範囲内のパラメーター。
             aimAxis (str): U方向の接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。
-            upAxis (str): 法線へ向ける軸。aimAxis と別の軸。
+            upAxis (str): 法線へ向ける軸。aimAxisとは別の軸を指定する。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Matrix: 行ベクトルの規約(各行が軸、4行目が位置)のマトリクス。
+            Matrix: 行ベクトルの決まりのマトリクス(各行が軸、4行目が位置)。
 
         Raises:
-            TypeError: u・vが数値でない、aimAxis・upAxisがstr以外、worldSpaceがbool以外、
+            TypeError: u・vが数値でない場合、aimAxis・upAxisがstr以外の場合、worldSpaceがbool以外の場合、
                 またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でない・範囲外、軸名が未対応・aimAxisとupAxisが同じ軸、
-                またはU方向の接線・法線が0か互いに平行で向きを決められない場合。
+            ValueError: u・vが有限でないか範囲外の場合、軸の名前が対応していないかaimAxisとupAxisが同じ軸の場合、
+                またはU方向の接線や法線が0か、互いに平行で向きを決められない場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -343,25 +358,27 @@ class NurbsSurface(Shape):
         aim_axis = _require_axis(aimAxis, "aimAxis")
         up_axis = _require_axis(upAxis, "upAxis")
         if aim_axis[0] == up_axis[0]:
-            raise ValueError(f"aimAxis and upAxis must be different axes: {aimAxis!r}, {upAxis!r}")
+            raise ValueError(f"aimAxisとupAxisは別の軸で指定してください: {aimAxis!r}, {upAxis!r}")
         fn = self._geometry_fn()
         u, v = self._require_params(fn, u, v)
         space = om2.MSpace.kWorld if world else om2.MSpace.kObject
         aim = self._tangents(fn, u, v, world)[0]
         up = None if aim is None else _perpendicular(fn.normal(u, v, space), aim)
         if up is None:
-            raise ValueError(f"Frame is undefined at ({u}, {v}): {self.getFullName()}")
+            raise ValueError(f"({u}, {v})ではフレームが定義できません: {self.getFullName()}")
         return _frame_matrix(fn.getPointAtParam(u, v, space), aim, up, aim_axis, up_axis)
 
     def getArea(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """曲面の面積(``MFnNurbsSurface.area``)を取得する。シーンに計算ノードを作成しない。
+        """曲面の面積を取得する(``MFnNurbsSurface.area``)。
+
+        計算用のノードをシーンに作らない。
 
         Args:
             worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            float: 面積(cm²)。トリムされた曲面はトリム後の面積。
+            float: 面積(cm²)。トリムされた曲面では、トリムした後の面積。
 
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
@@ -392,7 +409,7 @@ class NurbsSurface(Shape):
             value = _finite(value, name)
             margin = 1e-9 * max(1.0, end - start)
             if value < start - margin or value > end + margin:
-                raise ValueError(f"{name} {value} is outside the surface range [{start}, {end}]")
+                raise ValueError(f"{name} {value}がサーフェスの範囲[{start}, {end}]の外です")
             result.append(min(max(value, start), end))
         return result[0], result[1]
 
@@ -431,9 +448,9 @@ class NurbsSurface(Shape):
         """
         dependency = self._dependency_fn()
         if dependency.findPlug("create", False).isDestination:
-            raise NotImplementedError("fast geometry edits require a shape without input history")
+            raise NotImplementedError("fastのジオメトリ編集には、入力ヒストリのないシェイプが必要です")
         if dependency.isLocked:
-            raise RuntimeError("Shape node is locked")
+            raise RuntimeError("シェイプノードがロックされています")
         points = dependency.findPlug("controlPoints", False)
         for index in points.getExistingArrayAttributeIndices():
             point = points.elementByLogicalIndex(index)
@@ -452,5 +469,5 @@ class NurbsSurface(Shape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnNurbsSurface):
-            raise RuntimeError(f"nurbsSurface has no geometry data: {self.getFullName()}")
+            raise RuntimeError(f"nurbsSurfaceにジオメトリのデータがありません: {self.getFullName()}")
         return fn

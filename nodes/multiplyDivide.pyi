@@ -10,12 +10,17 @@ _OPERATIONS: tuple
 
 
 class MultiplyDivide(ShadingDependNode):
-    """XYZ成分ごとの乗算・除算・累乗。"""
+    """XYZの成分ごとに、乗算・除算・累乗を計算するmultiplyDivideを扱うクラス。"""
     def setInput(self, input1: Iterable[float] | Plug | str | None = ..., input2: Iterable[float] | Plug | str | None = ...) -> MultiplyDivide:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             input1 (Iterable[float] | Plug | str | None): 1つ目の入力(XYZ)。
@@ -37,17 +42,20 @@ class MultiplyDivide(ShadingDependNode):
         """
         ...
     def setOperation(self, operation: str | int) -> MultiplyDivide:
-        """演算の種類を名前または番号で設定する(``operation``)。1回のUndoで戻せる。
+        """演算の種類を設定する(``operation``)。
+
+        名前か番号で指定する。1回のUndoで戻せる。
 
         Args:
-            operation (str | int): ``"noOperation"``・``"multiply"``・``"divide"``・``"power"`` のいずれか、またはMayaの番号(0から)。
+            operation (str | int): ``"noOperation"``・``"multiply"``・``"divide"``・``"power"`` のいずれか。
+                Mayaの番号(0から)でもよい。
 
         Returns:
             MultiplyDivide: 自身。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         ...

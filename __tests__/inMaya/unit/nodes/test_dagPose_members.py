@@ -152,7 +152,7 @@ class QueryTest(_PoseCase):
             pose.getMemberIndex(1.5)
         cmds.delete(pose.getFullName())
         for call in (pose.getMembers, pose.getMemberIndices, pose.isBindPose, pose.isAtPose, pose.getNotAtPose, pose.getSkinClusters):
-            with self.subTest(call=call.__name__), self.assertRaisesRegex(RuntimeError, "invalid DagPose"):
+            with self.subTest(call=call.__name__), self.assertRaisesRegex(RuntimeError, "無効なDagPoseのため"):
                 call()
 
 
@@ -299,7 +299,7 @@ class MergeTest(_PoseCase):
         cmds.setAttr(self.mid + ".rz", 40)
         source = self.save(self.mid, self.tip, name="source")
         before = self.pose_state(target)
-        with self.assertRaisesRegex(ValueError, "Conflicting"):
+        with self.assertRaisesRegex(ValueError, "保存されたポーズが矛盾しています"):
             target.merge(source)
         self.assertEqual(self.pose_state(target), before)
         self.assertTrue(cmds.objExists(source.getFullName()))
@@ -392,7 +392,7 @@ class SkinResetBindPoseTest(_PoseCase):
             skin.resetBindPose()
         self.assertEqual(self.pose_state(pose), before)
         cmds.disconnectAttr(pose.getFullName() + ".message", skin.getFullName() + ".bindPose")
-        with self.assertRaisesRegex(RuntimeError, "No bind pose"):
+        with self.assertRaisesRegex(RuntimeError, "バインドポーズが接続されていません"):
             skin.resetBindPose()
 
 

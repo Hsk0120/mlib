@@ -1,23 +1,24 @@
-"""アニメカーブ1本の内容を辞書へ読み出し、同じ内容のカーブを書き戻す(mlib.jsonの内部補助)。
+"""アニメカーブ1本の内容を辞書へ読み出し、同じ内容のカーブへ書き戻す(mlib.jsonの内部の補助)。
 
 :class:`~mlib.json.animationSnapshot.AnimationSnapshot` と
-:class:`~mlib.json.drivenKeysSnapshot.DrivenKeysSnapshot` が共有する。カーブの辞書は次の形::
+:class:`~mlib.json.drivenKeysSnapshot.DrivenKeysSnapshot` の両方が使う。カーブの辞書は次の形::
 
     {"curveType": "animCurveTL", "weighted": False, "preInfinity": "constant", "postInfinity": "constant",
      "keys": [{"input": 1.0, "value": 2.5, "inType": "auto", "outType": "auto",
                "inAngle": 0.0, "inWeight": 1.0, "outAngle": 0.0, "outWeight": 1.0,
                "lock": True, "weightLock": True, "breakdown": False}, ...]}
 
-単位はmlibの既定に合わせ、UI単位に左右されない。
+単位はmlibの既定に合わせる。UIの単位には左右されない。
 
-- ``input``: 時間入力(animCurveT*)は保存時のUI時間単位のフレーム。単位なし入力(animCurveU*)は
-  呼び出し側が決める単位(ドリブンキーではドライバーのmlib単位)。
-- ``value``: 角度出力は度、距離はcm、時間出力はフレーム、その他は無次元。
-- 接線の角度・ウェイトは、横軸を ``input`` の単位、縦軸を ``value`` の単位とした平面での向き(度)と、
-  Mayaと同じ長さの1/3(ウェイト付き接線のカーブではGraph Editorの表示と同じ値)。単位なし入力・
-  ウェイトなしのカーブでは、ウェイトはMayaの表示(1.0)と一致しない場合があるが、往復では同じ形になる。
+- ``input``: 時間の入力(animCurveT*)は、保存したときのUIの時間の単位でのフレーム。
+  単位の無い入力(animCurveU*)は、呼び出し側が決める単位(ドリブンキーではドライバーのmlibの単位)。
+- ``value``: 出力が角度なら度、距離ならcm、時間ならフレーム。それ以外は単位なし。
+- 接線の角度: 横軸を ``input`` の単位、縦軸を ``value`` の単位とした平面での向き(度)。
+- 接線のウェイト: Mayaと同じく、長さの1/3(ウェイト付き接線のカーブでは、Graph Editorの表示と同じ値)。
+  単位の無い入力のカーブや、ウェイトの無いカーブでは、Mayaの表示(1.0)と合わないことがある。
+  ただし、保存して書き戻せば同じ形になる。
 
-固定(fixed)以外の接線の角度・ウェイトは記録するが、書き戻しではMayaが接線の型から計算し直す。
+固定(fixed)以外の接線も角度とウェイトを記録する。ただし書き戻すときは、Mayaが接線の型から計算し直す。
 """
 
 import math
@@ -52,10 +53,10 @@ _TIME_TOLERANCE = 1e-6
 
 
 def _is_time_input(curve_type):
-    """カーブ型の入力が時間かを返す。
+    """カーブの型の入力が時間かを返す。
 
     Args:
-        curve_type (str): ``"animCurveTL"`` 等。
+        curve_type (str): ``"animCurveTL"`` など。
 
     Returns:
         bool: animCurveT*ならTrue。
@@ -64,10 +65,10 @@ def _is_time_input(curve_type):
 
 
 def _output_kind(curve_type):
-    """カーブ型の出力の種類を返す。
+    """カーブの型の出力の種類を返す。
 
     Args:
-        curve_type (str): ``"animCurveTL"`` 等。
+        curve_type (str): ``"animCurveTL"`` など。
 
     Returns:
         str: ``"A"`` (角度)・``"L"`` (距離)・``"T"`` (時間)・``"U"`` (無次元)。
@@ -82,10 +83,10 @@ def _require_curve(data):
         data (object): :func:`_read_curve` の形の辞書。
 
     Raises:
-        ValueError: 形・型・値が違う場合。
+        ValueError: 辞書の形・型・値が正しくない場合。
     """
     if not isinstance(data, dict):
-        raise ValueError(f"Invalid curve data: {data!r}")
+        raise ValueError(f"カーブのデータが不正です: {data!r}")
     curve_type = data.get("curveType")
     if (
         not isinstance(curve_type, str)
@@ -94,39 +95,41 @@ def _require_curve(data):
         or curve_type[9] not in "TU"
         or curve_type[10] not in "ALTU"
     ):
-        raise ValueError(f"Invalid curveType in curve data: {curve_type!r}")
+        raise ValueError(f"カーブのデータのcurveTypeが不正です: {curve_type!r}")
     if not isinstance(data.get("weighted"), bool):
-        raise ValueError("Curve data 'weighted' must be a bool")
+        raise ValueError("カーブのデータの'weighted'はboolで指定してください")
     for side in ("preInfinity", "postInfinity"):
         if data.get(side) not in _INFINITY_TYPES:
-            raise ValueError(f"Invalid {side} in curve data: {data.get(side)!r}")
+            raise ValueError(f"カーブのデータの{side}が不正です: {data.get(side)!r}")
     keys = data.get("keys")
     if not isinstance(keys, list):
-        raise ValueError("Curve data must have a 'keys' list")
+        raise ValueError("カーブのデータには'keys'のリストが必要です")
     for key in keys:
         if not isinstance(key, dict) or set(key) != set(_KEY_FIELDS):
-            raise ValueError(f"Invalid key in curve data: {key!r}")
+            raise ValueError(f"カーブのデータのキーが不正です: {key!r}")
         for name, kinds in _KEY_FIELDS.items():
             value = key[name]
             if not isinstance(value, kinds) or (bool not in kinds and isinstance(value, bool)):
-                raise ValueError(f"Invalid {name} in curve key: {value!r}")
+                raise ValueError(f"カーブのキーの{name}が不正です: {value!r}")
             if isinstance(value, float) and not math.isfinite(value):
-                raise ValueError(f"Curve key {name} must be finite: {value!r}")
+                raise ValueError(f"カーブのキーの{name}は有限な数値で指定してください: {value!r}")
         for name in ("inType", "outType"):
             if key[name] and key[name] not in _TANGENT_TYPES:
-                raise ValueError(f"Unknown tangent type in curve key: {key[name]!r}")
+                raise ValueError(f"カーブのキーに知らないタンジェントタイプがあります: {key[name]!r}")
         if key["inWeight"] < 0 or key["outWeight"] < 0:
-            raise ValueError("Curve key weights must not be negative")
+            raise ValueError("カーブのキーのウェイトは0以上で指定してください")
 
 
 def _read_curve(curve, input_scale=1.0, input_range=None):
-    """カーブの全キー(または範囲内のキー)と設定を辞書へ読み出す。
+    """カーブのキーと設定を辞書へ読み出す。
+
+    すべてのキー、または範囲の中のキーを読む。
 
     Args:
         curve (str): animCurveノードの名前。
-        input_scale (float): 単位なし入力のカーブで、Mayaの入力値に掛けて ``input`` にする倍率。
-            時間入力では使わない。
-        input_range (tuple[float, float] | None): ``input`` の単位で両端を含む範囲。Noneは全キー。
+        input_scale (float): 単位の無い入力のカーブで、Mayaの入力の値に掛けて ``input`` にする倍率。
+            入力が時間のカーブでは使わない。
+        input_range (tuple[float, float] | None): 読むキーの範囲。``input`` の単位で、両端を含む。Noneならすべてのキー。
 
     Returns:
         dict: モジュールの説明の形の新しい辞書。
@@ -163,7 +166,9 @@ def _read_curve(curve, input_scale=1.0, input_range=None):
 
 
 def _transform_keys(keys, scale=1.0, offset=0.0, value_scale=1.0):
-    """キーの入力を ``input * scale + offset`` へ動かし、接線も同じ倍率で伸ばした新しいlistを返す。
+    """キーの入力を ``input * scale + offset`` へ動かした、新しいlistを返す。
+
+    接線も同じ倍率で伸ばす。
 
     Args:
         keys (list[dict]): キーの辞書の並び。変更しない。
@@ -197,7 +202,7 @@ def _merge_keys(existing, incoming, mode, input_range=None):
         input_range (tuple[float, float] | None): insertで置き換える範囲。Noneは読み込んだキーの範囲。
 
     Returns:
-        list[dict]: 入力の昇順の並び。同じ時刻では読み込んだキーを使う。
+        list[dict]: 入力の小さい順に並べたキー。同じ時刻のキーがあれば、読み込んだキーを使う。
     """
     if mode == "replace" or not existing:
         kept = []
@@ -216,16 +221,16 @@ def _merge_keys(existing, incoming, mode, input_range=None):
 
 
 def _write_curve(curve, data, keys, input_scale=1.0, fast=False):
-    """カーブの全キーを消し、指定したキーと設定で書き直す。
+    """カーブのすべてのキーを消し、指定したキーと設定で書き直す。
 
-    通常はcmds(setKeyframe・keyTangent)で書くので、呼び出し側のUndoにまとまる。fastはOpenMayaで書く
-    (時間出力のカーブはfastでもcmdsで書く)。
+    通常はcmds(setKeyframe・keyTangent)で書くので、呼び出し側のUndoにまとまる。
+    fastはOpenMayaで書く(出力が時間のカーブは、fastでもcmdsで書く)。
 
     Args:
         curve (str): animCurveノードの名前。
         data (dict): ``weighted``・``preInfinity``・``postInfinity`` を持つカーブの辞書。
-        keys (list[dict]): 書くキー(入力の昇順)。
-        input_scale (float): 単位なし入力で ``input`` をMayaの入力値へ戻すときに割る倍率。
+        keys (list[dict]): 書くキー(入力の小さい順)。
+        input_scale (float): 単位の無い入力で、``input`` をMayaの入力の値へ戻すときに割る倍率。
         fast (bool): TrueはOpenMayaで書く。
     """
     node = AnimCurve(curve)
@@ -254,14 +259,14 @@ def _write_cmds(node, time_input, weighted, entries):
 
     Args:
         node (AnimCurve): 書き込むカーブ。
-        time_input (bool): 入力が時間か。
-        weighted (bool): ウェイト付き接線にするか。
-        entries (list[dict]): :func:`_write_curve` が内部単位へ直したキー。
+        time_input (bool): Trueなら入力が時間。
+        weighted (bool): Trueならウェイト付き接線にする。
+        entries (list[dict]): :func:`_write_curve` が内部の単位へ直したキー。
     """
     name = node.getFullName()
     count = node.getKeyCount()
     if count:
-        # 全キーを消すとMayaがカーブを削除するため、その間だけノードをロックする。
+        # すべてのキーを消すとMayaがカーブを削除してしまうので、その間だけノードをロックする。
         locked = cmds.lockNode(name, query=True, lock=True)[0]
         if not locked:
             cmds.lockNode(name, lock=True)
@@ -299,7 +304,7 @@ def _write_cmds(node, time_input, weighted, entries):
             cmds.keyTangent(name, edit=True, index=(index, index), animation="objects", **flags)
     for flag in ("lock", "weightLock") if weighted else ("lock",):
         ranges = _ranges(index for index, entry in enumerate(entries) if entry["key"][flag])
-        # keyTangentのindexフラグは複数の範囲のlistを正しく受け付けないため、範囲ごとに呼ぶ。
+        # keyTangentのindexフラグは、複数の範囲のlistを正しく受け付けない。そのため範囲ごとに呼ぶ。
         for item in ranges:
             cmds.keyTangent(name, edit=True, index=item, animation="objects", **{flag: True})
 
@@ -308,10 +313,10 @@ def _write_fast(node, time_input, weighted, entries):
     """OpenMayaでキーを書き直す(Undoなし)。
 
     Args:
-        node (AnimCurve): 書き込むカーブ。時間出力でないもの。
-        time_input (bool): 入力が時間か。
-        weighted (bool): ウェイト付き接線にするか。
-        entries (list[dict]): :func:`_write_curve` が内部単位へ直したキー。
+        node (AnimCurve): 書き込むカーブ。出力が時間でないもの。
+        time_input (bool): Trueなら入力が時間。
+        weighted (bool): Trueならウェイト付き接線にする。
+        entries (list[dict]): :func:`_write_curve` が内部の単位へ直したキー。
     """
     fn = oma2.MFnAnimCurve(node.mnode())
     for index in range(fn.numKeys - 1, -1, -1):
@@ -346,10 +351,10 @@ def _write_fast(node, time_input, weighted, entries):
 
 
 def _ranges(indices):
-    """番号の並びを、連続した ``(最初, 最後)`` の並びにする。
+    """番号の並びを、続いている番号ごとの ``(最初, 最後)`` の並びにする。
 
     Args:
-        indices (Iterable[int]): 昇順の番号。
+        indices (Iterable[int]): 小さい順の番号。
 
     Returns:
         list[tuple[int, int]]: keyTangentのindexフラグへ渡す範囲。
@@ -391,14 +396,14 @@ def _tangent_xy(angle, weight):
 
 
 def _to_internal(kind, value):
-    """mlibの単位の値を、Mayaの内部単位(rad・cm・秒)へ直す。
+    """mlibの単位の値を、Mayaの内部の単位(rad・cm・秒)へ直す。
 
     Args:
         kind (str): :func:`_output_kind` の種類。
-        value (float): 度・cm・フレーム・無次元の値。
+        value (float): 度・cm・フレーム・単位なしの値。
 
     Returns:
-        float: 内部単位の値。
+        float: 内部の単位の値。
     """
     if kind == "A":
         return math.radians(value)
@@ -408,11 +413,11 @@ def _to_internal(kind, value):
 
 
 def _from_internal(kind, value):
-    """Mayaの内部単位の値を、mlibの単位(度・cm・フレーム)へ直す。
+    """Mayaの内部の単位の値を、mlibの単位(度・cm・フレーム)へ直す。
 
     Args:
         kind (str): :func:`_output_kind` の種類。
-        value (float): 内部単位の値。
+        value (float): 内部の単位の値。
 
     Returns:
         float: mlibの単位の値。

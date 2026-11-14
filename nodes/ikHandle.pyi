@@ -13,78 +13,93 @@ _SWITCHABLE_SOLVERS: tuple
 
 
 class IkHandle(Transform):
-    """ポールベクトルコンストレイントの作成を含むTransform操作に対応するIKハンドル。"""
+    """IKハンドルを扱うクラス。Transformとしての操作もできる。
+
+    たとえばポールベクトルコンストレイントは、Transformから受け継いだ
+    :meth:`~mlib.nodes.transform.Transform.addConstraint` で ``addConstraint(target, type="poleVector")`` のように作る。
+    """
     def getEffector(self) -> Node | None:
-        """IKハンドルのエフェクター(``endEffector`` の接続元)を取得する。
+        """IKハンドルのエフェクターを取得する。
+
+        ``endEffector`` の接続元のノードを返す。
 
         Returns:
-            Node | None: ikEffectorノード。未接続ならNone。
+            Node | None: ikEffectorノード。接続されていなければNone。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         ...
     def getCurve(self) -> Transform | None:
-        """ikSplineSolverのカーブ(``inCurve`` の接続元形状の親transform)を取得する。
+        """ikSplineSolverが使うカーブを取得する。
+
+        ``inCurve`` の接続元の形状をたどり、その親のTransformを返す。
 
         Returns:
-            Transform | None: カーブのtransform。inCurveが未接続(スプライン以外のソルバー等)ならNone。
+            Transform | None: カーブのTransform。inCurveが接続されていなければNone
+                (スプライン以外のソルバーなど)。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         ...
     def getEndJoint(self) -> Joint | None:
-        """IK チェーンの末端 joint を取得する。
+        """IKチェーンの末端のジョイントを取得する。
 
-        ikEffector ノードの translate 接続元を辿って end joint を特定する
-        (``cmds.ikHandle(query=True, jointList=True)`` は end joint を含まない
-        ため、別経路で解決する)。
+        ikEffectorノードのtranslateの接続元をたどって、末端のジョイントを見つける。
+        ``cmds.ikHandle(query=True, jointList=True)`` は末端のジョイントを含まないので、この方法で求める。
 
         Returns:
-            Joint | None: end joint。接続が見つからない場合は ``None``。
+            Joint | None: 末端のジョイント。接続が見つからない場合は ``None``。
         """
         ...
     def getJoints(self, includeTip: bool = ...) -> list[Joint]:
-        """IK チェーンを構成する joint を start joint から順に取得する。
+        """IKチェーンのジョイントを、開始ジョイントから順に取得する。
 
-        ``cmds.ikHandle(query=True, jointList=True)`` と同じ joint を、``startJoint`` の接続元から
-        ``endEffector`` の接続元(ikEffector)の DAG 親を辿って OpenMaya で求める
-        (ikEffector は末端 joint の1つ上の joint の子に置かれる)。
+        ``cmds.ikHandle(query=True, jointList=True)`` と同じジョイントを、OpenMayaで求める。
+        ``endEffector`` の接続元(ikEffector)から、DAGの親を ``startJoint`` の接続元までたどる。
+        ikEffectorは、末端のジョイントの1つ上のジョイントの子に置かれている。
 
-        既定(``includeTip=False``)は末端 joint を含まない。末端まで含めたチェーン全体は
-        ``getJoints(includeTip=True)`` で取得する。
+        既定(``includeTip=False``)では、末端のジョイントを含まない。
+        末端まで含めたチェーン全体は ``getJoints(includeTip=True)`` で取得する。
 
         Args:
-            includeTip (bool): True の場合、末端 joint(``getEndJoint()``)も
-                末尾に含める。既定 False は ``cmds.ikHandle(query=True, jointList=True)`` と同じく
-                末端 joint を含まない。
+            includeTip (bool): Trueなら、末端のジョイント(``getEndJoint()``)も最後に加える。
+                既定はFalseで、``cmds.ikHandle(query=True, jointList=True)`` と同じく末端のジョイントを含まない。
 
         Returns:
-            list[Joint]: start joint から順に並んだ joint。startJoint・endEffector が未接続、
-                または ikEffector が start joint の子孫でない場合は空リスト。
+            list[Joint]: 開始ジョイントから順に並んだジョイント。次の場合は空リスト。
+
+                - startJointかendEffectorが接続されていない。
+                - ikEffectorが開始ジョイントの子孫でない。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         ...
     def getSolver(self) -> str | None:
-        """ハンドルが使うIKソルバーの種類(``ikSolver`` の接続元ノードの型名)を取得する。
+        """ハンドルが使うIKソルバーの種類を取得する。
+
+        ``ikSolver`` の接続元のノードの型名を返す。
 
         Returns:
-            str | None: ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSplineSolver"``・``"ikSpringSolver"`` 等。
-                ソルバーが未接続ならNone。
+            str | None: ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSplineSolver"``・``"ikSpringSolver"`` など。
+                ソルバーが接続されていなければNone。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         ...
     def setSolver(self, solver: str) -> IkHandle:
-        """ハンドルのIKソルバーを切り替える(``cmds.ikHandle(edit=True, solver=...)`` 相当)。
+        """ハンドルのIKソルバーを切り替える。
 
-        ``ikSpringSolver`` はソルバーノードが無ければMaya標準の手続きで用意する(:func:`~mlib.cmds.createIkHandle`
-        と同じ)。ikSplineSolverへの切替え・ikSplineSolverからの切替えはカーブの扱いが変わるため受け付けない。
-        Undo有効時に1回のUndoで戻る(Mayaが新しく作ったソルバーノードはUndoしても残る)。
+        ``cmds.ikHandle(edit=True, solver=...)`` と同じ処理をする。
+
+        - ``ikSpringSolver`` のソルバーノードが無ければ、Maya標準の手続きで用意する
+          (:func:`~mlib.cmds.createIkHandle` と同じ)。
+        - ikSplineSolverへの切り替えと、ikSplineSolverからの切り替えはできない。カーブの扱いが変わるため。
+
+        Undoが有効なら、1回のUndoで戻せる。ただし、Mayaが新しく作ったソルバーノードはUndoしても残る。
 
         Args:
             solver (str): ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSpringSolver"`` のいずれか。
@@ -94,23 +109,27 @@ class IkHandle(Transform):
 
         Raises:
             TypeError: solverが文字列でない場合。
-            ValueError: solverが対応外、またはハンドルがikSplineSolverを使っている場合。
-            RuntimeError: ノードが無効、またはMayaが切替えを拒否した場合。
+            ValueError: solverに使えない名前を指定した場合、またはハンドルがikSplineSolverを使っている場合。
+            RuntimeError: ノードが無効な場合、またはMayaが切り替えを拒否した場合。
         """
         ...
     def snapToEffector(self) -> IkHandle:
-        """ハンドルをエフェクターの位置へ移す(IK Handle の Snap Handle to Effector と同じ操作)。
+        """ハンドルをエフェクターの位置へ移す。
 
-        エフェクターの回転ピボットのワールド位置へ、ハンドルの回転ピボットが重なるようtranslateを書き換える
-        (:meth:`~mlib.nodes.transform.Transform.setTranslation` の ``worldSpace=True``)。
-        IKとFKを切り替えるときに、FKで動かしたチェーンの先端へハンドルを合わせる用途に使う。
-        ``cmds.ikHandle(edit=True, snapHandleToEffector=True)`` は ``snapEnable`` が無効のハンドルを動かさないため使わない。
-        Undo有効時に1回のUndoで戻る。fast引数は持たない。
+        IKハンドルのSnap Handle to Effectorと同じ操作。
+        ハンドルの回転ピボットが、エフェクターの回転ピボットのワールド位置に重なるように、translateを書き換える
+        (:meth:`~mlib.nodes.transform.Transform.setTranslation` の ``worldSpace=True`` を使う)。
+        IKとFKを切り替えるとき、FKで動かしたチェーンの先端へハンドルを合わせるのに使う。
+
+        ``cmds.ikHandle(edit=True, snapHandleToEffector=True)`` は使わない。
+        ``snapEnable`` がオフのハンドルを動かさないため。
+        Undoが有効なら、1回のUndoで戻せる。fast引数は無い。
 
         Returns:
             IkHandle: 自身。
 
         Raises:
-            RuntimeError: ノードが無効、エフェクターが未接続、またはtranslateがロック・入力接続で書き込めない場合。
+            RuntimeError: ノードが無効な場合、エフェクターが接続されていない場合、
+                またはtranslateがロックされているか入力が接続されていて書き込めない場合。
         """
         ...

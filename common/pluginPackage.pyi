@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""モジュールとプラグインの組で導入される製品(Bifrost など)の導入確認とロード。"""
+"""モジュールとプラグインの組で入る製品(Bifrost など)が入っているか確かめ、ロードする。"""
 
 import maya.cmds as cmds
 from .. import logger
@@ -16,39 +16,41 @@ LOAD_FAILED: str
 
 
 class PluginPackage:
-    """モジュール・プラグイン群と必要版を保持し、導入確認とロードを担当する。
+    """製品が入っているかを確かめ、ロードする。
 
-    生成時は照会・ロードせず、tryLoadでMayaの対象版、導入版、ロード結果を順に判定する。
-    ロード済みのプラグインを自動アンロードする責務は持たない。
+    モジュール・プラグインと、必要な版を持つ。作るときはMayaへの問い合わせもロードもしない。
+    tryLoadで、対象のMayaの版・入っている版・ロードの結果を順に判定する。
+    ロードしたプラグインを自動でアンロードすることはしない。
     """
     def __init__(self, name: str, plugins: Iterable[str | Plugin] = ..., module: str | Module | None = ..., versionPlugin: str | Plugin | None = ..., minimumVersion: Version | str | int | tuple[int, ...] | None = ..., minimumMaya: int | None = ..., installHint: str | None = ...) -> None:
-        """製品名・ロード対象・必要版を保持する。Mayaへは問い合わせない。
+        """製品名・ロードするもの・必要な版を持つ。Mayaへは問い合わせない。
 
         Args:
             name (str): 通知に表示する製品名。
-            plugins (Iterable[str | Plugin]): ロード順のプラグイン。
-            module (str | Module | None): 版の取得元。未取得ならversionPluginの版を使う。
+            plugins (Iterable[str | Plugin]): ロードするプラグイン。ロードする順に並べる。
+            module (str | Module | None): 版を取得するモジュール。版が取れなければversionPluginの版を使う。
             versionPlugin (str | Plugin | None): 版を調べるプラグイン。既定はpluginsの先頭。
-            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小版。Noneは版を問わない。
-            minimumMaya (int | None): 対象Mayaの最小年版。それ未満ではtryLoadを省略する。
-            installHint (str | None): 導入不足の通知へ加える説明。
+            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小の版。Noneなら版を問わない。
+            minimumMaya (int | None): 対象とするMayaの、最小の年の版。それより前の版では、tryLoadで何もしない。
+            installHint (str | None): 製品が足りないときの通知に加える説明。
 
         Raises:
-            TypeError: 名前・プラグイン名が文字列以外、pluginsを反復できない、
+            TypeError: 名前やプラグイン名が文字列でない場合、pluginsを順に取り出せない場合、
                 またはminimumMayaを整数に変換できない型の場合。
-            ValueError: 名前・プラグイン名が空文字列、最小版が不正、またはpluginsもmoduleも指定されない場合。
+            ValueError: 名前やプラグイン名が空文字列の場合、最小の版が正しくない場合、
+                またはpluginsもmoduleも指定していない場合。
         """
         ...
     def __repr__(self) -> str:
-        """デバッグ用に製品名と最小の版を含む表現を返す。
+        """デバッグ用に、製品名と最小の版を含む表示を返す。
 
         Returns:
-            str: 型名・製品名・最小の版を含む文字列表現。
+            str: 型名・製品名・最小の版を含む文字列。
         """
         ...
     @staticmethod
     def showDialog(message: str, title: str = ...) -> None:
-        """警告ダイアログを表示する。GUI がないバッチ・スタンドアロンでは何もしない。
+        """警告のダイアログを表示する。GUI の無いバッチ・スタンドアロンでは何もしない。
 
         Args:
             message (str): 表示する文章。
@@ -68,15 +70,15 @@ class PluginPackage:
         ...
     @property
     def plugins(self) -> list[Plugin]:
-        """ロード対象のプラグインを取得する。
+        """ロードするプラグインを取得する。
 
         Returns:
-            list[Plugin]: ロード順のプラグイン。
+            list[Plugin]: プラグイン。ロードする順に並ぶ。
         """
         ...
     @property
     def module(self) -> Module | None:
-        """版の取得元のモジュールを取得する。
+        """版を取得するモジュールを取得する。
 
         Returns:
             Module | None: モジュール。指定していない場合は None。
@@ -99,10 +101,10 @@ class PluginPackage:
         """
         ...
     def isMayaSupported(self) -> bool:
-        """現在の Maya が対象のバージョンか判定する。
+        """現在の Maya が対象の版か判定する。
 
         Returns:
-            bool: ``minimumMaya`` が未指定、または現在の Maya の年がそれ以上なら True。
+            bool: ``minimumMaya`` を指定していない場合と、現在の Maya の年がそれ以上の場合は True。
         """
         ...
     def getInstalledVersion(self) -> Version | None:
@@ -111,77 +113,80 @@ class PluginPackage:
         モジュールが登録されていればその版、無ければ版を調べるプラグインの版を使う。
 
         Returns:
-            Version | None: 版。未導入・版が取れない場合は None。
+            Version | None: 版。製品が入っていない場合と、版が取れない場合は None。
         """
         ...
     def getLoadedVersion(self) -> Version | None:
-        """ロード済みの、版を調べるプラグインの版を取得する。
+        """版を調べるプラグインの、ロードされている版を取得する。
 
         Returns:
             Version | None: 版。ロードされていない場合は None。
         """
         ...
     def isInstalled(self) -> bool:
-        """必要な版が導入されているか判定する。
+        """必要な版が入っているか判定する。
 
-        ロード前のプラグインは Maya に登録されていない場合がある。``minimumVersion`` を
-        指定しない製品は、この判定が False でも :meth:`tryLoad` がロードを試みる。
+        ロードする前のプラグインは、Maya に登録されていないことがある。そのため ``minimumVersion`` を
+        指定していない製品では、この判定が False でも :meth:`tryLoad` がロードを試す。
 
         Returns:
-            bool: ``minimumVersion`` 以上が導入されていれば True。``minimumVersion`` を指定していない
-            場合は、版が取れるか、モジュールまたはプラグインが 1 つでも登録されていれば True。
+            bool: ``minimumVersion`` 以上が入っていれば True。``minimumVersion`` を指定していない
+            場合は、版が取れるか、モジュールかプラグインが 1 つでも登録されていれば True。
         """
         ...
     def getMessage(self, found: Version | None = ...) -> str:
-        """導入が必要なときの警告文を作る。
+        """製品を入れる必要があるときの、警告の文を作る。
 
         Args:
-            found (Version | None): 検出した版。省略すると現在の導入状況から求める。
+            found (Version | None): 見つかった版。省略すると、今入っているものから求める。
 
         Returns:
-            str: 日本語と英語の警告文。
+            str: 日本語と英語の警告の文。
         """
         ...
     def loadPlugins(self) -> list[str]:
-        """全プラグインをロードする。ロードできない名前があっても続行する。
+        """すべてのプラグインをロードする。ロードできないものがあっても続ける。
 
         Returns:
-            list[str]: ロードに失敗したプラグイン名。失敗ごとに警告を出す。
+            list[str]: ロードに失敗したプラグインの名前。失敗するたびに警告を出す。
         """
         ...
     def tryLoad(self, dialog: bool | Callable[[str], None] = ..., warn: bool = ...) -> str:
-        """対象Mayaと必要版を確認してロードし、結果の定数を返す。
+        """対象のMayaと必要な版を確かめてからロードし、結果の定数を返す。
 
-        minimumMaya未満なら何もしない。最小版指定時は未導入・版不足ならロードしない。
-        最小版なしでは未検出でもロードを試し、全プラグインが失敗すればMISSINGとする。
-        失敗時も成功済みプラグインを自動ではアンロードしない。
+        - minimumMayaより前の版のMayaでは、何もしない。
+        - 最小の版を指定した場合、製品が入っていないか版が足りなければ、ロードしない。
+        - 最小の版を指定していない場合、製品が見つからなくてもロードを試す。
+          すべてのプラグインが失敗すればMISSINGにする。
+
+        失敗しても、ロードできたプラグインを自動ではアンロードしない。
 
         Args:
-            dialog (bool | Callable[[str], None]): TrueはshowDialog、False/Noneは表示なし。
-                callableには不足時の通知文を渡す。
-            warn (bool): 導入・版不足をlogger.warningへ通知するか。
-                個別のロード失敗警告はこのフラグで抑制しない。
+            dialog (bool | Callable[[str], None]): TrueならshowDialogで表示し、False/Noneなら表示しない。
+                呼び出せるものを渡すと、足りないときの通知の文を渡して呼ぶ。
+            warn (bool): Trueなら、製品が入っていないことや版が足りないことをlogger.warningで知らせる。
+                プラグインごとのロード失敗の警告は、このフラグでは止めない。
 
         Returns:
-            str: SKIPPED(対象外)、LOADED(成功)、MISSING(未導入・版不足)、
-                OUTDATED(ロード済み版が古い)、LOAD_FAILED(ロード失敗あり)。
+            str: SKIPPED(対象外)、LOADED(成功)、MISSING(入っていない・版が足りない)、
+                OUTDATED(ロードされている版が古い)、LOAD_FAILED(ロードに失敗したものがある)。
         """
         ...
     @staticmethod
     def _maya_year() -> int:
-        """現在のMayaの年版を照会する。
+        """現在のMayaの年の版を調べる。
 
         Returns:
-            int: 2025などの年版。
+            int: 2025などの年の版。
         """
         ...
     def _report(self, show: Callable[..., Any] | None, warn: bool, message: str) -> None:
         """指定した通知先へメッセージを送る。
 
         Args:
-            show (callable | None): メッセージ全体を渡す表示コールバック。
-            warn (bool): 最初の行を warning にも渡すか。
-            message (str): 通知内容。コールバックの例外は伝播する。
+            show (callable | None): メッセージ全体を渡して表示するコールバック。
+            warn (bool): Trueなら、最初の行を warning にも渡す。
+            message (str): 知らせる内容。コールバックで起きた例外は、そのまま外へ伝わる。
 
         Returns:
             None: 値を返さない。

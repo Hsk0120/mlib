@@ -28,15 +28,19 @@ def _require_number(value: float, name: str) -> float:
 
 
 class RampPlug(MultiPlug):
-    """ランプのアトリビュート(remapValueの ``value``・``color`` など)を、位置・値・補間の点の並びとして扱う。
+    """ランプのアトリビュートを、点(位置・値・補間)の並びとして扱うPlug。
 
-    ``om2.MRampAttribute`` で扱えるマルチアトリビュートを取得するとこの型になる。値は、float のランプ
-    (カーブのランプ)は float、色のランプは ``(r, g, b)`` の tuple。補間は ``"none"``・``"linear"``・
-    ``"smooth"``・``"spline"`` の名前で扱う。要素の番号・値の直接の編集は :class:`MultiPlug` の機能で行える。
+    remapValueの ``value``・``color`` などが対象になる。``om2.MRampAttribute`` で扱えるマルチアトリビュートを
+    取得すると、この型になる。
+
+    - 値は、float のランプ(カーブのランプ)では float、色のランプでは ``(r, g, b)`` の tuple。
+    - 補間は ``"none"``・``"linear"``・``"smooth"``・``"spline"`` の名前で扱う。
+
+    要素の番号や値を直接編集するときは、:class:`MultiPlug` の機能を使う。
 
     Note:
-        ``ramp`` テクスチャノードの ``colorEntryList`` は MRampAttribute で扱えない形のため、この型にならない
-        (:class:`MultiPlug`)。
+        ``ramp`` テクスチャノードの ``colorEntryList`` は、MRampAttribute で扱えない形をしている。
+        そのため、この型ではなく :class:`MultiPlug` になる。
     """
     def isColorRamp(self) -> bool:
         """色のランプか判定する。
@@ -45,62 +49,68 @@ class RampPlug(MultiPlug):
             bool: 色のランプなら ``True``。float のランプ(カーブのランプ)は ``False``。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
     def getEntries(self) -> list[tuple[float, float | tuple[float, float, float], str]]:
-        """ランプの点を、位置の昇順で取得する。
+        """ランプの点を、位置の小さい順に取得する。
 
         Returns:
             list[tuple[float, float | tuple[float, float, float], str]]: (位置, 値, 補間の名前)の新しいリスト。
-                値は float のランプが float、色のランプが ``(r, g, b)``。位置が同じ点は論理番号の順。
+                値は、float のランプでは float、色のランプでは ``(r, g, b)``。
+                位置が同じ点は、論理番号の順に並ぶ。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
     def setEntries(self, entries: list[tuple[float, float | tuple[float, float, float], str]]) -> RampPlug:
-        """ランプの点を、既存の点をすべて置き換えて設定する。
+        """ランプの点を設定する。すでにある点はすべて置き換える。
 
-        既存の要素を ``cmds.removeMultiInstance`` で外し、渡した順に論理番号0から設定する。Undo 1回で戻る。
+        すでにある要素を ``cmds.removeMultiInstance`` で外してから、渡した順に論理番号0から設定する。
+        1回のUndoで戻せる。
 
         Args:
             entries (list[tuple[float, float | tuple[float, float, float], str]]): (位置, 値, 補間の名前)の並び。
-                値は float のランプが実数、色のランプが3つの実数。補間は ``"none"``・``"linear"``・
+                値は、float のランプでは実数、色のランプでは3つの実数。補間は ``"none"``・``"linear"``・
                 ``"smooth"``・``"spline"``。:meth:`getEntries` の結果をそのまま渡せる。
 
         Returns:
             RampPlug: 自身。
 
         Raises:
-            TypeError: entriesや各点が3つの組でない、位置・値が実数(色は3つの実数)でない、補間が文字列でない場合。
-            ValueError: entriesが空、数値が有限でない、または補間が未対応の名前の場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効、ロック・入力接続でMayaが設定を拒否した場合。
+            TypeError: 次のどれかの場合。entriesや各点が3つの組でない。位置・値が実数でない
+                (色のランプでは3つの実数でない)。補間が文字列でない。
+            ValueError: entriesが空の場合、数値が有限でない場合、または補間が対応していない名前の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合、またはロックや入力の接続があって
+                Mayaが設定を拒否した場合。
         """
         ...
     def getValueAt(self, position: float) -> float | tuple[float, float, float]:
-        """ランプの位置での値を、補間した値で取得する。
+        """ランプ上の位置での値を取得する。
+
+        点と点の間は、補間した値になる。
 
         Args:
             position (float): ランプ上の位置。
 
         Returns:
-            float | tuple[float, float, float]: float のランプは float、色のランプは ``(r, g, b)``。
+            float | tuple[float, float, float]: float のランプでは float、色のランプでは ``(r, g, b)``。
 
         Raises:
-            TypeError: positionが実数以外の場合。
+            TypeError: positionが実数でない場合。
             ValueError: positionが有限でない場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
     def _ramp(self) -> om2.MRampAttribute:
-        """有効性を確かめ、このプラグの ``om2.MRampAttribute`` を作る。
+        """有効なことを確かめてから、このPlugの ``om2.MRampAttribute`` を作る。
 
         Returns:
             om2.MRampAttribute: このランプのアトリビュート。
 
         Raises:
-            RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
     @staticmethod

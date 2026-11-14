@@ -7,11 +7,13 @@ from mlib.nodes.node import Node
 
 
 class Cluster(GeometryFilter):
-    """Maya の cluster デフォーマラッパー。"""
+    """Mayaのclusterデフォーマを扱うクラス。"""
     def getWeightedNode(self) -> Node | None:
-        """このクラスタに対応するハンドル transform を取得する。
+        """このクラスターのハンドル(Transform)を取得する。
+
+        ``matrix`` アトリビュートの接続元のノードを返す。
 
         Returns:
-            Node | None: cluster ハンドルの transform。見つからない場合は ``None``。
+            Node | None: クラスターハンドルのTransform。見つからない場合は ``None``。
         """
         ...

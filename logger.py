@@ -1,4 +1,4 @@
-"""標準 logging と Maya のメッセージ表示を連携する。"""
+"""標準の logging から、Maya のメッセージ表示へ出力する。"""
 
 import builtins
 import logging
@@ -7,40 +7,40 @@ import types
 
 __all__ = ["MayaHandler", "debug", "error", "getLogger", "info", "print", "raiseWithNotify", "warning"]
 
-#: ログを集約するロガーの名前(パッケージ名)。
+#: ログをまとめるロガーの名前(パッケージ名)。
 LOGGER_NAME = (__package__ or __name__).split(".", 1)[0]
 _VIEWPORT_COLORS = {logging.WARNING: "#ffcc00", logging.ERROR: "#ff4d4d", logging.CRITICAL: "#ff4d4d"}
 _NO_CAUSE = object()
 #: 設定すると、Script Editorのエラー表示でmlib内部のフレームを省かない環境変数。
 FULL_TRACEBACK_ENV = "MLIB_FULL_TRACEBACK"
-#: 内部フレームとみなすパッケージのフォルダー(このモジュールの親フォルダー)。
+#: 内部のフレームとして扱うパッケージのフォルダー(このモジュールの親フォルダー)。
 _PACKAGE_DIR = os.path.normcase(os.path.dirname(os.path.abspath(__file__)))
-#: 内部フレームの末尾に挟まっても利用者の行とみなさない標準ライブラリ(with文・デコレーター)。
+#: 内部のフレームの後ろに挟まっても、利用者の行として扱わない標準ライブラリ(with文・デコレーター)。
 _TRANSPARENT_MODULES = ("contextlib", "functools")
 
 
 def _message_from(record):
-    """ビューポート向けにログ本文と引数を文字列へ整形する。
+    """ビューポートに出すため、ログの本文と引数を1つの文字列にする。
 
     Args:
-        record (logging.LogRecord): 整形するレコード。
+        record (logging.LogRecord): 文字列にするレコード。
 
     Returns:
-        str: getMessage()の結果。詳細トレースとFormatterはScript Editor側だけへ適用する。
+        str: getMessage()の結果。詳しいトレースとFormatterは、Script Editorの表示だけに使う。
     """
     return record.getMessage()
 
 
 class MayaHandler(logging.Handler):
-    """詳細ログをScript Editor、警告以上の本文をビューポートへ出力する。"""
+    """詳しいログをScript Editorへ、警告以上の本文をビューポートへ出すハンドラー。"""
 
     def emit(self, record):
-        """ログを Script Editor と必要に応じてビューポートへ出力する。
+        """ログを Script Editor へ出す。必要ならビューポートにも出す。
 
-        Script Editorには標準loggingのFormatter・exc_info・stack_infoを適用する。
-        WARNING以上では、例外トレースを含まないメッセージ本文をビューポートにも表示する。
-        Formatterが失敗した場合は標準書式へ戻し、書式の失敗理由も詳細欄へ表示する。
-        Maya APIをimportできなければ出力しない。Maya表示時のRuntimeErrorは抑制する。
+        - Script Editorには、標準のloggingのFormatter・exc_info・stack_infoを使って出す。
+        - WARNING以上では、例外のトレースを含まない本文をビューポートにも表示する。
+        - Formatterが失敗したら標準の書式に戻し、失敗した理由も詳しい表示に加える。
+        - Maya APIをimportできなければ、何も出さない。Mayaへ表示するときのRuntimeErrorは握りつぶす。
 
         Args:
             record (logging.LogRecord): 出力するレコード。
@@ -52,14 +52,14 @@ class MayaHandler(logging.Handler):
         try:
             details = self.format(record)
         except Exception as exc:
-            # 通知の書式設定で、呼出元の例外やfinallyの残りの復元を妨げない。
+            # 通知の書式で失敗しても、呼び出し元の例外や、finallyの残りの後始末を止めない。
             details = logging.Formatter().format(record)
             details += f"\nログ書式の適用に失敗しました: {exc}"
         try:
             # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
             import maya.cmds as cmds
 
-            # mayapy初期化前はMGlobalの表示APIを呼ばない。
+            # mayapyの初期化が済むまでは、MGlobalの表示APIを呼ばない。
             if not hasattr(cmds, "about"):
                 return
             # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
@@ -94,11 +94,11 @@ class MayaHandler(logging.Handler):
 
 
 def getLogger():
-    """Maya 向けハンドラを設定した共有ロガーを取得する。
+    """Maya 向けのハンドラーを付けた、共通のロガーを取得する。
 
     Returns:
-        logging.Logger: コアパッケージ名のロガー。DEBUGレベル、親への伝播なし。
-            reload前のMayaHandlerは現在の型へ置換し、通知を重複させない。
+        logging.Logger: パッケージ名のロガー。レベルはDEBUGで、親へは伝えない。
+            reloadする前のMayaHandlerは今の型のものへ置き換え、通知が重ならないようにする。
     """
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(logging.DEBUG)
@@ -117,14 +117,14 @@ def getLogger():
 
 
 def debug(message, *args, **kwargs):
-    """診断レベルのログを出力する。
+    """DEBUGレベルのログを出す。
 
-    Maya 上ではScript Editor に出力する。
+    Maya では Script Editor に出る。
 
     Args:
-        message (object): ログメッセージまたは書式文字列。
-        *args (object): logging に渡すメッセージ書式引数。
-        **kwargs (object): exc_info、extra、stack_info、stacklevel など logging に渡すオプション。
+        message (object): ログのメッセージか、書式の文字列。
+        *args (object): logging に渡す書式の引数。
+        **kwargs (object): exc_info、extra、stack_info、stacklevel など、logging に渡すオプション。
 
     Returns:
         None: 値を返さない。
@@ -133,12 +133,12 @@ def debug(message, *args, **kwargs):
 
 
 def info(message, *args, **kwargs):
-    """通常の情報をINFOレベルでScript Editorへ出力する。
+    """ふつうの情報を、INFOレベルでScript Editorへ出す。
 
     Args:
-        message (object): ログメッセージまたは書式文字列。
-        *args (object): loggingに渡す書式引数。
-        **kwargs (object): exc_info、extra等のloggingオプション。
+        message (object): ログのメッセージか、書式の文字列。
+        *args (object): loggingに渡す書式の引数。
+        **kwargs (object): exc_info、extraなどのloggingのオプション。
 
     Returns:
         None: 値を返さない。
@@ -147,16 +147,16 @@ def info(message, *args, **kwargs):
 
 
 def print(*objects, sep=" ", end="\n", file=None, flush=False):
-    """Python標準のprintと同じ規則で出力する。
+    """Python標準のprintと同じ決まりで出力する。
 
-    Mayaでは通常Script Editorへ表示する。ログレベル・ビューポート通知は付けず、
-    file指定や改行なし出力を維持する。INFOログが必要な場合はinfoを使う。
+    Mayaでは、ふつうはScript Editorに表示される。ログレベルやビューポートへの通知は付けない。
+    fileの指定や、改行しない出力もそのまま使える。INFOのログが要るときはinfoを使う。
 
     Args:
         *objects (object): 出力する値。
-        sep (str | None): 値の区切り。Noneは標準値の空白。
-        end (str | None): 末尾。Noneは標準値の改行。
-        file (TextIO | None): 書込み先。Noneは現在のsys.stdout。
+        sep (str | None): 値の区切り。Noneなら標準の空白。
+        end (str | None): 最後に付ける文字。Noneなら標準の改行。
+        file (TextIO | None): 書き込み先。Noneなら今のsys.stdout。
         flush (bool): Trueなら出力先をフラッシュする。
 
     Returns:
@@ -166,14 +166,14 @@ def print(*objects, sep=" ", end="\n", file=None, flush=False):
 
 
 def warning(message, *args, **kwargs):
-    """警告をScript Editorとビューポートへ通知する。
+    """警告をScript Editorとビューポートへ出す。
 
-    ログレベルを例外送出へ変換しない。引数・書式は標準loggingに従う。
+    例外は送り出さない。引数と書式は標準のloggingと同じ。
 
     Args:
-        message (object): メッセージまたは書式文字列。
-        *args (object): loggingへ渡す書式引数。
-        **kwargs (object): exc_info、extra等のloggingオプション。
+        message (object): メッセージか、書式の文字列。
+        *args (object): loggingへ渡す書式の引数。
+        **kwargs (object): exc_info、extraなどのloggingのオプション。
 
     Returns:
         None: 値を返さない。
@@ -182,15 +182,15 @@ def warning(message, *args, **kwargs):
 
 
 def error(message, *args, **kwargs):
-    """エラーをScript Editorとビューポートへ通知する。
+    """エラーをScript Editorとビューポートへ出す。
 
-    ログレベルを例外送出へ変換しない。引数・書式は標準loggingに従う。
-    通知して中断する場合はraiseWithNotifyを使う。
+    例外は送り出さない。引数と書式は標準のloggingと同じ。
+    知らせたうえで処理を止めたいときは、raiseWithNotifyを使う。
 
     Args:
-        message (object): メッセージまたは書式文字列。
-        *args (object): loggingへ渡す書式引数。
-        **kwargs (object): exc_info、extra等のloggingオプション。
+        message (object): メッセージか、書式の文字列。
+        *args (object): loggingへ渡す書式の引数。
+        **kwargs (object): exc_info、extraなどのloggingのオプション。
 
     Returns:
         None: 値を返さない。
@@ -199,25 +199,25 @@ def error(message, *args, **kwargs):
 
 
 def raiseWithNotify(exceptionType, message, *args, fromException=_NO_CAUSE, **kwargs):
-    """エラーを通知してから指定型の例外を送出する。
+    """エラーを知らせてから、指定した型の例外を送り出す。
 
-    利用者へ通知して中断するツール(mlibを使う側のツール)の入口用。mlib本体の例外は通知せずに送出し、
-    Script Editorの表示と二重にしない。
+    利用者に知らせて処理を止めるツール(mlibを使う側のツール)の入口で使う。
+    mlib本体の例外は、Script Editorの表示と重ならないよう、知らせずに送り出す。
 
     Args:
-        exceptionType (type[Exception]): 生成する例外クラス。
-        message (str): 通知と例外の先頭引数に使うメッセージ。
-        *args (object): 例外コンストラクタへ渡す追加位置引数。ログには渡さない。
-        fromException (BaseException | None): 指定時は ``raise ... from fromException``
-            として例外連鎖を明示する(``None`` を渡すと連鎖を明示的に抑制する)。省略時は
-            通常の ``raise`` と同じく、except 節内であれば暗黙の連鎖を保持する。
-        **kwargs (object): 例外コンストラクタへ渡すキーワード引数。ログには渡さない。
+        exceptionType (type[Exception]): 作る例外のクラス。
+        message (str): 知らせる内容。例外の最初の引数にも使う。
+        *args (object): 例外のコンストラクタへ渡す、追加の位置引数。ログには渡さない。
+        fromException (BaseException | None): 指定すると ``raise ... from fromException`` として、
+            例外のつながりをはっきり示す(``None`` を渡すと、つながりを示さないようにする)。
+            省略すると、通常の ``raise`` と同じく、except 節の中なら自動のつながりを保つ。
+        **kwargs (object): 例外のコンストラクタへ渡すキーワード引数。ログには渡さない。
 
     Returns:
         NoReturn: 正常には戻らない。
 
     Raises:
-        Exception: exceptionType で指定した例外。コンストラクタが失敗した場合はその例外。
+        Exception: exceptionType で指定した例外。コンストラクタが失敗した場合は、その例外。
         TypeError: fromException が例外でも None でもない場合。
     """
     error(message)
@@ -225,15 +225,15 @@ def raiseWithNotify(exceptionType, message, *args, fromException=_NO_CAUSE, **kw
     if fromException is _NO_CAUSE:
         raise exception
     if fromException is not None and not isinstance(fromException, BaseException):
-        # raise ... from が送出するものと同じ TypeError(型を絞って連鎖させる)。
-        raise TypeError("exception causes must derive from BaseException")
+        # raise ... from が送り出すものと同じ TypeError(型を絞ってつなげる)。
+        raise TypeError("例外の原因はBaseExceptionの派生で指定してください")
     raise exception from fromException
 
 
 def _internal_file(filename):
-    """フレームのファイルがmlib(拡張の ``<パッケージ名>_*`` を含む)の内部か判定する。
+    """フレームのファイルが、mlibの内部のものかを判定する。
 
-    テスト(``__tests__``)のファイルは利用者のコードとして扱う。
+    拡張(``<パッケージ名>_*``)も内部に含める。テスト(``__tests__``)のファイルは利用者のコードとして扱う。
 
     Args:
         filename (str): ``frame.f_code.co_filename``。
@@ -251,7 +251,7 @@ def _internal_file(filename):
 
 
 def _transparent_file(filename):
-    """with文・デコレーターの標準ライブラリのフレームか判定する。
+    """with文・デコレーターの、標準ライブラリのフレームかを判定する。
 
     Args:
         filename (str): ``frame.f_code.co_filename``。
@@ -264,17 +264,17 @@ def _transparent_file(filename):
 
 
 def _trimmed_traceback(trace):
-    """末尾に続くmlib内部のフレームを除いたトレースバックを返す。
+    """後ろに続くmlib内部のフレームを取り除いたトレースバックを返す。
 
-    最後の利用者のフレーム(mlib・contextlib・functools以外)より後ろがmlib内部だけの場合に、
-    その利用者のフレームで終わる新しいトレースバックを作る。元のトレースバックは変更しない。
-    利用者のフレームが無い(mlib内部だけの)場合や、末尾が利用者のコードの場合はそのまま返す。
+    最後の利用者のフレーム(mlib・contextlib・functools以外)より後ろがmlib内部だけのとき、
+    その利用者のフレームで終わる新しいトレースバックを作る。元のトレースバックは変えない。
+    利用者のフレームが無い(mlib内部だけの)場合や、最後が利用者のコードの場合は、そのまま返す。
 
     Args:
         trace (types.TracebackType | None): 表示するトレースバック。
 
     Returns:
-        types.TracebackType | None: 省略したトレースバック、または元の値。
+        types.TracebackType | None: 短くしたトレースバック、または元の値。
     """
     entries = []
     while trace is not None:
@@ -294,16 +294,17 @@ def _trimmed_traceback(trace):
 
 
 def _install_exception_formatter():
-    """Script Editorのエラー表示で、mlib内部のフレームを省く書式関数を設定する。
+    """Script Editorのエラー表示から、mlib内部のフレームを省く設定をする。
 
-    Maya公式の差し替え口 ``maya.utils.formatGuiException`` を、元の関数を呼ぶ関数で包む。
-    Script Editorは最後のフレームのファイル・行を表示するため、mlibの中で送出した例外も
-    利用者がmlibを呼んだ行を表示する。環境変数 ``MLIB_FULL_TRACEBACK`` を空以外にすると
-    省かずに表示する(呼出しごとに判定する)。再読み込みでは以前の包みを外して設定し直す。
-    Mayaが無い環境では何もしない。
+    Mayaが用意している差し替え口 ``maya.utils.formatGuiException`` を、元の関数を呼ぶ関数で包む。
+    Script Editorは最後のフレームのファイルと行を表示する。そのため、mlibの中で起きた例外でも、
+    利用者がmlibを呼んだ行が表示される。
+
+    環境変数 ``MLIB_FULL_TRACEBACK`` を空でない値にすると、省かずに表示する(呼ぶたびに判定する)。
+    読み直したときは、前の包みを外してから設定し直す。Mayaが無い環境では何もしない。
 
     Returns:
-        bool: 設定した場合はTrue。
+        bool: 設定したらTrue。
     """
     try:
         # Mayaの無い環境(静的検査)でもloggerをimportできるよう、設定時に読み込む。
@@ -316,7 +317,7 @@ def _install_exception_formatter():
     previous = getattr(current, "_mlib_previous", current)
 
     def format_gui_exception(exception_type, exception, trace, detail=2):
-        """mlib内部のフレームを省いてからMayaの書式関数へ渡す。
+        """mlib内部のフレームを省いてから、Mayaの書式の関数へ渡す。
 
         Args:
             exception_type (type): 例外の型。
@@ -331,7 +332,7 @@ def _install_exception_formatter():
             try:
                 trace = _trimmed_traceback(trace)
             except Exception:
-                pass  # 省略の失敗でMayaのエラー表示自体を妨げない。
+                pass  # 省けなくても、Mayaのエラー表示そのものは止めない。
         return previous(exception_type, exception, trace, detail)
 
     format_gui_exception._mlib_previous = previous

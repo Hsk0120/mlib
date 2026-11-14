@@ -77,27 +77,27 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
         self.assertIn(("skinA", "recache"), calls)
         self.assertNotIn(("skinA", "restore"), calls)
         self.assertEqual(len(messages), 1)
-        self.assertIn("could not query moveJointsMode", messages[0])
+        self.assertIn("moveJointsModeを取得できませんでした", messages[0])
 
     def test_switch_failure_still_restores_known_previous_mode(self):
         _, calls, messages, _ = self._exercise("switch")
         self.assertIn(("skinA", "restore"), calls)
         self.assertIn(("skinB", "restore"), calls)
         self.assertEqual(len(messages), 1)
-        self.assertIn("could not enable moveJointsMode", messages[0])
+        self.assertIn("moveJointsModeを有効にできませんでした", messages[0])
 
     def test_recache_failure_does_not_skip_mode_restore(self):
         _, calls, messages, _ = self._exercise("recache")
         self.assertIn(("skinA", "restore"), calls)
         self.assertIn(("skinB", "recache"), calls)
-        self.assertIn("could not recache bind matrices", messages[0])
+        self.assertIn("バインドマトリクスを再キャッシュできませんでした", messages[0])
 
     def test_restore_failure_keeps_original_body_exception_and_other_cleanup(self):
         _, calls, messages, entered = self._exercise("restore", ValueError("body"))
         self.assertEqual(entered, [True])
         self.assertIn(("skinB", "restore"), calls)
         self.assertEqual(len(messages), 1)
-        self.assertIn("could not restore moveJointsMode", messages[0])
+        self.assertIn("moveJointsModeを元に戻せませんでした", messages[0])
 
     def test_bad_formatter_does_not_interrupt_cleanup_or_replace_body_exception(self):
         skins = [SimpleNamespace(getFullName=lambda: "skinA"), SimpleNamespace(getFullName=lambda: "skinB")]

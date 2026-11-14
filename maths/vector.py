@@ -212,13 +212,13 @@ def _rebuild(cls, values):
     elif issubclass(cls, _MMatrix):
         values = tuple(values)
         if len(values) != 16:
-            raise ValueError("Matrix expects 16 values")
+            raise ValueError("Matrixには16個の値を指定してください")
         result = _MMatrix.__new__(cls)
         _MMatrix.__init__(result)
         for position, item in enumerate(values):
             _MMatrix.__setitem__(result, position, item)
     else:
-        raise TypeError(f"Cannot rebuild {cls.__name__}")
+        raise TypeError(f"{cls.__name__}を再構築できません")
     return result
 
 
@@ -258,11 +258,11 @@ def _iterable(value, name):
         TypeError: 反復できない値、文字列、または単独のom2ベクトル・点の場合。
     """
     if isinstance(value, (str, bytes, _MVector, _MPoint)):
-        raise TypeError(f"{name} must be an iterable of points")
+        raise TypeError(f"{name}は点の並びで指定してください")
     try:
         return list(value)
     except TypeError:
-        raise TypeError(f"{name} must be an iterable of points") from None
+        raise TypeError(f"{name}は点の並びで指定してください") from None
 
 
 def _axis_name(axis, name):
@@ -280,47 +280,52 @@ def _axis_name(axis, name):
         ValueError: axisが軸の名前でない場合。
     """
     if not isinstance(axis, str):
-        raise TypeError(f"{name} must be a str such as 'x' or '-y'")
+        raise TypeError(f"{name}は'x'や'-y'のようなstrで指定してください")
     result = _AXIS_NAMES.get(axis.lower())
     if result is None:
-        raise ValueError(f"{name} must be one of 'x', 'y', 'z', '-x', '-y', '-z' (got {axis!r})")
+        raise ValueError(f"{name}は'x'・'y'・'z'・'-x'・'-y'・'-z'のどれかで指定してください: {axis!r}")
     return result
 
 
 class Vector(om2.MVector):
-    """om2.MVectorを継承した、可変・ハッシュ不可のXYZベクトル値。
+    """om2.MVectorを継承した、XYZのベクトル。
 
-    OpenMaya APIへそのまま渡せる。生成時は成分をコピーし、引数形式は ``__init__`` に従う。
-    MPointからもwで割らずXYZを写す。
+    値は後から書き換えられ、ハッシュはできない(dictのキーやsetの要素にできない)。
+    OpenMayaのAPIへそのまま渡せる。作り方は ``__init__`` を参照する。作るときは成分をコピーする。
+    MPointから作るときも、wで割らずにXYZをそのまま写す。
 
-    演算はOM2に従い、ベクトル結果は派生型によらず基底Vectorを返す。
-    ``om2.MVector`` が左辺の ``+`` / ``-`` / ``^`` もVectorになる。
+    演算はOpenMayaに従う。結果がベクトルになる演算は、派生クラスでも基底のVectorを返す。
+    左辺が ``om2.MVector`` の ``+`` / ``-`` / ``^`` もVectorになる。
 
-    * ``+`` / ``-`` はMVector系、または3個の数値のtuple/listとの成分ごとの加減算
-      (``v + (1, 1, 1)``・``(1, 1, 1) + v``・``v - [0, 1, 0]``)。結果はVector。
-    * ``v * 数値`` / ``数値 * v`` / ``v / 数値`` はスカラー演算。0除算はZeroDivisionError。
+    * ``+`` / ``-`` は成分ごとの足し算・引き算。相手はMVector系か、3個の数値のtuple/list
+      (``v + (1, 1, 1)``・``(1, 1, 1) + v``・``v - [0, 1, 0]``)。結果はVectorになる。
+    * ``v * 数値`` / ``数値 * v`` / ``v / 数値`` は数値倍と割り算。0で割るとZeroDivisionErrorになる。
     * ``v * w`` は内積(float)、``v ^ w`` は外積。
-    * ``v * m`` は平行移動を含まない行ベクトルの方向変換。
+    * ``v * m`` は行ベクトルとしての方向の変換で、平行移動を含まない。
       ``m * v`` は列ベクトルの積(``v * mᵀ``)。
 
-    ``+=`` / ``-=`` / ``*=`` / ``/=`` / ``^=`` は自身を更新し派生型を保つ。
-    ただし ``v *= w`` は内積のfloatへ束ね直す。コピーを返す操作と自身更新を区別し、
-    数学値を返す継承メソッドも対応するmlib型を使う。OpenMayaの共有クラス定数は変更しない。
+    ``+=`` / ``-=`` / ``*=`` / ``/=`` / ``^=`` は自身を書き換え、派生クラスの型を保つ。
+    ただし ``v *= w`` は内積なので、変数はfloatに置き換わる。
+    新しい値を返す操作と、自身を書き換える操作は区別している。
+    継承したメソッドのうち数学値を返すものも、対応するmlibの型を返す。OpenMayaのクラスが共有する定数は変更しない。
 
-    成分・番号へ代入可能。番号は-3〜2、範囲外はIndexError。スライスは代入不可のtuple、反復はXYZ順。
-    ``==`` はMVector系、または3個の数値のtuple/listとの成分の完全一致で、派生型が違っても等しくなり得る。
-    MPointなどそれ以外のOM2型はFalse、他は相手の比較へ委ね、未判定ならFalse。
-    OM2型が左辺の比較はOM2側でTypeErrorになり得る。
+    成分と番号へ代入できる。番号は-3〜2で、範囲外はIndexErrorになる。
+    スライスでは代入できないtupleを返し、反復はXYZの順になる。
+
+    ``==`` は、MVector系か3個の数値のtuple/listと、成分が完全に一致するかを比べる。派生クラスの型が違っても等しくなることがある。
+    MPointなど、それ以外のOpenMayaの型との比較はFalseになる。そのほかの型は相手の比較に任せ、どちらも判断しなければFalseになる。
+    左辺がOpenMayaの型の比較は、OpenMaya側でTypeErrorになることがある。
     """
 
     __slots__ = ()
     __hash__ = None
 
     def __new__(cls, *args, **kwargs):
-        """基底初期化でC++実体を確保し、clsのゼロベクトルを作る。
+        """基底クラスの初期化でC++の実体を確保し、clsのゼロベクトルを作る。
 
-        ``__init__`` を省略・失敗した派生クラスでも未確保実体へアクセスしないため、ここで確保する。
-        mlibの ``__init__`` は成分だけを設定する。基底初期化の再実行はMaya 2022で実体をリークする。
+        派生クラスが ``__init__`` を呼ばなかったり、途中で失敗したりしても、確保していない実体へ
+        触れないように、ここで確保しておく。mlibの ``__init__`` は成分を設定するだけにしている。
+        Maya 2022では、基底クラスの初期化をもう一度呼ぶと、そのたびに実体がメモリに残ったままになる(リーク)。
 
         Args:
             *args: ここでは使わない生成引数。
@@ -620,15 +625,16 @@ class Vector(om2.MVector):
         return _MVector.__isub__(self, other)
 
     def __mul__(self, other):
-        """om2 の意味論で乗算する。
+        """om2と同じ意味で掛け算をする。
 
         Args:
             other (object): 数値、MVector 系、または MMatrix 系。
 
         Returns:
-            Vector | float | types.NotImplementedType: 数値ならスカラー倍の Vector、
-            MVector 系なら内積の float、MMatrix 系なら行ベクトル規約で方向変換した
-            Vector(平行移動を含まない)。対応しない型は NotImplemented。
+            Vector | float | types.NotImplementedType: 相手によって次のようになる。
+            数値なら数値倍のVector。MVector系なら内積のfloat。
+            MMatrix系なら行ベクトルとして方向を変換したVector(平行移動を含まない)。
+            対応しない型はNotImplemented。
         """
         if isinstance(other, _NUMBER):
             result = _NEW(Vector)
@@ -647,11 +653,11 @@ class Vector(om2.MVector):
         return NotImplemented
 
     def __rmul__(self, other):
-        """左辺からの乗算を om2 の意味論で行う。
+        """左辺からの掛け算を、om2と同じ意味で行う。
 
-        ``m * v`` (m は MMatrix 系)は om2 と同じく列ベクトルとしての積
-        (``v * mᵀ``)になる。位置をマトリクスで変換する場合は
-        :meth:`mlib.maths.matrix.Matrix.transformPoint`、方向は ``v * m`` を使う。
+        ``m * v`` (mはMMatrix系)は、om2と同じく列ベクトルとしての積(``v * mᵀ``)になる。
+        位置をマトリクスで変換するときは :meth:`mlib.maths.matrix.Matrix.transformPoint` を、
+        方向を変換するときは ``v * m`` を使う。
 
         Args:
             other (object): 数値または MMatrix 系。
@@ -676,14 +682,14 @@ class Vector(om2.MVector):
         return NotImplemented
 
     def __imul__(self, other):
-        """数値倍、または MMatrix 系による行ベクトル規約の方向変換を自身へ適用する。
+        """自身を数値倍する。またはMMatrix系で、行ベクトルとして方向を変換する。
 
         Args:
             other (object): 数値または MMatrix 系。
 
         Returns:
-            Vector | types.NotImplementedType: 自身。対応しない型は NotImplemented
-            (MVector 系を渡した場合は om2 と同じく内積へ戻り、名前が float に再束縛される)。
+            Vector | types.NotImplementedType: 自身。対応しない型はNotImplemented。
+            MVector系を渡した場合は、om2と同じく内積の計算になり、変数はfloatに置き換わる。
         """
         if not isinstance(other, (int, float, _MMatrix)):
             return NotImplemented
@@ -704,7 +710,7 @@ class Vector(om2.MVector):
         if not isinstance(other, _NUMBER):
             return NotImplemented
         if other == 0:
-            raise ZeroDivisionError("Vector division by zero")
+            raise ZeroDivisionError("Vectorを0で割ることはできません")
         result = _NEW(Vector)
         _INIT(result)
         _MVector.__iadd__(result, self)
@@ -726,7 +732,7 @@ class Vector(om2.MVector):
         if not isinstance(other, _NUMBER):
             return NotImplemented
         if other == 0:
-            raise ZeroDivisionError("Vector division by zero")
+            raise ZeroDivisionError("Vectorを0で割ることはできません")
         return _MVector.__itruediv__(self, other)
 
     def __xor__(self, other):
@@ -746,10 +752,10 @@ class Vector(om2.MVector):
         return result
 
     def __rxor__(self, other):
-        """左辺の MVector 系と自身の外積 ``other ^ self`` を返す。
+        """左辺のMVector系と自身の外積 ``other ^ self`` を返す。
 
-        Vector は om2.MVector の派生なので、``om2.MVector ^ Vector`` では Python が
-        このメソッドを先に呼ぶ(定義しないと om2 の結果の ``om2.MVector`` になる)。
+        Vectorはom2.MVectorの派生なので、``om2.MVector ^ Vector`` ではPythonがこのメソッドを先に呼ぶ。
+        このメソッドが無いと、結果はom2の ``om2.MVector`` になる。
 
         Args:
             other (object): 左辺の MVector 系。
@@ -806,10 +812,10 @@ class Vector(om2.MVector):
 
     @classmethod
     def fromIterable(cls, values):
-        """3要素の反復可能オブジェクトから生成する。
+        """3つの値を順に取り出せるもの(listやtupleなど)から作る。
 
         Args:
-            values (Iterable[float]): 3要素の反復可能オブジェクト。
+            values (Iterable[float]): 3つの値を持つ、反復できるもの。
 
         Returns:
             Vector: 呼び出したクラスの新しいインスタンス。
@@ -819,16 +825,16 @@ class Vector(om2.MVector):
         """
         values = tuple(values)
         if len(values) != 3:
-            raise ValueError(f"{cls.__name__} expects 3 values")
+            raise ValueError(f"{cls.__name__}には3つの値を指定してください")
         return cls(values[0], values[1], values[2])
 
     @classmethod
     def fromAxis(cls, axis):
-        """軸の名前から長さ1の軸方向のベクトルを生成する。
+        """軸の名前から、その軸の向きの長さ1のベクトルを作る。
 
-        ``"x"``・``"y"``・``"z"`` は正の向き、``"-x"``・``"-y"``・``"-z"`` は負の向き。
-        ``"+x"`` のような明示的な正の符号と、大文字(``"X"``・``"-Y"``)も受け付ける。
-        前後の空白は受け付けない。
+        ``"x"``・``"y"``・``"z"`` は正の向き、``"-x"``・``"-y"``・``"-z"`` は負の向きになる。
+        ``"+x"`` のように正の符号を付けた名前と、大文字(``"X"``・``"-Y"``)も使える。
+        前後に空白があると受け付けない。
 
         Args:
             axis (str): 軸の名前。
@@ -861,7 +867,7 @@ class Vector(om2.MVector):
         """
         vectors = [_resolve_mvector(point) for point in _iterable(points, "points")]
         if not vectors:
-            raise ValueError("Cannot compute the center of no points")
+            raise ValueError("点がないため、中心を計算できません")
         total = _MVector()
         for vector in vectors:
             _MVector.__iadd__(total, vector)
@@ -870,10 +876,10 @@ class Vector(om2.MVector):
 
     @classmethod
     def isPlanar(cls, points, tolerance=1e-10):
-        """点列がすべて同一平面上にあるか判定する。
+        """点がすべて同じ平面の上にあるか判定する。
 
-        一直線上にない最初の3点で平面を決め、全点の平面からの距離が tolerance 以下ならTrue。
-        3点以下、または全点が一直線上なら常にTrue。
+        一直線上にない最初の3点で平面を決める。すべての点の、その平面からの距離がtolerance以下ならTrueを返す。
+        点が3つ以下の場合と、すべての点が一直線上にある場合は、常にTrueになる。
 
         Args:
             points (Iterable[om2.MVector | om2.MPoint | Iterable[float]]): 点列。
@@ -906,18 +912,18 @@ class Vector(om2.MVector):
         return all(abs(_MVector.__mul__(_MVector.__sub__(vector, origin), normal)) <= limit for vector in vectors)
 
     def mirror(self, axis="x", pivot=(0.0, 0.0, 0.0)):
-        """指定中心から成分を反転した同型の複製を返す。
+        """指定した中心で成分を反転した、新しい値を返す。
 
-        Translate・Scale・Shearでも数値反転として使用できる。
-        Scale・Shearのマトリクスとしての鏡映にはMatrix.mirrorを使う。
+        Translate・Scale・Shearでも、数値をそのまま反転する用途に使える。
+        Scale・Shearをマトリクスとして鏡映するときは、Matrix.mirrorを使う。
 
         Args:
-            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、またはミラー面 ``"YZ"``・``"XZ"``・``"XY"``
-                (x⇔YZ、y⇔XZ、z⇔XY。文字の順序・大文字小文字は問わない)、または0/1/2。
-            pivot (Iterable[float]): 値と同じ単位の中心。方向には原点を使う。
+            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"``・``"XZ"``・``"XY"``、
+                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。
+            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。方向のベクトルには原点を使う。
 
         Returns:
-            Vector: 同型の新しい値。
+            Vector: 自身と同じ型の新しい値。
 
         Raises:
             TypeError: axisが文字列・int以外の場合。
@@ -933,11 +939,11 @@ class Vector(om2.MVector):
         return type(self)(values)
 
     def mirrorIt(self, axis="x", pivot=(0.0, 0.0, 0.0)):
-        """自身の3成分を反転する。
+        """自身の成分を反転する。
 
         Args:
-            axis (str | int): mirrorと同じ反転軸。
-            pivot (Iterable[float]): 値と同じ単位の中心。
+            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
+            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。
 
         Returns:
             Vector: 更新した自身。
@@ -946,17 +952,17 @@ class Vector(om2.MVector):
         return self
 
     def round(self, ndigits=None):
-        """各成分を小数点以下ndigits桁へ丸めた同型の複製を返す。
+        """各成分を小数点以下ndigits桁に丸めた、新しい値を返す。
 
-        各成分に組み込みの ``round`` を使う(端数がちょうど半分なら偶数側へ丸める)。
-        丸めた結果の -0.0 は 0.0 にそろえる。組み込みの ``round(value, ndigits)`` でも同じ結果になる。
+        各成分に組み込みの ``round`` を使う(端数がちょうど半分なら偶数の側へ丸める)。
+        丸めた結果の-0.0は0.0にそろえる。組み込みの ``round(value, ndigits)`` でも同じ結果になる。
 
         Args:
-            ndigits (int | None): 小数点以下の桁数。負の値は整数部を丸める。Noneは整数値へ丸める
+            ndigits (int | None): 小数点以下の桁数。負の値は整数部を丸める。Noneは整数の値へ丸める
                 (成分はfloatのまま)。
 
         Returns:
-            Vector: 同型の新しい値。
+            Vector: 自身と同じ型の新しい値。
 
         Raises:
             TypeError: ndigitsがint・None以外(boolを含む)の場合。
@@ -1015,44 +1021,44 @@ class Vector(om2.MVector):
         return _MVector.__mul__(self, self)
 
     def normal(self, *args):
-        """OpenMayaの規則で正規化したVectorの複製を返す。
+        """OpenMayaの規則で正規化した、新しいVectorを返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
             *args: OpenMayaの同名メソッドへ渡す位置引数。通常は指定しない。
 
         Returns:
-            Vector: 演算結果を保持する新しいmlib値。
+            Vector: 計算結果の新しい値。
         """
         return _vector_of(Vector, _MVector.normal(self, *args))
 
     def rotateBy(self, *args):
-        """OpenMayaの回転規則でXYZベクトルを回し、独立したVectorを返す。
+        """XYZのベクトルを、OpenMayaの規則で回転した新しいVectorを返す。
 
-        MVector.rotateBy()へ引数をそのまま渡し、自身や回転引数は変更しない。
-        Quaternionの事前正規化やゼロ拒否を独自に加えないため、
-        Quaternion.rotateVector()の正規化コピーによる回転とは入力条件が異なる。
+        引数はMVector.rotateBy()へそのまま渡す。自身と回転の引数は変更しない。
+        クォータニオンを先に正規化したり、0のクォータニオンを例外にしたりはしない。
+        そのため、正規化したコピーで回すQuaternion.rotateVector()とは、受け付ける入力の条件が違う。
 
         Args:
-            *args: Quaternion/EulerRotateなどの回転、またはOpenMayaの軸定数とrad角度。
-                多重定義の受理型はMVector.rotateBy()に従う。
+            *args: Quaternion・EulerRotateなどの回転、またはOpenMayaの軸の定数とラジアンの角度。
+                受け付ける型の組み合わせはMVector.rotateBy()に従う。
 
         Returns:
-            Vector: 基底Vectorの新しい値。派生型や追加Python状態は引き継がない。
+            Vector: 基底のVectorの新しい値。派生クラスの型と、派生クラスで足したPythonの状態は引き継がない。
         """
         return _vector_of(Vector, _MVector.rotateBy(self, *args))
 
     def rotateTo(self, *args):
-        """自身の方向から指定した方向へ向けるQuaternionを返す。
+        """自身の方向を、指定した方向へ向ける回転のQuaternionを返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
-            *args: 目標方向となるMVector系のtargetを指定する。
+            *args: 向けたい方向(target)をMVector系で指定する。
 
         Returns:
-            Quaternion: 演算結果を保持する新しいmlib値。
+            Quaternion: 計算結果の新しい値。
         """
         # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .quaternion import Quaternion
@@ -1060,26 +1066,28 @@ class Vector(om2.MVector):
         return Quaternion._wrap(_MVector.rotateTo(self, *args))
 
     def transformAsNormal(self, *args):
-        """マトリクスの逆転置で法線変換し、正規化したVectorの複製を返す。
+        """法線としてマトリクスで変換し、正規化した新しいVectorを返す。
 
-        自身や入力値は変更しない。引数・ゼロ値の扱いはOpenMayaに従う。
+        法線の変換には、マトリクスの逆転置を使う。自身と入力値は変更しない。引数と0の値の扱いはOpenMayaに従う。
 
         Args:
-            *args: 変換に使うMMatrix系のmatrixを指定する。
+            *args: 変換に使うマトリクス(matrix)をMMatrix系で指定する。
 
         Returns:
-            Vector: 演算結果を保持する新しいmlib値。
+            Vector: 計算結果の新しい値。
         """
         return _vector_of(Vector, _MVector.transformAsNormal(self, *args))
 
     def unitIt(self):
-        """ゼロ値を拒否して自身を正規化する。
+        """自身を正規化する。
+
+        0のベクトルは正規化できないので、例外にする。
 
         Returns:
             Vector: 更新した自身。
 
         Raises:
-            ValueError: ゼロ値の場合。自身は変更しない。
+            ValueError: 0のベクトルの場合。自身は変更しない。
         """
         value = self.unit()
         self.x, self.y, self.z = value
@@ -1088,18 +1096,18 @@ class Vector(om2.MVector):
     def unit(self):
         """正規化した新しいベクトルを返す。
 
-        om2 の ``normal()`` はゼロベクトルでも例外にならず ``om2.MVector`` を返すが、
-        このメソッドは mlib の Vector を返し、ゼロベクトルを拒否する。
+        om2の ``normal()`` は、0のベクトルでも例外にならず ``om2.MVector`` を返す。
+        このメソッドはmlibのVectorを返し、0のベクトルは例外にする。
 
         Returns:
-            Vector: 長さ 1 のベクトル。派生クラスの型は保持しない。
+            Vector: 長さ1のベクトル。派生クラスの型は保たない。
 
         Raises:
-            ValueError: ゼロベクトルの場合。
+            ValueError: 0のベクトルの場合。
         """
         length = self.length()
         if length == 0.0:
-            raise ValueError("Cannot normalize a zero vector")
+            raise ValueError("0のベクトルは正規化できません")
         result = _NEW(Vector)
         _INIT(result)
         _MVector.__iadd__(result, self)
@@ -1118,30 +1126,29 @@ class Vector(om2.MVector):
         return _MVector.__sub__(self, _resolve_mvector(other)).length()
 
     def angleTo(self, other):
-        """別のベクトルとの成す角度をラジアンで返す。
+        """別のベクトルとのなす角を、ラジアンで返す。
 
-        ``atan2(|a × b|, a · b)`` で計算するため、ほぼ平行・反平行な場合も精度を
-        保つ(om2 の ``angle()`` は約 1e-5 rad 未満の角度を 0 として返す)。
+        ``atan2(|a × b|, a · b)`` で計算するので、ほぼ平行・反平行の場合も精度が落ちない
+        (om2の ``angle()`` は、約1e-5ラジアン未満の角度を0として返す)。
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 角度を測る相手。
 
         Returns:
-            float: 0 から pi の範囲のラジアン角度。
+            float: 0からpiまでのラジアンの角度。
 
         Raises:
-            ValueError: 自身または other がゼロベクトルの場合。
+            ValueError: 自身またはotherが0のベクトルの場合。
         """
         other = _resolve_mvector(other)
         if _MVector.__mul__(self, self) == 0.0 or _MVector.__mul__(other, other) == 0.0:
-            raise ValueError("Cannot measure the angle to or from a zero vector")
+            raise ValueError("0のベクトルとの角度は測れません")
         return math.atan2(_MVector.__xor__(self, other).length(), _MVector.__mul__(self, other))
 
     def isEquivalent(self, other, tolerance=1e-10):
         """許容誤差付きでほぼ等しいか判定する。
 
-        om2 の ``isEquivalent`` に委譲するため、2点間のユークリッド距離が
-        tolerance 以下かどうかで判定する。
+        判定はom2の ``isEquivalent`` で行う。2点間の距離がtolerance以下ならTrueになる。
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 比較対象。
@@ -1157,10 +1164,10 @@ class Vector(om2.MVector):
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 補間先。
-            t (float): 補間係数。0 で自身、1 で other。範囲外は外挿になる。
+            t (float): 補間の割合。0で自身、1でotherになる。0〜1の外を指定すると、その先へ延長する。
 
         Returns:
-            Vector: 補間結果。派生クラスの型は保持しない。
+            Vector: 補間した結果。派生クラスの型は保たない。
         """
         result = _NEW(Vector)
         _INIT(result)
@@ -1185,7 +1192,7 @@ class Vector(om2.MVector):
         axis = _resolve_mvector(axis)
         length_sq = _MVector.__mul__(axis, axis)
         if length_sq == 0.0:
-            raise ValueError("Cannot project onto a zero vector")
+            raise ValueError("0のベクトルへは投影できません")
         result = _NEW(Vector)
         _INIT(result)
         _MVector.__iadd__(result, axis)
@@ -1195,7 +1202,7 @@ class Vector(om2.MVector):
     def orthogonal(self, axis):
         """指定した軸に直交する成分(軸の方向の成分を取り除いた値)を返す。
 
-        ポールベクター・アップベクターを主軸に直交させるときなどに使う(グラム・シュミットの1段)。
+        ポールベクターやアップベクターを、主軸に直交させるときなどに使う(グラム・シュミットの直交化の1段分)。
 
         Args:
             axis (om2.MVector | om2.MPoint | Iterable[float]): 直交させる軸。長さは問わない。
@@ -1257,17 +1264,18 @@ class Vector(om2.MVector):
         return _MVector.__mul__(self, self) <= limit * limit
 
     def abs(self):
-        """各成分を絶対値にした同型の複製を返す。
+        """各成分を絶対値にした、新しい値を返す。
 
-        組み込みの ``abs()`` (長さではない)と混同しないよう、``__abs__`` は定義しない。長さは :meth:`length`。
+        組み込みの ``abs()`` と混同しないよう、``__abs__`` は定義しない(``abs()`` で長さは求められない)。
+        長さは :meth:`length` で取得する。
 
         Returns:
-            Vector: 同型の新しい値。
+            Vector: 自身と同じ型の新しい値。
         """
         return type(self)([math.fabs(value) for value in self])
 
     def cotan(self, other):
-        """別のベクトルとの成す角のコタンジェント(``内積 / |外積|``)を返す。
+        """別のベクトルとのなす角の、コタンジェント(``内積 / |外積|``)を返す。
 
         メッシュのラプラシアン(コタンジェントの重み)などに使う。
 
@@ -1278,43 +1286,43 @@ class Vector(om2.MVector):
             float: コタンジェント。鋭角は正、鈍角は負。
 
         Raises:
-            ValueError: 自身または other がゼロベクトル、または2つが平行(角度が0かpi)な場合。
+            ValueError: 自身またはotherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
         """
         other = _resolve_mvector(other)
         if _MVector.__mul__(self, self) == 0.0 or _MVector.__mul__(other, other) == 0.0:
-            raise ValueError("Cannot compute the cotangent with a zero vector")
+            raise ValueError("0のベクトルではコタンジェントを計算できません")
         sine = _MVector.__xor__(self, other).length()
         if sine == 0.0:
-            raise ValueError("Cannot compute the cotangent of parallel vectors")
+            raise ValueError("平行なベクトルではコタンジェントを計算できません")
         return _MVector.__mul__(self, other) / sine
 
     def slerp(self, other, t, spin=0):
-        """別のベクトルへ向きを球面線形補間し、長さを線形補間したベクトルを返す。
+        """別のベクトルとの間を補間する。向きは球面線形補間、長さは線形補間にする。
 
-        2つのベクトルが張る平面の中で、自身の向きを other の向きへ角度 ``t`` の割合だけ回す
-        (回す角度は ``(成す角 + 2pi * spin) * t``)。長さは ``|自身| + (|other| - |自身|) * t``。
-        2つが平行・反平行で平面が決まらない場合は、自身に直交する軸(:meth:`orthogonal` で作る)の周りに回す。
+        2つのベクトルが作る平面の中で、自身の向きをotherの向きへ、角度のtの割合だけ回す
+        (回す角度は ``(なす角 + 2pi * spin) * t``)。長さは ``|自身| + (|other| - |自身|) * t`` になる。
+        2つが平行・反平行で平面が決まらないときは、自身の成分のうち絶対値が最も小さい座標軸と自身との外積を軸にして、その周りに回す。
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 補間先。
-            t (float): 補間係数。0 で自身、1 で other(spin=0 の場合)。範囲外は外挿になる。
-            spin (int): 追加で回る周回数。既定 0 は最短経路、-1 は逆回り(長い経路)。
+            t (float): 補間の割合。0で自身、1でother(spin=0の場合)になる。0〜1の外を指定すると、その先へ延長する。
+            spin (int): 余分に回る周の数。0は最短経路、-1は逆回り(長い経路)。既定は0。
 
         Returns:
-            Vector: 補間結果。派生クラスの型は保持しない。
+            Vector: 補間した結果。派生クラスの型は保たない。
 
         Raises:
-            TypeError: tが数値でない、またはspinが整数でない場合(boolを含む)。
-            ValueError: tが有限でない、または自身・otherがゼロベクトルの場合。
+            TypeError: tが数値でない場合、またはspinが整数でない場合(boolを含む)。
+            ValueError: tが有限でない場合、または自身・otherが0のベクトルの場合。
         """
         weight = _finite(t, "t")
         if isinstance(spin, bool) or not isinstance(spin, int):
-            raise TypeError("spin must be an int")
+            raise TypeError("spinはintで指定してください")
         other = _resolve_mvector(other)
         start_length = self.length()
         end_length = other.length()
         if start_length == 0.0 or end_length == 0.0:
-            raise ValueError("Cannot interpolate the direction of a zero vector")
+            raise ValueError("0のベクトルの方向は補間できません")
         start = _MVector.__truediv__(self, start_length)
         end = _MVector.__truediv__(other, end_length)
         axis = _MVector.__xor__(start, end)
@@ -1337,11 +1345,11 @@ class Vector(om2.MVector):
     def getClosestAxis(self, includeNegative=True):
         """ベクトルの向きに最も近い座標軸の名前を返す。
 
-        :meth:`Transform.getClosestAxisToVector <mlib.nodes.transform.Transform.getClosestAxisToVector>` の
-        値版で、候補の軸のうち内積が最大のものを選ぶ。同じ値なら x・y・z の順で先のものを選ぶ。
+        :meth:`Transform.getClosestAxisToVector <mlib.nodes.transform.Transform.getClosestAxisToVector>` を
+        値だけで行う版。候補の軸のうち、内積が最も大きいものを選ぶ。同じ値ならx・y・zの順で先のものを選ぶ。
 
         Args:
-            includeNegative (bool): Trueなら負の軸(``"-x"`` 等)も候補にする。Falseは ``"x"``・``"y"``・``"z"`` だけ。
+            includeNegative (bool): Trueなら負の軸(``"-x"`` など)も候補にする。Falseなら ``"x"``・``"y"``・``"z"`` だけ。
 
         Returns:
             str: ``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のいずれか。:meth:`fromAxis` へ渡せる。
@@ -1351,9 +1359,9 @@ class Vector(om2.MVector):
             ValueError: ゼロベクトルの場合。
         """
         if type(includeNegative) is not bool:
-            raise TypeError("includeNegative must be a bool")
+            raise TypeError("includeNegativeはboolで指定してください")
         if _MVector.__mul__(self, self) == 0.0:
-            raise ValueError("Cannot find the closest axis of a zero vector")
+            raise ValueError("0のベクトルに最も近い軸は求められません")
         best_name = None
         best_value = None
         for index, name in enumerate(("x", "y", "z")):
@@ -1367,30 +1375,31 @@ class Vector(om2.MVector):
         return best_name
 
     def getBarycentricWeights(self, *points):
-        """自身の位置を、2点(線分)または3点(三角形)の重心座標の重みに分解する。
+        """自身の位置を、2点(線分)または3点(三角形)の重心座標のウェイトに分ける。
 
-        重みの合計は1で、``points[0] * w0 + points[1] * w1 (+ points[2] * w2)`` が自身(線分では直線上、三角形
-        では平面上へ射影した位置)になる。範囲の外では負の重みになる。
+        ウェイトの合計は1になる。``points[0] * w0 + points[1] * w1 (+ points[2] * w2)`` が自身の位置になる。
+        ただし、線分では直線の上へ、三角形では平面の上へ射影した位置になる。
+        線分・三角形の範囲の外では、負のウェイトになる。
 
         Args:
             *points (om2.MVector | om2.MPoint | Iterable[float]): 2点または3点。
 
         Returns:
-            tuple[float, ...]: 点と同じ数の重み。
+            tuple[float, ...]: 点と同じ数のウェイト。
 
         Raises:
             TypeError: 点の数が2・3以外の場合。
             ValueError: 線分の長さが0、または三角形の面積が0(3点が一直線上)の場合。
         """
         if len(points) not in (2, 3):
-            raise TypeError(f"getBarycentricWeights expects 2 or 3 points, got {len(points)}")
+            raise TypeError(f"getBarycentricWeightsには点を2個か3個指定してください: {len(points)}個")
         vectors = [_resolve_mvector(point) for point in points]
         offset = _MVector.__sub__(self, vectors[0])
         if len(vectors) == 2:
             edge = _MVector.__sub__(vectors[1], vectors[0])
             length_sq = _MVector.__mul__(edge, edge)
             if length_sq == 0.0:
-                raise ValueError("Cannot compute weights on a zero-length segment")
+                raise ValueError("長さ0の線分ではウェイトを計算できません")
             weight = _MVector.__mul__(offset, edge) / length_sq
             return 1.0 - weight, weight
         first = _MVector.__sub__(vectors[1], vectors[0])
@@ -1398,7 +1407,7 @@ class Vector(om2.MVector):
         normal = _MVector.__xor__(first, second)
         area_sq = _MVector.__mul__(normal, normal)
         if area_sq == 0.0:
-            raise ValueError("Cannot compute weights on a degenerate triangle")
+            raise ValueError("縮退した三角形ではウェイトを計算できません")
         weight1 = _MVector.__mul__(_MVector.__xor__(offset, second), normal) / area_sq
         weight2 = _MVector.__mul__(_MVector.__xor__(first, offset), normal) / area_sq
         return 1.0 - weight1 - weight2, weight1, weight2

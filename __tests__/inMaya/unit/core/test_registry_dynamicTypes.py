@@ -198,7 +198,7 @@ class ModuleAttributeSpecTest(_DynamicTypeCase):
 
     def test_unknown_type_name_raises_attribute_error(self):
         """Maya が認識しない型名は AttributeError で、hasattr/getattr の既定値も使える。"""
-        with self.assertRaisesRegex(AttributeError, "unknown Maya node type 'mlibNoSuchTypeXYZ'"):
+        with self.assertRaisesRegex(AttributeError, "Mayaにないノード型'mlibNoSuchTypeXYZ'です"):
             mlib.nodes.MlibNoSuchTypeXYZ
         self.assertFalse(hasattr(mlib.nodes, "MlibNoSuchTypeXYZ"))
         self.assertIsNone(getattr(mlib.nodes, "MlibNoSuchTypeXYZ", None))

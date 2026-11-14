@@ -4,4 +4,4 @@ from .reflect import Reflect
 
 
 class PhongE(Reflect):
-    """Mayaの継承型に対応するPhongE。値と接続はPlugで操作する。"""
+    """MayaのphongEノードを扱うクラス。値の設定と接続はPlugで行う。"""

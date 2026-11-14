@@ -262,7 +262,7 @@ class BatchDeleteTest(unittest.TestCase):
                 names = self._make("l0", "l1", "l2")
                 cmds.lockNode(names[2], lock=True)
                 short = re.escape(names[2])
-                pattern = "Node is locked or referenced: " + short if fast else "Cannot delete locked node '" + short
+                pattern = "ノードがロックされているか、リファレンスです: " + short if fast else "ロックされたノード'" + short + "'は削除できません"
                 with self.assertRaisesRegex(RuntimeError, pattern):
                     mlib.delete(names, fast=fast)
                 self.assertEqual([cmds.objExists(name) for name in names], [True] * 3)
@@ -271,9 +271,9 @@ class BatchDeleteTest(unittest.TestCase):
                 child = cmds.createNode("transform", name=self.ns + ":lc", parent=parent)
                 cmds.lockNode(child, lock=True)
                 pattern = (
-                    "Node is locked or referenced: " + re.escape(child)
+                    "ノードがロックされているか、リファレンスです: " + re.escape(child)
                     if fast
-                    else "Cannot delete '" + re.escape(parent) + "' as it has locked or read-only children"
+                    else "'" + re.escape(parent) + "'は削除できません。ロックされた子か、読み取り専用の子があります"
                 )
                 with self.assertRaisesRegex(RuntimeError, pattern):
                     mlib.delete(names + [parent], fast=fast)
@@ -290,13 +290,13 @@ class BatchDeleteTest(unittest.TestCase):
         for fast in (False, True):
             for target in ("time1", "persp", "defaultLayer", "lambert1", "perspShape"):
                 with self.subTest(fast=fast, target=target):
-                    with self.assertRaisesRegex(RuntimeError, "Non-deletable node '" + target + "'"):
+                    with self.assertRaisesRegex(RuntimeError, "削除できないノードです: '" + target + "'"):
                         mlib.delete(others + [target], fast=fast)
-                    with self.assertRaisesRegex(RuntimeError, "Non-deletable node"):
+                    with self.assertRaisesRegex(RuntimeError, "削除できないノードです"):
                         mlib.getNode(target).delete(fast=fast)
                     self.assertTrue(all(cmds.objExists(name) for name in others + [target]))
             with self.subTest(fast=fast, target="d*"):
-                with self.assertRaisesRegex(RuntimeError, "Non-deletable node"):
+                with self.assertRaisesRegex(RuntimeError, "削除できないノードです"):
                     mlib.delete("d*", fast=fast)
                 self.assertTrue(cmds.objExists("defaultLayer"))
         # 削除できないノードを子に持つ親も、何も削除しない。
@@ -304,7 +304,7 @@ class BatchDeleteTest(unittest.TestCase):
         cmds.parent("persp", group)
         for fast in (False, True):
             with self.subTest(fast=fast, target="undeletable child"):
-                with self.assertRaisesRegex(RuntimeError, "Non-deletable node 'persp'"):
+                with self.assertRaisesRegex(RuntimeError, "削除できないノードです: 'persp'"):
                     mlib.delete(others + [group], fast=fast)
                 self.assertTrue(all(cmds.objExists(name) for name in others + [group]))
 
@@ -332,7 +332,7 @@ class BatchDeleteTest(unittest.TestCase):
             for fast in (False, True):
                 with self.subTest(fast=fast):
                     # 通常・fastとも参照ノードであることと参照元を示す。
-                    pattern = "it is a referenced node from reference '" + self.ns + "_refRN'"
+                    pattern = "リファレンスのノードです\\(リファレンス: '" + self.ns + "_refRN'\\)"
                     with self.assertRaisesRegex(RuntimeError, pattern):
                         mlib.delete([local, ref_node], fast=fast)
                     self.assertTrue(cmds.objExists(local) and cmds.objExists(ref_node))
@@ -442,7 +442,7 @@ class DeleteSpecTest(_CmdsCase):
         for value in ([attribute_owner + ".tx", other], [other, cube + ".f[0]", attribute_owner + ".worldMatrix[0]"], attribute_owner + ".translate"):
             for fast in (False, True):
                 with self.subTest(value=value, fast=fast):
-                    with self.assertRaisesRegex(TypeError, "Attribute names are not accepted"):
+                    with self.assertRaisesRegex(TypeError, "アトリビュート名は指定できません"):
                         mlib.delete(value, fast=fast)
                     self.assertTrue(cmds.objExists(attribute_owner))
                     self.assertTrue(cmds.objExists(other))

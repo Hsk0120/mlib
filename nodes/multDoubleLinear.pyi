@@ -10,15 +10,21 @@ from mlib.plugs.plug import Plug
 class MultDoubleLinear(Node):
     """距離型の2入力を乗算する。
 
-    Maya 2026で ``multDoubleLinear`` は ``multDL`` へ改名された。mlibはどの版でも両方の型名を
-    受け付け(``createNode``・``ls(type=)``・``isType``)、どちらの型のノードもこのクラスで扱う。
-    ``getType()`` はその版の実際の型名を返す。``MultDL`` は同じクラスの別名。
+    Maya 2026で ``multDoubleLinear`` は ``multDL`` へ名前が変わった。mlibはどの版でも、
+    両方の型名を受け付ける(``createNode``・``ls(type=)``・``isType``)。どちらの型のノードも
+    このクラスで扱う。``getType()`` は、その版での実際の型名を返す。
+    ``MultDL`` は同じクラスの別名。
     """
     def setInput(self, input1: float | Plug | str | None = ..., input2: float | Plug | str | None = ...) -> MultDoubleLinear:
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             input1 (float | Plug | str | None): 1つ目の値。

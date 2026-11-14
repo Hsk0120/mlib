@@ -33,9 +33,9 @@ def main(output_dir, finished):
     result = {"status": "error", "suite": "unit"}
     try:
         if cmds.about(batch=True):
-            raise RuntimeError("Run this suite in an interactive Maya GUI")
+            raise RuntimeError("このスイートは対話的なMayaのGUIで実行してください")
         if os.environ.get(DISPOSABLE_FLAG) != "1":
-            raise RuntimeError("This suite resets the scene; run it only through runGui.py")
+            raise RuntimeError("このスイートはシーンを初期化します。runGui.py からだけ実行してください")
         sys.path.insert(0, str(ROOT.parent))
         sys.path.insert(0, str(TESTS_DIR))
         sys.path.insert(0, str(ROOT / "_tools"))

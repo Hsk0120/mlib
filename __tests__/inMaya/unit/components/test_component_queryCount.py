@@ -51,7 +51,7 @@ class ComponentRefactoringTest(unittest.TestCase):
             with self.assertRaisesRegex(IndexError, "-1"):
                 Vertices(self.mesh, [-1, 100])
             query.assert_not_called()
-            with self.assertRaisesRegex(TypeError, "not bool"):
+            with self.assertRaisesRegex(TypeError, "boolは指定できません"):
                 Vertices(self.mesh, [True, 0])
             query.assert_not_called()
         events = []

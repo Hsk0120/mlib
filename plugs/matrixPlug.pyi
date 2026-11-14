@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""マトリクスアトリビュートの値を読み書きする。ノードの変換はTransformで扱う。"""
+"""マトリクスのアトリビュートの値を読み書きする。ノードの移動・回転などはTransformで扱う。"""
 
 import maya.api.OpenMaya as om2
 from ..core.attributeType import _plain_angle_unit, _plain_time_unit, typed_data
@@ -12,43 +12,46 @@ from typing import Any, Sequence
 
 
 class MatrixPlug(Plug):
-    """matrixアトリビュート用のPlug。対象アトリビュートの値だけを扱う。"""
+    """matrix型のアトリビュートを扱うPlug。そのアトリビュートの値だけを扱う。"""
     def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Matrix | None:
-        """対象アトリビュートのマトリクス値を取得する。
+        """アトリビュートのマトリクスの値を取得する。
 
         Args:
-            unit (str | None): Plug共通の角度の単位指定。検証だけ行い、マトリクス成分は換算しない。
-            timeUnit (str | None): Plug共通の時間の単位指定。検証だけ行う。
-            uiUnits (bool): Plug共通の単位指定。マトリクス成分の単位変換は行わない。
+            unit (str | None): Plug共通の角度の単位の指定。正しい指定か確かめるだけで、マトリクスの成分は換算しない。
+            timeUnit (str | None): Plug共通の時間の単位の指定。正しい指定か確かめるだけ。
+            uiUnits (bool): Plug共通の単位の指定。マトリクスの成分の単位は変換しない。
 
         Returns:
-            Matrix | None: 対象アトリビュートのマトリクスの複製。uiUnitsにかかわらず内部単位を維持する。
+            Matrix | None: アトリビュートのマトリクスのコピー。uiUnitsにかかわらず、内部単位のまま返す。
                 値を一度も設定していない ``dataType="matrix"`` (型付きデータ)はNone。
-                ``attributeType="matrix"`` は未設定でも既定の単位マトリクスを返す。
+                ``attributeType="matrix"`` は、未設定でも既定の単位マトリクスを返す。
 
         Raises:
-            TypeError: uiUnitsがbool以外、またはunit・timeUnitが文字列・None以外の場合。
-            ValueError: unit・timeUnitが未対応の単位名、またはuiUnits=Trueと同時に指定した場合。
-            RuntimeError: 所有ノードまたはアトリビュートが無効、または値を読み取れない場合。
+            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
+            ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合、または値を読み取れない場合。
         """
         ...
     def _set_value(self, value: Matrix | om2.MMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ...) -> None:
-        """マトリクスアトリビュートへ直接設定する。TransformのTRSは操作しない。
+        """マトリクスのアトリビュートへ値を直接設定する。
 
-        骨格は :meth:`Plug.set`。worldMatrixは計算出力のため拒否する。ロック解除・入力切断は行わない。
-        safe=Trueの失敗は成分別に再試行せず1を返す。
+        Transformの移動・回転・スケールは操作しない。全体の流れは :meth:`Plug.set` が受け持つ。
+
+        - worldMatrixは計算で求まる出力なので、設定を拒否する。
+        - ロックの解除や入力の接続の切断はしない。
+        - safe=Trueで失敗したときは、成分ごとに再試行せず1を返す。
 
         Args:
-            value (Matrix | om2.MMatrix | sequence): Matrix(value)で変換するマトリクス値。
-            uiUnits (bool): 共通フラグとして受理するが、マトリクス成分は換算しない。
+            value (Matrix | om2.MMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
+            uiUnits (bool): Plug共通のフラグとして受け付けるが、マトリクスの成分は換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: worldMatrixや不正なUI指定・入力型の場合。
-            ValueError: マトリクス値を変換できない場合。
-            RuntimeError: 参照が無効、またはMayaが書込みを拒否した場合。
+            TypeError: worldMatrixに設定しようとした場合、またはuiUnitsや値の型が不正な場合。
+            ValueError: 値をマトリクスへ変換できない場合。
+            RuntimeError: アトリビュートが無効な場合、またはMayaが書き込みを拒否した場合。
         """
         ...

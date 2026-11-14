@@ -58,7 +58,7 @@ class IkHandleTest(_SpecCase):
     def test_deleted_handle(self):
         """削除済みのハンドルの getJoints は RuntimeError。"""
         cmds.delete(self.handle)
-        with self.assertRaisesRegex(RuntimeError, r"invalid IkHandle"):
+        with self.assertRaisesRegex(RuntimeError, "無効なIkHandleのため"):
             self.node.getJoints()
 
 

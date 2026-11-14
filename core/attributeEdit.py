@@ -1,4 +1,4 @@
-"""動的アトリビュートをシーン変更前に組み立て、OpenMayaで追加する。"""
+"""動的アトリビュートを、シーンを変える前に組み立てて、OpenMayaで追加する。"""
 
 import maya.api.OpenMaya as om2
 
@@ -64,32 +64,34 @@ _DEFINITION_FLAGS = {
 
 
 def _build(flags, children=None):
-    """未登録のアトリビュート定義を作る。失敗してもシーンは変えない。
+    """まだノードに追加していない、アトリビュートの定義を作る。
+
+    失敗してもシーンは変えない。
 
     Args:
-        flags (dict): 正規化済みのaddAttrフラグ。
-        children (list[MObject] | None): 先に構築した子定義。
+        flags (dict): 形を整えてあるaddAttrのフラグ。
+        children (list[MObject] | None): 先に作った子の定義。
 
     Returns:
-        MObject: 新しいアトリビュート定義。
+        MObject: 新しいアトリビュートの定義。
 
     Raises:
-        ValueError: longName・shortNameのどちらも無い場合。
-        NotImplementedError: fastで扱えないフラグ・型の場合。
+        ValueError: longNameとshortNameのどちらも無い場合。
+        NotImplementedError: fastで扱えないフラグや型の場合。
     """
     unsupported = set(flags) - _DEFINITION_FLAGS
     if unsupported:
-        raise NotImplementedError(f"fast addAttr does not support flags: {', '.join(sorted(unsupported))}")
+        raise NotImplementedError(f"fastのaddAttrは次のフラグに対応していません: {', '.join(sorted(unsupported))}")
     name = flags.get("longName") or flags.get("shortName")
     short = flags.get("shortName") or name
     if not isinstance(name, str) or not name:
-        raise ValueError("Expected longName or shortName")
+        raise ValueError("longNameかshortNameを指定してください")
     kind = flags.get("attributeType", "double")
     default = flags.get("defaultValue", 0)
     if flags.get("dataType"):
         kind = flags["dataType"]
         if kind not in _DATA_TYPES:
-            raise NotImplementedError(f"fast addAttr does not support dataType: {kind}")
+            raise NotImplementedError(f"fastのaddAttrは次のdataTypeに対応していません: {kind}")
         fn = om2.MFnTypedAttribute()
         obj = fn.create(name, short, _DATA_TYPES[kind])
     elif kind in _NUMERIC_TYPES:
@@ -97,7 +99,7 @@ def _build(flags, children=None):
         obj = fn.create(name, short, _NUMERIC_TYPES[kind], default)
     elif children and kind.startswith(("double", "float", "long", "short")):
         if len(children) not in (2, 3):
-            raise NotImplementedError("fast numeric compound attributes support two or three children")
+            raise NotImplementedError("fastの数値コンパウンドアトリビュートは、子が2つか3つの場合だけに対応しています")
         fn = om2.MFnNumericAttribute()
         obj = fn.create(name, short, *children)
     elif kind in ("doubleAngle", "doubleLinear", "time"):
@@ -129,7 +131,7 @@ def _build(flags, children=None):
         for child in children or []:
             fn.addChild(child)
     else:
-        raise NotImplementedError(f"fast addAttr does not support attributeType: {kind}")
+        raise NotImplementedError(f"fastのaddAttrは次のattributeTypeに対応していません: {kind}")
     base = om2.MFnAttribute(obj)
     for flag, property_name in _PROPERTIES.items():
         if flag in flags:
@@ -154,47 +156,47 @@ def _build(flags, children=None):
 
 
 def _attach(node, attribute):
-    """構築済み定義をノードへ一回で追加する。
+    """作ってあるアトリビュートの定義を、ノードへ1回で追加する。
 
     Args:
-        node (Node): 追加先。
-        attribute (MObject): シーン未登録のアトリビュート定義。
+        node (Node): 追加先のノード。
+        attribute (MObject): まだシーンに追加していないアトリビュートの定義。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        RuntimeError: ノードがロック・参照されている、または同名のアトリビュートがある場合。
+        RuntimeError: ノードがロックされているかリファレンスされている場合、または同じ名前のアトリビュートがある場合。
     """
     require_editable(node.mnode())
     fn = om2.MFnDependencyNode(node.mnode())
     name = om2.MFnAttribute(attribute).name
     if fn.hasAttribute(name):
-        raise RuntimeError(f"Attribute already exists: {name}")
+        raise RuntimeError(f"アトリビュートはすでに存在します: {name}")
     modifier = om2.MDGModifier()
     modifier.addAttribute(node.mnode(), attribute)
     modifier.doIt()
 
 
 def extra_children(name, flags, numeric, count, *, deferred, child_names, child_short_names, child_suffixes, sub_type):
-    """自動生成する子の名前・成分数を、親追加より前に検証する。
+    """自動で作る子の名前と成分の数を、親を追加する前に確かめる。
 
     Args:
-        name (str): 親の長名。
-        flags (dict): 親の正規化済みフラグ。変更しない。
-        numeric (Match | None): 数値のコンパウンドアトリビュートの一致結果。
-        count (int): 子数。
-        deferred (object): 子へ配る既定値。
-        child_names (Sequence[str] | None): 子の長名。
-        child_short_names (Sequence[str] | None): 子の短名。
-        child_suffixes (Sequence[str] | None): 自動生成名の接尾辞。
-        sub_type (str | None): 子の共通型。
+        name (str): 親のロング名。
+        flags (dict): 親の、形を整えてあるフラグ。変更しない。
+        numeric (Match | None): 数値のコンパウンドアトリビュートの型名に一致した結果。
+        count (int): 子の数。
+        deferred (object): 子へ割り振る既定値。
+        child_names (Sequence[str] | None): 子のロング名。
+        child_short_names (Sequence[str] | None): 子のショート名。
+        child_suffixes (Sequence[str] | None): 自動で作る名前の末尾に付ける文字。
+        sub_type (str | None): 子に共通の型。
 
     Returns:
-        list[tuple[str, str, dict]]: 長名・型・公開addAttrへ渡すフラグ。
+        list[tuple[str, str, dict]]: 子ごとの(ロング名, 型, 公開のaddAttrへ渡すフラグ)。
 
     Raises:
-        ValueError: 子の名前・既定値・範囲の個数が子数と異なる場合。
+        ValueError: 子の名前・既定値・範囲の数が、子の数と違う場合。
     """
     if not count:
         return []
@@ -202,11 +204,11 @@ def extra_children(name, flags, numeric, count, *, deferred, child_names, child_
     names = list(child_names or [name + suffix for suffix in suffixes])
     shorts = list(child_short_names or [])
     if len(names) != count or (shorts and len(shorts) != count):
-        raise ValueError("Child name count does not match its type")
+        raise ValueError("子の名前の数が型と合っていません")
     limits = {key: flags[key] for key in ("minValue", "maxValue", "softMinValue", "softMaxValue") if key in flags}
     for value in list(limits.values()) + [deferred]:
         if isinstance(value, (tuple, list)) and len(value) != count:
-            raise ValueError("Child value count does not match its type")
+            raise ValueError("子の値の数が型と合っていません")
     children = []
     for index, child_name in enumerate(names):
         child_flags = {"parent": name, "keyable": bool(flags.get("keyable", False))}
@@ -221,25 +223,27 @@ def extra_children(name, flags, numeric, count, *, deferred, child_names, child_
 
 
 def validate_extra_attribute(node, name, flags, count, deferred, children, *, validate_defaults=True):
-    """名前の衝突と検証可能なtyped既定値を、シーン変更前に拒否する。
+    """シーンを変える前に、追加できないアトリビュートを見つけて例外にする。
+
+    名前の重なりと、前もって確かめられる既定値(typedの既定値など)を調べる。
 
     Args:
-        node (Node): 追加先。
-        name (str): 親の長名。
-        flags (dict): 親の正規化済みフラグ。
-        count (int): 子数。
-        deferred (object): 作成後に設定する既定値。
-        children (list[tuple[str, str, dict]]): 検証済みの子の作成入力。
-        validate_defaults (bool): 通常経路の既定値も登録前に検証するか。
-            fast経路では未登録の親子定義の構築時に検証するためFalse。
+        node (Node): 追加先のノード。
+        name (str): 親のロング名。
+        flags (dict): 親の、形を整えてあるフラグ。
+        count (int): 子の数。
+        deferred (object): 作った後に設定する既定値。
+        children (list[tuple[str, str, dict]]): 確かめてある、子を作るための入力。
+        validate_defaults (bool): Trueなら、fastでないときの既定値も追加する前に確かめる。既定はTrue。
+            fastのときは、まだ追加していない親子の定義を作るときに確かめるのでFalseにする。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: マルチアトリビュートへ既定値を直接設定しようとした場合。
-        ValueError: 名前が空文字列または文字列以外の場合。
-        RuntimeError: 同名のアトリビュートがある、または書込み禁止の定義へ既定値を渡した場合。
+        TypeError: マルチアトリビュートへ直接、既定値を設定しようとした場合。
+        ValueError: 名前が空文字列の場合、または文字列でない場合。
+        RuntimeError: 同じ名前のアトリビュートがある場合、または書き込めない定義へ既定値を渡した場合。
     """
     names = [(name, flags.get("shortName") or name)]
     names.extend((child, options.get("shortName") or child) for child, _, options in children)
@@ -248,9 +252,9 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
     for long_name, short_name in names:
         for candidate in {long_name, short_name}:
             if not isinstance(candidate, str) or not candidate:
-                raise ValueError("Attribute names must be non-empty strings")
+                raise ValueError("アトリビュート名は空でない文字列で指定してください")
             if candidate in used or fn.hasAttribute(candidate):
-                raise RuntimeError(f"Attribute already exists: {candidate}")
+                raise RuntimeError(f"アトリビュートはすでに存在します: {candidate}")
         used.update((long_name, short_name))
     if not validate_defaults:
         return
@@ -264,9 +268,9 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
     if deferred is None or count:
         return
     if flags.get("multi"):
-        raise TypeError("Set a multi element instead of the multi attribute")
+        raise TypeError("マルチアトリビュート全体ではなく、マルチアトリビュートの要素へ設定してください")
     if not flags.get("writable", True):
-        raise RuntimeError(f"Attribute is not writable: {name}")
+        raise RuntimeError(f"アトリビュートは書き込めません: {name}")
     # 通常経路で扱える型までfast専用の対応範囲へ狭めない。
     # factoryを持つ型だけ登録前に値を検査し、それ以外は既存のMaya処理へ渡す。
     data_type = flags.get("dataType")
@@ -284,26 +288,26 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
 
 
 def create_extra_attribute(node, name, flags, numeric, count, *, deferred, child_names, child_short_names, child_suffixes, sub_type):
-    """Node.addAttrの親子定義を登録前に全て作る。
+    """Node.addAttrで追加する親と子の定義を、追加する前にすべて作ってから追加する。
 
     Args:
-        node (Node): 追加先。
-        name (str): 親名。
-        flags (dict): 親フラグ。
-        numeric (Match | None): 数値のコンパウンドアトリビュートの一致結果。
-        count (int): 子数。
+        node (Node): 追加先のノード。
+        name (str): 親の名前。
+        flags (dict): 親のフラグ。
+        numeric (Match | None): 数値のコンパウンドアトリビュートの型名に一致した結果。
+        count (int): 子の数。
         deferred (object): 子の既定値。
-        child_names (Sequence[str] | None): 子の長名。
-        child_short_names (Sequence[str] | None): 子の短名。
-        child_suffixes (Sequence[str] | None): 子名の接尾辞。
+        child_names (Sequence[str] | None): 子のロング名。
+        child_short_names (Sequence[str] | None): 子のショート名。
+        child_suffixes (Sequence[str] | None): 子の名前の末尾に付ける文字。
         sub_type (str | None): 子の型。
 
     Returns:
-        tuple | None: 型付き既定値の検証済み書込み計画。データownerを含む。
+        tuple | None: typedの既定値を書き込む計画。確かめてあり、データを持つオブジェクトも含む。無ければNone。
 
     Raises:
-        TypeError: マルチアトリビュート自体へ既定値を指定した場合、または文字列型へ文字列以外を渡した場合。
-        ValueError: 子の名前・既定値・範囲の個数が子数と異なる場合。
+        TypeError: マルチアトリビュートそのものへ既定値を指定した場合、または文字列型へ文字列でない値を渡した場合。
+        ValueError: 子の名前・既定値・範囲の数が、子の数と違う場合。
         RuntimeError: 書き込めないアトリビュートへ既定値を指定した場合。
         NotImplementedError: 既定値をfastで構築できない型の場合。
     """
@@ -336,9 +340,9 @@ def create_extra_attribute(node, name, flags, numeric, count, *, deferred, child
 
         definition = om2.MFnAttribute(attribute)
         if definition.array:
-            raise TypeError("Set a multi element instead of the multi attribute")
+            raise TypeError("マルチアトリビュート全体ではなく、マルチアトリビュートの要素へ設定してください")
         if not definition.writable:
-            raise RuntimeError(f"Attribute is not writable: {name}")
+            raise RuntimeError(f"アトリビュートは書き込めません: {name}")
         if (
             attribute.hasFn(om2.MFn.kMatrixAttribute)
             or attribute.hasFn(om2.MFn.kTypedAttribute)

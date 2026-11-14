@@ -6,12 +6,11 @@ from .vector import Vector
 
 
 class Translate(Vector):
-    """位置・平行移動を表す意味付きの3成分ベクトル(om2.MVector の派生)。
+    """位置・平行移動を表す、3成分のベクトル(om2.MVectorの派生)。
 
-    値・演算・比較はすべて :class:`~mlib.maths.vector.Vector` と同じ。
-    om2 の MVector を継承するため、``MFnTransform.setTranslation`` などへ
-    そのまま渡せる。位置をマトリクスで変換するときは
-    :meth:`mlib.maths.matrix.Matrix.transformPoint` か ``om2.MPoint(t) * m`` を使う
-    (``t * m`` は平行移動を含まない方向の変換になる)。
+    値・演算・比較は、すべて :class:`~mlib.maths.vector.Vector` と同じ。
+    om2のMVectorを継承しているので、``MFnTransform.setTranslation`` などへそのまま渡せる。
+    位置をマトリクスで変換するときは、:meth:`mlib.maths.matrix.Matrix.transformPoint` か
+    ``om2.MPoint(t) * m`` を使う(``t * m`` は平行移動を含まない、方向の変換になる)。
     """
     __slots__: tuple

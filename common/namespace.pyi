@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Maya の名前空間の参照・作成・移動・削除を提供する。"""
+"""Maya の名前空間を取得・作成・移動・削除する。"""
 
 from contextlib import contextmanager
 import maya.api.OpenMaya as om2
@@ -13,107 +13,108 @@ import types
 
 
 class Namespace:
-    """Maya namespaceを表すシーンエンティティ。"""
+    """Mayaの名前空間(namespace)を表すオブジェクト。"""
     def __init__(self, name: str | Namespace = ...) -> None:
-        """Namespace名を正規化してラッパーを初期化する。
+        """名前空間の名前を決まった形に揃えて、オブジェクトを作る。
 
-        名前を保持するだけで、シーン内の名前空間を作成・存在確認しない。
+        名前を持つだけで、シーンに名前空間を作ったり、存在するかを確かめたりはしない。
 
         Args:
-            name (str | Namespace): 名前空間名または既存ラッパー。既定の : はルート。
+            name (str | Namespace): 名前空間の名前、または既存のオブジェクト。既定の : はルート。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 文字列・Namespace 以外の場合。
+            TypeError: 文字列でもNamespaceでもない場合。
             ValueError: 空文字列の場合。
         """
         ...
     def __repr__(self) -> str:
-        """Namespaceのデバッグ表現を返す。
+        """デバッグ用の表示を返す。
 
         Returns:
-            str: Namespace と保持名を含む文字列表現。
+            str: Namespace と、持っている名前を含む文字列。
         """
         ...
     def __str__(self) -> str:
-        """Namespaceの絶対名を返す。
+        """名前空間の絶対名を返す。
 
         Returns:
-            str: 正規化済みの保持名。存在確認はしない。
+            str: 揃えた形の、持っている名前。存在するかは確かめない。
         """
         ...
     def __eq__(self, other: object) -> bool | types.NotImplementedType:
-        """Namespace名を基準に同一性を判定する。
+        """名前空間の名前で、同じものか判定する。
 
         Args:
-            other (object): 比較対象。
+            other (object): 比べる相手。
 
         Returns:
-            bool | types.NotImplementedType: Namespace 同士は保持名を比較する。異なる型では NotImplemented。
+            bool | types.NotImplementedType: Namespace どうしなら、持っている名前を比べる。型が違えば NotImplemented。
         """
         ...
     def __hash__(self) -> int:
-        """Namespace名を使ったハッシュ値を返す。
+        """名前空間の名前からハッシュ値を返す。
 
         Returns:
-            int: 現在の保持名のハッシュ。rename/move により変化するため、集合や辞書キーとして保持中の名前変更は避ける。
+            int: 今持っている名前のハッシュ。rename/move で変わるため、集合や辞書のキーに入れている間は
+                名前を変えないこと。
         """
         ...
     @classmethod
     def getCurrent(cls) -> Namespace:
-        """カレントNamespaceを取得する。
+        """カレントの名前空間を取得する。
 
         Returns:
-            Namespace: 現在のカレントNamespace。
+            Namespace: 今のカレントの名前空間。
         """
         ...
     @classmethod
     def create(cls, name: str | Namespace, parent: str | Namespace = ...) -> Namespace:
-        """指定先の名前空間を作成する。既存なら作成せず参照を返す。
+        """指定した名前空間を作る。すでにあれば作らず、そのオブジェクトを返す。
 
-        カレントNamespaceは変更しない。/は:と同じ区切りとして扱う。
-        cmds.namespaceでUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        カレントの名前空間は変えない。/ は : と同じ区切りとして扱う。
+        cmds.namespaceを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            name (str | Namespace): 相対名はparent配下、絶対名とNamespace参照はparentを無視する。
-                多段名も指定できる。
-            parent (str | Namespace): 作成先の親。相対文字列はカレントから解決する。
-                既定はルート(:)。存在しない親も再帰的に作成する。
+            name (str | Namespace): 作る名前空間。相対名ならparentの下に作る。
+                絶対名とNamespaceのオブジェクトでは、parentを無視する。何階層もある名前も指定できる。
+            parent (str | Namespace): 作る場所の親。相対名の文字列は、カレントから数える。
+                既定はルート(:)。存在しない親も、上から順に作る。
 
         Returns:
-            Namespace: 新規・既存の作成先の完全名を保持するラッパー。
+            Namespace: 作った(またはすでにあった)名前空間の完全名を持つオブジェクト。
 
         Raises:
-            ValueError: nameまたはparentが不正な場合。
+            ValueError: nameまたはparentが正しくない場合。
             RuntimeError: Mayaが作成を拒否した場合。
 
         Note:
-            不正文字(``-``・空白・先頭の数字・``#`` 等)はMayaの規則で置き換え、
-            置き換え後の名前が既存なら末尾に番号を付ける。戻り値はMayaが実際に作った名前。
+            使えない文字(``-``・空白・先頭の数字・``#`` など)は、Mayaの規則で置き換える。
+            置き換えた名前がすでにあれば、末尾に番号を付ける。戻り値はMayaが実際に作った名前になる。
         """
         ...
     @property
     def name(self) -> str:
-        """正規化済みの絶対Namespace名を返す。
+        """揃えた形の、名前空間の絶対名を返す。
 
         Returns:
-            str: 先頭が : の保持名。
+            str: 先頭が : の、持っている名前。
         """
         ...
     def exists(self) -> bool:
-        """NamespaceがMayaシーンに存在するか判定する。
+        """名前空間がシーンに存在するか調べる。
 
         Returns:
-            bool: 保持名の名前空間が現在のシーンに存在すれば True。
+            bool: 持っている名前の名前空間が、今のシーンにあれば True。
         """
         ...
     def getParent(self) -> Namespace | None:
-        """親Namespaceを返す。root namespaceの親は ``None``。
+        """親の名前空間を返す。ルートの親は ``None``。
 
         Returns:
-            Namespace | None: 名前から求めた親。ルート自身では None。親の存在は確認しない。
+            Namespace | None: 名前から求めた親。ルートでは None。親が存在するかは確かめない。
         """
         ...
     def getShortName(self) -> str:
@@ -127,52 +128,54 @@ class Namespace:
         """階層ごとの名前のリスト(``:a:b`` なら ``["a", "b"]``)を返す。
 
         Returns:
-            list[str]: 上位から順の階層名。ルートでは空リスト。
+            list[str]: 上の階層から順に並べた名前。ルートでは空リスト。
         """
         ...
     def getChildren(self, recurse: bool = ...) -> list[Namespace]:
-        """子Namespaceを取得する。
+        """子の名前空間を取得する。
 
         Args:
-            recurse (bool): ``True`` の場合は孫以下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
+            recurse (bool): Trueなら、孫より下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
 
         Returns:
-            list[Namespace]: 子(recurse=Trueは子孫)。自身が存在しない場合は空リスト。
+            list[Namespace]: 子(recurse=Trueなら子孫)。自身が存在しない場合は空リスト。
 
         Raises:
-            TypeError: recurse が bool 以外の場合。
+            TypeError: recurse が bool でない場合。
         """
         ...
     def getNodes(self, recurse: bool = ...) -> list[Node]:
-        """Namespace内のNodeをmlib wrapperとして返す。
+        """名前空間の中のノードを、mlibのオブジェクトとして返す。
 
         Args:
-            recurse (bool): ``True`` の場合は子Namespace内も含める。
+            recurse (bool): Trueなら、子の名前空間の中のノードも含める。
 
         Returns:
-            list[Node]: 名前空間内のノードラッパー。自身が存在しない場合は空リスト。
+            list[Node]: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空リスト。
         """
         ...
     def getNode(self, name: str) -> Node:
-        """名前空間を付けた名前でノードを取得する(``Namespace(":char").getNode("root")`` は ``char:root``)。
+        """名前空間を付けた名前で、ノードを取得する。
+
+        例えば ``Namespace(":char").getNode("root")`` は ``char:root`` を取得する。
 
         Args:
-            name (str): 名前空間を除いたノード名。DAGパスは各階層に名前空間が要るため、
-                ``"grp|char:child"`` のように2階層目以降は名前空間を付けて渡す。
+            name (str): 名前空間を除いたノード名。DAGパスでは階層ごとに名前空間が要るため、
+                ``"grp|char:child"`` のように、2階層目からは名前空間を付けて渡す。
 
         Returns:
-            Node: 実際のノード型に対応するラッパー。
+            Node: 実際のノード型に合ったオブジェクト。
 
         Raises:
-            TypeError: name が文字列以外の場合。
+            TypeError: name が文字列でない場合。
             ValueError: name が空文字列の場合。
-            RuntimeError: ノードが存在しない、または一意でない場合。
+            RuntimeError: ノードが存在しない場合、または1つに決まらない場合。
         """
         ...
     def setCurrent(self) -> Namespace:
-        """カレントNamespaceを自身へ切り替える。
+        """カレントの名前空間を、この名前空間に切り替える。
 
-        cmdsでUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Returns:
             Namespace: 自身。
@@ -182,109 +185,115 @@ class Namespace:
         """
         ...
     def asCurrent(self) -> GeneratorContextManager[Namespace]:
-        """カレントNamespaceを自身へ一時的に切り替える。
+        """カレントの名前空間を、一時的にこの名前空間に切り替える。
 
-        終了時は例外の有無によらず復元を試みる。元の名前空間が削除済みなら復元しない。
-        復元処理の失敗は送出され、ブロック内の例外を置き換え得る。
+        抜けるときは、例外が起きても起きなくても、元に戻そうとする。
+        元の名前空間が削除されていれば戻さない。
+        戻すときに失敗するとその例外を送出し、ブロックの中で起きた例外と置き換わることがある。
 
         Yields:
             Namespace: 自身。
 
         Raises:
-            RuntimeError: 自身が存在しない、またはMayaが切替え・復元を拒否した場合。
+            RuntimeError: 自身が存在しない場合、またはMayaが切り替えや戻しを拒否した場合。
         """
         ...
     def rename(self, name: str | Namespace) -> Namespace:
-        """Namespace自身の名前を変更する。
+        """この名前空間の名前を変える。
 
-        cmdsでUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            name (str | Namespace): 新しい名前。最後の階層名だけを使用し、現在の親は維持する。
+            name (str | Namespace): 新しい名前。最後の階層の名前だけを使い、今の親はそのままにする。
 
         Returns:
-            Namespace: 保持名を更新した自身。
+            Namespace: 持っている名前を新しくした自身。
 
         Raises:
-            ValueError: ルートの変更、または名前が不正な場合。
-            RuntimeError: 移動先が既存、親が存在しない、または Maya 操作が失敗した場合。
+            ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合。
+            RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
     def move(self, parent: str | Namespace = ...) -> Namespace:
-        """Namespaceを指定した親Namespaceへ移動する。
+        """この名前空間を、指定した親の名前空間の下へ移す。
 
-        cmdsでUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            parent (str | Namespace): 移動先の既存の親名前空間。末尾の自身の名前は維持する。
+            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
 
         Returns:
-            Namespace: 保持名を更新した自身。
+            Namespace: 持っている名前を新しくした自身。
 
         Raises:
-            ValueError: ルートの移動、または parent が不正な場合。
-            RuntimeError: 親が存在しない、移動先が既存、または Maya 操作が失敗した場合。
+            ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
+            RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
         """
         ...
     def remove(self, destination: str | Namespace = ..., *, deleteContents: bool = ...) -> Namespace | None:
-        """内容を移動してNamespaceを削除する。``deleteContents=True`` は内容ごと削除する。
+        """中身を別の名前空間へ移してから、この名前空間を削除する。
 
-        名前が衝突するノードは、移動時にMayaの規則(cmdsのforce移動)で末尾に番号を付けて改名する。
-        ``deleteContents=True`` は ``cmds.namespace(removeNamespace=..., deleteNamespaceContent=True)`` と同じで、
-        名前空間内のノードと子Namespaceを削除する(読み込んだアセットの後始末)。名前空間外の子孫も、
-        親のDAGノードと一緒に削除される。
-        cmdsでUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        ``deleteContents=True`` なら、中身ごと削除する。
+
+        - 移すときに名前が重なるノードは、Mayaの規則(cmdsのforceでの移動)で末尾に番号を付けて名前を変える。
+        - ``deleteContents=True`` は ``cmds.namespace(removeNamespace=..., deleteNamespaceContent=True)`` と同じ。
+          名前空間の中のノードと子の名前空間を削除する(読み込んだアセットの後片付けに使う)。
+          名前空間の外にある子孫も、親のDAGノードと一緒に削除される。
+
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            destination (str | Namespace): 内容を移動する既存の名前空間。既定はルート。
+            destination (str | Namespace): 中身を移す先の、既存の名前空間。既定はルート。
                 deleteContents=True では使わない。
-            deleteContents (bool): True なら内容を移動せず削除する。既定 False。
+            deleteContents (bool): True なら、中身を移さずに削除する。既定は False。
 
         Returns:
-            Namespace | None: 内容を受け取った移動先。deleteContents=True では ``None``。
-                自身の保持名は削除前のまま。
+            Namespace | None: 中身を受け取った移動先。deleteContents=True では ``None``。
+                自身が持っている名前は、削除する前のまま。
 
         Raises:
-            TypeError: deleteContents が bool 以外の場合。
-            ValueError: ルートの削除、または destination が不正な場合。
-            RuntimeError: 自身・移動先が存在しない、または Maya 操作が失敗した場合。
+            TypeError: deleteContents が bool でない場合。
+            ValueError: ルートを削除しようとした場合、または destination が正しくない場合。
+            RuntimeError: 自身か移動先が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
     @classmethod
     def _create(cls, name: str | Namespace, parent: str | Namespace) -> Namespace:
-        """createの本体。Undoチャンクは呼出し側が管理する。
+        """createの中身の処理。Undoチャンクは呼び出す側が管理する。
 
         Args:
             name (str | Namespace): createのname。
             parent (str | Namespace): createのparent。
 
         Returns:
-            Namespace: 作成先の完全名を保持するラッパー。
+            Namespace: 作った名前空間の完全名を持つオブジェクト。
         """
         ...
     @staticmethod
     def _normalize(name: str) -> str:
-        """Namespace名をMayaの絶対表記へ正規化する。
+        """名前空間の名前を、Mayaの絶対表記に揃える。
 
         Args:
-            name (str): 正規化する名前。
+            name (str): 揃える名前。
 
         Returns:
-            str: / を : に置き換え、両端の : を除いて先頭に : を付けた名前。区切り文字だけなら :。
+            str: / を : に置き換え、両端の : を除いてから、先頭に : を付けた名前。区切り文字だけなら :。
         """
         ...
     def _move_contents(self, target: Namespace) -> None:
-        """Namespaceの内容を別Namespaceへ移し、元Namespaceを削除する。
+        """名前空間の中身を別の名前空間へ移し、元の名前空間を削除する。
 
-        移動先を作成し、force=True で内容を移して元を削除する。自身の保持名はここでは更新しない。
+        移動先を作り、force=True で中身を移してから、元を削除する。
+        自身が持っている名前は、ここでは新しくしない。
 
         Args:
-            target (Namespace): 新規作成する移動先。親は存在している必要がある。Undoチャンクは呼出し側が管理する。
+            target (Namespace): 新しく作る移動先。親はすでに存在している必要がある。
+                Undoチャンクは呼び出す側が管理する。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            RuntimeError: 移動先が既存、親が存在しない、または Maya 操作が失敗した場合。
+            RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...

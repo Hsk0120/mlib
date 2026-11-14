@@ -1,18 +1,20 @@
 @echo off
 
 ::----------------------------------------------------------------
-:: Show the Japanese messages of the batch files in this folder.
-:: Not an entry of its own: the other batch files CALL it.
+:: このフォルダーのバッチが出す日本語の文を表示する。
+:: 単独で使う入口ではなく、ほかのバッチから CALL する補助。
 ::
-::   CALL "%~dp0_message.bat" <key> [<key> ...]
+::   CALL "%~dp0_message.bat" <キー> [<キー> ...]
 ::
-:: Every line of messages.txt (UTF-8) that starts with "<key>=" is shown, in
-:: the order of the keys, and %NAME% in it is replaced by the value of that
-:: environment variable. The text is not written in the batch files
-:: themselves, because cmd can misread a UTF-8 batch file after a GOTO.
-:: PowerShell writes it, so the code page of the console is not changed.
-:: When a key cannot be shown, the key itself is printed instead, so that the
-:: result ([OK] or [NG] is part of the text) is never lost silently.
+:: messages.txt(UTF-8)のうち "<キー>=" で始まる行を、キーの順に全部表示する。
+:: 行の中の %名前% は、その環境変数の値に置き換える。
+:: 表示する文をバッチへ直接書かないのは、コンソールのコードページが
+:: Shift-JISでないとき(chcp 65001 など)に文字化けするため。PowerShellが書き出すので、
+:: コードページは変えずに済む。バッチに書く日本語はコメントだけにする。
+:: キーが見つからないときはキーそのものを表示し、結果([OK]・[NG] は文の一部)が
+:: 黙って消えないようにする。
+::
+:: このファイルは Shift-JIS(CP932)・CRLF で保存する(.gitattributes を参照)。
 ::----------------------------------------------------------------
 SET "MLIB_MESSAGE_KEYS=%*"
 SET "MLIB_MESSAGE_FILE=%~dp0messages.txt"

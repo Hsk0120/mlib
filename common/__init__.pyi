@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Mayaの状態・環境・イベントと共通処理の入口を提供する。
+"""Mayaの状態・環境・イベントと、共通の処理をまとめる。
 
-各公開名は利用時に解決する。Node/Plugの初期化中に選択関連のクラスを
-先行importせず、再読み込み後も現在の実装モジュールから取得する。
+公開する名前は、使われたときに読み込む。こうすることで、Node/Plugの初期化中に
+選択関連のクラスを先にimportせずに済み、読み込み直したあとも現在のモジュールから取得できる。
 """
 
 from importlib import import_module
@@ -32,7 +32,7 @@ _exports: dict
 __all__ = ['Callbacks', 'CurveFit', 'DampedSpring', 'Deferred', 'DrivenKey', 'Environment', 'Keyframe', 'Keyframes', 'LOADED', 'LOAD_FAILED', 'MISSING', 'Module', 'Namespace', 'OUTDATED', 'Plugin', 'PluginPackage', 'ProgressCancelled', 'SKIPPED', 'ScalarGraph', 'ScriptJob', 'ScriptJobs', 'Selection', 'Time', 'Version', 'progressBar', 'units']
 
 def __getattr__(name: str) -> Any:
-    """公開名を現在の実装モジュールから取得する。
+    """公開する名前を、それを定義している現在のモジュールから取得する。
 
     Args:
         name (str): 取得する公開名。
@@ -41,14 +41,14 @@ def __getattr__(name: str) -> Any:
         object: クラス・関数・定数またはモジュール。
 
     Raises:
-        AttributeError: 定義されていない公開名の場合。
+        AttributeError: 公開していない名前の場合。
     """
     ...
 
 def __dir__() -> list[str]:
-    """モジュール内の名前と遅延公開名を列挙する。
+    """モジュール内の名前と、使われたときに読み込む公開名を列挙する。
 
     Returns:
-        list[str]: 補完・探索に使用する名前の一覧。
+        list[str]: 補完や探索に使う名前の一覧。
     """
     ...

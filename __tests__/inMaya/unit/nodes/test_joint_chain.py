@@ -219,9 +219,9 @@ class ChainTest(_SpecCase):
         self.assertEqual([item.getName() for item in Node(root).getChainFromHere()], [root, middle])
         self.assertEqual([item.getName() for item in Node(root).getChainFromHere(to=leaf)], [root, middle, leaf])
         self.assertEqual(Node(leaf).getChainFromHere(), [Node(leaf)])
-        with self.assertRaisesRegex(ValueError, "descendant"):
+        with self.assertRaisesRegex(ValueError, "子孫で指定してください"):
             Node(leaf).getChainFromHere(to=root)
-        with self.assertRaisesRegex(ValueError, "descendant"):
+        with self.assertRaisesRegex(ValueError, "子孫で指定してください"):
             Node(root).getChainFromHere(to=root)
 
 

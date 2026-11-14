@@ -1,4 +1,4 @@
-"""ラティスの点と点のコレクション。"""
+"""ラティスの点と、点の集まり。"""
 
 import maya.api.OpenMaya as om2
 
@@ -7,10 +7,10 @@ from .pointComponent import PointComponent, PointComponents
 
 
 def _lattice_divisions(shape):
-    """ラティスのS・T・U方向の分割数(点の数)を照会する。
+    """ラティスのS・T・U方向の分割数(点の数)を取得する。
 
     Args:
-        shape (Node): 型を検査済みのラティスのシェイプ。
+        shape (Node): 型を確かめてあるラティスのシェイプ。
 
     Returns:
         tuple[int, int, int]: (sDivisions, tDivisions, uDivisions)。
@@ -20,13 +20,16 @@ def _lattice_divisions(shape):
 
 
 class LatticePoint(_MultiIndexComponent, PointComponent):
-    """ラティスのShape参照と点の番号(``pt[s][t][u]``)を保持し、現在のXYZ座標を照会・編集する。
+    """ラティスの点1つを表すクラス。
 
-    保持する :attr:`index` は ``s + t * S + u * S * T`` (S・Tは ``sDivisions``・``tDivisions``)の
-    平坦な番号で、``om2.MItGeometry`` の並びと同じ。``(s, t, u)`` は :meth:`getMultiIndex` で照会する。
-    座標はラティスのシェイプのオブジェクト空間(既定のラティスは各辺1の立方体)またはワールド空間のcm。
-    分割数を変えると同じ番号が別の点を指す。座標の照会・書込み・反転は
-    :class:`~mlib.components.pointComponent.PointComponent` と同じ(fastは ``MItGeometry.setAllPositions``)。
+    ラティスのShapeと点の番号(``pt[s][t][u]``)を持ち、今のXYZ座標を取得・編集する。
+
+    - 持っている :attr:`index` は、``s + t * S + u * S * T`` の通し番号(S・Tは ``sDivisions``・``tDivisions``)。
+      ``om2.MItGeometry`` の並びと同じになる。``(s, t, u)`` は :meth:`getMultiIndex` で取得する。
+    - 座標の単位はcm。ラティスのシェイプのオブジェクト空間(既定のラティスは1辺1の立方体)か、ワールド空間で扱う。
+    - 分割数を変えると、同じ番号が別の点を指すようになる。
+    - 座標の取得・書き込み・反転は :class:`~mlib.components.pointComponent.PointComponent` と同じ。
+      fastでは ``MItGeometry.setAllPositions`` を使う。
     """
 
     shape_type = "lattice"
@@ -38,7 +41,7 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
         """ラティスの点の数(``S * T * U``)を返す。
 
         Args:
-            shape (Node): 型を検査済みのラティスのシェイプ。
+            shape (Node): 型を確かめてあるラティスのシェイプ。
 
         Returns:
             int: 点の数。
@@ -48,15 +51,15 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
 
     @classmethod
     def _multi_indices(cls, shape, indices, command=False):  # noqa: ARG003  # 基底が command= で呼ぶ契約の引数。
-        """平坦な番号を ``(s, t, u)`` へ変換する。
+        """通し番号を ``(s, t, u)`` へ変換する。
 
         Args:
-            shape (Node): 型を検査済みのラティスのシェイプ。
-            indices (Iterable[int]): 範囲を検証済みの平坦な番号。
-            command (bool): cmds用の番号か。ラティスでは同じ番号になる。
+            shape (Node): 型を確かめてあるラティスのシェイプ。
+            indices (Iterable[int]): 範囲を確かめてある通し番号。
+            command (bool): Trueならcmdsで使う番号にする。ラティスではどちらも同じ番号になる。
 
         Returns:
-            list[tuple[int, int, int]]: 指定順の ``(s, t, u)``。
+            list[tuple[int, int, int]]: ``(s, t, u)``。指定した順に並ぶ。
         """
         count_s, count_t, _ = _lattice_divisions(shape)
         result = []
@@ -68,32 +71,33 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
 
     @classmethod
     def _flat_indices(cls, shape, numbers):
-        """``(s, t, u)`` を平坦な番号へ変換する。
+        """``(s, t, u)`` を通し番号へ変換する。
 
         Args:
-            shape (Node): 型を検査済みのラティスのシェイプ。
+            shape (Node): 型を確かめてあるラティスのシェイプ。
             numbers (Iterable[tuple[int, int, int]]): 0以上の ``(s, t, u)``。
 
         Returns:
-            list[int]: 指定順の平坦な番号。
+            list[int]: 通し番号。指定した順に並ぶ。
 
         Raises:
-            IndexError: 分割数の範囲外の場合。
+            IndexError: 番号が分割数の範囲の外にある場合。
         """
         count_s, count_t, count_u = _lattice_divisions(shape)
         result = []
         for s, t, u in numbers:
             if s >= count_s or t >= count_t or u >= count_u:
-                raise IndexError(f"Component index out of range: {(s, t, u)}")
+                raise IndexError(f"コンポーネントの番号が範囲外です: {(s, t, u)}")
             result.append(s + (t + u * count_t) * count_s)
         return result
 
 
 class LatticePoints(_MultiIndexComponents, PointComponents):
-    """同一ラティスの点の番号列を保持し、点の列挙と座標の一括操作を担当する。
+    """同じラティスにある点の集まりを表すクラス。
 
-    ``LatticePoints(shape)`` で全点を取得できる。番号の指定には平坦な番号と ``(s, t, u)`` を混ぜられる。
-    名前は範囲へまとめない。
+    点を1つずつ取り出したり、座標をまとめて扱ったりする。
+    ``LatticePoints(shape)`` で全部の点を取得できる。
+    番号の指定には、通し番号と ``(s, t, u)`` を混ぜて使える。名前は範囲にまとめない。
     """
 
     component_class = LatticePoint

@@ -1,7 +1,7 @@
-"""ポリゴンの球を作成し、シェイプを返す(``cmds.polySphere(constructionHistory=False)`` 相当)。
+"""ポリゴンの球を作り、シェイプを返す(``cmds.polySphere(constructionHistory=False)`` 相当)。
 
-大きさはMaya APIの内部単位(cm)で、現在のUI単位に依存しない。構築履歴は作らない。
-作成・親子付けを1回のUndoにまとめ、現在の選択は変更しない。
+大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
 
 .. code-block:: python
 
@@ -19,28 +19,30 @@ from ..util import _UNSET, _finite_vector
 
 
 def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, ax=_UNSET, n=_UNSET):
-    """原点を中心とするポリゴンの球を作成し、そのシェイプを返す。
+    """原点を中心とするポリゴンの球を作り、そのシェイプを返す。
 
-    fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
-    radius・axis・nameは ``cmds.polySphere`` と同じ短縮名でも受ける(長名と短縮名の同時指定はできない)。
-    subdivisionsは2方向の分割数をまとめた独自の引数のため短縮名は無い。
+    fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
+    radius・axis・nameは ``cmds.polySphere`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
+    subdivisionsは2方向の分割数をまとめたmlib独自の引数のため、短縮名は無い。
 
     Args:
-        radius (float): 半径(cm)。既定1。
-        subdivisions (Sequence[int]): 軸のまわり・軸方向の分割数(``subdivisionsAxis``・``subdivisionsHeight``)。既定(20, 20)。
-        axis (Sequence[float]): 極の方向。0でない有限な3成分。既定(0, 1, 0)。
-        name (str | None): Transformの希望名。シェイプは ``<名前>Shape``。NoneはMayaの既定名。既定None。
-        parent (Node | str | None): Transformの親。Noneはワールド直下。親のローカル空間に単位マトリクスで置く。
-        r (float): radiusの短縮名。同時指定はできない。
-        ax (Sequence[float]): axisの短縮名。同時指定はできない。
-        n (str | None): nameの短縮名。同時指定はできない。
+        radius (float): 半径(cm)。既定は1。
+        subdivisions (Sequence[int]): 軸のまわり・軸方向の分割数(``subdivisionsAxis``・``subdivisionsHeight``)。既定は(20, 20)。
+        axis (Sequence[float]): 極の方向。0でない有限な3成分。既定は(0, 1, 0)。
+        name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
+            NoneならMayaの既定の名前。既定はNone。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。
+        r (float): radiusの短縮名。radiusと同時には指定できない。
+        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:
-        Mesh: 作成したメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
+        Mesh: 作ったメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
 
     Raises:
-        TypeError: 長名と短縮名を同時に指定した場合、または引数の型が不正な場合。
-        ValueError: 大きさが0以下・有限でない、分割数・軸が不正な場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
+        ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
     """
     radius = _pick_alias(radius, r, "radius", "r", default=1.0)
@@ -53,19 +55,19 @@ def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UN
 
 
 def _axis(value):
-    """軸の方向を検証する。
+    """軸の方向を確かめる。
 
     Args:
         value (Sequence[float]): 方向。
 
     Returns:
-        tuple[float, float, float]: 検証した方向。
+        tuple[float, float, float]: 確かめた方向。
 
     Raises:
-        TypeError: 数値の列でない場合。
-        ValueError: 成分数が3でない、有限でない、または0の場合。
+        TypeError: 数値の並びでない場合。
+        ValueError: 成分が3つでない場合、有限でない場合、または0の場合。
     """
     axis = _finite_vector(value, 3, "axis")
     if not any(axis):
-        raise ValueError("axis must not be zero")
+        raise ValueError("axisに0のベクトルは指定できません")
     return axis

@@ -226,7 +226,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
             ti.get(timeUnit="sec", uiUnits=True)
         with self.assertRaisesRegex(ValueError, "timeUnit"):
             ti.get(unit="sec")
-        with self.assertRaisesRegex(ValueError, "unit for angle"):
+        with self.assertRaisesRegex(ValueError, "角度の値にはunitを使います"):
             rx.get(timeUnit="deg")
         with self.assertRaises(ValueError):
             ti.set(1, timeUnit="minute")
@@ -441,7 +441,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         for fast in (False, True):
             for value in (float("nan"), float("inf"), -float("inf")):
                 with self.subTest(fast=fast, value=value):
-                    with self.assertRaisesRegex(ValueError, r"value must be finite.*translateX"):
+                    with self.assertRaisesRegex(ValueError, "valueは有限な数値で指定してください.*translateX"):
                         tx.set(value, fast=fast)
                     self.assertEqual(tx.set(value, safe=True, fast=fast), 1)
                     self.assertEqual(tx.get(), 2.0)

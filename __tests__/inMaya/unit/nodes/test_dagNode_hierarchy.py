@@ -207,7 +207,7 @@ class ShowHideTest(HierarchyFixture):
         node = Node(self.leaf)
         for method in ("show", "hide"):
             with self.subTest(method=method):
-                with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+                with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
                     getattr(node, method)(fast=1)
                 with self.assertRaises(TypeError):
                     getattr(node, method)(True)

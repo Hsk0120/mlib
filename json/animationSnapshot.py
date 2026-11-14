@@ -1,4 +1,4 @@
-"""ノードのアニメーション(時間入力のアニメカーブとアニメーションレイヤー)を保存・復元する。"""
+"""ノードのアニメーションを保存・復元する。対象は、入力が時間のアニメカーブとアニメーションレイヤー。"""
 
 import math
 
@@ -10,7 +10,7 @@ from ._animCurveData import _is_time_input, _merge_keys, _output_kind, _read_cur
 from .plugRef import PlugRef
 from .snapshot import Snapshot
 
-#: 適用時の既存キーの扱い。
+#: 適用するときの、すでにあるキーの扱い。
 _MODES = ("replace", "insert", "merge")
 #: レイヤーの設定のうち、animLayerコマンドで読み書きするもの。
 _LAYER_FLAGS = ("weight", "mute", "solo", "override", "passthrough")
@@ -19,15 +19,22 @@ _LAYER_ENUMS = ("rotationAccumulationMode", "scaleAccumulationMode")
 
 
 class AnimationSnapshot(Snapshot):
-    """ノードのアトリビュートにつながる時間入力のアニメカーブを、アニメーションレイヤーごとに保持する。
+    """ノードのアトリビュートにつながるアニメカーブを、アニメーションレイヤーごとに持つ。
 
-    カーブはキーの時刻・値、接線の型・角度・ウェイト、接線とウェイトのロック、ブレークダウン、
-    ウェイト付き接線、前後のインフィニティまで保存し、同じ形に作り直す。値はmlibの既定の単位
-    (角度は度、距離はcm)、時刻は保存時のUI時間単位のフレームで保存するため、適用時のUI単位に左右されない。
-    アニメーションレイヤーに入ったアトリビュートは、ベースレイヤーと各レイヤーのカーブを別々に保存し、
+    対象は、入力が時間のアニメカーブ。カーブは次の内容まで保存し、同じ形に作り直す。
+
+    - キーの時刻と値
+    - 接線の型・角度・ウェイト、接線とウェイトのロック、ブレークダウン
+    - ウェイト付き接線かどうか、前後のインフィニティ
+
+    値はmlibの既定の単位(角度は度、距離はcm)、時刻は保存したときのUIの時間の単位でのフレームで保存する。
+    そのため、適用するときのUIの単位には左右されない。
+
+    アニメーションレイヤーに入ったアトリビュートは、ベースレイヤーとそれぞれのレイヤーのカーブを別々に保存する。
     レイヤーの設定(ウェイト・ミュート・ソロ・ロック・オーバーライド・パススルー・回転と
-    スケールの累積モード・親レイヤー)も保存する。ドリブンキー(単位なし入力のカーブ)は
-    :class:`~mlib.json.drivenKeysSnapshot.DrivenKeysSnapshot` で扱う。
+    スケールの累積モード・親レイヤー)も保存する。
+
+    ドリブンキー(入力に単位の無いカーブ)は :class:`~mlib.json.drivenKeysSnapshot.DrivenKeysSnapshot` で扱う。
 
     データの形::
 
@@ -37,7 +44,7 @@ class AnimationSnapshot(Snapshot):
                      "scaleAccumulationMode": "..."}, ...],
          "curves": [{"plug": {<PlugRef>}, "layer": None or "L1", "curve": {<カーブ>}}, ...]}
 
-    ``layer`` がNoneのカーブはベースレイヤー(レイヤーが無ければアトリビュートへ直接つながるカーブ)。
+    ``layer`` がNoneのカーブは、ベースレイヤーのカーブ(レイヤーが無ければ、アトリビュートへ直接つながるカーブ)。
     カーブの辞書の形は ``mlib/json/_animCurveData.py`` の説明を参照する。
 
     Examples:
@@ -51,24 +58,28 @@ class AnimationSnapshot(Snapshot):
 
     @classmethod
     def capture(cls, nodes, *, time=None):
-        """ノードのアトリビュートにつながる時間入力のアニメカーブとアニメーションレイヤーを取得する。
+        """ノードのアトリビュートにつながるアニメカーブと、アニメーションレイヤーを取得する。
 
-        アトリビュートへ直接つながるカーブと、アニメーションレイヤーに入ったアトリビュートの
-        ベースレイヤー・各レイヤーのカーブを対象にする。キーが1つも無い(範囲内に無い)カーブは保存しない。
-        保存したレイヤーの親レイヤーも、ルート(BaseAnimation)を除いて保存する。
+        入力が時間のアニメカーブが対象。次のカーブを取得する。
+
+        - アトリビュートへ直接つながるカーブ。
+        - アニメーションレイヤーに入ったアトリビュートの、ベースレイヤーとそれぞれのレイヤーのカーブ。
+
+        キーが1つも無い(範囲の中に無い)カーブは保存しない。
+        保存したレイヤーの親レイヤーも保存する。ただしルート(BaseAnimation)は除く。
 
         Args:
-            nodes (Iterable[Node | str]): 対象のノード。1つのNode・名前も受け付ける。
-            time (tuple[float, float] | None): 両端を含む時刻の範囲(現在のUI時間単位のフレーム)。
-                範囲内のキーだけを保存する。Noneは全キー。
+            nodes (Iterable[Node | str]): 対象のノード。Nodeや名前を1つだけ渡してもよい。
+            time (tuple[float, float] | None): 時刻の範囲。両端を含み、今のUIの時間の単位でのフレームで指定する。
+                範囲の中のキーだけを保存する。Noneならすべてのキー。
 
         Returns:
             AnimationSnapshot: 取得したカーブを持つ新しいインスタンス。
 
         Raises:
-            TypeError: nodesがノードまたはその並びでない、またはtimeが2つの数値の並びでない場合。
-            ValueError: timeが有限でない、または開始が終了より大きい場合。
-            RuntimeError: ノードが存在しない場合。
+            TypeError: nodesがノードでもその並びでもない場合、またはtimeが2つの数値の並びでない場合。
+            ValueError: timeが有限な値でない場合、または開始が終了より大きい場合。
+            RuntimeError: ノードが無い場合。
         """
         time_range = _require_time_range(time)
         targets = _require_nodes(nodes)
@@ -92,45 +103,51 @@ class AnimationSnapshot(Snapshot):
         return cls({"timeRange": list(time_range) if time_range else None, "rootLayer": root if layers else None, "layers": layers, "curves": curves})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None, mode="replace", timeOffset=0.0, timing="frame", createLayers=True, fast=False):
-        """保存したカーブを、対応付けたノードのアトリビュートへ書き戻す。
+        """保存したカーブを、対応づけたノードのアトリビュートへ書き戻す。
 
-        カーブが無いアトリビュートには新しく作る。通常は1回のUndoにまとめ、途中で失敗したら巻き戻す。
-        見つからないノード・アトリビュートは ``missing``、ロックされたアトリビュート、アニメカーブ・
-        アニメーションレイヤー以外(コンストレイント・ドリブンキー等)が入力につながったアトリビュート、
-        出力の種類(角度・距離等)が違うカーブ、見つからない・ロックされたレイヤーのカーブは
-        ``skipped`` に記録して飛ばし、まとめて警告する。
+        カーブが無いアトリビュートには、新しく作る。通常は1回のUndoにまとめ、途中で失敗したら元に戻す。
+
+        書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+
+        - ``missing``: 見つからないノード・アトリビュート。
+        - ``skipped``: ロックされたアトリビュート。アニメカーブ・アニメーションレイヤー以外
+          (コンストレイント・ドリブンキーなど)が入力につながったアトリビュート。
+          出力の種類(角度・距離など)が違うカーブ。見つからない、またはロックされたレイヤーのカーブ。
 
         Args:
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。レイヤー名には当てない。
-            mode (str): 既存のキーの扱い。``"replace"`` (既定)はカーブごと入れ替える(ウェイト付き接線・
-                インフィニティも保存した値にする)。``"insert"`` は保存した範囲(``capture`` の ``time``、
-                省略時はカーブごとの最初と最後のキー。timeOffset後)のキーだけを置き換え、範囲外のキーを残す。
-                ``"merge"`` は同じ時刻のキーだけを上書きし、ほかの既存のキーを残す。insert・mergeでは既存の
-                カーブのウェイト付き接線・インフィニティを保つ。
-            timeOffset (float): キーの時刻へ足す量(現在のUI時間単位のフレーム)。
-            timing (str): 保存時とfpsが違う場合の扱い。``"frame"`` (既定)はフレーム番号を保ち、
-                ``"second"`` は秒を保つように時刻と接線を換算する。
-            createLayers (bool): Trueは見つからないレイヤーを保存した設定で作る(既定)。同じ名前の
-                レイヤーがあれば設定を変えずに使う。Falseは見つからないレイヤーのカーブを飛ばす。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。キーの書込みは通常の約4倍速い。
-                途中で失敗しても巻き戻さない。
+            mode (str): すでにあるキーの扱い。既定は ``"replace"``。
+
+                - ``"replace"``: カーブごと入れ替える。ウェイト付き接線とインフィニティも保存した値にする。
+                - ``"insert"``: 保存した範囲のキーだけを置き換え、範囲の外のキーは残す。範囲は ``capture`` の
+                  ``time`` で、省略していたらカーブごとの最初と最後のキー(どちらもtimeOffsetを足した後)。
+                - ``"merge"``: 同じ時刻のキーだけを上書きし、ほかのキーは残す。
+
+                insert・mergeでは、すでにあるカーブのウェイト付き接線とインフィニティをそのまま保つ。
+            timeOffset (float): キーの時刻へ足す量(今のUIの時間の単位でのフレーム)。
+            timing (str): 保存したときとfpsが違うときの扱い。既定は ``"frame"``。
+                ``"frame"`` はフレーム番号を保つ。``"second"`` は秒を保つように、時刻と接線を換算する。
+            createLayers (bool): Trueなら、見つからないレイヤーを保存した設定で作る。同じ名前の
+                レイヤーがあれば、設定を変えずにそれを使う。Falseなら、見つからないレイヤーのカーブを飛ばす。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。キーの書き込みは通常の約4倍速い。
+                途中で失敗しても元に戻さない。
 
         Returns:
             ValidationReport: 適用の結果。
 
         Raises:
-            TypeError: timeOffsetが数値でない、またはcreateLayers・fastがbool以外の場合。
-            ValueError: modeが対応外、timeOffsetが有限でない、またはtimingが ``"frame"``・``"second"``
-                以外の場合。
+            TypeError: timeOffsetが数値でない場合、またはcreateLayers・fastがboolでない場合。
+            ValueError: modeが対応していない値の場合、timeOffsetが有限な値でない場合、
+                またはtimingが ``"frame"``・``"second"`` 以外の場合。
         """
         if mode not in _MODES:
-            raise ValueError(f"mode must be one of {_MODES}, got {mode!r}")
+            raise ValueError(f"modeは{_MODES}のどれかで指定してください: {mode!r}")
         if isinstance(timeOffset, bool) or not isinstance(timeOffset, (int, float)):
-            raise TypeError("timeOffset must be a number")
+            raise TypeError("timeOffsetは数値で指定してください")
         if not math.isfinite(timeOffset):
-            raise ValueError("timeOffset must be finite")
+            raise ValueError("timeOffsetは有限な数値で指定してください")
         _require_bool(createLayers, "createLayers")
         self._convert_time(0.0, timing)
         return self._run_apply(
@@ -143,43 +160,43 @@ class AnimationSnapshot(Snapshot):
         """``curves``・``layers`` の形を確かめる。
 
         Args:
-            data (dict): 保持する前のデータ。
+            data (dict): 持たせる前のデータ。
 
         Raises:
-            ValueError: データの形が違う場合。
+            ValueError: データの形が正しくない場合。
         """
         time_range = data.get("timeRange")
         if time_range is not None:
             try:
                 _require_time_range(time_range)
             except (TypeError, ValueError) as error:
-                raise ValueError(f"Invalid timeRange in animation data: {time_range!r}") from error
+                raise ValueError(f"アニメーションのデータのtimeRangeが不正です: {time_range!r}") from error
         root = data.get("rootLayer")
         if root is not None and not isinstance(root, str):
-            raise ValueError(f"Invalid rootLayer in animation data: {root!r}")
+            raise ValueError(f"アニメーションのデータのrootLayerが不正です: {root!r}")
         layers = data.get("layers")
         curves = data.get("curves")
         if not isinstance(layers, list) or not isinstance(curves, list):
-            raise ValueError("animation data must have 'layers' and 'curves' lists")
+            raise ValueError("アニメーションのデータには'layers'と'curves'のリストが必要です")
         names = []
         for layer in layers:
             _require_layer(layer, names)
             names.append(layer["name"])
         for entry in curves:
             if not isinstance(entry, dict) or set(entry) != {"plug", "layer", "curve"}:
-                raise ValueError(f"Invalid animation curve entry: {entry!r}")
+                raise ValueError(f"アニメーションカーブの項目が不正です: {entry!r}")
             PlugRef.fromData(entry["plug"])
             if entry["layer"] is not None and entry["layer"] not in names:
-                raise ValueError(f"Animation curve refers to an unknown layer: {entry['layer']!r}")
+                raise ValueError(f"アニメーションカーブが知らないレイヤーを指しています: {entry['layer']!r}")
             _require_curve(entry["curve"])
             if not _is_time_input(entry["curve"]["curveType"]):
-                raise ValueError(f"Animation curves must have time input: {entry['curve']['curveType']!r}")
+                raise ValueError(f"アニメーションカーブの入力は時間にしてください: {entry['curve']['curveType']!r}")
 
     def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """見つからないノード・アトリビュートを記録する。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): 使わない。
         """
@@ -187,10 +204,12 @@ class AnimationSnapshot(Snapshot):
             _resolve_plug(entry, mapping, report)
 
     def _apply(self, mapping, report, options, fast):
-        """カーブを書き込む。fastではcmdsの部分(カーブ・レイヤーの作成)もUndoに記録しない。
+        """カーブを書き込む。
+
+        fastでは、cmdsで行う部分(カーブ・レイヤーの作成)もUndoに記録しない。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): mode・timeOffset・timing・createLayers。
             fast (bool): TrueはUndoなしでOpenMayaを使う。
@@ -206,10 +225,12 @@ class AnimationSnapshot(Snapshot):
             cmds.undoInfo(stateWithoutFlush=state)
 
     def _apply_curves(self, mapping, report, options, fast):
-        """保存したカーブを順に書き込み、作ったレイヤーのロックを最後に戻す。
+        """保存したカーブを順に書き込む。
+
+        作ったレイヤーのロックは、最後に保存した状態へ戻す。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): mode・timeOffset・timing・createLayers。
             fast (bool): TrueはキーをOpenMayaで書く。
@@ -244,7 +265,7 @@ class AnimationSnapshot(Snapshot):
                 continue
             curve_type = cmds.nodeType(curve)
             if _output_kind(curve_type) != kind or not _is_time_input(curve_type):
-                report.addSkipped(name, f"curve type {curve_type} does not match {saved['curveType']}")
+                report.addSkipped(name, f"カーブの型{curve_type}が{saved['curveType']}と合っていません")
                 continue
             settings = saved
             existing = []
@@ -258,14 +279,14 @@ class AnimationSnapshot(Snapshot):
 
 
 class _LayerResolver:
-    """保存したレイヤー名を、シーンのアニメーションレイヤーへ対応付ける(必要なら作る)。"""
+    """保存したレイヤー名を、シーンのアニメーションレイヤーへ対応づける(必要なら作る)。"""
 
     def __init__(self, layers, create):
-        """保存したレイヤーの設定を保持する。
+        """保存したレイヤーの設定を覚えておく。
 
         Args:
-            layers (list[dict]): 保存したレイヤーの設定(親が先)。
-            create (bool): 見つからないレイヤーを作るか。
+            layers (list[dict]): 保存したレイヤーの設定(親が先に並ぶ)。
+            create (bool): Trueなら、見つからないレイヤーを作る。
         """
         self._settings = {layer["name"]: layer for layer in layers}
         self._create = create
@@ -286,12 +307,12 @@ class _LayerResolver:
         return self._resolved[name]
 
     def restoreLocks(self):
-        """作ったレイヤーのうち、保存時にロックされていたものをロックする。"""
+        """作ったレイヤーのうち、保存したときにロックされていたものをロックする。"""
         for layer in self._locks:
             cmds.animLayer(layer, edit=True, lock=True)
 
     def _find_or_create(self, name):
-        """既存のレイヤーを使うか、保存した設定で作る。
+        """シーンにあるレイヤーを使うか、保存した設定で作る。
 
         Args:
             name (str): 保存したレイヤー名。
@@ -301,10 +322,10 @@ class _LayerResolver:
         """
         if cmds.objExists(name) and cmds.nodeType(name) == "animLayer":
             if cmds.animLayer(name, query=True, lock=True):
-                return None, f"animation layer {name} is locked"
+                return None, f"アニメーションレイヤー{name}がロックされています"
             return name, ""
         if not self._create:
-            return None, f"animation layer {name} not found"
+            return None, f"アニメーションレイヤー{name}が見つかりません"
         settings = self._settings[name]
         flags = {}
         if settings["parent"] is not None:
@@ -336,46 +357,46 @@ def _require_nodes(nodes):
 
     Raises:
         TypeError: ノード・名前・その並びでない場合。
-        RuntimeError: ノードが存在しない場合。
+        RuntimeError: ノードが無い場合。
     """
     if isinstance(nodes, (str, Node)):
         nodes = [nodes]
     try:
         items = list(nodes)
     except TypeError as error:
-        raise TypeError("nodes must be a node, a node name, or an iterable of them") from error
+        raise TypeError("nodesはノードか、ノード名か、それらの並びで指定してください") from error
     result = []
     for item in items:
         if not isinstance(item, (str, Node)):
-            raise TypeError(f"nodes must contain nodes or node names, got {type(item).__name__}")
+            raise TypeError(f"nodesの要素はノードかノード名で指定してください: {type(item).__name__}")
         if isinstance(item, str) and not cmds.objExists(item):
-            raise RuntimeError(f"Node does not exist: {item}")
+            raise RuntimeError(f"ノードが存在しません: {item}")
         result.append(item if isinstance(item, Node) else Node(item))
     return result
 
 
 def _require_time_range(time):
-    """時刻の範囲を検証する。
+    """時刻の範囲を確かめる。
 
     Args:
-        time (object): Noneまたは ``(start, end)``。
+        time (object): Noneか ``(start, end)``。
 
     Returns:
         tuple[float, float] | None: 範囲。
 
     Raises:
         TypeError: 2つの数値の並びでない場合。
-        ValueError: 有限でない、または開始が終了より大きい場合。
+        ValueError: 有限な値でない場合、または開始が終了より大きい場合。
     """
     if time is None:
         return None
     if not isinstance(time, (list, tuple)) or len(time) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in time):
-        raise TypeError("time must be None or a (start, end) pair of numbers")
+        raise TypeError("timeはNoneか(start, end)の数値の組で指定してください")
     start, end = float(time[0]), float(time[1])
     if not (math.isfinite(start) and math.isfinite(end)):
-        raise ValueError("time must be finite")
+        raise ValueError("timeは有限な数値で指定してください")
     if start > end:
-        raise ValueError(f"time range start must not be greater than end: {time!r}")
+        raise ValueError(f"timeの範囲のstartはend以下にしてください: {time!r}")
     return start, end
 
 
@@ -384,27 +405,27 @@ def _require_layer(layer, names):
 
     Args:
         layer (object): レイヤーの設定。
-        names (list[str]): それより前に出たレイヤー名(親は先に出る)。
+        names (list[str]): このレイヤーより前に出てきたレイヤー名(親は先に出てくる)。
 
     Raises:
-        ValueError: 形・型が違う場合。
+        ValueError: 形や型が正しくない場合。
     """
     expected = {"name", "parent", "lock"} | set(_LAYER_FLAGS) | set(_LAYER_ENUMS)
     if not isinstance(layer, dict) or set(layer) != expected:
-        raise ValueError(f"Invalid animation layer data: {layer!r}")
+        raise ValueError(f"アニメーションレイヤーのデータが不正です: {layer!r}")
     if not isinstance(layer["name"], str) or not layer["name"] or layer["name"] in names:
-        raise ValueError(f"Invalid animation layer name: {layer['name']!r}")
+        raise ValueError(f"アニメーションレイヤーの名前が不正です: {layer['name']!r}")
     if layer["parent"] is not None and layer["parent"] not in names:
-        raise ValueError(f"Animation layer parent must come before the layer: {layer['parent']!r}")
+        raise ValueError(f"アニメーションレイヤーの親は、そのレイヤーより前に書いてください: {layer['parent']!r}")
     weight = layer["weight"]
     if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight):
-        raise ValueError(f"Invalid animation layer weight: {weight!r}")
+        raise ValueError(f"アニメーションレイヤーのウェイトが不正です: {weight!r}")
     for flag in ("lock", "mute", "solo", "override", "passthrough"):
         if not isinstance(layer[flag], bool):
-            raise ValueError(f"Animation layer {flag} must be a bool: {layer[flag]!r}")
+            raise ValueError(f"アニメーションレイヤーの{flag}はboolで指定してください: {layer[flag]!r}")
     for attribute in _LAYER_ENUMS:
         if not isinstance(layer[attribute], str):
-            raise ValueError(f"Animation layer {attribute} must be a string: {layer[attribute]!r}")
+            raise ValueError(f"アニメーションレイヤーの{attribute}は文字列で指定してください: {layer[attribute]!r}")
 
 
 def _layer_members():
@@ -426,7 +447,7 @@ def _layer_members():
 
 
 def _node_curves(full, layered, root):
-    """ノードのアトリビュートにつながる時間入力のカーブを集める。
+    """ノードのアトリビュートにつながる、入力が時間のカーブを集める。
 
     Args:
         full (str): ノードの完全パス。
@@ -448,7 +469,7 @@ def _node_curves(full, layered, root):
     for attribute in layered:
         plug = full + "." + attribute
         affected = cmds.animLayer([plug], query=True, affectedLayers=True) or []
-        # affectedLayersは上のレイヤーから返すため、ベース→下のレイヤーの順にする。
+        # affectedLayersは上のレイヤーから返すので、ベース→下のレイヤーの順に並べ直す。
         for layer in reversed(affected):
             for curve in cmds.animLayer(layer, query=True, findCurveForPlug=plug) or []:
                 if cmds.nodeType(curve).startswith("animCurveT"):
@@ -458,7 +479,9 @@ def _node_curves(full, layered, root):
 
 
 def _capture_layers(used, root):
-    """使ったレイヤーとその親(ルートを除く)の設定を、親が先の順で返す。
+    """使ったレイヤーとその親の設定を返す。
+
+    ルートのレイヤーは除く。親が先に来る順に並べる。
 
     Args:
         used (list[str]): カーブを保存したレイヤー名。
@@ -496,7 +519,7 @@ def _resolve_plug(entry, mapping, report):
 
     Args:
         entry (dict): カーブの項目。
-        mapping (NameMapping): 名前の対応付け。
+        mapping (NameMapping): 名前の対応づけ。
         report (ValidationReport): 記録先。
 
     Returns:
@@ -511,25 +534,25 @@ def _resolve_plug(entry, mapping, report):
 
 
 def _target_curve(plug, layer, keys):
-    """Plug(とレイヤー)のカーブを探し、無ければMayaのキー設定で作る。
+    """Plug(とレイヤー)のカーブを探す。無ければ、Mayaでキーを打って作る。
 
     Args:
         plug (str): 書き込むPlugの名前。
-        layer (str | None): レイヤー名。Noneはベース(レイヤーに入っていなければ直接つながるカーブ)。
-        keys (list[dict]): 書くキー。空でカーブが無ければ何もしない。
+        layer (str | None): レイヤー名。Noneならベース(レイヤーに入っていなければ、直接つながるカーブ)。
+        keys (list[dict]): 書くキー。空で、カーブも無ければ何もしない。
 
     Returns:
-        tuple[str | None, str, bool]: カーブ名、使えない場合の理由(何もしない場合は空文字列)、
-            このとき作ったカーブならTrue。
+        tuple[str | None, str, bool]: (カーブ名, 使えない場合の理由(何もしない場合は空文字列),
+            ここで作ったカーブならTrue)。
     """
     sources = cmds.listConnections(plug, source=True, destination=False, skipConversionNodes=True) or []
     source_type = cmds.nodeType(sources[0]) if sources else None
     if source_type is not None and not source_type.startswith(("animCurveT", "animBlendNode")):
-        return None, f"connected to {source_type}", False
+        return None, f"{source_type}に接続されています", False
     if layer is None and source_type is not None and source_type.startswith("animCurveT"):
         return sources[0], "", False
     if layer is None and source_type is not None:
-        # レイヤーに入ったアトリビュートのベースは、ルートレイヤーのカーブ。
+        # レイヤーに入ったアトリビュートのベースは、ルートレイヤーのカーブになる。
         layer = cmds.animLayer(query=True, root=True)
     if layer is not None:
         if layer not in (cmds.animLayer([plug], query=True, affectedLayers=True) or []):
@@ -546,5 +569,5 @@ def _target_curve(plug, layer, keys):
     else:
         curves = cmds.listConnections(plug, source=True, destination=False, skipConversionNodes=True, type="animCurve") or []
     if not curves:
-        return None, "Maya did not create an animation curve", False
+        return None, "Mayaがアニメーションカーブを作成しませんでした", False
     return curves[0], "", True

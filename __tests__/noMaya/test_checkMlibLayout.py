@@ -302,10 +302,13 @@ class ProjectRuleLayoutTest(unittest.TestCase):
         self.assertEqual(self.only("def run():\n    # 循環参照の回避。\n    from .a import A\n    from .b import B\n    return A, B", "L052"), [])
         self.assertEqual(self.only("from .other import Thing\n\n\ndef run():\n    return Thing", "L052"), [])
 
-    def test_exception_messages_are_english_f_strings(self):
-        """例外の文言は英語で、f-string 1つにまとめる。"""
-        self.assertEqual(self.only('def run(value):\n    raise TypeError("value must be a bool")', "L060"), [])
-        self.assertEqual(self.only('def run(value):\n    raise TypeError("値はboolにしてください")', "L060"), ["L060"])
+    def test_exception_messages_are_japanese_f_strings(self):
+        """例外の文言は日本語で、f-string 1つにまとめる。"""
+        self.assertEqual(self.only('def run(value):\n    raise TypeError("value must be a bool")', "L060"), ["L060"])
+        self.assertEqual(self.only('def run(value):\n    raise TypeError("valueはboolで指定してください")', "L060"), [])
+        # 識別子だけ・書式だけの文言は対象にしない。
+        self.assertEqual(self.only('def run(name, error):\n    raise ValueError(f"{name}: {error}")', "L060"), [])
+        self.assertEqual(self.only("def run(name):\n    raise AttributeError(name)", "L060"), [])
         self.assertEqual(self.only('def run(value):\n    raise ValueError("bad: " + str(value))', "L061"), ["L061"])
         self.assertEqual(self.only('def run(value):\n    raise ValueError(f"bad: {value}")', "L061"), [])
 

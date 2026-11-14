@@ -55,11 +55,11 @@ class ExtensionDiagnosticsTest(unittest.TestCase):
         with patch.dict(sys.modules, modules), patch.object(extensions, "_states", {absent: {"state": "error", "reason": "initial"}}):
             result = extensions.getDiagnostics()
             self.assertIsNone(result[absent]["available"])
-            self.assertIn("not imported", result[absent]["reason"])
+            self.assertIn("importされていません", result[absent]["reason"])
             self.assertIsNone(result["mlib_fixture_diag_error"]["available"])
             self.assertEqual(result["mlib_fixture_diag_error"]["reason"], "dependency broken")
             self.assertIsNone(result["mlib_fixture_diag_invalid"]["available"])
-            self.assertIn("must return bool", result["mlib_fixture_diag_invalid"]["reason"])
+            self.assertIn("boolを返してください", result["mlib_fixture_diag_invalid"]["reason"])
             self.assertFalse(result["mlib_fixture_diag_false"]["available"])
             self.assertIsNone(result["mlib_fixture_diag_false"]["initialization"])
 
@@ -75,7 +75,7 @@ class ExtensionDiagnosticsTest(unittest.TestCase):
         with patch.dict(sys.modules, {busy.__name__: busy, unsupported.__name__: unsupported}):
             result = extensions.getDiagnostics()
             self.assertIsNone(result[busy.__name__]["available"])
-            self.assertIn("in progress", result[busy.__name__]["reason"])
+            self.assertIn("初期化しています", result[busy.__name__]["reason"])
             self.assertIsNone(result[unsupported.__name__]["available"])
             busy.is_available.assert_not_called()
             unsupported.is_available.assert_not_called()
@@ -97,7 +97,7 @@ class ExtensionDiagnosticsTest(unittest.TestCase):
             self.assertTrue(extensions.getDiagnostics()[module.__name__]["available"])
         self.assertEqual(len(nested), 1)
         self.assertIsNone(nested[0]["available"])
-        self.assertIn("query is in progress", nested[0]["reason"])
+        self.assertIn("問い合わせています", nested[0]["reason"])
 
 
 if __name__ == "__main__":

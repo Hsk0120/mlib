@@ -79,7 +79,7 @@ class BlendShapeTargetTest(_SpecCase):
 
     def test_lookup_errors(self):
         """存在しない名前・番号は ValueError、名前・番号・Plug 以外(bool を含む)は TypeError。"""
-        with self.assertRaisesRegex(ValueError, "No blendShape target named 'missing'"):
+        with self.assertRaisesRegex(ValueError, "'missing'という名前のblendShapeのターゲットはありません"):
             self.bs.getTargetIndex("missing")
         with self.assertRaises(ValueError):
             self.bs.getWeightPlug("missing")
@@ -109,7 +109,7 @@ class BlendShapeTargetTest(_SpecCase):
 
     def test_add_target_errors(self):
         """重複名・不正な name・存在しないメッシュは追加前に拒否する。"""
-        with self.assertRaisesRegex(ValueError, "already exists"):
+        with self.assertRaisesRegex(ValueError, "すでに存在します"):
             self.bs.addTarget(self.blink, name="frown")
         with self.assertRaises(ValueError):
             self.bs.addTarget(self.blink, name="")
@@ -152,7 +152,7 @@ class BlendShapeTargetTest(_SpecCase):
         with self.assertRaises(ValueError):
             self.bs.removeTarget("missing")
         cmds.setAttr(self.full + ".weight[0]", lock=True)
-        with self.assertRaisesRegex(RuntimeError, "locked"):
+        with self.assertRaisesRegex(RuntimeError, "ロックされた"):
             self.bs.removeTarget("smile_L")
         self.assertEqual(self.bs.getTargetNames(), ["smile_L", "frown"])
 

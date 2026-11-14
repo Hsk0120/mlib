@@ -52,53 +52,61 @@ _DISPLAY_TYPES = ("normal", "template", "reference")
 
 
 def _type_filter(value):
-    """getChildren(type=) の指定を型名のtupleへ正規化する。
+    """getChildren(type=) の指定を、型名のtupleにそろえる。
 
     Args:
-        value (str | Iterable[str] | None): ノード型名、その列、またはNone。
+        value (str | Iterable[str] | None): ノード型名、その並び、またはNone。
 
     Returns:
-        tuple[str, ...]: 型名。Noneは空。
+        tuple[str, ...]: 型名。Noneなら空。
 
     Raises:
-        TypeError: 文字列・文字列の列・None以外の場合。
+        TypeError: 文字列・文字列の並び・Noneのどれでもない場合。
         ValueError: 空文字列を含む場合。
     """
     if value is None:
         return ()
     names = (value,) if isinstance(value, str) else tuple(value) if isinstance(value, (list, tuple)) else None
     if names is None or not all(isinstance(name, str) for name in names):
-        raise TypeError("type must be a node type name, a sequence of names, or None")
+        raise TypeError("typeはノード型名か、名前の並びか、Noneで指定してください")
     if not all(names):
-        raise ValueError("type must not contain an empty node type name")
+        raise ValueError("typeに空のノード型名は指定できません")
     return names
 
 
 class DagNode(Node):
-    """Transform・ShapeのDAGパスを保持し、階層を照会する。
+    """TransformとShapeに共通する、DAGの階層を扱うクラス。
 
-    getParent/getChildrenは保持パス基準。全インスタンスの参照はgetInstancesで取得する。
+    このクラスのオブジェクトは、ノードへのDAGパスを1つ持つ。インスタンス化されたノードには
+    パスが複数あるが、getParentやgetChildrenは、このオブジェクトが持つパスをたどる。
+    ほかのパスを含めて全部を調べるときはgetInstancesを使う。
 
-    各メソッドの「保持するDAGパスが無効」には、保持インスタンスだけが外れた場合に加え、
-    ノードごと削除された場合(Undoの記録に残っている間も含む)を含む。その間もMDagPathは
-    古いパスを返すため、パスを使う照会は空文字列・削除前の名前を返さずRuntimeErrorにする。
+    各メソッドの説明にある「保持するDAGパスが無効」は、次のどちらかを指す。
+
+    - このオブジェクトが持つパスのインスタンスだけが取り除かれた。
+    - ノードそのものが削除された(Undoで戻せる間も含む)。
+
+    どちらの場合もMayaのMDagPathは古いパスを返し続ける。そのため、パスを使う取得は
+    空文字列や削除前の名前を返さず、RuntimeErrorにする。
     """
 
     def getSkinClusters(self):
-        """自身のジオメトリを変形するSkinClusterを取得する。
+        """このノードのジオメトリを変形しているSkinClusterを取得する。
 
-        Shapeは自身、Transformは直下の非中間Shapeを対象にする。
-        子Transform以下は検索しない。上流を探索した後、デフォーマの出力Shapeが
-        対象と一致するものだけを返すため、別形状の履歴を混入させない。
-        Mesh・NURBS等の形状に共通で使用でき、シーンやUndo履歴は変更しない。
-        Jointの同名メソッドは従来のinfluence接続照会を維持する。
+        Shapeから呼ぶと自身を、Transformから呼ぶと直下のShape(中間オブジェクトを除く)を調べる。
+        子のTransformより下は調べない。
+
+        ヒストリを上流へたどり、出力先がそのShapeになっているSkinClusterだけを返す。
+        途中でつながっている別の形状のSkinClusterは含まない。
+        メッシュ・NURBSなどShapeの種類を問わず使え、シーンとUndoの記録は変更しない。
+        Jointの同名メソッドは意味が違い、そのジョイントをインフルエンスに持つSkinClusterを返す。
 
         Returns:
-            list[SkinCluster]: Shape順、各Shapeの上流幅優先順。重複なし。
-                対象なしは空リスト。
+            list[SkinCluster]: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
+                同じものは1回だけ含む。見つからなければ空リスト。
 
         Raises:
-            RuntimeError: 無効なDAGパス、またはMayaの検索が失敗した場合。
+            RuntimeError: 保持するDAGパスが無効な場合、またはMayaの検索が失敗した場合。
         """
         path = self.mpath()
         obj = path.node()
@@ -123,16 +131,19 @@ class DagNode(Node):
         return result
 
     def getBindPoses(self):
-        """getSkinClusters()で得たSkinClusterのバインドポーズを取得する。
+        """このノードに関係するSkinClusterのバインドポーズを取得する。
 
-        Shape/Transformは変形対象、Jointは既存のinfluence接続照会を使用する。
-        SkinClusterの順を保ち、共有ポーズの重複と未接続を除く。
+        対象のSkinClusterはgetSkinClusters()と同じ。ShapeとTransformでは自身を変形しているもの、
+        Jointでは自身をインフルエンスに持つものになる。
+
+        SkinClusterの順に並べる。複数のSkinClusterが同じポーズを共有していれば1回だけ含め、
+        バインドポーズが接続されていないSkinClusterは飛ばす。
 
         Returns:
-            list[DagPose]: 接続されたポーズ。対象なしは空リスト。
+            list[DagPose]: 接続されているバインドポーズ。1つもなければ空リスト。
 
         Raises:
-            RuntimeError: 無効な対象、または不正なバインドポーズ接続。
+            RuntimeError: 対象が無効な場合、またはバインドポーズの接続が不正な場合。
         """
         result, seen = [], set()
         for skin in self.getSkinClusters():
@@ -145,15 +156,17 @@ class DagNode(Node):
         return result
 
     def mpath(self):
-        """保持する可変MDagPathを借用する。コピーは返さない。
+        """このオブジェクトが持つDAGパスを、OpenMayaのMDagPathとして取得する。
 
-        push/pop等で編集する前に ``om2.MDagPath(node.mpath())`` でコピーする。
+        コピーではなく、内部で持っているMDagPathそのものを返す。pushやpopで書き換えると
+        このオブジェクトのパスも変わってしまうので、書き換える前に
+        ``om2.MDagPath(node.mpath())`` でコピーを作る。
 
         Returns:
-            om2.MDagPath: 内部で保持するインスタンスのパスと同一のオブジェクト。
+            om2.MDagPath: 内部で持っているパスと同じオブジェクト。
 
         Raises:
-            RuntimeError: 保持パスが無効な場合。別インスタンスへ切り替えない。
+            RuntimeError: 保持するDAGパスが無効な場合。ほかのインスタンスのパスへは切り替えない。
         """
         dag_path = self._current_dag_path()
         # DagNode は初期化時に必ず DAG パスを解決して保持する(None は非DAGの Node だけ)。
@@ -161,29 +174,31 @@ class DagNode(Node):
         return dag_path
 
     def mfn(self):
-        """保持する DAG パスに対応する function set を、呼び出すたびに新しく作って返す。
+        """このオブジェクトが持つDAGパスのfunction setを作る。
 
-        Transform・Mesh 等の派生クラスはさらに具体的な function set へ上書きする。
+        呼ぶたびに新しく作って返す。TransformやMeshなどの派生クラスでは、
+        それぞれに合った、より具体的なfunction setを返す。
 
         Returns:
-            om2.MFnDagNode: このインスタンスの function set。
+            om2.MFnDagNode: このオブジェクトのfunction set。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         return om2.MFnDagNode(self.mpath())
 
     def getRoot(self):
-        """保持するパスの最上位(ワールド直下)の祖先を取得する。
+        """いちばん上(ワールド直下)の祖先を取得する。
 
-        DAG 上の親は常に Transform なので、Shape から呼んでも戻り値は Transform。
-        自身がワールド直下ならその自身を返す。
+        このオブジェクトが持つDAGパスを、ワールド直下まで上へたどる。
+        DAGの親は必ずTransformなので、Shapeから呼んでもTransformが返る。
+        自身がワールド直下にあれば自身を返す。
 
         Returns:
-            Transform: ワールド直下の祖先、または自身(ワールド直下に置けるのは Transform 系だけ)。
+            Transform: ワールド直下の祖先、または自身(ワールド直下に置けるのはTransform系だけ)。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         node = self
         parent = node.getParent()
@@ -193,30 +208,31 @@ class DagNode(Node):
         return node
 
     def getCommonAncestor(self, other):
-        """保持パスどうしで、自身とotherに共通する最も近い祖先を取得する。
+        """自身とotherに共通する、いちばん近い祖先を取得する。
 
-        一方が他方の祖先(または同じパス)なら、その祖先自身を返す。インスタンスは保持パスだけで比べ、
-        別のパスでの共通の祖先は探さない。
+        それぞれのオブジェクトが持つDAGパスどうしで比べる。インスタンス化されていても、
+        ほかのパスでの共通の祖先は探さない。
+        一方がもう一方の祖先(または同じパス)なら、その祖先自身を返す。
 
         Args:
             other (DagNode | str | om2.MObject | om2.MDagPath): 比べるDAGノード。
 
         Returns:
-            DagNode | None: 共通の祖先。自身が該当すれば自身、otherが該当すればotherの参照、
-                それ以外は新しいラッパー。ワールド直下の別々の階層にあればNone。
+            DagNode | None: 共通の祖先。自身が当てはまれば自身、otherが当てはまればotherそのもの、
+                それ以外は新しいオブジェクト。ワールド直下の別々の階層にあればNone。
 
         Raises:
-            TypeError: otherがDAGノードでない、または未対応の型の場合。
-            RuntimeError: 自身またはotherのノード・保持するDAGパスが無効な場合。
+            TypeError: otherがDAGノードでない、または対応していない型の場合。
+            RuntimeError: 自身またはotherのノード、または保持するDAGパスが無効な場合。
 
         Examples:
             >>> hand.getCommonAncestor(foot)    # 腰など、両方を含む最も近い親
         """
         other_node = Node._resolve_input(other)
         if not isinstance(other_node, DagNode):
-            raise TypeError(f"other must be a DAG node: {other_node.getFullName()}")
-        self._require_valid("find the common ancestor of")
-        other_node._require_valid("find the common ancestor of")
+            raise TypeError(f"otherはDAGノードで指定してください: {other_node.getFullName()}")
+        self._require_valid("共通の祖先の検索")
+        other_node._require_valid("共通の祖先の検索")
         self_path = self.mpath().fullPathName()
         other_path = other_node.mpath().fullPathName()
         other_ancestors = {other_path}
@@ -233,21 +249,24 @@ class DagNode(Node):
             if name == other_path:
                 return other_node
             if name in other_ancestors:
-                # 有効な保持パスを遡ったパスなので、Node(path) の入力解決を省いて同じ型で包む。
+                # 有効なDAGパスを上へたどったパスなので、Node(path) の入力解決を省いて同じ型で包む。
                 return Node._wrap_dag_path(path)
         return None
 
     def getSiblings(self):
-        """同じ親の下にある同じ種類の兄弟を取得する(自身と自身の別インスタンスは含まない)。
+        """同じ親の下にある、同じ種類の兄弟を取得する。
 
-        Transform は親直下の他の Transform、Shape は親直下の他の非中間 Shape を DAG の子順で返す。
-        自身がワールド直下の Transform なら、他のワールド直下 Transform を対象にする。
+        自身と、自身のほかのインスタンスは含まない。並びはDAGの子の順。
+
+        - Transformなら、親の直下にあるほかのTransformを返す。
+        - Shapeなら、親の直下にあるほかのShape(中間オブジェクトを除く)を返す。
+        - ワールド直下のTransformなら、ほかのワールド直下のTransformを返す。
 
         Returns:
-            list[DagNode]: 兄弟の参照。無効なノードや兄弟なしは空リスト。
+            list[DagNode]: 兄弟のオブジェクト。ノードが無効な場合と、兄弟がない場合は空リスト。
 
         Raises:
-            RuntimeError: ノードは有効だが保持する DAG パスが無効な場合。
+            RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         if not self.isValid():
             return []
@@ -263,33 +282,35 @@ class DagNode(Node):
         return [candidate for candidate in candidates if candidate.getUuid() != self_uuid]
 
     def getOutlinerOrder(self):
-        """親の直接の子の中で、保持パスが何番目にあるかを取得する(アウトライナーの並び順)。
+        """アウトライナーでの並び順を取得する。
 
-        Transform・Shape・中間オブジェクトを区別せず、親の直接の子すべてを DAG の子順で数える
-        (同じ種類だけを返す :meth:`getSiblings` とは数え方が違う)。ワールド直下のノードは
-        ``cmds.ls(assemblies=True)`` の並び(既定のカメラを含む)の中で数える。
+        このオブジェクトが持つDAGパスが、親の直接の子の中で何番目にあるかを返す。
+        Transform・Shape・中間オブジェクトを区別せず、親の直接の子すべてをDAGの子の順で数える。
+        同じ種類だけを返す :meth:`getSiblings` とは数え方が違う。
+        ワールド直下のノードは、``cmds.ls(assemblies=True)`` の並び(既定のカメラを含む)の中で数える。
 
         Returns:
             int: 0 始まりの番号。
 
         Raises:
-            RuntimeError: ノードが無効、または並びの中に保持パスが見つからない場合。
+            RuntimeError: ノードが無効な場合、または並びの中にこのオブジェクトのパスが見つからない場合。
 
         Examples:
             >>> node.getOutlinerOrder()    # 親の最初の子なら 0
         """
-        self._require_valid("query the outliner order of")
+        self._require_valid("アウトライナーの並び順の取得")
         return self._sibling_position()[0]
 
     def setOutlinerOrder(self, index):
-        """親の直接の子の中での順番を、指定した番号へ変える(アウトライナーの並び順)。
+        """アウトライナーでの並び順を、指定した番号へ変える。
 
-        番号の数え方は :meth:`getOutlinerOrder` と同じ。他の子は互いの順番を保ったまま詰める。
-        保持パスの親の下だけを変え、インスタンスの別の親の下の順番は変えない。
-        fast引数は持たない(OpenMayaに子の順番を変える機能が無い)。Undo有効時は1回で戻せる。
+        親の直接の子の中での順番を変える。番号の数え方は :meth:`getOutlinerOrder` と同じ。
+        ほかの子は、互いの順番を保ったまま詰める。
+        変えるのは、このオブジェクトが持つDAGパスの親の下だけ。インスタンスのほかの親の下の順番は変えない。
+        OpenMayaには子の順番を変える機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Args:
-            index (int): 移動先の番号(0 始まり)。負の値は末尾から数える(-1 は最後)。
+            index (int): 移動先の番号(0 始まり)。負の値は後ろから数える(-1 は最後)。
 
         Returns:
             DagNode: 自身。
@@ -297,49 +318,50 @@ class DagNode(Node):
         Raises:
             TypeError: index が int でない場合。
             IndexError: index が範囲外の場合。
-            RuntimeError: ノードが無効、または Maya が拒否した場合(ロックされたノード等)。
+            RuntimeError: ノードが無効な場合、またはMayaが拒否した場合(ロックされたノードなど)。
 
         Examples:
             >>> node.setOutlinerOrder(0)     # 先頭へ
             >>> node.setOutlinerOrder(-1)    # 最後へ
         """
         if isinstance(index, bool) or not isinstance(index, int):
-            raise TypeError(f"index must be an int, got {type(index).__name__}")
+            raise TypeError(f"indexはintで指定してください: {type(index).__name__}")
         with undoChunk("mlibDagNodeSetOutlinerOrder"):
-            self._require_valid("reorder")
+            self._require_valid("並べ替え")
             current, count = self._sibling_position()
             target = index + count if index < 0 else index
             if not 0 <= target < count:
-                raise IndexError(f"Outliner order out of range: {index}")
+                raise IndexError(f"アウトライナーの並び順が範囲外です: {index}")
             if target != current:
                 # 範囲内の relative は循環せず、その数だけ前後へ動く。
                 cmds.reorder(self.getFullName(), relative=target - current)
             return self
 
     def reorder(self, *, front=_UNSET, f=_UNSET, back=_UNSET, b=_UNSET, relative=_UNSET, r=_UNSET):
-        """親の直接の子の中での順番を変える(アウトライナーの並び順。``cmds.reorder`` 相当)。
+        """アウトライナーでの並び順を変える(``cmds.reorder`` 相当)。
 
-        ``front``・``back``・``relative`` のどれか1つを指定する。他の子は互いの順番を保つ。
-        並びの数え方は :meth:`getOutlinerOrder` と同じで、保持パスの親の下だけを変える。
+        親の直接の子の中での順番を変える。``front``・``back``・``relative`` のどれか1つを指定する。
+        ほかの子は、互いの順番を保つ。
+        並びの数え方は :meth:`getOutlinerOrder` と同じ。変えるのは、このオブジェクトが持つDAGパスの親の下だけ。
         ``relative`` は端を越えると反対側へ回る(最後の子に 1 を指定すると先頭になる)。
-        端で止めたいとき、番号で指定したいときは :meth:`setOutlinerOrder` を使う。
-        fast引数は持たない(OpenMayaに子の順番を変える機能が無い)。Undo有効時は1回で戻せる。
+        端で止めたいときや、番号で指定したいときは :meth:`setOutlinerOrder` を使う。
+        OpenMayaには子の順番を変える機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Args:
-            front (bool): True で先頭へ移動する。
-            f (bool): frontの別名。同時指定は不可。
-            back (bool): True で最後へ移動する。
-            b (bool): backの別名。同時指定は不可。
-            relative (int): 移動する数。正の値は後ろ、負の値は前へ動かす。
-            r (int): relativeの別名。同時指定は不可。
+            front (bool): Trueなら先頭へ移動する。
+            f (bool): frontの別名。frontと同時には指定できない。
+            back (bool): Trueなら最後へ移動する。
+            b (bool): backの別名。backと同時には指定できない。
+            relative (int): 移動する数。正の値は後ろへ、負の値は前へ動かす。
+            r (int): relativeの別名。relativeと同時には指定できない。
 
         Returns:
             DagNode: 自身。
 
         Raises:
-            TypeError: 長短フラグを同時指定した場合、front・back が bool でない場合、relative が
+            TypeError: 長い名前と短い名前を同時に指定した場合、front・back が bool でない場合、relative が
                 int でない場合、または front・back・relative のちょうど1つを指定していない場合。
-            RuntimeError: ノードが無効、または Maya が拒否した場合(ロックされたノード等)。
+            RuntimeError: ノードが無効な場合、またはMayaが拒否した場合(ロックされたノードなど)。
 
         Examples:
             >>> node.reorder(front=True)     # 先頭へ
@@ -350,9 +372,9 @@ class DagNode(Node):
         back = _require_bool(_pick_alias(back, b, "back", "b", default=False), "back")
         relative = _pick_alias(relative, r, "relative", "r", default=None)
         if relative is not None and (isinstance(relative, bool) or not isinstance(relative, int)):
-            raise TypeError(f"relative must be an int, got {type(relative).__name__}")
+            raise TypeError(f"relativeはintで指定してください: {type(relative).__name__}")
         if front + back + (relative is not None) != 1:
-            raise TypeError("Specify exactly one of front, back and relative")
+            raise TypeError("front・back・relativeのどれか1つだけを指定してください")
         if front:
             flags = {"front": True}
         elif back:
@@ -360,34 +382,34 @@ class DagNode(Node):
         else:
             flags = {"relative": relative}
         with undoChunk("mlibDagNodeReorder"):
-            self._require_valid("reorder")
+            self._require_valid("並べ替え")
             cmds.reorder(self.getFullName(), **flags)
             return self
 
     def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET):
         """バウンディングボックスを取得する。
 
-        ``MFnDagNode.boundingBox`` は自身の translate/rotate/scale(Transform の場合)は含むが、
-        親から継承した変換は含まない(``cmds.xform(-boundingBox)`` と同じ)。
-        ``worldSpace=True`` はそこへ保持パスの ``exclusiveMatrix`` (親までのワールドマトリクス)を
-        適用し、ワールド空間のボックスを返す。Shape では自身のローカル形状から計算する。
+        既定では ``MFnDagNode.boundingBox`` の値を返す。これは自身のtranslate・rotate・scale
+        (Transformの場合)を含むが、親から受け継いだ変換は含まない(``cmds.xform(-boundingBox)`` と同じ)。
+        ``worldSpace=True`` なら、そこへこのオブジェクトが持つDAGパスの ``exclusiveMatrix``
+        (親までのワールドマトリクス)をかけ、ワールド空間のボックスを返す。
+        Shapeでは、自身のローカルの形状から計算する。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseは親の変換を含まない空間。既定False。
+            worldSpace (bool): Trueならワールド空間、Falseなら親の変換を含まない空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            om2.MBoundingBox: 軸並行境界ボックス。Maya API の内部距離単位。
-                子 Shape が無い Transform では原点のみを含む空に近いボックスになる。
+            om2.MBoundingBox: 軸に沿ったボックス。単位はMaya APIの内部の距離単位。
+                子のShapeが無いTransformでは、原点だけを含む、ほぼ空のボックスになる。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: worldSpaceが bool でない場合。
-            RuntimeError: ノードが無効、または保持する DAG パスが無効な場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: ノードが無効な場合、または保持するDAGパスが無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         world = _world_space(worldSpace)
-        self._require_valid("compute the bounding box of")
+        self._require_valid("バウンディングボックスの計算")
         path = self.mpath()
         box = om2.MFnDagNode(path).boundingBox
         if not world:
@@ -401,22 +423,23 @@ class DagNode(Node):
         return world_box
 
     def getBoundingBoxCorners(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """:meth:`getBoundingBox` の軸並行ボックスの8つの隅の点を取得する。
+        """バウンディングボックスの8つの隅の点を取得する。
 
-        ワールド指定でもワールドの軸に沿ったボックス(``getBoundingBox(worldSpace=True)``)の隅を返す。
-        向きを持つボックスの隅ではない。
+        :meth:`getBoundingBox` が返す、軸に沿ったボックスの隅を返す。
+        ワールド空間を指定しても、ワールドの軸に沿ったボックス(``getBoundingBox(worldSpace=True)``)の隅になる。
+        ノードの向きに合わせて回したボックスの隅ではない。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、既定Falseは親の変換を含まない空間(:meth:`getBoundingBox` と同じ)。
+            worldSpace (bool): Trueならワールド空間、Falseなら親の変換を含まない空間(:meth:`getBoundingBox` と同じ)。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[Vector]: cm単位の8点。X・Y・Zの順に最小・最大を組み合わせた順
+            list[Vector]: cm単位の8点。X・Y・Zの順に、最小と最大を組み合わせた順に並ぶ
                 ((minX, minY, minZ), (minX, minY, maxZ), (minX, maxY, minZ), ..., (maxX, maxY, maxZ))。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: ノードが無効、または保持する DAG パスが無効な場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: ノードが無効な場合、または保持するDAGパスが無効な場合。
 
         Examples:
             >>> corners = node.getBoundingBoxCorners(ws=True)
@@ -426,25 +449,30 @@ class DagNode(Node):
         return [Vector(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
 
     def isIntermediateObject(self):
-        """中間オブジェクト(履歴用の非表示 Shape)か判定する。Transform では常に False。
+        """中間オブジェクトかどうかを調べる。
+
+        中間オブジェクトは、ヒストリのために残している非表示のShapeのこと。Transformでは常にFalse。
 
         Returns:
-            bool: 中間オブジェクトの場合は True。
+            bool: 中間オブジェクトならTrue。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         return self.mfn().isIntermediateObject
 
     def getInstances(self, noSelf=False):
-        """同じDAGノードの全インスタンスを、複製せず参照する。
+        """同じノードへのDAGパス(インスタンス)をすべて取得する。
+
+        すでにあるパスを調べるだけで、ノードを複製したり、インスタンスを新しく作ったりはしない。
+        親がインスタンス化されたことで生じたパス(間接的なインスタンス)も含む。
 
         Args:
-            noSelf (bool): Trueなら保持するパスを除外する。既定False。
+            noSelf (bool): Trueなら、このオブジェクトが持つパスを結果から除く。既定はFalse。
 
         Returns:
-            list[DagNode]: 間接インスタンスも含むAPI列挙順の参照。
-                保持パスは自身、それ以外は新しいラッパー。インスタンスは追加しない。
+            list[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
+                このオブジェクトが持つパスには自身を、ほかのパスには新しいオブジェクトを入れる。
 
         Raises:
             RuntimeError: 保持するDAGパスが無効な場合。
@@ -458,42 +486,51 @@ class DagNode(Node):
         ]
 
     def isInstanced(self):
-        """複数のDAGパスを持つ(インスタンス化されている)か判定する。
+        """インスタンス化されているか(DAGパスが複数あるか)を調べる。
 
-        親のインスタンス化による間接的なインスタンスも含める(``len(getInstances()) > 1`` と同じ)。
+        親がインスタンス化されたことで生じたパス(間接的なインスタンス)も数える。
+        ``len(getInstances()) > 1`` と同じ結果になる。
 
         Returns:
             bool: パスが2つ以上ならTrue。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         return self.mfn().isInstanced(True)
 
     def getInstanceIndex(self):
-        """保持パスのインスタンス番号を取得する(``MDagPath.instanceNumber``)。
+        """インスタンス番号を取得する。
 
-        インスタンス化されていないノードは0。:meth:`getInstances` の何番目かとは限らない。
+        このオブジェクトが持つDAGパスの ``MDagPath.instanceNumber`` を返す。
+        インスタンス化されていないノードでは0。:meth:`getInstances` の結果の並び順と一致するとは限らない。
 
         Returns:
             int: 0以上のインスタンス番号。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         return self.mpath().instanceNumber()
 
     def getParents(self, indirect=False):
-        """直接の親をノード単位またはパス単位で取得する。祖先全体ではない。
+        """直接の親をすべて取得する。
+
+        インスタンス化されたノードには親が複数ある。そのすべてを返す。
+        親の親など、さらに上の祖先は含まない。
 
         Args:
-            indirect (bool): FalseはAPIの親ノード順。保持パスの親にはそのパスを使い、
-                他の親はAPIで得た一つのパスを使う。
-                TrueはgetInstances順に各パスの親を返し、親のインスタンス化による別パスも含む。
+            indirect (bool): 親の数え方を選ぶ。既定はFalse。
+
+                - False: 親のノードごとに1つ返す。順番はMaya APIの親の順。
+                  このオブジェクトが持つパスの親にはそのパスを使い、ほかの親にはMaya APIが返すパスを1つ使う。
+                - True: getInstances()が返すパスごとに、その親を返す。
+                  親がインスタンス化されたことで生じたパスの分も含む。
 
         Returns:
-            list[Transform]: 重複統合しない親の参照。DAG の親は Transform 系(Joint 等)。
-                保持パスがワールド直下なら空リスト。
+            list[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
+                DAGの親は必ずTransform系(Jointなど)になる。
+                このオブジェクトが持つパスがワールド直下なら空リスト。
 
         Raises:
             RuntimeError: 保持するDAGパスが無効な場合。
@@ -511,17 +548,19 @@ class DagNode(Node):
         ]
 
     def getParent(self, step=1):
-        """保持パスを指定階層だけ遡る。
+        """親を取得する。
+
+        このオブジェクトが持つDAGパスを、上へたどって求める。
 
         Args:
-            step (int): 遡る階層数。0以下、またはワールドまで遡る場合はNone。
+            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。
 
         Returns:
-            Transform | None: 遡ったパスの新しいラッパー。DAG の親は Transform 系(Joint 等)。
-                親がない場合はNone。
+            Transform | None: 親の新しいオブジェクト。DAGの親は必ずTransform系(Jointなど)になる。
+                stepが0以下の場合と、ワールドまで(それより上へ)たどる場合はNone。
 
         Raises:
-            RuntimeError: 正のstepで取得する際、保持するDAGパスが無効な場合。
+            RuntimeError: stepが正で、保持するDAGパスが無効な場合。
         """
         if step <= 0:
             return None
@@ -529,45 +568,52 @@ class DagNode(Node):
         if step >= path.length():
             return None
         path.pop(step)
-        # 有効な保持パスの複製を遡ったパスなので、Node(path) の入力解決を省いて同じ型で包む。
+        # 有効なDAGパスのコピーを上へたどったパスなので、Node(path) の入力解決を省いて同じ型で包む。
         return Node._wrap_dag_path(path)
 
     def getChildren(
         self, shapes=False, intermediates=False, *, allDescendents=False, order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
     ):
-        """保持パスに沿って子・子孫を列挙する。同じノードの別パスも残す。
+        """子、または子孫を取得する。
 
-        子パスを継ぎ足して探索し、名前から再解決しない。
+        このオブジェクトが持つDAGパスから下へたどる。結果のパスは、たどった道筋のまま作り、
+        名前から探し直さない。そのため、同じノードが複数のパスで見つかれば、パスごとに結果へ入る。
 
         Args:
-            type (str | Iterable[str] | None): Mayaのノード型で結果を絞る(``cmds.listRelatives(type=)``
-                と同じく派生型を含む。:meth:`~mlib.nodes.node.Node.isType` で判定)。探索自体は絞らないため、
-                ``allDescendents=True`` では型の違う子の下も探す。Shapeの型(``"mesh"`` 等)を指定した場合は
-                shapes=Falseでも Shape を含めて探す。``multDoubleLinear``/``multDL`` のような版の互換名も使える。
-            shapes (bool): Shapeも含める。既定はTransformのみ。
-            intermediates (bool): 中間オブジェクトを含める。除外した子の下は探索しない。
-            allDescendents (bool): Trueは子孫全体、Falseは直接の子だけ。
-            order (str): depthFirstまたはbreadthFirst。兄弟間はDAGの子順。
-            leaves (bool): 探索対象の子TransformがないTransformを再帰取得する。Shapeの有無は問わない。
-                shapes=Trueとは併用不可。
-            includeSelf (bool): 自身もshapes/leaves条件で判定し、該当すれば同じラッパーを返す。
-            underWorld (bool): Shape下のアンダーワールドも探索する。
+            shapes (bool): TrueならShapeも含める。既定はFalse(Transformだけ)。
+            intermediates (bool): Trueなら中間オブジェクトも含める。既定はFalse。
+                含めなかった中間オブジェクトの下は調べない。
+            allDescendents (bool): Trueなら子孫すべて、Falseなら直接の子だけを取得する。既定はFalse。
+            order (str): 並べる順。``"depthFirst"`` (深さ優先。既定)か ``"breadthFirst"`` (幅優先)。
+                兄弟どうしはDAGの子の順に並ぶ。
+            leaves (bool): Trueなら、末端のTransform(子にTransformを持たないもの)を、下の階層まで
+                たどって取得する。Shapeを持っていても末端として扱う。shapes=Trueとは同時に指定できない。
+            includeSelf (bool): Trueなら自身も対象にする。shapes・leavesの条件に合えば、
+                自身(同じオブジェクト)を結果へ入れる。
+            underWorld (bool): Trueなら、Shapeの下のアンダーワールドも調べる。
+            type (str | Iterable[str] | None): 結果をMayaのノード型で絞る。``cmds.listRelatives(type=)`` と同じく、
+                指定した型から派生した型も含む(:meth:`~mlib.nodes.node.Node.isType` で判定する)。
+                絞るのは結果だけで、たどる範囲は変わらない。``allDescendents=True`` では、型の違う子の下も調べる。
+                Shapeの型(``"mesh"`` など)を指定した場合は、shapes=FalseでもShapeを含めて調べる。
+                ``multDoubleLinear`` と ``multDL`` のように、Mayaの版で名前が変わった型はどちらの名前でも指定できる。
 
         Returns:
-            list[DagNode]: 探索順の参照。対象なし、またはノード自体が無効なら空リスト。
+            list[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
+                ノードそのものが無効な場合は空リスト。
 
         Raises:
-            TypeError: allDescendents・leaves・includeSelf・underWorldがboolでない、またはtypeが
-                文字列・文字列の列・None以外の場合。
-            ValueError: 探索順が不正、leavesとshapesを併用した、またはtypeが空文字列の場合。
-            RuntimeError: ノードは有効だが保持するDAGパスが無効な場合。
+            TypeError: allDescendents・leaves・includeSelf・underWorldがboolでない場合、
+                またはtypeが文字列・文字列の並び・Noneのどれでもない場合。
+            ValueError: orderが不正な場合、leavesとshapesを同時に指定した場合、
+                またはtypeに空文字列を指定した場合。
+            RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         for value, name in ((allDescendents, "allDescendents"), (leaves, "leaves"), (includeSelf, "includeSelf"), (underWorld, "underWorld")):
             _require_bool(value, name)
         if order not in ("depthFirst", "breadthFirst"):
-            raise ValueError("order must be 'depthFirst' or 'breadthFirst'")
+            raise ValueError("orderは'depthFirst'か'breadthFirst'で指定してください")
         if leaves and shapes:
-            raise ValueError("leaves selects transforms and cannot be combined with shapes")
+            raise ValueError("leavesはトランスフォームを選ぶ指定のため、shapesと同時に指定できません")
         types = _type_filter(type)
         if types and not leaves and not shapes:
             # Shapeの型で絞る場合は、既定のTransformだけの探索では必ず空になるためShapeも探す。
@@ -580,18 +626,23 @@ class DagNode(Node):
         return result
 
     def getShape(self, index=0, intermediates=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
-        """保持パスに対応する Shape を取得する。
+        """Shapeを取得する。
 
-        契約: 自身が Shape なら ``index``・``intermediates`` を無視して自身を返す。Transform は
-        派生クラス(Transform.getShape)が直下の Shape を ``index`` 番目(0 始まり。範囲外は None)で返す。
-        それ以外の DAG ノードは None。無効な index で IndexError にはしない。
+        ノードの種類によって次のように返す。
+
+        - Shapeなら、``index``・``intermediates`` を無視して自身を返す。
+        - Transformなら、派生クラス(Transform.getShape)が、直下のShapeのうち ``index`` 番目
+          (0 始まり)を返す。範囲外ならNone。
+        - それ以外のDAGノードならNone。
+
+        範囲外のindexでもIndexErrorにはしない。
 
         Args:
-            index (int): Transform で選ぶ Shape の番号。Shape では無視する。既定 0。
-            intermediates (bool): Transform で中間オブジェクトも候補に含める。Shape では無視する。
+            index (int): Transformで、何番目のShapeを選ぶか。Shapeでは無視する。既定は0。
+            intermediates (bool): Trueなら、Transformで中間オブジェクトも候補に含める。Shapeでは無視する。
 
         Returns:
-            DagNode | None: Shape なら自身、Transform は選んだ Shape、該当なしは None。
+            DagNode | None: Shapeなら自身、Transformなら選んだShape。当てはまるものがなければNone。
 
         Raises:
             RuntimeError: ノードが破棄されている場合。
@@ -599,10 +650,12 @@ class DagNode(Node):
         return self if self._require_mnode().hasFn(om2.MFn.kShape) else None
 
     def isVisible(self):
-        """親階層を含むDAGの表示状態。
+        """親の階層まで含めて、表示されているかを調べる。
+
+        このオブジェクトが持つDAGパスで調べ、親のどれかが非表示なら自身も非表示として扱う。
 
         Returns:
-            bool: 親階層を含むDAGの表示状態。
+            bool: 親の階層まで含めて表示されていればTrue。
 
         Raises:
             RuntimeError: 保持するDAGパスが無効な場合(削除済みのノードを含む)。
@@ -610,7 +663,9 @@ class DagNode(Node):
         return self.mpath().isVisible()
 
     def show(self, *, fast=False):
-        """visibility を有効にして自身を返す。``setVisibility(True, fast=fast)`` と同じ。
+        """表示する。
+
+        visibilityをTrueにして自身を返す。``setVisibility(True, fast=fast)`` と同じ。
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -624,7 +679,9 @@ class DagNode(Node):
         return self.setVisibility(True, fast=fast)
 
     def hide(self, *, fast=False):
-        """visibility を無効にして自身を返す。``setVisibility(False, fast=fast)`` と同じ。
+        """非表示にする。
+
+        visibilityをFalseにして自身を返す。``setVisibility(False, fast=fast)`` と同じ。
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -640,14 +697,15 @@ class DagNode(Node):
     def getOverrideColor(self, *, shape=False):
         """描画のオーバーライドの表示色を取得する。
 
-        既定ではTransformでも直下のShapeは読まず、自身のアトリビュートを読む。
+        既定では、Transformでも直下のShapeは読まず、自身のアトリビュートを読む。
 
         Args:
-            shape (bool): Trueは直下の最初の中間でないShapeを読む(Shapeが無ければ自身)。既定Falseは自身。
+            shape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
+                (Shapeが無ければ自身)。Falseなら自身を読む。既定はFalse。
 
         Returns:
             int | tuple[float, float, float] | None: ``overrideEnabled`` が無効ならNone。
-                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラー番号(0は既定色)。
+                ``overrideRGBColors`` が有効なら (r, g, b)。それ以外はカラー番号(0は既定色)。
 
         Raises:
             TypeError: shapeがbool以外の場合。
@@ -663,29 +721,37 @@ class DagNode(Node):
         return fn.findPlug("overrideColor", False).asInt()
 
     def setOverrideColor(self, color, *, shape=False, fast=False):
-        """描画のオーバーライドで表示色を設定し、自身を返す。
+        """描画のオーバーライドで表示色を設定する。
 
-        ``overrideEnabled`` を有効にし、番号の指定は ``overrideRGBColors`` を無効にして
-        ``overrideColor``、RGB指定は ``overrideRGBColors`` を有効にして ``overrideColorRGB`` を設定する。
-        ``None`` は ``overrideEnabled`` を無効にする(表示タイプ等のほかのオーバーライドも効かなくなる)。
-        TransformやJointでも直下のShapeではなく自身へ設定する(Mayaの描画のオーバーライドと同じく、Transformの
-        設定は子の階層全体へ及ぶ)。``shape=True`` は直下の中間でないShape全てへ設定する(Shapeが無ければ自身)。
-        通常は ``cmds.setAttr`` で1回のUndoにまとめ、途中で失敗した場合は巻き戻す。``fast=True`` は全対象アトリビュートの書込み可否を先に調べてから
-        OpenMayaで書き込み、Undoに記録しない。
+        ``overrideEnabled`` を有効にしてから、指定に応じて次のように設定し、自身を返す。
+
+        - カラー番号: ``overrideRGBColors`` を無効にして ``overrideColor`` を設定する。
+        - RGB: ``overrideRGBColors`` を有効にして ``overrideColorRGB`` を設定する。
+        - ``None``: ``overrideEnabled`` を無効にする。表示タイプなど、ほかのオーバーライドも効かなくなる。
+
+        TransformやJointでも、直下のShapeではなく自身へ設定する。Mayaの描画のオーバーライドと同じく、
+        Transformへの設定は子の階層全体に効く。``shape=True`` なら、直下のShape(中間オブジェクトを除く)
+        すべてへ設定する(Shapeが無ければ自身)。
+
+        通常は ``cmds.setAttr`` で書き込み、1回のUndoにまとめる。途中で失敗したら元に戻す。
+        ``fast=True`` なら、対象のアトリビュートすべてに書き込めるかを先に調べてからOpenMayaで書き込み、
+        Undoには記録しない。
 
         Args:
-            color (int | Sequence[float] | None): カラー番号(0〜31。0は既定色)、
-                0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換は行わない。
-            shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
+            color (int | Sequence[float] | None): 表示色。カラー番号(0〜31。0は既定色)、
+                0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換はしない。
+            shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
+                Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             DagNode: 自身。
 
         Raises:
-            TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
-            RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
+            TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
+                またはshape・fastがbool以外の場合。
+            ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
+            RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(shape, "shape")
         _require_bool(fast, "fast")
@@ -703,7 +769,8 @@ class DagNode(Node):
         """アウトライナーの文字色を取得する。
 
         Args:
-            shape (bool): Trueは直下の最初の中間でないShapeを読む(Shapeが無ければ自身)。既定Falseは自身。
+            shape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
+                (Shapeが無ければ自身)。Falseなら自身を読む。既定はFalse。
 
         Returns:
             tuple[float, float, float] | None: (r, g, b)。``useOutlinerColor`` が無効ならNone。
@@ -720,26 +787,30 @@ class DagNode(Node):
         return tuple(plug.child(index).asFloat() for index in range(3))
 
     def setOutlinerColor(self, color, *, shape=False, fast=False):
-        """アウトライナーの文字色を設定し、自身を返す。
+        """アウトライナーの文字色を設定する。
 
-        ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定する。``None`` は ``useOutlinerColor`` を
-        無効にする。既定ではTransformやJointでも直下のShapeではなく自身へ設定する。
-        カラー番号は指定した時点のRGBへ変換して保持する(``outlinerColor`` はRGBだけを持つため)。
+        ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定し、自身を返す。
+        ``None`` なら ``useOutlinerColor`` を無効にする。
+        既定では、TransformやJointでも直下のShapeではなく自身へ設定する。
+
+        ``outlinerColor`` はRGBしか持たないため、カラー番号は指定した時点のRGBに直して書き込む。
         GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
 
         Args:
-            color (int | Sequence[float] | None): カラー番号(0〜31)、0〜1の有限な数値3個の (r, g, b)、
+            color (int | Sequence[float] | None): 文字色。カラー番号(0〜31)、0〜1の有限な数値3個の (r, g, b)、
                 または無効にするNone。
-            shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
+            shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
+                Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             DagNode: 自身。
 
         Raises:
-            TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
-            RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
+            TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
+                またはshape・fastがbool以外の場合。
+            ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
+            RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(shape, "shape")
         _require_bool(fast, "fast")
@@ -751,15 +822,19 @@ class DagNode(Node):
         return self
 
     def getVisibility(self):
-        """自身のvisibilityアトリビュート値。親や表示レイヤーを含む最終可視性ではない。
+        """自身のvisibilityアトリビュートの値を取得する。
+
+        親や表示レイヤーの設定は含めない。実際に表示されているかは :meth:`isVisible` で調べる。
 
         Returns:
-            bool: 自身のvisibilityアトリビュート値。親や表示レイヤーを含む最終可視性ではない。
+            bool: 自身のvisibilityアトリビュートの値。
         """
         return bool(self.getPlug("visibility").get())
 
     def setVisibility(self, state, *, fast=False):
-        """visibility を指定した状態に設定する。親やレイヤーの可視性は変更しない。
+        """visibilityを設定する。
+
+        自身のvisibilityだけを変える。親や表示レイヤーの表示設定は変えない。
 
         Args:
             state (bool): visibilityへ設定する値。
@@ -770,11 +845,11 @@ class DagNode(Node):
 
         Raises:
             TypeError: state・fastがbool以外の場合。
-            RuntimeError: ノードが無効、またはvisibilityがロック・入力接続されていて書き込めない場合。
+            RuntimeError: ノードが無効な場合、またはvisibilityがロックや入力接続のために書き込めない場合。
 
         Note:
-            ``fast=True`` はOpenMaya直接更新(Undoなし)。既定の ``False`` は通常処理。
-            完了済みの直接更新は自動で戻さない。
+            ``fast=True`` ならOpenMayaで直接書き込み、Undoには記録しない。既定の ``False`` なら通常の処理になる。
+            直接書き込んだ値は、あとで自動では戻さない。
         """
         with _edit_context("mlibDagNodeSetVisibility", fast):
             _require_bool(state, "state")
@@ -782,37 +857,37 @@ class DagNode(Node):
             return self
 
     def getOutlinerVisibility(self):
-        """アウトライナーでの表示を許可する設定値を取得する。
+        """アウトライナーに表示する設定になっているかを取得する。
 
         Returns:
-            bool: hiddenInOutlinerがFalseならTrue。実際の画面上の可視性ではない。
+            bool: hiddenInOutlinerがFalseならTrue。画面に実際に見えているかどうかではない。
 
         Raises:
             RuntimeError: ノードが無効な場合。
 
         Note:
-            エディターのフィルター・親の折り畳み・非表示ノード表示設定は判定しない。
+            エディターのフィルター、親が折り畳まれているか、非表示のノードを表示する設定は調べない。
         """
         return not bool(self.getPlug("hiddenInOutliner").get())
 
     def setOutlinerVisibility(self, state, *, fast=False):
-        """ノードのアウトライナー表示を切り替える。
+        """アウトライナーに表示するかを設定する。
 
         Args:
-            state (bool): Trueで表示、Falseで非表示(hiddenInOutlinerを反転設定)。
+            state (bool): Trueなら表示、Falseなら非表示。hiddenInOutlinerには逆の値を書き込む。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            DagNode: 自身。DagNodes・Transforms・Jointsからの一括操作にも対応する。
+            DagNode: 自身。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
 
         Raises:
             TypeError: stateまたはfastがbool以外の場合。
-            AttributeError: 対応アトリビュートがない場合。
-            RuntimeError: ロック・入力接続などで更新できない場合。
+            AttributeError: 対応するアトリビュートがない場合。
+            RuntimeError: ロックや入力接続などのために書き込めない場合。
 
         Note:
-            ビューポートのvisibilityは変更しない。表示の最終結果は各Outlinerの
-            フィルターや非表示ノード表示設定にも依存する。
+            ビューポートのvisibilityは変えない。実際にアウトライナーに出るかは、
+            各アウトライナーのフィルターや、非表示のノードを表示する設定によっても変わる。
         """
         with _edit_context("mlibDagNodeSetOutlinerVisibility", fast):
             _require_bool(state, "state")
@@ -822,8 +897,8 @@ class DagNode(Node):
     def getDisplayType(self):
         """描画のオーバーライドの表示の種類を取得する。
 
-        自身の ``overrideEnabled``・``overrideDisplayType`` を読む(Transformでも直下のShapeは読まない。
-        :meth:`setDisplayType` と同じ対象)。表示レイヤーの設定は含めない。
+        自身の ``overrideEnabled``・``overrideDisplayType`` を読む。Transformでも直下のShapeは読まない
+        (:meth:`setDisplayType` と同じ対象)。表示レイヤーの設定は含めない。
 
         Returns:
             str: ``"normal"``・``"template"``・``"reference"``。``overrideEnabled`` が無効なら ``"normal"``。
@@ -831,50 +906,56 @@ class DagNode(Node):
         Raises:
             RuntimeError: ノードが無効な場合。
         """
-        self._require_valid("get the display type of")
+        self._require_valid("表示タイプの取得")
         fn = self._dependency_fn()
         if not fn.findPlug("overrideEnabled", False).asBool():
             return "normal"
         return _DISPLAY_TYPES[fn.findPlug("overrideDisplayType", False).asInt()]
 
     def setDisplayType(self, kind, *, fast=False):
-        """描画のオーバーライドで表示の種類(通常・テンプレート・リファレンス)を設定し、自身を返す。
+        """描画のオーバーライドで表示の種類を設定する。
 
-        ``"template"``・``"reference"`` は ``overrideEnabled`` を有効にして ``overrideDisplayType`` を設定する。
-        ``"normal"`` は ``overrideDisplayType`` を0へ戻すだけで、``overrideEnabled`` は変えない(表示色等の
-        ほかのオーバーライドを保つため)。Transformでも直下のShapeではなく自身へ
-        設定する(Mayaの描画のオーバーライドと同じく、Transformの設定は子の階層全体へ及ぶ)。
-        通常は ``cmds.setAttr`` で1回のUndoにまとめ、途中で失敗した場合は巻き戻す。``fast=True`` は
-        全対象アトリビュートの書込み可否を先に調べてからOpenMayaで書き込み、Undoに記録しない。
+        表示の種類は通常・テンプレート・リファレンスの3つ。設定して自身を返す。
+
+        - ``"template"``・``"reference"``: ``overrideEnabled`` を有効にして ``overrideDisplayType`` を設定する。
+        - ``"normal"``: ``overrideDisplayType`` を0へ戻すだけで、``overrideEnabled`` は変えない。
+          表示色など、ほかのオーバーライドを残すため。
+
+        Transformでも、直下のShapeではなく自身へ設定する。Mayaの描画のオーバーライドと同じく、
+        Transformへの設定は子の階層全体に効く。
+
+        通常は ``cmds.setAttr`` で書き込み、1回のUndoにまとめる。途中で失敗したら元に戻す。
+        ``fast=True`` なら、対象のアトリビュートすべてに書き込めるかを先に調べてからOpenMayaで書き込み、
+        Undoには記録しない。
 
         Args:
-            kind (str): ``"normal"``・``"template"``・``"reference"``。
+            kind (str): ``"normal"``・``"template"``・``"reference"`` のどれか。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             DagNode: 自身。
 
         Raises:
-            TypeError: kindが文字列以外、またはfastがbool以外の場合。
-            ValueError: kindが未対応の名前の場合。
-            RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
+            TypeError: kindが文字列以外の場合、またはfastがbool以外の場合。
+            ValueError: kindが対応していない名前の場合。
+            RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(fast, "fast")
         if not isinstance(kind, str):
-            raise TypeError("kind must be 'normal', 'template' or 'reference'")
+            raise TypeError("kindは'normal'・'template'・'reference'のどれかで指定してください")
         if kind not in _DISPLAY_TYPES:
-            raise ValueError(f"kind must be one of {', '.join(map(repr, _DISPLAY_TYPES))}, got {kind!r}")
+            raise ValueError(f"kindは{', '.join(map(repr, _DISPLAY_TYPES))}のどれかで指定してください: {kind!r}")
         index = _DISPLAY_TYPES.index(kind)
         values = [("overrideDisplayType", index)] if index == 0 else [("overrideEnabled", True), ("overrideDisplayType", index)]
         self._set_display_values(values, "mlibDagNodeSetDisplayType", fast)
         return self
 
     def isShadingOverridden(self):
-        """描画のオーバーライドでシェーディングを切り、ワイヤーフレーム表示にしているかを返す。
+        """描画のオーバーライドで、ワイヤーフレーム表示にしているかを調べる。
 
-        Mayaの ``overrideShading`` は「Trueでシェーディングあり(既定)、Falseでワイヤーフレーム」の意味で、
-        このメソッドはその逆向き(シェーディングを上書きして消しているか)を返す。自身のアトリビュートを読む
-        (:meth:`setShadingOverride` と同じ対象)。
+        Mayaの ``overrideShading`` は、Trueでシェーディングあり(既定)、Falseでワイヤーフレームを表す。
+        このメソッドはその逆向きで、シェーディングを消しているときにTrueを返す。
+        自身のアトリビュートを読む(:meth:`setShadingOverride` と同じ対象)。
 
         Returns:
             bool: ``overrideEnabled`` が有効で ``overrideShading`` がFalseならTrue。
@@ -882,20 +963,24 @@ class DagNode(Node):
         Raises:
             RuntimeError: ノードが無効な場合。
         """
-        self._require_valid("get the shading override of")
+        self._require_valid("シェーディングのオーバーライドの取得")
         fn = self._dependency_fn()
         return fn.findPlug("overrideEnabled", False).asBool() and not fn.findPlug("overrideShading", False).asBool()
 
     def setShadingOverride(self, enabled, *, fast=False):
-        """描画のオーバーライドでシェーディングを切ってワイヤーフレーム表示にするかを設定し、自身を返す。
+        """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
-        ``enabled=True`` は ``overrideEnabled`` を有効にして ``overrideShading`` をFalse(ワイヤーフレーム)、
-        ``enabled=False`` は ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
-        ``overrideEnabled`` は変えない。boolの向きはMayaの ``overrideShading`` と逆で、
-        :meth:`isShadingOverridden` の戻り値と同じ向き。対象・Undo・fastは :meth:`setDisplayType` と同じ。
+        設定して自身を返す。
+
+        - ``enabled=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
+        - ``enabled=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
+          ``overrideEnabled`` は変えない。
+
+        boolの向きはMayaの ``overrideShading`` と逆で、:meth:`isShadingOverridden` の戻り値と同じ向き。
+        対象・Undo・fastの扱いは :meth:`setDisplayType` と同じ。
 
         Args:
-            enabled (bool): Trueでシェーディングを切る(ワイヤーフレーム表示)、Falseで戻す。
+            enabled (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -903,7 +988,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: enabledまたはfastがbool以外の場合。
-            RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
+            RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(fast, "fast")
         _require_bool(enabled, "enabled")
@@ -912,27 +997,32 @@ class DagNode(Node):
         return self
 
     def deleteHistory(self, keepDeformers=True):
-        """構築履歴を削除し、自身を返す。
+        """ヒストリを削除する。
 
-        ``keepDeformers=True`` は ``cmds.bakePartialHistory(prePostDeformers=True)`` で、デフォーマー
-        (skinCluster・blendShape・cluster等)を残し、それ以外の履歴(polySmooth等のモデリングの履歴)だけを
-        形状へ焼き込んで消す。``False`` は ``cmds.delete(constructionHistory=True)`` で、デフォーマーを含む
-        すべての履歴を消す(現在の変形結果の形状が残る)。Mayaのコマンドと同じく、Transformに呼ぶと直下の
-        Shapeの履歴が対象になる。Shapeを持たないTransform(グループ等)で ``keepDeformers=True`` の場合は
-        消す履歴が無いため何もしない。fast引数は持たない(OpenMayaに同等機能が無い)。Undo有効時は1回で戻せる。
+        削除して自身を返す。消し方はkeepDeformersで選ぶ。
+
+        - ``keepDeformers=True``: ``cmds.bakePartialHistory(prePostDeformers=True)`` を使う。
+          デフォーマー(skinCluster・blendShape・clusterなど)は残し、それ以外のヒストリ
+          (polySmoothなどのモデリングのヒストリ)だけを形状へ焼き込んで消す。
+        - ``keepDeformers=False``: ``cmds.delete(constructionHistory=True)`` を使う。
+          デフォーマーを含むすべてのヒストリを消す。形状は、いまの変形結果のまま残る。
+
+        Mayaのコマンドと同じく、Transformから呼ぶと直下のShapeのヒストリが対象になる。
+        Shapeを持たないTransform(グループなど)で ``keepDeformers=True`` なら、消すヒストリが無いため何もしない。
+        OpenMayaには同じ機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Args:
-            keepDeformers (bool): Trueはデフォーマーを残す。既定True。
+            keepDeformers (bool): Trueならデフォーマーを残す。既定はTrue。
 
         Returns:
             DagNode: 自身。
 
         Raises:
             TypeError: keepDeformersがbool以外の場合。
-            RuntimeError: ノードが無効、またはMayaが削除を拒否した場合。
+            RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
         _require_bool(keepDeformers, "keepDeformers")
-        self._require_valid("delete the history of")
+        self._require_valid("ヒストリの削除")
         name = self.getFullName()
         if keepDeformers and not self._require_mnode().hasFn(om2.MFn.kShape):
             # bakePartialHistory は Shape の無い Transform を「Shapeを選択」のエラーにするため、Shapeを渡す。
@@ -949,19 +1039,21 @@ class DagNode(Node):
         return self
 
     def _collect_children(self, shapes, intermediates, all_descendents, order, leaves, include_self, under_world):
-        """検証済みの条件で子・子孫を探索する(:meth:`getChildren` の本体)。
+        """子や子孫をたどって集める(:meth:`getChildren` の本体)。
+
+        引数は確かめ済みのものを受け取る。
 
         Args:
-            shapes (bool): Shapeも含める。
-            intermediates (bool): 中間オブジェクトを含める。
-            all_descendents (bool): 子孫全体を探す。
-            order (str): depthFirstまたはbreadthFirst。
-            leaves (bool): 子Transformを持たないTransformだけを返す。
-            include_self (bool): 自身も判定する。
-            under_world (bool): アンダーワールドも探す。
+            shapes (bool): TrueならShapeも含める。
+            intermediates (bool): Trueなら中間オブジェクトも含める。
+            all_descendents (bool): Trueなら子孫すべてを調べる。
+            order (str): たどる順。depthFirstまたはbreadthFirst。
+            leaves (bool): Trueなら、子にTransformを持たないTransformだけを返す。
+            include_self (bool): Trueなら自身も対象にする。
+            under_world (bool): Trueならアンダーワールドも調べる。
 
         Returns:
-            list[DagNode]: 探索順の参照。
+            list[DagNode]: たどった順のオブジェクト。
         """
         recursive = all_descendents or leaves
         # この処理でだけ使うため、mlibの読み込み時間に含めない。
@@ -982,28 +1074,28 @@ class DagNode(Node):
         return result
 
     def _set_display_values(self, values, chunk, fast, shape=False):
-        """表示のアトリビュートへ値を書き込む(:meth:`setOverrideColor`・:meth:`setDisplayType` 等の本体)。
+        """表示のアトリビュートへ値を書き込む(:meth:`setOverrideColor`・:meth:`setDisplayType` などの本体)。
 
-        fastは一部のアトリビュートだけ変わるのを避けるため、全アトリビュート(コンパウンドアトリビュートは
-        子も)の書込み可否を先に調べてから書き込む。
+        fastでは、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
+        (コンパウンドアトリビュートは子も)に書き込めるかを先に調べてから書き込む。
 
         Args:
-            values (list[tuple[str, object]]): アトリビュート名と値を書き込む順に並べたもの。
-            chunk (str): 通常経路のUndoチャンク名。
-            fast (bool): 検証済みのfast。TrueはUndoなしのOpenMaya更新。
-            shape (bool): 検証済みのshape。Trueは直下のShapeへ書き込む。
+            values (list[tuple[str, object]]): アトリビュート名と値の組を、書き込む順に並べたもの。
+            chunk (str): 通常の処理で使うUndoチャンクの名前。
+            fast (bool): 確かめ済みのfast。TrueはUndoなしのOpenMaya更新。
+            shape (bool): 確かめ済みのshape。Trueなら直下のShapeへ書き込む。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            RuntimeError: ノードが無効、またはロック・入力接続で書き込めない場合。
+            RuntimeError: ノードが無効な場合、またはロックや入力接続のために書き込めない場合。
         """
         targets = self._color_targets(shape)
         if fast:
             writes = []
             for target in targets:
-                # Plugラッパーを作らず、組み込みアトリビュートのMPlugを直接取る。
+                # Plugのオブジェクトを作らず、組み込みアトリビュートのMPlugを直接取る。
                 fn = target._dependency_fn()
                 writes += [(fn.findPlug(attribute, False), value) for attribute, value in values]
             for plug, _ in writes:
@@ -1023,24 +1115,27 @@ class DagNode(Node):
                         cmds.setAttr(name + "." + attribute, value)
 
     def _color_targets(self, shape):  # noqa: ARG002  # 派生が使う契約の引数。DagNodeは自身を返す。
-        """表示色を読み書きするノードを返す。DagNodeは ``shape`` によらず自身。
+        """表示色を読み書きするノードを返す。
+
+        DagNodeでは ``shape`` にかかわらず自身だけを返す。
 
         Args:
-            shape (bool): 検証済みのshape。
+            shape (bool): 確かめ済みのshape。
 
         Returns:
             list[DagNode]: 対象のノード。
         """
-        self._require_valid("access the display attributes of")
+        self._require_valid("表示アトリビュートの取得")
         return [self]
 
     def _require_mnode(self):
-        """保持する MObject を返す。:meth:`mnode` と同じ値で、None にならないことを確かめる。
+        """このオブジェクトが持つMObjectを返す。
 
-        初期化でノードを解決できなければ例外になるため、生成済みのラッパーは常に MObject を保持する。
+        :meth:`mnode` と同じ値を返し、Noneでないことを確かめる。
+        作るときにノードが見つからなければ例外になるので、作られたオブジェクトは必ずMObjectを持っている。
 
         Returns:
-            om2.MObject: 保持している MObject(複製ではない)。
+            om2.MObject: 持っているMObjectそのもの(コピーではない)。
         """
         mobject = self.mnode()
         assert mobject is not None
@@ -1048,10 +1143,10 @@ class DagNode(Node):
 
     @staticmethod
     def _world_assemblies():
-        """ワールド直下の Transform をすべて取得する。
+        """ワールド直下のTransformをすべて取得する。
 
         Returns:
-            list[DagNode]: ワールド直下(DAG パスの長さが 1)の Transform ラッパー。
+            list[DagNode]: ワールド直下(DAGパスの長さが1)のTransformのオブジェクト。
         """
         iterator = om2.MItDag(om2.MItDag.kBreadthFirst, om2.MFn.kTransform)
         assemblies = []
@@ -1064,13 +1159,15 @@ class DagNode(Node):
         return assemblies
 
     def _sibling_position(self):
-        """保持パスが親の直接の子の何番目にあるかと、その子の総数を返す。
+        """親の直接の子の中での順番と、子の数を返す。
+
+        このオブジェクトが持つDAGパスが、親の直接の子の何番目にあるかを調べる。
 
         Returns:
-            tuple[int, int]: (0 始まりの番号, 子の総数)。
+            tuple[int, int]: (0 始まりの番号, 子の数)。
 
         Raises:
-            RuntimeError: 並びの中に保持パスが見つからない場合(アンダーワールドのノード等)。
+            RuntimeError: 並びの中にこのオブジェクトのパスが見つからない場合(アンダーワールドのノードなど)。
         """
         path = self.mpath()
         node = path.node()
@@ -1098,24 +1195,27 @@ class DagNode(Node):
                     count += 1
                 iterator.next()
         if position is None:
-            raise RuntimeError(f"Cannot find the outliner order of {type(self).__name__}: {self.getFullName()}")
+            raise RuntimeError(f"{type(self).__name__}のアウトライナーの並び順が見つかりません: {self.getFullName()}")
         return position, count
 
     def _direct_children(self, shapes, intermediates, shapes_only=False):
-        """直接の子をAPIで列挙し、インスタンスの親パスを維持する。
+        """直接の子をOpenMayaで取得する。
+
+        子のパスは、このオブジェクトが持つDAGパスの下へつなげて作る。そのため、インスタンスの
+        どの親の下をたどったかが保たれる。
 
         Args:
-            shapes (bool): Shapeも列挙するか。
-            intermediates (bool): 中間オブジェクトも含めるか。
-            shapes_only (bool): TrueならShapeだけを列挙する(Transform等はラッパーを作らずに除く)。
+            shapes (bool): TrueならShapeも含める。
+            intermediates (bool): Trueなら中間オブジェクトも含める。
+            shapes_only (bool): TrueならShapeだけを返す(Transformなどはオブジェクトを作らずに除く)。
 
         Returns:
-            list[DagNode]: 条件に合う直接の子。非Transformでは空リスト。
+            list[DagNode]: 条件に合う直接の子。Transformでなければ空リスト。
         """
         path = self.mpath()
         if not path.node().hasFn(om2.MFn.kTransform):
             return []
-        # 子の数と子は保持パスから直接読む(MFnDagNode(path) と同じ子の順。関数セットの作成を省く)。
+        # 子の数と子は、このオブジェクトが持つDAGパスから直接読む(MFnDagNode(path) と同じ子の順。関数セットの作成を省く)。
         result = []
         for index in range(path.childCount()):
             obj = path.child(index)
@@ -1132,12 +1232,12 @@ class DagNode(Node):
         return result
 
     def _traversal_children(self, shapes, intermediates, under_world):
-        """指定条件で探索を続ける子パスを取得する。
+        """次にたどる子のパスを取得する。
 
         Args:
-            shapes: TrueはShapeも取得対象へ含める。
-            intermediates: Trueは中間オブジェクトも含める。
-            under_world: TrueはShape下のアンダーワールドも探索する。
+            shapes: TrueならShapeも含める。
+            intermediates: Trueなら中間オブジェクトも含める。
+            under_world: Trueなら、Shapeの下のアンダーワールドも調べる。
         """
         result = []
         is_shape = self._require_mnode().hasFn(om2.MFn.kShape)
@@ -1170,7 +1270,7 @@ def _palette_color(index):
     Returns:
         tuple[float, float, float]: RGB。
     """
-    # 0は既定色で照会できず、GUIのないMayaはcolorIndexがNoneを返すため標準のパレットを使う。
+    # 0は既定色で取得できず、GUIのないMayaはcolorIndexがNoneを返すため標準のパレットを使う。
     if index == 0 or cmds.about(batch=True):
         return _DEFAULT_COLOR_PALETTE[index]
     return tuple(cmds.colorIndex(index, query=True))

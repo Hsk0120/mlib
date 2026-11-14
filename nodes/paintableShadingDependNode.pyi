@@ -6,4 +6,4 @@ from .shadingDependNode import ShadingDependNode
 
 
 class PaintableShadingDependNode(ShadingDependNode):
-    """Mayaの継承型に対応するPaintableShadingDependNode。値と接続はPlugで操作する。"""
+    """MayaのpaintableShadingDependNodeノードを扱うクラス。値の設定と接続はPlugで行う。"""

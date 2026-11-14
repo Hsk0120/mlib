@@ -1,9 +1,12 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""距離アトリビュートを汎用 Plug の読み書き機能で扱う。"""
+"""距離のアトリビュートを、Plug共通の読み書きで扱う。"""
 
 from .plug import Plug
 
 
 
 class DoubleLinearPlug(Plug):
-    """距離のPlug。get/setは既定cm、uiUnits=Trueなら現在のUI距離単位。"""
+    """距離のアトリビュートを扱うPlug。
+
+    get・setで扱う数値の単位は、既定はcm、uiUnits=Trueなら現在のUIの距離単位になる。
+    """

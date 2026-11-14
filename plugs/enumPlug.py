@@ -1,22 +1,26 @@
-"""列挙値。getは整数値、setは整数値またはフィールド名、getEnumName/getEnumValueは名前と値を扱う。"""
+"""列挙型(enum)のアトリビュートを扱う。値は整数で、フィールド名でも書き込める。"""
 
 from .plug import Plug
 
 
 class EnumPlug(Plug):
-    """列挙値。getは整数値、setは整数値またはフィールド名、getEnumName/getEnumValueは名前と値を扱う。
+    """列挙型(enum)のアトリビュートを扱うPlug。
 
-    ``set("head")`` のようにフィールド名を渡すと :meth:`getEnumValue` で値へ変換して書き込む
-    (大文字・小文字を区別する完全一致。通常・fast・safeで同じ)。一致しない名前は有効な名前を並べた
-    ValueError(``safe=True`` では失敗数1)。
+    - getは整数の値を返す。
+    - setには整数の値か、フィールド名を渡せる。
+    - getEnumName・getEnumValueで、名前と値を相互に変換できる。
+
+    ``set("head")`` のようにフィールド名を渡すと、:meth:`getEnumValue` で値へ変換してから書き込む。
+    名前は大文字・小文字を区別して、完全に一致するものを探す。通常・fast・safeのどれでも同じ。
+    一致しない名前を渡すと、有効な名前を並べたValueErrorになる(``safe=True`` では失敗数1)。
     """
 
     def _set_value(self, value, *, uiUnits=False, fast=False):
-        """フィールド名を整数値へ変換してから基底の書込みへ渡す。
+        """フィールド名を整数の値へ変換してから、基底クラスの書き込みへ渡す。
 
         Args:
-            value (int | str): enum値またはフィールド名。
-            uiUnits (bool): 基底の書込みへ渡す単位指定。
+            value (int | str): enumの値、またはフィールド名。
+            uiUnits (bool): 基底クラスの書き込みへそのまま渡す単位の指定。
             fast (bool): TrueならOpenMayaで直接更新する。
 
         Returns:

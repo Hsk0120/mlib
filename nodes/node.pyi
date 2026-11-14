@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Maya の依存ノードと DAG ノードを扱う基底ラッパー。"""
+"""Mayaの依存ノードとDAGノードを扱う基底クラス。"""
 
 import inspect
 import re
@@ -73,13 +73,13 @@ def _node_type_name(mobject: om2.MObject) -> str:
 def _resolve_node(node: str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> tuple[om2.MObject, om2.MDagPath | None]:
     """ノードを表す入力を MObject と MDagPath へ解決する。
 
-    Node.__new__ (ラッパー型の選択)を通じてNodeの入力解決が利用する下位の解決処理。
+    Node.__new__ (返すクラスの選択)を通じて、Nodeの入力の解決が使う下位の処理。
     Node(...) の生成では __new__ で1回だけ呼び、結果を __init__ へ引き継ぐ。Plug・MPlug は
     所有ノード、コンポーネント(単体・複数形)は所有シェイプへ解決する。
 
     Args:
         node (str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-            対象ノードの名前、mlib のラッパー、または Maya API 2.0 オブジェクト。
+            対象のノードの名前、mlibのオブジェクト、またはMaya API 2.0のオブジェクト。
             ``"node.attribute"`` や ``"pCube1.vtx[0]"`` のような文字列も所有ノードへ解決する
             (インスタンス化されたノードは、名前が指すインスタンスのパスを保持する)。
 
@@ -92,7 +92,7 @@ def _resolve_node(node: str | Node | Plug | Component | Components | om2.MObject
         ValueError: 所有ノードは有効で、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
             (:class:`mlib.plugs.plug.DeletedAttributeError`。``RuntimeError`` の派生でもある)。
         RuntimeError: 名前を解決できない(存在しない、または複数の対象に一致する)場合、
-            または空・無効な(削除済みの)ラッパーや om2 オブジェクトを指定した場合。
+            または空・無効な(削除済みの)mlibのオブジェクトやom2のオブジェクトを指定した場合。
     """
     ...
 
@@ -303,29 +303,35 @@ def _attribute_names(attributes: str | Iterable[str] | None) -> list[str] | None
 
 
 class Node(Object):
-    """Mayaノードと、DAGノードでは特定インスタンスのパスを参照する。
+    """Mayaのノードを扱うクラス。
 
-    nodeTypeの登録型、近い登録祖先型、Nodeの順にラッパー型を選ぶ。
-    Nodeを渡しても新しいラッパーを返し、Mayaノードは複製しない。
-    名前・MDagPath・既存ラッパーのDAGパスを保持し、MObject・MPlugでは最初のパスを使う。
-    保持インスタンスが消失した場合は別パスへ切り替えず、パスを使う操作でRuntimeErrorになる。
-    str(node)は改名・親変更に追従する最短一意名、削除済みなら空文字列を返す。
+    このクラスのオブジェクトは、Mayaのノードを1つ指す。DAGノードでは、どのインスタンスかを表す
+    DAGパスも1つ持つ。
+
+    - 返すオブジェクトのクラスは、ノードの型(nodeType)で決まる。登録されたクラスがあればそれを、
+      無ければ最も近い登録済みの祖先の型のクラスを、それも無ければNodeを使う。
+    - Nodeを渡しても、新しいオブジェクトを返す。Mayaのノードは複製しない。
+    - 名前・MDagPath・既存のオブジェクトを渡すと、そのDAGパスを持つ。MObject・MPlugを渡すと、最初のパスを使う。
+    - 持っているパスのインスタンスが消えても、別のパスへは切り替えない。パスを使う操作はRuntimeErrorになる。
+    - ``str(node)`` は、名前の変更や親の変更に追従した最短の一意な名前を返す。削除済みなら空文字列。
 
     取得専用のクラスで、ノードの作成は :func:`mlib.createNode` で行う(``Node.create`` や
-    ``Node(name, create=True)`` の作成経路は無い)。``isinstance`` の階層は手書きクラスの継承に
-    従い、Mayaの抽象祖先型(``weightGeometryFilter``・``containerBase``・``entity`` 等)のクラスは含まない。
+    ``Node(name, create=True)`` のような作り方は無い)。``isinstance`` の階層は、mlibで書いたクラスの
+    継承のとおりになる。Mayaの抽象的な祖先の型(``weightGeometryFilter``・``containerBase``・``entity`` など)の
+    クラスは含まない。
 
-    Mayaの継承チェーンによる判定は :meth:`isType` または :meth:`getType` の ``inherited=True`` を使う。
+    Mayaの型の継承で判定するときは、:meth:`isType` か、:meth:`getType` の ``inherited=True`` を使う。
 
     Args:
         node (str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-            名前または参照。Plug・MPlugは所有ノード、Component・Componentsは所有シェイプへ解決する。
+            名前か、ノードを指すもの。Plug・MPlugはそれを持つノードを、Component・Componentsは
+            それを持つシェイプを指す。
 
     Raises:
-        TypeError: 入力型が不正、または指定クラスと対象型が非互換の場合。
-        ValueError: 所有ノードが有効でアトリビュートだけが削除済みのPlugの場合。
-            MPlugも含み、DeletedAttributeError(RuntimeErrorの派生でもある)。
-        RuntimeError: 取得対象が空・削除済み・存在しない・一意でない場合。
+        TypeError: 入力の型が不正な場合、または指定したクラスと対象のノードの型が合わない場合。
+        ValueError: ノードは有効だが、アトリビュートだけが削除済みのPlugを渡した場合。
+            MPlugも同じ。DeletedAttributeError(RuntimeErrorの派生でもある)になる。
+        RuntimeError: 対象が空・削除済み・存在しない・一意でない場合。
     """
     _registry: None
     _mobject: 'om2.MObject'
@@ -333,113 +339,116 @@ class Node(Object):
     _handle: 'om2.MObjectHandle'
     _fn_cache: None
     def __new__(cls, node: str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug, *args: object, **kwargs: object) -> Self:
-        """ノード型の登録情報に従ってラッパーを割り当てる。
+        """ノードの型に合ったクラスのオブジェクトを作る。
 
-        入力を一度だけ解決し、nodeTypeに対応する登録クラス(登録が無い型は登録表の規則で
-        選ぶクラス。無ければNode)を選ぶ。具体的なクラスを指定した場合は、そのクラスの
-        派生型以外を拒否し、黙って別の型へ差し替えない。ノードの作成は行わない。
+        入力は一度だけ解決し、nodeTypeに登録されたクラスを選ぶ。登録が無い型では、登録表の決まりで
+        選んだクラスを使う(それも無ければNode)。具体的なクラスを指定して呼んだ場合、そのクラスの
+        派生でない型は拒否する。黙って別の型へ差し替えることはしない。ノードは作らない。
 
         Args:
             node (str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-                対象ノードの名前、mlib のラッパー、または Maya API 2.0 オブジェクト。
-                Plug・MPlugは所有ノード、Component・Componentsは所有シェイプを指す。
+                対象のノードの名前、mlibのオブジェクト、またはMaya API 2.0のオブジェクト。
+                Plug・MPlugはそれを持つノードを、Component・Componentsはそれを持つシェイプを指す。
             *args (object): 選んだクラスの ``__init__`` へ渡す位置引数。
             **kwargs (object): 選んだクラスの ``__init__`` へ渡すキーワード引数。
-                ``create`` は受け付けない(``__init__`` が TypeError にする)。
+                ``create`` は受け付けない(``__init__`` がTypeErrorにする)。
 
         Returns:
-            Node: 解決したMayaノードを参照する、適合クラスの新しいインスタンス。
+            Node: 解決したMayaのノードを指す、型に合ったクラスの新しいオブジェクト。
 
         Raises:
-            TypeError: ノード入力が対応しない型、指定クラスと対象型が非互換、または選んだクラスの
-                ``__init__`` が受けない引数(廃止した ``create`` 等)を渡した場合。
-            ValueError: アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-                (``DeletedAttributeError``。RuntimeError の派生でもある)。
+            TypeError: 入力の型が対応していない場合、指定したクラスと対象の型が合わない場合、
+                または選んだクラスの ``__init__`` が受け付けない引数(廃止した ``create`` など)を渡した場合。
+            ValueError: アトリビュートが ``deleteAttr`` で削除済みのPlug・MPlugを渡した場合
+                (``DeletedAttributeError``。RuntimeErrorの派生でもある)。
             RuntimeError: ノードを解決できない場合。
         """
         ...
     def __init__(self, node: str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> None:
-        """ノード入力を解決し、MObject と必要に応じた MDagPath を保持する。
+        """入力を解決し、MObjectと、DAGノードならMDagPathを持つ。
 
-        既存の Node を渡した場合は、同じ MObject と DAG パス(インスタンス)を
-        指す新しいラッパーになる。
+        既存のNodeを渡した場合は、同じMObjectとDAGパス(インスタンス)を指す新しいオブジェクトになる。
 
         Args:
             node (str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-                対象ノードの名前、mlib のラッパー、または Maya API 2.0 オブジェクト。
-                Plug・MPlugは所有ノード、Component・Componentsは所有シェイプを指す。
+                対象のノードの名前、mlibのオブジェクト、またはMaya API 2.0のオブジェクト。
+                Plug・MPlugはそれを持つノードを、Component・Componentsはそれを持つシェイプを指す。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 対応しないノード入力型の場合。
-            ValueError: アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-                (``DeletedAttributeError``。RuntimeError の派生でもある)。
+            TypeError: 入力の型が対応していない場合。
+            ValueError: アトリビュートが ``deleteAttr`` で削除済みのPlug・MPlugを渡した場合
+                (``DeletedAttributeError``。RuntimeErrorの派生でもある)。
             RuntimeError: ノード名を解決できない場合。
         """
         ...
     def __eq__(self, other):
-        """生存中の同じ対象を比較する。DAGはインスタンスのパスも区別する。
+        """同じノードを指しているか比べる。
+
+        どちらも生存しているときだけ等しくなる。DAGノードでは、インスタンスのパスも区別する。
 
         Args:
             other: 比較・演算の相手。
         """
         ...
     def __hash__(self):
-        """生成時のMayaハンドルのハッシュを返す。改名・削除後も変化しない。"""
+        """作ったときのMayaのハンドルのハッシュを返す。名前を変えても、削除しても変わらない。"""
         ...
     def __repr__(self) -> str:
-        """デバッグ用にクラス名とノード名を含む表現を返す。
+        """デバッグ用に、クラス名とノード名を含む文字列を返す。
 
         Returns:
-            str: 有効なら型名とノード名、無効なら型名と invalid を含む文字列。
+            str: 有効なら型名とノード名、無効なら型名とinvalidを含む文字列。
         """
         ...
     def __str__(self) -> str:
-        """Maya の最短一意ノード名を文字列として返す。
+        """Mayaのノードの最短の一意な名前を返す。
 
-        maya.cmds は文字列以外の引数に ``str()`` を適用するため、Node をそのまま
-        ``cmds.select(node)`` のように渡せる。呼び出すたびに再計算するため、
-        名前変更・親子付け替えに追従する。
+        maya.cmdsは文字列以外の引数に ``str()`` を使うので、Nodeを ``cmds.select(node)`` のように
+        そのまま渡せる。呼び出すたびに求め直すので、名前の変更や親子付けの変更に追従する。
 
-        :meth:`getName` と異なり、削除済み・Undoで無効になったノードでも例外にせず空文字列を返す
-        (maya.cmds へ渡したときにMaya側のエラーとして扱われるようにする)。
+        :meth:`getName` と違い、削除済みのノードやUndoで無効になったノードでも、例外にせず空文字列を返す
+        (maya.cmdsへ渡したときに、Maya側のエラーになるようにするため)。
 
         Returns:
-            str: 最短一意名。無効なノードでは空文字列。
+            str: 最短の一意な名前。無効なノードでは空文字列。
         """
         ...
     def __getattr__(self, name: str) -> Plug:
-        """通常アトリビュートにない名前を Maya Plug として動的に解決する。
+        """Pythonの属性に無い名前を、MayaのアトリビュートのPlugとして取得する。
 
-        型スタブでも戻り値は Plug になる。``mlib.getNode()`` が返す基底の Node 型で派生クラス(Joint 等)の
-        メソッドを呼ぶと、静的解析では Plug として扱われ警告になる。派生クラスのメソッドを補完で使う場合は
+        ``node.translateX`` のように書くと、そのアトリビュートのPlugが返る。型スタブでも戻り値はPlugになる。
+        そのため、``mlib.getNode()`` が返す基底のNode型のまま派生クラス(Jointなど)のメソッドを呼ぶと、
+        静的解析ではPlugとして扱われて警告になる。派生クラスのメソッドを補完で使うときは、
         ``Joint("joint1")`` のように取得するか、``isinstance`` で型を絞る。
 
         Args:
-            name (str): 取得しようとした Python アトリビュート名。
+            name (str): 取得しようとしたPythonの属性の名前。
 
         Returns:
-            Plug: 解決した Maya アトリビュートプラグ。
+            Plug: 見つかったMayaのアトリビュートのPlug。
 
         Raises:
-            AttributeError: 非公開名または存在しない Maya アトリビュートを指定した場合。
-                文言は ``'Joint' has no method or Maya attribute 'orientJoint'`` の形で、近い名前の
-                メソッドとmaya.cmdsやほかのライブラリの名前に対応するmlibの書き方を案内する。
-                :meth:`getPlug` が RuntimeError にする名前(``input3Dx`` のような、マルチアトリビュートの要素の
-                番号を含まないマルチアトリビュートであるコンパウンドアトリビュートの子)も、``hasattr``/``getattr(node, name, default)``
-                が使えるよう AttributeError にする(原因の RuntimeError を ``__cause__`` に持つ)。
+            AttributeError: ``_`` で始まる名前、または存在しないMayaのアトリビュートを指定した場合。
+                文言は ``'Joint'にメソッドやMayaのアトリビュート'orientJoint'はありません`` の形になる。
+                近い名前のメソッドと、maya.cmdsやほかのライブラリの名前に対応するmlibの書き方も案内する。
+                :meth:`getPlug` がRuntimeErrorにする名前もAttributeErrorにする。たとえば ``input3Dx`` のような、
+                マルチアトリビュートであるコンパウンドアトリビュートの子を、要素の番号なしで指定した場合。
+                ``hasattr`` や ``getattr(node, name, default)`` を使えるようにするためで、
+                元のRuntimeErrorは ``__cause__`` に入る。
             RuntimeError: ノードが無効な場合。
         """
         ...
     def __setattr__(self, name: str, value: object) -> None:
-        """Mayaアトリビュートの名前への代入を、そのPlugの :meth:`~mlib.plugs.plug.Plug.set` にする。
+        """Mayaのアトリビュートの名前への代入を、そのPlugの :meth:`~mlib.plugs.plug.Plug.set` にする。
 
-        ``node.tx = 5`` は ``node.getPlug("tx").set(5)`` と同じで、Undoに記録し、角度は度で
-        受け取る(``node.t = (1, 2, 3)`` も同じ)。``_`` で始まる名前と、クラスに定義された名前
-        (メソッド・プロパティ・クラス属性)は通常のPythonの代入として扱う。それ以外の名前の
-        Pythonの属性をインスタンスへ追加することはできない。
+        ``node.tx = 5`` は ``node.getPlug("tx").set(5)`` と同じ。Undoに記録し、角度は度で受け取る
+        (``node.t = (1, 2, 3)`` も同じ)。
+
+        ``_`` で始まる名前と、クラスで定義された名前(メソッド・プロパティ・クラス属性)は、
+        ふつうのPythonの代入として扱う。それ以外の名前で、Pythonの属性をオブジェクトへ追加することはできない。
 
         Args:
             name (str): 代入する名前。
@@ -449,60 +458,64 @@ class Node(Object):
             None: 値を返さない。
 
         Raises:
-            AttributeError: Mayaアトリビュートが無い名前の場合。
-            RuntimeError: ノードが無効、またはMayaが書込みを拒否した場合。
+            AttributeError: その名前のMayaのアトリビュートが無い場合。
+            RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
             TypeError: 値の型がアトリビュートに合わない場合(Plug.setと同じ)。
-            ValueError: 値の成分数・範囲が合わない場合(Plug.setと同じ)。
+            ValueError: 値の成分の数や範囲が合わない場合(Plug.setと同じ)。
         """
         ...
     def getShadingEngines(self) -> list[ShadingEngine]:
-        """自身から直接接続されているShadingEngineを重複なしで返す。
+        """このノードから直接つながっているShadingEngineを取得する。
+
+        同じものは1回だけ含む。
 
         Returns:
-            list[ShadingEngine]: 直接接続先。テクスチャから履歴を辿る操作ではない。
+            list[ShadingEngine]: 直接の接続先のShadingEngine。テクスチャからヒストリをたどって探すものではない。
         """
         ...
     def sameNode(self, other: object) -> bool:
-        """別インスタンスも含め、同じ生存中のMayaノードを指すか返す。
+        """同じMayaのノードを指しているか調べる。
+
+        ``==`` と違い、DAGノードのインスタンス(パス)の違いは区別しない。
 
         Args:
-            other (object): 比較対象。Node 以外は False。
+            other (object): 比べる相手。Node以外ならFalse。
 
         Returns:
-            bool: 両者が生存し、同じ Maya ノードを指す場合は True。
+            bool: どちらも生存していて、同じMayaのノードを指していればTrue。
         """
         ...
     def isValid(self) -> bool:
-        """Maya シーン上でノードが有効か判定する。
+        """シーン上でノードが有効か調べる。
 
-        ノード全体の有効性を返し、保持したDAGインスタンスのパスは検証しない。
-        保持インスタンスだけが削除されてもノードが残っていればTrueになり、
-        そのパスを使う操作はRuntimeErrorになる。
+        ノードそのものが有効かを返し、このオブジェクトが持つDAGパスは確かめない。
+        持っているパスのインスタンスだけが削除されても、ノードが残っていればTrueになる。
+        その場合、パスを使う操作はRuntimeErrorになる。
 
         Returns:
-            bool: ノードハンドルが有効な場合は ``True``。
+            bool: ノードのハンドルが有効なら ``True``。
         """
         ...
     def isAlive(self) -> bool:
-        """ノードの Maya オブジェクトがメモリ上に生存しているか判定する。
+        """ノードのMayaのオブジェクトが、メモリ上に残っているか調べる。
 
         Returns:
-            bool: MObjectHandle.isAlive() の結果。Undo キューに保持された削除済みノードも生存と判定される場合がある。
+            bool: MObjectHandle.isAlive() の結果。削除済みでも、Undoのために残っているノードはTrueになることがある。
         """
         ...
     def mnode(self) -> om2.MObject:
-        """保持している Maya API 2.0 MObject を返す。
+        """このオブジェクトが持つ、Maya API 2.0のMObjectを返す。
 
         Returns:
-            om2.MObject: ラップ対象の MObject。
+            om2.MObject: このオブジェクトが指すノードのMObject。
         """
         ...
     def mfn(self) -> om2.MFnDependencyNode:
-        """このノードで最も具体的な om2 function set を、呼び出すたびに新しく作って返す。
+        """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
-        Node は ``om2.MFnDependencyNode``。DagNode は ``MFnDagNode``、Transform は ``MFnTransform`` のように
-        派生クラスが最も具体的な function set へ上書きする。内部のキャッシュとは共有しないため、
-        戻り値を保持しても他の照会に影響しない。
+        呼び出すたびに新しく作る。Nodeでは ``om2.MFnDependencyNode`` を返す。DagNodeは ``MFnDagNode``、
+        Transformは ``MFnTransform`` のように、派生クラスが最も具体的なfunction setを返すよう上書きする。
+        内部のキャッシュとは別のものなので、戻り値を持ち続けてもほかの取得に影響しない。
 
         Returns:
             om2.MFnDependencyNode: このノードの function set。
@@ -517,184 +530,190 @@ class Node(Object):
     def getType(self, inherited: Literal[False] = ...) -> str: ...
     @overload
     def getType(self, inherited: bool = ...) -> str | list[str]:
-        """Maya の nodeType 名、または nodeType の継承チェーンを取得する。
+        """Mayaのノードの型の名前、または型の継承の並びを取得する。
 
-        動的に生成したクラスを含め、ラッパーのクラス名ではなく Maya の nodeType 名をそのまま返す。
+        動的に作ったクラスも含め、mlibのクラス名ではなく、MayaのnodeTypeの名前をそのまま返す。
 
         Args:
-            inherited (bool): True なら ``cmds.nodeType(inherited=True)`` と同じ順
-                (基底型から自身へ。``node`` は含まない)の継承チェーンを返す。既定 False は型名だけ。
+            inherited (bool): Trueなら、``cmds.nodeType(inherited=True)`` と同じ順で継承の並びを返す
+                (基底の型から自身の型へ。``node`` は含まない)。既定はFalseで、型の名前だけを返す。
 
         Returns:
-            str | list[str]: 既定は対応する Maya nodeType 名。inherited=True は継承チェーンの新しいリスト。
+            str | list[str]: 既定ではMayaのnodeTypeの名前。inherited=Trueでは、継承の並びの新しいリスト。
 
         Raises:
-            TypeError: inherited が bool 以外の場合。
+            TypeError: inheritedがbool以外の場合。
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def hasFn(self, fn: int) -> bool:
-        """保持する MObject が指定の OpenMaya 関数型に対応するか判定する。
+        """このノードのMObjectが、指定したOpenMayaの関数型に対応するか調べる。
 
-        ``mnode().hasFn(fn)`` の公開入口。Maya の nodeType の継承(:meth:`isType`)ではなく、
-        ``om2.MFn.kDagNode`` のような API の関数型で判定する。
+        ``mnode().hasFn(fn)`` と同じ。Mayaのノードの型の継承(:meth:`isType`)ではなく、
+        ``om2.MFn.kDagNode`` のようなAPIの関数型で判定する。
 
         Args:
             fn (int): ``om2.MFn`` の定数。
 
         Returns:
-            bool: 対応する場合は True。
+            bool: 対応していればTrue。
 
         Raises:
-            TypeError: fn が int 以外の場合。
+            TypeError: fnがint以外の場合。
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def getTypeId(self) -> int:
-        """Maya の内部 typeId を整数で返す。
+        """Maya内部のtypeIdを整数で取得する。
 
-        同一 Maya セッション内でノード型を高速に比較する用途に使う。
-        プラグインの版数や環境によって値が変わりうるため、永続化には向かない。
+        同じMayaのセッションの中で、ノードの型を速く比べるときに使う。
+        プラグインの版や環境によって値が変わることがあるので、ファイルなどへの保存には向かない。
 
         Returns:
-            int: MTypeId の数値表現。
+            int: MTypeIdを数値にしたもの。
 
         Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def getPluginName(self) -> str:
-        """ノード型がプラグイン由来の場合、そのプラグイン名を取得する。
+        """ノードの型を登録したプラグインの名前を取得する。
 
         Returns:
-            str: プラグイン名。Maya組み込みのノード型では空文字列。
+            str: プラグインの名前。Maya本体のノードの型では空文字列。
 
         Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def getClassification(self) -> list[str]:
-        """ノード型の分類文字列を1要素のリストで取得する。
+        """ノードの型の分類の文字列を取得する。
 
         Returns:
-            list[str]: ``MNodeClass.classification`` を保持する。分類がなければ ``[""]``。
+            list[str]: ``MNodeClass.classification`` を1つだけ入れたリスト。分類が無ければ ``[""]``。
         """
         ...
     def isType(self, nodeType: str) -> bool:
-        """自身の nodeType が指定型そのもの、またはその派生型か判定する。
+        """このノードの型が、指定した型そのものか、その派生の型か調べる。
 
-        ``cmds.nodeType(inherited=True)`` による継承チェーンで判定するため、
-        例えば mesh ノードは ``isType("shape")`` で True になる。2026で改名された型は
-        どちらの名前でも判定できる(``isType("multDoubleLinear")`` と ``isType("multDL")``)。
+        ``cmds.nodeType(inherited=True)`` が返す継承の並びで判定する。たとえばmeshノードは
+        ``isType("shape")`` でTrueになる。Maya 2026で名前が変わった型は、どちらの名前でも判定できる
+        (``isType("multDoubleLinear")`` と ``isType("multDL")``)。
 
         Args:
-            nodeType (str): 判定する Maya nodeType 名。
+            nodeType (str): 調べるMayaのノードの型の名前。
 
         Returns:
-            bool: 継承チェーンに nodeType が含まれる場合は True。
+            bool: 継承の並びにnodeTypeが含まれていればTrue。
 
         Raises:
-            ValueError: nodeType が空文字列または文字列以外の場合。
+            ValueError: nodeTypeが空文字列か、文字列以外の場合。
         """
         ...
     def isLocked(self) -> bool:
-        """ノード自体がロックされているか判定する。
+        """ノードそのものがロックされているか調べる。
 
-        アトリビュート単位のロックは Plug.isLocked() を参照する。
+        アトリビュートごとのロックはPlug.isLocked()で調べる。
 
         Returns:
-            bool: ロックされている場合は True。
+            bool: ロックされていればTrue。
 
         Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def setLocked(self, state: bool = ..., *, fast: bool = ...) -> Node:
-        """ノード自体のロック状態を設定する。アトリビュート単位のロックは Plug.setLocked() を使う。
+        """ノードそのもののロックを設定する。
 
-        通常は ``cmds.lockNode`` で更新し Undo に記録する。``fast=True`` は
-        ``MFnDependencyNode.isLocked`` を直接更新し Undo に記録しない。
+        アトリビュートごとのロックはPlug.setLocked()を使う。
+        通常は ``cmds.lockNode`` で変更し、Undoに記録する。``fast=True`` では
+        ``MFnDependencyNode.isLocked`` を直接変更し、Undoに記録しない。
 
         Args:
-            state (bool): True でロック、False で解除。既定 True。
+            state (bool): Trueならロック、Falseなら解除する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Node: 自身。
 
         Raises:
-            TypeError: state または fastがbool以外の場合。
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)、または Maya が更新を拒否した場合。
+            TypeError: stateかfastがbool以外の場合。
+            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合、またはMayaが変更を拒否した場合。
         """
         ...
     def isFromReferencedFile(self) -> bool:
-        """ノードが参照ファイルから読み込まれたものか判定する。
+        """ノードがリファレンスしたファイルから読み込まれたものか調べる。
 
         Returns:
-            bool: 参照由来の場合は True。
+            bool: リファレンスから読み込まれたノードならTrue。
 
         Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
     def getReference(self) -> Reference | None:
-        """ノードを持ち込んだリファレンスノードを取得する。
+        """このノードを読み込んだリファレンスノードを取得する。
 
-        ``cmds.referenceQuery(node, referenceNode=True)`` と同じく、入れ子のリファレンスでは
-        ノードを直接持ち込んだ最も内側のリファレンスノードを返す。
+        ``cmds.referenceQuery(node, referenceNode=True)`` と同じく、入れ子のリファレンスでは、
+        ノードを直接読み込んだ最も内側のリファレンスノードを返す。
 
         Returns:
-            Reference | None: リファレンスノード。リファレンス由来でないノードは ``None``。
+            Reference | None: リファレンスノード。リファレンスから読み込まれたノードでなければ ``None``。
 
         Raises:
             RuntimeError: ノードが削除済み・無効な場合。
         """
         ...
     def isDefaultNode(self) -> bool:
-        """Mayaの既定ノード(``time1``・``lambert1``・``defaultLightSet`` 等、新規シーンに常にあるノード)か判定する。
+        """Mayaの既定のノードか調べる。
 
-        ``cmds.ls(defaultNodes=True)`` に含まれるノードで True になる。
+        既定のノードは、``time1``・``lambert1``・``defaultLightSet`` のように、新しいシーンに必ずあるノード。
+        ``cmds.ls(defaultNodes=True)`` に含まれるノードでTrueになる。
 
         Returns:
-            bool: 既定ノードの場合は True。
+            bool: 既定のノードならTrue。
 
         Raises:
             RuntimeError: ノードが削除済み・無効な場合。
         """
         ...
     def getSets(self, type: str | None = ...) -> list[ObjectSet]:
-        """ノードが属するセット(objectSet とその派生型)を取得する。
+        """このノードが入っているセット(objectSetとその派生の型)を取得する。
 
-        ``cmds.listSets(object=node)`` と同じく、ノード自身がメンバーのセットを返す。Shapeでは
-        コンポーネント(``f[0]`` 等)だけがメンバーのセット(シェーディンググループ等)も含む。
-        Transformは自身のメンバーシップだけで、Shapeのセットは含まない。
+        ``cmds.listSets(object=node)`` と同じく、ノード自身がメンバーになっているセットを返す。
+
+        - Shapeでは、コンポーネント(``f[0]`` など)だけがメンバーになっているセット(シェーディンググループなど)も含む。
+        - Transformでは、Transform自身が入っているセットだけを返す。Shapeのセットは含まない。
 
         Args:
-            type (str | None): 継承型を含むセットのノード型(``"shadingEngine"`` 等)。Noneは全型。
+            type (str | None): セットのノードの型で絞る(``"shadingEngine"`` など)。派生の型も含む。Noneなら絞らない。
 
         Returns:
-            list[ObjectSet]: セットのラッパー(``ShadingEngine`` 等の派生型を含む)。名前順。無ければ空リスト。
+            list[ObjectSet]: セットのオブジェクト(``ShadingEngine`` などの派生の型も含む)。名前の順。無ければ空リスト。
 
         Raises:
-            TypeError: type が文字列・None以外の場合。
-            ValueError: type が空文字列の場合。
+            TypeError: typeが文字列・None以外の場合。
+            ValueError: typeが空文字列の場合。
             RuntimeError: ノードが削除済み・無効な場合。
         """
         ...
     def isAncestorOf(self, other: Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> bool:
-        """保持するDAGパスで、otherが自身の子孫か判定する。
+        """otherが、このノードの子孫か調べる。
+
+        このオブジェクトが持つDAGパスで判定する。
 
         Args:
             other (Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug):
-                対象の参照や名前。Plugは所有ノード、Componentは所有シェイプへ解決する。
+                調べる対象か、その名前。Plugはそれを持つノードを、Componentはそれを持つシェイプを指す。
 
         Returns:
-            bool: 自身を除く子孫ならTrue。otherが非DAG・無効なノード・削除済みアトリビュートの場合はFalse。
+            bool: 自身を除く子孫ならTrue。otherがDAGノードでない場合、無効なノードの場合、
+                削除済みのアトリビュートの場合はFalse。
 
         Raises:
-            TypeError: otherが未対応型の場合。
-            RuntimeError: 名前を解決できない、MObject・MPlugが空、または自身が削除済み・無効
-                (保持インスタンスの消失を含む)の場合。
+            TypeError: otherの型が対応していない場合。
+            RuntimeError: 名前を解決できない場合、MObject・MPlugが空の場合、
+                または自身が削除済みか無効な場合(持っているパスのインスタンスが消えた場合も含む)。
         """
         ...
     def isParentOf(self, other: Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> bool:
@@ -713,72 +732,76 @@ class Node(Object):
         """
         ...
     def isRoot(self) -> bool:
-        """DAG ノードがワールド直下か判定する。
+        """DAGノードがワールドの直下にあるか調べる。
 
         Returns:
-            bool: 保持する DAG パスの長さが1なら True。
+            bool: このオブジェクトが持つDAGパスの長さが1ならTrue。
 
         Raises:
-            RuntimeError: DAG パスを保持していない場合。
+            RuntimeError: DAGパスを持っていない(DAGノードでない)場合。
         """
         ...
     def getNodeName(self, removeNamespace: bool = ...) -> str:
-        """DAG パスを除いたノード名を取得する。
+        """DAGパスを付けないノード名を取得する。
 
-        DGノードにも使用できる。DAGの別階層に同名ノードがある場合も
-        親パスは付けないため、Mayaコマンドへ渡す一意な名前にはgetNameを使う。
+        DGノードにも使える。DAGの別の階層に同じ名前のノードがあっても、親のパスは付けない。
+        そのため、Mayaのコマンドへ渡す一意な名前が必要なときはgetNameを使う。
 
         Args:
-            removeNamespace (bool): ``True`` の場合はnamespaceも除外する。
+            removeNamespace (bool): ``True`` なら、ネームスペースも取り除く。既定はFalse。
 
         Returns:
-            str: namespaceを含むノード名。``removeNamespace`` が ``True`` の場合は
-                namespaceを含まないノード名。
+            str: ネームスペースを含むノード名。``removeNamespace`` が ``True`` なら、
+                ネームスペースを含まないノード名。
 
         Raises:
-            RuntimeError: ノードが削除済み、またはUndoで作成が取り消された(無効な)場合。
+            RuntimeError: ノードが削除済みの場合、またはUndoで作成が取り消された(無効な)場合。
         """
         ...
     def getNamespace(self) -> Namespace:
-        """ノードが属するネームスペースを取得する。
+        """ノードが入っているネームスペースを取得する。
 
         Returns:
-            Namespace: ノードが属するNamespace。
+            Namespace: ノードが入っているネームスペース。
         """
         ...
     def setNamespace(self, namespace: str | Namespace, *, fast: bool = ...) -> Node:
-        """ノードを指定したネームスペースへ移動する。
+        """ノードを指定したネームスペースへ移す。
+
+        移す先のネームスペースが無ければ作る。
 
         Args:
-            namespace (str | Namespace): 移動先のnamespace名。末尾の ``":"`` は任意。
+            namespace (str | Namespace): 移す先のネームスペースの名前。末尾の ``":"`` は付けても付けなくてもよい。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 自身。namespace付きの名前は :meth:`getNodeName` で取得する。
+            Node: 自身。ネームスペース付きの名前は :meth:`getNodeName` で取得する。
 
         Raises:
-            ValueError: namespaceが空文字列または文字列でない場合。
-            RuntimeError: namespace移動に失敗した場合。
+            ValueError: namespaceが空文字列か、文字列でない場合。
+            RuntimeError: ネームスペースへ移せなかった場合。
         """
         ...
     def delete(self, *, safe: bool = ..., fast: bool = ...) -> None:
-        """自身をMaya標準の規則で削除する。
+        """このノードを、Mayaの標準の決まりで削除する。
 
-        DAGの子も削除し、一回のUndoで戻せる。
-        派生クラスはこのメソッドを上書きして専用の削除処理を実装できる。
+        DAGの子も削除する。1回のUndoで戻せる。
+        派生クラスは、このメソッドを上書きして専用の削除処理を書ける。
 
-        削除の前に自身とDAG子孫を検査し、ロック・参照のノード、または既定・共有ノード等の
-        Mayaが削除を拒否するノード(``cmds.ls(undeletable=True)`` が返すもの。time1・persp・
-        defaultLayer など)が含まれる場合は何も削除せずRuntimeErrorにする。通常経路の文言は
-        cmds.deleteの要素ごとの表示に合わせ(``Cannot delete locked node 'x'.``・
-        ``Cannot delete 'x' as it has locked or read-only children.``・
-        ``Non-deletable node 'x' cannot be deleted.``)、fastのロック・参照は従来の
-        ``Node is locked or referenced: x``。
+        削除の前に、自身とDAGの子孫を調べる。次のノードが含まれていれば、何も削除せずにRuntimeErrorにする。
+
+        - ロックされたノード、リファレンスのノード。
+        - 既定のノードや共有のノードなど、Mayaが削除を拒否するノード
+          (``cmds.ls(undeletable=True)`` が返すもの。time1・persp・defaultLayerなど)。
+
+        通常の経路の文言は、cmds.deleteと同じく要素ごとに示す(``ロックされたノード'x'は削除できません``・
+        ``'x'は削除できません。ロックされた子か、読み取り専用の子があります``・``削除できないノードです: 'x'``)。
+        fastでのロック・リファレンスの文言は ``ノードがロックされているか、リファレンスです: x``。
 
         Args:
-            safe (bool): Trueなら自身またはDAG子孫にDG接続がある場合は削除しない。
-                入力・出力・message・Set/マテリアル接続を全て含む。
-                Falseは従来の削除。ロック解除や例外抑制は行わない。
+            safe (bool): Trueなら、自身かDAGの子孫にDGの接続がある場合は削除しない。
+                入力・出力・message・セットやマテリアルの接続をすべて含む。
+                Falseならふつうに削除する。ロックの解除や、例外を抑えることはしない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -786,19 +809,19 @@ class Node(Object):
 
         Raises:
             TypeError: safeがboolでない場合。
-            RuntimeError: 対象が無効、ロック・参照・削除できないノードを含む、またはMayaが
-                削除を拒否した場合。
+            RuntimeError: 対象が無効な場合、ロック・リファレンス・削除できないノードを含む場合、
+                またはMayaが削除を拒否した場合。
         """
         ...
     def rename(self, name: str, ignoreShape: bool = ..., *, fast: bool = ...) -> Node:
-        """ノード名を変更し、自身を返す。
+        """ノード名を変更する。
 
-        Mayaが補正した最終的な名前(重複時の連番等)は戻り値の :meth:`getNodeName` で取得する。
+        名前が重なったときの連番など、Mayaが直した後の名前は、戻り値の :meth:`getNodeName` で取得する。
 
         Args:
-            name (str): 新しいノード名。DAGパスの区切り ``|`` は含められない
-                (Mayaは黙って別の文字へ置き換えるため拒否する)。
-            ignoreShape (bool): ``True`` の場合はShapeの名前変更を抑制する。
+            name (str): 新しいノード名。DAGパスの区切りの ``|`` は含められない
+                (Mayaが黙って別の文字へ置き換えるため、受け付けない)。
+            ignoreShape (bool): ``True`` なら、Shapeの名前は変えない。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -807,51 +830,51 @@ class Node(Object):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: nameに ``|`` を含む場合。
-            RuntimeError: ノードが無効(削除済み)の場合(``Cannot rename an invalid node``。
-                fastも同じ)、保持するDAGインスタンスが削除された場合、またはMayaが
-                改名を拒否した場合。
+            RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、名前の変更はできません``。
+                fastも同じ)、このオブジェクトが持つDAGパスのインスタンスが削除された場合、
+                またはMayaが名前の変更を拒否した場合。
         """
         ...
     def duplicate(self, name: str | None = ..., *, suffix: str | None = ..., **kwargs: object) -> Self:
-        """自身を複製し、複製したノードを同じ種類のラッパーで返す。
+        """このノードを複製する。
 
-        :func:`mlib.duplicate` (``cmds.duplicate``)へ委ね、1回のUndoで戻せる。
-        ``Joint`` なら ``Joint``、``Transform`` なら ``Transform`` のように、複製結果の
-        nodeTypeに対応するラッパーを返す。shape(``Mesh`` 等)を複製するとMayaは親のtransformごと
-        複製するため、その中で自身と同じ位置にある複製のshapeを返す。
+        :func:`mlib.duplicate` (``cmds.duplicate``)で複製し、1回のUndoで戻せる。
+        複製したノードは、その型に合ったクラスで返す(``Joint`` なら ``Joint``、``Transform`` なら ``Transform``)。
+        shape(``Mesh`` など)を複製すると、Mayaは親のtransformごと複製する。
+        その場合は、複製の中で自身と同じ位置にあるshapeを返す。
 
         Args:
-            name (str | None): 複製の名前。Noneは Maya の既定の名前(連番)。
-            suffix (str | None): 複製したノードと全DAG子孫の名前を「複製元の名前 + suffix」にする
-                (:func:`mlib.duplicate` の suffix と同じ)。Noneは改名しない。
+            name (str | None): 複製の名前。NoneならMayaの既定の名前(連番)。
+            suffix (str | None): 複製したノードとDAGの子孫すべての名前を、「複製元の名前 + suffix」にする
+                (:func:`mlib.duplicate` のsuffixと同じ)。Noneなら名前を変えない。
             **kwargs (object): ``cmds.duplicate`` のフラグ(``parentOnly``・``inputConnections``・
-                ``upstreamNodes`` 等。短縮名も可)。
+                ``upstreamNodes`` など。短縮名も使える)。
 
         Returns:
-            Node: 複製した新しいノード(最上位)。
+            Node: 複製した新しいノード(いちばん上のもの)。
 
         Raises:
-            TypeError: フラグの長名・短名を同時に指定した場合、または suffix が文字列・None以外の場合。
-            ValueError: suffix が不正な場合、または renameChildren=True と同時に指定した場合。
-            RuntimeError: ノードが無効(削除済み)の場合(``Cannot duplicate an invalid <クラス名>``)、
+            TypeError: フラグのロング名と短縮名を同時に指定した場合、またはsuffixが文字列・None以外の場合。
+            ValueError: suffixが不正な場合、またはrenameChildren=Trueと同時に指定した場合。
+            RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、複製はできません``)、
                 またはMayaが複製を拒否した場合。
         """
         ...
     def select(self, **kwargs: object) -> None:
-        """自身を選択する。既定は今の選択を置き換える。
+        """このノードを選択する。
 
-        :func:`mlib.select` (``cmds.select``)へ委ね、1回のUndoで戻せる。
+        既定では、今の選択を置き換える。:func:`mlib.select` (``cmds.select``)で選択し、1回のUndoで戻せる。
 
         Args:
             **kwargs (object): ``cmds.select`` のフラグ(``add``・``deselect``・``toggle``・
-                ``hierarchy`` 等。短縮名も可)。
+                ``hierarchy`` など。短縮名も使える)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: フラグの長名・短名を同時に指定した場合。
-            RuntimeError: ノードが無効(削除済み)の場合(``Cannot select an invalid <クラス名>``)、
+            TypeError: フラグのロング名と短縮名を同時に指定した場合。
+            RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、選択はできません``)、
                 またはMayaが選択を拒否した場合。
         """
         ...
@@ -873,93 +896,96 @@ class Node(Object):
     def getConnections(self, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., *, asPair: Literal[False] = ..., asNode: Literal[False] = ..., index: None = ...) -> list[Plug]: ...
     @overload
     def getConnections(self, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., index: int | None = ...) -> list | Plug | Node | tuple | None:
-        """接続をPlug・Node・ペアとして照会する。既定は直結した相手を返す(``cmds.listConnections`` と同じ)。
+        """接続を取得する。
 
-        ``skipConversionNodes=True`` (または ``scn=True``)は、:meth:`~mlib.plugs.plug.Plug.getSource` /
-        :meth:`~mlib.plugs.plug.Plug.getDestinations` と同じくunitConversion系(unitConversion・
-        unitToTimeConversion・timeToUnitConversion)を飛ばしてその先を返す。
+        結果はPlug・Node・ペアのどれかの形で返す。既定では、直接つながっている相手を返す
+        (``cmds.listConnections`` と同じ)。
+
+        ``skipConversionNodes=True`` (または ``scn=True``)では、:meth:`~mlib.plugs.plug.Plug.getSource` /
+        :meth:`~mlib.plugs.plug.Plug.getDestinations` と同じく、unitConversionの仲間
+        (unitConversion・unitToTimeConversion・timeToUnitConversion)を飛ばして、その先を返す。
 
         Args:
-            s (bool): 入力を含める。sourceとANDする。
-            d (bool): 出力を含める。destinationとANDする。
-            c (bool): ペア指定の短縮名。
+            s (bool): Trueなら入力を含める。sourceと両方Trueのときだけ含める。
+            d (bool): Trueなら出力を含める。destinationと両方Trueのときだけ含める。
+            c (bool): connectionsの短縮名。
             t (str | None): typeの短縮名。
             et (bool): exactTypeの短縮名。
-            scn (bool): skipConversionNodesの短縮名。skipConversionNodesとORし、どちらかがTrueなら変換を飛ばす。
-            source (bool): 入力を含める。
-            destination (bool): 出力を含める。
-            connections (bool): 自身側と相手側のペアを返す。
-            type (str | None): 接続先ノード型。
-            exactType (bool): 型名の完全一致で絞る。
-            skipConversionNodes (bool): 既定Falseは直結した相手(``cmds.listConnections`` と同じ)。
-                TrueはunitConversion系を飛ばす。
-            asPair (bool): 自身側Plugと相手側のペアを返す。
-            asNode (bool): 相手側をNodeで返す。
-            index (int | None): 結果の一件。範囲外はNone。
+            scn (bool): skipConversionNodesの短縮名。skipConversionNodesとどちらかがTrueなら、変換ノードを飛ばす。
+            source (bool): Trueなら入力を含める。
+            destination (bool): Trueなら出力を含める。
+            connections (bool): Trueなら、自身の側と相手の側のペアで返す。
+            type (str | None): 接続先のノードの型で絞る。
+            exactType (bool): Trueなら、型の名前が完全に一致するものだけに絞る。
+            skipConversionNodes (bool): 既定はFalseで、直接つながっている相手を返す(``cmds.listConnections`` と同じ)。
+                Trueなら、unitConversionの仲間を飛ばす。
+            asPair (bool): Trueなら、自身の側のPlugと相手の側のペアで返す。
+            asNode (bool): Trueなら、相手の側をNodeで返す。
+            index (int | None): 結果のうち1件だけを返すときの番号。範囲外ならNone。
 
         Returns:
             list | Plug | Node | tuple | None: 条件に合う結果。
         """
         ...
     def setKey(self, attributes: str | Iterable[str] | None = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., **kwargs) -> Node:
-        """複数のアトリビュートへ1回でキーを設定する(``cmds.setKeyframe(node, attribute=[...])`` 相当)。
+        """複数のアトリビュートへ、まとめてキーを設定する(``cmds.setKeyframe(node, attribute=[...])`` にあたる)。
 
-        ``value`` / ``v`` は :meth:`~mlib.plugs.plug.Plug.get` と同じ規則の数値(角度は度、距離はcm)で受け取り、
+        ``value`` / ``v`` は、:meth:`~mlib.plugs.plug.Plug.get` と同じ決まりの数値(角度は度、距離はcm)で受け取り、
         アトリビュートごとに換算する。fast引数は持たない(:meth:`~mlib.plugs.plug.Plug.setKey` と同じく、
         OpenMayaで打っても速くならないため)。
 
         Args:
-            attributes (str | Iterable[str] | None): アトリビュート名。Noneはキー可能な全アトリビュート
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーを設定できるすべてのアトリビュート
                 (``cmds.setKeyframe(node)`` と同じ)。
             unit (str | None): 角度のvalueの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
-            timeUnit (str | None): ``time`` / ``t`` の数値の単位。None(既定)と ``"frame"`` は現在のUI時間単位のフレーム、
-                ``"sec"`` は秒(数値または数値の並びだけ受け付ける)。
-            uiUnits (bool): Trueは value を現在のUI単位の数値で受け取る。
-            **kwargs: Maya setKeyframeのフラグ(``time``・``value``・``inTangentType`` 等)。
-                ``attribute`` / ``at`` は引数attributesで指定する。
+            timeUnit (str | None): ``time`` / ``t`` の数値の単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、
+                ``"sec"`` は秒(数値か、数値の並びだけを受け付ける)。
+            uiUnits (bool): Trueなら、valueを今のUIの単位の数値で受け取る。既定はFalse。
+            **kwargs: MayaのsetKeyframeのフラグ(``time``・``value``・``inTangentType`` など)。
+                ``attribute`` / ``at`` は、ここではなく引数attributesで指定する。
 
         Returns:
             Node: 自身。
 
         Raises:
-            TypeError: attributesが文字列・文字列の列・None以外、``attribute`` / ``at`` をkwargsに渡した、
-                単位の型が不正、または ``timeUnit="sec"`` で time に数値以外を指定した場合。
-            ValueError: attributesが空の列、単位名が不正、またはuiUnits=Trueと単位を同時に指定した場合。
-            RuntimeError: ノードが無効、またはMayaがキーの設定を拒否した場合。
+            TypeError: attributesが文字列・文字列の並び・None以外の場合、``attribute`` / ``at`` をkwargsに渡した場合、
+                単位の型が不正な場合、または ``timeUnit="sec"`` でtimeに数値以外を指定した場合。
+            ValueError: attributesが空の並びの場合、単位の名前が不正な場合、またはuiUnits=Trueと単位を同時に指定した場合。
+            RuntimeError: ノードが無効な場合、またはMayaがキーの設定を拒否した場合。
         """
         ...
     def removeKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> Node:
-        """複数のアトリビュートのキーを削除する(``cmds.cutKey(node, attribute=[...], clear=True)`` 相当)。
+        """複数のアトリビュートのキーを削除する(``cmds.cutKey(node, attribute=[...], clear=True)`` にあたる)。
 
-        キークリップボードは変更しない。全キーを削除すると、Mayaと同じく空になったカーブは削除される。
-        fast引数は持たない(OpenMayaでキーを1つずつ消す方がcmds.cutKeyより遅いため)。
+        キーのクリップボードは変えない。キーをすべて削除すると、Mayaと同じく、空になったカーブも削除される。
+        fast引数は持たない(OpenMayaでキーを1つずつ消すほうが、cmds.cutKeyより遅いため)。
 
         Args:
-            attributes (str | Iterable[str] | None): アトリビュート名。Noneはキーのある全アトリビュート。
-            time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。Noneは全キー。
-            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は現在のUI時間単位のフレーム、``"sec"`` は秒。
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
+            time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
             Node: 自身。キーが無ければ何もしない。
 
         Raises:
-            TypeError: attributesが文字列・文字列の列・None以外、timeが数値・2つの数値の並び・None以外、
+            TypeError: attributesが文字列・文字列の並び・None以外の場合、timeが数値・2つの数値の並び・None以外の場合、
                 またはtimeUnitが文字列・None以外の場合。
-            ValueError: attributesが空の列、timeが有限でない、範囲の開始が終了より大きい、
-                またはtimeUnitが未対応の単位名の場合。
-            RuntimeError: ノードが無効、またはMayaが削除を拒否した場合。
+            ValueError: attributesが空の並びの場合、timeが有限でない場合、範囲の始まりが終わりより大きい場合、
+                またはtimeUnitが対応していない単位の名前の場合。
+            RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
         ...
     def moveKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> Node:
-        """複数のアトリビュートのキーの時刻と値をずらす(1回のUndo)。
+        """複数のアトリビュートのキーの、時刻と値をずらす。
 
-        値の換算はアトリビュートの種類(角度・距離)ごとに違うため、アトリビュートごとに
+        1回のUndoで戻せる。値の換算はアトリビュートの種類(角度・距離)ごとに違うため、アトリビュートごとに
         :meth:`Plug.moveKey <mlib.plugs.plug.Plug.moveKey>` と同じ処理を行う。fast引数は持たない。
 
         Args:
-            attributes (str | Iterable[str] | None): アトリビュート名。Noneはキー可能なスカラーのアトリビュートの
-                うちキーのあるもの。
-            time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲。Noneは全キー。
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーを設定できるスカラーの
+                アトリビュートのうち、キーのあるもの。
+            time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲。Noneならすべてのキー。
             timeOffset (float): 時刻の移動量。
             valueOffset (float): 値の移動量(角度は度、距離はcm)。
             unit (str | None): 角度のvalueOffsetの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
@@ -969,36 +995,42 @@ class Node(Object):
             Node: 自身。
 
         Raises:
-            TypeError: attributesが文字列・文字列の列・None以外、または型が不正な場合。
-            ValueError: attributesが空の列、非有限値、または単位名が未対応の場合。
-            RuntimeError: ノードが無効、またはMayaが移動を拒否した場合。
+            TypeError: attributesが文字列・文字列の並び・None以外の場合、またはほかの引数の型が不正な場合。
+            ValueError: attributesが空の並びの場合、有限でない値を渡した場合、または単位の名前が対応していない場合。
+            RuntimeError: ノードが無効な場合、またはMayaが移動を拒否した場合。
         """
         ...
     def getHistory(self, type: str | None = ..., future: bool = ...) -> list[Node]:
-        """構築履歴を ``MItDependencyGraph`` で検索し、対応するノードラッパーを取得する。
+        """ヒストリのノードを取得する。
+
+        ``MItDependencyGraph`` でヒストリをたどって探す。
 
         Args:
-            type (str | None): 継承型を含むノード型フィルター。Noneは全型。
-            future (bool): Trueは下流、Falseは上流を検索する。
+            type (str | None): ノードの型で絞る。派生の型も含む。Noneなら絞らない。
+            future (bool): Trueなら下流を、Falseなら上流を探す。既定はFalse。
 
         Returns:
-            list[Node]: ``cmds.listHistory`` と同じ順(深さ優先)。自身と重複を除く。該当なしなら空リスト。
-                Shapeを持つTransformは、``listHistory`` と同じく中間オブジェクトでない直下のShapeの
-                履歴を返す。DAGノードは最初のDAGパスで返す。
+            list[Node]: ``cmds.listHistory`` と同じ順(深さ優先)。自身は含まず、同じものは1回だけ含む。
+                見つからなければ空リスト。Shapeを持つTransformでは、``listHistory`` と同じく、
+                中間オブジェクトでない直下のShapeのヒストリを返す。DAGノードは最初のDAGパスで返す。
 
         Raises:
             RuntimeError: 無効な(削除済みの)ノードの場合。
         """
         ...
     def findCycles(self) -> list[list[Plug]]:
-        """このノードを通るDGの循環(cycle)を、アトリビュートの並びで返す。
+        """このノードを通るDGの循環(cycle)を、アトリビュートの並びで取得する。
 
-        ``cmds.cycleCheck(node, list=True)`` が返す循環上のアトリビュート(このノードを含む強連結の部分を
-        まとめた順不同の列)から、接続(出力→入力)と同じノード内の入力→出力の辺をたどり、このノードを
-        通る単純な循環を1つずつ取り出す。各循環はこのノードの入力アトリビュートから始まり、
-        ``[自身の入力, 自身の出力, 次のノードの入力, 次のノードの出力, ...]`` の流れの順に並ぶ
-        (最後の要素の次は先頭へ戻る)。``cycleCheck`` と同じく接続による循環だけを調べ、DAGの親子による
-        暗黙の依存(子のworldMatrixで親を動かす等)は ``cycleCheck`` が報告しないため含まれない。
+        ``cmds.cycleCheck(node, list=True)`` は、循環に関わるアトリビュートを順不同でまとめて返す
+        (このノードを含む強連結の部分)。そこから、接続(出力→入力)と、同じノードの中の入力→出力の
+        つながりをたどり、このノードを通る単純な循環を1つずつ取り出す。
+
+        - 各循環は、このノードの入力アトリビュートから始まる。
+        - 並びは ``[自身の入力, 自身の出力, 次のノードの入力, 次のノードの出力, ...]`` の流れの順。
+          最後の要素の次は先頭へ戻る。
+        - ``cycleCheck`` と同じく、接続による循環だけを調べる。DAGの親子による暗黙の依存
+          (子のworldMatrixで親を動かすなど)は ``cycleCheck`` が報告しないため含まない。
+
         シーンは変更しない。
 
         Returns:
@@ -1009,83 +1041,92 @@ class Node(Object):
         """
         ...
     def resetAttrs(self, attributes: str | Plug | Iterable[str | Plug] | None = ..., *, fast: bool = ...) -> list[Plug]:
-        """指定アトリビュート、または書き込み可能なキー設定対象アトリビュートを既定値へ戻す。
+        """アトリビュートを既定値へ戻す。
 
-        Transformも同じ規則で、省略時はtranslate・rotate・scale・shearに限らずキー設定可能な全て
-        (visibility等を含む)を戻す。
+        指定したアトリビュートを戻す。省略したときは、書き込めてキーを設定できるアトリビュートを戻す。
+        Transformでも同じ決まりで、省略時はtranslate・rotate・scale・shearに限らず、キーを設定できるもの
+        すべて(visibilityなども含む)を戻す。
 
         Args:
-            attributes (str | Plug | Iterable[str | Plug] | None): アトリビュート名、または自身の
-                Plug(名前と混在できる)。Noneはキー設定可能な
-                数値・単位・enumアトリビュートを対象とし、マルチアトリビュート・ロック・入力接続・書込み禁止・
-                非対応型は除外する(通常/fastで同じ選択)。
-                明示指定したアトリビュートのエラーは除外せず送出する。
+            attributes (str | Plug | Iterable[str | Plug] | None): アトリビュート名か、このノードのPlug
+                (名前と混ぜてもよい)。Noneなら、キーを設定できる数値・単位付き・enumのアトリビュートを対象にする。
+                そのうち、マルチアトリビュート・ロック・入力の接続・書込み禁止・対応していない型のものは除く
+                (通常とfastで同じものを選ぶ)。明示したアトリビュートのエラーは、除かずにそのまま例外にする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            list[Plug]: リセットしたアトリビュート。全変更を一回のUndoにまとめる。
+            list[Plug]: 既定値へ戻したアトリビュート。すべての変更を1回のUndoにまとめる。
 
         Raises:
-            AttributeError: 指定アトリビュートが存在しない場合。
-            TypeError: 名前・Plug以外を指定した場合、または明示指定したアトリビュートがリセット非対応の場合。
+            AttributeError: 指定したアトリビュートが存在しない場合。
+            TypeError: 名前・Plug以外を指定した場合、または明示したアトリビュートが既定値へ戻せない型の場合。
             ValueError: 別のノードのPlugを指定した場合。
-            RuntimeError: 明示指定したアトリビュートがロック・接続済みなどで書き込みできない場合。
+            RuntimeError: 明示したアトリビュートが、ロックや接続などで書き込めない場合。
         """
         ...
     def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., *, children: bool = ..., fast: bool = ...) -> Node:
-        """指定アトリビュートのロック・キー設定可否・Channel Box表示を変更する。
+        """アトリビュートのロック・キーを設定できるか・チャンネルボックスへの表示を変更する。
 
-        状態の型を検査し、全アトリビュートを解決してから順に更新する。
-        途中の失敗で、先行の変更は自動では戻さない。各Plugの :meth:`Plug.setFlags` へ委譲する。
+        先に状態の型を確かめ、すべてのアトリビュートを解決してから、順に変更する。
+        途中で失敗しても、それまでの変更は自動では戻さない。変更は各Plugの :meth:`Plug.setFlags` で行う。
 
         Args:
-            attributes (str | Plug | Iterable[str | Plug]): アトリビュート名、または自身のPlug(名前と混在できる)。
-            locked (bool | None): ロック状態。Noneは変更しない。
-            keyable (bool | None): キー設定可否。Noneは変更しない。
-            channelBox (bool | None): Channel Box表示。Noneは変更しない。keyable=TrueならMayaにより表示される。
-            children (bool): Trueはコンパウンドアトリビュート(``t`` 等)の子(``tx`` 等)にも同じ状態を設定する。
-                既定Falseは指定したアトリビュートだけ(Mayaの ``setAttr`` と同じく、親のkeyable・Channel Box表示は
-                子へ及ばない。ロックは親から子へ継承される)。
+            attributes (str | Plug | Iterable[str | Plug]): アトリビュート名か、このノードのPlug(名前と混ぜてもよい)。
+            locked (bool | None): Trueならロック、Falseなら解除する。Noneなら変えない。
+            keyable (bool | None): キーを設定できるようにするか。Noneなら変えない。
+            channelBox (bool | None): チャンネルボックスに表示するか。Noneなら変えない。
+                keyable=Trueなら、Mayaによって表示される。
+            children (bool): Trueなら、コンパウンドアトリビュート(``t`` など)の子(``tx`` など)にも同じ状態を設定する。
+                既定はFalseで、指定したアトリビュートだけを変える(Mayaの ``setAttr`` と同じく、親のkeyableと
+                チャンネルボックスの表示は子へ及ばない。ロックは親から子へ受け継がれる)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Node: 自身。
 
         Raises:
-            AttributeError: 指定アトリビュートが存在しない場合。
-            TypeError: 必須引数の不足、fast・childrenや状態の型が不正、または名前・Plug以外を指定した場合。
+            AttributeError: 指定したアトリビュートが存在しない場合。
+            TypeError: 必須の引数が足りない場合、fast・childrenや状態の型が不正な場合、
+                または名前・Plug以外を指定した場合。
             ValueError: 別のノードのPlugを指定した場合。
-            RuntimeError: Mayaが更新を拒否した場合。
+            RuntimeError: Mayaが変更を拒否した場合。
         """
         ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plug]:
-        """アトリビュートをPlug参照として列挙する。
+        """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
-        ``userDefined=True`` はユーザー追加(動的)アトリビュートだけを、Mayaの定義から追加順に
-        型付きPlugで作る(cmdsは使わない。マルチアトリビュートはMultiPlug、非表示・非keyableも含む)。
-        それ以外は ``cmds.listAttr`` の条件で列挙する(``keyable=True`` 等)。フラグ無し・``keyable=True``・
-        ``scalar=True`` (併用可)は ``cmds.listAttr`` を呼ばず、同じ順序・同じ結果をOpenMayaの定義の
-        走査で求める(トップレベルの定義順に、コンパウンドアトリビュートの子を親の直後へ並べ、マルチアトリビュートであるコンパウンドアトリビュートの子は含めない)。
+        - ``userDefined=True``: ユーザーが追加した(動的な)アトリビュートだけを、Mayaの定義から追加した順に、
+          型に合ったPlugで作る。cmdsは使わない。マルチアトリビュートはMultiPlugになり、
+          非表示やkeyableでないものも含む。
+        - それ以外: ``cmds.listAttr`` の条件(``keyable=True`` など)で取得する。
+          フラグ無し・``keyable=True``・``scalar=True`` (組み合わせてもよい)では ``cmds.listAttr`` を呼ばず、
+          OpenMayaで定義をたどって同じ順・同じ結果を求める。トップレベルの定義の順に並べ、
+          コンパウンドアトリビュートの子は親のすぐ後に置く。マルチアトリビュートであるコンパウンドアトリビュートの子は含めない。
 
         Args:
-            userDefined (bool): Trueはユーザー定義アトリビュートだけを返す。listAttrのフラグとは併用できない。
-            includeChildren (bool): Trueはコンパウンドアトリビュートの子も含める。Falseはトップレベルだけ。
-            writable (bool): Trueは今書き込めるもの(ロックされておらず、animCurve以外からの入力接続が無いもの。
-                親・子のロックと入力も見る)だけに絞る。animCurveが直接つながったものは含める。
+            userDefined (bool): Trueなら、ユーザー定義のアトリビュートだけを返す。listAttrのフラグとは同時に指定できない。
+                既定はFalse。
+            includeChildren (bool): Trueなら、コンパウンドアトリビュートの子も含める。Falseならトップレベルだけ。既定はTrue。
+            writable (bool): Trueなら、今書き込めるものだけに絞る。書き込めるのは、ロックされておらず、
+                animCurve以外からの入力の接続が無いもの(親・子のロックと入力も見る)。
+                animCurveが直接つながったものは含める。既定はFalse。
             **listAttrFlags: ``userDefined=False`` のときに ``cmds.listAttr`` へ渡すフラグ。
 
         Returns:
-            list[Plug]: 追加順(userDefined)またはlistAttr順の新しい参照リスト。解決できないパスは省き、
-                該当なしなら空。名前が必要なら ``[plug.getLongName() for plug in ...]`` を使う。
+            list[Plug]: 新しいリスト。userDefinedでは追加した順、それ以外はlistAttrの順。
+                解決できないパスは省き、見つからなければ空リスト。
+                名前が必要なら ``[plug.getLongName() for plug in ...]`` を使う。
 
         Raises:
-            TypeError: userDefined・includeChildren・writableがboolでない、またはuserDefined=TrueにlistAttrのフラグを併用した場合。
-            RuntimeError: ノードが無効、listAttrが失敗、またはuserDefined=TrueかつincludeChildren=Trueで
-                番号を指定しないマルチアトリビュートであるコンパウンドアトリビュートの子が含まれる場合。
+            TypeError: userDefined・includeChildren・writableがboolでない場合、
+                またはuserDefined=TrueとlistAttrのフラグを同時に指定した場合。
+            RuntimeError: ノードが無効な場合、listAttrが失敗した場合、
+                またはuserDefined=TrueかつincludeChildren=Trueで、マルチアトリビュートである
+                コンパウンドアトリビュートの子(番号を指定していないもの)が含まれる場合。
         """
         ...
     def getAliases(self) -> list[tuple[str, Plug]]:
-        """このノードのアトリビュートエイリアスを取得する。
+        """このノードのアトリビュートのエイリアス(別名)を取得する。
 
         Returns:
             list[tuple[str, Plug]]: ``(エイリアス名, 対応するPlug)`` のリスト。
@@ -1096,35 +1137,44 @@ class Node(Object):
         """
         ...
     def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., getPlug: bool = ..., *, safe: bool = ..., fast: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., ln: str = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., pxy: Plug | str | None = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., cb: bool = ..., **kwargs) -> Plug | None:
-        """型・既定値・フラグを指定してアトリビュートを追加する。
+        """アトリビュートを追加する。
 
-        作成専用。query/edit=Trueは拒否する。長名と対応する短名は同時指定できない。
-        型はproxyの元、明示type、attributeType/dataTypeの順に使い、全て省略時はdouble。
-        単位型を追加する場合、数値の既定値・制限は距離cm、時間(time)はtimeUnitの単位(既定は現在のUI時間単位のフレーム)、
-        角度(doubleAngle、subType="doubleAngle"の子)はunitの単位(既定は度)で指定する。
-        om2.MAngle・om2.MTime等の単位付きの値はそのまま使う。
-        通常はUndo有効時に記録する。fastはUndo設定を変えずOM2で追加し、未対応の型・定義フラグは追加前に拒否する。
+        型・既定値・フラグを指定して追加する。作るためだけのメソッドで、query/edit=Trueは受け付けない。
+        ロング名と、対応する短縮名は同時に指定できない。
+
+        型は、proxyの元のアトリビュート、明示したtype、attributeType/dataTypeの順に使う。
+        どれも省いたときはdoubleになる。
+
+        単位のある型では、数値の既定値と範囲を次の単位で指定する。om2.MAngle・om2.MTimeなどの
+        単位付きの値は、そのまま使う。
+
+        - 距離: cm。
+        - 時間(time): timeUnitの単位(既定は今のUIの時間単位のフレーム)。
+        - 角度(doubleAngle、またはsubType="doubleAngle"の子): unitの単位(既定は度)。
+
+        通常は、Undoが有効ならUndoに記録する。fastではUndoの設定を変えずにOpenMayaで追加する。
+        fastで対応していない型や定義のフラグは、追加する前に拒否する。
 
         Args:
-            longName (str): ロング名。lnまたはsnだけの指定も可能。
-            type (str | None): 型名。at:/dt:接頭辞も可。明示時はattributeType/dataTypeより優先。
-            subType (str | None): 自動生成する子の共通型。
-            channelBox (bool): チャンネルボックス表示。cbでも指定可能。
+            longName (str): ロング名。lnかsnだけを指定してもよい。
+            type (str | None): 型の名前。at:/dt:の接頭辞も付けられる。指定すると、attributeType/dataTypeより優先する。
+            subType (str | None): 自動で作る子の、共通の型。
+            channelBox (bool): Trueならチャンネルボックスに表示する。cbでも指定できる。
             childNames (Sequence[str] | None): 子のロング名。
-            childShortNames (Sequence[str] | None): 子のショート名。
-            childSuffixes (Sequence[str] | None): 親名へ付加する子の接尾辞。
-            proxy (Plug | str | None): プロキシの元アトリビュート。
-            getPlug (bool): 既定Trueは追加したPlug、FalseはNoneを返す。
-            safe (bool): Trueは再実行向け。同じ名前のアトリビュートが既にあれば何も変更せず、既存のPlug
-                (getPlug=FalseならNone)を返す。既存の既定値・範囲・表示などは更新しない。既存のアトリビュートの型
-                (getType()で比べる)、またはマルチアトリビュートかどうかが要求と違う場合はsafeでもTypeError。
-                既定Falseは既存の名前をMayaのエラー(RuntimeError)にする。
-                ``Plug.set(safe=True)`` (失敗数を返す)とは意味が異なる。
+            childShortNames (Sequence[str] | None): 子の短縮名。
+            childSuffixes (Sequence[str] | None): 親の名前の後ろに付けて子の名前にする接尾辞。
+            proxy (Plug | str | None): プロキシの元にするアトリビュート。
+            getPlug (bool): 既定のTrueなら追加したPlugを、FalseならNoneを返す。
+            safe (bool): Trueなら、何度実行しても同じ結果になるようにする。同じ名前のアトリビュートがすでにあれば
+                何も変えずに、そのPlug(getPlug=FalseならNone)を返す。既存の既定値・範囲・表示などは変えない。
+                ただし、既存のアトリビュートの型(getType()で比べる)や、マルチアトリビュートかどうかが
+                指定と違う場合は、safeでもTypeErrorにする。既定のFalseでは、名前が重なるとMayaのエラー
+                (RuntimeError)になる。``Plug.set(safe=True)`` (失敗した数を返す)とは意味が違う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            unit (str): 角度アトリビュートの数値の既定値・min/max・softMin/softMaxの単位。既定 ``"deg"`` は度、
-                ``"rad"`` はラジアン(``"degree"`` / ``"radians"`` 等の別名も可)。Mayaのフラグではない。
-            timeUnit (str): 時間アトリビュートの数値の既定値・min/max・softMin/softMaxの単位。既定 ``"frame"`` は
-                現在のUI時間単位のフレーム、``"sec"`` は秒(``"frames"`` / ``"seconds"`` 等の別名も可)。
+            unit (str): 角度のアトリビュートの、数値の既定値・min/max・softMin/softMaxの単位。既定の ``"deg"`` は度、
+                ``"rad"`` はラジアン(``"degree"`` / ``"radians"`` などの別名も使える)。Mayaのフラグではない。
+            timeUnit (str): 時間のアトリビュートの、数値の既定値・min/max・softMin/softMaxの単位。既定の ``"frame"`` は
+                今のUIの時間単位のフレーム、``"sec"`` は秒(``"frames"`` / ``"seconds"`` などの別名も使える)。
                 Mayaのフラグではない。
             attributeType (str): MayaのattributeTypeフラグ。
             at (str): attributeTypeの別名。
@@ -1136,11 +1186,12 @@ class Node(Object):
             ct (str | Sequence[str]): categoryの別名。
             dataType (str | Sequence[str]): MayaのdataTypeフラグ。
             dt (str | Sequence[str]): dataTypeの別名。
-            defaultValue (object): 追加する型に対応した既定値。数値のコンパウンドアトリビュートは成分列、型付きデータはPlug.setと同じ形で指定する。
+            defaultValue (object): 追加する型に合った既定値。数値のコンパウンドアトリビュートは成分を並べて、
+                型付きのデータはPlug.setと同じ形で指定する。
             dv (object): defaultValueの別名。
             disconnectBehaviour (int): MayaのdisconnectBehaviourフラグ。
             dcb (int): disconnectBehaviourの別名。
-            edit (bool): Trueは作成専用のため拒否する。
+            edit (bool): Trueは受け付けない(作るためだけのメソッドのため)。
             e (bool): editの別名。
             enforcingUniqueName (bool): MayaのenforcingUniqueNameフラグ。
             eun (bool): enforcingUniqueNameの別名。
@@ -1176,10 +1227,10 @@ class Node(Object):
             nn (str): niceNameの別名。
             numberOfChildren (int): MayaのnumberOfChildrenフラグ。
             nc (int): numberOfChildrenの別名。
-            parent (str): 親にする既存のコンパウンドアトリビュート名。ノードの親指定ではない。
+            parent (str): 親にする既存のコンパウンドアトリビュートの名前。ノードの親を指定するものではない。
             p (str): parentの別名。
             pxy (Plug | str | None): proxyの別名。
-            query (bool): Trueは作成専用のため拒否する。
+            query (bool): Trueは受け付けない(作るためだけのメソッドのため)。
             q (bool): queryの別名。
             readable (bool): Mayaのreadableフラグ。
             r (bool): readableの別名。
@@ -1198,122 +1249,136 @@ class Node(Object):
             usedAsProxy (bool): MayaのusedAsProxyフラグ。
             uap (bool): usedAsProxyの別名。
             worldSpace (bool): MayaのworldSpaceフラグ。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            ws (bool): worldSpaceの別名。worldSpaceと同時には指定できない。
             writable (bool): Mayaのwritableフラグ。
             w (bool): writableの別名。
             cb (bool): channelBoxの別名。
-            **kwargs: Mayaへ渡す追加フラグ。
-                予約語の短名isは辞書展開で指定する。internalSetとの同時指定は不可。
+            **kwargs: Mayaへ渡すほかのフラグ。Pythonの予約語と同じ短縮名のisは、辞書を展開して渡す。
+                internalSetとは同時に指定できない。
 
         Returns:
-            Plug | None: getPlug=Trueでは追加したPlug。getPlug=FalseではNone。
-                getPlug=Falseでもアトリビュートの追加・既定値等の設定は実行する。
+            Plug | None: getPlug=Trueなら追加したPlug。getPlug=FalseならNone。
+                getPlug=Falseでも、アトリビュートの追加と既定値などの設定は行う。
 
         Raises:
-            TypeError: 長短名の同時指定、fast・safeがbool以外、unitが文字列・None以外、または
-                safe=Trueで既存のアトリビュートの型・マルチアトリビュートかどうかが要求と違う場合。
-            ValueError: 名前の省略、不正な型接頭辞、解決後のattributeType/dataType併用、query/edit=True、
-                unitが未対応の単位名、またはenumのdefaultValueのフィールド名がenumNameに無い場合。
-            NotImplementedError: fastで型や定義フラグが未対応の場合。
+            TypeError: ロング名と短縮名を同時に指定した場合、fast・safeがbool以外の場合、
+                unitが文字列・None以外の場合、またはsafe=Trueで、既存のアトリビュートの型や
+                マルチアトリビュートかどうかが指定と違う場合。
+            ValueError: 名前を省いた場合、型の接頭辞が不正な場合、解決した結果attributeTypeとdataTypeを
+                両方指定することになった場合、query/edit=Trueの場合、unitが対応していない単位の名前の場合、
+                またはenumのdefaultValueのフィールド名がenumNameに無い場合。
+            NotImplementedError: fastで、対応していない型や定義のフラグを指定した場合。
 
         Note:
-            子名・成分数と検証可能な型付き既定値は追加前に検査する。
-            通常の子追加だけは公開addAttrへ委譲し、overrideを呼ぶ。fastは親子定義を一括構築する。
-            Mayaやoverride、作成後の既定値・表示・proxy接続が失敗しても、完了済みの追加は戻さない。
+            子の名前・成分の数と、確かめられる型付きの既定値は、追加する前に検査する。
+            通常の経路で子を追加するときだけは公開のaddAttrを呼ぶので、派生クラスの上書き(override)も呼ばれる。
+            fastでは、親と子の定義をまとめて作る。
+            Maya・上書きしたメソッド・作成後の既定値や表示やproxyの接続が失敗しても、
+            すでに済んだ追加は戻さない。
         """
         ...
     def moveAttrOrder(self, name: str, offset: int) -> Node:
-        """ユーザー定義アトリビュートを Channel Box 上で前後に移動する。
+        """ユーザー定義のアトリビュートを、チャンネルボックスの上で前後へ動かす。
 
-        Maya にはアトリビュートの並び替え API が無いため、移動元と移動先のうち手前側の
-        位置から末尾までのアトリビュートをまとめて削除し、新しい順序で再作成すること
-        で実現する(移動先より後ろにある、移動と無関係なアトリビュートも再作成対象に
-        含まれる。数値・enum・文字列型のコンパウンドアトリビュートでもマルチアトリビュートでもないトップレベル動的アトリビュート
-        のみ対応。対応しないアトリビュートが再作成対象に含まれる場合は何も変更せず
-        例外を送出する)。
+        Mayaにはアトリビュートを並べ替えるAPIが無い。そこで、移動元と移動先のうち手前の位置から
+        末尾までのアトリビュートをまとめて削除し、新しい順で作り直す。
 
-        並び替えが必要な場合はUndo有効を要求し、再作成中の失敗ではUndoによる復元を試みる。
-        成功後は削除前に取得したPlug参照が無効になるため、必要なPlugを取得し直す。
+        - 移動先より後ろにある、移動と関係ないアトリビュートも作り直す。
+        - 対応しているのは、数値・enum・文字列の型で、コンパウンドアトリビュートでもマルチアトリビュートでもない、
+          トップレベルの動的なアトリビュートだけ。
+        - 作り直すものに対応していないアトリビュートが含まれる場合は、何も変えずに例外にする。
+
+        並べ替えが必要なときはUndoが有効であることを求め、作り直す途中で失敗したらUndoで元に戻そうとする。
+        成功すると、削除前に取得したPlugは無効になるので、必要なPlugを取得し直す。
 
         Args:
-            name (str): 移動するユーザー定義アトリビュートのロング名。
-            offset (int): 正の値で末尾方向、負の値で先頭方向へ移動する位置数。
-                範囲を超える指定は先頭・末尾で止まる。
+            name (str): 動かすユーザー定義のアトリビュートのロング名。
+            offset (int): 動かす位置の数。正の値なら末尾の方へ、負の値なら先頭の方へ動かす。
+                範囲を超えて指定すると、先頭や末尾で止まる。
 
         Returns:
-            Node: 自身。全変更を一回の Undo にまとめる。
+            Node: 自身。すべての変更を1回のUndoにまとめる。
 
         Raises:
-            TypeError: 移動範囲にコンパウンドアトリビュート・マルチアトリビュート、または対応しないアトリビュート型が
-                含まれる場合。cmdsで再現できないnon-connectable定義も変更前に拒否する。
-            ValueError: name がトップレベルのユーザー定義アトリビュート一覧に無い場合。
-            RuntimeError: ノードが無効、または安全な復元に必要なUndoが無効な場合。
+            TypeError: 作り直す範囲に、コンパウンドアトリビュート・マルチアトリビュート・対応していない型の
+                アトリビュートが含まれる場合。cmdsで作り直せないnon-connectableの定義も、変更する前に拒否する。
+            ValueError: nameが、トップレベルのユーザー定義のアトリビュートの一覧に無い場合。
+            RuntimeError: ノードが無効な場合、または安全に元へ戻すために必要なUndoが無効な場合。
         """
         ...
     def getPlug(self, name: str) -> Plug:
-        """このノードのアトリビュートを、値の評価や要素作成なしで参照する。
+        """このノードのアトリビュートを取得する。
+
+        値を評価したり、マルチアトリビュートの要素を作ったりはしない。
 
         Args:
-            name (str): ロング名・ショート名・エイリアス、またはノード名を除いたパス。
-                マルチアトリビュートの要素と子を ``input3D[2].input3Dx`` のように指定できる。
+            name (str): ロング名・短縮名・エイリアス、またはノード名を除いたパス。
+                マルチアトリビュートの要素と子は、``input3D[2].input3Dx`` のように指定できる。
                 論理番号は0〜2147483647。
 
         Returns:
-            Plug: 自身を所有Nodeとする、型に対応した新しいラッパー。
-                未作成のマルチアトリビュートの要素も参照できる。genericは基底Plugで、値の型はget時に解釈する。
+            Plug: このノードを持ち主とする、型に合ったクラスの新しいオブジェクト。
+                まだ作られていないマルチアトリビュートの要素も取得できる。genericの型は基底のPlugになり、
+                値の型はgetのときに判断する。
 
         Raises:
-            ValueError: nameが空または文字列以外の場合。
-            RuntimeError: ノードが無効、または ``input3Dx`` 等の未確定な論理番号を含む参照の場合。
-            MissingAttributeError: アトリビュートが存在しない場合(文言は ``Attribute not found: <ノード名>.<name>``)。
+            ValueError: nameが空か、文字列以外の場合。
+            RuntimeError: ノードが無効な場合、または ``input3Dx`` のように、決まっていない論理番号を含む場合。
+            MissingAttributeError: アトリビュートが存在しない場合(文言は ``アトリビュートが見つかりません: <ノード名>.<name>``)。
                 ``AttributeError`` と ``RuntimeError`` の両方の派生で、``mlib.getPlug("node.name")`` と同じ例外。
             AttributeError: 論理番号が上限を超える場合。
         """
         ...
     def hasAttr(self, name: str) -> bool:
-        """アトリビュートパスを解決できるか判定する。
+        """アトリビュートがあるか調べる。
+
+        :meth:`getPlug` で取得できるかどうかで判定する。
 
         Args:
-            name (str): アトリビュート名またはアトリビュートパス。
+            name (str): アトリビュート名か、アトリビュートのパス。
 
         Returns:
-            bool: アトリビュートを解決できる場合は ``True``。
+            bool: アトリビュートを取得できれば ``True``。
         """
         ...
     def getUuid(self) -> str | None:
-        """ノードの Maya UUID を取得する。
+        """ノードのMayaのUUIDを取得する。
 
         Returns:
-            str | None: 有効なノードの UUID。無効な場合は ``None``。
+            str | None: ノードのUUID。ノードが無効なら ``None``。
         """
         ...
     def getName(self) -> str:
-        """Mayaコマンドで保持インスタンスを指定できる最短一意名を取得する。
+        """最短の一意な名前を取得する。
 
-        DAGノードは保持パスのpartialPathName、DGノードはノード名を返す。
-        名前はキャッシュせず、呼ぶたびにMayaへ問い合わせる。
+        Mayaのコマンドへ渡すと、このオブジェクトが持つインスタンスを指せる名前になる。
 
-        別の階層に同じ短い名前のノードがある場合は、一意にするための親を含む部分パス
-        (``grp1|ctrl`` 等)になる。新しい名前を組み立てる元(接尾辞の付け替え等)には
-        :meth:`getNodeName` を使う。
+        - DAGノード: このオブジェクトが持つDAGパスのpartialPathName。
+        - DGノード: ノード名。
+
+        名前は覚えておかず、呼ぶたびにMayaから取得する。
+        別の階層に同じ短い名前のノードがあると、一意にするために親を含む部分的なパス(``grp1|ctrl`` など)になる。
+        新しい名前を組み立てる元にするとき(接尾辞の付け替えなど)は、:meth:`getNodeName` を使う。
 
         Returns:
-            str: 現在の名前。
+            str: 今の名前。
 
         Raises:
-            RuntimeError: ノードが削除済み・Undoで作成が取り消された(無効な)場合、または
-                ノードは有効だが保持するDAGインスタンスが削除された場合。
+            RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合、
+                またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合。
         """
         ...
     def getFullName(self) -> str:
-        """保持インスタンスの完全DAGパス、またはDGノード名を取得する。
+        """完全な名前を取得する。
+
+        DAGノードでは、このオブジェクトが持つインスタンスの完全なDAGパスを返す。DGノードではノード名を返す。
 
         Returns:
-            str: DAGではワールドから始まる完全パス。DGではノード名。
-                ノード自体が無効なら空文字列。
+            str: DAGノードではワールドから始まる完全なパス。DGノードではノード名。
+                ノードそのものが無効なら空文字列。
 
         Raises:
-            RuntimeError: ノードは有効だが保持するDAGインスタンスが削除された場合。
+            RuntimeError: ノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合。
         """
         ...
     def _list_plugs(self, userDefined, includeChildren, listAttrFlags):
@@ -1336,7 +1401,7 @@ class Node(Object):
         ...
     @staticmethod
     def _create_node(node_type: str, flags: dict, *, fast: bool = ...) -> Node:
-        """Mayaノードを作成し、実際のnodeTypeに対応するラッパーを返す(作成処理の唯一の実体)。
+        """Mayaのノードを作り、実際のnodeTypeに合ったクラスのオブジェクトを返す(作成処理の唯一の実体)。
 
         :func:`mlib.createNode` と :meth:`Container.createNode` が呼ぶ内部ヘルパーで、Undoチャンクは
         呼出し側で管理する。Mayaが認識しない型名(標準プラグインのロード後も未知の型)を拒否する。
@@ -1353,7 +1418,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 作成(sharedでは共有)したノードの、実際のnodeTypeに対応するラッパー。
+            Node: 作った(sharedでは共有した)ノードの、実際のnodeTypeに合ったクラスのオブジェクト。
                 登録表の規則で選んだクラス(登録型・動的クラス・Node)になる。
 
         Raises:
@@ -1458,7 +1523,7 @@ class Node(Object):
 
         Returns:
             Node: value が Node ならそのまま、Plug なら ``plug.getNode()``、コンポーネントなら
-                ``shape``。それ以外は ``Node(value)`` (Maya へ解決し、型に応じたラッパーを返す)。
+                ``shape``。それ以外は ``Node(value)`` (Mayaで解決し、型に合ったクラスのオブジェクトを返す)。
                 削除済みの Node と、所有ノードが削除済みの Plug・Component は例外にせずそのまま
                 返す(``Node.isValid()`` が ``False``。扱いは呼び出し側で決める)。
 
@@ -1534,23 +1599,23 @@ class Node(Object):
         ...
     @staticmethod
     def _wrap_dag_path(dag_path: om2.MDagPath) -> DagNode:
-        """呼出し元が作った有効なMDagPathを、名前や入力の再解決なしでラッパーにする。
+        """呼出し元が作った有効なMDagPathを、名前や入力を解決し直さずにオブジェクトにする。
 
         ``Node(dag_path)`` と同じ型選択(nodeTypeの登録、無ければMaya継承に沿って生成したクラス)と
         初期化を行い、入力の種類判定・MDagPathの複製だけを省く。パスが無効なら ``Node(dag_path)`` と
         同じ例外を送出する。子・親の列挙のように、API で直前に取得・延長・短縮したパスにだけ使う。
 
         Args:
-            dag_path (om2.MDagPath): 有効なDAGパス。ラッパーがそのまま保持するため、
+            dag_path (om2.MDagPath): 有効なDAGパス。作るオブジェクトがそのまま持つため、
                 呼出し元は以後このオブジェクトを変更しない。
 
         Returns:
-            DagNode: 実際のノード型に対応するラッパー。
+            DagNode: 実際のノードの型に合ったクラスのオブジェクト。
         """
         ...
     @staticmethod
     def _wrap_resolved(mobject: om2.MObject, dag_path: om2.MDagPath | None, handle: om2.MObjectHandle | None = ...) -> Node:
-        """API で直前に解決した有効な MObject と DAG パスを、入力の再解決なしでラッパーにする。
+        """APIで直前に解決した有効なMObjectとDAGパスを、入力を解決し直さずにオブジェクトにする。
 
         ``Node(dag_path)``・``Node(mobject)`` と同じ型選択(nodeTypeの登録、無ければMaya継承に沿って生成したクラス)と
         初期化(選んだクラスの ``__init__``)を行い、入力の種類判定・有効性検査・複製だけを省く。
@@ -1559,17 +1624,17 @@ class Node(Object):
         Args:
             mobject (om2.MObject): 有効な依存ノードの MObject。DAG ノードでは ``dag_path.node()`` と同じノード。
             dag_path (om2.MDagPath | None): DAG ノードの有効なパス。DG ノードは None。
-                ラッパーがそのまま保持するため、呼出し元は以後これらのオブジェクトを変更しない。
+                作るオブジェクトがそのまま持つため、呼出し元は以後これらのオブジェクトを変更しない。
             handle (om2.MObjectHandle | None): 呼出し元が mobject から作ったハンドル。指定すると
-                ラッパーが保持するハンドルとして使い、作り直さない。
+                作るオブジェクトが持つハンドルとして使い、作り直さない。
 
         Returns:
-            Node: 実際のノード型に対応するラッパー。
+            Node: 実際のノードの型に合ったクラスのオブジェクト。
         """
         ...
     @staticmethod
     def _from_name(value: str | Node | Plug | Component | om2.MObject | om2.MDagPath | om2.MPlug) -> Node:
-        """ノードを表す入力を解決し、``Node(value)`` と同じ型選択でラッパーにする。
+        """ノードを表す入力を解決し、``Node(value)`` と同じクラスの選び方でオブジェクトにする。
 
         ``Node._wrap_resolved(*_resolve_node(value))`` の短縮。生成の入口(``Node.__new__``)の
         再判定を省くため、cmds・common のように解決済みの名前・MObject を多数ラップする側で使う。
@@ -1579,7 +1644,7 @@ class Node(Object):
                 ``_resolve_node`` が受け付ける入力。
 
         Returns:
-            Node: 実際のノード型に対応するラッパー。
+            Node: 実際のノードの型に合ったクラスのオブジェクト。
 
         Raises:
             TypeError: 対応しない入力型の場合。
@@ -1600,18 +1665,18 @@ class Node(Object):
         """操作の前にノードが有効か確かめ、無効なら統一した文言で拒否する。
 
         Args:
-            action (str): 例外メッセージに使う動作の動詞句(``"rename"``・``"delete"`` 等)。
+            action (str): 例外メッセージに使う動作の名詞句(``"名前の変更"``・``"削除"`` 等)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが削除済み・無効な場合。文言は
-                ``Cannot <action> an invalid <クラス名>``。
+                ``無効な<クラス名>のため、<action>はできません``。
         """
         ...
     def _current_dag_path(self) -> om2.MDagPath | None:
-        """保持パスを返す。消失したインスタンスを別パスへ切り替えない。
+        """このオブジェクトが持つDAGパスを返す。消えたインスタンスを、別のパスへ切り替えない。
 
         ノードごと削除された場合は、Undoの記録に残る間(MDagPathが有効のまま古いパスを返す間)も
         無効として扱う。
@@ -1689,16 +1754,18 @@ class Node(Object):
 
 _NodeT = TypeVar("_NodeT", bound=Node, default=Node, covariant=True)
 class Nodes(Generic[_NodeT]):
-    """型を検証し、入力順のノード参照を保持するコレクション。
+    """複数のノードを、渡した順にまとめて持つクラス。
 
-    同一ノード・同一DAGパスの重複だけを除外する。異なるインスタンスパスは保持する。
-    コピーやスライスは参照を共有し、シーンのノードは複製しない。
-    ``len``・添字(sliceは同型)・``for``・``bool``・``+``・``==``・:meth:`sort` に対応し、
-    そのまま ``maya.cmds`` へ渡せる(cmdsがシーケンスとして各ノードの名前へ展開する)。
-    ``==`` を定義するため、listと同じくハッシュ不可(dictのキー・setの要素にできない)。
+    要素の型は、まとめるときに確かめる。
 
-    ``item_class`` は派生コレクション(:class:`~mlib.nodes.joint.Joints` 等)が受け入れる
-    ラッパー型を宣言するクラス属性。
+    - 同じノードで同じDAGパスのものだけを1つにまとめる。インスタンスのパスが違えば別の要素として持つ。
+    - コピーやスライスは、同じNodeのオブジェクトを共有する。シーンのノードは複製しない。
+    - ``len``・番号での取り出し(sliceなら同じ型)・``for``・``bool``・``+``・``==``・:meth:`sort` が使える。
+    - そのまま ``maya.cmds`` へ渡せる(cmdsが並びとして、各ノードの名前へ展開する)。
+    - ``==`` を定義しているので、listと同じくハッシュできない(dictのキーやsetの要素にできない)。
+
+    ``item_class`` は、派生のクラス(:class:`~mlib.nodes.joint.Joints` など)が受け付ける要素の型を
+    宣言するクラス属性。
     """
     def __iter__(self) -> Iterator[_NodeT]: ...
     @overload
@@ -1708,123 +1775,130 @@ class Nodes(Generic[_NodeT]):
     item_class: Any
     __hash__: None
     def __init__(self, names: object | Iterable[object] = ...) -> None:
-        """入力からノード参照を解決し、要素型を検証して保持する。
+        """入力からノードを解決し、要素の型を確かめてから持つ。
 
         Args:
-            names (object | Iterable[object]): 名前・Node・API参照等、またはその列。単一名も受理する。
+            names (object | Iterable[object]): 名前・Node・APIのオブジェクトなど、またはその並び。
+                名前を1つだけ渡してもよい。
 
         Raises:
-            TypeError: 解決結果がitem_classの派生でない場合。
-            ValueError: 入力解決で不正な参照を検出した場合。
-            RuntimeError: 名前を解決できない、または無効なノードの場合。
+            TypeError: 解決したノードがitem_classの派生でない場合。
+            ValueError: 入力を解決するときに、不正なものが見つかった場合。
+            RuntimeError: 名前を解決できない場合、または無効なノードの場合。
         """
         ...
     def __len__(self) -> int:
-        """保持要素数。
+        """要素の数を返す。
 
         Returns:
-            int: 保持要素数。
+            int: 要素の数。
         """
         ...
     def __repr__(self) -> str:
-        """具象コレクション名と保持参照を表示する。
+        """クラス名と要素を表す文字列を返す。
 
         Returns:
-            str: 具象コレクション名と保持参照を表示する。
+            str: クラス名と、持っている要素を表す文字列。
         """
         ...
     def __eq__(self, other: Nodes | list | tuple) -> bool:
-        """同じ並びのNode参照を持つか比較する。
+        """同じ並びのノードを持っているか比べる。
 
         Args:
-            other (Nodes | list | tuple): 比較の相手。Nodesの派生型の違いは問わない。
+            other (Nodes | list | tuple): 比べる相手。Nodesの派生の型の違いは問わない。
 
         Returns:
-            bool: 要素数が等しく、各位置のNodeが ``==`` で等しければTrue。対応しない型はNotImplemented。
+            bool: 要素の数が同じで、同じ位置のNodeどうしが ``==`` で等しければTrue。
+                対応していない型ならNotImplemented。
         """
         ...
     def __getattr__(self, name: str) -> Callable[..., list]:
-        """単数のノードのメソッドを、全要素へ保持順に呼ぶ関数として取得する。
+        """1つのノードのメソッドを、すべての要素へ呼ぶ関数として取得する。
 
-        このコレクションに無い公開メソッド名(``setTranslation`` 等)を取得すると、各要素の同名メソッドを
-        同じ引数で保持順に呼び、戻り値を保持順のリストで返す関数になる(:meth:`callEach` と同じ)。
-        全要素がメソッドを持ち有効であることを呼ぶ前に確かめ、通常は1回のUndoにまとめる。
-        ``fast=True`` はそのまま各メソッドへ渡す。空のコレクションでは ``item_class`` のメソッドを受け、空のリストを返す。
+        このクラスに無い公開メソッドの名前(``setTranslation`` など)を取得すると、関数が返る。
+        その関数は、各要素の同じ名前のメソッドを同じ引数で順に呼び、戻り値を同じ順のリストで返す
+        (:meth:`callEach` と同じ)。
+
+        - 呼ぶ前に、すべての要素がそのメソッドを持ち、有効であることを確かめる。
+        - 通常は1回のUndoにまとめる。``fast=True`` は、そのまま各メソッドへ渡す。
+        - 要素が無いときは ``item_class`` のメソッドの名前を受け付け、空のリストを返す。
 
         Args:
-            name (str): 単数のノードの公開メソッド名。
+            name (str): 1つのノードの公開メソッドの名前。
 
         Returns:
-            Callable[..., list]: 各要素のメソッドを呼び、戻り値を保持順のリストで返す関数。
+            Callable[..., list]: 各要素のメソッドを呼び、戻り値を要素の順のリストで返す関数。
 
         Raises:
-            AttributeError: 先頭 ``_`` の名前、またはどの要素(空なら ``item_class``)も持たないメソッド名の場合。
+            AttributeError: ``_`` で始まる名前の場合、またはどの要素(空なら ``item_class``)も持たないメソッドの名前の場合。
         """
         ...
     def __add__(self, other: Nodes | list | tuple) -> Nodes:
-        """他のNodes・list・tupleを後ろへ結合した、左辺と同じ型の新しいコレクションを返す。
+        """後ろへほかのNodes・list・tupleをつないだ、新しいまとまりを返す。
 
-        構築と同じ規則で入力を解決し、重複(同一ノード・同一DAGパス)は先に現れた方を残す。
-        要素型も構築と同じく検証する(``Joints + [transform]`` はTypeError)。相手の列は単独で
-        解決するため、``nodes + ["name"]`` のように名前の列も結合できる(相手の列の中での名前と
-        Nodeの混在は構築と同じくTypeError)。
+        返すまとまりの型は左辺と同じ。入力は作るときと同じ決まりで解決し、重なり(同じノードで
+        同じDAGパス)は先に出てきたほうを残す。要素の型も、作るときと同じく確かめる
+        (``Joints + [transform]`` はTypeError)。相手の並びは単独で解決するので、``nodes + ["name"]`` のように
+        名前の並びもつなげる(相手の並びの中で名前とNodeを混ぜると、作るときと同じくTypeError)。
 
         Args:
-            other (Nodes | list | tuple): 後ろへ結合する対象列。名前・Node等の列。
+            other (Nodes | list | tuple): 後ろへつなぐ並び。名前・Nodeなどの並び。
 
         Returns:
-            Nodes: 左辺と同じ具象型の新しいコレクション。自身と相手は変更しない。
+            Nodes: 左辺と同じ型の新しいまとまり。自身と相手は変更しない。
 
         Raises:
-            TypeError: 相手が対応しない型、または要素型が合わない場合。
-            RuntimeError: 解決できない、または無効なノードを含む場合。
+            TypeError: 相手が対応していない型の場合、または要素の型が合わない場合。
+            RuntimeError: 解決できないものか、無効なノードを含む場合。
         """
         ...
     def __radd__(self, other: list | tuple) -> Nodes:
-        """``list + Nodes`` のように左辺がlist・tupleの結合で、右辺と同じ型の新しいコレクションを返す。
+        """``list + Nodes`` のように、左辺がlist・tupleのときにつないだ新しいまとまりを返す。
+
+        返すまとまりの型は右辺(自身)と同じ。
 
         Args:
-            other (list | tuple): 前へ結合する対象列。
+            other (list | tuple): 前へつなぐ並び。
 
         Returns:
-            Nodes: 右辺(自身)と同じ具象型の新しいコレクション。
+            Nodes: 右辺(自身)と同じ型の新しいまとまり。
 
         Raises:
-            TypeError: 相手が対応しない型、または要素型が合わない場合。
-            RuntimeError: 解決できない、または無効なノードを含む場合。
+            TypeError: 相手が対応していない型の場合、または要素の型が合わない場合。
+            RuntimeError: 解決できないものか、無効なノードを含む場合。
         """
         ...
     def sort(self, key: Callable[[Node], object] | None = ..., reverse: bool = ...) -> Self:
-        """保持列をその場で並べ替え、並べ替えた自身を返す。
+        """要素をその場で並べ替える。
 
-        ``key`` を省略した場合はノードの完全名(:meth:`Node.getFullName`)の順にする。
-        Nodeは大小比較できないため、Pythonのlistと異なり要素そのものは比べない。
-        並べ替えるのはこのコレクションの保持列だけで、:meth:`copy`・スライス・``+`` で作った
-        別のコレクションの順序は変わらない(各要素のNode参照は共有している)。
+        ``key`` を省くと、ノードの完全な名前(:meth:`Node.getFullName`)の順にする。
+        Nodeは大小を比べられないため、Pythonのlistと違い、要素そのものは比べない。
+        並べ替えるのはこのまとまりの要素の順だけ。:meth:`copy`・スライス・``+`` で作った
+        別のまとまりの順は変わらない(各要素のNodeのオブジェクトは共有している)。
 
         Args:
-            key (Callable[[Node], object] | None): 各Nodeから比較用の値を返す関数。Noneは完全名。
-            reverse (bool): Trueなら降順。
+            key (Callable[[Node], object] | None): 各Nodeから、比べるための値を返す関数。Noneなら完全な名前。
+            reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
-            Nodes: 並べ替えた自身(新しいコレクションは作らない)。
+            Nodes: 並べ替えた自身(新しいまとまりは作らない)。
 
         Raises:
-            TypeError: keyが呼び出せない、またはreverseがbool以外の場合。
-            RuntimeError: key省略時に無効なノードを含む場合。
+            TypeError: keyが呼び出せないものの場合、またはreverseがbool以外の場合。
+            RuntimeError: keyを省いたときに、無効なノードを含む場合。
         """
         ...
     def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., *, fast: bool = ...) -> Nodes:
-        """各ノードへ保持順に :meth:`Node.setAttrFlags` を適用する。
+        """各ノードへ、順に :meth:`Node.setAttrFlags` を呼ぶ。
 
-        一括で書き込めるメソッドは :meth:`setAttrFlags`・:meth:`resetAttrs`・:meth:`setLocked`・
+        このクラスでまとめて書き込めるメソッドは、:meth:`setAttrFlags`・:meth:`resetAttrs`・:meth:`setLocked`・
         :meth:`setOverrideColor`・:meth:`setOutlinerColor`・:meth:`setVisibility`・:meth:`show`・:meth:`hide`・:meth:`setParent`
-        (:class:`~mlib.nodes.joint.Joints` は ``setRadius``・``setSegmentScaleCompensate`` も)。
-        通常は全体を1回のUndoにまとめる。全要素がメソッドを持つことを書込みの前に確かめる。
+        (:class:`~mlib.nodes.joint.Joints` では ``setRadius``・``setSegmentScaleCompensate`` も)。
+        通常は全体を1回のUndoにまとめる。書き込む前に、すべての要素がメソッドを持つことを確かめる。
 
         Args:
             attributes (str | Plug | Iterable[str | Plug]): :meth:`Node.setAttrFlags` と同じ。
-                Plugを渡す場合は全要素に同じ名前のアトリビュートを使うため、名前で指定する。
+                すべての要素で同じ名前のアトリビュートを使うので、Plugではなく名前で指定する。
             locked (bool | None): :meth:`Node.setAttrFlags` と同じ。
             keyable (bool | None): :meth:`Node.setAttrFlags` と同じ。
             channelBox (bool | None): :meth:`Node.setAttrFlags` と同じ。
@@ -1836,43 +1910,43 @@ class Nodes(Generic[_NodeT]):
         Raises:
             AttributeError: :meth:`Node.setAttrFlags` と同じ。
             TypeError: :meth:`Node.setAttrFlags` と同じ。
-            RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。先行した要素の変更は
+            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。それまでの要素の変更は
                 自動では戻さない(通常はUndoで戻せる)。
         """
         ...
     def resetAttrs(self, attributes: str | Iterable[str] | None = ..., *, fast: bool = ...) -> list[Plug]:
-        """各ノードへ保持順に :meth:`Node.resetAttrs` を適用する。
+        """各ノードへ、順に :meth:`Node.resetAttrs` を呼ぶ。
 
         Args:
             attributes (str | Iterable[str] | None): :meth:`Node.resetAttrs` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            list[Plug]: 全要素でリセットしたアトリビュート(要素順)。通常は1回のUndoにまとめる。
+            list[Plug]: すべての要素で既定値へ戻したアトリビュート(要素の順)。通常は1回のUndoにまとめる。
 
         Raises:
             AttributeError: :meth:`Node.resetAttrs` と同じ。
             TypeError: :meth:`Node.resetAttrs` と同じ。
-            RuntimeError: 無効なノードを含む、またはアトリビュートを書き込めない場合。
+            RuntimeError: 無効なノードを含む場合、またはアトリビュートを書き込めない場合。
         """
         ...
     def setLocked(self, state: bool = ..., *, fast: bool = ...) -> Nodes:
-        """各ノードへ保持順に :meth:`Node.setLocked` を適用する。
+        """各ノードへ、順に :meth:`Node.setLocked` を呼ぶ。
 
         Args:
-            state (bool): True でロック、False で解除。既定 True。
+            state (bool): Trueならロック、Falseなら解除する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Nodes: 自身。
 
         Raises:
-            TypeError: state または fastがbool以外の場合。
-            RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
+            TypeError: stateかfastがbool以外の場合。
+            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。
         """
         ...
     def getOverrideColor(self, *, shape: bool = ...) -> list[int | tuple[float, float, float] | None]:
-        """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` を保持順に返す。
+        """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` を、要素の順に取得する。
 
         Args:
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` と同じ。既定False。
@@ -1886,7 +1960,7 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setOverrideColor(self, color: object, *, shape: bool = ..., fast: bool = ...) -> Nodes:
-        """各DAGノードへ保持順に :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を適用する。
+        """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を呼ぶ。
 
         Args:
             color (object): :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` と同じ。
@@ -1903,10 +1977,10 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setOverrideColors(self, colors: Iterable[object], *, shape: bool = ..., fast: bool = ...) -> Nodes:
-        """保持順に一色ずつ :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を適用する。
+        """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を呼ぶ。
 
         Args:
-            colors (Iterable[object]): ノードと同数の色の指定。書き込む前に全ての色を検証する。
+            colors (Iterable[object]): ノードと同じ数の色。要素の順に1色ずつ使う。書き込む前に、すべての色を確かめる。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -1920,7 +1994,7 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def getOutlinerColor(self, *, shape: bool = ...) -> list[tuple[float, float, float] | None]:
-        """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerColor` を保持順に返す。
+        """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerColor` を、要素の順に取得する。
 
         Args:
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerColor` と同じ。既定False。
@@ -1934,7 +2008,7 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setOutlinerColor(self, color: object, *, shape: bool = ..., fast: bool = ...) -> Nodes:
-        """各DAGノードへ保持順に :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を適用する。
+        """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を呼ぶ。
 
         Args:
             color (object): :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` と同じ。
@@ -1951,10 +2025,10 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setOutlinerColors(self, colors: Iterable[object], *, shape: bool = ..., fast: bool = ...) -> Nodes:
-        """保持順に一色ずつ :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を適用する。
+        """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を呼ぶ。
 
         Args:
-            colors (Iterable[object]): ノードと同数の色の指定。書き込む前に全ての色を検証する。
+            colors (Iterable[object]): ノードと同じ数の色。要素の順に1色ずつ使う。書き込む前に、すべての色を確かめる。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -1968,10 +2042,10 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setVisibility(self, state: bool, *, fast: bool = ...) -> Nodes:
-        """各DAGノードへ保持順に :meth:`~mlib.nodes.dagNode.DagNode.setVisibility` を適用する。
+        """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setVisibility` を呼ぶ。
 
         Args:
-            state (bool): 表示状態。
+            state (bool): Trueなら表示、Falseなら非表示にする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -1983,7 +2057,7 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def show(self, *, fast: bool = ...) -> Nodes:
-        """各DAGノードへ保持順に :meth:`~mlib.nodes.dagNode.DagNode.show` を適用する。
+        """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.show` を呼ぶ。
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1997,7 +2071,7 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def hide(self, *, fast: bool = ...) -> Nodes:
-        """各DAGノードへ保持順に :meth:`~mlib.nodes.dagNode.DagNode.hide` を適用する。
+        """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.hide` を呼ぶ。
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -2011,77 +2085,82 @@ class Nodes(Generic[_NodeT]):
         """
         ...
     def setParent(self, parent: object | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ...) -> Nodes:
-        """各Transformへ保持順に :meth:`~mlib.nodes.transform.Transform.setParent` を適用する。
+        """各Transformへ、順に :meth:`~mlib.nodes.transform.Transform.setParent` を呼ぶ。
 
         Args:
-            parent (object | None): 親。Noneはワールド。
+            parent (object | None): 親。Noneならワールド。
             relative (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
             add (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Nodes: 自身。各要素は親変更後のパスを指す。
+            Nodes: 自身。各要素は、親を変えた後のパスを指す。
 
         Raises:
             TypeError: Transform以外を含む場合。
             ValueError: :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
-            RuntimeError: 無効なノードを含む、parent がいずれかの要素自身またはその子孫、
-                またはMayaが親の変更を拒否した場合。parent の検査はどの要素も変更する前に行う。
+            RuntimeError: 無効なノードを含む場合、parentがどれかの要素自身かその子孫の場合、
+                またはMayaが親の変更を拒否した場合。parentは、どの要素も変える前に確かめる。
         """
         ...
     def getNames(self) -> list[str]:
-        """保持順の各ノードの一意な名前を取得する(:meth:`Node.getName` の列)。
+        """各ノードの一意な名前を取得する(:meth:`Node.getName` を並べたもの)。
 
         Returns:
-            list[str]: 保持順のノード名。
+            list[str]: 要素の順のノード名。
 
         Raises:
             RuntimeError: 無効なノードを含む場合。
         """
         ...
     def select(self, **kwargs: object) -> None:
-        """全ノードを1回で選択する。既定は今の選択を置き換え、保持順に選択する。
+        """すべてのノードを一度に選択する。
 
-        :func:`mlib.select` (``cmds.select``)へ委ね、1回のUndoで戻せる。空の容器で置き換えると
-        選択を外す(``cmds.select`` に空の列を渡したときと同じ)。
+        既定では今の選択を置き換え、要素の順に選択する。:func:`mlib.select` (``cmds.select``)で選択し、
+        1回のUndoで戻せる。要素が無いまま置き換えると、選択が外れる(``cmds.select`` に空の並びを渡したときと同じ)。
 
         Args:
-            **kwargs (object): ``cmds.select`` のフラグ(``add``・``deselect``・``toggle`` 等。短縮名も可)。
+            **kwargs (object): ``cmds.select`` のフラグ(``add``・``deselect``・``toggle`` など。短縮名も使える)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: フラグの長名・短名を同時に指定した場合。
+            TypeError: フラグのロング名と短縮名を同時に指定した場合。
             RuntimeError: 無効なノードを含む場合、またはMayaが選択を拒否した場合。
         """
         ...
     def callEach(self, method: str, *args: object, **kwargs: object) -> list:
-        """各ノードの公開メソッドを同じ引数で保持順に呼び、戻り値を保持順のリストで返す。
+        """各ノードの公開メソッドを、同じ引数で順に呼ぶ。
 
-        全要素がメソッドを持ち有効であることを呼ぶ前に確かめ、通常は1回のUndoにまとめる。
-        ``fast=True`` を渡すとそのまま各メソッドへ渡し、Undoのまとめは行わない。後続の要素で
-        失敗しても、先行の変更は自動では戻さない。要素ごとに違う引数で呼ぶ場合は ``for`` で単数を呼ぶ。
+        戻り値は、要素の順のリストで返す。
+
+        - 呼ぶ前に、すべての要素がそのメソッドを持ち、有効であることを確かめる。
+        - 通常は1回のUndoにまとめる。``fast=True`` はそのまま各メソッドへ渡し、Undoはまとめない。
+        - 後の要素で失敗しても、それまでの変更は自動では戻さない。
+        - 要素ごとに違う引数で呼ぶときは、``for`` で1つずつ呼ぶ。
 
         Args:
-            method (str): 単数のノードの公開メソッド名(``"resetAttrs"`` 等)。
+            method (str): 1つのノードの公開メソッドの名前(``"resetAttrs"`` など)。
             *args (object): 各メソッドへ渡す位置引数。
             **kwargs (object): 各メソッドへ渡すキーワード引数。
 
         Returns:
-            list: 保持順の戻り値。
+            list: 要素の順の戻り値。
 
         Raises:
-            TypeError: method が文字列でない場合、またはメソッドを持たない要素を含む場合。
-            ValueError: method が空、先頭 ``_`` の内部名、または特殊メソッドの場合。
-            RuntimeError: 無効なノードを含む場合。各メソッドの例外はそのまま送出する。
+            TypeError: methodが文字列でない場合、またはそのメソッドを持たない要素を含む場合。
+            ValueError: methodが空の場合、``_`` で始まる内部の名前の場合、または特殊メソッドの場合。
+            RuntimeError: 無効なノードを含む場合。各メソッドの例外は、そのまま送出する。
         """
         ...
     def copy(self) -> Nodes:
-        """同じ参照を共有する、同じ具象型の独立した容器を返す。
+        """同じ型の、別のまとまりを作って返す。
+
+        要素のNodeのオブジェクトは共有する。並べ替えなどは、元のまとまりに影響しない。
 
         Returns:
-            Nodes: 同じ参照を共有する、同じ具象型の独立した容器を返す。
+            Nodes: 同じNodeを共有する、同じ型の新しいまとまり。
         """
         ...
     def _forward(self, method: str, args: tuple, fast: bool | None, **kwargs: object) -> list:

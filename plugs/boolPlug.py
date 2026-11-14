@@ -1,10 +1,10 @@
-"""真偽値アトリビュートと値の反転操作を提供する。"""
+"""真偽値(bool)のアトリビュートと、値を反転する操作を提供する。"""
 
 from .plug import Plug
 
 
 class BoolPlug(Plug):
-    """bool アトリビュート用の Plug。"""
+    """bool型のアトリビュートを扱うPlug。"""
 
     def toggle(self, *, fast=False):
         """真偽値を反転する。
@@ -17,7 +17,7 @@ class BoolPlug(Plug):
 
         Raises:
             TypeError: fastがbool以外の場合。
-            RuntimeError: 無効参照、またはロック・入力接続で書き込めない場合。
+            RuntimeError: アトリビュートが無効な場合、またはロックや入力の接続があって書き込めない場合。
         """
         self.set(not self.get(), fast=fast)
         return self

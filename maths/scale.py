@@ -4,9 +4,9 @@ from .vector import Vector
 
 
 class Scale(Vector):
-    """スケールを表す意味付きの3成分ベクトル(om2.MVector の派生)。
+    """スケールを表す、3成分のベクトル(om2.MVectorの派生)。
 
-    値・演算・比較はすべて :class:`~mlib.maths.vector.Vector` と同じ。
+    値・演算・比較は、すべて :class:`~mlib.maths.vector.Vector` と同じ。
     """
 
     __slots__ = ()

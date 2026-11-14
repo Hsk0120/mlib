@@ -29,104 +29,122 @@ _CHANNEL_BOX_SECTIONS: tuple
 
 
 class Selection:
-    """取得時点の順序で単数参照を保持する。現在選択には自動追従しない。
+    """ノード・アトリビュート・コンポーネントの選択を、取得したときの順で持つクラス。
 
-    コンポーネントは単体へ展開し、同じ完全名は最初だけ残す。
-    トポロジーやUVセット変更後の要素の同一性は保証しない。
-    選択の復元には :meth:`select` を使い、無効参照はmissingで扱う。
-    maya.cmdsへ直接渡す場合、コンパウンドアトリビュート・マルチアトリビュートのPlugは文字列化が必要。
+    中身は1つずつのオブジェクト(Node・Plug・Component)で持つ。
+    取得した後にMayaの選択が変わっても、中身は変わらない。
+
+    - コンポーネントは1つずつに分けて持つ。完全名が同じものは最初の1つだけを残す。
+    - トポロジーやUVセットを変えた後は、同じ要素を指し続けるとは限らない。
+    - Mayaの選択へ戻すには :meth:`select` を使う。削除された対象の扱いはmissingで選ぶ。
+    - maya.cmdsへ直接渡すとき、コンパウンドアトリビュートとマルチアトリビュートのPlugは文字列にする必要がある。
     """
     def __init__(self, items=...) -> None:
-        """明示した対象を保持する。省略時は空。
+        """指定した対象を持つ選択を作る。
+
+        省略した場合は空になる。
 
         Args:
             items (Iterable[Node | Plug | Component | Components | Selection | str |
-                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList]): 対象。
-                文字列には範囲指定も使える。単一対象も指定可能。MObject・MDagPath は
-                ノード、MPlug はアトリビュート、MSelectionList と Selection はその要素として扱う。
-                fullName が重複する対象は最初の1件のみを保持する。
+                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList]): 対象。1つだけでも指定できる。
+                文字列には範囲の指定(``pCubeShape1.vtx[0:3]`` など)も使える。
+                MObject・MDagPathはノード、MPlugはアトリビュートとして扱う。
+                MSelectionListとSelectionは、その中の要素を取り出して使う。
+                fullNameが同じ対象は、最初の1つだけを持つ。
 
         Raises:
-            TypeError: 非対応型、またはMesh/NurbsCurve以外のコンポーネントの場合。
-            RuntimeError: 名前が解決できない場合。
+            TypeError: 対応していない型の場合、またはMesh/NurbsCurve以外のコンポーネントの場合。
+            RuntimeError: 名前からノードなどを見つけられない場合。
 
         Note:
-            ノード名だけの文字列(「.」・ワイルドカードを含まないもの)は1つの選択リストへまとめて
-            解決するが、対応付けは文字列の順に行うため、保持順と重複の除き方は名前ごとの解決と同じ。
+            ノード名だけの文字列(「.」もワイルドカードも含まないもの)は、1つの選択リストへまとめて調べる。
+            ただし結果は文字列の順に対応付けるので、並び順と重なりの除き方は、名前を1つずつ調べた場合と同じになる。
         """
         ...
     def __len__(self) -> int:
-        """保持している単体参照の数を返す。
+        """持っている対象の数を返す。
 
-        fullName が重複する対象は構築時に除かれている(__init__ 参照)。
+        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。
 
         Returns:
-            int: コンポーネントは単体で数え、削除済み参照も含む保持数。
+            int: 対象の数。コンポーネントは1つずつ数え、削除された対象も数に含める。
         """
         ...
     def __iter__(self) -> Iterator:
-        """保持順に参照を返す。
+        """持っている順に対象を返す。
 
         Returns:
-            Iterator: 保持順に参照を返す。
+            Iterator: 持っている順に対象を返す。
         """
         ...
     def __getitem__(self, index: int | slice) -> Node | Plug | Component | tuple:
-        """単体参照、またはsliceに対応する参照のtupleを返す。
+        """番号で対象を取り出す。
 
         Args:
-            index (int | slice): 保持順の番号または範囲。負の番号もPythonのtupleと同じ意味。
+            index (int | slice): 持っている順の番号、または範囲。負の番号はPythonのtupleと同じ意味になる。
 
         Returns:
-            Node | Plug | Component | tuple: 番号に対応する単体参照、またはsliceに対応するtuple。
+            Node | Plug | Component | tuple: 番号を指定した場合はその対象。sliceを指定した場合は対象のtuple。
         """
         ...
     def __repr__(self) -> str:
-        """デバッグ用に、型名と保持参照の repr を返す。
+        """デバッグ用に、型名と中身の対象を表す文字列を返す。
 
         Returns:
             str: ``Selection([Transform('a'), Vertex('boxShape.vtx[5]')])`` のような文字列。
-                ``_REPR_LIMIT`` 件を超える場合は先頭だけを表示し、``..., count=N`` を添える。
-                削除済みの参照は各型の無効表示(``<Transform invalid>`` 等)になる。
+                ``_REPR_LIMIT`` 件より多い場合は先頭だけを表示し、``..., count=N`` を付ける。
+                削除された対象は、各型の無効の表示(``<Transform invalid>`` など)になる。
         """
         ...
     @classmethod
     def capture(cls) -> Selection:
-        """Mayaの現在選択を保持する。Channel Boxのアトリビュート選択は含めない。
+        """Mayaで今選んでいるものを取得する。
+
+        Channel Boxで選んでいるアトリビュートは含めない(:meth:`getChannelBoxPlugs` で取得する)。
 
         Returns:
-            Selection: Mayaの現在選択を保持する。Channel Boxのアトリビュート選択は含めない。
+            Selection: Mayaで今選んでいるもの。Channel Boxで選んでいるアトリビュートは含めない。
         """
         ...
     @classmethod
     def getChannelBoxPlugs(cls) -> list[Plug]:
-        """メインのChannel Boxで選択中のアトリビュートをPlugとして取得する。
+        """メインのChannel Boxで選んでいるアトリビュートを、Plugとして取得する。
 
-        Channel Boxの表示区分(オブジェクト・シェイプ・入力・出力)ごとに、選択中のアトリビュートと
-        その区分に表示中のノードを ``cmds.channelBox`` で照会し、ノードごと・アトリビュートの選択順に
-        並べる。:meth:`capture` はChannel Boxの選択を含めないため、こちらを使う。シーンは変更しない。
+        :meth:`capture` はChannel Boxで選んだアトリビュートを含めないので、こちらを使う。
+        シーンは変更しない。
+
+        Channel Boxは、オブジェクト・シェイプ・入力・出力の区分に分かれている。区分ごとに、
+        選んでいるアトリビュートと、その区分に表示しているノードを ``cmds.channelBox`` で調べる。
+        結果はノードごとに、アトリビュートを選んだ順に並べる。
 
         Returns:
-            list[Plug]: 選択中のアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)で、
-                同じ完全名は最初だけ残す。バッチ・mayapy・Channel Boxが無いGUI、または
-                選択が無い場合は空リスト。表示中のノードに存在しないアトリビュートは除く。
+            list[Plug]: 選んでいるアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)に並び、
+                完全名が同じものは最初の1つだけを残す。表示しているノードに無いアトリビュートは除く。
+                バッチやmayapyの場合、Channel Boxが無いGUIの場合、何も選んでいない場合は空リスト。
         """
         ...
     @classmethod
     def getKeyframes(cls) -> Keyframes:
-        """Graph Editor・Dope Sheet で選んでいるキーを取得する。シーンは変更しない。
+        """Graph EditorやDope Sheetで選んでいるキーを取得する。
+
+        シーンは変更しない。
 
         Returns:
-            Keyframes: 選んでいるキー(Mayaが返すカーブの順、カーブ内は番号の昇順)。選んでいなければ空。
+            Keyframes: 選んでいるキー。カーブはMayaが返す順、同じカーブの中は番号の小さい順に並ぶ。
+                選んでいなければ空。
         """
         ...
     @classmethod
     def getSoftSelection(cls) -> dict[Mesh, dict[int, float]]:
-        """ソフト選択(リッチ選択)の頂点ごとの重みを、メッシュごとに取得する。シーンは変更しない。
+        """ソフト選択(リッチ選択)の重みを、メッシュごと・頂点ごとに取得する。
 
-        ソフト選択が有効なら、Mayaが計算した減衰を含む重み(0〜1)を返す。エッジ・フェースの選択も、
-        ソフト選択が有効なときはMayaが頂点の重みにして返す。ソフト選択が無効なら、選んでいる頂点を重み1で返す。
-        同じ頂点が複数回現れた場合は大きい方の重みを使う。
+        シーンは変更しない。
+
+        - ソフト選択が有効なら、Mayaが計算した減衰を含む重み(0〜1)を返す。
+          エッジやフェースを選んでいても、Mayaが頂点の重みに直して返す。
+        - ソフト選択が無効なら、選んでいる頂点を重み1で返す。
+
+        同じ頂点が何度も出てきた場合は、大きいほうの重みを使う。
 
         Returns:
             dict[Mesh, dict[int, float]]: {メッシュ: {頂点番号: 重み}}。メッシュは最初に現れた順。
@@ -135,114 +153,137 @@ class Selection:
         ...
     @property
     def items(self) -> list[Node | Plug | Component]:
-        """list[Node | Plug | Component]: 保持順の対象。削除済み参照も保持する。
-        fullName が重複する対象は構築時に除かれている(__init__ 参照)。:meth:`getItems` と同じ値。"""
+        """list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
+        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。"""
         ...
     def getItems(self) -> list[Node | Plug | Component]:
-        """保持順の対象を新しいリストで取得する。:attr:`items` と同じ値。
+        """持っている対象を、新しいリストで取得する。
+
+        :attr:`items` と同じ値になる。
 
         Returns:
-            list[Node | Plug | Component]: 保持順の単数参照。削除済み参照も含む。
-                リストを変更しても自身の保持内容は変わらない。
+            list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
+                このリストを変えても、このオブジェクトの中身は変わらない。
         """
         ...
     def getNodes(self, type: str | None = ...) -> list[Node]:
         """ノードとして選ばれた対象を取得する。
 
         Args:
-            type (str | None): 継承型を含むノード型。Noneは全型。
+            type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型。
 
         Returns:
-            list[Node]: 有効なノード。コンポーネントの所有者は含めない。
+            list[Node]: 削除されていないノード。コンポーネントを持つノードは含めない。
         """
         ...
     def getPlugs(self) -> list[Plug]:
-        """有効なアトリビュート参照。Channel Box選択は自動取得しない。
+        """アトリビュートとして選ばれた対象を取得する。
+
+        Channel Boxで選んでいるアトリビュートは、ここでは取得しない(:meth:`getChannelBoxPlugs` を使う)。
 
         Returns:
-            list[Plug]: 有効なアトリビュート参照。Channel Box選択は自動取得しない。
+            list[Plug]: 削除されていないアトリビュート。
         """
         ...
     def getComponents(self) -> list[Components]:
-        """有効な要素をshapeのDAGパス・種類ごとにまとめる。
+        """コンポーネントとして選ばれた対象を、まとめて取得する。
+
+        削除されていない要素を、ShapeのDAGパスと要素の種類ごとに1つにまとめる。
 
         Returns:
-            list[Components]: 有効な要素をshapeのDAGパス・種類ごとにまとめる。
+            list[Components]: ShapeのDAGパスと種類ごとにまとめた要素。
         """
         ...
     def getOwners(self) -> list[Node]:
-        """有効な対象の所有ノード。DAGパス別に重複を除く。
+        """対象を持つノードを取得する。
+
+        ノードはそのノード自身、アトリビュートはそのノード、コンポーネントはそのShapeになる。
+        削除された対象は除く。
 
         Returns:
-            list[Node]: 有効な対象の所有ノード。DAGパス別に重複を除く。
+            list[Node]: 対象を持つノード。DAGパスが同じものは1つにまとめる。
         """
         ...
     def filter(self, type: str) -> Selection:
-        """ノード型、またはコンポーネント種類で絞った新しい集合を返す。
+        """ノード型やコンポーネントの種類で絞り込んだ、新しい選択を返す。
 
         Args:
-            type (str): joint等のノード型、vertex/edge/face/uv/controlVertex、またはplug。
-                コンポーネント記号vtx/e/f/map/cvも使用できる。
+            type (str): 絞り込む種類。次のどれかを指定する。
+
+                - jointなどのノード型。
+                - コンポーネントの種類 vertex/edge/face/uv/controlVertex。
+                  記号のvtx/e/f/map/cvでも指定できる。
+                - アトリビュートを選ぶplug。
 
         Returns:
-            Selection: 有効な該当要素。元の集合は変更しない。
+            Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
         """
         ...
     def select(self, mode: str = ..., missing: str = ...) -> Selection:
-        """保持した対象を現在の選択に反映する。
+        """持っている対象をMayaの選択にする。
 
-        ``cmds.select(noExpand=True)`` でUndo有効時に一つのチャンクへ記録する。fast引数は持たない。
+        ``cmds.select(noExpand=True)`` で選ぶ。Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。
+        fast引数は持たない。
 
         Args:
-            mode (str): replaceは置換、addは追加、removeは除外。
-            missing (str): skipは無効対象を除外、errorは変更前に例外。
+            mode (str): 選び方。replaceは置き換え、addは追加、removeは選択から外す。既定はreplace。
+            missing (str): 削除された対象の扱い。skipは除いて続け、errorは選択を変える前に例外にする。
+                既定はskip。
 
         Returns:
-            Selection: 自身。空集合はreplaceだけ選択を解除する。
+            Selection: 自身。中身が空の場合は、replaceのときだけ選択を解除する。
 
         Raises:
-            ValueError: modeまたはmissingが未対応の場合。
-            RuntimeError: missingがerrorで対象が削除済みの場合。
+            ValueError: modeまたはmissingに対応していない値を指定した場合。
+            RuntimeError: missingがerrorで、削除された対象がある場合。
         """
         ...
     @staticmethod
     def _resolve(selection: om2.MSelectionList, name: str | None = ...) -> list[Node | Plug | Component]:
-        """MSelectionListをmlibの単体参照へ変換する。非対応要素はTypeError。
+        """MSelectionListを、mlibのオブジェクト(Node・Plug・Component)の列へ変換する。
 
-        name は要素を追加したときの文字列で、1要素の場合にインスタンス化された
-        ノードのアトリビュートの所有インスタンスを求めるために使う(selection_owner 参照)。
+        対応していない要素はTypeErrorになる。
+
+        nameは、選択リストへ要素を追加したときの文字列。要素が1つの場合に、インスタンス化された
+        ノードのアトリビュートが、どのインスタンスのものかを決めるのに使う(_selection_ownerを参照)。
 
         Args:
             selection (om2.MSelectionList): 変換元の選択リスト。
-            name (str | None): 単一要素を追加した際の入力名。所有するDAGインスタンスの解決に使う。
+            name (str | None): 要素を1つ追加したときの名前。どのDAGインスタンスのものかを決めるのに使う。
 
         Returns:
-            list[Node | Plug | Component]: 選択要素の順序を維持した単数参照の列。
+            list[Node | Plug | Component]: 選択リストの順のまま変換したオブジェクト。
         """
         ...
     def _valid(self, item: Node | Plug | Component) -> bool:
-        """削除されたノード・アトリビュート・範囲外要素を検出する。
+        """対象がまだ使えるか調べる。
+
+        削除されたノード・アトリビュートや、範囲の外になった要素を見つける。
 
         Args:
-            item (Node | Plug | Component): 有効性を確認する保持参照。
+            item (Node | Plug | Component): 調べる対象。
 
         Returns:
-            bool: 参照先が存在し、種類に応じた有効条件を満たすか。
+            bool: 対象が存在し、種類ごとの条件を満たせばTrue。
         """
         ...
     def _names(self, missing: str) -> list[str]:
-        """変更前に有効な名前を解決する。missing不正はValueError、欠落はRuntimeError。
+        """選択を変える前に、使える対象の名前を集める。
+
+        missingが不正ならValueError、削除された対象があってmissingがerrorならRuntimeErrorにする。
 
         Args:
-            missing (str): skipなら欠落を除外し、errorなら変更前に例外を送出する。
+            missing (str): skipなら削除された対象を除き、errorなら選択を変える前に例外を送出する。
 
         Returns:
-            list[str]: 有効な対象のフル名。missingがskipなら欠落した参照を除く。
+            list[str]: 使える対象のフルネーム。missingがskipなら、削除された対象を除く。
         """
         ...
 
 def _selection_node(selection: om2.MSelectionList, index: int) -> om2.MDagPath | om2.MObject:
-    """選択リストのノード要素を、DAGノードは選択されたインスタンスのDAGパスで取得する。
+    """選択リストのノードの要素を取得する。
+
+    DAGノードは、選ばれたインスタンスのDAGパスで取得する。
 
     Args:
         selection (om2.MSelectionList): 選択リスト。
@@ -265,24 +306,26 @@ def _is_plain_node_name(name: str) -> bool:
     ...
 
 def _resolve_names(names: Sequence[str], plugs: bool = ...) -> list[tuple | None]:
-    """名前の列を、名前ごとに選択リストを作らずに解決する(ls・Selection の内部補助)。
+    """名前の列から、まとめてノードやアトリビュートを探す(lsとSelectionの内部で使う)。
 
-    ``_NAME_CHUNK`` 件ずつ同じ選択リストを使い回して追加し、追加で要素が丁度1つ増えた名前だけを
-    その要素へ対応付ける。対応付けは選択リストの並びではなく names の順に行うため、戻り値の順は
-    names と同じになる。次の名前は対応付けず None とし、呼出し元が従来の名前ごとの経路で解決する
-    (結果と例外は名前ごとの解決と同じになる)。
+    名前ごとに選択リストを作ると遅いので、``_NAME_CHUNK`` 件ずつ同じ選択リストを使い回して追加する。
+    追加して要素がちょうど1つ増えた名前だけを、その要素へ対応付ける。
+    対応付けは選択リストの並びではなくnamesの順に行うので、戻り値の順はnamesと同じになる。
 
-    - 解決できない名前(存在しない・一意でない)。
-    - 同じリストに既にある要素と重複・統合されて要素が増えない名前(重複は統合せず、名前ごとに返す)。
-    - 複数の要素に一致する名前、ワイルドカード(「*」「?」)を含む名前。
-    - plugs が True で、要素がアトリビュート(MPlug)にならない名前(コンポーネントなど)。
+    次の名前は対応付けずにNoneにする。呼び出し側が、名前を1つずつ調べる従来の方法で探し直す
+    (結果と例外は、名前を1つずつ調べた場合と同じになる)。
+
+    - 見つからない名前(存在しない、または1つに決まらない)。
+    - 同じリストにすでにある要素と重なって、要素が増えない名前(重なりはまとめず、名前ごとに返す)。
+    - 複数の要素に当てはまる名前と、ワイルドカード(「*」「?」)を含む名前。
+    - plugsがTrueで、要素がアトリビュート(MPlug)にならない名前(コンポーネントなど)。
 
     Args:
-        names (Sequence[str]): 解決する名前。ノード名とアトリビュート名は混ぜずに渡す。
-        plugs (bool): True はアトリビュート名(「.」を含む名前)、False はノード名として対応付ける。
+        names (Sequence[str]): 探す名前。ノード名とアトリビュート名を混ぜずに渡す。
+        plugs (bool): Trueならアトリビュート名(「.」を含む名前)、Falseならノード名として対応付ける。
 
     Returns:
-        list[tuple | None]: names と同じ長さの列。対応付けた名前は
-            ``(MObject, MDagPath | None, MPlug | None)`` (DG ノードの DAG パスと、ノード名の MPlug は None)。
+        list[tuple | None]: namesと同じ長さの列。対応付けた名前は
+            ``(MObject, MDagPath | None, MPlug | None)`` になる(DGノードのDAGパスと、ノード名のMPlugはNone)。
     """
     ...

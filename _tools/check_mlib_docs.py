@@ -69,15 +69,15 @@ def read_mermaid_pin(conf_path=DOCS_CONF):
                 if value is not None:
                     known[target.id] = value
     pin = {"src": known.get("_MERMAID_URL"), "integrity": known.get("_MERMAID_SRI")}
-    assert pin["src"] and pin["integrity"], f"{conf_path}: _MERMAID_URL / _MERMAID_SRI not found"
-    assert MERMAID_CDN_SCRIPT.match(pin["src"]), f"{conf_path}: Mermaid URL is not an exact jsDelivr version: {pin['src']}"
+    assert pin["src"] and pin["integrity"], f"{conf_path}: _MERMAID_URL / _MERMAID_SRI が見つかりません"
+    assert MERMAID_CDN_SCRIPT.match(pin["src"]), f"{conf_path}: MermaidのURLが、版を固定したjsDelivrのURLではありません: {pin['src']}"
     algorithm, _, digest = pin["integrity"].partition("-")
     try:
         digest_size = len(base64.b64decode(digest, validate=True))
     except binascii.Error:
         digest_size = 0
     assert algorithm == "sha384" and digest_size == hashlib.sha384().digest_size, (
-        f"{conf_path}: _MERMAID_SRI must be one sha384 digest in base64: {pin['integrity']}"
+        f"{conf_path}: _MERMAID_SRI はbase64のsha384ダイジェスト1つにしてください: {pin['integrity']}"
     )
     return pin
 
@@ -90,14 +90,14 @@ def _is_mermaid_engine(src):
 def _check_script_list(scripts, pin, source):
     """1ページ分のscript属性の並びが、固定したMermaid本体の読み込み方どおりか確かめる。"""
     engines = [index for index, script in enumerate(scripts) if _is_mermaid_engine(script.get("src") or "")]
-    assert len(engines) == 1, f"{source}: expected one Mermaid script, got {[scripts[i] for i in engines]}"
+    assert len(engines) == 1, f"{source}: Mermaidのスクリプトは1つにしてください: {[scripts[i] for i in engines]}"
     engine = scripts[engines[0]]
-    assert engine.get("src") == pin["src"], f"{source}: Mermaid URL differs from _docs/source/conf.py: {engine.get('src')}"
-    assert engine.get("integrity") == pin["integrity"], f"{source}: Mermaid SRI differs from _docs/source/conf.py: {engine.get('integrity')}"
-    assert engine.get("crossorigin") == "anonymous", f"{source}: Mermaid script needs crossorigin=anonymous"
+    assert engine.get("src") == pin["src"], f"{source}: MermaidのURLが _docs/source/conf.py と違います: {engine.get('src')}"
+    assert engine.get("integrity") == pin["integrity"], f"{source}: MermaidのSRIが _docs/source/conf.py と違います: {engine.get('integrity')}"
+    assert engine.get("crossorigin") == "anonymous", f"{source}: Mermaidのスクリプトには crossorigin=anonymous が必要です"
     # どちらも defer なので記述順に実行される。初期化が本体より先だと図が描かれない。
     initializers = [index for index, script in enumerate(scripts) if MERMAID_INIT_SCRIPT in (script.get("src") or "")]
-    assert initializers and min(initializers) > engines[0], f"{source}: {MERMAID_INIT_SCRIPT} must be loaded after the Mermaid script"
+    assert initializers and min(initializers) > engines[0], f"{source}: {MERMAID_INIT_SCRIPT} はMermaidのスクリプトより後で読み込んでください"
 
 
 class _ScriptTags(HTMLParser):
@@ -141,7 +141,7 @@ def check_built_html(directory, pin, package_name="mlib"):
         for path in directory.rglob("mermaid*")
         if path.is_file() and path.suffix in {".js", ".mjs"} and path.name != MERMAID_INIT_SCRIPT
     )
-    assert not bundled, f"Mermaid must not be bundled in the build output (stale build?): {bundled}"
+    assert not bundled, f"ビルド結果にMermaid本体を含めないでください(古いビルドが残っていませんか): {bundled}"
     checked = set()
     for path in sorted(directory.rglob("*.html")):
         parser = _ScriptTags()
@@ -151,7 +151,7 @@ def check_built_html(directory, pin, package_name="mlib"):
             _check_script_list(parser.scripts, pin, source)
             checked.add(source)
     missing = sorted({source for source, _ in _cases(package_name)} - checked)
-    assert not missing, f"Pages with class diagrams do not load Mermaid: {missing}"
+    assert not missing, f"クラス図のあるページがMermaidを読み込んでいません: {missing}"
     return len(checked)
 
 
@@ -179,13 +179,13 @@ def wait_for_release(base, sha, timeout):
                 raise ValueError(f"Expected {sha}, got {info['commit']}")
             for path, digest in info["files"].items():
                 if hashlib.sha256(fetch(path)).hexdigest() != digest:
-                    raise ValueError(f"Old or inconsistent published file: {path}")
+                    raise ValueError(f"公開されたファイルが古いか、一致しません: {path}")
             return
         except Exception as error:
             last_error = error
             if time.monotonic() >= deadline:
-                raise RuntimeError(f"Publication verification failed: {last_error}") from error
-            print(f"Waiting for publication: {error}", flush=True)
+                raise RuntimeError(f"公開の確認に失敗しました: {last_error}") from error
+            print(f"公開の反映を待っています: {error}", flush=True)
             time.sleep(10)
 
 
@@ -222,7 +222,7 @@ def check_browser(base, output, pin, package_name="mlib"):
                 try:
                     for index, (source, destination) in enumerate(_cases(package_name)):
                         response = page.goto(urljoin(base, source), wait_until="networkidle")
-                        assert response and response.ok, f"Cannot open {source}"
+                        assert response and response.ok, f"開けません: {source}"
                         check_mermaid_script(page, source, pin)
                         expect(page.locator(".mermaid svg").first).to_be_visible(timeout=30000)
                         # SVGの実リンクをクリックする。テキストソースのURL検査だけでは済ませない。
@@ -235,7 +235,7 @@ def check_browser(base, output, pin, package_name="mlib"):
                             if href and href.endswith("#" + destination):
                                 chosen = candidate
                                 break
-                        assert chosen is not None, f"Missing SVG link: {source} -> {destination}"
+                        assert chosen is not None, f"SVGのリンクがありません: {source} -> {destination}"
                         # 空のメンバー欄を含むSVG枠の中心ではなく、ユーザーが読むクラス名を押す。
                         # 大きな全体図でも文字の位置を基準にスクロール・クリックする。
                         # (Mermaid 11 ではクラス名が .label-group 内の .nodeLabel に描かれる)
@@ -264,7 +264,7 @@ def check_browser(base, output, pin, package_name="mlib"):
                         scrollTop: el.scrollTop, width: el.clientWidth, height: el.clientHeight,
                         svg: el.querySelector('svg')?.getBoundingClientRect().toJSON()
                     }))""")
-                    raise RuntimeError(f"{label} {source}: {error}\nDiagram geometry: {geometry}") from error
+                    raise RuntimeError(f"{label} {source}: {error}\n図の配置: {geometry}") from error
                 finally:
                     context.tracing.stop(path=str(output / f"{label}-trace.zip"))
                     context.close()
@@ -278,20 +278,22 @@ def main():
     target.add_argument("--directory", type=Path)
     target.add_argument("--url")
     target.add_argument("--stamp-directory", type=Path)
-    target.add_argument("--check-directory", type=Path, help="check built HTML without a browser (Mermaid pin, no bundled Mermaid)")
-    parser.add_argument("--sha", help="commit expected in build-info.json (not used by --check-directory)")
+    target.add_argument("--check-directory", type=Path, help="ビルドしたHTMLをブラウザなしで検査する(Mermaidの版の固定と、本体を同梱していないこと)")
+    parser.add_argument("--sha", help="build-info.json にあるはずのコミット(--check-directory では使わない)")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[1] / "__tests__/_output/docs-browser")
     parser.add_argument("--package-name", default="mlib", help="対象のコアパッケージ名")
     parser.add_argument("--docs-conf", type=Path, help="対象のconf.py。省略時はパッケージ内の_docs/source/conf.pyを使用")
     args = parser.parse_args()
     if not args.check_directory and not args.sha:
-        parser.error("--sha is required unless --check-directory is used")
+        parser.error("--check-directory 以外では --sha が必要です")
     conf_path = args.docs_conf or _MLIB_ROOT.parent / args.package_name / "_docs/source/conf.py"
     pin = read_mermaid_pin(conf_path)
     if args.check_directory:
         pages = check_built_html(args.check_directory, pin, args.package_name)
-        print(f"Verified {pages} HTML pages: Mermaid is loaded only from {pin['src']} with the SRI pinned in _docs/source/conf.py, and is not bundled.")
+        print(
+            f"{pages}個のHTMLページを確認しました: Mermaidの読み込み元は {pin['src']} だけで、SRIは _docs/source/conf.py の指定と一致し、本体は同梱されていません。"
+        )
         return
     if args.stamp_directory:
         stamp(args.stamp_directory, args.sha, args.package_name)
@@ -308,7 +310,7 @@ def main():
             base = args.url.rstrip("/") + "/"
         wait_for_release(base, args.sha, args.timeout)
         check_browser(base, args.output, pin, args.package_name)
-        message = f"Verified commit {args.sha}: publication files and 8 Chromium click cases passed."
+        message = f"コミット{args.sha}を確認しました: 公開されたファイルと、Chromiumでのクリック8件が通りました。"
         print(message)
         if os.environ.get("GITHUB_STEP_SUMMARY"):
             with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
@@ -325,5 +327,5 @@ if __name__ == "__main__":
     except Exception as error:
         # CIの公開チェックにも原因を残し、ログ権限がない場合にも診断できるようにする。
         message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-        print(f"::error title=Documentation browser verification::{message}", flush=True)
+        print(f"::error title=文書のブラウザ確認::{message}", flush=True)
         raise

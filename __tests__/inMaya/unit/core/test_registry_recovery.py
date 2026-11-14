@@ -76,7 +76,7 @@ class TypeHierarchyStateTest(unittest.TestCase):
         with mock.patch.object(cmds, "nodeType", return_value=["dependNode", "fixtureNode"]) as query:
             before = registry_module._inherited_node_types("fixtureNode")
             with mock.patch.object(cmds, "loadPlugin", return_value=None), mock.patch.object(Plugin, "isLoaded", return_value=False):
-                with self.assertRaisesRegex(RuntimeError, "Plugin initialization did not complete"):
+                with self.assertRaisesRegex(RuntimeError, "プラグインの初期化が完了しませんでした"):
                     Plugin("fixturePlugin").load()
             self.assertIs(registry_module._inherited_node_types("fixtureNode"), before)
         self.assertEqual(query.call_count, 1)

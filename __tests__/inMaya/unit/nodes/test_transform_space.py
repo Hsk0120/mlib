@@ -277,7 +277,7 @@ class ResetAttrsTest(_SpecCase):
         self.assertEqual([plug.getLongName() for plug in plugs], ["translateX", "scale", "shear"])
         self.assertValues(name, [(0.0, 2.0, 3.0), (10.0, 20.0, 30.0), (1.0, 1.0, 1.0), (0.0, 0.0, 0.0)])
         other = Node(self.make())
-        with self.assertRaisesRegex(ValueError, "does not belong to"):
+        with self.assertRaisesRegex(ValueError, "のものではありません"):
             node.resetAttrs([other.getPlug("tx")])
 
     def test_explicit_attributes(self):

@@ -21,29 +21,29 @@ def _count_name(owner):
     """要素数を返すシェイプのメソッド名(count_attribute)を取り出す。
 
     Args:
-        owner (type | Component): count_attributeを持つ単数型またはそのインスタンス。
+        owner (type | Component): count_attributeを持つ単数のクラス、またはそのインスタンス。
 
     Returns:
         str: シェイプのメソッド名。
 
     Raises:
-        TypeError: 基底クラス等でcount_attributeが文字列でない場合。getattrと同じ例外型にする。
+        TypeError: 基底クラスなどで、count_attributeが文字列でない場合。getattrと同じ例外の型にしてある。
     """
     name = owner.count_attribute
     if not isinstance(name, str):
-        raise TypeError(f"attribute name must be string, not '{type(name).__name__}'")
+        raise TypeError(f"アトリビュート名は文字列で指定してください: '{type(name).__name__}'")
     return name
 
 
 def _indexed_component_fn(component):
-    """コンポーネントの番号の次元に合う OpenMaya の関数セットを返す。
+    """コンポーネントの番号の数(1〜3個)に合う、OpenMayaのfunction setを返す。
 
     Args:
         component (om2.MObject): コンポーネント。
 
     Returns:
         om2.MFnSingleIndexedComponent | om2.MFnDoubleIndexedComponent | om2.MFnTripleIndexedComponent | None:
-            番号を持たない種類はNone。
+            番号を持たない種類ならNone。
     """
     if component.hasFn(om2.MFn.kSingleIndexedComponent):
         return om2.MFnSingleIndexedComponent(component)
@@ -55,12 +55,14 @@ def _indexed_component_fn(component):
 
 
 class Component(Object):
-    """シェイプ参照と実番号を保持し、一つのMayaコンポーネントを表す。
+    """Mayaのコンポーネント1つを表すクラス。
 
-    頂点・エッジ・フェース・UV・カーブCVの共通基底。Vertex等の具体型を使う。
-    渡されたShapeラッパーを共有し、形状や座標のコピーは保持しない。
-    番号は作成時に検証するが、トポロジー変更後も同じ要素を指し続ける保証はない。
-    UVの番号範囲は現在のUVセットに従う。
+    シェイプと、Mayaでのコンポーネントの番号を持つ。
+    頂点・エッジ・フェース・UV・カーブのCVなどの共通の基底クラスで、実際にはVertexなどの具体的なクラスを使う。
+
+    - 渡されたShapeのオブジェクトをそのまま共有する。形状や座標のコピーは持たない。
+    - 番号は作るときに確かめる。ただし、トポロジーを変えた後も同じ要素を指し続けるとは限らない。
+    - UVの番号の範囲は、現在のUVセットに従う。
     """
 
     # シェイプ型・cmds用の種類名・要素数を返すシェイプのメソッド名。具体型が定義し、基底ではNone。
@@ -69,42 +71,44 @@ class Component(Object):
     count_attribute: Optional[str] = None
 
     def __init__(self, shape, index):
-        """シェイプとコンポーネントの実番号を検証して保持する。
+        """シェイプとコンポーネントの番号を確かめて、コンポーネントを作る。
 
-        名前やTransformからのShape解決は行わず、渡されたShapeラッパーをそのまま保持する。
+        名前やTransformからShapeを探すことはしない。渡されたShapeのオブジェクトをそのまま持つ。
 
         Args:
-            shape (Shape): 具体型に対応するMeshまたはNurbsCurveラッパー。
-            index (int): 0始まりのMaya番号。__index__対応値も受け付けるが、boolは拒否する。
-                負数を末尾からの位置としては扱わない。
+            shape (Shape): このクラスに対応するShape(MeshやNurbsCurveなど)のオブジェクト。
+            index (int): Mayaでの番号。0から始まる。__index__を持つ値も使えるが、boolは受け付けない。
+                負の数を、末尾から数えた位置としては扱わない。
 
         Raises:
-            TypeError: シェイプ型が不正、またはindexがboolか整数として扱えない場合。
-            IndexError: 番号が現在の要素数の範囲外の場合。
+            TypeError: シェイプの型が合わない場合、またはindexがboolか、整数として扱えない場合。
+            IndexError: 番号が、今の要素数の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
         if isinstance(index, bool):
-            raise TypeError("Component index must be an integer, not bool")
+            raise TypeError("コンポーネントの番号は整数で指定してください(boolは指定できません)")
         self._index = operator.index(index)
         self._require_valid()
 
     def __getattr__(self, name):
-        """存在しないメソッド・アトリビュートの参照を、近い名前の案内付きのAttributeErrorにする。
+        """存在しない名前を使ったときに、案内付きのAttributeErrorを送出する。
 
         Args:
-            name (str): 参照した名前。
+            name (str): 使おうとした名前。
 
         Raises:
-            AttributeError: 常に送出する。``'Vertex' has no method '<name>'`` の形で、近い名前の
-                メソッドとmaya.cmdsやほかのライブラリの名前に対応するmlibの書き方を案内する。
+            AttributeError: 常に送出する。``'Vertex'にメソッド'<name>'はありません`` の形で、
+                近い名前のメソッドと、maya.cmdsやほかのライブラリの名前に当たるmlibの書き方を案内する。
         """
         if name.startswith("_"):
             raise AttributeError(name)
         raise AttributeError(_missing_member_message(self, name))
 
     def __eq__(self, other):
-        """同じシェイプのインスタンス・種類・番号を指すか比較する。
+        """同じコンポーネントを指すか比べる。
+
+        シェイプのインスタンス・コンポーネントの種類・番号がすべて同じなら等しい。
 
         Args:
             other: 比較・演算の相手。
@@ -114,17 +118,18 @@ class Component(Object):
         return self._shape == other._shape and self.component_type == other.component_type and self._index == other._index
 
     def __hash__(self):
-        """保持シェイプ・種類・番号のハッシュを返す。位置の更新では変化しない。"""
+        """シェイプ・種類・番号からハッシュ値を作って返す。座標を変えても値は変わらない。"""
         return hash((self._shape, self.component_type, self._index))
 
     def __repr__(self):
-        """デバッグ用に、型名とシェイプの最短一意名を使ったコンポーネント名を返す。
+        """デバッグ用に、型名とコンポーネント名を表す文字列を返す。
 
-        ``__str__`` (maya.cmds へ渡す完全パス名)とは別の表示で、名前はキャッシュしない。
+        シェイプは、ほかと区別できる一番短い名前で表す。
+        ``__str__`` (maya.cmdsへ渡す完全パスの名前)とは別の表示で、名前は毎回取得し直す。
 
         Returns:
-            str: ``Vertex('boxShape.vtx[5]')`` のような文字列。シェイプの削除・種類違い・
-                番号範囲外の場合は ``<Vertex invalid>``。
+            str: ``Vertex('boxShape.vtx[5]')`` のような文字列。シェイプが削除された場合、
+                シェイプの種類が違う場合、番号が範囲の外の場合は ``<Vertex invalid>``。
         """
         cls = type(self).__name__
         if not self.isValid():
@@ -136,47 +141,49 @@ class Component(Object):
         """コンポーネント名を返す。
 
         Returns:
-            str: 現在の完全パス付きコンポーネント名。
+            str: 今の完全パスを付けたコンポーネント名。
         """
         return self.getFullName()
 
     @property
     def shape(self):
-        """保持している所有シェイプの参照を返す。
+        """このコンポーネントを持つシェイプを返す。
 
         Returns:
-            Shape: 構築時と同じラッパー。コピーや有効性の再照会は行わない。
+            Shape: 作ったときに渡したのと同じオブジェクト。コピーは作らず、まだ有効かも調べ直さない。
         """
         return self._shape
 
     @property
     def index(self):
-        """保持しているMayaコンポーネントの実番号を返す。
+        """Mayaでのコンポーネントの番号を返す。
 
         Returns:
-            int: 0始まりの番号。現在のトポロジーでの範囲は再検証しない。
-                カーブCVはOpenMayaの番号で、周期末尾のcmds用表記とは異なる場合がある。
+            int: 0から始まる番号。今のトポロジーで範囲の中にあるかは調べ直さない。
+                カーブのCVはOpenMayaの番号で、周期カーブの末尾ではcmdsで使う番号と違うことがある。
         """
         return self._index
 
     def getFullName(self):
-        """現在の DAG パスを使ってコンポーネント名を取得する。
+        """今のDAGパスを使って、コンポーネント名を取得する。
 
         Returns:
-            str: シェイプの完全パスとコンポーネントの種類・番号を含む名前。
+            str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
         """
         self._require_valid()
         return f"{self._shape.getFullName()}.{self.component_type}[{self._index}]"
 
     def isValid(self):
-        """シェイプの生存・種類と、保持番号の現在の範囲を照会する。
+        """このコンポーネントが今も使えるか調べる。
+
+        シェイプが削除されていないか、種類が合うか、番号が今の範囲の中にあるかを調べる。
 
         Returns:
-            bool: 現在のシェイプで保持番号を参照できればTrue。
+            bool: 今のシェイプでこの番号の要素を使えればTrue。
 
         Note:
-            トポロジー変更前後で同じ要素を指す保証はない。
-            UVは現在のUVセットの番号範囲を使う。
+            トポロジーを変えた前後で、同じ要素を指すとは限らない。
+            UVは、現在のUVセットの番号の範囲を使う。
         """
         try:
             self._require_valid()
@@ -186,23 +193,24 @@ class Component(Object):
 
     @staticmethod
     def _from_api(path, component):
-        """OpenMayaのコンポーネントを、要素別の参照へ展開する。
+        """OpenMayaのコンポーネントを、要素1つずつのオブジェクトに分ける。
 
-        明示番号はgetElements()の順序、complete指定は現在のShapeの全番号を使う。
-        各参照は同じShapeラッパーを共有し、座標値は取得しない。
+        番号を個別に指定したコンポーネントは、getElements()の順に並べる。
+        全要素を指す(complete)コンポーネントは、今のShapeの全番号を使う。
+        どのオブジェクトも同じShapeのオブジェクトを共有し、座標は取得しない。
 
         Args:
-            path (MDagPath): 所有Shapeのインスタンスパス。
+            path (MDagPath): コンポーネントを持つShapeの、インスタンスのパス。
             component (MObject): Meshの頂点/エッジ/フェース/UV/頂点フェース、NurbsCurveのCV、
                 NurbsSurfaceのCV、またはLatticeの点。
 
         Returns:
-            list[Component]: 新しい単数ラッパーのリスト。complete指定は0から要素数-1の順。
+            list[Component]: 新しく作った、要素1つずつのオブジェクトのリスト。completeの場合は番号0から順に並ぶ。
 
         Raises:
-            TypeError: 非対応のコンポーネント種類、または対応しないShape型の場合。
-            IndexError: 明示番号が現在のShapeの範囲外の場合。
-            RuntimeError: 所有Shapeを解決・参照できない場合。
+            TypeError: 対応していないコンポーネントの種類、またはShapeの型の場合。
+            IndexError: 個別に指定した番号が、今のShapeの範囲の外にある場合。
+            RuntimeError: コンポーネントを持つShapeを見つけられない、または使えない場合。
         """
         # nodes・具体コンポーネント型はこのモジュールを継承・importするため、循環を避けて使う時点で読み込む。
         from ..nodes.node import Node
@@ -227,7 +235,7 @@ class Component(Object):
         }
         cls = types.get(component.apiType())
         if cls is None:
-            raise TypeError("Only mesh vertices/edges/faces/UVs/vertex faces, curve CVs, surface CVs and lattice points are supported")
+            raise TypeError("対応しているのは、メッシュの頂点・エッジ・フェース・UV・頂点フェース、カーブのCV、サーフェスのCV、ラティスの点だけです")
         shape = Node(path)
         fn = _indexed_component_fn(component)
         if fn.isComplete:
@@ -238,41 +246,43 @@ class Component(Object):
 
     @staticmethod
     def _resolve_input(value):
-        """コンポーネント名・既存参照・APIの組から、一つの要素参照を解決する。
+        """コンポーネント名・Componentのオブジェクト・APIの組から、要素1つのオブジェクトを得る。
 
-        既存Componentは再検証せず同じラッパーを返す。文字列はMSelectionListで解決し、
-        API入力は単一番号型かと要素数を確認してから展開する。
-        単数でないと判定した入力は、展開前に拒否する。展開後も一件であることを確認する。
+        - Componentのオブジェクトは、確かめ直さずにそのまま返す。
+        - 文字列は、MSelectionListで探す。
+        - APIの組は、番号が1つのコンポーネントかと、要素の数を確かめてから分ける。
+
+        要素が1つでないと分かった入力は、分ける前に例外にする。分けた後も、1つであることを確かめる。
 
         Args:
-            value (str | Component | tuple): コンポーネント名、既存参照、または
-                (MDagPath, MObject)。:meth:`_from_api` が展開できる種類を対象とする。
+            value (str | Component | tuple): コンポーネント名、Componentのオブジェクト、または
+                (MDagPath, MObject)。:meth:`_from_api` が分けられる種類を扱う。
 
         Returns:
-            Component: 具体型の参照。既存入力以外は新しいラッパー。
+            Component: 具体的なクラスのオブジェクト。Componentを渡した場合以外は、新しく作ったオブジェクト。
 
         Raises:
-            TypeError: 入力型またはコンポーネント種類が非対応の場合。
-            ValueError: 空文字、または解決対象が単一要素でない場合。
-            IndexError: 明示番号が現在のShapeの範囲外の場合。
-            RuntimeError: 名前や所有Shapeを解決できない場合。
+            TypeError: 入力の型、またはコンポーネントの種類に対応していない場合。
+            ValueError: 空文字列を指定した場合、または指す要素が1つでない場合。
+            IndexError: 個別に指定した番号が、今のShapeの範囲の外にある場合。
+            RuntimeError: 名前やコンポーネントを持つShapeを見つけられない場合。
         """
         if isinstance(value, Component):
             return value
         if isinstance(value, str):
             if not value:
-                raise ValueError("Expected a non-empty component name")
+                raise ValueError("コンポーネント名は空でない文字列で指定してください")
             selection = om2.MSelectionList()
             selection.add(value)
             if selection.length() != 1:
-                raise ValueError("Expected one component")
+                raise ValueError("コンポーネントを1つ指定してください")
             value = selection.getComponent(0)
         if not (isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], om2.MDagPath) and isinstance(value[1], om2.MObject)):
-            raise TypeError("Expected a component reference, name or (MDagPath, MObject)")
-        # 単数解決では、広い範囲を単体ラッパーへ展開する前に拒否する。
+            raise TypeError("コンポーネントの参照か、名前か、(MDagPath, MObject)を指定してください")
+        # 要素1つを求めるときは、広い範囲を1つずつのオブジェクトへ分ける前に例外にする。
         component_fn = _indexed_component_fn(value[1])
         if component_fn is None:
-            raise TypeError("Expected an indexed component")
+            raise TypeError("番号付きのコンポーネントを指定してください")
         if component_fn.isComplete:
             count = component_fn.getCompleteData()
             if isinstance(count, tuple):
@@ -281,14 +291,14 @@ class Component(Object):
         else:
             count = component_fn.elementCount
         if count != 1:
-            raise ValueError("Expected one component; use Selection for ranges")
+            raise ValueError("コンポーネントを1つ指定してください。範囲にはSelectionを使います")
         items = Component._from_api(*value)
         if len(items) != 1:
-            raise ValueError("Expected one component; use Selection for ranges")
+            raise ValueError("コンポーネントを1つ指定してください。範囲にはSelectionを使います")
         return items[0]
 
     def _get_coordinate(self, axis, **space):
-        """指定軸の現在座標を返す。axisは派生クラスが検証済みの整数。
+        """指定した軸の、今の座標を返す。axisは派生クラスで確かめてある整数。
 
         Args:
             axis: 座標成分の番号。0=X、1=Y、2=Z。
@@ -297,7 +307,7 @@ class Component(Object):
         return self.getPosition(**space)[axis]
 
     def _require_valid(self):
-        """現在のシェイプ型と番号を再検査する。
+        """今のシェイプの型と番号を確かめ直す。
 
         Returns:
             None: 値を返さない。
@@ -314,45 +324,48 @@ class Component(Object):
 
     @classmethod
     def _element_count(cls, shape):
-        """シェイプが現在持つこの種類の要素数を返す。
+        """シェイプが今持っている、この種類の要素の数を返す。
 
         Args:
-            shape (Shape): 型を検査済みのシェイプ。
+            shape (Shape): 型を確かめてあるシェイプ。
 
         Returns:
-            int: 要素数。既定は ``count_attribute`` のシェイプのメソッドを呼ぶ。多次元の番号を持つ型は上書きする。
+            int: 要素の数。基底では ``count_attribute`` のシェイプのメソッドを呼ぶ。
+                番号を複数持つ種類は、このメソッドを上書きする。
         """
         return getattr(shape, _count_name(cls))()
 
     @staticmethod
     def _require_shape(shape, shape_type):
-        """生存と型を検査する。要素数は呼出し側で必要な時に照会する。
+        """シェイプが削除されていないかと、型を確かめる。
+
+        要素の数は、必要になったときに呼び出し側で調べる。
 
         Args:
-            shape (Shape): 検査する参照。
-            shape_type (str | None): 必要なMayaシェイプ型。基底クラスのNoneはどのシェイプとも一致しない。
+            shape (Shape): 確かめるシェイプ。
+            shape_type (str | None): 必要なMayaのシェイプの型。基底クラスのNoneは、どのシェイプとも一致しない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: シェイプ参照または型が不正な場合。
+            TypeError: shapeがシェイプのオブジェクトでない場合、または型が違う場合。
             RuntimeError: シェイプが無効な場合。
         """
         if not callable(getattr(shape, "isValid", None)):
-            raise TypeError("shape must be an mlib shape wrapper")
+            raise TypeError("shapeはmlibのシェイプのラッパーで指定してください")
         if not shape.isValid():
-            raise RuntimeError("Component shape is invalid")
+            raise RuntimeError("コンポーネントのシェイプが無効です")
         if shape.getType() != shape_type:
-            raise TypeError(f"Expected a {shape_type} shape")
+            raise TypeError(f"{shape_type}のシェイプを指定してください")
 
     @staticmethod
     def _require_index_range(index, count):
-        """正規化済みの実番号を、呼出し内で照会した要素数と比較する。
+        """番号が要素数の範囲の中にあるか確かめる。
 
         Args:
-            index (int): コンポーネントの実番号。
-            count (int): 現在の要素数。
+            index (int): 整数に直してあるコンポーネントの番号。
+            count (int): その呼び出しの中で調べた、今の要素数。
 
         Returns:
             None: 値を返さない。
@@ -361,7 +374,7 @@ class Component(Object):
             IndexError: 番号が範囲外の場合。
         """
         if not 0 <= index < count:
-            raise IndexError(f"Component index out of range: {index}")
+            raise IndexError(f"コンポーネントの番号が範囲外です: {index}")
 
 
 _COMPONENT_INIT = Component.__init__
@@ -373,14 +386,17 @@ _COMPONENT_REQUIRE_INDEX_RANGE = Component._require_index_range
 
 
 class Components:
-    """同一シェイプ・同じ種類の実番号を、初出順の重複なしtupleで保持する。
+    """同じシェイプにある、同じ種類のコンポーネントの集まりを表すクラス。
 
-    Vertices等の具体型が、単数参照の列挙と一括操作を担当する。
-    Shapeラッパーを共有し、番号列は作成時に固定する。形状編集後の要素追加や削除には
-    自動追従せず、トポロジー変更後の要素の同一性も保証しない。
-    角括弧は保持列内の位置で、Mayaの実番号ではない。
-    ``+``(同じシェイプ・同じ種類どうし)・``==``・:meth:`sort` に対応する。``==`` を定義するため、
-    listと同じくハッシュ不可(dictのキー・setの要素にできない)。
+    Mayaでの番号を、初めて出てきた順に、重なりを除いたtupleで持つ。
+    Verticesなどの具体的なクラスが、1つずつの取り出しとまとめての操作を受け持つ。
+
+    - Shapeのオブジェクトを共有し、番号の並びは作ったときに決まる。
+    - 形状を編集して要素が増えたり減ったりしても、自動ではついていかない。
+      トポロジーを変えた後に同じ要素を指すとも限らない。
+    - ``[]`` で指定するのは、この集まりの中での位置で、Mayaでの番号ではない。
+    - ``+`` (同じシェイプ・同じ種類どうし)・``==``・:meth:`sort` が使える。
+      ``==`` を定義しているので、listと同じくハッシュ値を持たない(dictのキーやsetの要素にできない)。
     """
 
     component_class = Component
@@ -394,19 +410,20 @@ class Components:
         getPosition: Callable[..., List[Any]]
 
     def __init__(self, shape, indices=None):
-        """指定番号を検証し、初出順を維持して重複を除いて保持する。
+        """指定した番号を確かめて、コンポーネントの集まりを作る。
 
-        番号をソートせず、不変tupleへ取り込む。一般の反復入力や独自の__index__は
-        単数ラッパーを一件ずつ構築し、拡張側の検証や途中例外を省略しない。
+        番号は並べ替えず、初めて出てきた順のまま、重なりを除いて変更できないtupleに入れる。
+        list・tuple・range以外の反復可能な入力や、独自の__index__を持つ番号は、
+        要素1つのオブジェクトを1つずつ作って確かめる。拡張側の検査や途中の例外を省かないためである。
 
         Args:
-            shape (Shape): 具体型に対応するShapeラッパー。同じ参照を保持する。
-            indices (Iterable[int] | None): Mayaの実番号。Noneは構築時の全要素を昇順で保持する。
-                空列は空集合。各番号は__index__に対応し、boolと負数は拒否する。
+            shape (Shape): このクラスに対応するShapeのオブジェクト。同じオブジェクトをそのまま持つ。
+            indices (Iterable[int] | None): Mayaでの番号。Noneなら、作った時点の全要素を番号の小さい順に持つ。
+                空の並びなら空の集まりになる。各番号は__index__を持つ値で、boolと負の数は受け付けない。
 
         Raises:
-            TypeError: シェイプ型または番号の型が不正な場合。
-            IndexError: いずれかの番号が現在の要素数の範囲外の場合。
+            TypeError: シェイプの型、または番号の型が合わない場合。
+            IndexError: どれかの番号が、今の要素数の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
@@ -431,35 +448,36 @@ class Components:
             self._indices = tuple(dict.fromkeys(self.component_class(shape, index).index for index in selected))
 
     def __len__(self):
-        """保持している重複なし番号の件数を返す。
+        """持っている番号の数を返す。
 
         Returns:
-            int: 構築時に固定した件数。現在のShapeの要素数や生存は照会しない。
+            int: 作ったときに決まった数。今のShapeの要素数や、Shapeが削除されていないかは調べない。
         """
         return len(self._indices)
 
     def __iter__(self):
-        """保持番号の順に、新しい単数コンポーネント参照を作って反復する。
+        """持っている番号の順に、要素1つのコンポーネントを作って返す。
 
-        各参照の構築時に現在のShapeと番号を検証する。全件を先に検証する処理ではないため、
-        途中で失敗した場合も、それ以前の参照はすでにyieldされている。座標は取得しない。
+        1つ作るたびに、今のShapeと番号を確かめる。先に全部を確かめるわけではないので、
+        途中で失敗しても、それより前の要素はすでに返している。座標は取得しない。
 
         Yields:
-            Component: 同じShapeラッパーを共有する新しい単数参照。
+            Component: 同じShapeのオブジェクトを共有する、新しいコンポーネント。
         """
         for index in self._indices:
             yield self.component_class(self._shape, index)
 
     def __repr__(self):
-        """デバッグ用に、型名と範囲へまとめたコンポーネント名を返す。
+        """デバッグ用に、型名と、範囲にまとめたコンポーネント名を表す文字列を返す。
 
-        保持順で+1ずつ連続する番号を ``[start:end]`` へまとめ、シェイプは最短一意名で表示する。
-        まとめた名前が ``_REPR_LIMIT`` 個を超える場合は先頭だけを表示し、件数を添える。
+        持っている順で1ずつ続く番号は、``[start:end]`` にまとめる。
+        シェイプは、ほかと区別できる一番短い名前で表す。
+        まとめた名前が ``_REPR_LIMIT`` 個より多い場合は先頭だけを表示し、数を付ける。
 
         Returns:
-            str: ``CVs('curveShape.cv[0:7]')``、``Vertices('boxShape.vtx[0:2]', 'boxShape.vtx[5]')``、
-                多数なら ``Vertices('boxShape.vtx[0]', ..., count=120)``、空なら
-                ``Vertices('boxShape', count=0)``。無効なら ``<Vertices invalid>``。
+            str: ``CVs('curveShape.cv[0:7]')`` や ``Vertices('boxShape.vtx[0:2]', 'boxShape.vtx[5]')`` のような文字列。
+                多い場合は ``Vertices('boxShape.vtx[0]', ..., count=120)``、空なら
+                ``Vertices('boxShape', count=0)``、無効なら ``<Vertices invalid>``。
         """
         cls = type(self).__name__
         if not self.isValid():
@@ -484,21 +502,22 @@ class Components:
         return f"{cls}({', '.join(repr(name) for name in names)})"
 
     def __getitem__(self, index):
-        """保持列のPythonの位置番号から単数参照、sliceから同型の部分コレクションを取得する。
+        """位置を指定して、要素を取り出す。
 
-        位置番号はMayaの実番号ではない。負数とboolはtupleと同じ位置として扱う。
-        取得対象の現在番号を再検証し、元と同じShapeラッパーを共有する。
+        整数を指定すると要素1つのコンポーネントを、sliceを指定すると同じクラスの集まりを返す。
+        指定するのはこの集まりの中での位置で、Mayaでの番号ではない。負の数とboolは、tupleと同じ位置として扱う。
+        取り出した要素の番号は今の形状で確かめ直し、元と同じShapeのオブジェクトを共有する。
 
         Args:
-            index (int | slice): 保持列内の位置。
+            index (int | slice): この集まりの中での位置。
 
         Returns:
-            Component | Components: 新しい単数参照または同じ型の新しいコレクション。
+            Component | Components: 新しいコンポーネント、または同じクラスの新しい集まり。
 
         Raises:
-            TypeError: tupleが受理しない番号、またはShape型が不正な場合。
+            TypeError: tupleが受け付けない位置を指定した場合、またはShapeの型が合わない場合。
             ValueError: sliceのstepが0の場合。
-            IndexError: 保持列の位置または現在のMaya番号が範囲外の場合。
+            IndexError: 位置が範囲の外の場合、またはMayaでの番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         if isinstance(index, slice):
@@ -506,15 +525,15 @@ class Components:
         return self.component_class(self._shape, self._indices[index])
 
     def __eq__(self, other):
-        """同じシェイプ・同じ種類・同じ並びの番号か比較する。
+        """同じシェイプ・同じ種類で、番号の並びも同じか比べる。
 
-        list・tupleとは、各位置の単数コンポーネントを ``==`` で比べる。
+        list・tupleと比べるときは、同じ位置にあるコンポーネントどうしを ``==`` で比べる。
 
         Args:
-            other (Components | list | tuple): 比較の相手。
+            other (Components | list | tuple): 比べる相手。
 
         Returns:
-            bool: 等しければTrue。対応しない型はNotImplemented。
+            bool: 等しければTrue。対応していない型ならNotImplemented。
         """
         if isinstance(other, Components):
             return (
@@ -531,24 +550,26 @@ class Components:
         )
 
     def __getattr__(self, name):
-        """単数のコンポーネントのメソッドを、全要素へ保持順に呼ぶ関数として取得する。
+        """要素1つのコンポーネントのメソッドを、全要素に対して呼ぶ関数として取得する。
 
-        このコレクションに無い公開メソッド名を取得すると、保持順の各単数参照(``component_class``)の
-        同名メソッドを同じ引数で呼び、戻り値を保持順のリストで返す関数になる。通常は1回のUndoにまとめ、
-        ``fast=True`` はそのまま各メソッドへ渡してUndoのまとめは行わない。後続の要素で失敗しても、
-        先行の変更は自動では戻さない。
+        この集まりに無い公開メソッドの名前を使うと、次のような関数を返す。
+
+        - 持っている順に、各要素(``component_class``)の同じ名前のメソッドを同じ引数で呼ぶ。
+        - 戻り値を、持っている順のリストにして返す。
+        - ふだんは1回のUndoで戻せるようにまとめる。``fast=True`` はそのまま各メソッドへ渡し、Undoはまとめない。
+        - 途中の要素で失敗しても、それまでの変更は自動では元に戻さない。
 
         Args:
-            name (str): 単数のコンポーネントの公開メソッド名。
+            name (str): 要素1つのコンポーネントの公開メソッドの名前。
 
         Returns:
-            Callable[..., list]: 各要素のメソッドを呼び、戻り値を保持順のリストで返す関数。
+            Callable[..., list]: 各要素のメソッドを呼び、戻り値を持っている順のリストで返す関数。
 
         Raises:
-            AttributeError: 先頭 ``_`` の名前、または ``component_class`` が持たないメソッド名の場合。
+            AttributeError: 名前が ``_`` で始まる場合、または ``component_class`` に無いメソッドの名前の場合。
         """
         if name.startswith("_") or not callable(getattr(self.component_class, name, None)):
-            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+            raise AttributeError(f"{type(self).__name__!r}オブジェクトにアトリビュート{name!r}はありません")
 
         def forward(*args, **kwargs):
             fast = kwargs.get("fast", False) is True
@@ -561,16 +582,16 @@ class Components:
         return forward
 
     def __add__(self, other):
-        """同じシェイプ・同じ種類の要素を後ろへ結合した、左辺と同じ型の新しいコレクションを返す。
+        """同じシェイプ・同じ種類の要素を後ろへつないだ、新しい集まりを返す。
 
-        構築と同じく、初出順を保って重複した番号を除く。
+        作るときと同じく、初めて出てきた順を保ち、重なった番号は除く。
 
         Args:
-            other (Components | list | tuple): 同じシェイプ・同じ種類のコレクション、または単数
-                コンポーネントの列。
+            other (Components | list | tuple): 同じシェイプ・同じ種類の集まり、または
+                要素1つのコンポーネントの並び。
 
         Returns:
-            Components: 左辺と同じ具象型の新しいコレクション。自身と相手は変更しない。
+            Components: 左辺と同じクラスの新しい集まり。自身と相手は変更しない。
 
         Raises:
             TypeError: シェイプまたはコンポーネントの種類が異なる要素を含む場合。
@@ -582,13 +603,13 @@ class Components:
         return type(self)(self._shape, self._indices + self._matching_indices(other))
 
     def __radd__(self, other):
-        """左辺がlist・tupleの結合で、右辺と同じ型の新しいコレクションを返す。
+        """左辺がlist・tupleのときに、つないだ新しい集まりを返す。
 
         Args:
-            other (list | tuple): 前へ結合する、同じシェイプ・同じ種類の単数コンポーネントの列。
+            other (list | tuple): 前へつなぐ、同じシェイプ・同じ種類のコンポーネントの並び。
 
         Returns:
-            Components: 右辺(自身)と同じ具象型の新しいコレクション。
+            Components: 右辺(自身)と同じクラスの新しい集まり。
 
         Raises:
             TypeError: シェイプまたはコンポーネントの種類が異なる要素を含む場合。
@@ -599,44 +620,45 @@ class Components:
 
     @property
     def shape(self):
-        """保持している所有シェイプの参照を返す。
+        """この集まりを持つシェイプを返す。
 
         Returns:
-            Shape: 構築時と同じラッパー。コピーや有効性の再照会は行わない。
+            Shape: 作ったときに渡したのと同じオブジェクト。コピーは作らず、まだ有効かも調べ直さない。
         """
         return self._shape
 
     @property
     def indices(self):
-        """保持しているMaya実番号の不変tupleを返す。
+        """持っているMayaでの番号を、変更できないtupleで返す。
 
         Returns:
-            tuple[int, ...]: 初出順で重複を除いた保持値そのもの。新しいコピーは作らず、
-                現在の番号範囲も再検証しない。カーブCVではOpenMayaの番号を保持する。
+            tuple[int, ...]: 初めて出てきた順に並び、重なりを除いた番号。持っているtupleそのものを返し、
+                コピーは作らない。今の範囲の中にあるかも調べ直さない。カーブのCVはOpenMayaの番号で持つ。
         """
         return self._indices
 
     def sort(self, key=None, reverse=False):
-        """保持する番号列をその場で並べ替え、並べ替えた自身を返す。
+        """番号の並びをその場で並べ替える。
 
-        ``key`` を省略した場合はMayaの実番号の順にする。``key`` を渡した場合は、保持順の単数
-        コンポーネント(``__iter__`` と同じ新しい参照)を引数に呼ぶ。並べ替えるのはこの
-        コレクションの番号列だけで、スライス・``+`` で作った別のコレクションの順序は変わらない
-        (シェイプのラッパーは共有している)。
+        ``key`` を省略すると、Mayaでの番号の順にする。
+        ``key`` を渡すと、要素1つのコンポーネント(``__iter__`` と同じく新しく作ったもの)を引数にして呼ぶ。
+        並べ替えるのはこの集まりの番号の並びだけで、スライスや ``+`` で作った別の集まりの順は変わらない
+        (シェイプのオブジェクトは共有している)。
 
         Args:
-            key (Callable[[Component], object] | None): 各要素から比較用の値を返す関数。Noneは実番号。
-            reverse (bool): Trueなら降順。
+            key (Callable[[Component], object] | None): 各要素から、比べるための値を返す関数。
+                NoneならMayaでの番号で比べる。既定はNone。
+            reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
-            Components: 並べ替えた自身(新しいコレクションは作らない)。派生クラスでは自身の型。
+            Components: 並べ替えた自身。新しい集まりは作らない。派生クラスでは自身のクラスになる。
 
         Raises:
             TypeError: keyが呼び出せない、またはreverseがbool以外の場合。
         """
         _require_bool(reverse, "reverse")
         if key is not None and not callable(key):
-            raise TypeError("key must be callable or None")
+            raise TypeError("keyは呼び出せるオブジェクトかNoneで指定してください")
         if key is None:
             self._indices = tuple(sorted(self._indices, reverse=reverse))
             return self
@@ -645,12 +667,12 @@ class Components:
         return self
 
     def getFullNames(self):
-        """保持順の完全コンポーネント名を取得する。
+        """持っている順に、完全パスのコンポーネント名を取得する。
 
-        全番号の再検証はまとめて1回だけ行う。
+        全部の番号を、まとめて1回だけ確かめ直す。
 
         Returns:
-            list[str]: ``|cube|cubeShape.vtx[3]`` のような要素ごとの名前。
+            list[str]: ``|cube|cubeShape.vtx[3]`` のような、要素ごとの名前。
 
         Raises:
             TypeError: 対応しないシェイプ型の場合。
@@ -661,15 +683,15 @@ class Components:
         return [f"{prefix}[{index}]" for index in self._indices]
 
     def getCompactNames(self):
-        """保持順で連続する番号を範囲指定にまとめた名前を取得する。
+        """続いている番号を範囲にまとめた名前を取得する。
 
-        ``maya.cmds`` へ多数の要素を渡す用途向け(``mlib.select`` などが使う)。
-        番号 ``[0, 1, 2, 5, 3]`` は ``vtx[0:2]``・``vtx[5]``・``vtx[3]`` になり、
-        番号をソートせず、保持順で+1ずつ連続する区間だけをまとめる。
-        全番号の再検証はまとめて1回だけ行う。
+        たくさんの要素を ``maya.cmds`` へ渡すときに使う(``mlib.select`` などが使っている)。
+        番号は並べ替えず、持っている順で1ずつ続く区間だけをまとめる。
+        たとえば番号 ``[0, 1, 2, 5, 3]`` は ``vtx[0:2]``・``vtx[5]``・``vtx[3]`` になる。
+        全部の番号を、まとめて1回だけ確かめ直す。
 
         Returns:
-            list[str]: ``|cube|cubeShape.vtx[0:2]`` のような名前。空のコレクションは空リスト。
+            list[str]: ``|cube|cubeShape.vtx[0:2]`` のような名前。空の集まりなら空リスト。
 
         Raises:
             TypeError: 対応しないシェイプ型の場合。
@@ -691,14 +713,16 @@ class Components:
         return names
 
     def isValid(self):
-        """シェイプの生存・種類と、全保持番号の現在の範囲を照会する。
+        """この集まりが今も使えるか調べる。
+
+        シェイプが削除されていないか、種類が合うか、全部の番号が今の範囲の中にあるかを調べる。
 
         Returns:
-            bool: 全番号を参照できればTrue。空集合も生存する対応シェイプならTrue。
+            bool: 全部の番号の要素を使えればTrue。空の集まりでも、シェイプが残っていて種類が合えばTrue。
 
         Note:
-            トポロジー変更前後で同じ要素を指す保証はない。
-            UVは現在のUVセットの番号範囲を使う。
+            トポロジーを変えた前後で、同じ要素を指すとは限らない。
+            UVは、現在のUVセットの番号の範囲を使う。
         """
         try:
             self._require_valid()
@@ -707,29 +731,29 @@ class Components:
         return all(index >= 0 for index in self._indices)
 
     def isComplete(self):
-        """シェイプが現在持つこの種類の要素を、すべて保持しているか照会する。
+        """シェイプが今持っている、この種類の要素をすべて持っているか調べる。
 
-        保持順は問わない。``cmds.ls(..., flatten=True)`` で得る全要素(``vtx[*]`` 等)と同じ集まりかを調べる。
+        並び順は問わない。``cmds.ls(..., flatten=True)`` で得られる全要素(``vtx[*]`` など)と同じ集まりかを調べる。
 
         Returns:
-            bool: 全要素を保持していればTrue。要素が0個のシェイプで空の集まりもTrue。
+            bool: 全要素を持っていればTrue。要素が0個のシェイプで、空の集まりの場合もTrue。
 
         Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            TypeError: 対応していないシェイプの型の場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
         return len(self._indices) == self.component_class._element_count(self._shape)
 
     def _matching_indices(self, other):
-        """結合する相手から、同じシェイプ・同じ種類であることを確かめた番号列を取り出す。
+        """つなぐ相手が同じシェイプ・同じ種類であることを確かめて、その番号の並びを取り出す。
 
         Args:
-            other (Components | list | tuple): 結合の相手。
+            other (Components | list | tuple): つなぐ相手。
 
         Returns:
-            tuple[int, ...]: 相手の番号を保持順に並べた列。
+            tuple[int, ...]: 相手の番号を、相手が持っている順に並べたもの。
 
         Raises:
             TypeError: シェイプまたはコンポーネントの種類が異なる場合。
@@ -738,27 +762,27 @@ class Components:
         component_type = self.component_class.component_type
         if isinstance(other, Components):
             if other.component_class.component_type != component_type:
-                raise TypeError(f"Cannot add {type(other).__name__} to {name}: different component type")
+                raise TypeError(f"{type(other).__name__}を{name}へ追加できません: コンポーネントの種類が違います")
             if other._shape != self._shape:
-                raise TypeError(f"Cannot add {type(other).__name__} to {name}: different shape")
+                raise TypeError(f"{type(other).__name__}を{name}へ追加できません: シェイプが違います")
             return other._indices
         indices = []
         for item in other:
             if not isinstance(item, Component) or item.component_type != component_type:
-                raise TypeError(f"Cannot add {type(item).__name__} to {name}: expected {self.component_class.__name__} items")
+                raise TypeError(f"{type(item).__name__}を{name}へ追加できません: {self.component_class.__name__}を指定してください")
             if item._shape != self._shape:
-                raise TypeError(f"Cannot add {type(item).__name__} to {name}: different shape")
+                raise TypeError(f"{type(item).__name__}を{name}へ追加できません: シェイプが違います")
             indices.append(item._index)
         return tuple(indices)
 
     def _has_standard_component(self, component_class=None):
-        """単数の構築・検査・番号取得が標準の具体型か判定する。
+        """要素1つのクラスが、作成・確認・番号の取得を標準のまま使っているか調べる。
 
         Args:
-            component_class (type | None): 明示した単数型。Noneなら自身の単数型。
+            component_class (type | None): 調べる要素1つのクラス。Noneなら自身の要素のクラス。
 
         Returns:
-            bool: 利用側の派生型や置換された単数処理でなければTrue。
+            bool: 利用側の派生クラスでなく、処理も差し替えられていなければTrue。
         """
         # 具体コンポーネント型はこのモジュールを継承するため、循環を避けて使う時点で読み込む。
         from .cv import CV
@@ -779,13 +803,15 @@ class Components:
         )
 
     def _has_standard_shape(self, component_class=None):
-        """標準のシェイプ型か判定し、利用側の形状派生の照会処理を維持する。
+        """シェイプが標準のクラスのままか調べる。
+
+        利用側がシェイプを派生させて、要素数の取得を変えている場合に、それを保つために使う。
 
         Args:
-            component_class (type | None): 要素数を照会する単数型。Noneなら自身の型。
+            component_class (type | None): 要素数を調べる、要素1つのクラス。Noneなら自身の要素のクラス。
 
         Returns:
-            bool: MeshまたはNurbsCurveそのものならTrue。
+            bool: MeshまたはNurbsCurveそのもので、要素数の取得も差し替えられていなければTrue。
         """
         # nodes → components の循環importを避けるため、使う時点で読み込む。
         from ..nodes.mesh import Mesh
@@ -807,13 +833,15 @@ class Components:
         )
 
     def _uses_standard_iteration(self, component_class):
-        """単数または反復が拡張されていない場合だけ一括照会を許可する。
+        """まとめての取得を使ってよいか調べる。
+
+        要素1つのクラスや反復が拡張されていない場合だけ、まとめての取得を使う。
 
         Args:
-            component_class (type): 操作の標準単数型。
+            component_class (type): その操作の標準の、要素1つのクラス。
 
         Returns:
-            bool: 単数・反復・シェイプが標準の実装ならTrue。
+            bool: 要素1つのクラス・反復・シェイプがすべて標準の実装ならTrue。
         """
         return (
             self.component_class is component_class
@@ -823,10 +851,10 @@ class Components:
         )
 
     def _uses_standard_vertices(self):
-        """頂点の中間参照で呼ばれる構築・反復も標準処理か判定する。
+        """途中で作る頂点の集まりについても、作成と反復が標準のままか調べる。
 
         Returns:
-            bool: Vertices/Vertexへの利用側の差替えを省略しなければTrue。
+            bool: 利用側がVertices/Vertexを差し替えていなければTrue。
         """
         # vertexはこのモジュールを継承するため、循環を避けて使う時点で読み込む。
         from .vertex import Vertex, Vertices
@@ -840,14 +868,14 @@ class Components:
         )
 
     def _mesh_vertex_indices(self, count_name, vertices_method):
-        """現在のメッシュから保持順に隣接頂点番号を集める。
+        """今のメッシュから、各要素につながる頂点の番号を集める。
 
         Args:
-            count_name (str): MFnMeshのコンポーネント数プロパティ名。
-            vertices_method (str): 要素の頂点番号を返すMFnMeshメソッド名。
+            count_name (str): コンポーネントの数を返す、MFnMeshのプロパティ名。
+            vertices_method (str): 要素の頂点番号を返す、MFnMeshのメソッド名。
 
         Returns:
-            list[int]: 接続順を保った頂点番号。重複除去は呼出元のVerticesへ委ねる。
+            list[int]: 頂点の番号。持っている順に、つながりの順を保って並ぶ。重なりは、呼び出し元のVerticesが除く。
         """
         Component._require_shape(self.shape, self.component_class.shape_type)
         indices = []
@@ -860,7 +888,7 @@ class Components:
         return indices
 
     def _name_prefix(self):
-        """全番号をまとめて再検証し、``<シェイプの完全パス>.<種類>`` を返す。
+        """全部の番号をまとめて確かめ直し、``<シェイプの完全パス>.<種類>`` を返す。
 
         Returns:
             str: ``|cube|cubeShape.vtx`` のような接頭辞。
@@ -874,7 +902,7 @@ class Components:
         return f"{self._shape.getFullName()}.{self.component_class.component_type}"
 
     def _repr_indices(self):
-        """repr に表示する番号を保持順で返す。カーブCVはcmds用の番号へ写す。
+        """reprに表示する番号を、持っている順で返す。カーブのCVは、cmdsで使う番号に直す。
 
         Returns:
             Sequence[int]: 表示用の番号列。
@@ -882,22 +910,24 @@ class Components:
         return self._indices
 
     def _require_valid(self):
-        """シェイプと保持番号を一括検証し、名前や単数ラッパーは生成しない。
+        """シェイプと、持っている番号をまとめて確かめる。
+
+        名前や、要素1つのオブジェクトは作らない。
 
         Raises:
-            TypeError: シェイプ型が異なる場合。
-            IndexError: トポロジー変更により番号が範囲外になった場合。
+            TypeError: シェイプの型が違う場合。
+            IndexError: トポロジーを変えたことで、番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         component_class = self.component_class
         if not self._shape.isValid():
-            raise RuntimeError("Component shape is invalid")
+            raise RuntimeError("コンポーネントのシェイプが無効です")
         if self._shape.getType() != component_class.shape_type:
-            raise TypeError(f"Expected a {component_class.shape_type} shape")
+            raise TypeError(f"{component_class.shape_type}のシェイプを指定してください")
         if self._indices:
             largest = max(self._indices)
             if largest >= component_class._element_count(self._shape):
-                raise IndexError(f"Component index out of range: {largest}")
+                raise IndexError(f"コンポーネントの番号が範囲外です: {largest}")
 
     @staticmethod
     def _range_name(prefix, start, end):
@@ -906,7 +936,7 @@ class Components:
         Args:
             prefix (str): ``<シェイプの完全パス>.<種類>``。
             start (int): 先頭の番号。
-            end (int): 末尾の番号(先頭と同じなら単体)。
+            end (int): 末尾の番号。先頭と同じなら1つだけの名前にする。
 
         Returns:
             str: ``prefix[start]`` または ``prefix[start:end]``。
@@ -916,7 +946,7 @@ class Components:
         return f"{prefix}[{start}:{end}]"
 
     def _get_coordinate(self, axis, **space):
-        """保持順の指定軸の値を返す。axisは派生クラスが選択する。
+        """指定した軸の値を、持っている順に返す。axisは派生クラスが選ぶ。
 
         Args:
             axis: 座標成分の番号。0=X、1=Y、2=Z。
@@ -930,23 +960,24 @@ _COMPONENTS_ITER = Components.__iter__
 
 
 def _flat_input(cls, shape, items):
-    """番号の指定(平坦な実番号、または多次元の番号のtuple)を、平坦な実番号のリストへ変換する。
+    """番号の指定を、通し番号のリストへ変換する。
 
-    多次元の番号はシェイプの現在の形状で変換し、範囲外ならIndexErrorにする。平坦な実番号の範囲は
-    呼出し側が検査する。
+    番号は、要素を一列に並べたときの通し番号か、複数の番号のtuple(``(u, v)`` など)で指定する。
+    複数の番号は今の形状で通し番号へ変換し、範囲の外ならIndexErrorにする。
+    通し番号の範囲は、呼び出し側が確かめる。
 
     Args:
-        cls (type): ``index_size`` と ``_flat_indices`` を持つ多次元の番号の単数型。
-        shape (Shape): 型を検査済みのシェイプ。
+        cls (type): ``index_size`` と ``_flat_indices`` を持つ、番号を複数持つ要素1つのクラス。
+        shape (Shape): 型を確かめてあるシェイプ。
         items (list[int | Sequence[int]]): 番号の指定。
 
     Returns:
-        list[int]: 指定順の平坦な実番号。
+        list[int]: 通し番号。指定した順に並ぶ。
 
     Raises:
-        TypeError: 番号が整数として扱えない、またはboolの場合。
-        ValueError: 多次元の番号の数が ``index_size`` と違う場合。
-        IndexError: 多次元の番号が範囲外の場合。
+        TypeError: 番号が整数として扱えない場合、またはboolの場合。
+        ValueError: 複数の番号の数が ``index_size`` と違う場合。
+        IndexError: 複数の番号が範囲の外の場合。
     """
     result = []
     positions = []
@@ -954,21 +985,21 @@ def _flat_input(cls, shape, items):
     for item in items:
         if isinstance(item, (tuple, list)):
             if len(item) != cls.index_size:
-                raise ValueError(f"{cls.__name__} index must have {cls.index_size} numbers, got {len(item)}")
+                raise ValueError(f"{cls.__name__}の番号は{cls.index_size}個の数値で指定してください: {len(item)}個")
             numbers = []
             for number in item:
                 if isinstance(number, bool):
-                    raise TypeError("Component index must be an integer, not bool")
+                    raise TypeError("コンポーネントの番号は整数で指定してください(boolは指定できません)")
                 number = operator.index(number)
                 if number < 0:
-                    raise IndexError(f"Component index out of range: {tuple(item)}")
+                    raise IndexError(f"コンポーネントの番号が範囲外です: {tuple(item)}")
                 numbers.append(number)
             positions.append(len(result))
             multis.append(tuple(numbers))
             result.append(None)
             continue
         if isinstance(item, bool):
-            raise TypeError("Component index must be an integer, not bool")
+            raise TypeError("コンポーネントの番号は整数で指定してください(boolは指定できません)")
         result.append(operator.index(item))
     if multis:
         for position, flat in zip(positions, cls._flat_indices(shape, multis)):
@@ -977,7 +1008,7 @@ def _flat_input(cls, shape, items):
 
 
 def _component_name(prefix, numbers):
-    """``<シェイプ>.<種類>`` と多次元の番号から ``cv[1][2]`` のようなコンポーネント名を作る。
+    """``<シェイプ>.<種類>`` と複数の番号から、``cv[1][2]`` のようなコンポーネント名を作る。
 
     Args:
         prefix (str): ``<シェイプの名前>.<種類>``。
@@ -990,15 +1021,18 @@ def _component_name(prefix, numbers):
 
 
 class _MultiIndexComponent:
-    """複数の番号(``cv[u][v]``・``pt[s][t][u]``・``vtxFace[v][f]``)を持つ単数コンポーネントの共通処理。
+    """番号を複数持つコンポーネント1つに共通の処理。
 
-    :class:`Component` の具体型と組み合わせる(``class SurfaceCV(_MultiIndexComponent, PointComponent)``)。
-    保持する :attr:`~Component.index` は、要素を一列に並べた平坦な実番号で、``==``・ハッシュ・
-    :attr:`Components.indices` はこの番号を使う。多次元の番号は :meth:`getMultiIndex` で照会する。
-    具体型は ``index_size`` と、``_element_count``・``_multi_indices``・``_flat_indices`` を定義する。
+    ``cv[u][v]``・``pt[s][t][u]``・``vtxFace[v][f]`` のように、番号を複数持つ要素に使う。
+    :class:`Component` の具体的なクラスと組み合わせて使う(``class SurfaceCV(_MultiIndexComponent, PointComponent)``)。
+
+    持っている :attr:`~Component.index` は、要素を一列に並べたときの通し番号になる。
+    ``==``・ハッシュ・:attr:`Components.indices` は、この通し番号を使う。
+    複数の番号は :meth:`getMultiIndex` で取得する。
+    具体的なクラスは ``index_size`` と、``_element_count``・``_multi_indices``・``_flat_indices`` を定義する。
     """
 
-    #: 多次元の番号の数。具体型が定義する。
+    #: 番号の数。具体的なクラスが定義する。
     index_size = 0
 
     if TYPE_CHECKING:
@@ -1012,17 +1046,17 @@ class _MultiIndexComponent:
         _flat_indices: Callable[..., List[int]]
 
     def __init__(self, shape, index):
-        """シェイプと番号を検証して保持する。
+        """シェイプと番号を確かめて、コンポーネントを作る。
 
         Args:
-            shape (Shape): 具体型に対応するシェイプのラッパー。
-            index (int | Sequence[int]): 平坦な実番号、または多次元の番号(``(u, v)`` 等)。
-                boolと負数は拒否する。
+            shape (Shape): このクラスに対応するシェイプのオブジェクト。
+            index (int | Sequence[int]): 通し番号、または複数の番号(``(u, v)`` など)。
+                boolと負の数は受け付けない。
 
         Raises:
-            TypeError: シェイプ型が不正、または番号が整数として扱えない・boolの場合。
-            ValueError: 多次元の番号の数が違う場合。
-            IndexError: 番号が現在の範囲外の場合。
+            TypeError: シェイプの型が合わない場合、または番号が整数として扱えないかboolの場合。
+            ValueError: 複数の番号の数が違う場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
@@ -1031,24 +1065,24 @@ class _MultiIndexComponent:
         self._require_valid()
 
     def getFullName(self):
-        """現在のDAGパスと多次元の番号を使ってコンポーネント名を取得する。
+        """今のDAGパスと複数の番号を使って、コンポーネント名を取得する。
 
         Returns:
-            str: ``|plane|planeShape.cv[1][2]`` のような名前。周期曲面の重複CVは先頭の対応番号で表す。
+            str: ``|plane|planeShape.cv[1][2]`` のような名前。周期曲面で重なっているCVは、先頭側の番号で表す。
         """
         self._require_valid()
         numbers = self._multi_indices(self._shape, [self._index], command=True)[0]
         return _component_name(f"{self._shape.getFullName()}.{self.component_type}", numbers)
 
     def getMultiIndex(self):
-        """保持する要素の多次元の番号を、現在の形状から照会する。
+        """この要素の複数の番号を、今の形状から取得する。
 
         Returns:
             tuple[int, ...]: ``(u, v)``・``(s, t, u)``・``(頂点, フェース)`` のような番号。
 
         Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: 番号が現在の範囲外の場合。
+            TypeError: 対応していないシェイプの型の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
@@ -1056,10 +1090,11 @@ class _MultiIndexComponent:
 
 
 class _MultiIndexComponents:
-    """複数の番号を持つコンポーネントの集まりの共通処理。
+    """番号を複数持つコンポーネントの集まりに共通の処理。
 
-    :class:`Components` の具体型と組み合わせる。番号の指定には平坦な実番号と多次元の番号を混ぜられ、
-    保持は平坦な実番号で行う。名前は範囲へまとめない。
+    :class:`Components` の具体的なクラスと組み合わせて使う。
+    番号の指定には、通し番号と複数の番号を混ぜて使える。持つのは通し番号にする。
+    名前は範囲にまとめない。
     """
 
     if TYPE_CHECKING:
@@ -1070,17 +1105,19 @@ class _MultiIndexComponents:
         _require_valid: Callable[[], None]
 
     def __init__(self, shape, indices=None):
-        """指定番号を検証し、初出順を維持して重複を除いて保持する。
+        """指定した番号を確かめて、コンポーネントの集まりを作る。
+
+        初めて出てきた順を保ち、重なりを除いて持つ。
 
         Args:
-            shape (Shape): 具体型に対応するシェイプのラッパー。
-            indices (Iterable[int | Sequence[int]] | None): 平坦な実番号または多次元の番号の列。
-                Noneは構築時の全要素を平坦な実番号の昇順で保持する。
+            shape (Shape): このクラスに対応するシェイプのオブジェクト。
+            indices (Iterable[int | Sequence[int]] | None): 通し番号、または複数の番号の並び。
+                Noneなら、作った時点の全要素を通し番号の小さい順に持つ。
 
         Raises:
-            TypeError: シェイプ型または番号の型が不正な場合。
-            ValueError: 多次元の番号の数が違う場合。
-            IndexError: いずれかの番号が現在の範囲外の場合。
+            TypeError: シェイプの型、または番号の型が合わない場合。
+            ValueError: 複数の番号の数が違う場合。
+            IndexError: どれかの番号が今の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
@@ -1091,17 +1128,17 @@ class _MultiIndexComponents:
             self._indices = tuple(range(count))
             return
         if isinstance(indices, (str, bytes)):
-            raise TypeError("indices must be an iterable of component indices")
+            raise TypeError("indicesはコンポーネントの番号の並びで指定してください")
         flats = _flat_input(component_class, shape, list(indices))
         for index in flats:
             Component._require_index_range(index, count)
         self._indices = tuple(dict.fromkeys(flats))
 
     def __repr__(self):
-        """デバッグ用に、型名と先頭の要素の名前を返す。
+        """デバッグ用に、型名と先頭の要素の名前を表す文字列を返す。
 
         Returns:
-            str: ``SurfaceCVs('planeShape.cv[0][0]', 'planeShape.cv[0][1]')``、多数なら件数を添える。
+            str: ``SurfaceCVs('planeShape.cv[0][0]', 'planeShape.cv[0][1]')`` のような文字列。多い場合は数を付ける。
                 空なら ``SurfaceCVs('planeShape', count=0)``、無効なら ``<SurfaceCVs invalid>``。
         """
         cls = type(self).__name__
@@ -1118,10 +1155,10 @@ class _MultiIndexComponents:
         return f"{cls}({text})"
 
     def getFullNames(self):
-        """保持順の完全コンポーネント名を取得する。
+        """持っている順に、完全パスのコンポーネント名を取得する。
 
         Returns:
-            list[str]: ``|plane|planeShape.cv[1][2]`` のような要素ごとの名前。
+            list[str]: ``|plane|planeShape.cv[1][2]`` のような、要素ごとの名前。
 
         Raises:
             TypeError: 対応しないシェイプ型の場合。
@@ -1133,10 +1170,12 @@ class _MultiIndexComponents:
         return [_component_name(prefix, numbers) for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
 
     def getCompactNames(self):
-        """cmds用の名前を返す。多次元の番号は範囲へまとめず、:meth:`getFullNames` と同じ名前を返す。
+        """cmdsへ渡す名前を返す。
+
+        番号を複数持つ要素は範囲にまとめないので、:meth:`getFullNames` と同じ名前を返す。
 
         Returns:
-            list[str]: 保持順のコンポーネント名。
+            list[str]: 持っている順のコンポーネント名。
 
         Raises:
             TypeError: 対応しないシェイプ型の場合。

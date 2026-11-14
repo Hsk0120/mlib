@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""形状・コンポーネントにラティス(ffdデフォーマー)を作成し、ffdを返す(``cmds.lattice`` 相当)。
+"""形状やコンポーネントにラティス(ffdデフォーマー)を作り、ffdを返す(``cmds.lattice`` 相当)。
 
-ラティスの形状は ``deformedLatticePoints`` の入力元、基準のラティスは ``baseLatticeMatrix`` の入力元に
-つながる。作成を1回のUndoにまとめ、現在の選択は変更しない。
+ラティスの形状は ``deformedLatticePoints`` の入力元に、基準のラティスは ``baseLatticeMatrix`` の入力元に
+つながる。作成は1回のUndoにまとめ、現在の選択は変えない。
 
 .. code-block:: python
 
@@ -24,7 +24,7 @@ from mlib.nodes.node import Node
 
 
 def _divisions(value: Sequence[int], name: str, minimum: int) -> tuple[int, int, int]:
-    """3つの整数の分割数を検証する。
+    """3つの整数の分割数を確かめる。
 
     Args:
         value (Sequence[int]): S・T・U方向の分割数。
@@ -32,41 +32,42 @@ def _divisions(value: Sequence[int], name: str, minimum: int) -> tuple[int, int,
         minimum (int): 各値の下限。
 
     Returns:
-        tuple[int, int, int]: 検証した分割数。
+        tuple[int, int, int]: 確かめた分割数。
 
     Raises:
-        TypeError: 並びでない、または値がint以外(boolを含む)の場合。
-        ValueError: 値の数が3でない、または下限未満の場合。
+        TypeError: 並びでない場合、または値がintでない場合(boolもintとして扱わない)。
+        ValueError: 値の数が3でない場合、または下限より小さい場合。
     """
     ...
 
 def createLattice(targets: str | Node | Component | Iterable, name: str | None = ..., divisions: Sequence[int] = ..., ldivisions: Sequence[int] = ..., objectCentered: bool = ..., *, n: str | None = ..., dv: Sequence[int] = ..., ldv: Sequence[int] = ..., oc: bool = ...) -> GeometryFilter:
-    """形状またはコンポーネントにラティスを作成し、ffdデフォーマーを返す。
+    """形状またはコンポーネントにラティスを作り、ffdデフォーマーを返す。
 
-    選択状態は参照しない。ラティスは対象を囲む大きさで作る。fast引数は持たない
-    (OpenMayaにデフォーマー作成の同等機能が無い)。Undo有効時は1回で戻せる。
+    選択状態は使わない。ラティスは対象を囲む大きさで作る。
+    fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。Undoが有効なら1回で戻せる。
     name・divisions・ldivisions・objectCenteredは ``cmds.lattice`` と同じ短縮名 ``n``・``dv``・``ldv``・``oc``
-    でも受ける(長名と短縮名の同時指定はできない)。
+    でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
         targets (str | Node | Component | Iterable): 変形する形状・そのtransform・コンポーネント。
-        name (str | None): ffdの作成名。ラティスは ``<名前>Lattice``、基準は ``<名前>Base``。
-            NoneはMayaの既定名。既定None。
-        divisions (Sequence[int]): ラティスのS・T・U方向の点の数。各2以上。既定(2, 5, 2)。
-        ldivisions (Sequence[int]): 変形の計算に使う局所の分割数。各1以上。既定(2, 2, 2)。
-        objectCentered (bool): Trueは対象の中心に置く。Falseは原点に置く。既定True。
-        n (str | None): nameの短縮名。同時指定はできない。
-        dv (Sequence[int]): divisionsの短縮名。同時指定はできない。
-        ldv (Sequence[int]): ldivisionsの短縮名。同時指定はできない。
-        oc (bool): objectCenteredの短縮名。同時指定はできない。
+        name (str | None): ffdに付ける名前。ラティスは ``<名前>Lattice``、基準は ``<名前>Base`` になる。
+            NoneならMayaの既定の名前。既定はNone。
+        divisions (Sequence[int]): ラティスのS・T・U方向の点の数。どれも2以上。既定は(2, 5, 2)。
+        ldivisions (Sequence[int]): 変形の計算に使う、局所的な分割数。どれも1以上。既定は(2, 2, 2)。
+        objectCentered (bool): Trueなら対象の中心に置く。Falseなら原点に置く。既定はTrue。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
+        dv (Sequence[int]): divisionsの短縮名。divisionsと同時には指定できない。
+        ldv (Sequence[int]): ldivisionsの短縮名。ldivisionsと同時には指定できない。
+        oc (bool): objectCenteredの短縮名。objectCenteredと同時には指定できない。
 
     Returns:
-        GeometryFilter: 作成したffdデフォーマー。実際の型はMayaの ``ffd`` 型に対応する生成クラス(``mlib.nodes.Ffd``)。
+        GeometryFilter: 作ったffdデフォーマー。実際の型は、Mayaの ``ffd`` 型から作ったクラス(``mlib.nodes.Ffd``)。
 
     Raises:
-        TypeError: 長名と短縮名を同時に指定した場合、または引数の型が不正な場合。
-        ValueError: nameが空文字列・``|`` を含む、分割数の数・値が不正、または対象が空・無効な場合。
-        RuntimeError: 名前を解決できない、またはMayaが作成を拒否した場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
+        ValueError: nameが空文字列か ``|`` を含む場合、分割数の個数や値が正しくない場合、
+            または対象が空か無効な場合。
+        RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:
         .. code-block:: python

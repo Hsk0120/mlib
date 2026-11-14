@@ -8,36 +8,37 @@ _COLLECTIONS = {"vtx": "Vertices", "e": "Edges", "f": "Faces", "map": "UVs", "cv
 
 
 class ComponentRef:
-    """同じシェイプ・同じ種類のコンポーネントを、シェイプの :class:`NodeRef`・種類・番号で記録した参照。
+    """コンポーネントの参照。
 
+    同じシェイプ・同じ種類のコンポーネントを、シェイプの :class:`NodeRef`・種類・番号で記録する。
     種類はMayaの表記(``"vtx"``・``"e"``・``"f"``・``"map"``・``"cv"``)。番号は記録した順のまま保つ。
-    名前の対応付けはシェイプの部分にだけ当てる。
+    名前の対応づけは、シェイプの部分にだけ当てる。
     """
 
     __hash__ = None  # type: ignore[assignment]
 
     def __init__(self, node, type, indices):
-        """記録する値を保持する。
+        """記録する値を持たせる。
 
         Args:
             node (NodeRef): シェイプの参照。
-            type (str): コンポーネントの種類(``"vtx"`` 等)。
+            type (str): コンポーネントの種類(``"vtx"`` など)。
             indices (Iterable[int]): 番号。
 
         Raises:
-            TypeError: nodeがNodeRefでない、または番号がint以外(boolを含む)の場合。
-            ValueError: 種類が対応外、または番号が負の場合。
+            TypeError: nodeがNodeRefでない場合、または番号がintでない場合(boolも不可)。
+            ValueError: 種類が対応していないものの場合、または番号が負の場合。
         """
         if not isinstance(node, NodeRef):
-            raise TypeError("node must be a NodeRef")
+            raise TypeError("nodeはNodeRefで指定してください")
         if type not in _COLLECTIONS:
-            raise ValueError(f"Unsupported component type {type!r}; expected one of {sorted(_COLLECTIONS)}")
+            raise ValueError(f"対応していないコンポーネントの種類です: {type!r}({sorted(_COLLECTIONS)}のどれかを指定します)")
         values = []
         for index in indices:
             if isinstance(index, bool) or not isinstance(index, int):
-                raise TypeError("component indices must be ints")
+                raise TypeError("コンポーネントの番号はintで指定してください")
             if index < 0:
-                raise ValueError("component indices must not be negative")
+                raise ValueError("コンポーネントの番号は0以上で指定してください")
             values.append(index)
         self._node = node
         self._type = type
@@ -66,7 +67,7 @@ class ComponentRef:
 
     @classmethod
     def capture(cls, components):
-        """mlibのコンポーネントまたはその集まりから参照を作る。
+        """mlibのコンポーネントか、その集まりから参照を作る。
 
         Args:
             components (Component | Components): 記録するコンポーネント。
@@ -78,7 +79,7 @@ class ComponentRef:
             TypeError: componentsがmlibのコンポーネントでない場合。
             ValueError: 種類が記録できないものの場合。
         """
-        # 循環参照の回避: componentsはnodesを経由してmlib.jsonを使う。
+        # 循環参照の回避: componentsはnodesを通してmlib.jsonを使うので、使うときに読み込む。
         from ..components import Component, Components
 
         if isinstance(components, Component):
@@ -88,7 +89,7 @@ class ComponentRef:
             kind = components.component_class.component_type
             indices = list(components.indices)
         else:
-            raise TypeError("components must be an mlib Component or Components")
+            raise TypeError("componentsはmlibのComponentかComponentsで指定してください")
         return cls(NodeRef.capture(shape), kind, indices)
 
     @classmethod
@@ -102,21 +103,21 @@ class ComponentRef:
             ComponentRef: 新しい参照。
 
         Raises:
-            ValueError: 辞書の形が違う場合。
+            ValueError: 辞書の形が正しくない場合。
         """
         if not isinstance(data, dict) or "node" not in data or not isinstance(data.get("indices"), list):
-            raise ValueError(f"Invalid component reference in JSON: {data!r}")
+            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}")
         try:
             return cls(NodeRef.fromData(data["node"]), data.get("type"), data["indices"])
         except TypeError as error:
-            raise ValueError(f"Invalid component reference in JSON: {data!r}") from error
+            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}") from error
 
     @property
     def node(self):
         """シェイプの参照を返す。
 
         Returns:
-            NodeRef: 保持する参照。
+            NodeRef: 持っている参照。
         """
         return self._node
 
@@ -147,10 +148,10 @@ class ComponentRef:
         return {"node": self._node.toData(), "type": self._type, "indices": list(self._indices)}
 
     def mappedName(self, mapping=None):
-        """対応付けを当てたシェイプ名と種類を返す。
+        """名前の対応づけを当てたシェイプ名と、種類を返す。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
             str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
@@ -158,24 +159,26 @@ class ComponentRef:
         return f"{self._node.mappedName(mapping)}.{self._type}[...]"
 
     def resolve(self, mapping=None):
-        """対応付けを当てたシェイプの、同じ番号のコンポーネントの集まりを返す。
+        """シーンのコンポーネントの集まりを返す。
+
+        名前の対応づけを当てたシェイプから、記録した番号のコンポーネントを取得する。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。
+            mapping (NameMapping | None): 名前の対応づけ。
 
         Returns:
-            Components | None: ``Vertices`` 等の集まり。シェイプが無い、型が合わない、または
-                番号が範囲外ならNone。
+            Components | None: ``Vertices`` などの集まり。シェイプが無い場合、型が合わない場合、
+                番号が範囲の外の場合はNone。
 
         Raises:
-            TypeError: mappingがNameMapping・None以外の場合。
+            TypeError: mappingがNameMappingでもNoneでもない場合。
         """
         if mapping is not None and not isinstance(mapping, NameMapping):
-            raise TypeError("mapping must be a NameMapping or None")
+            raise TypeError("mappingはNameMappingかNoneで指定してください")
         shape = self._node.resolve(mapping)
         if shape is None:
             return None
-        # 循環参照の回避: componentsはnodesを経由してmlib.jsonを使う。
+        # 循環参照の回避: componentsはnodesを通してmlib.jsonを使うので、使うときに読み込む。
         from .. import components
 
         try:

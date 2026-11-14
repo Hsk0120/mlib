@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ラッパークラスを明示公開し、Mayaの型との対応を宣言する。"""
+"""アトリビュートを扱うクラスを公開し、Mayaのアトリビュートの型との対応を決める。"""
 
 from .plug import Plug, Plugs
 from .multiPlug import MultiPlug

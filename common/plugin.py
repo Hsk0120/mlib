@@ -14,7 +14,7 @@ for _name in ("parse_version", "is_at_least", "format_version"):
 
 
 class Plugin:
-    """名前で参照する Maya プラグイン(.mll/.py/.so)。生成時に存在確認しない。"""
+    """名前で指す Maya のプラグイン(.mll/.py/.so)。作るときには、存在するかを確かめない。"""
 
     _HIK_NODE_TYPES = frozenset(("HIKCharacterNode", "HIKSolverNode", "HIKRetargeterNode", "HIKControlSetNode", "HIKSkeletonGeneratorNode"))
 
@@ -28,24 +28,24 @@ class Plugin:
             None: 値を返さない。
 
         Raises:
-            TypeError: name が文字列以外の場合。
+            TypeError: name が文字列でない場合。
             ValueError: name が空文字列の場合。
         """
         if not isinstance(name, str):
-            raise TypeError("name must be a str")
+            raise TypeError("nameはstrで指定してください")
         if not name:
-            raise ValueError("name must be a non-empty string")
+            raise ValueError("nameは空でない文字列で指定してください")
         self._name = name
 
     def __eq__(self, other):
-        """プラグイン名を基準に同一性を判定する。
+        """プラグイン名で、同じプラグインか判定する。
 
         Args:
-            other (object): 比較対象。
+            other (object): 比べる相手。
 
         Returns:
-            bool | types.NotImplementedType: Plugin 同士は名前の一致。
-                異なる型では NotImplemented。
+            bool | types.NotImplementedType: Plugin どうしなら、名前が同じときTrue。
+                型が違えば NotImplemented。
         """
         if not isinstance(other, Plugin):
             return NotImplemented
@@ -60,10 +60,10 @@ class Plugin:
         return hash(self._name)
 
     def __repr__(self):
-        """デバッグ用にクラス名とプラグイン名を含む表現を返す。
+        """デバッグ用に、クラス名とプラグイン名を含む表示を返す。
 
         Returns:
-            str: 型名とプラグイン名を含む文字列表現。
+            str: 型名とプラグイン名を含む文字列。
         """
         return f"Plugin({self._name!r})"
 
@@ -77,10 +77,10 @@ class Plugin:
 
     @classmethod
     def ensureNodePlugin(cls, nodeType):
-        """指定ノード型が必要とする標準同梱プラグインをロードする。
+        """指定したノード型に必要な、Maya標準のプラグインをロードする。
 
         Args:
-            nodeType (str): 作成するMayaノード型。HumanIK以外は何もしない。
+            nodeType (str): 作るMayaのノード型。HumanIKの型でなければ何もしない。
 
         Returns:
             None: 値を返さない。
@@ -93,41 +93,42 @@ class Plugin:
 
     @classmethod
     def loaded(cls):
-        """ロード済みプラグインを取得する。
+        """ロードされているプラグインを取得する。
 
         Returns:
-            list[Plugin]: Mayaが返す順序のプラグイン一覧。
+            list[Plugin]: プラグインの一覧。Mayaが返す順に並ぶ。
         """
         return [cls(name) for name in (cmds.pluginInfo(query=True, listPlugins=True) or [])]
 
     @classmethod
     def listUnknown(cls):
-        """シーンが必要とするが見つからない未知のプラグイン名を取得する(``cmds.unknownPlugin(query=True, list=True)``)。
+        """シーンが必要としているのに見つからない、未知のプラグインの名前を取得する。
 
-        読み込んだファイルの ``requires`` に書かれ、Mayaが見つけられなかったプラグインが対象。
+        ``cmds.unknownPlugin(query=True, list=True)`` と同じ。読み込んだファイルの ``requires`` に
+        書かれていて、Mayaが見つけられなかったプラグインが対象。
 
         Returns:
-            list[str]: 未知のプラグイン名。無ければ空リスト。
+            list[str]: 未知のプラグインの名前。無ければ空リスト。
         """
         return list(cmds.unknownPlugin(query=True, list=True) or [])
 
     @classmethod
     def removeUnknown(cls, names=None):
-        """未知のプラグインの記録をシーンから外す(``cmds.unknownPlugin(name, remove=True)``)。
+        """未知のプラグインの記録を、シーンから外す。
 
-        外した記録は保存するファイルの ``requires`` に書かれなくなる。未知のノード
-        (:meth:`listUnknownNodes`)は残るので、必要なら別に削除する。
+        ``cmds.unknownPlugin(name, remove=True)`` と同じ。外した記録は、保存するファイルの ``requires`` に
+        書かれなくなる。未知のノード(:meth:`listUnknownNodes`)は残るので、必要なら別に削除する。
         ``cmds.unknownPlugin`` はUndoに記録されないため、この操作はUndoできない。
 
         Args:
-            names (str | list[str] | None): 外すプラグイン名。Noneは未知のプラグインすべて。
+            names (str | list[str] | None): 外すプラグインの名前。Noneなら未知のプラグインすべて。
 
         Returns:
-            list[str]: 外したプラグイン名(指定順)。
+            list[str]: 外したプラグインの名前(指定した順)。
 
         Raises:
-            TypeError: namesが文字列・文字列のリスト/タプル・None以外の場合。
-            ValueError: 未知のプラグインに無い名前を含む場合(何も外さない)。
+            TypeError: namesが文字列・文字列のリストかタプル・Noneのどれでもない場合。
+            ValueError: 未知のプラグインに無い名前を含む場合(このときは何も外さない)。
         """
         unknown = cls.listUnknown()
         if names is None:
@@ -137,10 +138,10 @@ class Plugin:
         elif isinstance(names, (list, tuple)) and all(isinstance(name, str) for name in names):
             targets = list(names)
         else:
-            raise TypeError("names must be a str, a list of str or None")
+            raise TypeError("namesはstrか、strのリストか、Noneで指定してください")
         missing = [name for name in targets if name not in unknown]
         if missing:
-            raise ValueError(f"Not unknown plug-ins: {', '.join(missing)}")
+            raise ValueError(f"不明なプラグインではありません: {', '.join(missing)}")
         removed = []
         for name in targets:
             if name in removed:
@@ -151,12 +152,13 @@ class Plugin:
 
     @classmethod
     def listUnknownNodes(cls):
-        """型が分からない未知のノード(``unknown``・``unknownDag``・``unknownTransform``)を取得する。
+        """型が分からない、未知のノードを取得する。
 
-        プラグインが見つからないファイルを読み込んだときに、Mayaが元の型の代わりに作るノード。
+        対象は ``unknown``・``unknownDag``・``unknownTransform`` のノード。プラグインが見つからない
+        ファイルを読み込んだときに、Mayaが元の型の代わりに作るノード。
 
         Returns:
-            list[Node]: 未知のノード。``cmds.ls`` の順。無ければ空リスト。
+            list[Node]: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空リスト。
         """
         # commonの初期化時にnodesを読み込まないよう、使用時にNodeを読み込む。
         from ..nodes.node import Node
@@ -177,8 +179,8 @@ class Plugin:
         """Maya がこのプラグインを認識しているか判定する。
 
         Returns:
-            bool: 登録済み(ロード済み、または未ロードだが検出可能)なら True。
-                未知のプラグイン名では False。
+            bool: 登録されていれば(ロード済みか、ロードしていないが見つけられれば) True。
+                知らないプラグイン名では False。
         """
         return bool(cmds.pluginInfo(self._name, query=True, registered=True))
 
@@ -186,7 +188,7 @@ class Plugin:
         """プラグインが現在ロードされているか判定する。
 
         Returns:
-            bool: ロード済みなら True。未知のプラグイン名でも例外にならず False。
+            bool: ロードされていれば True。知らないプラグイン名でも、例外にはならず False を返す。
         """
         return bool(cmds.pluginInfo(self._name, query=True, loaded=True))
 
@@ -194,28 +196,28 @@ class Plugin:
         """プラグインファイルの絶対パスを取得する。
 
         Returns:
-            str | None: 登録済みプラグインのファイルパス。未登録の場合は None。
+            str | None: 登録されているプラグインのファイルパス。登録されていない場合は None。
         """
         if not self.isRegistered():
             return None
         return cmds.pluginInfo(self._name, query=True, path=True) or None
 
     def getVersionText(self):
-        """Mayaが返すプラグインの版文字列をそのまま取得する。
+        """Mayaが返すプラグインの版の文字列を、そのまま取得する。
 
         Returns:
-            str | None: 生の版文字列。未登録・空の場合はNone。
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
         """
         if not self.isRegistered():
             return None
         return cmds.pluginInfo(self._name, query=True, version=True) or None
 
     def getVersion(self):
-        """プラグインの現在の版を値オブジェクトとして取得する。
+        """プラグインの現在の版を、Versionの値として取得する。
 
         Returns:
-            Version | None: 問い合わせ時点の版。未登録・解釈不能ならNone。
-                取得した値をreplaceしてもMaya側の版は変更されない。
+            Version | None: 問い合わせたときの版。登録されていない場合と、版として読み取れない場合はNone。
+                取得した値をreplaceで変えても、Maya側の版は変わらない。
         """
         return Version.parse(self.getVersionText())
 
@@ -226,49 +228,49 @@ class Plugin:
             minimum (Version | str | int | tuple[int, ...]): 必要な最小の版(``"3.0.0"`` など)。
 
         Returns:
-            bool: 未登録・版が取れない場合は False。
+            bool: minimum以上ならTrue。登録されていない場合と、版が取れない場合は False。
 
         Raises:
-            ValueError: minimum が版として解釈できない場合。
+            ValueError: minimum を版として読み取れない場合。
         """
         required = Version.parse(minimum)
         if required is None:
-            raise ValueError(f"Invalid minimum version: {minimum!r}")
+            raise ValueError(f"最小バージョンが不正です: {minimum!r}")
         version = self.getVersion()
         return version is not None and version >= required
 
     def load(self, **kwargs):
         """プラグインをロードする。
 
-        正常完了後はmlibのノード型継承キャッシュを消去し、次の型選択で再照会する。
-        cmds.loadPluginを直接使う操作の状態変更は、この入口では監視しない。
+        うまくロードできたら、mlibが持つノード型の継承のキャッシュを消す。
+        次にクラスを選ぶときに、Mayaへ問い合わせ直す。
+        cmds.loadPluginを直接使ってロードした場合の変化は、ここでは見張らない。
 
         Args:
-            **kwargs (object): ``cmds.loadPlugin`` に渡す追加のキーワード引数
-                (``quiet=True`` など)。
+            **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
             Plugin: 自身。
 
         Raises:
-            RuntimeError: Mayaがロードを拒否した、または初期化後も未ロードの場合。
+            RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
         """
         cmds.loadPlugin(self._name, **kwargs)
         # Pythonプラグインの初期化失敗は、例外なしのNoneとして返る場合がある。
         # 戻り値だけでは既にロード済みのquiet呼出しと区別できないため状態を照会する。
         if not self.isLoaded():
-            raise RuntimeError(f"Plugin initialization did not complete: {self._name}")
+            raise RuntimeError(f"プラグインの初期化が完了しませんでした: {self._name}")
         _clear_type_hierarchy_cache()
         return self
 
     def unload(self, force=False):
         """プラグインをアンロードする。
 
-        正常完了後はmlibのノード型継承キャッシュを消去する。ロードされていないプラグインでは、Mayaが警告を出すだけで
-        例外にはならない。
+        うまくアンロードできたら、mlibが持つノード型の継承のキャッシュを消す。
+        ロードされていないプラグインでは、Mayaが警告を出すだけで、例外にはならない。
 
         Args:
-            force (bool): True の場合、使用中でも強制的にアンロードする。
+            force (bool): True なら、使われていても強制的にアンロードする。
 
         Returns:
             Plugin: 自身。
@@ -281,7 +283,9 @@ class Plugin:
         return self
 
     def ensureLoaded(self):
-        """未ロードであればロードする(冪等)。
+        """ロードされていなければロードする。
+
+        何度呼んでも結果は同じ(すでにロードされていれば何もしない)。
 
         Returns:
             Plugin: 自身。

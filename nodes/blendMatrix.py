@@ -8,7 +8,9 @@ class BlendMatrix(Node):
     """``inputMatrix`` へ ``target[i].targetMatrix`` を ``weight`` で順に混ぜたマトリクスを出力する。"""
 
     def setInput(self, inputMatrix=None):
-        """元のマトリクスを設定する。値は書き込み、Plug は接続する。1回のUndoで戻せる。
+        """元のマトリクスを設定する。値は書き込み、Plugは接続する。
+
+        1回のUndoで戻せる。
 
         Args:
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 元のマトリクス。Noneは変更しない。
@@ -23,7 +25,9 @@ class BlendMatrix(Node):
         return _calculation.set_inputs(self, "setInput", {"inputMatrix": inputMatrix})
 
     def addTarget(self, matrix, weight=1.0):
-        """ターゲットのマトリクスとウェイトを末尾(既存の最大の番号+1)へ足し、その番号を返す。1回のUndoで戻せる。
+        """ターゲットのマトリクスとウェイトを末尾へ足し、その番号を返す。
+
+        足す番号は、すでにある最大の番号+1になる。1回のUndoで戻せる。
 
         Args:
             matrix (Matrix | Iterable[float] | Plug | str): ``targetMatrix`` の値、または接続元。
@@ -39,7 +43,9 @@ class BlendMatrix(Node):
         return _calculation.add_element(self, "addTarget", "target", {"target[{index}].targetMatrix": matrix, "target[{index}].weight": weight})
 
     def removeTarget(self, index):
-        """ターゲットを接続ごと削除する。1回のUndoで戻せる。
+        """ターゲットを接続ごと削除する。
+
+        1回のUndoで戻せる。
 
         Args:
             index (int): ターゲットの論理番号。
@@ -55,7 +61,7 @@ class BlendMatrix(Node):
         return _calculation.remove_elements(self, "removeTarget", ("target",), index)
 
     def getTargetIndices(self):
-        """既存のターゲットの論理番号を昇順で取得する。
+        """今あるターゲットの論理番号を、小さい順に取得する。
 
         Returns:
             list[int]: 論理番号。

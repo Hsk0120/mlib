@@ -27,11 +27,11 @@ def main(output_dir=None, finished=None):
     import mlib
 
     if cmds.about(batch=True):
-        raise RuntimeError("Run this file in an interactive Maya GUI")
+        raise RuntimeError("このファイルは対話的なMayaのGUIで実行してください")
     if cmds.play(query=True, state=True):
-        raise RuntimeError("Stop playback before running GUI tests")
+        raise RuntimeError("GUIテストの前に再生を止めてください")
     if not cmds.undoInfo(query=True, state=True):
-        raise RuntimeError("Enable Undo before running GUI tests")
+        raise RuntimeError("GUIテストの前にUndoを有効にしてください")
     output = Path(output_dir) if output_dir else TESTS_DIR / "_output/gui-visual" / datetime.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     output.mkdir(parents=True, exist_ok=True)
     selection = mlib.Selection.capture()
@@ -77,7 +77,7 @@ def main(output_dir=None, finished=None):
         if cleanup_errors or not result["scene_name_unchanged"] or not result["test_namespace_removed"]:
             result["status"] = "failed"
         (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        print("GUI test results: " + str(output))
+        print("GUIテストの結果: " + str(output))
         if finished is not None:
             finished(result)
 
@@ -116,13 +116,13 @@ def main(output_dir=None, finished=None):
             if control:
                 pointer = omui.MQtUtil.findControl(control)
                 if not pointer:
-                    raise RuntimeError("UI control not found: " + control)
+                    raise RuntimeError("UIのコントロールが見つかりません: " + control)
                 widget = wrapInstance(int(pointer), QtWidgets.QWidget)
                 if not widget.isVisible():
-                    raise RuntimeError("UI control is not visible: " + control)
+                    raise RuntimeError("UIのコントロールが表示されていません: " + control)
                 screenshot = widget.grab()
                 if screenshot.isNull() or not screenshot.save(str(path)):
-                    raise RuntimeError("Failed to save UI screenshot")
+                    raise RuntimeError("UIのスクリーンショットを保存できませんでした")
             else:
                 view = omui.M3dView()
                 omui.M3dView.getM3dViewFromModelPanel(panel, view)
@@ -202,7 +202,7 @@ def main(output_dir=None, finished=None):
         (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         QtCore.QTimer.singleShot(500, execute)
         scheduled = True
-        print("GUI tests scheduled: " + str(output))
+        print("GUIテストを予約しました: " + str(output))
     except BaseException:
         result["error"] = traceback.format_exc()
         raise

@@ -10,13 +10,15 @@ from .constraint import Constraint
 
 
 class AimConstraint(Constraint):
-    """指定ターゲットへ向ける aimConstraint ラッパー。"""
+    """オブジェクトをターゲットの方向へ向ける、aimConstraintのクラス。"""
 
     def getRotateConnections(self):
-        """回転出力の直接接続を取得する。下流の探索や対象の選別は行わない。
+        """回転の出力から直接つながっている接続を取得する。
+
+        直接の接続だけを返す。その先をたどったり、接続先の種類で絞ったりはしない。
 
         Returns:
-            list[tuple[Plug, Plug]]: 接続元と接続先。コンパウンドアトリビュートの接続は親のペアのみ。
+            list[tuple[Plug, Plug]]: 接続元と接続先の組。コンパウンドアトリビュートごと接続している場合は、親どうしの組だけを返す。
         """
         root = self.getPlug("constraintRotate")
         destinations = root.getDestinations()
@@ -30,14 +32,14 @@ class AimConstraint(Constraint):
         return result
 
     def getRestRotate(self, *, unit="deg"):
-        """Rest RotateのXYZ設定値を3値で返す。
+        """Rest RotateのXYZの設定値を取得する。
 
         Args:
-            unit (str): 戻り値の角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-                (``"degree"`` 等の別名も可)。
+            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+                ``"degree"`` などの別名も使える。
 
         Returns:
-            tuple[float, float, float]: 評価済みの設定値。対象の回転ではない。
+            tuple[float, float, float]: 評価した設定値。コンストレイントされる側の回転ではない。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
@@ -47,11 +49,13 @@ class AimConstraint(Constraint):
         return tuple(self.getPlug("restRotate" + axis).get(unit=angle_unit) for axis in "XYZ")
 
     def setRestRotate(self, value, *, unit="deg", fast=False):
-        """Rest Rotateだけを設定する。追従状態や対象の回転は直接変更しない。
+        """Rest Rotateだけを設定する。
+
+        追従の状態や、コンストレイントされる側の回転は直接変えない。
 
         Args:
-            value (Sequence[float]): XYZの有限な3値。
-            unit (str): valueの角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン。
+            value (Sequence[float]): XYZの3つの値。どれも有限な数値にする。
+            unit (str): valueの角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -60,19 +64,19 @@ class AimConstraint(Constraint):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
-            RuntimeError: ノードが参照・ロックされている、またはアトリビュートがロック・入力接続されている場合。
+            RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
         return self._set_angles("restRotate", value, unit=unit, fast=fast)
 
     def getOffset(self, *, unit="deg"):
-        """OffsetのXYZ設定値を3値で返す。
+        """OffsetのXYZの設定値を取得する。
 
         Args:
-            unit (str): 戻り値の角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン
-                (``"degree"`` 等の別名も可)。
+            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+                ``"degree"`` などの別名も使える。
 
         Returns:
-            tuple[float, float, float]: 評価済みのOffset。
+            tuple[float, float, float]: 評価したOffsetの値。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
@@ -82,11 +86,13 @@ class AimConstraint(Constraint):
         return tuple(self.getPlug("offset" + axis).get(unit=angle_unit) for axis in "XYZ")
 
     def setOffset(self, value, *, unit="deg", fast=False):
-        """Offsetだけを設定する。Maintain Offsetの再計算は行わない。
+        """Offsetだけを設定する。
+
+        Maintain Offsetのように、今の姿勢からオフセットを計算し直すことはしない。
 
         Args:
-            value (Sequence[float]): XYZの有限な3値。
-            unit (str): valueの角度の単位。既定 ``"deg"`` は度、``"rad"`` はラジアン。
+            value (Sequence[float]): XYZの3つの値。どれも有限な数値にする。
+            unit (str): valueの角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -95,28 +101,28 @@ class AimConstraint(Constraint):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
-            RuntimeError: ノードが参照・ロックされている、またはアトリビュートがロック・入力接続されている場合。
+            RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
         return self._set_angles("offset", value, unit=unit, fast=fast)
 
     def getOutputRotate(self):
-        """constraintRotateをその回転順序で取得する。
+        """出力のconstraintRotateを、constraintRotateOrderの回転順序で取得する。
 
         Returns:
-            EulerRotate: ラジアンの評価出力。自身のTransform回転やワールド回転ではない。
+            EulerRotate: 評価した出力(ラジアン)。このノード自身のTransformの回転や、ワールドの回転ではない。
         """
         values = [self.getPlug("constraintRotate" + axis).get(unit="rad") for axis in "XYZ"]
         return EulerRotate(*values, order=int(self.getPlug("constraintRotateOrder").get()))
 
     def _set_angles(self, attribute, value, unit="deg", fast=False):
-        """入力・ロックを事前検証し、角度3値を一括更新する。
+        """3つの角度をまとめて書き込む。
 
-        検証はすべて書込み前に行う。通常はUndo 1回で戻せるチャンクにまとめ、
-        fast=TrueはOpenMayaで直接更新する(Undoなし)。
+        入力の接続とロックは、書き込む前にすべて確かめる。
+        通常は1回のUndoで戻せるようにまとめる。fast=TrueならOpenMayaで直接書き込む(Undoなし)。
 
         Args:
-            attribute (str): 更新するコンパウンドアトリビュート。
-            value (Sequence[float]): unitの単位の3値。
+            attribute (str): 書き込むコンパウンドアトリビュート。
+            value (Sequence[float]): unitの単位の3つの値。
             unit (str): 角度の単位(deg/rad)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -126,19 +132,19 @@ class AimConstraint(Constraint):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
-            RuntimeError: ノードが参照・ロックされている、またはアトリビュートがロック・入力接続されている場合。
+            RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
         with _edit_context("mlibAimConstraintSetAngles", fast):
             angle_unit = _angle_unit(unit)
             values = tuple(float(component) for component in value)
             if len(values) != 3 or not all(math.isfinite(component) for component in values):
-                raise ValueError("angles must be 3 finite values")
+                raise ValueError("anglesは3つの有限な値で指定してください")
             values = tuple(_to_radians(component, angle_unit) for component in values)
             parent = self.getPlug(attribute)
             children = [self.getPlug(attribute + axis) for axis in "XYZ"]
             require_editable(self.mnode())
             if any(plug.isLocked() or plug.getSource() is not None for plug in [parent] + children):
-                raise RuntimeError(f"Attribute is locked or connected: {parent.getFullName()}")
+                raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {parent.getFullName()}")
             for plug, component in zip(children, values):
                 plug.set(component, unit="rad", fast=fast)
             return self

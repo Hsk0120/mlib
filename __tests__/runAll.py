@@ -30,7 +30,7 @@ def discover_test_files(directories=None, names=None, suite="all"):
         list[Path]: 除外ファイルを除いた対象パスのリスト。
     """
     if suite not in {"unit", "integration", "all"}:
-        raise ValueError("Unknown test suite: " + suite)
+        raise ValueError("知らないテストスイートです: " + suite)
     groups = ("unit", "integration") if suite == "all" else (suite,)
     directories = directories if directories is not None else [MAYA_DIR / group for group in groups]
     files = sorted(
@@ -180,7 +180,7 @@ def main():
     """一括実行し、失敗があれば非ゼロで終了する。"""
     result = run_all()
     if not result["ok"]:
-        raise AssertionError(f"mlib runAll failed: {result['failed']}")
+        raise AssertionError(f"mlibのrunAllが失敗しました: {result['failed']}")
 
 
 if __name__ == "__main__":

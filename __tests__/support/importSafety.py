@@ -40,4 +40,6 @@ def require_safe_imports(directory, stdlib_directories=()):
     """衝突があればMaya起動前に拒否し、問題のファイル名を示す。"""
     matches = find_shadowing(directory, stdlib_directories)
     if matches:
-        raise ValueError("Test directory shadows Python standard modules; rename these files: " + ", ".join(str(path) for path in matches))
+        raise ValueError(
+            "テストのフォルダーがPythonの標準モジュールを隠しています。次のファイルの名前を変えてください: " + ", ".join(str(path) for path in matches)
+        )

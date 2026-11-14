@@ -139,7 +139,7 @@ class AttributesSnapshotTest(_SnapshotCase):
         self.assertIn("label: locked", skipped)
         self.assertIn("rotate: locked", skipped)
         self.assertIn("dist: connected", skipped)
-        self.assertIn("flag: missing attribute", skipped)
+        self.assertIn("flag: アトリビュートがありません", skipped)
         self.assertIsNone(cmds.getAttr(self.node_b + ".label"))
         self.assertSequenceAlmostEqual(cmds.getAttr(self.node_b + ".translate")[0], (1.0, 2.0, 3.0))
         report = snap.apply(namespaceMap={self.ns: "noSuchNs"})

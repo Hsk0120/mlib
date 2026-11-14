@@ -125,9 +125,9 @@ class SetLockedTest(_SpecCase):
         """state・fast は bool だけ。fast の検査は変更前。"""
         for bad in (1, "True", None):
             with self.subTest(state=bad):
-                with self.assertRaisesRegex(TypeError, "state must be a bool"):
+                with self.assertRaisesRegex(TypeError, "stateはboolで指定してください"):
                     self.node.setLocked(bad)
-        with self.assertRaisesRegex(TypeError, "fast must be a bool"):
+        with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             self.node.setLocked(True, fast=1)
         self.assertFalse(self.locked())
 
@@ -191,11 +191,11 @@ class GetPlugsTest(_SpecCase):
 
     def test_invalid_inputs(self):
         """bool 以外、または userDefined=True と listAttr フラグの併用は TypeError。"""
-        with self.assertRaisesRegex(TypeError, "userDefined must be a bool"):
+        with self.assertRaisesRegex(TypeError, "userDefinedはboolで指定してください"):
             self.node.getPlugs(userDefined=1)
-        with self.assertRaisesRegex(TypeError, "includeChildren must be a bool"):
+        with self.assertRaisesRegex(TypeError, "includeChildrenはboolで指定してください"):
             self.node.getPlugs(includeChildren=None)
-        with self.assertRaisesRegex(TypeError, "cannot be combined"):
+        with self.assertRaisesRegex(TypeError, "同時に指定できません"):
             self.node.getPlugs(userDefined=True, keyable=True)
 
     def test_invalid_node_raises(self):

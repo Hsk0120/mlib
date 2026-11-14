@@ -9,26 +9,26 @@ from typing import Iterable
 
 
 class Locator(Shape):
-    """Maya の locator シェイプラッパー。"""
+    """Mayaのlocatorシェイプを扱うクラス。"""
     def getPosition(self) -> Translate:
-        """localPosition を取得する。
+        """ロケーターの位置(localPosition)を取得する。
 
         Returns:
-            Translate: localPosition の値。
+            Translate: localPositionの値。
         """
         ...
     def setPosition(self, value: Translate | Iterable[float], *, fast: bool = ...) -> Locator:
-        """localPosition を設定する。
+        """ロケーターの位置(localPosition)を設定する。
 
         Args:
-            value (Translate | Iterable[float]): 新しい localPosition。
+            value (Translate | Iterable[float]): 新しいlocalPositionの値。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Locator: 自身。
 
         Note:
-            ``fast=True`` はOpenMaya直接更新(Undoなし)。既定の ``False`` は通常処理。
-            fastがbool以外ならTypeError。完了済みの直接更新は自動で戻さない。
+            ``fast=True`` はOpenMayaで直接書き込む(Undoなし)。既定の ``False`` は通常の処理になる。
+            fastがbool以外ならTypeErrorになる。直接書き込んだ後の変更は、自動では戻さない。
         """
         ...

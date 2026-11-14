@@ -7,7 +7,7 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 ## 全体の原則
 
 - リポジトリの直下がそのまま `mlib` パッケージ。テストは `__tests__/`、Sphinx 文書は `_docs/`、補助ツールは `_tools/`。
-- 説明・作業報告・コメント・docstring は日本語。例外メッセージ・ログの文言は英語。
+- 説明・作業報告・コメント・docstring・例外メッセージ・ログの文言は日本語(識別子は英字のまま)。
 - Python 3.7(Maya 2022)で動く書き方にする(代入式 `:=`、`match`、`list[int]` 等の実行時の組込みジェネリクス、
   位置専用引数 `/`、`dict | dict` 等は使わない)。対象は Maya 2022〜2027。
 - Qt 関連(PySide/PyQt/shiboken/qtpy 等)を import しない。Maya 標準 UI は利用側が cmds/mel で扱う。
@@ -173,11 +173,16 @@ def setFoo(self, value, *, fast=False):
 | 実装上の未対応 | `NotImplementedError` | fast 経路で扱えない操作・フラグ(変更前に拒否) |
 
 - 「空でない文字列」の検証は、非 str を TypeError、空文字を ValueError に分ける。
-- 文言は英語の f-string(`+` 連結は不可)。対象名は末尾に `: <getFullName() または plug.name()>`。
-  - 型違い `<arg> must be <型>`(`fast must be a bool`)/ 値違い `<arg> must be <条件>` または `Expected <条件>`
-  - 別名競合 `Specify only one of '<long>' and '<short>'` / 必須欠落 `Missing required argument: '<long>'`
-  - 状態 `<対象> is locked|connected|referenced: <名前>`、`Cannot <action> an invalid <type>`(`Node._require_valid(action)`)
-  - fast 非対応 `fast <publicMethodName> does not support <条件>`(公開メソッド名を書く)
+- 文言は日本語の f-string(`+` 連結は不可)。引数名・型名・メソッド名・ノード型名などの識別子は英字のまま書き、
+  日本語との間に空白を入れない。括弧は半角 `()`。対象名は末尾に `: <getFullName() または plug.name()>`。
+  用語は docstring と同じ(アトリビュート・マルチアトリビュート・コンパウンドアトリビュート・マトリクス・コンストレイント・
+  クォータニオン・リファレンス・インフルエンス等)。
+  - 型違い `<arg>は<型>で指定してください`(`fastはboolで指定してください`)/ 値違い `<arg>は<条件>で指定してください` または `<条件>を指定してください`
+  - 別名競合 `'<long>'と'<short>'は同時に指定できません` / 必須欠落 `必須の引数がありません: '<long>'`
+  - 状態 `<対象>がロックされています|接続されています|リファレンスです: <名前>`、`無効な<type>のため、<動作>はできません`
+    (`Node._require_valid(action)`。`action` は「名前の変更」「アトリビュートの取得」のような名詞句)
+  - fast 非対応 `fastの<publicMethodName>は<条件>に対応していません`(公開メソッド名を書く)
+  - 英語の文を残さない(`check_mlib_layout.py` の L060 が、日本語を含まない英語の文を報告する)。ログ(`logger.warning` 等)も日本語で書く。
 - 名前を解決できない(存在しない・複数に一致)場合は最初の一致を返さず例外。名前変換の内部処理では、対応しない型は TypeError、
   空・削除済みは ValueError、解決できない文字列は RuntimeError。`Node(...)`/`mlib.getNode` の削除済みは RuntimeError のまま。
 - アトリビュートが無い場合は `MissingAttributeError(AttributeError, RuntimeError)`、削除済みのアトリビュートは
@@ -288,7 +293,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 - 用語: 要素を持つものは「マルチアトリビュート」(`MultiPlug`・`isMulti()`、要素は `isMultiElement()`・`getMulti()`・論理番号 `getIndex()`)、
   子を持つものは「コンパウンドアトリビュート」(`CompoundPlug`・`isCompound()`、子は `isChild()`・`getParent()`)。
-  om2 の `MPlug.isArray`/`isElement` の名前を mlib 側に持ち込まない。英語の文言は「multi attribute」「multi element」「compound attribute」。
+  om2 の `MPlug.isArray`/`isElement` の名前を mlib 側に持ち込まない。例外の文言でも「マルチアトリビュート」「マルチアトリビュートの要素」「コンパウンドアトリビュート」と書く。
 - `multi[index]` は未作成の要素も参照を返す。既存要素だけは `getElements()`、存在は `index in multi`。
 - コンパウンドアトリビュートの子は `compound[index]`・`compound[name]`。
 - `Plug.get/set` は対象アトリビュートだけを扱い、マトリクスアトリビュートから所有ノードの TRS 更新へ暗黙に切り替えない(ノードの変換は `Transform.getMatrix/setMatrix`)。
@@ -441,7 +446,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - pytest は使わない。Maya のテストは mayapy 経由で実行する。入口のバッチはすべて `_tools/` に置き(`setup.bat`・`format_mlib.bat`・
   `test_mlib.bat`・`generate_mlib_stubs.bat`・`build_mlib_docs.bat`)、`__tests__/`・`_docs/` には中身だけを置く。
   - 流れは2本。コードは `_tools/format_mlib.bat`(整形 → ruff → レイアウト → 公開名の一致。`--check` は書き換えない)、
-    テストは `_tools/test_mlib.bat`(`noMaya/` → `inMaya/`。`--no-maya` で前半だけ)。入口のバッチは5本とも、最後に結果を日本語で表示して(最後の行が `[OK]` か `[NG]`。`format_mlib.bat`・`test_mlib.bat` は手順ごとの `[OK]`・`[NG]`・`[--]` も並べる)キー入力を待つので、ターミナル・スクリプトからは `--no-pause` を付ける。バッチ本体はASCIIだけで書き、表示する日本語は `_tools/messages.txt`(UTF-8。`キー=表示する行`、`%名前%` は環境変数)へ置いて `_tools/_message.bat` で表示する(cmd がUTF-8のバッチを GOTO の後で読み誤るため。`chcp` でコードページも変えない)。公開名の追加・削除、レイアウト変更の後は必ず通す。
+    テストは `_tools/test_mlib.bat`(`noMaya/` → `inMaya/`。`--no-maya` で前半だけ)。入口のバッチは5本とも、最後に結果を日本語で表示して(最後の行が `[OK]` か `[NG]`。`format_mlib.bat`・`test_mlib.bat` は手順ごとの `[OK]`・`[NG]`・`[--]` も並べる)キー入力を待つので、ターミナル・スクリプトからは `--no-pause` を付ける。バッチは Shift-JIS(CP932)・CRLF で保存し、コメントは日本語で書く(`.gitattributes` の `working-tree-encoding=CP932` で、リポジトリの中は UTF-8、作業フォルダーは Shift-JIS。UTF-8 のまま保存すると cmd が GOTO の後の行を読み誤る)。編集ツールが UTF-8 で書き出したら CP932 へ変換し直す。バッチに書く日本語はコメント(`::`・`rem`)だけにし、表示する文は `_tools/messages.txt`(UTF-8。`キー=表示する行`、`%名前%` は環境変数)へ置いて `_tools/_message.bat` で表示する(コンソールのコードページが Shift-JIS でなくても文字化けしない。`chcp` でコードページは変えない)。`noMaya/test_mlib_batchFiles.py` が文字コード・改行・日本語の位置・キーの過不足を検査する。`.gitignore`・workflow・設定ファイルのコメントも日本語で書く。公開名の追加・削除、レイアウト変更の後は必ず通す。
   - Maya 不要のテストだけ: `_tools/test_mlib.bat --no-maya --no-pause`(`py -3 __tests__/runNoMaya.py` も同じ。`noMaya/test_*.py`)。リントは `format_mlib.bat` が持つので含まない。
   - Maya: `_tools/test_mlib.bat --no-pause --versions 2027 --suite all`(`py -3 __tests__/runMaya.py ...` は `inMaya/` だけを実行する)。`--suite unit|integration|all`、
     `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `__tests__/_output/`(Git 対象外)。

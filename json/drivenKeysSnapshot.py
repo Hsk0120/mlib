@@ -1,4 +1,7 @@
-"""ドリブンキー(ドライバーのアトリビュートを入力とするアニメカーブと、その間のノード)を保存・復元する。"""
+"""ドリブンキーを保存・復元する。
+
+ドリブンキーとは、ドライバーのアトリビュートを入力にするアニメカーブと、その間にあるノードのこと。
+"""
 
 import math
 
@@ -15,14 +18,17 @@ from .snapshot import Snapshot
 
 
 class DrivenKeysSnapshot(Snapshot):
-    """駆動されるアトリビュートごとに、ドライバーのPlug・カーブ・blendWeightedの重みを保持する。
+    """駆動されるアトリビュートごとに、ドライバーのPlug・カーブ・blendWeightedの重みを持つ。
 
-    カーブは :class:`~mlib.json.animationSnapshot.AnimationSnapshot` と同じく完全に保存する。カーブの入力
-    (ドライバーの値)は、ドライバーのアトリビュートのmlibの単位(角度は度、距離はcm、時間はフレーム)へ
-    直して保存する。Mayaがドライバーとカーブの間に挟むunitConversionの係数は保存時のUI単位で決まるため、
-    適用時に作り直された係数に合わせて入力を換算する。値はカーブの出力の単位(角度は度、距離はcm、
-    その他は無次元)。複数のドライバーを合計するblendWeightedは、Mayaのドリブンキー設定
-    (``setDrivenKeyframe``)で作り直し、各入力の重み(weight)を戻す。
+    カーブは :class:`~mlib.json.animationSnapshot.AnimationSnapshot` と同じく、すべての内容を保存する。
+
+    カーブの入力(ドライバーの値)は、ドライバーのアトリビュートのmlibの単位(角度は度、距離はcm、
+    時間はフレーム)へ直して保存する。Mayaがドライバーとカーブの間に入れるunitConversionの係数は、
+    保存したときのUIの単位で決まる。そのため適用するときは、作り直された係数に合わせて入力を換算する。
+    値はカーブの出力の単位(角度は度、距離はcm、それ以外は単位なし)。
+
+    複数のドライバーを合計するblendWeightedは、Mayaのドリブンキーの設定(``setDrivenKeyframe``)で作り直し、
+    それぞれの入力の重み(weight)を元に戻す。
 
     データの形::
 
@@ -42,18 +48,18 @@ class DrivenKeysSnapshot(Snapshot):
     def capture(cls, nodes):
         """駆動されるノードのアトリビュートから、ドリブンキーを取得する。
 
-        アトリビュートの入力につながる単位なし入力のカーブ(animCurveU*)と、blendWeightedを経由する
-        カーブを対象にする。ドライバーにつながっていないカーブと、blendWeightedのカーブ以外の入力は保存しない。
+        対象は、アトリビュートの入力につながる、入力に単位の無いカーブ(animCurveU*)と、blendWeightedを通る
+        カーブ。ドライバーにつながっていないカーブと、blendWeightedへのカーブ以外の入力は保存しない。
 
         Args:
-            nodes (Iterable[Node | str]): 駆動されるノード。1つのNode・名前も受け付ける。
+            nodes (Iterable[Node | str]): 駆動されるノード。Nodeや名前を1つだけ渡してもよい。
 
         Returns:
             DrivenKeysSnapshot: 取得したドリブンキーを持つ新しいインスタンス。
 
         Raises:
-            TypeError: nodesがノードまたはその並びでない場合。
-            RuntimeError: ノードが存在しない場合。
+            TypeError: nodesがノードでもその並びでもない場合。
+            RuntimeError: ノードが無い場合。
         """
         items = []
         seen = set()
@@ -86,19 +92,27 @@ class DrivenKeysSnapshot(Snapshot):
         return cls({"items": items})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存したドリブンキーを、対応付けたドライバー・駆動先で作り直す。
+        """保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
 
-        ドライバーと駆動先の組ごとに、既存のカーブがあれば全キーを置き換え、無ければMayaのドリブンキー設定
-        (``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも作られる)でカーブを作ってから書く。
-        保存していない別のドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら巻き戻す。
-        見つからないドライバー・駆動先は ``missing``、ロックされた駆動先、ドリブンキー以外
-        (コンストレイント・時間入力のカーブ等)が入力につながった駆動先、出力の種類が違うカーブは
-        ``skipped`` に記録して飛ばし、まとめて警告する。fast引数は持たない(ドリブンキーのキー数は少なく、
-        作成はcmdsで行うため速くならない)。
+        ドライバーと駆動先の組ごとに、次のように書く。
+
+        - すでにカーブがあれば、そのすべてのキーを置き換える。
+        - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
+          作られる)でカーブを作ってから書く。
+
+        保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
+
+        書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+
+        - ``missing``: 見つからないドライバー・駆動先。
+        - ``skipped``: ロックされた駆動先。ドリブンキー以外(コンストレイント・入力が時間のカーブなど)が
+          入力につながった駆動先。出力の種類が違うカーブ。
+
+        fast引数は持たない(ドリブンキーはキーが少なく、作成はcmdsで行うので、速くならない)。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。ドライバー・駆動先の両方に当てる。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。ドライバーと駆動先の両方に当てる。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
 
         Returns:
@@ -110,14 +124,14 @@ class DrivenKeysSnapshot(Snapshot):
         """``items`` の形を確かめる。
 
         Args:
-            data (dict): 保持する前のデータ。
+            data (dict): 持たせる前のデータ。
 
         Raises:
-            ValueError: データの形が違う場合。
+            ValueError: データの形が正しくない場合。
         """
         items = data.get("items")
         if not isinstance(items, list):
-            raise ValueError("driven key data must have an 'items' list")
+            raise ValueError("ドリブンキーのデータには'items'のリストが必要です")
         for item in items:
             if (
                 not isinstance(item, dict)
@@ -125,24 +139,24 @@ class DrivenKeysSnapshot(Snapshot):
                 or not isinstance(item["blendWeighted"], bool)
                 or not isinstance(item["drivers"], list)
             ):
-                raise ValueError(f"Invalid driven key entry: {item!r}")
+                raise ValueError(f"ドリブンキーの項目が不正です: {item!r}")
             PlugRef.fromData(item["driven"])
             for driver in item["drivers"]:
                 if not isinstance(driver, dict) or set(driver) != {"driver", "weight", "curve"}:
-                    raise ValueError(f"Invalid driven key driver: {driver!r}")
+                    raise ValueError(f"ドリブンキーのドライバーが不正です: {driver!r}")
                 PlugRef.fromData(driver["driver"])
                 weight = driver["weight"]
                 if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight):
-                    raise ValueError(f"Invalid driven key weight: {weight!r}")
+                    raise ValueError(f"ドリブンキーのウェイトが不正です: {weight!r}")
                 _require_curve(driver["curve"])
                 if _is_time_input(driver["curve"]["curveType"]):
-                    raise ValueError(f"Driven key curves must have unitless input: {driver['curve']['curveType']!r}")
+                    raise ValueError(f"ドリブンキーのカーブの入力は単位なしにしてください: {driver['curve']['curveType']!r}")
 
     def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """見つからないドライバー・駆動先を記録する。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): 使わない。
         """
@@ -155,7 +169,7 @@ class DrivenKeysSnapshot(Snapshot):
         """ドライバーと駆動先の組ごとにカーブを用意し、キーを書き込む。
 
         Args:
-            mapping (NameMapping): 名前の対応付け。
+            mapping (NameMapping): 名前の対応づけ。
             report (ValidationReport): 記録先。
             options (dict): 使わない。
             fast (bool): 使わない(常にcmdsで書く)。
@@ -171,7 +185,7 @@ class DrivenKeysSnapshot(Snapshot):
             sources = cmds.listConnections(name, source=True, destination=False, skipConversionNodes=True) or []
             source_type = cmds.nodeType(sources[0]) if sources else None
             if source_type is not None and source_type != "blendWeighted" and not source_type.startswith("animCurveU"):
-                report.addSkipped(name, f"connected to {source_type}")
+                report.addSkipped(name, f"{source_type}に接続されています")
                 continue
             for saved in item["drivers"]:
                 driver = _resolve(saved["driver"], mapping, report)
@@ -200,16 +214,16 @@ def _apply_driver(driver, driven, saved, report):
         if not data["keys"]:
             return
         first = data["keys"][0]
-        # ドリブンキーの作成(カーブ・blendWeighted・unitConversionと接続)はMayaに任せ、キーは後で書き直す。
+        # ドリブンキーの作成(カーブ・blendWeighted・unitConversionと接続)はMayaに任せ、キーは後から書き直す。
         relation.setKey(first["input"], first["value"])
         curves = relation.getCurves()
     if len(curves) != 1:
-        report.addSkipped(label, "multiple driven key curves")
+        report.addSkipped(label, "ドリブンキーのカーブが複数あります")
         return
     curve = curves[0].getFullName()
     curve_type = cmds.nodeType(curve)
     if _output_kind(curve_type) != _output_kind(data["curveType"]):
-        report.addSkipped(label, f"curve type {curve_type} does not match {data['curveType']}")
+        report.addSkipped(label, f"カーブの型{curve_type}が{data['curveType']}と合っていません")
         return
     _write_curve(curve, data, data["keys"], input_scale=_input_scale(curve, str(driver)))
     for destination in cmds.listConnections(curve + ".output", source=False, destination=True, plugs=True, skipConversionNodes=True) or []:
@@ -225,7 +239,7 @@ def _resolve(data, mapping, report):
 
     Args:
         data (dict): PlugRefの辞書。
-        mapping (NameMapping): 名前の対応付け。
+        mapping (NameMapping): 名前の対応づけ。
         report (ValidationReport): 記録先。
 
     Returns:
@@ -240,7 +254,7 @@ def _resolve(data, mapping, report):
 
 
 def _blend_curves(blend):
-    """blendWeightedの各入力につながるドリブンキーのカーブを集める。
+    """blendWeightedのそれぞれの入力につながる、ドリブンキーのカーブを集める。
 
     Args:
         blend (str): blendWeightedノードの名前。
@@ -270,9 +284,10 @@ def _driver(curve):
 
 
 def _input_scale(curve, driver):
-    """カーブの入力値に掛けると、ドライバーのmlibの単位の値になる倍率を返す。
+    """カーブの入力の値を、ドライバーのmlibの単位の値へ直す倍率を返す。
 
-    カーブの入力は、ドライバーの内部単位(rad・cm・秒)の値にunitConversionの係数を掛けた値になる。
+    カーブの入力の値にこの倍率を掛けると、ドライバーのmlibの単位の値になる。
+    カーブの入力は、ドライバーの内部の単位(rad・cm・秒)の値に、unitConversionの係数を掛けた値になっている。
 
     Args:
         curve (str): カーブ名。

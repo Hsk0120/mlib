@@ -1,5 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ノードを名前・DAGパス・型で記録し、読み込み先のシーンのノードへ対応付ける。"""
+"""ノードを名前・DAGパス・型で記録し、読み込み先のシーンのノードへ対応づける。"""
 
 import maya.cmds as cmds
 from .nameMapping import NameMapping
@@ -11,21 +11,21 @@ import maya.api.OpenMaya as om2
 class NodeRef:
     """ノードを名前・DAGパス・ノード型で記録した参照。
 
-    読み込み時は :meth:`resolve` が、:class:`NameMapping` で変換した名前でシーンを探す。
-    同じ名前が複数あれば変換したDAGパスで絞り、ノード型が違うものは対応させない。
+    読み込むときは、:meth:`resolve` が :class:`NameMapping` で変換した名前でシーンを探す。
+    同じ名前が複数あれば、変換したDAGパスで絞る。ノード型が違うものは対応させない。
     """
     __hash__: None
     def __init__(self, name: str, path: str | None = ..., type: str | None = ...) -> None:
-        """記録する値を保持する。
+        """記録する値を持たせる。
 
         Args:
             name (str): 名前空間付きの短い名前(``"chrA:arm_L_jnt"``)。
-            path (str | None): DAGノードの完全パス。DGノードやパス不明はNone。
-            type (str | None): ノード型(``"joint"`` 等)。Noneは型を検査しない。
+            path (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
+            type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。
 
         Raises:
-            TypeError: nameが文字列でない、またはpath・typeが文字列・None以外の場合。
-            ValueError: nameが空、または ``"|"`` を含む場合。
+            TypeError: nameが文字列でない場合、またはpath・typeが文字列でもNoneでもない場合。
+            ValueError: nameが空の場合、または ``"|"`` を含む場合。
         """
         ...
     def __repr__(self) -> str:
@@ -57,7 +57,7 @@ class NodeRef:
 
         Raises:
             TypeError: nodeが対応しない型の場合。
-            ValueError: ノードが存在しない場合。
+            ValueError: ノードが無い場合。
             RuntimeError: ノードが無効な場合。
         """
         ...
@@ -72,7 +72,7 @@ class NodeRef:
             NodeRef: 新しい参照。
 
         Raises:
-            ValueError: 辞書の形が違う場合。
+            ValueError: 辞書の形が正しくない場合。
         """
         ...
     @property
@@ -85,10 +85,10 @@ class NodeRef:
         ...
     @property
     def path(self) -> str | None:
-        """記録した完全DAGパスを返す。
+        """記録した完全なDAGパスを返す。
 
         Returns:
-            str | None: DGノードやパス不明はNone。
+            str | None: DGノードやパスが分からないときはNone。
         """
         ...
     @property
@@ -107,28 +107,28 @@ class NodeRef:
         """
         ...
     def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """対応付けを当てた名前を返す。
+        """名前の対応づけを当てた名前を返す。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。Noneは変換しない。
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
 
         Returns:
             str: 変換後の名前。警告や報告の表示に使う。
         """
         ...
     def resolve(self, mapping: NameMapping | None = ...) -> Node | None:
-        """対応付けを当てた名前で、シーンのノードを探す。
+        """名前の対応づけを当てた名前で、シーンのノードを探す。
 
-        候補が1つならそれを返す。複数あれば変換したDAGパスと一致するものを返す。
+        候補が1つならそれを返す。複数あれば、変換したDAGパスと一致するものを返す。
         記録した型と違うノードは候補にしない。
 
         Args:
-            mapping (NameMapping | None): 名前の対応付け。Noneは保存時の名前で探す。
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら保存したときの名前で探す。
 
         Returns:
-            Node | None: 見つかったノード。見つからない、または1つに絞れない場合はNone。
+            Node | None: 見つかったノード。見つからない場合と、1つに絞れない場合はNone。
 
         Raises:
-            TypeError: mappingがNameMapping・None以外の場合。
+            TypeError: mappingがNameMappingでもNoneでもない場合。
         """
         ...

@@ -217,7 +217,7 @@ class ModeAndErrorTest(_JsonBlendCase):
         self.flushUndo()
         with self.assertRaises(ValueError) as caught:
             bs.importTargets(self.path, namespaceMap={self.ns: self.other})
-        self.assertIn("vertices", str(caught.exception))
+        self.assertIn("頂点数", str(caught.exception))
         self.assertEqual(bs.getTargetNames(), [])
         self.assertUndoEmpty()
 

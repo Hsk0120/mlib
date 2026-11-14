@@ -1,7 +1,7 @@
-"""messageアトリビュートの参照。値を持たず、接続の端点として使う。"""
+"""messageアトリビュートを扱う。値は持たず、接続の端として使う。"""
 
 from .plug import Plug
 
 
 class MessagePlug(Plug):
-    """messageアトリビュートの参照。値を持たず、接続の端点として使う。"""
+    """messageアトリビュートを扱うPlug。値は持たず、接続の端として使う。"""

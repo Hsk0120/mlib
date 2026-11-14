@@ -18,99 +18,113 @@ _DEFORMER_WEIGHTS_VERSION: int
 
 
 class GeometryFilter(Node):
-    """デフォーマー(cluster・deltaMush・softMod・skinCluster 等)の共通ラッパー。
+    """デフォーマー(cluster・deltaMush・softMod・skinClusterなど)に共通する操作を持つクラス。
 
-    Maya の抽象型 ``geometryFilter`` に対応する。頂点ごとの効き具合(デフォーマーのウェイト、
-    ``weightList[形状の番号].weights``)の読み書きを提供する。skinCluster では同じアトリビュートが
-    インフルエンスのウェイトの置き場なので、:meth:`getDeformerWeights` 等は使えない
-    (:meth:`SkinCluster.getWeights <mlib.nodes.skinCluster.SkinCluster.getWeights>` を使う)。
+    Mayaの抽象型 ``geometryFilter`` に対応する。頂点ごとの効き具合(デフォーマーのウェイト)を
+    読み書きできる。デフォーマーのウェイトは ``weightList[形状の番号].weights`` に入っている。
+
+    skinClusterでは、同じアトリビュートにインフルエンスのウェイトが入る。そのため、
+    :meth:`getDeformerWeights` などは使えない。
+    代わりに :meth:`SkinCluster.getWeights <mlib.nodes.skinCluster.SkinCluster.getWeights>` を使う。
     """
     def getGeometry(self) -> list[Node]:
         """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。
 
-        ``outputGeometry`` の接続先の形状を、``input`` の番号順に返す(``cmds.deformer(query=True, geometry=True)``
-        相当)。skinCluster・cluster・deltaMush 等、すべてのデフォーマーで使える。
+        ``outputGeometry`` の接続先の形状を、``input`` の番号順に返す。
+        ``cmds.deformer(query=True, geometry=True)`` と同じ結果になる。
+        skinCluster・cluster・deltaMushなど、どのデフォーマーでも使える。
 
         Returns:
             list[Node]: 変形する形状。無ければ空リスト。
         """
         ...
     def getInputGeometry(self) -> list[Node]:
-        """このデフォーマーへ入る変形前の形状(入力ジオメトリ)を取得する。
+        """このデフォーマーへ入る、変形前の形状(入力ジオメトリ)を取得する。
 
-        ``input[].inputGeometry`` の上流をたどった形状を、``input`` の番号順に返す
-        (``MFnGeometryFilter.getInputGeometry`` 相当)。変形の前段に別のデフォーマーがあっても、
-        その先の形状(``Orig`` の中間形状など)を返す。
+        ``input[].inputGeometry`` から上流をたどって見つけた形状を、``input`` の番号順に返す。
+        ``MFnGeometryFilter.getInputGeometry`` と同じ結果になる。
+        手前に別のデフォーマーがあっても、それを越えた先の形状(``Orig`` の中間形状など)を返す。
 
         Returns:
             list[Node]: 入力側の形状。無ければ空リスト。
 
         Raises:
-            RuntimeError: ノードが無効(削除済み)の場合。
+            RuntimeError: ノードが無効な(削除された)場合。
         """
         ...
     def getDeformerWeights(self, geometryIndex: int = ...) -> list[float]:
         """頂点ごとのデフォーマーのウェイトを取得する。
 
-        値が書かれていない頂点は、Maya の既定どおり 1.0(全部効く)として返す。
+        値が書かれていない頂点は、Mayaの既定どおり1.0(全部効く)として返す。
 
         Args:
-            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定0。
+            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定は0。
 
         Returns:
-            list[float]: 形状の頂点(CV・ラティスの点)の番号順の値。長さは形状の点の数。
+            list[float]: 形状の頂点(CV・ラティスの点)の番号順に並ぶ値。長さは形状の点の数と同じ。
 
         Raises:
-            TypeError: geometryIndex が int でない、またはデフォーマーのウェイトを持たない型の場合。
-            IndexError: geometryIndex の形状が無い場合。
+            TypeError: geometryIndexがintでない場合、またはデフォーマーのウェイトを持たない型の場合。
+            IndexError: geometryIndexの番号の形状が無い場合。
         """
         ...
     def setDeformerWeights(self, weights: Iterable[float], *, vertices: Component | Components | Iterable[int] | None = ..., geometryIndex: int = ..., fast: bool = ...) -> GeometryFilter:
         """頂点ごとのデフォーマーのウェイトを設定する。
 
-        通常は ``cmds.setAttr`` で書き、番号が1ずつ増える頂点は範囲指定の1回の setAttr にまとめる。
+        通常は ``cmds.setAttr`` で書き込む。番号が1ずつ続く頂点は、範囲を指定した1回のsetAttrにまとめる。
 
         Args:
-            weights (Iterable[float]): 書き込む値。vertices と同じ数(None なら形状の点の数)の有限な数値。
-            vertices (Component | Components | Iterable[int] | None): 書き込む頂点(点)の番号。None は全頂点。
-                重複は不可。指定した順に weights と対応する。
-            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定0。
+            weights (Iterable[float]): 書き込む値。有限な数値を、verticesと同じ数だけ渡す。
+                verticesがNoneなら、形状の点の数だけ渡す。
+            vertices (Component | Components | Iterable[int] | None): 書き込む頂点(点)の番号。Noneなら全頂点。
+                同じ番号を2回指定できない。指定した順にweightsと対応する。
+            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定は0。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             GeometryFilter: 自身。
 
         Raises:
-            TypeError: fastがbool以外、geometryIndex・値・頂点の型が不正、またはデフォーマーのウェイトを持たない型の場合。
-            ValueError: 値の数が頂点の数と合わない、値が有限でない、または頂点が重複している場合。
-            IndexError: geometryIndex の形状が無い、または頂点番号が範囲外の場合。
-            RuntimeError: アトリビュートがロック・入力接続されている、または Maya が書込みを拒否した場合。
+            TypeError: fastがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
+                またはデフォーマーのウェイトを持たない型の場合。
+            ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、または頂点が重なっている場合。
+            IndexError: geometryIndexの番号の形状が無い場合、または頂点番号が範囲外の場合。
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         ...
     def dumpDeformerWeights(self, path: str | Path, geometryIndex: int | None = ...) -> None:
-        """頂点ごとのデフォーマーのウェイトを JSON ファイルへ書き出す。
+        """頂点ごとのデフォーマーのウェイトをJSONファイルへ書き出す。
 
-        単純な JSON(UTF-8)で、``version``(形式の版、現在1)・``deformer``(ノード名)・``geometries``(形状ごとの
-        ``index``・``numVertices``・``weights``)を書く。値の無い頂点は :meth:`getDeformerWeights` と同じく1.0で書く。
+        単純なJSON(UTF-8)で、次の項目を書く。
+
+        - ``version``: 形式の版。今は1。
+        - ``deformer``: ノード名。
+        - ``geometries``: 形状ごとの ``index``・``numVertices``・``weights``。
+
+        値が書かれていない頂点は、:meth:`getDeformerWeights` と同じく1.0で書く。
 
         Args:
             path (str | Path): 書き出し先のファイルパス。
-            geometryIndex (int | None): 書き出す形状の番号。Noneは変形する全形状(番号順)。
+            geometryIndex (int | None): 書き出す形状の番号。Noneなら変形するすべての形状を番号順に書く。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: geometryIndex が int・None 以外、またはデフォーマーのウェイトを持たない型の場合。
-            IndexError: geometryIndex の形状が無い場合。
+            TypeError: geometryIndexがint・None以外の場合、またはデフォーマーのウェイトを持たない型の場合。
+            IndexError: geometryIndexの番号の形状が無い場合。
         """
         ...
     def loadDeformerWeights(self, path: str | Path, *, fast: bool = ...) -> None:
-        """:meth:`dumpDeformerWeights` が書き出した JSON ファイルからデフォーマーのウェイトを設定する。
+        """JSONファイルからデフォーマーのウェイトを読み込んで設定する。
 
-        ファイルの各形状を、形状の番号(``weightList`` の論理番号)と頂点数で照合して書き込む。
-        デフォーマー名は照合しない(別のデフォーマーへも読み込める)。全形状を書込みの前に照合し、
-        合わなければ何も変更せず ValueError にする。通常は全形状を1回のUndoにまとめる。
+        :meth:`dumpDeformerWeights` が書き出したファイルを読む。
+        ファイルの各形状は、形状の番号(``weightList`` の論理番号)と頂点数が合うかを確かめてから書き込む。
+        デフォーマー名は比べないので、別のデフォーマーへも読み込める。
+
+        書き込む前に全部の形状を確かめ、合わないものがあれば何も変えずにValueErrorにする。
+        通常は、全部の形状の書き込みを1回のUndoにまとめる。
 
         Args:
             path (str | Path): 読み込むファイルパス。
@@ -120,32 +134,36 @@ class GeometryFilter(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外、ファイルの値が数値でない、またはデフォーマーのウェイトを持たない型の場合。
-            ValueError: ファイルの形式・版が違う、形状の番号がこのデフォーマーに無い、または頂点数が違う場合。
-            RuntimeError: アトリビュートがロック・入力接続されている、または Maya が書込みを拒否した場合。
+            TypeError: fastがbool以外の場合、ファイルの値が数値でない場合、
+                またはデフォーマーのウェイトを持たない型の場合。
+            ValueError: ファイルの形式や版が違う場合、形状の番号がこのデフォーマーに無い場合、
+                または頂点数が違う場合。
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         ...
     def copyDeformerWeightsTo(self, other: GeometryFilter | str, *, geometryIndex: int = ..., otherGeometryIndex: int = ..., fast: bool = ...) -> GeometryFilter:
-        """デフォーマーのウェイトを、頂点数が同じ別のデフォーマー(または同じデフォーマーの別の形状)へ写す。
+        """デフォーマーのウェイトを別のデフォーマーへ写す。
 
-        頂点番号で対応させ、位置での照合はしない。通常は1回のUndoで戻せる。
+        写す先は、頂点数が同じ別のデフォーマーか、同じデフォーマーの別の形状。
+        頂点番号どうしで対応させ、位置では合わせない。通常は1回のUndoで戻せる。
 
         Args:
             other (GeometryFilter | str): 写す先のデフォーマー。
-            geometryIndex (int): 写す元(自身)の形状の番号。既定0。
-            otherGeometryIndex (int): 写す先の形状の番号。既定0。
+            geometryIndex (int): 写す元(自身)の形状の番号。既定は0。
+            otherGeometryIndex (int): 写す先の形状の番号。既定は0。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             GeometryFilter: 写す先のデフォーマー。
 
         Raises:
-            TypeError: fastがbool以外、other がデフォーマーでない、geometryIndex が int でない、
-                またはどちらかがデフォーマーのウェイトを持たない型(skinCluster 等)の場合。
+            TypeError: fastがbool以外の場合、otherがデフォーマーでない場合、geometryIndexがintでない場合、
+                またはどちらかがデフォーマーのウェイトを持たない型(skinClusterなど)の場合。
             ValueError: 頂点数が違う場合。
-            IndexError: 形状の番号の形状が無い場合。
-            RuntimeError: other の名前が存在しない、アトリビュートがロック・入力接続されている、
-                または Maya が書込みを拒否した場合。
+            IndexError: 指定した番号の形状が無い場合。
+            RuntimeError: otherの名前のノードが無い場合、アトリビュートがロックされているか入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         ...
     def _geometry_indices(self) -> list[int]:

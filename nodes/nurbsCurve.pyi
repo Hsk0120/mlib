@@ -124,49 +124,56 @@ def _frame_matrix(position: om2.MPoint, aim: om2.MVector, up: om2.MVector, aim_a
 
 
 class NurbsCurve(Shape):
-    """NURBS カーブの形状情報を提供するシェイプラッパー。
+    """NURBSカーブのシェイプを扱うクラス。
 
-    点列からの作成は :func:`mlib.createCurve <mlib.cmds.createCurve.createCurve>`、CV位置の一括書込みは :meth:`setCvPositions` を使う。
-    CV(:class:`~mlib.components.cv.CV`)の参照からも座標を照会・編集できる。反転は :meth:`mirror`。
+    - 点を並べてカーブを作るときは :func:`mlib.createCurve <mlib.cmds.createCurve.createCurve>` を使う。
+    - CVの位置をまとめて設定するときは :meth:`setCvPositions` を使う。
+    - CV(:class:`~mlib.components.cv.CV`)のオブジェクトからも、座標を取得・編集できる。
+    - 形を反転するときは :meth:`mirror` を使う。
     """
     def getCV(self, index: int) -> CV:
-        """CV 番号から単体ラッパーを取得する。
+        """CVの番号から、CVを1つ取得する。
 
         Args:
-            index (int): ゼロ始まりの CV 番号。
+            index (int): 0から始まるCVの番号。
 
         Returns:
-            CV: シーン上の CV を参照するラッパー。
+            CV: シーン上のCVを指すオブジェクト。
 
         Raises:
-            IndexError: CV 番号が範囲外の場合。
+            IndexError: CVの番号が範囲外の場合。
         """
         ...
     def getCVs(self, indices: Iterable[int] | None = ...) -> CVs:
-        """OpenMayaのCV番号を入力の初出順に保持するコレクションを取得する。
+        """複数のCVをまとめて取得する。
+
+        番号は、渡した中で最初に出てきた順に並べる。
 
         Args:
-            indices (Iterable[int] | None): APIのCV番号。Noneは現在の全CVを昇順で取得し、空列は空集合。
-                負数とboolは拒否する。
+            indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら、今あるすべてのCVを小さい順に取得する。
+                空の並びを渡すと、空のまとまりになる。負の数とboolは受け付けない。
 
         Returns:
-            CVs: 同じShapeを共有し、重複を除いた新しいコレクション。
-                周期末尾の重複CVもAPI番号で保持するが、cmds用の名前では対応する独立CVへ写す。
+            CVs: CVをまとめた新しいオブジェクト。どのCVも同じShapeを使い、重なった番号は1つにまとめる。
+                周期カーブの末尾で重なっているCVもOpenMayaの番号のまま持つ。ただしcmdsへ渡す名前では、
+                対応する先頭側のCVの名前にする。
         """
         ...
     def mfn(self) -> om2.MFnNurbsCurve | om2.MFnDagNode:
-        """このカーブで最も具体的な om2 function set を、呼び出すたびに新しく作って返す。
+        """このカーブに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
-        形状データを持つ場合は ``om2.MFnNurbsCurve``。``mlib.createNode("nurbsCurve")`` 直後のように形状データを
-        持たない空のシェイプは ``om2.MFnNurbsCurve`` が使えない(Maya 2027 では作成時に ValueError、
-        版により作成後の照会で RuntimeError)ため、``om2.MFnDagNode`` を返す。DagNode 共通の照会
-        (中間オブジェクト判定・親の列挙等)は空のシェイプでも使える。
+        呼び出すたびに新しく作る。形状のデータを持っていれば ``om2.MFnNurbsCurve`` を返す。
+
+        ``mlib.createNode("nurbsCurve")`` の直後のように、形状のデータを持たない空のシェイプでは
+        ``om2.MFnNurbsCurve`` が使えない(Maya 2027では作るときにValueErrorになり、版によっては作った後の
+        取得でRuntimeErrorになる)。その場合は ``om2.MFnDagNode`` を返す。
+        DagNodeに共通の取得(中間オブジェクトかどうか・親の一覧など)は、空のシェイプでも使える。
 
         Returns:
             om2.MFnNurbsCurve | om2.MFnDagNode: このカーブの function set。空のシェイプでは MFnDagNode。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: このオブジェクトが持つDAGパスが無効な場合。
         """
         ...
     def getNumCVs(self) -> int:
@@ -174,6 +181,9 @@ class NurbsCurve(Shape):
 
         Returns:
             int: カーブの CV 数。
+
+        Raises:
+            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getNumSpans(self) -> int:
@@ -181,6 +191,9 @@ class NurbsCurve(Shape):
 
         Returns:
             int: カーブのスパン数。
+
+        Raises:
+            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getDegree(self) -> int:
@@ -188,30 +201,36 @@ class NurbsCurve(Shape):
 
         Returns:
             int: NURBS カーブの次数。
+
+        Raises:
+            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getForm(self) -> int:
-        """カーブの開閉形式を取得する。
+        """カーブの形式(開いているか閉じているか)を取得する。
 
         Returns:
             int: MFnNurbsCurve の kOpen、kClosed、kPeriodic のいずれか。
+
+        Raises:
+            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getKnots(self) -> list[float]:
-        """ノット列(``MFnNurbsCurve.knots``)を取得する。
+        """ノットの並びを取得する(``MFnNurbsCurve.knots``)。
 
         Returns:
-            list[float]: Mayaの形式のノット列。長さは ``getNumCVs() + getDegree() - 1``
-                (端の2つを省いた形。``cmds.curve(knot=...)`` へそのまま渡せる)。
+            list[float]: Mayaの形式のノットの並び。長さは ``getNumCVs() + getDegree() - 1`` になる。
+                両端の2つを省いた形で、``cmds.curve(knot=...)`` へそのまま渡せる。
 
         Raises:
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def isPlanar(self) -> bool:
-        """カーブが1つの平面上にあるか(``MFnNurbsCurve.isPlanar``)を取得する。
+        """カーブが1つの平面の上にあるか調べる(``MFnNurbsCurve.isPlanar``)。
 
-        平面かどうかは変換で変わらないため、空間の指定は無い。
+        平面かどうかはトランスフォームで変わらないため、空間は指定しない。
 
         Returns:
             bool: 平面上にあればTrue。
@@ -221,30 +240,33 @@ class NurbsCurve(Shape):
         """
         ...
     def getLength(self, tolerance: float = ..., *, worldSpace: bool = ..., unit: str | None = ..., ws: bool = ...) -> float:
-        """指定空間のカーブ長を取得する。シーンに計算ノードを作成しない。
+        """カーブの長さを取得する。
+
+        計算用のノードをシーンに作らない。
 
         Args:
-            tolerance (float): 弧長計算の許容誤差。内部距離単位で正の有限値。
+            tolerance (float): 長さを計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。
             worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            unit (str | None): 出力単位。既定はcm。Noneは現在の距離UI単位。
-                mm/cm/m/km/in/ft/yd/mi、またはMayaの長名。
+            unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。
+                mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する。
 
         Returns:
-            float: 指定単位での弧長。単位省略時はcm。
-                worldSpace=Trueは親の非均等スケール・シアーとインスタンスの変換を含む。
+            float: 指定した単位での長さ。単位を省いたときはcm。
+                worldSpace=Trueでは、親の非均等スケール・シアーと、インスタンスのトランスフォームも反映する。
 
         Raises:
-            TypeError: 単位の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: toleranceが正の有限値でない、worldSpaceがboolでない、または単位名が未対応の場合。
-            RuntimeError: 無効なカーブ、またはMayaが評価を拒否した場合。
+            TypeError: 単位の型が不正な場合、worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: toleranceが正の有限な値でない場合、または単位の名前が対応していない場合。
+            RuntimeError: カーブが無効な場合、またはMayaが評価を拒否した場合。
         """
         ...
     def getArea(self, worldSpace: bool = ..., *, ws: bool = ...) -> float:
-        """閉じた平面カーブが囲む面積を取得する。シーンに計算ノードを作成しない。
+        """閉じた平面カーブが囲む面積を取得する。
 
-        ``MFnNurbsCurve.area`` は値を返さない版があるため、カーブ上の線積分(``1/2 ∮ P × dP`` の長さ)を
-        ノットの区間ごとのガウス・ルジャンドル則で求める。自己交差するカーブは向きの付いた面積の和になる。
+        計算用のノードをシーンに作らない。``MFnNurbsCurve.area`` は版によって値を返さないため、
+        カーブに沿った線積分(``1/2 ∮ P × dP`` の長さ)を、ノットの区間ごとにガウス・ルジャンドル則で求める。
+        自分自身と交差するカーブでは、向きの付いた面積を足し合わせた値になる。
 
         Args:
             worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。
@@ -255,38 +277,44 @@ class NurbsCurve(Shape):
 
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: カーブが閉じていない(開いた形式で始点と終点が離れている)、または平面上に無い場合。
+            ValueError: カーブが閉じていない場合(開いた形式で、始点と終点が離れている)、
+                またはカーブが平面の上に無い場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getCvPositions(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
-        """CV の位置を取得する。
+        """CVの位置を取得する。
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[Vector]: CV 順の位置(:class:`~mlib.maths.vector.Vector`)。距離は Maya API の
+            list[Vector]: CVの順の位置(:class:`~mlib.maths.vector.Vector`)。距離はMaya APIの
                 内部単位(cm)。有理カーブのウェイト(w)は含まず、wで割らないXYZを返す。
                 そのまま :meth:`setCvPositions` へ渡せる。
 
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> NurbsCurve:
-        """全CVの位置を一度に書き込み、自身を返す。
+        """全CVの位置をまとめて設定する。
 
-        :meth:`getCvPositions` と同じ並び・単位(内部単位cm)の点列を受け付け、通常は ``cmds.xform`` で
-        書き込んで1回のUndoにまとめる。``fast=True`` は ``MFnNurbsCurve.setCVPositions`` で全CVを1回で
-        書き込み、Undoに記録しない。CVの数・次数・ノット・ウェイトは変更しない。
-        周期カーブは、独立CV数(``getNumCVs() - getDegree()``)の点列か、末尾の重複CVを含む
-        ``getNumCVs()`` 個の点列(重複CVは先頭の対応CVと同じ位置であること)を受け付ける。
+        :meth:`getCvPositions` と同じ並び・単位(内部単位のcm)の点を受け付ける。
+
+        - 通常: ``cmds.xform`` で書き込み、1回のUndoにまとめる。
+        - ``fast=True``: ``MFnNurbsCurve.setCVPositions`` で全CVを一度に書き込む。Undoには記録しない。
+
+        CVの数・次数・ノット・ウェイトは変更しない。周期カーブでは、次のどちらかの数の点を受け付ける。
+
+        - 重なっていないCVの数(``getNumCVs() - getDegree()``)。
+        - 末尾の重なったCVも含む ``getNumCVs()`` 個。重なったCVには、対応する先頭のCVと同じ位置を渡す。
 
         Args:
-            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CV順の位置。各点は3個の
-                有限な数値。MPointはwで割らずにXYZを使う。
+            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの順の位置。各点は
+                有限な数値3つ。MPointはwで割らずにXYZを使う。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -295,98 +323,106 @@ class NurbsCurve(Shape):
             NurbsCurve: 自身。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外、点の型・成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 点の数がCV数と合わない、成分が有限でない、周期カーブの重複CVが先頭の
-                CVと一致しない、またはworldSpace=Trueで変換マトリクスが特異な場合。
-            RuntimeError: 形状データが無い・無効なシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 点の数がCVの数と合わない場合、成分が有限でない場合、周期カーブの重なったCVが
+                先頭のCVと一致しない場合、またはworldSpace=Trueでトランスフォームのマトリクスが特異な場合。
+            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
     def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., ws: bool = ...) -> NurbsCurve:
-        """CV座標を、指定空間の中心pivotに対して反転する(``2 * pivot - 現在座標``)。
+        """CVの座標を、中心pivotに対して反転する。
 
-        Transform・次数・ノット・CVの順序とウェイト(w)は変更しない。共有Shapeの全インスタンスへ影響し、
-        複製やパラメータ方向の反転は行わない。全CVの座標を先に読んでから書くため、周期カーブの
-        末尾の重複CVも二重に反転しない(重複CVは先頭の独立CVと同じ位置に揃う)。
-        入力をすべて検証してから書き込み、通常は ``cmds.xform`` をCVごとに呼んで1回のUndoにまとめる。
-        ``fast=True`` は ``MFnNurbsCurve.setCVPositions`` で全CVを1回で書く。
+        反転後の座標は ``2 * pivot - 今の座標`` になる。
+
+        - Transform・次数・ノット・CVの順番とウェイト(w)は変更しない。
+        - Shapeを共有しているインスタンスすべてに反映される。複製や、パラメーターの向きの反転はしない。
+        - 全CVの座標を先に読んでから書くので、周期カーブの末尾の重なったCVを二重に反転しない
+          (重なったCVは、先頭側の対応するCVと同じ位置にそろう)。
+        - 入力をすべて確かめてから書き込む。通常は ``cmds.xform`` をCVごとに呼び、1回のUndoにまとめる。
+          ``fast=True`` では ``MFnNurbsCurve.setCVPositions`` で全CVを一度に書く。
 
         Args:
             axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、またはミラー面 ``"YZ"``・``"XZ"``・``"XY"``
                 (x⇔YZ、y⇔XZ、z⇔XY。文字の順序・大文字小文字は問わない)、または0/1/2。
-            worldSpace (bool): Trueは保持DAGパスのワールド空間、FalseはShapeのオブジェクト空間。
+            worldSpace (bool): Trueなら、このオブジェクトが持つDAGパスのワールド空間で反転する。
+                FalseならShapeのオブジェクト空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。既定は原点で、Transformのピボットとは独立。
-            indices (Iterable[int] | None): OpenMayaのCV番号。Noneは全CV、空列は変更なし。重複は1回だけ処理する。
+            pivot (Iterable[float]): 反転の中心のXYZ(cm)。worldSpaceで選んだ空間で指定する。
+                既定は原点で、Transformのピボットとは関係しない。
+            indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら全CV。空の並びなら何も変えない。
+                同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             NurbsCurve: 自身。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外、axisが文字列・int以外、番号の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: axis・pivotが不正、またはworldSpace=Trueで変換マトリクスがほぼ特異な場合。
-            IndexError: CV番号が負または範囲外の場合。
-            RuntimeError: 形状データが無い・無効なシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: axisやpivotが不正な場合、またはworldSpace=Trueでトランスフォームのマトリクスがほぼ特異な場合。
+            IndexError: CVの番号が負か範囲外の場合。
+            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
     def rebuild(self, spans: int | None = ..., degree: int | None = ..., *, keepRange: str = ...) -> NurbsCurve:
-        """カーブを均等なスパンで作り直し、自身を返す(``cmds.rebuildCurve`` の uniform)。
+        """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
 
-        ``cmds.rebuildCurve(constructionHistory=False, replaceOriginal=True)`` でこのシェイプの形状を
-        置き換え、1回のUndoで戻る。シェイプのノードと選択は変わらない。両端の位置は保つ。
-        コンストラクションヒストリのあるカーブは、上流の再評価で形状が戻ることがある。
-        スパン数・次数は ``cmds.rebuildCurve`` の結果に従う(Maya 2027 では次数1・spans=2 で4スパンになる等、
-        指定と違う場合がある)。
+        ``cmds.rebuildCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
+        置き換える。1回のUndoで戻せる。シェイプのノードと選択は変わらない。両端の位置は保つ。
+
+        - コンストラクションヒストリのあるカーブでは、上流が再評価されて形状が元に戻ることがある。
+        - スパンの数と次数は ``cmds.rebuildCurve`` の結果のとおりになる。指定と違うことがある
+          (Maya 2027では、次数1・spans=2で4スパンになるなど)。
 
         Args:
-            spans (int | None): 新しいスパン数。1以上。Noneは現在のスパン数。
-            degree (int | None): 新しい次数。1・2・3・5・7のいずれか。Noneは現在の次数。
+            spans (int | None): 新しいスパンの数。1以上。Noneなら今のスパンの数。
+            degree (int | None): 新しい次数。1・2・3・5・7のいずれか。Noneなら今の次数。
             keepRange (str): パラメーターの範囲。``"original"`` は元の範囲(既定)、``"unit"`` は0〜1、
-                ``"spans"`` は0〜スパン数。
+                ``"spans"`` は0〜スパンの数。
 
         Returns:
             NurbsCurve: 自身。
 
         Raises:
-            TypeError: spans・degreeがint・None以外(boolを含む)、またはkeepRangeがstr以外の場合。
-            ValueError: spansが1未満、degreeが未対応、またはkeepRangeが未対応の名前の場合。
-            RuntimeError: 形状データを持たない空のシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: spans・degreeがint・None以外(boolを含む)の場合、またはkeepRangeがstr以外の場合。
+            ValueError: spansが1未満の場合、degreeが対応していない値の場合、またはkeepRangeが対応していない名前の場合。
+            RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         ...
     def reverse(self) -> NurbsCurve:
-        """カーブの向き(パラメーターの増える向き)を反転し、自身を返す(``cmds.reverseCurve``)。
+        """カーブの向き(パラメーターが増える向き)を反転する(``cmds.reverseCurve``)。
 
-        ``cmds.reverseCurve(constructionHistory=False, replaceOriginal=True)`` でこのシェイプの形状を
-        置き換え、1回のUndoで戻る。形状の位置は変わらず、CVの並びが逆になる。シェイプのノードと選択は変わらない。
+        ``cmds.reverseCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
+        置き換える。1回のUndoで戻せる。形の位置は変わらず、CVの並びだけが逆になる。
+        シェイプのノードと選択は変わらない。
 
         Returns:
             NurbsCurve: 自身。
 
         Raises:
-            RuntimeError: 形状データを持たない空のシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         ...
     def getCollocatedCVGroups(self, tolerance: float = ..., worldSpace: bool = ..., *, ws: bool = ...) -> list[list[int]]:
-        """ほぼ同じ位置にある CV をグループ化して取得する。
+        """ほぼ同じ位置にあるCVを、グループに分けて取得する。
 
-        周期カーブの重複 CV や、クリーンアップ前のカーブの検証などに使う。
+        周期カーブで重なっているCVを調べるときや、整理する前のカーブを確かめるときなどに使う。
 
         Args:
-            tolerance (float): 同一位置とみなす距離の許容誤差(Maya API の
-                内部距離単位)。正の値を指定する。
+            tolerance (float): 同じ位置とみなす距離の許容誤差(Maya APIの内部の距離単位)。正の値を指定する。
             worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[list[int]]: 2個以上の CV が重なっているグループのみを、
-                各グループ内は番号昇順、グループ間は先頭番号の昇順で返す。
-                重なりのない単独の CV は含まない。
+            list[list[int]]: 2個以上のCVが重なっているグループだけを返す。グループの中は番号の小さい順、
+                グループどうしは先頭の番号の小さい順に並ぶ。ほかと重なっていないCVは含まない。
 
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: tolerance が正の値でない場合。
+            ValueError: toleranceが正の値でない場合。
         """
         ...
     def getParamRange(self) -> tuple[float, float]:
@@ -400,10 +436,10 @@ class NurbsCurve(Shape):
         """
         ...
     def getClosestPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, ws: bool = ...) -> tuple[Vector, float]:
-        """指定した位置に最も近いカーブ上の点とそのパラメーターを取得する。
+        """指定した位置に最も近い、カーブ上の点とパラメーターを取得する。
 
-        ``nearestPointOnCurve`` ノードの ``result.position``・``result.parameter`` に相当する。
-        シーンに計算ノードを作成しない。
+        ``nearestPointOnCurve`` ノードの ``result.position``・``result.parameter`` にあたる。
+        計算用のノードをシーンに作らない。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。worldSpaceと同じ空間で指定する。
@@ -414,8 +450,8 @@ class NurbsCurve(Shape):
             tuple[Vector, float]: 最も近い点(cm)とパラメーター。
 
         Raises:
-            TypeError: 点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分の数が3でない、または有限でない場合。
+            TypeError: 点の型や成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 成分の数が3でない場合、または有限でない場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
@@ -437,7 +473,7 @@ class NurbsCurve(Shape):
         """
         ...
     def getTangentAtParam(self, param: float, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """パラメーターの位置の、正規化した接線を取得する。
+        """パラメーターの位置の接線を、長さ1にして取得する。
 
         Args:
             param (float): :meth:`getParamRange` の範囲内のパラメーター。
@@ -445,18 +481,20 @@ class NurbsCurve(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector: パラメーターの増える向きの単位ベクトル。``pointOnCurveInfo`` の ``normalizedTangent`` と同じ。
+            Vector: パラメーターが増える向きの、長さ1のベクトル。``pointOnCurveInfo`` の ``normalizedTangent`` と同じ。
 
         Raises:
             TypeError: paramが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でない・範囲外、または重なったCVで接線が0になる位置の場合。
+            ValueError: paramが有限でないか範囲外の場合、または重なったCVで接線が0になる位置の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getNormalAtParam(self, param: float, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """パラメーターの位置の、正規化した法線(``MFnNurbsCurve.normal``)を取得する。
+        """パラメーターの位置の法線を、長さ1にして取得する(``MFnNurbsCurve.normal``)。
 
-        次数2以上は曲率の向き(主法線)、次数1はCVの平均の平面内で接線に直交する向き。
+        - 次数2以上: 曲がっていく向き(主法線)。
+        - 次数1: CVの平均の平面の中で、接線に直交する向き。
+
         ``pointOnCurveInfo`` の ``normalizedNormal`` と同じ。
 
         Args:
@@ -465,94 +503,102 @@ class NurbsCurve(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector: 単位ベクトル。
+            Vector: 長さ1のベクトル。
 
         Raises:
             TypeError: paramが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でない・範囲外、または法線を定義できない場合(次数2以上で
-                曲率が0の位置(直線部分・変曲点)、次数1でCVがすべて一直線上にある場合)。
+            ValueError: paramが有限でないか範囲外の場合、または法線を決められない場合。
+                法線を決められないのは、次数2以上で曲率が0の位置(まっすぐな部分・変曲点)と、
+                次数1でCVがすべて一直線上にある場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getLengthAtParam(self, param: float, worldSpace: bool = ..., *, unit: str | None = ..., ws: bool = ...) -> float:
-        """カーブの始点からパラメーターまでの弧長を取得する。
+        """カーブの始点から、パラメーターの位置までの長さを取得する。
 
-        ``arcLengthDimension`` の ``arcLength`` に相当する。シーンに計算ノードを作成しない。
+        ``arcLengthDimension`` の ``arcLength`` にあたる。計算用のノードをシーンに作らない。
 
         Args:
             param (float): :meth:`getParamRange` の範囲内のパラメーター。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            unit (str | None): 出力単位。既定はcm。Noneは現在の距離UI単位。:meth:`getLength` と同じ指定。
+            unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
 
         Returns:
-            float: 指定単位での弧長。
+            float: 指定した単位での長さ。
 
         Raises:
-            TypeError: paramが数値でない、worldSpaceがbool以外、単位の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でない・範囲外、または単位名が未対応の場合。
+            TypeError: paramが数値でない場合、worldSpaceがbool以外の場合、単位の型が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: paramが有限でないか範囲外の場合、または単位の名前が対応していない場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getParamAtLength(self, length: float, worldSpace: bool = ..., *, unit: str | None = ..., ws: bool = ...) -> float:
-        """カーブの始点からの弧長に対応するパラメーターを取得する。
+        """カーブの始点からの長さにあたる、パラメーターを取得する。
 
         Args:
-            length (float): 0から全長(:meth:`getLength`)までの弧長。単位はunit。
+            length (float): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はunit。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-                ワールド空間の弧長は親の非均等スケールを含む。
+                ワールド空間の長さには、親の非均等スケールも反映する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            unit (str | None): lengthの単位。既定はcm。Noneは現在の距離UI単位。:meth:`getLength` と同じ指定。
+            unit (str | None): lengthの単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
 
         Returns:
             float: パラメーター。0は始点、全長は終点のパラメーター。
 
         Raises:
-            TypeError: lengthが数値でない、worldSpaceがbool以外、単位の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: lengthが有限でない・0未満・全長を超える、または単位名が未対応の場合。
+            TypeError: lengthが数値でない場合、worldSpaceがbool以外の場合、単位の型が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: lengthが有限でないか、0未満か、全長を超える場合、または単位の名前が対応していない場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getParamsAlong(self, count: int, worldSpace: bool = ..., *, ws: bool = ...) -> list[float]:
-        """弧長で等間隔に並ぶパラメーターを取得する。
+        """カーブに沿った長さで、等間隔に並ぶパラメーターを取得する。
 
-        開いたカーブ(``getForm()`` が kOpen)は両端を含み、間隔は全長/(count-1)。
-        閉じたカーブ・周期カーブ(kClosed・kPeriodic)は終点が始点と重なるため終点を含めず、
-        始点から全長/count の間隔で count 個の異なる点を返す。count=1 は始点だけ。
+        - 開いたカーブ(``getForm()`` がkOpen): 両端を含む。間隔は 全長/(count-1)。
+        - 閉じたカーブ・周期カーブ(kClosed・kPeriodic): 終点は始点と重なるので含めない。
+          始点から 全長/count の間隔で、count個の別々の点を返す。
+        - count=1: 始点だけ。
 
         Args:
             count (int): 点の数。1以上。
-            worldSpace (bool): Trueはワールド空間の弧長、Falseはローカル(オブジェクト)空間の弧長で等分する。
+            worldSpace (bool): Trueならワールド空間での長さで、Falseならローカル(オブジェクト)空間での長さで等分する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             list[float]: 始点から順のパラメーター。
 
         Raises:
-            TypeError: countがint以外(boolを含む)、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: countがint以外(boolを含む)の場合、worldSpaceがbool以外の場合、
+                またはworldSpaceとwsを同時に指定した場合。
             ValueError: countが1未満の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getMatricesAlong(self, count: int, up: Sequence[float] | om2.MVector | None = ..., *, aimAxis: str = ..., upAxis: str = ..., worldSpace: bool = ..., ws: bool = ...) -> list[Matrix]:
-        """弧長で等間隔の各点に、接線を aimAxis へ向けたマトリクスを取得する。
+        """カーブに沿って等間隔に並ぶ点の向きを、マトリクスで取得する。
 
-        点の並びは :meth:`getParamsAlong` と同じ。各マトリクスは正規直交の右手系(スケール1)で、
-        平行移動はカーブ上の位置(cm)。
+        各点で、aimAxisの軸を接線へ向けたマトリクスを返す。点の並びは :meth:`getParamsAlong` と同じ。
+        マトリクスは正規直交の右手系(スケール1)で、移動はカーブ上の位置(cm)。
+        upAxisの向きは、upの指定によって次のように決まる。
 
-        - ``up`` を指定すると、各点で up から接線方向の成分を除いた向きを upAxis へ向ける。
-          接線と平行で向きを決められない点は直前の点の向き(先頭なら最初に決められた点の向き)を使う。
-        - ``None`` は平行移動(二重反射法による rotation minimizing frame)で、最初の点の向きを
-          ねじれを加えずに運ぶ。最初の点の upAxis は、最初の接線に最も直交する主軸(同程度なら
-          Y→Z→X)を接線に直交させた向き。点の間を細かく分けて運ぶため、count が少なくても向きは同じ。
-          閉じたカーブでは、一周後の向きが最初と一致するとは限らない(ねじれを均す処理はしない)。
-        - 重なったCVで接線が0になる点は、直前(先頭なら次)の点の接線を使う。
+        - ``up`` を指定した場合: 各点で、upから接線方向の成分を除いた向きへupAxisを向ける。
+          接線と平行で向きを決められない点では、直前の点の向きを使う(先頭なら、最初に向きを決められた点の向き)。
+        - ``None`` の場合: 最初の点の向きを、ねじれを加えずにカーブに沿って運ぶ
+          (二重反射法によるrotation minimizing frame)。最初の点のupAxisは、最初の接線に最も直交する
+          主軸(同じくらいならY→Z→Xの順)を、接線に直交させた向きになる。点の間を細かく分けて運ぶので、
+          countが少なくても向きは変わらない。閉じたカーブでは、一周した後の向きが最初と一致するとは
+          限らない(ねじれをならす処理はしない)。
+
+        重なったCVで接線が0になる点では、直前の点の接線を使う(先頭なら次の点の接線)。
 
         Args:
             count (int): 点の数。1以上。
-            up (Sequence[float] | om2.MVector | None): upAxis へ向ける方向。worldSpaceと同じ空間で指定する。
+            up (Sequence[float] | om2.MVector | None): upAxisを向ける方向。worldSpaceと同じ空間で指定する。
             aimAxis (str): 接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。
-            upAxis (str): up へ向ける軸。aimAxis と別の軸。
+            upAxis (str): upへ向ける軸。aimAxisとは別の軸を指定する。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
@@ -560,10 +606,11 @@ class NurbsCurve(Shape):
             list[Matrix]: 始点から順のマトリクス。
 
         Raises:
-            TypeError: countがint以外(boolを含む)、upの型・成分、aimAxis・upAxisがstr以外、
-                またはworldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: countが1未満、upの成分が有限でない・長さ0、軸名が未対応・aimAxisとupAxisが同じ軸、
-                upがすべての点で接線と平行、またはすべての点で接線が0の場合。
+            TypeError: countがint以外(boolを含む)の場合、upの型や成分が不正な場合、aimAxis・upAxisがstr以外の場合、
+                worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: countが1未満の場合、upの成分が有限でないか長さが0の場合、
+                軸の名前が対応していないかaimAxisとupAxisが同じ軸の場合、upがすべての点で接線と平行な場合、
+                またはすべての点で接線が0の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...

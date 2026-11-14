@@ -103,7 +103,7 @@ class BlendShapeCreateTest(_SpecCase):
     def test_create_errors(self):
         """不正な引数は作成前に型付きの例外になり、blendShape を残さない。"""
         before = cmds.ls(type="blendShape")
-        with self.assertRaisesRegex(TypeError, "frontOfChain must be a bool"):
+        with self.assertRaisesRegex(TypeError, "frontOfChainはboolで指定してください"):
             mlib.createBlendShape(self.base, self.smile, frontOfChain=1)
         with self.assertRaises(TypeError):
             mlib.createBlendShape(self.base, self.smile, name=1)

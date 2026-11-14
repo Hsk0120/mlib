@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""アトリビュート名やMPlugから、型に対応するPlug参照を取得する。
+"""アトリビュート名やMPlugから、型に合ったPlugを取得する。
 
-値の取得は ``plug.get()`` で行う。未作成のマルチアトリビュートの要素も参照でき、
-参照取得だけでは要素を実体化しない。既存Plugを渡した場合は同じインスタンスを返す。
+値は ``plug.get()`` で取得する。まだ作られていないマルチアトリビュートの要素も取得できる。
+取得しただけでは、その要素は作られない。既存のPlugを渡した場合は、同じインスタンスを返す。
 
 .. code-block:: python
 
@@ -17,22 +17,24 @@ import maya.api.OpenMaya as om2
 
 
 def getPlug(value: str | Plug | om2.MPlug) -> Plug:
-    """アトリビュート名またはAPI参照からプラグを取得する。シーンは変更しない。
+    """アトリビュート名やAPIのオブジェクトからプラグを取得する。
 
-    未作成のマルチアトリビュートの要素も参照でき、参照取得だけでは要素を実体化しない。
-    ラッパーの型はアトリビュート定義から選び、型選択のために値を評価しない。
+    シーンは変更しない。まだ作られていないマルチアトリビュートの要素も取得でき、
+    取得しただけではその要素は作られない。
+    クラスはアトリビュートの定義から選ぶ。クラスを選ぶために値を評価することはない。
 
     Args:
-        value (str | Plug | om2.MPlug): アトリビュート名、mlibプラグ、またはMaya API 2.0の参照。
+        value (str | Plug | om2.MPlug): アトリビュート名、mlibのプラグ、またはMaya API 2.0のオブジェクト。
 
     Returns:
-        Plug: アトリビュート型に対応する参照。既存Plugは有効性を再検証せず同じインスタンスを返す。
-            文字列・MPlugからは新しいラッパーを作る。値やアトリビュートを複製する操作ではない。
+        Plug: アトリビュートの型に合ったオブジェクト。既存のPlugを渡すと、有効かどうかを調べ直さずに
+            同じインスタンスを返す。文字列・MPlugからは新しいオブジェクトを作る。
+            値やアトリビュートを複製するわけではない。
 
     Raises:
-        TypeError: 対応しない型を指定した場合。
-        ValueError: 空の名前または空のMPlugを指定した場合。
-        MissingAttributeError: アトリビュート(またはノード)が存在しない場合(文言は ``Attribute not found: <名前>``)。
+        TypeError: 対応していない型を渡した場合。
+        ValueError: 空の名前、または空のMPlugを渡した場合。
+        MissingAttributeError: アトリビュート(またはノード)が存在しない場合(文言は ``アトリビュートが見つかりません: <名前>``)。
             ``mlib.plugs.plug.MissingAttributeError`` は ``AttributeError`` と ``RuntimeError`` の両方の派生で、
             ``node.getPlug(name)`` と同じ例外。
         RuntimeError: 名前が複数の対象に一致する場合。

@@ -10,20 +10,28 @@ _OUTPUTS = {"translate": "outTranslate", "rotate": "outRotate"}
 
 
 class PairBlend(Node):
-    """2組の移動・回転をweightで補間する(weight=0で入力1、1で入力2)。"""
+    """2組の移動・回転をweightで補間するpairBlendを扱うクラス。
+
+    weightが0なら入力1、1なら入力2になる。
+    """
 
     def setInput(self, inTranslate1=None, inRotate1=None, inTranslate2=None, inRotate2=None, weight=None):
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             inTranslate1 (Iterable[float] | Plug | str | None): 入力1の移動(cm)。
             inRotate1 (Iterable[float] | Plug | str | None): 入力1の回転(度)。
             inTranslate2 (Iterable[float] | Plug | str | None): 入力2の移動(cm)。
             inRotate2 (Iterable[float] | Plug | str | None): 入力2の回転(度)。
-            weight (float | Plug | str | None): 補間の割合(0〜1)。
+            weight (float | Plug | str | None): 補間の割合(0〜1)。0なら入力1、1なら入力2になる。
 
         Returns:
             PairBlend: 自身。
@@ -45,17 +53,19 @@ class PairBlend(Node):
         return _calculation.get_enum(self, "rotInterpolation", _ROTATE_INTERPOLATIONS)
 
     def setRotateInterpolation(self, interpolation):
-        """回転の補間の方法を名前または番号で設定する(``rotInterpolation``)。1回のUndoで戻せる。
+        """回転の補間の方法を設定する(``rotInterpolation``)。
+
+        名前か番号で指定する。1回のUndoで戻せる。
 
         Args:
-            interpolation (str | int): ``"euler"``・``"quaternion"`` のいずれか、またはMayaの番号(0から)。
+            interpolation (str | int): ``"euler"``・``"quaternion"`` のいずれか。Mayaの番号(0から)でもよい。
 
         Returns:
             PairBlend: 自身。
 
         Raises:
             TypeError: interpolationが文字列・int以外の場合。
-            ValueError: 未対応の名前・範囲外の番号の場合。
+            ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
         return _calculation.set_enum(self, "setRotateInterpolation", "rotInterpolation", interpolation, _ROTATE_INTERPOLATIONS, "interpolation")

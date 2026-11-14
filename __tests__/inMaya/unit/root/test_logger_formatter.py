@@ -52,7 +52,7 @@ class FormatterTest(unittest.TestCase):
         text = maya.utils.formatGuiException(kind, error, trace, 1)
         self.assertIn("RuntimeError: file", text)
         self.assertIn(f"{os.path.basename(__file__)} line {line}", text)
-        self.assertIn("Node not found", text)
+        self.assertIn("ノードが見つかりません", text)
         full = maya.utils.formatGuiException(kind, error, trace, 2)
         self.assertNotIn("getNode.py", full)
 

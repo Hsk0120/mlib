@@ -30,34 +30,37 @@ _UNSET_COLOR = om2.MColor(_UNSET_COLOR_VALUES)
 
 
 class Mesh(Shape):
-    """Maya mesh shape ノードのラッパー。"""
+    """Mayaのmeshシェイプノードを扱うクラス。"""
 
     def reorderVertices(self, reference, uvSet="map1", tolerance=1e-6, *, fast=False, match="uv", worldSpace=_UNSET, ws=_UNSET):
-        """UVまたは頂点位置の一意な対応で、対象の頂点番号を基準メッシュへ合わせる。
+        """頂点番号の並びを、基準のメッシュに合わせる。
 
-        頂点位置・面順/向き・UV・法線・面マテリアルは保持する。エッジ番号は変わり得る。
-        スキン等の番号依存データは移し替えず、既存Component参照は処理後に取り直す。
-        UVシームは各頂点の面頂点UV群で照合し、曖昧な対応は変更前に拒否する。
+        UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
+
+        - 頂点の位置・面の順と向き・UV・法線・面のマテリアルは変わらない。エッジの番号は変わることがある。
+        - スキンなど、頂点番号に頼るデータは移し替えない。すでに取得したComponentは、処理の後に取り直す。
+        - UVの切れ目(シーム)は、頂点ごとの面頂点のUVの組で照らし合わせる。対応があいまいなら、何も変えずにエラーにする。
 
         Args:
-            reference (Mesh | Node | str): 基準Meshまたは単一メッシュTransform。
-            uvSet (str): UV照合のセット名。位置照合では使わない。
-            tolerance (float): 非負有限値。UVは成分差、位置はcm距離の許容誤差。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは非ゼロtweakを現在位置へベイクして再構築する。
-                FalseはUndo有効が必須で、非ゼロtweakは未対応。
-            match (str): 既定uv、またはposition。
-            worldSpace (bool): 位置照合でTrueはワールド空間、Falseは各Shapeのオブジェクト空間。UV照合では使わない。
+            reference (Mesh | Node | str): 基準のMesh、またはメッシュを1つだけ持つTransform。
+            uvSet (str): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない。
+            tolerance (float): 許す誤差。0以上の有限な数値。UVでは成分の差、位置ではcmの距離。既定は1e-6。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueなら、0でないtweakを今の位置へベイクしてから作り直す。
+                FalseならUndoが有効である必要があり、0でないtweakには対応しない。
+            match (str): 照らし合わせ方。``"uv"`` (既定)か ``"position"``。
+            worldSpace (bool): 位置で照らし合わせるとき、Trueならワールド空間、Falseなら各Shapeのオブジェクト空間で比べる。
+                既定はFalse。UVで照らし合わせるときは使わない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Mesh: 自身。番号対応が既に同一なら再構築せず返し、再構築用の制限検査にも進まない。
+            Mesh: 自身。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
 
         Raises:
-            TypeError: 入力型・fast/worldSpaceが不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 対応が曖昧/不完全、トポロジー/面の向きが一致しない、または再構築時に
-                入出力履歴・インスタンス・参照・色セット・クリース等がある場合。
-            RuntimeError: 再構築時にロック、または通常処理でUndoが無効の場合。
-            NotImplementedError: 通常経路で頂点のtweakがある法線の並べ替えの場合。
+            TypeError: 入力の型やfast・worldSpaceが不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 対応があいまいか足りない場合、トポロジーや面の向きが合わない場合、
+                または作り直すときに、入出力のヒストリ・インスタンス・リファレンス・カラーセット・クリースなどがある場合。
+            RuntimeError: 作り直すときにロックされている場合、または通常の処理でUndoが無効な場合。
+            NotImplementedError: 通常の処理で、頂点のtweakがあるメッシュの法線を並べ替える場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
@@ -65,32 +68,32 @@ class Mesh(Shape):
         from .node import Node
 
         if match not in ("uv", "position"):
-            raise ValueError("match must be uv or position")
+            raise ValueError("matchはuvかpositionで指定してください")
         _require_bool(worldSpace, "worldSpace")
         if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)) or not math.isfinite(tolerance) or tolerance < 0:
-            raise ValueError("tolerance must be finite and nonnegative")
+            raise ValueError("toleranceは0以上の有限な数値で指定してください")
         if match == "uv" and (not isinstance(uvSet, str) or not uvSet):
-            raise ValueError("uvSet must be a nonempty name")
+            raise ValueError("uvSetは空でない名前で指定してください")
         reference = Node(Node._input_name(reference))
         if reference.hasFn(om2.MFn.kTransform):
             shapes = reference.getShapes()
             if len(shapes) != 1:
-                raise ValueError("Reference transform must have exactly one shape")
+                raise ValueError("参照するトランスフォームにはシェイプが1つだけ必要です")
             reference = shapes[0]
         if not isinstance(reference, Mesh):
-            raise TypeError("reference must be a mesh")
+            raise TypeError("referenceはメッシュで指定してください")
         source, target = reference._geometry_fn(), self._geometry_fn()
         if source.numVertices != target.numVertices or source.numPolygons != target.numPolygons:
-            raise ValueError("Meshes must have equal vertex and face counts")
+            raise ValueError("メッシュの頂点数とフェース数を同じにしてください")
         if not target.numPolygons:
-            raise ValueError("Meshes must have polygon faces")
+            raise ValueError("メッシュにはポリゴンのフェースが必要です")
         mapping = (
             self._uv_vertex_mapping(source, target, uvSet, tolerance) if match == "uv" else self._position_vertex_mapping(source, target, tolerance, worldSpace)
         )
         counts, connects = target.getVertices()
         remapped = [mapping[v] for v in connects]
         if self._face_cycles(*source.getVertices()) != self._face_cycles(counts, remapped):
-            raise ValueError("Vertex correspondence does not preserve face topology and winding")
+            raise ValueError("頂点の対応が、フェースのトポロジーと巻き方向を保っていません")
         if all(old == new for old, new in enumerate(mapping)):
             return self
         self._require_reorder_supported(target, fast=fast)
@@ -106,7 +109,7 @@ class Mesh(Shape):
             target.copyInPlace(data)
         else:
             if not cmds.undoInfo(query=True, state=True):
-                raise RuntimeError("reorderVertices requires Undo enabled, or fast=True")
+                raise RuntimeError("reorderVerticesにはUndoを有効にするか、fast=Trueを指定してください")
             with undoTransaction("mlibMeshReorderVertices"):
                 # APIで作るのは一時形状のみ。対象への反映と履歴のベイクは標準コマンドでUndoに記録する。
                 temporary = cmds.createNode("mesh", skipSelect=True)
@@ -134,13 +137,13 @@ class Mesh(Shape):
         return self
 
     def getVertex(self, index):
-        """頂点番号から単体ラッパーを取得する。
+        """頂点番号から頂点を1つ取得する。
 
         Args:
-            index (int): ゼロ始まりの頂点番号。
+            index (int): 0から始まる頂点番号。
 
         Returns:
-            Vertex: シーン上の頂点を参照するラッパー。
+            Vertex: シーンの頂点を指すオブジェクト。
 
         Raises:
             IndexError: 頂点番号が範囲外の場合。
@@ -148,36 +151,38 @@ class Mesh(Shape):
         return Vertex(self, index)
 
     def getVertices(self, indices=None):
-        """指定した頂点群を取得する。
+        """指定した頂点をまとめて取得する。
 
         Args:
-            indices (Iterable[int] | None): 頂点番号。None は現在の全頂点。
+            indices (Iterable[int] | None): 頂点番号。Noneなら今あるすべての頂点。
 
         Returns:
-            Vertices: 番号順を維持し、重複を除いたコレクション。
+            Vertices: 頂点のコレクション。番号の順はそのままで、同じ番号は1回だけ含む。
         """
         return Vertices(self, indices)
 
     def getVertexFaces(self, indices=None):
-        """指定した頂点フェース(``vtxFace[v][f]``)を取得する。
+        """指定した頂点フェース(``vtxFace[v][f]``)をまとめて取得する。
 
         Args:
-            indices (Iterable[int | tuple[int, int]] | None): 平坦な番号か ``(頂点番号, フェース番号)``。
-                None は現在の全頂点フェース。
+            indices (Iterable[int | tuple[int, int]] | None): 通しの番号か ``(頂点番号, フェース番号)``。
+                Noneなら今あるすべての頂点フェース。
 
         Returns:
-            VertexFaces: 番号順を維持し、重複を除いたコレクション。
+            VertexFaces: 頂点フェースのコレクション。番号の順はそのままで、同じものは1回だけ含む。
 
         Raises:
-            IndexError: 頂点がフェースに含まれない、または番号が範囲外の場合。
+            IndexError: 頂点がそのフェースに含まれない場合、または番号が範囲外の場合。
         """
         return VertexFaces(self, indices)
 
     def getShadingEngines(self):
-        """このDAGインスタンスのフェースへ割り当てられたShadingEngineを取得する。
+        """フェースに割り当てられているShadingEngineを取得する。
+
+        このオブジェクトが持つDAGパス(インスタンス)での割り当てを調べる。
 
         Returns:
-            list[ShadingEngine]: 使用中のセット。未割り当ては除外する。
+            list[ShadingEngine]: 使われているShadingEngine。何も割り当てられていないフェースの分は含まない。
         """
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
@@ -186,10 +191,10 @@ class Mesh(Shape):
         return [ShadingEngine(groups[i]) for i in sorted(set(indices)) if i >= 0]
 
     def getFaceShadingEngines(self):
-        """面番号順の割り当てを取得する。
+        """フェースごとに割り当てられているShadingEngineを、フェース番号の順に取得する。
 
         Returns:
-            list[ShadingEngine | None]: 全フェースの割り当て。未割り当てはNone。
+            list[ShadingEngine | None]: すべてのフェースの割り当て。何も割り当てられていないフェースはNone。
         """
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
@@ -199,18 +204,19 @@ class Mesh(Shape):
         return [wrapped[i] if i >= 0 else None for i in indices]
 
     def mfn(self):
-        """この mesh で最も具体的な om2 function set を、呼び出すたびに新しく作って返す。
+        """このメッシュのfunction setを取得する。
 
-        形状データを持つ場合は ``om2.MFnMesh``。``mlib.createNode("mesh")`` 直後のように形状データを
-        持たない空のシェイプは ``om2.MFnMesh`` が使えない(Maya 2027 では作成時に ValueError、
-        版により作成後の照会で RuntimeError)ため、``om2.MFnDagNode`` を返す。DagNode 共通の照会
-        (中間オブジェクト判定・親の列挙等)は空のシェイプでも使える。
+        呼び出すたびに新しく作る。形状のデータを持つ場合は ``om2.MFnMesh`` を返す。
+        ``mlib.createNode("mesh")`` の直後のように形状のデータを持たない空のシェイプでは、
+        ``om2.MFnMesh`` が使えない(Maya 2027では作るときにValueError、版によっては作った後の取得でRuntimeError)。
+        そのため ``om2.MFnDagNode`` を返す。DagNodeに共通の取得(中間オブジェクトかの判定・親の一覧など)は、
+        空のシェイプでも使える。
 
         Returns:
-            om2.MFnMesh | om2.MFnDagNode: この mesh の function set。空のシェイプでは MFnDagNode。
+            om2.MFnMesh | om2.MFnDagNode: このメッシュのfunction set。空のシェイプではMFnDagNode。
 
         Raises:
-            RuntimeError: 保持する DAG パスが無効な場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
         """
         path = self.mpath()
         try:
@@ -225,7 +231,7 @@ class Mesh(Shape):
         """頂点数を取得する。
 
         Returns:
-            int: mesh の頂点数。
+            int: メッシュの頂点数。
         """
         return self._geometry_fn().numVertices
 
@@ -233,7 +239,7 @@ class Mesh(Shape):
         """ポリゴン数を取得する。
 
         Returns:
-            int: mesh のポリゴン数。
+            int: メッシュのポリゴン数。
         """
         return self._geometry_fn().numPolygons
 
@@ -249,15 +255,15 @@ class Mesh(Shape):
         """全頂点の位置を取得する。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[Vector]: 頂点番号順の位置(:class:`~mlib.maths.vector.Vector`)。距離は Maya API の
-                内部単位(cm)。そのまま :meth:`setPoints` へ渡せる。
+            list[Vector]: 頂点番号の順に並ぶ位置(:class:`~mlib.maths.vector.Vector`)。
+                距離はMaya APIの内部単位(cm)。そのまま :meth:`setPoints` へ渡せる。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -265,18 +271,19 @@ class Mesh(Shape):
         return _vectors_of_points(self._geometry_fn().getPoints(space))
 
     def setPoints(self, points, worldSpace=_UNSET, *, fast=False, ws=_UNSET):
-        """全頂点の位置を一度に書き込み、自身を返す。
+        """全頂点の位置をまとめて書き込み、自身を返す。
 
-        :meth:`getPoints` と同じ並び・単位(内部単位cm)の点列を受け付け、通常は ``cmds.xform`` で
-        書き込んで1回のUndoにまとめる。``fast=True`` は ``MFnMesh.setPoints`` で全頂点を1回で書き込み、
-        Undoに記録しない。頂点数・トポロジー・UVは変更しない。
-        :meth:`NurbsCurve.setCvPositions <mlib.nodes.nurbsCurve.NurbsCurve.setCvPositions>` と同じ形の入口。
+        :meth:`getPoints` と同じ並び・単位(内部単位のcm)の点の並びを受け取る。
+        通常は ``cmds.xform`` で書き込み、1回のUndoにまとめる。
+        ``fast=True`` なら ``MFnMesh.setPoints`` で全頂点を1回で書き込み、Undoには記録しない。
+        頂点数・トポロジー・UVは変えない。
+        :meth:`NurbsCurve.setCvPositions <mlib.nodes.nurbsCurve.NurbsCurve.setCvPositions>` と同じ使い方ができる。
 
         Args:
-            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): 頂点番号順の位置。
-                :meth:`getPoints` の結果(list[Vector])・3個の数値のtupleの列・``om2.MPointArray`` を
-                そのまま受け付ける。各点は3個の有限な数値。MPointはwで割らずにXYZを使う。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): 頂点番号の順の位置。
+                :meth:`getPoints` の結果(list[Vector])・3つの数値のtupleの並び・``om2.MPointArray`` を
+                そのまま渡せる。各点は3つの有限な数値。MPointはwで割らずにXYZを使う。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で書き込む。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -284,16 +291,16 @@ class Mesh(Shape):
             Mesh: 自身。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外、点の型・成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 点の数が頂点数と合わない、または成分が有限でない場合。
-            RuntimeError: 形状データが無い・無効なシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 点の数が頂点数と合わない場合、または有限でない成分がある場合。
+            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
 
         Note:
-            現在と同じ位置の頂点は書き込まない(``getPoints()`` の結果を一部だけ変えて戻す使い方では、
-            変えた頂点だけを書き込む)。書き込む頂点ごとに ``cmds.xform`` を呼ぶため(``setCvPositions``
-            と同じ)、多数の頂点を動かす場合は頂点数に比例して時間がかかる(目安は1頂点あたり約1ms)。
-            ``fast=True`` は全頂点をまとめて書くため、頂点数が多いほど差が大きい。
+            今と同じ位置の頂点は書き込まない(``getPoints()`` の結果を一部だけ変えて戻すと、
+            変えた頂点だけを書き込む)。書き込む頂点ごとに ``cmds.xform`` を呼ぶので(``setCvPositions`` と同じ)、
+            多くの頂点を動かすと、頂点数に比例して時間がかかる(目安は1頂点あたり約1ms)。
+            ``fast=True`` は全頂点をまとめて書くので、頂点数が多いほど差が大きくなる。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
@@ -302,7 +309,7 @@ class Mesh(Shape):
         fn = self._geometry_fn()
         count = fn.numVertices
         if len(values) != count:
-            raise ValueError(f"Expected {count} points, got {len(values)}")
+            raise ValueError(f"点を{count}個指定してください: {len(values)}個")
         current = fn.getPoints(om2.MSpace.kWorld if ws else om2.MSpace.kObject)
         changed = [index for index, (value, point) in enumerate(zip(values, current)) if value != (point.x, point.y, point.z)]
         with _edit_context("mlibMeshSetPoints", fast, transaction=True):
@@ -310,31 +317,39 @@ class Mesh(Shape):
         return self
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, ws=_UNSET):
-        """頂点座標を、指定空間の中心pivotに対して反転する(``2 * pivot - 現在座標``)。
+        """頂点の座標を、pivotを中心に反転する。
 
-        Transform・トポロジー(頂点番号・面の接続と頂点順)は変更しない。共有Shapeの全インスタンスへ影響する。
-        複製・結合・片側からの対称化・法線の反転は行わない(奇数軸の反転で面の向きが裏返る)。
-        入力をすべて検証してから書き込み、通常は ``cmds.xform`` を頂点ごとに呼んで1回のUndoにまとめる
-        (目安は1頂点あたり約0.2ms)。``fast=True`` は ``MFnMesh.setPoints`` で全頂点を1回で書く。
+        反転後の座標は ``2 * pivot - 今の座標`` になる。
+
+        - Transformとトポロジー(頂点番号・面のつながりと頂点の順)は変えない。
+        - Shapeを共有しているインスタンスすべてに影響する。
+        - 複製・結合・片側からの対称化・法線の反転はしない(1軸や3軸で反転すると、面の向きが裏返る)。
+
+        入力をすべて確かめてから書き込む。通常は ``cmds.xform`` を頂点ごとに呼び、1回のUndoにまとめる
+        (目安は1頂点あたり約0.2ms)。``fast=True`` なら ``MFnMesh.setPoints`` で全頂点を1回で書く。
         :meth:`Vertices.mirror <mlib.components.pointComponent.PointComponents.mirror>` と同じ処理。
 
         Args:
-            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、またはミラー面 ``"YZ"``・``"XZ"``・``"XY"``
-                (x⇔YZ、y⇔XZ、z⇔XY。文字の順序・大文字小文字は問わない)、または0/1/2。
-            worldSpace (bool): Trueは保持DAGパスのワールド空間、FalseはShapeのオブジェクト空間。
+            axis (str | int): 反転する軸かミラー面。既定は ``"x"``。軸は ``"x"``・``"y"``・``"z"``、
+                面は ``"YZ"``・``"XZ"``・``"XY"`` (xはYZ、yはXZ、zはXYと同じ。文字の順や大文字・小文字は問わない)、
+                番号なら0・1・2。
+            worldSpace (bool): Trueなら、このオブジェクトが持つDAGパスのワールド空間、Falseならシェイプの
+                オブジェクト空間で反転する。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。既定は原点で、Transformのピボットとは独立。
-            indices (Iterable[int] | None): 頂点番号。Noneは全頂点、空列は変更なし。重複は1回だけ処理する。
+            pivot (Iterable[float]): 反転の中心のXYZ(cm)。worldSpaceで選んだ空間の座標で指定する。
+                既定は原点で、Transformのピボットとは関係ない。
+            indices (Iterable[int] | None): 頂点番号。Noneなら全頂点、空の並びなら何も変えない。同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Mesh: 自身。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外、axisが文字列・int以外、番号の型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: axis・pivotが不正、またはworldSpace=Trueで変換マトリクスがほぼ特異な場合。
-            IndexError: 頂点番号が負または範囲外の場合。
-            RuntimeError: 形状データが無い・無効なシェイプ、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: axisやpivotが不正な場合、またはworldSpace=Trueで変換のマトリクスがほぼ特異な(逆にできない)場合。
+            IndexError: 頂点番号が負の数か範囲外の場合。
+            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -344,19 +359,21 @@ class Mesh(Shape):
         return self
 
     def getVertexNormals(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
-        """各頂点に接する面頂点法線を平均し、頂点ごとの法線を取得する。
+        """頂点ごとの法線を取得する。
+
+        各頂点に接する面頂点の法線を平均して求める。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            angleWeighted (bool): True の場合は隣接面の角度でウェイト付けした法線を取得する。
+            angleWeighted (bool): Trueなら、隣り合う面の角度で重み付けした法線を取得する。既定はFalse。
 
         Returns:
-            list[Vector]: 頂点番号順の平均法線。angleWeighted=False では
-                角度によるウェイト付けを行わない。MFnMesh.getVertexNormals() を使用する。
+            list[Vector]: 頂点番号の順に並ぶ、平均した法線。angleWeighted=Falseなら、
+                角度による重み付けはしない。MFnMesh.getVertexNormals()を使う。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -365,19 +382,19 @@ class Mesh(Shape):
         return [_vector_of(Vector, value) for value in self._geometry_fn().getVertexNormals(angleWeighted, space)]
 
     def getVertexAdjacency(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """頂点IDごとの隣接頂点とエッジ長を照会する。
+        """頂点ごとに、隣の頂点とエッジの長さを取得する。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[list[tuple[int, float]]]: 頂点ID順の隣接リスト。
-            各要素は隣接頂点IDとcm単位の距離で、エッジID順に格納する。
-            孤立頂点は空リスト、重複エッジは別々に保持する。
+            list[list[tuple[int, float]]]: 頂点番号の順に並ぶ、隣の頂点のリスト。
+            各要素は(隣の頂点番号, 距離(cm))で、エッジ番号の順に並ぶ。
+            どこにもつながっていない頂点は空リスト。同じ2頂点を結ぶエッジが複数あれば、別々に入る。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -394,11 +411,11 @@ class Mesh(Shape):
         return adjacency
 
     def getShells(self):
-        """辺でつながった頂点のまとまり(シェル)を取得する。
+        """エッジでつながった頂点のまとまり(シェル)を取得する。
 
         Returns:
-            list[Vertices]: シェルごとの頂点(番号の昇順)。シェルは最小の頂点番号の順に並ぶ。
-                孤立した頂点は1頂点のシェルになる。
+            list[Vertices]: シェルごとの頂点(番号の小さい順)。シェルは、それぞれのいちばん小さい頂点番号の順に並ぶ。
+                どこにもつながっていない頂点は、1頂点だけのシェルになる。
         """
         fn = self._geometry_fn()
         neighbors = [[] for _ in range(fn.numVertices)]
@@ -426,21 +443,21 @@ class Mesh(Shape):
         return shells
 
     def getUVShells(self, uvSet=None):
-        """UVでつながったUVのまとまり(UVシェル)を取得する(``MFnMesh.getUvShellsIds``)。
+        """UVでつながったUVのまとまり(UVシェル)を取得する。
 
-        形状のシェル(:meth:`getShells`)と違い、UVの切れ目で分かれる。
+        ``MFnMesh.getUvShellsIds`` を使う。形状のシェル(:meth:`getShells`)と違い、UVの切れ目で分かれる。
 
         Args:
-            uvSet (str | None): UVセットの名前。Noneは現在のUVセット。
+            uvSet (str | None): UVセットの名前。Noneなら今のUVセットを使う。
 
         Returns:
-            list[list[int]]: シェルごとのUV番号(昇順)。シェルは最小のUV番号の順に並ぶ。UVが無ければ空。
-                番号は指定したUVセットのもの(:class:`~mlib.components.uv.UVs` は現在のUVセットを参照するため、
-                別のUVセットの番号は番号のlistで返す)。
+            list[list[int]]: シェルごとのUV番号(小さい順)。シェルは、それぞれのいちばん小さいUV番号の順に並ぶ。
+                UVが無ければ空リスト。番号は指定したUVセットのもの
+                (:class:`~mlib.components.uv.UVs` は今のUVセットを指すので、別のUVセットの番号はintのlistで返す)。
 
         Raises:
             TypeError: uvSetが文字列・None以外の場合。
-            ValueError: 名前が空、そのUVセットが無い、またはメッシュにUVセットが無い場合。
+            ValueError: 名前が空の場合、そのUVセットが無い場合、またはメッシュにUVセットが無い場合。
         """
         name = self._resolve_uv_set(uvSet)
         _count, ids = self._geometry_fn().getUvShellsIds(name)
@@ -450,10 +467,12 @@ class Mesh(Shape):
         return sorted(shells.values(), key=lambda items: items[0])
 
     def getTriangles(self):
-        """Maya の三角形分割で、ポリゴンを三角形に分けた頂点の組を取得する。
+        """ポリゴンを三角形に分けたときの、頂点の組を取得する。
+
+        分け方はMayaの三角形分割に従う。
 
         Returns:
-            list[tuple[int, int, int]]: 三角形ごとの頂点番号。フェース番号の順で、各フェース内は Maya の分割順。
+            list[tuple[int, int, int]]: 三角形ごとの頂点番号。フェース番号の順に並び、各フェースの中はMayaが分けた順。
         """
         _counts, vertices = self._geometry_fn().getTriangles()
         return [(vertices[index], vertices[index + 1], vertices[index + 2]) for index in range(0, len(vertices), 3)]
@@ -461,21 +480,22 @@ class Mesh(Shape):
     def getMirrorVertexMap(self, axis="x", tolerance=0.01, worldSpace=_UNSET, *, ws=_UNSET):
         """頂点ごとに、位置を軸で反転した反対側の頂点を取得する。
 
-        反転した位置から ``tolerance`` 以内で最も近い頂点を反対側とする。トポロジーは見ない。
+        反転した位置から ``tolerance`` 以内で、いちばん近い頂点を反対側とする。トポロジーは見ない。
 
         Args:
-            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、ミラー面 ``"YZ"``・``"XZ"``・``"XY"``、または0/1/2。既定 ``"x"``。
-            tolerance (float): 反転した位置と頂点の距離の許容量(cm)。正の有限値。既定0.01。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、ミラー面 ``"YZ"``・``"XZ"``・``"XY"``、または0・1・2。既定は ``"x"``。
+            tolerance (float): 反転した位置と頂点の距離が、どこまでなら同じとみなすか(cm)。正の有限な数値。既定は0.01。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            dict[int, int]: {頂点番号: 反対側の頂点番号}。反対側が見つからない頂点は含めない。
-                軸の上の頂点は自身へ対応する(キーと値が同じ)。
+            dict[int, int]: {頂点番号: 反対側の頂点番号}。反対側が見つからない頂点は含まない。
+                軸の上にある頂点は、自身に対応する(キーと値が同じ)。
 
         Raises:
-            TypeError: axisが文字列・int以外、toleranceが実数以外、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: axisが不正、またはtoleranceが正の有限値でない場合。
+            TypeError: axisが文字列・int以外の場合、toleranceが実数以外の場合、worldSpaceがbool以外の場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: axisが不正な場合、またはtoleranceが正の有限な数値でない場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         component = _mirror_axis(axis)
@@ -494,144 +514,144 @@ class Mesh(Shape):
         return result
 
     def getClosestVertex(self, point, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定した位置に最も近い頂点を取得する。
+        """指定した位置にいちばん近い頂点を取得する。
 
-        頂点の位置だけで比べる(面の上の最近点ではない)。多数の点を調べるなら :meth:`getClosestVertices` を使う。
+        頂点の位置だけで比べる(面の上でいちばん近い点ではない)。たくさんの点を調べるなら :meth:`getClosestVertices` を使う。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vertex: 最も近い頂点。
+            Vertex: いちばん近い頂点。
 
         Raises:
-            TypeError: 点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分の数が3でない・有限でない、またはメッシュに頂点が無い場合。
-            RuntimeError: 形状データを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後等)の場合。
+            TypeError: 点の型や成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 成分の数が3でないか有限でない場合、またはメッシュに頂点が無い場合。
+            RuntimeError: 形状のデータを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後など)の場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         return Vertex(self, self.getClosestVertices([point], worldSpace=worldSpace)[0])
 
     def getClosestVertices(self, points, worldSpace=_UNSET, *, ws=_UNSET):
-        """点ごとに、最も近い頂点の番号を取得する。
+        """点ごとに、いちばん近い頂点の番号を取得する。
 
-        頂点の位置に一様な格子を作って探す(面の上の最近点ではない)。
+        頂点の位置に等間隔の格子を作って探す(面の上でいちばん近い点ではない)。
 
         Args:
             points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): 位置(cm)の並び。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[int]: 点の順の、最も近い頂点の番号。
+            list[int]: いちばん近い頂点の番号。pointsと同じ順に並ぶ。
 
         Raises:
-            TypeError: 点列・点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分の数が3でない・有限でない、またはメッシュに頂点が無い場合。
-            RuntimeError: 形状データを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後等)の場合。
+            TypeError: 点の並び・点の型・成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 成分の数が3でないか有限でない場合、またはメッシュに頂点が無い場合。
+            RuntimeError: 形状のデータを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後など)の場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         values = geometry_edit.point_list(points)
         vertices = [(point.x, point.y, point.z) for point in self._raw_points(worldSpace)]
         if not vertices:
-            raise ValueError(f"Mesh has no vertices: {self.getFullName()}")
+            raise ValueError(f"メッシュに頂点がありません: {self.getFullName()}")
         grid = _PointGrid(vertices)
         return [grid.nearest(value)[0] for value in values]
 
     def getEdge(self, index):
-        """番号から Edge を取得する。
+        """番号からエッジを1つ取得する。
 
         Args:
-            index (int): ゼロ始まりの番号。
+            index (int): 0から始まる番号。
 
         Returns:
-            Edge: シーンを参照する単体ラッパー。
+            Edge: シーンのエッジを指すオブジェクト。
         """
         return Edge(self, index)
 
     def getEdges(self, indices=None):
-        """指定した Edge 群を取得する。
+        """指定したエッジをまとめて取得する。
 
         Args:
-            indices (Iterable[int] | None): 番号列。None は現在の全要素。
+            indices (Iterable[int] | None): 番号の並び。Noneなら今あるすべてのエッジ。
 
         Returns:
-            Edges: 重複を除いたコレクション。
+            Edges: エッジのコレクション。同じ番号は1回だけ含む。
         """
         return Edges(self, indices)
 
     def getFace(self, index):
-        """番号から Face を取得する。
+        """番号からフェースを1つ取得する。
 
         Args:
-            index (int): ゼロ始まりの番号。
+            index (int): 0から始まる番号。
 
         Returns:
-            Face: シーンを参照する単体ラッパー。
+            Face: シーンのフェースを指すオブジェクト。
         """
         return Face(self, index)
 
     def getFaces(self, indices=None):
-        """指定した Face 群を取得する。
+        """指定したフェースをまとめて取得する。
 
         Args:
-            indices (Iterable[int] | None): 番号列。None は現在の全要素。
+            indices (Iterable[int] | None): 番号の並び。Noneなら今あるすべてのフェース。
 
         Returns:
-            Faces: 重複を除いたコレクション。
+            Faces: フェースのコレクション。同じ番号は1回だけ含む。
         """
         return Faces(self, indices)
 
     def getUV(self, index):
-        """番号から UV を取得する。
+        """番号からUVを1つ取得する。
 
         Args:
-            index (int): ゼロ始まりの番号。
+            index (int): 0から始まる番号。
 
         Returns:
-            UV: シーンを参照する単体ラッパー。
+            UV: シーンのUVを指すオブジェクト。
         """
         return UV(self, index)
 
     def getUVs(self, indices=None):
-        """指定した UV 群を取得する。
+        """指定したUVをまとめて取得する。
 
         Args:
-            indices (Iterable[int] | None): 番号列。None は現在の全要素。
+            indices (Iterable[int] | None): 番号の並び。Noneなら今あるすべてのUV。
 
         Returns:
-            UVs: 重複を除いたコレクション。
+            UVs: UVのコレクション。同じ番号は1回だけ含む。
         """
         return UVs(self, indices)
 
     def getNumUVs(self):
-        """現在の UV セットの要素数。
+        """今のUVセットのUVの数を取得する。
 
         Returns:
-            int: UV 数。
+            int: UVの数。
         """
         return self._geometry_fn().numUVs()
 
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定した位置に最も近い、メッシュの面の上の点を取得する。
+        """指定した位置にいちばん近い、メッシュの面の上の点を取得する。
 
         ``MFnMesh.getClosestPoint`` を使う。頂点だけを比べる :meth:`getClosestVertex` と違い、
         面の内部・エッジの上の点も返す。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。入力と戻り値の空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。入力と戻り値の両方に使う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            tuple[Vector, int]: 面の上の最も近い点(cm)と、その点を含む面の番号。
+            tuple[Vector, int]: 面の上でいちばん近い点(cm)と、その点を含む面の番号。
 
         Raises:
-            TypeError: 点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分の数が3でない・有限でない、またはメッシュに面が無い場合。
-            RuntimeError: 形状データを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後等)の場合。
+            TypeError: 点の型や成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 成分の数が3でないか有限でない場合、またはメッシュに面が無い場合。
+            RuntimeError: 形状のデータを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後など)の場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -641,28 +661,28 @@ class Mesh(Shape):
         return _vector_of(Vector, closest), face
 
     def getClosestNormal(self, point, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定した位置に最も近い面の上の点で、補間した法線を取得する。
+        """指定した位置にいちばん近い面の上の点で、補間した法線を取得する。
 
-        最も近い点を含む三角形の3つの面頂点法線(ハード/ソフトエッジを反映した、表示に使う法線)を、
-        その点の重心座標で補間して長さ1にする。``MFnMesh.getClosestNormal`` が返す面法線ではない。
-        ハードエッジだけのメッシュ(立方体等)では面法線と同じ向きになる。
+        いちばん近い点を含む三角形の、3つの面頂点の法線(ハードエッジ・ソフトエッジを反映した、表示に使う法線)を、
+        その点の重心座標で補間して長さ1にする。``MFnMesh.getClosestNormal`` が返す面の法線ではない。
+        ハードエッジだけのメッシュ(立方体など)では、面の法線と同じ向きになる。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。入力と戻り値の空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。入力と戻り値の両方に使う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector: 長さ1の法線。ワールド空間ではオブジェクト空間の法線をマトリクスの逆転置で変換する。
+            Vector: 長さ1の法線。ワールド空間では、オブジェクト空間の法線をマトリクスの逆転置で変換する。
 
         Raises:
-            TypeError: 点の型・成分が不正、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分の数が3でない・有限でない、またはメッシュに面が無い場合。
-            RuntimeError: 形状データを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後等)の場合。
+            TypeError: 点の型や成分が不正な場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 成分の数が3でないか有限でない場合、またはメッシュに面が無い場合。
+            RuntimeError: 形状のデータを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後など)の場合。
 
         Note:
-            最も近い点はオブジェクト空間で探す(``MMeshIntersector``)。非一様なスケールを持つ
-            メッシュのワールド空間では、:meth:`getClosestPoint` と違う面の点になることがある。
+            いちばん近い点はオブジェクト空間で探す(``MMeshIntersector``)。XYZで違うスケールが掛かった
+            メッシュをワールド空間で調べると、:meth:`getClosestPoint` と違う面の点になることがある。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -679,43 +699,44 @@ class Mesh(Shape):
         return _vector_of(Vector, normal.normal())
 
     def intersect(self, origin, direction, *, maxDistance=None, worldSpace=_UNSET, ws=_UNSET):
-        """半直線とメッシュの交点を、近い順に取得する。
+        """半直線とメッシュが交わる点を、近い順に取得する。
 
-        ``MFnMesh.allIntersections`` を使い、``origin`` から ``direction`` の向きへだけ調べる(逆向きは調べない)。
+        ``MFnMesh.allIntersections`` を使い、``origin`` から ``direction`` の向きにだけ調べる(逆向きは調べない)。
         面の向き(法線)に関係なく、表からでも裏からでも当たる(両面)。
 
         Args:
             origin (Sequence[float] | om2.MPoint | om2.MVector): 半直線の始点(cm)。
-            direction (Sequence[float] | om2.MVector): 向き。長さは問わない(内部で長さ1にする)。
-            maxDistance (float | None): 始点からの最大距離(cm)。正の有限値。Noneは制限なし。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。入力と戻り値の空間。
+            direction (Sequence[float] | om2.MVector): 向き。長さは問わない(中で長さ1にする)。
+            maxDistance (float | None): 始点からどこまで調べるか(cm)。正の有限な数値。Noneなら制限しない。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。入力と戻り値の両方に使う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            list[tuple[Vector, int, float]]: (交点、面の番号、始点からの距離cm)の距離の昇順。
-                当たらなければ空。同じ面を三角形の境目で2回当てた結果は1つにまとめる。
+            list[tuple[Vector, int, float]]: (交点, 面の番号, 始点からの距離(cm))。距離の近い順に並ぶ。
+                当たらなければ空リスト。1つの面を三角形の境目で2回当てた結果は、1つにまとめる。
                 面と面の境目のエッジに当たった場合は、それぞれの面を別の要素で返す。
 
         Raises:
-            TypeError: 点・向きの型・成分が不正、maxDistanceが数値・None以外、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分が有限でない、directionの長さが0、またはmaxDistanceが正の有限値でない場合。
+            TypeError: 点や向きの型・成分が不正な場合、maxDistanceが数値・None以外の場合、worldSpaceがbool以外の場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 有限でない成分がある場合、directionの長さが0の場合、またはmaxDistanceが正の有限な数値でない場合。
 
         Note:
-            Mayaの交差判定は単精度(float)で計算するため、交点と距離は1e-5程度の誤差を含む。
+            Mayaの交差の判定は単精度(float)で計算するので、交点と距離には1e-5くらいの誤差がある。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
         source = self._resolve_query_point(origin, "origin")
         vector = om2.MVector(*geometry_edit.point_list([direction])[0])
         if vector.length() == 0:
-            raise ValueError("direction must have a nonzero length")
+            raise ValueError("directionは長さが0でないベクトルで指定してください")
         if maxDistance is None:
             limit = _NO_DISTANCE_LIMIT
         else:
             if isinstance(maxDistance, bool) or not isinstance(maxDistance, (int, float)):
-                raise TypeError("maxDistance must be a number or None")
+                raise TypeError("maxDistanceは数値かNoneで指定してください")
             if not math.isfinite(maxDistance) or maxDistance <= 0:
-                raise ValueError("maxDistance must be positive and finite")
+                raise ValueError("maxDistanceは正の有限な数値で指定してください")
             limit = float(maxDistance)
         fn = self._geometry_fn()
         if not fn.numPolygons:
@@ -742,28 +763,30 @@ class Mesh(Shape):
         return result
 
     def getUVAtPoint(self, point, uvSet=None, worldSpace=_UNSET, *, ws=_UNSET):
-        """指定した位置に最も近い面の上の点の UV を取得する。
+        """指定した位置にいちばん近い、面の上の点のUVを取得する。
 
-        位置が面の上に無ければ、最も近い面の上の点の UV になる。最も近い点を含む三角形の3つの面頂点UVを、
-        その点の重心座標で補間する(``closestPointOnMesh`` ノードの ``parameterU/V`` と同じ値)。
-        ``MFnMesh.getUVAtPoint`` は面の境目の近くで隣の面のUVを返すことがあるため使わない。
+        位置が面の上に無ければ、いちばん近い面の上の点のUVになる。
+        いちばん近い点を含む三角形の、3つの面頂点のUVを、その点の重心座標で補間する
+        (``closestPointOnMesh`` ノードの ``parameterU/V`` と同じ値)。
+        ``MFnMesh.getUVAtPoint`` は、面の境目の近くで隣の面のUVを返すことがあるので使わない。
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。
-            uvSet (str | None): UVセットの名前。Noneは現在のUVセット。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            uvSet (str | None): UVセットの名前。Noneなら今のUVセットを使う。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             tuple[float, float]: (u, v)。
 
         Raises:
-            TypeError: 点の型・成分が不正、uvSetが文字列・None以外、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 成分が有限でない、UVセットが無い、またはメッシュに面が無い場合。
-            RuntimeError: 最も近い面にUVが割り当てられていない場合。
+            TypeError: 点の型や成分が不正な場合、uvSetが文字列・None以外の場合、worldSpaceがbool以外の場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 有限でない成分がある場合、UVセットが無い場合、またはメッシュに面が無い場合。
+            RuntimeError: いちばん近い面にUVが割り当てられていない場合。
 
         Note:
-            最も近い点は :meth:`getClosestNormal` と同じくオブジェクト空間で探す。
+            いちばん近い点は、:meth:`getClosestNormal` と同じくオブジェクト空間で探す。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
@@ -776,39 +799,40 @@ class Mesh(Shape):
             try:
                 corner_u, corner_v = fn.getUV(fn.getPolygonUVid(face, local.index(vertex), name), name)
             except RuntimeError:
-                raise RuntimeError(f"The closest face has no UVs in {name}: {self.getFullName()}") from None
+                raise RuntimeError(f"最も近いフェースには{name}のUVがありません: {self.getFullName()}") from None
             u += corner_u * weight
             v += corner_v * weight
         return u, v
 
     def getPointAtUV(self, u, v, uvSet=None, worldSpace=_UNSET, *, ws=_UNSET):
-        """UV の位置に対応する、面の上の点を取得する。
+        """UVの位置に対応する、面の上の点を取得する。
 
         面番号の順に、UVの範囲に (u, v) を含む面を ``MFnMesh.getPointAtUV`` で調べ、最初に見つかった面の点を返す。
-        UVが重なっていて複数の面に当たる場合も、番号の最も小さい面の点になる。
+        UVが重なっていて複数の面に当たる場合も、番号がいちばん小さい面の点になる。
 
         Args:
             u (float): U座標。
             v (float): V座標。
-            uvSet (str | None): UVセットの名前。Noneは現在のUVセット。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            uvSet (str | None): UVセットの名前。Noneなら今のUVセットを使う。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             Vector | None: 面の上の点(cm)。どの面のUVにも含まれない位置ならNone。
 
         Raises:
-            TypeError: u・vが数値以外、uvSetが文字列・None以外、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でない、またはUVセットが無い場合。
+            TypeError: u・vが数値以外の場合、uvSetが文字列・None以外の場合、worldSpaceがbool以外の場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: u・vが有限でない場合、またはUVセットが無い場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
         values = []
         for label, value in (("u", u), ("v", v)):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise TypeError(f"{label} must be a number")
+                raise TypeError(f"{label}は数値で指定してください")
             if not math.isfinite(value):
-                raise ValueError(f"{label} must be finite")
+                raise ValueError(f"{label}は有限な数値で指定してください")
             values.append(float(value))
         u, v = values
         name = self._resolve_uv_set(uvSet)
@@ -838,14 +862,14 @@ class Mesh(Shape):
     def getVertexColors(self, colorSet=None):
         """頂点ごとの色を取得する。
 
-        ``MFnMesh.getVertexColors`` を使う。面ごとに違う色を持つ頂点(面頂点の色)は、その平均になる。
+        ``MFnMesh.getVertexColors`` を使う。面ごとに違う色を持つ頂点(面頂点の色)は、それらの平均になる。
 
         Args:
-            colorSet (str | None): カラーセットの名前。Noneは現在のカラーセット。
+            colorSet (str | None): カラーセットの名前。Noneなら今のカラーセットを使う。
 
         Returns:
-            list[tuple[float, float, float, float] | None]: 頂点番号順の(R, G, B, A)。
-                色の無い頂点はNone。Noneを指定してカラーセットが1つも無い場合は全てNone。
+            list[tuple[float, float, float, float] | None]: 頂点番号の順に並ぶ(R, G, B, A)。
+                色の無い頂点はNone。colorSetにNoneを指定し、カラーセットが1つも無い場合はすべてNone。
 
         Raises:
             TypeError: colorSetが文字列・None以外の場合。
@@ -864,32 +888,34 @@ class Mesh(Shape):
     def setVertexColors(self, colors, vertices=None, *, colorSet=None, fast=False):
         """頂点ごとの色を設定し、自身を返す。
 
-        通常は ``cmds.polyColorPerVertex`` で、同じ色の頂点をまとめて1回ずつ書き、1回のUndoにまとめる。
-        色の数が多いと時間がかかる(目安は1色あたり約1ms)。``fast=True`` は ``MFnMesh.setVertexColors`` で
-        1回で書き、Undoに記録しない。頂点のすべての面頂点の色を同じ色にする。
+        頂点のすべての面頂点を同じ色にする。
+        通常は ``cmds.polyColorPerVertex`` で、同じ色の頂点をまとめて色ごとに1回ずつ書き、1回のUndoにまとめる。
+        色の種類が多いと時間がかかる(目安は1色あたり約1ms)。
+        ``fast=True`` なら ``MFnMesh.setVertexColors`` で1回で書き、Undoには記録しない。
 
         Args:
-            colors (Iterable[Sequence[float] | om2.MColor]): 頂点の色。各色は (R, G, B) または (R, G, B, A) の
-                有限な数値(Aを省略すると1.0)。vertices と同じ数(None なら頂点数)。
-            vertices (Component | Components | Iterable[int] | None): 書き込む頂点の番号。None は全頂点。
-                重複は不可。指定した順に colors と対応する。
-            colorSet (str | None): カラーセットの名前。Noneは現在のカラーセット(無ければMayaが
-                ``colorSet1`` を作る)。名前を指定した場合は既にある必要があり、現在のカラーセットは変えない。
+            colors (Iterable[Sequence[float] | om2.MColor]): 頂点の色。各色は (R, G, B) か (R, G, B, A) の
+                有限な数値(Aを省略すると1.0)。verticesと同じ数だけ渡す(verticesがNoneなら頂点数だけ)。
+            vertices (Component | Components | Iterable[int] | None): 書き込む頂点の番号。Noneなら全頂点。
+                同じ番号を2回指定できない。指定した順にcolorsと対応する。
+            colorSet (str | None): カラーセットの名前。Noneなら今のカラーセットを使う(無ければMayaが
+                ``colorSet1`` を作る)。名前を指定する場合は、そのカラーセットがすでにある必要がある。
+                今のカラーセットは変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Mesh: 自身。
 
         Raises:
-            TypeError: fastがbool以外、colorSetが文字列・None以外、または色・頂点の型が不正な場合。
-            ValueError: 色の数が頂点の数と合わない、成分の数が3・4以外か有限でない、頂点が重複している、
-                別のメッシュの頂点を渡した、またはカラーセットが無い場合。
+            TypeError: fastがbool以外の場合、colorSetが文字列・None以外の場合、または色や頂点の型が不正な場合。
+            ValueError: 色の数が頂点の数と合わない場合、成分の数が3・4以外か有限でない場合、頂点が重なっている場合、
+                別のメッシュの頂点を渡した場合、またはカラーセットが無い場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: シェイプのロック等でMayaが書込みを拒否した場合。
+            RuntimeError: シェイプのロックなどでMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
 
         Note:
-            通常経路は、コンストラクションヒストリのあるメッシュでは ``polyColorPerVertex`` ノードを履歴へ足す。
+            通常の処理では、コンストラクションヒストリのあるメッシュに ``polyColorPerVertex`` ノードをヒストリとして足す。
         """
         _require_bool(fast, "fast")
         with _edit_context("mlibMeshSetVertexColors", fast):
@@ -907,25 +933,25 @@ class Mesh(Shape):
         """UVセットの名前を取得する。
 
         Returns:
-            list[str]: Mayaの並び順のUVセットの名前。先頭が既定のUVセット(``uvSet[0]``)。
+            list[str]: UVセットの名前。Mayaが返す順に並び、先頭が既定のUVセット(``uvSet[0]``)。
         """
         return list(self._geometry_fn().getUVSetNames())
 
     def getCurrentUVSet(self):
-        """現在のUVセットの名前を取得する。
+        """今のUVセットの名前を取得する。
 
         Returns:
-            str: 現在のUVセットの名前。
+            str: 今のUVセットの名前。
         """
         return self._geometry_fn().currentUVSetName()
 
     def setCurrentUVSet(self, name):
-        """現在のUVセットを設定し、自身を返す。
+        """今のUVセットを切り替え、自身を返す。
 
-        ``cmds.polyUVSet(currentUVSet=True)`` で設定し、1回のUndoで戻る。
+        ``cmds.polyUVSet(currentUVSet=True)`` で設定する。1回のUndoで戻せる。
 
         Args:
-            name (str): 既にあるUVセットの名前。
+            name (str): すでにあるUVセットの名前。
 
         Returns:
             Mesh: 自身。
@@ -942,7 +968,7 @@ class Mesh(Shape):
     def createUVSet(self, name):
         """空のUVセットを作り、自身を返す。
 
-        ``cmds.polyUVSet(create=True)`` で作り、1回のUndoで戻る。現在のUVセットは変えない。
+        ``cmds.polyUVSet(create=True)`` で作る。1回のUndoで戻せる。現在のUVセットは変えない。
         コンストラクションヒストリのあるメッシュでは ``createUVSet`` ノードを履歴へ足す。
 
         Args:
@@ -953,7 +979,7 @@ class Mesh(Shape):
 
         Raises:
             TypeError: nameが文字列以外の場合。
-            ValueError: nameが空、または同じ名前のUVセットが既にある場合。
+            ValueError: nameが空、または同じ名前のUVセットがすでにある場合。
         """
         self._require_uv_set(name, "name", exists=False)
         with undoChunk("mlibMeshCreateUVSet"):
@@ -963,18 +989,18 @@ class Mesh(Shape):
     def copyUVSet(self, source, target):
         """UVセットを新しい名前へ複製し、自身を返す。
 
-        ``cmds.polyUVSet(copy=True)`` で複製し、1回のUndoで戻る。現在のUVセットは変えない。
+        ``cmds.polyUVSet(copy=True)`` で複製する。1回のUndoで戻せる。現在のUVセットは変えない。
 
         Args:
             source (str): 複製元のUVセットの名前。
-            target (str): 新しいUVセットの名前。既にある名前は不可(上書きしない)。
+            target (str): 新しいUVセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
             Mesh: 自身。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
-            ValueError: 名前が空、sourceが無い、またはtargetが既にある場合。
+            ValueError: 名前が空、sourceが無い、またはtargetがすでにある場合。
         """
         self._require_uv_set(source, "source", exists=True)
         self._require_uv_set(target, "target", exists=False)
@@ -985,19 +1011,19 @@ class Mesh(Shape):
     def renameUVSet(self, name, newName):
         """UVセットの名前を変え、自身を返す。
 
-        ``cmds.polyUVSet(rename=True)`` で変え、1回のUndoで戻る。現在のUVセットの名前を変えた場合は、
+        ``cmds.polyUVSet(rename=True)`` で変える。1回のUndoで戻せる。現在のUVセットの名前を変えた場合は、
         新しい名前が現在のUVセットになる。
 
         Args:
-            name (str): 既にあるUVセットの名前。
-            newName (str): 新しい名前。既にある名前は不可。
+            name (str): すでにあるUVセットの名前。
+            newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
             Mesh: 自身。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
-            ValueError: 名前が空、nameが無い、またはnewNameが既にある場合。
+            ValueError: 名前が空、nameが無い、またはnewNameがすでにある場合。
         """
         self._require_uv_set(name, "name", exists=True)
         self._require_uv_set(newName, "newName", exists=False)
@@ -1008,11 +1034,11 @@ class Mesh(Shape):
     def deleteUVSet(self, name):
         """UVセットを削除し、自身を返す。
 
-        ``cmds.polyUVSet(delete=True)`` で削除し、1回のUndoで戻る。現在のUVセットを削除すると、
+        ``cmds.polyUVSet(delete=True)`` で削除する。1回のUndoで戻せる。現在のUVセットを削除すると、
         Mayaは既定のUVセット(:meth:`getUVSetNames` の先頭)を現在のUVセットにする。
 
         Args:
-            name (str): 既にあるUVセットの名前。
+            name (str): すでにあるUVセットの名前。
 
         Returns:
             Mesh: 自身。
@@ -1024,7 +1050,7 @@ class Mesh(Shape):
         """
         self._require_uv_set(name, "name", exists=True)
         if name == self._default_uv_set():
-            raise ValueError(f"The default UV set cannot be deleted: {name}")
+            raise ValueError(f"既定のUVセットは削除できません: {name}")
         with undoChunk("mlibMeshDeleteUVSet"):
             cmds.polyUVSet(self.getFullName(), delete=True, uvSet=name)
         return self
@@ -1033,15 +1059,15 @@ class Mesh(Shape):
         """カラーセットの名前を取得する。
 
         Returns:
-            list[str]: Mayaの並び順のカラーセットの名前。無ければ空。
+            list[str]: カラーセットの名前。Mayaが返す順に並ぶ。無ければ空リスト。
         """
         return list(self._geometry_fn().getColorSetNames())
 
     def getCurrentColorSet(self):
-        """現在のカラーセットの名前を取得する。
+        """今のカラーセットの名前を取得する。
 
         Returns:
-            str | None: 現在のカラーセットの名前。カラーセットが無ければNone。
+            str | None: 今のカラーセットの名前。カラーセットが無ければNone。
         """
         fn = self._geometry_fn()
         if not fn.numColorSets:
@@ -1049,12 +1075,12 @@ class Mesh(Shape):
         return fn.currentColorSetName() or None
 
     def setCurrentColorSet(self, name):
-        """現在のカラーセットを設定し、自身を返す。
+        """今のカラーセットを切り替え、自身を返す。
 
-        ``cmds.polyColorSet(currentColorSet=True)`` で設定し、1回のUndoで戻る。
+        ``cmds.polyColorSet(currentColorSet=True)`` で設定する。1回のUndoで戻せる。
 
         Args:
-            name (str): 既にあるカラーセットの名前。
+            name (str): すでにあるカラーセットの名前。
 
         Returns:
             Mesh: 自身。
@@ -1071,7 +1097,7 @@ class Mesh(Shape):
     def createColorSet(self, name):
         """空のRGBAのカラーセットを作り、自身を返す。
 
-        ``cmds.polyColorSet(create=True)`` で作り、1回のUndoで戻る。:meth:`createUVSet` と違い、
+        ``cmds.polyColorSet(create=True)`` で作る。1回のUndoで戻せる。:meth:`createUVSet` と違い、
         Mayaの動作どおり作ったカラーセットが現在のカラーセットになる。
         コンストラクションヒストリのあるメッシュでは ``createColorSet`` ノードを履歴へ足す。
 
@@ -1083,7 +1109,7 @@ class Mesh(Shape):
 
         Raises:
             TypeError: nameが文字列以外の場合。
-            ValueError: nameが空、または同じ名前のカラーセットが既にある場合。
+            ValueError: nameが空、または同じ名前のカラーセットがすでにある場合。
         """
         self._require_color_set(name, "name", exists=False)
         with undoChunk("mlibMeshCreateColorSet"):
@@ -1093,18 +1119,18 @@ class Mesh(Shape):
     def copyColorSet(self, source, target):
         """カラーセットを新しい名前へ複製し、自身を返す。
 
-        ``cmds.polyColorSet(copy=True)`` で複製し、1回のUndoで戻る。現在のカラーセットは変えない。
+        ``cmds.polyColorSet(copy=True)`` で複製する。1回のUndoで戻せる。現在のカラーセットは変えない。
 
         Args:
             source (str): 複製元のカラーセットの名前。
-            target (str): 新しいカラーセットの名前。既にある名前は不可(上書きしない)。
+            target (str): 新しいカラーセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
             Mesh: 自身。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
-            ValueError: 名前が空、sourceが無い、またはtargetが既にある場合。
+            ValueError: 名前が空、sourceが無い、またはtargetがすでにある場合。
         """
         self._require_color_set(source, "source", exists=True)
         self._require_color_set(target, "target", exists=False)
@@ -1115,19 +1141,19 @@ class Mesh(Shape):
     def renameColorSet(self, name, newName):
         """カラーセットの名前を変え、自身を返す。
 
-        ``cmds.polyColorSet(rename=True)`` で変え、1回のUndoで戻る。現在のカラーセットの名前を変えた場合は、
+        ``cmds.polyColorSet(rename=True)`` で変える。1回のUndoで戻せる。現在のカラーセットの名前を変えた場合は、
         新しい名前が現在のカラーセットになる。
 
         Args:
-            name (str): 既にあるカラーセットの名前。
-            newName (str): 新しい名前。既にある名前は不可。
+            name (str): すでにあるカラーセットの名前。
+            newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
             Mesh: 自身。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
-            ValueError: 名前が空、nameが無い、またはnewNameが既にある場合。
+            ValueError: 名前が空、nameが無い、またはnewNameがすでにある場合。
         """
         self._require_color_set(name, "name", exists=True)
         self._require_color_set(newName, "newName", exists=False)
@@ -1138,11 +1164,11 @@ class Mesh(Shape):
     def deleteColorSet(self, name):
         """カラーセットを削除し、自身を返す。
 
-        ``cmds.polyColorSet(delete=True)`` で削除し、1回のUndoで戻る。現在のカラーセットを削除すると、
+        ``cmds.polyColorSet(delete=True)`` で削除する。1回のUndoで戻せる。現在のカラーセットを削除すると、
         Mayaは残りの先頭のカラーセットを現在のカラーセットにする(残りが無ければ現在のカラーセットは無くなる)。
 
         Args:
-            name (str): 既にあるカラーセットの名前。
+            name (str): すでにあるカラーセットの名前。
 
         Returns:
             Mesh: 自身。
@@ -1157,12 +1183,13 @@ class Mesh(Shape):
         return self
 
     def getBorderEdges(self):
-        """メッシュの縁(接する面が1つだけ)のエッジを取得する。
+        """メッシュの縁のエッジを取得する。
 
-        3つ以上の面が接する非多様体のエッジと、面の無いエッジは含めない。
+        縁のエッジとは、接している面が1つだけのエッジのこと。
+        3つ以上の面が接している(非多様体の)エッジと、面に接していないエッジは含まない。
 
         Returns:
-            Edges: 番号の昇順のエッジ。縁が無ければ空。
+            Edges: 番号の小さい順のエッジ。縁が無ければ空。
         """
         iterator = om2.MItMeshEdge(self.mpath())
         found = []
@@ -1173,10 +1200,10 @@ class Mesh(Shape):
         return Edges(self, found)
 
     def getBorderVertices(self):
-        """メッシュの縁のエッジ(:meth:`getBorderEdges`)の端の頂点を取得する。
+        """メッシュの縁のエッジ(:meth:`getBorderEdges`)の、両端の頂点を取得する。
 
         Returns:
-            Vertices: 番号の昇順の頂点。縁が無ければ空。
+            Vertices: 番号の小さい順の頂点。縁が無ければ空。
         """
         fn = self._geometry_fn()
         found = set()
@@ -1188,7 +1215,7 @@ class Mesh(Shape):
         """全頂点の位置を om2 の点列で返す(Vector へ変換しない照会用)。
 
         Args:
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。
 
         Returns:
             om2.MPointArray: 頂点番号順の位置。
@@ -1206,7 +1233,7 @@ class Mesh(Shape):
         def key(point):
             values = (point.x, point.y, point.z)
             if not all(math.isfinite(v) for v in values):
-                raise ValueError("Vertex positions must be finite")
+                raise ValueError("頂点の位置は有限な数値にしてください")
             return tuple(math.floor(v / tolerance) for v in values) if tolerance else values
 
         for index, point in enumerate(source_points):
@@ -1217,10 +1244,10 @@ class Mesh(Shape):
             cells = [(cell[0] + x, cell[1] + y, cell[2] + z) for x in (-1, 0, 1) for y in (-1, 0, 1) for z in (-1, 0, 1)] if tolerance else [cell]
             candidates = [index for neighbor in cells for index in buckets.get(neighbor, ()) if (point - source_points[index]).length() <= tolerance]
             if len(candidates) != 1:
-                raise ValueError("Position correspondence is missing or ambiguous within tolerance")
+                raise ValueError("位置の対応が見つからないか、許容誤差の範囲で決められません")
             mapping.append(candidates[0])
         if len(set(mapping)) != len(mapping):
-            raise ValueError("Position correspondence is not one-to-one")
+            raise ValueError("位置の対応が1対1になっていません")
         return mapping
 
     @staticmethod
@@ -1229,20 +1256,20 @@ class Mesh(Shape):
 
         def signatures(fn):
             if uv_set not in fn.getUVSetNames():
-                raise ValueError(f"UV set does not exist: {uv_set}")
+                raise ValueError(f"UVセットが存在しません: {uv_set}")
             counts, connects = fn.getVertices()
             uv_counts, uv_ids = fn.getAssignedUVs(uv_set)
             if list(counts) != list(uv_counts):
-                raise ValueError("Every face vertex must have a UV")
+                raise ValueError("すべてのフェース頂点にUVが必要です")
             u, v = fn.getUVs(uv_set)
             values = [[] for _ in range(fn.numVertices)]
             for vertex, uv in zip(connects, uv_ids):
                 value = (u[uv], v[uv])
                 if not all(math.isfinite(x) for x in value):
-                    raise ValueError("UV coordinates must be finite")
+                    raise ValueError("UV座標は有限な数値にしてください")
                 values[vertex].append(value)
             if any(not row for row in values):
-                raise ValueError("Isolated vertices cannot be matched by UV")
+                raise ValueError("孤立した頂点はUVでは対応付けられません")
             return [sorted(row) for row in values]
 
         source_rows, target_rows = signatures(source), signatures(target)
@@ -1264,10 +1291,10 @@ class Mesh(Shape):
                 if all(abs(a - b) <= tolerance for pair, other in zip(row, source_rows[i]) for a, b in zip(pair, other))
             ]
             if len(candidates) != 1:
-                raise ValueError("UV vertex correspondence is missing or ambiguous")
+                raise ValueError("UVによる頂点の対応が見つからないか、決められません")
             mapping.append(candidates[0])
         if len(set(mapping)) != len(mapping):
-            raise ValueError("UV correspondence is not one-to-one")
+            raise ValueError("UVの対応が1対1になっていません")
         return mapping
 
     @staticmethod
@@ -1284,21 +1311,21 @@ class Mesh(Shape):
     def _require_reorder_supported(self, fn, *, fast=False):
         """番号依存の外部接続や未対応のメッシュデータを変更前に拒否する。"""
         if self.mpath().isInstanced() or self._dependency_fn().isFromReferencedFile:
-            raise ValueError("Instanced or referenced targets are not supported")
+            raise ValueError("インスタンスやリファレンスのターゲットには対応していません")
         if self._dependency_fn().isLocked:
-            raise RuntimeError("Mesh is locked")
+            raise RuntimeError("メッシュがロックされています")
         if self.getPlug("outMesh").mplug().isLocked:
-            raise RuntimeError("Mesh output is locked")
+            raise RuntimeError("メッシュの出力がロックされています")
         sets, members = fn.getConnectedSetsAndMembers(self.mpath().instanceNumber(), False)
         if any(not member.isNull() and not group.hasFn(om2.MFn.kShadingEngine) for group, member in zip(sets, members)):
-            raise ValueError("Component sets other than shading assignments are not supported")
+            raise ValueError("シェーディングの割り当て以外のコンポーネントのセットには対応していません")
         if self.getPlug("inMesh").mplug().isDestination:
-            raise ValueError("Target must have no input history")
+            raise ValueError("ターゲットには入力ヒストリがない状態にしてください")
         for name in ("outMesh", "worldMesh"):
             plug = self.getPlug(name).mplug()
             plugs = [plug.elementByLogicalIndex(i) for i in plug.getExistingArrayAttributeIndices()] if plug.isArray else [plug]
             if any(p.isSource for p in plugs):
-                raise ValueError("Target must not drive downstream geometry")
+                raise ValueError("ターゲットは下流のジオメトリを駆動していない状態にしてください")
         creased = False
         for getter in (fn.getCreaseEdges, fn.getCreaseVertices):
             try:
@@ -1307,9 +1334,9 @@ class Mesh(Shape):
                 # クリースデータ自体がない通常メッシュではMayaがkFailureを返す。
                 pass
         if fn.getColorSetNames() or creased or fn.getHoles():
-            raise ValueError("Color sets, creases and polygon holes are not supported")
+            raise ValueError("カラーセット・クリース・ポリゴンの穴には対応していません")
         if any(fn.hasBlindData(kind) for kind in (om2.MFn.kMeshVertComponent, om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent)):
-            raise ValueError("Mesh blind data is not supported")
+            raise ValueError("メッシュのブラインドデータには対応していません")
         for name in ("inMesh", "cachedInMesh", "pnts"):
             plug = self.getPlug(name).mplug()
             require_writable(plug)
@@ -1320,7 +1347,7 @@ class Mesh(Shape):
                     for j in range(item.numChildren()):
                         require_writable(item.child(j))
                         if not fast and item.child(j).asFloat() != 0:
-                            raise NotImplementedError("Normal reorder does not support vertex tweaks; use fast=True on a copy")
+                            raise NotImplementedError("通常の並べ替えは頂点のtweakに対応していません。コピーに対してfast=Trueを使います")
 
     @staticmethod
     def _reordered_mesh_data(fn, counts, remapped, mapping):
@@ -1387,7 +1414,7 @@ class Mesh(Shape):
             ValueError: 成分の数が3でない、または有限でない場合。
         """
         if isinstance(point, (str, bytes)):
-            raise TypeError(f"{name} must be a sequence of 3 numbers")
+            raise TypeError(f"{name}は3つの数値の並びで指定してください")
         return om2.MPoint(*geometry_edit.point_list([point])[0])
 
     def _require_faces(self):
@@ -1401,7 +1428,7 @@ class Mesh(Shape):
         """
         fn = self._geometry_fn()
         if not fn.numPolygons:
-            raise ValueError(f"Mesh has no faces: {self.getFullName()}")
+            raise ValueError(f"メッシュにフェースがありません: {self.getFullName()}")
         return fn
 
     def _closest_triangle(self, point, worldSpace):
@@ -1435,7 +1462,7 @@ class Mesh(Shape):
         """UVセットの指定を、実在する名前にする。
 
         Args:
-            uvSet (str | None): UVセットの名前。Noneは現在のUVセット。
+            uvSet (str | None): UVセットの名前。Noneなら今のUVセットを使う。
 
         Returns:
             str: UVセットの名前。
@@ -1447,7 +1474,7 @@ class Mesh(Shape):
         if uvSet is None:
             name = self._geometry_fn().currentUVSetName()
             if not name:
-                raise ValueError(f"Mesh has no UV set: {self.getFullName()}")
+                raise ValueError(f"メッシュにUVセットがありません: {self.getFullName()}")
             return name
         self._require_uv_set(uvSet, "uvSet", exists=True)
         return uvSet
@@ -1458,7 +1485,7 @@ class Mesh(Shape):
         Args:
             name (str): UVセットの名前。
             label (str): 例外メッセージに使う引数名。
-            exists (bool): Trueは既にあること、Falseはまだ無いことを求める。
+            exists (bool): Trueはすでにあること、Falseはまだ無いことを求める。
 
         Returns:
             None: 値を返さない。
@@ -1468,14 +1495,14 @@ class Mesh(Shape):
             ValueError: nameが空、または有無が求める状態と違う場合。
         """
         if not isinstance(name, str):
-            raise TypeError(f"{label} must be a str")
+            raise TypeError(f"{label}はstrで指定してください")
         if not name:
-            raise ValueError(f"{label} must be a non-empty string")
+            raise ValueError(f"{label}は空でない文字列で指定してください")
         found = name in self._geometry_fn().getUVSetNames()
         if exists and not found:
-            raise ValueError(f"UV set does not exist: {name}")
+            raise ValueError(f"UVセットが存在しません: {name}")
         if not exists and found:
-            raise ValueError(f"UV set already exists: {name}")
+            raise ValueError(f"UVセットはすでに存在します: {name}")
 
     def _default_uv_set(self):
         """既定のUVセット(``uvSet[0]``)の名前を返す。
@@ -1505,11 +1532,11 @@ class Mesh(Shape):
                 return None
             return fn.currentColorSetName() or None
         if not isinstance(colorSet, str):
-            raise TypeError("colorSet must be a str or None")
+            raise TypeError("colorSetはstrかNoneで指定してください")
         if not colorSet:
-            raise ValueError("colorSet must be a non-empty string")
+            raise ValueError("colorSetは空でない文字列で指定してください")
         if colorSet not in fn.getColorSetNames():
-            raise ValueError(f"Color set does not exist: {colorSet}")
+            raise ValueError(f"カラーセットが存在しません: {colorSet}")
         return colorSet
 
     def _require_color_set(self, name, label, *, exists):
@@ -1518,7 +1545,7 @@ class Mesh(Shape):
         Args:
             name (str): カラーセットの名前。
             label (str): 例外メッセージに使う引数名。
-            exists (bool): Trueは既にあること、Falseはまだ無いことを求める。
+            exists (bool): Trueはすでにあること、Falseはまだ無いことを求める。
 
         Returns:
             None: 値を返さない。
@@ -1528,14 +1555,14 @@ class Mesh(Shape):
             ValueError: nameが空、または有無が求める状態と違う場合。
         """
         if not isinstance(name, str):
-            raise TypeError(f"{label} must be a str")
+            raise TypeError(f"{label}はstrで指定してください")
         if not name:
-            raise ValueError(f"{label} must be a non-empty string")
+            raise ValueError(f"{label}は空でない文字列で指定してください")
         found = name in self._geometry_fn().getColorSetNames()
         if exists and not found:
-            raise ValueError(f"Color set does not exist: {name}")
+            raise ValueError(f"カラーセットが存在しません: {name}")
         if not exists and found:
-            raise ValueError(f"Color set already exists: {name}")
+            raise ValueError(f"カラーセットはすでに存在します: {name}")
 
     def _resolve_vertex_indices(self, vertices, count):
         """頂点の指定を、範囲内で重複の無い番号の list にする。
@@ -1554,26 +1581,26 @@ class Mesh(Shape):
         """
         shape = getattr(vertices, "shape", None)
         if shape is not None and shape != self:
-            raise ValueError(f"vertices belong to another mesh: {shape.getFullName()}")
+            raise ValueError(f"verticesが別のメッシュのものです: {shape.getFullName()}")
         if hasattr(vertices, "indices"):
             vertices = vertices.indices
         elif isinstance(getattr(vertices, "index", None), int):
             vertices = [vertices.index]
         if isinstance(vertices, (str, bytes)):
-            raise TypeError("vertices must be an iterable of ints")
+            raise TypeError("verticesはintの並びで指定してください")
         try:
             items = list(vertices)
         except TypeError:
-            raise TypeError("vertices must be an iterable of ints") from None
+            raise TypeError("verticesはintの並びで指定してください") from None
         indices = []
         for value in items:
             if isinstance(value, bool) or not isinstance(value, int):
-                raise TypeError(f"vertex must be an int, got {type(value).__name__}")
+                raise TypeError(f"vertexはintで指定してください: {type(value).__name__}")
             if not 0 <= value < count:
-                raise IndexError(f"Vertex index out of range: {value}")
+                raise IndexError(f"頂点番号が範囲外です: {value}")
             indices.append(value)
         if len(set(indices)) != len(indices):
-            raise ValueError("vertices must not contain duplicates")
+            raise ValueError("verticesに重複は指定できません")
         return indices
 
     @staticmethod
@@ -1592,25 +1619,25 @@ class Mesh(Shape):
             ValueError: 数が合わない、成分の数が3・4以外、または有限でない場合。
         """
         if isinstance(colors, (str, bytes, om2.MColor)):
-            raise TypeError("colors must be an iterable of colors")
+            raise TypeError("colorsは色の並びで指定してください")
         try:
             items = list(colors)
         except TypeError:
-            raise TypeError("colors must be an iterable of colors") from None
+            raise TypeError("colorsは色の並びで指定してください") from None
         if len(items) != count:
-            raise ValueError(f"Expected {count} colors, got {len(items)}")
+            raise ValueError(f"色を{count}個指定してください: {len(items)}個")
         result = []
         for item in items:
             if isinstance(item, om2.MColor):
                 item = (item.r, item.g, item.b, item.a)
             elif isinstance(item, (str, bytes)):
-                raise TypeError("each color must be a sequence of 3 or 4 numbers")
+                raise TypeError("各色は3つか4つの数値の並びで指定してください")
             try:
                 values = tuple(item)
             except TypeError:
-                raise TypeError("each color must be a sequence of 3 or 4 numbers") from None
+                raise TypeError("各色は3つか4つの数値の並びで指定してください") from None
             if len(values) not in (3, 4):
-                raise ValueError("each color must have 3 or 4 components")
+                raise ValueError("各色は3つか4つの成分で指定してください")
             if len(values) == 3:
                 values += (1.0,)
             result.append(_finite_vector(values, 4, "color"))
@@ -1663,9 +1690,9 @@ class Mesh(Shape):
             NotImplementedError: inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         if self.getPlug("inMesh").mplug().isDestination:
-            raise NotImplementedError("fast setVertexColors does not support a mesh with input history")
+            raise NotImplementedError("fastのsetVertexColorsは入力ヒストリのあるメッシュに対応していません")
         if self._dependency_fn().isLocked:
-            raise RuntimeError(f"Mesh is locked: {self.getFullName()}")
+            raise RuntimeError(f"メッシュがロックされています: {self.getFullName()}")
         if not indices:
             return
         if color_set is None:
@@ -1711,5 +1738,5 @@ class Mesh(Shape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnMesh):
-            raise RuntimeError(f"mesh has no geometry data: {self.getFullName()}")
+            raise RuntimeError(f"メッシュにジオメトリのデータがありません: {self.getFullName()}")
         return fn

@@ -1,17 +1,22 @@
-"""Mayaの単位変換係数を扱う。"""
+"""単位変換のノード(unitConversion)を扱う。"""
 
 from . import _calculation
 from .node import Node
 
 
 class UnitConversion(Node):
-    """Mayaの単位変換係数を扱う。"""
+    """単位変換のノード(unitConversion)を扱うクラス。入力に係数を掛けて出力する。"""
 
     def setInput(self, input=None, conversionFactor=None):
-        """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
+        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
-        Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
-        値として書き込む(接続されていれば先に外す)。Noneの入力は変更しない。1回のUndoで戻せる。
+        各入力は、渡したものの種類で扱いが変わる。
+
+        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
+        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
+        - None: その入力は変更しない。
+
+        まとめて1回のUndoで戻せる。
 
         Args:
             input (float | Plug | str | None): 変換する値。
@@ -22,7 +27,8 @@ class UnitConversion(Node):
 
         Raises:
             TypeError: 接続元の型が不正な場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
+            RuntimeError: ノードが無効な場合、またはMayaが書き込み・接続を拒否した場合。
+                拒否されたときは、それまでの変更を戻す。
         """
         return _calculation.set_inputs(self, "setInput", {"input": input, "conversionFactor": conversionFactor})
 
@@ -35,7 +41,9 @@ class UnitConversion(Node):
         return self.getOutputPlug().get()
 
     def getOutputPlug(self):
-        """出力のアトリビュート ``output`` を取得する(接続元に使う)。
+        """出力のアトリビュート ``output`` を取得する。
+
+        ほかのノードへつなぐときの接続元に使う。
 
         Returns:
             Plug: 出力のアトリビュート。

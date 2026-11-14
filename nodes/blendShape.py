@@ -33,31 +33,38 @@ _TARGETS_MODES = ("replace", "empty")
 
 
 class BlendShape(GeometryFilter):
-    """blendShapeデフォーマの参照と、ターゲットの照会・編集・JSON保存を提供する。
+    """blendShapeデフォーマを扱うクラス。ターゲットを調べる・変える・JSONに保存する操作を持つ。
 
-    ターゲット名はウェイト(``weight[i]``)のエイリアスで、Shape Editorやチャンネルボックスに
-    表示される名前と同じ。``"smile_L" in blendShape`` はターゲット名の有無を返す。
-    ターゲットを受け取るメソッドは、ターゲット名(str)・論理番号(int。boolは不可)・自身の
-    ``weight`` の要素のPlugのいずれでも指定できる。複数のベース(変形対象)を持つ場合、ベースごとの
-    操作は ``base`` で対象の形状(またはそのtransform)を選び、省略時は論理番号が最小のベースを使う。
+    ターゲット名は、ウェイト(``weight[i]``)のエイリアスのこと。Shape Editorやチャンネルボックスに
+    表示される名前と同じになる。``"smile_L" in blendShape`` で、そのターゲット名があるかを調べられる。
 
-    デルタはベースのオブジェクト空間の変位(cm)で、頂点番号と組にして扱う。in-betweenは
-    ``fullWeight`` (1.0以外の項目のウェイト)で選ぶ。通常の更新はMaya標準コマンドで1回のUndoにまとめる。
-    ``fast=True`` はデルタ・頂点マスクの書込みだけが持ち、OpenMayaで書き込んでUndoに記録しない。
+    ターゲットを受け取るメソッドには、次のどれを渡してもよい。
+
+    - ターゲット名(str)
+    - 論理番号(int。boolは不可)
+    - このノードの ``weight`` の要素のPlug
+
+    ベース(変形される形状)が複数あるときは、ベースごとの操作で ``base`` に対象の形状(かそのTransform)を渡す。
+    省略すると、論理番号がいちばん小さいベースを使う。
+
+    デルタは、ベースのオブジェクト空間での変位(cm)で、頂点番号と組にして扱う。
+    in-betweenは ``fullWeight`` (1.0以外の項目のウェイト)で選ぶ。
+    通常の変更はMaya標準のコマンドで行い、1回のUndoにまとめる。
+    ``fast=True`` を使えるのは、デルタと頂点マスクの書き込みだけ。OpenMayaで書き込み、Undoには記録しない。
 
     Note:
-        ターゲットの除去は :meth:`removeTarget` を使う。``getPlug("weight").removeElement(i)`` は
-        ウェイトの要素だけを消し、エイリアスと ``inputTarget[].inputTargetGroup[i]`` を残す。
+        ターゲットを取り除くには :meth:`removeTarget` を使う。``getPlug("weight").removeElement(i)`` は
+        ウェイトの要素だけを消し、エイリアスと ``inputTarget[].inputTargetGroup[i]`` は残ってしまう。
     """
 
     def __contains__(self, name):
-        """ターゲット名(ウェイトのエイリアス)が存在するかを返す。
+        """ターゲット名(ウェイトのエイリアス)があるかを返す。
 
         Args:
             name (str): ターゲット名。
 
         Returns:
-            bool: ターゲットが存在すればTrue。
+            bool: ターゲットがあればTrue。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -66,10 +73,10 @@ class BlendShape(GeometryFilter):
         return self._target_lookup(name) is not None
 
     def getTargetNames(self):
-        """ターゲット名を論理番号の順に取得する。
+        """ターゲット名を、論理番号の順に取得する。
 
         Returns:
-            list[str]: ウェイトのエイリアス。エイリアスの無いウェイト要素は含めない。
+            list[str]: ウェイトのエイリアス。エイリアスの無いウェイトの要素は含まない。
 
         Raises:
             RuntimeError: ノードが無効な場合。
@@ -80,30 +87,30 @@ class BlendShape(GeometryFilter):
         """ターゲットのウェイトの論理番号を取得する。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
-            int: ``weight`` の論理番号(``inputTargetGroup`` の番号と同じ)。
+            int: ``weight`` の論理番号。``inputTargetGroup`` の番号と同じ。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
             RuntimeError: ノードが無効な場合。
         """
         return self._target_index(target)
 
     def getWeightPlug(self, target):
-        """ターゲットのウェイトのPlug(``weight[i]``)を取得する。
+        """ターゲットのウェイトのアトリビュート(``weight[i]``)を取得する。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
-            Plug: ``weight`` の要素のPlug。接続・値の設定に使う。
+            Plug: ``weight`` の要素のPlug。接続や値の設定に使う。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
             RuntimeError: ノードが無効な場合。
         """
         return self.getPlug("weight")[self._target_index(target)]
@@ -112,43 +119,44 @@ class BlendShape(GeometryFilter):
         """変形する形状(出力ジオメトリ)を取得する。
 
         Returns:
-            list[Node]: 変形対象の形状。geometryFilterの出力順。
+            list[Node]: 変形される形状。geometryFilterの出力の順に並ぶ。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
-        self._require_valid("query the geometry of")
+        self._require_valid("ジオメトリの取得")
         return [Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()]
 
     def addTarget(self, mesh, name=None):
-        """ターゲットを空いている次の論理番号へ追加する(``cmds.blendShape(edit=True, target=...)`` 相当)。
+        """ターゲットを追加する。
 
-        最初の変形対象(:meth:`getBaseGeometry` の先頭)に対するターゲットとして追加し、ウェイトは0。
-        ターゲット形状との接続はMayaの既定どおり残す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, target=...)`` と同じ処理で、空いている次の論理番号へ追加する。
+        最初のベース(:meth:`getBaseGeometry` の先頭)のターゲットとして追加し、ウェイトは0になる。
+        ターゲット形状との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            mesh (str | Node): ターゲットの形状またはtransform。
-            name (str | None): ターゲット名。Noneはメッシュの名前(Mayaの既定)。
+            mesh (str | Node): ターゲットの形状、またはそのTransform。
+            name (str | None): ターゲット名。Noneならメッシュの名前になる(Mayaの既定)。
 
         Returns:
             Plug: 追加したターゲットのウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: nameが文字列・None以外、またはmeshが対応しない型の場合。
-            ValueError: nameが空文字列、同名のターゲットが既にある、またはmeshが無効な場合。
-            RuntimeError: ノードが無効、変形対象が無い、またはMayaが追加を拒否した場合。
+            TypeError: nameが文字列・None以外の場合、またはmeshが使えない型の場合。
+            ValueError: nameが空文字列の場合、同じ名前のターゲットがすでにある場合、またはmeshが無効な場合。
+            RuntimeError: ノードが無効な場合、ベースが無い場合、またはMayaが追加を拒否した場合。
         """
         if name is not None and not isinstance(name, str):
-            raise TypeError("name must be a string or None")
+            raise TypeError("nameは文字列かNoneで指定してください")
         if name == "":
-            raise ValueError("name must be a non-empty string or None")
-        self._require_valid("add a target to")
+            raise ValueError("nameは空でない文字列かNoneで指定してください")
+        self._require_valid("ターゲットの追加")
         mesh_name = Node._input_name(mesh)
         if name is not None and name in self:
-            raise ValueError(f"blendShape target {name!r} already exists on {self.getName()}")
+            raise ValueError(f"blendShapeのターゲット{name!r}は{self.getName()}にすでに存在します")
         bases = self.getBaseGeometry()
         if not bases:
-            raise RuntimeError(f"blendShape {self.getName()} has no geometry to add a target to")
+            raise RuntimeError(f"blendShape {self.getName()}にはターゲットを追加するジオメトリがありません")
         index = self._unused_index()
         with undoChunk("mlibBlendShapeAddTarget"):
             cmds.blendShape(self.getFullName(), edit=True, target=(bases[0].getFullName(), index, mesh_name, 1.0))
@@ -157,83 +165,89 @@ class BlendShape(GeometryFilter):
             return self.getPlug("weight")[index]
 
     def removeTarget(self, target):
-        """ターゲットを完全に取り除く。ターゲット形状が削除済みでもよい。
+        """ターゲットを完全に取り除く。
 
-        ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、ウェイトの要素・エイリアス・
-        全変形対象の ``inputTarget[].inputTargetGroup[i]``・Shape Editorの所属情報を取り除く
-        (Maya標準の ``blendShapeDeleteTargetGroup`` を使う)。ウェイトへの入力接続は切断し、
-        ウェイトを駆動するcombinationShapeノードはMayaの規則どおり削除する。ターゲット形状のノードは
-        削除しない。Undo有効時は1回で戻せる。
+        ターゲット形状がすでに削除されていてもよい。
+        ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、次のものを取り除く
+        (Maya標準の ``blendShapeDeleteTargetGroup`` を使う)。
+
+        - ウェイトの要素とエイリアス
+        - すべてのベースの ``inputTarget[].inputTargetGroup[i]``
+        - Shape Editorでどこに入っているかの情報
+
+        ウェイトへの入力の接続は外し、ウェイトを動かしているcombinationShapeノードはMayaの決まりどおり削除する。
+        ターゲット形状のノードは削除しない。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetが対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない場合。
-            RuntimeError: ノードが無効、ウェイトがロックされている、またはMayaが除去を拒否した場合。
+            TypeError: targetが使えない型(boolを含む)の場合。
+            ValueError: ターゲットが無い場合。
+            RuntimeError: ノードが無効な場合、ウェイトがロックされている場合、またはMayaが取り除くのを拒否した場合。
         """
         index = self._target_index(target)
         if self.getPlug("weight")[index].isLocked():
-            raise RuntimeError(f"Cannot remove the locked blendShape target {target!r} on {self.getName()}")
+            raise RuntimeError(f"{self.getName()}のロックされたblendShapeのターゲット{target!r}は削除できません")
         with undoChunk("mlibBlendShapeRemoveTarget"):
             command = f'blendShapeDeleteTargetGroup("{self.getFullName()}", {index})'
             if not mel.eval(command):
-                raise RuntimeError(f"Maya failed to remove blendShape target {target!r} on {self.getName()}")
+                raise RuntimeError(f"Mayaが{self.getName()}のblendShapeのターゲット{target!r}を削除できませんでした")
             return self
 
     def getInBetweenWeights(self, target, base=None):
-        """ターゲットのin-betweenの項目のウェイトを昇順で取得する。
+        """ターゲットのin-betweenの項目のウェイトを取得する。
 
-        ``inputTargetItem`` の論理番号を `` (番号 - 5000) / 1000`` で換算し、1.0(ターゲット本体)を除く。
-        現在の ``weight`` の値は参照しない。
+        ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0(ターゲット本体)は除く。
+        今の ``weight`` の値は見ない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
-            list[float]: in-betweenの項目のウェイト。in-betweenが無ければ空。
+            list[float]: in-betweenの項目のウェイト。小さい順に並ぶ。in-betweenが無ければ空リスト。
 
         Raises:
-            TypeError: target・baseが対応しない型の場合。
-            ValueError: ターゲットが存在しない、baseがこのblendShapeのベースでない、
-                またはターゲットがそのベースにデータを持たない場合。
+            TypeError: target・baseが使えない型の場合。
+            ValueError: ターゲットが無い場合、baseがこのblendShapeのベースでない場合、
+                またはターゲットがそのベースのデータを持たない場合。
         """
         bi, index = self._resolve_group(target, base)
         return [(item - _ITEM_OFFSET) / 1000.0 for item in self._item_indices(bi, index) if item != _FULL_ITEM]
 
     def addInBetween(self, target, geometry, weight, base=None, relative=False):
-        """既存のターゲットへin-betweenを追加する(``cmds.blendShape(edit=True, inBetween=True)`` 相当)。
+        """すでにあるターゲットへin-betweenを追加する。
 
-        ``geometry`` との接続はMayaの既定どおり残す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。
+        ``geometry`` との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 親のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            geometry (str | Node): in-betweenの形状。ベースと頂点数が同じメッシュ(またはそのtransform)。
-            weight (float): in-betweenが完全に効くウェイト。0・1以外で、-5以上、0.001刻み。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            relative (bool): Trueはターゲット本体からの相対、Falseは絶対(Mayaの既定)のin-between。
+            target (str | int | Plug): 追加先のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            geometry (str | Node): in-betweenの形状。ベースと頂点数が同じメッシュ(かそのTransform)。
+            weight (float): in-betweenが完全に効くウェイト。0と1以外の、-5以上で0.001刻みの値。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: target・geometry・base・weightの型が不正、relativeがbool以外、
+            TypeError: target・geometry・base・weightの型が不正な場合、relativeがbool以外の場合、
                 またはgeometryがメッシュでない場合。
-            ValueError: ターゲットが存在しない、weightが0・1・既存の項目・範囲外・0.001刻みでない、
+            ValueError: ターゲットが無い場合、weightが0か1・すでにある項目・範囲外・0.001刻みでない場合、
                 または頂点数がベースと違う場合。
         """
         _require_bool(relative, "relative")
         bi, index = self._resolve_group(target, base)
         item = _weight_item(weight)
         if item in (_ITEM_OFFSET, _FULL_ITEM):
-            raise ValueError(f"In-between weight must not be 0 or 1: {weight}")
+            raise ValueError(f"インビトウィーンのウェイトに0と1は指定できません: {weight}")
         if item in self._item_indices(bi, index):
-            raise ValueError(f"An in-between at weight {weight} already exists on target {index}")
+            raise ValueError(f"ターゲット{index}には、ウェイト{weight}のインビトウィーンがすでに存在します")
         shape = _mesh_shape(geometry)
         self._require_vertex_count(bi, shape)
         with undoChunk("mlibBlendShapeAddInBetween"):
@@ -247,69 +261,76 @@ class BlendShape(GeometryFilter):
             return self
 
     def removeInBetween(self, target, weight):
-        """指定ウェイトのin-betweenを全ベースから取り除く(Maya標準の ``blendShapeDeleteInBetweenTarget``)。
+        """指定したウェイトのin-betweenを取り除く。
 
-        Undo有効時は1回で戻せる。
+        すべてのベースから取り除く。Maya標準の ``blendShapeDeleteInBetweenTarget`` を使う。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 親のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は不可。
+            target (str | int | Plug): in-betweenを持つターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は指定できない。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetの型が不正、またはweightが数値でない場合。
-            ValueError: ターゲットが存在しない、またはそのウェイトのin-betweenが無い場合。
+            TypeError: targetの型が不正な場合、またはweightが数値でない場合。
+            ValueError: ターゲットが無い場合、またはそのウェイトのin-betweenが無い場合。
         """
         index = self._target_index(target)
         item = _weight_item(weight)
         if item == _FULL_ITEM or not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
-            raise ValueError(f"No in-between at weight {weight} on target {index}")
+            raise ValueError(f"ターゲット{index}に、ウェイト{weight}のインビトウィーンはありません")
         with undoChunk("mlibBlendShapeRemoveInBetween"):
             mel.eval(f'blendShapeDeleteInBetweenTarget("{self.getFullName()}", {index}, {item})')
             return self
 
     def getTargetWeights(self, target, base=None):
-        """ターゲットの頂点マスク(``inputTargetGroup[i].targetWeights``)を頂点番号順に取得する。
+        """ターゲットの頂点マスクを、頂点番号の順に取得する。
 
+        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
         値が書かれていない頂点は、Mayaの既定どおり1.0として返す。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             list[float]: ベースの頂点数と同じ長さの新しいlist。
 
         Raises:
-            TypeError: target・baseが対応しない型、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、baseがこのblendShapeのベースでない、
-                またはターゲットがそのベースにデータを持たない場合。
+            TypeError: target・baseが使えない型の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、baseがこのblendShapeのベースでない場合、
+                またはターゲットがそのベースのデータを持たない場合。
         """
         bi, index = self._resolve_group(target, base)
         return self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights", self._vertex_count(bi))
 
     def setTargetWeights(self, target, weights, base=None, *, fast=False):
-        """ターゲットの頂点マスク(``inputTargetGroup[i].targetWeights``)を設定する。
+        """ターゲットの頂点マスクを設定する。
 
-        全頂点の並びは頂点番号順に全頂点を、辞書は指定した頂点だけを書き換える。値は0〜1へ制限しない。
-        通常は番号が1ずつ増える頂点を範囲指定の1回の ``setAttr`` にまとめ、全体を1回のUndoにする。
+        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。値は0〜1に制限しない。
+
+        - 並び(list等)を渡すと、頂点番号の順にすべての頂点を書き換える。
+        - 辞書を渡すと、指定した頂点だけを書き換える。
+
+        通常は、番号が1ずつ続く頂点を範囲指定の1回の ``setAttr`` にまとめ、全体を1回のUndoにする。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            weights (Sequence[float] | dict[int, float]): 頂点数分の値、または頂点番号と値の辞書。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            weights (Sequence[float] | dict[int, float]): 頂点数と同じ数の値、または頂点番号から値への辞書。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: target・base・値の型が不正、fastがbool以外、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、並びの長さが頂点数と違う、値が有限でない場合。
+            TypeError: target・base・値の型が不正な場合、fastがbool以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、並びの長さが頂点数と違う場合、または有限でない値がある場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: アトリビュートがロック・入力接続されている、またはMayaが書込みを拒否した場合。
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibBlendShapeSetTargetWeights", fast):
             bi, index = self._resolve_group(target, base)
@@ -320,47 +341,48 @@ class BlendShape(GeometryFilter):
     def getTargetDeltas(self, target, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
-        ターゲット形状が接続中なら、Mayaが評価した現在のデルタを返す。値はベースのオブジェクト空間の
-        変位(cm)で、変位を持つ頂点だけを含む。
+        ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
+        値はベースのオブジェクト空間での変位(cm)で、変位を持つ頂点だけを含む。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
-            dict[int, Vector]: 頂点番号と変位。
+            dict[int, Vector]: 頂点番号から変位への辞書。
 
         Raises:
-            TypeError: target・baseの型が不正、またはfullWeightが数値でない場合。
-            ValueError: ターゲットまたはそのウェイトの項目が存在しない場合。
+            TypeError: target・baseの型が不正な場合、またはfullWeightが数値でない場合。
+            ValueError: ターゲット、またはそのウェイトの項目が無い場合。
         """
         bi, index, item = self._resolve_item(target, base, fullWeight)
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return {vertex: Vector(offset) for vertex, offset in zip(indices, offsets)}
 
     def setTargetDeltas(self, target, deltas, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
-        """ターゲット(またはin-between)の項目のデルタ全体を置き換える。指定しない頂点は変位0になる。
+        """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
-        ターゲット形状が接続中の場合、既定では変更せずに拒否する(接続から再計算されて上書きされるため)。
-        ``disconnect=True`` は接続を切ってから書き込む。他の項目のデルタは変えない。
+        指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
+        ターゲット形状が接続されている場合、既定では何も変えずにエラーにする
+        (接続から計算し直されて上書きされてしまうため)。``disconnect=True`` なら接続を外してから書き込む。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            deltas (dict[int, Sequence[float]]): 頂点番号と変位(xyz、cm)。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            deltas (dict[int, Sequence[float]]): 頂点番号から変位(xyz、cm)への辞書。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、disconnect・fastがbool以外、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または変位が3個の有限な数値でない場合。
+            TypeError: 引数の型が不正な場合、disconnect・fastがbool以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または変位が3つの有限な数値でない場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibBlendShapeSetTargetDeltas", fast):
             _require_bool(disconnect, "disconnect")
@@ -374,20 +396,20 @@ class BlendShape(GeometryFilter):
     def getTargetVertices(self, target, base=None, fullWeight=1.0, *, tolerance=0.0):
         """デルタの長さがしきい値を超える頂点を取得する。
 
-        現在の ``weight``・envelope・頂点マスクは判定に使わない。
+        今の ``weight``・envelope・頂点マスクは判定に使わない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            tolerance (float): これ以下の長さ(cm)の変位を除く。有限の0以上。既定0は変位0だけを除く。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            tolerance (float): この長さ(cm)以下の変位の頂点を除く。0以上の有限な数値。既定は0で、変位0の頂点だけを除く。
 
         Returns:
-            Vertices: ベースの頂点。番号の昇順。
+            Vertices: ベースの頂点。番号の小さい順に並ぶ。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、またはtoleranceが負・有限でない場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
         """
         limit = _tolerance(tolerance)
         bi, index, item = self._resolve_item(target, base, fullWeight)
@@ -395,27 +417,27 @@ class BlendShape(GeometryFilter):
         return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
     def resetTargetVertices(self, target, vertices, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
-        """指定した頂点の変位を0に戻す。残りの頂点の変位はそのまま残す。
+        """指定した頂点の変位を0に戻す。
 
-        ターゲット形状が接続中の場合の扱いは :meth:`setTargetDeltas` と同じ。変位を持たない頂点だけを
-        指定した場合は何も変えない。
+        ほかの頂点の変位はそのまま残す。ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
+        変位を持たない頂点だけを指定した場合は、何も変えない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点または頂点番号。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点、または頂点番号。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または頂点が別の形状のものの場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または頂点が別の形状のものの場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibBlendShapeResetTargetVertices", fast):
             _require_bool(disconnect, "disconnect")
@@ -427,24 +449,25 @@ class BlendShape(GeometryFilter):
     def reduceTargetDeltas(self, target, tolerance=0.0, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
 
-        結果の変形は変わらず(しきい値以下の変位は0になる)、保存するデータが減る。
-        ターゲット形状が接続中の場合の扱いは :meth:`setTargetDeltas` と同じ。
+        保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。
+        正の値を指定すると、その長さ以下の小さな変位は0になるため、変形の結果もわずかに変わる。
+        ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            tolerance (float): これ以下の長さ(cm)の変位を取り除く。有限の0以上。既定0は変位0だけ。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
-            disconnect (bool): Trueはターゲット形状の接続を切ってから書き込む。既定False。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            tolerance (float): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。既定は0で、変位0の頂点だけを取り除く。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブ等でもよい)。
-            ValueError: ターゲット・項目が存在しない、またはtoleranceが負・有限でない場合。
-            RuntimeError: ターゲット形状が接続中でdisconnect=False、またはMayaが書込みを拒否した場合。
+            TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブなどでもよい)。
+            ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
+            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibBlendShapeReduceTargetDeltas", fast):
             _require_bool(disconnect, "disconnect")
@@ -457,24 +480,25 @@ class BlendShape(GeometryFilter):
             return self
 
     def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None):
-        """ターゲットの片側の変形を反対側へミラーする(``cmds.blendShape(edit=True, mirrorTarget=...)``)。
+        """ターゲットの片側の変形を、反対側へミラーする。
 
-        オブジェクト空間の座標で対称の頂点を探す。Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。対称の頂点は、オブジェクト空間の座標で探す。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"`` (大文字小文字は問わない)、
-                ミラー面の ``"YZ"`` 等、または0〜2。
-            positiveToNegative (bool): Trueは正の側を負の側へ、Falseは負の側を正の側へ写す。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"`` (大文字・小文字は問わない)、
+                ミラー面の ``"YZ"`` など、または0〜2で指定する。
+            positiveToNegative (bool): Trueなら正の側を負の側へ、Falseなら負の側を正の側へ写す。既定はTrue。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはaxisが軸でない場合。
-            RuntimeError: ターゲット形状が接続中の場合(先に :meth:`duplicateTarget` 等でベイクする)。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
+            RuntimeError: ターゲット形状が接続されている場合(先に :meth:`duplicateTarget` などでベイクしておく)。
         """
         _require_bool(positiveToNegative, "positiveToNegative")
         bi, index = self._resolve_group(target, base)
@@ -486,23 +510,24 @@ class BlendShape(GeometryFilter):
             return self
 
     def flipTarget(self, target, axis="x", base=None):
-        """ターゲットの変形を左右反転する(``cmds.blendShape(edit=True, flipTarget=...)``)。
+        """ターゲットの変形を左右反転する。
 
-        左右別のターゲットを作る場合は、:meth:`duplicateTarget` で複製してから反転する。
-        Undo有効時は1回で戻せる。
+        ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
+        左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` 等、または0〜2。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` など、または0〜2で指定する。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはaxisが軸でない場合。
-            RuntimeError: ターゲット形状が接続中の場合。
+            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
+            RuntimeError: ターゲット形状が接続されている場合。
         """
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
@@ -511,22 +536,26 @@ class BlendShape(GeometryFilter):
             return self
 
     def duplicateTarget(self, target, name=None):
-        """ターゲットを、全ベースのデルタ・in-between・頂点マスクごと新しい論理番号へ複製する。
+        """ターゲットを複製する。
 
-        接続中のターゲット形状は現在の形をベイクし、複製は接続を持たない。新しいウェイトは0で、
-        外部のドライバーは複製しない。Shape Editorでは元のターゲットと同じフォルダの末尾に置く。
-        Undo有効時は1回で戻せる。
+        すべてのベースのデルタ・in-between・頂点マスクごと、新しい論理番号へ複製する。
+
+        - ターゲット形状が接続されていれば、今の形をベイクする。複製したほうは接続を持たない。
+        - 新しいウェイトは0になる。外からウェイトを動かしているドライバーは複製しない。
+        - Shape Editorでは、元のターゲットと同じフォルダーの最後に置く。
+
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): 複製元のターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            name (str | None): 新しいターゲット名。Noneは ``<元の名前>Copy`` (重なれば末尾に番号)。
+            target (str | int | Plug): 複製元のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            name (str | None): 新しいターゲット名。Noneなら ``<元の名前>Copy`` になる(重なれば末尾に番号が付く)。
 
         Returns:
             Plug: 新しいターゲットのウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: targetの型が不正、nameが文字列・None以外、またはベースがメッシュでない場合。
-            ValueError: ターゲットが存在しない、またはnameが空・既存のアトリビュートと重なる場合。
+            TypeError: targetの型が不正な場合、nameが文字列・None以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、またはnameが空かすでにあるアトリビュートと重なる場合。
         """
         index = self._target_index(target)
         if name is not None:
@@ -544,23 +573,23 @@ class BlendShape(GeometryFilter):
             return self.getPlug("weight")[destination]
 
     def replaceTarget(self, target, geometry, base=None, fullWeight=1.0):
-        """ターゲット(またはin-between)の項目の形状を、別のメッシュへの接続に差し替える。
+        """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
-        ターゲット名・ウェイトの値と接続・頂点マスクは保つ。以後のデルタは接続したメッシュから
-        計算される。Undo有効時は1回で戻せる。
+        別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
+        ターゲット名・ウェイトの値と接続・頂点マスクはそのまま残る。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
-            geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(またはそのtransform)。
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
-            fullWeight (float): 項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(かそのTransform)。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: 引数の型が不正、またはgeometry・ベースがメッシュでない場合。
-            ValueError: ターゲット・項目が存在しない、または頂点数がベースと違う場合。
+            TypeError: 引数の型が不正な場合、またはgeometryかベースがメッシュでない場合。
+            ValueError: ターゲットや項目が無い場合、または頂点数がベースと違う場合。
             RuntimeError: Mayaが接続を拒否した場合。
         """
         bi, index, item = self._resolve_item(target, base, fullWeight)
@@ -577,21 +606,22 @@ class BlendShape(GeometryFilter):
             return self
 
     def targetEdit(self, target=None, state=True, fullWeight=1.0):
-        """ターゲットの編集モード(Shape EditorのEdit)を開始・終了する(``cmds.sculptTarget``)。
+        """ターゲットの編集モード(Shape EditorのEdit)を始める、または終える。
 
-        開始中はベースのスカルプトがターゲットのデルタへ書き込まれる。Undo有効時は1回で戻せる。
+        ``cmds.sculptTarget`` を使う。編集モードの間は、ベースをスカルプトした結果がターゲットのデルタへ書き込まれる。
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            target (str | int | Plug | None): 開始するターゲット。開始時は必須で、終了時は使わない。
-            state (bool): Trueは開始、FalseはこのblendShapeの編集モードを終了する。
-            fullWeight (float): 編集する項目のウェイト。1.0はターゲット本体、それ以外はin-between。
+            target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定し、終えるときは使わない。
+            state (bool): Trueなら編集を始め、FalseならこのblendShapeの編集モードを終える。既定はTrue。
+            fullWeight (float): 編集する項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
             BlendShape: 自身。
 
         Raises:
-            TypeError: targetの型が不正、stateがbool以外、またはfullWeightが数値でない場合。
-            ValueError: 開始時にtargetが無い、またはターゲット・項目が存在しない場合。
+            TypeError: targetの型が不正な場合、stateがbool以外の場合、またはfullWeightが数値でない場合。
+            ValueError: 始めるときにtargetが無い場合、またはターゲットや項目が無い場合。
         """
         _require_bool(state, "state")
         if not state:
@@ -599,24 +629,29 @@ class BlendShape(GeometryFilter):
                 cmds.sculptTarget(self.getFullName(), edit=True, target=-1)
                 return self
         if target is None:
-            raise ValueError("target is required to start editing a blendShape target")
+            raise ValueError("blendShapeのターゲットの編集を始めるにはtargetが必要です")
         index = self._target_index(target)
         item = _weight_item(fullWeight)
         if not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
-            raise ValueError(f"Target {index} has no item at weight {fullWeight}")
+            raise ValueError(f"ターゲット{index}に、ウェイト{fullWeight}の項目はありません")
         with undoChunk("mlibBlendShapeTargetEdit"):
             cmds.sculptTarget(self.getFullName(), edit=True, target=index, inbetweenWeight=fullWeight)
             return self
 
     def getTargetsData(self):
-        """全ターゲットを、JSONへ書ける辞書として取得する(:meth:`setTargetsData` で戻せる)。
+        """すべてのターゲットを、JSONへ書ける辞書として取得する。
 
-        ベースごとの頂点数と頂点マスク(baseWeights)、ターゲットごとの名前・論理番号・現在のウェイト・
-        ウェイトの入力接続(ドライバー)・頂点マスク・デルタ・in-between、Shape Editorのフォルダを含む。
-        接続中のターゲット形状は現在の形をベイクしたデルタとして記録する。
+        :meth:`setTargetsData` に渡せば元に戻せる。辞書には次のものが入る。
+
+        - ベースごと: 頂点数と頂点マスク(baseWeights)
+        - ターゲットごと: 名前・論理番号・今のウェイト・ウェイトへの入力の接続(ドライバー)・頂点マスク・
+          デルタ・in-between
+        - Shape Editorのフォルダー
+
+        ターゲット形状が接続されていれば、今の形をベイクしたデルタとして記録する。
 
         Returns:
-            dict: ``bases``・``targets``・``folders`` を持つ新しい辞書。数学型を含まない。
+            dict: ``bases``・``targets``・``folders`` を持つ新しい辞書。数学型は含まない。
 
         Raises:
             TypeError: ベースがメッシュでない場合。
@@ -625,7 +660,7 @@ class BlendShape(GeometryFilter):
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json.nodeRef import NodeRef
 
-        self._require_valid("query the targets of")
+        self._require_valid("ターゲットの取得")
         bases = []
         for bi in self._base_indices():
             shape = self._base_shape(bi)
@@ -641,55 +676,60 @@ class BlendShape(GeometryFilter):
         }
 
     def setTargetsData(self, data, *, nameMap=None, replace=None, namespaceMap=None, mode="replace"):
-        """:meth:`getTargetsData` の辞書からターゲットを復元する。
+        """:meth:`getTargetsData` の辞書からターゲットを元に戻す。
 
-        ベースは論理番号で対応させ、頂点数が違えば何も変えずにValueErrorにする。``mode="replace"`` (既定)は
-        同じ名前のターゲットの中身を置き換え、無いターゲットを追加する。``mode="empty"`` はターゲットの
-        無いblendShapeにだけ読み込む。ウェイトのドライバーは ``nameMap``・``replace``・``namespaceMap``
-        (:class:`mlib.json.NameMapping` の規則)で対応付けて再接続し、見つからないものは値だけを設定して
-        警告する。全体を1回のUndoにまとめ、途中で失敗した場合は巻き戻す。
+        ベースは論理番号で対応させる。頂点数が違えば、何も変えずにValueErrorにする。
+
+        - ``mode="replace"`` (既定): 同じ名前のターゲットの中身を置き換え、無いターゲットは追加する。
+        - ``mode="empty"``: ターゲットが1つも無いblendShapeにだけ読み込む。
+
+        ウェイトのドライバーは、``nameMap``・``replace``・``namespaceMap`` で名前を対応させてつなぎ直す
+        (やり方は :class:`mlib.json.NameMapping` と同じ)。見つからないものは値だけを設定して警告する。
+        全体を1回のUndoにまとめ、途中で失敗したら元に戻す。
 
         Args:
             data (dict): :meth:`getTargetsData` の形の辞書。
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
-            mode (str): ``"replace"`` または ``"empty"``。
+            mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
             ValidationReport: 見つからなかったドライバー(``missing``)と、書けずに飛ばしたもの(``skipped``)。
 
         Raises:
-            TypeError: dataが辞書でない、またはmodeが文字列でない場合。
-            ValueError: データの形が違う、modeが不正、``mode="empty"`` でターゲットがある、
-                ベースが無い・頂点数が違う、またはターゲット名が既存のアトリビュートと重なる場合。
-            RuntimeError: Undoが無効、またはMayaが書込みを拒否した場合。
+            TypeError: dataが辞書でない場合、またはmodeが文字列でない場合。
+            ValueError: データの形が違う場合、modeが不正な場合、``mode="empty"`` なのにターゲットがある場合、
+                ベースが無いか頂点数が違う場合、またはターゲット名がすでにあるアトリビュートと重なる場合。
+            RuntimeError: Undoが無効な場合、またはMayaが書き込みを拒否した場合。
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json.nameMapping import NameMapping
         from ..json.snapshot import ValidationReport
 
         if not isinstance(mode, str):
-            raise TypeError("mode must be a string")
+            raise TypeError("modeは文字列で指定してください")
         if mode not in _TARGETS_MODES:
-            raise ValueError(f"mode must be one of {_TARGETS_MODES}, got {mode!r}")
+            raise ValueError(f"modeは{_TARGETS_MODES}のどれかで指定してください: {mode!r}")
         if not isinstance(data, dict):
-            raise TypeError("data must be a dict")
+            raise TypeError("dataはdictで指定してください")
         mapping = NameMapping(nameMap, replace, namespaceMap)
-        self._require_valid("restore the targets of")
+        self._require_valid("ターゲットの復元")
         if mode == "empty" and self._target_indices():
-            raise ValueError(f"blendShape {self.getName()} already has targets; mode='empty' requires none")
+            raise ValueError(f"blendShape {self.getName()}にはすでにターゲットがあります。mode='empty'はターゲットがない場合だけ使えます")
         report = ValidationReport()
         plan = self._plan_targets(data, mapping, report)
         if not report.valid:
-            raise ValueError(f"Cannot restore blendShape targets on {self.getName()}: {'; '.join(report.errors)}")
+            raise ValueError(f"{self.getName()}のblendShapeのターゲットを復元できません: {'; '.join(report.errors)}")
         with _edit_context("mlibBlendShapeSetTargetsData", False, transaction=True):
             self._apply_targets(data, plan, report)
         report.warn("BlendShape")
         return report
 
     def exportTargets(self, path):
-        """全ターゲットをJSONファイルへ書き出す(:meth:`getTargetsData` の内容。形式 ``mlib.blendShapeTargets``)。
+        """すべてのターゲットをJSONファイルへ書き出す。
+
+        中身は :meth:`getTargetsData` の辞書で、形式名は ``mlib.blendShapeTargets``。
 
         Args:
             path (str | os.PathLike): 書き出し先。
@@ -707,20 +747,22 @@ class BlendShape(GeometryFilter):
         return file.dump(self.getTargetsData(), path, _TARGETS_FORMAT, _TARGETS_VERSION)
 
     def importTargets(self, path, *, nameMap=None, replace=None, namespaceMap=None, mode="replace"):
-        """:meth:`exportTargets` で書き出したファイルからターゲットを復元する(:meth:`setTargetsData`)。
+        """:meth:`exportTargets` で書き出したファイルからターゲットを元に戻す。
+
+        読み込んだ内容を :meth:`setTargetsData` に渡す。
 
         Args:
             path (str | os.PathLike): 読み込むファイル。
             nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
-            mode (str): ``"replace"`` または ``"empty"``。
+            mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
             ValidationReport: :meth:`setTargetsData` の結果。
 
         Raises:
-            ValueError: 形式名・版が違う、または :meth:`setTargetsData` が拒否した場合。
+            ValueError: 形式名や版が違う場合、または :meth:`setTargetsData` が拒否した場合。
             OSError: 読み込みに失敗した場合。
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
@@ -738,7 +780,7 @@ class BlendShape(GeometryFilter):
         Raises:
             RuntimeError: ノードが無効な場合。
         """
-        self._require_valid("query the targets of")
+        self._require_valid("ターゲットの取得")
         items = []
         for alias, attribute in self._dependency_fn().getAliasList():
             match = _WEIGHT_ALIAS.match(attribute)
@@ -760,7 +802,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         if not isinstance(name, str):
-            raise TypeError("blendShape target name must be a string")
+            raise TypeError("blendShapeのターゲット名は文字列で指定してください")
         for index, alias in self._target_items():
             if alias == name:
                 return index
@@ -799,32 +841,32 @@ class BlendShape(GeometryFilter):
         """ターゲットの指定を論理番号にする。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号・自身の ``weight`` の要素のPlug。
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
             int: 存在するターゲットの論理番号。
 
         Raises:
             TypeError: 対応しない型(boolを含む)の場合。
-            ValueError: ターゲットが存在しない、または他のノード・別のアトリビュートのPlugの場合。
+            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
         """
         if isinstance(target, str):
             index = self._target_lookup(target)
             if index is None:
-                raise ValueError(f"No blendShape target named {target!r} on {self.getName()}")
+                raise ValueError(f"{self.getName()}に{target!r}という名前のblendShapeのターゲットはありません")
             return index
         if isinstance(target, Plug):
             mplug = target.mplug()
             weight = self._mplug("weight")
             if target.getNode().mnode() != self.mnode() or not mplug.isElement or mplug.isChild or mplug.array() != weight:
-                raise ValueError(f"Plug {target} is not a weight element of {self.getName()}")
+                raise ValueError(f"Plug {target}は{self.getName()}のウェイトの要素ではありません")
             index = mplug.logicalIndex()
         elif type(target) is int:
             index = target
         else:
-            raise TypeError(f"target must be a name, an index or a weight Plug, got {type(target).__name__}")
+            raise TypeError(f"targetは名前か、番号か、ウェイトのPlugで指定してください: {type(target).__name__}")
         if index not in self._target_indices():
-            raise ValueError(f"No blendShape target at index {index} on {self.getName()}")
+            raise ValueError(f"{self.getName()}に番号{index}のblendShapeのターゲットはありません")
         return index
 
     def _base_indices(self):
@@ -840,7 +882,7 @@ class BlendShape(GeometryFilter):
         """ベースの指定を論理番号にする。
 
         Args:
-            base (str | Node | None): ベースの形状またはそのtransform。Noneは論理番号が最小のベース。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
             int: ベースの論理番号。
@@ -851,7 +893,7 @@ class BlendShape(GeometryFilter):
         """
         indices = self._base_indices()
         if not indices:
-            raise ValueError(f"blendShape {self.getName()} has no base geometry")
+            raise ValueError(f"blendShape {self.getName()}にベースジオメトリがありません")
         if base is None:
             return indices[0]
         node = Node(Node._input_name(base))
@@ -863,7 +905,7 @@ class BlendShape(GeometryFilter):
         for bi in indices:
             if fn.outputShapeAtIndex(bi) in shapes:
                 return bi
-        raise ValueError(f"{node.getName()} is not a base geometry of {self.getName()}")
+        raise ValueError(f"{node.getName()}は{self.getName()}のベースジオメトリではありません")
 
     def _base_shape(self, bi):
         """ベースの論理番号のメッシュを返す。
@@ -879,7 +921,7 @@ class BlendShape(GeometryFilter):
         """
         mobject = oma2.MFnGeometryFilter(self.mnode()).outputShapeAtIndex(bi)
         if not mobject.hasFn(om2.MFn.kMesh):
-            raise TypeError(f"blendShape target editing requires polygon mesh bases: {self.getName()}")
+            raise TypeError(f"blendShapeのターゲットの編集には、ベースがポリゴンメッシュである必要があります: {self.getName()}")
         return Node(om2.MDagPath.getAPathTo(mobject))
 
     def _vertex_count(self, bi):
@@ -909,7 +951,7 @@ class BlendShape(GeometryFilter):
         count = self._vertex_count(bi)
         other = om2.MFnMesh(shape.mpath()).numVertices
         if other != count:
-            raise ValueError(f"{shape.getName()} has {other} vertices, but the base has {count}")
+            raise ValueError(f"{shape.getName()}の頂点数は{other}ですが、ベースは{count}です")
 
     def _resolve_group(self, target, base):
         """ターゲットとベースを解決し、そのベースにターゲットの項目があることを確かめる。
@@ -927,7 +969,7 @@ class BlendShape(GeometryFilter):
         index = self._target_index(target)
         bi = self._base_index(base)
         if not self._item_indices(bi, index):
-            raise ValueError(f"Target {index} has no data on base {bi} of {self.getName()}")
+            raise ValueError(f"ターゲット{index}には、{self.getName()}のベース{bi}のデータがありません")
         return bi, index
 
     def _resolve_item(self, target, base, weight):
@@ -947,7 +989,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         item = _weight_item(weight)
         if item not in self._item_indices(bi, index):
-            raise ValueError(f"Target {index} has no item at weight {weight} on base {bi}")
+            raise ValueError(f"ターゲット{index}には、ベース{bi}にウェイト{weight}の項目がありません")
         return bi, index, item
 
     def _unused_index(self, reserved=()):
@@ -976,11 +1018,11 @@ class BlendShape(GeometryFilter):
             ValueError: 空、または既存のアトリビュート・エイリアスと重なる場合。
         """
         if not isinstance(name, str):
-            raise TypeError("name must be a string or None")
+            raise TypeError("nameは文字列かNoneで指定してください")
         if not name:
-            raise ValueError("name must be a non-empty string or None")
+            raise ValueError("nameは空でない文字列かNoneで指定してください")
         if self.hasAttr(name):
-            raise ValueError(f"{self.getName()} already has an attribute or target named {name!r}")
+            raise ValueError(f"{self.getName()}には{name!r}という名前のアトリビュートかターゲットがすでにあります")
 
     def _copy_name(self, source):
         """複製の既定の名前(``<元の名前>Copy``、重なれば末尾に番号)を返す。
@@ -1018,7 +1060,7 @@ class BlendShape(GeometryFilter):
         name = "xyz"[_mirror_axis(axis)]
         for item in self._item_indices(bi, index):
             if self._mplug(self._item_path(bi, index, item) + ".inputGeomTarget").isDestination:
-                raise RuntimeError(f"Target {index} is connected to a shape; bake it before mirroring")
+                raise RuntimeError(f"ターゲット{index}はシェイプに接続されています。ミラーする前にベイクしてください")
         return name
 
     def _attr(self, path):
@@ -1119,7 +1161,7 @@ class BlendShape(GeometryFilter):
                 fn = om2.MFnSingleIndexedComponent(components.get(i))
                 indices.extend(range(fn.getCompleteData()) if fn.isComplete else fn.getElements())
         if len(indices) != len(points):
-            raise RuntimeError(f"Maya returned {len(points)} deltas for {len(indices)} vertices: {self._attr(path)}")
+            raise RuntimeError(f"Mayaが{len(indices)}個の頂点に対して{len(points)}個のデルタを返しました: {self._attr(path)}")
         return indices, [(point.x, point.y, point.z) for point in points]
 
     def _write_deltas(self, path, indices, offsets, *, fast=False):
@@ -1177,7 +1219,7 @@ class BlendShape(GeometryFilter):
         if not sources:
             return
         if not disconnect:
-            raise RuntimeError(f"{self._attr(path)} is connected to a target shape; use disconnect=True to bake it")
+            raise RuntimeError(f"{self._attr(path)}はターゲットのシェイプに接続されています。ベイクするにはdisconnect=Trueを使います")
         if fast:
             modifier = om2.MDGModifier()
             modifier.disconnect(sources[0], destination)
@@ -1220,22 +1262,22 @@ class BlendShape(GeometryFilter):
         count = self._vertex_count(bi)
         if isinstance(vertices, Vertices):
             if vertices.shape.mnode() != shape.mnode():
-                raise ValueError(f"Vertices must belong to the base mesh {shape.getName()}")
+                raise ValueError(f"頂点はベースメッシュ{shape.getName()}のものを指定してください")
             vertices = vertices.indices
         elif isinstance(vertices, (int, Vertex)) and not isinstance(vertices, bool):
             vertices = [vertices]
         elif isinstance(vertices, (str, bytes)):
-            raise TypeError("vertices must be vertex indices or mlib Vertex objects")
+            raise TypeError("verticesは頂点番号かmlibのVertexで指定してください")
         result = []
         for vertex in vertices:
             if isinstance(vertex, Vertex):
                 if vertex.shape.mnode() != shape.mnode():
-                    raise ValueError(f"Vertex must belong to the base mesh {shape.getName()}")
+                    raise ValueError(f"頂点はベースメッシュ{shape.getName()}のものを指定してください")
                 vertex = vertex.index
             if type(vertex) is not int:
-                raise TypeError(f"vertex must be an int or a Vertex, got {type(vertex).__name__}")
+                raise TypeError(f"vertexはintかVertexで指定してください: {type(vertex).__name__}")
             if not 0 <= vertex < count:
-                raise IndexError(f"Vertex index out of range: {vertex}")
+                raise IndexError(f"頂点番号が範囲外です: {vertex}")
             result.append(vertex)
         return result
 
@@ -1444,17 +1486,17 @@ class BlendShape(GeometryFilter):
 
         bases, targets = data.get("bases"), data.get("targets")
         if not isinstance(bases, list) or not isinstance(targets, list) or not isinstance(data.get("folders"), list):
-            raise ValueError("blendShape targets data must have 'bases', 'targets' and 'folders' lists")
+            raise ValueError("blendShapeのターゲットのデータには'bases'・'targets'・'folders'のリストが必要です")
         counts = {}
         current = set(self._base_indices())
         for entry in bases:
-            bi = _data_index(entry.get("index") if isinstance(entry, dict) else None, "base index")
+            bi = _data_index(entry.get("index") if isinstance(entry, dict) else None, "ベースの番号")
             if bi not in current:
-                report.addError(f"base {bi} does not exist on {self.getName()}")
+                report.addError(f"{self.getName()}にベース{bi}はありません")
                 continue
             count = self._vertex_count(bi)
             if entry.get("vertexCount") != count:
-                report.addError(f"base {bi} has {count} vertices, but the data has {entry.get('vertexCount')}")
+                report.addError(f"ベース{bi}の頂点数は{count}ですが、データは{entry.get('vertexCount')}です")
                 continue
             counts[bi] = count
             _require_sparse(entry.get("baseWeights"), count)
@@ -1469,11 +1511,11 @@ class BlendShape(GeometryFilter):
             index = None
             if name is not None:
                 if name in names:
-                    raise ValueError(f"Duplicate target name in data: {name!r}")
+                    raise ValueError(f"データのターゲット名が重複しています: {name!r}")
                 names[name] = True
                 index = self._target_lookup(name)
                 if index is None and self.hasAttr(name):
-                    report.addError(f"{self.getName()} already has a non-target attribute named {name!r}")
+                    report.addError(f"{self.getName()}には{name!r}という名前の、ターゲットではないアトリビュートがすでにあります")
                     continue
             created = index is None
             if created:
@@ -1729,12 +1771,12 @@ def _weight_item(weight):
         ValueError: 有限でない、範囲外、または0.001刻みで表せない場合。
     """
     if isinstance(weight, bool) or not isinstance(weight, (int, float)):
-        raise TypeError(f"weight must be a number, got {type(weight).__name__}")
+        raise TypeError(f"weightは数値で指定してください: {type(weight).__name__}")
     if not math.isfinite(weight):
-        raise ValueError(f"weight must be finite, got {weight}")
+        raise ValueError(f"weightは有限な数値で指定してください: {weight}")
     scaled = weight * 1000.0 + _ITEM_OFFSET
     if scaled < 0 or scaled > _MAX_INDEX or abs(scaled - round(scaled)) > 1e-6:
-        raise ValueError(f"weight must be -5 or more and a multiple of 0.001, got {weight}")
+        raise ValueError(f"weightは-5以上で、0.001の倍数で指定してください: {weight}")
     return int(round(scaled))
 
 
@@ -1757,11 +1799,11 @@ def _mesh_shape(value):
         dag = om2.MFnDagNode(path)
         shapes = [dag.child(i) for i in range(dag.childCount()) if dag.child(i).hasFn(om2.MFn.kMesh) and not om2.MFnDagNode(dag.child(i)).isIntermediateObject]
         if len(shapes) != 1:
-            raise ValueError(f"{node.getName()} must have exactly one mesh shape")
+            raise ValueError(f"{node.getName()}にはメッシュのシェイプが1つだけ必要です")
         path.push(shapes[0])
         node = Node(path)
     if not node.mnode().hasFn(om2.MFn.kMesh):
-        raise TypeError(f"{node.getName()} is not a polygon mesh")
+        raise TypeError(f"{node.getName()}はポリゴンメッシュではありません")
     return node
 
 
@@ -1801,21 +1843,21 @@ def _vertex_values(weights, count):
     if isinstance(weights, dict):
         items = list(weights.items())
     elif isinstance(weights, (str, bytes)):
-        raise TypeError("weights must be a sequence of numbers or a dict")
+        raise TypeError("weightsは数値の並びかdictで指定してください")
     else:
         items = list(enumerate(weights))
         if len(items) != count:
-            raise ValueError(f"Expected {count} weights, got {len(items)}")
+            raise ValueError(f"ウェイトを{count}個指定してください: {len(items)}個")
     values = {}
     for index, value in items:
         if type(index) is not int:
-            raise TypeError(f"vertex index must be an int, got {type(index).__name__}")
+            raise TypeError(f"頂点番号はintで指定してください: {type(index).__name__}")
         if not 0 <= index < count:
-            raise IndexError(f"Vertex index out of range: {index}")
+            raise IndexError(f"頂点番号が範囲外です: {index}")
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise TypeError(f"weight must be a number, got {type(value).__name__}")
+            raise TypeError(f"weightは数値で指定してください: {type(value).__name__}")
         if not math.isfinite(value):
-            raise ValueError(f"weight must be finite, got {value}")
+            raise ValueError(f"weightは有限な数値で指定してください: {value}")
         values[index] = float(value)
     return values
 
@@ -1836,21 +1878,21 @@ def _delta_values(deltas, count):
         IndexError: 頂点番号が範囲外の場合。
     """
     if not isinstance(deltas, dict):
-        raise TypeError("deltas must be a dict of vertex index to offset")
+        raise TypeError("deltasは頂点番号からオフセットへのdictで指定してください")
     rows = []
     for index, delta in sorted(deltas.items()):
         if type(index) is not int:
-            raise TypeError(f"vertex index must be an int, got {type(index).__name__}")
+            raise TypeError(f"頂点番号はintで指定してください: {type(index).__name__}")
         if not 0 <= index < count:
-            raise IndexError(f"Vertex index out of range: {index}")
+            raise IndexError(f"頂点番号が範囲外です: {index}")
         try:
             offset = tuple(delta)
         except TypeError:
-            raise TypeError(f"delta must be three numbers, got {type(delta).__name__}") from None
+            raise TypeError(f"deltaは3つの数値で指定してください: {type(delta).__name__}") from None
         if len(offset) != 3 or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in offset):
-            raise ValueError(f"delta must be three numbers: {delta!r}")
+            raise ValueError(f"deltaは3つの数値で指定してください: {delta!r}")
         if not all(math.isfinite(v) for v in offset):
-            raise ValueError(f"delta must be finite: {delta!r}")
+            raise ValueError(f"deltaは有限な数値で指定してください: {delta!r}")
         rows.append((index, tuple(float(v) for v in offset)))
     return rows
 
@@ -1869,9 +1911,9 @@ def _tolerance(value):
         ValueError: 負または有限でない場合。
     """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError(f"tolerance must be a number, got {type(value).__name__}")
+        raise TypeError(f"toleranceは数値で指定してください: {type(value).__name__}")
     if not math.isfinite(value) or value < 0:
-        raise ValueError(f"tolerance must be a finite nonnegative number, got {value}")
+        raise ValueError(f"toleranceは0以上の有限な数値で指定してください: {value}")
     return float(value)
 
 
@@ -1918,7 +1960,7 @@ def _data_index(value, label):
         ValueError: 0以上の論理番号でない場合。
     """
     if type(value) is not int or not 0 <= value <= _MAX_INDEX:
-        raise ValueError(f"Invalid {label} in blendShape targets data: {value!r}")
+        raise ValueError(f"blendShapeのターゲットのデータの{label}が不正です: {value!r}")
     return value
 
 
@@ -1938,12 +1980,12 @@ def _require_sparse(value, count):
         or not isinstance(value.get("values"), list)
         or len(value["indices"]) != len(value["values"])
     ):
-        raise ValueError("Vertex weights in blendShape targets data must have 'indices' and 'values' lists")
+        raise ValueError("blendShapeのターゲットのデータの頂点ウェイトには、'indices'と'values'のリストが必要です")
     for index, weight in zip(value["indices"], value["values"]):
         if type(index) is not int or not 0 <= index < count:
-            raise ValueError(f"Vertex index out of range in blendShape targets data: {index!r}")
+            raise ValueError(f"blendShapeのターゲットのデータの頂点番号が範囲外です: {index!r}")
         if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight):
-            raise ValueError(f"Invalid vertex weight in blendShape targets data: {weight!r}")
+            raise ValueError(f"blendShapeのターゲットのデータの頂点ウェイトが不正です: {weight!r}")
 
 
 def _validated_target(target, counts, report):
@@ -1963,19 +2005,19 @@ def _validated_target(target, counts, report):
         ValueError: データの形が違う場合。
     """
     if not isinstance(target, dict):
-        raise ValueError(f"Invalid target in blendShape targets data: {target!r}")
+        raise ValueError(f"blendShapeのターゲットのデータのターゲットが不正です: {target!r}")
     name = target.get("name")
     if name is not None and (not isinstance(name, str) or not name):
-        raise ValueError(f"Invalid target name in blendShape targets data: {name!r}")
-    _data_index(target.get("index"), "target index")
+        raise ValueError(f"blendShapeのターゲットのデータのターゲット名が不正です: {name!r}")
+    _data_index(target.get("index"), "ターゲットの番号")
     value = target.get("weight")
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise ValueError(f"Invalid weight value for target {name!r}: {value!r}")
+        raise ValueError(f"ターゲット{name!r}のウェイトの値が不正です: {value!r}")
     if target.get("driver") is not None and not isinstance(target["driver"], dict):
-        raise ValueError(f"Invalid driver for target {name!r}")
+        raise ValueError(f"ターゲット{name!r}のドライバーが不正です")
     inbetweens = target.get("inBetweens")
     if not isinstance(inbetweens, list):
-        raise ValueError(f"Invalid in-betweens for target {name!r}")
+        raise ValueError(f"ターゲット{name!r}のインビトウィーンが不正です")
     for entry in inbetweens:
         if (
             not isinstance(entry, dict)
@@ -1985,31 +2027,31 @@ def _validated_target(target, counts, report):
             or type(entry.get("visibility")) is not bool
             or not isinstance(entry.get("curve"), list)
         ):
-            raise ValueError(f"Invalid in-between for target {name!r}: {entry!r}")
+            raise ValueError(f"ターゲット{name!r}のインビトウィーンが不正です: {entry!r}")
         _weight_item(entry.get("weight"))
     bases = target.get("bases")
     if not isinstance(bases, list) or not bases:
-        raise ValueError(f"Target {name!r} has no base data")
+        raise ValueError(f"ターゲット{name!r}にベースのデータがありません")
     usable = True
     for entry in bases:
         if not isinstance(entry, dict) or not isinstance(entry.get("items"), list) or not entry["items"]:
-            raise ValueError(f"Invalid base data for target {name!r}")
-        bi = _data_index(entry.get("base"), "base index")
+            raise ValueError(f"ターゲット{name!r}のベースのデータが不正です")
+        bi = _data_index(entry.get("base"), "ベースの番号")
         if bi not in counts:
             usable = False
             if not report.errors:
-                report.addError(f"target {name!r} uses base {bi}, which cannot be restored")
+                report.addError(f"ターゲット{name!r}が使うベース{bi}は復元できません")
             continue
         _require_sparse(entry.get("targetWeights"), counts[bi])
         for item in entry["items"]:
             if not isinstance(item, dict):
-                raise ValueError(f"Invalid item for target {name!r}")
+                raise ValueError(f"ターゲット{name!r}の項目が不正です")
             _weight_item(item.get("weight"))
             indices, offsets = item.get("indices"), item.get("offsets")
             if not isinstance(indices, list) or not isinstance(offsets, list) or len(offsets) != 3 * len(indices) or len(set(indices)) != len(indices):
-                raise ValueError(f"Invalid deltas for target {name!r}")
+                raise ValueError(f"ターゲット{name!r}のデルタが不正です")
             if any(type(i) is not int or not 0 <= i < counts[bi] for i in indices):
-                raise ValueError(f"Vertex index out of range in deltas of target {name!r}")
+                raise ValueError(f"ターゲット{name!r}のデルタの頂点番号が範囲外です")
             if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in offsets):
-                raise ValueError(f"Invalid delta value in target {name!r}")
+                raise ValueError(f"ターゲット{name!r}のデルタの値が不正です")
     return target if usable else None

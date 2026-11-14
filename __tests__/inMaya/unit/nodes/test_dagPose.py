@@ -148,7 +148,7 @@ class DagPoseSpecTest(_SpecCase):
         """取得は DagPose。削除済みのポーズの restore は RuntimeError。"""
         self.assertIsInstance(self.node, DagPose)
         cmds.delete(self.pose)
-        with self.assertRaisesRegex(RuntimeError, r"(?i)invalid dagPose"):
+        with self.assertRaisesRegex(RuntimeError, "無効なDagPoseのため"):
             self.node.restore()
 
 

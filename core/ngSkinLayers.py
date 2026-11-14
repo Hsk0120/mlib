@@ -1,4 +1,7 @@
-"""ngSkinTools2のスキニングレイヤーへ、influenceの解除に伴うウェイトの移送を反映する。"""
+"""ngSkinTools2のスキニングレイヤーのウェイトを移す処理。
+
+インフルエンスを外すときに、そのウェイトをほかのインフルエンスへ移す。
+"""
 
 import maya.cmds as cmds
 
@@ -6,13 +9,14 @@ _PLUGIN = "ngSkinTools2"
 
 
 def _layer_api(skin_name):
-    """レイヤーが有効なskinClusterのAPIとLayersを返す。
+    """skinClusterのレイヤーを扱うAPIとLayersを返す。
 
     Args:
         skin_name (str): skinClusterの名前。
 
     Returns:
-        tuple[object, object] | None: ngSkinTools2のAPIとLayers。プラグイン未ロード・APIなし・レイヤーなしはNone。
+        tuple[object, object] | None: ngSkinTools2のAPIとLayers。
+            プラグインが読み込まれていない場合、APIが無い場合、レイヤーが無い場合はNone。
     """
     if not cmds.pluginInfo(_PLUGIN, query=True, loaded=True):
         return None
@@ -27,18 +31,21 @@ def _layer_api(skin_name):
 
 
 def _move_layer_weights(skin_name, moves, redistributed, remaining, vertex_count, *, fast=False):
-    """全レイヤーで、解除するinfluenceのウェイトを移送先または残りのinfluenceへ移す。
+    """外すインフルエンスのウェイトを、すべてのレイヤーで移す。
+
+    移し先が決まっていればそこへ移し、決まっていなければ残りのインフルエンスへ配る。
 
     Args:
         skin_name (str): skinClusterの名前。
-        moves (dict[int, int]): 移送元と移送先の論理番号。
-        redistributed (list[int]): 移送先がなく、残りのinfluenceへ比率を保って配る論理番号。
-        remaining (list[int]): 解除後も残るinfluenceの論理番号。
+        moves (dict[int, int]): 移し元と移し先の論理番号。
+        redistributed (list[int]): 移し先が無いインフルエンスの論理番号。
+            ウェイトは残りのインフルエンスへ、今の比率を保って配る。
+        remaining (list[int]): 外した後も残るインフルエンスの論理番号。
         vertex_count (int): 頂点数。
         fast (bool): TrueはレイヤーのUndoを記録しない。
 
     Returns:
-        bool: レイヤーへ反映した場合True。ngSkinTools2のレイヤーが使えない場合はFalse。
+        bool: レイヤーへ書き込んだらTrue。ngSkinTools2のレイヤーが使えない場合はFalse。
     """
     found = _layer_api(skin_name)
     if found is None:
@@ -51,15 +58,17 @@ def _move_layer_weights(skin_name, moves, redistributed, remaining, vertex_count
 
 
 def _move_in_layer(layer, moves, redistributed, remaining, vertex_count, undo):
-    """1つのレイヤーのウェイトを移し、変わった列だけを書き込む。
+    """1つのレイヤーのウェイトを移す。
+
+    書き込むのは、値が変わったインフルエンスの列だけにする。
 
     Args:
         layer (object): ngSkinTools2のレイヤー。
-        moves (dict[int, int]): 移送元と移送先の論理番号。
-        redistributed (list[int]): 残りのinfluenceへ配る論理番号。
-        remaining (list[int]): 解除後も残るinfluenceの論理番号。
+        moves (dict[int, int]): 移し元と移し先の論理番号。
+        redistributed (list[int]): 残りのインフルエンスへ配る論理番号。
+        remaining (list[int]): 外した後も残るインフルエンスの論理番号。
         vertex_count (int): 頂点数。
-        undo (bool): Undoを記録するか。
+        undo (bool): TrueならUndoを記録する。
 
     Returns:
         None: 値を返さない。
@@ -100,13 +109,13 @@ def _move_in_layer(layer, moves, redistributed, remaining, vertex_count, undo):
                 for values in rest:
                     values[vertex] *= scale
             else:
-                # 残りが全て0の頂点は、Mayaの標準の再配分と同じく残りのinfluenceへ等分する。
+                # 残りがすべて0の頂点は、Mayaの標準の再配分と同じく、残りのインフルエンスへ等しく分ける。
                 for index in remaining:
                     column(index)[vertex] += value / len(remaining)
         columns[source] = [0.0] * vertex_count
         changed.add(source)
         changed.update(index for index in columns if index in remaining)
-    # 先に足すと一時的に合計が1を超え、ngSkinToolsが他のinfluenceを縮小するため、解除する列から書く。
+    # 先に足すと一時的に合計が1を超え、ngSkinToolsがほかのインフルエンスを縮めてしまう。そのため外す列から書く。
     removed = set(moves).union(redistributed)
     for index in sorted(changed, key=lambda item: item not in removed):
         layer.set_weights(index, columns[index], undo_enabled=undo)

@@ -1,4 +1,4 @@
-"""Mesh の Edge とコレクション。"""
+"""メッシュのエッジと、エッジの集まり。"""
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -12,17 +12,17 @@ from .vertex import Vertices
 
 
 class Edge(Component):
-    """Mesh の単一コンポーネント。"""
+    """メッシュのエッジ1つを表すクラス。"""
 
     shape_type = "mesh"
     component_type = "e"
     count_attribute = "getNumEdges"
 
     def getVertices(self):
-        """接続する頂点群を取得する。
+        """エッジの両端の頂点を取得する。
 
         Returns:
-            Vertices: Maya の接続順の頂点群。
+            Vertices: 頂点。Mayaが返すつながりの順に並ぶ。
         """
         self._require_valid()
         return Vertices(self.shape, self.shape._geometry_fn().getEdgeVertices(self.index))
@@ -33,23 +33,26 @@ class Edge(Component):
         :meth:`Edges.getFaces` と同じ規則。
 
         Returns:
-            Faces: 番号の昇順の面(重複なし)。
+            Faces: 面。番号の小さい順に並び、重なりは無い。
         """
         return Edges(self.shape, [self.index]).getFaces()
 
     def getLength(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """エッジの長さ(``MItMeshEdge.length``)を cm で取得する。
+        """エッジの長さを、cmで取得する。
+
+        ``MItMeshEdge.length`` で求める。
 
         Args:
-            worldSpace (bool): Trueは保持DAGパスのワールド空間、FalseはShapeのオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            float: 長さ(cm)。ワールド空間は親のスケールを含む。
+            float: 長さ(cm)。ワールド空間では、親のスケールも含む。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            IndexError: 番号が現在の範囲外の場合。
+            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -60,18 +63,21 @@ class Edge(Component):
         return it.length(space)
 
     def getCenter(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """エッジの中点(``MItMeshEdge.center``)を取得する。
+        """エッジの中点を取得する。
+
+        ``MItMeshEdge.center`` で求める。
 
         Args:
-            worldSpace (bool): Trueは保持DAGパスのワールド空間、FalseはShapeのオブジェクト空間。
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             Vector: 中点の位置(cm)。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            IndexError: 番号が現在の範囲外の場合。
+            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -102,58 +108,66 @@ class Edge(Component):
         return Edges(self.shape, [self.index]).getRing()
 
     def getConnectedEdges(self):
-        """このエッジと頂点を共有するエッジ(自身を含まない)を取得する(``MItMeshEdge.getConnectedEdges``)。
+        """このエッジと頂点を共有するエッジを取得する。
+
+        自身は含めない。``MItMeshEdge.getConnectedEdges`` で求める。
 
         Returns:
-            Edges: 番号の昇順のエッジ(重複なし)。
+            Edges: エッジ。番号の小さい順に並び、重なりは無い。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         return Edges(self.shape, sorted(set(self._iterator().getConnectedEdges())))
 
     def isOnBoundary(self):
-        """メッシュの縁(接する面が1つだけ)のエッジか照会する。
+        """メッシュの縁のエッジか調べる。
+
+        縁のエッジとは、接する面が1つだけのエッジのこと。
 
         Returns:
             bool: 縁ならTrue。:meth:`Mesh.getBorderEdges <mlib.nodes.mesh.Mesh.getBorderEdges>` と同じ判定。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         return self._iterator().numConnectedFaces() == 1
 
     def isSmooth(self):
-        """ソフトエッジ(スムーズ)か照会する(``MFnMesh.isEdgeSmooth``)。
+        """ソフトエッジ(スムーズ)か調べる。
+
+        ``MFnMesh.isEdgeSmooth`` で調べる。
 
         Returns:
             bool: ソフトエッジならTrue、ハードエッジならFalse。
 
         Raises:
-            IndexError: 番号が現在の範囲外の場合。
+            IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         self._require_valid()
         return self.shape._geometry_fn().isEdgeSmooth(self.index)
 
     def setSmooth(self, value=True):
-        """ソフトエッジ(True)・ハードエッジ(False)を設定し、自身を返す。
+        """ソフトエッジかハードエッジかを設定する。
 
-        ``cmds.polySoftEdge`` (角度180または0)で書き込み、1回のUndoにまとめる。選択は変えない。コンストラクションヒストリの
-        あるメッシュでは ``polySoftEdge`` ノードを履歴へ足し、無いメッシュは履歴を作らずに直接書く。
+        ``cmds.polySoftEdge`` (角度180または0)で書き込み、1回のUndoで戻せるようにまとめる。選択は変えない。
+
+        - コンストラクションヒストリのあるメッシュでは、``polySoftEdge`` ノードをヒストリへ足す。
+        - ヒストリの無いメッシュでは、ヒストリを作らずに直接書き込む。
 
         Args:
-            value (bool): Trueはソフトエッジ、Falseはハードエッジ。
+            value (bool): Trueならソフトエッジ、Falseならハードエッジにする。既定はTrue。
 
         Returns:
             Edge: 自身。
 
         Raises:
-            TypeError: valueがbool以外の場合。
-            IndexError: 番号が現在の範囲外の場合。
-            RuntimeError: Shapeが無効、またはロック等でMayaが書込みを拒否した場合。
+            TypeError: valueがboolでない場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
         """
         _require_bool(value, "value")
         self._require_valid()
@@ -164,7 +178,7 @@ class Edge(Component):
         return self
 
     def _iterator(self):
-        """番号を検証し、このエッジへ移した ``om2.MItMeshEdge`` を返す。
+        """番号を確かめて、このエッジに合わせた ``om2.MItMeshEdge`` を返す。
 
         Returns:
             om2.MItMeshEdge: このエッジを指す反復子。
@@ -179,15 +193,15 @@ _EDGE_GET_VERTICES = Edge.getVertices
 
 
 class Edges(Components):
-    """同一 Mesh の Edge 群。"""
+    """同じメッシュにあるエッジの集まりを表すクラス。"""
 
     component_class = Edge
 
     def getVertices(self):
-        """接続する頂点群を取得する。
+        """各エッジの両端の頂点を取得する。
 
         Returns:
-            Vertices: 保持順に集め、重複を除いた頂点群。
+            Vertices: 頂点。エッジを持っている順に集め、重なりは除く。
         """
         if not (self._uses_standard_iteration(Edge) and self._uses_standard_vertices() and Edge.getVertices is _EDGE_GET_VERTICES):
             return Vertices(self.shape, (v.index for item in self for v in item.getVertices()))
@@ -195,15 +209,15 @@ class Edges(Components):
         return Vertices(self.shape, indices)
 
     def getFaces(self):
-        """保持しているエッジのどれかに接する面を取得する。選択は変えない。
+        """持っているエッジのどれかに接する面を取得する。
 
-        ``cmds.polyListComponentConversion(toFace=True)`` と同じ面になる。
+        ``cmds.polyListComponentConversion(toFace=True)`` と同じ面になる。選択は変えない。
 
         Returns:
-            Faces: 番号の昇順の面(重複なし)。エッジが空なら空。
+            Faces: 面。番号の小さい順に並び、重なりは無い。エッジが空なら空。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
@@ -214,17 +228,18 @@ class Edges(Components):
         return Faces(self.shape, sorted(found))
 
     def getLoop(self):
-        """保持しているエッジを通るエッジのループを取得する。選択は変えない。
+        """持っているエッジを通る、エッジのループを取得する。
 
-        4本のエッジが集まる頂点で、今のエッジとフェースを共有しない向かいのエッジへ進む
-        (``cmds.polySelect(edgeLoop=...)`` と同じ規則)。それ以外の頂点(極)・メッシュの縁のエッジと、
-        一周して戻った所で止まる。
+        選択は変えない。たどり方は ``cmds.polySelect(edgeLoop=...)`` と同じ。
+
+        - 4本のエッジが集まる頂点では、今のエッジとフェースを共有しない、向かいのエッジへ進む。
+        - それ以外の頂点(極)、メッシュの縁のエッジ、一周して戻った所で止まる。
 
         Returns:
-            Edges: 保持順に各エッジのループを両方向へたどった順のエッジ(重複なし)。
+            Edges: エッジ。持っている順に、各エッジのループを両方向へたどった順で並び、重なりは無い。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
@@ -235,16 +250,18 @@ class Edges(Components):
         return Edges(self.shape, found)
 
     def getRing(self):
-        """保持しているエッジを通るエッジのリングを取得する。選択は変えない。
+        """持っているエッジを通る、エッジのリングを取得する。
 
-        四角形のフェースを横切り、今のエッジと頂点を共有しない向かいのエッジへ進む。
-        四角形でないフェース・メッシュの縁と、一周して戻った所で止まる。
+        選択は変えない。
+
+        - 四角形のフェースを横切って、今のエッジと頂点を共有しない、向かいのエッジへ進む。
+        - 四角形でないフェース、メッシュの縁、一周して戻った所で止まる。
 
         Returns:
-            Edges: 保持順に各エッジのリングを両方向へたどった順のエッジ(重複なし)。
+            Edges: エッジ。持っている順に、各エッジのリングを両方向へたどった順で並び、重なりは無い。
 
         Raises:
-            IndexError: トポロジーの変更で保持番号が範囲外になった場合。
+            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
@@ -256,10 +273,12 @@ class Edges(Components):
 
 
 class _Topology:
-    """エッジ・頂点・フェースのつながりを、必要な要素だけ OpenMaya の反復子で照会して覚える。
+    """エッジ・頂点・フェースのつながりを調べて覚えておくクラス。
+
+    必要な要素の分だけ、OpenMayaの反復子で調べる。
 
     Args:
-        mesh (Mesh): 照会するメッシュ。
+        mesh (Mesh): 調べるメッシュ。
     """
 
     def __init__(self, mesh):
@@ -354,7 +373,7 @@ class _Topology:
         return result
 
     def _loop_next(self, current, pivot):
-        """ループで、頂点 pivot の先へ続くエッジを返す。続かなければ None。"""
+        """ループで、頂点pivotの先へ続くエッジを返す。続かなければNone。"""
         edges = self.vertex_edges(pivot)
         faces = set(self.edge_faces(current))
         if len(faces) != 2 or len(edges) != 4:

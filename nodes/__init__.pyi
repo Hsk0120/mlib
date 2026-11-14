@@ -1,20 +1,25 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ラッパークラスを明示公開し、Mayaの型との対応を宣言する。
+"""ノードのクラスを公開し、Mayaのノード型との対応を宣言する。
 
-手書きクラスは通常の import と ``__all__`` で公開し、``_WRAPPER_CLASSES`` で Maya の
-nodeType 名との対応を明示する。登録の無い Maya の nodeType は、取得時(``mlib.ls``・
-``mlib.getNode``・``Node(name)``)に Maya の継承チェーン上で最も近い登録クラスを親とする
-クラスを自動生成して包む(クラス名は型名の先頭を大文字にしたもの。例: ``pointLight`` →
-``PointLight``)。生成クラスはこのモジュールの属性 ``mlib.nodes.<TypeName>`` でも取得でき、
-Maya が認識しない型名(プラグイン未ロード等)は ``AttributeError`` になる。
+手書きのクラスは、通常のimportと ``__all__`` で公開する。Mayaのノード型名(nodeType)との対応は
+``_WRAPPER_CLASSES`` に書く。
 
-生成クラスは ``__all__`` に入れず、Sphinx にも載らない。登録クラスと生成対象の間にある
-抽象型(weightGeometryFilter・containerBase・entity など。デフォーマー共通の geometryFilter は
-手書きの GeometryFilter として登録する)のクラスは生成しないため、
+登録の無いMayaのノード型は、取得するとき(``mlib.ls``・``mlib.getNode``・``Node(name)``)に
+クラスを自動で作って使う。親クラスは、Mayaの継承の流れの上で最も近い登録クラスになる。
+クラス名は型名の先頭を大文字にしたもの(例: ``pointLight`` → ``PointLight``)。
+自動で作ったクラスは ``mlib.nodes.<TypeName>`` でも取得できる。
+Mayaが認識しない型名(プラグインが読み込まれていない場合など)は ``AttributeError`` になる。
 
-``isinstance`` は Maya の継承を表さない。継承の判定は ``Node.isType()`` を使う。
-生成クラスは登録表の変更・プラグインのロード/アンロード(``mlib.Plugin`` 経由)・
-``mlib.reload()`` で作り直されるため、保持したクラス参照は取り直す。
+自動で作ったクラスは ``__all__`` に入れず、Sphinxにも載せない。
+登録クラスと自動で作るクラスの間にある抽象型(weightGeometryFilter・containerBase・entityなど)の
+クラスは作らない(デフォーマーに共通のgeometryFilterは、手書きのGeometryFilterとして登録している)。
+そのため、``isinstance`` はMayaの継承を表さない。継承を判定するときは ``Node.isType()`` を使う。
+
+自動で作ったクラスは、次のときに作り直される。持っているクラスの参照は取り直す。
+
+- 登録表を変更したとき。
+- ``mlib.Plugin`` でプラグインをロード・アンロードしたとき。
+- ``mlib.reload()`` を実行したとき。
 """
 
 from ..core.registry import _node_type_exists
@@ -105,20 +110,22 @@ __all__ = ['AddDL', 'AddDoubleLinear', 'AimConstraint', 'AimMatrix', 'AngleBetwe
 _WRAPPER_CLASSES: dict
 
 def __getattr__(name: str) -> type:
-    """未登録の Maya nodeType に対応する自動生成クラスを ``mlib.nodes.<TypeName>`` で取得する。
+    """登録の無いMayaのノード型のクラスを、``mlib.nodes.<TypeName>`` の形で取得する。
 
-    通常の属性(登録クラス・サブモジュール)に無い名前だけが対象になる。名前の先頭を小文字に
-    した型名(``PointLight`` → ``pointLight``)と名前そのまま(``AISEnvFacade``)の順に、
-    登録表の完全一致・Maya の認識を調べる。
+    登録クラスやサブモジュールなど、モジュールに普通にある名前は対象にならない。
+    次の順に型名を作り、登録表に同じ名前があるか、Mayaが認識する型かを調べる。
+
+    1. 名前の先頭を小文字にした型名(``PointLight`` → ``pointLight``)。
+    2. 名前そのまま(``AISEnvFacade``)。
 
     Args:
         name (str): クラス名。先頭は大文字。
 
     Returns:
-        type: 登録クラス、または Maya の継承に沿って生成したクラス。
+        type: 登録クラス、またはMayaの継承に沿って自動で作ったクラス。
 
     Raises:
-        AttributeError: 先頭が大文字でない、または Maya が認識しない型名の場合
-            (プラグイン未ロードを含む)。
+        AttributeError: 先頭が大文字でない場合、またはMayaが認識しない型名の場合
+            (プラグインが読み込まれていない場合を含む)。
     """
     ...

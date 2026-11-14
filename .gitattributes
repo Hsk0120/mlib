@@ -1,0 +1,4 @@
+# バッチは、日本語Windowsのcmdがそのまま読めるShift-JIS(CP932)・CRLFで作業フォルダーへ取り出す。
+# リポジトリの中(GitHubでの表示)はUTF-8。UTF-8のままcmdへ渡すと、日本語の行を読み誤ることがある。
+# 編集するときはShift-JISのまま保存する(__tests__/noMaya/test_mlib_batchFiles.py が検査する)。
+*.bat text eol=crlf working-tree-encoding=CP932
