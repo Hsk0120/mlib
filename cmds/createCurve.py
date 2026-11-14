@@ -1,16 +1,4 @@
-"""点の並びからNURBSカーブを作り、シェイプを返す(``cmds.curve`` 相当)。
-
-点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、
-現在のUI単位には左右されない。作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createCurve([(0, 0, 0), (1, 0, 0), (1, 1, 0)], degree=1, name="line")
-    transform = shape.getTransform()
-    loop = mlib.createCurve([(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0)], degree=3, closed=True)
-"""
+"""点の並びからNURBSカーブを作り、シェイプを返す(``cmds.curve`` 相当)。"""
 
 import math
 from typing import Any, Dict
@@ -25,6 +13,9 @@ from ..util import _UNSET
 
 def createCurve(points, degree=_UNSET, closed=False, knots=None, name=_UNSET, parent=None, *, d=_UNSET, n=_UNSET):
     """点の並びからNURBSカーブを作り、そのシェイプを返す。
+
+    点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、
+    現在のUI単位には左右されない。作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
 
     - 開いたカーブで ``knots`` を省略すると、``cmds.curve`` の既定のノットにする。
     - ``closed=True`` なら、先頭の ``degree`` 個のCVを末尾へ重ねた周期カーブにする
@@ -59,6 +50,12 @@ def createCurve(points, degree=_UNSET, closed=False, knots=None, name=_UNSET, pa
             (開いたカーブはdegree+1点以上、閉じたカーブは3点以上かつdegree点以上が必要)、
             knotsの個数や値が正しくない場合、またはclosedとknotsを同時に指定した場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createCurve([(0, 0, 0), (1, 0, 0), (1, 1, 0)], degree=1, name="line")
+        >>> transform = shape.getTransform()
+        >>> loop = mlib.createCurve([(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0)], degree=3, closed=True)
     """
     degree = _pick_alias(degree, d, "degree", "d", default=1)
     name = _pick_alias(name, n, "name", "n", default=None)

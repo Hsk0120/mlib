@@ -1,17 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""アトリビュートの動きを、フレームごとのキーへ焼き込む(``cmds.bakeResults`` 相当)。
-
-コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、
-指定した範囲でフレームごとに評価し、キーにする。戻り値はそのアニメーションカーブ。
-焼き込みの間に動かした現在時刻は、終わったら元へ戻す。
-
-.. code-block:: python
-
-    import mlib
-
-    curves = mlib.bakeResults(["arm_CTRL", "leg_CTRL"], time=(1, 120), simulation=True)
-    curves = mlib.bakeResults("arm_CTRL", at=["tx", "ty"], t=(1, 24), sb=2)  # cmds.bakeResults と同じ短縮名
-"""
+"""アトリビュートの動きを、フレームごとのキーへ焼き込む(``cmds.bakeResults`` 相当)。"""
 
 import math
 import numbers
@@ -30,7 +18,8 @@ _REJECTED_FLAGS: frozenset
 def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequence[str] | None = ..., time: tuple[float, float] | None = ..., sampleBy: float = ..., *, at: str | Sequence[str] | None = ..., t: tuple[float, float] | None = ..., sb: float = ..., **kwargs: object) -> list[AnimCurve]:
     """アトリビュートの動きをキーへ焼き込み、そのアニメーションカーブを返す。
 
-    選択状態は使わない。
+    コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、
+    指定した範囲でフレームごとに評価し、キーにする。選択状態は使わない。
 
     - timeを省略すると、再生範囲(``mlib.Time.getPlaybackRange()``)を焼き込む。
     - attributesを省略すると、Mayaの既定(各ノードのキー設定可能なアトリビュート)を焼き込む。
@@ -68,6 +57,11 @@ def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequ
         ValueError: nodesが空の場合、timeが2つの有限な数値でない場合、timeの開始が終了より後の場合、
             またはsampleByが正の有限な数でない場合。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが焼き込みを拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> curves = mlib.bakeResults(["arm_CTRL", "leg_CTRL"], time=(1, 120), simulation=True)
+        >>> curves = mlib.bakeResults("arm_CTRL", at=["tx", "ty"], t=(1, 24), sb=2)  # cmds.bakeResults と同じ短縮名
     """
     ...
 

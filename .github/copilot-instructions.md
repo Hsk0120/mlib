@@ -427,7 +427,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 括弧は半角、文の区切りは句点。モジュール定数には `#:` を付ける。
 - 使用例のノード検索は `mlib.ls` を中心にし、`Object` の直接呼び出しを推奨例にしない。クラスは `mlib.Joint` の形で書く。
 - OpenMaya への文書リンクは Maya 2027 の公式リファレンスを使う。
-- `cmds/` の各関数の docstring は Synopsis / Return value / Flags / Examples 形式(Sphinx の専用テンプレートへ渡す)。
+- `cmds/` のコマンドの説明・Args・Returns・Raises・Examples は、すべて同名の関数の docstring に書く(Sphinx の専用テンプレート・型スタブ・補完が読む)。
+  モジュールの docstring は、何をするコマンドかの1行だけにし、Maya のどのコマンドに当たるかを「(``cmds.spaceLocator`` 相当)」のように添える。
+  使用例は関数の docstring の末尾に `Examples:` の見出しで、`>>> import mlib` から `>>>` の形で書く。
 
 ## 型スタブ(.pyi)
 

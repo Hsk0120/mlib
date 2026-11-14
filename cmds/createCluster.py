@@ -1,15 +1,4 @@
-"""形状やコンポーネントにclusterを作り、clusterデフォーマーを返す(``cmds.cluster`` 相当)。
-
-ハンドル(clusterHandleを持つtransform)は :meth:`Cluster.getWeightedNode <mlib.nodes.cluster.Cluster.getWeightedNode>`
-で取得する。作成は1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    cluster = mlib.createCluster("body_geo.vtx[0:20]", name="chest_cluster")
-    handle = cluster.getWeightedNode()
-"""
+"""形状やコンポーネントにclusterを作り、clusterデフォーマーを返す(``cmds.cluster`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -22,7 +11,8 @@ from ..util import _UNSET
 def createCluster(targets, name=_UNSET, relative=_UNSET, *, n=_UNSET, rel=_UNSET):
     """形状またはコンポーネントにclusterを作る。
 
-    選択状態は使わない。fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。
+    ハンドル(clusterHandleを持つtransform)は :meth:`Cluster.getWeightedNode <mlib.nodes.cluster.Cluster.getWeightedNode>`
+    で取得する。選択状態は使わず、現在の選択は変えない。fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。
     Undoが有効なら1回で戻せる。name・relativeは ``cmds.cluster`` と同じ短縮名 ``n``・``rel`` でも指定できる
     (長い名前と短縮名は同時に指定できない)。
 
@@ -45,10 +35,12 @@ def createCluster(targets, name=_UNSET, relative=_UNSET, *, n=_UNSET, rel=_UNSET
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:
-        .. code-block:: python
+        >>> import mlib
+        >>> cluster = mlib.createCluster("body_geo.vtx[0:20]", name="chest_cluster")
+        >>> handle = cluster.getWeightedNode()
 
-            cluster = mlib.createCluster(shape.getVertices([0, 1, 2]), relative=True)
-            cluster.getWeightedNode().setTranslation((0, 1, 0))
+        >>> cluster = mlib.createCluster(shape.getVertices([0, 1, 2]), relative=True)
+        >>> cluster.getWeightedNode().setTranslation((0, 1, 0))
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.node import Node

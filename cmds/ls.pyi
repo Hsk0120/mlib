@@ -1,21 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""名前や条件でMayaの対象を探し、結果の種類に合った集まり(コレクション)で返す。
-
-- ノードだけなら :class:`~mlib.nodes.node.Nodes` (``type="joint"`` なら Joints、``type="skinCluster"`` なら
-  SkinClusters)。
-- アトリビュートだけなら :class:`~mlib.plugs.plug.Plugs`。
-- 同じシェイプの同じ種類のコンポーネントだけなら、Vertices・Edges・Faces・UVs・CVs。
-- 種類が混ざっている場合だけ list。
-
-型名など、シーンの対象以外を返すMayaのフラグには対応しない。
-
-.. code-block:: python
-
-    import mlib
-
-    joints = mlib.ls(type="joint")
-    vertices = mlib.ls(selection=True, type="vertex")
-"""
+"""名前や条件でMayaの対象を探し、結果の種類に合った集まり(コレクション)で返す(``cmds.ls`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.registry import _real_node_types
@@ -465,6 +449,11 @@ def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool =
         集まりで返す場合は、それぞれの集まりを作るときと同じ規則で、重なり(同じノード・同じDAGパス、
         同じアトリビュート、同じ番号)は先に出てきた方だけを残す。
         種類が混ざって list で返す場合は、重なりをまとめない。
+
+    Examples:
+        >>> import mlib
+        >>> joints = mlib.ls(type="joint")
+        >>> vertices = mlib.ls(selection=True, type="vertex")
     """
     ...
 

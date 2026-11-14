@@ -1,15 +1,4 @@
-"""開始のjointから末端のjointまでのIKハンドルとエフェクターを作る(``cmds.ikHandle`` 相当)。
-
-.. code-block:: python
-
-    import mlib
-
-    handle = mlib.createIkHandle(shoulder, wrist, solver="ikRPsolver", name="arm_ikh")
-    effector = handle.getEffector()
-
-    # cmds.ikHandle と同じ短縮名でも指定できる。
-    handle = mlib.createIkHandle(sj=shoulder, ee=wrist, sol="ikSCsolver", n="arm_sc_ikh")
-"""
+"""開始のjointから末端のjointまでのIKハンドルとエフェクターを作る(``cmds.ikHandle`` 相当)。"""
 
 import maya.cmds as cmds
 import maya.mel as mel
@@ -102,6 +91,13 @@ def createIkHandle(
     Note:
         シーンで最初にIKハンドルを作るとき、Mayaはソルバーノード(ikRPsolverなど)を作る。
         このノードは、``cmds.ikHandle`` と同じくUndoしても残る。
+
+    Examples:
+        >>> import mlib
+        >>> handle = mlib.createIkHandle(shoulder, wrist, solver="ikRPsolver", name="arm_ikh")
+        >>> effector = handle.getEffector()
+        >>> # cmds.ikHandle と同じ短縮名でも指定できる。
+        >>> handle = mlib.createIkHandle(sj=shoulder, ee=wrist, sol="ikSCsolver", n="arm_sc_ikh")
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.joint import Joint

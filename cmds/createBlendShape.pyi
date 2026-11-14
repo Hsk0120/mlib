@@ -1,12 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""形状にblendShapeを作成し、ターゲットを登録する(``cmds.blendShape`` 相当)。
-
-.. code-block:: python
-
-    import mlib
-
-    blend = mlib.createBlendShape(body, [smile, frown], name="face_blendShape")
-"""
+"""形状にblendShapeを作成し、ターゲットを登録する(``cmds.blendShape`` 相当)。"""
 
 from typing import Any, Dict
 import maya.cmds as cmds
@@ -45,5 +38,9 @@ def createBlendShape(base: str | Node, targets: str | Node | Iterable[str | Node
             nameが文字列でもNoneでもない場合、または対象が対応していない型の場合。
         ValueError: nameが空文字列の場合、または対象が空か無効な場合。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> blend = mlib.createBlendShape(body, [smile, frown], name="face_blendShape")
     """
     ...

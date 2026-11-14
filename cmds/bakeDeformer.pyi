@@ -1,19 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""デフォーマー(delta mush・cluster など)による変形を、スキンのウェイトへ焼き込む(``cmds.bakeDeformer`` 相当)。
-
-Mayaの Bake Deformers to Skin Weights と同じく ``cmds.bakeDeformer`` を使う。
-ジョイントを動かしたときの変形を元の形状で測り、変形先の形状の skinCluster のウェイトにする。
-戻り値はその skinCluster。
-
-変形先を省略すると、元の形状そのものを skinCluster だけで変形する形へ置き換える。
-このとき元のデフォーマーは取り除かれる。
-
-.. code-block:: python
-
-    import mlib
-
-    skin = mlib.bakeDeformer("body_geo", "root_JNT", "body_game_geo", maxInfluences=4)
-"""
+"""デフォーマー(delta mush・cluster など)による変形を、スキンのウェイトへ焼き込む(``cmds.bakeDeformer`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.object import Object
@@ -28,6 +14,8 @@ _REJECTED_FLAGS: frozenset
 def bakeDeformer(source: Node | str, skeleton: Joint | str, destination: Node | str | None = ..., destinationSkeleton: Joint | str | None = ..., maxInfluences: int = ..., *, mi: int = ..., **kwargs: object) -> SkinCluster:
     """元の形状の変形を、変形先の形状の skinCluster のウェイトへ焼き込む。
 
+    Mayaの Bake Deformers to Skin Weights と同じく ``cmds.bakeDeformer`` を使い、ジョイントを動かしたときの変形を
+    元の形状で測って、変形先の形状の skinCluster のウェイトにする。
     選択状態は使わない。変形先がすでにバインドされていれば、その skinCluster のウェイトを書き換える。
     fast引数は無い(OpenMayaに同じ機能が無いため)。Undoが有効なら1回で戻せる。
 
@@ -54,5 +42,9 @@ def bakeDeformer(source: Node | str, skeleton: Joint | str, destination: Node | 
         ValueError: maxInfluencesが正の整数でない場合。
         RuntimeError: 名前からノードが見つからない場合、Mayaが焼き込みを拒否した場合、
             または変形先に skinCluster が見つからない場合。
+
+    Examples:
+        >>> import mlib
+        >>> skin = mlib.bakeDeformer("body_geo", "root_JNT", "body_game_geo", maxInfluences=4)
     """
     ...

@@ -1,15 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""containerを作り、指定したノードを所属させる(``cmds.container`` 相当)。
-
-``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
-空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
-
-.. code-block:: python
-
-    import mlib
-
-    owner = mlib.createContainer("arm_graph", members=[node])
-"""
+"""containerを作り、指定したノードを所属させる(``cmds.container`` 相当)。"""
 
 import maya.cmds as cmds
 from ..decorator import _pick_alias, undoTransaction
@@ -23,7 +13,8 @@ from mlib.nodes.node import Node
 def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, n: str = ...) -> Container:
     """containerを作り、指定したノードを所属させる。
 
-    作成のあとに ``addMembers`` を行うのと同じ。
+    作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
+    空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
     fast引数は無い(cmds.containerと同じ機能がOpenMayaに無いため)。Undoが有効なら1回で戻せる。
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
@@ -39,6 +30,10 @@ def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] 
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合。
         RuntimeError: Mayaが作成・所属を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> owner = mlib.createContainer("arm_graph", members=[node])
     """
     ...
 

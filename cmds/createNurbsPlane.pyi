@@ -1,16 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""NURBSの平面を作り、シェイプを返す(``cmds.nurbsPlane(constructionHistory=False)`` 相当)。
-
-幅はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
-作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。リボンの元になる面などに使う。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createNurbsPlane(width=10.0, lengthRatio=0.1, patchesU=5, name="ribbon")
-    shape = mlib.createNurbsPlane(w=10.0, lr=0.1, u=5, n="ribbon")  # cmds.nurbsPlane と同じ短縮名
-"""
+"""NURBSの平面を作り、シェイプを返す(``cmds.nurbsPlane(constructionHistory=False)`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.shapeBuild import finish_shape, positive_size, require_name, resolve_parent
@@ -24,6 +13,8 @@ from mlib.nodes.nurbsSurface import NurbsSurface
 def createNurbsPlane(width: float = ..., lengthRatio: float = ..., patchesU: int = ..., patchesV: int = ..., axis: Sequence[float] = ..., degree: int = ..., name: str | None = ..., parent: Node | str | None = ..., *, w: float = ..., lr: float = ..., u: int = ..., v: int = ..., ax: Sequence[float] = ..., d: int = ..., n: str | None = ...) -> NurbsSurface:
     """原点を中心とするNURBSの平面を作り、そのシェイプを返す。
 
+    幅はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。リボンの元になる面などに使う。
     fast引数は無い(OpenMayaでは同じノット・CVの面を組み立て直すことになり、同じ結果を保つのが難しいため)。
     parent以外は ``cmds.nurbsPlane`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
     U方向が幅(width)、V方向が長さ(``width * lengthRatio``)になる。
@@ -56,6 +47,11 @@ def createNurbsPlane(width: float = ..., lengthRatio: float = ..., patchesU: int
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
         ValueError: 幅や比が0以下か有限でない場合、またはパッチの数・軸・次数が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createNurbsPlane(width=10.0, lengthRatio=0.1, patchesU=5, name="ribbon")
+        >>> shape = mlib.createNurbsPlane(w=10.0, lr=0.1, u=5, n="ribbon")  # cmds.nurbsPlane と同じ短縮名
     """
     ...
 

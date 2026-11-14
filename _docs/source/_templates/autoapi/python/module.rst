@@ -21,12 +21,13 @@
 {% endfor %}
 
 {% elif obj.id.startswith(command_package ~ ".") %}
-{#- 取得コマンドはcmdsとルートの公開入口を、同じ署名・説明にまとめる。 -#}
+{#-
+  取得コマンドはcmdsとルートの公開入口を、同じ署名・説明にまとめる。
+  説明・Args・Returns・Raises・Examples はすべて関数のdocstringに書き、モジュールのdocstringは1行にする。
+  モジュールのdocstringは、同名の関数が見つからないときだけ出す(関数の説明と二重にしないため)。
+-#}
 {% set command_name = obj.short_name %}
 {% set entry_point = obj.functions|selectattr("short_name", "equalto", command_name)|first %}
-{% set synopsis = obj.docstring
-    |replace(".. rubric:: Examples", "Examples\n--------")
-    |replace(".. rubric:: サンプル", "Examples\n--------") %}
 {{ command_name }}
 {{ "=" * command_name|length }}
 
@@ -42,11 +43,12 @@
 
    {{ entry_point.docstring|indent(3) }}
 
-{% endif %}
-
+{% else %}
 .. autoapi-nested-parse::
 
-   {{ synopsis|indent(3) }}
+   {{ obj.docstring|indent(3) }}
+
+{% endif %}
 
 {% else %}
 {% include "autoapi-packaged/python/module.rst" %}

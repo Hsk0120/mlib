@@ -1,14 +1,4 @@
-"""現在の姿勢を新しいdagPoseに保存する(``cmds.dagPose(save=True)`` 相当)。
-
-選択状態は使わない。
-
-.. code-block:: python
-
-    import mlib
-
-    pose = mlib.createDagPose(root, name="rest_pose")
-    pose.restore()
-"""
+"""現在の姿勢を新しいdagPoseに保存する(``cmds.dagPose(save=True)`` 相当)。"""
 
 from typing import Any, Dict
 
@@ -23,7 +13,7 @@ from ..util import _UNSET
 def createDagPose(members, name=_UNSET, bindPose=_UNSET, hierarchy=True, *, n=_UNSET, bp=_UNSET):
     """現在の姿勢を新しいポーズに保存する。
 
-    対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。
+    選択状態は使わない。対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。
     名前の変更に失敗しても、保存したポーズは自動では元に戻さない。
     name・bindPoseは ``cmds.dagPose`` と同じ短縮名 ``n``・``bp`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
@@ -43,6 +33,11 @@ def createDagPose(members, name=_UNSET, bindPose=_UNSET, hierarchy=True, *, n=_U
         TypeError: 長い名前と短縮名を同時に指定した場合。
         ValueError: 対象が空の場合、Transformでないものを含む場合、または名前が正しくない場合。
         RuntimeError: ノードが見つからない場合、またはMayaが保存を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> pose = mlib.createDagPose(root, name="rest_pose")
+        >>> pose.restore()
     """
     name = _pick_alias(name, n, "name", "n", default=None)
     bindPose = _pick_alias(bindPose, bp, "bindPose", "bp", default=False)

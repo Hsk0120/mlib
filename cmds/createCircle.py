@@ -1,15 +1,4 @@
-"""NURBSの円を作り、シェイプを返す(``cmds.circle(constructionHistory=False)`` 相当)。
-
-半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
-作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createCircle(radius=2.0, normal=(0, 1, 0), name="ring")
-    shape = mlib.createCircle(r=2.0, nr=(0, 1, 0), n="ring")  # cmds.circle と同じ短縮名
-"""
+"""NURBSの円を作り、シェイプを返す(``cmds.circle(constructionHistory=False)`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -21,6 +10,8 @@ from ..util import _UNSET, _finite, _finite_vector
 def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
     """原点を中心とするNURBSの円を作り、そのシェイプを返す。
 
+    半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(OpenMayaに円を作る同じ機能が無いため)。
     parent以外は ``cmds.circle`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
 
@@ -46,6 +37,11 @@ def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, n
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
         ValueError: 半径・法線・区間の数・次数が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createCircle(radius=2.0, normal=(0, 1, 0), name="ring")
+        >>> shape = mlib.createCircle(r=2.0, nr=(0, 1, 0), n="ring")  # cmds.circle と同じ短縮名
     """
     radius = _pick_alias(radius, r, "radius", "r", default=1.0)
     normal = _pick_alias(normal, nr, "normal", "nr", default=(0, 0, 1))

@@ -1,17 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""点の並びからNURBSカーブを作り、シェイプを返す(``cmds.curve`` 相当)。
-
-点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、
-現在のUI単位には左右されない。作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createCurve([(0, 0, 0), (1, 0, 0), (1, 1, 0)], degree=1, name="line")
-    transform = shape.getTransform()
-    loop = mlib.createCurve([(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0)], degree=3, closed=True)
-"""
+"""点の並びからNURBSカーブを作り、シェイプを返す(``cmds.curve`` 相当)。"""
 
 import math
 from typing import Any, Dict
@@ -28,6 +16,9 @@ import maya.api.OpenMaya as om2
 
 def createCurve(points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], degree: int = ..., closed: bool = ..., knots: Sequence[float] | None = ..., name: str | None = ..., parent: Node | str | None = ..., *, d: int = ..., n: str | None = ...) -> NurbsCurve:
     """点の並びからNURBSカーブを作り、そのシェイプを返す。
+
+    点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、
+    現在のUI単位には左右されない。作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
 
     - 開いたカーブで ``knots`` を省略すると、``cmds.curve`` の既定のノットにする。
     - ``closed=True`` なら、先頭の ``degree`` 個のCVを末尾へ重ねた周期カーブにする
@@ -62,6 +53,12 @@ def createCurve(points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], de
             (開いたカーブはdegree+1点以上、閉じたカーブは3点以上かつdegree点以上が必要)、
             knotsの個数や値が正しくない場合、またはclosedとknotsを同時に指定した場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createCurve([(0, 0, 0), (1, 0, 0), (1, 1, 0)], degree=1, name="line")
+        >>> transform = shape.getTransform()
+        >>> loop = mlib.createCurve([(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0)], degree=3, closed=True)
     """
     ...
 

@@ -1,15 +1,4 @@
-"""ポリゴンの球を作り、シェイプを返す(``cmds.polySphere(constructionHistory=False)`` 相当)。
-
-大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
-作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createPolySphere(radius=2.0, subdivisions=(16, 12), name="ball")
-    transform = shape.getTransform()
-"""
+"""ポリゴンの球を作り、シェイプを返す(``cmds.polySphere(constructionHistory=False)`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -21,6 +10,8 @@ from ..util import _UNSET, _finite_vector
 def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, ax=_UNSET, n=_UNSET):
     """原点を中心とするポリゴンの球を作り、そのシェイプを返す。
 
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
     radius・axis・nameは ``cmds.polySphere`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
     subdivisionsは2方向の分割数をまとめたmlib独自の引数のため、短縮名は無い。
@@ -44,6 +35,11 @@ def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UN
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
         ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createPolySphere(radius=2.0, subdivisions=(16, 12), name="ball")
+        >>> transform = shape.getTransform()
     """
     radius = _pick_alias(radius, r, "radius", "r", default=1.0)
     axis = _pick_alias(axis, ax, "axis", "ax", default=(0, 1, 0))

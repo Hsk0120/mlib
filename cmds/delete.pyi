@@ -1,18 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ノードまたはコンポーネントを削除する。戻り値はNone。
-
-Plug・MPlugは受け付けない。アトリビュートを削除するときは ``plug.delete()`` を、
-マルチアトリビュートの要素を削除するときは ``multi_plug.removeElement(index)`` を使う。
-通常はMayaのUndoに対応する。``fast=True`` で削除できるのはノードだけで、
-コンポーネントを含む入力では何も削除せずエラーにする。
-
-.. code-block:: python
-
-    import mlib
-
-    node = mlib.createNode("transform", name="example")
-    mlib.delete(node)
-"""
+"""ノードまたはコンポーネントを削除する(``cmds.delete`` 相当)。"""
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -27,6 +14,9 @@ from mlib.nodes.node import Node
 
 def delete(nodes: Node | Component | Components | Selection | str | om2.MObject | om2.MDagPath | Iterable, *, fast: bool = ...) -> None:
     """指定したノードやコンポーネントを削除する。
+
+    Plug・MPlugは受け付けない。アトリビュートを削除するときは ``plug.delete()`` を、
+    マルチアトリビュートの要素を削除するときは ``multi_plug.removeElement(index)`` を使う。
 
     ノードは、対象をすべて1回の削除にまとめる。通常は ``cmds.delete`` を1回呼ぶ(1回のUndoですべて戻る)。
     fastでは、1つの MDagModifier の doIt を1回呼んで削除する。
@@ -74,6 +64,11 @@ def delete(nodes: Node | Component | Components | Selection | str | om2.MObject 
         :meth:`Joint.delete <mlib.nodes.joint.Joint.delete>` のインフルエンスの解除は行わず、Maya標準で削除する。
 
         コンポーネントは、ノードを調べたあと、ノードより先に、別の1回の ``cmds.delete`` で削除する。
+
+    Examples:
+        >>> import mlib
+        >>> node = mlib.createNode("transform", name="example")
+        >>> mlib.delete(node)
     """
     ...
 

@@ -1,14 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""名前やオブジェクトが指すものが、シーンに存在するかを返す(``cmds.objExists`` 相当)。
-
-.. code-block:: python
-
-    import mlib
-
-    if not mlib.objExists("rig_grp"):
-        mlib.createNode("transform", name="rig_grp")
-    mlib.objExists("rig_grp.translateX")  # アトリビュートも調べられる
-"""
+"""名前やオブジェクトが指すものが、シーンに存在するかを返す(``cmds.objExists`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.object import Object
@@ -31,5 +22,11 @@ def objExists(target: str | Node | Plug | Component) -> bool:
 
     Raises:
         TypeError: 文字列・Node・Plug・Componentのどれでもないもの(並びを含む)を渡した場合。
+
+    Examples:
+        >>> import mlib
+        >>> if not mlib.objExists("rig_grp"):
+        ...     mlib.createNode("transform", name="rig_grp")
+        >>> mlib.objExists("rig_grp.translateX")  # アトリビュートも調べられる
     """
     ...

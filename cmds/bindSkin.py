@@ -1,18 +1,4 @@
-"""形状をインフルエンスへバインドし、作ったskinClusterを返す(``cmds.skinCluster`` 相当)。
-
-Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
-インフルエンスにし(``toSelectedBones=True``)、正規化はInteractive(``normalizeWeights=1``)にする。
-
-``weights`` に :meth:`SkinCluster.exportWeights <mlib.nodes.skinCluster.SkinCluster.exportWeights>` で
-書き出したファイルを渡すと、ファイルにあるインフルエンスでバインドし、ウェイトと設定もファイルから読み込む。
-
-.. code-block:: python
-
-    import mlib
-
-    skin = mlib.bindSkin([hip, knee, ankle], "leg_geo", maximumInfluences=3)
-    skin = mlib.bindSkin(None, "leg_geo", weights="leg_weights.json", namespaceMap={"chrA": "chrB"})
-"""
+"""形状をインフルエンスへバインドし、作ったskinClusterを返す(``cmds.skinCluster`` 相当)。"""
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -34,10 +20,13 @@ _FILE_FLAGS = (("normalizeWeights", "nw", "normalizeWeights"), ("obeyMaxInfluenc
 def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", **kwargs):
     """形状を指定したインフルエンスへバインドする。
 
+    Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
+    インフルエンスにし(``toSelectedBones=True``)、正規化はInteractive(``normalizeWeights=1``)にする。
     選択状態は使わない。形状がすでに skinCluster で変形されている場合は、何もせずエラーにする。
     fast引数は無い(OpenMayaにバインドと同じ機能が無いため)。Undoが有効なら1回で戻せる。
 
-    ``weights`` を指定すると、バインドしたあとにファイルの内容を書き込む。書き込むのは、ウェイト・
+    ``weights`` に :meth:`SkinCluster.exportWeights <mlib.nodes.skinCluster.SkinCluster.exportWeights>` で
+    書き出したファイルを指定すると、バインドしたあとにファイルの内容を書き込む。書き込むのは、ウェイト・
     DQブレンドウェイト・設定・ロック・ngSkinTools2のレイヤーで、規則は :meth:`SkinCluster.setWeightsData
     <mlib.nodes.skinCluster.SkinCluster.setWeightsData>` と同じ。
 
@@ -81,11 +70,13 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=N
         RuntimeError: 名前からノードが見つからない場合、またはMayaがバインドを拒否した場合。
 
     Examples:
-        .. code-block:: python
+        >>> import mlib
+        >>> skin = mlib.bindSkin([hip, knee, ankle], "leg_geo", maximumInfluences=3)
+        >>> skin = mlib.bindSkin(None, "leg_geo", weights="leg_weights.json", namespaceMap={"chrA": "chrB"})
 
-            skin.exportWeights("body_weights.json")
-            cmds.delete(skin)
-            skin = mlib.bindSkin(None, "body_geo", weights="body_weights.json")
+        >>> skin.exportWeights("body_weights.json")
+        >>> cmds.delete(skin)
+        >>> skin = mlib.bindSkin(None, "body_geo", weights="body_weights.json")
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.node import Node, Nodes

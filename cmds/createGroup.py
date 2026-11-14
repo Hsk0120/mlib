@@ -1,18 +1,4 @@
-"""子を入れたグループ(空のtransform)を作り、Transformを返す(``cmds.group`` 相当)。
-
-子はワールドでの姿勢を保ったまま、グループの下へ移す。グループのピボットはMayaと同じく、
-子のバウンディングボックスの中心に置く。作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    offset = mlib.createGroup(["arm_CTRL"], name="arm_CTRL_offset")
-    empty = mlib.createGroup(name="rig_GRP")
-
-    # cmds.group と同じ短縮名でも指定できる。
-    world_group = mlib.createGroup(["hand_JNT"], n="hand_GRP", w=True)
-"""
+"""子を入れたグループ(空のtransform)を作り、Transformを返す(``cmds.group`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -27,8 +13,8 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
     - childrenを省略すると、ワールド(またはparent)の直下に空のグループを作る(``cmds.group(empty=True)``)。
     - childrenを渡し、parentもworldも指定しなければ、Mayaと同じく子に共通する親の下に作る。
 
-    子はワールドでの姿勢を保ったまま移し、グループのピボットは子のバウンディングボックスの中心に置く。
-    fast引数は無い(OpenMayaで作っても効果がほぼ無いため)。Undoが有効なら1回で戻せる。
+    子はワールドでの姿勢を保ったまま移し、グループのピボットはMayaと同じく、子のバウンディングボックスの中心に置く。
+    現在の選択は変えない。fast引数は無い(OpenMayaで作っても効果がほぼ無いため)。Undoが有効なら1回で戻せる。
     name・worldは ``cmds.group`` と同じ短縮名 ``n``・``w`` でも指定できる(長い名前と短縮名は同時に指定できない)。
     parentの短縮名は無い。
 
@@ -52,6 +38,12 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
             Mayaが作成を拒否した場合。
 
     Examples:
+        >>> import mlib
+        >>> offset = mlib.createGroup(["arm_CTRL"], name="arm_CTRL_offset")
+        >>> empty = mlib.createGroup(name="rig_GRP")
+        >>> # cmds.group と同じ短縮名でも指定できる。
+        >>> world_group = mlib.createGroup(["hand_JNT"], n="hand_GRP", w=True)
+
         >>> offset = mlib.createGroup(ctrl, name=ctrl.getName() + "_offset")
         >>> offset.getChildren()[0] == ctrl
         True

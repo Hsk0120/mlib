@@ -1,13 +1,4 @@
-"""形状をカーブで変形するwireデフォーマーを作り、wireを返す(``cmds.wire`` 相当)。
-
-カーブを動かすと、近くの頂点がカーブに沿って動く。作成は1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    wire = mlib.createWire("brow_geo", "brow_crv", dropoffDistance=3.0, name="brow_wire")
-"""
+"""形状をカーブで変形するwireデフォーマーを作り、wireを返す(``cmds.wire`` 相当)。"""
 
 import math
 
@@ -22,7 +13,7 @@ from ..util import _UNSET
 def createWire(targets, curves, name=_UNSET, dropoffDistance=_UNSET, *, n=_UNSET, dds=_UNSET):
     """形状またはコンポーネントに、カーブで変形するwireデフォーマーを作る。
 
-    選択状態は使わない。カーブごとに、基準のカーブ(``<カーブ名>BaseWire``)をMayaが作る。
+    カーブを動かすと、近くの頂点がカーブに沿って動く。選択状態は使わず、現在の選択は変えない。カーブごとに、基準のカーブ(``<カーブ名>BaseWire``)をMayaが作る。
     fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。Undoが有効なら1回で戻せる。
     name・dropoffDistanceは ``cmds.wire`` と同じ短縮名 ``n``・``dds`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
@@ -47,9 +38,10 @@ def createWire(targets, curves, name=_UNSET, dropoffDistance=_UNSET, *, n=_UNSET
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:
-        .. code-block:: python
+        >>> import mlib
+        >>> wire = mlib.createWire("brow_geo", "brow_crv", dropoffDistance=3.0, name="brow_wire")
 
-            wire = mlib.createWire(face.getVertices(range(40)), ["lip_upper_crv", "lip_lower_crv"], dds=2.0)
+        >>> wire = mlib.createWire(face.getVertices(range(40)), ["lip_upper_crv", "lip_lower_crv"], dds=2.0)
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.node import Node

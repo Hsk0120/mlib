@@ -1,15 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""既存のMayaノードを指す新しいオブジェクトを、ノードの型に合ったクラスで返す。
-
-ノードを作ったり複製したりはしない。Plugを渡すとその持ち主のノードを、Componentを渡すと
-その持ち主のシェイプを返す。複数のノードを探すときは ``mlib.ls()`` を使う。
-
-.. code-block:: python
-
-    import mlib
-
-    node = mlib.getNode("pCube1")  # シーンに存在するノード
-"""
+"""既存のMayaノードを指す新しいオブジェクトを、ノードの型に合ったクラスで返す。"""
 
 from mlib.components.component import Component
 from mlib.components.component import Components
@@ -21,7 +11,8 @@ import maya.api.OpenMaya as om2
 def getNode(value: str | Node | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> Node:
     """既存のMayaノードを指す新しいオブジェクトを取得する。
 
-    Nodeを渡しても、同じMayaノードを指す新しいオブジェクトを作る。シーンのノードは複製しない。
+    Nodeを渡しても、同じMayaノードを指す新しいオブジェクトを作る。シーンのノードを作ったり複製したりはしない。
+    複数のノードを探すときは ``mlib.ls()`` を使う。
     クラスは次の順に選ぶ。
 
     - nodeTypeに登録されたクラス。
@@ -43,5 +34,9 @@ def getNode(value: str | Node | Plug | Component | Components | om2.MObject | om
         RuntimeError: ノードが1つに決まらない場合(存在しない場合や、``"bulk*"`` のようなパターンを
             含めて複数の対象に一致する場合)、または空か削除済みのオブジェクトや om2 のオブジェクトを
             渡した場合。
+
+    Examples:
+        >>> import mlib
+        >>> node = mlib.getNode("pCube1")  # シーンに存在するノード
     """
     ...

@@ -1,17 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ノード・アトリビュート・コンポーネントの選択を変える。戻り値はNone。
-
-mlibのオブジェクトやコレクションを名前に変えて、``maya.cmds.select`` へ渡す。
-対象を省略するとフラグだけで呼び出す。空の並びは、空の並びのまま渡す。
-MayaのUndoに対応する。fast引数は無い。
-
-.. code-block:: python
-
-    import mlib
-
-    mlib.select(mlib.ls(type="joint"))
-    mlib.select(clear=True)
-"""
+"""ノード・アトリビュート・コンポーネントの選択を変える(``cmds.select`` 相当)。"""
 
 import maya.cmds as cmds
 from ..decorator import _merge_flags, undoChunk
@@ -20,6 +8,9 @@ from ..util import _UNSET
 
 def select(nodes: object = ..., *, add: bool = ..., addFirst: bool = ..., af: bool = ..., all: bool = ..., allDagObjects: bool = ..., ado: bool = ..., allDependencyNodes: bool = ..., adn: bool = ..., clear: bool = ..., cl: bool = ..., containerCentric: bool = ..., cc: bool = ..., deselect: bool = ..., d: bool = ..., hierarchy: bool = ..., hi: bool = ..., noExpand: bool = ..., ne: bool = ..., replace: bool = ..., r: bool = ..., symmetry: bool = ..., sym: bool = ..., symmetrySide: int = ..., sys: int = ..., toggle: bool = ..., tgl: bool = ..., visible: bool = ..., vis: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> None:
     """指定したノード・アトリビュート・コンポーネントを選択する。
+
+    mlibのオブジェクトやコレクションを名前に変えて、``maya.cmds.select`` へ渡す。
+    MayaのUndoに対応する。fast引数は無い。
 
     フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
     Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
@@ -69,5 +60,10 @@ def select(nodes: object = ..., *, add: bool = ..., addFirst: bool = ..., af: bo
         TypeError: 長い名前と短い名前を同時に指定した場合、またはnodesの要素が対応していない型の場合。
         ValueError: nodes の要素に空文字列、または削除済みの対象が含まれる場合。
         RuntimeError: Maya が選択を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> mlib.select(mlib.ls(type="joint"))
+        >>> mlib.select(clear=True)
     """
     ...

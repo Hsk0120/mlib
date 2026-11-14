@@ -1,14 +1,4 @@
-"""containerを作り、指定したノードを所属させる(``cmds.container`` 相当)。
-
-``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
-空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
-
-.. code-block:: python
-
-    import mlib
-
-    owner = mlib.createContainer("arm_graph", members=[node])
-"""
+"""containerを作り、指定したノードを所属させる(``cmds.container`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -19,7 +9,8 @@ from ..util import _UNSET
 def createContainer(name=_UNSET, members=(), *, n=_UNSET):
     """containerを作り、指定したノードを所属させる。
 
-    作成のあとに ``addMembers`` を行うのと同じ。
+    作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
+    空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
     fast引数は無い(cmds.containerと同じ機能がOpenMayaに無いため)。Undoが有効なら1回で戻せる。
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
@@ -35,6 +26,10 @@ def createContainer(name=_UNSET, members=(), *, n=_UNSET):
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合。
         RuntimeError: Mayaが作成・所属を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> owner = mlib.createContainer("arm_graph", members=[node])
     """
     name = _pick_alias(name, n, "name", "n", default="container")
     return _create_container(name, members, "mlibCreateContainer")

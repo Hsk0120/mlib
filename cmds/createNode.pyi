@@ -1,28 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す。
-
-mlibでノードを作る入口はこれだけ。``cmds.createNode`` に相当する。``Node.create`` や
-``Node(name, create=True)`` のような作り方は無い。
-
-戻り値は、作ったノードの実際のnodeTypeに合ったクラスのオブジェクト。登録済みの型はそのクラス、
-登録の無い型は登録表の規則で選んだクラスになる。``getType()`` はMayaのnodeType名を返す。
-
-通常はMayaのUndoに対応し、1回のUndoで作成を戻せる(shapeと一緒に自動で作られたtransformも戻る)。
-``fast=True`` なら、対応している作成条件をOpenMayaで直接処理し、Undoの履歴に残さない。
-対応していない条件は、ノードを作る前にエラーにする。
-
-.. code-block:: python
-
-    import mlib
-
-    node = mlib.createNode("transform", name="example")
-    child = mlib.createNode("joint", n="child", p=node, ss=True)
-
-    # shape型はshapeが返り、name= はshapeに付く。transformは getTransform() で取得する。
-    selected = mlib.ls(selection=True)  # 作成したノードが選択されるため、選択は先に取る。
-    shape = mlib.createNode("locator", name="exampleShape")
-    transform = shape.getTransform()
-"""
+"""Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す(``cmds.createNode`` 相当)。"""
 
 from ..decorator import _edit_context, _merge_flags
 from ..util import _UNSET
@@ -282,6 +259,14 @@ def createNode(type: Literal["vectorProduct"], *, fast: bool = ..., name: str = 
 def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., parent: object = ..., p: object = ..., shared: bool = ..., s: bool = ..., skipSelect: bool = ..., ss: bool = ..., **kwargs: object) -> Node:
     """Mayaのノードを作り、実際の型に合ったオブジェクトを返す。
 
+    mlibでノードを作る入口はこれだけで、``Node.create`` や ``Node(name, create=True)`` のような作り方は無い。
+    戻り値は、作ったノードの実際のnodeTypeに合ったクラスのオブジェクト。登録済みの型はそのクラス、
+    登録の無い型は登録表の規則で選んだクラスになる。``getType()`` はMayaのnodeType名を返す。
+
+    通常はMayaのUndoに対応し、1回のUndoで作成を戻せる(shapeと一緒に自動で作られたtransformも戻る)。
+    ``fast=True`` なら、対応している作成条件をOpenMayaで直接処理し、Undoの履歴に残さない。
+    対応していない条件は、ノードを作る前にエラーにする。
+
     フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
     Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
     Undoを始める前にエラーにする。その版のMayaに無いフラグは、Mayaがエラーにする。
@@ -332,5 +317,14 @@ def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., pa
             「not available in this Maya version」と示す)、parent が見つからない場合、
             fast=Trueでロックされた親かリファレンスされた親を指定した場合、またはMayaが作成を拒否した場合。
         NotImplementedError: fast=Trueで、対応していないフラグを指定した場合。
+
+    Examples:
+        >>> import mlib
+        >>> node = mlib.createNode("transform", name="example")
+        >>> child = mlib.createNode("joint", n="child", p=node, ss=True)
+        >>> # shape型はshapeが返り、name= はshapeに付く。transformは getTransform() で取得する。
+        >>> selected = mlib.ls(selection=True)  # 作成したノードが選択されるため、選択は先に取る。
+        >>> shape = mlib.createNode("locator", name="exampleShape")
+        >>> transform = shape.getTransform()
     """
     ...

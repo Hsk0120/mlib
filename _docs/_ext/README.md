@@ -28,6 +28,8 @@ Mayaやmlibはimportしません。基底クラスを調べるときもPythonソ
 - 図の配色・描画後の寸法: `source/_static/js/mermaid-init.js`と`source/_static/css/mermaid.css`。
 - Node派生クラスの生成時引数: `_constructorSignatures.py`。
 - クラスページ内の掲載順: `source/_templates/autoapi/python/class.rst`。
+- コマンド(`mlib.cmds.<コマンド名>`)のページ: `source/_templates/autoapi/python/module.rst`。説明・使用例は同名の関数のdocstringから出し、
+  モジュールのdocstring(1行)は同名の関数が見つからないときだけ出す。
 - 「ベースクラス」の表示(`A if TYPE_CHECKING else B`の基底をAとして載せ、非公開の基底を除く): `mlibDocs.py`の`_display_bases`。
 - `:meth:`Joint.orient``のような短い参照や`mlib.nodes.Transform`のようなパッケージ経由の名前のリンク:
   `mlibDocs.py`の`_ShortReferenceResolver`(Sphinxの`missing-reference`で定義モジュールの完全名へ解決する)。

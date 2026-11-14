@@ -1,15 +1,4 @@
-"""ポリゴンの円柱を作り、シェイプを返す(``cmds.polyCylinder(constructionHistory=False)`` 相当)。
-
-大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
-作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createPolyCylinder(radius=0.5, height=4.0, axis=(1, 0, 0), name="bone")
-    transform = shape.getTransform()
-"""
+"""ポリゴンの円柱を作り、シェイプを返す(``cmds.polyCylinder(constructionHistory=False)`` 相当)。"""
 
 import maya.cmds as cmds
 
@@ -23,6 +12,8 @@ def createPolyCylinder(
 ):
     """原点を中心とするポリゴンの円柱を作り、そのシェイプを返す。
 
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
     radius・height・axis・nameは ``cmds.polyCylinder`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
     subdivisionsは ``subdivisionsX/Y/Z`` をまとめたmlib独自の引数のため、短縮名は無い。
@@ -48,6 +39,11 @@ def createPolyCylinder(
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
         ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createPolyCylinder(radius=0.5, height=4.0, axis=(1, 0, 0), name="bone")
+        >>> transform = shape.getTransform()
     """
     radius = _pick_alias(radius, r, "radius", "r", default=1.0)
     height = _pick_alias(height, h, "height", "h", default=2.0)

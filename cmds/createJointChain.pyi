@@ -1,18 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""点を順につないだjointのチェーンを作り、jointのlistを返す。
-
-各jointは次の点へ向ける。aimAxis を次の点へ、upAxis を up の向きへ向ける(最後のjointは1つ前と同じ向き)。
-向きは jointOrient に入れ、rotate は0にする。
-``cmds.joint`` で1つずつ作って ``orientJoint`` で向きを揃える手順を、1回で行う。
-
-.. code-block:: python
-
-    import mlib
-    from mlib.cmds.createJointChain import createJointChain
-
-    joints = createJointChain([(0, 10, 0), (5, 10, -1), (10, 10, 0)], aimAxis="x", upAxis="y",
-                              up=(0, 0, -1), names=["arm_JNT", "elbow_JNT", "wrist_JNT"])
-"""
+"""点を順につないだjointのチェーンを作り、jointのlistを返す。"""
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -53,6 +40,7 @@ def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., u
 
     向きは jointOrient に入れ、rotate・rotateAxis は0のままにする。
     親がjointなら、inverseScale を親の scale へ接続する。
+    ``cmds.joint`` で1つずつ作って ``orientJoint`` で向きを揃える手順を、1回で行う。
     選択は変えない。fast引数は無い。Undoが有効なら1回で戻せる。
 
     Args:
@@ -78,5 +66,10 @@ def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., u
     Note:
         parent のスケールが1でない場合も、位置と向きは parent のワールドのマトリクスで換算する。
         ただし、segmentScaleCompensate による補正は考えに入れない。
+
+    Examples:
+        >>> import mlib
+        >>> joints = mlib.createJointChain([(0, 10, 0), (5, 10, -1), (10, 10, 0)], aimAxis="x", upAxis="y",
+        ...                                up=(0, 0, -1), names=["arm_JNT", "elbow_JNT", "wrist_JNT"])
     """
     ...

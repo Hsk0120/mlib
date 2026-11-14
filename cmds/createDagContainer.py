@@ -1,11 +1,4 @@
-"""DAGコンテナを作り、指定したノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。
-
-.. code-block:: python
-
-    import mlib
-
-    owner = mlib.createDagContainer("arm_rig", members=[group])
-"""
+"""DAGコンテナを作り、指定したノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。"""
 
 from ..decorator import _pick_alias
 from ..util import _UNSET
@@ -31,6 +24,10 @@ def createDagContainer(name=_UNSET, members=(), *, n=_UNSET):
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合。
         RuntimeError: Mayaが作成・所属を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> owner = mlib.createDagContainer("arm_rig", members=[group])
     """
     name = _pick_alias(name, n, "name", "n", default="dagContainer")
     return _create_container(name, members, "mlibCreateDagContainer", type="dagContainer")

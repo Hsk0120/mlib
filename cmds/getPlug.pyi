@@ -1,16 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""アトリビュート名やMPlugから、型に合ったPlugを取得する。
-
-値は ``plug.get()`` で取得する。まだ作られていないマルチアトリビュートの要素も取得できる。
-取得しただけでは、その要素は作られない。既存のPlugを渡した場合は、同じインスタンスを返す。
-
-.. code-block:: python
-
-    import mlib
-
-    translate_x = mlib.getPlug("pCube1.translateX")
-    value = translate_x.get()
-"""
+"""アトリビュート名やMPlugから、型に合ったPlugを取得する。"""
 
 from mlib.plugs.plug import Plug
 import maya.api.OpenMaya as om2
@@ -19,7 +8,7 @@ import maya.api.OpenMaya as om2
 def getPlug(value: str | Plug | om2.MPlug) -> Plug:
     """アトリビュート名やAPIのオブジェクトからプラグを取得する。
 
-    シーンは変更しない。まだ作られていないマルチアトリビュートの要素も取得でき、
+    値は ``plug.get()`` で取得する。シーンは変更しない。まだ作られていないマルチアトリビュートの要素も取得でき、
     取得しただけではその要素は作られない。
     クラスはアトリビュートの定義から選ぶ。クラスを選ぶために値を評価することはない。
 
@@ -38,5 +27,10 @@ def getPlug(value: str | Plug | om2.MPlug) -> Plug:
             ``mlib.plugs.plug.MissingAttributeError`` は ``AttributeError`` と ``RuntimeError`` の両方の派生で、
             ``node.getPlug(name)`` と同じ例外。
         RuntimeError: 名前が複数の対象に一致する場合。
+
+    Examples:
+        >>> import mlib
+        >>> translate_x = mlib.getPlug("pCube1.translateX")
+        >>> value = translate_x.get()
     """
     ...

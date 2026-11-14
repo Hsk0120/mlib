@@ -1,17 +1,4 @@
-"""1つの対象を複製し、複製した先頭のノードを、型に合ったオブジェクトで返す。
-
-処理は ``maya.cmds.duplicate`` が行い、MayaのUndoに対応する(1回のUndoで戻せる)。fast引数は無い。
-
-.. code-block:: python
-
-    import mlib
-
-    node = mlib.createNode("transform", name="example")
-    copied = mlib.duplicate(node, name="exampleCopy")
-
-    # 複製したjointチェーンの全ノードへ接尾辞を付ける(L_hip_FK|L_knee_FK|...)。
-    fk = mlib.duplicate("L_hip", suffix="_FK")
-"""
+"""1つの対象を複製し、複製した先頭のノードを、型に合ったオブジェクトで返す(``cmds.duplicate`` 相当)。"""
 
 import re
 
@@ -56,6 +43,8 @@ def duplicate(
     **kwargs,
 ):
     """指定したノードを複製し、型に合ったオブジェクトとして返す。
+
+    処理は ``maya.cmds.duplicate`` が行い、MayaのUndoに対応する(1回のUndoで戻せる)。fast引数は無い。
 
     フラグの既定値 ``_UNSET`` は、省略されたかを見分けるためだけの値。省略したフラグはMayaへ渡さず、
     Mayaの既定の動きのままにする。長い名前と短い名前を同時に指定すると、入力を調べる前、
@@ -111,6 +100,13 @@ def duplicate(
             suffix が空文字列の場合、英数字と ``_`` 以外を含む場合、または renameChildren=True と同時に
             指定した場合。
         RuntimeError: Maya が複製を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> node = mlib.createNode("transform", name="example")
+        >>> copied = mlib.duplicate(node, name="exampleCopy")
+        >>> # 複製したjointチェーンの全ノードへ接尾辞を付ける(L_hip_FK|L_knee_FK|...)。
+        >>> fk = mlib.duplicate("L_hip", suffix="_FK")
     """
     _merge_flags(
         kwargs,

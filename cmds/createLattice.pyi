@@ -1,16 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""形状やコンポーネントにラティス(ffdデフォーマー)を作り、ffdを返す(``cmds.lattice`` 相当)。
-
-ラティスの形状は ``deformedLatticePoints`` の入力元に、基準のラティスは ``baseLatticeMatrix`` の入力元に
-つながる。作成は1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    ffd = mlib.createLattice("head_geo", divisions=(3, 4, 3), name="head_ffd")
-    lattice = ffd.getPlug("deformedLatticePoints").getSource().getNode()
-"""
+"""形状やコンポーネントにラティス(ffdデフォーマー)を作り、ffdを返す(``cmds.lattice`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.object import Object
@@ -43,7 +32,8 @@ def _divisions(value: Sequence[int], name: str, minimum: int) -> tuple[int, int,
 def createLattice(targets: str | Node | Component | Iterable, name: str | None = ..., divisions: Sequence[int] = ..., ldivisions: Sequence[int] = ..., objectCentered: bool = ..., *, n: str | None = ..., dv: Sequence[int] = ..., ldv: Sequence[int] = ..., oc: bool = ...) -> GeometryFilter:
     """形状またはコンポーネントにラティスを作り、ffdデフォーマーを返す。
 
-    選択状態は使わない。ラティスは対象を囲む大きさで作る。
+    ラティスは対象を囲む大きさで作る。ラティスの形状は ``deformedLatticePoints`` の入力元に、
+    基準のラティスは ``baseLatticeMatrix`` の入力元につながる。選択状態は使わず、現在の選択は変えない。
     fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。Undoが有効なら1回で戻せる。
     name・divisions・ldivisions・objectCenteredは ``cmds.lattice`` と同じ短縮名 ``n``・``dv``・``ldv``・``oc``
     でも指定できる(長い名前と短縮名は同時に指定できない)。
@@ -70,9 +60,11 @@ def createLattice(targets: str | Node | Component | Iterable, name: str | None =
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:
-        .. code-block:: python
+        >>> import mlib
+        >>> ffd = mlib.createLattice("head_geo", divisions=(3, 4, 3), name="head_ffd")
+        >>> lattice = ffd.getPlug("deformedLatticePoints").getSource().getNode()
 
-            ffd = mlib.createLattice(["arm_geo", "hand_geo"], dv=(2, 6, 2), oc=True)
-            base = ffd.getPlug("baseLatticeMatrix").getSource().getNode()
+        >>> ffd = mlib.createLattice(["arm_geo", "hand_geo"], dv=(2, 6, 2), oc=True)
+        >>> base = ffd.getPlug("baseLatticeMatrix").getSource().getNode()
     """
     ...

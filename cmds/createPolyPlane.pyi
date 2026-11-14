@@ -1,16 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ポリゴンの平面を作り、シェイプを返す(``cmds.polyPlane(constructionHistory=False)`` 相当)。
-
-大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
-作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
-
-.. code-block:: python
-
-    import mlib
-
-    shape = mlib.createPolyPlane(width=10.0, height=10.0, subdivisions=(4, 4), name="floor")
-    transform = shape.getTransform()
-"""
+"""ポリゴンの平面を作り、シェイプを返す(``cmds.polyPlane(constructionHistory=False)`` 相当)。"""
 
 import maya.cmds as cmds
 from ..core.shapeBuild import create_poly, positive_size, require_name, resolve_parent, subdivision_counts
@@ -24,6 +13,8 @@ from mlib.nodes.node import Node
 def createPolyPlane(width: float = ..., height: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., name: str | None = ..., parent: Node | str | None = ..., *, w: float = ..., h: float = ..., ax: Sequence[float] = ..., n: str | None = ...) -> Mesh:
     """原点を中心とするポリゴンの平面を作り、そのシェイプを返す。
 
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
     width・height・axis・nameは ``cmds.polyPlane`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
     subdivisionsは ``subdivisionsX/Y`` をまとめたmlib独自の引数のため、短縮名は無い。
@@ -49,6 +40,11 @@ def createPolyPlane(width: float = ..., height: float = ..., subdivisions: Seque
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
         ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> shape = mlib.createPolyPlane(width=10.0, height=10.0, subdivisions=(4, 4), name="floor")
+        >>> transform = shape.getTransform()
     """
     ...
 

@@ -1,12 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""DAGコンテナを作り、指定したノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。
-
-.. code-block:: python
-
-    import mlib
-
-    owner = mlib.createDagContainer("arm_rig", members=[group])
-"""
+"""DAGコンテナを作り、指定したノードを所属させる(``cmds.container(type="dagContainer")`` 相当)。"""
 
 from ..decorator import _pick_alias
 from ..util import _UNSET
@@ -35,5 +28,9 @@ def createDagContainer(name: str = ..., members: str | Node | Iterable[Node | st
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合。
         RuntimeError: Mayaが作成・所属を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> owner = mlib.createDagContainer("arm_rig", members=[group])
     """
     ...
