@@ -23,6 +23,18 @@ def _rounded(values):
     return None if values is None else tuple(round(value, 6) for value in values)
 
 
+def _long_plugs(plugs):
+    """接続元のPlug名を、ノードのフルパス付きの名前にする。
+
+    ``cmds.listConnections`` の ``fullNodeName`` はMaya 2023に無いため、ノード名だけを ``cmds.ls(long=True)`` で直す。
+    """
+    result = []
+    for plug in plugs or ():
+        node, _, attribute = plug.partition(".")
+        result.append(cmds.ls(node, long=True)[0] + "." + attribute)
+    return result
+
+
 class _PoseCase(NamespaceCase):
     """joint 連鎖 root→mid→tip と独立した joint・transform を用意する。"""
 
@@ -69,11 +81,11 @@ class _PoseCase(NamespaceCase):
             return None
         state = []
         for index in cmds.getAttr(name + ".members", multiIndices=True) or []:
-            source = cmds.listConnections(f"{name}.members[{index}]", source=True, destination=False, plugs=True, fullNodeName=True)
+            source = _long_plugs(cmds.listConnections(f"{name}.members[{index}]", source=True, destination=False, plugs=True))
             if not source:
                 # Undo 後に残る未接続の空要素はメンバーではないので比べない。
                 continue
-            parent = cmds.listConnections(f"{name}.parents[{index}]", source=True, destination=False, plugs=True, fullNodeName=True)
+            parent = _long_plugs(cmds.listConnections(f"{name}.parents[{index}]", source=True, destination=False, plugs=True))
             world = _rounded(cmds.getAttr(f"{name}.worldMatrix[{index}]"))
             local = _rounded(cmds.getAttr(f"{name}.xformMatrix[{index}]"))
             state.append((index, tuple(source), tuple(parent or ()), world, local))

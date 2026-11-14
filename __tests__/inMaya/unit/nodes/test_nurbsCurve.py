@@ -251,6 +251,34 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         flat = self.curve([(0, 0, 0), (1, 0, 1), (2, 0, 0), (3, 0, 2)])
         self.assertTrue(flat.isPlanar())
 
+    def test_planar_matches_maya_and_keeps_lengths(self):
+        """isPlanar は MFnNurbsCurve.isPlanar と同じ判定になり、後の長さの計算を変えない。"""
+        square = [(0, 0, 0), (2, 0, 0), (2, 0, 2), (0, 0, 2), (0, 0, 0)]
+        cases = {
+            "平面": (square, 1, True),
+            "平面・3次": (square, 3, True),
+            "傾いた平面": ([(0, 0, 0), (2, 2, 0), (2, 2, 2), (0, 0, 2), (0, 0, 0)], 3, True),
+            "外れ0.0005cm": ([(0, 0, 0), (2, 0, 0), (2, 0.0005, 2), (0, 0, 2), (0, 0, 0)], 1, True),
+            "外れ0.002cm": ([(0, 0, 0), (2, 0, 0), (2, 0.002, 2), (0, 0, 2), (0, 0, 0)], 1, False),
+            "立体": ([(0, 0, 0), (2, 0, 0), (2, 1, 2), (0, 0, 2), (0, 0, 0)], 1, False),
+            "一直線": ([(0, 0, 0), (1, 1, 1), (2, 2, 2)], 1, False),
+        }
+        # 長さのずれを確かめる基準。Maya 2023 の不具合を踏むと、curveInfo の弧長が変わる。
+        circle = cmds.circle(radius=2, constructionHistory=False, name=self.name("ruler#"))[0]
+        cmds.setAttr(circle + ".scale", 2, 3, 1)
+        info = cmds.createNode("curveInfo", name=self.name("rulerInfo#"))
+        cmds.connectAttr(cmds.listRelatives(circle, shapes=True, fullPath=True)[0] + ".worldSpace[0]", info + ".inputCurve")
+        length = cmds.getAttr(info + ".arcLength")
+        for label, (points, degree, expected) in cases.items():
+            with self.subTest(case=label):
+                shape = self.curve(points, degree=degree)
+                self.assertIs(shape.isPlanar(), expected)
+                # Maya 2023 の MFnNurbsCurve.isPlanar は平面でないカーブで不具合を起こすため、突き合わせは2024以降だけ行う。
+                if cmds.about(apiVersion=True) >= 20240000:
+                    self.assertIs(om2.MFnNurbsCurve(shape.mpath()).isPlanar, expected)
+        cmds.dgdirty(info)
+        self.assertEqual(cmds.getAttr(info + ".arcLength"), length)
+
     def test_area(self):
         """正方形(次数1)は辺の2乗、円は πr² にほぼ等しく、ワールドではスケールを含む。開いたカーブは ValueError。"""
         square = self.curve([(0, 0, 0), (2, 0, 0), (2, 0, 2), (0, 0, 2), (0, 0, 0)], degree=1)

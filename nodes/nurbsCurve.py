@@ -35,6 +35,37 @@ _GAUSS_LEGENDRE = (
 )
 #: 面積の数値積分で、ノットの区間をさらに分ける数(有理カーブの精度のため)。
 _AREA_SUBDIVISIONS = 8
+#: 平面とみなすCVの外れの大きさ(cm)。``MFnNurbsCurve.isPlanar`` と同じく、0.001以下なら平面とみなす。
+_PLANAR_TOLERANCE = 1e-3
+
+
+def _points_planar(points):
+    """CVが1つの平面の上にあるか調べる。
+
+    B-スプラインの基底は互いに独立なので、カーブが平面上にあることと、CVが平面上にあることは同じになる。
+    ``MFnNurbsCurve.isPlanar`` は使わない。Maya 2023では、平面でないカーブに対して呼ぶと、
+    その後の ``curveInfo`` や ``findLengthFromParam`` の長さがずれる不具合があるため。
+
+    Args:
+        points (Iterable[om2.MPoint]): CVの位置。
+
+    Returns:
+        bool: CVが1つの平面の上にあればTrue。点が一直線上にあって平面が決まらない場合は、
+            ``MFnNurbsCurve.isPlanar`` と同じくFalse。
+    """
+    vectors = [om2.MVector(point) for point in points]
+    if len(vectors) < 3:
+        return False
+    origin = vectors[0]
+    far = max(vectors, key=lambda vector: (vector - origin).length())
+    axis = far - origin
+    if axis.length() <= _DEGENERATE:
+        return False
+    normal = max((axis ^ (vector - origin) for vector in vectors), key=lambda vector: vector.length())
+    if normal.length() <= _DEGENERATE * axis.length():
+        return False
+    normal.normalize()
+    return all(abs(normal * (vector - origin)) <= _PLANAR_TOLERANCE for vector in vectors)
 
 
 class _OwnedCurve(om2.MFnNurbsCurve):
@@ -312,9 +343,12 @@ class NurbsCurve(Shape):
         return list(self._geometry_fn().knots())
 
     def isPlanar(self):
-        """カーブが1つの平面の上にあるか調べる(``MFnNurbsCurve.isPlanar``)。
+        """カーブが1つの平面の上にあるか調べる。
 
         平面かどうかはトランスフォームで変わらないため、空間は指定しない。
+        判定は ``MFnNurbsCurve.isPlanar`` と同じく、CVの外れが0.001cm以下なら平面とみなす。
+        点が一直線上にあるカーブは、平面が決まらないためFalseになる。
+        ``MFnNurbsCurve.isPlanar`` そのものは呼ばない(Maya 2023で、その後の長さの計算がずれる不具合があるため)。
 
         Returns:
             bool: 平面上にあればTrue。
@@ -322,7 +356,7 @@ class NurbsCurve(Shape):
         Raises:
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
-        return bool(self._geometry_fn().isPlanar)
+        return _points_planar(self._geometry_fn().cvPositions())
 
     def getLength(self, tolerance=1e-6, *, worldSpace=_UNSET, unit="cm", ws=_UNSET):
         """カーブの長さを取得する。
@@ -385,7 +419,7 @@ class NurbsCurve(Shape):
             last = curve.getPointAtParam(end)
             if first.distanceTo(last) > 1e-6 * max(1.0, curve.length(1e-6)):
                 raise ValueError(f"カーブが閉じていません: {self.getFullName()}")
-        if not curve.isPlanar:
+        if not _points_planar(curve.cvPositions()):
             raise ValueError(f"カーブが平面上にありません: {self.getFullName()}")
         breaks = sorted({knot for knot in curve.knots() if start <= knot <= end} | {start, end})
         total = om2.MVector()

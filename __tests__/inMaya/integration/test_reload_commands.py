@@ -145,8 +145,15 @@ class ReloadCommandsTest(unittest.TestCase):
             shutil.copytree(source, Path(directory) / "mlib", ignore=shutil.ignore_patterns("_docs", "_tools", "__tests__", "__pycache__"))
             script_path = Path(directory) / "verify.py"
             script_path.write_text(_SCRIPT, encoding="utf-8")
+            # Mayaは起動時に今のフォルダーを sys.path へ足す。mlibのフォルダーのままだと、Maya 2024 の起動処理の
+            # import json が mlib の json パッケージを読んでしまうため、一時フォルダーで動かす。
             result = subprocess.run(
-                [sys.executable, str(script_path), directory, str(source / "_tools")], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=300
+                [sys.executable, str(script_path), directory, str(source / "_tools")],
+                cwd=directory,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=300,
             )
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertIn("PASS:", result.stdout)

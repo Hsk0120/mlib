@@ -1273,11 +1273,11 @@ _TANGENT_ATTRS = ("keyTanInX", "keyTanOutX", "keyTanInY", "keyTanOutY")
 #: container を所有先にした ScalarGraph の fast は NotImplementedError(仕様)。
 _CONTAINER_FAST = "container を所有先にした fast は NotImplementedError(仕様)"
 
-#: Maya 2022 では素の cmds.bakeDeformer でも、Redo 後のウェイトが焼き込みの結果と一致しない(2027 は一致)。
-_BAKE_REDO = "Maya 2022 は素の cmds.bakeDeformer でも Redo 後のウェイトが焼き込みの結果と一致しない"
+#: Maya 2022・2023 では素の cmds.bakeDeformer でも、Redo 後のウェイトが焼き込みの結果と一致しない(2024 以降は一致)。
+_BAKE_REDO = "Maya 2022・2023 は素の cmds.bakeDeformer でも Redo 後のウェイトが焼き込みの結果と一致しない"
 
-#: Maya 2022 では素の cmds.filterCurve でも、Undo 後に表示用の出力 outStippleRange が元へ戻らない(2027 は戻る)。
-_STIPPLE_UNDO = "Maya 2022 は素の cmds.filterCurve でも Undo 後に animCurve の outStippleRange が戻らない"
+#: Maya 2022〜2024 では素の cmds.filterCurve でも、Undo 後に表示用の出力 outStippleRange が元へ戻らない(2025 以降は戻る)。
+_STIPPLE_UNDO = "Maya 2022〜2024 は素の cmds.filterCurve でも Undo 後に animCurve の outStippleRange が戻らない"
 
 C = _Case
 CASES = [
@@ -1725,7 +1725,7 @@ CASES = [
         "bakeDeformer",
         s_skin_mush,
         lambda c, **kw: mlib.bakeDeformer(c.mesh, c.j0, c.mesh2, maxInfluences=2),
-        mayaQuirk=_BAKE_REDO if cmds.about(apiVersion=True) < 20230000 else None,
+        mayaQuirk=_BAKE_REDO if cmds.about(apiVersion=True) < 20240000 else None,
         ignoreAttrs=("weights",),
     ),
     C(
@@ -1756,7 +1756,7 @@ CASES = [
         "AnimCurve.eulerFilter",
         s_rotate_keys,
         lambda c, **kw: c.ncurve.eulerFilter(),
-        mayaQuirk=_STIPPLE_UNDO if cmds.about(apiVersion=True) < 20230000 else None,
+        mayaQuirk=_STIPPLE_UNDO if cmds.about(apiVersion=True) < 20250000 else None,
         ignoreAttrs=("outStippleRange",),
     ),
     C(
@@ -1764,7 +1764,7 @@ CASES = [
         "Transform.eulerFilter",
         s_rotate_keys,
         lambda c, **kw: c.na.eulerFilter(),
-        mayaQuirk=_STIPPLE_UNDO if cmds.about(apiVersion=True) < 20230000 else None,
+        mayaQuirk=_STIPPLE_UNDO if cmds.about(apiVersion=True) < 20250000 else None,
         ignoreAttrs=("outStippleRange",),
     ),
     C("DagNode.deleteHistory", "DagNode.deleteHistory keepDeformers", s_history_cube, lambda c, **kw: c.ncube.deleteHistory()),

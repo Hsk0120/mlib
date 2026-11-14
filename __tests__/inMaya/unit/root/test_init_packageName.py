@@ -67,7 +67,9 @@ finally:
 """
             path = folder / "smoke.py"
             path.write_text(script, encoding="utf8")
-            result = subprocess.run([sys.executable, str(path), temporary], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
+            # Mayaは起動時に今のフォルダーを sys.path へ足す。mlibのフォルダーのままだと、Maya 2024 の起動処理の
+            # import json が mlib の json パッケージを読んでしまうため、一時フォルダーで動かす。
+            result = subprocess.run([sys.executable, str(path), temporary], cwd=temporary, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120)
             self.assertEqual(result.returncode, 0, result.stdout.decode("utf8", errors="replace"))
 
 
