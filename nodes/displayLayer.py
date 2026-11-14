@@ -31,9 +31,7 @@ class DisplayLayer(Node):
             names = cmds.editDisplayLayerMembers(self.getName(), query=True, fullNames=True) or []
             return [Node(name) for name in names]
         output = self.getPlug("drawInfo").mplug()
-        return [Node._wrap_dag_path(om2.MDagPath.getAPathTo(plug.node()))
-                for plug in output.connectedTo(False, True)
-                if plug.node().hasFn(om2.MFn.kDagNode)]
+        return [Node._wrap_dag_path(om2.MDagPath.getAPathTo(plug.node())) for plug in output.connectedTo(False, True) if plug.node().hasFn(om2.MFn.kDagNode)]
 
     def addMembers(self, *members):
         """子階層を含めてメンバーを排他的にこのレイヤーへ移動する。

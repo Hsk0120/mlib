@@ -8,7 +8,7 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 from ..core.fastWrite import require_range, require_writable, set_attr
 from ..core.object import Object
-from ..decorator import _edit_context, _require_bool
+from ..decorator import _edit_context
 from .node import Node
 from typing import Iterable
 from mlib.components.component import Component

@@ -90,7 +90,7 @@ class Version:
         Returns:
             str: Versionのコンストラクター形式。
         """
-        return "{}({!r})".format(type(self).__name__, str(self))
+        return f"{type(self).__name__}({str(self)!r})"
 
     def __str__(self):
         """数値列と接尾辞を文字列へ変換する。

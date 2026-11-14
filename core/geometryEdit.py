@@ -158,8 +158,7 @@ def set_positions(shape, indices, values, ws=False, *, fast=False):
     unit = om2.MDistance.uiUnit()
     for index, value in zip(numbers, values):
         coordinates = [om2.MDistance(v).asUnits(unit) for v in value]
-        cmds.xform(f"{name}.{token}[{index}]", absolute=True,
-                   translation=coordinates, worldSpace=ws, objectSpace=not ws)
+        cmds.xform(f"{name}.{token}[{index}]", absolute=True, translation=coordinates, worldSpace=ws, objectSpace=not ws)
 
 
 def _set_positions_fast(shape, indices, values, ws=False):
@@ -232,8 +231,7 @@ def object_positions(shape, indices, values):
     else:
         cvs = fn.cvPositions()
         weights = [cvs[i].w for i in indices]
-    points = [om2.MPoint(row[0], row[1], row[2], weight) * inverse
-              for row, weight in zip(values, weights)]
+    points = [om2.MPoint(row[0], row[1], row[2], weight) * inverse for row, weight in zip(values, weights)]
     return [(point.x, point.y, point.z) for point in points]
 
 

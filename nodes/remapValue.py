@@ -34,13 +34,9 @@ class RemapValue(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "inputValue": inputValue,
-            "inputMin": inputMin,
-            "inputMax": inputMax,
-            "outputMin": outputMin,
-            "outputMax": outputMax,
-        })
+        return _calculation.set_inputs(
+            self, "setInput", {"inputValue": inputValue, "inputMin": inputMin, "inputMax": inputMax, "outputMin": outputMin, "outputMax": outputMax}
+        )
 
     def getRampPoints(self, kind="value"):
         """ランプの点を、位置の昇順で取得する(:meth:`RampPlug.getEntries` と同じ)。

@@ -2,11 +2,11 @@
 
 import argparse
 import ast
-from html.parser import HTMLParser
-from pathlib import Path
 import pickle
 import re
 import sys
+from html.parser import HTMLParser
+from pathlib import Path
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,6 +69,7 @@ class _SignatureParser(HTMLParser):
         if self.active:
             self.parts.append(data)
 
+
 def _signature_parameters(html, identifier):
     """関数名を除く署名を返し、未掲載のアンカーはNoneで示す。
 
@@ -104,8 +105,7 @@ def _canonical_definitions(package_root):
                 owner, members = module + "." + statement.name, statement.body
             else:
                 owner, members = module, [statement]
-            methods = {member.name: member for member in members
-                       if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            methods = {member.name: member for member in members if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))}
             for name in methods:
                 if not re.fullmatch(r"(?:get|is)[A-Z]\w*", name):
                     continue
@@ -117,12 +117,15 @@ def _canonical_definitions(package_root):
                 # Plugin.loaded等、同名の独立APIは終了した判定別名と区別する。
                 if other is not None:
                     body = other.body[1:] if ast.get_docstring(other) else other.body
-                    if not (len(body) == 1 and isinstance(body[0], ast.Return)
-                            and isinstance(body[0].value, ast.Call)
-                            and ((isinstance(body[0].value.func, ast.Attribute)
-                                  and body[0].value.func.attr == name)
-                                 or (isinstance(body[0].value.func, ast.Name)
-                                     and body[0].value.func.id == name))):
+                    if not (
+                        len(body) == 1
+                        and isinstance(body[0], ast.Return)
+                        and isinstance(body[0].value, ast.Call)
+                        and (
+                            (isinstance(body[0].value.func, ast.Attribute) and body[0].value.func.attr == name)
+                            or (isinstance(body[0].value.func, ast.Name) and body[0].value.func.id == name)
+                        )
+                    ):
                         continue
                 forbidden.add(owner + "." + short)
     return definitions, forbidden

@@ -1,12 +1,13 @@
 """起動中のMaya GUIへ送信する専用スイート。通常の一括テストは呼ばない。"""
+
 import datetime
 import io
 import json
-from pathlib import Path
 import sys
 import traceback
 import unittest
 import uuid
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ def main(output_dir=None, finished=None):
     import maya.cmds as cmds
     import maya.OpenMaya as om
     import maya.OpenMayaUI as omui
+
     try:
         from PySide6 import QtCore, QtWidgets
         from shiboken6 import wrapInstance
@@ -30,7 +32,7 @@ def main(output_dir=None, finished=None):
         raise RuntimeError("Stop playback before running GUI tests")
     if not cmds.undoInfo(query=True, state=True):
         raise RuntimeError("Enable Undo before running GUI tests")
-    output = Path(output_dir) if output_dir else TESTS_DIR / "_output/gui-visual" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    output = Path(output_dir) if output_dir else TESTS_DIR / "_output/gui-visual" / datetime.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     output.mkdir(parents=True, exist_ok=True)
     selection = mlib.Selection.capture()
     original_time = cmds.currentTime(query=True)
@@ -39,26 +41,32 @@ def main(output_dir=None, finished=None):
     prefix = "mlibGui_" + uuid.uuid4().hex[:10]
     window = connection = channel_connection = None
     evidence = []
-    result = {"maya_version": cmds.about(version=True), "python": sys.version,
-              "status_scope": "automated assertions and cleanup only; visual review is separate",
-              "status": "error", "screenshots": evidence,
-              "manual_checks": {
-                  "logger_fade": "pending: fade timing and Script Editor visual appearance",
-                  "attribute_presentation": "pending: lock/keyable/channelBox flags and attribute order",
-                  "mesh_selection_modes": "pending: vertex/edge/face/UV highlight restoration",
-                  "other_maya_versions": "pending: run this suite in each installed GUI"}}
+    result = {
+        "maya_version": cmds.about(version=True),
+        "python": sys.version,
+        "status_scope": "automated assertions and cleanup only; visual review is separate",
+        "status": "error",
+        "screenshots": evidence,
+        "manual_checks": {
+            "logger_fade": "pending: fade timing and Script Editor visual appearance",
+            "attribute_presentation": "pending: lock/keyable/channelBox flags and attribute order",
+            "mesh_selection_modes": "pending: vertex/edge/face/UV highlight restoration",
+            "other_maya_versions": "pending: run this suite in each installed GUI",
+        },
+    }
     scheduled = False
 
     def cleanup():
         cleanup_errors = []
         for action in (
-                lambda: cmds.deleteUI(window, window=True) if window and cmds.window(window, exists=True) else None,
-                lambda: cmds.deleteUI(connection) if connection else None,
-                lambda: cmds.deleteUI(channel_connection) if channel_connection else None,
-                lambda: cmds.namespace(removeNamespace=prefix, deleteNamespaceContent=True) if cmds.namespace(exists=prefix) else None,
-                lambda: selection.select(),
-                lambda: cmds.currentTime(original_time),
-                lambda: cmds.setFocus(original_focus) if original_focus and cmds.getPanel(typeOf=original_focus) else None):
+            lambda: cmds.deleteUI(window, window=True) if window and cmds.window(window, exists=True) else None,
+            lambda: cmds.deleteUI(connection) if connection else None,
+            lambda: cmds.deleteUI(channel_connection) if channel_connection else None,
+            lambda: cmds.namespace(removeNamespace=prefix, deleteNamespaceContent=True) if cmds.namespace(exists=prefix) else None,
+            lambda: selection.select(),
+            lambda: cmds.currentTime(original_time),
+            lambda: cmds.setFocus(original_focus) if original_focus and cmds.getPanel(typeOf=original_focus) else None,
+        ):
             try:
                 action()
             except Exception:
@@ -89,12 +97,11 @@ def main(output_dir=None, finished=None):
         connection = cmds.selectionConnection()
         for curve in curves:
             cmds.selectionConnection(connection, edit=True, select=curve.getFullName())
-        editor = cmds.outlinerEditor(parent=pane, mainListConnection=connection,
-                                     showDagOnly=True, showShapes=False)
+        cmds.outlinerEditor(parent=pane, mainListConnection=connection, showDagOnly=True, showShapes=False)
         panel = cmds.modelPanel(parent=pane, camera=camera, menuBarVisible=False)
         channel_connection = cmds.selectionConnection()
         cmds.selectionConnection(channel_connection, edit=True, select=curves[0].getFullName())
-        channel = cmds.channelBox(parent=pane, mainListConnection=channel_connection)
+        cmds.channelBox(parent=pane, mainListConnection=channel_connection)
         cmds.modelEditor(panel, edit=True, grid=False, cameras=False, displayAppearance="wireframe")
         cmds.select([c.getFullName() for c in curves], replace=True)
         cmds.isolateSelect(panel, state=True)
@@ -125,10 +132,7 @@ def main(output_dir=None, finished=None):
                 image.writeToFile(str(path), "png")
             evidence.append({"file": path.name, "review": "pending"})
 
-
         class VisualTests(unittest.TestCase):
-
-
             def test_component_selection(self):
                 """Component選択を保持し、明示的なSelection参照から復元する。"""
                 cmds.select(curves[0].getFullName() + ".cv[0:2]", replace=True)
@@ -142,8 +146,10 @@ def main(output_dir=None, finished=None):
 
             def test_viewport_off_nested_exception_and_hidden_start(self):
                 """実メインペインの入れ子・例外・非表示開始でもmanage元値へ戻す。"""
-                from maya import mel
+                import maya.mel as mel
+
                 from mlib.decorator import viewportOff
+
                 pane_name = mel.eval("global string $gMainPane; $mlibGuiPane = $gMainPane;")
                 previous = cmds.paneLayout(pane_name, query=True, manage=True)
                 try:
@@ -161,15 +167,13 @@ def main(output_dir=None, finished=None):
                     cmds.paneLayout(pane_name, edit=True, manage=previous)
                 capture("viewport_restored")
 
-
-
-
             def test_logger_notification(self):
                 import logging
+
                 from mlib.logger import MayaHandler
+
                 cmds.setFocus(panel)
-                MayaHandler().emit(logging.LogRecord("mlib.gui.test", logging.WARNING, "", 0,
-                                                   "MLIB GUI notification <test>", (), None))
+                MayaHandler().emit(logging.LogRecord("mlib.gui.test", logging.WARNING, "", 0, "MLIB GUI notification <test>", (), None))
                 capture("logger_notification")
 
         def execute():
@@ -182,9 +186,12 @@ def main(output_dir=None, finished=None):
                 outcome = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
                 (output / "tests.log").write_text(stream.getvalue(), encoding="utf-8")
                 print(stream.getvalue())
-                result.update(status="passed" if outcome.wasSuccessful() else "failed",
-                              tests=outcome.testsRun, skipped=[(str(t), reason) for t, reason in outcome.skipped],
-                              failures=[(str(t), reason) for t, reason in outcome.failures + outcome.errors])
+                result.update(
+                    status="passed" if outcome.wasSuccessful() else "failed",
+                    tests=outcome.testsRun,
+                    skipped=[(str(t), reason) for t, reason in outcome.skipped],
+                    failures=[(str(t), reason) for t, reason in outcome.failures + outcome.errors],
+                )
             except BaseException:
                 result["status"] = "error"
                 result["error"] = traceback.format_exc()

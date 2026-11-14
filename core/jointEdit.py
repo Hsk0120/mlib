@@ -22,6 +22,7 @@ def reparent_plan(joint, parent):
             またはinverseScaleがロック・成分ごとに接続されている場合。
         NotImplementedError: インスタンス、独自のinverseScale入力、または補正用のTransformが必要な場合。
     """
+    # 循環参照の回避: maths は core を参照するため、使う時点で読み込む。
     from ..maths import Matrix
     from ..nodes.transform import Transform
 
@@ -45,8 +46,7 @@ def reparent_plan(joint, parent):
     old_parent = joint.getParent()
     if old_source and (old_parent is None or old_source[0] != old_parent.getPlug("scale").mplug()):
         raise NotImplementedError("fast joint parenting cannot replace a custom inverseScale input")
-    if inverse.isLocked or any(inverse.child(i).isLocked or inverse.child(i).isDestination
-                              for i in range(inverse.numChildren())):
+    if inverse.isLocked or any(inverse.child(i).isLocked or inverse.child(i).isDestination for i in range(inverse.numChildren())):
         raise RuntimeError("inverseScale is locked or has per-axis inputs")
     new_source = parent.getPlug("scale") if parent is not None and parent.isType("joint") else None
     inverse_value = tuple(new_source.get()) if new_source is not None else (1.0, 1.0, 1.0)
@@ -58,8 +58,7 @@ def reparent_plan(joint, parent):
     _, quaternion, scale, shear, _ = Transform._decompose_like_channels(joint, corrected)
     if any(abs(a - b) > 1e-7 for a, b in zip(scale, joint.getScale())) or any(abs(v) > 1e-7 for v in shear):
         raise NotImplementedError("fast joint parenting cannot insert the compensating Transform required by Maya")
-    orientation = (joint._component_quaternion("rotate").inverse()
-                   * joint._component_quaternion("rotateAxis").inverse() * quaternion)
+    orientation = joint._component_quaternion("rotate").inverse() * joint._component_quaternion("rotateAxis").inverse() * quaternion
     return joint, parent, tuple(local.translate), orientation.asEulerRotation(), new_source
 
 

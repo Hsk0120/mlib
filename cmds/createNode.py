@@ -26,12 +26,7 @@ from ..decorator import _edit_context, _merge_flags
 from ..util import _UNSET
 
 
-def createNode(type, *, fast=False,
-        name=_UNSET, n=_UNSET,
-        parent=_UNSET, p=_UNSET,
-        shared=_UNSET, s=_UNSET,
-        skipSelect=_UNSET, ss=_UNSET,
-        **kwargs):
+def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNSET, shared=_UNSET, s=_UNSET, skipSelect=_UNSET, ss=_UNSET, **kwargs):
     """Mayaノードを作成し、実際の型に対応するラッパーを返す。
 
     フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
@@ -81,12 +76,7 @@ def createNode(type, *, fast=False,
             またはMayaが作成を拒否した場合。
         NotImplementedError: fast=Trueで未対応のフラグを指定した場合。
     """
-    _merge_flags(kwargs, (
-        (name, n, "name", "n"),
-        (parent, p, "parent", "p"),
-        (shared, s, "shared", "s"),
-        (skipSelect, ss, "skipSelect", "ss"),
-    ))
+    _merge_flags(kwargs, ((name, n, "name", "n"), (parent, p, "parent", "p"), (shared, s, "shared", "s"), (skipSelect, ss, "skipSelect", "ss")))
     with _edit_context("mlibCreateNode", fast):
         # 作成の実体はNodeの内部ヘルパー。nodesはcmdsを参照するため循環importを避けて関数内で読み込む。
         from ..nodes import Node

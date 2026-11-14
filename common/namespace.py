@@ -192,7 +192,7 @@ class Namespace:
         if not self.exists():
             return []
         # nodes.nodeもcommon.namespaceを参照するため、
-        # 循環回避のためここで遅延 import する（mlib で意図的な相互依存の一つ）。
+        # 循環回避のためここで遅延 import する(mlib で意図的な相互依存の一つ)。
         from ..nodes.node import Node
 
         mobjects = om2.MNamespace.getNamespaceObjects(self._name, recurse) or []

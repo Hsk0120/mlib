@@ -36,7 +36,7 @@ class NurbsSurface(Shape):
         try:
             fn = om2.MFnNurbsSurface(path)
             # 版により作成は通り照会で失敗するため、形状データの有無を作成直後に確かめる。
-            fn.numCVsInU
+            fn.numCVsInU  # noqa: B018
         except (RuntimeError, ValueError):
             return om2.MFnDagNode(path)
         return fn
@@ -429,7 +429,7 @@ class NurbsSurface(Shape):
             NotImplementedError: createへの入力(コンストラクションヒストリ)がある場合。
             RuntimeError: シェイプのロック、またはCVのアトリビュートがロック・入力接続されている場合。
         """
-        dependency = om2.MFnDependencyNode(self.mnode())
+        dependency = self._dependency_fn()
         if dependency.findPlug("create", False).isDestination:
             raise NotImplementedError("fast geometry edits require a shape without input history")
         if dependency.isLocked:
@@ -452,5 +452,5 @@ class NurbsSurface(Shape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnNurbsSurface):
-            raise RuntimeError("nurbsSurface has no geometry data: %s" % self.getFullName())
+            raise RuntimeError(f"nurbsSurface has no geometry data: {self.getFullName()}")
         return fn

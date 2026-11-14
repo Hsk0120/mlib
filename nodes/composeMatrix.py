@@ -10,8 +10,7 @@ _ROTATE_ORDERS = ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx")
 class ComposeMatrix(Node):
     """移動・回転(オイラー角またはクォータニオン)・スケール・せん断からマトリクスを作る。"""
 
-    def setInput(self, inputTranslate=None, inputRotate=None, inputScale=None, inputShear=None, inputQuat=None,
-        useEulerRotation=None):
+    def setInput(self, inputTranslate=None, inputRotate=None, inputScale=None, inputShear=None, inputQuat=None, useEulerRotation=None):
         """主な入力をまとめて設定する。値は書き込み、Plug は接続する。
 
         Plug・MPlug・``"node.attr"`` の文字列は接続元として接続し(既存の入力は置き換える)、それ以外は
@@ -32,14 +31,18 @@ class ComposeMatrix(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "inputTranslate": inputTranslate,
-            "inputRotate": inputRotate,
-            "inputScale": inputScale,
-            "inputShear": inputShear,
-            "inputQuat": inputQuat,
-            "useEulerRotation": useEulerRotation,
-        })
+        return _calculation.set_inputs(
+            self,
+            "setInput",
+            {
+                "inputTranslate": inputTranslate,
+                "inputRotate": inputRotate,
+                "inputScale": inputScale,
+                "inputShear": inputShear,
+                "inputQuat": inputQuat,
+                "useEulerRotation": useEulerRotation,
+            },
+        )
 
     def getRotateOrder(self):
         """回転の回転順を名前で取得する(``inputRotateOrder``)。

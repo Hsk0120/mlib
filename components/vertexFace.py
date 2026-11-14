@@ -102,7 +102,7 @@ class VertexFace(_MultiIndexComponent, Component):
         return shape._geometry_fn().numFaceVertices
 
     @classmethod
-    def _multi_indices(cls, shape, indices, command=False):
+    def _multi_indices(cls, shape, indices, command=False):  # noqa: ARG003  # 基底が command= で呼ぶ契約の引数。
         """平坦な番号を ``(頂点, フェース)`` へ変換する。
 
         Args:
@@ -136,7 +136,7 @@ class VertexFace(_MultiIndexComponent, Component):
             if face >= len(offsets):
                 raise IndexError(f"Component index out of range: {(vertex, face)}")
             start = offsets[face]
-            local = vertices[start:start + counts[face]]
+            local = vertices[start : start + counts[face]]
             if vertex not in local:
                 raise IndexError(f"Vertex {vertex} is not on face {face}")
             result.append(start + local.index(vertex))

@@ -21,24 +21,16 @@ from ..decorator import _pick_alias, undoChunk, undoTransaction
 from ..util import _UNSET
 
 #: bindSkin が既定値を決めるフラグ(長名, 短名, 既定値)。
-_DEFAULT_FLAGS = (
-    ("toSelectedBones", "tsb", True),
-    ("normalizeWeights", "nw", 1),
-)
+_DEFAULT_FLAGS = (("toSelectedBones", "tsb", True), ("normalizeWeights", "nw", 1))
 
 #: 作成専用のため受け付けないフラグ。
 _REJECTED_FLAGS = frozenset(("query", "q", "edit", "e"))
 
 #: ウェイトのファイルの設定から既定値を決めるフラグ(長名, 短名, 設定名)。
-_FILE_FLAGS = (
-    ("normalizeWeights", "nw", "normalizeWeights"),
-    ("obeyMaxInfluences", "omi", "maintainMaxInfluences"),
-    ("skinMethod", "sm", "skinningMethod"),
-)
+_FILE_FLAGS = (("normalizeWeights", "nw", "normalizeWeights"), ("obeyMaxInfluences", "omi", "maintainMaxInfluences"), ("skinMethod", "sm", "skinningMethod"))
 
 
-def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=None, nameMap=None, replace=None,
-             namespaceMap=None, method="index", **kwargs):
+def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", **kwargs):
     """形状を指定したinfluenceへバインドする。
 
     選択状態は参照しない。形状が既に skinCluster で変形されている場合は何もせず拒否する。
@@ -93,8 +85,7 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=N
     rejected = sorted(_REJECTED_FLAGS.intersection(kwargs))
     if rejected:
         raise TypeError(f"bindSkin does not accept: {', '.join(rejected)}")
-    if maximumInfluences is not None and (
-            isinstance(maximumInfluences, bool) or not isinstance(maximumInfluences, int) or maximumInfluences < 1):
+    if maximumInfluences is not None and (isinstance(maximumInfluences, bool) or not isinstance(maximumInfluences, int) or maximumInfluences < 1):
         raise ValueError("maximumInfluences must be a positive int")
     saved = None
     if weights is None:
@@ -129,10 +120,10 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=N
             return Node(result[0])
     # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
     from ..json.nameMapping import NameMapping
+
     with undoTransaction("mlibBindSkin"):
         skin = Node(cmds.skinCluster(names, target.getFullName(), **flags)[0])
-        data, nodes, report = skin._prepare_weights_data(
-            saved["data"], NameMapping(nameMap, replace, namespaceMap), method)
+        data, nodes, report = skin._prepare_weights_data(saved["data"], NameMapping(nameMap, replace, namespaceMap), method)
         skin._apply_weights_data(data, nodes, method, report, False)
     report.warn(f"SkinCluster {skin.getName()}")
     return skin
@@ -201,8 +192,10 @@ def _load_weights(path, geometry, nameMap, replace, namespaceMap, method):
         raise ValueError(f"weights requires a mesh: {shape.fullPathName()}")
     count = om2.MFnMesh(shape).numVertices
     if method == "index" and saved["vertexCount"] != count:
-        raise ValueError(f"Cannot apply skin weights: Stored vertex count ({saved['vertexCount']}) does not match "
-                         f"the vertex count of {shape.fullPathName()} ({count}); use method='position'")
+        raise ValueError(
+            f"Cannot apply skin weights: Stored vertex count ({saved['vertexCount']}) does not match "
+            f"the vertex count of {shape.fullPathName()} ({count}); use method='position'"
+        )
     if method == "position" and not saved["positions"]:
         raise ValueError("Cannot apply skin weights: The data has no vertex positions")
     influences, seen = [], set()

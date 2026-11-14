@@ -18,8 +18,7 @@ from ..decorator import _pick_alias, nativeUnits, preservedSelection, undoTransa
 from ..util import _UNSET, _finite, _finite_vector
 
 
-def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, name=_UNSET, parent=None, *,
-        r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
+def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
     """原点を中心とするNURBSの円を作成し、そのシェイプを返す。
 
     fast引数は持たない(OpenMayaに円の作成の同等機能が無いため)。
@@ -66,8 +65,7 @@ def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, n
         raise ValueError(f"sections must be at least {3 if degree == 1 else 4} for degree {degree}")
     name = require_name(name)
     parent_node = resolve_parent(parent)
-    flags = {"radius": radius, "normal": tuple(normal), "sections": sections, "degree": degree,
-             "constructionHistory": False}
+    flags = {"radius": radius, "normal": tuple(normal), "sections": sections, "degree": degree, "constructionHistory": False}
     if name:
         flags["name"] = name
     with undoTransaction("mlibCreateCircle"), preservedSelection():

@@ -128,6 +128,7 @@ class UV(Component):
         """
         # vertex.py が uv.py を import するため、循環を避けて呼出し時に読む。
         from .vertex import Vertex
+
         self._require_valid()
         mesh_fn = self.shape._geometry_fn()
         uv_counts, uv_ids = mesh_fn.getAssignedUVs(mesh_fn.currentUVSetName())
@@ -250,7 +251,7 @@ class UVs(Components):
             return [item.getPosition() for item in self]
         if not self._indices:
             return []
-        Component._validate_shape(self._shape, UV.shape_type)
+        Component._require_shape(self._shape, UV.shape_type)
         mesh_fn = self._shape._geometry_fn()
         count = mesh_fn.numUVs()
         uv_set = mesh_fn.currentUVSetName()

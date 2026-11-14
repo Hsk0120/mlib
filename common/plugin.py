@@ -16,10 +16,7 @@ for _name in ("parse_version", "is_at_least", "format_version"):
 class Plugin:
     """名前で参照する Maya プラグイン(.mll/.py/.so)。生成時に存在確認しない。"""
 
-    _HIK_NODE_TYPES = frozenset((
-        "HIKCharacterNode", "HIKSolverNode", "HIKRetargeterNode",
-        "HIKControlSetNode", "HIKSkeletonGeneratorNode",
-    ))
+    _HIK_NODE_TYPES = frozenset(("HIKCharacterNode", "HIKSolverNode", "HIKRetargeterNode", "HIKControlSetNode", "HIKSkeletonGeneratorNode"))
 
     def __init__(self, name):
         """プラグイン名を保持する。

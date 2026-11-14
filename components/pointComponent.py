@@ -549,8 +549,7 @@ class PointComponents(Components):
         if not self._indices:
             return self
         self._require_valid()
-        rows = [tuple(value + step for value, step in zip(point, delta))
-                for point in _positions(self._shape, self._indices, ws)]
+        rows = [tuple(value + step for value, step in zip(point, delta)) for point in _positions(self._shape, self._indices, ws)]
         return self._write(rows, ws, fast, "mlibPointComponentsMoveBy")
 
     def _set_coordinates(self, axis, value, worldSpace, fast, chunk):
@@ -655,7 +654,7 @@ def _require_invertible(shape):
     """
     matrix = shape.mpath().inclusiveMatrix()
     magnitude = max(1.0, *(sum(abs(matrix[row * 4 + col]) for col in range(3)) for row in range(3)))
-    if abs(matrix.det4x4()) <= 1e-12 * magnitude ** 3:
+    if abs(matrix.det4x4()) <= 1e-12 * magnitude**3:
         raise ValueError(f"Cannot edit points in world space with a near-singular transform: {shape.getFullName()}")
 
 
@@ -878,6 +877,7 @@ def _set_grid_positions(shape, indices, rows, ws, fast):
     # 単数型はこのモジュールを継承するため、循環を避けて使う時点で読み込む。
     from .latticePoint import LatticePoint
     from .surfaceCV import SurfaceCV
+
     path = shape.mpath()
     surface = path.node().hasFn(om2.MFn.kNurbsSurface)
     component_class = SurfaceCV if surface else LatticePoint

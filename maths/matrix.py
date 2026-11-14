@@ -10,13 +10,7 @@ from .quaternion import Quaternion
 from .scale import Scale
 from .shear import Shear
 from .translate import Translate
-from .vector import (
-    Vector,
-    _axis_name,
-    _reduce_value,
-    _vector_of,
-    _zero,
-)
+from .vector import Vector, _axis_name, _reduce_value, _vector_of, _zero
 
 _MMatrix = om2.MMatrix
 _MVector = om2.MVector
@@ -61,7 +55,7 @@ def _reinit_is_safe():
     """
     try:
         return om2.MGlobal.apiVersion() >= 20240000
-    except Exception:  # noqa: BLE001 - 判定できない環境はリークする版として安全側に倒す。
+    except Exception:
         return False
 
 
@@ -530,7 +524,7 @@ class Matrix(om2.MMatrix):
         Returns:
             str: 型名と現在の成分を含む文字列表現。
         """
-        return "{}({!r})".format(type(self).__name__, self.rows)
+        return f"{type(self).__name__}({self.rows!r})"
 
     __str__ = __repr__
 
@@ -908,7 +902,7 @@ class Matrix(om2.MMatrix):
         """マトリクスの16成分を、行ごとに区切った4行4列のtupleとして取得する。
 
         各行もtupleであり、元のマトリクスへの可変参照ではない。
-        配列形の変更だけを行い、転置や座標空間・UI単位の変換は行わない。
+        並びの変更だけを行い、転置や座標空間・UI単位の変換は行わない。
 
         Returns:
             tuple[tuple[float, float, float, float], ...]: 行優先の4行。
@@ -1293,8 +1287,7 @@ class Matrix(om2.MMatrix):
             return type(self)._wrap(self)
         if weight == 1.0:
             return type(self)._wrap(other)
-        translate = _lerp3((_GET(self, 12), _GET(self, 13), _GET(self, 14)),
-                           (_GET(other, 12), _GET(other, 13), _GET(other, 14)), weight)
+        translate = _lerp3((_GET(self, 12), _GET(self, 13), _GET(self, 14)), (_GET(other, 12), _GET(other, 13), _GET(other, 14)), weight)
         scale = _lerp3(start.scale(_K_TRANSFORM), end.scale(_K_TRANSFORM), weight)
         shear = _lerp3(start.shear(_K_TRANSFORM), end.shear(_K_TRANSFORM), weight)
         rotation = _MQuaternion.slerp(start.rotation(asQuaternion=True), end.rotation(asQuaternion=True), weight)
@@ -1374,7 +1367,9 @@ class Matrix(om2.MMatrix):
             TypeError: axisが文字列・int以外の場合。
             ValueError: axisが不正、またはpivotが有限の3成分でない場合。
         """
+        # ミラーの引数解決だけで使うため、使う時点で読み込む(util は標準ライブラリしか参照しない)。
         from ..util import mirrorArguments
+
         axes, center = mirrorArguments(axis, pivot)
         result = type(self)._wrap(self)
         for axis in axes:

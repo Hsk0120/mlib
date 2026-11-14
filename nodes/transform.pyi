@@ -17,8 +17,7 @@ from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool,
 from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
-from ..util import _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
-from ..util import _ArgumentError, _UNSET
+from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
 from .dagNode import DagNode
 from .node import Node, Nodes
 from typing import Iterable, Sequence
@@ -119,7 +118,7 @@ def _curve_color(value: object, label: str) -> int | tuple[float, float, float] 
     """カーブ形状のデータの表示色を検証する。
 
     Args:
-        value (object): カラーインデックス、(r, g, b)、またはNone。
+        value (object): カラー番号、(r, g, b)、またはNone。
         label (str): 例外の文言に使う名前。
 
     Returns:
@@ -253,8 +252,8 @@ class Transform(DagNode):
                 ターゲットが追加される場合がある。
 
         Raises:
-            ValueError: 未対応の型・空のソース、query/edit=True、または無効なworldUpObjectの場合。
             TypeError: 型名・参照型・長短フラグが不正、または上記6型のターゲットがTransformでない場合。
+            ValueError: 未対応の型・空のソース、query/edit=True、または無効なworldUpObjectの場合。
             RuntimeError: ノードが無効、ターゲットの名前を解決できない(存在しない、または
                 複数のノードに一致する)場合、または Maya が作成を拒否した場合。
             DeletedAttributeError: 削除済みアトリビュートのPlug/MPlugの場合。ValueErrorとRuntimeErrorの派生。
@@ -271,8 +270,8 @@ class Transform(DagNode):
         対象外への共有出力と削除対象の参照・ロックを先に検査する。
 
         Args:
-            fast (bool): Falseはcmds.deleteをUndo有効時にまとめる。
-                Trueは入力を外してOM2で削除し、Undoへ記録しない。設定は変えず、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは入力を外してOM2で削除し、
+                Falseはcmds.deleteをUndo有効時にまとめる。設定は変えず、
                 後続失敗で切断や削除を自動では戻さない。
 
         Returns:
@@ -309,7 +308,7 @@ class Transform(DagNode):
             pivot (Iterable[float]): 指定空間の拡縮中心。cm。既定は原点。
             indices (Iterable[int | tuple[int, int]] | None): 各Shapeに共通の頂点/CV番号。
                 Noneは全要素。サーフェスは(U, V)の組。
-            fast (bool): Trueは履歴なしメッシュ・非周期カーブをOM2で更新(Undoなし)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは履歴なしメッシュ・非周期カーブが対象。
                 Falseは通常更新をUndo有効時にまとめる。
 
         Returns:
@@ -491,7 +490,7 @@ class Transform(DagNode):
         通常モードはUndoが有効な状態で使用する。
 
         Args:
-            fast (bool): TrueはOpenMayaでShapeだけを直接削除し、Undoなし。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。TrueはShapeだけを直接削除する。
 
         Returns:
             Transform: 自身。
@@ -567,7 +566,7 @@ class Transform(DagNode):
             dict: ``{"color": 表示色, "shapes": [{"name", "degree", "form", "knots", "points", "color",
             "lineWidth"}, ...]}``。``form`` は ``"open"``・``"closed"``・``"periodic"``、``points`` は
             ``[x, y, z]`` のリスト、表示色は :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` と同じ
-            (カラーインデックス・(r, g, b)・None)。
+            (カラー番号・(r, g, b)・None)。
 
         Raises:
             RuntimeError: 自身が無効な場合。
@@ -656,7 +655,7 @@ class Transform(DagNode):
             relative (bool): True は親変更前のローカル変換を保持する。既定 False は Maya の既定動作
                 (ワールド姿勢を保つ)。
             add (bool): True は既存の親を維持して追加の親を設定する。parent が None の場合は渡されない。
-            fast (bool): TrueはOpenMaya直接更新でUndoなし。速くなるのは ``relative=True`` だけで、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` だけで、
                 ワールド位置を保つ既定ではcmds.parentより遅い。Joint・インスタンス・親の追加は未対応
                 (NotImplementedError)。通常経路の Joint は cmds.parent に従い、relative=False の
                 ときだけ親 joint の scale を inverseScale へ接続する(relative=True では接続しない。

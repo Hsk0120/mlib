@@ -29,8 +29,7 @@ class MultMatrix(Node):
         with _edit_context(_calculation.chunk_name(self, "setInput"), False, transaction=True):
             for index in reversed(_calculation.element_indices(self, "matrixIn")):
                 _calculation.remove_elements(self, "setInput", ("matrixIn",), index)
-            _calculation.set_inputs(self, "setInput", {f"matrixIn[{index}]": matrix
-                                                       for index, matrix in enumerate(matrices)})
+            _calculation.set_inputs(self, "setInput", {f"matrixIn[{index}]": matrix for index, matrix in enumerate(matrices)})
         return self
 
     def addInput(self, matrix):

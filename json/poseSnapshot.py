@@ -70,7 +70,7 @@ class PoseSnapshot(Snapshot):
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """``nodes`` の各項目がノード参照とスカラー値の辞書を持つか確かめる。
 
         Args:
@@ -92,7 +92,7 @@ class PoseSnapshot(Snapshot):
                 if not isinstance(value, (bool, int, float)):
                     raise ValueError(f"Pose values must be numbers or bools: {name!r}={value!r}")
 
-    def _validate(self, mapping, report, options):
+    def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """ノードの対応と、書けないアトリビュートを記録する。
 
         Args:
@@ -102,7 +102,7 @@ class PoseSnapshot(Snapshot):
         """
         self._plan(mapping, report)
 
-    def _apply(self, mapping, report, options, fast):
+    def _apply(self, mapping, report, options, fast):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """書けるアトリビュートへ値を書き込む。
 
         飛ばすものは :meth:`_validate` で記録済みのため、ここでは書込みに失敗したものだけを記録する。
@@ -162,6 +162,7 @@ def _require_nodes(nodes):
     """
     # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
     from ..nodes.node import Node
+
     if isinstance(nodes, (str, Node)):
         nodes = [nodes]
     try:
@@ -224,8 +225,7 @@ def _attribute_path(mplug):
     Returns:
         str: ``"translateX"``・``"weight[3]"`` 等。
     """
-    return mplug.partialName(includeNodeName=False, includeNonMandatoryIndices=True,
-                             includeInstancedIndices=True, useLongNames=True)
+    return mplug.partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=True)
 
 
 def _block_reason(mplug):

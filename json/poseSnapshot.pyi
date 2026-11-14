@@ -63,7 +63,7 @@ class PoseSnapshot(Snapshot):
             ValidationReport: 適用の結果。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """``nodes`` の各項目がノード参照とスカラー値の辞書を持つか確かめる。
 
         Args:

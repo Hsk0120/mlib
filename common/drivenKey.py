@@ -17,21 +17,7 @@ from ..util import _angle_unit, _time_unit
 _CURVE_TYPES = {"doubleLinear": "animCurveUL", "doubleAngle": "animCurveUA", "time": "animCurveUT"}
 
 #: ドライバー・駆動先に使える数値スカラーのアトリビュート型名。
-_NUMERIC_SCALAR_TYPES = frozenset(
-    (
-        "double",
-        "float",
-        "doubleAngle",
-        "doubleLinear",
-        "time",
-        "bool",
-        "byte",
-        "char",
-        "short",
-        "long",
-        "enum",
-    )
-)
+_NUMERIC_SCALAR_TYPES = frozenset(("double", "float", "doubleAngle", "doubleLinear", "time", "bool", "byte", "char", "short", "long", "enum"))
 
 
 def _plug(value):
@@ -88,8 +74,7 @@ def _sources(plug):
     Returns:
         list[Plug]: 単位変換ノードを透過した接続元。未接続なら空。
     """
-    return Plug._resolve_input(plug).getConnections(
-        source=True, destination=False, skipConversionNodes=True)
+    return Plug._resolve_input(plug).getConnections(source=True, destination=False, skipConversionNodes=True)
 
 
 def _curves(driven, strict=False):
@@ -119,10 +104,7 @@ def _curves(driven, strict=False):
             visited.append(source.mplug())
             node = source.getNode()
             attribute, kind = source.getLongName(), node.getType()
-            if (
-                kind in {"animCurveUA", "animCurveUL", "animCurveUT", "animCurveUU"}
-                and attribute == "output"
-            ):
+            if kind in {"animCurveUA", "animCurveUL", "animCurveUT", "animCurveUU"} and attribute == "output":
                 found.append(node)
             elif kind == "blendWeighted" and attribute == "output":
                 visit(node.getPlug("input"))
@@ -131,7 +113,8 @@ def _curves(driven, strict=False):
                     f"Cannot set a driven key on {driven.getFullName()}: {destination.getFullName()} already has "
                     f"an input from {source.getFullName()} ({kind}), which is not a driven-key curve; "
                     "disconnect it first (e.g. plug.disconnectInput()), or combine both inputs through a "
-                    "blendWeighted node")
+                    "blendWeighted node"
+                )
 
     visit(driven)
     return found
@@ -237,14 +220,7 @@ class DrivenKey:
             list[AnimCurve]: この組に対応するカーブ。未作成・対象外の構成なら空。
         """
         driver = self.getDriverPlug().mplug()
-        return [
-            curve
-            for curve in _curves(self.getDrivenPlug())
-            if _contains_plug(
-                (source.mplug() for source in _sources(curve.getPlug("input"))),
-                driver,
-            )
-        ]
+        return [curve for curve in _curves(self.getDrivenPlug()) if _contains_plug((source.mplug() for source in _sources(curve.getPlug("input"))), driver)]
 
     def exists(self):
         """対応するカーブ接続が存在するか。キーが空でもTrue。
@@ -254,8 +230,7 @@ class DrivenKey:
         """
         return bool(self.getCurves())
 
-    def setKey(self, driverValue, value, inTangentType="linear", outTangentType="linear", *, unit="deg",
-               timeUnit="frame", fast=False):
+    def setKey(self, driverValue, value, inTangentType="linear", outTangentType="linear", *, unit="deg", timeUnit="frame", fast=False):
         """指定したドライバー値と駆動先値でドリブンキーを追加・更新する。
 
         両値をfloat()で有限性検査し、それぞれのPlug定義に従ってUI単位へ変換して
@@ -315,8 +290,7 @@ class DrivenKey:
                 raise RuntimeError("Multiple curves match this driver/driven pair")
             if fast:
                 # カーブの横軸はドライバーのUI単位(unitConversion経由の値)。縦軸はAnimCurve.setKeyが換算する。
-                self._set_key_fast(curves, _convert_units(driver.mplug(), x), y, inTangentType, outTangentType,
-                                   unit, timeUnit)
+                self._set_key_fast(curves, _convert_units(driver.mplug(), x), y, inTangentType, outTangentType, unit, timeUnit)
                 return self
             y = _convert_times(driven.mplug(), _convert_angles(driven.mplug(), y, angle_unit), time_unit)
             count = cmds.setDrivenKeyframe(
@@ -357,8 +331,7 @@ class DrivenKey:
         else:
             driver, driven = self.getDriverPlug(), self.getDrivenPlug()
             if _sources(driven):
-                raise NotImplementedError("fast setKey does not support a second driver on "
-                                          f"{driven.getFullName()} (Maya inserts a blendWeighted node)")
+                raise NotImplementedError(f"fast setKey does not support a second driver on {driven.getFullName()} (Maya inserts a blendWeighted node)")
             require_writable(driven.mplug())
             kind = _CURVE_TYPES.get(attributeType(driven.mplug()), "animCurveUU")
             # setDrivenKeyframeと同じく、名前空間を除いたノード名とエイリアス(無ければロング名)を使う。

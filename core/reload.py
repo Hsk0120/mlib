@@ -26,17 +26,12 @@ def reload_package(package_name):
     # キャッシュはreload時に再生成し、ここに個別のキャッシュ一覧は持たない。
     importlib.invalidate_caches()
     module_names = _discover_module_names(package_name)
-    loaded_names = {
-        name
-        for name in sys.modules
-        if name == package_name or name.startswith(f"{package_name}.")
-    }
+    loaded_names = {name for name in sys.modules if name == package_name or name.startswith(f"{package_name}.")}
     for stale_name in loaded_names - set(module_names):
         stale_module = sys.modules.pop(stale_name, None)
         parent_name, _, child_name = stale_name.rpartition(".")
         parent = sys.modules.get(parent_name)
-        if (isinstance(stale_module, types.ModuleType) and parent is not None
-                and getattr(parent, child_name, None) is stale_module):
+        if isinstance(stale_module, types.ModuleType) and parent is not None and getattr(parent, child_name, None) is stale_module:
             delattr(parent, child_name)
     for module_name in module_names:
         importlib.import_module(module_name)
@@ -77,10 +72,7 @@ def _reload_order(module_names):
         list[str]: 依存先が先になる reload 順の module 名。
     """
     module_set = set(module_names)
-    dependencies = {
-        name: _module_dependencies(sys.modules[name], module_set)
-        for name in module_names
-    }
+    dependencies = {name: _module_dependencies(sys.modules[name], module_set) for name in module_names}
     order = []
     visited = set()
     visiting = set()

@@ -189,8 +189,7 @@ class Edges(Components):
         Returns:
             Vertices: 保持順に集め、重複を除いた頂点群。
         """
-        if not (self._uses_standard_iteration(Edge) and self._uses_standard_vertices()
-                and Edge.getVertices is _EDGE_GET_VERTICES):
+        if not (self._uses_standard_iteration(Edge) and self._uses_standard_vertices() and Edge.getVertices is _EDGE_GET_VERTICES):
             return Vertices(self.shape, (v.index for item in self for v in item.getVertices()))
         indices = self._mesh_vertex_indices("numEdges", "getEdgeVertices")
         return Vertices(self.shape, indices)

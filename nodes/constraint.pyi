@@ -75,7 +75,7 @@ class Constraint(Transform):
         Args:
             weight (float): 全対象へ設定する値。ここでは正規化や0〜1への制限を行わない。
             targets (Node | str): 更新対象。省略時は全ターゲット。対象がなければ値を検証せず返す。
-            fast (bool): TrueはPlug書込みをOpenMayaで行いUndoへ記録しない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Plugの書込みを対象にする。
                 Falseは通常更新をUndo有効時にまとめ、Undo設定は変えない。
                 ターゲット/alias照会にはfastでもcmdsを使う。
 

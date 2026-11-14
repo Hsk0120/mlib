@@ -29,12 +29,9 @@ class Condition(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "firstTerm": firstTerm,
-            "secondTerm": secondTerm,
-            "colorIfTrue": colorIfTrue,
-            "colorIfFalse": colorIfFalse,
-        })
+        return _calculation.set_inputs(
+            self, "setInput", {"firstTerm": firstTerm, "secondTerm": secondTerm, "colorIfTrue": colorIfTrue, "colorIfFalse": colorIfFalse}
+        )
 
     def getOperation(self):
         """比較の種類を名前で取得する(``operation``)。

@@ -2,17 +2,21 @@
 setlocal
 
 ::----------------------------------------------------------------
-:: Check the mlib sources against the coding rules (import order, order of
-:: the class members, blank lines, spacing, input assertions, encodings),
-:: and apply the automatic fixes. Maya is not needed.
+:: Check the mlib sources against the rules ruff does not cover (the position
+:: of the constants, __all__ and TYPE_CHECKING, the order of the class members,
+:: the input assertions of the public entries), and apply the automatic fixes.
+:: Maya is not needed.
+::
+:: For the whole format (ruff and these checks together) use format_mlib.bat.
+:: The spaces, blank lines, line breaks, quotes, import order, unused names,
+:: encodings and pathlib belong to ruff, not to this batch.
 ::
 ::   check_mlib_layout.bat                 check all of mlib
 ::   check_mlib_layout.bat nodes\node.py   check the given files or folders
-::   check_mlib_layout.bat --fix           fix the import order, the order of
-::                                         the class members and the blank
-::                                         lines, then check again to list
-::                                         what is left (files or folders can
-::                                         be given as well)
+::   check_mlib_layout.bat --fix           reorder the members of the classes,
+::                                         then check again to list what is
+::                                         left (files or folders can be given
+::                                         as well; run ruff format afterwards)
 ::   check_mlib_layout.bat --fix-asserts TypeError nodes\node.py --line 12
 ::                                         turn the input assertion reported
 ::                                         on that line into a raise of the
@@ -22,8 +26,6 @@ setlocal
 ::
 :: The other modes of check_mlib_layout.py (--outline, --snapshot, --compare)
 :: are passed to the script as they are.
-:: --fix never changes the spacing, the comments at the end of a line or the
-:: named lambdas (L030-L034): they are only reported, fix them by hand.
 ::
 :: Exit code: 0 when there is no violation, 1 when there are violations,
 :: 2 when the arguments are wrong or no Python was found.
@@ -52,6 +54,11 @@ SET "MLIB_LAYOUT_ARGS=%MLIB_LAYOUT_ARGS% %1"
 SHIFT
 GOTO :parse_args
 :args_done
+rem Use what setup.bat installed when it is there (the same as format_mlib.bat).
+IF EXIST "%~dp0.venv\Scripts\python.exe" SET "MLIB_LAYOUT_CMD="%~dp0.venv\Scripts\python.exe""
+IF NOT DEFINED MLIB_LAYOUT_CMD IF EXIST "%~dp0.mayapy-site\mayapy-path.txt" SET /p MLIB_LAYOUT_CMD=<"%~dp0.mayapy-site\mayapy-path.txt"
+IF DEFINED MLIB_LAYOUT_CMD GOTO :run
+
 rem Only look for an installed Python: never let the launcher install one.
 SET "PYLAUNCHER_ALLOW_INSTALL="
 

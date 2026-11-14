@@ -26,12 +26,7 @@ class DistanceBetween(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "point1": point1,
-            "point2": point2,
-            "inMatrix1": inMatrix1,
-            "inMatrix2": inMatrix2,
-        })
+        return _calculation.set_inputs(self, "setInput", {"point1": point1, "point2": point2, "inMatrix1": inMatrix1, "inMatrix2": inMatrix2})
 
     def getResult(self):
         """出力 ``distance`` の現在の値を取得する。

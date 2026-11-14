@@ -33,10 +33,17 @@ from ..nodes.animCurve import _TANGENT_NAMES, _TANGENT_TYPES, AnimCurve
 _INFINITY_TYPES = ("constant", "linear", "cycle", "cycleRelative", "oscillate")
 #: キーの辞書が持つ項目と、受け付ける値の型。
 _KEY_FIELDS = {
-    "input": (int, float), "value": (int, float),
-    "inType": (str,), "outType": (str,),
-    "inAngle": (int, float), "inWeight": (int, float), "outAngle": (int, float), "outWeight": (int, float),
-    "lock": (bool,), "weightLock": (bool,), "breakdown": (bool,),
+    "input": (int, float),
+    "value": (int, float),
+    "inType": (str,),
+    "outType": (str,),
+    "inAngle": (int, float),
+    "inWeight": (int, float),
+    "outAngle": (int, float),
+    "outWeight": (int, float),
+    "lock": (bool,),
+    "weightLock": (bool,),
+    "breakdown": (bool,),
 }
 #: 入力接線に指定できない型(Mayaのコマンドが拒否する)。
 _OUT_ONLY_TANGENTS = ("step", "stepnext")
@@ -68,7 +75,7 @@ def _output_kind(curve_type):
     return curve_type[-1]
 
 
-def _check_curve(data):
+def _require_curve(data):
     """カーブの辞書の形を確かめる。
 
     Args:
@@ -80,8 +87,13 @@ def _check_curve(data):
     if not isinstance(data, dict):
         raise ValueError(f"Invalid curve data: {data!r}")
     curve_type = data.get("curveType")
-    if not isinstance(curve_type, str) or not curve_type.startswith("animCurve") or len(curve_type) != 11 \
-            or curve_type[9] not in "TU" or curve_type[10] not in "ALTU":
+    if (
+        not isinstance(curve_type, str)
+        or not curve_type.startswith("animCurve")
+        or len(curve_type) != 11
+        or curve_type[9] not in "TU"
+        or curve_type[10] not in "ALTU"
+    ):
         raise ValueError(f"Invalid curveType in curve data: {curve_type!r}")
     if not isinstance(data.get("weighted"), bool):
         raise ValueError("Curve data 'weighted' must be a bool")
@@ -130,22 +142,24 @@ def _read_curve(curve, input_scale=1.0, input_range=None):
     infinity = node.getInfinity()
     keys = []
     for index, (position, value) in enumerate(zip(inputs, values)):
-        if input_range is not None and not (input_range[0] - _TIME_TOLERANCE <= position
-                                            <= input_range[1] + _TIME_TOLERANCE):
+        if input_range is not None and not (input_range[0] - _TIME_TOLERANCE <= position <= input_range[1] + _TIME_TOLERANCE):
             continue
-        key = {"input": position, "value": value,
-               "inType": _TANGENT_NAMES.get(fn.inTangentType(index), ""),
-               "outType": _TANGENT_NAMES.get(fn.outTangentType(index), ""),
-               "lock": bool(fn.tangentsLocked(index)), "weightLock": bool(fn.weightsLocked(index)),
-               "breakdown": bool(fn.isBreakdown(index))}
+        key = {
+            "input": position,
+            "value": value,
+            "inType": _TANGENT_NAMES.get(fn.inTangentType(index), ""),
+            "outType": _TANGENT_NAMES.get(fn.outTangentType(index), ""),
+            "lock": bool(fn.tangentsLocked(index)),
+            "weightLock": bool(fn.weightsLocked(index)),
+            "breakdown": bool(fn.isBreakdown(index)),
+        }
         for side, incoming in (("in", True), ("out", False)):
             x, y = fn.getTangentXY(index, incoming)
             x = _from_seconds(x, "frame") if time_input else x * scale
             angle, weight = _angle_weight(x, _from_internal(kind, y))
             key[side + "Angle"], key[side + "Weight"] = angle, weight
         keys.append(key)
-    return {"curveType": curve_type, "weighted": bool(fn.isWeighted),
-            "preInfinity": infinity["pre"], "postInfinity": infinity["post"], "keys": keys}
+    return {"curveType": curve_type, "weighted": bool(fn.isWeighted), "preInfinity": infinity["pre"], "postInfinity": infinity["post"], "keys": keys}
 
 
 def _transform_keys(keys, scale=1.0, offset=0.0, value_scale=1.0):
@@ -191,12 +205,13 @@ def _merge_keys(existing, incoming, mode, input_range=None):
         if input_range is None:
             inputs = [key["input"] for key in incoming]
             input_range = (min(inputs), max(inputs)) if inputs else None
-        kept = existing if input_range is None else [
-            key for key in existing
-            if not input_range[0] - _TIME_TOLERANCE <= key["input"] <= input_range[1] + _TIME_TOLERANCE]
+        kept = (
+            existing
+            if input_range is None
+            else [key for key in existing if not input_range[0] - _TIME_TOLERANCE <= key["input"] <= input_range[1] + _TIME_TOLERANCE]
+        )
     else:
-        kept = [key for key in existing
-                if not any(abs(key["input"] - other["input"]) <= _TIME_TOLERANCE for other in incoming)]
+        kept = [key for key in existing if not any(abs(key["input"] - other["input"]) <= _TIME_TOLERANCE for other in incoming)]
     return sorted(kept + list(incoming), key=lambda key: key["input"])
 
 
@@ -220,8 +235,7 @@ def _write_curve(curve, data, keys, input_scale=1.0, fast=False):
     scale = 1.0 if time_input else input_scale
     entries = []
     for key in keys:
-        raw = {"key": key, "value": _to_internal(kind, key["value"]),
-               "input": key["input"] if time_input else key["input"] / scale}
+        raw = {"key": key, "value": _to_internal(kind, key["value"]), "input": key["input"] if time_input else key["input"] / scale}
         for side in ("in", "out"):
             x, y = _tangent_xy(key[side + "Angle"], key[side + "Weight"])
             raw[side] = (_to_seconds(x, "frame") if time_input else x / scale, _to_internal(kind, y))
@@ -262,8 +276,7 @@ def _write_cmds(node, time_input, weighted, entries):
     position_flag = "time" if time_input else "float"
     for entry in entries:
         key = entry["key"]
-        flags = {position_flag: entry["input"], "value": _convert_units(output, entry["value"]),
-                 "breakdown": key["breakdown"]}
+        flags = {position_flag: entry["input"], "value": _convert_units(output, entry["value"]), "breakdown": key["breakdown"]}
         if key["inType"] and key["inType"] != "fixed" and key["inType"] not in _OUT_ONLY_TANGENTS:
             flags["inTangentType"] = key["inType"]
         if key["outType"] and key["outType"] != "fixed":

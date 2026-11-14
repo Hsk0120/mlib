@@ -6,10 +6,7 @@ from .node import Node
 #: 回転の補間の方法の名前(Mayaの ``rotInterpolation`` の番号順)。
 _ROTATE_INTERPOLATIONS = ("euler", "quaternion")
 #: 出力の種類からMayaの出力アトリビュート名。
-_OUTPUTS = {
-    "translate": "outTranslate",
-    "rotate": "outRotate",
-}
+_OUTPUTS = {"translate": "outTranslate", "rotate": "outRotate"}
 
 
 class PairBlend(Node):
@@ -35,13 +32,9 @@ class PairBlend(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "inTranslate1": inTranslate1,
-            "inRotate1": inRotate1,
-            "inTranslate2": inTranslate2,
-            "inRotate2": inRotate2,
-            "weight": weight,
-        })
+        return _calculation.set_inputs(
+            self, "setInput", {"inTranslate1": inTranslate1, "inRotate1": inRotate1, "inTranslate2": inTranslate2, "inRotate2": inRotate2, "weight": weight}
+        )
 
     def getRotateInterpolation(self):
         """回転の補間の方法を名前で取得する(``rotInterpolation``)。

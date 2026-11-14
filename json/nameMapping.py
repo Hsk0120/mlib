@@ -27,8 +27,7 @@ class NameMapping:
             ValueError: 置換の組が2要素でない、または置換元が空文字列の場合。
         """
         self._name_map = _string_dict(nameMap, "nameMap")
-        self._namespace_map = {_strip(key): _strip(value)
-                               for key, value in _string_dict(namespaceMap, "namespaceMap").items()}
+        self._namespace_map = {_strip(key): _strip(value) for key, value in _string_dict(namespaceMap, "namespaceMap").items()}
         pairs = []
         if replace is not None:
             if isinstance(replace, (str, bytes)):
@@ -50,8 +49,7 @@ class NameMapping:
         Returns:
             str: ``NameMapping(nameMap=..., replace=..., namespaceMap=...)`` の形式。
         """
-        return (f"NameMapping(nameMap={self._name_map!r}, replace={list(self._replace)!r}, "
-                f"namespaceMap={self._namespace_map!r})")
+        return f"NameMapping(nameMap={self._name_map!r}, replace={list(self._replace)!r}, namespaceMap={self._namespace_map!r})"
 
     def isIdentity(self):
         """名前を変えない規則かを返す。

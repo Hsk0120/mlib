@@ -50,8 +50,7 @@ def _divisions(value, name, minimum):
     return values
 
 
-def createLattice(targets, name=_UNSET, divisions=_UNSET, ldivisions=_UNSET, objectCentered=_UNSET, *, n=_UNSET,
-                  dv=_UNSET, ldv=_UNSET, oc=_UNSET):
+def createLattice(targets, name=_UNSET, divisions=_UNSET, ldivisions=_UNSET, objectCentered=_UNSET, *, n=_UNSET, dv=_UNSET, ldv=_UNSET, oc=_UNSET):
     """形状またはコンポーネントにラティスを作成し、ffdデフォーマーを返す。
 
     選択状態は参照しない。ラティスは対象を囲む大きさで作る。fast引数は持たない

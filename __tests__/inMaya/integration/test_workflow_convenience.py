@@ -1,0 +1,228 @@
+"""便利メソッドと要素参照の統合検証。
+
+あわせて次も確かめる。
+
+- 追加命名整理の戻り値・継承・読み取り非更新を検証する。
+"""
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+import maya.api.OpenMaya as om2
+import maya.cmds as cmds
+
+import mlib
+
+mlib.reload()
+
+from mlib.maths import Matrix
+from mlib.nodes import Node
+
+
+class ConvenienceTests(unittest.TestCase):
+    """独立シーンで接続・Undo・DAGパスを確認する。"""
+
+    def setUp(self):
+        cmds.file(new=True, force=True)
+        cmds.undoInfo(state=True)
+
+    def test_alias_key_undo(self):
+        node = mlib.createNode("transform")
+        plug = node.tx
+        self.assertIs(plug.setAlias("travel"), plug)
+        self.assertEqual(cmds.aliasAttr(str(plug), q=True), "travel")
+        cmds.undo()
+        self.assertFalse(cmds.aliasAttr(str(plug), q=True))
+        self.assertIs(plug.setAlias(), plug)
+        self.assertIs(plug.setKey(t=3, v=12), plug)
+        self.assertEqual(cmds.keyframe(str(plug), q=True, vc=True), [12])
+        cmds.undo()
+        self.assertFalse(cmds.keyframe(str(plug), q=True, kc=True))
+
+    def test_sparse_brackets(self):
+        node = mlib.createNode("transform")
+        array = node.addAttr("samples", at="double", multi=True)
+        element = array[8]
+        self.assertEqual(array.get(), {})
+        element.set(80)
+        array[3].set(30)
+        self.assertEqual([p.get() for p in array], [30, 80])
+        self.assertEqual(array.get(), {3: 30, 8: 80})
+        self.assertEqual(node.getPlug("translate")[0], node.tx)
+        self.assertEqual(cmds.getAttr(str(node.getPlug("translate"))), [(0.0, 0.0, 0.0)])
+        message = node.addAttr("links", at="message", multi=True)
+        other = mlib.createNode("transform")
+        cmds.connectAttr(str(other.message), str(message[4]))
+        self.assertEqual(message[4].getSource(skipConversionNodes=True).getNode(), other)
+
+    def test_matrix_interop(self):
+        matrix = Matrix(translate=(2, 3, 4), scale=(2, 3, 4))
+        value = om2.MTransformationMatrix(matrix)
+        self.assertTrue(Matrix.fromTransformation(value).isEquivalent(matrix))
+        node = mlib.createNode("transform")
+        node.getPlug("offsetParentMatrix").set(Matrix.fromTransformation(value))
+        self.assertTrue(node.getPlug("offsetParentMatrix").get().isEquivalent(matrix))
+
+    def test_compound_brackets_and_cmds_boundary(self):
+        node = mlib.createNode("transform")
+        compound = node.getPlug("translate")
+        self.assertEqual(compound[0], node.tx)
+        self.assertEqual(compound["translateX"], node.tx)
+        self.assertEqual(compound["tx"], node.tx)
+        self.assertEqual(list(compound), [node.tx, node.ty, node.tz])
+        for index in (-1, 3):
+            with self.assertRaises(IndexError):
+                compound[index]
+        for index in (True, 1.5, slice(None)):
+            with self.assertRaises(TypeError):
+                compound[index]
+        with self.assertRaises(AttributeError):
+            compound["missing"]
+        compound["ty"].set(4)
+        self.assertEqual(cmds.getAttr(str(compound)), [(0, 4, 0)])
+        self.assertIs(mlib.getPlug(compound), compound)
+        self.assertEqual(tuple(mlib.getPlug(compound).get()), (0, 4, 0))
+        cmds.undo()
+        self.assertEqual(compound[1].get(), 0)
+        blend = mlib.createNode("blendMatrix")
+        blend.getPlug("target")[3]["weight"].set(0.25)
+        self.assertEqual(blend.getPlug("target")[3]["weight"].get(), 0.25)
+        node.ty.setLocked(True)
+        self.assertEqual(compound.set((1, 2, 3), safe=True), 1)
+        self.assertEqual(tuple(compound.get()), (1, 0, 3))
+
+    def test_instances_and_traversal(self):
+        root = mlib.createNode("transform", name="root")
+        a = mlib.createNode("transform", name="a", parent=root)
+        b = mlib.createNode("transform", name="b", parent=root)
+        c = mlib.createNode("transform", name="c", parent=a)
+        shape = mlib.createNode("mesh", parent=b)
+        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst")], ["root", "a", "b", "c"])
+        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, order="depthFirst")], ["root", "a", "c", "b"])
+        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
+        shape.getPlug("intermediateObject").set(True)
+        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, order="breadthFirst"))), 4)
+        cmds.parent(str(c), str(b), add=True)
+        self.assertEqual(len(c.getInstances()), 2)
+        self.assertEqual(len(c.getInstances(noSelf=True)), 1)
+        self.assertEqual(len(c.getParents()), 2)
+        self.assertEqual(len(c.getParents(indirect=True)), 2)
+        self.assertEqual(len(list(root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
+        self.assertNotEqual(c.getInstances()[0].getFullName(), c.getInstances()[1].getFullName())
+
+    def test_animation_layers(self):
+        node = mlib.createNode("transform")
+        self.assertEqual(node.tx.getAnimLayers(), [])
+        first = cmds.animLayer("first", attribute=str(node.tx))
+        second = cmds.animLayer("second", attribute=str(node.tx))
+        base = cmds.animLayer(q=True, root=True)
+        self.assertEqual(node.tx.getAnimLayers(), [second, first, base])
+        for layer in (first, second, base):
+            cmds.animLayer(layer, e=True, selected=False)
+        cmds.animLayer(first, e=True, selected=True)
+        self.assertEqual(node.tx.getAnimLayers(selected=True), [first, base])
+        self.assertEqual(node.tx.getAnimLayers(selected=True, exact=True), [first])
+        cmds.animLayer(first, e=True, attribute=str(node.ry))
+        self.assertEqual(node.ry.getAnimLayers(), [first, base])
+
+    def test_underworld_traversal(self):
+        surface = cmds.nurbsPlane(ch=False)[0]
+        shape = cmds.listRelatives(surface, s=True, f=True)[0]
+        cmds.curveOnSurface(shape, d=1, uv=[(0.1, 0.1), (0.9, 0.9)])
+        node = mlib.getNode(surface)
+        self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 1)
+        for order in ("breadthFirst", "depthFirst"):
+            self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order=order, underWorld=True))), 2)
+            paths = [n.getFullName() for n in node.getChildren(shapes=True, allDescendents=True, includeSelf=True, order=order, underWorld=True)]
+            self.assertEqual(len(paths), 4)
+            self.assertIn("->", paths[-1])
+
+    def test_layer_proxy_mute_pairblend(self):
+        node = mlib.createNode("transform")
+        layer = cmds.animLayer("layer", attribute=str(node.tx))
+        base = cmds.animLayer(q=True, root=True)
+        proxy_node = mlib.createNode("transform")
+        cmds.addAttr(str(proxy_node), ln="proxyValue", proxy=str(node.tx))
+        self.assertEqual(proxy_node.proxyValue.getAnimLayers(), [layer, base])
+        cmds.mute(str(node.tx))
+        self.assertEqual(node.tx.getAnimLayers(), [layer, base])
+        cmds.mute(str(node.tx), disable=True, force=True)
+        source = node.tx.getSource()
+        blend = mlib.createNode("pairBlend")
+        cmds.disconnectAttr(str(source), str(node.tx))
+        cmds.connectAttr(str(source), str(blend.inTranslateX1))
+        cmds.connectAttr(str(blend.outTranslateX), str(node.tx))
+        self.assertEqual(node.tx.getAnimLayers(), [layer, base])
+        blend.translateXMode.set(2)
+        self.assertEqual(node.tx.getAnimLayers(), [base])
+
+
+class ApiProposalTest(unittest.TestCase):
+    """隔離テストシーン上で新しい公開契約を確認する。"""
+
+    def setUp(self):
+        """テスト用namespaceへ切り替える。"""
+        self.previous = cmds.namespaceInfo(currentNamespace=True, absoluteName=True)
+        self.ns = cmds.namespace(add="proposalTest")
+        cmds.namespace(set=self.ns)
+
+    def tearDown(self):
+        """テスト対象を除去し元のnamespaceへ戻す。"""
+        cmds.namespace(set=self.previous)
+        cmds.namespace(removeNamespace=self.ns, deleteNamespaceContent=True)
+
+    def test_members_and_constraint_weight(self):
+        """リスト入力と可変長入力のメンバー追加を検証する。"""
+        a, b, c = [Node(cmds.createNode("transform")) for _ in range(3)]
+        container = mlib.createContainer()
+        container.addMembers([a, b])
+        self.assertEqual({n.getUuid() for n in container.getMembers()}, {a.getUuid(), b.getUuid()})
+        made = container.createNode(type="multiplyDivide")
+        self.assertEqual(made.getType(), "multiplyDivide")
+        # 所有containerと他のテスト用関係を分離し、Mayaの一括削除へ二重所有を渡さない。
+        cmds.delete(container.getFullName())
+        a, b, c = [Node(cmds.createNode("transform")) for _ in range(3)]
+        constraint = c.addConstraint([a, b], type="point")
+        constraint.setWeight(0.25, a)
+        self.assertAlmostEqual(constraint.getWeight(a), 0.25)
+        with self.assertRaises(ValueError):
+            constraint.getWeight(c)
+
+    def test_axis_flags_return_and_undo(self):
+        """単数・複数の軸照会は空間を受け、Transformの表示切替は自身の状態を変える。"""
+        transform = cmds.polyCube(constructionHistory=False)[0]
+        cmds.setAttr(transform + ".translateX", 10)
+        mesh = Node(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
+        vertex = mesh.getVertex(0)
+        position = vertex.getPosition(worldSpace=True)
+        self.assertAlmostEqual(vertex.getPositionX(worldSpace=True), position[0])
+        self.assertAlmostEqual(vertex.getPositionX(), position[0] - 10)
+        vertices = mesh.getVertices()[:2]
+        self.assertEqual(vertices.getPositionX(worldSpace=True), [v.getPositionX(worldSpace=True) for v in vertices])
+        uvs = mesh.getUVs()[:2]
+        self.assertEqual(uvs.getV(), [uv.getV() for uv in uvs])
+        transform = mesh.getTransform()
+        transform.setVisibility(False)
+        self.assertFalse(transform.getVisibility())
+
+    def test_influences_and_json_roundtrip(self):
+        """influenceはNodeを返し、保存ファイルの influence は名前(文字列)を持つ参照になる。"""
+        cmds.select(clear=True)
+        joint = cmds.joint()
+        mesh = cmds.polyCube(constructionHistory=False)[0]
+        skin = Node(cmds.skinCluster(joint, mesh, toSelectedBones=True)[0])
+        self.assertTrue(all(isinstance(n, Node) for n in skin.getInfluences()))
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "weights.json")
+            skin.exportWeights(path)
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            self.assertTrue(all(isinstance(n["name"], str) for n in payload["data"]["influences"]))
+            before = list(skin.getWeights(skin.getInfluences()))
+            skin.importWeights(path)
+            self.assertEqual(list(skin.getWeights(skin.getInfluences())), before)
+
+
+if __name__ == "__main__":
+    unittest.main()

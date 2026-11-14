@@ -260,9 +260,9 @@ class AnimCurve(Node):
                 未登録のAPI接線型は空文字列。辞書を変更してもカーブは更新しない。
 
         Raises:
-            IndexError: bool、非int、負値、またはキー数以上の番号の場合。
             TypeError: unitが文字列・None以外の場合。
             ValueError: unitが未対応の単位名の場合。
+            IndexError: bool、非int、負値、またはキー数以上の番号の場合。
         """
         ...
     def setTangent(self, index: int, *, unit: str = ..., fast: bool = ..., **kwargs) -> AnimCurve:
@@ -287,8 +287,8 @@ class AnimCurve(Node):
             AnimCurve: 自身。
 
         Raises:
-            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             TypeError: unitが文字列・None以外の場合。
+            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             IndexError: キー番号が不正な場合。
             NotImplementedError: fastで入力接線にstepnextを指定した場合。
                 ロック・ウェイトを含む更新より前に拒否する。

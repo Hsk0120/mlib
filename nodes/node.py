@@ -9,10 +9,9 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..core.object import Object, _missing_member_message
-from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type
-from ..core.registry import _unknown_node_type_message
+from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type, _unknown_node_type_message
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _validated_flags, undoChunk, undoTransaction
-from ..util import _ArgumentError, _UNSET, _angle_unit, _color_value, _time_unit
+from ..util import _UNSET, _angle_unit, _ArgumentError, _color_value, _time_unit
 
 #: om2の数値データ型からaddAttrの型名への対応(moveAttrOrderでの再作成に使う)。
 _MOVABLE_NUMERIC_TYPES = {
@@ -26,9 +25,7 @@ _MOVABLE_NUMERIC_TYPES = {
 }  #: moveAttrOrder() が再作成できる数値アトリビュート型と cmds.addAttr(attributeType=) の対応。
 
 #: ``cmds.listAttr(scalar=True)`` が除く、複数成分の数値型(double3 等。コンパウンドアトリビュートとして定義される)。
-_MULTI_COMPONENT_NUMERIC_TYPES = frozenset(
-    getattr(om2.MFnNumericData, name) for name in dir(om2.MFnNumericData) if name[:2] in ("k2", "k3", "k4")
-)
+_MULTI_COMPONENT_NUMERIC_TYPES = frozenset(getattr(om2.MFnNumericData, name) for name in dir(om2.MFnNumericData) if name[:2] in ("k2", "k3", "k4"))
 
 #: Node.getPlugs() が ``cmds.listAttr`` を使わず OpenMaya で列挙するフラグ(値は True のときだけ)。
 _OM2_LIST_ATTR_FLAGS = frozenset(("keyable", "scalar"))
@@ -134,6 +131,7 @@ def _resolve_node(node):
         return mobject, dag_path
     # nodesとの循環importを避け、Plugは呼出し時に取得する(名前・API参照の解決では使わないため、その後で取得する)。
     from ..plugs.plug import DeletedAttributeError, Plug
+
     if isinstance(node, om2.MPlug):
         if node.isNull:
             raise RuntimeError("Cannot resolve a node from a null MPlug")
@@ -158,9 +156,7 @@ def _resolve_node(node):
         return _resolve_node(node.getNode())
     if isinstance(node, (Component, Components)):
         return _resolve_node(node.shape)
-    raise TypeError(
-        "node には名前、Node、Plug、Component、MObject、MDagPath、または MPlug を指定してください"
-    )
+    raise TypeError("node must be a name, Node, Plug, Component, MObject, MDagPath or MPlug")
 
 
 def _not_unique_message(name, matches):
@@ -177,8 +173,10 @@ def _not_unique_message(name, matches):
     """
     shown = ", ".join(repr(match) for match in list(matches)[:3])
     more = f" and {len(matches) - 3} more" if len(matches) > 3 else ""
-    return (f"Name is not unique: {name!r} matches {len(matches)} objects ({shown}{more}); "
-            f"use a full path such as {list(matches)[0]!r}, or mlib.ls({name!r}) to get all of them")
+    return (
+        f"Name is not unique: {name!r} matches {len(matches)} objects ({shown}{more}); "
+        f"use a full path such as {list(matches)[0]!r}, or mlib.ls({name!r}) to get all of them"
+    )
 
 
 def _require_node_name(name):
@@ -195,8 +193,8 @@ def _require_node_name(name):
     """
     if isinstance(name, str) and "|" in name:
         raise ValueError(
-            f"Node name must not contain '|' (Maya would silently replace it): {name!r}; "
-            "pass the node name only, e.g. build it from getNodeName()")
+            f"Node name must not contain '|' (Maya would silently replace it): {name!r}; pass the node name only, e.g. build it from getNodeName()"
+        )
 
 
 def _is_deleted_api_object(value):
@@ -239,6 +237,7 @@ def _resolve_input_or_none(other):
         RuntimeError: 名前を解決できない(存在しない、または複数のノードに一致する)場合、
             または空の MObject・MPlug の場合。
     """
+    # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
     from ..plugs.plug import DeletedAttributeError
 
     try:
@@ -282,17 +281,22 @@ def _dump_movable_attr(plug):
         "channelBox": plug.mplug().isChannelBox,
         "locked": plug.isLocked(),
         "value": plug.get(),
-        "flags": {flag: getattr(definition, property_name) for flag, property_name in (
-            ("readable", "readable"), ("writable", "writable"),
-            ("storable", "storable"),
-            ("cachedInternally", "cached"), ("usedAsColor", "usedAsColor"),
-            ("usedAsFilename", "usedAsFilename"), ("disconnectBehaviour", "disconnectBehavior"),
-        )},
+        "flags": {
+            flag: getattr(definition, property_name)
+            for flag, property_name in (
+                ("readable", "readable"),
+                ("writable", "writable"),
+                ("storable", "storable"),
+                ("cachedInternally", "cached"),
+                ("usedAsColor", "usedAsColor"),
+                ("usedAsFilename", "usedAsFilename"),
+                ("disconnectBehaviour", "disconnectBehavior"),
+            )
+        },
     }
     source = plug.getSource()
     info["source"] = _movable_connection_ref(source) if source is not None else None
-    info["destinations"] = [_movable_connection_ref(target)
-                            for target in plug.getDestinations()]
+    info["destinations"] = [_movable_connection_ref(target) for target in plug.getDestinations()]
     if attr.hasFn(om2.MFn.kNumericAttribute):
         numeric_type = om2.MFnNumericAttribute(attr).numericType()
         type_name = _MOVABLE_NUMERIC_TYPES.get(numeric_type)
@@ -338,8 +342,7 @@ def _require_same_attr_definition(plug, flags):
         requested = flags.get("attributeType") or data_type
         matched = existing == {"compound": "TdataCompound"}.get(requested, requested)
     if not matched:
-        raise TypeError(f"Attribute already exists with a different type: {plug.getFullName()} "
-                        f"is {existing!r}, requested {requested!r}")
+        raise TypeError(f"Attribute already exists with a different type: {plug.getFullName()} is {existing!r}, requested {requested!r}")
     if bool(flags.get("multi")) != plug.isMulti():
         raise TypeError(f"Attribute already exists with a different multi setting: {plug.getFullName()}")
 
@@ -369,7 +372,7 @@ def _enum_field_value(enum_name, field):
         if name == field:
             return value
         names.append(name)
-    raise ValueError(f"No enum field named {field!r} (valid names: " + ", ".join(repr(name) for name in names) + ")")
+    raise ValueError(f"No enum field named {field!r} (valid names: {', '.join(repr(name) for name in names)})")
 
 
 def _enum_definition(plug):
@@ -386,7 +389,7 @@ def _enum_definition(plug):
     parts = []
     expected = 0
     for name, value in plug.getEnumNames():
-        parts.append(name if value == expected else "{}={}".format(name, value))
+        parts.append(name if value == expected else f"{name}={value}")
         expected = value + 1
     return ":".join(parts)
 
@@ -434,9 +437,7 @@ def _movable_connection_ref(plug):
     Returns:
         tuple[Node, str]: 所有ノードとaliasを使わないアトリビュートパス。
     """
-    return plug.getNode(), plug.mplug().partialName(
-        includeNonMandatoryIndices=True, includeInstancedIndices=True,
-        useFullAttributePath=True, useLongNames=True)
+    return plug.getNode(), plug.mplug().partialName(includeNonMandatoryIndices=True, includeInstancedIndices=True, useFullAttributePath=True, useLongNames=True)
 
 
 def _create_movable_attr(node, info):
@@ -463,11 +464,7 @@ def _create_movable_attr(node, info):
     if "enumName" in info:
         kwargs["enumName"] = info["enumName"]
     plug = node.addAttr(
-        info["longName"],
-        attributeType=info.get("attributeType"),
-        dataType=info.get("dataType"),
-        defaultValue=info.get("defaultValue"),
-        **kwargs,
+        info["longName"], attributeType=info.get("attributeType"), dataType=info.get("dataType"), defaultValue=info.get("defaultValue"), **kwargs
     )
     if info["source"] is None:
         plug.set(info["value"])
@@ -484,8 +481,7 @@ def _plug_key(mplug):
     Returns:
         tuple[int, str]: 所有ノードのハッシュと、論理番号を含むロング名のパス。
     """
-    return (om2.MObjectHandle(mplug.node()).hashCode(),
-            mplug.partialName(includeNonMandatoryIndices=True, useLongNames=True, useFullAttributePath=True))
+    return (om2.MObjectHandle(mplug.node()).hashCode(), mplug.partialName(includeNonMandatoryIndices=True, useLongNames=True, useFullAttributePath=True))
 
 
 def _is_writable(mplug):
@@ -613,7 +609,7 @@ class Node(Object):
             message = f"{cls.__name__} requires a compatible node, got {resolved_class.__name__}"
             if getattr(cls, "_generated", False):
                 # 登録表の作り直し(reload・register)で無効になった生成クラスを保持したまま使った場合の案内。
-                message += " (a generated class kept across mlib.reload() or a registry change is stale;"                            " fetch mlib.nodes.{} again)".format(cls.__name__)
+                message += f" (a generated class kept across mlib.reload() or a registry change is stale; fetch mlib.nodes.{cls.__name__} again)"
             raise TypeError(message)
         instance = super().__new__(resolved_class)
         instance._pending_resolution = resolved
@@ -647,8 +643,7 @@ class Node(Object):
         # 有効性の判定は名前の取得のたびに行うため、ハンドルは一度だけ作って再利用する。
         # __setattr__ を通さず、解決済みの値を直接保持する(大量の参照を作る経路の負荷を抑える)。
         handle = om2.MObjectHandle(resolved[0])
-        vars(self).update(_mobject=resolved[0], _dag_path=resolved[1],
-                          _handle=handle, _identity_hash=handle.hashCode())
+        vars(self).update(_mobject=resolved[0], _dag_path=resolved[1], _handle=handle, _identity_hash=handle.hashCode())
 
     def __eq__(self, other):
         """生存中の同じ対象を比較する。DAGはインスタンスのパスも区別する。
@@ -754,8 +749,7 @@ class Node(Object):
         try:
             plug = self.getPlug(name)
         except (AttributeError, RuntimeError) as error:
-            raise AttributeError(_missing_member_message(self, name, "Maya attribute")
-                                 + " (Python attributes cannot be added to mlib nodes)") from error
+            raise AttributeError(f"{_missing_member_message(self, name, 'Maya attribute')} (Python attributes cannot be added to mlib nodes)") from error
         plug.set(value)
 
     def getShadingEngines(self):
@@ -764,7 +758,9 @@ class Node(Object):
         Returns:
             list[ShadingEngine]: 直接接続先。テクスチャから履歴を辿る操作ではない。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
+
         result, seen = [], set()
         for plug in self._dependency_fn().getConnections():
             for destination in plug.connectedTo(False, True):
@@ -784,8 +780,7 @@ class Node(Object):
         Returns:
             bool: 両者が生存し、同じ Maya ノードを指す場合は True。
         """
-        return (isinstance(other, Node) and self.isAlive() and other.isAlive()
-                and self._mobject == other._mobject)
+        return isinstance(other, Node) and self.isAlive() and other.isAlive() and self._mobject == other._mobject
 
     def isValid(self):
         """Maya シーン上でノードが有効か判定する。
@@ -1128,7 +1123,7 @@ class Node(Object):
             Namespace: ノードが属するNamespace。
         """
         # common.namespace がNodeを参照するため、
-        # 循環回避のためここで遅延 import する（mlib で意図的な相互依存の一つ）。
+        # 循環回避のためここで遅延 import する(mlib で意図的な相互依存の一つ)。
         from ..common import Namespace
 
         node_name = self.getNodeName()
@@ -1150,8 +1145,8 @@ class Node(Object):
             ValueError: namespaceが空文字列または文字列でない場合。
             RuntimeError: namespace移動に失敗した場合。
         """
-        # common.namespaceとnodesの相互依存を避けるための遅延import。getNamespaceと同じ理由。
         with _edit_context("mlibNodeSetNamespace", fast):
+            # common.namespaceとnodesの相互依存を避けるための遅延import。getNamespaceと同じ理由。
             from ..common import Namespace
 
             self._require_valid("rename")
@@ -1168,11 +1163,7 @@ class Node(Object):
                     target_namespace = Namespace.create(target_namespace)
             namespace_name = target_namespace.name
             node_name = self.getNodeName(True)
-            new_name = (
-                f"{namespace_name}:{node_name}"
-                if namespace_name != ":"
-                else node_name
-            )
+            new_name = f"{namespace_name}:{node_name}" if namespace_name != ":" else node_name
             return self.rename(new_name, fast=fast)
 
     def delete(self, *, safe=False, fast=False):
@@ -1208,7 +1199,9 @@ class Node(Object):
             self._require_valid("delete")
             if safe and self._has_delete_connections():
                 return
+            # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
             from ..core.nodeEdit import delete_nodes
+
             delete_nodes([self], fast=fast)
 
     def rename(self, name, ignoreShape=False, *, fast=False):
@@ -1237,7 +1230,9 @@ class Node(Object):
             # cmds.renameへ空の名前を渡すと文言の無いRuntimeErrorになるため、先に判定する。
             self._require_valid("rename")
             if fast:
+                # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
                 from ..core.nodeEdit import rename_node
+
                 rename_node(self.mnode(), name, ignoreShape)
             else:
                 cmds.rename(self.getName(), name, ignoreShape=ignoreShape)
@@ -1307,9 +1302,24 @@ class Node(Object):
         self._require_valid("select")
         select(self, **kwargs)
 
-    def getConnections(self, s=True, d=True, c=False, t=None, et=False, scn=False, source=True,
-        destination=True, connections=False, type=None, exactType=False, skipConversionNodes=False,
-        asPair=False, asNode=False, index=None):
+    def getConnections(
+        self,
+        s=True,
+        d=True,
+        c=False,
+        t=None,
+        et=False,
+        scn=False,
+        source=True,
+        destination=True,
+        connections=False,
+        type=None,
+        exactType=False,
+        skipConversionNodes=False,
+        asPair=False,
+        asNode=False,
+        index=None,
+    ):
         """接続をPlug・Node・ペアとして照会する。既定は直結した相手を返す(``cmds.listConnections`` と同じ)。
 
         ``skipConversionNodes=True`` (または ``scn=True``)は、:meth:`~mlib.plugs.plug.Plug.getSource` /
@@ -1337,12 +1347,13 @@ class Node(Object):
         Returns:
             list | Plug | Node | tuple | None: 条件に合う結果。
         """
+        # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
         from ..plugs.plug import Plug
+
         pairs = []
         as_pair = asPair or c or connections
         skip_conversion = scn or skipConversionNodes
-        directions = [incoming for incoming, enabled in ((True, s and source), (False, d and destination))
-                      if enabled]
+        directions = [incoming for incoming, enabled in ((True, s and source), (False, d and destination)) if enabled]
 
         def collect(mplug, local):
             """Plug.getConnections(asPair=True, 子・要素の展開なし)と同じ順で直接の接続を集める。
@@ -1377,13 +1388,14 @@ class Node(Object):
             local = Plug(self, mp)
             if local.__class__.getConnections is not Plug.getConnections:
                 # 派生クラスが接続の照会を上書きする場合は、その実装を通す(引数typeが組込みを隠すため__class__)。
-                pairs.extend(local.getConnections(s, d, source=source, destination=destination,
-                             skipConversionNodes=skip_conversion, asPair=True,
-                             checkChildren=False, checkElements=False))
+                pairs.extend(
+                    local.getConnections(
+                        s, d, source=source, destination=destination, skipConversionNodes=skip_conversion, asPair=True, checkChildren=False, checkElements=False
+                    )
+                )
                 continue
             collect(local.mplug(), local)
-        return Plug._connection_results(pairs, type or t, exactType or et,
-                                       as_pair, asNode, index)
+        return Plug._connection_results(pairs, type or t, exactType or et, as_pair, asNode, index)
 
     def setKey(self, attributes=None, *, unit=None, timeUnit=None, uiUnits=False, **kwargs):
         """複数のアトリビュートへ1回でキーを設定する(``cmds.setKeyframe(node, attribute=[...])`` 相当)。
@@ -1424,10 +1436,9 @@ class Node(Object):
             has_value = "value" in kwargs or "v" in kwargs
             if has_value and not uiUnits:
                 # 値の換算はアトリビュートの種類(角度・距離)ごとに違うため、アトリビュートごとに打つ。
-                plugs = [self.getPlug(name) for name in names] if names is not None else                     self.getPlugs(keyable=True, scalar=True)
+                plugs = [self.getPlug(name) for name in names] if names is not None else self.getPlugs(keyable=True, scalar=True)
                 for plug in plugs:
-                    cmds.setKeyframe(plug.getFullName(),
-                                     **_key_flags_to_ui(plug.mplug(), kwargs, unit, timeUnit, uiUnits))
+                    cmds.setKeyframe(plug.getFullName(), **_key_flags_to_ui(plug.mplug(), kwargs, unit, timeUnit, uiUnits))
                 return self
             flags = _key_flags_to_ui(None, kwargs, None, timeUnit, True)
             if names is not None:
@@ -1497,8 +1508,7 @@ class Node(Object):
         names = _attribute_names(attributes)
         with undoChunk("mlibNodeMoveKey"):
             self._require_valid("move keys of")
-            plugs = [self.getPlug(name) for name in names] if names is not None else \
-                self.getPlugs(keyable=True, scalar=True)
+            plugs = [self.getPlug(name) for name in names] if names is not None else self.getPlugs(keyable=True, scalar=True)
             flags = [(plug, _move_key_flags(plug, time, timeOffset, valueOffset, unit, timeUnit)) for plug in plugs]
             for plug, plug_flags in flags:
                 _move_plug_keys(plug.getFullName(), plug_flags)
@@ -1543,9 +1553,7 @@ class Node(Object):
         seen = {uuid_of(self._mobject)}
         for root in roots:
             # listHistory と同じ深さ優先・ノード単位の順。各ノードは最初の出現だけを残す。
-            iterator = om2.MItDependencyGraph(root, om2.MFn.kInvalid, direction,
-                                              om2.MItDependencyGraph.kDepthFirst,
-                                              om2.MItDependencyGraph.kNodeLevel)
+            iterator = om2.MItDependencyGraph(root, om2.MFn.kInvalid, direction, om2.MItDependencyGraph.kDepthFirst, om2.MItDependencyGraph.kNodeLevel)
             while not iterator.isDone():
                 mobject = iterator.currentNode()
                 iterator.next()
@@ -1577,6 +1585,7 @@ class Node(Object):
         """
         # nodes/plugsの相互依存を避けるため遅延importする。
         from ..plugs.plug import Plug
+
         self._require_valid("find the cycles of")
         names = cmds.cycleCheck(self.getFullName(), list=True) or []
         own = om2.MObjectHandle(self._mobject)
@@ -1591,10 +1600,8 @@ class Node(Object):
             edges[key].extend(target for target in map(_plug_key, mplug.destinations()) if target in plugs)
             if mplug.isDestination:
                 # 同じノードの出力(循環上で入力接続を持たないもの)へ、入力から依存の辺を張る。
-                edges[key].extend(other for other, candidate in plugs.items()
-                                  if other[0] == key[0] and other != key and not candidate.isDestination)
-        starts = [key for key, mplug in plugs.items()
-                  if mplug.isDestination and om2.MObjectHandle(mplug.node()) == own]
+                edges[key].extend(other for other, candidate in plugs.items() if other[0] == key[0] and other != key and not candidate.isDestination)
+        starts = [key for key, mplug in plugs.items() if mplug.isDestination and om2.MObjectHandle(mplug.node()) == own]
         cycles = []
         seen = set()
         for start in starts:
@@ -1647,9 +1654,11 @@ class Node(Object):
             if attributes is None:
                 # getPlugs(keyable, scalar) は cmds.listAttr と同じ列挙を om2 で行うため、fastでもcmdsを呼ばない。
                 # listAttr(scalar=True) はマルチアトリビュートも返すためマルチアトリビュートを除く(要素ごとのresetが必要)。
-                plugs = [plug for plug in self.getPlugs(keyable=True, scalar=True)
-                         if not plug.mplug().isArray and plug.getDefault() is not None
-                         and not plug.isDestination()]
+                plugs = [
+                    plug
+                    for plug in self.getPlugs(keyable=True, scalar=True)
+                    if not plug.mplug().isArray and plug.getDefault() is not None and not plug.isDestination()
+                ]
                 # 通常/fastとも、ロック・入力接続・書込み禁止をfastの書込みと同じ検査で除く。
                 plugs = [plug for plug in plugs if _writable_plug(plug)]
             else:
@@ -1689,8 +1698,7 @@ class Node(Object):
             plugs = self._plugs_from(attributes)
             if flags:
                 for plug in plugs:
-                    plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children,
-                                  fast=fast)
+                    plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children, fast=fast)
             return self
 
     def getPlugs(self, userDefined=False, includeChildren=True, *, writable=False, **listAttrFlags):
@@ -1741,21 +1749,100 @@ class Node(Object):
         # マルチアトリビュート・コンパウンドアトリビュートパスはgetPlugで解決し、別のMayaコマンドで名前を再解決しない。
         return [(alias, self.getPlug(name)) for alias, name in self._dependency_fn().getAliasList()]
 
-    def addAttr(self, longName=_UNSET, type=None, subType=None, channelBox=_UNSET, childNames=None,
-        childShortNames=None, childSuffixes=None, proxy=_UNSET, getPlug=True, *, safe=False, fast=False, unit="deg",
-        timeUnit="frame", attributeType=_UNSET,
-        at=_UNSET, binaryTag=_UNSET, bt=_UNSET, cachedInternally=_UNSET, ci=_UNSET, category=_UNSET, ct=_UNSET,
-        dataType=_UNSET, dt=_UNSET, defaultValue=_UNSET, dv=_UNSET, disconnectBehaviour=_UNSET, dcb=_UNSET,
-        edit=_UNSET, e=_UNSET, enforcingUniqueName=_UNSET, eun=_UNSET, enumName=_UNSET, en=_UNSET, exists=_UNSET,
-        ex=_UNSET, fromPlugin=_UNSET, fp=_UNSET, hasMaxValue=_UNSET, hxv=_UNSET, hasMinValue=_UNSET, hnv=_UNSET,
-        hasSoftMaxValue=_UNSET, hsx=_UNSET, hasSoftMinValue=_UNSET, hsn=_UNSET, hidden=_UNSET, h=_UNSET,
-        indexMatters=_UNSET, im=_UNSET, internalSet=_UNSET, keyable=_UNSET, k=_UNSET, ln=_UNSET, maxValue=_UNSET,
-        max=_UNSET, minValue=_UNSET, min=_UNSET, multi=_UNSET, m=_UNSET, niceName=_UNSET, nn=_UNSET,
-        numberOfChildren=_UNSET, nc=_UNSET, parent=_UNSET, p=_UNSET, pxy=_UNSET, query=_UNSET, q=_UNSET,
-        readable=_UNSET, r=_UNSET, shortName=_UNSET, sn=_UNSET, softMaxValue=_UNSET, smx=_UNSET,
-        softMinValue=_UNSET, smn=_UNSET, storable=_UNSET, s=_UNSET, usedAsColor=_UNSET, uac=_UNSET,
-        usedAsFilename=_UNSET, uaf=_UNSET, usedAsProxy=_UNSET, uap=_UNSET, worldSpace=_UNSET, ws=_UNSET,
-        writable=_UNSET, w=_UNSET, cb=_UNSET, **kwargs):
+    def addAttr(
+        self,
+        longName=_UNSET,
+        type=None,
+        subType=None,
+        channelBox=_UNSET,
+        childNames=None,
+        childShortNames=None,
+        childSuffixes=None,
+        proxy=_UNSET,
+        getPlug=True,
+        *,
+        safe=False,
+        fast=False,
+        unit="deg",
+        timeUnit="frame",
+        attributeType=_UNSET,
+        at=_UNSET,
+        binaryTag=_UNSET,
+        bt=_UNSET,
+        cachedInternally=_UNSET,
+        ci=_UNSET,
+        category=_UNSET,
+        ct=_UNSET,
+        dataType=_UNSET,
+        dt=_UNSET,
+        defaultValue=_UNSET,
+        dv=_UNSET,
+        disconnectBehaviour=_UNSET,
+        dcb=_UNSET,
+        edit=_UNSET,
+        e=_UNSET,
+        enforcingUniqueName=_UNSET,
+        eun=_UNSET,
+        enumName=_UNSET,
+        en=_UNSET,
+        exists=_UNSET,
+        ex=_UNSET,
+        fromPlugin=_UNSET,
+        fp=_UNSET,
+        hasMaxValue=_UNSET,
+        hxv=_UNSET,
+        hasMinValue=_UNSET,
+        hnv=_UNSET,
+        hasSoftMaxValue=_UNSET,
+        hsx=_UNSET,
+        hasSoftMinValue=_UNSET,
+        hsn=_UNSET,
+        hidden=_UNSET,
+        h=_UNSET,
+        indexMatters=_UNSET,
+        im=_UNSET,
+        internalSet=_UNSET,
+        keyable=_UNSET,
+        k=_UNSET,
+        ln=_UNSET,
+        maxValue=_UNSET,
+        max=_UNSET,
+        minValue=_UNSET,
+        min=_UNSET,
+        multi=_UNSET,
+        m=_UNSET,
+        niceName=_UNSET,
+        nn=_UNSET,
+        numberOfChildren=_UNSET,
+        nc=_UNSET,
+        parent=_UNSET,
+        p=_UNSET,
+        pxy=_UNSET,
+        query=_UNSET,
+        q=_UNSET,
+        readable=_UNSET,
+        r=_UNSET,
+        shortName=_UNSET,
+        sn=_UNSET,
+        softMaxValue=_UNSET,
+        smx=_UNSET,
+        softMinValue=_UNSET,
+        smn=_UNSET,
+        storable=_UNSET,
+        s=_UNSET,
+        usedAsColor=_UNSET,
+        uac=_UNSET,
+        usedAsFilename=_UNSET,
+        uaf=_UNSET,
+        usedAsProxy=_UNSET,
+        uap=_UNSET,
+        worldSpace=_UNSET,
+        ws=_UNSET,
+        writable=_UNSET,
+        w=_UNSET,
+        cb=_UNSET,
+        **kwargs,
+    ):
         """型・既定値・フラグを指定してアトリビュートを追加する。
 
         作成専用。query/edit=Trueは拒否する。長名と対応する短名は同時指定できない。
@@ -1881,25 +1968,28 @@ class Node(Object):
             通常の子追加だけは公開addAttrへ委譲し、overrideを呼ぶ。fastは親子定義を一括構築する。
             Mayaやoverride、作成後の既定値・表示・proxy接続が失敗しても、完了済みの追加は戻さない。
         """
-        _merge_flags(kwargs, (
-            (attributeType, at, "attributeType", "at"),
-            (binaryTag, bt, "binaryTag", "bt"),
-            (cachedInternally, ci, "cachedInternally", "ci"),
-            (category, ct, "category", "ct"),
-            (dataType, dt, "dataType", "dt"),
-            (defaultValue, dv, "defaultValue", "dv"),
-            (disconnectBehaviour, dcb, "disconnectBehaviour", "dcb"),
-            (enforcingUniqueName, eun, "enforcingUniqueName", "eun"),
-            (enumName, en, "enumName", "en"),
-            (exists, ex, "exists", "ex"),
-            (fromPlugin, fp, "fromPlugin", "fp"),
-            (hasMaxValue, hxv, "hasMaxValue", "hxv"),
-            (hasMinValue, hnv, "hasMinValue", "hnv"),
-            (hasSoftMaxValue, hsx, "hasSoftMaxValue", "hsx"),
-            (hasSoftMinValue, hsn, "hasSoftMinValue", "hsn"),
-            (hidden, h, "hidden", "h"),
-            (indexMatters, im, "indexMatters", "im"),
-        ))
+        _merge_flags(
+            kwargs,
+            (
+                (attributeType, at, "attributeType", "at"),
+                (binaryTag, bt, "binaryTag", "bt"),
+                (cachedInternally, ci, "cachedInternally", "ci"),
+                (category, ct, "category", "ct"),
+                (dataType, dt, "dataType", "dt"),
+                (defaultValue, dv, "defaultValue", "dv"),
+                (disconnectBehaviour, dcb, "disconnectBehaviour", "dcb"),
+                (enforcingUniqueName, eun, "enforcingUniqueName", "eun"),
+                (enumName, en, "enumName", "en"),
+                (exists, ex, "exists", "ex"),
+                (fromPlugin, fp, "fromPlugin", "fp"),
+                (hasMaxValue, hxv, "hasMaxValue", "hxv"),
+                (hasMinValue, hnv, "hasMinValue", "hnv"),
+                (hasSoftMaxValue, hsx, "hasSoftMaxValue", "hsx"),
+                (hasSoftMinValue, hsn, "hasSoftMinValue", "hsn"),
+                (hidden, h, "hidden", "h"),
+                (indexMatters, im, "indexMatters", "im"),
+            ),
+        )
         _merge_flags(kwargs, ((edit, e, "edit", "e"),))
         if "is" in kwargs:
             if internalSet is not _UNSET:
@@ -1907,34 +1997,34 @@ class Node(Object):
             internalSet = kwargs.pop("is")
         if internalSet is not _UNSET:
             kwargs["internalSet"] = internalSet
-        _merge_flags(kwargs, (
-            (keyable, k, "keyable", "k"),
-        ))
+        _merge_flags(kwargs, ((keyable, k, "keyable", "k"),))
         longName = _pick_alias(longName, ln, "longName", "ln", default="")
-        _merge_flags(kwargs, (
-            (maxValue, max, "maxValue", "max"),
-            (minValue, min, "minValue", "min"),
-            (multi, m, "multi", "m"),
-            (niceName, nn, "niceName", "nn"),
-            (numberOfChildren, nc, "numberOfChildren", "nc"),
-            (parent, p, "parent", "p"),
-        ))
+        _merge_flags(
+            kwargs,
+            (
+                (maxValue, max, "maxValue", "max"),
+                (minValue, min, "minValue", "min"),
+                (multi, m, "multi", "m"),
+                (niceName, nn, "niceName", "nn"),
+                (numberOfChildren, nc, "numberOfChildren", "nc"),
+                (parent, p, "parent", "p"),
+            ),
+        )
         proxy = _pick_alias(proxy, pxy, "proxy", "pxy", default=None)
-        _merge_flags(kwargs, (
-            (readable, r, "readable", "r"),
-            (softMaxValue, smx, "softMaxValue", "smx"),
-            (softMinValue, smn, "softMinValue", "smn"),
-            (storable, s, "storable", "s"),
-            (usedAsColor, uac, "usedAsColor", "uac"),
-            (usedAsFilename, uaf, "usedAsFilename", "uaf"),
-            (worldSpace, ws, "worldSpace", "ws"),
-            (writable, w, "writable", "w"),
-        ))
-        _merge_flags(kwargs, (
-            (query, q, "query", "q"),
-            (shortName, sn, "shortName", "sn"),
-            (usedAsProxy, uap, "usedAsProxy", "uap"),
-        ))
+        _merge_flags(
+            kwargs,
+            (
+                (readable, r, "readable", "r"),
+                (softMaxValue, smx, "softMaxValue", "smx"),
+                (softMinValue, smn, "softMinValue", "smn"),
+                (storable, s, "storable", "s"),
+                (usedAsColor, uac, "usedAsColor", "uac"),
+                (usedAsFilename, uaf, "usedAsFilename", "uaf"),
+                (worldSpace, ws, "worldSpace", "ws"),
+                (writable, w, "writable", "w"),
+            ),
+        )
+        _merge_flags(kwargs, ((query, q, "query", "q"), (shortName, sn, "shortName", "sn"), (usedAsProxy, uap, "usedAsProxy", "uap")))
         channelBox = _pick_alias(channelBox, cb, "channelBox", "cb", default=False)
         _require_bool(safe, "safe")
         angle_unit = _angle_unit(unit)
@@ -1942,9 +2032,10 @@ class Node(Object):
         time_unit = _time_unit(timeUnit)
         assert time_unit is not None  # 既定値 "frame" を使うため None にならない。
         with _edit_context("mlibNodeAddAttr", fast):
+            # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
             from ..plugs.plug import Plug
-            flags = {key: value for key, value in kwargs.items()
-                     if value is not None}
+
+            flags = {key: value for key, value in kwargs.items() if value is not None}
             if flags.get("query") or flags.get("edit"):
                 raise ValueError("addAttr supports creation only")
             if longName:
@@ -1959,15 +2050,15 @@ class Node(Object):
                 type = proxy.getType()
                 flags["usedAsProxy"] = True
             numeric, count, deferred = self._prepare_extra_attr_definition(
-                flags, type, childNames, childShortNames, childSuffixes, sub_type=subType, angle_unit=angle_unit,
-                time_unit=time_unit)
+                flags, type, childNames, childShortNames, childSuffixes, sub_type=subType, angle_unit=angle_unit, time_unit=time_unit
+            )
             if safe and self.hasAttr(name):
                 existing = self.getPlug(name)
                 _require_same_attr_definition(existing, flags)
                 return existing if getPlug else None
             prepared = self._create_extra_attr_definition(
-                name, flags, numeric, count, deferred, childNames, childShortNames, childSuffixes, subType, fast=fast,
-                time_unit=time_unit)
+                name, flags, numeric, count, deferred, childNames, childShortNames, childSuffixes, subType, fast=fast, time_unit=time_unit
+            )
             if not getPlug and (deferred is None or count) and not show and proxy is None:
                 return None
             plug = self.getPlug(name)
@@ -2029,8 +2120,7 @@ class Node(Object):
         to_recreate = names[window_start:]
 
         infos = [_dump_movable_attr(self.getPlug(attr_name)) for attr_name in to_recreate]
-        aliases = [(alias, attr_name) for alias, attr_name in self._dependency_fn().getAliasList()
-                   if attr_name in to_recreate]
+        aliases = [(alias, attr_name) for alias, attr_name in self._dependency_fn().getAliasList() if attr_name in to_recreate]
         connections = {}
         for info in infos:
             endpoint = self, info["longName"]
@@ -2080,6 +2170,7 @@ class Node(Object):
         """
         # nodes/plugsの相互依存を避けるため遅延importする。
         from ..plugs.plug import MAX_LOGICAL_INDEX, MissingAttributeError, Plug
+
         if not isinstance(name, str) or not name:
             raise ValueError("name must be a non-empty attribute path")
         self._require_valid("access attributes of")
@@ -2097,9 +2188,7 @@ class Node(Object):
         mplug = Plug._attribute_path_plug(self._mobject, name)
         if mplug is None:
             if Plug._has_out_of_range_index(name):
-                raise AttributeError(
-                    f"Multi element logical index must be between 0 and {MAX_LOGICAL_INDEX}: {self.getName()}.{name}"
-                )
+                raise AttributeError(f"Multi element logical index must be between 0 and {MAX_LOGICAL_INDEX}: {self.getName()}.{name}")
             raise MissingAttributeError(f"Attribute not found: {self.getName()}.{name}")
         return Plug(self, mplug)
 
@@ -2177,16 +2266,16 @@ class Node(Object):
         """:meth:`getPlugs` の列挙の本体(writableで絞る前)。"""
         if userDefined:
             if listAttrFlags:
-                raise TypeError("userDefined=True cannot be combined with listAttr flags: "
-                                + ", ".join(sorted(listAttrFlags)))
+                raise TypeError(f"userDefined=True cannot be combined with listAttr flags: {', '.join(sorted(listAttrFlags))}")
             # 名前へ変換して再検索せず、定義から型付きPlugを作る。マルチアトリビュートの要素は展開しない。
             from ..plugs.plug import Plug
-            return [Plug(self, om2.MPlug(self._mobject, attribute))
-                    for attribute in self._user_attributes(includeChildren)]
+
+            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._user_attributes(includeChildren)]
         if all(name in _OM2_LIST_ATTR_FLAGS and value is True for name, value in listAttrFlags.items()):
+            # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
             from ..plugs.plug import Plug
-            return [Plug(self, om2.MPlug(self._mobject, attribute))
-                    for attribute in self._listed_attributes(includeChildren, **listAttrFlags)]
+
+            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._listed_attributes(includeChildren, **listAttrFlags)]
         names = cmds.listAttr(self.getFullName(), **listAttrFlags) or []
         plugs = []
         for name in names:
@@ -2214,6 +2303,7 @@ class Node(Object):
         """
         # plugsはnodesを参照するため、循環importを避けて関数内で読み込む。
         from ..plugs.plug import Plug
+
         if isinstance(attributes, (str, Plug)):
             attributes = [attributes]
         plugs = []
@@ -2267,6 +2357,7 @@ class Node(Object):
         node_type = _real_node_type(node_type)
         # 遅延公開の__getattr__を毎回通らないよう、実装モジュールから直接取得する。
         from ..common.plugin import Plugin
+
         Plugin.ensureNodePlugin(node_type)
         # 型名の照会・OpenMayaでは解決できないがcmds.createNodeが互換名として作成する名前は、通常経路では
         # 作成した結果がunknownノードかどうかで判定し、fastはOpenMayaが作成できないため作成前に拒否する。
@@ -2281,6 +2372,7 @@ class Node(Object):
         if fast:
             # nodeEditはNodeを参照するため、循環importを避けて関数内で読み込む。
             from ..core.nodeEdit import create_node
+
             obj = create_node(node_type, flags)
             # 作成したばかりの有効なMObjectなので、Node(obj)と同じ解決・型選択を入口の再判定なしで行う。
             node = Node._wrap_resolved(*_resolve_node(obj))
@@ -2626,8 +2718,7 @@ class Node(Object):
             # __init__ を上書きしないクラスでは、Node.__init__ の解決済み入力の分岐と同じ属性を直接設定する。
             if handle is None:
                 handle = om2.MObjectHandle(mobject)
-            instance.__dict__.update(_mobject=mobject, _dag_path=dag_path,
-                                     _handle=handle, _identity_hash=handle.hashCode())
+            instance.__dict__.update(_mobject=mobject, _dag_path=dag_path, _handle=handle, _identity_hash=handle.hashCode())
             return instance
         instance._pending_resolution = (mobject, dag_path)
         instance.__init__(dag_path if dag_path is not None else mobject)
@@ -2706,8 +2797,9 @@ class Node(Object):
         return dag_path
 
     @staticmethod
-    def _prepare_extra_attr_definition(flags, attribute_type, child_names, child_short_names, child_suffixes, *,
-                                       sub_type=None, angle_unit="rad", time_unit="frame"):
+    def _prepare_extra_attr_definition(
+        flags, attribute_type, child_names, child_short_names, child_suffixes, *, sub_type=None, angle_unit="rad", time_unit="frame"
+    ):
         """追加する型・子数・既定値と単位を、Mayaへの書込み前に解決する。
 
         Args:
@@ -2733,12 +2825,32 @@ class Node(Object):
                 key = "attributeType" if prefix == "at" else "dataType"
             else:
                 kind = attribute_type
-                key = "dataType" if kind in {
-                    "string", "matrix", "stringArray", "doubleArray", "floatArray", "Int32Array",
-                    "Int64Array", "vectorArray", "floatVectorArray", "pointArray", "matrixArray",
-                    "mesh", "nurbsCurve", "nurbsSurface", "lattice", "componentList", "polyFaces",
-                    "reflectanceRGB", "spectrumRGB",
-                } else "attributeType"
+                key = (
+                    "dataType"
+                    if kind
+                    in {
+                        "string",
+                        "matrix",
+                        "stringArray",
+                        "doubleArray",
+                        "floatArray",
+                        "Int32Array",
+                        "Int64Array",
+                        "vectorArray",
+                        "floatVectorArray",
+                        "pointArray",
+                        "matrixArray",
+                        "mesh",
+                        "nurbsCurve",
+                        "nurbsSurface",
+                        "lattice",
+                        "componentList",
+                        "polyFaces",
+                        "reflectanceRGB",
+                        "spectrumRGB",
+                    }
+                    else "attributeType"
+                )
             flags[key] = kind
         elif not (flags.get("attributeType") or flags.get("dataType")):
             flags["attributeType"] = "double"
@@ -2768,15 +2880,18 @@ class Node(Object):
                 if isinstance(value, (int, float)) and not isinstance(value, bool):
                     return om2.MAngle(value, om2.MAngle.kDegrees).asRadians()
                 return value
+
             for flag in ("minValue", "maxValue", "softMinValue", "softMaxValue"):
                 if flag in flags:
                     flags[flag] = to_radians(flags[flag])
             deferred = to_radians(deferred)
         angle_input = om2.MAngle.kDegrees if angle_unit == "deg" else om2.MAngle.kRadians
         time_input = om2.MTime.uiUnit() if time_unit == "frame" else om2.MTime.kSeconds
-        unit = {"doubleAngle": (om2.MAngle, om2.MAngle.kRadians),
-                "doubleLinear": (om2.MDistance, om2.MDistance.kCentimeters),
-                "time": (om2.MTime, om2.MTime.kSeconds)}.get(kind)
+        unit = {
+            "doubleAngle": (om2.MAngle, om2.MAngle.kRadians),
+            "doubleLinear": (om2.MDistance, om2.MDistance.kCentimeters),
+            "time": (om2.MTime, om2.MTime.kSeconds),
+        }.get(kind)
         if unit:
             cls, internal = unit
             for flag in ("defaultValue", "minValue", "maxValue", "softMinValue", "softMaxValue"):
@@ -2787,9 +2902,9 @@ class Node(Object):
                     flags[flag] = quantity.asUnits(cls.uiUnit() if cls is om2.MTime else internal)
         return numeric, count, deferred
 
-    def _create_extra_attr_definition(self, name, flags, numeric, count, deferred,
-                                      child_names, child_short_names, child_suffixes, sub_type, *, fast=False,
-                                      time_unit="frame"):
+    def _create_extra_attr_definition(
+        self, name, flags, numeric, count, deferred, child_names, child_short_names, child_suffixes, sub_type, *, fast=False, time_unit="frame"
+    ):
         """親と子の定義を従来の順序で追加する。
 
         通常は子を公開addAttrへ順に委譲する。fastは未登録の親子定義を一括構築して追加する。
@@ -2807,17 +2922,37 @@ class Node(Object):
             fast (bool): Trueなら定義をOpenMayaで追加する。
             time_unit (str): 時間の子の数値の単位(``"frame"`` / ``"sec"``)。子のaddAttrへ渡す。
         """
+        # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
         from ..core.attributeEdit import extra_children, validate_extra_attribute
-        children = extra_children(name, flags, numeric, count, deferred=deferred,
-                                  child_names=child_names, child_short_names=child_short_names,
-                                  child_suffixes=child_suffixes, sub_type=sub_type)
-        validate_extra_attribute(self, name, flags, count, deferred, children,
-                                 validate_defaults=not fast)
+
+        children = extra_children(
+            name,
+            flags,
+            numeric,
+            count,
+            deferred=deferred,
+            child_names=child_names,
+            child_short_names=child_short_names,
+            child_suffixes=child_suffixes,
+            sub_type=sub_type,
+        )
+        validate_extra_attribute(self, name, flags, count, deferred, children, validate_defaults=not fast)
         if fast:
+            # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
             from ..core.attributeEdit import create_extra_attribute
-            return create_extra_attribute(self, name, flags, numeric, count, deferred=deferred,
-                                          child_names=child_names, child_short_names=child_short_names,
-                                          child_suffixes=child_suffixes, sub_type=sub_type)
+
+            return create_extra_attribute(
+                self,
+                name,
+                flags,
+                numeric,
+                count,
+                deferred=deferred,
+                child_names=child_names,
+                child_short_names=child_short_names,
+                child_suffixes=child_suffixes,
+                sub_type=sub_type,
+            )
         if count:
             # 子の範囲・既定値は子へ指定し、親には渡さない。
             for key in ("minValue", "maxValue", "softMinValue", "softMaxValue"):
@@ -2825,10 +2960,11 @@ class Node(Object):
             cmds.addAttr(self.getFullName(), **flags)
             for child_name, child_type, child_flags in children:
                 # 角度の子の値は_prepare_extra_attr_definitionでrad換算済み。時間の子は親と同じ単位で渡す。
-                self.addAttr(child_name, child_type, getPlug=False, fast=fast, unit="rad", timeUnit=time_unit,
-                             **child_flags)
+                self.addAttr(child_name, child_type, getPlug=False, fast=fast, unit="rad", timeUnit=time_unit, **child_flags)
         else:
             cmds.addAttr(self.getFullName(), **flags)
+        # 通常経路はcmdsが値まで設定するため、呼出し側へ渡すものはない。
+        return None
 
     def _listed_attributes(self, include_children=True, keyable=False, scalar=False):
         """``cmds.listAttr`` と同じ順で、getPlugs() が返すアトリビュート定義を列挙する。
@@ -2850,8 +2986,7 @@ class Node(Object):
         def visit(attribute):
             """定義を追加し、マルチアトリビュートでないコンパウンドアトリビュートなら子を続けて追加する。"""
             ordered.append(attribute)
-            if (include_children and attribute.hasFn(om2.MFn.kCompoundAttribute)
-                    and not om2.MFnAttribute(attribute).array):
+            if include_children and attribute.hasFn(om2.MFn.kCompoundAttribute) and not om2.MFnAttribute(attribute).array:
                 compound = om2.MFnCompoundAttribute(attribute)
                 for index in range(compound.numChildren()):
                     visit(compound.child(index))
@@ -3482,8 +3617,7 @@ class Nodes:
         """
         missing = [node for node in self._items if not callable(getattr(type(node), method, None))]
         if missing:
-            raise TypeError(f"{type(self).__name__}.{method}() requires every item to support {method}(); "
-                            f"{missing[0]!r} does not")
+            raise TypeError(f"{type(self).__name__}.{method}() requires every item to support {method}(); {missing[0]!r} does not")
 
     def _set_each_color(self, method, colors, shape, fast):
         """保持順の各ノードへ、対応する色で単数のメソッドを適用する。

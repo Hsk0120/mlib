@@ -9,7 +9,7 @@ import maya.api.OpenMayaAnim as oma2
 
 from ..core.fastWrite import require_range, require_writable, set_attr
 from ..core.object import Object
-from ..decorator import _edit_context, _require_bool
+from ..decorator import _edit_context
 from .node import Node
 
 #: :meth:`GeometryFilter.dumpDeformerWeights` が書くファイルの形式の版。
@@ -168,10 +168,7 @@ class GeometryFilter(Node):
                     raise ValueError(f"No geometry at index {index}: {self.getFullName()}") from None
                 values = entry.get("weights")
                 if entry.get("numVertices") != count or not isinstance(values, list) or len(values) != count:
-                    raise ValueError(
-                        f"Stored vertex count ({entry.get('numVertices')}) does not match "
-                        f"geometry {index} vertex count ({count})"
-                    )
+                    raise ValueError(f"Stored vertex count ({entry.get('numVertices')}) does not match geometry {index} vertex count ({count})")
                 plans.append((index, self._resolve_weight_values(values, count)))
             for index, values in plans:
                 self.setDeformerWeights(values, geometryIndex=index, fast=fast)

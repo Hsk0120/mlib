@@ -11,7 +11,7 @@ from ..maths import Vector
 from ..util import _UNSET, _color_value, _world_space
 from .node import Node
 
-#: GUIのないMayaで使う、Maya標準のカラーインデックスのRGB。
+#: GUIのないMayaで使う、Maya標準のカラー番号のRGB。
 _DEFAULT_COLOR_PALETTE = (
     (0.4699999988079071, 0.4699999988079071, 0.4699999988079071),
     (0.0, 0.0, 0.0),
@@ -104,25 +104,19 @@ class DagNode(Node):
         obj = path.node()
         if obj.hasFn(om2.MFn.kTransform):
             fn = om2.MFnDagNode(path)
-            shapes = [fn.child(i) for i in range(fn.childCount())
-                      if fn.child(i).hasFn(om2.MFn.kShape)
-                      and not om2.MFnDagNode(fn.child(i)).isIntermediateObject]
+            shapes = [fn.child(i) for i in range(fn.childCount()) if fn.child(i).hasFn(om2.MFn.kShape) and not om2.MFnDagNode(fn.child(i)).isIntermediateObject]
         else:
             shapes = [obj] if obj.hasFn(om2.MFn.kShape) else []
         result, seen = [], set()
         for shape in shapes:
             iterator = om2.MItDependencyGraph(
-                shape, om2.MFn.kSkinClusterFilter,
-                om2.MItDependencyGraph.kUpstream,
-                om2.MItDependencyGraph.kBreadthFirst,
-                om2.MItDependencyGraph.kNodeLevel,
+                shape, om2.MFn.kSkinClusterFilter, om2.MItDependencyGraph.kUpstream, om2.MItDependencyGraph.kBreadthFirst, om2.MItDependencyGraph.kNodeLevel
             )
             iterator.pruningOnFilter = False
             while not iterator.isDone():
                 skin = iterator.currentNode()
                 key = om2.MFnDependencyNode(skin).uuid().asString()
-                if key not in seen and any(
-                        output == shape for output in oma2.MFnGeometryFilter(skin).getOutputGeometry()):
+                if key not in seen and any(output == shape for output in oma2.MFnGeometryFilter(skin).getOutputGeometry()):
                     seen.add(key)
                     result.append(Node(skin))
                 iterator.next()
@@ -429,8 +423,7 @@ class DagNode(Node):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         box = self.getBoundingBox(worldSpace=worldSpace)
-        return [Vector(x, y, z) for x in (box.min.x, box.max.x)
-                for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
+        return [Vector(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
 
     def isIntermediateObject(self):
         """中間オブジェクト(履歴用の非表示 Shape)か判定する。Transform では常に False。
@@ -458,9 +451,11 @@ class DagNode(Node):
         """
         original = self.mpath().fullPathName()
         # APIが列挙した有効なパスの複製なので、Node(...) の入力解決を省いて同じ型で包む。
-        return [self if path.fullPathName() == original else Node._wrap_dag_path(om2.MDagPath(path))
-                for path in om2.MDagPath.getAllPathsTo(self.mnode())
-                if not noSelf or path.fullPathName() != original]
+        return [
+            self if path.fullPathName() == original else Node._wrap_dag_path(om2.MDagPath(path))
+            for path in om2.MDagPath.getAllPathsTo(self.mnode())
+            if not noSelf or path.fullPathName() != original
+        ]
 
     def isInstanced(self):
         """複数のDAGパスを持つ(インスタンス化されている)か判定する。
@@ -509,10 +504,11 @@ class DagNode(Node):
         if indirect:
             return [instance.getParent() for instance in self.getInstances() if instance.getParent() is not None]
         fn = self.mfn()
-        return [parent if fn.parent(index) == parent.mnode()
-                else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
-                for index in range(fn.parentCount())
-                if not fn.parent(index).hasFn(om2.MFn.kWorld)]
+        return [
+            parent if fn.parent(index) == parent.mnode() else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
+            for index in range(fn.parentCount())
+            if not fn.parent(index).hasFn(om2.MFn.kWorld)
+        ]
 
     def getParent(self, step=1):
         """保持パスを指定階層だけ遡る。
@@ -536,8 +532,9 @@ class DagNode(Node):
         # 有効な保持パスの複製を遡ったパスなので、Node(path) の入力解決を省いて同じ型で包む。
         return Node._wrap_dag_path(path)
 
-    def getChildren(self, shapes=False, intermediates=False, *, allDescendents=False,
-                    order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None):
+    def getChildren(
+        self, shapes=False, intermediates=False, *, allDescendents=False, order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
+    ):
         """保持パスに沿って子・子孫を列挙する。同じノードの別パスも残す。
 
         子パスを継ぎ足して探索し、名前から再解決しない。
@@ -565,8 +562,7 @@ class DagNode(Node):
             ValueError: 探索順が不正、leavesとshapesを併用した、またはtypeが空文字列の場合。
             RuntimeError: ノードは有効だが保持するDAGパスが無効な場合。
         """
-        for value, name in ((allDescendents, "allDescendents"), (leaves, "leaves"),
-                            (includeSelf, "includeSelf"), (underWorld, "underWorld")):
+        for value, name in ((allDescendents, "allDescendents"), (leaves, "leaves"), (includeSelf, "includeSelf"), (underWorld, "underWorld")):
             _require_bool(value, name)
         if order not in ("depthFirst", "breadthFirst"):
             raise ValueError("order must be 'depthFirst' or 'breadthFirst'")
@@ -583,7 +579,7 @@ class DagNode(Node):
             result = [node for node in result if any(node.isType(name) for name in types)]
         return result
 
-    def getShape(self, index=0, intermediates=False):
+    def getShape(self, index=0, intermediates=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
         """保持パスに対応する Shape を取得する。
 
         契約: 自身が Shape なら ``index``・``intermediates`` を無視して自身を返す。Transform は
@@ -651,7 +647,7 @@ class DagNode(Node):
 
         Returns:
             int | tuple[float, float, float] | None: ``overrideEnabled`` が無効ならNone。
-                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラーインデックス(0は既定色)。
+                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラー番号(0は既定色)。
 
         Raises:
             TypeError: shapeがbool以外の場合。
@@ -669,7 +665,7 @@ class DagNode(Node):
     def setOverrideColor(self, color, *, shape=False, fast=False):
         """描画のオーバーライドで表示色を設定し、自身を返す。
 
-        ``overrideEnabled`` を有効にし、インデックス指定は ``overrideRGBColors`` を無効にして
+        ``overrideEnabled`` を有効にし、番号の指定は ``overrideRGBColors`` を無効にして
         ``overrideColor``、RGB指定は ``overrideRGBColors`` を有効にして ``overrideColorRGB`` を設定する。
         ``None`` は ``overrideEnabled`` を無効にする(表示タイプ等のほかのオーバーライドも効かなくなる)。
         TransformやJointでも直下のShapeではなく自身へ設定する(Mayaの描画のオーバーライドと同じく、Transformの
@@ -678,7 +674,7 @@ class DagNode(Node):
         OpenMayaで書き込み、Undoに記録しない。
 
         Args:
-            color (int | Sequence[float] | None): カラーインデックス(0〜31。0は既定色)、
+            color (int | Sequence[float] | None): カラー番号(0〜31。0は既定色)、
                 0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換は行わない。
             shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -688,7 +684,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: インデックスが0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
+            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
             RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
         """
         _require_bool(shape, "shape")
@@ -728,11 +724,11 @@ class DagNode(Node):
 
         ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定する。``None`` は ``useOutlinerColor`` を
         無効にする。既定ではTransformやJointでも直下のShapeではなく自身へ設定する。
-        カラーインデックスは指定した時点のRGBへ変換して保持する(``outlinerColor`` はRGBだけを持つため)。
+        カラー番号は指定した時点のRGBへ変換して保持する(``outlinerColor`` はRGBだけを持つため)。
         GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
 
         Args:
-            color (int | Sequence[float] | None): カラーインデックス(0〜31)、0〜1の有限な数値3個の (r, g, b)、
+            color (int | Sequence[float] | None): カラー番号(0〜31)、0〜1の有限な数値3個の (r, g, b)、
                 または無効にするNone。
             shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -742,7 +738,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: インデックスが0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
+            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
             RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
         """
         _require_bool(shape, "shape")
@@ -869,8 +865,7 @@ class DagNode(Node):
         if kind not in _DISPLAY_TYPES:
             raise ValueError(f"kind must be one of {', '.join(map(repr, _DISPLAY_TYPES))}, got {kind!r}")
         index = _DISPLAY_TYPES.index(kind)
-        values = [("overrideDisplayType", index)] if index == 0 else [
-            ("overrideEnabled", True), ("overrideDisplayType", index)]
+        values = [("overrideDisplayType", index)] if index == 0 else [("overrideEnabled", True), ("overrideDisplayType", index)]
         self._set_display_values(values, "mlibDagNodeSetDisplayType", fast)
         return self
 
@@ -912,8 +907,7 @@ class DagNode(Node):
         """
         _require_bool(fast, "fast")
         _require_bool(enabled, "enabled")
-        values = [("overrideEnabled", True), ("overrideShading", False)] if enabled else [
-            ("overrideShading", True)]
+        values = [("overrideEnabled", True), ("overrideShading", False)] if enabled else [("overrideShading", True)]
         self._set_display_values(values, "mlibDagNodeSetShadingOverride", fast)
         return self
 
@@ -942,8 +936,7 @@ class DagNode(Node):
         name = self.getFullName()
         if keepDeformers and not self._require_mnode().hasFn(om2.MFn.kShape):
             # bakePartialHistory は Shape の無い Transform を「Shapeを選択」のエラーにするため、Shapeを渡す。
-            targets = [shape.getFullName() for shape in self.getChildren(shapes=True)
-                       if shape.mnode().hasFn(om2.MFn.kShape)]
+            targets = [shape.getFullName() for shape in self.getChildren(shapes=True) if shape.mnode().hasFn(om2.MFn.kShape)]
             if not targets:
                 return self
         else:
@@ -971,7 +964,9 @@ class DagNode(Node):
             list[DagNode]: 探索順の参照。
         """
         recursive = all_descendents or leaves
+        # この処理でだけ使うため、mlibの読み込み時間に含めない。
         from collections import deque
+
         pending = deque([(self, 0)])
         result = []
         while pending:
@@ -979,8 +974,7 @@ class DagNode(Node):
             is_shape = node._require_mnode().hasFn(om2.MFn.kShape)
             children = node._traversal_children(shapes, intermediates, under_world) if recursive or depth == 0 else []
             selected = (include_self or depth > 0) and (shapes or not is_shape)
-            if selected and (not leaves or not any(
-                    child.mnode().hasFn(om2.MFn.kTransform) for child in children)):
+            if selected and (not leaves or not any(child.mnode().hasFn(om2.MFn.kTransform) for child in children)):
                 result.append(node)
             if recursive or depth == 0:
                 rows = [(child, depth + 1) for child in children]
@@ -1028,7 +1022,7 @@ class DagNode(Node):
                     else:
                         cmds.setAttr(name + "." + attribute, value)
 
-    def _color_targets(self, shape):
+    def _color_targets(self, shape):  # noqa: ARG002  # 派生が使う契約の引数。DagNodeは自身を返す。
         """表示色を読み書きするノードを返す。DagNodeは ``shape`` によらず自身。
 
         Args:
@@ -1168,10 +1162,10 @@ class DagNode(Node):
 
 
 def _palette_color(index):
-    """カラーインデックスのRGBを返す。
+    """カラー番号のRGBを返す。
 
     Args:
-        index (int): 0〜31のカラーインデックス。
+        index (int): 0〜31のカラー番号。
 
     Returns:
         tuple[float, float, float]: RGB。

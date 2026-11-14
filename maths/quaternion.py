@@ -5,23 +5,8 @@ from typing import Any, Sequence
 
 import maya.api.OpenMaya as om2
 
-from ..util import (
-    _angle_unit,
-    _checked_index,
-    _copy_state,
-    _finite,
-    _foreign_comparison,
-    _from_radians,
-    _rethrow_init_error,
-    _to_radians,
-)
-from .vector import (
-    Vector,
-    _axis_name,
-    _reduce_value,
-    _resolve_mvector,
-    _zero,
-)
+from ..util import _angle_unit, _checked_index, _copy_state, _finite, _foreign_comparison, _from_radians, _rethrow_init_error, _to_radians
+from .vector import Vector, _axis_name, _reduce_value, _resolve_mvector, _zero
 
 _MQuaternion = om2.MQuaternion
 _MVector = om2.MVector
@@ -181,8 +166,7 @@ class Quaternion(om2.MQuaternion):
             return
         if len(values) == 4:
             x, y, z, w = values
-            if (isinstance(x, _NUMBER) and isinstance(y, _NUMBER)
-                    and isinstance(z, _NUMBER) and isinstance(w, _NUMBER)):
+            if isinstance(x, _NUMBER) and isinstance(y, _NUMBER) and isinstance(z, _NUMBER) and isinstance(w, _NUMBER):
                 self.x = x
                 self.y = y
                 self.z = z
@@ -286,7 +270,7 @@ class Quaternion(om2.MQuaternion):
         Returns:
             str: ``Quaternion(x, y, z, w)`` の形式の文字列。
         """
-        return "{}({!r}, {!r}, {!r}, {!r})".format(type(self).__name__, self.x, self.y, self.z, self.w)
+        return f"{type(self).__name__}({self.x!r}, {self.y!r}, {self.z!r}, {self.w!r})"
 
     __str__ = __repr__
 
@@ -517,8 +501,7 @@ class Quaternion(om2.MQuaternion):
         aim, up, side = _roll_bend_axes(aimAxis, upAxis)
         # 曲げの角度は半角の正接で表す(asRollBend の逆変換)。曲げた後のaimの向きを求める。
         denominator = 1.0 + horizontal * horizontal + vertical * vertical
-        bent = (aim * (2.0 / denominator - 1.0) + up * (2.0 * vertical / denominator)
-                - side * (2.0 * horizontal / denominator))
+        bent = aim * (2.0 / denominator - 1.0) + up * (2.0 * vertical / denominator) - side * (2.0 * horizontal / denominator)
         result = _MQuaternion(roll, aim) * _MQuaternion(aim, bent)
         return cls._wrap(result)
 
@@ -674,8 +657,7 @@ class Quaternion(om2.MQuaternion):
             q.negateIt()
         dx, dy, dz, dw = p.x - q.x, p.y - q.y, p.z - q.z, p.w - q.w
         sx, sy, sz, sw = p.x + q.x, p.y + q.y, p.z + q.z, p.w + q.w
-        return 4.0 * math.atan2(math.sqrt(dx * dx + dy * dy + dz * dz + dw * dw),
-                                math.sqrt(sx * sx + sy * sy + sz * sz + sw * sw))
+        return 4.0 * math.atan2(math.sqrt(dx * dx + dy * dy + dz * dz + dw * dw), math.sqrt(sx * sx + sy * sy + sz * sz + sw * sw))
 
     def slerp(self, other, t, spin=0):
         """別のクォータニオンとの球面線形補間を返す。
@@ -824,6 +806,7 @@ class Quaternion(om2.MQuaternion):
         Raises:
             ValueError: order が未対応の場合、またはゼロクォータニオンの場合。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .eulerRotate import EulerRotate, orderIndex
 
         index = orderIndex(order)
@@ -844,8 +827,7 @@ class Quaternion(om2.MQuaternion):
             ValueError: axisが不正な場合。
         """
         matrix = self.asUnitMatrix().mirror(axis)
-        result = type(self)._wrap(matrix.quaternion)
-        return result
+        return type(self)._wrap(matrix.quaternion)
 
     def mirrorIt(self, axis="x"):
         """自身の向きをビヘイビアミラーする。
@@ -871,6 +853,7 @@ class Quaternion(om2.MQuaternion):
         Raises:
             ValueError: 自身がゼロQuaternionの場合。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .matrix import Matrix
 
         return Matrix._wrap(_MQuaternion.asMatrix(_unit_copy(self)))
@@ -939,6 +922,7 @@ class Quaternion(om2.MQuaternion):
         Returns:
             Matrix: 演算結果を保持する新しいmlib値。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .matrix import Matrix
 
         return Matrix._wrap(_MQuaternion.asMatrix(self, *args))
@@ -954,6 +938,7 @@ class Quaternion(om2.MQuaternion):
         Returns:
             EulerRotate: 演算結果を保持する新しいmlib値。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .eulerRotate import EulerRotate
 
         return EulerRotate._wrap(_MQuaternion.asEulerRotation(self, *args))

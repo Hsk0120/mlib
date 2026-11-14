@@ -49,10 +49,7 @@ class DampedSpring:
                 alpha = step / count
                 for axis in range(len(position)):
                     goal = before[axis] + (after[axis] - before[axis]) * alpha
-                    acceleration = (
-                        omega * omega * (goal - position[axis])
-                        - 2 * damping * omega * velocity[axis]
-                    )
+                    acceleration = omega * omega * (goal - position[axis]) - 2 * damping * omega * velocity[axis]
                     velocity[axis] += acceleration * dt
                     position[axis] += velocity[axis] * dt
                     bounded = max(goal - limit, min(goal + limit, position[axis]))

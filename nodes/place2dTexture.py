@@ -28,9 +28,24 @@ class Place2dTexture(ShadingDependNode):
             texture = Node._resolve_input(texture)
             if not isinstance(texture, Texture2d):
                 raise TypeError("texture must be Texture2d")
-            names = ("coverage", "translateFrame", "rotateFrame", "mirrorU", "mirrorV",
-                     "stagger", "wrapU", "wrapV", "repeatUV", "offset", "rotateUV",
-                     "noiseUV", "vertexUvOne", "vertexUvTwo", "vertexUvThree", "vertexCameraOne")
+            names = (
+                "coverage",
+                "translateFrame",
+                "rotateFrame",
+                "mirrorU",
+                "mirrorV",
+                "stagger",
+                "wrapU",
+                "wrapV",
+                "repeatUV",
+                "offset",
+                "rotateUV",
+                "noiseUV",
+                "vertexUvOne",
+                "vertexUvTwo",
+                "vertexUvThree",
+                "vertexCameraOne",
+            )
             pairs = [(name, name) for name in names] + [("outUV", "uvCoord"), ("outUvFilterSize", "uvFilterSize")]
             for origin, target in pairs:
                 if texture.hasAttr(target):

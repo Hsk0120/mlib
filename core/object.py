@@ -2,7 +2,6 @@
 
 import maya.api.OpenMaya as om2
 
-
 #: maya.cmdsやほかのライブラリでよく使う名前と、mlibでの書き方の対応。値は (必要なメソッド名, 案内)、またはその組の列。
 #: 必要なメソッドが対象のクラスに無い案内は表示せず、列では最初に当てはまる案内を使う(None は常に表示する)。
 _MEMBER_HINTS = {
@@ -16,8 +15,10 @@ _MEMBER_HINTS = {
     "deleteAttr": ("getPlug", "use getPlug(name).delete()"),
     "connectAttr": ("getPlug", "use getPlug(name).connectTo(destination)"),
     "disconnectAttr": ("getPlug", "use getPlug(name).disconnect()"),
-    "lockAndHide": (("setAttrFlags", "use setAttrFlags(names, locked=True, keyable=False, channelBox=False)"),
-                    ("setFlags", "use setFlags(locked=True, keyable=False, channelBox=False)")),
+    "lockAndHide": (
+        ("setAttrFlags", "use setAttrFlags(names, locked=True, keyable=False, channelBox=False)"),
+        ("setFlags", "use setFlags(locked=True, keyable=False, channelBox=False)"),
+    ),
     "lockNode": ("setLocked", "use setLocked(True)"),
     "listConnections": ("getConnections", "use getConnections()"),
     "connections": ("getConnections", "use getConnections()"),
@@ -143,7 +144,7 @@ def _missing_member_message(obj, name, what="method"):
     cls = type(obj)
     message = f"'{cls.__name__}' has no {what} '{name}'"
     hint = _MEMBER_HINTS.get(name, ())
-    for required, text in (hint if hint and isinstance(hint[0], tuple) else (hint,) if hint else ()):
+    for required, text in hint if hint and isinstance(hint[0], tuple) else (hint,) if hint else ():
         if required is None or hasattr(cls, required):
             message += f"; {text}"
             break
@@ -216,9 +217,11 @@ class Object(metaclass=_ObjectType):
             IndexError: APIコンポーネントの番号がシェイプの範囲外の場合。
             RuntimeError: 名前が存在しない・一意でない、またはAPI参照が無効の場合。
         """
+        # 循環参照の回避: components は core を参照するため、使う時点で読み込む。
+        from ..components.component import Component
         from ..nodes.node import Node
         from ..plugs.plug import Plug
-        from ..components.component import Component
+
         if isinstance(value, Object):
             return value
         if isinstance(value, om2.MPlug):
@@ -249,6 +252,7 @@ class Object(metaclass=_ObjectType):
         Returns:
             tuple[type, type, type, type]: Node、Plug、Component、Components。
         """
+        # 循環参照の回避: components は core を参照するため、使う時点で読み込む。
         from ..components.component import Component, Components
         from ..nodes.node import Node
         from ..plugs.plug import Plug
@@ -265,10 +269,7 @@ class Object(metaclass=_ObjectType):
         Returns:
             TypeError: 送出する例外。
         """
-        return TypeError(
-            f"Expected str, Node, Plug, Component, om2.MObject, om2.MDagPath or om2.MPlug, "
-            f"not {type(value).__name__}"
-        )
+        return TypeError(f"Expected str, Node, Plug, Component, om2.MObject, om2.MDagPath or om2.MPlug, not {type(value).__name__}")
 
     @staticmethod
     def _name(value, node_class, plug_class, component_class):
@@ -287,8 +288,10 @@ class Object(metaclass=_ObjectType):
             TypeError: 対応しない型の場合。
             ValueError: 空文字列、または無効な対象の場合。
         """
+        # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
         from ..nodes.node import Node as _InputNode
         from ..plugs.plug import Plug as _InputPlug
+
         if isinstance(value, str):
             name = value
         elif isinstance(value, node_class):
@@ -397,7 +400,9 @@ class Object(metaclass=_ObjectType):
                 Plug・MPlug が含まれる場合。同じ対象列に文字列とNodeが混在する場合。
             ValueError: いずれかの要素が空文字列、または無効な対象の場合。
         """
+        # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
         from ..nodes.node import Nodes as _InputNodes
+
         node_class, plug_class, component_class, components_class = Object._classes()
         singles = (str, node_class, plug_class, component_class, om2.MObject, om2.MDagPath, om2.MPlug)
         names = []
@@ -405,10 +410,7 @@ class Object(metaclass=_ObjectType):
         def collect(value):
             """単数参照を名前にし、Componentsは範囲名へまとめ、容器だけを展開する。"""
             if not allow_plugs and isinstance(value, (plug_class, om2.MPlug)):
-                raise TypeError(
-                    f"Attributes (Plug, MPlug) are not accepted here: {type(value).__name__} "
-                    "(pass plug.getNode() to target the owning node)"
-                )
+                raise TypeError(f"Attributes (Plug, MPlug) are not accepted here: {type(value).__name__} (pass plug.getNode() to target the owning node)")
             if isinstance(value, singles):
                 names.append(Object._name(value, node_class, plug_class, component_class))
                 return

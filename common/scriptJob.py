@@ -14,9 +14,7 @@ class ScriptJob:
     callbackはMayaへ渡し、その実行時期や例外処理はMaya側に従う。独自のUndoチャンクは追加しない。
     """
 
-    def __init__(
-        self, *, event=None, attribute=None, callback, killWithScene=False, compressUndo=False
-    ):
+    def __init__(self, *, event=None, attribute=None, callback, killWithScene=False, compressUndo=False):
         """イベントまたはアトリビュート変更の監視を開始する。
 
         Args:

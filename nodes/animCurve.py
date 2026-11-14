@@ -16,18 +16,23 @@ from ..decorator import _edit_context, _require_bool, undoChunk
 from ..util import _angle_unit, _from_radians, _time_unit, _to_radians
 from .node import Node
 
-
 #: コマンドの接線名からAPIの接線定数への対応。APIのSmooth等の別表記を外へ出さない。
 _TANGENT_TYPES = {
     name: getattr(oma2.MFnAnimCurve, constant)
     for name, constant in (
         ("fixed", "kTangentFixed"),
-        ("linear", "kTangentLinear"), ("flat", "kTangentFlat"),
-        ("spline", "kTangentSmooth"), ("step", "kTangentStep"),
-        ("slow", "kTangentSlow"), ("fast", "kTangentFast"),
-        ("clamped", "kTangentClamped"), ("plateau", "kTangentPlateau"),
-        ("stepnext", "kTangentStepNext"), ("auto", "kTangentAuto"),
-        ("autocustom", "kTangentAutoCustom"), ("autoease", "kTangentAutoEase"),
+        ("linear", "kTangentLinear"),
+        ("flat", "kTangentFlat"),
+        ("spline", "kTangentSmooth"),
+        ("step", "kTangentStep"),
+        ("slow", "kTangentSlow"),
+        ("fast", "kTangentFast"),
+        ("clamped", "kTangentClamped"),
+        ("plateau", "kTangentPlateau"),
+        ("stepnext", "kTangentStepNext"),
+        ("auto", "kTangentAuto"),
+        ("autocustom", "kTangentAutoCustom"),
+        ("autoease", "kTangentAutoEase"),
         ("automix", "kTangentAutoMix"),
     )
     if hasattr(oma2.MFnAnimCurve, constant)
@@ -198,8 +203,7 @@ class AnimCurve(Node):
             raise RuntimeError("Cannot find a key on an empty curve")
         return int(fn.findClosest(self._api_input(_to_seconds(self._finite(input), input_unit))))
 
-    def setKey(self, input, value, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame",
-               fast=False):
+    def setKey(self, input, value, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame", fast=False):
         """キーを追加する。同じ入力位置にキーがあれば値と、指定した接線型を更新する。
 
         接線型を省略すると ``cmds.setKeyframe`` と同じく、既存のキーは接線型を保ち、新しいキーは
@@ -235,8 +239,7 @@ class AnimCurve(Node):
             value = _to_seconds(_to_radians(self._finite(value), angle_unit), output_unit)
             if fast:
                 fn = self._curve_fn()
-                tangent_in = None if inTangentType is None else \
-                    self._tangent_type(inTangentType, incoming=True, key=True)
+                tangent_in = None if inTangentType is None else self._tangent_type(inTangentType, incoming=True, key=True)
                 tangent_out = None if outTangentType is None else self._tangent_type(outTangentType, key=True)
                 at = self._api_input(input)
                 self._require_curve_writable()
@@ -410,22 +413,26 @@ class AnimCurve(Node):
                 未登録のAPI接線型は空文字列。辞書を変更してもカーブは更新しない。
 
         Raises:
-            IndexError: bool、非int、負値、またはキー数以上の番号の場合。
             TypeError: unitが文字列・None以外の場合。
             ValueError: unitが未対応の単位名の場合。
+            IndexError: bool、非int、負値、またはキー数以上の番号の場合。
         """
         angle_unit = _angle_unit(unit)
         self._index(index)
         fn = self._curve_fn()
         incoming = fn.getTangentAngleWeight(index, True)
         outgoing = fn.getTangentAngleWeight(index, False)
-        return {"inTangentType": self._tangent_name(fn.inTangentType(index)),
-                "outTangentType": self._tangent_name(fn.outTangentType(index)),
-                "inAngle": _from_radians(incoming[0].asRadians(), angle_unit),
-                "outAngle": _from_radians(outgoing[0].asRadians(), angle_unit),
-                "inWeight": incoming[1], "outWeight": outgoing[1],
-                "lock": fn.tangentsLocked(index), "weightLock": fn.weightsLocked(index),
-                "weightedTangents": fn.isWeighted}
+        return {
+            "inTangentType": self._tangent_name(fn.inTangentType(index)),
+            "outTangentType": self._tangent_name(fn.outTangentType(index)),
+            "inAngle": _from_radians(incoming[0].asRadians(), angle_unit),
+            "outAngle": _from_radians(outgoing[0].asRadians(), angle_unit),
+            "inWeight": incoming[1],
+            "outWeight": outgoing[1],
+            "lock": fn.tangentsLocked(index),
+            "weightLock": fn.weightsLocked(index),
+            "weightedTangents": fn.isWeighted,
+        }
 
     def setTangent(self, index, *, unit="deg", fast=False, **kwargs):
         """指定キーの接線をMayaの接線ロック規則に従って変更する。
@@ -449,15 +456,14 @@ class AnimCurve(Node):
             AnimCurve: 自身。
 
         Raises:
-            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             TypeError: unitが文字列・None以外の場合。
+            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             IndexError: キー番号が不正な場合。
             NotImplementedError: fastで入力接線にstepnextを指定した場合。
                 ロック・ウェイトを含む更新より前に拒否する。
         """
         with _edit_context("mlibAnimCurveSetTangent", fast):
-            allowed = {"inTangentType", "outTangentType", "inAngle", "outAngle", "inWeight",
-                       "outWeight", "lock", "weightLock", "weightedTangents"}
+            allowed = {"inTangentType", "outTangentType", "inAngle", "outAngle", "inWeight", "outWeight", "lock", "weightLock", "weightedTangents"}
             if not kwargs or set(kwargs) - allowed:
                 raise ValueError("Specify supported tangent flags")
             angle_unit = _angle_unit(unit)
@@ -505,8 +511,7 @@ class AnimCurve(Node):
             dict: pre/postをキーとした外挿方法名。
         """
         names = {0: "constant", 1: "linear", 3: "cycle", 4: "cycleRelative", 5: "oscillate"}
-        return {key: names[self.getPlug(key + "Infinity").get()]
-                for key in ("pre", "post")}
+        return {key: names[self.getPlug(key + "Infinity").get()] for key in ("pre", "post")}
 
     def setInfinity(self, *, pre=None, post=None, fast=False):
         """指定した側だけ外挿方法を変更する。省略した側は維持する。
@@ -533,7 +538,7 @@ class AnimCurve(Node):
             targets = [(self.getPlug(key + "Infinity"), allowed[value]) for key, value in values.items()]
             if fast:
                 # 片側を書いた後にもう片側のロック・接続で失敗しないよう先に確認する。
-                for plug, value in targets:
+                for plug, _value in targets:
                     plug._require_writable()
             for plug, value in targets:
                 plug.set(value, fast=fast)
@@ -620,12 +625,10 @@ class AnimCurve(Node):
             if ranges:
                 flag = "timeChange" if self.isTimeInput() else "floatChange"
                 # 範囲を省くと、キーが1つだけのカーブをMayaが動かさないため、キーを番号で指定する。
-                cmds.keyframe(self.getFullName(), edit=True, relative=True, animation="objects",
-                              index=ranges, valueChange=y, **{flag: x})
+                cmds.keyframe(self.getFullName(), edit=True, relative=True, animation="objects", index=ranges, valueChange=y, **{flag: x})
             return self
 
-    def scaleKey(self, inputScale=1, valueScale=1, inputPivot=0, valuePivot=0, *, index=None, time=None,
-                 unit="deg", timeUnit="frame"):
+    def scaleKey(self, inputScale=1, valueScale=1, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
         """キーを基準値のまわりで拡縮する。index・timeを両方省略すると全キー。接線処理はMayaのscaleKeyに従う。
 
         fast引数は持たない(:meth:`moveKey` と同じ理由)。
@@ -664,12 +667,10 @@ class AnimCurve(Node):
             if ranges:
                 prefix = "time" if self.isTimeInput() else "float"
                 # moveKey と同じく、キーが1つだけのカーブも拡縮するようキーを番号で指定する。
-                cmds.scaleKey(self.getFullName(), animation="objects", index=ranges, valueScale=y,
-                              valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
+                cmds.scaleKey(self.getFullName(), animation="objects", index=ranges, valueScale=y, valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
             return self
 
-    def mirror(self, input=False, value=True, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg",
-               timeUnit="frame"):
+    def mirror(self, input=False, value=True, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
         """入力軸・出力軸を反転する。内部のscaleKeyでUndoをまとめる。fast引数は持たない(:meth:`scaleKey` と同じ)。
 
         Args:
@@ -685,8 +686,7 @@ class AnimCurve(Node):
         Returns:
             AnimCurve: 自身。
         """
-        return self.scaleKey(-1 if input else 1, -1 if value else 1, inputPivot, valuePivot, index=index,
-                             time=time, unit=unit, timeUnit=timeUnit)
+        return self.scaleKey(-1 if input else 1, -1 if value else 1, inputPivot, valuePivot, index=index, time=time, unit=unit, timeUnit=timeUnit)
 
     def eulerFilter(self):
         """回転のカーブへEulerフィルターをかけ、360度の飛びを除いて自身を返す。
@@ -704,8 +704,7 @@ class AnimCurve(Node):
         """
         self._require_valid("filter")
         if self.getType() != "animCurveTA":
-            raise TypeError(f"eulerFilter requires an animCurveTA (rotation) curve, got {self.getType()}: "
-                            f"{self.getName()}")
+            raise TypeError(f"eulerFilter requires an animCurveTA (rotation) curve, got {self.getType()}: {self.getName()}")
         with undoChunk("mlibAnimCurveEulerFilter"):
             cmds.filterCurve(self.getFullName(), filter="euler")
         return self
@@ -787,8 +786,7 @@ class AnimCurve(Node):
                     for key in range(start, end + 1):
                         self._set_api_value(fn, key, value)
                 return self
-            cmds.keyframe(self.getFullName(), edit=True, absolute=True, animation="objects", index=ranges,
-                          valueChange=self._unit_value(value, output=True))
+            cmds.keyframe(self.getFullName(), edit=True, absolute=True, animation="objects", index=ranges, valueChange=self._unit_value(value, output=True))
             return self
 
     @contextmanager
@@ -1006,8 +1004,7 @@ class AnimCurve(Node):
             raise ValueError(f"time range start must not be greater than end: {values}")
         # 浮動小数の誤差でちょうど端のキーを落とさないよう、わずかに広げて比べる。
         tolerance = 1e-9 * max(1.0, abs(start), abs(end))
-        inside = [key for key, value in enumerate(self.getKeyInputs(timeUnit="sec"))
-                  if start - tolerance <= value <= end + tolerance]
+        inside = [key for key, value in enumerate(self.getKeyInputs(timeUnit="sec")) if start - tolerance <= value <= end + tolerance]
         return (inside[0], inside[-1]) if inside else None
 
     def _key_ranges(self, index, time, time_unit):

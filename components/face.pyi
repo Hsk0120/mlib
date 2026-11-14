@@ -167,8 +167,9 @@ class Face(Component):
         """
         ...
     def isLamina(self) -> bool:
-        """ラミナフェース(別のフェースとすべてのエッジを共有する重なったフェース)か照会する
-        (``MItMeshPolygon.isLamina``)。
+        """ラミナフェースか照会する(``MItMeshPolygon.isLamina``)。
+
+        ラミナフェースは、別のフェースとすべてのエッジを共有する重なったフェース。
 
         Returns:
             bool: ラミナフェースならTrue。

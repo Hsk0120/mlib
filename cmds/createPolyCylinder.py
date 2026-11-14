@@ -18,8 +18,9 @@ from ..decorator import _pick_alias
 from ..util import _UNSET, _finite_vector
 
 
-def createPolyCylinder(radius=_UNSET, height=_UNSET, subdivisions=(20, 1, 1), axis=_UNSET, name=_UNSET, parent=None,
-        *, r=_UNSET, h=_UNSET, ax=_UNSET, n=_UNSET):
+def createPolyCylinder(
+    radius=_UNSET, height=_UNSET, subdivisions=(20, 1, 1), axis=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, h=_UNSET, ax=_UNSET, n=_UNSET
+):
     """原点を中心とするポリゴンの円柱を作成し、そのシェイプを返す。
 
     fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
@@ -51,8 +52,14 @@ def createPolyCylinder(radius=_UNSET, height=_UNSET, subdivisions=(20, 1, 1), ax
     axis = _pick_alias(axis, ax, "axis", "ax", default=(0, 1, 0))
     name = _pick_alias(name, n, "name", "n", default=None)
     sx, sy, sz = subdivision_counts(subdivisions, 3)
-    flags = {"radius": positive_size(radius, "radius"), "height": positive_size(height, "height"),
-             "subdivisionsX": sx, "subdivisionsY": sy, "subdivisionsZ": sz, "axis": _axis(axis)}
+    flags = {
+        "radius": positive_size(radius, "radius"),
+        "height": positive_size(height, "height"),
+        "subdivisionsX": sx,
+        "subdivisionsY": sy,
+        "subdivisionsZ": sz,
+        "axis": _axis(axis),
+    }
     return create_poly(cmds.polyCylinder, flags, require_name(name), resolve_parent(parent))
 
 

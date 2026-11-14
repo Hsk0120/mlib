@@ -6,16 +6,16 @@ import base64
 import binascii
 import functools
 import hashlib
-from html.parser import HTMLParser
 import json
 import os
-from pathlib import Path
 import re
 import threading
 import time
+from html.parser import HTMLParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.request import Request, urlopen
+from pathlib import Path
 from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 CASES = [
     ("autoapi/mlib/nodes/joint/Joint.html", "mlib.nodes.transform.Transform"),
@@ -23,15 +23,12 @@ CASES = [
     ("autoapi/mlib/maths/matrix/Matrix.html", "mlib.maths.matrix.Matrix"),
     ("autoapi/mlib/nodes/node/Node.html", "mlib.core.object.Object"),
 ]
-ASSETS = ["_static/js/mermaid-init.js", "_static/css/theme.css",
-          "_static/css/layout.css", "_static/css/code-dark-plus.css", "_static/css/mermaid.css"]
+ASSETS = ["_static/js/mermaid-init.js", "_static/css/theme.css", "_static/css/layout.css", "_static/css/code-dark-plus.css", "_static/css/mermaid.css"]
 # Mermaid本体はリポジトリに同梱せず、版を固定したjsDelivrのURLからSRI付きで読み込む。
 # 固定した版とハッシュの正は _docs/source/conf.py の _MERMAID_URL と _MERMAID_SRI。
 _MLIB_ROOT = Path(__file__).resolve().parents[1]
 DOCS_CONF = _MLIB_ROOT / "_docs/source/conf.py"
-MERMAID_CDN_SCRIPT = re.compile(
-    r"^https://cdn\.jsdelivr\.net/npm/mermaid@\d+\.\d+\.\d+/dist/mermaid\.min\.js$"
-)
+MERMAID_CDN_SCRIPT = re.compile(r"^https://cdn\.jsdelivr\.net/npm/mermaid@\d+\.\d+\.\d+/dist/mermaid\.min\.js$")
 MERMAID_INIT_SCRIPT = "mermaid-init.js"
 
 
@@ -80,7 +77,8 @@ def read_mermaid_pin(conf_path=DOCS_CONF):
     except binascii.Error:
         digest_size = 0
     assert algorithm == "sha384" and digest_size == hashlib.sha384().digest_size, (
-        f"{conf_path}: _MERMAID_SRI must be one sha384 digest in base64: {pin['integrity']}")
+        f"{conf_path}: _MERMAID_SRI must be one sha384 digest in base64: {pin['integrity']}"
+    )
     return pin
 
 
@@ -95,14 +93,11 @@ def _check_script_list(scripts, pin, source):
     assert len(engines) == 1, f"{source}: expected one Mermaid script, got {[scripts[i] for i in engines]}"
     engine = scripts[engines[0]]
     assert engine.get("src") == pin["src"], f"{source}: Mermaid URL differs from _docs/source/conf.py: {engine.get('src')}"
-    assert engine.get("integrity") == pin["integrity"], (
-        f"{source}: Mermaid SRI differs from _docs/source/conf.py: {engine.get('integrity')}")
+    assert engine.get("integrity") == pin["integrity"], f"{source}: Mermaid SRI differs from _docs/source/conf.py: {engine.get('integrity')}"
     assert engine.get("crossorigin") == "anonymous", f"{source}: Mermaid script needs crossorigin=anonymous"
     # どちらも defer なので記述順に実行される。初期化が本体より先だと図が描かれない。
-    initializers = [index for index, script in enumerate(scripts)
-                    if MERMAID_INIT_SCRIPT in (script.get("src") or "")]
-    assert initializers and min(initializers) > engines[0], (
-        f"{source}: {MERMAID_INIT_SCRIPT} must be loaded after the Mermaid script")
+    initializers = [index for index, script in enumerate(scripts) if MERMAID_INIT_SCRIPT in (script.get("src") or "")]
+    assert initializers and min(initializers) > engines[0], f"{source}: {MERMAID_INIT_SCRIPT} must be loaded after the Mermaid script"
 
 
 class _ScriptTags(HTMLParser):
@@ -114,7 +109,7 @@ class _ScriptTags(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         if tag == "script":
-            self.scripts.append({name: value for name, value in attrs})
+            self.scripts.append(dict(attrs))
 
 
 def _cases(package_name):
@@ -126,8 +121,7 @@ def _cases(package_name):
     Returns:
         list[tuple[str, str]]: APIページとリンク先クラスの組。
     """
-    return [(path.replace("mlib", package_name), target.replace("mlib", package_name))
-            for path, target in CASES]
+    return [(path.replace("mlib", package_name), target.replace("mlib", package_name)) for path, target in CASES]
 
 
 def check_built_html(directory, pin, package_name="mlib"):
@@ -163,10 +157,7 @@ def check_built_html(directory, pin, package_name="mlib"):
 
 def stamp(directory, sha, package_name="mlib"):
     paths = sorted({path for path, _ in _cases(package_name)} | set(ASSETS))
-    payload = {"commit": sha, "files": {
-        path: hashlib.sha256((directory / path).read_bytes()).hexdigest()
-        for path in paths
-    }}
+    payload = {"commit": sha, "files": {path: hashlib.sha256((directory / path).read_bytes()).hexdigest() for path in paths}}
     (directory / "build-info.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -176,11 +167,13 @@ def wait_for_release(base, sha, timeout):
     last_error = None
     while True:
         try:
+
             def fetch(path):
                 url = urljoin(base, path) + f"?revision={sha}&check={time.time_ns()}"
                 request = Request(url, headers={"Cache-Control": "no-cache"})
                 with urlopen(request, timeout=20) as response:
                     return response.read()
+
             info = json.loads(fetch("build-info.json"))
             if info["commit"] != sha:
                 raise ValueError(f"Expected {sha}, got {info['commit']}")
@@ -211,7 +204,7 @@ def check_mermaid_script(page, source, pin):
 
 
 def check_browser(base, output, pin, package_name="mlib"):
-    from playwright.sync_api import sync_playwright, expect
+    from playwright.sync_api import expect, sync_playwright
 
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
@@ -219,14 +212,13 @@ def check_browser(base, output, pin, package_name="mlib"):
         try:
             for label, options in [
                 ("desktop", {"viewport": {"width": 1440, "height": 1000}}),
-                ("mobile", {"viewport": {"width": 390, "height": 844},
-                            "is_mobile": True, "has_touch": True}),
+                ("mobile", {"viewport": {"width": 390, "height": 844}, "is_mobile": True, "has_touch": True}),
             ]:
                 context = browser.new_context(**options)
                 context.tracing.start(screenshots=True, snapshots=True, sources=True)
                 page = context.new_page()
                 errors = []
-                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
                 try:
                     for index, (source, destination) in enumerate(_cases(package_name)):
                         response = page.goto(urljoin(base, source), wait_until="networkidle")
@@ -286,8 +278,7 @@ def main():
     target.add_argument("--directory", type=Path)
     target.add_argument("--url")
     target.add_argument("--stamp-directory", type=Path)
-    target.add_argument("--check-directory", type=Path,
-                        help="check built HTML without a browser (Mermaid pin, no bundled Mermaid)")
+    target.add_argument("--check-directory", type=Path, help="check built HTML without a browser (Mermaid pin, no bundled Mermaid)")
     parser.add_argument("--sha", help="commit expected in build-info.json (not used by --check-directory)")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[1] / "__tests__/_output/docs-browser")
@@ -300,8 +291,7 @@ def main():
     pin = read_mermaid_pin(conf_path)
     if args.check_directory:
         pages = check_built_html(args.check_directory, pin, args.package_name)
-        print(f"Verified {pages} HTML pages: Mermaid is loaded only from {pin['src']} "
-              "with the SRI pinned in _docs/source/conf.py, and is not bundled.")
+        print(f"Verified {pages} HTML pages: Mermaid is loaded only from {pin['src']} with the SRI pinned in _docs/source/conf.py, and is not bundled.")
         return
     if args.stamp_directory:
         stamp(args.stamp_directory, args.sha, args.package_name)
@@ -321,7 +311,7 @@ def main():
         message = f"Verified commit {args.sha}: publication files and 8 Chromium click cases passed."
         print(message)
         if os.environ.get("GITHUB_STEP_SUMMARY"):
-            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+            with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
                 summary.write(message + "\n")
     finally:
         if server:

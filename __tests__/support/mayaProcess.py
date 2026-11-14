@@ -1,4 +1,5 @@
 """テスト専用プロセスを、Maya側のイベントループに依存せず監視する。"""
+
 import json
 import os
 import subprocess
@@ -19,8 +20,7 @@ def stop_owned_process(process):
         return
     if os.name == "nt":
         try:
-            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         except subprocess.TimeoutExpired:
             pass
     if process.poll() is None:
@@ -50,8 +50,13 @@ def monitor_process(process, directory, timeout, shutdown_timeout, poll_seconds=
         limit = shutdown_timeout if phase == "shutdown" else timeout
         if now - phase_start >= limit:
             stop_owned_process(process)
-            return {"timed_out": True, "timeout_phase": phase, "timeout_seconds": limit,
-                    "suite_status": result.get("status", "not_started"),
-                    "owned_process_stopped": process.poll() is not None, "phases": history}
+            return {
+                "timed_out": True,
+                "timeout_phase": phase,
+                "timeout_seconds": limit,
+                "suite_status": result.get("status", "not_started"),
+                "owned_process_stopped": process.poll() is not None,
+                "phases": history,
+            }
         time.sleep(poll_seconds)
     return {"timed_out": False, "exit_code": process.returncode, "phases": history}

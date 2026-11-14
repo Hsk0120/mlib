@@ -3,6 +3,17 @@
 mlib本体とこのフォルダだけで実行できます。
 外部ライブラリ・mlibを使う側のパッケージ・mlib拡張は、本体テストの必須依存に含めません。
 
+書いた後に流す順番は[../CONTRIBUTING.md](../CONTRIBUTING.md)を正とします。ゲートは1つの入口で通せます。
+
+```powershell
+..\_tools\verify.bat --no-pause
+```
+
+`verify.bat`は 整形とlint → 公開名の一致 → `runNoMaya.py` → `run.bat`(Maya 2027)を順に実行し、
+最初に失敗した工程で止まります。`--check`は書き換えずに検査だけ、`--no-maya`は前半3つだけを実行します。
+型スタブ(`..\_tools\generate_mlib_stubs.bat`)とSphinx(`..\_docs\rebuild.bat`)はその後の任意の工程で、
+ゲートはどちらも検査しません。
+
 ## フォルダ
 
 ```text
@@ -10,14 +21,15 @@ __tests__/
 ├─ README.md          この手順
 ├─ run.bat            Maya版テストのWindows用入口
 ├─ runMaya.py         mayapyで単体・結合テストを実行
-├─ runStatic.py       Maya不要の単体テスト・静的検査
+├─ runNoMaya.py       Maya不要のテストを実行
 ├─ runGui.py          専用Maya GUIで単体・結合・表示を確認
 ├─ runAll.py          テスト探索・実行・ログ集計
-├─ static/           通常のPythonで動くテスト(Maya不要。runStatic.py)
-├─ unit/             1つのモジュールを確かめるテスト。ソースと同じパッケージ名のフォルダーに分ける
-│  ├─ cmds/ nodes/ plugs/ components/ maths/ common/ core/ json/
-│  └─ root/          mlib直下のモジュール(decorator.py・util.py・logger.py・__init__.py 等)
-├─ integration/      複数のパッケージにまたがる確認。フォルダーを作らず、名前の先頭に観点を書く
+├─ noMaya/           Mayaを起動せずに動くテスト(runNoMaya.py)
+├─ inMaya/           mayapyで動くテスト(run.bat・runMaya.py)
+│  ├─ unit/          1つのモジュールを確かめるテスト。ソースと同じパッケージ名のフォルダーに分ける
+│  │  ├─ cmds/ nodes/ plugs/ components/ maths/ common/ core/ json/
+│  │  └─ root/       mlib直下のモジュール(decorator.py・util.py・logger.py・__init__.py 等)
+│  └─ integration/   複数のパッケージにまたがる確認。フォルダーを作らず、名前の先頭に観点を書く
 ├─ support/          共通基底(namespaceCase.py)、GUI内の実行・プロセス監視の補助
 └─ _output/          結果・ログ・専用Maya設定（Git対象外）
 ```
@@ -36,8 +48,8 @@ __tests__/
 PowerShellで実行します。
 
 ```powershell
-# 通常Pythonで動く単体テストと、公開名・コード配置の検査
-py -3 .\runStatic.py
+# Maya不要のテスト(リントは ..\_tools\verify.bat が持つ)
+py -3 .\runNoMaya.py
 
 # Mayaのインストール状況を確認するだけ
 .\run.bat --list
@@ -76,10 +88,10 @@ Mayaが標準配置にない場合は、`--install-root D:\Autodesk`、または
 
 | 区分 | ファイル | 主な確認内容 |
 | --- | --- | --- |
-| 単体 | `unit/cmds/test_delete.py` | 入力型、削除前の拒否、接続された子孫の保護、保持参照の復元 |
-| 単体 | `unit/plugs/test_plug_basics.py` | 基本型の値、接続の置換・切断、ロック、疎なマルチアトリビュート、内部単位 |
-| 単体 | `unit/nodes/test_transform.py` | ローカル/ワールド、TRS、回転順序、親変更、反転不能な親 |
-| 結合 | `integration/test_workflow_scene.py` | DG評価、接続と削除、親子変更、複数操作のUndoと例外時の巻戻し |
+| 単体 | `inMaya/unit/cmds/test_delete.py` | 入力型、削除前の拒否、接続された子孫の保護、保持参照の復元 |
+| 単体 | `inMaya/unit/plugs/test_plug_basics.py` | 基本型の値、接続の置換・切断、ロック、疎なマルチアトリビュート、内部単位 |
+| 単体 | `inMaya/unit/nodes/test_transform.py` | ローカル/ワールド、TRS、回転順序、親変更、反転不能な親 |
+| 結合 | `inMaya/integration/test_workflow_scene.py` | DG評価、接続と削除、親子変更、複数操作のUndoと例外時の巻戻し |
 
 ```powershell
 # 基本操作の単体テストだけ
@@ -129,23 +141,23 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 ## テストを追加する
 
 フォルダーは「どう動かすか・どの範囲か」、ファイル名は「何を確かめるか」で決めます。
-`static/test_runAll.py` がこの規則を検査します。
+`noMaya/test_runAll.py` がこの規則を検査します。
 
 | 置き場所 | 置くもの | ファイル名 |
 |---|---|---|
-| `static/` | Maya不要のもの(`runStatic.py` が実行し、Maya版ランナーは探さない) | `test_<対象>[_<話題>].py` |
-| `unit/<パッケージ>/` | 1つのモジュールを確かめるもの | `test_<モジュール>[_<話題>].py` |
-| `integration/` | 複数のパッケージにまたがるもの | `test_<観点>[_<話題>].py` |
+| `noMaya/` | Mayaを起動せずに動くもの(`runNoMaya.py` が実行し、Maya版ランナーは探さない) | `test_<対象>[_<話題>].py` |
+| `inMaya/unit/<パッケージ>/` | 1つのモジュールを確かめるもの | `test_<モジュール>[_<話題>].py` |
+| `inMaya/integration/` | 複数のパッケージにまたがるもの | `test_<観点>[_<話題>].py` |
 
 - `_` は区切りにだけ使い、各部分は lowerCamelCase にします(`test_skinCluster_weights.py`)。
-- 対象はソースのファイル名をそのまま書きます(`nodes/skinCluster.py` → `unit/nodes/test_skinCluster.py`)。
+- 対象はソースのファイル名をそのまま書きます(`nodes/skinCluster.py` → `inMaya/unit/nodes/test_skinCluster.py`)。
   パッケージの `__init__.py` は `init`、先頭の `_` は付けません(`nodes/_calculation.py` → `test_calculation.py`)。
-  mlib直下のモジュールは `unit/root/` に置きます。スネークケースのツール(`_tools/check_mlib_exports.py`)は
-  lowerCamelCase に直して書きます(`static/test_checkMlibExports.py`)。
-- `integration/` の観点は `naming`(公開名・引数名) `units`(角度・時間・長さ) `fast`(fast経路)
+  mlib直下のモジュールは `inMaya/unit/root/` に置きます。スネークケースのツール(`_tools/check_mlib_exports.py`)は
+  lowerCamelCase に直して書きます(`noMaya/test_checkMlibExports.py`)。
+- `inMaya/integration/` の観点は `naming`(公開名・引数名) `units`(角度・時間・長さ) `fast`(fast経路)
   `parity`(cmds・OpenMayaとの突き合わせ) `undo` `errors`(例外・案内文・事前検査) `interop`(cmdsとの受け渡し)
   `performance` `workflow`(実作業の流れ) `reload` `compat`(Mayaの版の違い) のどれかです。
-- GUIが要るものは話題を `gui` にします(`unit/common/test_scriptJobs_gui.py`)。
+- GUIが要るものは話題を `gui` にします(`inMaya/unit/common/test_scriptJobs_gui.py`)。
 - 名前に `spec`・`refactoring`・`consolidated`・`changes`・`additions`・`backlog`・`misc`・`api`・`contracts`
   や `_A` などの記号・番号を使いません。何を確かめるかが分からなくなるためです。
 - 調査用の使い捨てスクリプトはリポジトリに入れません。残す価値がある確認はテストとして書きます。
@@ -169,7 +181,36 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 
 ## コードの書式を検査する
 
-この`__tests__`フォルダから実行します。Mayaは不要です。
+Mayaは不要です。整形はruffが行うので、初回だけ`_tools\setup.bat`を実行し、普段は`_tools\format_mlib.bat`を使います。
+
+```powershell
+# 整形して、ruffが直せない分を表示する
+..\_tools\format_mlib.bat --no-pause
+# 何も変えずに検査する(コミット前・workflowと同じ)
+..\_tools\format_mlib.bat --check --no-pause
+```
+
+`ruff format`が空白・空行・改行位置・引用符を直し、`ruff check --fix`がimportの並び・未使用名・Mayaのimport形式・
+文字コードの明示(`PLW1514`)・`os.path`から`pathlib`への置換(`PTH`)・`.format()`から f-string への置換(`UP`)を直します。
+選んでいるルールと除外の理由は`ruff.toml`に1行ずつ書いてあります。別の版のruffは`required-version`で実行を拒否し、
+previewのルールは`explicit-preview-rules`でコードを明示したものだけ有効にしています。
+日本語の文中でも括弧は半角`()`で書きます(`RUF001`〜`003`。「ノ」「×」等は`allowed-confusables`で許可しています)。
+未使用の引数(`ARG`)も報告します。互換のために残す引数は置かず削除し、基底クラスの契約・Mayaのコールバック等で必要なものだけ
+`# noqa: ARG002`と理由を書いて残します。
+設定は`ruff.toml`(行幅160)、ruffの版は`_tools/requirements-dev.txt`で固定しています。
+`logger.py`・`decorator.py`はフレームのファイル名を`os.path.normcase`で大小を無視して比べるため`PTH`の対象外で、
+テストはパスをMayaのコマンドへ文字列で渡すため`PTH`と`B023`(ループ内で作って同じ周回で呼び切る関数)の対象外です。
+`setup.bat`は`_tools/.venv`を作ってそこへruffを入れます(Sphinxの`_docs/setup.bat`と同じ作りで、`py -3.14`〜`py -3.9`を新しい順に探し、Pythonが無ければMaya 2027〜2023のmayapyで`_tools/.mayapy-site`へ入れます)。
+既存の`.venv`は再利用します。壊れたときは`.venv`を`.venv-backup`へ名前変更してから`setup.bat`を実行し直してください。
+`format_mlib.bat`と`check_mlib_layout.bat`はこの`.venv`を優先して使い、無ければPATHのruffや`py`のPythonを探します。
+`.pyi`(生成物)・`_docs`・`*.md`は対象外です。
+
+以下は、ruffが扱わない検査(定数・`__all__`・`if TYPE_CHECKING:`の位置、クラス内メンバー順、公開入口の入力assert、列挙、
+内部名とfunction setの取得・関数内importの理由コメント、例外の文言とUndoチャンク名・fastの受け取り、docstringの見出し・
+Raisesの並び・固定文・用語・公開定数の説明・`Args:`の名前と位置引数の順・残った`TODO`、
+Python 3.7で動く書き方とpropertyのgetter)を
+個別に見るときの実行方法です。
+この`__tests__`フォルダから実行します。
 
 ```powershell
 # 本体全体、または指定ファイルを検査する
@@ -185,7 +226,7 @@ Windowsでは`_tools\check_mlib_layout.bat`でも同じ検査と修正ができ�
 # 本体全体、または指定ファイルを検査する(--checkは省ける)
 ..\_tools\check_mlib_layout.bat --no-pause
 ..\_tools\check_mlib_layout.bat ..\nodes\node.py --no-pause
-# import順・クラス内の順・空行を直してから、残った違反を表示する
+# クラス内メンバーの順を直してから、残った違反を表示する(その後に`format_mlib.bat`で整形する)
 ..\_tools\check_mlib_layout.bat --fix --no-pause
 ..\_tools\check_mlib_layout.bat --fix ..\nodes\node.py --no-pause
 ```
@@ -193,18 +234,13 @@ Windowsでは`_tools\check_mlib_layout.bat`でも同じ検査と修正ができ�
 `--fix-asserts`・`--outline`等のほかの引数は、そのまま`check_mlib_layout.py`へ渡します。
 
 違反があればファイル・行番号・検査コード・内容を表示し、終了コード1を返します。
-`L030`は代入・比較演算子、`L031`はカンマ・括弧、`L032`は引数の`=`、
-`L033`は行末コメントの空白、`L034`は名前へ直接代入するlambdaです。
-文字列内部とf-stringの埋込み式は対象外です。引数として渡すlambdaは許可します。
-Sphinxの説明コメント`#:`は維持し、コードとの間の空白だけを検査します。
+`L004`は定数、`L005`は文字列の並びの`__all__`(他の名前から組み立てる`__all__`は定義の後ろでもよい)、`L006`は`if TYPE_CHECKING:`の位置、
+`L020`〜`L022`はクラス内メンバーの順と対になる操作の隣接、`L023`はその並び検査をスキップしたクラスです。
+`--fix`が直すのはクラス内メンバーの順だけで、並べ替えた後の空行は`ruff format`が直します。
+`..\_tools\verify.bat`からも同じ検査を実行します(`runNoMaya.py`はテストだけを実行します)。
 
-既存の`--fix`が直すのはimport順・クラス内の順・空行です。
-上記5項目は検査のみで自動修正しません。`runStatic.py`からも同じ検査を実行します。
-
-`L040`は公開入口の冒頭にある入力検証のassert、`L043`は判定できるテキストファイルAPIの
-文字コード未指定を報告します。`L041`（単純な列挙）・`L042`（pathlibへの置換）は確認候補の情報表示です。
-これらはコードの意図を完全には判別しません。テスト・内部整合性のassert、添字更新、
-バイナリ、MayaのDAGパス等は一律に変更しません。
+`L040`は公開入口の冒頭にある入力検証のassertを報告し、`L041`（単純な列挙）は確認候補の情報表示です。
+これらはコードの意図を完全には判別しません。テスト・内部整合性のassertや添字更新は一律に変更しません。
 
 入力assertを確認した後、適切な例外型と報告された行番号を指定すると、その行だけを修正できます。
 次は`node.py`の12行目がL040として報告された場合の例です。実際の対象と行番号へ置き換えてください。
@@ -214,16 +250,27 @@ py -3 ..\_tools\check_mlib_layout.py --fix-asserts TypeError ..\nodes\node.py --
 py -3 ..\_tools\check_mlib_layout.py --check ..\nodes\node.py
 ```
 
+docstringが無い`def`には、署名と本文から組み立てた雛形を入れられます。
+書けない説明は`TODO`で残り、埋め忘れは`L077`(情報表示)に出ます。既存のdocstringは書き換えません。
+
+```powershell
+py -3 ..\_tools\check_mlib_layout.py --template-docstrings ..\nodes\joint.py
+```
+
+`TODO`は型として読まれない形(引数は型を省き、戻り値はコロンを書かない)にしてあるため、
+埋める前でも型スタブの生成とSphinxのビルドは止まりません。
+
 値の範囲等の検証には`ValueError`も選べます。`--line`は繰り返し指定できます。
 例外型は推測せず、選択されたassertの条件とメッセージをraiseへ移します。
 コメントを含む場合や同じ行に他の文がある場合は、保存前に拒否します。
 修正後は例外型が変わるため、呼出し側と該当APIのテストも確認してください。
-`enumerate`・`pathlib`への置換と文字コードの選択は、内容を確認して手動で行います。
+`enumerate`への置換は、内容を確認して手動で行います。
 
 ## 文書の検査
 
 `_docs`のビルド後、同じ文書用Pythonで実行します。
 `check_mlib_doc_getter_names.py`はSphinxがビルド時に保存したpickleを読み込むので、自分でビルドした結果だけに使います。
+この検査も任意の工程で、静的解析とMayaのテストには含まれません。
 
 ```powershell
 ..\_docs\.venv\Scripts\python.exe ..\_tools\check_mlib_docs.py --check-directory ..\_docs\_build\html

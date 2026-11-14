@@ -39,11 +39,7 @@ class PointOnCurveInfo(Node):
             ValueError: ジオメトリの入力のTransformに、対応するシェイプが1つだけでない場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "inputCurve": inputCurve,
-            "parameter": parameter,
-            "turnOnPercentage": turnOnPercentage,
-        }, _GEOMETRY)
+        return _calculation.set_inputs(self, "setInput", {"inputCurve": inputCurve, "parameter": parameter, "turnOnPercentage": turnOnPercentage}, _GEOMETRY)
 
     def getResult(self, kind="position"):
         """出力の現在の値を取得する。

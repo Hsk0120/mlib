@@ -50,8 +50,9 @@ def _record_chain_angles(start, end):
         joint = parents[0] if parents else None
 
 
-def createIkHandle(startJoint=_UNSET, endJoint=_UNSET, solver=_UNSET, name=_UNSET, curve=_UNSET, *,
-        sj=_UNSET, ee=_UNSET, sol=_UNSET, n=_UNSET, c=_UNSET, **kwargs):
+def createIkHandle(
+    startJoint=_UNSET, endJoint=_UNSET, solver=_UNSET, name=_UNSET, curve=_UNSET, *, sj=_UNSET, ee=_UNSET, sol=_UNSET, n=_UNSET, c=_UNSET, **kwargs
+):
     """start jointからend jointまでのIKハンドルとエフェクターを作成する。
 
     エフェクター(ikEffector)はMayaの規則どおりend jointの1つ上のjointの子に作られ、:meth:`~mlib.nodes.IkHandle.getEffector` で取得できる。

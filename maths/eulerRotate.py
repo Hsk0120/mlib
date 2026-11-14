@@ -301,7 +301,7 @@ class EulerRotate(om2.MEulerRotation):
             内部値はラジアンのまま。
         """
         values = ", ".join(f"{value:.15g}" for value in self.asDegrees())
-        return "{}(degrees=({}), order={!r})".format(type(self).__name__, values, self.orderName)
+        return f"{type(self).__name__}(degrees=({values}), order={self.orderName!r})"
 
     __str__ = __repr__
 
@@ -727,8 +727,7 @@ class EulerRotate(om2.MEulerRotation):
         matrix = self.asMatrix().mirror(axis)
         rotation = matrix.quaternion.asEulerRotate()
         rotation.reorderIt(self.order)
-        result = type(self)._wrap(rotation)
-        return result
+        return type(self)._wrap(rotation)
 
     def mirrorIt(self, axis="x"):
         """自身の向きをビヘイビアミラーする。
@@ -791,6 +790,7 @@ class EulerRotate(om2.MEulerRotation):
         Returns:
             Matrix: 回転だけを持つ4行4列のマトリクス。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .matrix import Matrix
 
         return Matrix._wrap(_MEuler.asMatrix(self))
@@ -902,6 +902,7 @@ class EulerRotate(om2.MEulerRotation):
         Returns:
             Vector: 演算結果を保持する新しいmlib値。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .vector import Vector
 
         return Vector(_MEuler.asVector(self, *args))

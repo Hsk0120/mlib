@@ -142,6 +142,7 @@ class Face(Component):
         """
         # vertexFace.py が face.py を import するため、循環を避けて呼出し時に読む。
         from .vertexFace import VertexFaces
+
         self._require_valid()
         vertices = self.shape._geometry_fn().getPolygonVertices(self.index)
         return VertexFaces(self.shape, [(vertex, self.index) for vertex in vertices])
@@ -200,8 +201,9 @@ class Face(Component):
         return self._iterator().isConvex()
 
     def isLamina(self):
-        """ラミナフェース(別のフェースとすべてのエッジを共有する重なったフェース)か照会する
-        (``MItMeshPolygon.isLamina``)。
+        """ラミナフェースか照会する(``MItMeshPolygon.isLamina``)。
+
+        ラミナフェースは、別のフェースとすべてのエッジを共有する重なったフェース。
 
         Returns:
             bool: ラミナフェースならTrue。
@@ -311,8 +313,7 @@ class Faces(Components):
         Returns:
             Vertices: 保持順に集め、重複を除いた頂点群。
         """
-        if not (self._uses_standard_iteration(Face) and self._uses_standard_vertices()
-                and Face.getVertices is _FACE_GET_VERTICES):
+        if not (self._uses_standard_iteration(Face) and self._uses_standard_vertices() and Face.getVertices is _FACE_GET_VERTICES):
             return Vertices(self.shape, (v.index for item in self for v in item.getVertices()))
         indices = self._mesh_vertex_indices("numPolygons", "getPolygonVertices")
         return Vertices(self.shape, indices)
@@ -331,6 +332,7 @@ class Faces(Components):
         """
         # edge.py が face.py を import するため、循環を避けて呼出し時に読む。
         from .edge import Edges
+
         self._require_valid()
         iterator = om2.MItMeshPolygon(self.shape.mpath())
         found = set()

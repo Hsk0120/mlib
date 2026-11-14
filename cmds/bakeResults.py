@@ -125,8 +125,7 @@ def _attribute_names(attributes):
     """
     if attributes is None:
         return None
-    names = [attributes] if isinstance(attributes, str) else list(attributes) if isinstance(
-        attributes, (list, tuple)) else None
+    names = [attributes] if isinstance(attributes, str) else list(attributes) if isinstance(attributes, (list, tuple)) else None
     if names is None or not all(isinstance(name, str) for name in names):
         raise TypeError("attributes must be an attribute name, a sequence of names, or None")
     if not names or not all(names):
@@ -180,8 +179,7 @@ def _driving_curves(owner, names):
                 continue
             wanted.add(cmds.attributeQuery(_attribute_base(name), node=owner, longName=True))
             wanted.update(cmds.attributeQuery(_attribute_base(name), node=owner, listChildren=True) or [])
-    pairs = cmds.listConnections(owner, source=True, destination=False, type="animCurve", connections=True,
-                                 skipConversionNodes=True) or []
+    pairs = cmds.listConnections(owner, source=True, destination=False, type="animCurve", connections=True, skipConversionNodes=True) or []
     curves = []
     for destination, curve in zip(pairs[::2], pairs[1::2]):
         if _attribute_base(destination.split(".", 1)[1]) in wanted and curve not in curves:

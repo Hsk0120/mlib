@@ -235,7 +235,7 @@ class Snapshot:
             float: 現在のシーンのフレーム。取得したばかり(ヘッダー無し)ならそのまま。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """データの形を確かめる。各種類が上書きする。
 
         Args:

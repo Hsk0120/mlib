@@ -4,32 +4,63 @@ import maya.api.OpenMaya as om2
 
 from .nodeEdit import require_editable
 
-
 _NUMERIC_TYPES = {
-    "bool": om2.MFnNumericData.kBoolean, "byte": om2.MFnNumericData.kByte,
-    "char": om2.MFnNumericData.kChar, "short": om2.MFnNumericData.kShort,
-    "long": om2.MFnNumericData.kInt, "float": om2.MFnNumericData.kFloat,
+    "bool": om2.MFnNumericData.kBoolean,
+    "byte": om2.MFnNumericData.kByte,
+    "char": om2.MFnNumericData.kChar,
+    "short": om2.MFnNumericData.kShort,
+    "long": om2.MFnNumericData.kInt,
+    "float": om2.MFnNumericData.kFloat,
     "double": om2.MFnNumericData.kDouble,
 }
 _DATA_TYPES = {
-    "string": om2.MFnData.kString, "stringArray": om2.MFnData.kStringArray,
-    "doubleArray": om2.MFnData.kDoubleArray, "floatArray": om2.MFnData.kFloatArray,
-    "Int32Array": om2.MFnData.kIntArray, "vectorArray": om2.MFnData.kVectorArray,
-    "pointArray": om2.MFnData.kPointArray, "matrixArray": om2.MFnData.kMatrixArray,
-    "componentList": om2.MFnData.kComponentList, "matrix": om2.MFnData.kMatrix,
-    "mesh": om2.MFnData.kMesh, "nurbsCurve": om2.MFnData.kNurbsCurve,
-    "nurbsSurface": om2.MFnData.kNurbsSurface, "lattice": om2.MFnData.kLattice,
+    "string": om2.MFnData.kString,
+    "stringArray": om2.MFnData.kStringArray,
+    "doubleArray": om2.MFnData.kDoubleArray,
+    "floatArray": om2.MFnData.kFloatArray,
+    "Int32Array": om2.MFnData.kIntArray,
+    "vectorArray": om2.MFnData.kVectorArray,
+    "pointArray": om2.MFnData.kPointArray,
+    "matrixArray": om2.MFnData.kMatrixArray,
+    "componentList": om2.MFnData.kComponentList,
+    "matrix": om2.MFnData.kMatrix,
+    "mesh": om2.MFnData.kMesh,
+    "nurbsCurve": om2.MFnData.kNurbsCurve,
+    "nurbsSurface": om2.MFnData.kNurbsSurface,
+    "lattice": om2.MFnData.kLattice,
 }
 _PROPERTIES = {
-    "keyable": "keyable", "hidden": "hidden", "readable": "readable",
-    "writable": "writable", "storable": "storable", "connectable": "connectable",
-    "multi": "array", "indexMatters": "indexMatters", "cachedInternally": "cached",
-    "usedAsColor": "usedAsColor", "usedAsFilename": "usedAsFilename",
+    "keyable": "keyable",
+    "hidden": "hidden",
+    "readable": "readable",
+    "writable": "writable",
+    "storable": "storable",
+    "connectable": "connectable",
+    "multi": "array",
+    "indexMatters": "indexMatters",
+    "cachedInternally": "cached",
+    "usedAsColor": "usedAsColor",
+    "usedAsFilename": "usedAsFilename",
 }
-_DEFINITION_FLAGS = {"longName", "shortName", "attributeType", "dataType", "defaultValue",
-                     "minValue", "maxValue", "softMinValue", "softMaxValue", "enumName",
-                     "niceName", "numberOfChildren", "disconnectBehaviour", "hasMinValue",
-                     "hasMaxValue", "hasSoftMinValue", "hasSoftMaxValue"} | set(_PROPERTIES)
+_DEFINITION_FLAGS = {
+    "longName",
+    "shortName",
+    "attributeType",
+    "dataType",
+    "defaultValue",
+    "minValue",
+    "maxValue",
+    "softMinValue",
+    "softMaxValue",
+    "enumName",
+    "niceName",
+    "numberOfChildren",
+    "disconnectBehaviour",
+    "hasMinValue",
+    "hasMaxValue",
+    "hasSoftMinValue",
+    "hasSoftMaxValue",
+} | set(_PROPERTIES)
 
 
 def _build(flags, children=None):
@@ -145,8 +176,7 @@ def _attach(node, attribute):
     modifier.doIt()
 
 
-def extra_children(name, flags, numeric, count, *, deferred, child_names,
-                   child_short_names, child_suffixes, sub_type):
+def extra_children(name, flags, numeric, count, *, deferred, child_names, child_short_names, child_suffixes, sub_type):
     """自動生成する子の名前・成分数を、親追加より前に検証する。
 
     Args:
@@ -173,14 +203,13 @@ def extra_children(name, flags, numeric, count, *, deferred, child_names,
     shorts = list(child_short_names or [])
     if len(names) != count or (shorts and len(shorts) != count):
         raise ValueError("Child name count does not match its type")
-    limits = {key: flags[key] for key in ("minValue", "maxValue", "softMinValue", "softMaxValue")
-              if key in flags}
+    limits = {key: flags[key] for key in ("minValue", "maxValue", "softMinValue", "softMaxValue") if key in flags}
     for value in list(limits.values()) + [deferred]:
         if isinstance(value, (tuple, list)) and len(value) != count:
             raise ValueError("Child value count does not match its type")
     children = []
     for index, child_name in enumerate(names):
-        child_flags = dict(parent=name, keyable=bool(flags.get("keyable", False)))
+        child_flags = {"parent": name, "keyable": bool(flags.get("keyable", False))}
         if shorts:
             child_flags["shortName"] = shorts[index]
         for key, value in limits.items():
@@ -241,18 +270,20 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
     # 通常経路で扱える型までfast専用の対応範囲へ狭めない。
     # factoryを持つ型だけ登録前に値を検査し、それ以外は既存のMaya処理へ渡す。
     data_type = flags.get("dataType")
-    if data_type in {"string", "matrix", "doubleArray", "Int32Array", "stringArray",
-                     "vectorArray", "pointArray", "matrixArray"}:
+    if data_type in {"string", "matrix", "doubleArray", "Int32Array", "stringArray", "vectorArray", "pointArray", "matrixArray"}:
+        # core の初期化順に依存しないよう、使う時点で読み込む。
         from .fastWrite import prepare_data
+
         if data_type == "matrix":
+            # 循環参照の回避: maths は core を参照するため、使う時点で読み込む。
             from ..maths import Matrix
+
             deferred = Matrix(deferred)
         attribute = _build({"longName": name, "dataType": data_type})
         prepare_data(attribute, deferred, name=name)
 
 
-def create_extra_attribute(node, name, flags, numeric, count, *, deferred,
-                           child_names, child_short_names, child_suffixes, sub_type):
+def create_extra_attribute(node, name, flags, numeric, count, *, deferred, child_names, child_short_names, child_suffixes, sub_type):
     """Node.addAttrの親子定義を登録前に全て作る。
 
     Args:
@@ -279,9 +310,17 @@ def create_extra_attribute(node, name, flags, numeric, count, *, deferred,
     flags = dict(flags)
     children = []
     if count:
-        definitions = extra_children(name, flags, numeric, count, deferred=deferred,
-                                     child_names=child_names, child_short_names=child_short_names,
-                                     child_suffixes=child_suffixes, sub_type=sub_type)
+        definitions = extra_children(
+            name,
+            flags,
+            numeric,
+            count,
+            deferred=deferred,
+            child_names=child_names,
+            child_short_names=child_short_names,
+            child_suffixes=child_suffixes,
+            sub_type=sub_type,
+        )
         for key in ("minValue", "maxValue", "softMinValue", "softMaxValue"):
             flags.pop(key, None)
         for child_name, child_type, child_flags in definitions:
@@ -292,16 +331,22 @@ def create_extra_attribute(node, name, flags, numeric, count, *, deferred,
     attribute = _build(flags, children)
     prepared = None
     if deferred is not None and not count:
+        # core の初期化順に依存しないよう、使う時点で読み込む。
         from .fastWrite import prepare_data
+
         definition = om2.MFnAttribute(attribute)
         if definition.array:
             raise TypeError("Set a multi element instead of the multi attribute")
         if not definition.writable:
             raise RuntimeError(f"Attribute is not writable: {name}")
-        if (attribute.hasFn(om2.MFn.kMatrixAttribute) or
-                attribute.hasFn(om2.MFn.kTypedAttribute) and
-                om2.MFnTypedAttribute(attribute).attrType() == om2.MFnData.kMatrix):
+        if (
+            attribute.hasFn(om2.MFn.kMatrixAttribute)
+            or attribute.hasFn(om2.MFn.kTypedAttribute)
+            and om2.MFnTypedAttribute(attribute).attrType() == om2.MFnData.kMatrix
+        ):
+            # 循環参照の回避: maths は core を参照するため、使う時点で読み込む。
             from ..maths import Matrix
+
             deferred = Matrix(deferred)
         prepared = prepare_data(attribute, deferred, name=name)
     _attach(node, attribute)

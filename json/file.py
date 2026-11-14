@@ -170,8 +170,13 @@ class Header:
         Returns:
             dict: ``format``・``version``・``mlib``・``maya``・``units`` を持つ新しい辞書。
         """
-        return {"format": self._format, "version": self._version, "mlib": self._mlib, "maya": self._maya,
-                "units": {"linear": _LINEAR_UNIT, "angle": _ANGLE_UNIT, "time": _TIME_UNIT, "fps": self._fps}}
+        return {
+            "format": self._format,
+            "version": self._version,
+            "mlib": self._mlib,
+            "maya": self._maya,
+            "units": {"linear": _LINEAR_UNIT, "angle": _ANGLE_UNIT, "time": _TIME_UNIT, "fps": self._fps},
+        }
 
 
 def currentFps():
@@ -207,18 +212,21 @@ def dump(data, path, format, version):
         raise TypeError("data must be a dict")
     # 循環参照の回避: mlib.__version__ はパッケージの初期化の最後に設定される。
     from .. import __version__
+
     header = Header(format, version, __version__, cmds.about(version=True))
     payload = {"header": header.toData(), "data": encode(data)}
     text = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
     destination = Path(os.fspath(path)).resolve()
     descriptor, temporary = tempfile.mkstemp(prefix=".mlib-", suffix=".json", dir=str(destination.parent))
+    leftover = Path(temporary)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
             stream.write(text + "\n")
-        os.replace(temporary, str(destination))
+        leftover.replace(destination)
     finally:
-        if os.path.exists(temporary):
-            os.remove(temporary)
+        # Path.unlink(missing_ok=True)はPython 3.8以降のため、存在を確かめてから消す。
+        if leftover.exists():
+            leftover.unlink()
     return destination
 
 
@@ -239,7 +247,7 @@ def load(path, format, version):
         ValueError: JSONとして読めない、形式が違う、形式名・版が期待と違う、または単位が対応外の場合。
         OSError: 読み込みに失敗した場合。
     """
-    with open(os.fspath(path), encoding="utf-8") as stream:
+    with Path(path).open(encoding="utf-8") as stream:
         try:
             payload = json.load(stream)
         except json.JSONDecodeError as error:

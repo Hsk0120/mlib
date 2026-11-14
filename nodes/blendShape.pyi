@@ -1175,7 +1175,7 @@ def _data_index(value: object, label: str) -> int:
     """
     ...
 
-def _check_sparse(value: object, count: int):
+def _require_sparse(value: object, count: int):
     """:func:`_sparse` の形と頂点番号の範囲を検証する。
 
     Args:
@@ -1187,7 +1187,7 @@ def _check_sparse(value: object, count: int):
     """
     ...
 
-def _check_target(target: object, counts: dict[int, int], report: ValidationReport) -> dict | None:
+def _validated_target(target: object, counts: dict[int, int], report: ValidationReport) -> dict | None:
     """1つのターゲットのデータを検証する。
 
     ベースが見つからない・頂点数が違うものはreportへ記録する(ベースの検査で記録済み)。

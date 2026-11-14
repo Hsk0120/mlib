@@ -430,7 +430,7 @@ class DagNode(Node):
 
         Returns:
             int | tuple[float, float, float] | None: ``overrideEnabled`` が無効ならNone。
-                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラーインデックス(0は既定色)。
+                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラー番号(0は既定色)。
 
         Raises:
             TypeError: shapeがbool以外の場合。
@@ -440,7 +440,7 @@ class DagNode(Node):
     def setOverrideColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ...) -> DagNode:
         """描画のオーバーライドで表示色を設定し、自身を返す。
 
-        ``overrideEnabled`` を有効にし、インデックス指定は ``overrideRGBColors`` を無効にして
+        ``overrideEnabled`` を有効にし、番号の指定は ``overrideRGBColors`` を無効にして
         ``overrideColor``、RGB指定は ``overrideRGBColors`` を有効にして ``overrideColorRGB`` を設定する。
         ``None`` は ``overrideEnabled`` を無効にする(表示タイプ等のほかのオーバーライドも効かなくなる)。
         TransformやJointでも直下のShapeではなく自身へ設定する(Mayaの描画のオーバーライドと同じく、Transformの
@@ -449,7 +449,7 @@ class DagNode(Node):
         OpenMayaで書き込み、Undoに記録しない。
 
         Args:
-            color (int | Sequence[float] | None): カラーインデックス(0〜31。0は既定色)、
+            color (int | Sequence[float] | None): カラー番号(0〜31。0は既定色)、
                 0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換は行わない。
             shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -459,7 +459,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: インデックスが0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
+            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
             RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
         """
         ...
@@ -482,11 +482,11 @@ class DagNode(Node):
 
         ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定する。``None`` は ``useOutlinerColor`` を
         無効にする。既定ではTransformやJointでも直下のShapeではなく自身へ設定する。
-        カラーインデックスは指定した時点のRGBへ変換して保持する(``outlinerColor`` はRGBだけを持つため)。
+        カラー番号は指定した時点のRGBへ変換して保持する(``outlinerColor`` はRGBだけを持つため)。
         GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
 
         Args:
-            color (int | Sequence[float] | None): カラーインデックス(0〜31)、0〜1の有限な数値3個の (r, g, b)、
+            color (int | Sequence[float] | None): カラー番号(0〜31)、0〜1の有限な数値3個の (r, g, b)、
                 または無効にするNone。
             shape (bool): Trueは直下の中間でないShapeへ設定する(Shapeが無ければ自身)。既定Falseは自身。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -496,7 +496,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・None以外(boolを含む)、またはshape・fastがbool以外の場合。
-            ValueError: インデックスが0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
+            ValueError: 番号が0〜31の範囲外、またはRGBの成分数が3でない・0〜1の範囲外の場合。
             RuntimeError: ノードが無効、またはロック・入力接続でMayaが設定を拒否した場合。
         """
         ...
@@ -745,10 +745,10 @@ class DagNode(Node):
         ...
 
 def _palette_color(index: int) -> tuple[float, float, float]:
-    """カラーインデックスのRGBを返す。
+    """カラー番号のRGBを返す。
 
     Args:
-        index (int): 0〜31のカラーインデックス。
+        index (int): 0〜31のカラー番号。
 
     Returns:
         tuple[float, float, float]: RGB。

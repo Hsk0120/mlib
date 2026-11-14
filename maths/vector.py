@@ -31,11 +31,7 @@ _NUMBER = (int, float)
 #: MVector のコンストラクタへそのまま渡せる om2 の3成分型。
 _OM2_POINT_TYPES = (_MPoint, om2.MFloatVector, om2.MFloatPoint)
 #: 軸の名前(小文字)から (成分の番号, 向き) への表。
-_AXIS_NAMES = {
-    "x": (0, 1.0), "+x": (0, 1.0), "-x": (0, -1.0),
-    "y": (1, 1.0), "+y": (1, 1.0), "-y": (1, -1.0),
-    "z": (2, 1.0), "+z": (2, 1.0), "-z": (2, -1.0),
-}
+_AXIS_NAMES = {"x": (0, 1.0), "+x": (0, 1.0), "-x": (0, -1.0), "y": (1, 1.0), "+y": (1, 1.0), "-y": (1, -1.0), "z": (2, 1.0), "+z": (2, 1.0), "-z": (2, -1.0)}
 
 
 def _resolve_mvector(value):
@@ -83,8 +79,14 @@ def _vector_operand(value):
         return value
     if type(value) in (tuple, list) and len(value) == 3:
         x, y, z = value
-        if (isinstance(x, _NUMBER) and isinstance(y, _NUMBER) and isinstance(z, _NUMBER)
-                and not isinstance(x, bool) and not isinstance(y, bool) and not isinstance(z, bool)):
+        if (
+            isinstance(x, _NUMBER)
+            and isinstance(y, _NUMBER)
+            and isinstance(z, _NUMBER)
+            and not isinstance(x, bool)
+            and not isinstance(y, bool)
+            and not isinstance(z, bool)
+        ):
             result = _MVector()
             result.x = x
             result.y = y
@@ -479,7 +481,7 @@ class Vector(om2.MVector):
         Returns:
             str: ``Translate(1.0, 2.0, 3.0)`` の形式の文字列。
         """
-        return "{}({!r}, {!r}, {!r})".format(type(self).__name__, self.x, self.y, self.z)
+        return f"{type(self).__name__}({self.x!r}, {self.y!r}, {self.z!r})"
 
     __str__ = __repr__
 
@@ -892,7 +894,7 @@ class Vector(om2.MVector):
         normal = None
         for index in range(1, len(vectors)):
             first = _MVector.__sub__(vectors[index], origin)
-            for other in vectors[index + 1:]:
+            for other in vectors[index + 1 :]:
                 cross = _MVector.__xor__(first, _MVector.__sub__(other, origin))
                 if cross.length() > 1e-12:
                     normal = cross.normal()
@@ -921,7 +923,9 @@ class Vector(om2.MVector):
             TypeError: axisが文字列・int以外の場合。
             ValueError: axisが不正、またはpivotが有限の3成分でない場合。
         """
+        # ミラーの引数解決だけで使うため、使う時点で読み込む(util は標準ライブラリしか参照しない)。
         from ..util import mirrorArguments
+
         axes, center = mirrorArguments(axis, pivot)
         values = list(self)
         for index in axes:
@@ -1050,6 +1054,7 @@ class Vector(om2.MVector):
         Returns:
             Quaternion: 演算結果を保持する新しいmlib値。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .quaternion import Quaternion
 
         return Quaternion._wrap(_MVector.rotateTo(self, *args))

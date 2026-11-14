@@ -61,8 +61,7 @@ class ScriptJobs:
             else:
                 del self._jobs[key]
         if failures:
-            raise RuntimeError(
-                f"Failed to stop scriptJobs: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
+            raise RuntimeError(f"Failed to stop scriptJobs: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
 
     @contextmanager
     def temporary(self):

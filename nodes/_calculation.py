@@ -81,8 +81,7 @@ def set_inputs(node, method, values, geometry=None):
     """
     node._require_valid(method)
     geometry = geometry or {}
-    plans = [(node.getPlug(name), _source(value, geometry.get(name)), value)
-             for name, value in values.items() if value is not None]
+    plans = [(node.getPlug(name), _source(value, geometry.get(name)), value) for name, value in values.items() if value is not None]
     with _edit_context(chunk_name(node, method), False, transaction=True):
         for target, source, value in plans:
             if source is not None:

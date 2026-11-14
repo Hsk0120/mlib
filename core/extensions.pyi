@@ -17,7 +17,7 @@ from typing import Any, Iterable
 from mlib.core.registry import NodeRegistry
 from types import ModuleType
 
-__all__ = ['status', 'getDiagnostics']
+__all__ = ['getDiagnostics', 'status']
 _states: dict
 _loading: bool
 _diagnosing: bool

@@ -18,8 +18,7 @@ from ..decorator import _pick_alias
 from ..util import _UNSET, _finite_vector
 
 
-def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UNSET, parent=None, *,
-        r=_UNSET, ax=_UNSET, n=_UNSET):
+def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, ax=_UNSET, n=_UNSET):
     """原点を中心とするポリゴンの球を作成し、そのシェイプを返す。
 
     fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
@@ -49,8 +48,7 @@ def createPolySphere(radius=_UNSET, subdivisions=(20, 20), axis=_UNSET, name=_UN
     name = _pick_alias(name, n, "name", "n", default=None)
     around, along = subdivision_counts(subdivisions, 2)
     axis = _axis(axis)
-    flags = {"radius": positive_size(radius, "radius"), "subdivisionsAxis": around, "subdivisionsHeight": along,
-             "axis": axis}
+    flags = {"radius": positive_size(radius, "radius"), "subdivisionsAxis": around, "subdivisionsHeight": along, "axis": axis}
     return create_poly(cmds.polySphere, flags, require_name(name), resolve_parent(parent))
 
 

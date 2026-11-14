@@ -18,25 +18,43 @@ from ..decorator import _merge_flags, undoChunk
 from ..util import _UNSET
 
 
-def select(nodes=None, *,
-        add=_UNSET,
-        addFirst=_UNSET, af=_UNSET,
-        all=_UNSET,
-        allDagObjects=_UNSET, ado=_UNSET,
-        allDependencyNodes=_UNSET, adn=_UNSET,
-        clear=_UNSET, cl=_UNSET,
-        containerCentric=_UNSET, cc=_UNSET,
-        deselect=_UNSET, d=_UNSET,
-        hierarchy=_UNSET, hi=_UNSET,
-        noExpand=_UNSET, ne=_UNSET,
-        replace=_UNSET, r=_UNSET,
-        symmetry=_UNSET, sym=_UNSET,
-        symmetrySide=_UNSET, sys=_UNSET,
-        toggle=_UNSET, tgl=_UNSET,
-        visible=_UNSET, vis=_UNSET,
-        query=_UNSET, q=_UNSET,
-        edit=_UNSET, e=_UNSET,
-        **kwargs):
+def select(
+    nodes=None,
+    *,
+    add=_UNSET,
+    addFirst=_UNSET,
+    af=_UNSET,
+    all=_UNSET,
+    allDagObjects=_UNSET,
+    ado=_UNSET,
+    allDependencyNodes=_UNSET,
+    adn=_UNSET,
+    clear=_UNSET,
+    cl=_UNSET,
+    containerCentric=_UNSET,
+    cc=_UNSET,
+    deselect=_UNSET,
+    d=_UNSET,
+    hierarchy=_UNSET,
+    hi=_UNSET,
+    noExpand=_UNSET,
+    ne=_UNSET,
+    replace=_UNSET,
+    r=_UNSET,
+    symmetry=_UNSET,
+    sym=_UNSET,
+    symmetrySide=_UNSET,
+    sys=_UNSET,
+    toggle=_UNSET,
+    tgl=_UNSET,
+    visible=_UNSET,
+    vis=_UNSET,
+    query=_UNSET,
+    q=_UNSET,
+    edit=_UNSET,
+    e=_UNSET,
+    **kwargs,
+):
     """指定したノード・アトリビュート・コンポーネントを選択する。
 
     フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
@@ -86,26 +104,30 @@ def select(nodes=None, *,
         ValueError: nodes の要素に空文字列、または削除済みの対象が含まれる場合。
         RuntimeError: Maya が選択を拒否した場合。
     """
-    _merge_flags(kwargs, (
-        (addFirst, af, "addFirst", "af"),
-        (allDagObjects, ado, "allDagObjects", "ado"),
-        (allDependencyNodes, adn, "allDependencyNodes", "adn"),
-        (clear, cl, "clear", "cl"),
-        (containerCentric, cc, "containerCentric", "cc"),
-        (deselect, d, "deselect", "d"),
-        (hierarchy, hi, "hierarchy", "hi"),
-        (noExpand, ne, "noExpand", "ne"),
-        (replace, r, "replace", "r"),
-        (symmetry, sym, "symmetry", "sym"),
-        (symmetrySide, sys, "symmetrySide", "sys"),
-        (toggle, tgl, "toggle", "tgl"),
-        (visible, vis, "visible", "vis"),
-        (query, q, "query", "q"),
-        (edit, e, "edit", "e"),
-        (add, _UNSET, "add", None),
-        (all, _UNSET, "all", None),
-    ))
+    _merge_flags(
+        kwargs,
+        (
+            (addFirst, af, "addFirst", "af"),
+            (allDagObjects, ado, "allDagObjects", "ado"),
+            (allDependencyNodes, adn, "allDependencyNodes", "adn"),
+            (clear, cl, "clear", "cl"),
+            (containerCentric, cc, "containerCentric", "cc"),
+            (deselect, d, "deselect", "d"),
+            (hierarchy, hi, "hierarchy", "hi"),
+            (noExpand, ne, "noExpand", "ne"),
+            (replace, r, "replace", "r"),
+            (symmetry, sym, "symmetry", "sym"),
+            (symmetrySide, sys, "symmetrySide", "sys"),
+            (toggle, tgl, "toggle", "tgl"),
+            (visible, vis, "visible", "vis"),
+            (query, q, "query", "q"),
+            (edit, e, "edit", "e"),
+            (add, _UNSET, "add", None),
+            (all, _UNSET, "all", None),
+        ),
+    )
     with undoChunk("mlibSelect"):
+        # 循環参照の回避: core は cmds を参照するため、使う時点で読み込む。
         from ..core.object import Object as _InputObject
 
         if nodes is None:

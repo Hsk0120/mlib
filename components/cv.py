@@ -23,7 +23,7 @@ class CV(PointComponent):
         """
         self._require_valid()
         index = command_indices(self.shape, [self.index])[0]
-        return "{}.cv[{}]".format(self.shape.getFullName(), index)
+        return f"{self.shape.getFullName()}.cv[{index}]"
 
 
 class CVs(PointComponents):
@@ -48,8 +48,7 @@ class CVs(PointComponents):
         """
         self._require_valid()
         name = self.shape.getFullName()
-        return ["{}.cv[{}]".format(name, index)
-                for index in command_indices(self.shape, self.indices)]
+        return [f"{name}.cv[{index}]" for index in command_indices(self.shape, self.indices)]
 
     def getCompactNames(self):
         """cmds用CV名を返す。周期CVの対応を保つため範囲へ圧縮しない。

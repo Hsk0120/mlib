@@ -238,8 +238,7 @@ def _get_range(start_flag, end_flag, unit):
     Returns:
         tuple[float, float]: (開始, 終了)。
     """
-    return (_from_ui(cmds.playbackOptions(query=True, **{start_flag: True}), unit),
-            _from_ui(cmds.playbackOptions(query=True, **{end_flag: True}), unit))
+    return (_from_ui(cmds.playbackOptions(query=True, **{start_flag: True}), unit), _from_ui(cmds.playbackOptions(query=True, **{end_flag: True}), unit))
 
 
 def _set_range(start_flag, end_flag, start, end, unit):

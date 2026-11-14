@@ -55,7 +55,7 @@ class DagPose(Node):
     def getMemberIndices(self) -> list[int]:
         """現在も接続された保存メンバーの論理番号を取得する。
 
-        members配列の既存番号のうち、入力接続がある要素だけを返す。切断済みの空要素を除き、
+        members マルチアトリビュートの既存番号のうち、入力接続がある要素だけを返す。切断済みの空要素を除き、
         欠番を詰めずにworldMatrix・xformMatrixとの対応を保つ。
 
         Returns:
@@ -66,7 +66,7 @@ class DagPose(Node):
         """
         ...
     def getMembers(self) -> list[Node]:
-        """保存対象をmembers配列の論理番号順に取得する。
+        """保存対象をmembers マルチアトリビュートの論理番号順に取得する。
 
         Returns:
             list[Node]: 保存対象。getMemberIndices()と同じ順序。

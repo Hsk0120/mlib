@@ -111,8 +111,7 @@ class Component(Object):
         """
         if not isinstance(other, Component):
             return NotImplemented
-        return (self._shape == other._shape and self.component_type == other.component_type
-                and self._index == other._index)
+        return self._shape == other._shape and self.component_type == other.component_type and self._index == other._index
 
     def __hash__(self):
         """保持シェイプ・種類・番号のハッシュを返す。位置の更新では変化しない。"""
@@ -131,7 +130,7 @@ class Component(Object):
         if not self.isValid():
             return f"<{cls} invalid>"
         full = self.getFullName()
-        return f"{cls}({self._shape.getName() + full[full.rindex('.'):]!r})"
+        return f"{cls}({self._shape.getName() + full[full.rindex('.') :]!r})"
 
     def __str__(self):
         """コンポーネント名を返す。
@@ -207,14 +206,15 @@ class Component(Object):
         """
         # nodes・具体コンポーネント型はこのモジュールを継承・importするため、循環を避けて使う時点で読み込む。
         from ..nodes.node import Node
-        from .vertex import Vertex
+        from .cv import CV
         from .edge import Edge
         from .face import Face
-        from .uv import UV
-        from .cv import CV
         from .latticePoint import LatticePoint
         from .surfaceCV import SurfaceCV
+        from .uv import UV
+        from .vertex import Vertex
         from .vertexFace import VertexFace
+
         types = {
             om2.MFn.kMeshVertComponent: Vertex,
             om2.MFn.kMeshEdgeComponent: Edge,
@@ -227,8 +227,7 @@ class Component(Object):
         }
         cls = types.get(component.apiType())
         if cls is None:
-            raise TypeError("Only mesh vertices/edges/faces/UVs/vertex faces, curve CVs, "
-                            "surface CVs and lattice points are supported")
+            raise TypeError("Only mesh vertices/edges/faces/UVs/vertex faces, curve CVs, surface CVs and lattice points are supported")
         shape = Node(path)
         fn = _indexed_component_fn(component)
         if fn.isComplete:
@@ -268,8 +267,7 @@ class Component(Object):
             if selection.length() != 1:
                 raise ValueError("Expected one component")
             value = selection.getComponent(0)
-        if not (isinstance(value, tuple) and len(value) == 2
-                and isinstance(value[0], om2.MDagPath) and isinstance(value[1], om2.MObject)):
+        if not (isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], om2.MDagPath) and isinstance(value[1], om2.MObject)):
             raise TypeError("Expected a component reference, name or (MDagPath, MObject)")
         # 単数解決では、広い範囲を単体ラッパーへ展開する前に拒否する。
         component_fn = _indexed_component_fn(value[1])
@@ -309,7 +307,7 @@ class Component(Object):
             IndexError: 番号が現在の要素数の範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
-        self._validate_shape(self._shape, self.shape_type)
+        self._require_shape(self._shape, self.shape_type)
         if self._index < 0:
             self._require_index_range(self._index, 0)
         self._require_index_range(self._index, self._element_count(self._shape))
@@ -327,7 +325,7 @@ class Component(Object):
         return getattr(shape, _count_name(cls))()
 
     @staticmethod
-    def _validate_shape(shape, shape_type):
+    def _require_shape(shape, shape_type):
         """生存と型を検査する。要素数は呼出し側で必要な時に照会する。
 
         Args:
@@ -370,7 +368,7 @@ _COMPONENT_INIT = Component.__init__
 _COMPONENT_REQUIRE_VALID = Component._require_valid
 _COMPONENT_INDEX = Component.index
 _COMPONENT_SHAPE = Component.shape
-_COMPONENT_VALIDATE_SHAPE = Component._validate_shape
+_COMPONENT_VALIDATE_SHAPE = Component._require_shape
 _COMPONENT_REQUIRE_INDEX_RANGE = Component._require_index_range
 
 
@@ -412,13 +410,15 @@ class Components:
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
-        Component._validate_shape(shape, self.component_class.shape_type)
+        Component._require_shape(shape, self.component_class.shape_type)
         selected = range(self.component_class._element_count(shape)) if indices is None else indices
         # 一般の反復入力や独自__index__は従来どおり一件ずつ構築する。
         # これにより入力の副作用・途中例外・利用側constructor/_validateを維持する。
-        if (self._has_standard_component() and self._has_standard_shape()
-                and (type(selected) is range or (type(selected) in (list, tuple)
-                     and all(type(index) is int for index in selected)))):
+        if (
+            self._has_standard_component()
+            and self._has_standard_shape()
+            and (type(selected) is range or (type(selected) in (list, tuple) and all(type(index) is int for index in selected)))
+        ):
             count = len(selected) if indices is None else None
             for index in selected:
                 if index < 0:
@@ -517,16 +517,18 @@ class Components:
             bool: 等しければTrue。対応しない型はNotImplemented。
         """
         if isinstance(other, Components):
-            return (self.component_class.component_type == other.component_class.component_type
-                    and self._shape == other._shape and self._indices == other._indices)
+            return (
+                self.component_class.component_type == other.component_class.component_type and self._shape == other._shape and self._indices == other._indices
+            )
         if not isinstance(other, (list, tuple)):
             return NotImplemented
         if len(self._indices) != len(other):
             return False
         component_type = self.component_class.component_type
-        return all(isinstance(item, Component) and item.component_type == component_type
-                   and item._shape == self._shape and item._index == index
-                   for item, index in zip(other, self._indices))
+        return all(
+            isinstance(item, Component) and item.component_type == component_type and item._shape == self._shape and item._index == index
+            for item, index in zip(other, self._indices)
+        )
 
     def __getattr__(self, name):
         """単数のコンポーネントのメソッドを、全要素へ保持順に呼ぶ関数として取得する。
@@ -743,8 +745,7 @@ class Components:
         indices = []
         for item in other:
             if not isinstance(item, Component) or item.component_type != component_type:
-                raise TypeError(f"Cannot add {type(item).__name__} to {name}: "
-                                f"expected {self.component_class.__name__} items")
+                raise TypeError(f"Cannot add {type(item).__name__} to {name}: expected {self.component_class.__name__} items")
             if item._shape != self._shape:
                 raise TypeError(f"Cannot add {type(item).__name__} to {name}: different shape")
             indices.append(item._index)
@@ -765,14 +766,17 @@ class Components:
         from .face import Face
         from .uv import UV
         from .vertex import Vertex
+
         component_class = self.component_class if component_class is None else component_class
-        return (component_class in (Vertex, Edge, Face, UV, CV)
-                and component_class.__init__ is _COMPONENT_INIT
-                and component_class._require_valid is _COMPONENT_REQUIRE_VALID
-                and component_class.index is _COMPONENT_INDEX
-                and component_class.shape is _COMPONENT_SHAPE
-                and component_class._validate_shape is _COMPONENT_VALIDATE_SHAPE
-                and component_class._require_index_range is _COMPONENT_REQUIRE_INDEX_RANGE)
+        return (
+            component_class in (Vertex, Edge, Face, UV, CV)
+            and component_class.__init__ is _COMPONENT_INIT
+            and component_class._require_valid is _COMPONENT_REQUIRE_VALID
+            and component_class.index is _COMPONENT_INDEX
+            and component_class.shape is _COMPONENT_SHAPE
+            and component_class._require_shape is _COMPONENT_VALIDATE_SHAPE
+            and component_class._require_index_range is _COMPONENT_REQUIRE_INDEX_RANGE
+        )
 
     def _has_standard_shape(self, component_class=None):
         """標準のシェイプ型か判定し、利用側の形状派生の照会処理を維持する。
@@ -786,6 +790,7 @@ class Components:
         # nodes → components の循環importを避けるため、使う時点で読み込む。
         from ..nodes.mesh import Mesh
         from ..nodes.nurbsCurve import NurbsCurve
+
         shape_class = type(self._shape)
         if shape_class not in (Mesh, NurbsCurve):
             return False
@@ -793,10 +798,13 @@ class Components:
         name = _count_name(component_class)
         reader = getattr(self._shape, name, None)
         function = getattr(reader, "__func__", None)
-        return (function is not None and function is getattr(shape_class, name, None)
-                and function.__module__ == shape_class.__module__
-                and function.__qualname__ == f"{shape_class.__name__}.{name}"
-                and not hasattr(function, "__wrapped__"))
+        return (
+            function is not None
+            and function is getattr(shape_class, name, None)
+            and function.__module__ == shape_class.__module__
+            and function.__qualname__ == f"{shape_class.__name__}.{name}"
+            and not hasattr(function, "__wrapped__")
+        )
 
     def _uses_standard_iteration(self, component_class):
         """単数または反復が拡張されていない場合だけ一括照会を許可する。
@@ -807,9 +815,12 @@ class Components:
         Returns:
             bool: 単数・反復・シェイプが標準の実装ならTrue。
         """
-        return (self.component_class is component_class
-                and type(self).__iter__ is _COMPONENTS_ITER
-                and self._has_standard_component() and self._has_standard_shape())
+        return (
+            self.component_class is component_class
+            and type(self).__iter__ is _COMPONENTS_ITER
+            and self._has_standard_component()
+            and self._has_standard_shape()
+        )
 
     def _uses_standard_vertices(self):
         """頂点の中間参照で呼ばれる構築・反復も標準処理か判定する。
@@ -819,10 +830,14 @@ class Components:
         """
         # vertexはこのモジュールを継承するため、循環を避けて使う時点で読み込む。
         from .vertex import Vertex, Vertices
-        return (Vertices.component_class is Vertex and self._has_standard_component(Vertex)
-                and self._has_standard_shape(Vertex)
-                and Vertices.__init__ is _COMPONENTS_INIT
-                and Vertices.__iter__ is _COMPONENTS_ITER)
+
+        return (
+            Vertices.component_class is Vertex
+            and self._has_standard_component(Vertex)
+            and self._has_standard_shape(Vertex)
+            and Vertices.__init__ is _COMPONENTS_INIT
+            and Vertices.__iter__ is _COMPONENTS_ITER
+        )
 
     def _mesh_vertex_indices(self, count_name, vertices_method):
         """現在のメッシュから保持順に隣接頂点番号を集める。
@@ -834,7 +849,7 @@ class Components:
         Returns:
             list[int]: 接続順を保った頂点番号。重複除去は呼出元のVerticesへ委ねる。
         """
-        Component._validate_shape(self.shape, self.component_class.shape_type)
+        Component._require_shape(self.shape, self.component_class.shape_type)
         indices = []
         if self._indices:
             mesh_fn = self.shape._geometry_fn()
@@ -991,7 +1006,7 @@ class _MultiIndexComponent:
         _index: int
         shape_type: Optional[str]
         component_type: Optional[str]
-        _validate_shape: Callable[..., None]
+        _require_shape: Callable[..., None]
         _require_valid: Callable[[], None]
         _multi_indices: Callable[..., List[Tuple[int, ...]]]
         _flat_indices: Callable[..., List[int]]
@@ -1011,7 +1026,7 @@ class _MultiIndexComponent:
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
-        self._validate_shape(shape, self.shape_type)
+        self._require_shape(shape, self.shape_type)
         self._index = _flat_input(type(self), shape, [index])[0]
         self._require_valid()
 
@@ -1070,7 +1085,7 @@ class _MultiIndexComponents:
         """
         self._shape = shape
         component_class = self.component_class
-        Component._validate_shape(shape, component_class.shape_type)
+        Component._require_shape(shape, component_class.shape_type)
         count = component_class._element_count(shape)
         if indices is None:
             self._indices = tuple(range(count))
@@ -1115,8 +1130,7 @@ class _MultiIndexComponents:
         """
         self._require_valid()
         prefix = f"{self._shape.getFullName()}.{self.component_class.component_type}"
-        return [_component_name(prefix, numbers)
-                for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
+        return [_component_name(prefix, numbers) for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
 
     def getCompactNames(self):
         """cmds用の名前を返す。多次元の番号は範囲へまとめず、:meth:`getFullNames` と同じ名前を返す。

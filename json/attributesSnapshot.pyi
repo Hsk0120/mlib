@@ -70,7 +70,7 @@ class AttributesSnapshot(Snapshot):
             ValidationReport: 適用の結果。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """``plugs`` の各項目がPlug参照と値を持つか確かめる。
 
         Args:

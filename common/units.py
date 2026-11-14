@@ -37,14 +37,22 @@ def _distance_unit(unit):
     if not isinstance(unit, str):
         raise TypeError("unit must be a string or None")
     names = {
-        "mm": om2.MDistance.kMillimeters, "millimeter": om2.MDistance.kMillimeters,
-        "cm": om2.MDistance.kCentimeters, "centimeter": om2.MDistance.kCentimeters,
-        "m": om2.MDistance.kMeters, "meter": om2.MDistance.kMeters,
-        "km": om2.MDistance.kKilometers, "kilometer": om2.MDistance.kKilometers,
-        "in": om2.MDistance.kInches, "inch": om2.MDistance.kInches,
-        "ft": om2.MDistance.kFeet, "foot": om2.MDistance.kFeet,
-        "yd": om2.MDistance.kYards, "yard": om2.MDistance.kYards,
-        "mi": om2.MDistance.kMiles, "mile": om2.MDistance.kMiles,
+        "mm": om2.MDistance.kMillimeters,
+        "millimeter": om2.MDistance.kMillimeters,
+        "cm": om2.MDistance.kCentimeters,
+        "centimeter": om2.MDistance.kCentimeters,
+        "m": om2.MDistance.kMeters,
+        "meter": om2.MDistance.kMeters,
+        "km": om2.MDistance.kKilometers,
+        "kilometer": om2.MDistance.kKilometers,
+        "in": om2.MDistance.kInches,
+        "inch": om2.MDistance.kInches,
+        "ft": om2.MDistance.kFeet,
+        "foot": om2.MDistance.kFeet,
+        "yd": om2.MDistance.kYards,
+        "yard": om2.MDistance.kYards,
+        "mi": om2.MDistance.kMiles,
+        "mile": om2.MDistance.kMiles,
     }
     if unit not in names:
         raise ValueError(f"Unsupported distance unit: {unit}")
@@ -177,9 +185,15 @@ def _time_constant(unit):
     if not isinstance(unit, str):
         raise TypeError("unit must be a string or None")
     names = {
-        "hour": om2.MTime.kHours, "min": om2.MTime.kMinutes, "millisec": om2.MTime.kMilliseconds,
-        "game": om2.MTime.kGames, "film": om2.MTime.kFilm, "pal": om2.MTime.kPALFrame,
-        "ntsc": om2.MTime.kNTSCFrame, "show": om2.MTime.kShowScan, "palf": om2.MTime.kPALField,
+        "hour": om2.MTime.kHours,
+        "min": om2.MTime.kMinutes,
+        "millisec": om2.MTime.kMilliseconds,
+        "game": om2.MTime.kGames,
+        "film": om2.MTime.kFilm,
+        "pal": om2.MTime.kPALFrame,
+        "ntsc": om2.MTime.kNTSCFrame,
+        "show": om2.MTime.kShowScan,
+        "palf": om2.MTime.kPALField,
         "ntscf": om2.MTime.kNTSCField,
     }
     if unit in names:

@@ -4,11 +4,7 @@ from . import _calculation
 from .node import Node
 
 #: 出力の種類からMayaの出力アトリビュート名。
-_OUTPUTS = {
-    "angle": "angle",
-    "axis": "axis",
-    "euler": "euler",
-}
+_OUTPUTS = {"angle": "angle", "axis": "axis", "euler": "euler"}
 
 
 class AngleBetween(Node):
@@ -31,10 +27,7 @@ class AngleBetween(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "vector1": vector1,
-            "vector2": vector2,
-        })
+        return _calculation.set_inputs(self, "setInput", {"vector1": vector1, "vector2": vector2})
 
     def getResult(self, kind="angle"):
         """出力の現在の値を取得する。

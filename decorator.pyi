@@ -15,7 +15,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from . import logger
 from .common.environment import Environment
-from .util import _ArgumentError, _UNSET
+from .util import _UNSET, _ArgumentError
 from typing import Any, Dict, Union
 from typing import Any, Callable, Iterable, Iterator
 from mlib._stubtypes import ContextDecorator

@@ -38,10 +38,7 @@ _OM2_TYPES = {}
 _STATEFUL_TYPES = {}
 
 #: 角度の単位名と正規化した名前。シーン操作の数値の角度は既定で度(``"deg"``)。
-_ANGLE_UNITS = {
-    "deg": "deg", "degree": "deg", "degrees": "deg",
-    "rad": "rad", "radian": "rad", "radians": "rad",
-}
+_ANGLE_UNITS = {"deg": "deg", "degree": "deg", "degrees": "deg", "rad": "rad", "radian": "rad", "radians": "rad"}
 
 #: 反転する軸の番号(0=x, 1=y, 2=z)の順に並べたミラー面の名前。x を反転するミラーは YZ 面のミラー。
 _MIRROR_PLANES = ("YZ", "XZ", "XY")
@@ -50,10 +47,7 @@ _MIRROR_PLANES = ("YZ", "XZ", "XY")
 _MIRROR_AXIS_CHOICES = "a flip axis 'x', 'y', 'z' (or 0, 1, 2) or a mirror plane 'YZ', 'XZ', 'XY'"
 
 #: 時間の単位名と正規化した名前。シーン操作の数値の時間は既定で現在のUI時間単位のフレーム(``"frame"``)。
-_TIME_UNITS = {
-    "frame": "frame", "frames": "frame",
-    "sec": "sec", "second": "sec", "seconds": "sec",
-}
+_TIME_UNITS = {"frame": "frame", "frames": "frame", "sec": "sec", "second": "sec", "seconds": "sec"}
 
 
 class _ArgumentError(TypeError):
@@ -129,8 +123,7 @@ def measure(operation, samples=30, warmup=3):
         start = time.perf_counter()
         operation()
         values.append(time.perf_counter() - start)
-    return {"samples": samples, "median_seconds": statistics.median(values),
-            "min_seconds": min(values), "max_seconds": max(values)}
+    return {"samples": samples, "median_seconds": statistics.median(values), "min_seconds": min(values), "max_seconds": max(values)}
 
 
 def _mirror_axis(axis):

@@ -23,9 +23,7 @@ class Reverse(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "input": input,
-        })
+        return _calculation.set_inputs(self, "setInput", {"input": input})
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

@@ -134,7 +134,6 @@ _docs/
 
 ```powershell
 & .\_docs\.venv\Scripts\python.exe _tools/check_mlib_exports.py
-& .\_docs\.venv\Scripts\python.exe __tests__/static/test_constructorSignatures.py
 & .\_docs\.venv\Scripts\python.exe _tools/check_mlib_docs.py --check-directory _docs/_build/html
 & .\_docs\.venv\Scripts\python.exe _tools/check_mlib_doc_getter_names.py _docs/_build/html
 ```

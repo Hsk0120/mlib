@@ -51,8 +51,7 @@ class Camera(Shape):
         """
         angle_unit = _angle_unit(unit)
         fn = self.mfn()
-        return (_from_radians(fn.horizontalFieldOfView(), angle_unit),
-                _from_radians(fn.verticalFieldOfView(), angle_unit))
+        return (_from_radians(fn.horizontalFieldOfView(), angle_unit), _from_radians(fn.verticalFieldOfView(), angle_unit))
 
     def getEyePoint(self, worldSpace=_UNSET, *, ws=_UNSET):
         """カメラの位置(``MFnCamera.eyePoint``)を取得する。

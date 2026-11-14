@@ -5,7 +5,6 @@ import numbers
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 
 from ..components.cv import CV, CVs
 from ..components.pointComponent import _mirror_plan, _write_points
@@ -244,7 +243,7 @@ class NurbsCurve(Shape):
         try:
             fn = om2.MFnNurbsCurve(path)
             # 版により作成は通り照会で失敗するため、形状データの有無を作成直後に確かめる。
-            fn.typeId
+            fn.typeId  # noqa: B018
         except (RuntimeError, ValueError):
             return om2.MFnDagNode(path)
         return fn
@@ -327,7 +326,9 @@ class NurbsCurve(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
+        # 循環importを避けるため、単位の照会時に読み込む。
         from ..common import units
+
         # 単位は毎回照会する。係数を使うためシーンの単位設定は変更しない。
         factor = units.convertDistance(1.0, fromUnit="cm", toUnit=unit)
         tolerance = float(tolerance)
@@ -518,10 +519,18 @@ class NurbsCurve(Shape):
         if keepRange not in _KEEP_RANGES:
             raise ValueError(f"keepRange must be one of original, unit, spans: {keepRange!r}")
         with undoChunk("mlibNurbsCurveRebuild"), preservedSelection():
-            cmds.rebuildCurve(self.getFullName(), spans=int(spans), degree=int(degree),
-                              keepRange=_KEEP_RANGES[keepRange], rebuildType=0, keepEndPoints=True,
-                              keepControlPoints=False, keepTangents=False, constructionHistory=False,
-                              replaceOriginal=True)
+            cmds.rebuildCurve(
+                self.getFullName(),
+                spans=int(spans),
+                degree=int(degree),
+                keepRange=_KEEP_RANGES[keepRange],
+                rebuildType=0,
+                keepEndPoints=True,
+                keepControlPoints=False,
+                keepTangents=False,
+                constructionHistory=False,
+                replaceOriginal=True,
+            )
         return self
 
     def reverse(self):
@@ -690,8 +699,7 @@ class NurbsCurve(Shape):
             points = curve.cvPositions()
             first = om2.MVector(points[0])
             span = max((om2.MVector(item) - first for item in points), key=lambda item: item.length())
-            if span.length() < _DEGENERATE or all(
-                    (span ^ (om2.MVector(item) - first)).length() <= 1e-9 * span.length() ** 2 for item in points):
+            if span.length() < _DEGENERATE or all((span ^ (om2.MVector(item) - first)).length() <= 1e-9 * span.length() ** 2 for item in points):
                 raise ValueError(f"Normal is undefined on a straight curve: {self.getFullName()}")
         try:
             normal = curve.normal(value)
@@ -836,8 +844,7 @@ class NurbsCurve(Shape):
                 raise ValueError("up is parallel to the curve tangent at every point")
         else:
             ups = self._transported_ups(curve, params, aims)
-        return [_frame_matrix(position, aim, value, aim_axis, up_axis)
-                for position, aim, value in zip(positions, aims, ups)]
+        return [_frame_matrix(position, aim, value, aim_axis, up_axis) for position, aim, value in zip(positions, aims, ups)]
 
     def _space_curve(self, worldSpace):
         """指定空間の形状をオブジェクト空間で照会できる ``om2.MFnNurbsCurve`` を返す。
@@ -884,6 +891,7 @@ class NurbsCurve(Shape):
         """
         # 循環importを避けるため、単位の照会時に読み込む。
         from ..common import units
+
         return units.convertDistance(1.0, fromUnit="cm", toUnit=unit)
 
     @staticmethod
@@ -1042,5 +1050,5 @@ class NurbsCurve(Shape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnNurbsCurve):
-            raise RuntimeError("nurbsCurve has no geometry data: %s" % self.getFullName())
+            raise RuntimeError(f"nurbsCurve has no geometry data: {self.getFullName()}")
         return fn

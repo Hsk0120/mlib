@@ -27,10 +27,7 @@ class MultiplyDivide(ShadingDependNode):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "input1": input1,
-            "input2": input2,
-        })
+        return _calculation.set_inputs(self, "setInput", {"input1": input1, "input2": input2})
 
     def getOperation(self):
         """演算の種類を名前で取得する(``operation``)。

@@ -187,6 +187,6 @@ class RampPlug(MultiPlug):
             if not isinstance(interpolation, str):
                 raise TypeError("interpolation must be a string")
             if interpolation not in _INTERPOLATION_NAMES:
-                raise ValueError("interpolation must be one of: " + ", ".join(_INTERPOLATION_NAMES))
+                raise ValueError(f"interpolation must be one of: {', '.join(_INTERPOLATION_NAMES)}")
             points.append((position, value, _INTERPOLATION_NAMES.index(interpolation)))
         return points

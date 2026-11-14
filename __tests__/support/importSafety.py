@@ -1,4 +1,5 @@
 """検証スクリプトの隣にある標準モジュールとの名前衝突を実行せず調べる。"""
+
 import sys
 import sysconfig
 from pathlib import Path
@@ -28,8 +29,7 @@ def find_shadowing(directory, stdlib_directories=()):
                 names.add(path.name)
     matches = []
     for name in sorted(names):
-        for relative in (name + ".py", name + ".pyc", name + ".pyd",
-                         name + "/__init__.py", name + "/__init__.pyc"):
+        for relative in (name + ".py", name + ".pyc", name + ".pyd", name + "/__init__.py", name + "/__init__.pyc"):
             candidate = directory / relative
             if candidate.is_file():
                 matches.append(candidate)
@@ -40,5 +40,4 @@ def require_safe_imports(directory, stdlib_directories=()):
     """衝突があればMaya起動前に拒否し、問題のファイル名を示す。"""
     matches = find_shadowing(directory, stdlib_directories)
     if matches:
-        raise ValueError("Test directory shadows Python standard modules; rename these files: "
-                         + ", ".join(str(path) for path in matches))
+        raise ValueError("Test directory shadows Python standard modules; rename these files: " + ", ".join(str(path) for path in matches))

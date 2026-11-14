@@ -17,4 +17,4 @@ from .uv import UV, UVs
 from .vertex import Vertex, Vertices
 from .vertexFace import VertexFace, VertexFaces
 
-__all__ = ['Component', 'Components', 'PointComponent', 'PointComponents', 'Vertex', 'Vertices', 'CV', 'CVs', 'Edge', 'Edges', 'Face', 'Faces', 'UV', 'UVs', 'VertexFace', 'VertexFaces', 'SurfaceCV', 'SurfaceCVs', 'LatticePoint', 'LatticePoints']
+__all__ = ['CV', 'UV', 'CVs', 'Component', 'Components', 'Edge', 'Edges', 'Face', 'Faces', 'LatticePoint', 'LatticePoints', 'PointComponent', 'PointComponents', 'SurfaceCV', 'SurfaceCVs', 'UVs', 'Vertex', 'VertexFace', 'VertexFaces', 'Vertices']

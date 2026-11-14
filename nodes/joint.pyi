@@ -461,7 +461,7 @@ class Joint(Transform):
 
         Args:
             safe (bool): Trueなら自身またはDAG子孫にDG接続がある場合は何もしない(skinClusterの接続も含む)。
-            fast (bool): TrueはUndoなしの更新。既定False。ウェイトの書込みと削除はOpenMayaで行い、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書込みと削除はOpenMayaで行い、
                 OpenMayaに無いinfluenceの登録解除だけをUndoへ記録しないcmdsで行う。結果は通常と同じ。
             removeInfluence (bool): Falseは解除せずMaya標準の削除だけを行う。
             transferToParent (bool): Falseはウェイトを祖先へ移さず標準の再配分に任せる。
@@ -824,7 +824,7 @@ class Joints(Nodes[Joint]):
 
         Args:
             safe (bool): Trueなら自身またはDAG子孫にDG接続があるjointだけを除いて削除する。
-            fast (bool): :meth:`Joint.delete` と同じ。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
             force (bool): :meth:`Joint.delete` と同じ。

@@ -6,7 +6,6 @@ import numbers
 import operator
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 from ..core import geometryEdit as geometry_edit
 from ..decorator import _edit_context, _pick_alias
 from ..util import _UNSET, _world_space
@@ -27,7 +26,7 @@ class Shape(DagNode):
 
         Args:
             parent (Transform | str): 新しい親のTransform(Jointを含む)。
-            fast (bool): TrueはUndoなしのOpenMaya更新(MDagModifier.reparentNode)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
 
         Returns:
             Shape: 自身。移した後のパスを指す。
@@ -52,7 +51,7 @@ class Shape(DagNode):
             pivot (Iterable[float]): 指定空間の中心。cm。既定は原点で、Transformのピボットは使わない。
             indices (Iterable[int | tuple[int, int]] | None): 頂点/CV番号。サーフェスは(U, V)。
                 Noneは全要素。空列は書込みなし。ただしShape型とfastのサーフェス拒否は先に検査する。
-            fast (bool): Trueは履歴なしメッシュ・カーブをOM2で更新(Undoなし)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは履歴なしメッシュ・カーブが対象。
                 FalseはMaya標準コマンドをUndo有効時にまとめる。
 
         Returns:

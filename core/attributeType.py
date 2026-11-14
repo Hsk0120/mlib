@@ -132,17 +132,29 @@ _ADD_ATTR_TYPE_NAMES = {
 #: ``cmds.addAttr(dataType=...)`` で作成できるデータ型名(maya.cmds で値を読み書きできる型)。
 #: 型付きアトリビュートのうちこれら以外(``nurbsPatchUVIds``・``polyFaces`` などの Maya 内部のデータ型)は、
 #: 存在しないマルチアトリビュートの要素の値を maya.cmds で問い合わせると Maya が異常終了する場合がある。
-_PUBLIC_DATA_TYPES = frozenset(_DATA_TYPE_NAMES.values()) | frozenset((
-    "Int64Array", "floatVectorArray", "reflectanceRGB", "spectrumRGB",
-    "short2", "short3", "long2", "long3", "float2", "float3", "double2", "double3", "double4",
-))
+_PUBLIC_DATA_TYPES = frozenset(_DATA_TYPE_NAMES.values()) | frozenset(
+    (
+        "Int64Array",
+        "floatVectorArray",
+        "reflectanceRGB",
+        "spectrumRGB",
+        "short2",
+        "short3",
+        "long2",
+        "long3",
+        "float2",
+        "float3",
+        "double2",
+        "double3",
+        "double4",
+    )
+)
 
 _ADD_ATTR_DATA_TYPE = re.compile(r'-dataType "([^"]+)"')
 _ADD_ATTR_ATTRIBUTE_TYPE = re.compile(r'-attributeType "([^"]+)"')
 
 #: 自身の単位を持つため、数値の角度として換算しない値。
-_SELF_UNIT_VALUES = (om2.MEulerRotation, om2.MQuaternion, om2.MAngle, om2.MDistance, om2.MTime,
-                     om2.MMatrix, om2.MTransformationMatrix)
+_SELF_UNIT_VALUES = (om2.MEulerRotation, om2.MQuaternion, om2.MAngle, om2.MDistance, om2.MTime, om2.MMatrix, om2.MTransformationMatrix)
 
 
 def _add_attr_type_name(attribute):
@@ -433,8 +445,7 @@ def _is_unit_attribute(attribute, unit_type):
     Returns:
         bool: 指定した種類の単位アトリビュートならTrue。
     """
-    return (attribute.hasFn(om2.MFn.kUnitAttribute)
-            and om2.MFnUnitAttribute(attribute).unitType() == unit_type)
+    return attribute.hasFn(om2.MFn.kUnitAttribute) and om2.MFnUnitAttribute(attribute).unitType() == unit_type
 
 
 def _convert_unit_numbers(plug, value, unit_type, convert):
@@ -465,8 +476,7 @@ def _convert_unit_numbers(plug, value, unit_type, convert):
             return value
         if len(items) != plug.numChildren():
             return value
-        converted = tuple(_convert_unit_numbers(plug.child(index), item, unit_type, convert)
-                          for index, item in enumerate(items))
+        converted = tuple(_convert_unit_numbers(plug.child(index), item, unit_type, convert) for index, item in enumerate(items))
         if all(new is old for new, old in zip(converted, items)):
             return value
         return converted
@@ -494,8 +504,7 @@ def _convert_angles(plug, value, unit, to_internal=True):
     """
     if unit != "deg":
         return value
-    return _convert_unit_numbers(plug, value, om2.MFnUnitAttribute.kAngle,
-                                 math.radians if to_internal else math.degrees)
+    return _convert_unit_numbers(plug, value, om2.MFnUnitAttribute.kAngle, math.radians if to_internal else math.degrees)
 
 
 def _convert_times(plug, value, time_unit, to_internal=True):
@@ -515,8 +524,7 @@ def _convert_times(plug, value, time_unit, to_internal=True):
     """
     if time_unit != "frame":
         return value
-    return _convert_unit_numbers(plug, value, om2.MFnUnitAttribute.kTime,
-                                 partial(_to_seconds if to_internal else _from_seconds, time_unit=time_unit))
+    return _convert_unit_numbers(plug, value, om2.MFnUnitAttribute.kTime, partial(_to_seconds if to_internal else _from_seconds, time_unit=time_unit))
 
 
 def _read_angle(mplug):
@@ -604,17 +612,12 @@ _NUMERIC_ACCESS = {
     "float": (om2.MPlug.asDouble, om2.MPlug.setFloat, float),
     "double": (om2.MPlug.asDouble, om2.MPlug.setDouble, float),
 }
-_NUMERIC_READERS = {kind: _NUMERIC_ACCESS[name][0]
-                    for kind, name in _NUMERIC_TYPE_NAMES.items() if name in _NUMERIC_ACCESS}
-NUMERIC_WRITERS = {kind: _NUMERIC_ACCESS[name][1:]
-                   for kind, name in _NUMERIC_TYPE_NAMES.items() if name in _NUMERIC_ACCESS}
+_NUMERIC_READERS = {kind: _NUMERIC_ACCESS[name][0] for kind, name in _NUMERIC_TYPE_NAMES.items() if name in _NUMERIC_ACCESS}
+#: 数値アトリビュートの種類と、値を書く関数・変換する型。
+NUMERIC_WRITERS = {kind: _NUMERIC_ACCESS[name][1:] for kind, name in _NUMERIC_TYPE_NAMES.items() if name in _NUMERIC_ACCESS}
 
 #: 単位アトリビュートの ``unitType()`` と、値を読む関数。
-_UNIT_READERS = {
-    om2.MFnUnitAttribute.kAngle: _read_angle,
-    om2.MFnUnitAttribute.kDistance: _read_distance,
-    om2.MFnUnitAttribute.kTime: _read_time,
-}
+_UNIT_READERS = {om2.MFnUnitAttribute.kAngle: _read_angle, om2.MFnUnitAttribute.kDistance: _read_distance, om2.MFnUnitAttribute.kTime: _read_time}
 
 #: :func:`value_reader` が「MPlug から直接読めない(``cmds.getAttr`` で読む)」ことを表す値。
 _CMDS_READER = False

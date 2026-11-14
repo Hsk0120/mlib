@@ -8,10 +8,9 @@ from typing import Optional
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object, _missing_member_message
-from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type
-from ..core.registry import _unknown_node_type_message
+from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type, _unknown_node_type_message
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _validated_flags, undoChunk, undoTransaction
-from ..util import _ArgumentError, _UNSET, _angle_unit, _color_value, _time_unit
+from ..util import _UNSET, _angle_unit, _ArgumentError, _color_value, _time_unit
 from typing import Any, Callable, Generic, Iterable, Iterator, Literal, Sequence
 from mlib.common.namespace import Namespace
 from mlib.components.component import Component

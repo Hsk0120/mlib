@@ -22,7 +22,6 @@ from ..plugs.plug import Plug
 from .environment import Environment
 from .keyframe import Keyframe, Keyframes
 
-
 # まとめて解決するときに1つの選択リストへ続けて追加する名前の数。MSelectionList.add は追加のたびに
 # 既存の要素との重複を照合するため、全件を1つのリストへ追加すると件数の2乗に比例して遅くなる。
 _NAME_CHUNK = 16
@@ -66,18 +65,7 @@ class Selection:
             ノード名だけの文字列(「.」・ワイルドカードを含まないもの)は1つの選択リストへまとめて
             解決するが、対応付けは文字列の順に行うため、保持順と重複の除き方は名前ごとの解決と同じ。
         """
-        singles = (
-            str,
-            Node,
-            Plug,
-            Component,
-            Components,
-            Selection,
-            om2.MObject,
-            om2.MDagPath,
-            om2.MPlug,
-            om2.MSelectionList,
-        )
+        singles = (str, Node, Plug, Component, Components, Selection, om2.MObject, om2.MDagPath, om2.MPlug, om2.MSelectionList)
         if isinstance(items, singles):
             items = [items]
         else:
@@ -277,11 +265,7 @@ class Selection:
         Returns:
             list[Node]: 有効なノード。コンポーネントの所有者は含めない。
         """
-        return [
-            item
-            for item in self._items
-            if isinstance(item, Node) and item.isValid() and (type is None or item.isType(type))
-        ]
+        return [item for item in self._items if isinstance(item, Node) and item.isValid() and (type is None or item.isType(type))]
 
     def getPlugs(self):
         """有効なアトリビュート参照。Channel Box選択は自動取得しない。
@@ -298,10 +282,7 @@ class Selection:
             list[Components]: 有効な要素をshapeのDAGパス・種類ごとにまとめる。
         """
         groups = {}
-        classes = {
-            Vertex: Vertices, Edge: Edges, Face: Faces, UV: UVs, CV: CVs,
-            SurfaceCV: SurfaceCVs, LatticePoint: LatticePoints, VertexFace: VertexFaces,
-        }
+        classes = {Vertex: Vertices, Edge: Edges, Face: Faces, UV: UVs, CV: CVs, SurfaceCV: SurfaceCVs, LatticePoint: LatticePoints, VertexFace: VertexFaces}
         for item in self._items:
             if isinstance(item, Component) and self._valid(item):
                 key = (item.shape.getFullName(), item.__class__)
@@ -317,11 +298,7 @@ class Selection:
         result = {}
         for item in self._items:
             if self._valid(item):
-                node = (
-                    item
-                    if isinstance(item, Node)
-                    else item.shape if isinstance(item, Component) else item.getNode()
-                )
+                node = item if isinstance(item, Node) else item.shape if isinstance(item, Component) else item.getNode()
                 result.setdefault(node.getFullName(), node)
         return list(result.values())
 
@@ -335,9 +312,7 @@ class Selection:
         Returns:
             Selection: 有効な該当要素。元の集合は変更しない。
         """
-        component_type = {
-            "vertex": "vtx", "edge": "e", "face": "f", "uv": "map", "controlVertex": "cv",
-        }.get(type, type) if isinstance(type, str) else type
+        component_type = {"vertex": "vtx", "edge": "e", "face": "f", "uv": "map", "controlVertex": "cv"}.get(type, type) if isinstance(type, str) else type
         result = []
         for item in self._items:
             if not self._valid(item):

@@ -8,7 +8,7 @@ import maya.cmds as cmds
 from ..cmds import getPlug
 from ..common.drivenKey import DrivenKey
 from ..core.attributeType import _from_seconds
-from ._animCurveData import _check_curve, _is_time_input, _output_kind, _read_curve, _write_curve
+from ._animCurveData import _is_time_input, _output_kind, _read_curve, _require_curve, _write_curve
 from .animationSnapshot import _require_nodes
 from .plugRef import PlugRef
 from .snapshot import Snapshot
@@ -62,8 +62,7 @@ class DrivenKeysSnapshot(Snapshot):
             if full in seen:
                 continue
             seen.add(full)
-            pairs = cmds.listConnections(full, source=True, destination=False, connections=True, plugs=True,
-                                         skipConversionNodes=True) or []
+            pairs = cmds.listConnections(full, source=True, destination=False, connections=True, plugs=True, skipConversionNodes=True) or []
             for destination, source in zip(pairs[::2], pairs[1::2]):
                 source_node = source.partition(".")[0]
                 source_type = cmds.nodeType(source_node)
@@ -80,12 +79,10 @@ class DrivenKeysSnapshot(Snapshot):
                         continue
                     weight = 1.0 if index is None else cmds.getAttr(f"{source_node}.weight[{index}]")
                     data = _read_curve(curve, input_scale=_input_scale(curve, driver))
-                    drivers.append({"driver": PlugRef.capture(driver).toData(), "weight": float(weight),
-                                    "curve": data})
+                    drivers.append({"driver": PlugRef.capture(driver).toData(), "weight": float(weight), "curve": data})
                 if drivers:
                     driven = full + "." + destination.partition(".")[2]
-                    items.append({"driven": PlugRef.capture(driven).toData(),
-                                  "blendWeighted": source_type == "blendWeighted", "drivers": drivers})
+                    items.append({"driven": PlugRef.capture(driven).toData(), "blendWeighted": source_type == "blendWeighted", "drivers": drivers})
         return cls({"items": items})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
@@ -109,7 +106,7 @@ class DrivenKeysSnapshot(Snapshot):
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """``items`` の形を確かめる。
 
         Args:
@@ -122,8 +119,12 @@ class DrivenKeysSnapshot(Snapshot):
         if not isinstance(items, list):
             raise ValueError("driven key data must have an 'items' list")
         for item in items:
-            if not isinstance(item, dict) or set(item) != {"driven", "blendWeighted", "drivers"} \
-                    or not isinstance(item["blendWeighted"], bool) or not isinstance(item["drivers"], list):
+            if (
+                not isinstance(item, dict)
+                or set(item) != {"driven", "blendWeighted", "drivers"}
+                or not isinstance(item["blendWeighted"], bool)
+                or not isinstance(item["drivers"], list)
+            ):
                 raise ValueError(f"Invalid driven key entry: {item!r}")
             PlugRef.fromData(item["driven"])
             for driver in item["drivers"]:
@@ -133,11 +134,11 @@ class DrivenKeysSnapshot(Snapshot):
                 weight = driver["weight"]
                 if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight):
                     raise ValueError(f"Invalid driven key weight: {weight!r}")
-                _check_curve(driver["curve"])
+                _require_curve(driver["curve"])
                 if _is_time_input(driver["curve"]["curveType"]):
                     raise ValueError(f"Driven key curves must have unitless input: {driver['curve']['curveType']!r}")
 
-    def _validate(self, mapping, report, options):
+    def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """見つからないドライバー・駆動先を記録する。
 
         Args:
@@ -150,7 +151,7 @@ class DrivenKeysSnapshot(Snapshot):
             for driver in item["drivers"]:
                 _resolve(driver["driver"], mapping, report)
 
-    def _apply(self, mapping, report, options, fast):
+    def _apply(self, mapping, report, options, fast):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """ドライバーと駆動先の組ごとにカーブを用意し、キーを書き込む。
 
         Args:
@@ -169,8 +170,7 @@ class DrivenKeysSnapshot(Snapshot):
                 continue
             sources = cmds.listConnections(name, source=True, destination=False, skipConversionNodes=True) or []
             source_type = cmds.nodeType(sources[0]) if sources else None
-            if source_type is not None and source_type != "blendWeighted" \
-                    and not source_type.startswith("animCurveU"):
+            if source_type is not None and source_type != "blendWeighted" and not source_type.startswith("animCurveU"):
                 report.addSkipped(name, f"connected to {source_type}")
                 continue
             for saved in item["drivers"]:
@@ -212,8 +212,7 @@ def _apply_driver(driver, driven, saved, report):
         report.addSkipped(label, f"curve type {curve_type} does not match {data['curveType']}")
         return
     _write_curve(curve, data, data["keys"], input_scale=_input_scale(curve, str(driver)))
-    for destination in cmds.listConnections(curve + ".output", source=False, destination=True, plugs=True,
-                                            skipConversionNodes=True) or []:
+    for destination in cmds.listConnections(curve + ".output", source=False, destination=True, plugs=True, skipConversionNodes=True) or []:
         node, _, attribute = destination.partition(".")
         if cmds.nodeType(node) == "blendWeighted" and attribute.startswith("input["):
             weight = f"{node}.weight[{attribute[6:-1]}]"
@@ -251,8 +250,7 @@ def _blend_curves(blend):
     """
     result = []
     for index in cmds.getAttr(blend + ".input", multiIndices=True) or []:
-        sources = cmds.listConnections(f"{blend}.input[{index}]", source=True, destination=False,
-                                       skipConversionNodes=True) or []
+        sources = cmds.listConnections(f"{blend}.input[{index}]", source=True, destination=False, skipConversionNodes=True) or []
         if sources and cmds.nodeType(sources[0]).startswith("animCurveU"):
             result.append((sources[0], index))
     return result
@@ -267,8 +265,7 @@ def _driver(curve):
     Returns:
         str | None: ドライバーのPlug名。つながっていなければNone。
     """
-    sources = cmds.listConnections(curve + ".input", source=True, destination=False, plugs=True,
-                                   skipConversionNodes=True) or []
+    sources = cmds.listConnections(curve + ".input", source=True, destination=False, plugs=True, skipConversionNodes=True) or []
     return sources[0] if sources else None
 
 

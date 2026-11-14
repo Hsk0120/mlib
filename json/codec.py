@@ -40,8 +40,7 @@ def encode(value):
         return value
     if isinstance(value, om2.MEulerRotation):
         rotate = value if isinstance(value, EulerRotate) else EulerRotate(value.x, value.y, value.z, value.order)
-        return {"type": "EulerRotate", "value": [_finite(item) for item in rotate.asDegrees()],
-                "order": rotate.orderName}
+        return {"type": "EulerRotate", "value": [_finite(item) for item in rotate.asDegrees()], "order": rotate.orderName}
     if isinstance(value, om2.MQuaternion):
         return {"type": "Quaternion", "value": [_finite(item) for item in (value.x, value.y, value.z, value.w)]}
     if isinstance(value, om2.MMatrix):
@@ -133,8 +132,7 @@ def _decode_math(value):
     name, items = value["type"], value["value"]
     sizes = {"Quaternion": 4, "Matrix": 16, "EulerRotate": 3}
     size = sizes.get(name, 3)
-    if len(items) != size or not all(isinstance(item, (int, float)) and not isinstance(item, bool)
-                                     for item in items):
+    if len(items) != size or not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in items):
         raise ValueError(f"{name} expects {size} numbers in JSON, got {items!r}")
     if name == "EulerRotate":
         return EulerRotate.fromDegrees(items[0], items[1], items[2], value["order"])

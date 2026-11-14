@@ -33,6 +33,7 @@ def getNode(value):
             含めて複数の対象に一致する)場合、または空・削除済みのラッパーや om2 オブジェクトを
             指定した場合。
     """
+    # 循環参照の回避: nodes は cmds を参照するため、使う時点で読み込む。
     from ..nodes.node import Node
 
     if isinstance(value, str):

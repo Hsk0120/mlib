@@ -67,7 +67,7 @@ class SelectionSnapshot(Snapshot):
             ValidationReport: 適用の結果。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """``items`` の各項目がノードまたはコンポーネントの参照か確かめる。
 
         Args:

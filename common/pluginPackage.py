@@ -33,8 +33,7 @@ class PluginPackage:
     ロード済みのプラグインを自動アンロードする責務は持たない。
     """
 
-    def __init__(self, name, plugins=(), module=None, versionPlugin=None,
-                 minimumVersion=None, minimumMaya=None, installHint=None):
+    def __init__(self, name, plugins=(), module=None, versionPlugin=None, minimumVersion=None, minimumMaya=None, installHint=None):
         """製品名・ロード対象・必要版を保持する。Mayaへは問い合わせない。
 
         Args:
@@ -206,8 +205,7 @@ class PluginPackage:
             found = self.getInstalledVersion()
         wanted = f"{self._name} {self._minimum_version}" if self._minimum_version else self._name
         year = self._maya_year()
-        hint = self._install_hint or (
-            f"Autodesk アカウントなどから Maya {year} 用の {wanted} 以降を入手してインストールしてください。")
+        hint = self._install_hint or f"Autodesk アカウントなどから Maya {year} 用の {wanted} 以降を入手してインストールしてください。"
         found_text = str(found) if found is not None else "なし"
         return (
             f"{wanted} 以降が見つかりません(検出した版: {found_text})。\n\n{hint}\n"
@@ -227,8 +225,7 @@ class PluginPackage:
                 plugin.load(quiet=True)
             except Exception as error:
                 failed.append(plugin.name)
-                logger.warning("[mlib] Cannot load plugin %s for %s: %s",
-                               plugin.name, self._name, error)
+                logger.warning("[mlib] Cannot load plugin %s for %s: %s", plugin.name, self._name, error)
         return failed
 
     def tryLoad(self, dialog=True, warn=True):
@@ -262,8 +259,7 @@ class PluginPackage:
             self._report(show, warn, self.getMessage())
             return MISSING
         running = self.getLoadedVersion()
-        if self._minimum_version is not None and running is not None \
-                and running < self._minimum_version:
+        if self._minimum_version is not None and running is not None and running < self._minimum_version:
             self._report(show, warn, self.getMessage(running))
             return OUTDATED
         return LOAD_FAILED if failed else LOADED

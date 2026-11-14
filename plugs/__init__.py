@@ -5,8 +5,7 @@ for _name in globals().get("__all__", ()):
     globals().pop(_name, None)
 
 # 旧初期化状態を、読み込み済みセッションに残さない。
-for _name in ("_discovered_wrappers", "_discovered_exports",
-              "discover_node_package", "discover_plug_package", "TYPE_CHECKING"):
+for _name in ("_discovered_wrappers", "_discovered_exports", "discover_node_package", "discover_plug_package", "TYPE_CHECKING"):
     globals().pop(_name, None)
 
 from .plug import Plug, Plugs

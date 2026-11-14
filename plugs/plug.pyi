@@ -9,10 +9,8 @@ from operator import methodcaller
 from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..core.attributeType import attributeType, is_internal_data_type, value_reader
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, _time_quantity
-from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr
-from ..core.fastWrite import set_plug
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, _time_quantity, attributeType, is_internal_data_type, value_reader
+from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.object import Object, _missing_member_message
 from ..decorator import _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _angle_unit, _time_unit
@@ -1069,8 +1067,8 @@ class Plug(Object):
         Raises:
             TypeError: :meth:`setMin` と同じ。
             ValueError: unit・timeUnitが未対応の単位名の場合。
-            NotImplementedError: valueがNoneの場合。変更前に拒否する。
             RuntimeError: 所有ノードまたはアトリビュートが無効、またはMayaが変更を拒否した場合。
+            NotImplementedError: valueがNoneの場合。変更前に拒否する。
         """
         ...
     def getSoftMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> float | tuple[float, ...] | None:
@@ -1117,8 +1115,8 @@ class Plug(Object):
         Raises:
             TypeError: :meth:`setMin` と同じ。
             ValueError: unit・timeUnitが未対応の単位名の場合。
-            NotImplementedError: valueがNoneの場合。変更前に拒否する。
             RuntimeError: 所有ノードまたはアトリビュートが無効、またはMayaが変更を拒否した場合。
+            NotImplementedError: valueがNoneの場合。変更前に拒否する。
         """
         ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Any:
@@ -1432,10 +1430,10 @@ class Plug(Object):
 
         Returns:
             object: 型に応じた値。CompoundPlug.getは子の定義順tuple、MultiPlug.getは
-                論理番号をキーとするdict。API読取の型付き配列はlistで、各要素は
+                論理番号をキーとするdict。API読取の ``doubleArray`` 等のデータ型はlistで、各要素は
                 vectorArray=XYZ、pointArray=XYZW、matrixArray=16成分のtuple。
-                未初期化データはNone、空配列は空list。generic/kAnyは現在値に応じて
-                Matrix・数値・tuple等を返す。マトリクス・型付き配列の成分と無単位値は換算しない。
+                未初期化データはNone、空のデータは空list。generic/kAnyは現在値に応じて
+                Matrix・数値・tuple等を返す。マトリクス・``doubleArray`` 等のデータ型の成分と無単位値は換算しない。
 
         Raises:
             TypeError: uiUnitsがbool以外、またはunit・timeUnitが文字列・None以外の場合。
@@ -1468,7 +1466,7 @@ class Plug(Object):
                 時間以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
             uiUnits (bool): Trueは現在のUI単位の数値入力。既定Falseは角度が度(unitの指定に従う)、
                 距離cm、時間がフレーム(timeUnitの指定に従う)。
-            fast (bool): Trueは対応型をOpenMayaで直接更新する。Undoへ記録せず、Undo設定も変更しない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応型だけを直接更新し、Undo設定は変えない。
                 入力の意味と検証は通常経路と同じ(整数型・enum・boolへの小数は四捨五入、
                 数値型への文字列や文字列型への数値はRuntimeError)。
 

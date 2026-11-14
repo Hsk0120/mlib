@@ -82,7 +82,7 @@ class AttributesSnapshot(Snapshot):
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """``plugs`` の各項目がPlug参照と値を持つか確かめる。
 
         Args:
@@ -103,7 +103,7 @@ class AttributesSnapshot(Snapshot):
             except TypeError as error:
                 raise ValueError(f"Invalid attribute value in JSON: {entry['value']!r}") from error
 
-    def _validate(self, mapping, report, options):
+    def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """ノードの対応と、書けないアトリビュートを記録する。
 
         Args:
@@ -113,7 +113,7 @@ class AttributesSnapshot(Snapshot):
         """
         self._plan(mapping, report)
 
-    def _apply(self, mapping, report, options, fast):
+    def _apply(self, mapping, report, options, fast):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """書けるアトリビュートへ値を書き込む。
 
         飛ばすものは :meth:`_validate` で記録済みのため、ここでは書込みに失敗したものだけを記録する。
@@ -208,6 +208,7 @@ def _collect_plugs(nodes, names):
     from ..cmds import getPlug
     from ..nodes.node import Node
     from ..plugs.plug import Plug
+
     if isinstance(nodes, (str, Node, Plug)):
         nodes = [nodes]
     try:

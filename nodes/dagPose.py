@@ -71,7 +71,7 @@ class DagPose(Node):
     def getMemberIndices(self):
         """現在も接続された保存メンバーの論理番号を取得する。
 
-        members配列の既存番号のうち、入力接続がある要素だけを返す。切断済みの空要素を除き、
+        members マルチアトリビュートの既存番号のうち、入力接続がある要素だけを返す。切断済みの空要素を除き、
         欠番を詰めずにworldMatrix・xformMatrixとの対応を保つ。
 
         Returns:
@@ -83,7 +83,7 @@ class DagPose(Node):
         return [index for index, _ in self._member_sources()]
 
     def getMembers(self):
-        """保存対象をmembers配列の論理番号順に取得する。
+        """保存対象をmembers マルチアトリビュートの論理番号順に取得する。
 
         Returns:
             list[Node]: 保存対象。getMemberIndices()と同じ順序。
@@ -180,8 +180,7 @@ class DagPose(Node):
         self._pose_name()
         nodes = []
         for plug in self.getPlug("message").mplug().destinations():
-            if (plug.node().hasFn(om2.MFn.kSkinClusterFilter)
-                    and om2.MFnAttribute(plug.attribute()).name == "bindPose"):
+            if plug.node().hasFn(om2.MFn.kSkinClusterFilter) and om2.MFnAttribute(plug.attribute()).name == "bindPose":
                 node = Node(plug.node())
                 if node not in nodes:
                     nodes.append(node)
@@ -260,8 +259,7 @@ class DagPose(Node):
             name = self._pose_name()
             names = self._transform_names(members)
             current = [source.node() for _, source in self._member_sources()]
-            names = [target for target in names
-                     if not any(Node(target).mnode() == obj for obj in current)]
+            names = [target for target in names if not any(Node(target).mnode() == obj for obj in current)]
             if names:
                 cmds.dagPose(names, addToPose=True, name=name)
             return self
@@ -422,8 +420,7 @@ class DagPose(Node):
         require_editable(self.mnode())
         for attr in self._POSE_ARRAYS:
             plug = self.getPlug(attr).mplug()
-            if plug.isLocked or any(plug.elementByLogicalIndex(i).isLocked
-                                    for i in plug.getExistingArrayAttributeIndices()):
+            if plug.isLocked or any(plug.elementByLogicalIndex(i).isLocked for i in plug.getExistingArrayAttributeIndices()):
                 raise RuntimeError(f"Locked pose attribute: {plug.name()}")
         for skin in skins.values():
             require_editable(skin.mnode())
@@ -495,7 +492,7 @@ class DagPose(Node):
         """
         if values[0] == "xform":
             args = ["xform", values[1:4], values[4:7], values[7]]
-            args.extend(values[i:i + 3] for i in range(8, 26, 3))
+            args.extend(values[i : i + 3] for i in range(8, 26, 3))
             args.extend((values[26:30], values[30:34], values[34:37], values[37]))
             cmds.setAttr(destination, *args, type="matrix")
         else:
@@ -524,7 +521,7 @@ class DagPose(Node):
         if tokens[start + 1] != "matrix":
             raise RuntimeError(f"Expected matrix data: {plug.name()}")
         values = []
-        for token in tokens[start + 2:]:
+        for token in tokens[start + 2 :]:
             if token == "xform":
                 values.append(token)
             elif token in ("yes", "no"):
@@ -569,8 +566,7 @@ class DagPose(Node):
                 parent = None
             elif source.isElement and source.array() == members and source.logicalIndex() in indices:
                 parent = indices[source.logicalIndex()]
-            elif (source.node().hasFn(om2.MFn.kTransform)
-                    and source.partialName(useLongNames=True) == "message"):
+            elif source.node().hasFn(om2.MFn.kTransform) and source.partialName(useLongNames=True) == "message":
                 parent = Node(source.node()).getFullName()
                 external_parent = True
             else:
@@ -618,7 +614,7 @@ class DagPose(Node):
     def _merge_check_delete(self):
         """統合元の削除で失われる外部接続とロックを事前に検査する。"""
         require_editable(self.mnode())
-        fn = om2.MFnDependencyNode(self.mnode())
+        fn = self._dependency_fn()
         for plug in fn.getConnections():
             for other in plug.connectedTo(True, True):
                 if other.node() == fn.object():
@@ -627,14 +623,11 @@ class DagPose(Node):
                 other_attr = om2.MFnAttribute(other.attribute()).name
                 if attr == "members" and plug.isDestination and other_attr == "message":
                     continue
-                if (attr == "parents" and plug.isDestination and other_attr == "message"
-                        and other.node().hasFn(om2.MFn.kTransform)):
+                if attr == "parents" and plug.isDestination and other_attr == "message" and other.node().hasFn(om2.MFn.kTransform):
                     continue
-                if (attr == "worldMatrix" and plug.isDestination and other_attr == "bindPose"
-                        and other.node().hasFn(om2.MFn.kJoint)):
+                if attr == "worldMatrix" and plug.isDestination and other_attr == "bindPose" and other.node().hasFn(om2.MFn.kJoint):
                     continue
-                if (attr == "message" and other_attr == "bindPose"
-                        and other.node().hasFn(om2.MFn.kSkinClusterFilter)):
+                if attr == "message" and other_attr == "bindPose" and other.node().hasFn(om2.MFn.kSkinClusterFilter):
                     continue
                 raise RuntimeError(f"Source pose has another connection: {plug.name()}")
 

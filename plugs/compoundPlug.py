@@ -2,8 +2,7 @@
 
 import maya.api.OpenMaya as om2
 
-from ..core.attributeType import (_convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit,
-                                  attributeType, value_reader)
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, attributeType, value_reader
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
 from ..decorator import _require_bool
@@ -89,7 +88,7 @@ class CompoundPlug(Plug):
         """直接の子の値を、アトリビュート定義順のtupleで取得する。
 
         各子でget()を呼ぶため、値取得に伴うDG評価が発生し得る。
-        入れ子のコンパウンドアトリビュートや配列型の値は平坦化せず、各子の返却型を保つ。
+        入れ子のコンパウンドアトリビュートや ``doubleArray`` 等のデータ型の値は平坦化せず、各子の返却型を保つ。
 
         Args:
             unit (str | None): 角度の子の数値の単位。None(既定)は度、``"rad"`` はラジアン。
@@ -152,9 +151,7 @@ class CompoundPlug(Plug):
                     selected.append(value_reader(child.attribute()))
             readers = self._child_readers = tuple(selected)
         return [
-            reader(mplug.child(index)) if reader is not False
-            else self._child_at(index).get(unit="rad", timeUnit="sec")
-            for index, reader in enumerate(readers)
+            reader(mplug.child(index)) if reader is not False else self._child_at(index).get(unit="rad", timeUnit="sec") for index, reader in enumerate(readers)
         ]
 
     def _set_value(self, value, *, uiUnits=False, fast=False):
@@ -255,9 +252,7 @@ class CompoundPlug(Plug):
                 for index in range(mplug.numChildren()):
                     child = mplug.child(index)
                     attribute = child.attribute()
-                    if (child.isCompound or child.isArray
-                            or not (attribute.hasFn(om2.MFn.kNumericAttribute)
-                                    or attribute.hasFn(om2.MFn.kUnitAttribute))):
+                    if child.isCompound or child.isArray or not (attribute.hasFn(om2.MFn.kNumericAttribute) or attribute.hasFn(om2.MFn.kUnitAttribute)):
                         bulk = False
                         break
             self._bulk_children = bulk

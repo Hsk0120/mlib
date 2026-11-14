@@ -5,7 +5,6 @@ import math
 import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 from ..components.cv import CV, CVs
 from ..components.pointComponent import _mirror_plan, _write_points
 from ..core import geometryEdit as geometry_edit

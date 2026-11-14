@@ -105,7 +105,7 @@ def check_deletion(nodes, fast=False):
             raise _deletion_error(index, f"Cannot delete locked node '{_display_name(path)}'.")
         if fn.isDefaultNode or path in blocked:
             raise _deletion_error(index, f"Non-deletable node '{_display_name(path)}' cannot be deleted.")
-        child_names = names[offset:offset + len(descendants[index])]
+        child_names = names[offset : offset + len(descendants[index])]
         offset += len(descendants[index])
         for child, child_path in zip(descendants[index], child_names):
             child_fn = om2.MFnDependencyNode(child)
@@ -114,8 +114,7 @@ def check_deletion(nodes, fast=False):
             if child_fn.isLocked:
                 if fast:
                     raise _deletion_error(index, f"Node is locked or referenced: {child_fn.name()}")
-                raise _deletion_error(
-                    index, f"Cannot delete '{_display_name(path)}' as it has locked or read-only children.")
+                raise _deletion_error(index, f"Cannot delete '{_display_name(path)}' as it has locked or read-only children.")
             if child_fn.isDefaultNode or child_path in blocked:
                 raise _deletion_error(index, f"Non-deletable node '{_display_name(child_path)}' cannot be deleted.")
     return entries
@@ -156,7 +155,7 @@ def delete_nodes(nodes, fast=False, checked=None):
         if not handle.isValid() or any(obj == other for other in same):
             continue
         same.append(obj)
-        # cmds.deleteと同じく、対象の空の親は残す（modifierの既定Trueとは異なる）。
+        # cmds.deleteと同じく、対象の空の親は残す(modifierの既定Trueとは異なる)。
         modifier.deleteNode(obj, False)
     modifier.doIt()
 
@@ -184,10 +183,11 @@ def _referenced_message(path, owner=None):
         source += f" ({filename})"
     name = _display_name(path)
     if owner is not None:
-        return (f"Cannot delete '{_display_name(owner)}': its descendant '{name}' is a referenced node{source}; "
-                "referenced nodes can only be removed by editing or unloading the reference")
-    return (f"Cannot delete '{name}': it is a referenced node{source}; "
-            "referenced nodes can only be removed by editing or unloading the reference")
+        return (
+            f"Cannot delete '{_display_name(owner)}': its descendant '{name}' is a referenced node{source}; "
+            "referenced nodes can only be removed by editing or unloading the reference"
+        )
+    return f"Cannot delete '{name}': it is a referenced node{source}; referenced nodes can only be removed by editing or unloading the reference"
 
 
 def _deletion_error(index, message):
@@ -201,7 +201,7 @@ def _deletion_error(index, message):
         RuntimeError: ``index`` 属性を持つ例外。
     """
     error = RuntimeError(message)
-    setattr(error, "index", index)  # RuntimeError の型に無い属性を追加する。
+    setattr(error, "index", index)  # noqa: B010  # RuntimeError の型に無い属性を追加する。
     return error
 
 
@@ -246,7 +246,7 @@ def rename_node(node, name, ignore_shape=False):
             short = child_fn.name()
             if child.hasFn(om2.MFn.kShape) and short.startswith(old):
                 require_editable(child)
-                shapes.append((child, short[len(old):]))
+                shapes.append((child, short[len(old) :]))
     result = fn.setName(str(name))
     for shape, suffix in shapes:
         om2.MFnDependencyNode(shape).setName(result + suffix)
@@ -270,6 +270,7 @@ def create_node(node_type, flags):
             同名ノードの型が違う場合(cmdsは新しい連番名で作るが、fastは型を見て拒否する)。
         NotImplementedError: name/parent/skipSelect/shared以外のフラグを指定した場合。
     """
+    # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
     from ..nodes.node import Node
 
     unsupported = set(flags) - {"name", "parent", "skipSelect", "shared"}
@@ -295,8 +296,7 @@ def create_node(node_type, flags):
                 existing = selection.getDependNode(0)
                 existing_type = om2.MFnDependencyNode(existing).typeName
                 if existing_type != node_type:
-                    raise RuntimeError(
-                        f"shared=True: existing node {name!r} has type {existing_type!r}, not {node_type!r}")
+                    raise RuntimeError(f"shared=True: existing node {name!r} has type {existing_type!r}, not {node_type!r}")
                 return existing
     modifier = om2.MDagModifier()
     try:
@@ -310,8 +310,7 @@ def create_node(node_type, flags):
     if om2.MFnDependencyNode(obj).typeName != node_type and obj.hasFn(om2.MFn.kDagNode):
         # Shapeをワールド直下へ作る場合、MDagModifierは自動作成したTransformを返す。
         dag = om2.MFnDagNode(obj)
-        obj = next(dag.child(i) for i in range(dag.childCount())
-                   if om2.MFnDependencyNode(dag.child(i)).typeName == node_type)
+        obj = next(dag.child(i) for i in range(dag.childCount()) if om2.MFnDependencyNode(dag.child(i)).typeName == node_type)
     if name:
         om2.MFnDependencyNode(obj).setName(str(name))
     if not flags.get("skipSelect", False):

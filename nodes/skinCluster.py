@@ -1,11 +1,9 @@
-"""skinClusterのinfluenceと、先頭Meshの頂点ウェイトを照会・編集する。
-
-"""
+"""skinClusterのinfluenceと、先頭Meshの頂点ウェイトを照会・編集する。"""
 
 import math
 from collections.abc import Mapping
 from contextlib import contextmanager
-from decimal import Decimal, localcontext, ROUND_FLOOR
+from decimal import ROUND_FLOOR, Decimal, localcontext
 from itertools import groupby
 from typing import List
 
@@ -18,7 +16,7 @@ from ..core.ngSkinLayers import _layer_api, _move_layer_weights
 from ..core.object import Object
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths import easing
-from ..util import _MIRROR_PLANES, _PointGrid, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _PointGrid, _world_space
 from .dagNode import DagNode
 from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
@@ -138,14 +136,18 @@ class SkinCluster(GeometryFilter):
         destination = self._copy_destination(target)
         if destination.getUuid() == self.getUuid():
             raise ValueError("Source and destination skinClusters must differ")
-        cmds.copySkinWeights(sourceSkin=self.getFullName(), destinationSkin=destination.getFullName(),
-                             noMirror=True, surfaceAssociation="closestPoint",
-                             influenceAssociation=["name", "closestJoint"], normalize=True)
+        cmds.copySkinWeights(
+            sourceSkin=self.getFullName(),
+            destinationSkin=destination.getFullName(),
+            noMirror=True,
+            surfaceAssociation="closestPoint",
+            influenceAssociation=["name", "closestJoint"],
+            normalize=True,
+        )
         return destination
 
     @undoChunk("mlibSkinClusterMirrorWeights")
-    def mirrorWeights(self, axis="YZ", positiveToNegative=True, surfaceAssociation="closestPoint",
-                      influenceAssociation=("closestJoint",), normalize=True):
+    def mirrorWeights(self, axis="YZ", positiveToNegative=True, surfaceAssociation="closestPoint", influenceAssociation=("closestJoint",), normalize=True):
         """自身の形状の片側のウェイトを、鏡映面の反対側へ写す。
 
         ``cmds.copySkinWeights(sourceSkin=自身, destinationSkin=自身, mirrorMode=axis, ...)`` を
@@ -173,8 +175,7 @@ class SkinCluster(GeometryFilter):
         """
         axis = _MIRROR_PLANES[_mirror_axis(axis)]
         _require_bool(positiveToNegative, "positiveToNegative")
-        surfaceAssociation = self._require_choice(surfaceAssociation, "surfaceAssociation",
-                                                  self._SURFACE_ASSOCIATIONS)
+        surfaceAssociation = self._require_choice(surfaceAssociation, "surfaceAssociation", self._SURFACE_ASSOCIATIONS)
         if isinstance(influenceAssociation, str):
             influenceAssociation = (influenceAssociation,)
         try:
@@ -187,9 +188,15 @@ class SkinCluster(GeometryFilter):
             self._require_choice(method, "influenceAssociation", self._INFLUENCE_ASSOCIATIONS)
         _require_bool(normalize, "normalize")
         name = self.getFullName()
-        cmds.copySkinWeights(sourceSkin=name, destinationSkin=name, mirrorMode=axis,
-                             mirrorInverse=not positiveToNegative, surfaceAssociation=surfaceAssociation,
-                             influenceAssociation=influence_association, normalize=normalize)
+        cmds.copySkinWeights(
+            sourceSkin=name,
+            destinationSkin=name,
+            mirrorMode=axis,
+            mirrorInverse=not positiveToNegative,
+            surfaceAssociation=surfaceAssociation,
+            influenceAssociation=influence_association,
+            normalize=normalize,
+        )
         return self
 
     def pruneWeights(self, threshold, normalize=True, *, fast=False):
@@ -333,8 +340,7 @@ class SkinCluster(GeometryFilter):
             if transferToParent:
                 for node in targets:
                     ancestor = node.getParent() if isinstance(node, Joint) else None
-                    while isinstance(ancestor, Joint) and (
-                            ancestor.getUuid() in removing or not self.hasInfluence(ancestor.getFullName())):
+                    while isinstance(ancestor, Joint) and (ancestor.getUuid() in removing or not self.hasInfluence(ancestor.getFullName())):
                         ancestor = ancestor.getParent()
                     if not isinstance(ancestor, Joint):
                         raise ValueError(f"No remaining ancestor influence receives the weights: {node.getFullName()}")
@@ -352,6 +358,7 @@ class SkinCluster(GeometryFilter):
         Raises:
             RuntimeError: skinClusterが無効、または接続先がdagPoseでない場合。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .dagPose import DagPose
 
         return DagPose.fromSkinCluster(self)
@@ -531,10 +538,7 @@ class SkinCluster(GeometryFilter):
         uuid = self._uuid_or_none(joint)
         if not uuid:
             return False
-        return any(
-            self._path_uuid(path) == uuid
-            for path in self._skin_fn.influenceObjects()
-        )
+        return any(self._path_uuid(path) == uuid for path in self._skin_fn.influenceObjects())
 
     def getInfluenceVertices(self, influence, threshold=0.0):
         """influenceがウェイトを持つ先頭Meshの頂点を取得する(Select Influence Vertices 相当)。
@@ -588,8 +592,7 @@ class SkinCluster(GeometryFilter):
         Returns:
             list[Node]: ロックしているinfluence。:meth:`getInfluences` と同じ順・同じ型。
         """
-        return [node for node in self.getInfluences()
-                if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()]
+        return [node for node in self.getInfluences() if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()]
 
     def setInfluencesLocked(self, joints, state=True):
         """influenceのウェイトのロック(lockInfluenceWeights)を設定する。
@@ -655,8 +658,7 @@ class SkinCluster(GeometryFilter):
         else:
             paths = self._skin_fn.influenceObjects()
             targets = [Node._wrap_dag_path(paths[index]) for index in self._require_influences(joints)]
-        locked = [node for node in targets
-                  if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()]
+        locked = [node for node in targets if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()]
         with undoChunk("mlibSkinClusterUnlockedInfluences"):
             for node in locked:
                 node.getPlug("lockInfluenceWeights").set(False)
@@ -679,11 +681,11 @@ class SkinCluster(GeometryFilter):
             vertices (Vertex | Vertices | int | str | Iterable | None): 取得する頂点。Noneは全頂点。
                 Vertex/Verticesは先頭Mesh所属に限り、文字列は ``"mesh.vtx[0:3]"`` のような頂点名。
                 指定した順に返し、重複はValueError。
-            rows (bool): Trueは頂点ごとの行(``list[list[float]]``)で返す。既定Falseは平坦な配列。
+            rows (bool): Trueは頂点ごとの行(``list[list[float]]``)で返す。既定Falseは平坦な list。
 
         Returns:
             om2.MDoubleArray | list[list[float]]: 既定は頂点順(Noneは番号順)・各頂点内はjoints順の、
-                頂点数×指定数の平坦な値配列。無次元の独立した値で、配列の変更はシーンへ反映されない。
+                頂点数×指定数の平坦な値の list。無次元の独立した値で、listの変更はシーンへ反映されない。
                 i番目の頂点のj番目のinfluenceは ``weights[i * len(joints) + j]``。``rows=True`` は
                 同じ値を頂点ごとの行に分けた ``weights[i][j]``。1頂点のウェイトをinfluenceごとに読むなら
                 :meth:`getVertexWeights` (influenceからウェイトへの辞書)を使う。
@@ -703,7 +705,7 @@ class SkinCluster(GeometryFilter):
             if not rows:
                 return flat
             width = len(physical_indices)
-            return [list(flat[start:start + width]) for start in range(0, len(flat), width)]
+            return [list(flat[start : start + width]) for start in range(0, len(flat), width)]
         values = self._read_rows(vertex_indices, physical_indices)
         if rows:
             return [list(row) for row in values]
@@ -768,9 +770,7 @@ class SkinCluster(GeometryFilter):
                 if broadcast:
                     raise ValueError("rows and broadcast cannot be combined")
                 weights = self._flatten_weight_rows(joints, weights)
-            values, width, vertex_indices, physical_indices = self._prepare_weight_values(
-
-                joints, weights, vertices, broadcast)
+            values, width, vertex_indices, physical_indices = self._prepare_weight_values(joints, weights, vertices, broadcast)
             if normalize:
                 values, physical_indices = self._normalized_write(values, width, vertex_indices, physical_indices)
                 width = len(physical_indices)
@@ -836,8 +836,7 @@ class SkinCluster(GeometryFilter):
             if not weights:
                 raise ValueError("weights must contain at least one influence")
             index = self._single_vertex_index(vertex)
-            self.setWeights(list(weights.keys()), list(weights.values()), vertices=[index],
-                            normalize=normalize, fast=fast)
+            self.setWeights(list(weights.keys()), list(weights.values()), vertices=[index], normalize=normalize, fast=fast)
             return self
 
     def getBlendWeights(self, *, vertices=None):
@@ -924,13 +923,11 @@ class SkinCluster(GeometryFilter):
                 component_fn = om2.MFnSingleIndexedComponent()
                 component = component_fn.create(om2.MFn.kMeshVertComponent)
                 component_fn.addElements([index for index, _ in pairs])
-                self._skin_fn.setBlendWeights(self.mesh_path, component,
-                                              om2.MDoubleArray([float(value) for _, value in pairs]))
+                self._skin_fn.setBlendWeights(self.mesh_path, component, om2.MDoubleArray([float(value) for _, value in pairs]))
                 return self
             name = self.getFullName()
             for start, first, count in self._consecutive_runs(vertex_indices):
-                set_attr(f"{name}.blendWeights[{first}:{first + count - 1}]",
-                         *(float(value) for value in values[start:start + count]))
+                set_attr(f"{name}.blendWeights[{first}:{first + count - 1}]", *(float(value) for value in values[start : start + count]))
             return self
 
     def getWeightsData(self):
@@ -971,6 +968,7 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json.nodeRef import NodeRef
+
         self._require_valid("access")
         component, count = self._all_vertices()
         paths = self._skin_fn.influenceObjects()
@@ -978,7 +976,7 @@ class SkinCluster(GeometryFilter):
         flat = list(self._skin_fn.getWeights(self.mesh_path, component)[0]) if count else []
         indices, values = [], []
         for start in range(0, count * width, width):
-            row = flat[start:start + width]
+            row = flat[start : start + width]
             used = [index for index, value in enumerate(row) if value != 0.0]
             indices.append(used)
             values.append([row[index] for index in used])
@@ -1028,7 +1026,7 @@ class SkinCluster(GeometryFilter):
             replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
             method (str): ``"index"`` (既定)または ``"position"``。
-            fast (bool): TrueはUndoなしのOpenMaya更新(``MFnSkinCluster.setWeights``)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MFnSkinCluster.setWeights`` を使う。
 
         Returns:
             ValidationReport: 見つからなかったinfluence(missing)と書かなかったもの(skipped)。
@@ -1046,6 +1044,7 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json.nameMapping import NameMapping
+
         _require_bool(fast, "fast")
         self._require_choice(method, "method", ("index", "position"))
         saved, nodes, report = self._prepare_weights_data(data, NameMapping(nameMap, replace, namespaceMap), method)
@@ -1075,6 +1074,7 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json import file
+
         return file.dump(self.getWeightsData(), path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
 
     def importWeights(self, path, *, nameMap=None, replace=None, namespaceMap=None, method="index", fast=False):
@@ -1100,9 +1100,9 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json import file
+
         _, data = file.load(path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
-        return self.setWeightsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap,
-                                   method=method, fast=fast)
+        return self.setWeightsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, method=method, fast=fast)
 
     def invertShape(self, sculpted, name=None):
         """現在のポーズで形を整えたメッシュから、スキンの変形を逆にかけた補正形状を作る。
@@ -1138,6 +1138,7 @@ class SkinCluster(GeometryFilter):
             skinCluster の入力の位置をそのまま使う。頂点の書込みは :meth:`Mesh.setPoints
             <mlib.nodes.mesh.Mesh.setPoints>` を使い、頂点数に比例して時間がかかる。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .mesh import Mesh
 
         if name is not None and not isinstance(name, str):
@@ -1164,8 +1165,7 @@ class SkinCluster(GeometryFilter):
             intermediate = [shape for shape in shapes if cmds.getAttr(shape + ".intermediateObject")]
             if intermediate:
                 cmds.delete(intermediate)
-            children = [child for child in cmds.listRelatives(duplicate_path, children=True, fullPath=True) or []
-                        if child not in shapes]
+            children = [child for child in cmds.listRelatives(duplicate_path, children=True, fullPath=True) or [] if child not in shapes]
             if children:
                 cmds.delete(children)
             shape = Node(cmds.listRelatives(duplicate_path, shapes=True, fullPath=True)[0])
@@ -1200,6 +1200,7 @@ class SkinCluster(GeometryFilter):
             if curve not in easing.CURVES:
                 raise ValueError(f"Unsupported easing method: {method}")
             num_vertices = om2.MFnMesh(self.mesh_path).numVertices
+            # 循環参照の回避: components は nodes を参照するため、使う時点で読み込む。
             from ..components.vertex import Vertex, Vertices
 
             if isinstance(vertices, Vertices):
@@ -1281,7 +1282,9 @@ class SkinCluster(GeometryFilter):
                 if source.getUuid() != target.getUuid():
                     pairs.append((source.getFullName(), target.getFullName()))
             if fast:
+                # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
                 from ..core.skinEdit import transfer_weights
+
                 transfer_weights(self, pairs)
             else:
                 with preservedSelection():
@@ -1483,22 +1486,22 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json.snapshot import ValidationReport
+
         saved = self._parse_weights_data(data)
         report = ValidationReport()
         count = om2.MFnMesh(self.mesh_path).numVertices
         if method == "index" and saved["vertexCount"] != count:
-            report.addError(f"Stored vertex count ({saved['vertexCount']}) does not match the vertex count of "
-                            f"{self.mesh} ({count}); use method='position'")
+            report.addError(f"Stored vertex count ({saved['vertexCount']}) does not match the vertex count of {self.mesh} ({count}); use method='position'")
         if method == "position" and not saved["positions"]:
             report.addError("The data has no vertex positions")
         if not report.valid:
-            raise ValueError("Cannot apply skin weights: " + "; ".join(report.errors))
+            raise ValueError(f"Cannot apply skin weights: {'; '.join(report.errors)}")
         nodes = [ref.resolve(mapping) for ref in saved["influences"]]
         for ref, node in zip(saved["influences"], nodes):
             if node is None:
                 report.addMissing(ref.mappedName(mapping))
         if all(node is None for node in nodes):
-            raise ValueError("None of the stored influences exist in the scene: " + ", ".join(report.missing))
+            raise ValueError(f"None of the stored influences exist in the scene: {', '.join(report.missing)}")
         return saved, nodes, report
 
     def _apply_weights_data(self, saved, nodes, method, report, fast):
@@ -1542,8 +1545,7 @@ class SkinCluster(GeometryFilter):
                 component_fn = om2.MFnSingleIndexedComponent()
                 component = component_fn.create(om2.MFn.kMeshVertComponent)
                 component_fn.addElements(vertices)
-                self._skin_fn.setWeights(self.mesh_path, component, om2.MIntArray(range(len(paths))),
-                                         om2.MDoubleArray(values), False)
+                self._skin_fn.setWeights(self.mesh_path, component, om2.MIntArray(range(len(paths))), om2.MDoubleArray(values), False)
             else:
                 self._set_weight_values_cmds(values, len(paths), vertices, logical)
         self._write_blend_weights(saved["blendWeights"], sources, fast)
@@ -1679,8 +1681,7 @@ class SkinCluster(GeometryFilter):
         ids = [layer.id for layer in layers]
         result = []
         for layer in layers:
-            weights = [[positions[index], [float(value) for value in layer.get_weights(index)]]
-                       for index in layer.get_used_influences() if index in positions]
+            weights = [[positions[index], [float(value) for value in layer.get_weights(index)]] for index in layer.get_used_influences() if index in positions]
             entry = {
                 "name": layer.name,
                 "enabled": bool(layer.enabled),
@@ -1712,8 +1713,7 @@ class SkinCluster(GeometryFilter):
         name = self.getFullName()
         if not saved_layers:
             if _layer_api(name) is not None:
-                report.addSkipped(f"{self.getName()} ngSkinTools layers",
-                                  "kept the existing layers; they may override the written weights")
+                report.addSkipped(f"{self.getName()} ngSkinTools layers", "kept the existing layers; they may override the written weights")
             return
         api = self._ngskin_api()
         if api is None:
@@ -1730,8 +1730,7 @@ class SkinCluster(GeometryFilter):
                     parent = entry["parent"]
                     if position in created or (parent is not None and parent not in created):
                         continue
-                    layer = layers.add(entry["name"], force_empty=True,
-                                       parent=None if parent is None else created[parent])
+                    layer = layers.add(entry["name"], force_empty=True, parent=None if parent is None else created[parent])
                     layer.enabled = entry["enabled"]
                     layer.opacity = entry["opacity"]
                     merged = {}
@@ -1745,8 +1744,7 @@ class SkinCluster(GeometryFilter):
                         layer.set_weights(key, values, undo_enabled=undo)
                     for target in ("mask", "dq"):
                         if entry[target] is not None:
-                            layer.set_weights(target, [entry[target][source] for source in sources],
-                                              undo_enabled=undo)
+                            layer.set_weights(target, [entry[target][source] for source in sources], undo_enabled=undo)
                     created[position] = layer
             for position in sorted(created, key=lambda item: saved_layers[item]["index"]):
                 created[position].index = saved_layers[position]["index"]
@@ -1806,6 +1804,7 @@ class SkinCluster(GeometryFilter):
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json.nodeRef import NodeRef
+
         if not isinstance(data, dict):
             raise TypeError(f"data must be a dict, got {type(data).__name__}")
         for key in ("vertexCount", "influences", "weights"):
@@ -1826,12 +1825,10 @@ class SkinCluster(GeometryFilter):
         if not isinstance(weights, dict) or set(weights) != {"indices", "values"}:
             raise ValueError("weights must be a dict with 'indices' and 'values'")
         indices, values = weights["indices"], weights["values"]
-        if not isinstance(indices, list) or not isinstance(values, list) or len(indices) != count \
-                or len(values) != count:
+        if not isinstance(indices, list) or not isinstance(values, list) or len(indices) != count or len(values) != count:
             raise ValueError(f"weights indices and values must be lists of {count} rows")
         for vertex, (row_indices, row_values) in enumerate(zip(indices, values)):
-            if not isinstance(row_indices, list) or not isinstance(row_values, list) \
-                    or len(row_indices) != len(row_values):
+            if not isinstance(row_indices, list) or not isinstance(row_values, list) or len(row_indices) != len(row_values):
                 raise ValueError(f"Invalid weights row at vertex {vertex}")
             for index, value in zip(row_indices, row_values):
                 if type(index) is not int or not 0 <= index < width:
@@ -1839,13 +1836,14 @@ class SkinCluster(GeometryFilter):
                 if not _finite_number(value):
                     raise ValueError(f"Invalid weight {value!r} at vertex {vertex}")
         blend = data.get("blendWeights")
-        if blend is not None and (not isinstance(blend, list) or len(blend) != count
-                                  or not all(_finite_number(value) for value in blend)):
+        if blend is not None and (not isinstance(blend, list) or len(blend) != count or not all(_finite_number(value) for value in blend)):
             raise ValueError(f"blendWeights must be a list of {count} numbers")
         positions = data.get("positions") or None
-        if positions is not None and (not isinstance(positions, list) or len(positions) != count or not all(
-                isinstance(point, list) and len(point) == 3 and all(_finite_number(value) for value in point)
-                for point in positions)):
+        if positions is not None and (
+            not isinstance(positions, list)
+            or len(positions) != count
+            or not all(isinstance(point, list) and len(point) == 3 and all(_finite_number(value) for value in point) for point in positions)
+        ):
             raise ValueError(f"positions must be a list of {count} [x, y, z] points")
         return {
             "vertexCount": count,
@@ -1874,8 +1872,7 @@ class SkinCluster(GeometryFilter):
         settings = {} if settings is None else settings
         if not isinstance(settings, dict):
             raise ValueError("settings must be a dict")
-        result = {key: settings.get(key) for key in
-                  ("skinningMethod", "maxInfluences", "maintainMaxInfluences", "normalizeWeights")}
+        result = {key: settings.get(key) for key in ("skinningMethod", "maxInfluences", "maintainMaxInfluences", "normalizeWeights")}
         checks = (
             ("skinningMethod", lambda value: value in cls._SKINNING_METHODS),
             ("normalizeWeights", lambda value: value in cls._NORMALIZE_MODES),
@@ -1917,13 +1914,12 @@ class SkinCluster(GeometryFilter):
             parent = entry.get("parent")
             if parent is not None and (type(parent) is not int or not 0 <= parent < len(layers) or parent == position):
                 raise ValueError(f"Invalid parent of ngSkinTools layer {entry['name']!r}: {parent!r}")
-            if not isinstance(entry.get("enabled"), bool) or not _finite_number(entry.get("opacity")) \
-                    or type(entry.get("index")) is not int:
+            if not isinstance(entry.get("enabled"), bool) or not _finite_number(entry.get("opacity")) or type(entry.get("index")) is not int:
                 raise ValueError(f"Invalid settings of ngSkinTools layer {entry['name']!r}")
             weights = entry.get("weights")
             if not isinstance(weights, list) or not all(
-                    isinstance(item, list) and len(item) == 2 and type(item[0]) is int and 0 <= item[0] < width
-                    and column(item[1]) for item in weights):
+                isinstance(item, list) and len(item) == 2 and type(item[0]) is int and 0 <= item[0] < width and column(item[1]) for item in weights
+            ):
                 raise ValueError(f"Invalid weights of ngSkinTools layer {entry['name']!r}")
             for target in ("mask", "dq"):
                 if entry.get(target) is not None and not column(entry[target]):
@@ -1966,15 +1962,16 @@ class SkinCluster(GeometryFilter):
         matrices = dependency.findPlug("matrix", False)
         bind_pre = dependency.findPlug("bindPreMatrix", False)
         logical = [self._skin_fn.indexForInfluenceObject(path) for path in self._skin_fn.influenceObjects()]
-        skin_matrices = [self._plug_matrix(bind_pre.elementByLogicalIndex(index))
-                         * self._plug_matrix(matrices.elementByLogicalIndex(index)) for index in logical]
+        skin_matrices = [
+            self._plug_matrix(bind_pre.elementByLogicalIndex(index)) * self._plug_matrix(matrices.elementByLogicalIndex(index)) for index in logical
+        ]
         components, count = self._all_vertices()
         weights, width = self._skin_fn.getWeights(self.mesh_path, components)
         weights = list(weights)
         identity = om2.MMatrix()
         result = []
         for vertex in range(count):
-            row = weights[vertex * width:(vertex + 1) * width]
+            row = weights[vertex * width : (vertex + 1) * width]
             total = om2.MMatrix([0.0] * 16)
             for weight, matrix in zip(row, skin_matrices):
                 if weight:
@@ -2135,6 +2132,7 @@ class SkinCluster(GeometryFilter):
         """
         # componentsはnodesを読み込むため、循環importを避けて使う時点で読み込む。
         from ..components.component import Component, Components
+
         hint = "pass vertices with vertices=, or use getVertexWeights()/setVertexWeights()"
         items = joints if isinstance(joints, (list, tuple, set)) else (joints,)
         for item in items:
@@ -2177,6 +2175,7 @@ class SkinCluster(GeometryFilter):
         # componentsはnodesを読み込むため、循環importを避けて使う時点で読み込む。
         from ..components.component import Component, Components
         from ..components.vertex import Vertex, Vertices
+
         mesh = self._mesh_node()
         num_vertices = om2.MFnMesh(self.mesh_path).numVertices
         result = []
@@ -2296,7 +2295,7 @@ class SkinCluster(GeometryFilter):
         flat = list(self._skin_fn.getWeights(self.mesh_path, component, om2.MIntArray(physical_indices)))
         width = len(physical_indices)
         position = {vertex: i for i, vertex in enumerate(ordered)}
-        return [flat[position[vertex] * width:(position[vertex] + 1) * width] for vertex in vertex_indices]
+        return [flat[position[vertex] * width : (position[vertex] + 1) * width] for vertex in vertex_indices]
 
     @staticmethod
     def _influence_locked(path):
@@ -2513,15 +2512,15 @@ class SkinCluster(GeometryFilter):
         count, width = len(vertex_indices), len(physical_indices)
         if broadcast:
             if len(values) != width:
-                raise ValueError(f"broadcast=True requires exactly {width} weights (one per influence), "
-                                 f"got {len(values)}")
+                raise ValueError(f"broadcast=True requires exactly {width} weights (one per influence), got {len(values)}")
         elif len(values) != count * width:
             if len(values) == width:
-                raise ValueError(f"Got {width} weights for {count} vertices x {width} influences; "
-                                 "pass broadcast=True to apply them to every vertex, "
-                                 "or vertices= to choose the vertices")
-            raise ValueError(f"Weight count must be vertex count times influence count "
-                             f"({count} x {width} = {count * width}), got {len(values)}")
+                raise ValueError(
+                    f"Got {width} weights for {count} vertices x {width} influences; "
+                    "pass broadcast=True to apply them to every vertex, "
+                    "or vertices= to choose the vertices"
+                )
+            raise ValueError(f"Weight count must be vertex count times influence count ({count} x {width} = {count * width}), got {len(values)}")
         if not all(math.isfinite(value) for value in values):
             raise ValueError("Weights must be finite")
         return values, width, vertex_indices, physical_indices
@@ -2628,7 +2627,7 @@ class SkinCluster(GeometryFilter):
                 if count == 1:
                     set_attr(f"{prefix}[{first}]", values[start])
                     continue
-                row = values[start:start + count]
+                row = values[start : start + count]
                 try:
                     set_attr(f"{prefix}[{first}:{first + count - 1}]", *row)
                 except RuntimeError:
@@ -2677,8 +2676,7 @@ class SkinCluster(GeometryFilter):
             joint = joints[0]
             uuid = self._uuid_or_none(joint)
             for index, path in enumerate(influences):
-                if ((uuid and self._path_uuid(path) == uuid)
-                        or path.partialPathName() == joint):
+                if (uuid and self._path_uuid(path) == uuid) or path.partialPathName() == joint:
                     return [index]
             return [None]
         by_uuid, by_name = {}, {}
@@ -2772,8 +2770,7 @@ class SkinCluster(GeometryFilter):
         paths = self._skin_fn.influenceObjects()
         physical = {self._path_uuid(path): index for index, path in enumerate(paths)}
         logical = [self._skin_fn.indexForInfluenceObject(path) for path in paths]
-        follow = {physical[source.getUuid()]: None if target is None else physical[self._uuid_or_none(target)]
-                  for source, target in plans}
+        follow = {physical[source.getUuid()]: None if target is None else physical[self._uuid_or_none(target)] for source, target in plans}
         moves = {}
         for source, target in follow.items():
             while follow.get(target) is not None:
@@ -2787,7 +2784,8 @@ class SkinCluster(GeometryFilter):
                 [logical[source] for source, target in follow.items() if target is None],
                 [logical[index] for index in range(len(paths)) if index not in follow],
                 self._all_vertices()[1],
-                fast=fast)
+                fast=fast,
+            )
             if moves and not layered:
                 self._move_weights(moves, logical, snapshot, fast=fast)
             # 値が残る列を一括で外すと再配分の結果が変わるため、0にした列だけをまとめる。
@@ -2842,7 +2840,7 @@ class SkinCluster(GeometryFilter):
         entries = {}
         for source, target in moves.items():
             offset = position[target]
-            for vertex, value in enumerate(values[position[source]::width]):
+            for vertex, value in enumerate(values[position[source] :: width]):
                 if value != 0.0:
                     entries[(vertex, logical[source])] = 0.0
                     values[vertex * width + offset] += value
@@ -2865,8 +2863,7 @@ class SkinCluster(GeometryFilter):
         if not fast:
             for vertex, items in groupby(entries, key=lambda entry: entry[0][0]):
                 items = list(items)
-                self._set_weight_values_cmds([value for _, value in items], len(items), [vertex],
-                                             [key[1] for key, _ in items])
+                self._set_weight_values_cmds([value for _, value in items], len(items), [vertex], [key[1] for key, _ in items])
             return
         weight_list = self._dependency_fn().findPlug("weightList", False)
         attribute_fn = None
@@ -2974,11 +2971,10 @@ class SkinCluster(GeometryFilter):
         names = [node.getName() for node in self._require_unlocked_influences()]
         if not names:
             raise ValueError("No influences")
-        path = self.getFullName() + ".weightList"
         weight_list = self.getPlug("weightList").mplug()
         if weight_list.isLocked or weight_list.isDestination:
             raise RuntimeError("Weights are locked or connected")
-        self._validate_weight_locks(weight_list)
+        self._require_weight_locks(weight_list)
         return names, weight_list
 
     def _require_unlocked_influences(self):
@@ -3026,7 +3022,7 @@ class SkinCluster(GeometryFilter):
         return elements, used
 
     @staticmethod
-    def _validate_weight_locks(plug):
+    def _require_weight_locks(plug):
         """既存の疎なウェイト要素だけを辿りロックを検証する。
 
         Args:
@@ -3042,10 +3038,10 @@ class SkinCluster(GeometryFilter):
             raise RuntimeError(f"Weight multi element is locked or connected: {plug.name()}")
         if plug.isArray:
             for index in plug.getExistingArrayAttributeIndices():
-                SkinCluster._validate_weight_locks(plug.elementByLogicalIndex(index))
+                SkinCluster._require_weight_locks(plug.elementByLogicalIndex(index))
         elif plug.isCompound:
             for index in range(plug.numChildren()):
-                SkinCluster._validate_weight_locks(plug.child(index))
+                SkinCluster._require_weight_locks(plug.child(index))
 
     def _normalized_weights(self, decimals=None, limit=None):
         """全頂点ウェイトの正規化・任意の列削減・十進丸めをメモリ上で計算する。
@@ -3068,7 +3064,7 @@ class SkinCluster(GeometryFilter):
         with localcontext() as context:
             context.prec = 64
             for start in range(0, len(weights), width):
-                row = [Decimal(str(v)) for v in weights[start:start + width]]
+                row = [Decimal(str(v)) for v in weights[start : start + width]]
                 if limit is not None:
                     keep = set(sorted(range(width), key=lambda i: (-row[i], i))[:limit])
                     row = [v if i in keep else Decimal(0) for i, v in enumerate(row)]
@@ -3077,7 +3073,7 @@ class SkinCluster(GeometryFilter):
                     raise ValueError(f"Cannot normalize zero-total weights at vertex {start // width}")
                 row = [v / total for v in row]
                 if decimals is not None:
-                    scale = 10 ** decimals
+                    scale = 10**decimals
                     scaled = [v * scale for v in row]
                     ticks = [int(v.to_integral_value(rounding=ROUND_FLOOR)) for v in scaled]
                     remaining = scale - sum(ticks)
@@ -3096,8 +3092,7 @@ class SkinCluster(GeometryFilter):
         """
         # ノード名・型だけが必要。genericアトリビュートを含む接続のPlug生成は避ける。
         fn = self._dependency_fn()
-        connected = {om2.MObjectHandle(other.node()).hashCode(): other.node()
-                     for plug in fn.getConnections() for other in plug.connectedTo(True, True)}
+        connected = {om2.MObjectHandle(other.node()).hashCode(): other.node() for plug in fn.getConnections() for other in plug.connectedTo(True, True)}
         for obj in connected.values():
             other_fn = om2.MFnDependencyNode(obj)
             node_name = other_fn.name().lower()

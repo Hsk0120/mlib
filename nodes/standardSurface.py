@@ -7,9 +7,7 @@ from .paintableShadingDependNode import PaintableShadingDependNode
 from .shadingDependNode import ShadingDependNode
 
 # Mayaのバージョンで異なる中間型の有無を反映する。
-_SurfaceBase = (PaintableShadingDependNode
-                if "paintableShadingDependNode" in _inherited_node_types("standardSurface")
-                else ShadingDependNode)
+_SurfaceBase = PaintableShadingDependNode if "paintableShadingDependNode" in _inherited_node_types("standardSurface") else ShadingDependNode
 
 
 # 型検査では両方の候補に共通する基底として扱う。

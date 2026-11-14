@@ -6,7 +6,6 @@ import operator
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 
 from ..core import geometryEdit as geometry_edit
 from ..decorator import _edit_context, _pick_alias
@@ -27,7 +26,7 @@ class Shape(DagNode):
 
         Args:
             parent (Transform | str): 新しい親のTransform(Jointを含む)。
-            fast (bool): TrueはUndoなしのOpenMaya更新(MDagModifier.reparentNode)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
 
         Returns:
             Shape: 自身。移した後のパスを指す。
@@ -69,7 +68,7 @@ class Shape(DagNode):
             pivot (Iterable[float]): 指定空間の中心。cm。既定は原点で、Transformのピボットは使わない。
             indices (Iterable[int | tuple[int, int]] | None): 頂点/CV番号。サーフェスは(U, V)。
                 Noneは全要素。空列は書込みなし。ただしShape型とfastのサーフェス拒否は先に検査する。
-            fast (bool): Trueは履歴なしメッシュ・カーブをOM2で更新(Undoなし)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは履歴なしメッシュ・カーブが対象。
                 FalseはMaya標準コマンドをUndo有効時にまとめる。
 
         Returns:
@@ -115,8 +114,7 @@ class Shape(DagNode):
                     # cmds.ls("cv[*][*]", flatten=True) と同じく、周期方向は独立CV(数 - 次数)だけを u 優先で並べる。
                     counts_u, counts_v = (
                         count - degree if form == om2.MFnNurbsSurface.kPeriodic else count
-                        for count, degree, form in zip(counts, (fn.degreeInU, fn.degreeInV),
-                                                       (fn.formInU, fn.formInV))
+                        for count, degree, form in zip(counts, (fn.degreeInU, fn.degreeInV), (fn.formInU, fn.formInV))
                     )
                     components = [(u, v) for u in range(counts_u) for v in range(counts_v)]
                 if len(counts) == 1:
@@ -140,9 +138,7 @@ class Shape(DagNode):
                         fn = om2.MFnNurbsSurface(path)
                         row = tuple(
                             value % (count - degree) if form == om2.MFnNurbsSurface.kPeriodic else value
-                            for value, count, degree, form in zip(
-                                row, counts, (fn.degreeInU, fn.degreeInV), (fn.formInU, fn.formInV)
-                            )
+                            for value, count, degree, form in zip(row, counts, (fn.degreeInU, fn.degreeInV), (fn.formInU, fn.formInV))
                         )
                     if row in seen:
                         continue
@@ -156,13 +152,12 @@ class Shape(DagNode):
             if ws:
                 matrix = path.inclusiveMatrix()
                 magnitude = max(1.0, *(sum(abs(matrix[r * 4 + c]) for c in range(3)) for r in range(3)))
-                if abs(matrix.det4x4()) <= 1e-12 * magnitude ** 3:
+                if abs(matrix.det4x4()) <= 1e-12 * magnitude**3:
                     raise ValueError("Cannot scale in world space with a near-singular transform")
             if len(counts) == 1:
                 # 全座標を先にAPIで読む。周期CVも独立番号にまとめ、二重に拡縮しない。
                 positions = geometry_edit.positions(self, selected, ws)
-                values = [tuple(center[i] + (point[i] - center[i]) * factors[i] for i in range(3))
-                          for point in positions]
+                values = [tuple(center[i] + (point[i] - center[i]) * factors[i] for i in range(3)) for point in positions]
                 if not all(math.isfinite(v) for row in values for v in row):
                     raise ValueError("Scaled positions must be finite")
                 geometry_edit.set_positions(self, selected, values, ws, fast=fast)

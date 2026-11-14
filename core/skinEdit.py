@@ -1,5 +1,4 @@
-"""skinClusterのウェイト移送をOpenMayaで実行する(``SkinCluster.transferWeights`` のfast経路)。
-"""
+"""skinClusterのウェイト移送をOpenMayaで実行する(``SkinCluster.transferWeights`` のfast経路)。"""
 
 
 def transfer_weights(skin, pairs):
@@ -24,8 +23,8 @@ def transfer_weights(skin, pairs):
     width = len(names)
     # Nodeは循環import回避のため関数内で読み込む。
     from ..nodes.node import Node
-    indices = [(ids.index(Node(source).getUuid()), ids.index(Node(target).getUuid()))
-               for source, target in pairs]
+
+    indices = [(ids.index(Node(source).getUuid()), ids.index(Node(target).getUuid())) for source, target in pairs]
     normalize = skin.getPlug("normalizeWeights").get() == 1
     for source, target in indices:
         for offset in range(0, len(values), width):
@@ -36,7 +35,7 @@ def transfer_weights(skin, pairs):
             values[offset + target] = values[offset + source]
             values[offset + source] = 0.0
             if normalize:
-                total = sum(values[offset:offset + width])
+                total = sum(values[offset : offset + width])
                 if total > 0:
-                    values[offset:offset + width] = [v / total for v in values[offset:offset + width]]
+                    values[offset : offset + width] = [v / total for v in values[offset : offset + width]]
     skin.setWeights(names, values, fast=True)

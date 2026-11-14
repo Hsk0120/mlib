@@ -19,12 +19,10 @@ from ..util import _UNSET
 
 #: ``**kwargs`` では受け付けないフラグ。形状・スケルトンの指定は名前の違う専用引数(source・skeleton・
 #: destination・destinationSkeleton)で受け、query・editは作成専用のため受け付けない。
-_REJECTED_FLAGS = frozenset(("srcMeshName", "sm", "srcSkeletonName", "ss", "dstMeshName", "dm",
-                             "dstSkeletonName", "ds", "query", "q", "edit", "e"))
+_REJECTED_FLAGS = frozenset(("srcMeshName", "sm", "srcSkeletonName", "ss", "dstMeshName", "dm", "dstSkeletonName", "ds", "query", "q", "edit", "e"))
 
 
-def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, maxInfluences=_UNSET, *,
-                 mi=_UNSET, **kwargs):
+def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, maxInfluences=_UNSET, *, mi=_UNSET, **kwargs):
     """元の形状の変形を、変形先の形状の skinCluster のウェイトへ焼き込む。
 
     選択状態は参照しない。変形先が既にバインドされていれば、その skinCluster のウェイトを書き換える。
@@ -67,9 +65,14 @@ def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, m
     root = Node(Object._input_name(skeleton))
     target_root = root if destinationSkeleton is None else Node(Object._input_name(destinationSkeleton))
     with undoChunk("mlibBakeDeformer"):
-        cmds.bakeDeformer(srcMeshName=source_node.getFullName(), srcSkeletonName=root.getFullName(),
-                          dstMeshName=target.getFullName(), dstSkeletonName=target_root.getFullName(),
-                          maxInfluences=maxInfluences, **kwargs)
+        cmds.bakeDeformer(
+            srcMeshName=source_node.getFullName(),
+            srcSkeletonName=root.getFullName(),
+            dstMeshName=target.getFullName(),
+            dstSkeletonName=target_root.getFullName(),
+            maxInfluences=maxInfluences,
+            **kwargs,
+        )
     # 結果の照会はUndoのまとまりの外で行う(中で行うとRedoでウェイトが焼き込み前の値になる)。
     skins = cmds.ls(cmds.listHistory(target.getFullName()) or [], type="skinCluster")
     if not skins:

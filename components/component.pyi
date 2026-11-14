@@ -216,7 +216,7 @@ class Component(Object):
         """
         ...
     @staticmethod
-    def _validate_shape(shape: Shape, shape_type: str | None) -> None:
+    def _require_shape(shape: Shape, shape_type: str | None) -> None:
         """生存と型を検査する。要素数は呼出し側で必要な時に照会する。
 
         Args:

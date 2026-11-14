@@ -56,6 +56,7 @@ class IkHandle(Transform):
         Returns:
             Joint | None: end joint。接続が見つからない場合は ``None``。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .joint import Joint
 
         effector_plug = self.getPlug("endEffector").getSource()

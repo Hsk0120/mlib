@@ -14,12 +14,7 @@ from .compoundPlug import CompoundPlug
 class Double3Plug(CompoundPlug):
     """3成分アトリビュートを参照し、チャンネル値を読み書きする。マトリクス変換は行わない。"""
 
-    _value_types = {
-        "translate": Translate, "t": Translate,
-        "rotate": EulerRotate, "r": EulerRotate,
-        "scale": Scale, "s": Scale,
-        "shear": Shear, "sh": Shear,
-    }
+    _value_types = {"translate": Translate, "t": Translate, "rotate": EulerRotate, "r": EulerRotate, "scale": Scale, "s": Scale, "shear": Shear, "sh": Shear}
 
     def get(self, *, unit=None, timeUnit=None, uiUnits=False):
         """3成分のチャンネル値を取得する。jointOrientなどは合成しない。

@@ -33,7 +33,7 @@ def _proportion(done: int, total: int, scale: int) -> int:
     ...
 
 
-class _ProgressLine(object):
+class _ProgressLine:
     """1本の進捗行について、件数の保持・文字列の組み立て・出力を受け持つ。
 
     処理済みの件数は ``done`` に保持し、``advance`` のたびに1つ増やす。

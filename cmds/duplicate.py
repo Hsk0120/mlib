@@ -25,21 +25,36 @@ from ..util import _UNSET
 _SUFFIX = re.compile(r"^[A-Za-z0-9_]+$")
 
 
-def duplicate(node, *,
-        fullPath=_UNSET, f=_UNSET,
-        inputConnections=_UNSET, ic=_UNSET,
-        instanceLeaf=_UNSET, ilf=_UNSET,
-        name=_UNSET, n=_UNSET,
-        parentOnly=_UNSET, po=_UNSET,
-        renameChildren=_UNSET, rc=_UNSET,
-        returnRootsOnly=_UNSET, rr=_UNSET,
-        smartTransform=_UNSET, st=_UNSET,
-        transformsOnly=_UNSET, to=_UNSET,
-        upstreamNodes=_UNSET, un=_UNSET,
-        query=_UNSET, q=_UNSET,
-        edit=_UNSET, e=_UNSET,
-        suffix=None,
-        **kwargs):
+def duplicate(
+    node,
+    *,
+    fullPath=_UNSET,
+    f=_UNSET,
+    inputConnections=_UNSET,
+    ic=_UNSET,
+    instanceLeaf=_UNSET,
+    ilf=_UNSET,
+    name=_UNSET,
+    n=_UNSET,
+    parentOnly=_UNSET,
+    po=_UNSET,
+    renameChildren=_UNSET,
+    rc=_UNSET,
+    returnRootsOnly=_UNSET,
+    rr=_UNSET,
+    smartTransform=_UNSET,
+    st=_UNSET,
+    transformsOnly=_UNSET,
+    to=_UNSET,
+    upstreamNodes=_UNSET,
+    un=_UNSET,
+    query=_UNSET,
+    q=_UNSET,
+    edit=_UNSET,
+    e=_UNSET,
+    suffix=None,
+    **kwargs,
+):
     """指定したノードを複製し、対応する mlib wrapper として返す。
 
     フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
@@ -91,20 +106,23 @@ def duplicate(node, *,
             指定した場合。
         RuntimeError: Maya が複製を拒否した場合。
     """
-    _merge_flags(kwargs, (
-        (fullPath, f, "fullPath", "f"),
-        (inputConnections, ic, "inputConnections", "ic"),
-        (instanceLeaf, ilf, "instanceLeaf", "ilf"),
-        (name, n, "name", "n"),
-        (parentOnly, po, "parentOnly", "po"),
-        (renameChildren, rc, "renameChildren", "rc"),
-        (returnRootsOnly, rr, "returnRootsOnly", "rr"),
-        (smartTransform, st, "smartTransform", "st"),
-        (transformsOnly, to, "transformsOnly", "to"),
-        (upstreamNodes, un, "upstreamNodes", "un"),
-        (query, q, "query", "q"),
-        (edit, e, "edit", "e"),
-    ))
+    _merge_flags(
+        kwargs,
+        (
+            (fullPath, f, "fullPath", "f"),
+            (inputConnections, ic, "inputConnections", "ic"),
+            (instanceLeaf, ilf, "instanceLeaf", "ilf"),
+            (name, n, "name", "n"),
+            (parentOnly, po, "parentOnly", "po"),
+            (renameChildren, rc, "renameChildren", "rc"),
+            (returnRootsOnly, rr, "returnRootsOnly", "rr"),
+            (smartTransform, st, "smartTransform", "st"),
+            (transformsOnly, to, "transformsOnly", "to"),
+            (upstreamNodes, un, "upstreamNodes", "un"),
+            (query, q, "query", "q"),
+            (edit, e, "edit", "e"),
+        ),
+    )
     if suffix is not None:
         if not isinstance(suffix, str):
             raise TypeError("suffix must be a string or None")

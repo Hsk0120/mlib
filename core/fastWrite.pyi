@@ -13,7 +13,7 @@ def require_supported_type(plug: om2.MPlug) -> None:
     """fastで書ける型か全子の定義から確認する。値や書込み可否は検査しない。
 
     safeの部分更新前に呼び、ロックや不正な値によって後続の未対応型が隠れるのを防ぐ。
-    対応するtyped配列の型表は、実データを構築するprepare_dataと共有する。
+    対応するデータ型(``doubleArray`` 等)の型表は、実データを構築するprepare_dataと共有する。
 
     Args:
         plug (om2.MPlug): 有効性を確認済みの更新対象。
@@ -140,7 +140,7 @@ def set_attr(name: str, *values, fast: bool = ..., **kwargs) -> Any:
     Args:
         name (str): アトリビュート名。
         *values: cmds.setAttr と同じ形・現在の Maya 単位の値。
-        fast (bool): TrueはOpenMaya直接更新。呼出元が明示的に指定する。
+        fast (bool): TrueはUndoなしのOpenMaya更新。既定False。呼出元が明示的に指定する。
         **kwargs: setAttr のフラグ。fast 時の対応フラグは限定される。
 
     Returns:

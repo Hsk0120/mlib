@@ -18,9 +18,24 @@ from ..decorator import _pick_alias, nativeUnits, preservedSelection, undoTransa
 from ..util import _UNSET, _finite_vector
 
 
-def createNurbsPlane(width=_UNSET, lengthRatio=_UNSET, patchesU=_UNSET, patchesV=_UNSET, axis=_UNSET,
-        degree=_UNSET, name=_UNSET, parent=None, *, w=_UNSET, lr=_UNSET, u=_UNSET, v=_UNSET, ax=_UNSET,
-        d=_UNSET, n=_UNSET):
+def createNurbsPlane(
+    width=_UNSET,
+    lengthRatio=_UNSET,
+    patchesU=_UNSET,
+    patchesV=_UNSET,
+    axis=_UNSET,
+    degree=_UNSET,
+    name=_UNSET,
+    parent=None,
+    *,
+    w=_UNSET,
+    lr=_UNSET,
+    u=_UNSET,
+    v=_UNSET,
+    ax=_UNSET,
+    d=_UNSET,
+    n=_UNSET,
+):
     """原点を中心とするNURBSの平面を作成し、そのシェイプを返す。
 
     fast引数は持たない(OpenMayaで同じノット・CVの面を組み立て直すことになり、同じ結果を保つのが難しいため)。
@@ -74,8 +89,15 @@ def createNurbsPlane(width=_UNSET, lengthRatio=_UNSET, patchesU=_UNSET, patchesV
         raise ValueError("degree must be 1 or 3")
     name = require_name(name)
     parent_node = resolve_parent(parent)
-    flags = {"width": width, "lengthRatio": lengthRatio, "patchesU": patchesU, "patchesV": patchesV,
-             "axis": tuple(axis), "degree": degree, "constructionHistory": False}
+    flags = {
+        "width": width,
+        "lengthRatio": lengthRatio,
+        "patchesU": patchesU,
+        "patchesV": patchesV,
+        "axis": tuple(axis),
+        "degree": degree,
+        "constructionHistory": False,
+    }
     if name:
         flags["name"] = name
     with undoTransaction("mlibCreateNurbsPlane"), preservedSelection():

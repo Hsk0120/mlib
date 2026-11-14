@@ -7,9 +7,7 @@ from .paintableShadingDependNode import PaintableShadingDependNode
 from .shadingDependNode import ShadingDependNode
 
 # Maya 2022にはpaintableShadingDependNodeがないため、実際の継承列に合わせる。
-_SurfaceBase = (PaintableShadingDependNode
-                if "paintableShadingDependNode" in _inherited_node_types("lambert")
-                else ShadingDependNode)
+_SurfaceBase = PaintableShadingDependNode if "paintableShadingDependNode" in _inherited_node_types("lambert") else ShadingDependNode
 
 
 # 型検査では両方の候補に共通する基底として扱う。

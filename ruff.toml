@@ -1,0 +1,97 @@
+# mlib のコードの書式を揃える設定。整形は ruff format、検査は ruff check が行う。
+# 版を上げると整形結果が変わるため、_tools/requirements-dev.txt で ruff の版を固定する。
+# 使い方は __tests__/README.md と .github/copilot-instructions.md を参照する。
+
+# 別の版の ruff(VS Code 拡張が同梱するもの等)で整形・検査すると結果が変わるため、実行を拒否する。
+# 上げるときは _tools/requirements-dev.txt と一緒にこの行も直し、全体を整形し直す。
+required-version = "==0.17.5"
+target-version = "py37"
+line-length = 160
+extend-exclude = ["*.pyi", "_docs", "*.md"]
+
+[format]
+# Windows で編集するため、作業ツリーの改行は CRLF のままにする(Git の索引は LF)。
+line-ending = "native"
+# 末尾のカンマを「必ず改行する指示」として扱わず、行幅に収まるなら1行へまとめる。
+skip-magic-trailing-comma = true
+
+[lint]
+# E2xx(空白)・E3xx(空行)・W291 は ruff format が直すため選ばない。
+# Q(引用符)・COM(末尾カンマ)も ruff format が決めるので選ばない。
+# preview は PLW1514(文字コード未指定)のために有効にするが、explicit-preview-rules で
+# 「コードを明示したものだけ」に限る。これが無いと ruff を上げたときに、選んだ族の
+# 新しい preview ルールが黙って増えて検査結果が変わる。
+preview = true
+explicit-preview-rules = true
+select = [
+    "F",       # 未定義・未使用の名前
+    "E4",      # import の位置
+    "E7",      # 比較・lambda 代入等の誤り
+    "E9",      # 構文エラー・インデント
+    "W",       # 末尾の空白・改行
+    "I",       # import の分類と並び
+    "B",       # bugbear(壊れやすい書き方)
+    "ICN",     # import の形式(Maya は import maya.cmds as cmds)
+    "ARG",     # 使っていない引数
+    "PTH",     # ファイルパスは pathlib
+    "C4",      # 内包表記・コレクション生成
+    "RET",     # return の書き方
+    "UP",      # 対応 Python 版に合わせた書き方(f-string 等)
+    "TC",      # 型注釈だけに使う import
+    "G",       # logging の書式
+    "INT",     # gettext の書式
+    "LOG",     # logging の呼び方
+    "PIE",     # 不要な書き方
+    "ERA",     # コメントアウトしたコード
+    "DTZ",     # timezone を指定しない日時
+    "PLE",     # pylint の error(実行時に壊れるもの)
+    "PLW1514", # テキスト I/O の文字コード未指定
+    "RUF100",  # 効いていない noqa
+    "RUF022",  # __all__ の並び
+    "RUF001",  # 文字列の全角・半角(allowed-confusables で日本語を除く)
+    "RUF002",  # docstring の全角・半角
+    "RUF003",  # コメントの全角・半角
+]
+# E741: l・f・i はMayaの短縮フラグの引数名として使う(long・layer・lock・freeze)。
+# PLE0605: ルートと common の __all__ は、各パッケージのクラス・遅延公開の対応表から
+#          実行時に組み立てる仕様。リテラルの並びでないことを許す。
+ignore = ["E741", "PLE0605"]
+# RUF001〜003 は「見分けのつきにくい文字」を報告する。日本語の文字まで別の文字と
+# 間違えやすいと報告するため、普通に使うものを許可して全角の記号だけを残す。
+allowed-confusables = ["ノ", "×", "µ", "～", "１"]
+
+[lint.per-file-ignores]
+# __init__.py は明示 import で再公開し、__all__ を実行時に組み立てる。
+# I001: ルート・core・cmds・nodes・plugs の import は初期化順が仕様なので並べ替えない。
+"__init__.py" = ["F401", "F403", "E402", "I001"]
+# 例外の表示とUndoチャンク名の組立ては、フレームのファイル名を os.path.normcase で
+# 大小を無視して比べる。pathlib に normcase が無いため、この2つは os.path のままにする。
+"logger.py" = ["PTH"]
+"decorator.py" = ["PTH"]
+# テストは maya.standalone の初期化・sys.path の設定を import より前に行う。
+# B018・B015(式だけの行)は、例外を起こす・Undoに記録しないことを確かめる書き方として使う。
+# ARG: コールバック・差し替えた関数は、呼ぶ側が決めた引数を受けるため使わないものがある。
+# B023: ループ内で作る関数・lambdaは、すべて同じ周回の中で呼び切る書き方(確認済み)。
+#       遅れて呼ぶものは無いため、既定値での束縛(index=index 等)は必要なときだけ書く。
+# PTH: パスは Maya のコマンドへ文字列で渡し、tempfile・cmds からも文字列で受けるため、
+#      テストでは os.path のままにする(本体と _tools は pathlib を使う)。
+# C4: テストは cmds へ渡す辞書を dict(...) で組むものが多く、書き換えても読みやすくならない。
+"__tests__/**" = ["E402", "B018", "B015", "ARG", "B023", "PTH", "C408"]
+
+[lint.flake8-unused-arguments]
+# *args・**kwargs は呼出しの形を合わせるために受けるので、使っていなくても報告しない。
+ignore-variadic-names = true
+
+[lint.isort]
+# 末尾のカンマで改行を強制しない(format の skip-magic-trailing-comma と対にする)。
+split-on-trailing-comma = false
+# 標準ライブラリ → Maya 等の外部 → mlib 内部(相対 import も同じ群)。
+known-third-party = ["maya"]
+known-first-party = ["mlib"]
+no-lines-before = ["local-folder"]
+
+[lint.flake8-import-conventions]
+# Maya は import maya.cmds as cmds の形で読み込む。
+banned-from = ["maya", "maya.api"]
+# 既定の別名(numpy→np・datetime→dt等)は使わないので、表そのものを空にする。
+aliases = {}

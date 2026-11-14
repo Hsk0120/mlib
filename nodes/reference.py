@@ -124,6 +124,7 @@ class Reference(Node):
         Returns:
             list[Reference]: 子参照。無ければ空リスト。孫以下は含めない。
         """
+        # mlib 内の他の相互依存箇所と合わせて遅延 import で統一する。
         from ..common.references import listReferences
 
         own_name = self.getFullName()
@@ -165,10 +166,7 @@ class Reference(Node):
         Returns:
             list[str]: Editを表すMELコマンド文字列。無ければ空リスト。
         """
-        return cmds.referenceQuery(
-            self.getName(), editStrings=True,
-            successfulEdits=successful, failedEdits=failed,
-        ) or []
+        return cmds.referenceQuery(self.getName(), editStrings=True, successfulEdits=successful, failedEdits=failed) or []
 
     def getEditNodeNames(self, successful=True, failed=False):
         """Editの影響を受けたノードのフルパス名一覧を取得する。
@@ -180,10 +178,7 @@ class Reference(Node):
         Returns:
             list[str]: Editが加えられたノードのフルパス名(重複あり得る)。無ければ空リスト。
         """
-        return cmds.referenceQuery(
-            self.getName(), editNodes=True,
-            successfulEdits=successful, failedEdits=failed,
-        ) or []
+        return cmds.referenceQuery(self.getName(), editNodes=True, successfulEdits=successful, failedEdits=failed) or []
 
     def getEditAttrNames(self, successful=True, failed=False):
         """Editの影響を受けたアトリビュートの短縮名一覧を取得する。
@@ -199,10 +194,7 @@ class Reference(Node):
         Returns:
             list[str]: Edit対象のアトリビュートの短縮名(重複あり得る)。無ければ空リスト。
         """
-        return cmds.referenceQuery(
-            self.getName(), editAttrs=True,
-            successfulEdits=successful, failedEdits=failed,
-        ) or []
+        return cmds.referenceQuery(self.getName(), editAttrs=True, successfulEdits=successful, failedEdits=failed) or []
 
     @undoChunk("mlibReferenceLoad")
     def load(self):

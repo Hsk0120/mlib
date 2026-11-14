@@ -40,6 +40,7 @@ class Vertex(PointComponent):
         """
         # edge.py が vertex.py を import するため、循環を避けて呼出し時に読む。
         from .edge import Edges
+
         iterator = self._iterator()
         return Edges(self.shape, sorted(set(iterator.getConnectedEdges())))
 
@@ -68,6 +69,7 @@ class Vertex(PointComponent):
         """
         # vertexFace.py が vertex.py を import するため、循環を避けて呼出し時に読む。
         from .vertexFace import VertexFaces
+
         faces = sorted(self._iterator().getConnectedFaces())
         return VertexFaces(self.shape, [(self.index, face) for face in faces])
 
@@ -229,6 +231,7 @@ class Vertices(PointComponents):
         """
         # face.py が vertex.py を import するため、循環を避けて呼出し時に読む。
         from .face import Faces
+
         self._require_valid()
         iterator = om2.MItMeshVertex(self.shape.mpath())
         found = set()

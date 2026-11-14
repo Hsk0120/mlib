@@ -1,12 +1,10 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""skinClusterのinfluenceと、先頭Meshの頂点ウェイトを照会・編集する。
-
-"""
+"""skinClusterのinfluenceと、先頭Meshの頂点ウェイトを照会・編集する。"""
 
 import math
 from collections.abc import Mapping
 from contextlib import contextmanager
-from decimal import Decimal, localcontext, ROUND_FLOOR
+from decimal import ROUND_FLOOR, Decimal, localcontext
 from itertools import groupby
 from typing import List
 import maya.api.OpenMaya as om2
@@ -17,7 +15,7 @@ from ..core.ngSkinLayers import _layer_api, _move_layer_weights
 from ..core.object import Object
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths import easing
-from ..util import _MIRROR_PLANES, _PointGrid, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _PointGrid, _world_space
 from .dagNode import DagNode
 from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
@@ -472,11 +470,11 @@ class SkinCluster(GeometryFilter):
             vertices (Vertex | Vertices | int | str | Iterable | None): 取得する頂点。Noneは全頂点。
                 Vertex/Verticesは先頭Mesh所属に限り、文字列は ``"mesh.vtx[0:3]"`` のような頂点名。
                 指定した順に返し、重複はValueError。
-            rows (bool): Trueは頂点ごとの行(``list[list[float]]``)で返す。既定Falseは平坦な配列。
+            rows (bool): Trueは頂点ごとの行(``list[list[float]]``)で返す。既定Falseは平坦な list。
 
         Returns:
             om2.MDoubleArray | list[list[float]]: 既定は頂点順(Noneは番号順)・各頂点内はjoints順の、
-                頂点数×指定数の平坦な値配列。無次元の独立した値で、配列の変更はシーンへ反映されない。
+                頂点数×指定数の平坦な値の list。無次元の独立した値で、listの変更はシーンへ反映されない。
                 i番目の頂点のj番目のinfluenceは ``weights[i * len(joints) + j]``。``rows=True`` は
                 同じ値を頂点ごとの行に分けた ``weights[i][j]``。1頂点のウェイトをinfluenceごとに読むなら
                 :meth:`getVertexWeights` (influenceからウェイトへの辞書)を使う。
@@ -692,7 +690,7 @@ class SkinCluster(GeometryFilter):
             replace (Iterable[tuple[str, str]] | None): 順に当てる文字列置換。
             namespaceMap (dict[str, str] | None): 名前空間の対応。
             method (str): ``"index"`` (既定)または ``"position"``。
-            fast (bool): TrueはUndoなしのOpenMaya更新(``MFnSkinCluster.setWeights``)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MFnSkinCluster.setWeights`` を使う。
 
         Returns:
             ValidationReport: 見つからなかったinfluence(missing)と書かなかったもの(skipped)。
@@ -1685,7 +1683,7 @@ class SkinCluster(GeometryFilter):
         """
         ...
     @staticmethod
-    def _validate_weight_locks(plug: om2.MPlug) -> None:
+    def _require_weight_locks(plug: om2.MPlug) -> None:
         """既存の疎なウェイト要素だけを辿りロックを検証する。
 
         Args:

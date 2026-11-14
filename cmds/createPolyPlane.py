@@ -18,8 +18,7 @@ from ..decorator import _pick_alias
 from ..util import _UNSET, _finite_vector
 
 
-def createPolyPlane(width=_UNSET, height=_UNSET, subdivisions=(10, 10), axis=_UNSET, name=_UNSET, parent=None, *,
-        w=_UNSET, h=_UNSET, ax=_UNSET, n=_UNSET):
+def createPolyPlane(width=_UNSET, height=_UNSET, subdivisions=(10, 10), axis=_UNSET, name=_UNSET, parent=None, *, w=_UNSET, h=_UNSET, ax=_UNSET, n=_UNSET):
     """原点を中心とするポリゴンの平面を作成し、そのシェイプを返す。
 
     fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
@@ -51,8 +50,7 @@ def createPolyPlane(width=_UNSET, height=_UNSET, subdivisions=(10, 10), axis=_UN
     axis = _pick_alias(axis, ax, "axis", "ax", default=(0, 1, 0))
     name = _pick_alias(name, n, "name", "n", default=None)
     sx, sy = subdivision_counts(subdivisions, 2)
-    flags = {"width": positive_size(width, "width"), "height": positive_size(height, "height"),
-             "subdivisionsX": sx, "subdivisionsY": sy, "axis": _axis(axis)}
+    flags = {"width": positive_size(width, "width"), "height": positive_size(height, "height"), "subdivisionsX": sx, "subdivisionsY": sy, "axis": _axis(axis)}
     return create_poly(cmds.polyPlane, flags, require_name(name), resolve_parent(parent))
 
 

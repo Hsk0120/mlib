@@ -20,69 +20,130 @@ from ..decorator import _merge_flags
 from ..util import _UNSET
 
 
-def ls(*args,
-        absoluteName=_UNSET, an=_UNSET,
-        allPaths=_UNSET, ap=_UNSET,
-        assemblies=_UNSET,
-        cameras=_UNSET, ca=_UNSET,
-        containerType=_UNSET, ct=_UNSET,
-        containers=_UNSET, con=_UNSET,
-        dagObjects=_UNSET, dag=_UNSET,
-        defaultNodes=_UNSET, dn=_UNSET,
-        dependencyNodes=_UNSET, dep=_UNSET,
-        exactType=_UNSET, et=_UNSET,
-        excludeType=_UNSET, ext=_UNSET,
-        flatten=_UNSET, fl=_UNSET,
-        geometry=_UNSET, g=_UNSET,
-        ghost=_UNSET, gh=_UNSET,
-        head=_UNSET, hd=_UNSET,
-        hilite=_UNSET, hl=_UNSET,
-        intermediateObjects=_UNSET, io=_UNSET,
-        invisible=_UNSET, iv=_UNSET,
-        leaf=_UNSET, lf=_UNSET,
-        lights=_UNSET, lt=_UNSET,
-        live=_UNSET, lv=_UNSET,
-        lockedNodes=_UNSET, ln=_UNSET,
-        long=_UNSET, l=_UNSET,
-        materials=_UNSET, mat=_UNSET,
-        modified=_UNSET, mod=_UNSET,
-        noIntermediate=_UNSET, ni=_UNSET,
-        nodeTypes=_UNSET, nt=_UNSET,
-        objectsOnly=_UNSET, o=_UNSET,
-        orderedComponentSelection=_UNSET, ocs=_UNSET,
-        orderedSelection=_UNSET, os=_UNSET,
-        partitions=_UNSET, pr=_UNSET,
-        persistentNodes=_UNSET, pn=_UNSET,
-        planes=_UNSET, pl=_UNSET,
-        preSelectHilite=_UNSET, psh=_UNSET,
-        readOnly=_UNSET, ro=_UNSET,
-        recursive=_UNSET, r=_UNSET,
-        referencedNodes=_UNSET, rn=_UNSET,
-        references=_UNSET, rf=_UNSET,
-        renderGlobals=_UNSET, rg=_UNSET,
-        renderQualities=_UNSET, rq=_UNSET,
-        renderResolutions=_UNSET, rr=_UNSET,
-        renderSetups=_UNSET, rs=_UNSET,
-        selection=_UNSET, sl=_UNSET,
-        selectedKeyframes=_UNSET,
-        sets=_UNSET, set=_UNSET,
-        shapes=_UNSET, s=_UNSET,
-        shortNames=_UNSET, sn=_UNSET,
-        showNamespace=_UNSET, sns=_UNSET,
-        showType=_UNSET, st=_UNSET,
-        tail=_UNSET, tl=_UNSET,
-        templated=_UNSET, tm=_UNSET,
-        textures=_UNSET, tex=_UNSET,
-        transforms=_UNSET, tr=_UNSET,
-        type=_UNSET, typ=_UNSET,
-        ufeObjects=_UNSET, ufe=_UNSET,
-        undeletable=_UNSET, ud=_UNSET,
-        untemplated=_UNSET, ut=_UNSET,
-        uuid=_UNSET, uid=_UNSET,
-        visible=_UNSET, v=_UNSET,
-        query=_UNSET, q=_UNSET,
-        edit=_UNSET, e=_UNSET,
-        **kwargs):
+def ls(
+    *args,
+    absoluteName=_UNSET,
+    an=_UNSET,
+    allPaths=_UNSET,
+    ap=_UNSET,
+    assemblies=_UNSET,
+    cameras=_UNSET,
+    ca=_UNSET,
+    containerType=_UNSET,
+    ct=_UNSET,
+    containers=_UNSET,
+    con=_UNSET,
+    dagObjects=_UNSET,
+    dag=_UNSET,
+    defaultNodes=_UNSET,
+    dn=_UNSET,
+    dependencyNodes=_UNSET,
+    dep=_UNSET,
+    exactType=_UNSET,
+    et=_UNSET,
+    excludeType=_UNSET,
+    ext=_UNSET,
+    flatten=_UNSET,
+    fl=_UNSET,
+    geometry=_UNSET,
+    g=_UNSET,
+    ghost=_UNSET,
+    gh=_UNSET,
+    head=_UNSET,
+    hd=_UNSET,
+    hilite=_UNSET,
+    hl=_UNSET,
+    intermediateObjects=_UNSET,
+    io=_UNSET,
+    invisible=_UNSET,
+    iv=_UNSET,
+    leaf=_UNSET,
+    lf=_UNSET,
+    lights=_UNSET,
+    lt=_UNSET,
+    live=_UNSET,
+    lv=_UNSET,
+    lockedNodes=_UNSET,
+    ln=_UNSET,
+    long=_UNSET,
+    l=_UNSET,
+    materials=_UNSET,
+    mat=_UNSET,
+    modified=_UNSET,
+    mod=_UNSET,
+    noIntermediate=_UNSET,
+    ni=_UNSET,
+    nodeTypes=_UNSET,
+    nt=_UNSET,
+    objectsOnly=_UNSET,
+    o=_UNSET,
+    orderedComponentSelection=_UNSET,
+    ocs=_UNSET,
+    orderedSelection=_UNSET,
+    os=_UNSET,
+    partitions=_UNSET,
+    pr=_UNSET,
+    persistentNodes=_UNSET,
+    pn=_UNSET,
+    planes=_UNSET,
+    pl=_UNSET,
+    preSelectHilite=_UNSET,
+    psh=_UNSET,
+    readOnly=_UNSET,
+    ro=_UNSET,
+    recursive=_UNSET,
+    r=_UNSET,
+    referencedNodes=_UNSET,
+    rn=_UNSET,
+    references=_UNSET,
+    rf=_UNSET,
+    renderGlobals=_UNSET,
+    rg=_UNSET,
+    renderQualities=_UNSET,
+    rq=_UNSET,
+    renderResolutions=_UNSET,
+    rr=_UNSET,
+    renderSetups=_UNSET,
+    rs=_UNSET,
+    selection=_UNSET,
+    sl=_UNSET,
+    selectedKeyframes=_UNSET,
+    sets=_UNSET,
+    set=_UNSET,
+    shapes=_UNSET,
+    s=_UNSET,
+    shortNames=_UNSET,
+    sn=_UNSET,
+    showNamespace=_UNSET,
+    sns=_UNSET,
+    showType=_UNSET,
+    st=_UNSET,
+    tail=_UNSET,
+    tl=_UNSET,
+    templated=_UNSET,
+    tm=_UNSET,
+    textures=_UNSET,
+    tex=_UNSET,
+    transforms=_UNSET,
+    tr=_UNSET,
+    type=_UNSET,
+    typ=_UNSET,
+    ufeObjects=_UNSET,
+    ufe=_UNSET,
+    undeletable=_UNSET,
+    ud=_UNSET,
+    untemplated=_UNSET,
+    ut=_UNSET,
+    uuid=_UNSET,
+    uid=_UNSET,
+    visible=_UNSET,
+    v=_UNSET,
+    query=_UNSET,
+    q=_UNSET,
+    edit=_UNSET,
+    e=_UNSET,
+    **kwargs,
+):
     """Mayaの参照を検索し、対応するラッパーとして返す。
 
     フラグの ``_UNSET`` は省略判定専用。省略したフラグはMayaへ渡さず、Mayaの既定動作を保つ。
@@ -251,8 +312,7 @@ def ls(*args,
             raise TypeError("selectedKeyframes must be a bool")
         if selectedKeyframes:
             flags = dict(locals())
-            others = [name for name, value in flags.items()
-                      if name not in ("args", "kwargs", "selectedKeyframes") and value is not _UNSET]
+            others = [name for name, value in flags.items() if name not in ("args", "kwargs", "selectedKeyframes") and value is not _UNSET]
             if args or kwargs or others:
                 raise TypeError("selectedKeyframes=True cannot be combined with other arguments")
             # common.selectionはcmdsを参照するため、循環importを避けて関数内で読み込む。
@@ -260,81 +320,83 @@ def ls(*args,
 
             return Selection.getKeyframes()
     short_assemblies = kwargs.pop("as", _UNSET)
-    _merge_flags(kwargs, (
-        (absoluteName, an, "absoluteName", "an"),
-        (allPaths, ap, "allPaths", "ap"),
-        (assemblies, short_assemblies, "assemblies", "as"),
-        (cameras, ca, "cameras", "ca"),
-        (containerType, ct, "containerType", "ct"),
-        (containers, con, "containers", "con"),
-        (dagObjects, dag, "dagObjects", "dag"),
-        (defaultNodes, dn, "defaultNodes", "dn"),
-        (dependencyNodes, dep, "dependencyNodes", "dep"),
-        (exactType, et, "exactType", "et"),
-        (excludeType, ext, "excludeType", "ext"),
-        (flatten, fl, "flatten", "fl"),
-        (geometry, g, "geometry", "g"),
-        (ghost, gh, "ghost", "gh"),
-        (head, hd, "head", "hd"),
-        (hilite, hl, "hilite", "hl"),
-        (intermediateObjects, io, "intermediateObjects", "io"),
-        (invisible, iv, "invisible", "iv"),
-        (leaf, lf, "leaf", "lf"),
-        (lights, lt, "lights", "lt"),
-        (live, lv, "live", "lv"),
-        (lockedNodes, ln, "lockedNodes", "ln"),
-        (long, l, "long", "l"),
-        (materials, mat, "materials", "mat"),
-        (modified, mod, "modified", "mod"),
-        (noIntermediate, ni, "noIntermediate", "ni"),
-        (nodeTypes, nt, "nodeTypes", "nt"),
-        (objectsOnly, o, "objectsOnly", "o"),
-        (orderedComponentSelection, ocs, "orderedComponentSelection", "ocs"),
-        (orderedSelection, os, "orderedSelection", "os"),
-        (partitions, pr, "partitions", "pr"),
-        (persistentNodes, pn, "persistentNodes", "pn"),
-        (planes, pl, "planes", "pl"),
-        (preSelectHilite, psh, "preSelectHilite", "psh"),
-        (readOnly, ro, "readOnly", "ro"),
-        (recursive, r, "recursive", "r"),
-        (referencedNodes, rn, "referencedNodes", "rn"),
-        (references, rf, "references", "rf"),
-        (renderGlobals, rg, "renderGlobals", "rg"),
-        (renderQualities, rq, "renderQualities", "rq"),
-        (renderResolutions, rr, "renderResolutions", "rr"),
-        (renderSetups, rs, "renderSetups", "rs"),
-        (selection, sl, "selection", "sl"),
-        (sets, set, "sets", "set"),
-        (shapes, s, "shapes", "s"),
-        (shortNames, sn, "shortNames", "sn"),
-        (showNamespace, sns, "showNamespace", "sns"),
-        (showType, st, "showType", "st"),
-        (tail, tl, "tail", "tl"),
-        (templated, tm, "templated", "tm"),
-        (textures, tex, "textures", "tex"),
-        (transforms, tr, "transforms", "tr"),
-        (type, typ, "type", "typ"),
-        (ufeObjects, ufe, "ufeObjects", "ufe"),
-        (undeletable, ud, "undeletable", "ud"),
-        (untemplated, ut, "untemplated", "ut"),
-        (uuid, uid, "uuid", "uid"),
-        (visible, v, "visible", "v"),
-        (query, q, "query", "q"),
-        (edit, e, "edit", "e"),
-    ))
+    _merge_flags(
+        kwargs,
+        (
+            (absoluteName, an, "absoluteName", "an"),
+            (allPaths, ap, "allPaths", "ap"),
+            (assemblies, short_assemblies, "assemblies", "as"),
+            (cameras, ca, "cameras", "ca"),
+            (containerType, ct, "containerType", "ct"),
+            (containers, con, "containers", "con"),
+            (dagObjects, dag, "dagObjects", "dag"),
+            (defaultNodes, dn, "defaultNodes", "dn"),
+            (dependencyNodes, dep, "dependencyNodes", "dep"),
+            (exactType, et, "exactType", "et"),
+            (excludeType, ext, "excludeType", "ext"),
+            (flatten, fl, "flatten", "fl"),
+            (geometry, g, "geometry", "g"),
+            (ghost, gh, "ghost", "gh"),
+            (head, hd, "head", "hd"),
+            (hilite, hl, "hilite", "hl"),
+            (intermediateObjects, io, "intermediateObjects", "io"),
+            (invisible, iv, "invisible", "iv"),
+            (leaf, lf, "leaf", "lf"),
+            (lights, lt, "lights", "lt"),
+            (live, lv, "live", "lv"),
+            (lockedNodes, ln, "lockedNodes", "ln"),
+            (long, l, "long", "l"),
+            (materials, mat, "materials", "mat"),
+            (modified, mod, "modified", "mod"),
+            (noIntermediate, ni, "noIntermediate", "ni"),
+            (nodeTypes, nt, "nodeTypes", "nt"),
+            (objectsOnly, o, "objectsOnly", "o"),
+            (orderedComponentSelection, ocs, "orderedComponentSelection", "ocs"),
+            (orderedSelection, os, "orderedSelection", "os"),
+            (partitions, pr, "partitions", "pr"),
+            (persistentNodes, pn, "persistentNodes", "pn"),
+            (planes, pl, "planes", "pl"),
+            (preSelectHilite, psh, "preSelectHilite", "psh"),
+            (readOnly, ro, "readOnly", "ro"),
+            (recursive, r, "recursive", "r"),
+            (referencedNodes, rn, "referencedNodes", "rn"),
+            (references, rf, "references", "rf"),
+            (renderGlobals, rg, "renderGlobals", "rg"),
+            (renderQualities, rq, "renderQualities", "rq"),
+            (renderResolutions, rr, "renderResolutions", "rr"),
+            (renderSetups, rs, "renderSetups", "rs"),
+            (selection, sl, "selection", "sl"),
+            (sets, set, "sets", "set"),
+            (shapes, s, "shapes", "s"),
+            (shortNames, sn, "shortNames", "sn"),
+            (showNamespace, sns, "showNamespace", "sns"),
+            (showType, st, "showType", "st"),
+            (tail, tl, "tail", "tl"),
+            (templated, tm, "templated", "tm"),
+            (textures, tex, "textures", "tex"),
+            (transforms, tr, "transforms", "tr"),
+            (type, typ, "type", "typ"),
+            (ufeObjects, ufe, "ufeObjects", "ufe"),
+            (undeletable, ud, "undeletable", "ud"),
+            (untemplated, ut, "untemplated", "ut"),
+            (uuid, uid, "uuid", "uid"),
+            (visible, v, "visible", "v"),
+            (query, q, "query", "q"),
+            (edit, e, "edit", "e"),
+        ),
+    )
     # 2026で改名された型(multDoubleLinear/multDL等)は、どちらの名前でもその版の型名で検索する。
     for key in ("type", "exactType", "excludeType"):
         if key in kwargs:
             kwargs[key] = _real_node_types(kwargs[key])
     # nodes・components・common.selectionはcmdsを参照するため、循環importを避けて関数内で読み込む。
-    from ..nodes.node import Nodes as _InputNodes
+    from ..common.selection import Selection
+    from ..components import CV, UV, Edge, Face, Vertex
     from ..core.object import Object as _InputObject
     from ..nodes import Joints, SkinClusters
-    from ..components import Vertex, Edge, Face, UV, CV
-    from ..common.selection import Selection
+    from ..nodes.node import Nodes as _InputNodes
 
-    component_types = {"vertex": Vertex, "edge": Edge, "face": Face,
-                       "uv": UV, "controlVertex": CV}
+    component_types = {"vertex": Vertex, "edge": Edge, "face": Face, "uv": UV, "controlVertex": CV}
     node_type = kwargs.get("type")
     component = node_type if isinstance(node_type, str) and node_type in component_types else None
     if component is not None:
@@ -357,10 +419,10 @@ def ls(*args,
     # ノード名とアトリビュート名は、名前ごとに選択リストを作らずまとめて解決する(_resolve_names)。
     # 対応付けは cmds の結果の順に行い、対応付けられない名前(重複・統合・コンポーネント・
     # 複数一致・解決の失敗)は従来の名前ごとの経路で判定する。
+    from ..common.selection import _resolve_names
+    from ..components import Component
     from ..nodes.node import Node
     from ..plugs.plug import Plug
-    from ..components import Component
-    from ..common.selection import _resolve_names
 
     if component is None:
         resolved_nodes = iter(_resolve_names([name for name in names if "." not in name]))
@@ -371,8 +433,7 @@ def ls(*args,
             if component is None:
                 found = next(resolved_nodes)
                 # Node(name) と同じ解決・型選択を、生成の入口の再判定なしで行う。
-                result.append(Node._wrap_resolved(found[0], found[1]) if found is not None
-                              else Node._from_name(name))
+                result.append(Node._wrap_resolved(found[0], found[1]) if found is not None else Node._from_name(name))
             continue
         if component is None:
             # 1要素のアトリビュートだけに解決する名前は、下の Selection(name) と
@@ -403,12 +464,29 @@ def _collect(items):
             0件は空のNodes。
     """
     # nodes・plugs・componentsはcmdsを参照するため、循環importを避けて関数内で読み込む。
+    from ..components import (
+        CV,
+        UV,
+        Component,
+        CVs,
+        Edge,
+        Edges,
+        Face,
+        Faces,
+        LatticePoint,
+        LatticePoints,
+        SurfaceCV,
+        SurfaceCVs,
+        UVs,
+        Vertex,
+        VertexFace,
+        VertexFaces,
+        Vertices,
+    )
+
+    # 循環参照の回避: nodes は cmds を参照するため、使う時点で読み込む。
     from ..nodes.node import Node, Nodes
     from ..plugs.plug import Plug, Plugs
-    from ..components import (
-        Component, CV, CVs, Edge, Edges, Face, Faces, LatticePoint, LatticePoints, SurfaceCV, SurfaceCVs, UV, UVs,
-        Vertex, Vertices, VertexFace, VertexFaces,
-    )
 
     if not items:
         return Nodes()
@@ -417,10 +495,7 @@ def _collect(items):
     if all(isinstance(item, Plug) for item in items):
         return Plugs._from_plugs(items)
     first = items[0]
-    collections = {
-        Vertex: Vertices, Edge: Edges, Face: Faces, UV: UVs, CV: CVs,
-        SurfaceCV: SurfaceCVs, LatticePoint: LatticePoints, VertexFace: VertexFaces,
-    }
+    collections = {Vertex: Vertices, Edge: Edges, Face: Faces, UV: UVs, CV: CVs, SurfaceCV: SurfaceCVs, LatticePoint: LatticePoints, VertexFace: VertexFaces}
     collection = collections.get(type(first)) if isinstance(first, Component) else None
     if collection is not None and all(type(item) is type(first) and item.shape == first.shape for item in items):
         return collection(first.shape, [item.index for item in items])

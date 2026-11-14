@@ -83,6 +83,7 @@ class ShadingEngine(ObjectSet):
         with _edit_context("mlibShadingEngineSetShader", fast):
             # plugs は nodes を参照するため、循環importを避けて呼出し時に取得する。
             from ..plugs.plug import Plug
+
             target = self.getPlug(self._shader_attribute(kind))
             if isinstance(shader, Plug) or isinstance(shader, str) and "." in shader:
                 source = Plug._resolve_input(shader)

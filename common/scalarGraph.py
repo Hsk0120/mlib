@@ -113,12 +113,7 @@ class ScalarGraph:
         with self._edit("mlibScalarGraphCondition", fast):
             node = self._node("condition", role, fast)
             node.getPlug("operation").set(2, fast=fast)
-            for value, attr in (
-                (left, "firstTerm"),
-                (right, "secondTerm"),
-                (yes, "colorIfTrueR"),
-                (no, "colorIfFalseR"),
-            ):
+            for value, attr in ((left, "firstTerm"), (right, "secondTerm"), (yes, "colorIfTrueR"), (no, "colorIfFalseR")):
                 self._feed(value, node.getPlug(attr), fast)
             return node.getPlug("outColorR")
 

@@ -53,12 +53,14 @@ print(mlib.ls(type="transform"))
 | `core/` | 共通基底・型の登録・編集の基盤 |
 | `__tests__/` | テスト(手順は [`__tests__/README.md`](__tests__/README.md)) |
 | `_docs/` | Sphinx文書(手順は [`_docs/README.md`](_docs/README.md)) |
-| `_tools/` | 型スタブ(`.pyi`)の生成スクリプトと、公開名・コードの書式・文書の検査ツール |
+| `_tools/` | 整形(ruff)の入口、型スタブ(`.pyi`)の生成スクリプト、公開名・文書の検査ツール |
+| `ruff.toml` | 整形と検査の設定(ruff。行幅160) |
 
 ## 開発
 
 - コードを書くときのルールは [`.github/copilot-instructions.md`](.github/copilot-instructions.md) にまとめています。
-- Maya不要の検査: `__tests__` で `py -3 runStatic.py`
+- ゲートを一括で通す: `_tools/verify.bat`(整形とlint → 公開名 → Maya不要のテスト → Maya 2027のテスト。手順は [CONTRIBUTING.md](CONTRIBUTING.md))
+- Maya不要のテストだけ: `__tests__` で `py -3 runNoMaya.py`
 - Mayaでのテスト: `__tests__` で `run.bat --versions 2027 --suite all`
 - 型スタブ: docstringの型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat` で作り直し、一緒にコミットします(`py` の Python 3.14〜3.9 を新しい順に探し、無ければ Maya 2027〜2023 の mayapy を使います。最後にキー入力を待つので、ターミナルからは `--no-pause` を付けます)。
-- コードの書式: `_tools/check_mlib_layout.bat` でコードを書くときのルール(import順・クラス内の順・空行・空白・入力assert・文字コード)を検査します。`--fix` を付けると、import順・クラス内の順・空行を直してから、残った違反を表示します(空白・行末コメント・名前付きlambdaは自動で直さないので手で直します)。Pythonの探し方と `--no-pause` は型スタブのバッチと同じです。
+- コードの書式: `_tools/format_mlib.bat` が `ruff format`(空白・空行・改行位置・引用符) → `ruff check --fix`(import順・未使用名・Mayaのimport形式・文字コード・pathlib) → `check_mlib_layout.py --check`(ruffに無い検査) の順に実行します。`--check` を付けると何も変えずに検査します(コミット前の確認用)。ruffは `_tools/setup.bat` で `_tools/.venv` へ入れ(文書の `_docs/setup.bat` と同じ作りで、PCの環境は変えません)、版は固定しています(`ruff.toml` の `required-version` で、別の版は実行を拒否します)。

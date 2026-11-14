@@ -17,10 +17,7 @@ _INHERITED_TYPES_CACHE = {}
 _GENERATING_REGISTRIES = weakref.WeakSet()
 
 #: Mayaの版で改名されたノード型(2025以前の名前 -> 2026以降の名前)。どちらの名前も全版で使える。
-_RENAMED_NODE_TYPES = {
-    "multDoubleLinear": "multDL",
-    "addDoubleLinear": "addDL",
-}
+_RENAMED_NODE_TYPES = {"multDoubleLinear": "multDL", "addDoubleLinear": "addDL"}
 
 #: 改名の両方向の対応。
 _NODE_TYPE_ALIASES = dict(_RENAMED_NODE_TYPES, **{new: old for old, new in _RENAMED_NODE_TYPES.items()})
@@ -29,13 +26,50 @@ _NODE_TYPE_ALIASES = dict(_RENAMED_NODE_TYPES, **{new: old for old, new in _RENA
 _REAL_TYPE_CACHE = {}
 
 #: 標準で追加されたMayaの版が分かっているノード型(型名 -> 最初の版)。作成できない場合の案内に使う。
-_NODE_TYPES_SINCE = dict.fromkeys((
-    "parentMatrix", "multiplyPointByMatrix", "multiplyVectorByMatrix", "crossProduct", "dotProduct",
-    "rotateVector", "axisFromMatrix", "rowFromMatrix", "columnFromMatrix", "determinant", "sum",
-    "multiply", "divide", "subtract", "absolute", "clampRange", "lerp", "length", "normalize", "equal",
-    "greaterThan", "lessThan", "and", "or", "not", "max", "min", "power", "sin", "cos", "acos", "atan2",
-    "floor", "ceil", "round", "truncate", "negate", "smoothStep", "average",
-), 2024)
+_NODE_TYPES_SINCE = dict.fromkeys(
+    (
+        "parentMatrix",
+        "multiplyPointByMatrix",
+        "multiplyVectorByMatrix",
+        "crossProduct",
+        "dotProduct",
+        "rotateVector",
+        "axisFromMatrix",
+        "rowFromMatrix",
+        "columnFromMatrix",
+        "determinant",
+        "sum",
+        "multiply",
+        "divide",
+        "subtract",
+        "absolute",
+        "clampRange",
+        "lerp",
+        "length",
+        "normalize",
+        "equal",
+        "greaterThan",
+        "lessThan",
+        "and",
+        "or",
+        "not",
+        "max",
+        "min",
+        "power",
+        "sin",
+        "cos",
+        "acos",
+        "atan2",
+        "floor",
+        "ceil",
+        "round",
+        "truncate",
+        "negate",
+        "smoothStep",
+        "average",
+    ),
+    2024,
+)
 
 
 def _inherited_node_types(node_type):
@@ -156,10 +190,8 @@ def _unknown_node_type_message(node_type):
         version = "unknown"
     since = _NODE_TYPES_SINCE.get(node_type)
     if since is not None:
-        return (f"Unknown Maya nodeType: {node_type} (not available in this Maya version {version}; "
-                f"it requires Maya {since} or later)")
-    return (f"Unknown Maya nodeType: {node_type} (not available in this Maya version {version}, "
-            "or the plug-in that provides it is not loaded)")
+        return f"Unknown Maya nodeType: {node_type} (not available in this Maya version {version}; it requires Maya {since} or later)"
+    return f"Unknown Maya nodeType: {node_type} (not available in this Maya version {version}, or the plug-in that provides it is not loaded)"
 
 
 def _clear_type_hierarchy_cache():

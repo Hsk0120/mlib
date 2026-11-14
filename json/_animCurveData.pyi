@@ -56,7 +56,7 @@ def _output_kind(curve_type: str) -> str:
     """
     ...
 
-def _check_curve(data: object):
+def _require_curve(data: object):
     """カーブの辞書の形を確かめる。
 
     Args:

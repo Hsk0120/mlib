@@ -19,7 +19,7 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - 版番号は `_version.py` の `__version__` だけに書く(`__init__.py` はそこから import する。`__all__` に入れない)。
 - 文書の紹介文(`_docs/source/whymlib.rst`)で比較に挙げる他のライブラリの名前は、紹介文だけに書く。コード・コメント・docstring・
   例外メッセージ・テスト・ほかの文書・ファイル名・コミットメッセージには書かない(このファイルにも書かない。
-  `static/test_mlib_wording.py` が検査する)。他のライブラリで使われる名前への案内は「maya.cmdsやほかのライブラリの名前」のように書く。
+  `noMaya/test_mlib_wording.py` が検査する)。他のライブラリで使われる名前への案内は「maya.cmdsやほかのライブラリの名前」のように書く。
 
 ## パッケージ構成と責務
 
@@ -76,7 +76,7 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 | その他のファイル | lowerCamelCase | `scriptJobs.py`・`multiPlug.py` |
 | パッケージ | 小文字 | `nodes`・`common` |
 
-- 公開引数は `__tests__/static/test_mlib_publicArgs.py` が検査する。`*args`/`**kwargs` と既存の登録プロトコル(`NodeRegistry`・`reload_package` 等)は対象外。
+- 公開引数は `__tests__/noMaya/test_mlib_publicArgs.py` が検査する。`*args`/`**kwargs` と既存の登録プロトコル(`NodeRegistry`・`reload_package` 等)は対象外。
 - om2 から継承・オーバーライドする名前、Python の特殊メソッド、`dump`/`load` 等の標準 API 名は維持する。
 - 動詞: `get`/`set` は値の取得・設定、`is`/`has` は判定、`create`/`add`/`remove` は作成・追加・除外。
   独自の取得は `getName()`・`getChildren()` のように `get` を付ける。判定は正式な `isX` に一本化する(is 省略入口は作らない)。
@@ -130,7 +130,7 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - fast で扱えない操作・フラグは変更前に `NotImplementedError` で拒否する。Undo のグローバル設定変更や独自プラグインで補わない。
 - 複数の om2 操作は1つの modifier に積んで `doIt` を1回にする。DAG 削除と DG 操作を同じ modifier に混在させない。
 - 生の `om2.MPlug` 等は削除を検出できないので、削除操作をまたいで保持しない。有効性を確かめられる mlib のオブジェクトを保持する。
-- cmds→om2 の読み取り置換は `__tests__/integration/test_parity_cmds.py` に cmds の生値との突き合わせを同時に追加し、
+- cmds→om2 の読み取り置換は `__tests__/inMaya/integration/test_parity_cmds.py` に cmds の生値との突き合わせを同時に追加し、
   一致しないものは cmds に戻す。om2 に対応 API が無い照会(`attributeName -nice`・`nodeType` の継承照会・`ls` の検索と並び順・
   `referenceQuery` の edit 系・`keyTangent -g`・環境系)は cmds のまま。
 
@@ -234,7 +234,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   毎回所属パッケージから返す(推奨の書き方)。ルートへ import して保持しない。名前が重なればルート→nodes→plugs→components→maths→common→生成クラスの順。
   定数・関数・`Object` は対象外。ルートの `__all__` は `_names + sorted(_classes)`。
 - コマンドの追加は `cmds/__init__.py` とルート `__init__.py` の両方の import と `__all__`(`_names`)へ足す。
-- 追加・削除後は `_tools/check_mlib_exports.py`(`runStatic.py` に含まれる)を通す。
+- 追加・削除後は `_tools/check_mlib_exports.py`(`_tools/verify.bat` に含まれる)を通す。
 - `mlib.reload()` は依存順に再読み込みする。reload 後は保持中の Node/Plug・クラス・生成クラスを取り直す。改名・移動は reload 後も廃止名が残らないことを確かめる。
 
 ### 動的クラス
@@ -352,13 +352,20 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - Maya は `import maya.cmds as cmds`・`import maya.mel as mel`・`import maya.api.OpenMaya as om2`(個別名の `from` import は可)。
 - `import os, sys` は分離する。`from x import A, B` は可、`from x import *` は禁止。
 - 関数内 import は循環参照の回避・任意依存・Maya 非依存の維持など理由がある場合だけ使い、直前に短い理由コメントを付ける(連続した同じ理由の群は1つ)。
-- 初期化順が仕様の `__init__.py`(ルート・`core`・`cmds`・`nodes`・`plugs`)は import の並び替え対象外。理由のある遅延 import・
+- 初期化順が仕様の `__init__.py`(ルート・`core`・`cmds`・`nodes`・`plugs`)は import の並び替え対象外(`ruff.toml` で `I001` を除外)。理由のある遅延 import・
   `try/except ImportError`・`TYPE_CHECKING` の中身を機械的に先頭へ移さない。
+- 整形は `ruff format` が行う(設定は `ruff.toml`、入口は `_tools/format_mlib.bat`)。空白・空行・改行位置・引用符を手で直さない。
+- 互換のために残す引数は置かない。使わなくなった引数は削除し、呼出し側・docstring・型スタブも直す(`ruff check` の `ARG` が検出する)。
+  残すのは呼ぶ側が引数を決めるものだけ: 基底クラスの契約(派生が使い基底は無視する)・Mayaのコールバック・差し替える関数の表。
+  その場合は `# noqa: ARG002` 等と理由を同じ行に書き、docstring にも「使わない」と書く。`*args`・`**kwargs` は対象外。
+  先頭に `_` を付けて残すのはこの場合だけで、それ以外は削除する。
+  import の並び替え・未使用名・Maya の import 形式は `ruff check --fix`(I001・F・ICN)が直す。未使用引数は `ARG` が報告する。下の空白・空行・import の規則は、
+  ruff が実際に出力する形を文章にしたもの。
 - 空白: 代入・複合代入・比較演算子の前後は空白1つ。カンマの後は空白1つ(末尾カンマ・括弧内改行は可)。括弧の内側に空白を置かない。
 - 既定値・キーワード指定は型注釈なしなら `fast=False`、型注釈付きなら `fast: bool = False`。
 - 行末コメントはコードとの間に空白2つ以上、`#` の後に空白1つ(`index += 1  # 次の要素へ`)。Sphinx の `#:` は維持する。
 - 名前へ直接代入する lambda(`f = lambda ...`)は `def` にする。コールバック引数等の lambda は可。
-- インデントはスペース4、末尾空白なし、長い式は括弧内で改行する。行の長さは規則の対象外。ファイル末尾は改行1つ。
+- インデントはスペース4、末尾空白なし、長い式は括弧内で改行する。行幅は160(`ruff.toml`)で、超える式は ruff が括弧内で改行する。ファイル末尾は改行1つ。
 - 文字列は原則ダブル引用符、単純な埋込みは f-string。改行形式は Git の設定を尊重し、書式整理だけで全ファイルの改行を変えない。
 - 空行: トップレベルの定義間は2行、クラス内のメンバー間は1行、`class` 行と docstring の間・デコレーターと `def` の間は0行、3行以上は不可。
   クラス内に区切り線のコメントを置かない。
@@ -368,12 +375,23 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   `__repr__`/`__str__`、演算子と `__r*__`/`__i*__`)。property の setter は getter の直後。
 - `@dataclass` のフィールド順、先行定義を参照する代入(`__str__ = __repr__`)、`item_class = Node` 等は参照先の後の位置を保つ。
 - 単純な番号と要素の列挙は `enumerate`、ファイルパスは `pathlib`、テキストの読み書きは明示的な `encoding`。
-  Maya の DAG パス・アトリビュート名をファイルパスとして扱わない。外部ファイルの文字コードを UTF-8 と推測しない。
-- 検査は `_tools/check_mlib_layout.py --check`(L030〜L034 は空白・lambda、L040 は公開入口の入力 assert、L043 は encoding 未指定。
-  L041/L042 は確認候補の表示)。`--fix` は import 順・クラス内の順・空行だけを直す。入力 assert の修正は
-  `--fix-asserts TypeError|ValueError <ファイル> --line <行>` で対象を明示し、例外型を推測しない。
-  Windows では `_tools/check_mlib_layout.bat` でも同じ(引数なしは検査、`--fix` は直してから残りを検査、ほかの引数はそのまま渡す。
-  `py -3.14`〜`py -3.9` を新しい順に探し、無ければ Maya 2027〜2023 の mayapy。ターミナルからは `--no-pause`)。
+  後ろ2つは ruff の `PTH`・`PLW1514` が見る。Maya の DAG パス・アトリビュート名をファイルパスとして扱わない。
+  外部ファイルの文字コードを UTF-8 と推測しない。フレームのファイル名を大小を無視して比べる `logger.py`・`decorator.py` は
+  `os.path.normcase` のままにし、テストはパスを Maya のコマンドへ文字列で渡すため `os.path` を使う(どちらも `ruff.toml` で除外)。
+- 書式の入口は `_tools/format_mlib.bat`(`ruff format` → `ruff check --fix` → `check_mlib_layout.py --check` の順)。
+  選ぶルールと除外の理由は `ruff.toml` に1行ずつ書く。別の版の ruff は `required-version` で拒否し、preview のルールは
+  `explicit-preview-rules` でコードを明示したものだけ有効にする。日本語の文中でも括弧は半角 `()` で書く(`RUF001`〜`003`)。
+  `--check` は何も変えずに検査するので、コミット前と workflow で使う。ターミナルからは `--no-pause` を付ける。
+  ruff の導入は `_tools/setup.bat`(`_tools/.venv` へ入れる。`_docs/setup.bat` と同じ作り)。版は `_tools/requirements-dev.txt` で固定する。
+- `check_mlib_layout.py --check` に残る検査は、定数・`__all__`・`if TYPE_CHECKING:` の位置(L004〜L006)・
+  クラス内メンバー順と対になる操作の隣接(L020〜L023)・公開入口の入力 assert(L040)・列挙(L041 は確認候補)・
+  内部名と function set の取得・関数内 import の理由コメント(L050〜L052)・例外の文言と Undo チャンク名・
+  fast の受け取り(L060〜L064)・docstring の見出し・Raises の並び・1行目・fast の固定文・用語・公開定数の
+  説明・`Args:` の名前と位置引数の順・残った `TODO`(L070〜L077。L077 は情報)・
+  Python 3.7 で動く書き方と property の getter(L080・L081)。
+  空白・空行・import 順・encoding・pathlib・未使用名は ruff が見るので、同じ検査を二重に持たない。
+  `--fix` が直すのはクラス内メンバーの順だけで、並べ替えた後の空行は `ruff format` が直す。
+  入力 assert の修正は `--fix-asserts TypeError|ValueError <ファイル> --line <行>` で対象を明示し、例外型を推測しない。
 
 ## docstring とコメント
 
@@ -381,6 +399,13 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   非標準の見出しや見出し無しの自由文(Returns/Raises の後)は置かず、Note へ移す。
 - 1行目は動詞文「〜する。」。get 系は「〜を取得する。」、set 系は「〜を設定する。」。Returns は型と値の説明にし、概要と逐語一致させない。
 - 引数は署名の順に、self/cls を除く公開引数・単位・既定動作・別名を書く。値を返さない処理も `None: 値を返さない。`、必ず例外を送出する処理は `NoReturn`。
+  `L076` が名前の食い違いと位置引数の順を検査する(内部の `def`・`__init__` も対象。docstring は型スタブにも出る)。
+  `self`・`cls`・`*args`・`**kwargs` は書いても省いてもよく、短縮名を元の名前の直後へ置くためキーワード専用引数の順は問わない。
+- docstring が無い `def` には `check_mlib_layout.py --template-docstrings <ファイル>` で雛形を入れられる。
+  署名から `Args:` の名前と並び、本文から `Returns:`/`Yields:`/`Raises:` を決め、`fast`・`ws`・値を返さない
+  `Returns:` は固定文で完成させる。書けない説明は `TODO` で残り、埋め忘れは `L077`(情報)に出る。
+  `TODO` は型として読まれない形(引数は型を省き、戻り値はコロンを書かない)にしてあるので、型スタブの生成と
+  Sphinx のビルドは止まらない。既存の docstring は書き換えない。
 - `fast`/`safe`/`get` 等で返却・副作用が変わる場合は条件ごとに書く。fast を持たない書き込みは「fast引数は持たない」と理由を書く。
 - 固定文:
   - `fast (bool): TrueはUndoなしのOpenMaya更新。既定False。`
@@ -400,17 +425,22 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## 型スタブ(.pyi)
 
+- 型スタブと Sphinx は任意の工程で、ゲート(`_tools/verify.bat`)の後に行う。ゲートはスタブと Sphinx を
+  検査しないので、スタブの鮮度は `--check`、注釈にできなかった型は `--report`、Sphinx の参照切れは
+  `rebuild.bat` の `-n -W` で確かめる。書いた後に流す順番の正本は `CONTRIBUTING.md`。
+
 - 公開 API の型は docstring にしか無いので、`_tools/generate_mlib_stubs.py`(`.bat`)が docstring から各 `.py` の隣に `.pyi` を生成する。
 - `.pyi` は手で編集しない。docstring の型・引数・公開名を変えたら `_tools/generate_mlib_stubs.bat`(`py -3 _tools/generate_mlib_stubs.py`)で作り直し、`.py` と一緒にコミットする
-  (`--check` で最新か確認、`--report` で省いた注釈を表示)。Python 3.9 以降で動き、Maya 2023 以降の mayapy でも同じ内容を生成する(`.bat` は `py -3.14`〜`py -3.9` を新しい順 → mayapy の順に探し、最後に pause する。端末・スクリプトからは `--no-pause`)。生成スクリプトは 3.9 で動く書き方を保つ。古いスタブは `__tests__/static/test_generateMlibStubs.py` が検出する。
+  (`--check` で最新か確認、`--report` で省いた注釈を表示)。Python 3.9 以降で動き、Maya 2023 以降の mayapy でも同じ内容を生成する(`.bat` は `py -3.14`〜`py -3.9` を新しい順 → mayapy の順に探し、最後に pause する。端末・スクリプトからは `--no-pause`)。生成スクリプトは 3.9 で動く書き方を保つ。古いスタブは `--check` が検出する。
 - 引数で戻り値が変わる API(`ls`・`createNode`・`getConnections` 等)の `@overload`、ルートの `__init__.pyi` の再公開、
   複数形の転送メソッドは同スクリプトに書く。`Nodes` は要素の型を引数に取る(`Nodes[Transform]`)。
 
 ## テスト
 
 - pytest は使わない。Maya のテストは mayapy 経由で実行する。すべて `__tests__` フォルダから実行する。
-  - Maya 不要の検査: `py -3 runStatic.py`(`static/test_*.py` と `_tools/` の `check_mlib_exports.py`・`check_mlib_layout.py --check`)。
-    公開名の追加・削除、レイアウト変更の後は必ず通す。
+  - ゲートは `_tools/verify.bat` 1つで通す(整形と lint → 公開名の一致 → `runNoMaya.py` → `run.bat`。
+    `--check` は書き換えず検査だけ、`--no-maya` は前半3つだけ)。公開名の追加・削除、レイアウト変更の後は必ず通す。
+  - Maya 不要のテストだけ: `py -3 runNoMaya.py`(`noMaya/test_*.py`)。リントは `verify.bat` が持つので含まない。
   - Maya: `.\run.bat --versions 2027 --suite all`(`py -3 runMaya.py ...` も同じ)。`--suite unit|integration|all`、
     `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `_output/`(Git 対象外)。
   - GUI 限定の確認: `py -3 runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI)。
@@ -418,13 +448,13 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   ものが先に見つかることがある。バッチは `py -3.14` から新しい順に探し、3.15 以降は使わない(Sphinx の依存の PyYAML をpipが
   ビルド済みで取得できず止まるため)。GitHub Actions の `python` はそのままでよい。
 - テストはシーンを初期化するので、作業中の Maya GUI へ一式を送らない。調査用の使い捨てスクリプトはリポジトリに入れない。
-- 配置: フォルダーは動かし方・範囲、ファイル名は確かめる対象で決める(`static/test_runAll.py` が検査する)。
-  - `static/`: Maya 不要のもの。`unit/<パッケージ>/`: 1つのモジュールを確かめるもの(パッケージはソースと同じ
+- 配置: フォルダーは Maya が要るかどうか、ファイル名は確かめる対象で決める(`noMaya/test_runAll.py` が検査する)。
+  - `noMaya/`: Maya 不要のもの。`inMaya/unit/<パッケージ>/`: 1つのモジュールを確かめるもの(パッケージはソースと同じ
     `cmds`・`nodes`・`plugs`・`components`・`maths`・`common`・`core`・`json`、mlib 直下のモジュールは `root`)。
-    `integration/`: 複数のパッケージにまたがるもの(フォルダーを作らない)。
+    `inMaya/integration/`: 複数のパッケージにまたがるもの(フォルダーを作らない)。`support/` はテストではない。
   - 名前は `test_<対象>[_<話題>].py`。`_` は区切りだけに使い、各部分は lowerCamelCase。対象はソースのファイル名のまま
     (`__init__.py` は `init`、先頭の `_` は付けない。スネークケースのツールは lowerCamelCase に直す)。
-    `integration/` の対象は観点 `naming`・`units`・`fast`・`parity`・`undo`・`errors`・`interop`・`performance`・`workflow`・`reload`・`compat`。
+    `inMaya/integration/` の対象は観点 `naming`・`units`・`fast`・`parity`・`undo`・`errors`・`interop`・`performance`・`workflow`・`reload`・`compat`。
     GUI が要るものは話題を `gui` にする。`spec`・`refactoring`・`consolidated`・`changes`・`additions`・`backlog`・`misc`・`api`・
     `contracts` や番号・記号は名前に使わない。
   - 各ファイルの末尾に `if __name__ == "__main__": unittest.main(argv=[sys.argv[0]])` を置く(ランナーがファイル単位で実行する)。
@@ -432,7 +462,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   (名前空間・Undo 設定・UI 単位・選択を戻す)。補助は `name()`・`make()`・`flushUndo()`・`assertUndoesInOneStep()`・`assertUndoEmpty()`。
 - 変えた API ごとに `subTest` で、フラグの組合せ・cmds/om2 の突き合わせ・通常は Undo 1回/fast は Undo なし・不正入力の例外型・
   複数形(一括)を確かめる。
-- cmds→om2 の読み取り置換は `integration/test_parity_cmds.py` に cmds の生値との突き合わせを同時に追加する(既存の一覧はファイル冒頭の docstring)。
+- cmds→om2 の読み取り置換は `inMaya/integration/test_parity_cmds.py` に cmds の生値との突き合わせを同時に追加する(既存の一覧はファイル冒頭の docstring)。
 - 生成クラスの期待値は `type(x).__name__`・`issubclass` で書く。テストも Python 3.7 で動く書き方にする。
 
 ## Sphinx 文書(_docs)

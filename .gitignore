@@ -7,6 +7,10 @@ _docs/source/autoapi/
 _docs/.venv/
 _docs/.mayapy-site/
 
+# Tools used while writing mlib (ruff)
+_tools/.venv/
+_tools/.mayapy-site/
+
 # Test output
 __tests__/_output/
 __tests__/.logs/

@@ -5,9 +5,7 @@ import operator
 from contextlib import nullcontext
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit
-from ..core.attributeType import is_internal_data_type
-from ..core.attributeType import value_reader
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, is_internal_data_type, value_reader
 from ..decorator import _edit_context, _require_bool, undoChunk
 from .plug import MAX_LOGICAL_INDEX, Plug, _instance_count
 from typing import Iterator
@@ -97,7 +95,7 @@ class MultiPlug(Plug):
         """既存要素の値を、論理番号をキーとするdictで取得する。
 
         getElements()の各要素でget()を呼ぶため、値取得に伴うDG評価が発生し得る。
-        番号は詰め直さず、コンパウンドアトリビュートや配列型の要素値も平坦化しない。
+        番号は詰め直さず、コンパウンドアトリビュートや ``doubleArray`` 等のデータ型の要素値も平坦化しない。
 
         Args:
             unit (str | None): 各要素のgetへ渡す角度の単位。None(既定)は度、``"rad"`` はラジアン。

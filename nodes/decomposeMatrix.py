@@ -6,13 +6,7 @@ from .node import Node
 #: 出力する回転の回転順の名前(Mayaの ``inputRotateOrder`` の番号順)。
 _ROTATE_ORDERS = ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx")
 #: 出力の種類からMayaの出力アトリビュート名。
-_OUTPUTS = {
-    "translate": "outputTranslate",
-    "rotate": "outputRotate",
-    "scale": "outputScale",
-    "shear": "outputShear",
-    "quaternion": "outputQuat",
-}
+_OUTPUTS = {"translate": "outputTranslate", "rotate": "outputRotate", "scale": "outputScale", "shear": "outputShear", "quaternion": "outputQuat"}
 
 
 class DecomposeMatrix(Node):
@@ -34,9 +28,7 @@ class DecomposeMatrix(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {
-            "inputMatrix": inputMatrix,
-        })
+        return _calculation.set_inputs(self, "setInput", {"inputMatrix": inputMatrix})
 
     def getRotateOrder(self):
         """出力する回転の回転順を名前で取得する(``inputRotateOrder``)。

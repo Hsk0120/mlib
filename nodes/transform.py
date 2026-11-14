@@ -14,35 +14,30 @@ from ..core import geometryEdit as geometry_edit
 from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
 from ..core.nodeEdit import require_editable
-from ..decorator import (_edit_context, _merge_flags, _pick_alias, _require_bool, _transform_argument_hints,
-                         nativeUnits, undoChunk, undoTransaction)
+from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _transform_argument_hints, nativeUnits, undoChunk, undoTransaction
 from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Translate, Vector
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
-from ..util import (_angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space,
-                    mirrorArguments)
-from ..util import _ArgumentError, _UNSET
+from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
 from .dagNode import DagNode
 from .node import Node, Nodes
 
 #: ターゲットの transform の値(位置・回転など)を使うコンストレイント。ターゲットは Transform に限る。
-_TRANSFORM_SOURCE_CONSTRAINTS = frozenset((
-    "parentConstraint", "pointConstraint", "orientConstraint", "scaleConstraint",
-    "aimConstraint", "poleVectorConstraint",
-))
+_TRANSFORM_SOURCE_CONSTRAINTS = frozenset(
+    ("parentConstraint", "pointConstraint", "orientConstraint", "scaleConstraint", "aimConstraint", "poleVectorConstraint")
+)
 
 
 #: setLimitsのキーと、cmds.transformLimitsの値・有効化フラグ、値の種類(角度・距離・倍率)。
-_LIMIT_FLAGS = {
-    "translate" + axis: ("translation" + axis, "enableTranslation" + axis, "distance") for axis in "XYZ"
-}
+_LIMIT_FLAGS = {"translate" + axis: ("translation" + axis, "enableTranslation" + axis, "distance") for axis in "XYZ"}
 _LIMIT_FLAGS.update({"rotate" + axis: ("rotation" + axis, "enableRotation" + axis, "angle") for axis in "XYZ"})
 _LIMIT_FLAGS.update({"scale" + axis: ("scale" + axis, "enableScale" + axis, "scale") for axis in "XYZ"})
 
 #: getLimitsのキーと、om2.MFnTransformの最小・最大の制限の種類の名前。
 _LIMIT_TYPES = {
-    prefix + axis: ("k{}Min{}".format(kind, axis), "k{}Max{}".format(kind, axis))
-    for prefix, kind in (("translate", "Translate"), ("rotate", "Rotate"), ("scale", "Scale")) for axis in "XYZ"
+    prefix + axis: (f"k{kind}Min{axis}", f"k{kind}Max{axis}")
+    for prefix, kind in (("translate", "Translate"), ("rotate", "Rotate"), ("scale", "Scale"))
+    for axis in "XYZ"
 }
 
 #: rotateOrder の番号順の名前(Maya・om2 の番号と同じ順)。
@@ -59,8 +54,7 @@ _CURVE_SHAPES_FORMAT = "mlib.curveShapes"
 _CURVE_SHAPES_VERSION = 1
 
 #: om2.MFnNurbsCurveのフォームと、保存する名前・``setAttr -type nurbsCurve`` のフォーム番号。
-_CURVE_FORM_NAMES = {om2.MFnNurbsCurve.kOpen: "open", om2.MFnNurbsCurve.kClosed: "closed",
-                     om2.MFnNurbsCurve.kPeriodic: "periodic"}
+_CURVE_FORM_NAMES = {om2.MFnNurbsCurve.kOpen: "open", om2.MFnNurbsCurve.kClosed: "closed", om2.MFnNurbsCurve.kPeriodic: "periodic"}
 _CURVE_FORM_NUMBERS = {"open": 0, "closed": 1, "periodic": 2}
 
 
@@ -158,8 +152,9 @@ def _unwritable_channel_message(plug):
             reason = f"is connected from {source.getFullName()}" if source is not None else "has an input connection"
         else:
             continue
-        return (f"Cannot set {plug.getFullName()}: {target.getFullName()} {reason}; "
-                "unlock/disconnect it, or pass safe=True to skip channels that cannot be written")
+        return (
+            f"Cannot set {plug.getFullName()}: {target.getFullName()} {reason}; unlock/disconnect it, or pass safe=True to skip channels that cannot be written"
+        )
     return None
 
 
@@ -185,7 +180,7 @@ def _curve_color(value, label):
     """カーブ形状のデータの表示色を検証する。
 
     Args:
-        value (object): カラーインデックス、(r, g, b)、またはNone。
+        value (object): カラー番号、(r, g, b)、またはNone。
         label (str): 例外の文言に使う名前。
 
     Returns:
@@ -246,15 +241,22 @@ def _checked_curve_shapes(data):
             checked_points.append(tuple(_curve_number(value, f"{label}.points[{index}]") for value in point))
         knots = entry["knots"]
         if not isinstance(knots, list) or len(knots) != len(points) + degree - 1:
-            raise ValueError(f"{label}.knots must be a list of len(points) + degree - 1 "
-                             f"({len(points) + degree - 1}) numbers")
+            raise ValueError(f"{label}.knots must be a list of len(points) + degree - 1 ({len(points) + degree - 1}) numbers")
         checked_knots = [_curve_number(value, f"{label}.knots") for value in knots]
         if any(later < earlier for earlier, later in zip(checked_knots, checked_knots[1:])):
             raise ValueError(f"{label}.knots must not decrease")
         line_width = _curve_number(entry.get("lineWidth", -1.0), f"{label}.lineWidth")
-        entries.append({"name": name, "degree": degree, "form": form, "knots": checked_knots,
-                        "points": checked_points, "color": _curve_color(entry.get("color"), f"{label}.color"),
-                        "lineWidth": line_width})
+        entries.append(
+            {
+                "name": name,
+                "degree": degree,
+                "form": form,
+                "knots": checked_knots,
+                "points": checked_points,
+                "color": _curve_color(entry.get("color"), f"{label}.color"),
+                "lineWidth": line_width,
+            }
+        )
     return color, entries
 
 
@@ -275,9 +277,11 @@ def _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient):
     Raises:
         TypeError: 長名と短縮名を同時に指定した場合。
     """
-    return (_pick_alias(rotateAxis, ra, "rotateAxis", "ra", default=False),
-            _pick_alias(rotate, r, "rotate", "r", default=True),
-            _pick_alias(jointOrient, jo, "jointOrient", "jo", default=True))
+    return (
+        _pick_alias(rotateAxis, ra, "rotateAxis", "ra", default=False),
+        _pick_alias(rotate, r, "rotate", "r", default=True),
+        _pick_alias(jointOrient, jo, "jointOrient", "jo", default=True),
+    )
 
 
 def _quaternion_value(value):
@@ -316,14 +320,58 @@ class Transform(DagNode):
     safeを持つsetterは書けない成分を残すが、目標値との一致や全体の巻き戻しは保証しない。
     """
 
-    def addConstraint(self, sources, type=_UNSET, maintainOffset=_UNSET, *, typ=_UNSET, mo=_UNSET,
-        createCache=_UNSET, cc=_UNSET, decompRotationToChild=_UNSET, dr=_UNSET, deleteCache=_UNSET, dc=_UNSET,
-        edit=_UNSET, e=_UNSET, layer=_UNSET, l=_UNSET, name=_UNSET, n=_UNSET, query=_UNSET, q=_UNSET,
-        remove=_UNSET, rm=_UNSET, skipRotate=_UNSET, sr=_UNSET, skipTranslate=_UNSET, st=_UNSET,
-        targetList=_UNSET, tl=_UNSET, weight=_UNSET, w=_UNSET, weightAliasList=_UNSET, wal=_UNSET, offset=_UNSET,
-        o=_UNSET, skip=_UNSET, sk=_UNSET, scaleCompensate=_UNSET, sc=_UNSET, aimVector=_UNSET, aim=_UNSET,
-        upVector=_UNSET, u=_UNSET, worldUpObject=_UNSET, wuo=_UNSET, worldUpType=_UNSET, wut=_UNSET,
-        worldUpVector=_UNSET, wu=_UNSET, **kwargs):
+    def addConstraint(
+        self,
+        sources,
+        type=_UNSET,
+        maintainOffset=_UNSET,
+        *,
+        typ=_UNSET,
+        mo=_UNSET,
+        createCache=_UNSET,
+        cc=_UNSET,
+        decompRotationToChild=_UNSET,
+        dr=_UNSET,
+        deleteCache=_UNSET,
+        dc=_UNSET,
+        edit=_UNSET,
+        e=_UNSET,
+        layer=_UNSET,
+        l=_UNSET,
+        name=_UNSET,
+        n=_UNSET,
+        query=_UNSET,
+        q=_UNSET,
+        remove=_UNSET,
+        rm=_UNSET,
+        skipRotate=_UNSET,
+        sr=_UNSET,
+        skipTranslate=_UNSET,
+        st=_UNSET,
+        targetList=_UNSET,
+        tl=_UNSET,
+        weight=_UNSET,
+        w=_UNSET,
+        weightAliasList=_UNSET,
+        wal=_UNSET,
+        offset=_UNSET,
+        o=_UNSET,
+        skip=_UNSET,
+        sk=_UNSET,
+        scaleCompensate=_UNSET,
+        sc=_UNSET,
+        aimVector=_UNSET,
+        aim=_UNSET,
+        upVector=_UNSET,
+        u=_UNSET,
+        worldUpObject=_UNSET,
+        wuo=_UNSET,
+        worldUpType=_UNSET,
+        wut=_UNSET,
+        worldUpVector=_UNSET,
+        wu=_UNSET,
+        **kwargs,
+    ):
         """指定したターゲットで自身を制御するコンストレイントを作成する。
 
         選択状態で対象を補完しない。通常のcmds更新をUndo有効時にまとめ、途中失敗の変更は戻さない。
@@ -387,8 +435,8 @@ class Transform(DagNode):
                 ターゲットが追加される場合がある。
 
         Raises:
-            ValueError: 未対応の型・空のソース、query/edit=True、または無効なworldUpObjectの場合。
             TypeError: 型名・参照型・長短フラグが不正、または上記6型のターゲットがTransformでない場合。
+            ValueError: 未対応の型・空のソース、query/edit=True、または無効なworldUpObjectの場合。
             RuntimeError: ノードが無効、ターゲットの名前を解決できない(存在しない、または
                 複数のノードに一致する)場合、または Maya が作成を拒否した場合。
             DeletedAttributeError: 削除済みアトリビュートのPlug/MPlugの場合。ValueErrorとRuntimeErrorの派生。
@@ -396,34 +444,34 @@ class Transform(DagNode):
         Note:
             PoleVectorはRP IKハンドル、Geometry/Normal/PointOnPolyは対応形状、TangentはNURBSカーブが必要。
         """
-        _merge_flags(kwargs, (
-            (createCache, cc, "createCache", "cc"),
-            (decompRotationToChild, dr, "decompRotationToChild", "dr"),
-            (deleteCache, dc, "deleteCache", "dc"),
-            (layer, l, "layer", "l"),
-            (name, n, "name", "n"),
-            (remove, rm, "remove", "rm"),
-            (skipRotate, sr, "skipRotate", "sr"),
-            (skipTranslate, st, "skipTranslate", "st"),
-            (targetList, tl, "targetList", "tl"),
-            (weight, w, "weight", "w"),
-            (weightAliasList, wal, "weightAliasList", "wal"),
-            (offset, o, "offset", "o"),
-            (skip, sk, "skip", "sk"),
-            (scaleCompensate, sc, "scaleCompensate", "sc"),
-            (aimVector, aim, "aimVector", "aim"),
-            (upVector, u, "upVector", "u"),
-            (worldUpType, wut, "worldUpType", "wut"),
-            (worldUpVector, wu, "worldUpVector", "wu"),
-        ))
-        _merge_flags(kwargs, (
-            (edit, e, "edit", "e"),
-            (query, q, "query", "q"),
-            (worldUpObject, wuo, "worldUpObject", "wuo"),
-        ))
+        _merge_flags(
+            kwargs,
+            (
+                (createCache, cc, "createCache", "cc"),
+                (decompRotationToChild, dr, "decompRotationToChild", "dr"),
+                (deleteCache, dc, "deleteCache", "dc"),
+                (layer, l, "layer", "l"),
+                (name, n, "name", "n"),
+                (remove, rm, "remove", "rm"),
+                (skipRotate, sr, "skipRotate", "sr"),
+                (skipTranslate, st, "skipTranslate", "st"),
+                (targetList, tl, "targetList", "tl"),
+                (weight, w, "weight", "w"),
+                (weightAliasList, wal, "weightAliasList", "wal"),
+                (offset, o, "offset", "o"),
+                (skip, sk, "skip", "sk"),
+                (scaleCompensate, sc, "scaleCompensate", "sc"),
+                (aimVector, aim, "aimVector", "aim"),
+                (upVector, u, "upVector", "u"),
+                (worldUpType, wut, "worldUpType", "wut"),
+                (worldUpVector, wu, "worldUpVector", "wu"),
+            ),
+        )
+        _merge_flags(kwargs, ((edit, e, "edit", "e"), (query, q, "query", "q"), (worldUpObject, wuo, "worldUpObject", "wuo")))
         type = _pick_alias(type, typ, "type", "typ", default="parent")
         maintainOffset = _pick_alias(maintainOffset, mo, "maintainOffset", "mo", default=False)
         with undoChunk("mlibTransformAddConstraint"):
+            # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
             from .constraint import Constraint
 
             # 型登録を重複管理せず、Constraint 派生として明示登録された型名から判定する。
@@ -431,23 +479,19 @@ class Transform(DagNode):
             supported = set(Node._registry._registered_types(base=Constraint)) - {"constraint"}
             if not isinstance(type, str):
                 # addConstraint("parent", ctrl) のように型名とターゲットを逆に渡した場合は順序を案内する。
-                if isinstance(sources, str) and (sources if sources.endswith("Constraint")
-                                                 else sources + "Constraint") in supported:
-                    raise TypeError(
-                        f"addConstraint() takes the target first and the constraint type as type=; "
-                        f"use addConstraint(target, type={sources!r})")
-                raise TypeError(f"type must be a string such as 'parent', got {type.__class__.__name__}; "
-                                "use addConstraint(target, type=\"parent\")")
+                if isinstance(sources, str) and (sources if sources.endswith("Constraint") else sources + "Constraint") in supported:
+                    raise TypeError(f"addConstraint() takes the target first and the constraint type as type=; use addConstraint(target, type={sources!r})")
+                raise TypeError(f"type must be a string such as 'parent', got {type.__class__.__name__}; use addConstraint(target, type=\"parent\")")
             command_name = type if type.endswith("Constraint") else type + "Constraint"
             if command_name not in supported:
                 raise ValueError(f"Unsupported constraint type: {type}")
             self._require_valid("constrain")
+            # 循環参照の回避: components は nodes を参照するため、使う時点で読み込む。
             from ..components.component import Component, Components
             from ..plugs.plug import Plug
 
             # Components は要素へ展開せず、所有シェイプを1つのターゲットとして扱う。
-            if isinstance(sources, (Node, str, Plug, Component, Components,
-                                    om2.MObject, om2.MDagPath, om2.MPlug)):
+            if isinstance(sources, (Node, str, Plug, Component, Components, om2.MObject, om2.MDagPath, om2.MPlug)):
                 sources = [sources]
             # ターゲットの transform の値を使う型。シェイプをターゲットにすると maya.cmds はターゲットの
             # 無い(追従しない)コンストレイントを黙って作るため、Transform 以外は TypeError にする。
@@ -476,13 +520,7 @@ class Transform(DagNode):
                 raise ValueError("addConstraint supports creation only; use Maya constraint commands for query/edit")
             if "worldUpObject" in command_kwargs:
                 command_kwargs["worldUpObject"] = Node._input_name(command_kwargs["worldUpObject"])
-            if command_name in {
-                "parentConstraint",
-                "pointConstraint",
-                "orientConstraint",
-                "scaleConstraint",
-                "aimConstraint",
-            }:
+            if command_name in {"parentConstraint", "pointConstraint", "orientConstraint", "scaleConstraint", "aimConstraint"}:
                 command_kwargs["maintainOffset"] = maintainOffset
             result = getattr(cmds, command_name)(*names, self.getFullName(), **command_kwargs)
             return Node(result[0])
@@ -495,8 +533,8 @@ class Transform(DagNode):
         対象外への共有出力と削除対象の参照・ロックを先に検査する。
 
         Args:
-            fast (bool): Falseはcmds.deleteをUndo有効時にまとめる。
-                Trueは入力を外してOM2で削除し、Undoへ記録しない。設定は変えず、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは入力を外してOM2で削除し、
+                Falseはcmds.deleteをUndo有効時にまとめる。設定は変えず、
                 後続失敗で切断や削除を自動では戻さない。
 
         Returns:
@@ -556,8 +594,7 @@ class Transform(DagNode):
                     if plug.attribute().hasFn(om2.MFn.kMessageAttribute):
                         continue
                     for destination in plug.connectedTo(False, True):
-                        if (not destination.attribute().hasFn(om2.MFn.kMessageAttribute)
-                                and key(destination.node()) not in allowed):
+                        if not destination.attribute().hasFn(om2.MFn.kMessageAttribute) and key(destination.node()) not in allowed:
                             raise RuntimeError(f"Constraint path has shared outputs: {fn.name()}")
             for token in deleting:
                 require_editable(objects[token])
@@ -600,7 +637,7 @@ class Transform(DagNode):
             pivot (Iterable[float]): 指定空間の拡縮中心。cm。既定は原点。
             indices (Iterable[int | tuple[int, int]] | None): 各Shapeに共通の頂点/CV番号。
                 Noneは全要素。サーフェスは(U, V)の組。
-            fast (bool): Trueは履歴なしメッシュ・非周期カーブをOM2で更新(Undoなし)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは履歴なしメッシュ・非周期カーブが対象。
                 Falseは通常更新をUndo有効時にまとめる。
 
         Returns:
@@ -746,8 +783,7 @@ class Transform(DagNode):
             coordinates = [om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in values]
             flag = {"rotate": "rotatePivot", "scale": "scalePivot", "both": "pivots"}[kind]
             pivot_flags: Dict[str, Any] = {flag: coordinates}
-            cmds.xform(self.getFullName(), worldSpace=ws, objectSpace=not ws,
-                       preserve=preserve, **pivot_flags)
+            cmds.xform(self.getFullName(), worldSpace=ws, objectSpace=not ws, preserve=preserve, **pivot_flags)
             return self
 
     def centerPivot(self, *, fast=False):
@@ -770,8 +806,7 @@ class Transform(DagNode):
         with _edit_context("mlibTransformCenterPivot", fast):
             if fast:
                 center = self.mfn().boundingBox.center * self.mpath().exclusiveMatrix()
-                return self.setPivot((center.x, center.y, center.z), worldSpace=True,
-                                     kind="both", preserve=True, fast=fast)
+                return self.setPivot((center.x, center.y, center.z), worldSpace=True, kind="both", preserve=True, fast=fast)
             # fast(setPivot経由)と同じく、xformが黙って飛ばすロックを先に拒否する。
             self._require_pivots_writable(("scale", "rotate"), True)
             cmds.xform(self.getFullName(), centerPivots=True, preserve=True)
@@ -827,8 +862,9 @@ class Transform(DagNode):
             cmds.ungroup(self.getFullName(), world=world)
         return [Node(child) for child in children]
 
-    def getChildren(self, shapes=False, intermediates=False, *, allDescendents=False,
-                    order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None):
+    def getChildren(
+        self, shapes=False, intermediates=False, *, allDescendents=False, order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
+    ):
         """指定条件に合う直接の子、または子孫を取得する。
 
         Args:
@@ -845,9 +881,9 @@ class Transform(DagNode):
         Returns:
             list[DagNode]: DAGの子順に並んだノード。該当なしは空リスト。
         """
-        return super().getChildren(shapes, intermediates, allDescendents=allDescendents,
-                                   order=order, leaves=leaves, includeSelf=includeSelf,
-                                   underWorld=underWorld, type=type)
+        return super().getChildren(
+            shapes, intermediates, allDescendents=allDescendents, order=order, leaves=leaves, includeSelf=includeSelf, underWorld=underWorld, type=type
+        )
 
     def getUnusedIntermediateShapes(self):
         """直下から削除可能な未使用中間Shapeを取得する。
@@ -868,9 +904,13 @@ class Transform(DagNode):
         result = []
         for shape in self.getShapes(intermediates=True):
             shape_fn = om2.MFnDagNode(shape.mpath())
-            if (not shape_fn.isIntermediateObject or shape_fn.isFromReferencedFile
-                    or shape_fn.isLocked or shape_fn.childCount()
-                    or len(om2.MDagPath.getAllPathsTo(shape.mnode())) > 1):
+            if (
+                not shape_fn.isIntermediateObject
+                or shape_fn.isFromReferencedFile
+                or shape_fn.isLocked
+                or shape_fn.childCount()
+                or len(om2.MDagPath.getAllPathsTo(shape.mnode())) > 1
+            ):
                 continue
             used = False
             for plug in shape_fn.getConnections():
@@ -879,8 +919,7 @@ class Transform(DagNode):
                     root = root.parent() if root.isChild else root.array()
                 is_membership = om2.MFnAttribute(root.attribute()).name == "instObjGroups"
                 for destination in plug.connectedTo(False, True):
-                    if (is_membership and destination.node().hasFn(om2.MFn.kShadingEngine)
-                            and om2.MFnAttribute(destination.attribute()).name == "dagSetMembers"):
+                    if is_membership and destination.node().hasFn(om2.MFn.kShadingEngine) and om2.MFnAttribute(destination.attribute()).name == "dagSetMembers":
                         continue
                     used = True
                     break
@@ -899,7 +938,7 @@ class Transform(DagNode):
         通常モードはUndoが有効な状態で使用する。
 
         Args:
-            fast (bool): TrueはOpenMayaでShapeだけを直接削除し、Undoなし。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。TrueはShapeだけを直接削除する。
 
         Returns:
             Transform: 自身。
@@ -1049,8 +1088,7 @@ class Transform(DagNode):
                 cmds.parent(moving, target, shape=True, relative=True)
             if duplicate is not None:
                 cmds.delete(duplicate)
-            elif (isinstance(holder, Transform) and holder.isValid()
-                    and not cmds.listRelatives(holder.getFullName(), children=True)):
+            elif isinstance(holder, Transform) and holder.isValid() and not cmds.listRelatives(holder.getFullName(), children=True):
                 cmds.delete(holder.getFullName())
             leaf = self.getFullName().rsplit("|", 1)[-1]
             for position, shape in enumerate(self.getShapes(intermediates=True)):
@@ -1068,7 +1106,7 @@ class Transform(DagNode):
             dict: ``{"color": 表示色, "shapes": [{"name", "degree", "form", "knots", "points", "color",
             "lineWidth"}, ...]}``。``form`` は ``"open"``・``"closed"``・``"periodic"``、``points`` は
             ``[x, y, z]`` のリスト、表示色は :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` と同じ
-            (カラーインデックス・(r, g, b)・None)。
+            (カラー番号・(r, g, b)・None)。
 
         Raises:
             RuntimeError: 自身が無効な場合。
@@ -1078,15 +1116,17 @@ class Transform(DagNode):
         for shape in self._curve_shapes():
             fn = om2.MFnNurbsCurve(shape.mpath())
             leaf = shape.getFullName().rsplit("|", 1)[-1]
-            shapes.append({
-                "name": leaf.rsplit(":", 1)[-1],
-                "degree": fn.degree,
-                "form": _CURVE_FORM_NAMES[fn.form],
-                "knots": list(fn.knots()),
-                "points": [[point.x, point.y, point.z] for point in fn.cvPositions(MSpace.kObject)],
-                "color": shape.getOverrideColor(),
-                "lineWidth": fn.findPlug("lineWidth", False).asDouble(),
-            })
+            shapes.append(
+                {
+                    "name": leaf.rsplit(":", 1)[-1],
+                    "degree": fn.degree,
+                    "form": _CURVE_FORM_NAMES[fn.form],
+                    "knots": list(fn.knots()),
+                    "points": [[point.x, point.y, point.z] for point in fn.cvPositions(MSpace.kObject)],
+                    "color": shape.getOverrideColor(),
+                    "lineWidth": fn.findPlug("lineWidth", False).asDouble(),
+                }
+            )
         return {"color": self.getOverrideColor(), "shapes": shapes}
 
     def setCurveShapesData(self, data):
@@ -1124,8 +1164,7 @@ class Transform(DagNode):
                 # 短い名前が重複する場合があるため、自身の直下のパスに絞る。
                 path = [name for name in cmds.ls(created, long=True) if name.rsplit("|", 1)[0] == target][0]
                 degree = entry["degree"]
-                words = [degree, len(entry["points"]) - degree, _CURVE_FORM_NUMBERS[entry["form"]], "no", 3,
-                         len(entry["knots"])]
+                words = [degree, len(entry["points"]) - degree, _CURVE_FORM_NUMBERS[entry["form"]], "no", 3, len(entry["knots"])]
                 words.extend(repr(value) for value in entry["knots"])
                 words.append(len(entry["points"]))
                 words.extend(repr(value) for point in entry["points"] for value in point)
@@ -1157,6 +1196,7 @@ class Transform(DagNode):
         """
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
         from ..json.file import dump
+
         return dump(self.getCurveShapesData(), path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
 
     def importCurveShapes(self, path):
@@ -1177,6 +1217,7 @@ class Transform(DagNode):
         """
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
         from ..json.file import load
+
         _header, data = load(path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
         return self.setCurveShapesData(data)
 
@@ -1213,7 +1254,7 @@ class Transform(DagNode):
             relative (bool): True は親変更前のローカル変換を保持する。既定 False は Maya の既定動作
                 (ワールド姿勢を保つ)。
             add (bool): True は既存の親を維持して追加の親を設定する。parent が None の場合は渡されない。
-            fast (bool): TrueはOpenMaya直接更新でUndoなし。速くなるのは ``relative=True`` だけで、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` だけで、
                 ワールド位置を保つ既定ではcmds.parentより遅い。Joint・インスタンス・親の追加は未対応
                 (NotImplementedError)。通常経路の Joint は cmds.parent に従い、relative=False の
                 ときだけ親 joint の scale を inverseScale へ接続する(relative=True では接続しない。
@@ -1244,8 +1285,7 @@ class Transform(DagNode):
                 # 古いMayaでは同じ親への再parentがエラーになる。
                 # add=Trueはインスタンス操作なのでMayaの判定に委ねる。
                 current = self.getParent()
-                if (not add and not self.mpath().isInstanced() and current is not None
-                        and current.mpath().fullPathName() == parent_name):
+                if not add and not self.mpath().isInstanced() and current is not None and current.mpath().fullPathName() == parent_name:
                     return self
                 cmds.parent(self.getFullName(), parent_name, relative=relative, add=add)
             return self
@@ -1280,8 +1320,7 @@ class Transform(DagNode):
             if not isinstance(target, Transform):
                 raise TypeError("Target must be a transform or joint")
             if any((position, rotation, scale, pivots)):
-                cmds.matchTransform(self.getFullName(), target.getFullName(), position=position,
-                                    rotation=rotation, scale=scale, pivots=pivots)
+                cmds.matchTransform(self.getFullName(), target.getFullName(), position=position, rotation=rotation, scale=scale, pivots=pivots)
             return self
 
     def mirrorTransform(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), *, fast=False, ws=_UNSET):
@@ -1317,7 +1356,6 @@ class Transform(DagNode):
             ws = _world_space(worldSpace)
             _require_bool(ws, "worldSpace")
             _, center = mirrorArguments(axis, pivot)
-            name = self.getFullName()
             parent_node = self.getParent()
             parent = Matrix()
             if parent_node is not None and self.getPlug("inheritsTransform").get():
@@ -1325,9 +1363,8 @@ class Transform(DagNode):
                 parent = parent_node.getPlug("worldMatrix")[parent_node.mpath().instanceNumber()].get()
             offset = self.getPlug("offsetParentMatrix").get()
             effective_parent = offset * parent
-            magnitude = max(1.0, *(sum(abs(effective_parent[row, col]) for col in range(3))
-                                   for row in range(3)))
-            if abs(effective_parent.det4x4()) <= 1e-12 * magnitude ** 3:
+            magnitude = max(1.0, *(sum(abs(effective_parent[row, col]) for col in range(3)) for row in range(3)))
+            if abs(effective_parent.det4x4()) <= 1e-12 * magnitude**3:
                 raise ValueError("Cannot mirror with a singular parent or offsetParentMatrix")
             attributes = ["rotatePivot", "scalePivot", "rotatePivotTranslate", "scalePivotTranslate"]
             if not self._require_mnode().hasFn(om2.MFn.kJoint):
@@ -1876,8 +1913,7 @@ class Transform(DagNode):
         self._set_channel_value("shear", values, safe=safe, fast=fast)
         return self
 
-    def getQuaternion(self, worldSpace=_UNSET, ra=_UNSET, r=_UNSET, jo=_UNSET, *, rotateAxis=_UNSET, rotate=_UNSET,
-        jointOrient=_UNSET, ws=_UNSET):
+    def getQuaternion(self, worldSpace=_UNSET, ra=_UNSET, r=_UNSET, jo=_UNSET, *, rotateAxis=_UNSET, rotate=_UNSET, jointOrient=_UNSET, ws=_UNSET):
         """回転成分を選んで取得する。既定ではrotateAxisを含めない。
 
         ローカル空間ではrotateAxis・rotate・JointのjointOrientの順に、選んだ回転を合成する。
@@ -1923,8 +1959,23 @@ class Transform(DagNode):
                     q *= self._component_quaternion(name)
         return Quaternion._wrap(q)
 
-    def setQuaternion(self, value, worldSpace=_UNSET, ra=_UNSET, r=_UNSET, jo=_UNSET, safe=False, get=False, *,
-        unit="deg", fast=False, rotateAxis=_UNSET, rotate=_UNSET, jointOrient=_UNSET, ws=_UNSET):
+    def setQuaternion(
+        self,
+        value,
+        worldSpace=_UNSET,
+        ra=_UNSET,
+        r=_UNSET,
+        jo=_UNSET,
+        safe=False,
+        get=False,
+        *,
+        unit="deg",
+        fast=False,
+        rotateAxis=_UNSET,
+        rotate=_UNSET,
+        jointOrient=_UNSET,
+        ws=_UNSET,
+    ):
         """回転成分の指定に従いrotate・jointOrient・rotateAxisを設定する。
 
         受理する組合せでは、r=Trueはrotate、r=FalseかつJointでjo=TrueはjointOrient、
@@ -1971,9 +2022,29 @@ class Transform(DagNode):
             self._set_channel_value(name, rotation, safe=safe, fast=fast)
             return self
 
-    def makeIdentity(self, *, apply=_UNSET, a=_UNSET, jointOrient=_UNSET, jo=_UNSET, normal=_UNSET, n=_UNSET,
-        preserveNormals=_UNSET, pn=_UNSET, rotate=_UNSET, r=_UNSET, scale=_UNSET, s=_UNSET, translate=_UNSET,
-        t=_UNSET, query=_UNSET, q=_UNSET, edit=_UNSET, e=_UNSET, **kwargs):
+    def makeIdentity(
+        self,
+        *,
+        apply=_UNSET,
+        a=_UNSET,
+        jointOrient=_UNSET,
+        jo=_UNSET,
+        normal=_UNSET,
+        n=_UNSET,
+        preserveNormals=_UNSET,
+        pn=_UNSET,
+        rotate=_UNSET,
+        r=_UNSET,
+        scale=_UNSET,
+        s=_UNSET,
+        translate=_UNSET,
+        t=_UNSET,
+        query=_UNSET,
+        q=_UNSET,
+        edit=_UNSET,
+        e=_UNSET,
+        **kwargs,
+    ):
         """自身を対象にcmds.makeIdentityを実行する。
 
         省略したフラグはMayaの既定に従う。通常更新をUndo有効時にまとめ、途中失敗の変更は戻さない。
@@ -2006,17 +2077,20 @@ class Transform(DagNode):
             TypeError: 長短フラグを同時指定した場合。
             RuntimeError: ノードが無効、または Maya が拒否した場合。
         """
-        _merge_flags(kwargs, (
-            (apply, a, "apply", "a"),
-            (jointOrient, jo, "jointOrient", "jo"),
-            (normal, n, "normal", "n"),
-            (preserveNormals, pn, "preserveNormals", "pn"),
-            (rotate, r, "rotate", "r"),
-            (scale, s, "scale", "s"),
-            (translate, t, "translate", "t"),
-            (query, q, "query", "q"),
-            (edit, e, "edit", "e"),
-        ))
+        _merge_flags(
+            kwargs,
+            (
+                (apply, a, "apply", "a"),
+                (jointOrient, jo, "jointOrient", "jo"),
+                (normal, n, "normal", "n"),
+                (preserveNormals, pn, "preserveNormals", "pn"),
+                (rotate, r, "rotate", "r"),
+                (scale, s, "scale", "s"),
+                (translate, t, "translate", "t"),
+                (query, q, "query", "q"),
+                (edit, e, "edit", "e"),
+            ),
+        )
         with undoChunk("mlibTransformMakeIdentity"):
             self._require_valid("freeze transform of")
             cmds.makeIdentity(self.getFullName(), **kwargs)
@@ -2083,8 +2157,7 @@ class Transform(DagNode):
         """
         self._require_valid("freeze to the offset parent of")
         fn = self._dependency_fn()
-        resets = [("translate", (0.0, 0.0, 0.0)), ("rotate", (0.0, 0.0, 0.0)), ("scale", (1.0, 1.0, 1.0)),
-                  ("shear", (0.0, 0.0, 0.0))]
+        resets = [("translate", (0.0, 0.0, 0.0)), ("rotate", (0.0, 0.0, 0.0)), ("scale", (1.0, 1.0, 1.0)), ("shear", (0.0, 0.0, 0.0))]
         if self._require_mnode().hasFn(om2.MFn.kJoint):
             resets.append(("jointOrient", (0.0, 0.0, 0.0)))
         for attribute in [name for name, _ in resets] + ["offsetParentMatrix"]:
@@ -2101,8 +2174,7 @@ class Transform(DagNode):
                 cmds.setAttr(name + "." + attribute, *value)
             after = self.getMatrix()
             if after.isSingular():
-                raise ValueError(f"Cannot freeze to the offset parent matrix of {name}: "
-                                 "the reset local matrix is singular")
+                raise ValueError(f"Cannot freeze to the offset parent matrix of {name}: the reset local matrix is singular")
             new_offset = Matrix._wrap(after.inverse() * before * offset)
             cmds.setAttr(name + ".offsetParentMatrix", *tuple(new_offset), type="matrix")
         return self
@@ -2124,8 +2196,7 @@ class Transform(DagNode):
         name = self.getFullName()
         curves = []
         for axis in "XYZ":
-            for curve in cmds.listConnections(name + ".rotate" + axis, source=True, destination=False,
-                                              type="animCurveTA", skipConversionNodes=True) or []:
+            for curve in cmds.listConnections(name + ".rotate" + axis, source=True, destination=False, type="animCurveTA", skipConversionNodes=True) or []:
                 if curve not in curves:
                     curves.append(curve)
         if curves:
@@ -2236,8 +2307,7 @@ class Transform(DagNode):
         angle_unit = _angle_unit(unit)
         unknown = sorted(set(limits) - set(_LIMIT_FLAGS))
         if unknown:
-            raise TypeError("Unsupported limit channel(s): " + ", ".join(unknown)
-                            + " (use translateX..scaleZ)")
+            raise TypeError(f"Unsupported limit channel(s): {', '.join(unknown)} (use translateX..scaleZ)")
         self._require_valid("set limits of")
         name = self.getFullName()
         flags = {}
@@ -2263,8 +2333,7 @@ class Transform(DagNode):
                 if isinstance(side, bool) or not isinstance(side, numbers.Real):
                     raise TypeError(f"{channel} limit values must be numbers or None: {value!r}")
                 if kind == "angle":
-                    side = om2.MAngle(side, om2.MAngle.kDegrees if angle_unit == "deg"
-                                      else om2.MAngle.kRadians).asUnits(om2.MAngle.uiUnit())
+                    side = om2.MAngle(side, om2.MAngle.kDegrees if angle_unit == "deg" else om2.MAngle.kRadians).asUnits(om2.MAngle.uiUnit())
                 elif kind == "distance":
                     side = om2.MDistance(side, om2.MDistance.kCentimeters).asUnits(om2.MDistance.uiUnit())
                 sides.append(float(side))
@@ -2365,15 +2434,13 @@ class Transform(DagNode):
         if target is not None:
             self._require_not_own_descendant(target)
         path = self.mpath()
-        if (self._require_mnode().hasFn(om2.MFn.kJoint) or path.isInstanced()
-                or (target is not None and target.mpath().isInstanced()) or add):
+        if self._require_mnode().hasFn(om2.MFn.kJoint) or path.isInstanced() or (target is not None and target.mpath().isInstanced()) or add:
             raise NotImplementedError("fast setParent does not support joints, instances or add=True")
         require_editable(self._require_mnode())
         if target is not None:
             require_editable(target._require_mnode())
         current = self.getParent()
-        if (current is None and target is None) or (
-                current is not None and target is not None and current.mnode() == target.mnode()):
+        if (current is None and target is None) or (current is not None and target is not None and current.mnode() == target.mnode()):
             return self
         world = None if relative else self.getMatrix(worldSpace=True)
         if world is not None:
@@ -2414,9 +2481,7 @@ class Transform(DagNode):
         for path in om2.MDagPath.getAllPathsTo(target._require_mnode()):
             while path.length():
                 if path.node() == own:
-                    raise RuntimeError(
-                        "Cannot parent a node under itself or one of its descendants: "
-                        f"{self.getFullName()} -> {target.getFullName()}")
+                    raise RuntimeError(f"Cannot parent a node under itself or one of its descendants: {self.getFullName()} -> {target.getFullName()}")
                 path.pop()
 
     def _static_value(self, name):
@@ -2574,10 +2639,7 @@ class Transform(DagNode):
         else:
             references = (tuple(scale_reference), reference_scale)
         quaternion, scale, shear = _match_scale_signs(
-            transformation.rotation(asQuaternion=True),
-            transformation.scale(om2.MSpace.kTransform),
-            transformation.shear(om2.MSpace.kTransform),
-            references,
+            transformation.rotation(asQuaternion=True), transformation.scale(om2.MSpace.kTransform), transformation.shear(om2.MSpace.kTransform), references
         )
         return matrix.translate, quaternion, scale, shear, reference_rotate
 
@@ -2750,11 +2812,10 @@ class Transform(DagNode):
         """
         try:
             current = self._static_value(name)
-        except Exception:  # noqa: BLE001 - 判定できなければ従来どおり書込みの結果に委ねる。
+        except Exception:
             return False
         if isinstance(value, tuple):
-            return isinstance(current, tuple) and len(current) == len(value) and all(
-                float(a) == float(b) for a, b in zip(current, value))
+            return isinstance(current, tuple) and len(current) == len(value) and all(float(a) == float(b) for a, b in zip(current, value))
         return current == value
 
     def _set_channel_value(self, name, value, safe=False, *, fast=False):
@@ -2776,8 +2837,7 @@ class Transform(DagNode):
         # Double3Plug._set_value の回転変換・単位処理を通さず、基底 Plug の書込みを骨格ごと使う。
         plug = self.getPlug(name)
         try:
-            return Plug._set_template(plug, tuple(value), safe, fast=fast, unit="rad",
-                                      _writer=Plug._set_value)
+            return Plug._set_template(plug, tuple(value), safe, fast=fast, unit="rad", _writer=Plug._set_value)
         except RuntimeError as error:
             message = None if safe else _unwritable_channel_message(plug)
             if message is None:
@@ -2813,12 +2873,17 @@ class Transform(DagNode):
         orient = rotate_axis * rotation.asQuaternion()
         if self._require_mnode().hasFn(om2.MFn.kJoint):
             orient *= self._component_quaternion("jointOrient")
-        base = (Matrix(translate=tuple(-v for v in sp)) * Matrix(scale=scale, shear=shear)
-                * Matrix(translate=sp) * Matrix(translate=spt)
-                * Matrix(translate=tuple(-v for v in rp)) * Matrix(rotate=orient)
-                * Matrix(translate=rp) * Matrix(translate=rpt)
-                * Matrix(scale=tuple(1.0 / v for v in inv_scale)))
+        base = (
+            Matrix(translate=tuple(-v for v in sp))
+            * Matrix(scale=scale, shear=shear)
+            * Matrix(translate=sp)
+            * Matrix(translate=spt)
+            * Matrix(translate=tuple(-v for v in rp))
+            * Matrix(rotate=orient)
+            * Matrix(translate=rp)
+            * Matrix(translate=rpt)
+            * Matrix(scale=tuple(1.0 / v for v in inv_scale))
+        )
         assert isinstance(base, Matrix)
         translate = source.translate - base.translate
-        return {"translate": Translate(*translate), "rotate": EulerRotate._wrap(rotation),
-                "scale": Scale(*scale), "shear": Shear(*shear)}
+        return {"translate": Translate(*translate), "rotate": EulerRotate._wrap(rotation), "scale": Scale(*scale), "shear": Shear(*shear)}

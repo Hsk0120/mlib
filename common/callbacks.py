@@ -7,22 +7,42 @@ from .. import logger
 # MSceneMessage.addCallbackで登録できる(引数なしで呼ばれる)シーンのイベント名。
 # 戻り値を判定に使うCheck系と、プラグイン名の配列を受け取るPluginLoad系は扱わない。
 _SCENE_EVENTS = (
-    "beforeNew", "afterNew",
-    "beforeOpen", "afterOpen",
-    "beforeImport", "afterImport",
-    "beforeFileRead", "afterFileRead", "afterSceneReadAndRecordEdits",
-    "beforeSave", "afterSave",
-    "beforeExport", "exportStarted", "afterExport",
-    "beforeReference", "afterReference",
-    "beforeCreateReference", "afterCreateReference",
-    "beforeRemoveReference", "afterRemoveReference",
-    "beforeImportReference", "afterImportReference",
-    "beforeExportReference", "afterExportReference",
-    "beforeLoadReference", "afterLoadReference",
-    "beforeUnloadReference", "afterUnloadReference",
-    "beforeSoftwareRender", "afterSoftwareRender",
-    "beforeSoftwareFrameRender", "afterSoftwareFrameRender", "softwareRenderInterrupted",
-    "sceneUpdate", "mayaInitialized", "mayaExiting",
+    "beforeNew",
+    "afterNew",
+    "beforeOpen",
+    "afterOpen",
+    "beforeImport",
+    "afterImport",
+    "beforeFileRead",
+    "afterFileRead",
+    "afterSceneReadAndRecordEdits",
+    "beforeSave",
+    "afterSave",
+    "beforeExport",
+    "exportStarted",
+    "afterExport",
+    "beforeReference",
+    "afterReference",
+    "beforeCreateReference",
+    "afterCreateReference",
+    "beforeRemoveReference",
+    "afterRemoveReference",
+    "beforeImportReference",
+    "afterImportReference",
+    "beforeExportReference",
+    "afterExportReference",
+    "beforeLoadReference",
+    "afterLoadReference",
+    "beforeUnloadReference",
+    "afterUnloadReference",
+    "beforeSoftwareRender",
+    "afterSoftwareRender",
+    "beforeSoftwareFrameRender",
+    "afterSoftwareFrameRender",
+    "softwareRenderInterrupted",
+    "sceneUpdate",
+    "mayaInitialized",
+    "mayaExiting",
 )
 
 
@@ -160,11 +180,10 @@ class Callbacks:
         target = Node._resolve_input(node)
         label = target.getName()
 
-        def forward(message, plug, other_plug, client_data):
+        def forward(message, plug, _other_plug, _client_data):
             function(message, Plug._resolve_input(plug))
 
-        return self._register(om2.MNodeMessage.addAttributeChangedCallback(
-            target.mnode(), _guarded(forward, label)))
+        return self._register(om2.MNodeMessage.addAttributeChangedCallback(target.mnode(), _guarded(forward, label)))
 
     def remove(self):
         """このグループが登録した全コールバックの解除を試み、成功分だけを保持表から除く。
@@ -188,8 +207,7 @@ class Callbacks:
             else:
                 self._ids.remove(callback_id)
         if failures:
-            raise RuntimeError(
-                f"Failed to remove callbacks: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
+            raise RuntimeError(f"Failed to remove callbacks: {', '.join(repr(key) for key, _ in failures)}") from failures[0][1]
 
     def _register(self, callback_id):
         """登録したコールバックの識別子を保持する。
@@ -227,6 +245,7 @@ def _guarded(function, label):
     Returns:
         Callable: om2へ渡すコールバック。sceneとeventではclientDataだけを受け取る。
     """
+
     def callback(*args):
         try:
             # scene・eventのコールバックは末尾のclientDataだけを受け取るため、引数なしで呼ぶ。
@@ -236,4 +255,5 @@ def _guarded(function, label):
                 function(*args)
         except Exception as exc:
             logger.warning("Callback for %s failed: %s: %s", label, type(exc).__name__, exc)
+
     return callback

@@ -32,8 +32,7 @@ class CurveFit:
                 left = knots[i + degree] - knots[i]
                 right = knots[i + degree + 1] - knots[i + 1]
                 result.append(
-                    (weights[i] * (parameter - knots[i]) / left if left else 0)
-                    + (weights[i + 1] * (knots[i + degree + 1] - parameter) / right if right else 0)
+                    (weights[i] * (parameter - knots[i]) / left if left else 0) + (weights[i + 1] * (knots[i + degree + 1] - parameter) / right if right else 0)
                 )
             weights = result
         return weights
@@ -76,9 +75,7 @@ class CurveFit:
         for i in range(count):
             matrix[i][i] += 1e-7
             for axis in range(3):
-                matrix[i][count + axis] += 1e-7 * (
-                    points[0][axis] + (points[-1][axis] - points[0][axis]) * i / (count - 1)
-                )
+                matrix[i][count + axis] += 1e-7 * (points[0][axis] + (points[-1][axis] - points[0][axis]) * i / (count - 1))
         for col in range(count):
             pivot = max(range(col, count), key=lambda r: abs(matrix[r][col]))
             matrix[col], matrix[pivot] = matrix[pivot], matrix[col]

@@ -34,7 +34,7 @@ def _proportion(done, total, scale):
     return done * scale // total
 
 
-class _ProgressLine(object):
+class _ProgressLine:
     """1本の進捗行について、件数の保持・文字列の組み立て・出力を受け持つ。
 
     処理済みの件数は ``done`` に保持し、``advance`` のたびに1つ増やす。
@@ -192,14 +192,14 @@ class _MainProgressBar(_ProgressLine):
             ProgressCancelled: Escキーで中止された場合。
         """
         # Maya外でもこのモジュールを読み込めるよう、バーを使う時にだけ読み込む。
-        from maya import cmds
+        import maya.cmds as cmds
+
         if not self.begun:
             self.begun = True
             # 入れ子の progressBar() が同じバーを開き直さないよう、表示中は使用中として登録する。
             _active_bars.add(self.bar)
             maximum = max(self.total or 0, 1)
-            cmds.progressBar(self.bar, edit=True, beginProgress=True, isInterruptable=True,
-                             status=self.status(), minValue=0, maxValue=maximum)
+            cmds.progressBar(self.bar, edit=True, beginProgress=True, isInterruptable=True, status=self.status(), minValue=0, maxValue=maximum)
             cmds.progressBar(self.bar, edit=True, progress=0)
         else:
             if cmds.progressBar(self.bar, query=True, isCancelled=True):
@@ -221,7 +221,8 @@ class _MainProgressBar(_ProgressLine):
             None: 値を返さない。
         """
         # Maya外でもこのモジュールを読み込めるよう、バーを使う時にだけ読み込む。
-        from maya import cmds
+        import maya.cmds as cmds
+
         try:
             if self.begun:
                 cmds.progressBar(self.bar, edit=True, endProgress=True)
@@ -244,7 +245,8 @@ def _main_progress_bar():
     """
     try:
         # Maya外(通常のPython)でも動くよう、表示先の判定時にだけ読み込む。
-        from maya import cmds, mel
+        import maya.cmds as cmds
+        import maya.mel as mel
     except ImportError:
         return None
     try:

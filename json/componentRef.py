@@ -80,6 +80,7 @@ class ComponentRef:
         """
         # 循環参照の回避: componentsはnodesを経由してmlib.jsonを使う。
         from ..components import Component, Components
+
         if isinstance(components, Component):
             shape, kind, indices = components.shape, components.component_type, [components.index]
         elif isinstance(components, Components):
@@ -176,6 +177,7 @@ class ComponentRef:
             return None
         # 循環参照の回避: componentsはnodesを経由してmlib.jsonを使う。
         from .. import components
+
         try:
             return getattr(components, _COLLECTIONS[self._type])(shape, self._indices)
         except (IndexError, TypeError, RuntimeError):

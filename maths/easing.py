@@ -49,7 +49,7 @@ def _rising_power(degree):
     """
 
     def rising(u):
-        return u ** degree
+        return u**degree
 
     return rising
 
@@ -236,9 +236,7 @@ def ease(t, curve="cubic"):
         raise TypeError(f"Easing curve name must be a str, got {type(curve).__name__}")
     shape = _SHAPES.get(curve)
     if shape is None:
-        raise ValueError(
-            f"Unsupported easing curve: {curve!r} (expected one of {', '.join(CURVES)})"
-        )
+        raise ValueError(f"Unsupported easing curve: {curve!r} (expected one of {', '.join(CURVES)})")
     value = _to_progress(t)
     if value <= 0.0:
         return 0.0

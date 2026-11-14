@@ -18,4 +18,4 @@ from .shear import Shear
 from .translate import Translate
 from .vector import Vector
 
-__all__ = ['MSpace', 'EulerRotate', 'Matrix', 'Quaternion', 'Scale', 'Shear', 'Translate', 'Vector', 'easing']
+__all__ = ['EulerRotate', 'MSpace', 'Matrix', 'Quaternion', 'Scale', 'Shear', 'Translate', 'Vector', 'easing']

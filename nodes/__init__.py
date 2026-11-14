@@ -21,8 +21,7 @@ for _name in globals().get("__all__", ()):
     globals().pop(_name, None)
 
 # 旧初期化状態を、読み込み済みセッションに残さない。
-for _name in ("_discovered_wrappers", "_discovered_exports",
-              "discover_node_package", "discover_plug_package", "TYPE_CHECKING"):
+for _name in ("_discovered_wrappers", "_discovered_exports", "discover_node_package", "discover_plug_package", "TYPE_CHECKING"):
     globals().pop(_name, None)
 
 from ..core.registry import _node_type_exists
@@ -314,5 +313,4 @@ def __getattr__(name):
     for node_type in candidates:
         if registry.lookup(node_type) is not None or _node_type_exists(node_type):
             return registry.wrapper_class(node_type)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}: "
-                         f"unknown Maya node type {candidates[0]!r} (plug-in not loaded?)")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}: unknown Maya node type {candidates[0]!r} (plug-in not loaded?)")

@@ -10,7 +10,7 @@ import した場合も補完が効く。
 
 - 本体の ``.py`` は読むだけで変更しない。Python は実行時に ``.pyi`` を読まないため、Maya 2022
   (Python 3.7)の動作にも影響しない。スタブは Git で管理し、docstring の型を変えたら作り直して
-  一緒にコミットする(``__tests__/static/test_generateMlibStubs.py`` が古いスタブを検出する)。
+  一緒にコミットする(``--check`` が古いスタブを検出する。静的解析・テストは検査しない)。
 - 内容が変わったファイルだけを書き換え、元の ``.py`` が無くなったスタブ(先頭行が生成の印のもの)を削除する。
 - 引数で戻り値の型が変わる ``ls``・``createNode``・``getConnections`` 等は、引数ごとの戻り値を
   ``@overload`` で補う。
@@ -50,17 +50,46 @@ HEADER = HEADER_MARK + " mlib の docstring から生成した型スタブ。直
 # スタブへ残すデコレーター。ほかの(Undo等の)デコレーターは引数と戻り値を変えないため省く。
 KEPT_DECORATORS = {"property", "staticmethod", "classmethod", "dataclass", "total_ordering"}
 CONTEXT_MANAGERS = {"contextmanager", "contextlib.contextmanager"}
-TYPING_NAMES = {"Any", "Callable", "ContextManager", "Dict", "Generator", "Iterable", "Iterator",
-                "Hashable", "List", "Literal", "Mapping", "NoReturn", "Optional", "Sequence", "Set", "TextIO",
-                "Tuple", "Type", "Union"}
+TYPING_NAMES = {
+    "Any",
+    "Callable",
+    "ContextManager",
+    "Dict",
+    "Generator",
+    "Iterable",
+    "Iterator",
+    "Hashable",
+    "List",
+    "Literal",
+    "Mapping",
+    "NoReturn",
+    "Optional",
+    "Sequence",
+    "Set",
+    "TextIO",
+    "Tuple",
+    "Type",
+    "Union",
+}
 # モジュール名を付けずに書かれた標準ライブラリの型と、型の式で使うモジュールのimport。
 QUALIFIED = {"NotImplementedType": "types.NotImplementedType", "Match": "re.Match"}
-MODULE_IMPORTS = {"types": "import types", "re": "import re", "contextlib": "import contextlib",
-                  "os": "import os", "pathlib": "import pathlib",
-                  "om2": "import maya.api.OpenMaya as om2"}
+MODULE_IMPORTS = {
+    "types": "import types",
+    "re": "import re",
+    "contextlib": "import contextlib",
+    "os": "import os",
+    "pathlib": "import pathlib",
+    "om2": "import maya.api.OpenMaya as om2",
+}
 # docstring で使われる、型名ではない慣用の呼び方の読み替え。
-ALIASES = {"module": "ModuleType", "callable": "Callable[..., Any]", "function": "Callable[..., Any]",
-           "iterable": "Iterable[Any]", "sequence": "Sequence[Any]", "any": "Any"}
+ALIASES = {
+    "module": "ModuleType",
+    "callable": "Callable[..., Any]",
+    "function": "Callable[..., Any]",
+    "iterable": "Iterable[Any]",
+    "sequence": "Sequence[Any]",
+    "any": "Any",
+}
 GENERIC_ALIASES = {"iterable": "Iterable", "sequence": "Sequence"}
 # docstring の型を置き換える型。ContextDecorator は with に使える型として扱われない。
 REPLACEMENTS = {"contextlib.ContextDecorator": "ContextDecorator"}
@@ -72,9 +101,11 @@ LENIENT_MEMBERS = {
     "Object": {"__getattr__": LENIENT_GETATTR},
     "Component": {"__getattr__": LENIENT_GETATTR},
     # getPlug() はマルチ・コンパウンドアトリビュートでも Plug 型になるため、[] と for も受け付ける。
-    "Plug": {"__getattr__": LENIENT_GETATTR,
-             "__getitem__": "def __getitem__(self, key: int | str) -> Plug: ...",
-             "__iter__": "def __iter__(self) -> Iterator[Plug]: ..."},
+    "Plug": {
+        "__getattr__": LENIENT_GETATTR,
+        "__getitem__": "def __getitem__(self, key: int | str) -> Plug: ...",
+        "__iter__": "def __iter__(self) -> Iterator[Plug]: ...",
+    },
 }
 # 置き換え先の型の定義。生成先の mlib/_stubtypes.pyi に書き出す(実行時には存在しないモジュール)。
 STUB_TYPES = '''# _tools/generate_mlib_stubs.py が生成した、スタブだけで使う補助の型。実行時には存在しない。
@@ -99,8 +130,10 @@ class GeneratorContextManager(contextlib.ContextDecorator, contextlib.AbstractCo
     def __call__(self, func: _F) -> _F: ...
 '''
 BUILTIN_NAMES = set(dir(builtins))
-SECTION = re.compile(r"^(\s*)(Args|Arguments|Returns|Yields|Raises|Note|Notes|Example|Examples"
-                     r"|Attributes|Warning|Warnings|See Also|Todo):\s*$")
+SECTION = re.compile(
+    r"^(\s*)(Args|Arguments|Returns|Yields|Raises|Note|Notes|Example|Examples"
+    r"|Attributes|Warning|Warnings|See Also|Todo):\s*$"
+)
 ARG_LINE = re.compile(r"^\s*(\*{0,2}[A-Za-z_]\w*)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*:")
 
 
@@ -180,7 +213,7 @@ def _return_type(doc, is_property=False):
         return text
     text = _first_entry_type(_section_lines(doc, {"Yields"}))
     if text:
-        return "Iterator[%s]" % text
+        return f"Iterator[{text}]"
     if is_property:
         return _first_entry_type(doc.splitlines()[:1])
     return None
@@ -201,8 +234,18 @@ def _is_accessor(node):
 class _TypeChecker(ast.NodeVisitor):
     """型の式に許される構文かを調べ、使っている名前を集める。"""
 
-    ALLOWED = (ast.Expression, ast.Name, ast.Attribute, ast.Subscript, ast.Tuple, ast.List,
-               ast.BinOp, ast.BitOr, ast.Load, ast.Index if hasattr(ast, "Index") else ast.Load)
+    ALLOWED = (
+        ast.Expression,
+        ast.Name,
+        ast.Attribute,
+        ast.Subscript,
+        ast.Tuple,
+        ast.List,
+        ast.BinOp,
+        ast.BitOr,
+        ast.Load,
+        ast.Index if hasattr(ast, "Index") else ast.Load,
+    )
 
     def __init__(self):
         self.names = set()
@@ -344,7 +387,7 @@ class ModuleStub:
         module = self.index.get(name)
         if module:
             if module != self.name:
-                self.extra_imports[name] = "from %s import %s" % (module, name)
+                self.extra_imports[name] = f"from {module} import {name}"
             return True
         return False
 
@@ -362,16 +405,15 @@ class ModuleStub:
             return None
         text = ALIASES.get(text) or text
         for word, replacement in ALIASES.items():
-            text = re.sub(r"(?<![\w.])%s(?![\w.\[])" % word, replacement, text)
+            text = re.sub(rf"(?<![\w.]){word}(?![\w.\[])", replacement, text)
         for word, replacement in GENERIC_ALIASES.items():
-            text = re.sub(r"(?<![\w.])%s\[" % word, replacement + "[", text)
+            text = re.sub(rf"(?<![\w.]){word}\[", replacement + "[", text)
         for word, replacement in REPLACEMENTS.items():
             text = text.replace(word, replacement)
         for word, replacement in QUALIFIED.items():
-            text = re.sub(r"(?<![\w.])%s(?![\w])" % word, replacement, text)
+            text = re.sub(rf"(?<![\w.]){word}(?![\w])", replacement, text)
         # OpenMayaのクラスは om2.MObject のように書くが、MObject とだけ書かれた場合も補う。
-        text = re.sub(r"(?<![\w.])(M[A-Z]\w+)", lambda m: m.group(1) if m.group(1) in self.bound
-                      else "om2." + m.group(1), text)
+        text = re.sub(r"(?<![\w.])(M[A-Z]\w+)", lambda m: m.group(1) if m.group(1) in self.bound else "om2." + m.group(1), text)
         try:
             tree = ast.parse(text, mode="eval")
         except SyntaxError:
@@ -401,8 +443,7 @@ class ModuleStub:
             list[str]: docstring の行。無ければ空リスト。
         """
         body = getattr(node, "body", None)
-        if not (body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)
-                and isinstance(body[0].value.value, str)):
+        if not (body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str)):
             return []
         segment = ast.get_source_segment(self.source, body[0].value)
         return [indent + segment] if segment else []
@@ -433,7 +474,7 @@ class ModuleStub:
             elif arg.arg in ("self", "cls"):
                 note = None
             else:
-                note = self.annotation(doc_types.get(arg.arg), "%s(%s)" % (qualname, arg.arg))
+                note = self.annotation(doc_types.get(arg.arg), f"{qualname}({arg.arg})")
             text = arg.arg + (": " + note if note else "")
             if has_default:
                 text += " = ..." if note else "=..."
@@ -452,7 +493,7 @@ class ModuleStub:
                 parts.append("/")
         if args.vararg:
             note = args.vararg.annotation and ast.unparse(args.vararg.annotation)
-            note = note or self.annotation(doc_types.get(args.vararg.arg), "%s(*%s)" % (qualname, args.vararg.arg))
+            note = note or self.annotation(doc_types.get(args.vararg.arg), f"{qualname}(*{args.vararg.arg})")
             parts.append("*" + args.vararg.arg + (": " + note if note else ""))
         elif args.kwonlyargs and not kwonly_started:
             parts.append("*")
@@ -460,7 +501,7 @@ class ModuleStub:
             parts.append(render(arg, default is not None))
         if args.kwarg:
             note = args.kwarg.annotation and ast.unparse(args.kwarg.annotation)
-            note = note or self.annotation(doc_types.get(args.kwarg.arg), "%s(**%s)" % (qualname, args.kwarg.arg))
+            note = note or self.annotation(doc_types.get(args.kwarg.arg), f"{qualname}(**{args.kwarg.arg})")
             parts.append("**" + args.kwarg.arg + (": " + note if note else ""))
         return ", ".join(parts)
 
@@ -486,7 +527,7 @@ class ModuleStub:
                 decorators.append(text)
                 is_property = is_property or text == "property"
         lines = []
-        for variant in self.overloads.get("%s:%s" % (self.name, qualname), lambda stub, fn: [])(self, node):
+        for variant in self.overloads.get(f"{self.name}:{qualname}", lambda _stub, _fn: [])(self, node):
             self.typing.update({"Literal"})
             self.extra_imports["overload"] = "from typing import overload"
             lines += [indent + "@overload", indent + variant]
@@ -495,9 +536,8 @@ class ModuleStub:
         lines += [indent + "@" + text for text in decorators]
         returns = ast.unparse(node.returns) if node.returns is not None else None
         if returns is None:
-            override = self.overloads.get("%s:%s#return" % (self.name, qualname))
-            returns = override(self, node) if override else self.annotation(
-                _return_type(doc, is_property), qualname + "(return)")
+            override = self.overloads.get(f"{self.name}:{qualname}#return")
+            returns = override(self, node) if override else self.annotation(_return_type(doc, is_property), qualname + "(return)")
             if returns and re.fullmatch(r"object( \| None)?", returns):
                 # docstring の object は「任意の値」の意味。戻り値を object にすると、受け取った値を
                 # float や str として使うたびに警告になるため Any にする。
@@ -505,8 +545,7 @@ class ModuleStub:
                 returns = "Any"
         if is_context:
             # contextmanager の戻り値は with にもデコレーターにも使える(ContextDecorator)。
-            returns = "GeneratorContextManager[%s]" % (returns[len("Iterator["):-1] if returns and returns.startswith(
-                "Iterator[") else "Any")
+            returns = "GeneratorContextManager[%s]" % (returns[len("Iterator[") : -1] if returns and returns.startswith("Iterator[") else "Any")
             self.typing.add("Any")
             self.extra_imports["GeneratorContextManager"] = "from mlib._stubtypes import GeneratorContextManager"
         if returns is None and node.name == "__init__":
@@ -517,8 +556,7 @@ class ModuleStub:
             self.extra_imports["Self"] = "from typing_extensions import Self"
             returns = "Self"
         keyword = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
-        signature = "%s %s(%s)%s:" % (keyword, node.name, self._params(node.args, _arg_types(doc), qualname),
-                                      " -> " + returns if returns else "")
+        signature = "{} {}({}){}:".format(keyword, node.name, self._params(node.args, _arg_types(doc), qualname), " -> " + returns if returns else "")
         docstring = self._docstring(node, indent + "    ")
         if docstring:
             lines += [indent + signature] + docstring + [indent + "    ..."]
@@ -542,8 +580,8 @@ class ModuleStub:
             list[str]: スタブの行。
         """
         doc = ast.get_docstring(node) or ""
-        qualname = "%s.%s" % (owner, node.name)
-        override = self.overloads.get("%s:%s#return" % (module, qualname))
+        qualname = f"{owner}.{node.name}"
+        override = self.overloads.get(f"{module}:{qualname}#return")
         if override is _self_return:
             returns = owner if self._resolve_name(owner) else None
         else:
@@ -551,9 +589,9 @@ class ModuleStub:
         if returns is None or re.fullmatch(r"object( \| None)?", returns):
             self.typing.add("Any")
             returns = "Any"
-        signature = "def %s(%s) -> list[%s]:" % (node.name, self._params(node.args, _arg_types(doc), qualname), returns)
-        text = "各要素の :meth:`~%s.%s` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。" % (module, qualname)
-        return [indent + signature, indent + '    """%s"""' % text, indent + "    ..."]
+        signature = f"def {node.name}({self._params(node.args, _arg_types(doc), qualname)}) -> list[{returns}]:"
+        text = f"各要素の :meth:`~{module}.{qualname}` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"
+        return [indent + signature, indent + f'    """{text}"""', indent + "    ..."]
 
     def _value_type(self, value):
         """代入の右辺から、スタブで使う変数の型を推定する。
@@ -566,8 +604,7 @@ class ModuleStub:
         """
         if isinstance(value, ast.Constant):
             return "None" if value.value is None else type(value.value).__name__
-        literal = {ast.List: "list", ast.Tuple: "tuple", ast.Dict: "dict", ast.Set: "set",
-                   ast.ListComp: "list", ast.DictComp: "dict", ast.SetComp: "set"}
+        literal = {ast.List: "list", ast.Tuple: "tuple", ast.Dict: "dict", ast.Set: "set", ast.ListComp: "list", ast.DictComp: "dict", ast.SetComp: "set"}
         for kind, text in literal.items():
             if isinstance(value, kind):
                 return text
@@ -601,13 +638,13 @@ class ModuleStub:
             variable, bound = generic
             self.extra_imports["TypeVar"] = "from typing_extensions import TypeVar"
             self.typing.add("Generic")
-            lines.append(indent + '%s = TypeVar("%s", bound=%s, default=%s, covariant=True)' % (variable, variable, bound, bound))
-            bases.append("Generic[%s]" % variable)
+            lines.append(indent + f'{variable} = TypeVar("{variable}", bound={bound}, default={bound}, covariant=True)')
+            bases.append(f"Generic[{variable}]")
         for base_index, base in enumerate(bases):
             if base in GENERIC_COLLECTIONS and self.collections.get(node.name):
                 # 派生のコレクション(Joints 等)は、基底へ自分の要素の型を渡す。
-                bases[base_index] = "%s[%s]" % (base, self.collections[node.name])
-        lines.append(indent + "class %s%s:" % (node.name, "(%s)" % ", ".join(bases) if bases else ""))
+                bases[base_index] = f"{base}[{self.collections[node.name]}]"
+        lines.append(indent + "class {}{}:".format(node.name, "({})".format(", ".join(bases)) if bases else ""))
         inner = indent + "    "
         body = self._docstring(node, inner)
         defined = set()
@@ -623,14 +660,16 @@ class ModuleStub:
             self.typing.update({"Iterator"})
             self.extra_imports["overload"] = "from typing import overload"
             self._resolve_name(item)
-            body += [inner + "def __iter__(self) -> Iterator[%s]: ..." % item,
-                     inner + "@overload", inner + "def __getitem__(self, index: int) -> %s: ..." % item,
-                     inner + "@overload", inner + "def __getitem__(self, index: slice) -> %s: ..." % (
-                         "%s[%s]" % (node.name, item) if generic else node.name)]
+            body += [
+                inner + f"def __iter__(self) -> Iterator[{item}]: ...",
+                inner + "@overload",
+                inner + f"def __getitem__(self, index: int) -> {item}: ...",
+                inner + "@overload",
+                inner + "def __getitem__(self, index: slice) -> %s: ..." % (f"{node.name}[{item}]" if generic else node.name),
+            ]
             defined.update({"__iter__", "__getitem__"})
         for stmt in node.body:
-            if (isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name in defined
-                    and not _is_accessor(stmt)):
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name in defined and not _is_accessor(stmt):
                 continue
             if isinstance(stmt, ast.FunctionDef) and generic and stmt.name == "__class_getitem__":
                 # 要素の型の引数は Generic が受け持つ。
@@ -645,28 +684,29 @@ class ModuleStub:
             elif isinstance(stmt, ast.ClassDef):
                 body += self._class(stmt, inner, qualname + ".")
                 defined.add(stmt.name)
-            elif (isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)
-                  and include_attribute(stmt.target.id)):
-                body.append(inner + "%s: %s" % (stmt.target.id, ast.unparse(stmt.annotation))
-                            + (" = ..." if stmt.value is not None else ""))
+            elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name) and include_attribute(stmt.target.id):
+                body.append(inner + f"{stmt.target.id}: {ast.unparse(stmt.annotation)}" + (" = ..." if stmt.value is not None else ""))
                 defined.add(stmt.target.id)
             elif isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
                     if isinstance(target, ast.Name) and target.id not in defined and include_attribute(target.id):
-                        body.append(inner + "%s: %s" % (target.id, self._value_type(stmt.value)))
+                        body.append(inner + f"{target.id}: {self._value_type(stmt.value)}")
                         defined.add(target.id)
         # __init__ で設定する公開の属性も補完に出す。
         for stmt in node.body:
             if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
                 for sub in ast.walk(stmt):
-                    targets = sub.targets if isinstance(sub, ast.Assign) else (
-                        [sub.target] if isinstance(sub, ast.AnnAssign) else [])
+                    targets = sub.targets if isinstance(sub, ast.Assign) else ([sub.target] if isinstance(sub, ast.AnnAssign) else [])
                     for target in targets:
-                        if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
-                                and target.value.id == "self" and not target.attr.startswith("_")
-                                and target.attr not in defined):
+                        if (
+                            isinstance(target, ast.Attribute)
+                            and isinstance(target.value, ast.Name)
+                            and target.value.id == "self"
+                            and not target.attr.startswith("_")
+                            and target.attr not in defined
+                        ):
                             self.typing.add("Any")
-                            body.append(inner + "%s: Any" % target.attr)
+                            body.append(inner + f"{target.attr}: Any")
                             defined.add(target.attr)
         for name, text in LENIENT_MEMBERS.get(qualname, {}).items():
             if name not in defined:
@@ -690,8 +730,7 @@ class ModuleStub:
         Returns:
             list[str] | None: フィールド名。namedtuple でなければNone。
         """
-        if not (isinstance(value, ast.Call) and ast.unparse(value.func) in ("namedtuple", "collections.namedtuple")
-                and len(value.args) == 2):
+        if not (isinstance(value, ast.Call) and ast.unparse(value.func) in ("namedtuple", "collections.namedtuple") and len(value.args) == 2):
             return None
         fields = value.args[1]
         if isinstance(fields, ast.Constant) and isinstance(fields.value, str):
@@ -711,19 +750,26 @@ class ModuleStub:
         Returns:
             list[str] | None: 公開名。求められなければNone。
         """
-        if (isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add) and isinstance(value.left, ast.Name)
-                and self.root_classes):
+        if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add) and isinstance(value.left, ast.Name) and self.root_classes:
             # ルートの ``_names + sorted(_classes)`` は、明示した名前に __getattr__ で取得するクラスを加える。
             names = _literal(self.tree, value.left.id)
             return list(names) + sorted(self.root_classes) if names is not None else None
         if isinstance(value, (ast.List, ast.Tuple)):
             names = [item.value for item in value.elts if isinstance(item, ast.Constant)]
             return names if len(names) == len(value.elts) else None
-        if (isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id in ("sorted", "list")
-                and len(value.args) == 1 and isinstance(value.args[0], ast.Name)):
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id in ("sorted", "list")
+            and len(value.args) == 1
+            and isinstance(value.args[0], ast.Name)
+        ):
             for stmt in self._top_level(self.tree.body):
-                if (isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Dict)
-                        and any(isinstance(t, ast.Name) and t.id == value.args[0].id for t in stmt.targets)):
+                if (
+                    isinstance(stmt, ast.Assign)
+                    and isinstance(stmt.value, ast.Dict)
+                    and any(isinstance(t, ast.Name) and t.id == value.args[0].id for t in stmt.targets)
+                ):
                     return sorted(str(key.value) for key in stmt.value.keys if isinstance(key, ast.Constant))
         return None
 
@@ -748,7 +794,7 @@ class ModuleStub:
                 defined.add(stmt.name)
             elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                 if stmt.target.id not in defined:
-                    body.append("%s: %s" % (stmt.target.id, ast.unparse(stmt.annotation)))
+                    body.append(f"{stmt.target.id}: {ast.unparse(stmt.annotation)}")
                     defined.add(stmt.target.id)
             elif isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
@@ -760,23 +806,22 @@ class ModuleStub:
                     if fields is not None:
                         # namedtuple は型の式に使われるため、変数ではなくクラスとして書き出す。
                         self.typing.update({"NamedTuple", "Any"})
-                        body += ["", "class %s(NamedTuple):" % target.id] + [
-                            "    %s: Any" % field for field in fields]
+                        body += ["", f"class {target.id}(NamedTuple):"] + [f"    {field}: Any" for field in fields]
                     elif names is not None:
                         # スタブではimportした名前は __all__ に無いと公開扱いにならない。
                         body.append("__all__ = " + repr(names))
                     elif isinstance(stmt.value, ast.Name) and stmt.value.id in defined:
                         # 同じモジュールのクラス・関数の別名(MultDL = MultDoubleLinear 等)は別名のまま書き出す。
-                        body.append("%s = %s" % (target.id, stmt.value.id))
+                        body.append(f"{target.id} = {stmt.value.id}")
                     elif target.id != "__all__":
-                        body.append("%s: %s" % (target.id, self._value_type(stmt.value)))
+                        body.append(f"{target.id}: {self._value_type(stmt.value)}")
         head = [HEADER.rstrip("\n")] + self._docstring(self.tree, "")
         imports = list(dict.fromkeys(self.imports))
         packages = {}
         for cls, package in self.root_classes.items():
-            packages.setdefault(package, []).append("%s as %s" % (cls, cls))
+            packages.setdefault(package, []).append(f"{cls} as {cls}")
         # スタブでは ``X as X`` の形のimportを公開の再エクスポートとして扱う。
-        imports += ["from .%s import %s" % (package, ", ".join(names)) for package, names in packages.items()]
+        imports += ["from .{} import {}".format(package, ", ".join(names)) for package, names in packages.items()]
         if self.typing:
             imports.append("from typing import " + ", ".join(sorted(self.typing)))
         imports += sorted(set(self.extra_imports.values()) - set(imports))
@@ -794,17 +839,30 @@ def _wrapper_classes():
     """
     tree = ast.parse((SOURCE / "nodes" / "__init__.py").read_text(encoding="utf-8"))
     for stmt in tree.body:
-        if (isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Dict)
-                and any(isinstance(t, ast.Name) and t.id == "_WRAPPER_CLASSES" for t in stmt.targets)):
-            return {str(key.value): value.id for key, value in zip(stmt.value.keys, stmt.value.values)
-                    if isinstance(key, ast.Constant) and isinstance(value, ast.Name)}
+        if (
+            isinstance(stmt, ast.Assign)
+            and isinstance(stmt.value, ast.Dict)
+            and any(isinstance(t, ast.Name) and t.id == "_WRAPPER_CLASSES" for t in stmt.targets)
+        ):
+            return {
+                str(key.value): value.id
+                for key, value in zip(stmt.value.keys, stmt.value.values)
+                if isinstance(key, ast.Constant) and isinstance(value, ast.Name)
+            }
     raise RuntimeError("_WRAPPER_CLASSES is not found in nodes/__init__.py")
 
 
 # ls(type=...) の特別な戻り値。joint・skinCluster は専用コレクション、component はその要素群
 # (0件はシェイプが決まらないため空の Nodes)。それ以外のノード型は Nodes。
-LS_SPECIAL = {"joint": "Joints", "skinCluster": "SkinClusters", "vertex": "Vertices | Nodes", "edge": "Edges | Nodes",
-              "face": "Faces | Nodes", "uv": "UVs | Nodes", "controlVertex": "CVs | Nodes"}
+LS_SPECIAL = {
+    "joint": "Joints",
+    "skinCluster": "SkinClusters",
+    "vertex": "Vertices | Nodes",
+    "edge": "Edges | Nodes",
+    "face": "Faces | Nodes",
+    "uv": "UVs | Nodes",
+    "controlVertex": "CVs | Nodes",
+}
 
 
 def _ls_overloads(stub, node):
@@ -818,22 +876,22 @@ def _ls_overloads(stub, node):
         list[str]: ``def ls(...) -> ...: ...`` の行。
     """
     doc_types = _arg_types(ast.get_docstring(node) or "")
-    table = {name: "Nodes[%s]" % cls for name, cls in _wrapper_classes().items()}
+    table = {name: f"Nodes[{cls}]" for name, cls in _wrapper_classes().items()}
     table.update(LS_SPECIAL)
     stub.annotation("Keyframes", "ls")
     params = stub._params(node.args, doc_types, "ls", {"selectedKeyframes": ("Literal[True]", False)})
-    variants = ["def ls(%s) -> Keyframes: ..." % params]
+    variants = [f"def ls({params}) -> Keyframes: ..."]
     for maya_type, returns in sorted(table.items()):
         stub.annotation(returns, "ls")
-        params = stub._params(node.args, doc_types, "ls", {"type": ('Literal["%s"]' % maya_type, False)})
-        variants.append("def ls(%s) -> %s: ..." % (params, returns))
+        params = stub._params(node.args, doc_types, "ls", {"type": (f'Literal["{maya_type}"]', False)})
+        variants.append(f"def ls({params}) -> {returns}: ...")
     stub.annotation("Nodes", "ls")
     params = stub._params(node.args, doc_types, "ls", {"type": ("str", False)})
-    variants.append("def ls(%s) -> Nodes: ..." % params)
+    variants.append(f"def ls({params}) -> Nodes: ...")
     return variants
 
 
-def _ls_return(stub, node):
+def _ls_return(stub, _node):
     """``type`` を指定しない ``ls`` の戻り値。
 
     Args:
@@ -843,9 +901,7 @@ def _ls_return(stub, node):
     Returns:
         str: 戻り値の注釈。
     """
-    return stub.annotation(
-        "Nodes | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]",
-        "ls(return)")
+    return stub.annotation("Nodes | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]", "ls(return)")
 
 
 def _connection_variants(stub, node, qualname):
@@ -878,7 +934,7 @@ def _connection_variants(stub, node, qualname):
     for overrides, returns in cases:
         stub.annotation(returns, qualname)
         params = stub._params(node.args, doc_types, qualname, overrides, kwonly_from="asPair")
-        variants.append("def getConnections(%s) -> %s: ..." % (params, returns))
+        variants.append(f"def getConnections({params}) -> {returns}: ...")
     return variants
 
 
@@ -894,21 +950,21 @@ def _keyword_connection_variants(stub, node, single):
         list[str]: オーバーロードの行。
     """
     stub.typing.update({"Any", "Literal"})
-    pairs = [("asPair: Literal[True], asNode: Literal[True]", "tuple[Plug, Node]"),
-             ("asPair: Literal[True], asNode: Literal[False] = ...", "tuple[Plug, Plug]"),
-             ("asPair: Literal[False] = ..., asNode: Literal[True]", "Node"),
-             ("asPair: Literal[False] = ..., asNode: Literal[False] = ...", "Plug")]
+    pairs = [
+        ("asPair: Literal[True], asNode: Literal[True]", "tuple[Plug, Node]"),
+        ("asPair: Literal[True], asNode: Literal[False] = ...", "tuple[Plug, Plug]"),
+        ("asPair: Literal[False] = ..., asNode: Literal[True]", "Node"),
+        ("asPair: Literal[False] = ..., asNode: Literal[False] = ...", "Plug"),
+    ]
     head = "self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., "
     variants = []
     for flags, item in pairs:
         stub.annotation(item, node.name)
         if single:
-            variants.append("def %s(%s%s, **kwargs: Any) -> %s | None: ..." % (node.name, head, flags, item))
+            variants.append(f"def {node.name}({head}{flags}, **kwargs: Any) -> {item} | None: ...")
         else:
-            variants.append("def %s(%s%s, index: int, **kwargs: Any) -> %s | None: ..." % (
-                node.name, head, flags, item))
-            variants.append("def %s(%s%s, index: None = ..., **kwargs: Any) -> list[%s]: ..." % (
-                node.name, head, flags, item))
+            variants.append(f"def {node.name}({head}{flags}, index: int, **kwargs: Any) -> {item} | None: ...")
+            variants.append(f"def {node.name}({head}{flags}, index: None = ..., **kwargs: Any) -> list[{item}]: ...")
     return variants
 
 
@@ -922,11 +978,10 @@ def _get_type_overloads(stub):
         list[str]: オーバーロードの行。
     """
     stub.typing.add("Literal")
-    return ["def getType(self, inherited: Literal[True]) -> list[str]: ...",
-            "def getType(self, inherited: Literal[False] = ...) -> str: ..."]
+    return ["def getType(self, inherited: Literal[True]) -> list[str]: ...", "def getType(self, inherited: Literal[False] = ...) -> str: ..."]
 
 
-def _angle_unit_overloads(stub):
+def _angle_unit_overloads(_stub):
     """既定値があれば None を返さないことを表す ``util._angle_unit`` のオーバーロードを返す。
 
     Args:
@@ -935,8 +990,7 @@ def _angle_unit_overloads(stub):
     Returns:
         list[str]: オーバーロードの行。
     """
-    return ["def _angle_unit(unit: str | None, default: str = ...) -> str: ...",
-            "def _angle_unit(unit: str | None, default: None) -> str | None: ..."]
+    return ["def _angle_unit(unit: str | None, default: str = ...) -> str: ...", "def _angle_unit(unit: str | None, default: None) -> str | None: ..."]
 
 
 def _create_node_overloads(stub, node):
@@ -955,8 +1009,8 @@ def _create_node_overloads(stub, node):
     variants = []
     for maya_type, cls in sorted(_wrapper_classes().items()):
         stub.annotation(cls, "createNode")
-        params = stub._params(node.args, doc_types, "createNode", {"type": ('Literal["%s"]' % maya_type, False)})
-        variants.append("def createNode(%s) -> %s: ..." % (params, cls))
+        params = stub._params(node.args, doc_types, "createNode", {"type": (f'Literal["{maya_type}"]', False)})
+        variants.append(f"def createNode({params}) -> {cls}: ...")
     return variants
 
 
@@ -975,11 +1029,10 @@ def _skin_get_weights_overloads(stub, node):
     qualname = "SkinCluster.getWeights"
     rows = stub._params(node.args, doc_types, qualname, {"rows": ("Literal[True]", False)})
     flat = stub._params(node.args, doc_types, qualname, {"rows": ("Literal[False]", True)})
-    return ["def getWeights(%s) -> list[list[float]]: ..." % rows,
-            "def getWeights(%s) -> om2.MDoubleArray: ..." % flat]
+    return [f"def getWeights({rows}) -> list[list[float]]: ...", f"def getWeights({flat}) -> om2.MDoubleArray: ..."]
 
 
-def _self_return(stub, node):
+def _self_return(stub, _node):
     """自身を返すメソッドの戻り値を ``Self`` にする(``Joints.sort()`` が ``Joints`` のままになるように)。
 
     Args:
@@ -996,19 +1049,16 @@ def _self_return(stub, node):
 OVERLOADS = {
     "mlib.cmds.createNode:createNode": _create_node_overloads,
     "mlib.nodes.skinCluster:SkinCluster.getWeights": _skin_get_weights_overloads,
-
-    "mlib.nodes.node:Node.getType": lambda stub, node: _get_type_overloads(stub),
-    "mlib.util:_angle_unit": lambda stub, node: _angle_unit_overloads(stub),
+    "mlib.nodes.node:Node.getType": lambda stub, _node: _get_type_overloads(stub),
+    "mlib.util:_angle_unit": lambda _stub, _node: _angle_unit_overloads(_stub),
     "mlib.cmds.ls:ls": _ls_overloads,
     "mlib.cmds.ls:ls#return": _ls_return,
     "mlib.nodes.node:Node.duplicate#return": _self_return,
     "mlib.nodes.node:Nodes.sort#return": _self_return,
     "mlib.plugs.plug:Plugs.sort#return": _self_return,
     "mlib.components.component:Components.sort#return": _self_return,
-    "mlib.nodes.node:Node.getConnections": lambda stub, node: _connection_variants(
-        stub, node, "Node.getConnections"),
-    "mlib.plugs.plug:Plug.getConnections": lambda stub, node: _connection_variants(
-        stub, node, "Plug.getConnections"),
+    "mlib.nodes.node:Node.getConnections": lambda stub, node: _connection_variants(stub, node, "Node.getConnections"),
+    "mlib.plugs.plug:Plug.getConnections": lambda stub, node: _connection_variants(stub, node, "Plug.getConnections"),
     "mlib.plugs.plug:Plug.getSource": lambda stub, node: _keyword_connection_variants(stub, node, True),
     "mlib.plugs.plug:Plug.getDestinations": lambda stub, node: _keyword_connection_variants(stub, node, False),
 }
@@ -1032,8 +1082,7 @@ def _literal(tree, name):
     for stmt in tree.body:
         if isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == name for t in stmt.targets):
             value = stmt.value
-            if (isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
-                    and value.func.id in ("frozenset", "set", "tuple") and len(value.args) == 1):
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id in ("frozenset", "set", "tuple") and len(value.args) == 1:
                 value = value.args[0]
             try:
                 return ast.literal_eval(value)
@@ -1057,11 +1106,14 @@ def _package_names(path):
             if isinstance(stmt.value, ast.Call) and stmt.value.args and isinstance(stmt.value.args[0], ast.Name):
                 exports = stmt.value.args[0].id
                 for other in tree.body:
-                    if (isinstance(other, ast.Assign) and isinstance(other.value, ast.Dict)
-                            and any(isinstance(t, ast.Name) and t.id == exports for t in other.targets)):
+                    if (
+                        isinstance(other, ast.Assign)
+                        and isinstance(other.value, ast.Dict)
+                        and any(isinstance(t, ast.Name) and t.id == exports for t in other.targets)
+                    ):
                         return sorted(str(key.value) for key in other.value.keys if isinstance(key, ast.Constant))
             return list(ast.literal_eval(stmt.value))
-    raise RuntimeError("__all__ is not found in %s" % path)
+    raise RuntimeError(f"__all__ is not found in {path}")
 
 
 def _root_classes():
@@ -1175,7 +1227,7 @@ def _collections(modules):
                 continue
             singles = [n for n in names if not is_collection(n) and not n.startswith("_")]
             if not singles:
-                raise RuntimeError("the element class of %s.%s is not found" % (module, cls))
+                raise RuntimeError(f"the element class of {module}.{cls} is not found")
             result.setdefault(module, {})[cls] = max(singles, key=lambda n: common(n, cls))
     return result
 
@@ -1231,8 +1283,12 @@ def _forwards(modules, collections, index):
         for cls in mro(name):
             stmt, cls_module = classes[cls]
             for sub in stmt.body:
-                if (not isinstance(sub, ast.FunctionDef) or sub.name.startswith("_") or sub.name in result
-                        or any(ast.unparse(d) in KEPT_DECORATORS | CONTEXT_MANAGERS for d in sub.decorator_list)):
+                if (
+                    not isinstance(sub, ast.FunctionDef)
+                    or sub.name.startswith("_")
+                    or sub.name in result
+                    or any(ast.unparse(d) in KEPT_DECORATORS | CONTEXT_MANAGERS for d in sub.decorator_list)
+                ):
                     continue
                 result[sub.name] = (sub, cls_module, cls)
         return result
@@ -1255,13 +1311,13 @@ def _write_text(path, text):
     """スタブをUTF-8・LFの改行で書き出す。
 
     ``Path.write_text`` の ``newline`` はPython 3.10以降の引数のため、3.9(Maya 2023のmayapy)でも
-    動くように ``open`` で書く。
+    動くように ``Path.open`` で書く。
 
     Args:
         path (Path): 書き出すファイル。
         text (str): 内容。
     """
-    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
         stream.write(text)
 
 
@@ -1281,8 +1337,7 @@ def generate(dest):
     root_classes = _root_classes()
     unresolved = []
     for name, path in modules:
-        stub = ModuleStub(name, path, index, OVERLOADS, collections.get(name),
-                          root_classes if name == PACKAGE else None, forwards.get(name))
+        stub = ModuleStub(name, path, index, OVERLOADS, collections.get(name), root_classes if name == PACKAGE else None, forwards.get(name))
         text = stub.render()
         target = dest / path.relative_to(SOURCE).with_suffix(".pyi")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1361,20 +1416,18 @@ def main(argv=None):
         unresolved = generate(work)
         if options.report:
             for module, where, text, reason in unresolved:
-                print("%s: %s: %r (%s)" % (module, where, text, reason))
+                print(f"{module}: {where}: {text!r} ({reason})")
         if options.check:
             fresh, current = _stub_files(work), _stub_files(options.dest)
-            stale = sorted(str(r) for r in set(fresh) | set(current)
-                           if fresh.get(r) != current.get(r) and (r in fresh or current[r].startswith(HEADER_MARK)))
+            stale = sorted(str(r) for r in set(fresh) | set(current) if fresh.get(r) != current.get(r) and (r in fresh or current[r].startswith(HEADER_MARK)))
             if not stale:
-                print("スタブは最新です: %s" % options.dest)
+                print(f"スタブは最新です: {options.dest}")
                 return 0
-            print("スタブが古いか、ありません(%d ファイル): %s" % (len(stale), ", ".join(stale[:5])))
+            print(f"スタブが古いか、ありません({len(stale):d} ファイル): {', '.join(stale[:5])}")
             print("python _tools/generate_mlib_stubs.py で作り直してください。")
             return 1
         written, removed = _sync(work, options.dest)
-    print("スタブを更新しました: %s (書き込み %d、削除 %d、型を省いた注釈 %d 件)" % (
-        options.dest, written, removed, len(unresolved)))
+    print(f"スタブを更新しました: {options.dest} (書き込み {written:d}、削除 {removed:d}、型を省いた注釈 {len(unresolved):d} 件)")
     return 0
 
 

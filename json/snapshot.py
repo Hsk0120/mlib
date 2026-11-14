@@ -32,8 +32,7 @@ class ValidationReport:
         Returns:
             str: ``ValidationReport(missing=1, skipped=0, errors=0)`` の形式。
         """
-        return (f"ValidationReport(missing={len(self._missing)}, skipped={len(self._skipped)}, "
-                f"errors={len(self._errors)})")
+        return f"ValidationReport(missing={len(self._missing)}, skipped={len(self._skipped)}, errors={len(self._errors)})"
 
     @property
     def missing(self):
@@ -139,7 +138,7 @@ class Snapshot:
         """
         if not isinstance(data, dict):
             raise TypeError("snapshot data must be a dict")
-        self._check_data(data)
+        self._require_data(data)
         self._data = _copy_data(data)
         self._header = header
 
@@ -264,7 +263,7 @@ class Snapshot:
         report = ValidationReport()
         self._validate(mapping, report, options)
         if not report.valid:
-            raise ValueError(f"Cannot apply {type(self).__name__}: " + "; ".join(report.errors))
+            raise ValueError(f"Cannot apply {type(self).__name__}: {'; '.join(report.errors)}")
         with _edit_context(f"mlib{type(self).__name__}Apply", fast, transaction=True):
             self._apply(mapping, report, options, fast)
         report.warn(type(self).__name__)
@@ -285,7 +284,7 @@ class Snapshot:
             return frame
         return self._header.convertTime(frame, timing)
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """データの形を確かめる。各種類が上書きする。
 
         Args:

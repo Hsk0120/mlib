@@ -5,7 +5,6 @@ import math
 from collections import Counter, defaultdict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 from ..components.edge import Edge, Edges
 from ..components.face import Face, Faces
 from ..components.pointComponent import _mirror_plan, _write_points
@@ -16,7 +15,7 @@ from ..core import geometryEdit as geometry_edit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points
-from ..util import _PointGrid, _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _PointGrid, _world_space
 from .shape import Shape
 from typing import Any, Iterable, Sequence
 from mlib.components.component import Component
@@ -43,8 +42,8 @@ class Mesh(Shape):
             reference (Mesh | Node | str): 基準Meshまたは単一メッシュTransform。
             uvSet (str): UV照合のセット名。位置照合では使わない。
             tolerance (float): 非負有限値。UVは成分差、位置はcm距離の許容誤差。
-            fast (bool): TrueはUndoなしで再構築し、非ゼロtweakを現在位置へベイクする。
-                既定FalseはUndo有効が必須で、非ゼロtweakは未対応。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは非ゼロtweakを現在位置へベイクして再構築する。
+                FalseはUndo有効が必須で、非ゼロtweakは未対応。
             match (str): 既定uv、またはposition。
             worldSpace (bool): 位置照合でTrueはワールド空間、Falseは各Shapeのオブジェクト空間。UV照合では使わない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
@@ -820,7 +819,7 @@ class Mesh(Shape):
         """番号依存の外部接続や未対応のメッシュデータを変更前に拒否する。"""
         ...
     @staticmethod
-    def _reordered_mesh_data(fn, counts, connects, remapped, mapping):
+    def _reordered_mesh_data(fn, counts, remapped, mapping):
         """シーン外のメッシュデータを作り、面順・UVと法線を移す。"""
         ...
     @staticmethod

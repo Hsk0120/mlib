@@ -22,7 +22,8 @@ class Deferred:
         Raises:
             TypeError: callbackが呼び出し可能でない場合。
         """
-        from maya import utils
+        # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
+        import maya.utils as utils
 
         if not callable(callback):
             raise TypeError("Expected a callable")

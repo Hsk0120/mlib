@@ -47,7 +47,7 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
         return s * t * u
 
     @classmethod
-    def _multi_indices(cls, shape, indices, command=False):
+    def _multi_indices(cls, shape, indices, command=False):  # noqa: ARG003  # 基底が command= で呼ぶ契約の引数。
         """平坦な番号を ``(s, t, u)`` へ変換する。
 
         Args:

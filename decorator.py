@@ -16,7 +16,7 @@ import maya.cmds as cmds
 
 from . import logger
 from .common.environment import Environment
-from .util import _ArgumentError, _UNSET
+from .util import _UNSET, _ArgumentError
 
 __all__ = ["nativeUnits", "preservedSelection", "preservedSkinShape", "undoChunk", "undoTransaction", "viewportOff"]
 
@@ -40,10 +40,23 @@ _THIS_FILE = os.path.normcase(os.path.abspath(__file__))
 _SPACE_KEYWORDS = ("space",)
 
 # reloadはモジュール辞書を維持するため、廃止済みの公開名を取り除く。
-for _obsolete_name in ("undoable", "undo_chunk", "undo_transaction", "native_units",
-                       "preserved_selection", "preserved_skin_shape", "viewport_off", "is_fast",
-                       "_fast_active", "_fast_edit", "_is_fast", "_safe_edit",
-                       "_flag_aliases", "_normalize_flags", "_maya_aliases"):
+for _obsolete_name in (
+    "undoable",
+    "undo_chunk",
+    "undo_transaction",
+    "native_units",
+    "preserved_selection",
+    "preserved_skin_shape",
+    "viewport_off",
+    "is_fast",
+    "_fast_active",
+    "_fast_edit",
+    "_is_fast",
+    "_safe_edit",
+    "_flag_aliases",
+    "_normalize_flags",
+    "_maya_aliases",
+):
     globals().pop(_obsolete_name, None)
 
 
@@ -71,7 +84,7 @@ def _chunk_target(value):
             return ""
     except Exception:
         return ""  # 表示名の取得の失敗で編集を妨げない。
-    return text if len(text) <= _CHUNK_TARGET_LIMIT else text[:_CHUNK_TARGET_LIMIT - 3] + "..."
+    return text if len(text) <= _CHUNK_TARGET_LIMIT else text[: _CHUNK_TARGET_LIMIT - 3] + "..."
 
 
 def _readable_chunk_name(name, frame):
@@ -166,12 +179,12 @@ class _UndoChunk(contextlib.ContextDecorator):
             None: withの ``as`` で受け取る値。
         """
         if _chunk_active.get():
-            return None
+            return
         if not cmds.undoInfo(query=True, state=True):
             # Undoが無効なら記録されないため、チャンクを開かない。入れ子の
             # 問い合わせも省くため、外側のチャンクとして扱う。
             self._token = _chunk_active.set(_CHUNK_SKIPPED)
-            return None
+            return
         if self._name:
             name = _readable_chunk_name(self._name, sys._getframe(1))
             cmds.undoInfo(openChunk=True, chunkName=str(name))
@@ -179,7 +192,7 @@ class _UndoChunk(contextlib.ContextDecorator):
             cmds.undoInfo(openChunk=True)
         self._opened = True
         self._token = _chunk_active.set(True)
-        return None
+        return
 
     def __exit__(self, exc_type, exc_value, traceback):
         """開いたチャンクを閉じる。閉じる失敗は警告し、ブロック内の例外は抑制しない。
@@ -382,12 +395,10 @@ def _transform_argument_hints(method):
             for keyword in _SPACE_KEYWORDS:
                 if keyword in kwargs:
                     raise TypeError(
-                        f"{name}() got an unexpected keyword argument {keyword!r}; "
-                        "use worldSpace=True for world space (the default worldSpace=False is local)")
-        if spread and len(args) >= 3 and all(
-                isinstance(arg, (int, float)) and not isinstance(arg, bool) for arg in args[:3]):
-            raise TypeError(f"{name}() got the components as separate arguments; pass a sequence: "
-                            f"{name}((x, y, z))")
+                        f"{name}() got an unexpected keyword argument {keyword!r}; use worldSpace=True for world space (the default worldSpace=False is local)"
+                    )
+        if spread and len(args) >= 3 and all(isinstance(arg, (int, float)) and not isinstance(arg, bool) for arg in args[:3]):
+            raise TypeError(f"{name}() got the components as separate arguments; pass a sequence: {name}((x, y, z))")
         return method(self, *args, **kwargs)
 
     return wrapper
@@ -447,7 +458,7 @@ def undoTransaction(name=None):
     outermost = bool(name) and not _chunk_active.get()
     if outermost:
         recording = cmds.undoInfo(query=True, state=True)
-    kwargs: "Dict[str, Any]" = {"openChunk": True}
+    kwargs: Dict[str, Any] = {"openChunk": True}
     if name:
         kwargs["chunkName"] = str(_readable_chunk_name(name, sys._getframe(1)))
     cmds.undoInfo(**kwargs)
@@ -539,6 +550,7 @@ def preservedSkinShape(joints):
     Yields:
         SkinClusters: 保護対象のコレクション。
     """
+    # 循環参照の回避: nodes は decorator を参照するため、使う時点で読み込む。
     from .nodes.joint import Joints
 
     skins = Joints(joints).getSkinClusters()
@@ -590,6 +602,7 @@ def viewportOff():
     if Environment.isBatch():
         yield
         return
+    # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
     import maya.mel as mel
 
     pane = mel.eval("global string $gMainPane; $mlibMainPane = $gMainPane;")

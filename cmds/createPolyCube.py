@@ -18,8 +18,7 @@ from ..decorator import _pick_alias
 from ..util import _UNSET
 
 
-def createPolyCube(width=_UNSET, height=_UNSET, depth=_UNSET, subdivisions=(1, 1, 1), name=_UNSET, parent=None, *,
-        w=_UNSET, h=_UNSET, d=_UNSET, n=_UNSET):
+def createPolyCube(width=_UNSET, height=_UNSET, depth=_UNSET, subdivisions=(1, 1, 1), name=_UNSET, parent=None, *, w=_UNSET, h=_UNSET, d=_UNSET, n=_UNSET):
     """原点を中心とするポリゴンの直方体を作成し、そのシェイプを返す。
 
     fast引数は持たない(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
@@ -51,6 +50,12 @@ def createPolyCube(width=_UNSET, height=_UNSET, depth=_UNSET, subdivisions=(1, 1
     depth = _pick_alias(depth, d, "depth", "d", default=1.0)
     name = _pick_alias(name, n, "name", "n", default=None)
     sx, sy, sz = subdivision_counts(subdivisions, 3)
-    flags = {"width": positive_size(width, "width"), "height": positive_size(height, "height"),
-             "depth": positive_size(depth, "depth"), "subdivisionsX": sx, "subdivisionsY": sy, "subdivisionsZ": sz}
+    flags = {
+        "width": positive_size(width, "width"),
+        "height": positive_size(height, "height"),
+        "depth": positive_size(depth, "depth"),
+        "subdivisionsX": sx,
+        "subdivisionsY": sy,
+        "subdivisionsZ": sz,
+    }
     return create_poly(cmds.polyCube, flags, require_name(name), resolve_parent(parent))

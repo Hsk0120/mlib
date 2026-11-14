@@ -36,10 +36,7 @@ class BlendMatrix(Node):
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
-        return _calculation.add_element(self, "addTarget", "target", {
-            "target[{index}].targetMatrix": matrix,
-            "target[{index}].weight": weight,
-        })
+        return _calculation.add_element(self, "addTarget", "target", {"target[{index}].targetMatrix": matrix, "target[{index}].weight": weight})
 
     def removeTarget(self, index):
         """ターゲットを接続ごと削除する。1回のUndoで戻せる。

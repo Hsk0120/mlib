@@ -298,7 +298,7 @@ class Keyframes:
             value (float): 新しい値。
             unit (str): 角度出力の単位。
             timeUnit (str): 時間出力の単位。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             Keyframes: 自身。
@@ -318,11 +318,11 @@ class Keyframes:
             Keyframes: 自身。
 
         Raises:
-            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             TypeError: unitが文字列・None以外の場合。
+            ValueError: フラグが空/未知、unitが未対応、またはfastで不正値やglobal/未知の接線型を指定した場合。
             IndexError: キー番号が不正な場合。
-            NotImplementedError: fastで入力接線にstepnextを指定した場合。
             RuntimeError: カーブが無効(削除済み)の場合。
+            NotImplementedError: fastで入力接線にstepnextを指定した場合。
         """
         ...
     def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> Keyframes:
@@ -345,7 +345,7 @@ class Keyframes:
 
         Args:
             keepCurve (bool): Trueは全キーを消してもカーブを残す。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。

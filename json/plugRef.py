@@ -72,11 +72,11 @@ class PlugRef:
         # 循環参照の回避: plugs・cmdsはノードのメソッドからmlib.jsonを使う。
         from ..cmds import getPlug
         from ..plugs.plug import Plug
+
         plug = plug if isinstance(plug, Plug) else getPlug(plug)
         if not plug.isValid():
             raise RuntimeError("Cannot record a deleted plug")
-        attribute = plug.mplug().partialName(includeNodeName=False, includeNonMandatoryIndices=True,
-                                             includeInstancedIndices=True, useLongNames=True)
+        attribute = plug.mplug().partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=True)
         return cls(NodeRef.capture(plug.getNode()), attribute)
 
     @classmethod

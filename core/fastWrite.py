@@ -20,7 +20,7 @@ def require_supported_type(plug):
     """fastで書ける型か全子の定義から確認する。値や書込み可否は検査しない。
 
     safeの部分更新前に呼び、ロックや不正な値によって後続の未対応型が隠れるのを防ぐ。
-    対応するtyped配列の型表は、実データを構築するprepare_dataと共有する。
+    対応するデータ型(``doubleArray`` 等)の型表は、実データを構築するprepare_dataと共有する。
 
     Args:
         plug (om2.MPlug): 有効性を確認済みの更新対象。
@@ -244,7 +244,7 @@ def set_plug(plug, value, _writable_checked=False):
     """
     require_supported_type(plug)
     writes = _prepared_writes(plug, value, _writable_checked)
-    for setter, target, item, owner in writes:
+    for setter, target, item, _owner in writes:
         # データを受け渡すまで作成用function setを保持する。
         setter(target, item)
 
@@ -255,7 +255,7 @@ def set_attr(name, *values, fast=False, **kwargs):
     Args:
         name (str): アトリビュート名。
         *values: cmds.setAttr と同じ形・現在の Maya 単位の値。
-        fast (bool): TrueはOpenMaya直接更新。呼出元が明示的に指定する。
+        fast (bool): TrueはUndoなしのOpenMaya更新。既定False。呼出元が明示的に指定する。
         **kwargs: setAttr のフラグ。fast 時の対応フラグは限定される。
 
     Returns:
@@ -275,12 +275,13 @@ def set_attr(name, *values, fast=False, **kwargs):
     if not values and kwargs and set(kwargs) <= set(flags):
         for key, value in kwargs.items():
             setattr(plug, flags[key], bool(value))
-        return
+        return None
     unsupported = set(kwargs) - {"type"}
     if unsupported:
         raise NotImplementedError(f"fast setAttr does not support flags: {', '.join(sorted(unsupported))}")
     value = values[0] if len(values) == 1 else values
     set_plug(plug, _convert_units(plug, value, to_ui=False))
+    return None
 
 
 def prepare_data(attribute, value, *, name=None):

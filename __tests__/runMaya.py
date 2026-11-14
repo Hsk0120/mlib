@@ -1,14 +1,15 @@
-"""Maya 2022～2027のmayapyを個別起動してmlibを検証する（Python 3.7以上）。"""
+"""Maya 2022～2027のmayapyを個別起動してmlibを検証する(Python 3.7以上)。"""
+
 import argparse
 import datetime
 import json
 import os
-from pathlib import Path
 import runpy
 import subprocess
 import sys
 import time
 import traceback
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS_DIR = Path(__file__).resolve().parent
@@ -53,14 +54,15 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
     standalone = None
     try:
         import maya.standalone
+
         maya.standalone.initialize(name="python")
         standalone = maya.standalone
         import maya.cmds as cmds
+
         actual = str(cmds.about(version=True))
-        result.update(maya_version=actual, api_version=cmds.about(apiVersion=True),
-                      python_version=sys.version, executable=sys.executable)
+        result.update(maya_version=actual, api_version=cmds.about(apiVersion=True), python_version=sys.version, executable=sys.executable)
         if actual.split(".")[0] != version:
-            raise RuntimeError("Requested Maya {} but started {}".format(version, actual))
+            raise RuntimeError(f"Requested Maya {version} but started {actual}")
         sys.path.insert(0, str(ROOT.parent))
         tests = TESTS_DIR
         sys.path.insert(0, str(TESTS_DIR))
@@ -72,12 +74,17 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
             suite = namespace["run_all"](names=selected_tests)
         else:
             suite = namespace["run_all"](names=selected_tests, suite=suite_name)
-        result.update(status="passed" if suite["ok"] else "failed",
-                      total_files=suite["total"], failed_files=suite["failed"],
-                      tests_run=suite["tests_run"], skipped=suite["skipped"],
-                      failure_details=suite.get("failure_details", []),
-                      suite_log=str(suite["log_path"]), summary=suite["summary"],
-                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}))
+        result.update(
+            status="passed" if suite["ok"] else "failed",
+            total_files=suite["total"],
+            failed_files=suite["failed"],
+            tests_run=suite["tests_run"],
+            skipped=suite["skipped"],
+            failure_details=suite.get("failure_details", []),
+            suite_log=str(suite["log_path"]),
+            summary=suite["summary"],
+            excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}),
+        )
     except BaseException:
         result["status"] = "error"
         result["error"] = traceback.format_exc()
@@ -95,8 +102,7 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
 
 def maya_executable(version, install_root):
     """MAYA_TEST_LOCATION_<year>でバージョンごとのインストール先を上書きできる。"""
-    location = Path(os.environ.get("MAYA_TEST_LOCATION_" + version,
-                                   str(install_root / ("Maya" + version))))
+    location = Path(os.environ.get("MAYA_TEST_LOCATION_" + version, str(install_root / ("Maya" + version))))
     return location / "bin/mayapy.exe"
 
 
@@ -109,11 +115,20 @@ def isolated_environment(executable, directory):
     temp = directory / "temp"
     app.mkdir()
     temp.mkdir()
-    env.update(MAYA_APP_DIR=str(app), MAYA_LOCATION=str(executable.parent.parent),
-               MAYA_UI_LANGUAGE="en_US",
-               MAYA_SKIP_USERSETUP_PY="1", MAYA_DISABLE_CIP="1", MAYA_DISABLE_CER="1",
-               PYTHONPATH=str(ROOT.parent), PYTHONIOENCODING="utf-8",
-               PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", TEMP=str(temp), TMP=str(temp))
+    env.update(
+        MAYA_APP_DIR=str(app),
+        MAYA_LOCATION=str(executable.parent.parent),
+        MAYA_UI_LANGUAGE="en_US",
+        MAYA_SKIP_USERSETUP_PY="1",
+        MAYA_DISABLE_CIP="1",
+        MAYA_DISABLE_CER="1",
+        PYTHONPATH=str(ROOT.parent),
+        PYTHONIOENCODING="utf-8",
+        PYTHONUTF8="1",
+        PYTHONDONTWRITEBYTECODE="1",
+        TEMP=str(temp),
+        TMP=str(temp),
+    )
     fbx = executable.parent.parent / "plug-ins/fbx/plug-ins"
     if fbx.is_dir():
         env["MAYA_PLUG_IN_PATH"] = str(fbx)
@@ -134,17 +149,13 @@ def run_version(version, executable, directory, timeout, suite_file=None, select
         if selected_tests:
             command += ["--tests"] + list(selected_tests)
         command += ["--suite", suite_name]
-        process = subprocess.Popen(
-            command,
-            cwd=str(ROOT), env=isolated_environment(executable, directory),
-            stdout=output, stderr=subprocess.STDOUT)
+        process = subprocess.Popen(command, cwd=str(ROOT), env=isolated_environment(executable, directory), stdout=output, stderr=subprocess.STDOUT)
         try:
             code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             # このランナーが起動したプロセスと子だけを停止する。
             if os.name == "nt":
-                subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if process.poll() is None:
                 process.kill()
             process.wait()
@@ -168,9 +179,8 @@ def main():
     parser.add_argument("--list", action="store_true", help="検出だけ行う")
     parser.add_argument("--allow-missing", action="store_true", help="未インストールのみなら終了コードを0にする")
     parser.add_argument("--tests", nargs="+", help="実行するファイル。名前かフォルダー付きの相対パス。例: test_joint.py json/test_file.py")
-    parser.add_argument("--suite", choices=("unit", "integration", "all"), default="all",
-                        help="単体/結合/全体を選ぶ（既定: all）")
-    parser.add_argument("--suite-file", type=Path, help="連携テストなど別のrun_all入口（通常は指定不要）")
+    parser.add_argument("--suite", choices=("unit", "integration", "all"), default="all", help="単体/結合/全体を選ぶ(既定: all)")
+    parser.add_argument("--suite-file", type=Path, help="連携テストなど別のrun_all入口(通常は指定不要)")
     parser.add_argument("--worker", nargs=2, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.suite_file:
@@ -187,15 +197,16 @@ def main():
             exe = maya_executable(version, args.install_root)
             print("{}: {} ({})".format(version, exe, "installed" if exe.is_file() else "missing"))
         return 0
-    directory = args.output.resolve() / datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    directory = args.output.resolve() / datetime.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     directory.mkdir(parents=True)
     results = []
     print("Results: " + str(directory), flush=True)
     for version in versions:
-        print("Maya {}: running".format(version), flush=True)
+        print(f"Maya {version}: running", flush=True)
         try:
-            result = run_version(version, maya_executable(version, args.install_root), directory / version,
-                                 args.timeout, args.suite_file, args.tests, args.suite)
+            result = run_version(
+                version, maya_executable(version, args.install_root), directory / version, args.timeout, args.suite_file, args.tests, args.suite
+            )
         except Exception:
             result = {"requested_version": version, "status": "error", "error": traceback.format_exc()}
         results.append(result)

@@ -33,6 +33,7 @@ def getPlug(value):
             ``node.getPlug(name)`` と同じ例外。
         RuntimeError: 名前が複数の対象に一致する場合。
     """
+    # 循環参照の回避: plugs は cmds を参照するため、使う時点で読み込む。
     from ..plugs.plug import Plug as _InputPlug
 
     return _InputPlug._resolve_input(value)

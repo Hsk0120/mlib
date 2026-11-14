@@ -5,7 +5,6 @@ from collections import Counter, defaultdict
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from maya.api.OpenMaya import MSpace
 
 from ..components.edge import Edge, Edges
 from ..components.face import Face, Faces
@@ -17,7 +16,7 @@ from ..core import geometryEdit as geometry_edit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points
-from ..util import _PointGrid, _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _PointGrid, _world_space
 from .shape import Shape
 
 #: :meth:`Mesh.intersect` で maxDistance=None のときに Maya へ渡す最大距離(単精度で表せる大きな値)。
@@ -33,8 +32,7 @@ _UNSET_COLOR = om2.MColor(_UNSET_COLOR_VALUES)
 class Mesh(Shape):
     """Maya mesh shape ノードのラッパー。"""
 
-    def reorderVertices(self, reference, uvSet="map1", tolerance=1e-6, *, fast=False, match="uv",
-        worldSpace=_UNSET, ws=_UNSET):
+    def reorderVertices(self, reference, uvSet="map1", tolerance=1e-6, *, fast=False, match="uv", worldSpace=_UNSET, ws=_UNSET):
         """UVまたは頂点位置の一意な対応で、対象の頂点番号を基準メッシュへ合わせる。
 
         頂点位置・面順/向き・UV・法線・面マテリアルは保持する。エッジ番号は変わり得る。
@@ -45,8 +43,8 @@ class Mesh(Shape):
             reference (Mesh | Node | str): 基準Meshまたは単一メッシュTransform。
             uvSet (str): UV照合のセット名。位置照合では使わない。
             tolerance (float): 非負有限値。UVは成分差、位置はcm距離の許容誤差。
-            fast (bool): TrueはUndoなしで再構築し、非ゼロtweakを現在位置へベイクする。
-                既定FalseはUndo有効が必須で、非ゼロtweakは未対応。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueは非ゼロtweakを現在位置へベイクして再構築する。
+                FalseはUndo有効が必須で、非ゼロtweakは未対応。
             match (str): 既定uv、またはposition。
             worldSpace (bool): 位置照合でTrueはワールド空間、Falseは各Shapeのオブジェクト空間。UV照合では使わない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
@@ -63,7 +61,9 @@ class Mesh(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .node import Node
+
         if match not in ("uv", "position"):
             raise ValueError("match must be uv or position")
         _require_bool(worldSpace, "worldSpace")
@@ -84,8 +84,9 @@ class Mesh(Shape):
             raise ValueError("Meshes must have equal vertex and face counts")
         if not target.numPolygons:
             raise ValueError("Meshes must have polygon faces")
-        mapping = (self._uv_vertex_mapping(source, target, uvSet, tolerance) if match == "uv"
-                   else self._position_vertex_mapping(source, target, tolerance, worldSpace))
+        mapping = (
+            self._uv_vertex_mapping(source, target, uvSet, tolerance) if match == "uv" else self._position_vertex_mapping(source, target, tolerance, worldSpace)
+        )
         counts, connects = target.getVertices()
         remapped = [mapping[v] for v in connects]
         if self._face_cycles(*source.getVertices()) != self._face_cycles(counts, remapped):
@@ -93,7 +94,7 @@ class Mesh(Shape):
         if all(old == new for old, new in enumerate(mapping)):
             return self
         self._require_reorder_supported(target, fast=fast)
-        data = self._reordered_mesh_data(target, counts, connects, remapped, mapping)
+        data = self._reordered_mesh_data(target, counts, remapped, mapping)
         materials = self.getFaceShadingEngines()
         current_uv = target.currentUVSetName()
         if fast:
@@ -127,7 +128,7 @@ class Mesh(Shape):
                 groups = defaultdict(list)
                 for face, material in enumerate(materials):
                     if material is not None:
-                        groups[material.getFullName()].append("{}.f[{}]".format(self.getFullName(), face))
+                        groups[material.getFullName()].append(f"{self.getFullName()}.f[{face}]")
                 for material, faces in groups.items():
                     cmds.sets(faces, edit=True, forceElement=material)
         return self
@@ -178,7 +179,9 @@ class Mesh(Shape):
         Returns:
             list[ShadingEngine]: 使用中のセット。未割り当ては除外する。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
+
         groups, indices = self._geometry_fn().getConnectedShaders(self.mpath().instanceNumber())
         return [ShadingEngine(groups[i]) for i in sorted(set(indices)) if i >= 0]
 
@@ -188,7 +191,9 @@ class Mesh(Shape):
         Returns:
             list[ShadingEngine | None]: 全フェースの割り当て。未割り当てはNone。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
+
         groups, indices = self._geometry_fn().getConnectedShaders(self.mpath().instanceNumber())
         wrapped = [ShadingEngine(group) for group in groups]
         return [wrapped[i] if i >= 0 else None for i in indices]
@@ -211,7 +216,7 @@ class Mesh(Shape):
         try:
             fn = om2.MFnMesh(path)
             # 版により作成は通り照会で失敗するため、形状データの有無を作成直後に確かめる。
-            fn.typeId
+            fn.typeId  # noqa: B018
         except (RuntimeError, ValueError):
             return om2.MFnDagNode(path)
         return fn
@@ -299,8 +304,7 @@ class Mesh(Shape):
         if len(values) != count:
             raise ValueError(f"Expected {count} points, got {len(values)}")
         current = fn.getPoints(om2.MSpace.kWorld if ws else om2.MSpace.kObject)
-        changed = [index for index, (value, point) in enumerate(zip(values, current))
-                   if value != (point.x, point.y, point.z)]
+        changed = [index for index, (value, point) in enumerate(zip(values, current)) if value != (point.x, point.y, point.z)]
         with _edit_context("mlibMeshSetPoints", fast, transaction=True):
             geometry_edit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast)
         return self
@@ -717,18 +721,21 @@ class Mesh(Shape):
         if not fn.numPolygons:
             return []
         vector.normalize()
-        found = fn.allIntersections(om2.MFloatPoint(source.x, source.y, source.z),
-                                    om2.MFloatVector(vector.x, vector.y, vector.z),
-                                    om2.MSpace.kWorld if ws else om2.MSpace.kObject, limit, False,
-                                    sortHits=True)
+        found = fn.allIntersections(
+            om2.MFloatPoint(source.x, source.y, source.z),
+            om2.MFloatVector(vector.x, vector.y, vector.z),
+            om2.MSpace.kWorld if ws else om2.MSpace.kObject,
+            limit,
+            False,
+            sortHits=True,
+        )
         if found is None:
             return []
         points, distances, faces = found[0], found[1], found[2]
         result = []
         for distance, face, index in sorted(zip(distances, faces, range(len(faces)))):
             # 四角形などの面を分けた三角形の境目に当たると、同じ面・同じ距離の交点が2つ返る。
-            if any(face == other and abs(distance - previous) <= _INTERSECT_MERGE
-                   for _point, other, previous in result):
+            if any(face == other and abs(distance - previous) <= _INTERSECT_MERGE for _point, other, previous in result):
                 continue
             hit = points[index]
             result.append((_vector_of(Vector, (hit.x, hit.y, hit.z)), face, float(distance)))
@@ -812,14 +819,13 @@ class Mesh(Shape):
         offset = 0
         margin = 1e-6
         for face, count in enumerate(counts):
-            face_ids = ids[offset:offset + count]
+            face_ids = ids[offset : offset + count]
             offset += count
             if not count:
                 continue
             face_u = [us[i] for i in face_ids]
             face_v = [vs[i] for i in face_ids]
-            if not (min(face_u) - margin <= u <= max(face_u) + margin
-                    and min(face_v) - margin <= v <= max(face_v) + margin):
+            if not (min(face_u) - margin <= u <= max(face_u) + margin and min(face_v) - margin <= v <= max(face_v) + margin):
                 continue
             try:
                 found = fn.getPointAtUV(face, u, v, space, name, margin)
@@ -889,8 +895,7 @@ class Mesh(Shape):
         with _edit_context("mlibMeshSetVertexColors", fast):
             fn = self._geometry_fn()
             name = self._resolve_color_set(colorSet, fn)
-            indices = (list(range(fn.numVertices)) if vertices is None
-                       else self._resolve_vertex_indices(vertices, fn.numVertices))
+            indices = list(range(fn.numVertices)) if vertices is None else self._resolve_vertex_indices(vertices, fn.numVertices)
             values = self._resolve_colors(colors, len(indices))
             if fast:
                 self._set_vertex_colors_fast(fn, name, indices, values)
@@ -1209,10 +1214,8 @@ class Mesh(Shape):
         mapping = []
         for point in target_points:
             cell = key(point)
-            cells = [(cell[0] + x, cell[1] + y, cell[2] + z)
-                     for x in (-1, 0, 1) for y in (-1, 0, 1) for z in (-1, 0, 1)] if tolerance else [cell]
-            candidates = [index for neighbor in cells for index in buckets.get(neighbor, ())
-                          if (point - source_points[index]).length() <= tolerance]
+            cells = [(cell[0] + x, cell[1] + y, cell[2] + z) for x in (-1, 0, 1) for y in (-1, 0, 1) for z in (-1, 0, 1)] if tolerance else [cell]
+            candidates = [index for neighbor in cells for index in buckets.get(neighbor, ()) if (point - source_points[index]).length() <= tolerance]
             if len(candidates) != 1:
                 raise ValueError("Position correspondence is missing or ambiguous within tolerance")
             mapping.append(candidates[0])
@@ -1223,6 +1226,7 @@ class Mesh(Shape):
     @staticmethod
     def _uv_vertex_mapping(source, target, uv_set, tolerance):
         """面頂点UV群が一意に一致する旧対象番号→基準番号を求める。"""
+
         def signatures(fn):
             if uv_set not in fn.getUVSetNames():
                 raise ValueError(f"UV set does not exist: {uv_set}")
@@ -1243,17 +1247,22 @@ class Mesh(Shape):
 
         source_rows, target_rows = signatures(source), signatures(target)
         buckets = defaultdict(list)
+
         def key(value):
             return tuple(math.floor(x / tolerance) for x in value) if tolerance else value
+
         for i, row in enumerate(source_rows):
             buckets[(len(row), key(row[0]))].append(i)
         mapping = []
         for row in target_rows:
             anchor = key(row[0])
             keys = [(anchor[0] + x, anchor[1] + y) for x in (-1, 0, 1) for y in (-1, 0, 1)] if tolerance else [anchor]
-            candidates = [i for cell in keys for i in buckets.get((len(row), cell), ())
-                          if all(abs(a - b) <= tolerance for pair, other in zip(row, source_rows[i])
-                                 for a, b in zip(pair, other))]
+            candidates = [
+                i
+                for cell in keys
+                for i in buckets.get((len(row), cell), ())
+                if all(abs(a - b) <= tolerance for pair, other in zip(row, source_rows[i]) for a, b in zip(pair, other))
+            ]
             if len(candidates) != 1:
                 raise ValueError("UV vertex correspondence is missing or ambiguous")
             mapping.append(candidates[0])
@@ -1266,7 +1275,7 @@ class Mesh(Shape):
         """面の開始頂点に依存せず、面の向きと頂点接続を比較する。"""
         result, offset = [], 0
         for count in counts:
-            row = list(connects[offset:offset + count])
+            row = list(connects[offset : offset + count])
             pivot = row.index(min(row))
             result.append(tuple(row[pivot:] + row[:pivot]))
             offset += count
@@ -1281,8 +1290,7 @@ class Mesh(Shape):
         if self.getPlug("outMesh").mplug().isLocked:
             raise RuntimeError("Mesh output is locked")
         sets, members = fn.getConnectedSetsAndMembers(self.mpath().instanceNumber(), False)
-        if any(not member.isNull() and not group.hasFn(om2.MFn.kShadingEngine)
-               for group, member in zip(sets, members)):
+        if any(not member.isNull() and not group.hasFn(om2.MFn.kShadingEngine) for group, member in zip(sets, members)):
             raise ValueError("Component sets other than shading assignments are not supported")
         if self.getPlug("inMesh").mplug().isDestination:
             raise ValueError("Target must have no input history")
@@ -1300,9 +1308,7 @@ class Mesh(Shape):
                 pass
         if fn.getColorSetNames() or creased or fn.getHoles():
             raise ValueError("Color sets, creases and polygon holes are not supported")
-        if any(fn.hasBlindData(kind) for kind in (om2.MFn.kMeshVertComponent,
-                                                  om2.MFn.kMeshEdgeComponent,
-                                                  om2.MFn.kMeshPolygonComponent)):
+        if any(fn.hasBlindData(kind) for kind in (om2.MFn.kMeshVertComponent, om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent)):
             raise ValueError("Mesh blind data is not supported")
         for name in ("inMesh", "cachedInMesh", "pnts"):
             plug = self.getPlug(name).mplug()
@@ -1317,7 +1323,7 @@ class Mesh(Shape):
                             raise NotImplementedError("Normal reorder does not support vertex tweaks; use fast=True on a copy")
 
     @staticmethod
-    def _reordered_mesh_data(fn, counts, connects, remapped, mapping):
+    def _reordered_mesh_data(fn, counts, remapped, mapping):
         """シーン外のメッシュデータを作り、面順・UVと法線を移す。"""
         points = fn.getPoints()
         reordered = om2.MPointArray(points)
@@ -1353,8 +1359,7 @@ class Mesh(Shape):
             rebuilt.setUVs(*fn.getUVs(uv_set), uvSet=uv_set)
             rebuilt.assignUVs(*fn.getAssignedUVs(uv_set), uvSet=uv_set)
         rebuilt.setCurrentUVSetName(fn.currentUVSetName())
-        smooth = {tuple(sorted(mapping[v] for v in fn.getEdgeVertices(i))): fn.isEdgeSmooth(i)
-                  for i in range(fn.numEdges)}
+        smooth = {tuple(sorted(mapping[v] for v in fn.getEdgeVertices(i))): fn.isEdgeSmooth(i) for i in range(fn.numEdges)}
         for i in range(rebuilt.numEdges):
             rebuilt.setEdgeSmoothing(i, smooth[tuple(sorted(rebuilt.getEdgeVertices(i)))])
         rebuilt.cleanupEdgeSmoothing()
@@ -1363,8 +1368,7 @@ class Mesh(Shape):
         faces = [i for i, count in enumerate(counts) for _ in range(count)]
         locked = [i for i, normal in enumerate(normal_ids) if fn.isNormalLocked(normal)]
         if locked:
-            rebuilt.setFaceVertexNormals([om2.MVector(normals[normal_ids[i]]) for i in locked],
-                                         [faces[i] for i in locked], [remapped[i] for i in locked])
+            rebuilt.setFaceVertexNormals([om2.MVector(normals[normal_ids[i]]) for i in locked], [faces[i] for i in locked], [remapped[i] for i in locked])
             rebuilt.lockFaceVertexNormals([faces[i] for i in locked], [remapped[i] for i in locked])
 
     @staticmethod
@@ -1638,8 +1642,7 @@ class Mesh(Shape):
         for index, value in zip(indices, values):
             groups[value].append(index)
         for (red, green, blue, alpha), group in groups.items():
-            cmds.polyColorPerVertex(["{}.vtx[{}]".format(name, index) for index in group],
-                                    rgb=(red, green, blue), alpha=alpha)
+            cmds.polyColorPerVertex([f"{name}.vtx[{index}]" for index in group], rgb=(red, green, blue), alpha=alpha)
         if current is not None and current != color_set:
             cmds.polyColorSet(name, currentColorSet=True, colorSet=current)
 
@@ -1708,5 +1711,5 @@ class Mesh(Shape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnMesh):
-            raise RuntimeError("mesh has no geometry data: %s" % self.getFullName())
+            raise RuntimeError(f"mesh has no geometry data: {self.getFullName()}")
         return fn

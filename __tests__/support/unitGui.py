@@ -4,11 +4,12 @@
 mayapyでは実行できない(skipされる)GUI専用のケースも対象にする。
 テストはシーンの新規作成やウィンドウ配置の変更を行うため、普段使うGUIへ送信しない。
 """
+
 import os
-from pathlib import Path
 import runpy
 import sys
 import traceback
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TESTS_DIR = Path(__file__).resolve().parents[1]
@@ -25,7 +26,6 @@ def main(output_dir, finished):
         finished (Callable[[dict], object]): 結果を受け取り、GUIを終了させるコールバック。
     """
     import maya.cmds as cmds
-
     from runMaya import write_json
 
     output = Path(output_dir)
@@ -42,13 +42,19 @@ def main(output_dir, finished):
         namespace = runpy.run_path(str(TESTS_DIR / "runAll.py"))
         namespace["run_all"].__globals__["LOG_DIR"] = output
         suite = namespace["run_all"](suite=os.environ.get("MLIB_TEST_SUITE", "all"))
-        result.update(status="passed" if suite["ok"] else "failed",
-                      maya_version=cmds.about(version=True), python_version=sys.version,
-                      total_files=suite["total"], failed_files=suite["failed"],
-                      tests_run=suite["tests_run"], skipped=suite["skipped"],
-                      failure_details=suite.get("failure_details", []),
-                      suite_log=str(suite["log_path"]), summary=suite["summary"],
-                      excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}))
+        result.update(
+            status="passed" if suite["ok"] else "failed",
+            maya_version=cmds.about(version=True),
+            python_version=sys.version,
+            total_files=suite["total"],
+            failed_files=suite["failed"],
+            tests_run=suite["tests_run"],
+            skipped=suite["skipped"],
+            failure_details=suite.get("failure_details", []),
+            suite_log=str(suite["log_path"]),
+            summary=suite["summary"],
+            excluded_files=sorted(namespace["EXCLUDED_FILES"] - {"runAll.py"}),
+        )
     except BaseException:
         result.update(status="error", error=traceback.format_exc())
     write_json(output / "result.json", result)

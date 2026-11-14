@@ -75,6 +75,7 @@ class NodeRef:
         """
         # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
         from ..nodes.node import Node
+
         node = node if isinstance(node, Node) else Node(node)
         full = node.getFullName()
         if not full:
@@ -176,4 +177,5 @@ class NodeRef:
             return None
         # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使う。
         from ..nodes.node import Node
+
         return Node(candidates[0])

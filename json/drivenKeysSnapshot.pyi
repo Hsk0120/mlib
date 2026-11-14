@@ -7,7 +7,7 @@ import maya.cmds as cmds
 from ..cmds import getPlug
 from ..common.drivenKey import DrivenKey
 from ..core.attributeType import _from_seconds
-from ._animCurveData import _check_curve, _is_time_input, _output_kind, _read_curve, _write_curve
+from ._animCurveData import _is_time_input, _output_kind, _read_curve, _require_curve, _write_curve
 from .animationSnapshot import _require_nodes
 from .plugRef import PlugRef
 from .snapshot import Snapshot
@@ -79,7 +79,7 @@ class DrivenKeysSnapshot(Snapshot):
             ValidationReport: 適用の結果。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """``items`` の形を確かめる。
 
         Args:

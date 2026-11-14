@@ -77,7 +77,7 @@ class SelectionSnapshot(Snapshot):
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """``items`` の各項目がノードまたはコンポーネントの参照か確かめる。
 
         Args:
@@ -99,7 +99,7 @@ class SelectionSnapshot(Snapshot):
             else:
                 raise ValueError(f"Invalid selection entry: {entry!r}")
 
-    def _validate(self, mapping, report, options):
+    def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """ノード・コンポーネントの対応を記録する。
 
         Args:
@@ -109,7 +109,7 @@ class SelectionSnapshot(Snapshot):
         """
         self._plan(mapping, report)
 
-    def _apply(self, mapping, report, options, fast):
+    def _apply(self, mapping, report, options, fast):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """見つかった項目で選択を置き換える。
 
         Args:
@@ -173,6 +173,7 @@ def _selection_items(items):
     # 循環参照の回避: components・nodesはノードのメソッドからmlib.jsonを使う。
     from ..components import Component, Components
     from ..nodes.node import Node
+
     if isinstance(items, (str, Node, Component, Components)):
         return [items]
     try:
@@ -197,6 +198,7 @@ def _capture_item(item):
     # 循環参照の回避: components・nodesはノードのメソッドからmlib.jsonを使う。
     from ..components import Component, Components
     from ..nodes.node import Node
+
     if isinstance(item, (Component, Components)):
         return [ComponentRef.capture(item)]
     if isinstance(item, (Node, om2.MObject, om2.MDagPath)):

@@ -6,8 +6,7 @@ import maya.cmds as cmds
 
 from ..decorator import _require_bool
 from ..nodes.node import Node
-from ._animCurveData import (_check_curve, _is_time_input, _merge_keys, _output_kind, _read_curve, _transform_keys,
-                             _write_curve)
+from ._animCurveData import _is_time_input, _merge_keys, _output_kind, _read_curve, _require_curve, _transform_keys, _write_curve
 from .plugRef import PlugRef
 from .snapshot import Snapshot
 
@@ -86,16 +85,13 @@ class AnimationSnapshot(Snapshot):
                 data = _read_curve(curve, input_range=time_range)
                 if not data["keys"]:
                     continue
-                curves.append({"plug": PlugRef.capture(full + "." + attribute).toData(), "layer": layer,
-                               "curve": data})
+                curves.append({"plug": PlugRef.capture(full + "." + attribute).toData(), "layer": layer, "curve": data})
                 if layer is not None and layer not in used_layers:
                     used_layers.append(layer)
         layers = _capture_layers(used_layers, root)
-        return cls({"timeRange": list(time_range) if time_range else None,
-                    "rootLayer": root if layers else None, "layers": layers, "curves": curves})
+        return cls({"timeRange": list(time_range) if time_range else None, "rootLayer": root if layers else None, "layers": layers, "curves": curves})
 
-    def apply(self, *, nameMap=None, replace=None, namespaceMap=None, mode="replace", timeOffset=0.0,
-              timing="frame", createLayers=True, fast=False):
+    def apply(self, *, nameMap=None, replace=None, namespaceMap=None, mode="replace", timeOffset=0.0, timing="frame", createLayers=True, fast=False):
         """保存したカーブを、対応付けたノードのアトリビュートへ書き戻す。
 
         カーブが無いアトリビュートには新しく作る。通常は1回のUndoにまとめ、途中で失敗したら巻き戻す。
@@ -118,7 +114,7 @@ class AnimationSnapshot(Snapshot):
                 ``"second"`` は秒を保つように時刻と接線を換算する。
             createLayers (bool): Trueは見つからないレイヤーを保存した設定で作る(既定)。同じ名前の
                 レイヤーがあれば設定を変えずに使う。Falseは見つからないレイヤーのカーブを飛ばす。
-            fast (bool): TrueはUndoに記録せず、キーをOpenMayaで書く(通常の約4倍速い)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。キーの書込みは通常の約4倍速い。
                 途中で失敗しても巻き戻さない。
 
         Returns:
@@ -137,11 +133,13 @@ class AnimationSnapshot(Snapshot):
             raise ValueError("timeOffset must be finite")
         _require_bool(createLayers, "createLayers")
         self._convert_time(0.0, timing)
-        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap},
-                               {"mode": mode, "timeOffset": float(timeOffset), "timing": timing,
-                                "createLayers": createLayers}, fast=fast)
+        return self._run_apply(
+            {"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap},
+            {"mode": mode, "timeOffset": float(timeOffset), "timing": timing, "createLayers": createLayers},
+            fast=fast,
+        )
 
-    def _check_data(self, data):
+    def _require_data(self, data):
         """``curves``・``layers`` の形を確かめる。
 
         Args:
@@ -165,7 +163,7 @@ class AnimationSnapshot(Snapshot):
             raise ValueError("animation data must have 'layers' and 'curves' lists")
         names = []
         for layer in layers:
-            _check_layer(layer, names)
+            _require_layer(layer, names)
             names.append(layer["name"])
         for entry in curves:
             if not isinstance(entry, dict) or set(entry) != {"plug", "layer", "curve"}:
@@ -173,11 +171,11 @@ class AnimationSnapshot(Snapshot):
             PlugRef.fromData(entry["plug"])
             if entry["layer"] is not None and entry["layer"] not in names:
                 raise ValueError(f"Animation curve refers to an unknown layer: {entry['layer']!r}")
-            _check_curve(entry["curve"])
+            _require_curve(entry["curve"])
             if not _is_time_input(entry["curve"]["curveType"]):
                 raise ValueError(f"Animation curves must have time input: {entry['curve']['curveType']!r}")
 
-    def _validate(self, mapping, report, options):
+    def _validate(self, mapping, report, options):  # noqa: ARG002  # 基底(Snapshot)の契約で受ける引数。この種類では使わない。
         """見つからないノード・アトリビュートを記録する。
 
         Args:
@@ -255,8 +253,7 @@ class AnimationSnapshot(Snapshot):
                 existing = current["keys"]
                 if existing:
                     settings = current
-            _write_curve(curve, settings, _merge_keys(existing, keys, mode, time_range),
-                                  fast=fast)
+            _write_curve(curve, settings, _merge_keys(existing, keys, mode, time_range), fast=fast)
         layers.restoreLocks()
 
 
@@ -315,8 +312,7 @@ class _LayerResolver:
             if parent is None:
                 return None, reason
             flags["parent"] = parent
-        layer = cmds.animLayer(name, override=settings["override"], passthrough=settings["passthrough"],
-                               weight=settings["weight"], **flags)
+        layer = cmds.animLayer(name, override=settings["override"], passthrough=settings["passthrough"], weight=settings["weight"], **flags)
         for flag in ("mute", "solo"):
             if settings[flag]:
                 cmds.animLayer(layer, edit=True, **{flag: True})
@@ -373,8 +369,7 @@ def _require_time_range(time):
     """
     if time is None:
         return None
-    if not isinstance(time, (list, tuple)) or len(time) != 2 or any(
-            isinstance(value, bool) or not isinstance(value, (int, float)) for value in time):
+    if not isinstance(time, (list, tuple)) or len(time) != 2 or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in time):
         raise TypeError("time must be None or a (start, end) pair of numbers")
     start, end = float(time[0]), float(time[1])
     if not (math.isfinite(start) and math.isfinite(end)):
@@ -384,7 +379,7 @@ def _require_time_range(time):
     return start, end
 
 
-def _check_layer(layer, names):
+def _require_layer(layer, names):
     """保存したレイヤーの設定の形を確かめる。
 
     Args:
@@ -442,8 +437,7 @@ def _node_curves(full, layered, root):
         list[tuple[str, str | None, str]]: (アトリビュートのパス, レイヤー名(ベースはNone), カーブ名)。
     """
     result = []
-    pairs = cmds.listConnections(full, source=True, destination=False, connections=True, plugs=True,
-                                 skipConversionNodes=True) or []
+    pairs = cmds.listConnections(full, source=True, destination=False, connections=True, plugs=True, skipConversionNodes=True) or []
     for destination, source in zip(pairs[::2], pairs[1::2]):
         attribute = destination.partition(".")[2]
         if attribute in layered:
@@ -487,8 +481,7 @@ def _capture_layers(used, root):
         if layer not in needed:
             continue
         parent = cmds.animLayer(layer, query=True, parent=True)
-        settings = {"name": layer, "parent": None if parent in (None, root) else parent,
-                    "lock": bool(cmds.animLayer(layer, query=True, lock=True))}
+        settings = {"name": layer, "parent": None if parent in (None, root) else parent, "lock": bool(cmds.animLayer(layer, query=True, lock=True))}
         for flag in _LAYER_FLAGS:
             value = cmds.animLayer(layer, query=True, **{flag: True})
             settings[flag] = float(value) if flag == "weight" else bool(value)
@@ -551,8 +544,7 @@ def _target_curve(plug, layer, keys):
     if layer is not None:
         curves = cmds.animLayer(layer, query=True, findCurveForPlug=plug) or []
     else:
-        curves = cmds.listConnections(plug, source=True, destination=False, skipConversionNodes=True,
-                                      type="animCurve") or []
+        curves = cmds.listConnections(plug, source=True, destination=False, skipConversionNodes=True, type="animCurve") or []
     if not curves:
         return None, "Maya did not create an animation curve", False
     return curves[0], "", True

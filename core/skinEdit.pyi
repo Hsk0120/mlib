@@ -1,6 +1,5 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""skinClusterのウェイト移送をOpenMayaで実行する(``SkinCluster.transferWeights`` のfast経路)。
-"""
+"""skinClusterのウェイト移送をOpenMayaで実行する(``SkinCluster.transferWeights`` のfast経路)。"""
 
 from mlib.nodes.skinCluster import SkinCluster
 

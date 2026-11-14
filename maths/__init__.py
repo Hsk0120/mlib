@@ -22,14 +22,4 @@ from .vector import Vector
 for _obsolete in ("Translation", "EulerRotation", "Rotate", "Transformation"):
     globals().pop(_obsolete, None)
 
-__all__ = [
-    "MSpace",
-    "EulerRotate",
-    "Matrix",
-    "Quaternion",
-    "Scale",
-    "Shear",
-    "Translate",
-    "Vector",
-    "easing",
-]
+__all__ = ["EulerRotate", "MSpace", "Matrix", "Quaternion", "Scale", "Shear", "Translate", "Vector", "easing"]

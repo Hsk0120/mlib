@@ -5,7 +5,7 @@ import math
 import maya.cmds as cmds
 from ..decorator import _require_bool
 from ..nodes.node import Node
-from ._animCurveData import _check_curve, _is_time_input, _merge_keys, _output_kind, _read_curve, _transform_keys, _write_curve
+from ._animCurveData import _is_time_input, _merge_keys, _output_kind, _read_curve, _require_curve, _transform_keys, _write_curve
 from .plugRef import PlugRef
 from .snapshot import Snapshot
 from typing import Iterable
@@ -92,7 +92,7 @@ class AnimationSnapshot(Snapshot):
                 ``"second"`` は秒を保つように時刻と接線を換算する。
             createLayers (bool): Trueは見つからないレイヤーを保存した設定で作る(既定)。同じ名前の
                 レイヤーがあれば設定を変えずに使う。Falseは見つからないレイヤーのカーブを飛ばす。
-            fast (bool): TrueはUndoに記録せず、キーをOpenMayaで書く(通常の約4倍速い)。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。キーの書込みは通常の約4倍速い。
                 途中で失敗しても巻き戻さない。
 
         Returns:
@@ -104,7 +104,7 @@ class AnimationSnapshot(Snapshot):
                 以外の場合。
         """
         ...
-    def _check_data(self, data: dict):
+    def _require_data(self, data: dict):
         """``curves``・``layers`` の形を確かめる。
 
         Args:
@@ -209,7 +209,7 @@ def _require_time_range(time: object) -> tuple[float, float] | None:
     """
     ...
 
-def _check_layer(layer: object, names: list[str]):
+def _require_layer(layer: object, names: list[str]):
     """保存したレイヤーの設定の形を確かめる。
 
     Args:

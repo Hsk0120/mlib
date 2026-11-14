@@ -5,23 +5,11 @@ import logging
 import os
 import types
 
-__all__ = [
-    "MayaHandler",
-    "debug",
-    "error",
-    "getLogger",
-    "info",
-    "print",
-    "raiseWithNotify",
-    "warning",
-]
+__all__ = ["MayaHandler", "debug", "error", "getLogger", "info", "print", "raiseWithNotify", "warning"]
 
+#: ログを集約するロガーの名前(パッケージ名)。
 LOGGER_NAME = (__package__ or __name__).split(".", 1)[0]
-_VIEWPORT_COLORS = {
-    logging.WARNING: "#ffcc00",
-    logging.ERROR: "#ff4d4d",
-    logging.CRITICAL: "#ff4d4d",
-}
+_VIEWPORT_COLORS = {logging.WARNING: "#ffcc00", logging.ERROR: "#ff4d4d", logging.CRITICAL: "#ff4d4d"}
 _NO_CAUSE = object()
 #: 設定すると、Script Editorのエラー表示でmlib内部のフレームを省かない環境変数。
 FULL_TRACEBACK_ENV = "MLIB_FULL_TRACEBACK"
@@ -68,10 +56,13 @@ class MayaHandler(logging.Handler):
             details = logging.Formatter().format(record)
             details += f"\nログ書式の適用に失敗しました: {exc}"
         try:
+            # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
             import maya.cmds as cmds
+
             # mayapy初期化前はMGlobalの表示APIを呼ばない。
             if not hasattr(cmds, "about"):
                 return
+            # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
             import maya.api.OpenMaya as om2
         except ImportError:
             return
@@ -90,14 +81,14 @@ class MayaHandler(logging.Handler):
             return
 
         try:
+            # この処理でだけ使うため、mlibの読み込み時間に含めない。
             import html  # 通知時だけ使うため、import mlibの時間に含めない。
+
+            # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
             import maya.cmds as cmds
+
             color = _VIEWPORT_COLORS.get(record.levelno, "#ff4d4d")
-            cmds.inViewMessage(
-                amg=f'<font color="{color}">{html.escape(message)}</font>',
-                pos="midCenter",
-                fade=True,
-            )
+            cmds.inViewMessage(amg=f'<font color="{color}">{html.escape(message)}</font>', pos="midCenter", fade=True)
         except (ImportError, RuntimeError):
             pass
 
@@ -254,10 +245,9 @@ def _internal_file(filename):
     root = os.path.dirname(_PACKAGE_DIR)
     if not path.startswith(root + os.sep):
         return False
-    parts = path[len(root) + 1:].split(os.sep)
+    parts = path[len(root) + 1 :].split(os.sep)
     base = os.path.basename(_PACKAGE_DIR)
-    return (len(parts) > 1 and (parts[0] == base or parts[0].startswith(base + "_"))
-            and "__tests__" not in parts)
+    return len(parts) > 1 and (parts[0] == base or parts[0].startswith(base + "_")) and "__tests__" not in parts
 
 
 def _transparent_file(filename):
@@ -295,11 +285,10 @@ def _trimmed_traceback(trace):
         filename = entry.tb_frame.f_code.co_filename
         if not _internal_file(filename) and not _transparent_file(filename):
             last_user = index
-    if last_user is None or not any(_internal_file(entry.tb_frame.f_code.co_filename)
-                                    for entry in entries[last_user + 1:]):
+    if last_user is None or not any(_internal_file(entry.tb_frame.f_code.co_filename) for entry in entries[last_user + 1 :]):
         return entries[0] if entries else None
     trimmed = None
-    for entry in reversed(entries[:last_user + 1]):
+    for entry in reversed(entries[: last_user + 1]):
         trimmed = types.TracebackType(trimmed, entry.tb_frame, entry.tb_lasti, entry.tb_lineno)
     return trimmed
 

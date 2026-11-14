@@ -237,9 +237,13 @@ class BlendShape(GeometryFilter):
         shape = _mesh_shape(geometry)
         self._require_vertex_count(bi, shape)
         with undoChunk("mlibBlendShapeAddInBetween"):
-            cmds.blendShape(self.getFullName(), edit=True, inBetween=True,
-                            inBetweenType="relative" if relative else "absolute",
-                            target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), weight))
+            cmds.blendShape(
+                self.getFullName(),
+                edit=True,
+                inBetween=True,
+                inBetweenType="relative" if relative else "absolute",
+                target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), weight),
+            )
             return self
 
     def removeInBetween(self, target, weight):
@@ -388,8 +392,7 @@ class BlendShape(GeometryFilter):
         limit = _tolerance(tolerance)
         bi, index, item = self._resolve_item(target, base, fullWeight)
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
-        return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets)
-                                                if om2.MVector(offset).length() > limit])
+        return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
     def resetTargetVertices(self, target, vertices, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
         """指定した頂点の変位を0に戻す。残りの頂点の変位はそのまま残す。
@@ -477,8 +480,9 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
         with undoChunk("mlibBlendShapeMirrorTarget"):
-            cmds.blendShape(self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name,
-                            symmetrySpace=1, mirrorDirection=0 if positiveToNegative else 1)
+            cmds.blendShape(
+                self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name, symmetrySpace=1, mirrorDirection=0 if positiveToNegative else 1
+            )
             return self
 
     def flipTarget(self, target, axis="x", base=None):
@@ -503,8 +507,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
         with undoChunk("mlibBlendShapeFlipTarget"):
-            cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name,
-                            symmetrySpace=1)
+            cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=1)
             return self
 
     def duplicateTarget(self, target, name=None):
@@ -621,17 +624,21 @@ class BlendShape(GeometryFilter):
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json.nodeRef import NodeRef
+
         self._require_valid("query the targets of")
         bases = []
         for bi in self._base_indices():
             shape = self._base_shape(bi)
             count = self._vertex_count(bi)
             weights = self._read_vertex_weights(f"inputTarget[{bi}].baseWeights", count)
-            bases.append({"index": bi, "geometry": NodeRef.capture(shape).toData(), "vertexCount": count,
-                          "baseWeights": _sparse(weights)})
+            bases.append({"index": bi, "geometry": NodeRef.capture(shape).toData(), "vertexCount": count, "baseWeights": _sparse(weights)})
         targets = [self._capture_target(index, driver=True) for index in self._target_indices()]
-        return {"blendShape": NodeRef.capture(self).toData(), "bases": bases, "targets": targets,
-                "folders": _Directories.read(self).toData(self._target_indices())}
+        return {
+            "blendShape": NodeRef.capture(self).toData(),
+            "bases": bases,
+            "targets": targets,
+            "folders": _Directories.read(self).toData(self._target_indices()),
+        }
 
     def setTargetsData(self, data, *, nameMap=None, replace=None, namespaceMap=None, mode="replace"):
         """:meth:`getTargetsData` の辞書からターゲットを復元する。
@@ -661,6 +668,7 @@ class BlendShape(GeometryFilter):
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json.nameMapping import NameMapping
         from ..json.snapshot import ValidationReport
+
         if not isinstance(mode, str):
             raise TypeError("mode must be a string")
         if mode not in _TARGETS_MODES:
@@ -674,7 +682,7 @@ class BlendShape(GeometryFilter):
         report = ValidationReport()
         plan = self._plan_targets(data, mapping, report)
         if not report.valid:
-            raise ValueError(f"Cannot restore blendShape targets on {self.getName()}: " + "; ".join(report.errors))
+            raise ValueError(f"Cannot restore blendShape targets on {self.getName()}: {'; '.join(report.errors)}")
         with _edit_context("mlibBlendShapeSetTargetsData", False, transaction=True):
             self._apply_targets(data, plan, report)
         report.warn("BlendShape")
@@ -695,6 +703,7 @@ class BlendShape(GeometryFilter):
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json import file
+
         return file.dump(self.getTargetsData(), path, _TARGETS_FORMAT, _TARGETS_VERSION)
 
     def importTargets(self, path, *, nameMap=None, replace=None, namespaceMap=None, mode="replace"):
@@ -716,6 +725,7 @@ class BlendShape(GeometryFilter):
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json import file
+
         _header, data = file.load(path, _TARGETS_FORMAT, _TARGETS_VERSION)
         return self.setTargetsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, mode=mode)
 
@@ -730,7 +740,7 @@ class BlendShape(GeometryFilter):
         """
         self._require_valid("query the targets of")
         items = []
-        for alias, attribute in om2.MFnDependencyNode(self.mnode()).getAliasList():
+        for alias, attribute in self._dependency_fn().getAliasList():
             match = _WEIGHT_ALIAS.match(attribute)
             if match is not None:
                 items.append((int(match.group(1)), alias))
@@ -806,8 +816,7 @@ class BlendShape(GeometryFilter):
         if isinstance(target, Plug):
             mplug = target.mplug()
             weight = self._mplug("weight")
-            if (target.getNode().mnode() != self.mnode() or not mplug.isElement or mplug.isChild
-                    or mplug.array() != weight):
+            if target.getNode().mnode() != self.mnode() or not mplug.isElement or mplug.isChild or mplug.array() != weight:
                 raise ValueError(f"Plug {target} is not a weight element of {self.getName()}")
             index = mplug.logicalIndex()
         elif type(target) is int:
@@ -1293,6 +1302,7 @@ class BlendShape(GeometryFilter):
         if driver and index in self._existing("weight"):
             # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
             from ..json.plugRef import PlugRef
+
             plug = weight_plug.getSource(skipConversionNodes=True)
             source = None if plug is None else PlugRef.capture(plug).toData()
         bases = []
@@ -1303,13 +1313,12 @@ class BlendShape(GeometryFilter):
             entries = []
             for item in items:
                 indices, offsets = self._read_deltas(self._item_path(bi, index, item))
-                entries.append({"weight": (item - _ITEM_OFFSET) / 1000.0, "indices": indices,
-                                "offsets": [component for offset in offsets for component in offset]})
-            weights = self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights",
-                                                self._vertex_count(bi))
+                entries.append(
+                    {"weight": (item - _ITEM_OFFSET) / 1000.0, "indices": indices, "offsets": [component for offset in offsets for component in offset]}
+                )
+            weights = self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights", self._vertex_count(bi))
             bases.append({"base": bi, "targetWeights": _sparse(weights), "items": entries})
-        return {"name": self._alias_of(index), "index": index, "weight": value, "driver": source,
-                "inBetweens": self._capture_inbetweens(index), "bases": bases}
+        return {"name": self._alias_of(index), "index": index, "weight": value, "driver": source, "inBetweens": self._capture_inbetweens(index), "bases": bases}
 
     def _capture_inbetweens(self, index):
         """ターゲットのin-betweenの情報(``inbetweenInfoGroup``)を取得する。
@@ -1330,12 +1339,16 @@ class BlendShape(GeometryFilter):
             for point in self._existing(path + ".interpolationCurve"):
                 element = self._mplug(f"{path}.interpolationCurve[{point}]")
                 curve.append([element.child(0).asFloat(), element.child(1).asFloat()])
-            result.append({"weight": (item - _ITEM_OFFSET) / 1000.0,
-                           "relative": self._mplug(path + ".inbetweenTargetType").asInt() == 1,
-                           "name": self._mplug(path + ".inbetweenTargetName").asString(),
-                           "interpolation": self._mplug(path + ".interpolation").asInt(),
-                           "visibility": self._mplug(path + ".inbetweenVisibility").asBool(),
-                           "curve": curve})
+            result.append(
+                {
+                    "weight": (item - _ITEM_OFFSET) / 1000.0,
+                    "relative": self._mplug(path + ".inbetweenTargetType").asInt() == 1,
+                    "name": self._mplug(path + ".inbetweenTargetName").asString(),
+                    "interpolation": self._mplug(path + ".interpolation").asInt(),
+                    "visibility": self._mplug(path + ".inbetweenVisibility").asBool(),
+                    "curve": curve,
+                }
+            )
         return result
 
     def _create_target(self, index, bases):
@@ -1381,8 +1394,7 @@ class BlendShape(GeometryFilter):
                 if item in self._item_indices(bi, index):
                     self._release_input(path, True)
                 offsets = payload["offsets"]
-                self._write_deltas(path, payload["indices"],
-                                   [offsets[i:i + 3] for i in range(0, len(offsets), 3)])
+                self._write_deltas(path, payload["indices"], [offsets[i : i + 3] for i in range(0, len(offsets), 3)])
             weights = _dense(entry["targetWeights"], self._vertex_count(bi))
             self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", dict(enumerate(weights)))
         self._write_inbetweens(index, record["inBetweens"])
@@ -1429,6 +1441,7 @@ class BlendShape(GeometryFilter):
         """
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json.plugRef import PlugRef
+
         bases, targets = data.get("bases"), data.get("targets")
         if not isinstance(bases, list) or not isinstance(targets, list) or not isinstance(data.get("folders"), list):
             raise ValueError("blendShape targets data must have 'bases', 'targets' and 'folders' lists")
@@ -1444,12 +1457,12 @@ class BlendShape(GeometryFilter):
                 report.addError(f"base {bi} has {count} vertices, but the data has {entry.get('vertexCount')}")
                 continue
             counts[bi] = count
-            _check_sparse(entry.get("baseWeights"), count)
+            _require_sparse(entry.get("baseWeights"), count)
         names = {}
         plan = []
         reserved = set()
         for target in targets:
-            record = _check_target(target, counts, report)
+            record = _validated_target(target, counts, report)
             if record is None:
                 continue
             name = record["name"]
@@ -1525,8 +1538,7 @@ class _Directories:
         """
         self._folders = folders
         self._parents = parents
-        self._original = ({key: dict(value, children=list(value["children"])) for key, value in folders.items()},
-                          dict(parents))
+        self._original = ({key: dict(value, children=list(value["children"])) for key, value in folders.items()}, dict(parents))
 
     @classmethod
     def read(cls, node):
@@ -1543,12 +1555,14 @@ class _Directories:
             path = f"targetDirectory[{d}]"
             data = typed_data(node._mplug(path + ".childIndices"))
             children = [] if data.isNull() else list(om2.MFnIntArrayData(data).array())
-            folders[d] = {"name": node._mplug(path + ".directoryName").asString(),
-                          "parent": node._mplug(path + ".parentIndex").asInt(), "children": children,
-                          "weight": node._mplug(path + ".directoryWeight").asDouble(),
-                          "visibility": node._mplug(path + ".directoryVisibility").asBool()}
-        parents = {index: node._mplug(f"parentDirectory[{index}]").asInt()
-                   for index in node._existing("parentDirectory")}
+            folders[d] = {
+                "name": node._mplug(path + ".directoryName").asString(),
+                "parent": node._mplug(path + ".parentIndex").asInt(),
+                "children": children,
+                "weight": node._mplug(path + ".directoryWeight").asDouble(),
+                "visibility": node._mplug(path + ".directoryVisibility").asBool(),
+            }
+        parents = {index: node._mplug(f"parentDirectory[{index}]").asInt() for index in node._existing("parentDirectory")}
         return cls(folders, parents)
 
     def parentOf(self, index):
@@ -1600,8 +1614,9 @@ class _Directories:
                         entries.append({"target": child})
                 elif -child in self._folders and -child not in seen:
                     value = self._folders[-child]
-                    entries.append({"folder": value["name"], "weight": value["weight"],
-                                    "visibility": value["visibility"], "children": visit(-child, seen | {-child})})
+                    entries.append(
+                        {"folder": value["name"], "weight": value["weight"], "visibility": value["visibility"], "children": visit(-child, seen | {-child})}
+                    )
             return entries
 
         return visit(0, {0})
@@ -1660,8 +1675,14 @@ class _Directories:
                 self.move(index, folder)
                 ordered.append(index)
                 continue
-            child = next((-c for c in self._folders[folder]["children"] if c < 0 and -c in self._folders
-                          and self._folders[-c]["name"] == entry["folder"] and -c not in ordered), None)
+            child = next(
+                (
+                    -c
+                    for c in self._folders[folder]["children"]
+                    if c < 0 and -c in self._folders and self._folders[-c]["name"] == entry["folder"] and -c not in ordered
+                ),
+                None,
+            )
             if child is None:
                 child = self._new_folder(folder, entry["folder"])
             self._folders[child]["weight"] = float(entry.get("weight", 1.0))
@@ -1734,8 +1755,7 @@ def _mesh_shape(value):
     path = node.mpath()
     if node.mnode().hasFn(om2.MFn.kTransform):
         dag = om2.MFnDagNode(path)
-        shapes = [dag.child(i) for i in range(dag.childCount())
-                  if dag.child(i).hasFn(om2.MFn.kMesh) and not om2.MFnDagNode(dag.child(i)).isIntermediateObject]
+        shapes = [dag.child(i) for i in range(dag.childCount()) if dag.child(i).hasFn(om2.MFn.kMesh) and not om2.MFnDagNode(dag.child(i)).isIntermediateObject]
         if len(shapes) != 1:
             raise ValueError(f"{node.getName()} must have exactly one mesh shape")
         path.push(shapes[0])
@@ -1902,7 +1922,7 @@ def _data_index(value, label):
     return value
 
 
-def _check_sparse(value, count):
+def _require_sparse(value, count):
     """:func:`_sparse` の形と頂点番号の範囲を検証する。
 
     Args:
@@ -1912,8 +1932,12 @@ def _check_sparse(value, count):
     Raises:
         ValueError: 形・番号・値が不正な場合。
     """
-    if (not isinstance(value, dict) or not isinstance(value.get("indices"), list)
-            or not isinstance(value.get("values"), list) or len(value["indices"]) != len(value["values"])):
+    if (
+        not isinstance(value, dict)
+        or not isinstance(value.get("indices"), list)
+        or not isinstance(value.get("values"), list)
+        or len(value["indices"]) != len(value["values"])
+    ):
         raise ValueError("Vertex weights in blendShape targets data must have 'indices' and 'values' lists")
     for index, weight in zip(value["indices"], value["values"]):
         if type(index) is not int or not 0 <= index < count:
@@ -1922,7 +1946,7 @@ def _check_sparse(value, count):
             raise ValueError(f"Invalid vertex weight in blendShape targets data: {weight!r}")
 
 
-def _check_target(target, counts, report):
+def _validated_target(target, counts, report):
     """1つのターゲットのデータを検証する。
 
     ベースが見つからない・頂点数が違うものはreportへ記録する(ベースの検査で記録済み)。
@@ -1953,9 +1977,14 @@ def _check_target(target, counts, report):
     if not isinstance(inbetweens, list):
         raise ValueError(f"Invalid in-betweens for target {name!r}")
     for entry in inbetweens:
-        if (not isinstance(entry, dict) or type(entry.get("relative")) is not bool
-                or not isinstance(entry.get("name"), str) or type(entry.get("interpolation")) is not int
-                or type(entry.get("visibility")) is not bool or not isinstance(entry.get("curve"), list)):
+        if (
+            not isinstance(entry, dict)
+            or type(entry.get("relative")) is not bool
+            or not isinstance(entry.get("name"), str)
+            or type(entry.get("interpolation")) is not int
+            or type(entry.get("visibility")) is not bool
+            or not isinstance(entry.get("curve"), list)
+        ):
             raise ValueError(f"Invalid in-between for target {name!r}: {entry!r}")
         _weight_item(entry.get("weight"))
     bases = target.get("bases")
@@ -1971,14 +2000,13 @@ def _check_target(target, counts, report):
             if not report.errors:
                 report.addError(f"target {name!r} uses base {bi}, which cannot be restored")
             continue
-        _check_sparse(entry.get("targetWeights"), counts[bi])
+        _require_sparse(entry.get("targetWeights"), counts[bi])
         for item in entry["items"]:
             if not isinstance(item, dict):
                 raise ValueError(f"Invalid item for target {name!r}")
             _weight_item(item.get("weight"))
             indices, offsets = item.get("indices"), item.get("offsets")
-            if (not isinstance(indices, list) or not isinstance(offsets, list) or len(offsets) != 3 * len(indices)
-                    or len(set(indices)) != len(indices)):
+            if not isinstance(indices, list) or not isinstance(offsets, list) or len(offsets) != 3 * len(indices) or len(set(indices)) != len(indices):
                 raise ValueError(f"Invalid deltas for target {name!r}")
             if any(type(i) is not int or not 0 <= i < counts[bi] for i in indices):
                 raise ValueError(f"Vertex index out of range in deltas of target {name!r}")

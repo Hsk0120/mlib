@@ -7,42 +7,45 @@
 - ``visual``: 実パネルへの適用と画像保存を行う ``support/visualGui.py``。
 - ``all``: 上記の3スイート(既定)。
 """
+
 import argparse
 import datetime
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
 import traceback
+from pathlib import Path
 
-from runMaya import ROOT, TESTS_DIR, VERSIONS, isolated_environment, maya_executable, write_json
-from runMaya import _print_failure_details
+from runMaya import TESTS_DIR, VERSIONS, _print_failure_details, isolated_environment, maya_executable, write_json
 
 #: スイート名と (Maya内で実行するファイル, 追加の環境変数)。
 SUITES = {
-    "unit": ("support/unitGui.py", {
-        # 使い捨てGUIだけで実行するテスト(シーンの新規作成を含む)を有効にする。
-        "MLIB_DISPOSABLE_GUI": "1",
-        "MLIB_TEST_SUITE": "unit",
-    }),
-    "integration": ("support/unitGui.py", {
-        "MLIB_DISPOSABLE_GUI": "1",
-        "MLIB_TEST_SUITE": "integration",
-    }),
+    "unit": (
+        "support/unitGui.py",
+        {
+            # 使い捨てGUIだけで実行するテスト(シーンの新規作成を含む)を有効にする。
+            "MLIB_DISPOSABLE_GUI": "1",
+            "MLIB_TEST_SUITE": "unit",
+        },
+    ),
+    "integration": ("support/unitGui.py", {"MLIB_DISPOSABLE_GUI": "1", "MLIB_TEST_SUITE": "integration"}),
     "visual": ("support/visualGui.py", {}),
 }
-from support.mayaProcess import monitor_process, stop_owned_process
 from support.importSafety import require_safe_imports
+from support.mayaProcess import monitor_process, stop_owned_process
 
 
 def worker(version, directory, suite_path=None):
     """このランナーが起動した空シーンのGUI内だけで実行する。"""
     import runpy
-    from maya import cmds, mel
-    from maya import OpenMayaUI
+
+    import maya.cmds as cmds
+    import maya.mel as mel
+    import maya.OpenMayaUI as OpenMayaUI
+
     try:
         from PySide6 import QtCore, QtWidgets
         from shiboken6 import wrapInstance
@@ -60,14 +63,13 @@ def worker(version, directory, suite_path=None):
         # 終了処理中にPythonフレームを保持しない。UI設定は隔離したMAYA_APP_DIR内。
         # file(modified=False)後もscriptJob等の遅延処理がシーンを変更し得る。
         # ランナー所有の使い捨てGUIだけをforce終了し、保存確認で停止させない。
-        mel.eval('evalDeferred "file -modified false; quit -force -exitCode {};";'.format(
-            0 if result["status"] == "passed" else 1))
+        mel.eval('evalDeferred "file -modified false; quit -force -exitCode {};";'.format(0 if result["status"] == "passed" else 1))
 
     def execute():
         try:
             actual = str(cmds.about(version=True)).split(".")[0]
             if actual != version or cmds.about(batch=True):
-                raise RuntimeError("Requested GUI {} but started {}".format(version, actual))
+                raise RuntimeError(f"Requested GUI {version} but started {actual}")
             write_json(directory / "started.json", {"maya_version": actual, "pid": os.getpid()})
             suite = runpy.run_path(str(suite_path or TESTS_DIR / "support/visualGui.py"))
             suite["main"](output_dir=directory, finished=finish)
@@ -79,21 +81,20 @@ def worker(version, directory, suite_path=None):
     def wait_for_main_window():
         pointer = OpenMayaUI.MQtUtil.mainWindow()
         window = wrapInstance(int(pointer), QtWidgets.QWidget) if pointer else None
-        write_json(directory / "gui-readiness.json", {
-            "main_window_exists": window is not None,
-            "visible": bool(window and window.isVisible()),
-            "minimized": bool(window and window.isMinimized()),
-        })
+        write_json(
+            directory / "gui-readiness.json",
+            {"main_window_exists": window is not None, "visible": bool(window and window.isVisible()), "minimized": bool(window and window.isMinimized())},
+        )
         if window is not None and window.isVisible() and not window.isMinimized():
             # 起動途中にもidle処理は実行されるため、表示完了後のイベントループで開始する。
             QtCore.QTimer.singleShot(1000, execute)
         else:
             QtCore.QTimer.singleShot(500, wait_for_main_window)
+
     QtCore.QTimer.singleShot(500, wait_for_main_window)
 
 
-def run_version(version, directory, install_root, timeout, shutdown_timeout=120,
-                suite_path=None, environment=None):
+def run_version(version, directory, install_root, timeout, shutdown_timeout=120, suite_path=None, environment=None):
     directory = Path(directory).resolve()
     suite_path = Path(suite_path).resolve() if suite_path else None
     directory.mkdir(parents=True)
@@ -111,12 +112,14 @@ def run_version(version, directory, install_root, timeout, shutdown_timeout=120,
     # 無視されるとSafeModeExecUserSetupScriptが既定の1になり、標準プラグイン(MASH等)の
     # userSetup.py に対するセキュリティ確認ダイアログが終了時に出て、Mayaが終了できなくなる。
     (prefs / "userPrefs.mel").write_text(
-        "//Maya Preference {} (Release 1)\n//\n//\n\noptionVar -version 3;\n"
+        f"//Maya Preference {version} (Release 1)\n//\n//\n\noptionVar -version 3;\n"
         'optionVar -iv "showHomeScreenOnStartup" 0;\n'
-        'optionVar -iv "SafeModeExecUserSetupScript" 0;\n'.format(version), encoding="utf-8")
+        'optionVar -iv "SafeModeExecUserSetupScript" 0;\n',
+        encoding="utf-8",
+    )
     # MELのpython()引数をJSON文字列規則で引用。シェルには渡さない。
-    script = "import sys; sys.path.insert(0, {!r}); import runGui as runner; runner.worker({!r}, {!r}, {!r})".format(str(TESTS_DIR), version, str(directory), str(suite_path) if suite_path else None)
-    command = "python({})".format(json.dumps(script))
+    script = f"import sys; sys.path.insert(0, {str(TESTS_DIR)!r}); import runGui as runner; runner.worker({version!r}, {str(directory)!r}, {str(suite_path) if suite_path else None!r})"
+    command = f"python({json.dumps(script)})"
     args = [str(executable), "-noAutoloadPlugins", "-log", str(directory / "maya.log"), "-command", command]
     if version == "2022":
         args += ["-pythonver", "3"]
@@ -133,15 +136,29 @@ def run_version(version, directory, install_root, timeout, shutdown_timeout=120,
             raise
         write_json(directory / "monitor.json", monitoring)
         if monitoring["timed_out"]:
-            return dict(monitoring, requested_version=version, status="timeout", evidence=str(directory),
-                        gui_worker_started=(directory / "started.json").exists(),
-                        launch_log=str(directory / "launch.log"))
+            return dict(
+                monitoring,
+                requested_version=version,
+                status="timeout",
+                evidence=str(directory),
+                gui_worker_started=(directory / "started.json").exists(),
+                launch_log=str(directory / "launch.log"),
+            )
         code = process.returncode
     path = directory / "result.json"
-    result = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"status": "error", "error": "No GUI result.json produced; inspect launch.log and temp/MayaCLM*.log"}
-    result.update(requested_version=version, exit_code=code, elapsed_seconds=round(time.monotonic() - start, 2),
-                  evidence=str(directory), gui_worker_started=(directory / "started.json").exists(),
-                  launch_log=str(directory / "launch.log"))
+    result = (
+        json.loads(path.read_text(encoding="utf-8"))
+        if path.exists()
+        else {"status": "error", "error": "No GUI result.json produced; inspect launch.log and temp/MayaCLM*.log"}
+    )
+    result.update(
+        requested_version=version,
+        exit_code=code,
+        elapsed_seconds=round(time.monotonic() - start, 2),
+        evidence=str(directory),
+        gui_worker_started=(directory / "started.json").exists(),
+        launch_log=str(directory / "launch.log"),
+    )
     if code and result["status"] == "passed":
         result["status"] = "error"
     return result
@@ -166,8 +183,7 @@ def combine(version, results):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(VERSIONS))
-    parser.add_argument("--suite", choices=("all",) + tuple(SUITES), default="all",
-                        help="実行するスイート(既定: all)")
+    parser.add_argument("--suite", choices=("all",) + tuple(SUITES), default="all", help="実行するスイート(既定: all)")
     parser.add_argument("--install-root", type=Path, default=Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Autodesk")
     parser.add_argument("--timeout", type=int, default=600, help="起動・テストの各段階の制限秒数")
     parser.add_argument("--shutdown-timeout", type=int, default=120)
@@ -176,7 +192,7 @@ def main():
     if args.timeout <= 0 or args.shutdown_timeout <= 0:
         parser.error("timeouts must be positive")
     suites = list(SUITES) if args.suite == "all" else [args.suite]
-    output = TESTS_DIR / "_output/gui" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    output = TESTS_DIR / "_output/gui" / datetime.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S_%f")
     output.mkdir(parents=True)
     print("GUI results: " + str(output), flush=True)
     results = []
@@ -185,10 +201,17 @@ def main():
         suite_results = {}
         for name in suites:
             path, environment = SUITES[name]
-            print("Maya {} GUI {}: starting".format(version, name), flush=True)
+            print(f"Maya {version} GUI {name}: starting", flush=True)
             try:
-                result = run_version(version, output / version / name, args.install_root, args.timeout,
-                                     args.shutdown_timeout, suite_path=TESTS_DIR / path, environment=environment)
+                result = run_version(
+                    version,
+                    output / version / name,
+                    args.install_root,
+                    args.timeout,
+                    args.shutdown_timeout,
+                    suite_path=TESTS_DIR / path,
+                    environment=environment,
+                )
             except Exception:
                 result = {"requested_version": version, "status": "error", "error": traceback.format_exc()}
             result["suite"] = name
@@ -196,8 +219,7 @@ def main():
             write_json(output / version / name / "run-result.json", result)
             print("Maya {} GUI {}: {}".format(version, name, result["status"]), flush=True)
             _print_failure_details(result, output / version / name)
-            lines.append("{}\t{}\t{}\t{}".format(version, name, result["status"],
-                                                  ", ".join(result.get("failed_files", []))))
+            lines.append("{}\t{}\t{}\t{}".format(version, name, result["status"], ", ".join(result.get("failed_files", []))))
             if result["status"] == "missing":
                 break
         results.append(combine(version, suite_results))
@@ -207,6 +229,7 @@ def main():
     if any(r["status"] not in ("passed", "missing") for r in results):
         return 1
     return 0 if args.allow_missing or all(r["status"] == "passed" for r in results) else 2
+
 
 if __name__ == "__main__":
     sys.exit(main())

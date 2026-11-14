@@ -1,8 +1,8 @@
-"""unit/・integration/ の test_*.py(サブフォルダーを含む)を実行し、件数・失敗・skipと詳細ログをまとめる。
+"""inMaya/unit/・inMaya/integration/ の test_*.py(サブフォルダーを含む)を実行し、件数・失敗・skipと詳細ログをまとめる。
 
 通常はrun.bat/runMaya.pyから隔離したmayapyで実行する。
 テストはシーンを初期化することがあるため、作業中のMaya GUIへ送信しない。
-Maya不要の検査(static/)はrunStatic.py、外部パッケージとの連携は利用側で実行する。
+Maya不要のテスト(noMaya/)はrunNoMaya.py、外部パッケージとの連携は利用側で実行する。
 """
 
 import contextlib
@@ -11,11 +11,13 @@ import runpy
 import sys
 import traceback
 import unittest
-from unittest import mock
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 TESTS_DIR = Path(__file__).resolve().parent
+#: Mayaが要るテストの置き場所。Maya不要のものは noMaya/ にあり、ここでは実行しない。
+MAYA_DIR = TESTS_DIR / "inMaya"
 LOG_DIR = TESTS_DIR / "_output/logs"
 
 EXCLUDED_FILES = set()
@@ -30,10 +32,10 @@ def discover_test_files(directories=None, names=None, suite="all"):
     if suite not in {"unit", "integration", "all"}:
         raise ValueError("Unknown test suite: " + suite)
     groups = ("unit", "integration") if suite == "all" else (suite,)
-    directories = directories if directories is not None else [TESTS_DIR / group for group in groups]
-    files = sorted({path for directory in directories for path in Path(directory).rglob("test_*.py")
-                    if path.name not in EXCLUDED_FILES},
-                   key=lambda path: str(path))
+    directories = directories if directories is not None else [MAYA_DIR / group for group in groups]
+    files = sorted(
+        {path for directory in directories for path in Path(directory).rglob("test_*.py") if path.name not in EXCLUDED_FILES}, key=lambda path: str(path)
+    )
     if names:
         selected = [path for path in files if any(path.match(name) for name in names)]
         unmatched = [name for name in names if not any(path.match(name) for path in files)]
@@ -45,7 +47,7 @@ def discover_test_files(directories=None, names=None, suite="all"):
 
 def _display_name(path, directories=None):
     """結果に表示する名前。同じファイル名が別フォルダーにあるので、フォルダー付きの相対パスにする。"""
-    for root in [TESTS_DIR] + [Path(directory) for directory in directories or ()]:
+    for root in [MAYA_DIR, TESTS_DIR] + [Path(directory) for directory in directories or ()]:
         try:
             return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
         except ValueError:
@@ -84,9 +86,9 @@ def _run_one(path, metrics=None):
         metrics["skipped"].append({"test": test.id(), "reason": str(reason)})
         return original_skip(result, test, reason)
 
-    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer), \
-            mock.patch.object(unittest.TestResult, "startTest", start), \
-            mock.patch.object(unittest.TestResult, "addSkip", skip):
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer), mock.patch.object(unittest.TestResult, "startTest", start), mock.patch.object(
+        unittest.TestResult, "addSkip", skip
+    ):
         try:
             previous_argv = sys.argv
             try:
@@ -117,7 +119,7 @@ def run_all(notify=None, *, directories=None, names=None, suite="all"):
             "failure_details": list[dict]}``。``ok`` は全ファイル成功なら True。
             ``failure_details`` は失敗ファイルの名前と捕捉した出力。
     """
-    started_at = datetime.now()
+    started_at = datetime.now().astimezone()
     files = discover_test_files(directories, names, suite)
     results = []
     metrics = {"tests_run": 0, "skipped": []}
@@ -126,7 +128,7 @@ def run_all(notify=None, *, directories=None, names=None, suite="all"):
         results.append((_display_name(path, directories), ok, output))
 
     failed = [name for name, ok, _ in results if not ok]
-    finished_at = datetime.now()
+    finished_at = datetime.now().astimezone()
 
     summary_lines = [
         f"mlib runAll: {started_at:%Y-%m-%d %H:%M:%S} 開始",

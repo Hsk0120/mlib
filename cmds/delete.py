@@ -64,6 +64,7 @@ def delete(nodes, *, fast=False):
         コンポーネントは、ノードの検査の後、ノードより先に別の1回の ``cmds.delete`` で削除する。
     """
     with _edit_context("mlibDelete", fast):
+        # 循環参照の回避: core は cmds を参照するため、使う時点で読み込む。
         from ..core.nodeEdit import check_deletion, delete_nodes
         from ..core.object import Object as _InputObject
         from ..nodes.joint import Joint
@@ -78,17 +79,14 @@ def delete(nodes, *, fast=False):
         for name in components:
             # "node.tx" のようなアトリビュート名の文字列も、Plugと同じく削除の前に拒否する。
             if _resolves_to_plug(name):
-                raise TypeError(
-                    f"Attribute names are not accepted: {name} "
-                    "(specify the node name to delete the owning node)")
+                raise TypeError(f"Attribute names are not accepted: {name} (specify the node name to delete the owning node)")
         if components and fast:
             raise NotImplementedError("fast component/topology deletion is not supported")
         nodes = []
         for name in node_names:
             # Maya標準のワイルドカード指定を実ノードへ展開してから検証する。
             if any(char in name for char in "*?["):
-                resolved = (list(om2.MGlobal.getSelectionListByName(name).getSelectionStrings())
-                            if fast else cmds.ls(name, long=True))
+                resolved = list(om2.MGlobal.getSelectionListByName(name).getSelectionStrings()) if fast else cmds.ls(name, long=True)
             else:
                 resolved = [name]
             # 名前は Node(value) と同じ解決・型選択を、生成の入口の再判定なしで行う。

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .. import logger
 
-__all__ = ["status", "getDiagnostics"]
+__all__ = ["getDiagnostics", "status"]
 
 # importlib.reloadで廃止した登録デコレーターを残さない。
 for _name in ("node_wrapper", "plug_wrapper", "discover_node_package", "discover_plug_package"):
@@ -54,8 +54,7 @@ def getDiagnostics():
             初期化記録と登録表は変更しない。
     """
     global _diagnosing
-    modules = {name: module for name, module in list(sys.modules.items())
-               if _extension_pattern.fullmatch(name)}
+    modules = {name: module for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name)}
     names = set(_states) | set(modules)
     result = {}
     reentered = _diagnosing
@@ -64,8 +63,7 @@ def getDiagnostics():
     try:
         for name in sorted(names):
             initialization = _states.get(name)
-            record = {"initialization": dict(initialization) if initialization is not None else None,
-                      "available": None, "reason": ""}
+            record = {"initialization": dict(initialization) if initialization is not None else None, "available": None, "reason": ""}
             result[name] = record
             module = modules.get(name)
             if module is None:
@@ -96,12 +94,9 @@ def _prepare_reload():
     外部SDKやMayaプラグインは対象外。保持済みのPython参照は利用側で取得し直す。
     初期化途中の再入では、モジュールを一つも削除せず拒否する。
     """
-    roots = {name for name, module in list(sys.modules.items())
-             if _extension_pattern.fullmatch(name)
-             and getattr(module, "MLIB_EXTENSION_API", None) == 1}
+    roots = {name for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name) and getattr(module, "MLIB_EXTENSION_API", None) == 1}
     roots.update(_attempted)
-    if _loading or any(getattr(getattr(sys.modules.get(name), "__spec__", None),
-                               "_initializing", False) for name in roots):
+    if _loading or any(getattr(getattr(sys.modules.get(name), "__spec__", None), "_initializing", False) for name in roots):
         raise RuntimeError(f"Cannot reload {_package_name} while an extension is initializing")
     for name in list(sys.modules):
         if name.split(".", 1)[0] in roots:
@@ -149,8 +144,7 @@ def _require_dependencies(name, locations):
     for location in locations:
         root = Path(location) / name
         for path in root.rglob("*.py"):
-            if any(part in {"__tests__", "tests", "docs", "_docs", "__pycache__"}
-                   for part in path.relative_to(root).parts[:-1]):
+            if any(part in {"__tests__", "tests", "docs", "_docs", "__pycache__"} for part in path.relative_to(root).parts[:-1]):
                 continue
             with tokenize.open(str(path)) as stream:
                 tree = ast.parse(stream.read(), filename=str(path))
@@ -200,13 +194,13 @@ def _may_contain_candidate(path):
     importer = pkgutil.get_importer(path)
     if not isinstance(importer, importlib.machinery.FileFinder):
         return True
-    if importer.path is None or not os.path.isdir(importer.path):
+    if importer.path is None:
         return False
     try:
-        filenames = os.listdir(importer.path)
+        # フォルダーでない・読めない場合はOSError(NotADirectoryError等)になるため、事前の判定は要らない。
+        return any(_extension_pattern.fullmatch(entry.name) for entry in Path(importer.path).iterdir())
     except OSError:
         return False
-    return any(_extension_pattern.fullmatch(filename) for filename in filenames)
 
 
 def _load_candidate(name, locations):
@@ -228,8 +222,7 @@ def _load_candidate(name, locations):
         raise ValueError(f"Duplicate extension package: {name}")
     previous = sys.modules.get(name)
     if getattr(getattr(previous, "__spec__", None), "_initializing", False):
-        raise RuntimeError(f"Extension __init__ must not import {_package_name} or wrappers; "
-                           "finish its declarations before loading submodules")
+        raise RuntimeError(f"Extension __init__ must not import {_package_name} or wrappers; finish its declarations before loading submodules")
     _attempted.add(name)
     package = importlib.import_module(name)
     if getattr(package, "MLIB_EXTENSION_API", None) != 1:
@@ -272,9 +265,9 @@ def _validated_entries(name, bases):
                 raise ValueError("Wrapper type must be a non-empty string")
             if not isinstance(cls, type) or not issubclass(cls, base):
                 raise TypeError(f"Invalid wrapper base: {key}")
-            if any(_extension_pattern.fullmatch(base_cls.__module__.split(".", 1)[0])
-                   and base_cls.__module__.split(".", 1)[0] != name
-                   for base_cls in cls.__mro__):
+            if any(
+                _extension_pattern.fullmatch(base_cls.__module__.split(".", 1)[0]) and base_cls.__module__.split(".", 1)[0] != name for base_cls in cls.__mro__
+            ):
                 raise TypeError("Extension wrappers must not inherit from another extension")
             if base._registry.lookup(key) is not None:
                 raise ValueError(f"Duplicate wrapper type: {key}")
@@ -310,6 +303,7 @@ def _initialize():
     global _loading, _states
     if _loading:
         return
+    # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
     from ..nodes import Node
     from ..plugs import Plug
 

@@ -51,9 +51,7 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
         """
         nodes = Nodes._resolve_inputs(members)
         if nodes:
-            cmds.container(
-                self.getFullName(), edit=True, addNode=[Node._resolve_input(n).getFullName() for n in nodes]
-            )
+            cmds.container(self.getFullName(), edit=True, addNode=[Node._resolve_input(n).getFullName() for n in nodes])
         return self
 
     def removeMembers(self, *members, force=False):
@@ -79,8 +77,7 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             if any(node not in current for node in nodes):
                 raise ValueError("nodes must all be members of this container")
             if nodes:
-                cmds.container(self.getFullName(), edit=True,
-                               removeNode=[node.getFullName() for node in nodes], force=force)
+                cmds.container(self.getFullName(), edit=True, removeNode=[node.getFullName() for node in nodes], force=force)
             return self
 
     @undoTransaction("mlibContainerCreateNode")
@@ -117,8 +114,7 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
         # 所属を先に外し、メンバーの生存を保証してから空の箱を除去する。
         members = self.getMembers()
         if members:
-            cmds.container(self.getFullName(), edit=True,
-                           removeNode=[node.getFullName() for node in members])
+            cmds.container(self.getFullName(), edit=True, removeNode=[node.getFullName() for node in members])
         cmds.container(self.getFullName(), edit=True, removeContainer=True)
 
     @undoTransaction("mlibContainerPublishName")

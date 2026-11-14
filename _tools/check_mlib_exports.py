@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 CLASS_PACKAGES = ("nodes", "plugs", "components", "maths", "common")
 # 削除済み・存在しないアトリビュートへのアクセスを示す例外。mlib.plugs.plug から取得し、公開名一覧へ追加しない。
@@ -30,7 +30,7 @@ class ExportIssue:
 
     def __str__(self):
         """CLIで表示するファイル・行番号付きの診断を返す。"""
-        return "{}:{}: {} {}".format(self.path, self.line, self.code, self.message)
+        return f"{self.path}:{self.line}: {self.code} {self.message}"
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ class Source:
             if isinstance(node, ast.ImportFrom):
                 if node.level:
                     parts = self.context.split(".")
-                    base = ".".join(parts[:len(parts) - node.level + 1])
+                    base = ".".join(parts[: len(parts) - node.level + 1])
                     module = ".".join(part for part in (base, node.module) if part)
                 else:
                     module = node.module or ""
@@ -88,8 +88,11 @@ class Source:
         """TYPE_CHECKINGブロックで宣言した参照先を列挙する。"""
         for node in self.tree.body:
             if isinstance(node, ast.If) and (
-                    isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING" or
-                    isinstance(node.test, ast.Attribute) and node.test.attr == "TYPE_CHECKING"):
+                isinstance(node.test, ast.Name)
+                and node.test.id == "TYPE_CHECKING"
+                or isinstance(node.test, ast.Attribute)
+                and node.test.attr == "TYPE_CHECKING"
+            ):
                 yield from self.imports(node.body)
 
 
@@ -114,7 +117,7 @@ class ExportChecker:
             return None
         if module in self.sources:
             return self.sources[module]
-        relative = module[len(self.package):].lstrip(".")
+        relative = module[len(self.package) :].lstrip(".")
         location = self.root.joinpath(*relative.split(".")) if relative else self.root
         path = location / "__init__.py" if location.is_dir() else location.with_suffix(".py")
         if not path.is_file():
@@ -134,7 +137,7 @@ class ExportChecker:
             if name == "*":
                 self.issue(source, line, "E002", "公開入口ではstar importを使わず公開名を明示する")
             elif name in result and not name.startswith("_"):
-                self.issue(source, line, "E003", "公開名 {} のimportが重複している".format(name))
+                self.issue(source, line, "E003", f"公開名 {name} のimportが重複している")
             result[name] = (target, line)
         return result
 
@@ -156,7 +159,7 @@ class ExportChecker:
         packages = self.literal(source, "_CLASS_PACKAGES")
         excluded = self.literal(source, "_EXCLUDED_CLASSES")
         if tuple(packages or ()) != CLASS_PACKAGES or not isinstance(excluded, (set, frozenset, list, tuple)):
-            self.issue(source, 1, "E020", "_CLASS_PACKAGESは{}、_EXCLUDED_CLASSESは文字列の集合で明示する".format(CLASS_PACKAGES))
+            self.issue(source, 1, "E020", f"_CLASS_PACKAGESは{CLASS_PACKAGES}、_EXCLUDED_CLASSESは文字列の集合で明示する")
             return []
         result = []
         for folder in CLASS_PACKAGES:
@@ -172,17 +175,15 @@ class ExportChecker:
                 # クラスの別名(AddDL = AddDoubleLinear 等)もクラスとして扱う。
                 if isinstance(node, ast.Assign) and isinstance(node.value, ast.Name):
                     node = definition.classes.get(node.value.id)
-                # OpenMaya等の外部の公開名(maths.MSpace)はソースが無いため、実行時の判定(__tests__/unit/root/test_init_classes.py)に任せる。
+                # OpenMaya等の外部の公開名(maths.MSpace)はソースが無いため、実行時の判定(__tests__/inMaya/unit/root/test_init_classes.py)に任せる。
                 external = target is not None and not target.module.startswith(self.package + ".")
                 is_class = external or isinstance(node, ast.ClassDef)
                 line = bindings[name][1] if name in bindings else 1
                 # 実行時はcommonをimportせず大文字だけの名前を定数として除き、ほかは先頭が大文字の名前をクラスとみなす。
                 if folder == "common" and is_class == name.isupper():
-                    self.issue(package_source, line, "E020",
-                               "commonの{}は、クラスなら大文字だけの名前にせず、定数なら大文字だけの名前にする".format(name))
+                    self.issue(package_source, line, "E020", f"commonの{name}は、クラスなら大文字だけの名前にせず、定数なら大文字だけの名前にする")
                 elif folder != "common" and not is_class:
-                    self.issue(package_source, line, "E020",
-                               "{}/__init__.pyの先頭が大文字の公開名{}はクラスかその別名にする".format(folder, name))
+                    self.issue(package_source, line, "E020", f"{folder}/__init__.pyの先頭が大文字の公開名{name}はクラスかその別名にする")
                 if is_class:
                     result.append(name)
         return result
@@ -194,11 +195,19 @@ class ExportChecker:
             self.issue(source, 1, "E004", "公開入口に__all__がない")
             return []
         value = node.value
-        if (source.module == self.package and isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add)
-                and isinstance(value.left, ast.Name) and value.left.id == "_names"
-                and isinstance(value.right, ast.Call) and isinstance(value.right.func, ast.Name)
-                and value.right.func.id == "sorted" and len(value.right.args) == 1
-                and isinstance(value.right.args[0], ast.Name) and value.right.args[0].id == "_classes"):
+        if (
+            source.module == self.package
+            and isinstance(value, ast.BinOp)
+            and isinstance(value.op, ast.Add)
+            and isinstance(value.left, ast.Name)
+            and value.left.id == "_names"
+            and isinstance(value.right, ast.Call)
+            and isinstance(value.right.func, ast.Name)
+            and value.right.func.id == "sorted"
+            and len(value.right.args) == 1
+            and isinstance(value.right.args[0], ast.Name)
+            and value.right.args[0].id == "_classes"
+        ):
             # ルートは明示した_namesに、各パッケージの公開クラスを加える。
             names = self.literal(source, "_names")
             if not isinstance(names, list) or any(not isinstance(name, str) for name in names):
@@ -208,7 +217,15 @@ class ExportChecker:
                 self.issue(source, node.lineno, "E005", "__all__の公開名が重複している")
             self.root_class_names = set(self.root_classes(source, names))
             return names + sorted(self.root_class_names)
-        if "_exports" in source.definitions and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == "sorted" and len(node.value.args) == 1 and isinstance(node.value.args[0], ast.Name) and node.value.args[0].id == "_exports":
+        if (
+            "_exports" in source.definitions
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id == "sorted"
+            and len(node.value.args) == 1
+            and isinstance(node.value.args[0], ast.Name)
+            and node.value.args[0].id == "_exports"
+        ):
             return list(lazy)
         try:
             names = ast.literal_eval(node.value)
@@ -226,7 +243,12 @@ class ExportChecker:
         """実行時のリスト追記で、明示した公開一覧を変更していないか確認する。"""
         for node in ast.walk(source.tree):
             changes = isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name) and node.target.id == "__all__"
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and node.func.value.id == "__all__":
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "__all__"
+            ):
                 changes = node.func.attr in {"append", "extend", "insert", "remove", "pop", "clear"}
             if changes:
                 self.issue(source, node.lineno, "E019", "__all__への実行時の追記・削除をやめ、公開名をリストへ明示する")
@@ -250,7 +272,7 @@ class ExportChecker:
                 self.issue(source, node.lineno, "E006", "_exportsのキーと参照先を文字列で明示する")
                 continue
             if name in result:
-                self.issue(source, key.lineno, "E003", "遅延公開名 {} が重複している".format(name))
+                self.issue(source, key.lineno, "E003", f"遅延公開名 {name} が重複している")
             result[name] = (Target(source.module + "." + module, attribute), key.lineno)
         return result
 
@@ -275,7 +297,7 @@ class ExportChecker:
         """一つの公開入口の名前と参照先を照合する。"""
         source = self.load(module)
         if source is None:
-            self.issues.append(ExportIssue(self.root, 1, "E001", "公開入口 {} を読み込めない".format(module)))
+            self.issues.append(ExportIssue(self.root, 1, "E001", f"公開入口 {module} を読み込めない"))
             return
         self.check_all_mutations(source)
         lazy = self.lazy_map(source) if module == self.package + ".common" else {}
@@ -286,23 +308,23 @@ class ExportChecker:
         if lazy:
             for name in sorted(set(names) | set(typing)):
                 if name not in typing or name not in bindings or typing[name][0] != bindings[name][0]:
-                    self.issue(source, typing.get(name, (None, 1))[1], "E007", "{} の遅延公開とTYPE_CHECKINGの参照先が一致しない".format(name))
+                    self.issue(source, typing.get(name, (None, 1))[1], "E007", f"{name} の遅延公開とTYPE_CHECKINGの参照先が一致しない")
             if set(names) != set(lazy):
                 self.issue(source, 1, "E007", "__all__と_exportsの公開名が一致しない")
         elif typing:
             self.issue(source, 1, "E007", "通常importで公開する入口に補完用の重複宣言を残さない")
         for name in names:
             if name.startswith("_"):
-                self.issue(source, 1, "E008", "非公開名 {} を__all__へ追加しない".format(name))
+                self.issue(source, 1, "E008", f"非公開名 {name} を__all__へ追加しない")
             if name in bindings:
                 target, line = bindings[name]
                 if self.resolve(target) is None:
-                    self.issue(source, line, "E009", "{} の公開先 {} に対象がない".format(name, target))
+                    self.issue(source, line, "E009", f"{name} の公開先 {target} に対象がない")
             elif name not in source.definitions and not (module == self.package and name in self.root_class_names):
-                self.issue(source, 1, "E009", "{} が__all__にあるがimportまたは定義されていない".format(name))
+                self.issue(source, 1, "E009", f"{name} が__all__にあるがimportまたは定義されていない")
         for name, (target, line) in bindings.items():
             if name not in names and not name.startswith("_") and target.module.startswith(self.package + "."):
-                self.issue(source, line, "E010", "importした {} が__all__から漏れている（内部用途は_別名にする）".format(name))
+                self.issue(source, line, "E010", f"importした {name} が__all__から漏れている(内部用途は_別名にする)")
 
     def check_classes(self, folder):
         """追加クラスの公開漏れ・同名衝突・定義元の不一致を確認する。"""
@@ -319,13 +341,13 @@ class ExportChecker:
                 if name.startswith("_") or (folder + "." + path.stem, name) in PRIVATE_CLASSES:
                     continue
                 if name in found:
-                    self.issue(source, node.lineno, "E011", "{} が {} と同名のクラスを定義している".format(name, found[name].module))
+                    self.issue(source, node.lineno, "E011", f"{name} が {found[name].module} と同名のクラスを定義している")
                 expected = Target(source.module, name)
                 found[name] = expected
                 if name not in names:
-                    self.issue(source, node.lineno, "E012", "{} を {}/__init__.pyでimportし__all__へ追加する".format(name, folder))
+                    self.issue(source, node.lineno, "E012", f"{name} を {folder}/__init__.pyでimportし__all__へ追加する")
                 elif name not in bindings or self.resolve(bindings[name][0]) != expected:
-                    self.issue(source, node.lineno, "E013", "{} の公開先が定義元 {} と一致しない".format(name, source.module))
+                    self.issue(source, node.lineno, "E013", f"{name} の公開先が定義元 {source.module} と一致しない")
 
     def check_commands(self):
         """コマンドの追加漏れとrootへの再公開漏れを確認する。"""
@@ -336,9 +358,9 @@ class ExportChecker:
         # root自身の関数・公開モジュールはコマンドの再公開で上書きしない。
         # 予約名もrootの明示的な公開入口から求め、別の管理一覧は持たない。
         reserved = {
-            name for name in root_names
-            if (root_source is not None and isinstance(root_source.definitions.get(name),
-                                                       (ast.FunctionDef, ast.AsyncFunctionDef)))
+            name
+            for name in root_names
+            if (root_source is not None and isinstance(root_source.definitions.get(name), (ast.FunctionDef, ast.AsyncFunctionDef)))
             or (name in root_bindings and root_bindings[name][0].name is None)
         }
         for path in sorted((self.root / "cmds").glob("*.py")):
@@ -353,15 +375,15 @@ class ExportChecker:
                 continue
             expected = Target(source.module, path.stem)
             if path.stem not in names:
-                self.issue(source, node.lineno, "E015", "{} を cmds/__init__.pyでimportし__all__へ追加する".format(path.stem))
+                self.issue(source, node.lineno, "E015", f"{path.stem} を cmds/__init__.pyでimportし__all__へ追加する")
             elif path.stem not in bindings or self.resolve(bindings[path.stem][0]) != expected:
-                self.issue(source, node.lineno, "E013", "{} のコマンド公開先が定義元と一致しない".format(path.stem))
+                self.issue(source, node.lineno, "E013", f"{path.stem} のコマンド公開先が定義元と一致しない")
             if path.stem in reserved:
                 continue
             if path.stem not in root_names:
-                self.issue(source, node.lineno, "E016", "{} を mlib/__init__.pyでも公開する".format(path.stem))
+                self.issue(source, node.lineno, "E016", f"{path.stem} を mlib/__init__.pyでも公開する")
             elif path.stem not in root_bindings or self.resolve(root_bindings[path.stem][0]) != expected:
-                self.issue(source, node.lineno, "E013", "{} のroot公開先がコマンド定義元と一致しない".format(path.stem))
+                self.issue(source, node.lineno, "E013", f"{path.stem} のroot公開先がコマンド定義元と一致しない")
 
     def check_wrapper_map(self, folder):
         """明示した型対応表が、実在する公開クラスを参照しているか確認する。"""
@@ -386,13 +408,13 @@ class ExportChecker:
                 self.issue(source, node.lineno, "E017", "型対応表のキーは空でない文字列にする")
                 continue
             if type_name in seen:
-                self.issue(source, key.lineno, "E017", "型対応表の {} が重複している".format(type_name))
+                self.issue(source, key.lineno, "E017", f"型対応表の {type_name} が重複している")
             seen.add(type_name)
             name = value.id if isinstance(value, ast.Name) else None
             target = self.resolve(bindings[name][0]) if name in bindings else Target(module, name)
             definition = self.load(target.module) if target is not None else None
             if name not in names or target is None or definition is None or not isinstance(definition.classes.get(target.name), ast.ClassDef):
-                self.issue(source, value.lineno, "E018", "型 {} の対応先はimport済みの公開クラス名で指定する".format(type_name))
+                self.issue(source, value.lineno, "E018", f"型 {type_name} の対応先はimport済みの公開クラス名で指定する")
 
     def run(self):
         """全公開パッケージを読み、安定した順番の診断一覧を返す。"""
@@ -415,14 +437,14 @@ def check(package_root):
 def main(argv=None):
     """CLI引数を読み、検査結果に応じた終了コードを返す。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("package_root", nargs="?", type=Path,
-                        default=Path(__file__).resolve().parents[1],
-                        help="mlibパッケージディレクトリ（既定: このテストを含むmlib）")
+    parser.add_argument(
+        "package_root", nargs="?", type=Path, default=Path(__file__).resolve().parents[1], help="mlibパッケージディレクトリ(既定: このテストを含むmlib)"
+    )
     args = parser.parse_args(argv)
     issues = check(args.package_root)
     for issue in issues:
         print(issue)
-    print("mlib公開入口: {}件の不一致".format(len(issues)))
+    print(f"mlib公開入口: {len(issues)}件の不一致")
     return 1 if issues else 0
 
 

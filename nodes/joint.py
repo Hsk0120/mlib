@@ -47,8 +47,7 @@ def _orient_flags(orientation, secondaryAxisOrient, children, zeroScaleOrient):
         raise ValueError(f"secondaryAxisOrient must be one of {', '.join(_SECONDARY_AXES)}: {secondaryAxisOrient!r}")
     _require_bool(children, "children")
     _require_bool(zeroScaleOrient, "zeroScaleOrient")
-    return {"edit": True, "orientJoint": orientation, "secondaryAxisOrient": secondaryAxisOrient,
-            "children": children, "zeroScaleOrient": zeroScaleOrient}
+    return {"edit": True, "orientJoint": orientation, "secondaryAxisOrient": secondaryAxisOrient, "children": children, "zeroScaleOrient": zeroScaleOrient}
 
 
 @contextmanager
@@ -113,8 +112,7 @@ def _remove_influences(groups, transfer_to_parent, force, fast=False, deleting=F
         None: 値を返さない。
     """
     with _unlocked_influences([skin for skin, _ in groups], fast=fast):
-        checked = [(skin, skin._influence_removal_plans(joints, transfer_to_parent, force=force))
-                   for skin, joints in groups]
+        checked = [(skin, skin._influence_removal_plans(joints, transfer_to_parent, force=force)) for skin, joints in groups]
         for skin, (plans, snapshot) in checked:
             skin._apply_influence_removals(plans, snapshot, force=force, fast=fast, deleting=deleting)
 
@@ -155,8 +153,7 @@ def _delete_joints(joints, safe, fast, remove_influence, transfer_to_parent, for
             for node in [joint] + list(joint.getChildren(allDescendents=True, type="joint")):
                 doomed[node.getUuid()] = node
         # 全influenceが消えるskinClusterは解除の移送先も再配分先も無いため、Maya標準の削除に任せる。
-        groups = [(skin, nodes) for skin, nodes in _influences_by_skin(doomed.values())
-                  if len(nodes) < len(skin.getInfluences())]
+        groups = [(skin, nodes) for skin, nodes in _influences_by_skin(doomed.values()) if len(nodes) < len(skin.getInfluences())]
         _remove_influences(groups, transfer_to_parent, force, fast=fast, deleting=True)
     delete_nodes(joints, fast=fast, checked=checked)
 
@@ -320,8 +317,12 @@ class Joint(Transform):
         _require_bool(behavior, "behavior")
         flags: Dict[str, Any] = {flag: True, "mirrorBehavior": behavior}
         if searchReplace is not None:
-            if (isinstance(searchReplace, str) or not isinstance(searchReplace, (tuple, list))
-                    or len(searchReplace) != 2 or not all(isinstance(item, str) for item in searchReplace)):
+            if (
+                isinstance(searchReplace, str)
+                or not isinstance(searchReplace, (tuple, list))
+                or len(searchReplace) != 2
+                or not all(isinstance(item, str) for item in searchReplace)
+            ):
                 raise TypeError("searchReplace must be a (search, replace) pair of strings or None")
             if not searchReplace[0]:
                 raise ValueError("searchReplace search string must not be empty")
@@ -430,7 +431,9 @@ class Joint(Transform):
             RuntimeError: Mayaが編集を拒否した場合。
         """
         with _edit_context("mlibJointSetRadius", fast):
+            # この処理でだけ使うため、mlibの読み込み時間に含めない。
             import numbers
+
             if isinstance(value, bool) or not isinstance(value, numbers.Real):
                 raise TypeError("radius must be a number")
             value = float(value)
@@ -581,6 +584,7 @@ class Joint(Transform):
         Returns:
             list[SkinCluster]: 重複を除いた skinCluster ラッパー。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .skinCluster import SkinCluster
 
         if not self.isValid():
@@ -619,7 +623,9 @@ class Joint(Transform):
             RuntimeError: 無効joint、ウェイト要素のロック・入力接続、または編集失敗。
         """
         with undoChunk("mlibJointRemoveInfluence"):
+            # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
             from .skinCluster import SkinCluster
+
             self._require_valid("remove")
             _require_bool(transferToParent, "transferToParent")
             _require_bool(force, "force")
@@ -639,7 +645,7 @@ class Joint(Transform):
 
         Args:
             safe (bool): Trueなら自身またはDAG子孫にDG接続がある場合は何もしない(skinClusterの接続も含む)。
-            fast (bool): TrueはUndoなしの更新。既定False。ウェイトの書込みと削除はOpenMayaで行い、
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書込みと削除はOpenMayaで行い、
                 OpenMayaに無いinfluenceの登録解除だけをUndoへ記録しないcmdsで行う。結果は通常と同じ。
             removeInfluence (bool): Falseは解除せずMaya標準の削除だけを行う。
             transferToParent (bool): Falseはウェイトを祖先へ移さず標準の再配分に任せる。
@@ -791,13 +797,7 @@ class Joint(Transform):
         chain = [self]
         current = self
         while current.getUuid() != target.getUuid():
-            next_joint = next(
-                (
-                    child for child in current.getChildren(type="joint")
-                    if child.getUuid() == target.getUuid() or child.isAncestorOf(target)
-                ),
-                None,
-            )
+            next_joint = next((child for child in current.getChildren(type="joint") if child.getUuid() == target.getUuid() or child.isAncestorOf(target)), None)
             if next_joint is None:
                 raise ValueError("to must be a descendant of this joint")
             chain.append(next_joint)
@@ -908,6 +908,7 @@ class Joint(Transform):
         Returns:
             list[IkHandle]: 自身を start joint とする IkHandle。無ければ空リスト。
         """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .ikHandle import IkHandle
 
         if not self.isValid():
@@ -977,9 +978,7 @@ class Joint(Transform):
                     self.getPlug(attribute + suffix)._require_writable()
                 except RuntimeError as exc:
                     raise RuntimeError(f"Attribute must be unlocked and have no input connection: {plug}") from exc
-        rotation = om2.MEulerRotation(
-            *(math.radians(v) for v in rotate),
-            self._joint_rotate_order())
+        rotation = om2.MEulerRotation(*(math.radians(v) for v in rotate), self._joint_rotate_order())
         # jointOrientはrotateOrderに関係なくXYZ。MayaのR * JOを合成する。
         orientation = om2.MEulerRotation(*(math.radians(v) for v in orient))
         combined = om2.MTransformationMatrix(rotation.asMatrix() * orientation.asMatrix())
@@ -1181,6 +1180,7 @@ class Joints(Nodes):
             ValueError: 未登録のjointを含む、またはskinClusterの全influenceを外す場合(何も変更しない)。
             RuntimeError: 無効なjointを含む、ウェイト要素のロック・入力接続、またはMayaの編集失敗。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .skinCluster import SkinCluster  # skinClusterがjointをimportするため循環を避ける
 
         with undoChunk("mlibJointsRemoveInfluence"):
@@ -1191,8 +1191,7 @@ class Joints(Nodes):
             if skinCluster is None:
                 groups = _influences_by_skin(self._items)
             else:
-                groups = [(skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster),
-                           list(self._items))]
+                groups = [(skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster), list(self._items))]
             for skin, joints in groups:
                 if joints and len(joints) >= len(skin.getInfluences()):
                     raise ValueError("Cannot remove every influence")
@@ -1208,7 +1207,7 @@ class Joints(Nodes):
 
         Args:
             safe (bool): Trueなら自身またはDAG子孫にDG接続があるjointだけを除いて削除する。
-            fast (bool): :meth:`Joint.delete` と同じ。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
             force (bool): :meth:`Joint.delete` と同じ。
@@ -1265,6 +1264,7 @@ class Joints(Nodes):
         Returns:
             SkinClusters: 重複を除いた skinCluster コレクション。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .skinCluster import SkinClusters
 
         skin_clusters = []

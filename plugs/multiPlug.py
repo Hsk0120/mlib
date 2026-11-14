@@ -6,9 +6,7 @@ from contextlib import nullcontext
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit
-from ..core.attributeType import is_internal_data_type
-from ..core.attributeType import value_reader
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, is_internal_data_type, value_reader
 from ..decorator import _edit_context, _require_bool, undoChunk
 from .plug import MAX_LOGICAL_INDEX, Plug, _instance_count
 
@@ -122,7 +120,7 @@ class MultiPlug(Plug):
         """既存要素の値を、論理番号をキーとするdictで取得する。
 
         getElements()の各要素でget()を呼ぶため、値取得に伴うDG評価が発生し得る。
-        番号は詰め直さず、コンパウンドアトリビュートや配列型の要素値も平坦化しない。
+        番号は詰め直さず、コンパウンドアトリビュートや ``doubleArray`` 等のデータ型の要素値も平坦化しない。
 
         Args:
             unit (str | None): 各要素のgetへ渡す角度の単位。None(既定)は度、``"rad"`` はラジアン。
@@ -144,8 +142,7 @@ class MultiPlug(Plug):
         angle_unit = _plain_angle_unit(unit, uiUnits)
         time_unit = _plain_time_unit(timeUnit, uiUnits)
         if type(self).getElements is not MultiPlug.getElements:
-            return {plug.mplug().logicalIndex(): plug.get(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits)
-                    for plug in self.getElements()}
+            return {plug.mplug().logicalIndex(): plug.get(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits) for plug in self.getElements()}
         indices = self.getIndices()
         if not indices:
             return {}
@@ -156,16 +153,14 @@ class MultiPlug(Plug):
         first = Plug(self._node, mplug.elementByLogicalIndex(indices[0]))
         element_class = type(first)
         reader = None
-        if (element_class.get is Plug.get and element_class._get_value is Plug._get_value
-                and element_class._require_valid is Plug._require_valid):
+        if element_class.get is Plug.get and element_class._get_value is Plug._get_value and element_class._require_valid is Plug._require_valid:
             first._require_valid()
             reader = first._reader
             if reader is None:
                 reader = first._reader = value_reader(first._attribute)
         if not reader:
             elements = [first] + [Plug(self._node, mplug.elementByLogicalIndex(index)) for index in indices[1:]]
-            return {plug.mplug().logicalIndex(): plug.get(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits)
-                    for plug in elements}
+            return {plug.mplug().logicalIndex(): plug.get(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits) for plug in elements}
         result = {}
         for index in indices:
             element = mplug.elementByLogicalIndex(index)
@@ -212,8 +207,7 @@ class MultiPlug(Plug):
             RuntimeError: 所有ノードまたはアトリビュートが無効の場合。
         """
         # 要素ごとに存在を確かめ直さず、既存の番号から直接 Plug を作る。
-        return [Plug(self._node, self._mplug.elementByLogicalIndex(index))
-                for index in self.getIndices()]
+        return [Plug(self._node, self._mplug.elementByLogicalIndex(index)) for index in self.getIndices()]
 
     def getNextAvailable(self, start=-1, checkLocked=True, checkChildren=True, *, vacant=False):
         """次に使えるマルチアトリビュートの要素Plugを探す。要素の作成・予約はしない。
@@ -293,11 +287,11 @@ class MultiPlug(Plug):
                 return True
             if checkChildren:
                 if value.isArray:
-                    return any(occupied(value.elementByLogicalIndex(i))
-                               for i in value.getExistingArrayAttributeIndices())
+                    return any(occupied(value.elementByLogicalIndex(i)) for i in value.getExistingArrayAttributeIndices())
                 if value.isCompound:
                     return any(occupied(value.child(i)) for i in range(value.numChildren()))
             return False
+
         while index <= MAX_LOGICAL_INDEX:
             candidate = mp.elementByLogicalIndex(index)
             if not occupied(candidate):
@@ -417,6 +411,7 @@ class MultiPlug(Plug):
         with nullcontext() if fast else undoChunk("mlibMultiPlugAppendMessage"):
             # 循環import(nodes → plugs)を避けるため、使う時点で読み込む。
             from ..nodes.node import Node
+
             self._require_valid()
             if not self._mplug.attribute().hasFn(om2.MFn.kMessageAttribute):
                 raise TypeError("Expected a message multi attribute")
@@ -460,8 +455,7 @@ class MultiPlug(Plug):
         """
         self._require_valid()
         mplug = self._mplug
-        return sorted(mplug.connectionByPhysicalIndex(index).logicalIndex()
-                      for index in range(mplug.numConnectedElements()))
+        return sorted(mplug.connectionByPhysicalIndex(index).logicalIndex() for index in range(mplug.numConnectedElements()))
 
     def _require_movable(self, indices):
         """要素を別の番号へ移せるかを、シーンを変更せずに確かめる(compact・removeElementのshift用)。
