@@ -1325,10 +1325,12 @@ class Transform(DagNode):
             relative (bool): Trueなら、親を変える前のローカルの変換をそのまま保つ。既定はFalseで、
                 Mayaの既定の動き(ワールドでの姿勢を保つ)になる。
             add (bool): Trueなら、今の親はそのままにして、親をもう1つ加える。parentがNoneのときは使わない。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` のときだけで、
-                ワールドでの位置を保つ既定の動きでは、cmds.parentより遅い。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ワールドでの位置を保つ既定の動きでは、
+                ピボットのどれかが0でないと、cmds.parentより遅い。
                 ワールドでの姿勢は通常と同じになるが、ピボットの値は動かさず、translateで合わせる
-                (通常の方法では、Mayaがピボットの値を動かす)。
+                (通常の方法では、Mayaがピボットの値を動かす)。ピボットがすべて0のときは、
+                新しいローカルのマトリクスをそのまま分解した値を書く。今の値に近い回転や、
+                今の値と同じ符号のスケールは選ばないので、rotate・scaleの値が通常の方法と違うことがある。
                 Joint・インスタンス・親の追加には対応していない(NotImplementedError)。
                 通常の方法では、Jointはcmds.parentの動きに従う。relative=Falseのときだけ、
                 親のjointのscaleをinverseScaleへ接続する(relative=Trueでは接続しない。Mayaの仕様)。
@@ -2642,9 +2644,42 @@ class Transform(DagNode):
         # 自分の操作で変えたパスだけ再束縛し、無関係なインスタンスへ切り替えない。
         self._dag_path = om2.MDagPath.getAPathTo(self.mnode())
         if world is not None:
-            # setMatrix(world, worldSpace=True, fast=True) と同じ計算を、入口の引数の検査を通さずに行う。
-            self._apply_channel_values(self._matrix_channel_values(self._local_matrix(world, True)), fast=True, writable_checked=True)
+            local = self._local_matrix(world, True)
+            if not self._write_local_matrix_fast(local):
+                # ピボットがあるときは、setMatrix(world, worldSpace=True, fast=True) と同じ計算で書く。
+                self._apply_channel_values(self._matrix_channel_values(local), fast=True, writable_checked=True)
         return self
+
+    def _write_local_matrix_fast(self, matrix):
+        """ローカルのマトリクスをそのまま分解して、translate・rotate・scale・shearへOpenMayaで書く。
+
+        fastの親の変更で、ワールドでの姿勢を保つために使う。Mayaの分解の結果をそのまま書くので、
+        今の値に近い回転や、今の値と同じ符号のスケールは選ばない(姿勢は同じ)。rotateAxisは保つ。
+        書き込めることは呼び出し元が確かめる。
+
+        Args:
+            matrix (Matrix): 新しいローカルのマトリクス。
+
+        Returns:
+            bool: 書き込んだらTrue。ピボットのどれかが0でない場合と、マトリクスが特異な場合は、
+                何も書かずにFalse(呼び出し元が、ピボットを含めた計算で書く)。
+        """
+        fn = self._transform_fn()
+        space = om2.MSpace.kTransform
+        for pivot in (fn.rotatePivot(space), fn.scalePivot(space), fn.rotatePivotTranslation(space), fn.scalePivotTranslation(space)):
+            if pivot.x or pivot.y or pivot.z:
+                return False
+        local = om2.MMatrix(matrix)
+        if abs(local.det4x4()) <= 1e-12:
+            return False
+        transformation = om2.MTransformationMatrix(local)
+        rotation = (fn.rotateOrientation(space).inverse() * transformation.rotation(asQuaternion=True)).asEulerRotation()
+        rotation.reorderIt(fn.rotation(space).order)
+        fn.setTranslation(transformation.translation(space), space)
+        fn.setRotation(rotation, space)
+        fn.setScale(transformation.scale(space))
+        fn.setShear(transformation.shear(space))
+        return True
 
     def _require_not_own_descendant(self, target):
         """親にしようとするノードが、自身または自身の子孫でないことを確かめる。

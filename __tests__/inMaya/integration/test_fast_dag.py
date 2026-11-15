@@ -239,6 +239,46 @@ class ConsolidatedDagTests(unittest.TestCase):
                 self.assertIsNone(cmds.listRelatives(child, parent=True))
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
+    def test_reparent_fast_without_pivots_keeps_world_matrix(self):
+        """ピボットが無いときは分解した値をそのまま書く。姿勢・回転順序・rotateAxisは保ち、Undoに残さない。"""
+        cases = {
+            "plain": {"s": (1.5, 0.5, 2.0), "parentScale": (2.0, 2.0, 2.0)},
+            "negativeScale": {"s": (-1.0, 1.0, 1.0), "parentScale": (1.0, 1.0, 1.0)},
+            "mirroredParent": {"s": (1.0, 2.0, 1.0), "parentScale": (-1.0, 1.0, 1.0)},
+            "shearFromParent": {"s": (1.0, 1.0, 1.0), "parentScale": (1.0, 3.0, 0.5)},
+        }
+        for label, values in cases.items():
+            for to_world in (False, True):
+                with self.subTest(case=label, toWorld=to_world):
+                    cmds.file(new=True, force=True)
+                    old = cmds.createNode("transform", name="oldParent")
+                    cmds.setAttr(old + ".t", 1, 2, 3)
+                    cmds.setAttr(old + ".r", 20, 30, 40)
+                    new = cmds.createNode("transform", name="newParent")
+                    cmds.setAttr(new + ".t", -2, 1, 5)
+                    cmds.setAttr(new + ".r", 15, -25, 35)
+                    cmds.setAttr(new + ".s", *values["parentScale"])
+                    child = cmds.createNode("transform", name="child", parent=old)
+                    cmds.setAttr(child + ".rotateOrder", 4)
+                    cmds.setAttr(child + ".t", 3, -1, 2)
+                    cmds.setAttr(child + ".r", 10, 50, -20)
+                    cmds.setAttr(child + ".s", *values["s"])
+                    cmds.setAttr(child + ".rotateAxis", 5, 10, 15)
+                    world = cmds.getAttr(child + ".worldMatrix")
+                    cmds.flushUndo()
+                    node = mlib.getNode(child)
+                    node.setParent(None if to_world else mlib.getNode(new), fast=True)
+                    path = node.getFullName()
+                    self.assertEqual(cmds.listRelatives(path, parent=True), None if to_world else ["newParent"])
+                    for actual, expected in zip(cmds.getAttr(path + ".worldMatrix"), world):
+                        self.assertAlmostEqual(actual, expected, places=6)
+                    self.assertEqual(cmds.getAttr(path + ".rotateOrder"), 4)
+                    for actual, expected in zip(cmds.getAttr(path + ".rotateAxis")[0], (5, 10, 15)):
+                        self.assertAlmostEqual(actual, expected, places=9)
+                    for attr in ("rotatePivot", "scalePivot", "rotatePivotTranslate", "scalePivotTranslate"):
+                        self.assertEqual(cmds.getAttr(f"{path}.{attr}")[0], (0.0, 0.0, 0.0))
+                    self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
 
 if __name__ == "__main__":
     unittest.main()

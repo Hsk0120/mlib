@@ -708,10 +708,12 @@ class Transform(DagNode):
             relative (bool): Trueなら、親を変える前のローカルの変換をそのまま保つ。既定はFalseで、
                 Mayaの既定の動き(ワールドでの姿勢を保つ)になる。
             add (bool): Trueなら、今の親はそのままにして、親をもう1つ加える。parentがNoneのときは使わない。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` のときだけで、
-                ワールドでの位置を保つ既定の動きでは、cmds.parentより遅い。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ワールドでの位置を保つ既定の動きでは、
+                ピボットのどれかが0でないと、cmds.parentより遅い。
                 ワールドでの姿勢は通常と同じになるが、ピボットの値は動かさず、translateで合わせる
-                (通常の方法では、Mayaがピボットの値を動かす)。
+                (通常の方法では、Mayaがピボットの値を動かす)。ピボットがすべて0のときは、
+                新しいローカルのマトリクスをそのまま分解した値を書く。今の値に近い回転や、
+                今の値と同じ符号のスケールは選ばないので、rotate・scaleの値が通常の方法と違うことがある。
                 Joint・インスタンス・親の追加には対応していない(NotImplementedError)。
                 通常の方法では、Jointはcmds.parentの動きに従う。relative=Falseのときだけ、
                 親のjointのscaleをinverseScaleへ接続する(relative=Trueでは接続しない。Mayaの仕様)。
@@ -1500,6 +1502,21 @@ class Transform(DagNode):
         Raises:
             RuntimeError: リファレンス・ロック・循環・特異なマトリクスのために変えられない場合。
             NotImplementedError: Joint・インスタンス・親の追加の場合。
+        """
+        ...
+    def _write_local_matrix_fast(self, matrix: Matrix) -> bool:
+        """ローカルのマトリクスをそのまま分解して、translate・rotate・scale・shearへOpenMayaで書く。
+
+        fastの親の変更で、ワールドでの姿勢を保つために使う。Mayaの分解の結果をそのまま書くので、
+        今の値に近い回転や、今の値と同じ符号のスケールは選ばない(姿勢は同じ)。rotateAxisは保つ。
+        書き込めることは呼び出し元が確かめる。
+
+        Args:
+            matrix (Matrix): 新しいローカルのマトリクス。
+
+        Returns:
+            bool: 書き込んだらTrue。ピボットのどれかが0でない場合と、マトリクスが特異な場合は、
+                何も書かずにFalse(呼び出し元が、ピボットを含めた計算で書く)。
         """
         ...
     def _require_not_own_descendant(self, target: Transform):
