@@ -132,7 +132,8 @@ class CompoundAnglePlugTest(_SpecCase):
         self.assertEqual(plug.set((1, 2, 3), safe=True), 1)
         self.assertAlmostEqual(cmds.getAttr(joint.getFullName() + ".jox"), 1.0)
         self.assertAlmostEqual(cmds.getAttr(joint.getFullName() + ".joz"), 3.0)
-        self.assertAlmostEqual(joint.getPlug("rotateAxis").set((0, 45, 0)).get()[1], 45.0)
+        joint.getPlug("rotateAxis").set((0, 45, 0))
+        self.assertAlmostEqual(joint.getPlug("rotateAxis").get()[1], 45.0)
 
     def test_rotate_returns_euler_rotate_and_accepts_typed_values(self):
         """rotateのgetはEulerRotate(内部rad)。数値列は度、型付きの回転はunitに関係なく自身の単位で書く。"""
@@ -171,14 +172,15 @@ class TransformRotateTest(_SpecCase):
     """Transform.setRotate/getRotate/setQuaternionの単位。"""
 
     def test_set_rotate_defaults_to_degrees(self):
-        """setRotateは既定で度、unit="rad"でラジアン。get=Trueはunitの単位のlist。"""
+        """setRotateは既定で度、unit="rad"でラジアン。get=TrueはEulerRotate(rad)を返す。"""
         self.transform.setRotate((0, 45, 0))
         self.assertAlmostEqual(cmds.getAttr(self.node_name + ".ry"), 45.0)
         self.transform.setRotate((0, math.pi / 2, 0), unit="rad", fast=True)
         self.assertAlmostEqual(cmds.getAttr(self.node_name + ".ry"), 90.0)
         cmds.setAttr(self.node_name + ".r", 0, 0, 0)
         planned = self.transform.setRotate((0, 0, 30), get=True)
-        self.assertEqual([round(v, 9) for v in planned], [0.0, 0.0, 30.0])
+        self.assertIsInstance(planned, EulerRotate)
+        self.assertEqual([round(v, 9) for v in planned.asDegrees()], [0.0, 0.0, 30.0])
         planned = self.transform.setRotate((0, 0, math.radians(30)), get=True, unit="rad")
         self.assertAlmostEqual(planned[2], math.radians(30))
         self.transform.setRotate(EulerRotate(0, 0, math.pi / 3))
@@ -202,10 +204,14 @@ class TransformRotateTest(_SpecCase):
         self.assertEqual([round(v, 9) for v in cmds.getAttr(self.node_name + ".r")[0]], [10.0, 20.0, 30.0])
 
     def test_set_quaternion_get_unit(self):
-        """setQuaternion(get=True)は既定で度のlist。"""
+        """setQuaternion(get=True)はEulerRotate(rad)を返し、unit引数を持たない。"""
         q = Quaternion.fromAxisAngle((1, 0, 0), 90, unit="deg")
-        self.assertAlmostEqual(self.transform.setQuaternion(q, get=True)[0], 90.0)
-        self.assertAlmostEqual(self.transform.setQuaternion(q, get=True, unit="rad")[0], math.pi / 2)
+        planned = self.transform.setQuaternion(q, get=True)
+        self.assertIsInstance(planned, EulerRotate)
+        self.assertAlmostEqual(planned[0], math.pi / 2)
+        self.assertAlmostEqual(planned.asDegrees()[0], 90.0)
+        with self.assertRaises(TypeError):
+            self.transform.setQuaternion(q, get=True, unit="rad")
 
 
 class MathValueUnitTest(_SpecCase):
@@ -239,7 +245,8 @@ class DrivenKeyAngleTest(_SpecCase):
         driver = self.transform.getPlug("rx")
         target = mlib.getNode(self.make("transform", "target"))
         key = DrivenKey(driver, target.getPlug("ry"))
-        key.setKey(0, 0).setKey(90, 45)
+        key.setKey(0, 0)
+        key.setKey(90, 45)
         driver.set(90)
         self.assertAlmostEqual(cmds.getAttr(target.getFullName() + ".ry"), 45.0)
         driver.set(45)
@@ -250,7 +257,8 @@ class DrivenKeyAngleTest(_SpecCase):
         driver.set(180)
         self.assertAlmostEqual(cmds.getAttr(target.getFullName() + ".ry"), 90.0)
         unitless = DrivenKey(self.transform.addAttr("blend"), target.getPlug("rz"))
-        unitless.setKey(0, 0).setKey(1, 30)
+        unitless.setKey(0, 0)
+        unitless.setKey(1, 30)
         self.transform.getPlug("blend").set(1)
         self.assertAlmostEqual(cmds.getAttr(target.getFullName() + ".rz"), 30.0)
         with self.assertRaises(ValueError):
@@ -315,7 +323,8 @@ class AnimCurveAngleTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 curve = mlib.createNode("animCurveTA", name=self.name(f"curve{fast:d}"))
-                curve.setKey(0, 0, fast=fast).setKey(1, 90, fast=fast)
+                curve.setKey(0, 0, fast=fast)
+                curve.setKey(1, 90, fast=fast)
                 self.assertEqual([round(v, 9) for v in curve.getKeyValues()], [0.0, 90.0])
                 self.assertAlmostEqual(curve.getKeyValues(unit="rad")[1], math.pi / 2)
                 self.assertAlmostEqual(curve.evaluate(1), 90.0)
@@ -333,7 +342,8 @@ class AnimCurveAngleTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 curve = mlib.createNode("animCurveTU", name=self.name(f"tangent{fast:d}"))
-                curve.setKey(0, 0).setKey(1, 1)
+                curve.setKey(0, 0)
+                curve.setKey(1, 1)
                 curve.setTangent(0, inTangentType="fixed", outTangentType="fixed", fast=fast)
                 curve.setTangent(0, outAngle=30, fast=fast)
                 self.assertAlmostEqual(cmds.keyTangent(str(curve), q=True, index=(0, 0), outAngle=True)[0], 30.0)

@@ -11,7 +11,8 @@ from ..core.fastWrite import require_writable, set_attr
 from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Matrix, Scale, Vector
-from ..util import _MIRROR_PLANES, _UNSET, _finite_vector, _mirror_axis, _world_space
+from ..plugs.plug import Plugs
+from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 
@@ -180,7 +181,7 @@ class Joint(Transform):
         """
         return bool(self.getPlug("segmentScaleCompensate").get())
 
-    def setSegmentScaleCompensate(self, state, *, fast=False):
+    def setSegmentScaleCompensate(self, state=True, *, fast=False, check=False):
         """segmentScaleCompensateのオン・オフを切り替える。
 
         segmentScaleCompensateだけを変える。inverseScaleの接続やバインドの情報は変えないので、
@@ -189,9 +190,11 @@ class Joint(Transform):
         Args:
             state (bool): Trueなら補正をオン、Falseならオフにする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateまたはfastがbool以外の場合。
@@ -199,8 +202,7 @@ class Joint(Transform):
         """
         with _edit_context("mlibJointSetSegmentScaleCompensate", fast):
             _require_bool(state, "state")
-            self.getPlug("segmentScaleCompensate").set(state, fast=fast)
-            return self
+            self.getPlug("segmentScaleCompensate").set(state, fast=fast, check=check)
 
     def getJointOrient(self):
         """jointOrientを取得する。
@@ -233,7 +235,7 @@ class Joint(Transform):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueが3つの数値の並び・EulerRotate以外の場合、fast・checkがbool以外の場合、
@@ -254,9 +256,8 @@ class Joint(Transform):
                 if len(value) != 3:
                     raise ValueError("valueは3個の成分で指定してください")
             self.getPlug("jointOrient").set(value, unit=unit, fast=fast, check=check)
-            return self
 
-    def resetAttrs(self, attributes=None, *, fast=False):
+    def resetAttrs(self, attributes=None, *, fast=False, check=False):
         """アトリビュートを既定値へ戻す。
 
         :meth:`Node.resetAttrs` と同じ。違いは、attributesを省略したときに、キーを設定できるアトリビュートに加えて
@@ -267,9 +268,11 @@ class Joint(Transform):
             attributes (str | Plug | Iterable[str | Plug] | None): :meth:`Node.resetAttrs` と同じ。Noneなら、
                 jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            list[Plug]: 既定値へ戻したアトリビュート。jointOrientの成分は末尾に並ぶ。すべての変更を1回のUndoにまとめる。
+            Plugs: 既定値へ戻したアトリビュート。jointOrientの成分は末尾に並ぶ。すべての変更を1回のUndoにまとめる。
 
         Raises:
             AttributeError: 指定したアトリビュートが存在しない場合。
@@ -278,15 +281,15 @@ class Joint(Transform):
             RuntimeError: 明示したアトリビュートが、ロックや接続などで書き込めない場合。
         """
         with _edit_context("mlibNodeResetAttrs", fast):
-            plugs = super().resetAttrs(attributes, fast=fast)
+            plugs = super().resetAttrs(attributes, fast=fast, check=check)
             if attributes is None:
                 done = {plug.getLongName() for plug in plugs}
                 for name in ("jointOrientX", "jointOrientY", "jointOrientZ"):
                     plug = self.getPlug(name)
                     if name not in done and not plug.isDestination() and _writable_plug(plug):
-                        plug.reset(fast=fast)
+                        plug.reset(fast=fast, check=check)
                         plugs.append(plug)
-            return plugs
+            return Plugs._from_plugs(plugs)
 
     def jointOrientToRotate(self):
         """jointOrientをrotateへ移して0にする。
@@ -297,7 +300,7 @@ class Joint(Transform):
         fast引数は無い(処理のほとんどが値の確認と計算で、OpenMayaで書いても速くならないため)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ジョイントが無効な場合、rotateかjointOrientがロック・入力の接続などで書き込めない場合、
@@ -309,7 +312,6 @@ class Joint(Transform):
         with undoChunk("mlibJointJointOrientToRotate"):
             self._require_valid("方向の変更")
             self._apply_rotate_transfer(self._joint_rotate_transfer_values())
-            return self
 
     def freezeRotate(self):
         """rotateをjointOrientへ移して0にする。
@@ -320,7 +322,7 @@ class Joint(Transform):
         fast引数は無い(:meth:`jointOrientToRotate` と同じ理由)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ジョイントが無効な場合、rotateかjointOrientがロック・入力の接続などで書き込めない場合、
@@ -332,7 +334,6 @@ class Joint(Transform):
         with undoChunk("mlibJointFreezeRotate"):
             self._require_valid("回転のフリーズ")
             self._apply_rotate_transfer(self._joint_rotate_transfer_values(to_orient=True), to_orient=True)
-            return self
 
     def orient(self, orientation="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True):
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。
@@ -360,7 +361,7 @@ class Joint(Transform):
             zeroScaleOrient (bool): TrueならscaleOrientを0にする。既定はTrue。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: orientation・secondaryAxisOrientが文字列でない場合、
@@ -372,7 +373,6 @@ class Joint(Transform):
         self._require_valid("方向の設定")
         with undoChunk("mlibJointOrient"):
             self._orient(flags)
-            return self
 
     def mirror(self, axis="YZ", behavior=True, searchReplace=None):
         """ジョイントのチェーンをミラーした、新しいチェーンを作る。
@@ -436,7 +436,7 @@ class Joint(Transform):
             cmds.select(root.getFullName(), replace=True)
             return root
 
-    def connectInverseScale(self, source=None, force=False, *, fast=False):
+    def connectInverseScale(self, source=None, *, force=False, fast=False):
         """Transformのscaleを、自身のinverseScaleへ接続する。
 
         segmentScaleCompensateは変えず、姿勢が変わらないようにする補正もしない。
@@ -450,7 +450,7 @@ class Joint(Transform):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Joint: 自身。同じ接続がすでに直接あれば、何も変えない。
+            None: 値を返さない。同じ接続がすでに直接あれば、何も変えない。
 
         Raises:
             TypeError: sourceがTransformとして扱えない場合、またはforce・fastがbool以外の場合。
@@ -466,7 +466,7 @@ class Joint(Transform):
             self._require_valid("inverseScaleの接続")
             source = self.getParent() if source is None else Node._resolve_input(source)
             if source is None:
-                return self
+                return
             if not isinstance(source, Transform):
                 raise TypeError("sourceはTransformで指定してください")
             if source == self:
@@ -475,7 +475,6 @@ class Joint(Transform):
             target = self.getPlug("inverseScale")
             if target.getSource() != origin:
                 origin.connectTo(target, force=force, fast=fast)
-            return self
 
     def disconnectInverseScale(self, *, fast=False):
         """inverseScaleへの入力の接続を外す。
@@ -488,7 +487,7 @@ class Joint(Transform):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Joint: 自身。Jointsからもまとめて実行できる。
+            None: 値を返さない。Jointsからもまとめて実行できる。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -503,7 +502,6 @@ class Joint(Transform):
                 origin = target.getSource()
                 if origin is not None:
                     target.disconnect(origin, fast=fast)
-            return self
 
     def getRadius(self):
         """ジョイントごとの表示の半径を取得する。
@@ -513,7 +511,7 @@ class Joint(Transform):
         """
         return float(self.getPlug("radius").get())
 
-    def setRadius(self, value, *, fast=False):
+    def setRadius(self, value, *, fast=False, check=False):
         """ジョイントごとの表示の半径を設定する。
 
         骨の長さやscaleは変えない。
@@ -521,9 +519,11 @@ class Joint(Transform):
         Args:
             value (float): 0以上の有限な数値。実際の表示の大きさは、Maya全体の表示倍率でも変わる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joint: 自身。Jointsから呼ぶと、どのジョイントにも同じ値を設定する。
+            None: 値を返さない。Jointsから呼ぶと、どのジョイントにも同じ値を設定する。
 
         Raises:
             TypeError: valueが数値でない場合、またはfastがbool以外の場合。
@@ -539,8 +539,7 @@ class Joint(Transform):
             value = float(value)
             if not math.isfinite(value) or value < 0:
                 raise ValueError("radiusは0以上の有限な数値で指定してください")
-            self.getPlug("radius").set(value, fast=fast)
-            return self
+            self.getPlug("radius").set(value, fast=fast, check=check)
 
     def getPreferredAngle(self):
         """preferredAngleを取得する。
@@ -559,7 +558,7 @@ class Joint(Transform):
         x, y, z = self.getPlug("preferredAngle").get(unit="rad")
         return EulerRotate(x, y, z, self.getPlug("rotateOrder").get())
 
-    def setPreferredAngle(self, value=None, *, unit="deg"):
+    def setPreferredAngle(self, value=None, *, unit="deg", fast=False, check=False):
         """preferredAngleを設定する。
 
         preferredAngleは、IKがジョイントを曲げる向きの基準になる角度。
@@ -571,16 +570,20 @@ class Joint(Transform):
                 元になっているOpenMayaの型も受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく
                 換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。
             unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
-            TypeError: valueが3つの数値の並び・EulerRotate・None以外の場合、またはunitが文字列・None以外の場合。
-            ValueError: valueの要素が3つでない場合、有限でない値がある場合、またはunitに使えない単位名を指定した場合。
+            TypeError: valueが3つの数値の並び・EulerRotate・None以外の場合、fast・checkがbool以外の場合、
+                またはunitが文字列・None以外の場合。
+            ValueError: valueの要素が3つでない場合、またはunitに使えない単位名を指定した場合。
             RuntimeError: ジョイントが無効な場合、またはpreferredAngleがロック・入力の接続で書き込めない場合。
         """
-        with undoChunk("mlibJointSetPreferredAngle"):
+        with _edit_context("mlibJointSetPreferredAngle", fast, single=True):
             self._require_valid("優先角度の設定")
             if value is None:
                 value, unit = tuple(self.getPlug("rotate").get(unit="rad")), "rad"
@@ -589,9 +592,13 @@ class Joint(Transform):
                 euler = value if value.order == order else value.reorder(order)
                 value, unit = (euler.x, euler.y, euler.z), "rad"
             else:
-                value = _finite_vector(value, 3, "value")
-            self.getPlug("preferredAngle").set(value, unit=unit)
-            return self
+                try:
+                    value = tuple(value)
+                except TypeError:
+                    raise TypeError("valueは3個の数値の並びかEulerRotateで指定してください") from None
+                if len(value) != 3:
+                    raise ValueError("valueは3個の成分で指定してください")
+            self.getPlug("preferredAngle").set(value, unit=unit, fast=fast, check=check)
 
     def assumePreferredAngles(self, children=True):
         """rotateをpreferredAngleの値へ戻す。
@@ -602,7 +609,7 @@ class Joint(Transform):
             children (bool): Trueなら子孫のジョイントにも行う。Falseなら自身だけ。既定はTrue。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: childrenがbool以外の場合。
@@ -616,7 +623,6 @@ class Joint(Transform):
         self._require_valid("優先角度の適用")
         with undoChunk("mlibJointAssumePreferredAngles"):
             cmds.joint(self.getFullName(), edit=True, assumePreferredAngles=True, children=children)
-        return self
 
     def getDegreesOfFreedom(self):
         """回転できる軸を取得する。
@@ -643,7 +649,7 @@ class Joint(Transform):
                 空文字列ならすべての軸を固定する。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: axesが文字列でない場合。
@@ -666,7 +672,6 @@ class Joint(Transform):
         with undoChunk("mlibJointSetDegreesOfFreedom"):
             for axis, plug in zip("xyz", plugs):
                 plug.set(axis in lowered)
-        return self
 
     def getInverseScale(self):
         """inverseScaleの値を取得する。
@@ -696,13 +701,13 @@ class Joint(Transform):
         """このジョイントに接続しているskinClusterを取得する。
 
         Returns:
-            list[SkinCluster]: skinClusterのオブジェクト。同じものは1回だけ含む。
+            SkinClusters: skinClusterのオブジェクト。同じものは1回だけ含む。
         """
         # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
-        from .skinCluster import SkinCluster
+        from .skinCluster import SkinCluster, SkinClusters
 
         if not self.isValid():
-            return []
+            return SkinClusters._wrap([])
         seen = set()
         result = []
         for plug in self.getConnections(type="skinCluster"):
@@ -713,7 +718,7 @@ class Joint(Transform):
             mobject = node.mnode()
             assert mobject is not None
             result.append(SkinCluster(mobject))
-        return result
+        return SkinClusters._wrap(result)
 
     def removeInfluence(self, skinCluster=None, *, transferToParent=True, force=False):
         """skinClusterのインフルエンスから自身を外す。
@@ -734,7 +739,7 @@ class Joint(Transform):
             force (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
 
         Returns:
-            Joint: 自身。skinClusterを省略し、どこにもバインドされていなければ何も変えない。
+            None: 値を返さない。skinClusterを省略し、どこにもバインドされていなければ何も変えない。
 
         Raises:
             TypeError: transferToParent・forceがbool以外の場合。
@@ -751,7 +756,6 @@ class Joint(Transform):
             _require_bool(force, "force")
             skins = self.getSkinClusters() if skinCluster is None else [skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster)]
             _remove_influences([(skin, [self]) for skin in skins], transferToParent, force)
-            return self
 
     def delete(self, *, safe=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
         """インフルエンスから外してから、自身と子孫を削除する。
@@ -812,7 +816,7 @@ class Joint(Transform):
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがbool以外の場合。
@@ -824,7 +828,6 @@ class Joint(Transform):
             if not self.hasAttr("lockInfluenceWeights"):
                 raise RuntimeError(f"ジョイントはどのskinClusterのインフルエンスでもありません: {self.getFullName()}")
             self.getPlug("lockInfluenceWeights").set(state)
-            return self
 
     def getBoneSegments(self, worldSpace=_UNSET, *, ws=_UNSET):
         """自身から子のジョイントまでの、ボーンの線分を取得する。
@@ -860,12 +863,12 @@ class Joint(Transform):
             skin (SkinCluster): インフルエンスになっているかを調べるskinCluster。
 
         Returns:
-            str | None: 移す先の祖先のジョイントの名前。見つからない場合は ``None``。
+            Joint | None: 移す先の祖先のジョイント。見つからない場合は ``None``。
         """
         ancestor = self.getParent() if self.isValid() else None
         while isinstance(ancestor, Joint):
             if skin.hasInfluence(ancestor.getName()):
-                return ancestor.getName()
+                return ancestor
             ancestor = ancestor.getParent()
         return None
 
@@ -880,7 +883,7 @@ class Joint(Transform):
                 (Plug・MPlugなら、それを持つノード)。
 
         Returns:
-            Joint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: parentJointが使えない型の場合。
@@ -891,7 +894,6 @@ class Joint(Transform):
             parent_name = Node._input_name(parentJoint)
             for child_joint in self.getChildren(type="joint"):
                 cmds.parent(child_joint.getFullName(), parent_name)
-            return self
 
     def getChainFromHere(self, to=None):
         """自身から始まるジョイントのチェーンを、順に取得する。
@@ -903,7 +905,7 @@ class Joint(Transform):
                 枝分かれ(子が0個か2つ以上)に着いたところで止める。
 
         Returns:
-            list[Joint]: 自身からtoまで、または最初の枝分かれまでのジョイント。自身を含む。
+            Joints: 自身からtoまで、または最初の枝分かれまでのジョイント。自身を含む。
 
         Raises:
             ValueError: toが自身の子孫でない場合。
@@ -916,7 +918,7 @@ class Joint(Transform):
             while True:
                 children = current.getChildren(type="joint")
                 if len(children) != 1:
-                    return chain
+                    return Joints._wrap(chain)
                 current = children[0]
                 chain.append(current)
         target = to if isinstance(to, Joint) else Joint(to)
@@ -930,7 +932,7 @@ class Joint(Transform):
                 raise ValueError("toはこのジョイントの子孫で指定してください")
             chain.append(next_joint)
             current = next_joint
-        return chain
+        return Joints._wrap(chain)
 
     def insertJoints(self, count):
         """自身とただ1つの子ジョイントの間に、ジョイントを等間隔に挿入する。
@@ -948,7 +950,7 @@ class Joint(Transform):
             count (int): 挿入する数。1以上。
 
         Returns:
-            list[Joint]: 挿入したジョイント。自身に近い順に並ぶ。
+            Joints: 挿入したジョイント。自身に近い順に並ぶ。
 
         Raises:
             TypeError: countがintでない場合。
@@ -984,7 +986,7 @@ class Joint(Transform):
                 created.append(joint)
                 parent = joint
             cmds.parent(child.getFullName(), parent)
-            return [Joint(joint) for joint in created]
+            return Joints._wrap([Joint(joint) for joint in created])
 
     def getPolePosition(self, distance=None):
         """ポールベクターのコントローラーを置く位置を求める。
@@ -1037,13 +1039,13 @@ class Joint(Transform):
         ジョイントからIKハンドルをたどれるのは、IKハンドルの ``startJoint`` への接続だけのため。
 
         Returns:
-            list[IkHandle]: 自身を開始ジョイントにしているIkHandle。無ければ空リスト。
+            Nodes[IkHandle]: 自身を開始ジョイントにしているIkHandle。無ければ空の集まり。
         """
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .ikHandle import IkHandle
 
         if not self.isValid():
-            return []
+            return Nodes._wrap([])
         seen = set()
         result = []
         for plug in self.getConnections(type="ikHandle"):
@@ -1054,7 +1056,7 @@ class Joint(Transform):
             mobject = node.mnode()
             assert mobject is not None
             result.append(IkHandle(mobject))
-        return result
+        return Nodes._wrap(result)
 
     def _orient(self, flags):
         """検証済みのフラグで向きを揃え、末端jointのjointOrientを0にする。
@@ -1276,7 +1278,7 @@ class Joints(Nodes):
             zeroScaleOrient (bool): :meth:`Joint.orient` と同じ。
 
         Returns:
-            Joints: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: :meth:`Joint.orient` と同じ。
@@ -1290,7 +1292,6 @@ class Joints(Nodes):
         with undoChunk("mlibJointsOrient"):
             for joint in self._items:
                 joint._orient(flags)
-            return self
 
     def removeInfluence(self, skinCluster=None, *, transferToParent=True, force=False):
         """すべてのジョイントをインフルエンスから外す。
@@ -1310,7 +1311,7 @@ class Joints(Nodes):
             force (bool): :meth:`Joint.removeInfluence` と同じ。
 
         Returns:
-            Joints: 自身。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
+            None: 値を返さない。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
 
         Raises:
             TypeError: transferToParent・forceがbool以外の場合。
@@ -1335,7 +1336,6 @@ class Joints(Nodes):
                 if joints and len(joints) >= len(skin.getInfluences()):
                     raise ValueError("すべてのインフルエンスを削除することはできません")
             _remove_influences(groups, transferToParent, force)
-            return self
 
     def delete(self, *, safe=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
@@ -1363,40 +1363,42 @@ class Joints(Nodes):
         with _edit_context("mlibJointsDelete", fast):
             _delete_joints(list(self._items), safe, fast, removeInfluence, transferToParent, force)
 
-    def setRadius(self, value, *, fast=False):
+    def setRadius(self, value, *, fast=False, check=False):
         """各ジョイントに、並んでいる順に :meth:`Joint.setRadius` を行う。
 
         Args:
             value (float): :meth:`Joint.setRadius` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joints: 自身。通常は1回のUndoにまとめる。
+            None: 値を返さない。通常は1回のUndoにまとめる。
 
         Raises:
             TypeError: :meth:`Joint.setRadius` と同じ。
             ValueError: :meth:`Joint.setRadius` と同じ。
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
-        self._forward("setRadius", (value,), fast)
-        return self
+        self._forward("setRadius", (value,), fast, check=check)
 
-    def setSegmentScaleCompensate(self, state, *, fast=False):
+    def setSegmentScaleCompensate(self, state=True, *, fast=False, check=False):
         """各ジョイントに、並んでいる順に :meth:`Joint.setSegmentScaleCompensate` を行う。
 
         Args:
             state (bool): :meth:`Joint.setSegmentScaleCompensate` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Joints: 自身。通常は1回のUndoにまとめる。
+            None: 値を返さない。通常は1回のUndoにまとめる。
 
         Raises:
             TypeError: :meth:`Joint.setSegmentScaleCompensate` と同じ。
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
-        self._forward("setSegmentScaleCompensate", (state,), fast)
-        return self
+        self._forward("setSegmentScaleCompensate", (state,), fast, check=check)
 
     def getSkinClusters(self):
         """すべてのジョイントに接続しているskinClusterを取得する。

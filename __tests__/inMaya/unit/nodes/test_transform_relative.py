@@ -64,7 +64,7 @@ class RelativeTransformTest(_Case):
     def test_translate_by_matches_cmds_move(self):
         """translateBy は親の空間・ワールドの軸で cmds.move(relative) と同じ translate になる。"""
         ref = self.reference.getFullName()
-        self.assertIs(self.node.translateBy((1, -2, 0.5)), self.node)
+        self.assertIsNone(self.node.translateBy((1, -2, 0.5)))
         cmds.move(1, -2, 0.5, ref, relative=True, localSpace=True)
         self.assertSequenceAlmostEqual(self.values(self.node, "t"), self.values(self.reference, "t"))
         self.node.translateBy((3, 0, 1), ws=True)
@@ -210,7 +210,7 @@ class PivotAndUngroupTest(_Case):
         matrix = cmds.xform(name, query=True, matrix=True, worldSpace=True)
         cmds.xform(reference.getFullName(), zeroTransformPivots=True)
         self.flushUndo()
-        self.assertIs(node.zeroTransformPivots(), node)
+        self.assertIsNone(node.zeroTransformPivots())
         for attribute in ("t", "rp", "sp", "rpt", "spt"):
             with self.subTest(attribute):
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + "." + attribute)[0], cmds.getAttr(reference.getFullName() + "." + attribute)[0])

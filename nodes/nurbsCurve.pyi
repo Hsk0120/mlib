@@ -319,7 +319,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsCurve:
+    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(内部単位のcm)の点を受け付ける。
@@ -342,7 +342,7 @@ class NurbsCurve(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
@@ -353,7 +353,7 @@ class NurbsCurve(Shape):
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsCurve:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """CVの座標を、中心pivotに対して反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -380,7 +380,7 @@ class NurbsCurve(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
@@ -391,7 +391,7 @@ class NurbsCurve(Shape):
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def rebuild(self, spans: int | None = ..., degree: int | None = ..., *, keepRange: str = ...) -> NurbsCurve:
+    def rebuild(self, spans: int | None = ..., degree: int | None = ..., *, keepRange: str = ...) -> None:
         """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
 
         ``cmds.rebuildCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
@@ -408,7 +408,7 @@ class NurbsCurve(Shape):
                 ``"spans"`` は0〜スパンの数。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: spans・degreeがint・None以外(boolを含む)の場合、またはkeepRangeがstr以外の場合。
@@ -416,7 +416,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         ...
-    def reverse(self) -> NurbsCurve:
+    def reverse(self) -> None:
         """カーブの向き(パラメーターが増える向き)を反転する(``cmds.reverseCurve``)。
 
         ``cmds.reverseCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
@@ -424,7 +424,7 @@ class NurbsCurve(Shape):
         シェイプのノードと選択は変わらない。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。

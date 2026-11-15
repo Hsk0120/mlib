@@ -53,7 +53,7 @@ class Mesh(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Mesh: 自身。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
+            None: 値を返さない。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
 
         Raises:
             TypeError: 入力の型やfast・worldSpaceが不正な場合、またはworldSpaceとwsを同時に指定した場合。
@@ -95,7 +95,7 @@ class Mesh(Shape):
         if self._face_cycles(*source.getVertices()) != self._face_cycles(counts, remapped):
             raise ValueError("頂点の対応が、フェースのトポロジーと巻き方向を保っていません")
         if all(old == new for old, new in enumerate(mapping)):
-            return self
+            return
         self._require_reorder_supported(target, fast=fast)
         data = self._reordered_mesh_data(target, counts, remapped, mapping)
         materials = self.getFaceShadingEngines()
@@ -134,7 +134,6 @@ class Mesh(Shape):
                         groups[material.getFullName()].append(f"{self.getFullName()}.f[{face}]")
                 for material, faces in groups.items():
                     cmds.sets(faces, edit=True, forceElement=material)
-        return self
 
     def getVertex(self, index):
         """頂点番号から頂点を1つ取得する。
@@ -182,13 +181,14 @@ class Mesh(Shape):
         このオブジェクトが持つDAGパス(インスタンス)での割り当てを調べる。
 
         Returns:
-            list[ShadingEngine]: 使われているShadingEngine。何も割り当てられていないフェースの分は含まない。
+            Nodes[ShadingEngine]: 使われているShadingEngine。何も割り当てられていないフェースの分は含まない。
         """
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
+        from .node import Nodes
         from .shadingEngine import ShadingEngine
 
         groups, indices = self._geometry_fn().getConnectedShaders(self.mpath().instanceNumber())
-        return [ShadingEngine(groups[i]) for i in sorted(set(indices)) if i >= 0]
+        return Nodes._wrap([ShadingEngine(groups[i]) for i in sorted(set(indices)) if i >= 0])
 
     def getFaceShadingEngines(self):
         """フェースごとに割り当てられているShadingEngineを、フェース番号の順に取得する。
@@ -290,7 +290,7 @@ class Mesh(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
@@ -316,7 +316,6 @@ class Mesh(Shape):
         changed = [index for index, (value, point) in enumerate(zip(values, current)) if value != (point.x, point.y, point.z)]
         with _edit_context("mlibMeshSetPoints", fast, transaction=True):
             geometry_edit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast, check=check)
-        return self
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """頂点の座標を、pivotを中心に反転する。
@@ -346,7 +345,7 @@ class Mesh(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
@@ -360,7 +359,6 @@ class Mesh(Shape):
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
         _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibMeshMirror", check)
-        return self
 
     def getVertexNormals(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
         """頂点ごとの法線を取得する。
@@ -908,7 +906,7 @@ class Mesh(Shape):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合、colorSetが文字列・None以外の場合、または色や頂点の型が不正な場合。
@@ -931,7 +929,6 @@ class Mesh(Shape):
                 self._set_vertex_colors_fast(fn, name, indices, values)
             else:
                 self._set_vertex_colors_cmds(name, indices, values)
-        return self
 
     def getUVSetNames(self):
         """UVセットの名前を取得する。
@@ -958,7 +955,7 @@ class Mesh(Shape):
             name (str): すでにあるUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -967,7 +964,6 @@ class Mesh(Shape):
         self._require_uv_set(name, "name", exists=True)
         with undoChunk("mlibMeshSetCurrentUVSet"):
             cmds.polyUVSet(self.getFullName(), currentUVSet=True, uvSet=name)
-        return self
 
     def createUVSet(self, name):
         """空のUVセットを作り、自身を返す。
@@ -979,7 +975,7 @@ class Mesh(Shape):
             name (str): 新しいUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -988,7 +984,6 @@ class Mesh(Shape):
         self._require_uv_set(name, "name", exists=False)
         with undoChunk("mlibMeshCreateUVSet"):
             cmds.polyUVSet(self.getFullName(), create=True, uvSet=name)
-        return self
 
     def copyUVSet(self, source, target):
         """UVセットを新しい名前へ複製し、自身を返す。
@@ -1000,7 +995,7 @@ class Mesh(Shape):
             target (str): 新しいUVセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
@@ -1010,7 +1005,6 @@ class Mesh(Shape):
         self._require_uv_set(target, "target", exists=False)
         with undoChunk("mlibMeshCopyUVSet"):
             cmds.polyUVSet(self.getFullName(), copy=True, uvSet=source, newUVSet=target)
-        return self
 
     def renameUVSet(self, name, newName):
         """UVセットの名前を変え、自身を返す。
@@ -1023,7 +1017,7 @@ class Mesh(Shape):
             newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
@@ -1033,7 +1027,6 @@ class Mesh(Shape):
         self._require_uv_set(newName, "newName", exists=False)
         with undoChunk("mlibMeshRenameUVSet"):
             cmds.polyUVSet(self.getFullName(), rename=True, uvSet=name, newUVSet=newName)
-        return self
 
     def deleteUVSet(self, name):
         """UVセットを削除し、自身を返す。
@@ -1045,7 +1038,7 @@ class Mesh(Shape):
             name (str): すでにあるUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -1057,7 +1050,6 @@ class Mesh(Shape):
             raise ValueError(f"既定のUVセットは削除できません: {name}")
         with undoChunk("mlibMeshDeleteUVSet"):
             cmds.polyUVSet(self.getFullName(), delete=True, uvSet=name)
-        return self
 
     def getColorSetNames(self):
         """カラーセットの名前を取得する。
@@ -1087,7 +1079,7 @@ class Mesh(Shape):
             name (str): すでにあるカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -1096,7 +1088,6 @@ class Mesh(Shape):
         self._require_color_set(name, "name", exists=True)
         with undoChunk("mlibMeshSetCurrentColorSet"):
             cmds.polyColorSet(self.getFullName(), currentColorSet=True, colorSet=name)
-        return self
 
     def createColorSet(self, name):
         """空のRGBAのカラーセットを作り、自身を返す。
@@ -1109,7 +1100,7 @@ class Mesh(Shape):
             name (str): 新しいカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -1118,7 +1109,6 @@ class Mesh(Shape):
         self._require_color_set(name, "name", exists=False)
         with undoChunk("mlibMeshCreateColorSet"):
             cmds.polyColorSet(self.getFullName(), create=True, colorSet=name, representation="RGBA")
-        return self
 
     def copyColorSet(self, source, target):
         """カラーセットを新しい名前へ複製し、自身を返す。
@@ -1130,7 +1120,7 @@ class Mesh(Shape):
             target (str): 新しいカラーセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
@@ -1140,7 +1130,6 @@ class Mesh(Shape):
         self._require_color_set(target, "target", exists=False)
         with undoChunk("mlibMeshCopyColorSet"):
             cmds.polyColorSet(self.getFullName(), copy=True, colorSet=source, newColorSet=target)
-        return self
 
     def renameColorSet(self, name, newName):
         """カラーセットの名前を変え、自身を返す。
@@ -1153,7 +1142,7 @@ class Mesh(Shape):
             newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
@@ -1163,7 +1152,6 @@ class Mesh(Shape):
         self._require_color_set(newName, "newName", exists=False)
         with undoChunk("mlibMeshRenameColorSet"):
             cmds.polyColorSet(self.getFullName(), rename=True, colorSet=name, newColorSet=newName)
-        return self
 
     def deleteColorSet(self, name):
         """カラーセットを削除し、自身を返す。
@@ -1175,7 +1163,7 @@ class Mesh(Shape):
             name (str): すでにあるカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -1184,7 +1172,6 @@ class Mesh(Shape):
         self._require_color_set(name, "name", exists=True)
         with undoChunk("mlibMeshDeleteColorSet"):
             cmds.polyColorSet(self.getFullName(), delete=True, colorSet=name)
-        return self
 
     def getBorderEdges(self):
         """メッシュの縁のエッジを取得する。

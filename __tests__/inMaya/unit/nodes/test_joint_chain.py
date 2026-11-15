@@ -134,7 +134,7 @@ class ReparentChildrenTest(_SpecCase):
     def test_normal_and_undo(self):
         """子 joint だけを移して位置を保ち、inverseScale を新しい親へつなぐ。1回の Undo で戻る。"""
         cmds.flushUndo()
-        self.assertEqual(self.node.reparentChildren(self.d), self.node)
+        self.assertIsNone(self.node.reparentChildren(self.d))
         self.assertEqual(self.children(self.b), ["extra"])
         self.assertEqual(self.children(self.d), ["c"])
         self.assertEqual(cmds.xform(self.c, query=True, worldSpace=True, translation=True), [2.0, 0.0, 0.0])
@@ -150,7 +150,7 @@ class ReparentChildrenTest(_SpecCase):
         with self.assertRaises(TypeError):
             self.node.reparentChildren(self.d, fast=True)
         joint = Node(self.d)
-        self.assertEqual(joint.reparentChildren(self.a), joint)
+        self.assertIsNone(joint.reparentChildren(self.a))
         self.assertEqual(self.children(self.a), ["b"])
 
 

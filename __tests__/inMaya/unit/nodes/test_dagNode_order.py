@@ -105,7 +105,7 @@ class SetOutlinerOrderTest(SiblingsFixture):
             for target in range(self.COUNT):
                 with self.subTest(current=current, target=target):
                     node = Node(self.kids[current])
-                    self.assertIs(node.setOutlinerOrder(target), node)
+                    self.assertIsNone(node.setOutlinerOrder(target))
                     self.assertEqual(children(self.grp), self.moved(current, target))
                     self.assertEqual(node.getOutlinerOrder(), target)
                     if current != target:
@@ -188,7 +188,7 @@ class ReorderTest(SiblingsFixture):
         for flags, target in cases:
             with self.subTest(flags=flags):
                 node = Node(self.kids[2])
-                self.assertIs(node.reorder(**flags), node)
+                self.assertIsNone(node.reorder(**flags))
                 self.assertEqual(children(self.grp), self.moved(2, target))
                 cmds.undo()
                 self.assertEqual(children(self.grp), self.kids)
@@ -208,7 +208,7 @@ class ReorderTest(SiblingsFixture):
         for flags, target in cases:
             with self.subTest(flags=flags):
                 node = Node(self.kids[2])
-                self.assertIs(node.reorder(**flags), node)
+                self.assertIsNone(node.reorder(**flags))
                 self.assertEqual(children(self.grp), self.moved(2, target))
                 if target != 2:
                     cmds.undo()
@@ -354,7 +354,7 @@ class NodesTest(SiblingsFixture):
         nodes = Nodes([self.kids[3], self.kids[1]])
         self.assertEqual(nodes.getOutlinerOrder(), [3, 1])
         result = nodes.reorder(front=True)
-        self.assertEqual(result, [Node(self.kids[3]), Node(self.kids[1])])
+        self.assertEqual(result, [None, None])
         self.assertEqual(children(self.grp), [self.kids[1], self.kids[3], self.kids[0], self.kids[2], self.kids[4]])
         self.assertEqual(nodes.getOutlinerOrder(), [1, 0])
 

@@ -43,16 +43,17 @@ def listReferences(topLevelOnly=False):
             トップレベルのリファレンスだけを返す。
 
     Returns:
-        list[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
-            リファレンスが無ければ空リスト。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
+        Nodes[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
+            リファレンスが無ければ空の集まり。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
     """
     # commonの初期化時にnodesを読み込まないよう、使用時にReferenceを読み込む。
+    from ..nodes.node import Nodes
     from ..nodes.reference import Reference
 
     references = [Reference(mobject) for _, mobject in _reference_nodes()]
     if topLevelOnly:
         references = [reference for reference in references if reference.getParentReference() is None]
-    return references
+    return Nodes._wrap(references)
 
 
 @undoChunk("mlibCreateReference")
@@ -86,7 +87,8 @@ def createReference(path, namespace=None):
     scene_path = Path(path).expanduser()
 
     existing = {name for name, _ in _reference_nodes()}
-    kwargs: Dict[str, Any] = {"reference": True}
+    # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。
+    kwargs: Dict[str, Any] = {"reference": True, "prompt": False}
     if namespace is not None:
         kwargs["namespace"] = namespace
     cmds.file(str(scene_path), **kwargs)

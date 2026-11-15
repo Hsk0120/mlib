@@ -110,7 +110,8 @@ class ApiUnitsTest(unittest.TestCase):
         for suffix in ("TA", "TL", "TT", "TU", "UA", "UL", "UT", "UU"):
             with self.subTest(suffix=suffix):
                 curve = mlib.createNode("animCurve" + suffix)
-                curve.setKey(0, 0).setKey(2, 0.5, unit="rad", timeUnit="sec")
+                curve.setKey(0, 0)
+                curve.setKey(2, 0.5, unit="rad", timeUnit="sec")
                 fn = oma2.MFnAnimCurve(curve.mnode())
                 input = fn.input(1)
                 if isinstance(input, om2.MTime):

@@ -150,7 +150,7 @@ class Edge(Component):
         self._require_valid()
         return self.shape._geometry_fn().isEdgeSmooth(self.index)
 
-    def setSmooth(self, value=True):
+    def setSmooth(self, state=True):
         """ソフトエッジかハードエッジかを設定する。
 
         ``cmds.polySoftEdge`` (角度180または0)で書き込み、1回のUndoで戻せるようにまとめる。選択は変えない。
@@ -159,23 +159,22 @@ class Edge(Component):
         - ヒストリの無いメッシュでは、ヒストリを作らずに直接書き込む。
 
         Args:
-            value (bool): Trueならソフトエッジ、Falseならハードエッジにする。既定はTrue。
+            state (bool): Trueならソフトエッジ、Falseならハードエッジにする。既定はTrue。
 
         Returns:
-            Edge: 自身。
+            None: 値を返さない。
 
         Raises:
-            TypeError: valueがboolでない場合。
+            TypeError: stateがboolでない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
         """
-        _require_bool(value, "value")
+        _require_bool(state, "state")
         self._require_valid()
         history = om2.MFnDependencyNode(self.shape.mnode()).findPlug("inMesh", False).isDestination
         # polySoftEdgeは対象のエッジを選択するため、選択を戻す処理も同じUndoに含める(Redoでも選択が変わらない)。
         with undoChunk("mlibEdgeSetSmooth"), preservedSelection():
-            cmds.polySoftEdge(self.getFullName(), angle=180 if value else 0, constructionHistory=history)
-        return self
+            cmds.polySoftEdge(self.getFullName(), angle=180 if state else 0, constructionHistory=history)
 
     def _iterator(self):
         """番号を確かめて、このエッジに合わせた ``om2.MItMeshEdge`` を返す。

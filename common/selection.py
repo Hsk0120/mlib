@@ -17,8 +17,8 @@ from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
 from ..core.object import _exists, _selection_component, _selection_plug
 from ..decorator import undoChunk
-from ..nodes.node import Node
-from ..plugs.plug import Plug
+from ..nodes.node import Node, Nodes
+from ..plugs.plug import Plug, Plugs
 from .environment import Environment
 from .keyframe import Keyframe, Keyframes
 
@@ -175,19 +175,19 @@ class Selection:
         結果はノードごとに、アトリビュートを選んだ順に並べる。
 
         Returns:
-            list[Plug]: 選んでいるアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)に並び、
+            Plugs: 選んでいるアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)に並び、
                 完全名が同じものは最初の1つだけを残す。表示しているノードに無いアトリビュートは除く。
                 バッチやmayapyの場合、Channel Boxが無いGUIの場合、何も選んでいない場合は空リスト。
         """
         if Environment.isBatch():
-            return []
+            return Plugs._from_plugs([])
         try:
             # Channel Boxの名前はMayaのUIが保持するグローバル変数から取得する(既定はmainChannelBox)。
             name = mel.eval("global string $gChannelBoxName; $mlibChannelBoxName = $gChannelBoxName;")
         except RuntimeError:
             name = "mainChannelBox"
         if not name or not cmds.channelBox(name, exists=True):
-            return []
+            return Plugs._from_plugs([])
         names = []
         for attributes_flag, objects_flag in _CHANNEL_BOX_SECTIONS:
             attributes = cmds.channelBox(name, query=True, **{attributes_flag: True}) or []
@@ -200,8 +200,8 @@ class Selection:
                     if cmds.objExists(plug_name):
                         names.append(plug_name)
         if not names:
-            return []
-        return [item for item in cls(names)._items if isinstance(item, Plug)]
+            return Plugs._from_plugs([])
+        return Plugs._from_plugs([item for item in cls(names)._items if isinstance(item, Plug)])
 
     @classmethod
     def getKeyframes(cls):
@@ -276,16 +276,16 @@ class Selection:
         """
         return list(self._items)
 
-    def getNodes(self, type=None):
+    def getNodes(self, *, type=None):
         """ノードとして選ばれた対象を取得する。
 
         Args:
             type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型。
 
         Returns:
-            list[Node]: 削除されていないノード。コンポーネントを持つノードは含めない。
+            Nodes: 削除されていないノード。コンポーネントを持つノードは含めない。
         """
-        return [item for item in self._items if isinstance(item, Node) and item.isValid() and (type is None or item.isType(type))]
+        return Nodes._wrap([item for item in self._items if isinstance(item, Node) and item.isValid() and (type is None or item.isType(type))])
 
     def getPlugs(self):
         """アトリビュートとして選ばれた対象を取得する。
@@ -293,9 +293,9 @@ class Selection:
         Channel Boxで選んでいるアトリビュートは、ここでは取得しない(:meth:`getChannelBoxPlugs` を使う)。
 
         Returns:
-            list[Plug]: 削除されていないアトリビュート。
+            Plugs: 削除されていないアトリビュート。
         """
-        return [item for item in self._items if isinstance(item, Plug) and self._valid(item)]
+        return Plugs._from_plugs([item for item in self._items if isinstance(item, Plug) and self._valid(item)])
 
     def getComponents(self):
         """コンポーネントとして選ばれた対象を、まとめて取得する。
@@ -320,14 +320,14 @@ class Selection:
         削除された対象は除く。
 
         Returns:
-            list[Node]: 対象を持つノード。DAGパスが同じものは1つにまとめる。
+            Nodes: 対象を持つノード。DAGパスが同じものは1つにまとめる。
         """
         result = {}
         for item in self._items:
             if self._valid(item):
                 node = item if isinstance(item, Node) else item.shape if isinstance(item, Component) else item.getNode()
                 result.setdefault(node.getFullName(), node)
-        return list(result.values())
+        return Nodes._wrap(list(result.values()))
 
     def filter(self, type):
         """ノード型やコンポーネントの種類で絞り込んだ、新しい選択を返す。
@@ -368,7 +368,7 @@ class Selection:
                 既定はskip。
 
         Returns:
-            Selection: 自身。中身が空の場合は、replaceのときだけ選択を解除する。
+            None: 値を返さない。中身が空の場合は、replaceのときだけ選択を解除する。
 
         Raises:
             ValueError: modeまたはmissingに対応していない値を指定した場合。
@@ -383,7 +383,6 @@ class Selection:
                 cmds.select(names, noExpand=True, **{flag: True})
             elif mode == "replace":
                 cmds.select(clear=True)
-            return self
 
     @staticmethod
     def _resolve(selection, name=None):

@@ -52,7 +52,8 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual(multi_plug.getNextAvailable(vacant=True).getIndex(), 1)
         self.assertEqual(multi_plug.getNextAvailable(start=5, vacant=True).getIndex(), 5)
 
-        element = multi_plug[1].set(2)
+        element = multi_plug[1]
+        element.set(2)
         self.assertEqual(element.getLongName(), "samples")
         self.assertTrue(element.getFullName().endswith("[1]"))
 
@@ -211,7 +212,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         cmds.connectAttr(source + ".tx", self.net_name + ".vals[1]")
         self.array[2].set(3.0)
         cmds.flushUndo()
-        self.assertIs(self.array.removeElement(1), self.array)
+        self.assertIsNone(self.array.removeElement(1))
         self.assertEqual(self.array.getIndices(), [0, 2])
         self.assertFalse(cmds.listConnections(source + ".tx", source=False, destination=True))
         cmds.undo()

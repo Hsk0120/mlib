@@ -6,6 +6,7 @@ from typing import Any, Dict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import undoChunk
+from mlib.nodes.node import Nodes
 from mlib.nodes.reference import Reference
 
 _SHARED_REFERENCE_NODE: str
@@ -20,7 +21,7 @@ def _reference_nodes() -> list[tuple[str, om2.MObject]]:
     """
     ...
 
-def listReferences(topLevelOnly: bool = ...) -> list[Reference]:
+def listReferences(topLevelOnly: bool = ...) -> Nodes[Reference]:
     """シーンのリファレンスを、Reference のオブジェクトの一覧として取得する。
 
     Args:
@@ -28,8 +29,8 @@ def listReferences(topLevelOnly: bool = ...) -> list[Reference]:
             トップレベルのリファレンスだけを返す。
 
     Returns:
-        list[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
-            リファレンスが無ければ空リスト。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
+        Nodes[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
+            リファレンスが無ければ空の集まり。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
     """
     ...
 

@@ -52,7 +52,7 @@ class MeshReorderTest(unittest.TestCase):
         u, v = fn.getUVs()
         fn.setUVs([x * 2 + 1 for x in u], [y * 3 - 1 for y in v])
         before = self.snapshot()
-        self.assertIs(self.target.reorderVertices(self.reference, match="position", uvSet=None), self.target)
+        self.assertIsNone(self.target.reorderVertices(self.reference, match="position", uvSet=None))
         after = self.snapshot()
         self.assertEqual(after[0], [before[0][i] for i in self.permutation])
         self.assertEqual(after[2:], before[2:])
@@ -100,7 +100,7 @@ class MeshReorderTest(unittest.TestCase):
     def test_reorder_preserves_geometry_uv_undo_redo(self):
         before = self.snapshot()
         expected = [before[0][i] for i in self.permutation]
-        self.assertIs(self.target.reorderVertices(self.reference), self.target)
+        self.assertIsNone(self.target.reorderVertices(self.reference))
         after = self.snapshot()
         self.assertEqual(after[0], expected)
         self.assertEqual(after[1], tuple(self.reference.mfn().getVertices()[1]))

@@ -48,7 +48,7 @@ class NodeApiTest(unittest.TestCase):
         plug.set(True)
 
         result = plug.toggle()
-        self.assertIs(result, plug)
+        self.assertIsNone(result)
         self.assertFalse(plug.get())
 
         plug.toggle()

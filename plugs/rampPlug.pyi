@@ -64,7 +64,7 @@ class RampPlug(MultiPlug):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def setEntries(self, entries: list[tuple[float, float | tuple[float, float, float], str]]) -> RampPlug:
+    def setEntries(self, entries: list[tuple[float, float | tuple[float, float, float], str]]) -> None:
         """ランプの点を設定する。すでにある点はすべて置き換える。
 
         すでにある要素を ``cmds.removeMultiInstance`` で外してから、渡した順に論理番号0から設定する。
@@ -76,7 +76,7 @@ class RampPlug(MultiPlug):
                 ``"smooth"``・``"spline"``。:meth:`getEntries` の結果をそのまま渡せる。
 
         Returns:
-            RampPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 次のどれかの場合。entriesや各点が3つの組でない。位置・値が実数でない

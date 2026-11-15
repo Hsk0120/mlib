@@ -95,7 +95,7 @@ class CompoundPlugSpecTest(_PlugSpecCase):
     def test_get_set_internal_and_ui_units(self):
         """getは子の定義順のtuple。距離の子はUI単位がmmでも内部cmで扱う。"""
         cmds.currentUnit(linear="mm")
-        self.assertIs(self.pair.set((1.5, 2.0)), self.pair)
+        self.assertIsNone(self.pair.set((1.5, 2.0)))
         self.assertEqual(cmds.getAttr(self.name + ".first"), 1.5)
         self.assertAlmostEqual(cmds.getAttr(self.name + ".second"), 20.0)
         self.assertEqual(self.pair.get(), (1.5, 2.0))

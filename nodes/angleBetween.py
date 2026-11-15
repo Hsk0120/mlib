@@ -26,13 +26,13 @@ class AngleBetween(Node):
             vector2 (Iterable[float] | Plug | str | None): 2つ目のベクトル。
 
         Returns:
-            AngleBetween: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {"vector1": vector1, "vector2": vector2})
+        _calculation.set_inputs(self, "setInput", {"vector1": vector1, "vector2": vector2})
 
     def getResult(self, kind="angle"):
         """出力の現在の値を取得する。

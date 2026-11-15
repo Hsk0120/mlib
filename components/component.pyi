@@ -10,7 +10,6 @@ from ..decorator import _edit_context, _require_bool
 from ..nodes.shape import Shape
 from typing import Any, Iterable, Iterator, Sequence
 from typing import overload
-from typing_extensions import Self
 
 _REPR_LIMIT: int
 
@@ -277,7 +276,10 @@ class Components:
     - 形状を編集して要素が増えたり減ったりしても、自動ではついていかない。
       トポロジーを変えた後に同じ要素を指すとも限らない。
     - ``[]`` で指定するのは、この集まりの中での位置で、Mayaでの番号ではない。
-    - ``+`` (同じシェイプ・同じ種類どうし)・``==``・:meth:`sort` が使える。
+    - ``+`` (同じシェイプ・同じ種類どうし)・``==``・``in``・:meth:`sort` が使える。
+    - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
+      ``del``・``+=`` も使える。足せるのは同じシェイプ・同じ種類のコンポーネントで、すでにある要素は足さない。
+      形状は変えず、この集まりが持つ番号の並びだけを変える。
       ``==`` を定義しているので、listと同じくハッシュ値を持たない(dictのキーやsetの要素にできない)。
     """
     def __iter__(self) -> Iterator[Component]: ...
@@ -325,6 +327,16 @@ class Components:
             str: ``CVs('curveShape.cv[0:7]')`` や ``Vertices('boxShape.vtx[0:2]', 'boxShape.vtx[5]')`` のような文字列。
                 多い場合は ``Vertices('boxShape.vtx[0]', ..., count=120)``、空なら
                 ``Vertices('boxShape', count=0)``、無効なら ``<Vertices invalid>``。
+        """
+        ...
+    def __delitem__(self, index: int | slice):
+        """位置の要素を取り除く。形状は変えない。
+
+        Args:
+            index (int | slice): この集まりの中での位置。
+
+        Raises:
+            IndexError: 位置が範囲の外の場合。
         """
         ...
     def __eq__(self, other: Components | list | tuple) -> bool:
@@ -390,6 +402,26 @@ class Components:
             TypeError: シェイプまたはコンポーネントの種類が異なる要素を含む場合。
         """
         ...
+    def __iadd__(self, other: Components | Iterable[Component]) -> Components:
+        """``+=`` で、後ろへ要素を足す(:meth:`extend` と同じ)。
+
+        Args:
+            other (Components | Iterable[Component]): 足す要素。
+
+        Returns:
+            Components: 自身。
+        """
+        ...
+    def __contains__(self, value: Component) -> bool:
+        """コンポーネントを要素として持っているかを返す。
+
+        Args:
+            value (Component): 調べるコンポーネント。
+
+        Returns:
+            bool: 持っていればTrue。シェイプや種類の違うもの、コンポーネント以外はFalse。
+        """
+        ...
     @property
     def shape(self) -> Shape:
         """この集まりを持つシェイプを返す。
@@ -407,7 +439,7 @@ class Components:
                 コピーは作らない。今の範囲の中にあるかも調べ直さない。カーブのCVはOpenMayaの番号で持つ。
         """
         ...
-    def sort(self, key: Callable[[Component], object] | None = ..., reverse: bool = ...) -> Self:
+    def sort(self, key: Callable[[Component], object] | None = ..., reverse: bool = ...) -> None:
         """番号の並びをその場で並べ替える。
 
         ``key`` を省略すると、Mayaでの番号の順にする。
@@ -421,10 +453,117 @@ class Components:
             reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
-            Components: 並べ替えた自身。新しい集まりは作らない。派生クラスでは自身のクラスになる。
+            None: 値を返さない。新しい集まりは作らない。派生クラスでは自身のクラスになる。
 
         Raises:
             TypeError: keyが呼び出せない、またはreverseがbool以外の場合。
+        """
+        ...
+    def append(self, value: Component) -> None:
+        """後ろへコンポーネントを1つ足す。すでに持っている要素なら何もしない。
+
+        Args:
+            value (Component): 同じシェイプ・同じ種類のコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる場合。
+        """
+        ...
+    def extend(self, values: Components | Iterable[Component]) -> None:
+        """後ろへコンポーネントの並びを足す。すでに持っている要素は足さない。
+
+        すべての値を確かめてから足すので、例外が起きたときは何も変わらない。
+
+        Args:
+            values (Components | Iterable[Component]): 同じシェイプ・同じ種類の集まり、またはコンポーネントの並び。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる要素を含む場合。
+        """
+        ...
+    def insert(self, index: int, value: Component) -> None:
+        """位置へコンポーネントを1つ入れる。すでに持っている要素なら何もしない。
+
+        Args:
+            index (int): この集まりの中での位置(Pythonのlistと同じ)。
+            value (Component): 同じシェイプ・同じ種類のコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる場合。
+        """
+        ...
+    def remove(self, value: Component) -> None:
+        """コンポーネントを1つ取り除く。形状は変えない。
+
+        Args:
+            value (Component): 取り除くコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: その要素を持っていない場合。
+        """
+        ...
+    def pop(self, index: int = ...) -> Component:
+        """位置の要素を取り除いて返す。形状は変えない。
+
+        Args:
+            index (int): この集まりの中での位置。既定は最後の要素。
+
+        Returns:
+            Component: 取り除いたコンポーネント。
+
+        Raises:
+            IndexError: 要素が無い場合、または位置が範囲の外の場合。
+        """
+        ...
+    def index(self, value: Component, start: int = ..., stop: int | None = ...) -> int:
+        """コンポーネントの、この集まりの中での位置を返す(Mayaでの番号ではない)。
+
+        Args:
+            value (Component): 探すコンポーネント。
+            start (int): 探し始める位置。既定は0。
+            stop (int | None): 探し終える位置(この位置は含まない)。Noneなら最後まで。
+
+        Returns:
+            int: この集まりの中での位置。
+
+        Raises:
+            ValueError: その範囲に要素が無い場合。
+        """
+        ...
+    def count(self, value: Component) -> int:
+        """コンポーネントを持っている数を返す。同じ要素は1つしか持たないので、0か1になる。
+
+        Args:
+            value (Component): 数えるコンポーネント。
+
+        Returns:
+            int: 持っていれば1、無ければ0。
+        """
+        ...
+    def clear(self) -> None:
+        """要素をすべて取り除く。形状は変えない。
+
+        Returns:
+            None: 値を返さない。
+        """
+        ...
+    def reverse(self) -> None:
+        """要素の並びを、その場で逆にする。
+
+        Returns:
+            None: 値を返さない。
         """
         ...
     def getFullNames(self) -> list[str]:

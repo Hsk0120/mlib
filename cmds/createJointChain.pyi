@@ -8,7 +8,7 @@ from ..decorator import undoChunk
 from ..maths.matrix import Matrix
 from ..util import _finite_vector
 from typing import Iterable, Sequence
-from mlib.nodes.joint import Joint
+from mlib.nodes.joint import Joints
 from mlib.nodes.node import Node
 
 _AXES: dict
@@ -29,7 +29,7 @@ def _axis(value: str, label: str) -> tuple[int, float]:
     """
     ...
 
-def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., upAxis: str = ..., up: Sequence[float] = ..., names: Sequence[str] | None = ..., parent: str | Node | None = ...) -> list[Joint]:
+def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., upAxis: str = ..., up: Sequence[float] = ..., names: Sequence[str] | None = ..., parent: str | Node | None = ...) -> Joints:
     """点を順につないだjointのチェーンを作る。
 
     1つ目のjointは parent の子に、2つ目からは1つ前のjointの子に作る。
@@ -53,7 +53,7 @@ def createJointChain(points: Iterable[Sequence[float]], *, aimAxis: str = ..., u
         parent (str | Node | None): 1つ目のjointの親のtransform。Noneならワールド。
 
     Returns:
-        list[Joint]: 作ったjoint。points の順に並ぶ。
+        Joints: 作ったjoint。points の順に並ぶ。
 
     Raises:
         TypeError: points・up の成分が数値でない場合、aimAxis・upAxis が文字列でない場合、

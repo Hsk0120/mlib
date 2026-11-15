@@ -95,7 +95,7 @@ class RampPlug(MultiPlug):
                 ``"smooth"``・``"spline"``。:meth:`getEntries` の結果をそのまま渡せる。
 
         Returns:
-            RampPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 次のどれかの場合。entriesや各点が3つの組でない。位置・値が実数でない
@@ -122,7 +122,6 @@ class RampPlug(MultiPlug):
                 else:
                     cmds.setAttr(prefix + children[1], value)
                 cmds.setAttr(prefix + children[2], interpolation)
-            return self
 
     def getValueAt(self, position):
         """ランプ上の位置での値を取得する。

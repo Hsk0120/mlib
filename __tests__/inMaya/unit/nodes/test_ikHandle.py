@@ -102,7 +102,7 @@ class IkHandleDagAdditionsTest(_Case):
         self.assertEqual(handle.getSolver(), "ikRPsolver")
         self.assertEqual(handle.getSolver(), cmds.ikHandle(handle.getFullName(), query=True, solver=True))
         self.flushUndo()
-        self.assertIs(handle.setSolver("ikSCsolver"), handle)
+        self.assertIsNone(handle.setSolver("ikSCsolver"))
         self.assertEqual(handle.getSolver(), "ikSCsolver")
         self.assertUndoesInOneStep(lambda: self.assertEqual(handle.getSolver(), "ikRPsolver"), lambda: None)
         handle.setSolver("ikSpringSolver")
@@ -130,7 +130,7 @@ class IkHandleDagAdditionsTest(_Case):
         cmds.setAttr(name + ".t", 10, 10, 10)
         effector = handle.getEffector().getFullName()
         self.flushUndo()
-        self.assertIs(handle.snapToEffector(), handle)
+        self.assertIsNone(handle.snapToEffector())
         self.assertSequenceAlmostEqual(
             cmds.xform(name, query=True, rotatePivot=True, worldSpace=True), cmds.xform(effector, query=True, rotatePivot=True, worldSpace=True), places=5
         )

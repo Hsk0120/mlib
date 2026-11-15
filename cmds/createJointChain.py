@@ -57,7 +57,7 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
         parent (str | Node | None): 1つ目のjointの親のtransform。Noneならワールド。
 
     Returns:
-        list[Joint]: 作ったjoint。points の順に並ぶ。
+        Joints: 作ったjoint。points の順に並ぶ。
 
     Raises:
         TypeError: points・up の成分が数値でない場合、aimAxis・upAxis が文字列でない場合、
@@ -77,7 +77,7 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
         ...                                up=(0, 0, -1), names=["arm_JNT", "elbow_JNT", "wrist_JNT"])
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
-    from ..nodes.joint import Joint
+    from ..nodes.joint import Joint, Joints
     from ..nodes.node import Node
     from ..nodes.transform import Transform
 
@@ -152,4 +152,4 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
             created.append(joint)
             parent_name = joint
             parent_matrix = world
-        return [Joint(joint) for joint in created]
+        return Joints._wrap([Joint(joint) for joint in created])

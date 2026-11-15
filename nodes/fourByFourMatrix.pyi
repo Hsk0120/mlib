@@ -12,7 +12,7 @@ _ELEMENTS: tuple
 
 class FourByFourMatrix(Node):
     """``in00``〜``in33`` の16個の値(行優先)からマトリクスを作り、``output`` へ出力する。"""
-    def setInput(self, matrix: Matrix | Iterable[float] | None = ..., **elements: float | Plug | str) -> FourByFourMatrix:
+    def setInput(self, matrix: Matrix | Iterable[float] | None = ..., **elements: float | Plug | str) -> None:
         """成分をまとめて設定する。
 
         値を渡した成分は書き込み、Plugを渡した成分は接続する。1回のUndoで戻せる。
@@ -23,7 +23,7 @@ class FourByFourMatrix(Node):
                 matrixを書き込んだ後に反映する。
 
         Returns:
-            FourByFourMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: elementsに ``in00``〜``in33`` 以外の名前がある場合、または接続元の型が不正な場合。

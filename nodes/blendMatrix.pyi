@@ -11,7 +11,7 @@ from mlib.plugs.plug import Plug
 
 class BlendMatrix(Node):
     """``inputMatrix`` へ ``target[i].targetMatrix`` を ``weight`` で順に混ぜたマトリクスを出力する。"""
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> BlendMatrix:
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> None:
         """元のマトリクスを設定する。値は書き込み、Plugは接続する。
 
         1回のUndoで戻せる。
@@ -20,7 +20,7 @@ class BlendMatrix(Node):
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 元のマトリクス。Noneは変更しない。
 
         Returns:
-            BlendMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -44,7 +44,7 @@ class BlendMatrix(Node):
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
         ...
-    def removeTarget(self, index: int) -> BlendMatrix:
+    def removeTarget(self, index: int) -> None:
         """ターゲットを接続ごと削除する。
 
         1回のUndoで戻せる。
@@ -53,7 +53,7 @@ class BlendMatrix(Node):
             index (int): ターゲットの論理番号。
 
         Returns:
-            BlendMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。

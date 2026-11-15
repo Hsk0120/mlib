@@ -92,13 +92,14 @@ class ConnectionDirectionsTest(unittest.TestCase):
         signature = inspect.signature(mlib.Plug.getConnections)
         self.assertEqual(tuple(signature.parameters), names)
         self.assertEqual(tuple(parameter.default for parameter in list(signature.parameters.values())[1 : len(names)]), defaults)
-        for parameter in list(signature.parameters.values())[: len(names)]:
-            self.assertEqual(parameter.kind, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        # cmds.listConnectionsと同じく、フラグはすべてキーワードで渡す。
+        for parameter in list(signature.parameters.values())[1 : len(names)]:
+            self.assertEqual(parameter.kind, inspect.Parameter.KEYWORD_ONLY)
         source, center, destinations = self._chain("positional")
-        self.assertEqual(
-            center.getConnections(True, False, False, None, False, False, True, True, False, None, False, False, False, False, True, True, 0), source
-        )
-        self.assertCountEqual(center.getConnections(False, True, skipConversionNodes=True), destinations)
+        with self.assertRaises(TypeError):
+            center.getConnections(True, False)
+        self.assertEqual(center.getConnections(source=True, destination=False, index=0), source)
+        self.assertCountEqual(center.getConnections(source=False, destination=True, skipConversionNodes=True), destinations)
         self.assertEqual(
             inspect.signature(center.getConnections),
             inspect.signature(mlib.Plug.getConnections).replace(parameters=list(inspect.signature(mlib.Plug.getConnections).parameters.values())[1:]),
@@ -129,7 +130,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 self.assertEqual(target.isConnected(source=True, destination=False), target.mplug().isDestination)
                 self.assertEqual(target.isConnected(source=False, destination=True), target.mplug().isSource)
                 self.assertFalse(target.isConnectedTo(source))
-                self.assertIs(target.disconnectAll(), target)
+                self.assertIsNone(target.disconnectAll())
                 self.assertTrue(cmds.isConnected(str(source), str(local)))
                 self.assertTrue(cmds.isConnected(str(local), str(output)))
 
@@ -185,14 +186,14 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 source, center, destinations = self._chain("disconnect" + str(index))
                 src = kwargs.get("source", True)
                 dst = kwargs.get("destination", True)
-                self.assertIs(center.disconnectAll(**kwargs), center)
+                self.assertIsNone(center.disconnectAll(**kwargs))
                 self._assert_chain(source, center, destinations, incoming=not src, outgoing=not dst)
 
     def test_disconnect_all_is_one_undo_redo(self):
         """入力と複数出力の解除を一回のUndo/Redoでまとめて戻せる。"""
         source, center, destinations = self._chain("undo")
         cmds.flushUndo()
-        self.assertIs(center.disconnectAll(source=True, destination=True), center)
+        self.assertIsNone(center.disconnectAll(source=True, destination=True))
         self._assert_chain(source, center, destinations, incoming=False, outgoing=False)
         cmds.undo()
         self._assert_chain(source, center, destinations)
@@ -218,7 +219,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
         self.assertEqual(source.getConnections(source=False, destination=True), [conversion_input])
         self.assertTrue(center.isConnectedTo(conversion_output, source=True, destination=False))
         self.assertFalse(center.isConnectedTo(source, source=True, destination=False))
-        self.assertIs(center.disconnectAll(source=True, destination=False), center)
+        self.assertIsNone(center.disconnectAll(source=True, destination=False))
         self.assertFalse(cmds.isConnected(str(conversion_output), str(center)))
         self.assertTrue(cmds.isConnected(str(source), str(conversion_input)))
         self.assertTrue(cmds.isConnected(str(center), str(output)))
@@ -253,8 +254,8 @@ class ConnectionDirectionsTest(unittest.TestCase):
         self.assertEqual(center.getConnections(source=False, destination=False, skipConversionNodes=True), [])
         self.assertFalse(center.isConnected(source=False, destination=False))
         self.assertFalse(center.isConnectedTo(source, source=False, destination=False))
-        self.assertIs(center.disconnectAll(source=False, destination=False), center)
-        self.assertIs(empty.disconnectAll(), empty)
+        self.assertIsNone(center.disconnectAll(source=False, destination=False))
+        self.assertIsNone(empty.disconnectAll())
         self.assertEqual(empty.getConnections(source=True, destination=True, skipConversionNodes=True), [])
         self.assertFalse(empty.isConnected())
         self.assertFalse(empty.isConnectedTo(source))

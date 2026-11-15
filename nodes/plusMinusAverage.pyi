@@ -38,7 +38,7 @@ class PlusMinusAverage(ShadingDependNode):
             str: ``"noOperation"``・``"sum"``・``"subtract"``・``"average"`` のいずれか。
         """
         ...
-    def setOperation(self, operation: str | int) -> PlusMinusAverage:
+    def setOperation(self, operation: str | int) -> None:
         """演算の種類を設定する(``operation``)。
 
         名前か番号で指定する。1回のUndoで戻せる。
@@ -48,7 +48,7 @@ class PlusMinusAverage(ShadingDependNode):
                 Mayaの番号(0から)でもよい。
 
         Returns:
-            PlusMinusAverage: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
@@ -74,7 +74,7 @@ class PlusMinusAverage(ShadingDependNode):
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
         ...
-    def removeInput(self, index: int, dimension: int = ...) -> PlusMinusAverage:
+    def removeInput(self, index: int, dimension: int = ...) -> None:
         """入力の要素を削除する。
 
         接続されていれば、接続ごと取り除く。1回のUndoで戻せる。
@@ -84,7 +84,7 @@ class PlusMinusAverage(ShadingDependNode):
             dimension (int): 入力の次元。1・2・3。
 
         Returns:
-            PlusMinusAverage: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合、またはdimensionがハッシュできない型(list等)の場合。

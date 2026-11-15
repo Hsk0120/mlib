@@ -16,7 +16,7 @@ class PairBlend(Node):
 
     weightが0なら入力1、1なら入力2になる。
     """
-    def setInput(self, inTranslate1: Iterable[float] | Plug | str | None = ..., inRotate1: Iterable[float] | Plug | str | None = ..., inTranslate2: Iterable[float] | Plug | str | None = ..., inRotate2: Iterable[float] | Plug | str | None = ..., weight: float | Plug | str | None = ...) -> PairBlend:
+    def setInput(self, inTranslate1: Iterable[float] | Plug | str | None = ..., inRotate1: Iterable[float] | Plug | str | None = ..., inTranslate2: Iterable[float] | Plug | str | None = ..., inRotate2: Iterable[float] | Plug | str | None = ..., weight: float | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -35,7 +35,7 @@ class PairBlend(Node):
             weight (float | Plug | str | None): 補間の割合(0〜1)。0なら入力1、1なら入力2になる。
 
         Returns:
-            PairBlend: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -49,7 +49,7 @@ class PairBlend(Node):
             str: ``"euler"``・``"quaternion"`` のいずれか。
         """
         ...
-    def setRotateInterpolation(self, interpolation: str | int) -> PairBlend:
+    def setRotateInterpolation(self, interpolation: str | int) -> None:
         """回転の補間の方法を設定する(``rotInterpolation``)。
 
         名前か番号で指定する。1回のUndoで戻せる。
@@ -58,7 +58,7 @@ class PairBlend(Node):
             interpolation (str | int): ``"euler"``・``"quaternion"`` のいずれか。Mayaの番号(0から)でもよい。
 
         Returns:
-            PairBlend: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: interpolationが文字列・int以外の場合。

@@ -13,7 +13,7 @@ _SECONDARY_MODES: tuple
 
 class AimMatrix(Node):
     """入力マトリクスの主軸・副軸を、ターゲットのマトリクスまたはベクトルへ向けたマトリクスを出力する。"""
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryInputAxis: Iterable[float] | Plug | str | None = ..., primaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryTargetVector: Iterable[float] | Plug | str | None = ..., secondaryInputAxis: Iterable[float] | Plug | str | None = ..., secondaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., secondaryTargetVector: Iterable[float] | Plug | str | None = ...) -> AimMatrix:
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryInputAxis: Iterable[float] | Plug | str | None = ..., primaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryTargetVector: Iterable[float] | Plug | str | None = ..., secondaryInputAxis: Iterable[float] | Plug | str | None = ..., secondaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., secondaryTargetVector: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -34,7 +34,7 @@ class AimMatrix(Node):
             secondaryTargetVector (Iterable[float] | Plug | str | None): 副軸のターゲットのベクトル。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -48,7 +48,7 @@ class AimMatrix(Node):
             str: ``"lockAxis"``・``"aim"``・``"align"`` のいずれか。
         """
         ...
-    def setPrimaryMode(self, mode: str | int) -> AimMatrix:
+    def setPrimaryMode(self, mode: str | int) -> None:
         """主軸の向け方を、名前または番号で設定する(``primaryMode``)。
 
         1回のUndoで戻せる。
@@ -57,7 +57,7 @@ class AimMatrix(Node):
             mode (str | int): ``"lockAxis"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: modeが文字列・int以外の場合。
@@ -72,7 +72,7 @@ class AimMatrix(Node):
             str: ``"none"``・``"aim"``・``"align"`` のいずれか。
         """
         ...
-    def setSecondaryMode(self, mode: str | int) -> AimMatrix:
+    def setSecondaryMode(self, mode: str | int) -> None:
         """副軸の向け方を、名前または番号で設定する(``secondaryMode``)。
 
         1回のUndoで戻せる。
@@ -81,7 +81,7 @@ class AimMatrix(Node):
             mode (str | int): ``"none"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: modeが文字列・int以外の場合。

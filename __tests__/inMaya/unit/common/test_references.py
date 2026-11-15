@@ -75,7 +75,7 @@ class ReferencesSpecTest(unittest.TestCase):
         from mlib.nodes import Reference
 
         result = references.listReferences()
-        self.assertIsInstance(result, list)
+        self.assertIsInstance(result, mlib.Nodes)
         self.assertTrue(all(isinstance(item, Reference) for item in result))
         self.assertNotIn("sharedReferenceNode", [item.getName() for item in result])
         top = references.listReferences(topLevelOnly=True)

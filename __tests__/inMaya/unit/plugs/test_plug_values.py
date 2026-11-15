@@ -409,7 +409,7 @@ class LockSpecTest(_ValueSpecCase):
         """setLocked(False)は自身のロックだけを外す(上位の継承ロックは外さない)。1回のUndoで戻る。"""
         self.lock("tx")
         tx = self.node.getPlug("tx")
-        self.assertIs(tx.setLocked(False), tx)
+        self.assertIsNone(tx.setLocked(False))
         self.assertFalse(cmds.getAttr(self.name + ".tx", lock=True))
         cmds.undo()
         self.assertTrue(cmds.getAttr(self.name + ".tx", lock=True))
@@ -419,7 +419,7 @@ class LockSpecTest(_ValueSpecCase):
         tx.setLocked(False)
         self.assertTrue(tx.isLocked())
         # 上位の解除は親を明示する(旧unlock()が行っていた処理)。
-        self.assertEqual(tx.getParent().setLocked(False), tx.getParent())
+        self.assertIsNone(tx.getParent().setLocked(False))
         self.assertFalse(tx.isLocked())
         self.assertFalse(cmds.getAttr(self.name + ".t", lock=True))
 

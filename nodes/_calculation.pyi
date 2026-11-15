@@ -41,8 +41,8 @@ def _source(value: object, geometry: str | None) -> Plug | None:
     """
     ...
 
-def set_inputs(node: Node, method: str, values: dict[str, object], geometry: dict[str, str] | None = ...) -> Node:
-    """入力をまとめて設定し、ノードを返す。
+def set_inputs(node: Node, method: str, values: dict[str, object], geometry: dict[str, str] | None = ...) -> None:
+    """入力をまとめて設定し。
 
     各入力は、渡したものの種類で扱いが変わる。
 
@@ -61,7 +61,7 @@ def set_inputs(node: Node, method: str, values: dict[str, object], geometry: dic
             その入力へシェイプ(またはシェイプを1つだけ持つTransform)を渡すと、シェイプのworldSpaceを接続する。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: 接続元の型が不正な場合。
@@ -87,8 +87,8 @@ def enum_index(value: str | int, names: tuple[str, ...], label: str) -> int:
     """
     ...
 
-def set_enum(node: Node, method: str, attribute: str, value: str | int, names: tuple[str, ...], label: str) -> Node:
-    """列挙のアトリビュートを名前または番号で設定し、ノードを返す。
+def set_enum(node: Node, method: str, attribute: str, value: str | int, names: tuple[str, ...], label: str) -> None:
+    """列挙のアトリビュートを名前または番号で設定し。
 
     Args:
         node (Node): 対象の計算ノード。
@@ -99,7 +99,7 @@ def set_enum(node: Node, method: str, attribute: str, value: str | int, names: t
         label (str): 例外メッセージに使う引数名。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: :func:`enum_index` と同じ。
@@ -171,7 +171,7 @@ def add_element(node: Node, method: str, attribute: str, values: dict[str, objec
     """
     ...
 
-def remove_elements(node: Node, method: str, attributes: Iterable[str], index: int) -> Node:
+def remove_elements(node: Node, method: str, attributes: Iterable[str], index: int) -> None:
     """マルチアトリビュートの同じ論理番号の要素を、接続ごと削除する。
 
     Args:
@@ -181,7 +181,7 @@ def remove_elements(node: Node, method: str, attributes: Iterable[str], index: i
         index (int): 論理番号。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: indexがint以外(boolを含む)の場合。

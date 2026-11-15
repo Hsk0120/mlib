@@ -53,19 +53,22 @@ class _ErrorCase(NamespaceCase):
 
 
 class AngleUnitArgumentTest(_ErrorCase):
-    """AimConstraint.getRestRotate・getOffset の unit の検証。"""
+    """AimConstraint.setRestRotate・setOffset の unit の検証(getはEulerRotateを返し、unitを持たない)。"""
 
     def test_unit_type_and_name(self):
         aim = mlib.getNode(self.make("aimConstraint"))
         for method in ("getRestRotate", "getOffset"):
+            with self.subTest(method=method), self.assertRaises(TypeError):
+                getattr(aim, method)(unit="rad")
+        for method in ("setRestRotate", "setOffset"):
             with self.subTest(method=method):
-                self.assertEqual(len(getattr(aim, method)(unit="rad")), 3)
+                getattr(aim, method)((0, 0, 0), unit="rad")
                 for unit in (1, 1.0, ["deg"]):
                     with self.assertRaises(TypeError):
-                        getattr(aim, method)(unit=unit)
+                        getattr(aim, method)((0, 0, 0), unit=unit)
                 for unit in ("grad", "", "DEG?"):
                     with self.assertRaises(ValueError):
-                        getattr(aim, method)(unit=unit)
+                        getattr(aim, method)((0, 0, 0), unit=unit)
 
 
 class EnumSetterTest(_ErrorCase):
@@ -111,7 +114,7 @@ class EnumSetterTest(_ErrorCase):
 
     def test_name_and_index_set_the_same_value(self):
         node = mlib.getNode(self.make("aimMatrix"))
-        self.assertIs(node.setPrimaryMode("align"), node)
+        self.assertIsNone(node.setPrimaryMode("align"))
         self.assertEqual(cmds.getAttr(node.getFullName() + ".primaryMode"), 2)
         node.setSecondaryMode(1)
         self.assertEqual(cmds.getAttr(node.getFullName() + ".secondaryMode"), 1)
@@ -431,11 +434,11 @@ class GeometryFilterWeightTest(_ErrorCase):
         for value in (1.0, True, "0", None):
             with self.subTest(geometryIndex=value):
                 with self.assertRaises(TypeError):
-                    self.cluster.getDeformerWeights(value)
+                    self.cluster.getDeformerWeights(geometryIndex=value)
         for value in (1, 5, -1):
             with self.subTest(geometryIndex=value):
                 with self.assertRaises(IndexError):
-                    self.cluster.getDeformerWeights(value)
+                    self.cluster.getDeformerWeights(geometryIndex=value)
 
     def test_skin_cluster_has_no_deformer_weights(self):
         (joint,) = self.joints("joint")
@@ -530,7 +533,7 @@ class JointDisconnectInverseScaleTest(_ErrorCase):
         cmds.delete(dead.getFullName())
         with self.assertRaises(RuntimeError):
             dead.disconnectInverseScale()
-        self.assertIs(self.joint.disconnectInverseScale(), self.joint)
+        self.assertIsNone(self.joint.disconnectInverseScale())
         self.assertIsNone(self.source())
 
 
@@ -1098,7 +1101,7 @@ class ShadingEngineErrorTest(_Case):
         engine.setShader(shader)
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIs(engine.setShader(shader, fast=fast), engine)
+                self.assertIsNone(engine.setShader(shader, fast=fast))
                 self.assertEqual(self.sources(engine), [shader.getName() + ".outColor"])
 
     def test_self_connection_rejected_with_fast(self):
@@ -1226,10 +1229,8 @@ class TransformErrorTest(_Case):
         half = math.sqrt(0.5)
         value = (0.0, 0.0, half, half)
         cases = (
-            (TypeError, {"unit": 5}),
-            (TypeError, {"unit": 5, "get": True}),
-            (ValueError, {"unit": "turn"}),
-            (ValueError, {"unit": "turn", "fast": True}),
+            (TypeError, {"unit": "deg"}),
+            (TypeError, {"unit": "deg", "get": True}),
             (ValueError, {"worldSpace": True, "jo": False}),
             (ValueError, {"worldSpace": True, "r": False}),
             (ValueError, {"ws": True, "r": False, "ra": True}),

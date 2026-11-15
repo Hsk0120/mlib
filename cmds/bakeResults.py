@@ -48,7 +48,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
             ``attribute`` は ``attributes`` で指定するため受け付けない。query・editも受け付けない。
 
     Returns:
-        list[AnimCurve]: 焼き込んだアトリビュートを動かすアニメーションカーブ(新しく作ったものと書き換えたもの)。
+        Nodes[AnimCurve]: 焼き込んだアトリビュートを動かすアニメーションカーブ(新しく作ったものと書き換えたもの)。
             対象はnodesのアトリビュートで、``shape`` が有効なら直下のShapeのアトリビュートも含む。
             ``hierarchy`` で増えた子孫のカーブは含まない。焼き込むものが無ければ空リスト。
 
@@ -67,7 +67,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
     # nodes・common はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..common.sceneTime import Time
     from ..nodes.animCurve import AnimCurve
-    from ..nodes.node import Node
+    from ..nodes.node import Node, Nodes
 
     attributes = _pick_alias(attributes, at, "attributes", "at", default=None)
     time = _pick_alias(time, t, "time", "t", default=None)
@@ -107,7 +107,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
             for curve in _driving_curves(owner, names):
                 if curve not in result:
                     result.append(curve)
-    return [AnimCurve(curve) for curve in result]
+    return Nodes._wrap([AnimCurve(curve) for curve in result])
 
 
 def _attribute_names(attributes):

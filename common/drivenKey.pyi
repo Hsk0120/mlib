@@ -8,7 +8,7 @@ from ..core.attributeType import _convert_angles, _convert_times, _convert_units
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context
 from ..nodes.animCurve import AnimCurve
-from ..nodes.node import Node
+from ..nodes.node import Node, Nodes
 from ..plugs.plug import Plug
 from ..util import _angle_unit, _time_unit
 from typing import Iterable
@@ -161,7 +161,7 @@ class DrivenKey:
             RuntimeError: 削除などで、アトリビュートが無くなっている場合。
         """
         ...
-    def getCurves(self) -> list[AnimCurve]:
+    def getCurves(self) -> Nodes[AnimCurve]:
         """このドライバーと駆動先の組のカーブを取得する。
 
         接続は毎回調べる。ほかのドライバーのカーブや、blendWeightedのweightの入力は含めない。
@@ -169,7 +169,7 @@ class DrivenKey:
         アトリビュートを、どのインスタンスのパスから指定しても同じ関係として扱う。
 
         Returns:
-            list[AnimCurve]: この組のカーブ。まだ無い場合と、対象にならない形の場合は空。
+            Nodes[AnimCurve]: この組のカーブ。まだ無い場合と、対象にならない形の場合は空。
         """
         ...
     def exists(self) -> bool:
@@ -181,7 +181,7 @@ class DrivenKey:
             bool: この組のカーブがつながっていればTrue。キーが無くてもTrue。
         """
         ...
-    def setKey(self, driverValue: float, value: float, inTangentType: str = ..., outTangentType: str = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> DrivenKey:
+    def setKey(self, driverValue: float, value: float, inTangentType: str = ..., outTangentType: str = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """ドライバーの値と駆動先の値を指定して、ドリブンキーを追加または更新する。
 
         2つの値はfloat()で数値にし、有限か確かめる。それぞれのPlugの定義に従ってUI単位へ変換し、
@@ -213,7 +213,7 @@ class DrivenKey:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DrivenKey: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 値の型がfloat()で変換できない場合、unit・timeUnitが文字列でもNoneでもない場合、

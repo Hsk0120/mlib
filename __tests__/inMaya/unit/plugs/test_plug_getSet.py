@@ -298,8 +298,8 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     plug.set(-3, **kwargs)
                 self.assertEqual(plug.set(5, safe=True, **kwargs), 1)
                 self.assertEqual(plug.get(), 0.0)
-        self.assertIs(plug.set(2), plug)
-        self.assertEqual(plug.set(-1, fast=True), plug)
+        self.assertIsNone(plug.set(2))
+        self.assertIsNone(plug.set(-1, fast=True))
         self.assertEqual(plug.get(), -1.0)
 
     def test_soft_range_does_not_limit_values(self):
@@ -549,8 +549,8 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
     def test_set_returns_self_or_zero(self):
         """setは通常自身、safe=Trueの成功は0を返す。"""
         tx = self.node.getPlug("tx")
-        self.assertIs(tx.set(1), tx)
-        self.assertIs(tx.set(2, fast=True), tx)
+        self.assertIsNone(tx.set(1))
+        self.assertIsNone(tx.set(2, fast=True))
         self.assertEqual(tx.set(3, safe=True), 0)
         self.assertEqual(tx.set(4, safe=True, fast=True), 0)
 
@@ -558,7 +558,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         """toggleは反転して自身を返し、1回のUndoで戻る。"""
         visibility = self.node.getPlug("visibility")
         cmds.flushUndo()
-        self.assertIs(visibility.toggle(), visibility)
+        self.assertIsNone(visibility.toggle())
         self.assertFalse(cmds.getAttr(self.name + ".v"))
         visibility.toggle()
         self.assertTrue(cmds.getAttr(self.name + ".v"))
@@ -719,7 +719,7 @@ class PlugEnumSpecTest(_PlugSpecCase):
         """setEnumNamesは0から順の名前へ更新し、1回のUndoで戻す。不正な入力は変更前に拒否する。"""
         plug = self.add("mode", attributeType="enum", enumName="off:on")
         cmds.flushUndo()
-        self.assertIs(plug.setEnumNames(("x", "y", "z")), plug)
+        self.assertIsNone(plug.setEnumNames(("x", "y", "z")))
         self.assertEqual(cmds.attributeQuery("mode", node=self.name, listEnum=True), ["x:y:z"])
         self.assertEqual(plug.getEnumValue("z"), 2)
         cmds.undo()
@@ -761,7 +761,7 @@ class PlugDataValueSpecTest(_PlugSpecCase):
         plug = self.add("mat", attributeType="matrix")
         values = [1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 4, 5, 6, 1]
         cmds.currentUnit(linear="mm")
-        self.assertIs(plug.set(values), plug)
+        self.assertIsNone(plug.set(values))
         self.assertEqual(cmds.getAttr(plug.getFullName()), [float(v) for v in values])
         result = plug.get()
         self.assertIsInstance(result, Matrix)
@@ -937,12 +937,12 @@ class PlugResetDefaultSpecTest(_PlugSpecCase):
         scale = self.node.getPlug("scale")
         scale.set((2, 3, 4))
         cmds.flushUndo()
-        self.assertIs(scale.reset(), scale)
+        self.assertIsNone(scale.reset())
         self.assertEqual(tuple(scale.get()), (1.0, 1.0, 1.0))
         cmds.undo()
         self.assertEqual(tuple(scale.get()), (2.0, 3.0, 4.0))
         cmds.flushUndo()
-        self.assertIs(scale.reset(fast=True), scale)
+        self.assertIsNone(scale.reset(fast=True))
         self.assertEqual(tuple(scale.get()), (1.0, 1.0, 1.0))
         self.assertUndoEmpty()
 

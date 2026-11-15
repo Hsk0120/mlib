@@ -144,11 +144,11 @@ class PluginPackage:
             str: 日本語と英語の警告の文。
         """
         ...
-    def loadPlugins(self) -> list[str]:
+    def loadPlugins(self) -> list[Plugin]:
         """すべてのプラグインをロードする。ロードできないものがあっても続ける。
 
         Returns:
-            list[str]: ロードに失敗したプラグインの名前。失敗するたびに警告を出す。
+            list[Plugin]: ロードに失敗したプラグイン。失敗するたびに警告を出す。
         """
         ...
     def tryLoad(self, dialog: bool | Callable[[str], None] = ..., warn: bool = ...) -> str:

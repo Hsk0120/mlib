@@ -21,17 +21,16 @@ class ObjectSet(Node):
 
         入れ子になったセットの中身は展開しない。MFnSet.getMembers(False)が返す選択の文字列を使う。
 
-        - 名前にドットがあるもの(アトリビュートやコンポーネント): 文字列のまま返す。
-        - それ以外: Nodeのオブジェクトにする。
+        - ノード: Nodeのオブジェクトにする。
+        - アトリビュート: Plugのオブジェクトにする。
+        - コンポーネント: ``vtx[0:3]`` のようにまとめられた範囲ごとに、Verticesなどの複数形のオブジェクトにする。
 
-        順番はMaya APIが列挙する順のまま。``vtx[0:3]`` のようにまとめられた範囲も、そのまま返す。
-        独自に並べ替えたり、範囲を1要素ずつに展開したりはしない。
+        順番はMaya APIが列挙する順のまま。独自に並べ替えない。
 
         Returns:
-            list[Node | str]: 新しいリスト。空のセットなら空リスト。文字列をPlugやComponentへ自動では変換しない。
+            list[Node | Plug | Components]: 新しいリスト。空のセットなら空リスト。
         """
-        names = om2.MFnSet(self.mnode()).getMembers(False).getSelectionStrings()
-        return [name if "." in name else Node(name) for name in names]
+        return self._member_names(om2.MFnSet(self.mnode()).getMembers(False))
 
     def addMembers(self, *members):
         """ノードやコンポーネントなどを、このセットへ追加する。
@@ -44,7 +43,7 @@ class ObjectSet(Node):
             members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 対応していない型を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
@@ -54,7 +53,6 @@ class ObjectSet(Node):
         with undoChunk("mlibObjectSetAddMembers"):
             if members:
                 cmds.sets(Object._input_names(members), add=self.getName())
-            return self
 
     def removeMembers(self, *members):
         """指定したメンバーを、このセットから外す。
@@ -66,7 +64,7 @@ class ObjectSet(Node):
             *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaが外すのを拒否した場合。
@@ -74,7 +72,6 @@ class ObjectSet(Node):
         with undoChunk("mlibObjectSetRemoveMembers"):
             if members:
                 cmds.sets(Object._input_names(members), remove=self.getName())
-            return self
 
     def isMember(self, member):
         """渡したものが、すべてこのセットに直接入っているか調べる。
@@ -121,7 +118,7 @@ class ObjectSet(Node):
         Undoが有効なら、1回のUndoで戻せる。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
@@ -129,7 +126,6 @@ class ObjectSet(Node):
         self._require_valid("クリア")
         with undoChunk("mlibObjectSetClear"):
             cmds.sets(clear=self.getName())
-            return self
 
     def getUnion(self, other):
         """このセットと別のセットの、少なくとも一方に直接入っているものを取得する(和集合)。
@@ -141,7 +137,7 @@ class ObjectSet(Node):
             other (ObjectSet | str): 比べるobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。
+            list[Node | Plug | Components]: 新しいリスト。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
@@ -161,7 +157,7 @@ class ObjectSet(Node):
             other (ObjectSet | str): 比べるobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。形は :meth:`getMembers` と同じ。
+            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
@@ -182,7 +178,7 @@ class ObjectSet(Node):
             other (ObjectSet | str): 除くメンバーを持つobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。形は :meth:`getMembers` と同じ。
+            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
@@ -251,6 +247,22 @@ class ObjectSet(Node):
             members (om2.MSelectionList): 変換する選択リスト。
 
         Returns:
-            list[Node | str]: 名前にドットがあるものは文字列、それ以外はNode。
+            list[Node | Plug | Components]: ノードはNode、アトリビュートはPlug、コンポーネントは範囲ごとの複数形のオブジェクト。
         """
-        return [name if "." in name else Node(name) for name in members.getSelectionStrings()]
+        # 循環参照の回避: cmds・common・plugsがnodesを参照するため、使う時点で読み込む。
+        from ..cmds.ls import _collect
+        from ..common.selection import Selection
+        from ..components import Component
+        from ..plugs.plug import Plug
+
+        result = []
+        for name in members.getSelectionStrings():
+            if "." not in name:
+                result.append(Node(name))
+                continue
+            resolved = Selection(name).items
+            if resolved and isinstance(resolved[0], Component):
+                result.append(_collect(resolved))
+            else:
+                result.append(Plug._resolve_input(name))
+        return result

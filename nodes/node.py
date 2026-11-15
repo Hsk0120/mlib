@@ -8,6 +8,7 @@ from typing import Optional
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
 from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type, _unknown_node_type_message
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _validated_flags, undoChunk, undoTransaction
@@ -765,7 +766,7 @@ class Node(Object):
         同じものは1回だけ含む。
 
         Returns:
-            list[ShadingEngine]: 直接の接続先のShadingEngine。テクスチャからヒストリをたどって探すものではない。
+            Nodes[ShadingEngine]: 直接の接続先のShadingEngine。テクスチャからヒストリをたどって探すものではない。
         """
         # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
@@ -778,7 +779,7 @@ class Node(Object):
                 if obj.hasFn(om2.MFn.kShadingEngine) and key not in seen:
                     seen.add(key)
                     result.append(ShadingEngine(obj))
-        return result
+        return Nodes._wrap(result)
 
     def sameNode(self, other):
         """同じMayaのノードを指しているか調べる。
@@ -962,7 +963,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateかfastがbool以外の場合。
@@ -975,7 +976,6 @@ class Node(Object):
                 fn.isLocked = state
             else:
                 cmds.lockNode(self.getFullName(), lock=state)
-            return self
 
     def isFromReferencedFile(self):
         """ノードがリファレンスしたファイルから読み込まれたものか調べる。
@@ -1020,7 +1020,7 @@ class Node(Object):
         self._require_valid("照会")
         return self._alive_fn().isDefaultNode
 
-    def getSets(self, type=None):
+    def getSets(self, *, type=None):
         """このノードが入っているセット(objectSetとその派生の型)を取得する。
 
         ``cmds.listSets(object=node)`` と同じく、ノード自身がメンバーになっているセットを返す。
@@ -1032,7 +1032,7 @@ class Node(Object):
             type (str | None): セットのノードの型で絞る(``"shadingEngine"`` など)。派生の型も含む。Noneなら絞らない。
 
         Returns:
-            list[ObjectSet]: セットのオブジェクト(``ShadingEngine`` などの派生の型も含む)。名前の順。無ければ空リスト。
+            Nodes[ObjectSet]: セットのオブジェクト(``ShadingEngine`` などの派生の型も含む)。名前の順。無ければ空の集まり。
 
         Raises:
             TypeError: typeが文字列・None以外の場合。
@@ -1047,7 +1047,7 @@ class Node(Object):
         self._require_valid("セットの取得")
         names = cmds.listSets(object=self.getFullName()) or []
         sets = [Node._from_name(name) for name in sorted(names)]
-        return [node for node in sets if type is None or node.isType(type)]
+        return Nodes._wrap([node for node in sets if type is None or node.isType(type)])
 
     def isAncestorOf(self, other):
         """otherが、このノードの子孫か調べる。
@@ -1158,7 +1158,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 自身。ネームスペース付きの名前は :meth:`getNodeName` で取得する。
+            None: 値を返さない。ネームスペース付きの名前は :meth:`getNodeName` で取得する。
 
         Raises:
             ValueError: namespaceが空文字列か、文字列でない場合。
@@ -1183,7 +1183,7 @@ class Node(Object):
             namespace_name = target_namespace.name
             node_name = self.getNodeName(True)
             new_name = f"{namespace_name}:{node_name}" if namespace_name != ":" else node_name
-            return self.rename(new_name, fast=fast)
+            self.rename(new_name, fast=fast)
 
     def delete(self, *, safe=False, fast=False):
         """このノードを、Mayaの標準の決まりで削除する。
@@ -1237,7 +1237,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -1257,7 +1257,6 @@ class Node(Object):
                 rename_node(self.mnode(), name, ignoreShape)
             else:
                 cmds.rename(self.getName(), name, ignoreShape=ignoreShape)
-            return self
 
     def duplicate(self, name=None, *, suffix=None, **kwargs):
         """このノードを複製する。
@@ -1325,6 +1324,7 @@ class Node(Object):
 
     def getConnections(
         self,
+        *,
         s=True,
         d=True,
         c=False,
@@ -1369,7 +1369,7 @@ class Node(Object):
             index (int | None): 結果のうち1件だけを返すときの番号。範囲外ならNone。
 
         Returns:
-            list | Plug | Node | tuple | None: 条件に合う結果。
+            Plugs | Nodes | list | Plug | Node | tuple | None: 条件に合う結果。
         """
         # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
         from ..plugs.plug import Plug
@@ -1414,7 +1414,14 @@ class Node(Object):
                 # 派生クラスが接続の照会を上書きする場合は、その実装を通す(引数typeが組込みを隠すため__class__)。
                 pairs.extend(
                     local.getConnections(
-                        s, d, source=source, destination=destination, skipConversionNodes=skip_conversion, asPair=True, checkChildren=False, checkElements=False
+                        s=s,
+                        d=d,
+                        source=source,
+                        destination=destination,
+                        skipConversionNodes=skip_conversion,
+                        asPair=True,
+                        checkChildren=False,
+                        checkElements=False,
                     )
                 )
                 continue
@@ -1439,7 +1446,7 @@ class Node(Object):
                 ``attribute`` / ``at`` は、ここではなく引数attributesで指定する。
 
         Returns:
-            Node: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: attributesが文字列・文字列の並び・None以外の場合、``attribute`` / ``at`` をkwargsに渡した場合、
@@ -1463,12 +1470,11 @@ class Node(Object):
                 plugs = [self.getPlug(name) for name in names] if names is not None else self.getPlugs(keyable=True, scalar=True)
                 for plug in plugs:
                     cmds.setKeyframe(plug.getFullName(), **_key_flags_to_ui(plug.mplug(), kwargs, unit, timeUnit, uiUnits))
-                return self
+                return
             flags = _key_flags_to_ui(None, kwargs, None, timeUnit, True)
             if names is not None:
                 flags["attribute"] = names
             cmds.setKeyframe(self.getFullName(), **flags)
-            return self
 
     def removeKey(self, attributes=None, *, time=None, timeUnit=None):
         """複数のアトリビュートのキーを削除する(``cmds.cutKey(node, attribute=[...], clear=True)`` にあたる)。
@@ -1482,7 +1488,7 @@ class Node(Object):
             timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
-            Node: 自身。キーが無ければ何もしない。
+            None: 値を返さない。キーが無ければ何もしない。
 
         Raises:
             TypeError: attributesが文字列・文字列の並び・None以外の場合、timeが数値・2つの数値の並び・None以外の場合、
@@ -1501,7 +1507,6 @@ class Node(Object):
             if names is not None:
                 flags["attribute"] = names
             cmds.cutKey(self.getFullName(), clear=True, **flags)
-            return self
 
     def moveKey(self, attributes=None, *, time=None, timeOffset=0, valueOffset=0, unit=None, timeUnit=None):
         """複数のアトリビュートのキーの、時刻と値をずらす。
@@ -1519,7 +1524,7 @@ class Node(Object):
             timeUnit (str | None): time・timeOffsetの単位。None(既定)と ``"frame"`` はフレーム、``"sec"`` は秒。
 
         Returns:
-            Node: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: attributesが文字列・文字列の並び・None以外の場合、またはほかの引数の型が不正な場合。
@@ -1536,9 +1541,8 @@ class Node(Object):
             flags = [(plug, _move_key_flags(plug, time, timeOffset, valueOffset, unit, timeUnit)) for plug in plugs]
             for plug, plug_flags in flags:
                 _move_plug_keys(plug.getFullName(), plug_flags)
-            return self
 
-    def getHistory(self, type=None, future=False):
+    def getHistory(self, *, type=None, future=False):
         """ヒストリのノードを取得する。
 
         ``MItDependencyGraph`` でヒストリをたどって探す。
@@ -1548,7 +1552,7 @@ class Node(Object):
             future (bool): Trueなら下流を、Falseなら上流を探す。既定はFalse。
 
         Returns:
-            list[Node]: ``cmds.listHistory`` と同じ順(深さ優先)。自身は含まず、同じものは1回だけ含む。
+            Nodes: ``cmds.listHistory`` と同じ順(深さ優先)。自身は含まず、同じものは1回だけ含む。
                 見つからなければ空リスト。Shapeを持つTransformでは、``listHistory`` と同じく、
                 中間オブジェクトでない直下のShapeのヒストリを返す。DAGノードは最初のDAGパスで返す。
 
@@ -1590,7 +1594,7 @@ class Node(Object):
                 node = Node._wrap_resolved(*_resolve_node(mobject))
                 if type is None or node.isType(type):
                     result.append(node)
-        return result
+        return Nodes._wrap(result)
 
     def findCycles(self):
         """このノードを通るDGの循環(cycle)を、アトリビュートの並びで取得する。
@@ -1657,7 +1661,7 @@ class Node(Object):
 
         return [[Plug(owner(plugs[key]), plugs[key]) for key in path] for path in cycles]
 
-    def resetAttrs(self, attributes=None, *, fast=False):
+    def resetAttrs(self, attributes=None, *, fast=False, check=False):
         """アトリビュートを既定値へ戻す。
 
         指定したアトリビュートを戻す。省略したときは、書き込めてキーを設定できるアトリビュートを戻す。
@@ -1670,9 +1674,11 @@ class Node(Object):
                 そのうち、マルチアトリビュート・ロック・入力の接続・書込み禁止・対応していない型のものは除く
                 (通常とfastで同じものを選ぶ)。明示したアトリビュートのエラーは、除かずにそのまま例外にする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            list[Plug]: 既定値へ戻したアトリビュート。すべての変更を1回のUndoにまとめる。
+            Plugs: 既定値へ戻したアトリビュート。すべての変更を1回のUndoにまとめる。
 
         Raises:
             AttributeError: 指定したアトリビュートが存在しない場合。
@@ -1694,10 +1700,13 @@ class Node(Object):
             else:
                 plugs = self._plugs_from(attributes)
             for plug in plugs:
-                plug.reset(fast=fast)
-            return plugs
+                plug.reset(fast=fast, check=check)
+            # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
+            from ..plugs.plug import Plugs
 
-    def setAttrFlags(self, attributes, locked=None, keyable=None, channelBox=None, *, children=False, fast=False):
+            return Plugs._from_plugs(plugs)
+
+    def setAttrFlags(self, attributes, *, locked=None, keyable=None, channelBox=None, children=False, fast=False):
         """アトリビュートのロック・キーを設定できるか・チャンネルボックスへの表示を変更する。
 
         先に状態の型を確かめ、すべてのアトリビュートを解決してから、順に変更する。
@@ -1715,7 +1724,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Node: 自身。
+            None: 値を返さない。
 
         Raises:
             AttributeError: 指定したアトリビュートが存在しない場合。
@@ -1731,7 +1740,6 @@ class Node(Object):
             if flags:
                 for plug in plugs:
                     plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children, fast=fast)
-            return self
 
     def getPlugs(self, userDefined=False, includeChildren=True, *, writable=False, **listAttrFlags):
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
@@ -1754,7 +1762,7 @@ class Node(Object):
             **listAttrFlags: ``userDefined=False`` のときに ``cmds.listAttr`` へ渡すフラグ。
 
         Returns:
-            list[Plug]: 新しいリスト。userDefinedでは追加した順、それ以外はlistAttrの順。
+            Plugs: 新しいリスト。userDefinedでは追加した順、それ以外はlistAttrの順。
                 解決できないパスは省き、見つからなければ空リスト。
                 名前が必要なら ``[plug.getLongName() for plug in ...]`` を使う。
 
@@ -1772,7 +1780,10 @@ class Node(Object):
         plugs = self._list_plugs(userDefined, includeChildren, listAttrFlags)
         if writable:
             plugs = [plug for plug in plugs if _is_writable(plug.mplug())]
-        return plugs
+        # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
+        from ..plugs.plug import Plugs
+
+        return Plugs._from_plugs(plugs)
 
     def getAliases(self):
         """このノードのアトリビュートのエイリアス(別名)を取得する。
@@ -2150,7 +2161,7 @@ class Node(Object):
                 範囲を超えて指定すると、先頭や末尾で止まる。
 
         Returns:
-            Node: 自身。すべての変更を1回のUndoにまとめる。
+            None: 値を返さない。すべての変更を1回のUndoにまとめる。
 
         Raises:
             TypeError: 作り直す範囲に、コンパウンドアトリビュート・マルチアトリビュート・対応していない型の
@@ -2166,7 +2177,7 @@ class Node(Object):
         old_index = names.index(name)
         new_index = max(0, min(len(names) - 1, old_index + offset))
         if new_index == old_index:
-            return self
+            return
         if not cmds.undoInfo(query=True, state=True):
             raise RuntimeError("moveAttrOrderには、失敗したときにアトリビュートを復元するためのUndoが必要です")
         window_start = min(old_index, new_index)
@@ -2204,7 +2215,6 @@ class Node(Object):
                 plug = self.getPlug(info["longName"])
                 if info["locked"]:
                     plug.setFlags(locked=True)
-        return self
 
     def getPlug(self, name):
         """このノードのアトリビュートを取得する。
@@ -3119,14 +3129,17 @@ class Node(Object):
                 yield attribute
 
 
-class Nodes:
+class Nodes(_ListMethods):
     """複数のノードを、渡した順にまとめて持つクラス。
 
     要素の型は、まとめるときに確かめる。
 
     - 同じノードで同じDAGパスのものだけを1つにまとめる。インスタンスのパスが違えば別の要素として持つ。
     - コピーやスライスは、同じNodeのオブジェクトを共有する。シーンのノードは複製しない。
-    - ``len``・番号での取り出し(sliceなら同じ型)・``for``・``bool``・``+``・``==``・:meth:`sort` が使える。
+    - ``len``・番号での取り出し(sliceなら同じ型)・``for``・``bool``・``in``・``+``・``==``・:meth:`sort` が使える。
+    - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
+      番号への代入・``del``・``+=`` も使える。足す値は作るときと同じ決まりで確かめ、すでにある要素は足さない。
+      これらの名前は、各要素の同じ名前のメソッドへは転送しない(転送するときは :meth:`callEach` を使う)。
     - そのまま ``maya.cmds`` へ渡せる(cmdsが並びとして、各ノードの名前へ展開する)。
     - ``==`` を定義しているので、listと同じくハッシュできない(dictのキーやsetの要素にできない)。
 
@@ -3345,7 +3358,7 @@ class Nodes:
             reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
-            Nodes: 並べ替えた自身(新しいまとまりは作らない)。
+            None: 値を返さない。
 
         Raises:
             TypeError: keyが呼び出せないものの場合、またはreverseがbool以外の場合。
@@ -3359,9 +3372,8 @@ class Nodes:
                 node._require_valid("並べ替え")
             key = methodcaller("getFullName")
         self._items.sort(key=key, reverse=reverse)
-        return self
 
-    def setAttrFlags(self, attributes, locked=None, keyable=None, channelBox=None, *, fast=False):
+    def setAttrFlags(self, attributes, *, locked=None, keyable=None, channelBox=None, children=False, fast=False):
         """各ノードへ、順に :meth:`Node.setAttrFlags` を呼ぶ。
 
         このクラスでまとめて書き込めるメソッドは、:meth:`setAttrFlags`・:meth:`resetAttrs`・:meth:`setLocked`・
@@ -3375,10 +3387,11 @@ class Nodes:
             locked (bool | None): :meth:`Node.setAttrFlags` と同じ。
             keyable (bool | None): :meth:`Node.setAttrFlags` と同じ。
             channelBox (bool | None): :meth:`Node.setAttrFlags` と同じ。
+            children (bool): :meth:`Node.setAttrFlags` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Nodes: 自身。
+            None: 値を返さない。
 
         Raises:
             AttributeError: :meth:`Node.setAttrFlags` と同じ。
@@ -3386,26 +3399,30 @@ class Nodes:
             RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。それまでの要素の変更は
                 自動では戻さない(通常はUndoで戻せる)。
         """
-        self._forward("setAttrFlags", (attributes, locked, keyable, channelBox), fast)
-        return self
+        self._forward("setAttrFlags", (attributes,), fast, locked=locked, keyable=keyable, channelBox=channelBox, children=children)
 
-    def resetAttrs(self, attributes=None, *, fast=False):
+    def resetAttrs(self, attributes=None, *, fast=False, check=False):
         """各ノードへ、順に :meth:`Node.resetAttrs` を呼ぶ。
 
         Args:
             attributes (str | Iterable[str] | None): :meth:`Node.resetAttrs` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            list[Plug]: すべての要素で既定値へ戻したアトリビュート(要素の順)。通常は1回のUndoにまとめる。
+            Plugs: すべての要素で既定値へ戻したアトリビュート(要素の順)。通常は1回のUndoにまとめる。
 
         Raises:
             AttributeError: :meth:`Node.resetAttrs` と同じ。
             TypeError: :meth:`Node.resetAttrs` と同じ。
             RuntimeError: 無効なノードを含む場合、またはアトリビュートを書き込めない場合。
         """
-        results = self._forward("resetAttrs", (attributes,), fast)
-        return [plug for plugs in results for plug in plugs]
+        results = self._forward("resetAttrs", (attributes,), fast, check=check)
+        # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
+        from ..plugs.plug import Plugs
+
+        return Plugs._from_plugs([plug for plugs in results for plug in plugs])
 
     def setLocked(self, state=True, *, fast=False):
         """各ノードへ、順に :meth:`Node.setLocked` を呼ぶ。
@@ -3415,14 +3432,13 @@ class Nodes:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Nodes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateかfastがbool以外の場合。
             RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。
         """
         self._forward("setLocked", (state,), fast)
-        return self
 
     def getOverrideColor(self, *, shape=False):
         """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` を、要素の順に取得する。
@@ -3440,43 +3456,45 @@ class Nodes:
         self._require_method("getOverrideColor")
         return [node.getOverrideColor(shape=shape) for node in self._items]
 
-    def setOverrideColor(self, color, *, shape=False, fast=False):
+    def setOverrideColor(self, color, *, shape=False, fast=False, check=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を呼ぶ。
 
         Args:
             color (object): :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` と同じ。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。通常は全体を1回のUndoにまとめる。
+            None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
             TypeError: DAGノード以外を含む、色の指定が不正、またはfastがbool以外の場合。
             ValueError: 色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setOverrideColor", (color,), fast, shape=shape)
-        return self
+        self._forward("setOverrideColor", (color,), fast, shape=shape, check=check)
 
-    def setOverrideColors(self, colors, *, shape=False, fast=False):
+    def setOverrideColors(self, colors, *, shape=False, fast=False, check=False):
         """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を呼ぶ。
 
         Args:
             colors (Iterable[object]): ノードと同じ数の色。要素の順に1色ずつ使う。書き込む前に、すべての色を確かめる。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。通常は全体を1回のUndoにまとめる。
+            None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
             TypeError: DAGノード以外を含む、色の指定が不正、またはfastがbool以外の場合。
             ValueError: 色の数がノードの数と違う、または色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._set_each_color("setOverrideColor", colors, shape, fast)
-        return self
+        self._set_each_color("setOverrideColor", colors, shape, fast, check)
 
     def getOutlinerColor(self, *, shape=False):
         """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerColor` を、要素の順に取得する。
@@ -3494,60 +3512,63 @@ class Nodes:
         self._require_method("getOutlinerColor")
         return [node.getOutlinerColor(shape=shape) for node in self._items]
 
-    def setOutlinerColor(self, color, *, shape=False, fast=False):
+    def setOutlinerColor(self, color, *, shape=False, fast=False, check=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を呼ぶ。
 
         Args:
             color (object): :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` と同じ。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。通常は全体を1回のUndoにまとめる。
+            None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
             TypeError: DAGノード以外を含む、色の指定が不正、またはfastがbool以外の場合。
             ValueError: 色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setOutlinerColor", (color,), fast, shape=shape)
-        return self
+        self._forward("setOutlinerColor", (color,), fast, shape=shape, check=check)
 
-    def setOutlinerColors(self, colors, *, shape=False, fast=False):
+    def setOutlinerColors(self, colors, *, shape=False, fast=False, check=False):
         """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を呼ぶ。
 
         Args:
             colors (Iterable[object]): ノードと同じ数の色。要素の順に1色ずつ使う。書き込む前に、すべての色を確かめる。
             shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。通常は全体を1回のUndoにまとめる。
+            None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
             TypeError: DAGノード以外を含む、色の指定が不正、またはfastがbool以外の場合。
             ValueError: 色の数がノードの数と違う、または色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._set_each_color("setOutlinerColor", colors, shape, fast)
-        return self
+        self._set_each_color("setOutlinerColor", colors, shape, fast, check)
 
-    def setVisibility(self, state, *, fast=False):
+    def setVisibility(self, state=True, *, fast=False, check=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setVisibility` を呼ぶ。
 
         Args:
             state (bool): Trueなら表示、Falseなら非表示にする。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: DAGノード以外を含む、またはstate・fastがbool以外の場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setVisibility", (state,), fast)
-        return self
+        self._forward("setVisibility", (state,), fast, check=check)
 
     def show(self, *, fast=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.show` を呼ぶ。
@@ -3556,14 +3577,13 @@ class Nodes:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Nodes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: DAGノード以外を含む、またはfastがbool以外の場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
         self._forward("show", (), fast)
-        return self
 
     def hide(self, *, fast=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.hide` を呼ぶ。
@@ -3572,16 +3592,15 @@ class Nodes:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Nodes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: DAGノード以外を含む、またはfastがbool以外の場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
         self._forward("hide", (), fast)
-        return self
 
-    def setParent(self, parent=None, relative=False, add=False, *, fast=False):
+    def setParent(self, parent=None, relative=False, add=False, *, fast=False, check=False):
         """各Transformへ、順に :meth:`~mlib.nodes.transform.Transform.setParent` を呼ぶ。
 
         Args:
@@ -3589,9 +3608,11 @@ class Nodes:
             relative (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
             add (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Nodes: 自身。各要素は、親を変えた後のパスを指す。
+            None: 値を返さない。各要素は、親を変えた後のパスを指す。
 
         Raises:
             TypeError: Transform以外を含む場合。
@@ -3603,11 +3624,10 @@ class Nodes:
             target = Node._resolve_input(parent)
             for node in self._items:
                 # Transform 以外の要素は _forward が TypeError にするため、ここでは Transform だけを調べる。
-                check = getattr(node, "_require_not_own_descendant", None)
-                if check is not None and node.isValid() and target.isValid() and target.hasFn(om2.MFn.kTransform):
-                    check(target)
-        self._forward("setParent", (parent, relative, add), fast)
-        return self
+                require = getattr(node, "_require_not_own_descendant", None)
+                if require is not None and node.isValid() and target.isValid() and target.hasFn(om2.MFn.kTransform):
+                    require(target)
+        self._forward("setParent", (parent, relative, add), fast, check=check)
 
     def getNames(self):
         """各ノードの一意な名前を取得する(:meth:`Node.getName` を並べたもの)。
@@ -3686,6 +3706,40 @@ class Nodes:
         result._items = list(self._items)
         return result
 
+    @classmethod
+    def _wrap(cls, items):
+        """すでに確かめてあるNodeの並びから、解決と検査を省いて作る(取得系のメソッドの戻り値で使う)。
+
+        Args:
+            items (Iterable[Node]): 有効で、重なりの無いNodeの並び。同じ型の集まりならその要素を写す。
+
+        Returns:
+            Nodes: itemsを持っている順のまま持つ、新しい集まり。
+        """
+        result = object.__new__(cls)
+        result._items = list(getattr(items, "_items", items))
+        return result
+
+    def _coerce(self, value):
+        """追加する値をNodeへ解決し、有効か・要素の型が合うかを確かめる。
+
+        Args:
+            value (object): 名前・Node・APIのオブジェクトなど。
+
+        Returns:
+            Node: 解決したノード。
+
+        Raises:
+            TypeError: 解決したノードがitem_classの派生でない場合。
+            RuntimeError: 名前を解決できない場合、または無効なノードの場合。
+        """
+        node = Node._resolve_input(value)
+        if not node.isValid():
+            raise RuntimeError("無効なノードは収集できません")
+        if not isinstance(node, self.item_class):
+            raise TypeError(f"{type(self).__name__}には{self.item_class.__name__}を指定してください: {type(node).__name__}")
+        return node
+
     def _forward(self, method, args, fast, **kwargs):
         """保持順の各ノードへ単数のメソッドを適用し、結果の列を返す。
 
@@ -3728,7 +3782,7 @@ class Nodes:
         if missing:
             raise TypeError(f"{type(self).__name__}.{method}()には、すべての要素が{method}()に対応している必要があります。{missing[0]!r}は対応していません")
 
-    def _set_each_color(self, method, colors, shape, fast):
+    def _set_each_color(self, method, colors, shape, fast, check=False):
         """保持順の各ノードへ、対応する色で単数のメソッドを適用する。
 
         Args:
@@ -3736,6 +3790,7 @@ class Nodes:
             colors (Iterable[object]): ノードと同数の色の指定。
             shape (bool): メソッドへ渡すshape。
             fast (bool): メソッドへ渡すfast。
+            check (bool): メソッドへ渡すcheck。
 
         Returns:
             None: 値を返さない。
@@ -3757,7 +3812,7 @@ class Nodes:
             node._require_valid(method)
         with _edit_context(f"mlib{type(self).__name__}{method[:1].upper()}{method[1:]}s", fast):
             for node, color in zip(self._items, colors):
-                getattr(node, method)(color, shape=shape, fast=fast)
+                getattr(node, method)(color, shape=shape, fast=fast, check=check)
 
     @staticmethod
     def _resolve_inputs(values):

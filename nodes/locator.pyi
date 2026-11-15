@@ -17,15 +17,17 @@ class Locator(Shape):
             Translate: localPositionの値。
         """
         ...
-    def setPosition(self, value: Translate | Iterable[float], *, fast: bool = ...) -> Locator:
+    def setPosition(self, value: Translate | Iterable[float], *, fast: bool = ..., check: bool = ...) -> None:
         """ロケーターの位置(localPosition)を設定する。
 
         Args:
             value (Translate | Iterable[float]): 新しいlocalPositionの値。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Locator: 自身。
+            None: 値を返さない。
 
         Note:
             ``fast=True`` はOpenMayaで直接書き込む(Undoなし)。既定の ``False`` は通常の処理になる。

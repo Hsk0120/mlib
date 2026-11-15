@@ -11,7 +11,7 @@ _OPERATIONS: tuple
 
 class MultiplyDivide(ShadingDependNode):
     """XYZの成分ごとに、乗算・除算・累乗を計算するmultiplyDivideを扱うクラス。"""
-    def setInput(self, input1: Iterable[float] | Plug | str | None = ..., input2: Iterable[float] | Plug | str | None = ...) -> MultiplyDivide:
+    def setInput(self, input1: Iterable[float] | Plug | str | None = ..., input2: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -27,7 +27,7 @@ class MultiplyDivide(ShadingDependNode):
             input2 (Iterable[float] | Plug | str | None): 2つ目の入力(XYZ)。
 
         Returns:
-            MultiplyDivide: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -41,7 +41,7 @@ class MultiplyDivide(ShadingDependNode):
             str: ``"noOperation"``・``"multiply"``・``"divide"``・``"power"`` のいずれか。
         """
         ...
-    def setOperation(self, operation: str | int) -> MultiplyDivide:
+    def setOperation(self, operation: str | int) -> None:
         """演算の種類を設定する(``operation``)。
 
         名前か番号で指定する。1回のUndoで戻せる。
@@ -51,7 +51,7 @@ class MultiplyDivide(ShadingDependNode):
                 Mayaの番号(0から)でもよい。
 
         Returns:
-            MultiplyDivide: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。

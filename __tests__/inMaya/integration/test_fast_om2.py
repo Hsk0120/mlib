@@ -288,7 +288,7 @@ class Om2BackendsTest(unittest.TestCase):
             self.assertEqual(len(mlib.getNode(handle).getJoints()), 2)
             self.assertEqual(listReferences(), [])
             self.assertTrue(multiply.resetAttrs(fast=True))
-            self.assertEqual(node.getPlug("ty").getAnimLayers(), [])
+            self.assertEqual(node.getPlug("ty").getAnimLayers().getNames(), [])
 
     def test_set_muted_holds_value_and_undoes_once(self):
         """mute・解除はcmds.muteで行い、現在値を保持する。1回のUndoで戻る。"""
@@ -298,7 +298,7 @@ class Om2BackendsTest(unittest.TestCase):
         cmds.currentTime(4)
         plug = mlib.getPlug(node + ".tx")
         held = plug.get()
-        self.assertIs(plug.setMuted(True), plug)
+        self.assertIsNone(plug.setMuted(True))
         self.assertTrue(plug.isMuted())
         self.assertTrue(cmds.mute(node + ".tx", query=True))
         cmds.currentTime(8)

@@ -83,9 +83,9 @@ class TransformNamingTest(unittest.TestCase):
         node = mlib.createNode("transform")
         node.getPlug("rotateOrder").set(5)
         cmds.currentUnit(linear="m", angle="rad")
-        self.assertIs(node.setTranslation((25, 50, 75), at=1), node)
-        self.assertIs(node.setRotate((10, 20, 30), unit="deg"), node)
-        self.assertIs(node.setScale((2, 3, 4)), node)
+        self.assertIsNone(node.setTranslation((25, 50, 75), at=1))
+        self.assertIsNone(node.setRotate((10, 20, 30), unit="deg"))
+        self.assertIsNone(node.setScale((2, 3, 4)))
         for attr, getter, value_type in (
             ("translate", "getTranslation", mlib.Translate),
             ("rotate", "getRotate", mlib.EulerRotate),
@@ -110,13 +110,13 @@ class TransformNamingTest(unittest.TestCase):
         """正式getterだけを公開し、get=Trueの計算は値を返してシーンを更新しない。"""
         nodes = [mlib.createNode("transform") for _ in range(2)]
         for node in nodes:
-            self.assertIs(node.setTranslation((1, 2, 3), at=1), node)
+            self.assertIsNone(node.setTranslation((1, 2, 3), at=1))
         self.assertEqual([tuple(node.getTranslation(at=1)) for node in nodes], [(1, 2, 3)] * 2)
         for getter_name, short in (("getTranslation", "translate"), ("getRotate", "rotate"), ("getScale", "scale")):
             self.assertTrue(callable(getattr(mlib.Transform, getter_name)))
             self.assertFalse(hasattr(mlib.Transform, short))
         for node in nodes:
-            self.assertEqual(node.setTranslation((4, 5, 6), False, 1, False, True), [4, 5, 6])
+            self.assertEqual(node.setTranslation((4, 5, 6), False, 1, safe=False, get=True), [4, 5, 6])
         self.assertEqual([tuple(node.getTranslation(at=1)) for node in nodes], [(1, 2, 3)] * 2)
 
     def test_renamed_setter_retains_undo_and_fast_behavior(self):
@@ -124,14 +124,14 @@ class TransformNamingTest(unittest.TestCase):
         node = mlib.createNode("transform")
         node.setTranslation((1, 2, 3), at=1)
         cmds.flushUndo()
-        self.assertIs(node.setTranslation((4, 5, 6), at=1), node)
+        self.assertIsNone(node.setTranslation((4, 5, 6), at=1))
         self.assertEqual(tuple(node.getTranslation(at=1)), (4, 5, 6))
         cmds.undo()
         self.assertEqual(tuple(node.getTranslation(at=1)), (1, 2, 3))
         cmds.redo()
         self.assertEqual(tuple(node.getTranslation(at=1)), (4, 5, 6))
         cmds.flushUndo()
-        self.assertIs(node.setTranslation((7, 8, 9), at=1, fast=True), node)
+        self.assertIsNone(node.setTranslation((7, 8, 9), at=1, fast=True))
         self.assertEqual(tuple(node.getTranslation(at=1)), (7, 8, 9))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 

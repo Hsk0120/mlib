@@ -65,7 +65,8 @@ class PlugSetKeyTimeTest(_SpecCase):
         with self.assertRaises(ValueError):
             plug.setKey(time=1, timeUnit="minute")
         self.assertIsNone(plug.getSource(skipConversionNodes=True))
-        plug.setKey(time=0.5, value=3, timeUnit="sec").setKey(time=1.0, value=4, timeUnit="sec")
+        plug.setKey(time=0.5, value=3, timeUnit="sec")
+        plug.setKey(time=1.0, value=4, timeUnit="sec")
         curve = plug.getSource().getNode()
         self.assertEqual(curve.getKeyInputs(timeUnit="sec"), [0.5, 1.0])
 
@@ -80,7 +81,8 @@ class AnimCurveTimeTest(_SpecCase):
             for fast in (False, True):
                 with self.subTest(frame=frame, fast=fast):
                     curve = mlib.createNode("animCurveTL", name=self.name("curve#"))
-                    curve.setKey(0, 0, "linear", "linear", fast=fast).setKey(fps, 10, "linear", "linear", fast=fast)
+                    curve.setKey(0, 0, "linear", "linear", fast=fast)
+                    curve.setKey(fps, 10, "linear", "linear", fast=fast)
                     curve.setKey(3.0, 30, "linear", "linear", timeUnit="seconds", fast=fast)
                     name = curve.getFullName()
                     self.assertEqual(curve.getKeyInputs(), [0.0, float(fps), 3.0 * fps])
@@ -96,7 +98,8 @@ class AnimCurveTimeTest(_SpecCase):
             cmds.currentUnit(time=frame)
             with self.subTest(frame=frame):
                 curve = mlib.createNode("animCurveTU", name=self.name("shift#"))
-                curve.setKey(0, 0).setKey(10, 1)
+                curve.setKey(0, 0)
+                curve.setKey(10, 1)
                 curve.moveKey(timeOffset=5)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5, 15], places=4)
                 curve.moveKey(timeOffset=1, timeUnit="sec")
@@ -114,7 +117,8 @@ class AnimCurveTimeTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(kind="TT", fast=fast):
                 curve = mlib.createNode("animCurveTT", name=self.name("tt#"))
-                curve.setKey(0, 0, fast=fast).setKey(30, 60, fast=fast)
+                curve.setKey(0, 0, fast=fast)
+                curve.setKey(30, 60, fast=fast)
                 self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, valueChange=True), [0.0, 60.0])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(), [0, 60])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(timeUnit="sec"), [0, 2])
@@ -124,7 +128,8 @@ class AnimCurveTimeTest(_SpecCase):
                 self.assertSequenceAlmostEqual(curve.getKeyValues(), [30, 90])
             with self.subTest(kind="UT", fast=fast):
                 curve = mlib.createNode("animCurveUT", name=self.name("ut#"))
-                curve.setKey(0, 0, fast=fast).setKey(1, 2.0, timeUnit="sec", fast=fast)
+                curve.setKey(0, 0, fast=fast)
+                curve.setKey(1, 2.0, timeUnit="sec", fast=fast)
                 # U型の入力は無次元のまま、時間出力だけ換算する。
                 self.assertEqual(curve.getKeyInputs(), [0.0, 1.0])
                 self.assertEqual(curve.getKeyInputs(timeUnit="sec"), [0.0, 1.0])
@@ -134,7 +139,8 @@ class AnimCurveTimeTest(_SpecCase):
     def test_unitless_input_is_not_converted(self):
         """U型入力(ドリブンキー用)はtimeUnitに関係なく無次元。"""
         curve = mlib.createNode("animCurveUL", name=self.name("ul"))
-        curve.setKey(2, 1, timeUnit="sec", fast=True).moveKey(timeOffset=3, timeUnit="sec")
+        curve.setKey(2, 1, timeUnit="sec", fast=True)
+        curve.moveKey(timeOffset=3, timeUnit="sec")
         self.assertEqual(curve.getKeyInputs(), [5.0])
         self.assertAlmostEqual(curve.evaluate(5, timeUnit="sec"), 1.0)
 
@@ -167,7 +173,9 @@ class DrivenKeyTimeTest(_SpecCase):
         cmds.currentUnit(time="ntsc")
         driver = self.transform.addAttr("clock", attributeType="time")
         key = DrivenKey(driver, self.transform.getPlug("ty"))
-        key.setKey(0, 0).setKey(30, 10).setKey(2.0, 20, timeUnit="sec")
+        key.setKey(0, 0)
+        key.setKey(30, 10)
+        key.setKey(2.0, 20, timeUnit="sec")
         curve = key.getCurves()[0]
         self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, floatChange=True), [0.0, 30.0, 60.0])
         driver.set(15)
@@ -180,7 +188,8 @@ class DrivenKeyTimeTest(_SpecCase):
         cmds.currentUnit(time="ntsc")
         driven = self.transform.addAttr("delay", attributeType="time")
         key = DrivenKey(self.transform.getPlug("tx"), driven)
-        key.setKey(0, 0).setKey(1, 30)
+        key.setKey(0, 0)
+        key.setKey(1, 30)
         self.transform.getPlug("tx").set(1)
         self.assertAlmostEqual(cmds.getAttr(driven.getFullName()), 30.0)
         self.assertAlmostEqual(driven.get(timeUnit="sec"), 1.0)

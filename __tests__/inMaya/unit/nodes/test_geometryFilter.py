@@ -310,7 +310,7 @@ class GeometryFilterSkinToolsTest(_SkinCase):
         cluster = mlib.getNode(cmds.cluster(cube, name=self.name("cl"))[0])
         self.assertEqual(cluster.getDeformerWeights(), [1.0] * 8)
         cmds.flushUndo()
-        self.assertIs(cluster.setDeformerWeights([0.25, 0.5], vertices=[2, 3]), cluster)
+        self.assertIsNone(cluster.setDeformerWeights([0.25, 0.5], vertices=[2, 3]))
         values = cluster.getDeformerWeights()
         self.assertEqual(values[2:4], [0.25, 0.5])
         self.assertEqual(values[0], 1.0)

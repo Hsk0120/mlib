@@ -10,7 +10,7 @@ from mlib.plugs.plug import Plug
 
 class Reverse(Node):
     """XYZ各成分の1-inputを計算する。"""
-    def setInput(self, input: Iterable[float] | Plug | str | None = ...) -> Reverse:
+    def setInput(self, input: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -25,7 +25,7 @@ class Reverse(Node):
             input (Iterable[float] | Plug | str | None): 反転する値(XYZ)。
 
         Returns:
-            Reverse: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

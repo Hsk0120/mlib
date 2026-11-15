@@ -27,18 +27,18 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
     その戻す処理まで失敗しないとは限らない。fast引数は無い。
     createNodeでノードを作るときも、通常のUndoできる変更を使う。
     """
-    def getMembers(self) -> list[Node]:
+    def getMembers(self) -> Nodes:
         """containerに直接入っているメンバーを取得する。
 
         MFnContainerNode.getMembers()が返すものをそのまま使う。
         つながっているノードや、入れ子のcontainerの中身はたどらない。DAG階層の子孫を集めるものでもない。
 
         Returns:
-            list[Node]: メンバーの新しいオブジェクトのリスト。ノードは複製しない。
+            Nodes: メンバーの新しいオブジェクト。ノードは複製しない。
                 並びはMayaが返す順のままで、並べ替えない。
         """
         ...
-    def addMembers(self, *members: str | Node | Iterable[Node | str]) -> Container:
+    def addMembers(self, *members: str | Node | Iterable[Node | str]) -> None:
         """ノードをメンバーに加える。
 
         別のcontainerに入っているノードを、無理に移すことはしない。
@@ -47,10 +47,10 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             *members (str | Node | Iterable[Node | str]): メンバーに加えるノード。
 
         Returns:
-            Container: 自身。
+            None: 値を返さない。
         """
         ...
-    def removeMembers(self, *members: Node | str | Iterable[Node], force: bool = ...) -> Container:
+    def removeMembers(self, *members: Node | str | Iterable[Node], force: bool = ...) -> None:
         """ノードをメンバーから外す。
 
         変える前に、指定したノードがすべてメンバーかを確かめる。メンバーでないノードがあれば、
@@ -62,7 +62,7 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             force (bool): Trueなら、すべてのcontainerから外す。ロックを外すという意味ではない。
 
         Returns:
-            Container: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: メンバーでないノードが含まれる場合。

@@ -21,7 +21,7 @@ class VersionCompatibilityTest(unittest.TestCase):
             cmds.setAttr(joint + ".tx", 3)
             before = cmds.xform(joint, query=True, worldSpace=True, matrix=True)
             for target in (parent, mlib.getNode(parent)):
-                self.assertIs(node.setParent(target), node)
+                self.assertIsNone(node.setParent(target))
                 self.assertEqual(cmds.xform(node.getFullName(), query=True, worldSpace=True, matrix=True), before)
             node.setParent(None)
             self.assertIsNone(node.getParent())

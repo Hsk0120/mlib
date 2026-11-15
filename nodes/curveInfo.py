@@ -26,14 +26,14 @@ class CurveInfo(Node):
                 シェイプを1つだけ持つTransformを渡してもよい。
 
         Returns:
-            CurveInfo: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             ValueError: inputCurveに渡したTransformが、対応するシェイプをちょうど1つ持っていない場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"inputCurve": inputCurve}, _GEOMETRY)
+        _calculation.set_inputs(self, "setInput", {"inputCurve": inputCurve}, _GEOMETRY)
 
     def getResult(self):
         """出力 ``arcLength`` の現在の値を取得する。

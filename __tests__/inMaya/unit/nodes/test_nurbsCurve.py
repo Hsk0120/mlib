@@ -126,7 +126,7 @@ class SetCvPositionsTest(_Case):
         cmds.setAttr(transform + ".translate", 1, 2, 3)
         cmds.setAttr(transform + ".scale", 2, 2, 2)
         local = [(0, 1, 0), (1, 1, 0), (2, 1, 0), (3, 1, 0)]
-        self.assertIs(shape.setCvPositions(local), shape)
+        self.assertIsNone(shape.setCvPositions(local))
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), local)
         world = [(5, 0, 0), (7, 0, 0), (9, 0, 0), (11, 0, 0)]
         shape.setCvPositions(world, worldSpace=True)
@@ -302,7 +302,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         before = shape.getCvPositions()
         start = shape.getPointAtParam(shape.getParamRange()[0])
         self.flushUndo()
-        self.assertIs(shape.rebuild(6, keepRange="unit"), shape)
+        self.assertIsNone(shape.rebuild(6, keepRange="unit"))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(len(shape.getCvPositions()), len(before)),
             lambda: (self.assertEqual(shape.getNumSpans(), 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
@@ -334,7 +334,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         shape = self.curve(self.POINTS)
         before = shape.getCvPositions()
         self.flushUndo()
-        self.assertIs(shape.reverse(), shape)
+        self.assertIsNone(shape.reverse())
         self.assertUndoesInOneStep(
             lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in before]),
             lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in reversed(before)]),

@@ -319,7 +319,7 @@ class Transform(DagNode):
             RuntimeError: 保持していた DAG パスが無効な場合。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """直下のShape(中間オブジェクトを除く)の頂点やCVを、拡大・縮小する。
 
         Transformのマトリクスは変えない。Shapeごとに確かめて書き換えるため、後のShapeで拒否されても、
@@ -338,7 +338,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -348,7 +348,7 @@ class Transform(DagNode):
             NotImplementedError: 対応していないShapeの場合、またはfastで書き換えられる条件に合わない場合。
         """
         ...
-    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
+    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """直下のShape(MeshとNurbsCurve。中間オブジェクトを除く)の頂点やCVを、中心pivotに対して反転する。
 
         処理は各Shapeの :meth:`Mesh.mirror <mlib.nodes.mesh.Mesh.mirror>`・
@@ -374,7 +374,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。Shapeが無ければ何もしない。
+            None: 値を返さない。Shapeが無ければ何もしない。
 
         Raises:
             TypeError: worldSpace・fastがboolでない場合、axisが文字列でもintでもない場合、番号の型が正しくない場合、
@@ -403,7 +403,7 @@ class Transform(DagNode):
             ValueError: kindがrotateでもscaleでもない場合。
         """
         ...
-    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
+    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """ピボットを動かす。既定ではノードの姿勢を保つ。
 
         Args:
@@ -419,7 +419,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: preserveがboolでない場合、対象がJointの場合、またはworldSpaceとwsを同時に指定した場合。
@@ -432,7 +432,7 @@ class Transform(DagNode):
             Jointはピボットを単独で動かせないため、書き換える前に拒否する。
         """
         ...
-    def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> Transform:
+    def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> None:
         """回転ピボットとスケールピボットを、バウンディングボックスの中心へ動かす。
 
         通常はxform(centerPivots=True)で動かす。fastでは、APIで求めた中心をsetPivotへ渡す。
@@ -444,7 +444,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはfastで対象がJointの場合。
@@ -452,7 +452,7 @@ class Transform(DagNode):
                 (通常でもfastでも書き換える前に確かめる)、またはMayaが書き換えを拒否した場合。
         """
         ...
-    def zeroTransformPivots(self) -> Transform:
+    def zeroTransformPivots(self) -> None:
         """回転ピボット・スケールピボットとその補正値を0にし、姿勢が変わらないようにtranslateを書き換える。
 
         ``cmds.xform(zeroTransformPivots=True)`` と同じ。
@@ -463,13 +463,13 @@ class Transform(DagNode):
         Undoが有効なら、1回のUndoで戻せる。fast引数は持たない。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効な場合、またはtranslate・ピボット・補正値の成分がロックされている・入力が接続されている場合。
         """
         ...
-    def ungroup(self, *, world: bool = ...) -> list[Transform]:
+    def ungroup(self, *, world: bool = ...) -> Nodes[Transform]:
         """子を親(またはワールド)の下へ移して、グループを解く。
 
         ``cmds.ungroup`` に当たる。子はワールドでの姿勢を保ったまま移す。
@@ -480,7 +480,7 @@ class Transform(DagNode):
             world (bool): Trueなら子をワールドの直下へ移す。既定はFalseで、自身の親の下へ移す。
 
         Returns:
-            list[Transform]: 移した子。元の子の順に並ぶ。子が無ければ空リスト。
+            Nodes[Transform]: 移した子。元の子の順に並ぶ。子が無ければ空の集まり。
 
         Raises:
             TypeError: worldがboolでない場合。
@@ -490,7 +490,7 @@ class Transform(DagNode):
             >>> children = group.ungroup()
         """
         ...
-    def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> list[DagNode]:
+    def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> Nodes[DagNode]:
         """条件に合う子、または子孫を取得する。
 
         Args:
@@ -505,10 +505,10 @@ class Transform(DagNode):
             underWorld (bool): Trueなら、Shapeの下のアンダーワールドも調べる。
 
         Returns:
-            list[DagNode]: DAGの子の順に並んだノード。当てはまるものが無ければ空リスト。
+            Nodes[DagNode]: DAGの子の順に並んだノード。当てはまるものが無ければ空の集まり。
         """
         ...
-    def getUnusedIntermediateShapes(self) -> list[Shape]:
+    def getUnusedIntermediateShapes(self) -> Nodes[Shape]:
         """直下にある、使われていない中間オブジェクトのShapeのうち、削除できるものを取得する。
 
         出力の接続が無い中間オブジェクトのShapeが対象になる。shadingEngineへの通常のメンバーとしての接続は、
@@ -522,13 +522,13 @@ class Transform(DagNode):
         子のTransformより下は調べない。シーンは変えない。
 
         Returns:
-            list[Shape]: 削除の候補。DAGの子の順に並ぶ。無ければ空リスト。
+            Nodes[Shape]: 削除の候補。DAGの子の順に並ぶ。無ければ空の集まり。
 
         Raises:
             RuntimeError: Transformが無効な場合、またはMayaからの取得が失敗した場合。
         """
         ...
-    def deleteUnusedIntermediateShapes(self, *, fast: bool = ...) -> Transform:
+    def deleteUnusedIntermediateShapes(self, *, fast: bool = ...) -> None:
         """直下にある、使われていない中間オブジェクトのShapeだけを削除する。
 
         判定はgetUnusedIntermediateShapes()と同じで、使われているもの・リファレンスのもの・ロックされているもの・
@@ -540,14 +540,14 @@ class Transform(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。TrueならShapeだけを直接削除する。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合。
             RuntimeError: Transformが無効な場合、または削除が失敗した場合。
         """
         ...
-    def addShape(self, shape: Shape | str, *, fast: bool = ...) -> Transform:
+    def addShape(self, shape: Shape | str, *, fast: bool = ...) -> None:
         """シェイプをこのTransformの下へ移す。
 
         :meth:`~mlib.nodes.shape.Shape.setParent` と同じ操作を、受け取る側から行う。
@@ -558,7 +558,7 @@ class Transform(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: shapeがシェイプでない場合、またはfastがboolでない場合。
@@ -567,17 +567,17 @@ class Transform(DagNode):
             NotImplementedError: fastで、自身に同じ名前の子がある場合。
         """
         ...
-    def getShapes(self, intermediates: bool = ...) -> list[Shape]:
+    def getShapes(self, intermediates: bool = ...) -> Nodes[Shape]:
         """このTransformの直下のShapeを取得する。
 
         Args:
             intermediates (bool): ``True`` なら中間オブジェクトのShapeも含める。
 
         Returns:
-            list[Shape]: 条件に合うShapeのリスト。
+            Nodes[Shape]: 条件に合うShape。
         """
         ...
-    def replaceShapes(self, source: Transform | Shape | str, *, keepSource: bool = ..., worldSpace: bool = ..., ws: bool = ...) -> Transform:
+    def replaceShapes(self, source: Transform | Shape | str, *, keepSource: bool = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
         """自身のShapeを、sourceのShape(中間オブジェクトを除く)に置き換える。
 
         コントローラーの形を差し替えるための操作。
@@ -599,7 +599,7 @@ class Transform(DagNode):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: keepSource・worldSpaceがboolでない場合、sourceがTransformでもShapeでもない場合、
@@ -630,7 +630,7 @@ class Transform(DagNode):
             RuntimeError: 自身が無効な場合。
         """
         ...
-    def setCurveShapesData(self, data: dict) -> Transform:
+    def setCurveShapesData(self, data: dict) -> None:
         """:meth:`getCurveShapesData` の形のデータで、直下のカーブ形状を作り直す。
 
         - 直下の中間オブジェクトでないnurbsCurveのShapeを削除し、データのShapeを順に作る(数は違ってもよい)。
@@ -647,7 +647,7 @@ class Transform(DagNode):
             data (dict): :meth:`getCurveShapesData` の形の辞書。``lineWidth`` を省いたShapeは-1(既定の太さ)になる。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: dataが辞書でない場合。
@@ -672,7 +672,7 @@ class Transform(DagNode):
             OSError: 書き出しに失敗した場合。
         """
         ...
-    def importCurveShapes(self, path: str | os.PathLike) -> Transform:
+    def importCurveShapes(self, path: str | os.PathLike) -> None:
         """:meth:`exportCurveShapes` のファイルを読み込み、直下のカーブ形状を作り直す。
 
         作り直し方は :meth:`setCurveShapesData` と同じ。
@@ -681,7 +681,7 @@ class Transform(DagNode):
             path (str | os.PathLike): 読み込むファイル。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: JSONとして読めない場合、形式の名前や版が違う場合、またはデータが正しくない場合(シーンは変えない)。
@@ -707,7 +707,7 @@ class Transform(DagNode):
             Transform: 自身。
         """
         ...
-    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ..., check: bool = ...) -> Transform:
+    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """Transformの親を変える。
 
         Args:
@@ -729,7 +729,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはfastで、parentがTransformでない場合。
@@ -738,7 +738,7 @@ class Transform(DagNode):
             NotImplementedError: fastで、Joint・インスタンス・add=Trueを指定した場合。
         """
         ...
-    def matchTransform(self, target: Transform | str | om2.MObject | om2.MDagPath, position: bool = ..., rotation: bool = ..., scale: bool = ..., pivots: bool = ...) -> Transform:
+    def matchTransform(self, target: Transform | str | om2.MObject | om2.MDagPath, position: bool = ..., rotation: bool = ..., scale: bool = ..., pivots: bool = ...) -> None:
         """自身の位置・回転・スケールなどを、指定したTransformに合わせる。選択されているものは使わない。
 
         空間・joint・ピボットの扱いは、maya.cmds.matchTransformと同じ。Undoが有効なら、1つのチャンクに記録する。
@@ -753,7 +753,7 @@ class Transform(DagNode):
             pivots (bool): Trueなら回転ピボット・スケールピボットも合わせる。
 
         Returns:
-            Transform: 自身。すべてのフラグがFalseなら何も変えない。
+            None: 値を返さない。すべてのフラグがFalseなら何も変えない。
 
         Raises:
             TypeError: targetがTransformではない場合。
@@ -762,7 +762,7 @@ class Transform(DagNode):
                 (ValueErrorとRuntimeErrorの両方の派生クラス)。
         """
         ...
-    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., ws: bool = ...) -> Transform:
+    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """位置と向きを、指定した空間でビヘイビアミラーする。
 
         回転の決まりはMatrix.mirrorと同じ。マイナスのスケールで形状を反転するのとは違う。
@@ -778,9 +778,11 @@ class Transform(DagNode):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             pivot (Iterable[float]): 反転の中心。worldSpaceで選んだ空間での位置で、内部の距離の単位のcm。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、axisが文字列でもintでもない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -792,11 +794,11 @@ class Transform(DagNode):
             setMatrix()と同じ制約があり、0でないピボットや、TransformのrotateAxisがあると、書き換える前に拒否する。
         """
         ...
-    def getShadingEngines(self) -> list[ShadingEngine]:
+    def getShadingEngines(self) -> Nodes[ShadingEngine]:
         """直下のShape(中間オブジェクトを除く)が使っているシェーディンググループのセットを取得する。
 
         Returns:
-            list[ShadingEngine]: 直下の中間オブジェクトでないShapeが使っているセット。インスタンスのパスを保つ。
+            Nodes[ShadingEngine]: 直下の中間オブジェクトでないShapeが使っているセット。インスタンスのパスを保つ。
         """
         ...
     def getMatrix(self, worldSpace: bool = ..., p: bool = ..., inv: bool = ..., *, parent: bool = ..., inverse: bool = ..., ws: bool = ...) -> Matrix:
@@ -822,7 +824,7 @@ class Transform(DagNode):
             RuntimeError: ノード、または保持するDAGパスが無効な場合。
         """
         ...
-    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | dict[str, Translate | EulerRotate | Scale | Shear]:
+    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> dict[str, Translate | EulerRotate | Scale | Shear] | None:
         """マトリクスを分解して、translate・rotate・scale・shearのうち値が変わるものに設定する。
 
         - ピボット・rotateAxis・jointOrient・offsetParentMatrixは変えない。
@@ -844,7 +846,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform | dict[str, Translate | EulerRotate | Scale | Shear]: 通常は自身。
+            dict[str, Translate | EulerRotate | Scale | Shear] | None: 通常は値を返さない。
                 get=Trueなら、translate・rotate・scale・shearの辞書(距離はcm・角度はrad)。
                 safe・fastに関係なく計算だけを行い、書き込めるかや、safeを当てた後の結果は確かめない。
 
@@ -875,7 +877,7 @@ class Transform(DagNode):
             >>> other.setTransformation(value)
         """
         ...
-    def setTransformation(self, value: Transformation, *, fast: bool = ..., check: bool = ...) -> Transform:
+    def setTransformation(self, value: Transformation, *, fast: bool = ..., check: bool = ...) -> None:
         """トランスフォームの値を、ピボットや回転順序も含めてローカルのアトリビュートへ設定する。
 
         回転順序・rotateAxis・ピボット4種・(Jointなら)jointOrient を書いてから、translate・rotate・scale・shear を書く。
@@ -889,7 +891,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueがTransformationでない場合、またはfastがboolでない場合。
@@ -917,7 +919,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Translate | None:
         """指定した基準の位置へ動かす。ピボットと回転は変えない。
 
         既定の ``at=2`` では、回転ピボットの位置(MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -939,7 +941,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform | list[float]: 自身。get=Trueなら、cmで表したXYZの3つの値のlist(シーンとは切り離されている)。
+            Translate | None: 通常は値を返さない。get=Trueなら、設定する予定のtranslateの値(cm。シーンとは切り離されている)。
                 safeを指定しても、書き込めるかを反映した最終的な結果の予想ではない。
 
         Raises:
@@ -950,7 +952,7 @@ class Transform(DagNode):
                 (原因の成分と ``safe=True`` を案内する)。
         """
         ...
-    def translateBy(self, value: Iterable[float], worldSpace: bool = ..., *, ws: bool = ...) -> Transform:
+    def translateBy(self, value: Iterable[float], worldSpace: bool = ..., *, ws: bool = ...) -> None:
         """今の位置から相対的に移動する。
 
         ``cmds.move(relative=True)`` に当たる。
@@ -966,7 +968,7 @@ class Transform(DagNode):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueが数値の並びでない場合、worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -1008,7 +1010,7 @@ class Transform(DagNode):
                 どれかのスケールの軸の長さが1e-10以下の場合も含む(Mayaはscaleの0を1e-12として計算する)。
         """
         ...
-    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> EulerRotate | None:
         """指定した空間での回転を設定する。書き込むrotateには、今の値にいちばん近い同じ回転の解を使う。
 
         - 3つの数値は、ノードのrotateOrderの順に読む。EulerRotateは、値そのものが持つ回転順序を使う。
@@ -1024,7 +1026,7 @@ class Transform(DagNode):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             safe (bool): Trueなら、書けない成分はそのままにする。目標の回転と一致することは保証しない。
             get (bool): Trueなら書き込まずに、設定する予定のローカルのrotateの値を返す。
-            unit (str): 3つの数値と、get=Trueのときの戻り値の角度の単位。既定の ``"deg"`` は度、``"rad"`` は
+            unit (str): 3つの数値の角度の単位。既定の ``"deg"`` は度、``"rad"`` は
                 ラジアン(``"degree"``・``"radians"`` などの別名も使える)。EulerRotate・Quaternionは自分の
                 単位(rad)を持つので、unitに関係なく換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1032,8 +1034,8 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform | list[float]: 通常は自身。get=Trueなら、unitの単位(既定は度)でXYZの3つの値のlist
-                (シーンとは切り離されている)。safeを当てた後の最終的な結果を予想する値ではない。
+            EulerRotate | None: 通常は値を返さない。get=Trueなら、設定する予定のrotateの値(rad。回転順序はノードのrotateOrder。
+                シーンとは切り離されている)。safeを当てた後の最終的な結果を予想する値ではない。
 
         Raises:
             TypeError: fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
@@ -1045,7 +1047,7 @@ class Transform(DagNode):
                 成分と、``safe=True`` を案内する)。
         """
         ...
-    def rotateBy(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, unit: str = ..., ws: bool = ...) -> Transform:
+    def rotateBy(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, unit: str = ..., ws: bool = ...) -> None:
         """今の向きから相対的に回転する。
 
         ``cmds.rotate(relative=True)`` に当たる。
@@ -1066,7 +1068,7 @@ class Transform(DagNode):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueが数値の並びでも回転の値でもない場合、worldSpaceがboolでない場合、
@@ -1090,7 +1092,7 @@ class Transform(DagNode):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setRotateOrder(self, order: str | int, preserve: bool = ...) -> Transform:
+    def setRotateOrder(self, order: str | int, preserve: bool = ...) -> None:
         """回転順序(``rotateOrder``)を変える。既定では、見た目の向きが変わらないように ``rotate`` も変える。
 
         - ``preserve=True``: ``cmds.xform(rotateOrder=..., preserve=True)`` と同じ。新しい回転順序で同じ向きに
@@ -1104,7 +1106,7 @@ class Transform(DagNode):
             preserve (bool): Trueなら向きを保つ。既定はTrue。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: preserveがboolでない場合。
@@ -1129,7 +1131,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setScale(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setScale(self, value: Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Scale | None:
         """scaleチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるスケールをローカルで設定する値へ変換する。
@@ -1146,7 +1148,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform | list[float]: 自身。get=Trueなら、ローカルで設定する予定のXYZの値のlist(シーンとは切り離されている)。
+            Scale | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のscaleの値(シーンとは切り離されている)。
 
         Raises:
             TypeError: worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
@@ -1156,7 +1158,7 @@ class Transform(DagNode):
                 (原因の成分と ``safe=True`` を案内する)。
         """
         ...
-    def scaleBy(self, value: float | Iterable[float]) -> Transform:
+    def scaleBy(self, value: float | Iterable[float]) -> None:
         """今のscaleチャンネルに倍率を掛ける。
 
         ``cmds.scale(relative=True)`` に当たる。書き込むのはscaleだけで、ピボットを中心に拡大する。
@@ -1166,7 +1168,7 @@ class Transform(DagNode):
             value (float | Iterable[float]): 倍率(単位なし)。1つの数ならXYZに同じ倍率、3つなら軸ごとの倍率。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueが数値でも数値の並びでもない(boolも含む)場合。
@@ -1193,7 +1195,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setShear(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Shear | None:
         """shearチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるシアーをローカルで設定する値へ変換する。
@@ -1210,7 +1212,7 @@ class Transform(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform | list[float]: 自身。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値のlist(シーンとは切り離されている)。
+            Shear | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値(シーンとは切り離されている)。
 
         Raises:
             TypeError: worldSpace・fastがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -1245,7 +1247,7 @@ class Transform(DagNode):
             ValueError: 回転の成分と空間の指定が、対応していない組み合わせの場合。
         """
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> EulerRotate | None:
         """回転の成分の指定に従って、rotate・jointOrient・rotateAxisのどれかを設定する。
 
         受け付ける組み合わせでは、書き込む先は次のようになる。
@@ -1265,8 +1267,6 @@ class Transform(DagNode):
             jo (bool): jointOrientの短縮名。
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、計算したオイラー角の値を返す。
-            unit (str): get=Trueのときの戻り値の角度の単位。既定の ``"deg"`` は度、``"rad"`` はラジアン
-                (``"degree"`` などの別名も使える)。書き込みと、入力のクォータニオンには関係しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -1275,19 +1275,18 @@ class Transform(DagNode):
             jointOrient (bool): Trueなら、入力にjointOrientを含むものとして扱う。既定はTrue。
 
         Returns:
-            Transform | list[float]: get=Falseなら自身。get=Trueなら、書き込む先のオイラー角の3つの値を
-                unitの単位(既定は度)のlistで返す。このとき、safe・fastの指定に関係なくシーンは変えない。
+            EulerRotate | None: get=Falseなら値を返さない。get=Trueなら、書き込む先のオイラー角の値を
+                EulerRotate(rad)で返す。このとき、safe・fastの指定に関係なくシーンは変えない。
                 入力のQuaternionや、XYZWの4つの値を返すものではない。
                 rotateに設定する予定の値はノードのrotateOrderの順、ほかの書き込み先はXYZの順。
 
         Raises:
-            TypeError: valueがクォータニオンでも数値の並びでもない場合、unitが文字列でもNoneでもない場合、
+            TypeError: valueがクォータニオンでも数値の並びでもない場合、
                 またはロング名と短縮名(worldSpaceとws、rotateAxisとra、rotateとr、jointOrientとjo)を同時に指定した場合。
-            ValueError: valueの値の数が4でない・有限でない場合、回転の成分と空間の指定が対応していない組み合わせの場合、
-                またはunitが対応していない単位の名前の場合。
+            ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
         """
         ...
-    def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> Transform:
+    def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> None:
         """自身を対象にcmds.makeIdentityを実行する。
 
         省略したフラグはMayaの既定に従う。通常更新をUndo有効時にまとめ、途中失敗の変更は戻さない。
@@ -1314,7 +1313,7 @@ class Transform(DagNode):
             e (bool): editの別名。同時指定は不可。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 長短フラグを同時指定した場合。
@@ -1333,7 +1332,7 @@ class Transform(DagNode):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setOffsetParentMatrix(self, matrix: Matrix | om2.MMatrix | Sequence[float], *, fast: bool = ...) -> Transform:
+    def setOffsetParentMatrix(self, matrix: Matrix | om2.MMatrix | Sequence[float], *, fast: bool = ..., check: bool = ...) -> None:
         """``offsetParentMatrix`` アトリビュートにマトリクスを設定する。
 
         translate・rotateなどのチャンネルは変えないので、ワールドでの位置は変わる
@@ -1342,9 +1341,11 @@ class Transform(DagNode):
         Args:
             matrix (Matrix | om2.MMatrix | Sequence[float]): 設定するマトリクス。16個の数値でもよい。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合。
@@ -1352,7 +1353,7 @@ class Transform(DagNode):
             RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが設定を拒否した場合。
         """
         ...
-    def freezeToOffsetParent(self) -> Transform:
+    def freezeToOffsetParent(self) -> None:
         """今のローカルの変換を ``offsetParentMatrix`` へ移し、変換のチャンネルを初期値に戻す。
 
         translate・rotate・shearを0、scaleを1にする(Jointは ``jointOrient`` も0にする)。
@@ -1369,14 +1370,14 @@ class Transform(DagNode):
         Undoが有効なら1回で戻せる。途中で失敗したら元に戻す。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: 初期化した後のローカルのマトリクスの逆が求められない場合(inverseScaleが0のJointなど)。
             RuntimeError: ノードが無効な場合、または対象のチャンネル・offsetParentMatrixがロックされている・入力が接続されている場合。
         """
         ...
-    def eulerFilter(self) -> Transform:
+    def eulerFilter(self) -> None:
         """rotateX/Y/Zの時間のアニメーションカーブ(animCurveTA)に、オイラーフィルターをかける。
 
         3本のカーブを1回の ``cmds.filterCurve(filter="euler")`` にまとめて渡す(Mayaのグラフエディターの
@@ -1384,7 +1385,7 @@ class Transform(DagNode):
         キーが無ければ何もしない。fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効な場合、またはMayaがフィルターを拒否した場合。
@@ -1435,7 +1436,7 @@ class Transform(DagNode):
             (-45.0, 90.0)
         """
         ...
-    def setLimits(self, *, unit: str = ..., **limits: tuple[float | None, float | None] | None) -> Transform:
+    def setLimits(self, *, unit: str = ..., **limits: tuple[float | None, float | None] | None) -> None:
         """移動・回転・スケールの制限を、``cmds.transformLimits`` で設定する。
 
         ``setLimits(translateX=(0, 10), rotateZ=(-45, 90), scaleY=(None, 2))`` のように、チャンネルの名前
@@ -1454,7 +1455,7 @@ class Transform(DagNode):
             **limits (tuple[float | None, float | None] | None): チャンネルの名前ごとの ``(最小, 最大)``。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 対応していないチャンネルの名前の場合、値が2つの要素の並びでもNoneでもない場合、
@@ -1511,7 +1512,7 @@ class Transform(DagNode):
             APIで直接書き換えるので、Undoには記録しない。削除に使うmodifierとは別に、先に確定させる。
         """
         ...
-    def _set_parent_fast(self, parent: Node | None, relative: bool, add: bool, *, validate_only: bool = ..., check: bool = ...) -> Transform:
+    def _set_parent_fast(self, parent: Node | None, relative: bool, add: bool, *, validate_only: bool = ..., check: bool = ...) -> None:
         """対応しているTransformかだけを確かめて、APIで親を変える。
 
         Args:
@@ -1523,7 +1524,7 @@ class Transform(DagNode):
                 Falseでは確かめない(MFnTransformは、ロックや入力の接続がある成分を例外にせず飛ばす)。
 
         Returns:
-            Transform: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: リファレンス・ロック・循環・特異なマトリクスのために変えられない場合。

@@ -29,14 +29,14 @@ class VectorProduct(Node):
             normalizeOutput (bool | Plug | str | None): 出力を正規化するかどうか。
 
         Returns:
-            VectorProduct: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込み・接続を拒否した場合。
                 拒否されたときは、それまでの変更を戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"input1": input1, "input2": input2, "matrix": matrix, "normalizeOutput": normalizeOutput})
+        _calculation.set_inputs(self, "setInput", {"input1": input1, "input2": input2, "matrix": matrix, "normalizeOutput": normalizeOutput})
 
     def getOperation(self):
         """演算の種類を名前で取得する(``operation``)。
@@ -57,14 +57,14 @@ class VectorProduct(Node):
                 ``"vectorMatrixProduct"``・``"pointMatrixProduct"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            VectorProduct: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列でもintでもない場合。
             ValueError: 対応していない名前の場合、または番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
+        _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

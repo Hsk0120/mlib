@@ -10,7 +10,7 @@ from mlib.plugs.plug import Plug
 
 class SetRange(Node):
     """XYZ各成分を旧範囲から新範囲へ線形変換する。"""
-    def setInput(self, value: Iterable[float] | Plug | str | None = ..., min: Iterable[float] | Plug | str | None = ..., max: Iterable[float] | Plug | str | None = ..., oldMin: Iterable[float] | Plug | str | None = ..., oldMax: Iterable[float] | Plug | str | None = ...) -> SetRange:
+    def setInput(self, value: Iterable[float] | Plug | str | None = ..., min: Iterable[float] | Plug | str | None = ..., max: Iterable[float] | Plug | str | None = ..., oldMin: Iterable[float] | Plug | str | None = ..., oldMax: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -29,7 +29,7 @@ class SetRange(Node):
             oldMax (Iterable[float] | Plug | str | None): 元の範囲の上限(XYZ)。
 
         Returns:
-            SetRange: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

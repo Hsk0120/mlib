@@ -48,7 +48,7 @@ class ObjectSetTest(unittest.TestCase):
 
     def test_add_and_members_returns_node_wrappers(self):
         result = self.set.addMembers(self.a, self.b)
-        self.assertIs(result, self.set)
+        self.assertIsNone(result)
         members = self.set.getMembers()
         self.assertEqual({member.getName() for member in members}, {self.a.getName(), self.b.getName()})
         self.assertTrue(all(isinstance(member, Node) for member in members))
@@ -56,7 +56,7 @@ class ObjectSetTest(unittest.TestCase):
     def test_remove_drops_a_member(self):
         self.set.addMembers(self.a, self.b)
         result = self.set.removeMembers(self.a)
-        self.assertIs(result, self.set)
+        self.assertIsNone(result)
         self.assertEqual([member.getName() for member in self.set.getMembers()], [self.b.getName()])
 
     def test_is_member(self):
@@ -73,7 +73,7 @@ class ObjectSetTest(unittest.TestCase):
 
         self.set.addMembers(component)
         members = self.set.getMembers()
-        self.assertIn(component, members)
+        self.assertEqual([(type(member), member.indices) for member in members], [(mlib.Vertices, (0, 1, 2))])
         self.assertTrue(self.set.isMember(component))
 
 
@@ -97,9 +97,10 @@ class ConsolidatedSetsLayersTests(unittest.TestCase):
         name = cmds.sets(empty=True, name="querySet")
         cmds.sets(cube + ".vtx[0:2]", cube + ".vtx[5:6]", other, add=name)
         node = mlib.ObjectSet(name)
-        expected = cmds.sets(name, query=True)
-        actual = [item if isinstance(item, str) else item.getName() for item in node.getMembers()]
-        self.assertEqual(actual, expected)
+        # ノードはNode、コンポーネントは範囲ごとのVerticesで返る(名前の文字列では返さない)。
+        actual = [item.getName() if isinstance(item, mlib.Node) else (type(item), item.indices) for item in node.getMembers()]
+        self.assertCountEqual(actual, [(mlib.Vertices, (0, 1, 2)), (mlib.Vertices, (5, 6)), other])
+        self.assertEqual(len(actual), len(cmds.sets(name, query=True)))
         for member in (cube + ".vtx[0]", cube + ".vtx[3]", cube + ".vtx[0:3]", other, cube):
             expected = bool(cmds.sets(member, isMember=name))
             with mock.patch.object(cmds, "sets", side_effect=AssertionError("cmds sets used")):
@@ -199,10 +200,13 @@ class ObjectSetDeformAdditionsTest(_Case):
         """getMembers 形式のリストを、フルパスの要素名の集合へ展開する。"""
         result = set()
         for member in members:
-            if isinstance(member, str):
+            if isinstance(member, mlib.Node):
+                result.add(member.getFullName())
+            elif isinstance(member, str):
+                # cmds.setsの結果(名前の文字列)と比べるための経路。
                 result.update(cmds.ls(member, flatten=True, long=True))
             else:
-                result.add(member.getFullName())
+                result.update(cmds.ls(member.getCompactNames(), flatten=True, long=True))
         return result
 
     def sets(self):
@@ -232,7 +236,7 @@ class ObjectSetDeformAdditionsTest(_Case):
         first, second, _, a, _ = self.sets()
         before = self.flat(first.getMembers())
         self.flushUndo()
-        self.assertIs(first.clear(), first)
+        self.assertIsNone(first.clear())
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.flat(first.getMembers()), before), lambda: self.assertEqual(first.getMembers(), []))
         with self.assertRaises(TypeError):
             first.getUnion(a)

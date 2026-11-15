@@ -122,7 +122,7 @@ class ShapeMirrorTest(_Case):
                     shape = self.cube("cube#")
                     name = shape.getFullName()
                     before = _points(name, worldSpace)
-                    self.assertIs(shape.mirror("x", worldSpace=worldSpace, pivot=(0.5, 0, 0), indices=indices), shape)
+                    self.assertIsNone(shape.mirror("x", worldSpace=worldSpace, pivot=(0.5, 0, 0), indices=indices))
                     targets = range(len(before)) if indices is None else [1, 3, 5]
                     self.assertPointsAlmostEqual(_points(name, worldSpace), _mirrored(before, targets, 0, (0.5, 0, 0)))
 
@@ -142,7 +142,7 @@ class ShapeMirrorTest(_Case):
                     shape = self.curve("crv#", periodic=periodic)
                     name = shape.getFullName()
                     before = _points(name, worldSpace)
-                    self.assertIs(shape.mirror("y", worldSpace=worldSpace, pivot=(0, 1, 0)), shape)
+                    self.assertIsNone(shape.mirror("y", worldSpace=worldSpace, pivot=(0, 1, 0)))
                     self.assertPointsAlmostEqual(_points(name, worldSpace), _mirrored(before, range(len(before)), 1, (0, 1, 0)))
         shape = self.curve("sub")
         before = _points(shape.getFullName())
@@ -152,7 +152,8 @@ class ShapeMirrorTest(_Case):
     def test_mirror_twice_restores(self):
         shape = self.curve(periodic=True)
         before = _points(shape.getFullName())
-        shape.mirror("x", worldSpace=True, pivot=(3, 0, 0)).mirror("x", worldSpace=True, pivot=(3, 0, 0))
+        shape.mirror("x", worldSpace=True, pivot=(3, 0, 0))
+        shape.mirror("x", worldSpace=True, pivot=(3, 0, 0))
         self.assertPointsAlmostEqual(_points(shape.getFullName()), before)
 
     def test_transform_mirror_geometry_applies_to_every_shape(self):
@@ -165,7 +166,7 @@ class ShapeMirrorTest(_Case):
         for worldSpace in (False, True):
             with self.subTest(worldSpace=worldSpace):
                 before = [_points(name, worldSpace) for name in names]
-                self.assertIs(transform.mirrorGeometry("YZ", worldSpace=worldSpace, pivot=(1, 0, 0), indices=[0, 2]), transform)
+                self.assertIsNone(transform.mirrorGeometry("YZ", worldSpace=worldSpace, pivot=(1, 0, 0), indices=[0, 2]))
                 for name, points in zip(names, before):
                     self.assertPointsAlmostEqual(_points(name, worldSpace), _mirrored(points, [0, 2], 0, (1, 0, 0)))
 
@@ -274,7 +275,7 @@ class ShapeMirrorTest(_Case):
     def test_transform_without_shapes_does_nothing(self):
         transform = mlib.getNode(self.make("transform", "empty"))
         self.flushUndo()
-        self.assertIs(transform.mirrorGeometry(), transform)
+        self.assertIsNone(transform.mirrorGeometry())
         self.assertUndoEmpty()
 
 

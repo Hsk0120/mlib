@@ -9,7 +9,7 @@ from ..core.attributeType import _convert_angles, _convert_times, _convert_units
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context
 from ..nodes.animCurve import AnimCurve
-from ..nodes.node import Node
+from ..nodes.node import Node, Nodes
 from ..plugs.plug import Plug
 from ..util import _angle_unit, _time_unit
 
@@ -233,10 +233,12 @@ class DrivenKey:
         アトリビュートを、どのインスタンスのパスから指定しても同じ関係として扱う。
 
         Returns:
-            list[AnimCurve]: この組のカーブ。まだ無い場合と、対象にならない形の場合は空。
+            Nodes[AnimCurve]: この組のカーブ。まだ無い場合と、対象にならない形の場合は空。
         """
         driver = self.getDriverPlug().mplug()
-        return [curve for curve in _curves(self.getDrivenPlug()) if _contains_plug((source.mplug() for source in _sources(curve.getPlug("input"))), driver)]
+        return Nodes._wrap(
+            [curve for curve in _curves(self.getDrivenPlug()) if _contains_plug((source.mplug() for source in _sources(curve.getPlug("input"))), driver)]
+        )
 
     def exists(self):
         """この組のカーブがつながっているか調べる。
@@ -280,7 +282,7 @@ class DrivenKey:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DrivenKey: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 値の型がfloat()で変換できない場合、unit・timeUnitが文字列でもNoneでもない場合、
@@ -314,7 +316,7 @@ class DrivenKey:
             if fast:
                 # カーブの横軸はドライバーのUI単位(unitConversion経由の値)。縦軸はAnimCurve.setKeyが換算する。
                 self._set_key_fast(curves, _convert_units(driver.mplug(), x), y, inTangentType, outTangentType, unit, timeUnit, check)
-                return self
+                return
             y = _convert_times(driven.mplug(), _convert_angles(driven.mplug(), y, angle_unit), time_unit)
             count = cmds.setDrivenKeyframe(
                 driven.getFullName(),
@@ -329,7 +331,6 @@ class DrivenKey:
                 raise RuntimeError("Mayaがドリブンキーを設定しませんでした")
             # 現在値と異なる位置のキー更新後も、駆動先が古い評価値を保持しないようにする。
             cmds.dgdirty([curve.getFullName() for curve in self.getCurves()])
-            return self
 
     def _set_key_fast(self, curves, input, value, inTangentType, outTangentType, unit, timeUnit, check=False):
         """:meth:`setKey` のfastの処理。必要ならカーブを作ってつなぎ、OpenMayaでキーを書き込む。

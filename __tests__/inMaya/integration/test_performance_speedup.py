@@ -1059,7 +1059,7 @@ class FastPathOverheadTest(unittest.TestCase):
         self.assertRegex(str(caught.exception), r"^値がアトリビュートの範囲を超えています: \S+\.dvX$")
         self.assertEqual(cmds.getAttr(node + ".dv")[0], (0.25, 1.5, -2.0))
         self.assertEqual(plug.set((0.5, 2.0, 3.0), safe=True, fast=True), 0)
-        self.assertIs(plug.set((0.5, 2.0, 3.0), fast=True), plug)
+        self.assertIsNone(plug.set((0.5, 2.0, 3.0), fast=True))
         with self.assertRaises(ValueError):
             plug.set((1.0, 2.0), fast=True)
 
@@ -1364,9 +1364,12 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
 
     @staticmethod
     def _key(value):
-        from mlib.nodes.node import Node
-        from mlib.plugs.plug import Plug
+        from mlib.nodes.node import Node, Nodes
+        from mlib.plugs.plug import Plug, Plugs
 
+        if isinstance(value, (Nodes, Plugs)):
+            # 複数形のクラスで返る一覧は、中身の並びで比べる。
+            return ("list", [ConnectionHistoryAttrListTest._key(v) for v in value])
         if isinstance(value, (list, tuple)):
             return (type(value).__name__, [ConnectionHistoryAttrListTest._key(v) for v in value])
         if isinstance(value, (Node, Plug)):

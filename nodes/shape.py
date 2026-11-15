@@ -30,7 +30,7 @@ class Shape(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
 
         Returns:
-            Shape: 自身。移した後のパスを指す。
+            None: 値を返さない。移した後のパスを指す。
 
         Raises:
             TypeError: parentがTransformでない場合、またはfastがboolでない場合。
@@ -50,12 +50,11 @@ class Shape(DagNode):
                 raise RuntimeError(f"インスタンスのシェイプは移動できません: {self.getFullName()}")
             current = self.getParent()
             if current is not None and current.mpath().fullPathName() == target.mpath().fullPathName():
-                return self
+                return
             if fast:
                 self._set_parent_fast(target)
             else:
                 cmds.parent(self.getFullName(), target.getFullName(), shape=True, relative=True)
-            return self
 
     def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
@@ -81,7 +80,7 @@ class Shape(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Shape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -158,7 +157,7 @@ class Shape(DagNode):
                     else:
                         components.append(row)
             if not selected and (len(counts) == 1 or not components):
-                return self
+                return
             if ws:
                 matrix = path.inclusiveMatrix()
                 magnitude = max(1.0, *(sum(abs(matrix[r * 4 + c]) for c in range(3)) for r in range(3)))
@@ -171,7 +170,7 @@ class Shape(DagNode):
                 if not all(math.isfinite(v) for row in values for v in row):
                     raise ValueError("スケールした位置が有限な数値になりません")
                 geometry_edit.set_positions(self, selected, values, ws, fast=fast, check=check)
-                return self
+                return
             center = tuple(om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in center)
             # scaleコマンドのpivot解釈に依存せず、同じ空間で読んだ座標を変換する。
             # 全座標を先にMFnNurbsSurfaceで読み(cmds.xform(query=True)と同じUI単位の値)、
@@ -187,7 +186,6 @@ class Shape(DagNode):
             for (u, v), position in zip(components, positions):
                 values = [center[i] + (position[i] - center[i]) * factors[i] for i in range(3)]
                 cmds.xform(f"{name}[{u}][{v}]", translation=values, worldSpace=ws, objectSpace=not ws)
-            return self
 
     def getTransform(self):
         """このShapeの親Transformを取得する。

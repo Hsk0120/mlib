@@ -150,7 +150,7 @@ class SetWeightsTest(_SkinCase):
             self.skin.setWeights(self.joints, [0.2, 0.3])
         self.assertRowsAlmostEqual(self.rows(), before)
         # ほかの set 系と同じく自身を返す。
-        self.assertIs(self.skin.setWeights(self.joints, [0.2, 0.3, 0.5], broadcast=True), self.skin)
+        self.assertIsNone(self.skin.setWeights(self.joints, [0.2, 0.3, 0.5], broadcast=True))
         self.assertRowsAlmostEqual(self.rows(), [[0.2, 0.3, 0.5]] * self.count)
         # 1 頂点なら K 個は V*K 個と同じなので broadcast は不要。
         self.skin.setWeights(self.joints, [0.5, 0.5, 0.0], vertices=[3])
@@ -323,7 +323,7 @@ class VertexWeightsTest(_SkinCase):
             cmds.skinPercent(self.skinName, self.vtx(5), transformValue=[(j1, 0.3)], normalize=True)
         expected = self.row(5)
         cmds.undo()
-        self.assertIs(self.skin.setVertexWeights(5, {j1: 0.3}), self.skin)
+        self.assertIsNone(self.skin.setVertexWeights(5, {j1: 0.3}))
         self.assertSequenceAlmostEqual(self.row(5), expected)
         self.skin.setVertexWeights(self.vtx(5), {j0: 0.05, j2: 0.05}, normalize=False)
         self.assertSequenceAlmostEqual(self.row(5), [0.05, expected[1], 0.05])
@@ -380,7 +380,7 @@ class PruneWeightsTest(_SkinCase):
                 cmds.undo()
                 self.assertRowsAlmostEqual(self.rows(), before)
                 self.flushUndo()
-                self.assertIs(self.skin.pruneWeights(threshold), self.skin)
+                self.assertIsNone(self.skin.pruneWeights(threshold))
                 self.assertRowsAlmostEqual(self.rows(), expected)
                 if self.rows() != before:
                     self.assertUndoesInOneStep(
@@ -454,7 +454,7 @@ class MirrorWeightsTest(NamespaceCase):
         """+X 側を -X 側へ写し(左の joint は右の joint へ)、Undo 1 回で戻る。"""
         before = [self.row(i) for i in self.minus]
         self.flushUndo()
-        self.assertIs(self.skin.mirrorWeights(), self.skin)
+        self.assertIsNone(self.skin.mirrorWeights())
         for index in self.minus:
             self.assertSequenceAlmostEqual(self.row(index), [0.0, 0.0, 1.0], places=6)
         cmds.undo()

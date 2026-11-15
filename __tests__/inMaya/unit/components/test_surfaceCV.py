@@ -128,7 +128,7 @@ class SurfaceCVTest(_Case):
         self.assertEqual(len(cvs.getPosition(worldSpace=True)), 2)
         before = cv.getPosition()
         self.flushUndo()
-        self.assertIs(cv.setPosition((5.0, 6.0, 7.0), worldSpace=True), cv)
+        self.assertIsNone(cv.setPosition((5.0, 6.0, 7.0), worldSpace=True))
         self.assertUndoesInOneStep(
             lambda: self.assertVectorAlmostEqual(cv.getPosition(), before),
             lambda: self.assertVectorAlmostEqual(cmds.pointPosition(name + ".cv[1][2]", world=True), (5, 6, 7)),

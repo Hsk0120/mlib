@@ -35,7 +35,7 @@ class LocatorTest(unittest.TestCase):
 
     def test_set_position_round_trips(self):
         result = self.locator.setPosition((1.0, 2.0, 3.0))
-        self.assertIs(result, self.locator)
+        self.assertIsNone(result)
         self.assertEqual(self.locator.getPosition(), Translate(1.0, 2.0, 3.0))
 
 

@@ -131,7 +131,7 @@ class AttributeEditsTest(unittest.TestCase):
         first.setFlags(channelBox=True, locked=True)
         self.node.addAttr("secondValue")
         before = self._definition("firstValue")
-        self.assertIs(self.node.moveAttrOrder("firstValue", 1), self.node)
+        self.assertIsNone(self.node.moveAttrOrder("firstValue", 1))
         self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["secondValue", "firstValue"])
         self.assertEqual(self._definition("firstValue"), before)
         self.assertFalse(first.isValid())
@@ -297,7 +297,7 @@ class NodeApiTest(unittest.TestCase):
 
         result = node.moveAttrOrder("attrC", -2)
 
-        self.assertIs(result, node)
+        self.assertIsNone(result)
         self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrC", "attrA", "attrB"])
         self.assertEqual(node.getPlug("attrA").get(), 1.0)
         self.assertEqual(node.getPlug("attrB").get(), 5.0)
@@ -329,7 +329,7 @@ class NodeApiTest(unittest.TestCase):
         node.addAttr("attrB", attributeType="double", defaultValue=0.0)
 
         result = node.moveAttrOrder("attrA", 0)
-        self.assertIs(result, node)
+        self.assertIsNone(result)
         self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrB"])
 
         node.moveAttrOrder("attrA", 100)

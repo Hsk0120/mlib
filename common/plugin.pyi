@@ -4,7 +4,7 @@
 import maya.cmds as cmds
 from ..core.registry import _clear_type_hierarchy_cache
 from .version import Version
-from mlib.nodes.node import Node
+from mlib.nodes.node import Nodes
 import types
 
 
@@ -110,14 +110,14 @@ class Plugin:
         """
         ...
     @classmethod
-    def listUnknownNodes(cls) -> list[Node]:
+    def listUnknownNodes(cls) -> Nodes:
         """型が分からない、未知のノードを取得する。
 
         対象は ``unknown``・``unknownDag``・``unknownTransform`` のノード。プラグインが見つからない
         ファイルを読み込んだときに、Mayaが元の型の代わりに作るノード。
 
         Returns:
-            list[Node]: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空リスト。
+            Nodes: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空の集まり。
         """
         ...
     @property
@@ -178,7 +178,7 @@ class Plugin:
             ValueError: minimum を版として読み取れない場合。
         """
         ...
-    def load(self, **kwargs: object) -> Plugin:
+    def load(self, **kwargs: object) -> None:
         """プラグインをロードする。
 
         うまくロードできたら、mlibが持つノード型の継承のキャッシュを消す。
@@ -189,13 +189,13 @@ class Plugin:
             **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
         """
         ...
-    def unload(self, force: bool = ...) -> Plugin:
+    def unload(self, *, force: bool = ...) -> None:
         """プラグインをアンロードする。
 
         うまくアンロードできたら、mlibが持つノード型の継承のキャッシュを消す。
@@ -205,19 +205,19 @@ class Plugin:
             force (bool): True なら、使われていても強制的にアンロードする。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
         """
         ...
-    def ensureLoaded(self) -> Plugin:
+    def ensureLoaded(self) -> None:
         """ロードされていなければロードする。
 
         何度呼んでも結果は同じ(すでにロードされていれば何もしない)。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Maya がロードを拒否した場合。

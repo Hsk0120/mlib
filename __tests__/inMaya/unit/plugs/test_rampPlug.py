@@ -59,7 +59,7 @@ class RampPlugTest(NamespaceCase):
         self.assertEqual(plug.getEntries(), [(0.0, 0.0, "linear"), (1.0, 1.0, "linear")])
         self.flushUndo()
         entries = [(0.8, 0.2, "smooth"), (0.0, 1.0, "none"), (0.5, 0.5, "spline")]
-        self.assertIs(plug.setEntries(entries), plug)
+        self.assertIsNone(plug.setEntries(entries))
 
         def after():
             result = plug.getEntries()

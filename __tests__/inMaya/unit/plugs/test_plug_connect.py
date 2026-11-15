@@ -363,9 +363,9 @@ class DisconnectSpecTest(_ConnectionSpecCase):
     def test_disconnect_input_is_noop_without_input(self):
         """disconnectInputは入力が無ければ何もせず自身を返し、あれば切断して自身を返す。"""
         ty = self.b.getPlug("ty")
-        self.assertIs(ty.disconnectInput(), ty)
+        self.assertIsNone(ty.disconnectInput())
         cmds.connectAttr(self.an + ".ty", self.bn + ".ty")
-        self.assertIs(ty.disconnectInput(), ty)
+        self.assertIsNone(ty.disconnectInput())
         self.assertEqual(self.inputs(self.bn + ".ty"), [])
         cmds.connectAttr(self.an + ".ty", self.bn + ".ty")
         cmds.flushUndo()
@@ -380,7 +380,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         cmds.connectAttr(self.an + ".tx", self.bn + ".tx")
         cmds.connectAttr(self.bn + ".tx", self.bn + ".ty")
         cmds.connectAttr(self.bn + ".tx", self.bn + ".tz")
-        self.assertIs(middle.disconnectAll(source=False, destination=False), middle)
+        self.assertIsNone(middle.disconnectAll(source=False, destination=False))
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))
         middle.disconnectAll(source=False)
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))
@@ -393,7 +393,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))
         self.assertTrue(cmds.isConnected(self.bn + ".tx", self.bn + ".ty"))
         unconnected = self.a.getPlug("sx")
-        self.assertIs(unconnected.disconnectAll(), unconnected)
+        self.assertIsNone(unconnected.disconnectAll())
         with self.assertRaises(TypeError):
             middle.disconnectAll(source=1)
         with self.assertRaises(TypeError):

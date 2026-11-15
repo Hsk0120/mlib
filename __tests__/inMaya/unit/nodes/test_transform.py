@@ -79,7 +79,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual(default_pivot, Translate(0.0, 0.0, 0.0))
 
         result = transform.setPivot((1.0, 2.0, 3.0), kind="both", preserve=False)
-        self.assertIs(result, transform)
+        self.assertIsNone(result)
         self.assertEqual(transform.getPivot(), Translate(1.0, 2.0, 3.0))
         cmds.undo()
         self.assertEqual(transform.getPivot(), default_pivot)
@@ -154,7 +154,7 @@ class NodeApiTest(unittest.TestCase):
         transform = self.create_transform("mlibNodeApiShowHide")
 
         result = transform.setVisibility(False)
-        self.assertIs(result, transform)
+        self.assertIsNone(result)
         self.assertFalse(transform.getPlug("visibility").get())
 
         transform.setVisibility(True)
@@ -165,7 +165,7 @@ class NodeApiTest(unittest.TestCase):
         transform.setTranslation((1.0, 2.0, 3.0), at=4)
 
         result = transform.makeIdentity(apply=True, translate=True)
-        self.assertIs(result, transform)
+        self.assertIsNone(result)
         self.assertEqual(transform.getTranslation(at=4), Translate(0.0, 0.0, 0.0))
 
     def test_transform_closest_axis_to_vector(self):
@@ -181,7 +181,7 @@ class NodeApiTest(unittest.TestCase):
     def test_transform_shear_quaternion_euler_and_decompose(self):
         transform = self.create_transform("mlibNodeApiShearQuat")
         result = transform.setShear((0.1, 0.2, 0.3))
-        self.assertIs(result, transform)
+        self.assertIsNone(result)
         shear = transform.getShear()
         self.assertIsInstance(shear, Shear)
         self.assertAlmostEqual(shear.x, 0.1, places=6)
@@ -447,7 +447,7 @@ class TransformBasicsTest(unittest.TestCase):
                     cmds.setAttr(name + "." + attr, *value)
                 cmds.currentUnit(linear="m")
                 before = {attr: cmds.getAttr(name + "." + attr) for attr in offsets}
-                self.assertIs(node.setTranslation((100, -200, 300), at=1, fast=fast), node)
+                self.assertIsNone(node.setTranslation((100, -200, 300), at=1, fast=fast))
                 self.assertValuesAlmostEqual(cmds.getAttr(name + ".t")[0], (1, -2, 3))
                 self.assertEqual({attr: cmds.getAttr(name + "." + attr) for attr in offsets}, before)
                 self.assertValuesAlmostEqual(tuple(node.getTranslation(at=1)), (100, -200, 300))
@@ -465,7 +465,7 @@ class TransformBasicsTest(unittest.TestCase):
                 cmds.setAttr(node.getFullName() + ".r", 11, 22, 33)
                 cmds.setAttr(node.getFullName() + ".rp", 1, 2, 3)
                 rotation = cmds.getAttr(node.getFullName() + ".r")
-                self.assertIs(node.setTranslation((30, -20, 10), worldSpace=True, at=4, fast=fast), node)
+                self.assertIsNone(node.setTranslation((30, -20, 10), worldSpace=True, at=4, fast=fast))
                 self.assertValuesAlmostEqual(self.matrix(node, world=True)[12:15], (30, -20, 10))
                 self.assertEqual(cmds.getAttr(node.getFullName() + ".r"), rotation)
 
@@ -485,7 +485,7 @@ class TransformBasicsTest(unittest.TestCase):
                     # setRotateの入力はrotateチャンネルではなく、rotateAxis込みの姿勢。
                     cmds.setAttr(reference.getFullName() + ".ra", 0, 0, 0)
                     cmds.setAttr(reference.getFullName() + ".r", 35, -50, 80)
-                    self.assertIs(node.setRotate((35, -50, 80), unit="deg", fast=fast), node)
+                    self.assertIsNone(node.setRotate((35, -50, 80), unit="deg", fast=fast))
                     self.assertValuesAlmostEqual(self.matrix(node)[:12], self.matrix(reference)[:12])
                     self.assertEqual(cmds.getAttr(node.getFullName() + ".ra"), [(7, -13, 19)])
                     self.assertEqual(cmds.getAttr(node.getFullName() + ".t"), [(3, 4, 5)])
@@ -504,7 +504,7 @@ class TransformBasicsTest(unittest.TestCase):
                     cmds.setAttr(name + ".sh", 0.1, 0.2, -0.3)
                     cmds.setAttr(name + ".sp", 2, 1, -3)
                 cmds.setAttr(reference.getFullName() + ".s", -2, 3, -4)
-                self.assertIs(node.setScale((-2, 3, -4), fast=fast), node)
+                self.assertIsNone(node.setScale((-2, 3, -4), fast=fast))
                 self.assertEqual(cmds.getAttr(node.getFullName() + ".s"), [(-2, 3, -4)])
                 self.assertValuesAlmostEqual(self.matrix(node), self.matrix(reference))
 
@@ -560,7 +560,7 @@ class TransformBasicsTest(unittest.TestCase):
         self.assertEqual(cmds.getAttr(marker.getFullName() + ".t"), [(0, 0, 0)])
 
     def test_calculated_world_translation_is_independent_and_does_not_write(self):
-        """ロック中でもget=Trueは親空間への計算だけを行い、返すlistは独立する。"""
+        """ロック中でもget=Trueは親空間への計算だけを行い、返すTranslateは独立する。"""
         parent = self.make()
         cmds.setAttr(parent.getFullName() + ".t", 10, 20, 30)
         cmds.setAttr(parent.getFullName() + ".s", 2, 3, 4)
@@ -569,7 +569,7 @@ class TransformBasicsTest(unittest.TestCase):
         before = self.matrix(node)
         cmds.flushUndo()
         planned = node.setTranslation((14, 29, 46), worldSpace=True, at=1, safe=True, get=True)
-        self.assertIsInstance(planned, list)
+        self.assertIsInstance(planned, mlib.Translate)
         self.assertValuesAlmostEqual(planned, (2, 3, 4))
         planned[0] = 999
         self.assertEqual(self.matrix(node), before)
@@ -591,7 +591,7 @@ class TransformBasicsTest(unittest.TestCase):
                     cmds.setAttr(node.getFullName() + ".r", -15, 25, 35)
                     before = self.matrix(node, world=not relative)
                     held = node.getPlug("ty")
-                    self.assertIs(node.setParent(new_parent, relative=relative, fast=fast), node)
+                    self.assertIsNone(node.setParent(new_parent, relative=relative, fast=fast))
                     self.assertEqual(node.getParent().mnode(), new_parent.mnode())
                     self.assertTrue(held.isValid())
                     self.assertValuesAlmostEqual(self.matrix(node, world=not relative), before)
@@ -621,8 +621,8 @@ class TransformBasicsTest(unittest.TestCase):
             parent = self.make()
             child = self.make(parent)
             cmds.flushUndo()
-            self.assertIs(child.setParent(parent, fast=fast), child)
-            self.assertIs(parent.setParent(None, fast=fast), parent)
+            self.assertIsNone(child.setParent(parent, fast=fast))
+            self.assertIsNone(parent.setParent(None, fast=fast))
             self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_cycle_rejection_preserves_hierarchy_and_transforms(self):
@@ -730,7 +730,7 @@ class RotateOrderTest(_Case):
         self.assertEqual(node.getRotateOrder(), "xyz")
         cmds.xform(twin, rotateOrder="zxy", preserve=True)
         self.flushUndo()
-        self.assertIs(node.setRotateOrder("ZXY"), node)
+        self.assertIsNone(node.setRotateOrder("ZXY"))
         self.assertEqual(node.getRotateOrder(), "zxy")
         self.assertSequenceAlmostEqual(cmds.getAttr(node.getFullName() + ".rotate")[0], cmds.getAttr(twin + ".rotate")[0], places=6)
         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(before, 1e-9))

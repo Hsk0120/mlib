@@ -23,14 +23,14 @@ class UnitConversion(Node):
             conversionFactor (float | Plug | str | None): 掛ける係数。
 
         Returns:
-            UnitConversion: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込み・接続を拒否した場合。
                 拒否されたときは、それまでの変更を戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"input": input, "conversionFactor": conversionFactor})
+        _calculation.set_inputs(self, "setInput", {"input": input, "conversionFactor": conversionFactor})
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

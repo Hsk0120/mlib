@@ -57,7 +57,7 @@ class WorldTranslationTest(NamespaceCase):
                 cmds.currentUnit(linear=unit)
                 name = self.build(kind, parent_scale, pivots, opm)
                 node = Node(name)
-                self.assertIs(node.setTranslation(TARGET, worldSpace=True), node)
+                self.assertIsNone(node.setTranslation(TARGET, worldSpace=True))
                 if not (kind == "joint" and pivots):
                     # Jointはピボットをマトリクスに使わないので、xformの問い合わせとは比べない。
                     # xformの問い合わせはUIの単位で返るので、cmへ直して比べる。

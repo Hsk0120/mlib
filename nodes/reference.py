@@ -7,7 +7,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..decorator import _require_bool, undoChunk
-from .node import Node
+from .node import Node, Nodes
 
 
 class Reference(Node):
@@ -99,14 +99,14 @@ class Reference(Node):
         """このリファレンスがシーンへ読み込んだノードを取得する。
 
         Returns:
-            list[Node]: リファレンスの中のノードのオブジェクト。
+            Nodes: リファレンスの中のノードのオブジェクト。
 
         Raises:
             RuntimeError: リファレンスが今アンロードされている場合。
         """
         if not self.isLoaded():
             raise RuntimeError("アンロードされたリファレンスのノードは列挙できません")
-        return [Node(mobject) for mobject in self.mfn().nodes()]
+        return Nodes._wrap([Node(mobject) for mobject in self.mfn().nodes()])
 
     def getParentReference(self):
         """親のリファレンスを取得する。
@@ -134,7 +134,7 @@ class Reference(Node):
         自身を親に持つ、1段下の入れ子のリファレンスだけを返す。
 
         Returns:
-            list[Reference]: 子のリファレンス。無ければ空リスト。孫より下は含めない。
+            Nodes[Reference]: 子のリファレンス。無ければ空の集まり。孫より下は含めない。
         """
         # mlib 内の他の相互依存箇所と合わせて遅延 import で統一する。
         from ..common.references import listReferences
@@ -145,7 +145,7 @@ class Reference(Node):
             parent = reference.getParentReference()
             if parent is not None and parent.getFullName() == own_name:
                 children.append(reference)
-        return children
+        return Nodes._wrap(children)
 
     def getRoot(self):
         """入れ子のいちばん上(トップレベル)のリファレンスを取得する。
@@ -213,26 +213,25 @@ class Reference(Node):
         """リファレンスをロードする。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがロードを拒否した場合。
         """
-        cmds.file(loadReference=self.getName())
-        return self
+        # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。
+        cmds.file(loadReference=self.getName(), prompt=False)
 
     @undoChunk("mlibReferenceUnload")
     def unload(self):
         """リファレンスをアンロードする。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがアンロードを拒否した場合。
         """
         cmds.file(unloadReference=self.getName())
-        return self
 
     @undoChunk("mlibReferenceRemoveEdits")
     def removeEdits(self, successful=True, failed=True, editCommand=None):
@@ -250,7 +249,7 @@ class Reference(Node):
                 Noneならすべてのコマンドが対象。既定はNone。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: successful・failedがboolでない場合、またはeditCommandが文字列でもNoneでもない場合。
@@ -275,8 +274,7 @@ class Reference(Node):
             cmds.referenceEdit(name, **flags)
         finally:
             if reload:
-                cmds.file(loadReference=name)
-        return self
+                cmds.file(loadReference=name, prompt=False)
 
     @undoChunk("mlibReferenceReplaceFile")
     def replaceFile(self, path):
@@ -289,7 +287,7 @@ class Reference(Node):
             path (str | os.PathLike): 新しいファイルのパス。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: pathが文字列でもPathLikeでもない場合。
@@ -302,8 +300,8 @@ class Reference(Node):
         if not path:
             raise ValueError("pathは空でない文字列で指定してください")
         self._require_valid("ファイルの置き換え")
-        cmds.file(path.replace("\\", "/"), loadReference=self.getName())
-        return self
+        # GUIでも「ファイルが見つかりません」の確認ダイアログで止めず、例外にする。
+        cmds.file(path.replace("\\", "/"), loadReference=self.getName(), prompt=False)
 
     def importContents(self, removeNamespace=False):
         """リファレンスの内容をシーンへ読み込み、リファレンスを解除する。
@@ -317,7 +315,7 @@ class Reference(Node):
                 名前がぶつかるノードには、:meth:`Namespace.remove` と同じく末尾に番号を付ける。既定はFalse。
 
         Returns:
-            list[Node]: 読み込んだノード。referenceノードは含まない。
+            Nodes: 読み込んだノード。referenceノードは含まない。
 
         Raises:
             TypeError: removeNamespaceがboolでない場合。
@@ -332,7 +330,7 @@ class Reference(Node):
         cmds.file(importReference=True, referenceNode=self.getName())
         if namespace is not None and namespace.name != ":" and namespace.exists():
             namespace.remove(namespace.getParent())
-        return [node for node in nodes if node.isValid()]
+        return Nodes._wrap([node for node in nodes if node.isValid()])
 
     @undoChunk("mlibReferenceRemove")
     def remove(self):

@@ -13,6 +13,7 @@ from ..core.attributeType import _convert_units, _from_seconds, _to_seconds
 from ..core.fastWrite import require_writable
 from ..core.nodeEdit import delete_nodes
 from ..decorator import _edit_context, _require_bool, undoChunk
+from ..plugs.plug import Plugs
 from ..util import _angle_unit, _from_radians, _time_unit, _to_radians
 from .node import Node
 
@@ -239,7 +240,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
+            None: 値を返さない。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
 
         Raises:
             TypeError: fastがbool以外の場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -278,7 +279,7 @@ class AnimCurve(Node):
                         self._set_api_value(fn, index, value)
                     else:
                         fn.addKey(at, value, tangent_in, tangent_out)
-                return self
+                return
             position = self._unit_value(input)
             value = self._unit_value(value, output=True)
             flags = {"time" if self.isTimeInput() else "float": position}
@@ -287,7 +288,6 @@ class AnimCurve(Node):
             if outTangentType is not None:
                 flags["outTangentType"] = outTangentType
             cmds.setKeyframe(self.getFullName(), value=value, **flags)
-            return self
 
     def insertKey(self, input, *, timeUnit="frame"):
         """カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
@@ -300,7 +300,7 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのinputの単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
+            None: 値を返さない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
 
         Raises:
             TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
@@ -314,9 +314,8 @@ class AnimCurve(Node):
         with undoChunk("mlibAnimCurveInsertKey"):
             flags = {"time" if self.isTimeInput() else "float": self._unit_value(position)}
             cmds.setKeyframe(self.getFullName(), insert=True, **flags)
-            return self
 
-    def removeKey(self, index=None, *, time=None, timeUnit="frame", keepCurve=True, fast=False, check=False):
+    def removeKey(self, *, index=None, time=None, timeUnit="frame", keepCurve=True, fast=False, check=False):
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
 
         キーのクリップボードは変更しない。indexとtimeは、どちらか一方を指定する。
@@ -335,7 +334,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
+            None: 値を返さない。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合かどちらも指定しない場合、timeが数値でも2つの数値の並びでもない場合、
@@ -349,7 +348,7 @@ class AnimCurve(Node):
         with _edit_context("mlibAnimCurveRemoveKey", fast):
             ranges = self._key_ranges(index, time, timeUnit)
             if not ranges:
-                return self
+                return
             emptied = sum(end - start + 1 for start, end in ranges) == self.getKeyCount()
             if fast:
                 if check:
@@ -368,7 +367,6 @@ class AnimCurve(Node):
                     cmds.cutKey(self.getFullName(), index=ranges, clear=True, animation="objects")
             else:
                 cmds.cutKey(self.getFullName(), index=ranges, clear=True, animation="objects")
-            return self
 
     def replaceKeys(self, keys, *, unit="deg", timeUnit="frame"):
         """カーブを残したまま、すべてのキーを指定したキーへ置き換える。
@@ -389,7 +387,7 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 要素が2つか4つの並びでない場合、または数値へ変換できない型の場合。
@@ -420,7 +418,6 @@ class AnimCurve(Node):
                 self.setKey(input, value, tangent_in, tangent_out, unit=unit, timeUnit=timeUnit)
             # カーブ名へ直接キーを打つと、Mayaは出力先を再評価しないことがあるため、出力を更新し直させる。
             cmds.dgdirty(self.getFullName())
-            return self
 
     def getTangent(self, index, *, unit="deg"):
         """指定したキーの接線の情報を取得する。
@@ -489,7 +486,7 @@ class AnimCurve(Node):
                 - ロックは自動では外さない。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
@@ -521,7 +518,7 @@ class AnimCurve(Node):
                 if "weightedTangents" in values:
                     # keyTangentはこの全体モード指定がある場合、同時のキー別旗を適用しない。
                     fn.setIsWeighted(bool(values["weightedTangents"]))
-                    return self
+                    return
                 if "lock" in values:
                     fn.setTangentsLocked(index, bool(values["lock"]))
                 if "weightLock" in values:
@@ -534,13 +531,12 @@ class AnimCurve(Node):
                         if side + "Angle" in values:
                             angle = om2.MAngle(_to_radians(values[side + "Angle"], angle_unit), om2.MAngle.kRadians)
                         fn.setTangent(index, angle, values.get(side + "Weight", weight), incoming)
-                return self
+                return
             kwargs = dict(kwargs)
             for flag in ("inAngle", "outAngle"):
                 if flag in kwargs:
                     kwargs[flag] = angleToUi(kwargs[flag], unit=angle_unit)
             cmds.keyTangent(self.getFullName(), edit=True, index=self._index(index), animation="objects", **kwargs)
-            return self
 
     def getInfinity(self):
         """カーブの前後の外挿の方法を、名前で取得する。
@@ -563,7 +559,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -583,7 +579,6 @@ class AnimCurve(Node):
                         plug._require_writable()
             for plug, value in targets:
                 plug.set(value, fast=fast)
-            return self
 
     def isBreakdown(self, index):
         """指定したキーがブレイクダウンキーか判定する(``keyframe -q -breakdown``)。
@@ -613,7 +608,7 @@ class AnimCurve(Node):
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがbool以外、またはindexがNoneの場合。
@@ -628,9 +623,8 @@ class AnimCurve(Node):
         with undoChunk("mlibAnimCurveSetBreakdown"):
             if ranges:
                 cmds.keyframe(self.getFullName(), edit=True, animation="objects", index=ranges, breakdown=state)
-            return self
 
-    def moveKey(self, index=None, *, time=None, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
+    def moveKey(self, *, index=None, time=None, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """キーの入力(時刻)と値をずらす。indexとtimeを両方省略すると、すべてのキーを動かす。
 
         Mayaの ``keyframe -edit -relative`` と同じく、入力をずらしたキーは、動かさない隣のキーを越えない
@@ -648,7 +642,7 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。動かすキーが無ければ何も変えない。
+            None: 値を返さない。動かすキーが無ければ何も変えない。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -669,7 +663,6 @@ class AnimCurve(Node):
                 flag = "timeChange" if self.isTimeInput() else "floatChange"
                 # 範囲を省くと、キーが1つだけのカーブをMayaが動かさないため、キーを番号で指定する。
                 cmds.keyframe(self.getFullName(), edit=True, relative=True, animation="objects", index=ranges, valueChange=y, **{flag: x})
-            return self
 
     def scaleKey(self, inputScale=1, valueScale=1, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
         """キーを、基準の値を中心に拡大・縮小する。
@@ -690,7 +683,7 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -713,7 +706,6 @@ class AnimCurve(Node):
                 prefix = "time" if self.isTimeInput() else "float"
                 # moveKey と同じく、キーが1つだけのカーブも拡縮するようキーを番号で指定する。
                 cmds.scaleKey(self.getFullName(), animation="objects", index=ranges, valueScale=y, valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
-            return self
 
     def mirror(self, input=False, value=True, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
         """入力の軸(横軸)と出力の軸(縦軸)を反転する。
@@ -732,9 +724,9 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
         """
-        return self.scaleKey(-1 if input else 1, -1 if value else 1, inputPivot, valuePivot, index=index, time=time, unit=unit, timeUnit=timeUnit)
+        self.scaleKey(-1 if input else 1, -1 if value else 1, inputPivot, valuePivot, index=index, time=time, unit=unit, timeUnit=timeUnit)
 
     def eulerFilter(self):
         """回転のカーブへEulerフィルターをかけ、360度の飛びを取り除く。
@@ -744,7 +736,7 @@ class AnimCurve(Node):
         fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 時間→角度のカーブ(animCurveTA)でない場合。
@@ -755,7 +747,6 @@ class AnimCurve(Node):
             raise TypeError(f"eulerFilterにはanimCurveTA(回転)のカーブが必要です: {self.getType()}: {self.getName()}")
         with undoChunk("mlibAnimCurveEulerFilter"):
             cmds.filterCurve(self.getFullName(), filter="euler")
-        return self
 
     def getDrivenPlugs(self):
         """このカーブが動かしているアトリビュートを返す。
@@ -763,13 +754,13 @@ class AnimCurve(Node):
         unitConversionなどの変換ノードは飛ばして、その先のアトリビュートを返す。
 
         Returns:
-            list[Plug]: ``output`` の出力先。つながっていなければ空リスト。
+            Plugs: ``output`` の出力先。つながっていなければ空の集まり。
 
         Raises:
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         self._require_valid("アトリビュートの取得")
-        return list(self.getPlug("output").getDestinations(skipConversionNodes=True))
+        return Plugs._from_plugs(list(self.getPlug("output").getDestinations(skipConversionNodes=True)))
 
     def getKeyframe(self, index):
         """指定した番号のキーを、Keyframeとして返す。

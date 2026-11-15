@@ -26,7 +26,7 @@ class MultMatrix(Node):
             matrices (Iterable[Matrix | Iterable[float] | Plug | str]): 掛け合わせるマトリクスの並び。
 
         Returns:
-            MultMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -38,7 +38,6 @@ class MultMatrix(Node):
             for index in reversed(_calculation.element_indices(self, "matrixIn")):
                 _calculation.remove_elements(self, "setInput", ("matrixIn",), index)
             _calculation.set_inputs(self, "setInput", {f"matrixIn[{index}]": matrix for index, matrix in enumerate(matrices)})
-        return self
 
     def addInput(self, matrix):
         """入力のマトリクスを末尾へ足す。
@@ -66,14 +65,14 @@ class MultMatrix(Node):
             index (int): 入力の論理番号。
 
         Returns:
-            MultMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。
             ValueError: indexの入力が無い場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
-        return _calculation.remove_elements(self, "removeInput", ("matrixIn",), index)
+        _calculation.remove_elements(self, "removeInput", ("matrixIn",), index)
 
     def getInputIndices(self):
         """すでにある入力の論理番号を、小さい順に取得する。

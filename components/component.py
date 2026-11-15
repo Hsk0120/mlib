@@ -395,7 +395,10 @@ class Components:
     - 形状を編集して要素が増えたり減ったりしても、自動ではついていかない。
       トポロジーを変えた後に同じ要素を指すとも限らない。
     - ``[]`` で指定するのは、この集まりの中での位置で、Mayaでの番号ではない。
-    - ``+`` (同じシェイプ・同じ種類どうし)・``==``・:meth:`sort` が使える。
+    - ``+`` (同じシェイプ・同じ種類どうし)・``==``・``in``・:meth:`sort` が使える。
+    - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
+      ``del``・``+=`` も使える。足せるのは同じシェイプ・同じ種類のコンポーネントで、すでにある要素は足さない。
+      形状は変えず、この集まりが持つ番号の並びだけを変える。
       ``==`` を定義しているので、listと同じくハッシュ値を持たない(dictのキーやsetの要素にできない)。
     """
 
@@ -524,6 +527,19 @@ class Components:
             return type(self)(self._shape, self._indices[index])
         return self.component_class(self._shape, self._indices[index])
 
+    def __delitem__(self, index):
+        """位置の要素を取り除く。形状は変えない。
+
+        Args:
+            index (int | slice): この集まりの中での位置。
+
+        Raises:
+            IndexError: 位置が範囲の外の場合。
+        """
+        indices = list(self._indices)
+        del indices[index]
+        self._indices = tuple(indices)
+
     def __eq__(self, other):
         """同じシェイプ・同じ種類で、番号の並びも同じか比べる。
 
@@ -618,6 +634,33 @@ class Components:
             return NotImplemented
         return type(self)(self._shape, self._matching_indices(other) + self._indices)
 
+    def __iadd__(self, other):
+        """``+=`` で、後ろへ要素を足す(:meth:`extend` と同じ)。
+
+        Args:
+            other (Components | Iterable[Component]): 足す要素。
+
+        Returns:
+            Components: 自身。
+        """
+        self.extend(other)
+        return self
+
+    def __contains__(self, value):
+        """コンポーネントを要素として持っているかを返す。
+
+        Args:
+            value (Component): 調べるコンポーネント。
+
+        Returns:
+            bool: 持っていればTrue。シェイプや種類の違うもの、コンポーネント以外はFalse。
+        """
+        try:
+            (index,) = self._matching_indices([value])
+        except (TypeError, ValueError):
+            return False
+        return index in self._indices
+
     @property
     def shape(self):
         """この集まりを持つシェイプを返す。
@@ -651,7 +694,7 @@ class Components:
             reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
-            Components: 並べ替えた自身。新しい集まりは作らない。派生クラスでは自身のクラスになる。
+            None: 値を返さない。新しい集まりは作らない。派生クラスでは自身のクラスになる。
 
         Raises:
             TypeError: keyが呼び出せない、またはreverseがbool以外の場合。
@@ -661,10 +704,138 @@ class Components:
             raise TypeError("keyは呼び出せるオブジェクトかNoneで指定してください")
         if key is None:
             self._indices = tuple(sorted(self._indices, reverse=reverse))
-            return self
+            return
         pairs = sorted(zip(self, self._indices), key=lambda pair: key(pair[0]), reverse=reverse)
         self._indices = tuple(index for _, index in pairs)
-        return self
+
+    def append(self, value):
+        """後ろへコンポーネントを1つ足す。すでに持っている要素なら何もしない。
+
+        Args:
+            value (Component): 同じシェイプ・同じ種類のコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる場合。
+        """
+        self.extend([value])
+
+    def extend(self, values):
+        """後ろへコンポーネントの並びを足す。すでに持っている要素は足さない。
+
+        すべての値を確かめてから足すので、例外が起きたときは何も変わらない。
+
+        Args:
+            values (Components | Iterable[Component]): 同じシェイプ・同じ種類の集まり、またはコンポーネントの並び。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる要素を含む場合。
+        """
+        added = self._matching_indices(values if isinstance(values, Components) else list(values))
+        self._indices = tuple(dict.fromkeys(self._indices + tuple(added)))
+
+    def insert(self, index, value):
+        """位置へコンポーネントを1つ入れる。すでに持っている要素なら何もしない。
+
+        Args:
+            index (int): この集まりの中での位置(Pythonのlistと同じ)。
+            value (Component): 同じシェイプ・同じ種類のコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: シェイプまたはコンポーネントの種類が異なる場合。
+        """
+        (added,) = self._matching_indices([value])
+        if added not in self._indices:
+            indices = list(self._indices)
+            indices.insert(index, added)
+            self._indices = tuple(indices)
+
+    def remove(self, value):
+        """コンポーネントを1つ取り除く。形状は変えない。
+
+        Args:
+            value (Component): 取り除くコンポーネント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: その要素を持っていない場合。
+        """
+        if value not in self:
+            raise ValueError(f"{type(self).__name__}に無い要素は取り除けません: {value!r}")
+        (removed,) = self._matching_indices([value])
+        self._indices = tuple(index for index in self._indices if index != removed)
+
+    def pop(self, index=-1):
+        """位置の要素を取り除いて返す。形状は変えない。
+
+        Args:
+            index (int): この集まりの中での位置。既定は最後の要素。
+
+        Returns:
+            Component: 取り除いたコンポーネント。
+
+        Raises:
+            IndexError: 要素が無い場合、または位置が範囲の外の場合。
+        """
+        item = self[index]
+        del self[index]
+        return item
+
+    def index(self, value, start=0, stop=None):
+        """コンポーネントの、この集まりの中での位置を返す(Mayaでの番号ではない)。
+
+        Args:
+            value (Component): 探すコンポーネント。
+            start (int): 探し始める位置。既定は0。
+            stop (int | None): 探し終える位置(この位置は含まない)。Noneなら最後まで。
+
+        Returns:
+            int: この集まりの中での位置。
+
+        Raises:
+            ValueError: その範囲に要素が無い場合。
+        """
+        if value not in self:
+            raise ValueError(f"{type(self).__name__}に無い要素です: {value!r}")
+        (found,) = self._matching_indices([value])
+        return self._indices.index(found, start, len(self._indices) if stop is None else stop)
+
+    def count(self, value):
+        """コンポーネントを持っている数を返す。同じ要素は1つしか持たないので、0か1になる。
+
+        Args:
+            value (Component): 数えるコンポーネント。
+
+        Returns:
+            int: 持っていれば1、無ければ0。
+        """
+        return 1 if value in self else 0
+
+    def clear(self):
+        """要素をすべて取り除く。形状は変えない。
+
+        Returns:
+            None: 値を返さない。
+        """
+        self._indices = ()
+
+    def reverse(self):
+        """要素の並びを、その場で逆にする。
+
+        Returns:
+            None: 値を返さない。
+        """
+        self._indices = self._indices[::-1]
 
     def getFullNames(self):
         """持っている順に、完全パスのコンポーネント名を取得する。

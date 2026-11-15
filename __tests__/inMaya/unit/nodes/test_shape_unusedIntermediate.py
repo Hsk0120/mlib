@@ -31,7 +31,7 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
         names = [s.getFullName() for s in shapes]
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), shapes)
         visible = self.transform.getShape().getFullName()
-        self.assertIs(self.transform.deleteUnusedIntermediateShapes(), self.transform)
+        self.assertIsNone(self.transform.deleteUnusedIntermediateShapes())
         self.assertTrue(cmds.objExists(visible))
         self.assertTrue(all(not cmds.objExists(n) for n in names))
         cmds.undo()

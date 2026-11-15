@@ -111,12 +111,12 @@ class ReferenceTest(unittest.TestCase):
     def test_unload_load_round_trip(self):
         reference = Node(self.ref_node_name)
         result = reference.unload()
-        self.assertIs(result, reference)
+        self.assertIsNone(result)
         self.assertFalse(reference.isLoaded())
         self.assertFalse(cmds.referenceQuery(self.ref_node_name, isLoaded=True))
 
         result = reference.load()
-        self.assertIs(result, reference)
+        self.assertIsNone(result)
         self.assertTrue(reference.isLoaded())
 
     def test_nodes_raises_when_unloaded(self):
@@ -330,7 +330,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
         cmds.setAttr(asset + ".tz", 5.0)
         local = self.make("transform", "local#")
         cmds.connectAttr(asset + ".tx", local + ".tx")
-        self.assertIs(reference.removeEdits(editCommand="setAttr"), reference)
+        self.assertIsNone(reference.removeEdits(editCommand="setAttr"))
         self.assertTrue(reference.isLoaded())
         edits = reference.getEditStrings()
         self.assertFalse([edit for edit in edits if edit.startswith("setAttr")])
@@ -346,7 +346,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
     def test_replace_file(self):
         """別のファイルへ置き換え、名前空間を保つ。不正な path は例外。"""
         reference = self._reference(self.path_a, "r1")
-        self.assertIs(reference.replaceFile(self.path_b), reference)
+        self.assertIsNone(reference.replaceFile(self.path_b))
         self.assertEqual(os.path.normcase(reference.getFilename()), os.path.normcase(self.path_b))
         self.assertTrue(cmds.objExists(self.ns + "_r1:mlibNodePlugAddextra_" + self.asset.rsplit("_", 1)[-1]))
         self.assertFalse(cmds.objExists(self.ns + "_r1:" + self.driven))

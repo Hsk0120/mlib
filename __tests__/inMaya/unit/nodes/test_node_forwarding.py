@@ -54,7 +54,7 @@ class NodesForwardingTest(_Case):
 
     def test_existing_collection_methods_keep_priority(self):
         nodes = self.nodes(self.a, self.b)
-        self.assertIs(nodes.setOverrideColor(13), nodes)
+        self.assertIsNone(nodes.setOverrideColor(13))
         self.assertEqual(nodes.getOverrideColor(), [13, 13])
 
     def test_undo_once(self):

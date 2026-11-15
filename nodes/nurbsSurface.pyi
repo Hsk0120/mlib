@@ -133,7 +133,7 @@ class NurbsSurface(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsSurface:
+    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(cm)の点を受け付ける。
@@ -153,7 +153,7 @@ class NurbsSurface(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsSurface: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、

@@ -111,7 +111,7 @@ class DuplicateShortNameTest(_InteropCase):
         source.getPlug("tx").connectTo(dup2.getPlug("tx"))
         # 以前は MPlug.name() による重複判定で2件目が失われていた。
         self.assertEqual(
-            sorted(plug.getFullName() for plug in source.getConnections(False, True, skipConversionNodes=True)),
+            sorted(plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)),
             sorted([dup1.getName() + ".translateX", dup2.getName() + ".translateX"]),
         )
         self.assertTrue(cmds.isConnected(source.getPlug("tx"), dup2.getPlug("tx")))

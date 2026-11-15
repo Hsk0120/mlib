@@ -156,7 +156,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         with patch.object(cmds, "removeMultiInstance", side_effect=AssertionError("cmds remove")), patch.object(
             cmds, "deleteAttr", side_effect=AssertionError("cmds delete")
         ):
-            self.assertIs(array.removeElement(4, fast=True), array)
+            self.assertIsNone(array.removeElement(4, fast=True))
             self.assertEqual(array.get(), {})
             extra.delete(fast=True)
         self.assertFalse(self.node.hasAttr("temporary"))

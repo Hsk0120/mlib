@@ -17,7 +17,7 @@ class DecomposeMatrix(Node):
 
     親の空間やjointOrientに合わせた補正はしない。
     """
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> DecomposeMatrix:
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -32,7 +32,7 @@ class DecomposeMatrix(Node):
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 分解するマトリクス。
 
         Returns:
-            DecomposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -48,7 +48,7 @@ class DecomposeMatrix(Node):
             str: ``"xyz"``・``"yzx"``・``"zxy"``・``"xzy"``・``"yxz"``・``"zyx"`` のいずれか。
         """
         ...
-    def setRotateOrder(self, order: str | int) -> DecomposeMatrix:
+    def setRotateOrder(self, order: str | int) -> None:
         """出力する回転の回転順を設定する。
 
         ``inputRotateOrder`` へ書き込む。名前でも番号でも指定できる。1回のUndoで戻せる。
@@ -58,7 +58,7 @@ class DecomposeMatrix(Node):
                 またはMayaの番号(0から)。
 
         Returns:
-            DecomposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: orderが文字列・int以外の場合。

@@ -17,7 +17,7 @@ class File(Texture2d):
         """
         return self.getPlug("fileTextureName").get()
 
-    def setFilePath(self, path, *, fast=False):
+    def setFilePath(self, path, *, fast=False, check=False):
         """ファイルパスを設定する。
 
         ファイルがあるかどうかは確かめず、ファイルのコピーもしない。
@@ -25,9 +25,11 @@ class File(Texture2d):
         Args:
             path (str): ファイルパス。UDIMなどのトークンを含むパターンでもよい。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            File: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外、またはpathがstr以外の場合。
@@ -39,8 +41,7 @@ class File(Texture2d):
         with _edit_context("mlibFileSetFilePath", fast):
             if not isinstance(path, str):
                 raise TypeError("pathは文字列で指定してください")
-            self.getPlug("fileTextureName").set(path, fast=fast)
-            return self
+            self.getPlug("fileTextureName").set(path, fast=fast, check=check)
 
     def getColorSpace(self):
         """入力色空間の名前を取得する。
@@ -50,7 +51,7 @@ class File(Texture2d):
         """
         return self.getPlug("colorSpace").get()
 
-    def setColorSpace(self, name, *, fast=False):
+    def setColorSpace(self, name, *, fast=False, check=False):
         """入力色空間を設定する。
 
         名前が正しいかは確かめず、そのまま書き込む。使える色空間は色管理の設定(OCIOの構成など)で
@@ -59,9 +60,11 @@ class File(Texture2d):
         Args:
             name (str): 色空間の名前。今のMayaの色管理の設定で使える名前を指定する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            File: 自身。パスを変えたときに色空間を自動で決めるルールの設定は変えない。
+            None: 値を返さない。パスを変えたときに色空間を自動で決めるルールの設定は変えない。
 
         Raises:
             TypeError: fastがbool以外、またはnameがstr以外の場合。
@@ -73,5 +76,4 @@ class File(Texture2d):
         with _edit_context("mlibFileSetColorSpace", fast):
             if not isinstance(name, str):
                 raise TypeError("nameは文字列で指定してください")
-            self.getPlug("colorSpace").set(name, fast=fast)
-            return self
+            self.getPlug("colorSpace").set(name, fast=fast, check=check)

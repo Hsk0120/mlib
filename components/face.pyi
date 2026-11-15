@@ -12,6 +12,7 @@ from typing import Any, Iterator
 from mlib.components.edge import Edges
 from mlib.components.vertexFace import VertexFaces
 from mlib.nodes.node import Node
+from mlib.nodes.node import Nodes
 from mlib.nodes.shadingEngine import ShadingEngine
 from typing import overload
 
@@ -263,18 +264,18 @@ class Faces(Components):
     @overload
     def __getitem__(self, index: slice) -> Faces: ...
     component_class: Any
-    def getShadingEngines(self) -> list[ShadingEngine]:
+    def getShadingEngines(self) -> Nodes[ShadingEngine]:
         """各フェースに割り当てられたシェーディンググループを取得する。
 
         Returns:
-            list[ShadingEngine]: シェーディンググループ。重なりは除く。
+            Nodes[ShadingEngine]: シェーディンググループ。重なりは除く。
         """
         ...
-    def getMaterials(self) -> list[Node]:
+    def getMaterials(self) -> Nodes:
         """各フェースに割り当てられたマテリアルを取得する。
 
         Returns:
-            list[Node]: マテリアル。重なりは除く。
+            Nodes: マテリアル。重なりは除く。
         """
         ...
     def getVertices(self) -> Vertices:

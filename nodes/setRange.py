@@ -26,14 +26,14 @@ class SetRange(Node):
             oldMax (Iterable[float] | Plug | str | None): 元の範囲の上限(XYZ)。
 
         Returns:
-            SetRange: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。
                 拒否された場合は、それまでの変更を戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"value": value, "min": min, "max": max, "oldMin": oldMin, "oldMax": oldMax})
+        _calculation.set_inputs(self, "setInput", {"value": value, "min": min, "max": max, "oldMin": oldMin, "oldMax": oldMax})
 
     def getResult(self):
         """出力 ``outValue`` の現在の値を取得する。

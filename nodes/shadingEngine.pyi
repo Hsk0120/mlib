@@ -61,7 +61,7 @@ class ShadingEngine(ObjectSet):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setShader(self, shader: Node | Plug | str, kind: str = ..., output: str | None = ..., *, fast: bool = ...) -> ShadingEngine:
+    def setShader(self, shader: Node | Plug | str, kind: str = ..., output: str | None = ..., *, fast: bool = ...) -> None:
         """シェーダーを接続する。
 
         例えば ``engine.setShader(lambert)`` は、``lambert.outColor`` を ``surfaceShader`` へ接続する。
@@ -76,7 +76,7 @@ class ShadingEngine(ObjectSet):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            ShadingEngine: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: kindが対応していない値の場合。
@@ -84,7 +84,7 @@ class ShadingEngine(ObjectSet):
                 またはMayaが接続を拒否した場合。
         """
         ...
-    def assign(self, targets: Node | Face | Faces | str | Iterable) -> ShadingEngine:
+    def assign(self, targets: Node | Face | Faces | str | Iterable) -> None:
         """形状またはフェースへ割り当てる。
 
         すでにある割り当ては、この割り当てに置き換わる。``cmds.sets(forceElement=...)`` と同じ。
@@ -97,7 +97,7 @@ class ShadingEngine(ObjectSet):
             targets (Node | Face | Faces | str | Iterable): 割り当てる対象。選択されているものには関係しない。
 
         Returns:
-            ShadingEngine: 自身。targetsが空なら何も変えない。
+            None: 値を返さない。targetsが空なら何も変えない。
 
         Raises:
             RuntimeError: Mayaが割り当てを拒否した場合。

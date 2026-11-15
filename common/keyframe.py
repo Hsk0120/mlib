@@ -135,7 +135,7 @@ class Keyframe:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 数値に変換できない型の場合、またはfastがboolでない場合。
@@ -144,7 +144,6 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._curve._set_key_values(self._index, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
-        return self
 
     def getTangent(self, *, unit="deg"):
         """接線の型・角度・ウェイト・ロックを返す。
@@ -159,7 +158,7 @@ class Keyframe:
         """
         return self._curve.getTangent(self._index, unit=unit)
 
-    def setTangent(self, *, unit="deg", fast=False, **kwargs):
+    def setTangent(self, *, unit="deg", fast=False, check=False, **kwargs):
         """接線を変える。
 
         :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じ。
@@ -167,13 +166,14 @@ class Keyframe:
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: AnimCurve.setTangent と同じフラグ。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
-        self._curve.setTangent(self._index, unit=unit, fast=fast, **kwargs)
-        return self
+        self._curve.setTangent(self._index, unit=unit, fast=fast, check=check, **kwargs)
 
     def isBreakdown(self):
         """ブレイクダウンキーか調べる。
@@ -199,7 +199,7 @@ class Keyframe:
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがboolでない場合。
@@ -207,7 +207,6 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._curve.setBreakdown(self._index, state)
-        return self
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """キーの入力と値をずらす。
@@ -222,10 +221,9 @@ class Keyframe:
             timeUnit (str): 時間の単位。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
-        self._curve.moveKey(self._index, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
-        return self
+        self._curve.moveKey(index=self._index, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
 
     def remove(self, *, keepCurve=True, fast=False):
         """キーを削除する。
@@ -239,7 +237,7 @@ class Keyframe:
         Returns:
             None: 値を返さない。
         """
-        self._curve.removeKey(self._index, keepCurve=keepCurve, fast=fast)
+        self._curve.removeKey(index=self._index, keepCurve=keepCurve, fast=fast)
 
     def select(self, *, add=False):
         """Graph Editor・Dope Sheet でこのキーを選択する。
@@ -248,10 +246,9 @@ class Keyframe:
             add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
         Keyframes([self]).select(add=add)
-        return self
 
     def _require_valid(self):
         """カーブが有効で、番号が範囲内であることを確かめる。"""
@@ -323,9 +320,12 @@ class Keyframes:
         """キーを持つカーブを返す。
 
         Returns:
-            list[AnimCurve]: カーブ(最初に出てきた順。同じものは1回だけ)。
+            Nodes[AnimCurve]: カーブ(最初に出てきた順。同じものは1回だけ)。
         """
-        return [curve for curve, _ in self._groups]
+        # commonの初期化時にnodesを読み込まないよう、使う時点で読み込む。
+        from ..nodes.node import Nodes
+
+        return Nodes._wrap([curve for curve, _ in self._groups])
 
     def iterCurves(self):
         """カーブごとに、そのカーブのキーの集まりを返す。
@@ -393,14 +393,13 @@ class Keyframes:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
         """
         with undoChunk("mlibKeyframesSetValue"):
             for curve, indices in self._groups:
                 curve._set_key_values(indices, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
-        return self
 
-    def setTangent(self, *, unit="deg", fast=False, **kwargs):
+    def setTangent(self, *, unit="deg", fast=False, check=False, **kwargs):
         """すべてのキーの接線を変える(1回のUndoで戻せる)。引数は :meth:`Keyframe.setTangent` と同じ。
 
         fast=Trueでも全体を1つのUndoチャンクの中で呼ぶ。ただし、OpenMayaでの更新はUndoに記録されない。
@@ -408,10 +407,12 @@ class Keyframes:
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じフラグ。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: unitが文字列でもNoneでもない場合。
@@ -424,8 +425,7 @@ class Keyframes:
         with undoChunk("mlibKeyframesSetTangent"):
             for curve, indices in self._groups:
                 for index in indices:
-                    curve.setTangent(index, unit=unit, fast=fast, **kwargs)
-        return self
+                    curve.setTangent(index, unit=unit, fast=fast, check=check, **kwargs)
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """すべてのキーの入力と値をずらす。
@@ -440,12 +440,11 @@ class Keyframes:
             timeUnit (str): 時間の単位。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
         """
         with undoChunk("mlibKeyframesMove"):
             for curve, indices in self._groups:
-                curve.moveKey(indices, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
-        return self
+                curve.moveKey(index=indices, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
 
     def remove(self, *, keepCurve=True, fast=False):
         """すべてのキーを削除する(1回のUndoで戻せる)。
@@ -461,7 +460,7 @@ class Keyframes:
         """
         with undoChunk("mlibKeyframesRemove"):
             for curve, indices in self._groups:
-                curve.removeKey(indices, keepCurve=keepCurve, fast=fast)
+                curve.removeKey(index=indices, keepCurve=keepCurve, fast=fast)
 
     def select(self, *, add=False):
         """Graph Editor・Dope Sheet でこれらのキーを選択する。
@@ -472,7 +471,7 @@ class Keyframes:
             add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: addがboolでない場合。
@@ -488,7 +487,6 @@ class Keyframes:
             for curve, indices in self._groups:
                 ranges = curve._key_ranges(indices, None, "frame")
                 cmds.selectKey(curve.getFullName(), index=ranges, add=True, animation="objects")
-        return self
 
 
 def _keyframe(curve, index):

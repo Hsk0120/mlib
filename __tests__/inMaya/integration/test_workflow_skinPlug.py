@@ -79,7 +79,7 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         nodes = [self.base, self.base.getShape(), self.first]
         self.assertIsInstance(mlib.SkinClusters(self.base.getSkinClusters()), mlib.SkinClusters)
         self.assertEqual(list(self.collect(nodes)), [self.skin])
-        self.assertTrue(all(isinstance(node.getSkinClusters(), list) for node in nodes))
+        self.assertTrue(all(isinstance(node.getSkinClusters(), mlib.SkinClusters) for node in nodes))
         joints = mlib.Joints([self.first, self.second])
         self.assertIsInstance(joints.getSkinClusters(), mlib.SkinClusters)
         self.assertEqual(list(joints.getSkinClusters()), [self.skin])

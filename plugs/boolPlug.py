@@ -13,11 +13,10 @@ class BoolPlug(Plug):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。:meth:`set` へそのまま渡す。
 
         Returns:
-            Plug: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
             RuntimeError: アトリビュートが無効な場合、またはロックや入力の接続があって書き込めない場合。
         """
         self.set(not self.get(), fast=fast)
-        return self

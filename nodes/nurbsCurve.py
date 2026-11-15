@@ -477,7 +477,7 @@ class NurbsCurve(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
@@ -507,7 +507,6 @@ class NurbsCurve(Shape):
             raise ValueError(f"点を{count}個指定してください: {len(values)}個")
         with _edit_context("mlibNurbsCurveSetCvPositions", fast, transaction=True):
             geometry_edit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
-        return self
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """CVの座標を、中心pivotに対して反転する。
@@ -536,7 +535,7 @@ class NurbsCurve(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
@@ -550,7 +549,6 @@ class NurbsCurve(Shape):
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
         _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibNurbsCurveMirror", check)
-        return self
 
     def rebuild(self, spans=None, degree=None, *, keepRange="original"):
         """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
@@ -569,7 +567,7 @@ class NurbsCurve(Shape):
                 ``"spans"`` は0〜スパンの数。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: spans・degreeがint・None以外(boolを含む)の場合、またはkeepRangeがstr以外の場合。
@@ -606,7 +604,6 @@ class NurbsCurve(Shape):
                 constructionHistory=False,
                 replaceOriginal=True,
             )
-        return self
 
     def reverse(self):
         """カーブの向き(パラメーターが増える向き)を反転する(``cmds.reverseCurve``)。
@@ -616,7 +613,7 @@ class NurbsCurve(Shape):
         シェイプのノードと選択は変わらない。
 
         Returns:
-            NurbsCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
@@ -624,7 +621,6 @@ class NurbsCurve(Shape):
         self._geometry_fn()
         with undoChunk("mlibNurbsCurveReverse"), preservedSelection():
             cmds.reverseCurve(self.getFullName(), constructionHistory=False, replaceOriginal=True)
-        return self
 
     def getCollocatedCVGroups(self, tolerance=1e-6, worldSpace=_UNSET, *, ws=_UNSET):
         """ほぼ同じ位置にあるCVを、グループに分けて取得する。

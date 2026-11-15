@@ -219,14 +219,14 @@ class PluginPackage:
         """すべてのプラグインをロードする。ロードできないものがあっても続ける。
 
         Returns:
-            list[str]: ロードに失敗したプラグインの名前。失敗するたびに警告を出す。
+            list[Plugin]: ロードに失敗したプラグイン。失敗するたびに警告を出す。
         """
         failed = []
         for plugin in self._plugins:
             try:
                 plugin.load(quiet=True)
             except Exception as error:
-                failed.append(plugin.name)
+                failed.append(plugin)
                 logger.warning("[mlib] プラグイン%sを読み込めません(%s用): %s", plugin.name, self._name, error)
         return failed
 

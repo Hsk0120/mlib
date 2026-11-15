@@ -25,7 +25,7 @@ class ResponsibilityTest(unittest.TestCase):
         a.getPlug("tx").connectTo(b.getPlug("rx"))
         b.getPlug("rx").connectTo(c.getPlug("rx"))
         source = b.getPlug("rx").getSource()
-        self.assertIs(b.getPlug("rx").disconnectInput().getNode(), b)
+        self.assertIsNone(b.getPlug("rx").disconnectInput())
         self.assertIsNone(b.getPlug("rx").getSource())
         self.assertTrue(b.getPlug("rx").isConnectedTo(c.getPlug("rx")))
         self.assertTrue(source.getNode().isValid())

@@ -16,7 +16,7 @@ from ..maths.vector import Vector
 from ..plugs.plug import Plug
 from ..util import _mirror_axis
 from .geometryFilter import GeometryFilter
-from .node import Node
+from .node import Node, Nodes
 
 #: エイリアスの対象 ``weight[<番号>]`` から論理番号を取り出す。
 _WEIGHT_ALIAS = re.compile(r"^(?:weight|w)\[(\d+)\]$")
@@ -119,13 +119,13 @@ class BlendShape(GeometryFilter):
         """変形する形状(出力ジオメトリ)を取得する。
 
         Returns:
-            list[Node]: 変形される形状。geometryFilterの出力の順に並ぶ。
+            Nodes: 変形される形状。geometryFilterの出力の順に並ぶ。
 
         Raises:
             RuntimeError: ノードが無効な場合。
         """
         self._require_valid("ジオメトリの取得")
-        return [Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()]
+        return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()])
 
     def addTarget(self, mesh, name=None):
         """ターゲットを追加する。
@@ -182,7 +182,7 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: targetが使えない型(boolを含む)の場合。
@@ -196,7 +196,6 @@ class BlendShape(GeometryFilter):
             command = f'blendShapeDeleteTargetGroup("{self.getFullName()}", {index})'
             if not mel.eval(command):
                 raise RuntimeError(f"Mayaが{self.getName()}のblendShapeのターゲット{target!r}を削除できませんでした")
-            return self
 
     def getInBetweenWeights(self, target, base=None):
         """ターゲットのin-betweenの項目のウェイトを取得する。
@@ -233,7 +232,7 @@ class BlendShape(GeometryFilter):
             relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: target・geometry・base・weightの型が不正な場合、relativeがbool以外の場合、
@@ -258,7 +257,6 @@ class BlendShape(GeometryFilter):
                 inBetweenType="relative" if relative else "absolute",
                 target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), weight),
             )
-            return self
 
     def removeInBetween(self, target, weight):
         """指定したウェイトのin-betweenを取り除く。
@@ -271,7 +269,7 @@ class BlendShape(GeometryFilter):
             weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は指定できない。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: targetの型が不正な場合、またはweightが数値でない場合。
@@ -283,7 +281,6 @@ class BlendShape(GeometryFilter):
             raise ValueError(f"ターゲット{index}に、ウェイト{weight}のインビトウィーンはありません")
         with undoChunk("mlibBlendShapeRemoveInBetween"):
             mel.eval(f'blendShapeDeleteInBetweenTarget("{self.getFullName()}", {index}, {item})')
-            return self
 
     def getTargetWeights(self, target, base=None):
         """ターゲットの頂点マスクを、頂点番号の順に取得する。
@@ -325,7 +322,7 @@ class BlendShape(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: target・base・値の型が不正な場合、fastがbool以外の場合、またはベースがメッシュでない場合。
@@ -338,7 +335,6 @@ class BlendShape(GeometryFilter):
             bi, index = self._resolve_group(target, base)
             values = _vertex_values(weights, self._vertex_count(bi))
             self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", values, fast=fast, check=check)
-            return self
 
     def getTargetDeltas(self, target, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
@@ -380,7 +376,7 @@ class BlendShape(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合、disconnect・fastがbool以外の場合、またはベースがメッシュでない場合。
@@ -395,7 +391,6 @@ class BlendShape(GeometryFilter):
             path = self._item_path(bi, index, item)
             self._release_input(path, disconnect, fast=fast)
             self._write_deltas(path, [row[0] for row in rows], [row[1] for row in rows], fast=fast, check=check)
-            return self
 
     def getTargetVertices(self, target, base=None, fullWeight=1.0, *, tolerance=0.0):
         """デルタの長さがしきい値を超える頂点を取得する。
@@ -437,7 +432,7 @@ class BlendShape(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
@@ -450,7 +445,6 @@ class BlendShape(GeometryFilter):
             bi, index, item = self._resolve_item(target, base, fullWeight)
             remove = set(self._vertex_indices(vertices, bi))
             self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast, check=check)
-            return self
 
     def reduceTargetDeltas(self, target, tolerance=0.0, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
@@ -470,7 +464,7 @@ class BlendShape(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブなどでもよい)。
@@ -485,7 +479,6 @@ class BlendShape(GeometryFilter):
             indices, offsets = self._read_deltas(path)
             remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
             self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
-            return self
 
     def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None):
         """ターゲットの片側の変形を、反対側へミラーする。
@@ -501,7 +494,7 @@ class BlendShape(GeometryFilter):
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
@@ -515,7 +508,6 @@ class BlendShape(GeometryFilter):
             cmds.blendShape(
                 self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name, symmetrySpace=1, mirrorDirection=0 if positiveToNegative else 1
             )
-            return self
 
     def flipTarget(self, target, axis="x", base=None):
         """ターゲットの変形を左右反転する。
@@ -530,7 +522,7 @@ class BlendShape(GeometryFilter):
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
@@ -541,7 +533,6 @@ class BlendShape(GeometryFilter):
         name = self._mirror_axis_name(bi, index, axis)
         with undoChunk("mlibBlendShapeFlipTarget"):
             cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=1)
-            return self
 
     def duplicateTarget(self, target, name=None):
         """ターゲットを複製する。
@@ -593,7 +584,7 @@ class BlendShape(GeometryFilter):
             fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が不正な場合、またはgeometryかベースがメッシュでない場合。
@@ -611,7 +602,6 @@ class BlendShape(GeometryFilter):
                 indices, offsets = self._read_deltas(path)
                 self._write_deltas(path, indices, offsets)
             cmds.connectAttr(source, self._attr(path + ".inputGeomTarget"), force=True)
-            return self
 
     def targetEdit(self, target=None, state=True, fullWeight=1.0):
         """ターゲットの編集モード(Shape EditorのEdit)を始める、または終える。
@@ -625,7 +615,7 @@ class BlendShape(GeometryFilter):
             fullWeight (float): 編集する項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
 
         Returns:
-            BlendShape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: targetの型が不正な場合、stateがbool以外の場合、またはfullWeightが数値でない場合。
@@ -635,7 +625,7 @@ class BlendShape(GeometryFilter):
         if not state:
             with undoChunk("mlibBlendShapeTargetEdit"):
                 cmds.sculptTarget(self.getFullName(), edit=True, target=-1)
-                return self
+                return
         if target is None:
             raise ValueError("blendShapeのターゲットの編集を始めるにはtargetが必要です")
         index = self._target_index(target)
@@ -644,7 +634,6 @@ class BlendShape(GeometryFilter):
             raise ValueError(f"ターゲット{index}に、ウェイト{fullWeight}の項目はありません")
         with undoChunk("mlibBlendShapeTargetEdit"):
             cmds.sculptTarget(self.getFullName(), edit=True, target=index, inbetweenWeight=fullWeight)
-            return self
 
     def getTargetsData(self):
         """すべてのターゲットを、JSONへ書ける辞書として取得する。

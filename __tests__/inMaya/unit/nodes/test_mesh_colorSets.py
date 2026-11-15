@@ -86,7 +86,7 @@ class MeshColorSetTest(_Case):
         self.assertEqual(shape.getColorSetNames(), [])
         self.assertIsNone(shape.getCurrentColorSet())
         self.flushUndo()
-        self.assertIs(shape.createColorSet("a"), shape)
+        self.assertIsNone(shape.createColorSet("a"))
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), []), lambda: self.assertEqual(names(), ["a"]))
         shape.createColorSet("a")
         shape.createColorSet("b")

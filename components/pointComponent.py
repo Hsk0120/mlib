@@ -72,7 +72,7 @@ class PointComponent(Component):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceがboolでない場合、座標の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -87,7 +87,6 @@ class PointComponent(Component):
         point = _point_value(value)
         self._require_valid()
         _write_points([(self.shape, [self.index], [point], ws)], fast, "mlibPointComponentSetPosition", check)
-        return self
 
     def getPositionX(self, worldSpace=_UNSET, *, ws=_UNSET):
         """X成分の今の値を取得する。
@@ -119,7 +118,7 @@ class PointComponent(Component):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -129,7 +128,7 @@ class PointComponent(Component):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinate(0, value, worldSpace, fast, "mlibPointComponentSetPositionX", check)
+        self._set_coordinate(0, value, worldSpace, fast, "mlibPointComponentSetPositionX", check)
 
     def getPositionY(self, worldSpace=_UNSET, *, ws=_UNSET):
         """Y成分の今の値を取得する。
@@ -161,7 +160,7 @@ class PointComponent(Component):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -171,7 +170,7 @@ class PointComponent(Component):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinate(1, value, worldSpace, fast, "mlibPointComponentSetPositionY", check)
+        self._set_coordinate(1, value, worldSpace, fast, "mlibPointComponentSetPositionY", check)
 
     def getPositionZ(self, worldSpace=_UNSET, *, ws=_UNSET):
         """Z成分の今の値を取得する。
@@ -203,7 +202,7 @@ class PointComponent(Component):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -213,7 +212,7 @@ class PointComponent(Component):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinate(2, value, worldSpace, fast, "mlibPointComponentSetPositionZ", check)
+        self._set_coordinate(2, value, worldSpace, fast, "mlibPointComponentSetPositionZ", check)
 
     def moveBy(self, offset, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """頂点/CVを、今の位置からoffsetだけ動かす。
@@ -230,7 +229,7 @@ class PointComponent(Component):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、移動量の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -247,7 +246,6 @@ class PointComponent(Component):
         point = _positions(self.shape, [self.index], ws)[0]
         moved = tuple(value + step for value, step in zip(point, delta))
         _write_points([(self.shape, [self.index], [moved], ws)], fast, "mlibPointComponentMoveBy", check)
-        return self
 
     def _set_coordinate(self, axis, value, worldSpace, fast, chunk, check=False):
         """1つの成分だけを変えた座標を、同じ空間で書き込む。
@@ -261,7 +259,7 @@ class PointComponent(Component):
             check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
-            PointComponent: 自身。
+            None: 値を返さない。
         """
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
@@ -270,7 +268,6 @@ class PointComponent(Component):
         point = list(_positions(self.shape, [self.index], ws)[0])
         point[axis] = number
         _write_points([(self.shape, [self.index], [tuple(point)], ws)], fast, chunk, check)
-        return self
 
 
 class PointComponents(Components):
@@ -317,7 +314,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -328,7 +325,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinates(0, value, worldSpace, fast, "mlibPointComponentsSetPositionX", check)
+        self._set_coordinates(0, value, worldSpace, fast, "mlibPointComponentsSetPositionX", check)
 
     def getPositionY(self, worldSpace=_UNSET, *, ws=_UNSET):
         """Y成分の今の値を取得する。
@@ -361,7 +358,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -372,7 +369,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinates(1, value, worldSpace, fast, "mlibPointComponentsSetPositionY", check)
+        self._set_coordinates(1, value, worldSpace, fast, "mlibPointComponentsSetPositionY", check)
 
     def getPositionZ(self, worldSpace=_UNSET, *, ws=_UNSET):
         """Z成分の今の値を取得する。
@@ -405,7 +402,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -416,7 +413,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self._set_coordinates(2, value, worldSpace, fast, "mlibPointComponentsSetPositionZ", check)
+        self._set_coordinates(2, value, worldSpace, fast, "mlibPointComponentsSetPositionZ", check)
 
     def getPosition(self, worldSpace=_UNSET, *, ws=_UNSET):
         """頂点/CVの今のXYZ座標を、持っている順にcmで取得する。
@@ -459,7 +456,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。空の集まりでは、入力を確かめるだけで何もしない。
+            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、座標の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -472,7 +469,7 @@ class PointComponents(Components):
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
         point = _point_value(value)
-        return self._write([point] * len(self._indices), ws, fast, "mlibPointComponentsSetPosition", check)
+        self._write([point] * len(self._indices), ws, fast, "mlibPointComponentsSetPosition", check)
 
     def setPositions(self, values, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """持っている順に、要素ごとの位置をcmの絶対座標で設定する。
@@ -493,7 +490,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
+            None: 値を返さない。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
                 CVのウェイト(w)は変えない。
 
         Raises:
@@ -510,7 +507,7 @@ class PointComponents(Components):
         rows = geometry_edit.point_list(values)
         if len(rows) != len(self._indices):
             raise ValueError(f"点を{len(self._indices)}個指定してください: {len(rows)}個")
-        return self._write(rows, ws, fast, "mlibPointComponentsSetPositions", check)
+        self._write(rows, ws, fast, "mlibPointComponentsSetPositions", check)
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), *, fast=False, check=False, ws=_UNSET):
         """持っている頂点/CVを、指定した空間の中心pivotで反転する。
@@ -533,7 +530,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、axisが文字列でもintでもない場合、
@@ -548,7 +545,6 @@ class PointComponents(Components):
         ws = _world_space(worldSpace)
         plan = _mirror_plan(self, axis, ws, pivot, fast, check)
         _write_points([plan], fast, "mlibPointComponentsMirror", check)
-        return self
 
     def getCenter(self, worldSpace=_UNSET, *, ws=_UNSET):
         """持っている頂点/CVの、位置の平均(重心)を取得する。
@@ -598,7 +594,7 @@ class PointComponents(Components):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            PointComponents: 自身。空の集まりでは、入力を確かめるだけで何もしない。
+            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
             TypeError: worldSpaceかfastがboolでない場合、移動量の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -612,10 +608,10 @@ class PointComponents(Components):
         ws = _world_space(worldSpace)
         delta = _point_value(offset)
         if not self._indices:
-            return self
+            return
         self._require_valid()
         rows = [tuple(value + step for value, step in zip(point, delta)) for point in _positions(self._shape, self._indices, ws)]
-        return self._write(rows, ws, fast, "mlibPointComponentsMoveBy", check)
+        self._write(rows, ws, fast, "mlibPointComponentsMoveBy", check)
 
     def _set_coordinates(self, axis, value, worldSpace, fast, chunk, check=False):
         """各要素の1つの成分だけを変えた座標を、同じ空間で書き込む。
@@ -629,20 +625,20 @@ class PointComponents(Components):
             check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
         """
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
         values = _axis_values(value, len(self._indices))
         if not self._indices:
-            return self
+            return
         self._require_valid()
         rows = []
         for point, number in zip(_positions(self._shape, self._indices, ws), values):
             row = list(point)
             row[axis] = number
             rows.append(tuple(row))
-        return self._write(rows, ws, fast, chunk, check)
+        self._write(rows, ws, fast, chunk, check)
 
     def _write(self, rows, ws, fast, chunk, check=False):
         """確かめてある座標を、番号の範囲と編集できるかを確かめてから書き込む。
@@ -655,13 +651,12 @@ class PointComponents(Components):
             check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
-            PointComponents: 自身。
+            None: 値を返さない。
         """
         if not self._indices:
-            return self
+            return
         self._require_valid()
         _write_points([(self._shape, list(self._indices), rows, ws)], fast, chunk, check)
-        return self
 
 
 def _point_value(value):

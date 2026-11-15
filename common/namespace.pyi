@@ -8,6 +8,7 @@ from ..decorator import _require_bool, undoChunk
 from typing import Any, Iterator
 from mlib._stubtypes import GeneratorContextManager
 from mlib.nodes.node import Node
+from mlib.nodes.node import Nodes
 import types
 
 
@@ -144,14 +145,14 @@ class Namespace:
             TypeError: recurse が bool でない場合。
         """
         ...
-    def getNodes(self, recurse: bool = ...) -> list[Node]:
+    def getNodes(self, recurse: bool = ...) -> Nodes:
         """名前空間の中のノードを、mlibのオブジェクトとして返す。
 
         Args:
             recurse (bool): Trueなら、子の名前空間の中のノードも含める。
 
         Returns:
-            list[Node]: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空リスト。
+            Nodes: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空の集まり。
         """
         ...
     def getNode(self, name: str) -> Node:
@@ -172,13 +173,13 @@ class Namespace:
             RuntimeError: ノードが存在しない場合、または1つに決まらない場合。
         """
         ...
-    def setCurrent(self) -> Namespace:
+    def setCurrent(self) -> None:
         """カレントの名前空間を、この名前空間に切り替える。
 
         cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Returns:
-            Namespace: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: 自身が存在しない場合。
@@ -198,7 +199,7 @@ class Namespace:
             RuntimeError: 自身が存在しない場合、またはMayaが切り替えや戻しを拒否した場合。
         """
         ...
-    def rename(self, name: str | Namespace) -> Namespace:
+    def rename(self, name: str | Namespace) -> None:
         """この名前空間の名前を変える。
 
         cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
@@ -207,14 +208,14 @@ class Namespace:
             name (str | Namespace): 新しい名前。最後の階層の名前だけを使い、今の親はそのままにする。
 
         Returns:
-            Namespace: 持っている名前を新しくした自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合。
             RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
-    def move(self, parent: str | Namespace = ...) -> Namespace:
+    def move(self, parent: str | Namespace = ...) -> None:
         """この名前空間を、指定した親の名前空間の下へ移す。
 
         cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
@@ -223,7 +224,7 @@ class Namespace:
             parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
 
         Returns:
-            Namespace: 持っている名前を新しくした自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: ルートを移動しようとした場合、または parent が正しくない場合。

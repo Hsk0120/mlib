@@ -9,10 +9,10 @@ from ..core.registry import _inherited_node_types, _real_node_type
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths import Vector
 from ..util import _UNSET, _color_value, _world_space
-from .node import Node
+from .node import Node, Nodes
 from typing import Iterable, Sequence
 from mlib.nodes.dagPose import DagPose
-from mlib.nodes.skinCluster import SkinCluster
+from mlib.nodes.skinCluster import SkinClusters
 from mlib.nodes.transform import Transform
 
 _DEFAULT_COLOR_PALETTE: tuple
@@ -49,7 +49,7 @@ class DagNode(Node):
     どちらの場合もMayaのMDagPathは古いパスを返し続ける。そのため、パスを使う取得は
     空文字列や削除前の名前を返さず、RuntimeErrorにする。
     """
-    def getSkinClusters(self) -> list[SkinCluster]:
+    def getSkinClusters(self) -> SkinClusters:
         """このノードのジオメトリを変形しているSkinClusterを取得する。
 
         Shapeから呼ぶと自身を、Transformから呼ぶと直下のShape(中間オブジェクトを除く)を調べる。
@@ -61,14 +61,14 @@ class DagNode(Node):
         Jointの同名メソッドは意味が違い、そのジョイントをインフルエンスに持つSkinClusterを返す。
 
         Returns:
-            list[SkinCluster]: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
+            SkinClusters: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
                 同じものは1回だけ含む。見つからなければ空リスト。
 
         Raises:
             RuntimeError: 保持するDAGパスが無効な場合、またはMayaの検索が失敗した場合。
         """
         ...
-    def getBindPoses(self) -> list[DagPose]:
+    def getBindPoses(self) -> Nodes[DagPose]:
         """このノードに関係するSkinClusterのバインドポーズを取得する。
 
         対象のSkinClusterはgetSkinClusters()と同じ。ShapeとTransformでは自身を変形しているもの、
@@ -78,7 +78,7 @@ class DagNode(Node):
         バインドポーズが接続されていないSkinClusterは飛ばす。
 
         Returns:
-            list[DagPose]: 接続されているバインドポーズ。1つもなければ空リスト。
+            Nodes[DagPose]: 接続されているバインドポーズ。1つもなければ空の集まり。
 
         Raises:
             RuntimeError: 対象が無効な場合、またはバインドポーズの接続が不正な場合。
@@ -147,7 +147,7 @@ class DagNode(Node):
             >>> hand.getCommonAncestor(foot)    # 腰など、両方を含む最も近い親
         """
         ...
-    def getSiblings(self) -> list[DagNode]:
+    def getSiblings(self) -> Nodes[DagNode]:
         """同じ親の下にある、同じ種類の兄弟を取得する。
 
         自身と、自身のほかのインスタンスは含まない。並びはDAGの子の順。
@@ -157,7 +157,7 @@ class DagNode(Node):
         - ワールド直下のTransformなら、ほかのワールド直下のTransformを返す。
 
         Returns:
-            list[DagNode]: 兄弟のオブジェクト。ノードが無効な場合と、兄弟がない場合は空リスト。
+            Nodes[DagNode]: 兄弟のオブジェクト。ノードが無効な場合と、兄弟がない場合は空の集まり。
 
         Raises:
             RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
@@ -181,7 +181,7 @@ class DagNode(Node):
             >>> node.getOutlinerOrder()    # 親の最初の子なら 0
         """
         ...
-    def setOutlinerOrder(self, index: int) -> DagNode:
+    def setOutlinerOrder(self, index: int) -> None:
         """アウトライナーでの並び順を、指定した番号へ変える。
 
         親の直接の子の中での順番を変える。番号の数え方は :meth:`getOutlinerOrder` と同じ。
@@ -193,7 +193,7 @@ class DagNode(Node):
             index (int): 移動先の番号(0 始まり)。負の値は後ろから数える(-1 は最後)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: index が int でない場合。
@@ -205,7 +205,7 @@ class DagNode(Node):
             >>> node.setOutlinerOrder(-1)    # 最後へ
         """
         ...
-    def reorder(self, *, front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int = ..., r: int = ...) -> DagNode:
+    def reorder(self, *, front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int = ..., r: int = ...) -> None:
         """アウトライナーでの並び順を変える(``cmds.reorder`` 相当)。
 
         親の直接の子の中での順番を変える。``front``・``back``・``relative`` のどれか1つを指定する。
@@ -224,7 +224,7 @@ class DagNode(Node):
             r (int): relativeの別名。relativeと同時には指定できない。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 長い名前と短い名前を同時に指定した場合、front・back が bool でない場合、relative が
@@ -294,7 +294,7 @@ class DagNode(Node):
             RuntimeError: 保持するDAGパスが無効な場合。
         """
         ...
-    def getInstances(self, noSelf: bool = ...) -> list[DagNode]:
+    def getInstances(self, noSelf: bool = ...) -> Nodes[DagNode]:
         """同じノードへのDAGパス(インスタンス)をすべて取得する。
 
         すでにあるパスを調べるだけで、ノードを複製したり、インスタンスを新しく作ったりはしない。
@@ -304,7 +304,7 @@ class DagNode(Node):
             noSelf (bool): Trueなら、このオブジェクトが持つパスを結果から除く。既定はFalse。
 
         Returns:
-            list[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
+            Nodes[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
                 このオブジェクトが持つパスには自身を、ほかのパスには新しいオブジェクトを入れる。
 
         Raises:
@@ -337,7 +337,7 @@ class DagNode(Node):
             RuntimeError: 保持するDAGパスが無効な場合。
         """
         ...
-    def getParents(self, indirect: bool = ...) -> list[Transform]:
+    def getParents(self, indirect: bool = ...) -> Nodes[Transform]:
         """直接の親をすべて取得する。
 
         インスタンス化されたノードには親が複数ある。そのすべてを返す。
@@ -352,7 +352,7 @@ class DagNode(Node):
                   親がインスタンス化されたことで生じたパスの分も含む。
 
         Returns:
-            list[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
+            Nodes[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
                 DAGの親は必ずTransform系(Jointなど)になる。
                 このオブジェクトが持つパスがワールド直下なら空リスト。
 
@@ -376,7 +376,7 @@ class DagNode(Node):
             RuntimeError: stepが正で、保持するDAGパスが無効な場合。
         """
         ...
-    def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> list[DagNode]:
+    def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> Nodes[DagNode]:
         """子、または子孫を取得する。
 
         このオブジェクトが持つDAGパスから下へたどる。結果のパスは、たどった道筋のまま作り、
@@ -401,7 +401,7 @@ class DagNode(Node):
                 ``multDoubleLinear`` と ``multDL`` のように、Mayaの版で名前が変わった型はどちらの名前でも指定できる。
 
         Returns:
-            list[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
+            Nodes[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
                 ノードそのものが無効な場合は空リスト。
 
         Raises:
@@ -447,7 +447,7 @@ class DagNode(Node):
             RuntimeError: 保持するDAGパスが無効な場合(削除済みのノードを含む)。
         """
         ...
-    def show(self, *, fast: bool = ...) -> DagNode:
+    def show(self, *, fast: bool = ...) -> None:
         """表示する。
 
         visibilityをTrueにして自身を返す。``setVisibility(True, fast=fast)`` と同じ。
@@ -456,13 +456,13 @@ class DagNode(Node):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
         """
         ...
-    def hide(self, *, fast: bool = ...) -> DagNode:
+    def hide(self, *, fast: bool = ...) -> None:
         """非表示にする。
 
         visibilityをFalseにして自身を返す。``setVisibility(False, fast=fast)`` と同じ。
@@ -471,7 +471,7 @@ class DagNode(Node):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -495,7 +495,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setOverrideColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> DagNode:
+    def setOverrideColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで表示色を設定する。
 
         ``overrideEnabled`` を有効にしてから、指定に応じて次のように設定し、自身を返す。
@@ -522,7 +522,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
@@ -546,7 +546,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setOutlinerColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> DagNode:
+    def setOutlinerColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """アウトライナーの文字色を設定する。
 
         ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定し、自身を返す。
@@ -566,7 +566,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
@@ -584,7 +584,7 @@ class DagNode(Node):
             bool: 自身のvisibilityアトリビュートの値。
         """
         ...
-    def setVisibility(self, state: bool, *, fast: bool = ...) -> DagNode:
+    def setVisibility(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """visibilityを設定する。
 
         自身のvisibilityだけを変える。親や表示レイヤーの表示設定は変えない。
@@ -592,9 +592,11 @@ class DagNode(Node):
         Args:
             state (bool): visibilityへ設定する値。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: state・fastがbool以外の場合。
@@ -618,15 +620,17 @@ class DagNode(Node):
             エディターのフィルター、親が折り畳まれているか、非表示のノードを表示する設定は調べない。
         """
         ...
-    def setOutlinerVisibility(self, state: bool, *, fast: bool = ...) -> DagNode:
+    def setOutlinerVisibility(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """アウトライナーに表示するかを設定する。
 
         Args:
             state (bool): Trueなら表示、Falseなら非表示。hiddenInOutlinerには逆の値を書き込む。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
+            None: 値を返さない。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
 
         Raises:
             TypeError: stateまたはfastがbool以外の場合。
@@ -651,7 +655,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> DagNode:
+    def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで表示の種類を設定する。
 
         表示の種類は通常・テンプレート・リファレンスの3つ。設定して自身を返す。
@@ -674,7 +678,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: kindが文字列以外の場合、またはfastがbool以外の場合。
@@ -696,33 +700,33 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setShadingOverride(self, enabled: bool, *, fast: bool = ..., check: bool = ...) -> DagNode:
+    def setShadingOverride(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
         設定して自身を返す。
 
-        - ``enabled=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
-        - ``enabled=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
+        - ``state=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
+        - ``state=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
           ``overrideEnabled`` は変えない。
 
         boolの向きはMayaの ``overrideShading`` と逆で、:meth:`isShadingOverridden` の戻り値と同じ向き。
         対象・Undo・fastの扱いは :meth:`setDisplayType` と同じ。
 
         Args:
-            enabled (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。
+            state (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
-            TypeError: enabledまたはfastがbool以外の場合。
+            TypeError: stateまたはfastがbool以外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         ...
-    def deleteHistory(self, keepDeformers: bool = ...) -> DagNode:
+    def deleteHistory(self, keepDeformers: bool = ...) -> None:
         """ヒストリを削除する。
 
         削除して自身を返す。消し方はkeepDeformersで選ぶ。
@@ -741,7 +745,7 @@ class DagNode(Node):
             keepDeformers (bool): Trueならデフォーマーを残す。既定はTrue。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: keepDeformersがbool以外の場合。

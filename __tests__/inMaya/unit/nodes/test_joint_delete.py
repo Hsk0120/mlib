@@ -362,7 +362,7 @@ class JointDeleteTest(NamespaceCase):
         """ノードを残して祖先へ移し、Undo 1 回で戻る。"""
         cmds.flushUndo()
         joints = Joints([self.mid, self.tip])
-        self.assertIs(joints.removeInfluence(), joints)
+        self.assertIsNone(joints.removeInfluence())
         self.assertTrue(self.mid.isValid())
         self.assertTrue(self.tip.isValid())
         self.assertEqual(self._influences(), {self.root.getUuid(), self.other.getUuid()})
@@ -385,7 +385,7 @@ class JointDeleteTest(NamespaceCase):
         free = mlib.getNode(cmds.joint(name=self.name("free")))
         cmds.select(clear=True)
         joints = Joints([free])
-        self.assertIs(joints.removeInfluence(), joints)
+        self.assertIsNone(joints.removeInfluence())
         self.assertTrue(free.isValid())
 
     def test_joints_remove_every_influence_is_rejected(self):

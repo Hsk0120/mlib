@@ -29,13 +29,13 @@ class PickMatrix(Node):
             useShear (bool | Plug | str | None): Trueならせん断を残す。
 
         Returns:
-            PickMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(
+        _calculation.set_inputs(
             self, "setInput", {"inputMatrix": inputMatrix, "useTranslate": useTranslate, "useRotate": useRotate, "useScale": useScale, "useShear": useShear}
         )
 

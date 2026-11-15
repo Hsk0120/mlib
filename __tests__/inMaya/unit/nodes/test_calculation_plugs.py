@@ -86,7 +86,7 @@ class ConsolidatedCalculationTests(unittest.TestCase):
         cmds.redo()
         self.assertAlmostEqual(node.getPlug("output").get(), 5)
         cmds.flushUndo()
-        self.assertIs(node.getPlug("input2").set(7, fast=True).getNode(), node)
+        self.assertIsNone(node.getPlug("input2").set(7, fast=True))
         self.assertAlmostEqual(node.getPlug("output").get(), 9)
         self.assertTrue(cmds.undoInfo(query=True, state=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))

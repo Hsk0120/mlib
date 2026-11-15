@@ -58,7 +58,7 @@ class ShapeSetParentTest(_SpecCase):
                 shape = mlib.createCircle(radius=1, name=self.name(f"circle{fast:d}"))
                 old = shape.getParent()
                 cmds.flushUndo()
-                self.assertIs(shape.setParent(target, fast=fast), shape)
+                self.assertIsNone(shape.setParent(target, fast=fast))
                 self.assertEqual(shape.getParent(), target)
                 self.assertEqual(old.getShapes(), [])
                 self.assertTrue(old.isValid())

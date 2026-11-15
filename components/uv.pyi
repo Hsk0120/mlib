@@ -38,7 +38,7 @@ class UV(Component):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> UV:
+    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> None:
         """現在のUVセットで、このUVの位置をU/Vの絶対座標で設定する。
 
         移動量ではなく、移動先の座標を指定する。
@@ -51,7 +51,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。UVセットや割り当ては作らない。
+            None: 値を返さない。UVセットや割り当ては作らない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -68,7 +68,7 @@ class UV(Component):
             float: 座標の値。
         """
         ...
-    def setU(self, value: float, *, fast: bool = ...) -> UV:
+    def setU(self, value: float, *, fast: bool = ...) -> None:
         """U成分だけを設定する。Vは今の値のまま変えない。
 
         Args:
@@ -76,7 +76,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはvalueが数値でない場合。
@@ -93,7 +93,7 @@ class UV(Component):
             float: 座標の値。
         """
         ...
-    def setV(self, value: float, *, fast: bool = ...) -> UV:
+    def setV(self, value: float, *, fast: bool = ...) -> None:
         """V成分だけを設定する。Uは今の値のまま変えない。
 
         Args:
@@ -101,7 +101,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはvalueが数値でない場合。
@@ -124,7 +124,7 @@ class UV(Component):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def _set_coordinate(self, axis: int, value: float, fast: bool, method: str, chunk: str) -> UV:
+    def _set_coordinate(self, axis: int, value: float, fast: bool, method: str, chunk: str) -> None:
         """1つの成分だけを変えたU/Vを書き込む。
 
         Args:
@@ -135,7 +135,7 @@ class UV(Component):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
         """
         ...
 _UV_GET_POSITION: Any
@@ -165,7 +165,7 @@ class UVs(Components):
             list[float]: 座標の値。持っている順に並ぶ。
         """
         ...
-    def setU(self, value: float | Iterable[float], *, fast: bool = ...) -> UVs:
+    def setU(self, value: float | Iterable[float], *, fast: bool = ...) -> None:
         """U成分だけを設定する。Vは今の値のまま変えない。
 
         Args:
@@ -174,7 +174,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、または値の型が合わない場合。
@@ -191,7 +191,7 @@ class UVs(Components):
             list[float]: 座標の値。持っている順に並ぶ。
         """
         ...
-    def setV(self, value: float | Iterable[float], *, fast: bool = ...) -> UVs:
+    def setV(self, value: float | Iterable[float], *, fast: bool = ...) -> None:
         """V成分だけを設定する。Uは今の値のまま変えない。
 
         Args:
@@ -200,7 +200,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、または値の型が合わない場合。
@@ -225,7 +225,7 @@ class UVs(Components):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> UVs:
+    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> None:
         """持っているUVをすべて、現在のUVセットで同じ位置(U/Vの絶対座標)へ集める。
 
         要素ごとに違う座標にするときは :meth:`setPositions` を使う。
@@ -235,7 +235,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。空の集まりでは、入力を確かめるだけで何もしない。
+            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -245,7 +245,7 @@ class UVs(Components):
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
         ...
-    def setPositions(self, values: Iterable[Iterable[float]], *, fast: bool = ...) -> UVs:
+    def setPositions(self, values: Iterable[Iterable[float]], *, fast: bool = ...) -> None:
         """現在のUVセットで、要素ごとの位置を(U, V)の絶対座標で設定する。
 
         座標の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
@@ -259,7 +259,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
+            None: 値を返さない。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -272,7 +272,7 @@ class UVs(Components):
             UVセットや割り当ては作らない。
         """
         ...
-    def _set_coordinates(self, axis: int, value: float | Iterable[float], fast: bool, method: str, chunk: str) -> UVs:
+    def _set_coordinates(self, axis: int, value: float | Iterable[float], fast: bool, method: str, chunk: str) -> None:
         """各要素の1つの成分だけを変えたU/Vを書き込む。
 
         Args:
@@ -283,10 +283,10 @@ class UVs(Components):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
         """
         ...
-    def _write(self, rows: list[tuple[float, float]], fast: bool, method: str, chunk: str) -> UVs:
+    def _write(self, rows: list[tuple[float, float]], fast: bool, method: str, chunk: str) -> None:
         """確かめてあるU/Vを、番号の範囲を確かめてから書き込む。
 
         Args:
@@ -296,7 +296,7 @@ class UVs(Components):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
         """
         ...
     def getVertex(self) -> list[Vertex | None]:

@@ -17,7 +17,7 @@ class PointOnSurfaceInfo(Node):
 
     UVのパラメーターで指定した点の位置・法線・接線を出力する。
     """
-    def setInput(self, inputSurface: NurbsSurface | Transform | Plug | str | None = ..., parameterU: float | Plug | str | None = ..., parameterV: float | Plug | str | None = ..., turnOnPercentage: bool | Plug | str | None = ...) -> PointOnSurfaceInfo:
+    def setInput(self, inputSurface: NurbsSurface | Transform | Plug | str | None = ..., parameterU: float | Plug | str | None = ..., parameterV: float | Plug | str | None = ..., turnOnPercentage: bool | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -36,7 +36,7 @@ class PointOnSurfaceInfo(Node):
             turnOnPercentage (bool | Plug | str | None): Trueなら、パラメーターを割合(0〜1)として扱う。
 
         Returns:
-            PointOnSurfaceInfo: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

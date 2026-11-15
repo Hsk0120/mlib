@@ -15,7 +15,7 @@ from ..core.attributeType import (
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
 from ..decorator import _require_bool, undoChunk
-from .plug import Plug
+from .plug import Plug, Plugs
 
 
 class CompoundPlug(Plug):
@@ -136,13 +136,13 @@ class CompoundPlug(Plug):
         孫はたどらない。子の値も読み出さない。
 
         Returns:
-            list[Plug]: 子の新しいオブジェクトのリスト。ノードは親と共有し、シーンのものを複製しない。
+            Plugs: 子の新しいオブジェクト。ノードは親と共有し、シーンのものを複製しない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         self._require_valid()
-        return [self._child_at(index) for index in range(self._mplug.numChildren())]
+        return Plugs._from_plugs([self._child_at(index) for index in range(self._mplug.numChildren())])
 
     def _child_values(self):
         """直接の子の値を、内部単位のまま定義順に読む。有効なことは確かめ済みとする。

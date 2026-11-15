@@ -112,7 +112,7 @@ class FlagAliasesTest(unittest.TestCase):
         curve = mlib.createNode("animCurveTL")
         curve.setKey(1.0, 2.0)
         curve.setKey(3.0, 4.0)
-        self.assertIs(curve.removeKey(index=0, fast=True), curve)
+        self.assertIsNone(curve.removeKey(index=0, fast=True))
         self.assertEqual(curve.getKeyCount(), 1)
 
 

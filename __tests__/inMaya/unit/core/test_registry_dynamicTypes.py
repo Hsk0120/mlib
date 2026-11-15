@@ -356,7 +356,7 @@ class InvalidationSpecTest(_DynamicTypeCase):
             self.assertEqual(first.__name__, "OptionalNode")
             self.assertIs(first.__mro__[1], _RegisteredClass)
             self.assertIs(registry.wrapper_class("optionalNode"), first)
-            self.assertIs(plugin.load(), plugin)
+            self.assertIsNone(plugin.load())
             second = registry.wrapper_class("optionalNode")
             self.assertIsNot(second, first)
             self.assertEqual(second.__name__, "OptionalNode")

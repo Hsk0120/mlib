@@ -188,17 +188,18 @@ class Namespace:
             recurse (bool): Trueなら、子の名前空間の中のノードも含める。
 
         Returns:
-            list[Node]: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空リスト。
+            Nodes: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空の集まり。
         """
-        if not self.exists():
-            return []
         # nodes.nodeもcommon.namespaceを参照するため、
         # 循環回避のためここで遅延 import する(mlib で意図的な相互依存の一つ)。
-        from ..nodes.node import Node
+        from ..nodes.node import Node, Nodes
+
+        if not self.exists():
+            return Nodes._wrap([])
 
         mobjects = om2.MNamespace.getNamespaceObjects(self._name, recurse) or []
         # Node(mobject)と同じ解決(DAGは最初のパス)・型選択を、生成の入口の再判定なしで行う。
-        return [Node._from_name(mobject) for mobject in mobjects]
+        return Nodes._wrap([Node._from_name(mobject) for mobject in mobjects])
 
     def getNode(self, name):
         """名前空間を付けた名前で、ノードを取得する。
@@ -233,7 +234,7 @@ class Namespace:
         cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Returns:
-            Namespace: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: 自身が存在しない場合。
@@ -242,7 +243,6 @@ class Namespace:
             if not self.exists():
                 raise RuntimeError(f"名前空間が存在しません: {self._name}")
             cmds.namespace(set=self._name)
-            return self
 
     @contextmanager
     def asCurrent(self):
@@ -275,7 +275,7 @@ class Namespace:
             name (str | Namespace): 新しい名前。最後の階層の名前だけを使い、今の親はそのままにする。
 
         Returns:
-            Namespace: 持っている名前を新しくした自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合。
@@ -291,7 +291,6 @@ class Namespace:
             target = Namespace(f"{parent.name}:{target.name.rsplit(':', 1)[-1]}")
             self._move_contents(target)
             self._name = target.name
-            return self
 
     def move(self, parent=":"):
         """この名前空間を、指定した親の名前空間の下へ移す。
@@ -302,7 +301,7 @@ class Namespace:
             parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
 
         Returns:
-            Namespace: 持っている名前を新しくした自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
@@ -318,7 +317,6 @@ class Namespace:
             target = Namespace(f"{parent_namespace.name}:{leaf_name}")
             self._move_contents(target)
             self._name = target.name
-            return self
 
     def remove(self, destination=":", *, deleteContents=False):
         """中身を別の名前空間へ移してから、この名前空間を削除する。

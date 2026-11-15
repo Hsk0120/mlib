@@ -12,7 +12,7 @@ _ROTATE_ORDERS: tuple
 
 class ComposeMatrix(Node):
     """移動・回転(オイラー角またはクォータニオン)・スケール・せん断からマトリクスを作る。"""
-    def setInput(self, inputTranslate: Iterable[float] | Plug | str | None = ..., inputRotate: Iterable[float] | Plug | str | None = ..., inputScale: Iterable[float] | Plug | str | None = ..., inputShear: Iterable[float] | Plug | str | None = ..., inputQuat: Iterable[float] | Plug | str | None = ..., useEulerRotation: bool | Plug | str | None = ...) -> ComposeMatrix:
+    def setInput(self, inputTranslate: Iterable[float] | Plug | str | None = ..., inputRotate: Iterable[float] | Plug | str | None = ..., inputScale: Iterable[float] | Plug | str | None = ..., inputShear: Iterable[float] | Plug | str | None = ..., inputQuat: Iterable[float] | Plug | str | None = ..., useEulerRotation: bool | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -33,7 +33,7 @@ class ComposeMatrix(Node):
                 Falseならクォータニオン(inputQuat)を使う。
 
         Returns:
-            ComposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -49,7 +49,7 @@ class ComposeMatrix(Node):
             str: ``"xyz"``・``"yzx"``・``"zxy"``・``"xzy"``・``"yxz"``・``"zyx"`` のいずれか。
         """
         ...
-    def setRotateOrder(self, order: str | int) -> ComposeMatrix:
+    def setRotateOrder(self, order: str | int) -> None:
         """回転順を設定する。
 
         ``inputRotateOrder`` へ書き込む。名前でも番号でも指定できる。1回のUndoで戻せる。
@@ -59,7 +59,7 @@ class ComposeMatrix(Node):
                 またはMayaの番号(0から)。
 
         Returns:
-            ComposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: orderが文字列・int以外の場合。

@@ -54,7 +54,7 @@ class ReplaceShapesTest(_Case):
         old = control.getShape()
         source = self.curve([(0, 0, 0), (0, 3, 0)], name=self.name("src")).getTransform()
         source_name = source.getFullName()
-        self.assertIs(control.replaceShapes(source), control)
+        self.assertIsNone(control.replaceShapes(source))
         shapes = control.getShapes()
         self.assertEqual(len(shapes), 1)
         self.assertFalse(old.isValid())

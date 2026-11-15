@@ -52,7 +52,7 @@ class CommonMethodsTest(unittest.TestCase):
         node = self.create("control")
         plug = node.getPlug("translate")
         plug.set((2, 3, 4))
-        self.assertIs(plug.reset(), plug)
+        self.assertIsNone(plug.reset())
         self.assertEqual(tuple(plug.get()), (0, 0, 0))
         cmds.undo()
         self.assertEqual(tuple(plug.get()), (2, 3, 4))
@@ -63,7 +63,7 @@ class CommonMethodsTest(unittest.TestCase):
         node = self.create("flags")
         attrs = ["translateX", "translateY"]
         before = [(node.getPlug(a).isLocked(), node.getPlug(a).isKeyable()) for a in attrs]
-        self.assertIs(node.setAttrFlags(attrs, locked=True, keyable=False), node)
+        self.assertIsNone(node.setAttrFlags(attrs, locked=True, keyable=False))
         for a in attrs:
             self.assertTrue(node.getPlug(a).isLocked())
             self.assertFalse(node.getPlug(a).isKeyable())
@@ -156,11 +156,11 @@ class NodeApiTest(unittest.TestCase):
     def test_rename_namespace_and_add_attr(self):
         transform = self.create_transform("mlibNodeApiRename")
         renamed = transform.rename("mlibNodeApiRenamed")
-        self.assertIs(renamed, transform)
+        self.assertIsNone(renamed)
         self.assertEqual(transform.getName(), "mlibNodeApiRenamed")
 
         namespaced = transform.setNamespace(self.namespace)
-        self.assertIs(namespaced, transform)
+        self.assertIsNone(namespaced)
         self.assertIn("mlibNodeApiRenamed", transform.getNodeName())
         self.assertEqual(transform.getNodeName(removeNamespace=True), "mlibNodeApiRenamed")
         self.assertEqual(transform.getNamespace(), Namespace(self.namespace))
@@ -187,10 +187,12 @@ class NodeApiTest(unittest.TestCase):
 
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
         self.assertEqual(
-            [plug.getFullName() for plug in target.getConnections(True, False, skipConversionNodes=True)], [source.getPlug("translateX").getFullName()]
+            [plug.getFullName() for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)],
+            [source.getPlug("translateX").getFullName()],
         )
         self.assertEqual(
-            [plug.getFullName() for plug in source.getConnections(False, True, skipConversionNodes=True)], [target.getPlug("translateX").getFullName()]
+            [plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)],
+            [target.getPlug("translateX").getFullName()],
         )
         self.assertEqual(len(source.getConnections(skipConversionNodes=True)), 1)
 
@@ -198,13 +200,13 @@ class NodeApiTest(unittest.TestCase):
             return [plug.getFullName() for plug in plugs]
 
         self.assertEqual(
-            names(target.getConnections(True, False, type="transform", skipConversionNodes=True)),
-            names(target.getConnections(True, False, skipConversionNodes=True)),
+            names(target.getConnections(source=True, destination=False, type="transform", skipConversionNodes=True)),
+            names(target.getConnections(source=True, destination=False, skipConversionNodes=True)),
         )
-        self.assertEqual(target.getConnections(True, False, type="mesh", skipConversionNodes=True), [])
+        self.assertEqual(target.getConnections(source=True, destination=False, type="mesh", skipConversionNodes=True), [])
         self.assertEqual(
-            names(source.getConnections(False, True, type="transform", skipConversionNodes=True)),
-            names(source.getConnections(False, True, skipConversionNodes=True)),
+            names(source.getConnections(source=False, destination=True, type="transform", skipConversionNodes=True)),
+            names(source.getConnections(source=False, destination=True, skipConversionNodes=True)),
         )
         self.assertEqual(source.getConnections(type="mesh", skipConversionNodes=True), [])
 
@@ -720,13 +722,13 @@ class NamePathTest(_SpecCase):
         target = "mlibSpecCMoveNs_" + uuid.uuid4().hex[:8]
         self.extra_namespaces.append(target)
         cmds.flushUndo()
-        self.assertIs(node.setNamespace(target), node)
+        self.assertIsNone(node.setNamespace(target))
         self.assertEqual(node.getNodeName(), target + ":moved")
         self.assertTrue(cmds.namespace(exists=target))
         cmds.undo()
         self.assertFalse(cmds.namespace(exists=target))
         self.assertEqual(node.getName(), self.name("moved"))
-        self.assertIs(node.setNamespace(Namespace(self.ns)), node)
+        self.assertIsNone(node.setNamespace(Namespace(self.ns)))
         self.assertEqual(node.getNodeName(), self.name("moved"))
         for value in ("", 1, None):
             with self.subTest(value=value):
@@ -741,7 +743,7 @@ class NamePathTest(_SpecCase):
         target = "mlibSpecCFastNs_" + uuid.uuid4().hex[:8]
         self.extra_namespaces.append(target)
         cmds.flushUndo()
-        self.assertIs(node.setNamespace(target + ":", fast=True), node)
+        self.assertIsNone(node.setNamespace(target + ":", fast=True))
         self.assertEqual(node.getNodeName(), target + ":fastMoved")
         self.assertTrue(cmds.namespace(exists=target))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
@@ -750,7 +752,7 @@ class NamePathTest(_SpecCase):
     def test_rename(self):
         """rename は自身を返し、不正文字は置換、空の名前は RuntimeError、``|`` は ValueError。"""
         node = Node(self.make("network", "orig"))
-        self.assertIs(node.rename(self.name("1bad")), node)
+        self.assertIsNone(node.rename(self.name("1bad")))
         self.assertEqual(node.getNodeName(), self.name("bad"))
         with self.assertRaisesRegex(ValueError, r"に'\|'は使えません"):
             node.rename("grp|child")
@@ -759,7 +761,7 @@ class NamePathTest(_SpecCase):
         with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
             node.rename(self.name("x"), fast="yes")
         cmds.flushUndo()
-        self.assertIs(node.rename(self.name("fastName"), fast=True), node)
+        self.assertIsNone(node.rename(self.name("fastName"), fast=True))
         self.assertEqual(node.getNodeName(), self.name("fastName"))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
@@ -925,7 +927,7 @@ class ResetAndFlagsTest(_SpecCase):
             self.node.setAttrFlags(["tx", "mlibMissing"], locked=True)
         self.assertFalse(cmds.getAttr(self.node_name + ".tx", lock=True))
         cmds.flushUndo()
-        self.assertIs(self.node.setAttrFlags(["tx", "rx"], locked=True, keyable=False), self.node)
+        self.assertIsNone(self.node.setAttrFlags(["tx", "rx"], locked=True, keyable=False))
         self.assertTrue(cmds.getAttr(self.node_name + ".tx", lock=True))
         self.assertFalse(cmds.getAttr(self.node_name + ".rx", keyable=True))
         cmds.undo()
@@ -934,7 +936,7 @@ class ResetAndFlagsTest(_SpecCase):
 
     def test_set_attr_flags_without_flags_changes_nothing(self):
         """フラグを全て None にすると、名前の検査だけで変更しない。"""
-        self.assertIs(self.node.setAttrFlags(attributes="tx"), self.node)
+        self.assertIsNone(self.node.setAttrFlags(attributes="tx"))
         self.assertFalse(cmds.getAttr(self.node_name + ".tx", lock=True))
         with self.assertRaises(AttributeError):
             self.node.setAttrFlags("mlibMissing")
@@ -1062,7 +1064,7 @@ class DeleteHistoryTest(NamespaceCase):
         cube = self.cube()
         self.flushUndo()
         node = mlib.getNode(cube)
-        self.assertIs(node.deleteHistory(), node)
+        self.assertIsNone(node.deleteHistory())
         self.assertIn("cluster", self.history_types(cube))
         self.assertNotIn("polySmoothFace", self.history_types(cube))
         self.assertUndoesInOneStep(lambda: self.assertIn("polySmoothFace", self.history_types(cube)), lambda: None)
@@ -1072,15 +1074,15 @@ class DeleteHistoryTest(NamespaceCase):
         cube = self.cube()
         shape = mlib.getNode(cmds.listRelatives(cube, shapes=True, noIntermediate=True)[0])
         self.flushUndo()
-        self.assertIs(shape.deleteHistory(keepDeformers=False), shape)
+        self.assertIsNone(shape.deleteHistory(keepDeformers=False))
         self.assertFalse({"cluster", "polySmoothFace"} & self.history_types(cube))
         self.assertUndoesInOneStep(lambda: self.assertIn("cluster", self.history_types(cube)), lambda: None)
 
     def test_group_and_errors(self):
         """Shape の無い Transform は何もしない。keepDeformers が bool 以外は TypeError。"""
         group = mlib.getNode(self.make())
-        self.assertIs(group.deleteHistory(), group)
-        self.assertIs(group.deleteHistory(keepDeformers=False), group)
+        self.assertIsNone(group.deleteHistory())
+        self.assertIsNone(group.deleteHistory(keepDeformers=False))
         self.assertRaises(TypeError, group.deleteHistory, 1)
 
 

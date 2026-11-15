@@ -12,11 +12,11 @@ from ..core.attributeType import _convert_units, _from_seconds, _to_seconds
 from ..core.fastWrite import require_writable
 from ..core.nodeEdit import delete_nodes
 from ..decorator import _edit_context, _require_bool, undoChunk
+from ..plugs.plug import Plugs
 from ..util import _angle_unit, _from_radians, _time_unit, _to_radians
 from .node import Node
 from typing import Any, Iterable, Sequence
 from mlib._stubtypes import GeneratorContextManager
-from mlib.plugs.plug import Plug
 
 _TANGENT_TYPES: dict
 _TANGENT_NAMES: dict
@@ -155,7 +155,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、またはキーの無いカーブの場合。
         """
         ...
-    def setKey(self, input: float, value: float, inTangentType: str | None = ..., outTangentType: str | None = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
+    def setKey(self, input: float, value: float, inTangentType: str | None = ..., outTangentType: str | None = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
 
         接線の型を省略したときは、``cmds.setKeyframe`` と同じ扱いになる。すでにあるキーは接線の型を保ち、
@@ -182,7 +182,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
+            None: 値を返さない。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
 
         Raises:
             TypeError: fastがbool以外の場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -192,7 +192,7 @@ class AnimCurve(Node):
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
         ...
-    def insertKey(self, input: float, *, timeUnit: str = ...) -> AnimCurve:
+    def insertKey(self, input: float, *, timeUnit: str = ...) -> None:
         """カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
 
         値と接線は、Mayaがその位置のカーブから決める。そのため、挿入の前と後で評価した値は変わらない。
@@ -203,7 +203,7 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのinputの単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
+            None: 値を返さない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
 
         Raises:
             TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
@@ -211,7 +211,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
         """
         ...
-    def removeKey(self, index: int | Sequence[int] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str = ..., keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
+    def removeKey(self, *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str = ..., keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
 
         キーのクリップボードは変更しない。indexとtimeは、どちらか一方を指定する。
@@ -230,7 +230,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
+            None: 値を返さない。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合かどちらも指定しない場合、timeが数値でも2つの数値の並びでもない場合、
@@ -239,7 +239,7 @@ class AnimCurve(Node):
             IndexError: indexが範囲外の場合。
         """
         ...
-    def replaceKeys(self, keys: Iterable[Sequence], *, unit: str = ..., timeUnit: str = ...) -> AnimCurve:
+    def replaceKeys(self, keys: Iterable[Sequence], *, unit: str = ..., timeUnit: str = ...) -> None:
         """カーブを残したまま、すべてのキーを指定したキーへ置き換える。
 
         1回のUndoで戻せる。fast引数は持たない。``keys`` の各要素は、次のどちらかの形で指定する。
@@ -258,7 +258,7 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 要素が2つか4つの並びでない場合、または数値へ変換できない型の場合。
@@ -294,7 +294,7 @@ class AnimCurve(Node):
             IndexError: 番号がbool・int以外・負の値の場合、またはキーの数以上の場合。
         """
         ...
-    def setTangent(self, index: int, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> AnimCurve:
+    def setTangent(self, index: int, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> None:
         """指定したキーの接線を変える。接線のロックの扱いはMayaの規則に従う。
 
         weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
@@ -318,7 +318,7 @@ class AnimCurve(Node):
                 - ロックは自動では外さない。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: unitが文字列・None以外の場合。
@@ -336,7 +336,7 @@ class AnimCurve(Node):
             dict: キーが ``"pre"``・``"post"``、値が外挿の方法の名前の辞書。
         """
         ...
-    def setInfinity(self, *, pre: str | None = ..., post: str | None = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
+    def setInfinity(self, *, pre: str | None = ..., post: str | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """指定した側だけ、外挿の方法を変える。省略した側はそのまま。
 
         Args:
@@ -348,7 +348,7 @@ class AnimCurve(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -370,7 +370,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         ...
-    def setBreakdown(self, index: int | Sequence[int], state: bool = ...) -> AnimCurve:
+    def setBreakdown(self, index: int | Sequence[int], state: bool = ...) -> None:
         """指定したキーをブレイクダウンキーにする、または通常のキーへ戻す(``keyframe -e -breakdown``)。
 
         ブレイクダウンキーは、前後のキーとの時間の比率を保って動く。キーの値と入力は変えない。
@@ -382,7 +382,7 @@ class AnimCurve(Node):
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがbool以外、またはindexがNoneの場合。
@@ -390,7 +390,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         ...
-    def moveKey(self, index: int | Sequence[int] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> AnimCurve:
+    def moveKey(self, *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーの入力(時刻)と値をずらす。indexとtimeを両方省略すると、すべてのキーを動かす。
 
         Mayaの ``keyframe -edit -relative`` と同じく、入力をずらしたキーは、動かさない隣のキーを越えない
@@ -408,7 +408,7 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。動かすキーが無ければ何も変えない。
+            None: 値を返さない。動かすキーが無ければ何も変えない。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -416,7 +416,7 @@ class AnimCurve(Node):
             IndexError: indexが範囲外の場合。
         """
         ...
-    def scaleKey(self, inputScale: float = ..., valueScale: float = ..., inputPivot: float = ..., valuePivot: float = ..., *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> AnimCurve:
+    def scaleKey(self, inputScale: float = ..., valueScale: float = ..., inputPivot: float = ..., valuePivot: float = ..., *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーを、基準の値を中心に拡大・縮小する。
 
         indexとtimeを両方省略すると、すべてのキーが対象になる。接線の扱いはMayaのscaleKeyに従う。
@@ -435,7 +435,7 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexとtimeを両方指定した場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
@@ -443,7 +443,7 @@ class AnimCurve(Node):
             IndexError: indexが範囲外の場合。
         """
         ...
-    def mirror(self, input: bool = ..., value: bool = ..., inputPivot: float = ..., valuePivot: float = ..., *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> AnimCurve:
+    def mirror(self, input: bool = ..., value: bool = ..., inputPivot: float = ..., valuePivot: float = ..., *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """入力の軸(横軸)と出力の軸(縦軸)を反転する。
 
         中では :meth:`scaleKey` を使うので、Undoは1回にまとまる。fast引数は持たない(:meth:`scaleKey` と同じ)。
@@ -460,10 +460,10 @@ class AnimCurve(Node):
                 ``"frame"`` / ``"sec"``。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
         """
         ...
-    def eulerFilter(self) -> AnimCurve:
+    def eulerFilter(self) -> None:
         """回転のカーブへEulerフィルターをかけ、360度の飛びを取り除く。
 
         ``cmds.filterCurve(filter="euler")`` をこのカーブ1本に実行する。
@@ -471,20 +471,20 @@ class AnimCurve(Node):
         fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Returns:
-            AnimCurve: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 時間→角度のカーブ(animCurveTA)でない場合。
             RuntimeError: ノードが無効(削除済み)の場合、またはMayaがフィルターを拒否した場合。
         """
         ...
-    def getDrivenPlugs(self) -> list[Plug]:
+    def getDrivenPlugs(self) -> Plugs:
         """このカーブが動かしているアトリビュートを返す。
 
         unitConversionなどの変換ノードは飛ばして、その先のアトリビュートを返す。
 
         Returns:
-            list[Plug]: ``output`` の出力先。つながっていなければ空リスト。
+            Plugs: ``output`` の出力先。つながっていなければ空の集まり。
 
         Raises:
             RuntimeError: ノードが無効(削除済み)の場合。

@@ -31,13 +31,13 @@ class ComposeMatrix(Node):
                 Falseならクォータニオン(inputQuat)を使う。
 
         Returns:
-            ComposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
-        return _calculation.set_inputs(
+        _calculation.set_inputs(
             self,
             "setInput",
             {
@@ -70,14 +70,14 @@ class ComposeMatrix(Node):
                 またはMayaの番号(0から)。
 
         Returns:
-            ComposeMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: orderが文字列・int以外の場合。
             ValueError: 使えない名前、または範囲外の番号を指定した場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setRotateOrder", "inputRotateOrder", order, _ROTATE_ORDERS, "order")
+        _calculation.set_enum(self, "setRotateOrder", "inputRotateOrder", order, _ROTATE_ORDERS, "order")
 
     def getResult(self):
         """出力 ``outputMatrix`` の現在の値を取得する。

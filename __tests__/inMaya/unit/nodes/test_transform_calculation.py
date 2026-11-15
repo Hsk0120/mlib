@@ -1,6 +1,5 @@
 """Transformの計算・書込みと数学値の所有権を検証する。"""
 
-import math
 import unittest
 from unittest.mock import patch
 
@@ -25,11 +24,11 @@ class TransformExecutionTest(unittest.TestCase):
             node = mlib.createNode(kind)
             before = node.getMatrix()
             calls = (
-                (lambda **flags: node.setTranslation((3, 4, 5), **flags), list),
-                (lambda **flags: node.setRotate((0.1, 0.2, 0.3), **flags), list),
-                (lambda **flags: node.setScale((2, 3, 4), **flags), list),
-                (lambda **flags: node.setShear((0.1, 0.2, 0.3), **flags), list),
-                (lambda **flags: node.setQuaternion(Quaternion(), **flags), list),
+                (lambda **flags: node.setTranslation((3, 4, 5), **flags), mlib.Translate),
+                (lambda **flags: node.setRotate((0.1, 0.2, 0.3), **flags), EulerRotate),
+                (lambda **flags: node.setScale((2, 3, 4), **flags), mlib.Scale),
+                (lambda **flags: node.setShear((0.1, 0.2, 0.3), **flags), mlib.Shear),
+                (lambda **flags: node.setQuaternion(Quaternion(), **flags), EulerRotate),
                 (lambda **flags: node.setMatrix(Matrix(translate=(3, 4, 5)), **flags), dict),
             )
             cmds.flushUndo()
@@ -53,12 +52,12 @@ class TransformExecutionTest(unittest.TestCase):
                     node = mlib.createNode(kind)
                     names = ("rotate", "rotateAxis", "jointOrient") if kind == "joint" else ("rotate", "rotateAxis")
                     before = {name: tuple(node.getPlug(name).get(unit="rad")) for name in names}
-                    planned = node.setQuaternion(q, get=True, unit="rad", **flags)
-                    in_degrees = node.setQuaternion(q, get=True, **flags)
-                    for degrees, radians in zip(in_degrees, planned):
-                        self.assertAlmostEqual(degrees, math.degrees(radians), places=9)
+                    planned = node.setQuaternion(q, get=True, **flags)
+                    self.assertIsInstance(planned, EulerRotate)
+                    # rotateはノードのrotateOrder、ほかの書き込み先はXYZの順で返る。
+                    self.assertEqual(planned.order, 0)
                     self.assertEqual({name: tuple(node.getPlug(name).get(unit="rad")) for name in names}, before)
-                    self.assertIs(node.setQuaternion(q, **flags), node)
+                    self.assertIsNone(node.setQuaternion(q, **flags))
                     for name in names:
                         expected = planned if name == target else before[name]
                         for actual, value in zip(node.getPlug(name).get(unit="rad"), expected):

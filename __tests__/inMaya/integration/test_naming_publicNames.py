@@ -39,8 +39,11 @@ class ApiNamingTest(unittest.TestCase):
         blend = mlib.createNode("blendWeighted")
         source.connectTo(blend.getPlug("input")[0])
         for node in (curve, blend):
-            self.assertEqual([p.getFullName() for p in node.getConnections(True, False, type="transform", skipConversionNodes=True)], [source.getFullName()])
-            self.assertEqual(node.getConnections(True, False, type="mesh", skipConversionNodes=True), [])
+            self.assertEqual(
+                [p.getFullName() for p in node.getConnections(source=True, destination=False, type="transform", skipConversionNodes=True)],
+                [source.getFullName()],
+            )
+            self.assertEqual(node.getConnections(source=True, destination=False, type="mesh", skipConversionNodes=True), [])
         self.assertEqual(curve.getKeyInputs(), [0, 3])
         self.assertEqual(blend.getPlug("input").getElement(0).getNode(), blend)
 

@@ -82,11 +82,11 @@ class PluginTest(unittest.TestCase):
         self.assertTrue(plugin.isLoaded())
 
         result = plugin.unload()
-        self.assertIs(result, plugin)
+        self.assertIsNone(result)
         self.assertFalse(plugin.isLoaded())
 
         result = plugin.ensureLoaded()
-        self.assertIs(result, plugin)
+        self.assertIsNone(result)
         self.assertTrue(plugin.isLoaded())
 
         # 既にロード済みの状態で ensureLoaded を呼んでもエラーにならない。
@@ -110,7 +110,7 @@ class PluginTest(unittest.TestCase):
         """quiet呼出しの戻り値がNoneでも、ロード済みなら成功する。"""
         plugin = Plugin(self.pluginName)
         with mock.patch.object(cmds, "loadPlugin", return_value=None):
-            self.assertIs(plugin.load(quiet=True), plugin)
+            self.assertIsNone(plugin.load(quiet=True))
 
 
 class PluginListingTest(unittest.TestCase):

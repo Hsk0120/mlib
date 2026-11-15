@@ -107,7 +107,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         self._inject(child, math.nan, vertex=1)
         self._inject(other, math.inf, vertex=2)
         self._inject(parent, -math.inf, vertex=3)
-        self.assertIs(self.skin.removeInvalidWeights(), self.skin)
+        self.assertIsNone(self.skin.removeInvalidWeights())
         for vertex, index in ((0, parent), (1, child), (2, other), (3, parent)):
             self.assertNotIn(index, self._indices(vertex))
         values = list(self.skin.getWeights(self.names))
@@ -181,7 +181,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         second = self._skin("cleanupSecond", self.names)
         for skin in (self.skin, second):
             self._inject(77, 0.5, skin=skin)
-        self.assertIs(self.child.removeInfluence(force=True), self.child)
+        self.assertIsNone(self.child.removeInfluence(force=True))
         self.assertTrue(self.child.isValid())
         for skin in (self.skin, second):
             self.assertFalse(skin.hasInfluence(str(self.child)))
@@ -231,7 +231,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
             skin.removeInfluence(self.child, force=True)
         self.assertIn(77, self._indices(skin=skin))
         self.assertTrue(skin.hasInfluence(str(self.child)))
-        self.assertIs(skin.removeInvalidWeights(), skin)
+        self.assertIsNone(skin.removeInvalidWeights())
         self.assertNotIn(77, self._indices(skin=skin))
 
     def test_locks_and_input_connections_reject_cleanup_and_force_without_unlocking(self):
@@ -332,11 +332,11 @@ class SkinWeightCleanupTest(unittest.TestCase):
         cmds.flushUndo()
         sentinel = cmds.createNode("network", name="cleanupUndoSentinel")
         undo_name = cmds.undoInfo(query=True, undoName=True)
-        self.assertIs(self.skin.removeInvalidWeights(), self.skin)
+        self.assertIsNone(self.skin.removeInvalidWeights())
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         self.assertEqual(list(self.skin.getWeights(self.names)), before)
         self._inject(77, 0.5)
-        self.assertIs(self.skin.removeInvalidWeights(fast=True), self.skin)
+        self.assertIsNone(self.skin.removeInvalidWeights(fast=True))
         self.assertNotIn(77, self._indices())
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         cmds.undo()

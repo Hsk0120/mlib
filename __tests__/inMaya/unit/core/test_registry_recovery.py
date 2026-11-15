@@ -53,7 +53,7 @@ class TypeHierarchyStateTest(unittest.TestCase):
                     cmds, "nodeType", side_effect=[["dependNode", "transform", "optionalNode"], ["dependNode", "locator", "optionalNode"]]
                 ) as query, mock.patch.object(cmds, command, return_value=None), mock.patch.object(Plugin, "isLoaded", return_value=True):
                     self.assertIs(registry.wrapper_class("optionalNode"), str)
-                    self.assertIs(getattr(plugin, operation)(), plugin)
+                    self.assertIsNone(getattr(plugin, operation)())
                     self.assertIs(registry.wrapper_class("optionalNode"), int)
                 self.assertEqual(query.call_count, 2)
 

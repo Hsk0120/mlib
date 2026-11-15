@@ -16,7 +16,7 @@ class MultMatrix(Node):
     ``matrixIn`` のマトリクスを論理番号の順に掛け合わせ、``matrixSum`` へ出力する。
     先頭のマトリクスが最初に適用される。
     """
-    def setInput(self, matrices: Iterable[Matrix | Iterable[float] | Plug | str]) -> MultMatrix:
+    def setInput(self, matrices: Iterable[Matrix | Iterable[float] | Plug | str]) -> None:
         """入力のマトリクスを設定する。
 
         すでにある入力はすべて取り除き、渡したものに置き換える。渡した順に、論理番号0から設定する。
@@ -30,7 +30,7 @@ class MultMatrix(Node):
             matrices (Iterable[Matrix | Iterable[float] | Plug | str]): 掛け合わせるマトリクスの並び。
 
         Returns:
-            MultMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -53,7 +53,7 @@ class MultMatrix(Node):
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
         ...
-    def removeInput(self, index: int) -> MultMatrix:
+    def removeInput(self, index: int) -> None:
         """入力のマトリクスを削除する。
 
         接続されていれば、接続ごと取り除く。1回のUndoで戻せる。
@@ -62,7 +62,7 @@ class MultMatrix(Node):
             index (int): 入力の論理番号。
 
         Returns:
-            MultMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。

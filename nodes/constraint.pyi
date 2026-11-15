@@ -3,9 +3,9 @@
 
 import maya.cmds as cmds
 from ..decorator import _edit_context, undoChunk
+from ..plugs.plug import Plugs
 from .node import Node, Nodes
 from .transform import Transform
-from mlib.plugs.plug import Plug
 
 
 
@@ -20,7 +20,7 @@ class Constraint(Transform):
     fastを指定したときのウェイトの書き込みはPlugに任せるが、ターゲットやエイリアスを調べるにはcmdsを使う。
     そのため、fastを指定しても、全体がOpenMayaだけで動くわけではない。
     """
-    def getTargets(self) -> list[Node]:
+    def getTargets(self) -> Nodes:
         """登録されているターゲットを取得する。
 
         ノード型に対応するMaya標準のコンストレイントコマンドで調べる。
@@ -28,7 +28,7 @@ class Constraint(Transform):
         この順はgetWeightAliases()の並びと対応する。
 
         Returns:
-            list[Node]: ターゲットの新しいオブジェクトのリスト。登録が無ければ空リスト。
+            Nodes: ターゲットの新しいオブジェクト。登録が無ければ空の集まり。
                 ノードを複製したものではない。
         """
         ...
@@ -42,11 +42,11 @@ class Constraint(Transform):
                 ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
         """
         ...
-    def getWeightPlugs(self) -> list[Plug]:
+    def getWeightPlugs(self) -> Plugs:
         """ターゲットのウェイトのアトリビュートを取得する。
 
         Returns:
-            list[Plug]: getTargets()と同じ順に並ぶ。set()で値を変更できる。
+            Plugs: getTargets()と同じ順に並ぶ。set()で値を変更できる。
         """
         ...
     def getWeights(self) -> list[float]:
@@ -69,7 +69,7 @@ class Constraint(Transform):
             ValueError: ターゲットが登録されていない場合。
         """
         ...
-    def setWeight(self, weight: float, *targets: Node | str, fast: bool = ...) -> Constraint:
+    def setWeight(self, weight: float, *targets: Node | str, fast: bool = ..., check: bool = ...) -> None:
         """ターゲットのウェイトを設定する。
 
         値は正規化せず、そのまま書き込む。書き込む順はMayaのターゲットの順になる。
@@ -88,16 +88,18 @@ class Constraint(Transform):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Plugの書き込みに使う。
                 Falseなら、Undoが有効なときに通常の書き込みを1回のUndoにまとめる。Undoの設定は変えない。
                 ターゲットやエイリアスを調べるには、fastでもcmdsを使う。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Constraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 指定したターゲットがこのコンストレイントに登録されていない場合。
         """
         ...
-    def removeTarget(self, *targets: Node | str) -> Constraint:
+    def removeTarget(self, *targets: Node | str) -> None:
         """ターゲットをコンストレイントから外す。
 
         ``cmds.<コンストレイント>(target, self, edit=True, remove=True)`` と同じ処理をする。
@@ -109,7 +111,7 @@ class Constraint(Transform):
             targets (Node | str): 外すターゲット。1つ以上。
 
         Returns:
-            Constraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: ターゲットを1つも指定しない場合、またはターゲットの型が不正な場合。

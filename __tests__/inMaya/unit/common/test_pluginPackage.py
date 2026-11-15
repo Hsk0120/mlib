@@ -320,7 +320,7 @@ class PluginPackageSpecTest(unittest.TestCase):
         """最小版なしで全プラグインのロードに失敗すればMISSINGとし、通知文を一度渡す。"""
         notified = []
         package = PluginPackage("Product", [self.missing_plugin])
-        self.assertEqual(package.loadPlugins(), [self.missing_plugin])
+        self.assertEqual([plugin.name for plugin in package.loadPlugins()], [self.missing_plugin])
         self.assertEqual(package.tryLoad(dialog=notified.append, warn=False), MISSING)
         self.assertEqual(len(notified), 1)
         self.assertIn("Product", notified[0])

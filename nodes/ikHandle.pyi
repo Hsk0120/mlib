@@ -8,6 +8,7 @@ from ..decorator import undoChunk
 from .node import Node
 from .transform import Transform
 from mlib.nodes.joint import Joint
+from mlib.nodes.joint import Joints
 
 _SWITCHABLE_SOLVERS: tuple
 
@@ -53,7 +54,7 @@ class IkHandle(Transform):
             Joint | None: 末端のジョイント。接続が見つからない場合は ``None``。
         """
         ...
-    def getJoints(self, includeTip: bool = ...) -> list[Joint]:
+    def getJoints(self, includeTip: bool = ...) -> Joints:
         """IKチェーンのジョイントを、開始ジョイントから順に取得する。
 
         ``cmds.ikHandle(query=True, jointList=True)`` と同じジョイントを、OpenMayaで求める。
@@ -68,7 +69,7 @@ class IkHandle(Transform):
                 既定はFalseで、``cmds.ikHandle(query=True, jointList=True)`` と同じく末端のジョイントを含まない。
 
         Returns:
-            list[Joint]: 開始ジョイントから順に並んだジョイント。次の場合は空リスト。
+            Joints: 開始ジョイントから順に並んだジョイント。次の場合は空の集まり。
 
                 - startJointかendEffectorが接続されていない。
                 - ikEffectorが開始ジョイントの子孫でない。
@@ -90,7 +91,7 @@ class IkHandle(Transform):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setSolver(self, solver: str) -> IkHandle:
+    def setSolver(self, solver: str) -> None:
         """ハンドルのIKソルバーを切り替える。
 
         ``cmds.ikHandle(edit=True, solver=...)`` と同じ処理をする。
@@ -105,7 +106,7 @@ class IkHandle(Transform):
             solver (str): ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSpringSolver"`` のいずれか。
 
         Returns:
-            IkHandle: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: solverが文字列でない場合。
@@ -113,7 +114,7 @@ class IkHandle(Transform):
             RuntimeError: ノードが無効な場合、またはMayaが切り替えを拒否した場合。
         """
         ...
-    def snapToEffector(self) -> IkHandle:
+    def snapToEffector(self) -> None:
         """ハンドルをエフェクターの位置へ移す。
 
         IKハンドルのSnap Handle to Effectorと同じ操作。
@@ -126,7 +127,7 @@ class IkHandle(Transform):
         Undoが有効なら、1回のUndoで戻せる。fast引数は無い。
 
         Returns:
-            IkHandle: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効な場合、エフェクターが接続されていない場合、

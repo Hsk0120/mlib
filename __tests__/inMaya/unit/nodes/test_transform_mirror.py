@@ -140,7 +140,7 @@ class TransformMirrorTest(unittest.TestCase):
                         expected = source.mirror(axis, (4, 5, 6))
                         if not ws:
                             expected = expected * parent
-                        self.assertIs(node.mirrorTransform(axis, ws, (4, 5, 6), fast=fast), node)
+                        self.assertIsNone(node.mirrorTransform(axis, ws, (4, 5, 6), fast=fast))
                         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(expected, 1e-7), (node_type, fast, ws, axis))
                         if not fast:
                             cmds.undo()

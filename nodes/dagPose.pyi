@@ -12,7 +12,7 @@ from ..maths import Matrix
 from ..util import _UNSET, _world_space
 from .node import Node, Nodes
 from typing import Iterable
-from mlib.nodes.skinCluster import SkinCluster
+from mlib.nodes.skinCluster import SkinClusters
 
 
 
@@ -69,13 +69,13 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合。
         """
         ...
-    def getMembers(self) -> list[Node]:
+    def getMembers(self) -> Nodes:
         """メンバーを取得する。
 
         membersマルチアトリビュートの論理番号の順に並べる。
 
         Returns:
-            list[Node]: メンバー。getMemberIndices()と同じ順に並ぶ。
+            Nodes: メンバー。getMemberIndices()と同じ順に並ぶ。
 
         Raises:
             RuntimeError: 無効なノードの場合。
@@ -117,14 +117,14 @@ class DagPose(Node):
             RuntimeError: 無効なdagPoseの場合。
         """
         ...
-    def getNotAtPose(self) -> list[Node]:
+    def getNotAtPose(self) -> Nodes:
         """保存した姿勢から外れているメンバーを取得する。
 
         ``cmds.dagPose(query=True, atPose=True)`` で調べる(Bind Poseメニューの判定と同じ)。
         どこまでの差を許すかはMayaの判定に従う。
 
         Returns:
-            list[Node]: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空リスト。
+            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
@@ -140,17 +140,17 @@ class DagPose(Node):
             RuntimeError: 無効なdagPoseの場合。
         """
         ...
-    def getSkinClusters(self) -> list[SkinCluster]:
+    def getSkinClusters(self) -> SkinClusters:
         """このポーズをバインドポーズとして使っているskinClusterを取得する。
 
         Returns:
-            list[SkinCluster]: messageからskinCluster.bindPoseへの接続先。同じものは1回だけ含む。
+            SkinClusters: messageからskinCluster.bindPoseへの接続先。同じものは1回だけ含む。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
         """
         ...
-    def restore(self, worldSpace: bool = ..., *, ws: bool = ...) -> DagPose:
+    def restore(self, worldSpace: bool = ..., *, ws: bool = ...) -> None:
         """保存した姿勢へ戻す。
 
         接続やロックを外すことはしない。
@@ -160,14 +160,14 @@ class DagPose(Node):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: 無効なノードの場合、またはMayaが姿勢を戻すのを拒否した場合。
         """
         ...
-    def reset(self, members: Node | str | Iterable[Node | str] | None = ...) -> DagPose:
+    def reset(self, members: Node | str | Iterable[Node | str] | None = ...) -> None:
         """保存した姿勢を、シーンの今の姿勢で上書きする。
 
         ノードを保存した姿勢へ動かすrestore()とは逆に、保存している側だけを変える。
@@ -179,7 +179,7 @@ class DagPose(Node):
                 Noneでメンバーが1つも無ければ、何も変えない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -187,7 +187,7 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合、またはMayaが上書きを拒否した場合。
         """
         ...
-    def addMembers(self, *members: Node | str | Iterable[Node | str]) -> DagPose:
+    def addMembers(self, *members: Node | str | Iterable[Node | str]) -> None:
         """TransformやJointを、今の姿勢でポーズへ加える。
 
         Mayaの ``dagPose -addToPose`` を使う。姿勢を戻すのに要る親の情報も、Mayaの決まりで保存する。
@@ -197,7 +197,7 @@ class DagPose(Node):
             *members (Node | str | Iterable[Node | str]): 加えるノード。空にはできない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -205,7 +205,7 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合、またはMayaが追加を拒否した場合。
         """
         ...
-    def removeMembers(self, *members: Node | str | Iterable[Node | str]) -> DagPose:
+    def removeMembers(self, *members: Node | str | Iterable[Node | str]) -> None:
         """メンバーをポーズから外す。
 
         シーンのノードそのものは削除しない。
@@ -215,7 +215,7 @@ class DagPose(Node):
             *members (Node | str | Iterable[Node | str]): 外すメンバー。空にはできない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -223,7 +223,7 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合。
         """
         ...
-    def merge(self, sources: DagPose | str | Iterable[DagPose | str], *, currentPose: bool = ..., deleteSources: bool = ...) -> DagPose:
+    def merge(self, sources: DagPose | str | Iterable[DagPose | str], *, currentPose: bool = ..., deleteSources: bool = ...) -> None:
         """ほかのポーズをこのポーズへまとめる。
 
         まとめた後、skinClusterのbindPoseがつながる先を、このポーズへ揃える。
@@ -246,7 +246,7 @@ class DagPose(Node):
                 保存したマトリクス以外の接続があればエラーにする。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: currentPose・deleteSourcesがbool以外の場合、またはsourcesが使えない型の場合。

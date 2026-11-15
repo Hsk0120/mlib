@@ -12,10 +12,11 @@ from ..util import _UNSET
 from typing import Sequence
 from mlib.nodes.animCurve import AnimCurve
 from mlib.nodes.node import Node
+from mlib.nodes.node import Nodes
 
 _REJECTED_FLAGS: frozenset
 
-def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequence[str] | None = ..., time: tuple[float, float] | None = ..., sampleBy: float = ..., *, at: str | Sequence[str] | None = ..., t: tuple[float, float] | None = ..., sb: float = ..., **kwargs: object) -> list[AnimCurve]:
+def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequence[str] | None = ..., time: tuple[float, float] | None = ..., sampleBy: float = ..., *, at: str | Sequence[str] | None = ..., t: tuple[float, float] | None = ..., sb: float = ..., **kwargs: object) -> Nodes[AnimCurve]:
     """アトリビュートの動きをキーへ焼き込み、そのアニメーションカーブを返す。
 
     コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、
@@ -47,7 +48,7 @@ def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequ
             ``attribute`` は ``attributes`` で指定するため受け付けない。query・editも受け付けない。
 
     Returns:
-        list[AnimCurve]: 焼き込んだアトリビュートを動かすアニメーションカーブ(新しく作ったものと書き換えたもの)。
+        Nodes[AnimCurve]: 焼き込んだアトリビュートを動かすアニメーションカーブ(新しく作ったものと書き換えたもの)。
             対象はnodesのアトリビュートで、``shape`` が有効なら直下のShapeのアトリビュートも含む。
             ``hierarchy`` で増えた子孫のカーブは含まない。焼き込むものが無ければ空リスト。
 

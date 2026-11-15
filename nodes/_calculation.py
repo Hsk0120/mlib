@@ -57,7 +57,7 @@ def _source(value, geometry):
 
 
 def set_inputs(node, method, values, geometry=None):
-    """入力をまとめて設定し、ノードを返す。
+    """入力をまとめて設定し。
 
     各入力は、渡したものの種類で扱いが変わる。
 
@@ -76,7 +76,7 @@ def set_inputs(node, method, values, geometry=None):
             その入力へシェイプ(またはシェイプを1つだけ持つTransform)を渡すと、シェイプのworldSpaceを接続する。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: 接続元の型が不正な場合。
@@ -94,7 +94,6 @@ def set_inputs(node, method, values, geometry=None):
             if target.getSource() is not None:
                 target.disconnect()
             target.set(value)
-    return node
 
 
 def enum_index(value, names, label):
@@ -124,7 +123,7 @@ def enum_index(value, names, label):
 
 
 def set_enum(node, method, attribute, value, names, label):
-    """列挙のアトリビュートを名前または番号で設定し、ノードを返す。
+    """列挙のアトリビュートを名前または番号で設定し。
 
     Args:
         node (Node): 対象の計算ノード。
@@ -135,7 +134,7 @@ def set_enum(node, method, attribute, value, names, label):
         label (str): 例外メッセージに使う引数名。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: :func:`enum_index` と同じ。
@@ -146,7 +145,6 @@ def set_enum(node, method, attribute, value, names, label):
     node._require_valid(method)
     with _edit_context(chunk_name(node, method), False):
         node.getPlug(attribute).set(index)
-    return node
 
 
 def get_enum(node, attribute, names):
@@ -232,7 +230,7 @@ def remove_elements(node, method, attributes, index):
         index (int): 論理番号。
 
     Returns:
-        Node: node自身。
+        None: 値を返さない。
 
     Raises:
         TypeError: indexがint以外(boolを含む)の場合。
@@ -249,4 +247,3 @@ def remove_elements(node, method, attributes, index):
         for attribute in attributes:
             if index in element_indices(node, attribute):
                 cmds.removeMultiInstance(f"{node.getName()}.{attribute}[{index}]", b=True)
-    return node

@@ -103,7 +103,7 @@ class CurveShapesTest(NamespaceCase):
         # 読み込み先は別のShapeを1つ(既定の色・線幅)持つ。
         target = mlib.getNode(cmds.circle(name=self.name("target"), radius=5.0, constructionHistory=False)[0])
         cmds.setAttr(target.getFullName() + ".translate", 3, 4, 5)
-        self.assertIs(target.importCurveShapes(path), target)
+        self.assertIsNone(target.importCurveShapes(path))
         self.assert_same_curves(control, target)
         shapes = target.getShapes()
         # 別の親の下では同じ短い名前を使える(Mayaは同じ親の下の重複だけ番号で避ける)。

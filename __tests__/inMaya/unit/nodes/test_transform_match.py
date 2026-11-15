@@ -36,7 +36,7 @@ class CommonMethodsTest(unittest.TestCase):
         cmds.setAttr(name + ".scaleX", 2)
         points = cmds.xform(name + ".vtx[*]", query=True, translation=True, worldSpace=True)
         before = cmds.xform(name, query=True, pivots=True)
-        self.assertIs(node.centerPivot(), node)
+        self.assertIsNone(node.centerPivot())
         after = cmds.xform(name, query=True, pivots=True)
         self.assertNotEqual(after, before)
         for a, b in zip(points, cmds.xform(name + ".vtx[*]", query=True, translation=True, worldSpace=True)):
@@ -57,7 +57,7 @@ class CommonMethodsTest(unittest.TestCase):
         target.getPlug("scale").set((2, 3, 4))
         before = cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)
         cmds.matchTransform(expected.getFullName(), target.getFullName(), position=True, rotation=True, scale=True, pivots=False)
-        self.assertIs(actual.matchTransform(target), actual)
+        self.assertIsNone(actual.matchTransform(target))
         after = cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)
         for a, b in zip(after, cmds.xform(expected.getFullName(), query=True, matrix=True, worldSpace=True)):
             self.assertAlmostEqual(a, b)

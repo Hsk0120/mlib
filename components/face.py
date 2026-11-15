@@ -308,7 +308,7 @@ class Faces(Components):
         """各フェースに割り当てられたシェーディンググループを取得する。
 
         Returns:
-            list[ShadingEngine]: シェーディンググループ。重なりは除く。
+            Nodes[ShadingEngine]: シェーディンググループ。重なりは除く。
         """
         result = []
         assignments = self.shape.getFaceShadingEngines()
@@ -317,20 +317,26 @@ class Faces(Components):
             group = assignments[face.index]
             if group is not None and group not in result:
                 result.append(group)
-        return result
+        # 循環参照の回避: nodesがcomponentsを参照するため、使う時点で読み込む。
+        from ..nodes.node import Nodes
+
+        return Nodes._wrap(result)
 
     def getMaterials(self):
         """各フェースに割り当てられたマテリアルを取得する。
 
         Returns:
-            list[Node]: マテリアル。重なりは除く。
+            Nodes: マテリアル。重なりは除く。
         """
         result = []
         for group in self.getShadingEngines():
             material = group.getShader()
             if material is not None and material not in result:
                 result.append(material)
-        return result
+        # 循環参照の回避: nodesがcomponentsを参照するため、使う時点で読み込む。
+        from ..nodes.node import Nodes
+
+        return Nodes._wrap(result)
 
     def getVertices(self):
         """各フェースの頂点を取得する。

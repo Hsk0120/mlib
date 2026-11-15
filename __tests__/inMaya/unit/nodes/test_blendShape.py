@@ -122,7 +122,7 @@ class BlendShapeTargetTest(_SpecCase):
     def test_remove_target_fully(self):
         """weight の要素・エイリアス・inputTargetGroup を消す(cmds の remove と同じ)。Undo 1回で戻る。"""
         self.flushUndo()
-        self.assertIs(self.bs.removeTarget("smile_L"), self.bs)
+        self.assertIsNone(self.bs.removeTarget("smile_L"))
         self.assertEqual(self.bs.getTargetNames(), ["frown"])
         self.assertEqual(cmds.getAttr(self.full + ".weight", multiIndices=True), [1])
         self.assertEqual(cmds.getAttr(self.full + ".inputTarget[0].inputTargetGroup", multiIndices=True), [1])

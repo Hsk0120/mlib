@@ -164,12 +164,12 @@ class VisibilityTest(_SpecCase):
     def test_show_hide_return_self_and_undo(self):
         """hide・show は visibility だけを変えて自身を返し、それぞれ1回の Undo で戻る。"""
         cmds.flushUndo()
-        self.assertIs(self.node.hide(), self.node)
+        self.assertIsNone(self.node.hide())
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
         cmds.undo()
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
         self.node.setVisibility(False)
-        self.assertIs(self.node.show(), self.node)
+        self.assertIsNone(self.node.show())
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
 
     def test_show_hide_accept_fast(self):
@@ -177,10 +177,10 @@ class VisibilityTest(_SpecCase):
         with self.assertRaises(TypeError):
             self.node.hide(fast=1)
         cmds.flushUndo()
-        self.assertIs(self.node.hide(fast=True), self.node)
+        self.assertIsNone(self.node.hide(fast=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
-        self.assertIs(self.node.show(fast=True), self.node)
+        self.assertIsNone(self.node.show(fast=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
         self.node.setVisibility(False, fast=True)

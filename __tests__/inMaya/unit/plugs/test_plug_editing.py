@@ -93,12 +93,12 @@ class CompoundFlagsTest(_Case):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 plug = self.node.getPlug("sx")
-                self.assertIs(plug.setLocked(True, fast=fast), plug)
+                self.assertIsNone(plug.setLocked(True, fast=fast))
                 self.assertTrue(plug.isLocked())
-                self.assertIs(plug.setLocked(False, fast=fast), plug)
+                self.assertIsNone(plug.setLocked(False, fast=fast))
                 self.assertFalse(plug.isLocked())
                 rotate = self.node.getPlug("r")
-                self.assertIs(rotate.hide(fast=fast), rotate)
+                self.assertIsNone(rotate.hide(fast=fast))
                 self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(False, False)] * 3)
                 rotate.show(keyable=False, fast=fast)
                 self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(False, True)] * 3)
@@ -123,7 +123,7 @@ class EnumNameTest(_Case):
         for fast in (False, True):
             for name, value in (("head", 3), ("tail", 4), ("body", 0)):
                 with self.subTest(fast=fast, name=name):
-                    self.assertIs(self.enum.set(name, fast=fast), self.enum)
+                    self.assertIsNone(self.enum.set(name, fast=fast))
                     self.assertEqual(cmds.getAttr(self.full + ".mode"), value)
                     self.assertEqual(cmds.getAttr(self.full + ".mode", asString=True), name)
             self.enum.set(3, fast=fast)
@@ -174,7 +174,10 @@ class RangeEditTest(_Case):
         def query(**flags):
             return cmds.attributeQuery("amount", node=node, **flags)
 
-        plug.setMin(-1.5).setMax(4.0).setSoftMin(0.0).setSoftMax(2.0)
+        plug.setMin(-1.5)
+        plug.setMax(4.0)
+        plug.setSoftMin(0.0)
+        plug.setSoftMax(2.0)
         self.assertEqual((query(minimum=True), query(maximum=True), query(softMin=True), query(softMax=True)), ([-1.5], [4.0], [0.0], [2.0]))
         self.assertEqual((plug.getMin(), plug.getMax(), plug.getSoftMin(), plug.getSoftMax()), (-1.5, 4.0, 0.0, 2.0))
         plug.setMin(None)
@@ -192,7 +195,9 @@ class RangeEditTest(_Case):
     def test_angle_units(self):
         """角度は既定で度、unit="rad"はラジアン、MAngleはそのまま。getMinと往復する。"""
         plug = self.node.addAttr("bend", "doubleAngle")
-        plug.setMin(-45).setMax(math.pi, unit="rad").setSoftMax(om2.MAngle(30, om2.MAngle.kDegrees))
+        plug.setMin(-45)
+        plug.setMax(math.pi, unit="rad")
+        plug.setSoftMax(om2.MAngle(30, om2.MAngle.kDegrees))
         self.assertAlmostEqual(plug.getMin(unit="deg"), -45.0)
         self.assertAlmostEqual(plug.getMax(unit="deg"), 180.0)
         self.assertAlmostEqual(plug.getSoftMax(unit="deg"), 30.0)
@@ -231,7 +236,7 @@ class TransformLimitsTest(_Case):
 
     def test_limits_match_cmds(self):
         """値・片側の無効化・全体の無効化をcmds.transformLimitsの照会と突き合わせる。"""
-        self.assertIs(self.node.setLimits(translateX=(-1, 2), rotateZ=(-45, 90), scaleY=(None, 3)), self.node)
+        self.assertIsNone(self.node.setLimits(translateX=(-1, 2), rotateZ=(-45, 90), scaleY=(None, 3)))
         self.assertSequenceAlmostEqual(self.query("translationX"), (-1, 2))
         self.assertEqual(self.query("enableTranslationX"), [True, True])
         self.assertSequenceAlmostEqual(self.query("rotationZ"), (-45, 90))
@@ -360,7 +365,7 @@ class RerunSafeTest(_Case):
         plug = self.node.getPlug("ty")
         plug.setAlias("height")
         self.flushUndo()
-        self.assertIs(plug.setAlias("height", safe=True), plug)
+        self.assertIsNone(plug.setAlias("height", safe=True))
         self.assertUndoEmpty()
         with self.assertRaises(RuntimeError):
             plug.setAlias("height")

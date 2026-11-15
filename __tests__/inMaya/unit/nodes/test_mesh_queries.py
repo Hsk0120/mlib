@@ -266,7 +266,7 @@ class VertexColorTest(_MeshCase):
         mesh = self.cube()
         colors = [(index / 8.0, 0.5, 1 - index / 8.0) for index in range(8)]
         self.flushUndo()
-        self.assertIs(mesh.setVertexColors(colors), mesh)
+        self.assertIsNone(mesh.setVertexColors(colors))
 
         def after():
             values = mesh.getVertexColors()
@@ -369,10 +369,10 @@ class UVSetTest(_MeshCase):
         for action, before, after in steps:
             with self.subTest(after=after):
                 self.flushUndo()
-                self.assertIs(action(), mesh)
+                self.assertIsNone(action())
                 self.assertUndoesInOneStep(names(before), names(after))
         self.flushUndo()
-        self.assertIs(mesh.setCurrentUVSet("base"), mesh)
+        self.assertIsNone(mesh.setCurrentUVSet("base"))
         self.assertUndoesInOneStep(lambda: self.assertEqual(mesh.getCurrentUVSet(), "map1"), lambda: self.assertEqual(mesh.getCurrentUVSet(), "base"))
         mesh.copyUVSet("map1", "copied")
         self.assertEqual([list(values) for values in mesh.mfn().getUVs("copied")], [list(values) for values in mesh.mfn().getUVs("map1")])

@@ -184,12 +184,12 @@ class ShowHideTest(HierarchyFixture):
         """hide/show は 1 回の Undo で戻り、自身を返す。"""
         node = Node(self.leaf)
         cmds.flushUndo()
-        self.assertIs(node.hide(), node)
+        self.assertIsNone(node.hide())
         self.assertFalse(self.visible())
         cmds.undo()
         self.assertTrue(self.visible())
         node.hide()
-        self.assertIs(node.show(), node)
+        self.assertIsNone(node.show())
         self.assertTrue(self.visible())
 
     def test_fast_leaves_no_undo(self):
@@ -198,7 +198,7 @@ class ShowHideTest(HierarchyFixture):
         for method, expected in (("hide", False), ("show", True)):
             with self.subTest(method=method):
                 cmds.flushUndo()
-                self.assertIs(getattr(node, method)(fast=True), node)
+                self.assertIsNone(getattr(node, method)(fast=True))
                 self.assertEqual(self.visible(), expected)
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 

@@ -54,7 +54,7 @@ class PlugBasicsTest(unittest.TestCase):
             for attr, value in (("amount", 0.0), ("count", 0), ("enabled", False), ("label", ""), ("mode", 0)):
                 with self.subTest(fast=fast, attr=attr):
                     plug = self.node.getPlug(attr)
-                    self.assertIs(plug.set(value, fast=fast), plug)
+                    self.assertIsNone(plug.set(value, fast=fast))
                     self.assertEqual(cmds.getAttr(plug.getFullName()), value)
                     self.assertEqual(plug.get(), value)
 
@@ -169,8 +169,8 @@ class PlugBasicsTest(unittest.TestCase):
         downstream.connect(center)
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIs(center.disconnectInput(fast=fast), center)
-                self.assertIs(center.disconnectInput(fast=fast), center)
+                self.assertIsNone(center.disconnectInput(fast=fast))
+                self.assertIsNone(center.disconnectInput(fast=fast))
                 self.assertFalse(cmds.isConnected(source.getFullName(), center.getFullName()))
                 self.assertTrue(cmds.isConnected(center.getFullName(), downstream.getFullName()))
                 center.connect(source)
@@ -213,7 +213,7 @@ class PlugBasicsTest(unittest.TestCase):
         array[2].set(3)
         array[7].connect(source)
         cmds.flushUndo()
-        self.assertIs(array.removeElement(7), array)
+        self.assertIsNone(array.removeElement(7))
         self.assertEqual(array.getIndices(), [2])
         cmds.undo()
         self.assertEqual(array.getIndices(), [2, 7])
@@ -278,7 +278,7 @@ class PlugBasicsTest(unittest.TestCase):
                 plug = self.node.getPlug(attr)
                 plug.set(value)
                 cmds.flushUndo()
-                self.assertIs(plug.reset(), plug)
+                self.assertIsNone(plug.reset())
                 self.assertEqual(cmds.getAttr(plug.getFullName()), expected)
                 cmds.undo()
                 self.assertEqual(cmds.getAttr(plug.getFullName()), value)

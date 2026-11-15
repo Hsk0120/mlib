@@ -62,13 +62,14 @@ class AimConstraintTest(unittest.TestCase):
             self.aim.setRestRotate(values)
             self.aim.setOffset(values)
             for result in (self.aim.getRestRotate(), self.aim.getOffset()):
-                for actual, expected in zip(result, values):
+                self.assertIsInstance(result, EulerRotate)
+                for actual, expected in zip(result.asDegrees(), values):
                     self.assertAlmostEqual(actual, expected)
         self.assertFalse(hasattr(type(self.aim), "getSettingPlugs"))
         cmds.connectAttr(self.target + ".rotateX", self.aim.getFullName() + ".offsetX")
         with self.assertRaises(RuntimeError):
             self.aim.setOffset((1, 2, 3))
-        self.assertAlmostEqual(self.aim.getOffset()[1], values[1])
+        self.assertAlmostEqual(self.aim.getOffset().asDegrees()[1], values[1])
 
     def test_locked_invalid_and_undo(self):
         """後半のロックでも部分更新せず、更新はUndoできる。"""
@@ -76,8 +77,8 @@ class AimConstraintTest(unittest.TestCase):
         cmds.setAttr(self.aim.getFullName() + ".restRotateZ", lock=True)
         try:
             with self.assertRaises(RuntimeError):
-                self.aim.setRestRotate((1, 2, 3))
-            self.assertEqual(self.aim.getRestRotate(), (0, 0, 0))
+                self.aim.setRestRotate((1, 2, 3), check=True)
+            self.assertEqual(tuple(self.aim.getRestRotate()), (0, 0, 0))
         finally:
             cmds.setAttr(self.aim.getFullName() + ".restRotateZ", lock=False)
         for invalid in ((1, 2), (0, math.nan, 0)):
@@ -85,7 +86,7 @@ class AimConstraintTest(unittest.TestCase):
                 self.aim.setRestRotate(invalid)
         self.aim.setRestRotate((1, 2, 3))
         cmds.undo()
-        self.assertEqual(self.aim.getRestRotate(), (0, 0, 0))
+        self.assertEqual(tuple(self.aim.getRestRotate()), (0, 0, 0))
 
     def test_output_orders(self):
         """全回転順の出力値を取得し、Transform回転とは区別する。"""
@@ -119,21 +120,27 @@ class AimOffsetTest(_SpecCase):
         self.node = Node(self.constraint)
 
     def test_offset_in_degrees_and_undo(self):
-        """getOffset・setOffset は既定で度の3値(unit="rad"はラジアン)。UI 単位によらず、1回の Undo で戻る。"""
+        """setOffset は既定で度の3値(unit="rad"はラジアン)、getOffset はEulerRotate。UI 単位によらず、1回の Undo で戻る。"""
         self.assertIsInstance(self.node, AimConstraint)
-        self.assertEqual(self.node.getOffset(), (0.0, 0.0, 0.0))
+        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
         cmds.flushUndo()
-        self.assertIs(self.node.setOffset((0, 0, 90)), self.node)
+        self.assertIsNone(self.node.setOffset((0, 0, 90)))
         self.assertAlmostEqual(cmds.getAttr(self.constraint + ".offsetZ"), 90.0)
         cmds.undo()
-        self.assertEqual(self.node.getOffset(), (0.0, 0.0, 0.0))
+        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
         # currentUnit も Undo に積まれるため、単位の確認は Undo の後で行う。
         self.node.setOffset((0, 0, math.pi / 2), unit="rad")
         cmds.currentUnit(angle="rad")
-        self.assertAlmostEqual(self.node.getOffset()[2], 90.0)
-        self.assertAlmostEqual(self.node.getOffset(unit="rad")[2], math.pi / 2)
+        offset = self.node.getOffset()
+        self.assertEqual(offset.order, cmds.getAttr(self.constraint + ".constraintRotateOrder"))
+        self.assertAlmostEqual(offset.asDegrees()[2], 90.0)
+        self.assertAlmostEqual(offset[2], math.pi / 2)
         self.node.setRestRotate((10, 20, 30), fast=True)
-        self.assertAlmostEqual(self.node.getRestRotate()[1], 20.0)
+        self.assertAlmostEqual(self.node.getRestRotate().asDegrees()[1], 20.0)
+        # 読んだEulerRotateをそのまま渡すと、同じ値が書かれる。
+        self.node.setOffset((0, 0, 0))
+        self.node.setOffset(offset)
+        self.assertAlmostEqual(self.node.getOffset().asDegrees()[2], 90.0)
         with self.assertRaises(ValueError):
             self.node.setOffset((0, 0, 0), unit="grad")
 
@@ -154,13 +161,13 @@ class AimOffsetTest(_SpecCase):
                     self.node.setOffset(value)
         cmds.setAttr(self.constraint + ".offsetX", lock=True)
         with self.assertRaises(RuntimeError):
-            self.node.setOffset((0.1, 0.2, 0.3))
+            self.node.setOffset((0.1, 0.2, 0.3), check=True)
         cmds.setAttr(self.constraint + ".offsetX", lock=False)
         source = cmds.createNode("transform", name=self.name("source"), skipSelect=True)
         cmds.connectAttr(source + ".rotateY", self.constraint + ".offsetY")
         with self.assertRaises(RuntimeError):
-            self.node.setOffset((0.1, 0.2, 0.3))
-        self.assertEqual(self.node.getOffset(), (0.0, 0.0, 0.0))
+            self.node.setOffset((0.1, 0.2, 0.3), check=True)
+        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
 
 
 if __name__ == "__main__":

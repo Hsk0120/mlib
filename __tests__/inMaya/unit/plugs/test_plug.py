@@ -118,7 +118,7 @@ class NodeApiTest(unittest.TestCase):
 
         self.assertFalse(plug.isMuted())
         result = plug.setMuted(True)
-        self.assertIs(result, plug)
+        self.assertIsNone(result)
         self.assertTrue(plug.isMuted())
         plug.setMuted(False)
         self.assertFalse(plug.isMuted())
@@ -158,7 +158,7 @@ class NodeApiTest(unittest.TestCase):
         plug = transform.getPlug("translateX")
 
         result = plug.setFlags(keyable=False)
-        self.assertIs(result, plug)
+        self.assertIsNone(result)
         self.assertFalse(plug.isKeyable())
 
         plug.setFlags(channelBox=True)
@@ -319,7 +319,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual([plug.getFullName() for plug in destinations], [targetPlug.getFullName()])
 
         result = source_plug.disconnectAll()
-        self.assertIs(result, source_plug)
+        self.assertIsNone(result)
         self.assertFalse(source_plug.isConnected())
         self.assertFalse(targetPlug.isConnected())
         self.assertEqual(source_plug.getDestinations(), [])

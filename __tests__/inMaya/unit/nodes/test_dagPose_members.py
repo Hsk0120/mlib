@@ -103,7 +103,7 @@ class QueryTest(_PoseCase):
     def test_members_match_cmds(self):
         pose = self.save(self.root, self.mid, self.tip)
         members = pose.getMembers()
-        self.assertIsInstance(members, list)
+        self.assertIsInstance(members, mlib.Nodes)
         self.assertTrue(all(isinstance(item, Node) for item in members))
         self.assertEqual({item.getFullName() for item in members}, self.raw_members(pose))
         indices = pose.getMemberIndices()
@@ -212,7 +212,7 @@ class EditTest(_PoseCase):
     def test_add_members(self):
         pose = self.save(self.root, self.mid)
         result = self.assert_one_undo(pose, lambda: pose.addMembers(mlib.getNode(self.free), [mlib.getNode(self.xform)]))
-        self.assertIs(result, pose)
+        self.assertIsNone(result)
         self.assertTrue({self.free, self.xform} <= self.raw_members(pose))
         index = pose.getMemberIndex(self.free)
         self.assert_matrix(pose.getMatrix(self.free, worldSpace=True), cmds.getAttr(self.free + ".worldMatrix[0]"))
@@ -236,7 +236,7 @@ class EditTest(_PoseCase):
     def test_remove_members(self):
         pose = self.save(self.root, self.mid, self.tip, self.free)
         result = self.assert_one_undo(pose, lambda: pose.removeMembers([self.free]))
-        self.assertIs(result, pose)
+        self.assertIsNone(result)
         self.assertNotIn(self.free, self.raw_members(pose))
         self.assertTrue(cmds.objExists(self.free))
 
@@ -253,7 +253,7 @@ class EditTest(_PoseCase):
         cmds.setAttr(self.mid + ".rz", 30)
         self.assertIs(pose.isAtPose(), False)
         result = self.assert_one_undo(pose, lambda: pose.reset([self.mid]))
-        self.assertIs(result, pose)
+        self.assertIsNone(result)
         self.assert_matrix(pose.getMatrix(self.mid, worldSpace=True), cmds.getAttr(self.mid + ".worldMatrix[0]"))
         self.assert_matrix(pose.getMatrix(self.mid), cmds.getAttr(self.mid + ".matrix"))
         # tip は対象外なので保存姿勢は以前のまま(現在は回転した mid の下で動いている)。
@@ -290,7 +290,7 @@ class MergeTest(_PoseCase):
                 source_name = source.getFullName()
                 before = self.pose_state(target)
                 result = target.merge(source, deleteSources=deleteSources)
-                self.assertIs(result, target)
+                self.assertIsNone(result)
                 after = self.pose_state(target)
                 self.assertEqual(self.raw_members(target), {self.root, self.mid, other_root, other_child})
                 self.assertEqual(cmds.objExists(source_name), not deleteSources)
@@ -357,7 +357,7 @@ class MergeTest(_PoseCase):
             self.assertEqual(self.pose_state(target), before)
             self.assertTrue(cmds.objExists(source.getFullName()))
         # 自身だけの指定は何もしない。
-        self.assertIs(target.merge(target), target)
+        self.assertIsNone(target.merge(target))
         self.assertEqual(self.pose_state(target), before)
 
 
@@ -380,7 +380,7 @@ class SkinResetBindPoseTest(_PoseCase):
         cmds.setAttr(self.root + ".tx", 1.5)
         self.assertIs(pose.isAtPose(), False)
         before = self.pose_state(pose)
-        self.assertIs(skin.resetBindPose(), skin)
+        self.assertIsNone(skin.resetBindPose())
         after = self.pose_state(pose)
         for member in (self.root, self.mid):
             self.assert_matrix(pose.getMatrix(member, worldSpace=True), cmds.getAttr(member + ".worldMatrix[0]"))

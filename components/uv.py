@@ -52,7 +52,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。UVセットや割り当ては作らない。
+            None: 値を返さない。UVセットや割り当ては作らない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -65,7 +65,6 @@ class UV(Component):
         row = _uv_value(value)
         self._require_valid()
         _write_uvs(self.shape, [self._index], [row], fast, "setPosition", "mlibUVSetPosition")
-        return self
 
     def getU(self):
         """U成分の今の値を取得する。
@@ -83,7 +82,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはvalueが数値でない場合。
@@ -92,7 +91,7 @@ class UV(Component):
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
-        return self._set_coordinate(0, value, fast, "setU", "mlibUVSetU")
+        self._set_coordinate(0, value, fast, "setU", "mlibUVSetU")
 
     def getV(self):
         """V成分の今の値を取得する。
@@ -110,7 +109,7 @@ class UV(Component):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、またはvalueが数値でない場合。
@@ -119,7 +118,7 @@ class UV(Component):
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
-        return self._set_coordinate(1, value, fast, "setV", "mlibUVSetV")
+        self._set_coordinate(1, value, fast, "setV", "mlibUVSetV")
 
     def getVertex(self):
         """このUVが割り当てられた頂点を取得する。
@@ -161,14 +160,13 @@ class UV(Component):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UV: 自身。
+            None: 値を返さない。
         """
         _require_bool(fast, "fast")
         number = _finite(value, "value")
         row = list(self.getPosition())
         row[axis] = number
         _write_uvs(self.shape, [self._index], [tuple(row)], fast, method, chunk)
-        return self
 
 
 _UV_GET_POSITION = UV.getPosition
@@ -205,7 +203,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、または値の型が合わない場合。
@@ -214,7 +212,7 @@ class UVs(Components):
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
-        return self._set_coordinates(0, value, fast, "setU", "mlibUVsSetU")
+        self._set_coordinates(0, value, fast, "setU", "mlibUVsSetU")
 
     def getV(self):
         """V成分の今の値を取得する。
@@ -233,7 +231,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、または値の型が合わない場合。
@@ -242,7 +240,7 @@ class UVs(Components):
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
-        return self._set_coordinates(1, value, fast, "setV", "mlibUVsSetV")
+        self._set_coordinates(1, value, fast, "setV", "mlibUVsSetV")
 
     def getPosition(self):
         """現在のUVセットのU/V座標を、持っている順に取得する。
@@ -282,7 +280,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。空の集まりでは、入力を確かめるだけで何もしない。
+            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -293,7 +291,7 @@ class UVs(Components):
         """
         _require_bool(fast, "fast")
         row = _uv_value(value)
-        return self._write([row] * len(self._indices), fast, "setPosition", "mlibUVsSetPosition")
+        self._write([row] * len(self._indices), fast, "setPosition", "mlibUVsSetPosition")
 
     def setPositions(self, values, *, fast=False):
         """現在のUVセットで、要素ごとの位置を(U, V)の絶対座標で設定する。
@@ -309,7 +307,7 @@ class UVs(Components):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            UVs: 自身。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
+            None: 値を返さない。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
 
         Raises:
             TypeError: fastがboolでない場合、または座標の型が合わない場合。
@@ -331,7 +329,7 @@ class UVs(Components):
         rows = [_uv_value(item) for item in items]
         if len(rows) != len(self._indices):
             raise ValueError(f"UVを{len(self._indices)}個指定してください: {len(rows)}個")
-        return self._write(rows, fast, "setPositions", "mlibUVsSetPositions")
+        self._write(rows, fast, "setPositions", "mlibUVsSetPositions")
 
     def _set_coordinates(self, axis, value, fast, method, chunk):
         """各要素の1つの成分だけを変えたU/Vを書き込む。
@@ -344,18 +342,18 @@ class UVs(Components):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
         """
         _require_bool(fast, "fast")
         values = _axis_values(value, len(self._indices))
         if not self._indices:
-            return self
+            return
         rows = []
         for row, number in zip(self.getPosition(), values):
             row = list(row)
             row[axis] = number
             rows.append(tuple(row))
-        return self._write(rows, fast, method, chunk)
+        self._write(rows, fast, method, chunk)
 
     def _write(self, rows, fast, method, chunk):
         """確かめてあるU/Vを、番号の範囲を確かめてから書き込む。
@@ -367,13 +365,12 @@ class UVs(Components):
             chunk (str): Undoチャンク名。
 
         Returns:
-            UVs: 自身。
+            None: 値を返さない。
         """
         if not self._indices:
-            return self
+            return
         self._require_valid()
         _write_uvs(self._shape, list(self._indices), rows, fast, method, chunk)
-        return self
 
 
 def _uv_value(value):

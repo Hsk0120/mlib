@@ -92,12 +92,12 @@ class DagPose(Node):
         membersマルチアトリビュートの論理番号の順に並べる。
 
         Returns:
-            list[Node]: メンバー。getMemberIndices()と同じ順に並ぶ。
+            Nodes: メンバー。getMemberIndices()と同じ順に並ぶ。
 
         Raises:
             RuntimeError: 無効なノードの場合。
         """
-        return [Node(source.node()) for _, source in self._member_sources()]
+        return Nodes._wrap([Node(source.node()) for _, source in self._member_sources()])
 
     def getMemberIndex(self, member):
         """指定したメンバーの論理番号を取得する。
@@ -155,13 +155,13 @@ class DagPose(Node):
         どこまでの差を許すかはMayaの判定に従う。
 
         Returns:
-            list[Node]: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空リスト。
+            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
         """
         names = cmds.dagPose(self._pose_name(), query=True, atPose=True) or []
-        return [Node(name) for name in names]
+        return Nodes._wrap([Node(name) for name in names])
 
     def isAtPose(self):
         """すべてのメンバーが保存した姿勢にあるか調べる。
@@ -178,7 +178,7 @@ class DagPose(Node):
         """このポーズをバインドポーズとして使っているskinClusterを取得する。
 
         Returns:
-            list[SkinCluster]: messageからskinCluster.bindPoseへの接続先。同じものは1回だけ含む。
+            SkinClusters: messageからskinCluster.bindPoseへの接続先。同じものは1回だけ含む。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
@@ -190,7 +190,10 @@ class DagPose(Node):
                 node = Node(plug.node())
                 if node not in nodes:
                     nodes.append(node)
-        return nodes
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
+        from .skinCluster import SkinClusters
+
+        return SkinClusters._wrap(nodes)
 
     def restore(self, worldSpace=_UNSET, *, ws=_UNSET):
         """保存した姿勢へ戻す。
@@ -202,7 +205,7 @@ class DagPose(Node):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
@@ -212,7 +215,6 @@ class DagPose(Node):
         with undoChunk("mlibDagPoseRestore"):
             ws = _world_space(worldSpace)
             cmds.dagPose(self._pose_name(), restore=True, g=ws)
-            return self
 
     def reset(self, members=None):
         """保存した姿勢を、シーンの今の姿勢で上書きする。
@@ -226,7 +228,7 @@ class DagPose(Node):
                 Noneでメンバーが1つも無ければ、何も変えない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -238,13 +240,12 @@ class DagPose(Node):
             if members is None:
                 names = [node.getFullName() for node in self.getMembers()]
                 if not names:
-                    return self
+                    return
             else:
                 names = self._transform_names(members)
                 for target in names:
                     self.getMemberIndex(target)
             cmds.dagPose(names, reset=True, name=name)
-            return self
 
     def addMembers(self, *members):
         """TransformやJointを、今の姿勢でポーズへ加える。
@@ -256,7 +257,7 @@ class DagPose(Node):
             *members (Node | str | Iterable[Node | str]): 加えるノード。空にはできない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -270,7 +271,6 @@ class DagPose(Node):
             names = [target for target in names if not any(Node(target).mnode() == obj for obj in current)]
             if names:
                 cmds.dagPose(names, addToPose=True, name=name)
-            return self
 
     def removeMembers(self, *members):
         """メンバーをポーズから外す。
@@ -282,7 +282,7 @@ class DagPose(Node):
             *members (Node | str | Iterable[Node | str]): 外すメンバー。空にはできない。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 使えない型を指定した場合。
@@ -295,7 +295,6 @@ class DagPose(Node):
             for target in names:
                 self.getMemberIndex(target)
             cmds.dagPose(names, remove=True, name=name)
-            return self
 
     def merge(self, sources, *, currentPose=False, deleteSources=True):
         """ほかのポーズをこのポーズへまとめる。
@@ -320,7 +319,7 @@ class DagPose(Node):
                 保存したマトリクス以外の接続があればエラーにする。
 
         Returns:
-            DagPose: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: currentPose・deleteSourcesがbool以外の場合、またはsourcesが使えない型の場合。
@@ -333,7 +332,7 @@ class DagPose(Node):
         _require_bool(deleteSources, "deleteSources")
         name, poses, others = self._merge_collect_poses(sources)
         if not others:
-            return self
+            return
         rows, target_rows, skins = self._merge_collect_rows(poses, currentPose, deleteSources)
         self._merge_check_targets(skins)
 
@@ -352,7 +351,6 @@ class DagPose(Node):
                 cmds.connectAttr(name + ".message", skin.getFullName() + ".bindPose", force=True)
             if deleteSources:
                 cmds.delete([pose.getFullName() for pose in others])
-        return self
 
     def _member_sources(self):
         """接続されたmembers要素の論理番号と接続元を取得する。

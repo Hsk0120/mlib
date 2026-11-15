@@ -57,9 +57,9 @@ class AnimCurveEditTest(_KeyCase):
         """index(単数・並び)・time(時刻・範囲)で絞り、省略は全キー。index と time の同時指定は TypeError。"""
         self.curve.moveKey(timeOffset=1)
         self.assertEqual(self.times(), [2.0, 6.0, 11.0])
-        self.curve.moveKey(0, valueOffset=1)
+        self.curve.moveKey(index=0, valueOffset=1)
         self.assertEqual(self.values(), [1.0, 2.0, 4.0])
-        self.curve.moveKey([1, 2], timeOffset=2)
+        self.curve.moveKey(index=[1, 2], timeOffset=2)
         self.assertEqual(self.times(), [2.0, 8.0, 13.0])
         self.curve.moveKey(time=(7, 20), timeOffset=-1, valueOffset=1)
         self.assertEqual(self.times(), [2.0, 7.0, 12.0])
@@ -67,9 +67,9 @@ class AnimCurveEditTest(_KeyCase):
         self.curve.moveKey(time=(100, 200), timeOffset=5)
         self.assertEqual(self.times(), [2.0, 7.0, 12.0])
         with self.assertRaises(TypeError):
-            self.curve.moveKey(0, time=2, timeOffset=1)
+            self.curve.moveKey(index=0, time=2, timeOffset=1)
         with self.assertRaises(IndexError):
-            self.curve.moveKey(5, timeOffset=1)
+            self.curve.moveKey(index=5, timeOffset=1)
         self.flushUndo()
         self.curve.moveKey(timeOffset=1, valueOffset=1)
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.times(), [2.0, 7.0, 12.0]), lambda: self.assertEqual(self.times(), [3.0, 8.0, 13.0]))
@@ -102,7 +102,7 @@ class AnimCurveEditTest(_KeyCase):
         """既定(keepCurve=True)は全キーを消してもカーブと接続が残り、False は Maya と同じく消える。"""
         name = self.curve.getFullName()
         self.flushUndo()
-        self.curve.removeKey([0, 1, 2])
+        self.curve.removeKey(index=[0, 1, 2])
         self.assertTrue(cmds.objExists(name))
         self.assertEqual(self.curve.getKeyCount(), 0)
         self.assertEqual(self.node.getPlug("tx").getAnimCurve(), self.curve)
@@ -125,18 +125,19 @@ class AnimCurveEditTest(_KeyCase):
         cmds.undo()
         self.assertTrue(cmds.objExists(name))
         with self.assertRaises(TypeError):
-            self.curve.removeKey(0, keepCurve=1)
+            self.curve.removeKey(index=0, keepCurve=1)
 
     def test_remove_key_fast(self):
         """fast は Undo に残さず、keepCurve=False で空になったカーブを削除する。"""
         free = mlib.createNode("animCurveTL", name=self.name("free"))
-        free.setKey(1, 1).setKey(2, 2)
+        free.setKey(1, 1)
+        free.setKey(2, 2)
         self.flushUndo()
-        free.removeKey([0, 1], fast=True)
+        free.removeKey(index=[0, 1], fast=True)
         self.assertTrue(free.isValid())
         self.assertEqual(free.getKeyCount(), 0)
         free.setKey(1, 1, fast=True)
-        free.removeKey(0, keepCurve=False, fast=True)
+        free.removeKey(index=0, keepCurve=False, fast=True)
         self.assertFalse(free.isValid())
         self.assertUndoEmpty()
 

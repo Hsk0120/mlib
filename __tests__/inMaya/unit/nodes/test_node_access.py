@@ -149,9 +149,9 @@ class NameTest(_SpecCase):
         node = Node(self.make(text="orig"))
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIs(node.rename(self.name("renamed"), fast=fast), node)
+                self.assertIsNone(node.rename(self.name("renamed"), fast=fast))
                 self.assertEqual(node.getNodeName(), self.name("renamed"))
-                self.assertIs(node.setNamespace(self.ns, fast=fast), node)
+                self.assertIsNone(node.setNamespace(self.ns, fast=fast))
         self.flushUndo()
         node.rename(self.name("again"))
         self.assertUndoesInOneStep(

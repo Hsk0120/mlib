@@ -20,7 +20,7 @@ class RemapValue(Node):
 
     ランプの点は :class:`~mlib.plugs.rampPlug.RampPlug` で扱う。
     """
-    def setInput(self, inputValue: float | Plug | str | None = ..., inputMin: float | Plug | str | None = ..., inputMax: float | Plug | str | None = ..., outputMin: float | Plug | str | None = ..., outputMax: float | Plug | str | None = ...) -> RemapValue:
+    def setInput(self, inputValue: float | Plug | str | None = ..., inputMin: float | Plug | str | None = ..., inputMax: float | Plug | str | None = ..., outputMin: float | Plug | str | None = ..., outputMax: float | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -39,7 +39,7 @@ class RemapValue(Node):
             outputMax (float | Plug | str | None): 出力の範囲の上限(ランプの値1)。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -62,7 +62,7 @@ class RemapValue(Node):
             ValueError: kindが ``"value"``・``"color"`` 以外の場合。
         """
         ...
-    def setRampPoints(self, points: list[tuple[float, float | tuple[float, float, float], str]], kind: str = ...) -> RemapValue:
+    def setRampPoints(self, points: list[tuple[float, float | tuple[float, float, float], str]], kind: str = ...) -> None:
         """ランプの点を設定する。
 
         すでにある点はすべて消え、指定した点に置き換わる。:meth:`RampPlug.setEntries` と同じ。
@@ -74,7 +74,7 @@ class RemapValue(Node):
             kind (str): どのランプか。``"value"`` は値のランプ、``"color"`` は色のランプ。既定は ``"value"``。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 点の形・型が不正な場合。
@@ -83,7 +83,7 @@ class RemapValue(Node):
             RuntimeError: ノードが無効な場合、またはMayaが設定を拒否した場合。
         """
         ...
-    def addRampPoint(self, position: float, value: float | Iterable[float], interpolation: str = ..., kind: str = ...) -> RemapValue:
+    def addRampPoint(self, position: float, value: float | Iterable[float], interpolation: str = ..., kind: str = ...) -> None:
         """ランプへ点を1つ足す。
 
         すでにある点はそのまま残る。1回のUndoで戻せる。
@@ -96,7 +96,7 @@ class RemapValue(Node):
             kind (str): どのランプか。``"value"`` は値のランプ、``"color"`` は色のランプ。既定は ``"value"``。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 位置・値・補間の型が不正な場合。

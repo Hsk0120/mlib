@@ -36,7 +36,7 @@ class ClassDesignTest(unittest.TestCase):
             self.assertEqual(Transform(name), node)
             nodes = Nodes([node])
             self.assertIsInstance(nodes[0], Transform)
-            self.assertIs(nodes[0].setVisibility(False), nodes[0])
+            self.assertIsNone(nodes[0].setVisibility(False))
             self.assertFalse(node.getVisibility())
 
     def test_display_api_is_dag_only(self):

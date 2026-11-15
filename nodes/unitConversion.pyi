@@ -10,7 +10,7 @@ from mlib.plugs.plug import Plug
 
 class UnitConversion(Node):
     """単位変換のノード(unitConversion)を扱うクラス。入力に係数を掛けて出力する。"""
-    def setInput(self, input: float | Plug | str | None = ..., conversionFactor: float | Plug | str | None = ...) -> UnitConversion:
+    def setInput(self, input: float | Plug | str | None = ..., conversionFactor: float | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -26,7 +26,7 @@ class UnitConversion(Node):
             conversionFactor (float | Plug | str | None): 掛ける係数。
 
         Returns:
-            UnitConversion: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

@@ -86,7 +86,7 @@ class SetLockedTest(_SpecCase):
     def test_default_locks_and_returns_self(self):
         """引数なしはロック。cmds と一致し、自身を返す。"""
         self.assertFalse(self.locked())
-        self.assertIs(self.node.setLocked(), self.node)
+        self.assertIsNone(self.node.setLocked())
         self.assertTrue(self.locked())
         self.assertTrue(self.node.isLocked())
 

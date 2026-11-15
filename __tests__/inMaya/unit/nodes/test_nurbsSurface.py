@@ -116,7 +116,7 @@ class NurbsSurfaceTest(_Case):
         before = shape.getCvPositions()
         moved = [mlib.Vector(p) + mlib.Vector(0.0, 1.0, 0.0) for p in before]
         self.flushUndo()
-        self.assertIs(shape.setCvPositions(moved), shape)
+        self.assertIsNone(shape.setCvPositions(moved))
         self.assertUndoesInOneStep(
             lambda: self.assertSequenceAlmostEqual(shape.getCvPositions()[3], before[3]),
             lambda: self.assertSequenceAlmostEqual(shape.getCvPositions()[3], moved[3]),

@@ -46,7 +46,7 @@ class TextureNodesTest(_GeometryCase):
         self.assertEqual(node.getFilePath(), "")
         for path in ("C:/tex/a.<UDIM>.png", "relative/b_<f>.exr", "", "no_such_file_specA.tif"):
             with self.subTest(path=path):
-                self.assertIs(node.setFilePath(path), node)
+                self.assertIsNone(node.setFilePath(path))
                 self.assertEqual(node.getFilePath(), path)
                 self.assertEqual(cmds.getAttr(node.getFullName() + ".fileTextureName"), path)
         node.setFilePath("first.png")
@@ -69,7 +69,7 @@ class TextureNodesTest(_GeometryCase):
         before = node.getColorSpace()
         self.assertIn(before, names)
         target = [name for name in names if name != before][0]
-        self.assertIs(node.setColorSpace(target), node)
+        self.assertIsNone(node.setColorSpace(target))
         self.assertEqual(node.getColorSpace(), target)
         cmds.undo()
         self.assertEqual(node.getColorSpace(), before)
@@ -86,7 +86,7 @@ class TextureNodesTest(_GeometryCase):
         texture = mlib.createNode("file")
         self.assertIsNone(texture.getPlacement())
         place = mlib.createNode("place2dTexture")
-        self.assertIs(place.connectTexture(texture), place)
+        self.assertIsNone(place.connectTexture(texture))
         names = (
             "coverage",
             "translateFrame",
@@ -129,7 +129,8 @@ class TextureNodesTest(_GeometryCase):
         """別の配置ノードの接続はforce/fでだけ置き換える。Texture2d以外はTypeError。"""
         texture = mlib.createNode("checker")
         self.assertIsInstance(texture, mlib.Texture2d)
-        first = mlib.createNode("place2dTexture").connectTexture(texture)
+        first = mlib.createNode("place2dTexture")
+        first.connectTexture(texture)
         second = mlib.createNode("place2dTexture")
         with self.assertRaises(RuntimeError):
             second.connectTexture(texture)

@@ -158,13 +158,13 @@ class Plugin:
         ファイルを読み込んだときに、Mayaが元の型の代わりに作るノード。
 
         Returns:
-            list[Node]: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空リスト。
+            Nodes: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空の集まり。
         """
         # commonの初期化時にnodesを読み込まないよう、使用時にNodeを読み込む。
-        from ..nodes.node import Node
+        from ..nodes.node import Node, Nodes
 
         names = cmds.ls(type=["unknown", "unknownDag", "unknownTransform"], long=True) or []
-        return [Node(name) for name in names]
+        return Nodes._wrap([Node(name) for name in names])
 
     @property
     def name(self):
@@ -250,7 +250,7 @@ class Plugin:
             **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
@@ -261,9 +261,8 @@ class Plugin:
         if not self.isLoaded():
             raise RuntimeError(f"プラグインの初期化が完了しませんでした: {self._name}")
         _clear_type_hierarchy_cache()
-        return self
 
-    def unload(self, force=False):
+    def unload(self, *, force=False):
         """プラグインをアンロードする。
 
         うまくアンロードできたら、mlibが持つノード型の継承のキャッシュを消す。
@@ -273,14 +272,13 @@ class Plugin:
             force (bool): True なら、使われていても強制的にアンロードする。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
         """
         cmds.unloadPlugin(self._name, force=force)
         _clear_type_hierarchy_cache()
-        return self
 
     def ensureLoaded(self):
         """ロードされていなければロードする。
@@ -288,11 +286,10 @@ class Plugin:
         何度呼んでも結果は同じ(すでにロードされていれば何もしない)。
 
         Returns:
-            Plugin: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Maya がロードを拒否した場合。
         """
         if not self.isLoaded():
             self.load()
-        return self

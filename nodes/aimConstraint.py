@@ -2,6 +2,8 @@
 
 import math
 
+import maya.api.OpenMaya as om2
+
 from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context
 from ..maths import EulerRotate
@@ -31,79 +33,71 @@ class AimConstraint(Constraint):
                 result.append((source, destination))
         return result
 
-    def getRestRotate(self, *, unit="deg"):
-        """Rest RotateのXYZの設定値を取得する。
-
-        Args:
-            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-                ``"degree"`` などの別名も使える。
+    def getRestRotate(self):
+        """Rest Rotateの設定値を取得する。
 
         Returns:
-            tuple[float, float, float]: 評価した設定値。コンストレイントされる側の回転ではない。
-
-        Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: unitが未対応の単位名の場合。
+            EulerRotate: 評価した設定値(ラジアン)。回転順序はconstraintRotateOrder。コンストレイントされる側の回転ではない。
+                度の3つの値は ``getRestRotate().asDegrees()`` で取得する。
         """
-        angle_unit = _angle_unit(unit)
-        return tuple(self.getPlug("restRotate" + axis).get(unit=angle_unit) for axis in "XYZ")
+        return self._get_angles("restRotate")
 
-    def setRestRotate(self, value, *, unit="deg", fast=False):
+    def setRestRotate(self, value, *, unit="deg", fast=False, check=False):
         """Rest Rotateだけを設定する。
 
         追従の状態や、コンストレイントされる側の回転は直接変えない。
 
         Args:
-            value (Sequence[float]): XYZの3つの値。どれも有限な数値にする。
-            unit (str): valueの角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            value (Sequence[float] | EulerRotate): XYZの3つの値。EulerRotateの代わりに、元になっているOpenMayaの型も
+                受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく換算しない。回転順序が
+                constraintRotateOrderと違う場合は、同じ回転になる値へ直して書く。
+            unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AimConstraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
             RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
-        return self._set_angles("restRotate", value, unit=unit, fast=fast)
+        self._set_angles("restRotate", value, unit=unit, fast=fast, check=check)
 
-    def getOffset(self, *, unit="deg"):
-        """OffsetのXYZの設定値を取得する。
-
-        Args:
-            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-                ``"degree"`` などの別名も使える。
+    def getOffset(self):
+        """Offsetの設定値を取得する。
 
         Returns:
-            tuple[float, float, float]: 評価したOffsetの値。
-
-        Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: unitが未対応の単位名の場合。
+            EulerRotate: 評価したOffsetの値(ラジアン)。回転順序はconstraintRotateOrder。
+                度の3つの値は ``getOffset().asDegrees()`` で取得する。
         """
-        angle_unit = _angle_unit(unit)
-        return tuple(self.getPlug("offset" + axis).get(unit=angle_unit) for axis in "XYZ")
+        return self._get_angles("offset")
 
-    def setOffset(self, value, *, unit="deg", fast=False):
+    def setOffset(self, value, *, unit="deg", fast=False, check=False):
         """Offsetだけを設定する。
 
         Maintain Offsetのように、今の姿勢からオフセットを計算し直すことはしない。
 
         Args:
-            value (Sequence[float]): XYZの3つの値。どれも有限な数値にする。
-            unit (str): valueの角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            value (Sequence[float] | EulerRotate): XYZの3つの値。EulerRotateの代わりに、元になっているOpenMayaの型も
+                受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく換算しない。回転順序が
+                constraintRotateOrderと違う場合は、同じ回転になる値へ直して書く。
+            unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            AimConstraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
             RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
-        return self._set_angles("offset", value, unit=unit, fast=fast)
+        self._set_angles("offset", value, unit=unit, fast=fast, check=check)
 
     def getOutputRotate(self):
         """出力のconstraintRotateを、constraintRotateOrderの回転順序で取得する。
@@ -114,20 +108,32 @@ class AimConstraint(Constraint):
         values = [self.getPlug("constraintRotate" + axis).get(unit="rad") for axis in "XYZ"]
         return EulerRotate(*values, order=int(self.getPlug("constraintRotateOrder").get()))
 
-    def _set_angles(self, attribute, value, unit="deg", fast=False):
+    def _get_angles(self, attribute):
+        """3つの角度を、constraintRotateOrderの回転順序のEulerRotateで取得する。
+
+        Args:
+            attribute (str): 読み取るコンパウンドアトリビュート。
+
+        Returns:
+            EulerRotate: 評価した値(ラジアン)。
+        """
+        values = [self.getPlug(attribute + axis).get(unit="rad") for axis in "XYZ"]
+        return EulerRotate(*values, order=int(self.getPlug("constraintRotateOrder").get()))
+
+    def _set_angles(self, attribute, value, unit="deg", fast=False, check=False):
         """3つの角度をまとめて書き込む。
 
-        入力の接続とロックは、書き込む前にすべて確かめる。
         通常は1回のUndoで戻せるようにまとめる。fast=TrueならOpenMayaで直接書き込む(Undoなし)。
 
         Args:
             attribute (str): 書き込むコンパウンドアトリビュート。
-            value (Sequence[float]): unitの単位の3つの値。
+            value (Sequence[float] | EulerRotate): unitの単位の3つの値、またはEulerRotate。
             unit (str): 角度の単位(deg/rad)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、入力の接続とロックをすべて確かめる。
 
         Returns:
-            AimConstraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -136,15 +142,19 @@ class AimConstraint(Constraint):
         """
         with _edit_context("mlibAimConstraintSetAngles", fast):
             angle_unit = _angle_unit(unit)
-            values = tuple(float(component) for component in value)
-            if len(values) != 3 or not all(math.isfinite(component) for component in values):
-                raise ValueError("anglesは3つの有限な値で指定してください")
-            values = tuple(_to_radians(component, angle_unit) for component in values)
+            if isinstance(value, om2.MEulerRotation):
+                order = int(self.getPlug("constraintRotateOrder").get())
+                euler = value if value.order == order else value.reorder(order)
+                values = (euler.x, euler.y, euler.z)
+            else:
+                values = tuple(float(component) for component in value)
+                if len(values) != 3 or not all(math.isfinite(component) for component in values):
+                    raise ValueError("anglesは3つの有限な値で指定してください")
+                values = tuple(_to_radians(component, angle_unit) for component in values)
             parent = self.getPlug(attribute)
             children = [self.getPlug(attribute + axis) for axis in "XYZ"]
             require_editable(self.mnode())
-            if any(plug.isLocked() or plug.getSource() is not None for plug in [parent] + children):
+            if check and any(plug.isLocked() or plug.getSource() is not None for plug in [parent] + children):
                 raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {parent.getFullName()}")
             for plug, component in zip(children, values):
                 plug.set(component, unit="rad", fast=fast)
-            return self

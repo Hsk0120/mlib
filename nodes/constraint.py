@@ -3,6 +3,7 @@
 import maya.cmds as cmds
 
 from ..decorator import _edit_context, undoChunk
+from ..plugs.plug import Plugs
 from .node import Node, Nodes
 from .transform import Transform
 
@@ -27,11 +28,11 @@ class Constraint(Transform):
         この順はgetWeightAliases()の並びと対応する。
 
         Returns:
-            list[Node]: ターゲットの新しいオブジェクトのリスト。登録が無ければ空リスト。
+            Nodes: ターゲットの新しいオブジェクト。登録が無ければ空の集まり。
                 ノードを複製したものではない。
         """
         names = getattr(cmds, self.getType())(self.getFullName(), query=True, targetList=True) or []
-        return [Node(name) for name in names]
+        return Nodes._wrap([Node(name) for name in names])
 
     def getWeightAliases(self):
         """登録されているターゲットの、ウェイトのエイリアスを取得する。
@@ -48,9 +49,9 @@ class Constraint(Transform):
         """ターゲットのウェイトのアトリビュートを取得する。
 
         Returns:
-            list[Plug]: getTargets()と同じ順に並ぶ。set()で値を変更できる。
+            Plugs: getTargets()と同じ順に並ぶ。set()で値を変更できる。
         """
-        return [self.getPlug(alias) for alias in self.getWeightAliases()]
+        return Plugs._from_plugs([self.getPlug(alias) for alias in self.getWeightAliases()])
 
     def getWeights(self):
         """ターゲットの現在のウェイトを取得する。
@@ -78,7 +79,7 @@ class Constraint(Transform):
                 return plug.get()
         raise ValueError(f"このコンストレイントにターゲットが見つかりません: {requested}")
 
-    def setWeight(self, weight, *targets, fast=False):
+    def setWeight(self, weight, *targets, fast=False, check=False):
         """ターゲットのウェイトを設定する。
 
         値は正規化せず、そのまま書き込む。書き込む順はMayaのターゲットの順になる。
@@ -97,9 +98,11 @@ class Constraint(Transform):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Plugの書き込みに使う。
                 Falseなら、Undoが有効なときに通常の書き込みを1回のUndoにまとめる。Undoの設定は変えない。
                 ターゲットやエイリアスを調べるには、fastでもcmdsを使う。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Constraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
@@ -109,8 +112,8 @@ class Constraint(Transform):
             weight_plugs = self.getWeightPlugs()
             if not targets:
                 for plug in weight_plugs:
-                    plug.set(weight, fast=fast)
-                return self
+                    plug.set(weight, fast=fast, check=check)
+                return
             requested = {Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)}
             available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
             missing = requested - available.keys()
@@ -119,8 +122,7 @@ class Constraint(Transform):
             # 全ターゲットを解決してから更新する。無効な指定で部分更新しない。
             for name, plug in available.items():
                 if name in requested:
-                    plug.set(weight, fast=fast)
-            return self
+                    plug.set(weight, fast=fast, check=check)
 
     def removeTarget(self, *targets):
         """ターゲットをコンストレイントから外す。
@@ -134,7 +136,7 @@ class Constraint(Transform):
             targets (Node | str): 外すターゲット。1つ以上。
 
         Returns:
-            Constraint: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: ターゲットを1つも指定しない場合、またはターゲットの型が不正な場合。
@@ -151,4 +153,3 @@ class Constraint(Transform):
             raise ValueError(f"このコンストレイントにターゲットが見つかりません: {missing}")
         with undoChunk("mlibConstraintRemoveTarget"):
             getattr(cmds, self.getType())(*(requested + [self.getFullName()]), edit=True, remove=True)
-        return self

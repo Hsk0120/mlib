@@ -34,13 +34,13 @@ class PairBlend(Node):
             weight (float | Plug | str | None): 補間の割合(0〜1)。0なら入力1、1なら入力2になる。
 
         Returns:
-            PairBlend: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(
+        _calculation.set_inputs(
             self, "setInput", {"inTranslate1": inTranslate1, "inRotate1": inRotate1, "inTranslate2": inTranslate2, "inRotate2": inRotate2, "weight": weight}
         )
 
@@ -61,14 +61,14 @@ class PairBlend(Node):
             interpolation (str | int): ``"euler"``・``"quaternion"`` のいずれか。Mayaの番号(0から)でもよい。
 
         Returns:
-            PairBlend: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: interpolationが文字列・int以外の場合。
             ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setRotateInterpolation", "rotInterpolation", interpolation, _ROTATE_INTERPOLATIONS, "interpolation")
+        _calculation.set_enum(self, "setRotateInterpolation", "rotInterpolation", interpolation, _ROTATE_INTERPOLATIONS, "interpolation")
 
     def getResult(self, kind="translate"):
         """出力の現在の値を取得する。

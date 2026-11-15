@@ -131,7 +131,7 @@ class Edge(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def setSmooth(self, value: bool = ...) -> Edge:
+    def setSmooth(self, state: bool = ...) -> None:
         """ソフトエッジかハードエッジかを設定する。
 
         ``cmds.polySoftEdge`` (角度180または0)で書き込み、1回のUndoで戻せるようにまとめる。選択は変えない。
@@ -140,13 +140,13 @@ class Edge(Component):
         - ヒストリの無いメッシュでは、ヒストリを作らずに直接書き込む。
 
         Args:
-            value (bool): Trueならソフトエッジ、Falseならハードエッジにする。既定はTrue。
+            state (bool): Trueならソフトエッジ、Falseならハードエッジにする。既定はTrue。
 
         Returns:
-            Edge: 自身。
+            None: 値を返さない。
 
         Raises:
-            TypeError: valueがboolでない場合。
+            TypeError: stateがboolでない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
         """
@@ -236,7 +236,7 @@ class Edges(Components):
     def isSmooth(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.edge.Edge.isSmooth` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setSmooth(self, value: bool = ...) -> list[Edge]:
+    def setSmooth(self, state: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.edge.Edge.setSmooth` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getFullName(self) -> list[str]:

@@ -9,7 +9,7 @@ from ..core.registry import _inherited_node_types, _real_node_type
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths import Vector
 from ..util import _UNSET, _color_value, _world_space
-from .node import Node
+from .node import Node, Nodes
 
 #: GUIのないMayaで使う、Maya標準のカラー番号のRGB。
 _DEFAULT_COLOR_PALETTE = (
@@ -102,7 +102,7 @@ class DagNode(Node):
         Jointの同名メソッドは意味が違い、そのジョイントをインフルエンスに持つSkinClusterを返す。
 
         Returns:
-            list[SkinCluster]: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
+            SkinClusters: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
                 同じものは1回だけ含む。見つからなければ空リスト。
 
         Raises:
@@ -128,7 +128,10 @@ class DagNode(Node):
                     seen.add(key)
                     result.append(Node(skin))
                 iterator.next()
-        return result
+        # 循環参照の回避: skinClusterがdagNodeを参照するため、使う時点で読み込む。
+        from .skinCluster import SkinClusters
+
+        return SkinClusters._wrap(result)
 
     def getBindPoses(self):
         """このノードに関係するSkinClusterのバインドポーズを取得する。
@@ -140,7 +143,7 @@ class DagNode(Node):
         バインドポーズが接続されていないSkinClusterは飛ばす。
 
         Returns:
-            list[DagPose]: 接続されているバインドポーズ。1つもなければ空リスト。
+            Nodes[DagPose]: 接続されているバインドポーズ。1つもなければ空の集まり。
 
         Raises:
             RuntimeError: 対象が無効な場合、またはバインドポーズの接続が不正な場合。
@@ -153,7 +156,7 @@ class DagNode(Node):
                 if key not in seen:
                     seen.add(key)
                     result.append(pose)
-        return result
+        return Nodes._wrap(result)
 
     def mpath(self):
         """このオブジェクトが持つDAGパスを、OpenMayaのMDagPathとして取得する。
@@ -263,13 +266,13 @@ class DagNode(Node):
         - ワールド直下のTransformなら、ほかのワールド直下のTransformを返す。
 
         Returns:
-            list[DagNode]: 兄弟のオブジェクト。ノードが無効な場合と、兄弟がない場合は空リスト。
+            Nodes[DagNode]: 兄弟のオブジェクト。ノードが無効な場合と、兄弟がない場合は空の集まり。
 
         Raises:
             RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         if not self.isValid():
-            return []
+            return Nodes._wrap([])
         is_shape = self._require_mnode().hasFn(om2.MFn.kShape)
         parent = self.getParent()
         if parent is not None:
@@ -279,7 +282,7 @@ class DagNode(Node):
         else:
             candidates = DagNode._world_assemblies()
         self_uuid = self.getUuid()
-        return [candidate for candidate in candidates if candidate.getUuid() != self_uuid]
+        return Nodes._wrap([candidate for candidate in candidates if candidate.getUuid() != self_uuid])
 
     def getOutlinerOrder(self):
         """アウトライナーでの並び順を取得する。
@@ -313,7 +316,7 @@ class DagNode(Node):
             index (int): 移動先の番号(0 始まり)。負の値は後ろから数える(-1 は最後)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: index が int でない場合。
@@ -335,7 +338,6 @@ class DagNode(Node):
             if target != current:
                 # 範囲内の relative は循環せず、その数だけ前後へ動く。
                 cmds.reorder(self.getFullName(), relative=target - current)
-            return self
 
     def reorder(self, *, front=_UNSET, f=_UNSET, back=_UNSET, b=_UNSET, relative=_UNSET, r=_UNSET):
         """アウトライナーでの並び順を変える(``cmds.reorder`` 相当)。
@@ -356,7 +358,7 @@ class DagNode(Node):
             r (int): relativeの別名。relativeと同時には指定できない。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 長い名前と短い名前を同時に指定した場合、front・back が bool でない場合、relative が
@@ -384,7 +386,6 @@ class DagNode(Node):
         with undoChunk("mlibDagNodeReorder"):
             self._require_valid("並べ替え")
             cmds.reorder(self.getFullName(), **flags)
-            return self
 
     def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET):
         """バウンディングボックスを取得する。
@@ -471,7 +472,7 @@ class DagNode(Node):
             noSelf (bool): Trueなら、このオブジェクトが持つパスを結果から除く。既定はFalse。
 
         Returns:
-            list[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
+            Nodes[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
                 このオブジェクトが持つパスには自身を、ほかのパスには新しいオブジェクトを入れる。
 
         Raises:
@@ -479,11 +480,13 @@ class DagNode(Node):
         """
         original = self.mpath().fullPathName()
         # APIが列挙した有効なパスの複製なので、Node(...) の入力解決を省いて同じ型で包む。
-        return [
-            self if path.fullPathName() == original else Node._wrap_dag_path(om2.MDagPath(path))
-            for path in om2.MDagPath.getAllPathsTo(self.mnode())
-            if not noSelf or path.fullPathName() != original
-        ]
+        return Nodes._wrap(
+            [
+                self if path.fullPathName() == original else Node._wrap_dag_path(om2.MDagPath(path))
+                for path in om2.MDagPath.getAllPathsTo(self.mnode())
+                if not noSelf or path.fullPathName() != original
+            ]
+        )
 
     def isInstanced(self):
         """インスタンス化されているか(DAGパスが複数あるか)を調べる。
@@ -528,7 +531,7 @@ class DagNode(Node):
                   親がインスタンス化されたことで生じたパスの分も含む。
 
         Returns:
-            list[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
+            Nodes[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
                 DAGの親は必ずTransform系(Jointなど)になる。
                 このオブジェクトが持つパスがワールド直下なら空リスト。
 
@@ -537,15 +540,17 @@ class DagNode(Node):
         """
         parent = self.getParent()
         if parent is None:
-            return []
+            return Nodes._wrap([])
         if indirect:
-            return [instance.getParent() for instance in self.getInstances() if instance.getParent() is not None]
+            return Nodes._wrap([instance.getParent() for instance in self.getInstances() if instance.getParent() is not None])
         fn = self.mfn()
-        return [
-            parent if fn.parent(index) == parent.mnode() else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
-            for index in range(fn.parentCount())
-            if not fn.parent(index).hasFn(om2.MFn.kWorld)
-        ]
+        return Nodes._wrap(
+            [
+                parent if fn.parent(index) == parent.mnode() else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
+                for index in range(fn.parentCount())
+                if not fn.parent(index).hasFn(om2.MFn.kWorld)
+            ]
+        )
 
     def getParent(self, step=1):
         """親を取得する。
@@ -598,7 +603,7 @@ class DagNode(Node):
                 ``multDoubleLinear`` と ``multDL`` のように、Mayaの版で名前が変わった型はどちらの名前でも指定できる。
 
         Returns:
-            list[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
+            Nodes[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
                 ノードそのものが無効な場合は空リスト。
 
         Raises:
@@ -619,11 +624,11 @@ class DagNode(Node):
             # Shapeの型で絞る場合は、既定のTransformだけの探索では必ず空になるためShapeも探す。
             shapes = any("shape" in _inherited_node_types(_real_node_type(name)) for name in types)
         if not self.isValid():
-            return []
+            return Nodes._wrap([])
         result = self._collect_children(shapes, intermediates, allDescendents, order, leaves, includeSelf, underWorld)
         if types:
             result = [node for node in result if any(node.isType(name) for name in types)]
-        return result
+        return Nodes._wrap(result)
 
     def getShape(self, index=0, intermediates=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
         """Shapeを取得する。
@@ -671,12 +676,12 @@ class DagNode(Node):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
         """
-        return self.setVisibility(True, fast=fast)
+        self.setVisibility(True, fast=fast)
 
     def hide(self, *, fast=False):
         """非表示にする。
@@ -687,12 +692,12 @@ class DagNode(Node):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合。
         """
-        return self.setVisibility(False, fast=fast)
+        self.setVisibility(False, fast=fast)
 
     def getOverrideColor(self, *, shape=False):
         """描画のオーバーライドの表示色を取得する。
@@ -747,7 +752,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
@@ -765,7 +770,6 @@ class DagNode(Node):
         else:
             values = [("overrideEnabled", True), ("overrideRGBColors", True), ("overrideColorRGB", rgb)]
         self._set_display_values(values, "mlibDagNodeSetOverrideColor", fast, shape, check=check)
-        return self
 
     def getOutlinerColor(self, *, shape=False):
         """アウトライナーの文字色を取得する。
@@ -808,7 +812,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
@@ -823,7 +827,6 @@ class DagNode(Node):
             rgb = _palette_color(index)
         values = [("useOutlinerColor", False)] if rgb is None else [("useOutlinerColor", True), ("outlinerColor", rgb)]
         self._set_display_values(values, "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
-        return self
 
     def getVisibility(self):
         """自身のvisibilityアトリビュートの値を取得する。
@@ -835,7 +838,7 @@ class DagNode(Node):
         """
         return bool(self.getPlug("visibility").get())
 
-    def setVisibility(self, state, *, fast=False):
+    def setVisibility(self, state=True, *, fast=False, check=False):
         """visibilityを設定する。
 
         自身のvisibilityだけを変える。親や表示レイヤーの表示設定は変えない。
@@ -843,9 +846,11 @@ class DagNode(Node):
         Args:
             state (bool): visibilityへ設定する値。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: state・fastがbool以外の場合。
@@ -857,8 +862,7 @@ class DagNode(Node):
         """
         with _edit_context("mlibDagNodeSetVisibility", fast):
             _require_bool(state, "state")
-            self.getPlug("visibility").set(state, fast=fast)
-            return self
+            self.getPlug("visibility").set(state, fast=fast, check=check)
 
     def getOutlinerVisibility(self):
         """アウトライナーに表示する設定になっているかを取得する。
@@ -874,15 +878,17 @@ class DagNode(Node):
         """
         return not bool(self.getPlug("hiddenInOutliner").get())
 
-    def setOutlinerVisibility(self, state, *, fast=False):
+    def setOutlinerVisibility(self, state=True, *, fast=False, check=False):
         """アウトライナーに表示するかを設定する。
 
         Args:
             state (bool): Trueなら表示、Falseなら非表示。hiddenInOutlinerには逆の値を書き込む。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
+            None: 値を返さない。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
 
         Raises:
             TypeError: stateまたはfastがbool以外の場合。
@@ -895,8 +901,7 @@ class DagNode(Node):
         """
         with _edit_context("mlibDagNodeSetOutlinerVisibility", fast):
             _require_bool(state, "state")
-            self.getPlug("hiddenInOutliner").set(not state, fast=fast)
-            return self
+            self.getPlug("hiddenInOutliner").set(not state, fast=fast, check=check)
 
     def getDisplayType(self):
         """描画のオーバーライドの表示の種類を取得する。
@@ -939,7 +944,7 @@ class DagNode(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: kindが文字列以外の場合、またはfastがbool以外の場合。
@@ -954,7 +959,6 @@ class DagNode(Node):
         index = _DISPLAY_TYPES.index(kind)
         values = [("overrideDisplayType", index)] if index == 0 else [("overrideEnabled", True), ("overrideDisplayType", index)]
         self._set_display_values(values, "mlibDagNodeSetDisplayType", fast, check=check)
-        return self
 
     def isShadingOverridden(self):
         """描画のオーバーライドで、ワイヤーフレーム表示にしているかを調べる。
@@ -973,36 +977,35 @@ class DagNode(Node):
         fn = self._dependency_fn()
         return fn.findPlug("overrideEnabled", False).asBool() and not fn.findPlug("overrideShading", False).asBool()
 
-    def setShadingOverride(self, enabled, *, fast=False, check=False):
+    def setShadingOverride(self, state=True, *, fast=False, check=False):
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
         設定して自身を返す。
 
-        - ``enabled=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
-        - ``enabled=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
+        - ``state=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
+        - ``state=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
           ``overrideEnabled`` は変えない。
 
         boolの向きはMayaの ``overrideShading`` と逆で、:meth:`isShadingOverridden` の戻り値と同じ向き。
         対象・Undo・fastの扱いは :meth:`setDisplayType` と同じ。
 
         Args:
-            enabled (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。
+            state (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
-            TypeError: enabledまたはfastがbool以外の場合。
+            TypeError: stateまたはfastがbool以外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(fast, "fast")
-        _require_bool(enabled, "enabled")
-        values = [("overrideEnabled", True), ("overrideShading", False)] if enabled else [("overrideShading", True)]
+        _require_bool(state, "state")
+        values = [("overrideEnabled", True), ("overrideShading", False)] if state else [("overrideShading", True)]
         self._set_display_values(values, "mlibDagNodeSetShadingOverride", fast, check=check)
-        return self
 
     def deleteHistory(self, keepDeformers=True):
         """ヒストリを削除する。
@@ -1023,7 +1026,7 @@ class DagNode(Node):
             keepDeformers (bool): Trueならデフォーマーを残す。既定はTrue。
 
         Returns:
-            DagNode: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: keepDeformersがbool以外の場合。
@@ -1036,7 +1039,7 @@ class DagNode(Node):
             # bakePartialHistory は Shape の無い Transform を「Shapeを選択」のエラーにするため、Shapeを渡す。
             targets = [shape.getFullName() for shape in self.getChildren(shapes=True) if shape.mnode().hasFn(om2.MFn.kShape)]
             if not targets:
-                return self
+                return
         else:
             targets = [name]
         with undoChunk("mlibDagNodeDeleteHistory"):
@@ -1044,7 +1047,6 @@ class DagNode(Node):
                 cmds.bakePartialHistory(targets, prePostDeformers=True)
             else:
                 cmds.delete(targets, constructionHistory=True)
-        return self
 
     def _collect_children(self, shapes, intermediates, all_descendents, order, leaves, include_self, under_world):
         """子や子孫をたどって集める(:meth:`getChildren` の本体)。

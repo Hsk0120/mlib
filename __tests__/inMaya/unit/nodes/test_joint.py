@@ -42,7 +42,7 @@ class BaseRefactoringTest(unittest.TestCase):
             cmds.setAttr(name + ".rotate", 10, 20, 30)
         single = mlib.getNode(self.names[0])
         before = [cmds.getAttr(name + ".rotate")[0] for name in self.names]
-        self.assertIs(single.freezeRotate(), single)
+        self.assertIsNone(single.freezeRotate())
         cmds.undo()
         for name, values in zip(self.names, before):
             self.assertEqual(cmds.getAttr(name + ".rotate")[0], values)
@@ -84,7 +84,7 @@ class JointTest(unittest.TestCase):
 
         self.assertEqual(values(), [True, True])
         for joint in joints:
-            self.assertIs(joint.setSegmentScaleCompensate(False), joint)
+            self.assertIsNone(joint.setSegmentScaleCompensate(False))
         self.assertEqual(values(), [False, False])
         cmds.undo()
         self.assertEqual(values(), [False, True])
@@ -93,7 +93,7 @@ class JointTest(unittest.TestCase):
         cmds.redo()
         cmds.redo()
         self.assertEqual(values(), [False, False])
-        self.assertIs(child.setSegmentScaleCompensate(True, fast=True), child)
+        self.assertIsNone(child.setSegmentScaleCompensate(True, fast=True))
         self.assertTrue(child.getSegmentScaleCompensate())
         with self.assertRaises(TypeError):
             child.setSegmentScaleCompensate(1)
@@ -130,7 +130,7 @@ class JointTest(unittest.TestCase):
 
         before = radii()
         for joint in joints:
-            self.assertIs(joint.setRadius(2.5), joint)
+            self.assertIsNone(joint.setRadius(2.5))
         self.assertEqual(radii(), [2.5, 2.5])
         cmds.undo()
         cmds.undo()
@@ -398,7 +398,7 @@ class SetJointOrientTest(_SpecCase):
 
     def test_values_and_units(self):
         name, joint = self.make_joint()
-        self.assertIs(joint.setJointOrient((10, 20, 30)), joint)
+        self.assertIsNone(joint.setJointOrient((10, 20, 30)))
         self.assertOrient(name, (10, 20, 30))
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (5.0, 6.0, 7.0))
         joint.setJointOrient((math.pi / 2, 0, -math.pi / 4), unit="rad")
@@ -586,7 +586,7 @@ class SetParentTest(_SpecCaseJoint):
                 child = self.make(text="child#")
                 cmds.setAttr(child + ".translate", 1.0, 2.0, 3.0)
                 joint = Node(child)
-                self.assertIs(joint.setParent(parent, **flags), joint)
+                self.assertIsNone(joint.setParent(parent, **flags))
                 self.assertSequenceAlmostEqual(cmds.getAttr(str(joint) + ".translate")[0], (1.0, 2.0, 3.0))
                 # cmds.parent -relative と同じく inverseScale は接続しない(Maya の仕様)。
                 self.assertIsNone(cmds.listConnections(str(joint) + ".inverseScale", plugs=True, source=True, destination=False))
@@ -729,7 +729,7 @@ class JointDagAdditionsTest(_Case):
         cmds.setAttr(j1 + ".r", 2, 2, 2)
         node = mlib.getNode(j0)
         self.flushUndo()
-        self.assertIs(node.assumePreferredAngles(children=False), node)
+        self.assertIsNone(node.assumePreferredAngles(children=False))
         self.assertSequenceAlmostEqual(cmds.getAttr(j0 + ".r")[0], (5, 0, 0))
         self.assertSequenceAlmostEqual(cmds.getAttr(j1 + ".r")[0], (2, 2, 2))
         self.assertUndoesInOneStep(lambda: self.assertSequenceAlmostEqual(cmds.getAttr(j0 + ".r")[0], (1, 1, 1)), lambda: None)
@@ -748,7 +748,7 @@ class JointDagAdditionsTest(_Case):
         node = mlib.getNode(j1)
         self.assertEqual(node.getDegreesOfFreedom(), "xyz")
         self.flushUndo()
-        self.assertIs(node.setDegreesOfFreedom("ZX"), node)
+        self.assertIsNone(node.setDegreesOfFreedom("ZX"))
         self.assertEqual(node.getDegreesOfFreedom(), "xz")
         self.assertEqual(cmds.joint(j1, query=True, degreeOfFreedom=True), "xz")
         self.assertUndoesInOneStep(lambda: self.assertEqual(node.getDegreesOfFreedom(), "xyz"), lambda: None)
@@ -835,7 +835,7 @@ class RigQueryAdditionsTest(_CaseMethodAdditions):
 
         both = names()
         self.flushUndo()
-        self.assertIs(constraint.removeTarget(b), constraint)
+        self.assertIsNone(constraint.removeTarget(b))
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), both), lambda: self.assertEqual(names(), both[:1]))
         stranger = self.make("transform", "stranger#")
         for args, error in (((stranger,), ValueError), ((), TypeError)):

@@ -17,7 +17,7 @@ class PointOnCurveInfo(Node):
 
     パラメーターで指定した点の位置・法線・接線・曲率を出力する。
     """
-    def setInput(self, inputCurve: NurbsCurve | Transform | Plug | str | None = ..., parameter: float | Plug | str | None = ..., turnOnPercentage: bool | Plug | str | None = ...) -> PointOnCurveInfo:
+    def setInput(self, inputCurve: NurbsCurve | Transform | Plug | str | None = ..., parameter: float | Plug | str | None = ..., turnOnPercentage: bool | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -35,7 +35,7 @@ class PointOnCurveInfo(Node):
             turnOnPercentage (bool | Plug | str | None): Trueなら、parameterを長さの割合(0〜1)として扱う。
 
         Returns:
-            PointOnCurveInfo: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

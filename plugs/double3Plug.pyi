@@ -46,7 +46,7 @@ class Double3Plug(CompoundPlug):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def set(self, value: Iterable[float] | EulerRotate | Quaternion, safe: bool = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> Double3Plug | int:
+    def set(self, value: Iterable[float] | EulerRotate | Quaternion, *, safe: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> int | None:
         """このアトリビュートの3成分だけを書き込む。
 
         マトリクスを通して姿勢を変えることはしない。3成分の値と、書き込めるかどうかを確かめてから
@@ -69,7 +69,7 @@ class Double3Plug(CompoundPlug):
                 既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Double3Plug | int: safe=Falseなら自身。safe=Trueなら、成功は0、失敗は子の失敗数、
+            int | None: safe=Falseなら値を返さない。safe=Trueなら、成功は0、失敗は子の失敗数、
                 値の変換に失敗した場合は1。CompoundPlug.setの再試行の決まりに従い、
                 途中まで変えた値は自動では戻さない。
 

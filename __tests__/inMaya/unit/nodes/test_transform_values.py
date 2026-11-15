@@ -100,7 +100,7 @@ class MakeIdentityTest(_SpecCase):
     def test_apply_translate_only(self):
         """apply・t の指定はそのまま渡り、指定しないチャンネルは残る。1回の Undo で戻る。"""
         cmds.flushUndo()
-        self.assertIs(self.node.makeIdentity(apply=True, t=True), self.node)
+        self.assertIsNone(self.node.makeIdentity(apply=True, t=True))
         self.assertEqual(cmds.getAttr(self.name_ + ".translate")[0], (0.0, 0.0, 0.0))
         self.assertEqual(cmds.getAttr(self.name_ + ".rotate")[0], (10.0, 0.0, 0.0))
         cmds.undo()
@@ -136,7 +136,7 @@ class TransformSequenceTest(_SpecCase):
         for node in nodes:
             self.assertIsInstance(node.getQuaternion(r=False), Quaternion)
             self.assertIsInstance(node.getRotate(worldSpace=True, order=0), EulerRotate)
-            self.assertIs(node.setPivot((0, 0, 0), worldSpace=True, kind="rotate"), node)
+            self.assertIsNone(node.setPivot((0, 0, 0), worldSpace=True, kind="rotate"))
         for name in names:
             self.assertSequenceAlmostEqual(cmds.xform(name, query=True, worldSpace=True, rotatePivot=True), [0, 0, 0])
         joint = Node(self.make("joint", "bulkJoint"))

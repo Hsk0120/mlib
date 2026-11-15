@@ -256,8 +256,8 @@ class SetRangeErrorTest(_PlugCase):
                 self.assertEqual(self.limits(node, attribute), before)
         # 範囲内の値・等しい値は通る(56度は1ラジアン未満)。
         plug = mlib.getNode(node).getPlug("angle")
-        self.assertIs(plug.setMin(56.0), plug)
-        self.assertIs(plug.setMax(56.0), plug)
+        self.assertIsNone(plug.setMin(56.0))
+        self.assertIsNone(plug.setMax(56.0))
 
     def test_valid_set_and_undo(self):
         """正常系: 4つの設定が定義へ反映され、Undo 1回で戻る。"""
@@ -268,7 +268,7 @@ class SetRangeErrorTest(_PlugCase):
             with self.subTest(method=method):
                 before = cmds.attributeQuery("amount", node=node, **{query: True})[0]
                 self.flushUndo()
-                self.assertIs(getattr(plug, method)(value), plug)
+                self.assertIsNone(getattr(plug, method)(value))
 
                 def after(query=query, value=value):
                     self.assertAlmostEqual(cmds.attributeQuery("amount", node=node, **{query: True})[0], value)
@@ -317,7 +317,7 @@ class SetMutedErrorTest(_PlugCase):
         """正常系: True でミュート(isMuted が True)、False で解除する。"""
         node, plug = self.animated()
         self.assertFalse(plug.isMuted())
-        self.assertIs(plug.setMuted(True), plug)
+        self.assertIsNone(plug.setMuted(True))
         self.assertTrue(plug.isMuted())
         self.assertTrue(cmds.mute(node + ".translateX", query=True))
         plug.setMuted(False)

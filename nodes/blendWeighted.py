@@ -34,14 +34,14 @@ class BlendWeighted(Node):
             index (int): 削除する入力の論理番号。
 
         Returns:
-            BlendWeighted: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。
             ValueError: indexの番号の入力が無い場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
-        return _calculation.remove_elements(self, "removeInput", ("input", "weight"), index)
+        _calculation.remove_elements(self, "removeInput", ("input", "weight"), index)
 
     def getInputIndices(self):
         """今ある入力の論理番号を取得する。

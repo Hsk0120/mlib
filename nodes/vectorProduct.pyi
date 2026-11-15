@@ -12,7 +12,7 @@ _OPERATIONS: tuple
 
 class VectorProduct(Node):
     """ベクトルの内積・外積・マトリクスとの積を計算するノード(vectorProduct)を扱うクラス。"""
-    def setInput(self, input1: Iterable[float] | Plug | str | None = ..., input2: Iterable[float] | Plug | str | None = ..., matrix: Matrix | Iterable[float] | Plug | str | None = ..., normalizeOutput: bool | Plug | str | None = ...) -> VectorProduct:
+    def setInput(self, input1: Iterable[float] | Plug | str | None = ..., input2: Iterable[float] | Plug | str | None = ..., matrix: Matrix | Iterable[float] | Plug | str | None = ..., normalizeOutput: bool | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -31,7 +31,7 @@ class VectorProduct(Node):
             normalizeOutput (bool | Plug | str | None): 出力を正規化するかどうか。
 
         Returns:
-            VectorProduct: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -47,7 +47,7 @@ class VectorProduct(Node):
                 ``"pointMatrixProduct"`` のいずれか。
         """
         ...
-    def setOperation(self, operation: str | int) -> VectorProduct:
+    def setOperation(self, operation: str | int) -> None:
         """演算の種類を設定する(``operation``)。
 
         名前でも番号でも指定できる。変更は1回のUndoで戻せる。
@@ -57,7 +57,7 @@ class VectorProduct(Node):
                 ``"vectorMatrixProduct"``・``"pointMatrixProduct"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            VectorProduct: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列でもintでもない場合。

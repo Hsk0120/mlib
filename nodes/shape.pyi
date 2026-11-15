@@ -17,7 +17,7 @@ from typing import Iterable
 
 class Shape(DagNode):
     """MayaのDAGのShapeノードに共通する操作を扱うクラス。"""
-    def setParent(self, parent: Transform | str, *, fast: bool = ...) -> Shape:
+    def setParent(self, parent: Transform | str, *, fast: bool = ...) -> None:
         """このシェイプを別のTransformの下へ移す。
 
         ``cmds.parent(shape, transform, shape=True, relative=True)`` と同じ。
@@ -30,7 +30,7 @@ class Shape(DagNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
 
         Returns:
-            Shape: 自身。移した後のパスを指す。
+            None: 値を返さない。移した後のパスを指す。
 
         Raises:
             TypeError: parentがTransformでない場合、またはfastがboolでない場合。
@@ -40,7 +40,7 @@ class Shape(DagNode):
             NotImplementedError: fastで、移す先に同じ名前の子がある場合。Mayaが名前を付け直す規則を再現しないため。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Shape:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
         Transformのマトリクスと、フェースの頂点の順は変えない。
@@ -64,7 +64,7 @@ class Shape(DagNode):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Shape: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。

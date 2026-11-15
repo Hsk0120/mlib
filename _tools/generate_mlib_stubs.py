@@ -925,9 +925,9 @@ def _connection_variants(stub, node, qualname):
         ({"asPair": true, "asNode": false, "index": ("int", False)}, "tuple[Plug, Plug] | None"),
         ({"asPair": true, "asNode": false, "index": ("None", True)}, "list[tuple[Plug, Plug]]"),
         (dict(no_pair, asNode=true, index=("int", False)), "Node | None"),
-        (dict(no_pair, asNode=true, index=("None", True)), "list[Node]"),
+        (dict(no_pair, asNode=true, index=("None", True)), "Nodes"),
         (dict(no_pair, asNode=false, index=("int", False)), "Plug | None"),
-        (dict(no_pair, asNode=false, index=("None", True)), "list[Plug]"),
+        (dict(no_pair, asNode=false, index=("None", True)), "Plugs"),
     ]
     doc_types = _arg_types(ast.get_docstring(node) or "")
     variants = []
@@ -964,7 +964,8 @@ def _keyword_connection_variants(stub, node, single):
             variants.append(f"def {node.name}({head}{flags}, **kwargs: Any) -> {item} | None: ...")
         else:
             variants.append(f"def {node.name}({head}{flags}, index: int, **kwargs: Any) -> {item} | None: ...")
-            variants.append(f"def {node.name}({head}{flags}, index: None = ..., **kwargs: Any) -> list[{item}]: ...")
+            many = {"Plug": "Plugs", "Node": "Nodes"}.get(item, f"list[{item}]")
+            variants.append(f"def {node.name}({head}{flags}, index: None = ..., **kwargs: Any) -> {many}: ...")
     return variants
 
 
@@ -1054,9 +1055,6 @@ OVERLOADS = {
     "mlib.cmds.ls:ls": _ls_overloads,
     "mlib.cmds.ls:ls#return": _ls_return,
     "mlib.nodes.node:Node.duplicate#return": _self_return,
-    "mlib.nodes.node:Nodes.sort#return": _self_return,
-    "mlib.plugs.plug:Plugs.sort#return": _self_return,
-    "mlib.components.component:Components.sort#return": _self_return,
     "mlib.nodes.node:Node.getConnections": lambda stub, node: _connection_variants(stub, node, "Node.getConnections"),
     "mlib.plugs.plug:Plug.getConnections": lambda stub, node: _connection_variants(stub, node, "Plug.getConnections"),
     "mlib.plugs.plug:Plug.getSource": lambda stub, node: _keyword_connection_variants(stub, node, True),

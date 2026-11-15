@@ -12,7 +12,7 @@ _OUTPUTS: dict
 
 class AngleBetween(Node):
     """2つのベクトルのなす角・回転軸・オイラー角を計算する。"""
-    def setInput(self, vector1: Iterable[float] | Plug | str | None = ..., vector2: Iterable[float] | Plug | str | None = ...) -> AngleBetween:
+    def setInput(self, vector1: Iterable[float] | Plug | str | None = ..., vector2: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -28,7 +28,7 @@ class AngleBetween(Node):
             vector2 (Iterable[float] | Plug | str | None): 2つ目のベクトル。
 
         Returns:
-            AngleBetween: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

@@ -26,7 +26,7 @@ class BlendWeighted(Node):
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
         ...
-    def removeInput(self, index: int) -> BlendWeighted:
+    def removeInput(self, index: int) -> None:
         """入力を削除する。
 
         同じ番号のウェイトも一緒に削除する。つながっている接続も外れる。1回のUndoで戻せる。
@@ -35,7 +35,7 @@ class BlendWeighted(Node):
             index (int): 削除する入力の論理番号。
 
         Returns:
-            BlendWeighted: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。

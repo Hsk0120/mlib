@@ -5,7 +5,7 @@ import maya.cmds as cmds
 
 from ..core.object import Object
 from ..decorator import undoChunk
-from .node import Node
+from .node import Node, Nodes
 
 
 class DisplayLayer(Node):
@@ -15,7 +15,7 @@ class DisplayLayer(Node):
         """レイヤーのメンバーを取得する。
 
         Returns:
-            list[Node]: メンバーのオブジェクト。メンバーが無ければ空リスト。
+            Nodes: メンバーのオブジェクト。メンバーが無ければ空の集まり。
 
         Note:
             Maya 2024以降はMFnDisplayLayerを使う。2022/2023にはこのAPIが無いので、defaultLayerでは
@@ -24,14 +24,16 @@ class DisplayLayer(Node):
         if hasattr(om2, "MFnDisplayLayer"):
             members = om2.MFnDisplayLayer(self.mnode()).getMembers()
             # 選択リストから取得したばかりのパスなので、入力の再解決を省いてラッパーにする。
-            return [Node._wrap_dag_path(members.getDagPath(index)) for index in range(members.length())]
+            return Nodes._wrap([Node._wrap_dag_path(members.getDagPath(index)) for index in range(members.length())])
         if not self.getPlug("identification").get():
             # 2022/2023にはMFnDisplayLayerがない。defaultLayer固有の除外規則を
             # 単なる未接続DAG走査で再現せず、既存コマンドの意味を維持する。
             names = cmds.editDisplayLayerMembers(self.getName(), query=True, fullNames=True) or []
-            return [Node(name) for name in names]
+            return Nodes._wrap([Node(name) for name in names])
         output = self.getPlug("drawInfo").mplug()
-        return [Node._wrap_dag_path(om2.MDagPath.getAPathTo(plug.node())) for plug in output.connectedTo(False, True) if plug.node().hasFn(om2.MFn.kDagNode)]
+        return Nodes._wrap(
+            [Node._wrap_dag_path(om2.MDagPath.getAPathTo(plug.node())) for plug in output.connectedTo(False, True) if plug.node().hasFn(om2.MFn.kDagNode)]
+        )
 
     def addMembers(self, *members):
         """メンバーをこのレイヤーへ移す。
@@ -43,12 +45,11 @@ class DisplayLayer(Node):
             members (Node | str): 追加するDAGノード。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         with undoChunk("mlibDisplayLayerAddMembers"):
             if members:
                 cmds.editDisplayLayerMembers(self.getName(), Object._input_names(members))
-            return self
 
     def removeMembers(self, *members):
         """ノードをdefaultLayerへ移して、レイヤーから外す。
@@ -59,12 +60,11 @@ class DisplayLayer(Node):
             members (Node | str): 外すDAGノード。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         with undoChunk("mlibDisplayLayerRemoveMembers"):
             if members:
                 cmds.editDisplayLayerMembers("defaultLayer", Object._input_names(members))
-            return self
 
     def setCurrent(self):
         """このレイヤーをカレントレイヤーにする。
@@ -72,8 +72,7 @@ class DisplayLayer(Node):
         以後に新しく作ったノードは、このレイヤーへ入る。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         with undoChunk("mlibDisplayLayerSetCurrent"):
             cmds.editDisplayLayerGlobals(currentDisplayLayer=self.getName())
-            return self

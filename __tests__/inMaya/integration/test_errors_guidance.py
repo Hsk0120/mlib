@@ -117,7 +117,7 @@ class PlugArgumentTest(_SpecCase):
     def test_set_attr_flags_accepts_plugs(self):
         node = Node(self.make())
         self.flushUndo()
-        self.assertIs(node.setAttrFlags([node.tx, "ty", node.getPlug("rotateX")], locked=True), node)
+        self.assertIsNone(node.setAttrFlags([node.tx, "ty", node.getPlug("rotateX")], locked=True))
         for attribute in ("tx", "ty", "rx"):
             self.assertTrue(cmds.getAttr(str(node) + "." + attribute, lock=True))
         self.assertUndoesInOneStep(
@@ -147,7 +147,7 @@ class BulkWriteTest(_SpecCase):
             with self.subTest(action=action):
                 self.flushUndo()
                 result = action()
-                self.assertIs(result, nodes)
+                self.assertIsNone(result)
                 self.assertUndoesInOneStep(
                     lambda: self.assertFalse(any(check(name) for name in names)), lambda: self.assertTrue(all(check(name) for name in names))
                 )
@@ -172,7 +172,7 @@ class BulkWriteTest(_SpecCase):
         self.assertEqual(sorted(cmds.listRelatives(group, children=True)), sorted(names))
         joints = Joints([self.make("joint", "j0"), self.make("joint", "j1")])
         self.flushUndo()
-        self.assertIs(joints.setRadius(3.0), joints)
+        self.assertIsNone(joints.setRadius(3.0))
         self.assertEqual([joint.getRadius() for joint in joints], [3.0, 3.0])
         cmds.undo()
         self.assertEqual([joint.getRadius() for joint in joints], [1.0, 1.0])

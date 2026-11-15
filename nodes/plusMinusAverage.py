@@ -56,14 +56,14 @@ class PlusMinusAverage(ShadingDependNode):
                 Mayaの番号(0から)でもよい。
 
         Returns:
-            PlusMinusAverage: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
             ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
+        _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
 
     def addInput(self, value, dimension=1):
         """入力を末尾へ足す。
@@ -95,14 +95,14 @@ class PlusMinusAverage(ShadingDependNode):
             dimension (int): 入力の次元。1・2・3。
 
         Returns:
-            PlusMinusAverage: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合、またはdimensionがハッシュできない型(list等)の場合。
             ValueError: dimensionが1・2・3以外の場合、またはindexの入力が無い場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
-        return _calculation.remove_elements(self, "removeInput", (_attributes(dimension)[0],), index)
+        _calculation.remove_elements(self, "removeInput", (_attributes(dimension)[0],), index)
 
     def getInputIndices(self, dimension=1):
         """すでにある入力の論理番号を、小さい順に取得する。

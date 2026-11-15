@@ -76,8 +76,8 @@ class ConsolidatedAnimationTest(unittest.TestCase):
                     fast.setKey(0.25, 7, fast=True)
                 self.assertEqual(cmds.undoInfo(q=True, undoName=True), before)
                 self.assert_curves(normal, fast)
-                normal.removeKey(2)
-                fast.removeKey(2, fast=True)
+                normal.removeKey(index=2)
+                fast.removeKey(index=2, fast=True)
                 self.assert_curves(normal, fast)
 
     def test_readers_are_api_only_and_match_maya_tangent_units(self):
@@ -242,10 +242,10 @@ class DeletedAnimCurveTest(_ContractCase):
             curve.setKey(2, 2.0)
         calls = {
             "setKey fast": lambda: curve.setKey(2, 2.0, fast=True),
-            "removeKey fast": lambda: curve.removeKey(0, fast=True),
+            "removeKey fast": lambda: curve.removeKey(index=0, fast=True),
             "setTangent fast": lambda: curve.setTangent(0, lock=True, fast=True),
             "setInfinity fast": lambda: curve.setInfinity(pre="linear", fast=True),
-            "removeKey": lambda: curve.removeKey(0),
+            "removeKey": lambda: curve.removeKey(index=0),
             "isTimeInput": curve.isTimeInput,
             "getKeyCount": curve.getKeyCount,
             "getKeyInputs": curve.getKeyInputs,

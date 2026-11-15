@@ -6,7 +6,7 @@ import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import _require_bool, undoChunk
-from .node import Node
+from .node import Node, Nodes
 from mlib.common.namespace import Namespace
 
 
@@ -81,11 +81,11 @@ class Reference(Node):
             bool: ロード済みなら True。
         """
         ...
-    def getNodes(self) -> list[Node]:
+    def getNodes(self) -> Nodes:
         """このリファレンスがシーンへ読み込んだノードを取得する。
 
         Returns:
-            list[Node]: リファレンスの中のノードのオブジェクト。
+            Nodes: リファレンスの中のノードのオブジェクト。
 
         Raises:
             RuntimeError: リファレンスが今アンロードされている場合。
@@ -102,13 +102,13 @@ class Reference(Node):
                 このノードではMFnReference.parentReferenceが失敗するため。
         """
         ...
-    def getChildren(self) -> list[Reference]:
+    def getChildren(self) -> Nodes[Reference]:
         """子のリファレンスを取得する。
 
         自身を親に持つ、1段下の入れ子のリファレンスだけを返す。
 
         Returns:
-            list[Reference]: 子のリファレンス。無ければ空リスト。孫より下は含めない。
+            Nodes[Reference]: 子のリファレンス。無ければ空の集まり。孫より下は含めない。
         """
         ...
     def getRoot(self) -> Reference:
@@ -162,27 +162,27 @@ class Reference(Node):
             list[str]: Editの対象になったアトリビュートの短縮名。同じ名前が重なることがある。無ければ空リスト。
         """
         ...
-    def load(self) -> Reference:
+    def load(self) -> None:
         """リファレンスをロードする。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがロードを拒否した場合。
         """
         ...
-    def unload(self) -> Reference:
+    def unload(self) -> None:
         """リファレンスをアンロードする。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaがアンロードを拒否した場合。
         """
         ...
-    def removeEdits(self, successful: bool = ..., failed: bool = ..., editCommand: str | None = ...) -> Reference:
+    def removeEdits(self, successful: bool = ..., failed: bool = ..., editCommand: str | None = ...) -> None:
         """このリファレンスに対するEditを削除する。
 
         ``cmds.referenceEdit(removeEdits=True)`` で削除する。
@@ -197,7 +197,7 @@ class Reference(Node):
                 Noneならすべてのコマンドが対象。既定はNone。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: successful・failedがboolでない場合、またはeditCommandが文字列でもNoneでもない場合。
@@ -205,7 +205,7 @@ class Reference(Node):
             RuntimeError: referenceノードが無効な場合、またはMayaが操作を拒否した場合。
         """
         ...
-    def replaceFile(self, path: str | os.PathLike) -> Reference:
+    def replaceFile(self, path: str | os.PathLike) -> None:
         """リファレンスするファイルを別のファイルに置き換えて読み込む。
 
         ``cmds.file(path, loadReference=ref)`` と同じ。名前空間とEditはそのまま残る。
@@ -215,7 +215,7 @@ class Reference(Node):
             path (str | os.PathLike): 新しいファイルのパス。
 
         Returns:
-            Reference: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: pathが文字列でもPathLikeでもない場合。
@@ -223,7 +223,7 @@ class Reference(Node):
             RuntimeError: referenceノードが無効な場合、ファイルが無い場合、またはMayaが読み込みを拒否した場合。
         """
         ...
-    def importContents(self, removeNamespace: bool = ...) -> list[Node]:
+    def importContents(self, removeNamespace: bool = ...) -> Nodes:
         """リファレンスの内容をシーンへ読み込み、リファレンスを解除する。
 
         ``cmds.file(importReference=True)`` で読み込む。呼び出した後、このreferenceノードはシーンから無くなる。
@@ -235,7 +235,7 @@ class Reference(Node):
                 名前がぶつかるノードには、:meth:`Namespace.remove` と同じく末尾に番号を付ける。既定はFalse。
 
         Returns:
-            list[Node]: 読み込んだノード。referenceノードは含まない。
+            Nodes: 読み込んだノード。referenceノードは含まない。
 
         Raises:
             TypeError: removeNamespaceがboolでない場合。

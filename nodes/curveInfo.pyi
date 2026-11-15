@@ -12,7 +12,7 @@ _GEOMETRY: dict
 
 class CurveInfo(Node):
     """カーブの長さ・CVの位置・ノット等を出力する。"""
-    def setInput(self, inputCurve: NurbsCurve | Transform | Plug | str | None = ...) -> CurveInfo:
+    def setInput(self, inputCurve: NurbsCurve | Transform | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -28,7 +28,7 @@ class CurveInfo(Node):
                 シェイプを1つだけ持つTransformを渡してもよい。
 
         Returns:
-            CurveInfo: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

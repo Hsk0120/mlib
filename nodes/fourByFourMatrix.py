@@ -21,7 +21,7 @@ class FourByFourMatrix(Node):
                 matrixを書き込んだ後に反映する。
 
         Returns:
-            FourByFourMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: elementsに ``in00``〜``in33`` 以外の名前がある場合、または接続元の型が不正な場合。
@@ -38,7 +38,7 @@ class FourByFourMatrix(Node):
                 raise ValueError(f"matrixは16個の値で指定してください: {len(numbers)}個")
             values.update(zip(_ELEMENTS, numbers))
         values.update(elements)
-        return _calculation.set_inputs(self, "setInput", values)
+        _calculation.set_inputs(self, "setInput", values)
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

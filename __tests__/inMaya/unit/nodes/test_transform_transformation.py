@@ -78,7 +78,7 @@ class TransformationTest(NamespaceCase):
                     before = self.state(target, kind)
                     node = Node(target)
                     self.flushUndo()
-                    self.assertIs(node.setTransformation(Node(source).getTransformation(), fast=fast), node)
+                    self.assertIsNone(node.setTransformation(Node(source).getTransformation(), fast=fast))
                     self.assertSequenceAlmostEqual(self.state(target, kind), self.state(source, kind), places=6)
                     self.assertSequenceAlmostEqual(cmds.getAttr(target + ".matrix"), cmds.getAttr(source + ".matrix"), places=6)
                     if fast:

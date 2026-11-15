@@ -5,24 +5,24 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object
 from ..decorator import undoChunk
-from .node import Node
+from .node import Node, Nodes
 
 
 
 class DisplayLayer(Node):
     """MayaのdisplayLayerを扱うクラス。メンバーの管理と、カレントレイヤーの切り替えができる。"""
-    def getMembers(self) -> list[Node]:
+    def getMembers(self) -> Nodes:
         """レイヤーのメンバーを取得する。
 
         Returns:
-            list[Node]: メンバーのオブジェクト。メンバーが無ければ空リスト。
+            Nodes: メンバーのオブジェクト。メンバーが無ければ空の集まり。
 
         Note:
             Maya 2024以降はMFnDisplayLayerを使う。2022/2023にはこのAPIが無いので、defaultLayerでは
             標準コマンドを使い、カメラを除くなどのMayaの決まりをそのまま守る。
         """
         ...
-    def addMembers(self, *members: Node | str) -> DisplayLayer:
+    def addMembers(self, *members: Node | str) -> None:
         """メンバーをこのレイヤーへ移す。
 
         子の階層もまとめて移す。ノードが入れるレイヤーは1つだけなので、元のレイヤーからは外れる。
@@ -32,10 +32,10 @@ class DisplayLayer(Node):
             members (Node | str): 追加するDAGノード。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         ...
-    def removeMembers(self, *members: Node | str) -> DisplayLayer:
+    def removeMembers(self, *members: Node | str) -> None:
         """ノードをdefaultLayerへ移して、レイヤーから外す。
 
         子の階層もまとめて移す。
@@ -44,15 +44,15 @@ class DisplayLayer(Node):
             members (Node | str): 外すDAGノード。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         ...
-    def setCurrent(self) -> DisplayLayer:
+    def setCurrent(self) -> None:
         """このレイヤーをカレントレイヤーにする。
 
         以後に新しく作ったノードは、このレイヤーへ入る。
 
         Returns:
-            DisplayLayer: 自身。
+            None: 値を返さない。
         """
         ...

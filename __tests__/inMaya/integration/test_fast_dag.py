@@ -64,13 +64,17 @@ class ConsolidatedDagTests(unittest.TestCase):
     def test_pivot_fast_matches_cmds_and_read_is_api_only(self):
         """非一様スケールと親を含むピボット設定を通常経路と比較する。"""
         parent = mlib.createNode("transform", name="pivotParent")
-        parent.setTranslation((2, 3, 4)).setRotate((0.2, 0.3, 0.4)).setScale((1.5, 2, 3))
+        parent.setTranslation((2, 3, 4))
+        parent.setRotate((0.2, 0.3, 0.4))
+        parent.setScale((1.5, 2, 3))
         for world in (False, True):
             for kind in ("rotate", "scale", "both"):
                 for preserve in (False, True):
                     nodes = [mlib.createNode("transform", parent=parent) for _ in range(2)]
                     for node in nodes:
-                        node.setTranslation((1, 2, 3)).setRotate((0.3, 0.1, 0.5)).setScale((2, 3, 4))
+                        node.setTranslation((1, 2, 3))
+                        node.setRotate((0.3, 0.1, 0.5))
+                        node.setScale((2, 3, 4))
                     nodes[0].setPivot((4, 5, 6), worldSpace=world, kind=kind, preserve=preserve)
                     cmds.flushUndo()
                     with mock.patch.object(cmds, "xform", side_effect=AssertionError("cmds xform used")):
@@ -98,15 +102,20 @@ class ConsolidatedDagTests(unittest.TestCase):
         """高速再親付けで非一様スケール・回転・ピボットを含む姿勢を保つ。"""
         old = mlib.createNode("transform", name="oldParent")
         new = mlib.createNode("transform", name="newParent")
-        old.setTranslation((1, 2, 3)).setRotate((0.3, 0.1, 0.7)).setScale((2, 3, 4))
-        new.setTranslation((-4, 5, 2)).setRotate((0.1, 0.6, 0.2)).setScale((3, 2, 1))
+        old.setTranslation((1, 2, 3))
+        old.setRotate((0.3, 0.1, 0.7))
+        old.setScale((2, 3, 4))
+        new.setTranslation((-4, 5, 2))
+        new.setRotate((0.1, 0.6, 0.2))
+        new.setScale((3, 2, 1))
         node = mlib.createNode("transform", name="reparentChild", parent=old)
-        node.setTranslation((3, 1, 2)).setRotate((0.4, 0.2, 0.1))
+        node.setTranslation((3, 1, 2))
+        node.setRotate((0.4, 0.2, 0.1))
         node.setPivot((1, 2, 1), kind="both")
         initial = node.getMatrix(worldSpace=True)
         cmds.flushUndo()
         with mock.patch.object(cmds, "parent", side_effect=AssertionError("cmds parent used")):
-            self.assertIs(node.setParent(new, fast=True), node)
+            self.assertIsNone(node.setParent(new, fast=True))
             self.assertEqual(node.getParent(), new)
             self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(initial, 1e-8))
             node.setParent(None, fast=True)
@@ -131,13 +140,16 @@ class ConsolidatedDagTests(unittest.TestCase):
     def test_center_pivot_fast_matches_standard(self):
         """非対称形状のバウンディング中心を通常経路と比較する。"""
         parent = mlib.createNode("transform")
-        parent.setTranslation((3, 4, 5)).setRotate((0.2, 0.5, 0.7))
+        parent.setTranslation((3, 4, 5))
+        parent.setRotate((0.2, 0.5, 0.7))
         first = mlib.getNode(cmds.polyCube(constructionHistory=False)[0])
         cmds.move(5, 2, 8, first.getFullName() + ".vtx[0]", relative=True)
         second = mlib.getNode(cmds.duplicate(first.getFullName())[0])
         for node in (first, second):
             node.setParent(parent, relative=True)
-            node.setTranslation((1, 2, 3)).setRotate((0.3, 0.2, 0.4)).setScale((2, 3, 4))
+            node.setTranslation((1, 2, 3))
+            node.setRotate((0.3, 0.2, 0.4))
+            node.setScale((2, 3, 4))
         first.centerPivot()
         cmds.flushUndo()
         with mock.patch.object(cmds, "xform", side_effect=AssertionError("cmds xform used")):
@@ -170,7 +182,7 @@ class ConsolidatedDagTests(unittest.TestCase):
         history = mlib.createNode("polyCube")
         history.getPlug("output").connectTo(shape.getPlug("inMesh"))
         cmds.flushUndo()
-        self.assertIs(target.deleteUnusedIntermediateShapes(fast=True), target)
+        self.assertIsNone(target.deleteUnusedIntermediateShapes(fast=True))
         self.assertFalse(shape.isValid())
         self.assertTrue(target.isValid())
         self.assertTrue(history.isValid())
@@ -204,7 +216,7 @@ class ConsolidatedDagTests(unittest.TestCase):
             world = cmds.getAttr(child + ".worldMatrix")
             cmds.flushUndo()
             node = mlib.getNode(child)
-            self.assertIs(node.setParent(mlib.getNode(new), fast=fast), node)
+            self.assertIsNone(node.setParent(mlib.getNode(new), fast=fast))
             path = node.getFullName()
             self.assertEqual(cmds.listRelatives(path, parent=True), ["newParent"])
             for actual, expected in zip(cmds.getAttr(path + ".worldMatrix"), world):

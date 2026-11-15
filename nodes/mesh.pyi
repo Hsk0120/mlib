@@ -21,6 +21,7 @@ from typing import Any, Iterable, Sequence
 from mlib.components.component import Component
 from mlib.components.component import Components
 from mlib.nodes.node import Node
+from mlib.nodes.node import Nodes
 from mlib.nodes.shadingEngine import ShadingEngine
 
 _NO_DISTANCE_LIMIT: float
@@ -31,7 +32,7 @@ _UNSET_COLOR: Any
 
 class Mesh(Shape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
-    def reorderVertices(self, reference: Mesh | Node | str, uvSet: str = ..., tolerance: float = ..., *, fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> Mesh:
+    def reorderVertices(self, reference: Mesh | Node | str, uvSet: str = ..., tolerance: float = ..., *, fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
         """頂点番号の並びを、基準のメッシュに合わせる。
 
         UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
@@ -52,7 +53,7 @@ class Mesh(Shape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Mesh: 自身。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
+            None: 値を返さない。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
 
         Raises:
             TypeError: 入力の型やfast・worldSpaceが不正な場合、またはworldSpaceとwsを同時に指定した場合。
@@ -99,13 +100,13 @@ class Mesh(Shape):
             IndexError: 頂点がそのフェースに含まれない場合、または番号が範囲外の場合。
         """
         ...
-    def getShadingEngines(self) -> list[ShadingEngine]:
+    def getShadingEngines(self) -> Nodes[ShadingEngine]:
         """フェースに割り当てられているShadingEngineを取得する。
 
         このオブジェクトが持つDAGパス(インスタンス)での割り当てを調べる。
 
         Returns:
-            list[ShadingEngine]: 使われているShadingEngine。何も割り当てられていないフェースの分は含まない。
+            Nodes[ShadingEngine]: 使われているShadingEngine。何も割り当てられていないフェースの分は含まない。
         """
         ...
     def getFaceShadingEngines(self) -> list[ShadingEngine | None]:
@@ -167,7 +168,7 @@ class Mesh(Shape):
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPoints(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Mesh:
+    def setPoints(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """全頂点の位置をまとめて書き込み、自身を返す。
 
         :meth:`getPoints` と同じ並び・単位(内部単位のcm)の点の並びを受け取る。
@@ -187,7 +188,7 @@ class Mesh(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
@@ -202,7 +203,7 @@ class Mesh(Shape):
             ``fast=True`` は全頂点をまとめて書くので、頂点数が多いほど差が大きくなる。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Mesh:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """頂点の座標を、pivotを中心に反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -230,7 +231,7 @@ class Mesh(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
@@ -574,7 +575,7 @@ class Mesh(Shape):
             ValueError: 指定した名前のカラーセットが無い場合。
         """
         ...
-    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], vertices: Component | Components | Iterable[int] | None = ..., *, colorSet: str | None = ..., fast: bool = ...) -> Mesh:
+    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], vertices: Component | Components | Iterable[int] | None = ..., *, colorSet: str | None = ..., fast: bool = ...) -> None:
         """頂点ごとの色を設定し、自身を返す。
 
         頂点のすべての面頂点を同じ色にする。
@@ -593,7 +594,7 @@ class Mesh(Shape):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合、colorSetが文字列・None以外の場合、または色や頂点の型が不正な場合。
@@ -621,7 +622,7 @@ class Mesh(Shape):
             str: 今のUVセットの名前。
         """
         ...
-    def setCurrentUVSet(self, name: str) -> Mesh:
+    def setCurrentUVSet(self, name: str) -> None:
         """今のUVセットを切り替え、自身を返す。
 
         ``cmds.polyUVSet(currentUVSet=True)`` で設定する。1回のUndoで戻せる。
@@ -630,14 +631,14 @@ class Mesh(Shape):
             name (str): すでにあるUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
             ValueError: nameが空、またはそのUVセットが無い場合。
         """
         ...
-    def createUVSet(self, name: str) -> Mesh:
+    def createUVSet(self, name: str) -> None:
         """空のUVセットを作り、自身を返す。
 
         ``cmds.polyUVSet(create=True)`` で作る。1回のUndoで戻せる。現在のUVセットは変えない。
@@ -647,14 +648,14 @@ class Mesh(Shape):
             name (str): 新しいUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
             ValueError: nameが空、または同じ名前のUVセットがすでにある場合。
         """
         ...
-    def copyUVSet(self, source: str, target: str) -> Mesh:
+    def copyUVSet(self, source: str, target: str) -> None:
         """UVセットを新しい名前へ複製し、自身を返す。
 
         ``cmds.polyUVSet(copy=True)`` で複製する。1回のUndoで戻せる。現在のUVセットは変えない。
@@ -664,14 +665,14 @@ class Mesh(Shape):
             target (str): 新しいUVセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
             ValueError: 名前が空、sourceが無い、またはtargetがすでにある場合。
         """
         ...
-    def renameUVSet(self, name: str, newName: str) -> Mesh:
+    def renameUVSet(self, name: str, newName: str) -> None:
         """UVセットの名前を変え、自身を返す。
 
         ``cmds.polyUVSet(rename=True)`` で変える。1回のUndoで戻せる。現在のUVセットの名前を変えた場合は、
@@ -682,14 +683,14 @@ class Mesh(Shape):
             newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
             ValueError: 名前が空、nameが無い、またはnewNameがすでにある場合。
         """
         ...
-    def deleteUVSet(self, name: str) -> Mesh:
+    def deleteUVSet(self, name: str) -> None:
         """UVセットを削除し、自身を返す。
 
         ``cmds.polyUVSet(delete=True)`` で削除する。1回のUndoで戻せる。現在のUVセットを削除すると、
@@ -699,7 +700,7 @@ class Mesh(Shape):
             name (str): すでにあるUVセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
@@ -721,7 +722,7 @@ class Mesh(Shape):
             str | None: 今のカラーセットの名前。カラーセットが無ければNone。
         """
         ...
-    def setCurrentColorSet(self, name: str) -> Mesh:
+    def setCurrentColorSet(self, name: str) -> None:
         """今のカラーセットを切り替え、自身を返す。
 
         ``cmds.polyColorSet(currentColorSet=True)`` で設定する。1回のUndoで戻せる。
@@ -730,14 +731,14 @@ class Mesh(Shape):
             name (str): すでにあるカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
             ValueError: nameが空、またはそのカラーセットが無い場合。
         """
         ...
-    def createColorSet(self, name: str) -> Mesh:
+    def createColorSet(self, name: str) -> None:
         """空のRGBAのカラーセットを作り、自身を返す。
 
         ``cmds.polyColorSet(create=True)`` で作る。1回のUndoで戻せる。:meth:`createUVSet` と違い、
@@ -748,14 +749,14 @@ class Mesh(Shape):
             name (str): 新しいカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。
             ValueError: nameが空、または同じ名前のカラーセットがすでにある場合。
         """
         ...
-    def copyColorSet(self, source: str, target: str) -> Mesh:
+    def copyColorSet(self, source: str, target: str) -> None:
         """カラーセットを新しい名前へ複製し、自身を返す。
 
         ``cmds.polyColorSet(copy=True)`` で複製する。1回のUndoで戻せる。現在のカラーセットは変えない。
@@ -765,14 +766,14 @@ class Mesh(Shape):
             target (str): 新しいカラーセットの名前。すでにある名前は不可(上書きしない)。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: source・targetが文字列以外の場合。
             ValueError: 名前が空、sourceが無い、またはtargetがすでにある場合。
         """
         ...
-    def renameColorSet(self, name: str, newName: str) -> Mesh:
+    def renameColorSet(self, name: str, newName: str) -> None:
         """カラーセットの名前を変え、自身を返す。
 
         ``cmds.polyColorSet(rename=True)`` で変える。1回のUndoで戻せる。現在のカラーセットの名前を変えた場合は、
@@ -783,14 +784,14 @@ class Mesh(Shape):
             newName (str): 新しい名前。すでにある名前は不可。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: name・newNameが文字列以外の場合。
             ValueError: 名前が空、nameが無い、またはnewNameがすでにある場合。
         """
         ...
-    def deleteColorSet(self, name: str) -> Mesh:
+    def deleteColorSet(self, name: str) -> None:
         """カラーセットを削除し、自身を返す。
 
         ``cmds.polyColorSet(delete=True)`` で削除する。1回のUndoで戻せる。現在のカラーセットを削除すると、
@@ -800,7 +801,7 @@ class Mesh(Shape):
             name (str): すでにあるカラーセットの名前。
 
         Returns:
-            Mesh: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: nameが文字列以外の場合。

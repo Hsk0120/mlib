@@ -42,13 +42,13 @@ class AimMatrix(Node):
             secondaryTargetVector (Iterable[float] | Plug | str | None): 副軸のターゲットのベクトル。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(
+        _calculation.set_inputs(
             self,
             "setInput",
             {
@@ -79,14 +79,14 @@ class AimMatrix(Node):
             mode (str | int): ``"lockAxis"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: modeが文字列・int以外の場合。
             ValueError: 対応していない名前の場合、または番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setPrimaryMode", "primaryMode", mode, _PRIMARY_MODES, "mode")
+        _calculation.set_enum(self, "setPrimaryMode", "primaryMode", mode, _PRIMARY_MODES, "mode")
 
     def getSecondaryMode(self):
         """副軸の向け方を名前で取得する(``secondaryMode``)。
@@ -105,14 +105,14 @@ class AimMatrix(Node):
             mode (str | int): ``"none"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
 
         Returns:
-            AimMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: modeが文字列・int以外の場合。
             ValueError: 対応していない名前の場合、または番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setSecondaryMode", "secondaryMode", mode, _SECONDARY_MODES, "mode")
+        _calculation.set_enum(self, "setSecondaryMode", "secondaryMode", mode, _SECONDARY_MODES, "mode")
 
     def getResult(self):
         """出力 ``outputMatrix`` の現在の値を取得する。

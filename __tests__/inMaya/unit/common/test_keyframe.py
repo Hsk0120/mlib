@@ -79,13 +79,14 @@ class KeyMethodsTest(_SpecCase):
         with self.assertRaises(ValueError):
             node.getPlug("tx").removeKey(time=(5, 1))
         curve = mlib.getNode(cmds.listConnections(name + ".tz", source=True)[0])
-        curve.setKey(30, 1).setKey(40, 2)
+        curve.setKey(30, 1)
+        curve.setKey(40, 2)
         curve.removeKey(time=(25, 35), fast=True)
         self.assertEqual(curve.getKeyInputs(), [10.0, 40.0])
         curve.removeKey(time=(0.0, 1.0), timeUnit="sec")
         self.assertEqual(curve.getKeyInputs(), [40.0])
         with self.assertRaises(TypeError):
-            curve.removeKey(0, time=40)
+            curve.removeKey(index=0, time=40)
         with self.assertRaises(TypeError):
             curve.removeKey()
 
@@ -215,7 +216,8 @@ class KeyframeReferenceTest(_KeyCase):
     def test_driven_key_curve(self):
         """入力が時間でないカーブ(ドリブンキー)でも、時刻は入力値を指す。"""
         driven = mlib.createNode("animCurveUL", name=self.name("driven"))
-        driven.setKey(0.25, 1.0).setKey(0.75, 3.0)
+        driven.setKey(0.25, 1.0)
+        driven.setKey(0.75, 3.0)
         key = driven.getKeyframe(1)
         self.assertEqual(key.getTime(), 0.75)
         key.move(timeOffset=0.1)

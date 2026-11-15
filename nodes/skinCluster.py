@@ -180,7 +180,7 @@ class SkinCluster(GeometryFilter):
             normalize (bool): Trueなら、写した後に各頂点を正規化する(copySkinWeightsのnormalize)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 引数の型が正しくない場合。
@@ -212,7 +212,6 @@ class SkinCluster(GeometryFilter):
             influenceAssociation=influence_association,
             normalize=normalize,
         )
-        return self
 
     def pruneWeights(self, threshold, normalize=True, *, fast=False, check=False):
         """先頭のMeshの各頂点で、しきい値より小さなウェイトを0にする。
@@ -238,7 +237,7 @@ class SkinCluster(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: thresholdが数値でない場合、またはnormalize・fastがboolでない場合。
@@ -285,7 +284,6 @@ class SkinCluster(GeometryFilter):
                     self._set_weight_values_fast(values, len(columns), edited_vertices, logical, check)
                 else:
                     self._set_weight_values_cmds(values, len(columns), edited_vertices, logical)
-            return self
 
     def getInfluences(self):
         """登録されているインフルエンスを取得する。
@@ -293,12 +291,12 @@ class SkinCluster(GeometryFilter):
         並びはAPIのinfluenceObjects()の順(物理的な順番)になる。
 
         Returns:
-            list[Node]: influenceObjects()のDAGパスから作った新しいオブジェクトのリスト。
+            Nodes: influenceObjects()のDAGパスから作った新しいオブジェクト。
                 登録されている型に応じて、Joint以外も返す。リストの中の位置は、weights[]の論理番号と同じとは限らない。
                 ノードを複製することはない。
         """
         # influenceObjects()が返したばかりの有効なパスなので、入力の再解決を省いてラッパーにする。
-        return [Node._wrap_dag_path(path) for path in self._skin_fn.influenceObjects()]
+        return Nodes._wrap([Node._wrap_dag_path(path) for path in self._skin_fn.influenceObjects()])
 
     @undoChunk("mlibSkinClusterAddInfluences")
     def addInfluences(self, joints):
@@ -310,7 +308,7 @@ class SkinCluster(GeometryFilter):
             joints (Joint | str | Iterable[Joint | str]): 追加するジョイント。空なら何もしない。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: Joint以外を指定した場合。編集する前に、すべての対象を確かめる。
@@ -331,9 +329,8 @@ class SkinCluster(GeometryFilter):
                 names.append(node.getFullName())
         if names:
             cmds.skinCluster(self.getFullName(), edit=True, addInfluence=names, weight=0.0)
-        return self
 
-    def removeInfluences(self, joints, transferToParent=True, *, force=False):
+    def removeInfluences(self, joints, *, transferToParent=True, force=False):
         """複数のインフルエンスを、階層の深いものから順に外す。ノードそのものは削除しない。
 
         親子のjointを一緒に渡しても、深いjointから :meth:`removeInfluence` と同じ処理で外す。
@@ -353,7 +350,7 @@ class SkinCluster(GeometryFilter):
             force (bool): Trueなら、正しくないウェイトを直してから処理する。直すときに正規化はしない。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: transferToParent・forceがboolでない場合、またはインフルエンスの入力の型が正しくない場合。
@@ -379,7 +376,6 @@ class SkinCluster(GeometryFilter):
             with _unlocked_influences([self]):
                 plans, snapshot = self._influence_removal_plans(targets, transferToParent, force=force)
                 self._apply_influence_removals(plans, snapshot, force=force)
-            return self
 
     def getBindPose(self):
         """bindPoseアトリビュートに接続している、保存したポーズを取得する。
@@ -404,7 +400,7 @@ class SkinCluster(GeometryFilter):
         ``cmds.dagPose`` の保存の規則をom2で再現しないため、fast引数は持たない。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: インフルエンスが空の場合、またはポーズに入っていない場合。
@@ -415,7 +411,6 @@ class SkinCluster(GeometryFilter):
             if pose is None:
                 raise RuntimeError(f"{self.getFullName()}にバインドポーズが接続されていません")
             pose.reset(self.getInfluences())
-            return self
 
     def restoreBindPose(self, worldSpace=_UNSET, *, ws=_UNSET):
         """接続しているポーズのすべてのメンバーを、保存した姿勢へ戻す。
@@ -428,7 +423,7 @@ class SkinCluster(GeometryFilter):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
@@ -441,7 +436,6 @@ class SkinCluster(GeometryFilter):
             if pose is None:
                 raise RuntimeError(f"{self.getFullName()}にバインドポーズが接続されていません")
             pose.restore(worldSpace=ws)
-            return self
 
     def recacheBindMatrices(self):
         """バインド時のマトリクスを読み直させる。
@@ -452,7 +446,7 @@ class SkinCluster(GeometryFilter):
         OpenMayaに同じ機能が無いため、fast引数は持たない。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効(削除済み)な場合、またはMayaが処理を拒否した場合。
@@ -460,7 +454,6 @@ class SkinCluster(GeometryFilter):
         self._require_valid("バインドマトリクスの再キャッシュ")
         with undoChunk("mlibSkinClusterRecacheBindMatrices"):
             cmds.skinCluster(self.getFullName(), edit=True, recacheBindMatrices=True)
-            return self
 
     def unbind(self, keepHistory=False):
         """形状からスキンを外す。
@@ -495,7 +488,7 @@ class SkinCluster(GeometryFilter):
         """ウェイトを持たないインフルエンスを探す。シーンは変えない。
 
         Returns:
-            list[Node]: インフルエンスの順に並べたノードのオブジェクト。ごく小さな値でも使っているものとして扱い、
+            Nodes: インフルエンスの順に並べたノードのオブジェクト。ごく小さな値でも使っているものとして扱い、
                 しきい値で切り捨てることはしない。すべてのジオメトリについてMFnSkinClusterで判定する。
 
         Raises:
@@ -507,7 +500,7 @@ class SkinCluster(GeometryFilter):
             selection, _ = self._skin_fn.getPointsAffectedByInfluence(path)
             if not selection.length():
                 result.append(Node._wrap_dag_path(path))
-        return result
+        return Nodes._wrap(result)
 
     def removeUnusedInfluences(self, *, force=False):
         """使っていないインフルエンスの登録を外す。ノードそのものは残す。
@@ -520,7 +513,7 @@ class SkinCluster(GeometryFilter):
             force (bool): Trueなら、ウェイトを直してから使っていないものを調べる。正規化やロックの解除はしない。
 
         Returns:
-            list[Node]: 登録を外したノード。インフルエンスの順に並ぶ。対象が無ければ空リスト。
+            Nodes: 登録を外したノード。インフルエンスの順に並ぶ。対象が無ければ空の集まり。
 
         Raises:
             TypeError: forceがboolでない場合。
@@ -539,7 +532,7 @@ class SkinCluster(GeometryFilter):
                 raise ValueError("skinClusterからすべてのインフルエンスを削除することはできません")
             for node in unused:
                 self.removeInfluence(node.getFullName(), transferToParent=False)
-            return unused
+            return Nodes._wrap(unused)
 
     def removeInvalidWeights(self, *, fast=False):
         """正しくないウェイトの要素を取り除く。
@@ -555,7 +548,7 @@ class SkinCluster(GeometryFilter):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            SkinCluster: 自身。正しくない要素が無ければ何もしない。
+            None: 値を返さない。正しくない要素が無ければ何もしない。
 
         Raises:
             TypeError: fastがboolでない場合。
@@ -566,7 +559,6 @@ class SkinCluster(GeometryFilter):
         """
         with _edit_context("mlibSkinClusterRemoveInvalidWeights", fast):
             self._remove_weight_elements(self._weight_cleanup_plan()[0], fast=fast)
-            return self
 
     def hasInfluence(self, joint):
         """指定したjointがインフルエンスに含まれるかを判定する。
@@ -632,9 +624,9 @@ class SkinCluster(GeometryFilter):
         """ウェイトをロック(lockInfluenceWeights)しているインフルエンスを取得する。
 
         Returns:
-            list[Node]: ロックしているインフルエンス。並びと型は :meth:`getInfluences` と同じ。
+            Nodes: ロックしているインフルエンス。並びと型は :meth:`getInfluences` と同じ。
         """
-        return [node for node in self.getInfluences() if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()]
+        return Nodes._wrap([node for node in self.getInfluences() if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()])
 
     def setInfluencesLocked(self, joints, state=True):
         """インフルエンスのウェイトのロック(lockInfluenceWeights)を設定する。
@@ -647,7 +639,7 @@ class SkinCluster(GeometryFilter):
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがboolでない場合、またはインフルエンスの入力の型が正しくない場合。
@@ -659,7 +651,6 @@ class SkinCluster(GeometryFilter):
             paths = self._skin_fn.influenceObjects()
             for index in self._require_influences(joints):
                 Node._wrap_dag_path(paths[index]).getPlug("lockInfluenceWeights").set(state)
-            return self
 
     @contextmanager
     def unlockedInfluences(self, joints=None):
@@ -806,7 +797,7 @@ class SkinCluster(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 数値に変換できない型の場合、頂点やインフルエンスの入力の型が正しくない場合、
@@ -845,7 +836,6 @@ class SkinCluster(GeometryFilter):
                 self._set_weight_values_fast(values, width, vertex_indices, logical_indices, check)
             else:
                 self._set_weight_values_cmds(values, width, vertex_indices, logical_indices)
-            return self
 
     def getVertexWeights(self, vertex, *, nonzero=False):
         """先頭のMeshの1つの頂点について、すべてのインフルエンスのウェイトを辞書で取得する。
@@ -870,7 +860,7 @@ class SkinCluster(GeometryFilter):
         row = self._read_rows([index], range(len(paths)))[0]
         return {Node._wrap_dag_path(path): value for path, value in zip(paths, row) if not nonzero or value != 0.0}
 
-    def setVertexWeights(self, vertex, weights, normalize=True, *, fast=False):
+    def setVertexWeights(self, vertex, weights, normalize=True, *, fast=False, check=False):
         """先頭のMeshの1つの頂点に、インフルエンスごとのウェイトを設定する。
 
         ``setWeights(list(weights), list(weights.values()), vertices=[vertex], normalize=normalize)`` と同じ。
@@ -885,9 +875,11 @@ class SkinCluster(GeometryFilter):
                 キーは名前かNodeのどちらかに揃える(:meth:`getVertexWeights` の戻り値のキーはNode)。
             normalize (bool): Trueなら、書き込んだ頂点を合計1へ正規化する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: weightsが辞書でない場合、頂点や値の型が正しくない場合、またはboolの引数がboolでない場合。
@@ -902,8 +894,7 @@ class SkinCluster(GeometryFilter):
             if not weights:
                 raise ValueError("weightsにはインフルエンスを1つ以上指定してください")
             index = self._single_vertex_index(vertex)
-            self.setWeights(list(weights.keys()), list(weights.values()), vertices=[index], normalize=normalize, fast=fast)
-            return self
+            self.setWeights(list(weights.keys()), list(weights.values()), vertices=[index], normalize=normalize, fast=fast, check=check)
 
     def getBlendWeights(self, *, vertices=None):
         """先頭のMeshの、頂点ごとのDQブレンドウェイト(``blendWeights``)を取得する。
@@ -955,7 +946,7 @@ class SkinCluster(GeometryFilter):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: weightsが数値の並びでない場合、頂点の入力の型が正しくない場合、またはfastがboolでない場合。
@@ -984,7 +975,7 @@ class SkinCluster(GeometryFilter):
                 if not (math.isfinite(value) and 0.0 <= value <= 1.0):
                     raise ValueError(f"ブレンドウェイトは0〜1の有限な値で指定してください: {value}")
             if not vertex_indices:
-                return self
+                return
             if fast:
                 array = self._dependency_fn().findPlug("blendWeights", False)
                 if check:
@@ -996,11 +987,10 @@ class SkinCluster(GeometryFilter):
                 component = component_fn.create(om2.MFn.kMeshVertComponent)
                 component_fn.addElements([index for index, _ in pairs])
                 self._skin_fn.setBlendWeights(self.mesh_path, component, om2.MDoubleArray([float(value) for _, value in pairs]))
-                return self
+                return
             name = self.getFullName()
             for start, first, count in self._consecutive_runs(vertex_indices):
                 set_attr(f"{name}.blendWeights[{first}:{first + count - 1}]", *(float(value) for value in values[start : start + count]))
-            return self
 
     def getWeightsData(self):
         """すべての頂点のウェイトとスキニングの設定を、``mlib.skinWeights`` 形式の辞書で取得する。
@@ -1380,7 +1370,7 @@ class SkinCluster(GeometryFilter):
                     for source_joint, target_joint in pairs:
                         self._transfer_pair(source_joint, target_joint)
 
-    def removeInfluence(self, joint, transferToParent=True, *, force=False):
+    def removeInfluence(self, joint, *, transferToParent=True, force=False):
         """ウェイトを祖先のインフルエンスへ足してから、登録を外す。ノードそのものは削除しない。
 
         ウェイトの移し先は、同じskinClusterの中で最も近い祖先のインフルエンス。
@@ -1432,7 +1422,7 @@ class SkinCluster(GeometryFilter):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            SkinCluster: 自身。インフルエンスの登録数とnormalizeWeightsの設定は変えない。
+            None: 値を返さない。インフルエンスの登録数とnormalizeWeightsの設定は変えない。
 
         Raises:
             TypeError: fastがboolでない場合。
@@ -1447,7 +1437,6 @@ class SkinCluster(GeometryFilter):
         with _edit_context("mlibSkinClusterNormalizeWeights", fast):
             names, values = self._normalized_weights(decimals)
             self.setWeights(names, values, fast=fast)
-            return self
 
     def getMaxInfluences(self):
         """maxInfluencesの設定値を取得する。
@@ -1475,7 +1464,7 @@ class SkinCluster(GeometryFilter):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            SkinCluster: 自身。通常の書き込みは、Undoが有効なら同じチャンクに記録する。
+            None: 値を返さない。通常の書き込みは、Undoが有効なら同じチャンクに記録する。
 
         Raises:
             TypeError: maintain・prune・fastがboolでない場合。
@@ -1502,7 +1491,6 @@ class SkinCluster(GeometryFilter):
             settings[1].set(maintain, fast=fast)
             if computed:
                 self.setWeights(*computed, fast=fast)
-            return self
 
     def isMaintainingMaxInfluences(self):
         """ペイントなどの編集で、最大インフルエンス数を保つ設定(maintainMaxInfluences)かを判定する。
@@ -1529,7 +1517,7 @@ class SkinCluster(GeometryFilter):
             method (str): ``"classicLinear"``・``"dualQuaternion"``・``"weightBlended"`` のどれか。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: methodが文字列でない場合。
@@ -1539,7 +1527,6 @@ class SkinCluster(GeometryFilter):
         with undoChunk("mlibSkinClusterSetSkinningMethod"):
             self._require_choice(method, "method", self._SKINNING_METHODS)
             self.getPlug("skinningMethod").set(self._SKINNING_METHODS.index(method))
-            return self
 
     def getNormalizeMode(self):
         """ウェイトの正規化の方法(normalizeWeights)を取得する。
@@ -1559,7 +1546,7 @@ class SkinCluster(GeometryFilter):
             mode (str): ``"none"``・``"interactive"``・``"post"`` のどれか。
 
         Returns:
-            SkinCluster: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: modeが文字列でない場合。
@@ -1569,7 +1556,6 @@ class SkinCluster(GeometryFilter):
         with undoChunk("mlibSkinClusterSetNormalizeMode"):
             self._require_choice(mode, "mode", self._NORMALIZE_MODES)
             self.getPlug("normalizeWeights").set(self._NORMALIZE_MODES.index(mode))
-            return self
 
     def _prepare_weights_data(self, data, mapping, method):
         """:meth:`setWeightsData` の検査を行い、適用に使う値を返す。シーンは変更しない。
@@ -2882,6 +2868,7 @@ class SkinCluster(GeometryFilter):
         if len(self.getInfluences()) <= 1:
             raise ValueError("最後のインフルエンスは削除できません")
         target = source.getTransferTarget(self) if transfer_to_parent and isinstance(source, Joint) else None
+        target = target.getName() if target is not None else None
         if force:
             if target is not None:
                 # 既存の祖先移送は先頭mesh専用。未対応形状の拒否を修復より前に行う。

@@ -15,7 +15,7 @@ class MultDoubleLinear(Node):
     このクラスで扱う。``getType()`` は、その版での実際の型名を返す。
     ``MultDL`` は同じクラスの別名。
     """
-    def setInput(self, input1: float | Plug | str | None = ..., input2: float | Plug | str | None = ...) -> MultDoubleLinear:
+    def setInput(self, input1: float | Plug | str | None = ..., input2: float | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -31,7 +31,7 @@ class MultDoubleLinear(Node):
             input2 (float | Plug | str | None): 2つ目の値。
 
         Returns:
-            MultDoubleLinear: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

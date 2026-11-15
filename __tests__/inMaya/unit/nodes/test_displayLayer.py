@@ -48,13 +48,13 @@ class DisplayLayerTest(unittest.TestCase):
 
     def test_add_members_and_members(self):
         result = self.layer.addMembers(self.a, self.b)
-        self.assertIs(result, self.layer)
+        self.assertIsNone(result)
         self.assertEqual({member.getName() for member in self.layer.getMembers()}, {self.a.getName(), self.b.getName()})
 
     def test_remove_members_moves_back_to_default_layer(self):
         self.layer.addMembers(self.a, self.b)
         result = self.layer.removeMembers(self.a)
-        self.assertIs(result, self.layer)
+        self.assertIsNone(result)
         self.assertEqual([member.getName() for member in self.layer.getMembers()], [self.b.getName()])
         self.assertIn(self.a.getName(), cmds.editDisplayLayerMembers("defaultLayer", query=True) or [])
 

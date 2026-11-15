@@ -210,11 +210,11 @@ class ShearTest(_SpecCase):
             self.assertSequenceAlmostEqual(cmds.getAttr(name + ".shear")[0], values)
 
         self.flushUndo()
-        self.assertIs(node.setShear(values), node)
+        self.assertIsNone(node.setShear(values))
         self.assertUndoesInOneStep(unchanged, changed)
 
         self.flushUndo()
-        self.assertIs(node.setShear(values, fast=True), node)
+        self.assertIsNone(node.setShear(values, fast=True))
         changed()
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         cmds.setAttr(name + ".shear", 0.0, 0.0, 0.0)
@@ -260,7 +260,7 @@ class ResetAttrsTest(_SpecCase):
         node = Node(name)
         self.flushUndo()
         plugs = node.resetAttrs()
-        self.assertIsInstance(plugs, list)
+        self.assertIsInstance(plugs, mlib.Plugs)
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
         self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE)
         self.assertValues(name, [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.1, 0.2, 0.3)])
@@ -340,7 +340,7 @@ class SetParentTest(_SpecCase):
             with self.subTest(flags=flags):
                 parent, child = self._pair()
                 node = Node(child)
-                self.assertIs(node.setParent(parent, **flags), node)
+                self.assertIsNone(node.setParent(parent, **flags))
                 self.assertEqual(cmds.listRelatives(str(node), parent=True, fullPath=True)[0], cmds.ls(parent, long=True)[0])
                 self.assertSequenceAlmostEqual(cmds.getAttr(str(node) + ".translate")[0], (1.0, 2.0, 3.0))
 
@@ -481,12 +481,12 @@ class TranslationTest(_SpecCaseTranslationMirrorErrors):
         self.assertEqual(self.node.setTranslation((20, 5, 0), worldSpace=True, get=True), [10.0, 4.0, 0.0])
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".translate")[0], (1, 2, 3))
         cmds.flushUndo()
-        self.assertIs(self.node.setTranslation((20, 5, 0), worldSpace=True), self.node)
+        self.assertIsNone(self.node.setTranslation((20, 5, 0), worldSpace=True))
         self.assertSequenceAlmostEqual(cmds.xform(self.name_, query=True, worldSpace=True, rotatePivot=True), (20, 5, 0))
         cmds.undo()
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".translate")[0], (1, 2, 3))
         cmds.flushUndo()
-        self.assertIs(self.node.setTranslation((4, 5, 6), at=1, fast=True), self.node)
+        self.assertIsNone(self.node.setTranslation((4, 5, 6), at=1, fast=True))
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".translate")[0], (4, 5, 6))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 

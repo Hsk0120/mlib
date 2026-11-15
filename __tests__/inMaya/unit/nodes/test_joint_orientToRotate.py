@@ -57,11 +57,11 @@ class JointOrientToRotateTest(unittest.TestCase):
                         before, child_before = self.matrix(node), self.matrix(child)
                         cmds.currentUnit(angle=unit)
                         wrapper = mlib.getNode(node)
-                        self.assertIs(wrapper.freezeRotate(), wrapper)
+                        self.assertIsNone(wrapper.freezeRotate())
                         self.assertEqual(cmds.getAttr(node + ".rotate")[0], (0, 0, 0))
                         self.assertMatrix(node, before)
                         self.assertMatrix(child, child_before)
-                        self.assertIs(wrapper.jointOrientToRotate(), wrapper)
+                        self.assertIsNone(wrapper.jointOrientToRotate())
                         self.assertEqual(cmds.getAttr(node + ".jointOrient")[0], (0, 0, 0))
                         self.assertEqual(cmds.getAttr(node + ".rotateOrder"), order)
                         self.assertMatrix(node, before)
@@ -74,7 +74,7 @@ class JointOrientToRotateTest(unittest.TestCase):
         before = [(cmds.getAttr(n + ".rotate"), cmds.getAttr(n + ".jointOrient"), self.matrix(n)) for n in nodes]
         for n in nodes:
             wrapper = mlib.getNode(n)
-            self.assertIs(wrapper.jointOrientToRotate(), wrapper)
+            self.assertIsNone(wrapper.jointOrientToRotate())
         for n, state in zip(nodes, before):
             self.assertMatrix(n, state[2])
         for _ in nodes:
@@ -152,7 +152,7 @@ class JointOrientToRotateTest(unittest.TestCase):
                     weights = [cmds.skinPercent(skin, mesh + f".vtx[{i}]", query=True, value=True) for i in range(8)]
                     for n in nodes:
                         target = mlib.getNode(n)
-                        self.assertIs(target.freezeRotate(), target)
+                        self.assertIsNone(target.freezeRotate())
 
                     def assert_skin_unchanged():
                         self.assertMatrix(root, matrices[0])

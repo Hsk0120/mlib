@@ -15,7 +15,7 @@ class InverseMatrix(Node):
     Mayaの ``matrixNodes`` プラグインのノード。作成する前にプラグインを読み込む
     (``mlib.Plugin("matrixNodes").load()`` または ``cmds.loadPlugin("matrixNodes")``)。
     """
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> InverseMatrix:
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -30,7 +30,7 @@ class InverseMatrix(Node):
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 元のマトリクス。
 
         Returns:
-            InverseMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

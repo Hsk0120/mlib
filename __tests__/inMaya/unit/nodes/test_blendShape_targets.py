@@ -88,7 +88,7 @@ class TargetSpecifierTest(_BlendCase):
 
     def test_remove_target_by_plug_undoes_in_one_step(self):
         self.flushUndo()
-        self.assertIs(self.bs.removeTarget(self.bs.getWeightPlug(0)), self.bs)
+        self.assertIsNone(self.bs.removeTarget(self.bs.getWeightPlug(0)))
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.bs.getTargetNames(), ["smile"]), lambda: self.assertEqual(self.bs.getTargetNames(), []))
 
 
@@ -97,7 +97,7 @@ class DeltaTest(_BlendCase):
         self.baked()
         before = self.raw_deltas()
         self.flushUndo()
-        self.assertIs(self.bs.setTargetDeltas("smile", {2: (1, 2, 3), 7: mlib.Vector(0, 0, 1)}), self.bs)
+        self.assertIsNone(self.bs.setTargetDeltas("smile", {2: (1, 2, 3), 7: mlib.Vector(0, 0, 1)}))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.raw_deltas(), before), lambda: self.assertEqual(self.raw_deltas(), {2: (1, 2, 3), 7: (0, 0, 1)})
         )
@@ -155,7 +155,7 @@ class DeltaTest(_BlendCase):
         with self.assertRaises(ValueError):
             self.bs.getTargetVertices(0, tolerance=-1)
         self.flushUndo()
-        self.assertIs(self.bs.resetTargetVertices(0, [self.bs.getBaseGeometry()[0].getVertex(3)]), self.bs)
+        self.assertIsNone(self.bs.resetTargetVertices(0, [self.bs.getBaseGeometry()[0].getVertex(3)]))
         self.assertUndoesInOneStep(lambda: self.assertIn(3, self.raw_deltas()), lambda: self.assertEqual(sorted(self.raw_deltas()), [1, 4, 8]))
         self.flushUndo()
         self.bs.reduceTargetDeltas(0, tolerance=0.01)
@@ -179,7 +179,7 @@ class TargetWeightsTest(_BlendCase):
         self.assertEqual(self.bs.getTargetWeights("smile"), [1.0] * 15)
         self.flushUndo()
         values = [i / 14.0 for i in range(15)]
-        self.assertIs(self.bs.setTargetWeights("smile", values), self.bs)
+        self.assertIsNone(self.bs.setTargetWeights("smile", values))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.bs.getTargetWeights(0), [1.0] * 15),
             lambda: [self.assertAlmostEqual(a, b, places=6) for a, b in zip(self.bs.getTargetWeights(0), values)],
@@ -209,7 +209,7 @@ class InBetweenTest(_BlendCase):
         half = self.lifted("half", amount=0.5)
         rel = self.lifted("rel", side=-1.0, amount=0.25)
         self.flushUndo()
-        self.assertIs(self.bs.addInBetween("smile", half, 0.5), self.bs)
+        self.assertIsNone(self.bs.addInBetween("smile", half, 0.5))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.bs.getInBetweenWeights(0), []), lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.5])
         )
@@ -228,7 +228,7 @@ class InBetweenTest(_BlendCase):
         with self.assertRaises(ValueError):
             self.bs.addInBetween(0, cmds.polyCube(name=self.name("cube"))[0], 0.75)
         self.flushUndo()
-        self.assertIs(self.bs.removeInBetween("smile", 0.5), self.bs)
+        self.assertIsNone(self.bs.removeInBetween("smile", 0.5))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.25, 0.5]), lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.25])
         )
@@ -242,7 +242,7 @@ class MirrorTest(_BlendCase):
         self.baked()
         positive, negative = self.positive(), self.negative()
         self.flushUndo()
-        self.assertIs(self.bs.mirrorTarget("smile", axis="X"), self.bs)
+        self.assertIsNone(self.bs.mirrorTarget("smile", axis="X"))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(set(self.raw_deltas()), positive), lambda: self.assertEqual(set(self.raw_deltas()), positive | negative)
         )
@@ -250,7 +250,7 @@ class MirrorTest(_BlendCase):
         self.assertEqual(set(self.raw_deltas()), set())
         cmds.undo()
         self.flushUndo()
-        self.assertIs(self.bs.flipTarget(0, axis="x"), self.bs)
+        self.assertIsNone(self.bs.flipTarget(0, axis="x"))
         self.assertUndoesInOneStep(lambda: self.assertEqual(set(self.raw_deltas()), positive), lambda: self.assertEqual(set(self.raw_deltas()), negative))
         for axis, error in (("w", ValueError), (None, TypeError)):
             with self.subTest(axis=axis), self.assertRaises(error):
@@ -296,7 +296,7 @@ class DuplicateReplaceEditTest(_BlendCase):
         self.baked()
         other = self.lifted("other", side=-1.0, amount=2.0)
         self.flushUndo()
-        self.assertIs(self.bs.replaceTarget("smile", other), self.bs)
+        self.assertIsNone(self.bs.replaceTarget("smile", other))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(set(self.raw_deltas()), self.positive()), lambda: self.assertEqual(set(self.raw_deltas()), self.negative())
         )
@@ -309,7 +309,7 @@ class DuplicateReplaceEditTest(_BlendCase):
     def test_target_edit(self):
         self.baked()
         self.flushUndo()
-        self.assertIs(self.bs.targetEdit("smile"), self.bs)
+        self.assertIsNone(self.bs.targetEdit("smile"))
         self.assertEqual(cmds.getAttr(f"{self.bs}.inputTarget[0].sculptTargetIndex"), 0)
         self.bs.targetEdit(state=False)
         self.assertEqual(cmds.getAttr(f"{self.bs}.inputTarget[0].sculptTargetIndex"), -1)

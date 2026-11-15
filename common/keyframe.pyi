@@ -23,6 +23,7 @@ import maya.cmds as cmds
 from ..decorator import _require_bool, undoChunk
 from typing import Iterator
 from mlib.nodes.animCurve import AnimCurve
+from mlib.nodes.node import Nodes
 
 
 
@@ -102,7 +103,7 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
-    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> Keyframe:
+    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """キーの値を、接線の型を保ったまま変える。
 
         Args:
@@ -114,7 +115,7 @@ class Keyframe:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 数値に変換できない型の場合、またはfastがboolでない場合。
@@ -135,7 +136,7 @@ class Keyframe:
             dict: AnimCurve.getTangent と同じ辞書。
         """
         ...
-    def setTangent(self, *, unit: str = ..., fast: bool = ..., **kwargs) -> Keyframe:
+    def setTangent(self, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> None:
         """接線を変える。
 
         :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じ。
@@ -143,10 +144,12 @@ class Keyframe:
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: AnimCurve.setTangent と同じフラグ。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
         ...
     def isBreakdown(self) -> bool:
@@ -162,7 +165,7 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
-    def setBreakdown(self, state: bool = ...) -> Keyframe:
+    def setBreakdown(self, state: bool = ...) -> None:
         """ブレイクダウンキーにする、または通常のキーへ戻す。
 
         :meth:`AnimCurve.setBreakdown <mlib.nodes.animCurve.AnimCurve.setBreakdown>` と同じ。
@@ -171,7 +174,7 @@ class Keyframe:
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: stateがboolでない場合。
@@ -179,7 +182,7 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
-    def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> Keyframe:
+    def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーの入力と値をずらす。
 
         :meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>` と同じ。
@@ -192,7 +195,7 @@ class Keyframe:
             timeUnit (str): 時間の単位。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
         ...
     def remove(self, *, keepCurve: bool = ..., fast: bool = ...) -> None:
@@ -208,14 +211,14 @@ class Keyframe:
             None: 値を返さない。
         """
         ...
-    def select(self, *, add: bool = ...) -> Keyframe:
+    def select(self, *, add: bool = ...) -> None:
         """Graph Editor・Dope Sheet でこのキーを選択する。
 
         Args:
             add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
-            Keyframe: 自身。
+            None: 値を返さない。
         """
         ...
     def _require_valid(self):
@@ -261,11 +264,11 @@ class Keyframes:
     def __repr__(self):
         """``Keyframes(count=4, curves=2)`` の形で表示する。"""
         ...
-    def getCurves(self) -> list[AnimCurve]:
+    def getCurves(self) -> Nodes[AnimCurve]:
         """キーを持つカーブを返す。
 
         Returns:
-            list[AnimCurve]: カーブ(最初に出てきた順。同じものは1回だけ)。
+            Nodes[AnimCurve]: カーブ(最初に出てきた順。同じものは1回だけ)。
         """
         ...
     def iterCurves(self) -> Iterator[tuple[AnimCurve, Keyframes]]:
@@ -306,7 +309,7 @@ class Keyframes:
             list[float]: 値。
         """
         ...
-    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> Keyframes:
+    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """すべてのキーに同じ値を書き込む(1回のUndoで戻せる)。
 
         Args:
@@ -318,10 +321,10 @@ class Keyframes:
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
         """
         ...
-    def setTangent(self, *, unit: str = ..., fast: bool = ..., **kwargs) -> Keyframes:
+    def setTangent(self, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> None:
         """すべてのキーの接線を変える(1回のUndoで戻せる)。引数は :meth:`Keyframe.setTangent` と同じ。
 
         fast=Trueでも全体を1つのUndoチャンクの中で呼ぶ。ただし、OpenMayaでの更新はUndoに記録されない。
@@ -329,10 +332,12 @@ class Keyframes:
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じフラグ。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: unitが文字列でもNoneでもない場合。
@@ -343,7 +348,7 @@ class Keyframes:
             NotImplementedError: fastで、入力側の接線にstepnextを指定した場合。
         """
         ...
-    def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> Keyframes:
+    def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """すべてのキーの入力と値をずらす。
 
         カーブごとに1回で動かし、全体を1回のUndoで戻せる。
@@ -356,7 +361,7 @@ class Keyframes:
             timeUnit (str): 時間の単位。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
         """
         ...
     def remove(self, *, keepCurve: bool = ..., fast: bool = ...) -> None:
@@ -372,7 +377,7 @@ class Keyframes:
             None: 値を返さない。
         """
         ...
-    def select(self, *, add: bool = ...) -> Keyframes:
+    def select(self, *, add: bool = ...) -> None:
         """Graph Editor・Dope Sheet でこれらのキーを選択する。
 
         空の集まりで add=False なら、キーの選択を外す。
@@ -381,7 +386,7 @@ class Keyframes:
             add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
 
         Returns:
-            Keyframes: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: addがboolでない場合。

@@ -22,14 +22,14 @@ class Reverse(Node):
             input (Iterable[float] | Plug | str | None): 反転する値(XYZ)。
 
         Returns:
-            Reverse: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。
                 拒否された場合は、それまでの変更を戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"input": input})
+        _calculation.set_inputs(self, "setInput", {"input": input})
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

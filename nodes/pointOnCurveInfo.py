@@ -41,14 +41,14 @@ class PointOnCurveInfo(Node):
             turnOnPercentage (bool | Plug | str | None): Trueなら、parameterを長さの割合(0〜1)として扱う。
 
         Returns:
-            PointOnCurveInfo: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             ValueError: inputCurveにTransformを渡し、対応するシェイプが1つだけではない場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {"inputCurve": inputCurve, "parameter": parameter, "turnOnPercentage": turnOnPercentage}, _GEOMETRY)
+        _calculation.set_inputs(self, "setInput", {"inputCurve": inputCurve, "parameter": parameter, "turnOnPercentage": turnOnPercentage}, _GEOMETRY)
 
     def getResult(self, kind="position"):
         """出力の現在の値を取得する。

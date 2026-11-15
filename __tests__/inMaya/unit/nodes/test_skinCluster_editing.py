@@ -66,7 +66,7 @@ class SkinWeightEditingTest(unittest.TestCase):
 
     def test_joint_entry_and_last_influence_guard(self):
         joint = mlib.getNode(self.child)
-        self.assertIs(joint.removeInfluence(self.skin), joint)
+        self.assertIsNone(joint.removeInfluence(self.skin))
         self.assertFalse(self.skin.hasInfluence(self.child))
         cmds.undo()
         joint.removeInfluence()

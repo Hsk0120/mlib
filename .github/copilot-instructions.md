@@ -118,7 +118,20 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - シーン編集用の property setter は追加しない(数学型のローカル値の setter は可)。
 - 例外: `node.tx` は `node.getPlug("tx")` の省略アクセスで、`node.tx = 10` は `getPlug("tx").set(10)` と同じ書込み(Undo あり、角度は度)。
   Maya アトリビュートの無い名前への代入は AttributeError(Node のインスタンスへ任意の Python 属性を足さない)。
-- シーンの作成・更新 API は基本として生成物や操作対象を返す(`Node.addAttr()` は Plug)。値を返さないものは docstring に `None`。
+- 戻り値の決まり(メソッドごとに変えない):
+  - 既にあるものを書き換えるメソッド(`set*`・`rename`・`setParent`・`show`・`hide`・`reset`・`addMembers`・`removeKey` など)は値を返さない
+    (docstring は `None: 値を返さない。`)。自身を返さないので、つなげて書かず1行ずつ書く。複数形の明示メソッドと `sort` も同じ。
+  - 例外は、計算だけをして値を返す指定(`get=True` は数学型)、`safe=True` の失敗数(`Plug.set`)、`Plug.setIfChanged` の bool。
+  - 新しく作ったもの・相手を返すメソッドはそのオブジェクトを返す(`Node.addAttr()` は Plug、`Plug.connect()` は実際の接続先、
+    `Joint.mirror()` は新しいルート、`resetAttrs()` は戻した Plugs)。
+  - 名前(str)ではなく mlib のオブジェクトを返す。str を返すのは、名前そのものを聞くメソッド(`getName`・`getFullName` など)、
+    列挙の値(`getRotateOrder`・`getOperation` など)、ファイルパス、もう存在しないものの名前(`Transform.deleteConstraints`)だけ。
+  - 一覧は list でなく複数形のクラスで返す: ノードは `Nodes`(要素が Joint と決まっていれば `Joints`、SkinCluster なら `SkinClusters`)、
+    アトリビュートは `Plugs`、コンポーネントは `Vertices` など。docstring の型は `Nodes[Shape]` のように要素の型を書く。
+    list のままにするのは、種類が混ざるもの(`ObjectSet.getMembers` など)・組の並び(`asPair`)・None を含む並び・ノード以外(Namespace・Plugin など)。
+    戻り値は `Nodes._wrap(items)`・`Plugs._from_plugs(items)` で作る(解決と検査をやり直さない)。
+  - 角度の3成分を返す get は `EulerRotate`(rad。`unit` 引数は置かない。度は `.asDegrees()`)、位置は `Translate`/`Vector`、スケールは `Scale`。
+    set は3つの数値(角度は度が既定、`unit="rad"` 可)と、その数学型の両方を受ける。
 
 ## cmds と OpenMaya の使い分け
 
@@ -257,6 +270,13 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   既定値は各メソッドの仕様を維持する。om2 の `MSpace` 引数は変えない。
 - 内部関数へ渡すときも `fast`・`worldSpace` 等の同じ名前を使い、`world_space` のような別名を増やさない。
 - ミラーの `axis` は反転軸(`"x"`/`"y"`/`"z"`、0/1/2)とミラー面(`"YZ"`/`"XZ"`/`"XY"`)の両方を受け、解釈は `util._mirror_axis` に集約する。
+- キーワード専用にする引数: `fast`・`check`・`safe`・`get`・`force`・`unit`・`timeUnit`・`type`(絞り込み)・`index`(AnimCurve のキーの番号)・
+  `geometryIndex`・`transferToParent`・`leaf`・`children`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)と、
+  `getConnections` のフラグ全部。位置で受けるのは、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
+  同じ意味の引数を、メソッドによって位置引数とキーワード専用で分けない。
+- オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setKeyable`・`setChannelBox`・`setMuted`・
+  `setShadingOverride`・`setSegmentScaleCompensate`・`setInfluenceLocked`・`Edge.setSmooth`)。
+- `fast` を持つ値の書き込みは `check` も持つ(UV・頂点カラーのように、切り替える事前確認が無いものは除く)。
 - `safe=True` は API ごとに意味が違う(`Plug.set` は失敗数を返す、Transform の set 系は書けるチャンネルだけ更新、
   `addAttr`・`connect`・`connectTo`・`setAlias` は既に目的の状態なら何もしない)。意味の違う safe を安易に増やさない。
 - 戻り値の型・単位・更新対象・破壊性が違う操作は、名前が似ていてもフラグで統合しない。
@@ -350,6 +370,11 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `Nodes`・コンポーネントの複数形は、自分に無い公開メソッド名を `__getattr__` で各要素の同名メソッドへ転送し、戻り値を保持順の
   list で返す(書込みも常に list。明示メソッドが優先。通常は Undo 1回)。`Nodes.callEach(method, ...)` も同じ。`Plugs` は転送しない。
 - 複数形に置く明示メソッドは list としての振る舞い・入力検証・一括の書込みと、必要最小限の専用メソッドに限る。
+- 複数形は Python の list と同じ名前の `append`・`extend`・`insert`・`remove`・`pop`・`index`・`count`・`clear`・`reverse`・`sort`・`in`・
+  `del`・`+=` を持つ(`Nodes`・`Plugs` は番号への代入も。`core/listMethods.py` の `_ListMethods`、コンポーネントは `Components` に直接)。
+  足す値は作るときと同じ決まりで解決して確かめ、同じ要素は2つ持たない(すでにある要素の追加は何もしない)。シーンは変えない。
+  これらの名前は各要素へ転送しない(転送は `callEach`)。`Keyframes` は `remove` がキーの削除なので対象外。
+- 複数形の明示メソッドは、単数形と同じ引数を受ける(`check`・`children` などを落とさない)。
 - `mlib.ls` は常に集まりで返す(`Nodes`/`Joints`/`SkinClusters`、`Plugs`、同じシェイプ・同じ種類なら `Vertices` 等。混在のみ list)。
 
 ### Component
@@ -469,7 +494,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   - `e (bool): editの別名。同時指定は不可。`(Maya フラグの短名)
   - Raises の `TypeError: fastがbool以外の場合。`
 - Raises の並びは `TypeError → ValueError → IndexError → RuntimeError → NotImplementedError`。
-- 型表記は `list[Node]`・`tuple[float, float, float]`・`dict[str, Any]` のように要素型を書き、裸の `list`/`tuple`/`dict` を使わない
+- 型表記は `Nodes[Shape]`・`list[str]`・`tuple[float, float, float]`・`dict[str, Any]` のように要素型を書き、裸の `list`/`tuple`/`dict` を使わない
   (スタブ生成が docstring の型を読む)。型注釈の全面導入はしない。
 - 用語: アトリビュート、マトリクス(determinant は「行列式」)、コンストレイント、クォータニオン、ワールド空間/ローカル空間/オブジェクト空間、
   番号(インデックス・添字は使わない)、ウェイト、マルチアトリビュート/要素/論理番号/コンパウンドアトリビュート/子。

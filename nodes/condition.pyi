@@ -11,7 +11,7 @@ _OPERATIONS: tuple
 
 class Condition(Node):
     """2つの値を比べ、その結果で出力を切り替える。"""
-    def setInput(self, firstTerm: float | Plug | str | None = ..., secondTerm: float | Plug | str | None = ..., colorIfTrue: Iterable[float] | Plug | str | None = ..., colorIfFalse: Iterable[float] | Plug | str | None = ...) -> Condition:
+    def setInput(self, firstTerm: float | Plug | str | None = ..., secondTerm: float | Plug | str | None = ..., colorIfTrue: Iterable[float] | Plug | str | None = ..., colorIfFalse: Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -29,7 +29,7 @@ class Condition(Node):
             colorIfFalse (Iterable[float] | Plug | str | None): 比較が成り立たないときの出力(RGB)。
 
         Returns:
-            Condition: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
@@ -46,7 +46,7 @@ class Condition(Node):
                 ``"lessOrEqual"`` のいずれか。
         """
         ...
-    def setOperation(self, operation: str | int) -> Condition:
+    def setOperation(self, operation: str | int) -> None:
         """比較の種類を設定する。
 
         ``operation`` へ書き込む。名前でも番号でも指定できる。1回のUndoで戻せる。
@@ -56,7 +56,7 @@ class Condition(Node):
                 ``"lessOrEqual"`` のいずれか。またはMayaの番号(0から)。
 
         Returns:
-            Condition: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。

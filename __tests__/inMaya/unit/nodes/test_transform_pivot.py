@@ -43,7 +43,7 @@ class ResetPivotTest(_SpecCase):
     def test_both_world_and_undo(self):
         """既定は両方のピボットをワールド原点へ移し、姿勢を変えない。1回の Undo で戻る。"""
         cmds.flushUndo()
-        self.assertIs(self.node.setPivot((0, 0, 0), worldSpace=True, kind="both"), self.node)
+        self.assertIsNone(self.node.setPivot((0, 0, 0), worldSpace=True, kind="both"))
         rotate_pivot, scale_pivot = self.world_pivots()
         self.assertSequenceAlmostEqual(rotate_pivot, [0, 0, 0])
         self.assertSequenceAlmostEqual(scale_pivot, [0, 0, 0])

@@ -262,7 +262,7 @@ class LsSpecTest(_CmdsCase):
         with self.assertRaises(TypeError):
             hash(joints)
         copy = joints.copy()
-        self.assertIs(joints.sort(reverse=True), joints)
+        self.assertIsNone(joints.sort(reverse=True))
         self.assertEqual([node.getName() for node in joints], self.joints[::-1])
         self.assertEqual([node.getName() for node in copy], self.joints)
         joints.sort(key=lambda node: node.getName())
@@ -294,7 +294,7 @@ class LsSpecTest(_CmdsCase):
         with self.assertRaises(TypeError):
             hash(plugs)
         expected = sorted(plug.getFullName() for plug in plugs)
-        self.assertIs(plugs.sort(), plugs)
+        self.assertIsNone(plugs.sort())
         self.assertEqual([plug.getFullName() for plug in plugs], expected)
         cmds.select(plugs, replace=True)
         self.assertEqual(len(cmds.ls(selection=True)), 3)

@@ -27,7 +27,7 @@ class OutlinerVisibilityTest(unittest.TestCase):
             self.assertEqual(outliner(), [True, True])
             with undoChunk("mlibOutlinerVisibilityTest"):
                 for node in nodes:
-                    self.assertIs(node.setOutlinerVisibility(False), node)
+                    self.assertIsNone(node.setOutlinerVisibility(False))
             self.assertEqual(outliner(), [False, False])
             for node in nodes:
                 self.assertTrue(cmds.getAttr(node.getFullName() + ".hiddenInOutliner"))
@@ -36,7 +36,7 @@ class OutlinerVisibilityTest(unittest.TestCase):
             self.assertEqual(outliner(), [True, True])
             cmds.redo()
             self.assertEqual(outliner(), [False, False])
-            self.assertIs(nodes[0].setOutlinerVisibility(True, fast=True), nodes[0])
+            self.assertIsNone(nodes[0].setOutlinerVisibility(True, fast=True))
             self.assertTrue(nodes[0].getOutlinerVisibility())
             for _ in range(2):
                 with undoChunk("mlibOutlinerVisibilityTest"):

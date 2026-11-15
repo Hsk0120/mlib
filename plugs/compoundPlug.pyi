@@ -6,7 +6,7 @@ from ..core.attributeType import _convert_angles, _convert_times, _convert_units
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
 from ..decorator import _require_bool, undoChunk
-from .plug import Plug
+from .plug import Plug, Plugs
 from typing import Iterable, Iterator
 
 
@@ -89,13 +89,13 @@ class CompoundPlug(Plug):
             RuntimeError: ノードまたはアトリビュートが無効な場合、または子の値を取得できない場合。
         """
         ...
-    def getChildren(self) -> list[Plug]:
+    def getChildren(self) -> Plugs:
         """直接の子のPlugを、定義順に取得する。
 
         孫はたどらない。子の値も読み出さない。
 
         Returns:
-            list[Plug]: 子の新しいオブジェクトのリスト。ノードは親と共有し、シーンのものを複製しない。
+            Plugs: 子の新しいオブジェクト。ノードは親と共有し、シーンのものを複製しない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。

@@ -8,7 +8,7 @@ import maya.cmds as cmds
 
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, is_internal_data_type, value_reader
 from ..decorator import _edit_context, _require_bool, undoChunk
-from .plug import MAX_LOGICAL_INDEX, Plug, _instance_count
+from .plug import MAX_LOGICAL_INDEX, Plug, Plugs, _instance_count
 
 
 def _descendants(mplug, steps=()):
@@ -218,13 +218,13 @@ class MultiPlug(Plug):
         worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
 
         Returns:
-            list[Plug]: 要素の新しいオブジェクトのリスト。ノードは共有し、シーンのものを複製しない。
+            Plugs: 要素の新しいオブジェクト。ノードは共有し、シーンのものを複製しない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         # 要素ごとに存在を確かめ直さず、既存の番号から直接 Plug を作る。
-        return [Plug(self._node, self._mplug.elementByLogicalIndex(index)) for index in self.getIndices()]
+        return Plugs._from_plugs([Plug(self._node, self._mplug.elementByLogicalIndex(index)) for index in self.getIndices()])
 
     def getNextAvailable(self, start=-1, checkLocked=True, checkChildren=True, *, vacant=False):
         """次に使える、マルチアトリビュートの要素のPlugを探す。
@@ -341,7 +341,7 @@ class MultiPlug(Plug):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            MultiPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがboolの場合や整数でない場合、またはshift・fastがboolでない場合。
@@ -377,7 +377,6 @@ class MultiPlug(Plug):
                 cmds.removeMultiInstance(self._element_at(index).getFullName(), b=True)
                 if moves:
                     self._move_elements(moves)
-            return self
 
     def compact(self):
         """空いた番号を詰めて、要素の論理番号を0からの連番に並べ直す。
@@ -387,7 +386,7 @@ class MultiPlug(Plug):
         すでに連番になっていれば何も変えない。cmdsで編集し、1回のUndoで戻せる。
 
         Returns:
-            MultiPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。マルチアトリビュートか移す要素(子を含む)が
@@ -405,7 +404,6 @@ class MultiPlug(Plug):
             if moves:
                 self._require_movable([source for source, _ in moves])
                 self._move_elements(moves)
-            return self
 
     def getSourceNodes(self):
         """各要素へつながっている接続元のノードを、論理番号の順に取得する。

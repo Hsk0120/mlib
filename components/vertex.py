@@ -145,7 +145,7 @@ class Vertex(PointComponent):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Vertex: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがboolでない場合、colorSetが文字列でもNoneでもない場合、または色の型が合わない場合。
@@ -156,7 +156,6 @@ class Vertex(PointComponent):
         """
         self._require_valid()
         self.shape.setVertexColors([color], [self.index], colorSet=colorSet, fast=fast)
-        return self
 
     def getNormal(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
         """頂点の法線を、長さ1で取得する。

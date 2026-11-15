@@ -6,6 +6,8 @@ import maya.cmds as cmds
 from ..core.object import Object
 from ..decorator import undoChunk
 from .node import Node
+from mlib.components.component import Components
+from mlib.plugs.plug import Plug
 
 
 
@@ -16,22 +18,22 @@ class ObjectSet(Node):
     セットへの登録は、DAGの親子付けやContainerへの所属とは別の関係になる。
     取得にはMFnSet、編集にはcmds.setsを使う。
     """
-    def getMembers(self) -> list[Node | str]:
+    def getMembers(self) -> list[Node | Plug | Components]:
         """セットに直接入っているメンバーを取得する。
 
         入れ子になったセットの中身は展開しない。MFnSet.getMembers(False)が返す選択の文字列を使う。
 
-        - 名前にドットがあるもの(アトリビュートやコンポーネント): 文字列のまま返す。
-        - それ以外: Nodeのオブジェクトにする。
+        - ノード: Nodeのオブジェクトにする。
+        - アトリビュート: Plugのオブジェクトにする。
+        - コンポーネント: ``vtx[0:3]`` のようにまとめられた範囲ごとに、Verticesなどの複数形のオブジェクトにする。
 
-        順番はMaya APIが列挙する順のまま。``vtx[0:3]`` のようにまとめられた範囲も、そのまま返す。
-        独自に並べ替えたり、範囲を1要素ずつに展開したりはしない。
+        順番はMaya APIが列挙する順のまま。独自に並べ替えない。
 
         Returns:
-            list[Node | str]: 新しいリスト。空のセットなら空リスト。文字列をPlugやComponentへ自動では変換しない。
+            list[Node | Plug | Components]: 新しいリスト。空のセットなら空リスト。
         """
         ...
-    def addMembers(self, *members: Node | str) -> ObjectSet:
+    def addMembers(self, *members: Node | str) -> None:
         """ノードやコンポーネントなどを、このセットへ追加する。
 
         入力はほかのメソッドと同じ方法で解決し、cmds.setsへ渡す。何も渡さなければ、何も変えずに自身を返す。
@@ -42,7 +44,7 @@ class ObjectSet(Node):
             members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 対応していない型を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
@@ -50,7 +52,7 @@ class ObjectSet(Node):
             RuntimeError: Mayaが追加を拒否した場合。
         """
         ...
-    def removeMembers(self, *members: Node | str) -> ObjectSet:
+    def removeMembers(self, *members: Node | str) -> None:
         """指定したメンバーを、このセットから外す。
 
         外すのはセットへの所属だけで、ノードそのものは削除しない。何も渡さなければ何も変えない。
@@ -60,7 +62,7 @@ class ObjectSet(Node):
             *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: Mayaが外すのを拒否した場合。
@@ -86,20 +88,20 @@ class ObjectSet(Node):
             bool: 解決したすべての要素が入っていればTrue。1つでも入っていなければFalse。
         """
         ...
-    def clear(self) -> ObjectSet:
+    def clear(self) -> None:
         """セットに直接入っているメンバーを、すべて外す(``cmds.sets(clear=set)``)。
 
         ノードそのものは削除しない。fast引数は持たない(:meth:`addMembers` と同じ理由)。
         Undoが有効なら、1回のUndoで戻せる。
 
         Returns:
-            ObjectSet: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
         """
         ...
-    def getUnion(self, other: ObjectSet | str) -> list[Node | str]:
+    def getUnion(self, other: ObjectSet | str) -> list[Node | Plug | Components]:
         """このセットと別のセットの、少なくとも一方に直接入っているものを取得する(和集合)。
 
         入れ子になったセットの中身は展開しない。戻り値の形は :meth:`getMembers` と同じ。
@@ -109,14 +111,14 @@ class ObjectSet(Node):
             other (ObjectSet | str): 比べるobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。
+            list[Node | Plug | Components]: 新しいリスト。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
             RuntimeError: どちらかのノードが無効(削除済み)の場合。
         """
         ...
-    def getIntersection(self, other: ObjectSet | str) -> list[Node | str]:
+    def getIntersection(self, other: ObjectSet | str) -> list[Node | Plug | Components]:
         """このセットと別のセットの、両方に直接入っているものを取得する(共通部分)。
 
         コンポーネントは1要素ずつ比べる。たとえば ``cube.vtx[0:3]`` と ``cube.vtx[2:5]`` の共通部分は
@@ -126,14 +128,14 @@ class ObjectSet(Node):
             other (ObjectSet | str): 比べるobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。形は :meth:`getMembers` と同じ。
+            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
             RuntimeError: どちらかのノードが無効(削除済み)の場合。
         """
         ...
-    def getDifference(self, other: ObjectSet | str) -> list[Node | str]:
+    def getDifference(self, other: ObjectSet | str) -> list[Node | Plug | Components]:
         """このセットに直接入っているもののうち、別のセットに直接入っていないものを取得する(差集合)。
 
         コンポーネントは1要素ずつ除く。入れ子になったセットの中身は展開しない。シーンは変更しない。
@@ -142,7 +144,7 @@ class ObjectSet(Node):
             other (ObjectSet | str): 除くメンバーを持つobjectSet。
 
         Returns:
-            list[Node | str]: 新しいリスト。形は :meth:`getMembers` と同じ。
+            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
 
         Raises:
             TypeError: otherがobjectSetでない場合。
@@ -191,13 +193,13 @@ class ObjectSet(Node):
         """
         ...
     @staticmethod
-    def _member_names(members: om2.MSelectionList) -> list[Node | str]:
+    def _member_names(members: om2.MSelectionList) -> list[Node | Plug | Components]:
         """選択リストを :meth:`getMembers` と同じ形のリストへ変換する。
 
         Args:
             members (om2.MSelectionList): 変換する選択リスト。
 
         Returns:
-            list[Node | str]: 名前にドットがあるものは文字列、それ以外はNode。
+            list[Node | Plug | Components]: ノードはNode、アトリビュートはPlug、コンポーネントは範囲ごとの複数形のオブジェクト。
         """
         ...

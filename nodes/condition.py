@@ -28,15 +28,13 @@ class Condition(Node):
             colorIfFalse (Iterable[float] | Plug | str | None): 比較が成り立たないときの出力(RGB)。
 
         Returns:
-            Condition: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
-        return _calculation.set_inputs(
-            self, "setInput", {"firstTerm": firstTerm, "secondTerm": secondTerm, "colorIfTrue": colorIfTrue, "colorIfFalse": colorIfFalse}
-        )
+        _calculation.set_inputs(self, "setInput", {"firstTerm": firstTerm, "secondTerm": secondTerm, "colorIfTrue": colorIfTrue, "colorIfFalse": colorIfFalse})
 
     def getOperation(self):
         """比較の種類を名前で取得する。
@@ -59,14 +57,14 @@ class Condition(Node):
                 ``"lessOrEqual"`` のいずれか。またはMayaの番号(0から)。
 
         Returns:
-            Condition: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
             ValueError: 使えない名前、または範囲外の番号を指定した場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
+        _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
 
     def getResult(self):
         """出力 ``outColor`` の現在の値を取得する。

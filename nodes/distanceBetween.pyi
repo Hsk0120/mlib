@@ -11,7 +11,7 @@ from mlib.plugs.plug import Plug
 
 class DistanceBetween(Node):
     """2点(それぞれのマトリクスで変換した点)の距離を計算する。"""
-    def setInput(self, point1: Iterable[float] | Plug | str | None = ..., point2: Iterable[float] | Plug | str | None = ..., inMatrix1: Matrix | Iterable[float] | Plug | str | None = ..., inMatrix2: Matrix | Iterable[float] | Plug | str | None = ...) -> DistanceBetween:
+    def setInput(self, point1: Iterable[float] | Plug | str | None = ..., point2: Iterable[float] | Plug | str | None = ..., inMatrix1: Matrix | Iterable[float] | Plug | str | None = ..., inMatrix2: Matrix | Iterable[float] | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -29,7 +29,7 @@ class DistanceBetween(Node):
             inMatrix2 (Matrix | Iterable[float] | Plug | str | None): point2を変換するマトリクス。
 
         Returns:
-            DistanceBetween: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

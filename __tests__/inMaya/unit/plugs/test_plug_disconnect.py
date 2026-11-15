@@ -76,7 +76,7 @@ class DisconnectReferenceTest(unittest.TestCase):
         for src, dst in ((True, False), (False, True), (True, True), (False, False)):
             source, center, destinations = self._chain("directions" + str(src) + str(dst))
             cmds.flushUndo()
-            self.assertIs(center.disconnectAll(source=src, destination=dst), center)
+            self.assertIsNone(center.disconnectAll(source=src, destination=dst))
             self.assertEqual(center.getSource(skipConversionNodes=True), None if src else source)
             self.assertCountEqual(center.getDestinations(skipConversionNodes=True), [] if dst else destinations)
             if src or dst:

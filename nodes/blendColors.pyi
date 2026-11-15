@@ -10,7 +10,7 @@ from mlib.plugs.plug import Plug
 
 class BlendColors(Node):
     """color1 * blender + color2 * (1 - blender)を評価するノード。"""
-    def setInput(self, color1: Iterable[float] | Plug | str | None = ..., color2: Iterable[float] | Plug | str | None = ..., blender: float | Plug | str | None = ...) -> BlendColors:
+    def setInput(self, color1: Iterable[float] | Plug | str | None = ..., color2: Iterable[float] | Plug | str | None = ..., blender: float | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -27,7 +27,7 @@ class BlendColors(Node):
             blender (float | Plug | str | None): 補間の割合(0〜1)。
 
         Returns:
-            BlendColors: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

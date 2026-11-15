@@ -43,7 +43,8 @@ class PlugReferencesTest(unittest.TestCase):
             importlib.import_module("mlib.cmds.getAttr")
         samples = self.node.addAttr("samples", attributeType="double", multi=True)
         samples[3].set(4.0)
-        label = self.node.addAttr("label", dataType="string").set("sample")
+        label = self.node.addAttr("label", dataType="string")
+        label.set("sample")
         cases = (
             (self.node.getPlug("translateX"), mlib.DoubleLinearPlug),
             (self.node.getPlug("rotateX"), mlib.DoubleAnglePlug),
@@ -65,9 +66,12 @@ class PlugReferencesTest(unittest.TestCase):
 
     def test_reference_values_and_explicit_ui_units(self):
         """参照の取得では単位を選ばず、値のgetで明示的に選ぶ。"""
-        angle = self.node.getPlug("rotateX").set(90)
-        distance = self.node.getPlug("translateX").set(25)
-        time = self.node.addAttr("sampleTime", attributeType="time").set(2, timeUnit="sec")
+        angle = self.node.getPlug("rotateX")
+        angle.set(90)
+        distance = self.node.getPlug("translateX")
+        distance.set(25)
+        time = self.node.addAttr("sampleTime", attributeType="time")
+        time.set(2, timeUnit="sec")
         for linear, angular, frame in (("cm", "deg", "film"), ("m", "rad", "ntsc")):
             with self.subTest(linear=linear, angular=angular, frame=frame):
                 cmds.currentUnit(linear=linear, angle=angular, time=frame)
@@ -192,14 +196,14 @@ class PlugSimplificationTest(unittest.TestCase):
         try:
             for ui_units in (False, True):
                 with self.subTest(uiUnits=ui_units):
-                    self.assertIs(reference.set(matrix, uiUnits=ui_units), reference)
+                    self.assertIsNone(reference.set(matrix, uiUnits=ui_units))
                     value = reference.get(uiUnits=ui_units)
                     self.assertIsInstance(value, mlib.Matrix)
                     self.assertEqual(tuple(value.translate), (2, 3, 4))
                     for actual, raw in zip(value, cmds.getAttr(reference.getFullName())):
                         self.assertAlmostEqual(actual, raw)
                     cmds.flushUndo()
-                    self.assertIs(reference.set(7.5, uiUnits=ui_units), reference)
+                    self.assertIsNone(reference.set(7.5, uiUnits=ui_units))
                     self.assertEqual(reference.get(), 7.5)
                     cmds.undo()
                     self.assertIsInstance(reference.get(), mlib.Matrix)

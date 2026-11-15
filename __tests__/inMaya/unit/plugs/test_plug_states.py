@@ -132,13 +132,13 @@ class PlugFlagSpecTest(_StateSpecCase):
         tx = self.node.getPlug("tx")
         self.assertTrue(tx.isKeyable())
         self.assertFalse(tx.isChannelBox())
-        self.assertIs(tx.setChannelBox(True), tx)
+        self.assertIsNone(tx.setChannelBox(True))
         self.assertTrue(cmds.getAttr(self.name + ".tx", channelBox=True))
         self.assertFalse(cmds.getAttr(self.name + ".tx", keyable=True))
-        self.assertIs(tx.setKeyable(True), tx)
+        self.assertIsNone(tx.setKeyable(True))
         self.assertTrue(cmds.getAttr(self.name + ".tx", keyable=True))
         self.assertFalse(cmds.getAttr(self.name + ".tx", channelBox=True))
-        self.assertIs(tx.setKeyable(False), tx)
+        self.assertIsNone(tx.setKeyable(False))
         self.assertFalse(tx.isKeyable())
         self.assertFalse(tx.isChannelBox())
 
@@ -178,7 +178,7 @@ class PlugFlagSpecTest(_StateSpecCase):
     def test_set_flags_validation(self):
         """setFlagsは省略した状態を変えず、bool・None以外は変更前にTypeError。"""
         tx = self.node.getPlug("tx")
-        self.assertIs(tx.setFlags(), tx)
+        self.assertIsNone(tx.setFlags())
         tx.setFlags(locked=True, keyable=False)
         self.assertTrue(cmds.getAttr(self.name + ".tx", lock=True))
         self.assertFalse(cmds.getAttr(self.name + ".tx", keyable=True))
@@ -210,15 +210,15 @@ class PlugAliasSpecTest(_StateSpecCase):
     def test_set_and_remove_alias(self):
         """別名を設定し、Noneまたは空文字列で解除する。別名が無い解除は何もしない。"""
         tz = self.node.getPlug("tz")
-        self.assertIs(tz.setAlias("zAlias"), tz)
+        self.assertIsNone(tz.setAlias("zAlias"))
         self.assertEqual(cmds.aliasAttr(self.name, query=True), ["zAlias", "translateZ"])
         self.assertEqual(tz.getFullName(), self.name + ".zAlias")
-        self.assertIs(tz.setAlias(), tz)
+        self.assertIsNone(tz.setAlias())
         self.assertIsNone(cmds.aliasAttr(self.name, query=True))
         tz.setAlias("zAlias")
         tz.setAlias("")
         self.assertIsNone(cmds.aliasAttr(self.name, query=True))
-        self.assertIs(tz.setAlias(None), tz)
+        self.assertIsNone(tz.setAlias(None))
         self.assertEqual(tz.getFullName(), self.name + ".translateZ")
 
     def test_alias_undo_fast_and_errors(self):
@@ -253,17 +253,17 @@ class PlugMuteSpecTest(_StateSpecCase):
     def test_mute_holds_current_value_and_unmute_restores_animation(self):
         """setMuted(True)は現在値で固定し、setMuted(False)はアニメーションへ戻す。繰り返しても状態は同じ。"""
         held = cmds.getAttr(self.name + ".sz")
-        self.assertIs(self.sz.setMuted(True), self.sz)
+        self.assertIsNone(self.sz.setMuted(True))
         self.assertTrue(self.sz.isMuted())
         self.assertTrue(cmds.mute(self.name + ".sz", query=True))
         cmds.currentTime(10)
         self.assertAlmostEqual(self.sz.get(), held)
         self.sz.setMuted(True)
         self.assertTrue(self.sz.isMuted())
-        self.assertIs(self.sz.setMuted(False), self.sz)
+        self.assertIsNone(self.sz.setMuted(False))
         self.assertFalse(self.sz.isMuted())
         self.assertAlmostEqual(self.sz.get(), 4.0)
-        self.assertIs(self.sz.setMuted(False), self.sz)
+        self.assertIsNone(self.sz.setMuted(False))
         self.assertFalse(self.sz.isMuted())
 
     def test_mute_undo(self):
@@ -284,7 +284,7 @@ class PlugMuteSpecTest(_StateSpecCase):
     def test_mute_without_animation_is_silent_noop(self):
         """アニメーションの無いチャンネルのmuteはMayaが警告して何もせず、自身を返す。"""
         sy = self.node.getPlug("sy")
-        self.assertIs(sy.setMuted(True), sy)
+        self.assertIsNone(sy.setMuted(True))
         self.assertFalse(sy.isMuted())
         self.assertFalse(cmds.listConnections(self.name + ".sy", source=True, destination=False))
 
@@ -322,9 +322,12 @@ class PlugDefinitionQuerySpecTest(_StateSpecCase):
         self.assertFalse(self.node.getPlug("defHidden").isHidden())
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertTrue(tx.hide(fast=fast).isHidden())
-                self.assertFalse(tx.show(fast=fast).isHidden())
-                self.assertFalse(tx.show(keyable=False, fast=fast).isHidden())
+                self.assertIsNone(tx.hide(fast=fast))
+                self.assertTrue(tx.isHidden())
+                tx.show(fast=fast)
+                self.assertFalse(tx.isHidden())
+                tx.show(keyable=False, fast=fast)
+                self.assertFalse(tx.isHidden())
                 self.assertEqual(tx.isHidden(), not (cmds.getAttr(tx, keyable=True) or cmds.getAttr(tx, channelBox=True)))
                 tx.show(fast=fast)
 
@@ -618,7 +621,7 @@ class PlugSetKeySpecTest(_StateSpecCase):
         """setKeyは自身を返しキーを作る。時間はUI単位のフレーム、値はget()と同じcm(uiUnits=TrueはUI単位)。"""
         cmds.currentUnit(linear="mm")
         tz = self.node.getPlug("tz")
-        self.assertIs(tz.setKey(t=5, v=2), tz)
+        self.assertIsNone(tz.setKey(t=5, v=2))
         self.assertEqual(cmds.keyframe(self.name + ".tz", query=True, timeChange=True), [5.0])
         self.assertEqual(cmds.keyframe(self.name + ".tz", query=True, valueChange=True), [20.0])
         tz.setKey(t=5, v=20, uiUnits=True)

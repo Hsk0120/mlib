@@ -128,10 +128,10 @@ class SkinClustersBatchTest(unittest.TestCase):
 
     def test_transfer_target_finds_nearest_influence_ancestor(self):
         mid_joint = Joint(self.mid)
-        self.assertEqual(mid_joint.getTransferTarget(self.skin), self.root)
+        self.assertEqual(mid_joint.getTransferTarget(self.skin), Joint(self.root))
 
         leaf_joint = Joint(self.leaf)
-        self.assertEqual(leaf_joint.getTransferTarget(self.skin), self.mid)
+        self.assertEqual(leaf_joint.getTransferTarget(self.skin), Joint(self.mid))
 
     def test_sorted_by_depth_orders_deepest_first(self):
         joints = Joints([self.root, self.mid, self.leaf])
@@ -467,7 +467,7 @@ class SkinClusterTest(_Case):
         cmds.setAttr(name + ".blendWeights[2]", 0.75)
         self.assertEqual(skin.getBlendWeights(vertices=[5, 2]), [0.0, 0.75])
         self.flushUndo()
-        self.assertIs(skin.setBlendWeights([0.25, 0.5, 1.0], vertices=[0, 1, 4]), skin)
+        self.assertIsNone(skin.setBlendWeights([0.25, 0.5, 1.0], vertices=[0, 1, 4]))
 
         def values():
             return [cmds.getAttr(f"{name}.blendWeights[{index}]") for index in (0, 1, 2, 4)]
@@ -535,7 +535,7 @@ class SkinClusterTest(_Case):
     def test_recache_and_deleted(self):
         """recacheBindMatrices は自身を返す。削除済みでは RuntimeError。"""
         skin, mesh, joints, _ = self.skinned()
-        self.assertIs(skin.recacheBindMatrices(), skin)
+        self.assertIsNone(skin.recacheBindMatrices())
         cmds.delete(skin.getFullName())
         for call in (
             skin.recacheBindMatrices,

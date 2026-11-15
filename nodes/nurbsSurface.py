@@ -176,7 +176,7 @@ class NurbsSurface(Shape):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            NurbsSurface: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
@@ -221,7 +221,6 @@ class NurbsSurface(Shape):
                     u, v = divmod(index, count_v)
                     coordinates = [om2.MDistance(c).asUnits(unit) for c in (point.x, point.y, point.z)]
                     cmds.xform(f"{name}.cv[{u}][{v}]", absolute=True, translation=coordinates, objectSpace=True)
-        return self
 
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
         """指定した位置に最も近い、曲面上の点とパラメーター (u, v) を取得する。

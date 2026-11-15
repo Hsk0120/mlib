@@ -16,13 +16,13 @@ class BlendMatrix(Node):
             inputMatrix (Matrix | Iterable[float] | Plug | str | None): 元のマトリクス。Noneは変更しない。
 
         Returns:
-            BlendMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合。
         """
-        return _calculation.set_inputs(self, "setInput", {"inputMatrix": inputMatrix})
+        _calculation.set_inputs(self, "setInput", {"inputMatrix": inputMatrix})
 
     def addTarget(self, matrix, weight=1.0):
         """ターゲットのマトリクスとウェイトを末尾へ足し、その番号を返す。
@@ -51,14 +51,14 @@ class BlendMatrix(Node):
             index (int): ターゲットの論理番号。
 
         Returns:
-            BlendMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがint以外の場合。
             ValueError: index のターゲットが無い場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
-        return _calculation.remove_elements(self, "removeTarget", ("target",), index)
+        _calculation.remove_elements(self, "removeTarget", ("target",), index)
 
     def getTargetIndices(self):
         """今あるターゲットの論理番号を、小さい順に取得する。

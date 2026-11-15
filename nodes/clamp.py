@@ -24,13 +24,13 @@ class Clamp(Node):
             max (Iterable[float] | Plug | str | None): 上限(RGB)。
 
         Returns:
-            Clamp: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
         """
-        return _calculation.set_inputs(self, "setInput", {"input": input, "min": min, "max": max})
+        _calculation.set_inputs(self, "setInput", {"input": input, "min": min, "max": max})
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

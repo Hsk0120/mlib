@@ -10,7 +10,7 @@ import maya.api.OpenMayaAnim as oma2
 from ..core.fastWrite import require_range, require_writable, set_attr
 from ..core.object import Object
 from ..decorator import _edit_context
-from .node import Node
+from .node import Node, Nodes
 
 #: :meth:`GeometryFilter.dumpDeformerWeights` が書くファイルの形式の版。
 _DEFORMER_WEIGHTS_VERSION = 1
@@ -35,9 +35,9 @@ class GeometryFilter(Node):
         skinCluster・cluster・deltaMushなど、どのデフォーマーでも使える。
 
         Returns:
-            list[Node]: 変形する形状。無ければ空リスト。
+            Nodes: 変形する形状。無ければ空の集まり。
         """
-        return [Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()]
+        return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()])
 
     def getInputGeometry(self):
         """このデフォーマーへ入る、変形前の形状(入力ジオメトリ)を取得する。
@@ -47,15 +47,15 @@ class GeometryFilter(Node):
         手前に別のデフォーマーがあっても、それを越えた先の形状(``Orig`` の中間形状など)を返す。
 
         Returns:
-            list[Node]: 入力側の形状。無ければ空リスト。
+            Nodes: 入力側の形状。無ければ空の集まり。
 
         Raises:
             RuntimeError: ノードが無効な(削除された)場合。
         """
         self._require_valid("アトリビュートの取得")
-        return [Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()]
+        return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()])
 
-    def getDeformerWeights(self, geometryIndex=0):
+    def getDeformerWeights(self, *, geometryIndex=0):
         """頂点ごとのデフォーマーのウェイトを取得する。
 
         値が書かれていない頂点は、Mayaの既定どおり1.0(全部効く)として返す。
@@ -93,7 +93,7 @@ class GeometryFilter(Node):
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            GeometryFilter: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
@@ -111,9 +111,8 @@ class GeometryFilter(Node):
                 self._set_deformer_weights_fast(plug, indices, values, check)
             else:
                 self._set_deformer_weights_cmds(geometryIndex, indices, values)
-            return self
 
-    def dumpDeformerWeights(self, path, geometryIndex=None):
+    def dumpDeformerWeights(self, path, *, geometryIndex=None):
         """頂点ごとのデフォーマーのウェイトをJSONファイルへ書き出す。
 
         単純なJSON(UTF-8)で、次の項目を書く。

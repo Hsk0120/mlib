@@ -16,8 +16,8 @@ from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
 from ..core.object import _exists, _selection_component, _selection_plug
 from ..decorator import undoChunk
-from ..nodes.node import Node
-from ..plugs.plug import Plug
+from ..nodes.node import Node, Nodes
+from ..plugs.plug import Plug, Plugs
 from .environment import Environment
 from .keyframe import Keyframe, Keyframes
 from typing import Iterator, Sequence
@@ -107,7 +107,7 @@ class Selection:
         """
         ...
     @classmethod
-    def getChannelBoxPlugs(cls) -> list[Plug]:
+    def getChannelBoxPlugs(cls) -> Plugs:
         """メインのChannel Boxで選んでいるアトリビュートを、Plugとして取得する。
 
         :meth:`capture` はChannel Boxで選んだアトリビュートを含めないので、こちらを使う。
@@ -118,7 +118,7 @@ class Selection:
         結果はノードごとに、アトリビュートを選んだ順に並べる。
 
         Returns:
-            list[Plug]: 選んでいるアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)に並び、
+            Plugs: 選んでいるアトリビュート。区分の順(オブジェクト→シェイプ→入力→出力)に並び、
                 完全名が同じものは最初の1つだけを残す。表示しているノードに無いアトリビュートは除く。
                 バッチやmayapyの場合、Channel Boxが無いGUIの場合、何も選んでいない場合は空リスト。
         """
@@ -166,23 +166,23 @@ class Selection:
                 このリストを変えても、このオブジェクトの中身は変わらない。
         """
         ...
-    def getNodes(self, type: str | None = ...) -> list[Node]:
+    def getNodes(self, *, type: str | None = ...) -> Nodes:
         """ノードとして選ばれた対象を取得する。
 
         Args:
             type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型。
 
         Returns:
-            list[Node]: 削除されていないノード。コンポーネントを持つノードは含めない。
+            Nodes: 削除されていないノード。コンポーネントを持つノードは含めない。
         """
         ...
-    def getPlugs(self) -> list[Plug]:
+    def getPlugs(self) -> Plugs:
         """アトリビュートとして選ばれた対象を取得する。
 
         Channel Boxで選んでいるアトリビュートは、ここでは取得しない(:meth:`getChannelBoxPlugs` を使う)。
 
         Returns:
-            list[Plug]: 削除されていないアトリビュート。
+            Plugs: 削除されていないアトリビュート。
         """
         ...
     def getComponents(self) -> list[Components]:
@@ -194,14 +194,14 @@ class Selection:
             list[Components]: ShapeのDAGパスと種類ごとにまとめた要素。
         """
         ...
-    def getOwners(self) -> list[Node]:
+    def getOwners(self) -> Nodes:
         """対象を持つノードを取得する。
 
         ノードはそのノード自身、アトリビュートはそのノード、コンポーネントはそのShapeになる。
         削除された対象は除く。
 
         Returns:
-            list[Node]: 対象を持つノード。DAGパスが同じものは1つにまとめる。
+            Nodes: 対象を持つノード。DAGパスが同じものは1つにまとめる。
         """
         ...
     def filter(self, type: str) -> Selection:
@@ -219,7 +219,7 @@ class Selection:
             Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
         """
         ...
-    def select(self, mode: str = ..., missing: str = ...) -> Selection:
+    def select(self, mode: str = ..., missing: str = ...) -> None:
         """持っている対象をMayaの選択にする。
 
         ``cmds.select(noExpand=True)`` で選ぶ。Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。
@@ -231,7 +231,7 @@ class Selection:
                 既定はskip。
 
         Returns:
-            Selection: 自身。中身が空の場合は、replaceのときだけ選択を解除する。
+            None: 値を返さない。中身が空の場合は、replaceのときだけ選択を解除する。
 
         Raises:
             ValueError: modeまたはmissingに対応していない値を指定した場合。

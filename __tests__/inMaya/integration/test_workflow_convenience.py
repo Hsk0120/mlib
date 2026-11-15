@@ -31,12 +31,12 @@ class ConvenienceTests(unittest.TestCase):
     def test_alias_key_undo(self):
         node = mlib.createNode("transform")
         plug = node.tx
-        self.assertIs(plug.setAlias("travel"), plug)
+        self.assertIsNone(plug.setAlias("travel"))
         self.assertEqual(cmds.aliasAttr(str(plug), q=True), "travel")
         cmds.undo()
         self.assertFalse(cmds.aliasAttr(str(plug), q=True))
-        self.assertIs(plug.setAlias(), plug)
-        self.assertIs(plug.setKey(t=3, v=12), plug)
+        self.assertIsNone(plug.setAlias())
+        self.assertIsNone(plug.setKey(t=3, v=12))
         self.assertEqual(cmds.keyframe(str(plug), q=True, vc=True), [12])
         cmds.undo()
         self.assertFalse(cmds.keyframe(str(plug), q=True, kc=True))
@@ -114,18 +114,18 @@ class ConvenienceTests(unittest.TestCase):
 
     def test_animation_layers(self):
         node = mlib.createNode("transform")
-        self.assertEqual(node.tx.getAnimLayers(), [])
+        self.assertEqual(node.tx.getAnimLayers().getNames(), [])
         first = cmds.animLayer("first", attribute=str(node.tx))
         second = cmds.animLayer("second", attribute=str(node.tx))
         base = cmds.animLayer(q=True, root=True)
-        self.assertEqual(node.tx.getAnimLayers(), [second, first, base])
+        self.assertEqual(node.tx.getAnimLayers().getNames(), [second, first, base])
         for layer in (first, second, base):
             cmds.animLayer(layer, e=True, selected=False)
         cmds.animLayer(first, e=True, selected=True)
-        self.assertEqual(node.tx.getAnimLayers(selected=True), [first, base])
-        self.assertEqual(node.tx.getAnimLayers(selected=True, exact=True), [first])
+        self.assertEqual(node.tx.getAnimLayers(selected=True).getNames(), [first, base])
+        self.assertEqual(node.tx.getAnimLayers(selected=True, exact=True).getNames(), [first])
         cmds.animLayer(first, e=True, attribute=str(node.ry))
-        self.assertEqual(node.ry.getAnimLayers(), [first, base])
+        self.assertEqual(node.ry.getAnimLayers().getNames(), [first, base])
 
     def test_underworld_traversal(self):
         surface = cmds.nurbsPlane(ch=False)[0]
@@ -145,18 +145,18 @@ class ConvenienceTests(unittest.TestCase):
         base = cmds.animLayer(q=True, root=True)
         proxy_node = mlib.createNode("transform")
         cmds.addAttr(str(proxy_node), ln="proxyValue", proxy=str(node.tx))
-        self.assertEqual(proxy_node.proxyValue.getAnimLayers(), [layer, base])
+        self.assertEqual(proxy_node.proxyValue.getAnimLayers().getNames(), [layer, base])
         cmds.mute(str(node.tx))
-        self.assertEqual(node.tx.getAnimLayers(), [layer, base])
+        self.assertEqual(node.tx.getAnimLayers().getNames(), [layer, base])
         cmds.mute(str(node.tx), disable=True, force=True)
         source = node.tx.getSource()
         blend = mlib.createNode("pairBlend")
         cmds.disconnectAttr(str(source), str(node.tx))
         cmds.connectAttr(str(source), str(blend.inTranslateX1))
         cmds.connectAttr(str(blend.outTranslateX), str(node.tx))
-        self.assertEqual(node.tx.getAnimLayers(), [layer, base])
+        self.assertEqual(node.tx.getAnimLayers().getNames(), [layer, base])
         blend.translateXMode.set(2)
-        self.assertEqual(node.tx.getAnimLayers(), [base])
+        self.assertEqual(node.tx.getAnimLayers().getNames(), [base])
 
 
 class ApiProposalTest(unittest.TestCase):

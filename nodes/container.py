@@ -35,11 +35,11 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
         つながっているノードや、入れ子のcontainerの中身はたどらない。DAG階層の子孫を集めるものでもない。
 
         Returns:
-            list[Node]: メンバーの新しいオブジェクトのリスト。ノードは複製しない。
+            Nodes: メンバーの新しいオブジェクト。ノードは複製しない。
                 並びはMayaが返す順のままで、並べ替えない。
         """
         # Node(obj)と同じ解決(DAGは最初のパス)・型選択を、生成の入口の再判定なしで行う。
-        return [Node._wrap_resolved(*_resolve_node(obj)) for obj in om2.MFnContainerNode(self.mnode()).getMembers()]
+        return Nodes._wrap([Node._wrap_resolved(*_resolve_node(obj)) for obj in om2.MFnContainerNode(self.mnode()).getMembers()])
 
     @undoTransaction("mlibContainerAddMembers")
     def addMembers(self, *members):
@@ -51,12 +51,11 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             *members (str | Node | Iterable[Node | str]): メンバーに加えるノード。
 
         Returns:
-            Container: 自身。
+            None: 値を返さない。
         """
         nodes = Nodes._resolve_inputs(members)
         if nodes:
             cmds.container(self.getFullName(), edit=True, addNode=[Node._resolve_input(n).getFullName() for n in nodes])
-        return self
 
     def removeMembers(self, *members, force=False):
         """ノードをメンバーから外す。
@@ -70,7 +69,7 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             force (bool): Trueなら、すべてのcontainerから外す。ロックを外すという意味ではない。
 
         Returns:
-            Container: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: メンバーでないノードが含まれる場合。
@@ -83,7 +82,6 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
                 raise ValueError("nodesはすべてこのコンテナのメンバーで指定してください")
             if nodes:
                 cmds.container(self.getFullName(), edit=True, removeNode=[node.getFullName() for node in nodes], force=force)
-            return self
 
     @undoTransaction("mlibContainerCreateNode")
     def createNode(self, type, name=None):

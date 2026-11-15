@@ -37,14 +37,14 @@ class RemapValue(Node):
             outputMax (float | Plug | str | None): 出力の範囲の上限(ランプの値1)。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。
                 拒否された場合は、それまでの変更を戻す。
         """
-        return _calculation.set_inputs(
+        _calculation.set_inputs(
             self, "setInput", {"inputValue": inputValue, "inputMin": inputMin, "inputMax": inputMax, "outputMin": outputMin, "outputMax": outputMax}
         )
 
@@ -76,7 +76,7 @@ class RemapValue(Node):
             kind (str): どのランプか。``"value"`` は値のランプ、``"color"`` は色のランプ。既定は ``"value"``。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 点の形・型が不正な場合。
@@ -85,7 +85,6 @@ class RemapValue(Node):
             RuntimeError: ノードが無効な場合、またはMayaが設定を拒否した場合。
         """
         self._ramp(kind).setEntries(points)
-        return self
 
     def addRampPoint(self, position, value, interpolation="linear", kind="value"):
         """ランプへ点を1つ足す。
@@ -100,7 +99,7 @@ class RemapValue(Node):
             kind (str): どのランプか。``"value"`` は値のランプ、``"color"`` は色のランプ。既定は ``"value"``。
 
         Returns:
-            RemapValue: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 位置・値・補間の型が不正な場合。
@@ -111,7 +110,6 @@ class RemapValue(Node):
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             value = tuple(value)
         ramp.setEntries(ramp.getEntries() + [(position, value, interpolation)])
-        return self
 
     def getResult(self, kind="value"):
         """出力の現在の値を取得する。

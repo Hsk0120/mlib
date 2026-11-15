@@ -253,27 +253,7 @@ class GetConnectionsSpecTest(_ConnectionSpecCase):
         with self.assertRaises(TypeError):
             tx.getConnections(pcls=plugs.Plug, skipConversionNodes=True)
         with self.assertRaises(TypeError):
-            tx.getConnections(
-                True,
-                True,
-                False,
-                None,
-                False,
-                False,
-                True,
-                True,
-                False,
-                None,
-                False,
-                False,
-                False,
-                False,
-                True,
-                True,
-                None,
-                plugs.Plug,
-                skipConversionNodes=True,
-            )
+            tx.getConnections(plugs.Plug, skipConversionNodes=True)
 
 
 class NextAvailableLocationSpecTest(_ConnectionSpecCase):

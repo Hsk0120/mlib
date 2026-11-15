@@ -26,13 +26,13 @@ class MultiplyDivide(ShadingDependNode):
             input2 (Iterable[float] | Plug | str | None): 2つ目の入力(XYZ)。
 
         Returns:
-            MultiplyDivide: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
         """
-        return _calculation.set_inputs(self, "setInput", {"input1": input1, "input2": input2})
+        _calculation.set_inputs(self, "setInput", {"input1": input1, "input2": input2})
 
     def getOperation(self):
         """演算の種類を名前で取得する(``operation``)。
@@ -52,14 +52,14 @@ class MultiplyDivide(ShadingDependNode):
                 Mayaの番号(0から)でもよい。
 
         Returns:
-            MultiplyDivide: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: operationが文字列・int以外の場合。
             ValueError: 対応していない名前、または範囲外の番号の場合。
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
         """
-        return _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
+        _calculation.set_enum(self, "setOperation", "operation", operation, _OPERATIONS, "operation")
 
     def getResult(self):
         """出力 ``output`` の現在の値を取得する。

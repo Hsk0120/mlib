@@ -67,7 +67,7 @@ class Double3Plug(CompoundPlug):
             return value_type(*values)  # 角度の子が無ければ換算は要らない。
         return value_type(*_convert_angles(self._mplug, values, angle_unit, to_internal=False))
 
-    def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
+    def set(self, value, *, safe=False, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
         """このアトリビュートの3成分だけを書き込む。
 
         マトリクスを通して姿勢を変えることはしない。3成分の値と、書き込めるかどうかを確かめてから
@@ -90,7 +90,7 @@ class Double3Plug(CompoundPlug):
                 既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
-            Double3Plug | int: safe=Falseなら自身。safe=Trueなら、成功は0、失敗は子の失敗数、
+            int | None: safe=Falseなら値を返さない。safe=Trueなら、成功は0、失敗は子の失敗数、
                 値の変換に失敗した場合は1。CompoundPlug.setの再試行の決まりに従い、
                 途中まで変えた値は自動では戻さない。
 

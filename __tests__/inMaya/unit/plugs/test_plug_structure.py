@@ -132,7 +132,7 @@ class InsertInputTest(_Case):
         cmds.connectAttr(a + ".tx", b + ".ty")
         plug = mlib.getPlug(b + ".ty")
         self.flushUndo()
-        self.assertIs(plug.insertInput(mdl, "input1", "output"), plug)
+        self.assertIsNone(plug.insertInput(mdl, "input1", "output"))
 
         def after():
             self.assertEqual(cmds.listConnections(b + ".ty", source=True, destination=False, plugs=True), [cmds.ls(mdl)[0] + ".output"])

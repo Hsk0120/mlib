@@ -86,7 +86,7 @@ class JointOrientTest(_SpecCase):
         positions = self.positions(self.joints)
         cmds.joint(self.reference[0], edit=True, orientJoint="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True)
         joint = Joint(self.joints[0])
-        self.assertIs(joint.orient(), joint)
+        self.assertIsNone(joint.orient())
         for actual, expected in zip(self.orients(self.joints[:-1]), self.orients(self.reference[:-1])):
             self.assertSequenceAlmostEqual(actual, expected)
         self.assertSequenceAlmostEqual(self.orients(self.joints[-1:])[0], (0, 0, 0))
@@ -117,7 +117,7 @@ class JointOrientTest(_SpecCase):
         cmds.joint(self.reference[1], edit=True, orientJoint="xyz", secondaryAxisOrient="yup", children=False, zeroScaleOrient=True)
         self.flushUndo()
         joints = Joints([self.joints[0], self.joints[1]])
-        self.assertIs(joints.orient(children=False), joints)
+        self.assertIsNone(joints.orient(children=False))
         for actual, expected in zip(self.orients(self.joints[:2]), self.orients(self.reference[:2])):
             self.assertSequenceAlmostEqual(actual, expected)
         cmds.undo()

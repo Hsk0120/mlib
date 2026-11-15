@@ -58,7 +58,7 @@ class SetColorTest(_Case):
         transform = shape.getTransform()
         name = transform.getFullName()
         self.assertIsNone(transform.getOverrideColor())
-        self.assertIs(transform.setOverrideColor(13), transform)
+        self.assertIsNone(transform.setOverrideColor(13))
         self.assertTrue(cmds.getAttr(name + ".overrideEnabled"))
         self.assertFalse(cmds.getAttr(name + ".overrideRGBColors"))
         self.assertEqual(cmds.getAttr(name + ".overrideColor"), 13)
@@ -135,7 +135,7 @@ class DrawingOverrideTest(NamespaceCase):
                 cmds.setAttr(name + ".overrideEnabled", False)
                 cmds.setAttr(name + ".overrideDisplayType", 0)
                 self.flushUndo()
-                self.assertIs(node.setDisplayType(kind), node)
+                self.assertIsNone(node.setDisplayType(kind))
                 self.assertEqual(node.getDisplayType(), kind)
                 self.assertEqual((cmds.getAttr(name + ".overrideEnabled"), cmds.getAttr(name + ".overrideDisplayType")), (True, index))
                 self.assertUndoesInOneStep(lambda: self.assertEqual(node.getDisplayType(), "normal"), lambda: None)
@@ -167,7 +167,7 @@ class DrawingOverrideTest(NamespaceCase):
         node = mlib.getNode(name)
         self.assertFalse(node.isShadingOverridden())
         self.flushUndo()
-        self.assertIs(node.setShadingOverride(True), node)
+        self.assertIsNone(node.setShadingOverride(True))
         self.assertTrue(node.isShadingOverridden())
         self.assertEqual((cmds.getAttr(name + ".overrideEnabled"), cmds.getAttr(name + ".overrideShading")), (True, False))
         self.assertUndoesInOneStep(lambda: self.assertFalse(node.isShadingOverridden()), lambda: None)
@@ -204,7 +204,7 @@ class DisplayColorTest(NamespaceCase):
     def test_outliner_rgb_stays_on_transform(self):
         """既定は None。RGB は Transform 自身に設定し、Shape には書かない。"""
         self.assertIsNone(self.a.getOutlinerColor())
-        self.assertIs(self.a.setOutlinerColor((0.25, 0.5, 1.0)), self.a)
+        self.assertIsNone(self.a.setOutlinerColor((0.25, 0.5, 1.0)))
         name = self.a.getFullName()
         self.assertTrue(cmds.getAttr(name + ".useOutlinerColor"))
         self.assertRgb(cmds.getAttr(name + ".outlinerColor")[0], (0.25, 0.5, 1.0))
@@ -244,7 +244,7 @@ class DisplayColorTest(NamespaceCase):
         joint = self.curve_joint()
         shapes = [shape.getFullName() for shape in joint.getShapes()]
         self.assertEqual(len(shapes), 2)
-        self.assertIs(joint.setOverrideColor(13, shape=True), joint)
+        self.assertIsNone(joint.setOverrideColor(13, shape=True))
         self.assertEqual([cmds.getAttr(name + ".overrideColor") for name in shapes], [13, 13])
         self.assertFalse(cmds.getAttr(joint.getFullName() + ".overrideEnabled"))
         self.assertEqual(joint.getOverrideColor(shape=True), 13)
@@ -364,15 +364,15 @@ class DisplayColorTest(NamespaceCase):
     def test_nodes_same_color(self):
         nodes = Nodes([self.a, self.b])
         self.assertEqual(nodes.getOutlinerColor(), [None, None])
-        self.assertIs(nodes.setOutlinerColor((0, 1, 0)), nodes)
+        self.assertIsNone(nodes.setOutlinerColor((0, 1, 0)))
         for color in nodes.getOutlinerColor():
             self.assertRgb(color, (0, 1, 0))
-        self.assertIs(nodes.setOverrideColor(17), nodes)
+        self.assertIsNone(nodes.setOverrideColor(17))
         self.assertEqual(nodes.getOverrideColor(), [17, 17])
 
     def test_nodes_one_color_each(self):
         nodes = Nodes([self.a, self.b])
-        self.assertIs(nodes.setOverrideColors([13, None]), nodes)
+        self.assertIsNone(nodes.setOverrideColors([13, None]))
         self.assertEqual(nodes.getOverrideColor(), [13, None])
         cmds.flushUndo()
         nodes.setOutlinerColors([(1, 0, 0), (0, 0, 1)])

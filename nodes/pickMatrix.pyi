@@ -14,7 +14,7 @@ class PickMatrix(Node):
 
     入力のマトリクスの移動・回転・スケール・せん断のうち、使うものだけを残したマトリクスを出力する。
     """
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., useTranslate: bool | Plug | str | None = ..., useRotate: bool | Plug | str | None = ..., useScale: bool | Plug | str | None = ..., useShear: bool | Plug | str | None = ...) -> PickMatrix:
+    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., useTranslate: bool | Plug | str | None = ..., useRotate: bool | Plug | str | None = ..., useScale: bool | Plug | str | None = ..., useShear: bool | Plug | str | None = ...) -> None:
         """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
 
         各入力は、渡したものの種類で扱いが変わる。
@@ -33,7 +33,7 @@ class PickMatrix(Node):
             useShear (bool | Plug | str | None): Trueならせん断を残す。
 
         Returns:
-            PickMatrix: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: 接続元の型が不正な場合。

@@ -66,7 +66,7 @@ test_*.py にそのまま残してよい。このファイルは「cmds との�
 - ``Node.getPlugs()`` のフラグ無し・``keyable``・``scalar`` (定義の深さ優先の走査)と ``cmds.listAttr`` の名前を
   ``getPlug`` で解決した並び(多数のノード型・動的なマルチアトリビュート/コンパウンドアトリビュート/マルチアトリビュートであるコンパウンドアトリビュート・Shape の visibility の keyable 上書き・
   includeChildren)
-- ``Plug.getAnimLayers()`` (blend ノードの message 出力先を om2 で取得)と
+- ``Plug.getAnimLayers().getNames()`` (blend ノードの message 出力先を om2 で取得)と
   ``cmds.animLayer(query=True, affectedLayers=True)``・``animLayer(attribute=True)``
 - ``mlib.common.references.listReferences``/``createReference`` (``MItDependencyNodes(kReference)`` を名前順に)と
   ``cmds.ls(type="reference")``・``referenceQuery(parent=True)`` (入れ子・同じファイルの複数参照・アンロード・
@@ -206,7 +206,7 @@ class NodeConnectionsParityTest(unittest.TestCase):
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
 
         expected = set(cmds.listConnections(target.getName(), source=True, destination=False, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in target.getConnections(True, False, skipConversionNodes=True)}
+        actual = {plug.getFullName() for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)}
         self.assertEqual(actual, expected)
 
     def test_outputs_matches_cmds_listConnections_destination_side(self):
@@ -215,7 +215,7 @@ class NodeConnectionsParityTest(unittest.TestCase):
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
 
         expected = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in source.getConnections(False, True, skipConversionNodes=True)}
+        actual = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
         self.assertEqual(actual, expected)
 
     def test_connections_type_filter_matches_cmds_listConnections_type_filter(self):
@@ -228,11 +228,11 @@ class NodeConnectionsParityTest(unittest.TestCase):
         expected_transform = set(
             cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True, type="transform") or []
         )
-        actual_transform = {plug.getFullName() for plug in source.getConnections(False, True, type="transform", skipConversionNodes=True)}
+        actual_transform = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, type="transform", skipConversionNodes=True)}
         self.assertEqual(actual_transform, expected_transform)
 
         expected_mesh = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True, type="mesh") or [])
-        actual_mesh = {plug.getFullName() for plug in source.getConnections(False, True, type="mesh", skipConversionNodes=True)}
+        actual_mesh = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, type="mesh", skipConversionNodes=True)}
         self.assertEqual(actual_mesh, expected_mesh)
         self.assertEqual(actual_mesh, set())
 
@@ -247,12 +247,14 @@ class NodeConnectionsParityTest(unittest.TestCase):
             source.getPlug("translateY").connectTo(duplicate.getPlug("translateZ"))
 
         expected = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in source.getConnections(False, True, skipConversionNodes=True)}
+        actual = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
         self.assertEqual(len(actual), 4)
         self.assertEqual(actual, expected)
         for duplicate in duplicates:
             expected_inputs = set(cmds.listConnections(duplicate.getName(), source=True, destination=False, plugs=True, skipConversionNodes=True) or [])
-            self.assertEqual({plug.getFullName() for plug in duplicate.getConnections(True, False, skipConversionNodes=True)}, expected_inputs)
+            self.assertEqual(
+                {plug.getFullName() for plug in duplicate.getConnections(source=True, destination=False, skipConversionNodes=True)}, expected_inputs
+            )
 
     def test_skip_conversion_nodes_matches_cmds_listConnections(self):
         """unitConversionを挟む接続で、既定(飛ばす)とskipConversionNodes=False(直結)がcmdsと一致する。"""
@@ -264,22 +266,21 @@ class NodeConnectionsParityTest(unittest.TestCase):
         self.created.append(conversion)
         self.assertEqual(cmds.nodeType(conversion), "unitConversion")
         for node, flags in ((target, dict(source=True, destination=False)), (source, dict(source=False, destination=True))):
-            args = (True, False) if flags["source"] else (False, True)
             for skip in (True, False):
                 with self.subTest(node=node.getName(), skip=skip):
                     expected = set(cmds.listConnections(node.getName(), plugs=True, skipConversionNodes=skip, **flags) or [])
                     if skip:
-                        actual = {plug.getFullName() for plug in node.getConnections(*args, skipConversionNodes=True)}
+                        actual = {plug.getFullName() for plug in node.getConnections(skipConversionNodes=True, **flags)}
                         self.assertEqual(
                             {
                                 plug.getFullName()
-                                for plug in node.getPlug("rotateX" if node is target else "translateX").getConnections(*args, skipConversionNodes=True)
+                                for plug in node.getPlug("rotateX" if node is target else "translateX").getConnections(skipConversionNodes=True, **flags)
                             },
                             expected,
                         )
                     else:
-                        actual = {plug.getFullName() for plug in node.getConnections(*args)}
-                        self.assertEqual(actual, {plug.getFullName() for plug in node.getConnections(*args, scn=False)})
+                        actual = {plug.getFullName() for plug in node.getConnections(**flags)}
+                        self.assertEqual(actual, {plug.getFullName() for plug in node.getConnections(scn=False, **flags)})
                     self.assertEqual(actual, expected)
                     self.assertEqual(any(conversion in name for name in actual), not skip)
 
@@ -1293,7 +1294,7 @@ class NodeGetPlugsParityTest(_NewSceneCase):
 
 
 class PlugAnimLayersParityTest(_NewSceneCase):
-    """Plug.getAnimLayers()(blend ノードの message 出力先の animLayer を om2 で取得)と cmds.animLayer の一致。
+    """Plug.getAnimLayers().getNames()(blend ノードの message 出力先の animLayer を om2 で取得)と cmds.animLayer の一致。
 
     期待値は ``cmds.animLayer(query=True, affectedLayers=True)`` の順から、そのアトリビュートを
     含むレイヤー(``animLayer(attribute=True)``)とベースレイヤーを残したもの。
@@ -1316,7 +1317,7 @@ class PlugAnimLayersParityTest(_NewSceneCase):
             name = node + "." + attribute
             with self.subTest(plug=name):
                 expected = [layer for layer in affected if layer == root or name in (cmds.animLayer(layer, query=True, attribute=True) or [])]
-                self.assertEqual(mlib.getPlug(name).getAnimLayers(), expected)
+                self.assertEqual(mlib.getPlug(name).getAnimLayers().getNames(), expected)
 
 
 class ReferencesParityTest(_NewSceneCase):

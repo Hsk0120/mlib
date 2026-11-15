@@ -75,7 +75,7 @@ class ShadingEngine(ObjectSet):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            ShadingEngine: 自身。
+            None: 値を返さない。
 
         Raises:
             ValueError: kindが対応していない値の場合。
@@ -96,7 +96,6 @@ class ShadingEngine(ObjectSet):
                 raise RuntimeError(f"アトリビュート{target.getFullName()}を自分自身へは接続できません")
             # 同じ割り当ての再実行は、既存の同じ接続をそのまま残して成功させる。
             source.connectTo(target, force=True, safe=True, fast=fast)
-            return self
 
     def assign(self, targets):
         """形状またはフェースへ割り当てる。
@@ -111,7 +110,7 @@ class ShadingEngine(ObjectSet):
             targets (Node | Face | Faces | str | Iterable): 割り当てる対象。選択されているものには関係しない。
 
         Returns:
-            ShadingEngine: 自身。targetsが空なら何も変えない。
+            None: 値を返さない。targetsが空なら何も変えない。
 
         Raises:
             RuntimeError: Mayaが割り当てを拒否した場合。
@@ -120,7 +119,6 @@ class ShadingEngine(ObjectSet):
             names = Object._input_names(targets)
             if names:
                 cmds.sets(names, edit=True, forceElement=self.getFullName())
-            return self
 
     def getMembers(self):
         """割り当てている先を取得する。

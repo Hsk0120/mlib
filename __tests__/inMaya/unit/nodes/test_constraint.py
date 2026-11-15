@@ -176,7 +176,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertEqual(result.getWeights(), [1.0, 1.0])
 
         returned = result.setWeight(0.5)
-        self.assertIs(returned, result)
+        self.assertIsNone(returned)
         self.assertEqual(result.getWeights(), [0.5, 0.5])
 
         result.setWeight(0.25, source)

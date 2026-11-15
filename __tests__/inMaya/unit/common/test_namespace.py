@@ -222,7 +222,7 @@ class NamespaceSpecTest(unittest.TestCase):
         """renameは親を維持し、moveは既存の親へ移し、removeは内容を移動先へ移す。"""
         source = Namespace.create(self.root + ":src")
         node = cmds.createNode("transform", name=source.name + ":item")
-        self.assertIs(source.rename("dst"), source)
+        self.assertIsNone(source.rename("dst"))
         self.assertEqual(source.name, self.root + ":dst")
         self.assertTrue(cmds.objExists(self.root + ":dst:item"))
         self.assertFalse(cmds.namespace(exists=self.root + ":src"))
@@ -326,7 +326,7 @@ class NamespaceTest(_CommonCase):
     def test_set_current(self):
         """setCurrent は切り替えて自身を返し、存在しない名前空間は RuntimeError。"""
         target = Namespace.create("cur", parent=":" + self.ns)
-        self.assertIs(target.setCurrent(), target)
+        self.assertIsNone(target.setCurrent())
         self.assertEqual(cmds.namespaceInfo(currentNamespace=True, absoluteName=True), target.name)
         cmds.namespace(set=":")
         with self.assertRaises(RuntimeError):
@@ -345,9 +345,11 @@ class NamespaceTest(_CommonCase):
         for root in (mlib_root, cmds_root):
             cmds.namespace(add=root.rsplit(":", 1)[-1], parent=":" + self.ns)
             self.build(root)
-        renamed = Namespace(mlib_root + ":A").rename("R")
+        renamed = Namespace(mlib_root + ":A")
+        self.assertIsNone(renamed.rename("R"))
         self.assertEqual(renamed.name, mlib_root + ":R")
-        moved = renamed.move(mlib_root + ":B")
+        moved = renamed
+        self.assertIsNone(moved.move(mlib_root + ":B"))
         self.assertEqual(moved.name, mlib_root + ":B:R")
         destination = moved.remove(mlib_root + ":B")
         self.assertEqual(destination, Namespace(mlib_root + ":B"))

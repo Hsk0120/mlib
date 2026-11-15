@@ -90,7 +90,7 @@ class IkHandle(Transform):
                 既定はFalseで、``cmds.ikHandle(query=True, jointList=True)`` と同じく末端のジョイントを含まない。
 
         Returns:
-            list[Joint]: 開始ジョイントから順に並んだジョイント。次の場合は空リスト。
+            Joints: 開始ジョイントから順に並んだジョイント。次の場合は空の集まり。
 
                 - startJointかendEffectorが接続されていない。
                 - ikEffectorが開始ジョイントの子孫でない。
@@ -117,7 +117,10 @@ class IkHandle(Transform):
             tip = self.getEndJoint()
             if tip is not None:
                 joints.append(tip)
-        return joints
+        # 循環参照の回避: jointがikHandleを参照するため、使う時点で読み込む。
+        from .joint import Joints
+
+        return Joints._wrap(joints)
 
     def getSolver(self):
         """ハンドルが使うIKソルバーの種類を取得する。
@@ -150,7 +153,7 @@ class IkHandle(Transform):
             solver (str): ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSpringSolver"`` のいずれか。
 
         Returns:
-            IkHandle: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: solverが文字列でない場合。
@@ -168,7 +171,6 @@ class IkHandle(Transform):
                 # ikSpringSolverはソルバーノードの登録が要るため、Maya標準の手続きで用意する。
                 mel.eval("ikSpringSolver")
             cmds.ikHandle(self.getFullName(), edit=True, solver=solver)
-        return self
 
     def snapToEffector(self):
         """ハンドルをエフェクターの位置へ移す。
@@ -183,7 +185,7 @@ class IkHandle(Transform):
         Undoが有効なら、1回のUndoで戻せる。fast引数は無い。
 
         Returns:
-            IkHandle: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードが無効な場合、エフェクターが接続されていない場合、
@@ -195,4 +197,3 @@ class IkHandle(Transform):
             raise RuntimeError(f"IKハンドルにエンドエフェクターがありません: {self.getFullName()}")
         with undoChunk("mlibIkHandleSnapToEffector"):
             self.setTranslation(effector.getTranslation(worldSpace=True), worldSpace=True)
-        return self

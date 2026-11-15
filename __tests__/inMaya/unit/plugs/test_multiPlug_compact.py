@@ -43,7 +43,7 @@ class CompactTest(_MultiCase):
             cmds.setAttr(f"{node}.input1D[{index}]", value)
         multi = mlib.getNode(node).getPlug("input1D")
         self.flushUndo()
-        self.assertIs(multi.compact(), multi)
+        self.assertIsNone(multi.compact())
 
         def after():
             self.assertEqual(cmds.getAttr(node + ".input1D", multiIndices=True), [0, 1, 2])
@@ -116,7 +116,7 @@ class RemoveElementShiftTest(_MultiCase):
         cmds.setAttr(source + ".tx", 5.0)
         multi = mlib.getNode(node).getPlug("input1D")
         self.flushUndo()
-        self.assertIs(multi.removeElement(2, shift=True), multi)
+        self.assertIsNone(multi.removeElement(2, shift=True))
 
         def after():
             self.assertEqual(cmds.getAttr(node + ".input1D", multiIndices=True), [0, 2, 4])

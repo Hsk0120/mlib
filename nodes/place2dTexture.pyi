@@ -10,7 +10,7 @@ from .texture2d import Texture2d
 
 class Place2dTexture(ShadingDependNode):
     """Mayaのplace2dTextureノードを扱うクラス。値の設定と接続はPlugで行う。"""
-    def connectTexture(self, texture: Texture2d | str, force: bool = ..., *, fast: bool = ...) -> Place2dTexture:
+    def connectTexture(self, texture: Texture2d | str, *, force: bool = ..., fast: bool = ...) -> None:
         """2Dテクスチャの配置に使う標準のアトリビュートを、テクスチャへ接続する。
 
         テクスチャ側に無いアトリビュートは飛ばす。すでに同じ接続があるものはそのままにする。
@@ -21,7 +21,7 @@ class Place2dTexture(ShadingDependNode):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            Place2dTexture: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: fastがbool以外、または対象がTexture2dでない場合。

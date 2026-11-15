@@ -7,7 +7,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, is_internal_data_type, value_reader
 from ..decorator import _edit_context, _require_bool, undoChunk
-from .plug import MAX_LOGICAL_INDEX, Plug, _instance_count
+from .plug import MAX_LOGICAL_INDEX, Plug, Plugs, _instance_count
 from typing import Iterator
 from mlib.nodes.node import Node
 
@@ -150,7 +150,7 @@ class MultiPlug(Plug):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def getElements(self) -> list[Plug]:
+    def getElements(self) -> Plugs:
         """すでにある要素のPlugを、論理番号の小さい順に取得する。
 
         getIndices()の番号の要素だけを返す。欠けている番号は埋めず、要素の値も読み出さない。
@@ -158,7 +158,7 @@ class MultiPlug(Plug):
         worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
 
         Returns:
-            list[Plug]: 要素の新しいオブジェクトのリスト。ノードは共有し、シーンのものを複製しない。
+            Plugs: 要素の新しいオブジェクト。ノードは共有し、シーンのものを複製しない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。
@@ -224,7 +224,7 @@ class MultiPlug(Plug):
                 ``checkLocked=True`` で、マルチアトリビュート全体がロックされている場合。
         """
         ...
-    def removeElement(self, index: int, shift: bool = ..., *, fast: bool = ...) -> MultiPlug:
+    def removeElement(self, index: int, shift: bool = ..., *, fast: bool = ...) -> None:
         """マルチアトリビュートの要素を削除する。接続も切る。
 
         削除できるのは、実際にある要素(OpenMayaが返す、すでにある要素の番号)だけ。
@@ -241,7 +241,7 @@ class MultiPlug(Plug):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            MultiPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             TypeError: indexがboolの場合や整数でない場合、またはshift・fastがboolでない場合。
@@ -257,7 +257,7 @@ class MultiPlug(Plug):
             :meth:`mlib.nodes.BlendShape.removeTarget` で取り除く。
         """
         ...
-    def compact(self) -> MultiPlug:
+    def compact(self) -> None:
         """空いた番号を詰めて、要素の論理番号を0からの連番に並べ直す。
 
         すでにある要素を、論理番号の小さい順に0, 1, 2…へ移す。移すのは、各要素の値
@@ -265,7 +265,7 @@ class MultiPlug(Plug):
         すでに連番になっていれば何も変えない。cmdsで編集し、1回のUndoで戻せる。
 
         Returns:
-            MultiPlug: 自身。
+            None: 値を返さない。
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。マルチアトリビュートか移す要素(子を含む)が

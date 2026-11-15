@@ -211,12 +211,12 @@ class SkinLockTest(_SkinCase):
         """SkinCluster と Joint のどちらからもロックを読み書きでき、cmds の値と一致する。"""
         skin = self.skinned()
         self.assertEqual(skin.getLockedInfluences(), [])
-        self.assertIs(skin.setInfluencesLocked([self.root, self.tip]), skin)
+        self.assertIsNone(skin.setInfluencesLocked([self.root, self.tip]))
         self.assertEqual([node.getName() for node in skin.getLockedInfluences()], [mlib.getNode(self.root).getName(), mlib.getNode(self.tip).getName()])
         self.assertTrue(cmds.getAttr(self.root + ".liw"))
         mid = Joint(self.mid)
         self.assertFalse(mid.isInfluenceLocked())
-        self.assertIs(mid.setInfluenceLocked(), mid)
+        self.assertIsNone(mid.setInfluenceLocked())
         self.assertTrue(cmds.getAttr(self.mid + ".liw"))
         skin.setInfluencesLocked([self.root, self.mid, self.tip], state=False)
         self.assertEqual(skin.getLockedInfluences(), [])
@@ -268,7 +268,7 @@ class SkinRemoveInfluencesTest(_SkinCase):
         skin = self.skinned()
         before = skin.getWeights([self.root, self.mid, self.tip], rows=True)
         cmds.flushUndo()
-        self.assertIs(skin.removeInfluences([self.mid, self.tip]), skin)
+        self.assertIsNone(skin.removeInfluences([self.mid, self.tip]))
         self.assertEqual([node.getName() for node in skin.getInfluences()], [mlib.getNode(self.root).getName()])
         for value in skin.getWeights([self.root]):
             self.assertAlmostEqual(value, 1.0, places=6)
@@ -308,7 +308,7 @@ class SkinSettingsTest(_SkinCase):
         """名前で読み書きし、cmds の値と一致する。不正な名前は ValueError、型違いは TypeError。"""
         skin = self.skinned()
         self.assertEqual(skin.getSkinningMethod(), "classicLinear")
-        self.assertIs(skin.setSkinningMethod("dualQuaternion"), skin)
+        self.assertIsNone(skin.setSkinningMethod("dualQuaternion"))
         self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 1)
         self.assertEqual(skin.getNormalizeMode(), "interactive")
         skin.setNormalizeMode("post")

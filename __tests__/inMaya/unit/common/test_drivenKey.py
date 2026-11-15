@@ -57,8 +57,10 @@ class DrivenKeyTest(unittest.TestCase):
     def test_multiple_drivers_and_find(self):
         one = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
         two = mlib.DrivenKey(self.c + ".tx", self.b + ".ty")
-        one.setKey(0, 0).setKey(10, 10)
-        two.setKey(0, 0).setKey(10, 20)
+        one.setKey(0, 0)
+        one.setKey(10, 10)
+        two.setKey(0, 0)
+        two.setKey(10, 20)
         self.assertEqual(len(one.getCurves()), 1)
         self.assertEqual(len(two.getCurves()), 1)
         self.assertNotEqual(one.getCurves()[0].getFullName(), two.getCurves()[0].getFullName())
@@ -155,7 +157,8 @@ class DrivenKeyTest(unittest.TestCase):
         # 値によって型が変わる generic アトリビュート(choice.output)のドライバーは対象外として除外し、
         # 例外にしない。同じ駆動先の数値ドライバーは見つかる。
         relation = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
-        relation.setKey(0, 0).setKey(10, 10)
+        relation.setKey(0, 0)
+        relation.setKey(10, 10)
         choice = cmds.createNode("choice", name=self.ns + ":choice")
         cmds.connectAttr(self.c + ".tx", choice + ".input[0]")
         curve = cmds.createNode("animCurveUU", name=self.ns + ":genericCurve")
@@ -202,7 +205,7 @@ class DrivenKeySpecTest(unittest.TestCase):
         cmds.currentUnit(linear="mm", angle="deg")
         key = DrivenKey(self.driver + ".rx", self.driven + ".tx")
         self.assertFalse(key.exists())
-        self.assertIs(key.setKey(0.0, 0.0), key)
+        self.assertIsNone(key.setKey(0.0, 0.0))
         key.setKey(math.pi / 2, 1.0)
         self.assertTrue(key.exists())
         cmds.setAttr(self.driver + ".rx", 90.0)

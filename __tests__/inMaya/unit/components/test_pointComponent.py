@@ -248,7 +248,7 @@ class PointTypeSpecTest(_ComponentCase):
         """Mesh.setPointsはgetPointsの結果・tuple列・MPointArrayを受け、1回のUndoで戻る。"""
         before = self.mesh.getPoints()
         moved = [point + (0, 1, 0) for point in before]
-        self.assertIs(self.mesh.setPoints(moved), self.mesh)
+        self.assertIsNone(self.mesh.setPoints(moved))
         self.assertEqual(self.mesh.getPoints(), moved)
         cmds.undo()
         self.assertEqual(self.mesh.getPoints(), before)
@@ -441,7 +441,7 @@ class MeshComponentTest(_Case):
         self.assertFalse(edge.isSmooth())
         self.assertIn("Hard", cmds.polyInfo(edge.getFullName(), edgeToVertex=True)[0])
         self.flushUndo()
-        self.assertIs(edge.setSmooth(), edge)
+        self.assertIsNone(edge.setSmooth())
         self.assertUndoesInOneStep(lambda: self.assertFalse(edge.isSmooth()), lambda: self.assertTrue(edge.isSmooth()))
         self.assertEqual(cmds.listHistory(mesh.getFullName()), [mesh.getFullName().split("|")[-1]])
         edge.setSmooth(True)
@@ -459,7 +459,7 @@ class MeshComponentTest(_Case):
         vertex = mesh.getVertex(2)
         self.assertIsNone(vertex.getColor())
         self.flushUndo()
-        self.assertIs(vertex.setColor((1.0, 0.5, 0.0)), vertex)
+        self.assertIsNone(vertex.setColor((1.0, 0.5, 0.0)))
         self.assertSequenceAlmostEqual(vertex.getColor(), (1.0, 0.5, 0.0, 1.0), places=5)
         self.assertSequenceAlmostEqual(cmds.polyColorPerVertex(vertex.getFullName(), query=True, rgb=True), (1.0, 0.5, 0.0), places=5)
         self.assertIsNone(mesh.getVertex(3).getColor())
@@ -605,7 +605,7 @@ class PointMoveTest(_CaseMethodAdditions):
         vertex = shape.getVertex(2)
         before = vertex.getPosition()
         self.flushUndo()
-        self.assertIs(vertex.moveBy((1, 2, 3)), vertex)
+        self.assertIsNone(vertex.moveBy((1, 2, 3)))
         self.assertUndoesInOneStep(
             lambda: self.assertSequenceAlmostEqual(vertex.getPosition(), before),
             lambda: self.assertSequenceAlmostEqual(vertex.getPosition(), mlib.Vector(before) + mlib.Vector(1, 2, 3)),
@@ -626,7 +626,7 @@ class PointMoveTest(_CaseMethodAdditions):
         before = top.getPosition()
         self.assertSequenceAlmostEqual(top.getCenter(), mlib.Vector(sum(p.x for p in before), sum(p.y for p in before), sum(p.z for p in before)) / 4.0)
         self.flushUndo()
-        self.assertIs(top.moveBy(om2.MVector(0, 1, 0)), top)
+        self.assertIsNone(top.moveBy(om2.MVector(0, 1, 0)))
         self.assertUndoesInOneStep(
             lambda: self.assertSequenceAlmostEqual(top.getPosition()[0], before[0]),
             lambda: self.assertSequenceAlmostEqual(top.getPosition()[0], mlib.Vector(before[0]) + mlib.Vector(0, 1, 0)),
@@ -635,7 +635,7 @@ class PointMoveTest(_CaseMethodAdditions):
             cmds.listRelatives(cmds.curve(name=self.name("crv#"), degree=1, point=[(0, 0, 0), (2, 0, 0), (2, 4, 0)]), shapes=True, fullPath=True)[0]
         )
         self.assertSequenceAlmostEqual(curve.getCVs().getCenter(), (4.0 / 3.0, 4.0 / 3.0, 0))
-        self.assertEqual(list(shape.getVertices([]).moveBy((1, 0, 0)).indices), [])
+        self.assertIsNone(shape.getVertices([]).moveBy((1, 0, 0)))
 
     def test_move_by_errors(self):
         """移動量の型・成分数・空の集まりの getCenter の誤りは例外で、位置は変わらない。"""
@@ -762,7 +762,7 @@ class PointComponentTest(_CaseShapeEditing):
         shape = self.cube()
         name = shape.getFullName()
         vertex = shape.getVertex(2)
-        self.assertIs(vertex.setPosition((1.5, -2.0, 0.25)), vertex)
+        self.assertIsNone(vertex.setPosition((1.5, -2.0, 0.25)))
         self.assertPointsAlmostEqual([_points(name)[2]], [(1.5, -2.0, 0.25)])
         vertex.setPosition(om2.MPoint(4, 5, 6), worldSpace=True)
         self.assertPointsAlmostEqual([_points(name, True)[2]], [(4, 5, 6)])
@@ -780,7 +780,7 @@ class PointComponentTest(_CaseShapeEditing):
             for worldSpace in (False, True):
                 with self.subTest(axis=axis, worldSpace=worldSpace):
                     before = list(_points(name, worldSpace)[3])
-                    self.assertIs(method(2.5, worldSpace=worldSpace), vertex)
+                    self.assertIsNone(method(2.5, worldSpace=worldSpace))
                     before[axis] = 2.5
                     self.assertPointsAlmostEqual([_points(name, worldSpace)[3]], [before])
 
@@ -870,7 +870,7 @@ class PointComponentsTest(_CaseShapeEditing):
         name = shape.getFullName()
         vertices = shape.getVertices([5, 1, 3])
         rows = [(1, 0, 0), (0, 2, 0), (0, 0, 3)]
-        self.assertIs(vertices.setPositions(rows), vertices)
+        self.assertIsNone(vertices.setPositions(rows))
         points = _points(name)
         self.assertPointsAlmostEqual([points[5], points[1], points[3]], rows)
         vertices.setPositions(rows, worldSpace=True)
@@ -914,16 +914,16 @@ class PointComponentsTest(_CaseShapeEditing):
                 name = shape.getFullName()
                 before = _points(name, worldSpace)
                 vertices = shape.getVertices([0, 2, 4])
-                self.assertIs(vertices.mirror("XZ", worldSpace=worldSpace, pivot=(0, 1, 0)), vertices)
+                self.assertIsNone(vertices.mirror("XZ", worldSpace=worldSpace, pivot=(0, 1, 0)))
                 self.assertPointsAlmostEqual(_points(name, worldSpace), _mirrored(before, [0, 2, 4], 1, (0, 1, 0)))
 
     def test_empty_collection_validates_but_does_nothing(self):
         shape = self.cube()
         empty = shape.getVertices([])
         self.flushUndo()
-        self.assertIs(empty.setPositions([]), empty)
-        self.assertIs(empty.setPosition((1, 2, 3)), empty)
-        self.assertIs(empty.mirror(), empty)
+        self.assertIsNone(empty.setPositions([]))
+        self.assertIsNone(empty.setPosition((1, 2, 3)))
+        self.assertIsNone(empty.mirror())
         self.assertUndoEmpty()
         with self.assertRaises(ValueError):
             empty.setPosition((1, 2))
