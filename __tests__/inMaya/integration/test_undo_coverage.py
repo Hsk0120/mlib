@@ -1534,6 +1534,8 @@ CASES = [
     C("Joint.connectInverseScale", "connectInverseScale", s_loose_joints, lambda c, **kw: c.nj.connectInverseScale(**kw)),
     C("Joint.disconnectInverseScale", "disconnectInverseScale", s_joints, lambda c, **kw: c.nj1.disconnectInverseScale(**kw)),
     C("Joint.setRadius", "setRadius", s_joints, lambda c, **kw: c.nj1.setRadius(3.0, **kw)),
+    C("Joint.setJointOrient", "setJointOrient", s_joints, lambda c, **kw: c.nj1.setJointOrient((10, 20, 30), **kw)),
+    C("Joint.resetAttrs", "Joint.resetAttrs", s_joints_oriented, lambda c, **kw: c.nj1.resetAttrs(**kw)),
     C("Joint.removeInfluence", "Joint.removeInfluence", s_skin, lambda c, **kw: c.nj1.removeInfluence(c.skin)),
     C("Joint.delete", "Joint.delete unskinned", s_joints, lambda c, **kw: c.njx.delete(**kw)),
     C("Joint.delete", "Joint.delete influence", s_skin, lambda c, **kw: c.nj1.delete(**kw)),

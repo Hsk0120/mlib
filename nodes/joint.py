@@ -12,7 +12,7 @@ from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Matrix, Scale, Vector
 from ..util import _MIRROR_PLANES, _UNSET, _finite_vector, _mirror_axis, _world_space
-from .node import Node, Nodes
+from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 
 #: :meth:`Joint.orient` の orientation に指定できる値(``cmds.joint(orientJoint=...)`` と同じ)。
@@ -215,6 +215,78 @@ class Joint(Transform):
         """
         values = self._compound_values("jointOrient", angle=True)
         return EulerRotate(*(math.radians(value) for value in values))
+
+    def setJointOrient(self, value, *, unit="deg", fast=False, check=False):
+        """jointOrientを設定する。
+
+        jointOrientの値だけを書き換えるので、rotateが同じでもジョイントの向きは変わる。
+        向きを変えずにrotateとの間で値を移すときは、:meth:`freezeRotate`・:meth:`jointOrientToRotate` を使う。
+        jointOrientの回転順はXYZで、ノードのrotateOrderは使わない。
+
+        Args:
+            value (Sequence[float] | EulerRotate): XYZの角度。EulerRotateの代わりに、元になっているOpenMayaの型も
+                受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく換算しない。回転順がXYZで
+                ない場合は、同じ回転になるXYZの値へ直して書く。
+            unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、値が有限か・書き込めるか(ロック・入力の接続が無いか)を確かめる。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+
+        Returns:
+            Joint: 自身。
+
+        Raises:
+            TypeError: valueが3つの数値の並び・EulerRotate以外の場合、fast・checkがbool以外の場合、
+                またはunitが文字列・None以外の場合。
+            ValueError: valueの要素が3つでない場合、またはunitに使えない単位名を指定した場合。
+            RuntimeError: ジョイントが無効な場合、またはjointOrientがロック・入力の接続で書き込めない場合。
+        """
+        with _edit_context("mlibJointSetJointOrient", fast, single=True):
+            self._require_valid("jointOrientの設定")
+            if isinstance(value, om2.MEulerRotation):
+                euler = value if value.order == om2.MEulerRotation.kXYZ else value.reorder(om2.MEulerRotation.kXYZ)
+                value, unit = (euler.x, euler.y, euler.z), "rad"
+            else:
+                try:
+                    value = tuple(value)
+                except TypeError:
+                    raise TypeError("valueは3個の数値の並びかEulerRotateで指定してください") from None
+                if len(value) != 3:
+                    raise ValueError("valueは3個の成分で指定してください")
+            self.getPlug("jointOrient").set(value, unit=unit, fast=fast, check=check)
+            return self
+
+    def resetAttrs(self, attributes=None, *, fast=False):
+        """アトリビュートを既定値へ戻す。
+
+        :meth:`Node.resetAttrs` と同じ。違いは、attributesを省略したときに、キーを設定できるアトリビュートに加えて
+        jointOrientも0へ戻すこと(jointOrientはキーを設定できないアトリビュートなので、通常の対象には入らない)。
+        jointOrientを戻すと、ジョイントの向きが変わる。jointOrientを残すときは、戻すアトリビュートを明示する。
+
+        Args:
+            attributes (str | Plug | Iterable[str | Plug] | None): :meth:`Node.resetAttrs` と同じ。Noneなら、
+                jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            list[Plug]: 既定値へ戻したアトリビュート。jointOrientの成分は末尾に並ぶ。すべての変更を1回のUndoにまとめる。
+
+        Raises:
+            AttributeError: 指定したアトリビュートが存在しない場合。
+            TypeError: 名前・Plug以外を指定した場合、または明示したアトリビュートが既定値へ戻せない型の場合。
+            ValueError: 別のノードのPlugを指定した場合。
+            RuntimeError: 明示したアトリビュートが、ロックや接続などで書き込めない場合。
+        """
+        with _edit_context("mlibNodeResetAttrs", fast):
+            plugs = super().resetAttrs(attributes, fast=fast)
+            if attributes is None:
+                done = {plug.getLongName() for plug in plugs}
+                for name in ("jointOrientX", "jointOrientY", "jointOrientZ"):
+                    plug = self.getPlug(name)
+                    if name not in done and not plug.isDestination() and _writable_plug(plug):
+                        plug.reset(fast=fast)
+                        plugs.append(plug)
+            return plugs
 
     def jointOrientToRotate(self):
         """jointOrientをrotateへ移して0にする。
@@ -470,24 +542,22 @@ class Joint(Transform):
             self.getPlug("radius").set(value, fast=fast)
             return self
 
-    def getPreferredAngle(self, *, unit="deg"):
+    def getPreferredAngle(self):
         """preferredAngleを取得する。
 
         preferredAngleは、IKがジョイントを曲げる向きの基準になる角度。
-
-        Args:
-            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+        :meth:`getRotate` と同じくEulerRotateで返す。rotateへそのまま入る値なので、回転順序はノードのrotateOrder。
 
         Returns:
-            list[float]: XYZの角度。
+            EulerRotate: preferredAngleの値。中身はradで、ノードとは切り離されている。
+                度の3つの値は ``getPreferredAngle().asDegrees()`` で取得する。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: unitに使えない単位名を指定した場合。
             RuntimeError: ジョイントが無効な場合。
         """
         self._require_valid("優先角度の取得")
-        return [float(value) for value in self.getPlug("preferredAngle").get(unit=unit)]
+        x, y, z = self.getPlug("preferredAngle").get(unit="rad")
+        return EulerRotate(x, y, z, self.getPlug("rotateOrder").get())
 
     def setPreferredAngle(self, value=None, *, unit="deg"):
         """preferredAngleを設定する。
@@ -497,14 +567,16 @@ class Joint(Transform):
         ``cmds.joint(edit=True, setPreferredAngles=True)`` と同じ。子孫のジョイントには反映しない。
 
         Args:
-            value (Sequence[float] | None): XYZの角度。Noneなら今のrotateを使う。
-            unit (str): valueの角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            value (Sequence[float] | EulerRotate | None): XYZの角度。Noneなら今のrotateを使う。EulerRotateの代わりに、
+                元になっているOpenMayaの型も受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく
+                換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。
+            unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
 
         Returns:
             Joint: 自身。
 
         Raises:
-            TypeError: valueが3つの数値の並び・None以外の場合、またはunitが文字列・None以外の場合。
+            TypeError: valueが3つの数値の並び・EulerRotate・None以外の場合、またはunitが文字列・None以外の場合。
             ValueError: valueの要素が3つでない場合、有限でない値がある場合、またはunitに使えない単位名を指定した場合。
             RuntimeError: ジョイントが無効な場合、またはpreferredAngleがロック・入力の接続で書き込めない場合。
         """
@@ -512,6 +584,10 @@ class Joint(Transform):
             self._require_valid("優先角度の設定")
             if value is None:
                 value, unit = tuple(self.getPlug("rotate").get(unit="rad")), "rad"
+            elif isinstance(value, om2.MEulerRotation):
+                order = self.getPlug("rotateOrder").get()
+                euler = value if value.order == order else value.reorder(order)
+                value, unit = (euler.x, euler.y, euler.z), "rad"
             else:
                 value = _finite_vector(value, 3, "value")
             self.getPlug("preferredAngle").set(value, unit=unit)

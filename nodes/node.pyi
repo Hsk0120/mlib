@@ -1046,7 +1046,7 @@ class Node(Object):
 
         指定したアトリビュートを戻す。省略したときは、書き込めてキーを設定できるアトリビュートを戻す。
         Transformでも同じ決まりで、省略時はtranslate・rotate・scale・shearに限らず、キーを設定できるもの
-        すべて(visibilityなども含む)を戻す。
+        すべて(visibilityなども含む)を戻す。Jointは、省略時にjointOrientも戻す。
 
         Args:
             attributes (str | Plug | Iterable[str | Plug] | None): アトリビュート名か、このノードのPlug

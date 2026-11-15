@@ -382,6 +382,81 @@ class SetPreferredAngleTest(_SpecCase):
             joint.setPreferredAngle((1, 2))
 
 
+class SetJointOrientTest(_SpecCase):
+    """Joint.setJointOrientは、jointOrientだけを書き換える。"""
+
+    def make_joint(self):
+        cmds.select(clear=True)
+        name = self.make("joint", "orient#")
+        cmds.setAttr(name + ".rotate", 5, 6, 7)
+        cmds.setAttr(name + ".rotateOrder", 3)
+        return name, Node(name)
+
+    def assertOrient(self, name, expected):
+        for actual, value in zip(cmds.getAttr(name + ".jointOrient")[0], expected):
+            self.assertAlmostEqual(actual, value, places=6)
+
+    def test_values_and_units(self):
+        name, joint = self.make_joint()
+        self.assertIs(joint.setJointOrient((10, 20, 30)), joint)
+        self.assertOrient(name, (10, 20, 30))
+        self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (5.0, 6.0, 7.0))
+        joint.setJointOrient((math.pi / 2, 0, -math.pi / 4), unit="rad")
+        self.assertOrient(name, (90, 0, -45))
+        joint.setJointOrient(EulerRotate(math.radians(15), math.radians(-25), math.radians(35)))
+        self.assertOrient(name, (15, -25, 35))
+        self.assertOrient(name, [math.degrees(value) for value in joint.getJointOrient()])
+
+    def test_euler_of_other_order_keeps_rotation(self):
+        name, joint = self.make_joint()
+        source = om2.MEulerRotation(math.radians(40), math.radians(-20), math.radians(70), om2.MEulerRotation.kZXY)
+        joint.setJointOrient(source)
+        written = om2.MEulerRotation(*(math.radians(value) for value in cmds.getAttr(name + ".jointOrient")[0]))
+        self.assertTrue(written.asQuaternion().isEquivalent(source.asQuaternion(), 1e-9) or written.asQuaternion().isEquivalent(-source.asQuaternion(), 1e-9))
+
+    def test_undo_and_fast(self):
+        name, joint = self.make_joint()
+        self.flushUndo()
+        joint.setJointOrient((10, 20, 30))
+        self.assertUndoesInOneStep(lambda: self.assertOrient(name, (0, 0, 0)), lambda: self.assertOrient(name, (10, 20, 30)))
+        self.flushUndo()
+        joint.setJointOrient((1, 2, 3), fast=True)
+        self.assertOrient(name, (1, 2, 3))
+        self.assertUndoEmpty()
+
+    def test_invalid_input(self):
+        name, joint = self.make_joint()
+        with self.assertRaises(ValueError):
+            joint.setJointOrient((1, 2))
+        with self.assertRaises(TypeError):
+            joint.setJointOrient(5)
+        with self.assertRaises(ValueError):
+            joint.setJointOrient((1, 2, 3), unit="turn")
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                with self.assertRaises(ValueError):
+                    joint.setJointOrient((float("nan"), 0, 0), fast=fast, check=True)
+        cmds.setAttr(name + ".jointOrientY", lock=True)
+        for fast in (False, True):
+            with self.subTest(locked=True, fast=fast):
+                # check=Trueなら、何も書かずに例外にする。
+                with self.assertRaises(RuntimeError):
+                    joint.setJointOrient((1, 2, 3), fast=fast, check=True)
+                self.assertOrient(name, (0, 0, 0))
+        for fast in (False, True):
+            with self.subTest(locked=True, fast=fast, check=False):
+                # 既定では確かめずに書き、Mayaが拒否したときに例外になる。
+                with self.assertRaises(RuntimeError):
+                    joint.setJointOrient((1, 2, 3), fast=fast)
+
+    def test_plural_forwards(self):
+        first, _ = self.make_joint()
+        second, _ = self.make_joint()
+        Joints([first, second]).setJointOrient((1, 2, 3))
+        self.assertOrient(first, (1, 2, 3))
+        self.assertOrient(second, (1, 2, 3))
+
+
 class _SpecCaseJoint(NamespaceCase):
     """このテストファイルの名前空間の先頭と、共通基底からの差分。"""
 
@@ -551,24 +626,59 @@ class SetParentTest(_SpecCaseJoint):
 
 
 class ResetAttrsTest(_SpecCaseJoint):
-    """Joint.resetAttrs の既定はキー設定可能な全アトリビュートで、jointOrient は戻さない。"""
+    """Joint.resetAttrs の既定は、キー設定可能な全アトリビュートと jointOrient を戻す。"""
 
-    def test_default_keeps_joint_orient(self):
+    KEYABLE = ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+
+    def build(self):
         name = self.make()
         cmds.setAttr(name + ".translate", 1.0, 2.0, 3.0)
         cmds.setAttr(name + ".rotate", 10.0, 20.0, 30.0)
         cmds.setAttr(name + ".jointOrient", 5.0, 6.0, 7.0)
+        return name
+
+    def test_default_resets_joint_orient(self):
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                name = self.build()
+                cmds.flushUndo()
+                plugs = Node(name).resetAttrs(fast=fast)
+                self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE + ["jointOrientX", "jointOrientY", "jointOrientZ"])
+                self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (0.0, 0.0, 0.0))
+                self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
+                if fast:
+                    self.assertFalse(cmds.undoInfo(query=True, undoName=True))
+                else:
+                    cmds.undo()
+                    self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (10.0, 20.0, 30.0))
+                    self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 6.0, 7.0))
+
+    def test_locked_or_connected_joint_orient_is_skipped(self):
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                name = self.build()
+                source = self.make()
+                cmds.setAttr(name + ".jointOrientX", lock=True)
+                cmds.connectAttr(source + ".translateY", name + ".jointOrientY")
+                plugs = Node(name).resetAttrs(fast=fast)
+                self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE + ["jointOrientZ"])
+                self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 0.0, 0.0))
+
+    def test_explicit_attributes_keep_joint_orient(self):
+        name = self.build()
         joint = Node(name)
-        plugs = joint.resetAttrs()
-        self.assertEqual(
-            [plug.getLongName() for plug in plugs],
-            ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"],
-        )
-        self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (0.0, 0.0, 0.0))
+        plugs = joint.resetAttrs(["rotate"])
+        self.assertEqual([plug.getLongName() for plug in plugs], ["rotate"])
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 6.0, 7.0))
         plugs = joint.resetAttrs("jointOrient")
         self.assertEqual([plug.getLongName() for plug in plugs], ["jointOrient"])
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
+
+    def test_plural(self):
+        first, second = self.build(), self.build()
+        Joints([first, second]).resetAttrs()
+        for name in (first, second):
+            self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
 
 
 class InvalidJointTest(_SpecCaseJoint):
@@ -680,14 +790,28 @@ class RigQueryAdditionsTest(_CaseMethodAdditions):
     """Joint.getPreferredAngle・AnimCurve.isStatic・Constraint.removeTarget。"""
 
     def test_preferred_angle(self):
-        """setPreferredAngle で設定した値を度・ラジアンで読み戻せる。"""
+        """setPreferredAngle で設定した値を、getRotateと同じEulerRotate(rad・ノードのrotateOrder)で読み戻せる。"""
         cmds.select(clear=True)
         joint = mlib.getNode(cmds.joint(name=self.name("jnt#")))
+        cmds.setAttr(str(joint) + ".rotateOrder", 2)
         joint.setPreferredAngle((10, 20, 30))
-        self.assertSequenceAlmostEqual(joint.getPreferredAngle(), (10, 20, 30))
-        self.assertSequenceAlmostEqual(joint.getPreferredAngle(unit="rad"), [math.radians(v) for v in (10, 20, 30)])
-        with self.assertRaises(ValueError):
-            joint.getPreferredAngle(unit="furlong")
+        angle = joint.getPreferredAngle()
+        self.assertIsInstance(angle, EulerRotate)
+        self.assertEqual(angle.order, 2)
+        self.assertEqual(angle.order, joint.getRotate().order)
+        self.assertSequenceAlmostEqual(tuple(angle), [math.radians(v) for v in (10, 20, 30)])
+        self.assertSequenceAlmostEqual(angle.asDegrees(), (10, 20, 30))
+        with self.assertRaises(TypeError):
+            joint.getPreferredAngle(unit="rad")
+        # 読んだ値をそのまま渡すと、同じ値が書かれる。
+        joint.setPreferredAngle((0, 0, 0))
+        joint.setPreferredAngle(angle)
+        self.assertSequenceAlmostEqual(cmds.getAttr(str(joint) + ".preferredAngle")[0], (10, 20, 30), places=6)
+        # 回転順序が違うEulerRotateは、同じ回転になる値へ直して書く。
+        source = om2.MEulerRotation(math.radians(40), math.radians(-20), math.radians(70), om2.MEulerRotation.kXYZ)
+        joint.setPreferredAngle(source)
+        written = joint.getPreferredAngle().asQuaternion()
+        self.assertTrue(written.isEquivalent(source.asQuaternion(), 1e-9) or written.isEquivalent(-source.asQuaternion(), 1e-9))
 
     def test_anim_curve_is_static(self):
         """同じ値のキーだけのカーブは一定、値の違うキーがあれば一定でない。"""
