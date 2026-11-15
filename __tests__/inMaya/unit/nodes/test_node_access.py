@@ -201,5 +201,71 @@ class NoDuplicateErrorLogTest(_SpecCase):
         self.assertEqual([record.getMessage() for record in records if record.levelno >= logging.ERROR], [])
 
 
+class StaticPlugTest(_SpecCase):
+    """同じ名前を繰り返し取得しても、毎回の取得と同じ結果になる(静的アトリビュートは覚えた情報から作る)。"""
+
+    def test_repeated_get_returns_equal_new_plugs(self):
+        name = self.make()
+        node = Node(name)
+        for attr in ("tx", "translateX", "t", "translate", "visibility", "worldMatrix", "message", "rotateOrder"):
+            with self.subTest(attr=attr):
+                first = node.getPlug(attr)
+                second = node.getPlug(attr)
+                other = Node(name).getPlug(attr)
+                self.assertIsNot(first, second)
+                self.assertIs(type(second), type(first))
+                self.assertIs(type(second), type(other))
+                self.assertEqual(second, first)
+                self.assertEqual(hash(second), hash(first))
+                self.assertEqual(second.getFullName(), first.getFullName())
+                self.assertEqual(str(getattr(node, attr)), first.getFullName())
+        node.tx = 3
+        self.assertEqual(node.getPlug("tx").get(), 3.0)
+        self.assertEqual(node.tx.get(), cmds.getAttr(name + ".tx"))
+
+    def test_has_attr_and_missing_name(self):
+        node = Node(self.make())
+        for _ in range(2):
+            self.assertTrue(node.hasAttr("tx"))
+            self.assertFalse(node.hasAttr("noSuchAttribute"))
+            self.assertFalse(node.hasAttr(""))
+            self.assertFalse(node.hasAttr(None))
+
+    def test_deleted_node_is_rejected_and_undo_restores(self):
+        name = self.make()
+        node = Node(name)
+        node.getPlug("tx")
+        cmds.delete(name)
+        self.assertFalse(node.hasAttr("tx"))
+        with self.assertRaises(RuntimeError):
+            node.getPlug("tx")
+        cmds.undo()
+        self.assertTrue(node.hasAttr("tx"))
+        self.assertEqual(node.getPlug("tx").getFullName(), name + ".translateX")
+
+    def test_dynamic_attribute_follows_delete_and_recreate(self):
+        name = self.make()
+        node = Node(name)
+        cmds.addAttr(name, longName="custom", attributeType="double")
+        self.assertEqual(type(node.getPlug("custom")).__name__, "DoublePlug")
+        self.assertTrue(node.hasAttr("custom"))
+        cmds.deleteAttr(name + ".custom")
+        self.assertFalse(node.hasAttr("custom"))
+        with self.assertRaises(AttributeError):
+            node.getPlug("custom")
+        cmds.addAttr(name, longName="custom", dataType="string")
+        self.assertEqual(type(node.getPlug("custom")).__name__, "StringPlug")
+        cmds.renameAttr(name + ".custom", "renamed")
+        self.assertFalse(node.hasAttr("custom"))
+        self.assertTrue(node.hasAttr("renamed"))
+
+    def test_unresolved_child_stays_rejected(self):
+        node = Node(self.make("plusMinusAverage"))
+        for _ in range(2):
+            with self.assertRaises(RuntimeError):
+                node.getPlug("input3Dx")
+            self.assertFalse(node.hasAttr("input3Dx"))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -14,6 +14,7 @@ from .compoundPlug import CompoundPlug
 class Double3Plug(CompoundPlug):
     """3成分のアトリビュートを扱うPlug。チャンネルの値を読み書きし、マトリクスでの変換はしない。"""
 
+    _value_type_cache = None  #: _value_type() が初回にアトリビュートの名前から決める、値の型。
     _value_types = {"translate": Translate, "t": Translate, "rotate": EulerRotate, "r": EulerRotate, "scale": Scale, "s": Scale, "shear": Shear, "sh": Shear}
 
     def get(self, *, unit=None, timeUnit=None, uiUnits=False):
@@ -52,7 +53,7 @@ class Double3Plug(CompoundPlug):
         self._require_valid()
         if uiUnits:
             return tuple(self._child_at(i).get(uiUnits=True) for i in range(3))
-        value_type = self._value_types.get(self.getLongName(), Vector)
+        value_type = self._value_type()
         if value_type is EulerRotate:
             # UIの角度単位に依存せず、値型はラジアンで構築する。
             values = [self._mplug.child(index).asMAngle().asRadians() for index in range(3)]
@@ -62,6 +63,8 @@ class Double3Plug(CompoundPlug):
             return EulerRotate(*values, order=order)
         # 子Plugラッパーを作らず、子のget()と同じ読取関数で3成分を読む。
         values = tuple(self._child_values()[:3])
+        if "angle" not in self._unit_kinds():
+            return value_type(*values)  # 角度の子が無ければ換算は要らない。
         return value_type(*_convert_angles(self._mplug, values, angle_unit, to_internal=False))
 
     def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False):
@@ -99,6 +102,22 @@ class Double3Plug(CompoundPlug):
         """
         return self._set_template(value, safe, unit=unit, timeUnit=timeUnit, uiUnits=uiUnits, fast=fast)
 
+    def _value_type(self):
+        """このアトリビュートの値を表す数学の型を返す。有効なことは確かめ済みとする。
+
+        アトリビュートの名前で決まる。静的アトリビュートは改名できないので、Plugごとに一度だけ調べる
+        (動的アトリビュートは改名できるので、毎回調べる)。
+
+        Returns:
+            type: translateはTranslate、rotateはEulerRotate、scaleはScale、shearはShear。それ以外はVector。
+        """
+        value_type = self._value_type_cache
+        if value_type is None:
+            value_type = self._value_types.get(om2.MFnAttribute(self._attribute).name, Vector)
+            if self._static_attribute:
+                self._value_type_cache = value_type
+        return value_type
+
     def _set_value(self, value, *, uiUnits=False, fast=False):
         """3成分の値と、書き込めるかどうかを確かめてから書き込む。
 
@@ -124,6 +143,9 @@ class Double3Plug(CompoundPlug):
         if uiUnits:
             value = self._ui_components(value)
         values = self._set_components(value)
+        if not fast and self._set_at_once(values):
+            # 通常の書き込みは親への1回のsetAttrで済ませる。Mayaが拒否したときだけ、下で理由を確かめる。
+            return
         self._require_writable()
         if fast and super()._set_value.__func__ is CompoundPlug._set_value:
             # CompoundPlug._set_value(fast)と同じ子数の検査と直接更新。参照の検証と全子の
@@ -134,8 +156,8 @@ class Double3Plug(CompoundPlug):
         elif fast:
             super()._set_value(values, fast=fast)
         else:
-            # 書込み可否は確認済みのため、親への1回のsetAttrを試す。
-            self._set_child_values(values, writable_checked=True)
+            # 親へまとめて書けなかった値は、子ごとに書いて従来の例外と更新順にする。
+            self._set_child_values(values)
 
     def _set_children_safely(self, value, *, uiUnits=False, fast=False):
         """回転順序と単位を揃えてから、子ごとにsafeで設定を試す。
@@ -197,7 +219,7 @@ class Double3Plug(CompoundPlug):
             TypeError: 値を数値の並びへ変換できない場合。
             ValueError: 成分の数が違う場合、または有限でない値の場合。
         """
-        if self._value_types.get(self.getLongName()) is EulerRotate:
+        if self._value_type() is EulerRotate:
             order = int(self.getNode().getPlug("ro").get())
             if isinstance(value, (om2.MEulerRotation, om2.MQuaternion)):
                 rotation = value.asEulerRotation() if isinstance(value, om2.MQuaternion) else om2.MEulerRotation(value)

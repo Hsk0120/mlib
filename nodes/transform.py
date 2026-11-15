@@ -352,6 +352,8 @@ class Transform(DagNode):
       全体を元に戻すことは保証しない。
     """
 
+    _transform_fn_cache = None  #: _transform_fn() が初回に作る MFnTransform(ノードごとに1つ)。
+
     def addConstraint(
         self,
         sources,
@@ -1325,6 +1327,8 @@ class Transform(DagNode):
             add (bool): Trueなら、今の親はそのままにして、親をもう1つ加える。parentがNoneのときは使わない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` のときだけで、
                 ワールドでの位置を保つ既定の動きでは、cmds.parentより遅い。
+                ワールドでの姿勢は通常と同じになるが、ピボットの値は動かさず、translateで合わせる
+                (通常の方法では、Mayaがピボットの値を動かす)。
                 Joint・インスタンス・親の追加には対応していない(NotImplementedError)。
                 通常の方法では、Jointはcmds.parentの動きに従う。relative=Falseのときだけ、
                 親のjointのscaleをinverseScaleへ接続する(relative=Trueでは接続しない。Mayaの仕様)。
@@ -2606,8 +2610,11 @@ class Transform(DagNode):
         require_editable(self._require_mnode())
         if target is not None:
             require_editable(target._require_mnode())
-        current = self.getParent()
-        if (current is None and target is None) or (current is not None and target is not None and current.mnode() == target.mnode()):
+        # 今の親は、ラッパーを作らずにパスから求める。
+        current = None
+        if path.length() > 1:
+            current = om2.MDagPath(path).pop().node()
+        if (current is None and target is None) or (current is not None and target is not None and current == target.mnode()):
             return self
         # ラッパーを作らず、OpenMayaの値とMPlugで直接確かめる(1回の呼び出しを軽くするため)。
         world = None if relative else Matrix(path.inclusiveMatrix())
@@ -2617,8 +2624,12 @@ class Transform(DagNode):
             opm = om2.MFnMatrixData(dependency_fn.findPlug("offsetParentMatrix", False).asMObject()).matrix()
             if abs(parent_matrix.det4x4()) <= 1e-12 or abs(opm.det4x4()) <= 1e-12:
                 raise RuntimeError("親かオフセットのマトリクスが特異なため、ワールドのトランスフォームを保てません")
+            free = om2.MPlug.kFreeToChange
             for name in ("translate", "rotate", "scale", "shear"):
                 plug = dependency_fn.findPlug(name, False)
+                if plug.isFreeToChange() == free:
+                    continue  # 親と子のロック・入力の接続を、1回の問い合わせで確かめる。
+                # 書けないものがあるときだけ、1つずつ調べて従来の例外にする。
                 require_writable(plug)
                 for index in range(plug.numChildren()):
                     require_writable(plug.child(index))
@@ -2632,7 +2643,7 @@ class Transform(DagNode):
         self._dag_path = om2.MDagPath.getAPathTo(self.mnode())
         if world is not None:
             # setMatrix(world, worldSpace=True, fast=True) と同じ計算を、入口の引数の検査を通さずに行う。
-            self._apply_local_matrix(self._local_matrix(world, True), fast=True)
+            self._apply_channel_values(self._matrix_channel_values(self._local_matrix(world, True)), fast=True, writable_checked=True)
         return self
 
     def _require_not_own_descendant(self, target):
@@ -2653,6 +2664,20 @@ class Transform(DagNode):
                 if path.node() == own:
                     raise RuntimeError(f"ノードを自分自身や自分の子孫の下へは親子付けできません: {self.getFullName()} -> {target.getFullName()}")
                 path.pop()
+
+    def _transform_fn(self):
+        """保持するノードの MFnTransform を返す(作成は初回の1回だけ)。
+
+        ローカルの値を読むたびに関数セットを作り直さないために覚えておく。値は覚えない。
+        ノードが有効(:meth:`isValid`)であることを呼び出し側で確かめてから使う。
+
+        Returns:
+            om2.MFnTransform: このノードの関数セット。
+        """
+        fn = self._transform_fn_cache
+        if fn is None:
+            fn = self._transform_fn_cache = om2.MFnTransform(self._mobject)
+        return fn
 
     def _static_value(self, name):
         """ノード型に組み込みの数値アトリビュートの内部単位の値を、Plugのオブジェクトを作らずに読む。
@@ -2675,7 +2700,7 @@ class Transform(DagNode):
         reader = _TRANSFORM_READERS.get(name)
         if reader is not None:
             # 位置・ピボット・スケールなどは、MFnTransformの1回の呼び出しで3成分をまとめて読む(値は同じ)。
-            return reader(om2.MFnTransform(self.mnode()))
+            return reader(self._transform_fn())
         plug = self._dependency_fn().findPlug(name, False)
         targets = [plug.child(index) for index in range(plug.numChildren())] if plug.isCompound else [plug]
         values = []
@@ -2728,6 +2753,9 @@ class Transform(DagNode):
         Returns:
             om2.MQuaternion: 新しい回転値。
         """
+        if name == "rotateAxis" and self.isValid():
+            # rotateAxisのxyzの回転と同じクォータニオンを、MFnTransformの1回の呼び出しで読む。
+            return self._transform_fn().rotateOrientation(om2.MSpace.kTransform)
         if name == "jointOrient" and not self._require_mnode().hasFn(om2.MFn.kJoint):
             value = self.getPlug(name).get(unit="rad")
         else:
@@ -2955,7 +2983,7 @@ class Transform(DagNode):
         """
         self._apply_channel_values(self._matrix_channel_values(matrix, scale_reference), safe=False, fast=fast)
 
-    def _apply_channel_values(self, values, safe=False, *, fast=False):
+    def _apply_channel_values(self, values, safe=False, *, fast=False, writable_checked=False):
         """計算済みの内部単位値のうち、現在値と異なるものだけを辞書の保持順に設定する。
 
         書込み値が現在のチャンネル値(内部単位)と完全に一致するチャンネルは書き込まない。
@@ -2965,6 +2993,8 @@ class Transform(DagNode):
             values (dict[str, Iterable[float]]): チャンネル名と設定値。
             safe (bool): 書けない成分を残す。通常時は失敗を伝播する。
             fast (bool): 子のPlugへ渡す更新モード。
+            writable_checked (bool): Trueなら、呼び出し元が4つのチャンネルへ書き込めることを確かめ済み。
+                fastの書き込みで、確かめ直しを省く。
 
         Returns:
             None: 値を返さない。
@@ -2977,6 +3007,8 @@ class Transform(DagNode):
         # 書くチャンネルが1つなら1回のコマンドなので、チャンクを開かない。
         with undoChunk("mlibTransformApplyChannels") if len(changed) > 1 and not fast else nullcontext():
             for name, value in changed:
+                if writable_checked and fast and self._write_channel_directly(name, value, True, writable_checked=True):
+                    continue
                 self._set_channel_value(name, value, safe=safe, fast=fast)
 
     def _channel_equals(self, name, value):
@@ -2997,7 +3029,7 @@ class Transform(DagNode):
             return isinstance(current, tuple) and len(current) == len(value) and all(float(a) == float(b) for a, b in zip(current, value))
         return current == value
 
-    def _write_channel_directly(self, name, value, fast):
+    def _write_channel_directly(self, name, value, fast, *, writable_checked=False):
         """translate・rotate・scale・shearへ、Plugのオブジェクトを作らずに内部単位の3つの値を書く。
 
         通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書けない場合(ロック・入力の接続・
@@ -3007,6 +3039,7 @@ class Transform(DagNode):
             name (str): チャンネル名。
             value (Iterable[float]): 3つの値。距離はcm、角度はラジアン。
             fast (bool): TrueならOpenMayaで直接更新する。
+            writable_checked (bool): Trueなら、呼び出し元が書き込めることを確かめ済み。fastで確かめ直しを省く。
 
         Returns:
             bool: 書き込めたらTrue。
@@ -3024,7 +3057,7 @@ class Transform(DagNode):
             plug = self._dependency_fn().findPlug(name, False)
             children = [plug.child(index) for index in range(3)]
             free = om2.MPlug.kFreeToChange
-            if plug.isFreeToChange() != free or any(child.isFreeToChange() != free for child in children):
+            if not writable_checked and (plug.isFreeToChange() != free or any(child.isFreeToChange() != free for child in children)):
                 return False
             for child, item in zip(children, values):
                 if kind == "distance":

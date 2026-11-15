@@ -14,6 +14,8 @@ from ..core.attributeType import (
     _convert_angles,
     _convert_times,
     _convert_units,
+    _from_seconds,
+    _leaf_unit_kind,
     _plain_angle_unit,
     _plain_time_unit,
     _time_quantity,
@@ -60,6 +62,9 @@ _INVALID_ATTRIBUTE = om2.MFnDependencyNode.kInvalidAttr
 #: ``MFnDependencyNode.attributeClass()`` が、ノード型に組み込みの(静的な)アトリビュートに返す値。
 _NORMAL_ATTRIBUTE = om2.MFnDependencyNode.kNormalAttr
 
+#: set()の前に数値を換算する単位の種類(角度は度からrad、時間はフレームから秒)。
+_BOTH_UNIT_KINDS = frozenset(("angle", "time"))
+
 
 def _require_finite_value(value):
     """set() へ渡した値に、有限でない数値(NaN・無限大)が無いかを確かめる。
@@ -96,7 +101,12 @@ def _require_finite_value(value):
     else:
         return
     for item in items:
-        _require_finite_value(item)
+        if type(item) is float:
+            # 数値だけの並び(よくある場合)は、要素ごとの呼び出しを省く。
+            if not math.isfinite(item):
+                raise ValueError(f"valueは有限な数値で指定してください: {item!r}")
+        else:
+            _require_finite_value(item)
 
 
 def _instance_count(multi):
@@ -401,6 +411,9 @@ class Plug(Object):
     _registry = None  #: ルートの初期化が構築して注入する型登録表。
     #: get() が値を読む関数。初回の get() でアトリビュート定義から選ぶ(value_reader)。
     _reader: "Optional[Union[Callable[..., Any], Literal[False]]]" = None
+    #: get() が数値を換算する単位の種類。初回の get() でアトリビュート定義から決める(_leaf_unit_kind)。
+    _leaf_unit: "Optional[str]" = None
+    _unit_kinds_cache = None  #: _unit_kinds() が初回にアトリビュート定義から決める、換算する単位の種類。
     _node: "Node"  #: プラグを所有するノードラッパー。
     _mplug: "om2.MPlug"  #: 保持する MPlug。
     _attribute: "om2.MObject"  #: アトリビュート定義の MObject。
@@ -452,29 +465,7 @@ class Plug(Object):
                 raise RuntimeError(
                     f"マルチアトリビュートの要素の論理番号が未解決(-1)のPlugは作成できません: {mplug.partialName(False, True, True, True, False, True)}"
                 )
-            target = cls
-            if mplug.isArray:
-                # MultiPlug/CompoundPlug との循環importを避けるため、使う分岐で遅延importする。
-                from .multiPlug import MultiPlug
-
-                target = MultiPlug
-                if _is_ramp(mplug):
-                    # 同上(RampPlugはMultiPlugを継承する)。
-                    from .rampPlug import RampPlug
-
-                    target = RampPlug
-            else:
-                resolved_class = None
-                if cls._registry is not None:
-                    type_name = attributeType(mplug)
-                    resolved_class = cls._registry.lookup(type_name)
-                if resolved_class is not None:
-                    target = resolved_class
-                elif mplug.isCompound:
-                    # 同上(CompoundPlugはPlugを継承するため循環importになる)。
-                    from .compoundPlug import CompoundPlug
-
-                    target = CompoundPlug
+            target = Plug._target_class(mplug)
             # 選んだクラスの __new__ だけを呼び、__init__ は呼び出し元(Plug(...))の1回に任せる。
             instance = target.__new__(target, node, mplug) if target is not cls else super().__new__(cls)
             # 静的アトリビュートかどうかの判定結果と、判定に使ったアトリビュートとハンドルを __init__ へ
@@ -2059,6 +2050,18 @@ class Plug(Object):
         value = self._get_value()
         if uiUnits:
             return _convert_units(self._mplug, value)
+        kind = self._leaf_unit
+        if kind is None:
+            # 単位の種類は定義で決まるので、Plugごとに一度だけ調べる。
+            kind = self._leaf_unit = _leaf_unit_kind(self._mplug)
+        if kind != "tree":
+            # 子も要素も持たないPlug。角度と時間の数値だけを換算する。
+            if type(value) is float or type(value) is int:
+                if kind == "angle":
+                    return math.degrees(value) if angle_unit == "deg" else value
+                if kind == "time":
+                    return _from_seconds(value, time_unit) if time_unit == "frame" else value
+            return value
         value = _convert_angles(self._mplug, value, angle_unit, to_internal=False)
         return _convert_times(self._mplug, value, time_unit, to_internal=False)
 
@@ -2983,8 +2986,12 @@ class Plug(Object):
                 return 1
             if (angle_unit == "deg" or time_unit == "frame") and self.isValid():
                 # 角度・時間の数値を一度だけrad・秒へ換算する。以降の書込み・再試行は内部単位で扱う。
-                value = _convert_angles(self._mplug, value, angle_unit)
-                value = _convert_times(self._mplug, value, time_unit)
+                # その単位の成分を持たないPlugは、子をたどらない。
+                kinds = self._unit_kinds()
+                if "angle" in kinds:
+                    value = _convert_angles(self._mplug, value, angle_unit)
+                if "time" in kinds:
+                    value = _convert_times(self._mplug, value, time_unit)
             try:
                 # NaN・無限大はMayaが受け取っても値が壊れるため、書き込む前に拒否する。
                 _require_finite_value(value)
@@ -3812,7 +3819,7 @@ class Plug(Object):
             return Plug(Node(owner), mplug)
         mobject, dag_path = Node._selection_owner(selection, 0, value, plug=True)
         # 選択リストから取得したばかりの有効な所有ノードなので、Node(...) の入力解決を省いて同じ型で包む。
-        return Plug(Node._wrap_resolved(mobject, dag_path), mplug)
+        return Plug._wrap_owned(Node._wrap_resolved(mobject, dag_path), mplug)
 
     def _enum_attribute(self, caller):
         """有効性を確かめ済みの前提で、enumアトリビュートの定義を返す。
@@ -3998,6 +4005,152 @@ class Plug(Object):
         if attr.hasFn(om2.MFn.kUnitAttribute):
             return om2.MFnUnitAttribute(attr)
         return None
+
+    @staticmethod
+    def _target_class(mplug):
+        """MPlugに合ったPlugのクラスを選ぶ。
+
+        マルチアトリビュート・登録したアトリビュートの型・コンパウンドアトリビュートの順に調べる
+        (規則は :meth:`__new__` の説明を参照)。
+
+        Args:
+            mplug (om2.MPlug): 包む Maya API 2.0 のPlug。
+
+        Returns:
+            type: Plug、またはその派生クラス。
+        """
+        if mplug.isArray:
+            if _is_ramp(mplug):
+                # RampPlugはMultiPlugを継承し、MultiPlugはPlugを継承するため循環importになる。
+                from .rampPlug import RampPlug
+
+                return RampPlug
+            # 同上(MultiPlugはPlugを継承する)。
+            from .multiPlug import MultiPlug
+
+            return MultiPlug
+        registry = Plug._registry
+        if registry is not None:
+            resolved_class = registry.lookup(attributeType(mplug))
+            if resolved_class is not None:
+                return resolved_class
+        if mplug.isCompound:
+            # 同上(CompoundPlugはPlugを継承する)。
+            from .compoundPlug import CompoundPlug
+
+            return CompoundPlug
+        return Plug
+
+    @staticmethod
+    def _wrap_owned(node, mplug):
+        """持ち主が分かっているMPlugから、``Plug(node, mplug)`` と同じPlugを作る。
+
+        有効なノードから今取得したMPlugに使う。ノードが有効か、MPlugの持ち主がnodeかは確かめない
+        (呼び出し元が保証する)。アトリビュートの有無と、決まっていない論理番号は確かめる。
+
+        Args:
+            node (Node): Plugの持ち主のノード。有効であること。
+            mplug (om2.MPlug): nodeから取得したMPlug。
+
+        Returns:
+            Plug: 型に合ったクラスの新しいオブジェクト。
+
+        Raises:
+            RuntimeError: アトリビュートが削除されている場合、または決まっていない(-1)論理番号を含む場合。
+        """
+        attribute = mplug.attribute()
+        attribute_handle = om2.MObjectHandle(attribute)
+        attribute_class = _attribute_class(node._dependency_fn(), attribute_handle, attribute)
+        if attribute_class == _INVALID_ATTRIBUTE:
+            raise RuntimeError("削除されたアトリビュートのPlugは作成できません")
+        if (mplug.isElement or mplug.isChild) and Plug._has_unresolved_index(mplug):
+            raise RuntimeError(
+                f"マルチアトリビュートの要素の論理番号が未解決(-1)のPlugは作成できません: {mplug.partialName(False, True, True, True, False, True)}"
+            )
+        instance = object.__new__(Plug._target_class(mplug))
+        instance._node = node
+        instance._mplug = om2.MPlug(mplug)
+        identity_path = instance._identity_path = "." + mplug.partialName(includeNonMandatoryIndices=True, includeInstancedIndices=True)
+        instance._identity_hash = hash((hash(node), identity_path))
+        instance._attribute = attribute
+        instance._attribute_handle = attribute_handle
+        instance._static_attribute = attribute_class == _NORMAL_ATTRIBUTE
+        return instance
+
+    def _unit_kinds(self):
+        """このPlugとその下に、数値を換算する単位(角度・時間)の成分があるかを返す。
+
+        単位は定義で決まるので、Plugごとに一度だけ調べる。孫を持つPlugとマルチアトリビュートは、
+        たどらずに両方あるものとして扱う(換算する側が成分ごとに調べる)。
+
+        Returns:
+            frozenset[str]: ``"angle"`` と ``"time"`` のうち、成分があるもの。
+        """
+        kinds = self._unit_kinds_cache
+        if kinds is None:
+            mplug = self._mplug
+            if mplug.isArray:
+                found = {"tree"}
+            elif mplug.isCompound:
+                found = {_leaf_unit_kind(mplug.child(index)) for index in range(mplug.numChildren())}
+            else:
+                found = {_leaf_unit_kind(mplug)}
+            kinds = self._unit_kinds_cache = _BOTH_UNIT_KINDS if "tree" in found else frozenset(found & _BOTH_UNIT_KINDS)
+        return kinds
+
+    def _static_entry(self):
+        """静的アトリビュートのPlugを作り直すための情報を返す。持ち主のノードが名前ごとに覚える。
+
+        静的アトリビュートは削除も改名もできないので、ノードが有効な間は同じ情報からPlugを作れる。
+        登録した型のクラスは覚えず、型名から毎回選ぶ(型の登録を後から変えても、新しい登録が使われる)。
+
+        Returns:
+            tuple: :meth:`_from_static_entry` へ渡す情報。
+        """
+        mplug = self._mplug
+        fixed = type_name = None
+        if mplug.isArray:
+            fixed = type(self)
+        else:
+            type_name = attributeType(mplug)
+        return om2.MPlug(mplug), self._attribute, self._attribute_handle, self._identity_path, self._identity_hash, fixed, type_name, mplug.isCompound
+
+    @staticmethod
+    def _from_static_entry(node, entry):
+        """ノードが覚えた静的アトリビュートの情報から、新しいPlugを作る。
+
+        ``Plug(node, mplug)`` と同じクラスと中身になる。持ち主・未解決の論理番号・アトリビュートの
+        有無は、覚えたときに確かめてあるので調べ直さない。ノードが有効なことは呼び出し元が確かめる。
+
+        Args:
+            node (Node): Plugの持ち主のノード。情報を覚えたノードと同じオブジェクト。
+            entry (tuple): :meth:`_static_entry` が返した情報。
+
+        Returns:
+            Plug: 型に合ったクラスの新しいオブジェクト。
+        """
+        mplug, attribute, attribute_handle, identity_path, identity_hash, target, type_name, compound = entry
+        if target is None:
+            registry = Plug._registry
+            if registry is not None:
+                target = registry.lookup(type_name)
+            if target is None:
+                if compound:
+                    # CompoundPlugはPlugを継承するため循環importになる。
+                    from .compoundPlug import CompoundPlug
+
+                    target = CompoundPlug
+                else:
+                    target = Plug
+        instance = object.__new__(target)
+        instance._node = node
+        instance._mplug = om2.MPlug(mplug)
+        instance._identity_path = identity_path
+        instance._identity_hash = identity_hash
+        instance._attribute = attribute
+        instance._attribute_handle = attribute_handle
+        instance._static_attribute = True
+        return instance
 
     def _require_writable(self):
         """このPlugと、コンパウンドアトリビュートのすべての子に書き込めるか確かめる。シーンは変えない。

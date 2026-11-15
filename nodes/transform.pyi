@@ -710,6 +710,8 @@ class Transform(DagNode):
             add (bool): Trueなら、今の親はそのままにして、親をもう1つ加える。parentがNoneのときは使わない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。速くなるのは ``relative=True`` のときだけで、
                 ワールドでの位置を保つ既定の動きでは、cmds.parentより遅い。
+                ワールドでの姿勢は通常と同じになるが、ピボットの値は動かさず、translateで合わせる
+                (通常の方法では、Mayaがピボットの値を動かす)。
                 Joint・インスタンス・親の追加には対応していない(NotImplementedError)。
                 通常の方法では、Jointはcmds.parentの動きに従う。relative=Falseのときだけ、
                 親のjointのscaleをinverseScaleへ接続する(relative=Trueでは接続しない。Mayaの仕様)。
@@ -1513,6 +1515,16 @@ class Transform(DagNode):
             RuntimeError: target が自身、または自身の子孫の場合。
         """
         ...
+    def _transform_fn(self) -> om2.MFnTransform:
+        """保持するノードの MFnTransform を返す(作成は初回の1回だけ)。
+
+        ローカルの値を読むたびに関数セットを作り直さないために覚えておく。値は覚えない。
+        ノードが有効(:meth:`isValid`)であることを呼び出し側で確かめてから使う。
+
+        Returns:
+            om2.MFnTransform: このノードの関数セット。
+        """
+        ...
     def _static_value(self, name: str) -> tuple[float, ...] | object:
         """ノード型に組み込みの数値アトリビュートの内部単位の値を、Plugのオブジェクトを作らずに読む。
 
@@ -1699,7 +1711,7 @@ class Transform(DagNode):
             RuntimeError: Maya がアトリビュートの書き込みを拒否した場合。
         """
         ...
-    def _apply_channel_values(self, values: dict[str, Iterable[float]], safe: bool = ..., *, fast: bool = ...) -> None:
+    def _apply_channel_values(self, values: dict[str, Iterable[float]], safe: bool = ..., *, fast: bool = ..., writable_checked: bool = ...) -> None:
         """計算済みの内部単位値のうち、現在値と異なるものだけを辞書の保持順に設定する。
 
         書込み値が現在のチャンネル値(内部単位)と完全に一致するチャンネルは書き込まない。
@@ -1709,6 +1721,8 @@ class Transform(DagNode):
             values (dict[str, Iterable[float]]): チャンネル名と設定値。
             safe (bool): 書けない成分を残す。通常時は失敗を伝播する。
             fast (bool): 子のPlugへ渡す更新モード。
+            writable_checked (bool): Trueなら、呼び出し元が4つのチャンネルへ書き込めることを確かめ済み。
+                fastの書き込みで、確かめ直しを省く。
 
         Returns:
             None: 値を返さない。
@@ -1725,7 +1739,7 @@ class Transform(DagNode):
             bool: 成分数と各成分が完全に一致すればTrue。読取れない場合はFalse(書込みへ委ねる)。
         """
         ...
-    def _write_channel_directly(self, name: str, value: Iterable[float], fast: bool) -> bool:
+    def _write_channel_directly(self, name: str, value: Iterable[float], fast: bool, *, writable_checked: bool = ...) -> bool:
         """translate・rotate・scale・shearへ、Plugのオブジェクトを作らずに内部単位の3つの値を書く。
 
         通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書けない場合(ロック・入力の接続・
@@ -1735,6 +1749,7 @@ class Transform(DagNode):
             name (str): チャンネル名。
             value (Iterable[float]): 3つの値。距離はcm、角度はラジアン。
             fast (bool): TrueならOpenMayaで直接更新する。
+            writable_checked (bool): Trueなら、呼び出し元が書き込めることを確かめ済み。fastで確かめ直しを省く。
 
         Returns:
             bool: 書き込めたらTrue。

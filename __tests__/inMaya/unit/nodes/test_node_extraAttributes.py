@@ -129,5 +129,49 @@ class ExtraAttributesTest(unittest.TestCase):
                 method()
 
 
+class AddAttrUndoTest(unittest.TestCase):
+    """addAttrは、コマンドが1回でも複数でも、1回のUndoで戻る。"""
+
+    def setUp(self):
+        self.undo_state = cmds.undoInfo(query=True, state=True)
+        cmds.undoInfo(state=True)
+        self.name = cmds.createNode("transform", name="mlibAddAttrUndo#")
+        self.node = mlib.getNode(self.name)
+
+    def tearDown(self):
+        cmds.undoInfo(state=self.undo_state)
+        if cmds.objExists(self.name):
+            cmds.delete(self.name)
+
+    def test_each_form_undoes_in_one_step(self):
+        cases = {
+            "plain": {"type": "double"},
+            "withDefault": {"type": "double", "defaultValue": 2.5, "minValue": 0.0},
+            "channelBox": {"type": "double", "channelBox": True},
+            "string": {"type": "string"},
+            "children": {"type": "double3"},
+            "noPlug": {"type": "long", "getPlug": False},
+        }
+        for label, flags in cases.items():
+            with self.subTest(case=label):
+                attr = "undo_" + label
+                cmds.flushUndo()
+                self.node.addAttr(attr, **flags)
+                self.assertTrue(cmds.attributeQuery(attr, node=self.name, exists=True))
+                self.assertFalse(cmds.undoInfo(query=True, undoQueueEmpty=True))
+                cmds.undo()
+                self.assertFalse(cmds.attributeQuery(attr, node=self.name, exists=True))
+                self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+                cmds.redo()
+                self.assertTrue(cmds.attributeQuery(attr, node=self.name, exists=True))
+                cmds.undo()
+
+    def test_fast_leaves_no_undo(self):
+        cmds.flushUndo()
+        self.node.addAttr("undo_fast", type="double", fast=True)
+        self.assertTrue(cmds.attributeQuery("undo_fast", node=self.name, exists=True))
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

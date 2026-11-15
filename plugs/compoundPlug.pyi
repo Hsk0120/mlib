@@ -2,7 +2,7 @@
 """コンパウンドアトリビュートと、その子のPlugを扱う。"""
 
 import maya.api.OpenMaya as om2
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, attributeType, value_reader
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, _ui_converter, attributeType, value_reader
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
 from ..decorator import _require_bool, undoChunk
@@ -137,22 +137,33 @@ class CompoundPlug(Plug):
             RuntimeError: アトリビュートが無効な場合、または書き込みに失敗した場合。
         """
         ...
-    def _set_child_values(self, values: tuple, *, writable_checked: bool = ...) -> None:
-        """内部単位の値を、cmdsを使って定義順に子へ書き込む。
+    def _set_at_once(self, values: tuple) -> bool:
+        """内部単位の値を、親への1回の ``cmds.setAttr`` でまとめて書く。書けなければ何も変えない。
 
-        次の条件をすべて満たすときは、親へ1回の ``cmds.setAttr`` でまとめて書く。
+        次の条件をすべて満たすときだけ書く。
 
         - double2・double3で、数値の子だけを持つ。
-        - 値がすべてint・float。
-        - すべての子が書き込める。
+        - 値がすべてint・floatで、数が子の数と同じ。
 
-        それ以外の場合と、まとめた書き込みが失敗した場合は、これまでどおり子ごとに ``set()`` する。
-        そのため、例外の種類・文言と、途中まで書いたときの順序は、子ごとの書き込みと同じになる。
-        子ごとに書くときは、1回のUndoで戻せるようにチャンクを開く。
+        ロックや入力の接続は前もって調べず、Mayaが拒否したらFalseを返す(Mayaは親への書き込みを
+        拒否するとき、どの子も変えない)。呼び出し元は、Falseなら書き込めるかを確かめてから
+        :meth:`_set_child_values` で子ごとに書き、例外の種類と文言を子ごとの書き込みと同じにする。
+
+        Args:
+            values (tuple): 内部単位の値(距離はcm・角度はrad・時間は秒)。
+
+        Returns:
+            bool: 書き込めたらTrue。
+        """
+        ...
+    def _set_child_values(self, values: tuple) -> None:
+        """内部単位の値を、cmdsを使って定義順に子へ書き込む。
+
+        親へまとめて書けなかったときに使う。子ごとに ``set()`` するので、例外の種類・文言と、
+        途中まで書いたときの順序は、子ごとの書き込みと同じになる。1回のUndoで戻せるようにチャンクを開く。
 
         Args:
             values (tuple): 子の数と同じ長さの、内部単位の値(距離はcm・角度はrad・時間は秒)。
-            writable_checked (bool): Trueなら、呼び出し元が ``_require_writable()`` で確かめ済み。
 
         Returns:
             None: 値を返さない。

@@ -176,6 +176,69 @@ class ConsolidatedDagTests(unittest.TestCase):
         self.assertTrue(history.isValid())
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
+    def test_reparent_fast_matches_normal_with_pivots_and_rotate_axis(self):
+        """ピボット・rotateAxis・回転順序・スケールした親があっても、fastと通常で同じワールドの姿勢になる。
+
+        通常(Mayaのparent)はピボットの値を動かし、fastはピボットを保ってtranslateで合わせる。
+        回転・スケール・シアーは同じ値になる。
+        """
+        results = {}
+        for fast in (False, True):
+            cmds.file(new=True, force=True)
+            old = cmds.createNode("transform", name="oldParent")
+            cmds.setAttr(old + ".t", 1, 2, 3)
+            cmds.setAttr(old + ".r", 20, 30, 40)
+            new = cmds.createNode("transform", name="newParent")
+            cmds.setAttr(new + ".t", -2, 1, 5)
+            cmds.setAttr(new + ".r", 15, -25, 35)
+            cmds.setAttr(new + ".s", 2, 2, 2)
+            child = cmds.createNode("transform", name="child", parent=old)
+            cmds.setAttr(child + ".rotateOrder", 3)
+            cmds.setAttr(child + ".t", 3, -1, 2)
+            cmds.setAttr(child + ".r", 10, 50, -20)
+            cmds.setAttr(child + ".s", 1.5, 0.5, 2)
+            cmds.setAttr(child + ".rotateAxis", 5, 10, 15)
+            cmds.setAttr(child + ".rotatePivot", 0.5, 0.2, 0.1)
+            cmds.setAttr(child + ".scalePivot", 0.1, 0.3, -0.2)
+            cmds.setAttr(child + ".rotatePivotTranslate", 0.2, 0.0, 0.1)
+            world = cmds.getAttr(child + ".worldMatrix")
+            cmds.flushUndo()
+            node = mlib.getNode(child)
+            self.assertIs(node.setParent(mlib.getNode(new), fast=fast), node)
+            path = node.getFullName()
+            self.assertEqual(cmds.listRelatives(path, parent=True), ["newParent"])
+            for actual, expected in zip(cmds.getAttr(path + ".worldMatrix"), world):
+                self.assertAlmostEqual(actual, expected, places=6)
+            self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
+            results[fast] = [value for attr in ("r", "s", "sh", "rotateAxis") for value in cmds.getAttr(f"{path}.{attr}")[0]]
+            if fast:
+                pivots = {"rotatePivot": (0.5, 0.2, 0.1), "scalePivot": (0.1, 0.3, -0.2), "rotatePivotTranslate": (0.2, 0.0, 0.1)}
+                for attr, expected in pivots.items():
+                    for actual, wanted in zip(cmds.getAttr(f"{path}.{attr}")[0], expected):
+                        self.assertAlmostEqual(actual, wanted, places=9)
+        for normal, quick in zip(results[False], results[True]):
+            self.assertAlmostEqual(quick, normal, places=5)
+
+    def test_reparent_fast_rejects_locked_channel_before_change(self):
+        """書き込めないチャンネルがあれば、親を変える前に、これまでと同じ文言で拒否する。"""
+        parent = cmds.createNode("transform", name="lockedTarget")
+        cmds.setAttr(parent + ".t", 1, 2, 3)
+        for case in ("lockChild", "lockParent", "connectChild"):
+            with self.subTest(case=case):
+                child = cmds.createNode("transform", name="lockedChild#")
+                if case == "lockChild":
+                    cmds.setAttr(child + ".ry", lock=True)
+                elif case == "lockParent":
+                    cmds.setAttr(child + ".s", lock=True)
+                else:
+                    cmds.connectAttr(parent + ".tx", child + ".tz")
+                cmds.flushUndo()
+                with self.assertRaises(RuntimeError) as caught:
+                    mlib.getNode(child).setParent(mlib.getNode(parent), fast=True)
+                self.assertIn("アトリビュートがロックされているか、接続されています", str(caught.exception))
+                self.assertIsNone(cmds.listRelatives(child, parent=True))
+                self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
 
 if __name__ == "__main__":
     unittest.main()

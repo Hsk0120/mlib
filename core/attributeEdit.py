@@ -248,7 +248,7 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
     names = [(name, flags.get("shortName") or name)]
     names.extend((child, options.get("shortName") or child) for child, _, options in children)
     used = set()
-    fn = om2.MFnDependencyNode(node.mnode())
+    fn = node._dependency_fn()
     for long_name, short_name in names:
         for candidate in {long_name, short_name}:
             if not isinstance(candidate, str) or not candidate:

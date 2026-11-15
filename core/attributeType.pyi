@@ -69,6 +69,7 @@ _ADD_ATTR_TYPE_NAMES: dict
 _PUBLIC_DATA_TYPES: Any
 _ADD_ATTR_DATA_TYPE: Any
 _ADD_ATTR_ATTRIBUTE_TYPE: Any
+_UNIT_API_TYPES: dict
 _SELF_UNIT_VALUES: tuple
 
 def _add_attr_type_name(attribute: om2.MObject) -> str | None:
@@ -245,6 +246,75 @@ def _time_quantity(value: float, time_unit: str) -> om2.MTime:
 
     Returns:
         om2.MTime: 時間の値。
+    """
+    ...
+
+def _unit_kind(attribute: om2.MObject) -> str:
+    """アトリビュートの定義の単位の種類を返す。
+
+    Args:
+        attribute (om2.MObject): アトリビュートの定義。
+
+    Returns:
+        str: ``"angle"`` / ``"distance"`` / ``"time"``。単位を持たない定義は空文字列。
+    """
+    ...
+
+def _leaf_unit_kind(mplug: om2.MPlug) -> str:
+    """子も要素も持たないPlugの、数値を換算する単位の種類を返す。
+
+    Args:
+        mplug (om2.MPlug): 調べるプラグ。
+
+    Returns:
+        str: ``"angle"`` / ``"time"``。距離と単位を持たない定義は空文字列。
+            コンパウンドアトリビュートとマルチアトリビュートは ``"tree"`` (子ごとに換算する)。
+    """
+    ...
+
+def _angle_to_ui(value: float) -> float:
+    """ラジアンの数値を、UIの角度の単位へ変換する。
+
+    Args:
+        value (float): ラジアンの値。
+
+    Returns:
+        float: UIの角度の単位の値。
+    """
+    ...
+
+def _distance_to_ui(value: float) -> float:
+    """cmの数値を、UIの距離の単位へ変換する。
+
+    Args:
+        value (float): cmの値。
+
+    Returns:
+        float: UIの距離の単位の値。
+    """
+    ...
+
+def _time_to_ui(value: float) -> float:
+    """秒の数値を、UIの時間の単位へ変換する。
+
+    Args:
+        value (float): 秒の値。
+
+    Returns:
+        float: UIの時間の単位の値。
+    """
+    ...
+
+def _ui_converter(attribute: om2.MObject) -> Callable[..., Any] | None:
+    """内部単位の数値をUIの単位へ変換する関数を、アトリビュートの定義から選ぶ。
+
+    :func:`_convert_units` が数値1つに行う変換と同じ。関数を選ぶだけで、値は変換しない。
+
+    Args:
+        attribute (om2.MObject): アトリビュートの定義。
+
+    Returns:
+        callable | None: 数値1つを変換する関数。単位を持たない定義はNone(変換しない)。
     """
     ...
 

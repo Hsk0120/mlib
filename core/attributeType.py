@@ -159,6 +159,13 @@ _PUBLIC_DATA_TYPES = frozenset(_DATA_TYPE_NAMES.values()) | frozenset(
 _ADD_ATTR_DATA_TYPE = re.compile(r'-dataType "([^"]+)"')
 _ADD_ATTR_ATTRIBUTE_TYPE = re.compile(r'-attributeType "([^"]+)"')
 
+#: 単位の種類ごとの、アトリビュートの定義のapiType。function setを作らずに単位の種類を見分ける。
+_UNIT_API_TYPES = {
+    om2.MFnUnitAttribute.kAngle: (om2.MFn.kDoubleAngleAttribute, om2.MFn.kFloatAngleAttribute),
+    om2.MFnUnitAttribute.kDistance: (om2.MFn.kDoubleLinearAttribute, om2.MFn.kFloatLinearAttribute),
+    om2.MFnUnitAttribute.kTime: (om2.MFn.kTimeAttribute,),
+}
+
 #: 自身の単位を持つため、数値の角度として換算しない値。
 _SELF_UNIT_VALUES = (om2.MEulerRotation, om2.MQuaternion, om2.MAngle, om2.MDistance, om2.MTime, om2.MMatrix, om2.MTransformationMatrix)
 
@@ -435,6 +442,101 @@ def _time_quantity(value, time_unit):
     return om2.MTime(value, om2.MTime.uiUnit() if time_unit == "frame" else om2.MTime.kSeconds)
 
 
+def _unit_kind(attribute):
+    """アトリビュートの定義の単位の種類を返す。
+
+    Args:
+        attribute (om2.MObject): アトリビュートの定義。
+
+    Returns:
+        str: ``"angle"`` / ``"distance"`` / ``"time"``。単位を持たない定義は空文字列。
+    """
+    api_type = attribute.apiType()
+    if api_type in _UNIT_API_TYPES[om2.MFnUnitAttribute.kAngle]:
+        return "angle"
+    if api_type in _UNIT_API_TYPES[om2.MFnUnitAttribute.kDistance]:
+        return "distance"
+    if api_type in _UNIT_API_TYPES[om2.MFnUnitAttribute.kTime]:
+        return "time"
+    return ""
+
+
+def _leaf_unit_kind(mplug):
+    """子も要素も持たないPlugの、数値を換算する単位の種類を返す。
+
+    Args:
+        mplug (om2.MPlug): 調べるプラグ。
+
+    Returns:
+        str: ``"angle"`` / ``"time"``。距離と単位を持たない定義は空文字列。
+            コンパウンドアトリビュートとマルチアトリビュートは ``"tree"`` (子ごとに換算する)。
+    """
+    if mplug.isArray or mplug.isCompound:
+        return "tree"
+    kind = _unit_kind(mplug.attribute())
+    return "" if kind == "distance" else kind
+
+
+def _angle_to_ui(value):
+    """ラジアンの数値を、UIの角度の単位へ変換する。
+
+    Args:
+        value (float): ラジアンの値。
+
+    Returns:
+        float: UIの角度の単位の値。
+    """
+    unit = om2.MAngle.uiUnit()
+    if unit == om2.MAngle.kRadians:
+        return value  # UIの単位が内部単位と同じなら、変換は要らない。
+    return om2.MAngle(value, om2.MAngle.kRadians).asUnits(unit)
+
+
+def _distance_to_ui(value):
+    """cmの数値を、UIの距離の単位へ変換する。
+
+    Args:
+        value (float): cmの値。
+
+    Returns:
+        float: UIの距離の単位の値。
+    """
+    unit = om2.MDistance.uiUnit()
+    if unit == om2.MDistance.kCentimeters:
+        return value  # UIの単位が内部単位と同じなら、変換は要らない。
+    return om2.MDistance(value, om2.MDistance.kCentimeters).asUnits(unit)
+
+
+def _time_to_ui(value):
+    """秒の数値を、UIの時間の単位へ変換する。
+
+    Args:
+        value (float): 秒の値。
+
+    Returns:
+        float: UIの時間の単位の値。
+    """
+    return om2.MTime(value, om2.MTime.kSeconds).asUnits(om2.MTime.uiUnit())
+
+
+def _ui_converter(attribute):
+    """内部単位の数値をUIの単位へ変換する関数を、アトリビュートの定義から選ぶ。
+
+    :func:`_convert_units` が数値1つに行う変換と同じ。関数を選ぶだけで、値は変換しない。
+
+    Args:
+        attribute (om2.MObject): アトリビュートの定義。
+
+    Returns:
+        callable | None: 数値1つを変換する関数。単位を持たない定義はNone(変換しない)。
+    """
+    if not attribute.hasFn(om2.MFn.kUnitAttribute):
+        return None
+    return {om2.MFnUnitAttribute.kAngle: _angle_to_ui, om2.MFnUnitAttribute.kDistance: _distance_to_ui, om2.MFnUnitAttribute.kTime: _time_to_ui}.get(
+        om2.MFnUnitAttribute(attribute).unitType()
+    )
+
+
 def _is_angle_attribute(attribute):
     """角度の単位アトリビュート(doubleAngle・floatAngle)か調べる。
 
@@ -457,7 +559,7 @@ def _is_unit_attribute(attribute, unit_type):
     Returns:
         bool: 指定した種類の単位アトリビュートならTrue。
     """
-    return attribute.hasFn(om2.MFn.kUnitAttribute) and om2.MFnUnitAttribute(attribute).unitType() == unit_type
+    return attribute.apiType() in _UNIT_API_TYPES[unit_type]
 
 
 def _convert_unit_numbers(plug, value, unit_type, convert):

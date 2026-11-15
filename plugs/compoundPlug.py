@@ -2,7 +2,16 @@
 
 import maya.api.OpenMaya as om2
 
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, attributeType, value_reader
+from ..core.attributeType import (
+    _convert_angles,
+    _convert_times,
+    _convert_units,
+    _plain_angle_unit,
+    _plain_time_unit,
+    _ui_converter,
+    attributeType,
+    value_reader,
+)
 from ..core.fastWrite import set_attr, set_plug
 from ..core.object import _missing_member_message
 from ..decorator import _require_bool, undoChunk
@@ -19,6 +28,7 @@ class CompoundPlug(Plug):
 
     _child_readers = None  #: 子の値を直接読む関数の列。初回の内部単位get()で子の定義から選ぶ。
     _bulk_children = None  #: 子を1回のsetAttrでまとめて書けるか。初回のset()で子の定義から判定する。
+    _ui_converters = None  #: 子の値をUIの単位へ変換する関数の列。初回のまとめた書き込みで子の定義から選ぶ。
 
     def __getattr__(self, name):
         """子を ``plug.child`` の形で取得する。
@@ -195,32 +205,59 @@ class CompoundPlug(Plug):
             self._require_writable()
             Plug._set_value(self, values, uiUnits=uiUnits, fast=fast)
         else:
-            # 子ごとに書く経路でも、先に全子の書込み可否を検査する。ロック・入力接続の
+            if not uiUnits and self._set_at_once(values):
+                return
+            # 子ごとに書く経路では、先に全子の書込み可否を検査する。ロック・入力接続の
             # ある子より前の子だけが書かれて残ることを防ぐ(Double3Plugと同じ)。
             self._require_writable()
             if not uiUnits:
-                self._set_child_values(values, writable_checked=True)
+                self._set_child_values(values)
                 return
             with undoChunk(f"mlib{type(self).__name__}Set"):
                 for index, child_value in enumerate(values):
                     self._child_at(index).set(child_value, safe=False, uiUnits=uiUnits, fast=fast)
 
-    def _set_child_values(self, values, *, writable_checked=False):
-        """内部単位の値を、cmdsを使って定義順に子へ書き込む。
+    def _set_at_once(self, values):
+        """内部単位の値を、親への1回の ``cmds.setAttr`` でまとめて書く。書けなければ何も変えない。
 
-        次の条件をすべて満たすときは、親へ1回の ``cmds.setAttr`` でまとめて書く。
+        次の条件をすべて満たすときだけ書く。
 
         - double2・double3で、数値の子だけを持つ。
-        - 値がすべてint・float。
-        - すべての子が書き込める。
+        - 値がすべてint・floatで、数が子の数と同じ。
 
-        それ以外の場合と、まとめた書き込みが失敗した場合は、これまでどおり子ごとに ``set()`` する。
-        そのため、例外の種類・文言と、途中まで書いたときの順序は、子ごとの書き込みと同じになる。
-        子ごとに書くときは、1回のUndoで戻せるようにチャンクを開く。
+        ロックや入力の接続は前もって調べず、Mayaが拒否したらFalseを返す(Mayaは親への書き込みを
+        拒否するとき、どの子も変えない)。呼び出し元は、Falseなら書き込めるかを確かめてから
+        :meth:`_set_child_values` で子ごとに書き、例外の種類と文言を子ごとの書き込みと同じにする。
+
+        Args:
+            values (tuple): 内部単位の値(距離はcm・角度はrad・時間は秒)。
+
+        Returns:
+            bool: 書き込めたらTrue。
+        """
+        if not self._can_set_at_once(values):
+            return False
+        converters = self._ui_converters
+        if converters is None:
+            # 単位は定義で決まるので、変換する関数はPlugごとに一度だけ選ぶ。
+            mplug = self._mplug
+            converters = self._ui_converters = tuple(_ui_converter(mplug.child(index).attribute()) for index in range(mplug.numChildren()))
+        if len(values) != len(converters):
+            return False
+        try:
+            set_attr(self.getFullName(), *[item if convert is None else convert(item) for convert, item in zip(converters, values)], fast=False)
+        except (RuntimeError, TypeError, ValueError):
+            return False
+        return True
+
+    def _set_child_values(self, values):
+        """内部単位の値を、cmdsを使って定義順に子へ書き込む。
+
+        親へまとめて書けなかったときに使う。子ごとに ``set()`` するので、例外の種類・文言と、
+        途中まで書いたときの順序は、子ごとの書き込みと同じになる。1回のUndoで戻せるようにチャンクを開く。
 
         Args:
             values (tuple): 子の数と同じ長さの、内部単位の値(距離はcm・角度はrad・時間は秒)。
-            writable_checked (bool): Trueなら、呼び出し元が ``_require_writable()`` で確かめ済み。
 
         Returns:
             None: 値を返さない。
@@ -230,19 +267,6 @@ class CompoundPlug(Plug):
             ValueError: 子の値を変換できない場合。
             RuntimeError: 子の書き込みに失敗した場合。
         """
-        mplug = self._mplug
-        if self._can_set_at_once(values):
-            try:
-                if not writable_checked:
-                    self._require_writable()
-            except RuntimeError:
-                pass  # 書けない子は、子ごとの書込みで従来の例外にする。
-            else:
-                try:
-                    set_attr(self.getFullName(), *_convert_units(mplug, values), fast=False)
-                    return
-                except (RuntimeError, TypeError, ValueError):
-                    pass  # 子ごとに書き直し、従来の例外と更新順にする。
         with undoChunk(f"mlib{type(self).__name__}Set"):
             for index, child_value in enumerate(values):
                 self._child_at(index).set(child_value, safe=False, unit="rad", timeUnit="sec", fast=False)
@@ -262,12 +286,14 @@ class CompoundPlug(Plug):
         bulk = self._bulk_children
         if bulk is None:
             mplug = self._mplug
-            bulk = attributeType(mplug) in ("double2", "double3")
+            # 書き込めない定義(出力専用など)はMayaのsetAttrが拒否しないので、まとめた書き込みの対象にしない。
+            bulk = attributeType(mplug) in ("double2", "double3") and om2.MFnAttribute(mplug.attribute()).writable
             if bulk:
                 for index in range(mplug.numChildren()):
                     child = mplug.child(index)
                     attribute = child.attribute()
-                    if child.isCompound or child.isArray or not (attribute.hasFn(om2.MFn.kNumericAttribute) or attribute.hasFn(om2.MFn.kUnitAttribute)):
+                    simple = attribute.hasFn(om2.MFn.kNumericAttribute) or attribute.hasFn(om2.MFn.kUnitAttribute)
+                    if child.isCompound or child.isArray or not simple or not om2.MFnAttribute(attribute).writable:
                         bulk = False
                         break
             self._bulk_children = bulk

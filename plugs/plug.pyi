@@ -9,7 +9,7 @@ from operator import methodcaller
 from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, _time_quantity, attributeType, is_internal_data_type, value_reader
+from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _from_seconds, _leaf_unit_kind, _plain_angle_unit, _plain_time_unit, _time_quantity, attributeType, is_internal_data_type, value_reader
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.object import Object, _missing_member_message
 from ..decorator import _require_bool, _undo_recording, _validated_flags, undoChunk
@@ -32,6 +32,7 @@ _SCALAR_ARRAY_TYPES: frozenset
 _LENGTH_PREFIXED_ARRAY_TYPES: frozenset
 _INVALID_ATTRIBUTE: Any
 _NORMAL_ATTRIBUTE: Any
+_BOTH_UNIT_KINDS: frozenset
 
 def _require_finite_value(value: object) -> None:
     """set() へ渡した値に、有限でない数値(NaN・無限大)が無いかを確かめる。
@@ -2615,6 +2616,73 @@ class Plug(Object):
         Returns:
             om2.MFnNumericAttribute | om2.MFnUnitAttribute | None: 数値・単位付きの型のFunction Set。
                 対応していないアトリビュートの型ならNone。
+        """
+        ...
+    @staticmethod
+    def _target_class(mplug: om2.MPlug) -> type:
+        """MPlugに合ったPlugのクラスを選ぶ。
+
+        マルチアトリビュート・登録したアトリビュートの型・コンパウンドアトリビュートの順に調べる
+        (規則は :meth:`__new__` の説明を参照)。
+
+        Args:
+            mplug (om2.MPlug): 包む Maya API 2.0 のPlug。
+
+        Returns:
+            type: Plug、またはその派生クラス。
+        """
+        ...
+    @staticmethod
+    def _wrap_owned(node: Node, mplug: om2.MPlug) -> Plug:
+        """持ち主が分かっているMPlugから、``Plug(node, mplug)`` と同じPlugを作る。
+
+        有効なノードから今取得したMPlugに使う。ノードが有効か、MPlugの持ち主がnodeかは確かめない
+        (呼び出し元が保証する)。アトリビュートの有無と、決まっていない論理番号は確かめる。
+
+        Args:
+            node (Node): Plugの持ち主のノード。有効であること。
+            mplug (om2.MPlug): nodeから取得したMPlug。
+
+        Returns:
+            Plug: 型に合ったクラスの新しいオブジェクト。
+
+        Raises:
+            RuntimeError: アトリビュートが削除されている場合、または決まっていない(-1)論理番号を含む場合。
+        """
+        ...
+    def _unit_kinds(self) -> frozenset[str]:
+        """このPlugとその下に、数値を換算する単位(角度・時間)の成分があるかを返す。
+
+        単位は定義で決まるので、Plugごとに一度だけ調べる。孫を持つPlugとマルチアトリビュートは、
+        たどらずに両方あるものとして扱う(換算する側が成分ごとに調べる)。
+
+        Returns:
+            frozenset[str]: ``"angle"`` と ``"time"`` のうち、成分があるもの。
+        """
+        ...
+    def _static_entry(self) -> tuple:
+        """静的アトリビュートのPlugを作り直すための情報を返す。持ち主のノードが名前ごとに覚える。
+
+        静的アトリビュートは削除も改名もできないので、ノードが有効な間は同じ情報からPlugを作れる。
+        登録した型のクラスは覚えず、型名から毎回選ぶ(型の登録を後から変えても、新しい登録が使われる)。
+
+        Returns:
+            tuple: :meth:`_from_static_entry` へ渡す情報。
+        """
+        ...
+    @staticmethod
+    def _from_static_entry(node: Node, entry: tuple) -> Plug:
+        """ノードが覚えた静的アトリビュートの情報から、新しいPlugを作る。
+
+        ``Plug(node, mplug)`` と同じクラスと中身になる。持ち主・未解決の論理番号・アトリビュートの
+        有無は、覚えたときに確かめてあるので調べ直さない。ノードが有効なことは呼び出し元が確かめる。
+
+        Args:
+            node (Node): Plugの持ち主のノード。情報を覚えたノードと同じオブジェクト。
+            entry (tuple): :meth:`_static_entry` が返した情報。
+
+        Returns:
+            Plug: 型に合ったクラスの新しいオブジェクト。
         """
         ...
     def _require_writable(self):

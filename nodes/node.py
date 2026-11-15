@@ -571,6 +571,7 @@ class Node(Object):
     _dag_path: "Optional[om2.MDagPath]"  #: DAG ノードの保持パス。非DAGはNone。
     _handle: "om2.MObjectHandle"  #: 有効性の判定に使う MObject のハンドル。
     _fn_cache = None  #: _dependency_fn() が初回に作る MFnDependencyNode(ノードごとに1つ)。
+    _plug_cache = None  #: getPlug() が覚える、静的アトリビュートの名前とPlugを作り直す情報の対応。
 
     def __new__(cls, node, *args, **kwargs):
         """ノードの型に合ったクラスのオブジェクトを作る。
@@ -2083,31 +2084,34 @@ class Node(Object):
         assert angle_unit is not None  # 既定値 "deg" を使うため None にならない。
         time_unit = _time_unit(timeUnit)
         assert time_unit is not None  # 既定値 "frame" を使うため None にならない。
-        with _edit_context("mlibNodeAddAttr", fast):
-            # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
-            from ..plugs.plug import Plug
+        # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
+        from ..plugs.plug import Plug
 
-            flags = {key: value for key, value in kwargs.items() if value is not None}
-            if flags.get("query") or flags.get("edit"):
-                raise ValueError("addAttrは作成だけに対応しています")
-            if longName:
-                flags["longName"] = longName
-            name = flags.get("longName") or flags.get("shortName")
-            if not isinstance(name, str) or not name:
-                raise ValueError("longNameかshortNameを指定してください")
-            show = channelBox or flags.pop("channelBox", False)
-            proxy = proxy or flags.pop("proxy", None)
-            if proxy is not None:
-                proxy = Plug._resolve_input(proxy)
-                type = proxy.getType()
-                flags["usedAsProxy"] = True
-            numeric, count, deferred = self._prepare_extra_attr_definition(
-                flags, type, childNames, childShortNames, childSuffixes, sub_type=subType, angle_unit=angle_unit, time_unit=time_unit
-            )
-            if safe and self.hasAttr(name):
-                existing = self.getPlug(name)
-                _require_same_attr_definition(existing, flags)
-                return existing if getPlug else None
+        flags = {key: value for key, value in kwargs.items() if value is not None}
+        if flags.get("query") or flags.get("edit"):
+            raise ValueError("addAttrは作成だけに対応しています")
+        if longName:
+            flags["longName"] = longName
+        name = flags.get("longName") or flags.get("shortName")
+        if not isinstance(name, str) or not name:
+            raise ValueError("longNameかshortNameを指定してください")
+        show = channelBox or flags.pop("channelBox", False)
+        proxy = proxy or flags.pop("proxy", None)
+        if proxy is not None:
+            proxy = Plug._resolve_input(proxy)
+            type = proxy.getType()
+            flags["usedAsProxy"] = True
+        numeric, count, deferred = self._prepare_extra_attr_definition(
+            flags, type, childNames, childShortNames, childSuffixes, sub_type=subType, angle_unit=angle_unit, time_unit=time_unit
+        )
+        if safe and self.hasAttr(name):
+            existing = self.getPlug(name)
+            _require_same_attr_definition(existing, flags)
+            return existing if getPlug else None
+        # Mayaのコマンドが1回で済む追加はチャンクを開かない。子の追加・作った後の既定値・
+        # チャンネルボックスへの表示・プロキシの接続があるときだけ、1回のUndoにまとめる。
+        single = not (count or deferred is not None or show or proxy is not None)
+        with _edit_context("mlibNodeAddAttr", fast, single=single):
             prepared = self._create_extra_attr_definition(
                 name, flags, numeric, count, deferred, childNames, childShortNames, childSuffixes, subType, fast=fast, time_unit=time_unit
             )
@@ -2232,6 +2236,12 @@ class Node(Object):
         self._require_valid("アトリビュートの取得")
 
         if "[" not in name:
+            # 静的アトリビュートは削除も改名もできないので、一度解決した名前は覚えた情報からPlugを作る。
+            cache = self._plug_cache
+            if cache is not None:
+                entry = cache.get(name)
+                if entry is not None:
+                    return Plug._from_static_entry(self, entry)
             # 論理番号を含まない名前(``boundingBox.boundingBoxMin`` のような子アトリビュートの
             # パスを含む)は、従来どおり findPlug で解決する。
             try:
@@ -2239,7 +2249,13 @@ class Node(Object):
             except RuntimeError:
                 mplug = None  # エイリアス名は findPlug で解決できないため、下で解決する。
             if mplug is not None:
-                return Plug(self, mplug)
+                # このノードから今取得したMPlugなので、持ち主の確認を省いて作る。
+                plug = Plug._wrap_owned(self, mplug)
+                if plug._static_attribute:
+                    if cache is None:
+                        cache = self._plug_cache = {}
+                    cache[name] = plug._static_entry()
+                return plug
 
         mplug = Plug._attribute_path_plug(self._mobject, name)
         if mplug is None:
@@ -2259,6 +2275,20 @@ class Node(Object):
         Returns:
             bool: アトリビュートを取得できれば ``True``。
         """
+        if isinstance(name, str) and name and "." not in name and "[" not in name and self.isValid():
+            cache = self._plug_cache
+            if cache is not None and name in cache:
+                return True  # 一度取得した静的アトリビュートは、ノードが有効な間は必ずある。
+            fn = self._dependency_fn()
+            if fn.hasAttribute(name):
+                # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
+                from ..plugs.plug import Plug
+
+                # Plugを作らずに確かめる。要素の番号が決まらない子(``input3Dx``)は取得できないのでFalse。
+                try:
+                    return not Plug._has_unresolved_index(fn.findPlug(name, False))
+                except RuntimeError:
+                    pass  # 下の、getPlugで確かめる流れに任せる。
         try:
             self.getPlug(name)
         except (AttributeError, RuntimeError, ValueError):
@@ -2697,6 +2727,7 @@ class Node(Object):
         self._handle = om2.MObjectHandle(self._mobject)
         self._identity_hash = self._handle.hashCode()
         self._fn_cache = None
+        self._plug_cache = None
 
     def _alive_fn(self):
         """破棄されていないことを確かめて、保持するノードの MFnDependencyNode を返す。

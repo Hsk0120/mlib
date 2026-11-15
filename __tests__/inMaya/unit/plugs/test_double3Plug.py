@@ -165,5 +165,65 @@ class Double3PlugSpecTest(_PlugSpecCase):
         self.assertEqual(cmds.getAttr(self.name + ".t"), [(0.0, 0.0, 0.0)])
 
 
+class Double3DirectWriteTest(_PlugSpecCase):
+    """通常の書き込みは親への1回のsetAttrで行い、拒否されたときの結果はこれまでと同じ。"""
+
+    def test_locked_or_connected_child_changes_nothing(self):
+        source = self.make("transform").getFullName()
+        for case in ("lockChild", "connectChild", "lockParent"):
+            with self.subTest(case=case):
+                node = self.make("transform")
+                name = node.getFullName()
+                cmds.setAttr(name + ".t", 1, 2, 3)
+                if case == "lockChild":
+                    cmds.setAttr(name + ".tz", lock=True)
+                elif case == "connectChild":
+                    cmds.connectAttr(source + ".tx", name + ".tz")
+                else:
+                    cmds.setAttr(name + ".t", lock=True)
+                before = cmds.getAttr(name + ".t")
+                cmds.flushUndo()
+                with self.assertRaises(RuntimeError) as caught:
+                    node.t.set((7, 8, 9))
+                self.assertIn("アトリビュートがロックされているか、接続されています", str(caught.exception))
+                self.assertEqual(cmds.getAttr(name + ".t"), before)
+                self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+    def test_output_only_attribute_is_rejected(self):
+        node = self.make("decomposeMatrix")
+        cmds.flushUndo()
+        with self.assertRaises(RuntimeError) as caught:
+            node.getPlug("outputTranslate").set((1, 2, 3))
+        self.assertIn("アトリビュートは書き込めません", str(caught.exception))
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+    def test_units_match_cmds_and_one_undo(self):
+        cmds.currentUnit(linear="m", angle="rad")
+        try:
+            for attr, value in (("t", (100.0, 200.0, 300.0)), ("jointOrient", (10.0, 20.0, 30.0)), ("s", (2.0, 3.0, 4.0))):
+                with self.subTest(attr=attr):
+                    node = self.make("joint")
+                    name = node.getFullName()
+                    before = cmds.getAttr(f"{name}.{attr}")
+                    cmds.flushUndo()
+                    node.getPlug(attr).set(value)
+                    got = cmds.getAttr(f"{name}.{attr}")[0]
+                    if attr == "t":
+                        expected = tuple(v / 100.0 for v in value)  # cmからmへ。
+                    elif attr == "jointOrient":
+                        expected = tuple(math.radians(v) for v in value)  # 度からradへ。
+                    else:
+                        expected = value
+                    for actual, wanted in zip(got, expected):
+                        self.assertAlmostEqual(actual, wanted, places=9)
+                    for actual, wanted in zip(tuple(node.getPlug(attr).get()), value):
+                        self.assertAlmostEqual(actual, wanted, places=9)
+                    cmds.undo()
+                    self.assertEqual(cmds.getAttr(f"{name}.{attr}"), before)
+                    self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        finally:
+            cmds.currentUnit(linear="cm", angle="deg")
+
+
 if __name__ == "__main__":
     unittest.main()

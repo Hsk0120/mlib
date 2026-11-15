@@ -80,6 +80,16 @@ class Double3Plug(CompoundPlug):
             NotImplementedError: fastで、対応していない型の場合。safe=Trueでも例外にする。
         """
         ...
+    def _value_type(self) -> type:
+        """このアトリビュートの値を表す数学の型を返す。有効なことは確かめ済みとする。
+
+        アトリビュートの名前で決まる。静的アトリビュートは改名できないので、Plugごとに一度だけ調べる
+        (動的アトリビュートは改名できるので、毎回調べる)。
+
+        Returns:
+            type: translateはTranslate、rotateはEulerRotate、scaleはScale、shearはShear。それ以外はVector。
+        """
+        ...
     def _set_value(self, value: Iterable[float] | EulerRotate | Quaternion, *, uiUnits: bool = ..., fast: bool = ...) -> None:
         """3成分の値と、書き込めるかどうかを確かめてから書き込む。
 
