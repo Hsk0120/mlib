@@ -358,7 +358,7 @@ class NurbsCurve(Shape):
         """
         return _points_planar(self._geometry_fn().cvPositions())
 
-    def getLength(self, tolerance=1e-6, *, worldSpace=_UNSET, unit="cm", ws=_UNSET):
+    def getLength(self, *, tolerance=1e-06, worldSpace=_UNSET, unit="cm", ws=_UNSET):
         """カーブの長さを取得する。
 
         計算用のノードをシーンに作らない。
@@ -622,7 +622,7 @@ class NurbsCurve(Shape):
         with undoChunk("mlibNurbsCurveReverse"), preservedSelection():
             cmds.reverseCurve(self.getFullName(), constructionHistory=False, replaceOriginal=True)
 
-    def getCollocatedCVGroups(self, tolerance=1e-6, worldSpace=_UNSET, *, ws=_UNSET):
+    def getCollocatedCVGroups(self, worldSpace=_UNSET, *, tolerance=1e-06, ws=_UNSET):
         """ほぼ同じ位置にあるCVを、グループに分けて取得する。
 
         周期カーブで重なっているCVを調べるときや、整理する前のカーブを確かめるときなどに使う。

@@ -35,7 +35,7 @@ class CurveLengthTest(unittest.TestCase):
         curve = transform.getShape()
         before = set(cmds.ls())
         undo_before = cmds.undoInfo(query=True, undoName=True)
-        self.assertAlmostEqual(curve.getLength(1e-6), math.sqrt(2))
+        self.assertAlmostEqual(curve.getLength(tolerance=1e-6), math.sqrt(2))
         end = cmds.pointPosition(curve.getFullName() + ".cv[1]", world=True)
         expected = math.sqrt(sum(v * v for v in end))
         self.assertAlmostEqual(curve.getLength(worldSpace=True), expected)
@@ -79,7 +79,7 @@ class CurveLengthTest(unittest.TestCase):
         curve = mlib.getNode(cmds.curve(d=1, p=[(0, 0, 0), (1, 0, 0)])).getShape()
         for tolerance in (0, -1, float("nan"), float("inf")):
             with self.assertRaises(ValueError):
-                curve.getLength(tolerance)
+                curve.getLength(tolerance=tolerance)
         with self.assertRaises(TypeError):
             curve.getLength(worldSpace=1)
         with self.assertRaises(TypeError):

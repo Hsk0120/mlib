@@ -356,7 +356,7 @@ class Selection:
                 result.append(item)
         return Selection(result)
 
-    def select(self, mode="replace", missing="skip"):
+    def select(self, *, mode="replace", missing="skip"):
         """持っている対象をMayaの選択にする。
 
         ``cmds.select(noExpand=True)`` で選ぶ。Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。

@@ -158,7 +158,7 @@ class SkinCluster(GeometryFilter):
         return destination
 
     @undoChunk("mlibSkinClusterMirrorWeights")
-    def mirrorWeights(self, axis="YZ", positiveToNegative=True, surfaceAssociation="closestPoint", influenceAssociation=("closestJoint",), normalize=True):
+    def mirrorWeights(self, axis="YZ", positiveToNegative=True, surfaceAssociation="closestPoint", influenceAssociation=("closestJoint",), *, normalize=True):
         """自身の形状の片側のウェイトを、鏡映面の反対側へ写す。
 
         ``cmds.copySkinWeights(sourceSkin=自身, destinationSkin=自身, mirrorMode=axis, ...)`` を実行し、
@@ -213,7 +213,7 @@ class SkinCluster(GeometryFilter):
             normalize=normalize,
         )
 
-    def pruneWeights(self, threshold, normalize=True, *, fast=False, check=False):
+    def pruneWeights(self, threshold, *, normalize=True, fast=False, check=False):
         """先頭のMeshの各頂点で、しきい値より小さなウェイトを0にする。
 
         ``cmds.skinPercent(skin, mesh, pruneWeights=threshold)`` と同じように動く。
@@ -860,7 +860,7 @@ class SkinCluster(GeometryFilter):
         row = self._read_rows([index], range(len(paths)))[0]
         return {Node._wrap_dag_path(path): value for path, value in zip(paths, row) if not nonzero or value != 0.0}
 
-    def setVertexWeights(self, vertex, weights, normalize=True, *, fast=False, check=False):
+    def setVertexWeights(self, vertex, weights, *, normalize=True, fast=False, check=False):
         """先頭のMeshの1つの頂点に、インフルエンスごとのウェイトを設定する。
 
         ``setWeights(list(weights), list(weights.values()), vertices=[vertex], normalize=normalize)`` と同じ。

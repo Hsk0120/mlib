@@ -3600,7 +3600,7 @@ class Nodes(_ListMethods):
         """
         self._forward("hide", (), fast)
 
-    def setParent(self, parent=None, relative=False, add=False, *, fast=False, check=False):
+    def setParent(self, parent=None, *, relative=False, add=False, fast=False, check=False):
         """各Transformへ、順に :meth:`~mlib.nodes.transform.Transform.setParent` を呼ぶ。
 
         Args:
@@ -3627,7 +3627,7 @@ class Nodes(_ListMethods):
                 require = getattr(node, "_require_not_own_descendant", None)
                 if require is not None and node.isValid() and target.isValid() and target.hasFn(om2.MFn.kTransform):
                     require(target)
-        self._forward("setParent", (parent, relative, add), fast, check=check)
+        self._forward("setParent", (parent,), fast, relative=relative, add=add, check=check)
 
     def getNames(self):
         """各ノードの一意な名前を取得する(:meth:`Node.getName` を並べたもの)。

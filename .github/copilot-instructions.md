@@ -271,7 +271,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 内部関数へ渡すときも `fast`・`worldSpace` 等の同じ名前を使い、`world_space` のような別名を増やさない。
 - ミラーの `axis` は反転軸(`"x"`/`"y"`/`"z"`、0/1/2)とミラー面(`"YZ"`/`"XZ"`/`"XY"`)の両方を受け、解釈は `util._mirror_axis` に集約する。
 - キーワード専用にする引数: `fast`・`check`・`safe`・`get`・`force`・`unit`・`timeUnit`・`type`(絞り込み)・`index`(AnimCurve のキーの番号)・
-  `geometryIndex`・`transferToParent`・`leaf`・`children`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)と、
+  `geometryIndex`・`transferToParent`・`leaf`・`children`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)・
+  `normalize`・`colorSet`・`uvSet`・`vertices`・`relative`・`add`・`mode`・`missing`・`zeroScaleOrient`・`aimAxis`/`upAxis`・
+  `tolerance`(ノード・コンポーネントのメソッド。数学型の `isEquivalent(other, tolerance)` などは OpenMaya と同じ位置引数のまま)と、
   `getConnections` のフラグ全部。位置で受けるのは、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
   同じ意味の引数を、メソッドによって位置引数とキーワード専用で分けない。
 - オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setKeyable`・`setChannelBox`・`setMuted`・

@@ -1320,7 +1320,7 @@ class Transform(DagNode):
         """
         return self
 
-    def setParent(self, parent=None, relative=False, add=False, *, fast=False, check=False):
+    def setParent(self, parent=None, *, relative=False, add=False, fast=False, check=False):
         """Transformの親を変える。
 
         Args:

@@ -95,7 +95,7 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getColor(self, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
+    def getColor(self, *, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
         """頂点の色を取得する。
 
         :meth:`Mesh.getVertexColors <mlib.nodes.mesh.Mesh.getVertexColors>` で得られる、この頂点の値と同じ。
@@ -114,7 +114,7 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, colorSet: str | None = ..., *, fast: bool = ...) -> None:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ...) -> None:
         """頂点の色を設定する。
 
         :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` で、この頂点だけを書き込む。
@@ -241,10 +241,10 @@ class Vertices(PointComponents):
     def isOnBoundary(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.isOnBoundary` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getColor(self, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
+    def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, colorSet: str | None = ..., *, fast: bool = ...) -> list[None]:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.setColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getNormal(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, ws: bool = ...) -> list[Vector]:

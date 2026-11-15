@@ -69,7 +69,7 @@ class MeshColorSetTest(_Case):
         for value, error in (("missing", ValueError), ("", ValueError), (1, TypeError)):
             with self.subTest(uvSet=value):
                 with self.assertRaises(error):
-                    shape.getUVShells(value)
+                    shape.getUVShells(uvSet=value)
 
     def test_color_sets_match_poly_color_set(self):
         """作成・現在・複製・名前変更・削除が polyColorSet の照会と一致し、それぞれ Undo 1回で戻る。"""

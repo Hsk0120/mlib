@@ -261,7 +261,7 @@ class Joint(Transform):
             Undoが有効なら、1回のUndoで戻せる。途中で失敗しても、それまでに済んだ変更は自動では戻さない。
         """
         ...
-    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., children: bool = ..., zeroScaleOrient: bool = ...) -> None:
+    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., *, children: bool = ..., zeroScaleOrient: bool = ...) -> None:
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。
 
         次のコマンドを実行する(``cmds.joint(edit=True, orientJoint=...)`` と同じ)。
@@ -446,7 +446,7 @@ class Joint(Transform):
             RuntimeError: ジョイントが無効な場合、またはpreferredAngleがロック・入力の接続で書き込めない場合。
         """
         ...
-    def assumePreferredAngles(self, children: bool = ...) -> None:
+    def assumePreferredAngles(self, *, children: bool = ...) -> None:
         """rotateをpreferredAngleの値へ戻す。
 
         Skeleton > Assume Preferred Angleや ``cmds.joint(edit=True, assumePreferredAngles=True)`` と同じ。
@@ -888,7 +888,7 @@ class Joints(Nodes[Joint]):
             Joints: 深さの順に並べたコレクション。子のジョイントを先に処理したいときに使う。
         """
         ...
-    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., children: bool = ..., zeroScaleOrient: bool = ...) -> None:
+    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., *, children: bool = ..., zeroScaleOrient: bool = ...) -> None:
         """各ジョイントに、並んでいる順に :meth:`Joint.orient` を行う。
 
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。
@@ -1036,7 +1036,7 @@ class Joints(Nodes[Joint]):
     def setPreferredAngle(self, value: Sequence[float] | EulerRotate | None = ..., *, unit: str = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.setPreferredAngle` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def assumePreferredAngles(self, children: bool = ...) -> list[None]:
+    def assumePreferredAngles(self, *, children: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.assumePreferredAngles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getDegreesOfFreedom(self) -> list[str]:

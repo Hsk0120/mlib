@@ -383,7 +383,7 @@ class SetParentTest(_SpecCase):
         parent, child = self._pair()
         node = Node(child)
         with self.assertRaises(TypeError):
-            node.setParent(parent, True, relative=True)
+            node.setParent(parent, True)
         with self.assertRaises(TypeError):
             node.setParent(parent, fast="yes")
         node.setParent(parent, relative=True)

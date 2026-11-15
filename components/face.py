@@ -248,7 +248,7 @@ class Face(Component):
         """
         return self._iterator().isHoled()
 
-    def isZeroArea(self, tolerance=1e-10):
+    def isZeroArea(self, *, tolerance=1e-10):
         """面積がほぼ0のフェースか調べる。
 
         頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。

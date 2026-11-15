@@ -259,7 +259,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def getLength(self, tolerance: float = ..., *, worldSpace: bool = ..., unit: str | None = ..., ws: bool = ...) -> float:
+    def getLength(self, *, tolerance: float = ..., worldSpace: bool = ..., unit: str | None = ..., ws: bool = ...) -> float:
         """カーブの長さを取得する。
 
         計算用のノードをシーンに作らない。
@@ -430,7 +430,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         ...
-    def getCollocatedCVGroups(self, tolerance: float = ..., worldSpace: bool = ..., *, ws: bool = ...) -> list[list[int]]:
+    def getCollocatedCVGroups(self, worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> list[list[int]]:
         """ほぼ同じ位置にあるCVを、グループに分けて取得する。
 
         周期カーブで重なっているCVを調べるときや、整理する前のカーブを確かめるときなどに使う。

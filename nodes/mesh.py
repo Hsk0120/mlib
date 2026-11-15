@@ -32,7 +32,7 @@ _UNSET_COLOR = om2.MColor(_UNSET_COLOR_VALUES)
 class Mesh(Shape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
 
-    def reorderVertices(self, reference, uvSet="map1", tolerance=1e-6, *, fast=False, match="uv", worldSpace=_UNSET, ws=_UNSET):
+    def reorderVertices(self, reference, *, uvSet="map1", tolerance=1e-06, fast=False, match="uv", worldSpace=_UNSET, ws=_UNSET):
         """頂点番号の並びを、基準のメッシュに合わせる。
 
         UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
@@ -444,7 +444,7 @@ class Mesh(Shape):
             shells.append(Vertices(self, sorted(shell)))
         return shells
 
-    def getUVShells(self, uvSet=None):
+    def getUVShells(self, *, uvSet=None):
         """UVでつながったUVのまとまり(UVシェル)を取得する。
 
         ``MFnMesh.getUvShellsIds`` を使う。形状のシェル(:meth:`getShells`)と違い、UVの切れ目で分かれる。
@@ -479,7 +479,7 @@ class Mesh(Shape):
         _counts, vertices = self._geometry_fn().getTriangles()
         return [(vertices[index], vertices[index + 1], vertices[index + 2]) for index in range(0, len(vertices), 3)]
 
-    def getMirrorVertexMap(self, axis="x", tolerance=0.01, worldSpace=_UNSET, *, ws=_UNSET):
+    def getMirrorVertexMap(self, axis="x", worldSpace=_UNSET, *, tolerance=0.01, ws=_UNSET):
         """頂点ごとに、位置を軸で反転した反対側の頂点を取得する。
 
         反転した位置から ``tolerance`` 以内で、いちばん近い頂点を反対側とする。トポロジーは見ない。
@@ -764,7 +764,7 @@ class Mesh(Shape):
             result.append((_vector_of(Vector, (hit.x, hit.y, hit.z)), face, float(distance)))
         return result
 
-    def getUVAtPoint(self, point, uvSet=None, worldSpace=_UNSET, *, ws=_UNSET):
+    def getUVAtPoint(self, point, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
         """指定した位置にいちばん近い、面の上の点のUVを取得する。
 
         位置が面の上に無ければ、いちばん近い面の上の点のUVになる。
@@ -806,7 +806,7 @@ class Mesh(Shape):
             v += corner_v * weight
         return u, v
 
-    def getPointAtUV(self, u, v, uvSet=None, worldSpace=_UNSET, *, ws=_UNSET):
+    def getPointAtUV(self, u, v, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
         """UVの位置に対応する、面の上の点を取得する。
 
         面番号の順に、UVの範囲に (u, v) を含む面を ``MFnMesh.getPointAtUV`` で調べ、最初に見つかった面の点を返す。
@@ -861,7 +861,7 @@ class Mesh(Shape):
             return _vector_of(Vector, found)
         return None
 
-    def getVertexColors(self, colorSet=None):
+    def getVertexColors(self, *, colorSet=None):
         """頂点ごとの色を取得する。
 
         ``MFnMesh.getVertexColors`` を使う。面ごとに違う色を持つ頂点(面頂点の色)は、それらの平均になる。
@@ -887,7 +887,7 @@ class Mesh(Shape):
             result.append(None if value == _UNSET_COLOR_VALUES else value)
         return result
 
-    def setVertexColors(self, colors, vertices=None, *, colorSet=None, fast=False):
+    def setVertexColors(self, colors, *, vertices=None, colorSet=None, fast=False):
         """頂点ごとの色を設定し、自身を返す。
 
         頂点のすべての面頂点を同じ色にする。

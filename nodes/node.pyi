@@ -2105,7 +2105,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
         ...
-    def setParent(self, parent: object | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def setParent(self, parent: object | None = ..., *, relative: bool = ..., add: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """各Transformへ、順に :meth:`~mlib.nodes.transform.Transform.setParent` を呼ぶ。
 
         Args:

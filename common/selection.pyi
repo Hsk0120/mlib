@@ -219,7 +219,7 @@ class Selection:
             Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
         """
         ...
-    def select(self, mode: str = ..., missing: str = ...) -> None:
+    def select(self, *, mode: str = ..., missing: str = ...) -> None:
         """持っている対象をMayaの選択にする。
 
         ``cmds.select(noExpand=True)`` で選ぶ。Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。

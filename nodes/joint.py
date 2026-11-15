@@ -335,7 +335,7 @@ class Joint(Transform):
             self._require_valid("回転のフリーズ")
             self._apply_rotate_transfer(self._joint_rotate_transfer_values(to_orient=True), to_orient=True)
 
-    def orient(self, orientation="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True):
+    def orient(self, orientation="xyz", secondaryAxisOrient="yup", *, children=True, zeroScaleOrient=True):
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。
 
         次のコマンドを実行する(``cmds.joint(edit=True, orientJoint=...)`` と同じ)。
@@ -600,7 +600,7 @@ class Joint(Transform):
                     raise ValueError("valueは3個の成分で指定してください")
             self.getPlug("preferredAngle").set(value, unit=unit, fast=fast, check=check)
 
-    def assumePreferredAngles(self, children=True):
+    def assumePreferredAngles(self, *, children=True):
         """rotateをpreferredAngleの値へ戻す。
 
         Skeleton > Assume Preferred Angleや ``cmds.joint(edit=True, assumePreferredAngles=True)`` と同じ。
@@ -1266,7 +1266,7 @@ class Joints(Nodes):
         """
         return Joints(sorted(self._items, key=lambda joint: joint.getDepth(), reverse=True))
 
-    def orient(self, orientation="xyz", secondaryAxisOrient="yup", children=True, zeroScaleOrient=True):
+    def orient(self, orientation="xyz", secondaryAxisOrient="yup", *, children=True, zeroScaleOrient=True):
         """各ジョイントに、並んでいる順に :meth:`Joint.orient` を行う。
 
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。

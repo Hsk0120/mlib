@@ -108,7 +108,7 @@ class Vertex(PointComponent):
         """
         return self._iterator().onBoundary()
 
-    def getColor(self, colorSet=None):
+    def getColor(self, *, colorSet=None):
         """頂点の色を取得する。
 
         :meth:`Mesh.getVertexColors <mlib.nodes.mesh.Mesh.getVertexColors>` で得られる、この頂点の値と同じ。
@@ -127,9 +127,9 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         self._require_valid()
-        return self.shape.getVertexColors(colorSet)[self.index]
+        return self.shape.getVertexColors(colorSet=colorSet)[self.index]
 
-    def setColor(self, color, colorSet=None, *, fast=False):
+    def setColor(self, color, *, colorSet=None, fast=False):
         """頂点の色を設定する。
 
         :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` で、この頂点だけを書き込む。
@@ -155,7 +155,7 @@ class Vertex(PointComponent):
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         self._require_valid()
-        self.shape.setVertexColors([color], [self.index], colorSet=colorSet, fast=fast)
+        self.shape.setVertexColors([color], vertices=[self.index], colorSet=colorSet, fast=fast)
 
     def getNormal(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
         """頂点の法線を、長さ1で取得する。

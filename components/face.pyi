@@ -213,7 +213,7 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def isZeroArea(self, tolerance: float = ...) -> bool:
+    def isZeroArea(self, *, tolerance: float = ...) -> bool:
         """面積がほぼ0のフェースか調べる。
 
         頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。
@@ -337,7 +337,7 @@ class Faces(Components):
     def isHoled(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isHoled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isZeroArea(self, tolerance: float = ...) -> list[bool]:
+    def isZeroArea(self, *, tolerance: float = ...) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isZeroArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTriangleCount(self) -> list[int]:

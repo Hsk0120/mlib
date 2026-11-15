@@ -188,7 +188,7 @@ class SelectTest(_CommonCase):
                 cmds.select([item.getFullName() for item in selection], noExpand=True, **{flag: True})
                 expected = self.state()
                 cmds.select(base)
-                self.assertIsNone(selection.select(mode))
+                self.assertIsNone(selection.select(mode=mode))
                 self.assertEqual(self.state(), expected)
         cmds.select(self.curve)
         Selection().select()

@@ -184,7 +184,7 @@ class BlendShape(GeometryFilter):
                 またはターゲットがそのベースのデータを持たない場合。
         """
         ...
-    def addInBetween(self, target: str | int | Plug, geometry: str | Node, weight: float, base: str | Node | None = ..., relative: bool = ...) -> None:
+    def addInBetween(self, target: str | int | Plug, geometry: str | Node, weight: float, base: str | Node | None = ..., *, relative: bool = ...) -> None:
         """すでにあるターゲットへin-betweenを追加する。
 
         ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。
@@ -364,7 +364,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def reduceTargetDeltas(self, target: str | int | Plug, tolerance: float = ..., base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def reduceTargetDeltas(self, target: str | int | Plug, base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, tolerance: float = ..., fast: bool = ..., check: bool = ...) -> None:
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
 
         保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。

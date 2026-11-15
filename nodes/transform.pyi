@@ -707,7 +707,7 @@ class Transform(DagNode):
             Transform: 自身。
         """
         ...
-    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., *, relative: bool = ..., add: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """Transformの親を変える。
 
         Args:

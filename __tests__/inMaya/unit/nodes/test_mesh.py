@@ -59,7 +59,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertAlmostEqual(shape.getCvPositions(worldSpace=True)[0].y, 2)
         self.assertAlmostEqual(shape.getCvPositions()[0].y, 0)
         with self.assertRaises(ValueError):
-            shape.getLength(0)
+            shape.getLength(tolerance=0)
 
     def test_mesh_normals_object_and_world_space(self):
         cube = mlib.Node(cmds.polyCube(constructionHistory=False)[0])

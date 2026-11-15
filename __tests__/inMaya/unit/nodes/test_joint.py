@@ -622,7 +622,7 @@ class SetParentTest(_SpecCaseJoint):
             joint.setParent(parent, relative=True, fast=True)
         self.assertIsNone(cmds.listRelatives(str(joint), parent=True))
         with self.assertRaises(TypeError):
-            joint.setParent(parent, True, relative=True)
+            joint.setParent(parent, True)
 
 
 class ResetAttrsTest(_SpecCaseJoint):

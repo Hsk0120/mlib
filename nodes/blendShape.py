@@ -218,7 +218,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         return [(item - _ITEM_OFFSET) / 1000.0 for item in self._item_indices(bi, index) if item != _FULL_ITEM]
 
-    def addInBetween(self, target, geometry, weight, base=None, relative=False):
+    def addInBetween(self, target, geometry, weight, base=None, *, relative=False):
         """すでにあるターゲットへin-betweenを追加する。
 
         ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。
@@ -446,7 +446,7 @@ class BlendShape(GeometryFilter):
             remove = set(self._vertex_indices(vertices, bi))
             self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast, check=check)
 
-    def reduceTargetDeltas(self, target, tolerance=0.0, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
+    def reduceTargetDeltas(self, target, base=None, fullWeight=1.0, disconnect=False, *, tolerance=0.0, fast=False, check=False):
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
 
         保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。

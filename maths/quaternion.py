@@ -481,7 +481,7 @@ class Quaternion(om2.MQuaternion):
         return result
 
     @classmethod
-    def fromRollBend(cls, roll, bendH, bendV, aimAxis="x", upAxis="y", *, unit="deg"):
+    def fromRollBend(cls, roll, bendH, bendV, *, aimAxis="x", upAxis="y", unit="deg"):
         """ロール(捻り)と、横・縦の曲げの角度から、回転のクォータニオンを作る。
 
         :meth:`asRollBend` の逆の計算になる。aimAxis周りにrollだけ捻ってから、aimAxisを曲げる回転を作る
@@ -765,7 +765,7 @@ class Quaternion(om2.MQuaternion):
         swing = twist.conjugate() * rotation
         return swing, twist
 
-    def asRollBend(self, aimAxis="x", upAxis="y", *, unit="deg"):
+    def asRollBend(self, *, aimAxis="x", upAxis="y", unit="deg"):
         """ボーンの回転を、ロール(aimAxis周りの捻り)と、横・縦の曲げの角度へ分解する。
 
         自身を正規化して、``捻り * 曲げ`` に分ける。捻りを先に適用し、続けてaimAxisを最短経路で倒すのが曲げ。

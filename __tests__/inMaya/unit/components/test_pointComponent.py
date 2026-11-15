@@ -433,7 +433,7 @@ class MeshComponentTest(_Case):
         self.assertFalse(Face(mesh, 2).isZeroArea())
         self.assertTrue(Face(mesh, 2).isZeroArea(tolerance=100.0))
         with self.assertRaises(ValueError):
-            Face(mesh, 2).isZeroArea(-1.0)
+            Face(mesh, 2).isZeroArea(tolerance=-1.0)
 
     def test_smooth_edges(self):
         _, mesh = self.cube()

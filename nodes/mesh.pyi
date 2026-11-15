@@ -32,7 +32,7 @@ _UNSET_COLOR: Any
 
 class Mesh(Shape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
-    def reorderVertices(self, reference: Mesh | Node | str, uvSet: str = ..., tolerance: float = ..., *, fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
+    def reorderVertices(self, reference: Mesh | Node | str, *, uvSet: str = ..., tolerance: float = ..., fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
         """頂点番号の並びを、基準のメッシュに合わせる。
 
         UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
@@ -284,7 +284,7 @@ class Mesh(Shape):
                 どこにもつながっていない頂点は、1頂点だけのシェルになる。
         """
         ...
-    def getUVShells(self, uvSet: str | None = ...) -> list[list[int]]:
+    def getUVShells(self, *, uvSet: str | None = ...) -> list[list[int]]:
         """UVでつながったUVのまとまり(UVシェル)を取得する。
 
         ``MFnMesh.getUvShellsIds`` を使う。形状のシェル(:meth:`getShells`)と違い、UVの切れ目で分かれる。
@@ -311,7 +311,7 @@ class Mesh(Shape):
             list[tuple[int, int, int]]: 三角形ごとの頂点番号。フェース番号の順に並び、各フェースの中はMayaが分けた順。
         """
         ...
-    def getMirrorVertexMap(self, axis: str | int = ..., tolerance: float = ..., worldSpace: bool = ..., *, ws: bool = ...) -> dict[int, int]:
+    def getMirrorVertexMap(self, axis: str | int = ..., worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> dict[int, int]:
         """頂点ごとに、位置を軸で反転した反対側の頂点を取得する。
 
         反転した位置から ``tolerance`` 以内で、いちばん近い頂点を反対側とする。トポロジーは見ない。
@@ -509,7 +509,7 @@ class Mesh(Shape):
             Mayaの交差の判定は単精度(float)で計算するので、交点と距離には1e-5くらいの誤差がある。
         """
         ...
-    def getUVAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, uvSet: str | None = ..., worldSpace: bool = ..., *, ws: bool = ...) -> tuple[float, float]:
+    def getUVAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> tuple[float, float]:
         """指定した位置にいちばん近い、面の上の点のUVを取得する。
 
         位置が面の上に無ければ、いちばん近い面の上の点のUVになる。
@@ -536,7 +536,7 @@ class Mesh(Shape):
             いちばん近い点は、:meth:`getClosestNormal` と同じくオブジェクト空間で探す。
         """
         ...
-    def getPointAtUV(self, u: float, v: float, uvSet: str | None = ..., worldSpace: bool = ..., *, ws: bool = ...) -> Vector | None:
+    def getPointAtUV(self, u: float, v: float, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> Vector | None:
         """UVの位置に対応する、面の上の点を取得する。
 
         面番号の順に、UVの範囲に (u, v) を含む面を ``MFnMesh.getPointAtUV`` で調べ、最初に見つかった面の点を返す。
@@ -558,7 +558,7 @@ class Mesh(Shape):
             ValueError: u・vが有限でない場合、またはUVセットが無い場合。
         """
         ...
-    def getVertexColors(self, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
+    def getVertexColors(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """頂点ごとの色を取得する。
 
         ``MFnMesh.getVertexColors`` を使う。面ごとに違う色を持つ頂点(面頂点の色)は、それらの平均になる。
@@ -575,7 +575,7 @@ class Mesh(Shape):
             ValueError: 指定した名前のカラーセットが無い場合。
         """
         ...
-    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], vertices: Component | Components | Iterable[int] | None = ..., *, colorSet: str | None = ..., fast: bool = ...) -> None:
+    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], *, vertices: Component | Components | Iterable[int] | None = ..., colorSet: str | None = ..., fast: bool = ...) -> None:
         """頂点ごとの色を設定し、自身を返す。
 
         頂点のすべての面頂点を同じ色にする。

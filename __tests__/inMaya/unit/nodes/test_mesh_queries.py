@@ -278,12 +278,12 @@ class VertexColorTest(_MeshCase):
             self.assertEqual(mesh.getVertexColors(), [None] * 8)
 
         self.assertUndoesInOneStep(before, after)
-        mesh.setVertexColors([(1, 0, 0, 0.25), om2.MColor((0, 1, 0, 1))], mesh.getVertices([2, 5]))
+        mesh.setVertexColors([(1, 0, 0, 0.25), om2.MColor((0, 1, 0, 1))], vertices=mesh.getVertices([2, 5]))
         values = mesh.getVertexColors()
         self.assertSequenceAlmostEqual(values[2], (1, 0, 0, 0.25), places=5)
         self.assertSequenceAlmostEqual(values[5], (0, 1, 0, 1), places=5)
         self.assertIsNone(values[0])
-        mesh.setVertexColors([(0, 0, 1)], mesh.getVertex(0))
+        mesh.setVertexColors([(0, 0, 1)], vertices=mesh.getVertex(0))
         self.assertSequenceAlmostEqual(mesh.getVertexColors()[0], (0, 0, 1, 1), places=5)
 
     def test_color_set_argument(self):
@@ -296,11 +296,11 @@ class VertexColorTest(_MeshCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 color = (0.2, 0.4, 0.6, 1.0) if fast else (0.9, 0.1, 0.1, 1.0)
-                mesh.setVertexColors([color], [1], colorSet="second", fast=fast)
+                mesh.setVertexColors([color], vertices=[1], colorSet="second", fast=fast)
                 self.assertEqual(cmds.polyColorSet(name, query=True, currentColorSet=True), ["first"])
                 self.assertSequenceAlmostEqual(mesh.getVertexColors(colorSet="second")[1], color, places=5)
                 self.assertIsNone(mesh.getVertexColors()[1])
-        self.assertRaises(ValueError, mesh.setVertexColors, [(1, 0, 0)], [0], colorSet="missing")
+        self.assertRaises(ValueError, mesh.setVertexColors, [(1, 0, 0)], vertices=[0], colorSet="missing")
 
     def test_fast_has_no_undo(self):
         """fast は Undo に積まず、全頂点を1回で書く。履歴のあるメッシュは NotImplementedError。"""
@@ -337,7 +337,9 @@ class VertexColorTest(_MeshCase):
         ]
         for error, args, kwargs in cases:
             with self.subTest(args=args, kwargs=kwargs):
-                self.assertRaises(error, mesh.setVertexColors, *args, **kwargs)
+                # verticesはキーワード専用なので、2つ目の値は名前を付けて渡す。
+                flags = dict(kwargs, vertices=args[1]) if len(args) > 1 else kwargs
+                self.assertRaises(error, mesh.setVertexColors, args[0], **flags)
         self.assertEqual(mesh.getVertexColors(), [None] * 8)
 
 

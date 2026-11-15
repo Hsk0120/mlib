@@ -289,7 +289,7 @@ class QuaternionTest(_Case):
         self.assertSequenceAlmostEqual(rz.asRollBend(), (0.0, 0.0, -50.0))
         self.assertSequenceAlmostEqual(rz.asRollBend(unit="rad"), (0.0, 0.0, math.radians(-50)))
         # aimAxis="y"・upAxis="z": 横の軸は x。
-        self.assertSequenceAlmostEqual(rx.asRollBend("y", "z"), (0.0, 0.0, 40.0))
+        self.assertSequenceAlmostEqual(rx.asRollBend(aimAxis="y", upAxis="z"), (0.0, 0.0, 40.0))
 
     def test_roll_bend_round_trip(self):
         for aim, up in (("x", "y"), ("-y", "x"), ("z", "-x")):
@@ -297,7 +297,7 @@ class QuaternionTest(_Case):
                 with self.subTest(aim=aim, up=up, angles=angles):
                     q = Quaternion.fromRollBend(*angles, aimAxis=aim, upAxis=up)
                     self.assertAlmostEqual(q.length(), 1.0)
-                    self.assertSequenceAlmostEqual(q.asRollBend(aim, up), angles, places=6)
+                    self.assertSequenceAlmostEqual(q.asRollBend(aimAxis=aim, upAxis=up), angles, places=6)
                     # 捻り(aim周り)を先に適用し、続けて曲げる。aimの行き先は捻りによらない。
                     aim_vector = Vector.fromAxis(aim)
                     bent = aim_vector.rotateBy(q)
@@ -305,9 +305,9 @@ class QuaternionTest(_Case):
                     self.assertVectorAlmostEqual(bent, aim_vector.rotateBy(no_roll))
         self.assertIsInstance(Quaternion.fromRollBend(0, 0, 0), Quaternion)
         for call, error in (
-            (lambda: Quaternion().asRollBend("x", "-x"), ValueError),
-            (lambda: Quaternion().asRollBend("w"), ValueError),
-            (lambda: Quaternion().asRollBend(1), TypeError),
+            (lambda: Quaternion().asRollBend(aimAxis="x", upAxis="-x"), ValueError),
+            (lambda: Quaternion().asRollBend(aimAxis="w"), ValueError),
+            (lambda: Quaternion().asRollBend(aimAxis=1), TypeError),
             (lambda: Quaternion(0, 0, 0, 0).asRollBend(), ValueError),
             (lambda: Quaternion.fromRollBend("1", 0, 0), TypeError),
             (lambda: Quaternion.fromRollBend(0, float("inf"), 0), ValueError),

@@ -146,7 +146,7 @@ class SkinCluster(GeometryFilter):
             基準になる姿勢が違う場合の補正や、メッシュの頂点を減らすことはしない。
         """
         ...
-    def mirrorWeights(self, axis: str | int = ..., positiveToNegative: bool = ..., surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., normalize: bool = ...) -> None:
+    def mirrorWeights(self, axis: str | int = ..., positiveToNegative: bool = ..., surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., *, normalize: bool = ...) -> None:
         """自身の形状の片側のウェイトを、鏡映面の反対側へ写す。
 
         ``cmds.copySkinWeights(sourceSkin=自身, destinationSkin=自身, mirrorMode=axis, ...)`` を実行し、
@@ -177,7 +177,7 @@ class SkinCluster(GeometryFilter):
             RuntimeError: Mayaがミラーを拒否した場合。
         """
         ...
-    def pruneWeights(self, threshold: float, normalize: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def pruneWeights(self, threshold: float, *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """先頭のMeshの各頂点で、しきい値より小さなウェイトを0にする。
 
         ``cmds.skinPercent(skin, mesh, pruneWeights=threshold)`` と同じように動く。
@@ -621,7 +621,7 @@ class SkinCluster(GeometryFilter):
             IndexError: 頂点の番号が範囲外の場合。
         """
         ...
-    def setVertexWeights(self, vertex: Vertex | int | str, weights: Mapping[str | Node, float], normalize: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def setVertexWeights(self, vertex: Vertex | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """先頭のMeshの1つの頂点に、インフルエンスごとのウェイトを設定する。
 
         ``setWeights(list(weights), list(weights.values()), vertices=[vertex], normalize=normalize)`` と同じ。
@@ -1868,10 +1868,10 @@ class SkinClusters(Nodes[SkinCluster]):
     def copyWeightsTo(self, target: str | Node) -> list[SkinCluster]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.copyWeightsTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirrorWeights(self, axis: str | int = ..., positiveToNegative: bool = ..., surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., normalize: bool = ...) -> list[None]:
+    def mirrorWeights(self, axis: str | int = ..., positiveToNegative: bool = ..., surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., *, normalize: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.mirrorWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def pruneWeights(self, threshold: float, normalize: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
+    def pruneWeights(self, threshold: float, *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.pruneWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getInfluences(self) -> list[Nodes]:
@@ -1928,7 +1928,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def getVertexWeights(self, vertex: Vertex | int | str, *, nonzero: bool = ...) -> list[dict[Node, float]]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getVertexWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setVertexWeights(self, vertex: Vertex | int | str, weights: Mapping[str | Node, float], normalize: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
+    def setVertexWeights(self, vertex: Vertex | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setVertexWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getBlendWeights(self, *, vertices: Vertex | Vertices | int | str | Iterable | None = ...) -> list[list[float]]:
