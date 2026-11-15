@@ -434,20 +434,49 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         self.assertEqual(long_plug.set(None, safe=True), 1)
         self.assertEqual(long_plug.get(), 0)
 
+    def test_default_passes_values_to_maya_without_checks(self):
+        """既定(check=False)は値も書き込めるかも確かめず、Mayaが拒否したときだけ例外になる。"""
+        import math
+
+        sx = self.node.getPlug("sx")
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                sx.set(float("inf"), fast=fast)  # Mayaはそのまま受け取る。
+                self.assertTrue(math.isinf(cmds.getAttr(self.node.getFullName() + ".sx")))
+                sx.set(1.0, fast=fast)
+        ty = self.node.getPlug("ty")
+        ty.set(2.0)
+        cmds.setAttr(self.node.getFullName() + ".ty", lock=True)
+        try:
+            for fast in (False, True):
+                with self.subTest(locked=True, fast=fast):
+                    with self.assertRaises(RuntimeError) as caught:
+                        ty.set(5.0, fast=fast)
+                    if fast:
+                        self.assertIn("アトリビュートがロックされているか、接続されています", str(caught.exception))
+                    with self.assertRaises(RuntimeError) as caught:
+                        ty.set(5.0, fast=fast, check=True)
+                    self.assertIn("アトリビュートがロックされているか、接続されています", str(caught.exception))
+                    self.assertEqual(ty.get(), 2.0)
+            with self.assertRaises(TypeError):
+                ty.set(5.0, check=1)
+        finally:
+            cmds.setAttr(self.node.getFullName() + ".ty", lock=False)
+
     def test_non_finite_values_are_rejected(self):
-        """nan・infは書く前にValueError(通常・fast)、safe=Trueは1で、値を変えない。"""
+        """check=Trueなら、nan・infは書く前にValueError(通常・fast)、safe=Trueは1で、値を変えない。"""
         tx = self.node.getPlug("tx")
         tx.set(2.0)
         for fast in (False, True):
             for value in (float("nan"), float("inf"), -float("inf")):
                 with self.subTest(fast=fast, value=value):
                     with self.assertRaisesRegex(ValueError, "valueは有限な数値で指定してください.*translateX"):
-                        tx.set(value, fast=fast)
-                    self.assertEqual(tx.set(value, safe=True, fast=fast), 1)
+                        tx.set(value, fast=fast, check=True)
+                    self.assertEqual(tx.set(value, safe=True, fast=fast, check=True), 1)
                     self.assertEqual(tx.get(), 2.0)
 
     def test_non_finite_components_are_rejected(self):
-        """並び・数学型・単位付きの値・マトリクスの中のnanも拒否し、どの成分も書かない。"""
+        """check=Trueなら、並び・数学型・単位付きの値・マトリクスの中のnanも拒否し、どの成分も書かない。"""
         nan = float("nan")
         translate = self.node.getPlug("translate")
         rotate = self.node.getPlug("rotate")
@@ -464,13 +493,13 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         for plug, value in cases:
             with self.subTest(plug=plug.getLongName(), value=repr(value)):
                 with self.assertRaises(ValueError):
-                    plug.set(value)
+                    plug.set(value, check=True)
         matrix = self.add("mtx", dataType="matrix")
         values = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, nan, 0.0, 0.0, 1.0]
         with self.assertRaises(ValueError):
-            matrix.set(om2.MMatrix(values))
+            matrix.set(om2.MMatrix(values), check=True)
         with self.assertRaises(ValueError):
-            matrix.set(values)
+            matrix.set(values, check=True)
         self.assertEqual(tuple(translate.get()), (1.0, 2.0, 3.0))
 
     def test_locked_parent_locked_and_connected_are_rejected(self):

@@ -776,7 +776,7 @@ class Joint(Transform):
             om2.MEulerRotation: ノードの rotateOrder で表した、reference に最も近い解。
         """
         ...
-    def _apply_local_matrix(self, matrix: Matrix, scale_reference: Iterable[float] | None = ..., *, fast: bool = ...) -> None:
+    def _apply_local_matrix(self, matrix: Matrix, scale_reference: Iterable[float] | None = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """jointOrient と rotateAxis を保持して local マトリクスを適用する。
 
         Transformの共通処理へ委譲し、Jointの回転分離とSSC補償を反映した
@@ -788,6 +788,7 @@ class Joint(Transform):
             scale_reference (Iterable[float] | None): 最優先で符号を合わせるスケール
                 (``setScale`` で要求した値)。None なら現在の scale チャンネル値に合わせる。
             fast (bool): Trueなら各チャンネルをOpenMayaで更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1021,19 +1022,19 @@ class Joints(Nodes[Joint]):
     def mfn(self) -> list[om2.MFnTransform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mfn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform]:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.scaleGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform]:
+    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mirrorGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., ws: bool = ...) -> list[Transform]:
+    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def centerPivot(self, *, fast: bool = ...) -> list[Transform]:
+    def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.centerPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def zeroTransformPivots(self) -> list[Transform]:
@@ -1090,19 +1091,19 @@ class Joints(Nodes[Joint]):
     def getMatrix(self, worldSpace: bool = ..., p: bool = ..., inv: bool = ..., *, parent: bool = ..., inverse: bool = ..., ws: bool = ...) -> list[Matrix]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform | dict[str, Translate | EulerRotate | Scale | Shear]]:
+    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform | dict[str, Translate | EulerRotate | Scale | Shear]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTransformation(self) -> list[Transformation]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTransformation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setTransformation(self, value: Transformation, *, fast: bool = ...) -> list[Transform]:
+    def setTransformation(self, value: Transformation, *, fast: bool = ..., check: bool = ...) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setTransformation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def translateBy(self, value: Iterable[float], worldSpace: bool = ..., *, ws: bool = ...) -> list[Transform]:
@@ -1111,7 +1112,7 @@ class Joints(Nodes[Joint]):
     def getRotate(self, worldSpace: bool = ..., *, order: int | str | None = ..., ws: bool = ...) -> list[EulerRotate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
+    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def rotateBy(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, unit: str = ..., ws: bool = ...) -> list[Transform]:
@@ -1126,7 +1127,7 @@ class Joints(Nodes[Joint]):
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getScale` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setScale(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
+    def setScale(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setScale` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def scaleBy(self, value: float | Iterable[float]) -> list[Transform]:
@@ -1135,13 +1136,13 @@ class Joints(Nodes[Joint]):
     def getShear(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Shear]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setShear(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
+    def setShear(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Transform | list[float]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> list[Transform]:
@@ -1231,13 +1232,13 @@ class Joints(Nodes[Joint]):
     def getDisplayType(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDisplayType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setDisplayType(self, kind: str, *, fast: bool = ...) -> list[DagNode]:
+    def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> list[DagNode]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setDisplayType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isShadingOverridden(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isShadingOverridden` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setShadingOverride(self, enabled: bool, *, fast: bool = ...) -> list[DagNode]:
+    def setShadingOverride(self, enabled: bool, *, fast: bool = ..., check: bool = ...) -> list[DagNode]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setShadingOverride` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def deleteHistory(self, keepDeformers: bool = ...) -> list[DagNode]:

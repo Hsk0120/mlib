@@ -67,7 +67,7 @@ class Double3Plug(CompoundPlug):
             return value_type(*values)  # 角度の子が無ければ換算は要らない。
         return value_type(*_convert_angles(self._mplug, values, angle_unit, to_internal=False))
 
-    def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False):
+    def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
         """このアトリビュートの3成分だけを書き込む。
 
         マトリクスを通して姿勢を変えることはしない。3成分の値と、書き込めるかどうかを確かめてから
@@ -85,6 +85,9 @@ class Double3Plug(CompoundPlug):
             timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。
             uiUnits (bool): Trueなら、UIの単位の数値の並びを指定する。数学の値の型やunitとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
+                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Double3Plug | int: safe=Falseなら自身。safe=Trueなら、成功は0、失敗は子の失敗数、
@@ -100,7 +103,7 @@ class Double3Plug(CompoundPlug):
                 またはMayaでの編集に失敗した場合。
             NotImplementedError: fastで、対応していない型の場合。safe=Trueでも例外にする。
         """
-        return self._set_template(value, safe, unit=unit, timeUnit=timeUnit, uiUnits=uiUnits, fast=fast)
+        return self._set_template(value, safe, unit=unit, timeUnit=timeUnit, uiUnits=uiUnits, fast=fast, check=check)
 
     def _value_type(self):
         """このアトリビュートの値を表す数学の型を返す。有効なことは確かめ済みとする。
@@ -118,7 +121,7 @@ class Double3Plug(CompoundPlug):
                 self._value_type_cache = value_type
         return value_type
 
-    def _set_value(self, value, *, uiUnits=False, fast=False):
+    def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """3成分の値と、書き込めるかどうかを確かめてから書き込む。
 
         全体の流れは :meth:`Plug.set` が受け持つ。
@@ -128,6 +131,7 @@ class Double3Plug(CompoundPlug):
                 :meth:`Plug._set_template` でradへ換算済み。
             uiUnits (bool): Trueなら、UIの単位の数値の並び。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -143,18 +147,23 @@ class Double3Plug(CompoundPlug):
         if uiUnits:
             value = self._ui_components(value)
         values = self._set_components(value)
-        if not fast and self._set_at_once(values):
-            # 通常の書き込みは親への1回のsetAttrで済ませる。Mayaが拒否したときだけ、下で理由を確かめる。
-            return
-        self._require_writable()
+        if check:
+            # 確かめる指定のときは、どの子も書く前に、すべての子へ書き込めるかを確かめる。
+            self._require_writable()
+        if not fast:
+            if self._set_at_once(values, check=check):
+                # 通常の書き込みは親への1回のsetAttrで済ませる。Mayaが拒否したときだけ、下で理由を確かめる。
+                return
+            if not check:
+                self._require_writable()
         if fast and super()._set_value.__func__ is CompoundPlug._set_value:
-            # CompoundPlug._set_value(fast)と同じ子数の検査と直接更新。参照の検証と全子の
-            # 書込み可否は上で済んでいるため、set_plugでは型・範囲だけを検査する。
+            # CompoundPlug._set_value(fast)と同じ子数の検査と直接更新。書き込めるかは、確かめる指定なら
+            # 上で確かめ済みで、それ以外はMayaの拒否に任せる。set_plugでは型・範囲だけを検査する。
             if len(values) != self._mplug.numChildren():
                 raise ValueError("コンパウンドアトリビュートの値の数が子の数と合っていません")
             set_plug(self._mplug, values, _writable_checked=True)
         elif fast:
-            super()._set_value(values, fast=fast)
+            super()._set_value(values, fast=fast, check=check)
         else:
             # 親へまとめて書けなかった値は、子ごとに書いて従来の例外と更新順にする。
             self._set_child_values(values)

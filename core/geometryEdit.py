@@ -16,7 +16,7 @@ _OM2_POINTS = (om2.MPoint, om2.MFloatPoint)
 _Geometry = namedtuple("_Geometry", ("path", "fn", "is_mesh"))
 
 
-def geometry(shape, indices, edit=False):
+def geometry(shape, indices, edit=False, check=False):
     """ShapeのDAGパスと関数セットを取得する。
 
     edit=Trueなら、直接書き込めるかどうかも調べる。
@@ -34,6 +34,7 @@ def geometry(shape, indices, edit=False):
         shape (Mesh | NurbsCurve): 型が決まっているShapeのオブジェクト。
         indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。UVの番号ではない。
         edit (bool): Trueなら直接書き込むときの制限を調べる。Falseは取得だけに使う。
+        check (bool): Trueなら、edit=Trueのとき、対象のポイントへ書き込めるか(ロック・入力の接続)も確かめる。
 
     Returns:
         _Geometry: ``path`` (このオブジェクトが持つDAGパス)・``fn`` (MFnMeshまたはMFnNurbsCurve)・``is_mesh`` (MeshならTrue)
@@ -59,7 +60,7 @@ def geometry(shape, indices, edit=False):
         if dependency.isLocked:
             raise RuntimeError("シェイプノードがロックされています")
         points = dependency.findPlug("pnts" if mesh else "controlPoints", False)
-        for index in indices:
+        for index in indices if check else ():
             point = points.elementByLogicalIndex(index)
             require_writable(point)
             for child in range(point.numChildren()):
@@ -140,7 +141,7 @@ def command_indices(shape, indices):
     return list(indices)
 
 
-def set_positions(shape, indices, values, ws=False, *, fast=False):
+def set_positions(shape, indices, values, ws=False, *, fast=False, check=False):
     """点の座標を書き込む。
 
     座標はcmで、確かめてあるものを渡す。Undoのまとまりは呼び出し元が管理する。
@@ -151,6 +152,7 @@ def set_positions(shape, indices, values, ws=False, *, fast=False):
         values (Sequence[Sequence[float]]): 番号と同じ数の、有限なXYZ。
         ws (bool): Trueならワールド座標として扱う。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Returns:
         None: 値を返さない。
@@ -162,7 +164,7 @@ def set_positions(shape, indices, values, ws=False, *, fast=False):
     if not indices:
         return
     if fast:
-        _set_positions_fast(shape, indices, values, ws)
+        _set_positions_fast(shape, indices, values, ws, check)
         return
     _, _, mesh = geometry(shape, indices)
     if ws and not mesh:
@@ -176,7 +178,7 @@ def set_positions(shape, indices, values, ws=False, *, fast=False):
         cmds.xform(f"{name}.{token}[{index}]", absolute=True, translation=coordinates, worldSpace=ws, objectSpace=not ws)
 
 
-def _set_positions_fast(shape, indices, values, ws=False):
+def _set_positions_fast(shape, indices, values, ws=False, check=False):
     """点の座標をOpenMayaでまとめて設定する。
 
     座標はcmで、確かめてあるものを渡す。CVのwは変えない。
@@ -186,6 +188,7 @@ def _set_positions_fast(shape, indices, values, ws=False):
         indices (Sequence[int]): 確かめてある番号。
         values (Sequence[Sequence[float]]): 設定するXYZ。
         ws (bool): TrueならAPIのワールド座標、Falseならローカル座標として扱う。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Returns:
         None: 値を返さない。
@@ -197,7 +200,7 @@ def _set_positions_fast(shape, indices, values, ws=False):
     """
     if not indices:
         return
-    path, fn, mesh = geometry(shape, indices, edit=True)
+    path, fn, mesh = geometry(shape, indices, edit=True, check=check)
     points = fn.getPoints() if mesh else fn.cvPositions()
     transform = path.inclusiveMatrix()
     if ws and abs(transform.det4x4()) < 1e-12:

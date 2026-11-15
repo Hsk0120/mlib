@@ -1504,7 +1504,7 @@ class Plug(Object):
             取得しただけでは要素は作られない。
         """
         ...
-    def set(self, value: object, safe: bool = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ...) -> Plug | int:
+    def set(self, value: object, safe: bool = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> Plug | int:
         """値を設定する。
 
         ロックの解除や接続の切断、失敗したときの自動の巻き戻しはしない。
@@ -1529,6 +1529,9 @@ class Plug(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応している型だけを直接更新し、Undoの設定は変えない。
                 値の意味と確かめ方は通常と同じ(整数型・enum・boolへの小数は四捨五入する。
                 数値型への文字列や、文字列型への数値はRuntimeError)。
+            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
+                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Plug | int: 通常は自身。safe=Trueなら、成功は0、子ごとにやり直したときは失敗数の合計。
@@ -2068,7 +2071,7 @@ class Plug(Object):
             list[Plug]: 出力先の Plug。未接続なら空リスト。
         """
         ...
-    def _set_template(self, value: object, safe: bool, *, fast: bool, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., _writer: Callable[..., Any] | None = ..., **options) -> Plug | int:
+    def _set_template(self, value: object, safe: bool, *, fast: bool, check: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., _writer: Callable[..., Any] | None = ..., **options) -> Plug | int:
         """set()の共通の流れを受け持つ。
 
         受け持つのは、safeでのUndoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
@@ -2079,6 +2082,7 @@ class Plug(Object):
             value (object): 書き込む値。
             safe (bool): Trueなら、失敗を例外にせず数える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に値が有限かを確かめ、書き込めるかの確認を書き込み側へ指示する。
             unit (str | None): 数値の角度の単位。Noneは度。ここで一度だけラジアンへ換算し、
                 書き込みとsafeのやり直しには内部単位の値を渡す。
             timeUnit (str | None): 数値の時間の単位。Noneはフレーム。unitと同じく、ここで一度だけ秒へ換算する。
@@ -2098,7 +2102,7 @@ class Plug(Object):
             NotImplementedError: fastに対応していない型の場合。safe=Trueでも例外にする。
         """
         ...
-    def _set_value(self, value: object, *, uiUnits: bool = ..., fast: bool = ...) -> None:
+    def _set_value(self, value: object, *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """値の型と単位を揃えて、指定した方法(cmdsかOpenMaya)で書き込む。
 
         safeのやり直しとUndoチャンクは、呼び出し元で扱う。
@@ -2107,6 +2111,7 @@ class Plug(Object):
             value (object): 書き込む値。
             uiUnits (bool): TrueならUI単位から内部単位へ変換する。
             fast (bool): TrueならOpenMayaで直接更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

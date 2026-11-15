@@ -495,7 +495,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setOverrideColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ...) -> DagNode:
+    def setOverrideColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> DagNode:
         """描画のオーバーライドで表示色を設定する。
 
         ``overrideEnabled`` を有効にしてから、指定に応じて次のように設定し、自身を返す。
@@ -518,6 +518,8 @@ class DagNode(Node):
             shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -544,7 +546,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setOutlinerColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ...) -> DagNode:
+    def setOutlinerColor(self, color: int | Sequence[float] | None, *, shape: bool = ..., fast: bool = ..., check: bool = ...) -> DagNode:
         """アウトライナーの文字色を設定する。
 
         ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定し、自身を返す。
@@ -560,6 +562,8 @@ class DagNode(Node):
             shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -647,7 +651,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setDisplayType(self, kind: str, *, fast: bool = ...) -> DagNode:
+    def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> DagNode:
         """描画のオーバーライドで表示の種類を設定する。
 
         表示の種類は通常・テンプレート・リファレンスの3つ。設定して自身を返す。
@@ -666,6 +670,8 @@ class DagNode(Node):
         Args:
             kind (str): ``"normal"``・``"template"``・``"reference"`` のどれか。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -690,7 +696,7 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setShadingOverride(self, enabled: bool, *, fast: bool = ...) -> DagNode:
+    def setShadingOverride(self, enabled: bool, *, fast: bool = ..., check: bool = ...) -> DagNode:
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
         設定して自身を返す。
@@ -705,6 +711,8 @@ class DagNode(Node):
         Args:
             enabled (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -758,10 +766,10 @@ class DagNode(Node):
             list[DagNode]: たどった順のオブジェクト。
         """
         ...
-    def _set_display_values(self, values: list[tuple[str, object]], chunk: str, fast: bool, shape: bool = ...) -> None:
+    def _set_display_values(self, values: list[tuple[str, object]], chunk: str, fast: bool, shape: bool = ..., *, check: bool = ...) -> None:
         """表示のアトリビュートへ値を書き込む(:meth:`setOverrideColor`・:meth:`setDisplayType` などの本体)。
 
-        fastでは、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
+        fastでcheck=Trueなら、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
         (コンパウンドアトリビュートは子も)に書き込めるかを先に調べてから書き込む。
 
         Args:
@@ -769,6 +777,7 @@ class DagNode(Node):
             chunk (str): 通常の処理で使うUndoチャンクの名前。
             fast (bool): 確かめ済みのfast。TrueはUndoなしのOpenMaya更新。
             shape (bool): 確かめ済みのshape。Trueなら直下のShapeへ書き込む。
+            check (bool): Trueなら、fastで書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

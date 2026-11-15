@@ -181,7 +181,7 @@ class DrivenKey:
             bool: この組のカーブがつながっていればTrue。キーが無くてもTrue。
         """
         ...
-    def setKey(self, driverValue: float, value: float, inTangentType: str = ..., outTangentType: str = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ...) -> DrivenKey:
+    def setKey(self, driverValue: float, value: float, inTangentType: str = ..., outTangentType: str = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> DrivenKey:
         """ドライバーの値と駆動先の値を指定して、ドリブンキーを追加または更新する。
 
         2つの値はfloat()で数値にし、有限か確かめる。それぞれのPlugの定義に従ってUI単位へ変換し、
@@ -209,6 +209,8 @@ class DrivenKey:
             timeUnit (str): 時間のアトリビュートの値の単位。既定の ``"frame"`` は現在のUI時間単位のフレーム、
                 ``"sec"`` は秒(``"seconds"`` などの別名でもよい)。時間以外のアトリビュートでは使わない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DrivenKey: 自身。
@@ -230,7 +232,7 @@ class DrivenKey:
             途中で失敗した場合に、自動で元へ戻すことはしない。
         """
         ...
-    def _set_key_fast(self, curves: list[AnimCurve], input: float, value: float, inTangentType: str, outTangentType: str, unit: str, timeUnit: str) -> None:
+    def _set_key_fast(self, curves: list[AnimCurve], input: float, value: float, inTangentType: str, outTangentType: str, unit: str, timeUnit: str, check: bool = ...) -> None:
         """:meth:`setKey` のfastの処理。必要ならカーブを作ってつなぎ、OpenMayaでキーを書き込む。
 
         Args:
@@ -241,6 +243,7 @@ class DrivenKey:
             outTangentType (str): Mayaの出力側の接線の型。
             unit (str): 角度の値の単位。
             timeUnit (str): 時間の値の単位。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

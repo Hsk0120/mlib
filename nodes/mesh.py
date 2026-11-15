@@ -270,7 +270,7 @@ class Mesh(Shape):
         space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
         return _vectors_of_points(self._geometry_fn().getPoints(space))
 
-    def setPoints(self, points, worldSpace=_UNSET, *, fast=False, ws=_UNSET):
+    def setPoints(self, points, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """全頂点の位置をまとめて書き込み、自身を返す。
 
         :meth:`getPoints` と同じ並び・単位(内部単位のcm)の点の並びを受け取る。
@@ -286,6 +286,8 @@ class Mesh(Shape):
             worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で書き込む。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Mesh: 自身。
@@ -313,10 +315,10 @@ class Mesh(Shape):
         current = fn.getPoints(om2.MSpace.kWorld if ws else om2.MSpace.kObject)
         changed = [index for index, (value, point) in enumerate(zip(values, current)) if value != (point.x, point.y, point.z)]
         with _edit_context("mlibMeshSetPoints", fast, transaction=True):
-            geometry_edit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast)
+            geometry_edit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast, check=check)
         return self
 
-    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, ws=_UNSET):
+    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """頂点の座標を、pivotを中心に反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -340,6 +342,8 @@ class Mesh(Shape):
                 既定は原点で、Transformのピボットとは関係ない。
             indices (Iterable[int] | None): 頂点番号。Noneなら全頂点、空の並びなら何も変えない。同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Mesh: 自身。
@@ -355,7 +359,7 @@ class Mesh(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
-        _write_points([self._mirror_plan(axis, ws, pivot, indices, fast)], fast, "mlibMeshMirror")
+        _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibMeshMirror", check)
         return self
 
     def getVertexNormals(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
@@ -1708,7 +1712,7 @@ class Mesh(Shape):
             if current and current != color_set:
                 fn.setCurrentColorSetName(current)
 
-    def _mirror_plan(self, axis, ws, pivot, indices, fast):
+    def _mirror_plan(self, axis, ws, pivot, indices, fast, check=False):
         """頂点を反転した座標を求め、書込みの計画を返す。シーンは変更しない。
 
         :meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>` が
@@ -1720,12 +1724,13 @@ class Mesh(Shape):
             pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。
             indices (Iterable[int] | None): 頂点番号。Noneは全頂点。
             fast (bool): TrueならOpenMayaで直接書けるかも確かめる。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             tuple | None: ``(shape, indices, rows, ws)``。対象が無ければNone。
         """
         self._geometry_fn()
-        return _mirror_plan(self.getVertices(indices), axis, ws, pivot, fast)
+        return _mirror_plan(self.getVertices(indices), axis, ws, pivot, fast, check)
 
     def _geometry_fn(self):
         """形状データを要する照会用に ``om2.MFnMesh`` を返す。

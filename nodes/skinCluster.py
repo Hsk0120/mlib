@@ -214,7 +214,7 @@ class SkinCluster(GeometryFilter):
         )
         return self
 
-    def pruneWeights(self, threshold, normalize=True, *, fast=False):
+    def pruneWeights(self, threshold, normalize=True, *, fast=False, check=False):
         """先頭のMeshの各頂点で、しきい値より小さなウェイトを0にする。
 
         ``cmds.skinPercent(skin, mesh, pruneWeights=threshold)`` と同じように動く。
@@ -234,6 +234,8 @@ class SkinCluster(GeometryFilter):
                 ロックしていないインフルエンスがすべて0の頂点は変えない。
                 ロックが無ければ、skinPercentの結果と同じ値になる。Falseなら0にするだけで、ほかの値は変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             SkinCluster: 自身。
@@ -280,7 +282,7 @@ class SkinCluster(GeometryFilter):
                 values = [row[i] for row in edited_rows for i in columns]
                 logical = [self._skin_fn.indexForInfluenceObject(paths[i]) for i in columns]
                 if fast:
-                    self._set_weight_values_fast(values, len(columns), edited_vertices, logical)
+                    self._set_weight_values_fast(values, len(columns), edited_vertices, logical, check)
                 else:
                     self._set_weight_values_cmds(values, len(columns), edited_vertices, logical)
             return self
@@ -759,7 +761,7 @@ class SkinCluster(GeometryFilter):
             return [list(row) for row in values]
         return om2.MDoubleArray([value for row in values for value in row])
 
-    def setWeights(self, joints, weights, *, vertices=None, normalize=False, broadcast=False, rows=False, fast=False):
+    def setWeights(self, joints, weights, *, vertices=None, normalize=False, broadcast=False, rows=False, fast=False, check=False):
         """指定したインフルエンスの頂点ウェイトを設定する。
 
         既定では正規化せず、渡した値をそのまま書き込む。
@@ -800,6 +802,8 @@ class SkinCluster(GeometryFilter):
                 2つ以上の頂点へK個だけを渡すときは、この指定が必要。
             rows (bool): Trueなら、weightsを頂点ごとの行として受け取る。既定はFalse。broadcastとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             SkinCluster: 自身。
@@ -838,7 +842,7 @@ class SkinCluster(GeometryFilter):
             # 削除済み influence によるマルチアトリビュートの穴を考慮し、物理番号をアトリビュートの論理番号へ変換する。
             logical_indices = [self._skin_fn.indexForInfluenceObject(influences[i]) for i in physical_indices]
             if fast:
-                self._set_weight_values_fast(values, width, vertex_indices, logical_indices)
+                self._set_weight_values_fast(values, width, vertex_indices, logical_indices, check)
             else:
                 self._set_weight_values_cmds(values, width, vertex_indices, logical_indices)
             return self
@@ -935,7 +939,7 @@ class SkinCluster(GeometryFilter):
         values = dict(zip(ordered, self._skin_fn.getBlendWeights(self.mesh_path, component)))
         return [values[index] for index in vertex_indices]
 
-    def setBlendWeights(self, weights, *, vertices=None, fast=False):
+    def setBlendWeights(self, weights, *, vertices=None, fast=False, check=False):
         """先頭のMeshの、頂点ごとのDQブレンドウェイト(``blendWeights``)を設定する。
 
         通常は、続いている頂点番号ごとに、範囲を指定した ``cmds.setAttr`` で書き込む。Undoが有効なら1回で戻せる。
@@ -947,6 +951,8 @@ class SkinCluster(GeometryFilter):
             vertices (Vertex | Vertices | int | str | Iterable | None): 書き込む頂点。Noneならすべての頂点(番号順)。
                 指定のしかたは :meth:`setWeights` と同じ。空なら何もしない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             SkinCluster: 自身。
@@ -981,9 +987,10 @@ class SkinCluster(GeometryFilter):
                 return self
             if fast:
                 array = self._dependency_fn().findPlug("blendWeights", False)
-                require_writable(array)
-                for index in vertex_indices:
-                    require_writable(array.elementByLogicalIndex(index))
+                if check:
+                    require_writable(array)
+                    for index in vertex_indices:
+                        require_writable(array.elementByLogicalIndex(index))
                 pairs = sorted(zip(vertex_indices, values))
                 component_fn = om2.MFnSingleIndexedComponent()
                 component = component_fn.create(om2.MFn.kMeshVertComponent)
@@ -2626,7 +2633,7 @@ class SkinCluster(GeometryFilter):
             raise ValueError("ウェイトは有限な数値で指定してください")
         return values, width, vertex_indices, physical_indices
 
-    def _set_weight_values_fast(self, values, width, vertex_indices, logical_indices):
+    def _set_weight_values_fast(self, values, width, vertex_indices, logical_indices, check=False):
         """全対象ウェイトPlugを検査し、頂点・指定列の順にOpenMayaで生値を書き込む。
 
         writable/check_rangeを全件に適用してから書き込む。書き込みは
@@ -2641,6 +2648,7 @@ class SkinCluster(GeometryFilter):
             width (int): 指定列数K。
             vertex_indices (Sequence[int]): 書き込む頂点番号。valuesの行の順。
             logical_indices (list[int]): weights[]の論理番号。指定influence順。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続)を確かめる。
 
         Returns:
             None: 値を返さない。
@@ -2652,9 +2660,15 @@ class SkinCluster(GeometryFilter):
         attribute_fn = range_fn = None
         attribute_writable = has_limits = True
         shared = len(values) == width
-        for position, vertex in enumerate(vertex_indices):
+        # 確かめる指定が無く、範囲の定義も無ければ、要素ごとの確認を通さない(頂点数×インフルエンス数のPlugを作らずに済む)。
+        weights_attribute = self._dependency_fn().attribute("weights")
+        limited = weights_attribute.hasFn(om2.MFn.kNumericAttribute)
+        if limited:
+            limits_fn = om2.MFnNumericAttribute(weights_attribute)
+            limited = limits_fn.hasMin() or limits_fn.hasMax()
+        for position, vertex in enumerate(vertex_indices) if check or limited else ():
             row = weights_plug.elementByLogicalIndex(vertex).child(0)
-            row_blocked = self._plug_chain_blocked(row)
+            row_blocked = check and self._plug_chain_blocked(row)
             offset = 0 if shared else position * width
             for column, index in enumerate(logical_indices):
                 plug = row.elementByLogicalIndex(index)
@@ -2665,7 +2679,7 @@ class SkinCluster(GeometryFilter):
                     if attribute.hasFn(om2.MFn.kNumericAttribute):
                         range_fn = om2.MFnNumericAttribute(attribute)
                         has_limits = range_fn.hasMin() or range_fn.hasMax()
-                if row_blocked or plug.isLocked or plug.isDestination or not attribute_writable:
+                if check and (row_blocked or plug.isLocked or plug.isDestination or not attribute_writable):
                     require_writable(plug, attribute_fn)
                 if has_limits:
                     require_range(plug, values[offset + column], range_fn)

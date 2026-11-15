@@ -69,14 +69,14 @@ class ResponsibilityTest(unittest.TestCase):
         self.assertEqual(list(inputs.mplug().getExistingArrayAttributeIndices()), [])
 
     def test_numeric_compound_locked_child_preflight(self):
-        """数値のコンパウンドアトリビュートの子ロックを変更前に検出し、RGBの型を維持する。"""
+        """check=Trueなら、数値のコンパウンドアトリビュートの子ロックを変更前に検出し、RGBの型を維持する。"""
         node = mlib.createNode("blendColors")
         node.getPlug("color1").set((0.2, 0.3, 0.4))
         before = node.getPlug("color1").get()
         cmds.setAttr(node.getFullName() + ".color1G", lock=True)
         for fast in (False, True):
             with self.assertRaises(RuntimeError):
-                node.getPlug("color1").set((0.8, 0.7, 0.6), fast=fast)
+                node.getPlug("color1").set((0.8, 0.7, 0.6), fast=fast, check=True)
             self.assertEqual(node.getPlug("color1").get(), before)
         cmds.setAttr(node.getFullName() + ".color1G", lock=False)
         node.getPlug("color1").set((0.8, 0.7, 0.6))

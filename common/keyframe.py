@@ -123,7 +123,7 @@ class Keyframe:
         self._require_valid()
         return self._curve.getKeyValues(unit=unit, timeUnit=timeUnit)[self._index]
 
-    def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False):
+    def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False, check=False):
         """キーの値を、接線の型を保ったまま変える。
 
         Args:
@@ -131,6 +131,8 @@ class Keyframe:
             unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
             timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Keyframe: 自身。
@@ -141,7 +143,7 @@ class Keyframe:
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
-        self._curve._set_key_values(self._index, value, unit=unit, timeUnit=timeUnit, fast=fast)
+        self._curve._set_key_values(self._index, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
         return self
 
     def getTangent(self, *, unit="deg"):
@@ -379,7 +381,7 @@ class Keyframes:
             result.extend(values[index] for index in indices)
         return result
 
-    def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False):
+    def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False, check=False):
         """すべてのキーに同じ値を書き込む(1回のUndoで戻せる)。
 
         Args:
@@ -387,13 +389,15 @@ class Keyframes:
             unit (str): 出力が角度のときの単位。
             timeUnit (str): 出力が時間のときの単位。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Keyframes: 自身。
         """
         with undoChunk("mlibKeyframesSetValue"):
             for curve, indices in self._groups:
-                curve._set_key_values(indices, value, unit=unit, timeUnit=timeUnit, fast=fast)
+                curve._set_key_values(indices, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
         return self
 
     def setTangent(self, *, unit="deg", fast=False, **kwargs):

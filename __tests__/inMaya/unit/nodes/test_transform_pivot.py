@@ -85,18 +85,18 @@ class ResetPivotTest(_SpecCase):
             Node(self.make("joint", "jointPivot")).setPivot((0, 0, 0), worldSpace=True, kind="both")
 
     def test_locked_pivot(self):
-        """ロックされたピボットの成分は通常・fast とも RuntimeError で、何も変えない。"""
+        """ロックされたピボットの成分は、通常と fast(check=True)で RuntimeError になり、何も変えない。"""
         cmds.setAttr(self.name_ + ".rotatePivotX", lock=True)
         before = [cmds.getAttr(self.name_ + "." + name)[0] for name in ("rotatePivot", "rotatePivotTranslate", "scalePivot", "scalePivotTranslate")]
         cmds.flushUndo()
         for fast in (True, False):
             for kind in ("rotate", "both"):
                 with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
-                    self.node.setPivot((0, 0, 0), worldSpace=True, kind=kind, fast=fast)
+                    self.node.setPivot((0, 0, 0), worldSpace=True, kind=kind, fast=fast, check=True)
                 with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
-                    self.node.setPivot((0, 0, 0), kind=kind, fast=fast)
+                    self.node.setPivot((0, 0, 0), kind=kind, fast=fast, check=True)
             with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
-                self.node.centerPivot(fast=fast)
+                self.node.centerPivot(fast=fast, check=True)
         after = [cmds.getAttr(self.name_ + "." + name)[0] for name in ("rotatePivot", "rotatePivotTranslate", "scalePivot", "scalePivotTranslate")]
         self.assertEqual(after, before)
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".worldMatrix[0]"), self.matrix)
@@ -106,11 +106,11 @@ class ResetPivotTest(_SpecCase):
         self.assertSequenceAlmostEqual(scale_pivot, [0, 0, 0])
 
     def test_locked_pivot_translate(self):
-        """preserve=True で書き換える補償値のロックも通常・fast とも拒否し、preserve=False は通る。"""
+        """preserve=True で書き換える補償値のロックも通常・fast(check=True)で拒否し、preserve=False は通る。"""
         cmds.setAttr(self.name_ + ".rotatePivotTranslateY", lock=True)
         for fast in (True, False):
             with self.assertRaisesRegex(RuntimeError, "ロックされているか、接続されています"):
-                self.node.setPivot((0, 0, 0), worldSpace=True, fast=fast)
+                self.node.setPivot((0, 0, 0), worldSpace=True, fast=fast, check=True)
         translate_before = cmds.getAttr(self.name_ + ".rotatePivotTranslate")[0]
         self.assertSequenceAlmostEqual(cmds.getAttr(self.name_ + ".worldMatrix[0]"), self.matrix)
         # 補償値を書かない preserve=False はロックに当たらない。

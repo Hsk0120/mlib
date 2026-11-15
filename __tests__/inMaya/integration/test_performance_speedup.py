@@ -1042,7 +1042,7 @@ class FastPathOverheadTest(unittest.TestCase):
         plug = mlib.getNode(node).getPlug("dv")
         cmds.flushUndo()
         with mock.patch.object(fastWrite, "require_writable", wraps=fastWrite.require_writable) as spy:
-            plug.set((0.25, 1.5, -2.0), fast=True)
+            plug.set((0.25, 1.5, -2.0), fast=True, check=True)
         # 親と3つの子を1回ずつ。検査の後に型・範囲を確かめて書き込む。
         self.assertEqual(spy.call_count, 4)
         self.assertEqual(cmds.getAttr(node + ".dv")[0], (0.25, 1.5, -2.0))
@@ -1051,7 +1051,7 @@ class FastPathOverheadTest(unittest.TestCase):
         cmds.addAttr(node + ".dvX", edit=True, maxValue=0.5)
         cmds.setAttr(node + ".dvY", lock=True)
         with self.assertRaises(RuntimeError) as caught:
-            plug.set((1.0, 0.0, 0.0), fast=True)
+            plug.set((1.0, 0.0, 0.0), fast=True, check=True)
         self.assertRegex(str(caught.exception), r"^アトリビュートがロックされているか、接続されています: \S+\.dvY$")
         cmds.setAttr(node + ".dvY", lock=False)
         with self.assertRaises(RuntimeError) as caught:

@@ -142,14 +142,14 @@ class Double3PlugSpecTest(_PlugSpecCase):
         self.assertEqual(tuple(translate.get()), (1.0, 2.0, 3.0))
 
     def test_connected_child_strict_and_safe(self):
-        """入力接続された子があると通常・fastは全体を拒否し、safeは他の子を更新して1を返す。"""
+        """入力接続された子があると通常・fast(check=True)は全体を拒否し、safeは他の子を更新して1を返す。"""
         other = self.make("transform")
         cmds.connectAttr(other.getFullName() + ".ty", self.name + ".ty")
         translate = self.node.getPlug("translate")
         with self.assertRaises(RuntimeError):
             translate.set((1, 2, 3))
         with self.assertRaises(RuntimeError):
-            translate.set((1, 2, 3), fast=True)
+            translate.set((1, 2, 3), fast=True, check=True)
         self.assertEqual(tuple(translate.get()), (0.0, 0.0, 0.0))
         self.assertEqual(translate.set((5, 6, 7), safe=True), 1)
         self.assertEqual(tuple(translate.get()), (5.0, 0.0, 7.0))
@@ -189,13 +189,15 @@ class Double3DirectWriteTest(_PlugSpecCase):
                 self.assertEqual(cmds.getAttr(name + ".t"), before)
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
-    def test_output_only_attribute_is_rejected(self):
+    def test_output_only_attribute_is_rejected_with_check(self):
         node = self.make("decomposeMatrix")
         cmds.flushUndo()
         with self.assertRaises(RuntimeError) as caught:
-            node.getPlug("outputTranslate").set((1, 2, 3))
+            node.getPlug("outputTranslate").set((1, 2, 3), check=True)
         self.assertIn("アトリビュートは書き込めません", str(caught.exception))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        # 既定は確かめずにMayaへ渡す(Mayaのsetattrは出力専用を拒否しない)。
+        node.getPlug("outputTranslate").set((1, 2, 3))
 
     def test_units_match_cmds_and_one_undo(self):
         cmds.currentUnit(linear="m", angle="rad")

@@ -68,7 +68,7 @@ class GeometryFilter(Node):
             IndexError: geometryIndexの番号の形状が無い場合。
         """
         ...
-    def setDeformerWeights(self, weights: Iterable[float], *, vertices: Component | Components | Iterable[int] | None = ..., geometryIndex: int = ..., fast: bool = ...) -> GeometryFilter:
+    def setDeformerWeights(self, weights: Iterable[float], *, vertices: Component | Components | Iterable[int] | None = ..., geometryIndex: int = ..., fast: bool = ..., check: bool = ...) -> GeometryFilter:
         """頂点ごとのデフォーマーのウェイトを設定する。
 
         通常は ``cmds.setAttr`` で書き込む。番号が1ずつ続く頂点は、範囲を指定した1回のsetAttrにまとめる。
@@ -80,6 +80,8 @@ class GeometryFilter(Node):
                 同じ番号を2回指定できない。指定した順にweightsと対応する。
             geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定は0。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             GeometryFilter: 自身。
@@ -223,13 +225,14 @@ class GeometryFilter(Node):
             ValueError: 数が合わない、または有限でない値がある場合。
         """
         ...
-    def _set_deformer_weights_fast(self, plug: om2.MPlug, indices: list[int], values: list[float]) -> None:
-        """全要素の書込み可否と範囲を先に調べてから、OpenMaya で書き込む。
+    def _set_deformer_weights_fast(self, plug: om2.MPlug, indices: list[int], values: list[float], check: bool = ...) -> None:
+        """全要素の範囲(check=Trueなら書込み可否も)を先に調べてから、OpenMaya で書き込む。
 
         Args:
             plug (om2.MPlug): ``weightList[g].weights`` の Plug。
             indices (list[int]): 頂点番号。
             values (list[float]): 値。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

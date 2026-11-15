@@ -1130,7 +1130,7 @@ class Joint(Transform):
         joint_orient = self._rotate_quaternion("jointOrient")
         return _closest_euler(rotate_axis.conjugate() * quaternion * joint_orient.conjugate(), reference)
 
-    def _apply_local_matrix(self, matrix, scale_reference=None, *, fast=False):
+    def _apply_local_matrix(self, matrix, scale_reference=None, *, fast=False, check=False):
         """jointOrient と rotateAxis を保持して local マトリクスを適用する。
 
         Transformの共通処理へ委譲し、Jointの回転分離とSSC補償を反映した
@@ -1142,6 +1142,7 @@ class Joint(Transform):
             scale_reference (Iterable[float] | None): 最優先で符号を合わせるスケール
                 (``setScale`` で要求した値)。None なら現在の scale チャンネル値に合わせる。
             fast (bool): Trueなら各チャンネルをOpenMayaで更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1150,7 +1151,7 @@ class Joint(Transform):
             ValueError: inverseScale がゼロに近い、またはマトリクスを分解できない場合。
             RuntimeError: Maya がアトリビュートの書き込みを拒否した場合。
         """
-        super()._apply_local_matrix(matrix, scale_reference, fast=fast)
+        super()._apply_local_matrix(matrix, scale_reference, fast=fast, check=check)
 
     def _compound_values(self, attribute, angle=False):
         """コンパウンドアトリビュートを 3 要素の tuple として取得する。

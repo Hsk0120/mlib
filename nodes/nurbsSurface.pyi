@@ -133,7 +133,7 @@ class NurbsSurface(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> NurbsSurface:
+    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsSurface:
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(cm)の点を受け付ける。
@@ -149,6 +149,8 @@ class NurbsSurface(Shape):
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsSurface: 自身。
@@ -319,8 +321,11 @@ class NurbsSurface(Shape):
             tuple[om2.MVector | None, om2.MVector | None]: U・Vの単位接線。0になる向きは None。
         """
         ...
-    def _require_fast_editable(self):
+    def _require_fast_editable(self, check: bool = ...):
         """fast で直接書き込めることを検証する。
+
+        Args:
+            check (bool): Trueなら、CVのアトリビュートへ書き込めるか(ロック・入力の接続)も確かめる。
 
         Raises:
             NotImplementedError: createへの入力(コンストラクションヒストリ)がある場合。

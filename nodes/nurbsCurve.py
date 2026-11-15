@@ -454,7 +454,7 @@ class NurbsCurve(Shape):
         space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
         return _vectors_of_points(self._geometry_fn().cvPositions(space))
 
-    def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, ws=_UNSET):
+    def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(内部単位のcm)の点を受け付ける。
@@ -473,6 +473,8 @@ class NurbsCurve(Shape):
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsCurve: 自身。
@@ -504,10 +506,10 @@ class NurbsCurve(Shape):
                 raise ValueError(f"点を{independent}個か{count}個指定してください: {len(values)}個")
             raise ValueError(f"点を{count}個指定してください: {len(values)}個")
         with _edit_context("mlibNurbsCurveSetCvPositions", fast, transaction=True):
-            geometry_edit.set_positions(self, list(range(independent)), values, ws, fast=fast)
+            geometry_edit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
         return self
 
-    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, ws=_UNSET):
+    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """CVの座標を、中心pivotに対して反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -530,6 +532,8 @@ class NurbsCurve(Shape):
             indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら全CV。空の並びなら何も変えない。
                 同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsCurve: 自身。
@@ -545,7 +549,7 @@ class NurbsCurve(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
-        _write_points([self._mirror_plan(axis, ws, pivot, indices, fast)], fast, "mlibNurbsCurveMirror")
+        _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibNurbsCurveMirror", check)
         return self
 
     def rebuild(self, spans=None, degree=None, *, keepRange="original"):
@@ -1101,7 +1105,7 @@ class NurbsCurve(Shape):
             ups.append(up)
         return ups
 
-    def _mirror_plan(self, axis, ws, pivot, indices, fast):
+    def _mirror_plan(self, axis, ws, pivot, indices, fast, check=False):
         """CVを反転した座標を求め、書込みの計画を返す。シーンは変更しない。
 
         :meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>` が
@@ -1113,12 +1117,13 @@ class NurbsCurve(Shape):
             pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。
             indices (Iterable[int] | None): CV番号。Noneは全CV。
             fast (bool): TrueならOpenMayaで直接書けるかも確かめる。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             tuple | None: ``(shape, indices, rows, ws)``。対象が無ければNone。
         """
         self._geometry_fn()
-        return _mirror_plan(self.getCVs(indices), axis, ws, pivot, fast)
+        return _mirror_plan(self.getCVs(indices), axis, ws, pivot, fast, check)
 
     def _geometry_fn(self):
         """形状データを要する照会用に ``om2.MFnNurbsCurve`` を返す。

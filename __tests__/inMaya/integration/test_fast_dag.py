@@ -91,7 +91,7 @@ class ConsolidatedDagTests(unittest.TestCase):
         self.assertTrue(node.getPivot().isEquivalent(initial))
         node.getPlug("rotatePivotX").setFlags(locked=True)
         with self.assertRaises(RuntimeError):
-            node.setPivot((1, 2, 3), fast=True)
+            node.setPivot((1, 2, 3), fast=True, check=True)
         self.assertTrue(node.getPivot().isEquivalent(initial))
 
     def test_reparent_fast_keeps_world_matrix_and_records_no_undo(self):
@@ -220,7 +220,7 @@ class ConsolidatedDagTests(unittest.TestCase):
             self.assertAlmostEqual(quick, normal, places=5)
 
     def test_reparent_fast_rejects_locked_channel_before_change(self):
-        """書き込めないチャンネルがあれば、親を変える前に、これまでと同じ文言で拒否する。"""
+        """check=Trueなら、書き込めないチャンネルがあれば、親を変える前に、これまでと同じ文言で拒否する。"""
         parent = cmds.createNode("transform", name="lockedTarget")
         cmds.setAttr(parent + ".t", 1, 2, 3)
         for case in ("lockChild", "lockParent", "connectChild"):
@@ -234,7 +234,7 @@ class ConsolidatedDagTests(unittest.TestCase):
                     cmds.connectAttr(parent + ".tx", child + ".tz")
                 cmds.flushUndo()
                 with self.assertRaises(RuntimeError) as caught:
-                    mlib.getNode(child).setParent(mlib.getNode(parent), fast=True)
+                    mlib.getNode(child).setParent(mlib.getNode(parent), fast=True, check=True)
                 self.assertIn("アトリビュートがロックされているか、接続されています", str(caught.exception))
                 self.assertIsNone(cmds.listRelatives(child, parent=True))
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))

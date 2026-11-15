@@ -167,7 +167,7 @@ class Mesh(Shape):
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPoints(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> Mesh:
+    def setPoints(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Mesh:
         """全頂点の位置をまとめて書き込み、自身を返す。
 
         :meth:`getPoints` と同じ並び・単位(内部単位のcm)の点の並びを受け取る。
@@ -183,6 +183,8 @@ class Mesh(Shape):
             worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で書き込む。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Mesh: 自身。
@@ -200,7 +202,7 @@ class Mesh(Shape):
             ``fast=True`` は全頂点をまとめて書くので、頂点数が多いほど差が大きくなる。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., ws: bool = ...) -> Mesh:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Mesh:
         """頂点の座標を、pivotを中心に反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -224,6 +226,8 @@ class Mesh(Shape):
                 既定は原点で、Transformのピボットとは関係ない。
             indices (Iterable[int] | None): 頂点番号。Noneなら全頂点、空の並びなら何も変えない。同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Mesh: 自身。
@@ -1028,7 +1032,7 @@ class Mesh(Shape):
             NotImplementedError: inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def _mirror_plan(self, axis: str | int, ws: bool, pivot: Iterable[float], indices: Iterable[int] | None, fast: bool) -> tuple | None:
+    def _mirror_plan(self, axis: str | int, ws: bool, pivot: Iterable[float], indices: Iterable[int] | None, fast: bool, check: bool = ...) -> tuple | None:
         """頂点を反転した座標を求め、書込みの計画を返す。シーンは変更しない。
 
         :meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>` が
@@ -1040,6 +1044,7 @@ class Mesh(Shape):
             pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。
             indices (Iterable[int] | None): 頂点番号。Noneは全頂点。
             fast (bool): TrueならOpenMayaで直接書けるかも確かめる。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             tuple | None: ``(shape, indices, rows, ws)``。対象が無ければNone。

@@ -2065,7 +2065,7 @@ class Plug(Object):
         value = _convert_angles(self._mplug, value, angle_unit, to_internal=False)
         return _convert_times(self._mplug, value, time_unit, to_internal=False)
 
-    def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False):
+    def set(self, value, safe=False, *, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
         """値を設定する。
 
         ロックの解除や接続の切断、失敗したときの自動の巻き戻しはしない。
@@ -2090,6 +2090,9 @@ class Plug(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応している型だけを直接更新し、Undoの設定は変えない。
                 値の意味と確かめ方は通常と同じ(整数型・enum・boolへの小数は四捨五入する。
                 数値型への文字列や、文字列型への数値はRuntimeError)。
+            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
+                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Plug | int: 通常は自身。safe=Trueなら、成功は0、子ごとにやり直したときは失敗数の合計。
@@ -2110,7 +2113,7 @@ class Plug(Object):
             fastでは、値や書き込めるかどうかより先に、すべての子の型が対応しているか確かめる。
             呼び出し方の誤りや、上に書いた以外の例外は、safe=Trueでもまとめて抑えることはしない。
         """
-        return self._set_template(value, safe, unit=unit, timeUnit=timeUnit, uiUnits=uiUnits, fast=fast)
+        return self._set_template(value, safe, unit=unit, timeUnit=timeUnit, uiUnits=uiUnits, fast=fast, check=check)
 
     def setIfChanged(self, value, *, unlock=False, fast=False):
         """今の値と違うときだけ書き込む。
@@ -2937,7 +2940,7 @@ class Plug(Object):
         assert isinstance(targets, list)  # 絞込みなしの getDestinations は list を返す。
         return targets
 
-    def _set_template(self, value, safe, *, fast, unit=None, timeUnit=None, uiUnits=False, _writer=None, **options):
+    def _set_template(self, value, safe, *, fast, check=False, unit=None, timeUnit=None, uiUnits=False, _writer=None, **options):
         """set()の共通の流れを受け持つ。
 
         受け持つのは、safeでのUndoのまとめ・マルチアトリビュート全体の拒否・fastに対応していない型の事前の確認・
@@ -2948,6 +2951,7 @@ class Plug(Object):
             value (object): 書き込む値。
             safe (bool): Trueなら、失敗を例外にせず数える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に値が有限かを確かめ、書き込めるかの確認を書き込み側へ指示する。
             unit (str | None): 数値の角度の単位。Noneは度。ここで一度だけラジアンへ換算し、
                 書き込みとsafeのやり直しには内部単位の値を渡す。
             timeUnit (str | None): 数値の時間の単位。Noneはフレーム。unitと同じく、ここで一度だけ秒へ換算する。
@@ -2967,7 +2971,9 @@ class Plug(Object):
             NotImplementedError: fastに対応していない型の場合。safe=Trueでも例外にする。
         """
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         options["uiUnits"] = uiUnits
+        options["check"] = check
         # 通常の書き込みは1回のsetAttrなので、チャンクを開かない(子ごとに書く経路は、その場所で開く)。
         # safeのやり直しは子ごとに書くため、1回のUndoにまとめる。
         with undoChunk(f"mlib{type(self).__name__}Set") if safe and not fast else nullcontext():
@@ -2992,13 +2998,14 @@ class Plug(Object):
                     value = _convert_angles(self._mplug, value, angle_unit)
                 if "time" in kinds:
                     value = _convert_times(self._mplug, value, time_unit)
-            try:
-                # NaN・無限大はMayaが受け取っても値が壊れるため、書き込む前に拒否する。
-                _require_finite_value(value)
-            except ValueError as error:
-                if not safe:
-                    raise ValueError(f"{error}: {self.getFullName() if self.isValid() else '<無効なPlug>'}") from None
-                return 1
+            if check:
+                try:
+                    # NaN・無限大はMayaがそのまま受け取るので、確かめる指定のときは書き込む前に拒否する。
+                    _require_finite_value(value)
+                except ValueError as error:
+                    if not safe:
+                        raise ValueError(f"{error}: {self.getFullName() if self.isValid() else '<無効なPlug>'}") from None
+                    return 1
             try:
                 writer = self._set_value if _writer is None else partial(_writer, self)
                 writer(value, fast=fast, **options)
@@ -3007,10 +3014,11 @@ class Plug(Object):
             except (RuntimeError, TypeError, ValueError):
                 if not safe:
                     raise
+                options.pop("check")
                 return self._set_children_safely(value, fast=fast, **options)
             return 0 if safe else self
 
-    def _set_value(self, value, *, uiUnits=False, fast=False):
+    def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """値の型と単位を揃えて、指定した方法(cmdsかOpenMaya)で書き込む。
 
         safeのやり直しとUndoチャンクは、呼び出し元で扱う。
@@ -3019,12 +3027,15 @@ class Plug(Object):
             value (object): 書き込む値。
             uiUnits (bool): TrueならUI単位から内部単位へ変換する。
             fast (bool): TrueならOpenMayaで直接更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
         """
         _require_bool(uiUnits, "uiUnits")
         self._require_valid()
+        if check:
+            self._require_writable()
         if uiUnits:
             value = _convert_units(self._mplug, value, to_ui=False)
         # 数値・文字列はマトリクスの入力に当たらないため、型の判定(attributeType)を省く。
@@ -3040,7 +3051,8 @@ class Plug(Object):
                 self._set_generic_matrix(Matrix(value), fast)
                 return
         if fast:
-            set_plug(self._mplug, value)
+            # 書き込めるかは、確かめる指定なら上で確かめ済み。それ以外はMayaの拒否に任せる。
+            set_plug(self._mplug, value, _writable_checked=True)
             return
         value = _convert_units(self._mplug, value)
         if isinstance(value, str):
@@ -3373,8 +3385,11 @@ class Plug(Object):
         )
         if not accepted or "matrix" not in accepted:
             raise TypeError(message)
-        self._require_writable()
-        self._mplug.setMObject(om2.MFnMatrixData().create(matrix))
+        try:
+            self._mplug.setMObject(om2.MFnMatrixData().create(matrix))
+        except RuntimeError:
+            self._require_writable()  # 拒否された理由が分かれば、その文言の例外にする。
+            raise
 
     def _set_flags(self, leaf, *, fast=False, **flags):
         """フラグを、自身か、その下の末端の子へ設定する。

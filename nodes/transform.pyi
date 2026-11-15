@@ -319,7 +319,7 @@ class Transform(DagNode):
             RuntimeError: 保持していた DAG パスが無効な場合。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., ws: bool = ...) -> Transform:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
         """直下のShape(中間オブジェクトを除く)の頂点やCVを、拡大・縮小する。
 
         Transformのマトリクスは変えない。Shapeごとに確かめて書き換えるため、後のShapeで拒否されても、
@@ -334,6 +334,8 @@ class Transform(DagNode):
                 Noneならすべてが対象。サーフェスでは(U, V)の組で指定する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueで使えるのは、ヒストリの無いメッシュと周期的でないカーブだけ。
                 Falseなら通常の方法で書き込み、Undoが有効なら1回にまとめる。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。
@@ -346,7 +348,7 @@ class Transform(DagNode):
             NotImplementedError: 対応していないShapeの場合、またはfastで書き換えられる条件に合わない場合。
         """
         ...
-    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., ws: bool = ...) -> Transform:
+    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
         """直下のShape(MeshとNurbsCurve。中間オブジェクトを除く)の頂点やCVを、中心pivotに対して反転する。
 
         処理は各Shapeの :meth:`Mesh.mirror <mlib.nodes.mesh.Mesh.mirror>`・
@@ -368,6 +370,8 @@ class Transform(DagNode):
             indices (Iterable[int] | None): 対象の頂点またはCVの番号。どのShapeにも同じ番号を使う。
                 Noneならすべてが対象。空なら何も変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。Shapeが無ければ何もしない。
@@ -399,7 +403,7 @@ class Transform(DagNode):
             ValueError: kindがrotateでもscaleでもない場合。
         """
         ...
-    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., ws: bool = ...) -> Transform:
+    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform:
         """ピボットを動かす。既定ではノードの姿勢を保つ。
 
         Args:
@@ -411,6 +415,8 @@ class Transform(DagNode):
             preserve (bool): Trueなら、ピボットの補正値を調整してマトリクスを保つ。
                 Falseなら補正しないので、姿勢が変わることがある。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。
@@ -426,7 +432,7 @@ class Transform(DagNode):
             Jointはピボットを単独で動かせないため、書き換える前に拒否する。
         """
         ...
-    def centerPivot(self, *, fast: bool = ...) -> Transform:
+    def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> Transform:
         """回転ピボットとスケールピボットを、バウンディングボックスの中心へ動かす。
 
         通常はxform(centerPivots=True)で動かす。fastでは、APIで求めた中心をsetPivotへ渡す。
@@ -434,6 +440,8 @@ class Transform(DagNode):
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。
@@ -699,7 +707,7 @@ class Transform(DagNode):
             Transform: 自身。
         """
         ...
-    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ...) -> Transform:
+    def setParent(self, parent: Node | str | om2.MObject | om2.MDagPath | None = ..., relative: bool = ..., add: bool = ..., *, fast: bool = ..., check: bool = ...) -> Transform:
         """Transformの親を変える。
 
         Args:
@@ -717,6 +725,8 @@ class Transform(DagNode):
                 Joint・インスタンス・親の追加には対応していない(NotImplementedError)。
                 通常の方法では、Jointはcmds.parentの動きに従う。relative=Falseのときだけ、
                 親のjointのscaleをinverseScaleへ接続する(relative=Trueでは接続しない。Mayaの仕様)。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。
@@ -812,7 +822,7 @@ class Transform(DagNode):
             RuntimeError: ノード、または保持するDAGパスが無効な場合。
         """
         ...
-    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> Transform | dict[str, Translate | EulerRotate | Scale | Shear]:
+    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | dict[str, Translate | EulerRotate | Scale | Shear]:
         """マトリクスを分解して、translate・rotate・scale・shearのうち値が変わるものに設定する。
 
         - ピボット・rotateAxis・jointOrient・offsetParentMatrixは変えない。
@@ -830,6 +840,8 @@ class Transform(DagNode):
             safe (bool): Trueなら、書けない成分はそのままにして、書ける成分だけを変える。
             get (bool): Trueなら書き込まずに、設定する予定のローカルの値を返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform | dict[str, Translate | EulerRotate | Scale | Shear]: 通常は自身。
@@ -863,7 +875,7 @@ class Transform(DagNode):
             >>> other.setTransformation(value)
         """
         ...
-    def setTransformation(self, value: Transformation, *, fast: bool = ...) -> Transform:
+    def setTransformation(self, value: Transformation, *, fast: bool = ..., check: bool = ...) -> Transform:
         """トランスフォームの値を、ピボットや回転順序も含めてローカルのアトリビュートへ設定する。
 
         回転順序・rotateAxis・ピボット4種・(Jointなら)jointOrient を書いてから、translate・rotate・scale・shear を書く。
@@ -873,6 +885,8 @@ class Transform(DagNode):
         Args:
             value (Transformation): 設定する値。距離はcm、角度はラジアン。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform: 自身。
@@ -903,7 +917,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
         """指定した基準の位置へ動かす。ピボットと回転は変えない。
 
         既定の ``at=2`` では、回転ピボットの位置(MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -921,6 +935,8 @@ class Transform(DagNode):
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、設定する予定のローカルのtranslateの値だけを返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform | list[float]: 自身。get=Trueなら、cmで表したXYZの3つの値のlist(シーンとは切り離されている)。
@@ -992,7 +1008,7 @@ class Transform(DagNode):
                 どれかのスケールの軸の長さが1e-10以下の場合も含む(Mayaはscaleの0を1e-12として計算する)。
         """
         ...
-    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
         """指定した空間での回転を設定する。書き込むrotateには、今の値にいちばん近い同じ回転の解を使う。
 
         - 3つの数値は、ノードのrotateOrderの順に読む。EulerRotateは、値そのものが持つ回転順序を使う。
@@ -1012,6 +1028,8 @@ class Transform(DagNode):
                 ラジアン(``"degree"``・``"radians"`` などの別名も使える)。EulerRotate・Quaternionは自分の
                 単位(rad)を持つので、unitに関係なく換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform | list[float]: 通常は自身。get=Trueなら、unitの単位(既定は度)でXYZの3つの値のlist
@@ -1111,7 +1129,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setScale(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setScale(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
         """scaleチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるスケールをローカルで設定する値へ変換する。
@@ -1124,6 +1142,8 @@ class Transform(DagNode):
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、チャンネルの値を返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform | list[float]: 自身。get=Trueなら、ローカルで設定する予定のXYZの値のlist(シーンとは切り離されている)。
@@ -1173,7 +1193,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setShear(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setShear(self, value: Iterable[float], worldSpace: bool = ..., safe: bool = ..., get: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Transform | list[float]:
         """shearチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるシアーをローカルで設定する値へ変換する。
@@ -1186,6 +1206,8 @@ class Transform(DagNode):
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、チャンネルの値を返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Transform | list[float]: 自身。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値のlist(シーンとは切り離されている)。
@@ -1223,7 +1245,7 @@ class Transform(DagNode):
             ValueError: 回転の成分と空間の指定が、対応していない組み合わせの場合。
         """
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> Transform | list[float]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., safe: bool = ..., get: bool = ..., *, unit: str = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> Transform | list[float]:
         """回転の成分の指定に従って、rotate・jointOrient・rotateAxisのどれかを設定する。
 
         受け付ける組み合わせでは、書き込む先は次のようになる。
@@ -1246,6 +1268,8 @@ class Transform(DagNode):
             unit (str): get=Trueのときの戻り値の角度の単位。既定の ``"deg"`` は度、``"rad"`` はラジアン
                 (``"degree"`` などの別名も使える)。書き込みと、入力のクォータニオンには関係しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             rotateAxis (bool): Trueなら、入力にrotateAxisを含むものとして扱う。既定はFalse。
             rotate (bool): Trueならrotateを書き換える。FalseならjointOrientかrotateAxisを書き換える。既定はTrue。
             jointOrient (bool): Trueなら、入力にjointOrientを含むものとして扱う。既定はTrue。
@@ -1487,7 +1511,7 @@ class Transform(DagNode):
             APIで直接書き換えるので、Undoには記録しない。削除に使うmodifierとは別に、先に確定させる。
         """
         ...
-    def _set_parent_fast(self, parent: Node | None, relative: bool, add: bool, *, validate_only: bool = ...) -> Transform:
+    def _set_parent_fast(self, parent: Node | None, relative: bool, add: bool, *, validate_only: bool = ..., check: bool = ...) -> Transform:
         """対応しているTransformかだけを確かめて、APIで親を変える。
 
         Args:
@@ -1495,6 +1519,8 @@ class Transform(DagNode):
             relative (bool): Trueなら、ローカルの変換を保つ。
             add (bool): Trueなら、今の親に加える。Trueには対応していない。
             validate_only (bool): Trueなら、すべてを先に確かめるためだけに使い、DAGは変えない。
+            check (bool): Trueなら、親を変える前に、translate・rotate・scale・shearへ書き込めるかを確かめる。
+                Falseでは確かめない(MFnTransformは、ロックや入力の接続がある成分を例外にせず飛ばす)。
 
         Returns:
             Transform: 自身。
@@ -1697,7 +1723,7 @@ class Transform(DagNode):
             tuple[str, om2.MEulerRotation]: 書込み先名とrad単位の計算値。
         """
         ...
-    def _apply_local_matrix(self, matrix: Matrix, scale_reference: Iterable[float] | None = ..., *, fast: bool = ...) -> None:
+    def _apply_local_matrix(self, matrix: Matrix, scale_reference: Iterable[float] | None = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """ローカルマトリクスの各成分をMayaアトリビュートへ適用する。
 
         マトリクスを1回だけ分解し、平行移動・回転・スケール・シアーのうち現在値と
@@ -1719,6 +1745,7 @@ class Transform(DagNode):
             scale_reference (Iterable[float] | None): 最優先で符号を合わせるスケール。
                 None なら現在の scale チャンネル値に合わせる。
             fast (bool): Trueなら各チャンネルをOpenMayaで更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1728,7 +1755,7 @@ class Transform(DagNode):
             RuntimeError: Maya がアトリビュートの書き込みを拒否した場合。
         """
         ...
-    def _apply_channel_values(self, values: dict[str, Iterable[float]], safe: bool = ..., *, fast: bool = ..., writable_checked: bool = ...) -> None:
+    def _apply_channel_values(self, values: dict[str, Iterable[float]], safe: bool = ..., *, fast: bool = ..., writable_checked: bool = ..., check: bool = ...) -> None:
         """計算済みの内部単位値のうち、現在値と異なるものだけを辞書の保持順に設定する。
 
         書込み値が現在のチャンネル値(内部単位)と完全に一致するチャンネルは書き込まない。
@@ -1740,6 +1767,7 @@ class Transform(DagNode):
             fast (bool): 子のPlugへ渡す更新モード。
             writable_checked (bool): Trueなら、呼び出し元が4つのチャンネルへ書き込めることを確かめ済み。
                 fastの書き込みで、確かめ直しを省く。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1756,23 +1784,23 @@ class Transform(DagNode):
             bool: 成分数と各成分が完全に一致すればTrue。読取れない場合はFalse(書込みへ委ねる)。
         """
         ...
-    def _write_channel_directly(self, name: str, value: Iterable[float], fast: bool, *, writable_checked: bool = ...) -> bool:
+    def _write_channel_directly(self, name: str, value: Iterable[float], fast: bool) -> bool:
         """translate・rotate・scale・shearへ、Plugのオブジェクトを作らずに内部単位の3つの値を書く。
 
-        通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書けない場合(ロック・入力の接続・
-        数値でない値など)は何も書かずにFalseを返し、呼び出し元がこれまでの書き込みで例外にする。
+        通常は ``cmds.setAttr`` を1回呼び、fastはMPlugへ直接書く。書き込めるかは前もって確かめない。
+        Mayaが拒否した場合(ロック・入力の接続)と、数値でない値の場合はFalseを返し、呼び出し元が
+        これまでの書き込みで例外にする(fastでは、拒否された子より前の子は書かれている)。
 
         Args:
             name (str): チャンネル名。
             value (Iterable[float]): 3つの値。距離はcm、角度はラジアン。
             fast (bool): TrueならOpenMayaで直接更新する。
-            writable_checked (bool): Trueなら、呼び出し元が書き込めることを確かめ済み。fastで確かめ直しを省く。
 
         Returns:
             bool: 書き込めたらTrue。
         """
         ...
-    def _set_channel_value(self, name: str, value: Iterable[float], safe: bool = ..., *, fast: bool = ...) -> Plug | int | None:
+    def _set_channel_value(self, name: str, value: Iterable[float], safe: bool = ..., *, fast: bool = ..., check: bool = ...) -> Plug | int | None:
         """内部単位のチャンネル値を、基底Plug.setへ渡す。
 
         Double3の回転変換を再実行せず、入力された順序の数値を使う。
@@ -1784,6 +1812,7 @@ class Transform(DagNode):
             value (Iterable[float]): 数値列。距離cm、角度rad。
             safe (bool): Plug.setに対応する書込み失敗を数えるか。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             Plug | int | None: Plug.setの戻り値。通常はPlug、safe=Trueは失敗数。

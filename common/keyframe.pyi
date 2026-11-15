@@ -102,7 +102,7 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
-    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ...) -> Keyframe:
+    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> Keyframe:
         """キーの値を、接線の型を保ったまま変える。
 
         Args:
@@ -110,6 +110,8 @@ class Keyframe:
             unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
             timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Keyframe: 自身。
@@ -304,7 +306,7 @@ class Keyframes:
             list[float]: 値。
         """
         ...
-    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ...) -> Keyframes:
+    def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> Keyframes:
         """すべてのキーに同じ値を書き込む(1回のUndoで戻せる)。
 
         Args:
@@ -312,6 +314,8 @@ class Keyframes:
             unit (str): 出力が角度のときの単位。
             timeUnit (str): 出力が時間のときの単位。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Keyframes: 自身。

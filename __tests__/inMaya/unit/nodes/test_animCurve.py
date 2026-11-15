@@ -92,7 +92,7 @@ class AnimationNodesTest(unittest.TestCase):
         original = curve.getInfinity()
         cmds.setAttr(curve.getFullName() + ".postInfinity", lock=True)
         with self.assertRaises(RuntimeError):
-            curve.setInfinity(pre="cycle", post="linear", fast=True)
+            curve.setInfinity(pre="cycle", post="linear", fast=True, check=True)
         self.assertEqual(curve.getInfinity(), original)
         curve.setInfinity(pre="oscillate", fast=True)
         self.assertEqual(curve.getInfinity(), dict(pre="oscillate", post="constant"))
@@ -100,7 +100,7 @@ class AnimationNodesTest(unittest.TestCase):
         source = self.create("animCurveUU")
         cmds.connectAttr(source.getFullName() + ".preInfinity", curve.getFullName() + ".postInfinity")
         with self.assertRaises(RuntimeError):
-            curve.setInfinity(pre="linear", post="linear", fast=True)
+            curve.setInfinity(pre="linear", post="linear", fast=True, check=True)
         self.assertEqual(curve.getInfinity()["pre"], "oscillate")
         with self.assertRaises(ValueError):
             curve.setInfinity(pre="linear", post="invalid", fast=True)

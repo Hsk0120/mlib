@@ -40,7 +40,7 @@ class MatrixPlug(Plug):
             return None
         return Matrix.fromMMatrix(om2.MFnMatrixData(data).matrix())
 
-    def _set_value(self, value, *, uiUnits=False, fast=False):
+    def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """マトリクスのアトリビュートへ値を直接設定する。
 
         Transformの移動・回転・スケールは操作しない。全体の流れは :meth:`Plug.set` が受け持つ。
@@ -53,6 +53,7 @@ class MatrixPlug(Plug):
             value (Matrix | om2.MMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
             uiUnits (bool): Plug共通のフラグとして受け付けるが、マトリクスの成分は換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -67,7 +68,9 @@ class MatrixPlug(Plug):
         if self.getLongName() in ("worldMatrix", "wm"):
             raise TypeError("worldMatrixは計算される出力なので設定できません")
         matrix = Matrix(value)
+        if check:
+            self._require_writable()
         if fast:
-            set_plug(self._mplug, matrix)
+            set_plug(self._mplug, matrix, _writable_checked=True)
         else:
             set_attr(self.getFullName(), *tuple(matrix), type="matrix", fast=False)

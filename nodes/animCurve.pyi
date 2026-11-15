@@ -155,7 +155,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、またはキーの無いカーブの場合。
         """
         ...
-    def setKey(self, input: float, value: float, inTangentType: str | None = ..., outTangentType: str | None = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ...) -> AnimCurve:
+    def setKey(self, input: float, value: float, inTangentType: str | None = ..., outTangentType: str | None = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
 
         接線の型を省略したときは、``cmds.setKeyframe`` と同じ扱いになる。すでにあるキーは接線の型を保ち、
@@ -178,6 +178,8 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのinputの単位と、出力が時間(TT・UT)のカーブでのvalueの単位。
                 ``"frame"`` は現在のUIの時間単位のフレーム、``"sec"`` は秒。既定は ``"frame"``。``"seconds"`` などの別名も使える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
@@ -209,7 +211,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
         """
         ...
-    def removeKey(self, index: int | Sequence[int] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str = ..., keepCurve: bool = ..., fast: bool = ...) -> AnimCurve:
+    def removeKey(self, index: int | Sequence[int] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str = ..., keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
 
         キーのクリップボードは変更しない。indexとtimeは、どちらか一方を指定する。
@@ -224,6 +226,8 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのtimeの単位。``"frame"`` / ``"sec"``。
             keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。Falseなら、Mayaと同じく空のカーブを削除する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
@@ -290,7 +294,7 @@ class AnimCurve(Node):
             IndexError: 番号がbool・int以外・負の値の場合、またはキーの数以上の場合。
         """
         ...
-    def setTangent(self, index: int, *, unit: str = ..., fast: bool = ..., **kwargs) -> AnimCurve:
+    def setTangent(self, index: int, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> AnimCurve:
         """指定したキーの接線を変える。接線のロックの扱いはMayaの規則に従う。
 
         weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
@@ -304,6 +308,8 @@ class AnimCurve(Node):
             unit (str): inAngle・outAngleの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
                 ``"degree"`` などの別名も使える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: getTangent()の辞書と同じ9種類のフラグ(長い名前)。角度はunitの単位、接線のウェイトはAPIの値で指定する。
                 fastの場合は次のように扱う。
 
@@ -330,7 +336,7 @@ class AnimCurve(Node):
             dict: キーが ``"pre"``・``"post"``、値が外挿の方法の名前の辞書。
         """
         ...
-    def setInfinity(self, *, pre: str | None = ..., post: str | None = ..., fast: bool = ...) -> AnimCurve:
+    def setInfinity(self, *, pre: str | None = ..., post: str | None = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
         """指定した側だけ、外挿の方法を変える。省略した側はそのまま。
 
         Args:
@@ -338,6 +344,8 @@ class AnimCurve(Node):
                 Noneなら変えない。
             post (str | None): 最後のキーより後の外挿。preと同じ選択肢。Noneなら変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。
@@ -510,7 +518,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         ...
-    def _set_key_values(self, indices: int | Sequence[int], value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ...) -> AnimCurve:
+    def _set_key_values(self, indices: int | Sequence[int], value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> AnimCurve:
         """指定番号のキーの値を、接線型を保ったまま変える(:class:`~mlib.common.keyframe.Keyframe` の入口)。
 
         Args:
@@ -519,6 +527,7 @@ class AnimCurve(Node):
             unit (str): 角度出力(A型)の値の単位。
             timeUnit (str): 時間出力の値の単位。
             fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             AnimCurve: 自身。

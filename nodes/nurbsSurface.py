@@ -156,7 +156,7 @@ class NurbsSurface(Shape):
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         return _vectors_of_points(self._geometry_fn().cvPositions(space))
 
-    def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, ws=_UNSET):
+    def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(cm)の点を受け付ける。
@@ -172,6 +172,8 @@ class NurbsSurface(Shape):
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsSurface: 自身。
@@ -209,7 +211,7 @@ class NurbsSurface(Shape):
             local.append(point)
         with _edit_context("mlibNurbsSurfaceSetCvPositions", fast, transaction=True):
             if fast:
-                self._require_fast_editable()
+                self._require_fast_editable(check)
                 fn.setCVPositions(om2.MPointArray(local))
                 fn.updateSurface()
             else:
@@ -439,8 +441,11 @@ class NurbsSurface(Shape):
             result.append(None if length < _DEGENERATE else tangent / length)
         return result[0], result[1]
 
-    def _require_fast_editable(self):
+    def _require_fast_editable(self, check=False):
         """fast で直接書き込めることを検証する。
+
+        Args:
+            check (bool): Trueなら、CVのアトリビュートへ書き込めるか(ロック・入力の接続)も確かめる。
 
         Raises:
             NotImplementedError: createへの入力(コンストラクションヒストリ)がある場合。
@@ -452,7 +457,7 @@ class NurbsSurface(Shape):
         if dependency.isLocked:
             raise RuntimeError("シェイプノードがロックされています")
         points = dependency.findPlug("controlPoints", False)
-        for index in points.getExistingArrayAttributeIndices():
+        for index in points.getExistingArrayAttributeIndices() if check else ():
             point = points.elementByLogicalIndex(index)
             require_writable(point)
             for child in range(point.numChildren()):

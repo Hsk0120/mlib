@@ -16,13 +16,14 @@ class EnumPlug(Plug):
     名前は大文字・小文字を区別して、完全に一致するものを探す。通常・fast・safeのどれでも同じ。
     一致しない名前を渡すと、有効な名前を並べたValueErrorになる(``safe=True`` では失敗数1)。
     """
-    def _set_value(self, value: int | str, *, uiUnits: bool = ..., fast: bool = ...) -> None:
+    def _set_value(self, value: int | str, *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """フィールド名を整数の値へ変換してから、基底クラスの書き込みへ渡す。
 
         Args:
             value (int | str): enumの値、またはフィールド名。
             uiUnits (bool): 基底クラスの書き込みへそのまま渡す単位の指定。
             fast (bool): TrueならOpenMayaで直接更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

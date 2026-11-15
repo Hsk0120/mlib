@@ -263,7 +263,13 @@ def set_plug(plug, value, _writable_checked=False):
     writes = _prepared_writes(plug, value, _writable_checked)
     for setter, target, item, _owner in writes:
         # データを受け渡すまで作成用function setを保持する。
-        setter(target, item)
+        try:
+            setter(target, item)
+        except RuntimeError:
+            # Mayaはロックや入力の接続があるプラグへの書き込みを、理由の分からない文言で拒否する。
+            # 拒否されたときだけ理由を調べ、分かればその文言の例外にする。
+            require_writable(target)
+            raise
 
 
 def set_attr(name, *values, fast=False, **kwargs):

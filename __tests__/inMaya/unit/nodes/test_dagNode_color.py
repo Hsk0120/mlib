@@ -283,7 +283,7 @@ class DisplayColorTest(NamespaceCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    joint.setOverrideColor(9, shape=True, fast=fast)
+                    joint.setOverrideColor(9, shape=True, fast=fast, check=True)
                 self.assertFalse(cmds.getAttr(names[0] + ".overrideEnabled"))
 
     def test_shape_flag_on_nodes(self):
@@ -358,7 +358,7 @@ class DisplayColorTest(NamespaceCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    self.a.setOutlinerColor((1, 0, 0), fast=fast)
+                    self.a.setOutlinerColor((1, 0, 0), fast=fast, check=True)
                 self.assertFalse(cmds.getAttr(self.a.getFullName() + ".useOutlinerColor"))
 
     def test_nodes_same_color(self):

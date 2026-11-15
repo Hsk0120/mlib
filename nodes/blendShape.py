@@ -306,7 +306,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         return self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights", self._vertex_count(bi))
 
-    def setTargetWeights(self, target, weights, base=None, *, fast=False):
+    def setTargetWeights(self, target, weights, base=None, *, fast=False, check=False):
         """ターゲットの頂点マスクを設定する。
 
         頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。値は0〜1に制限しない。
@@ -321,6 +321,8 @@ class BlendShape(GeometryFilter):
             weights (Sequence[float] | dict[int, float]): 頂点数と同じ数の値、または頂点番号から値への辞書。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             BlendShape: 自身。
@@ -335,7 +337,7 @@ class BlendShape(GeometryFilter):
         with _edit_context("mlibBlendShapeSetTargetWeights", fast):
             bi, index = self._resolve_group(target, base)
             values = _vertex_values(weights, self._vertex_count(bi))
-            self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", values, fast=fast)
+            self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", values, fast=fast, check=check)
             return self
 
     def getTargetDeltas(self, target, base=None, fullWeight=1.0):
@@ -360,7 +362,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return {vertex: Vector(offset) for vertex, offset in zip(indices, offsets)}
 
-    def setTargetDeltas(self, target, deltas, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
+    def setTargetDeltas(self, target, deltas, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
         """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
         指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
@@ -374,6 +376,8 @@ class BlendShape(GeometryFilter):
             fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             BlendShape: 自身。
@@ -390,7 +394,7 @@ class BlendShape(GeometryFilter):
             rows = _delta_values(deltas, self._vertex_count(bi))
             path = self._item_path(bi, index, item)
             self._release_input(path, disconnect, fast=fast)
-            self._write_deltas(path, [row[0] for row in rows], [row[1] for row in rows], fast=fast)
+            self._write_deltas(path, [row[0] for row in rows], [row[1] for row in rows], fast=fast, check=check)
             return self
 
     def getTargetVertices(self, target, base=None, fullWeight=1.0, *, tolerance=0.0):
@@ -416,7 +420,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
-    def resetTargetVertices(self, target, vertices, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
+    def resetTargetVertices(self, target, vertices, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
         """指定した頂点の変位を0に戻す。
 
         ほかの頂点の変位はそのまま残す。ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
@@ -429,6 +433,8 @@ class BlendShape(GeometryFilter):
             fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             BlendShape: 自身。
@@ -443,10 +449,10 @@ class BlendShape(GeometryFilter):
             _require_bool(disconnect, "disconnect")
             bi, index, item = self._resolve_item(target, base, fullWeight)
             remove = set(self._vertex_indices(vertices, bi))
-            self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast)
+            self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast, check=check)
             return self
 
-    def reduceTargetDeltas(self, target, tolerance=0.0, base=None, fullWeight=1.0, disconnect=False, *, fast=False):
+    def reduceTargetDeltas(self, target, tolerance=0.0, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
         """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
 
         保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。
@@ -460,6 +466,8 @@ class BlendShape(GeometryFilter):
             fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             BlendShape: 自身。
@@ -476,7 +484,7 @@ class BlendShape(GeometryFilter):
             path = self._item_path(bi, index, item)
             indices, offsets = self._read_deltas(path)
             remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
-            self._remove_vertices(path, remove, disconnect, fast=fast)
+            self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
             return self
 
     def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None):
@@ -1164,7 +1172,7 @@ class BlendShape(GeometryFilter):
             raise RuntimeError(f"Mayaが{len(indices)}個の頂点に対して{len(points)}個のデルタを返しました: {self._attr(path)}")
         return indices, [(point.x, point.y, point.z) for point in points]
 
-    def _write_deltas(self, path, indices, offsets, *, fast=False):
+    def _write_deltas(self, path, indices, offsets, *, fast=False, check=False):
         """項目のデルタを書き、相対in-betweenの補助の値を消す(Mayaが再計算する)。
 
         通常は ``setAttr`` の2回(pointArray・componentList。連続する頂点は範囲にまとめる)で書く。
@@ -1174,6 +1182,7 @@ class BlendShape(GeometryFilter):
             indices (list[int]): 頂点番号(重複なし)。
             offsets (list[Sequence[float]]): 頂点番号と同じ数の変位。
             fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
         """
         points = [(x, y, z, 1.0) for x, y, z in offsets]
         relative = self._mplug(path + ".inputRelativePointsTarget")
@@ -1181,8 +1190,9 @@ class BlendShape(GeometryFilter):
         if fast:
             points_plug = self._mplug(path + ".inputPointsTarget")
             components_plug = self._mplug(path + ".inputComponentsTarget")
-            require_writable(points_plug)
-            require_writable(components_plug)
+            if check:
+                require_writable(points_plug)
+                require_writable(components_plug)
             component_list = om2.MFnComponentListData()
             components = component_list.create()
             if indices:
@@ -1227,7 +1237,7 @@ class BlendShape(GeometryFilter):
         else:
             cmds.disconnectAttr(sources[0].name(), self._attr(path + ".inputGeomTarget"))
 
-    def _remove_vertices(self, path, remove, disconnect, *, fast=False):
+    def _remove_vertices(self, path, remove, disconnect, *, fast=False, check=False):
         """項目のデータから指定した頂点を取り除く。該当が無ければ何も変えない。
 
         Args:
@@ -1235,13 +1245,14 @@ class BlendShape(GeometryFilter):
             remove (set[int]): 取り除く頂点番号。
             disconnect (bool): 接続中のターゲット形状を切るか。
             fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
         """
         indices, offsets = self._read_deltas(path)
         if not remove.intersection(indices):
             return
         self._release_input(path, disconnect, fast=fast)
         kept = [(vertex, offset) for vertex, offset in zip(indices, offsets) if vertex not in remove]
-        self._write_deltas(path, [row[0] for row in kept], [row[1] for row in kept], fast=fast)
+        self._write_deltas(path, [row[0] for row in kept], [row[1] for row in kept], fast=fast, check=check)
 
     def _vertex_indices(self, vertices, bi):
         """頂点の指定を、ベースの範囲内の頂点番号にする。
@@ -1298,13 +1309,14 @@ class BlendShape(GeometryFilter):
                 values[index] = plug.elementByLogicalIndex(index).asFloat()
         return values
 
-    def _write_vertex_weights(self, path, values, *, fast=False):
+    def _write_vertex_weights(self, path, values, *, fast=False, check=False):
         """頂点ごとの値を書く。通常は連続する番号を範囲指定の1回のsetAttrにまとめる。
 
         Args:
             path (str): マルチアトリビュートのパス。
             values (dict[int, float]): 検証済みの頂点番号と値。
             fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
         """
         if not values:
             return
@@ -1315,7 +1327,8 @@ class BlendShape(GeometryFilter):
             edits = []
             for index, value in values.items():
                 element = plug.elementByLogicalIndex(index)
-                require_writable(element, fn)
+                if check:
+                    require_writable(element, fn)
                 edits.append((element, value))
             for element, value in edits:
                 element.setFloat(value)

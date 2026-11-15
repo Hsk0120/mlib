@@ -212,7 +212,7 @@ class AnimCurve(Node):
             raise RuntimeError("空のカーブではキーを検索できません")
         return int(fn.findClosest(self._api_input(_to_seconds(self._finite(input), input_unit))))
 
-    def setKey(self, input, value, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame", fast=False):
+    def setKey(self, input, value, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame", fast=False, check=False):
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
 
         接線の型を省略したときは、``cmds.setKeyframe`` と同じ扱いになる。すでにあるキーは接線の型を保ち、
@@ -235,6 +235,8 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのinputの単位と、出力が時間(TT・UT)のカーブでのvalueの単位。
                 ``"frame"`` は現在のUIの時間単位のフレーム、``"sec"`` は秒。既定は ``"frame"``。``"seconds"`` などの別名も使える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
@@ -256,7 +258,8 @@ class AnimCurve(Node):
                 tangent_in = None if inTangentType is None else self._tangent_type(inTangentType, incoming=True, key=True)
                 tangent_out = None if outTangentType is None else self._tangent_type(outTangentType, key=True)
                 at = self._api_input(input)
-                self._require_curve_writable()
+                if check:
+                    self._require_curve_writable()
                 index = fn.find(at)
                 if index is not None:
                     self._set_api_value(fn, index, value)
@@ -313,7 +316,7 @@ class AnimCurve(Node):
             cmds.setKeyframe(self.getFullName(), insert=True, **flags)
             return self
 
-    def removeKey(self, index=None, *, time=None, timeUnit="frame", keepCurve=True, fast=False):
+    def removeKey(self, index=None, *, time=None, timeUnit="frame", keepCurve=True, fast=False, check=False):
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
 
         キーのクリップボードは変更しない。indexとtimeは、どちらか一方を指定する。
@@ -328,6 +331,8 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのtimeの単位。``"frame"`` / ``"sec"``。
             keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。Falseなら、Mayaと同じく空のカーブを削除する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。keepCurve=Falseでカーブを削除した場合、このオブジェクトは無効になる。
@@ -347,7 +352,8 @@ class AnimCurve(Node):
                 return self
             emptied = sum(end - start + 1 for start, end in ranges) == self.getKeyCount()
             if fast:
-                self._require_curve_writable()
+                if check:
+                    self._require_curve_writable()
                 fn = self._curve_fn()
                 for start, end in reversed(ranges):
                     for key in range(end, start - 1, -1):
@@ -459,7 +465,7 @@ class AnimCurve(Node):
             "weightedTangents": fn.isWeighted,
         }
 
-    def setTangent(self, index, *, unit="deg", fast=False, **kwargs):
+    def setTangent(self, index, *, unit="deg", fast=False, check=False, **kwargs):
         """指定したキーの接線を変える。接線のロックの扱いはMayaの規則に従う。
 
         weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
@@ -473,6 +479,8 @@ class AnimCurve(Node):
             unit (str): inAngle・outAngleの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
                 ``"degree"`` などの別名も使える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             **kwargs: getTangent()の辞書と同じ9種類のフラグ(長い名前)。角度はunitの単位、接線のウェイトはAPIの値で指定する。
                 fastの場合は次のように扱う。
 
@@ -507,7 +515,8 @@ class AnimCurve(Node):
                         values[flag] = self._finite(values[flag])
                 if any(values.get(flag, 0) < 0 for flag in ("inWeight", "outWeight")):
                     raise ValueError("タンジェントのウェイトは0以上で指定してください")
-                self._require_curve_writable()
+                if check:
+                    self._require_curve_writable()
                 fn = self._curve_fn()
                 if "weightedTangents" in values:
                     # keyTangentはこの全体モード指定がある場合、同時のキー別旗を適用しない。
@@ -542,7 +551,7 @@ class AnimCurve(Node):
         names = {0: "constant", 1: "linear", 3: "cycle", 4: "cycleRelative", 5: "oscillate"}
         return {key: names[self.getPlug(key + "Infinity").get()] for key in ("pre", "post")}
 
-    def setInfinity(self, *, pre=None, post=None, fast=False):
+    def setInfinity(self, *, pre=None, post=None, fast=False, check=False):
         """指定した側だけ、外挿の方法を変える。省略した側はそのまま。
 
         Args:
@@ -550,6 +559,8 @@ class AnimCurve(Node):
                 Noneなら変えない。
             post (str | None): 最後のキーより後の外挿。preと同じ選択肢。Noneなら変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             AnimCurve: 自身。
@@ -568,7 +579,8 @@ class AnimCurve(Node):
             if fast:
                 # 片側を書いた後にもう片側のロック・接続で失敗しないよう先に確認する。
                 for plug, _value in targets:
-                    plug._require_writable()
+                    if check:
+                        plug._require_writable()
             for plug, value in targets:
                 plug.set(value, fast=fast)
             return self
@@ -797,7 +809,7 @@ class AnimCurve(Node):
             self._index(index)
         return Keyframes([Keyframe(self, index) for index in indices])
 
-    def _set_key_values(self, indices, value, *, unit="deg", timeUnit="frame", fast=False):
+    def _set_key_values(self, indices, value, *, unit="deg", timeUnit="frame", fast=False, check=False):
         """指定番号のキーの値を、接線型を保ったまま変える(:class:`~mlib.common.keyframe.Keyframe` の入口)。
 
         Args:
@@ -806,6 +818,7 @@ class AnimCurve(Node):
             unit (str): 角度出力(A型)の値の単位。
             timeUnit (str): 時間出力の値の単位。
             fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             AnimCurve: 自身。
@@ -818,7 +831,8 @@ class AnimCurve(Node):
             if not ranges:
                 return self
             if fast:
-                self._require_curve_writable()
+                if check:
+                    self._require_curve_writable()
                 fn = self._curve_fn()
                 for start, end in ranges:
                     for key in range(start, end + 1):

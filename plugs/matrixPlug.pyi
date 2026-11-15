@@ -32,7 +32,7 @@ class MatrixPlug(Plug):
             RuntimeError: ノードまたはアトリビュートが無効な場合、または値を読み取れない場合。
         """
         ...
-    def _set_value(self, value: Matrix | om2.MMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ...) -> None:
+    def _set_value(self, value: Matrix | om2.MMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """マトリクスのアトリビュートへ値を直接設定する。
 
         Transformの移動・回転・スケールは操作しない。全体の流れは :meth:`Plug.set` が受け持つ。
@@ -45,6 +45,7 @@ class MatrixPlug(Plug):
             value (Matrix | om2.MMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
             uiUnits (bool): Plug共通のフラグとして受け付けるが、マトリクスの成分は換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

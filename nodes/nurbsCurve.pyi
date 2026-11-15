@@ -319,7 +319,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> NurbsCurve:
+    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsCurve:
         """全CVの位置をまとめて設定する。
 
         :meth:`getCvPositions` と同じ並び・単位(内部単位のcm)の点を受け付ける。
@@ -338,6 +338,8 @@ class NurbsCurve(Shape):
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsCurve: 自身。
@@ -351,7 +353,7 @@ class NurbsCurve(Shape):
             NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., ws: bool = ...) -> NurbsCurve:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> NurbsCurve:
         """CVの座標を、中心pivotに対して反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -374,6 +376,8 @@ class NurbsCurve(Shape):
             indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら全CV。空の並びなら何も変えない。
                 同じ番号は1回だけ処理する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             NurbsCurve: 自身。
@@ -734,7 +738,7 @@ class NurbsCurve(Shape):
             list[om2.MVector]: 各点の、接線に直交する単位ベクトル。
         """
         ...
-    def _mirror_plan(self, axis: str | int, ws: bool, pivot: Iterable[float], indices: Iterable[int] | None, fast: bool) -> tuple | None:
+    def _mirror_plan(self, axis: str | int, ws: bool, pivot: Iterable[float], indices: Iterable[int] | None, fast: bool, check: bool = ...) -> tuple | None:
         """CVを反転した座標を求め、書込みの計画を返す。シーンは変更しない。
 
         :meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>` が
@@ -746,6 +750,7 @@ class NurbsCurve(Shape):
             pivot (Iterable[float]): 指定空間の反転中心XYZ(cm)。
             indices (Iterable[int] | None): CV番号。Noneは全CV。
             fast (bool): TrueならOpenMayaで直接書けるかも確かめる。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             tuple | None: ``(shape, indices, rows, ws)``。対象が無ければNone。

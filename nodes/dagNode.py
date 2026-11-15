@@ -720,7 +720,7 @@ class DagNode(Node):
             return tuple(plug.child(index).asFloat() for index in range(3))
         return fn.findPlug("overrideColor", False).asInt()
 
-    def setOverrideColor(self, color, *, shape=False, fast=False):
+    def setOverrideColor(self, color, *, shape=False, fast=False, check=False):
         """描画のオーバーライドで表示色を設定する。
 
         ``overrideEnabled`` を有効にしてから、指定に応じて次のように設定し、自身を返す。
@@ -743,6 +743,8 @@ class DagNode(Node):
             shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -762,7 +764,7 @@ class DagNode(Node):
             values = [("overrideEnabled", True), ("overrideRGBColors", False), ("overrideColor", index)]
         else:
             values = [("overrideEnabled", True), ("overrideRGBColors", True), ("overrideColorRGB", rgb)]
-        self._set_display_values(values, "mlibDagNodeSetOverrideColor", fast, shape)
+        self._set_display_values(values, "mlibDagNodeSetOverrideColor", fast, shape, check=check)
         return self
 
     def getOutlinerColor(self, *, shape=False):
@@ -786,7 +788,7 @@ class DagNode(Node):
         plug = fn.findPlug("outlinerColor", False)
         return tuple(plug.child(index).asFloat() for index in range(3))
 
-    def setOutlinerColor(self, color, *, shape=False, fast=False):
+    def setOutlinerColor(self, color, *, shape=False, fast=False, check=False):
         """アウトライナーの文字色を設定する。
 
         ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定し、自身を返す。
@@ -802,6 +804,8 @@ class DagNode(Node):
             shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -818,7 +822,7 @@ class DagNode(Node):
         if index is not None:
             rgb = _palette_color(index)
         values = [("useOutlinerColor", False)] if rgb is None else [("useOutlinerColor", True), ("outlinerColor", rgb)]
-        self._set_display_values(values, "mlibDagNodeSetOutlinerColor", fast, shape)
+        self._set_display_values(values, "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
         return self
 
     def getVisibility(self):
@@ -912,7 +916,7 @@ class DagNode(Node):
             return "normal"
         return _DISPLAY_TYPES[fn.findPlug("overrideDisplayType", False).asInt()]
 
-    def setDisplayType(self, kind, *, fast=False):
+    def setDisplayType(self, kind, *, fast=False, check=False):
         """描画のオーバーライドで表示の種類を設定する。
 
         表示の種類は通常・テンプレート・リファレンスの3つ。設定して自身を返す。
@@ -931,6 +935,8 @@ class DagNode(Node):
         Args:
             kind (str): ``"normal"``・``"template"``・``"reference"`` のどれか。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -947,7 +953,7 @@ class DagNode(Node):
             raise ValueError(f"kindは{', '.join(map(repr, _DISPLAY_TYPES))}のどれかで指定してください: {kind!r}")
         index = _DISPLAY_TYPES.index(kind)
         values = [("overrideDisplayType", index)] if index == 0 else [("overrideEnabled", True), ("overrideDisplayType", index)]
-        self._set_display_values(values, "mlibDagNodeSetDisplayType", fast)
+        self._set_display_values(values, "mlibDagNodeSetDisplayType", fast, check=check)
         return self
 
     def isShadingOverridden(self):
@@ -967,7 +973,7 @@ class DagNode(Node):
         fn = self._dependency_fn()
         return fn.findPlug("overrideEnabled", False).asBool() and not fn.findPlug("overrideShading", False).asBool()
 
-    def setShadingOverride(self, enabled, *, fast=False):
+    def setShadingOverride(self, enabled, *, fast=False, check=False):
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
         設定して自身を返す。
@@ -982,6 +988,8 @@ class DagNode(Node):
         Args:
             enabled (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             DagNode: 自身。
@@ -993,7 +1001,7 @@ class DagNode(Node):
         _require_bool(fast, "fast")
         _require_bool(enabled, "enabled")
         values = [("overrideEnabled", True), ("overrideShading", False)] if enabled else [("overrideShading", True)]
-        self._set_display_values(values, "mlibDagNodeSetShadingOverride", fast)
+        self._set_display_values(values, "mlibDagNodeSetShadingOverride", fast, check=check)
         return self
 
     def deleteHistory(self, keepDeformers=True):
@@ -1073,10 +1081,10 @@ class DagNode(Node):
                 pending.extend(rows if order == "breadthFirst" else reversed(rows))
         return result
 
-    def _set_display_values(self, values, chunk, fast, shape=False):
+    def _set_display_values(self, values, chunk, fast, shape=False, *, check=False):
         """表示のアトリビュートへ値を書き込む(:meth:`setOverrideColor`・:meth:`setDisplayType` などの本体)。
 
-        fastでは、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
+        fastでcheck=Trueなら、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
         (コンパウンドアトリビュートは子も)に書き込めるかを先に調べてから書き込む。
 
         Args:
@@ -1084,6 +1092,7 @@ class DagNode(Node):
             chunk (str): 通常の処理で使うUndoチャンクの名前。
             fast (bool): 確かめ済みのfast。TrueはUndoなしのOpenMaya更新。
             shape (bool): 確かめ済みのshape。Trueなら直下のShapeへ書き込む。
+            check (bool): Trueなら、fastで書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1098,7 +1107,7 @@ class DagNode(Node):
                 # Plugのオブジェクトを作らず、組み込みアトリビュートのMPlugを直接取る。
                 fn = target._dependency_fn()
                 writes += [(fn.findPlug(attribute, False), value) for attribute, value in values]
-            for plug, _ in writes:
+            for plug, _ in writes if check else ():
                 require_writable(plug)
                 for child in range(plug.numChildren() if plug.isCompound else 0):
                     require_writable(plug.child(child))

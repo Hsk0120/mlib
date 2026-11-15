@@ -173,6 +173,26 @@ def setFoo(self, value, *, fast=False):
 - `Node.addAttr` は、コマンドが1回で済む追加ではチャンクを開かない(子の追加・作った後の既定値・チャンネルボックスへの表示・
   プロキシの接続があるときだけ開く)。
 
+### 書き込む前の検査(check)
+
+- 2026-11-15のユーザー指定により、書き込む前の検査(値が有限か・書き込めるか)は既定では行わず、`check=True` を渡したときだけ行う。
+  `safe` は「失敗を例外にせず数える」ままで、検査は足さない。fast でも既定では確かめない。
+- `check` を持つのは、`Plug.set`、`Transform` の値の設定(`setMatrix`・`setTranslation` など)と `setParent`・`setPivot`・`centerPivot`、
+  キーの設定(`AnimCurve`・`Keyframe`・`DrivenKey`)、`BlendShape` のデルタとウェイト、表示の設定(`setOverrideColor` など)、
+  デフォーマーのウェイト、ポイントの書き込み(頂点・CV・`scaleGeometry`・`mirror`)、スキンのウェイト。
+  fast の中で `require_writable` を呼ぶ処理を新しく書くときは、公開メソッドに `check=False` を足し、`check=True` のときだけ呼ぶ。
+- 複数のコマンドで補償値まで書き換える通常の経路、構造を変える処理(インフルエンスの除去・頂点の並べ替え)、
+  リファレンスやノードのロックの確認(`require_editable`)には `check` を付けず、これまでどおり変える前に確かめる。
+- `MFnTransform` の設定はロックのある成分を例外にせず飛ばし、`MFnMesh.setPoints` などのまとめて書く関数はロックを見ない。
+  `check=False` の fast では、ロックされた成分が書き換わったり、書かれずに残ったりすることを説明に書く。
+- `check=True` では、どの子も書く前に `_require_finite_value` と `_require_writable` で確かめ、何も書かずに例外にする。
+- `check=False` では Maya の拒否に任せる。OpenMaya の MPlug はロック・入力の接続があると理由の分からない文言で拒否するので、
+  `fastWrite.set_plug` は拒否されたときだけ理由を調べて、これまでと同じ文言の例外にする。
+- fast の範囲の検査(min/max・enum)は `check` に関係なく残す(MPlug は範囲外の値をそのまま書くため)。
+- mlib が子ごとに書く経路は、`check` に関係なく子を書く前に全部の子を確かめる。
+- fast の書き込みは `core/fastWrite.py` と各クラスの `_<method>_fast` に集め、公開メソッドから OpenMaya の書き込みを直接呼ばない
+  (あとで fast を Undo に載せる拡張を検討できるようにするため)。
+
 ### 定義から決まる情報を覚える
 
 - 静的アトリビュートは削除も改名もできないので、`Node.getPlug` は一度解決した名前(`[` を含まないもの)を

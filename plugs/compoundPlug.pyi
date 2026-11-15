@@ -115,7 +115,7 @@ class CompoundPlug(Plug):
             list: 子の値。型は各子の ``get()`` と同じで、単位は内部単位(距離cm・角度rad・時間秒)。
         """
         ...
-    def _set_value(self, value: Iterable[object], *, uiUnits: bool = ..., fast: bool = ...) -> None:
+    def _set_value(self, value: Iterable[object], *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """子の数と同じ数の値を書き込む。先に、すべての子が書き込めるか確かめる。
 
         全体の流れは :meth:`Plug.set` が受け持つ。書き込めない子が1つでもあれば、何も書かずに例外にする。
@@ -127,6 +127,7 @@ class CompoundPlug(Plug):
             uiUnits (bool): TrueならUIの単位。既定はFalseで、内部単位(角度はrad・距離はcm・時間は秒)。
                 角度・時間の数値は、:meth:`Plug.set` で度からrad、フレームから秒へ換算済み。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -137,7 +138,7 @@ class CompoundPlug(Plug):
             RuntimeError: アトリビュートが無効な場合、または書き込みに失敗した場合。
         """
         ...
-    def _set_at_once(self, values: tuple) -> bool:
+    def _set_at_once(self, values: tuple, *, check: bool = ...) -> bool:
         """内部単位の値を、親への1回の ``cmds.setAttr`` でまとめて書く。書けなければ何も変えない。
 
         次の条件をすべて満たすときだけ書く。
@@ -151,6 +152,8 @@ class CompoundPlug(Plug):
 
         Args:
             values (tuple): 内部単位の値(距離はcm・角度はrad・時間は秒)。
+            check (bool): Trueなら、書き込めない定義(出力専用など)へは書かずにFalseを返す
+                (Mayaのsetattrは拒否しないため)。
 
         Returns:
             bool: 書き込めたらTrue。

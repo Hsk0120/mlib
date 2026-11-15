@@ -46,7 +46,7 @@ class Double3Plug(CompoundPlug):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def set(self, value: Iterable[float] | EulerRotate | Quaternion, safe: bool = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ...) -> Double3Plug | int:
+    def set(self, value: Iterable[float] | EulerRotate | Quaternion, safe: bool = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> Double3Plug | int:
         """このアトリビュートの3成分だけを書き込む。
 
         マトリクスを通して姿勢を変えることはしない。3成分の値と、書き込めるかどうかを確かめてから
@@ -64,6 +64,9 @@ class Double3Plug(CompoundPlug):
             timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。
             uiUnits (bool): Trueなら、UIの単位の数値の並びを指定する。数学の値の型やunitとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
+                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Double3Plug | int: safe=Falseなら自身。safe=Trueなら、成功は0、失敗は子の失敗数、
@@ -90,7 +93,7 @@ class Double3Plug(CompoundPlug):
             type: translateはTranslate、rotateはEulerRotate、scaleはScale、shearはShear。それ以外はVector。
         """
         ...
-    def _set_value(self, value: Iterable[float] | EulerRotate | Quaternion, *, uiUnits: bool = ..., fast: bool = ...) -> None:
+    def _set_value(self, value: Iterable[float] | EulerRotate | Quaternion, *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """3成分の値と、書き込めるかどうかを確かめてから書き込む。
 
         全体の流れは :meth:`Plug.set` が受け持つ。
@@ -100,6 +103,7 @@ class Double3Plug(CompoundPlug):
                 :meth:`Plug._set_template` でradへ換算済み。
             uiUnits (bool): Trueなら、UIの単位の数値の並び。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。

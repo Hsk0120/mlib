@@ -50,7 +50,7 @@ class PointComponent(Component):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponent:
+    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponent:
         """頂点/CVの位置を、cmの絶対座標で設定する。
 
         移動量ではなく、移動先の座標を指定する。UIの距離単位にかかわらずcmで受け取る。
@@ -67,6 +67,8 @@ class PointComponent(Component):
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponent: 自身。
@@ -93,7 +95,7 @@ class PointComponent(Component):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionX(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponent:
+    def setPositionX(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponent:
         """X成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -103,6 +105,8 @@ class PointComponent(Component):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponent: 自身。
@@ -129,7 +133,7 @@ class PointComponent(Component):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionY(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponent:
+    def setPositionY(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponent:
         """Y成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -139,6 +143,8 @@ class PointComponent(Component):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponent: 自身。
@@ -165,7 +171,7 @@ class PointComponent(Component):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionZ(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponent:
+    def setPositionZ(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponent:
         """Z成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -175,6 +181,8 @@ class PointComponent(Component):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponent: 自身。
@@ -187,7 +195,7 @@ class PointComponent(Component):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponent:
+    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponent:
         """頂点/CVを、今の位置からoffsetだけ動かす。
 
         指定した空間で今の位置を読み、offsetを足した座標を :meth:`setPosition` と同じ方法で書き込む。
@@ -198,6 +206,8 @@ class PointComponent(Component):
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponent: 自身。
@@ -210,7 +220,7 @@ class PointComponent(Component):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def _set_coordinate(self, axis: int, value: float, worldSpace: bool, fast: bool, chunk: str) -> PointComponent:
+    def _set_coordinate(self, axis: int, value: float, worldSpace: bool, fast: bool, chunk: str, check: bool = ...) -> PointComponent:
         """1つの成分だけを変えた座標を、同じ空間で書き込む。
 
         Args:
@@ -219,6 +229,7 @@ class PointComponent(Component):
             worldSpace (bool): Trueならワールド空間。
             fast (bool): TrueはUndoなしのOpenMaya更新。
             chunk (str): Undoチャンク名。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             PointComponent: 自身。
@@ -257,7 +268,7 @@ class PointComponents(Components):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionX(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def setPositionX(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """X成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -268,6 +279,8 @@ class PointComponents(Components):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。
@@ -295,7 +308,7 @@ class PointComponents(Components):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionY(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def setPositionY(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """Y成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -306,6 +319,8 @@ class PointComponents(Components):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。
@@ -333,7 +348,7 @@ class PointComponents(Components):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setPositionZ(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def setPositionZ(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """Z成分だけを設定する。
 
         ほかの成分は、指定した空間での今の値のまま変えない。
@@ -344,6 +359,8 @@ class PointComponents(Components):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。
@@ -377,7 +394,7 @@ class PointComponents(Components):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """持っている頂点/CVをすべて、同じ位置(cmの絶対座標)へ集める。
 
         移動量を足すのではなく、移動先の座標を指定する。要素ごとに違う座標にするときは :meth:`setPositions` を使う。
@@ -388,6 +405,8 @@ class PointComponents(Components):
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。空の集まりでは、入力を確かめるだけで何もしない。
@@ -400,7 +419,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def setPositions(self, values: Iterable[Iterable[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def setPositions(self, values: Iterable[Iterable[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """持っている順に、要素ごとの位置をcmの絶対座標で設定する。
 
         座標の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
@@ -415,6 +434,8 @@ class PointComponents(Components):
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
@@ -429,7 +450,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """持っている頂点/CVを、指定した空間の中心pivotで反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。
@@ -446,6 +467,8 @@ class PointComponents(Components):
             pivot (Iterable[float]): 反転の中心のXYZ(cm)。指定した空間で表す。既定は原点。
                 Transformのピボットとは関係しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。
@@ -481,7 +504,7 @@ class PointComponents(Components):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., ws: bool = ...) -> PointComponents:
+    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> PointComponents:
         """持っている頂点/CVをすべて、今の位置から同じoffsetだけ動かす。
 
         指定した空間で今の位置を読み、offsetを足した座標を :meth:`setPositions` と同じ方法で1回で書き込む。
@@ -493,6 +516,8 @@ class PointComponents(Components):
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             PointComponents: 自身。空の集まりでは、入力を確かめるだけで何もしない。
@@ -505,7 +530,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def _set_coordinates(self, axis: int, value: float | Iterable[float], worldSpace: bool, fast: bool, chunk: str) -> PointComponents:
+    def _set_coordinates(self, axis: int, value: float | Iterable[float], worldSpace: bool, fast: bool, chunk: str, check: bool = ...) -> PointComponents:
         """各要素の1つの成分だけを変えた座標を、同じ空間で書き込む。
 
         Args:
@@ -514,12 +539,13 @@ class PointComponents(Components):
             worldSpace (bool): Trueならワールド空間。
             fast (bool): TrueはUndoなしのOpenMaya更新。
             chunk (str): Undoチャンク名。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             PointComponents: 自身。
         """
         ...
-    def _write(self, rows: list[tuple[float, float, float]], ws: bool, fast: bool, chunk: str) -> PointComponents:
+    def _write(self, rows: list[tuple[float, float, float]], ws: bool, fast: bool, chunk: str, check: bool = ...) -> PointComponents:
         """確かめてある座標を、番号の範囲と編集できるかを確かめてから書き込む。
 
         Args:
@@ -527,6 +553,7 @@ class PointComponents(Components):
             ws (bool): Trueならワールド空間。
             fast (bool): TrueはUndoなしのOpenMaya更新。
             chunk (str): Undoチャンク名。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             PointComponents: 自身。
@@ -585,7 +612,7 @@ def _require_invertible(shape: Shape):
     """
     ...
 
-def _mirror_plan(points: PointComponents, axis: str | int, ws: bool, pivot: Iterable[float], fast: bool) -> tuple | None:
+def _mirror_plan(points: PointComponents, axis: str | int, ws: bool, pivot: Iterable[float], fast: bool, check: bool = ...) -> tuple | None:
     """頂点/CVの集まりを反転した座標を求め、書き込みの計画を返す。
 
     シーンは変えない。書き込む前に、軸・中心・番号の範囲・ワールドマトリクス・fastで編集できるかをすべて確かめる。
@@ -598,6 +625,7 @@ def _mirror_plan(points: PointComponents, axis: str | int, ws: bool, pivot: Iter
         ws (bool): Trueならワールド空間。確かめてある値。
         pivot (Iterable[float]): 反転の中心のXYZ(cm)。指定した空間で表す。
         fast (bool): TrueならOpenMayaで直接書けるかも確かめる。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Returns:
         tuple | None: ``(shape, indices, rows, ws)``。空の集まりならNone。
@@ -611,7 +639,7 @@ def _mirror_plan(points: PointComponents, axis: str | int, ws: bool, pivot: Iter
     """
     ...
 
-def _write_points(plans: list[tuple | None], fast: bool, chunk: str):
+def _write_points(plans: list[tuple | None], fast: bool, chunk: str, check: bool = ...):
     """確かめてある書き込みの計画を、1回のUndoで戻せるようにまとめて書き込む。
 
     fastの場合はUndoに記録しない。
@@ -620,6 +648,7 @@ def _write_points(plans: list[tuple | None], fast: bool, chunk: str):
         plans (list[tuple | None]): ``(shape, indices, rows, ws)`` の並び。Noneと、番号が空のものは飛ばす。
         fast (bool): TrueはUndoなしのOpenMaya更新。
         chunk (str): fastでないときのUndoチャンク名。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Raises:
         ValueError: worldSpaceで、変換マトリクスがほぼ特異な場合。書き込む前に全部の計画を確かめる。
@@ -628,7 +657,7 @@ def _write_points(plans: list[tuple | None], fast: bool, chunk: str):
     """
     ...
 
-def _set_point_fast(shape: Shape, index: int, row: tuple[float, float, float], ws: bool):
+def _set_point_fast(shape: Shape, index: int, row: tuple[float, float, float], ws: bool, check: bool = ...):
     """1点をOpenMayaで書き込む。
 
     CVのウェイト(w)は変えない。周期カーブで重なっているCVも同じ位置にそろえる。
@@ -638,6 +667,7 @@ def _set_point_fast(shape: Shape, index: int, row: tuple[float, float, float], w
         index (int): 確かめてあるAPIの番号。
         row (tuple[float, float, float]): 設定するXYZ(cm)。
         ws (bool): Trueならワールド座標。マトリクスは確かめてある。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Raises:
         RuntimeError: ロック・入力の接続・書き込みの禁止がある場合。
@@ -696,12 +726,13 @@ def _vectors(shape: Shape, indices: Sequence[int], ws: bool) -> list[Vector]:
     """
     ...
 
-def _require_editable(shape: Shape, indices: Sequence[int]):
+def _require_editable(shape: Shape, indices: Sequence[int], check: bool = ...):
     """fastで、OpenMayaから直接書き込めるか確かめる。
 
     Args:
         shape (Shape): 番号を確かめてあるシェイプ。
         indices (Sequence[int]): 書き込む点の通し番号。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Raises:
         RuntimeError: シェイプがロックされている場合、または制御点のアトリビュートにロックか入力の接続がある場合。
@@ -709,7 +740,7 @@ def _require_editable(shape: Shape, indices: Sequence[int]):
     """
     ...
 
-def _set_grid_positions(shape: Shape, indices: Sequence[int], rows: Sequence[Sequence[float]], ws: bool, fast: bool):
+def _set_grid_positions(shape: Shape, indices: Sequence[int], rows: Sequence[Sequence[float]], ws: bool, fast: bool, check: bool = ...):
     """NURBS曲面のCVやラティスの点へ、確かめてあるcmの座標を書き込む。
 
     Undoのまとめ方は、呼び出し元が決める。
@@ -725,6 +756,7 @@ def _set_grid_positions(shape: Shape, indices: Sequence[int], rows: Sequence[Seq
         rows (Sequence[Sequence[float]]): 番号と同じ数の、有限なXYZ(cm)。
         ws (bool): Trueならワールド座標。マトリクスは確かめてある。
         fast (bool): TrueはUndoなしのOpenMaya更新。
+        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
     Raises:
         RuntimeError: Mayaが書き込みを受け付けなかった場合。

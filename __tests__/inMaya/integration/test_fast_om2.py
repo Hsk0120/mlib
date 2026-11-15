@@ -195,7 +195,7 @@ class Om2BackendsTest(unittest.TestCase):
             self.assert_points(shape.getVertices().getPosition(), before)
         cmds.setAttr(shape.getFullName() + ".pnts[2].pntx", lock=True)
         with self.assertRaises(RuntimeError):
-            shape.scaleGeometry(2, indices=[0, 2], fast=True)
+            shape.scaleGeometry(2, indices=[0, 2], fast=True, check=True)
         self.assert_points(shape.getVertices().getPosition(), before)
         with self.assertRaises(TypeError):
             shape.scaleGeometry(2, fast=1)

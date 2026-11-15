@@ -40,7 +40,7 @@ class Shape(DagNode):
             NotImplementedError: fastで、移す先に同じ名前の子がある場合。Mayaが名前を付け直す規則を再現しないため。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., ws: bool = ...) -> Shape:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> Shape:
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
         Transformのマトリクスと、フェースの頂点の順は変えない。
@@ -60,6 +60,8 @@ class Shape(DagNode):
                 fastでサーフェスを拒否する確認は、その前に行う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueで使えるのは、ヒストリの無いメッシュとカーブだけ。
                 Falseなら、Maya標準のコマンドで書き込み、Undoが有効なら1回にまとめる。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Shape: 自身。

@@ -28,6 +28,7 @@ class CompoundPlug(Plug):
 
     _child_readers = None  #: 子の値を直接読む関数の列。初回の内部単位get()で子の定義から選ぶ。
     _bulk_children = None  #: 子を1回のsetAttrでまとめて書けるか。初回のset()で子の定義から判定する。
+    _bulk_writable = True  #: 自身と子の定義が、どれも書き込める定義か。_bulk_children と一緒に判定する。
     _ui_converters = None  #: 子の値をUIの単位へ変換する関数の列。初回のまとめた書き込みで子の定義から選ぶ。
 
     def __getattr__(self, name):
@@ -171,7 +172,7 @@ class CompoundPlug(Plug):
             reader(mplug.child(index)) if reader is not False else self._child_at(index).get(unit="rad", timeUnit="sec") for index, reader in enumerate(readers)
         ]
 
-    def _set_value(self, value, *, uiUnits=False, fast=False):
+    def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """子の数と同じ数の値を書き込む。先に、すべての子が書き込めるか確かめる。
 
         全体の流れは :meth:`Plug.set` が受け持つ。書き込めない子が1つでもあれば、何も書かずに例外にする。
@@ -183,6 +184,7 @@ class CompoundPlug(Plug):
             uiUnits (bool): TrueならUIの単位。既定はFalseで、内部単位(角度はrad・距離はcm・時間は秒)。
                 角度・時間の数値は、:meth:`Plug.set` で度からrad、フレームから秒へ換算済み。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -197,19 +199,22 @@ class CompoundPlug(Plug):
         values = tuple(value)
         if len(values) != self._mplug.numChildren():
             raise ValueError("コンパウンドアトリビュートの値の数が子の数と合っていません")
+        if check:
+            # 確かめる指定のときは、どの子も書く前に、すべての子へ書き込めるかを確かめる。
+            self._require_writable()
         if fast:
             if uiUnits:
                 values = _convert_units(self._mplug, values, to_ui=False)
-            set_plug(self._mplug, values)
+            set_plug(self._mplug, values, _writable_checked=True)
         elif self.getType() in {"float2", "float3", "long2", "long3", "short2", "short3"}:
-            self._require_writable()
             Plug._set_value(self, values, uiUnits=uiUnits, fast=fast)
         else:
-            if not uiUnits and self._set_at_once(values):
+            if not uiUnits and self._set_at_once(values, check=check):
                 return
-            # 子ごとに書く経路では、先に全子の書込み可否を検査する。ロック・入力接続の
-            # ある子より前の子だけが書かれて残ることを防ぐ(Double3Plugと同じ)。
-            self._require_writable()
+            if not check:
+                # ここから先は子ごとに書く(まとめた書き込みはMayaが拒否したか、対象外)。ロック・入力の接続の
+                # ある子より前の子だけが書かれて残らないように、子を書く前にすべての子を確かめる。
+                self._require_writable()
             if not uiUnits:
                 self._set_child_values(values)
                 return
@@ -217,7 +222,7 @@ class CompoundPlug(Plug):
                 for index, child_value in enumerate(values):
                     self._child_at(index).set(child_value, safe=False, uiUnits=uiUnits, fast=fast)
 
-    def _set_at_once(self, values):
+    def _set_at_once(self, values, *, check=False):
         """内部単位の値を、親への1回の ``cmds.setAttr`` でまとめて書く。書けなければ何も変えない。
 
         次の条件をすべて満たすときだけ書く。
@@ -231,11 +236,13 @@ class CompoundPlug(Plug):
 
         Args:
             values (tuple): 内部単位の値(距離はcm・角度はrad・時間は秒)。
+            check (bool): Trueなら、書き込めない定義(出力専用など)へは書かずにFalseを返す
+                (Mayaのsetattrは拒否しないため)。
 
         Returns:
             bool: 書き込めたらTrue。
         """
-        if not self._can_set_at_once(values):
+        if not self._can_set_at_once(values) or (check and not self._bulk_writable):
             return False
         converters = self._ui_converters
         if converters is None:
@@ -286,17 +293,20 @@ class CompoundPlug(Plug):
         bulk = self._bulk_children
         if bulk is None:
             mplug = self._mplug
-            # 書き込めない定義(出力専用など)はMayaのsetAttrが拒否しないので、まとめた書き込みの対象にしない。
-            bulk = attributeType(mplug) in ("double2", "double3") and om2.MFnAttribute(mplug.attribute()).writable
+            bulk = attributeType(mplug) in ("double2", "double3")
+            # 書き込めない定義(出力専用など)かは別に覚える(Mayaのsetattrは拒否しないため、確かめる指定のときに使う)。
+            writable = om2.MFnAttribute(mplug.attribute()).writable
             if bulk:
                 for index in range(mplug.numChildren()):
                     child = mplug.child(index)
                     attribute = child.attribute()
                     simple = attribute.hasFn(om2.MFn.kNumericAttribute) or attribute.hasFn(om2.MFn.kUnitAttribute)
-                    if child.isCompound or child.isArray or not simple or not om2.MFnAttribute(attribute).writable:
+                    if child.isCompound or child.isArray or not simple:
                         bulk = False
                         break
+                    writable = writable and om2.MFnAttribute(attribute).writable
             self._bulk_children = bulk
+            self._bulk_writable = writable
         if not bulk:
             return False
         for item in values:

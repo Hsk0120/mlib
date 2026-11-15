@@ -15,13 +15,14 @@ class EnumPlug(Plug):
     一致しない名前を渡すと、有効な名前を並べたValueErrorになる(``safe=True`` では失敗数1)。
     """
 
-    def _set_value(self, value, *, uiUnits=False, fast=False):
+    def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """フィールド名を整数の値へ変換してから、基底クラスの書き込みへ渡す。
 
         Args:
             value (int | str): enumの値、またはフィールド名。
             uiUnits (bool): 基底クラスの書き込みへそのまま渡す単位の指定。
             fast (bool): TrueならOpenMayaで直接更新する。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -31,4 +32,4 @@ class EnumPlug(Plug):
         """
         if isinstance(value, str):
             value = self.getEnumValue(value)
-        super()._set_value(value, uiUnits=uiUnits, fast=fast)
+        super()._set_value(value, uiUnits=uiUnits, fast=fast, check=check)

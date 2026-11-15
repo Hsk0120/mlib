@@ -57,7 +57,7 @@ class Shape(DagNode):
                 cmds.parent(self.getFullName(), target.getFullName(), shape=True, relative=True)
             return self
 
-    def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, ws=_UNSET):
+    def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
         Transformのマトリクスと、フェースの頂点の順は変えない。
@@ -77,6 +77,8 @@ class Shape(DagNode):
                 fastでサーフェスを拒否する確認は、その前に行う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueで使えるのは、ヒストリの無いメッシュとカーブだけ。
                 Falseなら、Maya標準のコマンドで書き込み、Undoが有効なら1回にまとめる。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             Shape: 自身。
@@ -168,7 +170,7 @@ class Shape(DagNode):
                 values = [tuple(center[i] + (point[i] - center[i]) * factors[i] for i in range(3)) for point in positions]
                 if not all(math.isfinite(v) for row in values for v in row):
                     raise ValueError("スケールした位置が有限な数値になりません")
-                geometry_edit.set_positions(self, selected, values, ws, fast=fast)
+                geometry_edit.set_positions(self, selected, values, ws, fast=fast, check=check)
                 return self
             center = tuple(om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in center)
             # scaleコマンドのpivot解釈に依存せず、同じ空間で読んだ座標を変換する。

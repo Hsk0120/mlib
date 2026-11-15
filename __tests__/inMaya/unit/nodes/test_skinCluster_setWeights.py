@@ -142,18 +142,18 @@ class SkinWeightRangeWriteTest(unittest.TestCase):
         self.assert_partial_failure(2, 0, lambda: cmds.setAttr(f"{self.prefix}[2].weights", lock=True))
 
     def test_fast_rejects_locked_or_connected_before_changes(self):
-        """fastは従来どおり全要素を先に検査し、親側のロックも要素名で拒否する。"""
+        """fastは、check=Trueなら全要素を先に検査し、親側のロックも要素名で拒否する。"""
         before = self.raw(range(4))
         cmds.setAttr(f"{self.prefix}[3].weights", lock=True)
         with self.assertRaises(RuntimeError) as context:
-            self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True)
+            self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True, check=True)
         self.assertEqual(str(context.exception), "アトリビュートがロックされているか、接続されています: " + self.skin.getName() + ".weightList[3].weights[0]")
         self.assertEqual(self.raw(range(4)), before)
         cmds.setAttr(f"{self.prefix}[3].weights", lock=False)
         source = cmds.createNode("transform", name=self.ns + ":driver")
         cmds.connectAttr(source + ".translateX", self.element(4, 2))
         with self.assertRaises(RuntimeError) as context:
-            self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True)
+            self.skin.setWeights(self.joints[:4], [0.1, 0.2, 0.3, 0.4], fast=True, broadcast=True, check=True)
         self.assertEqual(str(context.exception), "アトリビュートがロックされているか、接続されています: " + self.skin.getName() + ".weightList[4].weights[2]")
         self.assertEqual(self.raw(range(4))[:4], before[:4])
         cmds.disconnectAttr(source + ".translateX", self.element(4, 2))

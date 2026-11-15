@@ -140,12 +140,12 @@ class DagNodeSetColorFastTest(_SpecCase):
                 cmds.delete(normal.getFullName(), fast.getFullName(), group.getFullName())
 
     def test_locked_attribute_rejects_before_change(self):
-        """ロックされたアトリビュートがあれば、他のアトリビュートも書かずにRuntimeError。"""
+        """check=Trueなら、ロックされたアトリビュートがあれば、他のアトリビュートも書かずにRuntimeError。"""
         node = mlib.getNode(cmds.circle(name=self.ns + ":locked", constructionHistory=False)[0])
         name = node.getFullName()
         cmds.setAttr(name + ".overrideColor", lock=True)
         with self.assertRaises(RuntimeError):
-            node.setOverrideColor(13, fast=True)
+            node.setOverrideColor(13, fast=True, check=True)
         self.assertFalse(cmds.getAttr(name + ".overrideEnabled"))
         with self.assertRaises(TypeError):
             node.setOverrideColor(13, fast="yes")

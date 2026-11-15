@@ -144,7 +144,7 @@ class CompoundPlugSpecTest(_PlugSpecCase):
         self.assertEqual(self.pair.get(), (1.0, 0.0))
         self.pair[0].set(0)
         with self.assertRaises(RuntimeError):
-            self.pair.set((3, 4), fast=True)
+            self.pair.set((3, 4), fast=True, check=True)  # fastは、check=Trueなら何も書かずに拒否する。
         self.assertEqual(self.pair.get(), (0.0, 0.0))
         self.assertEqual(self.pair.set((3, 4), safe=True, fast=True), 1)
         self.assertEqual(self.pair.get(), (3.0, 0.0))
