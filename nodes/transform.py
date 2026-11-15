@@ -1713,13 +1713,23 @@ class Transform(DagNode):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         with _edit_context("mlibTransformSetTranslation", fast, single=True):
             ws = _world_space(worldSpace)
+            if ws and at == 2 and not (safe or get or fast or check) and self._set_world_translation_at_once(value):
+                return self
             point = om2.MPoint(tuple(value))
             if ws:
                 point *= self.mpath().exclusiveMatrixInverse()
-            current = om2.MVector(self._static_value("translate"))
             if at < 1:
-                result = om2.MVector(point) - current
+                result = om2.MVector(point) - om2.MVector(self._static_value("translate"))
+            elif at == 1:
+                # 基準がtranslateそのものなので、目標の位置がそのまま値になる(今の値は読まない)。
+                result = om2.MVector(point)
+            elif at == 2:
+                # 「今のtranslate + (目標 - 今の回転ピボットの位置)」を整理した式。今のtranslateは読まない。
+                offset = om2.MVector(self._static_value("rotatePivot")) + om2.MVector(self._static_value("rotatePivotTranslate"))
+                inv_scale = self._inverse_scale_values()
+                result = om2.MVector(point) - om2.MVector(*(offset[i] / inv_scale[i] for i in range(3)))
             else:
+                current = om2.MVector(self._static_value("translate"))
                 result = current + (om2.MVector(point) - om2.MVector(tuple(self.getTranslation(at=at))))
             if get:
                 return list(result)
@@ -2678,6 +2688,47 @@ class Transform(DagNode):
                 # ピボットがあるときは、setMatrix(world, worldSpace=True, fast=True) と同じ計算で書く。
                 self._apply_channel_values(self._matrix_channel_values(local), fast=True, writable_checked=True)
         return self
+
+    def _set_world_translation_at_once(self, value):
+        """回転ピボットをワールドの位置へ合わせる設定を、``cmds.xform`` の1回で行う。
+
+        ワールドからローカルへの換算をMayaに任せる。回転ピボットとその移動がどちらも0のときだけ使う
+        (0でないと、``xform`` は回転ピボットではなく原点を目標へ合わせるので、結果が変わる)。
+        ``xform`` はロックや入力の接続がある成分を例外にせず飛ばすので、translateへ書き込めないときは使わない。
+
+        Args:
+            value (Iterable[float]): ワールド空間の位置。単位はcm。
+
+        Returns:
+            bool: 書き込んだらTrue。条件に合わない場合と、Mayaが拒否した場合は、何も書かずにFalse
+                (呼び出し元が、これまでの計算と書き込みで処理する)。
+        """
+        if not self.isValid():
+            return False
+        try:
+            values = tuple(value)
+        except TypeError:
+            return False
+        if len(values) != 3:
+            return False
+        for item in values:
+            if (type(item) is not float and type(item) is not int) or not math.isfinite(item):
+                return False
+        fn = self._transform_fn()
+        space = om2.MSpace.kTransform
+        for pivot in (fn.rotatePivot(space), fn.rotatePivotTranslation(space)):
+            if pivot.x or pivot.y or pivot.z:
+                return False
+        if self._dependency_fn().findPlug("translate", False).isFreeToChange() != om2.MPlug.kFreeToChange:
+            return False
+        unit = om2.MDistance.uiUnit()
+        if unit != om2.MDistance.kCentimeters:
+            values = tuple(om2.MDistance(item).asUnits(unit) for item in values)
+        try:
+            cmds.xform(self.getFullName(), worldSpace=True, translation=values)
+        except RuntimeError:
+            return False
+        return True
 
     def _write_local_matrix_fast(self, matrix):
         """ローカルのマトリクスをそのまま分解して、translate・rotate・scale・shearへOpenMayaで書く。

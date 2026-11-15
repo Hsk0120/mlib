@@ -1530,6 +1530,21 @@ class Transform(DagNode):
             NotImplementedError: Joint・インスタンス・親の追加の場合。
         """
         ...
+    def _set_world_translation_at_once(self, value: Iterable[float]) -> bool:
+        """回転ピボットをワールドの位置へ合わせる設定を、``cmds.xform`` の1回で行う。
+
+        ワールドからローカルへの換算をMayaに任せる。回転ピボットとその移動がどちらも0のときだけ使う
+        (0でないと、``xform`` は回転ピボットではなく原点を目標へ合わせるので、結果が変わる)。
+        ``xform`` はロックや入力の接続がある成分を例外にせず飛ばすので、translateへ書き込めないときは使わない。
+
+        Args:
+            value (Iterable[float]): ワールド空間の位置。単位はcm。
+
+        Returns:
+            bool: 書き込んだらTrue。条件に合わない場合と、Mayaが拒否した場合は、何も書かずにFalse
+                (呼び出し元が、これまでの計算と書き込みで処理する)。
+        """
+        ...
     def _write_local_matrix_fast(self, matrix: Matrix) -> bool:
         """ローカルのマトリクスをそのまま分解して、translate・rotate・scale・shearへOpenMayaで書く。
 
