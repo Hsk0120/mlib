@@ -207,7 +207,7 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         cmds.flushUndo()
         with undoChunk("basicSceneSafeDelete"):
             for node in (root, isolated):
-                node.delete(safe=True)
+                node.delete(skipConnected=True)
         self.assertTrue(root.isValid() and child.isValid() and receiver.isValid())
         self.assertFalse(isolated.isValid())
         self.assertConnected(child.getPlug("message"), input_plug)

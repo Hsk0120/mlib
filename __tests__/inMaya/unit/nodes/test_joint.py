@@ -758,7 +758,7 @@ class JointDagAdditionsTest(_Case):
             with self.subTest(value=value):
                 self.assertRaisesNoChange(error, node.getDegreesOfFreedom, lambda: node.setDegreesOfFreedom(value))
         cmds.setAttr(j1 + ".jointTypeY", lock=True)
-        self.assertRaisesNoChange(RuntimeError, node.getDegreesOfFreedom, lambda: node.setDegreesOfFreedom("xyz"))
+        self.assertRaisesNoChange(RuntimeError, node.getDegreesOfFreedom, lambda: node.setDegreesOfFreedom("xyz", check=True))
         cmds.setAttr(j1 + ".jointTypeY", lock=False)
         cmds.delete(j0)
         for call in (node.getDegreesOfFreedom, lambda: node.setDegreesOfFreedom("x")):

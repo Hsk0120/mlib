@@ -49,14 +49,14 @@ class NodeDeleteTest(unittest.TestCase):
         destination = mlib.createNode("multiplyDivide", skipSelect=True)
         cmds.connectAttr(source.getFullName() + ".outputX", destination.getFullName() + ".input1X")
         before_undo = cmds.undoInfo(query=True, undoName=True)
-        self.assertIsNone(source.delete(safe=True))
-        self.assertIsNone(destination.delete(safe=True))
+        self.assertIsNone(source.delete(skipConnected=True))
+        self.assertIsNone(destination.delete(skipConnected=True))
         self.assertTrue(source.isValid() and destination.isValid())
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), before_undo)
         owner = mlib.createNode("network", skipSelect=True)
         cmds.addAttr(owner.getFullName(), longName="ref", attributeType="message")
         cmds.connectAttr(source.getFullName() + ".message", owner.getFullName() + ".ref")
-        owner.delete(safe=True)
+        owner.delete(skipConnected=True)
         self.assertTrue(owner.isValid())
         destination.delete()  # 既定値は従来どおり接続があっても削除する。
         self.assertFalse(destination.isValid())
@@ -66,23 +66,23 @@ class NodeDeleteTest(unittest.TestCase):
         child = mlib.createNode("transform", parent=root, skipSelect=True)
         source = mlib.createNode("multiplyDivide", skipSelect=True)
         cmds.connectAttr(source.getFullName() + ".outputX", child.getFullName() + ".tx")
-        root.delete(safe=True)
+        root.delete(skipConnected=True)
         self.assertTrue(root.isValid() and child.isValid())
         mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
-        mesh.getTransform().delete(safe=True)
+        mesh.getTransform().delete(skipConnected=True)
         self.assertTrue(mesh.isValid())
-        mesh.delete(safe=True)
+        mesh.delete(skipConnected=True)
         self.assertTrue(mesh.isValid())
 
     def test_safe_validation_and_no_exception_suppression(self):
         node = mlib.createNode("transform", skipSelect=True)
         with self.assertRaises(TypeError):
-            node.delete(safe="yes")
+            node.delete(skipConnected="yes")
         self.assertTrue(node.isValid())
         cmds.lockNode(node.getFullName(), lock=True)
         try:
             with self.assertRaises(RuntimeError):
-                node.delete(safe=True)
+                node.delete(skipConnected=True)
             self.assertTrue(node.isValid())
         finally:
             cmds.lockNode(node.getFullName(), lock=False)

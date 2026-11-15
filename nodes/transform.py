@@ -1928,36 +1928,46 @@ class Transform(DagNode):
         """
         return _ROTATE_ORDER_NAMES[self.getPlug("rotateOrder").get()]
 
-    def setRotateOrder(self, order, preserve=True):
+    def setRotateOrder(self, order, preserve=True, *, fast=False, check=False):
         """回転順序(``rotateOrder``)を変える。既定では、見た目の向きが変わらないように ``rotate`` も変える。
 
         - ``preserve=True``: ``cmds.xform(rotateOrder=..., preserve=True)`` と同じ。新しい回転順序で同じ向きに
           なる ``rotate`` を書き込む(アニメーションのキーは変えない)。
         - ``preserve=False``: ``rotateOrder`` だけを書き換えるので、向きが変わる。
 
-        Undoが有効なら、1回のUndoで戻せる。
+        Undoが有効なら、1回のUndoで戻せる。``fast=True`` は ``MFnTransform.setRotationOrder`` で書く(向きを保つ決まりは同じ)。
 
         Args:
             order (str | int): ``"xyz"`` などの名前(大文字・小文字は問わない)、またはMayaの番号(0〜5)。
             preserve (bool): Trueなら向きを保つ。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: preserveがboolでない場合。
+            TypeError: preserve・fast・checkがboolでない場合。
             ValueError: 対応していない回転順序の場合。
             RuntimeError: ノードが無効な場合、または ``rotateOrder``・``rotate`` のロック・入力の接続のために
                 Mayaが書き込みを拒否した場合。
         """
         _require_bool(preserve, "preserve")
+        _require_bool(check, "check")
         index = orderIndex(order)
-        name = self.getFullName()
-        with undoChunk("mlibTransformSetRotateOrder"):
-            if preserve:
-                cmds.xform(name, rotateOrder=_ROTATE_ORDER_NAMES[index], preserve=True)
+        with _edit_context("mlibTransformSetRotateOrder", fast, single=True):
+            self._require_valid("回転順序の設定")
+            if check:
+                for attribute in ("rotateOrder", "rotate") if preserve else ("rotateOrder",):
+                    self.getPlug(attribute)._require_writable()
+            if fast:
+                # MTransformationMatrixの回転順序の番号は、MayaのrotateOrderより1つ大きい(0は無効)。
+                self._transform_fn().setRotationOrder(index + 1, preserve)
+            elif preserve:
+                cmds.xform(self.getFullName(), rotateOrder=_ROTATE_ORDER_NAMES[index], preserve=True)
             else:
-                cmds.setAttr(name + ".rotateOrder", index)
+                cmds.setAttr(self.getFullName() + ".rotateOrder", index)
 
     def getScale(self, worldSpace=_UNSET, *, ws=_UNSET):
         """指定した空間でのスケールの値を取得する。

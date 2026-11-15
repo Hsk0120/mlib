@@ -95,7 +95,7 @@ class ShadingEngine(ObjectSet):
                 # fastのMDGModifierは自己接続を拒否しないため、cmdsの経路と同じく先に拒否する。
                 raise RuntimeError(f"アトリビュート{target.getFullName()}を自分自身へは接続できません")
             # 同じ割り当ての再実行は、既存の同じ接続をそのまま残して成功させる。
-            source.connectTo(target, force=True, safe=True, fast=fast)
+            source.connectTo(target, force=True, skipExisting=True, fast=fast)
 
     def assign(self, targets):
         """形状またはフェースへ割り当てる。

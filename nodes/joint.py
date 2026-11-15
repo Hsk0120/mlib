@@ -118,12 +118,12 @@ def _remove_influences(groups, transfer_to_parent, force, fast=False, deleting=F
             skin._apply_influence_removals(plans, snapshot, force=force, fast=fast, deleting=deleting)
 
 
-def _delete_joints(joints, safe, fast, remove_influence, transfer_to_parent, force):
+def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_parent, force):
     """jointを、消える階層のinfluenceを解除してから一括で削除する。
 
     Args:
         joints (Sequence[Joint]): 削除するjoint。
-        safe (bool): Trueは自身またはDAG子孫にDG接続があるjointを削除しない。
+        skip_connected (bool): Trueは自身またはDAG子孫にDG接続があるjointを削除しない。
         fast (bool): TrueはUndoなしのOpenMaya更新。
         remove_influence (bool): 削除の前にinfluenceを解除するか。
         transfer_to_parent (bool): 解除するウェイトを残る祖先influenceへ移すか。
@@ -133,16 +133,16 @@ def _delete_joints(joints, safe, fast, remove_influence, transfer_to_parent, for
         None: 値を返さない。
 
     Raises:
-        TypeError: safe・remove_influence・transfer_to_parent・forceがbool以外の場合。
+        TypeError: skip_connected・remove_influence・transfer_to_parent・forceがbool以外の場合。
         RuntimeError: 対象が無効、削除できない、またはinfluenceを解除できない場合。
     """
-    _require_bool(safe, "safe")
+    _require_bool(skip_connected, "skip_connected")
     _require_bool(remove_influence, "removeInfluence")
     _require_bool(transfer_to_parent, "transferToParent")
     _require_bool(force, "force")
     for joint in joints:
         joint._require_valid("削除")
-    if safe:
+    if skip_connected:
         joints = [joint for joint in joints if not joint._has_delete_connections()]
     if not joints:
         return
@@ -639,7 +639,7 @@ class Joint(Transform):
         self._require_valid("自由度の取得")
         return "".join(axis for axis in "xyz" if self.getPlug("jointType" + axis.upper()).get())
 
-    def setDegreesOfFreedom(self, axes):
+    def setDegreesOfFreedom(self, axes, *, fast=False, check=False):
         """回転できる軸を設定する。
 
         jointTypeX・Y・Zを書き換える。指定しなかった軸は固定する。
@@ -647,17 +647,20 @@ class Joint(Transform):
         Args:
             axes (str): ``"xyz"``・``"xz"`` などの軸名の並び。順番や大文字・小文字は問わない。
                 空文字列ならすべての軸を固定する。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: axesが文字列でない場合。
+            TypeError: axesが文字列でない場合、またはfast・checkがbool以外の場合。
             ValueError: x・y・z以外の文字を含む場合、または同じ軸を2回以上含む場合。
             RuntimeError: ジョイントが無効な場合、またはjointTypeがロック・入力の接続で書き込めない場合。
 
         Note:
-            Undoが有効なら、1回のUndoで戻せる。fast引数は無い。
+            Undoが有効なら、1回のUndoで戻せる。
         """
         if not isinstance(axes, str):
             raise TypeError(f"axesは'xyz'のような文字列で指定してください: {axes!r}")
@@ -666,12 +669,13 @@ class Joint(Transform):
             raise ValueError(f"axesは'x'・'y'・'z'を重複なく組み合わせて指定してください: {axes!r}")
         self._require_valid("自由度の設定")
         plugs = [self.getPlug("jointType" + axis.upper()) for axis in "XYZ"]
-        # 一部の軸だけ書き換わるのを避けるため、3軸とも書き込めるか先に確かめる。
-        for plug in plugs:
-            require_writable(plug.mplug())
-        with undoChunk("mlibJointSetDegreesOfFreedom"):
+        with _edit_context("mlibJointSetDegreesOfFreedom", fast):
+            if check:
+                # 一部の軸だけ書き換わるのを避けるため、3軸とも書き込めるか先に確かめる。
+                for plug in plugs:
+                    require_writable(plug.mplug())
             for axis, plug in zip("xyz", plugs):
-                plug.set(axis in lowered)
+                plug.set(axis in lowered, fast=fast)
 
     def getInverseScale(self):
         """inverseScaleの値を取得する。
@@ -757,7 +761,7 @@ class Joint(Transform):
             skins = self.getSkinClusters() if skinCluster is None else [skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster)]
             _remove_influences([(skin, [self]) for skin in skins], transferToParent, force)
 
-    def delete(self, *, safe=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
+    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -774,7 +778,7 @@ class Joint(Transform):
         ``mlib.delete`` はインフルエンスから外す処理をせず、Maya標準の削除のままになる。
 
         Args:
-            safe (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
+            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
                 既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
                 OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
@@ -786,13 +790,13 @@ class Joint(Transform):
             None: 値を返さない。
 
         Raises:
-            TypeError: safe・fast・removeInfluence・transferToParent・forceがbool以外の場合。
+            TypeError: skipConnected・fast・removeInfluence・transferToParent・forceがbool以外の場合。
             ValueError: 移すウェイトに負の値か有限でない値がある場合。このときは何も変えない。
             RuntimeError: 対象が無効な場合、ロックされたノードやリファレンスのノードを含む場合(このときは何も変えない)、
                 ウェイトの要素がロック・入力の接続で書き込めない場合、またはMayaが変更を拒否した場合。
         """
         with _edit_context("mlibJointDelete", fast):
-            _delete_joints([self], safe, fast, removeInfluence, transferToParent, force)
+            _delete_joints([self], skipConnected, fast, removeInfluence, transferToParent, force)
 
     def isInfluenceLocked(self):
         """スキンのウェイトがロックされているか調べる。
@@ -804,30 +808,33 @@ class Joint(Transform):
         """
         return self.hasAttr("lockInfluenceWeights") and bool(self.getPlug("lockInfluenceWeights").get())
 
-    def setInfluenceLocked(self, state=True):
+    def setInfluenceLocked(self, state=True, *, fast=False, check=False):
         """スキンのウェイトをロックする、またはロックを外す。
 
         lockInfluenceWeightsアトリビュートを書き換える。これはジョイント側のアトリビュートなので、
         どのskinClusterでも同じ値になる。
         いくつものジョイントをまとめて設定するなら、:meth:`SkinCluster.setInfluencesLocked
-        <mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked>` を使う。fast引数は無い。
+        <mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked>` を使う。
 
         Args:
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがbool以外の場合。
+            TypeError: state・fast・checkがbool以外の場合。
             RuntimeError: lockInfluenceWeightsが無い(インフルエンスになっていない)場合、
                 またはそのアトリビュートがロックされているか入力が接続されている場合。
         """
-        with undoChunk("mlibJointSetInfluenceLocked"):
+        with _edit_context("mlibJointSetInfluenceLocked", fast, single=True):
             _require_bool(state, "state")
             if not self.hasAttr("lockInfluenceWeights"):
                 raise RuntimeError(f"ジョイントはどのskinClusterのインフルエンスでもありません: {self.getFullName()}")
-            self.getPlug("lockInfluenceWeights").set(state)
+            self.getPlug("lockInfluenceWeights").set(state, fast=fast, check=check)
 
     def getBoneSegments(self, worldSpace=_UNSET, *, ws=_UNSET):
         """自身から子のジョイントまでの、ボーンの線分を取得する。
@@ -1337,7 +1344,7 @@ class Joints(Nodes):
                     raise ValueError("すべてのインフルエンスを削除することはできません")
             _remove_influences(groups, transferToParent, force)
 
-    def delete(self, *, safe=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
+    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -1346,7 +1353,7 @@ class Joints(Nodes):
         インフルエンスから外す必要がなく、ノードの種類を問わずまとめて削除したいときは ``mlib.delete`` を使う。
 
         Args:
-            safe (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
+            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
@@ -1361,7 +1368,7 @@ class Joints(Nodes):
             RuntimeError: :meth:`Joint.delete` と同じ。
         """
         with _edit_context("mlibJointsDelete", fast):
-            _delete_joints(list(self._items), safe, fast, removeInfluence, transferToParent, force)
+            _delete_joints(list(self._items), skipConnected, fast, removeInfluence, transferToParent, force)
 
     def setRadius(self, value, *, fast=False, check=False):
         """各ジョイントに、並んでいる順に :meth:`Joint.setRadius` を行う。

@@ -286,7 +286,7 @@ class SelfConnectionTest(_PlugCase):
         """自身への接続は接続を作らずに RuntimeError(cmds.connectAttr と同じ)。"""
         node = self.make("transform", "selfConnect#")
         plug = mlib.getNode(node).getPlug("translateX")
-        for flags in ({}, {"fast": True}, {"safe": True}, {"force": True}):
+        for flags in ({}, {"fast": True}, {"skipExisting": True}, {"force": True}):
             with self.subTest(flags=flags):
                 with self.assertRaises(RuntimeError):
                     plug.connect(plug, **flags)

@@ -82,11 +82,11 @@ class JointStandardDeleteTest(unittest.TestCase):
         # jointの下へ作ったjointはinverseScaleを自動で接続する(cmds.jointと同じ)。
         child = mlib.createNode("joint", parent=root)
         self.assertEqual(child.getPlug("inverseScale").getSource(skipConversionNodes=True), root.getPlug("scale"))
-        root.delete(safe=True)
+        root.delete(skipConnected=True)
         self.assertTrue(root.isValid())
         self.assertTrue(child.isValid())
         with self.assertRaises(TypeError):
-            root.delete(safe=1)
+            root.delete(skipConnected=1)
 
 
 class JointDeleteTest(NamespaceCase):
@@ -272,12 +272,12 @@ class JointDeleteTest(NamespaceCase):
 
     def test_safe_skips_connected_joints(self):
         """safe は skinCluster の接続があれば何もしない。"""
-        self.mid.delete(safe=True)
+        self.mid.delete(skipConnected=True)
         self.assertUntouched()
         cmds.select(clear=True)
         free = mlib.getNode(cmds.joint(name=self.name("free")))
         cmds.select(clear=True)
-        Joints([self.mid, free]).delete(safe=True)
+        Joints([self.mid, free]).delete(skipConnected=True)
         self.assertFalse(free.isValid())
         self.assertUntouched()
 
@@ -330,7 +330,7 @@ class JointDeleteTest(NamespaceCase):
 
     def test_invalid_flags_are_rejected(self):
         """bool 以外のフラグは変更前に拒否する。"""
-        for flags in ({"safe": 1}, {"fast": 1}, {"removeInfluence": 1}, {"transferToParent": 1}, {"force": 1}):
+        for flags in ({"skipConnected": 1}, {"fast": 1}, {"removeInfluence": 1}, {"transferToParent": 1}, {"force": 1}):
             with self.subTest(flags=flags), self.assertRaises(TypeError):
                 self.tip.delete(**flags)
             with self.subTest(plural=flags), self.assertRaises(TypeError):

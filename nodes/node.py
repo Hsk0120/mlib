@@ -25,6 +25,41 @@ _MOVABLE_NUMERIC_TYPES = {
     om2.MFnNumericData.kDouble: "double",
 }  #: moveAttrOrder() が再作成できる数値アトリビュート型と cmds.addAttr(attributeType=) の対応。
 
+#: addAttrの ``type`` に接頭辞なしで書いたとき、dataTypeとして扱う型名。
+_EXTRA_DATA_TYPES = frozenset(
+    (
+        "string",
+        "matrix",
+        "stringArray",
+        "doubleArray",
+        "floatArray",
+        "Int32Array",
+        "Int64Array",
+        "vectorArray",
+        "floatVectorArray",
+        "pointArray",
+        "matrixArray",
+        "mesh",
+        "nurbsCurve",
+        "nurbsSurface",
+        "lattice",
+        "componentList",
+        "polyFaces",
+        "reflectanceRGB",
+        "spectrumRGB",
+    )
+)
+
+#: 子の数が決まっている数値型(double3 など)の名前の形。
+_EXTRA_VECTOR_TYPE = re.compile(r"(double|float|long|short)([234])")
+
+#: 単位付きの型の名前から、(OpenMayaの単位のクラス, 内部単位)への対応。
+_EXTRA_UNIT_TYPES = {
+    "doubleAngle": (om2.MAngle, om2.MAngle.kRadians),
+    "doubleLinear": (om2.MDistance, om2.MDistance.kCentimeters),
+    "time": (om2.MTime, om2.MTime.kSeconds),
+}
+
 #: ``cmds.listAttr(scalar=True)`` が除く、複数成分の数値型(double3 等。コンパウンドアトリビュートとして定義される)。
 _MULTI_COMPONENT_NUMERIC_TYPES = frozenset(getattr(om2.MFnNumericData, name) for name in dir(om2.MFnNumericData) if name[:2] in ("k2", "k3", "k4"))
 
@@ -320,7 +355,7 @@ def _dump_movable_attr(plug):
 
 
 def _require_same_attr_definition(plug, flags):
-    """addAttr(safe=True)で、既存のアトリビュートが要求した型と一致するか検証する。
+    """addAttr(skipExisting=True)で、既存のアトリビュートが要求した型と一致するか検証する。
 
     Args:
         plug (Plug): 既存のアトリビュート。
@@ -1185,7 +1220,7 @@ class Node(Object):
             new_name = f"{namespace_name}:{node_name}" if namespace_name != ":" else node_name
             self.rename(new_name, fast=fast)
 
-    def delete(self, *, safe=False, fast=False):
+    def delete(self, *, skipConnected=False, fast=False):
         """このノードを、Mayaの標準の決まりで削除する。
 
         DAGの子も削除する。1回のUndoで戻せる。
@@ -1202,7 +1237,7 @@ class Node(Object):
         fastでのロック・リファレンスの文言は ``ノードがロックされているか、リファレンスです: x``。
 
         Args:
-            safe (bool): Trueなら、自身かDAGの子孫にDGの接続がある場合は削除しない。
+            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続がある場合は削除しない。
                 入力・出力・message・セットやマテリアルの接続をすべて含む。
                 Falseならふつうに削除する。ロックの解除や、例外を抑えることはしない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1211,14 +1246,14 @@ class Node(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: safeがboolでない場合。
+            TypeError: skipConnectedがboolでない場合。
             RuntimeError: 対象が無効な場合、ロック・リファレンス・削除できないノードを含む場合、
                 またはMayaが削除を拒否した場合。
         """
         with _edit_context("mlibNodeDelete", fast):
-            _require_bool(safe, "safe")
+            _require_bool(skipConnected, "skipConnected")
             self._require_valid("削除")
-            if safe and self._has_delete_connections():
+            if skipConnected and self._has_delete_connections():
                 return
             # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
             from ..core.nodeEdit import delete_nodes
@@ -1811,7 +1846,7 @@ class Node(Object):
         proxy=_UNSET,
         getPlug=True,
         *,
-        safe=False,
+        skipExisting=False,
         fast=False,
         unit="deg",
         timeUnit="frame",
@@ -1921,10 +1956,10 @@ class Node(Object):
             childSuffixes (Sequence[str] | None): 親の名前の後ろに付けて子の名前にする接尾辞。
             proxy (Plug | str | None): プロキシの元にするアトリビュート。
             getPlug (bool): 既定のTrueなら追加したPlugを、FalseならNoneを返す。
-            safe (bool): Trueなら、何度実行しても同じ結果になるようにする。同じ名前のアトリビュートがすでにあれば
+            skipExisting (bool): Trueなら、何度実行しても同じ結果になるようにする。同じ名前のアトリビュートがすでにあれば
                 何も変えずに、そのPlug(getPlug=FalseならNone)を返す。既存の既定値・範囲・表示などは変えない。
                 ただし、既存のアトリビュートの型(getType()で比べる)や、マルチアトリビュートかどうかが
-                指定と違う場合は、safeでもTypeErrorにする。既定のFalseでは、名前が重なるとMayaのエラー
+                指定と違う場合は、skipExistingでもTypeErrorにする。既定のFalseでは、名前が重なるとMayaのエラー
                 (RuntimeError)になる。``Plug.set(safe=True)`` (失敗した数を返す)とは意味が違う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             unit (str): 角度のアトリビュートの、数値の既定値・min/max・softMin/softMaxの単位。既定の ``"deg"`` は度、
@@ -2017,8 +2052,8 @@ class Node(Object):
                 getPlug=Falseでも、アトリビュートの追加と既定値などの設定は行う。
 
         Raises:
-            TypeError: ロング名と短縮名を同時に指定した場合、fast・safeがbool以外の場合、
-                unitが文字列・None以外の場合、またはsafe=Trueで、既存のアトリビュートの型や
+            TypeError: ロング名と短縮名を同時に指定した場合、fast・skipExistingがbool以外の場合、
+                unitが文字列・None以外の場合、またはskipExisting=Trueで、既存のアトリビュートの型や
                 マルチアトリビュートかどうかが指定と違う場合。
             ValueError: 名前を省いた場合、型の接頭辞が不正な場合、解決した結果attributeTypeとdataTypeを
                 両方指定することになった場合、query/edit=Trueの場合、unitが対応していない単位の名前の場合、
@@ -2032,72 +2067,94 @@ class Node(Object):
             Maya・上書きしたメソッド・作成後の既定値や表示やproxyの接続が失敗しても、
             すでに済んだ追加は戻さない。
         """
-        _merge_flags(
-            kwargs,
-            (
-                (attributeType, at, "attributeType", "at"),
-                (binaryTag, bt, "binaryTag", "bt"),
-                (cachedInternally, ci, "cachedInternally", "ci"),
-                (category, ct, "category", "ct"),
-                (dataType, dt, "dataType", "dt"),
-                (defaultValue, dv, "defaultValue", "dv"),
-                (disconnectBehaviour, dcb, "disconnectBehaviour", "dcb"),
-                (enforcingUniqueName, eun, "enforcingUniqueName", "eun"),
-                (enumName, en, "enumName", "en"),
-                (exists, ex, "exists", "ex"),
-                (fromPlugin, fp, "fromPlugin", "fp"),
-                (hasMaxValue, hxv, "hasMaxValue", "hxv"),
-                (hasMinValue, hnv, "hasMinValue", "hnv"),
-                (hasSoftMaxValue, hsx, "hasSoftMaxValue", "hsx"),
-                (hasSoftMinValue, hsn, "hasSoftMinValue", "hsn"),
-                (hidden, h, "hidden", "h"),
-                (indexMatters, im, "indexMatters", "im"),
-            ),
-        )
-        _merge_flags(kwargs, ((edit, e, "edit", "e"),))
-        if "is" in kwargs:
+        # よく使う呼び方(型・既定値・範囲・keyable・名前だけを指定)では、めったに使わないフラグの突き合わせを飛ばす。
+        rare = (
+            binaryTag, bt, cachedInternally, ci, category, ct, disconnectBehaviour, dcb, edit, e, enforcingUniqueName, eun,
+            enumName, en, exists, ex, fromPlugin, fp, hasMaxValue, hxv, hasMinValue, hnv, hasSoftMaxValue, hsx, hasSoftMinValue, hsn,
+            hidden, h, indexMatters, im, internalSet, multi, m, niceName, nn, numberOfChildren, nc, parent, p, pxy, query, q,
+            readable, r, softMaxValue, smx, softMinValue, smn, storable, s, usedAsColor, uac, usedAsFilename, uaf, usedAsProxy, uap,
+            worldSpace, ws, writable, w, cb,
+        )  # fmt: skip
+        if not kwargs and rare.count(_UNSET) == len(rare):
+            _merge_flags(
+                kwargs,
+                (
+                    (attributeType, at, "attributeType", "at"),
+                    (dataType, dt, "dataType", "dt"),
+                    (defaultValue, dv, "defaultValue", "dv"),
+                    (keyable, k, "keyable", "k"),
+                    (maxValue, max, "maxValue", "max"),
+                    (minValue, min, "minValue", "min"),
+                    (shortName, sn, "shortName", "sn"),
+                ),
+            )
+            longName = _pick_alias(longName, ln, "longName", "ln", default="")
+            proxy = None if proxy is _UNSET else proxy
+            channelBox = False if channelBox is _UNSET else channelBox
+        else:
+            _merge_flags(
+                kwargs,
+                (
+                    (attributeType, at, "attributeType", "at"),
+                    (binaryTag, bt, "binaryTag", "bt"),
+                    (cachedInternally, ci, "cachedInternally", "ci"),
+                    (category, ct, "category", "ct"),
+                    (dataType, dt, "dataType", "dt"),
+                    (defaultValue, dv, "defaultValue", "dv"),
+                    (disconnectBehaviour, dcb, "disconnectBehaviour", "dcb"),
+                    (enforcingUniqueName, eun, "enforcingUniqueName", "eun"),
+                    (enumName, en, "enumName", "en"),
+                    (exists, ex, "exists", "ex"),
+                    (fromPlugin, fp, "fromPlugin", "fp"),
+                    (hasMaxValue, hxv, "hasMaxValue", "hxv"),
+                    (hasMinValue, hnv, "hasMinValue", "hnv"),
+                    (hasSoftMaxValue, hsx, "hasSoftMaxValue", "hsx"),
+                    (hasSoftMinValue, hsn, "hasSoftMinValue", "hsn"),
+                    (hidden, h, "hidden", "h"),
+                    (indexMatters, im, "indexMatters", "im"),
+                ),
+            )
+            _merge_flags(kwargs, ((edit, e, "edit", "e"),))
+            if "is" in kwargs:
+                if internalSet is not _UNSET:
+                    raise _ArgumentError("'internalSet'と'is'は同時に指定できません")
+                internalSet = kwargs.pop("is")
             if internalSet is not _UNSET:
-                raise _ArgumentError("'internalSet'と'is'は同時に指定できません")
-            internalSet = kwargs.pop("is")
-        if internalSet is not _UNSET:
-            kwargs["internalSet"] = internalSet
-        _merge_flags(kwargs, ((keyable, k, "keyable", "k"),))
-        longName = _pick_alias(longName, ln, "longName", "ln", default="")
-        _merge_flags(
-            kwargs,
-            (
-                (maxValue, max, "maxValue", "max"),
-                (minValue, min, "minValue", "min"),
-                (multi, m, "multi", "m"),
-                (niceName, nn, "niceName", "nn"),
-                (numberOfChildren, nc, "numberOfChildren", "nc"),
-                (parent, p, "parent", "p"),
-            ),
-        )
-        proxy = _pick_alias(proxy, pxy, "proxy", "pxy", default=None)
-        _merge_flags(
-            kwargs,
-            (
-                (readable, r, "readable", "r"),
-                (softMaxValue, smx, "softMaxValue", "smx"),
-                (softMinValue, smn, "softMinValue", "smn"),
-                (storable, s, "storable", "s"),
-                (usedAsColor, uac, "usedAsColor", "uac"),
-                (usedAsFilename, uaf, "usedAsFilename", "uaf"),
-                (worldSpace, ws, "worldSpace", "ws"),
-                (writable, w, "writable", "w"),
-            ),
-        )
-        _merge_flags(kwargs, ((query, q, "query", "q"), (shortName, sn, "shortName", "sn"), (usedAsProxy, uap, "usedAsProxy", "uap")))
-        channelBox = _pick_alias(channelBox, cb, "channelBox", "cb", default=False)
-        _require_bool(safe, "safe")
+                kwargs["internalSet"] = internalSet
+            _merge_flags(kwargs, ((keyable, k, "keyable", "k"),))
+            longName = _pick_alias(longName, ln, "longName", "ln", default="")
+            _merge_flags(
+                kwargs,
+                (
+                    (maxValue, max, "maxValue", "max"),
+                    (minValue, min, "minValue", "min"),
+                    (multi, m, "multi", "m"),
+                    (niceName, nn, "niceName", "nn"),
+                    (numberOfChildren, nc, "numberOfChildren", "nc"),
+                    (parent, p, "parent", "p"),
+                ),
+            )
+            proxy = _pick_alias(proxy, pxy, "proxy", "pxy", default=None)
+            _merge_flags(
+                kwargs,
+                (
+                    (readable, r, "readable", "r"),
+                    (softMaxValue, smx, "softMaxValue", "smx"),
+                    (softMinValue, smn, "softMinValue", "smn"),
+                    (storable, s, "storable", "s"),
+                    (usedAsColor, uac, "usedAsColor", "uac"),
+                    (usedAsFilename, uaf, "usedAsFilename", "uaf"),
+                    (worldSpace, ws, "worldSpace", "ws"),
+                    (writable, w, "writable", "w"),
+                ),
+            )
+            _merge_flags(kwargs, ((query, q, "query", "q"), (shortName, sn, "shortName", "sn"), (usedAsProxy, uap, "usedAsProxy", "uap")))
+            channelBox = _pick_alias(channelBox, cb, "channelBox", "cb", default=False)
+        _require_bool(skipExisting, "skipExisting")
         angle_unit = _angle_unit(unit)
         assert angle_unit is not None  # 既定値 "deg" を使うため None にならない。
         time_unit = _time_unit(timeUnit)
         assert time_unit is not None  # 既定値 "frame" を使うため None にならない。
-        # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
-        from ..plugs.plug import Plug
-
         flags = {key: value for key, value in kwargs.items() if value is not None}
         if flags.get("query") or flags.get("edit"):
             raise ValueError("addAttrは作成だけに対応しています")
@@ -2109,13 +2166,16 @@ class Node(Object):
         show = channelBox or flags.pop("channelBox", False)
         proxy = proxy or flags.pop("proxy", None)
         if proxy is not None:
+            # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
+            from ..plugs.plug import Plug
+
             proxy = Plug._resolve_input(proxy)
             type = proxy.getType()
             flags["usedAsProxy"] = True
         numeric, count, deferred = self._prepare_extra_attr_definition(
             flags, type, childNames, childShortNames, childSuffixes, sub_type=subType, angle_unit=angle_unit, time_unit=time_unit
         )
-        if safe and self.hasAttr(name):
+        if skipExisting and self.hasAttr(name):
             existing = self.getPlug(name)
             _require_same_attr_definition(existing, flags)
             return existing if getPlug else None
@@ -2930,39 +2990,15 @@ class Node(Object):
                 key = "attributeType" if prefix == "at" else "dataType"
             else:
                 kind = attribute_type
-                key = (
-                    "dataType"
-                    if kind
-                    in {
-                        "string",
-                        "matrix",
-                        "stringArray",
-                        "doubleArray",
-                        "floatArray",
-                        "Int32Array",
-                        "Int64Array",
-                        "vectorArray",
-                        "floatVectorArray",
-                        "pointArray",
-                        "matrixArray",
-                        "mesh",
-                        "nurbsCurve",
-                        "nurbsSurface",
-                        "lattice",
-                        "componentList",
-                        "polyFaces",
-                        "reflectanceRGB",
-                        "spectrumRGB",
-                    }
-                    else "attributeType"
-                )
+                key = "dataType" if kind in _EXTRA_DATA_TYPES else "attributeType"
             flags[key] = kind
         elif not (flags.get("attributeType") or flags.get("dataType")):
             flags["attributeType"] = "double"
         if flags.get("attributeType") and flags.get("dataType"):
             raise ValueError("attributeTypeとdataTypeは同時に指定できません")
         kind = flags.get("attributeType")
-        numeric = re.fullmatch(r"(double|float|long|short)([234])", kind or "")
+        # 数字で終わる型名だけを調べる(ほとんどの型は当てはまらない)。
+        numeric = _EXTRA_VECTOR_TYPE.fullmatch(kind) if kind and kind[-1] in "234" else None
         count = int(numeric.group(2)) if numeric else 0
         if kind == "compound" and (child_names or child_short_names or child_suffixes):
             count = flags.get("numberOfChildren") or len(child_names or child_short_names or child_suffixes)
@@ -2990,14 +3026,10 @@ class Node(Object):
                 if flag in flags:
                     flags[flag] = to_radians(flags[flag])
             deferred = to_radians(deferred)
-        angle_input = om2.MAngle.kDegrees if angle_unit == "deg" else om2.MAngle.kRadians
-        time_input = om2.MTime.uiUnit() if time_unit == "frame" else om2.MTime.kSeconds
-        unit = {
-            "doubleAngle": (om2.MAngle, om2.MAngle.kRadians),
-            "doubleLinear": (om2.MDistance, om2.MDistance.kCentimeters),
-            "time": (om2.MTime, om2.MTime.kSeconds),
-        }.get(kind)
+        unit = _EXTRA_UNIT_TYPES.get(kind)
         if unit:
+            angle_input = om2.MAngle.kDegrees if angle_unit == "deg" else om2.MAngle.kRadians
+            time_input = om2.MTime.uiUnit() if time_unit == "frame" else om2.MTime.kSeconds
             cls, internal = unit
             for flag in ("defaultValue", "minValue", "maxValue", "softMinValue", "softMaxValue"):
                 if flag in flags:

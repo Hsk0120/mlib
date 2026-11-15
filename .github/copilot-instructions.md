@@ -131,6 +131,8 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
     list のままにするのは、種類が混ざるもの(`ObjectSet.getMembers` など)・組の並び(`asPair`)・None を含む並び・ノード以外(Namespace・Plugin など)。
     戻り値は `Nodes._wrap(items)`・`Plugs._from_plugs(items)` で作る(解決と検査をやり直さない)。
   - 角度の3成分を返す get は `EulerRotate`(rad。`unit` 引数は置かない。度は `.asDegrees()`)、位置は `Translate`/`Vector`、スケールは `Scale`。
+    回転ではない単独の角度(画角・リミット・キーの値・アトリビュートの値)は、数値と `unit` 引数(既定は度)で受け渡しする
+    (`Plug.get`・`Camera.getFieldOfView`・`Transform.getLimits`・`Keyframe.getValue` など)。
     set は3つの数値(角度は度が既定、`unit="rad"` 可)と、その数学型の両方を受ける。
 
 ## cmds と OpenMaya の使い分け
@@ -270,7 +272,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   既定値は各メソッドの仕様を維持する。om2 の `MSpace` 引数は変えない。
 - 内部関数へ渡すときも `fast`・`worldSpace` 等の同じ名前を使い、`world_space` のような別名を増やさない。
 - ミラーの `axis` は反転軸(`"x"`/`"y"`/`"z"`、0/1/2)とミラー面(`"YZ"`/`"XZ"`/`"XY"`)の両方を受け、解釈は `util._mirror_axis` に集約する。
-- キーワード専用にする引数: `fast`・`check`・`safe`・`get`・`force`・`unit`・`timeUnit`・`type`(絞り込み)・`index`(AnimCurve のキーの番号)・
+- キーワード専用にする引数: `fast`・`check`・`safe`・`skipExisting`・`skipConnected`・`get`・`force`・`unit`・`timeUnit`・`type`(絞り込み)・`index`(AnimCurve のキーの番号)・
   `geometryIndex`・`transferToParent`・`leaf`・`children`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)・
   `normalize`・`colorSet`・`uvSet`・`vertices`・`relative`・`add`・`mode`・`missing`・`zeroScaleOrient`・`aimAxis`/`upAxis`・
   `tolerance`(ノード・コンポーネントのメソッド。数学型の `isEquivalent(other, tolerance)` などは OpenMaya と同じ位置引数のまま)と、
@@ -279,8 +281,10 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setKeyable`・`setChannelBox`・`setMuted`・
   `setShadingOverride`・`setSegmentScaleCompensate`・`setInfluenceLocked`・`Edge.setSmooth`)。
 - `fast` を持つ値の書き込みは `check` も持つ(UV・頂点カラーのように、切り替える事前確認が無いものは除く)。
-- `safe=True` は API ごとに意味が違う(`Plug.set` は失敗数を返す、Transform の set 系は書けるチャンネルだけ更新、
-  `addAttr`・`connect`・`connectTo`・`setAlias` は既に目的の状態なら何もしない)。意味の違う safe を安易に増やさない。
+- 意味ごとに引数名を分ける(2026-11-16)。`safe=True` は「失敗しても例外にしない」だけに使う(`Plug.set` は失敗数を返す、
+  Transform の set 系は書けるチャンネルだけ更新して値は返さない)。「すでに目的の状態なら何もしない」は `skipExisting=True`
+  (`addAttr`・`connect`・`connectTo`・`setAlias`)、「接続があるノードは消さない」は `skipConnected=True`(`Node.delete`・`Joint.delete`・`Joints.delete`)。
+  別の意味の指定を `safe` という名前で増やさない。
 - 戻り値の型・単位・更新対象・破壊性が違う操作は、名前が似ていてもフラグで統合しない。
 
 ## 単位

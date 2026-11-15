@@ -628,29 +628,36 @@ class SkinCluster(GeometryFilter):
         """
         return Nodes._wrap([node for node in self.getInfluences() if node.hasAttr("lockInfluenceWeights") and node.getPlug("lockInfluenceWeights").get()])
 
-    def setInfluencesLocked(self, joints, state=True):
+    def setInfluencesLocked(self, joints, state=True, *, fast=False, check=False):
         """インフルエンスのウェイトのロック(lockInfluenceWeights)を設定する。
 
         ロックしたインフルエンスの値は、Mayaのペイントや、:meth:`setWeights` の ``normalize=True`` でも変わらない。
-        インフルエンスの数だけsetAttrするだけで、OpenMayaで書いても速くならないため、fast引数は持たない。
 
         Args:
             joints (str | Node | Iterable): 登録済みのインフルエンス。複数指定するときは、名前とオブジェクトを混ぜない。
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがboolでない場合、またはインフルエンスの入力の型が正しくない場合。
+            TypeError: state・fast・checkがboolでない場合、またはインフルエンスの入力の型が正しくない場合。
             ValueError: インフルエンスが空・未登録・重複の場合。
             RuntimeError: lockInfluenceWeightsがロックされている・入力が接続されている場合。
         """
-        with undoChunk("mlibSkinClusterSetInfluencesLocked"):
+        with _edit_context("mlibSkinClusterSetInfluencesLocked", fast):
             _require_bool(state, "state")
             paths = self._skin_fn.influenceObjects()
-            for index in self._require_influences(joints):
-                Node._wrap_dag_path(paths[index]).getPlug("lockInfluenceWeights").set(state)
+            plugs = [Node._wrap_dag_path(paths[index]).getPlug("lockInfluenceWeights") for index in self._require_influences(joints)]
+            if check:
+                # 一部のインフルエンスだけ書き換わるのを避けるため、すべて書き込めるか先に確かめる。
+                for plug in plugs:
+                    plug._require_writable()
+            for plug in plugs:
+                plug.set(state, fast=fast)
 
     @contextmanager
     def unlockedInfluences(self, joints=None):

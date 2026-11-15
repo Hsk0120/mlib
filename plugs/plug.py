@@ -1600,12 +1600,12 @@ class Plug(Object):
         self._require_valid()
         return self._node._dependency_fn().plugsAlias(self._mplug) or None
 
-    def setAlias(self, name=None, *, safe=False, fast=False):
+    def setAlias(self, name=None, *, skipExisting=False, fast=False):
         """エイリアス(別名)を設定する。解除もできる。
 
         Args:
             name (str | None): エイリアス名。Noneか空文字列なら解除する。
-            safe (bool): Trueなら、何度実行してもよいようにする。自身がすでに同じエイリアスを持っていれば、
+            skipExisting (bool): Trueなら、何度実行してもよいようにする。自身がすでに同じエイリアスを持っていれば、
                 何も変えずに自身を返す。ほかのアトリビュートが使っているエイリアスは、既定と同じく例外にする。
                 既定はFalseで、同じエイリアスを設定し直してもMayaのエラー(RuntimeError)になる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
@@ -1614,14 +1614,14 @@ class Plug(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: safe・fastがboolでない場合。
+            TypeError: skipExisting・fastがboolでない場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaがエイリアスを拒否した場合。
         """
         _require_bool(fast, "fast")
-        _require_bool(safe, "safe")
+        _require_bool(skipExisting, "skipExisting")
         with nullcontext() if fast else undoChunk("mlibPlugSetAlias"):
             self._require_valid()
-            if safe and name and self.getNode()._dependency_fn().plugsAlias(self._mplug) == name:
+            if skipExisting and name and self.getNode()._dependency_fn().plugsAlias(self._mplug) == name:
                 return
             if fast:
                 fn = self.getNode()._dependency_fn()
@@ -2429,7 +2429,7 @@ class Plug(Object):
         other._require_valid()
         return any(connected == other.mplug() for connected in self._mplug.connectedTo(source, destination))
 
-    def connect(self, source, *, force=False, f=False, lock=False, l=False, nextAvailable=False, na=False, unlock=True, safe=False, fast=False):
+    def connect(self, source, *, force=False, f=False, lock=False, l=False, nextAvailable=False, na=False, unlock=True, skipExisting=False, fast=False):
         """sourceから自身へ接続する。
 
         接続先を返す。既定では、すでに同じ接続があっても例外にする。
@@ -2449,7 +2449,7 @@ class Plug(Object):
                 入力の接続・ロック・子の入力の接続が無い要素を探す。値を持つだけの要素も候補になり、途中の空きは使わない。
             na (bool): nextAvailableの短縮名。どちらかがTrueなら有効(OR)。
             unlock (bool): Falseなら、forceでもロックを外さない。既定はTrue。
-            safe (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
+            skipExisting (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
                 (unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず
                 (ロックもlockの指定も変えない)、成功したときと同じく接続先を返す。
                 nextAvailableでは、接続元がすでにつながっている要素があれば、その要素を返す。
@@ -2461,14 +2461,14 @@ class Plug(Object):
             Plug: 実際の接続先。nextAvailableでは選んだ要素。取得し直すことがあるので、selfと同じオブジェクトとは限らない。
 
         Raises:
-            TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・safeがboolでない場合。
-            RuntimeError: 次のどれかの場合。同じ接続がすでにある(safe=Falseのとき)。自分自身へ接続しようとした。
+            TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合。
+            RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
                 forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
                 接続元・接続先のノードかアトリビュートが削除されている場合も、何も変えずに送出する
                 (接続元については、削除前のアトリビュートのパスを文言に入れる)。
         """
         _require_bool(fast, "fast")
-        _require_bool(safe, "safe")
+        _require_bool(skipExisting, "skipExisting")
         force, lock = force or f, lock or l
         # 通常の接続は1回のconnectAttrなので、チャンクを開かない。ロックの操作と、マルチアトリビュートの
         # 要素への接続(接続前の値をUndoへ記録する)は、1回のUndoにまとめる。
@@ -2482,7 +2482,7 @@ class Plug(Object):
             if source.mplug() == self.mplug():
                 # cmds.connectAttr は自己接続を拒否するが、MDGModifier は通すため fast でも揃えて拒否する。
                 raise RuntimeError(f"アトリビュートを自分自身へは接続できません: {self.getFullName()}")
-            if safe:
+            if skipExisting:
                 existing = self._existing_connection_target(source, nextAvailable or na)
                 if existing is not None:
                     return existing
@@ -2650,31 +2650,31 @@ class Plug(Object):
                 for target in self._destination_plugs(skipConversionNodes=False):
                     target.disconnect(self, fast=fast)
 
-    def connectTo(self, destination, *, safe=False, fast=False, **kwargs):
+    def connectTo(self, destination, *, skipExisting=False, fast=False, **kwargs):
         """自身からdestinationへ接続する。
 
         接続先のPlugを返す。destinationをPlugにしてから、``destination.connect(self, **kwargs)`` で接続する。
         Undoの扱い、force時のロックの復元、マルチアトリビュートの空き番号の選び方(``nextAvailable=True`` は
         ``cmds.connectAttr(nextAvailable=True)`` と同じ決まり)はconnectと同じ。
-        fast・safeの指定は、そのままconnectへ渡す。``>>`` 演算子にはsafeが無く、同じ接続があると例外にする。
+        fast・skipExistingの指定は、そのままconnectへ渡す。``>>`` 演算子にはskipExistingが無く、同じ接続があると例外にする。
 
         Args:
             destination (Plug | om2.MPlug | str): 接続先。
-            safe (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のsafe)。既定はFalse。
+            skipExisting (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のskipExisting)。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
             **kwargs: connectのforce/f・lock/l・nextAvailable/na・unlock。
 
         Returns:
-            Plug: 実際の接続先。safeですでにある接続を見つけた場合も、その接続先。
+            Plug: 実際の接続先。skipExistingですでにある接続を見つけた場合も、その接続先。
 
         Raises:
-            TypeError: 接続先が指定されていない場合や対応していない型の場合、またはfast・safeがboolでない場合
+            TypeError: 接続先が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合
                 (:meth:`connect` と同じ)。
-            RuntimeError: 同じ接続がすでにある(safe=Falseのとき)・forceなしで入力を置き換えようとした・
+            RuntimeError: 同じ接続がすでにある(skipExisting=Falseのとき)・forceなしで入力を置き換えようとした・
                 ロックされている・接続に失敗した場合、または接続元・接続先が削除されている場合(:meth:`connect` と同じ)。
         """
         _require_bool(fast, "fast")
-        return Plug._resolve_input(destination).connect(self, **kwargs, safe=safe, fast=fast)
+        return Plug._resolve_input(destination).connect(self, **kwargs, skipExisting=skipExisting, fast=fast)
 
     def insertInput(self, node, inputAttribute, outputAttribute):
         """今の入力の接続の間に、ノードを挟む。

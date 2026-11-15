@@ -1092,24 +1092,27 @@ class Transform(DagNode):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setRotateOrder(self, order: str | int, preserve: bool = ...) -> None:
+    def setRotateOrder(self, order: str | int, preserve: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """回転順序(``rotateOrder``)を変える。既定では、見た目の向きが変わらないように ``rotate`` も変える。
 
         - ``preserve=True``: ``cmds.xform(rotateOrder=..., preserve=True)`` と同じ。新しい回転順序で同じ向きに
           なる ``rotate`` を書き込む(アニメーションのキーは変えない)。
         - ``preserve=False``: ``rotateOrder`` だけを書き換えるので、向きが変わる。
 
-        Undoが有効なら、1回のUndoで戻せる。
+        Undoが有効なら、1回のUndoで戻せる。``fast=True`` は ``MFnTransform.setRotationOrder`` で書く(向きを保つ決まりは同じ)。
 
         Args:
             order (str | int): ``"xyz"`` などの名前(大文字・小文字は問わない)、またはMayaの番号(0〜5)。
             preserve (bool): Trueなら向きを保つ。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: preserveがboolでない場合。
+            TypeError: preserve・fast・checkがboolでない場合。
             ValueError: 対応していない回転順序の場合。
             RuntimeError: ノードが無効な場合、または ``rotateOrder``・``rotate`` のロック・入力の接続のために
                 Mayaが書き込みを拒否した場合。

@@ -1213,12 +1213,12 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def setAlias(self, name: str | None = ..., *, safe: bool = ..., fast: bool = ...) -> None:
+    def setAlias(self, name: str | None = ..., *, skipExisting: bool = ..., fast: bool = ...) -> None:
         """エイリアス(別名)を設定する。解除もできる。
 
         Args:
             name (str | None): エイリアス名。Noneか空文字列なら解除する。
-            safe (bool): Trueなら、何度実行してもよいようにする。自身がすでに同じエイリアスを持っていれば、
+            skipExisting (bool): Trueなら、何度実行してもよいようにする。自身がすでに同じエイリアスを持っていれば、
                 何も変えずに自身を返す。ほかのアトリビュートが使っているエイリアスは、既定と同じく例外にする。
                 既定はFalseで、同じエイリアスを設定し直してもMayaのエラー(RuntimeError)になる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
@@ -1227,7 +1227,7 @@ class Plug(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: safe・fastがboolでない場合。
+            TypeError: skipExisting・fastがboolでない場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaがエイリアスを拒否した場合。
         """
         ...
@@ -1831,7 +1831,7 @@ class Plug(Object):
                 other のPlug・MPlugのノードかアトリビュートが削除されている場合も含む。
         """
         ...
-    def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., safe: bool = ..., fast: bool = ...) -> Plug:
+    def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., skipExisting: bool = ..., fast: bool = ...) -> Plug:
         """sourceから自身へ接続する。
 
         接続先を返す。既定では、すでに同じ接続があっても例外にする。
@@ -1851,7 +1851,7 @@ class Plug(Object):
                 入力の接続・ロック・子の入力の接続が無い要素を探す。値を持つだけの要素も候補になり、途中の空きは使わない。
             na (bool): nextAvailableの短縮名。どちらかがTrueなら有効(OR)。
             unlock (bool): Falseなら、forceでもロックを外さない。既定はTrue。
-            safe (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
+            skipExisting (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
                 (unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず
                 (ロックもlockの指定も変えない)、成功したときと同じく接続先を返す。
                 nextAvailableでは、接続元がすでにつながっている要素があれば、その要素を返す。
@@ -1863,8 +1863,8 @@ class Plug(Object):
             Plug: 実際の接続先。nextAvailableでは選んだ要素。取得し直すことがあるので、selfと同じオブジェクトとは限らない。
 
         Raises:
-            TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・safeがboolでない場合。
-            RuntimeError: 次のどれかの場合。同じ接続がすでにある(safe=Falseのとき)。自分自身へ接続しようとした。
+            TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合。
+            RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
                 forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
                 接続元・接続先のノードかアトリビュートが削除されている場合も、何も変えずに送出する
                 (接続元については、削除前のアトリビュートのパスを文言に入れる)。
@@ -1941,27 +1941,27 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはロックなどで切断できない場合。
         """
         ...
-    def connectTo(self, destination: Plug | om2.MPlug | str, *, safe: bool = ..., fast: bool = ..., **kwargs) -> Plug:
+    def connectTo(self, destination: Plug | om2.MPlug | str, *, skipExisting: bool = ..., fast: bool = ..., **kwargs) -> Plug:
         """自身からdestinationへ接続する。
 
         接続先のPlugを返す。destinationをPlugにしてから、``destination.connect(self, **kwargs)`` で接続する。
         Undoの扱い、force時のロックの復元、マルチアトリビュートの空き番号の選び方(``nextAvailable=True`` は
         ``cmds.connectAttr(nextAvailable=True)`` と同じ決まり)はconnectと同じ。
-        fast・safeの指定は、そのままconnectへ渡す。``>>`` 演算子にはsafeが無く、同じ接続があると例外にする。
+        fast・skipExistingの指定は、そのままconnectへ渡す。``>>`` 演算子にはskipExistingが無く、同じ接続があると例外にする。
 
         Args:
             destination (Plug | om2.MPlug | str): 接続先。
-            safe (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のsafe)。既定はFalse。
+            skipExisting (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のskipExisting)。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
             **kwargs: connectのforce/f・lock/l・nextAvailable/na・unlock。
 
         Returns:
-            Plug: 実際の接続先。safeですでにある接続を見つけた場合も、その接続先。
+            Plug: 実際の接続先。skipExistingですでにある接続を見つけた場合も、その接続先。
 
         Raises:
-            TypeError: 接続先が指定されていない場合や対応していない型の場合、またはfast・safeがboolでない場合
+            TypeError: 接続先が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合
                 (:meth:`connect` と同じ)。
-            RuntimeError: 同じ接続がすでにある(safe=Falseのとき)・forceなしで入力を置き換えようとした・
+            RuntimeError: 同じ接続がすでにある(skipExisting=Falseのとき)・forceなしで入力を置き換えようとした・
                 ロックされている・接続に失敗した場合、または接続元・接続先が削除されている場合(:meth:`connect` と同じ)。
         """
         ...

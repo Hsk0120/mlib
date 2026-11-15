@@ -100,12 +100,12 @@ def _remove_influences(groups: list[tuple[SkinCluster, list[Joint]]], transfer_t
     """
     ...
 
-def _delete_joints(joints: Sequence[Joint], safe: bool, fast: bool, remove_influence: bool, transfer_to_parent: bool, force: bool) -> None:
+def _delete_joints(joints: Sequence[Joint], skip_connected: bool, fast: bool, remove_influence: bool, transfer_to_parent: bool, force: bool) -> None:
     """jointを、消える階層のinfluenceを解除してから一括で削除する。
 
     Args:
         joints (Sequence[Joint]): 削除するjoint。
-        safe (bool): Trueは自身またはDAG子孫にDG接続があるjointを削除しない。
+        skip_connected (bool): Trueは自身またはDAG子孫にDG接続があるjointを削除しない。
         fast (bool): TrueはUndoなしのOpenMaya更新。
         remove_influence (bool): 削除の前にinfluenceを解除するか。
         transfer_to_parent (bool): 解除するウェイトを残る祖先influenceへ移すか。
@@ -115,7 +115,7 @@ def _delete_joints(joints: Sequence[Joint], safe: bool, fast: bool, remove_influ
         None: 値を返さない。
 
     Raises:
-        TypeError: safe・remove_influence・transfer_to_parent・forceがbool以外の場合。
+        TypeError: skip_connected・remove_influence・transfer_to_parent・forceがbool以外の場合。
         RuntimeError: 対象が無効、削除できない、またはinfluenceを解除できない場合。
     """
     ...
@@ -479,7 +479,7 @@ class Joint(Transform):
             RuntimeError: ジョイントが無効な場合。
         """
         ...
-    def setDegreesOfFreedom(self, axes: str) -> None:
+    def setDegreesOfFreedom(self, axes: str, *, fast: bool = ..., check: bool = ...) -> None:
         """回転できる軸を設定する。
 
         jointTypeX・Y・Zを書き換える。指定しなかった軸は固定する。
@@ -487,17 +487,20 @@ class Joint(Transform):
         Args:
             axes (str): ``"xyz"``・``"xz"`` などの軸名の並び。順番や大文字・小文字は問わない。
                 空文字列ならすべての軸を固定する。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: axesが文字列でない場合。
+            TypeError: axesが文字列でない場合、またはfast・checkがbool以外の場合。
             ValueError: x・y・z以外の文字を含む場合、または同じ軸を2回以上含む場合。
             RuntimeError: ジョイントが無効な場合、またはjointTypeがロック・入力の接続で書き込めない場合。
 
         Note:
-            Undoが有効なら、1回のUndoで戻せる。fast引数は無い。
+            Undoが有効なら、1回のUndoで戻せる。
         """
         ...
     def getInverseScale(self) -> Scale:
@@ -552,7 +555,7 @@ class Joint(Transform):
                 または変更に失敗した場合。
         """
         ...
-    def delete(self, *, safe: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -569,7 +572,7 @@ class Joint(Transform):
         ``mlib.delete`` はインフルエンスから外す処理をせず、Maya標準の削除のままになる。
 
         Args:
-            safe (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
+            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
                 既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
                 OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
@@ -581,7 +584,7 @@ class Joint(Transform):
             None: 値を返さない。
 
         Raises:
-            TypeError: safe・fast・removeInfluence・transferToParent・forceがbool以外の場合。
+            TypeError: skipConnected・fast・removeInfluence・transferToParent・forceがbool以外の場合。
             ValueError: 移すウェイトに負の値か有限でない値がある場合。このときは何も変えない。
             RuntimeError: 対象が無効な場合、ロックされたノードやリファレンスのノードを含む場合(このときは何も変えない)、
                 ウェイトの要素がロック・入力の接続で書き込めない場合、またはMayaが変更を拒否した場合。
@@ -596,22 +599,25 @@ class Joint(Transform):
             bool: ロックされていればTrue。アトリビュートが無い(どのskinClusterのインフルエンスでもない)場合はFalse。
         """
         ...
-    def setInfluenceLocked(self, state: bool = ...) -> None:
+    def setInfluenceLocked(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """スキンのウェイトをロックする、またはロックを外す。
 
         lockInfluenceWeightsアトリビュートを書き換える。これはジョイント側のアトリビュートなので、
         どのskinClusterでも同じ値になる。
         いくつものジョイントをまとめて設定するなら、:meth:`SkinCluster.setInfluencesLocked
-        <mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked>` を使う。fast引数は無い。
+        <mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked>` を使う。
 
         Args:
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがbool以外の場合。
+            TypeError: state・fast・checkがbool以外の場合。
             RuntimeError: lockInfluenceWeightsが無い(インフルエンスになっていない)場合、
                 またはそのアトリビュートがロックされているか入力が接続されている場合。
         """
@@ -937,7 +943,7 @@ class Joints(Nodes[Joint]):
                 またはMayaでの変更が失敗した場合。
         """
         ...
-    def delete(self, *, safe: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -946,7 +952,7 @@ class Joints(Nodes[Joint]):
         インフルエンスから外す必要がなく、ノードの種類を問わずまとめて削除したいときは ``mlib.delete`` を使う。
 
         Args:
-            safe (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
+            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
@@ -1042,7 +1048,7 @@ class Joints(Nodes[Joint]):
     def getDegreesOfFreedom(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getDegreesOfFreedom` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setDegreesOfFreedom(self, axes: str) -> list[None]:
+    def setDegreesOfFreedom(self, axes: str, *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.setDegreesOfFreedom` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getInverseScale(self) -> list[Scale]:
@@ -1054,7 +1060,7 @@ class Joints(Nodes[Joint]):
     def isInfluenceLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.isInfluenceLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setInfluenceLocked(self, state: bool = ...) -> list[None]:
+    def setInfluenceLocked(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.setInfluenceLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getBoneSegments(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[list[tuple[Vector, Vector]]]:
@@ -1186,7 +1192,7 @@ class Joints(Nodes[Joint]):
     def getRotateOrder(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotateOrder(self, order: str | int, preserve: bool = ...) -> list[None]:
+    def setRotateOrder(self, order: str | int, preserve: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:
@@ -1402,7 +1408,7 @@ class Joints(Nodes[Joint]):
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., getPlug: bool = ..., *, safe: bool = ..., fast: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., ln: str = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., pxy: Plug | str | None = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., cb: bool = ..., **kwargs) -> list[Plug | None]:
+    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., getPlug: bool = ..., *, skipExisting: bool = ..., fast: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., ln: str = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., pxy: Plug | str | None = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., cb: bool = ..., **kwargs) -> list[Plug | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.addAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def moveAttrOrder(self, name: str, offset: int) -> list[None]:

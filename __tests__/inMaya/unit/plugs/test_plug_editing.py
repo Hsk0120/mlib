@@ -289,12 +289,12 @@ class RerunSafeTest(_Case):
         first.set(5.0)
         self.flushUndo()
         for fast in (False, True):
-            again = self.node.addAttr("amount", "double", defaultValue=2.0, minValue=3.0, safe=True, fast=fast)
+            again = self.node.addAttr("amount", "double", defaultValue=2.0, minValue=3.0, skipExisting=True, fast=fast)
             self.assertEqual(again, first)
             self.assertEqual((again.get(), again.getDefault(), again.getMin()), (5.0, 1.0, 0.0))
-            self.assertIsNone(self.node.addAttr("amount", "double", getPlug=False, safe=True, fast=fast))
+            self.assertIsNone(self.node.addAttr("amount", "double", getPlug=False, skipExisting=True, fast=fast))
         self.assertUndoEmpty()
-        created = self.node.addAttr("fresh", "double", safe=True)
+        created = self.node.addAttr("fresh", "double", skipExisting=True)
         self.assertEqual(created.getType(), "double")
 
     def test_add_attr_safe_type_mismatch(self):
@@ -312,14 +312,14 @@ class RerunSafeTest(_Case):
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(TypeError):
-                    self.node.addAttr(*args, safe=True, **kwargs)
-        self.assertEqual(self.node.addAttr("vec", "double3", safe=True).getType(), "double3")
-        self.assertEqual(self.node.addAttr("items", "double", multi=True, safe=True).getType(), "double")
-        self.assertEqual(self.node.addAttr("mode", "enum", enumName="x:y", safe=True).getEnumNames(), [("a", 0), ("b", 1)])
+                    self.node.addAttr(*args, skipExisting=True, **kwargs)
+        self.assertEqual(self.node.addAttr("vec", "double3", skipExisting=True).getType(), "double3")
+        self.assertEqual(self.node.addAttr("items", "double", multi=True, skipExisting=True).getType(), "double")
+        self.assertEqual(self.node.addAttr("mode", "enum", enumName="x:y", skipExisting=True).getEnumNames(), [("a", 0), ("b", 1)])
         with self.assertRaises(RuntimeError):
             self.node.addAttr("amount", "double")
         with self.assertRaises(TypeError):
-            self.node.addAttr("amount", "double", safe=1)
+            self.node.addAttr("amount", "double", skipExisting=1)
 
     def test_connect_safe(self):
         """同じ接続があれば何もせず接続先を返す。別の入力・ロックは従来どおりRuntimeError。"""
@@ -327,27 +327,27 @@ class RerunSafeTest(_Case):
         result = source.connectTo(destination)
         self.flushUndo()
         for fast in (False, True):
-            self.assertEqual(source.connectTo(destination, safe=True, fast=fast), result)
-            self.assertEqual(destination.connect(source, safe=True, fast=fast), result)
+            self.assertEqual(source.connectTo(destination, skipExisting=True, fast=fast), result)
+            self.assertEqual(destination.connect(source, skipExisting=True, fast=fast), result)
         self.assertUndoEmpty()
         with self.assertRaises(RuntimeError):
             source.connectTo(destination)
         with self.assertRaises(RuntimeError):
             source >> destination
         with self.assertRaises(RuntimeError):
-            self.other.getPlug("tz").connectTo(destination, safe=True)
+            self.other.getPlug("tz").connectTo(destination, skipExisting=True)
         locked = self.node.getPlug("tz")
         locked.setLocked(True)
         with self.assertRaises(RuntimeError):
-            source.connectTo(locked, safe=True)
-        fresh = self.other.getPlug("ty").connectTo(self.node.getPlug("sx"), safe=True)
+            source.connectTo(locked, skipExisting=True)
+        fresh = self.other.getPlug("ty").connectTo(self.node.getPlug("sx"), skipExisting=True)
         self.assertEqual(cmds.listConnections(fresh.getFullName(), source=True, plugs=True), [self.other.getName() + ".translateY"])
 
     def test_connect_safe_through_conversion(self):
         """unitConversion経由の同じ接続もsafeでは何もしない(safe=FalseはAlready connectedのRuntimeError)。"""
         source, destination = self.other.getPlug("rx"), self.node.getPlug("tx")
         source.connectTo(destination)
-        self.assertEqual(source.connectTo(destination, safe=True), destination)
+        self.assertEqual(source.connectTo(destination, skipExisting=True), destination)
         with self.assertRaisesRegex(RuntimeError, "すでに接続されています"):
             source.connectTo(destination)
         self.assertEqual(len(cmds.ls(cmds.listConnections(destination.getFullName(), source=True) or [], type="unitConversion")), 1)
@@ -357,7 +357,7 @@ class RerunSafeTest(_Case):
         cmds.addAttr(self.full, longName="links", attributeType="message", multi=True, indexMatters=False)
         multi = self.node.getPlug("links")
         first = self.other.getPlug("message").connectTo(multi, nextAvailable=True)
-        self.assertEqual(self.other.getPlug("message").connectTo(multi, nextAvailable=True, safe=True), first)
+        self.assertEqual(self.other.getPlug("message").connectTo(multi, nextAvailable=True, skipExisting=True), first)
         self.assertEqual(multi.getIndices(), [first.getIndex()])
 
     def test_set_alias_safe(self):
@@ -365,14 +365,14 @@ class RerunSafeTest(_Case):
         plug = self.node.getPlug("ty")
         plug.setAlias("height")
         self.flushUndo()
-        self.assertIsNone(plug.setAlias("height", safe=True))
+        self.assertIsNone(plug.setAlias("height", skipExisting=True))
         self.assertUndoEmpty()
         with self.assertRaises(RuntimeError):
             plug.setAlias("height")
         with self.assertRaises(RuntimeError):
-            self.node.getPlug("tz").setAlias("height", safe=True)
+            self.node.getPlug("tz").setAlias("height", skipExisting=True)
         with self.assertRaises(TypeError):
-            plug.setAlias("height", safe=None)
+            plug.setAlias("height", skipExisting=None)
 
     def test_rerun_friendly_without_safe(self):
         """safeを足さなかった操作は再実行しても失敗しない(コンストレイントの再利用・ドリブンキーの置換)。"""

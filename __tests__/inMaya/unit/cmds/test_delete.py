@@ -111,7 +111,7 @@ class DeleteBasicsTest(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     mlib.delete(node, fast=value)
                 with self.assertRaises(TypeError):
-                    node.delete(safe=value)
+                    node.delete(skipConnected=value)
                 self.assertTrue(node.isValid())
 
     def test_fast_component_rejection_preserves_all_targets(self):
@@ -168,10 +168,10 @@ class DeleteBasicsTest(unittest.TestCase):
                 source = child.getPlug("message")
                 destination = receiver.getPlug("owner")
                 destination.connect(source)
-                self.assertIsNone(parent.delete(safe=True, fast=fast))
+                self.assertIsNone(parent.delete(skipConnected=True, fast=fast))
                 self.assertTrue(parent.isValid() and child.isValid())
                 destination.disconnect(source, fast=fast)
-                parent.delete(safe=True, fast=fast)
+                parent.delete(skipConnected=True, fast=fast)
                 self.assertFalse(parent.isValid() or child.isValid())
                 self.assertTrue(receiver.isValid())
 
