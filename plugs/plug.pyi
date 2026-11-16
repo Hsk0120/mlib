@@ -13,7 +13,7 @@ from ..core.attributeType import _convert_angles, _convert_times, _convert_units
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
-from ..decorator import _require_bool, _undo_recording, _validated_flags, undoChunk
+from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _angle_unit, _time_unit
 from typing import Any, Callable, Dict, Literal, Optional, Union
 from ..nodes.node import Node
@@ -2739,6 +2739,7 @@ class Plugs(_ListMethods):
     先に出てきた方だけを残し、渡した順を保つ。
 
     - ``len``・番号での取得(sliceならPlugs)・``for``・``bool``・``in``・``+``・``==``・:meth:`sort` が使える。
+    - 自分に無い公開メソッドの名前(``get``・``set`` など)は、各要素の同じ名前のメソッドへ転送し、戻り値を同じ順のリストで返す。
     - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
       番号への代入・``del``・``+=`` も使える。足す値は作るときと同じ決まりで確かめ、すでにある要素は足さない。
     - コピーやスライスは同じPlugを共有する。値は持たない。
@@ -2771,6 +2772,27 @@ class Plugs(_ListMethods):
             TypeError: アトリビュートを指さない値や、対応していない型を含む場合。
             ValueError: 空文字列や空のMPlugを含む場合。
             RuntimeError: 名前に当たるアトリビュートが見つからない場合、または無効な(削除された)アトリビュートを含む場合。
+        """
+        ...
+    def __getattr__(self, name: str) -> Callable[..., list]:
+        """1つのPlugのメソッドを、すべての要素へ呼ぶ関数として取得する。
+
+        このクラスに無い公開メソッドの名前(``get``・``set`` など)を取得すると、関数が返る。
+        その関数は、各要素の同じ名前のメソッドを同じ引数で順に呼び、戻り値を同じ順のリストで返す
+        (:class:`~mlib.nodes.node.Nodes` と同じ)。
+
+        - 呼ぶ前に、すべての要素がそのメソッドを持つことを確かめる。
+        - 通常は1回のUndoにまとめる。``fast=True`` は、そのまま各メソッドへ渡す。
+        - 要素が無いときは :class:`Plug` のメソッドの名前を受け付け、空のリストを返す。
+
+        Args:
+            name (str): 1つのPlugの公開メソッドの名前。
+
+        Returns:
+            Callable[..., list]: 各要素のメソッドを呼び、戻り値を要素の順のリストで返す関数。
+
+        Raises:
+            AttributeError: ``_`` で始まる名前の場合、またはどの要素(空なら :class:`Plug`)も持たないメソッドの名前の場合。
         """
         ...
     def __len__(self) -> int:
@@ -2852,6 +2874,13 @@ class Plugs(_ListMethods):
             list[str]: 各Plugの :meth:`Plug.getFullName`。無効なPlugは空文字列。
         """
         ...
+    def getNames(self) -> list[str]:
+        """持っている順に、アトリビュートの名前を返す(:meth:`Plug.getName` を並べたもの)。
+
+        Returns:
+            list[str]: 各Plugの :meth:`Plug.getName`。無効なPlugは空文字列。
+        """
+        ...
     @classmethod
     def _from_plugs(cls, plugs: Iterable[Plug]) -> Plugs:
         """すでにPlugになっている並びから、重複を除いて作る。Plugにし直す処理は省く(lsの結果で使う)。
@@ -2863,7 +2892,7 @@ class Plugs(_ListMethods):
             Plugs: 新しいコレクション。
         """
         ...
-    def _coerce(self, value: Plug | om2.MPlug | str) -> Plug:
+    def _resolve_item(self, value: Plug | om2.MPlug | str) -> Plug:
         """追加する値をPlugへ解決し、有効かを確かめる。
 
         Args:
@@ -2876,4 +2905,268 @@ class Plugs(_ListMethods):
             TypeError: アトリビュートを指さない値や、対応していない型の場合。
             RuntimeError: 名前に当たるアトリビュートが見つからない場合、または無効なアトリビュートの場合。
         """
+        ...
+    def getNode(self) -> list[Node]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getNode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isValid(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isValid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def mplug(self) -> list[om2.MPlug]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.mplug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getName(self) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getShortName(self) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getShortName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getFullName(self) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getLongName(self) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getLongName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getNiceName(self) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getNiceName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getType(self) -> list[str | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isMulti(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isMulti` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isCompound(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isCompound` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isMultiElement(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isMultiElement` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isChild(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isChild` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getParent(self) -> list[Plug | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMulti(self) -> list[MultiPlug | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getMulti` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getIndex(self) -> list[int]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSiblings(self) -> list[Plugs]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSiblings` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAllParents(self, includeMulti: bool = ...) -> list[Plugs]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAllParents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isKeyable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isKeyable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setKeyable(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setKeyable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setFlags(self, *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isChannelBox(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isChannelBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setChannelBox(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setChannelBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def show(self, keyable: bool = ..., *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.show` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hide(self, *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.hide` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isConnected(self, *, source: bool = ..., destination: bool = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isSource(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isSource` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDestination(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isDestination` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isFromReferencedFile(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isHidden(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isHidden` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDynamic(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isDynamic` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isProxy(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isProxy` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getProxyMaster(self) -> list[Plug | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getProxyMaster` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isReadable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isReadable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isWritable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isWritable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isSettable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isSettable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isStorable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isStorable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isConnectable(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isConnectable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isUsedAsColor(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isUsedAsColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isWorldSpace(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isWorldSpace` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hasMin(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.hasMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hasMax(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.hasMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hasSoftMin(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.hasSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hasSoftMax(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.hasSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSoftMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setSoftMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSoftMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setSoftMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getDefault` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDefaultValue(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isDefaultValue` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAlias(self) -> list[str | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAlias` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setAlias(self, name: str | None = ..., *, skipExisting: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setAlias` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setKey(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., **kwargs) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def removeKey(self, *, time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.removeKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def moveKey(self, *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.moveKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAnimLayers(self, selected: bool = ..., exact: bool = ...) -> list[Nodes]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimLayers` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getEnumName(self, value: int | None = ...) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getEnumNames(self) -> list[list[tuple[str, int]]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setEnumNames(self, names: Iterable[str]) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setEnumNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getEnumValue(self, name: str) -> list[int]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumValue` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isLocked(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setLocked(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isMuted(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isMuted` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setMuted(self, state: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setMuted` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def delete(self, *, force: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.delete` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.get` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def set(self, value: object, *, safe: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> list[int | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.set` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setIfChanged(self, value: bool | int | float | str, *, unlock: bool = ..., fast: bool = ..., check: bool = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setIfChanged` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def reset(self, *, fast: bool = ..., check: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.reset` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSource(self, *, skipConversionNodes: bool = ..., **kwargs) -> list[Plug | Node | tuple | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSource` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDestinations(self, *, skipConversionNodes: bool = ..., **kwargs) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getDestinations` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAffected(self) -> list[Plugs]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAffected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAffecting(self) -> list[Plugs]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAffecting` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAnimCurve(self, layer: Node | str | None = ...) -> list[Node | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurve` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getLayeredPlug(self, layer: Node | str | None = ...) -> list[Plug | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getLayeredPlug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isConnectedTo(self, other: Plug | om2.MPlug | str, *, source: bool = ..., destination: bool = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isConnectedTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., skipExisting: bool = ..., fast: bool = ...) -> list[Plug]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.connect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def disconnectInput(self, *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.disconnectInput` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def disconnect(self, source: Plug | om2.MPlug | str | None = ..., *, force: bool = ..., f: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> list[Plug | list[Plug]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.disconnect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def disconnectAll(self, *, source: bool = ..., destination: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.disconnectAll` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def connectTo(self, destination: Plug | om2.MPlug | str, *, skipExisting: bool = ..., fast: bool = ..., **kwargs) -> list[Plug]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.connectTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def insertInput(self, node: str | Node, inputAttribute: str, outputAttribute: str) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.insertInput` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def asString(self) -> list[str]:
+        """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...

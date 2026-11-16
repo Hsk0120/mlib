@@ -334,7 +334,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         shape = self.curve(self.POINTS)
         before = shape.getCvPositions()
         self.flushUndo()
-        self.assertIsNone(shape.reverse())
+        self.assertIsNone(shape.reverseDirection())
         self.assertUndoesInOneStep(
             lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in before]),
             lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in reversed(before)]),
@@ -343,12 +343,14 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
     def test_empty_and_deleted(self):
         """形状データの無いカーブと削除済みのカーブは RuntimeError。"""
         empty = mlib.createNode("nurbsCurve", name=self.name("empty#"))
-        for call in (empty.getKnots, empty.isPlanar, empty.getArea, empty.rebuild, empty.reverse):
+        for call in (empty.getKnots, empty.isPlanar, empty.getArea, empty.rebuild, empty.reverseDirection):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):
                     call()
         shape = self.curve(self.POINTS)
-        self.assertDeletedRaises(shape, (lambda node: node.getKnots(), lambda node: node.isPlanar(), lambda node: node.rebuild(), lambda node: node.reverse()))
+        self.assertDeletedRaises(
+            shape, (lambda node: node.getKnots(), lambda node: node.isPlanar(), lambda node: node.rebuild(), lambda node: node.reverseDirection())
+        )
 
 
 if __name__ == "__main__":

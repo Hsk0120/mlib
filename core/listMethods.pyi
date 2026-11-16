@@ -13,7 +13,7 @@ class _ListMethods:
     - 追加する値は、そのクラスを作るときと同じ決まりで解決して確かめる(名前も渡せる。型の合わないものはTypeError)。
     - 同じ要素は1つしか持たない。すでにある要素を追加しても、何も変わらない。
 
-    派生クラスは :meth:`_coerce` を実装する。
+    派生クラスは :meth:`_resolve_item` を実装する。
     """
     def __contains__(self, value: object) -> bool:
         """要素として持っているかを返す。
@@ -169,7 +169,19 @@ class _ListMethods:
             None: 値を返さない。
         """
         ...
-    def _coerce(self, value: object) -> Any:
+    def _resolve_new_items(self, values: list[object]) -> list[object]:
+        """これから足す値の並びを、このクラスの要素へ解決して確かめる。
+
+        既定は :meth:`_resolve_item` を1つずつ呼ぶだけ。派生クラスは、足す値に合わせて自身の型を広げるときに上書きする。
+
+        Args:
+            values (list[object]): 足す値の並び。
+
+        Returns:
+            list[object]: このクラスの要素の並び。
+        """
+        ...
+    def _resolve_item(self, value: object) -> Any:
         """追加する値を、このクラスの要素へ解決して確かめる。
 
         Args:

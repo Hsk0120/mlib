@@ -91,6 +91,23 @@ AttributeErrorになり、ノードへ任意のPython属性は追加できませ
 ``get(unit="rad")``・``set(..., unit="rad")`` を指定します。``rotate`` の ``get()`` が返す
 :class:`~mlib.maths.EulerRotate` や :class:`~mlib.maths.Quaternion` などの数学型は、OpenMayaと同じく
 内部がラジアンで、値自身が単位を持つため ``set()`` へそのまま渡せます。
+
+.. warning::
+
+   角度の値を取り出して入れ直すときは、数学型のオブジェクトをそのまま渡すか、``asDegrees()`` を使います。
+   :class:`~mlib.maths.EulerRotate` は度で表示されますが、``list()``・``tuple()``・添字・``.x`` で取り出す中身はラジアンです。
+   一方、3つの数値を ``set`` 系へ渡すと度として扱うので、取り出した中身をそのまま渡すと値がずれます(例外にはなりません)。
+
+   .. code-block:: python
+
+      rotation = node.getRotate()            # EulerRotate(degrees=(10, 20, 30), order='xyz') と表示される
+      other.setRotate(rotation)              # 正しい。オブジェクトをそのまま渡す
+      other.setRotate(rotation.asDegrees())  # 正しい。度の3つの数値にして渡す
+      other.setRotate(tuple(rotation))       # 誤り。中身はラジアンなので、約0.17度・0.35度・0.52度が書かれる
+
+   ``getRotate()``・``getJointOrient()``・``getPreferredAngle()``・``setRotate(..., get=True)`` と、
+   ``getPlug("rotate").get()`` が同じ決まりです。``getPlug("rotateX").get()`` のような1つの角度は、度の数値を返します。
+
 ``time1.outTime`` のような時間アトリビュートの ``get()`` はフレームを返し、秒で扱う場合は
 ``get(timeUnit="sec")``・``set(..., timeUnit="sec")`` を指定します。アニメーションカーブのキー
 (:meth:`~mlib.nodes.animCurve.AnimCurve.setKey`・``getKeyInputs()``・``moveKey()`` 等)と
@@ -116,7 +133,6 @@ Plugを現在のUI単位で扱う場合は ``get(uiUnits=True)``・``set(..., ui
 
 対応するAPIの ``fast=True`` はUndoなしの直接更新で、Undo設定は変更しません。
 ``Plug.set(safe=True)`` は対応する書込み失敗数を返し、成功した成分の更新は残します。
-未対応条件や他のsetterのsafeの意味は、各メソッドを参照してください。
 Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Mayaと同じ長短の名前を受け付け、長短の一方だけを指定します。
 署名の ``_UNSET``・``Ellipsis`` は省略判定用の内部値です。
 
@@ -146,7 +162,11 @@ Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Maya�
 同じシェイプの同じ種類のコンポーネントだけなら :class:`~mlib.components.vertex.Vertices`・
 :class:`~mlib.components.edge.Edges`・:class:`~mlib.components.face.Faces`・:class:`~mlib.components.uv.UVs`・
 :class:`~mlib.components.cv.CVs` です。ノードとアトリビュートなど種類が混在する場合だけ list を返します。
-どの集まりも ``len``・``for``・添字・``bool``・``+``・``==``・``sort()`` に対応し、そのまま ``maya.cmds`` へ渡せます。
+ノードの要素がすべてジョイントなら ``Joints``、すべてskinClusterなら ``SkinClusters`` になります
+(``getChildren()`` などの一覧を返すメソッドも同じです)。
+どの集まりも ``len``・``for``・添字・``bool``・``in``・``+``・``==``・``sort()`` と、Pythonのlistと同じ ``append``・``extend``・
+``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` に対応し、そのまま ``maya.cmds`` へ渡せます。
+同じ要素は1つしか持たないので、すでにある要素を ``append`` しても何も変わりません。
 1件だけ取り出す場合も、結果があることを確認して ``nodes[0]`` のように取得します。
 一致する対象がなければ空の ``Nodes`` になります。検索はノードの作成や選択変更を行いません。
 集まりは同じ対象の重複を除き、上の ``vertices`` は4つの頂点を持つ ``Vertices`` です。
@@ -236,7 +256,8 @@ Mayaの規則で連番化されます。``name``・``parent``・``shared``・``s
 複数形(``Joints``・``SkinClusters`` 等)は、重複を除いたノード参照を保持順に持つ容器です。
 よく使う書込み(``setAttrFlags``・``resetAttrs``・``setLocked``・``setOverrideColor``・``setOutlinerColor``・``setVisibility``・
 ``show``・``hide``・``setParent``、``Joints`` では ``setRadius``・``setSegmentScaleCompensate`` も)は
-容器から全要素へまとめて適用でき、1回のUndoで戻ります。それ以外の操作は単数のメソッドを ``for`` で呼びます。
+容器から全要素へまとめて適用でき、1回のUndoで戻ります。それ以外の単数のメソッドも、同じ名前で容器から呼べます
+(``nodes.getTranslation()`` や ``plugs.get()`` は、各要素の戻り値を並べたlistを返します)。
 
 .. code-block:: python
 

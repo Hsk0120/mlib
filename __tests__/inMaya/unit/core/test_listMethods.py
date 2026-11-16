@@ -154,11 +154,13 @@ class PluralReturnTest(NamespaceCase):
         skin = mlib.bindSkin([root, child], transform)
         cases = (
             (transform.getShapes(), mlib.Nodes, [mesh]),
-            (root.getChildren(), mlib.Nodes, [child]),
-            (child.getParents(), mlib.Nodes, [root]),
+            # 要素がすべてジョイントなら、NodesでなくJointsで返る。
+            (root.getChildren(), mlib.Joints, [child]),
+            (child.getParents(), mlib.Joints, [root]),
             (root.getChainFromHere(), mlib.Joints, [root, child]),
             (transform.getSkinClusters(), mlib.SkinClusters, [skin]),
-            (skin.getInfluences(), mlib.Nodes, [root, child]),
+            (skin.getInfluences(), mlib.Joints, [root, child]),
+            (transform.getParents(), mlib.Nodes, []),
             (root.getPlug("translate").getChildren(), mlib.Plugs, [root.getPlug(name) for name in ("tx", "ty", "tz")]),
         )
         for result, expected_type, expected in cases:
@@ -172,14 +174,97 @@ class PluralReturnTest(NamespaceCase):
         root.getPlug("tx").connectTo(child.getPlug("tx"))
         self.assertEqual(root.getPlug("tx").getDestinations(), [child.getPlug("tx")])
         self.assertIs(type(root.getPlug("tx").getDestinations()), mlib.Plugs)
-        self.assertIs(type(root.getPlug("tx").getDestinations(asNode=True)), mlib.Nodes)
+        self.assertIs(type(root.getPlug("tx").getDestinations(asNode=True)), mlib.Joints)
         self.assertIs(type(root.getPlug("tx").getDestinations(asPair=True)), list)
         self.assertIs(type(root.getConnections(source=False, type="joint")), mlib.Plugs)
+        # mlib.lsも、typeを指定しなくても、すべてジョイントならJointsで返す。
+        self.assertIs(type(mlib.ls(root.getFullName(), child.getFullName())), mlib.Joints)
+        self.assertIs(type(mlib.ls(root.getFullName(), transform.getFullName())), mlib.Nodes)
+        self.assertEqual(root.getChildren().sortedByDepth(), [child])
+        # 自動でJointsになった集まりは、ジョイント以外を足すとNodesへ戻る(中身によって足せなくならない)。
+        children = root.getChildren()
+        self.assertIs(type(children), mlib.Joints)
+        self.assertIn(transform, children + [transform])
+        self.assertIs(type(children + [transform]), mlib.Nodes)
+        self.assertIs(type([transform] + children), mlib.Nodes)
+        self.assertIs(type(children + [root]), mlib.Joints)
+        self.assertIs(type(children), mlib.Joints)
+        self.assertNotIn(transform, children)
+        self.assertIs(type(children), mlib.Joints)
+        children.append(root)
+        self.assertIs(type(children), mlib.Joints)
+        children.append(transform)
+        self.assertIs(type(children), mlib.Nodes)
+        self.assertEqual(children, [child, root, transform])
+        extended = root.getChildren()
+        with self.assertRaises(RuntimeError):
+            extended.extend([transform, "noSuchNode_mlibPluralReturn"])
+        self.assertIs(type(extended), mlib.Joints)
+        self.assertEqual(extended, [child])
+        # 自分で作ったJointsは、これまでどおりジョイント以外を拒否する。
+        with self.assertRaises(TypeError):
+            mlib.Joints([root]).append(transform)
+        with self.assertRaises(TypeError):
+            mlib.Joints([root]) + [transform]
         # 返った集まりは、そのままlistのように足せる。
         shapes = transform.getShapes()
         shapes.append(root)
         self.assertEqual(shapes, [mesh, root])
         self.assertEqual(transform.getShapes(), [mesh])
+
+
+class ForwardingTest(NamespaceCase):
+    """複数形から、各要素のメソッドを同じ名前で呼べる。名前の一覧は getNames・getFullNames の両方がある。"""
+
+    PREFIX = "mlibPluralForward_"
+
+    def test_plugs_forward_to_each_plug(self):
+        a = mlib.getNode(self.make("transform", "node#"))
+        plugs = mlib.Plugs([a.getPlug("tx"), a.getPlug("ty")])
+        self.flushUndo()
+        self.assertEqual(plugs.set(3), [None, None])
+        self.assertEqual(plugs.get(), [3.0, 3.0])
+        self.assertUndoesInOneStep(lambda: self.assertEqual(plugs.get(), [0.0, 0.0]), lambda: self.assertEqual(plugs.get(), [3.0, 3.0]))
+        self.flushUndo()
+        plugs.set(5, fast=True)
+        self.assertEqual(plugs.get(), [5.0, 5.0])
+        self.assertUndoEmpty()
+        self.assertEqual(plugs.isLocked(), [False, False])
+        self.assertEqual(mlib.Plugs().get(), [])
+        with self.assertRaises(AttributeError):
+            plugs.noSuchMethod()
+        with self.assertRaises(AttributeError):
+            plugs._private()
+
+    def test_names(self):
+        parent = mlib.getNode(self.make("transform", "parent#"))
+        child = mlib.getNode(self.make("transform", "child#", parent=parent.getFullName()))
+        nodes = mlib.Nodes([parent, child])
+        self.assertEqual(nodes.getNames(), [parent.getName(), child.getName()])
+        self.assertEqual(nodes.getFullNames(), [parent.getFullName(), child.getFullName()])
+        plugs = mlib.Plugs([child.getPlug("tx")])
+        self.assertEqual(plugs.getNames(), [child.getPlug("tx").getName()])
+        self.assertEqual(plugs.getFullNames(), [child.getPlug("tx").getFullName()])
+
+    def test_renamed_scene_methods_are_forwarded(self):
+        """listのメソッドと同じ名前だった操作は、別の名前にしてあるので、複数形からもシーンを操作できる。"""
+        a = mlib.getNode(self.make("transform", "node#"))
+        first = mlib.getNode(cmds.sets(a.getFullName(), name=self.name("set#")))
+        sets = mlib.Nodes([first])
+        self.assertFalse(hasattr(mlib.ObjectSet, "clear"))
+        self.assertFalse(hasattr(mlib.NurbsCurve, "reverse"))
+        sets.removeAllMembers()
+        self.assertEqual(first.getMembers(), [])
+        self.assertEqual(len(sets), 1)
+        # clear は、集まりの中身を空にするだけで、シーンは変えない。
+        sets.clear()
+        self.assertEqual(len(sets), 0)
+        self.assertTrue(first.isValid())
+        curve = mlib.createCurve([(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 1, 0)], name=self.name("curve#"))
+        start = cmds.pointPosition(curve.getFullName() + ".cv[0]")
+        curves = mlib.Nodes([curve])
+        curves.reverseDirection()
+        self.assertNotEqual(cmds.pointPosition(curve.getFullName() + ".cv[0]"), start)
 
 
 if __name__ == "__main__":

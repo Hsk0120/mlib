@@ -901,7 +901,9 @@ def _ls_return(stub, _node):
     Returns:
         str: 戻り値の注釈。
     """
-    return stub.annotation("Nodes | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]", "ls(return)")
+    return stub.annotation(
+        "Nodes | Joints | SkinClusters | Plugs | Vertices | Edges | Faces | UVs | CVs | Keyframes | list[Node | Plug | Component]", "ls(return)"
+    )
 
 
 def _connection_variants(stub, node, qualname):
@@ -1294,9 +1296,6 @@ def _forwards(modules, collections, index):
     result = {}
     for module, mapping in collections.items():
         for collection, item in mapping.items():
-            if "Plugs" in mro(collection):
-                # Plugs は要素への転送を持たない。
-                continue
             own = members(collection)
             found = {}
             for name in (item,) + EXTRA_FORWARD_CLASSES.get(collection, ()):

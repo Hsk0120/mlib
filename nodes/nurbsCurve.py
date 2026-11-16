@@ -605,7 +605,7 @@ class NurbsCurve(Shape):
                 replaceOriginal=True,
             )
 
-    def reverse(self):
+    def reverseDirection(self):
         """カーブの向き(パラメーターが増える向き)を反転する(``cmds.reverseCurve``)。
 
         ``cmds.reverseCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
@@ -619,7 +619,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         self._geometry_fn()
-        with undoChunk("mlibNurbsCurveReverse"), preservedSelection():
+        with undoChunk("mlibNurbsCurveReverseDirection"), preservedSelection():
             cmds.reverseCurve(self.getFullName(), constructionHistory=False, replaceOriginal=True)
 
     def getCollocatedCVGroups(self, worldSpace=_UNSET, *, tolerance=1e-06, ws=_UNSET):

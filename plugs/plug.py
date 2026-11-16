@@ -26,7 +26,7 @@ from ..core.attributeType import (
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
-from ..decorator import _require_bool, _undo_recording, _validated_flags, undoChunk
+from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _angle_unit, _time_unit
 
 if TYPE_CHECKING:
@@ -4234,6 +4234,7 @@ class Plugs(_ListMethods):
     先に出てきた方だけを残し、渡した順を保つ。
 
     - ``len``・番号での取得(sliceならPlugs)・``for``・``bool``・``in``・``+``・``==``・:meth:`sort` が使える。
+    - 自分に無い公開メソッドの名前(``get``・``set`` など)は、各要素の同じ名前のメソッドへ転送し、戻り値を同じ順のリストで返す。
     - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
       番号への代入・``del``・``+=`` も使える。足す値は作るときと同じ決まりで確かめ、すでにある要素は足さない。
     - コピーやスライスは同じPlugを共有する。値は持たない。
@@ -4271,6 +4272,43 @@ class Plugs(_ListMethods):
                 raise RuntimeError("無効なアトリビュートは収集できません")
             items.append(plug)
         self._items = list(dict.fromkeys(items))
+
+    def __getattr__(self, name):
+        """1つのPlugのメソッドを、すべての要素へ呼ぶ関数として取得する。
+
+        このクラスに無い公開メソッドの名前(``get``・``set`` など)を取得すると、関数が返る。
+        その関数は、各要素の同じ名前のメソッドを同じ引数で順に呼び、戻り値を同じ順のリストで返す
+        (:class:`~mlib.nodes.node.Nodes` と同じ)。
+
+        - 呼ぶ前に、すべての要素がそのメソッドを持つことを確かめる。
+        - 通常は1回のUndoにまとめる。``fast=True`` は、そのまま各メソッドへ渡す。
+        - 要素が無いときは :class:`Plug` のメソッドの名前を受け付け、空のリストを返す。
+
+        Args:
+            name (str): 1つのPlugの公開メソッドの名前。
+
+        Returns:
+            Callable[..., list]: 各要素のメソッドを呼び、戻り値を要素の順のリストで返す関数。
+
+        Raises:
+            AttributeError: ``_`` で始まる名前の場合、またはどの要素(空なら :class:`Plug`)も持たないメソッドの名前の場合。
+        """
+        items = self.__dict__.get("_items")
+        classes = [type(plug) for plug in items] if items else [Plug]
+        if name.startswith("_") or items is None or not any(callable(getattr(cls, name, None)) for cls in classes):
+            raise AttributeError(f"{type(self).__name__!r}オブジェクトにアトリビュート{name!r}はありません")
+
+        def forward(*args, **kwargs):
+            missing = [plug for plug in items if not callable(getattr(type(plug), name, None))]
+            if missing:
+                raise TypeError(f"{type(self).__name__}.{name}()には、すべての要素が{name}()に対応している必要があります。{missing[0]!r}は対応していません")
+            with _edit_context(f"mlib{type(self).__name__}{name[:1].upper()}{name[1:]}", bool(kwargs.get("fast", False))):
+                return [getattr(plug, name)(*args, **kwargs) for plug in items]
+
+        forward.__name__ = name
+        forward.__qualname__ = f"{type(self).__name__}.{name}"
+        forward.__doc__ = f"各要素の {name}() を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"
+        return forward
 
     def __iter__(self):
         """持っている順に、要素を1つずつ返す。
@@ -4389,6 +4427,14 @@ class Plugs(_ListMethods):
         """
         return [plug.getFullName() for plug in self._items]
 
+    def getNames(self):
+        """持っている順に、アトリビュートの名前を返す(:meth:`Plug.getName` を並べたもの)。
+
+        Returns:
+            list[str]: 各Plugの :meth:`Plug.getName`。無効なPlugは空文字列。
+        """
+        return [plug.getName() for plug in self._items]
+
     @classmethod
     def _from_plugs(cls, plugs):
         """すでにPlugになっている並びから、重複を除いて作る。Plugにし直す処理は省く(lsの結果で使う)。
@@ -4403,7 +4449,7 @@ class Plugs(_ListMethods):
         result._items = list(dict.fromkeys(plugs))
         return result
 
-    def _coerce(self, value):
+    def _resolve_item(self, value):
         """追加する値をPlugへ解決し、有効かを確かめる。
 
         Args:

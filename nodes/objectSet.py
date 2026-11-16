@@ -111,7 +111,7 @@ class ObjectSet(Node):
                 return False
         return True
 
-    def clear(self):
+    def removeAllMembers(self):
         """セットに直接入っているメンバーを、すべて外す(``cmds.sets(clear=set)``)。
 
         ノードそのものは削除しない。fast引数は持たない(:meth:`addMembers` と同じ理由)。
@@ -124,7 +124,7 @@ class ObjectSet(Node):
             RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
         """
         self._require_valid("クリア")
-        with undoChunk("mlibObjectSetClear"):
+        with undoChunk("mlibObjectSetRemoveAllMembers"):
             cmds.sets(clear=self.getName())
 
     def getUnion(self, other):

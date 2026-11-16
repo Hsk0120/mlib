@@ -1487,7 +1487,7 @@ CASES = [
     C("Mesh.mirror", "Mesh.mirror indices worldSpace", s_cube, lambda c, **kw: c.nshape.mirror("YZ", worldSpace=True, indices=[0, 2], **kw)),
     C("NurbsCurve.mirror", "NurbsCurve.mirror", s_curve, lambda c, **kw: c.ncrvShape.mirror("y", pivot=(0.0, 1.0, 0.0), **kw)),
     C("NurbsCurve.rebuild", "NurbsCurve.rebuild", s_curve, lambda c, **kw: c.ncrvShape.rebuild(4, 3, keepRange="unit")),
-    C("NurbsCurve.reverse", "NurbsCurve.reverse", s_curve, lambda c, **kw: c.ncrvShape.reverse()),
+    C("NurbsCurve.reverseDirection", "NurbsCurve.reverseDirection", s_curve, lambda c, **kw: c.ncrvShape.reverseDirection()),
     C("Transform.mirrorGeometry", "Transform.mirrorGeometry", s_cube, lambda c, **kw: c.ncube.mirrorGeometry("x", worldSpace=True, **kw)),
     C("PointComponent.setPosition", "Vertex.setPosition", s_cube, lambda c, **kw: c.nshape.getVertex(0).setPosition((1.0, 2.0, 3.0), **kw)),
     C(
@@ -1697,7 +1697,7 @@ CASES = [
     # ObjectSet
     C("ObjectSet.addMembers", "ObjectSet.addMembers", s_set, lambda c, **kw: c.nset.addMembers(c.a, **kw)),
     C("ObjectSet.removeMembers", "ObjectSet.removeMembers", s_set_member, lambda c, **kw: c.nset.removeMembers(c.a, **kw)),
-    C("ObjectSet.clear", "ObjectSet.clear", s_set_member, lambda c, **kw: c.nset.clear()),
+    C("ObjectSet.removeAllMembers", "ObjectSet.removeAllMembers", s_set_member, lambda c, **kw: c.nset.removeAllMembers()),
     # Shading
     C("ShadingEngine.setShader", "ShadingEngine.setShader", s_shading, lambda c, **kw: c.nsg.setShader(c.lambert, **kw)),
     C("ShadingEngine.assign", "ShadingEngine.assign shape", s_shading, lambda c, **kw: c.nsg.assign(c.shape, **kw)),

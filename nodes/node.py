@@ -3169,6 +3169,7 @@ class Nodes(_ListMethods):
     - 同じノードで同じDAGパスのものだけを1つにまとめる。インスタンスのパスが違えば別の要素として持つ。
     - コピーやスライスは、同じNodeのオブジェクトを共有する。シーンのノードは複製しない。
     - ``len``・番号での取り出し(sliceなら同じ型)・``for``・``bool``・``in``・``+``・``==``・:meth:`sort` が使える。
+    - 一覧を返す取得系のメソッドや ``mlib.ls`` は、要素がすべてJointならJoints、すべてSkinClusterならSkinClustersで返す。
     - Pythonのlistと同じ名前の ``append``・``extend``・``insert``・``remove``・``pop``・``index``・``count``・``clear``・``reverse`` と、
       番号への代入・``del``・``+=`` も使える。足す値は作るときと同じ決まりで確かめ、すでにある要素は足さない。
       これらの名前は、各要素の同じ名前のメソッドへは転送しない(転送するときは :meth:`callEach` を使う)。
@@ -3356,6 +3357,9 @@ class Nodes(_ListMethods):
         """
         if not isinstance(other, (Nodes, list, tuple)):
             return NotImplemented
+        if self.__dict__.get("_promoted"):
+            # 自動でJoints・SkinClustersになった集まりは、足した結果に合う型を選び直す。
+            return Nodes._wrap(Nodes(self._items + Nodes._items_of(other)))
         return type(self)(self._items + Nodes._items_of(other))
 
     def __radd__(self, other):
@@ -3375,6 +3379,8 @@ class Nodes(_ListMethods):
         """
         if not isinstance(other, (list, tuple)):
             return NotImplemented
+        if self.__dict__.get("_promoted"):
+            return Nodes._wrap(Nodes(Nodes._items_of(other) + self._items))
         return type(self)(Nodes._items_of(other) + self._items)
 
     def sort(self, key=None, reverse=False):
@@ -3672,6 +3678,17 @@ class Nodes(_ListMethods):
         """
         return [node.getName() for node in self._items]
 
+    def getFullNames(self):
+        """各ノードの完全な名前を取得する(:meth:`Node.getFullName` を並べたもの)。
+
+        Returns:
+            list[str]: 要素の順の、DAGノードではワールドから始まる完全なパス、DGノードではノード名。
+
+        Raises:
+            RuntimeError: 無効なノードを含む場合。
+        """
+        return [node.getFullName() for node in self._items]
+
     def select(self, **kwargs):
         """すべてのノードを一度に選択する。
 
@@ -3746,13 +3763,54 @@ class Nodes(_ListMethods):
             items (Iterable[Node]): 有効で、重なりの無いNodeの並び。同じ型の集まりならその要素を写す。
 
         Returns:
-            Nodes: itemsを持っている順のまま持つ、新しい集まり。
+            Nodes: itemsを持っている順のまま持つ、新しい集まり。Nodesとして作るときに、要素がすべて
+                Joint(またはSkinCluster)なら、JointsやSkinClustersにする(要素が無ければNodes)。
+                こうして自動で決まった型の集まりは、あとで型の合わない要素を足すとNodesへ戻る
+                (:meth:`_resolve_new_items`・``+``)。``Joints([...])`` のように自分で作った集まりは、これまでどおりTypeErrorにする。
         """
+        items = list(getattr(items, "_items", items))
+        promoted = False
+        if cls is Nodes and items:
+            # 要素の型を決めている派生クラス(Joints・SkinClusters)で、全要素が当てはまるものがあればそれにする。
+            for candidate in Nodes.__subclasses__():
+                if all(isinstance(item, candidate.item_class) for item in items):
+                    cls = candidate
+                    promoted = True
+                    break
         result = object.__new__(cls)
-        result._items = list(getattr(items, "_items", items))
+        result._items = items
+        if promoted:
+            result._promoted = True
         return result
 
-    def _coerce(self, value):
+    def _resolve_new_items(self, values):
+        """これから足す値の並びをNodeへ解決して確かめる。自動で決まった型に合わない要素があれば、自身をNodesへ戻す。
+
+        Args:
+            values (list[object]): 足す値の並び。
+
+        Returns:
+            list[Node]: 解決したノードの並び。
+
+        Raises:
+            TypeError: 自分で作った集まり(``Joints([...])`` など)に、型の合わない要素を足そうとした場合。
+            RuntimeError: 名前を解決できない場合、または無効なノードの場合。
+        """
+        if not self.__dict__.get("_promoted"):
+            return [self._resolve_item(value) for value in values]
+        nodes = []
+        for value in values:
+            node = Node._resolve_input(value)
+            if not node.isValid():
+                raise RuntimeError("無効なノードは収集できません")
+            nodes.append(node)
+        if not all(isinstance(node, self.item_class) for node in nodes):
+            # すべての値を確かめてから、型をNodesへ戻す(例外で中途半端にならないようにする)。
+            del self._promoted
+            self.__class__ = Nodes
+        return nodes
+
+    def _resolve_item(self, value):
         """追加する値をNodeへ解決し、有効か・要素の型が合うかを確かめる。
 
         Args:

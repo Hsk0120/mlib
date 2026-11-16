@@ -273,7 +273,7 @@ def ls(
 
             * ノードだけ: :class:`~mlib.nodes.node.Nodes`。typeまたはtypがjointなら
               :class:`~mlib.nodes.joint.Joints`、skinClusterなら :class:`~mlib.nodes.skinCluster.SkinClusters`
-              (0件でも同じ型)。
+              (0件でも同じ型)。typeを指定しなくても、結果がすべてジョイント(skinCluster)なら同じ型にする。
             * アトリビュートだけ: :class:`~mlib.plugs.plug.Plugs`。
             * 同じシェイプの同じ種類のコンポーネントだけ: :class:`~mlib.components.vertex.Vertices`・
               :class:`~mlib.components.edge.Edges`・:class:`~mlib.components.face.Faces`・
@@ -454,7 +454,7 @@ def _collect(items):
         items (list[Node | Plug | Component]): Mayaの結果の順に並べたオブジェクト。
 
     Returns:
-        Nodes | Plugs | Components | list: ノードだけならNodes、アトリビュートだけならPlugs、
+        Nodes | Plugs | Components | list: ノードだけならNodes(すべてJoint・SkinClusterならJoints・SkinClusters)、アトリビュートだけならPlugs、
             同じシェイプの同じ種類のコンポーネントだけならそのComponents、混ざっていればitemsそのもの。
             0件なら空のNodes。
     """
@@ -486,7 +486,8 @@ def _collect(items):
     if not items:
         return Nodes()
     if all(isinstance(item, Node) for item in items):
-        return Nodes(items)
+        # 重なりを除いたあと、要素がすべてJoint・SkinClusterならJoints・SkinClustersにする。
+        return Nodes._wrap(Nodes(items))
     if all(isinstance(item, Plug) for item in items):
         return Plugs._from_plugs(items)
     first = items[0]

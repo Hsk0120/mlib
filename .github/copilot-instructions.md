@@ -374,12 +374,18 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - ノードコレクションは `Nodes` 基底(`Joints`・`SkinClusters` は派生)。`Nodes` は `Node` を継承しない。
 - `item_class` で受け入れる型を宣言する。型の不一致は黙って除外せず例外。重複は同一ノードかつ同一 DAG パスで判定する。
 - `Nodes`・コンポーネントの複数形は、自分に無い公開メソッド名を `__getattr__` で各要素の同名メソッドへ転送し、戻り値を保持順の
-  list で返す(書込みも常に list。明示メソッドが優先。通常は Undo 1回)。`Nodes.callEach(method, ...)` も同じ。`Plugs` は転送しない。
+  list で返す(書込みも常に list。明示メソッドが優先。通常は Undo 1回)。`Nodes.callEach(method, ...)` も同じ。`Plugs` も同じ決まりで転送する。
 - 複数形に置く明示メソッドは list としての振る舞い・入力検証・一括の書込みと、必要最小限の専用メソッドに限る。
 - 複数形は Python の list と同じ名前の `append`・`extend`・`insert`・`remove`・`pop`・`index`・`count`・`clear`・`reverse`・`sort`・`in`・
   `del`・`+=` を持つ(`Nodes`・`Plugs` は番号への代入も。`core/listMethods.py` の `_ListMethods`、コンポーネントは `Components` に直接)。
   足す値は作るときと同じ決まりで解決して確かめ、同じ要素は2つ持たない(すでにある要素の追加は何もしない)。シーンは変えない。
   これらの名前は各要素へ転送しない(転送は `callEach`)。`Keyframes` は `remove` がキーの削除なので対象外。
+  ノード・アトリビュート・コンポーネントの単数のクラスには、list のメソッドと同じ名前(`clear`・`reverse` など)の公開メソッドを
+  置かない(複数形から呼んだときに、シーンではなく集まりを操作してしまうため。`ObjectSet.removeAllMembers`・`NurbsCurve.reverseDirection`)。
+- `Nodes._wrap(items)` と `mlib.ls` は、要素がすべて Joint なら `Joints`、すべて SkinCluster なら `SkinClusters` にする。
+  こうして自動で決まった型の集まりは、型の合わない要素を `append`・`extend`・`insert`・`+` で足すと `Nodes` へ戻る
+  (中身によって足せなくならないようにする)。`Joints([...])` のように自分で作った集まりは、これまでどおり TypeError。
+- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ(コンポーネントは `getFullNames()`・`getCompactNames()`)。
 - 複数形の明示メソッドは、単数形と同じ引数を受ける(`check`・`children` などを落とさない)。
 - `mlib.ls` は常に集まりで返す(`Nodes`/`Joints`/`SkinClusters`、`Plugs`、同じシェイプ・同じ種類なら `Vertices` 等。混在のみ list)。
 

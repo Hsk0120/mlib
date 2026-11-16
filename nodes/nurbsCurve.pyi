@@ -416,7 +416,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
         ...
-    def reverse(self) -> None:
+    def reverseDirection(self) -> None:
         """カーブの向き(パラメーターが増える向き)を反転する(``cmds.reverseCurve``)。
 
         ``cmds.reverseCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を

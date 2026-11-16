@@ -236,7 +236,7 @@ class ObjectSetDeformAdditionsTest(_Case):
         first, second, _, a, _ = self.sets()
         before = self.flat(first.getMembers())
         self.flushUndo()
-        self.assertIsNone(first.clear())
+        self.assertIsNone(first.removeAllMembers())
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.flat(first.getMembers()), before), lambda: self.assertEqual(first.getMembers(), []))
         with self.assertRaises(TypeError):
             first.getUnion(a)

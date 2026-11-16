@@ -88,7 +88,7 @@ class ObjectSet(Node):
             bool: 解決したすべての要素が入っていればTrue。1つでも入っていなければFalse。
         """
         ...
-    def clear(self) -> None:
+    def removeAllMembers(self) -> None:
         """セットに直接入っているメンバーを、すべて外す(``cmds.sets(clear=set)``)。
 
         ノードそのものは削除しない。fast引数は持たない(:meth:`addMembers` と同じ理由)。

@@ -9,7 +9,7 @@ class _ListMethods:
     - 追加する値は、そのクラスを作るときと同じ決まりで解決して確かめる(名前も渡せる。型の合わないものはTypeError)。
     - 同じ要素は1つしか持たない。すでにある要素を追加しても、何も変わらない。
 
-    派生クラスは :meth:`_coerce` を実装する。
+    派生クラスは :meth:`_resolve_item` を実装する。
     """
 
     _items: list
@@ -24,7 +24,7 @@ class _ListMethods:
             bool: 持っていればTrue。解決できない値・型の合わない値はFalse。
         """
         try:
-            item = self._coerce(value)
+            item = self._resolve_item(value)
         except (TypeError, ValueError, RuntimeError):
             return False
         return item in self._items
@@ -44,9 +44,9 @@ class _ListMethods:
         """
         items = list(self._items)
         if isinstance(index, slice):
-            items[index] = [self._coerce(item) for item in value]
+            items[index] = self._resolve_new_items(list(value))
         else:
-            items[index] = self._coerce(value)
+            items[index] = self._resolve_new_items([value])[0]
         if any(items.count(item) > 1 for item in items):
             raise ValueError(f"{type(self).__name__}は同じ要素を2つ持てません")
         self._items = items
@@ -87,7 +87,7 @@ class _ListMethods:
             TypeError: 要素の型が合わない場合。
             RuntimeError: 解決できない値か、無効な要素の場合。
         """
-        item = self._coerce(value)
+        item = self._resolve_new_items([value])[0]
         if item not in self._items:
             self._items.append(item)
 
@@ -106,7 +106,7 @@ class _ListMethods:
             TypeError: 要素の型が合わない場合。
             RuntimeError: 解決できない値か、無効な要素の場合。
         """
-        items = [self._coerce(value) for value in getattr(values, "_items", values)]
+        items = self._resolve_new_items(list(getattr(values, "_items", values)))
         for item in items:
             if item not in self._items:
                 self._items.append(item)
@@ -125,7 +125,7 @@ class _ListMethods:
             TypeError: 要素の型が合わない場合。
             RuntimeError: 解決できない値か、無効な要素の場合。
         """
-        item = self._coerce(value)
+        item = self._resolve_new_items([value])[0]
         if item not in self._items:
             self._items.insert(index, item)
 
@@ -143,7 +143,7 @@ class _ListMethods:
         """
         if value not in self:
             raise ValueError(f"{type(self).__name__}に無い要素は取り除けません: {value!r}")
-        self._items.remove(self._coerce(value))
+        self._items.remove(self._resolve_item(value))
 
     def pop(self, index=-1):
         """番号の位置の要素を取り除いて返す。シーンのノードやアトリビュートは削除しない。
@@ -175,7 +175,7 @@ class _ListMethods:
         """
         if value not in self:
             raise ValueError(f"{type(self).__name__}に無い要素です: {value!r}")
-        return self._items.index(self._coerce(value), start, len(self._items) if stop is None else stop)
+        return self._items.index(self._resolve_item(value), start, len(self._items) if stop is None else stop)
 
     def count(self, value):
         """要素を持っている数を返す。同じ要素は1つしか持たないので、0か1になる。
@@ -204,7 +204,20 @@ class _ListMethods:
         """
         self._items.reverse()
 
-    def _coerce(self, value):
+    def _resolve_new_items(self, values):
+        """これから足す値の並びを、このクラスの要素へ解決して確かめる。
+
+        既定は :meth:`_resolve_item` を1つずつ呼ぶだけ。派生クラスは、足す値に合わせて自身の型を広げるときに上書きする。
+
+        Args:
+            values (list[object]): 足す値の並び。
+
+        Returns:
+            list[object]: このクラスの要素の並び。
+        """
+        return [self._resolve_item(value) for value in values]
+
+    def _resolve_item(self, value):
         """追加する値を、このクラスの要素へ解決して確かめる。
 
         Args:
