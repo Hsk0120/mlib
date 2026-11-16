@@ -73,7 +73,7 @@ rem mayapyではvenvを作れない(venvが mayapy.exe の隣の python.exe を�
 rem pip install --target で .mayapy-site へ入れる。
 SET "MLIB_TOOLS_MAYAPY="
 FOR %%V IN (2027 2026 2025) DO (
-    IF NOT DEFINED MLIB_TOOLS_MAYAPY IF EXIST "C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe" SET "MLIB_TOOLS_MAYAPY=C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe"
+    IF NOT DEFINED MLIB_TOOLS_MAYAPY IF EXIST "%ProgramFiles%\Autodesk\Maya%%V\bin\mayapy.exe" SET "MLIB_TOOLS_MAYAPY=%ProgramFiles%\Autodesk\Maya%%V\bin\mayapy.exe"
 )
 IF DEFINED MLIB_TOOLS_MAYAPY GOTO :install_mayapy
 SET "MLIB_TOOLS_MESSAGE=setup.noPython"

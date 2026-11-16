@@ -66,7 +66,7 @@ GOTO :done
 :find_mayapy
 rem 代わりに Maya 2027〜2023 のmayapy(Python 3.9 以上)を使う。
 FOR %%V IN (2027 2026 2025 2024 2023) DO (
-    IF NOT DEFINED MLIB_STUBS_MAYAPY IF EXIST "C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe" SET "MLIB_STUBS_MAYAPY=C:\Program Files\Autodesk\Maya%%V\bin\mayapy.exe"
+    IF NOT DEFINED MLIB_STUBS_MAYAPY IF EXIST "%ProgramFiles%\Autodesk\Maya%%V\bin\mayapy.exe" SET "MLIB_STUBS_MAYAPY=%ProgramFiles%\Autodesk\Maya%%V\bin\mayapy.exe"
 )
 IF NOT DEFINED MLIB_STUBS_MAYAPY GOTO :finish
 %SAY% stubs.usingMayapy

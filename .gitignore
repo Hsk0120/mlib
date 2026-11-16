@@ -11,6 +11,13 @@ _docs/.mayapy-site/
 # mlibを書くときに使うツール(ruffとSphinx)の、1つだけの環境
 _tools/.venv/
 _tools/.mayapy-site/
+# Maya不要のテストと、型スタブを作るときの作業用のフォルダー(終わったら消す)
+_tools/.temp/
+
+# 一時フォルダー・一時ファイル(どの階層でも対象外)
+.temp/
+*.tmp
+.ruff_cache/
 
 # テストの出力
 __tests__/_output/

@@ -98,15 +98,21 @@ class MatrixRunnerTest(unittest.TestCase):
             root = Path(temporary)
             suite = root / "suite.py"
             suite.write_text("", encoding="utf-8")
-            relative = os.path.relpath(str(suite), str(Path.cwd()))
-            argv = ["test", "--versions", "2027", "--suite-file", relative, "--output", str(root / "output")]
+            # 作業フォルダーと一時フォルダーが別のドライブにあると相対パスを作れないので、
+            # 一時フォルダーへ移ってから、そこからの相対パスで渡す。
+            argv = ["test", "--versions", "2027", "--suite-file", "suite.py", "--output", str(root / "output")]
 
             def complete(version, executable, directory, *arguments):
                 directory.mkdir()
                 return {"requested_version": version, "status": "passed"}
 
-            with mock.patch.object(runner.sys, "argv", argv), mock.patch.object(runner, "run_version", side_effect=complete) as run:
-                self.assertEqual(runner.main(), 0)
+            previous = Path.cwd()
+            os.chdir(str(root))
+            try:
+                with mock.patch.object(runner.sys, "argv", argv), mock.patch.object(runner, "run_version", side_effect=complete) as run:
+                    self.assertEqual(runner.main(), 0)
+            finally:
+                os.chdir(str(previous))
             self.assertEqual(run.call_args[0][4], suite.resolve())
 
     def test_missing_exit_codes_and_results(self):

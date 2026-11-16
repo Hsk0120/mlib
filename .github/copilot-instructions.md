@@ -532,6 +532,17 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## テスト
 
+- ドライブに依存する書き方をしない。バッチ・ツール・テストは、mlib・作業フォルダー・システムの一時フォルダー・Maya が
+  別々のドライブにあっても動くようにする。
+  - 作業用の一時ファイルは、システムの一時フォルダー(`%TEMP%`)ではなく手元へ作る: Maya 不要のテストと型スタブの生成は
+    `_tools/.temp/`(Git の対象外。終わったら消す)、Maya のテストは `__tests__/_output/` の中。`__tests__` の中へ noMaya の一時ファイルを
+    置かない(検査のツールがテストのファイルとして扱う)。手元へ書き込めないときは、止めずにシステムの一時フォルダーを使う。
+  - 別のドライブどうしでは相対パスを作れない(`os.path.relpath`・`Path.relative_to` は ValueError)。別の場所どうしの相対パスを
+    求めない。相対パスが要るテストは、その場所へ `os.chdir` してから渡す。
+  - 別のドライブへは `os.rename`・`os.replace`・ハードリンクができない。同じフォルダーの中だけで使うか、複製(`shutil`)で行う。
+  - Maya の場所を `C:\Program Files` と決め打ちしない(`%ProgramFiles%`・`os.environ["ProgramFiles"]` を使う)。
+  - バッチは `%~dp0` からの絶対パスで呼び、作業フォルダーに頼らない。移動するときは `cd /d`。
+
 - pytest は使わない。Maya のテストは mayapy 経由で実行する。入口のバッチはすべて `_tools/` に置き(`setup.bat`・`format_mlib.bat`・
   `test_mlib.bat`・`generate_mlib_stubs.bat`・`build_mlib_docs.bat`)、`__tests__/`・`_docs/` には中身だけを置く。
   - 流れは2本。コードは `_tools/format_mlib.bat`(整形 → ruff → レイアウト → 公開名の一致。`--check` は書き換えない)、

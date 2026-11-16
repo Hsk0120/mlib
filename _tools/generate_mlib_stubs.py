@@ -34,7 +34,9 @@ import した場合も補完が効く。
 import argparse
 import ast
 import builtins
+import contextlib
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -1394,6 +1396,31 @@ def _sync(work, dest):
     return written, removed
 
 
+@contextlib.contextmanager
+def _work_directory():
+    """スタブを書き出す作業用のフォルダーを作り、抜けるときに消す。
+
+    システムの一時フォルダーは、mlibと別のドライブにあることがある。作業用のファイルは mlib の
+    ``_tools/.temp`` の中(Gitの対象外)へ作る。書き込めないときは、止めずにシステムの一時フォルダーを使う。
+
+    Yields:
+        str: 作業用のフォルダーのパス。
+    """
+    local = Path(__file__).resolve().parent / ".temp"
+    try:
+        local.mkdir(exist_ok=True)
+        work = tempfile.mkdtemp(prefix="stubs-", dir=str(local))
+    except OSError:
+        work = tempfile.mkdtemp(prefix="mlib-stubs-")
+    try:
+        yield work
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+        with contextlib.suppress(OSError):
+            # ほかの実行が使っていなければ(空なら)、置き場所のフォルダーも消す。
+            local.rmdir()
+
+
 def main(argv=None):
     """コマンドラインの入口。
 
@@ -1408,7 +1435,7 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="書き出さず、現在のスタブが最新かだけを確かめる")
     parser.add_argument("--report", action="store_true", help="省いた注釈を一覧表示する")
     options = parser.parse_args(argv)
-    with tempfile.TemporaryDirectory() as work:
+    with _work_directory() as work:
         work = Path(work) / PACKAGE
         unresolved = generate(work)
         if options.report:
