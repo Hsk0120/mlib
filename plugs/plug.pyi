@@ -14,7 +14,7 @@ from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, 
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
-from ..util import _angle_unit, _time_unit
+from ..util import _angle_unit, _finite, _time_unit
 from typing import Any, Callable, Dict, Literal, Optional, Union
 from ..nodes.node import Node
 from typing import Any, Iterable, Iterator, Literal, Sequence
@@ -596,6 +596,64 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
+    def getDescendants(self, *, levels: int | None = ..., leavesOnly: bool = ...) -> Plugs:
+        """子アトリビュートと既存のマルチ要素を再帰的に取得する。
+
+        自身を含めず、深さ優先で返す。子は定義順、要素は論理番号順。
+        値を評価せず、未作成要素も作らない。空のマルチアトリビュートは末端に含めない。
+
+        Args:
+            levels (int | None): たどる深さ。1は直接の子と要素、0は空。Noneは制限なし。
+            leavesOnly (bool): Trueなら子も要素も持たない定義のPlugだけを返す。
+                深さの上限で打ち切った親は含めない。既定False。
+
+        Returns:
+            Plugs: 保持順の新しい参照。値は読み取らない。
+
+        Raises:
+            TypeError: levelsが整数・None以外(boolを含む)、またはleavesOnlyがboolでない場合。
+            ValueError: levelsが負の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
+        """
+        ...
+    def isDirty(self) -> bool:
+        """アトリビュートのデータがdirtyか調べる。
+
+        cmds.isDirtyのデータの状態を返す。値の評価は要求しない。
+
+        Returns:
+            bool: データが再評価を必要とする場合はTrue。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが照会を拒否した場合。
+        """
+        ...
+    def setDirty(self) -> None:
+        """アトリビュートと依存先をdirtyにして再評価を要求する。
+
+        cmds.dgdirtyを使う。値や接続を設定する操作ではなく、Undo対象ではない。
+        fast引数は持たない(評価状態の変更をMayaのコマンドへ委譲するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが要求を拒否した場合。
+        """
+        ...
+    def evaluate(self) -> None:
+        """アトリビュートのDG評価を要求する。
+
+        cmds.dgevalを使い、値は返さない。値も必要な場合はgetを使う。
+        シミュレーションの順次再生を代替しない。Undo対象ではない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが評価を拒否した場合。
+        """
+        ...
     def isKeyable(self) -> bool:
         """キーを打てる(チャンネルボックスでキー可能な)アトリビュートか判定する。
 
@@ -1163,6 +1221,83 @@ class Plug(Object):
             NotImplementedError: valueがNoneの場合。変更前に拒否する。
         """
         ...
+    def getRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> tuple[object, object]:
+        """アトリビュート定義の最小値と最大値を取得する。
+
+        Args:
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
+
+        Returns:
+            tuple[object, object]: (最小値, 最大値)。定義されていない側はNone。
+
+        Raises:
+            TypeError: 単位またはuiUnitsの型が不正な場合。
+            ValueError: 単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        ...
+    def setRange(self, minimum: float | None, maximum: float | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
+        """動的アトリビュート定義の最小値と最大値をまとめて設定する。
+
+        値そのものは設定しない。片側のNoneはその制限を取り除く。
+        fast引数は持たない(1回のcmds.addAttrで更新するため)。
+
+        Args:
+            minimum (float | None): 最小値。角度は既定で度、距離はcm、時間はフレーム。
+            maximum (float | None): 最大値。単位はminimumと同じ。
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
+            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
+        """
+        ...
+    def getSoftRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> tuple[object, object]:
+        """アトリビュート定義のソフト最小値とソフト最大値を取得する。
+
+        Args:
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
+
+        Returns:
+            tuple[object, object]: (ソフト最小値, ソフト最大値)。定義されていない側はNone。
+
+        Raises:
+            TypeError: 単位またはuiUnitsの型が不正な場合。
+            ValueError: 単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        ...
+    def setSoftRange(self, minimum: float, maximum: float, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
+        """動的アトリビュート定義のソフト最小値とソフト最大値を設定する。
+
+        現在の値は変更しない。Mayaにはソフト制限の削除がないためNoneは受け付けない。
+        fast引数は持たない(1回のcmds.addAttrで更新するため)。
+
+        Args:
+            minimum (float): ソフト最小値。角度は既定で度、距離はcm、時間はフレーム。
+            maximum (float): ソフト最大値。単位はminimumと同じ。
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
+            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
+            NotImplementedError: minimumかmaximumがNoneの場合。
+        """
+        ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Any:
         """アトリビュートの既定値を取得する。数値は :meth:`get` と同じ決まりで返す。
 
@@ -1461,7 +1596,7 @@ class Plug(Object):
                 静的なアトリビュートを削除しようとした場合など、Maya が削除を拒否した場合。
         """
         ...
-    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Any:
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> Any:
         """今の値を評価して取得する。
 
         値はキャッシュしない。単位は次のとおり。
@@ -1474,6 +1609,9 @@ class Plug(Object):
         rotateのEulerRotateのように、自分の単位を持つ値は換算しない(中身はrad)。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 数値の角度の単位。None(既定)と ``"deg"`` / ``"degree"`` /
                 ``"degrees"`` は度、``"rad"`` / ``"radian"`` / ``"radians"`` はラジアン。
                 角度以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
@@ -1499,6 +1637,7 @@ class Plug(Object):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: アトリビュートが無効な場合、または値を読み取れない場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
 
         Note:
             まだ作られていないマルチアトリビュートの要素(``multi[9]`` のように取得しただけの要素)を読むと、
@@ -2219,6 +2358,38 @@ class Plug(Object):
 
         Returns:
             Plug | None: 同じ接続の接続先。無ければNone。
+        """
+        ...
+    def _get_at_time(self, time: float | om2.MTime, unit: str | None, time_unit: str | None, ui_units: bool) -> Any:
+        """現在時刻を動かさず、指定の評価コンテキストでgetを呼ぶ。
+
+        Args:
+            time (float | om2.MTime): UI時間単位のフレームか、単位を持つ時刻。
+            unit (str | None): 返す角度の単位。
+            time_unit (str | None): 返す時間の値の単位。
+            ui_units (bool): Trueなら返す数値をUI単位へ換算する。
+
+        Returns:
+            object: 通常のgetと同じ型の値。
+
+        Raises:
+            TypeError: timeの型が不正な場合。
+            ValueError: timeが有限でない場合。
+            NotImplementedError: cmds.getAttrでの読み取りが必要な型の場合。
+        """
+        ...
+    def _set_range_pair(self, minimum: float | None, maximum: float | None, unit: str | None, time_unit: str | None, soft: bool) -> None:
+        """上下限を検証してから、1回のMayaコマンドで定義を更新する。
+
+        Args:
+            minimum (float | None): 最小値。
+            maximum (float | None): 最大値。
+            unit (str | None): 角度の単位。
+            time_unit (str | None): 時間の単位。
+            soft (bool): Trueならソフト制限。
+
+        Returns:
+            None: 値を返さない。
         """
         ...
     def _set_range(self, kind: str, value: object, unit: str | None, time_unit: str | None = ...) -> None:
@@ -2960,6 +3131,18 @@ class Plugs(_ListMethods):
     def getAllParents(self, includeMulti: bool = ...) -> list[Plugs]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAllParents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getDescendants(self, *, levels: int | None = ..., leavesOnly: bool = ...) -> list[Plugs]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getDescendants` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDirty(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isDirty` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setDirty(self) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setDirty` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def evaluate(self) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.evaluate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def isKeyable(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isKeyable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -3062,6 +3245,18 @@ class Plugs(_ListMethods):
     def setSoftMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[tuple[object, object]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setRange(self, minimum: float | None, maximum: float | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSoftRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[tuple[object, object]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setSoftRange(self, minimum: float, maximum: float, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getDefault` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -3113,7 +3308,7 @@ class Plugs(_ListMethods):
     def delete(self, *, force: bool = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.delete` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> list[Any]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.get` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def set(self, value: object, *, safe: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> list[int | None]:

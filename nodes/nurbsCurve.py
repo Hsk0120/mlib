@@ -718,6 +718,31 @@ class NurbsCurve(Shape):
         curve = self._space_curve(worldSpace)
         return _vectors_of_points([curve.getPointAtParam(self._require_param(curve, param))])[0]
 
+    def getDerivativesAtParam(self, param, worldSpace=_UNSET, *, secondOrder=False, ws=_UNSET):
+        """カーブ上の位置と、正規化前の一次・二次微分を取得する。
+
+        パラメーターに対する変化量を返す。縮退点のゼロベクトルもそのまま返す。
+
+        Args:
+            param (float): getParamRangeの範囲内のパラメーター。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            secondOrder (bool): Trueなら二次微分も返す。既定False。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[Vector, ...]: (位置, 一次微分)、または(位置, 一次微分, 二次微分)。位置はcm。
+
+        Raises:
+            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
+            ValueError: paramが有限でないか範囲外の場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        _require_bool(secondOrder, "secondOrder")
+        curve = self._space_curve(worldSpace)
+        values = curve.getDerivativesAtParam(self._require_param(curve, param), dUU=secondOrder)
+        return (_vectors_of_points([values[0]])[0],) + tuple(Vector(value) for value in values[1:])
+
     def getTangentAtParam(self, param, worldSpace=_UNSET, *, ws=_UNSET):
         """パラメーターの位置の接線を、長さ1にして取得する。
 

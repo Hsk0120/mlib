@@ -27,7 +27,7 @@ from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, 
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
-from ..util import _angle_unit, _time_unit
+from ..util import _angle_unit, _finite, _time_unit
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Literal, Optional, Union
@@ -879,6 +879,91 @@ class Plug(Object):
             result.append(Plug(self._node, mplug))
         return Plugs._from_plugs(result)
 
+    def getDescendants(self, *, levels=None, leavesOnly=False):
+        """子アトリビュートと既存のマルチ要素を再帰的に取得する。
+
+        自身を含めず、深さ優先で返す。子は定義順、要素は論理番号順。
+        値を評価せず、未作成要素も作らない。空のマルチアトリビュートは末端に含めない。
+
+        Args:
+            levels (int | None): たどる深さ。1は直接の子と要素、0は空。Noneは制限なし。
+            leavesOnly (bool): Trueなら子も要素も持たない定義のPlugだけを返す。
+                深さの上限で打ち切った親は含めない。既定False。
+
+        Returns:
+            Plugs: 保持順の新しい参照。値は読み取らない。
+
+        Raises:
+            TypeError: levelsが整数・None以外(boolを含む)、またはleavesOnlyがboolでない場合。
+            ValueError: levelsが負の場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
+        """
+        _require_bool(leavesOnly, "leavesOnly")
+        if levels is not None:
+            if isinstance(levels, bool) or not isinstance(levels, int):
+                raise TypeError("levelsはintかNoneで指定してください")
+            if levels < 0:
+                raise ValueError("levelsは0以上で指定してください")
+        self._require_valid()
+        result = []
+        stack = [(self, 0)]
+        while stack:
+            plug, depth = stack.pop()
+            branch = plug.isMulti() or plug.isCompound()
+            if depth and (not leavesOnly or not branch):
+                result.append(plug)
+            if levels is not None and depth >= levels:
+                continue
+            if plug.isMulti():
+                children = plug.getElements()
+            elif plug.isCompound():
+                children = plug.getChildren()
+            else:
+                continue
+            stack.extend((child, depth + 1) for child in reversed(list(children)))
+        return Plugs._from_plugs(result)
+
+    def isDirty(self):
+        """アトリビュートのデータがdirtyか調べる。
+
+        cmds.isDirtyのデータの状態を返す。値の評価は要求しない。
+
+        Returns:
+            bool: データが再評価を必要とする場合はTrue。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが照会を拒否した場合。
+        """
+        return bool(cmds.isDirty(self.getFullName(), datablock=True))
+
+    def setDirty(self):
+        """アトリビュートと依存先をdirtyにして再評価を要求する。
+
+        cmds.dgdirtyを使う。値や接続を設定する操作ではなく、Undo対象ではない。
+        fast引数は持たない(評価状態の変更をMayaのコマンドへ委譲するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが要求を拒否した場合。
+        """
+        cmds.dgdirty(self.getFullName())
+
+    def evaluate(self):
+        """アトリビュートのDG評価を要求する。
+
+        cmds.dgevalを使い、値は返さない。値も必要な場合はgetを使う。
+        シミュレーションの順次再生を代替しない。Undo対象ではない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合、またはMayaが評価を拒否した場合。
+        """
+        cmds.dgeval(self.getFullName())
+
     def isKeyable(self):
         """キーを打てる(チャンネルボックスでキー可能な)アトリビュートか判定する。
 
@@ -1539,6 +1624,87 @@ class Plug(Object):
         """
         self._set_range("SoftMax", value, unit, timeUnit)
 
+    def getRange(self, *, unit=None, timeUnit=None, uiUnits=False):
+        """アトリビュート定義の最小値と最大値を取得する。
+
+        Args:
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
+
+        Returns:
+            tuple[object, object]: (最小値, 最大値)。定義されていない側はNone。
+
+        Raises:
+            TypeError: 単位またはuiUnitsの型が不正な場合。
+            ValueError: 単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        return (self.getMin(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits), self.getMax(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits))
+
+    def setRange(self, minimum, maximum, *, unit=None, timeUnit=None):
+        """動的アトリビュート定義の最小値と最大値をまとめて設定する。
+
+        値そのものは設定しない。片側のNoneはその制限を取り除く。
+        fast引数は持たない(1回のcmds.addAttrで更新するため)。
+
+        Args:
+            minimum (float | None): 最小値。角度は既定で度、距離はcm、時間はフレーム。
+            maximum (float | None): 最大値。単位はminimumと同じ。
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
+            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
+        """
+        self._set_range_pair(minimum, maximum, unit, timeUnit, False)
+
+    def getSoftRange(self, *, unit=None, timeUnit=None, uiUnits=False):
+        """アトリビュート定義のソフト最小値とソフト最大値を取得する。
+
+        Args:
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
+
+        Returns:
+            tuple[object, object]: (ソフト最小値, ソフト最大値)。定義されていない側はNone。
+
+        Raises:
+            TypeError: 単位またはuiUnitsの型が不正な場合。
+            ValueError: 単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        return (self.getSoftMin(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits), self.getSoftMax(unit=unit, timeUnit=timeUnit, uiUnits=uiUnits))
+
+    def setSoftRange(self, minimum, maximum, *, unit=None, timeUnit=None):
+        """動的アトリビュート定義のソフト最小値とソフト最大値を設定する。
+
+        現在の値は変更しない。Mayaにはソフト制限の削除がないためNoneは受け付けない。
+        fast引数は持たない(1回のcmds.addAttrで更新するため)。
+
+        Args:
+            minimum (float): ソフト最小値。角度は既定で度、距離はcm、時間はフレーム。
+            maximum (float): ソフト最大値。単位はminimumと同じ。
+            unit (str | None): 角度の単位。Noneは度、radはラジアン。
+            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
+            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
+            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
+            NotImplementedError: minimumかmaximumがNoneの場合。
+        """
+        self._set_range_pair(minimum, maximum, unit, timeUnit, True)
+
     def getDefault(self, *, unit=None, timeUnit=None, uiUnits=False):
         """アトリビュートの既定値を取得する。数値は :meth:`get` と同じ決まりで返す。
 
@@ -1955,7 +2121,7 @@ class Plug(Object):
                     set_attr(self.getFullName(), lock=False, fast=False)
                 cmds.deleteAttr(self.getFullName())
 
-    def get(self, *, unit=None, timeUnit=None, uiUnits=False):
+    def get(self, *, unit=None, timeUnit=None, uiUnits=False, time=None):
         """今の値を評価して取得する。
 
         値はキャッシュしない。単位は次のとおり。
@@ -1968,6 +2134,9 @@ class Plug(Object):
         rotateのEulerRotateのように、自分の単位を持つ値は換算しない(中身はrad)。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 数値の角度の単位。None(既定)と ``"deg"`` / ``"degree"`` /
                 ``"degrees"`` は度、``"rad"`` / ``"radian"`` / ``"radians"`` はラジアン。
                 角度以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
@@ -1993,12 +2162,15 @@ class Plug(Object):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: アトリビュートが無効な場合、または値を読み取れない場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
 
         Note:
             まだ作られていないマルチアトリビュートの要素(``multi[9]`` のように取得しただけの要素)を読むと、
             ``cmds.getAttr`` と同じく、Mayaがその要素を作る(以後は ``getIndices()`` に現れる)。
             取得しただけでは要素は作られない。
         """
+        if time is not None:
+            return self._get_at_time(time, unit, timeUnit, uiUnits)
         _require_bool(uiUnits, "uiUnits")
         angle_unit = _plain_angle_unit(unit, uiUnits)
         time_unit = _plain_time_unit(timeUnit, uiUnits)
@@ -3262,6 +3434,82 @@ class Plug(Object):
                     return element
             return None
         return self if self._has_input_from(source) else None
+
+    def _get_at_time(self, time, unit, time_unit, ui_units):
+        """現在時刻を動かさず、指定の評価コンテキストでgetを呼ぶ。
+
+        Args:
+            time (float | om2.MTime): UI時間単位のフレームか、単位を持つ時刻。
+            unit (str | None): 返す角度の単位。
+            time_unit (str | None): 返す時間の値の単位。
+            ui_units (bool): Trueなら返す数値をUI単位へ換算する。
+
+        Returns:
+            object: 通常のgetと同じ型の値。
+
+        Raises:
+            TypeError: timeの型が不正な場合。
+            ValueError: timeが有限でない場合。
+            NotImplementedError: cmds.getAttrでの読み取りが必要な型の場合。
+        """
+        when = om2.MTime(time) if isinstance(time, om2.MTime) else om2.MTime(_finite(time, "time"), om2.MTime.uiUnit())
+        _finite(when.asUnits(om2.MTime.kSeconds), "time")
+        self._require_valid()
+        leaves = self.getDescendants(leavesOnly=True) if self.isMulti() or self.isCompound() else [self]
+        for leaf in leaves:
+            if type(leaf).get is Plug.get and value_reader(leaf._attribute) is False:
+                raise NotImplementedError(f"指定時刻の取得はOpenMayaで読み取れる型だけに対応しています: {leaf.getFullName()}")
+        # Mayaが参照するコンテキストを評価終了まで保持する。式の一時値にすると参照が失われる。
+        context = om2.MDGContext(when)
+        previous = context.makeCurrent()
+        try:
+            return self.get(unit=unit, timeUnit=time_unit, uiUnits=ui_units)
+        finally:
+            previous.makeCurrent()
+
+    def _set_range_pair(self, minimum, maximum, unit, time_unit, soft):
+        """上下限を検証してから、1回のMayaコマンドで定義を更新する。
+
+        Args:
+            minimum (float | None): 最小値。
+            maximum (float | None): 最大値。
+            unit (str | None): 角度の単位。
+            time_unit (str | None): 時間の単位。
+            soft (bool): Trueならソフト制限。
+
+        Returns:
+            None: 値を返さない。
+        """
+        angle_unit = _angle_unit(unit)
+        time_unit = _time_unit(time_unit)
+        fn = self._range_attribute_fn()
+        if fn is None or self._static_attribute or self.isCompound() or self.isMulti():
+            raise TypeError("単一の数値か単位付きの動的アトリビュートを指定してください")
+        if soft and (minimum is None or maximum is None):
+            raise NotImplementedError("Mayaはソフトリミットを削除できません")
+        method = "setSoftRange" if soft else "setRange"
+        low = None if minimum is None else self._range_input(fn, minimum, angle_unit, method, time_unit)
+        high = None if maximum is None else self._range_input(fn, maximum, angle_unit, method, time_unit)
+        if low is not None:
+            _finite(low, "minimum")
+        if high is not None:
+            _finite(high, "maximum")
+        if low is not None and high is not None and low > high:
+            raise ValueError("minimumはmaximum以下で指定してください")
+        if soft:
+            options = {"softMinValue": low, "softMaxValue": high}
+        else:
+            options = {}
+            if low is not None:
+                options["minValue"] = low
+            else:
+                options["hasMinValue"] = False
+            if high is not None:
+                options["maxValue"] = high
+            else:
+                options["hasMaxValue"] = False
+        name = self._node.getFullName() + "." + om2.MFnAttribute(self._attribute).name
+        cmds.addAttr(name, edit=True, **options)
 
     def _set_range(self, kind, value, unit, time_unit=None):
         """setMinなどの共通の処理。値を ``cmds.addAttr`` の単位へ換算して、アトリビュートの定義を変える。

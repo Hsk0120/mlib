@@ -1055,6 +1055,38 @@ class Node(Object):
         self._require_valid("照会")
         return self._alive_fn().isDefaultNode
 
+    def hasUniqueName(self):
+        """階層を含まないノード名がシーン内で一意か調べる。
+
+        名前空間は名前に含む。最短一意名を取得するgetNameとは異なり、改名しない。
+
+        Returns:
+            bool: MFnDependencyNodeが一意と判定した場合はTrue。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        return self._dependency_fn().hasUniqueName()
+
+    def getAnimatablePlugs(self):
+        """Mayaがアニメーション可能と判定するアトリビュートを取得する。
+
+        cmds.listAnimatableの順と対象範囲に従う。TransformではShapeの対象も含む。
+        ロックや入力の接続による現在の書き込み可否は保証しない。選択とシーンは変更しない。
+
+        Returns:
+            Plugs: 重複を除いた新しい参照の集まり。対象がなければ空。
+
+        Raises:
+            RuntimeError: ノードが無効な場合、またはMayaの照会が失敗した場合。
+        """
+        # 循環参照の回避: PlugがNodeを参照するため、照会時に読み込む。
+        from ..plugs.plug import Plug, Plugs
+
+        self._require_valid("アニメーション可能なアトリビュートの取得")
+        names = dict.fromkeys(cmds.listAnimatable(self.getFullName()) or [])
+        return Plugs._from_plugs([Plug._resolve_input(name) for name in names])
+
     def getSets(self, *, type=None):
         """このノードが入っているセット(objectSetとその派生の型)を取得する。
 

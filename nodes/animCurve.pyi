@@ -192,6 +192,32 @@ class AnimCurve(Node):
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
         ...
+    def addKeys(self, keys: Iterable[dict[str, Any]], *, unit: str = ..., timeUnit: str = ..., replaceExisting: bool = ..., weightedTangents: bool | None = ..., check: bool = ...) -> None:
+        """キーの値と接線情報をまとめて追加する。
+
+        各辞書はinput・valueと、任意のinTangentType・outTangentType・inAngle・outAngle・
+        inWeight・outWeight・lock・weightLockを持つ。接線の単位はgetTangentと同じ。
+        既存キーは残すが、auto等の隣接接線はMayaが再計算する。weightedTangentsはカーブ全体に影響する。
+        全入力を検査してから書き、通常Undoの1回にまとめる。途中のMayaの失敗は自動で巻き戻さない。
+        fast引数は持たない(接線ロックを含む編集をcmdsで行うため)。
+
+        Args:
+            keys (Iterable[dict[str, Any]]): 追加するキー。入力・値の単位はsetKeyと同じ。
+            unit (str): キーの角度値と接線角度の単位。deg(既定)またはrad。
+            timeUnit (str): 時間入力・時間出力の単位。frame(既定)またはsec。
+            replaceExisting (bool): Trueなら同じ入力の既存キーを更新する。既定Falseは拒否する。
+            weightedTangents (bool | None): カーブ全体のウェイト付き接線。Noneは変更しない。
+            check (bool): Trueなら更新前にカーブの書込み可否を検査する。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 辞書・数値・boolの型が不正な場合。
+            ValueError: 必須項目が無い、未知の項目、入力が重複、既存キーと衝突、接線型・値・単位が不正な場合。
+            RuntimeError: カーブが無効か、Mayaが更新を拒否した場合。
+        """
+        ...
     def insertKey(self, input: float, *, timeUnit: str = ...) -> None:
         """カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
 

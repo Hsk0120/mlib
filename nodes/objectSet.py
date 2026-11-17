@@ -4,7 +4,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..core.object import Object
-from ..decorator import undoChunk
+from ..decorator import _require_bool, undoChunk
 from .node import Node
 
 
@@ -16,10 +16,11 @@ class ObjectSet(Node):
     取得にはMFnSet、編集にはcmds.setsを使う。
     """
 
-    def getMembers(self):
-        """セットに直接入っているメンバーを取得する。
+    def getMembers(self, *, flatten=False):
+        """セットのメンバーを取得する。
 
-        入れ子になったセットの中身は展開しない。MFnSet.getMembers(False)が返す選択の文字列を使う。
+        flatten=Trueでは入れ子セットを再帰的に展開する。コンポーネント範囲の単一要素への分解とは異なる。
+        既定では直接のメンバーだけを返す。所属関係と選択は変更しない。
 
         - ノード: Nodeのオブジェクトにする。
         - アトリビュート: Plugのオブジェクトにする。
@@ -27,10 +28,18 @@ class ObjectSet(Node):
 
         順番はMaya APIが列挙する順のまま。独自に並べ替えない。
 
+        Args:
+            flatten (bool): Trueなら入れ子セットの内容を取得する。既定False。
+
         Returns:
             list[Node | Plug | Components]: 新しいリスト。空のセットなら空リスト。
+
+        Raises:
+            TypeError: flattenがboolでない場合。
+            RuntimeError: ノードが無効な場合。
         """
-        return self._member_names(om2.MFnSet(self.mnode()).getMembers(False))
+        _require_bool(flatten, "flatten")
+        return self._member_names(om2.MFnSet(self.mnode()).getMembers(flatten))
 
     def addMembers(self, *members):
         """ノードやコンポーネントなどを、このセットへ追加する。

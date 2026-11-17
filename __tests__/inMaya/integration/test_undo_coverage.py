@@ -197,6 +197,7 @@ EXCLUDED = {
     "Plug.setMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
     "Plug.setSoftMin": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
     "Plug.setSoftMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
+    "Plug.setDirty": "DGの評価状態をdirtyにする診断操作。値や接続を書き換えず、Undoには記録しない。",
     "Reference.load": "外部ファイルの参照の読込み(ファイル I/O)。Undo 検査の対象外。",
     "Reference.unload": "外部ファイルの参照のアンロード(ファイル I/O)。Undo 検査の対象外。",
     "Reference.remove": "外部ファイルの参照の削除(ファイル I/O)。Undo 検査の対象外。",
@@ -248,9 +249,10 @@ class _Case:
             指定したときだけ ignoreAttrs・unorderedFields を比較から外す。
         ignoreAttrs (tuple[str]): 比べないアトリビュート名(論理番号・親の名前を除いた末尾の名前)。
         unorderedFields (tuple[str]): 順序を無視して比べるノードの項目(例: ``userAttrs``)。
+        extraState (callable | None): ``extraState(ctx)``。範囲定義やコーナーの値など、追加で比較する状態を返す。
     """
 
-    def __init__(self, key, label, setup, action, fastSkip=None, mayaQuirk=None, ignoreAttrs=(), unorderedFields=()):
+    def __init__(self, key, label, setup, action, fastSkip=None, mayaQuirk=None, ignoreAttrs=(), unorderedFields=(), extraState=None):
         self.key = key
         self.label = label
         self.setup = setup
@@ -259,6 +261,7 @@ class _Case:
         self.mayaQuirk = mayaQuirk
         self.ignoreAttrs = tuple(ignoreAttrs) if mayaQuirk else ()
         self.unorderedFields = tuple(unorderedFields) if mayaQuirk else ()
+        self.extraState = extraState
 
 
 class _Context:
@@ -444,12 +447,13 @@ def _node_state(name):
     return state
 
 
-def take_snapshot(baseline):
+def take_snapshot(baseline, extraState=None):
     """Undo の前後で比べるシーンの状態を返す。
 
     Args:
         baseline (frozenset[str]): ケース開始前から存在したノードの UUID。これ以外のノードと
             ``DEFAULT_TRACKED`` を関係ノードとして詳しく記録する。
+        extraState (Callable | None): 通常のアトリビュート読取りで得られない、ケース固有の状態の取得関数。
 
     Returns:
         dict: ``nodes`` (UUID→状態)・``scene`` (UUID 集合)と、シーン全体の状態。
@@ -471,10 +475,11 @@ def take_snapshot(baseline):
         "namespaces": tuple(sorted(cmds.namespaceInfo(":", listOnlyNamespaces=True, recurse=True, absoluteName=True) or [])),
         "currentNamespace": cmds.namespaceInfo(currentNamespace=True, absoluteName=True),
         "currentLayer": cmds.editDisplayLayerGlobals(query=True, currentDisplayLayer=True),
+        "caseState": _normalize(extraState()) if extraState is not None else None,
     }
 
 
-_GLOBAL_KEYS = ("selection", "namespaces", "currentNamespace", "currentLayer")
+_GLOBAL_KEYS = ("selection", "namespaces", "currentNamespace", "currentLayer", "caseState")
 
 
 def _short(value):
@@ -543,6 +548,24 @@ def _is_materialized_element(node, attr, value):
     if value in _DEFAULT_LIKE:
         return True
     base = attr.rsplit(".", 1)[-1].split("[", 1)[0]
+    if re.fullmatch(r"normals\[\d+\]\.normal[xyz]", attr) and cmds.nodeType(node) == "mesh":
+        # polyNormalPerVertexのUndoは、未指定法線の既定値(float32の1e20)だけを残す。
+        # 実際のコーナー法線とロックは、対象ケースのextraStateで引き続き比較する。
+        selection = om2.MSelectionList()
+        selection.add(node)
+        dependency = om2.MFnDependencyNode(selection.getDependNode(0))
+        normal_attr = om2.MFnNumericAttribute(dependency.attribute(base))
+        if value == normal_attr.default:
+            return True
+    tag = re.fullmatch(r"input\[(\d+)\]\.componentTagExpression", attr)
+    if tag and value == "*" and "geometryFilter" in cmds.nodeType(node, inherited=True):
+        # geometry追加のUndo後、未使用inputに既定のタグ式だけが実体化して残る。
+        # 対応する入力・出力に接続がある場合は、通常どおり差分として扱う。
+        index = tag.group(1)
+        has_input = cmds.connectionInfo(f"{node}.input[{index}].inputGeometry", isDestination=True)
+        has_output = cmds.connectionInfo(f"{node}.outputGeometry[{index}]", isSource=True)
+        if not has_input and not has_output:
+            return True
     try:
         return not cmds.attributeQuery(base, node=node, storable=True)
     except Exception:
@@ -951,6 +974,70 @@ def s_color_sets(c):
     cmds.select(clear=True)
 
 
+def s_face_vertex_colors(c):
+    """ヒストリなしのcubeへRGBAを用意し、同じ頂点の面境界差を検査できるようにする。"""
+    s_cube(c)
+    cmds.polyColorSet(c.shape, create=True, colorSet="colors")
+    c.nshape.setFaceVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, colorSet="colors", fast=True)
+
+
+def s_uv_assignment(c):
+    """変更対象のmap1と、保持を確認する別UVセットを用意する。"""
+    s_cube(c)
+    c.nshape.copyUVSet("map1", "secondary")
+    c.nshape.setCurrentUVSet("secondary")
+
+
+def r_face_vertex_normals(c):
+    """法線テーブルの順序に依存せず、各コーナーの法線とロックを取得する。"""
+    mesh_fn = om2.MFnMesh(c.nshape.mpath())
+    normals = mesh_fn.getNormals(om2.MSpace.kObject)
+    _, normal_ids = mesh_fn.getNormalIds()
+    values = tuple(tuple(normals[index]) for index in normal_ids)
+    locks = tuple(mesh_fn.isNormalLocked(index) for index in normal_ids)
+    return values, locks
+
+
+def r_face_vertex_colors(c):
+    """カラーセットごとに各コーナーのRGBAを取得し、未割当ても区別する。"""
+    mesh_fn = om2.MFnMesh(c.nshape.mpath())
+    sets = []
+    for name in mesh_fn.getColorSetNames():
+        colors = mesh_fn.getColors(name)
+        values = []
+        for face in range(mesh_fn.numPolygons):
+            for local_vertex, _ in enumerate(mesh_fn.getPolygonVertices(face)):
+                color_index = mesh_fn.getColorIndex(face, local_vertex, name)
+                if color_index < 0:
+                    values.append(None)
+                else:
+                    color = colors[color_index]
+                    values.append((color.r, color.g, color.b, color.a))
+        sets.append((name, tuple(values)))
+    return mesh_fn.currentColorSetName(), tuple(sets)
+
+
+def r_uv_assignment(c):
+    """全UVセットの座標・面の割当て・現在のセット名を取得する。"""
+    mesh_fn = om2.MFnMesh(c.nshape.mpath())
+    sets = []
+    for name in mesh_fn.getUVSetNames():
+        us, vs = mesh_fn.getUVs(name)
+        counts, indices = mesh_fn.getAssignedUVs(name)
+        sets.append((name, tuple(us), tuple(vs), tuple(counts), tuple(indices)))
+    return mesh_fn.currentUVSetName(), tuple(sets)
+
+
+def r_anim_keys(c):
+    """キーの入力・値・接線・ロックを、評価キャッシュと区別して取得する。"""
+    values = c.ncurve.getKeyValues()
+    keys = []
+    for index, key_input in enumerate(c.ncurve.getKeyInputs()):
+        tangent = tuple(sorted(c.ncurve.getTangent(index).items()))
+        keys.append((key_input, values[index], tangent))
+    return tuple(keys)
+
+
 def s_remap(c):
     """値のランプを持つ remapValue を作る。"""
     c.remap = _node("remapValue", "remap")
@@ -1007,6 +1094,37 @@ def s_constraint_two_targets(c):
     c.c = _xf("c")
     c.con = cmds.parentConstraint(c.a, c.b, c.c, name="pcon2")[0]
     c.ncon = mlib.getNode(c.con)
+
+
+def s_parent_cache(c):
+    """2ターゲットのParentConstraintと、キャッシュ対象の回転キーを用意する。"""
+    s_constraint_two_targets(c)
+    cmds.setAttr(c.con + ".interpType", 0)
+    cmds.setKeyframe(c.a, attribute="rotateY", time=1, value=0)
+    cmds.setKeyframe(c.a, attribute="rotateY", time=3, value=45)
+
+
+def s_parent_cached(c):
+    """削除するParentConstraintの補間キャッシュを用意する。"""
+    s_parent_cache(c)
+    c.ncon.createCache(1, 3)
+
+
+def s_orient_cache(c):
+    """2ターゲットのOrientConstraintと、キャッシュ対象の回転キーを用意する。"""
+    s_two(c)
+    c.c = _xf("c")
+    c.con = cmds.orientConstraint(c.a, c.b, c.c, name="orientCache")[0]
+    c.ncon = mlib.getNode(c.con)
+    cmds.setAttr(c.con + ".interpType", 0)
+    cmds.setKeyframe(c.a, attribute="rotateY", time=1, value=0)
+    cmds.setKeyframe(c.a, attribute="rotateY", time=3, value=45)
+
+
+def s_orient_cached(c):
+    """削除するOrientConstraintの補間キャッシュを用意する。"""
+    s_orient_cache(c)
+    c.ncon.createCache(1, 3)
 
 
 def s_aim(c):
@@ -1151,6 +1269,15 @@ def s_blend_meshes(c):
 def s_blend(c):
     """ターゲット 1 つの blendShape と、追加用のターゲットメッシュを作る。"""
     s_blend_meshes(c)
+    c.blend = cmds.blendShape(c.target, c.base, name="blend", frontOfChain=True)[0]
+    c.nblend = mlib.getNode(c.blend)
+
+
+def s_blend_add_base(c):
+    """cmds.moveで評価済みの頂点tweakを持つ、追加用ベースを用意する。"""
+    c.base, c.target, c.target2 = (cmds.ls(cmds.polyCube(name=text, constructionHistory=False)[0], long=True)[0] for text in ("base", "target", "target2"))
+    cmds.move(0.0, 1.0, 0.0, c.target + ".vtx[0]", relative=True, objectSpace=True)
+    cmds.move(0.0, 1.0, 0.0, c.target2 + ".vtx[1]", relative=True, objectSpace=True)
     c.blend = cmds.blendShape(c.target, c.base, name="blend", frontOfChain=True)[0]
     c.nblend = mlib.getNode(c.blend)
 
@@ -1961,6 +2088,84 @@ CASES = [
     C("ScalarGraph.condition", "ScalarGraph.condition createNode", s_graph_factory, lambda c, **kw: c.graph.condition("cond", c.plug, 1.0, 2.0, 3.0, **kw)),
     C("Selection.select", "Selection.select replace", s_two, lambda c, **kw: Selection([c.a, c.b]).select()),
     C("Selection.select", "Selection.select add", s_two_selected, lambda c, **kw: Selection([c.b]).select(mode="add")),
+    # 追加writerの専用データも比較する(アトリビュート範囲・UV・法線・カラー等)。
+    C(
+        "AnimCurve.addKeys",
+        "AnimCurve.addKeys",
+        s_keyed,
+        lambda c, **kw: c.ncurve.addKeys([{"input": 4, "value": 3.0}, {"input": 7, "value": 2.0}]),
+        mayaQuirk=_TANGENT_CACHE,
+        ignoreAttrs=_TANGENT_ATTRS,
+        extraState=r_anim_keys,
+    ),
+    C("BlendShape.addBaseGeometry", "BlendShape.addBaseGeometry", s_blend_add_base, lambda c, **kw: c.nblend.addBaseGeometry(c.target2)),
+    C(
+        "Mesh.setFaceVertexColors",
+        "Mesh.setFaceVertexColors",
+        s_face_vertex_colors,
+        lambda c, **kw: c.nshape.setFaceVertexColors([(1, 0, 0, 0.25)], faceVertices=[0], colorSet="colors", **kw),
+        extraState=r_face_vertex_colors,
+    ),
+    C(
+        "Mesh.setFaceVertexNormals",
+        "Mesh.setFaceVertexNormals",
+        s_cube,
+        lambda c, **kw: c.nshape.setFaceVertexNormals([(1, 2, 3)], faceVertices=[0], **kw),
+        extraState=r_face_vertex_normals,
+    ),
+    C(
+        "Mesh.setFaceVertexNormalsLocked",
+        "Mesh.setFaceVertexNormalsLocked",
+        s_cube,
+        lambda c, **kw: c.nshape.setFaceVertexNormalsLocked(True, faceVertices=[0], **kw),
+        extraState=r_face_vertex_normals,
+    ),
+    C(
+        "Mesh.setUVData",
+        "Mesh.setUVData",
+        s_uv_assignment,
+        lambda c, **kw: c.nshape.setUVData([(0, 0), (1, 0), (1, 1), (0, 1)], [4, 0, 0, 0, 0, 0], [0, 1, 2, 3], uvSet="map1", **kw),
+        extraState=r_uv_assignment,
+    ),
+    C("OrientConstraint.createCache", "OrientConstraint.createCache", s_orient_cache, lambda c, **kw: c.ncon.createCache(1, 3)),
+    C("OrientConstraint.deleteCache", "OrientConstraint.deleteCache", s_orient_cached, lambda c, **kw: c.ncon.deleteCache()),
+    C("ParentConstraint.createCache", "ParentConstraint.createCache", s_parent_cache, lambda c, **kw: c.ncon.createCache(1, 3)),
+    C("ParentConstraint.deleteCache", "ParentConstraint.deleteCache", s_parent_cached, lambda c, **kw: c.ncon.deleteCache()),
+    C("Plug.setRange", "Plug.setRange", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-5.0, 10.0), extraState=lambda c: c.na.getPlug("foo").getRange()),
+    C(
+        "Plug.setSoftRange",
+        "Plug.setSoftRange",
+        s_user,
+        lambda c, **kw: c.na.getPlug("foo").setSoftRange(-2.0, 7.0),
+        extraState=lambda c: c.na.getPlug("foo").getSoftRange(),
+    ),
+    C(
+        "Transform.setPivotTranslation",
+        "Transform.setPivotTranslation",
+        s_one,
+        lambda c, **kw: c.na.setPivotTranslation((1.0, 2.0, 3.0), kind="scale", worldSpace=False, **kw),
+    ),
+    C(
+        "VertexFace.setColor",
+        "VertexFace.setColor",
+        s_face_vertex_colors,
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setColor((1, 0, 0, 0.25), colorSet="colors", **kw),
+        extraState=r_face_vertex_colors,
+    ),
+    C(
+        "VertexFace.setNormal",
+        "VertexFace.setNormal",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setNormal((1, 2, 3), **kw),
+        extraState=r_face_vertex_normals,
+    ),
+    C(
+        "VertexFace.setNormalLocked",
+        "VertexFace.setNormalLocked",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setNormalLocked(True, **kw),
+        extraState=r_face_vertex_normals,
+    ),
     # decorator
     C("decorator.undoChunk", "undoChunk nested", s_one, a_undo_chunk_nested),
     C("decorator.undoChunk", "undoChunk decorator", s_one, a_undo_chunk_decorated),
@@ -2205,8 +2410,14 @@ class UndoCoverageTest(_UndoHarness):
             except Exception:
                 return ["setup で例外(テストの準備の誤り):\n" + traceback.format_exc()]
             cmds.flushUndo()
-            before = take_snapshot(self.baseline)
-            ignore = unstable_attrs(before, take_snapshot(self.baseline))
+            read_extra = None
+            if case.extraState is not None:
+
+                def read_extra():
+                    return case.extraState(ctx)
+
+            before = take_snapshot(self.baseline, read_extra)
+            ignore = unstable_attrs(before, take_snapshot(self.baseline, read_extra))
             member = PUBLIC_MEMBERS.get(case.key)
             kwargs = {"fast": False} if member is not None and accepts_fast(member) else {}
             try:
@@ -2216,8 +2427,8 @@ class UndoCoverageTest(_UndoHarness):
                 return ["通常経路の呼出しで例外:\n" + traceback.format_exc()]
             undo_name = cmds.undoInfo(query=True, undoName=True)
             queued = not cmds.undoInfo(query=True, undoQueueEmpty=True)
-            after = take_snapshot(self.baseline)
-            ignore = ignore | unstable_attrs(after, take_snapshot(self.baseline))
+            after = take_snapshot(self.baseline, read_extra)
+            ignore = ignore | unstable_attrs(after, take_snapshot(self.baseline, read_extra))
             problems = []
             changes = diff_snapshots(before, after, ignore, case)
             if not changes:
@@ -2226,7 +2437,7 @@ class UndoCoverageTest(_UndoHarness):
                 problems.append("呼出し後の Undo キューが空(Undo に何も記録されていない)")
             _trace("phase undo")
             _safe_step(cmds.undo)
-            undone = take_snapshot(self.baseline)
+            undone = take_snapshot(self.baseline, read_extra)
             remaining = diff_snapshots(before, undone, ignore, case)
             steps = 1
             if remaining or not cmds.undoInfo(query=True, undoQueueEmpty=True):
@@ -2234,7 +2445,7 @@ class UndoCoverageTest(_UndoHarness):
                 while not cmds.undoInfo(query=True, undoQueueEmpty=True) and steps < MAX_UNDO_STEPS:
                     _safe_step(cmds.undo)
                     steps += 1
-                    remaining = diff_snapshots(before, take_snapshot(self.baseline), ignore, case)
+                    remaining = diff_snapshots(before, take_snapshot(self.baseline, read_extra), ignore, case)
                     if not remaining:
                         break
                 if not first:
@@ -2246,7 +2457,7 @@ class UndoCoverageTest(_UndoHarness):
             _trace("phase redo")
             for _ in range(steps):
                 _safe_step(cmds.redo)
-            redo_diff = diff_snapshots(after, take_snapshot(self.baseline), ignore, case)
+            redo_diff = diff_snapshots(after, take_snapshot(self.baseline, read_extra), ignore, case)
             if redo_diff:
                 problems.append(f"Redo {steps} 回で変更後と一致しない:\n      {_format(redo_diff)}")
             if problems:

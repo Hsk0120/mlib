@@ -3,13 +3,13 @@
 
 import bisect
 import maya.api.OpenMaya as om2
-from ..decorator import _pick_alias
+from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector
 from ..util import _UNSET, _world_space
 from .component import Component, Components, _MultiIndexComponent, _MultiIndexComponents
 from .face import Face
 from .vertex import Vertex
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable, Iterator, Sequence
 from mlib.nodes.mesh import Mesh
 from typing import overload
 
@@ -81,6 +81,111 @@ class VertexFace(_MultiIndexComponent, Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
+    def setNormal(self, normal: Sequence[float] | Vector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+        """この面頂点の法線を設定し、ロックする。
+
+        通常はpolyNormalPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
+
+        Args:
+            normal (Sequence[float] | Vector): 長さが0でないXYZ。正規化して設定する。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fast・check・空間指定・法線の型が不正な場合。
+            ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        ...
+    def isNormalLocked(self) -> bool:
+        """この面頂点の法線がロックされているか調べる。
+
+        Returns:
+            bool: 法線がロックされていればTrue。
+        """
+        ...
+    def setNormalLocked(self, state: bool = ..., *, fast: bool = ...) -> None:
+        """この面頂点の法線をロック、またはロック解除する。
+
+        Args:
+            state (bool): Trueはロック、Falseは解除。既定True。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。入力ヒストリの無いメッシュに限る。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: state・fastがbool以外の場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        ...
+    def getTangent(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> Vector:
+        """この面頂点のUVのU方向に沿う接線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            Vector: 独立した正規化済み接線。
+
+        Raises:
+            RuntimeError: UVが未割当・縮退しているか、接線を求められない場合。
+        """
+        ...
+    def getBinormal(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> Vector:
+        """この面頂点のUVに基づく従法線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            Vector: 独立した正規化済み従法線。
+
+        Raises:
+            RuntimeError: UVが未割当・縮退しているか、従法線を求められない場合。
+        """
+        ...
+    def getColor(self, *, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
+        """この面頂点の色を取得する。
+
+        Args:
+            colorSet (str | None): カラーセット。Noneは現在のセット。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
+        """
+        ...
+    def setColor(self, color: Sequence[float] | om2.MColor, *, fast: bool = ..., colorSet: str | None = ...) -> None:
+        """この面頂点の色を設定する。
+
+        通常はpolyColorPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
+
+        Args:
+            color (Sequence[float] | om2.MColor): RGBまたはRGBAの有限値。RGBのAは1。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、または色・セットの型が不正な場合。
+            ValueError: 色の成分が不正、またはセットが無い場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        ...
     @classmethod
     def _element_count(cls, shape: Mesh) -> int:
         """頂点フェースの数(全フェースの頂点数の合計)を返す。
@@ -141,6 +246,27 @@ class VertexFaces(_MultiIndexComponents, Components):
         ...
     def getNormal(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setNormal(self, normal: Sequence[float] | Vector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isNormalLocked(self) -> list[bool]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.isNormalLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setNormalLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setNormalLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getTangent(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[Vector]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getBinormal(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[Vector]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getBinormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setColor(self, color: Sequence[float] | om2.MColor, *, fast: bool = ..., colorSet: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

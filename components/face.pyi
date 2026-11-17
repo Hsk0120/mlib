@@ -147,6 +147,59 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
+    def getUVArea(self, *, uvSet: str | None = ...) -> float:
+        """フェースのUV上の面積を取得する。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+
+        Returns:
+            float: UV座標での面積。3D形状やTransformのスケールには依存しない。
+
+        Raises:
+            TypeError: uvSetが文字列・None以外の場合。
+            ValueError: UVセットが無い場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        ...
+    def isUVReversed(self, *, uvSet: str | None = ...) -> bool:
+        """フェースのUVが時計回りに並ぶか調べる。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+
+        Returns:
+            bool: 面の頂点順にUVをたどり、符号付き面積が負ならTrue。面積0ならFalse。
+
+        Raises:
+            TypeError: uvSetが文字列・None以外の場合。
+            ValueError: UVセットが無い場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        ...
+    def isZeroUVArea(self, *, uvSet: str | None = ..., tolerance: float = ...) -> bool:
+        """フェースのUV上の面積が許容誤差以下か調べる。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            tolerance (float): UV面積の許容誤差。0以上の有限値。
+
+        Returns:
+            bool: UV面積がtolerance以下ならTrue。
+
+        Raises:
+            TypeError: uvSet・toleranceの型が不正な場合。
+            ValueError: UVセットが無いか、許容誤差が不正な場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        ...
+    def hasValidTriangulation(self) -> bool:
+        """フェースがMayaで有効な三角形分割を持つか調べる。
+
+        Returns:
+            bool: MItMeshPolygon.hasValidTriangulationの判定。
+        """
+        ...
     def isOnBoundary(self) -> bool:
         """メッシュの縁に接するフェースか調べる。
 
@@ -321,6 +374,18 @@ class Faces(Components):
         ...
     def getUVs(self) -> list[UVs]:
         """各要素の :meth:`~mlib.components.face.Face.getUVs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getUVArea(self, *, uvSet: str | None = ...) -> list[float]:
+        """各要素の :meth:`~mlib.components.face.Face.getUVArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isUVReversed(self, *, uvSet: str | None = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.components.face.Face.isUVReversed` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isZeroUVArea(self, *, uvSet: str | None = ..., tolerance: float = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.components.face.Face.isZeroUVArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def hasValidTriangulation(self) -> list[bool]:
+        """各要素の :meth:`~mlib.components.face.Face.hasValidTriangulation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isOnBoundary(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isOnBoundary` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -289,6 +289,90 @@ class AnimCurve(Node):
                 flags["outTangentType"] = outTangentType
             cmds.setKeyframe(self.getFullName(), value=value, **flags)
 
+    def addKeys(self, keys, *, unit="deg", timeUnit="frame", replaceExisting=False, weightedTangents=None, check=False):
+        """キーの値と接線情報をまとめて追加する。
+
+        各辞書はinput・valueと、任意のinTangentType・outTangentType・inAngle・outAngle・
+        inWeight・outWeight・lock・weightLockを持つ。接線の単位はgetTangentと同じ。
+        既存キーは残すが、auto等の隣接接線はMayaが再計算する。weightedTangentsはカーブ全体に影響する。
+        全入力を検査してから書き、通常Undoの1回にまとめる。途中のMayaの失敗は自動で巻き戻さない。
+        fast引数は持たない(接線ロックを含む編集をcmdsで行うため)。
+
+        Args:
+            keys (Iterable[dict[str, Any]]): 追加するキー。入力・値の単位はsetKeyと同じ。
+            unit (str): キーの角度値と接線角度の単位。deg(既定)またはrad。
+            timeUnit (str): 時間入力・時間出力の単位。frame(既定)またはsec。
+            replaceExisting (bool): Trueなら同じ入力の既存キーを更新する。既定Falseは拒否する。
+            weightedTangents (bool | None): カーブ全体のウェイト付き接線。Noneは変更しない。
+            check (bool): Trueなら更新前にカーブの書込み可否を検査する。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 辞書・数値・boolの型が不正な場合。
+            ValueError: 必須項目が無い、未知の項目、入力が重複、既存キーと衝突、接線型・値・単位が不正な場合。
+            RuntimeError: カーブが無効か、Mayaが更新を拒否した場合。
+        """
+        _require_bool(replaceExisting, "replaceExisting")
+        _require_bool(check, "check")
+        if weightedTangents is not None:
+            _require_bool(weightedTangents, "weightedTangents")
+        _angle_unit(unit)
+        _time_unit(timeUnit)
+        input_unit = self._input_time_unit(timeUnit)
+        fn = self._curve_fn()
+        allowed = {"input", "value", "inTangentType", "outTangentType", "inAngle", "outAngle", "inWeight", "outWeight", "lock", "weightLock"}
+        entries = []
+        positions = set()
+        for record in keys:
+            if not isinstance(record, dict):
+                raise TypeError("keysの要素はdictで指定してください")
+            if not {"input", "value"} <= set(record) or set(record) - allowed:
+                raise ValueError("各キーにinput・valueと対応する接線の項目を指定してください")
+            values = dict(record)
+            for key in ("input", "value", "inAngle", "outAngle", "inWeight", "outWeight"):
+                if key in values:
+                    values[key] = self._finite(values[key])
+            if any(values.get(key, 0) < 0 for key in ("inWeight", "outWeight")):
+                raise ValueError("接線のウェイトは0以上で指定してください")
+            for key in ("lock", "weightLock"):
+                if key in values:
+                    _require_bool(values[key], key)
+            for key in ("inTangentType", "outTangentType"):
+                if key in values:
+                    self._tangent_type(values[key])
+                    values[key] = values[key].lower()
+            position = _to_seconds(values["input"], input_unit)
+            at = self._api_input(position)
+            # 時間入力はMayaのtick単位へ丸めた同じ時刻も重複として拒否する。
+            identity = round(at.asUnits(om2.MTime.kSeconds) * om2.MTime.ticksPerSecond()) if self.isTimeInput() else position
+            if identity in positions:
+                raise ValueError(f"keysの入力が重複しています: {values['input']}")
+            positions.add(identity)
+            if not replaceExisting and fn.find(at) is not None:
+                raise ValueError(f"同じ入力のキーがすでに存在します: {values['input']}")
+            entries.append(values)
+        if not entries:
+            return
+        if check:
+            self._require_curve_writable()
+        with undoChunk("mlibAnimCurveAddKeys"):
+            if weightedTangents is not None:
+                cmds.keyTangent(self.getFullName(), edit=True, weightedTangents=weightedTangents)
+            for values in entries:
+                self.setKey(values["input"], values["value"], unit=unit, timeUnit=timeUnit)
+            for values in entries:
+                index = self.findClosestIndex(values["input"], timeUnit=timeUnit)
+                old = self.getTangent(index)
+                tangents = {key: value for key, value in values.items() if key not in ("input", "value", "lock", "weightLock")}
+                if tangents:
+                    self.setTangent(index, lock=False, weightLock=False)
+                    self.setTangent(index, unit=unit, **tangents)
+                if tangents or "lock" in values or "weightLock" in values:
+                    self.setTangent(index, lock=values.get("lock", old["lock"]), weightLock=values.get("weightLock", old["weightLock"]))
+            cmds.dgdirty(self.getFullName())
+
     def insertKey(self, input, *, timeUnit="frame"):
         """カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
 

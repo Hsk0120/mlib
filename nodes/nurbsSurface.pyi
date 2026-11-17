@@ -8,7 +8,7 @@ from ..core import geometryEdit as geometry_edit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _finite, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .nurbsCurve import _DEGENERATE, _frame_matrix, _perpendicular, _require_axis
 from .shape import Shape
 from typing import Iterable, Sequence
@@ -90,6 +90,63 @@ class NurbsSurface(Shape):
 
         Raises:
             RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        ...
+    def getKnots(self) -> tuple[list[float], list[float]]:
+        """U方向・V方向のノット列を取得する。
+
+        Returns:
+            tuple[list[float], list[float]]: U・Vの順の独立したリスト。OpenMayaと同じく両端の余分なノットを含めない。
+
+        Raises:
+            RuntimeError: 形状が無効な場合。
+        """
+        ...
+    def isTrimmed(self) -> bool:
+        """トリム境界を持つ曲面か判定する。
+
+        Returns:
+            bool: トリムされた曲面ならTrue。
+
+        Raises:
+            RuntimeError: 形状が無効な場合。
+        """
+        ...
+    def isPointInTrimmedRegion(self, u: float, v: float) -> bool:
+        """指定パラメーターがトリムで切り落とされた領域か判定する。
+
+        Args:
+            u (float): U方向のパラメーター。
+            v (float): V方向のパラメーター。
+
+        Returns:
+            bool: 切り落とされた領域ならTrue。残る領域はFalse。
+
+        Raises:
+            TypeError: u・vが数値以外の場合。
+            ValueError: u・vが有限でないか範囲外の場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        ...
+    def getRayIntersection(self, origin: Sequence[float], direction: Sequence[float], worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> tuple[Vector, float, float] | None:
+        """レイと曲面の最も近い交点を取得する。
+
+        トリムの扱いと許容誤差はMFnNurbsSurface.intersectに従う。
+
+        Args:
+            origin (Sequence[float]): レイの始点(cm)。worldSpaceと同じ空間。
+            direction (Sequence[float]): レイの方向。ゼロ以外のベクトル。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            tolerance (float): 正の距離許容誤差(cm)。既定1e-6。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[Vector, float, float] | None: (交点(cm), u, v)。交差しなければNone。
+
+        Raises:
+            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
+            ValueError: 成分が有限でない、方向がゼロ、またはtoleranceが正でない場合。
+            RuntimeError: 形状が無効な場合。
         """
         ...
     def getCV(self, u: int, v: int) -> SurfaceCV:
@@ -200,6 +257,27 @@ class NurbsSurface(Shape):
             TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
             ValueError: u・vが有限でない、または範囲外の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        ...
+    def getDerivativesAtParam(self, u: float, v: float, worldSpace: bool = ..., *, secondOrder: bool = ..., ws: bool = ...) -> tuple[Vector, ...]:
+        """曲面上の位置と、正規化前のU・V方向の微分を取得する。
+
+        縮退点のゼロベクトルもそのまま返す。微分はパラメーターに対する変化量。
+
+        Args:
+            u (float): U方向のパラメーター。
+            v (float): V方向のパラメーター。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            secondOrder (bool): Trueなら二次微分も返す。既定False。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[Vector, ...]: (位置, dU, dV)、または(位置, dU, dV, dUU, dVV, dUV)。位置はcm。
+
+        Raises:
+            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
+            ValueError: u・vが有限でないか範囲外の場合。
+            RuntimeError: 形状が無効な場合。
         """
         ...
     def getNormalAtParam(self, u: float, v: float, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:

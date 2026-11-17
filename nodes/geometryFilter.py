@@ -55,6 +55,99 @@ class GeometryFilter(Node):
         self._require_valid("アトリビュートの取得")
         return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()])
 
+    def getGeometryIndex(self, geometry):
+        """変形対象の形状に対応するinput/outputGeometryの論理番号を取得する。
+
+        Args:
+            geometry (str | Node | om2.MObject | om2.MDagPath): 出力側のShape、または直下に対象Shapeを1つだけ持つTransform。
+
+        Returns:
+            int: 疎になり得る論理番号。getGeometryの一覧の位置とは異なる。
+
+        Raises:
+            TypeError: DAGノードでない場合。
+            ValueError: 対象形状でない場合、またはTransformに対象Shapeが複数ある場合。
+            RuntimeError: ノードが無効、または名前を解決できない場合。
+        """
+        fn = self._deformer_fn()
+        node = geometry if isinstance(geometry, Node) else Node(geometry)
+        node._require_valid("ジオメトリの取得")
+        if not node.mnode().hasFn(om2.MFn.kDagNode):
+            raise TypeError("geometryはShapeかTransformで指定してください")
+        outputs = fn.getOutputGeometry()
+        candidates = list(node.getShapes()) if node.mnode().hasFn(om2.MFn.kTransform) else [node]
+        matches = [candidate for candidate in candidates if any(candidate.mnode() == output for output in outputs)]
+        if len(matches) != 1:
+            raise ValueError(f"変形対象のShapeを1つ指定してください: {node.getFullName()}")
+        return fn.indexForOutputShape(matches[0].mnode())
+
+    def getGeometryAtIndex(self, *, geometryIndex):
+        """outputGeometryの論理番号に対応する出力Shapeを取得する。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。
+
+        Returns:
+            Node: Mayaが返す出力DAGパスを保持するShape。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合。
+            IndexError: 指定した論理番号の出力が無い場合。
+            RuntimeError: デフォーマーが無効な場合。
+        """
+        fn = self._deformer_fn()
+        self._require_geometry_index(fn, geometryIndex)
+        return Node._wrap_dag_path(fn.getPathAtIndex(geometryIndex))
+
+    def getGeometryComponents(self, *, geometryIndex=0):
+        """指定した出力形状で変形対象となるコンポーネントを取得する。
+
+        セット所属またはコンポーネントタグからMayaが返す対象を読む。必要に応じてDGが評価される。
+        セット所属・タグ・選択は変更しない。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。既定は0。
+
+        Returns:
+            list[Components]: Shapeと種類ごとのコンポーネント。対象が無ければ空のlist。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合、または未対応のコンポーネント種別の場合。
+            IndexError: 指定した論理番号の出力が無い場合。
+            RuntimeError: デフォーマーが無効、またはMayaが対象を取得できない場合。
+            NotImplementedError: MayaにgetComponentAtIndexが無い場合。
+        """
+        # Selectionはnodesを読み込むため、循環importを避けて使用時に読み込む。
+        from ..common.selection import Selection
+
+        fn = self._deformer_fn()
+        self._require_geometry_index(fn, geometryIndex)
+        if not hasattr(fn, "getComponentAtIndex"):
+            raise NotImplementedError("このMaya版ではデフォーマーの対象コンポーネント取得に対応していません")
+        component = fn.getComponentAtIndex(geometryIndex)
+        if component.isNull():
+            return []
+        selection = om2.MSelectionList()
+        selection.add((fn.getPathAtIndex(geometryIndex), component))
+        return Selection(selection).getComponents()
+
+    def getDeformerSet(self):
+        """このデフォーマーの所属を保持するobjectSetを取得する。
+
+        Returns:
+            ObjectSet | None: 所属セット。コンポーネントタグ方式などでセットを持たない場合はNone。
+
+        Raises:
+            RuntimeError: デフォーマーが無効な場合。
+        """
+        fn = self._deformer_fn()
+        try:
+            node = fn.deformerSet
+        except RuntimeError:
+            # コンポーネントタグ方式では、セット不在をMayaがRuntimeErrorで通知する。
+            return None
+        return None if node.isNull() else Node(node)
+
     def getDeformerWeights(self, *, geometryIndex=0):
         """頂点ごとのデフォーマーのウェイトを取得する。
 
@@ -224,6 +317,29 @@ class GeometryFilter(Node):
                 raise ValueError(f"頂点数が違います: {len(values)}と{count}")
             target.setDeformerWeights(values, geometryIndex=otherGeometryIndex, fast=fast)
             return target
+
+    def _deformer_fn(self):
+        """有効性を確かめてデフォーマーのfunction setを取得する。
+
+        Returns:
+            oma2.MFnGeometryFilter: このノードのfunction set。
+        """
+        self._require_valid("ジオメトリの取得")
+        return oma2.MFnGeometryFilter(self.mnode())
+
+    @staticmethod
+    def _require_geometry_index(fn, geometry_index):
+        """出力に実在する論理番号かを確かめる。
+
+        Args:
+            fn (oma2.MFnGeometryFilter): 有効なデフォーマー。
+            geometry_index (int): 出力の論理番号。
+        """
+        if isinstance(geometry_index, bool) or not isinstance(geometry_index, int):
+            raise TypeError("geometryIndexはintで指定してください")
+        indices = [fn.indexForOutputConnection(i) for i in range(fn.numOutputConnections())]
+        if geometry_index not in indices:
+            raise IndexError(f"指定した論理番号のジオメトリがありません: {geometry_index}")
 
     def _geometry_indices(self):
         """変形する形状の番号(``input``・``weightList`` の論理番号)を昇順で返す。

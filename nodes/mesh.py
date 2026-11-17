@@ -11,7 +11,7 @@ from ..components.face import Face, Faces
 from ..components.pointComponent import _mirror_plan, _write_points
 from ..components.uv import UV, UVs
 from ..components.vertex import Vertex, Vertices
-from ..components.vertexFace import VertexFaces
+from ..components.vertexFace import VertexFace, VertexFaces
 from ..core import geometryEdit as geometry_edit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
@@ -383,6 +383,170 @@ class Mesh(Shape):
         # MFloatVectorはom2の多重定義の解決を通さず、成分を写して同じ値のVectorにする。
         return [_vector_of(Vector, value) for value in self._geometry_fn().getVertexNormals(angleWeighted, space)]
 
+    def getFaceVertexNormals(self, worldSpace=_UNSET, *, faceVertices=None, ws=_UNSET):
+        """フェースごとの頂点の法線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            list[Vector]: 指定順の独立した法線。全件ではフェース番号順、その面の頂点順。
+
+        Raises:
+            TypeError: 空間指定や番号の型が不正な場合。
+            ValueError: 別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        components = self._resolve_face_vertices(faceVertices)
+        fn = self._geometry_fn()
+        values = fn.getNormals(space)
+        normal_ids = fn.getNormalIds()[1]
+        return [_vector_of(Vector, values[normal_ids[index]]).normal() for index in components.indices]
+
+    def setFaceVertexNormals(self, normals, worldSpace=_UNSET, *, fast=False, check=False, faceVertices=None, ws=_UNSET):
+        """フェースごとの頂点の法線を設定し、ロックする。
+
+        通常はpolyNormalPerVertexで設定し、Undoに記録する。fastは入力ヒストリの無いメッシュへ直接書く。
+        ワールド空間の値は、保持するDAGパスを使ってオブジェクト空間へ変換する。
+
+        Args:
+            normals (Iterable[Sequence[float] | Vector]): 指定した面頂点と同じ数の、長さが0でないXYZ。正規化して書く。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、全法線が有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fast・checkがbool以外の場合、または空間・番号・法線の型が不正な場合。
+            ValueError: 法線の数や成分が不正、長さ0、またはワールド変換が特異な場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        _require_bool(check, "check")
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        worldSpace = _world_space(worldSpace)
+        components = self._resolve_face_vertices(faceVertices)
+        values = [Vector(_finite_vector(value, 3, "normal") if check else value) for value in normals]
+        if len(values) != len(components):
+            raise ValueError("normalsは面頂点と同じ数で指定してください")
+        if any(value.length() == 0 for value in values):
+            raise ValueError("normalは長さが0でない値で指定してください")
+        if worldSpace:
+            matrix = self.mpath().inclusiveMatrix()
+            if matrix.isSingular():
+                raise ValueError("ワールド法線の設定には反転可能なマトリクスが必要です")
+            # 法線は点・接線と異なり逆転置で変換する。world→objectでは元マトリクスの転置になる。
+            values = [value * matrix.transpose() for value in values]
+        values = [value.normal() for value in values]
+        self._require_face_vertex_edit("setFaceVertexNormals", fast)
+        if not values:
+            return
+        if fast:
+            self._set_face_vertex_normals_fast(components, values)
+        else:
+            cmds.polyNormalPerVertex(components.getFullNames(), normalXYZ=[tuple(value) for value in values])
+
+    def getFaceVertexNormalLocks(self, *, faceVertices=None):
+        """フェースごとの頂点の法線がロックされているか取得する。
+
+        Args:
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+
+        Returns:
+            list[bool]: 指定順のロック状態。全件ではフェース番号順、その面の頂点順。
+        """
+        components = self._resolve_face_vertices(faceVertices)
+        fn = self._geometry_fn()
+        normal_ids = fn.getNormalIds()[1]
+        return [fn.isNormalLocked(normal_ids[index]) for index in components.indices]
+
+    def setFaceVertexNormalsLocked(self, state=True, *, fast=False, faceVertices=None):
+        """フェースごとの頂点の法線をロック、またはロック解除する。
+
+        解除後はMayaが形状とエッジの硬軟から法線を再計算する。
+
+        Args:
+            state (bool): Trueはロック、Falseは解除。既定True。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、またはstate・番号の型が不正な場合。
+            ValueError: 別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: メッシュがロックされている場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        _require_bool(state, "state")
+        components = self._resolve_face_vertices(faceVertices)
+        self._require_face_vertex_edit("setFaceVertexNormalsLocked", fast)
+        if not components:
+            return
+        if fast:
+            self._set_face_vertex_normals_locked_fast(components, state)
+        elif state:
+            cmds.polyNormalPerVertex(components.getFullNames(), freezeNormal=True)
+        else:
+            cmds.polyNormalPerVertex(components.getFullNames(), unFreezeNormal=True)
+
+    def getFaceVertexTangents(self, worldSpace=_UNSET, *, uvSet=None, faceVertices=None, ws=_UNSET):
+        """UVのU方向に沿う面頂点の接線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            list[Vector]: 指定順の正規化した接線。全件ではフェース番号順、その面の頂点順。
+
+        Raises:
+            TypeError: 空間・UVセット・番号の型が不正な場合。
+            ValueError: UVセットが無い場合、または別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: UVが未割当・縮退しているか、接線を求められない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        return self._face_vertex_directions(faceVertices, worldSpace, uvSet, False)
+
+    def getFaceVertexBinormals(self, worldSpace=_UNSET, *, uvSet=None, faceVertices=None, ws=_UNSET):
+        """UVに基づく面頂点の従法線を取得する。
+
+        MayaのgetFaceVertexBinormalを使い、UVの向きと法線から定まる方向を返す。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            list[Vector]: 指定順の正規化した従法線。全件ではフェース番号順、その面の頂点順。
+
+        Raises:
+            TypeError: 空間・UVセット・番号の型が不正な場合。
+            ValueError: UVセットが無い場合、または別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: UVが未割当・縮退しているか、従法線を求められない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        return self._face_vertex_directions(faceVertices, worldSpace, uvSet, True)
+
     def getVertexAdjacency(self, worldSpace=_UNSET, *, ws=_UNSET):
         """頂点ごとに、隣の頂点とエッジの長さを取得する。
 
@@ -628,6 +792,62 @@ class Mesh(Shape):
         """
         return UVs(self, indices)
 
+    def getUVData(self, *, uvSet=None):
+        """UV座標と、フェースの各コーナーに割り当てられたUV番号を取得する。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+
+        Returns:
+            tuple[list[tuple[float, float]], list[int], list[int]]: UV番号順の(U, V)、フェースごとのUV数、
+                フェースの頂点順に連結したUV番号。未割当面の数は0。未使用のUVも座標列に含む。すべて独立した値。
+
+        Raises:
+            TypeError: uvSetが文字列・None以外の場合。
+            ValueError: UVセットが無い場合。
+        """
+        name = self._resolve_uv_set(uvSet)
+        fn = self._geometry_fn()
+        us, vs = fn.getUVs(name)
+        counts, indices = fn.getAssignedUVs(name)
+        return list(zip(us, vs)), list(counts), list(indices)
+
+    def setUVData(self, uvs, counts, indices, *, fast=False, uvSet=None):
+        """UVセットの全座標と、フェースの各コーナーへの割り当てを置き換える。
+
+        UV番号は渡した座標の順になる。通常は一時形状からpolyTransferでUVを転送し、Undoに記録する。
+        入力ヒストリがある場合はpolyTransferノードを追加する。他のUVセットは内容を保ち、位置・法線・色・マテリアルは転送しない。
+        全UVセットの実行時の内容を転送するため、その後の上流ヒストリでのUV変更は反映しなくなる。
+        fastは入力ヒストリの無いメッシュに限る。頂点/面の番号は変えないが、取得済みUVの番号の意味は変わり得る。
+
+        Args:
+            uvs (Iterable[Sequence[float]]): UV番号順の(U, V)。有限な数値。未使用のUVも指定できる。
+            counts (Iterable[int]): フェース番号順のUV数。各値は0(未割当)、またはその面の頂点数。
+            indices (Iterable[int]): フェースの頂点順に連結したUV番号。長さはcountsの合計。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            uvSet (str | None): 既存のUVセット。Noneは現在のセット。現在のセットは変更しない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、または値・番号・UVセットの型が不正な場合。
+            ValueError: 数・範囲・座標が不正、UVセットが無い、またはインスタンス別UVセットの場合。
+            RuntimeError: メッシュがロックされている、リファレンスである、またはMayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        name = self._resolve_uv_set(uvSet)
+        values, counts, indices = self._resolve_uv_data(uvs, counts, indices)
+        self._require_face_vertex_edit("setUVData", fast)
+        fn = self._geometry_fn()
+        if any(fn.isUVSetPerInstance(item) for item in fn.getUVSetNames()):
+            raise ValueError("setUVDataはインスタンス別のUVセットに対応していません")
+        if fast:
+            self._set_uv_data_fast(fn, name, values, counts, indices)
+        else:
+            self._set_uv_data_cmds(name, values, counts, indices)
+
     def getNumUVs(self):
         """今のUVセットのUVの数を取得する。
 
@@ -860,6 +1080,120 @@ class Mesh(Shape):
                 continue
             return _vector_of(Vector, found)
         return None
+
+    def getPointsAtUV(self, u, v, worldSpace=_UNSET, *, uvSet=None, tolerance=1e-6, ws=_UNSET):
+        """UV座標に対応する全フェースの3D位置を取得する。
+
+        UVが重なる面も含め、1フェースにつき最大1点を返す。境界上で同じ位置になっても、別の面の結果は除かない。
+
+        Args:
+            u (float): U座標。
+            v (float): V座標。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            tolerance (float): UV座標の許容誤差。0以上の有限値。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            list[tuple[int, Vector]]: (フェース番号, 位置(cm))。フェース番号の昇順。該当面が無ければ空。
+
+        Raises:
+            TypeError: 座標・許容誤差・空間・UVセットの型が不正な場合。
+            ValueError: 座標・許容誤差が不正か、UVセットが無い場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        u, v = _finite_vector((u, v), 2, "uv")
+        tolerance = _checked_tolerance(tolerance)
+        name = self._resolve_uv_set(uvSet)
+        fn = self._geometry_fn()
+        counts, ids = fn.getAssignedUVs(name)
+        us, vs = fn.getUVs(name)
+        result = []
+        offset = 0
+        for face, count in enumerate(counts):
+            face_ids = ids[offset : offset + count]
+            offset += count
+            if not count:
+                continue
+            if not (min(us[i] for i in face_ids) - tolerance <= u <= max(us[i] for i in face_ids) + tolerance):
+                continue
+            if not (min(vs[i] for i in face_ids) - tolerance <= v <= max(vs[i] for i in face_ids) + tolerance):
+                continue
+            try:
+                point = fn.getPointAtUV(face, u, v, space, name, tolerance)
+            except RuntimeError:
+                # 外接矩形内でも、面のUV外や縮退した面では点を求められない。
+                continue
+            result.append((face, _vector_of(Vector, point)))
+        return result
+
+    def getFaceVertexColors(self, *, colorSet=None, faceVertices=None):
+        """フェースごとの頂点の色を平均せずに取得する。
+
+        Args:
+            colorSet (str | None): カラーセット。Noneは現在のセット。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+
+        Returns:
+            list[tuple[float, float, float, float] | None]: 指定順のRGBA。未設定はNone。
+                全件ではフェース番号順、その面の頂点順。現在のカラーセットが無い場合も全件None。
+
+        Raises:
+            TypeError: セット・番号の型が不正な場合。
+            ValueError: セットが無いか、別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+        """
+        components = self._resolve_face_vertices(faceVertices)
+        fn = self._geometry_fn()
+        name = self._resolve_color_set(colorSet, fn)
+        if name is None:
+            return [None] * len(components)
+        colors = fn.getColors(name)
+        result = []
+        for index in components.indices:
+            face, local_vertex = fn.getFaceAndVertexIndices(index, True)
+            color_index = fn.getColorIndex(face, local_vertex, name)
+            # 生の一括取得は、同じ頂点の別コーナーに色があると未設定を黒で返すため、割り当て番号で区別する。
+            result.append(None if color_index < 0 else tuple(colors[color_index]))
+        return result
+
+    def setFaceVertexColors(self, colors, *, fast=False, colorSet=None, faceVertices=None):
+        """フェースごとの頂点の色を設定する。
+
+        通常はpolyColorPerVertexで色ごとに書き、Undoにまとめる。入力ヒストリがある場合は編集ノードを追加する。
+        fastは入力ヒストリの無いメッシュに限る。ほかの面にある同じ頂点の色は変更しない。
+        通常経路で複数色の更新途中にMayaが失敗した場合、先に設定した色は残る。
+
+        Args:
+            colors (Iterable[Sequence[float] | om2.MColor]): 指定した面頂点と同じ数のRGBまたはRGBA。RGBのAは1。有限値。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、または色・セット・番号の型が不正な場合。
+            ValueError: 色の数・成分が不正、セットが無い、または別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        components = self._resolve_face_vertices(faceVertices)
+        fn = self._geometry_fn()
+        name = self._resolve_color_set(colorSet, fn)
+        values = self._resolve_colors(colors, len(components))
+        self._require_face_vertex_edit("setFaceVertexColors", fast)
+        if not components:
+            return
+        with _edit_context("mlibMeshSetFaceVertexColors", fast):
+            if fast:
+                self._set_face_vertex_colors_fast(fn, name, components, values)
+            else:
+                self._set_face_vertex_colors_cmds(name, components, values)
 
     def getVertexColors(self, *, colorSet=None):
         """頂点ごとの色を取得する。
@@ -1201,6 +1535,240 @@ class Mesh(Shape):
         for edge in self.getBorderEdges().indices:
             found.update(fn.getEdgeVertices(edge))
         return Vertices(self, sorted(found))
+
+    def _resolve_face_vertices(self, values):
+        """面頂点の指定を、同じメッシュのVertexFacesへ解決する。
+
+        Args:
+            values (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。
+
+        Returns:
+            VertexFaces: 指定順の面頂点。重複はComponentsの規則どおり除く。
+        """
+        if isinstance(values, (VertexFace, VertexFaces)):
+            if values.shape != self:
+                raise ValueError("faceVerticesは同じメッシュのコンポーネントで指定してください")
+            values._require_valid()
+            values = values.indices if isinstance(values, VertexFaces) else [values.index]
+        components = VertexFaces(self, values)
+        components._require_valid()
+        return components
+
+    def _require_face_vertex_edit(self, method, fast):
+        """面頂点データの書き込み先と、fastのヒストリ制限を確認する。
+
+        Args:
+            method (str): エラーに示す公開メソッド名。
+            fast (bool): OpenMayaで直接書くか。
+
+        Returns:
+            None: 値を返さない。
+        """
+        dependency = self._dependency_fn()
+        if dependency.isLocked:
+            raise RuntimeError(f"メッシュがロックされています: {self.getFullName()}")
+        if dependency.isFromReferencedFile:
+            raise RuntimeError(f"メッシュがリファレンスです: {self.getFullName()}")
+        if fast and self.getPlug("inMesh").mplug().isDestination:
+            raise NotImplementedError(f"fastの{method}は入力ヒストリのあるメッシュに対応していません")
+
+    def _set_face_vertex_normals_fast(self, components, values):
+        """面頂点の法線をOpenMayaで直接書く。
+
+        Args:
+            components (VertexFaces): 確認済みの対象。
+            values (list[Vector]): オブジェクト空間の法線。
+
+        Returns:
+            None: 値を返さない。
+        """
+        pairs = VertexFace._multi_indices(self, components.indices)
+        self._geometry_fn().setFaceVertexNormals(values, [face for _, face in pairs], [vertex for vertex, _ in pairs])
+
+    def _set_face_vertex_normals_locked_fast(self, components, state):
+        """面頂点法線のロックをOpenMayaで切り替える。
+
+        Args:
+            components (VertexFaces): 確認済みの対象。
+            state (bool): ロックするか。
+
+        Returns:
+            None: 値を返さない。
+        """
+        pairs = VertexFace._multi_indices(self, components.indices)
+        faces = [face for _, face in pairs]
+        vertices = [vertex for vertex, _ in pairs]
+        fn = self._geometry_fn()
+        if state:
+            fn.lockFaceVertexNormals(faces, vertices)
+        else:
+            fn.unlockFaceVertexNormals(faces, vertices)
+
+    def _face_vertex_directions(self, faceVertices, worldSpace, uvSet, binormal):
+        """UVの対応を確認し、面頂点の接線または従法線を返す。
+
+        Args:
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。
+            worldSpace (bool): ワールド空間で求めるか。
+            uvSet (str | None): UVセット。
+            binormal (bool): Trueは従法線、Falseは接線。
+
+        Returns:
+            list[Vector]: 指定順の正規化した方向。
+        """
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        name = self._resolve_uv_set(uvSet)
+        components = self._resolve_face_vertices(faceVertices)
+        fn = self._geometry_fn()
+        iterator = om2.MItMeshPolygon(self.mpath())
+        result = []
+        for vertex, face in VertexFace._multi_indices(self, components.indices):
+            iterator.setIndex(face)
+            if not iterator.hasUVs(name) or iterator.getUVArea(name) == 0:
+                raise RuntimeError(f"接線を求める面のUVが未割当か縮退しています: {self.getFullName()}.f[{face}]")
+            value = fn.getFaceVertexBinormal(face, vertex, space, name) if binormal else fn.getFaceVertexTangent(face, vertex, space, name)
+            if not all(math.isfinite(component) for component in value) or value.length() == 0:
+                raise RuntimeError(f"面頂点の方向を求められません: {self.getFullName()}.vtxFace[{vertex}][{face}]")
+            result.append(Vector(value).normal())
+        return result
+
+    def _resolve_uv_data(self, uvs, counts, indices):
+        """UVの座標数と、面ごとの割り当て数・番号を検証する。
+
+        Args:
+            uvs (Iterable[Sequence[float]]): UV座標。
+            counts (Iterable[int]): 面ごとのUV数。
+            indices (Iterable[int]): コーナーに割り当てるUV番号。
+
+        Returns:
+            tuple[list[tuple[float, float]], list[int], list[int]]: 確認済みの値。
+        """
+        values = [_finite_vector(value, 2, "uv") for value in uvs]
+        counts = list(counts)
+        indices = list(indices)
+        face_counts = self._geometry_fn().getVertices()[0]
+        if len(counts) != len(face_counts):
+            raise ValueError("countsはフェース数と同じ長さで指定してください")
+        for count, expected in zip(counts, face_counts):
+            if isinstance(count, bool) or not isinstance(count, int):
+                raise TypeError("countsはintの並びで指定してください")
+            if count not in (0, expected):
+                raise ValueError("各フェースのUV数は0か頂点数で指定してください")
+        if sum(counts) != len(indices):
+            raise ValueError("indicesはcountsの合計と同じ長さで指定してください")
+        for index in indices:
+            if isinstance(index, bool) or not isinstance(index, int):
+                raise TypeError("indicesはintの並びで指定してください")
+            if not 0 <= index < len(values):
+                raise ValueError("indicesはUV座標の範囲内で指定してください")
+        return values, counts, indices
+
+    @staticmethod
+    def _set_uv_data_fast(fn, name, values, counts, indices):
+        """UVセットの座標と割り当てをOpenMayaで置き換える。
+
+        Args:
+            fn (om2.MFnMesh): 対象メッシュ。
+            name (str): UVセット名。
+            values (list[tuple[float, float]]): UV座標。
+            counts (list[int]): 面ごとのUV数。
+            indices (list[int]): UV番号。
+
+        Returns:
+            None: 値を返さない。
+        """
+        fn.clearUVs(name)
+        if values:
+            fn.setUVs([value[0] for value in values], [value[1] for value in values], name)
+        fn.assignUVs(counts, indices, name)
+
+    def _set_uv_data_cmds(self, name, values, counts, indices):
+        """一時形状に用意したUVを標準コマンドで転送し、Undoに記録する。
+
+        Args:
+            name (str): UVセット名。
+            values (list[tuple[float, float]]): UV座標。
+            counts (list[int]): 面ごとのUV数。
+            indices (list[int]): UV番号。
+
+        Returns:
+            None: 値を返さない。
+        """
+        # NodeはShapeの基底なので、循環importを避けて呼び出し時に読む。
+        from .node import Node
+
+        fn = self._geometry_fn()
+        current = fn.currentUVSetName()
+        data = om2.MFnMeshData().create()
+        om2.MFnMesh().copy(self.mnode(), data)
+        with undoChunk("mlibMeshSetUVData"):
+            temporary = Node._from_name(cmds.createNode("mesh", skipSelect=True))
+            parent = temporary.getParent()
+            try:
+                # 書き込み先は作業用の形状だけ。対象への反映はpolyTransferがUndoへ記録する。
+                for index, uv_set in enumerate(fn.getUVSetNames()):
+                    cmds.setAttr(f"{temporary.getFullName()}.uvSet[{index}].uvSetName", uv_set, type="string")
+                temporary.getPlug("cachedInMesh").mplug().setMObject(data)
+                self._set_uv_data_fast(temporary._geometry_fn(), name, values, counts, indices)
+                cmds.polyTransfer(
+                    self.getFullName(), alternateObject=temporary.getFullName(), uvSets=True, vertices=False, vertexColor=False, constructionHistory=False
+                )
+                if self._geometry_fn().currentUVSetName() != current:
+                    cmds.polyUVSet(self.getFullName(), currentUVSet=True, uvSet=current)
+            finally:
+                cmds.delete(parent.getFullName())
+
+    def _set_face_vertex_colors_cmds(self, color_set, components, values):
+        """現在のカラーセットを一時的に選び、面頂点の色を標準コマンドで設定する。
+
+        Args:
+            color_set (str | None): カラーセット。
+            components (VertexFaces): 対象。
+            values (list[tuple[float, float, float, float]]): RGBA値。
+
+        Returns:
+            None: 値を返さない。
+        """
+        name = self.getFullName()
+        current = self._geometry_fn().currentColorSetName() or None
+        if color_set is not None and current != color_set:
+            cmds.polyColorSet(name, currentColorSet=True, colorSet=color_set)
+        try:
+            groups = defaultdict(list)
+            for component, value in zip(components.getFullNames(), values):
+                groups[value].append(component)
+            for value, targets in groups.items():
+                cmds.polyColorPerVertex(targets, rgb=value[:3], alpha=value[3])
+        finally:
+            if current is not None and color_set is not None and current != color_set:
+                cmds.polyColorSet(name, currentColorSet=True, colorSet=current)
+
+    def _set_face_vertex_colors_fast(self, fn, color_set, components, values):
+        """面頂点の色をOpenMayaで設定し、現在のカラーセットを戻す。
+
+        Args:
+            fn (om2.MFnMesh): 対象メッシュ。
+            color_set (str | None): カラーセット。
+            components (VertexFaces): 対象。
+            values (list[tuple[float, float, float, float]]): RGBA値。
+
+        Returns:
+            None: 値を返さない。
+        """
+        if not fn.numColorSets:
+            color_set = fn.createColorSet("colorSet1", False)
+            fn.setCurrentColorSetName(color_set)
+        current = fn.currentColorSetName()
+        if color_set is None:
+            color_set = current
+        if current != color_set:
+            fn.setCurrentColorSetName(color_set)
+        try:
+            pairs = VertexFace._multi_indices(self, components.indices)
+            fn.setFaceVertexColors([om2.MColor(value) for value in values], [face for _, face in pairs], [vertex for vertex, _ in pairs])
+        finally:
+            if current != color_set:
+                fn.setCurrentColorSetName(current)
 
     def _raw_points(self, worldSpace):
         """全頂点の位置を om2 の点列で返す(Vector へ変換しない照会用)。

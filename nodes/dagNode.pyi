@@ -11,7 +11,9 @@ from ..maths import Vector
 from ..util import _UNSET, _color_value, _world_space
 from .node import Node, Nodes
 from typing import Iterable, Sequence
+from mlib.components.component import Components
 from mlib.nodes.dagPose import DagPose
+from mlib.nodes.objectSet import ObjectSet
 from mlib.nodes.skinCluster import SkinClusters
 from mlib.nodes.transform import Transform
 
@@ -49,6 +51,24 @@ class DagNode(Node):
     どちらの場合もMayaのMDagPathは古いパスを返し続ける。そのため、パスを使う取得は
     空文字列や削除前の名前を返さず、RuntimeErrorにする。
     """
+    def getSetsAndMembers(self, *, renderableOnly: bool = ...) -> list[tuple[ObjectSet, list[Components] | None]]:
+        """保持するDAGパスについて、所属セットと対象コンポーネントを取得する。
+
+        MFnDagNodeのインスタンス別の照会を使う。TransformからShapeへは移動しない。
+        セットへの所属やマテリアルの割り当ては変更しない。
+
+        Args:
+            renderableOnly (bool): Trueならレンダー可能なセットだけを返す。既定False。
+
+        Returns:
+            list[tuple[ObjectSet, list[Components] | None]]: Mayaが列挙する順の組。
+                コンポーネントは範囲ごとの集まり、オブジェクト全体の所属はNone。
+
+        Raises:
+            TypeError: renderableOnlyがboolでない場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
+        """
+        ...
     def getSkinClusters(self) -> SkinClusters:
         """このノードのジオメトリを変形しているSkinClusterを取得する。
 

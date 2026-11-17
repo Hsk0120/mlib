@@ -105,7 +105,7 @@ class MultiPlug(Plug):
             Iterator[Plug]: 反復を始めた時点で集めた要素のイテレーター。
         """
         ...
-    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> dict[int, object]:
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> dict[int, object]:
         """すでにある要素の値を、論理番号をキーにしたdictで取得する。
 
         getElements()の要素ごとに値を読むので、DGの評価が起きることがある。
@@ -113,6 +113,9 @@ class MultiPlug(Plug):
         値を平らにならさない。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 各要素のgetへ渡す角度の単位。None(既定)は度、``"rad"`` はラジアン。
                 uiUnits=Trueとは同時に指定できない。
             timeUnit (str | None): 各要素のgetへ渡す時間の単位。None(既定)は現在のUIの時間単位でのフレーム、
@@ -128,6 +131,8 @@ class MultiPlug(Plug):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合、または要素の値を取得できない場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
+
         """
         ...
     def getElement(self, index: int) -> Plug:

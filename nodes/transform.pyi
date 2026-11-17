@@ -432,6 +432,51 @@ class Transform(DagNode):
             Jointはピボットを単独で動かせないため、書き換える前に拒否する。
         """
         ...
+    def getPivotTranslation(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Vector:
+        """ピボットを移動したときの姿勢補正値を取得する。
+
+        rotatePivotTranslateまたはscalePivotTranslateを扱う。ピボット位置そのものはgetPivotで取得する。
+        ワールド空間では選んだチャンネルだけを換算し、ほかのピボット補正は合算しない。
+        JointではsegmentScaleCompensateが有効なときinverseScaleも反映する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+            kind (str): rotateは回転ピボット、scaleはスケールピボット。既定rotate。
+
+        Returns:
+            Vector: cm単位の補正ベクトルの独立したコピー。
+
+        Raises:
+            TypeError: worldSpaceの型が不正、またはwsと同時指定した場合。
+            ValueError: kindがrotate・scale以外、または補正に使うJointのinverseScaleに0がある場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def setPivotTranslation(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., check: bool = ..., ws: bool = ...) -> None:
+        """ピボットの姿勢補正値を設定する。
+
+        補正チャンネルだけを書き換えるので、ノードの姿勢が変わることがある。
+        ピボット位置・translate・rotate・scaleは変更しない。
+        ワールド空間でも、ほかのピボット補正を含まない独立したベクトルを指定する。
+        fast引数は持たない(Plugへの1回の通常書き込みで更新するため)。
+
+        Args:
+            value (Iterable[float]): cm単位のXYZ補正ベクトル。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+            kind (str): rotateは回転ピボット、scaleはスケールピボット。既定rotate。
+            check (bool): Trueなら値の有限性と書き込み可否を先に確認する。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値やフラグの型が不正、またはworldSpaceとwsを同時指定した場合。
+            ValueError: kind・成分数が不正、check=Trueで値が有限でない、空間変換が特異、またはJointのinverseScaleに0がある場合。
+            RuntimeError: ノードが無効、またはMayaが書き込みを拒否した場合。
+        """
+        ...
     def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> None:
         """回転ピボットとスケールピボットを、バウンディングボックスの中心へ動かす。
 
@@ -1224,6 +1269,24 @@ class Transform(DagNode):
                 (原因の成分と ``safe=True`` を案内する)。
         """
         ...
+    def shearBy(self, value: Iterable[float]) -> None:
+        """ローカルのshearチャンネルに成分ごとの倍率を掛ける。
+
+        MFnTransform.shearByと同じくXY・XZ・YZそれぞれを乗算する。加算やマトリクス合成ではない。
+        0の成分は0のまま。fast引数は持たない(1回のPlugの書き込みで更新するため)。
+
+        Args:
+            value (Iterable[float]): XY・XZ・YZへ掛ける有限な3つの倍率。単位なし。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: valueが数値の並びでない場合。
+            ValueError: 成分数が3でない、または有限でない場合。
+            RuntimeError: ノードが無効、またはMayaが書き込みを拒否した場合。
+        """
+        ...
     def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> Quaternion:
         """選んだ回転の成分を合わせた回転を、クォータニオンで取得する。既定ではrotateAxisを含めない。
 
@@ -1482,6 +1545,19 @@ class Transform(DagNode):
 
         Returns:
             list[Shape]: DAGの子の順に並んだShape。
+        """
+        ...
+    def _pivot_translation_basis(self, kind: str) -> om2.MMatrix:
+        """補正チャンネルのベクトルをワールド空間へ換算するマトリクスを返す。
+
+        Args:
+            kind (str): 検証済みのrotateまたはscale。
+
+        Returns:
+            om2.MMatrix: 自身の回転・Jointのスケール補正・親空間のうち必要な成分。
+
+        Raises:
+            ValueError: 有効なスケール補正のinverseScaleに0がある場合。
         """
         ...
     def _local_matrix(self, matrix: Matrix | Iterable[float], ws: bool) -> Matrix:

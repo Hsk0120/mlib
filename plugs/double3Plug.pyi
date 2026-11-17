@@ -15,12 +15,15 @@ from mlib.maths.quaternion import Quaternion
 
 class Double3Plug(CompoundPlug):
     """3成分のアトリビュートを扱うPlug。チャンネルの値を読み書きし、マトリクスでの変換はしない。"""
-    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Vector | Translate | EulerRotate | Scale | Shear | tuple[float, float, float]:
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> Vector | Translate | EulerRotate | Scale | Shear | tuple[float, float, float]:
         """3成分のチャンネルの値を取得する。
 
         このアトリビュートの値だけを返し、jointOrientなどほかのアトリビュートとは合成しない。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 角度の子の数値の単位。None(既定)は度(rotateはEulerRotateで返す)。
                 rotateでunitを指定すると、EulerRotateではなく、指定した単位の数値のtupleを返す。
                 ``"deg"`` / ``"rad"`` と、``"degree"`` などの別名を受け付ける。uiUnits=Trueとは同時に指定できない。
@@ -44,6 +47,8 @@ class Double3Plug(CompoundPlug):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
+
         """
         ...
     def set(self, value: Iterable[float] | EulerRotate | Quaternion, *, safe: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> int | None:

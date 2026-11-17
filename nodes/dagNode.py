@@ -90,6 +90,39 @@ class DagNode(Node):
     空文字列や削除前の名前を返さず、RuntimeErrorにする。
     """
 
+    def getSetsAndMembers(self, *, renderableOnly=False):
+        """保持するDAGパスについて、所属セットと対象コンポーネントを取得する。
+
+        MFnDagNodeのインスタンス別の照会を使う。TransformからShapeへは移動しない。
+        セットへの所属やマテリアルの割り当ては変更しない。
+
+        Args:
+            renderableOnly (bool): Trueならレンダー可能なセットだけを返す。既定False。
+
+        Returns:
+            list[tuple[ObjectSet, list[Components] | None]]: Mayaが列挙する順の組。
+                コンポーネントは範囲ごとの集まり、オブジェクト全体の所属はNone。
+
+        Raises:
+            TypeError: renderableOnlyがboolでない場合。
+            RuntimeError: 保持するDAGパスが無効な場合。
+        """
+        # 循環参照の回避: ObjectSetはNodeを参照するため、照会時に読み込む。
+        from .objectSet import ObjectSet
+
+        _require_bool(renderableOnly, "renderableOnly")
+        path = self.mpath()
+        sets, components = om2.MFnDagNode(path).getConnectedSetsAndMembers(path.instanceNumber(), renderableOnly)
+        result = []
+        for set_object, component in zip(sets, components):
+            members = None
+            if not component.isNull() and not om2.MFnComponent(component).isEmpty:
+                selection = om2.MSelectionList()
+                selection.add((path, component))
+                members = ObjectSet._member_names(selection)
+            result.append((Node(set_object), members))
+        return result
+
     def getSkinClusters(self):
         """このノードのジオメトリを変形しているSkinClusterを取得する。
 

@@ -47,7 +47,7 @@ class BlendShape(GeometryFilter):
     省略すると、論理番号がいちばん小さいベースを使う。
 
     デルタは、ベースのオブジェクト空間での変位(cm)で、頂点番号と組にして扱う。
-    in-betweenは ``fullWeight`` (1.0以外の項目のウェイト)で選ぶ。
+    本体とin-betweenの項目は ``fullWeight`` (項目が完全に効くウェイト)で選ぶ。
     通常の変更はMaya標準のコマンドで行い、1回のUndoにまとめる。
     ``fast=True`` を使えるのは、デルタと頂点マスクの書き込みだけ。OpenMayaで書き込み、Undoには記録しない。
 
@@ -119,23 +119,47 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def addTarget(self, mesh: str | Node, name: str | None = ...) -> Plug:
-        """ターゲットを追加する。
+    def addBaseGeometry(self, geometry: str | Node) -> None:
+        """既存のblendShapeへ変形対象のベース形状を追加する。
 
-        ``cmds.blendShape(edit=True, target=...)`` と同じ処理で、空いている次の論理番号へ追加する。
-        最初のベース(:meth:`getBaseGeometry` の先頭)のターゲットとして追加し、ウェイトは0になる。
-        ターゲット形状との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
+        ヒストリへの配置はcmds.blendShape(edit=True, geometry=...)に従う。
+        既存ターゲットの別ベースへの複製は行わない。追加後はaddTargetのbaseで指定する。
+        fast引数は持たない(ヒストリと所属の更新をcmdsへ任せるため)。Undoが有効なら1回で戻せる。
+
+        Args:
+            geometry (str | Node): 追加する形状、またはそのTransform。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: geometryの型が不正な場合。
+            ValueError: geometryが無効か、すでにベースとして登録されている場合。
+            RuntimeError: ノードが無効か、Mayaが追加を拒否した場合。
+        """
+        ...
+    def addTarget(self, mesh: str | Node, name: str | None = ..., *, base: str | Node | None = ..., index: int | None = ..., fullWeight: float = ...) -> Plug:
+        """指定したベースへターゲット形状を追加する。
+
+        省略時はgetBaseGeometryの先頭へ、空いている次の番号・fullWeight=1.0で追加する。
+        別のベースで使用中のindexを指定すると、同じweight要素とエイリアスを共有する。
+        同じベースの既存番号への追加は拒否する。in-betweenの追加にはaddInBetweenを使う。
+        ターゲット形状との接続はMayaの既定どおり残す。Undoが有効なら1回で戻せる。
+        fast引数は持たない(デフォーマーの接続とターゲット登録をcmdsで更新するため)。
 
         Args:
             mesh (str | Node): ターゲットの形状、またはそのTransform。
-            name (str | None): ターゲット名。Noneならメッシュの名前になる(Mayaの既定)。
+            name (str | None): ターゲット名。新しい番号ではNoneならMayaの既定名。共有番号では既存名だけを指定できる。
+            base (str | Node | None): 登録済みのベース形状かそのTransform。Noneなら先頭のベース。
+            index (int | None): weightの論理番号。Noneなら未使用の番号。boolは不可。
+            fullWeight (float): 完全に変形するウェイト。0より大きい0.001刻みの値。現在のweight値は変更しない。
 
         Returns:
             Plug: 追加したターゲットのウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: nameが文字列・None以外の場合、またはmeshが使えない型の場合。
-            ValueError: nameが空文字列の場合、同じ名前のターゲットがすでにある場合、またはmeshが無効な場合。
+            TypeError: name・index・fullWeight・形状の型が不正な場合。
+            ValueError: 名前・番号・ウェイトが不正、ベースが未登録、または同じベースの番号が使用中の場合。
             RuntimeError: ノードが無効な場合、ベースが無い場合、またはMayaが追加を拒否した場合。
         """
         ...
@@ -168,8 +192,8 @@ class BlendShape(GeometryFilter):
     def getInBetweenWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:
         """ターゲットのin-betweenの項目のウェイトを取得する。
 
-        ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0(ターゲット本体)は除く。
-        今の ``weight`` の値は見ない。
+        ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0は除く。
+        今の ``weight`` の値は見ない。addTargetでfullWeightを1.0以外にした本体の項目も含む。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
@@ -215,7 +239,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): in-betweenを持つターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            weight (float): 取り除くin-betweenのウェイト。1.0(ターゲット本体)は指定できない。
+            weight (float): 取り除くin-betweenのウェイト。1.0は指定できない。
 
         Returns:
             None: 値を返さない。
@@ -282,7 +306,7 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
 
         Returns:
             dict[int, Vector]: 頂点番号から変位への辞書。
@@ -303,7 +327,7 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             deltas (dict[int, Sequence[float]]): 頂点番号から変位(xyz、cm)への辞書。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -327,7 +351,7 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             tolerance (float): この長さ(cm)以下の変位の頂点を除く。0以上の有限な数値。既定は0で、変位0の頂点だけを除く。
 
         Returns:
@@ -348,7 +372,7 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点、または頂点番号。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -375,7 +399,7 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             tolerance (float): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。既定は0で、変位0の頂点だけを取り除く。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -466,7 +490,7 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(かそのTransform)。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
 
         Returns:
             None: 値を返さない。
@@ -486,7 +510,7 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定し、終えるときは使わない。
             state (bool): Trueなら編集を始め、FalseならこのblendShapeの編集モードを終える。既定はTrue。
-            fullWeight (float): 編集する項目のウェイト。1.0ならターゲット本体、それ以外ならin-between。既定は1.0。
+            fullWeight (float): 編集する項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
 
         Returns:
             None: 値を返さない。

@@ -4,7 +4,7 @@ import bisect
 
 import maya.api.OpenMaya as om2
 
-from ..decorator import _pick_alias
+from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector
 from ..util import _UNSET, _world_space
 from .component import Component, Components, _MultiIndexComponent, _MultiIndexComponents
@@ -92,6 +92,124 @@ class VertexFace(_MultiIndexComponent, Component):
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         vertex, face = self.getMultiIndex()
         return Vector(self.shape._geometry_fn().getFaceVertexNormal(face, vertex, space)).normal()
+
+    def setNormal(self, normal, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
+        """この面頂点の法線を設定し、ロックする。
+
+        通常はpolyNormalPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
+
+        Args:
+            normal (Sequence[float] | Vector): 長さが0でないXYZ。正規化して設定する。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fast・check・空間指定・法線の型が不正な場合。
+            ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        self.shape.setFaceVertexNormals([normal], worldSpace, fast=fast, check=check, faceVertices=self)
+
+    def isNormalLocked(self):
+        """この面頂点の法線がロックされているか調べる。
+
+        Returns:
+            bool: 法線がロックされていればTrue。
+        """
+        return self.shape.getFaceVertexNormalLocks(faceVertices=self)[0]
+
+    def setNormalLocked(self, state=True, *, fast=False):
+        """この面頂点の法線をロック、またはロック解除する。
+
+        Args:
+            state (bool): Trueはロック、Falseは解除。既定True。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。入力ヒストリの無いメッシュに限る。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: state・fastがbool以外の場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        self.shape.setFaceVertexNormalsLocked(state, fast=fast, faceVertices=self)
+
+    def getTangent(self, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
+        """この面頂点のUVのU方向に沿う接線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            Vector: 独立した正規化済み接線。
+
+        Raises:
+            RuntimeError: UVが未割当・縮退しているか、接線を求められない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        return self.shape.getFaceVertexTangents(worldSpace, uvSet=uvSet, faceVertices=self)[0]
+
+    def getBinormal(self, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
+        """この面頂点のUVに基づく従法線を取得する。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            Vector: 独立した正規化済み従法線。
+
+        Raises:
+            RuntimeError: UVが未割当・縮退しているか、従法線を求められない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        return self.shape.getFaceVertexBinormals(worldSpace, uvSet=uvSet, faceVertices=self)[0]
+
+    def getColor(self, *, colorSet=None):
+        """この面頂点の色を取得する。
+
+        Args:
+            colorSet (str | None): カラーセット。Noneは現在のセット。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
+        """
+        return self.shape.getFaceVertexColors(colorSet=colorSet, faceVertices=self)[0]
+
+    def setColor(self, color, *, fast=False, colorSet=None):
+        """この面頂点の色を設定する。
+
+        通常はpolyColorPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
+
+        Args:
+            color (Sequence[float] | om2.MColor): RGBまたはRGBAの有限値。RGBのAは1。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、または色・セットの型が不正な場合。
+            ValueError: 色の成分が不正、またはセットが無い場合。
+            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        self.shape.setFaceVertexColors([color], fast=fast, colorSet=colorSet, faceVertices=self)
 
     @classmethod
     def _element_count(cls, shape):

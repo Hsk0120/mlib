@@ -13,10 +13,13 @@ from typing import Any, Sequence
 
 class MatrixPlug(Plug):
     """matrix型のアトリビュートを扱うPlug。そのアトリビュートの値だけを扱う。"""
-    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Matrix | None:
+    def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> Matrix | None:
         """アトリビュートのマトリクスの値を取得する。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): Plug共通の角度の単位の指定。正しい指定か確かめるだけで、マトリクスの成分は換算しない。
             timeUnit (str | None): Plug共通の時間の単位の指定。正しい指定か確かめるだけ。
             uiUnits (bool): Plug共通の単位の指定。マトリクスの成分の単位は変換しない。
@@ -30,6 +33,8 @@ class MatrixPlug(Plug):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合、または値を読み取れない場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
+
         """
         ...
     def _set_value(self, value: Matrix | om2.MMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:

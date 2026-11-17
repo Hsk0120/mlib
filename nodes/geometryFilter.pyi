@@ -13,6 +13,7 @@ from .node import Node, Nodes
 from typing import Iterable
 from mlib.components.component import Component
 from mlib.components.component import Components
+from mlib.nodes.objectSet import ObjectSet
 
 _DEFORMER_WEIGHTS_VERSION: int
 
@@ -50,6 +51,65 @@ class GeometryFilter(Node):
 
         Raises:
             RuntimeError: ノードが無効な(削除された)場合。
+        """
+        ...
+    def getGeometryIndex(self, geometry: str | Node | om2.MObject | om2.MDagPath) -> int:
+        """変形対象の形状に対応するinput/outputGeometryの論理番号を取得する。
+
+        Args:
+            geometry (str | Node | om2.MObject | om2.MDagPath): 出力側のShape、または直下に対象Shapeを1つだけ持つTransform。
+
+        Returns:
+            int: 疎になり得る論理番号。getGeometryの一覧の位置とは異なる。
+
+        Raises:
+            TypeError: DAGノードでない場合。
+            ValueError: 対象形状でない場合、またはTransformに対象Shapeが複数ある場合。
+            RuntimeError: ノードが無効、または名前を解決できない場合。
+        """
+        ...
+    def getGeometryAtIndex(self, *, geometryIndex: int) -> Node:
+        """outputGeometryの論理番号に対応する出力Shapeを取得する。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。
+
+        Returns:
+            Node: Mayaが返す出力DAGパスを保持するShape。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合。
+            IndexError: 指定した論理番号の出力が無い場合。
+            RuntimeError: デフォーマーが無効な場合。
+        """
+        ...
+    def getGeometryComponents(self, *, geometryIndex: int = ...) -> list[Components]:
+        """指定した出力形状で変形対象となるコンポーネントを取得する。
+
+        セット所属またはコンポーネントタグからMayaが返す対象を読む。必要に応じてDGが評価される。
+        セット所属・タグ・選択は変更しない。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。既定は0。
+
+        Returns:
+            list[Components]: Shapeと種類ごとのコンポーネント。対象が無ければ空のlist。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合、または未対応のコンポーネント種別の場合。
+            IndexError: 指定した論理番号の出力が無い場合。
+            RuntimeError: デフォーマーが無効、またはMayaが対象を取得できない場合。
+            NotImplementedError: MayaにgetComponentAtIndexが無い場合。
+        """
+        ...
+    def getDeformerSet(self) -> ObjectSet | None:
+        """このデフォーマーの所属を保持するobjectSetを取得する。
+
+        Returns:
+            ObjectSet | None: 所属セット。コンポーネントタグ方式などでセットを持たない場合はNone。
+
+        Raises:
+            RuntimeError: デフォーマーが無効な場合。
         """
         ...
     def getDeformerWeights(self, *, geometryIndex: int = ...) -> list[float]:
@@ -166,6 +226,22 @@ class GeometryFilter(Node):
             IndexError: 指定した番号の形状が無い場合。
             RuntimeError: otherの名前のノードが無い場合、アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
+        """
+        ...
+    def _deformer_fn(self) -> oma2.MFnGeometryFilter:
+        """有効性を確かめてデフォーマーのfunction setを取得する。
+
+        Returns:
+            oma2.MFnGeometryFilter: このノードのfunction set。
+        """
+        ...
+    @staticmethod
+    def _require_geometry_index(fn: oma2.MFnGeometryFilter, geometry_index: int):
+        """出力に実在する論理番号かを確かめる。
+
+        Args:
+            fn (oma2.MFnGeometryFilter): 有効なデフォーマー。
+            geometry_index (int): 出力の論理番号。
         """
         ...
     def _geometry_indices(self) -> list[int]:

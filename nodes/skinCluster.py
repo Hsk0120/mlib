@@ -1,4 +1,4 @@
-"""skinClusterのインフルエンスと、先頭のMeshの頂点ウェイトを調べたり編集したりする。"""
+"""skinClusterのインフルエンスと、先頭の形状の頂点/CVウェイトを取得・編集する。"""
 
 import math
 from collections.abc import Mapping
@@ -38,11 +38,14 @@ def _finite_number(value):
 class SkinCluster(GeometryFilter):
     """skinClusterを扱うクラス。
 
-    インフルエンスと、先頭に出力しているMeshの頂点ウェイトを調べたり編集したりする。
+    インフルエンスと、先頭に出力しているMeshの頂点、NURBSカーブ/サーフェスのCVウェイトを取得・編集する。
 
     このクラスのオブジェクトは、作ったときの先頭のジオメトリの名前・DAGパスと、
-    自身のMFnSkinClusterを持つ。頂点の操作では、そのジオメトリがMeshであることを前提とする。
+    自身のMFnSkinClusterを持つ。ウェイトのvertices引数は頂点/CVの参照・名前・通し番号を受ける。
+    周期NURBSでは独立CVだけを対象とし、重複CVの指定は対応する先頭側へ読み替える。
     複数のジオメトリをまとめて編集することはしない。
+    get/setWeights・get/setVertexWeights・get/setBlendWeightsとJSON保存復元がNURBSに対応する。
+    smoothWeights・getInfluenceVertices・redistributeWeights・invertShapeはMesh専用。
 
     インフルエンスの番号は2種類あり、区別して扱う。
 
@@ -65,7 +68,7 @@ class SkinCluster(GeometryFilter):
 
         既存のskinClusterを取得するためだけに使う。新しくバインドするときは
         :func:`mlib.bindSkin <mlib.cmds.bindSkin.bindSkin>` を使う。
-        先頭のジオメトリだけを持つ。頂点ウェイトの操作では、そのジオメトリがmeshであることを前提とする。
+        先頭のジオメトリだけを持つ。Mesh・NURBSカーブ/サーフェスのウェイトを扱う。
 
         Args:
             skinCluster (str | om2.MObject | om2.MDagPath): skinClusterの名前、またはAPIのオブジェクト。
@@ -255,8 +258,7 @@ class SkinCluster(GeometryFilter):
             paths = self._skin_fn.influenceObjects()
             locked = {i for i, path in enumerate(paths) if self._influence_locked(path)}
             free = [i for i in range(len(paths)) if i not in locked]
-            _, num_vertices = self._all_vertices()
-            vertex_indices = list(range(num_vertices))
+            vertex_indices = self._weight_point_indices()
             rows = self._read_rows(vertex_indices, range(len(paths)))
             edited_vertices, edited_rows, changed = [], [], set()
             for vertex, row in zip(vertex_indices, rows):
@@ -297,6 +299,58 @@ class SkinCluster(GeometryFilter):
         """
         # influenceObjects()が返したばかりの有効なパスなので、入力の再解決を省いてラッパーにする。
         return Nodes._wrap([Node._wrap_dag_path(path) for path in self._skin_fn.influenceObjects()])
+
+    def getInfluenceIndex(self, influence):
+        """インフルエンスに対応するmatrix/bindPreMatrix/weightsの論理番号を取得する。
+
+        Args:
+            influence (str | Node): 登録済みのインフルエンスを1つ指定する。
+
+        Returns:
+            int: 疎になり得る論理番号。getInfluencesの一覧の位置とは異なる。
+
+        Raises:
+            TypeError: 入力がノードとして扱えない場合。
+            ValueError: 未登録、または1つでない場合。
+            RuntimeError: skinClusterが無効な場合。
+        """
+        self._require_valid("インフルエンス番号の取得")
+        indices = self._require_influences(influence)
+        if len(indices) != 1:
+            raise ValueError("influenceを1つ指定してください")
+        return self._skin_fn.indexForInfluenceObject(self._skin_fn.influenceObjects()[indices[0]])
+
+    def smoothWeights(self, *, tolerance=0.5, iterations=2):
+        """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。
+
+        cmds.skinClusterのsmoothWeightsを1回実行する。対象はMesh全体で、インフルエンスのロックは変更しない。
+        結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。
+
+        Args:
+            tolerance (float): 周囲とのウェイト差の判定値。0以上1以下。
+            iterations (int): 最大反復回数。1以上。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: toleranceが数値でない場合、またはiterationsがintでない場合。
+            ValueError: toleranceが範囲外、またはiterationsが1未満の場合。
+            RuntimeError: Mayaが編集を拒否した場合。
+            NotImplementedError: 出力がMeshでない場合。
+        """
+        if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
+            raise TypeError("toleranceは数値で指定してください")
+        if not math.isfinite(tolerance) or not 0.0 <= tolerance <= 1.0:
+            raise ValueError("toleranceは0以上1以下の有限な数値で指定してください")
+        if isinstance(iterations, bool) or not isinstance(iterations, int):
+            raise TypeError("iterationsはintで指定してください")
+        if iterations < 1:
+            raise ValueError("iterationsは1以上で指定してください")
+        self._require_valid("ウェイトのスムーズ")
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            raise NotImplementedError("smoothWeightsはMeshだけに対応しています")
+        cmds.skinCluster(self.getFullName(), edit=True, smoothWeights=tolerance, smoothWeightsMaxIterations=iterations)
 
     @undoChunk("mlibSkinClusterAddInfluences")
     def addInfluences(self, joints):
@@ -592,11 +646,14 @@ class SkinCluster(GeometryFilter):
             TypeError: thresholdが数値でない場合、またはinfluenceに頂点やアトリビュートを渡した場合。
             ValueError: thresholdが負・有限でない場合、またはinfluenceが未登録・1つでない場合。
             RuntimeError: ノードが無効(削除済み)な場合。
+            NotImplementedError: 出力がMeshでない場合。
         """
         # componentsはnodesを読み込むため、循環importを避けて使う時点で読み込む。
         from ..components.vertex import Vertices
 
         self._require_valid("値の取得")
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            raise NotImplementedError("getInfluenceVerticesはMeshだけに対応しています")
         if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
             raise TypeError(f"thresholdは数値で指定してください: {type(threshold).__name__}")
         threshold = float(threshold)
@@ -714,35 +771,28 @@ class SkinCluster(GeometryFilter):
                         node.getPlug("lockInfluenceWeights").set(True)
 
     def getWeights(self, joints, *, vertices=None, rows=False):
-        """指定したインフルエンスの頂点ウェイトを、先頭のMeshから取得する。
+        """指定したインフルエンスのウェイトを、先頭のMeshまたはNURBSから取得する。
 
-        APIには、influenceObjects()の中での物理的な番号を渡す。飛び飛びになり得るweights[]の論理番号は渡さない。
-        インフルエンスは :meth:`setWeights` と同じく、空・未登録・重複を、何かを変える前に拒否する。
+        点とインフルエンスは指定順に返す。NURBSでは周期方向の重複CVを先頭側へ読み替える。
+        Noneで全点を取得するときは独立CVだけを通し番号順に列挙する。
 
         Args:
-            joints (str | Node | Iterable): 登録済みのインフルエンス。複数指定するときは、名前とオブジェクトを混ぜない。
-                頂点(Vertex・"mesh.vtx[0]"など)はインフルエンスではないため、TypeErrorになる。
-            vertices (Vertex | Vertices | int | str | Iterable | None): 取得する頂点。Noneならすべての頂点。
-                Vertex・Verticesは先頭のMeshのものだけを指定できる。文字列は ``"mesh.vtx[0:3]"`` のような頂点の名前。
-                指定した順に返す。重複していればValueError。
-            rows (bool): Trueなら、頂点ごとの行(``list[list[float]]``)で返す。既定はFalseで、1列に並べたlistを返す。
+            joints (str | Node | Iterable): 登録済みのインフルエンス。空・重複を許さず、名前かNodeに揃える。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点/CV。Noneなら全点。
+                Meshは頂点番号、カーブはCV番号、曲面はu*numCVsInV+vの通し番号を使う。
+                CV/SurfaceCVやcv[u][v]の名前も指定できる。素の(u, v)は2つの通し番号として扱う。
+                別形状・重複は拒否し、空なら空の結果を返す。
+            rows (bool): Trueなら点ごとの行。既定Falseは1列のMDoubleArray。
 
         Returns:
-            om2.MDoubleArray | list[list[float]]: 既定では、頂点の数×指定したインフルエンスの数の値を1列に並べた
-                ``om2.MDoubleArray`` (listと同じく番号で読め、``list()`` でlistにできる)。
-                頂点は指定した順(Noneなら番号順)、各頂点の中はjointsの順に並ぶ。
-                i番目の頂点のj番目のインフルエンスの値は ``weights[i * len(joints) + j]``。
-                ``rows=True`` なら、同じ値を頂点ごとの行に分けた ``weights[i][j]`` になる。
-                値は単位の無い数で、シーンとは切り離されている。戻り値を変えてもシーンには反映されない。
-                1つの頂点のウェイトをインフルエンスごとに読むなら、:meth:`getVertexWeights`
-                (インフルエンスからウェイトへの辞書)を使う。
+            om2.MDoubleArray | list[list[float]]: 点の順、各点の中はjointsの順の単位なしの値。
+                flat[i*K+j]またはrows[i][j]が、i番目の点とj番目のインフルエンスに対応する。
+                シーンから独立した値で、変更してもウェイトへ反映されない。
 
         Raises:
-            TypeError: jointsに頂点やアトリビュートを渡した場合、頂点の入力の型が正しくない場合、
-                またはrowsがboolでない場合。
-            ValueError: インフルエンスが空・未登録(例: ``'arm_R_JNT'はskinCluster1のインフルエンスではありません``)・重複の場合、
-                または頂点が重複している・別の形状のものである場合。
-            IndexError: 頂点の番号が範囲外の場合。
+            TypeError: 入力の型が不正、またはrowsがboolでない場合。
+            ValueError: インフルエンスが空・未登録・重複、点が重複・別形状の場合。
+            IndexError: 点の番号が範囲外の場合。
         """
         _require_bool(rows, "rows")
         physical_indices = self._require_influences(joints)
@@ -760,69 +810,40 @@ class SkinCluster(GeometryFilter):
         return om2.MDoubleArray([value for row in values for value in row])
 
     def setWeights(self, joints, weights, *, vertices=None, normalize=False, broadcast=False, rows=False, fast=False, check=False):
-        """指定したインフルエンスの頂点ウェイトを設定する。
+        """先頭のMeshの頂点またはNURBSのCVに、インフルエンスのウェイトを設定する。
 
-        既定では正規化せず、渡した値をそのまま書き込む。
+        通常はcmds.setAttrで指定した点・列を書き、Undoが有効なら1チャンクにまとめる。
+        fastはMeshをMFnSkinCluster、NURBSをMPlugで更新する。指定しなかった列は変更しない。
+        途中の書き込み失敗では、完了した変更を自動で戻さない。
 
-        入力を確かめた後、通常はcmds.setAttrで、頂点の順・指定した列の順に書き込む。
-        指定した順で論理番号が続いている部分は、範囲を指定した1回のsetAttrにまとめる。
-        ただし、失敗したときにどこまで書き込まれるか、どのエラーになるかは、要素ごとに書き込む場合と同じ。
-        fastでは、対象のすべてのPlugについて、ロック・入力の接続・書き込めるか・アトリビュートの範囲を先に確かめてから、
-        MPlug.setDoubleで順に書き込む。
-        どちらの場合も、MFnSkinCluster.setWeightsによる、指定しなかった列への配り直しは使わない。
-
-        ``normalize=True`` では、``cmds.skinPercent(transformValue=..., normalize=True)`` にならって、
-        書き込む各頂点の合計を1にする。
-
-        - 指定したインフルエンスには、指定した値を書く。
-        - 指定しなかったインフルエンスのうち、lockInfluenceWeightsが有効なものは値を保つ。
-        - 残りの指定しなかったインフルエンスを、比率を保ったまま ``1 - 指定値の合計 - ロック値の合計`` へ拡大・縮小する。
-        - ただし、指定した値の合計がこの残りを超える場合と、拡大・縮小できる指定しなかったインフルエンスが無い
-          (値がすべて0の)場合は、指定した値を比率を保ったまま ``1 - ロック値の合計`` へ拡大・縮小し、
-          指定しなかったもの(ロックしたものを除く)を0にする。
-
-        値が変わった、指定しなかったインフルエンスの列も書き込む。最後の場合のskinPercentの結果はMayaの版で違う
-        (2022は指定した値をそのまま書く)。そのため、mlibは版に関係なくこの規則で合計を1にする。
+        normalize=Trueでは合計1にするため、未指定でロックされていない列を比率を保って再配分する。
+        未指定のロック列は保持する。指定値が残りの合計を超える場合、または配分先が無い場合は、
+        指定列を残りの合計へ比例縮小・拡大し、未指定の非ロック列を0にする。
+        normalize=Falseは生値を書き、normalizeWeights・maintainMaxInfluencesによる再配分は行わない。
+        lockInfluenceWeightsを理由とした指定列の拒否や、レイヤーの検出はしない。
 
         Args:
-            joints (str | Node | Iterable): 空でない、登録済みのインフルエンス。名前かNodeのどちらか一方の形で指定する。
-                同じインフルエンスを重ねて指定すると拒否する。頂点(Vertex・"mesh.vtx[0]"など)はTypeError。
-            weights (Iterable[float] | Iterable[Iterable[float]]): 書き込む値。対象の頂点の数をV、指定した列の数をKとすると、V*K個
-                (頂点の順で、各頂点の中はjointsの順)。``broadcast=True`` なら、すべての対象の頂点に共通のK個。
-                ``rows=True`` なら、K個ずつの行がV個(:meth:`getWeights` に ``rows=True`` を指定した結果と同じ形)。
-                値はfloatへ変換できる有限の数。
-            vertices (Vertex | Vertices | int | str | Iterable | None): 書き込む頂点。Noneならすべての頂点。
-                Vertex・Verticesは先頭のMeshのものだけを指定できる。文字列は ``"mesh.vtx[0:3]"`` のような頂点の名前。
-                weightsはこの指定の順に対応する。重複していればValueError、空なら何もしない。
-            normalize (bool): Trueなら、書き込んだ頂点を上の規則で合計1へ正規化する。既定はFalse。
-                対象の頂点に負の値や有限でない値があればValueError。
-            broadcast (bool): Trueなら、K個の値をすべての対象の頂点へ同じように書き込む。既定はFalse。
-                2つ以上の頂点へK個だけを渡すときは、この指定が必要。
-            rows (bool): Trueなら、weightsを頂点ごとの行として受け取る。既定はFalse。broadcastとは同時に指定できない。
+            joints (str | Node | Iterable): 登録済みのインフルエンス。空・重複を許さず、名前かNodeに揃える。
+            weights (Iterable[float] | Iterable[Iterable[float]]): 点数V×列数Kの有限な値。点の順、各点内はjointsの順。
+                rows=TrueならK列の行をV行、broadcast=Trueなら全点に共通するK個を渡す。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点/CV。番号と周期CVの規則はgetWeightsと同じ。
+                Noneは全点、空は何も変更しない。weightsの行はこの指定順に対応する。
+            normalize (bool): Trueなら上記の規則で合計1へ正規化する。既定False。
+            broadcast (bool): TrueならK個を全対象点へ書く。rowsと同時に指定できない。
+            rows (bool): Trueならweightsを点ごとの行で受け取る。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueならfastの更新前にロック・入力接続等を全件検査する。既定False。
+                通常処理はMayaが各書き込みで編集可否を判定する。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 数値に変換できない型の場合、頂点やインフルエンスの入力の型が正しくない場合、
-                またはboolの引数がboolでない場合。
-            ValueError: インフルエンスが空・未登録・重複の場合、数が合わない場合(broadcast=Trueを指定せずにK個を
-                複数の頂点へ渡した場合や、rows=Trueで行の長さがKでない場合を含む)、rowsとbroadcastを同時に指定した場合、
-                有限でない値がある場合、数値の文字列が正しくない場合、頂点が重複している・別の形状のものである場合、
-                または正規化できない頂点がある場合。
-            IndexError: 頂点の番号が範囲外の場合。
-            RuntimeError: Plugが編集できない場合、またはMayaが設定を拒否した場合。
-
-        Note:
-            ``normalize=False`` では、指定しなかった列とインフルエンスのロックの設定は変えない。
-            ただし、lockInfluenceWeightsを理由に拒否することも、レイヤーを見つけることもしない。
-            負でないことや合計が1であることも、独自には確かめない。
-            normalizeWeights・maintainMaxInfluencesの設定に合わせて正規化し直すこともしない。
-            通常の書き込みは、Undoが有効なら同じチャンクに記録する。後のほうで失敗しても、それまでに終わった変更は
-            自動では戻さない。fastで先に確かめていても、書き込みの途中での失敗まで全部か無しかにはならない。
+            TypeError: 入力の型が不正、またはbool引数がboolでない場合。
+            ValueError: 数・指定形式・有限性が不正、インフルエンスが空・未登録・重複、
+                点が重複・別形状、または正規化できない場合。
+            IndexError: 点の番号が範囲外の場合。
+            RuntimeError: Plugが編集できない、またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibSkinClusterSetWeights", fast):
             _require_bool(normalize, "normalize")
@@ -845,10 +866,10 @@ class SkinCluster(GeometryFilter):
                 self._set_weight_values_cmds(values, width, vertex_indices, logical_indices)
 
     def getVertexWeights(self, vertex, *, nonzero=False):
-        """先頭のMeshの1つの頂点について、すべてのインフルエンスのウェイトを辞書で取得する。
+        """先頭の形状の1つの頂点/CVについて、インフルエンスのウェイトを辞書で取得する。
 
         Args:
-            vertex (Vertex | int | str): 先頭のMeshの頂点。Vertex、頂点の番号、または ``"mesh.vtx[3]"`` で指定する。
+            vertex (Component | int | str): 先頭形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
             nonzero (bool): Trueなら、値が0でないインフルエンスだけを返す。既定はFalse。
 
         Returns:
@@ -868,7 +889,7 @@ class SkinCluster(GeometryFilter):
         return {Node._wrap_dag_path(path): value for path, value in zip(paths, row) if not nonzero or value != 0.0}
 
     def setVertexWeights(self, vertex, weights, *, normalize=True, fast=False, check=False):
-        """先頭のMeshの1つの頂点に、インフルエンスごとのウェイトを設定する。
+        """先頭の形状の1つの頂点/CVに、インフルエンスごとのウェイトを設定する。
 
         ``setWeights(list(weights), list(weights.values()), vertices=[vertex], normalize=normalize)`` と同じ。
 
@@ -877,7 +898,7 @@ class SkinCluster(GeometryFilter):
         - ``normalize=False`` では、指定したインフルエンスだけに値をそのまま書き、ほかは変えない。
 
         Args:
-            vertex (Vertex | int | str): 先頭のMeshの頂点。Vertex、頂点の番号、または ``"mesh.vtx[3]"`` で指定する。
+            vertex (Component | int | str): 先頭形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
             weights (Mapping[str | Node, float]): 登録済みのインフルエンスからウェイトへの辞書。空にはできない。
                 キーは名前かNodeのどちらかに揃える(:meth:`getVertexWeights` の戻り値のキーはNode)。
             normalize (bool): Trueなら、書き込んだ頂点を合計1へ正規化する。既定はTrue。
@@ -904,14 +925,14 @@ class SkinCluster(GeometryFilter):
             self.setWeights(list(weights.keys()), list(weights.values()), vertices=[index], normalize=normalize, fast=fast, check=check)
 
     def getBlendWeights(self, *, vertices=None):
-        """先頭のMeshの、頂点ごとのDQブレンドウェイト(``blendWeights``)を取得する。
+        """先頭形状の、頂点/CVごとのDQブレンドウェイト(``blendWeights``)を取得する。
 
         DQブレンドウェイトは、スキニングの方法が ``"weightBlended"`` のときに使う値で、頂点ごとに
         クラシックリニア(0)とデュアルクォータニオン(1)を混ぜる割合を表す。
         値が書かれていない頂点は、Mayaの既定と同じ0.0になる。
 
         Args:
-            vertices (Vertex | Vertices | int | str | Iterable | None): 取得する頂点。Noneならすべての頂点。
+            vertices (Component | Components | int | str | Iterable | None): 取得する頂点/CV。Noneなら全独立点。
                 指定のしかたは :meth:`getWeights` と同じ。
 
         Returns:
@@ -926,27 +947,25 @@ class SkinCluster(GeometryFilter):
         self._require_valid("値の取得")
         vertex_indices = self._vertex_indices(vertices)
         if vertex_indices is None:
-            vertex_indices = list(range(om2.MFnMesh(self.mesh_path).numVertices))
+            vertex_indices = list(self._weight_point_indices())
         if not vertex_indices:
             return []
         # 照会は番号の昇順の成分で行い、指定順へ並べ直す。
         ordered = sorted(vertex_indices)
-        component_fn = om2.MFnSingleIndexedComponent()
-        component = component_fn.create(om2.MFn.kMeshVertComponent)
-        component_fn.addElements(ordered)
+        component = self._point_component(ordered)
         values = dict(zip(ordered, self._skin_fn.getBlendWeights(self.mesh_path, component)))
         return [values[index] for index in vertex_indices]
 
     def setBlendWeights(self, weights, *, vertices=None, fast=False, check=False):
-        """先頭のMeshの、頂点ごとのDQブレンドウェイト(``blendWeights``)を設定する。
+        """先頭形状の、頂点/CVごとのDQブレンドウェイト(``blendWeights``)を設定する。
 
         通常は、続いている頂点番号ごとに、範囲を指定した ``cmds.setAttr`` で書き込む。Undoが有効なら1回で戻せる。
-        ``fast=True`` では、すべての対象を書き込めるかを先に調べてから ``MFnSkinCluster.setBlendWeights`` で書き込み、
-        Undoには記録しない。スキニングの方法(:meth:`setSkinningMethod`)は変えない。
+        ``fast=True`` ではMFnSkinCluster.setBlendWeightsで書き、Undoには記録しない。
+        check=Trueなら全対象の編集可否を先に検査する。スキニングの方法(:meth:`setSkinningMethod`)は変えない。
 
         Args:
             weights (Iterable[float]): 0以上1以下の値。対象の頂点と同じ数だけ渡し、verticesの指定の順に対応する。
-            vertices (Vertex | Vertices | int | str | Iterable | None): 書き込む頂点。Noneならすべての頂点(番号順)。
+            vertices (Component | Components | int | str | Iterable | None): 書き込む頂点/CV。Noneなら全独立点(番号順)。
                 指定のしかたは :meth:`setWeights` と同じ。空なら何もしない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -967,7 +986,7 @@ class SkinCluster(GeometryFilter):
             self._require_valid("ブレンドウェイトの設定")
             vertex_indices = self._vertex_indices(vertices)
             if vertex_indices is None:
-                vertex_indices = list(range(om2.MFnMesh(self.mesh_path).numVertices))
+                vertex_indices = list(self._weight_point_indices())
             if isinstance(weights, (str, bytes)):
                 raise TypeError("weightsは数値の並びで指定してください(文字列は指定できません)")
             try:
@@ -990,9 +1009,7 @@ class SkinCluster(GeometryFilter):
                     for index in vertex_indices:
                         require_writable(array.elementByLogicalIndex(index))
                 pairs = sorted(zip(vertex_indices, values))
-                component_fn = om2.MFnSingleIndexedComponent()
-                component = component_fn.create(om2.MFn.kMeshVertComponent)
-                component_fn.addElements([index for index, _ in pairs])
+                component = self._point_component([index for index, _ in pairs])
                 self._skin_fn.setBlendWeights(self.mesh_path, component, om2.MDoubleArray([float(value) for _, value in pairs]))
                 return
             name = self.getFullName()
@@ -1003,12 +1020,13 @@ class SkinCluster(GeometryFilter):
         """すべての頂点のウェイトとスキニングの設定を、``mlib.skinWeights`` 形式の辞書で取得する。
 
         :meth:`exportWeights` が書き出すデータそのもので、:meth:`setWeightsData` へ渡せる。
-        値は丸めない。シーンは変えない。
+        値は丸めない。シーンは変えない。NURBSの行は周期方向の重複CVを含まない。
 
         データの形(版1):
 
         - ``geometry``: 先頭のジオメトリ(Shape)の参照(:class:`mlib.json.NodeRef` の辞書)。
-        - ``vertexCount``: 頂点の数。
+        - ``vertexCount``: 独立した頂点/CVの数。以下の行は独立点の通し番号順。
+        - ``pointIndices``: NURBSだけが持つ各行のCV通し番号。周期曲面では番号が飛ぶ。Meshでは省略。
         - ``influences``: インフルエンスの参照のlist。influenceObjects()の物理的な順番に並ぶ。以下の「influenceの位置」や
           「インフルエンスの位置」は、このlistの中の位置を指す。
         - ``influenceLocks``: インフルエンスごとのウェイトのロック(lockInfluenceWeights)。``influences`` と同じ順。
@@ -1020,7 +1038,7 @@ class SkinCluster(GeometryFilter):
         - ``settings``: ``skinningMethod``・``normalizeWeights`` (名前)、``maxInfluences`` (int)、
           ``maintainMaxInfluences`` (bool)。
         - ``ngSkinLayers``: ngSkinTools2のレイヤーのlist。レイヤーが無い場合と、ngSkinTools2を使えない場合はNone。
-          各レイヤーは ``name``・``enabled``・``opacity``・``parent`` (親レイヤーのlistの中の位置、またはNone)・
+          NURBSではレイヤーを扱わずNoneとする。各レイヤーは ``name``・``enabled``・``opacity``・``parent`` (親レイヤーのlistの中の位置、またはNone)・
           ``index`` (親の中での順番)・``weights`` (``[[influenceの位置, 頂点ごとの値], ...]``)・
           ``mask``・``dq`` (頂点ごとの値、またはNone)を持つ。
 
@@ -1043,7 +1061,8 @@ class SkinCluster(GeometryFilter):
         component, count = self._all_vertices()
         paths = self._skin_fn.influenceObjects()
         width = len(paths)
-        flat = list(self._skin_fn.getWeights(self.mesh_path, component)[0]) if count else []
+        # Maya 2022の周期サーフェスでは列指定なしの取得が末尾の行を欠くため、物理番号を明示する。
+        flat = list(self._skin_fn.getWeights(self.mesh_path, component, om2.MIntArray(range(width)))) if count else []
         indices, values = [], []
         for start in range(0, count * width, width):
             row = flat[start : start + width]
@@ -1051,7 +1070,7 @@ class SkinCluster(GeometryFilter):
             indices.append(used)
             values.append([row[index] for index in used])
         blend = list(self._skin_fn.getBlendWeights(self.mesh_path, component)) if count else []
-        return {
+        data = {
             "geometry": NodeRef.capture(self.mesh_path).toData(),
             "vertexCount": count,
             "influences": [NodeRef.capture(path).toData() for path in paths],
@@ -1067,9 +1086,16 @@ class SkinCluster(GeometryFilter):
             },
             "ngSkinLayers": self._capture_ngskin_layers(paths),
         }
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            # 周期サーフェスではweightList番号が飛ぶため、行位置とは分けて保存する。
+            data["pointIndices"] = self._weight_point_indices()
+        return data
 
     def setWeightsData(self, data, *, nameMap=None, replace=None, namespaceMap=None, method="index", fast=False):
         """:meth:`getWeightsData` の辞書から、ウェイトとスキニングの設定をこのskinClusterへ書き戻す。
+
+        MeshとNURBSに対応する。method="index"では、NURBSのpointIndicesも対象と一致する必要がある。
+        NURBSにはngSkinTools2のレイヤーを適用せず、指定された場合はskippedへ記録する。
 
         保存したインフルエンスは、名前の対応付け(``nameMap``・``replace``・``namespaceMap``。規則は
         :class:`mlib.json.NameMapping`)で、シーンのノードに対応させる。
@@ -1206,6 +1232,7 @@ class SkinCluster(GeometryFilter):
             TypeError: sculptedがメッシュでない場合、またはnameが文字列でもNoneでもない場合。
             ValueError: 頂点の数が先頭のメッシュと違う場合、またはnameが空文字列の場合。
             RuntimeError: 名前からノードを特定できない場合、またはMayaが複製や書き込みを拒否した場合。
+            NotImplementedError: 出力がMeshでない場合。
 
         Note:
             skinClusterより前に別のデフォーマーがある場合は、その出力(skinClusterの入力)と元の形状(Orig)の差を足し戻す。
@@ -1221,6 +1248,9 @@ class SkinCluster(GeometryFilter):
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .mesh import Mesh
 
+        self._require_valid("補正形状の作成")
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            raise NotImplementedError("invertShapeはMeshだけに対応しています")
         if name is not None and not isinstance(name, str):
             raise TypeError("nameは文字列かNoneで指定してください")
         if name == "":
@@ -1274,7 +1304,11 @@ class SkinCluster(GeometryFilter):
                 ウェイトの合計が0以下の場合、またはイージングの計算ができない場合。
             IndexError: 頂点の番号が今の範囲の外の場合。
             RuntimeError: Mayaが読み取りや書き込みを拒否した場合。
+            NotImplementedError: 出力がMeshでない場合。
         """
+        self._require_valid("ウェイトの再配分")
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            raise NotImplementedError("redistributeWeightsはMeshだけに対応しています")
         with undoChunk("mlibSkinClusterRedistributeWeights"):
             if not isinstance(method, str):
                 raise TypeError(f"イージングの方法はstrで指定してください: {type(method).__name__}")
@@ -1585,9 +1619,11 @@ class SkinCluster(GeometryFilter):
 
         saved = self._parse_weights_data(data)
         report = ValidationReport()
-        count = om2.MFnMesh(self.mesh_path).numVertices
+        count = len(self._weight_point_indices())
         if method == "index" and saved["vertexCount"] != count:
             report.addError(f"保存された頂点数({saved['vertexCount']})が{self.mesh}の頂点数({count})と合っていません。method='position'を使います")
+        if method == "index" and saved["pointIndices"] is not None and saved["pointIndices"] != self._weight_point_indices():
+            report.addError("保存したCV番号の並びが対象形状と違います。method='position'を使います")
         if method == "position" and not saved["positions"]:
             report.addError("データに頂点の位置がありません")
         if not report.valid:
@@ -1638,10 +1674,12 @@ class SkinCluster(GeometryFilter):
                 Node._wrap_dag_path(path).getPlug("lockInfluenceWeights").set(False, fast=fast)
         if vertices:
             if fast:
-                component_fn = om2.MFnSingleIndexedComponent()
-                component = component_fn.create(om2.MFn.kMeshVertComponent)
-                component_fn.addElements(vertices)
-                self._skin_fn.setWeights(self.mesh_path, component, om2.MIntArray(range(len(paths))), om2.MDoubleArray(values), False)
+                # NURBSはsetWeightsと同じ経路で、生値をweightListの論理番号へ直接書く。
+                if self.mesh_path.hasFn(om2.MFn.kMesh):
+                    component = self._point_component(vertices)
+                    self._skin_fn.setWeights(self.mesh_path, component, om2.MIntArray(range(len(paths))), om2.MDoubleArray(values), False)
+                else:
+                    self._set_weight_values_fast(values, len(paths), vertices, logical)
             else:
                 self._set_weight_values_cmds(values, len(paths), vertices, logical)
         self._write_blend_weights(saved["blendWeights"], sources, fast)
@@ -1686,7 +1724,7 @@ class SkinCluster(GeometryFilter):
         indices, weights = saved["weights"]
         rows = {}
         vertices, values = [], []
-        for vertex, source in enumerate(sources):
+        for vertex, source in zip(self._weight_point_indices(), sources):
             if source not in rows:
                 row = [0.0] * width
                 dropped = 0.0
@@ -1702,7 +1740,14 @@ class SkinCluster(GeometryFilter):
                 rows[source] = row
             row = rows[source]
             if row is None:
-                report.addSkipped(f"{self.mesh}.vtx[{vertex}]", "存在しないインフルエンスだけにウェイトがあります")
+                if self.mesh_path.hasFn(om2.MFn.kMesh):
+                    point_name = f"{self.mesh}.vtx[{vertex}]"
+                elif self.mesh_path.hasFn(om2.MFn.kNurbsCurve):
+                    point_name = f"{self.mesh}.cv[{vertex}]"
+                else:
+                    u, v = divmod(vertex, om2.MFnNurbsSurface(self.mesh_path).numCVsInV)
+                    point_name = f"{self.mesh}.cv[{u}][{v}]"
+                report.addSkipped(point_name, "存在しないインフルエンスだけにウェイトがあります")
                 continue
             vertices.append(vertex)
             values.extend(row)
@@ -1714,7 +1759,7 @@ class SkinCluster(GeometryFilter):
         Args:
             blend (list[float] | None): 保存した頂点ごとの値。Noneは書かない。
             sources (Sequence[int]): 現在の頂点ごとの、保存した頂点の番号。
-            fast (bool): TrueはMFnSkinCluster.setBlendWeights、Falseは範囲指定の1回のsetAttr。
+            fast (bool): TrueはMFnSkinCluster.setBlendWeights、FalseはsetBlendWeightsの通常経路。
 
         Returns:
             None: 値を返さない。
@@ -1722,13 +1767,13 @@ class SkinCluster(GeometryFilter):
         if blend is None or not len(sources):
             return
         values = [blend[source] for source in sources]
-        component, count = self._all_vertices()
+        component, _ = self._all_vertices()
         if list(self._skin_fn.getBlendWeights(self.mesh_path, component)) == values:
             return
         if fast:
             self._skin_fn.setBlendWeights(self.mesh_path, component, om2.MDoubleArray(values))
         else:
-            set_attr(f"{self.getFullName()}.blendWeights[0:{count - 1}]", *values)
+            self.setBlendWeights(values)
 
     def _apply_weight_settings(self, settings, report, fast):
         """スキニングの設定を、現在の値と違うものだけ書く。書けない設定はreportへ記録する。
@@ -1767,6 +1812,8 @@ class SkinCluster(GeometryFilter):
         Returns:
             list[dict] | None: レイヤーごとの辞書。ngSkinTools2を使えない、またはレイヤーが無ければNone。
         """
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            return None
         found = _layer_api(self.getFullName())
         if found is None:
             return None
@@ -1807,6 +1854,10 @@ class SkinCluster(GeometryFilter):
             None: 値を返さない。
         """
         name = self.getFullName()
+        if not self.mesh_path.hasFn(om2.MFn.kMesh):
+            if saved_layers:
+                report.addSkipped(f"{self.getName()}のngSkinToolsのレイヤー", "NURBSにはレイヤーを書き込みません")
+            return
         if not saved_layers:
             if _layer_api(name) is not None:
                 report.addSkipped(f"{self.getName()}のngSkinToolsのレイヤー", "既存のレイヤーを残しました。書き込んだウェイトを上書きする可能性があります")
@@ -1862,25 +1913,40 @@ class SkinCluster(GeometryFilter):
         return api
 
     def _input_points(self):
-        """skinClusterに入る前の形状の頂点位置(オブジェクト空間、cm)を返す。
+        """skinClusterに入る前の独立した頂点/CVの位置(オブジェクト空間、cm)を返す。
 
-        入力の形状を読めない場合は、出力のMeshの位置を返す。
+        入力の形状を読めない場合は、出力の位置を返す。周期方向の重複CVは含めない。
 
         Returns:
-            om2.MPointArray: 頂点番号順の位置。
+            om2.MPointArray: _weight_point_indicesと同じ順の位置。
         """
         try:
             index = self._skin_fn.indexForOutputShape(self.mesh_path.node())
             fn = self._dependency_fn()
             element = fn.findPlug("input", False).elementByLogicalIndex(index)
             data = element.child(fn.attribute("inputGeometry")).asMObject()
-            if not data.isNull() and data.hasFn(om2.MFn.kMesh):
-                points = om2.MFnMesh(data).getPoints(om2.MSpace.kObject)
-                if len(points) == om2.MFnMesh(self.mesh_path).numVertices:
-                    return points
+            if not data.isNull():
+                return self._geometry_points(data)
         except RuntimeError:
             pass
-        return om2.MFnMesh(self.mesh_path).getPoints(om2.MSpace.kObject)
+        return self._geometry_points(self.mesh_path)
+
+    def _geometry_points(self, geometry):
+        """形状データの位置を、ウェイトを持つ点の順へ並べる。
+
+        Args:
+            geometry (om2.MObject | om2.MDagPath): 入力データまたは出力Shape。
+
+        Returns:
+            om2.MPointArray: 独立した頂点/CVのオブジェクト空間位置。
+        """
+        if self.mesh_path.hasFn(om2.MFn.kMesh):
+            points = om2.MFnMesh(geometry).getPoints(om2.MSpace.kObject)
+        elif self.mesh_path.hasFn(om2.MFn.kNurbsCurve):
+            points = om2.MFnNurbsCurve(geometry).cvPositions(om2.MSpace.kObject)
+        else:
+            points = om2.MFnNurbsSurface(geometry).cvPositions(om2.MSpace.kObject)
+        return om2.MPointArray([points[index] for index in self._weight_point_indices()])
 
     @classmethod
     def _parse_weights_data(cls, data):
@@ -1909,6 +1975,14 @@ class SkinCluster(GeometryFilter):
         count = data["vertexCount"]
         if type(count) is not int or count < 0:
             raise ValueError(f"vertexCountは0以上のintで指定してください: {count!r}")
+        point_indices = data.get("pointIndices")
+        if point_indices is not None and (
+            not isinstance(point_indices, list)
+            or len(point_indices) != count
+            or any(type(index) is not int or index < 0 for index in point_indices)
+            or point_indices != sorted(set(point_indices))
+        ):
+            raise ValueError(f"pointIndicesは{count}個の重複しない非負整数を番号順に指定してください")
         if not isinstance(data["influences"], list) or not data["influences"]:
             raise ValueError("influencesは空でないリストで指定してください")
         influences = [NodeRef.fromData(item) for item in data["influences"]]
@@ -1943,6 +2017,7 @@ class SkinCluster(GeometryFilter):
             raise ValueError(f"positionsは{count}個の[x, y, z]の点のリストで指定してください")
         return {
             "vertexCount": count,
+            "pointIndices": point_indices,
             "influences": influences,
             "influenceLocks": locks,
             "weights": (indices, values),
@@ -2203,16 +2278,138 @@ class SkinCluster(GeometryFilter):
         return self._influence_indices((joint,), self._skin_fn.influenceObjects())[0]
 
     def _all_vertices(self):
-        """meshのすべての頂点のcomponentと、頂点の数を作る。
+        """先頭の形状の独立した頂点/CVのcomponentと、点の数を作る。
 
         Returns:
-            tuple[om2.MObject, int]: すべての頂点を含むcomponentと、頂点の数。
+            tuple[om2.MObject, int]: 独立した点を含むcomponentと点の数。
         """
-        num_vertices = om2.MFnMesh(self.mesh_path).numVertices
-        component_fn = om2.MFnSingleIndexedComponent()
-        vertices = component_fn.create(om2.MFn.kMeshVertComponent)
-        component_fn.addElements(range(num_vertices))
-        return vertices, num_vertices
+        indices = self._weight_point_indices()
+        return self._point_component(indices), len(indices)
+
+    def _weight_point_indices(self):
+        """ウェイトを持つ独立した点の通し番号を取得する。
+
+        Returns:
+            Sequence[int]: Meshは頂点番号、カーブは独立CV番号、曲面はu*全V方向CV数+v。周期曲面では疎になる。
+
+        Raises:
+            NotImplementedError: Mesh・NURBS以外の場合。
+        """
+        path = self.mesh_path
+        if path.hasFn(om2.MFn.kMesh):
+            return list(range(om2.MFnMesh(path).numVertices))
+        if path.hasFn(om2.MFn.kNurbsCurve):
+            fn = om2.MFnNurbsCurve(path)
+            count = fn.numCVs - fn.degree if fn.form == om2.MFnNurbsCurve.kPeriodic else fn.numCVs
+            return list(range(count))
+        if path.hasFn(om2.MFn.kNurbsSurface):
+            fn = om2.MFnNurbsSurface(path)
+            count_u = fn.numCVsInU - fn.degreeInU if fn.formInU == om2.MFnNurbsSurface.kPeriodic else fn.numCVsInU
+            count_v = fn.numCVsInV - fn.degreeInV if fn.formInV == om2.MFnNurbsSurface.kPeriodic else fn.numCVsInV
+            return [u * fn.numCVsInV + v for u in range(count_u) for v in range(count_v)]
+        raise NotImplementedError("スキンウェイトはMeshとNURBSカーブ/サーフェスだけに対応しています")
+
+    def _point_component(self, indices):
+        """検査済みの通し番号から形状に対応するOpenMayaコンポーネントを作る。
+
+        Args:
+            indices (Iterable[int]): 独立した点の通し番号。
+
+        Returns:
+            om2.MObject: 頂点またはCVのコンポーネント。
+        """
+        if self.mesh_path.hasFn(om2.MFn.kNurbsSurface):
+            count_v = om2.MFnNurbsSurface(self.mesh_path).numCVsInV
+            fn = om2.MFnDoubleIndexedComponent()
+            component = fn.create(om2.MFn.kSurfaceCVComponent)
+            fn.addElements([divmod(index, count_v) for index in indices])
+            return component
+        kind = om2.MFn.kMeshVertComponent if self.mesh_path.hasFn(om2.MFn.kMesh) else om2.MFn.kCurveCVComponent
+        fn = om2.MFnSingleIndexedComponent()
+        component = fn.create(kind)
+        fn.addElements(list(indices))
+        return component
+
+    def _cv_indices(self, vertices):
+        """CV参照・名前・通し番号を、独立CVのウェイト番号へ変える。
+
+        Args:
+            vertices (Component | Components | int | str | Iterable): 先頭形状のCV。周期方向の重複CVは先頭側へ写す。
+
+        Returns:
+            list[int]: 指定順の通し番号。重複なし。
+        """
+        # componentsはnodesを読み込むため、循環importを避けて使用時に読み込む。
+        from ..components.component import Component, Components
+        from ..components.cv import CV, CVs
+        from ..components.surfaceCV import SurfaceCV, SurfaceCVs
+
+        surface = self.mesh_path.hasFn(om2.MFn.kNurbsSurface)
+        if surface:
+            fn = om2.MFnNurbsSurface(self.mesh_path)
+            count_u, count_v = fn.numCVsInU, fn.numCVsInV
+            independent_u = count_u - fn.degreeInU if fn.formInU == om2.MFnNurbsSurface.kPeriodic else count_u
+            independent_v = count_v - fn.degreeInV if fn.formInV == om2.MFnNurbsSurface.kPeriodic else count_v
+            expected = (SurfaceCV, SurfaceCVs)
+        else:
+            fn = om2.MFnNurbsCurve(self.mesh_path)
+            count_u, count_v = fn.numCVs, 1
+            independent_u = count_u - fn.degree if fn.form == om2.MFnNurbsCurve.kPeriodic else count_u
+            independent_v = 1
+            expected = (CV, CVs)
+        result = []
+
+        def collect(value):
+            """指定順にCV番号をresultへ集める。"""
+            if isinstance(value, expected):
+                if value.shape.mnode() != self.mesh_path.node():
+                    raise ValueError("CVはこのskinClusterの先頭の形状から指定してください")
+                result.extend(value.indices if isinstance(value, Components) else [value.index])
+            elif isinstance(value, (Component, Components)):
+                raise TypeError("対象形状と同じ種類のCVを指定してください")
+            elif isinstance(value, bool) or isinstance(value, float):
+                raise TypeError("CVはintの通し番号かCVの参照で指定してください")
+            elif isinstance(value, int):
+                result.append(value)
+            elif isinstance(value, str):
+                selection = om2.MSelectionList()
+                selection.add(value)
+                for item in range(selection.length()):
+                    path, component = selection.getComponent(item)
+                    expected_type = om2.MFn.kSurfaceCVComponent if surface else om2.MFn.kCurveCVComponent
+                    if component.isNull() or component.apiType() != expected_type:
+                        raise TypeError("対象形状のCV名を指定してください")
+                    if path.node().hasFn(om2.MFn.kTransform):
+                        path.extendToShape()
+                    if path.node() != self.mesh_path.node():
+                        raise ValueError("CVはこのskinClusterの先頭の形状から指定してください")
+                    component_fn = om2.MFnDoubleIndexedComponent(component) if surface else om2.MFnSingleIndexedComponent(component)
+                    if component_fn.isComplete:
+                        result.extend(self._weight_point_indices())
+                    elif surface:
+                        result.extend(u * count_v + v for u, v in component_fn.getElements())
+                    else:
+                        result.extend(component_fn.getElements())
+            else:
+                try:
+                    items = iter(value)
+                except TypeError:
+                    raise TypeError("CVは番号・参照・名前の並びで指定してください") from None
+                for item in items:
+                    collect(item)
+
+        collect(vertices)
+        resolved, seen = [], set()
+        for index in result:
+            if not 0 <= index < count_u * count_v:
+                raise IndexError(f"CV番号が範囲外です: {index}")
+            u, v = divmod(index, count_v)
+            index = (u % independent_u) * count_v + v % independent_v
+            if index in seen:
+                raise ValueError(f"CVが複数回指定されています: {index}")
+            seen.add(index)
+            resolved.append(index)
+        return resolved
 
     def _require_influences(self, joints):
         """インフルエンスの指定を確かめ、指定した順の物理的な番号へ変える。シーンは変えない。
@@ -2269,6 +2466,8 @@ class SkinCluster(GeometryFilter):
         """
         if vertices is None:
             return None
+        if self.mesh_path.hasFn(om2.MFn.kNurbsCurve) or self.mesh_path.hasFn(om2.MFn.kNurbsSurface):
+            return self._cv_indices(vertices)
         # componentsはnodesを読み込むため、循環importを避けて使う時点で読み込む。
         from ..components.component import Component, Components
         from ..components.vertex import Vertex, Vertices
@@ -2386,9 +2585,7 @@ class SkinCluster(GeometryFilter):
         if not vertex_indices or not physical_indices:
             return [[] for _ in vertex_indices]
         ordered = sorted(vertex_indices)
-        component_fn = om2.MFnSingleIndexedComponent()
-        component = component_fn.create(om2.MFn.kMeshVertComponent)
-        component_fn.addElements(ordered)
+        component = self._point_component(ordered)
         flat = list(self._skin_fn.getWeights(self.mesh_path, component, om2.MIntArray(physical_indices)))
         width = len(physical_indices)
         position = {vertex: i for i, vertex in enumerate(ordered)}
@@ -2611,7 +2808,7 @@ class SkinCluster(GeometryFilter):
         values = [float(value) for value in weights]
         vertex_indices = self._vertex_indices(vertices)
         if vertex_indices is None:
-            vertex_indices = range(om2.MFnMesh(self.mesh_path).numVertices)
+            vertex_indices = self._weight_point_indices()
         count, width = len(vertex_indices), len(physical_indices)
         if broadcast:
             if len(values) != width:

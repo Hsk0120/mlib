@@ -8,7 +8,7 @@ from ..core import geometryEdit as geometry_edit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _finite, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .nurbsCurve import _DEGENERATE, _frame_matrix, _perpendicular, _require_axis
 from .shape import Shape
 
@@ -109,6 +109,80 @@ class NurbsSurface(Shape):
         u_start, u_end = fn.knotDomainInU
         v_start, v_end = fn.knotDomainInV
         return (u_start, u_end), (v_start, v_end)
+
+    def getKnots(self):
+        """U方向・V方向のノット列を取得する。
+
+        Returns:
+            tuple[list[float], list[float]]: U・Vの順の独立したリスト。OpenMayaと同じく両端の余分なノットを含めない。
+
+        Raises:
+            RuntimeError: 形状が無効な場合。
+        """
+        fn = self._geometry_fn()
+        return list(fn.knotsInU()), list(fn.knotsInV())
+
+    def isTrimmed(self):
+        """トリム境界を持つ曲面か判定する。
+
+        Returns:
+            bool: トリムされた曲面ならTrue。
+
+        Raises:
+            RuntimeError: 形状が無効な場合。
+        """
+        return bool(self._geometry_fn().isTrimmedSurface)
+
+    def isPointInTrimmedRegion(self, u, v):
+        """指定パラメーターがトリムで切り落とされた領域か判定する。
+
+        Args:
+            u (float): U方向のパラメーター。
+            v (float): V方向のパラメーター。
+
+        Returns:
+            bool: 切り落とされた領域ならTrue。残る領域はFalse。
+
+        Raises:
+            TypeError: u・vが数値以外の場合。
+            ValueError: u・vが有限でないか範囲外の場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        fn = self._geometry_fn()
+        u, v = self._require_params(fn, u, v)
+        # MayaのOM2は、トリム後に残る領域をTrueで返すため、切り落とし領域の判定へ反転する。
+        return bool(fn.isTrimmedSurface and not fn.isPointInTrimmedRegion(u, v))
+
+    def getRayIntersection(self, origin, direction, worldSpace=_UNSET, *, tolerance=1e-6, ws=_UNSET):
+        """レイと曲面の最も近い交点を取得する。
+
+        トリムの扱いと許容誤差はMFnNurbsSurface.intersectに従う。
+
+        Args:
+            origin (Sequence[float]): レイの始点(cm)。worldSpaceと同じ空間。
+            direction (Sequence[float]): レイの方向。ゼロ以外のベクトル。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            tolerance (float): 正の距離許容誤差(cm)。既定1e-6。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[Vector, float, float] | None: (交点(cm), u, v)。交差しなければNone。
+
+        Raises:
+            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
+            ValueError: 成分が有限でない、方向がゼロ、またはtoleranceが正でない場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        start, ray = geometry_edit.point_list([origin, direction])
+        ray = om2.MVector(*ray)
+        if ray.length() == 0:
+            raise ValueError("directionはゼロ以外のベクトルで指定してください")
+        result = self._geometry_fn().intersect(om2.MPoint(*start), ray.normal(), tolerance=_checked_tolerance(tolerance, positive=True), space=space)
+        if result is None:
+            return None
+        return _vectors_of_points([result[0]])[0], result[1], result[2]
 
     def getCV(self, u, v):
         """``(u, v)`` の番号から、CVを1つ取得する。
@@ -269,6 +343,34 @@ class NurbsSurface(Shape):
         fn = self._geometry_fn()
         u, v = self._require_params(fn, u, v)
         return _vectors_of_points([fn.getPointAtParam(u, v, space)])[0]
+
+    def getDerivativesAtParam(self, u, v, worldSpace=_UNSET, *, secondOrder=False, ws=_UNSET):
+        """曲面上の位置と、正規化前のU・V方向の微分を取得する。
+
+        縮退点のゼロベクトルもそのまま返す。微分はパラメーターに対する変化量。
+
+        Args:
+            u (float): U方向のパラメーター。
+            v (float): V方向のパラメーター。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            secondOrder (bool): Trueなら二次微分も返す。既定False。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[Vector, ...]: (位置, dU, dV)、または(位置, dU, dV, dUU, dVV, dUV)。位置はcm。
+
+        Raises:
+            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
+            ValueError: u・vが有限でないか範囲外の場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        _require_bool(secondOrder, "secondOrder")
+        fn = self._geometry_fn()
+        u, v = self._require_params(fn, u, v)
+        values = fn.getDerivativesAtParam(u, v, space=space, secondOrder=secondOrder)
+        return (_vectors_of_points([values[0]])[0],) + tuple(Vector(value) for value in values[1:])
 
     def getNormalAtParam(self, u, v, worldSpace=_UNSET, *, ws=_UNSET):
         """パラメーター (u, v) の位置の法線を、長さ1にして取得する。

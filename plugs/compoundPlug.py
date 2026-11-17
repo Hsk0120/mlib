@@ -98,7 +98,7 @@ class CompoundPlug(Plug):
         """
         return iter(self.getChildren())
 
-    def get(self, *, unit=None, timeUnit=None, uiUnits=False):
+    def get(self, *, unit=None, timeUnit=None, uiUnits=False, time=None):
         """直接の子の値を、アトリビュートの定義順に並べたtupleで取得する。
 
         子ごとに値を読むので、DGの評価が起きることがある。
@@ -106,6 +106,9 @@ class CompoundPlug(Plug):
         各子のgetが返す形のまま入れる。
 
         Args:
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 角度の子の数値の単位。None(既定)は度、``"rad"`` はラジアン。
                 :meth:`Plug.get` と同じ名前を受け付ける。uiUnits=Trueとは同時に指定できない。
             timeUnit (str | None): 時間の子の数値の単位。None(既定)は現在のUIの時間単位でのフレーム、
@@ -120,7 +123,11 @@ class CompoundPlug(Plug):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合、または子の値を取得できない場合。
+            NotImplementedError: 指定時刻の取得に対応しない型(cmdsで読むgeneric・messageなど)の場合。
+
         """
+        if time is not None:
+            return self._get_at_time(time, unit, timeUnit, uiUnits)
         _require_bool(uiUnits, "uiUnits")
         angle_unit = _plain_angle_unit(unit, uiUnits)
         time_unit = _plain_time_unit(timeUnit, uiUnits)

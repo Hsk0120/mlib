@@ -177,6 +177,74 @@ class Face(Component):
             indices = [iterator.getUVIndex(local, uv_set) for local in range(iterator.polygonVertexCount())]
         return UVs(self.shape, indices)
 
+    def getUVArea(self, *, uvSet=None):
+        """フェースのUV上の面積を取得する。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+
+        Returns:
+            float: UV座標での面積。3D形状やTransformのスケールには依存しない。
+
+        Raises:
+            TypeError: uvSetが文字列・None以外の場合。
+            ValueError: UVセットが無い場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        name = self.shape._resolve_uv_set(uvSet)
+        iterator = self._iterator()
+        if not iterator.hasUVs(name):
+            raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+        return iterator.getUVArea(name)
+
+    def isUVReversed(self, *, uvSet=None):
+        """フェースのUVが時計回りに並ぶか調べる。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+
+        Returns:
+            bool: 面の頂点順にUVをたどり、符号付き面積が負ならTrue。面積0ならFalse。
+
+        Raises:
+            TypeError: uvSetが文字列・None以外の場合。
+            ValueError: UVセットが無い場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        name = self.shape._resolve_uv_set(uvSet)
+        iterator = self._iterator()
+        if not iterator.hasUVs(name):
+            raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+        us, vs = iterator.getUVs(name)
+        # MItMeshPolygon.isUVReversedはPython API 2.0の引数変換が失敗する版があるため、UVの巻き方向から求める。
+        return sum(u * vs[(index + 1) % len(us)] - us[(index + 1) % len(us)] * vs[index] for index, u in enumerate(us)) < 0
+
+    def isZeroUVArea(self, *, uvSet=None, tolerance=1e-10):
+        """フェースのUV上の面積が許容誤差以下か調べる。
+
+        Args:
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            tolerance (float): UV面積の許容誤差。0以上の有限値。
+
+        Returns:
+            bool: UV面積がtolerance以下ならTrue。
+
+        Raises:
+            TypeError: uvSet・toleranceの型が不正な場合。
+            ValueError: UVセットが無いか、許容誤差が不正な場合。
+            RuntimeError: フェースにUVが割り当てられていない場合。
+        """
+        tolerance = _checked_tolerance(tolerance)
+        return self.getUVArea(uvSet=uvSet) <= tolerance
+
+    def hasValidTriangulation(self):
+        """フェースがMayaで有効な三角形分割を持つか調べる。
+
+        Returns:
+            bool: MItMeshPolygon.hasValidTriangulationの判定。
+        """
+        return self._iterator().hasValidTriangulation()
+
     def isOnBoundary(self):
         """メッシュの縁に接するフェースか調べる。
 

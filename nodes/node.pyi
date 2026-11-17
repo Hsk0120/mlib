@@ -683,6 +683,31 @@ class Node(Object):
             RuntimeError: ノードが削除済み・無効な場合。
         """
         ...
+    def hasUniqueName(self) -> bool:
+        """階層を含まないノード名がシーン内で一意か調べる。
+
+        名前空間は名前に含む。最短一意名を取得するgetNameとは異なり、改名しない。
+
+        Returns:
+            bool: MFnDependencyNodeが一意と判定した場合はTrue。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def getAnimatablePlugs(self) -> Plugs:
+        """Mayaがアニメーション可能と判定するアトリビュートを取得する。
+
+        cmds.listAnimatableの順と対象範囲に従う。TransformではShapeの対象も含む。
+        ロックや入力の接続による現在の書き込み可否は保証しない。選択とシーンは変更しない。
+
+        Returns:
+            Plugs: 重複を除いた新しい参照の集まり。対象がなければ空。
+
+        Raises:
+            RuntimeError: ノードが無効な場合、またはMayaの照会が失敗した場合。
+        """
+        ...
     def getSets(self, *, type: str | None = ...) -> Nodes[ObjectSet]:
         """このノードが入っているセット(objectSetとその派生の型)を取得する。
 
@@ -2391,6 +2416,12 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def isDefaultNode(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isDefaultNode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def hasUniqueName(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.hasUniqueName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAnimatablePlugs(self) -> list[Plugs]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAnimatablePlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getSets(self, *, type: str | None = ...) -> list[Nodes[ObjectSet]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getSets` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2468,6 +2499,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSetsAndMembers(self, *, renderableOnly: bool = ...) -> list[list[tuple[ObjectSet, list[Components] | None]]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getSetsAndMembers` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getSkinClusters(self) -> list[SkinClusters]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getSkinClusters` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2571,6 +2605,12 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getPivotTranslation(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> list[Vector]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.getPivotTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setPivotTranslation(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.setPivotTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.centerPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2666,6 +2706,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Shear | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def shearBy(self, value: Iterable[float]) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.shearBy` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
