@@ -25,6 +25,7 @@ from ..core.attributeType import (
 )
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.listMethods import _ListMethods
+from ..core.nodeEdit import require_editable
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _angle_unit, _finite, _time_unit
@@ -1738,6 +1739,93 @@ class Plug(Object):
         if value is None or isinstance(value, int) and self._mplug.attribute().hasFn(om2.MFn.kEnumAttribute):
             return value
         return self._plain_range_value(value, angle_unit, uiUnits, time_unit)
+
+    def setDefault(self, value, *, fast=False, unit=None, uiUnits=False):
+        """追加アトリビュートの既定値を変更する。現在値と接続は変更しない。
+
+        非参照ノードの単一の数値・bool・enum・角度・距離に対応する。
+        未取得の現在値が新しい既定値へ追従しないよう、変更前にget()で値を評価する。
+        通常はcmds.addAttrを使うが、Maya 2022～2027ではUndoすると変更前の既定値ではなく0になる。
+        Redoは指定値へ戻す。元の既定値を復元するUndoは保証しない。
+
+        Args:
+            value (bool | int | float | om2.MAngle | om2.MDistance): 新しい既定値。
+                角度は度、距離はcm。単位付きの値は自身の単位を使う。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Undo設定は変更しない。
+            unit (str | None): 角度の数値の単位(deg/rad)。uiUnitsより優先する。
+            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位として扱う。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 対象が未対応の型・マルチ・コンパウンド・子・プロキシ、または入力の型が不正な場合。
+            ValueError: 数値が有限でない、範囲外、enumの欠番、または単位が不正な場合。
+            RuntimeError: 対象が無効・ロック・参照ノードの場合、またはMayaが変更を拒否した場合。
+        """
+        _require_bool(fast, "fast")
+        _require_bool(uiUnits, "uiUnits")
+        self._require_valid()
+        require_editable(self._node.mnode())
+        plug = self._mplug
+        if self._static_attribute or plug.isArray or plug.isElement or plug.isCompound or plug.isChild or self.isProxy():
+            raise TypeError("既定値の変更は単一の追加アトリビュートだけに対応しています")
+        if self.isLocked():
+            raise RuntimeError("ロックされたアトリビュートの既定値は変更できません")
+        attr = plug.attribute()
+        angle_unit = _plain_angle_unit(unit, uiUnits)
+        if attr.hasFn(om2.MFn.kEnumAttribute):
+            fn = om2.MFnEnumAttribute(attr)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError("enumの既定値はintで指定してください")
+            self._enum_field_name(attr, value)
+            number = value
+        else:
+            fn = self._range_attribute_fn()
+            if fn is None:
+                raise TypeError("この型の既定値変更には対応していません")
+            if isinstance(fn, om2.MFnUnitAttribute):
+                if fn.unitType() == om2.MFnUnitAttribute.kTime:
+                    raise TypeError("時間型の既定値変更には対応していません")
+                if fn.unitType() == om2.MFnUnitAttribute.kDistance and uiUnits and isinstance(value, (int, float)) and not isinstance(value, bool):
+                    value = om2.MDistance(value, om2.MDistance.uiUnit())
+                number = self._range_input(fn, value, angle_unit, "setDefault")
+            elif fn.numericType() == om2.MFnNumericData.kBoolean:
+                _require_bool(value, "value")
+                number = value
+            else:
+                number = self._range_input(fn, value, angle_unit, "setDefault")
+                limits = {om2.MFnNumericData.kByte: (0, 255), om2.MFnNumericData.kShort: (-32768, 32767), om2.MFnNumericData.kInt: (-2147483648, 2147483647)}
+                if fn.numericType() in limits:
+                    if isinstance(value, bool) or not isinstance(value, int):
+                        raise TypeError("整数型の既定値はintで指定してください")
+                    lower, upper = limits[fn.numericType()]
+                    if not lower <= value <= upper:
+                        raise ValueError("既定値が整数型の範囲外です")
+                    number = value
+                elif fn.numericType() not in (om2.MFnNumericData.kFloat, om2.MFnNumericData.kDouble):
+                    raise TypeError("この数値型の既定値変更には対応していません")
+                if fn.numericType() == om2.MFnNumericData.kFloat and abs(number) > 3.4028234663852886e38:
+                    raise ValueError("既定値がfloat型の範囲外です")
+            if not math.isfinite(number):
+                raise ValueError("既定値は有限の数値で指定してください")
+            if fn.hasMin() and number < self._range_input(fn, fn.getMin(), angle_unit, "setDefault"):
+                raise ValueError("既定値が最小値を下回っています")
+            if fn.hasMax() and number > self._range_input(fn, fn.getMax(), angle_unit, "setDefault"):
+                raise ValueError("既定値が最大値を上回っています")
+        # 未評価の値は定義の既定値を参照するため、変更前に現在値を取得する。
+        self.get()
+        if fast:
+            if isinstance(fn, om2.MFnUnitAttribute):
+                number = (
+                    om2.MAngle(number, om2.MAngle.kRadians)
+                    if fn.unitType() == om2.MFnUnitAttribute.kAngle
+                    else om2.MDistance(number, om2.MDistance.kCentimeters)
+                )
+            fn.default = number
+        else:
+            # addAttrは1コマンド。既定値のUndoにあるMaya標準の制限は補償しない。
+            cmds.addAttr(self.getFullName(), edit=True, defaultValue=number)
 
     def isDefaultValue(self):
         """今の値が、アトリビュートの定義の既定値と同じか判定する(``MPlug.isDefaultValue``)。

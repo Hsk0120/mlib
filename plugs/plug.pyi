@@ -12,6 +12,7 @@ import maya.cmds as cmds
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _from_seconds, _leaf_unit_kind, _plain_angle_unit, _plain_time_unit, _time_quantity, attributeType, is_internal_data_type, value_reader
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
 from ..core.listMethods import _ListMethods
+from ..core.nodeEdit import require_editable
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _angle_unit, _finite, _time_unit
@@ -1323,6 +1324,30 @@ class Plug(Object):
             TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードかアトリビュートが削除されている場合。
+        """
+        ...
+    def setDefault(self, value: bool | int | float | om2.MAngle | om2.MDistance, *, fast: bool = ..., unit: str | None = ..., uiUnits: bool = ...) -> None:
+        """追加アトリビュートの既定値を変更する。現在値と接続は変更しない。
+
+        非参照ノードの単一の数値・bool・enum・角度・距離に対応する。
+        未取得の現在値が新しい既定値へ追従しないよう、変更前にget()で値を評価する。
+        通常はcmds.addAttrを使うが、Maya 2022～2027ではUndoすると変更前の既定値ではなく0になる。
+        Redoは指定値へ戻す。元の既定値を復元するUndoは保証しない。
+
+        Args:
+            value (bool | int | float | om2.MAngle | om2.MDistance): 新しい既定値。
+                角度は度、距離はcm。単位付きの値は自身の単位を使う。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Undo設定は変更しない。
+            unit (str | None): 角度の数値の単位(deg/rad)。uiUnitsより優先する。
+            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位として扱う。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 対象が未対応の型・マルチ・コンパウンド・子・プロキシ、または入力の型が不正な場合。
+            ValueError: 数値が有限でない、範囲外、enumの欠番、または単位が不正な場合。
+            RuntimeError: 対象が無効・ロック・参照ノードの場合、またはMayaが変更を拒否した場合。
         """
         ...
     def isDefaultValue(self) -> bool:
@@ -3259,6 +3284,9 @@ class Plugs(_ListMethods):
         ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getDefault` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setDefault(self, value: bool | int | float | om2.MAngle | om2.MDistance, *, fast: bool = ..., unit: str | None = ..., uiUnits: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setDefault` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isDefaultValue(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isDefaultValue` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
