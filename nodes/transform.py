@@ -2259,6 +2259,7 @@ class Transform(DagNode):
         rotate=_UNSET,
         jointOrient=_UNSET,
         ws=_UNSET,
+        preserve=False,
     ):
         """回転の成分の指定に従って、rotate・jointOrient・rotateAxisのどれかを設定する。
 
@@ -2269,6 +2270,8 @@ class Transform(DagNode):
         - それ以外のr=False: rotateAxis
 
         ra・r・joで指定できる組み合わせは、getQuaternionと同じではない。
+        preserve=TrueではrotateAxisとrotateを同時に変更して、現在時刻の姿勢を保つ。
+        アニメーション全体の動きは保たない。補正先も書ける必要があるため、checkに関係なく両方を先に検査する。
 
         Args:
             value (Quaternion | om2.MQuaternion | Iterable[float]): xyzwの回転。
@@ -2285,6 +2288,8 @@ class Transform(DagNode):
             rotateAxis (bool): Trueなら、入力にrotateAxisを含むものとして扱う。既定はFalse。
             rotate (bool): Trueならrotateを書き換える。FalseならjointOrientかrotateAxisを書き換える。既定はTrue。
             jointOrient (bool): Trueなら、入力にjointOrientを含むものとして扱う。既定はTrue。
+            preserve (bool): rotateAxisを設定するときだけ指定できる姿勢維持。既定はFalse。
+                safe=Trueでの部分更新には対応しない。get=Trueでは従来どおりrotateAxisの値だけ返す。
 
         Returns:
             EulerRotate | None: get=Falseなら値を返さない。get=Trueなら、書き込む先のオイラー角の値を
@@ -2296,13 +2301,34 @@ class Transform(DagNode):
             TypeError: valueがクォータニオンでも数値の並びでもない場合、
                 またはロング名と短縮名(worldSpaceとws、rotateAxisとra、rotateとr、jointOrientとjo)を同時に指定した場合。
             ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
+                preserve=TrueでrotateAxis以外を設定する場合、またはsafe=Trueで書き込む場合。
+            RuntimeError: preserve=Trueの補正対象がロック・接続・リファレンス等で編集できない場合。
         """
+        _require_bool(fast, "fast")
+        _require_bool(preserve, "preserve")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ra, r, jo = _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient)
         with _edit_context("mlibTransformSetQuaternion", fast, single=True):
             name, rotation = self._quaternion_channel_values(value, _world_space(worldSpace), ra, r, jo)
+            if preserve and name != "rotateAxis":
+                raise ValueError("preserve=TrueはrotateAxisを設定する場合だけ指定してください")
             if get:
                 return EulerRotate._wrap(rotation)
+            if preserve:
+                _require_bool(safe, "safe")
+                _require_bool(check, "check")
+                if safe:
+                    raise ValueError("preserve=Trueとsafe=Trueは同時に指定できません")
+                require_editable(self._require_mnode())
+                # 補正の一部だけが書かれると姿勢が変わるため、両チャンネルを先に確かめる。
+                for attribute in ("rotateAxis", "rotate"):
+                    self.getPlug(attribute)._require_writable()
+                if fast:
+                    self._set_rotate_axis_preserving_fast(rotation)
+                else:
+                    values = [om2.MAngle(value).asUnits(om2.MAngle.uiUnit()) for value in rotation]
+                    cmds.xform(self.getFullName(), rotateAxis=values, preserve=True)
+                return None
             self._set_channel_value(name, rotation, safe=safe, fast=fast, check=check)
             return None
 
@@ -3120,6 +3146,17 @@ class Transform(DagNode):
             om2.MEulerRotation: ノードの rotateOrder で表した、reference に最も近い解。
         """
         return _closest_euler(self._component_quaternion("rotateAxis").inverse() * quaternion, reference)
+
+    def _set_rotate_axis_preserving_fast(self, rotation):
+        """rotateAxisとrotateをOpenMayaで補正し、現在の姿勢を保つ。
+
+        Args:
+            rotation (om2.MEulerRotation): rotateAxisへ設定するXYZ順の角度(rad)。
+
+        Returns:
+            None: 値を返さない。
+        """
+        self._transform_fn().setRotateOrientation(rotation.asQuaternion(), om2.MSpace.kTransform, True)
 
     def _quaternion_channel_values(self, value, ws, ra, r, jo):
         """回転の指定から書込み先とEuler値だけを求め、シーンは変更しない。

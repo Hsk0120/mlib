@@ -197,6 +197,10 @@ EXCLUDED = {
     "Plug.setMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
     "Plug.setSoftMin": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
     "Plug.setSoftMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
+    "Plug.setDefault": (
+        "Maya 2022～2027の通常経路はUndoで旧既定値ではなく0に戻るという明示仕様のため、完全復元を要求する共通検査の対象外。"
+        "inMaya/unit/plugs/test_plug_default.pyのtest_normal_native_undo_and_fastでUndo後0・Redo後指定値・fastのキュー不変を検証する。"
+    ),
     "Plug.setDirty": "DGの評価状態をdirtyにする診断操作。値や接続を書き換えず、Undoには記録しない。",
     "Reference.load": "外部ファイルの参照の読込み(ファイル I/O)。Undo 検査の対象外。",
     "Reference.unload": "外部ファイルの参照のアンロード(ファイル I/O)。Undo 検査の対象外。",
@@ -722,6 +726,15 @@ def s_keyed(c):
     s_one(c)
     cmds.setKeyframe(c.a, attribute="translateX", time=1, value=0.0)
     cmds.setKeyframe(c.a, attribute="translateX", time=10, value=5.0)
+    c.curve = cmds.listConnections(c.a + ".tx", type="animCurve")[0]
+    c.ncurve = mlib.getNode(c.curve)
+
+
+def s_reducible_keys(c):
+    """translateXへ直線上の11キーを設定し、中間キーを削減できるようにする。"""
+    s_one(c)
+    for index in range(11):
+        cmds.setKeyframe(c.a, attribute="translateX", time=index + 1, value=index, inTangentType="linear", outTangentType="linear")
     c.curve = cmds.listConnections(c.a + ".tx", type="animCurve")[0]
     c.ncurve = mlib.getNode(c.curve)
 
@@ -1271,6 +1284,19 @@ def s_blend(c):
     s_blend_meshes(c)
     c.blend = cmds.blendShape(c.target, c.base, name="blend", frontOfChain=True)[0]
     c.nblend = mlib.getNode(c.blend)
+
+
+def s_blend_base_weights(c):
+    """全頂点のbaseWeightsを実体化し、値の変更と復元を比較する。"""
+    s_blend(c)
+    cmds.setAttr(c.blend + ".inputTarget[0].baseWeights[0:7]", *([1.0] * 8), size=8)
+
+
+def s_blend_regenerate(c):
+    """ターゲット形状を削除し、保存済みデルタから再生成する状態を作る。"""
+    s_blend(c)
+    cmds.delete(c.target)
+    cmds.select(clear=True)
 
 
 def s_blend_add_base(c):
@@ -2100,6 +2126,30 @@ CASES = [
     ),
     C("BlendShape.addBaseGeometry", "BlendShape.addBaseGeometry", s_blend_add_base, lambda c, **kw: c.nblend.addBaseGeometry(c.target2)),
     C(
+        "AnimCurve.reduceKeys",
+        "AnimCurve.reduceKeys",
+        s_reducible_keys,
+        lambda c, **kw: c.ncurve.reduceKeys(0.001),
+        mayaQuirk=_STIPPLE_UNDO if cmds.about(apiVersion=True) < 20250000 else None,
+        ignoreAttrs=("outStippleRange",),
+        extraState=r_anim_keys,
+    ),
+    C("BlendShape.regenerateTarget", "BlendShape.regenerateTarget", s_blend_regenerate, lambda c, **kw: c.nblend.regenerateTarget(0)),
+    C(
+        "BlendShape.setBaseWeights",
+        "BlendShape.setBaseWeights",
+        s_blend_base_weights,
+        lambda c, **kw: c.nblend.setBaseWeights({0: 0.25, 3: 0.75}, **kw),
+        extraState=lambda c: c.nblend.getBaseWeights(),
+    ),
+    C(
+        "Mesh.removeFaceVertexColors",
+        "Mesh.removeFaceVertexColors",
+        s_face_vertex_colors,
+        lambda c, **kw: c.nshape.removeFaceVertexColors(faceVertices=[0, 2], colorSet="colors", **kw),
+        extraState=r_face_vertex_colors,
+    ),
+    C(
         "Mesh.setFaceVertexColors",
         "Mesh.setFaceVertexColors",
         s_face_vertex_colors,
@@ -2133,6 +2183,13 @@ CASES = [
     C("ParentConstraint.deleteCache", "ParentConstraint.deleteCache", s_parent_cached, lambda c, **kw: c.ncon.deleteCache()),
     C("Plug.setRange", "Plug.setRange", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-5.0, 10.0), extraState=lambda c: c.na.getPlug("foo").getRange()),
     C(
+        "Plug.setNiceName",
+        "Plug.setNiceName",
+        s_user,
+        lambda c, **kw: c.na.getPlug("foo").setNiceName("表示名"),
+        extraState=lambda c: c.na.getPlug("foo").getNiceName(),
+    ),
+    C(
         "Plug.setSoftRange",
         "Plug.setSoftRange",
         s_user,
@@ -2144,6 +2201,13 @@ CASES = [
         "Transform.setPivotTranslation",
         s_one,
         lambda c, **kw: c.na.setPivotTranslation((1.0, 2.0, 3.0), kind="scale", worldSpace=False, **kw),
+    ),
+    C(
+        "VertexFace.removeColor",
+        "VertexFace.removeColor",
+        s_face_vertex_colors,
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].removeColor(colorSet="colors", **kw),
+        extraState=r_face_vertex_colors,
     ),
     C(
         "VertexFace.setColor",

@@ -168,31 +168,48 @@ class Reference(Node):
         """
         return self.getParentReference() is None
 
-    def getEditStrings(self, successful=True, failed=False):
+    def getEditStrings(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
         """このリファレンスに対するEditの一覧を、MELコマンドの文字列で取得する。
 
         Args:
             successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
+            editCommand (str | None): addAttr・connectAttr・deleteAttr・disconnectAttr・parent・setAttr・lock・unlockの1種類。
+                Noneなら種類を絞らない。
+            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
 
         Returns:
-            list[str]: Editを表すMELコマンド文字列。無ければ空リスト。
-        """
-        return cmds.referenceQuery(self.getName(), editStrings=True, successfulEdits=successful, failedEdits=failed) or []
+            list[str]: Editを表すMELコマンド文字列。過去の名前を含む場合がある。無ければ空リスト。
 
-    def getEditNodeNames(self, successful=True, failed=False):
-        """Editで変更されたノードの名前の一覧を、フルパスで取得する。
+        Raises:
+            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            ValueError: editCommandが未対応の名前の場合。
+            RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
+        """
+        flags = self._edit_query_filters(editCommand, onReferenceNode)
+        return cmds.referenceQuery(self.getName(), editStrings=True, successfulEdits=successful, failedEdits=failed, **flags) or []
+
+    def getEditNodeNames(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
+        """Editに記録されたノード名の一覧を取得する。
 
         Args:
             successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
+            editCommand (str | None): Editのコマンド名。対応する名前はgetEditStringsを参照。Noneなら全種類。
+            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
 
         Returns:
-            list[str]: Editが加えられたノードのフルパス名。同じ名前が重なることがある。無ければ空リスト。
-        """
-        return cmds.referenceQuery(self.getName(), editNodes=True, successfulEdits=successful, failedEdits=failed) or []
+            list[str]: Mayaが返すノード名。過去の名前や重複を含み、現在のDAGパスとは限らない。無ければ空リスト。
 
-    def getEditAttrNames(self, successful=True, failed=False):
+        Raises:
+            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            ValueError: editCommandが未対応の名前の場合。
+            RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
+        """
+        flags = self._edit_query_filters(editCommand, onReferenceNode)
+        return cmds.referenceQuery(self.getName(), editNodes=True, successfulEdits=successful, failedEdits=failed, **flags) or []
+
+    def getEditAttrNames(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
         """Editで変更されたアトリビュートの短縮名の一覧を取得する。
 
         Mayaの ``referenceQuery -editAttrs`` は、ノード名を含まないアトリビュート名だけを返す。
@@ -202,11 +219,19 @@ class Reference(Node):
         Args:
             successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
+            editCommand (str | None): Editのコマンド名。対応する名前はgetEditStringsを参照。Noneなら全種類。
+            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
 
         Returns:
             list[str]: Editの対象になったアトリビュートの短縮名。同じ名前が重なることがある。無ければ空リスト。
+
+        Raises:
+            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            ValueError: editCommandが未対応の名前の場合。
+            RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
-        return cmds.referenceQuery(self.getName(), editAttrs=True, successfulEdits=successful, failedEdits=failed) or []
+        flags = self._edit_query_filters(editCommand, onReferenceNode)
+        return cmds.referenceQuery(self.getName(), editAttrs=True, successfulEdits=successful, failedEdits=failed, **flags) or []
 
     @undoChunk("mlibReferenceLoad")
     def load(self):
@@ -346,3 +371,20 @@ class Reference(Node):
             RuntimeError: Mayaが削除を拒否した場合。
         """
         cmds.file(removeReference=True, referenceNode=self.getName())
+
+    @staticmethod
+    def _edit_query_filters(edit_command, on_reference_node):
+        """Edit照会の種類と保存元を検証してMayaのフラグを返す。"""
+        flags = {}
+        if edit_command is not None:
+            if not isinstance(edit_command, str):
+                raise TypeError("editCommandはstrかNoneで指定してください")
+            if edit_command not in ("addAttr", "connectAttr", "deleteAttr", "disconnectAttr", "parent", "setAttr", "lock", "unlock"):
+                raise ValueError("editCommandに未対応のコマンド名が指定されています")
+            flags["editCommand"] = edit_command
+        if on_reference_node is not None:
+            reference = on_reference_node if isinstance(on_reference_node, Node) else Node(on_reference_node)
+            if not isinstance(reference, Reference):
+                raise TypeError("onReferenceNodeはreferenceノードで指定してください")
+            flags["onReferenceNode"] = reference.getName()
+        return flags

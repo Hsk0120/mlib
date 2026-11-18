@@ -455,6 +455,19 @@ class DagNode(Node):
             RuntimeError: ノードが破棄されている場合。
         """
         ...
+    def isTemplated(self) -> bool:
+        """保持するDAGパスの親階層を含めてテンプレート表示の状態を調べる。
+
+        MDagPath.isTemplatedの結果を返す。templateと描画オーバーライドによる
+        テンプレート表示を含む。非表示・参照表示など、選択できない原因すべての判定ではない。
+
+        Returns:
+            bool: 保持するパスがテンプレート表示ならTrue。
+
+        Raises:
+            RuntimeError: 保持するDAGパスが無効な場合。
+        """
+        ...
     def isVisible(self) -> bool:
         """親の階層まで含めて、表示されているかを調べる。
 

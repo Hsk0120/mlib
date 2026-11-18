@@ -211,6 +211,28 @@ class VertexFace(_MultiIndexComponent, Component):
         _require_bool(fast, "fast")
         self.shape.setFaceVertexColors([color], fast=fast, colorSet=colorSet, faceVertices=self)
 
+    def removeColor(self, *, fast=False, colorSet=None):
+        """この面頂点のカラー割り当てを解除する。
+
+        カラーセットは残し、getColorでNoneになる状態へ戻す。
+        ヒストリの制限はMesh.removeFaceVertexColorsと同じ。通常はUndoに記録する。
+
+        Args:
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、またはcolorSetの型が不正な場合。
+            ValueError: 指定したカラーセットが無い場合。
+            RuntimeError: メッシュが編集不可か、通常経路で未対応のヒストリがある場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        _require_bool(fast, "fast")
+        self.shape.removeFaceVertexColors(fast=fast, colorSet=colorSet, faceVertices=self)
+
     @classmethod
     def _element_count(cls, shape):
         """頂点フェースの数(全フェースの頂点数の合計)を返す。

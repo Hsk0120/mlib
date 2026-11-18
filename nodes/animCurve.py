@@ -832,6 +832,80 @@ class AnimCurve(Node):
         with undoChunk("mlibAnimCurveEulerFilter"):
             cmds.filterCurve(self.getFullName(), filter="euler")
 
+    def reduceKeys(self, precision, *, precisionMode=0, time=None, preserveKeyTangent=(), unit="deg", timeUnit="frame"):
+        """MayaのKey Reducerで、指定した許容値に従ってキーを削減する。
+
+        出力先が接続された時間入力カーブ(TA・TL・TU)だけを扱う。
+        時間出力(TT)と単位なし入力(U*)は対応しない。
+        指定したカーブだけを編集し、兄弟のXYZカーブへのキー追加や、選択キーによる絞り込みは行わない。
+        接線やカーブの形によってはキー数が減らず、全時刻の誤差上限も保証しない。
+        fast引数は持たない(OpenMayaに同等のフィルターが無いため)。通常Undoは1回で戻せる。
+
+        Args:
+            precision (float): 0以上の許容値。絶対値では角度はunit、距離はcmで指定する。
+                単位なしの出力は数値のまま。割合指定では百分率。
+            precisionMode (int): 0は絶対値、1は百分率。
+            time (tuple[float, float] | None): 処理する開始・終了時刻。timeUnitに従う。Noneは全キー。
+            preserveKeyTangent (str | Sequence[str]): 保持するキーの入/出接線型。
+                fixed・linear・flat・smooth・step・clamped・plateau・stepnext・autoを指定できる。既定は指定なし。
+            unit (str): 角度の許容値の単位。degまたはrad。
+            timeUnit (str): 処理範囲の時間単位。frameまたはsec。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 対応するカーブ型でない、または引数の型が違う場合。
+            ValueError: 許容値・範囲・単位・接線型が不正な場合。
+            RuntimeError: 出力先が無い、キーが編集できない、またはMayaが処理を拒否した場合。
+        """
+        if self.getType() not in ("animCurveTA", "animCurveTL", "animCurveTU"):
+            raise TypeError("reduceKeysはanimCurveTA・animCurveTL・animCurveTUで実行してください")
+        if isinstance(precision, bool):
+            raise TypeError("precisionは数値で指定してください")
+        precision = self._finite(precision)
+        if precision < 0:
+            raise ValueError("precisionは0以上で指定してください")
+        if isinstance(precisionMode, bool) or not isinstance(precisionMode, int):
+            raise TypeError("precisionModeはintで指定してください")
+        if precisionMode not in (0, 1):
+            raise ValueError("precisionModeは0か1で指定してください")
+        angle_unit = self._output_angle_unit(unit)
+        input_unit = self._input_time_unit(timeUnit)
+        options = {}
+        if time is not None:
+            if not isinstance(time, (tuple, list)):
+                raise TypeError("timeは開始と終了の組で指定してください")
+            if len(time) != 2:
+                raise ValueError("timeは開始と終了の2値で指定してください")
+            start, end = (_to_seconds(self._finite(value), input_unit) for value in time)
+            if start > end:
+                raise ValueError("timeの開始は終了以下で指定してください")
+            options.update(startTime=self._unit_value(start), endTime=self._unit_value(end))
+        if isinstance(preserveKeyTangent, str):
+            preserveKeyTangent = (preserveKeyTangent,)
+        try:
+            tangents = list(preserveKeyTangent)
+        except TypeError:
+            raise TypeError("preserveKeyTangentはstrかstrの並びで指定してください") from None
+        supported = ("fixed", "linear", "flat", "smooth", "step", "clamped", "plateau", "stepnext", "auto")
+        for tangent in tangents:
+            if not isinstance(tangent, str):
+                raise TypeError("preserveKeyTangentの要素はstrで指定してください")
+            if tangent not in supported:
+                raise ValueError(f"対応していない接線型です: {tangent}")
+        if tangents:
+            options["preserveKeyTangent"] = tangents
+        if not self.getPlug("output").mplug().connectedTo(False, True):
+            raise RuntimeError(f"reduceKeysには接続された出力先が必要です: {self.getFullName()}")
+        self._require_curve_writable()
+        if precisionMode == 0:
+            # keyReducerのprecisionはUI単位ではなく、カーブの内部単位(rad/cm)。
+            precision = _to_radians(precision, angle_unit)
+        cmds.filterCurve(
+            self.getFullName(), filter="keyReducer", precision=precision, precisionMode=precisionMode, keySync=False, selectedKeys=False, **options
+        )
+
     def getDrivenPlugs(self):
         """このカーブが動かしているアトリビュートを返す。
 

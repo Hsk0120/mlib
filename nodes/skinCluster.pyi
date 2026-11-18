@@ -122,8 +122,8 @@ class SkinCluster(GeometryFilter):
             RuntimeError: その名前のノードが無い場合、またはMayaの検索が失敗した場合。
         """
         ...
-    def copyWeightsTo(self, target: str | Node) -> SkinCluster:
-        """別のskinClusterへ、いちばん近い点を使ってウェイトを転送する。
+    def copyWeightsTo(self, target: str | Node, *, surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., uvSpace: tuple[str, str] | None = ..., sampleSpace: int = ..., normalize: bool = ...) -> SkinCluster:
+        """別のskinClusterへ、表面またはUVの対応に従ってウェイトを転送する。
 
         転送先には、skinClusterのほか、形状(Shape)やその親のTransformも指定できる。
 
@@ -131,21 +131,31 @@ class SkinCluster(GeometryFilter):
         - 無ければ、自身のすべてのインフルエンスと同じmaxInfluencesで、
           :func:`mlib.bindSkin <mlib.cmds.bindSkin.bindSkin>` でバインドしてから転送する。
 
-        バインドと転送は、1回のUndoで戻せる。OpenMayaにはバインドやコピーのAPIが無いため、fast引数は持たない。
+        バインドと転送は、1回のUndoで戻せる。Maya 2023ではロックされたweightList内の値をUndoで戻せないため、転送前に拒否する。
+        OpenMayaにはバインドやコピーのAPIが無いため、fast引数は持たない。
+        Maya標準のcopySkinWeightsと同じく、転送先skinCluster・Shapeやインフルエンスの
+        lockInfluenceWeightsがロックされていても書き換える。Maya 2023以外ではweightListのロックも保護条件には使わない。
 
         Args:
             target (str | Node): 転送先のskinCluster、または形状かその親のTransform。
+            surfaceAssociation (str): closestPoint・rayCast・closestComponentのいずれか。uvSpace指定時はUVで対応付ける。
+            influenceAssociation (str | Sequence[str]): closestJoint・closestBone・label・name・oneToOneを優先順に指定する。
+                既定はname、次にclosestJoint。未対応のインフルエンスがある場合の扱いはMayaに従う。
+            uvSpace (tuple[str, str] | None): コピー元・先のUVセット名。両方が全フェースへUVを割り当てたMeshであることを、バインド前に検査する。
+                重なったUVでの対応先は一意とは限らない。Noneなら表面で対応付ける。
+            sampleSpace (int): Mayaの表面照合空間。0はワールド、1はモデル空間。Transformの位置の差を相殺する指定ではない。
+            normalize (bool): Trueなら転送後にウェイトを正規化する。
 
         Returns:
             SkinCluster: ウェイトを書き込んだ転送先。新しくバインドした場合は、そのskinCluster。
 
         Raises:
-            TypeError: 転送先がskinClusterでも形状でもない場合(Joint・形状の無いTransform・DGノードなど)。
-            ValueError: 転送先が自身(または自身が変形している形状)の場合、または形状を複数のskinClusterが変形している場合。
-            RuntimeError: 転送先の名前のノードが無い場合、またはMayaがバインドや転送を拒否した場合。
+            TypeError: 引数の型が違う、転送先がskinClusterでも形状でもない、またはUV転送の対象がMeshでない場合。
+            ValueError: 対応方式・空間・UVセットの指定が不正、UVが未割り当て、転送先が自身、または形状を複数のskinClusterが変形している場合。
+            RuntimeError: 転送先の名前のノードが無い、Maya 2023で転送先weightList内にロックがある、またはMayaがバインドや転送を拒否した場合。
 
         Note:
-            頂点はclosestPoint、インフルエンスはname/closestJointで対応付ける、おおよその転送で、転送後に正規化する。
+            指定を省略するとclosestPointとname/closestJointで対応付け、転送後に正規化する。
             基準になる姿勢が違う場合の補正や、メッシュの頂点を減らすことはしない。
         """
         ...
@@ -1528,11 +1538,12 @@ class SkinCluster(GeometryFilter):
                 指定した列の後に、値が変わった指定していない列を、物理的な順番で続ける。
         """
         ...
-    def _copy_destination(self, target: str | Node) -> SkinCluster:
+    def _copy_destination(self, target: str | Node, uv_set: str | None = ...) -> SkinCluster:
         """copyWeightsToの転送先のSkinClusterを決める。すでにあるものを使うか、新しくバインドする。
 
         Args:
             target (str | Node): skinCluster、または形状かその親のTransform。
+            uv_set (str | None): 転送先で検査するUVセット名。バインドする前に検査する。
 
         Returns:
             SkinCluster: 転送先。形状にskinClusterが無ければ、自身のインフルエンスでバインドしたもの。
@@ -1541,6 +1552,19 @@ class SkinCluster(GeometryFilter):
             TypeError: skinClusterでも形状でもない場合。
             ValueError: 形状を複数のskinClusterが変形している場合。
             RuntimeError: その名前のノードが無い場合、またはMayaがバインドを拒否した場合。
+        """
+        ...
+    @staticmethod
+    def _require_copy_uv_set(path: om2.MDagPath, uv_set: str):
+        """UV転送に使うMeshのUVセットと全フェースへの割り当てを検査する。
+
+        Args:
+            path (om2.MDagPath): コピー元または先のShape。
+            uv_set (str): UVセット名。
+
+        Raises:
+            TypeError: Meshでない場合。
+            ValueError: セットが無い、またはUVが割り当てられていないフェースがある場合。
         """
         ...
     @staticmethod
@@ -1916,7 +1940,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def deforms(self, geometry: str | Node) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.deforms` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def copyWeightsTo(self, target: str | Node) -> list[SkinCluster]:
+    def copyWeightsTo(self, target: str | Node, *, surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., uvSpace: tuple[str, str] | None = ..., sampleSpace: int = ..., normalize: bool = ...) -> list[SkinCluster]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.copyWeightsTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mirrorWeights(self, axis: str | int = ..., positiveToNegative: bool = ..., surfaceAssociation: str = ..., influenceAssociation: str | Sequence[str] = ..., *, normalize: bool = ...) -> list[None]:
@@ -2191,6 +2215,9 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def hasAttr(self, name: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.hasAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getExternalContent(self) -> list[list[dict[str, str | list[str]]]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getExternalContent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -687,6 +687,20 @@ class DagNode(Node):
         """
         return self if self._require_mnode().hasFn(om2.MFn.kShape) else None
 
+    def isTemplated(self):
+        """保持するDAGパスの親階層を含めてテンプレート表示の状態を調べる。
+
+        MDagPath.isTemplatedの結果を返す。templateと描画オーバーライドによる
+        テンプレート表示を含む。非表示・参照表示など、選択できない原因すべての判定ではない。
+
+        Returns:
+            bool: 保持するパスがテンプレート表示ならTrue。
+
+        Raises:
+            RuntimeError: 保持するDAGパスが無効な場合。
+        """
+        return self.mpath().isTemplated()
+
     def isVisible(self):
         """親の階層まで含めて、表示されているかを調べる。
 

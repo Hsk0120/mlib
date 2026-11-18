@@ -489,6 +489,35 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
+    def setNiceName(self, name: str) -> None:
+        """ローカルの追加アトリビュートにUI表示名を設定する。
+
+        ロング名・ショート名・値・接続は変更しない。定義全体の変更なのでマルチ要素からは呼べない。
+        cmds.addAttrでUndo可能に編集する。高速化する用途がないためfast引数は持たない。
+
+        Args:
+            name (str): 表示名。空文字列なら上書きを解除し、Mayaの既定の表示名へ戻す。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: nameが文字列以外、標準アトリビュート・マルチ要素・プロキシの場合。
+            ValueError: nameにNUL文字を含む場合。
+            RuntimeError: 対象が無効・ロック・参照ノードの場合、またはMayaが変更を拒否した場合。
+        """
+        ...
+    def getCategories(self) -> list[str]:
+        """アトリビュート定義に登録されたカテゴリ名を取得する。
+
+        Returns:
+            list[str]: Mayaの返す順のカテゴリ名。未登録なら空リスト。
+                マルチ要素でも要素共通の定義を調べ、値の評価や要素の作成は行わない。
+
+        Raises:
+            RuntimeError: ノードかアトリビュートが無効な場合。
+        """
+        ...
     def getType(self) -> str | None:
         """アトリビュートのMayaでの型名を取得する。
 
@@ -3125,6 +3154,12 @@ class Plugs(_ListMethods):
         ...
     def getNiceName(self) -> list[str]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getNiceName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setNiceName(self, name: str) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setNiceName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getCategories(self) -> list[list[str]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getCategories` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getType(self) -> list[str | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

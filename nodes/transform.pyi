@@ -1313,7 +1313,7 @@ class Transform(DagNode):
             ValueError: 回転の成分と空間の指定が、対応していない組み合わせの場合。
         """
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> EulerRotate | None:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ..., preserve: bool = ...) -> EulerRotate | None:
         """回転の成分の指定に従って、rotate・jointOrient・rotateAxisのどれかを設定する。
 
         受け付ける組み合わせでは、書き込む先は次のようになる。
@@ -1323,6 +1323,8 @@ class Transform(DagNode):
         - それ以外のr=False: rotateAxis
 
         ra・r・joで指定できる組み合わせは、getQuaternionと同じではない。
+        preserve=TrueではrotateAxisとrotateを同時に変更して、現在時刻の姿勢を保つ。
+        アニメーション全体の動きは保たない。補正先も書ける必要があるため、checkに関係なく両方を先に検査する。
 
         Args:
             value (Quaternion | om2.MQuaternion | Iterable[float]): xyzwの回転。
@@ -1339,6 +1341,8 @@ class Transform(DagNode):
             rotateAxis (bool): Trueなら、入力にrotateAxisを含むものとして扱う。既定はFalse。
             rotate (bool): Trueならrotateを書き換える。FalseならjointOrientかrotateAxisを書き換える。既定はTrue。
             jointOrient (bool): Trueなら、入力にjointOrientを含むものとして扱う。既定はTrue。
+            preserve (bool): rotateAxisを設定するときだけ指定できる姿勢維持。既定はFalse。
+                safe=Trueでの部分更新には対応しない。get=Trueでは従来どおりrotateAxisの値だけ返す。
 
         Returns:
             EulerRotate | None: get=Falseなら値を返さない。get=Trueなら、書き込む先のオイラー角の値を
@@ -1350,6 +1354,8 @@ class Transform(DagNode):
             TypeError: valueがクォータニオンでも数値の並びでもない場合、
                 またはロング名と短縮名(worldSpaceとws、rotateAxisとra、rotateとr、jointOrientとjo)を同時に指定した場合。
             ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
+                preserve=TrueでrotateAxis以外を設定する場合、またはsafe=Trueで書き込む場合。
+            RuntimeError: preserve=Trueの補正対象がロック・接続・リファレンス等で編集できない場合。
         """
         ...
     def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> None:
@@ -1802,6 +1808,16 @@ class Transform(DagNode):
 
         Returns:
             om2.MEulerRotation: ノードの rotateOrder で表した、reference に最も近い解。
+        """
+        ...
+    def _set_rotate_axis_preserving_fast(self, rotation: om2.MEulerRotation) -> None:
+        """rotateAxisとrotateをOpenMayaで補正し、現在の姿勢を保つ。
+
+        Args:
+            rotation (om2.MEulerRotation): rotateAxisへ設定するXYZ順の角度(rad)。
+
+        Returns:
+            None: 値を返さない。
         """
         ...
     def _quaternion_channel_values(self, value: om2.MQuaternion | Iterable[float], ws: bool, ra: bool, r: bool, jo: bool) -> tuple[str, om2.MEulerRotation]:

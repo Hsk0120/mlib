@@ -735,6 +735,49 @@ class Plug(Object):
         self._require_valid()
         return cmds.attributeName(self.getFullName(), nice=True)
 
+    def setNiceName(self, name):
+        """ローカルの追加アトリビュートにUI表示名を設定する。
+
+        ロング名・ショート名・値・接続は変更しない。定義全体の変更なのでマルチ要素からは呼べない。
+        cmds.addAttrでUndo可能に編集する。高速化する用途がないためfast引数は持たない。
+
+        Args:
+            name (str): 表示名。空文字列なら上書きを解除し、Mayaの既定の表示名へ戻す。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: nameが文字列以外、標準アトリビュート・マルチ要素・プロキシの場合。
+            ValueError: nameにNUL文字を含む場合。
+            RuntimeError: 対象が無効・ロック・参照ノードの場合、またはMayaが変更を拒否した場合。
+        """
+        if not isinstance(name, str):
+            raise TypeError("nameはstrで指定してください")
+        if "\x00" in name:
+            raise ValueError("nameにNUL文字は指定できません")
+        self._require_valid()
+        require_editable(self._node.mnode())
+        if self._static_attribute or any(plug.isElement for plug in _ancestor_plugs(self._mplug)) or self.isProxy():
+            raise TypeError("表示名の変更は追加アトリビュートの定義にだけ対応しています")
+        if self.isLocked():
+            raise RuntimeError("ロックされたアトリビュートの表示名は変更できません")
+        with _edit_context("mlibPlugSetNiceName", False, single=True):
+            cmds.addAttr(self._node.getFullName() + "." + self.getLongName(), edit=True, niceName=name)
+
+    def getCategories(self):
+        """アトリビュート定義に登録されたカテゴリ名を取得する。
+
+        Returns:
+            list[str]: Mayaの返す順のカテゴリ名。未登録なら空リスト。
+                マルチ要素でも要素共通の定義を調べ、値の評価や要素の作成は行わない。
+
+        Raises:
+            RuntimeError: ノードかアトリビュートが無効な場合。
+        """
+        self._require_valid()
+        return list(cmds.attributeQuery(self.getLongName(), node=self._node.getFullName(), categories=True) or [])
+
     def getType(self):
         """アトリビュートのMayaでの型名を取得する。
 

@@ -186,6 +186,26 @@ class VertexFace(_MultiIndexComponent, Component):
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         ...
+    def removeColor(self, *, fast: bool = ..., colorSet: str | None = ...) -> None:
+        """この面頂点のカラー割り当てを解除する。
+
+        カラーセットは残し、getColorでNoneになる状態へ戻す。
+        ヒストリの制限はMesh.removeFaceVertexColorsと同じ。通常はUndoに記録する。
+
+        Args:
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、またはcolorSetの型が不正な場合。
+            ValueError: 指定したカラーセットが無い場合。
+            RuntimeError: メッシュが編集不可か、通常経路で未対応のヒストリがある場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        ...
     @classmethod
     def _element_count(cls, shape: Mesh) -> int:
         """頂点フェースの数(全フェースの頂点数の合計)を返す。
@@ -267,6 +287,9 @@ class VertexFaces(_MultiIndexComponents, Components):
         ...
     def setColor(self, color: Sequence[float] | om2.MColor, *, fast: bool = ..., colorSet: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def removeColor(self, *, fast: bool = ..., colorSet: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.removeColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

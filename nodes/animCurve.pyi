@@ -504,6 +504,34 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、またはMayaがフィルターを拒否した場合。
         """
         ...
+    def reduceKeys(self, precision: float, *, precisionMode: int = ..., time: tuple[float, float] | None = ..., preserveKeyTangent: str | Sequence[str] = ..., unit: str = ..., timeUnit: str = ...) -> None:
+        """MayaのKey Reducerで、指定した許容値に従ってキーを削減する。
+
+        出力先が接続された時間入力カーブ(TA・TL・TU)だけを扱う。
+        時間出力(TT)と単位なし入力(U*)は対応しない。
+        指定したカーブだけを編集し、兄弟のXYZカーブへのキー追加や、選択キーによる絞り込みは行わない。
+        接線やカーブの形によってはキー数が減らず、全時刻の誤差上限も保証しない。
+        fast引数は持たない(OpenMayaに同等のフィルターが無いため)。通常Undoは1回で戻せる。
+
+        Args:
+            precision (float): 0以上の許容値。絶対値では角度はunit、距離はcmで指定する。
+                単位なしの出力は数値のまま。割合指定では百分率。
+            precisionMode (int): 0は絶対値、1は百分率。
+            time (tuple[float, float] | None): 処理する開始・終了時刻。timeUnitに従う。Noneは全キー。
+            preserveKeyTangent (str | Sequence[str]): 保持するキーの入/出接線型。
+                fixed・linear・flat・smooth・step・clamped・plateau・stepnext・autoを指定できる。既定は指定なし。
+            unit (str): 角度の許容値の単位。degまたはrad。
+            timeUnit (str): 処理範囲の時間単位。frameまたはsec。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 対応するカーブ型でない、または引数の型が違う場合。
+            ValueError: 許容値・範囲・単位・接線型が不正な場合。
+            RuntimeError: 出力先が無い、キーが編集できない、またはMayaが処理を拒否した場合。
+        """
+        ...
     def getDrivenPlugs(self) -> Plugs:
         """このカーブが動かしているアトリビュートを返す。
 

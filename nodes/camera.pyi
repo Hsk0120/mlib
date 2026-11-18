@@ -122,6 +122,27 @@ class Camera(Shape):
             RuntimeError: ノードが削除済みの場合。
         """
         ...
+    def getFilmFrustum(self, distance: float, *, applyPanZoom: bool = ...) -> tuple[float, float, float, float]:
+        """指定距離でのフィルムゲートの寸法とフィルム面のオフセットを取得する。
+
+        MFnCamera.getFilmFrustumの4値を返す。透視投影の幅・高さはdistanceに比例し、
+        正投影ではdistanceによらない。オフセットは距離面への投影値ではなく、
+        Mayaが返すフィルム面の値。UIの距離単位を変更しても戻り値は変わらない。
+
+        Args:
+            distance (float): カメラからの距離(cm)。正の有限値。
+            applyPanZoom (bool): Trueなら有効な2D pan/zoomを反映する。既定False。
+
+        Returns:
+            tuple[float, float, float, float]: (幅cm, 高さcm, 横オフセットinch, 縦オフセットinch)。
+                正投影ではフィルムオフセットを含まず、指定時のpanのみをオフセットに反映する。
+
+        Raises:
+            TypeError: distanceが数値以外、またはapplyPanZoomがbool以外の場合。
+            ValueError: distanceが正の有限値でない場合。
+            RuntimeError: カメラが無効な場合。
+        """
+        ...
     def getRenderingFrustum(self, aspectRatio: float) -> tuple[float, float, float, float]:
         """レンダーに使うニアクリップ面の撮影範囲を取得する。
 

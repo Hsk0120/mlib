@@ -260,6 +260,24 @@ class Mesh(Shape):
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
+    def getNormalData(self, worldSpace: bool = ..., *, ws: bool = ...) -> tuple[list[Vector], list[int], list[int]]:
+        """法線の値と、各面頂点が参照する法線番号を取得する。
+
+        同じ値の法線も番号が異なれば分けて保持する。法線番号は頂点番号とは別で、形状の編集後も維持されるIDではない。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの別名。同時指定は不可。
+
+        Returns:
+            tuple[list[Vector], list[int], list[int]]: 法線番号順のVector、フェースごとの面頂点数、
+                フェース番号順・各面の頂点順に連結した法線番号。すべて独立した値。法線の値はOpenMayaの取得値を保つ。
+
+        Raises:
+            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: 形状データが無いか無効なメッシュの場合。
+        """
+        ...
     def getFaceVertexNormals(self, worldSpace: bool = ..., *, faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., ws: bool = ...) -> list[Vector]:
         """フェースごとの頂点の法線を取得する。
 
@@ -773,6 +791,30 @@ class Mesh(Shape):
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         ...
+    def removeFaceVertexColors(self, *, fast: bool = ..., colorSet: str | None = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ...) -> None:
+        """指定した面頂点のカラー割り当てを解除する。
+
+        黒や透明を設定せず、getFaceVertexColorsでNoneになる状態へ戻す。カラーセットと他のコーナーの色は残す。
+        通常はUndoに記録する。入力ヒストリがある場合は、指定セットのpolyColorPerVertexから
+        メッシュまでがpolyMoveVertexだけの連鎖に限る。fastは入力ヒストリの無いメッシュに限る。
+        現在のカラーセットは復元する。colorSet=Noneでセットが無い場合や対象が空の場合は何もしない。
+
+        Args:
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがbool以外の場合、またはセット・番号の型が不正な場合。
+            ValueError: 指定セットが無いか、別のメッシュのコンポーネントの場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: メッシュがロック・リファレンス、通常経路で未対応のヒストリ、またはMayaが編集を拒否した場合。
+            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
+        """
+        ...
     def getVertexColors(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """頂点ごとの色を取得する。
 
@@ -1040,6 +1082,19 @@ class Mesh(Shape):
             Vertices: 番号の小さい順の頂点。縁が無ければ空。
         """
         ...
+    def getHoles(self) -> list[tuple[int, list[int]]]:
+        """フェース内部の穴を構成する頂点列を取得する。
+
+        メッシュの外周や欠損面、polyHoleで非表示にした面は対象にしない。
+
+        Returns:
+            list[tuple[int, list[int]]]: (フェース番号, 内周の頂点番号列)。頂点はメッシュ全体の番号で、
+                穴と頂点の並びはOpenMayaの順を保つ。穴が無ければ空のリスト。すべて独立した値。
+
+        Raises:
+            RuntimeError: 形状データが無いか無効なメッシュの場合。
+        """
+        ...
     def _resolve_face_vertices(self, values: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None) -> VertexFaces:
         """面頂点の指定を、同じメッシュのVertexFacesへ解決する。
 
@@ -1131,6 +1186,42 @@ class Mesh(Shape):
             values (list[tuple[float, float]]): UV座標。
             counts (list[int]): 面ごとのUV数。
             indices (list[int]): UV番号。
+
+        Returns:
+            None: 値を返さない。
+        """
+        ...
+    def _require_color_removal_history(self, color_set: str) -> None:
+        """カラー解除を確認したヒストリの連鎖か検証する。
+
+        Args:
+            color_set (str): 解除するカラーセット。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: 入力に指定セットのカラー編集が無いか、途中に未対応ノードがある場合。
+        """
+        ...
+    def _remove_face_vertex_colors_cmds(self, color_set: str, components: VertexFaces) -> None:
+        """現在のカラーセットを復元しながら、標準コマンドで色の割り当てを解除する。
+
+        Args:
+            color_set (str): 解除するカラーセット。
+            components (VertexFaces): 対象。
+
+        Returns:
+            None: 値を返さない。
+        """
+        ...
+    def _remove_face_vertex_colors_fast(self, fn: om2.MFnMesh, color_set: str, components: VertexFaces) -> None:
+        """現在のカラーセットを復元しながら、OpenMayaで色の割り当てを解除する。
+
+        Args:
+            fn (om2.MFnMesh): 対象メッシュ。
+            color_set (str): 解除するカラーセット。
+            components (VertexFaces): 対象。
 
         Returns:
             None: 値を返さない。

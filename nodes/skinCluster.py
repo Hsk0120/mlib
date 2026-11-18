@@ -121,8 +121,10 @@ class SkinCluster(GeometryFilter):
         return self.getUuid() in self._geometry_skin_uuids(Node(geometry))
 
     @undoChunk("mlibSkinClusterCopyWeightsTo")
-    def copyWeightsTo(self, target):
-        """別のskinClusterへ、いちばん近い点を使ってウェイトを転送する。
+    def copyWeightsTo(
+        self, target, *, surfaceAssociation="closestPoint", influenceAssociation=("name", "closestJoint"), uvSpace=None, sampleSpace=0, normalize=True
+    ):
+        """別のskinClusterへ、表面またはUVの対応に従ってウェイトを転送する。
 
         転送先には、skinClusterのほか、形状(Shape)やその親のTransformも指定できる。
 
@@ -130,33 +132,81 @@ class SkinCluster(GeometryFilter):
         - 無ければ、自身のすべてのインフルエンスと同じmaxInfluencesで、
           :func:`mlib.bindSkin <mlib.cmds.bindSkin.bindSkin>` でバインドしてから転送する。
 
-        バインドと転送は、1回のUndoで戻せる。OpenMayaにはバインドやコピーのAPIが無いため、fast引数は持たない。
+        バインドと転送は、1回のUndoで戻せる。Maya 2023ではロックされたweightList内の値をUndoで戻せないため、転送前に拒否する。
+        OpenMayaにはバインドやコピーのAPIが無いため、fast引数は持たない。
+        Maya標準のcopySkinWeightsと同じく、転送先skinCluster・Shapeやインフルエンスの
+        lockInfluenceWeightsがロックされていても書き換える。Maya 2023以外ではweightListのロックも保護条件には使わない。
 
         Args:
             target (str | Node): 転送先のskinCluster、または形状かその親のTransform。
+            surfaceAssociation (str): closestPoint・rayCast・closestComponentのいずれか。uvSpace指定時はUVで対応付ける。
+            influenceAssociation (str | Sequence[str]): closestJoint・closestBone・label・name・oneToOneを優先順に指定する。
+                既定はname、次にclosestJoint。未対応のインフルエンスがある場合の扱いはMayaに従う。
+            uvSpace (tuple[str, str] | None): コピー元・先のUVセット名。両方が全フェースへUVを割り当てたMeshであることを、バインド前に検査する。
+                重なったUVでの対応先は一意とは限らない。Noneなら表面で対応付ける。
+            sampleSpace (int): Mayaの表面照合空間。0はワールド、1はモデル空間。Transformの位置の差を相殺する指定ではない。
+            normalize (bool): Trueなら転送後にウェイトを正規化する。
 
         Returns:
             SkinCluster: ウェイトを書き込んだ転送先。新しくバインドした場合は、そのskinCluster。
 
         Raises:
-            TypeError: 転送先がskinClusterでも形状でもない場合(Joint・形状の無いTransform・DGノードなど)。
-            ValueError: 転送先が自身(または自身が変形している形状)の場合、または形状を複数のskinClusterが変形している場合。
-            RuntimeError: 転送先の名前のノードが無い場合、またはMayaがバインドや転送を拒否した場合。
+            TypeError: 引数の型が違う、転送先がskinClusterでも形状でもない、またはUV転送の対象がMeshでない場合。
+            ValueError: 対応方式・空間・UVセットの指定が不正、UVが未割り当て、転送先が自身、または形状を複数のskinClusterが変形している場合。
+            RuntimeError: 転送先の名前のノードが無い、Maya 2023で転送先weightList内にロックがある、またはMayaがバインドや転送を拒否した場合。
 
         Note:
-            頂点はclosestPoint、インフルエンスはname/closestJointで対応付ける、おおよその転送で、転送後に正規化する。
+            指定を省略するとclosestPointとname/closestJointで対応付け、転送後に正規化する。
             基準になる姿勢が違う場合の補正や、メッシュの頂点を減らすことはしない。
         """
-        destination = self._copy_destination(target)
+        surface_association = self._require_choice(surfaceAssociation, "surfaceAssociation", self._SURFACE_ASSOCIATIONS)
+        if isinstance(influenceAssociation, str):
+            influenceAssociation = (influenceAssociation,)
+        try:
+            influence_association = list(influenceAssociation)
+        except TypeError:
+            raise TypeError("influenceAssociationはstrかstrの並びで指定してください") from None
+        for method in influence_association:
+            self._require_choice(method, "influenceAssociation", self._INFLUENCE_ASSOCIATIONS)
+        if not influence_association or len(set(influence_association)) != len(influence_association):
+            raise ValueError("influenceAssociationは重複しない対応方式を1個以上指定してください")
+        if isinstance(sampleSpace, bool) or not isinstance(sampleSpace, int):
+            raise TypeError("sampleSpaceはintで指定してください")
+        if sampleSpace not in (0, 1):
+            raise ValueError("sampleSpaceは0か1で指定してください")
+        _require_bool(normalize, "normalize")
+        uv_sets = None
+        if uvSpace is not None:
+            if not isinstance(uvSpace, (tuple, list)):
+                raise TypeError("uvSpaceはコピー元と先のUVセット名の組で指定してください")
+            if len(uvSpace) != 2:
+                raise ValueError("uvSpaceは2つのUVセット名で指定してください")
+            uv_sets = tuple(uvSpace)
+            for uv_set in uv_sets:
+                if not isinstance(uv_set, str):
+                    raise TypeError("UVセット名はstrで指定してください")
+                if not uv_set:
+                    raise ValueError("UVセット名は空でない文字列で指定してください")
+            self._require_copy_uv_set(self.mesh_path, uv_sets[0])
+        destination = self._copy_destination(target, uv_set=None if uv_sets is None else uv_sets[1])
         if destination.getUuid() == self.getUuid():
             raise ValueError("コピー元とコピー先は別のskinClusterで指定してください")
+        if 20230000 <= om2.MGlobal.apiVersion() < 20240000:
+            weight_list = destination.getPlug("weightList").mplug()
+            # 2023のcopySkinWeightsはロックを無視して書くが、Undoでは値を戻せない。
+            # 本体のロックはlistAttr(multi=True)に出ないため、別に調べる。
+            if weight_list.isLocked or cmds.listAttr(weight_list.name(), locked=True, multi=True):
+                raise RuntimeError(f"Maya 2023ではweightList内のロックを解除してから転送してください(Undoで戻せません): {destination.getFullName()}")
+        options = {} if uv_sets is None else {"uvSpace": uv_sets}
         cmds.copySkinWeights(
             sourceSkin=self.getFullName(),
             destinationSkin=destination.getFullName(),
             noMirror=True,
-            surfaceAssociation="closestPoint",
-            influenceAssociation=["name", "closestJoint"],
-            normalize=True,
+            surfaceAssociation=surface_association,
+            influenceAssociation=influence_association,
+            sampleSpace=sampleSpace,
+            normalize=normalize,
+            **options,
         )
         return destination
 
@@ -2686,11 +2736,12 @@ class SkinCluster(GeometryFilter):
         columns = list(physical_indices) + [i for i in others if i in changed]
         return [row[i] for row in results for i in columns], columns
 
-    def _copy_destination(self, target):
+    def _copy_destination(self, target, uv_set=None):
         """copyWeightsToの転送先のSkinClusterを決める。すでにあるものを使うか、新しくバインドする。
 
         Args:
             target (str | Node): skinCluster、または形状かその親のTransform。
+            uv_set (str | None): 転送先で検査するUVセット名。バインドする前に検査する。
 
         Returns:
             SkinCluster: 転送先。形状にskinClusterが無ければ、自身のインフルエンスでバインドしたもの。
@@ -2702,6 +2753,8 @@ class SkinCluster(GeometryFilter):
         """
         node = target if isinstance(target, Node) else Node(target)
         if isinstance(node, SkinCluster):
+            if uv_set is not None:
+                self._require_copy_uv_set(node.mesh_path, uv_set)
             return node
         description = f"{node.getType()} '{node.getName()}'"
         if not isinstance(node, DagNode) or node.isType("joint"):
@@ -2710,13 +2763,45 @@ class SkinCluster(GeometryFilter):
         if len(skins) > 1:
             raise ValueError(f"ジオメトリが複数のskinClusterで変形されています: {description}")
         if skins:
+            if uv_set is not None:
+                self._require_copy_uv_set(skins[0].mesh_path, uv_set)
             return skins[0]
         if not self._has_geometry(node.mpath()):
             raise TypeError(f"copyWeightsToにはskinClusterかジオメトリを指定してください: シェイプのない{description}")
+        if uv_set is not None:
+            path = node.mpath()
+            if path.node().hasFn(om2.MFn.kTransform):
+                shapes = node.getShapes()
+                if len(shapes) != 1:
+                    raise ValueError("UV転送先は中間でないShapeが1つのTransformで指定してください")
+                path = shapes[0].mpath()
+            self._require_copy_uv_set(path, uv_set)
         # cmds は nodes を参照するため、循環importを避けて関数内で読み込む。
         from ..cmds.bindSkin import bindSkin
 
         return bindSkin(self.getInfluences(), node, maximumInfluences=self.getMaxInfluences())
+
+    @staticmethod
+    def _require_copy_uv_set(path, uv_set):
+        """UV転送に使うMeshのUVセットと全フェースへの割り当てを検査する。
+
+        Args:
+            path (om2.MDagPath): コピー元または先のShape。
+            uv_set (str): UVセット名。
+
+        Raises:
+            TypeError: Meshでない場合。
+            ValueError: セットが無い、またはUVが割り当てられていないフェースがある場合。
+        """
+        if not path.node().hasFn(om2.MFn.kMesh):
+            raise TypeError("uvSpaceはMesh同士の転送で指定してください")
+        mesh_fn = om2.MFnMesh(path)
+        if uv_set not in mesh_fn.getUVSetNames():
+            raise ValueError(f"UVセットがありません: {path.fullPathName()}.{uv_set}")
+        uv_counts, _ = mesh_fn.getAssignedUVs(uv_set)
+        vertex_counts, _ = mesh_fn.getVertices()
+        if not uv_counts or list(uv_counts) != list(vertex_counts):
+            raise ValueError(f"UV転送には全フェースへUVを割り当ててください: {path.fullPathName()}.{uv_set}")
 
     @staticmethod
     def _has_geometry(path):

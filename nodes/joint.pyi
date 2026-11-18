@@ -1222,7 +1222,7 @@ class Joints(Nodes[Joint]):
     def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ..., preserve: bool = ...) -> list[EulerRotate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> list[None]:
@@ -1299,6 +1299,9 @@ class Joints(Nodes[Joint]):
         ...
     def getParent(self, step: int = ...) -> list[Transform | None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isTemplated(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isTemplated` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isVisible(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isVisible` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -1437,6 +1440,9 @@ class Joints(Nodes[Joint]):
         ...
     def hasAttr(self, name: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.hasAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getExternalContent(self) -> list[list[dict[str, str | list[str]]]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getExternalContent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -10,6 +10,7 @@ import maya.mel as mel
 from ..components.vertex import Vertex, Vertices
 from ..core.attributeType import typed_data
 from ..core.fastWrite import require_writable, set_attr
+from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context, _require_bool, undoChunk
 from ..maths.vector import Vector
 from ..plugs.plug import Plug
@@ -19,6 +20,7 @@ from .node import Node, Nodes
 from typing import Any, Iterable, Sequence
 from mlib.json.nameMapping import NameMapping
 from mlib.json.snapshot import ValidationReport
+from mlib.nodes.mesh import Mesh
 import os
 import pathlib
 
@@ -247,6 +249,49 @@ class BlendShape(GeometryFilter):
         Raises:
             TypeError: targetの型が不正な場合、またはweightが数値でない場合。
             ValueError: ターゲットが無い場合、またはそのウェイトのin-betweenが無い場合。
+        """
+        ...
+    def getBaseWeights(self, base: str | Node | None = ...) -> list[float]:
+        """ベースのbaseWeightsを、頂点番号の順に取得する。
+
+        未設定の頂点は1.0。targetWeightsと異なり、ベースに共通するマスクを保持する。
+        Maya 2022〜2024では変形へ作用する。Maya 2025〜2027の標準blendShapeでは、変形に使われるのは
+        weightListのウェイトで、baseWeightsだけを変更しても変形へ反映されない。
+        weightListを読む場合はgetDeformerWeightsを使う。
+
+        Args:
+            base (str | Node | None): ベースのメッシュまたはTransform。Noneなら最小の論理番号のベース。
+
+        Returns:
+            list[float]: 全頂点の値を持つ新しいlist。アトリビュートの要素は作らない。
+
+        Raises:
+            TypeError: baseが対応しない型、またはメッシュでない場合。
+            ValueError: ベースが無い、またはbaseがこのblendShapeのベースでない場合。
+        """
+        ...
+    def setBaseWeights(self, weights: Sequence[float] | dict[int, float], base: str | Node | None = ..., *, fast: bool = ..., check: bool = ...) -> None:
+        """ベースのbaseWeightsを設定する。
+
+        全頂点の並び、または変更する頂点だけの辞書を渡す。値は0〜1に制限しない。
+        targetWeightsとweightListは変更しない。Maya版による変形への作用の違いはgetBaseWeightsを参照。
+        通常は連続する番号をsetAttrの範囲指定にまとめ、全体を1回のUndoにする。
+        複数回に分けて書く場合は、checkにかかわらず全対象のロックと接続を先に確かめる。
+
+        Args:
+            weights (Sequence[float] | dict[int, float]): 全頂点の値、または頂点番号と値の辞書。
+            base (str | Node | None): ベースのメッシュまたはTransform。Noneなら最小の論理番号のベース。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら有限値・ロック・入力接続を更新前に検査する。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: weights・baseの型が不正、またはfast・checkがboolでない場合。
+            ValueError: ベースが無い、値の数が頂点数と違う、またはcheck=Trueで有限でない値がある場合。
+            IndexError: 頂点番号が範囲外の場合。
+            RuntimeError: ノードがロック・リファレンス、対象にロック・入力接続がある、またはMayaが更新を拒否した場合。
         """
         ...
     def getTargetWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:
@@ -499,6 +544,34 @@ class BlendShape(GeometryFilter):
             TypeError: 引数の型が不正な場合、またはgeometryかベースがメッシュでない場合。
             ValueError: ターゲットや項目が無い場合、または頂点数がベースと違う場合。
             RuntimeError: Mayaが接続を拒否した場合。
+        """
+        ...
+    def regenerateTarget(self, target: str | int | Plug, fullWeight: float = ...) -> Nodes[Mesh]:
+        """保存済みターゲットから、全ベースの編集用メッシュを再生成する。
+
+        sculptTarget(regenerate=True)で、形状の接続が無い項目にメッシュとTransformを作り、
+        inputGeomTargetへ接続する。接続済みのメッシュは作り直さず、そのまま返す。
+        全ベースに作用するため、ベースを1つだけ選ぶ指定はない。全ベースに同じターゲットと項目が必要。
+        選択とターゲットの編集モードは維持する。新規生成は1回のUndoで戻せる。
+
+        本体のfullWeightが1.0の通常ターゲットと、0〜1の間のin-betweenに対応する。1より大きい項目を持つターゲットは扱わない。
+        タンジェント空間・Transform空間ターゲットは変更前に拒否する。
+        fast引数は持たない(OpenMayaに同等の生成操作がないため)。
+
+        Args:
+            target (str | int | Plug): ターゲット名・論理番号、またはこのノードのweightの要素。
+            fullWeight (float): 再生成する項目のウェイト。0.001刻み、既定1.0。全対象ベースに同じ項目が必要。
+
+        Returns:
+            Nodes[Mesh]: ベースの論理番号順のメッシュ。新規生成と接続済みの両方を含む。
+                接続元がインスタンスの場合、接続に使ったインスタンスのDAGパスは保持しない。
+
+        Raises:
+            TypeError: target・fullWeightの型が不正、またはベースがメッシュでない場合。
+            ValueError: ターゲットか指定項目が無い、またはfullWeightが不正な場合。
+            RuntimeError: ノードがロック・リファレンス、生成先にロックがある、またはMayaが生成を拒否した場合。
+            NotImplementedError: fullWeightが0以下か1より大きい、本体1.0が無い、1を超える項目がある、ポストデフォーメーションターゲット、
+                または既存の接続元がメッシュでない場合。
         """
         ...
     def targetEdit(self, target: str | int | Plug | None = ..., state: bool = ..., fullWeight: float = ...) -> None:
@@ -1165,12 +1238,13 @@ def _runs(indices: Sequence[int]) -> list[tuple[int, int]]:
     """
     ...
 
-def _vertex_values(weights: Sequence[float] | dict[int, float], count: int) -> dict[int, float]:
+def _vertex_values(weights: Sequence[float] | dict[int, float], count: int, *, check: bool = ...) -> dict[int, float]:
     """頂点ごとの値の指定を、検証済みの辞書にする。
 
     Args:
         weights (Sequence[float] | dict[int, float]): 全頂点の並び、または頂点番号と値。
         count (int): 頂点数。
+        check (bool): Trueなら値が有限かを確かめる。
 
     Returns:
         dict[int, float]: 頂点番号と値。

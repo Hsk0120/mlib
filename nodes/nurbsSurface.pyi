@@ -102,6 +102,33 @@ class NurbsSurface(Shape):
             RuntimeError: 形状が無効な場合。
         """
         ...
+    def getUVData(self) -> tuple[list[tuple[float, float]], list[int], list[int]]:
+        """明示的に設定されたテクスチャUVと、パッチへの割り当てを取得する。
+
+        曲面のパラメーター(u, v)とは別の値。Mayaが既定で使うUVから、明示UVを生成する処理は行わない。
+
+        Returns:
+            tuple[list[tuple[float, float]], list[int], list[int]]: UV番号順の(U, V)、パッチ番号順のUV数、
+                パッチのコーナー順に連結したUV番号。未割当パッチの数は0。すべて独立した値。
+
+        Raises:
+            RuntimeError: 明示的なUVデータが無いか、形状データが無効な場合。
+        """
+        ...
+    def getTrimBoundaryInfo(self) -> list[list[tuple[int, int]]]:
+        """トリム領域ごとの境界の種類とエッジ数を取得する。
+
+        境界カーブやシーンのノードは作らない。領域番号・境界番号は編集後も維持されるIDではない。
+
+        Returns:
+            list[list[tuple[int, int]]]: 外側の位置が領域番号、内側の位置が境界番号。
+                各境界は(種類, エッジ数)。種類はMFnNurbsSurfaceのkOuter・kInner・kSegment・kClosedSegment等。
+                未トリム曲面では領域0の境界が空になる。すべて独立した値。
+
+        Raises:
+            RuntimeError: 形状データが無いか無効な曲面の場合。
+        """
+        ...
     def isTrimmed(self) -> bool:
         """トリム境界を持つ曲面か判定する。
 

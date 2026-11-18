@@ -2397,6 +2397,28 @@ class Node(Object):
             return False
         return True
 
+    def getExternalContent(self):
+        """ノードがMayaへ申告している外部ファイル情報を取得する。
+
+        ファイルの存在や連番・UDIMの全ファイルを独自に調べることはしない。
+        未解決のパスや、情報を申告しないノードでは空の値・一覧になる場合がある。
+
+        Returns:
+            list[dict[str, str | list[str]]]: Mayaの登録順の独立した辞書。keyは識別名、unresolvedLocationは元のパス、
+                resolvedLocationは解決後のパス、contextNodeFullNameは所有ノード名、rolesは用途名のリスト。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("外部ファイル情報の取得")
+        table = om2.MExternalContentInfoTable()
+        self._dependency_fn().getExternalContent(table)
+        entries = []
+        for index in range(len(table)):
+            key, unresolved, resolved, owner, roles = table.getEntry(index)
+            entries.append({"key": key, "unresolvedLocation": unresolved, "resolvedLocation": resolved, "contextNodeFullName": owner, "roles": list(roles)})
+        return entries
+
     def getUuid(self):
         """ノードのMayaのUUIDを取得する。
 
