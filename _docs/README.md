@@ -94,6 +94,30 @@ Sphinxは出力先に残った古いHTMLを削除しません。ページを削�
 & .\_tools\build_mlib_docs.bat --no-pause
 ```
 
+## Wiki向けのMarkdownを作る
+
+初回(またはこの機能を追加する前にセットアップ済みの場合)は、`_tools/setup.bat`を実行します。
+HTMLと同じRST・docstringから、ページごとにUTF-8の`.md`を作ります。
+
+```powershell
+& .\_tools\build_mlib_markdown.bat --no-pause
+```
+
+出力先は`_docs/_build/markdown/`です。`index.md`が目次、`whymlib.md`が紹介、
+`getting_started.md`が入門、`autoapi/`以下がAPIのページです。
+必要なファイルをテキストエディターで開き、本文をWikiのMarkdown編集欄へ貼り付けます。
+バッチは毎回このMarkdown出力先だけを空にして作り直します。HTML出力は消しません。
+
+- 見出し・表・コード・API署名・引数の説明を出力します。右サイドバーや配色は含みません。
+- ページ間リンクは同じフォルダー構成の`.md`へ向け、APIのリンク先はHTMLアンカーとして残します。
+  貼り付け先が別のページURLを使う場合は、WikiのURLへ修正してください。HTMLアンカーを除くWikiではページ内リンクも調整が必要です。
+- 継承図は`mermaid`コードブロックです。描画や図内リンクの可否はWikiによります。HTML版と同じ寸法・配置は保証しません。
+- 検索画面・自動索引はHTML版だけです。Markdownへは検索機能を移しません。
+- 生成した`.md`を編集しても再実行で上書きされます。説明の修正は元のRSTかdocstringで行ってください。
+
+Wikiへの自動投稿や、一つの巨大なファイルへの結合は行いません。
+HTMLビルドと同時に実行しないでください(AutoAPIの一時RSTを共有します)。
+
 ## フォルダの役割
 
 ```text

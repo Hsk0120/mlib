@@ -544,9 +544,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   - バッチは `%~dp0` からの絶対パスで呼び、作業フォルダーに頼らない。移動するときは `cd /d`。
 
 - pytest は使わない。Maya のテストは mayapy 経由で実行する。入口のバッチはすべて `_tools/` に置き(`setup.bat`・`format_mlib.bat`・
-  `test_mlib.bat`・`generate_mlib_stubs.bat`・`build_mlib_docs.bat`)、`__tests__/`・`_docs/` には中身だけを置く。
+  `test_mlib.bat`・`generate_mlib_stubs.bat`・`build_mlib_docs.bat`・`build_mlib_markdown.bat`)、`__tests__/`・`_docs/` には中身だけを置く。
   - 流れは2本。コードは `_tools/format_mlib.bat`(整形 → ruff → レイアウト → 公開名の一致。`--check` は書き換えない)、
-    テストは `_tools/test_mlib.bat`(`noMaya/` → `inMaya/`。`--no-maya` で前半だけ)。入口のバッチは5本とも、最後に結果を日本語で表示して(最後の行が `[OK]` か `[NG]`。`format_mlib.bat`・`test_mlib.bat` は手順ごとの `[OK]`・`[NG]`・`[--]` も並べる)キー入力を待つので、ターミナル・スクリプトからは `--no-pause` を付ける。バッチは Shift-JIS(CP932)・CRLF で保存し、コメントは日本語で書く(`.gitattributes` の `working-tree-encoding=CP932` で、リポジトリの中は UTF-8、作業フォルダーは Shift-JIS。UTF-8 のまま保存すると cmd が GOTO の後の行を読み誤る)。編集ツールが UTF-8 で書き出したら CP932 へ変換し直す。バッチに書く日本語はコメント(`::`・`rem`)だけにし、表示する文は `_tools/messages.txt`(UTF-8。`キー=表示する行`、`%名前%` は環境変数)へ置いて `_tools/_message.bat` で表示する(コンソールのコードページが Shift-JIS でなくても文字化けしない。`chcp` でコードページは変えない)。`noMaya/test_mlib_batchFiles.py` が文字コード・改行・日本語の位置・キーの過不足を検査する。`.gitignore`・workflow・設定ファイルのコメントも日本語で書く。公開名の追加・削除、レイアウト変更の後は必ず通す。
+    テストは `_tools/test_mlib.bat`(`noMaya/` → `inMaya/`。`--no-maya` で前半だけ)。各入口のバッチは、最後に結果を日本語で表示して(最後の行が `[OK]` か `[NG]`。`format_mlib.bat`・`test_mlib.bat` は手順ごとの `[OK]`・`[NG]`・`[--]` も並べる)キー入力を待つので、ターミナル・スクリプトからは `--no-pause` を付ける。バッチは Shift-JIS(CP932)・CRLF で保存し、コメントは日本語で書く(`.gitattributes` の `working-tree-encoding=CP932` で、リポジトリの中は UTF-8、作業フォルダーは Shift-JIS。UTF-8 のまま保存すると cmd が GOTO の後の行を読み誤る)。編集ツールが UTF-8 で書き出したら CP932 へ変換し直す。バッチに書く日本語はコメント(`::`・`rem`)だけにし、表示する文は `_tools/messages.txt`(UTF-8。`キー=表示する行`、`%名前%` は環境変数)へ置いて `_tools/_message.bat` で表示する(コンソールのコードページが Shift-JIS でなくても文字化けしない。`chcp` でコードページは変えない)。`noMaya/test_mlib_batchFiles.py` が文字コード・改行・日本語の位置・キーの過不足を検査する。`.gitignore`・workflow・設定ファイルのコメントも日本語で書く。公開名の追加・削除、レイアウト変更の後は必ず通す。
   - Maya 不要のテストだけ: `_tools/test_mlib.bat --no-maya --no-pause`(`py -3 __tests__/runNoMaya.py` も同じ。`noMaya/test_*.py`)。リントは `format_mlib.bat` が持つので含まない。
   - Maya: `_tools/test_mlib.bat --no-pause --versions 2027 --suite all`(`py -3 __tests__/runMaya.py ...` は `inMaya/` だけを実行する)。`--suite unit|integration|all`、
     `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `__tests__/_output/`(Git 対象外)。
@@ -575,6 +575,8 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 生成クラスの期待値は `type(x).__name__`・`issubclass` で書く。テストも Python 3.7 で動く書き方にする。
 
 ## Sphinx 文書(_docs)
+
+- Wiki向けのページ別Markdownは`_tools/build_mlib_markdown.bat --no-pause`で`_docs/_build/markdown/`へ作る。RST・docstringを原本とし、HTMLと同時にビルドしない。Markdown用の図・表の補正は`_docs/_ext/mlibMarkdown.py`へ置き、HTMLの本文は変更しない。
 
 - 初回は `_tools/setup.bat`(ruff と共通)、ビルドは `_tools/build_mlib_docs.bat --no-pause`(`_docs/_build/html/` に出力。生成物の `source/autoapi/`・`_build/` は編集しない)。
 - 検査は `_tools/check_mlib_docs.py --check-directory ..\_docs\_build\html` と `check_mlib_doc_getter_names.py`(文書用の Python で実行)。

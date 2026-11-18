@@ -101,3 +101,7 @@ docs.ng=      上の WARNING / ERROR の行を確認してください(警告も
 docs.ok= [OK] 文書のビルドに成功しました。
 docs.ok=      次のファイルをブラウザで開いて確認します。
 docs.ok=      "%MLIB_DOCS_OUTPUT%\index.html"
+
+markdown.ok= [OK] Markdownの生成に成功しました。
+markdown.ok=      次のファイルをテキストエディターで開き、本文をWikiへ貼り付けます。
+markdown.ok=      "%MLIB_DOCS_OUTPUT%\index.md"

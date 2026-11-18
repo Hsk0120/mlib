@@ -96,6 +96,9 @@ _tools\.venv\Scripts\python.exe _tools\check_mlib_doc_getter_names.py _docs\_bui
 
 ビルドは`-n -W`付きなので、参照切れがあれば失敗します。**2本のバッチは文書を検査しません**。
 
+Wikiへ貼り付けるMarkdownが必要な場合は、`_tools/build_mlib_markdown.bat --no-pause`を実行します。
+出力先・リンク・継承図の制限は[_docs/README.md](_docs/README.md)を参照してください。
+
 ### なぜスタブと文書を2本から外すのか
 
 どちらも「解析」でも「テスト」でもなく**生成物のビルド**です。コードの正しさとは別の工程なので、

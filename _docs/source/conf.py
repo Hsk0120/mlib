@@ -26,7 +26,7 @@ version = release
 
 # 2. APIページの自動生成
 # AutoAPIはPythonソースを静的解析する。Mayaもmlibもimportしない。
-extensions = ["autoapi.extension", "sphinx.ext.napoleon", "mlibDocs"]
+extensions = ["autoapi.extension", "sphinx.ext.napoleon", "mlibDocs", "mlibMarkdown"]
 autoapi_dirs = [str(_MLIB_ROOT)]
 autoapi_ignore = ["*/__tests__/*", "*/_docs/*", "*/_tools/*"]
 # 先頭 _ の非公開メソッド・関数・クラスと、__init__・__eq__ 等の特殊メソッドは載せない
@@ -42,6 +42,11 @@ autoapi_template_dir = "_templates/autoapi"
 autoapi_prepare_jinja_env = prepare_autoapi
 autoapi_add_toctree_entry = False  # API目次の入口はmodules.rstで指定する。
 autoapi_keep_files = False  # 生成したRSTは編集せず、元のdocstringを直す。
+
+# Markdownも同じページ単位で生成し、APIへのページ内リンクを残す。
+markdown_flavor = "github"
+markdown_anchor_sections = True
+markdown_anchor_signatures = True
 
 # 3. HTMLの見た目
 html_theme = "sphinxdoc"

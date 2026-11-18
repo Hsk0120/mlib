@@ -5,6 +5,7 @@
 
 | ファイル | 担当 |
 | --- | --- |
+| `mlibMarkdown.py` | Markdown用の継承図・表・HTML専用案内の変換(HTMLの本文は変えない) |
 | `mlibDocs.py` | Sphinx・AutoAPIと、下の2つの処理をつなぐ |
 | `_mermaidClasses.py` | Pythonの継承関係を読み、クラスページ用のMermaidソースを作る |
 | `_constructorSignatures.py` | 単数Nodeの派生クラスに、継承した生成時引数を表示する |
