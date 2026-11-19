@@ -213,6 +213,29 @@ class NurbsSurface(Shape):
             RuntimeError: 明示的なUVデータが無いか、形状データが無効な場合。
         """
         ...
+    def setUVData(self, uvs: Iterable[Iterable[float]], counts: Iterable[int], indices: Iterable[int], *, fast: bool = ...) -> None:
+        """曲面の明示テクスチャUVとパッチへの割り当てを置き換える。
+
+        getUVDataと同じ並び順。曲面パラメーターとは別のUVを設定する。既存UV数の縮小には対応しない。
+        fast=True専用でUndoには記録しない。ヒストリ・参照・トリム曲面は拒否する。
+        事前検査後にUV表と割当表を順に書くため、Mayaの更新失敗時の原子性は保証しない。
+
+        Args:
+            uvs (Iterable[Iterable[float]]): UV番号順の(U, V)。空の表と既存UV表の縮小は未対応。
+            counts (Iterable[int]): パッチ番号順の割当数。各値は0または4。
+            indices (Iterable[int]): コーナー順のUV番号。長さはcountsの合計。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 型が不正な場合。
+            ValueError: リストの長さ・UV番号・UV座標が不正な場合。
+            RuntimeError: 曲面が無効、ロック、またはUVアトリビュートが編集不可の場合。
+            NotImplementedError: fast=False、ヒストリ・参照・トリム曲面、または既存UV表の縮小の場合。
+        """
+        ...
     def getTrimBoundaryInfo(self) -> list[list[tuple[int, int]]]:
         """トリム領域ごとの境界の種類とエッジ数を取得する。
 
@@ -546,6 +569,13 @@ class NurbsSurface(Shape):
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        ...
+    def _require_uv_edit(self, fast: bool):
+        """直接UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。
+
+        Args:
+            fast (bool): 直接更新を明示したか。
         """
         ...
     @staticmethod

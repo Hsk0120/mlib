@@ -2,7 +2,9 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 
+from ..core.fastWrite import require_writable
 from ..decorator import _pick_alias, _require_bool
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
@@ -22,6 +24,76 @@ class Camera(Shape):
             om2.MFnCamera: このカメラのfunction set。
         """
         return om2.MFnCamera(self.mpath())
+
+    def getUnnormalizedClippingPlanes(self):
+        """カメラの非正規化ニア・ファークリップ距離を取得する。
+
+        cameraSetの表示で共通化される前の、個々のカメラのクリップ距離。
+        clippingPlanesアトリビュートの有効状態は判定しない。
+
+        Returns:
+            tuple[float, float]: (ニア, ファー)の距離(cm)。
+        """
+        fn = om1.MFnCamera(self._api1_path())
+        return fn.unnormalizedNearClippingPlane(), fn.unnormalizedFarClippingPlane()
+
+    def setView(self, eye, direction, up, fieldOfView, aspectRatio, *, unit="deg", fast=False):
+        """ワールド空間の視点・視線・上方向と画角をまとめて変更する。
+
+        MFnCamera.setを使い、親Transformとカメラの投影設定を変更する。
+        fast=True専用でUndoには記録しない。Undo設定は変更しない。
+        途中でMayaエラーが発生した場合、更新前への復元は保証しない。
+
+        Args:
+            eye (Iterable[float]): 視点のワールド座標(cm)。
+            direction (Iterable[float]): ゼロでない視線方向。
+            up (Iterable[float]): 視線と平行でない上方向。
+            fieldOfView (float): 水平画角。0より大きく180度未満。
+            aspectRatio (float): 正の横幅/高さ比。
+            unit (str): 画角の単位。既定deg。radも指定できる。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 引数の型が不正な場合。
+            ValueError: 座標・方向・画角・比率が不正な場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
+        """
+        eye = om2.MPoint(_finite_vector(eye, 3, "eye"))
+        direction = Vector(_finite_vector(direction, 3, "direction"))
+        up = Vector(_finite_vector(up, 3, "up"))
+        angle_unit = om2.MAngle.kDegrees if _angle_unit(unit) == "deg" else om2.MAngle.kRadians
+        angle = om2.MAngle(_finite(fieldOfView, "fieldOfView"), angle_unit).asRadians()
+        aspectRatio = _finite(aspectRatio, "aspectRatio")
+        if not 0 < angle < 3.141592653589793 or aspectRatio <= 0 or (direction ^ up).length() < 1e-12:
+            raise ValueError("画角・比率は範囲内、方向はゼロでなく互いに平行でない値で指定してください")
+        self._require_view_edit(fast)
+        self.mfn().set(eye, direction, up, angle, aspectRatio)
+
+    def copyViewFrom(self, camera, *, fast=False):
+        """別のカメラの視点・透視投影に関わる設定をコピーする。
+
+        MFnCamera.copyViewFromの対象設定をコピーする。全アトリビュートの複製ではない。
+        コピー先の親Transformも変わる。fast=True専用でUndoには記録しない。
+
+        Args:
+            camera (str | Camera): コピー元のカメラShape。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: cameraがカメラShapeでない場合、またはfastがboolでない場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはカメラが無効な場合。
+            NotImplementedError: fast=False、またはコピー先が対応しない階層の場合。
+        """
+        camera = Camera(camera)
+        self._require_view_edit(fast)
+        self.mfn().copyViewFrom(camera.mpath())
 
     def getDepthOfFieldRange(self):
         """被写界深度を再計算し、近側と遠側の合焦距離を取得する。
@@ -191,6 +263,35 @@ class Camera(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=True)
         return _vectors_of_points([self.mfn().centerOfInterestPoint(self._space(worldSpace))])[0]
+
+    def setCenterOfInterestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET, fast=False):
+        """視点を保ちながらカメラの注視点を変更する。
+
+        カメラの向きとcenterOfInterestをMFnCameraで更新する。
+        fast=True専用でUndoには記録しない。Undo設定は変更しない。
+
+        Args:
+            point (Iterable[float]): 注視点のXYZ座標(cm)。視点と異なる位置。
+            worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。既定True。
+            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 型または長短名の指定が不正な場合。
+            ValueError: 非有限値、または視点と注視点が一致する場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=True)
+        space = self._space(worldSpace)
+        point = om2.MPoint(_finite_vector(point, 3, "point"))
+        if (point - self.mfn().eyePoint(space)).length() < 1e-12:
+            raise ValueError("注視点は視点と異なる位置で指定してください")
+        self._require_view_edit(fast)
+        self.mfn().setCenterOfInterestPoint(point, space)
 
     def getAspectRatio(self):
         """カメラのフィルム開口のアスペクト比を取得する。
@@ -504,6 +605,32 @@ class Camera(Shape):
             RuntimeError: ノードが削除済みの場合。
         """
         return bool(self.mfn().isOrtho())
+
+    def _require_view_edit(self, fast):
+        """カメラと親Transformの直接編集条件を確認する。
+
+        Args:
+            fast (bool): Undoなしの更新を明示したか。
+        """
+        _require_bool(fast, "fast")
+        if not fast:
+            raise NotImplementedError("カメラ視点の直接更新はfast=True専用です")
+        parent = self.getParent()
+        if parent.getType() != "transform" or self.isInstanced() or parent.isInstanced():
+            raise NotImplementedError("非インスタンスの通常Transform下のカメラだけに対応しています")
+        for node in (self, parent):
+            dependency = node._dependency_fn()
+            if dependency.isLocked or dependency.isFromReferencedFile:
+                raise RuntimeError("ロック・参照カメラの視点は直接編集できません")
+        for name in ("translate", "rotate", "rotateAxis", "rotateOrder", "rotatePivot", "rotatePivotTranslate", "scale", "shear", "offsetParentMatrix"):
+            plug = parent.getPlug(name)
+            require_writable(plug.mplug())
+            for child in plug.getChildren() if plug.mplug().isCompound else ():
+                require_writable(child.mplug())
+        for plug in self.getPlugs():
+            if plug.mplug().attribute().hasFn(om2.MFn.kMessageAttribute) or not om2.MFnAttribute(plug.mplug().attribute()).writable:
+                continue
+            require_writable(plug.mplug())
 
     @staticmethod
     def _space(worldSpace):

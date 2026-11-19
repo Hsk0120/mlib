@@ -20,6 +20,8 @@ from mlib._stubtypes import GeneratorContextManager
 from mlib.common.namespace import Namespace
 from mlib.components.component import Component
 from mlib.components.component import Components
+from mlib.components.pointComponent import PointComponent
+from mlib.components.pointComponent import PointComponents
 from mlib.maths.quaternion import Quaternion
 from mlib.maths.shear import Shear
 from mlib.maths.transformation import Transformation
@@ -1131,6 +1133,9 @@ class Joints(Nodes[Joint]):
     def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mirrorGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def centerPivotsOnComponents(self, components: str | PointComponents | Iterable[PointComponent]) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.centerPivotsOnComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1343,6 +1348,33 @@ class Joints(Nodes[Joint]):
         ...
     def isVisible(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isVisible` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getObjectGroupComponents(self, groupId: int) -> list[list[Components]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getObjectGroupComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getActiveColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getActiveColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDormantColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDormantColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getHiliteColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getHiliteColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDrawOverrideColor(self) -> list[tuple[float, float, float, float] | None]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDrawOverrideColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideEnabled(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideReference(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideTemplate(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideTemplate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isUsingHiliteColor(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isUsingHiliteColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getVisibility(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getVisibility` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

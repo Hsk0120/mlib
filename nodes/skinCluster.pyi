@@ -990,6 +990,44 @@ class SkinCluster(GeometryFilter):
             RuntimeError: ウェイトの要素がロックされている・入力が接続されている場合、またはMayaの編集が失敗した場合。
         """
         ...
+    def setMoveJointsMode(self, state: bool) -> None:
+        """スキンのジョイント移動モードを切り替える。
+
+        有効中のジョイント移動に対する変形の扱いが変わる。切替自体はUndo対象外。
+        終了時は明示的にFalseへ戻す。Undo設定は変更しない。
+        fast引数は持たない(Mayaコマンドのモード切替のため)。
+
+        Args:
+            state (bool): Trueでモードを開始、Falseで終了する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: ノードが無効、ロック、参照、またはMayaが変更を拒否した場合。
+        """
+        ...
+    def forceNormalizeWeights(self, *, fast: bool = ...) -> None:
+        """先頭形状のウェイトを、インフルエンスの保持設定に関係なく合計1へ正規化する。
+
+        MayaのforceNormalizeWeightsと同様にlockInfluenceWeightsを無視し、合計0の点は0のまま残す。
+        通常のnormalizeWeightsとはこの2点が異なる。ウェイトPlug自体のロック・接続は解除せず拒否する。
+        MayaコマンドのRedo不整合を避け、計算結果をsetWeights(normalize=False)で更新する。
+        normalizeWeights設定やインフルエンスの保持設定は変更しない。
+
+        Args:
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがboolでない場合。
+            ValueError: インフルエンスが無い、または負・非有限のウェイトがある場合。
+            RuntimeError: ノードやウェイトがロック・接続・参照状態、またはレイヤー推定の接続がある場合。
+        """
+        ...
     def normalizeWeights(self, decimals: int | None = ..., *, fast: bool = ...) -> None:
         """先頭のMeshの各頂点で、登録されているすべてのインフルエンスのウェイトを合計1へ正規化する。
 
@@ -2065,6 +2103,12 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def removeInfluence(self, joint: Joint | str, *, transferToParent: bool = ..., force: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.removeInfluence` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setMoveJointsMode(self, state: bool) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setMoveJointsMode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def forceNormalizeWeights(self, *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.forceNormalizeWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def normalizeWeights(self, decimals: int | None = ..., *, fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.normalizeWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

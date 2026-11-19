@@ -5,6 +5,7 @@ import math
 from collections import Counter, defaultdict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 from ..components.edge import Edge, Edges
 from ..components.face import Face, Faces
 from ..components.pointComponent import _mirror_plan, _write_points
@@ -258,6 +259,37 @@ class Mesh(Shape):
 
         Raises:
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+        """
+        ...
+    def isCheckingSamePointTwice(self) -> bool:
+        """メッシュ内部で同じ点を二重に検査する設定が有効かを取得する。
+
+        重複頂点を検出する照会ではない。MFnMeshの内部検査設定を返し、設定は変更しない。
+
+        Returns:
+            bool: 検査設定が有効か。
+        """
+        ...
+    def setNormals(self, normals: Iterable[Iterable[float]], worldSpace: bool = ..., *, ws: bool = ..., fast: bool = ...) -> None:
+        """共有法線番号を保ったままメッシュの法線リストを更新する。
+
+        getNormalDataの先頭のリストと同じ法線番号順で指定する。割当番号は維持し、設定した法線はMayaによりロックされる。
+        fast=True専用。通常Undoへは記録せず、Undo設定も変更しない。入力ヒストリ・参照は拒否する。
+
+        Args:
+            normals (Iterable[Iterable[float]]): 現在の法線数と同数の3成分ベクトル。
+            worldSpace (bool): Trueはワールド空間。既定False。
+            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 引数の型、または長短名の指定が不正な場合。
+            ValueError: 法線数が違う、非有限値、ゼロベクトル、またはワールド変換が特異な場合。
+            RuntimeError: メッシュが無効、ロック、または参照の場合。
+            NotImplementedError: fast=False、または入力ヒストリがある場合。
         """
         ...
     def getNormalData(self, worldSpace: bool = ..., *, ws: bool = ...) -> tuple[list[Vector], list[int], list[int]]:

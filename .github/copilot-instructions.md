@@ -21,6 +21,21 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
   例外メッセージ・テスト・ほかの文書・ファイル名・コミットメッセージには書かない(このファイルにも書かない。
   `noMaya/test_mlib_wording.py` が検査する)。他のライブラリで使われる名前への案内は「maya.cmdsやほかのライブラリの名前」のように書く。
 
+## 2026-11-19の未対応候補に限る例外
+
+ユーザーの採否回答A〜Fにより、以下の範囲を検証・実装対象とする。実装済み・動作保証とは扱わず、
+既存API全体のUndo・fast・API 2.0方針へ一般化しない。独自MayaプラグインとUndo設定の変更は禁止のまま。
+
+- A: API 2.0に入口がなかった次の機能に限りAPI 1.0併用も許可する。DG計測の全体設定、DAGのactive/dormant/hilite色・hilite色使用状態・描画overrideの色/有効/参照/テンプレート状態、groupIdからの所属、カメラの非正規化near/farクリップ平面、Meshの重複点検査設定の照会、BlendShapeの履歴位置、Lambertの特殊な屈折色の取得/設定。Maya版ごとの同等性・型/値の境界・保持期間を検証する。
+- B: カメラの視点コピー/一括姿勢/注視点変更、コンポーネント基準のピボット中央化、スキン強制正規化は、通常Undoの代替経路に加え、Undoなしを明示した限定APIも検討できる。単にUndoチャンクで囲んで復元可能と説明しない。
+- C: NURBS曲面のUV割当/一括割当/解除と、共有法線番号を維持したMeshの法線配列更新は、検証できたものをfast=True専用で追加できる。fast省略/Falseは更新前に拒否し、ヒストリ等の未対応条件も更新前に拒否する。
+- D: スキンのジョイント移動モード、Referenceのロック/解除/編集履歴削除は、Undo対象外と明示した専用操作として検証・実装する。特に編集履歴削除の保存内容への影響を説明する。cmdsの呼出しをfastと呼び替えない。
+- E: BlendShapeのトポロジー/UV基準の対称編集は、既存mirrorTarget/flipTargetの操作時指定として検証する。省略時のobject空間の動作を維持する。通常Undoが成立しない場合もUndoなしの限定版を検討できる。単独のsymmetry設定setterを形だけ追加しない。
+- F: カーブのノット削除とカメラのクリップ状態照会は、API 1.0も含む代替経路を再検証する。結果が正しくない入口は公開しない。同じ意味なら既存APIへ集約し、解決できなければ理由付きで未対応とする。
+
+BはカメラのsetView/copyViewFrom/setCenterOfInterestPointをfast=True専用、ピボット中央化と強制正規化を通常Undo対応として実装する。EはmirrorTarget/flipTargetのsymmetrySpace/symmetryEdgeでtopologyに対応し、object既定を維持する。API 1.0併用の明示許可はA/Fに限定する。
+通常Undoなしの操作はdocstringとテストで区別する。既存APIの省略時動作や返却を変更しない。
+
 ## パッケージ構成と責務
 
 | 場所 | 責務 |

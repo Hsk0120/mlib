@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 
 from ..components.edge import Edge, Edges
 from ..components.face import Face, Faces
@@ -382,6 +383,59 @@ class Mesh(Shape):
         space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
         # MFloatVectorはom2の多重定義の解決を通さず、成分を写して同じ値のVectorにする。
         return [_vector_of(Vector, value) for value in self._geometry_fn().getVertexNormals(angleWeighted, space)]
+
+    def isCheckingSamePointTwice(self):
+        """メッシュ内部で同じ点を二重に検査する設定が有効かを取得する。
+
+        重複頂点を検出する照会ではない。MFnMeshの内部検査設定を返し、設定は変更しない。
+
+        Returns:
+            bool: 検査設定が有効か。
+        """
+        return om1.MFnMesh(self._api1_path()).getCheckSamePointTwice()
+
+    def setNormals(self, normals, worldSpace=_UNSET, *, ws=_UNSET, fast=False):
+        """共有法線番号を保ったままメッシュの法線リストを更新する。
+
+        getNormalDataの先頭のリストと同じ法線番号順で指定する。割当番号は維持し、設定した法線はMayaによりロックされる。
+        fast=True専用。通常Undoへは記録せず、Undo設定も変更しない。入力ヒストリ・参照は拒否する。
+
+        Args:
+            normals (Iterable[Iterable[float]]): 現在の法線数と同数の3成分ベクトル。
+            worldSpace (bool): Trueはワールド空間。既定False。
+            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 引数の型、または長短名の指定が不正な場合。
+            ValueError: 法線数が違う、非有限値、ゼロベクトル、またはワールド変換が特異な場合。
+            RuntimeError: メッシュが無効、ロック、または参照の場合。
+            NotImplementedError: fast=False、または入力ヒストリがある場合。
+        """
+        _require_bool(fast, "fast")
+        if not fast:
+            raise NotImplementedError("setNormalsはfast=True専用です")
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        values = [om2.MVector(_finite_vector(value, 3, "normals")) for value in normals]
+        fn = self._geometry_fn()
+        if len(values) != fn.numNormals or any(value.length() == 0 for value in values):
+            raise ValueError("normalsは現在と同数のゼロでない法線で指定してください")
+        self._require_face_vertex_edit("setNormals", True)
+        require_writable(self.getPlug("inMesh").mplug())
+        # setNormalsのworld指定が反映されない版があるため、法線を明示的に変換する。
+        if space == om2.MSpace.kWorld:
+            matrix = self.mpath().inclusiveMatrix()
+            if matrix.isSingular():
+                raise ValueError("特異なマトリクスではワールド空間の法線を設定できません")
+            transform = matrix.transpose()
+            values = [value * transform for value in values]
+        # 未ロック法線への設定は既存値と混ざるため、先に法線を固定する。
+        fn.lockVertexNormals(range(fn.numVertices))
+        fn.setNormals(values, om2.MSpace.kObject)
 
     def getNormalData(self, worldSpace=_UNSET, *, ws=_UNSET):
         """法線の値と、各面頂点が参照する法線番号を取得する。

@@ -286,6 +286,56 @@ class NurbsSurface(Shape):
             raise RuntimeError(f"明示的なテクスチャUVデータを取得できません: {self.getFullName()}") from error
         return list(zip(us, vs)), list(counts), list(indices)
 
+    def setUVData(self, uvs, counts, indices, *, fast=False):
+        """曲面の明示テクスチャUVとパッチへの割り当てを置き換える。
+
+        getUVDataと同じ並び順。曲面パラメーターとは別のUVを設定する。既存UV数の縮小には対応しない。
+        fast=True専用でUndoには記録しない。ヒストリ・参照・トリム曲面は拒否する。
+        事前検査後にUV表と割当表を順に書くため、Mayaの更新失敗時の原子性は保証しない。
+
+        Args:
+            uvs (Iterable[Iterable[float]]): UV番号順の(U, V)。空の表と既存UV表の縮小は未対応。
+            counts (Iterable[int]): パッチ番号順の割当数。各値は0または4。
+            indices (Iterable[int]): コーナー順のUV番号。長さはcountsの合計。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 型が不正な場合。
+            ValueError: リストの長さ・UV番号・UV座標が不正な場合。
+            RuntimeError: 曲面が無効、ロック、またはUVアトリビュートが編集不可の場合。
+            NotImplementedError: fast=False、ヒストリ・参照・トリム曲面、または既存UV表の縮小の場合。
+        """
+        self._require_uv_edit(fast)
+        values = [tuple(_finite(value, "uvs") for value in uv) for uv in uvs]
+        counts = list(counts)
+        indices = list(indices)
+        fn = self._geometry_fn()
+        if not values or any(len(uv) != 2 for uv in values):
+            raise ValueError("uvsは空でない(U, V)のリストで指定してください")
+        if any(type(value) is not int for value in counts + indices):
+            raise TypeError("countsとindicesは整数で指定してください")
+        if len(counts) != fn.numSpansInU * fn.numSpansInV or any(value not in (0, 4) for value in counts):
+            raise ValueError("countsは各パッチに対応する0または4のリストで指定してください")
+        if sum(counts) != len(indices) or any(index < 0 or index >= len(values) for index in indices):
+            raise ValueError("indicesの長さまたはUV番号が不正です")
+        try:
+            current_count = fn.numUVs
+        except RuntimeError:
+            current_count = 0
+        if len(values) < current_count:
+            raise NotImplementedError("既存UV表の縮小には対応していません")
+        # 独立データでMaya側の割当条件も検証してから、実体へ書く。
+        data = om2.MFnNurbsSurfaceData().create()
+        check_fn = om2.MFnNurbsSurface(om2.MFnNurbsSurface().copy(self.mnode(), data))
+        us, vs = zip(*values)
+        check_fn.setUVs(us, vs)
+        check_fn.assignUVs(counts, indices)
+        fn.setUVs(us, vs)
+        fn.assignUVs(counts, indices)
+
     def getTrimBoundaryInfo(self):
         """トリム領域ごとの境界の種類とエッジ数を取得する。
 
@@ -757,6 +807,35 @@ class NurbsSurface(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         return self._geometry_fn().area(space)
+
+    def _require_uv_edit(self, fast):
+        """直接UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。
+
+        Args:
+            fast (bool): 直接更新を明示したか。
+        """
+        _require_bool(fast, "fast")
+        if not fast:
+            raise NotImplementedError("曲面のUV更新はfast=True専用です")
+        if self.isFromReferencedFile() or self._geometry_fn().isTrimmedSurface:
+            raise NotImplementedError("参照・トリム曲面のUV更新には対応していません")
+        self._require_fast_editable()
+        require_writable(self.getPlug("create").mplug())
+        uv_sets = self.getPlug("uvSet").mplug()
+        require_writable(uv_sets)
+        for index in uv_sets.getExistingArrayAttributeIndices():
+            element = uv_sets.elementByLogicalIndex(index)
+            require_writable(element)
+            for child_index in range(element.numChildren()):
+                child = element.child(child_index)
+                require_writable(child)
+                if child.isArray:
+                    for logical_index in child.getExistingArrayAttributeIndices():
+                        point = child.elementByLogicalIndex(logical_index)
+                        require_writable(point)
+                        if point.isCompound:
+                            for component_index in range(point.numChildren()):
+                                require_writable(point.child(component_index))
 
     @staticmethod
     def _require_trim_index(index, count, name):

@@ -7,6 +7,7 @@ from typing import Optional
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
@@ -794,6 +795,25 @@ class Node(Object):
                 f"{_missing_member_message(self, name, 'Mayaのアトリビュート')}(mlibのノードにPythonのアトリビュートは追加できません)"
             ) from error
         plug.set(value)
+
+    @staticmethod
+    def setDgTimingEnabled(state):
+        """Maya全体のDG時間計測を有効・無効にする。
+
+        個々のノードの計測開始・停止とは別の全体設定。診断操作のためUndoには記録されない。
+        計測結果のリセットやUndo設定の変更は行わない。fast引数は持たない(診断設定のため)。
+
+        Args:
+            state (bool): Trueなら全体の計測を有効にする。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+        """
+        _require_bool(state, "state")
+        om1.MFnDependencyNode.enableDGTiming(state)
 
     def getShadingEngines(self):
         """このノードから直接つながっているShadingEngineを取得する。
@@ -3090,6 +3110,14 @@ class Node(Object):
         if handle is None or not handle.isAlive():
             raise RuntimeError("無効なノードは使えません")
         return om2.MFnDependencyNode(self._mobject)
+
+    def _api1_object(self):
+        """API 1.0専用の照会に渡すMObjectを、その都度名前から解決する。"""
+        selection = om1.MSelectionList()
+        selection.add(self.getFullName())
+        node = om1.MObject()
+        selection.getDependNode(0, node)
+        return node
 
     def _dependency_fn(self):
         """保持するノードの MFnDependencyNode を返す(作成は初回の1回だけ)。

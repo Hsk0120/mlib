@@ -3,6 +3,7 @@
 import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 
 from ..core.fastWrite import require_writable, set_plug
 from ..core.registry import _inherited_node_types, _real_node_type
@@ -779,6 +780,128 @@ class DagNode(Node):
         """
         self.setVisibility(False, fast=fast)
 
+    def getObjectGroupComponents(self, groupId):
+        """groupIdが示す、このDAGパス上の所属コンポーネントを取得する。
+
+        Mayaのobject groupの番号で、セット一覧内の位置とは異なる。API 1.0の照会を使い、
+        返された要素名を保持中の完全パスへ解決する。所属や現在の選択は変更しない。
+
+        Args:
+            groupId (int): groupIdノードのgroupIdアトリビュート値。非負の整数。
+
+        Returns:
+            list[Components]: 要素の種類ごとにまとめたコンポーネント。
+
+        Raises:
+            TypeError: groupIdが整数でない場合。
+            ValueError: groupIdが負の場合。
+            RuntimeError: この形状に番号が無い、またはMayaが照会できない場合。
+        """
+        if type(groupId) is not int:
+            raise TypeError("groupIdは整数で指定してください")
+        if groupId < 0:
+            raise ValueError("groupIdは非負の整数で指定してください")
+        names = []
+        om1.MFnDagNode(self._api1_path()).objectGroupComponent(groupId, names)
+        # SelectionはDAGノードを参照するため、照会結果の変換時に読み込む。
+        from ..common.selection import Selection
+
+        return Selection([self.getFullName() + "." + name.split(".", 1)[1] for name in names]).getComponents()
+
+    def getActiveColor(self):
+        """DAGノードの選択状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        color = om1.MFnDagNode(self._api1_path()).activeColor()
+        return color.r, color.g, color.b, color.a
+
+    def getDormantColor(self):
+        """DAGノードの非選択状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        color = om1.MFnDagNode(self._api1_path()).dormantColor()
+        return color.r, color.g, color.b, color.a
+
+    def getHiliteColor(self):
+        """DAGノードのハイライト状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        color = om1.MFnDagNode(self._api1_path()).hiliteColor()
+        return color.r, color.g, color.b, color.a
+
+    def getDrawOverrideColor(self):
+        """DAGパスに適用される描画オーバーライド色を取得する。
+
+        自身のoverrideColorを直接読むgetOverrideColorとは異なり、MFnDagNodeの描画照会を使う。
+        描画更新を強制しないため、GUIのない環境では未反映の状態を返す場合がある。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBAの独立した値。色のオーバーライドが無い場合はNone。
+        """
+        color = om1.MColor()
+        if not om1.MFnDagNode(self._api1_path()).drawOverrideColor(color):
+            return None
+        return color.r, color.g, color.b, color.a
+
+    def isDrawOverrideEnabled(self):
+        """DAGパスの描画オーバーライドが有効かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドが有効か。
+        """
+        return om1.MFnDagNode(self._api1_path()).drawOverrideEnabled()
+
+    def isDrawOverrideReference(self):
+        """DAGパスの描画オーバーライドが参照表示かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドが参照表示か。
+        """
+        return om1.MFnDagNode(self._api1_path()).drawOverrideIsReference()
+
+    def isDrawOverrideTemplate(self):
+        """DAGパスの描画オーバーライドがテンプレート表示かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドがテンプレート表示か。
+        """
+        return om1.MFnDagNode(self._api1_path()).drawOverrideIsTemplate()
+
+    def isUsingHiliteColor(self):
+        """DAGパスのハイライト色が使われるかを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: ハイライト色が使われるか。
+        """
+        return om1.MFnDagNode(self._api1_path()).usingHiliteColor()
+
     def getOverrideColor(self, *, shape=False):
         """描画のオーバーライドの表示色を取得する。
 
@@ -1127,6 +1250,14 @@ class DagNode(Node):
                 cmds.bakePartialHistory(targets, prePostDeformers=True)
             else:
                 cmds.delete(targets, constructionHistory=True)
+
+    def _api1_path(self):
+        """保持するインスタンスの完全パスをAPI 1.0のMDagPathとして解決する。"""
+        selection = om1.MSelectionList()
+        selection.add(self.getFullName())
+        path = om1.MDagPath()
+        selection.getDagPath(0, path)
+        return path
 
     def _collect_children(self, shapes, intermediates, all_descendents, order, leaves, include_self, under_world):
         """子や子孫をたどって集める(:meth:`getChildren` の本体)。

@@ -4,6 +4,7 @@
 import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 from ..core.fastWrite import require_writable, set_plug
 from ..core.registry import _inherited_node_types, _real_node_type
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
@@ -533,6 +534,104 @@ class DagNode(Node):
             TypeError: fastがbool以外の場合。
         """
         ...
+    def getObjectGroupComponents(self, groupId: int) -> list[Components]:
+        """groupIdが示す、このDAGパス上の所属コンポーネントを取得する。
+
+        Mayaのobject groupの番号で、セット一覧内の位置とは異なる。API 1.0の照会を使い、
+        返された要素名を保持中の完全パスへ解決する。所属や現在の選択は変更しない。
+
+        Args:
+            groupId (int): groupIdノードのgroupIdアトリビュート値。非負の整数。
+
+        Returns:
+            list[Components]: 要素の種類ごとにまとめたコンポーネント。
+
+        Raises:
+            TypeError: groupIdが整数でない場合。
+            ValueError: groupIdが負の場合。
+            RuntimeError: この形状に番号が無い、またはMayaが照会できない場合。
+        """
+        ...
+    def getActiveColor(self) -> tuple[float, float, float, float]:
+        """DAGノードの選択状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        ...
+    def getDormantColor(self) -> tuple[float, float, float, float]:
+        """DAGノードの非選択状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        ...
+    def getHiliteColor(self) -> tuple[float, float, float, float]:
+        """DAGノードのハイライト状態用の描画色を取得する。
+
+        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
+        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+
+        Returns:
+            tuple[float, float, float, float]: RGBAの独立した値。
+        """
+        ...
+    def getDrawOverrideColor(self) -> tuple[float, float, float, float] | None:
+        """DAGパスに適用される描画オーバーライド色を取得する。
+
+        自身のoverrideColorを直接読むgetOverrideColorとは異なり、MFnDagNodeの描画照会を使う。
+        描画更新を強制しないため、GUIのない環境では未反映の状態を返す場合がある。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBAの独立した値。色のオーバーライドが無い場合はNone。
+        """
+        ...
+    def isDrawOverrideEnabled(self) -> bool:
+        """DAGパスの描画オーバーライドが有効かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドが有効か。
+        """
+        ...
+    def isDrawOverrideReference(self) -> bool:
+        """DAGパスの描画オーバーライドが参照表示かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドが参照表示か。
+        """
+        ...
+    def isDrawOverrideTemplate(self) -> bool:
+        """DAGパスの描画オーバーライドがテンプレート表示かを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: 描画オーバーライドがテンプレート表示か。
+        """
+        ...
+    def isUsingHiliteColor(self) -> bool:
+        """DAGパスのハイライト色が使われるかを取得する。
+
+        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
+        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
+
+        Returns:
+            bool: ハイライト色が使われるか。
+        """
+        ...
     def getOverrideColor(self, *, shape: bool = ...) -> int | tuple[float, float, float] | None:
         """描画のオーバーライドの表示色を取得する。
 
@@ -807,6 +906,9 @@ class DagNode(Node):
             TypeError: keepDeformersがbool以外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが削除を拒否した場合。
         """
+        ...
+    def _api1_path(self):
+        """保持するインスタンスの完全パスをAPI 1.0のMDagPathとして解決する。"""
         ...
     def _collect_children(self, shapes: bool, intermediates: bool, all_descendents: bool, order: str, leaves: bool, include_self: bool, under_world: bool) -> list[DagNode]:
         """子や子孫をたどって集める(:meth:`getChildren` の本体)。

@@ -6,6 +6,7 @@ import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..core.fastWrite import require_writable
 from ..decorator import _require_bool, undoChunk
 from .node import Node, Nodes
 
@@ -26,6 +27,82 @@ class Reference(Node):
             om2.MFnReference: この reference ノードの function set。
         """
         return om2.MFnReference(self.mnode())
+
+    def isReferenceLocked(self):
+        """参照ファイルの編集ロック状態を取得する。
+
+        referenceノード自身のロックとは異なる。
+
+        Returns:
+            bool: ファイル参照がロックされているか。
+        """
+        return cmds.file(self.getFilename(withCopyNumber=True), query=True, lockReference=True)
+
+    def setReferenceLocked(self, state):
+        """参照ファイルを編集ロック・解除する。
+
+        Undo対象外。ロード中は一度アンロードして再ロードするため、保持済みの参照先オブジェクトは無効になる。
+        アンロード中は設定だけを変更し、次のロード時に反映する。参照元ファイルは書き換えない。
+        再ロード失敗時はアンロード状態で設定が残る。解除はFalseを指定する。
+        fast引数は持たない(ファイル参照の状態操作のため)。
+
+        Args:
+            state (bool): Trueでロック、Falseで解除する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: 無効なリファレンス、またはMayaが変更を拒否した場合。
+            NotImplementedError: 入れ子のリファレンスの場合。
+        """
+        _require_bool(state, "state")
+        if self.isFromReferencedFile():
+            raise NotImplementedError("入れ子のリファレンスの編集ロックには対応していません")
+        plug = self.getPlug("locked").mplug()
+        require_writable(plug)
+        if plug.asBool() == state:
+            return
+        loaded = self.isLoaded()
+        name = self.getName()
+        if loaded:
+            cmds.file(unloadReference=name)
+        try:
+            # 読み込み時にしか反映されない設定。部分的なUndo項目を残さず直接変更する。
+            self.getPlug("locked").mplug().setBool(state)
+        finally:
+            if loaded:
+                cmds.file(loadReference=name, loadReferenceDepth="asPrefs", prompt=False)
+
+    def cleanEdits(self, *, editCommand=None):
+        """アンロード済みリファレンスの編集履歴を削除する。
+
+        Undo対象外。ロード中は拒否し、自動アンロードはしない。削除した編集は再ロード時に
+        適用されず、このシーンを保存すると削除後の履歴が保存される。参照元ファイルは変更しない。
+        fast引数は持たない(ファイル参照の履歴操作のため)。
+
+        Args:
+            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: editCommandが文字列・None以外の場合。
+            ValueError: editCommandが対応する編集コマンドでない場合。
+            RuntimeError: ロード中・ロック中、またはMayaが削除を拒否した場合。
+        """
+        if editCommand is not None and not isinstance(editCommand, str):
+            raise TypeError("editCommandは文字列またはNoneで指定してください")
+        if editCommand is not None and editCommand not in ("setAttr", "addAttr", "deleteAttr", "connectAttr", "disconnectAttr", "parent"):
+            raise ValueError("editCommandが対応する編集コマンドではありません")
+        if self.isLoaded() or self.isReferenceLocked():
+            raise RuntimeError("編集履歴の削除にはアンロード済みでロックされていないリファレンスが必要です")
+        if editCommand is None:
+            cmds.file(cleanReference=self.getName())
+        else:
+            cmds.file(cleanReference=self.getName(), editCommand=editCommand)
 
     def getFilename(self, resolved=True, withCopyNumber=False):
         """リファレンスしているファイルのパスを取得する。

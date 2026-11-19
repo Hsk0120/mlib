@@ -7,7 +7,9 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 import maya.mel as mel
+import maya.OpenMayaAnim as oma1
 
+from ..components.edge import Edge
 from ..components.vertex import Vertex, Vertices
 from ..core.attributeType import typed_data
 from ..core.fastWrite import require_writable, set_attr
@@ -654,11 +656,22 @@ class BlendShape(GeometryFilter):
             remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
             self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
 
-    def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None):
+    def getHistoryLocation(self):
+        """blendShapeが保持するヒストリ配置の設定を取得する。
+
+        接続グラフをたどって現在のデフォーマー順序を求める照会ではない。
+
+        Returns:
+            int: MFnBlendShapeDeformerのHistoryLocation値。0はkNormal、1はkFrontOfChain。
+        """
+        return oma1.MFnBlendShapeDeformer(self._api1_object()).historyLocation()
+
+    def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None, *, symmetrySpace="object", symmetryEdge=None):
         """ターゲットの片側の変形を、反対側へミラーする。
 
-        ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。対称の頂点は、オブジェクト空間の座標で探す。
-        Undoが有効なら、1回のUndoで戻せる。
+        ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。既定では対称の頂点をオブジェクト空間の座標で探す。
+        topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
+        Undoが有効なら、基準エッジ設定も含めて1回のUndoで戻せる。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
@@ -666,6 +679,8 @@ class BlendShape(GeometryFilter):
                 ミラー面の ``"YZ"`` など、または0〜2で指定する。
             positiveToNegative (bool): Trueなら正の側を負の側へ、Falseなら負の側を正の側へ写す。既定はTrue。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            symmetrySpace (str): object(既定)またはtopology。UV基準は未対応。
+            symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。
 
         Returns:
             None: 値を返さない。
@@ -678,22 +693,28 @@ class BlendShape(GeometryFilter):
         _require_bool(positiveToNegative, "positiveToNegative")
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
+        space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
         with undoChunk("mlibBlendShapeMirrorTarget"):
+            if edge is not None:
+                cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
             cmds.blendShape(
-                self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name, symmetrySpace=1, mirrorDirection=0 if positiveToNegative else 1
+                self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name, symmetrySpace=space, mirrorDirection=0 if positiveToNegative else 1
             )
 
-    def flipTarget(self, target, axis="x", base=None):
+    def flipTarget(self, target, axis="x", base=None, *, symmetrySpace="object", symmetryEdge=None):
         """ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
         左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
-        Undoが有効なら、1回のUndoで戻せる。
+        topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
+        Undoが有効なら、基準エッジ設定も含めて1回のUndoで戻せる。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` など、または0〜2で指定する。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            symmetrySpace (str): object(既定)またはtopology。UV基準は未対応。
+            symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。
 
         Returns:
             None: 値を返さない。
@@ -705,8 +726,11 @@ class BlendShape(GeometryFilter):
         """
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
+        space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
         with undoChunk("mlibBlendShapeFlipTarget"):
-            cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=1)
+            if edge is not None:
+                cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
+            cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
 
     def duplicateTarget(self, target, name=None):
         """ターゲットを複製する。
@@ -1272,6 +1296,38 @@ class BlendShape(GeometryFilter):
             name = f"{source}Copy{number}"
             number += 1
         return name
+
+    def _symmetry_settings(self, bi, space, edge):
+        """操作時の対称空間とベース上の基準エッジを検証する。
+
+        Args:
+            bi (int): ベースの論理番号。
+            space (str): objectまたはtopology。
+            edge (str | Edge | None): topologyの基準エッジ。
+
+        Returns:
+            tuple[int, str | None]: Mayaの空間番号と完全パスのエッジ名。
+        """
+        if not isinstance(space, str):
+            raise TypeError("symmetrySpaceは文字列で指定してください")
+        if space not in ("object", "topology"):
+            raise ValueError("symmetrySpaceはobjectまたはtopologyで指定してください")
+        if space == "object":
+            if edge is not None:
+                raise ValueError("object空間ではsymmetryEdgeを指定できません")
+            return 1, None
+        if edge is None:
+            raise ValueError("topology空間ではsymmetryEdgeが必要です")
+        edge = Edge._resolve_input(edge)
+        if not isinstance(edge, Edge):
+            raise TypeError("symmetryEdgeは単一のエッジで指定してください")
+        if edge.shape.mnode() != self._base_shape(bi).mnode():
+            raise ValueError("symmetryEdgeは指定ベース上のエッジで指定してください")
+        shape_name = edge.shape.getName()
+        if "|" in shape_name:
+            raise NotImplementedError("topology対称編集は階層を除いた名前が一意なベースだけに対応しています")
+        # symmetryEdgeは完全DAGパスを受け付けても登録しないため、一意なShape名を渡す。
+        return 0, shape_name + ".e[" + str(edge.index) + "]"
 
     def _mirror_axis_name(self, bi, index, axis):
         """ミラー・反転の条件を確かめ、Mayaのsymmetryの軸名を返す。

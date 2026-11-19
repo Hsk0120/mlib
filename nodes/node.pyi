@@ -7,6 +7,7 @@ from operator import methodcaller
 from typing import Optional
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
 from ..core.listMethods import _ListMethods
 from ..core.object import Object, _missing_member_message
 from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type, _unknown_node_type_message
@@ -16,6 +17,8 @@ from typing import Any, Callable, Generic, Iterable, Iterator, Literal, Sequence
 from mlib.common.namespace import Namespace
 from mlib.components.component import Component
 from mlib.components.component import Components
+from mlib.components.pointComponent import PointComponent
+from mlib.components.pointComponent import PointComponents
 from mlib.maths.eulerRotate import EulerRotate
 from mlib.maths.matrix import Matrix
 from mlib.maths.quaternion import Quaternion
@@ -469,6 +472,23 @@ class Node(Object):
             RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
             TypeError: 値の型がアトリビュートに合わない場合(Plug.setと同じ)。
             ValueError: 値の成分の数や範囲が合わない場合(Plug.setと同じ)。
+        """
+        ...
+    @staticmethod
+    def setDgTimingEnabled(state: bool) -> None:
+        """Maya全体のDG時間計測を有効・無効にする。
+
+        個々のノードの計測開始・停止とは別の全体設定。診断操作のためUndoには記録されない。
+        計測結果のリセットやUndo設定の変更は行わない。fast引数は持たない(診断設定のため)。
+
+        Args:
+            state (bool): Trueなら全体の計測を有効にする。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
         """
         ...
     def getShadingEngines(self) -> Nodes[ShadingEngine]:
@@ -1803,6 +1823,9 @@ class Node(Object):
             RuntimeError: ノードが破棄されている場合。
         """
         ...
+    def _api1_object(self):
+        """API 1.0専用の照会に渡すMObjectを、その都度名前から解決する。"""
+        ...
     def _dependency_fn(self) -> om2.MFnDependencyNode:
         """保持するノードの MFnDependencyNode を返す(作成は初回の1回だけ)。
 
@@ -2797,6 +2820,33 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def isVisible(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isVisible` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getObjectGroupComponents(self, groupId: int) -> list[list[Components]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getObjectGroupComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getActiveColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getActiveColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDormantColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDormantColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getHiliteColor(self) -> list[tuple[float, float, float, float]]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getHiliteColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDrawOverrideColor(self) -> list[tuple[float, float, float, float] | None]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDrawOverrideColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideEnabled(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideReference(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isDrawOverrideTemplate(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideTemplate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isUsingHiliteColor(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isUsingHiliteColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getVisibility(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getVisibility` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2832,6 +2882,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mirrorGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def centerPivotsOnComponents(self, components: str | PointComponents | Iterable[PointComponent]) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.transform.Transform.centerPivotsOnComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getPivot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

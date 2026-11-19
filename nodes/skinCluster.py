@@ -1525,6 +1525,69 @@ class SkinCluster(GeometryFilter):
                 plans, snapshot = self._influence_removal_plans([joint], transferToParent, force=force)
                 self._apply_influence_removals(plans, snapshot, force=force)
 
+    def setMoveJointsMode(self, state):
+        """スキンのジョイント移動モードを切り替える。
+
+        有効中のジョイント移動に対する変形の扱いが変わる。切替自体はUndo対象外。
+        終了時は明示的にFalseへ戻す。Undo設定は変更しない。
+        fast引数は持たない(Mayaコマンドのモード切替のため)。
+
+        Args:
+            state (bool): Trueでモードを開始、Falseで終了する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: ノードが無効、ロック、参照、またはMayaが変更を拒否した場合。
+        """
+        _require_bool(state, "state")
+        dependency = self._dependency_fn()
+        if dependency.isLocked or dependency.isFromReferencedFile:
+            raise RuntimeError("ロック・参照スキンのジョイント移動モードは変更できません")
+        cmds.skinCluster(self.getFullName(), edit=True, moveJointsMode=state)
+
+    def forceNormalizeWeights(self, *, fast=False):
+        """先頭形状のウェイトを、インフルエンスの保持設定に関係なく合計1へ正規化する。
+
+        MayaのforceNormalizeWeightsと同様にlockInfluenceWeightsを無視し、合計0の点は0のまま残す。
+        通常のnormalizeWeightsとはこの2点が異なる。ウェイトPlug自体のロック・接続は解除せず拒否する。
+        MayaコマンドのRedo不整合を避け、計算結果をsetWeights(normalize=False)で更新する。
+        normalizeWeights設定やインフルエンスの保持設定は変更しない。
+
+        Args:
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: fastがboolでない場合。
+            ValueError: インフルエンスが無い、または負・非有限のウェイトがある場合。
+            RuntimeError: ノードやウェイトがロック・接続・参照状態、またはレイヤー推定の接続がある場合。
+        """
+        with _edit_context("mlibSkinClusterForceNormalizeWeights", fast):
+            dependency = self._dependency_fn()
+            if dependency.isLocked or dependency.isFromReferencedFile:
+                raise RuntimeError("ロック・参照スキンの強制正規化には対応していません")
+            self._raise_if_layers()
+            self._require_weight_locks(self.getPlug("weightList").mplug())
+            influences = self.getInfluences()
+            if not influences:
+                raise ValueError("インフルエンスがありません")
+            rows = self.getWeights(influences, rows=True)
+            normalized = []
+            for row in rows:
+                if any(not math.isfinite(value) or value < 0 for value in row):
+                    raise ValueError("ウェイトは非負の有限値である必要があります")
+                # 大きい値でも合計がオーバーフローしないよう最大値で割ってから正規化する。
+                largest = max(row)
+                scaled = [value / largest for value in row] if largest else list(row)
+                total = math.fsum(scaled)
+                normalized.append([value / total for value in scaled] if total else scaled)
+            self.setWeights(influences, normalized, rows=True, normalize=False, fast=fast, check=True)
+
     def normalizeWeights(self, decimals=None, *, fast=False):
         """先頭のMeshの各頂点で、登録されているすべてのインフルエンスのウェイトを合計1へ正規化する。
 

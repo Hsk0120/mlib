@@ -3,6 +3,8 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.OpenMaya as om1
+from ..core.fastWrite import require_writable
 from ..decorator import _pick_alias, _require_bool
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
@@ -21,6 +23,61 @@ class Camera(Shape):
 
         Returns:
             om2.MFnCamera: このカメラのfunction set。
+        """
+        ...
+    def getUnnormalizedClippingPlanes(self) -> tuple[float, float]:
+        """カメラの非正規化ニア・ファークリップ距離を取得する。
+
+        cameraSetの表示で共通化される前の、個々のカメラのクリップ距離。
+        clippingPlanesアトリビュートの有効状態は判定しない。
+
+        Returns:
+            tuple[float, float]: (ニア, ファー)の距離(cm)。
+        """
+        ...
+    def setView(self, eye: Iterable[float], direction: Iterable[float], up: Iterable[float], fieldOfView: float, aspectRatio: float, *, unit: str = ..., fast: bool = ...) -> None:
+        """ワールド空間の視点・視線・上方向と画角をまとめて変更する。
+
+        MFnCamera.setを使い、親Transformとカメラの投影設定を変更する。
+        fast=True専用でUndoには記録しない。Undo設定は変更しない。
+        途中でMayaエラーが発生した場合、更新前への復元は保証しない。
+
+        Args:
+            eye (Iterable[float]): 視点のワールド座標(cm)。
+            direction (Iterable[float]): ゼロでない視線方向。
+            up (Iterable[float]): 視線と平行でない上方向。
+            fieldOfView (float): 水平画角。0より大きく180度未満。
+            aspectRatio (float): 正の横幅/高さ比。
+            unit (str): 画角の単位。既定deg。radも指定できる。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 引数の型が不正な場合。
+            ValueError: 座標・方向・画角・比率が不正な場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
+        """
+        ...
+    def copyViewFrom(self, camera: str | Camera, *, fast: bool = ...) -> None:
+        """別のカメラの視点・透視投影に関わる設定をコピーする。
+
+        MFnCamera.copyViewFromの対象設定をコピーする。全アトリビュートの複製ではない。
+        コピー先の親Transformも変わる。fast=True専用でUndoには記録しない。
+
+        Args:
+            camera (str | Camera): コピー元のカメラShape。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: cameraがカメラShapeでない場合、またはfastがboolでない場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはカメラが無効な場合。
+            NotImplementedError: fast=False、またはコピー先が対応しない階層の場合。
         """
         ...
     def getDepthOfFieldRange(self) -> tuple[float, float]:
@@ -160,6 +217,28 @@ class Camera(Shape):
         Raises:
             TypeError: 空間指定がbool以外、または長短名を同時指定した場合。
             RuntimeError: カメラが無効な場合。
+        """
+        ...
+    def setCenterOfInterestPoint(self, point: Iterable[float], worldSpace: bool = ..., *, ws: bool = ..., fast: bool = ...) -> None:
+        """視点を保ちながらカメラの注視点を変更する。
+
+        カメラの向きとcenterOfInterestをMFnCameraで更新する。
+        fast=True専用でUndoには記録しない。Undo設定は変更しない。
+
+        Args:
+            point (Iterable[float]): 注視点のXYZ座標(cm)。視点と異なる位置。
+            worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。既定True。
+            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 型または長短名の指定が不正な場合。
+            ValueError: 非有限値、または視点と注視点が一致する場合。
+            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
         """
         ...
     def getAspectRatio(self) -> float:
@@ -414,6 +493,13 @@ class Camera(Shape):
 
         Raises:
             RuntimeError: ノードが削除済みの場合。
+        """
+        ...
+    def _require_view_edit(self, fast: bool):
+        """カメラと親Transformの直接編集条件を確認する。
+
+        Args:
+            fast (bool): Undoなしの更新を明示したか。
         """
         ...
     @staticmethod

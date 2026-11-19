@@ -9,7 +9,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 import maya.mel as mel
 from maya.api.OpenMaya import MSpace
-from ..components.pointComponent import _write_points
+from ..components.pointComponent import PointComponent, _write_points
 from ..core import geometryEdit as geometry_edit
 from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
@@ -24,6 +24,7 @@ from .node import Node, Nodes
 from typing import Iterable, Sequence
 from mlib.components.component import Component
 from mlib.components.component import Components
+from mlib.components.pointComponent import PointComponents
 from mlib.nodes.constraint import Constraint
 from mlib.nodes.shadingEngine import ShadingEngine
 from mlib.nodes.shape import Shape
@@ -384,6 +385,25 @@ class Transform(DagNode):
             IndexError: 番号がどれかのShapeの範囲外の場合。
             RuntimeError: Transformが無効な場合、またはロックなどのためにMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、入力のヒストリがあるShapeがある場合。
+        """
+        ...
+    def centerPivotsOnComponents(self, components: str | PointComponents | Iterable[PointComponent]) -> None:
+        """指定した頂点・CVのワールドバウンディングボックス中心へ両ピボットを移す。
+
+        直下Shapeの点コンポーネントを明示指定する。現在の選択は参照・変更しない。
+        setPivot(preserve=True)を使い、姿勢を維持して通常Undoへ記録する。
+        fast引数は持たない(既存のピボット更新を1回呼ぶため)。
+
+        Args:
+            components (str | PointComponents | Iterable[PointComponent]): 頂点・CVまたはその範囲。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 点以外の対象がある場合、またはJointの場合。
+            ValueError: 対象が空、または別のTransform下のコンポーネントの場合。
+            RuntimeError: 対象が無効、ロックや接続がある場合、またはMayaが更新を拒否した場合。
         """
         ...
     def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Translate:

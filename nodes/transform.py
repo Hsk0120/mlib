@@ -10,7 +10,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 from maya.api.OpenMaya import MSpace
 
-from ..components.pointComponent import _write_points
+from ..components.pointComponent import PointComponent, _write_points
 from ..core import geometryEdit as geometry_edit
 from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
@@ -754,6 +754,40 @@ class Transform(DagNode):
                 raise ValueError(f"mirrorGeometryはmeshとnurbsCurveのシェイプに対応しています: {shape.getFullName()}")
             plans.append(planner(axis, ws, center, indices, fast, check))
         _write_points(plans, fast, "mlibTransformMirrorGeometry", check)
+
+    def centerPivotsOnComponents(self, components):
+        """指定した頂点・CVのワールドバウンディングボックス中心へ両ピボットを移す。
+
+        直下Shapeの点コンポーネントを明示指定する。現在の選択は参照・変更しない。
+        setPivot(preserve=True)を使い、姿勢を維持して通常Undoへ記録する。
+        fast引数は持たない(既存のピボット更新を1回呼ぶため)。
+
+        Args:
+            components (str | PointComponents | Iterable[PointComponent]): 頂点・CVまたはその範囲。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 点以外の対象がある場合、またはJointの場合。
+            ValueError: 対象が空、または別のTransform下のコンポーネントの場合。
+            RuntimeError: 対象が無効、ロックや接続がある場合、またはMayaが更新を拒否した場合。
+        """
+        # SelectionもNodeを参照するため、入力の展開時に読み込む。
+        from ..common.selection import Selection
+
+        items = list(Selection(components))
+        if not items:
+            raise ValueError("componentsには1つ以上の頂点またはCVを指定してください")
+        points = []
+        for item in items:
+            if not isinstance(item, PointComponent):
+                raise TypeError("componentsは頂点またはCVで指定してください")
+            if item.shape.getParent().getFullName() != self.getFullName():
+                raise ValueError("componentsはこのTransform直下のShapeから指定してください")
+            points.append(item.getPosition(worldSpace=True))
+        center = [(min(point[axis] for point in points) + max(point[axis] for point in points)) * 0.5 for axis in range(3)]
+        self.setPivot(center, worldSpace=True, kind="both", preserve=True)
 
     def getPivot(self, worldSpace=_UNSET, *, kind="rotate", ws=_UNSET):
         """回転ピボットかスケールピボットの位置を、cmで取得する。

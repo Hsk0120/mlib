@@ -123,6 +123,15 @@ WRITER_OPERATORS = ("__rshift__", "__lshift__", "__floordiv__")
 
 #: 網羅の番人が拾っても Undo 検査の対象にしない API と理由。
 EXCLUDED = {
+    "Node.setDgTimingEnabled": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Camera.setView": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Camera.setCenterOfInterestPoint": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Camera.copyViewFrom": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Mesh.setNormals": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "NurbsSurface.setUVData": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "SkinCluster.setMoveJointsMode": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Reference.setReferenceLocked": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Reference.cleanEdits": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Node.setDgTimerEnabled": "診断用のDG計測状態。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "Node.resetDgTimer": "診断用のDG計測結果の消去。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "Components.append": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
@@ -1622,6 +1631,12 @@ CASES = [
         s_joints,
         lambda c, **kw: c.nj1.setQuaternion((0.0, 0.0, 0.2588190451, 0.9659258263), r=False, **kw),
     ),
+    C(
+        "Transform.centerPivotsOnComponents",
+        "centerPivotsOnComponents",
+        s_cube,
+        lambda c, **kw: c.ncube.centerPivotsOnComponents(c.ncube.getFullName() + ".vtx[0:1]"),
+    ),
     C("Transform.setPivot", "setPivot", s_one, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), **kw)),
     C("Transform.setPivot", "setPivot scale worldSpace", s_child, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), worldSpace=True, kind="scale", **kw)),
     C("Transform.centerPivot", "centerPivot", s_offset_pivot, lambda c, **kw: c.ncube.centerPivot(**kw)),
@@ -1918,6 +1933,7 @@ CASES = [
     C("Container.removeMembers", "Container.removeMembers", s_container_member, lambda c, **kw: c.ncont.removeMembers(c.a)),
     C("Container.createNode", "Container.createNode", s_container, lambda c, **kw: c.ncont.createNode("transform", name="inCont")),
     C("Container.removeContainer", "Container.removeContainer", s_container_member, lambda c, **kw: c.ncont.removeContainer()),
+    C("SkinCluster.forceNormalizeWeights", "SkinCluster.forceNormalizeWeights", s_skin_unnormalized, lambda c, **kw: c.skin.forceNormalizeWeights(**kw)),
     C("SkinCluster.setDropoffRate", "SkinCluster.setDropoffRate", s_skin, lambda c, **kw: c.skin.setDropoffRate(c.j0, 2.0)),
     C("Node.swapConnections", "Node.swapConnections", s_swap_connections, lambda c, **kw: c.nsource.swapConnections(c.ntarget)),
     C("Container.publishConnections", "Container.publishConnections", s_container_connected, lambda c, **kw: c.ncont.publishConnections()),

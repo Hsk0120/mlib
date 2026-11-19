@@ -5,6 +5,7 @@ import os
 import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from ..core.fastWrite import require_writable
 from ..decorator import _require_bool, undoChunk
 from .node import Node, Nodes
 from mlib.common.namespace import Namespace
@@ -24,6 +25,54 @@ class Reference(Node):
 
         Returns:
             om2.MFnReference: この reference ノードの function set。
+        """
+        ...
+    def isReferenceLocked(self) -> bool:
+        """参照ファイルの編集ロック状態を取得する。
+
+        referenceノード自身のロックとは異なる。
+
+        Returns:
+            bool: ファイル参照がロックされているか。
+        """
+        ...
+    def setReferenceLocked(self, state: bool) -> None:
+        """参照ファイルを編集ロック・解除する。
+
+        Undo対象外。ロード中は一度アンロードして再ロードするため、保持済みの参照先オブジェクトは無効になる。
+        アンロード中は設定だけを変更し、次のロード時に反映する。参照元ファイルは書き換えない。
+        再ロード失敗時はアンロード状態で設定が残る。解除はFalseを指定する。
+        fast引数は持たない(ファイル参照の状態操作のため)。
+
+        Args:
+            state (bool): Trueでロック、Falseで解除する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: 無効なリファレンス、またはMayaが変更を拒否した場合。
+            NotImplementedError: 入れ子のリファレンスの場合。
+        """
+        ...
+    def cleanEdits(self, *, editCommand: str | None = ...) -> None:
+        """アンロード済みリファレンスの編集履歴を削除する。
+
+        Undo対象外。ロード中は拒否し、自動アンロードはしない。削除した編集は再ロード時に
+        適用されず、このシーンを保存すると削除後の履歴が保存される。参照元ファイルは変更しない。
+        fast引数は持たない(ファイル参照の履歴操作のため)。
+
+        Args:
+            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: editCommandが文字列・None以外の場合。
+            ValueError: editCommandが対応する編集コマンドでない場合。
+            RuntimeError: ロード中・ロック中、またはMayaが削除を拒否した場合。
         """
         ...
     def getFilename(self, resolved: bool = ..., withCopyNumber: bool = ...) -> str:
