@@ -56,6 +56,18 @@ class Reference(Node):
             int: コピー番号。番号の付かない最初のリファレンスでは 0。
         """
         ...
+    def getCopyNumbers(self) -> list[int]:
+        """同じファイルを参照しているリファレンスのコピー番号一覧を取得する。
+
+        自身の番号だけを返すgetCopyNumberとは異なる。ロード状態や参照の数は変更しない。
+
+        Returns:
+            list[int]: Mayaの列挙順のコピー番号。最初の参照は0。欠番は詰めない。
+
+        Raises:
+            RuntimeError: リファレンスが無効、またはMayaが照会を拒否した場合。
+        """
+        ...
     def isUsingNamespaces(self) -> bool:
         """リファレンスの内容が名前空間で読み込まれているかを判定する。
 

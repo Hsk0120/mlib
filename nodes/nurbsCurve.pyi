@@ -11,7 +11,7 @@ from ..core import geometryEdit as geometry_edit
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _finite, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .shape import Shape
 from typing import Iterable, Sequence
 
@@ -244,6 +244,40 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
+    def setKnots(self, knots: Iterable[float]) -> None:
+        """カーブの既存ノット列を置き換える。
+
+        ノット数は変えない。ヒストリ・参照・CVのロックや接続がないカーブに限定する。
+        通常Undoに対応する。fast引数は持たない(カーブデータを1回のcmds.setAttrで書くため)。
+
+        Args:
+            knots (Iterable[float]): 現在と同じ個数の、有限で非減少のノット列。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: ノットが数値列でない場合。
+            ValueError: 個数・順序・値が不正な場合。
+            RuntimeError: ロック、無効な形状、またはMayaが更新を拒否した場合。
+            NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        ...
+    def makeMultipleEndKnots(self) -> None:
+        """カーブ両端のノットを最大多重度にする。
+
+        端点を先頭・末尾CVへ一致させる。周期カーブは閉じたカーブへ変わる。
+        ヒストリ・参照・CVのロックや接続がないカーブに限定し、通常Undoに対応する。
+        fast引数は持たない(データの一括置換をcmdsへ委譲するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロック、無効な形状、またはMayaが更新を拒否した場合。
+            NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        ...
     def isPlanar(self) -> bool:
         """カーブが1つの平面の上にあるか調べる。
 
@@ -459,6 +493,44 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
+    def getParamAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> float:
+        """カーブ上の点に対応するパラメーターを取得する。
+
+        カーブからtoleranceより離れた点は拒否する。最寄りの点を探す場合はgetClosestPointを使う。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+
+        Returns:
+            float: 点に対応するパラメーター。
+
+        Raises:
+            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
+            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
+            RuntimeError: 点が許容誤差内のカーブ上にない、または形状が無効な場合。
+        """
+        ...
+    def isPointOnCurve(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> bool:
+        """指定点が許容誤差内でカーブ上にあるか調べる。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+
+        Returns:
+            bool: 点が許容誤差内のカーブ上にある場合はTrue。
+
+        Raises:
+            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
+            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        ...
     def getClosestPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, ws: bool = ...) -> tuple[Vector, float]:
         """指定した位置に最も近い、カーブ上の点とパラメーターを取得する。
 
@@ -656,6 +728,16 @@ class NurbsCurve(Shape):
                 軸の名前が対応していないかaimAxisとupAxisが同じ軸の場合、upがすべての点で接線と平行な場合、
                 またはすべての点で接線が0の場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        ...
+    def _require_knot_edit(self):
+        """カーブデータ全体を置き換えられることを更新前に確かめる。"""
+        ...
+    def _write_curve_data(self, fn: om2.MFnNurbsCurve):
+        """検証済みの独立したカーブデータを1回のcmdsで書き込む。
+
+        Args:
+            fn (om2.MFnNurbsCurve): コピー側の編集済みデータ。
         """
         ...
     def _space_curve(self, worldSpace: bool) -> om2.MFnNurbsCurve:

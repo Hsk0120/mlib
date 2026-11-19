@@ -73,6 +73,24 @@ class BlendShape(GeometryFilter):
         """
         return self._target_lookup(name) is not None
 
+    def getWeightCount(self):
+        """Mayaが保持するターゲットウェイトの数を取得する。
+
+        blendShapeコマンドのweightCountを返す。疎な論理番号や事前確保によって、ターゲット項目数とは異なる。
+
+        Returns:
+            int: Mayaのウェイト数。
+        """
+        return int(cmds.blendShape(self.getFullName(), query=True, weightCount=True))
+
+    def getNormalizationGroups(self):
+        """使用されている正規化グループの番号を取得する。
+
+        Returns:
+            list[int]: Mayaが返す順のグループ番号。未使用なら空。
+        """
+        return list(cmds.blendShape(self.getFullName(), query=True, normalizationGroups=True) or [])
+
     def getTargetNames(self):
         """ターゲット名を、論理番号の順に取得する。
 
@@ -394,6 +412,49 @@ class BlendShape(GeometryFilter):
                 require_writable(plug.elementByLogicalIndex(index), fn)
         with _edit_context("mlibBlendShapeSetBaseWeights", fast, single=len(runs) == 1):
             self._write_vertex_weights(path, values, fast=fast)
+
+    def getTargetItemIndices(self, target, base=None):
+        """ターゲット本体とin-betweenの項目の論理番号を取得する。
+
+        未作成要素は作らず、値も評価しない。番号は5000 + ウェイト * 1000に対応する。
+
+        Args:
+            target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。
+
+        Returns:
+            list[int]: 項目の論理番号の昇順。ターゲット本体も含む。
+
+        Raises:
+            ValueError: ターゲットまたはベースが存在しない場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        bi, index = self._resolve_group(target, base)
+        return self._item_indices(bi, index)
+
+    def getTargetGeometry(self, target, base=None):
+        """ターゲットの各項目へ接続された元形状を取得する。
+
+        保存済みデルタだけを持ち、元Shapeへの接続がない項目はNone。
+        形状の再生成や評価は要求しない。
+
+        Args:
+            target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。
+
+        Returns:
+            dict[int, Node | None]: 項目の論理番号から接続元ノードへの対応。
+
+        Raises:
+            ValueError: ターゲットまたはベースが存在しない場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        bi, index = self._resolve_group(target, base)
+        result = {}
+        for item in self._item_indices(bi, index):
+            source = self.getPlug(self._item_path(bi, index, item) + ".inputGeomTarget").getSource()
+            result[item] = source.getNode() if source is not None else None
+        return result
 
     def getTargetWeights(self, target, base=None):
         """ターゲットの頂点マスクを、頂点番号の順に取得する。

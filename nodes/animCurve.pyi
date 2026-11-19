@@ -48,6 +48,18 @@ class AnimCurve(Node):
     通常の編集は、値をUIの単位へ換算してcmdsへ渡す。Undoが有効なら、1つのチャンクにまとめる。
     fastはUndoの設定を変えず、OpenMayaで直接書き込む。途中で失敗したときに元へ戻ることは保証しない。
     """
+    def isWeighted(self) -> bool:
+        """カーブ全体がウェイト付き接線を使うか調べる。
+
+        キーが0個のカーブでも取得できる。個々の接線のロック状態とは別。
+
+        Returns:
+            bool: ウェイト付き接線ならTrue。
+
+        Raises:
+            RuntimeError: カーブが無効な場合。
+        """
+        ...
     def isTimeInput(self) -> bool:
         """横軸(入力)が時間か判定する。
 

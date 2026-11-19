@@ -15,7 +15,7 @@ from ..core.ngSkinLayers import _layer_api, _move_layer_weights
 from ..core.object import Object
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths import easing
-from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _PointGrid, _world_space
+from ..util import _MIRROR_PLANES, _UNSET, _finite, _mirror_axis, _PointGrid, _world_space
 from .dagNode import DagNode
 from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
@@ -29,6 +29,7 @@ from mlib.components.vertex import Vertex
 from mlib.components.vertex import Vertices
 from mlib.json.nameMapping import NameMapping
 from mlib.json.snapshot import ValidationReport
+from mlib.nodes.container import Container
 from mlib.nodes.dagPose import DagPose
 from mlib.nodes.mesh import Mesh
 from mlib.nodes.objectSet import ObjectSet
@@ -247,6 +248,26 @@ class SkinCluster(GeometryFilter):
             TypeError: 入力がノードとして扱えない場合。
             ValueError: 未登録、または1つでない場合。
             RuntimeError: skinClusterが無効な場合。
+        """
+        ...
+    def setDropoffRate(self, influence: Node | str, value: float) -> None:
+        """指定インフルエンスの減衰率を変え、Mayaでスキンウェイトを再計算する。
+
+        手で調整したウェイトも変わる。単一Meshを変形する、ロック・入力接続・レイヤーのないスキンに限定する。
+        通常Undoに対応する。fast引数は持たない(1回のskinClusterコマンドを使うため)。
+
+        Args:
+            influence (Node | str): 登録済みのインフルエンス。
+            value (float): 0.1以上10以下の有限な減衰率。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: influenceまたはvalueの型が不正な場合。
+            ValueError: 未登録のインフルエンス、またはvalueが範囲外の場合。
+            RuntimeError: ロック・入力接続・レイヤーがあるか、Mayaが再計算を拒否した場合。
+            NotImplementedError: 対象が単一Meshでない場合。
         """
         ...
     def smoothWeights(self, *, tolerance: float = ..., iterations: int = ...) -> None:
@@ -1955,6 +1976,9 @@ class SkinClusters(Nodes[SkinCluster]):
     def getInfluenceIndex(self, influence: str | Node) -> list[int]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getInfluenceIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def setDropoffRate(self, influence: Node | str, value: float) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setDropoffRate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def smoothWeights(self, *, tolerance: float = ..., iterations: int = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.smoothWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2066,6 +2090,9 @@ class SkinClusters(Nodes[SkinCluster]):
     def setNormalizeMode(self, mode: str) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setNormalizeMode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getDeformerTools(self) -> list[Nodes]:
+        """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getDeformerTools` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getGeometry(self) -> list[Nodes]:
         """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2077,6 +2104,18 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def getGeometryAtIndex(self, *, geometryIndex: int) -> list[Node]:
         """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometryAtIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getGeometryIndices(self) -> list[list[int]]:
+        """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometryIndices` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getInputGeometryAtIndex(self, *, geometryIndex: int) -> list[Node | None]:
+        """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getInputGeometryAtIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getGeometryIndexForGroupId(self, groupId: int) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometryIndexForGroupId` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getGeometryGroupId(self, *, geometryIndex: int) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometryGroupId` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getGeometryComponents(self, *, geometryIndex: int = ...) -> list[list[Components]]:
         """各要素の :meth:`~mlib.nodes.geometryFilter.GeometryFilter.getGeometryComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2114,6 +2153,33 @@ class SkinClusters(Nodes[SkinCluster]):
     def mnode(self) -> list[om2.MObject]:
         """各要素の :meth:`~mlib.nodes.node.Node.mnode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getDgTimerState(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimerState` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setDgTimerEnabled(self, state: bool) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setDgTimerEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def resetDgTimer(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.resetDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgTimer(self, metric: int, *, timerType: int = ...) -> list[float]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgCallbacks(self, *, timerType: int = ...) -> list[list[tuple[str, float]]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgCallbacks` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def affectsAnimation(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.affectsAnimation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def canBeWritten(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.canBeWritten` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isShared(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isShared` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isTrackingEdits(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isTrackingEdits` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getType(self, inherited: bool = ...) -> list[str | list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2137,6 +2203,12 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def swapConnections(self, other: Node | str) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.swapConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getContainer(self) -> list[Container | None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getContainer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getReference(self) -> list[Reference | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2198,6 +2270,9 @@ class SkinClusters(Nodes[SkinCluster]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getNumAttrs(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getNumAttrs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2221,6 +2296,9 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAbsoluteName(self) -> list[str]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAbsoluteName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

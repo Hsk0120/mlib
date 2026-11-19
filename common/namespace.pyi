@@ -4,6 +4,7 @@
 from contextlib import contextmanager
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from ..core.nodeEdit import check_deletion
 from ..decorator import _require_bool, undoChunk
 from typing import Any, Iterator
 from mlib._stubtypes import GeneratorContextManager
@@ -229,6 +230,27 @@ class Namespace:
         Raises:
             ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
             RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
+        """
+        ...
+    def clear(self, *, preserveChildren: bool = ...) -> None:
+        """名前空間を残して、直接所属するノードを削除する。
+
+        既定では別の名前空間の子Transformをワールド直下へ退避する。子の名前空間は削除しない。
+        Shapeだけの退避とインスタンスの退避は対応しない。ロックの自動解除はしない。
+        cmdsを1つのUndoチャンクに記録する。途中でMayaが拒否した場合は変更が残る場合がある。
+        fast引数は持たない(親子付けと削除をMayaコマンドで行うため)。
+
+        Args:
+            preserveChildren (bool): Trueなら別の名前空間の子を退避する。FalseならDAGの子孫も削除する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: preserveChildrenがbool以外の場合。
+            ValueError: ルート・UI・shared名前空間の場合。
+            RuntimeError: 名前空間がない、または対象や子孫に削除不可・参照・ロックがある場合。
+            NotImplementedError: 退避対象がShapeまたはインスタンスの場合。
         """
         ...
     def remove(self, destination: str | Namespace = ..., *, deleteContents: bool = ...) -> Namespace | None:

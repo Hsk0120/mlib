@@ -123,6 +123,8 @@ WRITER_OPERATORS = ("__rshift__", "__lshift__", "__floordiv__")
 
 #: 網羅の番人が拾っても Undo 検査の対象にしない API と理由。
 EXCLUDED = {
+    "Node.setDgTimerEnabled": "診断用のDG計測状態。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
+    "Node.resetDgTimer": "診断用のDG計測結果の消去。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "Components.append": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
     "Components.clear": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
     "Components.extend": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
@@ -633,6 +635,17 @@ def s_two(c):
     c.nb = mlib.getNode(c.b)
 
 
+def s_swap_connections(c):
+    """同じDG型の入替元・入替先と入出力を作る。"""
+    s_two(c)
+    c.source = _node("multiplyDivide", "source")
+    c.target = _node("multiplyDivide", "target")
+    c.nsource = mlib.getNode(c.source)
+    c.ntarget = mlib.getNode(c.target)
+    cmds.connectAttr(c.a + ".translateX", c.source + ".input1X")
+    cmds.connectAttr(c.source + ".outputX", c.b + ".translateY")
+
+
 def s_two_selected(c):
     """transform a・b を作り、a を選択する。"""
     s_two(c)
@@ -776,6 +789,37 @@ def s_curve(c):
     c.ncrvShape = mlib.getNode(c.crvShape)
 
 
+def s_ik_chain(c):
+    """開始点の変更を検証する3ジョイントのIKを作る。"""
+    cmds.select(clear=True)
+    c.start = cmds.joint(position=(0, 0, 0))
+    c.middle = cmds.joint(position=(2, 1, 0))
+    c.end = cmds.joint(position=(4, 0, 0))
+    c.handle = mlib.getNode(cmds.ikHandle(startJoint=c.start, endEffector=c.end, solver="ikSCsolver")[0])
+
+
+def s_joint_scale_orientation(c):
+    """回転軸と子ジョイントを持つ階層を作る。"""
+    cmds.select(clear=True)
+    c.joint = mlib.getNode(cmds.joint())
+    cmds.joint(position=(3, 2, 0))
+    cmds.setAttr(c.joint.getFullName() + ".rotateAxis", 10, 20, 30)
+
+
+def s_camera(c):
+    """画角編集用のカメラを作る。"""
+    c.camera_transform, shape = cmds.camera()
+    c.camera = mlib.getNode(shape)
+
+
+def s_periodic_curve(c):
+    """周期カーブを端ノット変更用に作る。"""
+    c.crv = cmds.curve(
+        name="periodic", degree=3, periodic=True, point=[(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 0), (1, 0, 0), (1, 1, 0)], knot=list(range(-2, 7))
+    )
+    c.ncrvShape = mlib.getNode(c.crv).getShape()
+
+
 def s_curves(c):
     """形状を差し替える nurbsCurve(crv)と、取得元の nurbsCurve(src。tx=2)を作る。"""
     s_curve(c)
@@ -783,6 +827,12 @@ def s_curves(c):
     c.src = cmds.ls(cmds.curve(degree=1, point=[(0, 0, 0), (0, 2, 0)], name="src"), long=True)[0]
     cmds.setAttr(c.src + ".tx", 2.0)
     c.nsrc = mlib.getNode(c.src)
+
+
+def s_surface_knots(c):
+    """削除する内側ノットがある曲面を作る。"""
+    c.srf = cmds.nurbsPlane(name="srf", constructionHistory=False, patchesU=4, patchesV=4)[0]
+    c.nsrfShape = mlib.getNode(c.srf).getShape()
 
 
 def s_surface(c):
@@ -1162,6 +1212,13 @@ def s_container_member(c):
     cmds.container(c.cont, edit=True, addNode=[c.a])
 
 
+def s_container_connected(c):
+    """コンテナ外部へ接続したメンバーを作る。"""
+    s_container_member(c)
+    c.outside = _node("transform", "outside")
+    cmds.connectAttr(c.a + ".translateX", c.outside + ".translateX")
+
+
 def s_container_published(c):
     """未 Bind の公開名 pub を持つ container を作る。"""
     s_container_member(c)
@@ -1199,6 +1256,14 @@ def s_set_member(c):
     """transform a をメンバーにした objectSet を作る。"""
     s_set(c)
     cmds.sets(c.a, edit=True, forceElement=c.set)
+
+
+def s_exclusive_set(c):
+    """同じpartitionの別セットへ所属済みのtransformを用意する。"""
+    s_set(c)
+    c.other_set = cmds.sets(empty=True, name="otherSet")
+    cmds.partition(c.set, c.other_set, name="partition")
+    cmds.sets(c.a, addElement=c.other_set)
 
 
 def s_shading(c):
@@ -1455,6 +1520,29 @@ _STIPPLE_UNDO = "Maya 2022〜2024 は素の cmds.filterCurve でも Undo 後に 
 
 C = _Case
 CASES = [
+    C("Camera.setUpDirection", "Camera.setUpDirection", s_camera, lambda c, **kw: c.camera.setUpDirection((1, 1, 0))),
+    C("Joint.resetScaleOrientation", "Joint.resetScaleOrientation", s_joint_scale_orientation, lambda c, **kw: c.joint.resetScaleOrientation()),
+    C(
+        "Camera.setVerticalLocked",
+        "Camera.setVerticalLocked",
+        s_camera,
+        lambda c, **kw: c.camera.setVerticalLocked(False),
+        extraState=lambda c: c.camera.isVerticalLocked(),
+    ),
+    C("NurbsSurface.removeKnot", "NurbsSurface.removeKnot", s_surface_knots, lambda c, **kw: c.nsrfShape.removeKnot(0.5)),
+    C("IkHandle.setChain", "IkHandle.setChain end", s_ik_chain, lambda c, **kw: c.handle.setChain(c.start, c.middle)),
+    C("IkHandle.setChain", "IkHandle.setChain", s_ik_chain, lambda c, **kw: c.handle.setChain(c.middle, c.end)),
+    C("Namespace.clear", "Namespace.clear", s_ns, lambda c, **kw: Namespace(c.sub).clear()),
+    C(
+        "NurbsSurface.setKnots",
+        "NurbsSurface.setKnots",
+        s_surface,
+        lambda c, **kw: c.nsrfShape.setKnots(*[[v * 2 for v in axis] for axis in c.nsrfShape.getKnots()]),
+    ),
+    C("Camera.setFieldOfView", "Camera.setFieldOfView", s_camera, lambda c, **kw: c.camera.setFieldOfView(40)),
+    C("Camera.setAspectRatio", "Camera.setAspectRatio", s_camera, lambda c, **kw: c.camera.setAspectRatio(2)),
+    C("Camera.setNearFocusDistance", "Camera.setNearFocusDistance", s_camera, lambda c, **kw: c.camera.setNearFocusDistance(3)),
+    C("Camera.setFarFocusDistance", "Camera.setFarFocusDistance", s_camera, lambda c, **kw: c.camera.setFarFocusDistance(9)),
     # cmds
     C("cmds.createNode", "createNode transform", None, lambda c, **kw: mlib.createNode("transform", name="made", **kw)),
     C("cmds.createNode", "createNode transform (選択あり)", None, lambda c, **kw: mlib.createNode("transform", name="made", skipSelect=False, **kw)),
@@ -1639,6 +1727,8 @@ CASES = [
     C("Mesh.mirror", "Mesh.mirror", s_cube, lambda c, **kw: c.nshape.mirror("x", pivot=(0.25, 0.0, 0.0), **kw)),
     C("Mesh.mirror", "Mesh.mirror indices worldSpace", s_cube, lambda c, **kw: c.nshape.mirror("YZ", worldSpace=True, indices=[0, 2], **kw)),
     C("NurbsCurve.mirror", "NurbsCurve.mirror", s_curve, lambda c, **kw: c.ncrvShape.mirror("y", pivot=(0.0, 1.0, 0.0), **kw)),
+    C("NurbsCurve.setKnots", "NurbsCurve.setKnots", s_curve, lambda c, **kw: c.ncrvShape.setKnots([v * 2 for v in c.ncrvShape.getKnots()])),
+    C("NurbsCurve.makeMultipleEndKnots", "NurbsCurve.makeMultipleEndKnots", s_periodic_curve, lambda c, **kw: c.ncrvShape.makeMultipleEndKnots()),
     C("NurbsCurve.rebuild", "NurbsCurve.rebuild", s_curve, lambda c, **kw: c.ncrvShape.rebuild(4, 3, keepRange="unit")),
     C("NurbsCurve.reverseDirection", "NurbsCurve.reverseDirection", s_curve, lambda c, **kw: c.ncrvShape.reverseDirection()),
     C("Transform.mirrorGeometry", "Transform.mirrorGeometry", s_cube, lambda c, **kw: c.ncube.mirrorGeometry("x", worldSpace=True, **kw)),
@@ -1828,6 +1918,9 @@ CASES = [
     C("Container.removeMembers", "Container.removeMembers", s_container_member, lambda c, **kw: c.ncont.removeMembers(c.a)),
     C("Container.createNode", "Container.createNode", s_container, lambda c, **kw: c.ncont.createNode("transform", name="inCont")),
     C("Container.removeContainer", "Container.removeContainer", s_container_member, lambda c, **kw: c.ncont.removeContainer()),
+    C("SkinCluster.setDropoffRate", "SkinCluster.setDropoffRate", s_skin, lambda c, **kw: c.skin.setDropoffRate(c.j0, 2.0)),
+    C("Node.swapConnections", "Node.swapConnections", s_swap_connections, lambda c, **kw: c.nsource.swapConnections(c.ntarget)),
+    C("Container.publishConnections", "Container.publishConnections", s_container_connected, lambda c, **kw: c.ncont.publishConnections()),
     C("Container.publishName", "Container.publishName", s_container_member, lambda c, **kw: c.ncont.publishName("pub")),
     C("Container.bindAttr", "Container.bindAttr", s_container_published, lambda c, **kw: c.ncont.bindAttr("pub", c.a + ".translateX")),
     C("Container.publishAndBind", "Container.publishAndBind", s_container_member, lambda c, **kw: c.ncont.publishAndBind("pb", c.a + ".translateY")),
@@ -1849,6 +1942,7 @@ CASES = [
     C("DisplayLayer.setCurrent", "DisplayLayer.setCurrent", s_layer, lambda c, **kw: c.nlayer.setCurrent(**kw)),
     # ObjectSet
     C("ObjectSet.addMembers", "ObjectSet.addMembers", s_set, lambda c, **kw: c.nset.addMembers(c.a, **kw)),
+    C("ObjectSet.addExclusiveMembers", "ObjectSet.addExclusiveMembers", s_exclusive_set, lambda c, **kw: c.nset.addExclusiveMembers(c.a)),
     C("ObjectSet.removeMembers", "ObjectSet.removeMembers", s_set_member, lambda c, **kw: c.nset.removeMembers(c.a, **kw)),
     C("ObjectSet.removeAllMembers", "ObjectSet.removeAllMembers", s_set_member, lambda c, **kw: c.nset.removeAllMembers()),
     # Shading

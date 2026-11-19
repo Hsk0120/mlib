@@ -67,6 +67,20 @@ class Reference(Node):
         match = re.search(r"\{(\d+)\}$", self.getFilename(withCopyNumber=True))
         return int(match.group(1)) if match else 0
 
+    def getCopyNumbers(self):
+        """同じファイルを参照しているリファレンスのコピー番号一覧を取得する。
+
+        自身の番号だけを返すgetCopyNumberとは異なる。ロード状態や参照の数は変更しない。
+
+        Returns:
+            list[int]: Mayaの列挙順のコピー番号。最初の参照は0。欠番は詰めない。
+
+        Raises:
+            RuntimeError: リファレンスが無効、またはMayaが照会を拒否した場合。
+        """
+        self._require_valid("コピー番号一覧の取得")
+        return [int(value) for value in (cmds.file(self.getFilename(), query=True, copyNumberList=True) or [])]
+
     def isUsingNamespaces(self):
         """リファレンスの内容が名前空間で読み込まれているかを判定する。
 

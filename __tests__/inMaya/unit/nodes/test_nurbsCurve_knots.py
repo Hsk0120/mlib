@@ -1,0 +1,75 @@
+"""カーブのノット編集とUndo・拒否条件を検証する。"""
+
+import sys
+import unittest
+
+import maya.api.OpenMaya as om2
+import maya.cmds as cmds
+from support.namespaceCase import NamespaceCase
+
+import mlib
+
+
+class CurveKnotTest(NamespaceCase):
+    def make_curve(self):
+        return mlib.getNode(
+            cmds.curve(name=self.ns + ":curve", degree=3, point=[(0, 0, 0), (1, 1, 0), (2, 1, 0), (3, 0, 0), (4, 1, 0)], knot=[0, 0, 0, 1, 2, 2, 2])
+        ).getShape()
+
+    def snapshot(self, shape):
+        fn = shape.mfn()
+        return (fn.form, list(fn.knots()), [tuple(p) for p in fn.cvPositions()])
+
+    def check_edit(self, shape, operation):
+        before = self.snapshot(shape)
+        cmds.flushUndo()
+        self.assertIsNone(operation())
+        after = self.snapshot(shape)
+        cmds.undo()
+        self.assertEqual(self.snapshot(shape), before)
+        cmds.redo()
+        self.assertEqual(self.snapshot(shape), after)
+
+    def test_set_knots_undo(self):
+        shape = self.make_curve()
+        self.check_edit(shape, lambda: shape.setKnots([0, 0, 0, 0.5, 2, 2, 2]))
+        self.assertEqual(shape.getKnots(), [0, 0, 0, 0.5, 2, 2, 2])
+
+    def test_end_knots_periodic(self):
+        shape = mlib.getNode(
+            cmds.curve(
+                name=self.ns + ":periodic",
+                degree=3,
+                periodic=True,
+                point=[(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 0, 0), (1, 0, 0), (1, 1, 0)],
+                knot=list(range(-2, 7)),
+            )
+        ).getShape()
+        self.check_edit(shape, shape.makeMultipleEndKnots)
+        self.assertEqual(shape.getForm(), om2.MFnNurbsCurve.kClosed)
+
+    def test_rational_circle(self):
+        shape = mlib.getNode(cmds.circle(name=self.ns + ":circle", constructionHistory=False)[0]).getShape()
+        knots = shape.getKnots()
+        values = [v * 2 for v in knots]
+        before = [tuple(p) for p in shape.mfn().cvPositions()]
+        self.check_edit(shape, lambda: shape.setKnots(values))
+        self.assertEqual([tuple(p) for p in shape.mfn().cvPositions()], before)
+
+    def test_rejects_invalid_without_update(self):
+        shape = self.make_curve()
+        before = self.snapshot(shape)
+        for values in ([0], [0] * 7, [0, 0, 0, -1, 2, 2, 2]):
+            with self.assertRaises(ValueError):
+                shape.setKnots(values)
+            self.assertEqual(self.snapshot(shape), before)
+        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=True)
+        with self.assertRaises(NotImplementedError):
+            shape.setKnots(shape.getKnots())
+        history = mlib.getNode(cmds.circle(name=self.ns + ":history", constructionHistory=True)[0]).getShape()
+        with self.assertRaises(NotImplementedError):
+            history.setKnots(history.getKnots())
+
+
+if __name__ == "__main__":
+    unittest.main(argv=[sys.argv[0]])

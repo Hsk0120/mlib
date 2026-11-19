@@ -16,7 +16,7 @@ from ..core.ngSkinLayers import _layer_api, _move_layer_weights
 from ..core.object import Object
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths import easing
-from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _PointGrid, _world_space
+from ..util import _MIRROR_PLANES, _UNSET, _finite, _mirror_axis, _PointGrid, _world_space
 from .dagNode import DagNode
 from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
@@ -369,6 +369,37 @@ class SkinCluster(GeometryFilter):
         if len(indices) != 1:
             raise ValueError("influenceを1つ指定してください")
         return self._skin_fn.indexForInfluenceObject(self._skin_fn.influenceObjects()[indices[0]])
+
+    def setDropoffRate(self, influence, value):
+        """指定インフルエンスの減衰率を変え、Mayaでスキンウェイトを再計算する。
+
+        手で調整したウェイトも変わる。単一Meshを変形する、ロック・入力接続・レイヤーのないスキンに限定する。
+        通常Undoに対応する。fast引数は持たない(1回のskinClusterコマンドを使うため)。
+
+        Args:
+            influence (Node | str): 登録済みのインフルエンス。
+            value (float): 0.1以上10以下の有限な減衰率。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: influenceまたはvalueの型が不正な場合。
+            ValueError: 未登録のインフルエンス、またはvalueが範囲外の場合。
+            RuntimeError: ロック・入力接続・レイヤーがあるか、Mayaが再計算を拒否した場合。
+            NotImplementedError: 対象が単一Meshでない場合。
+        """
+        value = _finite(value, "value")
+        if not 0.1 <= value <= 10.0:
+            raise ValueError("valueは0.1以上10以下で指定してください")
+        node = Node._resolve_input(influence)
+        index = self.getInfluenceIndex(node)
+        geometry = self.getGeometry()
+        if len(geometry) != 1 or not geometry[0].isType("mesh"):
+            raise NotImplementedError("減衰率の再計算は単一Meshのスキンに限ります")
+        self._editable_weight_list()
+        require_writable(self.getPlug("dropoff")[index].mplug())
+        cmds.skinCluster(self.getFullName(), edit=True, influence=node.getFullName(), dropoffRate=value)
 
     def smoothWeights(self, *, tolerance=0.5, iterations=2):
         """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。

@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
+import maya.cmds as cmds
 from ..core.fastWrite import require_range, require_writable, set_attr
 from ..core.object import Object
 from ..decorator import _edit_context
@@ -28,6 +29,19 @@ class GeometryFilter(Node):
     :meth:`getDeformerWeights` などは使えない。
     代わりに :meth:`SkinCluster.getWeights <mlib.nodes.skinCluster.SkinCluster.getWeights>` を使う。
     """
+    def getDeformerTools(self) -> Nodes:
+        """デフォーマーを操作するMayaのツールオブジェクトを取得する。
+
+        汎用deformerコマンドのdeformerToolsを使う。clusterではハンドルShape、
+        skinClusterではJointなど、ノード型によって対象が異なる。Mayaの返却順を保持する。
+
+        Returns:
+            Nodes: 操作用ノード。存在しなければ空。
+
+        Raises:
+            RuntimeError: デフォーマーが無効、またはMayaが照会を拒否した場合。
+        """
+        ...
     def getGeometry(self) -> Nodes:
         """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。
 
@@ -81,6 +95,66 @@ class GeometryFilter(Node):
             TypeError: geometryIndexがintでない場合。
             IndexError: 指定した論理番号の出力が無い場合。
             RuntimeError: デフォーマーが無効な場合。
+        """
+        ...
+    def getGeometryIndices(self) -> list[int]:
+        """接続されている出力形状の論理番号を取得する。
+
+        Returns:
+            list[int]: 出力接続の物理的な並び順に対応する論理番号。欠番を詰め直さない。
+
+        Raises:
+            RuntimeError: デフォーマーが無効な場合。
+        """
+        ...
+    def getInputGeometryAtIndex(self, *, geometryIndex: int) -> Node | None:
+        """出力の論理番号に対応する、変形前の入力Shapeを取得する。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。
+
+        Returns:
+            Node | None: Mayaが返す入力Shape。入力ShapeがなければNone。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合。
+            IndexError: 指定した論理番号の出力がない場合。
+            RuntimeError: デフォーマーが無効、またはMayaが入力Shapeの取得を拒否した場合。
+        """
+        ...
+    def getGeometryIndexForGroupId(self, groupId: int) -> int:
+        """groupIdに対応する変形対象の論理番号を取得する。
+
+        セット方式のgroupIdを使う。コンポーネントタグ方式の所属は対象外。
+
+        Args:
+            groupId (int): 0〜4294967295のgroupId。
+
+        Returns:
+            int: input/outputGeometryの論理番号。
+
+        Raises:
+            TypeError: groupIdがintでない場合。
+            ValueError: groupIdが範囲外の場合。
+            RuntimeError: デフォーマーが無効、または対応するgroupIdがない場合。
+        """
+        ...
+    def getGeometryGroupId(self, *, geometryIndex: int) -> int:
+        """変形対象の論理番号に対応するgroupIdを取得する。
+
+        セット方式の所属を識別する値で、Shapeの論理番号とは異なる。
+        コンポーネントタグ方式の所属取得にはgetGeometryComponentsを使う。
+
+        Args:
+            geometryIndex (int): input/outputGeometryの論理番号。
+
+        Returns:
+            int: Mayaが返すgroupId。
+
+        Raises:
+            TypeError: geometryIndexがintでない場合。
+            IndexError: 指定した論理番号の出力がない場合。
+            RuntimeError: デフォーマーが無効、またはgroupIdを取得できない場合。
         """
         ...
     def getGeometryComponents(self, *, geometryIndex: int = ...) -> list[Components]:

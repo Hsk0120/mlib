@@ -135,6 +135,41 @@ class MultiPlug(Plug):
 
         """
         ...
+    def getElementCount(self, *, evaluate: bool = ...) -> int:
+        """Mayaが保持するマルチアトリビュートの要素数を取得する。
+
+        既定では未評価の接続要素を数えない場合がある。evaluate=Trueでは接続要素を評価してから数える。
+        getIndicesのインスタンス要素補完は行わず、MPlugの保持状態をそのまま返す。
+
+        Args:
+            evaluate (bool): Trueなら接続要素を評価する。既定False。
+
+        Returns:
+            int: 要素数。最大の論理番号とは異なる。
+
+        Raises:
+            TypeError: evaluateがboolでない場合。
+            RuntimeError: Plugが無効、または評価できない場合。
+        """
+        ...
+    def getElementByPhysicalIndex(self, index: int) -> Plug:
+        """保持済み要素の物理番号からPlugを取得する。
+
+        値は評価しない。物理番号はMaya内部の並びの位置で、論理番号の昇順とは限らない。
+        要素の追加・削除後も同じ要素を指す番号ではない。
+
+        Args:
+            index (int): 0以上、getElementCount()未満の物理番号。
+
+        Returns:
+            Plug: 対応する要素の新しい参照。値はコピーしない。
+
+        Raises:
+            TypeError: indexがbool、または整数でない場合。
+            IndexError: 物理番号が範囲外の場合。
+            RuntimeError: Plugが無効な場合。
+        """
+        ...
     def getElement(self, index: int) -> Plug:
         """論理番号で要素を取得する(``multi[index]`` と同じ)。
 
@@ -229,8 +264,8 @@ class MultiPlug(Plug):
                 ``checkLocked=True`` で、マルチアトリビュート全体がロックされている場合。
         """
         ...
-    def removeElement(self, index: int, shift: bool = ..., *, fast: bool = ...) -> None:
-        """マルチアトリビュートの要素を削除する。接続も切る。
+    def removeElement(self, index: int, shift: bool = ..., *, fast: bool = ..., breakConnections: bool = ...) -> None:
+        """マルチアトリビュートの要素を削除する。
 
         削除できるのは、実際にある要素(OpenMayaが返す、すでにある要素の番号)だけ。
         worldSpaceでgetIndices()が補っただけの番号は削除の対象にしない。
@@ -244,12 +279,13 @@ class MultiPlug(Plug):
             index (int): 削除する論理番号。
             shift (bool): Trueなら、後ろの要素を1つずつ前へ詰める。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            breakConnections (bool): Trueなら接続を切る。Falseなら削除・移動対象に接続がある場合は更新前に拒否する。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: indexがboolの場合や整数でない場合、またはshift・fastがboolでない場合。
+            TypeError: indexがboolの場合や整数でない場合、またはshift・fast・breakConnectionsがboolでない場合。
             IndexError: 論理番号が範囲外の場合、またはその番号の要素が実際には無い場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合、またはMayaが削除を拒否した場合。
                 ``shift=True`` で、マルチアトリビュートか移す要素がロックされている場合や、

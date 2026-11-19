@@ -12,7 +12,7 @@ from ..core import geometryEdit as geometry_edit
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _finite, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .shape import Shape
 
 #: aimAxis・upAxis の名前と (軸番号, 符号)。
@@ -341,6 +341,55 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         return list(self._geometry_fn().knots())
+
+    def setKnots(self, knots):
+        """カーブの既存ノット列を置き換える。
+
+        ノット数は変えない。ヒストリ・参照・CVのロックや接続がないカーブに限定する。
+        通常Undoに対応する。fast引数は持たない(カーブデータを1回のcmds.setAttrで書くため)。
+
+        Args:
+            knots (Iterable[float]): 現在と同じ個数の、有限で非減少のノット列。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: ノットが数値列でない場合。
+            ValueError: 個数・順序・値が不正な場合。
+            RuntimeError: ロック、無効な形状、またはMayaが更新を拒否した場合。
+            NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        values = [_finite(value, "knots") for value in knots]
+        self._require_knot_edit()
+        data = om2.MFnNurbsCurveData().create()
+        fn = om2.MFnNurbsCurve(om2.MFnNurbsCurve().copy(self.mnode(), data))
+        if len(values) != fn.numKnots or any(a > b for a, b in zip(values, values[1:])):
+            raise ValueError("knotsは現在と同じ個数の非減少列で指定してください")
+        if values[fn.degree - 1] >= values[-fn.degree]:
+            raise ValueError("knotsのパラメーター範囲には正の幅が必要です")
+        fn.setKnots(values, 0, len(values) - 1)
+        self._write_curve_data(fn)
+
+    def makeMultipleEndKnots(self):
+        """カーブ両端のノットを最大多重度にする。
+
+        端点を先頭・末尾CVへ一致させる。周期カーブは閉じたカーブへ変わる。
+        ヒストリ・参照・CVのロックや接続がないカーブに限定し、通常Undoに対応する。
+        fast引数は持たない(データの一括置換をcmdsへ委譲するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロック、無効な形状、またはMayaが更新を拒否した場合。
+            NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        self._require_knot_edit()
+        data = om2.MFnNurbsCurveData().create()
+        fn = om2.MFnNurbsCurve(om2.MFnNurbsCurve().copy(self.mnode(), data))
+        fn.makeMultipleEndKnots()
+        self._write_curve_data(fn)
 
     def isPlanar(self):
         """カーブが1つの平面の上にあるか調べる。
@@ -673,6 +722,54 @@ class NurbsCurve(Shape):
         start, end = self._geometry_fn().knotDomain
         return start, end
 
+    def getParamAtPoint(self, point, worldSpace=_UNSET, *, tolerance=1e-7, ws=_UNSET):
+        """カーブ上の点に対応するパラメーターを取得する。
+
+        カーブからtoleranceより離れた点は拒否する。最寄りの点を探す場合はgetClosestPointを使う。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+
+        Returns:
+            float: 点に対応するパラメーター。
+
+        Raises:
+            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
+            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
+            RuntimeError: 点が許容誤差内のカーブ上にない、または形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        x, y, z = geometry_edit.point_list([point])[0]
+        tolerance = _checked_tolerance(tolerance)
+        curve = self._space_curve(worldSpace)
+        return curve.getParamAtPoint(om2.MPoint(x, y, z), tolerance)
+
+    def isPointOnCurve(self, point, worldSpace=_UNSET, *, tolerance=1e-7, ws=_UNSET):
+        """指定点が許容誤差内でカーブ上にあるか調べる。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+
+        Returns:
+            bool: 点が許容誤差内のカーブ上にある場合はTrue。
+
+        Raises:
+            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
+            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        x, y, z = geometry_edit.point_list([point])[0]
+        tolerance = _checked_tolerance(tolerance)
+        curve = self._space_curve(worldSpace)
+        return curve.isPointOnCurve(om2.MPoint(x, y, z), tolerance)
+
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
         """指定した位置に最も近い、カーブ上の点とパラメーターを取得する。
 
@@ -951,6 +1048,33 @@ class NurbsCurve(Shape):
         else:
             ups = self._transported_ups(curve, params, aims)
         return [_frame_matrix(position, aim, value, aim_axis, up_axis) for position, aim, value in zip(positions, aims, ups)]
+
+    def _require_knot_edit(self):
+        """カーブデータ全体を置き換えられることを更新前に確かめる。"""
+        self._geometry_fn()
+        dependency = self._dependency_fn()
+        if dependency.isFromReferencedFile:
+            raise NotImplementedError("参照カーブのノット編集には対応していません")
+        source = self.getPlug("create")
+        if source.getSource() is not None:
+            raise NotImplementedError("ヒストリ付きカーブのノット編集には対応していません")
+        if dependency.isLocked or source.isLocked():
+            raise RuntimeError("カーブまたはcreateがロックされています")
+        for plug in self.getPlug("controlPoints").getElements():
+            if plug.isLocked() or plug.getSource() is not None:
+                raise NotImplementedError("CVのロック・接続があるカーブのノット編集には対応していません")
+            for child in plug.getChildren():
+                if child.isLocked() or child.getSource() is not None:
+                    raise NotImplementedError("CVのロック・接続があるカーブのノット編集には対応していません")
+
+    def _write_curve_data(self, fn):
+        """検証済みの独立したカーブデータを1回のcmdsで書き込む。
+
+        Args:
+            fn (om2.MFnNurbsCurve): コピー側の編集済みデータ。
+        """
+        points = [(p.x, p.y, p.z, p.w) for p in fn.cvPositions()]
+        cmds.setAttr(self.getFullName() + ".create", fn.degree, fn.numSpans, fn.form - 1, True, 3, list(fn.knots()), 0, len(points), *points, type="nurbsCurve")
 
     def _space_curve(self, worldSpace):
         """指定空間の形状をオブジェクト空間で照会できる ``om2.MFnNurbsCurve`` を返す。

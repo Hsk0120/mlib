@@ -25,6 +25,7 @@ from mlib.maths.transformation import Transformation
 from mlib.maths.translate import Translate
 from mlib.maths.vector import Vector
 from mlib.nodes.constraint import Constraint
+from mlib.nodes.container import Container
 from mlib.nodes.dagNode import DagNode
 from mlib.nodes.dagPose import DagPose
 from mlib.nodes.objectSet import ObjectSet
@@ -516,6 +517,122 @@ class Node(Object):
             om2.MObject: このオブジェクトが指すノードのMObject。
         """
         ...
+    def getDgTimerState(self) -> int:
+        """このノードのDG計測状態を取得する。
+
+        Returns:
+            int: MFnDependencyNodeのkTimerOn・kTimerOff・kTimerUninitialized・kTimerInvalidState。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def setDgTimerEnabled(self, state: bool) -> None:
+        """このノードのDG計測を開始・停止する。
+
+        診断用の計測状態を変更するためUndoには記録しない。Undo設定は変えない。
+        計測には実行負荷があり、全体の計測設定や評価方式によって記録される項目が異なる。
+        fast引数は持たない(シーンの値編集ではなく、計測状態の変更のため)。
+
+        Args:
+            state (bool): Trueで開始、Falseで停止。過去の結果は消去しない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def resetDgTimer(self) -> None:
+        """このノードに蓄積されたDG計測結果を消去する。
+
+        計測の開始・停止は変更しない。Undoには記録せず、Undo設定も変えない。
+        fast引数は持たない(診断用の計測結果の消去のため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def getDgTimer(self, metric: int, *, timerType: int = ...) -> float:
+        """指定したDG処理の計測値を取得する。
+
+        計測は開始しない。未計測の値は0になり得るため、0を処理未実行の証拠にはしない。
+
+        Args:
+            metric (int): MFnDependencyNodeのkTimerMetric_*定数(0〜8)。
+            timerType (int): kTimerType_self(0、既定)、inclusive(1)、count(2)。
+
+        Returns:
+            float: self・inclusiveなら秒、countなら回数を表す値。
+
+        Raises:
+            TypeError: metric・timerTypeがintでない場合。
+            ValueError: 定数が範囲外の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def getDgCallbacks(self, *, timerType: int = ...) -> list[tuple[str, float]]:
+        """コールバックの種類別にDG計測値を取得する。
+
+        計測を開始せず、Mayaが保持する結果だけを返す。
+
+        Args:
+            timerType (int): MFnDependencyNodeのkTimerType_self(0、既定)、inclusive(1)、count(2)。
+
+        Returns:
+            list[tuple[str, float]]: (コールバック名, 計測値)の新しいリスト。Mayaの列挙順。時間は秒、countは回数。
+
+        Raises:
+            TypeError: timerTypeがintでない場合。
+            ValueError: timerTypeが範囲外の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def affectsAnimation(self) -> bool:
+        """ノードがアニメーションに影響するとMayaへ申告しているか調べる。
+
+        Returns:
+            bool: MFnDependencyNode.affectsAnimationの値。現在の接続全体の解析ではない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def canBeWritten(self) -> bool:
+        """このノードがMayaのファイル書込み対象か調べる。
+
+        Returns:
+            bool: 書込み対象ならTrue。保存に成功することや外部ファイルの保存までは保証しない。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
+    def isShared(self) -> bool:
+        """このノードが共有ノードか調べる。
+
+        Returns:
+            bool: Mayaの共有ノードならTrue。DAGインスタンスの判定とは異なる。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
+    def isTrackingEdits(self) -> bool:
+        """このノードの編集がリファレンスやアセンブリで追跡されるか調べる。
+
+        Returns:
+            bool: 編集追跡の対象ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
     def mfn(self) -> om2.MFnDependencyNode:
         """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
@@ -655,6 +772,35 @@ class Node(Object):
 
         Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
+        """
+        ...
+    def swapConnections(self, other: Node | str) -> None:
+        """同じ型の2つのDGノードの接続をMayaのnodeCastで入れ替える。
+
+        名前・値は交換しない。DAG・参照・追加アトリビュートのあるノードは対象外。
+        通常Undoに対応する。fast引数は持たない(1回のnodeCastコマンドを使うため)。
+
+        Args:
+            other (Node | str): 接続を交換する同じノード型の相手。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: otherがノードとして解決できない型の場合。
+            ValueError: 自身を指定した場合、またはノード型が異なる場合。
+            RuntimeError: ノードの無効・ロック、またはMayaが交換を拒否した場合。
+            NotImplementedError: DAG・参照・追加アトリビュートのあるノードの場合。
+        """
+        ...
+    def getContainer(self) -> Container | None:
+        """このノードが直接所属するコンテナを取得する。
+
+        Returns:
+            Container | None: 所属コンテナ。所属していなければNone。
+
+        Raises:
+            RuntimeError: ノードが無効、またはMayaが照会を拒否した場合。
         """
         ...
     def getReference(self) -> Reference | None:
@@ -1125,6 +1271,16 @@ class Node(Object):
             RuntimeError: Mayaが変更を拒否した場合。
         """
         ...
+    def getNumAttrs(self) -> int:
+        """ノードのアトリビュート定義の総数を取得する。
+
+        コンパウンドの子の定義も数える。マルチの要素数ではなく、未作成の要素も作らない。
+        getPlugsのようにPlugへ変換できる定義だけに絞る処理は行わない。
+
+        Returns:
+            int: MFnDependencyNodeが返す定義数。
+        """
+        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> Plugs:
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
@@ -1393,6 +1549,19 @@ class Node(Object):
 
         Returns:
             str | None: ノードのUUID。ノードが無効なら ``None``。
+        """
+        ...
+    def getAbsoluteName(self) -> str:
+        """ルート名前空間から始まるノード名を取得する。
+
+        先頭のコロンを含み、相対名前空間モードに影響されない。DAG階層は含まないため、
+        同名DAGノードを一意に識別する用途にはgetNameかgetFullNameを使う。
+
+        Returns:
+            str: :namespace:nodeの形式の名前。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
         """
         ...
     def getName(self) -> str:
@@ -2397,6 +2566,33 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def mnode(self) -> list[om2.MObject]:
         """各要素の :meth:`~mlib.nodes.node.Node.mnode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getDgTimerState(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimerState` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setDgTimerEnabled(self, state: bool) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setDgTimerEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def resetDgTimer(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.resetDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgTimer(self, metric: int, *, timerType: int = ...) -> list[float]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgCallbacks(self, *, timerType: int = ...) -> list[list[tuple[str, float]]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgCallbacks` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def affectsAnimation(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.affectsAnimation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def canBeWritten(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.canBeWritten` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isShared(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isShared` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isTrackingEdits(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isTrackingEdits` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def mfn(self) -> list[om2.MFnDependencyNode]:
         """各要素の :meth:`~mlib.nodes.node.Node.mfn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2423,6 +2619,12 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def swapConnections(self, other: Node | str) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.swapConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getContainer(self) -> list[Container | None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getContainer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getReference(self) -> list[Reference | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2484,6 +2686,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getNumAttrs(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getNumAttrs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2507,6 +2712,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAbsoluteName(self) -> list[str]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAbsoluteName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2547,7 +2755,13 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def reorder(self, *, front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int = ..., r: int = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.reorder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getBoundingBox(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[om2.MBoundingBox]:
+    def isInUnderworld(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isInUnderworld` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isInModel(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isInModel` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getBoundingBox(self, worldSpace: bool = ..., *, ws: bool = ..., includeInvisible: bool = ...) -> list[om2.MBoundingBox]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getBoundingBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getBoundingBoxCorners(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[list[Vector]]:

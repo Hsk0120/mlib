@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import undoTransaction
-from ..plugs.plug import Plug
+from ..plugs.plug import Plug, Plugs
 from .node import Node, Nodes, _resolve_node
 from typing import Iterable
 
@@ -27,6 +27,31 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
     その戻す処理まで失敗しないとは限らない。fast引数は無い。
     createNodeでノードを作るときも、通常のUndoできる変更を使う。
     """
+    def getExternalConnections(self) -> Plugs:
+        """コンテナ内部から外部へつながる、外部側のPlugを取得する。
+
+        Mayaのcontainer(connectionList=True)の順を保持する。接続を変更しない。
+
+        Returns:
+            Plugs: 外部側のアトリビュート。接続がなければ空。
+
+        Raises:
+            RuntimeError: コンテナが無効、またはMayaが照会を拒否した場合。
+        """
+        ...
+    def publishConnections(self) -> None:
+        """内部ノードから外部への接続を、Mayaの方法でコンテナへ公開する。
+
+        公開名とバインドを追加する。既存名との衝突や公開する親アトリビュートの選択はMayaに従う。
+        通常Undoに対応する。fast引数は持たない(1回のcontainerコマンドを使うため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: コンテナのロック等でMayaが公開を拒否した場合。
+        """
+        ...
     def getMembers(self) -> Nodes:
         """containerに直接入っているメンバーを取得する。
 

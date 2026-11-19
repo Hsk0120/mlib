@@ -527,6 +527,48 @@ class Mesh(Shape):
         else:
             cmds.polyNormalPerVertex(components.getFullNames(), unFreezeNormal=True)
 
+    def getTangentData(self, worldSpace=_UNSET, *, ws=_UNSET):
+        """現在のUVセットの接線のリストと、面頂点から接線番号への対応を取得する。
+
+        UVセットは変更しない。番号は頂点番号やUV番号とは別で、編集後の維持は保証しない。
+        全フェースへUVが割り当てられたメッシュを対象にする。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+
+        Returns:
+            dict[str, Any]: uvSet(名前)、tangents・binormals(Vectorのリスト)、counts(面ごとの頂点数)、
+                indices(面の頂点順の接線番号)、rightHanded(接線番号順の右手系判定)。すべて独立した値。
+
+        Raises:
+            TypeError: 空間指定がbool以外、または長短名を同時指定した場合。
+            RuntimeError: UVが未割当、形状が無効、またはMayaが接線を取得できない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        fn = self._geometry_fn()
+        name = fn.currentUVSetName()
+        counts, vertices = fn.getVertices()
+        uv_counts, _ = fn.getAssignedUVs(name)
+        if list(uv_counts) != list(counts):
+            raise RuntimeError("全フェースにUVが割り当てられている必要があります")
+        tangents = [_vector_of(Vector, value) for value in fn.getTangents(space, name)]
+        binormals = [_vector_of(Vector, value) for value in fn.getBinormals(space, name)]
+        indices = []
+        offset = 0
+        for face, count in enumerate(counts):
+            indices.extend(fn.getTangentId(face, vertices[offset + corner]) for corner in range(count))
+            offset += count
+        return {
+            "uvSet": name,
+            "tangents": tangents,
+            "binormals": binormals,
+            "counts": list(counts),
+            "indices": indices,
+            "rightHanded": [fn.isRightHandedTangent(index, name) for index in range(len(tangents))],
+        }
+
     def getFaceVertexTangents(self, worldSpace=_UNSET, *, uvSet=None, faceVertices=None, ws=_UNSET):
         """UVのU方向に沿う面頂点の接線を取得する。
 

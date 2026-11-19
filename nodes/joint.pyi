@@ -5,6 +5,7 @@ import math
 from contextlib import contextmanager
 from typing import Any, Dict, List
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 from ..core.fastWrite import require_writable, set_attr
 from ..core.nodeEdit import check_deletion, delete_nodes
@@ -24,6 +25,7 @@ from mlib.maths.shear import Shear
 from mlib.maths.transformation import Transformation
 from mlib.maths.translate import Translate
 from mlib.nodes.constraint import Constraint
+from mlib.nodes.container import Container
 from mlib.nodes.dagNode import DagNode
 from mlib.nodes.dagPose import DagPose
 from mlib.nodes.ikHandle import IkHandle
@@ -259,6 +261,30 @@ class Joint(Transform):
 
         Note:
             Undoが有効なら、1回のUndoで戻せる。途中で失敗しても、それまでに済んだ変更は自動では戻さない。
+        """
+        ...
+    def resetScaleOrientation(self) -> None:
+        """ジョイントの回転軸を0にし、子の位置と回転へ補正する。
+
+        Maya標準のjoint(zeroScaleOrient=True)を使う。jointOrientを指定方向へ向け直す操作ではない。
+        子のチャンネル値が変わる。fast引数は持たない(補正を含むcmdsで更新するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: 自身または子が参照・ロックされているか、補正チャンネルが編集できない場合。
+        """
+        ...
+    def getHikJointName(self) -> str:
+        """HumanIKでのジョイント名を取得する。
+
+        Returns:
+            str: Mayaが返すHumanIK名。
+
+        Raises:
+            RuntimeError: ジョイントが無効、またはHumanIK名を取得できない場合(未登録など)。
+            NotImplementedError: MFnIkJointを持たないMaya版の場合。
         """
         ...
     def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., *, children: bool = ..., zeroScaleOrient: bool = ...) -> None:
@@ -1024,6 +1050,12 @@ class Joints(Nodes[Joint]):
     def freezeRotate(self) -> list[None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.freezeRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def resetScaleOrientation(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.joint.Joint.resetScaleOrientation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getHikJointName(self) -> list[str]:
+        """各要素の :meth:`~mlib.nodes.joint.Joint.getHikJointName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def mirror(self, axis: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> list[Joint]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.mirror` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1276,7 +1308,13 @@ class Joints(Nodes[Joint]):
     def reorder(self, *, front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int = ..., r: int = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.reorder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getBoundingBox(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[om2.MBoundingBox]:
+    def isInUnderworld(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isInUnderworld` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isInModel(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isInModel` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getBoundingBox(self, worldSpace: bool = ..., *, ws: bool = ..., includeInvisible: bool = ...) -> list[om2.MBoundingBox]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getBoundingBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getBoundingBoxCorners(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[list[Vector]]:
@@ -1342,6 +1380,33 @@ class Joints(Nodes[Joint]):
     def mnode(self) -> list[om2.MObject]:
         """各要素の :meth:`~mlib.nodes.node.Node.mnode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getDgTimerState(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimerState` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setDgTimerEnabled(self, state: bool) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setDgTimerEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def resetDgTimer(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.resetDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgTimer(self, metric: int, *, timerType: int = ...) -> list[float]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getDgCallbacks(self, *, timerType: int = ...) -> list[list[tuple[str, float]]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getDgCallbacks` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def affectsAnimation(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.affectsAnimation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def canBeWritten(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.canBeWritten` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isShared(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isShared` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isTrackingEdits(self) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isTrackingEdits` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getType(self, inherited: bool = ...) -> list[str | list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1365,6 +1430,12 @@ class Joints(Nodes[Joint]):
         ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def swapConnections(self, other: Node | str) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.swapConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getContainer(self) -> list[Container | None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getContainer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getReference(self) -> list[Reference | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -1423,6 +1494,9 @@ class Joints(Nodes[Joint]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getNumAttrs(self) -> list[int]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getNumAttrs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1446,6 +1520,9 @@ class Joints(Nodes[Joint]):
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAbsoluteName(self) -> list[str]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAbsoluteName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

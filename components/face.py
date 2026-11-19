@@ -4,7 +4,7 @@ import maya.api.OpenMaya as om2
 
 from ..decorator import _pick_alias
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _checked_tolerance, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .component import Component, Components
 from .uv import UVs
 from .vertex import Vertices
@@ -55,6 +55,33 @@ class Face(Component):
             Edges: エッジ。番号の小さい順に並び、重なりは無い。
         """
         return Faces(self.shape, [self.index]).getEdges()
+
+    def getColor(self, *, colorSet=None):
+        """フェースの平均カラーをMayaの方法で取得する。
+
+        面頂点の未設定カラーを含む平均の扱いはMItMeshPolygon.getColorに従う。
+        全コーナーが未設定ならNoneを返す。
+
+        Args:
+            colorSet (str | None): カラーセット。Noneは現在のセット。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBAの平均。カラーが無ければNone。
+
+        Raises:
+            TypeError: colorSetが文字列・None以外の場合。
+            ValueError: 指定したカラーセットが無い場合。
+            RuntimeError: フェースが無効な場合。
+        """
+        self._require_valid()
+        fn = self.shape._geometry_fn()
+        name = self.shape._resolve_color_set(colorSet, fn)
+        if name is None:
+            return None
+        values = self.shape.getFaceVertexColors(colorSet=name, faceVertices=self.getVertexFaces())
+        if all(value is None for value in values):
+            return None
+        return tuple(self._iterator().getColor(name))
 
     def getCenter(self, worldSpace=_UNSET, *, ws=_UNSET):
         """面の中心を取得する。
@@ -143,6 +170,37 @@ class Face(Component):
         """
         return Faces(self.shape, sorted(set(self._iterator().getConnectedFaces())))
 
+    def getConnectedEdges(self):
+        """このフェースの頂点につながる、フェース外のエッジを取得する。
+
+        フェース自身のエッジは含めない。getEdgesとは取得対象が異なる。
+
+        Returns:
+            Edges: 番号の小さい順に並ぶ、重複のないエッジ。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        # edge.pyがFaceを参照するため、循環を避けて呼出し時に読む。
+        from .edge import Edges
+
+        return Edges(self.shape, sorted(set(self._iterator().getConnectedEdges())))
+
+    def getConnectedVertices(self):
+        """このフェースとエッジでつながる、フェース外の頂点を取得する。
+
+        フェース自身の頂点は含めない。getVerticesとは取得対象が異なる。
+
+        Returns:
+            Vertices: 番号の小さい順に並ぶ、重複のない頂点。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        return Vertices(self.shape, sorted(set(self._iterator().getConnectedVertices())))
+
     def getVertexFaces(self):
         """このフェースの頂点フェースを、フェースの頂点の順に取得する。
 
@@ -176,6 +234,74 @@ class Face(Component):
         if iterator.hasUVs(uv_set):
             indices = [iterator.getUVIndex(local, uv_set) for local in range(iterator.polygonVertexCount())]
         return UVs(self.shape, indices)
+
+    def getUVSetNames(self):
+        """このフェースに割り当てられたUVセット名を取得する。
+
+        Returns:
+            list[str]: Mayaの列挙順の名前。メッシュ全体のUVセット一覧とは異なる。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        return list(self._iterator().getUVSetNames())
+
+    def getPointAtUV(self, u, v, worldSpace=_UNSET, *, uvSet=None, tolerance=0.0, ws=_UNSET):
+        """このフェース内のUV座標に対応する3D位置を取得する。
+
+        別フェースに重なるUVがあっても探索しない。境界の判定はMayaに従う。
+
+        Args:
+            u (float): 有限なU座標。
+            v (float): 有限なV座標。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            tolerance (float): UV判定の許容誤差。0以上。既定0。
+            ws (bool): worldSpaceの短縮名。同時指定は不可。
+
+        Returns:
+            Vector: 対応する位置(cm)の新しい値。
+
+        Raises:
+            TypeError: 数値・UVセット・空間指定の型が不正、または長短名を同時指定した場合。
+            ValueError: 数値が有限でない、許容誤差が負、またはUVセットがない場合。
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効、UV未割り当て、またはフェース内に対応点がない場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        coords = (_finite(u, "u"), _finite(v, "v"))
+        limit = _checked_tolerance(tolerance)
+        name = self.shape._resolve_uv_set(uvSet)
+        point = self._iterator().getPointAtUV(coords, space, name, limit)
+        return _vectors_of_points([point])[0]
+
+    def getUVAtPoint(self, point, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
+        """指定位置に最も近い、このフェース上の点のUV座標を取得する。
+
+        メッシュ全体の最短点ではなく、このフェースだけを調べる。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 入力位置(cm)。worldSpaceと同じ空間。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの短縮名。同時指定は不可。
+
+        Returns:
+            tuple[float, float]: (U, V)の新しい値。
+
+        Raises:
+            TypeError: 入力・UVセット・空間指定の型が不正、または長短名を同時指定した場合。
+            ValueError: 入力が3成分の有限値でない、またはUVセットがない場合。
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効、UV未割り当て、またはMayaが照会を拒否した場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        value = self.shape._resolve_query_point(point)
+        name = self.shape._resolve_uv_set(uvSet)
+        return tuple(self._iterator().getUVAtPoint(value, space, name))
 
     def getUVArea(self, *, uvSet=None):
         """フェースのUV上の面積を取得する。
@@ -286,6 +412,20 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         return self._iterator().isConvex()
+
+    def isStarlike(self):
+        """フェースがMayaの星状多角形の条件を満たすか調べる。
+
+        MItMeshPolygon.isStarlikeの判定を返す。凸性や三角形分割の有効性とは別の照会。
+
+        Returns:
+            bool: 星状多角形ならTrue。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        return self._iterator().isStarlike()
 
     def isLamina(self):
         """ラミナフェースか調べる。

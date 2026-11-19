@@ -4,11 +4,11 @@
 import maya.api.OpenMaya as om2
 from ..decorator import _pick_alias
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _checked_tolerance, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .component import Component, Components
 from .uv import UVs
 from .vertex import Vertices
-from typing import Any, Iterator
+from typing import Any, Iterator, Sequence
 from mlib.components.edge import Edges
 from mlib.components.vertexFace import VertexFaces
 from mlib.nodes.node import Node
@@ -53,6 +53,24 @@ class Face(Component):
 
         Returns:
             Edges: エッジ。番号の小さい順に並び、重なりは無い。
+        """
+        ...
+    def getColor(self, *, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
+        """フェースの平均カラーをMayaの方法で取得する。
+
+        面頂点の未設定カラーを含む平均の扱いはMItMeshPolygon.getColorに従う。
+        全コーナーが未設定ならNoneを返す。
+
+        Args:
+            colorSet (str | None): カラーセット。Noneは現在のセット。
+
+        Returns:
+            tuple[float, float, float, float] | None: RGBAの平均。カラーが無ければNone。
+
+        Raises:
+            TypeError: colorSetが文字列・None以外の場合。
+            ValueError: 指定したカラーセットが無い場合。
+            RuntimeError: フェースが無効な場合。
         """
         ...
     def getCenter(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
@@ -125,6 +143,32 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
+    def getConnectedEdges(self) -> Edges:
+        """このフェースの頂点につながる、フェース外のエッジを取得する。
+
+        フェース自身のエッジは含めない。getEdgesとは取得対象が異なる。
+
+        Returns:
+            Edges: 番号の小さい順に並ぶ、重複のないエッジ。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        ...
+    def getConnectedVertices(self) -> Vertices:
+        """このフェースとエッジでつながる、フェース外の頂点を取得する。
+
+        フェース自身の頂点は含めない。getVerticesとは取得対象が異なる。
+
+        Returns:
+            Vertices: 番号の小さい順に並ぶ、重複のない頂点。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        ...
     def getVertexFaces(self) -> VertexFaces:
         """このフェースの頂点フェースを、フェースの頂点の順に取得する。
 
@@ -145,6 +189,61 @@ class Face(Component):
         Raises:
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
+        """
+        ...
+    def getUVSetNames(self) -> list[str]:
+        """このフェースに割り当てられたUVセット名を取得する。
+
+        Returns:
+            list[str]: Mayaの列挙順の名前。メッシュ全体のUVセット一覧とは異なる。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        ...
+    def getPointAtUV(self, u: float, v: float, worldSpace: bool = ..., *, uvSet: str | None = ..., tolerance: float = ..., ws: bool = ...) -> Vector:
+        """このフェース内のUV座標に対応する3D位置を取得する。
+
+        別フェースに重なるUVがあっても探索しない。境界の判定はMayaに従う。
+
+        Args:
+            u (float): 有限なU座標。
+            v (float): 有限なV座標。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            tolerance (float): UV判定の許容誤差。0以上。既定0。
+            ws (bool): worldSpaceの短縮名。同時指定は不可。
+
+        Returns:
+            Vector: 対応する位置(cm)の新しい値。
+
+        Raises:
+            TypeError: 数値・UVセット・空間指定の型が不正、または長短名を同時指定した場合。
+            ValueError: 数値が有限でない、許容誤差が負、またはUVセットがない場合。
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効、UV未割り当て、またはフェース内に対応点がない場合。
+        """
+        ...
+    def getUVAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> tuple[float, float]:
+        """指定位置に最も近い、このフェース上の点のUV座標を取得する。
+
+        メッシュ全体の最短点ではなく、このフェースだけを調べる。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 入力位置(cm)。worldSpaceと同じ空間。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの短縮名。同時指定は不可。
+
+        Returns:
+            tuple[float, float]: (U, V)の新しい値。
+
+        Raises:
+            TypeError: 入力・UVセット・空間指定の型が不正、または長短名を同時指定した場合。
+            ValueError: 入力が3成分の有限値でない、またはUVセットがない場合。
+            IndexError: フェース番号が範囲外の場合。
+            RuntimeError: Shapeが無効、UV未割り当て、またはMayaが照会を拒否した場合。
         """
         ...
     def getUVArea(self, *, uvSet: str | None = ...) -> float:
@@ -236,6 +335,19 @@ class Face(Component):
 
         Raises:
             IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合。
+        """
+        ...
+    def isStarlike(self) -> bool:
+        """フェースがMayaの星状多角形の条件を満たすか調べる。
+
+        MItMeshPolygon.isStarlikeの判定を返す。凸性や三角形分割の有効性とは別の照会。
+
+        Returns:
+            bool: 星状多角形ならTrue。
+
+        Raises:
+            IndexError: フェース番号が範囲外の場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
@@ -357,6 +469,9 @@ class Faces(Components):
     def getMaterial(self) -> list[Node | None]:
         """各要素の :meth:`~mlib.components.face.Face.getMaterial` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
+        """各要素の :meth:`~mlib.components.face.Face.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getCenter(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.face.Face.getCenter` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -369,11 +484,26 @@ class Faces(Components):
     def getConnectedFaces(self) -> list[Faces]:
         """各要素の :meth:`~mlib.components.face.Face.getConnectedFaces` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getConnectedEdges(self) -> list[Edges]:
+        """各要素の :meth:`~mlib.components.face.Face.getConnectedEdges` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getConnectedVertices(self) -> list[Vertices]:
+        """各要素の :meth:`~mlib.components.face.Face.getConnectedVertices` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getVertexFaces(self) -> list[VertexFaces]:
         """各要素の :meth:`~mlib.components.face.Face.getVertexFaces` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getUVs(self) -> list[UVs]:
         """各要素の :meth:`~mlib.components.face.Face.getUVs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getUVSetNames(self) -> list[list[str]]:
+        """各要素の :meth:`~mlib.components.face.Face.getUVSetNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getPointAtUV(self, u: float, v: float, worldSpace: bool = ..., *, uvSet: str | None = ..., tolerance: float = ..., ws: bool = ...) -> list[Vector]:
+        """各要素の :meth:`~mlib.components.face.Face.getPointAtUV` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getUVAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[tuple[float, float]]:
+        """各要素の :meth:`~mlib.components.face.Face.getUVAtPoint` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getUVArea(self, *, uvSet: str | None = ...) -> list[float]:
         """各要素の :meth:`~mlib.components.face.Face.getUVArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -395,6 +525,9 @@ class Faces(Components):
         ...
     def isConvex(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isConvex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isStarlike(self) -> list[bool]:
+        """各要素の :meth:`~mlib.components.face.Face.isStarlike` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isLamina(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isLamina` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

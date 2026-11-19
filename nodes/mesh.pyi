@@ -351,6 +351,25 @@ class Mesh(Shape):
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         ...
+    def getTangentData(self, worldSpace: bool = ..., *, ws: bool = ...) -> dict[str, Any]:
+        """現在のUVセットの接線のリストと、面頂点から接線番号への対応を取得する。
+
+        UVセットは変更しない。番号は頂点番号やUV番号とは別で、編集後の維持は保証しない。
+        全フェースへUVが割り当てられたメッシュを対象にする。
+
+        Args:
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+
+        Returns:
+            dict[str, Any]: uvSet(名前)、tangents・binormals(Vectorのリスト)、counts(面ごとの頂点数)、
+                indices(面の頂点順の接線番号)、rightHanded(接線番号順の右手系判定)。すべて独立した値。
+
+        Raises:
+            TypeError: 空間指定がbool以外、または長短名を同時指定した場合。
+            RuntimeError: UVが未割当、形状が無効、またはMayaが接線を取得できない場合。
+        """
+        ...
     def getFaceVertexTangents(self, worldSpace: bool = ..., *, uvSet: str | None = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., ws: bool = ...) -> list[Vector]:
         """UVのU方向に沿う面頂点の接線を取得する。
 

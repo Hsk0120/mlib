@@ -859,6 +859,155 @@ class Node(Object):
         """
         return self._mobject
 
+    def getDgTimerState(self):
+        """このノードのDG計測状態を取得する。
+
+        Returns:
+            int: MFnDependencyNodeのkTimerOn・kTimerOff・kTimerUninitialized・kTimerInvalidState。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("DG計測状態の取得")
+        return self._dependency_fn().dgTimerQueryState()
+
+    def setDgTimerEnabled(self, state):
+        """このノードのDG計測を開始・停止する。
+
+        診断用の計測状態を変更するためUndoには記録しない。Undo設定は変えない。
+        計測には実行負荷があり、全体の計測設定や評価方式によって記録される項目が異なる。
+        fast引数は持たない(シーンの値編集ではなく、計測状態の変更のため)。
+
+        Args:
+            state (bool): Trueで開始、Falseで停止。過去の結果は消去しない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        _require_bool(state, "state")
+        self._require_valid("DG計測状態の変更")
+        fn = self._dependency_fn()
+        if state:
+            fn.dgTimerOn()
+        else:
+            fn.dgTimerOff()
+
+    def resetDgTimer(self):
+        """このノードに蓄積されたDG計測結果を消去する。
+
+        計測の開始・停止は変更しない。Undoには記録せず、Undo設定も変えない。
+        fast引数は持たない(診断用の計測結果の消去のため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("DG計測結果の消去")
+        self._dependency_fn().dgTimerReset()
+
+    def getDgTimer(self, metric, *, timerType=0):
+        """指定したDG処理の計測値を取得する。
+
+        計測は開始しない。未計測の値は0になり得るため、0を処理未実行の証拠にはしない。
+
+        Args:
+            metric (int): MFnDependencyNodeのkTimerMetric_*定数(0〜8)。
+            timerType (int): kTimerType_self(0、既定)、inclusive(1)、count(2)。
+
+        Returns:
+            float: self・inclusiveなら秒、countなら回数を表す値。
+
+        Raises:
+            TypeError: metric・timerTypeがintでない場合。
+            ValueError: 定数が範囲外の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        for value, name, limit in ((metric, "metric", om2.MFnDependencyNode.kTimerMetrics), (timerType, "timerType", om2.MFnDependencyNode.kTimerTypes)):
+            if type(value) is not int:
+                raise TypeError(f"{name}はintで指定してください")
+            if not 0 <= value < limit:
+                raise ValueError(f"{name}がDG計測定数の範囲外です")
+        self._require_valid("DG計測結果の取得")
+        return self._dependency_fn().dgTimer(metric, timerType)
+
+    def getDgCallbacks(self, *, timerType=0):
+        """コールバックの種類別にDG計測値を取得する。
+
+        計測を開始せず、Mayaが保持する結果だけを返す。
+
+        Args:
+            timerType (int): MFnDependencyNodeのkTimerType_self(0、既定)、inclusive(1)、count(2)。
+
+        Returns:
+            list[tuple[str, float]]: (コールバック名, 計測値)の新しいリスト。Mayaの列挙順。時間は秒、countは回数。
+
+        Raises:
+            TypeError: timerTypeがintでない場合。
+            ValueError: timerTypeが範囲外の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        if type(timerType) is not int:
+            raise TypeError("timerTypeはintで指定してください")
+        if not 0 <= timerType < om2.MFnDependencyNode.kTimerTypes:
+            raise ValueError("timerTypeがDG計測定数の範囲外です")
+        self._require_valid("DGコールバック計測結果の取得")
+        names, values = self._dependency_fn().dgCallbacks(timerType)
+        return list(zip(names, values))
+
+    def affectsAnimation(self):
+        """ノードがアニメーションに影響するとMayaへ申告しているか調べる。
+
+        Returns:
+            bool: MFnDependencyNode.affectsAnimationの値。現在の接続全体の解析ではない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("アニメーションへの影響の照会")
+        return self._dependency_fn().affectsAnimation()
+
+    def canBeWritten(self):
+        """このノードがMayaのファイル書込み対象か調べる。
+
+        Returns:
+            bool: 書込み対象ならTrue。保存に成功することや外部ファイルの保存までは保証しない。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self._dependency_fn().canBeWritten()
+
+    def isShared(self):
+        """このノードが共有ノードか調べる。
+
+        Returns:
+            bool: Mayaの共有ノードならTrue。DAGインスタンスの判定とは異なる。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self._dependency_fn().isShared
+
+    def isTrackingEdits(self):
+        """このノードの編集がリファレンスやアセンブリで追跡されるか調べる。
+
+        Returns:
+            bool: 編集追跡の対象ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self._dependency_fn().isTrackingEdits()
+
     def mfn(self):
         """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
@@ -1022,6 +1171,50 @@ class Node(Object):
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         return self._alive_fn().isFromReferencedFile
+
+    def swapConnections(self, other):
+        """同じ型の2つのDGノードの接続をMayaのnodeCastで入れ替える。
+
+        名前・値は交換しない。DAG・参照・追加アトリビュートのあるノードは対象外。
+        通常Undoに対応する。fast引数は持たない(1回のnodeCastコマンドを使うため)。
+
+        Args:
+            other (Node | str): 接続を交換する同じノード型の相手。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: otherがノードとして解決できない型の場合。
+            ValueError: 自身を指定した場合、またはノード型が異なる場合。
+            RuntimeError: ノードの無効・ロック、またはMayaが交換を拒否した場合。
+            NotImplementedError: DAG・参照・追加アトリビュートのあるノードの場合。
+        """
+        other = Node._resolve_input(other)
+        self._require_valid("接続の交換")
+        other._require_valid("接続の交換")
+        if self == other or self.getType() != other.getType():
+            raise ValueError("otherは同じ型の別ノードで指定してください")
+        for node in (self, other):
+            if node.mnode().hasFn(om2.MFn.kDagNode) or node.isFromReferencedFile() or node.getPlugs(userDefined=True):
+                raise NotImplementedError("DAG・参照・追加アトリビュートのあるノードの交換には対応していません")
+            if node.isLocked():
+                raise RuntimeError("ロックされたノードの接続は交換できません")
+        result = cmds.nodeCast(self.getFullName(), other.getFullName(), swapNames=False, swapValues=False, force=False)
+        if result not in (None, 0):
+            raise RuntimeError("Mayaがノード接続の交換を拒否しました")
+
+    def getContainer(self):
+        """このノードが直接所属するコンテナを取得する。
+
+        Returns:
+            Container | None: 所属コンテナ。所属していなければNone。
+
+        Raises:
+            RuntimeError: ノードが無効、またはMayaが照会を拒否した場合。
+        """
+        name = cmds.container(query=True, findContainer=self.getFullName())
+        return Node._from_name(name) if name else None
 
     def getReference(self):
         """このノードを読み込んだリファレンスノードを取得する。
@@ -1808,6 +2001,18 @@ class Node(Object):
                 for plug in plugs:
                     plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children, fast=fast)
 
+    def getNumAttrs(self):
+        """ノードのアトリビュート定義の総数を取得する。
+
+        コンパウンドの子の定義も数える。マルチの要素数ではなく、未作成の要素も作らない。
+        getPlugsのようにPlugへ変換できる定義だけに絞る処理は行わない。
+
+        Returns:
+            int: MFnDependencyNodeが返す定義数。
+        """
+        self._require_valid("アトリビュート数の取得")
+        return self._dependency_fn().attributeCount()
+
     def getPlugs(self, userDefined=False, includeChildren=True, *, writable=False, **listAttrFlags):
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
@@ -2428,6 +2633,21 @@ class Node(Object):
         if not self.isValid():
             return None
         return om2.MFnDependencyNode(self._mobject).uuid().asString()
+
+    def getAbsoluteName(self):
+        """ルート名前空間から始まるノード名を取得する。
+
+        先頭のコロンを含み、相対名前空間モードに影響されない。DAG階層は含まないため、
+        同名DAGノードを一意に識別する用途にはgetNameかgetFullNameを使う。
+
+        Returns:
+            str: :namespace:nodeの形式の名前。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("絶対名前空間名の取得")
+        return self._dependency_fn().absoluteName()
 
     def getName(self):
         """最短の一意な名前を取得する。

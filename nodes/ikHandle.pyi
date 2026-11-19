@@ -44,6 +44,26 @@ class IkHandle(Transform):
             RuntimeError: ノードが無効な場合。
         """
         ...
+    def setChain(self, startJoint: Joint | str, endJoint: Joint | str) -> None:
+        """IKハンドルの開始・末端ジョイントを変更する。
+
+        SCソルバーのローカルなチェーンを対象にする。Mayaが末端にエフェクターを作成する場合がある。
+        姿勢の維持は保証しない。fast引数は持たない(1回のcmdsでチェーンを変更するため)。
+
+        Args:
+            startJoint (Joint | str): 開始ジョイント。
+            endJoint (Joint | str): 開始ジョイントの子孫にある末端ジョイント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: ジョイント以外を指定した場合。
+            ValueError: 末端が開始ジョイントの子孫でない場合。
+            RuntimeError: ノードや接続先が無効またはロックされている場合。
+            NotImplementedError: SC以外のソルバー、参照、インスタンスを含む場合。
+        """
+        ...
     def getEndJoint(self) -> Joint | None:
         """IKチェーンの末端のジョイントを取得する。
 

@@ -196,6 +196,49 @@ class MultiPlug(Plug):
                 result[element.logicalIndex()] = _convert_times(element, value, time_unit, to_internal=False)
         return result
 
+    def getElementCount(self, *, evaluate=False):
+        """Mayaが保持するマルチアトリビュートの要素数を取得する。
+
+        既定では未評価の接続要素を数えない場合がある。evaluate=Trueでは接続要素を評価してから数える。
+        getIndicesのインスタンス要素補完は行わず、MPlugの保持状態をそのまま返す。
+
+        Args:
+            evaluate (bool): Trueなら接続要素を評価する。既定False。
+
+        Returns:
+            int: 要素数。最大の論理番号とは異なる。
+
+        Raises:
+            TypeError: evaluateがboolでない場合。
+            RuntimeError: Plugが無効、または評価できない場合。
+        """
+        _require_bool(evaluate, "evaluate")
+        self._require_valid("要素数の取得")
+        return self._mplug.evaluateNumElements() if evaluate else self._mplug.numElements()
+
+    def getElementByPhysicalIndex(self, index):
+        """保持済み要素の物理番号からPlugを取得する。
+
+        値は評価しない。物理番号はMaya内部の並びの位置で、論理番号の昇順とは限らない。
+        要素の追加・削除後も同じ要素を指す番号ではない。
+
+        Args:
+            index (int): 0以上、getElementCount()未満の物理番号。
+
+        Returns:
+            Plug: 対応する要素の新しい参照。値はコピーしない。
+
+        Raises:
+            TypeError: indexがbool、または整数でない場合。
+            IndexError: 物理番号が範囲外の場合。
+            RuntimeError: Plugが無効な場合。
+        """
+        self._require_valid("要素の取得")
+        index = self._validated_logical_index(index)
+        if index >= self._mplug.numElements():
+            raise IndexError("物理番号がマルチアトリビュートの範囲外です")
+        return Plug(self._node, self._mplug.elementByPhysicalIndex(index))
+
     def getElement(self, index):
         """論理番号で要素を取得する(``multi[index]`` と同じ)。
 
@@ -331,8 +374,8 @@ class MultiPlug(Plug):
             index += 1
         raise IndexError("マルチアトリビュートに空いている論理番号がありません")
 
-    def removeElement(self, index, shift=False, *, fast=False):
-        """マルチアトリビュートの要素を削除する。接続も切る。
+    def removeElement(self, index, shift=False, *, fast=False, breakConnections=True):
+        """マルチアトリビュートの要素を削除する。
 
         削除できるのは、実際にある要素(OpenMayaが返す、すでにある要素の番号)だけ。
         worldSpaceでgetIndices()が補っただけの番号は削除の対象にしない。
@@ -346,12 +389,13 @@ class MultiPlug(Plug):
             index (int): 削除する論理番号。
             shift (bool): Trueなら、後ろの要素を1つずつ前へ詰める。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            breakConnections (bool): Trueなら接続を切る。Falseなら削除・移動対象に接続がある場合は更新前に拒否する。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: indexがboolの場合や整数でない場合、またはshift・fastがboolでない場合。
+            TypeError: indexがboolの場合や整数でない場合、またはshift・fast・breakConnectionsがboolでない場合。
             IndexError: 論理番号が範囲外の場合、またはその番号の要素が実際には無い場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合、またはMayaが削除を拒否した場合。
                 ``shift=True`` で、マルチアトリビュートか移す要素がロックされている場合や、
@@ -363,6 +407,7 @@ class MultiPlug(Plug):
             消しても、エイリアスと ``inputTarget[].inputTargetGroup[i]`` が残る。blendShapeのターゲットは
             :meth:`mlib.nodes.BlendShape.removeTarget` で取り除く。
         """
+        _require_bool(breakConnections, "breakConnections")
         _require_bool(shift, "shift")
         _require_bool(fast, "fast")
         if fast and shift:
@@ -374,14 +419,19 @@ class MultiPlug(Plug):
             if index not in existing:
                 raise IndexError(f"{self.getFullName()}に論理番号{index}の要素はありません")
             moves = [(source, source - 1) for source in existing if source > index] if shift else []
+            if not breakConnections:
+                for target in [index] + [source for source, _ in moves]:
+                    element = self._element_at(target)
+                    if any(plug.isConnected() for plug in [element] + list(element.getDescendants())):
+                        raise RuntimeError("削除・移動対象の要素に接続があります")
             if shift:
                 self._require_movable([index] + [source for source, _ in moves])
             if fast:
                 modifier = om2.MDGModifier()
-                modifier.removeMultiInstance(self._mplug.elementByLogicalIndex(index), True)
+                modifier.removeMultiInstance(self._mplug.elementByLogicalIndex(index), breakConnections)
                 modifier.doIt()
             else:
-                cmds.removeMultiInstance(self._element_at(index).getFullName(), b=True)
+                cmds.removeMultiInstance(self._element_at(index).getFullName(), b=breakConnections)
                 if moves:
                     self._move_elements(moves)
 

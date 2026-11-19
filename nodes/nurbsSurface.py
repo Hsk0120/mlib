@@ -9,6 +9,7 @@ from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
 from ..util import _UNSET, _checked_tolerance, _finite, _world_space
+from .node import Node, Nodes
 from .nurbsCurve import _DEGENERATE, _frame_matrix, _perpendicular, _require_axis
 from .shape import Shape
 
@@ -22,6 +23,41 @@ class NurbsSurface(Shape):
     Uを外側・Vを内側にした ``u * numCVsInV + v`` の順になる(``om2.MFnNurbsSurface.cvPositions`` と同じ)。
     距離はMayaの内部単位(cm)。
     """
+
+    def isBezier(self):
+        """曲面のノット配置がBezier形式か調べる。
+
+        Returns:
+            bool: Bezier形式ならTrue。
+
+        Raises:
+            RuntimeError: 曲面が無効、または形状データがない場合。
+        """
+        return self._geometry_fn().isBezier
+
+    def isUniform(self):
+        """曲面のノット間隔が一様か調べる。
+
+        Returns:
+            bool: 一様ならTrue。
+
+        Raises:
+            RuntimeError: 曲面が無効、または形状データがない場合。
+        """
+        return self._geometry_fn().isUniform
+
+    def isFoldedOnBispan(self):
+        """曲面のパッチ境界に折返しや折れ目があるか調べる。
+
+        MFnNurbsSurfaceの判定を返す。トリムされた領域も含む。
+
+        Returns:
+            bool: 折返しや折れ目があればTrue。
+
+        Raises:
+            RuntimeError: 曲面が無効、または形状データがない場合。
+        """
+        return self._geometry_fn().isFoldedOnBispan
 
     def mfn(self):
         """この曲面のOpenMayaのfunction setを取得する。
@@ -70,6 +106,20 @@ class NurbsSurface(Shape):
         """
         fn = self._geometry_fn()
         return fn.numSpansInU, fn.numSpansInV
+
+    def getNumPatches(self):
+        """U・V方向の幅が0でないパッチ数を取得する。
+
+        重複ノットによる幅0のスパンを除く。全パッチ数は返された2値の積で求める。
+
+        Returns:
+            tuple[int, int]: U方向・V方向のパッチ数。
+
+        Raises:
+            RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        fn = self._geometry_fn()
+        return fn.numPatchesInU, fn.numPatchesInV
 
     def getDegree(self):
         """U・V方向の次数を取得する。
@@ -122,6 +172,100 @@ class NurbsSurface(Shape):
         fn = self._geometry_fn()
         return list(fn.knotsInU()), list(fn.knotsInV())
 
+    def setKnots(self, uKnots, vKnots):
+        """曲面のU・Vのノット値を変更する。
+
+        ノット数・次数・CVは変えない。ヒストリ、トリム、明示テクスチャUV、参照、CVのロック・接続がある曲面は拒否する。
+        独立したデータで検証してから、cmds.setAttrで曲面データを更新する。
+        fast引数は持たない(1回のcmdsで両方向を更新するため)。
+
+        Args:
+            uKnots (Iterable[float]): U方向のノット列。既存と同じ数の非減少列。
+            vKnots (Iterable[float]): V方向のノット列。既存と同じ数の非減少列。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: 値が有限値でない、数や順序が不正、またはパラメーター範囲が潰れる場合。
+            RuntimeError: 曲面が無効、ロックされている、またはMayaが編集を拒否した場合。
+            NotImplementedError: ヒストリ・トリム・明示UV・参照・CVロックや接続がある場合。
+        """
+        source = self._geometry_fn()
+        self._require_knot_edit()
+        u_values = [_finite(value, "uKnots") for value in uKnots]
+        v_values = [_finite(value, "vKnots") for value in vKnots]
+        for values, count, degree in ((u_values, source.numKnotsInU, source.degreeInU), (v_values, source.numKnotsInV, source.degreeInV)):
+            if len(values) != count or any(a > b for a, b in zip(values, values[1:])):
+                raise ValueError("ノット列は既存と同じ数の非減少列で指定してください")
+            if values[degree - 1] >= values[-degree]:
+                raise ValueError("ノットのパラメーター範囲には正の幅が必要です")
+        # コピーの所有者を保持し、失敗してもシーン側へ不正なノットを書き込まない。
+        data = om2.MFnNurbsSurfaceData().create()
+        copied = om2.MFnNurbsSurface(om2.MFnNurbsSurface().copy(source.object(), data))
+        copied.setKnotsInU(u_values, 0, len(u_values) - 1)
+        copied.setKnotsInV(v_values, 0, len(v_values) - 1)
+        self._write_surface_data(copied)
+
+    def removeKnot(self, parameter, direction="u", *, all=False):
+        """曲面の内側のノットを削除する。
+
+        指定方向が開いた曲面だけを扱う。形状とCV数が変わる場合がある。
+        setKnotsと同じくヒストリ・トリム・明示UV・参照・CVのロックや接続は拒否する。
+        fast引数は持たない(独立コピーで編集し、1回のcmdsで更新するため)。
+
+        Args:
+            parameter (float): 削除する内側のノットのパラメーター値。
+            direction (str): "u"または"v"。既定"u"。
+            all (bool): Trueなら同じ値のノットをすべて、Falseなら1つ削除する。既定False。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: allがbool以外の場合。
+            ValueError: 方向が不正、値が非有限、内側のノットでない場合。
+            RuntimeError: 曲面が無効、ロックされている、またはMayaが編集を拒否した場合。
+            NotImplementedError: 指定方向が閉じている、またはsetKnotsの未対応条件に当たる場合。
+        """
+        _require_bool(all, "all")
+        if direction not in ("u", "v"):
+            raise ValueError("directionはuまたはvで指定してください")
+        parameter = _finite(parameter, "parameter")
+        self._require_knot_edit()
+        source = self._geometry_fn()
+        axis = 0 if direction == "u" else 1
+        if self.getForm()[axis] != om2.MFnNurbsSurface.kOpen:
+            raise NotImplementedError("ノット削除は指定方向が開いた曲面だけに対応しています")
+        low, high = self.getParamRange()[axis]
+        if not low < parameter < high or parameter not in self.getKnots()[axis]:
+            raise ValueError("parameterはパラメーター範囲の内側のノット値で指定してください")
+        # コピーの所有者を編集・書込みが終わるまで保持する。
+        data = om2.MFnNurbsSurfaceData().create()
+        copied = om2.MFnNurbsSurface(om2.MFnNurbsSurface().copy(source.object(), data))
+        if direction == "u":
+            if all:
+                copied.removeKnotInU(parameter, True)
+            else:
+                copied.removeOneKnotInU(parameter)
+        elif all:
+            copied.removeKnotInV(parameter, True)
+        else:
+            copied.removeOneKnotInV(parameter)
+        self._write_surface_data(copied)
+
+    def getPatchShaders(self):
+        """保持するインスタンスのパッチごとのシェーディンググループを取得する。
+
+        Returns:
+            tuple[Nodes[ShadingEngine], list[int]]: グループ一覧と、パッチごとの一覧内の番号。未割当は-1。
+
+        Raises:
+            RuntimeError: 曲面の形状データやDAGパスが無効な場合。
+        """
+        shaders, indices = self._geometry_fn().getConnectedShaders(self.mpath().instanceNumber())
+        return Nodes._wrap([Node(node) for node in shaders]), list(indices)
+
     def getUVData(self):
         """明示的に設定されたテクスチャUVと、パッチへの割り当てを取得する。
 
@@ -160,6 +304,68 @@ class NurbsSurface(Shape):
             [(fn.boundaryType(region, boundary), fn.numEdges(region, boundary)) for boundary in range(fn.numBoundaries(region))]
             for region in range(fn.numRegions)
         ]
+
+    def getTrimBoundaryCurveData(self, region, boundary, edge, *, parametric=False):
+        """トリム境界の1エッジを構成するカーブのデータを取得する。
+
+        シーンにカーブを作らず、値の独立コピーを返す。境界エッジが複数カーブからなる場合は
+        Mayaの順に並ぶ。閉じた曲面の極など、3Dエッジが長さ0なら空になる場合がある。
+
+        Args:
+            region (int): トリム領域番号。
+            boundary (int): 領域内の境界番号。
+            edge (int): 境界内のエッジ番号。
+            parametric (bool): Trueなら曲面パラメーター上の2Dカーブ、Falseなら3Dカーブ。既定False。
+
+        Returns:
+            list[dict]: 各カーブのdegree(int)、form(MFnNurbsCurveの定数)、knots(list[float])、
+                cvs(list[tuple[float, float, float, float]])。CVはMPointの(x, y, z, w)成分。
+                3Dカーブは曲面のオブジェクト空間(cm)、2Dカーブは曲面パラメーター空間。
+
+        Raises:
+            TypeError: 番号が整数でない、またはparametricがboolでない場合。
+            IndexError: 領域・境界・エッジ番号が範囲外の場合。
+            RuntimeError: 曲面が無効、またはMayaが境界の取得を拒否した場合。
+        """
+        _require_bool(parametric, "parametric")
+        fn = self._geometry_fn()
+        self._require_trim_index(region, fn.numRegions, "region")
+        self._require_trim_index(boundary, fn.numBoundaries(region), "boundary")
+        self._require_trim_index(edge, fn.numEdges(region, boundary), "edge")
+        curves = fn.edge(region, boundary, edge, parametric)
+        result = []
+        for curve in curves:
+            curve_fn = om2.MFnNurbsCurve(curve)
+            result.append(
+                {
+                    "degree": curve_fn.degree,
+                    "form": curve_fn.form,
+                    "knots": list(curve_fn.knots()),
+                    "cvs": [(point.x, point.y, point.z, point.w) for point in curve_fn.cvPositions()],
+                }
+            )
+        return result
+
+    def isTrimNormalFlipped(self, region):
+        """指定したトリム領域の法線方向が反転しているか調べる。
+
+        Args:
+            region (int): トリム領域番号。
+
+        Returns:
+            bool: Mayaが反転ありと判定した場合はTrue。
+
+        Raises:
+            TypeError: regionが整数でない場合。
+            ValueError: 未トリムの曲面の場合。
+            IndexError: regionが範囲外の場合。
+            RuntimeError: 曲面が無効な場合。
+        """
+        fn = self._geometry_fn()
+        self._require_trim_index(region, fn.numRegions, "region")
+        if not fn.isTrimmedSurface:
+            raise ValueError("法線方向の領域判定にはトリムされた曲面を指定してください")
+        return fn.isFlipNorm(region)
 
     def isTrimmed(self):
         """トリム境界を持つ曲面か判定する。
@@ -334,6 +540,28 @@ class NurbsSurface(Shape):
                     u, v = divmod(index, count_v)
                     coordinates = [om2.MDistance(c).asUnits(unit) for c in (point.x, point.y, point.z)]
                     cmds.xform(f"{name}.cv[{u}][{v}]", absolute=True, translation=coordinates, objectSpace=True)
+
+    def isPointOnSurface(self, point, worldSpace=_UNSET, *, tolerance=1e-7, ws=_UNSET):
+        """指定点が許容誤差内でNURBS曲面上にあるか調べる。
+
+        Args:
+            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+            tolerance (float): 距離の許容誤差(cm)。0以上の有限値。
+
+        Returns:
+            bool: MFnNurbsSurface.isPointOnSurfaceの結果。
+
+        Raises:
+            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
+            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
+            RuntimeError: 形状が無効な場合。
+        """
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        x, y, z = geometry_edit.point_list([point])[0]
+        return self._geometry_fn().isPointOnSurface(om2.MPoint(x, y, z), _checked_tolerance(tolerance), space)
 
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
         """指定した位置に最も近い、曲面上の点とパラメーター (u, v) を取得する。
@@ -531,6 +759,14 @@ class NurbsSurface(Shape):
         return self._geometry_fn().area(space)
 
     @staticmethod
+    def _require_trim_index(index, count, name):
+        """Mayaへ渡す前に、トリム構成の0始まりの番号を検査する。"""
+        if type(index) is not int:
+            raise TypeError(f"{name}はintで指定してください")
+        if not 0 <= index < count:
+            raise IndexError(f"{name}がトリム構成の範囲外です")
+
+    @staticmethod
     def _require_params(fn, u, v):
         """パラメーターを検証し、範囲の端へ丸め込んだ (u, v) を返す。
 
@@ -602,6 +838,51 @@ class NurbsSurface(Shape):
             require_writable(point)
             for child in range(point.numChildren()):
                 require_writable(point.child(child))
+
+    def _write_surface_data(self, fn):
+        """検証済みの独立した曲面データを1回のcmdsで書き込む。
+
+        Args:
+            fn (om2.MFnNurbsSurface): 書き込むデータ。
+        """
+        points = [tuple(point) for point in fn.cvPositions()]
+        cmds.setAttr(
+            self.getFullName() + ".create",
+            fn.degreeInU,
+            fn.degreeInV,
+            fn.formInU - 1,
+            fn.formInV - 1,
+            True,
+            list(fn.knotsInU()),
+            0,
+            list(fn.knotsInV()),
+            0,
+            len(points),
+            *points,
+            type="nurbsSurface",
+        )
+
+    def _require_knot_edit(self):
+        """曲面全体の置換で失われる付帯データと編集不可条件を拒否する。"""
+        fn = self._geometry_fn()
+        if self._dependency_fn().isFromReferencedFile or fn.isTrimmedSurface:
+            raise NotImplementedError("参照またはトリム曲面のノット編集には対応していません")
+        if self._dependency_fn().isLocked:
+            raise RuntimeError("ロックされた曲面のノットは編集できません")
+        try:
+            uv_count = fn.numUVs
+        except RuntimeError:
+            uv_count = 0
+        if uv_count:
+            raise NotImplementedError("明示テクスチャUVを持つ曲面のノット編集には対応していません")
+        create = self.getPlug("create")
+        if create.getSource() is not None:
+            raise NotImplementedError("ヒストリ付き曲面のノット編集には対応していません")
+        require_writable(create.mplug())
+        for point in self.getPlug("controlPoints").getElements():
+            for plug in [point] + list(point.getChildren()):
+                if plug.isLocked() or plug.getSource() is not None:
+                    raise NotImplementedError("CVのロック・接続がある曲面のノット編集には対応していません")
 
     def _geometry_fn(self):
         """形状データを要する照会用に ``om2.MFnNurbsSurface`` を返す。

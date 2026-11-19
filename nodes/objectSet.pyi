@@ -5,8 +5,9 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object
 from ..decorator import _require_bool, undoChunk
-from .node import Node
+from .node import Node, Nodes
 from mlib.components.component import Components
+from mlib.nodes.dagNode import DagNode
 from mlib.plugs.plug import Plug
 
 
@@ -39,6 +40,53 @@ class ObjectSet(Node):
         Raises:
             TypeError: flattenがboolでない場合。
             RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def getMemberDagNodes(self, *, shadingOnly: bool = ...) -> Nodes[DagNode]:
+        """セットに属するDAGパスをノード参照として取得する。
+
+        コンポーネントは所属先のDAGパスになる。getMembersとは異なり、DGノードやPlugは返さない。
+        Maya API2にgetMemberPathsがない版では未対応。
+
+        Args:
+            shadingOnly (bool): Trueならマテリアル割当てに影響するDAGパスだけを返す。既定False。
+
+        Returns:
+            Nodes[DagNode]: Mayaの順に並ぶパス別のノード参照。
+
+        Raises:
+            TypeError: shadingOnlyがbool以外の場合。
+            RuntimeError: セットが無効な場合。
+            NotImplementedError: 使用中のMayaに対応するAPI2メソッドがない場合。
+        """
+        ...
+    def getRestriction(self) -> int:
+        """セットに登録できるメンバーの種類の制限を取得する。
+
+        Returns:
+            int: om2.MFnSetの制限定数。制限なしはkNone。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def addExclusiveMembers(self, *members: Node | str) -> None:
+        """同じpartition内の排他所属を移して、このセットへメンバーを追加する。
+
+        Mayaのsets(forceElement=...)を使う。同じpartitionの別セットから対象が外れる場合がある。
+        partitionの作成や、partitionが異なるセットからの除外は行わない。
+        fast引数は持たない(排他所属の更新をMayaコマンドに委ねるため)。
+
+        Args:
+            members (Node | str): 追加するノードやコンポーネント。省略時は何もしない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 入力の型や組合せが不正な場合。
+            ValueError: 対象を解決できない場合。
+            RuntimeError: セットが無効、またはMayaが所属変更を拒否した場合。
         """
         ...
     def addMembers(self, *members: Node | str) -> None:

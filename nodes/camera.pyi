@@ -2,11 +2,13 @@
 """Maya のカメラシェイプを扱う。"""
 
 import maya.api.OpenMaya as om2
+import maya.cmds as cmds
 from ..decorator import _pick_alias, _require_bool
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _angle_unit, _finite, _from_radians, _world_space
+from ..util import _UNSET, _angle_unit, _finite, _finite_vector, _from_radians, _world_space
 from .shape import Shape
+from typing import Iterable
 
 
 
@@ -19,6 +21,45 @@ class Camera(Shape):
 
         Returns:
             om2.MFnCamera: このカメラのfunction set。
+        """
+        ...
+    def getDepthOfFieldRange(self) -> tuple[float, float]:
+        """被写界深度を再計算し、近側と遠側の合焦距離を取得する。
+
+        MFnCamera.computeDepthOfFieldでMaya内部の計算結果を更新する。
+        カメラのアトリビュートやUndo設定は変更しない。レンダラー独自の被写界深度は扱わない。
+
+        Returns:
+            tuple[float, float]: (近側, 遠側)の距離(cm)。Mayaの計算結果をそのまま返す。
+
+        Raises:
+            RuntimeError: カメラが無効、またはMayaが計算を拒否した場合。
+        """
+        ...
+    def isVerticalLocked(self) -> bool:
+        """縦横比変更時に垂直フィルム開口を維持する設定か調べる。
+
+        アトリビュートの編集ロックとは異なるMayaのカメラ設定。
+
+        Returns:
+            bool: 垂直フィルム開口を維持する場合はTrue。
+        """
+        ...
+    def setVerticalLocked(self, state: bool = ...) -> None:
+        """縦横比変更時に垂直フィルム開口を維持する設定を切り替える。
+
+        アトリビュートの編集ロックは変更しない。
+        fast引数は持たない(1回のcmdsで設定するため)。
+
+        Args:
+            state (bool): Trueなら垂直フィルム開口を維持する。既定True。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがbool以外の場合。
+            RuntimeError: カメラが無効、またはMayaが変更を拒否した場合。
         """
         ...
     def getFocalLength(self) -> float:
@@ -50,6 +91,125 @@ class Camera(Shape):
             TypeError: unitが文字列・None以外の場合。
             ValueError: unitに使えない単位名を指定した場合。
             RuntimeError: ノードが削除済みの場合。
+        """
+        ...
+    def setFieldOfView(self, angle: float, *, vertical: bool = ..., unit: str = ...) -> None:
+        """水平または垂直の画角を変更する。
+
+        Maya標準のcameraコマンドで焦点距離を補正する。フィルム開口を直接指定する操作ではない。
+        fast引数は持たない(1回のcmdsで更新するため)。
+
+        Args:
+            angle (float): 0より大きく180度未満の画角。
+            vertical (bool): Trueなら垂直、Falseなら水平の画角。既定False。
+            unit (str): angleの単位。"deg"または"rad"。既定"deg"。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: verticalがbool以外の場合。
+            ValueError: 画角が有限値でない、範囲外、または単位が不正の場合。
+            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
+        """
+        ...
+    def setNearFocusDistance(self, distance: float) -> None:
+        """近側の合焦距離を指定して、カメラの焦点位置を補正する。
+
+        Maya標準の補正に従い、反対側の合焦距離も変わる。クリップ面の設定ではない。
+        fast引数は持たない(1回のcmdsで更新するため)。
+
+        Args:
+            distance (float): 正の有限距離(cm)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: distanceが有限の正数でない場合。
+            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
+        """
+        ...
+    def setFarFocusDistance(self, distance: float) -> None:
+        """遠側の合焦距離を指定して、カメラの焦点位置を補正する。
+
+        Maya標準の補正に従い、反対側の合焦距離も変わる。クリップ面の設定ではない。
+        fast引数は持たない(1回のcmdsで更新するため)。
+
+        Args:
+            distance (float): 正の有限距離(cm)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: distanceが有限の正数でない場合。
+            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
+        """
+        ...
+    def getCenterOfInterestPoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
+        """カメラの注視点を取得する。
+
+        Args:
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定True。
+            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+
+        Returns:
+            Vector: 注視点の位置(cm)。
+
+        Raises:
+            TypeError: 空間指定がbool以外、または長短名を同時指定した場合。
+            RuntimeError: カメラが無効な場合。
+        """
+        ...
+    def getAspectRatio(self) -> float:
+        """カメラのフィルム開口のアスペクト比を取得する。
+
+        Returns:
+            float: MFnCamera.aspectRatioの値。レンダー解像度の比ではない。
+        """
+        ...
+    def setAspectRatio(self, value: float) -> None:
+        """カメラのフィルム開口の縦横比を変更する。
+
+        レンダー解像度の縦横比は変更しない。MayaのverticalLock設定に従って開口を補正する。
+        fast引数は持たない(1回のcmdsで更新するため)。
+
+        Args:
+            value (float): 正の縦横比(幅/高さ)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: valueが有限の正数でない場合。
+            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
+        """
+        ...
+    def getParameterLimits(self) -> dict:
+        """カメラのアスペクト比・フィルム開口・焦点距離の制限値を取得する。
+
+        現在のアトリビュート値ではなく、Mayaが定める設定範囲を返す。
+
+        Returns:
+            dict: aspectRatio、filmAperture(インチ)、focalLength(mm)をキーとし、各値は(最小, 最大)。
+
+        Raises:
+            RuntimeError: カメラが無効な場合。
+        """
+        ...
+    def hasSamePerspective(self, other: Camera) -> bool:
+        """別のカメラがMayaの判定で同じパースペクティブを持つか調べる。
+
+        Args:
+            other (Camera): 比較するカメラシェイプ。
+
+        Returns:
+            bool: MFnCamera.hasSamePerspectiveの結果。全アトリビュートの一致判定ではない。
+
+        Raises:
+            TypeError: otherがCameraでない場合。
+            RuntimeError: カメラが無効な場合。
         """
         ...
     def getEyePoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
@@ -101,6 +261,24 @@ class Camera(Shape):
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: ノードが削除済みの場合。
+        """
+        ...
+    def setUpDirection(self, direction: Iterable[float]) -> None:
+        """ワールド空間の上方向を基準にカメラのロールを変更する。
+
+        視線に直交する成分をMayaが上方向として使う。視線と平行な指定は拒否する。
+        fast引数は持たない(1回のcmdsで更新するため)。
+
+        Args:
+            direction (Iterable[float]): ワールド空間の方向ベクトル。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: directionが3つの数値でない場合。
+            ValueError: 非有限値、ゼロベクトル、または視線と平行な場合。
+            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
         """
         ...
     def getProjectionMatrix(self) -> Matrix:
@@ -171,6 +349,27 @@ class Camera(Shape):
 
         Returns:
             tuple[float, float, float, float]: (左, 右, 下, 上)。カメラ空間の距離(cm)。
+
+        Raises:
+            TypeError: 数値・boolの引数の型が不正な場合。
+            ValueError: aspectRatioが正の有限値でない場合。
+            RuntimeError: カメラが無効な場合。
+        """
+        ...
+    def getViewParameters(self, aspectRatio: float, *, applyOverscan: bool = ..., applySqueeze: bool = ..., applyPanZoom: bool = ...) -> tuple[float, float, float, float]:
+        """表示条件を反映したフィルム開口とオフセットを取得する。
+
+        撮影範囲の計算に使う中間値で、ニアクリップ面の寸法ではない。
+
+        Args:
+            aspectRatio (float): 表示の横幅/高さ。正の有限値。
+            applyOverscan (bool): overscanを反映する。既定False。
+            applySqueeze (bool): lensSqueezeRatioを反映する。既定False。
+            applyPanZoom (bool): 2D pan/zoomを反映する。既定False。
+
+        Returns:
+            tuple[float, float, float, float]: (水平開口, 垂直開口, 水平オフセット, 垂直オフセット)。
+                透視カメラはインチ、平行投影ではオブジェクト空間の距離(cm)。
 
         Raises:
             TypeError: 数値・boolの引数の型が不正な場合。

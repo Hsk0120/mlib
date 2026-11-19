@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import Any, Dict, List
 
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 
 from ..core.fastWrite import require_writable, set_attr
@@ -334,6 +335,46 @@ class Joint(Transform):
         with undoChunk("mlibJointFreezeRotate"):
             self._require_valid("回転のフリーズ")
             self._apply_rotate_transfer(self._joint_rotate_transfer_values(to_orient=True), to_orient=True)
+
+    def resetScaleOrientation(self):
+        """ジョイントの回転軸を0にし、子の位置と回転へ補正する。
+
+        Maya標準のjoint(zeroScaleOrient=True)を使う。jointOrientを指定方向へ向け直す操作ではない。
+        子のチャンネル値が変わる。fast引数は持たない(補正を含むcmdsで更新するため)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: 自身または子が参照・ロックされているか、補正チャンネルが編集できない場合。
+        """
+        self._require_valid("回転軸の初期化")
+        for node in [self] + list(self.getChildren()):
+            if node.isFromReferencedFile() or node._dependency_fn().isLocked:
+                raise RuntimeError("参照またはロックされたジョイント階層は補正できません")
+            for attr in ("rotateAxis", "jointOrient", "translate", "rotate", "scale"):
+                if node.hasAttr(attr):
+                    plug = node.getPlug(attr)
+                    require_writable(plug.mplug())
+                    for child in plug.getChildren():
+                        require_writable(child.mplug())
+        cmds.joint(self.getFullName(), edit=True, zeroScaleOrient=True)
+
+    def getHikJointName(self):
+        """HumanIKでのジョイント名を取得する。
+
+        Returns:
+            str: Mayaが返すHumanIK名。
+
+        Raises:
+            RuntimeError: ジョイントが無効、またはHumanIK名を取得できない場合(未登録など)。
+            NotImplementedError: MFnIkJointを持たないMaya版の場合。
+        """
+        self._require_valid("HumanIK名の取得")
+        function_set = getattr(oma2, "MFnIkJoint", None)
+        if function_set is None:
+            raise NotImplementedError("このMaya版のOpenMayaはHumanIK名の取得に対応していません")
+        return function_set(self.mpath()).hikJointName()
 
     def orient(self, orientation="xyz", secondaryAxisOrient="yup", *, children=True, zeroScaleOrient=True):
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。

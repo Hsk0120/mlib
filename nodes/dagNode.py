@@ -420,7 +420,31 @@ class DagNode(Node):
             self._require_valid("並べ替え")
             cmds.reorder(self.getFullName(), **flags)
 
-    def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET):
+    def isInUnderworld(self):
+        """このDAGノードがShape内部のunderworldにあるか調べる。
+
+        Returns:
+            bool: サーフェス上のカーブ等のunderworldノードならTrue。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("underworldの照会")
+        return om2.MFnDagNode(self.mpath()).inUnderWorld
+
+    def isInModel(self):
+        """DAGノードがMayaのモデルに属しているか調べる。
+
+        Returns:
+            bool: MFnDagNode.inModelの値。表示・選択可能性の判定ではない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("モデル所属の照会")
+        return om2.MFnDagNode(self.mpath()).inModel
+
+    def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET, includeInvisible=False):
         """バウンディングボックスを取得する。
 
         既定では ``MFnDagNode.boundingBox`` の値を返す。これは自身のtranslate・rotate・scale
@@ -428,22 +452,31 @@ class DagNode(Node):
         ``worldSpace=True`` なら、そこへこのオブジェクトが持つDAGパスの ``exclusiveMatrix``
         (親までのワールドマトリクス)をかけ、ワールド空間のボックスを返す。
         Shapeでは、自身のローカルの形状から計算する。
+        TransformのincludeInvisible=Trueではcmds.xformの非表示を含むボックスを問い合わせる。
+        Shapeはこの指定によらず自身の形状のボックスを返す。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseなら親の変換を含まない空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            includeInvisible (bool): Trueなら非表示の子の形状も含む。既定False。
 
         Returns:
             om2.MBoundingBox: 軸に沿ったボックス。単位はMaya APIの内部の距離単位。
                 子のShapeが無いTransformでは、原点だけを含む、ほぼ空のボックスになる。
 
         Raises:
-            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpace・includeInvisibleがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: ノードが無効な場合、または保持するDAGパスが無効な場合。
         """
+        _require_bool(includeInvisible, "includeInvisible")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         world = _world_space(worldSpace)
         self._require_valid("バウンディングボックスの計算")
+        if includeInvisible and self.mnode().hasFn(om2.MFn.kTransform):
+            values = cmds.xform(self.getFullName(), query=True, boundingBoxInvisible=True, worldSpace=world)
+            unit = om2.MDistance.uiUnit()
+            values = [om2.MDistance(value, unit).asCentimeters() for value in values]
+            return om2.MBoundingBox(om2.MPoint(*values[:3]), om2.MPoint(*values[3:]))
         path = self.mpath()
         box = om2.MFnDagNode(path).boundingBox
         if not world:

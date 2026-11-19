@@ -71,6 +71,22 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         ...
+    def getWeightCount(self) -> int:
+        """Mayaが保持するターゲットウェイトの数を取得する。
+
+        blendShapeコマンドのweightCountを返す。疎な論理番号や事前確保によって、ターゲット項目数とは異なる。
+
+        Returns:
+            int: Mayaのウェイト数。
+        """
+        ...
+    def getNormalizationGroups(self) -> list[int]:
+        """使用されている正規化グループの番号を取得する。
+
+        Returns:
+            list[int]: Mayaが返す順のグループ番号。未使用なら空。
+        """
+        ...
     def getTargetNames(self) -> list[str]:
         """ターゲット名を、論理番号の順に取得する。
 
@@ -292,6 +308,41 @@ class BlendShape(GeometryFilter):
             ValueError: ベースが無い、値の数が頂点数と違う、またはcheck=Trueで有限でない値がある場合。
             IndexError: 頂点番号が範囲外の場合。
             RuntimeError: ノードがロック・リファレンス、対象にロック・入力接続がある、またはMayaが更新を拒否した場合。
+        """
+        ...
+    def getTargetItemIndices(self, target: str | int | Plug, base: str | Node | None = ...) -> list[int]:
+        """ターゲット本体とin-betweenの項目の論理番号を取得する。
+
+        未作成要素は作らず、値も評価しない。番号は5000 + ウェイト * 1000に対応する。
+
+        Args:
+            target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。
+
+        Returns:
+            list[int]: 項目の論理番号の昇順。ターゲット本体も含む。
+
+        Raises:
+            ValueError: ターゲットまたはベースが存在しない場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
+    def getTargetGeometry(self, target: str | int | Plug, base: str | Node | None = ...) -> dict[int, Node | None]:
+        """ターゲットの各項目へ接続された元形状を取得する。
+
+        保存済みデルタだけを持ち、元Shapeへの接続がない項目はNone。
+        形状の再生成や評価は要求しない。
+
+        Args:
+            target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。
+
+        Returns:
+            dict[int, Node | None]: 項目の論理番号から接続元ノードへの対応。
+
+        Raises:
+            ValueError: ターゲットまたはベースが存在しない場合。
+            RuntimeError: ノードが無効な場合。
         """
         ...
     def getTargetWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:

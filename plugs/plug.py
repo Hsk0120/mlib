@@ -8,6 +8,7 @@ from operator import methodcaller
 from typing import TYPE_CHECKING
 
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 
 from ..core.attributeType import (
@@ -629,6 +630,221 @@ class Plug(Object):
         """
         handle = self._node._handle
         return handle is not None and handle.isValid() and self._attribute_exists()
+
+    def isExisting(self):
+        """アトリビュートと、参照するマルチ要素が実在するか調べる。
+
+        isValidは未作成要素の参照でもTrueになる。ここでは祖先のマルチ要素も確認する。
+        値の評価や要素の作成は行わない。
+
+        Returns:
+            bool: アトリビュートが有効で、参照する全マルチ要素が既存ならTrue。
+        """
+        if not self.isValid():
+            return False
+        plug = self._mplug
+        while plug.isChild or plug.isElement:
+            if plug.isElement:
+                index = plug.logicalIndex()
+                plug = plug.array()
+                if index not in plug.getExistingArrayAttributeIndices():
+                    return False
+            else:
+                plug = plug.parent()
+        return True
+
+    def isInstancedAttribute(self):
+        """DAGノードのインスタンス別アトリビュート定義か調べる。
+
+        接続の有無や、現在インスタンス化されているかの判定ではない。
+
+        Returns:
+            bool: MFnDagNodeがインスタンス別の定義と判定すればTrue。非DAGノードはFalse。
+        """
+        self._require_valid()
+        node = self._mplug.node()
+        return node.hasFn(om2.MFn.kDagNode) and om2.MFnDagNode(node).isInstancedAttribute(self._mplug.attribute())
+
+    def isIndexMatters(self):
+        """マルチアトリビュートの定義で、要素番号に意味があるか調べる。
+
+        Returns:
+            bool: MFnAttribute.indexMattersの値。接続時のnextAvailableの可否に関わる。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        self._require_valid()
+        return om2.MFnAttribute(self._mplug.attribute()).indexMatters
+
+    def isExactlyEqual(self, other):
+        """同じアトリビュートと同じネットワーク上のPlugか調べる。
+
+        通常の==による参照先の比較に加え、MPlug.isExactlyEqualのネットワーク識別も比較する。
+        API 2.0にこの照会がないMayaではNotImplementedError。
+
+        Args:
+            other (Plug): 比較するPlug。
+
+        Returns:
+            bool: Mayaが両者を完全に同じPlugと判定した場合はTrue。
+
+        Raises:
+            TypeError: otherがPlugでない場合。
+            RuntimeError: どちらかのアトリビュートが無効な場合。
+            NotImplementedError: このMayaのAPI 2.0が照会を提供しない場合。
+        """
+        if not isinstance(other, Plug):
+            raise TypeError("otherはPlugで指定してください")
+        self._require_valid()
+        other._require_valid()
+        if not hasattr(om2.MPlug, "isExactlyEqual"):
+            raise NotImplementedError("このMayaのAPI 2.0はPlugの完全一致照会に対応していません")
+        return self._mplug.isExactlyEqual(other._mplug)
+
+    def getNumConnectedChildren(self):
+        """接続を持つ直接の子アトリビュート数を取得する。
+
+        Returns:
+            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効、またはMayaが照会を拒否した場合。
+        """
+        self._require_valid()
+        return self._mplug.numConnectedChildren()
+
+    def getAnimCurveType(self, *, timeInput=True):
+        """このPlugの値型に適したアニメーションカーブのノード型を取得する。
+
+        カーブや接続は作らない。接続済みカーブの型ではなく、出力先としてのPlugの型を調べる。
+
+        Args:
+            timeInput (bool): Trueなら時間入力、Falseなら単位なし入力のカーブ。既定True。
+
+        Returns:
+            str | None: animCurveTA等の型名。Mayaが適切な型を決められない場合はNone。
+
+        Raises:
+            TypeError: timeInputがboolでない場合。
+            RuntimeError: Plugが無効、またはMayaが型の照会を拒否した場合。
+        """
+        _require_bool(timeInput, "timeInput")
+        self._require_valid("アニメーションカーブ型の取得")
+        fn = oma2.MFnAnimCurve()
+        curve_type = fn.timedAnimCurveTypeForPlug(self.mplug()) if timeInput else fn.unitlessAnimCurveTypeForPlug(self.mplug())
+        names = {
+            oma2.MFnAnimCurve.kAnimCurveTA: "animCurveTA",
+            oma2.MFnAnimCurve.kAnimCurveTL: "animCurveTL",
+            oma2.MFnAnimCurve.kAnimCurveTT: "animCurveTT",
+            oma2.MFnAnimCurve.kAnimCurveTU: "animCurveTU",
+            oma2.MFnAnimCurve.kAnimCurveUA: "animCurveUA",
+            oma2.MFnAnimCurve.kAnimCurveUL: "animCurveUL",
+            oma2.MFnAnimCurve.kAnimCurveUT: "animCurveUT",
+            oma2.MFnAnimCurve.kAnimCurveUU: "animCurveUU",
+        }
+        return names.get(curve_type)
+
+    def getSetAttrCmds(self, *, valueSelector="all", useLongNames=False):
+        """このPlugと子孫の値を設定するMELのsetAttr文を取得する。
+
+        文は実行しない。Mayaが出力する単位・表記を保持するため、別のシーンへ適用する際は
+        名前や単位を確認する。値の取得に伴ってDGが評価される場合がある。
+
+        Args:
+            valueSelector (str): all(全値)、nonDefault(非既定値)、changed(Mayaが変更ありと判定した値)。既定all。
+            useLongNames (bool): Trueならアトリビュートの長名を使う。既定False。
+
+        Returns:
+            list[str]: Mayaが生成したMEL文。出力対象がなければ空リスト。
+
+        Raises:
+            TypeError: 引数の型が不正な場合。
+            ValueError: valueSelectorが未対応の場合。
+            RuntimeError: Plugが無効、またはMayaが値の出力を拒否した場合。
+        """
+        if not isinstance(valueSelector, str):
+            raise TypeError("valueSelectorは文字列で指定してください")
+        selectors = {"all": om2.MPlug.kAll, "nonDefault": om2.MPlug.kNonDefault, "changed": om2.MPlug.kChanged}
+        if valueSelector not in selectors:
+            raise ValueError("valueSelectorはall・nonDefault・changedのいずれかで指定してください")
+        _require_bool(useLongNames, "useLongNames")
+        self._require_valid("MEL文の取得")
+        return list(self.mplug().getSetAttrCmds(selectors[valueSelector], useLongNames))
+
+    def getAttributeClass(self):
+        """アトリビュート定義が標準・ローカル・拡張のどれに属するか取得する。
+
+        Returns:
+            int: MFnDependencyNodeのkNormalAttr・kLocalDynamicAttr・kGlobalDynamicAttr定数。
+
+        Raises:
+            RuntimeError: Plugが無効な場合。
+        """
+        self._require_valid("アトリビュート分類の取得")
+        return self.getNode()._dependency_fn().attributeClass(self.mplug().attribute())
+
+    def isNewAttribute(self):
+        """現在のシーンで追加されたアトリビュートか調べる。
+
+        リファレンス元で定義された追加アトリビュートと、読込後に追加されたものを区別する。
+
+        Returns:
+            bool: 現在のシーンで追加された定義ならTrue。
+
+        Raises:
+            RuntimeError: Plugが無効な場合。
+        """
+        self._require_valid("追加元の取得")
+        return self.getNode()._dependency_fn().isNewAttribute(self.mplug().attribute())
+
+    def isCaching(self):
+        """このPlugの値がキャッシュ対象か調べる。
+
+        Returns:
+            bool: キャッシュ対象ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self.mplug().isCaching
+
+    def isNetworked(self):
+        """このPlugがDG内部のネットワーク用参照か調べる。
+
+        Returns:
+            bool: ネットワーク用ならTrue。接続の有無の判定にはisConnectedを使う。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self.mplug().isNetworked
+
+    def isProcedural(self):
+        """このPlugがMayaのprocedural指定を持つか調べる。
+
+        Returns:
+            bool: procedural指定ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self.mplug().isProcedural
+
+    def isIgnoredWhenRendering(self):
+        """レンダー時にこのPlugへの接続が無視されるか調べる。
+
+        Returns:
+            bool: Mayaが無視する指定ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        self._require_valid("状態の取得")
+        return self.mplug().isIgnoredWhenRendering
 
     def mplug(self):
         """内部で持っているMPlugを、そのまま取得する。

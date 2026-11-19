@@ -55,6 +55,50 @@ class IkHandle(Transform):
         parent = shape.getParent() if source_node.hasFn(om2.MFn.kShape) else None
         return shape if parent is None else parent
 
+    def setChain(self, startJoint, endJoint):
+        """IKハンドルの開始・末端ジョイントを変更する。
+
+        SCソルバーのローカルなチェーンを対象にする。Mayaが末端にエフェクターを作成する場合がある。
+        姿勢の維持は保証しない。fast引数は持たない(1回のcmdsでチェーンを変更するため)。
+
+        Args:
+            startJoint (Joint | str): 開始ジョイント。
+            endJoint (Joint | str): 開始ジョイントの子孫にある末端ジョイント。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: ジョイント以外を指定した場合。
+            ValueError: 末端が開始ジョイントの子孫でない場合。
+            RuntimeError: ノードや接続先が無効またはロックされている場合。
+            NotImplementedError: SC以外のソルバー、参照、インスタンスを含む場合。
+        """
+        start = Node._resolve_input(startJoint)
+        end = Node._resolve_input(endJoint)
+        if not start.mnode().hasFn(om2.MFn.kJoint) or not end.mnode().hasFn(om2.MFn.kJoint):
+            raise TypeError("startJointとendJointはJointで指定してください")
+        parent = end.getParent()
+        ancestors = []
+        while parent is not None:
+            ancestors.append(parent)
+            if parent == start:
+                break
+            parent = parent.getParent()
+        if start not in ancestors:
+            raise ValueError("endJointはstartJointの子孫で指定してください")
+        if self.getSolver() != "ikSCsolver":
+            raise NotImplementedError("チェーン変更はSCソルバーだけに対応しています")
+        for node in [self, end] + ancestors:
+            if node.isFromReferencedFile() or node.isInstanced():
+                raise NotImplementedError("参照またはインスタンスのIKチェーン変更には対応していません")
+            if node.isLocked():
+                raise RuntimeError("IKチェーンのノードがロックされています")
+        for name in ("startJoint", "endEffector"):
+            if self.getPlug(name).isLocked():
+                raise RuntimeError(f"{name}がロックされています")
+        cmds.ikHandle(self.getFullName(), edit=True, startJoint=start.getFullName(), endEffector=end.getFullName())
+
     def getEndJoint(self):
         """IKチェーンの末端のジョイントを取得する。
 

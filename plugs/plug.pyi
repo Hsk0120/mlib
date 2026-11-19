@@ -8,6 +8,7 @@ from functools import partial
 from operator import methodcaller
 from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _from_seconds, _leaf_unit_kind, _plain_angle_unit, _plain_time_unit, _time_quantity, attributeType, is_internal_data_type, value_reader
 from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, set_plug
@@ -419,6 +420,160 @@ class Plug(Object):
             bool: ノードが有効で、アトリビュートがあれば ``True``
                 (動的アトリビュートは ``deleteAttr`` で削除されることがある)。
                 Undo でノードやアトリビュートが戻れば、再び ``True`` になる。
+        """
+        ...
+    def isExisting(self) -> bool:
+        """アトリビュートと、参照するマルチ要素が実在するか調べる。
+
+        isValidは未作成要素の参照でもTrueになる。ここでは祖先のマルチ要素も確認する。
+        値の評価や要素の作成は行わない。
+
+        Returns:
+            bool: アトリビュートが有効で、参照する全マルチ要素が既存ならTrue。
+        """
+        ...
+    def isInstancedAttribute(self) -> bool:
+        """DAGノードのインスタンス別アトリビュート定義か調べる。
+
+        接続の有無や、現在インスタンス化されているかの判定ではない。
+
+        Returns:
+            bool: MFnDagNodeがインスタンス別の定義と判定すればTrue。非DAGノードはFalse。
+        """
+        ...
+    def isIndexMatters(self) -> bool:
+        """マルチアトリビュートの定義で、要素番号に意味があるか調べる。
+
+        Returns:
+            bool: MFnAttribute.indexMattersの値。接続時のnextAvailableの可否に関わる。
+
+        Raises:
+            RuntimeError: アトリビュートが無効な場合。
+        """
+        ...
+    def isExactlyEqual(self, other: Plug) -> bool:
+        """同じアトリビュートと同じネットワーク上のPlugか調べる。
+
+        通常の==による参照先の比較に加え、MPlug.isExactlyEqualのネットワーク識別も比較する。
+        API 2.0にこの照会がないMayaではNotImplementedError。
+
+        Args:
+            other (Plug): 比較するPlug。
+
+        Returns:
+            bool: Mayaが両者を完全に同じPlugと判定した場合はTrue。
+
+        Raises:
+            TypeError: otherがPlugでない場合。
+            RuntimeError: どちらかのアトリビュートが無効な場合。
+            NotImplementedError: このMayaのAPI 2.0が照会を提供しない場合。
+        """
+        ...
+    def getNumConnectedChildren(self) -> int:
+        """接続を持つ直接の子アトリビュート数を取得する。
+
+        Returns:
+            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。
+
+        Raises:
+            RuntimeError: アトリビュートが無効、またはMayaが照会を拒否した場合。
+        """
+        ...
+    def getAnimCurveType(self, *, timeInput: bool = ...) -> str | None:
+        """このPlugの値型に適したアニメーションカーブのノード型を取得する。
+
+        カーブや接続は作らない。接続済みカーブの型ではなく、出力先としてのPlugの型を調べる。
+
+        Args:
+            timeInput (bool): Trueなら時間入力、Falseなら単位なし入力のカーブ。既定True。
+
+        Returns:
+            str | None: animCurveTA等の型名。Mayaが適切な型を決められない場合はNone。
+
+        Raises:
+            TypeError: timeInputがboolでない場合。
+            RuntimeError: Plugが無効、またはMayaが型の照会を拒否した場合。
+        """
+        ...
+    def getSetAttrCmds(self, *, valueSelector: str = ..., useLongNames: bool = ...) -> list[str]:
+        """このPlugと子孫の値を設定するMELのsetAttr文を取得する。
+
+        文は実行しない。Mayaが出力する単位・表記を保持するため、別のシーンへ適用する際は
+        名前や単位を確認する。値の取得に伴ってDGが評価される場合がある。
+
+        Args:
+            valueSelector (str): all(全値)、nonDefault(非既定値)、changed(Mayaが変更ありと判定した値)。既定all。
+            useLongNames (bool): Trueならアトリビュートの長名を使う。既定False。
+
+        Returns:
+            list[str]: Mayaが生成したMEL文。出力対象がなければ空リスト。
+
+        Raises:
+            TypeError: 引数の型が不正な場合。
+            ValueError: valueSelectorが未対応の場合。
+            RuntimeError: Plugが無効、またはMayaが値の出力を拒否した場合。
+        """
+        ...
+    def getAttributeClass(self) -> int:
+        """アトリビュート定義が標準・ローカル・拡張のどれに属するか取得する。
+
+        Returns:
+            int: MFnDependencyNodeのkNormalAttr・kLocalDynamicAttr・kGlobalDynamicAttr定数。
+
+        Raises:
+            RuntimeError: Plugが無効な場合。
+        """
+        ...
+    def isNewAttribute(self) -> bool:
+        """現在のシーンで追加されたアトリビュートか調べる。
+
+        リファレンス元で定義された追加アトリビュートと、読込後に追加されたものを区別する。
+
+        Returns:
+            bool: 現在のシーンで追加された定義ならTrue。
+
+        Raises:
+            RuntimeError: Plugが無効な場合。
+        """
+        ...
+    def isCaching(self) -> bool:
+        """このPlugの値がキャッシュ対象か調べる。
+
+        Returns:
+            bool: キャッシュ対象ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
+    def isNetworked(self) -> bool:
+        """このPlugがDG内部のネットワーク用参照か調べる。
+
+        Returns:
+            bool: ネットワーク用ならTrue。接続の有無の判定にはisConnectedを使う。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
+    def isProcedural(self) -> bool:
+        """このPlugがMayaのprocedural指定を持つか調べる。
+
+        Returns:
+            bool: procedural指定ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
+        """
+        ...
+    def isIgnoredWhenRendering(self) -> bool:
+        """レンダー時にこのPlugへの接続が無視されるか調べる。
+
+        Returns:
+            bool: Mayaが無視する指定ならTrue。
+
+        Raises:
+            RuntimeError: 参照が無効な場合。
         """
         ...
     def mplug(self) -> om2.MPlug:
@@ -3136,6 +3291,45 @@ class Plugs(_ListMethods):
         ...
     def isValid(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isValid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isExisting(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isExisting` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isInstancedAttribute(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isInstancedAttribute` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isIndexMatters(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isIndexMatters` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isExactlyEqual(self, other: Plug) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isExactlyEqual` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getNumConnectedChildren(self) -> list[int]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getNumConnectedChildren` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAnimCurveType(self, *, timeInput: bool = ...) -> list[str | None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurveType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getSetAttrCmds(self, *, valueSelector: str = ..., useLongNames: bool = ...) -> list[list[str]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getSetAttrCmds` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAttributeClass(self) -> list[int]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAttributeClass` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isNewAttribute(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isNewAttribute` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isCaching(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isCaching` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isNetworked(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isNetworked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isProcedural(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isProcedural` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def isIgnoredWhenRendering(self) -> list[bool]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.isIgnoredWhenRendering` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mplug(self) -> list[om2.MPlug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.mplug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

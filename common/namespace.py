@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..core.nodeEdit import check_deletion
 from ..decorator import _require_bool, undoChunk
 
 
@@ -317,6 +318,49 @@ class Namespace:
             target = Namespace(f"{parent_namespace.name}:{leaf_name}")
             self._move_contents(target)
             self._name = target.name
+
+    def clear(self, *, preserveChildren=True):
+        """名前空間を残して、直接所属するノードを削除する。
+
+        既定では別の名前空間の子Transformをワールド直下へ退避する。子の名前空間は削除しない。
+        Shapeだけの退避とインスタンスの退避は対応しない。ロックの自動解除はしない。
+        cmdsを1つのUndoチャンクに記録する。途中でMayaが拒否した場合は変更が残る場合がある。
+        fast引数は持たない(親子付けと削除をMayaコマンドで行うため)。
+
+        Args:
+            preserveChildren (bool): Trueなら別の名前空間の子を退避する。FalseならDAGの子孫も削除する。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: preserveChildrenがbool以外の場合。
+            ValueError: ルート・UI・shared名前空間の場合。
+            RuntimeError: 名前空間がない、または対象や子孫に削除不可・参照・ロックがある場合。
+            NotImplementedError: 退避対象がShapeまたはインスタンスの場合。
+        """
+        _require_bool(preserveChildren, "preserveChildren")
+        if self._name in (":", ":UI", ":shared"):
+            raise ValueError("既定の名前空間の内容は削除できません")
+        if not self.exists():
+            raise RuntimeError(f"名前空間が存在しません: {self._name}")
+        nodes = self.getNodes()
+        check_deletion(nodes)
+        preserved = []
+        if preserveChildren:
+            for node in nodes:
+                if not node.mnode().hasFn(om2.MFn.kDagNode):
+                    continue
+                for child in node.getChildren(shapes=True, intermediates=True, underWorld=True):
+                    if child.getNamespace() == self:
+                        continue
+                    if not child.mnode().hasFn(om2.MFn.kTransform) or child.isInstanced():
+                        raise NotImplementedError("別の名前空間のShapeやインスタンスの退避には対応していません")
+                    preserved.append(child)
+        with undoChunk("mlibNamespaceClear"):
+            for child in preserved:
+                child.setParent(None)
+            nodes.delete()
 
     def remove(self, destination=":", *, deleteContents=False):
         """中身を別の名前空間へ移してから、この名前空間を削除する。
