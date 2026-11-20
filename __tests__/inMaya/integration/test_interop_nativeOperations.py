@@ -22,6 +22,53 @@ class NativeFollowupTest(NamespaceCase):
     def camera(self):
         return mlib.getNode(cmds.camera(name=self.name("camera"))[1])
 
+    def test_curve_reduces_repeated_knots_with_undo_redo(self):
+        for degree, multiplicity in ((2, 2), (3, 2), (3, 3)):
+            with self.subTest(degree=degree, multiplicity=multiplicity):
+                name = cmds.curve(name=self.name("curve"), degree=degree, point=[(i, i * i, 0) for i in range(5)])
+                cmds.insertKnotCurve(name + ".u[0.5]", ch=False, rpo=True, nk=multiplicity)
+                curve = mlib.getNode(name).getShape()
+                before = (curve.getKnots(), [tuple(p) for p in curve.mfn().cvPositions()])
+                self.flushUndo()
+                self.assertIsNone(curve.reduceKnotMultiplicity(0.5))
+                after = (curve.getKnots(), [tuple(p) for p in curve.mfn().cvPositions()])
+                self.assertEqual(after[0].count(0.5), 1)
+                self.assertEqual(len(before[1]) - len(after[1]), multiplicity - 1)
+                cmds.undo()
+                self.assertEqual((curve.getKnots(), [tuple(p) for p in curve.mfn().cvPositions()]), before)
+                cmds.redo()
+                self.assertEqual((curve.getKnots(), [tuple(p) for p in curve.mfn().cvPositions()]), after)
+
+    def test_curve_rejects_unsupported_knot_edits_before_change(self):
+        name = cmds.curve(name=self.name("curve"), degree=3, point=[(i, i * i, 0) for i in range(5)])
+        curve = mlib.getNode(name).getShape()
+        before = curve.getKnots()
+        for parameter in (0, 1, 0.25, float("nan")):
+            with self.assertRaises(ValueError):
+                curve.reduceKnotMultiplicity(parameter)
+            self.assertEqual(curve.getKnots(), before)
+        cmds.insertKnotCurve(name + ".u[0.5]", ch=False, rpo=True, nk=2)
+        before = curve.getKnots()
+        curve.getPlug("create").setLocked(True)
+        with self.assertRaises(RuntimeError):
+            curve.reduceKnotMultiplicity(0.5)
+        curve.getPlug("create").setLocked(False)
+        curve.getPlug("controlPoints")[0].setLocked(True)
+        with self.assertRaises(NotImplementedError):
+            curve.reduceKnotMultiplicity(0.5)
+        self.assertEqual(curve.getKnots(), before)
+
+    def test_camera_manual_clips_use_best_fit_plug(self):
+        camera = self.camera()
+        for orthographic in (False, True):
+            camera.getPlug("orthographic").set(orthographic)
+            for state in (False, True):
+                camera.getPlug("bestFitClippingPlanes").set(state)
+                camera.getPlug("clippingPlanes").set(not state)
+                self.assertEqual(camera.mfn().isClippingPlanes, state)
+                self.assertEqual(om1.MFnCamera(camera._api1_path()).isClippingPlanes(), state)
+                self.assertEqual(cmds.camera(camera.getFullName(), query=True, clippingPlanes=True), state)
+
     def test_dag_colors_and_override_state(self):
         node = self.cube()
         shape = node.getShape()
@@ -224,6 +271,17 @@ class NativeFollowupTest(NamespaceCase):
         self.assertNotEqual(cube.getShape().getPoints(), before)
 
     def test_topology_symmetry_changes_deltas_and_undo_redo(self):
+        cache_before = set(cmds.ls("topoSymmetrySet", uuid=True) or [])
+
+        def remove_created_cache():
+            # Mayaは対称編集のキャッシュを名前空間の外へ作り、Undoでも残す。
+            # このテストが生成したUUIDだけを後始末し、既存のキャッシュは削除しない。
+            for uid in set(cmds.ls("topoSymmetrySet", uuid=True) or []) - cache_before:
+                names = cmds.ls(uid, long=True) or []
+                if names:
+                    cmds.delete(names)
+
+        self.addCleanup(remove_created_cache)
         base = cmds.polyPlane(name=self.name("base"), ch=False, subdivisionsX=2, subdivisionsY=1)[0]
         target = cmds.duplicate(base, name=self.name("target"))[0]
         cmds.move(0, 1, 0, target + ".vtx[0]", relative=True)

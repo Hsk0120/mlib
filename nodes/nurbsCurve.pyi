@@ -263,6 +263,26 @@ class NurbsCurve(Shape):
             NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
         """
         ...
+    def reduceKnotMultiplicity(self, parameter: float) -> None:
+        """カーブの内側の重複ノットを1つへ減らす。
+
+        開いたカーブの、同じ値が2つ以上あるノットだけを扱う。最後の1つは削除しない。
+        CV数や形状が変わる場合がある。ヒストリ・参照・CVのロックや接続は拒否する。
+        独立コピーで結果を確認してからcmdsで書き込み、通常Undoに対応する。
+
+        Args:
+            parameter (float): 多重度を1へ減らす内側のノット値。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: parameterが数値でない場合。
+            ValueError: parameterが非有限、内側の重複ノットでない場合。
+            RuntimeError: カーブが無効、ロックされている、またはMayaが期待するノット列を返さない場合。
+            NotImplementedError: 閉じたカーブ、周期カーブ、ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        ...
     def makeMultipleEndKnots(self) -> None:
         """カーブ両端のノットを最大多重度にする。
 

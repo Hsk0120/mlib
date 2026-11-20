@@ -371,6 +371,43 @@ class NurbsCurve(Shape):
         fn.setKnots(values, 0, len(values) - 1)
         self._write_curve_data(fn)
 
+    def reduceKnotMultiplicity(self, parameter):
+        """カーブの内側の重複ノットを1つへ減らす。
+
+        開いたカーブの、同じ値が2つ以上あるノットだけを扱う。最後の1つは削除しない。
+        CV数や形状が変わる場合がある。ヒストリ・参照・CVのロックや接続は拒否する。
+        独立コピーで結果を確認してからcmdsで書き込み、通常Undoに対応する。
+
+        Args:
+            parameter (float): 多重度を1へ減らす内側のノット値。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: parameterが数値でない場合。
+            ValueError: parameterが非有限、内側の重複ノットでない場合。
+            RuntimeError: カーブが無効、ロックされている、またはMayaが期待するノット列を返さない場合。
+            NotImplementedError: 閉じたカーブ、周期カーブ、ヒストリ・参照・CVのロックや接続がある場合。
+        """
+        parameter = _finite(parameter, "parameter")
+        self._require_knot_edit()
+        source = self._geometry_fn()
+        if source.form != om2.MFnNurbsCurve.kOpen:
+            raise NotImplementedError("ノットの多重度変更は開いたカーブだけに対応しています")
+        knots = list(source.knots())
+        low, high = source.knotDomain
+        if not low < parameter < high or knots.count(parameter) < 2:
+            raise ValueError("parameterはパラメーター範囲の内側の重複ノット値で指定してください")
+        expected = sorted([value for value in knots if value != parameter] + [parameter])
+        # シーン側を更新する前に、コピーの所有者を保持して削減結果を確かめる。
+        data = om2.MFnNurbsCurveData().create()
+        copied = om2.MFnNurbsCurve(om2.MFnNurbsCurve().copy(source.object(), data))
+        copied.removeKnot(parameter, False)
+        if list(copied.knots()) != expected:
+            raise RuntimeError("Mayaが期待するノット列を返さなかったため、カーブを更新しません")
+        self._write_curve_data(copied)
+
     def makeMultipleEndKnots(self):
         """カーブ両端のノットを最大多重度にする。
 

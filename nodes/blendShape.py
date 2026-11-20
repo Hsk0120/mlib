@@ -671,7 +671,8 @@ class BlendShape(GeometryFilter):
 
         ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。既定では対称の頂点をオブジェクト空間の座標で探す。
         topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
-        Undoが有効なら、基準エッジ設定も含めて1回のUndoで戻せる。
+        ターゲットと基準エッジ設定は1回のUndoで戻せる。
+        Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
@@ -707,7 +708,8 @@ class BlendShape(GeometryFilter):
         ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
         左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
         topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
-        Undoが有効なら、基準エッジ設定も含めて1回のUndoで戻せる。
+        ターゲットと基準エッジ設定は1回のUndoで戻せる。
+        Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。

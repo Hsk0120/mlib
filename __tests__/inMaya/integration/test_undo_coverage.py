@@ -486,6 +486,7 @@ def take_snapshot(baseline, extraState=None):
     return {
         "nodes": nodes,
         "scene": scene,
+        "sceneNames": {uid: (cmds.ls(uid, long=True) or [uid])[0] for uid in scene},
         "selection": tuple(cmds.ls(selection=True, long=True) or []),
         "namespaces": tuple(sorted(cmds.namespaceInfo(":", listOnlyNamespaces=True, recurse=True, absoluteName=True) or [])),
         "currentNamespace": cmds.namespaceInfo(currentNamespace=True, absoluteName=True),
@@ -521,7 +522,7 @@ def diff_snapshots(expected, actual, ignore=frozenset(), case=None):
     for uid in sorted(actual["scene"] - expected["scene"]):
         lines.append("余分なノード: " + actual["nodes"].get(uid, {}).get("name", uid))
     for uid in sorted(expected["scene"] - actual["scene"]):
-        lines.append("失われたノード: " + expected["nodes"].get(uid, {}).get("name", uid))
+        lines.append("失われたノード: " + expected["nodes"].get(uid, {}).get("name", expected.get("sceneNames", {}).get(uid, uid)))
     for uid in sorted(set(expected["nodes"]) & set(actual["nodes"])):
         before, after = expected["nodes"][uid], actual["nodes"][uid]
         label = before["name"]
@@ -819,6 +820,13 @@ def s_camera(c):
     """画角編集用のカメラを作る。"""
     c.camera_transform, shape = cmds.camera()
     c.camera = mlib.getNode(shape)
+
+
+def s_repeated_curve_knots(c):
+    """多重度を減らす内側の重複ノットがあるカーブを作る。"""
+    c.crv = cmds.curve(name="repeated", degree=3, point=[(i, i * i, 0) for i in range(5)])
+    cmds.insertKnotCurve(c.crv + ".u[0.5]", ch=False, rpo=True, nk=3)
+    c.ncrvShape = mlib.getNode(c.crv).getShape()
 
 
 def s_periodic_curve(c):
@@ -1744,6 +1752,12 @@ CASES = [
     C("NurbsCurve.mirror", "NurbsCurve.mirror", s_curve, lambda c, **kw: c.ncrvShape.mirror("y", pivot=(0.0, 1.0, 0.0), **kw)),
     C("NurbsCurve.setKnots", "NurbsCurve.setKnots", s_curve, lambda c, **kw: c.ncrvShape.setKnots([v * 2 for v in c.ncrvShape.getKnots()])),
     C("NurbsCurve.makeMultipleEndKnots", "NurbsCurve.makeMultipleEndKnots", s_periodic_curve, lambda c, **kw: c.ncrvShape.makeMultipleEndKnots()),
+    C(
+        "NurbsCurve.reduceKnotMultiplicity",
+        "NurbsCurve.reduceKnotMultiplicity",
+        s_repeated_curve_knots,
+        lambda c, **kw: c.ncrvShape.reduceKnotMultiplicity(0.5),
+    ),
     C("NurbsCurve.rebuild", "NurbsCurve.rebuild", s_curve, lambda c, **kw: c.ncrvShape.rebuild(4, 3, keepRange="unit")),
     C("NurbsCurve.reverseDirection", "NurbsCurve.reverseDirection", s_curve, lambda c, **kw: c.ncrvShape.reverseDirection()),
     C("Transform.mirrorGeometry", "Transform.mirrorGeometry", s_cube, lambda c, **kw: c.ncube.mirrorGeometry("x", worldSpace=True, **kw)),

@@ -15,7 +15,11 @@ from typing import Iterable
 
 
 class Camera(Shape):
-    """Mayaのcameraシェイプノードを扱うクラス。"""
+    """Mayaのcameraシェイプノードを保持し、撮影条件と投影を扱う。
+
+    手動クリップ設定の照会は ``getPlug("bestFitClippingPlanes").get()`` を使う。
+    これはMFnCamera.isClippingPlanesの取得値に対応する。似た名前のclippingPlanesは未使用のアトリビュート。
+    """
     def mfn(self) -> om2.MFnCamera:
         """このカメラのfunction set(``om2.MFnCamera``)を取得する。
 
