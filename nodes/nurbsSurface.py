@@ -308,7 +308,10 @@ class NurbsSurface(Shape):
             RuntimeError: 曲面が無効、ロック、またはUVアトリビュートが編集不可の場合。
             NotImplementedError: fast=False、ヒストリ・参照・トリム曲面、または既存UV表の縮小の場合。
         """
-        self._require_uv_edit(fast)
+        _require_bool(fast, "fast")
+        if not fast:
+            raise NotImplementedError("曲面のUV更新はfast=True専用です")
+        self._require_uv_edit()
         values = [tuple(_finite(value, "uvs") for value in uv) for uv in uvs]
         counts = list(counts)
         indices = list(indices)
@@ -335,6 +338,40 @@ class NurbsSurface(Shape):
         check_fn.assignUVs(counts, indices)
         fn.setUVs(us, vs)
         fn.assignUVs(counts, indices)
+
+    def clearUVData(self):
+        """曲面の明示テクスチャUV表とパッチへの割り当てを消去する。
+
+        同じShapeへCV・ノット・次数・形式を書き戻し、Mayaの既定UVを使う状態へ戻す。
+        消去後のgetUVDataはRuntimeErrorになる。Shapeの削除・再作成は行わない。
+        ヒストリ・参照・トリム・インスタンス・コンポーネントタグ・複数UVセットを持つ曲面や、
+        CV/UVアトリビュートが編集できない曲面は拒否する。
+        通常Undoに対応する。fast引数は持たない(形状データを1回のcmds.setAttrで書くため)。
+
+        Returns:
+            None: 値を返さない。明示UVがない場合は何も変更しない。
+
+        Raises:
+            RuntimeError: 曲面が無効、ロック、またはCV/UVアトリビュートが編集不可の場合。
+            NotImplementedError: 曲面の編集状態が対応条件を満たさない場合。
+        """
+        self._require_uv_edit()
+        self._require_fast_editable(check=True)
+        if self.mpath().isInstanced():
+            raise NotImplementedError("インスタンスの曲面のUV消去には対応していません")
+        if len(self.getPlug("uvSet").getIndices()) > 1:
+            raise NotImplementedError("複数UVセットを持つ曲面のUV消去には対応していません")
+        geometry = om2.MFnGeometryData(self.getPlug("local").mplug().asMObject())
+        if geometry.componentTags():
+            raise NotImplementedError("コンポーネントタグを持つ曲面のUV消去には対応していません")
+        fn = self._geometry_fn()
+        try:
+            uv_count = fn.numUVs
+        except RuntimeError:
+            # 明示UVがない曲面では、Mayaは0でなく例外を返す。
+            return
+        if uv_count:
+            self._write_surface_data(fn)
 
     def getTrimBoundaryInfo(self):
         """トリム領域ごとの境界の種類とエッジ数を取得する。
@@ -808,15 +845,8 @@ class NurbsSurface(Shape):
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         return self._geometry_fn().area(space)
 
-    def _require_uv_edit(self, fast):
-        """直接UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。
-
-        Args:
-            fast (bool): 直接更新を明示したか。
-        """
-        _require_bool(fast, "fast")
-        if not fast:
-            raise NotImplementedError("曲面のUV更新はfast=True専用です")
+    def _require_uv_edit(self):
+        """UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。"""
         if self.isFromReferencedFile() or self._geometry_fn().isTrimmedSurface:
             raise NotImplementedError("参照・トリム曲面のUV更新には対応していません")
         self._require_fast_editable()

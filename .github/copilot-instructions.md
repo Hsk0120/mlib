@@ -36,6 +36,11 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 BはカメラのsetView/copyViewFrom/setCenterOfInterestPointをfast=True専用、ピボット中央化と強制正規化を通常Undo対応として実装する。EはmirrorTarget/flipTargetのsymmetrySpace/symmetryEdgeでtopologyに対応し、object既定を維持する。API 1.0併用の明示許可はA/Fに限定する。
 通常Undoなしの操作はdocstringとテストで区別する。既存APIの省略時動作や返却を変更しない。
 
+2026-11-20の追加回答により、NurbsCurve.removeKnotは形状が変わり得る標準EP削除として限定実装する。
+NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示UVを消し、通常Undoに対応させる。
+どちらも対応条件を更新前に検査し、Shapeの削除・再作成や独自補正は行わない。
+既存setUVDataのfast専用仕様は維持する。BlendShapeのUV基準対称編集は再現例が得られるまで未対応として保留する。
+
 ## パッケージ構成と責務
 
 | 場所 | 責務 |

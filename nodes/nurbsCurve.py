@@ -408,6 +408,50 @@ class NurbsCurve(Shape):
             raise RuntimeError("Mayaが期待するノット列を返さなかったため、カーブを更新しません")
         self._write_curve_data(copied)
 
+    def removeKnot(self, parameter):
+        """指定した内側のノットを、対応するEPの削除で完全に除去する。
+
+        同じ値の重複ノットもすべて除去する。CV数・形状が変わり、CV/EP番号も変わる。
+        次数1〜3で、両端が最大多重度の開いたカーブに限定する。
+        ヒストリ・参照・インスタンス・コンポーネントタグ・CVのロックや接続は拒否する。
+        通常Undoに対応する。fast引数は持たない(1回のcmds.deleteでEPを削除するため)。
+
+        Args:
+            parameter (float): 完全に除去する、既存の内側のノット値。近い値への丸めは行わない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: parameterが数値でない場合。
+            ValueError: parameterが非有限、または内側のノット値でない場合。
+            RuntimeError: カーブが無効、ロックされている、またはMayaが削除を拒否した場合。
+            NotImplementedError: カーブの形式・次数・編集状態が対応条件を満たさない場合。
+        """
+        parameter = _finite(parameter, "parameter")
+        self._require_knot_edit()
+        fn = self._geometry_fn()
+        knots = list(fn.knots())
+        low, high = fn.knotDomain
+        if fn.form != om2.MFnNurbsCurve.kOpen or fn.degree not in (1, 2, 3):
+            raise NotImplementedError("ノットの削除は次数1〜3の開いたカーブだけに対応しています")
+        if knots[0] != low or knots[-1] != high or knots.count(low) != fn.degree or knots.count(high) != fn.degree:
+            raise NotImplementedError("ノットの削除には、両端が最大多重度のカーブが必要です")
+        if not low < parameter < high or parameter not in knots:
+            raise ValueError("parameterはパラメーター範囲の内側の既存ノット値で指定してください")
+        if self.mpath().isInstanced():
+            raise NotImplementedError("インスタンスのカーブのノット削除には対応していません")
+        geometry = om2.MFnGeometryData(self.getPlug("local").mplug().asMObject())
+        if geometry.componentTags():
+            raise NotImplementedError("コンポーネントタグを持つカーブのノット削除には対応していません")
+        for point in self.getPlug("controlPoints").getElements():
+            for plug in [point] + list(point.getChildren()):
+                if plug.getDestinations():
+                    raise NotImplementedError("CVから出力接続があるカーブのノット削除には対応していません")
+        # 両端が最大多重度の開いたカーブでは、異なるノット値の順番がEP番号になる。
+        ep_index = sorted(set(knots)).index(parameter)
+        cmds.delete(f"{self.getFullName()}.ep[{ep_index}]")
+
     def makeMultipleEndKnots(self):
         """カーブ両端のノットを最大多重度にする。
 

@@ -236,6 +236,23 @@ class NurbsSurface(Shape):
             NotImplementedError: fast=False、ヒストリ・参照・トリム曲面、または既存UV表の縮小の場合。
         """
         ...
+    def clearUVData(self) -> None:
+        """曲面の明示テクスチャUV表とパッチへの割り当てを消去する。
+
+        同じShapeへCV・ノット・次数・形式を書き戻し、Mayaの既定UVを使う状態へ戻す。
+        消去後のgetUVDataはRuntimeErrorになる。Shapeの削除・再作成は行わない。
+        ヒストリ・参照・トリム・インスタンス・コンポーネントタグ・複数UVセットを持つ曲面や、
+        CV/UVアトリビュートが編集できない曲面は拒否する。
+        通常Undoに対応する。fast引数は持たない(形状データを1回のcmds.setAttrで書くため)。
+
+        Returns:
+            None: 値を返さない。明示UVがない場合は何も変更しない。
+
+        Raises:
+            RuntimeError: 曲面が無効、ロック、またはCV/UVアトリビュートが編集不可の場合。
+            NotImplementedError: 曲面の編集状態が対応条件を満たさない場合。
+        """
+        ...
     def getTrimBoundaryInfo(self) -> list[list[tuple[int, int]]]:
         """トリム領域ごとの境界の種類とエッジ数を取得する。
 
@@ -571,12 +588,8 @@ class NurbsSurface(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def _require_uv_edit(self, fast: bool):
-        """直接UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。
-
-        Args:
-            fast (bool): 直接更新を明示したか。
-        """
+    def _require_uv_edit(self):
+        """UV更新の対応条件とUVアトリビュートの書き込み可否を確認する。"""
         ...
     @staticmethod
     def _require_trim_index(index, count, name):

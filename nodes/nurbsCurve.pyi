@@ -283,6 +283,27 @@ class NurbsCurve(Shape):
             NotImplementedError: 閉じたカーブ、周期カーブ、ヒストリ・参照・CVのロックや接続がある場合。
         """
         ...
+    def removeKnot(self, parameter: float) -> None:
+        """指定した内側のノットを、対応するEPの削除で完全に除去する。
+
+        同じ値の重複ノットもすべて除去する。CV数・形状が変わり、CV/EP番号も変わる。
+        次数1〜3で、両端が最大多重度の開いたカーブに限定する。
+        ヒストリ・参照・インスタンス・コンポーネントタグ・CVのロックや接続は拒否する。
+        通常Undoに対応する。fast引数は持たない(1回のcmds.deleteでEPを削除するため)。
+
+        Args:
+            parameter (float): 完全に除去する、既存の内側のノット値。近い値への丸めは行わない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: parameterが数値でない場合。
+            ValueError: parameterが非有限、または内側のノット値でない場合。
+            RuntimeError: カーブが無効、ロックされている、またはMayaが削除を拒否した場合。
+            NotImplementedError: カーブの形式・次数・編集状態が対応条件を満たさない場合。
+        """
+        ...
     def makeMultipleEndKnots(self) -> None:
         """カーブ両端のノットを最大多重度にする。
 

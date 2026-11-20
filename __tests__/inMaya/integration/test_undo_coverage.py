@@ -858,6 +858,23 @@ def s_surface(c):
     c.nsrfShape = mlib.getNode(cmds.listRelatives(c.srf, shapes=True, fullPath=True)[0])
 
 
+def s_surface_uv(c):
+    """明示UVを消去する曲面を作る。"""
+    s_surface(c)
+    c.nsrfShape.setUVData([(0, 0), (1, 0), (1, 1), (0, 1)], [4], [0, 1, 2, 3], fast=True)
+
+
+def r_surface_uv(c):
+    """通常のアトリビュート照会に現れない曲面UVと形状を比較する。"""
+    fn = c.nsrfShape.mfn()
+    try:
+        uvs = tuple(tuple(values) for values in fn.getUVs())
+        assignments = tuple(tuple(values) for values in fn.getAssignedUVs())
+    except RuntimeError:
+        uvs, assignments = None, None
+    return (uvs, assignments, tuple(tuple(point) for point in fn.cvPositions()), tuple(fn.knotsInU()), tuple(fn.knotsInV()))
+
+
 def s_lattice(c):
     """polyCube を変形する 2x2x2 のラティス(latticeShape)を作る。"""
     s_cube(c)
@@ -1547,6 +1564,8 @@ CASES = [
         extraState=lambda c: c.camera.isVerticalLocked(),
     ),
     C("NurbsSurface.removeKnot", "NurbsSurface.removeKnot", s_surface_knots, lambda c, **kw: c.nsrfShape.removeKnot(0.5)),
+    C("NurbsSurface.clearUVData", "NurbsSurface.clearUVData", s_surface_uv, lambda c, **kw: c.nsrfShape.clearUVData(), extraState=r_surface_uv),
+    C("NurbsCurve.removeKnot", "NurbsCurve.removeKnot", s_repeated_curve_knots, lambda c, **kw: c.ncrvShape.removeKnot(0.5)),
     C("IkHandle.setChain", "IkHandle.setChain end", s_ik_chain, lambda c, **kw: c.handle.setChain(c.start, c.middle)),
     C("IkHandle.setChain", "IkHandle.setChain", s_ik_chain, lambda c, **kw: c.handle.setChain(c.middle, c.end)),
     C("Namespace.clear", "Namespace.clear", s_ns, lambda c, **kw: Namespace(c.sub).clear()),
