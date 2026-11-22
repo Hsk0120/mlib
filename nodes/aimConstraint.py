@@ -154,7 +154,7 @@ class AimConstraint(Constraint):
             parent = self.getPlug(attribute)
             children = [self.getPlug(attribute + axis) for axis in "XYZ"]
             require_editable(self.mnode())
-            if check and any(plug.isLocked() or plug.getSource() is not None for plug in [parent] + children):
+            if check and any(plug.isLocked() or plug.getSource() is not None for plug in [parent, *children]):
                 raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {parent.getFullName()}")
             for plug, component in zip(children, values):
                 plug.set(component, unit="rad", fast=fast)

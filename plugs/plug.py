@@ -705,14 +705,19 @@ class Plug(Object):
     def getNumConnectedChildren(self):
         """接続を持つ直接の子アトリビュート数を取得する。
 
+        コンパウンドアトリビュートでないPlug(子を持たないPlug)では0を返す。
+
         Returns:
-            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。
+            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。コンパウンドでなければ0。
 
         Raises:
             RuntimeError: アトリビュートが無効、またはMayaが照会を拒否した場合。
         """
         self._require_valid()
-        return self._mplug.numConnectedChildren()
+        mplug = self._mplug
+        if not mplug.isCompound:
+            return 0
+        return mplug.numConnectedChildren()
 
     def getAnimCurveType(self, *, timeInput=True):
         """このPlugの値型に適したアニメーションカーブのノード型を取得する。
@@ -1194,6 +1199,7 @@ class Plug(Object):
         Raises:
             RuntimeError: アトリビュートが無効な場合、またはMayaが照会を拒否した場合。
         """
+        self._require_valid("状態の取得")
         return bool(cmds.isDirty(self.getFullName(), datablock=True))
 
     def setDirty(self):
@@ -1208,6 +1214,7 @@ class Plug(Object):
         Raises:
             RuntimeError: アトリビュートが無効な場合、またはMayaが要求を拒否した場合。
         """
+        self._require_valid("再評価の要求")
         cmds.dgdirty(self.getFullName())
 
     def evaluate(self):
@@ -1995,7 +2002,7 @@ class Plug(Object):
         angle_unit = _plain_angle_unit(unit, uiUnits) if unit is not None or uiUnits else "deg"
         time_unit = _plain_time_unit(timeUnit, uiUnits) if timeUnit is not None or uiUnits else "frame"
         value = self._raw_default()
-        if value is None or isinstance(value, int) and self._mplug.attribute().hasFn(om2.MFn.kEnumAttribute):
+        if value is None or (isinstance(value, int) and self._mplug.attribute().hasFn(om2.MFn.kEnumAttribute)):
             return value
         return self._plain_range_value(value, angle_unit, uiUnits, time_unit)
 
@@ -2610,8 +2617,10 @@ class Plug(Object):
             bool: 書き込んだらTrue。値が同じで書き込まなかったらFalse。
 
         Raises:
-            TypeError: スカラーでない値を指定した場合。
-            RuntimeError: Mayaがアトリビュートの更新を拒否した場合。
+            TypeError: fastがboolでない場合、またはスカラーでない値を指定した場合。
+            ValueError: check=Trueで、値が有限でない(NaN・無限大の)場合。
+            RuntimeError: アトリビュートが無効な場合、check=Trueでロック・入力の接続がある場合、
+                またはMayaがアトリビュートの更新を拒否した場合。
 
         Note:
             通常は、値とロックの変更を、Undoが有効なら同じチャンクに記録する。
@@ -2638,7 +2647,7 @@ class Plug(Object):
 
         - 単位付きのアトリビュートは、既定値を内部単位(cm・rad・秒)に換算し、``unit="rad"``・``timeUnit="sec"`` でsetへ渡す。
         - コンパウンドアトリビュートは、定義順に子を戻す。途中で失敗したら例外を送出する。
-          前もってすべての子を確かめることも、成功した子を自動で元に戻すこともしない。
+          ``check=True`` なら、書く前にすべての子を確かめる。成功した子を自動で元に戻すことはしない。
 
         接続の切断やロックの解除はしない。
 
@@ -2667,6 +2676,9 @@ class Plug(Object):
                 raise TypeError(_MULTI_RESET_MESSAGE)
             self._require_valid()
             if self._mplug.isCompound:
+                if check:
+                    # 途中の子で止まって一部だけ戻らないよう、書く前にすべての子を確かめる。
+                    self._require_writable()
                 for index in range(self._mplug.numChildren()):
                     Plug(self._node, self._mplug.child(index)).reset(fast=fast, check=check)
                 return
@@ -3579,7 +3591,7 @@ class Plug(Object):
                 # Matrix は MTransformationMatrix を直接受け付けないため、マトリクスへ変換してから渡す。
                 self._set_generic_matrix(Matrix(value.asMatrix()), fast)
                 return
-            if isinstance(value, om2.MMatrix) or isinstance(value, (tuple, list)) and len(value) == 16:
+            if isinstance(value, om2.MMatrix) or (isinstance(value, (tuple, list)) and len(value) == 16):
                 self._set_generic_matrix(Matrix(value), fast)
                 return
         if fast:
@@ -4301,8 +4313,8 @@ class Plug(Object):
                         break
                 else:
                     return None
-            for index in _PLUG_PATH_INDEX.findall(indices):
-                index = int(index)
+            for digits in _PLUG_PATH_INDEX.findall(indices):
+                index = int(digits)
                 if not mplug.isArray or index > MAX_LOGICAL_INDEX:
                     # 範囲外の番号は elementByLogicalIndex() が別の番号へ変換してしまう
                     # (input1D[4294967296] が input1D[0] を指す)ため、解決できない名前として扱う。

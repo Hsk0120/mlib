@@ -8,7 +8,7 @@ import maya.cmds as cmds
 
 from ..components.cv import CV, CVs
 from ..components.pointComponent import _mirror_plan, _write_points
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
@@ -445,7 +445,7 @@ class NurbsCurve(Shape):
         if geometry.componentTags():
             raise NotImplementedError("コンポーネントタグを持つカーブのノット削除には対応していません")
         for point in self.getPlug("controlPoints").getElements():
-            for plug in [point] + list(point.getChildren()):
+            for plug in [point, *point.getChildren()]:
                 if plug.getDestinations():
                     raise NotImplementedError("CVから出力接続があるカーブのノット削除には対応していません")
         # 両端が最大多重度の開いたカーブでは、異なるノット値の順番がEP番号になる。
@@ -620,7 +620,7 @@ class NurbsCurve(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
-        values = geometry_edit.point_list(points)
+        values = geometryEdit.point_list(points)
         fn = self._geometry_fn()
         count = fn.numCVs
         independent = count
@@ -636,7 +636,7 @@ class NurbsCurve(Shape):
                 raise ValueError(f"点を{independent}個か{count}個指定してください: {len(values)}個")
             raise ValueError(f"点を{count}個指定してください: {len(values)}個")
         with _edit_context("mlibNurbsCurveSetCvPositions", fast, transaction=True):
-            geometry_edit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
+            geometryEdit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """CVの座標を、中心pivotに対して反転する。
@@ -823,7 +823,7 @@ class NurbsCurve(Shape):
             RuntimeError: 点が許容誤差内のカーブ上にない、または形状が無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        x, y, z = geometry_edit.point_list([point])[0]
+        x, y, z = geometryEdit.point_list([point])[0]
         tolerance = _checked_tolerance(tolerance)
         curve = self._space_curve(worldSpace)
         return curve.getParamAtPoint(om2.MPoint(x, y, z), tolerance)
@@ -846,7 +846,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状が無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        x, y, z = geometry_edit.point_list([point])[0]
+        x, y, z = geometryEdit.point_list([point])[0]
         tolerance = _checked_tolerance(tolerance)
         curve = self._space_curve(worldSpace)
         return curve.isPointOnCurve(om2.MPoint(x, y, z), tolerance)
@@ -871,7 +871,7 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        x, y, z = geometry_edit.point_list([point])[0]
+        x, y, z = geometryEdit.point_list([point])[0]
         curve = self._space_curve(worldSpace)
         found, param = curve.closestPoint(om2.MPoint(x, y, z), tolerance=1e-7)
         return _vectors_of_points([found])[0], param
@@ -919,7 +919,7 @@ class NurbsCurve(Shape):
         _require_bool(secondOrder, "secondOrder")
         curve = self._space_curve(worldSpace)
         values = curve.getDerivativesAtParam(self._require_param(curve, param), dUU=secondOrder)
-        return (_vectors_of_points([values[0]])[0],) + tuple(Vector(value) for value in values[1:])
+        return (_vectors_of_points([values[0]])[0], *(Vector(value) for value in values[1:]))
 
     def getTangentAtParam(self, param, worldSpace=_UNSET, *, ws=_UNSET):
         """パラメーターの位置の接線を、長さ1にして取得する。
@@ -1111,7 +1111,7 @@ class NurbsCurve(Shape):
             raise ValueError(f"aimAxisとupAxisは別の軸で指定してください: {aimAxis!r}, {upAxis!r}")
         up_vector = None
         if up is not None:
-            x, y, z = geometry_edit.point_list([up])[0]
+            x, y, z = geometryEdit.point_list([up])[0]
             up_vector = om2.MVector(x, y, z)
             if up_vector.length() < _DEGENERATE:
                 raise ValueError("upに0のベクトルは指定できません")
@@ -1287,8 +1287,7 @@ class NurbsCurve(Shape):
         closed = curve.form != om2.MFnNurbsCurve.kOpen
         intervals = count if closed else count - 1
         params = [start]
-        for index in range(1, count):
-            params.append(self._param_at_length(curve, total * index / intervals, total))
+        params.extend(self._param_at_length(curve, total * index / intervals, total) for index in range(1, count))
         if not closed:
             params[-1] = end
         return params

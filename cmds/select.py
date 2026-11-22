@@ -126,10 +126,10 @@ def select(
     )
     with undoChunk("mlibSelect"):
         # 循環参照の回避: core は cmds を参照するため、使う時点で読み込む。
-        from ..core.object import Object as _InputObject
+        from ..core.object import Object
 
         if nodes is None:
             cmds.select(**kwargs)
             return
-        names = _InputObject._input_names(nodes)
+        names = Object._input_names(nodes)
         cmds.select(names, **kwargs)

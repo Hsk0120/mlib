@@ -29,6 +29,12 @@ class Locator(Shape):
         Returns:
             None: 値を返さない。
 
+        Raises:
+            TypeError: fastがboolでない場合、またはvalueが数値の並びでない場合。
+            ValueError: check=Trueで、値が有限でない(NaN・無限大の)場合。
+            RuntimeError: ノードが無効な場合、check=Trueでロック・入力の接続がある場合、
+                またはMayaが書き込みを拒否した場合。
+
         Note:
             ``fast=True`` はOpenMayaで直接書き込む(Undoなし)。既定の ``False`` は通常の処理になる。
             fastがbool以外ならTypeErrorになる。直接書き込んだ後の変更は、自動では戻さない。

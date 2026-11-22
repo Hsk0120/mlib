@@ -152,7 +152,7 @@ def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_p
         # 親と一緒に消える子孫も解除しないと、消えたjointの列にウェイトが残る。
         doomed = {}
         for joint in joints:
-            for node in [joint] + list(joint.getChildren(allDescendents=True, type="joint")):
+            for node in [joint, *joint.getChildren(allDescendents=True, type="joint")]:
                 doomed[node.getUuid()] = node
         # 全influenceが消えるskinClusterは解除の移送先も再配分先も無いため、Maya標準の削除に任せる。
         groups = [(skin, nodes) for skin, nodes in _influences_by_skin(doomed.values()) if len(nodes) < len(skin.getInfluences())]
@@ -349,7 +349,7 @@ class Joint(Transform):
             RuntimeError: 自身または子が参照・ロックされているか、補正チャンネルが編集できない場合。
         """
         self._require_valid("回転軸の初期化")
-        for node in [self] + list(self.getChildren()):
+        for node in [self, *self.getChildren()]:
             if node.isFromReferencedFile() or node._dependency_fn().isLocked:
                 raise RuntimeError("参照またはロックされたジョイント階層は補正できません")
             for attr in ("rotateAxis", "jointOrient", "translate", "rotate", "scale"):
@@ -1428,7 +1428,7 @@ class Joints(Nodes):
             ValueError: :meth:`Joint.setRadius` と同じ。
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
-        self._forward("setRadius", (value,), fast, check=check)
+        self._forward("setRadius", (value,), fast, check=check, writes=lambda joint: [joint.getPlug("radius")])
 
     def setSegmentScaleCompensate(self, state=True, *, fast=False, check=False):
         """各ジョイントに、並んでいる順に :meth:`Joint.setSegmentScaleCompensate` を行う。
@@ -1446,7 +1446,7 @@ class Joints(Nodes):
             TypeError: :meth:`Joint.setSegmentScaleCompensate` と同じ。
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
-        self._forward("setSegmentScaleCompensate", (state,), fast, check=check)
+        self._forward("setSegmentScaleCompensate", (state,), fast, check=check, writes=lambda joint: [joint.getPlug("segmentScaleCompensate")])
 
     def getSkinClusters(self):
         """すべてのジョイントに接続しているskinClusterを取得する。

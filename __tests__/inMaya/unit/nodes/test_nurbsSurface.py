@@ -174,7 +174,7 @@ class NurbsSurfaceTest(_Case):
     def test_param_errors_and_empty_shape(self):
         """範囲外・有限でないパラメーターは ValueError、数値以外は TypeError、形状データの無い曲面は RuntimeError。"""
         shape = self.surface()
-        (u0, u1), (v0, v1) = shape.getParamRange()
+        (u0, u1), (v0, _v1) = shape.getParamRange()
         for u, v, error in ((u1 + 1.0, v0, ValueError), (u0, float("nan"), ValueError), ("a", v0, TypeError)):
             with self.subTest(u=u, v=v):
                 with self.assertRaises(error):

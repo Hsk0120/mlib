@@ -77,8 +77,8 @@ class RampPlug(MultiPlug):
         indices, positions, values, interpolations = ramp.getEntries()
         color = ramp.isColorRamp
         entries = []
-        for index, position, value, interpolation in zip(indices, positions, values, interpolations):
-            value = (value.r, value.g, value.b) if color else float(value)
+        for index, position, ramp_value, interpolation in zip(indices, positions, values, interpolations):
+            value = (ramp_value.r, ramp_value.g, ramp_value.b) if color else float(ramp_value)
             entries.append((float(position), index, value, _INTERPOLATION_NAMES[interpolation]))
         entries.sort(key=lambda entry: (entry[0], entry[1]))
         return [(position, value, interpolation) for position, _, value, interpolation in entries]

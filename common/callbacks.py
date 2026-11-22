@@ -183,7 +183,7 @@ class Callbacks:
         target = Node._resolve_input(node)
         label = target.getName()
 
-        def forward(message, plug, _other_plug, _client_data):
+        def forward(message, plug, other_plug, client_data):  # noqa: ARG001 引数はMayaのコールバックが決める
             function(message, Plug._resolve_input(plug))
 
         return self._register(om2.MNodeMessage.addAttributeChangedCallback(target.mnode(), _guarded(forward, label)))
@@ -205,7 +205,7 @@ class Callbacks:
         for callback_id in list(self._ids):
             try:
                 om2.MMessage.removeCallback(callback_id)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 1つ解除に失敗しても、残りのコールバックを解除する
                 failures.append((callback_id, exc))
                 logger.warning("コールバックの後始末に失敗しました(%r): %s", callback_id, exc)
             else:
@@ -257,7 +257,7 @@ def _guarded(function, label):
                 function()
             else:
                 function(*args)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 利用側のコールバックの失敗で、Mayaのイベントの処理を止めない
             logger.warning("%sのコールバックが失敗しました: %s: %s", label, type(exc).__name__, exc)
 
     return callback

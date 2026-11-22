@@ -247,7 +247,7 @@ class PointTypeSpecTest(_ComponentCase):
     def test_set_points_round_trip_and_undo(self):
         """Mesh.setPointsはgetPointsの結果・tuple列・MPointArrayを受け、1回のUndoで戻る。"""
         before = self.mesh.getPoints()
-        moved = [point + (0, 1, 0) for point in before]
+        moved = [point + (0, 1, 0) for point in before]  # noqa: RUF005 Vector の加算
         self.assertIsNone(self.mesh.setPoints(moved))
         self.assertEqual(self.mesh.getPoints(), moved)
         cmds.undo()
@@ -273,7 +273,7 @@ class PointTypeSpecTest(_ComponentCase):
         """worldSpace=TrueはTransformを含む座標。UI単位によらずcm。"""
         world = self.mesh.getPoints(worldSpace=True)
         cmds.currentUnit(linear="mm")
-        target = [point + (0, 0, 1) for point in world]
+        target = [point + (0, 0, 1) for point in world]  # noqa: RUF005 Vector の加算
         self.mesh.setPoints(target, worldSpace=True)
         for actual, expected in zip(self.mesh.getPoints(worldSpace=True), target):
             self.assertPoint(actual, expected)
@@ -288,7 +288,7 @@ class PointTypeSpecTest(_ComponentCase):
         before = self.mesh.getPoints()
         for points, error in [
             (before[:-1], ValueError),
-            (before + [Vector()], ValueError),
+            ([*before, Vector()], ValueError),
             ([(0, 0)] * 8, ValueError),
             ([(0, 0, float("nan"))] * 8, ValueError),
             ("abc", TypeError),
@@ -621,7 +621,7 @@ class PointMoveTest(_CaseMethodAdditions):
 
     def test_move_by_collection_and_center(self):
         """複数の moveBy は全点を同じだけ動かし Undo 1回で戻る。getCenter は位置の平均。CV でも使える。"""
-        transform, shape = self.cube()
+        _transform, shape = self.cube()
         top = shape.getVertices([2, 3, 4, 5])
         before = top.getPosition()
         self.assertSequenceAlmostEqual(top.getCenter(), mlib.Vector(sum(p.x for p in before), sum(p.y for p in before), sum(p.z for p in before)) / 4.0)
@@ -639,7 +639,7 @@ class PointMoveTest(_CaseMethodAdditions):
 
     def test_move_by_errors(self):
         """移動量の型・成分数・空の集まりの getCenter の誤りは例外で、位置は変わらない。"""
-        transform, shape = self.cube()
+        _transform, shape = self.cube()
         vertices = shape.getVertices([0, 1])
         before = vertices.getPosition()
         for offset, flags, error in (
@@ -672,10 +672,7 @@ def _points(name, worldSpace=False):
     """MeshまたはNurbsCurveの全点をcmのXYZのlistで返す(mlibを通さない)。"""
     path = _path(name)
     space = om2.MSpace.kWorld if worldSpace else om2.MSpace.kObject
-    if path.node().hasFn(om2.MFn.kMesh):
-        values = om2.MFnMesh(path).getPoints(space)
-    else:
-        values = om2.MFnNurbsCurve(path).cvPositions(space)
+    values = om2.MFnMesh(path).getPoints(space) if path.node().hasFn(om2.MFn.kMesh) else om2.MFnNurbsCurve(path).cvPositions(space)
     return [(point.x, point.y, point.z) for point in values]
 
 

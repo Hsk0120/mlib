@@ -902,7 +902,7 @@ class NameResolutionParityTest(unittest.TestCase):
             cmds.namespace(removeNamespace=":" + self.namespace, deleteNamespaceContent=True)
 
     def test_component_named_attributes_match_cmds_connectAttr(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         cube = Node(cmds.polyCube(name="cube", constructionHistory=False)[0])
         mesh = cube.getShape()
@@ -924,7 +924,7 @@ class NameResolutionParityTest(unittest.TestCase):
         for source_plug, text in cases:
             with self.subTest(plug=text):
                 cmds.connectAttr(str(source_plug), text)
-                resolved = _InputPlug._resolve_input(text)
+                resolved = Plug._resolve_input(text)
                 self.assertEqual(resolved.getSource().mplug(), source_plug.mplug())
                 self.assertIn(resolved.mplug(), list(source_plug.mplug().connectedTo(False, True)))
                 self.assertEqual(cmds.getAttr(str(resolved), type=True), cmds.getAttr(text, type=True))
@@ -1266,23 +1266,25 @@ class NodeGetPlugsParityTest(_NewSceneCase):
             "persp",
             "perspShape",
         ]
-        for kind in (
-            "multiplyDivide",
-            "plusMinusAverage",
-            "blendColors",
-            "choice",
-            "unitConversion",
-            "condition",
-            "decomposeMatrix",
-            "animCurveTL",
-            "lambert",
-            "place2dTexture",
-            "time",
-            "pairBlend",
-            "nurbsCurve",
-            "camera",
-        ):
-            names.append(cmds.createNode(kind))
+        names.extend(
+            cmds.createNode(kind)
+            for kind in (
+                "multiplyDivide",
+                "plusMinusAverage",
+                "blendColors",
+                "choice",
+                "unitConversion",
+                "condition",
+                "decomposeMatrix",
+                "animCurveTL",
+                "lambert",
+                "place2dTexture",
+                "time",
+                "pairBlend",
+                "nurbsCurve",
+                "camera",
+            )
+        )
         flag_sets = ({}, {"keyable": True}, {"scalar": True}, {"keyable": True, "scalar": True})
         for name in names:
             node = mlib.getNode(name)

@@ -419,10 +419,15 @@ class Keyframes:
             ValueError: フラグが空か知らないものの場合、unitに対応していない場合、
                 またはfastで正しくない値や、global・知らない接線の型を指定した場合。
             IndexError: キーの番号が正しくない場合。
-            RuntimeError: カーブが無効(削除済み)の場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが
+                ロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで、入力側の接線にstepnextを指定した場合。
         """
         with undoChunk("mlibKeyframesSetTangent"):
+            if check:
+                # 途中のカーブで止まって一部だけ変わらないよう、書く前に全部のカーブを確かめる。
+                for curve, _indices in self._groups:
+                    curve._require_curve_writable()
             for curve, indices in self._groups:
                 for index in indices:
                     curve.setTangent(index, unit=unit, fast=fast, check=check, **kwargs)

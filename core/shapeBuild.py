@@ -1,5 +1,8 @@
 """形状を作る関数(``mlib.createCurve`` など)が共通で使う処理。名前・親・シェイプ名を整える。"""
 
+import contextlib
+
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..decorator import nativeUnits, preservedSelection, undoTransaction
@@ -26,6 +29,94 @@ def require_name(name):
     if not name or "|" in name:
         raise ValueError(f"nameは'|'を含まない空でない名前で指定してください: {name!r}")
     return name
+
+
+def require_existing(names):
+    """名前で指定された対象がシーンにあるかを確かめる。
+
+    Mayaのコマンドへ渡す前に確かめ、見つからない名前でMayaのValueErrorがそのまま出ないようにする。
+
+    Args:
+        names (Iterable[str]): ノード・コンポーネントの名前。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: シーンに無い名前がある場合。文言は ``ノードが見つかりません: <名前>``。
+    """
+    for name in names:
+        if not cmds.objExists(name):
+            raise RuntimeError(f"ノードが見つかりません: {name}")
+
+
+def require_shape_type(names, kind, label):
+    """対象が、指定した型(継承先を含む)の形状か、その形状を持つtransformかを確かめる。
+
+    コンポーネントの名前は、持ち主のノードで確かめる。中間オブジェクトの形状は数えない。
+
+    Args:
+        names (Iterable[str]): シーンにあることを確かめた、ノード・コンポーネントの名前。
+        kind (str): 求める形状のMayaの型名(``"deformableShape"``・``"nurbsCurve"`` など)。
+        label (str): 例外メッセージに使う、対象の呼び名(``"ターゲット"`` など)。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        ValueError: 求める型の形状を持たない対象がある場合。
+    """
+    for name in names:
+        node = name.split(".", 1)[0]
+        if kind in (cmds.nodeType(node, inherited=True) or ()):
+            continue
+        shapes = cmds.listRelatives(node, shapes=True, noIntermediate=True, fullPath=True) or ()
+        if not any(kind in (cmds.nodeType(shape, inherited=True) or ()) for shape in shapes):
+            raise ValueError(f"{label}に{kind}の形状がありません: {name}")
+
+
+@contextlib.contextmanager
+def removing_created_nodes():
+    """中で例外が起きたら、中で作られて残ったノードを消してから例外を出し直す。
+
+    Mayaのコマンドが途中で失敗したときに、作りかけのノードがシーンに残らないようにする。
+    作られたノードは ``MDGMessage.addNodeAddedCallback`` で集め、成功したときは何もしない。
+
+    Yields:
+        None: 値を渡さない。
+
+    Raises:
+        Exception: 中で起きた例外をそのまま出し直す。
+    """
+    created = []
+
+    def collect(mobject, client_data):  # noqa: ARG001 引数はMayaのコールバックが決める
+        """作られたノードを、あとで有効か確かめられる形で覚える。"""
+        created.append(om2.MObjectHandle(mobject))
+
+    callback = om2.MDGMessage.addNodeAddedCallback(collect, "dependNode")
+    try:
+        yield
+    except Exception:
+        om2.MMessage.removeCallback(callback)
+        callback = None
+        names = []
+        for handle in created:
+            if not handle.isValid():
+                continue
+            mobject = handle.object()
+            if mobject.hasFn(om2.MFn.kDagNode):
+                names.append(om2.MFnDagNode(mobject).fullPathName())
+            else:
+                names.append(om2.MFnDependencyNode(mobject).name())
+        for name in names:
+            # transformを消すと子のシェイプも消えるので、残っているものだけを消す。
+            if name and cmds.objExists(name):
+                cmds.delete(name)
+        raise
+    finally:
+        if callback is not None:
+            om2.MMessage.removeCallback(callback)
 
 
 def resolve_parent(parent):

@@ -119,7 +119,7 @@ class MatrixRunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for extra, expected in (([], 2), (["--allow-missing"], 0)):
-                argv = ["test", "--versions", "2023", "--output", str(root)] + extra
+                argv = ["test", "--versions", "2023", "--output", str(root), *extra]
                 with mock.patch.object(runner.sys, "argv", argv), mock.patch.object(runner, "maya_executable", return_value=root / "missing.exe"):
                     self.assertEqual(runner.main(), expected)
             results = list(root.glob("*/2023/result.json"))

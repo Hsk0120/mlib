@@ -17,6 +17,7 @@ def bakeDeformer(source: Node | str, skeleton: Joint | str, destination: Node | 
     Mayaの Bake Deformers to Skin Weights と同じく ``cmds.bakeDeformer`` を使い、ジョイントを動かしたときの変形を
     元の形状で測って、変形先の形状の skinCluster のウェイトにする。
     選択状態は使わない。変形先がすでにバインドされていれば、その skinCluster のウェイトを書き換える。
+    変形先に skinCluster が無ければ、Mayaが新しく作ってバインドする(そのため、skinCluster が無いことは例外にならない)。
     fast引数は無い(OpenMayaに同じ機能が無いため)。Undoが有効なら1回で戻せる。
 
     Args:
@@ -40,8 +41,7 @@ def bakeDeformer(source: Node | str, skeleton: Joint | str, destination: Node | 
         TypeError: maxInfluencesと短縮名 ``mi`` を同時に指定した場合、または ``**kwargs`` で受け付けない
             フラグを渡した場合。
         ValueError: maxInfluencesが正の整数でない場合。
-        RuntimeError: 名前からノードが見つからない場合、Mayaが焼き込みを拒否した場合、
-            または変形先に skinCluster が見つからない場合。
+        RuntimeError: 名前からノードが見つからない場合、またはMayaが焼き込みを拒否した場合。
 
     Examples:
         >>> import mlib

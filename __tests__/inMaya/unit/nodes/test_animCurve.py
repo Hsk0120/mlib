@@ -266,7 +266,7 @@ class AnimCurveTest(_Case):
         self.assertEqual([round(value, 6) for value in curve.getKeyInputs()], [1.0, 7.0, 10.0])
         for args, kwargs, error in (
             ((float("inf"),), {}, ValueError),
-            (("a",), {}, ValueError),
+            (("a",), {}, TypeError),
             ((None,), {}, TypeError),
             ((5,), {"timeUnit": "week"}, ValueError),
         ):

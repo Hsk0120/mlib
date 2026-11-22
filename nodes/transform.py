@@ -11,7 +11,7 @@ import maya.mel as mel
 from maya.api.OpenMaya import MSpace
 
 from ..components.pointComponent import PointComponent, _write_points
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
 from ..core.nodeEdit import require_editable
@@ -45,7 +45,7 @@ _LIMIT_TYPES = {
 _ROTATE_ORDER_NAMES = ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx")
 
 #: 変換アトリビュート名の照会キャッシュ。
-_TRANSFORM_ATTRIBUTES = {}
+_transform_attributes = {}
 
 #: getRotateでゼロとみなすスケール軸の長さ。Mayaは scale 0 を 1e-12 として評価する。
 _NEAR_ZERO_AXIS = 1e-10
@@ -72,10 +72,10 @@ def _transform_attribute(name):
     Returns:
         om2.MObject: transformノード型のアトリビュート。
     """
-    attribute = _TRANSFORM_ATTRIBUTES.get(name)
+    attribute = _transform_attributes.get(name)
     if attribute is None:
         attribute = om2.MNodeClass("transform").attribute(name)
-        _TRANSFORM_ATTRIBUTES[name] = attribute
+        _transform_attributes[name] = attribute
     return attribute
 
 
@@ -148,7 +148,7 @@ def _unwritable_channel_message(plug):
     Returns:
         str | None: 例外のメッセージ。書き込みを妨げている子(または自身)が見つからなければNone。
     """
-    for target in [plug] + list(plug.getChildren()):
+    for target in [plug, *plug.getChildren()]:
         if target.isLocked():
             reason = "ロックされています"
         elif target.isDestination():
@@ -539,13 +539,13 @@ class Transform(DagNode):
             # 無い(追従しない)コンストレイントを黙って作るため、Transform 以外は TypeError にする。
             requires_transform = command_name in _TRANSFORM_SOURCE_CONSTRAINTS
             names = []
-            for source in Nodes._resolve_inputs(sources):
-                if source is None or (isinstance(source, str) and not source):
+            for item in Nodes._resolve_inputs(sources):
+                if item is None or (isinstance(item, str) and not item):
                     raise TypeError("コンストレイントのソースは空でない名前かNodeオブジェクトで指定してください")
                 # 文字列も含めて所有ノードへ解決する。Plug・MPlug・"node.attribute" は所有ノード、
                 # Component・"pCube1.vtx[0]" は所有シェイプをターゲットにする(maya.cmds へ
                 # プラグ名・コンポーネント名をそのまま渡すとターゲットとして扱われないため)。
-                source = Node._resolve_input(source)
+                source = Node._resolve_input(item)
                 if not source.isValid():
                     raise RuntimeError("コンストレイントのターゲットが無効です")
                 if requires_transform and not source.hasFn(om2.MFn.kTransform):
@@ -908,6 +908,8 @@ class Transform(DagNode):
         補正チャンネルだけを書き換えるので、ノードの姿勢が変わることがある。
         ピボット位置・translate・rotate・scaleは変更しない。
         ワールド空間でも、ほかのピボット補正を含まない独立したベクトルを指定する。
+        ピボット(rotatePivot等)と補正値(rotatePivotTranslate等)の成分のロック・入力の接続は、checkに関係なく
+        書き込む前に確かめる(Mayaは例外にせず、黙って何も書かないため)。
         fast引数は持たない(Plugへの1回の通常書き込みで更新するため)。
 
         Args:
@@ -921,18 +923,29 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: 値やフラグの型が不正、またはworldSpaceとwsを同時指定した場合。
+            TypeError: 値やフラグの型が不正(数値の並びでない、または成分に数値以外がある)、
+                またはworldSpaceとwsを同時指定した場合。
             ValueError: kind・成分数が不正、check=Trueで値が有限でない、空間変換が特異、またはJointのinverseScaleに0がある場合。
-            RuntimeError: ノードが無効、またはMayaが書き込みを拒否した場合。
+            RuntimeError: ノードが無効、ピボットか補正値の成分がロックされている・入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         worldSpace = _world_space(worldSpace)
         _require_bool(check, "check")
         if kind not in ("rotate", "scale"):
             raise ValueError("kindは'rotate'か'scale'で指定してください")
-        values = tuple(value)
+        if isinstance(value, str):
+            raise TypeError("valueは3個の数値の並びで指定してください")
+        try:
+            values = tuple(value)
+        except TypeError:
+            raise TypeError("valueは3個の数値の並びで指定してください") from None
         if len(values) != 3:
             raise ValueError("valueは3成分で指定してください")
+        if any(isinstance(item, bool) or not isinstance(item, numbers.Real) for item in values):
+            raise TypeError("valueの成分は数値で指定してください")
+        self._require_valid("ピボットの補正値の設定")
+        self._require_pivots_writable((kind,), True)
         vector = om2.MVector(values)
         if worldSpace:
             basis = self._pivot_translation_basis(kind)
@@ -1340,7 +1353,7 @@ class Transform(DagNode):
             for entry in entries:
                 created = cmds.createNode("nurbsCurve", name=prefix + entry["name"], parent=target, skipSelect=True)
                 # 短い名前が重複する場合があるため、自身の直下のパスに絞る。
-                path = [name for name in cmds.ls(created, long=True) if name.rsplit("|", 1)[0] == target][0]
+                path = next(name for name in cmds.ls(created, long=True) if name.rsplit("|", 1)[0] == target)
                 degree = entry["degree"]
                 words = [degree, len(entry["points"]) - degree, _CURVE_FORM_NUMBERS[entry["form"]], "no", 3, len(entry["knots"])]
                 words.extend(repr(value) for value in entry["knots"])
@@ -1498,7 +1511,6 @@ class Transform(DagNode):
             DeletedAttributeError: targetに、アトリビュートが削除されたPlug・MPlugを渡した場合
                 (ValueErrorとRuntimeErrorの両方の派生クラス)。
         """
-
         with undoChunk("mlibTransformMatchTransform"):
             target = Node._resolve_input(target)
             if not isinstance(target, Transform):
@@ -1621,6 +1633,10 @@ class Transform(DagNode):
           書き込まないチャンネルは、ロック・接続されていても例外にしない。attributeChangedの通知とUndoの記録も、
           書き込んだチャンネルの分だけになる(通常・fast・safeのどれでも同じ)。
         - safeで書けない成分を残した結果、渡したマトリクスと一致しないことがある。
+        - Jointでも、ピボット(rotatePivot・rotatePivotTranslate・scalePivot・scalePivotTranslate)はtransformと
+          同じ式でマトリクスに入るものとして分解する。Mayaのjointはピボットをtransformと同じ式では扱わないため、
+          ピボットが0でないJointでは、書き込んだ後の :meth:`getMatrix` が渡したマトリクスと一致しないことがある
+          (translateがずれる)。ピボットがすべて0のJointと、Transformでは一致する。
 
         Args:
             matrix (Matrix | Iterable[float]): 設定するマトリクス。Matrix以外なら16個の値(行の順)で指定する。
@@ -1707,8 +1723,7 @@ class Transform(DagNode):
         with _edit_context("mlibTransformSetTransformation", fast):
             self._require_valid("値の設定")
             order = value.rotateOrder
-            if self._static_value("rotateOrder") != order:
-                self.getPlug("rotateOrder").set(order, fast=fast)
+            write_order = self._static_value("rotateOrder") != order
             axis = value.rotateAxis.asEulerRotation()
             values = {
                 "rotateAxis": (axis.x, axis.y, axis.z),
@@ -1729,6 +1744,14 @@ class Transform(DagNode):
             values["rotate"] = (rotate.x, rotate.y, rotate.z)
             values["scale"] = tuple(value.scale)
             values["shear"] = tuple(value.shear)
+            if check:
+                # 回転順序を書いた後で止まらないよう、書く前に回転順序と残りのチャンネルを全部確かめる。
+                if write_order:
+                    self.getPlug("rotateOrder")._require_writable()
+                for name, _value in self._changed_channels(values):
+                    self.getPlug(name)._require_writable()
+            if write_order:
+                self.getPlug("rotateOrder").set(order, fast=fast)
             self._apply_channel_values(values, fast=fast, check=check)
 
     @_transform_argument_hints
@@ -2148,10 +2171,7 @@ class Transform(DagNode):
             >>> node.scaleBy(2)              # XYZとも2倍
             >>> node.scaleBy((1, 0.5, 1))    # Yだけ半分
         """
-        if isinstance(value, numbers.Real) and not isinstance(value, bool):
-            factors = (_finite(value, "value"),) * 3
-        else:
-            factors = _finite_vector(value, 3, "value")
+        factors = (_finite(value, "value"),) * 3 if isinstance(value, numbers.Real) and not isinstance(value, bool) else _finite_vector(value, 3, "value")
         self._require_valid("スケール")
         current = self.getScale()
         with undoChunk("mlibTransformScaleBy"):
@@ -2571,7 +2591,7 @@ class Transform(DagNode):
         """
         self._require_valid("軸の評価")
         _require_bool(includeNegative, "includeNegative")
-        refVector = Vector(*geometry_edit.point_list([refVector])[0]).unit()
+        refVector = Vector(*geometryEdit.point_list([refVector])[0]).unit()
         matrix = self.getMatrix(worldSpace=True)
         axes = {"x": Vector(1.0, 0.0, 0.0), "y": Vector(0.0, 1.0, 0.0), "z": Vector(0.0, 0.0, 1.0)}
         if includeNegative:
@@ -2660,15 +2680,17 @@ class Transform(DagNode):
         self._require_valid("リミットの設定")
         name = self.getFullName()
         flags = {}
-        for channel, value in limits.items():
+        for channel, limit in limits.items():
             flag, enable_flag, kind = _LIMIT_FLAGS[channel]
+            value = limit
             if value is None:
                 value = (None, None)
             if isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)) or len(value) != 2:
                 raise TypeError(f"{channel}のリミットは(min, max)の組かNoneで指定してください: {value!r}")
             current = None
             sides = []
-            for index, side in enumerate(value):
+            for index, entry in enumerate(value):
+                side = entry
                 if side is None:
                     if current is None:
                         query_flags: Dict[str, Any] = {flag: True}
@@ -3036,11 +3058,8 @@ class Transform(DagNode):
         if name == "rotateAxis" and self.isValid():
             # rotateAxisのxyzの回転と同じクォータニオンを、MFnTransformの1回の呼び出しで読む。
             return self._transform_fn().rotateOrientation(om2.MSpace.kTransform)
-        if name == "jointOrient" and not self._require_mnode().hasFn(om2.MFn.kJoint):
-            value = self.getPlug(name).get(unit="rad")
-        else:
-            # 組み込みの角度アトリビュートは、getPlug(name).get()と同じ読取関数でPlugを作らずに読む。
-            value = self._static_value(name)
+        # 組み込みの角度アトリビュートは、getPlug(name).get()と同じ読取関数でPlugを作らずに読む。
+        value = self.getPlug(name).get(unit="rad") if name == "jointOrient" and not self._require_mnode().hasFn(om2.MFn.kJoint) else self._static_value(name)
         order = self._rotate_order() if name == "rotate" else om2.MEulerRotation.kXYZ
         return om2.MEulerRotation(*tuple(value), order).asQuaternion()
 
@@ -3117,10 +3136,7 @@ class Transform(DagNode):
         # Matrix.decompose() と同じ検査・分解だが、使わない Euler などの生成を省く。
         transformation = matrix._checked_transformation()
         reference_scale, reference_rotate = self._channel_state()
-        if scale_reference is None:
-            references = (reference_scale,)
-        else:
-            references = (tuple(scale_reference), reference_scale)
+        references = (reference_scale,) if scale_reference is None else (tuple(scale_reference), reference_scale)
         quaternion, scale, shear = _match_scale_signs(
             transformation.rotation(asQuaternion=True), transformation.scale(om2.MSpace.kTransform), transformation.shear(om2.MSpace.kTransform), references
         )
@@ -3287,22 +3303,39 @@ class Transform(DagNode):
             fast (bool): 子のPlugへ渡す更新モード。
             writable_checked (bool): Trueなら、呼び出し元が4つのチャンネルへ書き込めることを確かめ済み。
                 fastの書き込みで、確かめ直しを省く。
-            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+            check (bool): Trueなら、書き込む前に、書き込むすべてのチャンネルへ書き込めるかを確かめる
+                (safe=Trueでは、書けない成分を残すため前もっては確かめない)。
 
         Returns:
             None: 値を返さない。
         """
-        changed = []
-        for name, value in values.items():
-            value = tuple(value)
-            if not self._channel_equals(name, value):
-                changed.append((name, value))
+        changed = self._changed_channels(values)
+        if check and not safe:
+            # 途中のチャンネルで止まって一部だけ書き換わらないよう、書く前に全部を確かめる。
+            for name, _value in changed:
+                self.getPlug(name)._require_writable()
         # 書くチャンネルが1つなら1回のコマンドなので、チャンクを開かない。
         with undoChunk("mlibTransformApplyChannels") if len(changed) > 1 and not fast else nullcontext():
             for name, value in changed:
                 if writable_checked and fast and self._write_channel_directly(name, value, True):
                     continue
                 self._set_channel_value(name, value, safe=safe, fast=fast, check=check)
+
+    def _changed_channels(self, values):
+        """書き込む値のうち、今のチャンネルの値と違うものを、辞書の保持順に返す。シーンは変えない。
+
+        Args:
+            values (dict[str, Iterable[float]]): チャンネル名と設定値(内部単位)。
+
+        Returns:
+            list[tuple[str, tuple]]: チャンネル名と、tupleにした設定値の組。
+        """
+        changed = []
+        for name, given in values.items():
+            value = tuple(given)
+            if not self._channel_equals(name, value):
+                changed.append((name, value))
+        return changed
 
     def _channel_equals(self, name, value):
         """内部単位の書込み値が、チャンネルの現在値と完全に一致するかを返す。
@@ -3316,7 +3349,7 @@ class Transform(DagNode):
         """
         try:
             current = self._static_value(name)
-        except Exception:
+        except (RuntimeError, ValueError):
             return False
         if isinstance(value, tuple):
             return isinstance(current, tuple) and len(current) == len(value) and all(float(a) == float(b) for a, b in zip(current, value))
@@ -3438,10 +3471,7 @@ class Transform(DagNode):
             base = Matrix(translate=tuple(-v for v in sp)) * base * Matrix(translate=sp)
         if any(spt):
             base = base * Matrix(translate=spt)
-        if any(rp):
-            base = base * Matrix(translate=tuple(-v for v in rp)) * Matrix(rotate=orient) * Matrix(translate=rp)
-        else:
-            base = base * Matrix(rotate=orient)
+        base = base * Matrix(translate=tuple(-v for v in rp)) * Matrix(rotate=orient) * Matrix(translate=rp) if any(rp) else base * Matrix(rotate=orient)
         if any(rpt):
             base = base * Matrix(translate=rpt)
         if any(v != 1.0 for v in inv_scale):

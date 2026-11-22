@@ -136,12 +136,12 @@ class DuplicateShortNameTest(_InteropCase):
         self.assertEqual({plug.getFullName() for plug in captured.getPlugs()}, {plug.getFullName() for plug in selection.getPlugs()})
 
     def test_unresolved_index_plug_is_still_rejected(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         _, mesh = self.cube()
         # 要素を指定した名前は解決でき、アトリビュート型はアトリビュート定義から求める(要素は作らない)。
         name = mesh.getName() + ".instObjGroups[0].objectGroups[0].objectGrpCompList"
-        resolved = _InputPlug._resolve_input(name)
+        resolved = Plug._resolve_input(name)
         self.assertEqual(attributeType(resolved.mplug()), "componentList")
         self.assertEqual(resolved.getFullName(), name)
         self.assertEqual(mesh.getPlug("instObjGroups[0].objectGroups[0].objectGrpCompList").getFullName(), name)
@@ -237,7 +237,7 @@ class NamingSpecTest(_InteropCase):
     def test_plug_names_equal_node_name_and_attribute_path(self):
         # fullName() は短い名前が一意なノードで MPlug.name() をそのまま返す(高速経路)。
         # どのノード・アトリビュートでも「Node.name() + '.' + アトリビュートパス」と同じ名前になること。
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         transform, mesh = self.cube()
         cmds.setAttr(mesh.getName() + ".pnts[2].pntx", 1.0)
@@ -265,7 +265,7 @@ class NamingSpecTest(_InteropCase):
             plugs.extend(instanced.getPlug("worldMatrix").getElements() if node is instanced else [])
             for plug in plugs:
                 with self.subTest(plug=plug.getFullName()):
-                    self.assertEqual(plug.getFullName(), node.getName() + "." + _InputPlug._plug_path(plug.mplug()))
+                    self.assertEqual(plug.getFullName(), node.getName() + "." + Plug._plug_path(plug.mplug()))
                     checked += 1
         self.assertGreater(checked, 500)
         self.assertEqual(str(transform.getPlug("ty")), transform.getName() + ".myAlias")
@@ -649,13 +649,13 @@ class InstanceSpecificWrapperTest(_InteropCase):
         self.assertTrue(first.isValid())
 
     def test_names_keep_the_instance(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         first, second, _ = self.instanced_box()
         plug = second.getPlug("castsShadows")
         self.assertEqual(mlib.getNode(str(plug)).getFullName(), second.getFullName())
         self.assertEqual(mlib.getNode(plug.getFullName()).getFullName(), second.getFullName())
-        self.assertEqual(_InputPlug._resolve_input(str(plug)).getNode().getFullName(), second.getFullName())
+        self.assertEqual(Plug._resolve_input(str(plug)).getNode().getFullName(), second.getFullName())
         self.assertEqual(mlib.getNode(str(first.getPlug("castsShadows"))).getFullName(), first.getFullName())
         self.assertEqual(Node(str(Vertex(second, 0))).getFullName(), second.getFullName())
         self.assertEqual([item.getNode().getFullName() for item in Selection([str(plug)]).getPlugs()], [second.getFullName()])
@@ -668,7 +668,7 @@ class InstanceSpecificWrapperTest(_InteropCase):
         self.assertEqual([item.getFullName() for item in captured.getPlugs()], [world.getFullName()])
 
     def test_transform_name_keeps_the_instance_of_shape_attributes(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         box, _ = self.cube("box")
         instance = cmds.ls(cmds.instance(box.getFullName(), name="box1")[0], long=True)[0]
@@ -676,10 +676,10 @@ class InstanceSpecificWrapperTest(_InteropCase):
         # transform の名前でシェイプのアトリビュートを指す場合も、名前が指すインスタンスのシェイプになる。
         for text in (instance + ".castsShadows", self.ns("box1.castsShadows")):
             with self.subTest(text=text):
-                self.assertEqual(_InputPlug._resolve_input(text).getNode().getFullName(), shape)
+                self.assertEqual(Plug._resolve_input(text).getNode().getFullName(), shape)
                 self.assertEqual(mlib.getNode(text).getFullName(), shape)
                 self.assertEqual([item.getNode().getFullName() for item in Selection([text]).getPlugs()], [shape])
-        self.assertEqual(_InputPlug._resolve_input(box.getFullName() + ".castsShadows").getNode().getFullName(), box.getFullName() + "|" + self.ns("boxShape"))
+        self.assertEqual(Plug._resolve_input(box.getFullName() + ".castsShadows").getNode().getFullName(), box.getFullName() + "|" + self.ns("boxShape"))
 
     def test_world_space_attributes_follow_indirect_instances(self):
         group = self.create("transform", "g")
@@ -696,8 +696,8 @@ class InstanceSpecificWrapperTest(_InteropCase):
         self.assertEqual(world[1].getFullName(), world.getFullName() + "[1]")
         # getMatrix(ws=True) はラッパーが保持するインスタンスの worldMatrix を使う。
         self.assertEqual(list(second.getMatrix(worldSpace=True)), cmds.getAttr(world.getFullName() + "[1]"))
-        self.assertAlmostEqual(list(second.getTranslation(worldSpace=True, at=4))[0], 10.0)
-        self.assertAlmostEqual(list(first.getTranslation(worldSpace=True, at=4))[0], 0.0)
+        self.assertAlmostEqual(next(iter(second.getTranslation(worldSpace=True, at=4))), 10.0)
+        self.assertAlmostEqual(next(iter(first.getTranslation(worldSpace=True, at=4))), 0.0)
         self.assertEqual(list(first.getMatrix(worldSpace=True)), cmds.getAttr(first.getFullName() + ".worldMatrix[0]"))
 
 
@@ -705,44 +705,44 @@ class ComponentNamedAttributeTest(_InteropCase):
     """コンポーネント名としても解釈されるアトリビュート(pnts・controlPoints)の名前を検証する。"""
 
     def test_str_plug_round_trips(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         transform, mesh = self.cube("pc")
         point = mesh.getPlug("pnts")[3]
         # MSelectionList は "pcShape.pnts[3]" を頂点として登録するが、アトリビュートとして解決できる。
-        self.assertEqual(_InputPlug._resolve_input(str(point)).getFullName(), point.getFullName())
-        self.assertEqual(_InputPlug._resolve_input(str(point) + ".pntx").getFullName(), point.getFullName() + ".pntx")
-        self.assertEqual(_InputPlug._resolve_input(mesh.getName() + ".pt[3].px").getFullName(), point.getFullName() + ".pntx")
-        self.assertEqual(_InputPlug._resolve_input(transform.getName() + ".pnts[3]").getFullName(), point.getFullName())
+        self.assertEqual(Plug._resolve_input(str(point)).getFullName(), point.getFullName())
+        self.assertEqual(Plug._resolve_input(str(point) + ".pntx").getFullName(), point.getFullName() + ".pntx")
+        self.assertEqual(Plug._resolve_input(mesh.getName() + ".pt[3].px").getFullName(), point.getFullName() + ".pntx")
+        self.assertEqual(Plug._resolve_input(transform.getName() + ".pnts[3]").getFullName(), point.getFullName())
         source = self.create("transform", "src")
         source.getPlug("translate").connectTo(str(point))
         self.assertTrue(cmds.isConnected(str(source.getPlug("translate")), str(point)))
         self.assertTrue(point.isConnectedTo(str(source.getPlug("translate"))))
         curve = Node(cmds.curve(degree=1, point=[(0, 0, 0), (1, 0, 0)], name="crv")).getShape()
         control_point = curve.getPlug("controlPoints")[1]
-        self.assertEqual(_InputPlug._resolve_input(str(control_point)).getFullName(), control_point.getFullName())
+        self.assertEqual(Plug._resolve_input(str(control_point)).getFullName(), control_point.getFullName())
         # ノードを求める場合は、コンポーネントと同じく所有シェイプになる。
         self.assertEqual(mlib.getNode(str(point)).getFullName(), mesh.getFullName())
         # コンポーネントの名前・範囲指定はアトリビュートではない。
         for text in (mesh.getName() + ".vtx[3]", mesh.getName() + ".pnts[0:3]"):
             with self.subTest(text=text):
                 with self.assertRaises(TypeError):
-                    _InputPlug._resolve_input(text)
+                    Plug._resolve_input(text)
 
     def test_resolving_does_not_create_tweaks(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         transform, mesh = self.cube("pc")
         # mesh の controlPoints[i] を問い合わせると Maya は pnts[i] を作り、範囲外の pnts[40] を
         # 問い合わせると pnts[7] を作る。Plug の生成ではどちらも残さない。
         for suffix in (".controlPoints[2]", ".pnts[40]", ".controlPoints[40]", ".cp[5].xv"):
             with self.subTest(suffix=suffix):
-                _InputPlug._resolve_input(mesh.getName() + suffix)
+                Plug._resolve_input(mesh.getName() + suffix)
                 self.assertEqual(list(mesh.getPlug("pnts").mplug().getExistingArrayAttributeIndices()), [])
         # ワールド空間アトリビュートも要素を作らない(アトリビュート型の判定で評価も起こさない)。
         world = transform.getPlug("worldMatrix").mplug()
         before = list(world.getExistingArrayAttributeIndices())
-        _InputPlug._resolve_input(transform.getName() + ".worldMatrix[7]")
+        Plug._resolve_input(transform.getName() + ".worldMatrix[7]")
         transform.getPlug("worldMatrix[0]")
         self.assertEqual(list(world.getExistingArrayAttributeIndices()), before)
         self.assertNotIn(7, before)
@@ -755,25 +755,25 @@ class PlugCreationSideEffectTest(_InteropCase):
         return list(plug.mplug().getExistingArrayAttributeIndices())
 
     def test_plug_creation_never_creates_elements(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         averages = [self.create("plusMinusAverage", f"pma{index:d}") for index in range(3)]
         # 同じアトリビュートを何度 Plug にしても(以前はキャッシュの状態で結果が変わっていた)要素は作られない。
-        _InputPlug._resolve_input(averages[0].getName() + ".input1D[10]")
-        _InputPlug._resolve_input(averages[1].getName() + ".input1D[10]")
+        Plug._resolve_input(averages[0].getName() + ".input1D[10]")
+        Plug._resolve_input(averages[1].getName() + ".input1D[10]")
         averages[1].getPlug("input1D[12]")
         Selection([averages[2].getName() + ".input1D[11]"])
         for average in averages:
             self.assertEqual(self.existing(average.getPlug("input1D")), [])
         meshes = [self.cube(f"cube{index:d}")[1] for index in range(2)]
         for mesh in meshes:
-            child = _InputPlug._resolve_input(mesh.getName() + ".pnts[50].pntx")
+            child = Plug._resolve_input(mesh.getName() + ".pnts[50].pntx")
             self.assertEqual(child.getFullName(), mesh.getName() + ".pnts[50].pntx")
             self.assertEqual(self.existing(mesh.getPlug("pnts")), [])
         # 動的アトリビュートも要素を作らない。
         network = self.create("network", "net")
         network.addAttr("values", attributeType="double", multi=True)
-        _InputPlug._resolve_input(network.getName() + ".values[4]")
+        Plug._resolve_input(network.getName() + ".values[4]")
         network.getPlug("values")[2].set(0)
         self.assertEqual(self.existing(network.getPlug("values")), [2])
         Plug(network, network.getPlug("values").mplug().elementByLogicalIndex(7))
@@ -781,7 +781,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         # 既存要素・接続された要素はそのまま。
         source = self.create("transform", "source")
         cmds.connectAttr(source.getPlug("tx"), averages[0].getName() + ".input1D[3]")
-        self.assertTrue(_InputPlug._resolve_input(averages[0].getName() + ".input1D[3]").isDestination())
+        self.assertTrue(Plug._resolve_input(averages[0].getName() + ".input1D[3]").isDestination())
         self.assertEqual(self.existing(averages[0].getPlug("input1D")), [3])
         # 要素は参照への書込みで作成する。
         created = averages[1].getPlug("input1D")[5]
@@ -790,7 +790,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         self.assertEqual(created.getFullName(), averages[1].getName() + ".input1D[5]")
 
     def test_blend_shape_weight_plugs_do_not_create_target_elements(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         base = cmds.polyCube(name="base")[0]
         target = cmds.polyCube(name="target")[0]
@@ -798,7 +798,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         arrays = ("weight", "parentDirectory", "nextTarget", "targetVisibility", "targetParentVisibility", "inputTarget[0].inputTargetGroup")
         before = {name: self.existing(blend.getPlug(name)) for name in arrays}
         # maya.cmds で weight[5] の型を問い合わせると parentDirectory[5] なども作られる。
-        weight = _InputPlug._resolve_input(blend.getName() + ".weight[5]")
+        weight = Plug._resolve_input(blend.getName() + ".weight[5]")
         self.assertEqual(type(weight).__name__, "FloatPlug")
         blend.getPlug("weight[7]")
         mlib.DrivenKey(self.create("transform", "driver").getPlug("tx"), blend.getName() + ".weight[0]")
@@ -806,7 +806,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         self.assertEqual({name: self.existing(blend.getPlug(name)) for name in arrays}, before)
 
     def test_internal_attributes_resolve_without_errors_or_changes(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         _, mesh = self.cube()
         arrays = ("edge", "face", "vrts", "uvpt", "pnts")
@@ -816,14 +816,14 @@ class PlugCreationSideEffectTest(_InteropCase):
             with self.subTest(plug=path):
                 plug = mesh.getPlug(path)
                 self.assertEqual(attributeType(plug.mplug()), expected)
-                self.assertEqual(_InputPlug._resolve_input(plug.getFullName()).mplug(), plug.mplug())
+                self.assertEqual(Plug._resolve_input(plug.getFullName()).mplug(), plug.mplug())
         self.assertEqual({name: self.existing(mesh.getPlug(name)) for name in arrays}, before)
         # nurbsSurface の patchUVIds の存在しない要素は、maya.cmds で型を問い合わせると Maya が
         # 異常終了する。Plug の生成は maya.cmds へ問い合わせないため安全に扱える。
         surface = Node(cmds.sphere(name="surface", constructionHistory=False)[0]).getShape()
         patch = surface.getPlug("patchUVIds")
         count = len(self.existing(patch))
-        for plug in (_InputPlug._resolve_input(surface.getName() + ".patchUVIds[999]"), surface.getPlug("patchUVIds[998]")):
+        for plug in (Plug._resolve_input(surface.getName() + ".patchUVIds[999]"), surface.getPlug("patchUVIds[998]")):
             self.assertEqual(plug.mplug().logicalIndex() in (998, 999), True)
         self.assertEqual(len(self.existing(patch)), count)
         # 内部のデータ型の存在しない要素は、値を読むと Maya が異常終了する場合があるため、
@@ -838,7 +838,7 @@ class PlugCreationSideEffectTest(_InteropCase):
             self.assertFalse(is_internal_data_type(plug.mplug()))
 
     def test_generic_attributes_read_matrices_without_changing_reference_type(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         source = self.create("transform", "src")
         source.getPlug("t").set((2.0, 0.0, 0.0))
@@ -862,12 +862,12 @@ class PlugCreationSideEffectTest(_InteropCase):
         self.assertEqual(choices["double"].getPlug("output").get(), 2.0)
         # 存在しない要素の Plug は値を読まない(要素を作らない)。
         choices["matrix"].getPlug("input[5]")
-        _InputPlug._resolve_input(choices["matrix"].getName() + ".input[6]")
+        Plug._resolve_input(choices["matrix"].getName() + ".input[6]")
         self.assertEqual(self.existing(choices["matrix"].getPlug("input")), [0])
 
     def test_value_dependent_attributes_avoid_evaluation(self):
         # 入力接続のある要素は接続元のアトリビュートの型を使い、上流を評価しない。
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         counter = "mlibInteropEval_" + uuid.uuid4().hex[:8]
         source = self.create("transform", "src")
@@ -905,7 +905,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         arrays = ("falloffCurve", "curveRadius", "axialMagnitude")
         before = {name: self.existing(field.getPlug(name)) for name in arrays}
         self.assertIs(type(field.getPlug("geometry")), Plug)
-        _InputPlug._resolve_input(field.getName() + ".geometry")
+        Plug._resolve_input(field.getName() + ".geometry")
         self.assertGreater(len(field.getPlugs()), 100)
         self.assertEqual({name: self.existing(field.getPlug(name)) for name in arrays}, before)
 
@@ -948,7 +948,7 @@ class PlugCreationSideEffectTest(_InteropCase):
 
     def test_reference_creation_does_not_have_value_evaluation_side_effects(self):
         # generic参照の構築は値を読まない。cmds型照会による評価副作用とは区別する。
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         def existing_after(read):
             transform, mesh = self.cube("gcube")
@@ -961,7 +961,7 @@ class PlugCreationSideEffectTest(_InteropCase):
             cmds.delete(constraint, locator.getFullName(), instance, transform.getFullName())
             return before, after
 
-        mlib_result = existing_after(_InputPlug._resolve_input)
+        mlib_result = existing_after(Plug._resolve_input)
         cmds_result = existing_after(lambda name: cmds.getAttr(name, type=True))
         self.assertEqual(mlib_result, ([1], [1]))
         self.assertEqual(cmds_result, ([1], [0, 1]))
@@ -1057,8 +1057,8 @@ class PlugValidityTest(_InteropCase):
     def test_raw_mplug_of_deleted_dynamic_attribute(self):
         # 生の MPlug も、削除済みのアトリビュートなら名前へ変換せず ValueError にする(以前は "t." や
         # "t.foo" を返し、mlib.select がノードを黙って選択していた)。
-        from mlib.core.object import Object as _InputObject
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.core.object import Object
+        from mlib.plugs.plug import Plug
 
         state = cmds.undoInfo(query=True, state=True)
         cmds.undoInfo(state=True)
@@ -1067,8 +1067,8 @@ class PlugValidityTest(_InteropCase):
                 with self.subTest(delete=label):
                     node = self.create("transform", "t")
                     mplug = om2.MPlug(node.addAttr("foo", attributeType="double").mplug())
-                    self.assertTrue(_InputPlug._mplug_attribute_exists(mplug))
-                    self.assertEqual(_InputObject._input_name(mplug), node.getName() + ".foo")
+                    self.assertTrue(Plug._mplug_attribute_exists(mplug))
+                    self.assertEqual(Object._input_name(mplug), node.getName() + ".foo")
                     if label == "undoable":
                         cmds.deleteAttr(node.getName() + ".foo")
                     else:
@@ -1077,14 +1077,14 @@ class PlugValidityTest(_InteropCase):
                             cmds.deleteAttr(node.getName() + ".foo")
                         finally:
                             cmds.undoInfo(stateWithoutFlush=True)
-                    self.assertFalse(_InputPlug._mplug_attribute_exists(mplug))
+                    self.assertFalse(Plug._mplug_attribute_exists(mplug))
                     cmds.select(clear=True)
-                    for call in (lambda: _InputObject._input_name(mplug), lambda: mlib.select(mplug), lambda: _InputObject._input_names([mplug])):
+                    for call in (lambda: Object._input_name(mplug), lambda: mlib.select(mplug), lambda: Object._input_names([mplug])):
                         with self.assertRaises(ValueError):
                             call()
                     self.assertEqual(cmds.ls(selection=True), [])
                     with self.assertRaises(RuntimeError):
-                        _InputPlug._resolve_input(mplug)
+                        Plug._resolve_input(mplug)
                     cmds.delete(node.getFullName())
         finally:
             cmds.undoInfo(state=state)
@@ -1093,7 +1093,7 @@ class PlugValidityTest(_InteropCase):
         # 所有ノードは有効なままアトリビュートだけが削除された Plug・MPlug は、ノードが必要な引数でも
         # 所有ノードへ解決せず、mlib のコマンド(mlib.select など)と同じく ValueError にする。
         # Node(...) の「解決できない対象は RuntimeError」の規則に合わせ、RuntimeError の派生でもある。
-        from mlib.nodes.node import Node as _InputNode
+        from mlib.nodes.node import Node
         from mlib.plugs.plug import DeletedAttributeError
 
         parent = self.create("transform", "parent")
@@ -1121,7 +1121,7 @@ class PlugValidityTest(_InteropCase):
         calls = {
             "Node": Node,
             "mlib.getNode": mlib.getNode,
-            "to_node": _InputNode._resolve_input,
+            "to_node": Node._resolve_input,
             "constraint source": lambda value: mlib.getNode(target).addConstraint(value, type="point"),
             "constraint target": lambda value: mlib.getNode(value).addConstraint(target, type="point"),
             "addConstraint": lambda value: target.addConstraint(value, "point"),
@@ -1267,7 +1267,7 @@ class NodePlugPathTest(_InteropCase):
     """Node.getPlug() がアトリビュートパス・エイリアスを解決することを検証する。"""
 
     def test_attribute_paths(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         average = self.create("plusMinusAverage", "pma")
         transform = self.create("transform", "t")
@@ -1291,7 +1291,7 @@ class NodePlugPathTest(_InteropCase):
             with self.subTest(path=path):
                 plug = node.getPlug(path)
                 self.assertEqual(type(plug).__name__, class_name)
-                self.assertEqual(_InputPlug._resolve_input(plug.getFullName()).mplug(), plug.mplug())
+                self.assertEqual(Plug._resolve_input(plug.getFullName()).mplug(), plug.mplug())
                 self.assertTrue(node.hasAttr(path))
         self.assertEqual(blend.getPlug("weight[0]").mplug(), blend.getPlug("target").mplug())
         self.assertEqual(list(blend.getPlug(group).mplug().getExistingArrayAttributeIndices()), before)
@@ -1391,7 +1391,7 @@ class CommandEdgeCaseTest(_InteropCase):
         self.assertTrue(cmds.objExists(dup1.getNodeName()))
 
     def test_drivenKey_accepts_plug_name_strings(self):
-        from mlib.plugs.plug import Plug as _InputPlug
+        from mlib.plugs.plug import Plug
 
         base = cmds.polyCube(name="base")[0]
         target = cmds.polyCube(name="tgt")[0]
@@ -1413,7 +1413,7 @@ class CommandEdgeCaseTest(_InteropCase):
         for driven in (self.ns("net.vals[2]"), str(dup2.getPlug("ty")), self.ns("bs.weight[0]")):
             with self.subTest(driven=driven):
                 relation = mlib.DrivenKey(dup1.getPlug("tx"), driven)
-                self.assertEqual(relation.getDrivenPlug().getFullName(), _InputPlug._resolve_input(driven).getFullName())
+                self.assertEqual(relation.getDrivenPlug().getFullName(), Plug._resolve_input(driven).getFullName())
         with self.assertRaises(RuntimeError):
             mlib.DrivenKey(dup1.getNodeName() + ".tx", dup2.getPlug("tz"))  # 2つの dup に一致する
         with self.assertRaises(TypeError):
@@ -1424,13 +1424,13 @@ class LargeComponentCollectionTest(_InteropCase):
     """多数の要素を持つコレクションを範囲指定の名前で受け渡すことを検証する。"""
 
     def test_large_collections_use_range_names(self):
-        from mlib.core.object import Object as _InputObject
+        from mlib.core.object import Object
 
         plane = Node(cmds.polyPlane(name="plane", subdivisionsX=100, subdivisionsY=100, constructionHistory=False)[0])
         mesh = plane.getShape()
         vertices = Vertices(mesh)
         self.assertEqual(len(vertices), 10201)
-        self.assertEqual(_InputObject._input_names(vertices), [mesh.getFullName() + ".vtx[0:10200]"])
+        self.assertEqual(Object._input_names(vertices), [mesh.getFullName() + ".vtx[0:10200]"])
         mlib.select(vertices)
         self.assertEqual(len(cmds.ls(selection=True, flatten=True)), 10201)
         subset = Vertices(mesh, list(range(0, 10201, 2)))

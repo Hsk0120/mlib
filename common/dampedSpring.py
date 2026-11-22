@@ -39,7 +39,7 @@ class DampedSpring:
         if not (secondsPerSample > 0 and 0 < frequency <= 30 and 0 <= damping <= 2 and limit > 0):
             raise ValueError("スプリングの設定が不正です")
         omega = 2 * math.pi * frequency
-        count = max(1, int(math.ceil(secondsPerSample * omega * 20)))
+        count = max(1, math.ceil(secondsPerSample * omega * 20))
         if count > 10000:
             raise ValueError("サンプルの間隔が大きすぎます")
         dt = secondsPerSample / count

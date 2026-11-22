@@ -302,6 +302,48 @@ class ProjectRuleLayoutTest(unittest.TestCase):
         self.assertEqual(self.only("def run():\n    # 循環参照の回避。\n    from .a import A\n    from .b import B\n    return A, B", "L052"), [])
         self.assertEqual(self.only("from .other import Thing\n\n\ndef run():\n    return Thing", "L052"), [])
 
+    def test_public_and_internal_definition_names(self):
+        """公開の関数・メソッドは lowerCamelCase、クラスは PascalCase、内部の名前は snake_case。"""
+        self.assertEqual(self.only("def getWeights():\n    pass", "L053"), [])
+        self.assertEqual(self.only("def get_weights():\n    pass", "L053"), ["L053"])
+        self.assertEqual(self.only("def _resolve_item():\n    pass", "L053"), [])
+        self.assertEqual(self.only("def _resolveItem():\n    pass", "L053"), ["L053"])
+        self.assertEqual(self.only("class skinData:\n    pass", "L053"), ["L053"])
+        self.assertEqual(self.only("class Data:\n    def get_value(self):\n        pass", "L053"), ["L053"])
+        self.assertEqual(self.only("class Data:\n    def __init__(self):\n        pass\n\n    def __repr__(self):\n        return ''", "L053"), [])
+
+    def test_internal_places_do_not_need_public_name_forms(self):
+        """core・先頭が _ のモジュールとクラス・関数の中の関数は、公開の形を問わない(内部の形は問う)。"""
+        self.assertEqual(self.only("def set_plug():\n    pass", "L053", "mlib/core/fastWrite.py"), [])
+        self.assertEqual(self.only("def set_inputs():\n    pass", "L053", "mlib/nodes/_calculation.py"), [])
+        self.assertEqual(self.only("class _Topology:\n    def edge_faces(self):\n        pass", "L053"), [])
+        self.assertEqual(self.only("def run():\n    def to_radians(value):\n        return value\n    return to_radians", "L053"), [])
+        self.assertEqual(self.only("def get_value():\n    pass", "L053", "mlib/nodes/joint.py"), ["L053"])
+        self.assertEqual(self.only("def _setPlug():\n    pass", "L053", "mlib/core/fastWrite.py"), ["L053"])
+
+    def test_constant_collections_and_runtime_state_names(self):
+        """大文字の定数は tuple・frozenset で書き、関数の中で書き換える名前は小文字にする。"""
+        self.assertEqual(self.only('NAMES = ["a", "b"]', "L054"), ["L054"])
+        self.assertEqual(self.only('NAMES = {"a", "b"}', "L054"), ["L054"])
+        self.assertEqual(self.only('NAMES = ("a", "b")\nKINDS = frozenset({"a"})\nTABLE = {"a": 1}', "L054"), [])
+        self.assertEqual(self.only("_CACHE = {}\n\n\ndef run(key):\n    _CACHE[key] = 1", "L054"), ["L054"])
+        self.assertEqual(self.only("_SEEN = set()\n\n\ndef run(key):\n    _SEEN.add(key)", "L054"), ["L054"])
+        self.assertEqual(self.only("_LOADING = False\n\n\ndef run():\n    global _LOADING\n    _LOADING = True", "L054"), ["L054"])
+        self.assertEqual(self.only("_cache = {}\n\n\ndef run(key):\n    _cache[key] = 1", "L054"), [])
+        # 読み込み時にモジュール直下で組み立てるだけの表は定数。
+        self.assertEqual(self.only('_FLAGS = {"a": 1}\n_FLAGS.update({"b": 2})', "L054"), [])
+
+    def test_internal_imports_have_no_aliases(self):
+        """mlibの中のimportに別名を付けない。先頭に _ を付けて隠すだけなら認める。"""
+        self.assertEqual(self.only("from ..core import geometryEdit as geometry_edit", "L055"), ["L055"])
+        self.assertEqual(
+            self.only("def run():\n    # 循環参照の回避。\n    from ..core.object import Object as _InputObject\n    return _InputObject", "L055"), ["L055"]
+        )
+        self.assertEqual(self.only("from mlib.nodes import Joint as J", "L055"), ["L055"])
+        self.assertEqual(self.only("from .core.registry import NodeRegistry as _NodeRegistry\nfrom .core import extensions as _extensions", "L055"), [])
+        self.assertEqual(self.only("from ..core import geometryEdit", "L055"), [])
+        self.assertEqual(self.only("from operator import index as _as_index\nimport maya.api.OpenMaya as om2", "L055"), [])
+
     def test_exception_messages_are_japanese_f_strings(self):
         """例外の文言は日本語で、f-string 1つにまとめる。"""
         self.assertEqual(self.only('def run(value):\n    raise TypeError("value must be a bool")', "L060"), ["L060"])
@@ -311,6 +353,17 @@ class ProjectRuleLayoutTest(unittest.TestCase):
         self.assertEqual(self.only("def run(name):\n    raise AttributeError(name)", "L060"), [])
         self.assertEqual(self.only('def run(value):\n    raise ValueError("bad: " + str(value))', "L061"), ["L061"])
         self.assertEqual(self.only('def run(value):\n    raise ValueError(f"bad: {value}")', "L061"), [])
+
+    def test_logger_messages_are_japanese(self):
+        """ログの文言と、ログへ渡すために組み立てる f-string も日本語で書く。"""
+        # 別に組み立ててから join で渡す、英単語が1つだけの文も見つける(ValidationReport.warn で漏れた形)。
+        code = 'def run(items):\n    parts = [f"{len(items)} skipped ({items})"]\n    logger.warning("%s", "; ".join(parts))'
+        self.assertEqual(self.only(code, "L060"), ["L060"])
+        self.assertEqual(self.only('def run():\n    logger.warning("could not read the file")', "L060"), ["L060"])
+        code = 'def run(items):\n    parts = [f"{len(items)}件を飛ばしました({items})"]\n    logger.warning("%s: %s", "label", "; ".join(parts))'
+        self.assertEqual(self.only(code, "L060"), [])
+        # ログを出さない関数の f-string(名前の組み立てなど)は対象にしない。
+        self.assertEqual(self.only('def run(node):\n    return f"{node} skipped"', "L060"), [])
 
     def test_notify_and_raise_are_not_combined(self):
         """例外を送出する処理で logger.error を重ねない。"""
@@ -630,10 +683,10 @@ class ModernPracticeLayoutTest(unittest.TestCase):
             result = subprocess.run(base, capture_output=True)
             self.assertEqual(result.returncode, 2)
             self.assertEqual(path.read_bytes(), original)
-            result = subprocess.run(base + ["--line", "2", "--line", "99"], capture_output=True)
+            result = subprocess.run([*base, "--line", "2", "--line", "99"], capture_output=True)
             self.assertEqual(result.returncode, 1)
             self.assertEqual(path.read_bytes(), original)
-            result = subprocess.run(base + ["--line", "2"], capture_output=True)
+            result = subprocess.run([*base, "--line", "2"], capture_output=True)
             self.assertEqual(result.returncode, 0)
             data = path.read_bytes()
             self.assertTrue(data.startswith(b"\xef\xbb\xbf"))

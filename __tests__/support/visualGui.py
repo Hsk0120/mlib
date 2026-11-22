@@ -15,7 +15,7 @@ TESTS_DIR = Path(__file__).resolve().parents[1]
 
 def main(output_dir=None, finished=None):
     import maya.cmds as cmds
-    import maya.OpenMaya as om
+    import maya.OpenMaya as om1
     import maya.OpenMayaUI as omui
 
     try:
@@ -127,7 +127,7 @@ def main(output_dir=None, finished=None):
                 view = omui.M3dView()
                 omui.M3dView.getM3dViewFromModelPanel(panel, view)
                 view.refresh(False, True)
-                image = om.MImage()
+                image = om1.MImage()
                 view.readColorBuffer(image, True)
                 image.writeToFile(str(path), "png")
             evidence.append({"file": path.name, "review": "pending"})

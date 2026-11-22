@@ -109,7 +109,7 @@ class _UndoChunk(contextlib.ContextDecorator):
             self._opened = False
             try:
                 cmds.undoInfo(closeChunk=True)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 後始末の失敗で、元の処理の結果や例外を隠さない
                 logger.warning("Undoチャンクを閉じられませんでした: %s", exc)
         return False
 
@@ -385,17 +385,17 @@ def undoTransaction(name=None):
             guard = cmds.createNode("network", skipSelect=True)
             guard_created = True
             cmds.delete(guard)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 後始末は失敗しても残りを続ける
             logger.warning("Undoのガードを作成できませんでした: %s", exc)
         try:
             cmds.undoInfo(closeChunk=True)
             closed = True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 後始末は失敗しても残りを続ける
             logger.warning("Undoチャンクを閉じられませんでした: %s", exc)
         if guard_created and closed:
             try:
                 cmds.undo()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 後始末は失敗しても残りを続ける
                 logger.warning("Undoの巻き戻しに失敗しました: %s", exc)
         else:
             logger.warning("Undoの巻き戻しを省略しました: ガードの作成かチャンクを閉じる処理が成功していません")

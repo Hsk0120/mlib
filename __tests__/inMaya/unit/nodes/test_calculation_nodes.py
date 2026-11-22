@@ -1,5 +1,6 @@
-"""計算ノードのクラス(Condition・MultiplyDivide・AimMatrix 等)の setInput・getResult・演算の名前・
-入力の追加と削除・ランプの操作を確かめる。
+"""計算ノードのクラス(Condition・MultiplyDivide・AimMatrix 等)の操作を確かめる。
+
+対象は setInput・getResult・演算の名前・入力の追加と削除・ランプの操作。
 
 setInput は値の書込みと Plug の接続をまとめ、Undo 1 回で戻ること、演算・モードは名前と番号で設定でき、
 不正な名前・型は書き込まずに ValueError/TypeError になることを確かめる。

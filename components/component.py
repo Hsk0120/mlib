@@ -238,10 +238,7 @@ class Component(Object):
             raise TypeError("対応しているのは、メッシュの頂点・エッジ・フェース・UV・頂点フェース、カーブのCV、サーフェスのCV、ラティスの点だけです")
         shape = Node(path)
         fn = _indexed_component_fn(component)
-        if fn.isComplete:
-            indices = range(cls._element_count(shape))
-        else:
-            indices = fn.getElements()
+        indices = range(cls._element_count(shape)) if fn.isComplete else fn.getElements()
         return [cls(shape, index) for index in indices]
 
     @staticmethod
@@ -1158,10 +1155,10 @@ def _flat_input(cls, shape, items):
             if len(item) != cls.index_size:
                 raise ValueError(f"{cls.__name__}の番号は{cls.index_size}個の数値で指定してください: {len(item)}個")
             numbers = []
-            for number in item:
-                if isinstance(number, bool):
+            for value in item:
+                if isinstance(value, bool):
                     raise TypeError("コンポーネントの番号は整数で指定してください(boolは指定できません)")
-                number = operator.index(number)
+                number = operator.index(value)
                 if number < 0:
                     raise IndexError(f"コンポーネントの番号が範囲外です: {tuple(item)}")
                 numbers.append(number)

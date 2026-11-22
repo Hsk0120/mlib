@@ -65,7 +65,7 @@ class ScriptJobs:
         for key, job in list(self._jobs.items()):
             try:
                 job.stop()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 1つ止められなくても、残りのscriptJobを止める
                 failures.append((key, exc))
                 logger.warning("scriptJobの後始末に失敗しました(%r): %s", key, exc)
             else:

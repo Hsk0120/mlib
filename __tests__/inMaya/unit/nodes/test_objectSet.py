@@ -219,7 +219,7 @@ class ObjectSetDeformAdditionsTest(_Case):
 
     def test_set_operations(self):
         """和・積・差は要素単位で cmds の結果を集合演算したものと一致する。"""
-        first, second, cube, a, b = self.sets()
+        first, second, cube, _a, b = self.sets()
         one = self.flat(cmds.sets(first.getFullName(), query=True))
         two = self.flat(cmds.sets(second.getFullName(), query=True))
         self.assertEqual(self.flat(first.getUnion(second)), one | two)

@@ -20,7 +20,7 @@ class InternalRefactoringTest(unittest.TestCase):
 
     def test_class_operations_keep_undo_and_deferred_calls(self):
         """アトリビュート追加のUndoとMayaへの遅延予約を維持する。"""
-        import maya.utils
+        import maya.utils as maya_utils
 
         from mlib.common import Deferred
 
@@ -33,7 +33,7 @@ class InternalRefactoringTest(unittest.TestCase):
         def callback():
             return None
 
-        with patch.object(maya.utils, "executeDeferred") as enqueue:
+        with patch.object(maya_utils, "executeDeferred") as enqueue:
             Deferred.call(callback, 3, value=4)
             enqueue.assert_called_once_with(callback, 3, value=4)
 
@@ -89,7 +89,7 @@ class InternalRefactoringTest(unittest.TestCase):
 
         old_registry = mlib.Node._registry
         old_registry.register("temporaryRefactorType", mlib.Node)
-        registry_module._INHERITED_TYPES_CACHE["temporaryRefactorType"] = ("temporaryRefactorType",)
+        registry_module._inherited_types_cache["temporaryRefactorType"] = ("temporaryRefactorType",)
         name = cmds.createNode("transform")
         for _ in range(2):
             mlib.reload()
@@ -100,21 +100,21 @@ class InternalRefactoringTest(unittest.TestCase):
             self.assertIsNone(mlib.Node._registry.lookup("temporaryRefactorType"))
             from mlib.core import registry as registry_module
 
-            self.assertNotIn("temporaryRefactorType", registry_module._INHERITED_TYPES_CACHE)
+            self.assertNotIn("temporaryRefactorType", registry_module._inherited_types_cache)
             node.getPlug("tx").set(9, fast=True)
             self.assertEqual(node.getPlug("tx").get(), 9)
             self.assertIs(mlib.getNode, mlib.cmds.getNode)
 
     def test_deferred_validates_before_reserving(self):
         """予約引数を維持し、不正なコールバックをMayaへ渡さない。"""
-        import maya.utils
+        import maya.utils as maya_utils
 
         from mlib.common import Deferred
 
         def callback(value):
             return value
 
-        with patch.object(maya.utils, "executeDeferred") as enqueue:
+        with patch.object(maya_utils, "executeDeferred") as enqueue:
             self.assertIsNone(Deferred.call(callback, 1, flag=True))
             enqueue.assert_called_once_with(callback, 1, flag=True)
             with self.assertRaises(TypeError):

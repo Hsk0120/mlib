@@ -72,10 +72,7 @@ class Selection:
             ただし結果は文字列の順に対応付けるので、並び順と重なりの除き方は、名前を1つずつ調べた場合と同じになる。
         """
         singles = (str, Node, Plug, Component, Components, Selection, om2.MObject, om2.MDagPath, om2.MPlug, om2.MSelectionList)
-        if isinstance(items, singles):
-            items = [items]
-        else:
-            items = list(items)
+        items = [items] if isinstance(items, singles) else list(items)
         # ノード名(「.」もワイルドカードも含まない文字列)は、名前ごとに選択リストを作らずまとめて解決する。
         # 対応付けられなかった名前とそれ以外の文字列は、従来どおり名前ごとの選択リストで解決する。
         bulk_names = [item for item in items if isinstance(item, str) and _is_plain_node_name(item)]
@@ -216,8 +213,7 @@ class Selection:
         keyframes = []
         for name in cmds.keyframe(query=True, selected=True, name=True) or []:
             curve = Node(name)
-            for index in cmds.keyframe(name, query=True, selected=True, indexValue=True) or []:
-                keyframes.append(Keyframe(curve, int(index)))
+            keyframes.extend(Keyframe(curve, int(index)) for index in cmds.keyframe(name, query=True, selected=True, indexValue=True) or [])
         return Keyframes(keyframes)
 
     @classmethod
@@ -262,7 +258,9 @@ class Selection:
     @property
     def items(self):
         """list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
-        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。"""
+
+        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。
+        """
         return list(self._items)
 
     def getItems(self):
@@ -348,11 +346,11 @@ class Selection:
         for item in self._items:
             if not self._valid(item):
                 continue
-            if isinstance(item, Node) and item.isType(type):
-                result.append(item)
-            elif isinstance(item, Component) and item.component_type == component_type:
-                result.append(item)
-            elif isinstance(item, Plug) and type == "plug":
+            if (
+                (isinstance(item, Node) and item.isType(type))
+                or (isinstance(item, Component) and item.component_type == component_type)
+                or (isinstance(item, Plug) and type == "plug")
+            ):
                 result.append(item)
         return Selection(result)
 

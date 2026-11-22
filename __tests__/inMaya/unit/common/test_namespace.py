@@ -30,9 +30,10 @@ class NamespaceApiTest(unittest.TestCase):
     def _cleanup(self):
         names = cmds.namespaceInfo(listOnlyNamespaces=True, recurse=True, absoluteName=True) or []
         for name in sorted(names, key=lambda item: item.count(":"), reverse=True):
-            if name == self.root_name or name.startswith(self.root_name + ":") or name in (":mlibNamespaceDestination", ":child", ":renamed"):
-                if cmds.namespace(exists=name):
-                    cmds.namespace(removeNamespace=name, deleteNamespaceContent=True)
+            if (
+                name == self.root_name or name.startswith(self.root_name + ":") or name in (":mlibNamespaceDestination", ":child", ":renamed")
+            ) and cmds.namespace(exists=name):
+                cmds.namespace(removeNamespace=name, deleteNamespaceContent=True)
         if cmds.namespace(exists=self.root_name):
             cmds.namespace(removeNamespace=self.root_name, deleteNamespaceContent=True)
 

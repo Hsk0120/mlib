@@ -162,9 +162,9 @@ def check(build_dir, package_root=_PACKAGE_ROOT):
             errors.append("正式get/is名の公開参照がありません: " + identifier)
         elif f'id="{entry.node_id}"' not in html_for(entry):
             errors.append("正式get/is名のHTMLアンカーがありません: " + identifier)
-    for identifier in sorted(forbidden):
-        if identifier in objects or identifier in references:
-            errors.append("終了した判定省略入口が掲載されています: " + identifier)
+    errors.extend(
+        "終了した判定省略入口が掲載されています: " + identifier for identifier in sorted(forbidden) if identifier in objects or identifier in references
+    )
     for name in sorted(_COMMAND_NAMES):
         root_id, cmds_id = "mlib." + name, "mlib.cmds." + name
         root_entry, cmds_entry = references.get(root_id), references.get(cmds_id)

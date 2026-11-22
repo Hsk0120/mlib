@@ -28,7 +28,7 @@ class VersionTest(unittest.TestCase):
         self.assertEqual(hash(Version("2027")), hash(Version((2027, 0))))
         self.assertEqual((Version(2027).minor, Version(2027).patch), (0, 0))
         ordered = sorted(Version(value) for value in ("2025.3", "2022", "2027.0.1", "2024.2", "2027"))
-        self.assertEqual([str(value) for value in ordered][0], str(Version("2022")))
+        self.assertEqual(next(str(value) for value in ordered), str(Version("2022")))
         self.assertTrue(Version("2027.0.1") > Version("2027"))
         self.assertTrue(Version("2027.1").isAtLeast("2027"))
         self.assertFalse(Version("2026.9").isAtLeast(Version("2027")))

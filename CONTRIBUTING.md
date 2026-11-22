@@ -58,6 +58,10 @@ _tools\test_mlib.bat --no-pause --versions 2027 --suite all
 | `--check` | 何も書き換えず検査だけ行う(コミット前の確認) |
 | `--no-pause` | 最後にキー入力を待たない(ターミナル・スクリプトから) |
 
+**コミットの前には、必ず`_tools\format_mlib.bat --check --no-pause`を実行し、最後の行が`[OK]`であることを確かめてください。**
+コミット前のフックは置いていないので、人もエージェントも毎回自分で確かめます。`[NG]`なら、引数なしの`format_mlib.bat`で
+直せるものを直し、残りを手で直してから、もう一度`--check`を通します。
+
 ### 2. テスト
 
 `noMaya/`を先に実行し、通ったら`inMaya/`をmayapyで実行します。

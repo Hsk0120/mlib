@@ -11,7 +11,7 @@ _MLIB_ROOT = Path(__file__).resolve().parents[2]
 def _read_version():
     """mlib/_version.pyの__version__を、mlibをimportせずに読む。"""
     text = (_MLIB_ROOT / "_version.py").read_text(encoding="utf-8")
-    match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.M)
+    match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
     return match.group(1) if match else None
 
 
@@ -47,7 +47,7 @@ class VersionConsistencyTest(unittest.TestCase):
     def test_version_is_not_exported(self):
         """__version__ は __all__(明示した _names とクラス名)に入れない。"""
         text = (_MLIB_ROOT / "__init__.py").read_text(encoding="utf-8")
-        match = re.search(r"^_names\s*=\s*\[(.*?)\]", text, re.S | re.M)
+        match = re.search(r"^_names\s*=\s*\[(.*?)\]", text, re.DOTALL | re.MULTILINE)
         self.assertIsNotNone(match)
         self.assertNotIn("__version__", match.group(1))
         self.assertRegex(text, r"(?m)^__all__ = _names \+ sorted\(_classes\)$")

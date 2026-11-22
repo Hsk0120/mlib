@@ -96,7 +96,7 @@ class GeometrySkinQueriesTest(unittest.TestCase):
     def test_intermediates_instances_and_joint_compatibility(self):
         geometry = self.cube()
         skin = self.bind(geometry.getFullName())
-        original = [s for s in geometry.getShapes(intermediates=True) if cmds.getAttr(s.getFullName() + ".intermediateObject")][0]
+        original = next(s for s in geometry.getShapes(intermediates=True) if cmds.getAttr(s.getFullName() + ".intermediateObject"))
         self.assertEqual(original.getSkinClusters(), [])
         instance = mlib.getNode(cmds.instance(geometry.getFullName(), name=self.ns + ":instance")[0])
         self.assertEqual(instance.getSkinClusters(), [skin])

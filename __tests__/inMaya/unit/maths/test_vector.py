@@ -419,8 +419,8 @@ class VectorTest(_Case):
             Vector.getCenter(Vector(1, 2, 3))
         square = [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)]
         self.assertTrue(Vector.isPlanar(square))
-        self.assertFalse(Vector.isPlanar(square + [(0.5, 0.5, 0.01)]))
-        self.assertTrue(Vector.isPlanar(square + [(0.5, 0.5, 0.01)], tolerance=0.02))
+        self.assertFalse(Vector.isPlanar([*square, (0.5, 0.5, 0.01)]))
+        self.assertTrue(Vector.isPlanar([*square, (0.5, 0.5, 0.01)], tolerance=0.02))
         self.assertTrue(Vector.isPlanar([(0, 0, 0), (1, 1, 1), (2, 2, 2), (3, 3, 3)]))
         self.assertTrue(Vector.isPlanar([(0, 0, 0), (0, 0, 0), (1, 0, 0), (0, 1, 0), (5, 5, 0)]))
         with self.assertRaises(ValueError):

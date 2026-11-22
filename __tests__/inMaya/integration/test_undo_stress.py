@@ -40,8 +40,7 @@ class UndoSequenceStressTest(NamespaceCase):
                 for attribute in ATTRIBUTES:
                     value = cmds.getAttr(node + "." + attribute)
                     entry.append((attribute, [round(v, 6) for v in value[0]] if isinstance(value, list) else value))
-            for attribute in cmds.listAttr(node, userDefined=True) or []:
-                entry.append(("user", attribute, cmds.getAttr(node + "." + attribute)))
+            entry.extend(("user", attribute, cmds.getAttr(node + "." + attribute)) for attribute in cmds.listAttr(node, userDefined=True) or [])
             keys = cmds.keyframe(node, query=True, timeChange=True) or []
             entry.append(("keys", [round(v, 6) for v in keys]))
             state.append(entry)
@@ -140,10 +139,7 @@ class UndoSequenceStressTest(NamespaceCase):
                 self.addCleanup(cmds.undoInfo, infinity=infinity)
                 cmds.flushUndo()
                 start = self.snapshot()
-                log = []
-                for index in range(STEPS):
-                    if self.step(rng, seed * 1000 + index):
-                        log.append(cmds.undoInfo(query=True, undoName=True))
+                log = [cmds.undoInfo(query=True, undoName=True) for index in range(STEPS) if self.step(rng, seed * 1000 + index)]
                 end = self.snapshot()
                 # 値が変わらない操作はUndoへ積まれないため、回数ではなくキューが空になるまで戻す。
                 while not cmds.undoInfo(query=True, undoQueueEmpty=True):

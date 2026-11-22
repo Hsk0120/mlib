@@ -329,8 +329,8 @@ class _Topology:
         """
         result = [edge]
         seen = {edge}
-        for pivot in self.edge_vertices(edge):
-            current = edge
+        for vertex in self.edge_vertices(edge):
+            current, pivot = edge, vertex
             while True:
                 following = self._loop_next(current, pivot)
                 if following is None or following in seen:

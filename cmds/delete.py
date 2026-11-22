@@ -68,7 +68,7 @@ def delete(nodes, *, fast=False):
     with _edit_context("mlibDelete", fast):
         # 循環参照の回避: core は cmds を参照するため、使う時点で読み込む。
         from ..core.nodeEdit import check_deletion, delete_nodes
-        from ..core.object import Object as _InputObject
+        from ..core.object import Object
         from ..nodes.joint import Joint
         from ..nodes.node import Node
 
@@ -79,7 +79,7 @@ def delete(nodes, *, fast=False):
             direct = list(given)
         else:
             direct = []
-            names = _InputObject._input_names(nodes, allow_plugs=False)
+            names = Object._input_names(nodes, allow_plugs=False)
             if not names:
                 raise ValueError("nodesにはノードを1つ以上指定してください")
         # アトリビュート・コンポーネント文字列は所有ノードへ変換せず、標準の扱いを維持する。

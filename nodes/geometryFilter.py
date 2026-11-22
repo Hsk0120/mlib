@@ -40,6 +40,7 @@ class GeometryFilter(Node):
         Raises:
             RuntimeError: デフォーマーが無効、またはMayaが照会を拒否した場合。
         """
+        self._require_valid("ツールの取得")
         return Nodes(cmds.deformer(self.getFullName(), query=True, deformerTools=True) or [])
 
     def getGeometry(self):
@@ -292,6 +293,10 @@ class GeometryFilter(Node):
             if fast:
                 self._set_deformer_weights_fast(plug, indices, values, check)
             else:
+                if check:
+                    # 範囲ごとに分けて書くので、途中で止まらないよう書く前に全部の要素を確かめる。
+                    for index in indices:
+                        require_writable(plug.elementByLogicalIndex(index))
                 self._set_deformer_weights_cmds(geometryIndex, indices, values)
 
     def dumpDeformerWeights(self, path, *, geometryIndex=None):
@@ -490,9 +495,10 @@ class GeometryFilter(Node):
         elif isinstance(getattr(vertices, "index", None), int):
             vertices = [vertices.index]
         indices = []
-        for value in vertices:
-            if not isinstance(value, int) and isinstance(getattr(value, "index", None), int):
-                value = value.index
+        for item in vertices:
+            value = item
+            if not isinstance(item, int) and isinstance(getattr(item, "index", None), int):
+                value = item.index
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"vertexはintで指定してください: {type(value).__name__}")
             if not 0 <= value < count:

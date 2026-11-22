@@ -16,6 +16,9 @@ from pathlib import Path
 import mlib
 
 mlib.reload()
+import functools
+import operator
+
 from mlib.nodes import DagNode, Joint, Joints, Node, Nodes, Shape, Transform
 from mlib.plugs import CompoundPlug, MultiPlug, Plug
 
@@ -225,8 +228,10 @@ class RequiredNamesTest(unittest.TestCase):
                     self.assertTrue(callable(getattr(cls, name)), f"{cls.__name__}.{name} missing")
 
     def test_plural_classes_do_not_forward(self):
-        """複数形クラスは明示した書込み(PLURAL_BULK)以外の転送メソッドを定義しない(単数の呼出しは
-        インスタンスの __getattr__ が各要素へ転送する。test_spec_collection_forwarding で確認)。"""
+        """複数形クラスは、明示した書込み(PLURAL_BULK)以外の転送メソッドを定義しない。
+
+        単数の呼出しは、インスタンスの __getattr__ が各要素へ転送する(test_spec_collection_forwarding で確認)。
+        """
         for cls, plural in PLURALS.items():
             for base, names in REQUIRED.items():
                 if not issubclass(cls, base):
@@ -305,7 +310,9 @@ class SourceTextTest(unittest.TestCase):
     Plugin/Module の getPath()、components の getMaterials() は別クラスの正式名なので対象外(nodes・plugs だけを見る)。
     """
 
-    OLD_NAMES = sorted(set(sum((list(names) for names in REMOVED.values()), [])) - {"create", "reset", "lock", "mute", "getNextAvailable"})
+    OLD_NAMES = sorted(
+        set(functools.reduce(operator.iadd, (list(names) for names in REMOVED.values()), [])) - {"create", "reset", "lock", "mute", "getNextAvailable"}
+    )
 
     def test_no_old_definitions_in_sources(self):
         root = Path(mlib.__file__).resolve().parent
@@ -313,8 +320,7 @@ class SourceTextTest(unittest.TestCase):
         offenders = []
         for file in list((root / "nodes").glob("*.py")) + list((root / "plugs").glob("*.py")):
             text = file.read_text(encoding="utf-8")
-            for match in pattern.finditer(text):
-                offenders.append(f"{file.relative_to(root)}: {match.group(0).strip()}")
+            offenders.extend(f"{file.relative_to(root)}: {match.group(0).strip()}" for match in pattern.finditer(text))
         self.assertEqual(offenders, [])
 
 

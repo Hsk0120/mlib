@@ -204,7 +204,7 @@ def _track(iterable: Iterable, line: _ProgressLine) -> Iterator[object]:
     ...
 
 def progressBar(iterable: Iterable, *, label: str = ..., total: int | None = ..., width: int = ..., stream: TextIO | None = ..., notify: Callable[[str], object] | None = ..., gui: bool | None = ...) -> Iterator:
-    """要素を同じ順に返しながら、処理した件数をMayaのプログレスバーかテキスト1行に表示する。
+    r"""要素を同じ順に返しながら、処理した件数をMayaのプログレスバーかテキスト1行に表示する。
 
     Maya GUIで ``stream`` を省略した場合は、メインのプログレスバー(``$gMainProgressBar``)に件数と
     見出しを表示する。Script Editorには書き込まない。

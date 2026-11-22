@@ -625,8 +625,8 @@ class SkinCluster(GeometryFilter):
             broadcast (bool): TrueならK個を全対象点へ書く。rowsと同時に指定できない。
             rows (bool): Trueならweightsを点ごとの行で受け取る。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueならfastの更新前にロック・入力接続等を全件検査する。既定False。
-                通常処理はMayaが各書き込みで編集可否を判定する。
+            check (bool): Trueなら、書き込む前に全部の要素のロック・入力の接続などを確かめ、問題があれば何も書かずに例外にする
+                (通常・fastとも)。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -1710,6 +1710,23 @@ class SkinCluster(GeometryFilter):
             None: 値を返さない。
         """
         ...
+    def _require_weight_plugs_writable(self, vertex_indices: Sequence[int], logical_indices: Sequence[int]) -> None:
+        """``weightList[v].weights[i]`` の全部の要素へ書き込めるかを確かめる。シーンは変えない。
+
+        親側(``weightList[v].weights`` より上)は頂点ごとに1回だけ調べ、ロックか入力の接続がある要素でだけ
+        :func:`mlib.core.fastWrite.require_writable` を呼んで、その文言の例外にする。
+
+        Args:
+            vertex_indices (Sequence[int]): 書き込む頂点番号。
+            logical_indices (Sequence[int]): weights[]の論理番号。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロックや入力の接続などで、書き込めない要素がある場合。
+        """
+        ...
     @staticmethod
     def _plug_chain_blocked(plug: om2.MPlug) -> bool:
         """Plugと、その親・マルチアトリビュート側のどこかに、ロックか入力の接続があるかを調べる。
@@ -1724,13 +1741,13 @@ class SkinCluster(GeometryFilter):
             bool: どこかがロックされているか、入力の接続を持っていればTrue。
         """
         ...
-    def _set_weight_values_cmds(self, values: list[float], width: int, vertex_indices: Sequence[int], logical_indices: list[int]) -> None:
+    def _set_weight_values_cmds(self, values: list[float], width: int, vertex_indices: Sequence[int], logical_indices: list[int], check: bool = ...) -> None:
         """頂点・指定influence列の順に、cmdsで生のウェイト値を書き込む。
 
         weights[]には疎な論理番号を使う。指定順で論理番号が1ずつ増える列は
         ``weights[a:b]`` の範囲指定で1回のsetAttrにまとめ、番号の穴や順序の入れ替わりで区切る。
-        全Plugの事前検査はせず、途中で拒否された場合も先行する書込みを自動で戻さない。
-        Undoチャンクは呼出し側が管理する。
+        check=Trueなら書く前に全部の要素を確かめる。check=Falseでは事前の検査をせず、
+        途中で拒否された場合も先行する書込みを自動で戻さない。Undoチャンクは呼出し側が管理する。
 
         範囲指定のsetAttrはロック・入力接続などで拒否されると範囲内のどの要素も更新しない。
         その場合だけ同じ範囲を要素ごとのsetAttrで書き直し、従来の要素ごとの書込みと同じく
@@ -1741,9 +1758,13 @@ class SkinCluster(GeometryFilter):
             width (int): 指定列数K。
             vertex_indices (Sequence[int]): 書き込む頂点番号。valuesの行の順。
             logical_indices (list[int]): weights[]の論理番号。指定influence順。
+            check (bool): Trueなら、書き込む前に、全部の要素へ書き込めるか(ロック・入力の接続)を確かめる。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            RuntimeError: check=Trueで、書き込めない要素がある場合。または、Mayaが書き込みを拒否した場合。
         """
         ...
     @staticmethod

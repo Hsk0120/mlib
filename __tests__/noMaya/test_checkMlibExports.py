@@ -17,7 +17,7 @@ class ExportCheckerTest(unittest.TestCase):
         self.root = Path(self.directory.name) / "mlib"
         self.root.mkdir()
         self.write("__init__.py", "__all__ = []\n")
-        for folder in CLASS_PACKAGES + ("cmds",):
+        for folder in (*CLASS_PACKAGES, "cmds"):
             self.write(folder + "/__init__.py", "__all__ = []\n")
 
     def write(self, relative, text):

@@ -30,6 +30,6 @@ def getPlug(value):
         >>> value = translate_x.get()
     """
     # 循環参照の回避: plugs は cmds を参照するため、使う時点で読み込む。
-    from ..plugs.plug import Plug as _InputPlug
+    from ..plugs.plug import Plug
 
-    return _InputPlug._resolve_input(value)
+    return Plug._resolve_input(value)

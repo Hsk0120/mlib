@@ -77,9 +77,8 @@ class Constraint(Transform):
         ターゲットを指定した場合は、まず全部が登録されているかを確かめ、重なりをまとめてから書き込む。
         ターゲットは完全名で照らし合わせ、指定した順には並べ替えない。
 
-        書き込めるかの確認と書き込みは、Plug.set()に1つずつ任せる。
-        そのため、途中で失敗すると、それより前の書き込みは残ることがある。
-        前もって全部のPlugを確かめたり、失敗時に自動で元に戻したりはしない。
+        書き込みは、Plug.set()に1つずつ任せる。``check=True`` なら、書く前に対象の全部のPlugを確かめる。
+        ``check=False`` で途中で失敗すると、それより前の書き込みは残ることがある(失敗時に自動で元に戻すことはしない)。
 
         Args:
             weight (float): 対象すべてへ設定する値。正規化も、0〜1への制限もしない。
@@ -97,6 +96,8 @@ class Constraint(Transform):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 指定したターゲットがこのコンストレイントに登録されていない場合。
+                ``check=True`` で、weightが有限でない場合。
+            RuntimeError: ``check=True`` で、ウェイトのアトリビュートがロックや入力の接続などで書き込めない場合。
         """
         ...
     def removeTarget(self, *targets: Node | str) -> None:

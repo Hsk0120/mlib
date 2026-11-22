@@ -12,7 +12,7 @@ import mlib
 
 class CameraViewParametersTest(NamespaceCase):
     def test_flags_and_aspect_match_native_without_edit(self):
-        transform, name = cmds.camera(name=self.ns + ":camera")
+        _transform, name = cmds.camera(name=self.ns + ":camera")
         camera = mlib.getNode(name)
         cmds.setAttr(name + ".overscan", 1.5)
         cmds.setAttr(name + ".lensSqueezeRatio", 1.3)

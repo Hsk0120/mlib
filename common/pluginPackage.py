@@ -225,7 +225,7 @@ class PluginPackage:
         for plugin in self._plugins:
             try:
                 plugin.load(quiet=True)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 1つ読み込めなくても、残りのプラグインを読み込む
                 failed.append(plugin)
                 logger.warning("[mlib] プラグイン%sを読み込めません(%s用): %s", plugin.name, self._name, error)
         return failed

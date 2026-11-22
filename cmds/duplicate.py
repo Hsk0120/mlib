@@ -136,10 +136,10 @@ def duplicate(
         kwargs.setdefault("fullPath", True)
     with undoChunk("mlibDuplicate"):
         # nodesはcmdsを参照するため、循環importを避けて関数内で読み込む。
-        from ..core.object import Object as _InputObject
+        from ..core.object import Object
         from ..nodes import Node
 
-        name = _InputObject._input_name(node)
+        name = Object._input_name(node)
         source = Node._resolve_input(node) if suffix is not None else None
         result = cmds.duplicate(name, **kwargs)
         copied = Node(result[0])

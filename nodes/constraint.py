@@ -87,9 +87,8 @@ class Constraint(Transform):
         ターゲットを指定した場合は、まず全部が登録されているかを確かめ、重なりをまとめてから書き込む。
         ターゲットは完全名で照らし合わせ、指定した順には並べ替えない。
 
-        書き込めるかの確認と書き込みは、Plug.set()に1つずつ任せる。
-        そのため、途中で失敗すると、それより前の書き込みは残ることがある。
-        前もって全部のPlugを確かめたり、失敗時に自動で元に戻したりはしない。
+        書き込みは、Plug.set()に1つずつ任せる。``check=True`` なら、書く前に対象の全部のPlugを確かめる。
+        ``check=False`` で途中で失敗すると、それより前の書き込みは残ることがある(失敗時に自動で元に戻すことはしない)。
 
         Args:
             weight (float): 対象すべてへ設定する値。正規化も、0〜1への制限もしない。
@@ -107,22 +106,25 @@ class Constraint(Transform):
         Raises:
             TypeError: fastがbool以外の場合。
             ValueError: 指定したターゲットがこのコンストレイントに登録されていない場合。
+                ``check=True`` で、weightが有限でない場合。
+            RuntimeError: ``check=True`` で、ウェイトのアトリビュートがロックや入力の接続などで書き込めない場合。
         """
         with _edit_context("mlibConstraintSetWeight", fast):
             weight_plugs = self.getWeightPlugs()
-            if not targets:
+            if targets:
+                requested = {Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)}
+                available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
+                missing = requested - available.keys()
+                if missing:
+                    raise ValueError(f"このコンストレイントにターゲットが見つかりません: {sorted(missing)}")
+                # 全ターゲットを解決してから更新する。無効な指定で部分更新しない。
+                weight_plugs = [plug for name, plug in available.items() if name in requested]
+            if check:
+                # 途中で止まって一部だけ書き換わらないよう、書く前に全部を確かめる。
                 for plug in weight_plugs:
-                    plug.set(weight, fast=fast, check=check)
-                return
-            requested = {Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)}
-            available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
-            missing = requested - available.keys()
-            if missing:
-                raise ValueError(f"このコンストレイントにターゲットが見つかりません: {sorted(missing)}")
-            # 全ターゲットを解決してから更新する。無効な指定で部分更新しない。
-            for name, plug in available.items():
-                if name in requested:
-                    plug.set(weight, fast=fast, check=check)
+                    plug._require_writable()
+            for plug in weight_plugs:
+                plug.set(weight, fast=fast, check=check)
 
     def removeTarget(self, *targets):
         """ターゲットをコンストレイントから外す。
@@ -152,4 +154,4 @@ class Constraint(Transform):
         if missing:
             raise ValueError(f"このコンストレイントにターゲットが見つかりません: {missing}")
         with undoChunk("mlibConstraintRemoveTarget"):
-            getattr(cmds, self.getType())(*(requested + [self.getFullName()]), edit=True, remove=True)
+            getattr(cmds, self.getType())(*requested, self.getFullName(), edit=True, remove=True)

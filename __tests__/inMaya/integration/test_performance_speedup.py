@@ -687,7 +687,7 @@ class CollectionWrapperTest(unittest.TestCase):
         from mlib.nodes.node import Node
 
         paths = cmds.ls(self.ns + ":boxShape", allPaths=True, long=True)
-        names = [self.md, self.box, self.md] + paths + paths[::-1] + self.joints + [self.joints[0]]
+        names = [self.md, self.box, self.md, *paths, *paths[::-1], *self.joints, self.joints[0]]
         wrappers = [Node(name) for name in names]
         self.assertEqual([node.getFullName() for node in Nodes(names)], self._expected_unique(wrappers))
         self.assertEqual([node.getFullName() for node in Nodes(wrappers)], self._expected_unique(wrappers))
@@ -701,7 +701,7 @@ class CollectionWrapperTest(unittest.TestCase):
         full = cmds.ls(self.joints, long=True)
         self.assertEqual([node.getFullName() for node in Joints(full + full)], full)
         with self.assertRaisesRegex(TypeError, "JointsにはJointを指定してください: MultiplyDivide"):
-            Joints(self.joints + [self.md])
+            Joints([*self.joints, self.md])
 
     def test_nodes_reject_removed_instance_without_duplicates(self):
         from mlib.nodes import Nodes
@@ -755,7 +755,7 @@ class UndoTransactionNestingTest(unittest.TestCase):
 
     def tearDown(self):
         cmds.undoInfo(state=self.state)
-        for name in [self.node] + self.created:
+        for name in [self.node, *self.created]:
             if cmds.objExists(name):
                 cmds.delete(name)
 
@@ -1137,7 +1137,7 @@ class WrapperCreationCostTest(unittest.TestCase):
         self.assertEqual([self._state(c) for c in children], [self._state(Node(c.getFullName())) for c in children])
         # 型の異なるノードを交互に包んでも、使い回しの関数セットが前の型名を返さない。
         for _ in range(3):
-            for name in dg + [grp]:
+            for name in [*dg, grp]:
                 node = mlib.getNode(name)
                 wrapped = Node._wrap_resolved(node._mobject, node._dag_path)
                 self.assertEqual(self._state(wrapped), self._state(Node(name)))
@@ -1449,7 +1449,7 @@ class ImportCostTest(unittest.TestCase):
         self.assertEqual(found, self._reference_candidates())
         parent = os.path.dirname(os.path.dirname(mlib.__file__))
         local = {
-            name for name in os.listdir(parent) if extensions._extension_pattern.fullmatch(name) and os.path.isfile(os.path.join(parent, name, "__init__.py"))
+            name for name in os.listdir(parent) if extensions._EXTENSION_PATTERN.fullmatch(name) and os.path.isfile(os.path.join(parent, name, "__init__.py"))
         }
         self.assertTrue(local <= set(found))
 
@@ -1492,7 +1492,7 @@ class ImportCostTest(unittest.TestCase):
         candidates = {}
         for path in dict.fromkeys(sys.path):
             for info in pkgutil.iter_modules([path]):
-                if info.ispkg and extensions._extension_pattern.fullmatch(info.name):
+                if info.ispkg and extensions._EXTENSION_PATTERN.fullmatch(info.name):
                     location = os.path.normcase(os.path.realpath(path))
                     candidates.setdefault(info.name, set()).add(location)
         return candidates

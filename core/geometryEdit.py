@@ -48,24 +48,67 @@ def geometry(shape, indices, edit=False, check=False):
     mesh = path.node().hasFn(om2.MFn.kMesh)
     fn = om2.MFnMesh(path) if mesh else om2.MFnNurbsCurve(path)
     if edit:
-        indices = list(indices)
-        if not mesh and fn.form == om2.MFnNurbsCurve.kPeriodic:
-            # 周期カーブは末尾の重複CVも先頭の独立CVと同じ位置に書くので、重複側の書込み可否も調べる。
-            independent = fn.numCVs - fn.degree
-            indices += [index % independent + independent for index in indices if index % independent < fn.degree]
         dependency = om2.MFnDependencyNode(path.node())
         source = dependency.findPlug("inMesh" if mesh else "create", False)
         if source.isDestination:
             raise NotImplementedError("fastのジオメトリ編集には、入力ヒストリのないシェイプが必要です")
         if dependency.isLocked:
             raise RuntimeError("シェイプノードがロックされています")
-        points = dependency.findPlug("pnts" if mesh else "controlPoints", False)
-        for index in indices if check else ():
-            point = points.elementByLogicalIndex(index)
-            require_writable(point)
-            for child in range(point.numChildren()):
-                require_writable(point.child(child))
+        if check:
+            _require_points_writable(_Geometry(path, fn, mesh), indices)
     return _Geometry(path, fn, mesh)
+
+
+def _require_points_writable(target, indices):
+    """指定した点のpnts・controlPointsとその子へ書き込めるかを確かめる。シーンは変えない。
+
+    上の階層を含むロックと入力接続、それぞれのアトリビュートへ書き込めるかどうかを調べる。
+    周期カーブでは、指定した独立CVに重なる末尾の重複CVも調べる。
+
+    Args:
+        target (_Geometry): :func:`geometry` の戻り値。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: ロック・入力接続・書き込み禁止がある場合。
+    """
+    path, fn, mesh = target
+    indices = list(indices)
+    if not mesh and fn.form == om2.MFnNurbsCurve.kPeriodic:
+        # 周期カーブは末尾の重複CVも先頭の独立CVと同じ位置に書くので、重複側の書込み可否も調べる。
+        independent = fn.numCVs - fn.degree
+        indices += [index % independent + independent for index in indices if index % independent < fn.degree]
+    points = om2.MFnDependencyNode(path.node()).findPlug("pnts" if mesh else "controlPoints", False)
+    for index in indices:
+        point = points.elementByLogicalIndex(index)
+        require_writable(point)
+        for child in range(point.numChildren()):
+            require_writable(point.child(child))
+
+
+def _require_control_points_writable(shape):
+    """すでにあるすべての制御点(controlPoints)とその子へ書き込めるかを確かめる。シーンは変えない。
+
+    NURBS曲面・ラティスのように、点を複数の番号で表すシェイプで使う。
+
+    Args:
+        shape (Shape): controlPointsを持つシェイプ。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: 制御点のアトリビュートにロックか入力の接続がある場合。
+    """
+    points = om2.MFnDependencyNode(shape.mnode()).findPlug("controlPoints", False)
+    for index in points.getExistingArrayAttributeIndices():
+        point = points.elementByLogicalIndex(index)
+        require_writable(point)
+        for child in range(point.numChildren()):
+            require_writable(point.child(child))
 
 
 def _points(shape, indices, ws=False):
@@ -81,7 +124,7 @@ def _points(shape, indices, ws=False):
     Returns:
         Iterable[om2.MPoint]: 指定順の点。距離はcm。
     """
-    path, fn, mesh = geometry(shape, indices)
+    _path, fn, mesh = geometry(shape, indices)
     space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
     if len(indices) == 1:
         if mesh:
@@ -152,13 +195,14 @@ def set_positions(shape, indices, values, ws=False, *, fast=False, check=False):
         values (Sequence[Sequence[float]]): 番号と同じ数の、有限なXYZ。
         ws (bool): Trueならワールド座標として扱う。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+        check (bool): Trueなら、書き込む前に、すべての点へ書き込めるか(pnts・controlPointsのロック・入力の接続)を確かめる。
 
     Returns:
         None: 値を返さない。
 
     Raises:
         RuntimeError: Mayaが書き込みを拒否した場合。すでに済んだ変更は元に戻さない。
+            check=Trueで、書き込めない点がある場合(何も書かない)。
         NotImplementedError: fastで、対応していない形状の場合。
     """
     if not indices:
@@ -166,7 +210,11 @@ def set_positions(shape, indices, values, ws=False, *, fast=False, check=False):
     if fast:
         _set_positions_fast(shape, indices, values, ws, check)
         return
-    _, _, mesh = geometry(shape, indices)
+    target = geometry(shape, indices)
+    if check:
+        # cmds.xformはpntsのロックを見ずに書くので、確かめる指定のときは書く前に全部の点を確かめる。
+        _require_points_writable(target, indices)
+    mesh = target.is_mesh
     if ws and not mesh:
         values = object_positions(shape, indices, values)
         ws = False
@@ -207,9 +255,9 @@ def _set_positions_fast(shape, indices, values, ws=False, check=False):
         raise ValueError("トランスフォームが特異なため、ワールド空間では編集できません")
     inverse = transform.inverse() if ws else om2.MMatrix()
     independent = len(points) if mesh or fn.form != om2.MFnNurbsCurve.kPeriodic else fn.numCVs - fn.degree
-    for index, value in zip(indices, values):
+    for number, value in zip(indices, values):
         # 周期カーブの重複CVの番号は、対応する先頭の独立CVへ写して書く。
-        index %= independent
+        index = number % independent
         # cvPositions(kWorld)はCVのwもマトリクスの積に使う。同じwで逆変換して往復を保つ。
         point = om2.MPoint(value[0], value[1], value[2], points[index].w) * inverse
         point.w = points[index].w
@@ -272,17 +320,18 @@ def point_list(points):
         TypeError: 点の並びを順に取り出せない場合、または点や成分の型が正しくない場合。
         ValueError: 成分の数が3でない場合、または有限の値でない場合。
     """
-    if isinstance(points, (str, bytes)) or isinstance(points, _OM2_POINTS + (om2.MVector,)):
+    if isinstance(points, (str, bytes, *_OM2_POINTS, om2.MVector)):
         raise TypeError("pointsは点の並びで指定してください")
     try:
         items = list(points)
     except TypeError:
         raise TypeError("pointsは点の並びで指定してください") from None
     result = []
-    for item in items:
-        if isinstance(item, _OM2_POINTS):
-            item = (item.x, item.y, item.z)
-        elif isinstance(item, (str, bytes)):
+    for point in items:
+        item = point
+        if isinstance(point, _OM2_POINTS):
+            item = (point.x, point.y, point.z)
+        elif isinstance(point, (str, bytes)):
             raise TypeError("各点は3つの数値の並びで指定してください")
         result.append(_finite_vector(item, 3, "point"))
     return result

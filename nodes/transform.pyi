@@ -10,7 +10,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 from maya.api.OpenMaya import MSpace
 from ..components.pointComponent import PointComponent, _write_points
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.attributeType import value_reader
 from ..core.fastWrite import require_writable, writable_compound
 from ..core.nodeEdit import require_editable
@@ -35,7 +35,7 @@ _TRANSFORM_SOURCE_CONSTRAINTS: frozenset
 _LIMIT_FLAGS: dict
 _LIMIT_TYPES: dict
 _ROTATE_ORDER_NAMES: tuple
-_TRANSFORM_ATTRIBUTES: dict
+_transform_attributes: dict
 _NEAR_ZERO_AXIS: float
 _CURVE_SHAPES_FORMAT: str
 _CURVE_SHAPES_VERSION: int
@@ -479,6 +479,8 @@ class Transform(DagNode):
         補正チャンネルだけを書き換えるので、ノードの姿勢が変わることがある。
         ピボット位置・translate・rotate・scaleは変更しない。
         ワールド空間でも、ほかのピボット補正を含まない独立したベクトルを指定する。
+        ピボット(rotatePivot等)と補正値(rotatePivotTranslate等)の成分のロック・入力の接続は、checkに関係なく
+        書き込む前に確かめる(Mayaは例外にせず、黙って何も書かないため)。
         fast引数は持たない(Plugへの1回の通常書き込みで更新するため)。
 
         Args:
@@ -492,9 +494,11 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: 値やフラグの型が不正、またはworldSpaceとwsを同時指定した場合。
+            TypeError: 値やフラグの型が不正(数値の並びでない、または成分に数値以外がある)、
+                またはworldSpaceとwsを同時指定した場合。
             ValueError: kind・成分数が不正、check=Trueで値が有限でない、空間変換が特異、またはJointのinverseScaleに0がある場合。
-            RuntimeError: ノードが無効、またはMayaが書き込みを拒否した場合。
+            RuntimeError: ノードが無効、ピボットか補正値の成分がロックされている・入力が接続されている場合、
+                またはMayaが書き込みを拒否した場合。
         """
         ...
     def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> None:
@@ -898,6 +902,10 @@ class Transform(DagNode):
           書き込まないチャンネルは、ロック・接続されていても例外にしない。attributeChangedの通知とUndoの記録も、
           書き込んだチャンネルの分だけになる(通常・fast・safeのどれでも同じ)。
         - safeで書けない成分を残した結果、渡したマトリクスと一致しないことがある。
+        - Jointでも、ピボット(rotatePivot・rotatePivotTranslate・scalePivot・scalePivotTranslate)はtransformと
+          同じ式でマトリクスに入るものとして分解する。Mayaのjointはピボットをtransformと同じ式では扱わないため、
+          ピボットが0でないJointでは、書き込んだ後の :meth:`getMatrix` が渡したマトリクスと一致しないことがある
+          (translateがずれる)。ピボットがすべて0のJointと、Transformでは一致する。
 
         Args:
             matrix (Matrix | Iterable[float]): 設定するマトリクス。Matrix以外なら16個の値(行の順)で指定する。
@@ -1898,10 +1906,21 @@ class Transform(DagNode):
             fast (bool): 子のPlugへ渡す更新モード。
             writable_checked (bool): Trueなら、呼び出し元が4つのチャンネルへ書き込めることを確かめ済み。
                 fastの書き込みで、確かめ直しを省く。
-            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+            check (bool): Trueなら、書き込む前に、書き込むすべてのチャンネルへ書き込めるかを確かめる
+                (safe=Trueでは、書けない成分を残すため前もっては確かめない)。
 
         Returns:
             None: 値を返さない。
+        """
+        ...
+    def _changed_channels(self, values: dict[str, Iterable[float]]) -> list[tuple[str, tuple]]:
+        """書き込む値のうち、今のチャンネルの値と違うものを、辞書の保持順に返す。シーンは変えない。
+
+        Args:
+            values (dict[str, Iterable[float]]): チャンネル名と設定値(内部単位)。
+
+        Returns:
+            list[tuple[str, tuple]]: チャンネル名と、tupleにした設定値の組。
         """
         ...
     def _channel_equals(self, name: str, value: tuple | object) -> bool:

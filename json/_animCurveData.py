@@ -180,8 +180,8 @@ def _transform_keys(keys, scale=1.0, offset=0.0, value_scale=1.0):
         list[dict]: 新しいキーの辞書の並び。
     """
     result = []
-    for key in keys:
-        key = dict(key)
+    for source in keys:
+        key = dict(source)
         key["input"] = key["input"] * scale + offset
         key["value"] = key["value"] * value_scale
         if scale != 1.0 or value_scale != 1.0:

@@ -57,12 +57,12 @@ class MathRefactoringTest(unittest.TestCase):
         """依存順のreloadで新helperを全数学型へ渡し、判定cacheを再作成する。"""
         import mlib
 
-        state_cache = util._STATEFUL_TYPES
+        state_cache = util._stateful_types
         copy.copy(maths.Vector(1, 2, 3))
         self.assertTrue(state_cache)
         mlib.reload()
         current = importlib.import_module("mlib.util")
-        self.assertIsNot(current._STATEFUL_TYPES, state_cache)
+        self.assertIsNot(current._stateful_types, state_cache)
         for name in ("vector", "quaternion", "eulerRotate", "matrix"):
             module = importlib.import_module("mlib.maths." + name)
             self.assertIs(module._copy_state, current._copy_state)

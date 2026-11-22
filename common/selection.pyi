@@ -154,7 +154,9 @@ class Selection:
     @property
     def items(self) -> list[Node | Plug | Component]:
         """list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
-        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。"""
+
+        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。
+        """
         ...
     def getItems(self) -> list[Node | Plug | Component]:
         """持っている対象を、新しいリストで取得する。

@@ -10,7 +10,7 @@ aimConstraint の setRestRotate/setOffset、ScalarGraph の sum/multiply/conditi
 """
 
 import unittest
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from unittest.mock import patch
 
 import maya.cmds as cmds
@@ -145,10 +145,8 @@ class CalcFastTest(NamespaceCase):
                     continue
                 if not cmds.attributeQuery(attr.split("[")[0].split(".")[-1], node=name, writable=True):
                     continue
-                try:
+                with suppress(RuntimeError, ValueError, TypeError):
                     values.append((name, attr, repr(cmds.getAttr(name + "." + attr))))
-                except (RuntimeError, ValueError, TypeError):
-                    pass
         return nodes_types, tuple(sorted(connections)), tuple(values)
 
     @staticmethod

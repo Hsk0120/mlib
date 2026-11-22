@@ -109,7 +109,7 @@ class RemapValue(Node):
         ramp = self._ramp(kind)
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             value = tuple(value)
-        ramp.setEntries(ramp.getEntries() + [(position, value, interpolation)])
+        ramp.setEntries([*ramp.getEntries(), (position, value, interpolation)])
 
     def getResult(self, kind="value"):
         """出力の現在の値を取得する。

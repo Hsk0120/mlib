@@ -4,7 +4,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..components.surfaceCV import SurfaceCV, SurfaceCVs
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
@@ -507,7 +507,7 @@ class NurbsSurface(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
-        start, ray = geometry_edit.point_list([origin, direction])
+        start, ray = geometryEdit.point_list([origin, direction])
         ray = om2.MVector(*ray)
         if ray.length() == 0:
             raise ValueError("directionはゼロ以外のベクトルで指定してください")
@@ -595,7 +595,7 @@ class NurbsSurface(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         world = _world_space(worldSpace)
-        values = geometry_edit.point_list(points)
+        values = geometryEdit.point_list(points)
         fn = self._geometry_fn()
         count_v = fn.numCVsInV
         count = fn.numCVsInU * count_v
@@ -621,6 +621,9 @@ class NurbsSurface(Shape):
                 fn.setCVPositions(om2.MPointArray(local))
                 fn.updateSurface()
             else:
+                if check:
+                    # cmds.xformはCVのロックを見ずに書くので、確かめる指定のときは書く前に確かめる。
+                    geometryEdit._require_control_points_writable(self)
                 name = self.getFullName()
                 unit = om2.MDistance.uiUnit()
                 for index, point in enumerate(local):
@@ -647,7 +650,7 @@ class NurbsSurface(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
-        x, y, z = geometry_edit.point_list([point])[0]
+        x, y, z = geometryEdit.point_list([point])[0]
         return self._geometry_fn().isPointOnSurface(om2.MPoint(x, y, z), _checked_tolerance(tolerance), space)
 
     def getClosestPoint(self, point, worldSpace=_UNSET, *, ws=_UNSET):
@@ -671,7 +674,7 @@ class NurbsSurface(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
-        x, y, z = geometry_edit.point_list([point])[0]
+        x, y, z = geometryEdit.point_list([point])[0]
         found, u, v = self._geometry_fn().closestPoint(om2.MPoint(x, y, z), tolerance=1e-7, space=space)
         return _vectors_of_points([found])[0], u, v
 
@@ -724,7 +727,7 @@ class NurbsSurface(Shape):
         fn = self._geometry_fn()
         u, v = self._require_params(fn, u, v)
         values = fn.getDerivativesAtParam(u, v, space=space, secondOrder=secondOrder)
-        return (_vectors_of_points([values[0]])[0],) + tuple(Vector(value) for value in values[1:])
+        return (_vectors_of_points([values[0]])[0], *(Vector(value) for value in values[1:]))
 
     def getNormalAtParam(self, u, v, worldSpace=_UNSET, *, ws=_UNSET):
         """パラメーター (u, v) の位置の法線を、長さ1にして取得する。
@@ -892,8 +895,8 @@ class NurbsSurface(Shape):
             ValueError: 有限でない、または範囲外の場合。
         """
         result = []
-        for name, value, (start, end) in (("u", u, fn.knotDomainInU), ("v", v, fn.knotDomainInV)):
-            value = _finite(value, name)
+        for name, given, (start, end) in (("u", u, fn.knotDomainInU), ("v", v, fn.knotDomainInV)):
+            value = _finite(given, name)
             margin = 1e-9 * max(1.0, end - start)
             if value < start - margin or value > end + margin:
                 raise ValueError(f"{name} {value}がサーフェスの範囲[{start}, {end}]の外です")
@@ -918,8 +921,8 @@ class NurbsSurface(Shape):
         tangents = fn.tangents(u, v, om2.MSpace.kObject)
         matrix = self.mpath().inclusiveMatrix() if world else None
         result = []
-        for tangent in tangents:
-            tangent = om2.MVector(tangent)
+        for derivative in tangents:
+            tangent = om2.MVector(derivative)
             if matrix is not None:
                 tangent = tangent * matrix
             length = tangent.length()
@@ -941,12 +944,8 @@ class NurbsSurface(Shape):
             raise NotImplementedError("fastのジオメトリ編集には、入力ヒストリのないシェイプが必要です")
         if dependency.isLocked:
             raise RuntimeError("シェイプノードがロックされています")
-        points = dependency.findPlug("controlPoints", False)
-        for index in points.getExistingArrayAttributeIndices() if check else ():
-            point = points.elementByLogicalIndex(index)
-            require_writable(point)
-            for child in range(point.numChildren()):
-                require_writable(point.child(child))
+        if check:
+            geometryEdit._require_control_points_writable(self)
 
     def _write_surface_data(self, fn):
         """検証済みの独立した曲面データを1回のcmdsで書き込む。
@@ -989,7 +988,7 @@ class NurbsSurface(Shape):
             raise NotImplementedError("ヒストリ付き曲面のノット編集には対応していません")
         require_writable(create.mplug())
         for point in self.getPlug("controlPoints").getElements():
-            for plug in [point] + list(point.getChildren()):
+            for plug in [point, *point.getChildren()]:
                 if plug.isLocked() or plug.getSource() is not None:
                     raise NotImplementedError("CVのロック・接続がある曲面のノット編集には対応していません")
 

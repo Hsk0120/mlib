@@ -35,6 +35,8 @@ import maya.cmds as cmds
 import mlib
 
 mlib.reload()
+import contextlib
+
 from support.namespaceCase import NamespaceCase
 
 from mlib import decorator
@@ -515,14 +517,12 @@ def diff_snapshots(expected, actual, ignore=frozenset(), case=None):
     Returns:
         list[str]: 差分の説明。
     """
-    lines = []
-    for key in _GLOBAL_KEYS:
-        if expected[key] != actual[key]:
-            lines.append(f"{key}: {_short(expected[key])} -> {_short(actual[key])}")
-    for uid in sorted(actual["scene"] - expected["scene"]):
-        lines.append("余分なノード: " + actual["nodes"].get(uid, {}).get("name", uid))
-    for uid in sorted(expected["scene"] - actual["scene"]):
-        lines.append("失われたノード: " + expected["nodes"].get(uid, {}).get("name", expected.get("sceneNames", {}).get(uid, uid)))
+    lines = [f"{key}: {_short(expected[key])} -> {_short(actual[key])}" for key in _GLOBAL_KEYS if expected[key] != actual[key]]
+    lines.extend("余分なノード: " + actual["nodes"].get(uid, {}).get("name", uid) for uid in sorted(actual["scene"] - expected["scene"]))
+    lines.extend(
+        "失われたノード: " + expected["nodes"].get(uid, {}).get("name", expected.get("sceneNames", {}).get(uid, uid))
+        for uid in sorted(expected["scene"] - actual["scene"])
+    )
     for uid in sorted(set(expected["nodes"]) & set(actual["nodes"])):
         before, after = expected["nodes"][uid], actual["nodes"][uid]
         label = before["name"]
@@ -1704,7 +1704,7 @@ CASES = [
         "NurbsSurface.setCvPositions",
         "NurbsSurface.setCvPositions",
         s_surface,
-        lambda c, **kw: c.nsrfShape.setCvPositions([p + (0, 1, 0) for p in c.nsrfShape.getCvPositions()], **kw),
+        lambda c, **kw: c.nsrfShape.setCvPositions([p + (0, 1, 0) for p in c.nsrfShape.getCvPositions()], **kw),  # noqa: RUF005 Vector の加算
     ),
     C(
         "NurbsSurface.setCvPositions",
@@ -1932,7 +1932,7 @@ CASES = [
         s_keyed,
         lambda c, **kw: c.ncurve.replaceKeys([(2, 1.0), (4, 3.0, "linear", "step")]),
         mayaQuirk=_TANGENT_CACHE + "。replaceKeys が最後に呼ぶ cmds.dgdirty(Undoに記録されない)は内部の keyValueSwitch を進める",
-        ignoreAttrs=_TANGENT_ATTRS + ("keyValueSwitch",),
+        ignoreAttrs=(*_TANGENT_ATTRS, "keyValueSwitch"),
     ),
     C("Plug.moveKey", "Plug.moveKey", s_keyed, lambda c, **kw: c.na.getPlug("tx").moveKey(timeOffset=1, valueOffset=2)),
     C("Node.moveKey", "Node.moveKey", s_keyed, lambda c, **kw: c.na.moveKey(["tx"], time=(5, 15), timeOffset=-1)),
@@ -2401,10 +2401,8 @@ def _safe_step(command):
 
     Undo キューが空のことは呼出し側が別に検出して報告する。
     """
-    try:
+    with contextlib.suppress(RuntimeError):
         command()
-    except RuntimeError:
-        pass
 
 
 # ---------------------------------------------------------------- 公開 API の列挙
@@ -2418,8 +2416,7 @@ def _public_classes():
             value = getattr(package, name)
             if inspect.isclass(value):
                 classes.append(value)
-        for value in getattr(package, "_WRAPPER_CLASSES", {}).values():
-            classes.append(value)
+        classes.extend(getattr(package, "_WRAPPER_CLASSES", {}).values())
     for name in mlib.common._exports:
         value = getattr(mlib.common, name)
         if inspect.isclass(value):
@@ -2568,23 +2565,17 @@ class _UndoHarness(NamespaceCase):
         # 異常終了するため(cmds だけでも再現する Maya 側の不具合)、container を先に削除する。
         containers = [name for name in names if cmds.objExists(name) and cmds.nodeType(name) in ("container", "dagContainer")]
         if containers:
-            try:
+            with contextlib.suppress(Exception):
                 cmds.delete(containers)
-            except Exception:
-                pass
         namespaces = set(cmds.namespaceInfo(":", listOnlyNamespaces=True, recurse=True, absoluteName=True) or []) - self.baseline_namespaces
         for namespace in sorted(namespaces, key=lambda value: -value.count(":")):
             if cmds.namespace(exists=namespace):
-                try:
+                with contextlib.suppress(Exception):
                     cmds.namespace(removeNamespace=namespace, deleteNamespaceContent=True)
-                except Exception:
-                    pass
         for name in names:
             if cmds.objExists(name):
-                try:
+                with contextlib.suppress(Exception):
                     cmds.delete(name)
-                except Exception:
-                    pass
         cmds.select(clear=True)
         cmds.flushUndo()
 

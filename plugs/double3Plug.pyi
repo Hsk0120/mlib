@@ -11,6 +11,7 @@ from .compoundPlug import CompoundPlug
 from typing import Iterable
 from mlib.maths.quaternion import Quaternion
 
+_VALUE_TYPES: dict
 
 
 class Double3Plug(CompoundPlug):

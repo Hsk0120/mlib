@@ -106,8 +106,11 @@ class ShapeCreatorShortFlagsTest(_ShortFlagCase):
             mlib.createLocator(p=None)
 
     def test_poly_shapes(self):
-        """createPolyCube の w・h・d・n、createPolySphere の r・ax・n、createPolyCylinder の r・h・ax・n、
-        createPolyPlane の w・h・ax・n。"""
+        """ポリゴンの作成関数が、Mayaの短縮フラグを受ける。
+
+        createPolyCube の w・h・d・n、createPolySphere の r・ax・n、createPolyCylinder の r・h・ax・n、
+        createPolyPlane の w・h・ax・n。
+        """
         cases = (
             (mlib.createPolyCube, {"width": 2.0, "height": 3.0, "depth": 4.0}, {"w": 2.0, "h": 3.0, "d": 4.0}),
             (mlib.createPolySphere, {"radius": 2.0, "axis": (1, 0, 0)}, {"r": 2.0, "ax": (1, 0, 0)}),

@@ -35,6 +35,7 @@ class OrientConstraint(Constraint):
         if _time_unit(timeUnit) == "sec":
             start = om2.MTime(start, om2.MTime.kSeconds).asUnits(om2.MTime.uiUnit())
             end = om2.MTime(end, om2.MTime.kSeconds).asUnits(om2.MTime.uiUnit())
+        self._require_valid("キャッシュの作成")
         cmds.orientConstraint(self.getFullName(), edit=True, createCache=(start, end))
 
     def deleteCache(self):
@@ -49,4 +50,5 @@ class OrientConstraint(Constraint):
         Raises:
             RuntimeError: ノードが無効か、Mayaが更新を拒否した場合。
         """
+        self._require_valid("キャッシュの削除")
         cmds.orientConstraint(self.getFullName(), edit=True, deleteCache=True)

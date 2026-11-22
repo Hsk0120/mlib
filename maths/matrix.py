@@ -55,7 +55,7 @@ def _reinit_is_safe():
     """
     try:
         return om2.MGlobal.apiVersion() >= 20240000
-    except Exception:
+    except RuntimeError:
         return False
 
 
@@ -467,10 +467,7 @@ class Matrix(om2.MMatrix):
             if flat is not None and index[0].__class__ is _INT is index[1].__class__:
                 _SET(self, flat, value)
                 return
-        if isinstance(index, tuple):
-            index = _flat_index(index)
-        else:
-            index = _checked_index(index, 16, "Matrix")
+        index = _flat_index(index) if isinstance(index, tuple) else _checked_index(index, 16, "Matrix")
         _SET(self, index, value)
 
     def __iter__(self):

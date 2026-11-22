@@ -63,6 +63,9 @@ def createReference(path, namespace=None):
     リファレンスしたファイルの中にあるリファレンス(子のリファレンス)も作られることがあるが、
     返すのは親のリファレンスを持たない1件だけ。
     リファレンスノードを特定できなかった場合も、作ったものを自動では元に戻さない。
+    ファイルがあるかは作る前に確かめ、無ければ何も作らずにOSErrorにする(相対パスはMayaのプロジェクトから探す)。
+    ファイルの中身が壊れている場合はMayaに任せる。Mayaは例外にせず、読み込めていない(未解決の)
+    リファレンスを作ることがあり、その場合もそのリファレンスを返す。
 
     Args:
         path (str | Path): リファレンスするファイル。``~`` はユーザーのホームに展開する。
@@ -73,6 +76,7 @@ def createReference(path, namespace=None):
 
     Raises:
         ValueError: pathが空の場合、またはstrでもPathでもない場合。
+        OSError: ファイルが無い場合(``FileNotFoundError``)。
         RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。
 
     Note:
@@ -85,6 +89,10 @@ def createReference(path, namespace=None):
     if not isinstance(path, (str, Path)) or not str(path):
         raise ValueError("pathは空でない文字列かPathで指定してください")
     scene_path = Path(path).expanduser()
+    # 相対パスは、cmds.fileと同じくMayaのプロジェクト(workspace)から探す。
+    found_path = scene_path if scene_path.is_absolute() else Path(cmds.workspace(expandName=str(scene_path)))
+    if not found_path.is_file():
+        raise FileNotFoundError(f"リファレンスするファイルが見つかりません: {scene_path}")
 
     existing = {name for name, _ in _reference_nodes()}
     # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。

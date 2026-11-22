@@ -26,10 +26,10 @@ def _descendants(mplug, steps=()):
     yield steps, mplug
     if mplug.isArray:
         for index in mplug.getExistingArrayAttributeIndices():
-            yield from _descendants(mplug.elementByLogicalIndex(index), steps + (("element", index),))
+            yield from _descendants(mplug.elementByLogicalIndex(index), (*steps, ("element", index)))
     elif mplug.isCompound:
         for index in range(mplug.numChildren()):
-            yield from _descendants(mplug.child(index), steps + (("child", index),))
+            yield from _descendants(mplug.child(index), (*steps, ("child", index)))
 
 
 def _follow(mplug, steps):
@@ -422,7 +422,7 @@ class MultiPlug(Plug):
             if not breakConnections:
                 for target in [index] + [source for source, _ in moves]:
                     element = self._element_at(target)
-                    if any(plug.isConnected() for plug in [element] + list(element.getDescendants())):
+                    if any(plug.isConnected() for plug in [element, *element.getDescendants()]):
                         raise RuntimeError("削除・移動対象の要素に接続があります")
             if shift:
                 self._require_movable([index] + [source for source, _ in moves])

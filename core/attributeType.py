@@ -583,7 +583,7 @@ def _convert_unit_numbers(plug, value, unit_type, convert):
         object: 換算した値。換算した成分を含むコンパウンドアトリビュートはtupleで返し、
             換算しなかった値は入力をそのまま返す。
     """
-    if value is None or isinstance(value, (str, bytes) + _SELF_UNIT_VALUES):
+    if value is None or isinstance(value, (str, bytes, *_SELF_UNIT_VALUES)):
         return value
     if plug.isArray:
         return value

@@ -149,7 +149,7 @@ class SetCvPositionsTest(_Case):
         shape.setCvPositions(independent + independent[:3])
         self.assertEqual(shape.getForm(), om2.MFnNurbsCurve.kPeriodic)
         with self.assertRaises(ValueError):
-            shape.setCvPositions(independent + [(9, 9, 9)] + independent[1:3])
+            shape.setCvPositions([*independent, (9, 9, 9), *independent[1:3]])
         with self.assertRaises(ValueError):
             shape.setCvPositions(independent[:3])
 
@@ -238,7 +238,7 @@ class _CaseShapeAdditions(NamespaceCase):
 class NurbsCurveAdditionsTest(_CaseShapeAdditions):
     """NurbsCurve のノット・平面判定・面積・作り直し・反転。"""
 
-    POINTS = [(0, 0, 0), (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0)]
+    POINTS = ((0, 0, 0), (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0))
 
     def test_knots_and_planar(self):
         """getKnots は getAttr の knots と一致し、isPlanar は平面と立体で変わる。"""

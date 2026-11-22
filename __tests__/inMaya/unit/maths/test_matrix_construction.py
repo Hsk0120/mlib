@@ -70,7 +70,7 @@ class FromAxesTest(NamespaceCase):
         x, y, z, p = (2.0, 0.5, 0.0), (0.0, 3.0, 1.0), (0.1, 0.2, 4.0), (5.0, -6.0, 7.0)
         value = Matrix.fromAxes(x, y, z, position=p)
         self.assertIs(type(value), Matrix)
-        expected = list(x) + [0.0] + list(y) + [0.0] + list(z) + [0.0] + list(p) + [1.0]
+        expected = [*x, 0.0, *y, 0.0, *z, 0.0, *p, 1.0]
         self.assertEqual(list(value.values), expected)
         self.assertEqual(list(Matrix.fromAxes((1, 0, 0), (0, 1, 0), (0, 0, 1)).values), list(Matrix().values))
 

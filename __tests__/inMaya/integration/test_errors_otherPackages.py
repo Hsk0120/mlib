@@ -101,7 +101,8 @@ class CreateShapeErrorTest(_ErrorCase):
             (ValueError, {"degree": 2}),
             (ValueError, {"degree": 3, "sections": 3}),
             (ValueError, {"degree": 1, "sections": 2}),
-        ] + self._parent_cases()
+            *self._parent_cases(),
+        ]
         self._check(mlib.createCircle, cases)
         shape = mlib.createCircle(name=self.name("circle"), degree=1, sections=3)
         self.assertEqual(shape.getType(), "nurbsCurve")
@@ -113,7 +114,8 @@ class CreateShapeErrorTest(_ErrorCase):
             (TypeError, {"localScale": ("a", 1, 1)}),
             (ValueError, {"localPosition": (0, 0)}),
             (ValueError, {"localScale": (1, float("nan"), 1)}),
-        ] + self._parent_cases()
+            *self._parent_cases(),
+        ]
         self._check(mlib.createLocator, cases)
 
     def _poly_cases(self, size_names, subdivision_count):

@@ -2,6 +2,7 @@
 """標準の logging から、Maya のメッセージ表示へ出力する。"""
 
 import builtins
+import contextlib
 import logging
 import os
 import types

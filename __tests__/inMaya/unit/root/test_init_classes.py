@@ -64,7 +64,7 @@ class RootClassTest(unittest.TestCase):
         saved = list(plugs.__all__)
         try:
             plugs.Joint = Joint
-            plugs.__all__ = saved + ["Joint"]
+            plugs.__all__ = [*saved, "Joint"]
             self.assertEqual(mlib._class_sources()["Joint"], "nodes")
         finally:
             plugs.__all__ = saved

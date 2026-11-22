@@ -112,9 +112,10 @@ def _build(flags, children=None):
         fn = om2.MFnEnumAttribute()
         obj = fn.create(name, short, int(default))
         next_value = 0
-        for field in str(flags.get("enumName", "")).split(":"):
-            if "=" in field:
-                field, raw_value = field.rsplit("=", 1)
+        for entry in str(flags.get("enumName", "")).split(":"):
+            field = entry
+            if "=" in entry:
+                field, raw_value = entry.rsplit("=", 1)
                 next_value = int(raw_value)
             if field:
                 fn.addField(field, next_value)
@@ -206,7 +207,7 @@ def extra_children(name, flags, numeric, count, *, deferred, child_names, child_
     if len(names) != count or (shorts and len(shorts) != count):
         raise ValueError("子の名前の数が型と合っていません")
     limits = {key: flags[key] for key in ("minValue", "maxValue", "softMinValue", "softMaxValue") if key in flags}
-    for value in list(limits.values()) + [deferred]:
+    for value in [*limits.values(), deferred]:
         if isinstance(value, (tuple, list)) and len(value) != count:
             raise ValueError("子の値の数が型と合っていません")
     children = []
@@ -343,10 +344,8 @@ def create_extra_attribute(node, name, flags, numeric, count, *, deferred, child
             raise TypeError("マルチアトリビュート全体ではなく、マルチアトリビュートの要素へ設定してください")
         if not definition.writable:
             raise RuntimeError(f"アトリビュートは書き込めません: {name}")
-        if (
-            attribute.hasFn(om2.MFn.kMatrixAttribute)
-            or attribute.hasFn(om2.MFn.kTypedAttribute)
-            and om2.MFnTypedAttribute(attribute).attrType() == om2.MFnData.kMatrix
+        if attribute.hasFn(om2.MFn.kMatrixAttribute) or (
+            attribute.hasFn(om2.MFn.kTypedAttribute) and om2.MFnTypedAttribute(attribute).attrType() == om2.MFnData.kMatrix
         ):
             # 循環参照の回避: maths は core を参照するため、使う時点で読み込む。
             from ..maths import Matrix

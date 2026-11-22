@@ -43,7 +43,7 @@ _exports = {
 __all__ = sorted(_exports)
 
 # reload前に保持された公開値や廃止名を残さず、常に定義元から解決する。
-for _name in __all__ + ["legalizeName", "legalize_name", "progress_bar"]:
+for _name in [*__all__, "legalizeName", "legalize_name", "progress_bar"]:
     globals().pop(_name, None)
 
 if TYPE_CHECKING:

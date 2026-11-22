@@ -1,5 +1,6 @@
 """Maya のメッシュシェイプを扱う。"""
 
+import contextlib
 import math
 from collections import Counter, defaultdict
 
@@ -13,7 +14,7 @@ from ..components.pointComponent import _mirror_plan, _write_points
 from ..components.uv import UV, UVs
 from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points
@@ -308,7 +309,7 @@ class Mesh(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
-        values = geometry_edit.point_list(points)
+        values = geometryEdit.point_list(points)
         fn = self._geometry_fn()
         count = fn.numVertices
         if len(values) != count:
@@ -316,7 +317,7 @@ class Mesh(Shape):
         current = fn.getPoints(om2.MSpace.kWorld if ws else om2.MSpace.kObject)
         changed = [index for index, (value, point) in enumerate(zip(values, current)) if value != (point.x, point.y, point.z)]
         with _edit_context("mlibMeshSetPoints", fast, transaction=True):
-            geometry_edit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast, check=check)
+            geometryEdit.set_positions(self, changed, [values[index] for index in changed], ws, fast=fast, check=check)
 
     def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """頂点の座標を、pivotを中心に反転する。
@@ -839,7 +840,7 @@ class Mesh(Shape):
             RuntimeError: 形状のデータを持たない空のシェイプ(``mlib.createNode("mesh")`` の直後など)の場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        values = geometry_edit.point_list(points)
+        values = geometryEdit.point_list(points)
         vertices = [(point.x, point.y, point.z) for point in self._raw_points(worldSpace)]
         if not vertices:
             raise ValueError(f"メッシュに頂点がありません: {self.getFullName()}")
@@ -1069,7 +1070,7 @@ class Mesh(Shape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
         source = self._resolve_query_point(origin, "origin")
-        vector = om2.MVector(*geometry_edit.point_list([direction])[0])
+        vector = om2.MVector(*geometryEdit.point_list([direction])[0])
         if vector.length() == 0:
             raise ValueError("directionは長さが0でないベクトルで指定してください")
         if maxDistance is None:
@@ -2132,11 +2133,9 @@ class Mesh(Shape):
                 raise ValueError("ターゲットは下流のジオメトリを駆動していない状態にしてください")
         creased = False
         for getter in (fn.getCreaseEdges, fn.getCreaseVertices):
-            try:
+            # クリースデータ自体がない通常メッシュではMayaがkFailureを返す。
+            with contextlib.suppress(RuntimeError):
                 creased = creased or bool(getter()[0])
-            except RuntimeError:
-                # クリースデータ自体がない通常メッシュではMayaがkFailureを返す。
-                pass
         if fn.getColorSetNames() or creased or fn.getHoles():
             raise ValueError("カラーセット・クリース・ポリゴンの穴には対応していません")
         if any(fn.hasBlindData(kind) for kind in (om2.MFn.kMeshVertComponent, om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent)):
@@ -2219,7 +2218,7 @@ class Mesh(Shape):
         """
         if isinstance(point, (str, bytes)):
             raise TypeError(f"{name}は3つの数値の並びで指定してください")
-        return om2.MPoint(*geometry_edit.point_list([point])[0])
+        return om2.MPoint(*geometryEdit.point_list([point])[0])
 
     def _require_faces(self):
         """面のあるメッシュの ``om2.MFnMesh`` を返す。
@@ -2431,10 +2430,11 @@ class Mesh(Shape):
         if len(items) != count:
             raise ValueError(f"色を{count}個指定してください: {len(items)}個")
         result = []
-        for item in items:
-            if isinstance(item, om2.MColor):
-                item = (item.r, item.g, item.b, item.a)
-            elif isinstance(item, (str, bytes)):
+        for color in items:
+            item = color
+            if isinstance(color, om2.MColor):
+                item = (color.r, color.g, color.b, color.a)
+            elif isinstance(color, (str, bytes)):
                 raise TypeError("各色は3つか4つの数値の並びで指定してください")
             try:
                 values = tuple(item)

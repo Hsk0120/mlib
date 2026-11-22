@@ -965,14 +965,7 @@ class DagNode(Node):
         """
         _require_bool(shape, "shape")
         _require_bool(fast, "fast")
-        index, rgb = _color_value(color)
-        if index is None and rgb is None:
-            values = [("overrideEnabled", False)]
-        elif rgb is None:
-            values = [("overrideEnabled", True), ("overrideRGBColors", False), ("overrideColor", index)]
-        else:
-            values = [("overrideEnabled", True), ("overrideRGBColors", True), ("overrideColorRGB", rgb)]
-        self._set_display_values(values, "mlibDagNodeSetOverrideColor", fast, shape, check=check)
+        self._set_display_values(_override_color_writes(color), "mlibDagNodeSetOverrideColor", fast, shape, check=check)
 
     def getOutlinerColor(self, *, shape=False):
         """アウトライナーの文字色を取得する。
@@ -1025,11 +1018,7 @@ class DagNode(Node):
         """
         _require_bool(shape, "shape")
         _require_bool(fast, "fast")
-        index, rgb = _color_value(color)
-        if index is not None:
-            rgb = _palette_color(index)
-        values = [("useOutlinerColor", False)] if rgb is None else [("useOutlinerColor", True), ("outlinerColor", rgb)]
-        self._set_display_values(values, "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
+        self._set_display_values(_outliner_color_writes(color), "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
 
     def getVisibility(self):
         """自身のvisibilityアトリビュートの値を取得する。
@@ -1481,6 +1470,46 @@ class DagNode(Node):
                                 result.append(Node._wrap_dag_path(path))
         result.extend(self._direct_children(shapes, intermediates))
         return result
+
+
+def _override_color_writes(color):
+    """:meth:`DagNode.setOverrideColor` で書き込むアトリビュートと値を返す。
+
+    Args:
+        color (int | Sequence[float] | None): :meth:`DagNode.setOverrideColor` と同じ。
+
+    Returns:
+        list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。
+
+    Raises:
+        TypeError: colorがint・3個の数値の列・Noneのどれでもない場合。
+        ValueError: 番号やRGBの成分が範囲外の場合。
+    """
+    index, rgb = _color_value(color)
+    if index is None and rgb is None:
+        return [("overrideEnabled", False)]
+    if rgb is None:
+        return [("overrideEnabled", True), ("overrideRGBColors", False), ("overrideColor", index)]
+    return [("overrideEnabled", True), ("overrideRGBColors", True), ("overrideColorRGB", rgb)]
+
+
+def _outliner_color_writes(color):
+    """:meth:`DagNode.setOutlinerColor` で書き込むアトリビュートと値を返す。
+
+    Args:
+        color (int | Sequence[float] | None): :meth:`DagNode.setOutlinerColor` と同じ。
+
+    Returns:
+        list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。
+
+    Raises:
+        TypeError: colorがint・3個の数値の列・Noneのどれでもない場合。
+        ValueError: 番号やRGBの成分が範囲外の場合。
+    """
+    index, rgb = _color_value(color)
+    if index is not None:
+        rgb = _palette_color(index)
+    return [("useOutlinerColor", False)] if rgb is None else [("useOutlinerColor", True), ("outlinerColor", rgb)]
 
 
 def _palette_color(index):

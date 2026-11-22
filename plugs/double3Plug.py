@@ -10,12 +10,14 @@ from ..decorator import _require_bool
 from ..maths import EulerRotate, Scale, Shear, Translate, Vector
 from .compoundPlug import CompoundPlug
 
+#: アトリビュートの名前から、get() が返す値の型を決める対応表。ここに無い名前は Vector。
+_VALUE_TYPES = {"translate": Translate, "t": Translate, "rotate": EulerRotate, "r": EulerRotate, "scale": Scale, "s": Scale, "shear": Shear, "sh": Shear}
+
 
 class Double3Plug(CompoundPlug):
     """3成分のアトリビュートを扱うPlug。チャンネルの値を読み書きし、マトリクスでの変換はしない。"""
 
     _value_type_cache = None  #: _value_type() が初回にアトリビュートの名前から決める、値の型。
-    _value_types = {"translate": Translate, "t": Translate, "rotate": EulerRotate, "r": EulerRotate, "scale": Scale, "s": Scale, "shear": Shear, "sh": Shear}
 
     def get(self, *, unit=None, timeUnit=None, uiUnits=False, time=None):
         """3成分のチャンネルの値を取得する。
@@ -123,7 +125,7 @@ class Double3Plug(CompoundPlug):
         """
         value_type = self._value_type_cache
         if value_type is None:
-            value_type = self._value_types.get(om2.MFnAttribute(self._attribute).name, Vector)
+            value_type = _VALUE_TYPES.get(om2.MFnAttribute(self._attribute).name, Vector)
             if self._static_attribute:
                 self._value_type_cache = value_type
         return value_type

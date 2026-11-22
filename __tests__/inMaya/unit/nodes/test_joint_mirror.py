@@ -67,7 +67,7 @@ class JointMirrorTest(_SpecCase):
         Joint(self.joints[0]).orient()
 
     def matrices(self, root):
-        names = [root] + (cmds.listRelatives(root, allDescendents=True, fullPath=True) or [])[::-1]
+        names = [root, *(cmds.listRelatives(root, allDescendents=True, fullPath=True) or [])[::-1]]
         return [cmds.xform(name, query=True, worldSpace=True, matrix=True) for name in names]
 
     def test_matches_cmds(self):

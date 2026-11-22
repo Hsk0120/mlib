@@ -47,9 +47,7 @@ class LibraryNameTest(unittest.TestCase):
                 continue
             lines = (_MLIB_ROOT / name).read_bytes().lower().split(b"\n")
             for number, line in enumerate(lines, 1):
-                for word in _WORDS:
-                    if word.encode("ascii") in line:
-                        hits.append(f"{name}:{number}")
+                hits.extend(f"{name}:{number}" for word in _WORDS if word.encode("ascii") in line)
         self.assertEqual(hits, [], "library name outside the introduction")
 
     def test_names_are_not_used_in_file_names(self):

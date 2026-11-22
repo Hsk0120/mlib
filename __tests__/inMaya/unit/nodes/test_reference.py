@@ -19,6 +19,8 @@ import mlib
 
 mlib.reload()
 
+import contextlib
+
 from support.namespaceCase import NamespaceCase
 
 from mlib.common import Namespace
@@ -370,10 +372,8 @@ class ReferenceNodePlugAdditionsTest(_Case):
         self.assertIn(self.asset, names)
         for node in imported:
             if node.isValid() and not node.isDefaultNode():
-                try:
+                with contextlib.suppress(RuntimeError):
                     cmds.delete(node.getFullName())
-                except RuntimeError:
-                    pass
         third = self._reference(self.path_a, "r3")
         third.unload()
         with self.assertRaises(RuntimeError):

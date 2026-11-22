@@ -33,7 +33,7 @@ class ScriptJob:
             RuntimeError: バッチ実行中、またはMayaが登録を拒否した場合。
         """
         # commonの初期化時にplugsを読み込まないよう、使用時にPlugを読み込む。
-        from ..plugs.plug import Plug as _InputPlug
+        from ..plugs.plug import Plug
 
         if (event is None) == (attribute is None):
             raise ValueError("eventかattributeのどちらか1つだけを指定してください")
@@ -46,7 +46,7 @@ class ScriptJob:
         if attribute is None:
             options["event"] = [event, callback]
         else:
-            options["attributeChange"] = [_InputPlug._resolve_input(attribute).getFullName(), callback]
+            options["attributeChange"] = [Plug._resolve_input(attribute).getFullName(), callback]
         self._id = cmds.scriptJob(**options)
         self._stopped = False
 

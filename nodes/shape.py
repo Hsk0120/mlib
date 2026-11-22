@@ -7,7 +7,7 @@ import operator
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias
 from ..util import _UNSET, _world_space
 from .dagNode import DagNode
@@ -142,7 +142,7 @@ class Shape(DagNode):
                     if any(v < 0 or v >= count for v, count in zip(row, counts)):
                         raise IndexError("コンポーネントの番号が範囲外です")
                     if path.node().hasFn(om2.MFn.kNurbsCurve):
-                        row = (geometry_edit.command_indices(self, row)[0],)
+                        row = (geometryEdit.command_indices(self, row)[0],)
                     elif path.node().hasFn(om2.MFn.kNurbsSurface):
                         fn = om2.MFnNurbsSurface(path)
                         row = tuple(
@@ -165,11 +165,11 @@ class Shape(DagNode):
                     raise ValueError("トランスフォームが特異に近いため、ワールド空間ではスケールできません")
             if len(counts) == 1:
                 # 全座標を先にAPIで読む。周期CVも独立番号にまとめ、二重に拡縮しない。
-                positions = geometry_edit.positions(self, selected, ws)
+                positions = geometryEdit.positions(self, selected, ws)
                 values = [tuple(center[i] + (point[i] - center[i]) * factors[i] for i in range(3)) for point in positions]
                 if not all(math.isfinite(v) for row in values for v in row):
                     raise ValueError("スケールした位置が有限な数値になりません")
-                geometry_edit.set_positions(self, selected, values, ws, fast=fast, check=check)
+                geometryEdit.set_positions(self, selected, values, ws, fast=fast, check=check)
                 return
             center = tuple(om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in center)
             # scaleコマンドのpivot解釈に依存せず、同じ空間で読んだ座標を変換する。

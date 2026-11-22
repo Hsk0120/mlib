@@ -51,6 +51,40 @@ select = [
     "RUF001",  # 文字列の全角・半角(allowed-confusables で日本語を除く)
     "RUF002",  # docstring の全角・半角
     "RUF003",  # コメントの全角・半角
+    # 2026-11-22 にユーザーと1つずつ決めて足したもの。族ごとではなくコードを1つずつ選ぶ。
+    "T20",     # print・pprint(本体は logger を使う。テストと _tools は下で外す)
+    "BLE001",  # 何でも受ける except Exception(後始末は理由付きの noqa で残す。テストは下で外す)
+    "RUF012",  # クラス変数に list・dict を直接置く(全インスタンスで共有される)
+    "RUF017",  # sum(リスト, []) でのリストの連結(要素数の2乗で遅くなる)
+    "RUF034",  # 両方の結果が同じ if 式
+    "PLW0642", # cls・self への代入
+    "PLW1641", # __eq__ があって __hash__ が無いクラス
+    "PLR0124", # 自分自身との比較(x == x)
+    "PLC0206", # dict をキーで回して中で d[k] を引く(.items() を使う)
+    "SIM101",  # isinstance の重ね書き → isinstance(x, (A, B))
+    "PLR1714", # x == a or x == b → x in (a, b)
+    "SIM103",  # if x: return True / return False → return x
+    "SIM300",  # 0 == x のような左右が逆の比較
+    "SIM102",  # 入れ子の if → if a and b
+    "PLR5501", # else: if → elif
+    "SIM114",  # 同じ中身の分岐をまとめる
+    "FURB171", # 1要素だけの in → ==
+    "RUF015",  # [...][0] → next(...)
+    "RUF046",  # int(round(x)) など、もともと int を返すものの int()
+    "RUF021",  # and と or が混ざる式に括弧を付ける
+    "PERF401", # append だけのループ → 内包表記・extend
+    "PERF402", # 写すだけのループ → list(...)・extend
+    "FURB167", # re.I → re.IGNORECASE
+    "RSE102",  # 引数の無い raise X() → raise X
+    "D202",    # docstring の直後に空行を入れない
+    "D205",    # 要約(1行目)の後に空行を置く
+    "D209",    # 複数行の docstring は閉じの """ を独立した行に置く
+    "D301",    # バックスラッシュを含む docstring は r"""
+    "RUF005",  # リスト・タプルの + での連結 → [a, *b]
+    "PLW2901", # ループ変数をループの中で上書きしない(テストは下で外す)
+    "RUF059",  # 使わない値をタプルで受けるときは先頭に _
+    "SIM108",  # 代入だけの if/else → 三項演算子
+    "SIM105",  # try/except: pass → contextlib.suppress
 ]
 # E741: l・f・i はMayaの短縮フラグの引数名として使う(long・layer・lock・freeze)。
 # PLE0605: ルートと common の __all__ は、各パッケージのクラス・遅延公開の対応表から
@@ -76,7 +110,20 @@ allowed-confusables = ["ノ", "×", "µ", "～", "１"]
 # PTH: パスは Maya のコマンドへ文字列で渡し、tempfile・cmds からも文字列で受けるため、
 #      テストでは os.path のままにする(本体と _tools は pathlib を使う)。
 # C4: テストは cmds へ渡す辞書を dict(...) で組むものが多く、書き換えても読みやすくならない。
-"__tests__/**" = ["E402", "B018", "B015", "ARG", "B023", "PTH", "C408"]
+# T20: テストのランナーは結果をターミナルへ出す。
+# BLE001: テストの補助は、片付けの失敗を何でも受けて続ける。
+# PLR0124・PLW1641・SIM300・FURB171: ==・in・__hash__ の動きを、わざとその形で確かめる。
+# PLW2901: ループ変数の上書きは本体だけで禁止する(ユーザー指定)。
+"__tests__/**" = ["E402", "B018", "B015", "ARG", "B023", "PTH", "C408", "T20", "BLE001", "PLR0124", "PLW1641", "SIM300", "FURB171", "PLW2901"]
+# T20: 検査・生成の結果をターミナルへ出すスクリプト。
+"_tools/**" = ["T20", "PLW2901"]
+# RUF005: mlib の型の + そのもの(Vector の加算、Nodes・Plugs・コンポーネントの複数形の連結)を確かめるテスト。
+# [a, *b] に書き換えると、加算・連結ではなくタプル・リストを作ることになる。
+"__tests__/inMaya/unit/cmds/test_ls.py" = ["RUF005"]
+"__tests__/inMaya/unit/components/test_component.py" = ["RUF005"]
+"__tests__/inMaya/unit/core/test_listMethods.py" = ["RUF005"]
+"__tests__/inMaya/unit/maths/test_vector.py" = ["RUF005"]
+"__tests__/inMaya/unit/maths/test_init_valueTypes.py" = ["RUF005"]
 
 [lint.flake8-unused-arguments]
 # *args・**kwargs は呼出しの形を合わせるために受けるので、使っていなくても報告しない。
@@ -93,5 +140,15 @@ no-lines-before = ["local-folder"]
 [lint.flake8-import-conventions]
 # Maya は import maya.cmds as cmds の形で読み込む。
 banned-from = ["maya", "maya.api"]
-# 既定の別名(numpy→np・datetime→dt等)は使わないので、表そのものを空にする。
-aliases = {}
+
+[lint.flake8-import-conventions.aliases]
+# Maya のモジュールの別名をここに決めた名前だけにする(別名なしも ICN001 で報告する)。
+# 既定の別名(numpy→np・datetime→dt等)は使わないので、表をこの内容で置き換える。
+"maya.cmds" = "cmds"
+"maya.mel" = "mel"
+"maya.utils" = "maya_utils"
+"maya.api.OpenMaya" = "om2"
+"maya.api.OpenMayaAnim" = "oma2"
+"maya.OpenMaya" = "om1"
+"maya.OpenMayaAnim" = "oma1"
+"maya.OpenMayaUI" = "omui"

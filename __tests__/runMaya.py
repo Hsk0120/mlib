@@ -72,10 +72,7 @@ def worker(version, result_path, suite_file=None, selected_tests=None, suite_nam
         namespace = runpy.run_path(str(suite_file or tests / "runAll.py"))
         # 各バージョンの詳細ログを同じ結果ディレクトリに格納する。
         namespace["run_all"].__globals__["LOG_DIR"] = result_path.parent
-        if suite_file:
-            suite = namespace["run_all"](names=selected_tests)
-        else:
-            suite = namespace["run_all"](names=selected_tests, suite=suite_name)
+        suite = namespace["run_all"](names=selected_tests) if suite_file else namespace["run_all"](names=selected_tests, suite=suite_name)
         result.update(
             status="passed" if suite["ok"] else "failed",
             total_files=suite["total"],
@@ -149,7 +146,7 @@ def run_version(version, executable, directory, timeout, suite_file=None, select
         if suite_file:
             command += ["--suite-file", str(suite_file)]
         if selected_tests:
-            command += ["--tests"] + list(selected_tests)
+            command += ["--tests", *selected_tests]
         command += ["--suite", suite_name]
         process = subprocess.Popen(command, cwd=str(ROOT), env=isolated_environment(executable, directory), stdout=output, stderr=subprocess.STDOUT)
         try:
@@ -217,8 +214,7 @@ def main():
         print("Maya {}: {}".format(version, result["status"]), flush=True)
         _print_failure_details(result, directory / version)
     lines = ["Maya\tStatus\tFailed files"]
-    for result in results:
-        lines.append("{}\t{}\t{}".format(result["requested_version"], result["status"], ", ".join(result.get("failed_files", []))))
+    lines.extend("{}\t{}\t{}".format(result["requested_version"], result["status"], ", ".join(result.get("failed_files", []))) for result in results)
     (directory / "summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines), flush=True)
     if any(row["status"] not in ("passed", "missing") for row in results):

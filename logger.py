@@ -1,6 +1,7 @@
 """標準の logging から、Maya のメッセージ表示へ出力する。"""
 
 import builtins
+import contextlib
 import logging
 import os
 import types
@@ -51,7 +52,7 @@ class MayaHandler(logging.Handler):
         message = _message_from(record)
         try:
             details = self.format(record)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 通知の書式の失敗で、呼び出し元の処理を止めない
             # 通知の書式で失敗しても、呼び出し元の例外や、finallyの残りの後始末を止めない。
             details = logging.Formatter().format(record)
             details += f"\nログ書式の適用に失敗しました: {exc}"
@@ -329,10 +330,9 @@ def _install_exception_formatter():
             str: Script Editorへ表示する文字列。
         """
         if not os.environ.get(FULL_TRACEBACK_ENV):
-            try:
+            # 省けなくても、Mayaのエラー表示そのものは止めない。
+            with contextlib.suppress(Exception):
                 trace = _trimmed_traceback(trace)
-            except Exception:
-                pass  # 省けなくても、Mayaのエラー表示そのものは止めない。
         return previous(exception_type, exception, trace, detail)
 
     format_gui_exception._mlib_previous = previous

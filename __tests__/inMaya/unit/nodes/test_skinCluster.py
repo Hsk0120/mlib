@@ -534,7 +534,7 @@ class SkinClusterTest(_Case):
 
     def test_recache_and_deleted(self):
         """recacheBindMatrices は自身を返す。削除済みでは RuntimeError。"""
-        skin, mesh, joints, _ = self.skinned()
+        skin, _mesh, joints, _ = self.skinned()
         self.assertIsNone(skin.recacheBindMatrices())
         cmds.delete(skin.getFullName())
         for call in (

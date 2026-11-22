@@ -693,7 +693,8 @@ class BlendShape(GeometryFilter):
 
         ウェイトのドライバーは、``nameMap``・``replace``・``namespaceMap`` で名前を対応させてつなぎ直す
         (やり方は :class:`mlib.json.NameMapping` と同じ)。見つからないものは値だけを設定して警告する。
-        全体を1回のUndoにまとめ、途中で失敗したら元に戻す。
+        Undoの状態に関係なく書き込む。Undoが有効なら全体を1回のUndoにまとめ、途中で失敗したら元に戻す
+        (Undoが無効なときは、途中で失敗しても、それまでに書いた分は戻らない)。
 
         Args:
             data (dict): :meth:`getTargetsData` の形の辞書。
@@ -709,7 +710,7 @@ class BlendShape(GeometryFilter):
             TypeError: dataが辞書でない場合、またはmodeが文字列でない場合。
             ValueError: データの形が違う場合、modeが不正な場合、``mode="empty"`` なのにターゲットがある場合、
                 ベースが無いか頂点数が違う場合、またはターゲット名がすでにあるアトリビュートと重なる場合。
-            RuntimeError: Undoが無効な場合、またはMayaが書き込みを拒否した場合。
+            RuntimeError: ノードが無効な場合、またはMayaが書き込みを拒否した場合。
         """
         ...
     def exportTargets(self, path: str | os.PathLike) -> pathlib.Path:

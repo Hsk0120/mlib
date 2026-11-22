@@ -237,7 +237,7 @@ class SetWeightsTest(_SkinCase):
 
     def test_normalize_errors_do_not_write(self):
         """負値・合計0・ロック値の超過は ValueError で、頂点を書き換えない。"""
-        j0, j1, j2 = self.joints
+        j0, _j1, j2 = self.joints
         self.writeRow(0, [0.0, 0.0, 0.0])
         with self.assertRaisesRegex(ValueError, "合計が0のため"):
             self.skin.setWeights([j0], [0.0], vertices=[0], normalize=True)

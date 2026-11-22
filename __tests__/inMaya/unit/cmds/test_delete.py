@@ -243,7 +243,7 @@ class BatchDeleteTest(unittest.TestCase):
         before = sorted(cmds.ls(long=True))
         cmds.delete = counting
         try:
-            mlib.delete([child, md] + names)
+            mlib.delete([child, md, *names])
         finally:
             cmds.delete = original
             om2.MMessage.removeCallback(callback)
@@ -275,13 +275,13 @@ class BatchDeleteTest(unittest.TestCase):
                     else "'" + re.escape(parent) + "'は削除できません。ロックされた子か、読み取り専用の子があります"
                 )
                 with self.assertRaisesRegex(RuntimeError, pattern):
-                    mlib.delete(names + [parent], fast=fast)
+                    mlib.delete([*names, parent], fast=fast)
                 with self.assertRaisesRegex(RuntimeError, pattern):
                     mlib.getNode(parent).delete(fast=fast)
-                self.assertTrue(all(cmds.objExists(name) for name in names + [parent, child]))
+                self.assertTrue(all(cmds.objExists(name) for name in [*names, parent, child]))
                 cmds.lockNode(child, lock=False)
-                mlib.delete(names + [parent], fast=fast)
-                self.assertFalse(any(cmds.objExists(name) for name in names + [parent, child]))
+                mlib.delete([*names, parent], fast=fast)
+                self.assertFalse(any(cmds.objExists(name) for name in [*names, parent, child]))
 
     def test_default_and_shared_nodes_fail_without_crash(self):
         """既定・共有ノード(time1・persp・defaultLayer・lambert1)は fast でも異常終了せず例外になる。"""
@@ -290,10 +290,10 @@ class BatchDeleteTest(unittest.TestCase):
             for target in ("time1", "persp", "defaultLayer", "lambert1", "perspShape"):
                 with self.subTest(fast=fast, target=target):
                     with self.assertRaisesRegex(RuntimeError, "削除できないノードです: '" + target + "'"):
-                        mlib.delete(others + [target], fast=fast)
+                        mlib.delete([*others, target], fast=fast)
                     with self.assertRaisesRegex(RuntimeError, "削除できないノードです"):
                         mlib.getNode(target).delete(fast=fast)
-                    self.assertTrue(all(cmds.objExists(name) for name in others + [target]))
+                    self.assertTrue(all(cmds.objExists(name) for name in [*others, target]))
             with self.subTest(fast=fast, target="d*"):
                 with self.assertRaisesRegex(RuntimeError, "削除できないノードです"):
                     mlib.delete("d*", fast=fast)
@@ -304,8 +304,8 @@ class BatchDeleteTest(unittest.TestCase):
         for fast in (False, True):
             with self.subTest(fast=fast, target="undeletable child"):
                 with self.assertRaisesRegex(RuntimeError, "削除できないノードです: 'persp'"):
-                    mlib.delete(others + [group], fast=fast)
-                self.assertTrue(all(cmds.objExists(name) for name in others + [group]))
+                    mlib.delete([*others, group], fast=fast)
+                self.assertTrue(all(cmds.objExists(name) for name in [*others, group]))
 
     def test_user_shared_node_can_be_deleted(self):
         """利用者が shared で作ったノードは cmds.delete と同じく削除できる(isShared だけで拒否しない)。"""
@@ -375,7 +375,7 @@ class BatchDeleteTest(unittest.TestCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    mlib.delete(names + [self.ns + ":missing"], fast=fast)
+                    mlib.delete([*names, self.ns + ":missing"], fast=fast)
                 self.assertTrue(cmds.objExists(names[0]))
 
 
@@ -476,7 +476,7 @@ class DeleteSpecTest(_CmdsCase):
         faces = cmds.polyEvaluate(cube, face=True)
         for value, error in cases:
             with self.assertRaises(error, msg=repr(value)):
-                mlib.delete(value + [cube + ".f[0]"] if isinstance(value, list) and value else value)
+                mlib.delete([*value, cube + ".f[0]"] if isinstance(value, list) and value else value)
             self.assertTrue(cmds.objExists(keep))
             self.assertEqual(cmds.polyEvaluate(cube, face=True), faces)
         self.assertTrue(cmds.objExists(locked))

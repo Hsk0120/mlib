@@ -1,6 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Maya のメッシュシェイプを扱う。"""
 
+import contextlib
 import math
 from collections import Counter, defaultdict
 import maya.api.OpenMaya as om2
@@ -12,7 +13,7 @@ from ..components.pointComponent import _mirror_plan, _write_points
 from ..components.uv import UV, UVs
 from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points

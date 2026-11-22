@@ -176,7 +176,7 @@ class GeneratedWrapperSpecTest(_DynamicTypeCase):
         registry = mlib.nodes.Node._registry
         self.assertIs(registry.wrapper_class("mlibNoSuchTypeXYZ"), mlib.nodes.Node)
         self.assertNotIn("mlibNoSuchTypeXYZ", registry._generated)
-        self.assertNotIn("mlibNoSuchTypeXYZ", registry_module._INHERITED_TYPES_CACHE)
+        self.assertNotIn("mlibNoSuchTypeXYZ", registry_module._inherited_types_cache)
 
     def test_registered_types_helper_excludes_generated_classes(self):
         """_registered_types は登録キーだけを返し、base で派生に絞れる。"""
@@ -221,8 +221,10 @@ class ModuleAttributeSpecTest(_DynamicTypeCase):
         self.assertIs(mlib.nodes.PointLight, cls)
 
     def test_registered_name_variants_resolve_to_registered_class(self):
-        """登録クラスは属性探索の本体(__getattr__)でもそのまま返り、先頭が大文字の未登録型名
-        (THdependNode)は名前そのままで生成クラスを返す。"""
+        """属性探索の本体(__getattr__)は、登録クラスと生成クラスを返す。
+
+        登録クラスはそのまま返り、先頭が大文字の未登録型名(THdependNode)は名前そのままで生成クラスを返す。
+        """
         self.assertIs(mlib.nodes.__getattr__("Joint"), mlib.nodes.Joint)
         self.assertIsNone(mlib.nodes.Node._registry.lookup("THdependNode"))
         cls = mlib.nodes.__getattr__("THdependNode")
@@ -411,13 +413,13 @@ class GenericRegistrySpecTest(unittest.TestCase):
     def test_type_hierarchy_cache_clear_discards_generated_classes(self):
         """_clear_type_hierarchy_cache は生成する全登録表の生成済みクラスを空にする。"""
         registry = NodeRegistry(_FallbackClass, generate_classes=True)
-        self.assertIn(registry, registry_module._GENERATING_REGISTRIES)
+        self.assertIn(registry, registry_module._generating_registries)
         first = registry.wrapper_class("joint")
         registry_module._clear_type_hierarchy_cache()
         self.assertEqual(registry._generated, {})
         self.assertIsNot(registry.wrapper_class("joint"), first)
         plain = NodeRegistry(_FallbackClass)
-        self.assertNotIn(plain, registry_module._GENERATING_REGISTRIES)
+        self.assertNotIn(plain, registry_module._generating_registries)
 
     def test_generation_is_opt_in(self):
         """既定・継承検索のみの表は生成せず、従来どおり祖先クラス自体かフォールバックを返す。"""

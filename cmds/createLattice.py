@@ -3,7 +3,7 @@
 import maya.cmds as cmds
 
 from ..core.object import Object
-from ..core.shapeBuild import require_name
+from ..core.shapeBuild import require_existing, require_name
 from ..decorator import _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..util import _UNSET
 
@@ -88,6 +88,7 @@ def createLattice(targets, name=_UNSET, divisions=_UNSET, ldivisions=_UNSET, obj
     target_names = Object._input_names(targets, allow_plugs=False)
     if not target_names:
         raise ValueError("ターゲットを1つ以上指定してください")
+    require_existing(target_names)
     flags = {"divisions": divisions, "ldivisions": ldivisions, "objectCentered": objectCentered}
     if name is not None:
         flags["name"] = name

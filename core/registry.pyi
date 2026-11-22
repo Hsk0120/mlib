@@ -6,11 +6,11 @@ import maya.cmds as cmds
 from typing import Any, Mapping
 
 __all__ = ['NodeRegistry']
-_INHERITED_TYPES_CACHE: dict
-_GENERATING_REGISTRIES: Any
+_inherited_types_cache: dict
+_generating_registries: Any
 _RENAMED_NODE_TYPES: dict
 _NODE_TYPE_ALIASES: dict
-_REAL_TYPE_CACHE: dict
+_real_type_cache: dict
 _NODE_TYPES_SINCE: Any
 
 def _inherited_node_types(node_type: str) -> tuple[str, ...]:

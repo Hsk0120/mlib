@@ -52,7 +52,7 @@ class Om2BackendsTest(unittest.TestCase):
                 cmds.currentUnit(linear=unit)
                 for ws in (False, True):
                     space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
-                    fn = shape.mfn() if shape.getType() == "mesh" else shape.mfn()
+                    fn = shape.mfn()
                     raw = fn.getPoints(space) if shape.getType() == "mesh" else fn.cvPositions(space)
                     expected = [(raw[i].x, raw[i].y, raw[i].z) for i in items.indices]
                     with self.forbidden("xform", "getAttr"):

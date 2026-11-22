@@ -53,7 +53,7 @@ class NamespaceCase(unittest.TestCase):
             for name in cmds.ls(self.ns + ":*", long=True) or []:
                 if cmds.objExists(name) and cmds.lockNode(name, query=True, lock=True)[0]:
                     cmds.lockNode(name, lock=False)
-        for namespace in [self.ns] + self.extra_namespaces:
+        for namespace in [self.ns, *self.extra_namespaces]:
             if cmds.namespace(exists=namespace):
                 cmds.namespace(removeNamespace=namespace, deleteNamespaceContent=True)
         cmds.undoInfo(state=self.undo_state)

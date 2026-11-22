@@ -5,8 +5,7 @@ import math
 import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..core import geometryEdit as geometry_edit
-from ..core.fastWrite import require_writable
+from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import _vectors_of_points
 from ..util import _UNSET, _finite, _world_space, mirrorArguments

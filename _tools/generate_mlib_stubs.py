@@ -279,6 +279,15 @@ class _TypeChecker(ast.NodeVisitor):
         super().generic_visit(node)
 
 
+# 型検査で、宣言元のクラス外(派生クラスを含む)から参照する内部属性。
+_SHARED_ATTRIBUTES = {
+    "Components": frozenset({"_shape", "_indices"}),
+    "Joints": frozenset({"_items"}),
+    "Node": frozenset({"_registry", "_mobject", "_dag_path", "_handle", "_fn_cache"}),
+    "Plug": frozenset({"_registry", "_reader", "_node", "_mplug", "_attribute"}),
+}
+
+
 class ModuleStub:
     """1モジュール分のスタブを組み立てる。
 
@@ -288,14 +297,6 @@ class ModuleStub:
         index (dict[str, str]): クラス名から定義モジュールの完全名への対応。
         overloads (dict[str, Callable]): ``Class.method`` 等の修飾名からオーバーロードの生成関数。
     """
-
-    # 型検査で、宣言元のクラス外(派生クラスを含む)から参照する内部属性。
-    _SHARED_ATTRIBUTES = {
-        "Components": {"_shape", "_indices"},
-        "Joints": {"_items"},
-        "Node": {"_registry", "_mobject", "_dag_path", "_handle", "_fn_cache"},
-        "Plug": {"_registry", "_reader", "_node", "_mplug", "_attribute"},
-    }
 
     def __init__(self, name, path, index, overloads, collections=None, root_classes=None, forwards=None):
         self.name = name
@@ -561,7 +562,7 @@ class ModuleStub:
         signature = "{} {}({}){}:".format(keyword, node.name, self._params(node.args, _arg_types(doc), qualname), " -> " + returns if returns else "")
         docstring = self._docstring(node, indent + "    ")
         if docstring:
-            lines += [indent + signature] + docstring + [indent + "    ..."]
+            lines += [indent + signature, *docstring, indent + "    ..."]
         else:
             lines.append(indent + signature + " ...")
         return lines
@@ -584,10 +585,7 @@ class ModuleStub:
         doc = ast.get_docstring(node) or ""
         qualname = f"{owner}.{node.name}"
         override = self.overloads.get(f"{module}:{qualname}#return")
-        if override is _self_return:
-            returns = owner if self._resolve_name(owner) else None
-        else:
-            returns = self.annotation(_return_type(doc), qualname + "(return)")
+        returns = (owner if self._resolve_name(owner) else None) if override is _self_return else self.annotation(_return_type(doc), qualname + "(return)")
         if returns is None or re.fullmatch(r"object( \| None)?", returns):
             self.typing.add("Any")
             returns = "Any"
@@ -650,7 +648,7 @@ class ModuleStub:
         inner = indent + "    "
         body = self._docstring(node, inner)
         defined = set()
-        shared = self._SHARED_ATTRIBUTES.get(qualname, ())
+        shared = _SHARED_ATTRIBUTES.get(qualname, ())
 
         def include_attribute(name):
             """公開・dunder・型検査で共有する属性を残す。"""
@@ -789,10 +787,10 @@ class ModuleStub:
             if isinstance(stmt, (ast.Import, ast.ImportFrom)):
                 self.imports.append(ast.unparse(stmt))
             elif isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name not in defined:
-                body += [""] + self._function(stmt, "", stmt.name, False)
+                body += ["", *self._function(stmt, "", stmt.name, False)]
                 defined.add(stmt.name)
             elif isinstance(stmt, ast.ClassDef) and stmt.name not in defined:
-                body += ["", ""] + self._class(stmt, "")
+                body += ["", "", *self._class(stmt, "")]
                 defined.add(stmt.name)
             elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                 if stmt.target.id not in defined:
@@ -817,7 +815,7 @@ class ModuleStub:
                         body.append(f"{target.id} = {stmt.value.id}")
                     elif target.id != "__all__":
                         body.append(f"{target.id}: {self._value_type(stmt.value)}")
-        head = [HEADER.rstrip("\n")] + self._docstring(self.tree, "")
+        head = [HEADER.rstrip("\n"), *self._docstring(self.tree, "")]
         imports = list(dict.fromkeys(self.imports))
         packages = {}
         for cls, package in self.root_classes.items():
@@ -827,7 +825,7 @@ class ModuleStub:
         if self.typing:
             imports.append("from typing import " + ", ".join(sorted(self.typing)))
         imports += sorted(set(self.extra_imports.values()) - set(imports))
-        return "\n".join(head + [""] + imports + [""] + body).rstrip() + "\n"
+        return "\n".join([*head, "", *imports, "", *body]).rstrip() + "\n"
 
 
 # --- 引数で戻り値が変わるAPIのオーバーロード -------------------------------------
@@ -1156,7 +1154,7 @@ def _modules(source):
         relative = path.relative_to(source)
         if SKIP_DIRS.intersection(relative.parts):
             continue
-        parts = [PACKAGE] + list(relative.with_suffix("").parts)
+        parts = [PACKAGE, *relative.with_suffix("").parts]
         if parts[-1] == "__init__":
             parts.pop()
         result.append((".".join(parts), path))
@@ -1214,7 +1212,7 @@ def _collections(modules):
     def is_collection(cls, seen=()):
         if cls in COLLECTION_ROOTS:
             return True
-        return any(base not in seen and is_collection(base, seen + (cls,)) for base in bases.get(cls, ()))
+        return any(base not in seen and is_collection(base, (*seen, cls)) for base in bases.get(cls, ()))
 
     def common(a, b):
         size = 0
@@ -1300,7 +1298,7 @@ def _forwards(modules, collections, index):
         for collection, item in mapping.items():
             own = members(collection)
             found = {}
-            for name in (item,) + EXTRA_FORWARD_CLASSES.get(collection, ()):
+            for name in (item, *EXTRA_FORWARD_CLASSES.get(collection, ())):
                 methods(name, found)
             result.setdefault(module, {})[collection] = {k: v for k, v in found.items() if k not in own}
     return result
@@ -1341,7 +1339,7 @@ def generate(dest):
         target = dest / path.relative_to(SOURCE).with_suffix(".pyi")
         target.parent.mkdir(parents=True, exist_ok=True)
         _write_text(target, text)
-        unresolved += [(name,) + item for item in stub.unresolved]
+        unresolved += [(name, *item) for item in stub.unresolved]
     _write_text(dest / "_stubtypes.pyi", STUB_TYPES)
     return unresolved
 

@@ -13,6 +13,9 @@ import mlib
 
 mlib.reload()
 
+import functools
+import operator
+
 from support.namespaceCase import NamespaceCase
 
 from mlib.cmds.createJointChain import createJointChain
@@ -69,10 +72,12 @@ class CreateJointChainTest(NamespaceCase):
             self.assertSequenceAlmostEqual(cmds.getAttr(joint.getFullName() + ".rotate")[0], (0, 0, 0))
         for index in range(2):
             aim = om2.MVector(*points[index + 1]) - om2.MVector(*points[index])
-            x_axis, y_axis, z_axis = self.axes(joints[index])
+            x_axis, y_axis, _z_axis = self.axes(joints[index])
             self.assertSequenceAlmostEqual(x_axis, list(aim.normal()), places=6)
             self.assertSequenceAlmostEqual(y_axis, (0, 1, 0), places=6)
-        self.assertSequenceAlmostEqual(sum(self.axes(joints[2]), []), sum(self.axes(joints[1]), []), places=6)
+        self.assertSequenceAlmostEqual(
+            functools.reduce(operator.iadd, self.axes(joints[2]), []), functools.reduce(operator.iadd, self.axes(joints[1]), []), places=6
+        )
         self.assertEqual(joints[1].getParent().getUuid(), joints[0].getUuid())
         self.assertTrue(cmds.isConnected(names[0] + ".scale", names[1] + ".inverseScale"))
         cmds.undo()

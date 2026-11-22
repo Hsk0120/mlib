@@ -454,7 +454,7 @@ class UndoTransactionSpecTest(_SceneCase):
         with self.assertRaises(KeyboardInterrupt):
             with undoTransaction("mlibSpecDTx"):
                 cmds.createNode("transform", name=self.name("tx"))
-                raise KeyboardInterrupt()
+                raise KeyboardInterrupt
         self.assertFalse(cmds.objExists(self.name("tx")))
 
     def test_named_transaction_does_not_open_inner_chunks(self):

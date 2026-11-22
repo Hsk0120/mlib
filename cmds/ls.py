@@ -387,9 +387,9 @@ def ls(
     # nodes・components・common.selectionはcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..common.selection import Selection
     from ..components import CV, UV, Edge, Face, Vertex
-    from ..core.object import Object as _InputObject
+    from ..core.object import Object
     from ..nodes import Joints, SkinClusters
-    from ..nodes.node import Nodes as _InputNodes
+    from ..nodes.node import Nodes
 
     component_types = {"vertex": Vertex, "edge": Edge, "face": Face, "uv": UV, "controlVertex": CV}
     node_type = kwargs.get("type")
@@ -398,11 +398,11 @@ def ls(
         kwargs.pop("type")
 
     targets = []
-    for arg in _InputNodes._resolve_inputs([arg for arg in args if arg is not None]):
+    for arg in Nodes._resolve_inputs([arg for arg in args if arg is not None]):
         if isinstance(arg, str):
             targets.append(arg)
         else:
-            targets.extend(_InputObject._input_names(arg))
+            targets.extend(Object._input_names(arg))
     # 空の列だけを渡した場合に maya.cmds.ls() の全ノード検索へ変わらないようにする。
     names = (cmds.ls(*targets, **kwargs) or []) if targets or not args else []
     node_type = kwargs.get("type")

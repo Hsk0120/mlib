@@ -69,7 +69,7 @@ class InstancedPathTest(_SpecCase):
         """step は保持パスを遡り、0以下・ワールド到達は None。"""
         self.make("transform", "deep", parent=self.paths[1])
         # 親がインスタンスなので deep にもパスが2つある。g2 側のパスを明示して保持する。
-        deep = Node([path for path in cmds.ls(self.name("deep"), allPaths=True, long=True) if path.startswith("|" + self.g2)][0])
+        deep = Node(next(path for path in cmds.ls(self.name("deep"), allPaths=True, long=True) if path.startswith("|" + self.g2)))
         self.assertEqual(deep.getParent().getFullName(), self.paths[1])
         self.assertEqual(deep.getParent(2).getFullName(), "|" + self.g2)
         for step in (0, -1, 3, 10):

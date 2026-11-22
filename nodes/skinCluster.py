@@ -335,7 +335,7 @@ class SkinCluster(GeometryFilter):
                 if fast:
                     self._set_weight_values_fast(values, len(columns), edited_vertices, logical, check)
                 else:
-                    self._set_weight_values_cmds(values, len(columns), edited_vertices, logical)
+                    self._set_weight_values_cmds(values, len(columns), edited_vertices, logical, check)
 
     def getInfluences(self):
         """登録されているインフルエンスを取得する。
@@ -452,7 +452,7 @@ class SkinCluster(GeometryFilter):
         Note:
             すでにあるウェイトの配り直しや正規化はしない。すでにあるロックの設定も変えない。
         """
-
+        self._require_valid("インフルエンスの追加")
         existing = {om2.MFnDependencyNode(path.node()).uuid().asString() for path in self._skin_fn.influenceObjects()}
         names = []
         for name in Object._input_names(joints):
@@ -913,8 +913,8 @@ class SkinCluster(GeometryFilter):
             broadcast (bool): TrueならK個を全対象点へ書く。rowsと同時に指定できない。
             rows (bool): Trueならweightsを点ごとの行で受け取る。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueならfastの更新前にロック・入力接続等を全件検査する。既定False。
-                通常処理はMayaが各書き込みで編集可否を判定する。
+            check (bool): Trueなら、書き込む前に全部の要素のロック・入力の接続などを確かめ、問題があれば何も書かずに例外にする
+                (通常・fastとも)。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -944,7 +944,7 @@ class SkinCluster(GeometryFilter):
             if fast:
                 self._set_weight_values_fast(values, width, vertex_indices, logical_indices, check)
             else:
-                self._set_weight_values_cmds(values, width, vertex_indices, logical_indices)
+                self._set_weight_values_cmds(values, width, vertex_indices, logical_indices, check)
 
     def getVertexWeights(self, vertex, *, nonzero=False):
         """先頭の形状の1つの頂点/CVについて、インフルエンスのウェイトを辞書で取得する。
@@ -1407,11 +1407,12 @@ class SkinCluster(GeometryFilter):
             elif isinstance(vertices, Vertex):
                 vertices = [vertices]
             vertex_indices = set()
-            for vertex in vertices:
-                if isinstance(vertex, Vertex):
-                    if vertex.shape.mnode() != self._mesh_node():
+            for item in vertices:
+                vertex = item
+                if isinstance(item, Vertex):
+                    if item.shape.mnode() != self._mesh_node():
                         raise ValueError("頂点はこのskinClusterの最初のメッシュのものを指定してください")
-                    vertex = vertex.index
+                    vertex = item.index
                 # 既存番号入力のint変換を維持し、新しい頂点参照だけを所有者検証する。
                 vertex_indices.add(int(vertex))
             vertex_indices = sorted(vertex_indices)
@@ -1471,10 +1472,10 @@ class SkinCluster(GeometryFilter):
             self._raise_if_layers()
 
             pairs = []
-            for pair in sourceTargetPairs:
-                if isinstance(pair, (str, bytes)):
+            for item in sourceTargetPairs:
+                if isinstance(item, (str, bytes)):
                     raise ValueError("コピー元とコピー先の組を指定してください(文字列は指定できません)")
-                pair = tuple(pair)
+                pair = tuple(item)
                 if len(pair) != 2:
                     raise ValueError("1組あたりインフルエンスをちょうど2つ指定してください")
                 source, target = (Node._resolve_input(value) for value in pair)
@@ -1543,6 +1544,7 @@ class SkinCluster(GeometryFilter):
             RuntimeError: ノードが無効、ロック、参照、またはMayaが変更を拒否した場合。
         """
         _require_bool(state, "state")
+        self._require_valid("ジョイント移動モードの変更")
         dependency = self._dependency_fn()
         if dependency.isLocked or dependency.isFromReferencedFile:
             raise RuntimeError("ロック・参照スキンのジョイント移動モードは変更できません")
@@ -2511,7 +2513,7 @@ class SkinCluster(GeometryFilter):
                 result.extend(value.indices if isinstance(value, Components) else [value.index])
             elif isinstance(value, (Component, Components)):
                 raise TypeError("対象形状と同じ種類のCVを指定してください")
-            elif isinstance(value, bool) or isinstance(value, float):
+            elif isinstance(value, (bool, float)):
                 raise TypeError("CVはintの通し番号かCVの参照で指定してください")
             elif isinstance(value, int):
                 result.append(value)
@@ -2548,11 +2550,12 @@ class SkinCluster(GeometryFilter):
             if not 0 <= index < count_u * count_v:
                 raise IndexError(f"CV番号が範囲外です: {index}")
             u, v = divmod(index, count_v)
-            index = (u % independent_u) * count_v + v % independent_v
-            if index in seen:
-                raise ValueError(f"CVが複数回指定されています: {index}")
-            seen.add(index)
-            resolved.append(index)
+            # 周期の重複CVの番号は、対応する独立CVの番号へ写す。
+            folded = (u % independent_u) * count_v + v % independent_v
+            if folded in seen:
+                raise ValueError(f"CVが複数回指定されています: {folded}")
+            seen.add(folded)
+            resolved.append(folded)
         return resolved
 
     def _require_influences(self, joints):
@@ -2632,7 +2635,7 @@ class SkinCluster(GeometryFilter):
                 result.append(value.index)
             elif isinstance(value, (Component, Components)):
                 raise TypeError(f"メッシュの頂点を指定してください: {type(value).__name__}")
-            elif isinstance(value, bool) or isinstance(value, float):
+            elif isinstance(value, (bool, float)):
                 raise TypeError(f"頂点番号を指定してください: {type(value).__name__}")
             elif isinstance(value, int):
                 result.append(value)
@@ -2953,10 +2956,10 @@ class SkinCluster(GeometryFilter):
         """
         width = len(self._require_influences(joints))
         flat = []
-        for row in weights:
-            if isinstance(row, (str, bytes)) or not hasattr(row, "__iter__"):
-                raise TypeError(f"各行はウェイトの並びで指定してください: {type(row).__name__}")
-            row = list(row)
+        for item in weights:
+            if isinstance(item, (str, bytes)) or not hasattr(item, "__iter__"):
+                raise TypeError(f"各行はウェイトの並びで指定してください: {type(item).__name__}")
+            row = list(item)
             if len(row) != width:
                 raise ValueError(f"1行あたりウェイトを{width}個指定してください: {len(row)}個")
             flat.extend(row)
@@ -3096,6 +3099,31 @@ class SkinCluster(GeometryFilter):
             for column, index in enumerate(logical_indices):
                 row.elementByLogicalIndex(index).setDouble(values[offset + column])
 
+    def _require_weight_plugs_writable(self, vertex_indices, logical_indices):
+        """``weightList[v].weights[i]`` の全部の要素へ書き込めるかを確かめる。シーンは変えない。
+
+        親側(``weightList[v].weights`` より上)は頂点ごとに1回だけ調べ、ロックか入力の接続がある要素でだけ
+        :func:`mlib.core.fastWrite.require_writable` を呼んで、その文言の例外にする。
+
+        Args:
+            vertex_indices (Sequence[int]): 書き込む頂点番号。
+            logical_indices (Sequence[int]): weights[]の論理番号。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロックや入力の接続などで、書き込めない要素がある場合。
+        """
+        weights_plug = self._dependency_fn().findPlug("weightList", False)
+        for vertex in vertex_indices:
+            row = weights_plug.elementByLogicalIndex(vertex).child(0)
+            row_blocked = self._plug_chain_blocked(row)
+            for index in logical_indices:
+                plug = row.elementByLogicalIndex(index)
+                if row_blocked or plug.isLocked or plug.isDestination:
+                    require_writable(plug)
+
     @staticmethod
     def _plug_chain_blocked(plug):
         """Plugと、その親・マルチアトリビュート側のどこかに、ロックか入力の接続があるかを調べる。
@@ -3120,13 +3148,13 @@ class SkinCluster(GeometryFilter):
             else:
                 return False
 
-    def _set_weight_values_cmds(self, values, width, vertex_indices, logical_indices):
+    def _set_weight_values_cmds(self, values, width, vertex_indices, logical_indices, check=False):
         """頂点・指定influence列の順に、cmdsで生のウェイト値を書き込む。
 
         weights[]には疎な論理番号を使う。指定順で論理番号が1ずつ増える列は
         ``weights[a:b]`` の範囲指定で1回のsetAttrにまとめ、番号の穴や順序の入れ替わりで区切る。
-        全Plugの事前検査はせず、途中で拒否された場合も先行する書込みを自動で戻さない。
-        Undoチャンクは呼出し側が管理する。
+        check=Trueなら書く前に全部の要素を確かめる。check=Falseでは事前の検査をせず、
+        途中で拒否された場合も先行する書込みを自動で戻さない。Undoチャンクは呼出し側が管理する。
 
         範囲指定のsetAttrはロック・入力接続などで拒否されると範囲内のどの要素も更新しない。
         その場合だけ同じ範囲を要素ごとのsetAttrで書き直し、従来の要素ごとの書込みと同じく
@@ -3137,10 +3165,16 @@ class SkinCluster(GeometryFilter):
             width (int): 指定列数K。
             vertex_indices (Sequence[int]): 書き込む頂点番号。valuesの行の順。
             logical_indices (list[int]): weights[]の論理番号。指定influence順。
+            check (bool): Trueなら、書き込む前に、全部の要素へ書き込めるか(ロック・入力の接続)を確かめる。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            RuntimeError: check=Trueで、書き込めない要素がある場合。または、Mayaが書き込みを拒否した場合。
         """
+        if check:
+            self._require_weight_plugs_writable(vertex_indices, logical_indices)
         name = self.getFullName()
         runs = self._consecutive_runs(logical_indices)
         shared = len(values) == width
@@ -3158,8 +3192,8 @@ class SkinCluster(GeometryFilter):
                 except RuntimeError:
                     # 範囲指定は失敗時に何も書かないため、要素ごとに書き直して
                     # 拒否された要素までの部分更新とエラーを従来と揃える。
-                    for position, value in enumerate(row):
-                        set_attr(f"{prefix}[{first + position}]", value)
+                    for element, value in enumerate(row):
+                        set_attr(f"{prefix}[{first + element}]", value)
 
     @staticmethod
     def _consecutive_runs(logical_indices):
@@ -3301,7 +3335,8 @@ class SkinCluster(GeometryFilter):
         logical = [self._skin_fn.indexForInfluenceObject(path) for path in paths]
         follow = {physical[source.getUuid()]: None if target is None else physical[self._uuid_or_none(target)] for source, target in plans}
         moves = {}
-        for source, target in follow.items():
+        for source, direct_target in follow.items():
+            target = direct_target
             while follow.get(target) is not None:
                 target = follow[target]
             if target is not None:
@@ -3390,8 +3425,8 @@ class SkinCluster(GeometryFilter):
             RuntimeError: 要素がロック・入力接続されている、またはMayaが設定を拒否した場合。
         """
         if not fast:
-            for vertex, items in groupby(entries, key=lambda entry: entry[0][0]):
-                items = list(items)
+            for vertex, group in groupby(entries, key=lambda entry: entry[0][0]):
+                items = list(group)
                 self._set_weight_values_cmds([value for _, value in items], len(items), [vertex], [key[1] for key, _ in items])
             return
         weight_list = self._dependency_fn().findPlug("weightList", False)
@@ -3449,7 +3484,7 @@ class SkinCluster(GeometryFilter):
         """
         sources = {self._require_influences(source.getFullName())[0] for source, _ in pairs}
         columns = sorted(sources.union(self._require_influences(target)[0] for _, target in pairs))
-        component, count = self._all_vertices()
+        component, _count = self._all_vertices()
         values = list(self._skin_fn.getWeights(self.mesh_path, component, om2.MIntArray(columns)))
         # 非有限値は総和へ伝わるため、全要素を個別に調べず総和と最小値で判定する。
         if not math.isfinite(sum(values)) or (values and min(values) < 0):

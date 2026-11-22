@@ -162,7 +162,7 @@ class AnimCurve(Node):
             int: 0から始まるキーの番号。同じ距離のキーが2つある場合は、Mayaの判定に従う。
 
         Raises:
-            TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
+            TypeError: inputが数値へ変換できない型(文字列を含む)の場合、またはtimeUnitが文字列・None以外の場合。
             ValueError: inputが有限でない場合、またはtimeUnitに対応していない単位名の場合。
             RuntimeError: ノードが無効(削除済み)の場合、またはキーの無いカーブの場合。
         """
@@ -201,6 +201,7 @@ class AnimCurve(Node):
             ValueError: 有限でない値や正しくない数値の場合、unit・timeUnitに対応していない場合、
                 またはfastでfixed・global・知らない接線の型を指定した場合。
             RuntimeError: ノードが無効(削除済み)の場合。fastでも通常と同じ文言で、編集する前に例外にする。
+                check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
         ...
@@ -244,7 +245,7 @@ class AnimCurve(Node):
             None: 値を返さない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
 
         Raises:
-            TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
+            TypeError: inputが数値へ変換できない型(文字列を含む)の場合、またはtimeUnitが文字列・None以外の場合。
             ValueError: inputが有限でない場合、またはtimeUnitに対応していない単位名の場合。
             RuntimeError: ノードが無効(削除済み)の場合、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
         """
@@ -275,6 +276,7 @@ class AnimCurve(Node):
                 またはkeepCurve・fastがbool以外の場合。
             ValueError: timeが有限でない場合、範囲の開始が終了より大きい場合、またはtimeUnitに対応していない単位名の場合。
             IndexError: indexが範囲外の場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
         """
         ...
     def replaceKeys(self, keys: Iterable[Sequence], *, unit: str = ..., timeUnit: str = ...) -> None:
@@ -363,6 +365,7 @@ class AnimCurve(Node):
             ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
                 またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
             IndexError: キーの番号が正しくない場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。
                 ロック・ウェイトを含め、何かを書き換える前に例外にする。
         """
@@ -731,6 +734,22 @@ class AnimCurve(Node):
         Raises:
             TypeError: float()が受理しない型の場合。
             ValueError: 変換できない文字列など、またはNaN/正負の無限大の場合。
+        """
+        ...
+    @staticmethod
+    def _require_number_input(value: object) -> None:
+        """入力の位置に文字列が渡されていないか確かめる。
+
+        :meth:`_finite` はfloat()に従って数値の文字列も受け付けるため、文字列を数値の型の誤りとして先に拒否する。
+
+        Args:
+            value (object): 入力の位置として渡された値。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 文字列(str・bytes)の場合。
         """
         ...
     def _time_span(self, time: float | Sequence[float], time_unit: str) -> tuple[int, int] | None:

@@ -50,6 +50,40 @@ def geometry(shape: Mesh | NurbsCurve, indices: Iterable[int], edit: bool = ...,
     """
     ...
 
+def _require_points_writable(target: _Geometry, indices: Iterable[int]) -> None:
+    """指定した点のpnts・controlPointsとその子へ書き込めるかを確かめる。シーンは変えない。
+
+    上の階層を含むロックと入力接続、それぞれのアトリビュートへ書き込めるかどうかを調べる。
+    周期カーブでは、指定した独立CVに重なる末尾の重複CVも調べる。
+
+    Args:
+        target (_Geometry): :func:`geometry` の戻り値。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: ロック・入力接続・書き込み禁止がある場合。
+    """
+    ...
+
+def _require_control_points_writable(shape: Shape) -> None:
+    """すでにあるすべての制御点(controlPoints)とその子へ書き込めるかを確かめる。シーンは変えない。
+
+    NURBS曲面・ラティスのように、点を複数の番号で表すシェイプで使う。
+
+    Args:
+        shape (Shape): controlPointsを持つシェイプ。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: 制御点のアトリビュートにロックか入力の接続がある場合。
+    """
+    ...
+
 def _points(shape: Shape, indices: Sequence[int], ws: bool = ...) -> Iterable[om2.MPoint]:
     """指定した点をom2.MPointで取得する。
 
@@ -120,13 +154,14 @@ def set_positions(shape: Shape, indices: Sequence[int], values: Sequence[Sequenc
         values (Sequence[Sequence[float]]): 番号と同じ数の、有限なXYZ。
         ws (bool): Trueならワールド座標として扱う。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-        check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+        check (bool): Trueなら、書き込む前に、すべての点へ書き込めるか(pnts・controlPointsのロック・入力の接続)を確かめる。
 
     Returns:
         None: 値を返さない。
 
     Raises:
         RuntimeError: Mayaが書き込みを拒否した場合。すでに済んだ変更は元に戻さない。
+            check=Trueで、書き込めない点がある場合(何も書かない)。
         NotImplementedError: fastで、対応していない形状の場合。
     """
     ...

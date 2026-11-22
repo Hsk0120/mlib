@@ -8,6 +8,7 @@ pathlib への置換は ruff(``ruff.toml``・``_tools/format_mlib.bat``)が担�
 - クラス内メンバーの並びと、対になる操作の隣接(L020〜L023)
 - 公開入口の入力assert(L040)と、単純な列挙の確認候補(L041)
 - 内部名と function set の取得・関数内importの理由コメント(L050〜L052)
+- 関数・メソッド・クラスの名前の形、モジュール直下の名前の形、mlib内部のimportの別名(L053〜L055)
 - 例外の文言とUndoチャンク名・fastの受け取り(L060〜L064)
 - docstringの見出し・Raisesの並び・固定文・用語・定数の説明、Args:と引数名の一致、残ったTODO(L070〜L077)
 - Python 3.7(Maya 2022)で動く書き方と、propertyのgetter(L080・L081)
@@ -48,6 +49,11 @@ CONSTANT_NAME = re.compile(r"^_?[A-Z][A-Z0-9_]*$")
 # 例外の文言の言語を見分ける。英語の文は「英単語が空白や区切りを挟んで2つ以上続く」で判定する。
 JAPANESE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
 ENGLISH_PROSE = re.compile(r"[A-Za-z]{2,}[ ,:;]+[A-Za-z]{2,}")
+#: 空白や行頭で区切られた英単語(3文字以上)。``f"{count} skipped ({names})"`` のように、英単語が1つだけの文を見つける。
+#: 日本語の文の中の識別子(``fastはboolで``)は空白で区切らないので当たらない。
+ENGLISH_WORD = re.compile(r"(?:^|\s)[A-Za-z]{3,}(?=[\s(:;,]|$)")
+#: ログの関数名(``logger.warning(...)`` など)。
+LOGGER_METHODS = frozenset(("debug", "info", "warning", "error", "exception", "critical"))
 PUBLIC_CONSTANT_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 #: 使わない内部名の接頭辞と、代わりに使う名前。
 BANNED_INTERNAL_PREFIXES = {
@@ -61,6 +67,14 @@ BANNED_INTERNAL_PREFIXES = {
 BANNED_INTERNAL_SUFFIXES = {"_direct": "書込みの分岐は _<method>_fast / _<method>_cmds"}
 #: 既存の登録プロトコル名。接頭辞の規則より優先して維持する。
 KEPT_INTERNAL_NAMES = frozenset({"_validate_inputs"})
+#: 公開の関数・メソッド・プロパティ、クラス、内部(先頭が _)の関数・メソッドの名前の形。
+PUBLIC_FUNCTION_NAME = re.compile(r"^[a-z][a-zA-Z0-9]*$")
+CLASS_NAME = re.compile(r"^_?[A-Z][a-zA-Z0-9]*$")
+INTERNAL_FUNCTION_NAME = re.compile(r"^_[a-z0-9][a-z0-9_]*$")
+#: 公開の名前を持たないモジュールの置き場所(mlib の直下からの最初のフォルダー名)。
+INTERNAL_PACKAGES = frozenset({"core"})
+#: 呼ぶと中身を書き換える list・dict・set のメソッド。
+MUTATING_METHODS = frozenset({"append", "extend", "insert", "remove", "pop", "popitem", "clear", "update", "setdefault", "add", "discard", "sort", "reverse"})
 #: 専用の取得メソッドがある function set(om2のクラス名 → 取得メソッド名)。
 FUNCTION_SET_KINDS = {"MFnDependencyNode": "_dependency_fn", "MFnMesh": "_geometry_fn", "MFnNurbsCurve": "_geometry_fn", "MFnNurbsSurface": "_geometry_fn"}
 FUNCTION_SET_GETTER = re.compile(r"^_\w*_fn$")
@@ -360,9 +374,7 @@ def classify_members(cls):
                 member.name = targets[0].id
         elif is_docstring(stmt) and members and isinstance(members[-1].node, (ast.Assign, ast.AnnAssign)):
             member.attach_to = members[-1]
-        elif is_type_declaration_block(stmt):
-            pass
-        elif isinstance(stmt, ast.Pass) or (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)):
+        elif is_type_declaration_block(stmt) or isinstance(stmt, ast.Pass) or (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)):
             pass
         else:
             raise Unsupported(f"クラス直下に {type(stmt).__name__} がある")
@@ -699,7 +711,7 @@ def check_classes(src, violations):
         for index, (anchor, _) in resolve_pairs(members).items():
             groups[anchor].append(index)
         for anchor, followers in sorted(groups.items()):
-            positions = sorted(primary.index(i) for i in [anchor] + followers)
+            positions = sorted(primary.index(i) for i in [anchor, *followers])
             if positions[0] != primary.index(anchor) or positions != list(range(positions[0], positions[0] + len(positions))):
                 violations.append(
                     Violation(
@@ -731,7 +743,7 @@ def public_input_asserts(src):
     テスト、内部関数、self/clsだけの確認、処理開始後のassertは対象外。
     任意の関数内データフローや、入力検証と内部整合性の完全な判別は行わない。
     """
-    if src.path.name.startswith("test_") or src.path.name.startswith("_") and src.path.name != "__init__.py" or {"__tests__", "tests"} & set(src.path.parts):
+    if src.path.name.startswith("test_") or (src.path.name.startswith("_") and src.path.name != "__init__.py") or {"__tests__", "tests"} & set(src.path.parts):
         return []
     result = []
 
@@ -910,14 +922,165 @@ def check_inner_imports(src, violations):
             violations.append(Violation(src.path, inner.lineno, "L052", "関数内importの直前に、必要な理由の短いコメントを置く"))
 
 
+def module_parts(path):
+    """パッケージ(mlib・mlib_*)の直下からのモジュールの位置を、フォルダー名とファイル名の並びで返す。
+
+    Args:
+        path (Path): 対象のファイル。
+
+    Returns:
+        list[str]: ``["nodes", "joint.py"]`` のような並び。パッケージの外のファイルはファイル名だけ。
+    """
+    parts = list(Path(path).parts)
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index] == "mlib" or parts[index].startswith("mlib_"):
+            return parts[index + 1 :]
+    return parts[-1:]
+
+
+def is_public_module(path):
+    """公開の名前を持つモジュールか(core と、先頭が _ のフォルダー・ファイルの中は内部)。
+
+    Args:
+        path (Path): 対象のファイル。
+
+    Returns:
+        bool: 公開の名前を持つモジュールならTrue。
+    """
+    parts = module_parts(path)
+    if len(parts) > 1 and parts[0] in INTERNAL_PACKAGES:
+        return False
+    return not any(part.startswith("_") and part != "__init__.py" for part in parts)
+
+
+def check_definition_names(src, violations):
+    """関数・メソッド・プロパティ・クラスの名前の形を調べる。
+
+    公開の関数・メソッド・プロパティは lowerCamelCase、クラスは PascalCase、先頭が _ の関数・
+    メソッドは snake_case にする。公開かどうかはモジュールとクラスから決め、core と先頭が _ の
+    モジュール・クラスの中、関数の中で定義した関数とクラスは公開の形を問わない。
+    特殊メソッド(``__init__`` 等)は対象外。
+    """
+    public_module = is_public_module(src.path)
+
+    def visit(body, public_scope):
+        for node in body:
+            if isinstance(node, ast.ClassDef):
+                if not CLASS_NAME.match(node.name):
+                    violations.append(Violation(src.path, node.lineno, "L053", f"クラス {node.name} の名前は PascalCase にする"))
+                visit(node.body, public_scope and not node.name.startswith("_"))
+            elif isinstance(node, FUNCTIONS):
+                name = node.name
+                if name.startswith("__") and name.endswith("__"):
+                    continue
+                if name.startswith("_"):
+                    if not INTERNAL_FUNCTION_NAME.match(name):
+                        violations.append(Violation(src.path, node.lineno, "L053", f"内部の名前 {name} は snake_case にする"))
+                elif public_scope and not PUBLIC_FUNCTION_NAME.match(name):
+                    violations.append(Violation(src.path, node.lineno, "L053", f"公開の名前 {name} は lowerCamelCase にする"))
+
+    visit(src.tree.body, public_module)
+
+
+def check_module_names(src, violations):
+    """モジュール直下の名前の形を、値が実行中に変わるかどうかに合わせて調べる。
+
+    大文字の名前は変わらない値に使い、一覧は tuple、集合は frozenset で書く。同じファイルの関数の中で
+    書き足す(``NAME[key] = ...``・``NAME.append(...)`` 等)か ``global`` で代入する名前は、
+    実行中に変わる状態として小文字の snake_case にする。読み込み時にモジュール直下で組み立てるだけの
+    表は定数として扱う。
+    """
+    constants = {}
+    for node in src.tree.body:
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        value = getattr(node, "value", None)
+        for target in targets:
+            if not isinstance(target, ast.Name) or not CONSTANT_NAME.match(target.id):
+                continue
+            constants.setdefault(target.id, node.lineno)
+            is_list = isinstance(value, (ast.List, ast.ListComp)) or (isinstance(value, ast.Call) and getattr(value.func, "id", "") == "list")
+            is_set = isinstance(value, (ast.Set, ast.SetComp)) or (isinstance(value, ast.Call) and getattr(value.func, "id", "") == "set")
+            if is_list or is_set:
+                kind = "一覧は tuple" if is_list else "集合は frozenset"
+                violations.append(Violation(src.path, node.lineno, "L054", f"定数 {target.id} の{kind}で書く(書き換えるなら小文字の名前にする)"))
+    mutated = {}
+    for node in (inner for function in ast.walk(src.tree) if isinstance(function, FUNCTIONS) for inner in ast.walk(function)):
+        name = None
+        if isinstance(node, ast.Global):
+            for global_name in node.names:
+                if global_name in constants:
+                    mutated.setdefault(global_name, node.lineno)
+            continue
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.Delete)):
+            for target in node.targets if isinstance(node, (ast.Assign, ast.Delete)) else [node.target]:
+                if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
+                    name = target.value.id
+        elif (
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in MUTATING_METHODS and isinstance(node.func.value, ast.Name)
+        ):
+            name = node.func.value.id
+        if name in constants:
+            mutated.setdefault(name, node.lineno)
+    for name, line in mutated.items():
+        violations.append(Violation(src.path, constants[name], "L054", f"{name} は実行中に書き換える({line}行目)ので、小文字の snake_case にする"))
+
+
+def check_import_aliases(src, violations):
+    """mlib の中の import に別名を付けていないかを調べる。
+
+    元の名前の先頭に _ を付けるだけの別名(公開の名前から隠す用途)は認める。
+    """
+    for node in ast.walk(src.tree):
+        if isinstance(node, ast.ImportFrom):
+            internal = node.level > 0 or (node.module or "").split(".")[0].startswith("mlib")
+            names = [(alias.name, alias.asname) for alias in node.names]
+        elif isinstance(node, ast.Import):
+            internal = True
+            names = [(alias.name, alias.asname) for alias in node.names if alias.name.split(".")[0].startswith("mlib")]
+        else:
+            continue
+        if not internal:
+            continue
+        for name, asname in names:
+            original = name.rsplit(".", 1)[-1]
+            if asname and asname != "_" + original:
+                violations.append(Violation(src.path, node.lineno, "L055", f"mlibの中のimportに別名を付けない({name} as {asname})。隠すだけなら _{original}"))
+
+
 # ---------------------------------------------------------------- 例外・ログ・fast
 
 
-def check_raise_messages(src, violations):
-    """例外の文言が日本語の f-string 1つで書かれているかを調べる。
+def _is_english_message(text):
+    """日本語を含まず、英語の文(英単語が2つ以上続く、または空白で区切った英単語がある)かを返す。"""
+    return not JAPANESE.search(text) and bool(ENGLISH_PROSE.search(text) or ENGLISH_WORD.search(text))
 
-    引数名・型名・パスだけの文言(``f"{name}: {error}"`` など)は対象にせず、
-    英語の文(英単語が空白で2つ以上続く)になっていて日本語を含まないものを報告する。
+
+def _message_text(node):
+    """文言の式から、文字列の定数の部分だけを空白でつないで返す(f-stringの差し込みは除く)。"""
+    return " ".join(part.value for part in ast.walk(node) if isinstance(part, ast.Constant) and isinstance(part.value, str))
+
+
+def _is_logger_call(node):
+    """``logger.warning(...)`` などのログの呼び出しかを返す。"""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in LOGGER_METHODS
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "logger"
+    )
+
+
+def check_raise_messages(src, violations):
+    """例外とログの文言が日本語で、例外の文言が f-string 1つで書かれているかを調べる。
+
+    引数名・型名・パスだけの文言(``f"{name}: {error}"`` など)は対象にせず、日本語を含まない英語の文
+    (英単語が空白で2つ以上続く、または空白で区切った英単語がある)を報告する。対象は次の3つ。
+
+    - 例外の文言(raise の最初の引数)。
+    - ログの文言(``logger.warning`` などの最初の引数)。
+    - ログを出す関数の中の f-string。ログの文言を ``parts.append(f"...")`` のように別に組み立ててから
+      ``"; ".join(parts)`` で渡す場合も見つけるため(差し込む値ではなく、組み立てる文の言葉を調べる)。
     """
     for node in ast.walk(src.tree):
         if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call) or not node.exc.args:
@@ -925,9 +1088,21 @@ def check_raise_messages(src, violations):
         message = node.exc.args[0]
         if isinstance(message, ast.BinOp) and isinstance(message.op, ast.Add):
             violations.append(Violation(src.path, node.lineno, "L061", "例外の文言は f-string 1つで書く(+ での連結は使わない)"))
-        text = " ".join(part.value for part in ast.walk(message) if isinstance(part, ast.Constant) and isinstance(part.value, str))
-        if ENGLISH_PROSE.search(text) and not JAPANESE.search(text):
+        if _is_english_message(_message_text(message)):
             violations.append(Violation(src.path, node.lineno, "L060", "例外の文言は日本語で書く(引数名・型名などの識別子は英字のまま)"))
+    reported = set()
+    for function in ast.walk(src.tree):
+        if not isinstance(function, FUNCTIONS):
+            continue
+        calls = [inner for inner in ast.walk(function) if _is_logger_call(inner)]
+        if not calls:
+            continue
+        messages = [call.args[0] for call in calls if call.args]
+        messages += [inner for inner in ast.walk(function) if isinstance(inner, ast.JoinedStr)]
+        for message in messages:
+            if message.lineno not in reported and _is_english_message(_message_text(message)):
+                reported.add(message.lineno)
+                violations.append(Violation(src.path, message.lineno, "L060", "ログの文言は日本語で書く(引数名・型名などの識別子は英字のまま)"))
 
 
 def check_notify_and_raise(src, violations):
@@ -1294,12 +1469,17 @@ def check_source(src):
     check_type_checking(src, violations)
     check_module(src, violations)
     check_classes(src, violations)
-    for node in public_input_asserts(src):
-        violations.append(Violation(src.path, node.lineno, "L040", "入力検証候補: assertを型付きraiseへ変更する。内部整合性なら用途を個別確認する"))
+    violations.extend(
+        Violation(src.path, node.lineno, "L040", "入力検証候補: assertを型付きraiseへ変更する。内部整合性なら用途を個別確認する")
+        for node in public_input_asserts(src)
+    )
     check_simple_enumeration(src, violations)
     check_internal_names(src, violations)
     check_function_sets(src, violations)
     check_inner_imports(src, violations)
+    check_definition_names(src, violations)
+    check_module_names(src, violations)
+    check_import_aliases(src, violations)
     check_raise_messages(src, violations)
     check_notify_and_raise(src, violations)
     check_undo_chunk_names(src, violations)
@@ -1400,10 +1580,8 @@ def compare_snapshots(before, after):
     for label, key in (("import束縛", "imports"), ("モジュール文", "statements"), ("コメント", "comments")):
         old = collections.Counter(before[key])
         new = collections.Counter(after[key])
-        for item in sorted((old - new).elements()):
-            messages.append(f"{label}が削除: {item[:160]}")
-        for item in sorted((new - old).elements()):
-            messages.append(f"{label}が追加: {item[:160]}")
+        messages.extend(f"{label}が削除: {item[:160]}" for item in sorted((old - new).elements()))
+        messages.extend(f"{label}が追加: {item[:160]}" for item in sorted((new - old).elements()))
     return messages
 
 

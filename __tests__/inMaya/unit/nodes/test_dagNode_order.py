@@ -345,7 +345,7 @@ class InstanceTest(_SpecCase):
 
         node.setOutlinerOrder(0)
         self.assertEqual(children(first), under_first)
-        self.assertEqual([name.rsplit("|", 1)[-1] for name in children(second)][0], self.name("k1"))
+        self.assertEqual(next(name.rsplit("|", 1)[-1] for name in children(second)), self.name("k1"))
 
 
 class NodesTest(SiblingsFixture):

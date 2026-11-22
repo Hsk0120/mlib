@@ -1,5 +1,6 @@
-"""SkinCluster のスキンウェイトの JSON 保存・復元(getWeightsData・setWeightsData・exportWeights・importWeights)と、
-bindSkin のウェイトのファイルからの作成を確かめる。
+"""SkinCluster のスキンウェイトの JSON 保存・復元と、ファイルからの bindSkin を確かめる。
+
+対象は getWeightsData・setWeightsData・exportWeights・importWeights と、bindSkin のウェイトのファイルからの作成。
 
 ngSkinTools2 のレイヤーは、同梱のプラグインがある Maya の版だけで確かめる。
 """
@@ -168,7 +169,7 @@ class MappingTest(SkinWeightsCase):
         expected = self.allWeights()
         self.skin.exportWeights(self.path)
         renamed = cmds.rename(self.joints[3], "renamedJ3")
-        joints = self.joints[:3] + [cmds.ls(renamed, long=True)[0]]
+        joints = [*self.joints[:3], cmds.ls(renamed, long=True)[0]]
         self.scramble(joints=joints)
         report = self.skin.importWeights(self.path)
         self.assertEqual(report.missing, [self.name("j3")])
@@ -184,7 +185,7 @@ class MappingTest(SkinWeightsCase):
         self.skin.setWeights(self.joints, rows, rows=True)
         self.skin.exportWeights(self.path)
         renamed = cmds.ls(cmds.rename(self.joints[3], "renamedJ3"), long=True)[0]
-        joints = self.joints[:3] + [renamed]
+        joints = [*self.joints[:3], renamed]
         self.scramble(joints=joints)
         report = self.skin.importWeights(self.path)
         self.assertEqual(len(report.skipped), 1)

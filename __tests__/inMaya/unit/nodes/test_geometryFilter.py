@@ -107,7 +107,7 @@ class GeometryFilterGeometryTest(_CaseMethodAdditions):
 
     def test_get_geometry(self):
         """skinCluster・cluster・deltaMush の getGeometry が変形する形状(deformer -q -g)と一致する。"""
-        transform, shape = self.cube()
+        transform, _shape = self.cube()
         cmds.select(clear=True)
         joint = cmds.joint(name=self.name("jnt#"))
         skin = mlib.getNode(cmds.skinCluster(joint, transform.getFullName(), name=self.name("skin#"))[0])

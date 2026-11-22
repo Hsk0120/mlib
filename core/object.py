@@ -296,8 +296,8 @@ class Object(metaclass=_ObjectType):
             ValueError: 空文字列、または無効な対象の場合。
         """
         # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
-        from ..nodes.node import Node as _InputNode
-        from ..plugs.plug import Plug as _InputPlug
+        from ..nodes.node import Node
+        from ..plugs.plug import Plug
 
         if isinstance(value, str):
             name = value
@@ -315,13 +315,13 @@ class Object(metaclass=_ObjectType):
             except (RuntimeError, IndexError) as error:
                 raise ValueError(f"無効なComponentは使えません: {error}") from error
         elif isinstance(value, om2.MPlug):
-            name = _InputPlug._mplug_name(value)
+            name = Plug._mplug_name(value)
         elif isinstance(value, om2.MDagPath):
             if not value.isValid() or not om2.MObjectHandle(value.node()).isValid():
                 raise ValueError("無効な(削除された)MDagPathは使えません")
             name = value.fullPathName()
         elif isinstance(value, om2.MObject):
-            name = _InputNode._mobject_name(value)
+            name = Node._mobject_name(value)
         else:
             raise Object._unsupported(value)
         if not name:
@@ -365,7 +365,7 @@ class Object(metaclass=_ObjectType):
         Raises:
             TypeError: 対応していない型の場合。
         """
-        singles = (str,) + Object._classes() + (om2.MObject, om2.MDagPath, om2.MPlug)
+        singles = (str, *Object._classes(), om2.MObject, om2.MDagPath, om2.MPlug)
         result = []
 
         def collect(value):
@@ -412,7 +412,7 @@ class Object(metaclass=_ObjectType):
             ValueError: どれかの要素が空文字列の場合、または対象が無効な場合。
         """
         # 循環参照の回避: nodes は core を参照するため、使う時点で読み込む。
-        from ..nodes.node import Nodes as _InputNodes
+        from ..nodes.node import Nodes
 
         node_class, plug_class, component_class, components_class = Object._classes()
         singles = (str, node_class, plug_class, component_class, om2.MObject, om2.MDagPath, om2.MPlug)
@@ -442,6 +442,6 @@ class Object(metaclass=_ObjectType):
                 collect(item)
 
         items = Object._flatten_inputs(values)
-        _InputNodes._validate_inputs(items)
+        Nodes._validate_inputs(items)
         collect(items)
         return names

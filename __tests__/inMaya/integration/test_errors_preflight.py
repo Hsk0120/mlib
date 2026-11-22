@@ -102,8 +102,8 @@ class ApiRefinementsTest(unittest.TestCase):
                             for a, b in zip(node.getPivot(worldSpace=ws, kind=k), expected):
                                 self.assertAlmostEqual(a, b, places=7, msg=(type, unit, ws, kind, k))
                         cmds.undo()
-                        for k in old:
-                            for a, b in zip(node.getPivot(worldSpace=ws, kind=k), old[k]):
+                        for k, previous in old.items():
+                            for a, b in zip(node.getPivot(worldSpace=ws, kind=k), previous):
                                 self.assertAlmostEqual(a, b, places=7, msg=(type, unit, ws, kind, k))
                         cmds.redo()
                         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(before, 1e-8))

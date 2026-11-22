@@ -46,20 +46,20 @@ class UndoAndDeferredSpecTest(unittest.TestCase):
 
     def test_deferred_call_passes_arguments_to_execute_deferred(self):
         """callはcallbackと引数をそのままexecuteDeferredへ渡し、戻り値はNone。"""
-        import maya.utils as utils
+        import maya.utils as maya_utils
 
         def callback(*args, **kwargs):
             """何もしない。"""
 
-        with mock.patch.object(utils, "executeDeferred") as deferred:
+        with mock.patch.object(maya_utils, "executeDeferred") as deferred:
             self.assertIsNone(Deferred.call(callback, 1, key="value"))
         deferred.assert_called_once_with(callback, 1, key="value")
 
     def test_deferred_call_rejects_non_callable(self):
         """コード文字列などcallableでない値はTypeError。"""
-        import maya.utils as utils
+        import maya.utils as maya_utils
 
-        with mock.patch.object(utils, "executeDeferred") as deferred:
+        with mock.patch.object(maya_utils, "executeDeferred") as deferred:
             for value in ("print(1)", None, 5):
                 with self.assertRaises(TypeError):
                     Deferred.call(value)

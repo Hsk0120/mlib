@@ -5,6 +5,7 @@ mlib.maths は maya.api.OpenMaya の MVector / MQuaternion / MEulerRotation / MM
 環境を前提とする)。mlib パッケージ全体ではなく maths だけを仮パッケージとして読み込む。
 """
 
+import contextlib
 import copy
 import importlib
 import math
@@ -1037,17 +1038,13 @@ def test_instances_created_without_init_are_usable():
 
     class SwallowingEuler(EulerRotate):
         def __init__(self, *args):
-            try:
+            with contextlib.suppress(ValueError):
                 super().__init__(*args)
-            except ValueError:
-                pass
 
     class SwallowingMatrix(Matrix):
         def __init__(self, *args):
-            try:
+            with contextlib.suppress(ValueError):
                 super().__init__(*args)
-            except ValueError:
-                pass
 
     class NoSuperVector(Vector):
         def __init__(self, *args):
@@ -1342,7 +1339,7 @@ def test_matrix_construction_paths_agree_and_validate_before_writing():
     assert list(Matrix([Row(row) for row in rows])) == list(expected)
     # 数値以外・要素数の違いは ValueError で、再初期化でも値は変わらない。
     target = Matrix(floats)
-    for invalid in (["1"] * 16, [None] * 16, [1.0] * 15, [1.0] * 17, rows[:3], rows[:3] + [[1.0, 2.0, 3.0, "x"]], "abcdefghijklmnop", 42):
+    for invalid in (["1"] * 16, [None] * 16, [1.0] * 15, [1.0] * 17, rows[:3], [*rows[:3], [1.0, 2.0, 3.0, "x"]], "abcdefghijklmnop", 42):
         _assert_raises(ValueError, lambda invalid=invalid: Matrix(invalid))
         _assert_raises(ValueError, lambda invalid=invalid: target.__init__(invalid))
         assert list(target) == floats, invalid

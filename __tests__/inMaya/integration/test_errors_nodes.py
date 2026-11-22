@@ -1,5 +1,6 @@
-"""ノードのクラス(Mesh・Node・Nodes・NurbsCurve・ObjectSet・計算ノード・Reference・ShadingEngine・
-SkinCluster・Transform)の公開メソッドについて、docstring の Raises に書かれた例外を確かめる。
+"""ノードのクラスの公開メソッドについて、docstring の Raises に書かれた例外を確かめる。
+
+対象は Mesh・Node・Nodes・NurbsCurve・ObjectSet・計算ノード・Reference・ShadingEngine・SkinCluster・Transform。
 
 各テストは Raises に書かれた入力を作って ``assertRaises`` で例外の型を確かめ、可能なものは例外の後に
 シーンが変わっていないこと(ノードが増えない・値や接続が戻る・ファイルが残らない)も確かめる。
@@ -226,7 +227,7 @@ class BlendShapeErrorTest(_ErrorCase):
         """カーブをベースにした blendShape(メッシュでないベース)を作る。"""
         points = [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0)]
         base = cmds.curve(point=points, name=self.name("curveBase"))
-        target = cmds.curve(point=[(0, 1, 0)] + points[1:], name=self.name("curveTarget"))
+        target = cmds.curve(point=[(0, 1, 0), *points[1:]], name=self.name("curveTarget"))
         return mlib.getNode(cmds.blendShape(target, base, name=self.name("curveBs"))[0])
 
     def item_state(self):
@@ -343,7 +344,7 @@ class DagNodeInvalidTest(_ErrorCase):
         first, second = self.make("transform", "first"), self.make("transform", "second")
         child = self.make("transform", "child", parent=first)
         cmds.parent(child, second, addObject=True)
-        instance = [node for node in mlib.getNode(child).getInstances() if node.getFullName().startswith(cmds.ls(second, long=True)[0] + "|")][0]
+        instance = next(node for node in mlib.getNode(child).getInstances() if node.getFullName().startswith(cmds.ls(second, long=True)[0] + "|"))
         cmds.parent(instance.getFullName(), removeObject=True)
         # ノード自体は残り、保持するパスだけが無効になる。
         self.assertTrue(instance.isValid())
@@ -417,7 +418,7 @@ class DagPoseErrorTest(_ErrorCase):
                     self.pose.addMembers(*members)
                 self.assertEqual(self.members(), before)
         self.pose.addMembers(self.free)
-        self.assertEqual(self.members(), before + [cmds.ls(self.free, long=True)[0]])
+        self.assertEqual(self.members(), [*before, cmds.ls(self.free, long=True)[0]])
 
 
 class GeometryFilterWeightTest(_ErrorCase):

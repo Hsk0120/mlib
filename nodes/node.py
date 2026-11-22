@@ -210,7 +210,7 @@ def _not_unique_message(name, matches):
     """
     shown = ", ".join(repr(match) for match in list(matches)[:3])
     more = f"、ほか{len(matches) - 3}個" if len(matches) > 3 else ""
-    return f"名前が一意ではありません: {name!r}は{len(matches)}個のオブジェクトに一致します({shown}{more})。{list(matches)[0]!r}のようなフルパスを使うか、mlib.ls({name!r})で全部を取得してください"
+    return f"名前が一意ではありません: {name!r}は{len(matches)}個のオブジェクトに一致します({shown}{more})。{next(iter(matches))!r}のようなフルパスを使うか、mlib.ls({name!r})で全部を取得してください"
 
 
 def _require_node_name(name):
@@ -537,9 +537,7 @@ def _is_writable(mplug):
             current = current.parent()
         elif current.isElement:
             current = current.array()
-            if current.isLocked:
-                return False
-            return True
+            return not current.isLocked
         else:
             return True
 
@@ -1277,8 +1275,9 @@ class Node(Object):
             bool: MFnDependencyNodeが一意と判定した場合はTrue。
 
         Raises:
-            RuntimeError: ノードが無効な場合。
+            RuntimeError: ノードが無効(削除済み)な場合。
         """
+        self._require_valid("名前の一意性の確認")
         return self._dependency_fn().hasUniqueName()
 
     def getAnimatablePlugs(self):
@@ -1927,7 +1926,7 @@ class Node(Object):
                         seen.add(frozenset(path))
                         cycles.append(path)
                     elif following != start and following not in path:
-                        stack.append((following, path + [following]))
+                        stack.append((following, [*path, following]))
         owners = {}
 
         def owner(mplug):
@@ -1979,6 +1978,10 @@ class Node(Object):
                 plugs = [plug for plug in plugs if _writable_plug(plug)]
             else:
                 plugs = self._plugs_from(attributes)
+                if check:
+                    # 途中で止まって一部だけ戻らないよう、書く前にすべてを確かめる。
+                    for plug in plugs:
+                        plug._require_writable()
             for plug in plugs:
                 plug.reset(fast=fast, check=check)
             # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
@@ -2448,7 +2451,7 @@ class Node(Object):
             plug = self.getPlug(name)
             if deferred is not None and not count:
                 if fast and prepared is not None:
-                    setter, value, owner = prepared
+                    setter, value, _owner = prepared
                     setter(plug.mplug(), value)
                 else:
                     plug.set(deferred, fast=fast)
@@ -3305,10 +3308,9 @@ class Node(Object):
         if kind == "compound" and (child_names or child_short_names or child_suffixes):
             count = flags.get("numberOfChildren") or len(child_names or child_short_names or child_suffixes)
             flags["numberOfChildren"] = count
-        if numeric:
-            # 固定子数型へncを渡すMayaエラーを事前検出する。
-            if "numberOfChildren" in flags and flags.pop("numberOfChildren") != count:
-                raise ValueError("ベクトルの子の数が型と合っていません")
+        # 固定子数型へncを渡すMayaエラーを事前検出する。
+        if numeric and "numberOfChildren" in flags and flags.pop("numberOfChildren") != count:
+            raise ValueError("ベクトルの子の数が型と合っていません")
         if kind == "enum" and isinstance(flags.get("defaultValue"), str):
             flags["defaultValue"] = _enum_field_value(flags.get("enumName"), flags["defaultValue"])
         deferred = None
@@ -3758,7 +3760,14 @@ class Nodes(_ListMethods):
             TypeError: :meth:`Node.resetAttrs` と同じ。
             RuntimeError: 無効なノードを含む場合、またはアトリビュートを書き込めない場合。
         """
-        results = self._forward("resetAttrs", (attributes,), fast, check=check)
+        writes = None
+        if check is True and attributes is not None:
+            # 省略時は書き込めるものだけを選ぶので、前もって確かめるのは明示したアトリビュートだけ。
+            # 確かめるときと書くときで2回たどるため、使い切りのイテレーターは先に並びへ直す。
+            if hasattr(attributes, "__next__"):
+                attributes = list(attributes)
+            writes = methodcaller("_plugs_from", attributes)
+        results = self._forward("resetAttrs", (attributes,), fast, check=check, writes=writes)
         # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
         from ..plugs.plug import Plugs
 
@@ -3814,7 +3823,9 @@ class Nodes(_ListMethods):
             ValueError: 色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setOverrideColor", (color,), fast, shape=shape, check=check)
+        self._forward(
+            "setOverrideColor", (color,), fast, shape=shape, check=check, writes=lambda node: self._color_plugs("setOverrideColor", node, color, shape)
+        )
 
     def setOverrideColors(self, colors, *, shape=False, fast=False, check=False):
         """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOverrideColor` を呼ぶ。
@@ -3870,7 +3881,9 @@ class Nodes(_ListMethods):
             ValueError: 色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setOutlinerColor", (color,), fast, shape=shape, check=check)
+        self._forward(
+            "setOutlinerColor", (color,), fast, shape=shape, check=check, writes=lambda node: self._color_plugs("setOutlinerColor", node, color, shape)
+        )
 
     def setOutlinerColors(self, colors, *, shape=False, fast=False, check=False):
         """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerColor` を呼ぶ。
@@ -3908,7 +3921,7 @@ class Nodes(_ListMethods):
             TypeError: DAGノード以外を含む、またはstate・fastがbool以外の場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
-        self._forward("setVisibility", (state,), fast, check=check)
+        self._forward("setVisibility", (state,), fast, check=check, writes=lambda node: [node.getPlug("visibility")])
 
     def show(self, *, fast=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.show` を呼ぶ。
@@ -3987,9 +4000,14 @@ class Nodes(_ListMethods):
             list[str]: 要素の順の、DAGノードではワールドから始まる完全なパス、DGノードではノード名。
 
         Raises:
-            RuntimeError: 無効なノードを含む場合。
+            RuntimeError: 無効な(削除済みの)ノードを含む場合。文言に、要素の番号(0から)を含む。
         """
-        return [node.getFullName() for node in self._items]
+        names = []
+        for index, node in enumerate(self._items):
+            if not node.isValid():
+                raise RuntimeError(f"無効な{type(node).__name__}のため、完全な名前の取得はできません: 要素の番号{index}")
+            names.append(node.getFullName())
+        return names
 
     def select(self, **kwargs):
         """すべてのノードを一度に選択する。
@@ -4072,14 +4090,15 @@ class Nodes(_ListMethods):
         """
         items = list(getattr(items, "_items", items))
         promoted = False
+        result_class = cls
         if cls is Nodes and items:
             # 要素の型を決めている派生クラス(Joints・SkinClusters)で、全要素が当てはまるものがあればそれにする。
             for candidate in Nodes.__subclasses__():
                 if all(isinstance(item, candidate.item_class) for item in items):
-                    cls = candidate
+                    result_class = candidate
                     promoted = True
                     break
-        result = object.__new__(cls)
+        result = object.__new__(result_class)
         result._items = items
         if promoted:
             result._promoted = True
@@ -4132,7 +4151,7 @@ class Nodes(_ListMethods):
             raise TypeError(f"{type(self).__name__}には{self.item_class.__name__}を指定してください: {type(node).__name__}")
         return node
 
-    def _forward(self, method, args, fast, **kwargs):
+    def _forward(self, method, args, fast, *, writes=None, **kwargs):
         """保持順の各ノードへ単数のメソッドを適用し、結果の列を返す。
 
         全要素がメソッドを持ち有効であることを書込みの前に確かめ、通常は1回のUndoにまとめる。
@@ -4141,6 +4160,8 @@ class Nodes(_ListMethods):
             method (str): 単数のノードのメソッド名。
             args (tuple): 位置引数。
             fast (bool | None): メソッドへ渡すfast。Noneはfast引数の無いメソッド。
+            writes (Callable[[Node], Iterable[Plug]] | None): ``check=True`` のとき、書く前に全要素で
+                確かめる書き込み先を、ノードごとに返す関数。Noneなら前もって確かめない。
             **kwargs (object): メソッドへそのまま渡すキーワード引数。
 
         Returns:
@@ -4148,15 +4169,54 @@ class Nodes(_ListMethods):
 
         Raises:
             TypeError: メソッドを持たない要素を含む場合、またはfastがbool以外の場合。
-            RuntimeError: 無効な要素を含む場合。
+            RuntimeError: 無効な要素を含む場合、またはwritesの書き込み先に書き込めない場合。
         """
         self._require_method(method)
         for node in self._items:
             node._require_valid(method)
+        if writes is not None and kwargs.get("check") is True:
+            self._require_writable_targets(plug for node in self._items for plug in writes(node))
         if fast is not None:
             kwargs["fast"] = fast
         with _edit_context(f"mlib{type(self).__name__}{method[:1].upper()}{method[1:]}", bool(fast)):
             return [getattr(node, method)(*args, **kwargs) for node in self._items]
+
+    @staticmethod
+    def _require_writable_targets(plugs):
+        """``check=True`` の書き込みの前に、全要素の書き込み先へ書き込めるかを確かめる。シーンは変えない。
+
+        途中の要素で止まって、手前の要素だけが書き換わるのを防ぐために使う。
+
+        Args:
+            plugs (Iterable[Plug]): 書き込むPlug。コンパウンドアトリビュートは子も確かめる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロックや入力の接続などで、書き込めないPlugがある場合。
+        """
+        for plug in plugs:
+            plug._require_writable()
+
+    @staticmethod
+    def _color_plugs(method, node, color, shape):
+        """表示色の設定(``setOverrideColor``・``setOutlinerColor``)で、nodeについて書き込むPlugを返す。
+
+        Args:
+            method (str): ``"setOverrideColor"`` か ``"setOutlinerColor"``。
+            node (DagNode): 設定するノード。
+            color (object): 設定する色。
+            shape (bool): 確かめ済みのshape。
+
+        Returns:
+            list[Plug]: 書き込むPlug。
+        """
+        # dagNodeがこのモジュールを読み込むため、循環importを避けて関数内で読み込む。
+        from .dagNode import _outliner_color_writes, _override_color_writes
+
+        values = _override_color_writes(color) if method == "setOverrideColor" else _outliner_color_writes(color)
+        return [target.getPlug(name) for target in node._color_targets(shape) for name, _value in values]
 
     def _require_method(self, method):
         """全要素が単数のメソッドを持つことを確かめる。
@@ -4202,6 +4262,8 @@ class Nodes(_ListMethods):
         self._require_method(method)
         for node in self._items:
             node._require_valid(method)
+        if check is True:
+            self._require_writable_targets(plug for node, color in zip(self._items, colors) for plug in self._color_plugs(method, node, color, shape))
         with _edit_context(f"mlib{type(self).__name__}{method[:1].upper()}{method[1:]}s", fast):
             for node, color in zip(self._items, colors):
                 getattr(node, method)(color, shape=shape, fast=fast, check=check)

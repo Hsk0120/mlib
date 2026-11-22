@@ -7,7 +7,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..components.cv import CV, CVs
 from ..components.pointComponent import _mirror_plan, _write_points
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points

@@ -1,10 +1,13 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """形状を作る関数(``mlib.createCurve`` など)が共通で使う処理。名前・親・シェイプ名を整える。"""
 
+import contextlib
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import nativeUnits, preservedSelection, undoTransaction
 from ..util import _finite
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Iterable, Iterator, Sequence
+from mlib._stubtypes import GeneratorContextManager
 from mlib.nodes.mesh import Mesh
 from mlib.nodes.node import Node
 
@@ -21,6 +24,54 @@ def require_name(name: str | None) -> str | None:
     Raises:
         TypeError: nameが文字列でもNoneでもない場合。
         ValueError: nameが空文字列の場合、またはDAGパスの区切り ``|`` を含む場合。
+    """
+    ...
+
+def require_existing(names: Iterable[str]) -> None:
+    """名前で指定された対象がシーンにあるかを確かめる。
+
+    Mayaのコマンドへ渡す前に確かめ、見つからない名前でMayaのValueErrorがそのまま出ないようにする。
+
+    Args:
+        names (Iterable[str]): ノード・コンポーネントの名前。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: シーンに無い名前がある場合。文言は ``ノードが見つかりません: <名前>``。
+    """
+    ...
+
+def require_shape_type(names: Iterable[str], kind: str, label: str) -> None:
+    """対象が、指定した型(継承先を含む)の形状か、その形状を持つtransformかを確かめる。
+
+    コンポーネントの名前は、持ち主のノードで確かめる。中間オブジェクトの形状は数えない。
+
+    Args:
+        names (Iterable[str]): シーンにあることを確かめた、ノード・コンポーネントの名前。
+        kind (str): 求める形状のMayaの型名(``"deformableShape"``・``"nurbsCurve"`` など)。
+        label (str): 例外メッセージに使う、対象の呼び名(``"ターゲット"`` など)。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        ValueError: 求める型の形状を持たない対象がある場合。
+    """
+    ...
+
+def removing_created_nodes() -> GeneratorContextManager[None]:
+    """中で例外が起きたら、中で作られて残ったノードを消してから例外を出し直す。
+
+    Mayaのコマンドが途中で失敗したときに、作りかけのノードがシーンに残らないようにする。
+    作られたノードは ``MDGMessage.addNodeAddedCallback`` で集め、成功したときは何もしない。
+
+    Yields:
+        None: 値を渡さない。
+
+    Raises:
+        Exception: 中で起きた例外をそのまま出し直す。
     """
     ...
 

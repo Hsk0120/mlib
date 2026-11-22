@@ -41,7 +41,7 @@ def _source(value, geometry):
     from ..plugs.plug import Plug
     from .node import Node
 
-    if isinstance(value, (Plug, om2.MPlug)) or isinstance(value, str):
+    if isinstance(value, (Plug, om2.MPlug, str)):
         return Plug._resolve_input(value)
     if geometry is None:
         return None

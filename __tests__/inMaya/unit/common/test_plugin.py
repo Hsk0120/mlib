@@ -7,6 +7,7 @@
 - common の照会・コールバックの契約を固定する。
 """
 
+import contextlib
 import logging
 import os
 import shutil
@@ -41,9 +42,8 @@ class PluginTest(unittest.TestCase):
         if self.was_loaded:
             if not cmds.pluginInfo(self.pluginName, query=True, loaded=True):
                 cmds.loadPlugin(self.pluginName)
-        else:
-            if cmds.pluginInfo(self.pluginName, query=True, loaded=True):
-                cmds.unloadPlugin(self.pluginName)
+        elif cmds.pluginInfo(self.pluginName, query=True, loaded=True):
+            cmds.unloadPlugin(self.pluginName)
 
     def test_constructor_rejects_invalid_names(self):
         with self.assertRaises(ValueError):
@@ -252,11 +252,9 @@ class UnknownPluginTest(NamespaceCase):
                 'createNode transform -n "fakeParent";\n'
                 'createNode mlibSpecFakeShape -n "fakeShape" -p "fakeParent";\n'
             )
-        try:
+        # 見つからないプラグインの requires は読み込みの最後にエラーになるが、ノードは読み込まれる。
+        with contextlib.suppress(RuntimeError):
             cmds.file(path, i=True, namespace=self.ns, mergeNamespacesOnClash=True)
-        except RuntimeError:
-            # 見つからないプラグインの requires は読み込みの最後にエラーになるが、ノードは読み込まれる。
-            pass
 
     def tearDown(self):
         if _FAKE_PLUGIN in (cmds.unknownPlugin(query=True, list=True) or []):

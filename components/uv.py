@@ -349,8 +349,8 @@ class UVs(Components):
         if not self._indices:
             return
         rows = []
-        for row, number in zip(self.getPosition(), values):
-            row = list(row)
+        for current, number in zip(self.getPosition(), values):
+            row = list(current)
             row[axis] = number
             rows.append(tuple(row))
         self._write(rows, fast, method, chunk)

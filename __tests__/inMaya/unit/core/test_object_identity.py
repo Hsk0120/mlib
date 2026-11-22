@@ -75,16 +75,16 @@ class IdentityContractTest(unittest.TestCase):
 
     def test_mixed_rejected(self):
         """列全体の形式を変換前に検証する。"""
-        from mlib.core.object import Object as _InputObject
+        from mlib.core.object import Object
 
         n = Node(cmds.createNode("joint"))
         for values in ([n.getName(), n], [n, n.getName()]):
             with self.assertRaises(TypeError):
-                _InputObject._input_names(iter(values))
+                Object._input_names(iter(values))
             with self.assertRaises(TypeError):
                 Nodes(values)
         self.assertEqual(len(Nodes([n, Node(n)])), 1)
-        self.assertEqual(_InputObject._input_names([n]), [n.getFullName()])
+        self.assertEqual(Object._input_names([n]), [n.getFullName()])
 
     def test_instance_identity(self):
         """同じノードの別インスタンスを比較で区別する。"""

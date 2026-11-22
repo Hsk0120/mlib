@@ -87,7 +87,7 @@ class ShadingEngine(ObjectSet):
             from ..plugs.plug import Plug
 
             target = self.getPlug(self._shader_attribute(kind))
-            if isinstance(shader, Plug) or isinstance(shader, str) and "." in shader:
+            if isinstance(shader, Plug) or (isinstance(shader, str) and "." in shader):
                 source = Plug._resolve_input(shader)
             else:
                 source = Node._resolve_input(shader).getPlug(output or ("displacement" if kind == "displacement" else "outColor"))

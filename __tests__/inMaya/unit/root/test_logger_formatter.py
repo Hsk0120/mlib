@@ -10,7 +10,7 @@ import sys
 import traceback
 import unittest
 
-import maya.utils
+import maya.utils as maya_utils
 
 import mlib
 
@@ -49,37 +49,37 @@ class FormatterTest(unittest.TestCase):
         self.assertFalse(any(logger._internal_file(frame.filename) for frame in trimmed))
         # 例外のトレースバック自体は変更しない。
         self.assertTrue(any(logger._internal_file(frame.filename) for frame in traceback.extract_tb(trace)))
-        text = maya.utils.formatGuiException(kind, error, trace, 1)
+        text = maya_utils.formatGuiException(kind, error, trace, 1)
         self.assertIn("RuntimeError: file", text)
         self.assertIn(f"{os.path.basename(__file__)} line {line}", text)
         self.assertIn("ノードが見つかりません", text)
-        full = maya.utils.formatGuiException(kind, error, trace, 2)
+        full = maya_utils.formatGuiException(kind, error, trace, 2)
         self.assertNotIn("getNode.py", full)
 
     def test_environment_variable_keeps_internal_frames(self):
         os.environ[logger.FULL_TRACEBACK_ENV] = "1"
         kind, error, trace, _line = _raise_from_mlib()
-        text = maya.utils.formatGuiException(kind, error, trace, 1)
+        text = maya_utils.formatGuiException(kind, error, trace, 1)
         self.assertNotIn(os.path.basename(__file__), text)
-        full = maya.utils.formatGuiException(kind, error, trace, 2)
+        full = maya_utils.formatGuiException(kind, error, trace, 2)
         self.assertIn("getNode.py", full)
 
     def test_user_code_errors_are_unchanged(self):
         try:
             {}["missing"]
         except KeyError:
-            kind, error, trace = sys.exc_info()
+            _kind, _error, trace = sys.exc_info()
         self.assertIs(logger._trimmed_traceback(trace), trace)
         self.assertIsNone(logger._trimmed_traceback(None))
 
     def test_reload_does_not_stack_wrappers(self):
-        original = maya.utils.formatGuiException._mlib_previous
+        original = maya_utils.formatGuiException._mlib_previous
         mlib.reload()
         from mlib import logger as reloaded
 
-        self.assertIs(maya.utils.formatGuiException._mlib_previous, original)
+        self.assertIs(maya_utils.formatGuiException._mlib_previous, original)
         self.assertTrue(reloaded._install_exception_formatter())
-        self.assertIs(maya.utils.formatGuiException._mlib_previous, original)
+        self.assertIs(maya_utils.formatGuiException._mlib_previous, original)
 
 
 if __name__ == "__main__":

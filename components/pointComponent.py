@@ -6,8 +6,7 @@ import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..core import geometryEdit as geometry_edit
-from ..core.fastWrite import require_writable
+from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import _vectors_of_points
 from ..util import _UNSET, _finite, _world_space, mirrorArguments
@@ -504,7 +503,7 @@ class PointComponents(Components):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
         ws = _world_space(worldSpace)
-        rows = geometry_edit.point_list(values)
+        rows = geometryEdit.point_list(values)
         if len(rows) != len(self._indices):
             raise ValueError(f"点を{len(self._indices)}個指定してください: {len(rows)}個")
         self._write(rows, ws, fast, "mlibPointComponentsSetPositions", check)
@@ -672,7 +671,7 @@ def _point_value(value):
         TypeError: 反復できない場合、または成分が数値でない場合。
         ValueError: 成分が3つでない場合、または有限でない場合。
     """
-    return geometry_edit.point_list([value])[0]
+    return geometryEdit.point_list([value])[0]
 
 
 def _axis_values(value, count):
@@ -785,9 +784,13 @@ def _write_points(plans, fast, chunk, check=False):
     plans = [plan for plan in plans if plan and plan[1]]
     if not plans:
         return
-    for shape, _, _, ws in plans:
+    for shape, indices, _, ws in plans:
         if ws:
             _require_invertible(shape)
+        if check and fast:
+            # 途中の形状で止まって一部だけ書き換わらないよう、書く前に全部の形状を確かめる
+            # (通常の経路は、失敗すると下のundoTransactionが先に書いた点を戻す)。
+            _require_editable(shape, indices, check)
     # 点ごとのcmds.xformの途中でMayaが書込みを拒否した場合に、先に書いた点を戻すためundoTransactionを使う。
     with _edit_context(chunk, fast, transaction=True):
         for shape, indices, rows, ws in plans:
@@ -798,7 +801,7 @@ def _write_points(plans, fast, chunk, check=False):
                 # 1点は全点のMPointArrayを読み書きせず、その点だけを書く(大きなMeshで全点の書込みより速い)。
                 _set_point_fast(shape, indices[0], rows[0], ws, check)
                 continue
-            geometry_edit.set_positions(shape, indices, rows, ws, fast=fast, check=check)
+            geometryEdit.set_positions(shape, indices, rows, ws, fast=fast, check=check)
 
 
 def _set_point_fast(shape, index, row, ws, check=False):
@@ -817,7 +820,7 @@ def _set_point_fast(shape, index, row, ws, check=False):
         RuntimeError: ロック・入力の接続・書き込みの禁止がある場合。
         NotImplementedError: Shapeに入力のヒストリがある場合。
     """
-    path, fn, mesh = geometry_edit.geometry(shape, [index], edit=True, check=check)
+    path, fn, mesh = geometryEdit.geometry(shape, [index], edit=True, check=check)
     inverse = path.inclusiveMatrixInverse() if ws else om2.MMatrix()
     if mesh:
         fn.setPoint(index, om2.MPoint(row[0], row[1], row[2]) * inverse)
@@ -877,7 +880,7 @@ def _positions(shape, indices, ws):
         list[tuple[float, float, float]]: 指定順の座標。
     """
     if not _is_grid(shape):
-        return geometry_edit.positions(shape, indices, ws)
+        return geometryEdit.positions(shape, indices, ws)
     points = _grid_points(shape.mpath(), ws)
     return [(points[index].x, points[index].y, points[index].z) for index in indices]
 
@@ -894,7 +897,7 @@ def _vectors(shape, indices, ws):
         list[Vector]: 新しく作った座標の値。指定した順に並ぶ。CVのwでは割らない。
     """
     if not _is_grid(shape):
-        return geometry_edit.vectors(shape, indices, ws)
+        return geometryEdit.vectors(shape, indices, ws)
     points = _grid_points(shape.mpath(), ws)
     return _vectors_of_points([points[index] for index in indices])
 
@@ -912,7 +915,7 @@ def _require_editable(shape, indices, check=False):
         NotImplementedError: 入力のヒストリ(inMesh・create・latticeInputへの入力)がある場合。
     """
     if not _is_grid(shape):
-        geometry_edit.geometry(shape, indices, edit=True, check=check)
+        geometryEdit.geometry(shape, indices, edit=True, check=check)
         return
     node = shape.mnode()
     dependency = om2.MFnDependencyNode(node)
@@ -921,12 +924,8 @@ def _require_editable(shape, indices, check=False):
         raise NotImplementedError("fastのジオメトリ編集には、入力ヒストリのないシェイプが必要です")
     if dependency.isLocked:
         raise RuntimeError("シェイプノードがロックされています")
-    points = dependency.findPlug("controlPoints", False)
-    for index in points.getExistingArrayAttributeIndices() if check else ():
-        point = points.elementByLogicalIndex(index)
-        require_writable(point)
-        for child in range(point.numChildren()):
-            require_writable(point.child(child))
+    if check:
+        geometryEdit._require_control_points_writable(shape)
 
 
 def _set_grid_positions(shape, indices, rows, ws, fast, check=False):
@@ -983,6 +982,9 @@ def _set_grid_positions(shape, indices, rows, ws, fast, check=False):
             current[index] = point
         om2.MItGeometry(path).setAllPositions(current)
         return
+    if check:
+        # cmds.xformは制御点のロックを見ずに書くので、確かめる指定のときは書く前に確かめる。
+        geometryEdit._require_control_points_writable(shape)
     prefix = f"{shape.getFullName()}.{component_class.component_type}"
     numbers = component_class._multi_indices(shape, list(local), command=True)
     unit = om2.MDistance.uiUnit()

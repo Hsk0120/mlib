@@ -858,7 +858,7 @@ class Node(Object):
             bool: MFnDependencyNodeが一意と判定した場合はTrue。
 
         Raises:
-            RuntimeError: ノードが無効な場合。
+            RuntimeError: ノードが無効(削除済み)な場合。
         """
         ...
     def getAnimatablePlugs(self) -> Plugs:
@@ -2378,7 +2378,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             list[str]: 要素の順の、DAGノードではワールドから始まる完全なパス、DGノードではノード名。
 
         Raises:
-            RuntimeError: 無効なノードを含む場合。
+            RuntimeError: 無効な(削除済みの)ノードを含む場合。文言に、要素の番号(0から)を含む。
         """
         ...
     def select(self, **kwargs: object) -> None:
@@ -2473,7 +2473,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             RuntimeError: 名前を解決できない場合、または無効なノードの場合。
         """
         ...
-    def _forward(self, method: str, args: tuple, fast: bool | None, **kwargs: object) -> list:
+    def _forward(self, method: str, args: tuple, fast: bool | None, *, writes: Callable[[Node], Iterable[Plug]] | None = ..., **kwargs: object) -> list:
         """保持順の各ノードへ単数のメソッドを適用し、結果の列を返す。
 
         全要素がメソッドを持ち有効であることを書込みの前に確かめ、通常は1回のUndoにまとめる。
@@ -2482,6 +2482,8 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             method (str): 単数のノードのメソッド名。
             args (tuple): 位置引数。
             fast (bool | None): メソッドへ渡すfast。Noneはfast引数の無いメソッド。
+            writes (Callable[[Node], Iterable[Plug]] | None): ``check=True`` のとき、書く前に全要素で
+                確かめる書き込み先を、ノードごとに返す関数。Noneなら前もって確かめない。
             **kwargs (object): メソッドへそのまま渡すキーワード引数。
 
         Returns:
@@ -2489,7 +2491,37 @@ class Nodes(_ListMethods, Generic[_NodeT]):
 
         Raises:
             TypeError: メソッドを持たない要素を含む場合、またはfastがbool以外の場合。
-            RuntimeError: 無効な要素を含む場合。
+            RuntimeError: 無効な要素を含む場合、またはwritesの書き込み先に書き込めない場合。
+        """
+        ...
+    @staticmethod
+    def _require_writable_targets(plugs: Iterable[Plug]) -> None:
+        """``check=True`` の書き込みの前に、全要素の書き込み先へ書き込めるかを確かめる。シーンは変えない。
+
+        途中の要素で止まって、手前の要素だけが書き換わるのを防ぐために使う。
+
+        Args:
+            plugs (Iterable[Plug]): 書き込むPlug。コンパウンドアトリビュートは子も確かめる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロックや入力の接続などで、書き込めないPlugがある場合。
+        """
+        ...
+    @staticmethod
+    def _color_plugs(method: str, node: DagNode, color: object, shape: bool) -> list[Plug]:
+        """表示色の設定(``setOverrideColor``・``setOutlinerColor``)で、nodeについて書き込むPlugを返す。
+
+        Args:
+            method (str): ``"setOverrideColor"`` か ``"setOutlinerColor"``。
+            node (DagNode): 設定するノード。
+            color (object): 設定する色。
+            shape (bool): 確かめ済みのshape。
+
+        Returns:
+            list[Plug]: 書き込むPlug。
         """
         ...
     def _require_method(self, method: str) -> None:

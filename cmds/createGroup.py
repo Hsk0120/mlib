@@ -79,10 +79,7 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
     elif world:
         flags["world"] = True
     with undoTransaction("mlibCreateGroup"), preservedSelection():
-        if paths:
-            group = cmds.group(paths, **flags)
-        else:
-            group = cmds.group(empty=True, **flags)
+        group = cmds.group(paths, **flags) if paths else cmds.group(empty=True, **flags)
         # cmds.group は短い名前を返すため、選択(作成直後のグループ)から一意な名前を得る。
         selected = cmds.ls(selection=True, long=True)
         return Node(selected[0] if selected else group)

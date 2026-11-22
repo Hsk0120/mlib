@@ -21,8 +21,8 @@ __all__ = ['getDiagnostics', 'status']
 _states: dict
 _loading: bool
 _diagnosing: bool
-_package_name: Any
-_extension_pattern: Any
+_PACKAGE_NAME: Any
+_EXTENSION_PATTERN: Any
 _attempted: Any
 
 def status() -> dict:

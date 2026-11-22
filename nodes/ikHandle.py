@@ -89,7 +89,7 @@ class IkHandle(Transform):
             raise ValueError("endJointはstartJointの子孫で指定してください")
         if self.getSolver() != "ikSCsolver":
             raise NotImplementedError("チェーン変更はSCソルバーだけに対応しています")
-        for node in [self, end] + ancestors:
+        for node in [self, end, *ancestors]:
             if node.isFromReferencedFile() or node.isInstanced():
                 raise NotImplementedError("参照またはインスタンスのIKチェーン変更には対応していません")
             if node.isLocked():

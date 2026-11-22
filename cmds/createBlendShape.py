@@ -57,5 +57,5 @@ def createBlendShape(base, targets=(), name=_UNSET, frontOfChain=_UNSET, *, n=_U
     if name is not None:
         flags["name"] = name
     with undoChunk("mlibCreateBlendShape"):
-        result = cmds.blendShape(*(target_names + [base_name]), **flags)
+        result = cmds.blendShape(*target_names, base_name, **flags)
         return Node(result[0])

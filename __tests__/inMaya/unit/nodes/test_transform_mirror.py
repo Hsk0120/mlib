@@ -82,7 +82,7 @@ class MirrorAxisNotationTest(_SpecCase):
             results.append(
                 [
                     cmds.xform(n, query=True, worldSpace=True, translation=True)
-                    for n in [new_root.getFullName()] + cmds.listRelatives(new_root.getFullName(), allDescendents=True, fullPath=True)
+                    for n in [new_root.getFullName(), *cmds.listRelatives(new_root.getFullName(), allDescendents=True, fullPath=True)]
                 ]
             )
             cmds.delete(new_root.getFullName())

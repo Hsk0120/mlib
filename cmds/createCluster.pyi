@@ -3,7 +3,7 @@
 
 import maya.cmds as cmds
 from ..core.object import Object
-from ..core.shapeBuild import require_name
+from ..core.shapeBuild import require_existing, require_name
 from ..decorator import _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..util import _UNSET
 from typing import Iterable

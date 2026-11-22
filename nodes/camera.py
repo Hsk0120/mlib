@@ -142,6 +142,7 @@ class Camera(Shape):
             RuntimeError: カメラが無効、またはMayaが変更を拒否した場合。
         """
         _require_bool(state, "state")
+        self._require_valid("設定の変更")
         cmds.camera(self.getFullName(), edit=True, verticalLock=state)
 
     def getFocalLength(self):
@@ -204,6 +205,7 @@ class Camera(Shape):
             value = om2.MAngle(value).asDegrees()
         if not 0 < value < 180:
             raise ValueError("angleは0より大きく180度未満で指定してください")
+        self._require_valid("画角の変更")
         if vertical:
             cmds.camera(self.getFullName(), edit=True, verticalFieldOfView=value)
         else:
@@ -228,6 +230,7 @@ class Camera(Shape):
         value = _finite(distance, "distance")
         if value <= 0:
             raise ValueError("distanceは正の距離で指定してください")
+        self._require_valid("合焦距離の変更")
         cmds.camera(self.getFullName(), edit=True, nearFocusDistance=om2.MDistance(value).asUnits(om2.MDistance.uiUnit()))
 
     def setFarFocusDistance(self, distance):
@@ -249,6 +252,7 @@ class Camera(Shape):
         value = _finite(distance, "distance")
         if value <= 0:
             raise ValueError("distanceは正の距離で指定してください")
+        self._require_valid("合焦距離の変更")
         cmds.camera(self.getFullName(), edit=True, farFocusDistance=om2.MDistance(value).asUnits(om2.MDistance.uiUnit()))
 
     def getCenterOfInterestPoint(self, worldSpace=_UNSET, *, ws=_UNSET):
@@ -324,6 +328,7 @@ class Camera(Shape):
         value = _finite(value, "value")
         if value <= 0:
             raise ValueError("valueは正の縦横比で指定してください")
+        self._require_valid("縦横比の変更")
         cmds.camera(self.getFullName(), edit=True, aspectRatio=value)
 
     def getParameterLimits(self):

@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import maya.cmds as cmds
 
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.shapeBuild import finish_shape, require_name, resolve_parent
 from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelection, undoTransaction
 from ..util import _UNSET
@@ -59,7 +59,7 @@ def createCurve(points, degree=_UNSET, closed=False, knots=None, name=_UNSET, pa
     """
     degree = _pick_alias(degree, d, "degree", "d", default=1)
     name = _pick_alias(name, n, "name", "n", default=None)
-    values = geometry_edit.point_list(points)
+    values = geometryEdit.point_list(points)
     if isinstance(degree, bool) or not isinstance(degree, int):
         raise TypeError("degreeはintで指定してください")
     if degree not in (1, 2, 3):

@@ -101,11 +101,11 @@ class ConsolidatedAnimationTest(unittest.TestCase):
                 self.assertTrue(math.isfinite(curve.evaluate(0)))
                 actual = curve.getTangent(1, unit="rad")
                 in_degrees = curve.getTangent(1)
-            for key in expected:
-                if isinstance(expected[key], float):
-                    self.assertAlmostEqual(actual[key], expected[key], places=6)
+            for key, value in expected.items():
+                if isinstance(value, float):
+                    self.assertAlmostEqual(actual[key], value, places=6)
                 else:
-                    self.assertEqual(actual[key], expected[key])
+                    self.assertEqual(actual[key], value)
             # 接線の角度の既定は度。
             self.assertAlmostEqual(in_degrees["inAngle"], math.degrees(expected["inAngle"]), places=6)
 

@@ -24,8 +24,8 @@ class Deferred:
             TypeError: callbackが呼び出せない場合。
         """
         # Maya非依存を保てるよう、呼ばれたときにだけ読み込む。
-        import maya.utils as utils
+        import maya.utils as maya_utils
 
         if not callable(callback):
             raise TypeError("呼び出せるオブジェクトを指定してください")
-        utils.executeDeferred(callback, *args, **kwargs)
+        maya_utils.executeDeferred(callback, *args, **kwargs)

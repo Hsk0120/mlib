@@ -29,10 +29,7 @@ def _points(name, worldSpace=False):
     """MeshまたはNurbsCurveの全点をcmのXYZのlistで返す(mlibを通さない)。"""
     path = _path(name)
     space = om2.MSpace.kWorld if worldSpace else om2.MSpace.kObject
-    if path.node().hasFn(om2.MFn.kMesh):
-        values = om2.MFnMesh(path).getPoints(space)
-    else:
-        values = om2.MFnNurbsCurve(path).cvPositions(space)
+    values = om2.MFnMesh(path).getPoints(space) if path.node().hasFn(om2.MFn.kMesh) else om2.MFnNurbsCurve(path).cvPositions(space)
     return [(point.x, point.y, point.z) for point in values]
 
 

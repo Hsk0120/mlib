@@ -121,7 +121,7 @@ class CommonMethodsTest(unittest.TestCase):
         return joints, mlib.getNode(mesh), skin
 
     def test_history_filtered_and_empty(self):
-        joints, mesh, skin = self.skin()
+        _joints, mesh, skin = self.skin()
         self.assertIn(skin.getUuid(), [node.getUuid() for node in mesh.getHistory(type="skinCluster")])
         self.assertIn(skin.getUuid(), [node.getUuid() for node in mesh.getHistory(type="geometryFilter")])
         native = cmds.listHistory(mesh.getFullName()) or []

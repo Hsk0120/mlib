@@ -34,7 +34,7 @@ class CommonMethodsTest(unittest.TestCase):
         return joints, mlib.getNode(mesh), skin
 
     def test_unused_influences_undo_and_joint_survival(self):
-        joints, mesh, skin = self.skin()
+        joints, _mesh, skin = self.skin()
         names = [joint.getFullName() for joint in joints]
         skin.setWeights(names, [1, 0, 0], broadcast=True)
         self.assertEqual([node.getUuid() for node in skin.getUnusedInfluences()], [j.getUuid() for j in joints[1:]])
@@ -50,7 +50,7 @@ class CommonMethodsTest(unittest.TestCase):
         self.assertEqual(skin.removeUnusedInfluences(), [])
 
     def test_unused_influences_keep_small_weights_and_reject_empty_binding(self):
-        joints, mesh, skin = self.skin()
+        joints, _mesh, skin = self.skin()
         names = [joint.getFullName() for joint in joints]
         skin.setWeights(names, [1 - 1e-8, 1e-8, 0], broadcast=True)
         self.assertEqual([node.getUuid() for node in skin.getUnusedInfluences()], [joints[2].getUuid()])

@@ -108,7 +108,7 @@ class ValidationReport:
         if self._missing:
             parts.append(f"{len(self._missing)}件が見つかりません({_summary(self._missing)})")
         if self._skipped:
-            parts.append(f"{len(self._skipped)} skipped ({_summary(self._skipped)})")
+            parts.append(f"{len(self._skipped)}件を飛ばしました({_summary(self._skipped)})")
         if parts:
             logger.warning("%s: %s", label, "; ".join(parts))
 

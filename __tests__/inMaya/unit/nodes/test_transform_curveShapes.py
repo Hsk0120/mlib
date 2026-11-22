@@ -46,7 +46,7 @@ class CurveShapesTest(NamespaceCase):
         cmds.delete(open_curve)
         cmds.rename(cmds.listRelatives(control, shapes=True, fullPath=True)[2], "ctrlOpenShape")
         node = mlib.getNode(control)
-        circle, square_shape, open_shape = node.getShapes()
+        circle, square_shape, _open_shape = node.getShapes()
         circle.setOverrideColor(17)
         square_shape.setOverrideColor((0.25, 0.5, 1.0))
         cmds.setAttr(circle.getFullName() + ".lineWidth", 3.0)

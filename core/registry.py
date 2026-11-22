@@ -11,10 +11,10 @@ for _name in ("collection_export", "discover_node_package", "get", "node_wrapper
 
 
 #: node_type -> 継承チェーン(自身を先頭、基底型へ向かう順)の tuple。
-_INHERITED_TYPES_CACHE = {}
+_inherited_types_cache = {}
 
 #: クラスを自動で作る登録表。型の継承のキャッシュを消すときに、作ったクラスも捨てる。
-_GENERATING_REGISTRIES = weakref.WeakSet()
+_generating_registries = weakref.WeakSet()
 
 #: Mayaの版で改名されたノード型(2025以前の名前 -> 2026以降の名前)。どちらの名前も全版で使える。
 _RENAMED_NODE_TYPES = {"multDoubleLinear": "multDL", "addDoubleLinear": "addDL"}
@@ -23,7 +23,7 @@ _RENAMED_NODE_TYPES = {"multDoubleLinear": "multDL", "addDoubleLinear": "addDL"}
 _NODE_TYPE_ALIASES = dict(_RENAMED_NODE_TYPES, **{new: old for old, new in _RENAMED_NODE_TYPES.items()})
 
 #: 版によって違う型名を、この版のMayaが認識する型名へ読み替えた結果(認識できた場合だけ保存する)。
-_REAL_TYPE_CACHE = {}
+_real_type_cache = {}
 
 #: Maya標準に加わった版が分かっているノード型(型名 -> 最初の版)。作成できない場合の案内に使う。
 _NODE_TYPES_SINCE = dict.fromkeys(
@@ -88,7 +88,7 @@ def _inherited_node_types(node_type):
         tuple[str, ...]: 継承チェーン。node_type 自身が先頭で、直接の親から基底の型へ向かって並ぶ。
             Maya が認識しない型名なら、node_type 自身だけの1要素の tuple。
     """
-    cached = _INHERITED_TYPES_CACHE.get(node_type)
+    cached = _inherited_types_cache.get(node_type)
     if cached is not None:
         return cached
     try:
@@ -98,7 +98,7 @@ def _inherited_node_types(node_type):
     if not chain:
         return (node_type,)
     chain = tuple(reversed(chain))
-    _INHERITED_TYPES_CACHE[node_type] = chain
+    _inherited_types_cache[node_type] = chain
     return chain
 
 
@@ -116,14 +116,14 @@ def _node_type_exists(node_type):
     Returns:
         bool: ``cmds.nodeType(node_type, isTypeName=True)`` が型名として認識すれば True。
     """
-    if node_type in _INHERITED_TYPES_CACHE:
+    if node_type in _inherited_types_cache:
         return True
     try:
         chain = cmds.nodeType(node_type, isTypeName=True, inherited=True)
     except RuntimeError:
         return False
     if chain:
-        _INHERITED_TYPES_CACHE[node_type] = tuple(reversed(chain))
+        _inherited_types_cache[node_type] = tuple(reversed(chain))
     return True
 
 
@@ -145,7 +145,7 @@ def _real_node_type(node_type):
     alias = _NODE_TYPE_ALIASES.get(node_type)
     if alias is None:
         return node_type
-    cached = _REAL_TYPE_CACHE.get(node_type)
+    cached = _real_type_cache.get(node_type)
     if cached is not None:
         return cached
     if _node_type_exists(node_type):
@@ -154,7 +154,7 @@ def _real_node_type(node_type):
         resolved = alias
     else:
         return node_type
-    _REAL_TYPE_CACHE[node_type] = resolved
+    _real_type_cache[node_type] = resolved
     return resolved
 
 
@@ -205,9 +205,9 @@ def _clear_type_hierarchy_cache():
     Returns:
         None: 値を返さない。
     """
-    _INHERITED_TYPES_CACHE.clear()
-    _REAL_TYPE_CACHE.clear()
-    for registry in list(_GENERATING_REGISTRIES):
+    _inherited_types_cache.clear()
+    _real_type_cache.clear()
+    for registry in list(_generating_registries):
         registry._invalidate_generated()
 
 
@@ -262,7 +262,7 @@ class NodeRegistry:
         #: 自動で作ったクラスの保存先(nodeType -> class)。登録表を変えたときと、型の継承の保存内容を消したときに空にする。
         self._generated = {}
         if generate_classes:
-            _GENERATING_REGISTRIES.add(self)
+            _generating_registries.add(self)
 
     def register(self, node_type, wrapper_class):
         """名前にクラスを登録する。同じ名前がすでにあれば上書きする。

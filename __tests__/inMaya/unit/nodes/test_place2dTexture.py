@@ -68,7 +68,7 @@ class TextureNodesTest(_GeometryCase):
         names = cmds.colorManagementPrefs(query=True, inputSpaceNames=True)
         before = node.getColorSpace()
         self.assertIn(before, names)
-        target = [name for name in names if name != before][0]
+        target = next(name for name in names if name != before)
         self.assertIsNone(node.setColorSpace(target))
         self.assertEqual(node.getColorSpace(), target)
         cmds.undo()

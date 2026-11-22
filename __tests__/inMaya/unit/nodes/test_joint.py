@@ -547,10 +547,7 @@ class GetRotateTest(_SpecCaseJoint):
             default = joint.getRotate(worldSpace=ws)
             self.assertSequenceAlmostEqual(joint.getRotate(worldSpace=ws, order=2), default)
             self.assertSequenceAlmostEqual(joint.getRotate(worldSpace=ws, order="zxy"), default)
-            if ws:
-                matrix = om2.MMatrix(cmds.getAttr(str(joint) + ".worldMatrix[0]"))
-            else:
-                matrix = om2.MMatrix(cmds.getAttr(str(joint) + ".matrix"))
+            matrix = om2.MMatrix(cmds.getAttr(str(joint) + ".worldMatrix[0]")) if ws else om2.MMatrix(cmds.getAttr(str(joint) + ".matrix"))
             quaternion = om2.MTransformationMatrix(matrix).rotation(asQuaternion=True)
             for order in (0, 1, 3, 4, 5):
                 with self.subTest(ws=ws, order=order):
@@ -628,7 +625,7 @@ class SetParentTest(_SpecCaseJoint):
 class ResetAttrsTest(_SpecCaseJoint):
     """Joint.resetAttrs の既定は、キー設定可能な全アトリビュートと jointOrient を戻す。"""
 
-    KEYABLE = ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+    KEYABLE = ("visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ")
 
     def build(self):
         name = self.make()
@@ -643,7 +640,7 @@ class ResetAttrsTest(_SpecCaseJoint):
                 name = self.build()
                 cmds.flushUndo()
                 plugs = Node(name).resetAttrs(fast=fast)
-                self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE + ["jointOrientX", "jointOrientY", "jointOrientZ"])
+                self.assertEqual([plug.getLongName() for plug in plugs], [*self.KEYABLE, "jointOrientX", "jointOrientY", "jointOrientZ"])
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (0.0, 0.0, 0.0))
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
                 if fast:
@@ -661,7 +658,7 @@ class ResetAttrsTest(_SpecCaseJoint):
                 cmds.setAttr(name + ".jointOrientX", lock=True)
                 cmds.connectAttr(source + ".translateY", name + ".jointOrientY")
                 plugs = Node(name).resetAttrs(fast=fast)
-                self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE + ["jointOrientZ"])
+                self.assertEqual([plug.getLongName() for plug in plugs], [*self.KEYABLE, "jointOrientZ"])
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 0.0, 0.0))
 
     def test_explicit_attributes_keep_joint_orient(self):

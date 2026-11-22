@@ -44,7 +44,7 @@ def worker(version, directory, suite_path=None):
 
     import maya.cmds as cmds
     import maya.mel as mel
-    import maya.OpenMayaUI as OpenMayaUI
+    import maya.OpenMayaUI as omui
 
     try:
         from PySide6 import QtCore, QtWidgets
@@ -79,7 +79,7 @@ def worker(version, directory, suite_path=None):
             finish(result)
 
     def wait_for_main_window():
-        pointer = OpenMayaUI.MQtUtil.mainWindow()
+        pointer = omui.MQtUtil.mainWindow()
         window = wrapInstance(int(pointer), QtWidgets.QWidget) if pointer else None
         write_json(
             directory / "gui-readiness.json",
@@ -183,7 +183,7 @@ def combine(version, results):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--versions", nargs="+", choices=VERSIONS, default=list(DEFAULT_VERSIONS), help="既定: " + " ".join(DEFAULT_VERSIONS))
-    parser.add_argument("--suite", choices=("all",) + tuple(SUITES), default="all", help="実行するスイート(既定: all)")
+    parser.add_argument("--suite", choices=("all", *SUITES), default="all", help="実行するスイート(既定: all)")
     parser.add_argument("--install-root", type=Path, default=Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Autodesk")
     parser.add_argument("--timeout", type=int, default=600, help="起動・テストの各段階の制限秒数")
     parser.add_argument("--shutdown-timeout", type=int, default=120)

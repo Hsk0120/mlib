@@ -262,9 +262,7 @@ class SelectionReadableReprTest(_Case):
         for attributes_flag, objects_flag in selection_module._CHANNEL_BOX_SECTIONS:
             attributes = cmds.channelBox(name, query=True, **{attributes_flag: True}) or []
             for owner in cmds.channelBox(name, query=True, **{objects_flag: True}) or [] if attributes else []:
-                for attribute in attributes:
-                    if cmds.objExists(owner + "." + attribute):
-                        expected.append(mlib.getPlug(owner + "." + attribute).getFullName())
+                expected.extend(mlib.getPlug(owner + "." + attribute).getFullName() for attribute in attributes if cmds.objExists(owner + "." + attribute))
         actual = [plug.getFullName() for plug in Selection.getChannelBoxPlugs()]
         self.assertEqual(actual, list(dict.fromkeys(expected)))
 
@@ -364,7 +362,7 @@ class SoftSelectionTest(_SkinCase):
         cmds.select(plane + ".vtx[3]", plane + ".vtx[5]")
         result = Selection.getSoftSelection()
         self.assertEqual(list(result.values()), [{3: 1.0, 5: 1.0}])
-        self.assertEqual(list(result)[0], mlib.getNode(plane).getShape())
+        self.assertEqual(next(iter(result)), mlib.getNode(plane).getShape())
         cmds.select(clear=True)
         self.assertEqual(Selection.getSoftSelection(), {})
 
@@ -373,7 +371,7 @@ class SoftSelectionTest(_SkinCase):
         cmds.softSelect(softSelectEnabled=True, softSelectDistance=0.5, softSelectFalloff=0)
         plane = cmds.polyPlane(name=self.name("p"), subdivisionsX=10, subdivisionsY=10)[0]
         cmds.select(plane + ".vtx[60]")
-        weights = list(Selection.getSoftSelection().values())[0]
+        weights = next(iter(Selection.getSoftSelection().values()))
         self.assertAlmostEqual(weights[60], 1.0)
         self.assertGreater(len(weights), 1)
         self.assertTrue(all(0.0 < value <= 1.0 for value in weights.values()))

@@ -79,7 +79,7 @@ class BacklogContractsTest(unittest.TestCase):
             package = Path(directory) / "fixture"
             package.mkdir()
             (package / "__init__.py").write_text("__all__ = []\n", encoding="utf-8")
-            for folder in CLASS_PACKAGES + ("cmds",):
+            for folder in (*CLASS_PACKAGES, "cmds"):
                 (package / folder).mkdir()
                 (package / folder / "__init__.py").write_text("__all__ = []\n", encoding="utf-8")
             for suffix in ("a", "b"):

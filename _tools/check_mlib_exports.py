@@ -88,10 +88,8 @@ class Source:
         """TYPE_CHECKINGブロックで宣言した参照先を列挙する。"""
         for node in self.tree.body:
             if isinstance(node, ast.If) and (
-                isinstance(node.test, ast.Name)
-                and node.test.id == "TYPE_CHECKING"
-                or isinstance(node.test, ast.Attribute)
-                and node.test.attr == "TYPE_CHECKING"
+                (isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING")
+                or (isinstance(node.test, ast.Attribute) and node.test.attr == "TYPE_CHECKING")
             ):
                 yield from self.imports(node.body)
 
@@ -266,7 +264,7 @@ class ExportChecker:
             try:
                 name = ast.literal_eval(key)
                 module, attribute = ast.literal_eval(value)
-                if not isinstance(name, str) or not isinstance(module, str) or attribute is not None and not isinstance(attribute, str):
+                if not isinstance(name, str) or not isinstance(module, str) or (attribute is not None and not isinstance(attribute, str)):
                     raise ValueError("invalid export")
             except (ValueError, TypeError):
                 self.issue(source, node.lineno, "E006", "_exportsのキーと参照先を文字列で明示する")
@@ -418,7 +416,7 @@ class ExportChecker:
 
     def run(self):
         """全公開パッケージを読み、安定した順番の診断一覧を返す。"""
-        for folder in CLASS_PACKAGES + ("cmds",):
+        for folder in (*CLASS_PACKAGES, "cmds"):
             self.inspect_entry(self.package + "." + folder)
         self.inspect_entry(self.package)
         for folder in CLASS_PACKAGES:

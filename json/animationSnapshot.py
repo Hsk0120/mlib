@@ -491,7 +491,8 @@ def _capture_layers(used, root):
         list[dict]: レイヤーの設定。
     """
     needed = set()
-    for layer in used:
+    for name in used:
+        layer = name
         while layer and layer != root and layer not in needed:
             needed.add(layer)
             layer = cmds.animLayer(layer, query=True, parent=True)

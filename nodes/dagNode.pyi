@@ -1015,6 +1015,36 @@ class DagNode(Node):
         """
         ...
 
+def _override_color_writes(color: int | Sequence[float] | None) -> list[tuple[str, object]]:
+    """:meth:`DagNode.setOverrideColor` で書き込むアトリビュートと値を返す。
+
+    Args:
+        color (int | Sequence[float] | None): :meth:`DagNode.setOverrideColor` と同じ。
+
+    Returns:
+        list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。
+
+    Raises:
+        TypeError: colorがint・3個の数値の列・Noneのどれでもない場合。
+        ValueError: 番号やRGBの成分が範囲外の場合。
+    """
+    ...
+
+def _outliner_color_writes(color: int | Sequence[float] | None) -> list[tuple[str, object]]:
+    """:meth:`DagNode.setOutlinerColor` で書き込むアトリビュートと値を返す。
+
+    Args:
+        color (int | Sequence[float] | None): :meth:`DagNode.setOutlinerColor` と同じ。
+
+    Returns:
+        list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。
+
+    Raises:
+        TypeError: colorがint・3個の数値の列・Noneのどれでもない場合。
+        ValueError: 番号やRGBの成分が範囲外の場合。
+    """
+    ...
+
 def _palette_color(index: int) -> tuple[float, float, float]:
     """カラー番号のRGBを返す。
 

@@ -23,8 +23,8 @@ for _name in ("node_wrapper", "plug_wrapper", "discover_node_package", "discover
 _states = {}
 _loading = False
 _diagnosing = False
-_package_name = (__package__ or "").rpartition(".")[0]
-_extension_pattern = re.compile(re.escape(_package_name) + r"_[a-z][a-z0-9_]*")
+_PACKAGE_NAME = (__package__ or "").rpartition(".")[0]
+_EXTENSION_PATTERN = re.compile(re.escape(_PACKAGE_NAME) + r"_[a-z][a-z0-9_]*")
 # 親のimportに失敗すると子だけsys.modulesに残るため、試行した名前も保持する。
 # extensions自体のreloadでも、次の一括解除まで追跡を失わない。
 _attempted = globals().get("_attempted", set())
@@ -56,7 +56,7 @@ def getDiagnostics():
             初期化の記録と登録表は変えない。
     """
     global _diagnosing
-    modules = {name: module for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name)}
+    modules = {name: module for name, module in list(sys.modules.items()) if _EXTENSION_PATTERN.fullmatch(name)}
     names = set(_states) | set(modules)
     result = {}
     reentered = _diagnosing
@@ -82,7 +82,7 @@ def getDiagnostics():
                     record["available"] = available
                     if not available:
                         record["reason"] = "任意の依存が利用できません"
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 拡張の判定で何が起きても、診断の結果として記録する
                     record["reason"] = str(exc) or type(exc).__name__
     finally:
         if not reentered:
@@ -97,10 +97,10 @@ def _prepare_reload():
     利用側が持っているPythonのオブジェクトは、利用側で取得し直す。
     初期化の途中で呼ばれた場合は、モジュールを1つも削除せずに例外にする。
     """
-    roots = {name for name, module in list(sys.modules.items()) if _extension_pattern.fullmatch(name) and getattr(module, "MLIB_EXTENSION_API", None) == 1}
+    roots = {name for name, module in list(sys.modules.items()) if _EXTENSION_PATTERN.fullmatch(name) and getattr(module, "MLIB_EXTENSION_API", None) == 1}
     roots.update(_attempted)
     if _loading or any(getattr(getattr(sys.modules.get(name), "__spec__", None), "_initializing", False) for name in roots):
-        raise RuntimeError(f"拡張の初期化中は{_package_name}をリロードできません")
+        raise RuntimeError(f"拡張の初期化中は{_PACKAGE_NAME}をリロードできません")
     for name in list(sys.modules):
         if name.split(".", 1)[0] in roots:
             del sys.modules[name]
@@ -163,7 +163,7 @@ def _require_dependencies(name, locations):
                     imports = [node.module or ""]
                 for target in imports:
                     package = target.split(".", 1)[0]
-                    if package != name and _extension_pattern.fullmatch(package):
+                    if package != name and _EXTENSION_PATTERN.fullmatch(package):
                         raise ValueError(f"拡張どうしは依存できません: {name} -> {package}")
 
 
@@ -180,7 +180,7 @@ def _find_candidates():
         if not _may_contain_candidate(path):
             continue
         for info in pkgutil.iter_modules([path]):
-            if info.ispkg and _extension_pattern.fullmatch(info.name):
+            if info.ispkg and _EXTENSION_PATTERN.fullmatch(info.name):
                 location = os.path.normcase(os.path.realpath(path))
                 candidates.setdefault(info.name, set()).add(location)
     return candidates
@@ -209,7 +209,7 @@ def _may_contain_candidate(path):
         return False
     try:
         # フォルダーでない・読めない場合はOSError(NotADirectoryError等)になるため、事前の判定は要らない。
-        return any(_extension_pattern.fullmatch(entry.name) for entry in Path(importer.path).iterdir())
+        return any(_EXTENSION_PATTERN.fullmatch(entry.name) for entry in Path(importer.path).iterdir())
     except OSError:
         return False
 
@@ -235,7 +235,7 @@ def _load_candidate(name, locations):
         raise ValueError(f"拡張パッケージが重複しています: {name}")
     previous = sys.modules.get(name)
     if getattr(getattr(previous, "__spec__", None), "_initializing", False):
-        raise RuntimeError(f"拡張の__init__で{_package_name}やラッパーをimportしないでください。サブモジュールを読み込む前に宣言を終えてください")
+        raise RuntimeError(f"拡張の__init__で{_PACKAGE_NAME}やラッパーをimportしないでください。サブモジュールを読み込む前に宣言を終えてください")
     _attempted.add(name)
     package = importlib.import_module(name)
     if getattr(package, "MLIB_EXTENSION_API", None) != 1:
@@ -281,7 +281,7 @@ def _validated_entries(name, bases):
             if not isinstance(cls, type) or not issubclass(cls, base):
                 raise TypeError(f"ラッパーの基底クラスが不正です: {key}")
             if any(
-                _extension_pattern.fullmatch(base_cls.__module__.split(".", 1)[0]) and base_cls.__module__.split(".", 1)[0] != name for base_cls in cls.__mro__
+                _EXTENSION_PATTERN.fullmatch(base_cls.__module__.split(".", 1)[0]) and base_cls.__module__.split(".", 1)[0] != name for base_cls in cls.__mro__
             ):
                 raise TypeError("拡張のラッパーは、ほかの拡張のクラスを継承できません")
             if base._registry.lookup(key) is not None:
@@ -336,8 +336,8 @@ def _initialize():
                     _apply_entries(entries)
                     state = {"state": "loaded", "reason": ""}
                 _states[name] = state
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 1つの拡張の失敗で、ほかの拡張とmlibの読み込みを止めない
                 _states[name] = {"state": "error", "reason": str(exc)}
-                logger.warning("%sの拡張%s: %s", _package_name, name, exc)
+                logger.warning("%sの拡張%s: %s", _PACKAGE_NAME, name, exc)
     finally:
         _loading = False

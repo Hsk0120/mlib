@@ -16,6 +16,9 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - 汎用 UI・設定ストア(OptionVar/Preferences)・シーン/プロジェクト/FBX 操作・専用 Color 型は本体へ追加しない。
 - 旧名の互換別名・互換ファイルは残さない。改名したら使用側・テスト・docstring・Sphinx を同時に更新する。
 - 同じ処理の別名を増やさない。正式な入口へ集約する。
+- **コミットの前に、必ず `_tools/format_mlib.bat --check --no-pause` を実行し、最後の行が `[OK]` であることを確かめる。**
+  `[NG]` のままコミットしない(`_tools/format_mlib.bat --no-pause` で直せるものを直し、残りは手で直してからもう一度 `--check`)。
+  コミット前のフックは置かない(ユーザー指定)ので、この確認はエージェントと人が毎回自分で行う。テストの前後・小さな修正でも省かない。
 - 版番号は `_version.py` の `__version__` だけに書く(`__init__.py` はそこから import する。`__all__` に入れない)。
 - 文書の紹介文(`_docs/source/whymlib.rst`)で比較に挙げる他のライブラリの名前は、紹介文だけに書く。コード・コメント・docstring・
   例外メッセージ・テスト・ほかの文書・ファイル名・コミットメッセージには書かない(このファイルにも書かない。
@@ -90,13 +93,19 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 | 公開の独自引数 | lowerCamelCase。Maya のフラグと同名ならその表記 | `worldSpace`・`uiUnits`・`transferToParent` |
 | 内部関数・内部メソッド・ローカル変数 | snake_case | `_resolve_input`・`namespace_map` |
 | core 層の関数 | snake_case | `set_positions`・`require_writable` |
-| 定数 | UPPER_SNAKE_CASE、説明は `#:` | `LOAD_FAILED` |
+| 定数(実行中に変わらない値) | UPPER_SNAKE_CASE、説明は `#:`。一覧は tuple、集合は frozenset | `LOAD_FAILED`・`_SPACE_KEYWORDS` |
+| モジュールの状態・キャッシュ(実行中に変わる値) | snake_case | `_states`・`_om2_types` |
+| 型・クラスの別名 | PascalCase | `_MVector = om2.MVector` |
 | Maya コマンドのファイル | Maya と同じ camelCase | `cmds/createNode.py` |
 | Maya ノードのファイル | nodeType と同じ表記 | `skinCluster.py`・`animCurveTL.py` |
 | その他のファイル | lowerCamelCase | `scriptJobs.py`・`multiPlug.py` |
 | パッケージ | 小文字 | `nodes`・`common` |
 
 - 公開引数は `__tests__/noMaya/test_mlib_publicArgs.py` が検査する。`*args`/`**kwargs` と既存の登録プロトコル(`NodeRegistry`・`reload_package` 等)は対象外。
+- 関数・メソッド・プロパティ・クラスの名前は `check_mlib_layout.py` の L053 が検査する。公開の名前の形(lowerCamelCase・PascalCase)を問うのは
+  `core` と先頭が `_` のモジュール・クラスの外だけで、関数の中で定義した関数は対象外。先頭が `_` の関数・メソッドは、どこでも snake_case。
+- モジュール直下の名前は L054 が検査する。大文字の名前を list・set で書かない。関数の中で書き足す(`NAME[key] = ...`・`NAME.append(...)` 等)か
+  `global` で代入する名前は、実行中に変わる状態なので小文字にする。読み込み時にモジュール直下で組み立てるだけの表は定数として大文字のまま。
 - om2 から継承・オーバーライドする名前、Python の特殊メソッド、`dump`/`load` 等の標準 API 名は維持する。
 - 動詞: `get`/`set` は値の取得・設定、`is`/`has` は判定、`create`/`add`/`remove` は作成・追加・除外。
   独自の取得は `getName()`・`getChildren()` のように `get` を付ける。判定は正式な `isX` に一本化する(is 省略入口は作らない)。
@@ -221,6 +230,7 @@ def setFoo(self, value, *, fast=False):
 - `MFnTransform` の設定はロックのある成分を例外にせず飛ばし、`MFnMesh.setPoints` などのまとめて書く関数はロックを見ない。
   `check=False` の fast では、ロックされた成分が書き換わったり、書かれずに残ったりすることを説明に書く。
 - `check=True` では、どの子も書く前に `_require_finite_value` と `_require_writable` で確かめ、何も書かずに例外にする。
+  複数のPlug・要素・ノード・形状へ書くメソッドも、`check=True` なら書く前に対象を全部確かめ、途中まで書かない(通常の経路と fast の両方)。
 - `check=False` では Maya の拒否に任せる。OpenMaya の MPlug はロック・入力の接続があると理由の分からない文言で拒否するので、
   `fastWrite.set_plug` は拒否されたときだけ理由を調べて、これまでと同じ文言の例外にする。
 - fast の範囲の検査(min/max・enum)は `check` に関係なく残す(MPlug は範囲外の値をそのまま書くため)。
@@ -461,7 +471,12 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   `__all__` は import 群の直後に置く。定数は原則 import 群の直後(先行定義を参照するものは依存先の後)。
 - import は標準ライブラリ → `maya.*` 等の外部 → mlib 内部(相対 import・`mlib.*`)の3グループ、間に空行1行。
   グループ内は `import x` を先、続けて `from x import y`、それぞれモジュール名順(大文字小文字を区別しない。`..` は `.` より先)。
-- Maya は `import maya.cmds as cmds`・`import maya.mel as mel`・`import maya.api.OpenMaya as om2`(個別名の `from` import は可)。
+- Maya のモジュールの別名は決まった名前だけにする(`ruff.toml` の `ICN` の表。別名なしの `import maya.utils` も報告される):
+  `maya.cmds`→`cmds`・`maya.mel`→`mel`・`maya.utils`→`maya_utils`・`maya.api.OpenMaya`→`om2`・`maya.api.OpenMayaAnim`→`oma2`・
+  `maya.OpenMaya`→`om1`・`maya.OpenMayaAnim`→`oma1`・`maya.OpenMayaUI`→`omui`。`from maya import cmds` の形は使わない(個別名の `from` import は可)。
+- mlib の中の import(相対 import・`mlib.*`)に別名を付けない(`check_mlib_layout.py` の L055)。`from ..core import geometryEdit` のように
+  元の名前で読み、`geometryEdit as geometry_edit`・`Object as _InputObject` のような別名にしない。公開の名前から隠すために
+  先頭へ `_` を付けるだけの別名(`NodeRegistry as _NodeRegistry`)は可。
 - `import os, sys` は分離する。`from x import A, B` は可、`from x import *` は禁止。
 - 関数内 import は循環参照の回避・任意依存・Maya 非依存の維持など理由がある場合だけ使い、直前に短い理由コメントを付ける(連続した同じ理由の群は1つ)。
 - 初期化順が仕様の `__init__.py`(ルート・`core`・`cmds`・`nodes`・`plugs`)は import の並び替え対象外(`ruff.toml` で `I001` を除外)。理由のある遅延 import・
@@ -493,12 +508,21 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 書式の入口は `_tools/format_mlib.bat`(`ruff format` → `ruff check --fix` → `check_mlib_layout.py --check` の順)。
   選ぶルールと除外の理由は `ruff.toml` に1行ずつ書く。別の版の ruff は `required-version` で拒否し、preview のルールは
   `explicit-preview-rules` でコードを明示したものだけ有効にする。日本語の文中でも括弧は半角 `()` で書く(`RUF001`〜`003`)。
-  `--check` は何も変えずに検査するので、コミット前と workflow で使う。ターミナルからは `--no-pause` を付ける。
+  `--check` は何も変えずに検査するので、コミット前(必ず。上の「全体の原則」)と workflow で使う。ターミナルからは `--no-pause` を付ける。
+  2026-11-22 にユーザーと1つずつ決めて、書き方の揃え方とバグになりやすい書き方のルールを足した(族ごとでなくコードを1つずつ選ぶ。用途は
+  `ruff.toml` の各行): `print` は本体で使わず `logger` を使う(`T20`)、何でも受ける `except Exception` は後始末だけに使い
+  `# noqa: BLE001 <理由>` を同じ行に書く(それ以外は受ける例外を絞る)、ループ変数をループの中で上書きしない(本体だけ。`PLW2901`)、
+  リスト・タプルは `+` でなく `[a, *b]` でつなぐ(`RUF005`。左側が `Vector` やmlibの複数形なら `+` は加算・連結なので書き換えない。
+  ruff の自動修正はこれを区別しないので、かけたら左側の型を必ず確かめる)、使わない値は `_` 付きの名前で受ける(`RUF059`)、代入だけの if/else は三項演算子
+  (`SIM108`)、`try/except: pass` は `contextlib.suppress`(`SIM105`)、条件式の重ね書き・入れ子の if をまとめる(`SIM101`・`SIM102`・`SIM103`・
+  `SIM114`・`SIM300`・`PLR1714`・`PLR5501`・`FURB171`)、docstring の要約(1行目)の後に空行を置き、複数行なら閉じの `"""` を独立した行に置く
+  (`D202`・`D205`・`D209`・`D301`)。160 桁を超える文字列・コメントは折らなくてよい(`E501` は選ばない)。
   導入は `_tools/setup.bat` 1本で、`_tools/.venv` へ ruff と Sphinx をまとめて入れる(環境はこの1つだけ。
   Sphinx 8.2 の都合で Python 3.11 以上、mayapy 代替は Maya 2027〜2025)。ruff の版は `_tools/requirements-dev.txt` で固定する。
 - `check_mlib_layout.py --check` に残る検査は、定数・`__all__`・`if TYPE_CHECKING:` の位置(L004〜L006)・
   クラス内メンバー順と対になる操作の隣接(L020〜L023)・公開入口の入力 assert(L040)・列挙(L041 は確認候補)・
-  内部名と function set の取得・関数内 import の理由コメント(L050〜L052)・例外の文言と Undo チャンク名・
+  内部名と function set の取得・関数内 import の理由コメント(L050〜L052)・関数・メソッド・クラスの名前の形(L053)・
+  モジュール直下の名前の形(L054)・mlib の中の import の別名(L055)・例外の文言と Undo チャンク名・
   fast の受け取り(L060〜L064)・docstring の見出し・Raises の並び・1行目・fast の固定文・用語・公開定数の
   説明・`Args:` の名前と位置引数の順・残った `TODO`(L070〜L077。L077 は情報)・
   Python 3.7 で動く書き方と property の getter(L080・L081)。

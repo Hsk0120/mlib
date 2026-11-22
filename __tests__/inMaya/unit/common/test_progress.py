@@ -348,14 +348,14 @@ class ProgressBarGuiTest(unittest.TestCase):
         received = []
         states = []
         with contextlib.redirect_stdout(buffer):
-            for _item in progressBar(["a", "b", "c"], label="demo", width=4, notify=received.append):
-                states.append(
-                    (
-                        cmds.progressBar(self.bar, query=True, progress=True),
-                        cmds.progressBar(self.bar, query=True, maxValue=True),
-                        cmds.progressBar(self.bar, query=True, status=True),
-                    )
+            states.extend(
+                (
+                    cmds.progressBar(self.bar, query=True, progress=True),
+                    cmds.progressBar(self.bar, query=True, maxValue=True),
+                    cmds.progressBar(self.bar, query=True, status=True),
                 )
+                for _item in progressBar(["a", "b", "c"], label="demo", width=4, notify=received.append)
+            )
         self.assertEqual(buffer.getvalue(), "")
         self.assertEqual([state[0] for state in states], [0, 1, 2])
         self.assertEqual({state[1] for state in states}, {3})
@@ -406,8 +406,7 @@ class ProgressBarGuiTest(unittest.TestCase):
         cmds.progressBar = cancelled
         try:
             with self.assertRaises(ProgressCancelled):
-                for item in progressBar(range(5)):
-                    processed.append(item)
+                processed.extend(progressBar(range(5)))
         finally:
             cmds.progressBar = original
         self.assertEqual(processed, [0])

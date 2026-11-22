@@ -139,8 +139,10 @@ class GetBoundingBoxTest(HierarchyFixture):
             self.assertAlmostEqual(value, want, places=5)
 
     def test_local_matches_xform(self):
-        """worldSpace=False は Transform では cmds.xform(boundingBox=True)(自身の変換を含み親を含まない)、
-        Shape では形状そのもの(単位立方体 ±0.5)。"""
+        """worldSpace=False のバウンディングボックスは、ノードの種類で基準が変わる。
+
+        Transform では cmds.xform(boundingBox=True)(自身の変換を含み親を含まない)、Shape では形状そのもの(単位立方体 ±0.5)。
+        """
         self.assertBox(Node(self.leaf).getBoundingBox(), cmds.xform(self.leaf, query=True, boundingBox=True))
         self.assertBox(Node(self.leaf_shape).getBoundingBox(), [-0.5, -0.5, -0.5, 0.5, 0.5, 0.5])
 

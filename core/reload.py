@@ -130,10 +130,7 @@ def _module_dependencies(module, module_names):
     """
     dependencies = set()
     for value in vars(module).values():
-        if isinstance(value, types.ModuleType):
-            owner = value.__name__
-        else:
-            owner = getattr(value, "__module__", None)
+        owner = value.__name__ if isinstance(value, types.ModuleType) else getattr(value, "__module__", None)
         if owner in module_names and owner != module.__name__:
             dependencies.add(owner)
             # `from ..maths import Matrix` のようにパッケージ経由で取り込んだ名前は、

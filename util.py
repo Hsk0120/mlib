@@ -34,8 +34,8 @@ _NOT_AT_HEAD = frozenset(string.digits)
 
 # 型を動的に作る利用側でも保持し続けないよう、判定キャッシュに上限を設ける。
 _TYPE_CACHE_LIMIT = 256
-_OM2_TYPES = {}
-_STATEFUL_TYPES = {}
+_om2_types = {}
+_stateful_types = {}
 
 #: 角度の単位名と正規化した名前。シーン操作の数値の角度は既定で度(``"deg"``)。
 _ANGLE_UNITS = {"deg": "deg", "degree": "deg", "degrees": "deg", "rad": "rad", "radian": "rad", "radians": "rad"}
@@ -257,7 +257,7 @@ def _is_om2_type(cls):
     Returns:
         bool: MRO に OpenMaya のモジュールで定義された型を含めば True。
     """
-    found = _OM2_TYPES.get(cls)
+    found = _om2_types.get(cls)
     if found is None:
         found = False
         for base in cls.__mro__:
@@ -265,9 +265,9 @@ def _is_om2_type(cls):
             if module.startswith(("OpenMaya", "maya.OpenMaya", "maya.api.")):
                 found = True
                 break
-        if len(_OM2_TYPES) >= _TYPE_CACHE_LIMIT:
-            _OM2_TYPES.clear()
-        _OM2_TYPES[cls] = found
+        if len(_om2_types) >= _TYPE_CACHE_LIMIT:
+            _om2_types.clear()
+        _om2_types[cls] = found
     return found
 
 
@@ -305,12 +305,12 @@ def _instance_state(value):
         tuple: (``__dict__`` の浅いコピー、または None, ``__slots__`` の値の辞書、または None)。
     """
     cls = type(value)
-    stateful = _STATEFUL_TYPES.get(cls)
+    stateful = _stateful_types.get(cls)
     if stateful is None:
         stateful = bool(cls.__dictoffset__) or bool(copyreg._slotnames(cls))
-        if len(_STATEFUL_TYPES) >= _TYPE_CACHE_LIMIT:
-            _STATEFUL_TYPES.clear()
-        _STATEFUL_TYPES[cls] = stateful
+        if len(_stateful_types) >= _TYPE_CACHE_LIMIT:
+            _stateful_types.clear()
+        _stateful_types[cls] = stateful
     if not stateful:
         return None, None
     state = getattr(value, "__dict__", None)
@@ -690,7 +690,7 @@ class _PointGrid:
         # 問い合わせ点から、全ての点を含む範囲の格子まで届く輪の数。
         reach = max(max(abs(base[axis] - self.lows[axis]), abs(base[axis] - self.highs[axis])) for axis in range(3))
         if maxDistance is not None:
-            reach = min(reach, int(math.ceil(maxDistance / self.size)))
+            reach = min(reach, math.ceil(maxDistance / self.size))
         best, best_distance = None, math.inf
         limit = math.inf if maxDistance is None else maxDistance * maxDistance
         for radius in range(reach + 1):
@@ -710,4 +710,4 @@ class _PointGrid:
 
     def _cell(self, point):
         """座標を格子の番号にする。"""
-        return tuple(int(math.floor(value / self.size)) for value in point)
+        return tuple(math.floor(value / self.size) for value in point)

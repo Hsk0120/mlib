@@ -472,8 +472,10 @@ class Plug(Object):
     def getNumConnectedChildren(self) -> int:
         """接続を持つ直接の子アトリビュート数を取得する。
 
+        コンパウンドアトリビュートでないPlug(子を持たないPlug)では0を返す。
+
         Returns:
-            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。
+            int: MPlug.numConnectedChildrenによる数。子孫の総数ではない。コンパウンドでなければ0。
 
         Raises:
             RuntimeError: アトリビュートが無効、またはMayaが照会を拒否した場合。
@@ -1924,8 +1926,10 @@ class Plug(Object):
             bool: 書き込んだらTrue。値が同じで書き込まなかったらFalse。
 
         Raises:
-            TypeError: スカラーでない値を指定した場合。
-            RuntimeError: Mayaがアトリビュートの更新を拒否した場合。
+            TypeError: fastがboolでない場合、またはスカラーでない値を指定した場合。
+            ValueError: check=Trueで、値が有限でない(NaN・無限大の)場合。
+            RuntimeError: アトリビュートが無効な場合、check=Trueでロック・入力の接続がある場合、
+                またはMayaがアトリビュートの更新を拒否した場合。
 
         Note:
             通常は、値とロックの変更を、Undoが有効なら同じチャンクに記録する。
@@ -1937,7 +1941,7 @@ class Plug(Object):
 
         - 単位付きのアトリビュートは、既定値を内部単位(cm・rad・秒)に換算し、``unit="rad"``・``timeUnit="sec"`` でsetへ渡す。
         - コンパウンドアトリビュートは、定義順に子を戻す。途中で失敗したら例外を送出する。
-          前もってすべての子を確かめることも、成功した子を自動で元に戻すこともしない。
+          ``check=True`` なら、書く前にすべての子を確かめる。成功した子を自動で元に戻すことはしない。
 
         接続の切断やロックの解除はしない。
 

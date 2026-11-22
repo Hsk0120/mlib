@@ -4,7 +4,7 @@
 import math
 from typing import Any, Dict
 import maya.cmds as cmds
-from ..core import geometryEdit as geometry_edit
+from ..core import geometryEdit
 from ..core.shapeBuild import finish_shape, require_name, resolve_parent
 from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelection, undoTransaction
 from ..util import _UNSET

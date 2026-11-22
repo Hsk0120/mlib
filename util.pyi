@@ -24,8 +24,8 @@ _FILLER: str
 _PERMITTED: frozenset
 _NOT_AT_HEAD: frozenset
 _TYPE_CACHE_LIMIT: int
-_OM2_TYPES: dict
-_STATEFUL_TYPES: dict
+_om2_types: dict
+_stateful_types: dict
 _ANGLE_UNITS: dict
 _MIRROR_PLANES: tuple
 _MIRROR_AXIS_CHOICES: str

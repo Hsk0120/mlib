@@ -253,7 +253,7 @@ class ResetAttrsTest(_SpecCase):
     """Transform.resetAttrs の既定は Node と同じくキー設定可能な全アトリビュートを戻す。"""
 
     #: 既定で戻すtransformのアトリビュート(キー設定可能な数値。shearはキー設定不可のため含まない)。
-    KEYABLE = ["visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ"]
+    KEYABLE = ("visibility", "translateX", "translateY", "translateZ", "rotateX", "rotateY", "rotateZ", "scaleX", "scaleY", "scaleZ")
 
     def test_default_resets_keyable_attributes(self):
         name = self._dirty()
@@ -262,7 +262,7 @@ class ResetAttrsTest(_SpecCase):
         plugs = node.resetAttrs()
         self.assertIsInstance(plugs, mlib.Plugs)
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
-        self.assertEqual([plug.getLongName() for plug in plugs], self.KEYABLE)
+        self.assertEqual([plug.getLongName() for plug in plugs], list(self.KEYABLE))
         self.assertValues(name, [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.1, 0.2, 0.3)])
         self.assertTrue(cmds.getAttr(name + ".visibility"))
         self.assertUndoesInOneStep(

@@ -154,7 +154,7 @@ class EulerRotate(om2.MEulerRotation):
         if not kwargs and unit == "rad":
             # よく使う ()、(x, y, z)、(x, y, z, order) は、引数の解析を省く。
             count = len(args)
-            if count == 3 or count == 4:
+            if count in {3, 4}:
                 x, y, z = args[0], args[1], args[2]
                 if isinstance(x, _NUMBER) and isinstance(y, _NUMBER) and isinstance(z, _NUMBER):
                     index = orderIndex(args[3]) if count == 4 else 0

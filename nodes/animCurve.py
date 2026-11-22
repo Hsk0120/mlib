@@ -50,8 +50,8 @@ def _default_tangents():
     """
     names = cmds.keyTangent(query=True, g=True, inTangentType=True, outTangentType=True) or ["auto", "auto"]
     result = []
-    for incoming, name in zip((True, False), names):
-        name = str(name).lower()
+    for incoming, tangent_type in zip((True, False), names):
+        name = str(tangent_type).lower()
         if name == "fixed" or name not in _TANGENT_TYPES or (incoming and name in ("step", "stepnext")):
             name = "auto"
         result.append(_TANGENT_TYPES[name])
@@ -216,10 +216,11 @@ class AnimCurve(Node):
             int: 0から始まるキーの番号。同じ距離のキーが2つある場合は、Mayaの判定に従う。
 
         Raises:
-            TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
+            TypeError: inputが数値へ変換できない型(文字列を含む)の場合、またはtimeUnitが文字列・None以外の場合。
             ValueError: inputが有限でない場合、またはtimeUnitに対応していない単位名の場合。
             RuntimeError: ノードが無効(削除済み)の場合、またはキーの無いカーブの場合。
         """
+        self._require_number_input(input)
         input_unit = self._input_time_unit(timeUnit)
         fn = self._curve_fn()
         if not fn.numKeys:
@@ -260,6 +261,7 @@ class AnimCurve(Node):
             ValueError: 有限でない値や正しくない数値の場合、unit・timeUnitに対応していない場合、
                 またはfastでfixed・global・知らない接線の型を指定した場合。
             RuntimeError: ノードが無効(削除済み)の場合。fastでも通常と同じ文言で、編集する前に例外にする。
+                check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
         with _edit_context("mlibAnimCurveSetKey", fast):
@@ -293,6 +295,8 @@ class AnimCurve(Node):
                     else:
                         fn.addKey(at, value, tangent_in, tangent_out)
                 return
+            if check:
+                self._require_curve_writable()
             position = self._unit_value(input)
             value = self._unit_value(value, output=True)
             flags = {"time" if self.isTimeInput() else "float": position}
@@ -400,10 +404,11 @@ class AnimCurve(Node):
             None: 値を返さない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
 
         Raises:
-            TypeError: inputが数値へ変換できない型の場合、またはtimeUnitが文字列・None以外の場合。
+            TypeError: inputが数値へ変換できない型(文字列を含む)の場合、またはtimeUnitが文字列・None以外の場合。
             ValueError: inputが有限でない場合、またはtimeUnitに対応していない単位名の場合。
             RuntimeError: ノードが無効(削除済み)の場合、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
         """
+        self._require_number_input(input)
         input_unit = self._input_time_unit(timeUnit)
         position = _to_seconds(self._finite(input), input_unit)
         if not self.getKeyCount():
@@ -438,6 +443,7 @@ class AnimCurve(Node):
                 またはkeepCurve・fastがbool以外の場合。
             ValueError: timeが有限でない場合、範囲の開始が終了より大きい場合、またはtimeUnitに対応していない単位名の場合。
             IndexError: indexが範囲外の場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
         """
         if (index is None) == (time is None):
             raise TypeError("indexかtimeのどちらか1つだけを指定してください")
@@ -459,7 +465,10 @@ class AnimCurve(Node):
                     # mlib.delete(fast=True) と同じ削除の処理に任せる。
                     del fn
                     delete_nodes([self], fast=True)
-            elif keepCurve and emptied:
+                return
+            if check:
+                self._require_curve_writable()
+            if keepCurve and emptied:
                 with self._kept_curve():
                     cmds.cutKey(self.getFullName(), index=ranges, clear=True, animation="objects")
             else:
@@ -504,7 +513,7 @@ class AnimCurve(Node):
                 if name is not None:
                     # cmds.setKeyframe も fixed を受け付けない(角度・ウェイトは setTangent で書く)。
                     self._tangent_type(name, key=True)
-            entries.append((self._finite(key[0]), self._finite(key[1])) + tangents)
+            entries.append((self._finite(key[0]), self._finite(key[1]), *tangents))
         with undoChunk("mlibAnimCurveReplaceKeys"):
             self._require_valid("キーの設定")
             count = self.getKeyCount()
@@ -590,6 +599,7 @@ class AnimCurve(Node):
             ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
                 またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
             IndexError: キーの番号が正しくない場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。
                 ロック・ウェイトを含め、何かを書き換える前に例外にする。
         """
@@ -629,6 +639,8 @@ class AnimCurve(Node):
                             angle = om2.MAngle(_to_radians(values[side + "Angle"], angle_unit), om2.MAngle.kRadians)
                         fn.setTangent(index, angle, values.get(side + "Weight", weight), incoming)
                 return
+            if check:
+                self._require_curve_writable()
             kwargs = dict(kwargs)
             for flag in ("inAngle", "outAngle"):
                 if flag in kwargs:
@@ -1194,6 +1206,24 @@ class AnimCurve(Node):
         if not math.isfinite(value):
             raise ValueError("有限な値を指定してください")
         return value
+
+    @staticmethod
+    def _require_number_input(value):
+        """入力の位置に文字列が渡されていないか確かめる。
+
+        :meth:`_finite` はfloat()に従って数値の文字列も受け付けるため、文字列を数値の型の誤りとして先に拒否する。
+
+        Args:
+            value (object): 入力の位置として渡された値。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 文字列(str・bytes)の場合。
+        """
+        if isinstance(value, (str, bytes)):
+            raise TypeError(f"inputは数値で指定してください: {type(value).__name__}")
 
     def _time_span(self, time, time_unit):
         """入力の時刻・範囲を、その中にあるキーの番号の範囲へ変換する。

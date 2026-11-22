@@ -4,7 +4,7 @@
 import math
 import maya.cmds as cmds
 from ..core.object import Object
-from ..core.shapeBuild import require_name
+from ..core.shapeBuild import removing_created_nodes, require_existing, require_name, require_shape_type
 from ..decorator import _pick_alias, preservedSelection, undoChunk
 from ..util import _UNSET
 from typing import Iterable
@@ -18,6 +18,9 @@ def createWire(targets: str | Node | Component | Iterable, curves: str | Node | 
 
     カーブを動かすと、近くの頂点がカーブに沿って動く。選択状態は使わず、現在の選択は変えない。カーブごとに、基準のカーブ(``<カーブ名>BaseWire``)をMayaが作る。
     fast引数は無い(OpenMayaにデフォーマーを作る同じ機能が無いため)。Undoが有効なら1回で戻せる。
+    作る前に、ターゲットが変形できる形状(``deformableShape``)を、カーブが ``nurbsCurve`` の形状を持つかを確かめ、
+    持たなければ何も作らずにValueErrorにする。それでもMayaが作成に失敗した場合は、作りかけのノード
+    (``<カーブ名>BaseWire`` など)を消してから例外を出す。
     name・dropoffDistanceは ``cmds.wire`` と同じ短縮名 ``n``・``dds`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
@@ -37,7 +40,8 @@ def createWire(targets: str | Node | Component | Iterable, curves: str | Node | 
         TypeError: 長い名前と短縮名を同時に指定した場合、dropoffDistanceが数値でもNoneでもない場合、
             nameが文字列でもNoneでもない場合、または対象やカーブが対応していない型の場合。
         ValueError: nameが空文字列か ``|`` を含む場合、dropoffDistanceが0以下か有限でない場合、
-            または対象やカーブが空か無効な場合。
+            対象やカーブが空か無効な場合、ターゲットに変形できる形状が無い場合、
+            またはカーブに ``nurbsCurve`` の形状が無い場合(形状の無いtransformを含む)。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:

@@ -1,6 +1,7 @@
 """公開名の表記とreload後の廃止名除去を検証する。"""
 
 import ast
+import contextlib
 import importlib
 import unittest
 from pathlib import Path
@@ -26,10 +27,8 @@ class PublicCamelCaseTest(unittest.TestCase):
             exported = set()
             for statement in tree.body:
                 if isinstance(statement, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__all__" for target in statement.targets):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         exported = set(ast.literal_eval(statement.value))
-                    except (ValueError, TypeError):
-                        pass
             for node in tree.body:
                 if isinstance(node, ast.ClassDef):
                     if node.name.startswith("_"):
