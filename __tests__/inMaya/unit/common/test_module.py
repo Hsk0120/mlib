@@ -29,7 +29,9 @@ class ModuleTest(unittest.TestCase):
         self.assertFalse(module.isRegistered())
         self.assertIsNone(module.getVersion())
         self.assertIsNone(module.getPath())
-        self.assertFalse(module.isVersionAtLeast("0"))
+        self.assertIsNone(module.getVersion(text=True))
+        with self.assertRaises(TypeError):
+            module.getVersion(text=1)
 
     def test_registered_module_matches_moduleInfo(self):
         modules = cmds.moduleInfo(listModules=True) or []
@@ -38,8 +40,8 @@ class ModuleTest(unittest.TestCase):
         name = modules[0]
         module = Module(name)
         self.assertTrue(module.isRegistered())
-        self.assertEqual(module.getVersionText(), cmds.moduleInfo(version=True, moduleName=name) or None)
-        self.assertEqual(module.getVersion(), Version.parse(module.getVersionText()))
+        self.assertEqual(module.getVersion(text=True), cmds.moduleInfo(version=True, moduleName=name) or None)
+        self.assertEqual(module.getVersion(), Version.parse(module.getVersion(text=True)))
         self.assertEqual(module.getPath(), cmds.moduleInfo(path=True, moduleName=name) or None)
 
     def test_equality_hash_and_repr(self):

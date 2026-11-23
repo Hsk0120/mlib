@@ -7,18 +7,6 @@ import maya.api.OpenMaya as om2
 from ..util import _angle_unit, _time_unit
 
 
-def distanceToUi(centimeters):
-    """cmの距離を、現在のUI距離単位の数値へ変換する。
-
-    Args:
-        centimeters (float): cm単位の距離。
-
-    Returns:
-        float: 現在のUI距離単位で表した値。
-    """
-    return om2.MDistance(centimeters).asUnits(om2.MDistance.uiUnit())
-
-
 def _distance_unit(unit):
     """距離単位名をOpenMayaの単位へ解決する。
 
@@ -62,7 +50,8 @@ def _distance_unit(unit):
 def convertDistance(value, fromUnit=None, toUnit=None):
     """距離の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
+    (cmからUIの単位へは ``convertDistance(cm, "cm")``、UIの単位からcmへは ``convertDistance(value, toUnit="cm")``)。
 
     Args:
         value (float): 変換する距離。
@@ -82,18 +71,6 @@ def convertDistance(value, fromUnit=None, toUnit=None):
     return om2.MDistance(value, source).asUnits(target)
 
 
-def distanceFromUi(value):
-    """現在のUI距離単位の数値を、cmへ変換する。
-
-    Args:
-        value (float): 現在のUI距離単位で表した値。
-
-    Returns:
-        float: cm単位の距離。
-    """
-    return om2.MDistance(value, om2.MDistance.uiUnit()).asCentimeters()
-
-
 def _angle_constant(unit):
     """角度の単位名をMAngleの単位定数へ解決する。
 
@@ -110,46 +87,12 @@ def _angle_constant(unit):
     return om2.MAngle.kDegrees if _angle_unit(unit) == "deg" else om2.MAngle.kRadians
 
 
-def angleToUi(value, *, unit="deg"):
-    """角度を現在のUI角度単位の数値へ変換する。
-
-    Args:
-        value (float): unitの単位の角度。
-        unit (str): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-            ``"degree"`` / ``"radians"`` などの別名も使える。
-
-    Returns:
-        float: 現在のUI角度単位で表した値。
-
-    Raises:
-        TypeError: unitが文字列・None以外の場合。
-        ValueError: unitが未対応の単位名の場合。
-    """
-    return om2.MAngle(value, _angle_constant(unit)).asUnits(om2.MAngle.uiUnit())
-
-
-def angleFromUi(value, *, unit="deg"):
-    """現在のUI角度単位の数値を、指定単位の角度へ変換する。
-
-    Args:
-        value (float): 現在のUI角度単位で表した値。
-        unit (str): 戻り値の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-            ``"degree"`` / ``"radians"`` などの別名も使える。
-
-    Returns:
-        float: unitの単位の角度。
-
-    Raises:
-        TypeError: unitが文字列・None以外の場合。
-        ValueError: unitが未対応の単位名の場合。
-    """
-    return om2.MAngle(value, om2.MAngle.uiUnit()).asUnits(_angle_constant(unit))
-
-
 def convertAngle(value, fromUnit="deg", toUnit="rad"):
     """角度の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
+    (度からUIの単位へは ``convertAngle(degrees, "deg", None)``、UIの単位から度へは ``convertAngle(value, None, "deg")``)。
+    距離・時間と違い、既定は度からラジアンへの変換なので、UIの単位はNoneを明示して指定する。
 
     Args:
         value (float): 変換する角度。
@@ -217,7 +160,8 @@ def _time_constant(unit):
 def convertTime(value, fromUnit=None, toUnit=None):
     """時間の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在の時間単位での1フレームの秒数は ``convertTime(1.0, toUnit="sec")``、
+    fps は ``convertTime(1.0, "sec")``。
 
     Args:
         value (float): 変換する時間。
@@ -238,15 +182,18 @@ def convertTime(value, fromUnit=None, toUnit=None):
     return om2.MTime(value, source).asUnits(target)
 
 
-def secondsPerFrame():
-    """現在の時間単位で、1フレームが何秒かを取得する。
-
-    Returns:
-        float: 1フレームの秒数。
-    """
-    return om2.MTime(1, om2.MTime.uiUnit()).asUnits(om2.MTime.kSeconds)
-
-
 # reload時にも廃止した公開名を残さない。
-for _obsolete_name in ("angle_from_ui", "angle_to_ui", "convert_distance", "distance_from_ui", "distance_to_ui", "seconds_per_frame"):
+for _obsolete_name in (
+    "angle_from_ui",
+    "angle_to_ui",
+    "convert_distance",
+    "distance_from_ui",
+    "distance_to_ui",
+    "seconds_per_frame",
+    "angleFromUi",
+    "angleToUi",
+    "distanceFromUi",
+    "distanceToUi",
+    "secondsPerFrame",
+):
     globals().pop(_obsolete_name, None)

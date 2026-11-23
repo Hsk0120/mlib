@@ -16,7 +16,7 @@ class DagContainerTest(unittest.TestCase):
         self.previous = cmds.namespaceInfo(currentNamespace=True, absoluteName=True)
         self.ns = cmds.namespace(add="dagContainerApiTest")
         cmds.namespace(set=self.ns)
-        self.owner = mlib.createDagContainer()
+        self.owner = mlib.createContainer(dag=True)
 
     def tearDown(self):
         """公開済みの箱を先に削除してからnamespaceを片付ける。"""

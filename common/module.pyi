@@ -45,17 +45,17 @@ class Module(_VersionedItem):
             bool: 登録されていれば True。登録されていない名前でも、例外にはならず False を返す。
         """
         ...
-    def getVersionText(self) -> str | None:
-        """Mayaが返すモジュールの版の文字列を、そのまま取得する。
-
-        Returns:
-            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
-        """
-        ...
     def getPath(self) -> str | None:
         """モジュールのフォルダーを取得する。
 
         Returns:
             str | None: モジュールの場所。登録されていない場合は None。
+        """
+        ...
+    def _version_text(self) -> str | None:
+        """Mayaが返すモジュールの版の文字列を、そのまま取得する。
+
+        Returns:
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
         """
         ...

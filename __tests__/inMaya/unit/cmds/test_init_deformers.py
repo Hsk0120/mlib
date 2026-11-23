@@ -48,7 +48,7 @@ class _Case(NamespaceCase):
 
 
 class CreateDeformerTest(_Case):
-    """createCluster・createLattice・createWire。"""
+    """createDeformer の cluster・lattice・wire。"""
 
     CLEAR_SELECTION = True
 
@@ -57,22 +57,23 @@ class CreateDeformerTest(_Case):
         cube, _ = self.cube()
         cmds.select(clear=True)
         self.flushUndo()
-        cluster = mlib.createCluster(cube + ".vtx[0:3]", n=self.name("made"), rel=True)
+        cluster = mlib.createDeformer("cluster", cube + ".vtx[0:3]", n=self.name("made"), rel=True)
         self.assertEqual(cluster.getType(), "cluster")
+        self.assertIsInstance(cluster, mlib.Cluster)
         self.assertEqual(cluster.getName(), self.name("made"))
         self.assertTrue(cmds.getAttr(cluster.getFullName() + ".relative"))
         self.assertTrue(cmds.listRelatives(cluster.getWeightedNode().getFullName(), shapes=True, type="clusterHandle"))
         self.assertEqual(cmds.ls(selection=True), [])
         name = cluster.getFullName()
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
-        self.assertFalse(cmds.getAttr(mlib.createCluster(cube).getFullName() + ".relative"))
+        self.assertFalse(cmds.getAttr(mlib.createDeformer("cluster", cube).getFullName() + ".relative"))
 
     def test_create_lattice(self):
         """ffd を作り、分割数がラティスに設定される。"""
         cube, _ = self.cube()
         cmds.select(clear=True)
         self.flushUndo()
-        ffd = mlib.createLattice(cube, name=self.name("made"), dv=(3, 4, 2), ldv=(2, 3, 2))
+        ffd = mlib.createDeformer("lattice", cube, name=self.name("made"), dv=(3, 4, 2), ldv=(2, 3, 2))
         self.assertEqual(ffd.getType(), "ffd")
         lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getFullName()
         self.assertEqual([cmds.getAttr(lattice + "." + axis + "Divisions") for axis in "stu"], [3, 4, 2])
@@ -87,12 +88,22 @@ class CreateDeformerTest(_Case):
         curves = [cmds.curve(degree=1, point=[(-2, y, 1), (2, y, 1)], name=self.name("crv#")) for y in (0.5, -0.5)]
         cmds.select(clear=True)
         self.flushUndo()
-        wire = mlib.createWire(cube, curves, name=self.name("made"), dds=2.5)
+        wire = mlib.createDeformer("wire", cube, curves=curves, name=self.name("made"), dds=2.5)
         self.assertEqual(wire.getType(), "wire")
         self.assertEqual([cmds.getAttr(f"{wire.getFullName()}.dropoffDistance[{i}]") for i in (0, 1)], [2.5, 2.5])
         self.assertEqual(cmds.ls(selection=True), [])
         name = wire.getFullName()
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
+
+    def test_undo_chunk_names(self):
+        """Undo チャンク名は種類ごとに mlibCreateCluster・mlibCreateLattice・mlibCreateWire。"""
+        cube, _ = self.cube()
+        curve = cmds.curve(degree=1, point=[(-2, 0, 1), (2, 0, 1)], name=self.name("crv#"))
+        cases = (("cluster", {}, "mlibCreateCluster"), ("lattice", {}, "mlibCreateLattice"), ("wire", {"curves": curve}, "mlibCreateWire"))
+        for kind, kwargs, chunk in cases:
+            with self.subTest(kind=kind):
+                mlib.createDeformer(kind, cube, **kwargs)
+                self.assertEqual(cmds.undoInfo(query=True, undoName=True), chunk)
 
     def test_invalid_arguments(self):
         """不正な引数はシーンを変えずに例外。"""
@@ -100,24 +111,43 @@ class CreateDeformerTest(_Case):
         curve = cmds.curve(degree=1, point=[(-2, 0, 1), (2, 0, 1)], name=self.name("crv#"))
         before = set(cmds.ls())
         cases = (
-            (mlib.createCluster, ([],), {}, ValueError),
-            (mlib.createCluster, (cube,), {"name": "a", "n": "b"}, TypeError),
-            (mlib.createCluster, (cube,), {"relative": "yes"}, TypeError),
-            (mlib.createCluster, (cube,), {"name": ""}, ValueError),
-            (mlib.createLattice, (cube,), {"divisions": (1, 2, 2)}, ValueError),
-            (mlib.createLattice, (cube,), {"divisions": (2, 2)}, ValueError),
-            (mlib.createLattice, (cube,), {"divisions": (2.0, 2, 2)}, TypeError),
-            (mlib.createLattice, (cube,), {"divisions": (2, 2, 2), "dv": (2, 2, 2)}, TypeError),
-            (mlib.createLattice, (cube,), {"objectCentered": 1}, TypeError),
-            (mlib.createWire, (cube, []), {}, ValueError),
-            (mlib.createWire, (cube, curve), {"dropoffDistance": 0}, ValueError),
-            (mlib.createWire, (cube, curve), {"dropoffDistance": "1"}, TypeError),
-            (mlib.createWire, (cube, curve), {"dropoffDistance": 1.0, "dds": 1.0}, TypeError),
+            (("cluster", []), {}, ValueError),
+            (("cluster", cube), {"name": "a", "n": "b"}, TypeError),
+            (("cluster", cube), {"relative": "yes"}, TypeError),
+            (("cluster", cube), {"name": ""}, ValueError),
+            (("lattice", cube), {"divisions": (1, 2, 2)}, ValueError),
+            (("lattice", cube), {"divisions": (2, 2)}, ValueError),
+            (("lattice", cube), {"divisions": (2.0, 2, 2)}, TypeError),
+            (("lattice", cube), {"divisions": (2, 2, 2), "dv": (2, 2, 2)}, TypeError),
+            (("lattice", cube), {"objectCentered": 1}, TypeError),
+            (("wire", cube), {"curves": []}, ValueError),
+            (("wire", cube), {"curves": curve, "dropoffDistance": 0}, ValueError),
+            (("wire", cube), {"curves": curve, "dropoffDistance": "1"}, TypeError),
+            (("wire", cube), {"curves": curve, "dropoffDistance": 1.0, "dds": 1.0}, TypeError),
+            # wire で curves を省いた場合。
+            (("wire", cube), {}, TypeError),
+            # その種類で使えない引数(短縮名も)。
+            (("cluster", cube), {"curves": curve}, TypeError),
+            (("cluster", cube), {"divisions": (2, 2, 2)}, TypeError),
+            (("cluster", cube), {"dds": 1.0}, TypeError),
+            (("lattice", cube), {"relative": True}, TypeError),
+            (("lattice", cube), {"curves": curve}, TypeError),
+            (("lattice", cube), {"dropoffDistance": 1.0}, TypeError),
+            (("wire", cube), {"curves": curve, "rel": True}, TypeError),
+            (("wire", cube), {"curves": curve, "objectCentered": True}, TypeError),
+            (("wire", cube), {"curves": curve, "ldv": (2, 2, 2)}, TypeError),
+            # targets より後はキーワード専用。
+            (("wire", cube, curve), {}, TypeError),
+            # kind が文字列でない・ほかのデフォーマーの型名。
+            ((1, cube), {}, TypeError),
+            ((None, cube), {}, TypeError),
+            (("deltaMush", cube), {}, ValueError),
+            (("Cluster", cube), {}, ValueError),
         )
-        for function, args, kwargs, error in cases:
-            with self.subTest(function=function.__name__, kwargs=kwargs):
+        for args, kwargs, error in cases:
+            with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
-                    function(*args, **kwargs)
+                    mlib.createDeformer(*args, **kwargs)
                 self.assertEqual(set(cmds.ls()), before)
 
 

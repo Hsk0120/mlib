@@ -1,8 +1,8 @@
 """cmds・maths・json・logger の公開APIが docstring の Raises に書いた例外のうち、ほかのテストで確かめていないものを固定する。
 
-- cmds の作成関数(createCluster・createLattice・createWire・createGroup・createDagPose・bakeDeformer・bindSkin):
+- cmds の作成関数(createDeformer の cluster・lattice・wire、createGroup・createDagPose・bakeDeformer・bindSkin):
   引数の型・名前の値・見つからないノード・読めないファイルの拒否。例外の後はノードが増減しない。
-  createWire は形状の無い transform を ValueError にし、Mayaが失敗したときは作りかけのノードを消す。
+  createDeformer の wire は形状の無い transform を ValueError にし、Mayaが失敗したときは作りかけのノードを消す。
 - common.references.createReference: 無いファイルは OSError で、リファレンスを作らない。
 - json: _dump・_load・Snapshot.load の OSError、Snapshot(data)・NameMapping._apply_path の TypeError、
   AttributesSnapshot.capture の MissingAttributeError。
@@ -66,15 +66,30 @@ class _ErrorCase(NamespaceCase):
                 self.assertEqual(self.nodes(), before)
 
 
+def _cluster(*args, **kwargs):
+    """createDeformer("cluster", ...) を呼ぶ(例外の確認の表に使う)。"""
+    return mlib.createDeformer("cluster", *args, **kwargs)
+
+
+def _lattice(*args, **kwargs):
+    """createDeformer("lattice", ...) を呼ぶ(例外の確認の表に使う)。"""
+    return mlib.createDeformer("lattice", *args, **kwargs)
+
+
+def _wire(targets, curves, **kwargs):
+    """createDeformer("wire", targets, curves=curves, ...) を呼ぶ(例外の確認の表に使う)。"""
+    return mlib.createDeformer("wire", targets, curves=curves, **kwargs)
+
+
 class CreateDeformerErrorTest(_ErrorCase):
-    """createCluster・createLattice・createWire の拒否。"""
+    """createDeformer の cluster・lattice・wire の拒否。"""
 
     def test_create_cluster(self):
         """名前と短縮名の同時指定・型の不正は TypeError、名前の値・空の対象は ValueError、Mayaが拒否すると RuntimeError。"""
         transform, _ = self.plane()
         empty = self.make("transform", "empty")
         self.check(
-            mlib.createCluster,
+            _cluster,
             (
                 (TypeError, (transform,), {"name": self.name("a"), "n": self.name("b")}),
                 (TypeError, (transform,), {"relative": True, "rel": True}),
@@ -95,7 +110,7 @@ class CreateDeformerErrorTest(_ErrorCase):
         transform, _ = self.plane()
         empty = self.make("transform", "empty")
         self.check(
-            mlib.createLattice,
+            _lattice,
             (
                 (TypeError, (transform,), {"name": self.name("a"), "n": self.name("b")}),
                 (TypeError, (transform,), {"divisions": (2, 2, 2), "dv": (2, 2, 2)}),
@@ -122,7 +137,7 @@ class CreateDeformerErrorTest(_ErrorCase):
         curve = self.curve()
         empty = self.make("transform", "empty")
         self.check(
-            mlib.createWire,
+            _wire,
             (
                 (TypeError, (transform, curve), {"name": self.name("a"), "n": self.name("b")}),
                 (TypeError, (transform, curve), {"dropoffDistance": 1.0, "dds": 1.0}),
@@ -160,7 +175,7 @@ class CreateDeformerErrorTest(_ErrorCase):
         before = self.nodes()
         with mock.patch.object(cmds, "wire", side_effect=failing_wire):
             with self.assertRaises(RuntimeError):
-                mlib.createWire(transform, curve)
+                mlib.createDeformer("wire", transform, curves=curve)
         self.assertIs(cmds.wire, original)
         self.assertEqual(self.nodes(), before)
 

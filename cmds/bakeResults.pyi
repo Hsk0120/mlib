@@ -22,7 +22,7 @@ def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequ
     コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、
     指定した範囲でフレームごとに評価し、キーにする。選択状態は使わない。
 
-    - timeを省略すると、再生範囲(``mlib.Time.getPlaybackRange()``)を焼き込む。
+    - timeを省略すると、再生範囲(``mlib.Time.getRange()``)を焼き込む。
     - attributesを省略すると、Mayaの既定(各ノードのキー設定可能なアトリビュート)を焼き込む。
     - Mayaの既定(``simulation=False``)では、入力を持たない静的なアトリビュートにはキーを作らない。
       ダイナミクスなど、すべてのフレームを順に評価する必要があるときは ``simulation=True`` を渡す。

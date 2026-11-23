@@ -3,6 +3,7 @@
 
 import maya.cmds as cmds
 from .. import logger
+from ..decorator import _require_bool
 from .module import Module
 from .plugin import Plugin
 from .version import Version
@@ -107,20 +108,21 @@ class PluginPackage:
             bool: ``minimumMaya`` を指定していない場合と、現在の Maya の年がそれ以上の場合は True。
         """
         ...
-    def getInstalledVersion(self) -> Version | None:
-        """Maya に登録されている製品の版を取得する。
+    def getVersion(self, *, loaded: bool = ...) -> Version | None:
+        """製品の版を取得する。
 
-        モジュールが登録されていればその版、無ければ版を調べるプラグインの版を使う。
+        既定では、Maya に登録されている製品の版を返す。モジュールが登録されていればその版、
+        無ければ版を調べるプラグインの版を使う。
+
+        Args:
+            loaded (bool): True なら、版を調べるプラグインの、ロードされている版を返す。
 
         Returns:
             Version | None: 版。製品が入っていない場合と、版が取れない場合は None。
-        """
-        ...
-    def getLoadedVersion(self) -> Version | None:
-        """版を調べるプラグインの、ロードされている版を取得する。
+                ``loaded=True`` では、版を調べるプラグインがロードされていない場合も None。
 
-        Returns:
-            Version | None: 版。ロードされていない場合は None。
+        Raises:
+            TypeError: loaded が bool でない場合。
         """
         ...
     def isInstalled(self) -> bool:

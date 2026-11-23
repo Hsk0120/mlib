@@ -3,6 +3,7 @@
 import maya.cmds as cmds
 
 from ..core.registry import _clear_type_hierarchy_cache
+from ..decorator import _require_bool
 from .versionedItem import _VersionedItem
 
 # 旧構成からreloadした場合も、移動したコレクションクラスを残さない。
@@ -65,7 +66,7 @@ class Plugin(_VersionedItem):
             RuntimeError: Mayaがプラグインのロードを拒否した場合。
         """
         if nodeType in cls._HIK_NODE_TYPES:
-            cls("mayaHIK").ensureLoaded()
+            cls("mayaHIK").load(skipExisting=True)
 
     @classmethod
     def loaded(cls):
@@ -169,17 +170,7 @@ class Plugin(_VersionedItem):
             return None
         return cmds.pluginInfo(self._name, query=True, path=True) or None
 
-    def getVersionText(self):
-        """Mayaが返すプラグインの版の文字列を、そのまま取得する。
-
-        Returns:
-            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
-        """
-        if not self.isRegistered():
-            return None
-        return cmds.pluginInfo(self._name, query=True, version=True) or None
-
-    def load(self, **kwargs):
+    def load(self, *, skipExisting=False, **kwargs):
         """プラグインをロードする。
 
         うまくロードできたら、mlibが持つノード型の継承のキャッシュを消す。
@@ -187,14 +178,20 @@ class Plugin(_VersionedItem):
         cmds.loadPluginを直接使ってロードした場合の変化は、ここでは見張らない。
 
         Args:
+            skipExisting (bool): True なら、すでにロードされているときは何もしない(キャッシュも消さない)。
+                何度呼んでも結果は同じになる。
             **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: skipExisting が bool でない場合。
             RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
         """
+        _require_bool(skipExisting, "skipExisting")
+        if skipExisting and self.isLoaded():
+            return
         cmds.loadPlugin(self._name, **kwargs)
         # Pythonプラグインの初期化失敗は、例外なしのNoneとして返る場合がある。
         # 戻り値だけでは既にロード済みのquiet呼出しと区別できないため状態を照会する。
@@ -220,16 +217,12 @@ class Plugin(_VersionedItem):
         cmds.unloadPlugin(self._name, force=force)
         _clear_type_hierarchy_cache()
 
-    def ensureLoaded(self):
-        """ロードされていなければロードする。
-
-        何度呼んでも結果は同じ(すでにロードされていれば何もしない)。
+    def _version_text(self):
+        """Mayaが返すプラグインの版の文字列を、そのまま取得する。
 
         Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: Maya がロードを拒否した場合。
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
         """
-        if not self.isLoaded():
-            self.load()
+        if not self.isRegistered():
+            return None
+        return cmds.pluginInfo(self._name, query=True, version=True) or None

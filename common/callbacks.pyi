@@ -61,10 +61,19 @@ class Callbacks:
     def addSceneCallback(self, event: str, function: Callable) -> int:
         """シーンのイベント(``om2.MSceneMessage``)のコールバックを登録する。
 
+        ``…Check`` で終わる確認のイベント(``"beforeSaveCheck"`` など)では、シーンの操作の前に呼び、
+        関数が偽の値を返せばその操作を止める。``om2.MSceneMessage.addCheckCallback``(``beforeNewCheck``・``beforeSaveCheck``)と
+        ``addCheckFileCallback``(``beforeOpenCheck`` など。対象のファイルは関数へ渡さない)を使う。
+        確認のイベントの関数の中で起きた例外は警告にして、操作は続ける(Trueを返したのと同じ)。
+        そのほかのイベントでは、関数の戻り値は使わない。
+
         Args:
             event (str): イベント名。``"afterOpen"``・``"beforeSave"``・``"afterNew"`` のように、
-                ``MSceneMessage.k*`` から ``k`` を除いたlowerCamelCaseで書く。Check系とPluginLoad系は扱わない。
-            function (Callable): 引数なしで呼ぶ処理。
+                ``MSceneMessage.k*`` から ``k`` を除いたlowerCamelCaseで書く。確認のイベントは
+                ``"beforeNewCheck"``・``"beforeSaveCheck"``・``"beforeOpenCheck"``・``"beforeImportCheck"``・
+                ``"beforeExportCheck"``・``"beforeCreateReferenceCheck"``・``"beforeLoadReferenceCheck"``。
+                PluginLoad系は扱わない。
+            function (Callable): 引数なしで呼ぶ処理。確認のイベントでは、真の値を返せば操作を続け、偽の値(Noneを含む)を返せば止める。
 
         Returns:
             int: 登録したコールバックの識別子。
@@ -72,27 +81,6 @@ class Callbacks:
         Raises:
             TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
             ValueError: 知らないイベント名の場合、またはこの版のMayaに無いイベントの場合。
-        """
-        ...
-    def addSceneCheckCallback(self, event: str, function: Callable) -> int:
-        """シーンの操作の前に呼び、Falseを返せばその操作を止めるコールバックを登録する。
-
-        ``om2.MSceneMessage.addCheckCallback``(``beforeNewCheck``・``beforeSaveCheck``)と
-        ``addCheckFileCallback``(``beforeOpenCheck`` など。対象のファイルは関数へ渡さない)を使う。
-        関数の中で起きた例外は警告にして、操作は続ける(Trueを返したのと同じ)。
-
-        Args:
-            event (str): イベント名。``"beforeNewCheck"``・``"beforeSaveCheck"``・``"beforeOpenCheck"``・
-                ``"beforeImportCheck"``・``"beforeExportCheck"``・``"beforeCreateReferenceCheck"``・
-                ``"beforeLoadReferenceCheck"`` のどれか(``MSceneMessage.k*`` から ``k`` を除いた名前)。
-            function (Callable): 引数なしで呼ぶ処理。真の値を返せば操作を続け、偽の値を返せば止める。
-
-        Returns:
-            int: 登録したコールバックの識別子。
-
-        Raises:
-            TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
-            ValueError: 知らないイベント名の場合。
         """
         ...
     def addEventCallback(self, eventName: str, function: Callable) -> int:
@@ -162,6 +150,17 @@ class Callbacks:
 
         Raises:
             RuntimeError: 解除に失敗したものが1つ以上ある場合。最初に失敗した原因の例外を__cause__に入れる。
+        """
+        ...
+    def _add_scene_check_callback(self, event: str, function: Callable) -> int:
+        """確認のイベントのコールバックを登録する。
+
+        Args:
+            event (str): 確かめてある、確認のイベント名。
+            function (Callable): 確かめてある、引数なしで呼ぶ処理。
+
+        Returns:
+            int: 登録したコールバックの識別子。
         """
         ...
     def _register(self, callback_id: int) -> int:

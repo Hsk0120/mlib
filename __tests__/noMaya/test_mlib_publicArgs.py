@@ -115,13 +115,10 @@ CMDS_SHORT_FLAGS = {
     "createCurve": {"d": "degree", "n": "name"},
     "createCircle": {"r": "radius", "nr": "normal", "s": "sections", "d": "degree", "n": "name"},
     "createLocator": {"n": "name"},
-    "createPolyCube": {"w": "width", "h": "height", "d": "depth", "n": "name"},
-    "createPolySphere": {"r": "radius", "ax": "axis", "n": "name"},
-    "createPolyCylinder": {"r": "radius", "h": "height", "ax": "axis", "n": "name"},
-    "createPolyPlane": {"w": "width", "h": "height", "ax": "axis", "n": "name"},
+    "createPoly": {"w": "width", "h": "height", "d": "depth", "r": "radius", "ax": "axis", "rcp": "roundCap", "n": "name"},
+    "createDeformer": {"n": "name", "rel": "relative", "dv": "divisions", "ldv": "ldivisions", "oc": "objectCentered", "dds": "dropoffDistance"},
     "createBlendShape": {"n": "name", "foc": "frontOfChain"},
     "createContainer": {"n": "name"},
-    "createDagContainer": {"n": "name"},
     "createDagPose": {"n": "name", "bp": "bindPose"},
 }
 

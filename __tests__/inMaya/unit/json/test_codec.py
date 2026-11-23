@@ -27,7 +27,7 @@ class CodecTest(unittest.TestCase):
             "s": Scale(1.0, 2.0, 3.0),
             "v": Vector(0.1, 0.2, 0.3),
             "q": Quaternion(0.0, 0.70710678, 0.0, 0.70710678),
-            "r": EulerRotate.fromDegrees(10.0, 20.0, 30.0, "zxy"),
+            "r": EulerRotate(10.0, 20.0, 30.0, "zxy", unit="deg"),
             "m": Matrix([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 6, 7, 1]),
             "list": [1, "a", None, True, [Vector(1, 0, 0)]],
         }

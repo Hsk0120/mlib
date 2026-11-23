@@ -207,7 +207,7 @@ def test_euler_rotation_to_quaternion_matches_maya_rotate_order():
 
 
 def test_euler_rotation_from_degrees():
-    rotation = EulerRotate.fromDegrees(90.0, 0.0, -45.0)
+    rotation = EulerRotate(90.0, 0.0, -45.0, unit="deg")
     assert isinstance(rotation, EulerRotate)
     assert rotation.asDegrees() == (90.0, 0.0, -45.0)
     assert math.isclose(rotation.x, math.pi / 2.0)
@@ -229,7 +229,7 @@ def test_quaternion_dot_length_conjugate_and_inverse():
 
 
 def test_quaternion_rotate_vector_matches_euler_rotation():
-    rotation = EulerRotate.fromDegrees(0.0, 90.0, 0.0)
+    rotation = EulerRotate(0.0, 90.0, 0.0, unit="deg")
     quaternion = rotation.asQuaternion()
     rotated = quaternion.rotateVector(Vector(1.0, 0.0, 0.0))
     assert math.isclose(rotated.x, 0.0, abs_tol=1e-12)
@@ -239,12 +239,12 @@ def test_quaternion_rotate_vector_matches_euler_rotation():
 
 def test_quaternion_angle_to_and_slerp():
     identity = Quaternion()
-    ninety = EulerRotate.fromDegrees(0.0, 90.0, 0.0).asQuaternion()
+    ninety = EulerRotate(0.0, 90.0, 0.0, unit="deg").asQuaternion()
     assert math.isclose(identity.angleTo(ninety), math.pi / 2.0, abs_tol=1e-9)
     assert math.isclose(identity.angleTo(identity), 0.0, abs_tol=1e-12)
 
     halfway = identity.slerp(ninety, 0.5)
-    forty_five = EulerRotate.fromDegrees(0.0, 45.0, 0.0).asQuaternion()
+    forty_five = EulerRotate(0.0, 45.0, 0.0, unit="deg").asQuaternion()
     assert math.isclose(halfway.angleTo(forty_five), 0.0, abs_tol=1e-9)
     assert tuple(identity.slerp(ninety, 0.0)) == tuple(identity)
 
@@ -320,14 +320,14 @@ def test_matrix_decompose_round_trip_preserves_trs_and_shear():
 
 
 def test_matrix_identity():
-    identity = Matrix.identity()
+    identity = Matrix()
     assert isinstance(identity, Matrix)
     assert tuple(identity) == tuple(Matrix())
     assert all(identity[index] == (1.0 if index in (0, 5, 10, 15) else 0.0) for index in range(16))
 
 
 def test_matrix_determinant():
-    assert Matrix.identity().det4x4() == 1.0
+    assert Matrix().det4x4() == 1.0
     assert math.isclose(Matrix(scale=(2.0, 3.0, 4.0)).det4x4(), 24.0)
     # 平行移動は行列式に影響しない。
     assert math.isclose(Matrix(translate=(5.0, -2.0, 1.0), scale=(2.0, 3.0, 4.0)).det4x4(), 24.0)
@@ -389,11 +389,13 @@ def test_matrix_mmatrix_and_transformation_bridge():
     assert isinstance(mmatrix, om2.MMatrix)
     assert tuple(mmatrix) == tuple(matrix)
 
-    round_tripped = Matrix.fromMMatrix(mmatrix)
+    round_tripped = Matrix(mmatrix)
+    assert type(round_tripped) is Matrix
     assert round_tripped == matrix
 
-    fromTransformation = Matrix.fromTransformation(om2.MTransformationMatrix(matrix))
-    assert fromTransformation.isEquivalent(matrix, tolerance=1e-9)
+    from_transformation = Matrix(om2.MTransformationMatrix(matrix).asMatrix())
+    assert type(from_transformation) is Matrix
+    assert from_transformation.isEquivalent(matrix, tolerance=1e-9)
 
 
 def test_matrix_values_and_rows_accessors():
@@ -408,7 +410,7 @@ def test_matrix_values_and_rows_accessors():
 def test_matrix_mirrored_is_a_180_degree_behavior_mirror():
     # 単位行列をX軸でミラーすると、X軸周りに180度回転した姿勢になる
     # (Maya の mirrorJoint -mirrorBehavior と同じ規約。行列式の符号は保存される)。
-    mirrored_identity = Matrix.identity().mirror(axis=0)
+    mirrored_identity = Matrix().mirror(axis=0)
     assert mirrored_identity.rows == ((1.0, 0.0, 0.0, 0.0), (0.0, -1.0, 0.0, 0.0), (0.0, 0.0, -1.0, 0.0), (0.0, 0.0, 0.0, 1.0))
     assert math.isclose(mirrored_identity.det4x4(), 1.0)
 
@@ -427,24 +429,20 @@ def test_matrix_mirrored_is_a_180_degree_behavior_mirror():
         assert mirrored.mirror(axis=axis).isEquivalent(rotated, tolerance=1e-9)
 
     try:
-        Matrix.identity().mirror(axis=3)
+        Matrix().mirror(axis=3)
     except ValueError:
         pass
     else:
         raise AssertionError("mirrored with an invalid axis should raise ValueError")
 
 
-def test_vector_from_iterable():
-    v = Vector.fromIterable([1.0, 2.0, 3.0])
+def test_vector_from_sequence():
+    v = Vector([1.0, 2.0, 3.0])
     assert isinstance(v, Vector)
     assert tuple(v) == (1.0, 2.0, 3.0)
-
-    try:
-        Vector.fromIterable([1.0, 2.0])
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("fromIterable with wrong length should raise ValueError")
+    # om2 と同じく2成分も受け、zは0になる。
+    assert tuple(Vector([1.0, 2.0])) == (1.0, 2.0, 0.0)
+    assert not hasattr(Vector, "fromIterable")
 
 
 def _assert_raises(exception, function):
@@ -785,14 +783,15 @@ def test_euler_rotation_constructor_forms_and_order():
     duplicate = EulerRotate(source)
     assert duplicate == source and duplicate is not source and duplicate.orderName == "zyx"
     assert EulerRotate(om2.MEulerRotation(0.1, 0.2, 0.3, 5)).orderName == "zyx"
-    assert EulerRotate.fromIterable((0.1, 0.2, 0.3), "zyx") == source
+    assert EulerRotate((0.1, 0.2, 0.3), "zyx") == source
+    assert not hasattr(EulerRotate, "fromIterable") and not hasattr(EulerRotate, "fromDegrees")
     _assert_raises(ValueError, lambda: EulerRotate(0.0, 0.0, 0.0, "abc"))
     _assert_raises(ValueError, lambda: EulerRotate(0.0, 0.0, 0.0, 6))
     _assert_raises(ValueError, lambda: EulerRotate(0.0, 0.0, 0.0, True))
     _assert_raises(TypeError, lambda: EulerRotate(0.0, 0.0, 0.0, "xyz", order="zyx"))
     _assert_raises(TypeError, lambda: EulerRotate(0.0, 0.0))
     _assert_raises(TypeError, lambda: EulerRotate(0.0, 0.0, 0.0, unknown=1))
-    assert repr(EulerRotate.fromDegrees(90.0, 0.0, -45.0, "zyx")) == "EulerRotate(degrees=(90, 0, -45), order='zyx')"
+    assert repr(EulerRotate(90.0, 0.0, -45.0, "zyx", unit="deg")) == "EulerRotate(degrees=(90, 0, -45), order='zyx')"
     assert len(list(source)) == 3
     assert source.isEquivalent(EulerRotate(0.1, 0.2, 0.3 + 1e-12, "zyx"))
     assert not source.isEquivalent(EulerRotate(0.1, 0.2, 0.3, "xyz"))
@@ -846,7 +845,7 @@ def test_matrix_inverse_rejects_only_singular_matrices():
     tiny = Matrix(scale=(1e-13, 1.0, 1.0))
     assert math.isclose(tiny.inverse()[0, 0], 1e13)
     matrix = Matrix(translate=(1.0, 2.0, 3.0), rotate=(0.3, 0.2, 0.1), scale=(2.0, 3.0, 4.0))
-    assert (matrix * matrix.inverse()).isEquivalent(Matrix.identity(), 1e-12)
+    assert (matrix * matrix.inverse()).isEquivalent(Matrix(), 1e-12)
 
 
 def test_matrix_negative_determinant_decomposes_like_transformation_matrix():
@@ -1155,13 +1154,7 @@ def test_copy_and_pickle_do_not_call_user_init_and_keep_slots():
 def test_matrix_copies_keep_signed_zero_and_non_finite_values():
     inf, nan = float("inf"), float("nan")
     source = om2.MMatrix([-0.0, 0.0, inf, nan, -1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, -inf, -0.0])
-    for copied in (
-        Matrix(source),
-        Matrix.fromMMatrix(source),
-        copy.copy(Matrix(source)),
-        pickle.loads(pickle.dumps(Matrix(source))),
-        Matrix(source).transpose().transpose(),
-    ):
+    for copied in (Matrix(source), copy.copy(Matrix(source)), pickle.loads(pickle.dumps(Matrix(source))), Matrix(source).transpose().transpose()):
         for actual, expected in zip(copied, source):
             if math.isnan(expected):
                 assert math.isnan(actual)

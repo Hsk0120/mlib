@@ -28,11 +28,14 @@ class _SpecCase(NamespaceCase):
         super().setUp()
         self.linear = cmds.currentUnit(query=True, linear=True)
         self.time = cmds.currentTime(query=True)
+        self.time_unit = cmds.currentUnit(query=True, time=True)
         self.range = (cmds.playbackOptions(query=True, minTime=True), cmds.playbackOptions(query=True, maxTime=True))
+        self.animation_range = (cmds.playbackOptions(query=True, animationStartTime=True), cmds.playbackOptions(query=True, animationEndTime=True))
 
     def tearDown(self):
-        """UI単位・時刻を戻す。"""
-        cmds.currentUnit(linear=self.linear)
+        """UI単位・時刻・再生範囲・アニメーション範囲を戻す。"""
+        cmds.currentUnit(linear=self.linear, time=self.time_unit)
+        cmds.playbackOptions(animationStartTime=self.animation_range[0], animationEndTime=self.animation_range[1])
         cmds.playbackOptions(minTime=self.range[0], maxTime=self.range[1])
         cmds.currentTime(self.time)
         super().tearDown()
@@ -55,18 +58,30 @@ class TimeTest(_SpecCase):
     def test_current_ranges_and_preserved(self):
         """時刻・範囲の取得と変更、preservedで元の時刻へ戻ることを確かめる。"""
         cmds.currentUnit(time="film")
-        self.assertEqual(Time.setCurrent(12), 12.0)
+        self.assertIsNone(Time.setCurrent(12))
+        self.assertEqual(Time.getCurrent(), 12.0)
         self.assertEqual(cmds.currentTime(query=True), 12.0)
         self.assertAlmostEqual(Time.getCurrent(timeUnit="sec"), 0.5)
         Time.setCurrent(1.0, timeUnit="sec")
         self.assertEqual(Time.getCurrent(), 24.0)
-        self.assertEqual(Time.setPlaybackRange(5, 48), (5.0, 48.0))
-        self.assertEqual(Time.getPlaybackRange(timeUnit="sec"), (5 / 24, 2.0))
+        self.assertIsNone(Time.setRange(5, 48))
+        self.assertEqual(Time.getRange(), (5.0, 48.0))
+        self.assertEqual(Time.getRange(animation=False), (5.0, 48.0))
+        self.assertEqual(Time.getRange(timeUnit="sec"), (5 / 24, 2.0))
+        self.assertEqual((cmds.playbackOptions(query=True, minTime=True), cmds.playbackOptions(query=True, maxTime=True)), (5.0, 48.0))
         self.assertEqual(
-            Time.getAnimationRange(), (cmds.playbackOptions(query=True, animationStartTime=True), cmds.playbackOptions(query=True, animationEndTime=True))
+            Time.getRange(animation=True), (cmds.playbackOptions(query=True, animationStartTime=True), cmds.playbackOptions(query=True, animationEndTime=True))
         )
+        self.assertIsNone(Time.setRange(1, 60, animation=True))
+        self.assertEqual(Time.getRange(animation=True), (1.0, 60.0))
+        self.assertEqual(Time.getRange(animation=True, timeUnit="sec"), (1 / 24, 2.5))
+        self.assertEqual((cmds.playbackOptions(query=True, animationStartTime=True), cmds.playbackOptions(query=True, animationEndTime=True)), (1.0, 60.0))
+        self.assertEqual(Time.getRange(), (5.0, 48.0))
         with self.assertRaises(ValueError):
-            Time.setPlaybackRange(10, 5)
+            Time.setRange(10, 5)
+        with self.assertRaises(ValueError):
+            Time.setRange(10, 5, animation=True)
+        self.assertEqual(Time.getRange(animation=True), (1.0, 60.0))
         with self.assertRaises(TypeError):
             Time.setCurrent("1")
         with self.assertRaises(TypeError):
@@ -75,6 +90,21 @@ class TimeTest(_SpecCase):
             self.assertEqual(original, 24.0)
             Time.setCurrent(30)
         self.assertEqual(Time.getCurrent(), 24.0)
+
+    def test_range_flags_are_checked(self):
+        """animation・selected は bool でなければ TypeError、両方 True も TypeError。範囲は変えない。"""
+        before = (Time.getRange(), Time.getRange(animation=True))
+        for kwargs in ({"animation": 1}, {"animation": None}, {"selected": 1}, {"selected": "yes"}, {"animation": True, "selected": True}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(TypeError):
+                Time.getRange(**kwargs)
+        for value in (1, None, "yes"):
+            with self.subTest(animation=value), self.assertRaises(TypeError):
+                Time.setRange(1, 10, animation=value)
+        with self.assertRaises(TypeError):
+            Time.setRange(1, 10, True)
+        with self.assertRaises(TypeError):
+            Time.getRange(True)
+        self.assertEqual((Time.getRange(), Time.getRange(animation=True)), before)
 
 
 _FAKE_PLUGIN = "mlibSpecFakePlugin"
@@ -85,9 +115,9 @@ class SelectedRangeTest(NamespaceCase):
         """バッチでは範囲を選べないので None。不正な単位は ValueError。"""
         if not cmds.about(batch=True):
             self.skipTest("batch only")
-        self.assertIsNone(Time.getSelectedRange())
-        self.assertIsNone(Time.getSelectedRange(timeUnit="sec"))
-        self.assertRaises(ValueError, Time.getSelectedRange, timeUnit="minute")
+        self.assertIsNone(Time.getRange(selected=True))
+        self.assertIsNone(Time.getRange(selected=True, timeUnit="sec"))
+        self.assertRaises(ValueError, Time.getRange, selected=True, timeUnit="minute")
 
 
 if __name__ == "__main__":

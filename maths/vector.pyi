@@ -533,20 +533,6 @@ class Vector(om2.MVector):
         """
         ...
     @classmethod
-    def fromIterable(cls, values: Iterable[float]) -> Vector:
-        """3つの値を順に取り出せるもの(listやtupleなど)から作る。
-
-        Args:
-            values (Iterable[float]): 3つの値を持つ、反復できるもの。
-
-        Returns:
-            Vector: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            ValueError: 要素数が3でない場合。
-        """
-        ...
-    @classmethod
     def fromAxis(cls, axis: str) -> Vector:
         """軸の名前から、その軸の向きの長さ1のベクトルを作る。
 
@@ -728,14 +714,18 @@ class Vector(om2.MVector):
             ValueError: 0のベクトルの場合。
         """
         ...
-    def distanceTo(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:
+    def distanceTo(self, other: om2.MVector | om2.MPoint | Iterable[float], *, squared: bool = ...) -> float:
         """2点間のユークリッド距離を返す。
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 距離を測る相手。
+            squared (bool): True なら距離の2乗を返す。平方根を計算しないため、距離の比較だけが目的なら速い。
 
         Returns:
-            float: 距離。
+            float: 距離。``squared=True`` なら距離の2乗。
+
+        Raises:
+            TypeError: squaredがboolでない場合。
         """
         ...
     def angleTo(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:
@@ -804,18 +794,6 @@ class Vector(om2.MVector):
 
         Raises:
             ValueError: axisがゼロベクトルの場合。
-        """
-        ...
-    def distanceSqTo(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:
-        """2点間の距離の2乗を返す。
-
-        平方根を計算しないため、距離の比較だけが目的なら :meth:`distanceTo` より速い。
-
-        Args:
-            other (om2.MVector | om2.MPoint | Iterable[float]): 距離を測る相手。
-
-        Returns:
-            float: 距離の2乗。
         """
         ...
     def isZero(self, tolerance: float = ...) -> bool:

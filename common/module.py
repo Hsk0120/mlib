@@ -54,16 +54,6 @@ class Module(_VersionedItem):
         """
         return self._name in (cmds.moduleInfo(listModules=True) or [])
 
-    def getVersionText(self):
-        """Mayaが返すモジュールの版の文字列を、そのまま取得する。
-
-        Returns:
-            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
-        """
-        if not self.isRegistered():
-            return None
-        return cmds.moduleInfo(version=True, moduleName=self._name) or None
-
     def getPath(self):
         """モジュールのフォルダーを取得する。
 
@@ -73,3 +63,13 @@ class Module(_VersionedItem):
         if not self.isRegistered():
             return None
         return cmds.moduleInfo(path=True, moduleName=self._name) or None
+
+    def _version_text(self):
+        """Mayaが返すモジュールの版の文字列を、そのまま取得する。
+
+        Returns:
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
+        """
+        if not self.isRegistered():
+            return None
+        return cmds.moduleInfo(version=True, moduleName=self._name) or None

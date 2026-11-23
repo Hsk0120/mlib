@@ -1193,7 +1193,70 @@ def _choice_overloads(qualname, argument, cases):
     return _flag_overloads(qualname, [({argument: (f'Literal["{name}"]', index == 0)}, returns) for index, (name, returns) in enumerate(cases)])
 
 
+def _kind_overloads(qualname, argument, cases):
+    """種類を選ぶ必須の引数ごとに、使える引数だけを並べたオーバーロードを作る関数を返す。
+
+    Args:
+        qualname (str): ``クラス名.メソッド名`` か関数名。
+        argument (str): 種類を選ぶ引数の名前(既定値なし)。
+        cases (list[tuple[str, str, Iterable[str], Iterable[str]]]): ``(種類の名前, 戻り値の型, 外すキーワード専用の引数, 必須にするキーワード専用の引数)``。
+
+    Returns:
+        Callable: ``OVERLOADS`` に登録する関数。
+    """
+
+    def build(stub, node):
+        """オーバーロードの行を返す。"""
+        stub.typing.add("Literal")
+        doc_types = _arg_types(ast.get_docstring(node) or "")
+        lines = []
+        for name, returns, dropped, required in cases:
+            args = ast.arguments(
+                posonlyargs=node.args.posonlyargs,
+                args=node.args.args,
+                vararg=node.args.vararg,
+                kwonlyargs=[arg for arg in node.args.kwonlyargs if arg.arg not in dropped],
+                kw_defaults=[default for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults) if arg.arg not in dropped],
+                kwarg=node.args.kwarg,
+                defaults=node.args.defaults,
+            )
+            overrides = {argument: (f'Literal["{name}"]', False)}
+            for key in required:
+                overrides[key] = (stub.annotation(doc_types.get(key), f"{qualname}({key})"), False)
+            returns = stub.annotation(returns, qualname) or returns
+            lines.append(f"def {node.name}({stub._params(args, doc_types, qualname, overrides)}) -> {returns}: ...")
+        return lines
+
+    return build
+
+
+#: ``createPoly`` で形ごとに使えない引数(長い名前と短縮名)。
+_POLY_UNUSABLE = {
+    "cube": ("radius", "r", "axis", "ax", "roundCap", "rcp"),
+    "sphere": ("width", "w", "height", "h", "depth", "d", "roundCap", "rcp"),
+    "cylinder": ("width", "w", "depth", "d"),
+    "plane": ("radius", "r", "depth", "d", "roundCap", "rcp"),
+}
+
+
 OVERLOADS = {
+    "mlib.common.versionedItem:_VersionedItem.getVersion": _flag_overloads(
+        "_VersionedItem.getVersion", [({"text": _TRUE}, "str | None"), ({"text": _FALSE}, "Version | None")]
+    ),
+    "mlib.common.sceneTime:Time.getRange": _flag_overloads(
+        "Time.getRange", [({"selected": _TRUE, "animation": _FALSE}, "tuple[float, float] | None"), ({"selected": _FALSE}, "tuple[float, float]")]
+    ),
+    "mlib.cmds.createContainer:createContainer": _flag_overloads("createContainer", [({"dag": _TRUE}, "DagContainer"), ({"dag": _FALSE}, "Container")]),
+    "mlib.cmds.createPoly:createPoly": _kind_overloads("createPoly", "kind", [(name, "Mesh", unusable, ()) for name, unusable in _POLY_UNUSABLE.items()]),
+    "mlib.cmds.createDeformer:createDeformer": _kind_overloads(
+        "createDeformer",
+        "kind",
+        [
+            ("cluster", "Cluster", ("curves", "divisions", "dv", "ldivisions", "ldv", "objectCentered", "oc", "dropoffDistance", "dds"), ()),
+            ("lattice", "GeometryFilter", ("curves", "relative", "rel", "dropoffDistance", "dds"), ()),
+            ("wire", "GeometryFilter", ("relative", "rel", "divisions", "dv", "ldivisions", "ldv", "objectCentered", "oc"), ("curves",)),
+        ],
+    ),
     "mlib.nodes.mesh:Mesh.getVertices": _one_or_many("Mesh.getVertices", "indices", "Vertex", "Vertices", "Iterable[int]"),
     "mlib.nodes.mesh:Mesh.getEdges": _one_or_many("Mesh.getEdges", "indices", "Edge", "Edges", "Iterable[int]"),
     "mlib.nodes.mesh:Mesh.getFaces": _one_or_many("Mesh.getFaces", "indices", "Face", "Faces", "Iterable[int]"),

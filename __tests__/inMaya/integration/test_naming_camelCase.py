@@ -63,7 +63,7 @@ class PublicCamelCaseTest(unittest.TestCase):
             ("mlib.decorator", "undo_chunk", "undoChunk"),
             ("mlib.decorator", "undo_transaction", "undoTransaction"),
             ("mlib.common", "progress_bar", "progressBar"),
-            ("mlib.common.units", "distance_to_ui", "distanceToUi"),
+            ("mlib.common.units", "convert_distance", "convertDistance"),
             ("mlib.common.module", "is_at_least", "Module"),
             ("mlib.common.plugin", "is_at_least", "Plugin"),
             ("mlib.common.pluginPackage", "is_at_least", "PluginPackage"),

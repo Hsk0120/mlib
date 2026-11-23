@@ -23,7 +23,6 @@ class EnvironmentTest(NamespaceCase):
     def test_matches_about(self):
         """各照会は cmds.about と一致し、版の年は API 版と一致する。"""
         self.assertIs(Environment.isBatch(), bool(cmds.about(batch=True)))
-        self.assertIs(Environment.isInteractive(), not cmds.about(batch=True))
         version = Environment.getMayaVersion()
         self.assertIsInstance(version, Version)
         self.assertEqual(version, Version(cmds.about(version=True)))

@@ -529,43 +529,6 @@ class EulerRotate(om2.MEulerRotation):
         return self.round(ndigits)
 
     @classmethod
-    def fromIterable(cls, values, order="xyz"):
-        """3つの値の並びから作る。
-
-        Args:
-            values (Iterable[float]): ラジアンの3つの成分。
-            order (str | int): 回転順序。既定は ``"xyz"``。
-
-        Returns:
-            EulerRotate: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            ValueError: 要素の数が3でない場合、または対応していない回転順序の場合。
-        """
-        values = tuple(values)
-        if len(values) != 3:
-            raise ValueError(f"{cls.__name__}には3つの値を指定してください")
-        return cls(values[0], values[1], values[2], order)
-
-    @classmethod
-    def fromDegrees(cls, x, y, z, order="xyz"):
-        """度で表した3つの成分から作る。
-
-        Args:
-            x (float): X の回転角度(度)。
-            y (float): Y の回転角度(度)。
-            z (float): Z の回転角度(度)。
-            order (str | int): 回転順序。既定は ``"xyz"``。
-
-        Returns:
-            EulerRotate: ラジアンに変換した回転。
-
-        Raises:
-            ValueError: 対応していない回転順序の場合。
-        """
-        return cls(math.radians(x), math.radians(y), math.radians(z), order)
-
-    @classmethod
     def fromYawPitch(cls, direction, order="xyz"):
         """基準軸を指定した方向へ向ける回転を作る。
 

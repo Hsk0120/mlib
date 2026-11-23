@@ -71,7 +71,7 @@ class ValueTypeContractTest(unittest.TestCase):
         self.assertEqual(tuple(Quaternion()), (0.0, 0.0, 0.0, 1.0))
         self.assertEqual(EulerRotate().order, om2.MEulerRotation.kXYZ)
         self.assertEqual(Matrix(), om2.MMatrix())
-        self.assertEqual(Matrix.identity(), om2.MMatrix())
+        self.assertEqual(Matrix(), om2.MMatrix())
 
     def test_copy_and_pickle_keep_type_and_independence(self):
         """copy・deepcopy・pickleは同じ型の独立した値を作る。"""

@@ -60,9 +60,9 @@ class ConvenienceTests(unittest.TestCase):
     def test_matrix_interop(self):
         matrix = Matrix(translate=(2, 3, 4), scale=(2, 3, 4))
         value = om2.MTransformationMatrix(matrix)
-        self.assertTrue(Matrix.fromTransformation(value).isEquivalent(matrix))
+        self.assertTrue(Matrix(value.asMatrix()).isEquivalent(matrix))
         node = mlib.createNode("transform")
-        node.getPlug("offsetParentMatrix").set(Matrix.fromTransformation(value))
+        node.getPlug("offsetParentMatrix").set(Matrix(value.asMatrix()))
         self.assertTrue(node.getPlug("offsetParentMatrix").get().isEquivalent(matrix))
 
     def test_compound_brackets_and_cmds_boundary(self):

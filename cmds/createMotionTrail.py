@@ -59,7 +59,7 @@ def createMotionTrail(node, *, startTime=_UNSET, endTime=_UNSET, increment=_UNSE
         raise TypeError(f"nodeはDAGノードで指定してください: {target.getName()}")
     if step <= 0:
         raise ValueError("incrementは0より大きい値で指定してください")
-    playback = Time.getPlaybackRange()
+    playback = Time.getRange()
     start = playback[0] if start is None else _finite_time(start, "startTime")
     end = playback[1] if end is None else _finite_time(end, "endTime")
     if start > end:

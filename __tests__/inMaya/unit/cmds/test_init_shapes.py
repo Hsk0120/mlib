@@ -58,10 +58,10 @@ class CreateShapeFunctionsTest(_SpecCase):
             ("nurbsCurve", lambda name: mlib.createCurve([(0, 0, 0), (100, 0, 0)], name=name, parent=group)),
             ("nurbsCurve", lambda name: mlib.createCircle(radius=50, name=name)),
             ("locator", lambda name: mlib.createLocator(name=name, localScale=(2, 2, 2))),
-            ("mesh", lambda name: mlib.createPolyCube(width=200, name=name)),
-            ("mesh", lambda name: mlib.createPolySphere(radius=10, subdivisions=(8, 6), name=name)),
-            ("mesh", lambda name: mlib.createPolyCylinder(axis=(1, 0, 0), name=name, parent=group)),
-            ("mesh", lambda name: mlib.createPolyPlane(subdivisions=(2, 2), name=name)),
+            ("mesh", lambda name: mlib.createPoly("cube", width=200, name=name)),
+            ("mesh", lambda name: mlib.createPoly("sphere", radius=10, subdivisions=(8, 6), name=name)),
+            ("mesh", lambda name: mlib.createPoly("cylinder", axis=(1, 0, 0), name=name, parent=group)),
+            ("mesh", lambda name: mlib.createPoly("plane", subdivisions=(2, 2), name=name)),
         )
         for index, (kind, create) in enumerate(cases):
             name = self.name(f"shape{index:d}")
@@ -92,9 +92,9 @@ class CreateShapeFunctionsTest(_SpecCase):
             (lambda: mlib.createCurve(points, degree=3, closed=True, knots=[0] * 6), ValueError),
             (lambda: mlib.createCircle(radius=0), ValueError),
             (lambda: mlib.createCircle(normal=(0, 0, 0)), ValueError),
-            (lambda: mlib.createPolyCube(subdivisions=(1, 1)), ValueError),
-            (lambda: mlib.createPolyCube(width=-1), ValueError),
-            (lambda: mlib.createPolySphere(subdivisions=(8, 1.5)), TypeError),
+            (lambda: mlib.createPoly("cube", subdivisions=(1, 1)), ValueError),
+            (lambda: mlib.createPoly("cube", width=-1), ValueError),
+            (lambda: mlib.createPoly("sphere", subdivisions=(8, 1.5)), TypeError),
             (lambda: mlib.createLocator(name="a|b"), ValueError),
         ):
             with self.subTest(call=call):

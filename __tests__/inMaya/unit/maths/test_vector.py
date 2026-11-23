@@ -276,9 +276,9 @@ class VectorSpecTest(unittest.TestCase):
                 value.mirror(axis)
         with self.assertRaises(TypeError):
             value.mirror(None)
-        self.assertIs(type(Scale.fromIterable(iter([1, 2, 3]))), Scale)
-        with self.assertRaises(ValueError):
-            Vector.fromIterable([1, 2])
+        self.assertIs(type(Scale([1, 2, 3])), Scale)
+        self.assertEqual(tuple(Scale([1, 2, 3])), (1.0, 2.0, 3.0))
+        self.assertFalse(hasattr(Vector, "fromIterable"))
 
 
 def _flat(names):
@@ -338,8 +338,16 @@ class VectorTest(_Case):
 
     def test_scalar_helpers(self):
         v = Vector(1.0, -2.0, 3.0)
-        self.assertAlmostEqual(v.distanceSqTo((2.0, 0.0, 3.0)), 5.0)
-        self.assertAlmostEqual(v.distanceSqTo(om2.MPoint(1, -2, 3)), 0.0)
+        self.assertAlmostEqual(v.distanceTo((2.0, 0.0, 3.0), squared=True), 5.0)
+        self.assertAlmostEqual(v.distanceTo(om2.MPoint(1, -2, 3), squared=True), 0.0)
+        self.assertAlmostEqual(v.distanceTo((2.0, 0.0, 3.0)), math.sqrt(5.0))
+        self.assertAlmostEqual(v.distanceTo((2.0, 0.0, 3.0), squared=False), math.sqrt(5.0))
+        self.assertAlmostEqual(v.distanceTo((4.0, 2.0, 3.0), squared=True), (om2.MPoint(v) - om2.MPoint(4.0, 2.0, 3.0)).length() ** 2)
+        with self.assertRaises(TypeError):
+            v.distanceTo((2.0, 0.0, 3.0), True)
+        with self.assertRaises(TypeError):
+            v.distanceTo((2.0, 0.0, 3.0), squared=1)
+        self.assertFalse(hasattr(Vector, "distanceSqTo"))
         self.assertTrue(Vector(1e-12, 0, 0).isZero())
         self.assertFalse(Vector(1e-6, 0, 0).isZero())
         self.assertTrue(Vector(1e-6, 0, 0).isZero(tolerance=1e-5))

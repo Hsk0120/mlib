@@ -7,6 +7,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 
 from ..core.attributeType import _from_seconds, _to_seconds
+from ..decorator import _require_bool
 from ..util import _time_unit
 from .environment import Environment
 
@@ -24,7 +25,7 @@ class Time:
 
         from mlib.common import Time
 
-        start, end = Time.getPlaybackRange()
+        start, end = Time.getRange()
         with Time.preserved():
             for frame in range(int(start), int(end) + 1):
                 Time.setCurrent(frame)
@@ -63,7 +64,7 @@ class Time:
             update (bool): Trueなら、変えた時刻でシーンを評価し直す。直後に値を読める。既定はTrue。
 
         Returns:
-            float: 設定した時刻(timeUnitの単位)。
+            None: 値を返さない。
 
         Raises:
             TypeError: valueが数値でない、またはupdateがbool以外の場合。
@@ -73,103 +74,70 @@ class Time:
         if not isinstance(update, bool):
             raise TypeError("updateはboolで指定してください")
         cmds.currentTime(_to_ui(_finite_time(value, "value"), unit), update=update)
-        return Time.getCurrent(timeUnit=unit)
 
     @staticmethod
-    def getPlaybackRange(*, timeUnit="frame"):
-        """再生範囲(タイムスライダーの開始・終了)を取得する。
+    def getRange(*, animation=False, selected=False, timeUnit="frame"):
+        """時間の範囲を取得する。
 
-        Args:
-            timeUnit (str): 戻り値の単位。``"frame"`` または ``"sec"``。
+        既定では、再生範囲(タイムスライダーの開始・終了。``playbackOptions`` の ``minTime``・``maxTime``)を返す。
 
-        Returns:
-            tuple[float, float]: (開始, 終了)。
-        """
-        return _get_range("minTime", "maxTime", _time_unit(timeUnit))
-
-    @staticmethod
-    def setPlaybackRange(start, end, *, timeUnit="frame"):
-        """再生範囲(タイムスライダーの開始・終了)を変える。
-
-        Args:
-            start (float): 開始。
-            end (float): 終了。start以上。
-            timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。
-
-        Returns:
-            tuple[float, float]: 設定した (開始, 終了)。
-
-        Raises:
-            TypeError: start・endが数値でない場合。
-            ValueError: 有限でない、startがendより大きい、またはtimeUnitが未対応の単位名の場合。
-        """
-        return _set_range("minTime", "maxTime", start, end, _time_unit(timeUnit))
-
-    @staticmethod
-    def getAnimationRange(*, timeUnit="frame"):
-        """アニメーション範囲(レンジスライダーの両端)を取得する。
-
-        Args:
-            timeUnit (str): 戻り値の単位。``"frame"`` または ``"sec"``。
-
-        Returns:
-            tuple[float, float]: (開始, 終了)。
-        """
-        return _get_range("animationStartTime", "animationEndTime", _time_unit(timeUnit))
-
-    @staticmethod
-    def setAnimationRange(start, end, *, timeUnit="frame"):
-        """アニメーション範囲(レンジスライダーの両端)を変える。
-
-        Args:
-            start (float): 開始。
-            end (float): 終了。start以上。
-            timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。
-
-        Returns:
-            tuple[float, float]: 設定した (開始, 終了)。
-
-        Raises:
-            TypeError: start・endが数値でない場合。
-            ValueError: 有限でない、startがendより大きい、またはtimeUnitが未対応の単位名の場合。
-        """
-        return _set_range("animationStartTime", "animationEndTime", start, end, _time_unit(timeUnit))
-
-    @staticmethod
-    def getSelectedRange(*, timeUnit="frame"):
-        """タイムスライダーで選んだ範囲を取得する。
-
-        Shift+ドラッグで選んだ、赤く表示される範囲を返す。
+        ``selected=True`` は、タイムスライダーでShift+ドラッグで選んだ、赤く表示される範囲を返す。
         ``cmds.timeControl($gPlayBackSlider, query=True, rangeVisible=True)`` と ``rangeArray`` で調べる。
-
         Mayaの ``rangeArray`` の終わりは、範囲の次のフレームを指す。そこで1フレーム引いて、
         選んだ最後のフレームを返す。たとえば1〜10を選べば ``(1.0, 10.0)`` になる。
         クリックで1フレームだけ選んだ場合は、開始と終了が同じ値になる。
 
         Args:
+            animation (bool): True なら、アニメーション範囲(レンジスライダーの両端。
+                ``animationStartTime``・``animationEndTime``)を返す。
+            selected (bool): True なら、タイムスライダーで選んだ範囲を返す。
             timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。
 
         Returns:
-            tuple[float, float] | None: (開始, 選んだ最後のフレーム)。次の場合はNone。
-                範囲を選んでいない場合、バッチ(mayapy)の場合、タイムスライダーが無い場合。
+            tuple[float, float] | None: (開始, 終了)。``selected=True`` では、範囲を選んでいない場合、
+                バッチ(mayapy)の場合、タイムスライダーが無い場合はNone。
 
         Raises:
+            TypeError: animation・selectedがbool以外の場合、またはanimationとselectedを両方Trueにした場合。
             ValueError: timeUnitが未対応の単位名の場合。
         """
+        _require_bool(animation, "animation")
+        _require_bool(selected, "selected")
+        if animation and selected:
+            raise TypeError("animationとselectedは同時に指定できません")
         unit = _time_unit(timeUnit)
-        if Environment.isBatch():
-            return None
-        try:
-            # タイムスライダーの名前はMayaのUIが保持するグローバル変数から取得する。
-            slider = mel.eval("global string $gPlayBackSlider; $mlibPlayBackSlider = $gPlayBackSlider;")
-        except RuntimeError:
-            return None
-        if not slider or not cmds.timeControl(slider, exists=True):
-            return None
-        if not cmds.timeControl(slider, query=True, rangeVisible=True):
-            return None
-        start, end = cmds.timeControl(slider, query=True, rangeArray=True)
-        return _from_ui(start, unit), _from_ui(float(end) - 1.0, unit)
+        if selected:
+            return _get_selected_range(unit)
+        if animation:
+            return _get_range("animationStartTime", "animationEndTime", unit)
+        return _get_range("minTime", "maxTime", unit)
+
+    @staticmethod
+    def setRange(start, end, *, animation=False, timeUnit="frame"):
+        """時間の範囲を変える。
+
+        既定では、再生範囲(タイムスライダーの開始・終了)を変える。
+        ``cmds.playbackOptions`` を1回呼ぶので、Undoの扱いもそれと同じになる。
+
+        Args:
+            start (float): 開始。
+            end (float): 終了。start以上。
+            animation (bool): True なら、アニメーション範囲(レンジスライダーの両端)を変える。
+            timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: start・endが数値でない場合、またはanimationがbool以外の場合。
+            ValueError: 有限でない、startがendより大きい、またはtimeUnitが未対応の単位名の場合。
+        """
+        _require_bool(animation, "animation")
+        unit = _time_unit(timeUnit)
+        if animation:
+            _set_range("animationStartTime", "animationEndTime", start, end, unit)
+        else:
+            _set_range("minTime", "maxTime", start, end, unit)
 
     @staticmethod
     def isPlaying():
@@ -261,6 +229,30 @@ def _get_range(start_flag, end_flag, unit):
     return (_from_ui(cmds.playbackOptions(query=True, **{start_flag: True}), unit), _from_ui(cmds.playbackOptions(query=True, **{end_flag: True}), unit))
 
 
+def _get_selected_range(unit):
+    """タイムスライダーで選んだ範囲を取得する。
+
+    Args:
+        unit (str): 戻り値の単位。
+
+    Returns:
+        tuple[float, float] | None: (開始, 選んだ最後のフレーム)。選んでいない・バッチ・タイムスライダーが無い場合はNone。
+    """
+    if Environment.isBatch():
+        return None
+    try:
+        # タイムスライダーの名前はMayaのUIが保持するグローバル変数から取得する。
+        slider = mel.eval("global string $gPlayBackSlider; $mlibPlayBackSlider = $gPlayBackSlider;")
+    except RuntimeError:
+        return None
+    if not slider or not cmds.timeControl(slider, exists=True):
+        return None
+    if not cmds.timeControl(slider, query=True, rangeVisible=True):
+        return None
+    start, end = cmds.timeControl(slider, query=True, rangeArray=True)
+    return _from_ui(start, unit), _from_ui(float(end) - 1.0, unit)
+
+
 def _set_range(start_flag, end_flag, start, end, unit):
     """playbackOptions の範囲を設定する。
 
@@ -272,7 +264,7 @@ def _set_range(start_flag, end_flag, start, end, unit):
         unit (str): start・endの単位。
 
     Returns:
-        tuple[float, float]: 設定後の (開始, 終了)。
+        None: 値を返さない。
 
     Raises:
         TypeError: start・endが数値でない場合。
@@ -282,4 +274,3 @@ def _set_range(start_flag, end_flag, start, end, unit):
     if start > end:
         raise ValueError(f"startはend以下にしてください: {start} > {end}")
     cmds.playbackOptions(**{start_flag: _to_ui(start, unit), end_flag: _to_ui(end, unit)})
-    return _get_range(start_flag, end_flag, unit)

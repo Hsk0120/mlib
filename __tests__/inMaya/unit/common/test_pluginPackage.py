@@ -19,6 +19,23 @@ import mlib.common.pluginPackage as package_module
 from mlib.common import LOAD_FAILED, LOADED, MISSING, OUTDATED, SKIPPED, Plugin, PluginPackage, Version
 
 
+def _versions(installed, loadedVersion=None):
+    """PluginPackage.getVersion の代わりを作る(loaded で登録されている版とロードされている版を分ける)。
+
+    Args:
+        installed (Sequence[int] | None): ``getVersion()`` が返す版の数字。Noneなら版なし。
+        loadedVersion (Sequence[int] | None): ``getVersion(loaded=True)`` が返す版の数字。Noneなら版なし。
+
+    Returns:
+        Callable: ``getVersion`` と同じ引数を受ける関数。
+    """
+
+    def getVersion(self, *, loaded=False):
+        return Version.parse(loadedVersion if loaded else installed)
+
+    return getVersion
+
+
 class FakeCmds:
     """cmds のうち PluginPackage が使う関数だけを持つ代役。"""
 
@@ -68,9 +85,9 @@ class PluginPackageFlowTest(unittest.TestCase):
         return PluginPackage("ProductX", **options)
 
     def run_flow(self, package, installed, loadedVersion=None, failed=()):
-        with mock.patch.object(PluginPackage, "getInstalledVersion", return_value=Version.parse(installed)), mock.patch.object(
-            PluginPackage, "getLoadedVersion", return_value=Version.parse(loadedVersion)
-        ), mock.patch.object(PluginPackage, "loadPlugins", return_value=list(failed)) as loader:
+        with mock.patch.object(PluginPackage, "getVersion", _versions(installed, loadedVersion)), mock.patch.object(
+            PluginPackage, "loadPlugins", return_value=list(failed)
+        ) as loader:
             result = package.tryLoad(dialog=self.shown.append)
         return result, loader
 
@@ -115,9 +132,9 @@ class PluginPackageFlowTest(unittest.TestCase):
 
     def test_silent_initialization_failure_is_not_loaded(self):
         """Mayaが初期化失敗を例外にしない場合もLOAD_FAILEDを返す。"""
-        with mock.patch.object(PluginPackage, "getInstalledVersion", return_value=Version((3, 0, 0))), mock.patch.object(
-            cmds, "loadPlugin", return_value=None
-        ), mock.patch.object(Plugin, "isLoaded", return_value=False):
+        with mock.patch.object(PluginPackage, "getVersion", _versions((3, 0, 0))), mock.patch.object(cmds, "loadPlugin", return_value=None), mock.patch.object(
+            Plugin, "isLoaded", return_value=False
+        ):
             result = self.make().tryLoad(dialog=self.shown.append)
         self.assertEqual(result, LOAD_FAILED)
         self.assertEqual(len(self.fake.warnings), 2)
@@ -162,7 +179,7 @@ class PluginPackageFlowTest(unittest.TestCase):
 
     def test_dialog_options(self):
         package = self.make()
-        with mock.patch.object(PluginPackage, "getInstalledVersion", return_value=None):
+        with mock.patch.object(PluginPackage, "getVersion", _versions(None)):
             self.assertEqual(package.tryLoad(dialog=False, warn=False), MISSING)
             self.assertEqual(self.fake.dialogs, [])
             self.assertEqual(self.fake.warnings, [])
@@ -174,7 +191,7 @@ class PluginPackageFlowTest(unittest.TestCase):
     def test_dialog_is_skipped_in_batch(self):
         self.fake.batch = True
         package = self.make()
-        with mock.patch.object(PluginPackage, "getInstalledVersion", return_value=None):
+        with mock.patch.object(PluginPackage, "getVersion", _versions(None)):
             self.assertEqual(package.tryLoad(), MISSING)
         self.assertEqual(self.fake.dialogs, [])
 
@@ -188,8 +205,8 @@ class PluginPackageRealTest(unittest.TestCase):
 
     def test_unknown_package_is_not_installed(self):
         package = PluginPackage("Unknown", plugins=("mlibDoesNotExistPlugin123",), module="mlibDoesNotExistModule123", minimumVersion="1.0")
-        self.assertIsNone(package.getInstalledVersion())
-        self.assertIsNone(package.getLoadedVersion())
+        self.assertIsNone(package.getVersion())
+        self.assertIsNone(package.getVersion(loaded=True))
         self.assertFalse(package.isInstalled())
         shown = []
         self.assertEqual(package.tryLoad(dialog=shown.append), MISSING)
@@ -203,7 +220,7 @@ class PluginPackageRealTest(unittest.TestCase):
             self.assertEqual(package.tryLoad(dialog=False), LOADED)
             self.assertTrue(package.isInstalled())
             self.assertTrue(cmds.pluginInfo(name, query=True, loaded=True))
-            self.assertEqual(package.getLoadedVersion(), Plugin(name).getVersion())
+            self.assertEqual(package.getVersion(loaded=True), Plugin(name).getVersion())
         finally:
             if not was_loaded and cmds.pluginInfo(name, query=True, loaded=True):
                 cmds.unloadPlugin(name)
@@ -216,7 +233,11 @@ class PluginPackageRealTest(unittest.TestCase):
 
     def test_installed_version_falls_back_to_plugin_version(self):
         package = PluginPackage("Matrix nodes", plugins=("matrixNodes",), module="mlibDoesNotExistModule123")
-        self.assertEqual(package.getInstalledVersion(), Plugin("matrixNodes").getVersion())
+        self.assertEqual(package.getVersion(), Plugin("matrixNodes").getVersion())
+        self.assertEqual(package.getVersion(loaded=False), package.getVersion())
+        for value in (1, "yes", None):
+            with self.subTest(loaded=value), self.assertRaises(TypeError):
+                package.getVersion(loaded=value)
 
 
 class BifrostTest(unittest.TestCase):
@@ -241,7 +262,7 @@ class BifrostTest(unittest.TestCase):
         self.assertEqual(shown, [])
         for plugin in self.package.plugins:
             self.assertTrue(plugin.isLoaded(), plugin.name)
-        self.assertTrue(self.package.getLoadedVersion().isAtLeast("3.0.0"))
+        self.assertTrue(self.package.getVersion(loaded=True).isAtLeast("3.0.0"))
 
     def test_too_new_version_is_reported_missing(self):
         package = PluginPackage("Bifrost", plugins=("bifrostGraph",), module="Bifrost", minimumVersion="99.0")
@@ -330,8 +351,8 @@ class PluginPackageSpecTest(unittest.TestCase):
         """最小版を満たさない場合はロードせずMISSING。dialog=Falseは通知しない。"""
         package = PluginPackage("Product", [self.missing_plugin], minimumVersion="1.0")
         self.assertFalse(package.isInstalled())
-        self.assertIsNone(package.getInstalledVersion())
-        self.assertIsNone(package.getLoadedVersion())
+        self.assertIsNone(package.getVersion())
+        self.assertIsNone(package.getVersion(loaded=True))
         with mock.patch.object(PluginPackage, "loadPlugins", side_effect=AssertionError("loaded")):
             self.assertEqual(package.tryLoad(dialog=False, warn=False), MISSING)
 
@@ -351,7 +372,7 @@ class PluginPackageSpecTest(unittest.TestCase):
             # 未ロードのプラグインは登録されていない場合があるため、ロード前のisInstalledは問わない。
             self.assertEqual(package.tryLoad(dialog=False, warn=False), LOADED)
             self.assertTrue(cmds.pluginInfo(name, query=True, loaded=True))
-            self.assertIsNotNone(package.getLoadedVersion())
+            self.assertIsNotNone(package.getVersion(loaded=True))
             self.assertTrue(package.isInstalled())
         finally:
             if not was_loaded and cmds.pluginInfo(name, query=True, loaded=True):

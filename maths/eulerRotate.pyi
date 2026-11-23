@@ -364,38 +364,6 @@ class EulerRotate(om2.MEulerRotation):
         """
         ...
     @classmethod
-    def fromIterable(cls, values: Iterable[float], order: str | int = ...) -> EulerRotate:
-        """3つの値の並びから作る。
-
-        Args:
-            values (Iterable[float]): ラジアンの3つの成分。
-            order (str | int): 回転順序。既定は ``"xyz"``。
-
-        Returns:
-            EulerRotate: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            ValueError: 要素の数が3でない場合、または対応していない回転順序の場合。
-        """
-        ...
-    @classmethod
-    def fromDegrees(cls, x: float, y: float, z: float, order: str | int = ...) -> EulerRotate:
-        """度で表した3つの成分から作る。
-
-        Args:
-            x (float): X の回転角度(度)。
-            y (float): Y の回転角度(度)。
-            z (float): Z の回転角度(度)。
-            order (str | int): 回転順序。既定は ``"xyz"``。
-
-        Returns:
-            EulerRotate: ラジアンに変換した回転。
-
-        Raises:
-            ValueError: 対応していない回転順序の場合。
-        """
-        ...
-    @classmethod
     def fromYawPitch(cls, direction: om2.MVector | om2.MPoint | Iterable[float], order: str | int = ...) -> EulerRotate:
         """基準軸を指定した方向へ向ける回転を作る。
 

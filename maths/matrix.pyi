@@ -3,7 +3,7 @@
 
 from operator import index as _as_index
 import maya.api.OpenMaya as om2
-from ..util import _checked_index, _checked_tolerance, _copy_state, _finite, _finite_vector, _foreign_comparison
+from ..util import _checked_index, _checked_tolerance, _copy_state, _finite, _finite_vector, _foreign_comparison, _require_choice
 from .eulerRotate import EulerRotate
 from .quaternion import Quaternion
 from .scale import Scale
@@ -32,9 +32,9 @@ _NUMBER: tuple
 _INT: Any
 _CELL_INDEX: dict
 _POINT_TYPES: tuple
-_MATRIX_SOURCES: tuple
 _MATRIX_ERROR: str
 _PARALLEL_TOLERANCE: float
+_EXTRACT_PARTS: tuple
 
 def _reinit_is_safe() -> bool:
     """om2 の ``MMatrix.__init__`` を確保済みのインスタンスへ再適用してよい版か判定する。
@@ -527,16 +527,6 @@ class Matrix(om2.MMatrix):
         """
         ...
     @classmethod
-    def identity(cls) -> Matrix:
-        """単位マトリクスを生成する。
-
-        引数なしの ``Matrix()`` と同じ結果だが、意図を明示できる。
-
-        Returns:
-            Matrix: 呼び出したクラスの単位マトリクス。
-        """
-        ...
-    @classmethod
     def compose(cls, translate: Iterable[float] = ..., rotate: Iterable[float] | om2.MEulerRotation | om2.MQuaternion = ..., scale: Iterable[float] = ..., shear: Iterable[float] = ...) -> Matrix:
         """平行移動・回転・スケール・シアーの成分からマトリクスを作る。
 
@@ -552,30 +542,6 @@ class Matrix(om2.MMatrix):
 
         Raises:
             ValueError: 成分が3要素でない場合、または回転クォータニオンがゼロの場合。
-        """
-        ...
-    @classmethod
-    def fromMMatrix(cls, matrix: om2.MMatrix | om2.MFloatMatrix) -> Matrix:
-        """OpenMayaのマトリクスをコピーして、mlibのマトリクスを作る。
-
-        Matrixはそれ自体がom2.MMatrixなので、OpenMayaへ渡すときに変換する必要はない。
-
-        Args:
-            matrix (om2.MMatrix | om2.MFloatMatrix): 複製元のマトリクス。
-
-        Returns:
-            Matrix: 呼び出したクラスの新しいマトリクス。
-        """
-        ...
-    @classmethod
-    def fromTransformation(cls, transformation: om2.MTransformationMatrix) -> Matrix:
-        """Maya API 2.0の変換情報からマトリクスを生成する。
-
-        Args:
-            transformation (om2.MTransformationMatrix): 合成する変換情報。
-
-        Returns:
-            Matrix: 呼び出したクラスの新しいマトリクス。
         """
         ...
     @classmethod
@@ -798,58 +764,34 @@ class Matrix(om2.MMatrix):
             ValueError: axisが軸の名前でない、または番号が0〜2でない場合。
         """
         ...
-    def getAxes(self) -> tuple[Vector, Vector, Vector]:
-        """3x3部分の3行(X・Y・Z軸)を Vector で取得する。
+    def extract(self, part: str) -> Matrix:
+        """成分の1つだけを持つマトリクスを返す。
 
-        Returns:
-            tuple[Vector, Vector, Vector]: :meth:`getAxis` の ``"x"``・``"y"``・``"z"`` と同じ新しい値。
-        """
-        ...
-    def asTranslateMatrix(self) -> Matrix:
-        """平行移動(番号12〜14)だけを持つマトリクスを返す。
+        - ``"translate"``: 平行移動(番号12〜14)だけ。3x3部分は単位マトリクス。分解しない。
+        - ``"rotate"``: 回転だけ(スケール・シアー・平行移動を除く)。:attr:`quaternion` と同じく、
+          MTransformationMatrixの規約で分解する。行列式が負のときは、負のZスケールと180度の補償回転に分ける。
+          結果は正規直交のマトリクス。
+        - ``"scale"``: スケールとシアーだけ(回転・平行移動を除く)。``"rotate"`` と同じ規約で分解する。
+        - ``"3x3"``: 3x3部分(回転・スケール・シアー)だけ。平行移動と4列目は単位マトリクスの値にする。
+          分解しないため、ゼロスケールでも使える。
 
-        Returns:
-            Matrix: 自身と同じクラスの新しいマトリクス。3x3部分は単位マトリクス。
-        """
-        ...
-    def asRotateMatrix(self) -> Matrix:
-        """回転だけを持つマトリクスを返す(スケール・シアー・平行移動を除く)。
+        ``extract("scale") * extract("rotate") * extract("translate")`` が自身(誤差の範囲)になる。
 
-        :attr:`quaternion` と同じく、MTransformationMatrixの規約で分解する。
-        行列式が負のときは、負のZスケールと180度の補償回転に分ける。
-        ``asScaleMatrix() * asRotateMatrix() * asTranslateMatrix()`` が自身(誤差の範囲)になる。
-
-        Returns:
-            Matrix: 自身と同じクラスの新しい正規直交のマトリクス。
-
-        Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
-
-        Note:
-            ``om2.MTransformationMatrix(m).asRotateMatrix()``(:class:`Transformation` も同じ)は、マトリクスから作った
-            ときにスケール・シアーを含んだ3x3(平行移動だけを除いたもの)を返し、正規直交にならない(Maya 2027で確認)。
-            スケールやシアーのあるマトリクスでは、このメソッドと結果が違う。
-        """
-        ...
-    def asScaleMatrix(self) -> Matrix:
-        """スケールとシアーだけを持つマトリクスを返す(回転・平行移動を除く)。
-
-        ``asScaleMatrix() * asRotateMatrix() * asTranslateMatrix()`` が自身(誤差の範囲)になる。
+        Args:
+            part (str): 取り出す成分。``"translate"``・``"rotate"``・``"scale"``・``"3x3"`` のどれか。
 
         Returns:
             Matrix: 自身と同じクラスの新しいマトリクス。
 
         Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
-        """
-        ...
-    def as3x3(self) -> Matrix:
-        """3x3部分(回転・スケール・シアー)だけを残したマトリクスを返す。
+            TypeError: partが文字列でない場合。
+            ValueError: partが上のどれでもない場合、または ``"rotate"``・``"scale"`` で分解できない場合
+                (いずれかのスケール軸がゼロなど)。
 
-        平行移動と4列目は、単位マトリクスの値にする。
-
-        Returns:
-            Matrix: 自身と同じクラスの新しいマトリクス。分解は行わないため、ゼロスケールでも使える。
+        Note:
+            ``om2.MTransformationMatrix(m).asRotateMatrix()``(:class:`Transformation` も同じ)は、マトリクスから作った
+            ときにスケール・シアーを含んだ3x3(平行移動だけを除いたもの)を返し、正規直交にならない(Maya 2027で確認)。
+            スケールやシアーのあるマトリクスでは、``extract("rotate")`` と結果が違う。
         """
         ...
     def isEquivalent(self, other: om2.MMatrix | Iterable[float], tolerance: float = ...) -> bool:

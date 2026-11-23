@@ -1,4 +1,4 @@
-"""``Callbacks.addSceneCheckCallback``・``addTimeChangeCallback`` のテスト。"""
+"""``Callbacks.addSceneCallback`` の確認のイベント(``…Check``)・``addTimeChangeCallback`` のテスト。"""
 
 import os
 import shutil
@@ -37,7 +37,7 @@ class SceneCheckCallbackTest(unittest.TestCase):
             return answer[0]
 
         with Callbacks() as group:
-            group.addSceneCheckCallback("beforeSaveCheck", check)
+            group.addSceneCallback("beforeSaveCheck", check)
             with self.assertRaises(RuntimeError):
                 cmds.file(save=True, type="mayaAscii")
             answer[0] = True
@@ -53,7 +53,7 @@ class SceneCheckCallbackTest(unittest.TestCase):
             raise ValueError("broken")
 
         with Callbacks() as group:
-            group.addSceneCheckCallback("beforeSaveCheck", broken)
+            group.addSceneCallback("beforeSaveCheck", broken)
             cmds.file(save=True, type="mayaAscii")
         self.assertTrue(os.path.exists(cmds.file(query=True, sceneName=True)))
 
@@ -69,17 +69,34 @@ class SceneCheckCallbackTest(unittest.TestCase):
                 "beforeNewCheck",
             ):
                 with self.subTest(event=event):
-                    self.assertIsInstance(group.addSceneCheckCallback(event, lambda: True), int)
+                    self.assertIsInstance(group.addSceneCallback(event, lambda: True), int)
+
+    def test_non_check_event_does_not_cancel(self):
+        """Check で終わらないイベント(beforeSave)では、偽の値を返しても保存を止めない。"""
+        calls = []
+
+        def before_save():
+            calls.append(True)
+            return False
+
+        with Callbacks() as group:
+            group.addSceneCallback("beforeSave", before_save)
+            cmds.file(save=True, type="mayaAscii")
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(os.path.exists(cmds.file(query=True, sceneName=True)))
 
     def test_errors(self):
         """知らないイベント・型の誤りは登録前に拒否する。"""
         group = Callbacks()
-        with self.assertRaises(ValueError):
-            group.addSceneCheckCallback("beforeSave", lambda: True)
+        for event in ("beforeSaveChecks", "noSuchEventCheck", "BeforeSaveCheck"):
+            with self.subTest(event=event):
+                with self.assertRaises(ValueError) as caught:
+                    group.addSceneCallback(event, lambda: True)
+                self.assertEqual(str(caught.exception), f"知らないシーンイベントです: {event!r}")
         with self.assertRaises(TypeError):
-            group.addSceneCheckCallback(1, lambda: True)
+            group.addSceneCallback(1, lambda: True)
         with self.assertRaises(TypeError):
-            group.addSceneCheckCallback("beforeSaveCheck", "check")
+            group.addSceneCallback("beforeSaveCheck", "check")
         group.remove()
 
 

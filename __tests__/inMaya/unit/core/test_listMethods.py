@@ -107,8 +107,8 @@ class ListMethodsTest(NamespaceCase):
         self.assertEqual(len(plugs), 0)
 
     def test_components(self):
-        mesh = mlib.createPolyCube(name=self.name("cube#"))
-        other = mlib.createPolyCube(name=self.name("cube#"))
+        mesh = mlib.createPoly("cube", name=self.name("cube#"))
+        other = mlib.createPoly("cube", name=self.name("cube#"))
         vertices = mesh.getVertices([0, 1])
         self.flushUndo()
         self.assertIsNone(vertices.append(mesh.getVertices([3])[0]))
@@ -149,7 +149,7 @@ class PluralReturnTest(NamespaceCase):
         cmds.select(clear=True)
         root = mlib.getNode(self.make("joint", "root#"))
         child = mlib.getNode(self.make("joint", "child#", parent=root.getFullName()))
-        mesh = mlib.createPolyCube(name=self.name("cube#"))
+        mesh = mlib.createPoly("cube", name=self.name("cube#"))
         transform = mesh.getTransform()
         skin = mlib.bindSkin([root, child], transform)
         cases = (

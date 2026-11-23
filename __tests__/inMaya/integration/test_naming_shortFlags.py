@@ -1,8 +1,8 @@
 """mlib.cmds の作成関数が受ける Maya コマンドの短縮名の仕様テスト。
 
 createIkHandle(sj・ee・sol・n・c)・bindSkin(mi)・bakeResults(at・t・sb)・bakeDeformer(mi)と、
-createCurve・createCircle・createLocator・createPoly*・createBlendShape・createContainer・
-createDagContainer・createDagPose の n 等について、短縮名が長名と同じ結果になること、
+createCurve・createCircle・createLocator・createPoly・createBlendShape・createContainer・
+createDagPose の n 等について、短縮名が長名と同じ結果になること、
 長名と短縮名の同時指定が TypeError でノードを残さないことを subTest で確かめる。
 
 あわせて次も確かめる。
@@ -106,22 +106,23 @@ class ShapeCreatorShortFlagsTest(_ShortFlagCase):
             mlib.createLocator(p=None)
 
     def test_poly_shapes(self):
-        """ポリゴンの作成関数が、Mayaの短縮フラグを受ける。
+        """createPoly が、Mayaの短縮フラグを受ける。
 
-        createPolyCube の w・h・d・n、createPolySphere の r・ax・n、createPolyCylinder の r・h・ax・n、
-        createPolyPlane の w・h・ax・n。
+        cube の w・h・d・n、sphere の r・ax・n、cylinder の r・h・ax・rcp・n、plane の w・h・ax・n。
         """
         cases = (
-            (mlib.createPolyCube, {"width": 2.0, "height": 3.0, "depth": 4.0}, {"w": 2.0, "h": 3.0, "d": 4.0}),
-            (mlib.createPolySphere, {"radius": 2.0, "axis": (1, 0, 0)}, {"r": 2.0, "ax": (1, 0, 0)}),
-            (mlib.createPolyCylinder, {"radius": 0.5, "height": 3.0, "axis": (0, 0, 1)}, {"r": 0.5, "h": 3.0, "ax": (0, 0, 1)}),
-            (mlib.createPolyPlane, {"width": 2.0, "height": 5.0, "axis": (1, 0, 0)}, {"w": 2.0, "h": 5.0, "ax": (1, 0, 0)}),
+            ("cube", {"width": 2.0, "height": 3.0, "depth": 4.0}, {"w": 2.0, "h": 3.0, "d": 4.0}),
+            ("sphere", {"radius": 2.0, "axis": (1, 0, 0)}, {"r": 2.0, "ax": (1, 0, 0)}),
+            ("cylinder", {"radius": 0.5, "height": 3.0, "axis": (0, 0, 1)}, {"r": 0.5, "h": 3.0, "ax": (0, 0, 1)}),
+            ("cylinder", {"roundCap": True, "subdivisions": (8, 1, 2)}, {"rcp": True, "subdivisions": (8, 1, 2)}),
+            ("plane", {"width": 2.0, "height": 5.0, "axis": (1, 0, 0)}, {"w": 2.0, "h": 5.0, "ax": (1, 0, 0)}),
         )
-        for function, longFlags, shortFlags in cases:
-            with self.subTest(function=function.__name__):
-                self.assertSameResult(function, longFlags, shortFlags, _points)
-                shape = function(n=function.__name__ + "Short")
-                self.assertEqual(_leaf(shape.getTransform()), self.name(function.__name__ + "Short"))
+        for index, (kind, longFlags, shortFlags) in enumerate(cases):
+            with self.subTest(kind=kind, flags=sorted(shortFlags)):
+                self.assertSameResult(mlib.createPoly, longFlags, shortFlags, _points, args=(kind,))
+                name = f"{kind}Short{index:d}"
+                shape = mlib.createPoly(kind, n=name)
+                self.assertEqual(_leaf(shape.getTransform()), self.name(name))
 
     def test_conflicts(self):
         """形状の作成関数で長名と短縮名を同時に指定すると TypeError(False・None の重複も含む)。"""
@@ -135,24 +136,25 @@ class ShapeCreatorShortFlagsTest(_ShortFlagCase):
             (mlib.createCircle, (), {"degree": 3, "d": 3}),
             (mlib.createCircle, (), {"name": "a", "n": "a"}),
             (mlib.createLocator, (), {"name": "a", "n": "a"}),
-            (mlib.createPolyCube, (), {"width": 1.0, "w": 1.0}),
-            (mlib.createPolyCube, (), {"height": 1.0, "h": 1.0}),
-            (mlib.createPolyCube, (), {"depth": 1.0, "d": 1.0}),
-            (mlib.createPolyCube, (), {"name": "a", "n": "a"}),
-            (mlib.createPolySphere, (), {"radius": 1.0, "r": 1.0}),
-            (mlib.createPolySphere, (), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
-            (mlib.createPolySphere, (), {"name": "a", "n": "a"}),
-            (mlib.createPolyCylinder, (), {"radius": 1.0, "r": 1.0}),
-            (mlib.createPolyCylinder, (), {"height": 1.0, "h": 1.0}),
-            (mlib.createPolyCylinder, (), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
-            (mlib.createPolyCylinder, (), {"name": "a", "n": "a"}),
-            (mlib.createPolyPlane, (), {"width": 1.0, "w": 1.0}),
-            (mlib.createPolyPlane, (), {"height": 1.0, "h": 1.0}),
-            (mlib.createPolyPlane, (), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
-            (mlib.createPolyPlane, (), {"name": "a", "n": "a"}),
+            (mlib.createPoly, ("cube",), {"width": 1.0, "w": 1.0}),
+            (mlib.createPoly, ("cube",), {"height": 1.0, "h": 1.0}),
+            (mlib.createPoly, ("cube",), {"depth": 1.0, "d": 1.0}),
+            (mlib.createPoly, ("cube",), {"name": "a", "n": "a"}),
+            (mlib.createPoly, ("sphere",), {"radius": 1.0, "r": 1.0}),
+            (mlib.createPoly, ("sphere",), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
+            (mlib.createPoly, ("sphere",), {"name": "a", "n": "a"}),
+            (mlib.createPoly, ("cylinder",), {"radius": 1.0, "r": 1.0}),
+            (mlib.createPoly, ("cylinder",), {"height": 1.0, "h": 1.0}),
+            (mlib.createPoly, ("cylinder",), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
+            (mlib.createPoly, ("cylinder",), {"roundCap": False, "rcp": False}),
+            (mlib.createPoly, ("cylinder",), {"name": "a", "n": "a"}),
+            (mlib.createPoly, ("plane",), {"width": 1.0, "w": 1.0}),
+            (mlib.createPoly, ("plane",), {"height": 1.0, "h": 1.0}),
+            (mlib.createPoly, ("plane",), {"axis": (0, 1, 0), "ax": (0, 1, 0)}),
+            (mlib.createPoly, ("plane",), {"name": "a", "n": "a"}),
         )
         for function, args, flags in cases:
-            with self.subTest(function=function.__name__, flags=sorted(flags)):
+            with self.subTest(function=function.__name__, args=args, flags=sorted(flags)):
                 self.assertConflict(function, args, flags)
 
 
@@ -160,12 +162,12 @@ class NodeCreatorShortFlagsTest(_ShortFlagCase):
     """コンテナ・dagPose・blendShape の作成関数の短縮名。"""
 
     def test_containers_and_dag_pose(self):
-        """createContainer・createDagContainer の n、createDagPose の n・bp。"""
-        for function in (mlib.createContainer, mlib.createDagContainer):
-            with self.subTest(function=function.__name__):
-                node = function(n=function.__name__ + "Short")
-                self.assertEqual(_leaf(node), self.name(function.__name__ + "Short"))
-                self.assertConflict(function, (), {"name": "a", "n": "a"})
+        """createContainer(dag=False・True)の n、createDagPose の n・bp。"""
+        for dag in (False, True):
+            with self.subTest(function="createContainer", dag=dag):
+                node = mlib.createContainer(n=f"containerShort{int(dag)}", dag=dag)
+                self.assertEqual(_leaf(node), self.name(f"containerShort{int(dag)}"))
+                self.assertConflict(mlib.createContainer, (), {"name": "a", "n": "a", "dag": dag})
         joints = self.chain("pose")
         with self.subTest(function="createDagPose"):
             self.assertSameResult(mlib.createDagPose, {"bindPose": True}, {"bp": True}, lambda pose: cmds.getAttr(str(pose) + ".bindPose"), args=(joints[0],))

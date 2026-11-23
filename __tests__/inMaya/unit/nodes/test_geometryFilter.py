@@ -65,7 +65,7 @@ class GeometryFilterTest(_Case):
     def test_input_geometry_is_orig_shape(self):
         """skinCluster・cluster の入力は同じ transform の下の中間形状で、出力の形状とは別。"""
         skin, mesh, _, _ = self.skinned()
-        cluster = mlib.createCluster(mesh)
+        cluster = mlib.createDeformer("cluster", mesh)
         for deformer in (skin, cluster):
             with self.subTest(deformer=deformer.getType()):
                 inputs = deformer.getGeometry(input=True)
@@ -90,7 +90,7 @@ class GeometryFilterTest(_Case):
     def test_deleted_raises(self):
         """削除済みのデフォーマーは RuntimeError。"""
         transform, _ = self.cube()
-        cluster = mlib.createCluster(transform)
+        cluster = mlib.createDeformer("cluster", transform)
         cmds.delete(cluster.getFullName())
         for flags in ({"input": True}, {}, {"input": True, "geometryIndex": 0}, {"geometryIndex": 0}):
             with self.subTest(flags=flags), self.assertRaises(RuntimeError):

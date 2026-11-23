@@ -3,6 +3,7 @@
 
 import maya.cmds as cmds
 from ..core.registry import _clear_type_hierarchy_cache
+from ..decorator import _require_bool
 from .versionedItem import _VersionedItem
 from mlib.nodes.node import Nodes
 import types
@@ -124,14 +125,7 @@ class Plugin(_VersionedItem):
             str | None: 登録されているプラグインのファイルパス。登録されていない場合は None。
         """
         ...
-    def getVersionText(self) -> str | None:
-        """Mayaが返すプラグインの版の文字列を、そのまま取得する。
-
-        Returns:
-            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
-        """
-        ...
-    def load(self, **kwargs: object) -> None:
+    def load(self, *, skipExisting: bool = ..., **kwargs: object) -> None:
         """プラグインをロードする。
 
         うまくロードできたら、mlibが持つノード型の継承のキャッシュを消す。
@@ -139,12 +133,15 @@ class Plugin(_VersionedItem):
         cmds.loadPluginを直接使ってロードした場合の変化は、ここでは見張らない。
 
         Args:
+            skipExisting (bool): True なら、すでにロードされているときは何もしない(キャッシュも消さない)。
+                何度呼んでも結果は同じになる。
             **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: skipExisting が bool でない場合。
             RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
         """
         ...
@@ -164,15 +161,10 @@ class Plugin(_VersionedItem):
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
         """
         ...
-    def ensureLoaded(self) -> None:
-        """ロードされていなければロードする。
-
-        何度呼んでも結果は同じ(すでにロードされていれば何もしない)。
+    def _version_text(self) -> str | None:
+        """Mayaが返すプラグインの版の文字列を、そのまま取得する。
 
         Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: Maya がロードを拒否した場合。
+            str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
         """
         ...

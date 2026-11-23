@@ -1,4 +1,4 @@
-"""``Matrix.asRotateMatrix`` がスケール・シアーのあるマトリクスでも回転だけを返すことのテスト。"""
+"""``Matrix.extract("rotate")`` がスケール・シアーのあるマトリクスでも回転だけを返すことのテスト。"""
 
 import math
 import sys
@@ -13,7 +13,7 @@ mlib.reload()
 from mlib.maths import Matrix
 
 
-class AsRotateMatrixShearTest(unittest.TestCase):
+class ExtractRotateShearTest(unittest.TestCase):
     """親の非一様スケールでシアーが入ったマトリクス。"""
 
     def setUp(self):
@@ -24,12 +24,12 @@ class AsRotateMatrixShearTest(unittest.TestCase):
         self.matrix = Matrix(child.asMatrix() * parent.asMatrix())
 
     def test_rotation_only(self):
-        """正規直交で、asScaleMatrix() * asRotateMatrix() が元の3x3になる。"""
-        rotate = self.matrix.asRotateMatrix()
+        """正規直交で、extract("scale") * extract("rotate") が元の3x3になる。"""
+        rotate = self.matrix.extract("rotate")
         for row in range(3):
             length = math.sqrt(sum(rotate.getElement(row, column) ** 2 for column in range(3)))
             self.assertAlmostEqual(length, 1.0)
-        product = self.matrix.asScaleMatrix() * rotate * self.matrix.asTranslateMatrix()
+        product = self.matrix.extract("scale") * rotate * self.matrix.extract("translate")
         self.assertTrue(product.isEquivalent(self.matrix, 1e-9))
         expected = om2.MTransformationMatrix(self.matrix).rotation(asQuaternion=True).asMatrix()
         self.assertTrue(rotate.isEquivalent(expected, 1e-9))
@@ -40,7 +40,7 @@ class AsRotateMatrixShearTest(unittest.TestCase):
         for column in range(3):
             three.setElement(3, column, 0.0)
         self.assertTrue(om2.MTransformationMatrix(self.matrix).asRotateMatrix().isEquivalent(three, 1e-9))
-        self.assertFalse(self.matrix.asRotateMatrix().isEquivalent(three, 1e-6))
+        self.assertFalse(self.matrix.extract("rotate").isEquivalent(three, 1e-6))
 
 
 if __name__ == "__main__":

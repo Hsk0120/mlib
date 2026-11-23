@@ -25,7 +25,7 @@ def createNurbsPlane(width: float = ..., lengthRatio: float = ..., patchesU: int
         patchesU (int): U方向のパッチ(スパン)の数。1以上。既定は1。
         patchesV (int): V方向のパッチ(スパン)の数。1以上。既定は1。
         axis (Sequence[float]): 面の法線。0でない有限な3成分。既定は(0, 1, 0)。
-            ``cmds.nurbsPlane`` の既定とは違い、:func:`createPolyPlane <mlib.cmds.createPolyPlane.createPolyPlane>`
+            ``cmds.nurbsPlane`` の既定とは違い、:func:`createPoly("plane") <mlib.cmds.createPoly.createPoly>`
             と同じ上向きにしている。
         degree (int): U・V方向の次数。1(直線)または3(曲線)。既定は3。
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。

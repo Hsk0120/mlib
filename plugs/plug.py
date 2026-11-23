@@ -3165,7 +3165,7 @@ class Plug(Object):
                 # 同上(mlib.reload()後も現在のMatrix型を返す)。
                 from ..maths import Matrix
 
-                return Matrix.fromMMatrix(om2.MFnMatrixData(data).matrix())
+                return Matrix._wrap(om2.MFnMatrixData(data).matrix())
         value = cmds.getAttr(self.getFullName())
         if isinstance(value, list) and len(value) == 1 and isinstance(value[0], tuple):
             return tuple(value[0])

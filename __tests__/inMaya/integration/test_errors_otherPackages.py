@@ -64,7 +64,7 @@ class _ErrorCase(NamespaceCase):
 
 
 class CreateShapeErrorTest(_ErrorCase):
-    """形状を作る関数(createCircle・createLocator・createPoly*)の入力の拒否。"""
+    """形状を作る関数(createCircle・createLocator・createPoly)の入力の拒否。"""
 
     def _check(self, function, cases):
         """各 (例外型, 引数) で例外になり、ノードが増えないことを確かめる。"""
@@ -119,8 +119,18 @@ class CreateShapeErrorTest(_ErrorCase):
         ]
         self._check(mlib.createLocator, cases)
 
-    def _poly_cases(self, size_names, subdivision_count):
-        """ポリゴンのプリミティブ共通の (例外型, 引数) を返す。"""
+    @staticmethod
+    def _poly(kind):
+        """createPoly(kind, ...) を呼ぶ関数を返す(_check の表に使う)。"""
+
+        def create(**kwargs):
+            return mlib.createPoly(kind, **kwargs)
+
+        create.__name__ = f"createPoly({kind!r})"
+        return create
+
+    def _poly_cases(self, size_names, subdivision_count, axis=True):
+        """ポリゴンのプリミティブ共通の (例外型, 引数) を返す。axis=False なら軸の項目を除く(cube は軸を受けない)。"""
         cases = []
         for size in size_names:
             cases += [(TypeError, {size: "1"}), (ValueError, {size: 0}), (ValueError, {size: -1.0}), (ValueError, {size: float("inf")})]
@@ -129,23 +139,26 @@ class CreateShapeErrorTest(_ErrorCase):
             (TypeError, {"subdivisions": (1.5,) + (1,) * (subdivision_count - 1)}),
             (ValueError, {"subdivisions": (1,) * (subdivision_count + 1)}),
             (ValueError, {"subdivisions": (0,) + (1,) * (subdivision_count - 1)}),
-            (TypeError, {"axis": 1}),
-            (ValueError, {"axis": (0, 0, 0)}),
-            (ValueError, {"axis": (0, 1)}),
         ]
+        if axis:
+            cases += [(TypeError, {"axis": 1}), (ValueError, {"axis": (0, 0, 0)}), (ValueError, {"axis": (0, 1)})]
         return cases + self._parent_cases()
 
     def test_create_poly_cylinder(self):
         """円柱の大きさ・分割数・軸・名前・親の不正。"""
-        self._check(mlib.createPolyCylinder, self._poly_cases(("radius", "height"), 3))
+        self._check(self._poly("cylinder"), self._poly_cases(("radius", "height"), 3))
 
     def test_create_poly_plane(self):
         """平面の大きさ・分割数・軸・名前・親の不正。"""
-        self._check(mlib.createPolyPlane, self._poly_cases(("width", "height"), 2))
+        self._check(self._poly("plane"), self._poly_cases(("width", "height"), 2))
 
     def test_create_poly_sphere(self):
         """球の大きさ・分割数・軸・名前・親の不正。"""
-        self._check(mlib.createPolySphere, self._poly_cases(("radius",), 2))
+        self._check(self._poly("sphere"), self._poly_cases(("radius",), 2))
+
+    def test_create_poly_cube(self):
+        """立方体の大きさ・分割数・名前・親の不正。"""
+        self._check(self._poly("cube"), self._poly_cases(("width", "height", "depth"), 3, axis=False))
 
 
 class CreateJointChainErrorTest(_ErrorCase):
@@ -186,15 +199,15 @@ class CreateJointChainErrorTest(_ErrorCase):
 
 
 class CreateContainerErrorTest(_ErrorCase):
-    """createContainer・createDagContainer は、Mayaが所属を拒否した場合 RuntimeError で何も残さない。"""
+    """createContainer(dag=False・True)は、Mayaが所属を拒否した場合 RuntimeError で何も残さない。"""
 
     def test_missing_member(self):
         """存在しないノードを所属させようとすると RuntimeError で、作りかけの container を残さない。"""
         before = self.nodes()
-        for function in (mlib.createContainer, mlib.createDagContainer):
-            with self.subTest(function=function.__name__):
+        for dag in (False, True):
+            with self.subTest(dag=dag):
                 with self.assertRaises(RuntimeError):
-                    function(self.name("box"), members=[self.name("noSuchMember")])
+                    mlib.createContainer(self.name("box"), members=[self.name("noSuchMember")], dag=dag)
                 self.assertSceneUnchanged(before)
 
 
@@ -363,18 +376,19 @@ class PluginErrorTest(_ErrorCase):
     """Plugin のロード・アンロードの拒否。"""
 
     def test_missing_plugin(self):
-        """見つからないプラグインの ensureLoaded は RuntimeError。"""
+        """見つからないプラグインの load は skipExisting に関係なく RuntimeError。"""
         plugin = Plugin(_MISSING_PLUGIN)
         self.assertFalse(plugin.isLoaded())
-        with self.assertRaises(RuntimeError):
-            plugin.ensureLoaded()
+        for skip in (False, True):
+            with self.subTest(skipExisting=skip), self.assertRaises(RuntimeError):
+                plugin.load(skipExisting=skip)
         self.assertFalse(plugin.isLoaded())
 
     def test_unload_in_use(self):
         """使用中のプラグインの unload(force=False) は Maya が拒否して RuntimeError で、ロードされたまま。"""
         plugin = Plugin("quatNodes")
         was_loaded = plugin.isLoaded()
-        plugin.ensureLoaded()
+        plugin.load(skipExisting=True)
         node = self.make("quatToEuler", "quat")
         try:
             with self.assertRaises(RuntimeError):
@@ -431,7 +445,7 @@ class ScalarGraphErrorTest(_ErrorCase):
 
 
 class TimeErrorTest(_ErrorCase):
-    """Time.setAnimationRange の拒否。拒否時は範囲を変えない。"""
+    """Time.setRange(animation=True) の拒否。拒否時は範囲を変えない。"""
 
     def setUp(self):
         super().setUp()
@@ -453,8 +467,8 @@ class TimeErrorTest(_ErrorCase):
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
-                    Time.setAnimationRange(*args, **kwargs)
-                self.assertEqual(Time.getAnimationRange(), self.original)
+                    Time.setRange(*args, animation=True, **kwargs)
+                self.assertEqual(Time.getRange(animation=True), self.original)
 
 
 class ComponentNameErrorTest(_ErrorCase):
@@ -829,15 +843,15 @@ class SnapshotSaveErrorTest(_ErrorCase):
 
 
 class MathsErrorTest(unittest.TestCase):
-    """EulerRotate.fromDegrees・Quaternion.asCanonicalAxisAngle・asUnitMatrix の拒否。"""
+    """EulerRotate(..., unit="deg")・Quaternion.asCanonicalAxisAngle・asUnitMatrix の拒否。"""
 
     def test_from_degrees_order(self):
         """未対応の回転順序は ValueError。"""
         for order in ("abc", "xxy", 6, -1):
             with self.subTest(order=order):
                 with self.assertRaises(ValueError):
-                    EulerRotate.fromDegrees(10, 20, 30, order)
-        rotation = EulerRotate.fromDegrees(90, 0, 0, "zyx")
+                    EulerRotate(10, 20, 30, order, unit="deg")
+        rotation = EulerRotate(90, 0, 0, "zyx", unit="deg")
         self.assertAlmostEqual(rotation.x, math.pi / 2)
         self.assertEqual(rotation.orderName, "zyx")
 

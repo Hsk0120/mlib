@@ -79,7 +79,7 @@ class FastSettingsTest(NamespaceCase):
         cmds.select(clear=True)
         root = mlib.getNode(self.make("joint", "root#"))
         child = mlib.getNode(self.make("joint", "child#", parent=root.getFullName()))
-        mesh = mlib.createPolyCube(name=self.name("cube#"))
+        mesh = mlib.createPoly("cube", name=self.name("cube#"))
         skin = mlib.bindSkin([root, child], mesh.getTransform())
         for fast in (False, True):
             with self.subTest(fast=fast):

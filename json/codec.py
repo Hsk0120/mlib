@@ -159,7 +159,7 @@ def _decode_math(value):
     if len(items) != size or not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in items):
         raise ValueError(f"{name}のJSONは{size}個の数値で指定してください: {items!r}")
     if name == "EulerRotate":
-        return EulerRotate.fromDegrees(items[0], items[1], items[2], value["order"])
+        return EulerRotate(items[0], items[1], items[2], value["order"], unit="deg")
     if name == "Quaternion":
         return Quaternion(items[0], items[1], items[2], items[3])
     if name == "Matrix":
@@ -219,9 +219,9 @@ def _decode_transformation(items):
         if not isinstance(item, list) or len(item) != 3 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in item):
             raise ValueError(f"Transformationの{name}は3個の数値で指定してください: {item!r}")
         if name == "rotate":
-            arguments[name] = EulerRotate.fromDegrees(item[0], item[1], item[2], order)
+            arguments[name] = EulerRotate(item[0], item[1], item[2], order, unit="deg")
         elif name in _TRANSFORMATION_ANGLES:
-            arguments[name] = EulerRotate.fromDegrees(item[0], item[1], item[2])
+            arguments[name] = EulerRotate(item[0], item[1], item[2], unit="deg")
         else:
             arguments[name] = item
     return Transformation(rotateOrder=order, **arguments)

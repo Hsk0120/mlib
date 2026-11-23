@@ -348,7 +348,7 @@ class PassToMayaCmdsTest(_InteropCase):
 
     def test_maths_values(self):
         node = self.create("transform", "node")
-        rotation = EulerRotate.fromDegrees(10.0, 20.0, 30.0)
+        rotation = EulerRotate(10.0, 20.0, 30.0, unit="deg")
         # 回転成分はラジアン。度を受け取る maya.cmds のフラグには asDegrees() を使う。
         cmds.xform(node, rotation=rotation.asDegrees())
         self.assertAlmostEqual(cmds.getAttr(node.getPlug("rx")), 10.0)

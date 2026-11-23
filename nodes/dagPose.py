@@ -138,7 +138,7 @@ class DagPose(Node):
         index = self.getMemberIndices(member)
         attribute = "worldMatrix" if ws else "xformMatrix"
         plug = self.getPlug(attribute).mplug().elementByLogicalIndex(index)
-        return Matrix.fromMMatrix(om2.MFnMatrixData(plug.asMObject()).matrix())
+        return Matrix._wrap(om2.MFnMatrixData(plug.asMObject()).matrix())
 
     def getNotAtPose(self):
         """保存した姿勢から外れているメンバーを取得する。

@@ -79,8 +79,8 @@ class EulerRotateSpecTest(unittest.TestCase):
             EulerRotate(0, 0, 0, "bad")
 
     def test_degrees_are_conversion_only(self):
-        """内部値はrad。fromDegrees/asDegreesは換算だけでUI単位を参照しない。"""
-        value = EulerRotate.fromDegrees(90, -45, 400, "yzx")
+        """内部値はrad。unit="deg"での作成とasDegreesは換算だけでUI単位を参照しない。"""
+        value = EulerRotate(90, -45, 400, "yzx", unit="deg")
         self.assertAlmostEqual(value.x, math.pi / 2)
         self.assertAlmostEqual(value.z, math.radians(400))
         self.assertEqual(value.orderName, "yzx")
@@ -242,18 +242,18 @@ class EulerRotateTest(_Case):
     """EulerRotate の追加メソッド。"""
 
     def test_gimbal_lock(self):
-        self.assertTrue(EulerRotate.fromDegrees(10, 90, 30).isGimbalLocked())
-        self.assertTrue(EulerRotate.fromDegrees(10, -270, 30).isGimbalLocked())
-        self.assertFalse(EulerRotate.fromDegrees(90, 0, 90).isGimbalLocked())
+        self.assertTrue(EulerRotate(10, 90, 30, unit="deg").isGimbalLocked())
+        self.assertTrue(EulerRotate(10, -270, 30, unit="deg").isGimbalLocked())
+        self.assertFalse(EulerRotate(90, 0, 90, unit="deg").isGimbalLocked())
         # yzx の中間の軸は z。
-        self.assertTrue(EulerRotate.fromDegrees(0, 0, -90, "yzx").isGimbalLocked())
-        self.assertFalse(EulerRotate.fromDegrees(0, 89, 0).isGimbalLocked())
-        self.assertTrue(EulerRotate.fromDegrees(0, 89, 0).isGimbalLocked(tolerance=math.radians(1.5)))
+        self.assertTrue(EulerRotate(0, 0, -90, "yzx", unit="deg").isGimbalLocked())
+        self.assertFalse(EulerRotate(0, 89, 0, unit="deg").isGimbalLocked())
+        self.assertTrue(EulerRotate(0, 89, 0, unit="deg").isGimbalLocked(tolerance=math.radians(1.5)))
         with self.assertRaises(ValueError):
             EulerRotate().isGimbalLocked(-0.1)
 
     def test_reverse_direction(self):
-        rotation = EulerRotate.fromDegrees(30, -120, 45, "zxy")
+        rotation = EulerRotate(30, -120, 45, "zxy", unit="deg")
         reversed_rotation = rotation.reverseDirection()
         self.assertEqual(reversed_rotation.order, rotation.order)
         self.assertSequenceAlmostEqual(reversed_rotation.asDegrees(), (30, 240, 45))
@@ -289,7 +289,7 @@ class EulerRoundTest(NamespaceCase):
 
     def test_degrees_by_default(self):
         """既定は度で丸め、ラジアンで保持する。回転順序と型を維持する。"""
-        value = EulerRotate.fromDegrees(89.99999, -45.00004, 12.3456, order="zxy")
+        value = EulerRotate(89.99999, -45.00004, 12.3456, order="zxy", unit="deg")
         result = value.round(2)
         self.assertIs(type(result), EulerRotate)
         self.assertEqual(result.orderName, "zxy")
@@ -308,13 +308,13 @@ class EulerRoundTest(NamespaceCase):
 
     def test_negative_zero(self):
         """度で丸めた結果の -0.0 も 0.0 にそろえる。"""
-        result = EulerRotate.fromDegrees(-0.001, 10.0, -0.0).round(1)
+        result = EulerRotate(-0.001, 10.0, -0.0, unit="deg").round(1)
         self.assertEqual(math.copysign(1.0, result.x), 1.0)
         self.assertEqual(math.copysign(1.0, result.z), 1.0)
 
     def test_round_keeps_source_and_order(self):
         """round は新しい値を返して自身を変えず、回転順序を保つ。"""
-        value = EulerRotate.fromDegrees(10.04, 20.06, -30.01, order="yxz")
+        value = EulerRotate(10.04, 20.06, -30.01, order="yxz", unit="deg")
         result = value.round(1)
         self.assertIsNot(result, value)
         self.assertEqual(result.orderName, "yxz")
@@ -323,7 +323,7 @@ class EulerRoundTest(NamespaceCase):
 
     def test_builtin(self):
         """組み込みの round は度で丸める。"""
-        value = EulerRotate.fromDegrees(44.6, 0.2, -179.7)
+        value = EulerRotate(44.6, 0.2, -179.7, unit="deg")
         result = round(value)
         self.assertIs(type(result), EulerRotate)
         self.assertSequenceAlmostEqual(result.asDegrees(), (45.0, 0.0, -180.0), places=10)

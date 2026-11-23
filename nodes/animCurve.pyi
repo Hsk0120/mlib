@@ -7,7 +7,7 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 from ..common.keyframe import Keyframe, Keyframes
-from ..common.units import angleToUi
+from ..common.units import convertAngle
 from ..core.attributeType import _convert_units, _from_seconds, _to_seconds
 from ..core.fastWrite import require_writable
 from ..core.nodeEdit import delete_nodes

@@ -45,7 +45,7 @@ class MatrixPlug(Plug):
         data = typed_data(self._mplug)
         if data.isNull():
             return None
-        return Matrix.fromMMatrix(om2.MFnMatrixData(data).matrix())
+        return Matrix._wrap(om2.MFnMatrixData(data).matrix())
 
     def _set_value(self, value, *, uiUnits=False, fast=False, check=False):
         """マトリクスのアトリビュートへ値を直接設定する。

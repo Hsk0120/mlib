@@ -8,7 +8,7 @@ import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 
 from ..common.keyframe import Keyframe, Keyframes
-from ..common.units import angleToUi
+from ..common.units import convertAngle
 from ..core.attributeType import _convert_units, _from_seconds, _to_seconds
 from ..core.fastWrite import require_writable
 from ..core.nodeEdit import delete_nodes
@@ -633,7 +633,7 @@ class AnimCurve(Node):
             kwargs = dict(kwargs)
             for flag in ("inAngle", "outAngle"):
                 if flag in kwargs:
-                    kwargs[flag] = angleToUi(kwargs[flag], unit=angle_unit)
+                    kwargs[flag] = convertAngle(kwargs[flag], angle_unit, None)
             cmds.keyTangent(self.getFullName(), edit=True, index=self._index(index), animation="objects", **kwargs)
 
     def getInfinity(self):

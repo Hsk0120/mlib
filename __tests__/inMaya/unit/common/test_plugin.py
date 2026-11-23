@@ -75,9 +75,13 @@ class PluginTest(unittest.TestCase):
         self.assertIsInstance(path, str)
         self.assertTrue(path.lower().endswith((".mll", ".py", ".so", ".bundle")))
         self.assertIsInstance(plugin.getVersion(), Version)
-        self.assertIsInstance(plugin.getVersionText(), str)
+        self.assertIsInstance(plugin.getVersion(text=True), str)
+        self.assertEqual(plugin.getVersion(text=False), plugin.getVersion())
+        for value in (1, "yes", None):
+            with self.subTest(text=value), self.assertRaises(TypeError):
+                plugin.getVersion(text=value)
 
-    def test_unload_load_and_ensure_loaded_round_trip(self):
+    def test_unload_load_and_skip_existing_round_trip(self):
         plugin = Plugin(self.pluginName)
         self.assertTrue(plugin.isLoaded())
 
@@ -85,13 +89,25 @@ class PluginTest(unittest.TestCase):
         self.assertIsNone(result)
         self.assertFalse(plugin.isLoaded())
 
-        result = plugin.ensureLoaded()
+        result = plugin.load(skipExisting=True)
         self.assertIsNone(result)
         self.assertTrue(plugin.isLoaded())
 
-        # 既にロード済みの状態で ensureLoaded を呼んでもエラーにならない。
-        plugin.ensureLoaded()
+        # 既にロード済みの状態で load(skipExisting=True) を呼んでもエラーにならず、型のキャッシュも消さない。
+        with mock.patch("mlib.common.plugin._clear_type_hierarchy_cache") as clear, mock.patch.object(cmds, "loadPlugin") as load:
+            self.assertIsNone(plugin.load(skipExisting=True))
+        clear.assert_not_called()
+        load.assert_not_called()
         self.assertTrue(plugin.isLoaded())
+
+    def test_load_rejects_non_bool_skip_existing(self):
+        """skipExisting が bool でなければ、ロードせずに TypeError。"""
+        plugin = Plugin(self.pluginName)
+        with mock.patch.object(cmds, "loadPlugin") as load:
+            for value in (1, "yes", None):
+                with self.subTest(skipExisting=value), self.assertRaises(TypeError):
+                    plugin.load(skipExisting=value)
+        load.assert_not_called()
 
     def test_equality_and_hash(self):
         self.assertEqual(Plugin(self.pluginName), Plugin(self.pluginName))
@@ -144,19 +160,20 @@ class PluginVersionTest(unittest.TestCase):
 
     def test_version_parts_match_version_string(self):
         plugin = Plugin(self.pluginName)
-        self.assertEqual(plugin.getVersion().parts, Version.parse(plugin.getVersionText()).parts)
+        self.assertEqual(plugin.getVersion().parts, Version.parse(plugin.getVersion(text=True)).parts)
 
-    def test_is_version_at_least(self):
-        plugin = Plugin(self.pluginName)
-        self.assertTrue(plugin.isVersionAtLeast("0"))
-        self.assertFalse(plugin.isVersionAtLeast("999999"))
+    def test_version_is_at_least(self):
+        """版の比較は getVersion() の Version.isAtLeast で行う。不正な版は ValueError。"""
+        version = Plugin(self.pluginName).getVersion()
+        self.assertTrue(version.isAtLeast("0"))
+        self.assertFalse(version.isAtLeast("999999"))
         with self.assertRaises(ValueError):
-            plugin.isVersionAtLeast("bad")
+            version.isAtLeast("bad")
 
     def test_unknown_plugin_has_no_version(self):
         plugin = Plugin("mlibDoesNotExistPlugin123")
         self.assertIsNone(plugin.getVersion())
-        self.assertFalse(plugin.isVersionAtLeast("0"))
+        self.assertIsNone(plugin.getVersion(text=True))
 
 
 class FakeCmds:
@@ -213,9 +230,7 @@ class PluginSpecTest(unittest.TestCase):
         self.assertFalse(unknown.isLoaded())
         self.assertIsNone(unknown.getPath())
         self.assertIsNone(unknown.getVersion())
-        self.assertFalse(unknown.isVersionAtLeast("1.0"))
-        with self.assertRaises(ValueError):
-            unknown.isVersionAtLeast("beta")
+        self.assertIsNone(unknown.getVersion(text=True))
         with self.assertRaises(ValueError):
             Plugin("")
         for name in (None, 5):
@@ -224,11 +239,11 @@ class PluginSpecTest(unittest.TestCase):
 
     def test_ensure_node_plugin_targets_only_humanik(self):
         """HumanIKのノード型だけmayaHIKのロードを確かめ、他の型では何もしない。"""
-        with mock.patch.object(Plugin, "ensureLoaded") as ensure:
+        with mock.patch.object(Plugin, "load") as load:
             self.assertIsNone(Plugin.ensureNodePlugin("transform"))
-            ensure.assert_not_called()
+            load.assert_not_called()
             Plugin.ensureNodePlugin("HIKCharacterNode")
-            ensure.assert_called_once_with()
+            load.assert_called_once_with(skipExisting=True)
 
     def test_loaded_lists_plugins_in_maya_order(self):
         """loaded()はMayaが返す順のPluginのlist。"""

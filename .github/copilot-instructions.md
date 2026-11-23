@@ -48,7 +48,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 
 | 場所 | 責務 |
 | --- | --- |
-| `cmds/` | Maya コマンド相当の関数(1関数1ファイル、関数名とファイル名は同じ) |
+| `cmds/` | Maya コマンド相当の関数(1関数1ファイル、関数名とファイル名は同じ。同じ種類のものを作る複数のコマンドは `kind` で選ぶ1つの関数) |
 | `nodes/` | Node ラッパー(Maya の nodeType ごと)と複数形 `Nodes` 等 |
 | `plugs/` | Plug ラッパー(アトリビュートの型ごと)と `Plugs` |
 | `components/` | Mesh・NurbsCurve・NurbsSurface・Lattice のコンポーネント(単数/複数) |
@@ -348,6 +348,19 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
     種類ごとの違いは `_raw_points`・`_set_points`・`_point_components` と `_mirror_chunk` が持つ。Undo チャンク名は、まとめる前の名前を分岐でそのまま使う(値として決めたものなので変えない)。
   - まとめないもの: `NurbsCurve.removeKnot` と `reduceKnotMultiplicity`、`AnimCurve.addKeys` と `replaceKeys`(壊し方が違う)、`Camera.getFilmFrustum`(戻り値の意味が違うのに型が同じ)、
     `Reference.getCopyNumber` と `getCopyNumbers`(別の情報)、`Mesh.removeFaceVertexColors`、`AnimCurve` の番号を渡す形と `Keyframe`・`Keyframes` の同じ操作(両方残す)。
+- common・cmds・数学型での形(2026-11-24):
+  - 同じ種類のものを作る複数の Maya コマンドは、作るものを必須の `kind` で選ぶ1つの作成関数にする(`createPoly("cube"|"sphere"|"cylinder"|"plane", ...)`・
+    `createDeformer("cluster"|"lattice"|"wire", targets, ...)`)。`kind` より後(`createDeformer` は targets より後)はキーワード専用、その種類で使えない引数は TypeError、
+    Undo チャンク名は種類ごとの元の名前のまま。型の違いだけなら bool の引数(`createContainer(dag=True)`)。`cmds.deformer(type=)` で作るほかのデフォーマーは扱わない(ValueError)。
+  - 版は `getVersion(*, text=False)`(`text=True` は Maya の文字列そのまま)、比較は `Version.isAtLeast`(`v >= "1.2"` のような str との比較は足さない)。
+    `PluginPackage.getVersion(*, loaded=False)`。ロード済みなら何もしないロードは `Plugin.load(skipExisting=True)`。
+  - 時間の範囲は `Time.getRange(*, animation=False, selected=False)`・`setRange(start, end, *, animation=False)`。`setRange`・`setCurrent` は値を返さない。
+  - UI の単位との変換は `convertDistance`・`convertAngle`・`convertTime` の片方の単位を None にして書く(`…ToUi`・`…FromUi`・`secondsPerFrame` は置かない)。
+  - シーンの確認のイベント(`…Check`)も `Callbacks.addSceneCallback` で登録する(偽を返すと操作を止める)。
+  - 数学型: om2 と同じ名前のメソッドは om2 と同じ動きのまま残し、mlib 独自の名前(`asCanonicalAxisAngle`・`safeLog`・`asUnitMatrix`・`unit` など)もまとめない。
+    コンストラクターで同じことが書ける生成(`Matrix.identity`・`fromMMatrix`・`fromTransformation`、`Vector`・`EulerRotate` の `fromIterable`、`EulerRotate.fromDegrees`)は置かない
+    (`Matrix()`・`Matrix(m)`・`EulerRotate(x, y, z, order, unit="deg")`)。成分だけのマトリクスは `Matrix.extract("translate"|"rotate"|"scale"|"3x3")`
+    (om2 の `asMatrix`・`asRotateMatrix` と紛れない名前)、距離の2乗は `distanceTo(squared=True)`、対話のセッションかは `not Environment.isBatch()`。
 
 ## 単位
 

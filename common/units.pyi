@@ -6,17 +6,6 @@ import maya.api.OpenMaya as om2
 from ..util import _angle_unit, _time_unit
 
 
-def distanceToUi(centimeters: float) -> float:
-    """cmの距離を、現在のUI距離単位の数値へ変換する。
-
-    Args:
-        centimeters (float): cm単位の距離。
-
-    Returns:
-        float: 現在のUI距離単位で表した値。
-    """
-    ...
-
 def _distance_unit(unit: str | None) -> int:
     """距離単位名をOpenMayaの単位へ解決する。
 
@@ -35,7 +24,8 @@ def _distance_unit(unit: str | None) -> int:
 def convertDistance(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """距離の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
+    (cmからUIの単位へは ``convertDistance(cm, "cm")``、UIの単位からcmへは ``convertDistance(value, toUnit="cm")``)。
 
     Args:
         value (float): 変換する距離。
@@ -49,17 +39,6 @@ def convertDistance(value: float, fromUnit: str | None = ..., toUnit: str | None
     Raises:
         TypeError: 単位が文字列でもNoneでもない場合。
         ValueError: 対応していない単位名の場合。
-    """
-    ...
-
-def distanceFromUi(value: float) -> float:
-    """現在のUI距離単位の数値を、cmへ変換する。
-
-    Args:
-        value (float): 現在のUI距離単位で表した値。
-
-    Returns:
-        float: cm単位の距離。
     """
     ...
 
@@ -78,44 +57,12 @@ def _angle_constant(unit: str) -> int:
     """
     ...
 
-def angleToUi(value: float, *, unit: str = ...) -> float:
-    """角度を現在のUI角度単位の数値へ変換する。
-
-    Args:
-        value (float): unitの単位の角度。
-        unit (str): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-            ``"degree"`` / ``"radians"`` などの別名も使える。
-
-    Returns:
-        float: 現在のUI角度単位で表した値。
-
-    Raises:
-        TypeError: unitが文字列・None以外の場合。
-        ValueError: unitが未対応の単位名の場合。
-    """
-    ...
-
-def angleFromUi(value: float, *, unit: str = ...) -> float:
-    """現在のUI角度単位の数値を、指定単位の角度へ変換する。
-
-    Args:
-        value (float): 現在のUI角度単位で表した値。
-        unit (str): 戻り値の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
-            ``"degree"`` / ``"radians"`` などの別名も使える。
-
-    Returns:
-        float: unitの単位の角度。
-
-    Raises:
-        TypeError: unitが文字列・None以外の場合。
-        ValueError: unitが未対応の単位名の場合。
-    """
-    ...
-
 def convertAngle(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """角度の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
+    (度からUIの単位へは ``convertAngle(degrees, "deg", None)``、UIの単位から度へは ``convertAngle(value, None, "deg")``)。
+    距離・時間と違い、既定は度からラジアンへの変換なので、UIの単位はNoneを明示して指定する。
 
     Args:
         value (float): 変換する角度。
@@ -152,7 +99,8 @@ def _time_constant(unit: str | None) -> int:
 def convertTime(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """時間の単位を変換する。
 
-    シーンの単位の設定は変えない。
+    シーンの単位の設定は変えない。現在の時間単位での1フレームの秒数は ``convertTime(1.0, toUnit="sec")``、
+    fps は ``convertTime(1.0, "sec")``。
 
     Args:
         value (float): 変換する時間。
@@ -167,13 +115,5 @@ def convertTime(value: float, fromUnit: str | None = ..., toUnit: str | None = .
     Raises:
         TypeError: 単位が文字列でもNoneでもない場合。
         ValueError: 対応していない単位名の場合。
-    """
-    ...
-
-def secondsPerFrame() -> float:
-    """現在の時間単位で、1フレームが何秒かを取得する。
-
-    Returns:
-        float: 1フレームの秒数。
     """
     ...

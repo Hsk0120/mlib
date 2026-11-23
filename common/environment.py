@@ -14,7 +14,7 @@ class Environment:
 
         from mlib.common import Environment
 
-        if Environment.isInteractive() and Environment.getMayaVersion() >= Version("2025"):
+        if not Environment.isBatch() and Environment.getMayaVersion() >= Version("2025"):
             ...
     """
 
@@ -34,15 +34,6 @@ class Environment:
             bool: バッチならTrue。
         """
         return bool(cmds.about(batch=True))
-
-    @classmethod
-    def isInteractive(cls):
-        """GUIのある対話的なセッションで実行中か調べる。
-
-        Returns:
-            bool: バッチでなければTrue(``not isBatch()``)。
-        """
-        return not cls.isBatch()
 
     @classmethod
     def getMayaVersion(cls):

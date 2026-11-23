@@ -256,7 +256,7 @@ class NodeApiTest(unittest.TestCase):
             self.assertEqual(rotate.order, order)
             node.getPlug("rotate").set(rotate)
             self.assertTrue(node.getMatrix().isEquivalent(before, 1e-9), order)
-            node.setRotate(EulerRotate.fromDegrees(40.0, -50.0, 60.0, order))
+            node.setRotate(EulerRotate(40.0, -50.0, 60.0, order, unit="deg"))
             self.assertTrue(node.getMatrix().isEquivalent(before, 1e-9), order)
         with self.assertRaises(ValueError):
             node.setRotate((0.1, 0.2, 0.3), unit="grad")
@@ -283,7 +283,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertIsInstance(scale, Scale)
         self.assertTrue(scale.isEquivalent(Scale(-1.0, 2.0, 3.0), 1e-12))
         rotate = node.getRotate()
-        self.assertTrue(rotate.isEquivalent(EulerRotate.fromDegrees(10.0, 20.0, 30.0), 1e-12))
+        self.assertTrue(rotate.isEquivalent(EulerRotate(10.0, 20.0, 30.0, unit="deg"), 1e-12))
         self.assertTrue(Matrix(rotate=node.getQuaternion(), scale=scale).isEquivalent(matrix, 1e-12))
 
         world = node.getMatrix(worldSpace=True)
@@ -363,7 +363,7 @@ class NodeApiTest(unittest.TestCase):
         node.setTranslation((1.0, 2.0, 3.0), at=4)
         self.assert_channels(name, (370.0, -20.0, 190.0), (1.0, 1.0, 1.0))
         # 等価な別解 (180+10, 180-(-20), 180+190) を渡しても、現在値に近い解で書く。
-        node.setRotate(EulerRotate.fromDegrees(190.0, 200.0, 370.0))
+        node.setRotate(EulerRotate(190.0, 200.0, 370.0, unit="deg"))
         self.assert_channels(name, (370.0, -20.0, 190.0), (1.0, 1.0, 1.0))
 
     def test_transform_flat_rotate_values_use_the_node_rotate_order(self):
@@ -382,7 +382,7 @@ class NodeApiTest(unittest.TestCase):
 
             rotate = node.getRotate()
             self.assertEqual(rotate.order, order)
-            self.assertTrue(rotate.isEquivalent(EulerRotate.fromDegrees(10.0, 20.0, 30.0, order), 1e-12))
+            self.assertTrue(rotate.isEquivalent(EulerRotate(10.0, 20.0, 30.0, order, unit="deg"), 1e-12))
 
             plug = node.getPlug("rotate")
             plug.set(plug.get(unit="deg"))

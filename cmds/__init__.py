@@ -13,26 +13,20 @@ from .bakeResults import bakeResults
 from .bindSkin import bindSkin
 from .createBlendShape import createBlendShape
 from .createCircle import createCircle
-from .createCluster import createCluster
 from .createContainer import createContainer
 from .createCurve import createCurve
-from .createDagContainer import createDagContainer
 from .createDagPose import createDagPose
+from .createDeformer import createDeformer
 from .createExpression import createExpression
 from .createGroup import createGroup
 from .createIkHandle import createIkHandle
 from .createJointChain import createJointChain
-from .createLattice import createLattice
 from .createLocator import createLocator
 from .createMotionTrail import createMotionTrail
 from .createNode import createNode
 from .createNurbsPlane import createNurbsPlane
-from .createPolyCube import createPolyCube
-from .createPolyCylinder import createPolyCylinder
-from .createPolyPlane import createPolyPlane
-from .createPolySphere import createPolySphere
+from .createPoly import createPoly
 from .createShadingEngine import createShadingEngine
-from .createWire import createWire
 from .delete import delete
 from .duplicate import duplicate
 from .findCycles import findCycles
@@ -49,26 +43,20 @@ __all__ = [
     "bindSkin",
     "createBlendShape",
     "createCircle",
-    "createCluster",
     "createContainer",
     "createCurve",
-    "createDagContainer",
     "createDagPose",
+    "createDeformer",
     "createExpression",
     "createGroup",
     "createIkHandle",
     "createJointChain",
-    "createLattice",
     "createLocator",
     "createMotionTrail",
     "createNode",
     "createNurbsPlane",
-    "createPolyCube",
-    "createPolyCylinder",
-    "createPolyPlane",
-    "createPolySphere",
+    "createPoly",
     "createShadingEngine",
-    "createWire",
     "delete",
     "duplicate",
     "findCycles",

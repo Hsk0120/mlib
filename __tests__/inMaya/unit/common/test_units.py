@@ -46,49 +46,49 @@ class UnitsSpecTest(unittest.TestCase):
         cmds.currentUnit(linear=self.linear, angle=self.angle, time=self.time)
 
     def test_distance_to_and_from_ui_follow_linear_unit(self):
-        """distanceToUi/FromUiは現在の距離単位で換算し、互いに逆変換になる。"""
+        """convertDistanceの片方の単位をNoneにすると現在の距離単位と換算し、cmとUI単位の換算は互いに逆変換になる。"""
         cases = {"cm": 1.0, "mm": 10.0, "m": 0.01, "in": 1 / 2.54, "ft": 1 / 30.48, "km": 1e-5}
         for unit, factor in cases.items():
             cmds.currentUnit(linear=unit)
-            self.assertAlmostEqual(units.distanceToUi(12.5), 12.5 * factor, places=9, msg=unit)
-            self.assertAlmostEqual(units.distanceFromUi(12.5 * factor), 12.5, places=9, msg=unit)
-            self.assertAlmostEqual(units.distanceFromUi(units.distanceToUi(-3.25)), -3.25, places=9)
-            self.assertIsInstance(units.distanceToUi(1), float)
+            self.assertAlmostEqual(units.convertDistance(12.5, "cm"), 12.5 * factor, places=9, msg=unit)
+            self.assertAlmostEqual(units.convertDistance(12.5 * factor, toUnit="cm"), 12.5, places=9, msg=unit)
+            self.assertAlmostEqual(units.convertDistance(units.convertDistance(-3.25, "cm"), toUnit="cm"), -3.25, places=9)
+            self.assertIsInstance(units.convertDistance(1, "cm"), float)
             self.assertEqual(cmds.currentUnit(query=True, linear=True), unit)
 
     def test_angle_to_and_from_ui_follow_angle_unit(self):
-        """angleToUi/FromUiは度とradの設定に従い、互いに逆変換になる。値の既定は度、unit="rad"はラジアン。"""
+        """convertAngleの片方の単位をNoneにすると、度とradのUI単位の設定に従い、互いに逆変換になる。"""
         cmds.currentUnit(angle="deg")
-        self.assertAlmostEqual(units.angleToUi(1.0, unit="rad"), 57.29577951308232, places=9)
-        self.assertAlmostEqual(units.angleFromUi(180.0, unit="rad"), 3.141592653589793, places=12)
-        self.assertAlmostEqual(units.angleToUi(30.0), 30.0, places=12)
-        self.assertAlmostEqual(units.angleFromUi(30.0), 30.0, places=12)
+        self.assertAlmostEqual(units.convertAngle(1.0, "rad", None), 57.29577951308232, places=9)
+        self.assertAlmostEqual(units.convertAngle(180.0, None, "rad"), 3.141592653589793, places=12)
+        self.assertAlmostEqual(units.convertAngle(30.0, "deg", None), 30.0, places=12)
+        self.assertAlmostEqual(units.convertAngle(30.0, None, "deg"), 30.0, places=12)
         cmds.currentUnit(angle="rad")
-        self.assertAlmostEqual(units.angleToUi(1.25, unit="rad"), 1.25, places=12)
-        self.assertAlmostEqual(units.angleFromUi(-0.5, unit="radians"), -0.5, places=12)
-        self.assertAlmostEqual(units.angleToUi(180.0), 3.141592653589793, places=12)
-        self.assertAlmostEqual(units.angleFromUi(3.141592653589793, unit="degrees"), 180.0, places=9)
+        self.assertAlmostEqual(units.convertAngle(1.25, "rad", None), 1.25, places=12)
+        self.assertAlmostEqual(units.convertAngle(-0.5, None, "radians"), -0.5, places=12)
+        self.assertAlmostEqual(units.convertAngle(180.0, "deg", None), 3.141592653589793, places=12)
+        self.assertAlmostEqual(units.convertAngle(3.141592653589793, None, "degrees"), 180.0, places=9)
         self.assertEqual(cmds.currentUnit(query=True, angle=True), "rad")
         cmds.currentUnit(angle="deg")
-        self.assertAlmostEqual(units.angleFromUi(units.angleToUi(2.0)), 2.0, places=12)
+        self.assertAlmostEqual(units.convertAngle(units.convertAngle(2.0, "deg", None), None, "deg"), 2.0, places=12)
         with self.assertRaises(ValueError):
-            units.angleToUi(1.0, unit="grad")
+            units.convertAngle(1.0, "grad", None)
         with self.assertRaises(TypeError):
-            units.angleFromUi(1.0, unit=1)
+            units.convertAngle(1.0, None, 1)
 
     def test_seconds_per_frame_follows_time_unit(self):
-        """secondsPerFrameは現在の時間単位の1フレームの秒数を返す。"""
+        """convertTime(1.0, toUnit="sec")は現在の時間単位の1フレームの秒数を返す。"""
         cases = {"film": 1 / 24.0, "ntsc": 1 / 30.0, "pal": 1 / 25.0, "game": 1 / 15.0, "ntscf": 1 / 60.0, "120fps": 1 / 120.0}
         for unit, seconds in cases.items():
             cmds.currentUnit(time=unit)
-            self.assertAlmostEqual(units.secondsPerFrame(), seconds, places=12, msg=unit)
+            self.assertAlmostEqual(units.convertTime(1.0, toUnit="sec"), seconds, places=12, msg=unit)
             self.assertEqual(cmds.currentUnit(query=True, time=True), unit)
 
     def test_matches_om2_independently(self):
         """om2の単位クラスで独立に求めた値と一致する。"""
         cmds.currentUnit(linear="ft", angle="deg")
-        self.assertAlmostEqual(units.distanceToUi(100.0), om2.MDistance(100.0, om2.MDistance.kCentimeters).asUnits(om2.MDistance.kFeet))
-        self.assertAlmostEqual(units.angleToUi(0.3, unit="rad"), om2.MAngle(0.3, om2.MAngle.kRadians).asUnits(om2.MAngle.kDegrees))
+        self.assertAlmostEqual(units.convertDistance(100.0, "cm"), om2.MDistance(100.0, om2.MDistance.kCentimeters).asUnits(om2.MDistance.kFeet))
+        self.assertAlmostEqual(units.convertAngle(0.3, "rad", None), om2.MAngle(0.3, om2.MAngle.kRadians).asUnits(om2.MAngle.kDegrees))
 
     def test_convert_distance_names_and_defaults(self):
         """convertDistanceは短名・長名を受け、Noneは現在の距離単位を使う。"""

@@ -170,8 +170,8 @@ class MatrixSpecTest(unittest.TestCase):
         """16要素・4行4列・MFloatMatrixから作れる。解釈できない入力はValueError。"""
         self.assertEqual(Matrix(list(range(16)))[15], 15.0)
         self.assertEqual(Matrix([list(range(4))] * 4)[7], 3.0)
-        self.assertTrue(Matrix.fromMMatrix(om2.MFloatMatrix(self.om_a)).isEquivalent(self.om_a, 1e-6))
-        self.assertIs(type(Matrix.fromMMatrix(self.om_a)), Matrix)
+        self.assertTrue(Matrix(om2.MFloatMatrix(self.om_a)).isEquivalent(self.om_a, 1e-6))
+        self.assertIs(type(Matrix(self.om_a)), Matrix)
         for bad in (list(range(15)), ["a"] * 16, 5):
             with self.assertRaises(ValueError):
                 Matrix(bad)
@@ -204,9 +204,12 @@ class MatrixSpecTest(unittest.TestCase):
             self.a.mirror("q")
 
     def test_from_transformation_matrix(self):
-        """fromTransformationはom2.MTransformationMatrixからマトリクスを作る。"""
+        """om2.MTransformationMatrix からは asMatrix() を渡して作る。古い作り方の名前は無い。"""
         tm = om2.MTransformationMatrix(self.om_a)
-        self.assertTrue(Matrix.fromTransformation(tm).isEquivalent(self.om_a, 1e-12))
+        self.assertTrue(Matrix(tm.asMatrix()).isEquivalent(self.om_a, 1e-12))
+        for name in ("identity", "fromMMatrix", "fromTransformation", "getAxes", "asTranslateMatrix", "asScaleMatrix", "as3x3"):
+            with self.subTest(name=name):
+                self.assertFalse(hasattr(Matrix, name))
 
 
 def _flat(names):
@@ -275,7 +278,7 @@ class MatrixTest(_Case):
                 self.assertVectorAlmostEqual(m.getAxis(name), rows[index][:3])
                 self.assertVectorAlmostEqual(m.getAxis(index), rows[index][:3])
                 self.assertVectorAlmostEqual(m.getAxis("-" + name), [-v for v in rows[index][:3]])
-        self.assertEqual([list(a) for a in m.getAxes()], [list(m.getAxis(n)) for n in "xyz"])
+        self.assertEqual([list(a) for a in (m.getAxis(i) for i in range(3))], [list(m.getAxis(n)) for n in "xyz"])
         for axis, error in ((3, ValueError), (True, TypeError), ("w", ValueError), (1.0, TypeError)):
             with self.subTest(axis=axis):
                 with self.assertRaises(error):
@@ -283,19 +286,37 @@ class MatrixTest(_Case):
 
     def test_split_matrices(self):
         m = self.matrix()
-        t, r, s = m.asTranslateMatrix(), m.asRotateMatrix(), m.asScaleMatrix()
+        t, r, s = m.extract("translate"), m.extract("rotate"), m.extract("scale")
+        for value in (t, r, s):
+            self.assertIs(type(value), Matrix)
         self.assertTrue((s * r * t).isEquivalent(m, 1e-9))
-        self.assertTrue(t.as3x3().isIdentity())
+        self.assertTrue(t.extract("3x3").isIdentity())
         self.assertVectorAlmostEqual(t.translate, (1, 2, 3))
         self.assertTrue((r * r.transpose()).isIdentity(1e-9))
         self.assertVectorAlmostEqual(s.translate, (0, 0, 0))
         mirrored = Matrix.compose(rotate=(0.2, 0.1, 0.3), scale=(1, 1, -1))
-        self.assertTrue((mirrored.asScaleMatrix() * mirrored.asRotateMatrix()).isEquivalent(mirrored, 1e-9))
-        three = m.as3x3()
+        self.assertTrue((mirrored.extract("scale") * mirrored.extract("rotate")).isEquivalent(mirrored, 1e-9))
+        three = m.extract("3x3")
         self.assertEqual(three.rows[3], (0.0, 0.0, 0.0, 1.0))
         self.assertEqual(three.rows[0][:3], m.rows[0][:3])
-        with self.assertRaises(ValueError):
-            Matrix.compose(scale=(1, 0, 1)).asRotateMatrix()
+        flat = Matrix.compose(translate=(1, 2, 3), scale=(1, 0, 1))
+        for part in ("rotate", "scale"):
+            with self.subTest(part=part), self.assertRaises(ValueError):
+                flat.extract(part)
+        # translate・3x3 は分解しないので、ゼロスケールでも使える。
+        self.assertVectorAlmostEqual(flat.extract("translate").translate, (1, 2, 3))
+        self.assertEqual(flat.extract("3x3").rows[1][:3], (0.0, 0.0, 0.0))
+
+    def test_extract_rejects_invalid_part(self):
+        """part は位置引数で必須。文字列でなければ TypeError、ほかの名前は ValueError。自身は変えない。"""
+        m = self.matrix()
+        before = tuple(m)
+        with self.assertRaises(TypeError):
+            m.extract()
+        for part, error in ((None, TypeError), (0, TypeError), (b"rotate", TypeError), ("Rotate", ValueError), ("shear", ValueError), ("", ValueError)):
+            with self.subTest(part=part), self.assertRaises(error):
+                m.extract(part)
+        self.assertEqual(tuple(m), before)
 
     def test_predicates(self):
         self.assertTrue(Matrix().isIdentity())

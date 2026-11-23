@@ -811,24 +811,6 @@ class Vector(om2.MVector):
         return self.round(ndigits)
 
     @classmethod
-    def fromIterable(cls, values):
-        """3つの値を順に取り出せるもの(listやtupleなど)から作る。
-
-        Args:
-            values (Iterable[float]): 3つの値を持つ、反復できるもの。
-
-        Returns:
-            Vector: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            ValueError: 要素数が3でない場合。
-        """
-        values = tuple(values)
-        if len(values) != 3:
-            raise ValueError(f"{cls.__name__}には3つの値を指定してください")
-        return cls(values[0], values[1], values[2])
-
-    @classmethod
     def fromAxis(cls, axis):
         """軸の名前から、その軸の向きの長さ1のベクトルを作る。
 
@@ -1071,16 +1053,25 @@ class Vector(om2.MVector):
         _MVector.__itruediv__(result, length)
         return result
 
-    def distanceTo(self, other):
+    def distanceTo(self, other, *, squared=False):
         """2点間のユークリッド距離を返す。
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 距離を測る相手。
+            squared (bool): True なら距離の2乗を返す。平方根を計算しないため、距離の比較だけが目的なら速い。
 
         Returns:
-            float: 距離。
+            float: 距離。``squared=True`` なら距離の2乗。
+
+        Raises:
+            TypeError: squaredがboolでない場合。
         """
-        return _MVector.__sub__(self, _resolve_mvector(other)).length()
+        difference = _MVector.__sub__(self, _resolve_mvector(other))
+        if squared is True:
+            return _MVector.__mul__(difference, difference)
+        if squared is not False:
+            raise TypeError("squaredはboolで指定してください")
+        return difference.length()
 
     def angleTo(self, other):
         """別のベクトルとのなす角を、ラジアンで返す。
@@ -1174,20 +1165,6 @@ class Vector(om2.MVector):
         _MVector.__imul__(result, -1.0)
         _MVector.__iadd__(result, self)
         return result
-
-    def distanceSqTo(self, other):
-        """2点間の距離の2乗を返す。
-
-        平方根を計算しないため、距離の比較だけが目的なら :meth:`distanceTo` より速い。
-
-        Args:
-            other (om2.MVector | om2.MPoint | Iterable[float]): 距離を測る相手。
-
-        Returns:
-            float: 距離の2乗。
-        """
-        difference = _MVector.__sub__(self, _resolve_mvector(other))
-        return _MVector.__mul__(difference, difference)
 
     def isZero(self, tolerance=1e-10):
         """長さが tolerance 以下(ほぼゼロベクトル)か判定する。

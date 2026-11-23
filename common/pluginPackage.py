@@ -3,6 +3,7 @@
 import maya.cmds as cmds
 
 from .. import logger
+from ..decorator import _require_bool
 from .module import Module
 from .plugin import Plugin
 from .version import Version
@@ -151,29 +152,32 @@ class PluginPackage:
         """
         return self._minimum_maya is None or self._maya_year() >= self._minimum_maya
 
-    def getInstalledVersion(self):
-        """Maya に登録されている製品の版を取得する。
+    def getVersion(self, *, loaded=False):
+        """製品の版を取得する。
 
-        モジュールが登録されていればその版、無ければ版を調べるプラグインの版を使う。
+        既定では、Maya に登録されている製品の版を返す。モジュールが登録されていればその版、
+        無ければ版を調べるプラグインの版を使う。
+
+        Args:
+            loaded (bool): True なら、版を調べるプラグインの、ロードされている版を返す。
 
         Returns:
             Version | None: 版。製品が入っていない場合と、版が取れない場合は None。
+                ``loaded=True`` では、版を調べるプラグインがロードされていない場合も None。
+
+        Raises:
+            TypeError: loaded が bool でない場合。
         """
+        _require_bool(loaded, "loaded")
+        if loaded:
+            plugin = self._version_plugin
+            if plugin is None or not plugin.isLoaded():
+                return None
+            return plugin.getVersion()
         version = self._module.getVersion() if self._module is not None else None
         if version is None and self._version_plugin is not None:
             version = self._version_plugin.getVersion()
         return version
-
-    def getLoadedVersion(self):
-        """版を調べるプラグインの、ロードされている版を取得する。
-
-        Returns:
-            Version | None: 版。ロードされていない場合は None。
-        """
-        plugin = self._version_plugin
-        if plugin is None or not plugin.isLoaded():
-            return None
-        return plugin.getVersion()
 
     def isInstalled(self):
         """必要な版が入っているか判定する。
@@ -185,7 +189,7 @@ class PluginPackage:
             bool: ``minimumVersion`` 以上が入っていれば True。``minimumVersion`` を指定していない
             場合は、版が取れるか、モジュールかプラグインが 1 つでも登録されていれば True。
         """
-        version = self.getInstalledVersion()
+        version = self.getVersion()
         if self._minimum_version is not None:
             return version is not None and version >= self._minimum_version
         if version is not None:
@@ -204,7 +208,7 @@ class PluginPackage:
             str: 日本語と英語の警告の文。
         """
         if found is None:
-            found = self.getInstalledVersion()
+            found = self.getVersion()
         wanted = f"{self._name} {self._minimum_version}" if self._minimum_version else self._name
         year = self._maya_year()
         hint = self._install_hint or f"Autodesk アカウントなどから Maya {year} 用の {wanted} 以降を入手してインストールしてください。"
@@ -256,14 +260,14 @@ class PluginPackage:
         show = (lambda text: self.showDialog(text, title)) if dialog is True else (dialog or None)
         installed = self.isInstalled()
         if not installed and self._minimum_version is not None:
-            self._report(show, warn, self.getMessage(self.getInstalledVersion()))
+            self._report(show, warn, self.getMessage(self.getVersion()))
             return MISSING
         failed = self.loadPlugins()
         if not installed and self._plugins and len(failed) == len(self._plugins):
             # 版を指定しない製品は、ロードできるかどうかで導入の有無を判断する。
             self._report(show, warn, self.getMessage())
             return MISSING
-        running = self.getLoadedVersion()
+        running = self.getVersion(loaded=True)
         if self._minimum_version is not None and running is not None and running < self._minimum_version:
             self._report(show, warn, self.getMessage(running))
             return OUTDATED

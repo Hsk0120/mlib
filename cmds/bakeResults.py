@@ -22,7 +22,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
     コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、
     指定した範囲でフレームごとに評価し、キーにする。選択状態は使わない。
 
-    - timeを省略すると、再生範囲(``mlib.Time.getPlaybackRange()``)を焼き込む。
+    - timeを省略すると、再生範囲(``mlib.Time.getRange()``)を焼き込む。
     - attributesを省略すると、Mayaの既定(各ノードのキー設定可能なアトリビュート)を焼き込む。
     - Mayaの既定(``simulation=False``)では、入力を持たない静的なアトリビュートにはキーを作らない。
       ダイナミクスなど、すべてのフレームを順に評価する必要があるときは ``simulation=True`` を渡す。
@@ -80,7 +80,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
         raise ValueError("bakeResultsにはノードを1つ以上指定してください")
     targets = [Node(Object._input_name(item)) for item in items]
     names = _attribute_names(attributes)
-    start, end = Time.getPlaybackRange() if time is None else _time_range(time)
+    start, end = Time.getRange() if time is None else _time_range(time)
     if isinstance(sampleBy, bool) or not isinstance(sampleBy, numbers.Real):
         raise TypeError("sampleByは数値で指定してください")
     if not math.isfinite(sampleBy) or sampleBy <= 0:

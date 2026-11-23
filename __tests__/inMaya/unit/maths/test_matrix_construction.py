@@ -47,7 +47,7 @@ class FromAxisTest(NamespaceCase):
                     self.assertSequenceAlmostEqual(value, expected)
 
     def test_subclass(self):
-        """派生クラスで呼ぶとそのクラスで返す(fromIterable と同じ)。"""
+        """派生クラスで呼ぶとそのクラスで返す。"""
         value = Translate.fromAxis("-z")
         self.assertIs(type(value), Translate)
         self.assertSequenceAlmostEqual(value, (0, 0, -1))

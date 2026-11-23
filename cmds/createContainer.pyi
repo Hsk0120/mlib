@@ -2,51 +2,46 @@
 """containerを作り、指定したノードを所属させる(``cmds.container`` 相当)。"""
 
 import maya.cmds as cmds
-from ..decorator import _pick_alias, undoTransaction
+from ..decorator import _pick_alias, _require_bool, undoTransaction
 from ..util import _UNSET
-from typing import Iterable
+from typing import Iterable, Literal
 from mlib.nodes.container import Container
 from mlib.nodes.dagContainer import DagContainer
 from mlib.nodes.node import Node
+from typing import overload
 
 
-def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, n: str = ...) -> Container:
+@overload
+def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: Literal[True], n: str = ...) -> DagContainer: ...
+@overload
+def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: Literal[False] = ..., n: str = ...) -> Container: ...
+@overload
+def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: bool = ..., n: str = ...) -> Container | DagContainer:
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
     空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
+    ``dag=True`` ならDAGコンテナ(``cmds.container(type="dagContainer")``)を作る。
     fast引数は無い(cmds.containerと同じ機能がOpenMayaに無いため)。Undoが有効なら1回で戻せる。
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
         name (str): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
-            既定は ``"container"``。
+            既定は ``"container"``(``dag=True`` では ``"dagContainer"``)。
         members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
+        dag (bool): True ならDAGコンテナを作る。
         n (str): nameの短縮名。nameと同時には指定できない。
 
     Returns:
-        Container: 作ったcontainer。
+        Container | DagContainer: 作ったcontainer。``dag=True`` ならDagContainer。
 
     Raises:
-        TypeError: nameと短縮名 ``n`` を同時に指定した場合。
+        TypeError: nameと短縮名 ``n`` を同時に指定した場合、またはdagがbool以外の場合。
         RuntimeError: Mayaが作成・所属を拒否した場合。
 
     Examples:
         >>> import mlib
         >>> owner = mlib.createContainer("arm_graph", members=[node])
-    """
-    ...
-
-def _create_container(name: str, members: Iterable, chunk: str, **flags) -> Container | DagContainer:
-    """containerの作成と所属を、1回のUndoにまとめて行う。
-
-    Args:
-        name (str): 付けたい名前。
-        members (Iterable): 所属させるノード。
-        chunk (str): Undoチャンク名。
-        **flags: ``cmds.container`` へ渡す型の指定。
-
-    Returns:
-        Container | DagContainer: 作ったcontainer。
+        >>> rig = mlib.createContainer("arm_rig", members=[group], dag=True)
     """
     ...

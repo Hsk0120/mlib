@@ -460,13 +460,18 @@ class RemovedCreationPathsTest(_CreateCase):
 
 
 class ContainerBuilderTest(_CreateCase):
-    """mlib.createContainer / createDagContainer は name の位置引数と members を受ける作成関数。"""
+    """mlib.createContainer は name の位置引数と members を受ける作成関数。dag=True なら DagContainer。"""
 
     def test_create_signature(self):
         """name は位置・キーワードのどちらでも指定でき、members は作成後に所属する。"""
         member_a, member_b = Node(self.make("network", "a")), Node(self.make("network", "b"))
-        for wrapper, create in ((Container, mlib.createContainer), (DagContainer, mlib.createDagContainer)):
+        for wrapper, dag in ((Container, False), (DagContainer, True)):
             with self.subTest(wrapper=wrapper.__name__):
+
+                def create(*args, dag=dag, **kwargs):
+                    """dag を固定して createContainer を呼ぶ。"""
+                    return mlib.createContainer(*args, dag=dag, **kwargs)
+
                 prefix = wrapper.__name__
                 positional = create(self.name(prefix + "Pos"))
                 self.assertIs(type(positional), wrapper)
@@ -480,6 +485,36 @@ class ContainerBuilderTest(_CreateCase):
                 single = create(self.name(prefix + "Single"), member_a)
                 self.assertEqual(single.getMembers(), [member_a])
                 single.removeMembers(member_a)
+
+    def test_dag_flag(self):
+        """dag の既定の名前・Undoチャンク名・Undo 1回。dag が bool でなければ TypeError でノードを作らない。"""
+        member = Node(self.make("transform", "dagMember"))
+        cases = ((False, Container, "container", "mlibCreateContainer"), (True, DagContainer, "dagContainer", "mlibCreateDagContainer"))
+        previous = cmds.namespaceInfo(currentNamespace=True, absoluteName=True)
+        # 名前を省いたときも一時名前空間に作り、tearDown で消えるようにする。
+        cmds.namespace(set=":" + self.ns)
+        try:
+            for dag, wrapper, default_name, chunk in cases:
+                with self.subTest(dag=dag):
+                    cmds.flushUndo()
+                    node = mlib.createContainer(members=[member], dag=dag)
+                    self.assertIs(type(node), wrapper)
+                    self.assertTrue(node.getName(node=True).startswith(self.name(default_name)), node.getName(node=True))
+                    self.assertEqual(cmds.undoInfo(query=True, undoName=True), chunk)
+                    self.assertEqual(node.getMembers(), [member])
+                    full = node.getFullName()
+                    cmds.undo()
+                    self.assertFalse(cmds.objExists(full))
+                    self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        finally:
+            cmds.namespace(set=previous)
+        before = self.nodes()
+        for value in (1, "yes", None):
+            with self.subTest(dag=value), self.assertRaises(TypeError):
+                mlib.createContainer(self.name("badDag"), dag=value)
+        with self.assertRaises(TypeError):
+            mlib.createContainer(self.name("badDag"), (), True)
+        self.assertEqual(self.nodes(), before)
 
     def test_container_create_node_uses_real_type(self):
         """Container.createNode は実際の型のラッパーを返して所属させ、未知型は拒否する。"""

@@ -1,0 +1,105 @@
+# _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
+"""ポリゴンの立方体・球・円柱・平面を作り、シェイプを返す(``cmds.polyCube``・``polySphere``・``polyCylinder``・``polyPlane`` 相当)。"""
+
+import maya.cmds as cmds
+from ..core.shapeBuild import create_poly, poly_history_flags, positive_size, require_name, resolve_parent, subdivision_counts
+from ..decorator import _pick_alias, _require_bool
+from ..util import _UNSET, _finite_vector, _require_choice
+from typing import Any, Literal, Sequence
+from mlib.nodes.mesh import Mesh
+from mlib.nodes.node import Node
+from typing import overload
+
+_OMITTED: Any
+_SHAPES: dict
+
+@overload
+def createPoly(kind: Literal["cube"], *, width: float = ..., height: float = ..., depth: float = ..., subdivisions: Sequence[int] = ..., name: str | None = ..., parent: Node | str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., w: float = ..., h: float = ..., d: float = ..., n: str | None = ..., ch: bool = ..., cuv: int = ...) -> Mesh: ...
+@overload
+def createPoly(kind: Literal["sphere"], *, radius: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., name: str | None = ..., parent: Node | str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., r: float = ..., ax: Sequence[float] = ..., n: str | None = ..., ch: bool = ..., cuv: int = ...) -> Mesh: ...
+@overload
+def createPoly(kind: Literal["cylinder"], *, height: float = ..., radius: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., roundCap: bool = ..., name: str | None = ..., parent: Node | str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., h: float = ..., r: float = ..., ax: Sequence[float] = ..., rcp: bool = ..., n: str | None = ..., ch: bool = ..., cuv: int = ...) -> Mesh: ...
+@overload
+def createPoly(kind: Literal["plane"], *, width: float = ..., height: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., name: str | None = ..., parent: Node | str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., w: float = ..., h: float = ..., ax: Sequence[float] = ..., n: str | None = ..., ch: bool = ..., cuv: int = ...) -> Mesh: ...
+@overload
+def createPoly(kind: str, *, width: float = ..., height: float = ..., depth: float = ..., radius: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., roundCap: bool = ..., name: str | None = ..., parent: Node | str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., w: float = ..., h: float = ..., d: float = ..., r: float = ..., ax: Sequence[float] = ..., rcp: bool = ..., n: str | None = ..., ch: bool = ..., cuv: int = ...) -> Mesh:
+    """原点を中心とするポリゴンの立方体・球・円柱・平面を作り、そのシェイプを返す。
+
+    作る形は ``kind`` で選ぶ。形ごとに使える引数と既定値は次のとおり。その形で使えない引数を指定するとTypeError。
+
+    - ``"cube"``(``cmds.polyCube``): width・height・depth(既定はどれも1)、subdivisionsはX・Y・Zの分割数
+      (``subdivisionsX/Y/Z``。既定は(1, 1, 1))。axisは無い。
+    - ``"sphere"``(``cmds.polySphere``): radius(既定は1)、subdivisionsは軸のまわり・軸方向の分割数
+      (``subdivisionsAxis``・``subdivisionsHeight``。既定は(20, 20))、axisは極の方向。
+    - ``"cylinder"``(``cmds.polyCylinder``): radius(既定は1)・height(既定は2)、subdivisionsは軸のまわり・高さ方向・ふたの分割数
+      (``subdivisionsX/Y/Z``。既定は(20, 1, 1))、axisは円柱の軸の方向、roundCap。
+    - ``"plane"``(``cmds.polyPlane``): width・height(高さは奥行き方向の長さ。既定はどちらも1)、subdivisionsは幅・高さ方向の分割数
+      (``subdivisionsX/Y``。既定は(10, 10))、axisは面の法線。
+
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。
+    既定ではコンストラクションヒストリを作らない。``constructionHistory=True`` なら作成ノード(``polyCube`` などのノード)を残し、
+    ``shape.getHistory(type="polyCube")`` のように取得できる(作成ノードの大きさのアトリビュートもcm)。
+    作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。Undoチャンク名は形ごとに ``mlibCreatePolyCube`` などになる。
+    fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
+    width・height・depth・radius・axis・roundCap・nameは、Mayaのコマンドと同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
+    subdivisionsは複数の分割数をまとめたmlib独自の引数のため、短縮名は無い。
+
+    Args:
+        kind (str): 作る形。``"cube"``・``"sphere"``・``"cylinder"``・``"plane"`` のどれか。
+        width (float): 幅(cm)。cube・planeだけ。
+        height (float): 高さ(cm)。cube・cylinder・planeだけ。
+        depth (float): 奥行き(cm)。cubeだけ。
+        radius (float): 半径(cm)。sphere・cylinderだけ。
+        subdivisions (Sequence[int]): 分割数。数と意味は形ごとに違う(上の一覧)。
+        axis (Sequence[float]): 形の向き。0でない有限な3成分。既定は(0, 1, 0)。cube以外。
+        roundCap (bool): Trueなら、ふたを丸くする(丸みの分割数はsubdivisionsの3つ目)。既定はFalse。cylinderだけ。
+        name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
+            NoneならMayaの既定の名前。既定はNone。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。
+        constructionHistory (bool): Trueなら、コンストラクションヒストリ(作成ノード)を残す。既定はFalse。
+        createUVs (int): UVの作り方。Mayaのコマンドの ``createUVs`` と同じ番号(0はUVを作らない)。省略するとMayaの既定。
+        w (float): widthの短縮名。widthと同時には指定できない。
+        h (float): heightの短縮名。heightと同時には指定できない。
+        d (float): depthの短縮名。depthと同時には指定できない。
+        r (float): radiusの短縮名。radiusと同時には指定できない。
+        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
+        rcp (bool): roundCapの短縮名。roundCapと同時には指定できない。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
+        ch (bool): constructionHistoryの短縮名。constructionHistoryと同時には指定できない。
+        cuv (int): createUVsの短縮名。createUVsと同時には指定できない。
+
+    Returns:
+        Mesh: 作ったメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
+
+    Raises:
+        TypeError: kindが文字列でない場合、その形で使えない引数を指定した場合、長い名前と短縮名を同時に指定した場合、
+            または引数の型が正しくない場合。
+        ValueError: kindが上のどれでもない場合、大きさが0以下か有限でない場合、分割数や軸が正しくない場合、
+            またはcreateUVsが負の場合。
+        RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
+
+    Examples:
+        >>> import mlib
+        >>> box = mlib.createPoly("cube", width=2.0, height=1.0, depth=1.0, subdivisions=(4, 1, 1), name="box")
+        >>> ball = mlib.createPoly("sphere", radius=2.0, subdivisions=(16, 12), name="ball")
+        >>> bone = mlib.createPoly("cylinder", radius=0.5, height=4.0, axis=(1, 0, 0), name="bone")
+        >>> floor = mlib.createPoly("plane", width=10.0, height=10.0, subdivisions=(4, 4), name="floor")
+        >>> transform = box.getTransform()
+    """
+    ...
+
+def _axis(value: Sequence[float]) -> tuple[float, float, float]:
+    """軸の方向を確かめる。
+
+    Args:
+        value (Sequence[float]): 方向。
+
+    Returns:
+        tuple[float, float, float]: 確かめた方向。
+
+    Raises:
+        TypeError: 数値の並びでない場合。
+        ValueError: 成分が3つでない場合、有限でない場合、または0の場合。
+    """
+    ...

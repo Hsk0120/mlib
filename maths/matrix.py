@@ -4,7 +4,7 @@ from operator import index as _as_index
 
 import maya.api.OpenMaya as om2
 
-from ..util import _checked_index, _checked_tolerance, _copy_state, _finite, _finite_vector, _foreign_comparison
+from ..util import _checked_index, _checked_tolerance, _copy_state, _finite, _finite_vector, _foreign_comparison, _require_choice
 from .eulerRotate import EulerRotate
 from .quaternion import Quaternion
 from .scale import Scale
@@ -37,10 +37,11 @@ _INT = int
 #: ``m[行, 列]`` の (行, 列)(それぞれ -4〜3)から平坦な添字(0〜15)への表。
 _CELL_INDEX = {(row, column): (row % 4) * 4 + column % 4 for row in range(-4, 4) for column in range(-4, 4)}
 _POINT_TYPES = (_MVector, om2.MPoint, om2.MFloatVector, om2.MFloatPoint)
-_MATRIX_SOURCES = (_MMatrix, om2.MFloatMatrix)
 _MATRIX_ERROR = "MatrixにはMMatrix、4x4の行、16個の値のどれかを指定してください"
 #: fromAim で aim と up を平行とみなす、単位ベクトルの外積の長さ(sin)の上限。
 _PARALLEL_TOLERANCE = 1e-10
+#: extract で取り出せる成分の名前。
+_EXTRACT_PARTS = ("translate", "rotate", "scale", "3x3")
 
 
 def _reinit_is_safe():
@@ -748,17 +749,6 @@ class Matrix(om2.MMatrix):
         return _MMatrix.__isub__(self, other)
 
     @classmethod
-    def identity(cls):
-        """単位マトリクスを生成する。
-
-        引数なしの ``Matrix()`` と同じ結果だが、意図を明示できる。
-
-        Returns:
-            Matrix: 呼び出したクラスの単位マトリクス。
-        """
-        return _new(cls)
-
-    @classmethod
     def compose(cls, translate=(0.0, 0.0, 0.0), rotate=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), shear=(0.0, 0.0, 0.0)):
         """平行移動・回転・スケール・シアーの成分からマトリクスを作る。
 
@@ -776,34 +766,6 @@ class Matrix(om2.MMatrix):
             ValueError: 成分が3要素でない場合、または回転クォータニオンがゼロの場合。
         """
         return cls(translate=translate, rotate=rotate, scale=scale, shear=shear)
-
-    @classmethod
-    def fromMMatrix(cls, matrix):
-        """OpenMayaのマトリクスをコピーして、mlibのマトリクスを作る。
-
-        Matrixはそれ自体がom2.MMatrixなので、OpenMayaへ渡すときに変換する必要はない。
-
-        Args:
-            matrix (om2.MMatrix | om2.MFloatMatrix): 複製元のマトリクス。
-
-        Returns:
-            Matrix: 呼び出したクラスの新しいマトリクス。
-        """
-        if isinstance(matrix, _MATRIX_SOURCES):
-            return cls._wrap(matrix)
-        return cls(matrix)
-
-    @classmethod
-    def fromTransformation(cls, transformation):
-        """Maya API 2.0の変換情報からマトリクスを生成する。
-
-        Args:
-            transformation (om2.MTransformationMatrix): 合成する変換情報。
-
-        Returns:
-            Matrix: 呼び出したクラスの新しいマトリクス。
-        """
-        return cls._wrap(transformation.asMatrix())
 
     @classmethod
     def fromAxes(cls, x, y, z, position=(0.0, 0.0, 0.0)):
@@ -1100,73 +1062,51 @@ class Matrix(om2.MMatrix):
         result.z = _GET(self, index * 4 + 2) * sign
         return result
 
-    def getAxes(self):
-        """3x3部分の3行(X・Y・Z軸)を Vector で取得する。
+    def extract(self, part):
+        """成分の1つだけを持つマトリクスを返す。
 
-        Returns:
-            tuple[Vector, Vector, Vector]: :meth:`getAxis` の ``"x"``・``"y"``・``"z"`` と同じ新しい値。
-        """
-        return self.getAxis(0), self.getAxis(1), self.getAxis(2)
+        - ``"translate"``: 平行移動(番号12〜14)だけ。3x3部分は単位マトリクス。分解しない。
+        - ``"rotate"``: 回転だけ(スケール・シアー・平行移動を除く)。:attr:`quaternion` と同じく、
+          MTransformationMatrixの規約で分解する。行列式が負のときは、負のZスケールと180度の補償回転に分ける。
+          結果は正規直交のマトリクス。
+        - ``"scale"``: スケールとシアーだけ(回転・平行移動を除く)。``"rotate"`` と同じ規約で分解する。
+        - ``"3x3"``: 3x3部分(回転・スケール・シアー)だけ。平行移動と4列目は単位マトリクスの値にする。
+          分解しないため、ゼロスケールでも使える。
 
-    def asTranslateMatrix(self):
-        """平行移動(番号12〜14)だけを持つマトリクスを返す。
+        ``extract("scale") * extract("rotate") * extract("translate")`` が自身(誤差の範囲)になる。
 
-        Returns:
-            Matrix: 自身と同じクラスの新しいマトリクス。3x3部分は単位マトリクス。
-        """
-        result = _new(type(self))
-        _SET(result, 12, _GET(self, 12))
-        _SET(result, 13, _GET(self, 13))
-        _SET(result, 14, _GET(self, 14))
-        return result
-
-    def asRotateMatrix(self):
-        """回転だけを持つマトリクスを返す(スケール・シアー・平行移動を除く)。
-
-        :attr:`quaternion` と同じく、MTransformationMatrixの規約で分解する。
-        行列式が負のときは、負のZスケールと180度の補償回転に分ける。
-        ``asScaleMatrix() * asRotateMatrix() * asTranslateMatrix()`` が自身(誤差の範囲)になる。
-
-        Returns:
-            Matrix: 自身と同じクラスの新しい正規直交のマトリクス。
-
-        Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
-
-        Note:
-            ``om2.MTransformationMatrix(m).asRotateMatrix()``(:class:`Transformation` も同じ)は、マトリクスから作った
-            ときにスケール・シアーを含んだ3x3(平行移動だけを除いたもの)を返し、正規直交にならない(Maya 2027で確認)。
-            スケールやシアーのあるマトリクスでは、このメソッドと結果が違う。
-        """
-        return type(self)._wrap(_MQuaternion.asMatrix(self._checked_transformation().rotation(asQuaternion=True)))
-
-    def asScaleMatrix(self):
-        """スケールとシアーだけを持つマトリクスを返す(回転・平行移動を除く)。
-
-        ``asScaleMatrix() * asRotateMatrix() * asTranslateMatrix()`` が自身(誤差の範囲)になる。
+        Args:
+            part (str): 取り出す成分。``"translate"``・``"rotate"``・``"scale"``・``"3x3"`` のどれか。
 
         Returns:
             Matrix: 自身と同じクラスの新しいマトリクス。
 
         Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
+            TypeError: partが文字列でない場合。
+            ValueError: partが上のどれでもない場合、または ``"rotate"``・``"scale"`` で分解できない場合
+                (いずれかのスケール軸がゼロなど)。
+
+        Note:
+            ``om2.MTransformationMatrix(m).asRotateMatrix()``(:class:`Transformation` も同じ)は、マトリクスから作った
+            ときにスケール・シアーを含んだ3x3(平行移動だけを除いたもの)を返し、正規直交にならない(Maya 2027で確認)。
+            スケールやシアーのあるマトリクスでは、``extract("rotate")`` と結果が違う。
         """
-        tm = self._checked_transformation()
-        return _compose_into(_new(type(self)), None, None, tuple(tm.scale(_K_TRANSFORM)), tuple(tm.shear(_K_TRANSFORM)))
-
-    def as3x3(self):
-        """3x3部分(回転・スケール・シアー)だけを残したマトリクスを返す。
-
-        平行移動と4列目は、単位マトリクスの値にする。
-
-        Returns:
-            Matrix: 自身と同じクラスの新しいマトリクス。分解は行わないため、ゼロスケールでも使える。
-        """
+        part = _require_choice(part, "part", _EXTRACT_PARTS)
         result = _new(type(self))
-        for row in range(3):
-            for column in range(3):
-                _SET(result, row * 4 + column, _GET(self, row * 4 + column))
-        return result
+        if part == "translate":
+            _SET(result, 12, _GET(self, 12))
+            _SET(result, 13, _GET(self, 13))
+            _SET(result, 14, _GET(self, 14))
+            return result
+        if part == "3x3":
+            for row in range(3):
+                for column in range(3):
+                    _SET(result, row * 4 + column, _GET(self, row * 4 + column))
+            return result
+        tm = self._checked_transformation()
+        if part == "rotate":
+            return type(self)._wrap(_MQuaternion.asMatrix(tm.rotation(asQuaternion=True)))
+        return _compose_into(result, None, None, tuple(tm.scale(_K_TRANSFORM)), tuple(tm.shear(_K_TRANSFORM)))
 
     def isEquivalent(self, other, tolerance=1e-10):
         """許容誤差付きでほぼ等しいか判定する。

@@ -105,7 +105,8 @@ class CallbacksTest(NamespaceCase):
         callbacks = Callbacks()
         cases = [
             (ValueError, callbacks.addSceneCallback, "afterOpenTypo", lambda: None),
-            (ValueError, callbacks.addSceneCallback, "beforeSaveCheck", lambda: None),
+            # 確認のイベントは …Check で終わる名前だけ(beforeSaveCheck は確認のコールバックとして登録できる)。
+            (ValueError, callbacks.addSceneCallback, "beforeSaveChecks", lambda: None),
             (ValueError, callbacks.addSceneCallback, "AfterOpen", lambda: None),
             (TypeError, callbacks.addSceneCallback, 1, lambda: None),
             (TypeError, callbacks.addSceneCallback, "afterOpen", None),
@@ -116,10 +117,12 @@ class CallbacksTest(NamespaceCase):
             (TypeError, callbacks.addAttributeChangedCallback, 1.5, lambda m, p: None),
             (TypeError, callbacks.addAttributeChangedCallback, self.make("transform", "err"), "x"),
         ]
+        self.addCleanup(callbacks.remove)
         for error, method, first, second in cases:
             with self.subTest(method=method.__name__, first=first):
                 self.assertRaises(error, method, first, second)
         self.assertEqual(callbacks._ids, [])
+        self.assertFalse(hasattr(Callbacks, "addSceneCheckCallback"))
 
 
 if __name__ == "__main__":
