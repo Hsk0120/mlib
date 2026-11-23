@@ -1,8 +1,9 @@
 """メッシュのフェースと、フェースの集まり。"""
 
 import maya.api.OpenMaya as om2
+import maya.cmds as cmds
 
-from ..decorator import _pick_alias
+from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
 from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .component import Component, Components
@@ -545,6 +546,49 @@ class Faces(Components):
         from ..nodes.node import Nodes
 
         return Nodes._wrap(result)
+
+    def extrude(self, *, curve=None, divisions=1, keepFacesTogether=True):
+        """フェースを押し出す(``cmds.polyExtrudeFacet`` を1回実行する)。
+
+        作成履歴を残し、作った polyExtrudeFace ノードを返す(押し出しの量はそのアトリビュートで変える)。
+        ``curve`` を指定すると、そのカーブに沿って押し出す。Mayaのコマンドと同じく、終わると押し出したフェースが選ばれる。
+        Undoが有効なら1回で戻せる。
+
+        Args:
+            curve (str | Node | None): 押し出しに沿わせるNURBSカーブ(Shape、またはShapeを持つTransform)。Noneなら沿わせない。
+            divisions (int): 押し出しの分割数。1以上。既定は1。
+            keepFacesTogether (bool): Trueなら、隣り合うフェースを1つにつないだまま押し出す。既定はTrue。
+
+        Returns:
+            Node: 作った polyExtrudeFace ノード。
+
+        Raises:
+            TypeError: divisionsがintでない場合、keepFacesTogetherがboolでない場合、
+                またはcurveがNURBSカーブでない場合。
+            ValueError: フェースが空の場合、またはdivisionsが1未満の場合。
+            RuntimeError: シェイプが無効な場合、またはMayaが押し出しを拒否した場合。
+        """
+        # 循環参照の回避: nodesがcomponentsを参照するため、使う時点で読み込む。
+        from ..nodes.node import Node
+
+        if isinstance(divisions, bool) or not isinstance(divisions, int):
+            raise TypeError(f"divisionsはintで指定してください: {type(divisions).__name__}")
+        if divisions < 1:
+            raise ValueError(f"divisionsは1以上で指定してください: {divisions}")
+        _require_bool(keepFacesTogether, "keepFacesTogether")
+        if not len(self):
+            raise ValueError("押し出すフェースがありません")
+        self._require_valid()
+        flags = {"divisions": divisions, "keepFacesTogether": keepFacesTogether, "constructionHistory": True}
+        if curve is not None:
+            node = curve if isinstance(curve, Node) else Node(curve)
+            shapes = (
+                [node] if node.isType("nurbsCurve") else [shape for shape in node.getShapes() if shape.isType("nurbsCurve")] if node.isType("transform") else []
+            )
+            if len(shapes) != 1:
+                raise TypeError(f"curveはNURBSカーブを1つ指定してください: {node.getFullName()}")
+            flags["inputCurve"] = shapes[0].getFullName()
+        return Node(cmds.polyExtrudeFacet(self.getCompactNames(), **flags)[0])
 
     def getVertices(self):
         """各フェースの頂点を取得する。

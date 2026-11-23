@@ -2139,6 +2139,26 @@ class Node(Object):
 
         return Plugs._from_plugs(plugs)
 
+    def getAttrNames(self, **listAttrFlags):
+        """アトリビュートの名前の一覧を、``cmds.listAttr`` と同じ名前・順で取得する。
+
+        :meth:`getPlugs` はPlugにできない名前(番号を決めていないマルチアトリビュートの子、
+        ``instObjGroups.objectGroups.objectGroupId`` など)を省くが、このメソッドは省かない。
+        表示・記録のために ``cmds.listAttr`` と同じ一覧が要るときに使う。シーンは変更しない。
+
+        Args:
+            **listAttrFlags: ``cmds.listAttr`` へそのまま渡すフラグ(``keyable=True`` など)。
+
+        Returns:
+            list[str]: アトリビュートの名前(``cmds.listAttr`` の形)。見つからなければ空リスト。
+
+        Raises:
+            TypeError: listAttrが受け付けないフラグを指定した場合。
+            RuntimeError: ノードが無効な場合、またはlistAttrが失敗した場合。
+        """
+        self._require_valid("アトリビュートの名前の取得")
+        return list(cmds.listAttr(self.getFullName(), **listAttrFlags) or [])
+
     def getAliases(self):
         """このノードのアトリビュートのエイリアス(別名)を取得する。
 

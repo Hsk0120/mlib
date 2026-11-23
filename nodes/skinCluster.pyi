@@ -330,10 +330,11 @@ class SkinCluster(GeometryFilter):
             NotImplementedError: 対象が単一Meshでない場合。
         """
         ...
-    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ...) -> None:
+    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ..., geometryIndex: int | None = ...) -> None:
         """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。
 
-        cmds.skinClusterのsmoothWeightsを1回実行する。対象は先頭のMeshの、verticesで指定した頂点(Noneなら全体)で、
+        cmds.skinClusterのsmoothWeightsを1回実行する。対象は先頭のMesh(``geometryIndex`` を指定するとその番号の形状)の、
+        verticesで指定した頂点(Noneなら全体)で、
         インフルエンスのロックは変更しない。Mayaのsmoothweightsは選んでいる頂点を対象にするため、
         実行の間だけ対象を選び、終わったら元の選択へ戻す(作業中の選択には左右されない)。
         結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。Undoが有効なら1回で戻せる。
@@ -345,15 +346,17 @@ class SkinCluster(GeometryFilter):
                 指定のしかたは :meth:`getWeights` と同じ。空なら何もしない。
             obeyMaxInfluences (bool | None): Trueなら、ならした後もインフルエンスの最大数(maxInfluences)を守る
                 (``cmds.skinCluster`` の ``obeyMaxInfluences``)。NoneならMayaの既定。
+            geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
+                :meth:`getGeometryIndex` で求める)。Noneなら先頭の形状。既定はNone。
 
         Returns:
             None: 値を返さない。
 
         Raises:
             TypeError: toleranceが数値でない場合、iterationsがintでない場合、obeyMaxInfluencesがbool・None以外の場合、
-                または頂点の入力の型が正しくない場合。
+                頂点の入力の型が正しくない場合、またはgeometryIndexがintでない場合。
             ValueError: toleranceが範囲外、iterationsが1未満の場合、または頂点が重複している・別の形状のものである場合。
-            IndexError: 頂点の番号が範囲外の場合。
+            IndexError: 頂点の番号が範囲外の場合、またはgeometryIndexの番号の形状が無い場合。
             RuntimeError: ノードが無効な場合、skinClusterがロックされているかリファレンスの場合、
                 ``weightList`` かその要素がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
                 またはMayaが編集を拒否した場合。
@@ -652,13 +655,16 @@ class SkinCluster(GeometryFilter):
         """
         ...
     @overload
-    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: Literal[True]) -> list[list[float]]: ...
+    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: Literal[True], geometryIndex: int | None = ...) -> list[list[float]]: ...
     @overload
-    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: Literal[False] = ...) -> om2.MDoubleArray: ...
+    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: Literal[False] = ..., geometryIndex: int | None = ...) -> om2.MDoubleArray: ...
     @overload
-    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: bool = ...) -> om2.MDoubleArray | list[list[float]]:
-        """指定したインフルエンスのウェイトを、先頭のMeshまたはNURBSから取得する。
+    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: bool = ..., geometryIndex: int | None = ...) -> om2.MDoubleArray | list[list[float]]:
+        """指定したインフルエンスのウェイトを、MeshまたはNURBSから取得する。
 
+        対象は先頭の形状で、``geometryIndex`` を指定するとその番号の形状になる。
+        Mayaのskinクラスタは、変形するすべての形状で ``weightList`` を共有するため、
+        同じ番号の頂点は、形状が違っても同じウェイトになる。
         点とインフルエンスは指定順に返す。NURBSでは周期方向の重複CVを先頭側へ読み替える。
         Noneで全点を取得するときは独立CVだけを通し番号順に列挙する。
 
@@ -669,6 +675,8 @@ class SkinCluster(GeometryFilter):
                 CV/SurfaceCVやcv[u][v]の名前も指定できる。素の(u, v)は2つの通し番号として扱う。
                 別形状・重複は拒否し、空なら空の結果を返す。
             rows (bool): Trueなら点ごとの行。既定Falseは1列のMDoubleArray。
+            geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
+                :meth:`getGeometryIndex` で求める)。Noneなら先頭の形状。既定はNone。
 
         Returns:
             om2.MDoubleArray | list[list[float]]: 点の順、各点の中はjointsの順の単位なしの値。
@@ -676,14 +684,16 @@ class SkinCluster(GeometryFilter):
                 シーンから独立した値で、変更してもウェイトへ反映されない。
 
         Raises:
-            TypeError: 入力の型が不正、またはrowsがboolでない場合。
+            TypeError: 入力の型が不正、rowsがboolでない、またはgeometryIndexがintでない場合。
             ValueError: インフルエンスが空・未登録・重複、点が重複・別形状の場合。
-            IndexError: 点の番号が範囲外の場合。
+            IndexError: 点の番号が範囲外の場合、またはgeometryIndexの番号の形状が無い場合。
         """
         ...
-    def setWeights(self, joints: str | Node | Iterable, weights: Iterable[float] | Iterable[Iterable[float]], *, vertices: Component | Components | int | str | Iterable | None = ..., normalize: bool = ..., broadcast: bool = ..., rows: bool = ..., fast: bool = ..., check: bool = ...) -> None:
-        """先頭のMeshの頂点またはNURBSのCVに、インフルエンスのウェイトを設定する。
+    def setWeights(self, joints: str | Node | Iterable, weights: Iterable[float] | Iterable[Iterable[float]], *, vertices: Component | Components | int | str | Iterable | None = ..., normalize: bool = ..., broadcast: bool = ..., rows: bool = ..., fast: bool = ..., check: bool = ..., geometryIndex: int | None = ...) -> None:
+        """Meshの頂点またはNURBSのCVに、インフルエンスのウェイトを設定する。
 
+        対象は先頭の形状で、``geometryIndex`` を指定するとその番号の形状になる
+        (``weightList`` は形状どうしで共有する。:meth:`getWeights` を参照)。
         通常はcmds.setAttrで指定した点・列を書き、Undoが有効なら1チャンクにまとめる。
         fastはMeshをMFnSkinCluster、NURBSをMPlugで更新する。指定しなかった列は変更しない。
         途中の書き込み失敗では、完了した変更を自動で戻さない。
@@ -706,24 +716,30 @@ class SkinCluster(GeometryFilter):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に全部の要素のロック・入力の接続などを確かめ、問題があれば何も書かずに例外にする
                 (通常・fastとも)。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
+                :meth:`getGeometryIndex` で求める)。Noneなら先頭の形状。既定はNone。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 入力の型が不正、またはbool引数がboolでない場合。
+            TypeError: 入力の型が不正、bool引数がboolでない、またはgeometryIndexがintでない場合。
             ValueError: 数・指定形式・有限性が不正、インフルエンスが空・未登録・重複、
                 点が重複・別形状、または正規化できない場合。
-            IndexError: 点の番号が範囲外の場合。
+            IndexError: 点の番号が範囲外の場合、またはgeometryIndexの番号の形状が無い場合。
             RuntimeError: Plugが編集できない、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getVertexWeights(self, vertex: Component | int | str, *, nonzero: bool = ...) -> dict[Node, float]:
-        """先頭の形状の1つの頂点/CVについて、インフルエンスのウェイトを辞書で取得する。
+    def getVertexWeights(self, vertex: Component | int | str, *, nonzero: bool = ..., geometryIndex: int | None = ...) -> dict[Node, float]:
+        """1つの頂点/CVについて、インフルエンスのウェイトを辞書で取得する。
+
+        対象は先頭の形状で、``geometryIndex`` を指定するとその番号の形状になる。
 
         Args:
-            vertex (Component | int | str): 先頭形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
+            vertex (Component | int | str): 対象の形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
             nonzero (bool): Trueなら、値が0でないインフルエンスだけを返す。既定はFalse。
+            geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
+                :meth:`getGeometryIndex` で求める)。Noneなら先頭の形状。既定はNone。
 
         Returns:
             dict[Node, float]: インフルエンスのオブジェクト(:meth:`getInfluences` と同じ型)からウェイトへの辞書。
@@ -731,14 +747,15 @@ class SkinCluster(GeometryFilter):
                 値はシーンと切り離したコピーで、辞書を変えてもシーンには反映されない。
 
         Raises:
-            TypeError: 頂点の入力の型が正しくない場合、またはnonzeroがboolでない場合。
+            TypeError: 頂点の入力の型が正しくない場合、nonzeroがboolでない場合、またはgeometryIndexがintでない場合。
             ValueError: 頂点が1つでない場合、または別の形状の頂点の場合。
-            IndexError: 頂点の番号が範囲外の場合。
+            IndexError: 頂点の番号が範囲外の場合、またはgeometryIndexの番号の形状が無い場合。
         """
         ...
-    def setVertexWeights(self, vertex: Component | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> None:
-        """先頭の形状の1つの頂点/CVに、インフルエンスごとのウェイトを設定する。
+    def setVertexWeights(self, vertex: Component | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ..., geometryIndex: int | None = ...) -> None:
+        """1つの頂点/CVに、インフルエンスごとのウェイトを設定する。
 
+        対象は先頭の形状で、``geometryIndex`` を指定するとその番号の形状になる。
         ``setWeights(list(weights), list(weights.values()), vertices=[vertex], normalize=normalize)`` と同じ。
 
         - 既定の ``normalize=True`` では、指定したインフルエンスに指定した値を書く。指定しなかったインフルエンスは
@@ -746,22 +763,25 @@ class SkinCluster(GeometryFilter):
         - ``normalize=False`` では、指定したインフルエンスだけに値をそのまま書き、ほかは変えない。
 
         Args:
-            vertex (Component | int | str): 先頭形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
+            vertex (Component | int | str): 対象の形状の頂点/CV。番号・周期CVの規則はgetWeightsと同じ。
             weights (Mapping[str | Node, float]): 登録済みのインフルエンスからウェイトへの辞書。空にはできない。
                 キーは名前かNodeのどちらかに揃える(:meth:`getVertexWeights` の戻り値のキーはNode)。
             normalize (bool): Trueなら、書き込んだ頂点を合計1へ正規化する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
+                :meth:`getGeometryIndex` で求める)。Noneなら先頭の形状。既定はNone。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: weightsが辞書でない場合、頂点や値の型が正しくない場合、またはboolの引数がboolでない場合。
+            TypeError: weightsが辞書でない場合、頂点や値の型が正しくない場合、boolの引数がboolでない場合、
+                またはgeometryIndexがintでない場合。
             ValueError: weightsが空の場合、インフルエンスが未登録・重複の場合、値が有限でない場合、
                 頂点が1つでない・別の形状のものである場合、または正規化できない場合。
-            IndexError: 頂点の番号が範囲外の場合。
+            IndexError: 頂点の番号が範囲外の場合、またはgeometryIndexの番号の形状が無い場合。
             RuntimeError: Plugが編集できない場合、またはMayaが設定を拒否した場合。
         """
         ...
@@ -1504,6 +1524,24 @@ class SkinCluster(GeometryFilter):
             om2.MDagPath: DAGパス。Transformの名前なら、その下のshapeまでたどったパス。
         """
         ...
+    def _geometry_view(self, geometry_index: int) -> SkinCluster:
+        """指定した番号の形状を対象にした、このskinClusterの写しを返す。
+
+        ウェイトの処理は ``mesh_path`` の形状を対象にするため、それだけを差し替えた写しで処理する。
+        Mayaのskinクラスタは、変形するすべての形状で ``weightList`` を共有するので、
+        差し替えるのは頂点の数・番号の確かめと、OpenMayaへ渡す形状だけでよい。
+
+        Args:
+            geometry_index (int): 対象の形状の論理番号。
+
+        Returns:
+            SkinCluster: 先頭の形状なら自身、それ以外は ``mesh_path`` を差し替えた写し。
+
+        Raises:
+            TypeError: geometry_indexがintでない場合。
+            IndexError: その番号の形状が無い場合。
+        """
+        ...
     def _first_geometry_name(self) -> str:
         """skinClusterが変形している先頭のジオメトリの名前を取得する。
 
@@ -2182,7 +2220,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def setDropoffRate(self, influence: Node | str, value: float) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setDropoffRate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ...) -> list[None]:
+    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ..., geometryIndex: int | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.smoothWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def addInfluences(self, joints: Joint | str | Iterable[Joint | str], *, weight: float = ..., lockWeights: bool = ...) -> list[None]:
@@ -2227,16 +2265,16 @@ class SkinClusters(Nodes[SkinCluster]):
     def setInfluencesLocked(self, joints: str | Node | Iterable, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: bool = ...) -> list[om2.MDoubleArray | list[list[float]]]:
+    def getWeights(self, joints: str | Node | Iterable, *, vertices: Component | Components | int | str | Iterable | None = ..., rows: bool = ..., geometryIndex: int | None = ...) -> list[om2.MDoubleArray | list[list[float]]]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setWeights(self, joints: str | Node | Iterable, weights: Iterable[float] | Iterable[Iterable[float]], *, vertices: Component | Components | int | str | Iterable | None = ..., normalize: bool = ..., broadcast: bool = ..., rows: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+    def setWeights(self, joints: str | Node | Iterable, weights: Iterable[float] | Iterable[Iterable[float]], *, vertices: Component | Components | int | str | Iterable | None = ..., normalize: bool = ..., broadcast: bool = ..., rows: bool = ..., fast: bool = ..., check: bool = ..., geometryIndex: int | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getVertexWeights(self, vertex: Component | int | str, *, nonzero: bool = ...) -> list[dict[Node, float]]:
+    def getVertexWeights(self, vertex: Component | int | str, *, nonzero: bool = ..., geometryIndex: int | None = ...) -> list[dict[Node, float]]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getVertexWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setVertexWeights(self, vertex: Component | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+    def setVertexWeights(self, vertex: Component | int | str, weights: Mapping[str | Node, float], *, normalize: bool = ..., fast: bool = ..., check: bool = ..., geometryIndex: int | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setVertexWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getBlendWeights(self, *, vertices: Component | Components | int | str | Iterable | None = ...) -> list[list[float]]:
@@ -2490,6 +2528,9 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getAttrNames(self, **listAttrFlags) -> list[list[str]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAttrNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -56,6 +56,8 @@ class CommandNamesTest(unittest.TestCase):
             "createShadingEngine",
             "createMotionTrail",
             "createExpression",
+            "findCycles",
+            "isNodeType",
         }
         mlib.reload()
         self.assertEqual(set(mlib.cmds.__all__), expected)

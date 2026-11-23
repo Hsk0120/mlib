@@ -28,10 +28,12 @@ from .createShadingEngine import createShadingEngine
 from .createWire import createWire
 from .delete import delete
 from .duplicate import duplicate
+from .findCycles import findCycles
 from .getNode import getNode
 from .getPlug import getPlug
+from .isNodeType import isNodeType
 from .ls import ls
 from .objExists import objExists
 from .select import select
 
-__all__ = ['bakeDeformer', 'bakeResults', 'bindSkin', 'createBlendShape', 'createCircle', 'createCluster', 'createContainer', 'createCurve', 'createDagContainer', 'createDagPose', 'createExpression', 'createGroup', 'createIkHandle', 'createJointChain', 'createLattice', 'createLocator', 'createMotionTrail', 'createNode', 'createNurbsPlane', 'createPolyCube', 'createPolyCylinder', 'createPolyPlane', 'createPolySphere', 'createShadingEngine', 'createWire', 'delete', 'duplicate', 'getNode', 'getPlug', 'ls', 'objExists', 'select']
+__all__ = ['bakeDeformer', 'bakeResults', 'bindSkin', 'createBlendShape', 'createCircle', 'createCluster', 'createContainer', 'createCurve', 'createDagContainer', 'createDagPose', 'createExpression', 'createGroup', 'createIkHandle', 'createJointChain', 'createLattice', 'createLocator', 'createMotionTrail', 'createNode', 'createNurbsPlane', 'createPolyCube', 'createPolyCylinder', 'createPolyPlane', 'createPolySphere', 'createShadingEngine', 'createWire', 'delete', 'duplicate', 'findCycles', 'getNode', 'getPlug', 'isNodeType', 'ls', 'objExists', 'select']

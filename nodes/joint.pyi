@@ -1538,6 +1538,9 @@ class Joints(Nodes[Joint]):
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def getAttrNames(self, **listAttrFlags) -> list[list[str]]:
+        """各要素の :meth:`~mlib.nodes.node.Node.getAttrNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...

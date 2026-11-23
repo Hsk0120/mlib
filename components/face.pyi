@@ -2,7 +2,8 @@
 """メッシュのフェースと、フェースの集まり。"""
 
 import maya.api.OpenMaya as om2
-from ..decorator import _pick_alias
+import maya.cmds as cmds
+from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
 from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .component import Component, Components
@@ -441,6 +442,28 @@ class Faces(Components):
 
         Returns:
             Nodes: マテリアル。重なりは除く。
+        """
+        ...
+    def extrude(self, *, curve: str | Node | None = ..., divisions: int = ..., keepFacesTogether: bool = ...) -> Node:
+        """フェースを押し出す(``cmds.polyExtrudeFacet`` を1回実行する)。
+
+        作成履歴を残し、作った polyExtrudeFace ノードを返す(押し出しの量はそのアトリビュートで変える)。
+        ``curve`` を指定すると、そのカーブに沿って押し出す。Mayaのコマンドと同じく、終わると押し出したフェースが選ばれる。
+        Undoが有効なら1回で戻せる。
+
+        Args:
+            curve (str | Node | None): 押し出しに沿わせるNURBSカーブ(Shape、またはShapeを持つTransform)。Noneなら沿わせない。
+            divisions (int): 押し出しの分割数。1以上。既定は1。
+            keepFacesTogether (bool): Trueなら、隣り合うフェースを1つにつないだまま押し出す。既定はTrue。
+
+        Returns:
+            Node: 作った polyExtrudeFace ノード。
+
+        Raises:
+            TypeError: divisionsがintでない場合、keepFacesTogetherがboolでない場合、
+                またはcurveがNURBSカーブでない場合。
+            ValueError: フェースが空の場合、またはdivisionsが1未満の場合。
+            RuntimeError: シェイプが無効な場合、またはMayaが押し出しを拒否した場合。
         """
         ...
     def getVertices(self) -> Vertices:
