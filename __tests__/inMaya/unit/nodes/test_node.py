@@ -226,12 +226,9 @@ class NodeApiTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             transform.isType("")
 
-    def test_node_type_id_and_classification(self):
+    def test_node_classification(self):
         transform = self.create_transform("mlibNodeApiTypeId")
-        self.assertIsInstance(transform.getTypeId(), int)
         self.assertEqual(transform.getClassification(), cmds.getClassification("transform"))
-        # transform は Maya 組み込みノード型なのでプラグイン名は空文字列。
-        self.assertEqual(transform.getPluginName(), "")
 
     def test_direct_parent_child_relationship_and_attribute_count(self):
         grandparent = self.create_transform("mlibNodeApiDirectGP")
@@ -385,7 +382,6 @@ class TypeSelectionTest(_SpecCase):
         self.assertEqual(node.getType(), "pointLight")
         self.assertEqual(node.getFullName(), cmds.ls(light, long=True)[0])
         self.assertEqual(node.getParent().getFullName(), cmds.listRelatives(light, parent=True, fullPath=True)[0])
-        self.assertFalse(node.isRoot())
         # shape・transform 以外の DAG 型(unknownDag 等、dagNode の直接の派生)は DagNode の派生。
         registry = Node._registry
         self.assertIs(registry.wrapper_class("dagNode"), DagNode)
@@ -566,7 +562,7 @@ class DeletedNodeTest(_SpecCase):
         self.assertFalse(node.isAlive())
         self.assertFalse(node.sameNode(node))
         self.assertFalse(node == node)
-        for method in ("getType", "getTypeId", "getPluginName", "isLocked", "isFromReferencedFile", "mfn", "getNodeName"):
+        for method in ("getType", "isLocked", "isFromReferencedFile", "mfn", "getNodeName"):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
                     getattr(node, method)()
@@ -574,16 +570,6 @@ class DeletedNodeTest(_SpecCase):
 
 class TypeQueryTest(_SpecCase):
     """型・ロック・アトリビュート数の照会を OpenMaya・cmds の値と比べる。"""
-
-    def test_type_id_and_plugin(self):
-        """getTypeId は MTypeId の数値、組込み型の getPluginName は空文字列。"""
-        first, second = Node(self.make()), Node(self.make())
-        joint = Node(self.make("joint"))
-        self.assertEqual(first.getTypeId(), om2.MFnDependencyNode(first.mnode()).typeId.id())
-        self.assertEqual(first.getTypeId(), second.getTypeId())
-        self.assertNotEqual(first.getTypeId(), joint.getTypeId())
-        self.assertIsInstance(first.getTypeId(), int)
-        self.assertEqual(first.getPluginName(), "")
 
     def test_classification(self):
         """getClassification は cmds.getClassification と同じ1要素のリスト。"""
@@ -692,18 +678,12 @@ class NamePathTest(_SpecCase):
         self.assertEqual(first.getNodeName(removeNamespace=True), "leaf")
         self.assertEqual(first.getFullName(), "|" + self.name("pa") + "|" + self.name("leaf"))
         self.assertFalse(hasattr(first, "getPath"))
-        self.assertFalse(first.isRoot())
-        self.assertTrue(Node(parent_a).isRoot())
 
     def test_dg_names(self):
-        """DG ノードの getFullName はノード名で、isRoot は RuntimeError。"""
+        """DG ノードの getFullName はノード名。"""
         node = Node(self.make("network", "dg"))
         self.assertEqual(node.getFullName(), self.name("dg"))
         self.assertEqual(node.getName(), self.name("dg"))
-        for method in ("isRoot",):
-            with self.subTest(method=method):
-                with self.assertRaisesRegex(RuntimeError, "DAG"):
-                    getattr(node, method)()
 
     def test_get_namespace(self):
         """ルートは ':'、入れ子はそのまま。"""
@@ -1031,7 +1011,7 @@ class DestroyedNodeTest(unittest.TestCase):
             cmds.undoInfo(state=state)
         if node.isAlive():
             self.skipTest("the deleted node is still alive in this Maya version")
-        for method in ("getType", "getTypeId", "getPluginName", "isLocked", "isFromReferencedFile", "getClassification"):
+        for method in ("getType", "isLocked", "isFromReferencedFile", "getClassification"):
             with self.subTest(method=method):
                 with self.assertRaisesRegex(RuntimeError, "無効なノードは使えません"):
                     getattr(node, method)()
@@ -1143,19 +1123,11 @@ class NodeTest(_Case):
                 with self.assertRaises(error):
                     mlib.getNode(md).getSets(type=value)
 
-    def test_is_default_node(self):
-        """time1・lambert1 は既定ノード、作ったノードは既定ノードでない(ls(defaultNodes=True) と一致)。"""
-        defaults = set(cmds.ls(defaultNodes=True))
-        for name in ("time1", "lambert1", self.make("transform")):
-            with self.subTest(name=name):
-                self.assertEqual(mlib.getNode(name).isDefaultNode(), name in defaults)
-        self.assertTrue(mlib.getNode("time1").isDefaultNode())
-
     def test_deleted_node_raises(self):
         """削除済みのノードは RuntimeError。"""
         node = mlib.getNode(self.make("transform"))
         cmds.delete(node.getFullName())
-        for call in (node.getSets, node.isDefaultNode, node.getReference):
+        for call in (node.getSets, node.getReference):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):
                     call()

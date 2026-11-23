@@ -297,19 +297,7 @@ class PlugMuteSpecTest(_StateSpecCase):
 
 
 class PlugDefinitionQuerySpecTest(_StateSpecCase):
-    """定義の照会(dynamic・readable・writable・storable・範囲)・Channel Boxの表示(isHidden)と構造の判定。"""
-
-    def test_definition_flags_match_attribute_query(self):
-        """定義フラグはcmds.attributeQueryと一致する。"""
-        cmds.addAttr(self.name, longName="extraHidden", attributeType="double", hidden=True)
-        for attr in ("translateX", "worldMatrix", "message", "extraHidden"):
-            with self.subTest(attr=attr):
-                plug = self.node.getPlug(attr)
-                self.assertEqual(plug.isReadable(), cmds.attributeQuery(attr, node=self.name, readable=True))
-                self.assertEqual(plug.isWritable(), cmds.attributeQuery(attr, node=self.name, writable=True))
-                self.assertEqual(plug.isStorable(), cmds.attributeQuery(attr, node=self.name, storable=True))
-        self.assertTrue(self.node.getPlug("extraHidden").isDynamic())
-        self.assertFalse(self.node.getPlug("tx").isDynamic())
+    """定義の照会(範囲)・Channel Boxの表示(isHidden)と構造の判定。"""
 
     def test_is_hidden_matches_hide_and_show(self):
         """isHiddenはkeyableでもChannel Box表示でもないときTrue(hide/showと対応。attributeQueryのhiddenではない)。"""
@@ -460,7 +448,6 @@ class PlugValiditySpecTest(_StateSpecCase):
             "hasMin",
             "getMin",
             "isSettable",
-            "isDynamic",
             "isHidden",
             "getAnimCurve",
             "isMuted",

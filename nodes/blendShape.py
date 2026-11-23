@@ -7,7 +7,6 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 import maya.mel as mel
-import maya.OpenMayaAnim as oma1
 
 from ..components.edge import Edge
 from ..components.vertex import Vertex, Vertices
@@ -119,22 +118,6 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         return self._target_index(target)
-
-    def getWeightPlug(self, target):
-        """ターゲットのウェイトのアトリビュート(``weight[i]``)を取得する。
-
-        Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-
-        Returns:
-            Plug: ``weight`` の要素のPlug。接続や値の設定に使う。
-
-        Raises:
-            TypeError: targetが使えない型(boolを含む)の場合。
-            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
-            RuntimeError: ノードが無効な場合。
-        """
-        return self.getPlug("weight")[self._target_index(target)]
 
     def getBaseGeometry(self):
         """変形する形状(出力ジオメトリ)を取得する。
@@ -665,16 +648,6 @@ class BlendShape(GeometryFilter):
             remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
             self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
 
-    def getHistoryLocation(self):
-        """blendShapeが保持するヒストリ配置の設定を取得する。
-
-        接続グラフをたどって現在のデフォーマー順序を求める照会ではない。
-
-        Returns:
-            int: MFnBlendShapeDeformerのHistoryLocation値。0はkNormal、1はkFrontOfChain。
-        """
-        return oma1.MFnBlendShapeDeformer(self._api1_object()).historyLocation()
-
     def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None, *, symmetrySpace="object", symmetryEdge=None):
         """ターゲットの片側の変形を、反対側へミラーする。
 
@@ -698,7 +671,7 @@ class BlendShape(GeometryFilter):
         Raises:
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
             ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
-            RuntimeError: ターゲット形状が接続されている場合(先に :meth:`duplicateTarget` などでベイクしておく)。
+            RuntimeError: ターゲット形状が接続されている場合(先に複製するなどして、接続の無い形状にしておく)。
         """
         _require_bool(positiveToNegative, "positiveToNegative")
         bi, index = self._resolve_group(target, base)
@@ -715,7 +688,7 @@ class BlendShape(GeometryFilter):
         """ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
-        左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
+        左右で別々のターゲットを作るなら、ターゲットを複製してから反転する。
         topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
         ターゲットと基準エッジ設定は1回のUndoで戻せる。
         Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
@@ -742,43 +715,6 @@ class BlendShape(GeometryFilter):
             if edge is not None:
                 cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
             cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
-
-    def duplicateTarget(self, target, name=None):
-        """ターゲットを複製する。
-
-        すべてのベースのデルタ・in-between・頂点マスクごと、新しい論理番号へ複製する。
-
-        - ターゲット形状が接続されていれば、今の形をベイクする。複製したほうは接続を持たない。
-        - 新しいウェイトは0になる。外からウェイトを動かしているドライバーは複製しない。
-        - Shape Editorでは、元のターゲットと同じフォルダーの最後に置く。
-
-        Undoが有効なら、1回のUndoで戻せる。
-
-        Args:
-            target (str | int | Plug): 複製元のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            name (str | None): 新しいターゲット名。Noneなら ``<元の名前>Copy`` になる(重なれば末尾に番号が付く)。
-
-        Returns:
-            Plug: 新しいターゲットのウェイト(``weight[i]``)。
-
-        Raises:
-            TypeError: targetの型が不正な場合、nameが文字列・None以外の場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットが無い場合、またはnameが空かすでにあるアトリビュートと重なる場合。
-        """
-        index = self._target_index(target)
-        if name is not None:
-            self._require_new_name(name)
-        record = self._capture_target(index)
-        if name is None:
-            name = self._copy_name(record["name"] or f"target{index}")
-        destination = self._unused_index()
-        with undoChunk("mlibBlendShapeDuplicateTarget"):
-            self._write_target(destination, record, name, created=True)
-            self.getPlug("weight")[destination].set(0.0)
-            model = _Directories.read(self)
-            model.move(destination, model.parentOf(index), after=index)
-            model.write(self)
-            return self.getPlug("weight")[destination]
 
     def replaceTarget(self, target, geometry, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。

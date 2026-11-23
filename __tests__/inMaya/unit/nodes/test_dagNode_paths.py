@@ -105,7 +105,7 @@ class DeletedDagNodeTest(_SpecCase):
     """ノードごと削除した DAG 参照の照会。"""
 
     #: 削除直後(Undo の記録に残る間)も、破棄後も RuntimeError になるパスの照会。
-    PATH_METHODS = ("isVisible", "getParent", "getParents", "mpath", "mfn", "getInstances", "getSkinClusters", "getBindPoses", "isRoot")
+    PATH_METHODS = ("isVisible", "getParent", "getParents", "mpath", "mfn", "getInstances", "getSkinClusters", "getBindPoses")
 
     def setUp(self):
         super().setUp()

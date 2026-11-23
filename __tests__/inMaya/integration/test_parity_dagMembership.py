@@ -18,7 +18,7 @@ class DagMembershipTest(NamespaceCase):
         objects, native = shape.mfn().getConnectedShaders(shape.mpath().instanceNumber())
         self.assertEqual(indices, list(native))
         self.assertEqual([s.mnode() for s in shaders], list(objects))
-        self.assertEqual(len(indices), shape.getNumPatches()[0] * shape.getNumPatches()[1])
+        self.assertEqual(len(indices), shape.mfn().numPatches)
 
     def test_set_paths_and_version_limit(self):
         root = cmds.polyCube(name=self.name("cube"))[0]

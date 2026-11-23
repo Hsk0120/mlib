@@ -61,12 +61,10 @@ class _BlendCase(NamespaceCase):
 
 class TargetSpecifierTest(_BlendCase):
     def test_name_index_and_plug_select_the_same_target(self):
-        plug = self.bs.getWeightPlug("smile")
+        plug = self.bs.getPlug("weight")[0]
         self.assertEqual(self.bs.getTargetIndex("smile"), 0)
         self.assertEqual(self.bs.getTargetIndex(0), 0)
         self.assertEqual(self.bs.getTargetIndex(plug), 0)
-        self.assertEqual(self.bs.getWeightPlug(0).getFullName(), plug.getFullName())
-        self.assertEqual(self.bs.getWeightPlug(plug).getFullName(), plug.getFullName())
         for value in ("smile", 0, plug):
             with self.subTest(value=value):
                 self.assertEqual(set(self.bs.getTargetDeltas(value)), self.positive())
@@ -82,13 +80,10 @@ class TargetSpecifierTest(_BlendCase):
         ):
             with self.subTest(value=value), self.assertRaises(error):
                 self.bs.getTargetIndex(value)
-        other = BlendShape(cmds.blendShape(self.lifted("o"), self.plane("ob"), name=self.name("other"))[0])
-        with self.assertRaises(ValueError):
-            self.bs.getWeightPlug(other.getPlug("weight")[0])
 
     def test_remove_target_by_plug_undoes_in_one_step(self):
         self.flushUndo()
-        self.assertIsNone(self.bs.removeTarget(self.bs.getWeightPlug(0)))
+        self.assertIsNone(self.bs.removeTarget(self.bs.getPlug("weight")[0]))
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.bs.getTargetNames(), ["smile"]), lambda: self.assertEqual(self.bs.getTargetNames(), []))
 
 
@@ -214,7 +209,7 @@ class InBetweenTest(_BlendCase):
             lambda: self.assertEqual(self.bs.getInBetweenWeights(0), []), lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.5])
         )
         self.bs.addInBetween(0, half, 0.5)
-        self.bs.addInBetween(self.bs.getWeightPlug(0), rel, 0.25, relative=True)
+        self.bs.addInBetween(self.bs.getPlug("weight")[0], rel, 0.25, relative=True)
         self.assertEqual(self.bs.getInBetweenWeights("smile"), [0.25, 0.5])
         self.assertEqual(cmds.getAttr(f"{self.bs}.inbetweenInfoGroup[0].inbetweenInfo[5250].inbetweenTargetType"), 1)
         self.assertEqual(cmds.getAttr(f"{self.bs}.inbetweenInfoGroup[0].inbetweenInfo[5500].inbetweenTargetType"), 0)
@@ -266,32 +261,6 @@ class MirrorTest(_BlendCase):
 
 
 class DuplicateReplaceEditTest(_BlendCase):
-    def test_duplicate(self):
-        self.bs.addInBetween(0, self.lifted("half", amount=0.5), 0.5)
-        self.bs.setTargetWeights(0, {2: 0.5})
-        cmds.setAttr(f"{self.bs}.smile", 0.7)
-        self.flushUndo()
-        copy = self.bs.duplicateTarget("smile")
-        self.assertEqual(copy.getAlias(), "smileCopy")
-        self.assertUndoesInOneStep(
-            lambda: self.assertEqual(self.bs.getTargetNames(), ["smile"]), lambda: self.assertEqual(self.bs.getTargetNames(), ["smile", "smileCopy"])
-        )
-        copy = self.bs.duplicateTarget(0, name="grin")
-        index = copy.getIndex()
-        self.assertEqual(copy.get(), 0.0)
-        self.assertEqual(self.raw_deltas(index), self.raw_deltas(0))
-        self.assertEqual(self.raw_deltas(index, 5500), self.raw_deltas(0, 5500))
-        self.assertEqual(self.bs.getInBetweenWeights("grin"), [0.5])
-        self.assertEqual(self.bs.getTargetWeights("grin")[2], 0.5)
-        self.assertFalse(copy.isDestination())
-        self.assertFalse(cmds.listConnections(f"{self.bs}.inputTarget[0].inputTargetGroup[{index}]", source=True, destination=False))
-        self.assertEqual(cmds.getAttr(f"{self.bs}.targetDirectory[0].childIndices"), [0, index])
-        self.assertEqual(self.bs.duplicateTarget(0).getAlias(), "smileCopy")
-        self.assertEqual(self.bs.duplicateTarget(0).getAlias(), "smileCopy1")
-        for name, error in (("grin", ValueError), ("", ValueError), (3, TypeError), ("envelope", ValueError)):
-            with self.subTest(name=name), self.assertRaises(error):
-                self.bs.duplicateTarget(0, name=name)
-
     def test_replace_target(self):
         self.baked()
         other = self.lifted("other", side=-1.0, amount=2.0)
@@ -354,16 +323,6 @@ class MultiBaseTest(NamespaceCase):
             self.bs.getTargetWeights(0, base=cmds.polySphere(name=self.name("sphere"))[0])
         with self.assertRaises(TypeError):
             self.bs.getTargetWeights(0, base=1)
-
-    def test_duplicate_and_remove_cover_every_base(self):
-        self.bs.setTargetDeltas(0, {7: (0, 1, 0)}, base=self.cube)
-        copy = self.bs.duplicateTarget(0, name="copy")
-        self.assertEqual(set(self.bs.getTargetDeltas(copy, base=self.cube)), {7})
-        self.assertEqual(self.bs.getTargetDeltas(copy, base=self.plane), {})
-        self.bs.removeTarget("copy")
-        self.assertEqual(self.bs.getTargetIndex(0), 0)
-        with self.assertRaises(ValueError):
-            self.bs.getTargetIndex(copy.getIndex())
 
 
 if __name__ == "__main__":

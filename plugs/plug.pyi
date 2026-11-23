@@ -456,16 +456,6 @@ class Plug(Object):
             bool: MFnDagNodeがインスタンス別の定義と判定すればTrue。非DAGノードはFalse。
         """
         ...
-    def isIndexMatters(self) -> bool:
-        """マルチアトリビュートの定義で、要素番号に意味があるか調べる。
-
-        Returns:
-            bool: MFnAttribute.indexMattersの値。接続時のnextAvailableの可否に関わる。
-
-        Raises:
-            RuntimeError: アトリビュートが無効な場合。
-        """
-        ...
     def isExactlyEqual(self, other: Plug) -> bool:
         """同じアトリビュートと同じネットワーク上のPlugか調べる。
 
@@ -551,46 +541,6 @@ class Plug(Object):
 
         Raises:
             RuntimeError: Plugが無効な場合。
-        """
-        ...
-    def isCaching(self) -> bool:
-        """このPlugの値がキャッシュ対象か調べる。
-
-        Returns:
-            bool: キャッシュ対象ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
-    def isNetworked(self) -> bool:
-        """このPlugがDG内部のネットワーク用参照か調べる。
-
-        Returns:
-            bool: ネットワーク用ならTrue。接続の有無の判定にはisConnectedを使う。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
-    def isProcedural(self) -> bool:
-        """このPlugがMayaのprocedural指定を持つか調べる。
-
-        Returns:
-            bool: procedural指定ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
-    def isIgnoredWhenRendering(self) -> bool:
-        """レンダー時にこのPlugへの接続が無視されるか調べる。
-
-        Returns:
-            bool: Mayaが無視する指定ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
         """
         ...
     def mplug(self) -> om2.MPlug:
@@ -1060,16 +1010,6 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def isDynamic(self) -> bool:
-        """あとから足したアトリビュート(addAttr で足したカスタムアトリビュートなど)か判定する。
-
-        Returns:
-            bool: 動的アトリビュートなら ``True``。ノードの型に組み込みの静的なアトリビュートは ``False``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
     def isProxy(self) -> bool:
         """プロキシアトリビュートか判定する。
 
@@ -1096,30 +1036,6 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def isReadable(self) -> bool:
-        """アトリビュートの定義の readable フラグを取得する。
-
-        値を必ず取得できることを確かめるものではない。
-
-        Returns:
-            bool: 定義の readable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isWritable(self) -> bool:
-        """アトリビュートの定義の writable フラグを取得する。
-
-        ロックや入力の接続を考えた、今書き込めるかどうかは判定しない。
-
-        Returns:
-            bool: 定義の writable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
     def isSettable(self) -> bool:
         """今、値を設定できるか判定する。
 
@@ -1133,50 +1049,6 @@ class Plug(Object):
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def isStorable(self) -> bool:
-        """値がシーンファイルへ保存されるアトリビュートか判定する。
-
-        Returns:
-            bool: 保存されるなら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isConnectable(self) -> bool:
-        """アトリビュートの定義の connectable フラグ(接続できるアトリビュートか)を取得する。
-
-        ロックや、すでにある入力の接続を考えた、今接続できるかどうかは判定しない。
-
-        Returns:
-            bool: 定義の connectable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isUsedAsColor(self) -> bool:
-        """アトリビュート定義の usedAsColor フラグ(UIで色として扱う ``addAttr(usedAsColor=True)``)を取得する。
-
-        Returns:
-            bool: 色のアトリビュートの場合は ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isWorldSpace(self) -> bool:
-        """アトリビュートの定義の worldSpace フラグを取得する。
-
-        ``worldMatrix`` のように、DAGのインスタンスごとに値を持つアトリビュートかどうかを表す。
-
-        Returns:
-            bool: ワールド空間のアトリビュートなら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
     def hasMin(self) -> bool:
@@ -2122,36 +1994,6 @@ class Plug(Object):
 
         Raises:
             RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def getAffected(self) -> Plugs:
-        """同じノードの中で、このアトリビュートが影響するアトリビュートを取得する。
-
-        影響するとは、このアトリビュートの値が変わると再計算される、という意味。
-        ノードの型の定義(``attributeAffects``)による関係で、``cmds.affects(attr, node, by=True)`` と同じ
-        アトリビュートを ``MFnDependencyNode.getAffectedAttributes`` で求める。接続先の別のノードは含まない。
-        アトリビュートどうしの関係なので、要素の論理番号は区別しない。マルチアトリビュートの中の子は、
-        そのマルチアトリビュート全体のPlugにまとめる。
-
-        Returns:
-            Plugs: 影響を受けるPlug。重複を除き、定義の順に並ぶ。無ければ空の集まり。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getAffecting(self) -> Plugs:
-        """同じノードの中で、このアトリビュートに影響するアトリビュートを取得する。
-
-        つまり、このアトリビュートの値の計算に使われるアトリビュート。:meth:`getAffected` の逆向きで、
-        ``cmds.affects(attr, node)`` と同じアトリビュートを ``MFnDependencyNode.getAffectingAttributes`` で求める。
-        接続元の別のノードは含まない。
-
-        Returns:
-            Plugs: 影響を与えるPlug。重複を除き、定義の順に並ぶ。無ければ空の集まり。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
     def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> Node | None:
@@ -3356,9 +3198,6 @@ class Plugs(_ListMethods):
     def isInstancedAttribute(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isInstancedAttribute` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isIndexMatters(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isIndexMatters` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def isExactlyEqual(self, other: Plug) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isExactlyEqual` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -3376,18 +3215,6 @@ class Plugs(_ListMethods):
         ...
     def isNewAttribute(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isNewAttribute` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isCaching(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isCaching` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isNetworked(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isNetworked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isProcedural(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isProcedural` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isIgnoredWhenRendering(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isIgnoredWhenRendering` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mplug(self) -> list[om2.MPlug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.mplug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3491,35 +3318,14 @@ class Plugs(_ListMethods):
     def isHidden(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isHidden` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isDynamic(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isDynamic` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def isProxy(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isProxy` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getProxyMaster(self) -> list[Plug | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getProxyMaster` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isReadable(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isReadable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isWritable(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isWritable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def isSettable(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isSettable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isStorable(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isStorable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isConnectable(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isConnectable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isUsedAsColor(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isUsedAsColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isWorldSpace(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isWorldSpace` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def hasMin(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.hasMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3646,12 +3452,6 @@ class Plugs(_ListMethods):
         ...
     def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getAffected(self) -> list[Plugs]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getAffected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getAffecting(self) -> list[Plugs]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getAffecting` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> list[Node | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurve` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

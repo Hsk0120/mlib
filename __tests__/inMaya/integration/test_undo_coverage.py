@@ -1299,7 +1299,6 @@ def s_texture(c):
     """file・place2dTexture を作る。"""
     c.file = _node("file", "tex")
     c.place = _node("place2dTexture", "place")
-    c.nfile = mlib.getNode(c.file)
     c.nplace = mlib.getNode(c.place)
 
 
@@ -1629,7 +1628,6 @@ CASES = [
     C("DagNode.show", "show", s_hidden, lambda c, **kw: c.na.show(**kw)),
     C("DagNode.hide", "hide", s_one, lambda c, **kw: c.na.hide(**kw)),
     C("DagNode.setVisibility", "setVisibility", s_one, lambda c, **kw: c.na.setVisibility(False, **kw)),
-    C("DagNode.setOutlinerVisibility", "setOutlinerVisibility", s_one, lambda c, **kw: c.na.setOutlinerVisibility(False, **kw)),
     C("DagNode.setOverrideColor", "setOverrideColor index", s_curves, lambda c, **kw: c.ncrv.setOverrideColor(13, **kw)),
     C("DagNode.setOverrideColor", "setOverrideColor rgb", s_one, lambda c, **kw: c.na.setOverrideColor((1.0, 0.5, 0.0), **kw)),
     C("DagNode.setOverrideColor", "setOverrideColor shape", s_curves, lambda c, **kw: c.ncrv.setOverrideColor(13, shape=True, **kw)),
@@ -1902,7 +1900,6 @@ CASES = [
     C("BlendShape.addInBetween", "BlendShape.addInBetween", s_blend, lambda c, **kw: c.nblend.addInBetween(0, c.target2, 0.5)),
     C("BlendShape.removeInBetween", "BlendShape.removeInBetween", s_blend_inbetween, lambda c, **kw: c.nblend.removeInBetween(0, 0.5)),
     C("BlendShape.mirrorTarget", "BlendShape.mirrorTarget", s_blend_baked, lambda c, **kw: c.nblend.mirrorTarget(0)),
-    C("BlendShape.duplicateTarget", "BlendShape.duplicateTarget", s_blend, lambda c, **kw: c.nblend.duplicateTarget(0, name="copied")),
     C("BlendShape.replaceTarget", "BlendShape.replaceTarget", s_blend_baked, lambda c, **kw: c.nblend.replaceTarget(0, c.target2)),
     C(
         "BlendShape.setTargetsData",
@@ -1914,7 +1911,6 @@ CASES = [
     ),
     C("Constraint.setWeight", "Constraint.setWeight", s_constraint, lambda c, **kw: c.ncon.setWeight(0.5, **kw)),
     C("AimConstraint.setRestRotate", "AimConstraint.setRestRotate", s_aim, lambda c, **kw: c.ncon.setRestRotate((0.1, 0.2, 0.3), **kw)),
-    C("AimConstraint.setOffset", "AimConstraint.setOffset", s_aim, lambda c, **kw: c.ncon.setOffset((0.1, 0.2, 0.3), **kw)),
     # AnimCurve
     C("AnimCurve.setKey", "AnimCurve.setKey new", s_keyed, lambda c, **kw: c.ncurve.setKey(0.2, 3.0, **kw)),
     C(
@@ -2028,8 +2024,6 @@ CASES = [
         lambda c, **kw: c.nsg.assign([c.cube + ".f[0:1]"], **kw),
         fastSkip="fast はフェース単位を拒否する(仕様)",
     ),
-    C("File.setFilePath", "File.setFilePath", s_texture, lambda c, **kw: c.nfile.setFilePath("C:/mlibUndoCoverage/missing.png", **kw)),
-    C("File.setColorSpace", "File.setColorSpace", s_texture, lambda c, **kw: c.nfile.setColorSpace("Raw", **kw)),
     C("Place2dTexture.connectTexture", "Place2dTexture.connectTexture", s_texture, lambda c, **kw: c.nplace.connectTexture(c.file, **kw)),
     # SkinCluster
     C("cmds.bindSkin", "bindSkin", s_unbound, lambda c, **kw: mlib.bindSkin([c.j0, c.j1], c.mesh)),

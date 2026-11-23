@@ -76,9 +76,6 @@ class NativeFollowupTest(NamespaceCase):
         node.getPlug("overrideDisplayType").set(2)
         # 描画更新されないstandaloneでは、API 1.0の描画キャッシュ値との一致を確認する。
         fn = om1.MFnDagNode(shape._api1_path())
-        self.assertEqual(shape.isDrawOverrideEnabled(), fn.drawOverrideEnabled())
-        self.assertEqual(shape.isDrawOverrideReference(), fn.drawOverrideIsReference())
-        self.assertEqual(shape.isDrawOverrideTemplate(), fn.drawOverrideIsTemplate())
         color = om1.MColor()
         enabled = fn.drawOverrideColor(color)
         expected = (color.r, color.g, color.b, color.a) if enabled else None
@@ -86,8 +83,6 @@ class NativeFollowupTest(NamespaceCase):
         self.assertEqual(len(shape.getActiveColor()), 4)
         self.assertEqual(len(shape.getDormantColor()), 4)
         self.assertEqual(len(shape.getHiliteColor()), 4)
-        self.assertIsInstance(shape.isUsingHiliteColor(), bool)
-        self.assertIsInstance(shape.isCheckingSamePointTwice(), bool)
 
     def test_object_group_components_preserve_owner_path(self):
         cube = self.cube()
@@ -106,7 +101,6 @@ class NativeFollowupTest(NamespaceCase):
         camera = self.camera()
         camera.getPlug("nearClipPlane").set(2.5)
         camera.getPlug("farClipPlane").set(321)
-        self.assertEqual(camera.getUnnormalizedClippingPlanes(), (2.5, 321.0))
         shader = mlib.getNode(cmds.shadingNode("lambert", asShader=True, name=self.name("shader")))
         fn = om1.MFnLambertShader(shader._api1_object())
         self.flushUndo()
@@ -207,7 +201,7 @@ class NativeFollowupTest(NamespaceCase):
             self.assertAlmostEqual(a, b, places=5)
         other = self.camera()
         other.copyViewFrom(camera, fast=True)
-        self.assertTrue(other.hasSamePerspective(camera))
+        self.assertTrue(other.mfn().hasSamePerspective(camera.mpath()))
         camera.getPlug("focalLength").setLocked(True)
         before = camera.getEyePoint()
         with self.assertRaises(RuntimeError):
@@ -292,7 +286,6 @@ class NativeFollowupTest(NamespaceCase):
         points = fn.getPoints()
         center_edge = next(index for index in range(fn.numEdges) if all(abs(points[v].x) < 1e-6 for v in fn.getEdgeVertices(index)))
         edge = mesh.getFullName() + ".e[" + str(center_edge) + "]"
-        self.assertIn(blend.getHistoryLocation(), (0, 1))
         for operation in ("mirrorTarget", "flipTarget"):
             before = blend.getTargetDeltas(0)
             old_edges = cmds.blendShape(blend.getName(), query=True, symmetryEdge=True)

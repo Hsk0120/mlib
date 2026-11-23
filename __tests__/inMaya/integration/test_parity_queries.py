@@ -120,14 +120,9 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         self.assertEqual(
             [shape.getFullName() for shape in blend.getBaseGeometry()], cmds.ls(cmds.blendShape(blend.getFullName(), query=True, geometry=True), long=True)
         )
-        plug = blend.getWeightPlug(blend.getTargetNames()[0])
-        plug.set(0.25)
-        self.assertAlmostEqual(cmds.getAttr(blend.getFullName() + ".weight[0]"), 0.25)
-        with self.assertRaises(ValueError):
-            blend.getWeightPlug("missing")
 
-    def test_constraint_weights_and_aim_output(self):
-        """コンストレイントのターゲット・ウェイトとaimの評価出力をcmdsと比べる。"""
+    def test_constraint_weights(self):
+        """コンストレイントのターゲット・ウェイトをcmdsと比べる。"""
         a = cmds.createNode("transform", name=self.name("a"), skipSelect=True)
         b = cmds.createNode("transform", name=self.name("b"), skipSelect=True)
         driven = cmds.createNode("transform", name=self.name("driven"), skipSelect=True)
@@ -142,15 +137,6 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         self.assertEqual(len(constraint.getWeights()), 2)
         with self.assertRaises(ValueError):
             constraint.getWeight(driven)
-        aimed = cmds.createNode("transform", name=self.name("aimed"), skipSelect=True)
-        cmds.setAttr(aimed + ".rotateOrder", 3)
-        aim = mlib.getNode(cmds.aimConstraint(b, aimed, aimVector=(1, 0, 0), name=self.name("aim"))[0])
-        output = aim.getOutputRotate()
-        self.assertEqual(output.order, 3)
-        for actual, axis in zip(output, "XYZ"):
-            self.assertAlmostEqual(math.degrees(actual), cmds.getAttr(aim.getFullName() + ".constraintRotate" + axis), places=6)
-        for actual, expected in zip(output, mlib.getNode(aimed).getRotate()):
-            self.assertAlmostEqual(actual, expected, places=6)
 
 
 if __name__ == "__main__":

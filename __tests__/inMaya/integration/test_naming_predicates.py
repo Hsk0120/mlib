@@ -13,7 +13,7 @@ import maya.cmds as cmds
 
 import mlib
 
-_PRESERVED_NAMES = {("Node", "isType"), ("Node", "isRoot"), ("Plug", "isSource"), ("Plug", "isMultiElement"), ("Plugin", "isLoaded"), ("Matrix", "isIdentity")}
+_PRESERVED_NAMES = {("Node", "isType"), ("Plug", "isSource"), ("Plug", "isMultiElement"), ("Plugin", "isLoaded"), ("Matrix", "isIdentity")}
 
 
 def _predicate_definitions():
@@ -142,7 +142,6 @@ class PredicateAliasesTest(unittest.TestCase):
         """取得API・Plugin.loadedと動的アトリビュート参照を変更しない。"""
         self.assertEqual(self.first.getType(), "transform")
         self.assertTrue(self.first.isType("dagNode"))
-        self.assertTrue(self.first.isRoot())
         self.assertEqual(self.first.getRoot(), self.first)
         self.assertIsInstance(mlib.Plugin.loaded(), list)
         self.assertTrue(callable(mlib.Reference.getRoot))

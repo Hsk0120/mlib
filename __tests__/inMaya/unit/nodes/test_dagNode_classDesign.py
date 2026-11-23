@@ -43,7 +43,7 @@ class ClassDesignTest(unittest.TestCase):
         """DG基底に表示専用APIを公開せずDAG単数だけが持つ。複数形はsetVisibilityだけを一括適用する。"""
         from mlib.nodes import DagNode, Joints, Node, Nodes
 
-        methods = ("getVisibility", "setVisibility", "getOutlinerVisibility", "setOutlinerVisibility")
+        methods = ("getVisibility", "setVisibility")
         for method in methods:
             self.assertFalse(hasattr(Node, method))
             self.assertEqual(hasattr(Nodes, method), method == "setVisibility")

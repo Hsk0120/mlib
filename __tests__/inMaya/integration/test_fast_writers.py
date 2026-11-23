@@ -95,10 +95,10 @@ class NurbsCurveSetCvPositionsFastTest(_SpecCase):
         for overlap in (False, True):
             with self.subTest(overlap=overlap):
                 normal, fast = self.circle("normal"), self.circle("fast")
-                count = len(normal.getCvPositions()) - normal.getDegree()
+                count = len(normal.getCvPositions()) - normal.mfn().degree
                 points = [(i, i * 0.5, 1.0) for i in range(count)]
                 if overlap:
-                    points += points[: normal.getDegree()]
+                    points += points[: normal.mfn().degree]
                 normal.setCvPositions(points)
                 self.assert_no_undo(lambda: fast.setCvPositions(points, fast=True))
                 self.assert_points(fast.getCvPositions(), normal.getCvPositions())

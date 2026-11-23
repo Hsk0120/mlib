@@ -592,46 +592,6 @@ class DagNode(Node):
             tuple[float, float, float, float] | None: RGBAの独立した値。色のオーバーライドが無い場合はNone。
         """
         ...
-    def isDrawOverrideEnabled(self) -> bool:
-        """DAGパスの描画オーバーライドが有効かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドが有効か。
-        """
-        ...
-    def isDrawOverrideReference(self) -> bool:
-        """DAGパスの描画オーバーライドが参照表示かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドが参照表示か。
-        """
-        ...
-    def isDrawOverrideTemplate(self) -> bool:
-        """DAGパスの描画オーバーライドがテンプレート表示かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドがテンプレート表示か。
-        """
-        ...
-    def isUsingHiliteColor(self) -> bool:
-        """DAGパスのハイライト色が使われるかを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: ハイライト色が使われるか。
-        """
-        ...
     def getOverrideColor(self, *, shape: bool = ...) -> int | tuple[float, float, float] | None:
         """描画のオーバーライドの表示色を取得する。
 
@@ -762,40 +722,6 @@ class DagNode(Node):
             直接書き込んだ値は、あとで自動では戻さない。
         """
         ...
-    def getOutlinerVisibility(self) -> bool:
-        """アウトライナーに表示する設定になっているかを取得する。
-
-        Returns:
-            bool: hiddenInOutlinerがFalseならTrue。画面に実際に見えているかどうかではない。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-
-        Note:
-            エディターのフィルター、親が折り畳まれているか、非表示のノードを表示する設定は調べない。
-        """
-        ...
-    def setOutlinerVisibility(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
-        """アウトライナーに表示するかを設定する。
-
-        Args:
-            state (bool): Trueなら表示、Falseなら非表示。hiddenInOutlinerには逆の値を書き込む。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
-
-        Raises:
-            TypeError: stateまたはfastがbool以外の場合。
-            RuntimeError: ロックや入力接続などのために書き込めない場合。
-
-        Note:
-            ビューポートのvisibilityは変えない。実際にアウトライナーに出るかは、
-            各アウトライナーのフィルターや、非表示のノードを表示する設定によっても変わる。
-        """
-        ...
     def getDisplayType(self) -> str:
         """描画のオーバーライドの表示の種類を取得する。
 
@@ -840,20 +766,6 @@ class DagNode(Node):
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         ...
-    def isShadingOverridden(self) -> bool:
-        """描画のオーバーライドで、ワイヤーフレーム表示にしているかを調べる。
-
-        Mayaの ``overrideShading`` は、Trueでシェーディングあり(既定)、Falseでワイヤーフレームを表す。
-        このメソッドはその逆向きで、シェーディングを消しているときにTrueを返す。
-        自身のアトリビュートを読む(:meth:`setShadingOverride` と同じ対象)。
-
-        Returns:
-            bool: ``overrideEnabled`` が有効で ``overrideShading`` がFalseならTrue。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
     def setShadingOverride(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
@@ -863,7 +775,7 @@ class DagNode(Node):
         - ``state=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
           ``overrideEnabled`` は変えない。
 
-        boolの向きはMayaの ``overrideShading`` と逆で、:meth:`isShadingOverridden` の戻り値と同じ向き。
+        boolの向きはMayaの ``overrideShading`` と逆(Trueでシェーディングを上書きする)。
         対象・Undo・fastの扱いは :meth:`setDisplayType` と同じ。
 
         Args:

@@ -52,7 +52,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertIsInstance(camera, mlib.Camera)
 
         cmds.setAttr(camera_shape_name + ".focalLength", 50.0)
-        self.assertAlmostEqual(camera.getFocalLength(), 50.0)
+        self.assertAlmostEqual(camera.getPlug("focalLength").get(), 50.0)
 
         import maya.api.OpenMaya as om2
 
@@ -103,15 +103,11 @@ class IntermediateCameraTest(_SpecCase):
         self.assertEqual(sorted(flags), [False, True])
 
     def test_camera(self):
-        """getFocalLength は mm の焦点距離で、UI の距離単位に左右されない。"""
+        """camera の Shape は Camera、mfn は MFnCamera。トランスフォームは Camera にならない。"""
         transform, shape = cmds.camera(name=self.name("cam"), focalLength=50)
         camera = Node(shape)
         self.assertIsInstance(camera, Camera)
         self.assertIsInstance(camera.mfn(), om2.MFnCamera)
-        self.assertEqual(camera.getFocalLength(), 50.0)
-        cmds.currentUnit(linear="mm")
-        self.assertEqual(camera.getFocalLength(), 50.0)
-        self.assertEqual(camera.getFocalLength(), cmds.getAttr(shape + ".focalLength"))
         self.assertIsNot(type(Node(transform)), Camera)
 
 

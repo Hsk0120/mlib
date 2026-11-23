@@ -53,7 +53,7 @@ class NurbsCurveCreateTest(_Case):
 
     def test_open_and_closed_forms_match_cmds(self):
         """開いた・閉じたカーブの次数・形式・CVをcmdsで照会した値と比べる。"""
-        # cmdsのformは 0=open・2=periodic、getForm()はMFnNurbsCurveの定数。
+        # cmdsのformは 0=open・2=periodic、mfn().formはMFnNurbsCurveの定数。
         cases = (
             (dict(degree=1), 1, 0, 4, SQUARE),
             (dict(degree=3), 3, 0, 4, SQUARE),
@@ -70,7 +70,7 @@ class NurbsCurveCreateTest(_Case):
                 self.assertEqual(cmds.nodeType(name), "nurbsCurve")
                 self.assertEqual(cmds.getAttr(name + ".degree"), degree)
                 self.assertEqual(cmds.getAttr(name + ".form"), form)
-                self.assertEqual(shape.getForm(), forms[form])
+                self.assertEqual(shape.mfn().form, forms[form])
                 self.assertEqual(shape.getNumCVs(), count)
                 self.assertPointsAlmostEqual(shape.getCvPositions(), points)
                 self.assertIsInstance(shape.getTransform(), Transform)

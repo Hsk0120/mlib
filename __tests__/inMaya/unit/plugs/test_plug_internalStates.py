@@ -15,10 +15,6 @@ class PlugInternalStatesTest(NamespaceCase):
         node = mlib.getNode(cmds.createNode("transform", name=self.ns + ":node"))
         plug = node.getPlug("tx")
         native = plug.mplug()
-        self.assertEqual(plug.isCaching(), native.isCaching)
-        self.assertEqual(plug.isNetworked(), native.isNetworked)
-        self.assertEqual(plug.isProcedural(), native.isProcedural)
-        self.assertEqual(plug.isIgnoredWhenRendering(), native.isIgnoredWhenRendering)
         fn = om2.MFnDependencyNode(node.mnode())
         self.assertEqual(plug.getAttributeClass(), fn.attributeClass(native.attribute()))
         self.assertEqual(plug.isNewAttribute(), fn.isNewAttribute(native.attribute()))
@@ -27,7 +23,7 @@ class PlugInternalStatesTest(NamespaceCase):
         self.assertTrue(extra.isNewAttribute())
         cmds.delete(node.getName())
         with self.assertRaises(RuntimeError):
-            plug.isNetworked()
+            plug.getAttributeClass()
 
 
 if __name__ == "__main__":

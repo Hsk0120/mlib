@@ -122,41 +122,6 @@ class GeometryFilter(Node):
             RuntimeError: デフォーマーが無効、またはMayaが入力Shapeの取得を拒否した場合。
         """
         ...
-    def getGeometryIndexForGroupId(self, groupId: int) -> int:
-        """groupIdに対応する変形対象の論理番号を取得する。
-
-        セット方式のgroupIdを使う。コンポーネントタグ方式の所属は対象外。
-
-        Args:
-            groupId (int): 0〜4294967295のgroupId。
-
-        Returns:
-            int: input/outputGeometryの論理番号。
-
-        Raises:
-            TypeError: groupIdがintでない場合。
-            ValueError: groupIdが範囲外の場合。
-            RuntimeError: デフォーマーが無効、または対応するgroupIdがない場合。
-        """
-        ...
-    def getGeometryGroupId(self, *, geometryIndex: int) -> int:
-        """変形対象の論理番号に対応するgroupIdを取得する。
-
-        セット方式の所属を識別する値で、Shapeの論理番号とは異なる。
-        コンポーネントタグ方式の所属取得にはgetGeometryComponentsを使う。
-
-        Args:
-            geometryIndex (int): input/outputGeometryの論理番号。
-
-        Returns:
-            int: Mayaが返すgroupId。
-
-        Raises:
-            TypeError: geometryIndexがintでない場合。
-            IndexError: 指定した論理番号の出力がない場合。
-            RuntimeError: デフォーマーが無効、またはgroupIdを取得できない場合。
-        """
-        ...
     def getGeometryComponents(self, *, geometryIndex: int = ...) -> list[Components]:
         """指定した出力形状で変形対象となるコンポーネントを取得する。
 

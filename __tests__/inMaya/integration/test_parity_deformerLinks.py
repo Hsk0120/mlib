@@ -36,10 +36,6 @@ class DeformerLinksTest(NamespaceCase):
         self.assertEqual(blend.getNormalizationGroups(), [])
         cmds.setAttr(blend.getFullName() + ".inputTarget[0].inputTargetGroup[5].normalizationId", 3)
         self.assertEqual(blend.getNormalizationGroups(), [3])
-        node = mlib.createNode("plusMinusAverage", name=self.name("sum"))
-        self.assertEqual(node.getNumAttrs(), node.mfn().attributeCount())
-        cmds.addAttr(node.getFullName(), longName="extra", attributeType="double")
-        self.assertEqual(node.getNumAttrs(), node.mfn().attributeCount())
 
     def test_deformer_tools(self):
         base = cmds.polyPlane(name=self.name("base"))[0]

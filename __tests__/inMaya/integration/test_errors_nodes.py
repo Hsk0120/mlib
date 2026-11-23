@@ -54,14 +54,14 @@ class _ErrorCase(NamespaceCase):
 
 
 class AngleUnitArgumentTest(_ErrorCase):
-    """AimConstraint.setRestRotate・setOffset の unit の検証(getはEulerRotateを返し、unitを持たない)。"""
+    """AimConstraint.setRestRotate の unit の検証(getはEulerRotateを返し、unitを持たない)。"""
 
     def test_unit_type_and_name(self):
         aim = mlib.getNode(self.make("aimConstraint"))
-        for method in ("getRestRotate", "getOffset"):
+        for method in ("getRestRotate",):
             with self.subTest(method=method), self.assertRaises(TypeError):
                 getattr(aim, method)(unit="rad")
-        for method in ("setRestRotate", "setOffset"):
+        for method in ("setRestRotate",):
             with self.subTest(method=method):
                 getattr(aim, method)((0, 0, 0), unit="rad")
                 for unit in (1, 1.0, ["deg"]):
@@ -259,9 +259,7 @@ class DagNodeInvalidTest(_ErrorCase):
         "getParents",
         "isVisible",
         "getOverrideColor",
-        "getOutlinerVisibility",
         "getDisplayType",
-        "isShadingOverridden",
         "getSkinClusters",
     )
     REMOVED_INSTANCE = ("getBindPoses", "mpath", "getRoot", "getSiblings", "isIntermediateObject", "getInstances", "getParents", "isVisible", "getSkinClusters")
@@ -425,17 +423,16 @@ class GeometryFilterWeightTest(_ErrorCase):
 
 
 class IkHandleErrorTest(_ErrorCase):
-    """IkHandle.getEffector・getCurve。"""
+    """IkHandle.getEffector。"""
 
-    def test_effector_and_curve(self):
+    def test_effector(self):
         start, _, end = self.joints("a", "b", "c")
         cmds.setAttr(end + ".tz", 1)
         handle, effector = cmds.ikHandle(startJoint=start, endEffector=end, name=self.name("ik"))
         ik = mlib.getNode(handle)
         self.assertEqual(ik.getEffector().getFullName(), cmds.ls(effector, long=True)[0])
-        self.assertIsNone(ik.getCurve())
         cmds.delete(handle)
-        for method in ("getEffector", "getCurve"):
+        for method in ("getEffector",):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
                     getattr(ik, method)()
@@ -665,16 +662,14 @@ class NodeErrorTest(_Case):
                     self.assertRaises(RuntimeError, getattr(self.deleted(flush=flush), method))
 
     def test_destroyed_node_queries_raise_runtime_error(self):
-        """削除して Undo の記録も消えたノードの getTypeId・getPluginName・isFromReferencedFile は RuntimeError。"""
-        for method in ("getTypeId", "getPluginName", "isFromReferencedFile"):
+        """削除して Undo の記録も消えたノードの isFromReferencedFile は RuntimeError。"""
+        for method in ("isFromReferencedFile",):
             with self.subTest(method=method):
                 self.assertRaises(RuntimeError, getattr(self.deleted(flush=True), method))
 
     def test_destroyed_node_queries_valid_counterpart(self):
-        """正常系: 有効なノードでは typeId は MTypeId と同じ整数、組み込み型のプラグイン名は空。"""
+        """正常系: 有効なノードはリファレンスのファイルのものではない。"""
         node = self.node("transform")
-        self.assertEqual(node.getTypeId(), om2.MFnDependencyNode(node.mnode()).typeId.id())
-        self.assertEqual(node.getPluginName(), "")
         self.assertFalse(node.isFromReferencedFile())
 
     def test_find_cycles_and_aliases_on_valid_node(self):

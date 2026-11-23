@@ -146,49 +146,6 @@ class GeometryFilter(Node):
         shape = fn.inputShapeAtIndex(geometryIndex)
         return None if shape.isNull() else Node(shape)
 
-    def getGeometryIndexForGroupId(self, groupId):
-        """groupIdに対応する変形対象の論理番号を取得する。
-
-        セット方式のgroupIdを使う。コンポーネントタグ方式の所属は対象外。
-
-        Args:
-            groupId (int): 0〜4294967295のgroupId。
-
-        Returns:
-            int: input/outputGeometryの論理番号。
-
-        Raises:
-            TypeError: groupIdがintでない場合。
-            ValueError: groupIdが範囲外の場合。
-            RuntimeError: デフォーマーが無効、または対応するgroupIdがない場合。
-        """
-        if type(groupId) is not int:
-            raise TypeError("groupIdはintで指定してください")
-        if not 0 <= groupId <= 4294967295:
-            raise ValueError("groupIdは0〜4294967295で指定してください")
-        return self._deformer_fn().indexForGroupId(groupId)
-
-    def getGeometryGroupId(self, *, geometryIndex):
-        """変形対象の論理番号に対応するgroupIdを取得する。
-
-        セット方式の所属を識別する値で、Shapeの論理番号とは異なる。
-        コンポーネントタグ方式の所属取得にはgetGeometryComponentsを使う。
-
-        Args:
-            geometryIndex (int): input/outputGeometryの論理番号。
-
-        Returns:
-            int: Mayaが返すgroupId。
-
-        Raises:
-            TypeError: geometryIndexがintでない場合。
-            IndexError: 指定した論理番号の出力がない場合。
-            RuntimeError: デフォーマーが無効、またはgroupIdを取得できない場合。
-        """
-        fn = self._deformer_fn()
-        self._require_geometry_index(fn, geometryIndex)
-        return fn.groupIdAtIndex(geometryIndex)
-
     def getGeometryComponents(self, *, geometryIndex=0):
         """指定した出力形状で変形対象となるコンポーネントを取得する。
 

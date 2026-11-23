@@ -978,54 +978,6 @@ class Node(Object):
         names, values = self._dependency_fn().dgCallbacks(timerType)
         return list(zip(names, values))
 
-    def affectsAnimation(self):
-        """ノードがアニメーションに影響するとMayaへ申告しているか調べる。
-
-        Returns:
-            bool: MFnDependencyNode.affectsAnimationの値。現在の接続全体の解析ではない。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        self._require_valid("アニメーションへの影響の照会")
-        return self._dependency_fn().affectsAnimation()
-
-    def canBeWritten(self):
-        """このノードがMayaのファイル書込み対象か調べる。
-
-        Returns:
-            bool: 書込み対象ならTrue。保存に成功することや外部ファイルの保存までは保証しない。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self._dependency_fn().canBeWritten()
-
-    def isShared(self):
-        """このノードが共有ノードか調べる。
-
-        Returns:
-            bool: Mayaの共有ノードならTrue。DAGインスタンスの判定とは異なる。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self._dependency_fn().isShared
-
-    def isTrackingEdits(self):
-        """このノードの編集がリファレンスやアセンブリで追跡されるか調べる。
-
-        Returns:
-            bool: 編集追跡の対象ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self._dependency_fn().isTrackingEdits()
-
     def mfn(self):
         """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
@@ -1083,31 +1035,6 @@ class Node(Object):
             raise TypeError("fnはint(om2.MFnの定数)で指定してください")
         self._alive_fn()
         return self._mobject.hasFn(fn)
-
-    def getTypeId(self):
-        """Maya内部のtypeIdを整数で取得する。
-
-        同じMayaのセッションの中で、ノードの型を速く比べるときに使う。
-        プラグインの版や環境によって値が変わることがあるので、ファイルなどへの保存には向かない。
-
-        Returns:
-            int: MTypeIdを数値にしたもの。
-
-        Raises:
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
-        """
-        return self._alive_fn().typeId.id()
-
-    def getPluginName(self):
-        """ノードの型を登録したプラグインの名前を取得する。
-
-        Returns:
-            str: プラグインの名前。Maya本体のノードの型では空文字列。
-
-        Raises:
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
-        """
-        return self._alive_fn().pluginName
 
     def getClassification(self):
         """ノードの型の分類の文字列を取得する。
@@ -1276,21 +1203,6 @@ class Node(Object):
             return None
         return Node._from_name(cmds.referenceQuery(self.getFullName(), referenceNode=True))
 
-    def isDefaultNode(self):
-        """Mayaの既定のノードか調べる。
-
-        既定のノードは、``time1``・``lambert1``・``defaultLightSet`` のように、新しいシーンに必ずあるノード。
-        ``cmds.ls(defaultNodes=True)`` に含まれるノードでTrueになる。
-
-        Returns:
-            bool: 既定のノードならTrue。
-
-        Raises:
-            RuntimeError: ノードが削除済み・無効な場合。
-        """
-        self._require_valid("照会")
-        return self._alive_fn().isDefaultNode
-
     def hasUniqueName(self):
         """階層を含まないノード名がシーン内で一意か調べる。
 
@@ -1400,20 +1312,6 @@ class Node(Object):
         other_full = other_node.getFullName()
         parent_prefix, separator, _ = other_full.rpartition("|")
         return bool(separator) and parent_prefix == self_full
-
-    def isRoot(self):
-        """DAGノードがワールドの直下にあるか調べる。
-
-        Returns:
-            bool: このオブジェクトが持つDAGパスの長さが1ならTrue。
-
-        Raises:
-            RuntimeError: DAGパスを持っていない(DAGノードでない)場合。
-        """
-        dag_path = self._current_dag_path()
-        if dag_path is None:
-            raise RuntimeError("ノードがDAGノードではありません")
-        return dag_path.length() == 1
 
     def getNodeName(self, removeNamespace=False):
         """DAGパスを付けないノード名を取得する。
@@ -2083,18 +1981,6 @@ class Node(Object):
                 for plug in plugs:
                     plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children, fast=fast)
 
-    def getNumAttrs(self):
-        """ノードのアトリビュート定義の総数を取得する。
-
-        コンパウンドの子の定義も数える。マルチの要素数ではなく、未作成の要素も作らない。
-        getPlugsのようにPlugへ変換できる定義だけに絞る処理は行わない。
-
-        Returns:
-            int: MFnDependencyNodeが返す定義数。
-        """
-        self._require_valid("アトリビュート数の取得")
-        return self._dependency_fn().attributeCount()
-
     def getPlugs(self, userDefined=False, includeChildren=True, *, writable=False, **listAttrFlags):
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
@@ -2735,21 +2621,6 @@ class Node(Object):
         if not self.isValid():
             return None
         return om2.MFnDependencyNode(self._mobject).uuid().asString()
-
-    def getAbsoluteName(self):
-        """ルート名前空間から始まるノード名を取得する。
-
-        先頭のコロンを含み、相対名前空間モードに影響されない。DAG階層は含まないため、
-        同名DAGノードを一意に識別する用途にはgetNameかgetFullNameを使う。
-
-        Returns:
-            str: :namespace:nodeの形式の名前。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        self._require_valid("絶対名前空間名の取得")
-        return self._dependency_fn().absoluteName()
 
     def getName(self):
         """最短の一意な名前を取得する。

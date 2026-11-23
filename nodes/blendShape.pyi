@@ -7,7 +7,6 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 import maya.mel as mel
-import maya.OpenMayaAnim as oma1
 from ..components.edge import Edge
 from ..components.vertex import Vertex, Vertices
 from ..core.attributeType import typed_data
@@ -107,21 +106,6 @@ class BlendShape(GeometryFilter):
 
         Returns:
             int: ``weight`` の論理番号。``inputTargetGroup`` の番号と同じ。
-
-        Raises:
-            TypeError: targetが使えない型(boolを含む)の場合。
-            ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
-    def getWeightPlug(self, target: str | int | Plug) -> Plug:
-        """ターゲットのウェイトのアトリビュート(``weight[i]``)を取得する。
-
-        Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-
-        Returns:
-            Plug: ``weight`` の要素のPlug。接続や値の設定に使う。
 
         Raises:
             TypeError: targetが使えない型(boolを含む)の場合。
@@ -514,15 +498,6 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getHistoryLocation(self) -> int:
-        """blendShapeが保持するヒストリ配置の設定を取得する。
-
-        接続グラフをたどって現在のデフォーマー順序を求める照会ではない。
-
-        Returns:
-            int: MFnBlendShapeDeformerのHistoryLocation値。0はkNormal、1はkFrontOfChain。
-        """
-        ...
     def mirrorTarget(self, target: str | int | Plug, axis: str | int = ..., positiveToNegative: bool = ..., base: str | Node | None = ..., *, symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
         """ターゲットの片側の変形を、反対側へミラーする。
 
@@ -546,14 +521,14 @@ class BlendShape(GeometryFilter):
         Raises:
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
             ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
-            RuntimeError: ターゲット形状が接続されている場合(先に :meth:`duplicateTarget` などでベイクしておく)。
+            RuntimeError: ターゲット形状が接続されている場合(先に複製するなどして、接続の無い形状にしておく)。
         """
         ...
     def flipTarget(self, target: str | int | Plug, axis: str | int = ..., base: str | Node | None = ..., *, symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
         """ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
-        左右で別々のターゲットを作るなら、:meth:`duplicateTarget` で複製してから反転する。
+        左右で別々のターゲットを作るなら、ターゲットを複製してから反転する。
         topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
         ターゲットと基準エッジ設定は1回のUndoで戻せる。
         Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
@@ -572,29 +547,6 @@ class BlendShape(GeometryFilter):
             TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
             ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
             RuntimeError: ターゲット形状が接続されている場合。
-        """
-        ...
-    def duplicateTarget(self, target: str | int | Plug, name: str | None = ...) -> Plug:
-        """ターゲットを複製する。
-
-        すべてのベースのデルタ・in-between・頂点マスクごと、新しい論理番号へ複製する。
-
-        - ターゲット形状が接続されていれば、今の形をベイクする。複製したほうは接続を持たない。
-        - 新しいウェイトは0になる。外からウェイトを動かしているドライバーは複製しない。
-        - Shape Editorでは、元のターゲットと同じフォルダーの最後に置く。
-
-        Undoが有効なら、1回のUndoで戻せる。
-
-        Args:
-            target (str | int | Plug): 複製元のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            name (str | None): 新しいターゲット名。Noneなら ``<元の名前>Copy`` になる(重なれば末尾に番号が付く)。
-
-        Returns:
-            Plug: 新しいターゲットのウェイト(``weight[i]``)。
-
-        Raises:
-            TypeError: targetの型が不正な場合、nameが文字列・None以外の場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットが無い場合、またはnameが空かすでにあるアトリビュートと重なる場合。
         """
         ...
     def replaceTarget(self, target: str | int | Plug, geometry: str | Node, base: str | Node | None = ..., fullWeight: float = ...) -> None:

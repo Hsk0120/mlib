@@ -23,19 +23,8 @@ class GeometryIndexQueriesTest(NamespaceCase):
         for index in expected:
             shape = cluster.getInputGeometryAtIndex(geometryIndex=index)
             self.assertEqual(shape.mnode(), fn.inputShapeAtIndex(index))
-            self.assertEqual(cluster.getGeometryGroupId(geometryIndex=index), fn.groupIdAtIndex(index))
-            self.assertEqual(cluster.getGeometryIndexForGroupId(fn.groupIdAtIndex(index)), index)
         with self.assertRaises(IndexError):
             cluster.getInputGeometryAtIndex(geometryIndex=999)
-        with self.assertRaises(TypeError):
-            cluster.getGeometryGroupId(geometryIndex=True)
-
-    def test_component_tags_do_not_provide_group_id(self):
-        mesh = cmds.polyCube(name=self.ns + ":mesh", constructionHistory=False)[0]
-        cluster = mlib.getNode(cmds.cluster(mesh, useComponentTags=True)[0])
-        index = cluster.getGeometryIndices()[0]
-        with self.assertRaises(RuntimeError):
-            cluster.getGeometryGroupId(geometryIndex=index)
 
 
 if __name__ == "__main__":

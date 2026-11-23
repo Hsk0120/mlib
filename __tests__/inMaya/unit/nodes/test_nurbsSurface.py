@@ -85,11 +85,9 @@ class NurbsSurfaceTest(_Case):
     """NurbsSurface の照会と CV の書込み。"""
 
     def test_counts_and_range(self):
-        """CV 数・スパン数・次数・形式・パラメーター範囲がアトリビュート・om2 と一致する。"""
+        """CV 数・形式・パラメーター範囲がアトリビュート・om2 と一致する。"""
         shape = self.surface()
         name = shape.getFullName()
-        self.assertEqual(shape.getNumSpans(), (cmds.getAttr(name + ".spansU"), cmds.getAttr(name + ".spansV")))
-        self.assertEqual(shape.getDegree(), (cmds.getAttr(name + ".degreeU"), cmds.getAttr(name + ".degreeV")))
         self.assertEqual(shape.getNumCVs(), (2 + 3, 3 + 3))
         self.assertEqual(shape.getForm(), (om2.MFnNurbsSurface.kOpen, om2.MFnNurbsSurface.kOpen))
         (u0, u1), (v0, v1) = shape.getParamRange()

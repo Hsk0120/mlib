@@ -40,19 +40,6 @@ class PlugStructureTest(_Case):
         with self.assertRaises(TypeError):
             child.getAllParents(includeMulti=1)
 
-    def test_definition_flags(self):
-        """connectable・usedAsColor・worldSpace の定義フラグが attributeQuery と一致する。"""
-        name = self.make("transform")
-        node = mlib.getNode(name)
-        for attribute in ("translateX", "worldMatrix", "overrideColorRGB", "message"):
-            with self.subTest(attribute=attribute):
-                plug = node.getPlug(attribute)
-                self.assertEqual(plug.isUsedAsColor(), cmds.attributeQuery(attribute, node=name, usedAsColor=True))
-                self.assertIs(plug.isConnectable(), True)
-        self.assertTrue(node.worldMatrix.isWorldSpace())
-        self.assertFalse(node.tx.isWorldSpace())
-        self.assertTrue(node.getPlug("overrideColorRGB").isUsedAsColor())
-
     def test_is_default_value(self):
         """既定値なら True、変えると False。コンパウンドアトリビュートは子がすべて既定値なら True。"""
         node = mlib.getNode(self.make("transform"))
@@ -62,26 +49,6 @@ class PlugStructureTest(_Case):
         self.assertFalse(node.ty.isDefaultValue())
         self.assertFalse(node.translate.isDefaultValue())
         self.assertTrue(node.tx.isDefaultValue())
-
-    def test_affected_and_affecting_match_cmds(self):
-        """getAffected/getAffecting のロング名が cmds.affects(by=True)/cmds.affects と一致する。"""
-        name = self.make("transform")
-        node = mlib.getNode(name)
-        for attribute in ("translateX", "rotate", "visibility"):
-            with self.subTest(attribute=attribute):
-                plug = node.getPlug(attribute)
-                self.assertEqual(sorted(p.getLongName() for p in plug.getAffected()), sorted(set(cmds.affects(attribute, name, by=True) or [])))
-                self.assertEqual(sorted(p.getLongName() for p in plug.getAffecting()), sorted(set(cmds.affects(attribute, name) or [])))
-        self.assertIn("matrix", [p.getLongName() for p in node.tx.getAffected()])
-
-    def test_affected_multi_child_is_folded(self):
-        """マルチアトリビュートの中の子は、そのマルチアトリビュート全体の Plug にまとめる。"""
-        pma = mlib.getNode(self.make("plusMinusAverage", "pma#"))
-        names = [p.getLongName() for p in pma.getPlug("operation").getAffected()]
-        self.assertIn("output3D", names)
-        affecting = [p.getLongName() for p in pma.getPlug("output3Dx").getAffecting()]
-        self.assertIn("input3D", affecting)
-        self.assertNotIn("input3Dx", affecting)
 
     def test_connected_indices(self):
         """接続のある要素(子の接続・出力接続を含む)の番号だけを返す。値だけの要素は含まない。"""
@@ -104,19 +71,7 @@ class PlugStructureTest(_Case):
         node = mlib.getNode(self.make("transform"))
         plug, multi = node.tx, node.worldMatrix
         cmds.delete(node.getFullName())
-        for call in (
-            plug.getSiblings,
-            plug.getAllParents,
-            plug.isConnectable,
-            plug.isUsedAsColor,
-            plug.isWorldSpace,
-            plug.isDefaultValue,
-            plug.isFromReferencedFile,
-            plug.getAffected,
-            plug.getAffecting,
-            plug.getLayeredPlug,
-            multi.getConnectedIndices,
-        ):
+        for call in (plug.getSiblings, plug.getAllParents, plug.isDefaultValue, plug.isFromReferencedFile, plug.getLayeredPlug, multi.getConnectedIndices):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):
                     call()

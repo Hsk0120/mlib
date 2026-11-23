@@ -17,7 +17,6 @@ class SurfaceQueriesTest(NamespaceCase):
         fn = surface.mfn()
         self.flushUndo()
         self.assertEqual(surface.getKnots(), (list(fn.knotsInU()), list(fn.knotsInV())))
-        self.assertFalse(surface.isTrimmed())
         self.assertFalse(surface.isPointInTrimmedRegion(0.5, 0.5))
         for second in (False, True):
             actual = surface.getDerivativesAtParam(0.5, 0.5, secondOrder=second)
@@ -43,7 +42,6 @@ class SurfaceQueriesTest(NamespaceCase):
         cmds.trim(name, boundary, constructionHistory=False, replaceOriginal=True, locatorU=0.5, locatorV=0.5, selected=0)
         surface = mlib.Node(name).getShape()
         self.assertAlmostEqual(surface.mfn().area(), 36)
-        self.assertTrue(surface.isTrimmed())
         self.assertTrue(surface.mfn().isPointInTrimmedRegion(0.5, 0.5))
         self.assertFalse(surface.mfn().isPointInTrimmedRegion(0.05, 0.05))
         self.assertFalse(surface.isPointInTrimmedRegion(0.5, 0.5))

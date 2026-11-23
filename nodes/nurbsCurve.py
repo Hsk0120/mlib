@@ -297,39 +297,6 @@ class NurbsCurve(Shape):
         """
         return self._geometry_fn().numCVs
 
-    def getNumSpans(self):
-        """スパン数を取得する。
-
-        Returns:
-            int: カーブのスパン数。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        return self._geometry_fn().numSpans
-
-    def getDegree(self):
-        """カーブの次数を取得する。
-
-        Returns:
-            int: NURBS カーブの次数。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        return self._geometry_fn().degree
-
-    def getForm(self):
-        """カーブの形式(開いているか閉じているか)を取得する。
-
-        Returns:
-            int: MFnNurbsCurve の kOpen、kClosed、kPeriodic のいずれか。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        return self._geometry_fn().form
-
     def getKnots(self):
         """ノットの並びを取得する(``MFnNurbsCurve.knots``)。
 
@@ -471,22 +438,6 @@ class NurbsCurve(Shape):
         fn = om2.MFnNurbsCurve(om2.MFnNurbsCurve().copy(self.mnode(), data))
         fn.makeMultipleEndKnots()
         self._write_curve_data(fn)
-
-    def isPlanar(self):
-        """カーブが1つの平面の上にあるか調べる。
-
-        平面かどうかはトランスフォームで変わらないため、空間は指定しない。
-        判定は ``MFnNurbsCurve.isPlanar`` と同じく、CVの外れが0.001cm以下なら平面とみなす。
-        点が一直線上にあるカーブは、平面が決まらないためFalseになる。
-        ``MFnNurbsCurve.isPlanar`` そのものは呼ばない(Maya 2023で、その後の長さの計算がずれる不具合があるため)。
-
-        Returns:
-            bool: 平面上にあればTrue。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        return _points_planar(self._geometry_fn().cvPositions())
 
     def getLength(self, *, tolerance=1e-06, worldSpace=_UNSET, unit="cm", ws=_UNSET):
         """カーブの長さを取得する。

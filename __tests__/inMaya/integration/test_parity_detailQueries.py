@@ -17,7 +17,6 @@ class DetailQueryTest(NamespaceCase):
         node.getPlug("tx").connect(other.getPlug("tx"))
         plug = other.getPlug("translate")
         self.assertEqual(plug.getNumConnectedChildren(), 1)
-        self.assertEqual(plug.isIndexMatters(), om2.MFnAttribute(plug.mplug().attribute()).indexMatters)
         if hasattr(om2.MPlug, "isExactlyEqual"):
             self.assertTrue(plug.isExactlyEqual(plug))
             self.assertFalse(plug.isExactlyEqual(node.getPlug("translate")))
@@ -28,7 +27,6 @@ class DetailQueryTest(NamespaceCase):
             plug.isExactlyEqual(None)
         self.assertEqual(node.isInModel(), node.mfn().inModel)
         self.assertFalse(node.isInUnderworld())
-        self.assertEqual(node.affectsAnimation(), om2.MFnDependencyNode(node.mnode()).affectsAnimation())
 
     def test_uncreated_element_is_not_existing(self):
         node = mlib.getNode(cmds.createNode("plusMinusAverage", name=self.ns + ":sum"))
@@ -52,17 +50,9 @@ class DetailQueryTest(NamespaceCase):
 
     def test_camera(self):
         camera = mlib.getNode(cmds.camera(name=self.ns + ":camera")[1])
-        second = mlib.getNode(cmds.camera(name=self.ns + ":second")[1])
         fn = camera.mfn()
         self.assertAlmostEqual(camera.getAspectRatio(), fn.aspectRatio())
-        limits = camera.getParameterLimits()
-        self.assertEqual(limits["aspectRatio"], tuple(fn.getAspectRatioLimits()))
-        for lo, hi in limits.values():
-            self.assertLess(lo, hi)
         self.assertEqual(tuple(camera.getCenterOfInterestPoint(ws=False)), tuple(fn.centerOfInterestPoint(om2.MSpace.kObject))[:3])
-        self.assertEqual(camera.hasSamePerspective(second), fn.hasSamePerspective(second.mpath()))
-        with self.assertRaises(TypeError):
-            camera.hasSamePerspective(None)
 
     def test_surface_point(self):
         transform = mlib.getNode(cmds.nurbsPlane(name=self.ns + ":surface", constructionHistory=False)[0])

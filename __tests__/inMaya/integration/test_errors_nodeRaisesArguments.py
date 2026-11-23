@@ -259,14 +259,6 @@ class DagNodeTest(_ArgumentCase):
         with self.subTest(method="getObjectGroupComponents"):
             self.assertFails(TypeError, self.shape(transform).getObjectGroupComponents, 1.5)
 
-    def test_locked_outliner_visibility(self):
-        """setOutlinerVisibility は hiddenInOutliner がロックされていると RuntimeError。値は変わらない。"""
-        for fast in (False, True):
-            with self.subTest(fast=fast):
-                node = self.node("transform")
-                plug = self.lock(node, "hiddenInOutliner")
-                self.assertFails(RuntimeError, node.setOutlinerVisibility, False, fast=fast, state=lambda: cmds.getAttr(plug))
-
 
 class DagPoseTest(_ArgumentCase):
     """dagPose の引数の例外。"""
@@ -281,34 +273,11 @@ class DagPoseTest(_ArgumentCase):
         self.assertFails(TypeError, pose.removeMembers, 1.5, state=members)
 
 
-class FileTest(_ArgumentCase):
-    """file ノードの設定は、ロック・接続で書き込めないと RuntimeError。"""
-
-    def test_locked_or_connected(self):
-        cases = (("setFilePath", "fileTextureName", "a.png"), ("setColorSpace", "colorSpace", "Raw"))
-        for method, attribute, value in cases:
-            for fast in (False, True):
-                with self.subTest(method=method, fast=fast, case="locked"):
-                    node = mlib.getNode(cmds.shadingNode("file", asTexture=True))
-                    plug = self.lock(node, attribute)
-                    self.assertFails(RuntimeError, getattr(node, method), value, fast=fast, state=lambda: cmds.getAttr(plug))
-            with self.subTest(method=method, case="connected"):
-                node = mlib.getNode(cmds.shadingNode("file", asTexture=True))
-                source = cmds.createNode("transform", skipSelect=True)
-                cmds.addAttr(source, longName="text", dataType="string")
-                cmds.connectAttr(source + ".text", node.getFullName() + "." + attribute)
-                plug = node.getFullName() + "." + attribute
-                self.assertFails(RuntimeError, getattr(node, method), value, state=lambda: cmds.listConnections(plug, plugs=True))
-
-
 class GeometryFilterTest(_ArgumentCase):
     """デフォーマー(cluster)の groupId・コピー先の例外。"""
 
     def test_argument_errors(self):
         deformer = mlib.getNode(cmds.cluster(self.cube())[0])
-        for group_id in (-1, 2**40):
-            with self.subTest(groupId=group_id):
-                self.assertFails(ValueError, deformer.getGeometryIndexForGroupId, group_id)
         with self.subTest(method="copyDeformerWeightsTo"):
             weights = deformer.getFullName() + ".weightList[0].weights"
 
@@ -535,7 +504,7 @@ class NurbsSurfaceTest(_ArgumentCase):
         def cvs():
             return cmds.getAttr(surface.getFullName() + ".cv[*][*]")
 
-        cases = ((TypeError, "isTrimNormalFlipped", (1.5,), {}), (ValueError, "isTrimNormalFlipped", (0,), {}), (TypeError, "removeKnot", (0.5,), {"all": 1}))
+        cases = ((TypeError, "removeKnot", (0.5,), {"all": 1}),)
         for error, method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
                 self.assertFails(error, getattr(surface, method), *args, state=cvs, **flags)

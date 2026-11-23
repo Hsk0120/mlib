@@ -203,36 +203,6 @@ class NurbsCurve(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def getNumSpans(self) -> int:
-        """スパン数を取得する。
-
-        Returns:
-            int: カーブのスパン数。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getDegree(self) -> int:
-        """カーブの次数を取得する。
-
-        Returns:
-            int: NURBS カーブの次数。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getForm(self) -> int:
-        """カーブの形式(開いているか閉じているか)を取得する。
-
-        Returns:
-            int: MFnNurbsCurve の kOpen、kClosed、kPeriodic のいずれか。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
     def getKnots(self) -> list[float]:
         """ノットの並びを取得する(``MFnNurbsCurve.knots``)。
 
@@ -317,21 +287,6 @@ class NurbsCurve(Shape):
         Raises:
             RuntimeError: ロック、無効な形状、またはMayaが更新を拒否した場合。
             NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
-        """
-        ...
-    def isPlanar(self) -> bool:
-        """カーブが1つの平面の上にあるか調べる。
-
-        平面かどうかはトランスフォームで変わらないため、空間は指定しない。
-        判定は ``MFnNurbsCurve.isPlanar`` と同じく、CVの外れが0.001cm以下なら平面とみなす。
-        点が一直線上にあるカーブは、平面が決まらないためFalseになる。
-        ``MFnNurbsCurve.isPlanar`` そのものは呼ばない(Maya 2023で、その後の長さの計算がずれる不具合があるため)。
-
-        Returns:
-            bool: 平面上にあればTrue。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
     def getLength(self, *, tolerance: float = ..., worldSpace: bool = ..., unit: str | None = ..., ws: bool = ...) -> float:

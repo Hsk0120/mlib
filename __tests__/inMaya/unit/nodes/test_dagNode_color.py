@@ -165,16 +165,20 @@ class DrawingOverrideTest(NamespaceCase):
         """True は overrideShading=False(ワイヤー表示)、False は戻す。通常は Undo 1回、fast は Undo なし。"""
         name = self.make()
         node = mlib.getNode(name)
-        self.assertFalse(node.isShadingOverridden())
+
+        def overridden():
+            return cmds.getAttr(name + ".overrideEnabled") and not cmds.getAttr(name + ".overrideShading")
+
+        self.assertFalse(overridden())
         self.flushUndo()
         self.assertIsNone(node.setShadingOverride(True))
-        self.assertTrue(node.isShadingOverridden())
+        self.assertTrue(overridden())
         self.assertEqual((cmds.getAttr(name + ".overrideEnabled"), cmds.getAttr(name + ".overrideShading")), (True, False))
-        self.assertUndoesInOneStep(lambda: self.assertFalse(node.isShadingOverridden()), lambda: None)
+        self.assertUndoesInOneStep(lambda: self.assertFalse(overridden()), lambda: None)
         node.setShadingOverride(True, fast=True)
         self.assertUndoEmpty()
         node.setShadingOverride(False)
-        self.assertFalse(node.isShadingOverridden())
+        self.assertFalse(overridden())
         self.assertTrue(cmds.getAttr(name + ".overrideShading"))
         self.assertRaises(TypeError, node.setShadingOverride, 1)
 

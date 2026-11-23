@@ -218,7 +218,7 @@ class RigCreatorShortFlagsTest(_ShortFlagCase):
         spline = self.chain("ikSpline", 4)
         curve = cmds.curve(degree=3, point=[(0, 0, 0), (0, 2, 0), (0, 4, 0), (0, 6, 0)], name="ikCurve")
         handle = mlib.createIkHandle(spline[0], spline[3], solver="ikSplineSolver", c=curve)
-        self.assertEqual(handle.getCurve().getFullName(), cmds.ls(curve, long=True)[0])
+        self.assertEqual(cmds.listRelatives(cmds.ikHandle(str(handle), query=True, curve=True), parent=True, fullPath=True), cmds.ls(curve, long=True))
 
         third = self.chain("ikConflict")
         for flags in (

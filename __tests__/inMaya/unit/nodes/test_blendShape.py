@@ -13,8 +13,6 @@ mlib.reload()
 
 from support.namespaceCase import NamespaceCase
 
-from mlib.plugs import Plug
-
 
 class _SpecCase(NamespaceCase):
     """このテストファイルの名前空間の先頭と、共通基底からの差分。"""
@@ -67,22 +65,15 @@ class BlendShapeTargetTest(_SpecCase):
         self.bs = mlib.createBlendShape(self.base, [self.smile, self.frown], name=self.name("bs"))
         self.full = self.bs.getFullName()
 
-    def test_membership_and_weight_plug(self):
-        """in はターゲット名の有無、getWeightPlug は weight[i] の Plug を返す。"""
+    def test_membership(self):
+        """in はターゲット名の有無。"""
         self.assertIn("smile_L", self.bs)
         self.assertNotIn("missing", self.bs)
-        plug = self.bs.getWeightPlug("frown")
-        self.assertIsInstance(plug, Plug)
-        self.assertEqual((plug.getMulti().getLongName(), plug.getIndex()), ("weight", 1))
-        plug.set(0.25)
-        self.assertAlmostEqual(cmds.getAttr(self.full + ".frown"), 0.25)
 
     def test_lookup_errors(self):
         """存在しない名前・番号は ValueError、名前・番号・Plug 以外(bool を含む)は TypeError。"""
         with self.assertRaisesRegex(ValueError, "'missing'という名前のblendShapeのターゲットはありません"):
             self.bs.getTargetIndex("missing")
-        with self.assertRaises(ValueError):
-            self.bs.getWeightPlug("missing")
         self.assertEqual(self.bs.getTargetIndex(0), 0)
         with self.assertRaises(ValueError):
             self.bs.getTargetIndex(99)

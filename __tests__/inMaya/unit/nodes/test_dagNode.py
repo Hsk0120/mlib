@@ -88,7 +88,6 @@ class NodeApiTest(unittest.TestCase):
         shape = transform.getShape()
 
         self.assertEqual(transform.getFullName(), "|" + transform.getName())
-        self.assertTrue(transform.isRoot())
         self.assertEqual(len(transform.getShapes()), 1)
         self.assertEqual(shape.getTransform().getName(), transform.getName())
         self.assertTrue(shape.getFullName().endswith("|" + shape_name))

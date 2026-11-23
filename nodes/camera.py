@@ -2,7 +2,6 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-import maya.OpenMaya as om1
 
 from ..core.fastWrite import require_writable
 from ..decorator import _pick_alias, _require_bool
@@ -28,18 +27,6 @@ class Camera(Shape):
             om2.MFnCamera: このカメラのfunction set。
         """
         return om2.MFnCamera(self.mpath())
-
-    def getUnnormalizedClippingPlanes(self):
-        """カメラの非正規化ニア・ファークリップ距離を取得する。
-
-        cameraSetの表示で共通化される前の、個々のカメラのクリップ距離。
-        clippingPlanesアトリビュートの有効状態は判定しない。
-
-        Returns:
-            tuple[float, float]: (ニア, ファー)の距離(cm)。
-        """
-        fn = om1.MFnCamera(self._api1_path())
-        return fn.unnormalizedNearClippingPlane(), fn.unnormalizedFarClippingPlane()
 
     def setView(self, eye, direction, up, fieldOfView, aspectRatio, *, unit="deg", fast=False):
         """ワールド空間の視点・視線・上方向と画角をまとめて変更する。
@@ -144,14 +131,6 @@ class Camera(Shape):
         _require_bool(state, "state")
         self._require_valid("設定の変更")
         cmds.camera(self.getFullName(), edit=True, verticalLock=state)
-
-    def getFocalLength(self):
-        """焦点距離を取得する。
-
-        Returns:
-            float: Mayaの焦点距離。
-        """
-        return self.mfn().focalLength
 
     def getFieldOfView(self, *, unit="deg"):
         """水平と垂直の画角を取得する。
@@ -330,41 +309,6 @@ class Camera(Shape):
             raise ValueError("valueは正の縦横比で指定してください")
         self._require_valid("縦横比の変更")
         cmds.camera(self.getFullName(), edit=True, aspectRatio=value)
-
-    def getParameterLimits(self):
-        """カメラのアスペクト比・フィルム開口・焦点距離の制限値を取得する。
-
-        現在のアトリビュート値ではなく、Mayaが定める設定範囲を返す。
-
-        Returns:
-            dict: aspectRatio、filmAperture(インチ)、focalLength(mm)をキーとし、各値は(最小, 最大)。
-
-        Raises:
-            RuntimeError: カメラが無効な場合。
-        """
-        fn = self.mfn()
-        return {
-            "aspectRatio": tuple(fn.getAspectRatioLimits()),
-            "filmAperture": tuple(fn.getFilmApertureLimits()),
-            "focalLength": tuple(fn.getFocalLengthLimits()),
-        }
-
-    def hasSamePerspective(self, other):
-        """別のカメラがMayaの判定で同じパースペクティブを持つか調べる。
-
-        Args:
-            other (Camera): 比較するカメラシェイプ。
-
-        Returns:
-            bool: MFnCamera.hasSamePerspectiveの結果。全アトリビュートの一致判定ではない。
-
-        Raises:
-            TypeError: otherがCameraでない場合。
-            RuntimeError: カメラが無効な場合。
-        """
-        if not isinstance(other, Camera):
-            raise TypeError("otherはCameraで指定してください")
-        return self.mfn().hasSamePerspective(other.mpath())
 
     def getEyePoint(self, worldSpace=_UNSET, *, ws=_UNSET):
         """カメラの位置を取得する。

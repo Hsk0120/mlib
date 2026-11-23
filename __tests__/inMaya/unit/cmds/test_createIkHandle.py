@@ -13,7 +13,7 @@ mlib.reload()
 
 from support.namespaceCase import NamespaceCase
 
-from mlib.nodes import IkHandle, Joint, Node
+from mlib.nodes import IkHandle
 
 
 class _SpecCase(NamespaceCase):
@@ -73,8 +73,6 @@ class IkHandleCreateTest(_SpecCase):
         self.assertEqual(effector.getParent().getFullName(), self.j2)
         self.assertEqual(effector.getFullName(), cmds.ls(cmds.ikHandle(handle.getFullName(), query=True, endEffector=True), long=True)[0])
         self.assertEqual([j.getFullName() for j in handle.getJoints()], cmds.ls(cmds.ikHandle(handle.getFullName(), query=True, jointList=True), long=True))
-        self.assertEqual(handle.getEndJoint(), Joint(self.j3))
-        self.assertIsNone(handle.getCurve())
 
     def test_sc_and_extra_flags(self):
         """ikSCsolver と、Maya の他のフラグ(priority)をそのまま渡せる。"""
@@ -83,12 +81,10 @@ class IkHandleCreateTest(_SpecCase):
         self.assertEqual(cmds.ikHandle(handle.getFullName(), query=True, priority=True), 3)
 
     def test_spline_auto_curve(self):
-        """ikSplineSolver で curve を省略すると Maya がカーブを作り、getCurve で取得できる。"""
+        """ikSplineSolver で curve を省略すると Maya がカーブを作り、ハンドルへつなぐ。"""
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSplineSolver")
-        curve = handle.getCurve()
-        self.assertIsNotNone(curve)
-        self.assertTrue(curve.getShape().isType("nurbsCurve"))
-        self.assertEqual(cmds.ikHandle(handle.getFullName(), query=True, curve=True).split("|")[-1], curve.getShape().getName().split("|")[-1])
+        curve = cmds.ikHandle(handle.getFullName(), query=True, curve=True)
+        self.assertEqual(cmds.nodeType(curve), "nurbsCurve")
 
     def test_spline_existing_curve(self):
         """既存カーブを指定すると、そのカーブを使い新しいカーブは作らない。"""
@@ -96,7 +92,7 @@ class IkHandleCreateTest(_SpecCase):
         before = set(cmds.ls(type="nurbsCurve", long=True))
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSplineSolver", curve=curve)
         self.assertEqual(set(cmds.ls(type="nurbsCurve", long=True)), before)
-        self.assertEqual(handle.getCurve(), Node(curve))
+        self.assertEqual(cmds.listRelatives(cmds.ikHandle(handle.getFullName(), query=True, curve=True), parent=True, fullPath=True), cmds.ls(curve, long=True))
 
     def test_undo_once(self):
         """作成(ハンドル・エフェクター・Maya が設定する preferredAngle)は Undo 1回で戻る。"""
@@ -147,7 +143,6 @@ class IkHandleCreateTest(_SpecCase):
         """createNode で作った未接続のハンドルの getEffector は None。"""
         handle = mlib.createNode("ikHandle", name=self.name("bare"))
         self.assertIsNone(handle.getEffector())
-        self.assertIsNone(handle.getCurve())
 
 
 if __name__ == "__main__":

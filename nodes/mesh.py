@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-import maya.OpenMaya as om1
 
 from ..components.edge import Edge, Edges
 from ..components.face import Face, Faces
@@ -385,16 +384,6 @@ class Mesh(Shape):
         space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
         # MFloatVectorはom2の多重定義の解決を通さず、成分を写して同じ値のVectorにする。
         return [_vector_of(Vector, value) for value in self._geometry_fn().getVertexNormals(angleWeighted, space)]
-
-    def isCheckingSamePointTwice(self):
-        """メッシュ内部で同じ点を二重に検査する設定が有効かを取得する。
-
-        重複頂点を検出する照会ではない。MFnMeshの内部検査設定を返し、設定は変更しない。
-
-        Returns:
-            bool: 検査設定が有効か。
-        """
-        return om1.MFnMesh(self._api1_path()).getCheckSamePointTwice()
 
     def setNormals(self, normals, worldSpace=_UNSET, *, ws=_UNSET, fast=False):
         """共有法線番号を保ったままメッシュの法線リストを更新する。

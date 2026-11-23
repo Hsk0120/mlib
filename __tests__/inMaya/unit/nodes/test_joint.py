@@ -810,18 +810,6 @@ class RigQueryAdditionsTest(_CaseMethodAdditions):
         written = joint.getPreferredAngle().asQuaternion()
         self.assertTrue(written.isEquivalent(source.asQuaternion(), 1e-9) or written.isEquivalent(-source.asQuaternion(), 1e-9))
 
-    def test_anim_curve_is_static(self):
-        """同じ値のキーだけのカーブは一定、値の違うキーがあれば一定でない。"""
-        node = self.make("transform", "keyed#")
-        cmds.setKeyframe(node, attribute="tx", time=1, value=2.0)
-        cmds.setKeyframe(node, attribute="tx", time=10, value=2.0)
-        cmds.setKeyframe(node, attribute="ty", time=1, value=0.0)
-        cmds.setKeyframe(node, attribute="ty", time=10, value=5.0)
-        flat = mlib.getNode(cmds.listConnections(node + ".tx", source=True)[0])
-        moving = mlib.getNode(cmds.listConnections(node + ".ty", source=True)[0])
-        self.assertIs(flat.isStatic(), True)
-        self.assertIs(moving.isStatic(), False)
-
     def test_constraint_remove_target(self):
         """removeTarget はターゲットを外し、Undo 1回で戻る。未登録・未指定は例外で何も外さない。"""
         a, b, driven = (self.make("transform", text) for text in ("a#", "b#", "driven#"))

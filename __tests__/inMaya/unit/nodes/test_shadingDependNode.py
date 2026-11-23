@@ -82,10 +82,8 @@ class MaterialNodesTest(unittest.TestCase):
         texture = mlib.createNode("file")
         place = mlib.createNode("place2dTexture")
         self.assertIsInstance(texture, File)
-        texture.setFilePath("test.<UDIM>.exr")
-        self.assertEqual(texture.getFilePath(), "test.<UDIM>.exr")
         place.connectTexture(texture)
-        self.assertEqual(texture.getPlacement(), place)
+        self.assertEqual(cmds.listConnections(texture.getFullName() + ".uvCoord", source=True, destination=False), [place.getName()])
         place.connectTexture(texture)
 
     def test_shader_ports_and_aliases(self):

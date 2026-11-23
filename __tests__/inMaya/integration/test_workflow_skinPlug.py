@@ -100,10 +100,10 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         """定義writableは維持し、ロック・入力・キーのsettableをMayaと比較する。"""
         control = mlib.createNode("transform", name="control")
         plug = control.getPlug("translateX")
-        self.assertTrue(plug.isWritable())
+        self.assertTrue(cmds.attributeQuery("translateX", node=str(control), writable=True))
         self.assertTrue(plug.isSettable())
         plug.setFlags(locked=True)
-        self.assertTrue(plug.isWritable())
+        self.assertTrue(cmds.attributeQuery("translateX", node=str(control), writable=True))
         self.assertFalse(plug.isSettable())
         plug.setFlags(locked=False)
         self.first.getPlug("translateX").connectTo(plug)

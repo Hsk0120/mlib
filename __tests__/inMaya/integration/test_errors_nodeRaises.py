@@ -85,7 +85,6 @@ class AnimCurveTest(_RaisesCase):
     def test_deleted_curve(self):
         cases = (
             ("animCurveTL", "isWeighted", ()),
-            ("animCurveTL", "isStatic", ()),
             ("animCurveTL", "findClosestIndex", (3,)),
             ("animCurveTL", "insertKey", (3,)),
             ("animCurveTL", "replaceKeys", ([(1, 2)],)),
@@ -111,7 +110,7 @@ class BlendShapeTest(_RaisesCase):
     """削除した blendShape。"""
 
     def test_deleted_blend_shape(self):
-        cases = (("getTargetIndex", (0,)), ("getWeightPlug", (0,)), ("getTargetItemIndices", (0,)), ("getTargetGeometry", (0,)), ("addBaseGeometry", ("cube",)))
+        cases = (("getTargetIndex", (0,)), ("getTargetItemIndices", (0,)), ("getTargetGeometry", (0,)), ("addBaseGeometry", ("cube",)))
         for method, args in cases:
             with self.subTest(method=method):
                 base, target = self.cube(), self.cube()
@@ -128,7 +127,6 @@ class CameraTest(_RaisesCase):
         ("getDepthOfFieldRange", (), {}),
         ("getFieldOfView", (), {}),
         ("getCenterOfInterestPoint", (), {}),
-        ("getParameterLimits", (), {}),
         ("getViewDirection", (), {}),
         ("getUpDirection", (), {}),
         ("setUpDirection", ((0, 1, 0),), {}),
@@ -161,7 +159,7 @@ class DagNodeTest(_RaisesCase):
     """削除した DAG ノード。"""
 
     def test_deleted_transform(self):
-        cases = (("getSetsAndMembers", ()), ("isInUnderworld", ()), ("isInModel", ()), ("getOutlinerVisibility", ()), ("deleteHistory", ()))
+        cases = (("getSetsAndMembers", ()), ("isInUnderworld", ()), ("isInModel", ()), ("deleteHistory", ()))
         for method, args in cases:
             with self.subTest(method=method):
                 node = self.kill(mlib.getNode(self.cube()))
@@ -203,16 +201,11 @@ class GeometryFilterTest(_RaisesCase):
     """削除したデフォーマー(cluster)。"""
 
     def test_deleted_deformer(self):
-        cases = (("getInputGeometryAtIndex", (), {"geometryIndex": 0}), ("getGeometryIndexForGroupId", (0,), {}), ("getDeformerTools", (), {}))
+        cases = (("getInputGeometryAtIndex", (), {"geometryIndex": 0}), ("getDeformerTools", (), {}))
         for method, args, flags in cases:
             with self.subTest(method=method):
                 deformer = self.kill(mlib.getNode(cmds.cluster(self.cube())[0]))
                 self.assertFailsWithoutChange(RuntimeError, getattr(deformer, method), *args, **flags)
-
-    def test_group_id_without_geometry(self):
-        """範囲内でも対応するジオメトリの無い groupId は RuntimeError。"""
-        deformer = mlib.getNode(cmds.cluster(self.cube())[0])
-        self.assertFailsWithoutChange(RuntimeError, deformer.getGeometryIndexForGroupId, 99999)
 
 
 class JointTest(_RaisesCase):
@@ -263,7 +256,6 @@ class NodeTest(_RaisesCase):
             ("resetDgTimer", ()),
             ("getDgTimer", (0,)),
             ("getDgCallbacks", ()),
-            ("affectsAnimation", ()),
             ("getContainer", ()),
             ("getAnimatablePlugs", ()),
             ("hasUniqueName", ()),
@@ -299,18 +291,11 @@ class NodeTest(_RaisesCase):
 class NurbsTest(_RaisesCase):
     """形状データの無い・削除した NURBS のカーブと曲面。"""
 
-    CURVE = (("getNumSpans", ()), ("getForm", ()), ("getNormalAtParam", (0.5,)), ("getMatricesAlong", (3,)), ("getDerivativesAtParam", (0.5,)))
+    CURVE = (("getNormalAtParam", (0.5,)), ("getMatricesAlong", (3,)), ("getDerivativesAtParam", (0.5,)))
     SURFACE = (
-        ("isBezier", ()),
-        ("isUniform", ()),
-        ("isFoldedOnBispan", ()),
-        ("getNumSpans", ()),
-        ("getNumPatches", ()),
         ("getForm", ()),
         ("getPatchShaders", ()),
         ("getTrimBoundaryCurveData", (0, 0, 0)),
-        ("isTrimNormalFlipped", (0,)),
-        ("isTrimmed", ()),
         ("isPointInTrimmedRegion", (0.5, 0.5)),
         ("getRayIntersection", ((0, 5, 0), (0, -1, 0))),
         ("isPointOnSurface", ((0, 0, 0),)),

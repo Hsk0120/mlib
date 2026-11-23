@@ -36,27 +36,6 @@ class IkHandle(Transform):
         source = self._dependency_fn().findPlug("endEffector", False).source()
         return None if source.isNull else Node(source.node())
 
-    def getCurve(self):
-        """ikSplineSolverが使うカーブを取得する。
-
-        ``inCurve`` の接続元の形状をたどり、その親のTransformを返す。
-
-        Returns:
-            Transform | None: カーブのTransform。inCurveが接続されていなければNone
-                (スプライン以外のソルバーなど)。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        self._require_valid("カーブの取得")
-        source = self._dependency_fn().findPlug("inCurve", False).source()
-        if source.isNull:
-            return None
-        source_node = source.node()
-        shape = Node(source_node)
-        parent = shape.getParent() if source_node.hasFn(om2.MFn.kShape) else None
-        return shape if parent is None else parent
-
     def setChain(self, startJoint, endJoint):
         """IKハンドルの開始・末端ジョイントを変更する。
 

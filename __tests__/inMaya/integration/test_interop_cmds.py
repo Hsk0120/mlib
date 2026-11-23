@@ -1226,7 +1226,6 @@ class PlugValidityTest(_InteropCase):
                     plug.isLocked,
                     plug.isKeyable,
                     plug.isConnected,
-                    plug.isDynamic,
                     plug.isHidden,
                     plug.getDefault,
                     plug.getParent,

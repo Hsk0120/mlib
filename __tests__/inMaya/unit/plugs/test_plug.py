@@ -50,14 +50,13 @@ class NodeApiTest(unittest.TestCase):
         cmds.setAttr(translate_x.getFullName(), keyable=False)
         self.assertFalse(translate_x.isKeyable())
 
-    def test_plug_hidden_dynamic_limits_default_and_enum(self):
+    def test_plug_hidden_limits_default_and_enum(self):
         transform = self.create_transform("mlibNodeApiPlugAttrMeta")
         cmds.addAttr(transform.getName(), longName="mlibTestNum", attributeType="double", min=0, max=10, defaultValue=5, hidden=True)
         cmds.addAttr(transform.getName(), longName="mlibTestNoLimit", attributeType="double", defaultValue=1.5)
         cmds.addAttr(transform.getName(), longName="mlibTestEnum", attributeType="enum", enumName="A:B:C", defaultValue=1)
 
         num_plug = transform.getPlug("mlibTestNum")
-        self.assertTrue(num_plug.isDynamic())
         self.assertTrue(cmds.attributeQuery("mlibTestNum", node=transform.getName(), hidden=True))
         self.assertTrue(num_plug.isHidden())  # keyableでもChannel Box表示でもない。
         self.assertTrue(num_plug.hasMin())
@@ -78,28 +77,20 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual(enum_plug.getDefault(), 1)
         self.assertEqual(enum_plug.getEnumName(), "B")
 
-        # 静的(ノード組み込み)アトリビュートは動的アトリビュートではない。
-        self.assertFalse(transform.getPlug("translateX").isDynamic())
         with self.assertRaises(TypeError):
             transform.getPlug("translateX").getEnumName()
 
-    def test_plug_readable_writable_storable_and_soft_limits(self):
+    def test_plug_soft_limits(self):
         transform = self.create_transform("mlibNodeApiPlugFlags")
         cmds.addAttr(transform.getName(), longName="mlibSoftAttr", attributeType="double", softMinValue=0, softMaxValue=10, defaultValue=2)
         plug = transform.getPlug("mlibSoftAttr")
 
-        self.assertTrue(plug.isReadable())
-        self.assertTrue(plug.isWritable())
-        self.assertTrue(plug.isStorable())
         self.assertTrue(plug.hasSoftMin())
         self.assertTrue(plug.hasSoftMax())
         self.assertEqual(plug.getSoftMin(), 0.0)
         self.assertEqual(plug.getSoftMax(), 10.0)
 
         translate_x = transform.getPlug("translateX")
-        self.assertTrue(translate_x.isReadable())
-        self.assertTrue(translate_x.isWritable())
-        self.assertTrue(translate_x.isStorable())
         self.assertFalse(translate_x.hasSoftMin())
         self.assertFalse(translate_x.hasSoftMax())
 

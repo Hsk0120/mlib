@@ -27,38 +27,6 @@ class NurbsSurface(Shape):
     Uを外側・Vを内側にした ``u * numCVsInV + v`` の順になる(``om2.MFnNurbsSurface.cvPositions`` と同じ)。
     距離はMayaの内部単位(cm)。
     """
-    def isBezier(self) -> bool:
-        """曲面のノット配置がBezier形式か調べる。
-
-        Returns:
-            bool: Bezier形式ならTrue。
-
-        Raises:
-            RuntimeError: 曲面が無効、または形状データがない場合。
-        """
-        ...
-    def isUniform(self) -> bool:
-        """曲面のノット間隔が一様か調べる。
-
-        Returns:
-            bool: 一様ならTrue。
-
-        Raises:
-            RuntimeError: 曲面が無効、または形状データがない場合。
-        """
-        ...
-    def isFoldedOnBispan(self) -> bool:
-        """曲面のパッチ境界に折返しや折れ目があるか調べる。
-
-        MFnNurbsSurfaceの判定を返す。トリムされた領域も含む。
-
-        Returns:
-            bool: 折返しや折れ目があればTrue。
-
-        Raises:
-            RuntimeError: 曲面が無効、または形状データがない場合。
-        """
-        ...
     def mfn(self) -> om2.MFnNurbsSurface | om2.MFnDagNode:
         """この曲面のOpenMayaのfunction setを取得する。
 
@@ -80,38 +48,6 @@ class NurbsSurface(Shape):
 
         Returns:
             tuple[int, int]: (U方向のCV数, V方向のCV数)。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getNumSpans(self) -> tuple[int, int]:
-        """U・V方向のスパン数を取得する。
-
-        Returns:
-            tuple[int, int]: (U方向のスパン数, V方向のスパン数)。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getNumPatches(self) -> tuple[int, int]:
-        """U・V方向の幅が0でないパッチ数を取得する。
-
-        重複ノットによる幅0のスパンを除く。全パッチ数は返された2値の積で求める。
-
-        Returns:
-            tuple[int, int]: U方向・V方向のパッチ数。
-
-        Raises:
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getDegree(self) -> tuple[int, int]:
-        """U・V方向の次数を取得する。
-
-        Returns:
-            tuple[int, int]: (U方向の次数, V方向の次数)。
 
         Raises:
             RuntimeError: 形状データを持たない空のシェイプの場合。
@@ -288,32 +224,6 @@ class NurbsSurface(Shape):
             TypeError: 番号が整数でない、またはparametricがboolでない場合。
             IndexError: 領域・境界・エッジ番号が範囲外の場合。
             RuntimeError: 曲面が無効、またはMayaが境界の取得を拒否した場合。
-        """
-        ...
-    def isTrimNormalFlipped(self, region: int) -> bool:
-        """指定したトリム領域の法線方向が反転しているか調べる。
-
-        Args:
-            region (int): トリム領域番号。
-
-        Returns:
-            bool: Mayaが反転ありと判定した場合はTrue。
-
-        Raises:
-            TypeError: regionが整数でない場合。
-            ValueError: 未トリムの曲面の場合。
-            IndexError: regionが範囲外の場合。
-            RuntimeError: 曲面が無効な場合。
-        """
-        ...
-    def isTrimmed(self) -> bool:
-        """トリム境界を持つ曲面か判定する。
-
-        Returns:
-            bool: トリムされた曲面ならTrue。
-
-        Raises:
-            RuntimeError: 形状が無効な場合。
         """
         ...
     def isPointInTrimmedRegion(self, u: float, v: float) -> bool:

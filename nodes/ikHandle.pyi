@@ -33,19 +33,6 @@ class IkHandle(Transform):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def getCurve(self) -> Transform | None:
-        """ikSplineSolverが使うカーブを取得する。
-
-        ``inCurve`` の接続元の形状をたどり、その親のTransformを返す。
-
-        Returns:
-            Transform | None: カーブのTransform。inCurveが接続されていなければNone
-                (スプライン以外のソルバーなど)。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
     def setChain(self, startJoint: Joint | str, endJoint: Joint | str) -> None:
         """IKハンドルの開始・末端ジョイントを変更する。
 

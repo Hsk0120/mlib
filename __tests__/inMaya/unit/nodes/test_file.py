@@ -31,36 +31,12 @@ class TextureTest(_SpecCase):
         self.file = Node(cmds.shadingNode("file", asTexture=True, name=self.name("tex")))
         self.place = Node(cmds.shadingNode("place2dTexture", asUtility=True, name=self.name("place")))
 
-    def test_file_path(self):
-        """トークンを展開せずに保持し、文字列以外は TypeError。1回の Undo で戻る。"""
-        self.assertIsInstance(self.file, File)
-        self.assertEqual(self.file.getFilePath(), "")
-        cmds.flushUndo()
-        self.assertIsNone(self.file.setFilePath("C:/textures/a.<UDIM>.png"))
-        self.assertEqual(self.file.getFilePath(), "C:/textures/a.<UDIM>.png")
-        cmds.undo()
-        self.assertEqual(self.file.getFilePath(), "")
-        with self.assertRaisesRegex(TypeError, "pathは文字列で指定してください"):
-            self.file.setFilePath(5)
-
-    def test_color_space(self):
-        """色空間名を設定・取得する。名前は検証せずに保存し、str 以外は何も変えず TypeError。"""
-        self.assertEqual(self.file.getColorSpace(), cmds.getAttr(self.file.getName() + ".colorSpace"))
-        self.assertIsNone(self.file.setColorSpace("Raw"))
-        self.assertEqual(self.file.getColorSpace(), "Raw")
-        self.file.setColorSpace("mlibNoSuchColorSpace")
-        self.assertEqual(self.file.getColorSpace(), "mlibNoSuchColorSpace")
-        for value in (5, None, b"Raw", ["Raw"]):
-            with self.assertRaises(TypeError):
-                self.file.setColorSpace(value)
-            self.assertEqual(self.file.getColorSpace(), "mlibNoSuchColorSpace")
-
     def test_connect_texture_and_placement(self):
-        """標準の配置アトリビュートをつなぎ、getPlacement はその配置ノード。同じ接続の繰り返しは何もしない。"""
-        self.assertIsNone(self.file.getPlacement())
+        """標準の配置アトリビュートをつなぐ。同じ接続の繰り返しは何もしない。"""
+        self.assertIsInstance(self.file, File)
+        self.assertIsNone(cmds.listConnections(self.file.getName() + ".uvCoord", source=True, destination=False))
         self.assertIsInstance(self.place, Place2dTexture)
         self.assertIsNone(self.place.connectTexture(self.file))
-        self.assertEqual(self.file.getPlacement(), self.place)
         self.assertEqual(cmds.listConnections(self.file.getName() + ".uvCoord", source=True, plugs=True), [self.place.getName() + ".outUV"])
         count = len(cmds.listConnections(self.place.getName(), source=False, destination=True) or [])
         self.place.connectTexture(self.file)
@@ -73,7 +49,7 @@ class TextureTest(_SpecCase):
         with self.assertRaises(RuntimeError):
             other.connectTexture(self.file)
         self.assertIsNone(other.connectTexture(self.file, force=True))
-        self.assertEqual(self.file.getPlacement(), other)
+        self.assertEqual(cmds.listConnections(self.file.getName() + ".uvCoord", source=True, plugs=True), [other.getName() + ".outUV"])
         material = cmds.shadingNode("lambert", asShader=True, name=self.name("notTexture"))
         with self.assertRaisesRegex(TypeError, "textureはTexture2dで指定してください"):
             other.connectTexture(material)

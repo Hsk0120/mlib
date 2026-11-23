@@ -3,7 +3,6 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-import maya.OpenMaya as om1
 from ..core.fastWrite import require_writable
 from ..decorator import _pick_alias, _require_bool
 from ..maths.matrix import Matrix
@@ -27,16 +26,6 @@ class Camera(Shape):
 
         Returns:
             om2.MFnCamera: このカメラのfunction set。
-        """
-        ...
-    def getUnnormalizedClippingPlanes(self) -> tuple[float, float]:
-        """カメラの非正規化ニア・ファークリップ距離を取得する。
-
-        cameraSetの表示で共通化される前の、個々のカメラのクリップ距離。
-        clippingPlanesアトリビュートの有効状態は判定しない。
-
-        Returns:
-            tuple[float, float]: (ニア, ファー)の距離(cm)。
         """
         ...
     def setView(self, eye: Iterable[float], direction: Iterable[float], up: Iterable[float], fieldOfView: float, aspectRatio: float, *, unit: str = ..., fast: bool = ...) -> None:
@@ -121,13 +110,6 @@ class Camera(Shape):
         Raises:
             TypeError: stateがbool以外の場合。
             RuntimeError: カメラが無効、またはMayaが変更を拒否した場合。
-        """
-        ...
-    def getFocalLength(self) -> float:
-        """焦点距離を取得する。
-
-        Returns:
-            float: Mayaの焦点距離。
         """
         ...
     def getFieldOfView(self, *, unit: str = ...) -> tuple[float, float]:
@@ -267,32 +249,6 @@ class Camera(Shape):
         Raises:
             ValueError: valueが有限の正数でない場合。
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
-        """
-        ...
-    def getParameterLimits(self) -> dict:
-        """カメラのアスペクト比・フィルム開口・焦点距離の制限値を取得する。
-
-        現在のアトリビュート値ではなく、Mayaが定める設定範囲を返す。
-
-        Returns:
-            dict: aspectRatio、filmAperture(インチ)、focalLength(mm)をキーとし、各値は(最小, 最大)。
-
-        Raises:
-            RuntimeError: カメラが無効な場合。
-        """
-        ...
-    def hasSamePerspective(self, other: Camera) -> bool:
-        """別のカメラがMayaの判定で同じパースペクティブを持つか調べる。
-
-        Args:
-            other (Camera): 比較するカメラシェイプ。
-
-        Returns:
-            bool: MFnCamera.hasSamePerspectiveの結果。全アトリビュートの一致判定ではない。
-
-        Raises:
-            TypeError: otherがCameraでない場合。
-            RuntimeError: カメラが無効な場合。
         """
         ...
     def getEyePoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:

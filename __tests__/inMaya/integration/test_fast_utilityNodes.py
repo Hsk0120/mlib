@@ -1,7 +1,6 @@
 """ユーティリティノード系の接続・設定メソッドに足した ``fast`` 引数の約束を、表で網羅的に固定する。
 
-対象は place2dTexture.connectTexture、file の setFilePath/setColorSpace、
-aimConstraint の setRestRotate/setOffset、ScalarGraph の sum/multiply/condition。各行について次を確かめる。
+対象は place2dTexture.connectTexture、aimConstraint の setRestRotate、ScalarGraph の sum/multiply/condition。各行について次を確かめる。
 
 - 通常経路はシーンを変更し、Undo 1 回で呼出前の状態へ戻る。
 - ``fast=True`` は cmds の編集コマンド(setAttr・connectAttr・createNode・undoInfo 等)を呼ばず、
@@ -71,20 +70,7 @@ class CalcFastTest(NamespaceCase):
 
         result.append(("place2dTexture.connectTexture", place2d))
 
-        for method, value in (("setFilePath", "textures/<UDIM>_color.png"), ("setColorSpace", "Raw")):
-
-            def file_setter(method=method, value=value):
-                node = mlib.getNode(self.make("file", "file#"))
-                bound = getattr(node, method)
-
-                def call(**kwargs):
-                    return bound(value, **kwargs)
-
-                return call, [node.getFullName()]
-
-            result.append(("file." + method, file_setter))
-
-        for method in ("setRestRotate", "setOffset"):
+        for method in ("setRestRotate",):
 
             def aim(method=method):
                 target = self.make("transform", "target#")

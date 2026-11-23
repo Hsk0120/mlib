@@ -51,7 +51,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         curve = mlib.Node(cmds.curve(degree=1, point=[(0, 0, 0), (3, 0, 0), (3, 4, 0)]))
         shape = curve.getShape()
         self.assertIsInstance(shape, mlib.NurbsCurve)
-        self.assertEqual((shape.getNumCVs(), shape.getNumSpans(), shape.getDegree()), (3, 2, 1))
+        self.assertEqual((shape.getNumCVs(), shape.mfn().numSpans, shape.mfn().degree), (3, 2, 1))
         self.assertAlmostEqual(shape.getLength(), 7)
         cmds.setAttr(curve.getFullName() + ".scaleX", 2)
         self.assertAlmostEqual(shape.getLength(), 7)

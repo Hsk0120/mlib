@@ -112,12 +112,6 @@ class BlendShapeTest(_RemainingCase):
         base, target = self.cube(), self.cube()
         return mlib.getNode(cmds.blendShape(target, base)[0])
 
-    def test_get_weight_plug_type(self):
-        node = self.blend_shape()
-        for target in (True, 1.5):
-            with self.subTest(target=target):
-                self.assertFails(TypeError, node.getWeightPlug, target)
-
     def test_set_base_weights_out_of_range(self):
         """setBaseWeights は範囲外の頂点番号で IndexError。baseWeights は変わらない。"""
         node = self.blend_shape()
@@ -299,9 +293,6 @@ class NodeTest(_RemainingCase):
             with self.subTest(type=value):
                 self.assertFails(error, node.getSets, type=value)
 
-    def test_is_shared_on_deleted_node(self):
-        self.assertFails(RuntimeError, self.kill(self.node("transform")).isShared)
-
 
 class NurbsSurfaceTest(_RemainingCase):
     """曲面の照会の値・番号の例外。CV は変わらない。"""
@@ -320,17 +311,6 @@ class NurbsSurfaceTest(_RemainingCase):
         for method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
                 self.assertFails(ValueError, getattr(surface, method), *args, state=lambda: cmds.getAttr(surface.getFullName() + ".cv[*][*]"), **flags)
-
-    def test_trim_region_out_of_range(self):
-        """isTrimNormalFlipped はトリムした曲面で範囲外の region なら IndexError。"""
-        plane = cmds.nurbsPlane(constructionHistory=False)[0]
-        cmds.curveOnSurface(plane, degree=1, uv=[(0.3, 0.3), (0.7, 0.3), (0.7, 0.7), (0.3, 0.7), (0.3, 0.3)])
-        cmds.trim(plane, constructionHistory=False, locatorU=0.1, locatorV=0.1)
-        surface = self.shape(plane)
-        self.assertTrue(surface.isTrimmed())
-        for region in (99, -1):
-            with self.subTest(region=region):
-                self.assertFails(IndexError, surface.isTrimNormalFlipped, region)
 
 
 class ReferenceTest(_RemainingCase):

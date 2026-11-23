@@ -522,7 +522,6 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     self.assertEqual(tx.set(1, safe=True), 1)
                     self.assertEqual(tx.set(1, safe=True, fast=True), 1)
                     self.assertFalse(tx.isSettable())
-                    self.assertTrue(tx.isWritable())
                 finally:
                     cmds.setAttr(self.name + ".tx", lock=False)
                     cmds.setAttr(self.name + ".t", lock=False)

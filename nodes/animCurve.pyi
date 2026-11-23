@@ -77,19 +77,6 @@ class AnimCurve(Node):
             int: キー数。
         """
         ...
-    def isStatic(self) -> bool:
-        """出力が入力によらず一定か判定する(``MFnAnimCurve.isStatic``)。
-
-        すべてのキーが同じ値で、接線も平らなときに一定になる。キーが無いカーブと、キーが1つのカーブも一定とみなす。
-        ベイクした後で、動きの無いカーブを見つけて削除するときなどに使う。
-
-        Returns:
-            bool: 出力が一定なら True。
-
-        Raises:
-            RuntimeError: animCurveが無効な場合。
-        """
-        ...
     def getKeyInputs(self, *, timeUnit: str = ...) -> list[float]:
         """各キーの入力(横軸)の値を、キーの番号順に取得する。
 

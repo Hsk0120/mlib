@@ -1,9 +1,4 @@
-"""Aimの照会・設定操作を専用namespaceで検証する。
-
-あわせて次も確かめる。
-
-- AimConstraint のオフセットの約束を固定する(担当C)。
-"""
+"""Aimの照会・設定操作を専用namespaceで検証する。"""
 
 import math
 import unittest
@@ -14,10 +9,8 @@ import mlib
 
 mlib.reload()
 
-from support.namespaceCase import NamespaceCase
-
 from mlib.maths import EulerRotate
-from mlib.nodes import AimConstraint, Node
+from mlib.nodes import AimConstraint
 
 
 class AimConstraintTest(unittest.TestCase):
@@ -60,16 +53,15 @@ class AimConstraintTest(unittest.TestCase):
         for unit in ("deg", "rad"):
             cmds.currentUnit(angle=unit)
             self.aim.setRestRotate(values)
-            self.aim.setOffset(values)
-            for result in (self.aim.getRestRotate(), self.aim.getOffset()):
-                self.assertIsInstance(result, EulerRotate)
-                for actual, expected in zip(result.asDegrees(), values):
-                    self.assertAlmostEqual(actual, expected)
+            result = self.aim.getRestRotate()
+            self.assertIsInstance(result, EulerRotate)
+            for actual, expected in zip(result.asDegrees(), values):
+                self.assertAlmostEqual(actual, expected)
         self.assertFalse(hasattr(type(self.aim), "getSettingPlugs"))
-        cmds.connectAttr(self.target + ".rotateX", self.aim.getFullName() + ".offsetX")
+        cmds.connectAttr(self.target + ".rotateX", self.aim.getFullName() + ".restRotateX")
         with self.assertRaises(RuntimeError):
-            self.aim.setOffset((1, 2, 3))
-        self.assertAlmostEqual(self.aim.getOffset().asDegrees()[1], values[1])
+            self.aim.setRestRotate((1, 2, 3))
+        self.assertAlmostEqual(self.aim.getRestRotate().asDegrees()[1], values[1])
 
     def test_locked_invalid_and_undo(self):
         """後半のロックでも部分更新せず、更新はUndoできる。"""
@@ -87,87 +79,6 @@ class AimConstraintTest(unittest.TestCase):
         self.aim.setRestRotate((1, 2, 3))
         cmds.undo()
         self.assertEqual(tuple(self.aim.getRestRotate()), (0, 0, 0))
-
-    def test_output_orders(self):
-        """全回転順の出力値を取得し、Transform回転とは区別する。"""
-        cmds.currentUnit(angle="rad")
-        for order in range(6):
-            cmds.setAttr(self.driven + ".rotateOrder", order)
-            rotation = self.aim.getOutputRotate()
-            self.assertEqual(rotation.order, order)
-            expected = cmds.getAttr(self.aim.getFullName() + ".constraintRotate")[0]
-            for actual, value in zip(rotation, expected):
-                self.assertAlmostEqual(actual, value)
-        self.assertNotEqual(tuple(self.aim.getOutputRotate()), tuple(self.aim.getRotate()))
-
-
-class _SpecCase(NamespaceCase):
-    """このテストファイルの名前空間の先頭と、共通基底からの差分。"""
-
-    PREFIX = "mlibSpecNodeRig_"
-
-
-class AimOffsetTest(_SpecCase):
-    """getOffset・setOffset・getOutputRotate。"""
-
-    def setUp(self):
-        super().setUp()
-        self.target = cmds.createNode("transform", name=self.name("target"), skipSelect=True)
-        cmds.setAttr(self.target + ".translate", 0, 5, 0)
-        self.driven = cmds.createNode("transform", name=self.name("driven"), skipSelect=True)
-        cmds.setAttr(self.driven + ".rotateOrder", 2)
-        self.constraint = cmds.aimConstraint(self.target, self.driven)[0]
-        self.node = Node(self.constraint)
-
-    def test_offset_in_degrees_and_undo(self):
-        """setOffset は既定で度の3値(unit="rad"はラジアン)、getOffset はEulerRotate。UI 単位によらず、1回の Undo で戻る。"""
-        self.assertIsInstance(self.node, AimConstraint)
-        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
-        cmds.flushUndo()
-        self.assertIsNone(self.node.setOffset((0, 0, 90)))
-        self.assertAlmostEqual(cmds.getAttr(self.constraint + ".offsetZ"), 90.0)
-        cmds.undo()
-        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
-        # currentUnit も Undo に積まれるため、単位の確認は Undo の後で行う。
-        self.node.setOffset((0, 0, math.pi / 2), unit="rad")
-        cmds.currentUnit(angle="rad")
-        offset = self.node.getOffset()
-        self.assertEqual(offset.order, cmds.getAttr(self.constraint + ".constraintRotateOrder"))
-        self.assertAlmostEqual(offset.asDegrees()[2], 90.0)
-        self.assertAlmostEqual(offset[2], math.pi / 2)
-        self.node.setRestRotate((10, 20, 30), fast=True)
-        self.assertAlmostEqual(self.node.getRestRotate().asDegrees()[1], 20.0)
-        # 読んだEulerRotateをそのまま渡すと、同じ値が書かれる。
-        self.node.setOffset((0, 0, 0))
-        self.node.setOffset(offset)
-        self.assertAlmostEqual(self.node.getOffset().asDegrees()[2], 90.0)
-        with self.assertRaises(ValueError):
-            self.node.setOffset((0, 0, 0), unit="grad")
-
-    def test_output_rotate_uses_constraint_rotate_order(self):
-        """getOutputRotate は constraintRotate を constraintRotateOrder の EulerRotate で返す。"""
-        value = self.node.getOutputRotate()
-        self.assertIsInstance(value, EulerRotate)
-        self.assertEqual(value.order, cmds.getAttr(self.constraint + ".constraintRotateOrder"))
-        expected = [math.radians(angle) for angle in cmds.getAttr(self.constraint + ".constraintRotate")[0]]
-        for actual, wanted in zip(value, expected):
-            self.assertAlmostEqual(actual, wanted)
-
-    def test_set_offset_errors_change_nothing(self):
-        """要素数・非有限・変換できない値は ValueError、ロック・入力接続は RuntimeError で、何も変えない。"""
-        for value in ((1, 2), (1, 2, float("nan")), (1, 2, float("inf")), ("a", 1, 2)):
-            with self.subTest(value=value):
-                with self.assertRaises(ValueError):
-                    self.node.setOffset(value)
-        cmds.setAttr(self.constraint + ".offsetX", lock=True)
-        with self.assertRaises(RuntimeError):
-            self.node.setOffset((0.1, 0.2, 0.3), check=True)
-        cmds.setAttr(self.constraint + ".offsetX", lock=False)
-        source = cmds.createNode("transform", name=self.name("source"), skipSelect=True)
-        cmds.connectAttr(source + ".rotateY", self.constraint + ".offsetY")
-        with self.assertRaises(RuntimeError):
-            self.node.setOffset((0.1, 0.2, 0.3), check=True)
-        self.assertEqual(tuple(self.node.getOffset()), (0.0, 0.0, 0.0))
 
 
 if __name__ == "__main__":

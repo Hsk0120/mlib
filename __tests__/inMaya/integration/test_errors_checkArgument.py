@@ -250,9 +250,6 @@ class _CheckCase(NamespaceCase):
     def c_DagNode_setVisibility(self):
         return self._display_case("setVisibility", False, "visibility", ("visibility",))
 
-    def c_DagNode_setOutlinerVisibility(self):
-        return self._display_case("setOutlinerVisibility", False, "hiddenInOutliner", ("hiddenInOutliner",))
-
     def c_DagNode_setDisplayType(self):
         return self._display_case("setDisplayType", "template", "overrideDisplayType", ("overrideEnabled", "overrideDisplayType"))
 
@@ -317,12 +314,6 @@ class _CheckCase(NamespaceCase):
             lock=lambda: cmds.setAttr(shape + ".localPositionZ", lock=True),
             state=lambda: _attrs(shape, "localPosition"),
         )
-
-    def c_File_setFilePath(self):
-        return self._file_case("setFilePath", "textures/color.png", "fileTextureName")
-
-    def c_File_setColorSpace(self):
-        return self._file_case("setColorSpace", "Raw", "colorSpace")
 
     def c_Plug_setIfChanged(self):
         node = self.xf()
@@ -623,16 +614,6 @@ class _CheckCase(NamespaceCase):
             bad=bad,
             lock=lambda: cmds.setAttr(names[1] + "." + locked, lock=True),
             state=lambda: tuple(_attrs(name, *read) for name in names),
-        )
-
-    def _file_case(self, method, good, locked):
-        name = cmds.createNode("file", name="file#", skipSelect=True)
-        node = mlib.getNode(name)
-        return Case(
-            call=lambda value, **kw: getattr(node, method)(value, **kw),
-            good=good,
-            lock=lambda: cmds.setAttr(name + "." + locked, lock=True),
-            state=lambda: _attrs(name, locked),
         )
 
     # 頂点・CV の位置。

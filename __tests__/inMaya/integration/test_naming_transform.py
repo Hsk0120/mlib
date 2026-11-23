@@ -66,8 +66,6 @@ class TransformNamingTest(unittest.TestCase):
                     ("getRestRotation", "getRestRotate"),
                     ("setRestRotation", "setRestRotate"),
                     ("restRotation", "getRestRotate"),
-                    ("getOutputRotation", "getOutputRotate"),
-                    ("outputRotation", "getOutputRotate"),
                 ),
             ),
             (mlib.Joint, (("freezeRotation", "freezeRotate"), ("getParentJointName", "getParent"), ("getChildJointNames", "getChildren"))),

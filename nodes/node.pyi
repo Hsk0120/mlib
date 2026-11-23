@@ -613,46 +613,6 @@ class Node(Object):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def affectsAnimation(self) -> bool:
-        """ノードがアニメーションに影響するとMayaへ申告しているか調べる。
-
-        Returns:
-            bool: MFnDependencyNode.affectsAnimationの値。現在の接続全体の解析ではない。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
-    def canBeWritten(self) -> bool:
-        """このノードがMayaのファイル書込み対象か調べる。
-
-        Returns:
-            bool: 書込み対象ならTrue。保存に成功することや外部ファイルの保存までは保証しない。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
-    def isShared(self) -> bool:
-        """このノードが共有ノードか調べる。
-
-        Returns:
-            bool: Mayaの共有ノードならTrue。DAGインスタンスの判定とは異なる。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
-    def isTrackingEdits(self) -> bool:
-        """このノードの編集がリファレンスやアセンブリで追跡されるか調べる。
-
-        Returns:
-            bool: 編集追跡の対象ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        ...
     def mfn(self) -> om2.MFnDependencyNode:
         """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
 
@@ -703,29 +663,6 @@ class Node(Object):
 
         Raises:
             TypeError: fnがint以外の場合。
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
-        """
-        ...
-    def getTypeId(self) -> int:
-        """Maya内部のtypeIdを整数で取得する。
-
-        同じMayaのセッションの中で、ノードの型を速く比べるときに使う。
-        プラグインの版や環境によって値が変わることがあるので、ファイルなどへの保存には向かない。
-
-        Returns:
-            int: MTypeIdを数値にしたもの。
-
-        Raises:
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
-        """
-        ...
-    def getPluginName(self) -> str:
-        """ノードの型を登録したプラグインの名前を取得する。
-
-        Returns:
-            str: プラグインの名前。Maya本体のノードの型では空文字列。
-
-        Raises:
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
@@ -855,19 +792,6 @@ class Node(Object):
             RuntimeError: ノードが削除済み・無効な場合。
         """
         ...
-    def isDefaultNode(self) -> bool:
-        """Mayaの既定のノードか調べる。
-
-        既定のノードは、``time1``・``lambert1``・``defaultLightSet`` のように、新しいシーンに必ずあるノード。
-        ``cmds.ls(defaultNodes=True)`` に含まれるノードでTrueになる。
-
-        Returns:
-            bool: 既定のノードならTrue。
-
-        Raises:
-            RuntimeError: ノードが削除済み・無効な場合。
-        """
-        ...
     def hasUniqueName(self) -> bool:
         """階層を含まないノード名がシーン内で一意か調べる。
 
@@ -945,16 +869,6 @@ class Node(Object):
         Raises:
             TypeError: otherが未対応型の場合。
             RuntimeError: 名前を解決できない、MObject・MPlugが空、または保持インスタンスが消失した場合。
-        """
-        ...
-    def isRoot(self) -> bool:
-        """DAGノードがワールドの直下にあるか調べる。
-
-        Returns:
-            bool: このオブジェクトが持つDAGパスの長さが1ならTrue。
-
-        Raises:
-            RuntimeError: DAGパスを持っていない(DAGノードでない)場合。
         """
         ...
     def getNodeName(self, removeNamespace: bool = ...) -> str:
@@ -1334,16 +1248,6 @@ class Node(Object):
             RuntimeError: Mayaが変更を拒否した場合。
         """
         ...
-    def getNumAttrs(self) -> int:
-        """ノードのアトリビュート定義の総数を取得する。
-
-        コンパウンドの子の定義も数える。マルチの要素数ではなく、未作成の要素も作らない。
-        getPlugsのようにPlugへ変換できる定義だけに絞る処理は行わない。
-
-        Returns:
-            int: MFnDependencyNodeが返す定義数。
-        """
-        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> Plugs:
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
@@ -1630,19 +1534,6 @@ class Node(Object):
 
         Returns:
             str | None: ノードのUUID。ノードが無効なら ``None``。
-        """
-        ...
-    def getAbsoluteName(self) -> str:
-        """ルート名前空間から始まるノード名を取得する。
-
-        先頭のコロンを含み、相対名前空間モードに影響されない。DAG階層は含まないため、
-        同名DAGノードを一意に識別する用途にはgetNameかgetFullNameを使う。
-
-        Returns:
-            str: :namespace:nodeの形式の名前。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
         """
         ...
     def getName(self) -> str:
@@ -2699,18 +2590,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getDgCallbacks(self, *, timerType: int = ...) -> list[list[tuple[str, float]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getDgCallbacks` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def affectsAnimation(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.affectsAnimation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def canBeWritten(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.canBeWritten` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isShared(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.isShared` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isTrackingEdits(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.isTrackingEdits` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def mfn(self) -> list[om2.MFnDependencyNode]:
         """各要素の :meth:`~mlib.nodes.node.Node.mfn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2719,12 +2598,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def hasFn(self, fn: int) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.hasFn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getTypeId(self) -> list[int]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getTypeId` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getPluginName(self) -> list[str]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getPluginName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getClassification(self) -> list[list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getClassification` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2750,9 +2623,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getReference(self) -> list[Reference | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isDefaultNode(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.isDefaultNode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def hasUniqueName(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.hasUniqueName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2767,9 +2637,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def isParentOf(self, other: Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isParentOf` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isRoot(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.node.Node.isRoot` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getNodeName(self, removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getNodeName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2810,9 +2677,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getNumAttrs(self) -> list[int]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getNumAttrs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2839,9 +2703,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getAbsoluteName(self) -> list[str]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getAbsoluteName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2939,35 +2800,14 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getDrawOverrideColor(self) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDrawOverrideColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isDrawOverrideEnabled(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideEnabled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isDrawOverrideReference(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideReference` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isDrawOverrideTemplate(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isDrawOverrideTemplate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isUsingHiliteColor(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isUsingHiliteColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def getVisibility(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getVisibility` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getOutlinerVisibility(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerVisibility` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setOutlinerVisibility(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setOutlinerVisibility` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getDisplayType(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDisplayType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setDisplayType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isShadingOverridden(self) -> list[bool]:
-        """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isShadingOverridden` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setShadingOverride(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setShadingOverride` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

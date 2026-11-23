@@ -32,7 +32,6 @@ class SurfaceTrimCurveDataTest(NamespaceCase):
                 self.assertEqual(item["cvs"], [(p.x, p.y, p.z, p.w) for p in native.cvPositions()])
             data[0]["cvs"].clear()
             self.assertTrue(shape.getTrimBoundaryCurveData(0, 1, 0, parametric=parametric)[0]["cvs"])
-        self.assertEqual(shape.isTrimNormalFlipped(0), fn.isFlipNorm(0))
         self.assertEqual(cmds.ls(long=True), before)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         for args in ((-1, 0, 0), (0, 99, 0), (0, 0, 99)):

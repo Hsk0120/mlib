@@ -75,8 +75,6 @@ class ReferenceTest(unittest.TestCase):
         reference = Node(self.ref_node_name)
         self.assertEqual(reference.getNamespace(), Namespace(":"))
         self.assertEqual(reference.getAssociatedNamespace(), Namespace(self.namespace_name))
-        with self.assertRaises(RuntimeError):
-            reference.isRoot()
         self.assertTrue(reference.isTopLevel())
 
     def test_is_loaded_and_nodes(self):
@@ -370,8 +368,9 @@ class ReferenceNodePlugAdditionsTest(_Case):
         self.assertFalse(cmds.namespace(exists=":" + self.ns + "_r2"))
         names = [node.getNodeName() for node in imported]
         self.assertIn(self.asset, names)
+        defaults = set(cmds.ls(defaultNodes=True))
         for node in imported:
-            if node.isValid() and not node.isDefaultNode():
+            if node.isValid() and node.getName() not in defaults:
                 with contextlib.suppress(RuntimeError):
                     cmds.delete(node.getFullName())
         third = self._reference(self.path_a, "r3")

@@ -693,18 +693,6 @@ class Plug(Object):
         node = self._mplug.node()
         return node.hasFn(om2.MFn.kDagNode) and om2.MFnDagNode(node).isInstancedAttribute(self._mplug.attribute())
 
-    def isIndexMatters(self):
-        """マルチアトリビュートの定義で、要素番号に意味があるか調べる。
-
-        Returns:
-            bool: MFnAttribute.indexMattersの値。接続時のnextAvailableの可否に関わる。
-
-        Raises:
-            RuntimeError: アトリビュートが無効な場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).indexMatters
-
     def isExactlyEqual(self, other):
         """同じアトリビュートと同じネットワーク上のPlugか調べる。
 
@@ -830,54 +818,6 @@ class Plug(Object):
         """
         self._require_valid("追加元の取得")
         return self.getNode()._dependency_fn().isNewAttribute(self.mplug().attribute())
-
-    def isCaching(self):
-        """このPlugの値がキャッシュ対象か調べる。
-
-        Returns:
-            bool: キャッシュ対象ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self.mplug().isCaching
-
-    def isNetworked(self):
-        """このPlugがDG内部のネットワーク用参照か調べる。
-
-        Returns:
-            bool: ネットワーク用ならTrue。接続の有無の判定にはisConnectedを使う。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self.mplug().isNetworked
-
-    def isProcedural(self):
-        """このPlugがMayaのprocedural指定を持つか調べる。
-
-        Returns:
-            bool: procedural指定ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self.mplug().isProcedural
-
-    def isIgnoredWhenRendering(self):
-        """レンダー時にこのPlugへの接続が無視されるか調べる。
-
-        Returns:
-            bool: Mayaが無視する指定ならTrue。
-
-        Raises:
-            RuntimeError: 参照が無効な場合。
-        """
-        self._require_valid("状態の取得")
-        return self.mplug().isIgnoredWhenRendering
 
     def mplug(self):
         """内部で持っているMPlugを、そのまま取得する。
@@ -1515,18 +1455,6 @@ class Plug(Object):
         leaves = [mplug for mplug in self._compound_descendants() if not mplug.isCompound] or [self._mplug]
         return not any(mplug.isKeyable or mplug.isChannelBox for mplug in leaves)
 
-    def isDynamic(self):
-        """あとから足したアトリビュート(addAttr で足したカスタムアトリビュートなど)か判定する。
-
-        Returns:
-            bool: 動的アトリビュートなら ``True``。ノードの型に組み込みの静的なアトリビュートは ``False``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).dynamic
-
     def isProxy(self):
         """プロキシアトリビュートか判定する。
 
@@ -1561,34 +1489,6 @@ class Plug(Object):
             return None
         return Plug(self._node_from_mplug(sources[0]), sources[0])
 
-    def isReadable(self):
-        """アトリビュートの定義の readable フラグを取得する。
-
-        値を必ず取得できることを確かめるものではない。
-
-        Returns:
-            bool: 定義の readable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).readable
-
-    def isWritable(self):
-        """アトリビュートの定義の writable フラグを取得する。
-
-        ロックや入力の接続を考えた、今書き込めるかどうかは判定しない。
-
-        Returns:
-            bool: 定義の writable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).writable
-
     def isSettable(self):
         """今、値を設定できるか判定する。
 
@@ -1606,58 +1506,6 @@ class Plug(Object):
         self._require_valid()
         # isFreeToChange は enum(kFreeToChange == 0)を返すため、bool 評価でなく比較で判定する。
         return self._mplug.isFreeToChange() == om2.MPlug.kFreeToChange
-
-    def isStorable(self):
-        """値がシーンファイルへ保存されるアトリビュートか判定する。
-
-        Returns:
-            bool: 保存されるなら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).storable
-
-    def isConnectable(self):
-        """アトリビュートの定義の connectable フラグ(接続できるアトリビュートか)を取得する。
-
-        ロックや、すでにある入力の接続を考えた、今接続できるかどうかは判定しない。
-
-        Returns:
-            bool: 定義の connectable が有効なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).connectable
-
-    def isUsedAsColor(self):
-        """アトリビュート定義の usedAsColor フラグ(UIで色として扱う ``addAttr(usedAsColor=True)``)を取得する。
-
-        Returns:
-            bool: 色のアトリビュートの場合は ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).usedAsColor
-
-    def isWorldSpace(self):
-        """アトリビュートの定義の worldSpace フラグを取得する。
-
-        ``worldMatrix`` のように、DAGのインスタンスごとに値を持つアトリビュートかどうかを表す。
-
-        Returns:
-            bool: ワールド空間のアトリビュートなら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        return om2.MFnAttribute(self._mplug.attribute()).worldSpace
 
     def hasMin(self):
         """最小値の制限があるアトリビュートか判定する。
@@ -2884,42 +2732,6 @@ class Plug(Object):
 
         visit(self)
         return self._connection_results(pairs, type or t, exactType or et, asPair or c or connections, asNode, index)
-
-    def getAffected(self):
-        """同じノードの中で、このアトリビュートが影響するアトリビュートを取得する。
-
-        影響するとは、このアトリビュートの値が変わると再計算される、という意味。
-        ノードの型の定義(``attributeAffects``)による関係で、``cmds.affects(attr, node, by=True)`` と同じ
-        アトリビュートを ``MFnDependencyNode.getAffectedAttributes`` で求める。接続先の別のノードは含まない。
-        アトリビュートどうしの関係なので、要素の論理番号は区別しない。マルチアトリビュートの中の子は、
-        そのマルチアトリビュート全体のPlugにまとめる。
-
-        Returns:
-            Plugs: 影響を受けるPlug。重複を除き、定義の順に並ぶ。無ければ空の集まり。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        fn = self._node._dependency_fn()
-        return Plugs._from_plugs(self._attribute_plugs(fn.getAffectedAttributes(self._mplug.attribute())))
-
-    def getAffecting(self):
-        """同じノードの中で、このアトリビュートに影響するアトリビュートを取得する。
-
-        つまり、このアトリビュートの値の計算に使われるアトリビュート。:meth:`getAffected` の逆向きで、
-        ``cmds.affects(attr, node)`` と同じアトリビュートを ``MFnDependencyNode.getAffectingAttributes`` で求める。
-        接続元の別のノードは含まない。
-
-        Returns:
-            Plugs: 影響を与えるPlug。重複を除き、定義の順に並ぶ。無ければ空の集まり。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        self._require_valid()
-        fn = self._node._dependency_fn()
-        return Plugs._from_plugs(self._attribute_plugs(fn.getAffectingAttributes(self._mplug.attribute())))
 
     def getAnimCurve(self, layer=None, *, indirect=False):
         """このPlugのアニメーションカーブ(animCurve ノード)を取得する。

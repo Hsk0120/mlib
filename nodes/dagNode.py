@@ -858,50 +858,6 @@ class DagNode(Node):
             return None
         return color.r, color.g, color.b, color.a
 
-    def isDrawOverrideEnabled(self):
-        """DAGパスの描画オーバーライドが有効かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドが有効か。
-        """
-        return om1.MFnDagNode(self._api1_path()).drawOverrideEnabled()
-
-    def isDrawOverrideReference(self):
-        """DAGパスの描画オーバーライドが参照表示かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドが参照表示か。
-        """
-        return om1.MFnDagNode(self._api1_path()).drawOverrideIsReference()
-
-    def isDrawOverrideTemplate(self):
-        """DAGパスの描画オーバーライドがテンプレート表示かを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: 描画オーバーライドがテンプレート表示か。
-        """
-        return om1.MFnDagNode(self._api1_path()).drawOverrideIsTemplate()
-
-    def isUsingHiliteColor(self):
-        """DAGパスのハイライト色が使われるかを取得する。
-
-        MFnDagNodeが保持する描画状態の照会。描画更新を強制せず、GUIのない環境では
-        アトリビュートの変更が反映されない場合がある。ファイル参照や一般的な編集可否の判定ではない。
-
-        Returns:
-            bool: ハイライト色が使われるか。
-        """
-        return om1.MFnDagNode(self._api1_path()).usingHiliteColor()
-
     def getOverrideColor(self, *, shape=False):
         """描画のオーバーライドの表示色を取得する。
 
@@ -1056,44 +1012,6 @@ class DagNode(Node):
             _require_bool(state, "state")
             self.getPlug("visibility").set(state, fast=fast, check=check)
 
-    def getOutlinerVisibility(self):
-        """アウトライナーに表示する設定になっているかを取得する。
-
-        Returns:
-            bool: hiddenInOutlinerがFalseならTrue。画面に実際に見えているかどうかではない。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-
-        Note:
-            エディターのフィルター、親が折り畳まれているか、非表示のノードを表示する設定は調べない。
-        """
-        return not bool(self.getPlug("hiddenInOutliner").get())
-
-    def setOutlinerVisibility(self, state=True, *, fast=False, check=False):
-        """アウトライナーに表示するかを設定する。
-
-        Args:
-            state (bool): Trueなら表示、Falseなら非表示。hiddenInOutlinerには逆の値を書き込む。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。DagNodes・Transforms・Jointsから、まとめて呼ぶこともできる。
-
-        Raises:
-            TypeError: stateまたはfastがbool以外の場合。
-            RuntimeError: ロックや入力接続などのために書き込めない場合。
-
-        Note:
-            ビューポートのvisibilityは変えない。実際にアウトライナーに出るかは、
-            各アウトライナーのフィルターや、非表示のノードを表示する設定によっても変わる。
-        """
-        with _edit_context("mlibDagNodeSetOutlinerVisibility", fast):
-            _require_bool(state, "state")
-            self.getPlug("hiddenInOutliner").set(not state, fast=fast, check=check)
-
     def getDisplayType(self):
         """描画のオーバーライドの表示の種類を取得する。
 
@@ -1151,23 +1069,6 @@ class DagNode(Node):
         values = [("overrideDisplayType", index)] if index == 0 else [("overrideEnabled", True), ("overrideDisplayType", index)]
         self._set_display_values(values, "mlibDagNodeSetDisplayType", fast, check=check)
 
-    def isShadingOverridden(self):
-        """描画のオーバーライドで、ワイヤーフレーム表示にしているかを調べる。
-
-        Mayaの ``overrideShading`` は、Trueでシェーディングあり(既定)、Falseでワイヤーフレームを表す。
-        このメソッドはその逆向きで、シェーディングを消しているときにTrueを返す。
-        自身のアトリビュートを読む(:meth:`setShadingOverride` と同じ対象)。
-
-        Returns:
-            bool: ``overrideEnabled`` が有効で ``overrideShading`` がFalseならTrue。
-
-        Raises:
-            RuntimeError: ノードが無効な場合。
-        """
-        self._require_valid("シェーディングのオーバーライドの取得")
-        fn = self._dependency_fn()
-        return fn.findPlug("overrideEnabled", False).asBool() and not fn.findPlug("overrideShading", False).asBool()
-
     def setShadingOverride(self, state=True, *, fast=False, check=False):
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
 
@@ -1177,7 +1078,7 @@ class DagNode(Node):
         - ``state=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
           ``overrideEnabled`` は変えない。
 
-        boolの向きはMayaの ``overrideShading`` と逆で、:meth:`isShadingOverridden` の戻り値と同じ向き。
+        boolの向きはMayaの ``overrideShading`` と逆(Trueでシェーディングを上書きする)。
         対象・Undo・fastの扱いは :meth:`setDisplayType` と同じ。
 
         Args:

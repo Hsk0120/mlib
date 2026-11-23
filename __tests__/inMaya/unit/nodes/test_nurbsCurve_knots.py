@@ -108,7 +108,7 @@ class CurveKnotTest(NamespaceCase):
             )
         ).getShape()
         self.check_edit(shape, shape.makeMultipleEndKnots)
-        self.assertEqual(shape.getForm(), om2.MFnNurbsCurve.kClosed)
+        self.assertEqual(shape.mfn().form, om2.MFnNurbsCurve.kClosed)
 
     def test_rational_circle(self):
         shape = mlib.getNode(cmds.circle(name=self.ns + ":circle", constructionHistory=False)[0]).getShape()

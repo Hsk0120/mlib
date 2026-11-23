@@ -8,8 +8,7 @@
 - ``fast=True`` は Undo キューに何も載せず、``cmds.undo()`` をしても値が戻らない。
 - ``fast=False`` は Undo 1 回で呼ぶ前の状態へ戻る。
 
-``place2dTexture.connectTexture``・``File.setFilePath``・``File.setColorSpace``・``AimConstraint.setOffset`` は
-``inMaya/integration/test_fast_utilityNodes.py`` が同じ内容を確かめているので対象にしない。
+``place2dTexture.connectTexture`` は ``inMaya/integration/test_fast_utilityNodes.py`` が同じ内容を確かめているので対象にしない。
 """
 
 import sys

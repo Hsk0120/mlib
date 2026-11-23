@@ -21,8 +21,6 @@ mlib.reload()
 
 from support.namespaceCase import NamespaceCase
 
-from mlib.nodes import Node, NurbsCurve
-
 mlib_cmds = importlib.import_module("mlib.cmds")
 
 
@@ -147,7 +145,7 @@ class SetCvPositionsTest(_Case):
         shape.setCvPositions(independent)
         self.assertPointsAlmostEqual(shape.getCvPositions(), independent + independent[:3])
         shape.setCvPositions(independent + independent[:3])
-        self.assertEqual(shape.getForm(), om2.MFnNurbsCurve.kPeriodic)
+        self.assertEqual(shape.mfn().form, om2.MFnNurbsCurve.kPeriodic)
         with self.assertRaises(ValueError):
             shape.setCvPositions([*independent, (9, 9, 9), *independent[1:3]])
         with self.assertRaises(ValueError):
@@ -179,29 +177,6 @@ class SetCvPositionsTest(_Case):
         with self.assertRaises(TypeError):
             shape.getCV(0).setPosition((0, 0, "a"))
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE)
-
-
-class _SpecCase(NamespaceCase):
-    """このテストファイルの名前空間の先頭と、共通基底からの差分。"""
-
-    PREFIX = "mlibSpecNodeGeo_"
-    ENABLE_UNDO = False
-
-
-class CurveTest(_SpecCase):
-    """NurbsCurve の数の照会。"""
-
-    def test_spans_and_form(self):
-        """getNumSpans は MFnNurbsCurve.numSpans、getForm は kOpen・kPeriodic の番号。"""
-        curve = cmds.curve(degree=3, point=[(0, 0, 0), (1, 1, 0), (2, 0, 0), (3, 1, 0), (4, 0, 0)], name=self.name("open"))
-        shape = Node(curve).getShape()
-        self.assertIsInstance(shape, NurbsCurve)
-        self.assertEqual(shape.getNumSpans(), 2)
-        self.assertEqual(shape.getNumSpans(), cmds.getAttr(shape.getFullName() + ".spans"))
-        self.assertEqual(shape.getForm(), om2.MFnNurbsCurve.kOpen)
-        circle = Node(cmds.circle(name=self.name("circle"), sections=8, constructionHistory=False)[0]).getShape()
-        self.assertEqual(circle.getNumSpans(), 8)
-        self.assertEqual(circle.getForm(), om2.MFnNurbsCurve.kPeriodic)
 
 
 class _CaseShapeAdditions(NamespaceCase):
@@ -236,48 +211,17 @@ class _CaseShapeAdditions(NamespaceCase):
 
 
 class NurbsCurveAdditionsTest(_CaseShapeAdditions):
-    """NurbsCurve のノット・平面判定・面積・作り直し・反転。"""
+    """NurbsCurve のノット・面積・作り直し・反転。"""
 
     POINTS = ((0, 0, 0), (1, 1, 0), (2, 0, 1), (3, 1, 0), (4, 0, 0))
 
-    def test_knots_and_planar(self):
-        """getKnots は getAttr の knots と一致し、isPlanar は平面と立体で変わる。"""
+    def test_knots(self):
+        """getKnots は getAttr の knots と一致する。"""
         shape = self.curve(self.POINTS)
         info = cmds.createNode("curveInfo", name=self.name("info#"))
         cmds.connectAttr(shape.getFullName() + ".worldSpace[0]", info + ".inputCurve")
         self.assertSequenceAlmostEqual(shape.getKnots(), cmds.getAttr(info + ".knots")[0])
-        self.assertEqual(len(shape.getKnots()), shape.getNumCVs() + shape.getDegree() - 1)
-        self.assertFalse(shape.isPlanar())
-        flat = self.curve([(0, 0, 0), (1, 0, 1), (2, 0, 0), (3, 0, 2)])
-        self.assertTrue(flat.isPlanar())
-
-    def test_planar_matches_maya_and_keeps_lengths(self):
-        """isPlanar は MFnNurbsCurve.isPlanar と同じ判定になり、後の長さの計算を変えない。"""
-        square = [(0, 0, 0), (2, 0, 0), (2, 0, 2), (0, 0, 2), (0, 0, 0)]
-        cases = {
-            "平面": (square, 1, True),
-            "平面・3次": (square, 3, True),
-            "傾いた平面": ([(0, 0, 0), (2, 2, 0), (2, 2, 2), (0, 0, 2), (0, 0, 0)], 3, True),
-            "外れ0.0005cm": ([(0, 0, 0), (2, 0, 0), (2, 0.0005, 2), (0, 0, 2), (0, 0, 0)], 1, True),
-            "外れ0.002cm": ([(0, 0, 0), (2, 0, 0), (2, 0.002, 2), (0, 0, 2), (0, 0, 0)], 1, False),
-            "立体": ([(0, 0, 0), (2, 0, 0), (2, 1, 2), (0, 0, 2), (0, 0, 0)], 1, False),
-            "一直線": ([(0, 0, 0), (1, 1, 1), (2, 2, 2)], 1, False),
-        }
-        # 長さのずれを確かめる基準。Maya 2023 の不具合を踏むと、curveInfo の弧長が変わる。
-        circle = cmds.circle(radius=2, constructionHistory=False, name=self.name("ruler#"))[0]
-        cmds.setAttr(circle + ".scale", 2, 3, 1)
-        info = cmds.createNode("curveInfo", name=self.name("rulerInfo#"))
-        cmds.connectAttr(cmds.listRelatives(circle, shapes=True, fullPath=True)[0] + ".worldSpace[0]", info + ".inputCurve")
-        length = cmds.getAttr(info + ".arcLength")
-        for label, (points, degree, expected) in cases.items():
-            with self.subTest(case=label):
-                shape = self.curve(points, degree=degree)
-                self.assertIs(shape.isPlanar(), expected)
-                # Maya 2023 の MFnNurbsCurve.isPlanar は平面でないカーブで不具合を起こすため、突き合わせは2024以降だけ行う。
-                if cmds.about(apiVersion=True) >= 20240000:
-                    self.assertIs(om2.MFnNurbsCurve(shape.mpath()).isPlanar, expected)
-        cmds.dgdirty(info)
-        self.assertEqual(cmds.getAttr(info + ".arcLength"), length)
+        self.assertEqual(len(shape.getKnots()), shape.getNumCVs() + shape.mfn().degree - 1)
 
     def test_area(self):
         """正方形(次数1)は辺の2乗、円は πr² にほぼ等しく、ワールドではスケールを含む。開いたカーブは ValueError。"""
@@ -305,17 +249,17 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         self.assertIsNone(shape.rebuild(6, keepRange="unit"))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(len(shape.getCvPositions()), len(before)),
-            lambda: (self.assertEqual(shape.getNumSpans(), 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
+            lambda: (self.assertEqual(shape.mfn().numSpans, 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
         )
         self.assertEqual(cmds.ls(uuid)[0], cmds.ls(shape.getFullName())[0])
         shape.rebuild(3, 1, keepRange="spans")
-        self.assertEqual(shape.getDegree(), 1)
-        self.assertEqual(shape.getNumSpans(), 3)
+        self.assertEqual(shape.mfn().degree, 1)
+        self.assertEqual(shape.mfn().numSpans, 3)
         self.assertSequenceAlmostEqual(shape.getParamRange(), (0.0, 3.0))
         self.assertSequenceAlmostEqual(shape.getPointAtParam(0.0), start)
-        spans = shape.getNumSpans()
+        spans = shape.mfn().numSpans
         shape.rebuild()
-        self.assertEqual(shape.getNumSpans(), spans)
+        self.assertEqual(shape.mfn().numSpans, spans)
         for args, kwargs, error in (
             ((0,), {}, ValueError),
             ((True,), {}, TypeError),
@@ -343,14 +287,12 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
     def test_empty_and_deleted(self):
         """形状データの無いカーブと削除済みのカーブは RuntimeError。"""
         empty = mlib.createNode("nurbsCurve", name=self.name("empty#"))
-        for call in (empty.getKnots, empty.isPlanar, empty.getArea, empty.rebuild, empty.reverseDirection):
+        for call in (empty.getKnots, empty.getArea, empty.rebuild, empty.reverseDirection):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):
                     call()
         shape = self.curve(self.POINTS)
-        self.assertDeletedRaises(
-            shape, (lambda node: node.getKnots(), lambda node: node.isPlanar(), lambda node: node.rebuild(), lambda node: node.reverseDirection())
-        )
+        self.assertDeletedRaises(shape, (lambda node: node.getKnots(), lambda node: node.rebuild(), lambda node: node.reverseDirection()))
 
 
 if __name__ == "__main__":
