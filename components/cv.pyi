@@ -46,27 +46,17 @@ class CVs(PointComponents):
     @overload
     def __getitem__(self, index: slice) -> CVs: ...
     component_class: Any
-    def getFullNames(self) -> list[str]:
-        """cmdsへ渡すCVの名前を、持っている順に返す。
+    def _full_names(self, compact: bool) -> list[str]:
+        """cmdsへ渡すCVの完全パスの名前を、持っている順に返す。
 
         周期カーブの末尾で重なっているCVは、先頭側の同じCVの名前になる。
+        周期カーブのCVの対応を保つため、範囲にはまとめない。
+
+        Args:
+            compact (bool): 範囲にまとめる指定。CVでは使わない。
 
         Returns:
             list[str]: 持っている順のMayaのコンポーネント名。indicesはAPIの番号のまま変わらない。
-
-        Raises:
-            TypeError: シェイプの種類がNurbsCurveでない場合。
-            IndexError: 持っている番号が、今のCVの範囲の外になった場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        ...
-    def getCompactNames(self) -> list[str]:
-        """cmdsへ渡すCVの名前を返す。
-
-        周期カーブのCVの対応を保つため、範囲にはまとめない。
-
-        Returns:
-            list[str]: getFullNamesと同じ、持っている順のMayaのコンポーネント名。
 
         Raises:
             TypeError: シェイプの種類がNurbsCurveでない場合。

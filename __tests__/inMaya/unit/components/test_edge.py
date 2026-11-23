@@ -204,7 +204,23 @@ class ComponentTopologyTest(_SkinCase):
                     loop = cmds.polySelect(name, edgeLoop=edge, noSelection=True) or []
                     ring = cmds.polySelect(name, edgeRing=edge, noSelection=True) or []
                     self.assertEqual(sorted(mesh.getEdge(edge).getLoop().indices), sorted(set(loop)))
-                    self.assertEqual(sorted(mesh.getEdges([edge]).getRing().indices), sorted(set(ring)))
+                    self.assertEqual(sorted(mesh.getEdges([edge]).getLoop(ring=True).indices), sorted(set(ring)))
+                    # 単数・複数のどちらも ring=False(既定)はループ、ring=True はリング。
+                    self.assertEqual(sorted(mesh.getEdges([edge]).getLoop(ring=False).indices), sorted(set(loop)))
+                    self.assertEqual(sorted(mesh.getEdge(edge).getLoop(ring=True).indices), sorted(set(ring)))
+                    self.assertIs(type(mesh.getEdge(edge).getLoop(ring=True)), mlib.Edges)
+
+    def test_loop_rejects_invalid_ring(self):
+        """ring が bool でなければ TypeError。位置引数では渡せない。"""
+        mesh = mlib.getNode(cmds.polyPlane(name=self.name("p"), subdivisionsX=2, subdivisionsY=2)[0]).getShape()
+        for target in (mesh.getEdge(0), mesh.getEdges([0, 1])):
+            for value in (1, 0, None, "yes"):
+                with self.subTest(target=type(target).__name__, ring=value):
+                    with self.assertRaises(TypeError):
+                        target.getLoop(ring=value)
+            with self.subTest(target=type(target).__name__, positional=True):
+                with self.assertRaises(TypeError):
+                    target.getLoop(True)
 
 
 if __name__ == "__main__":

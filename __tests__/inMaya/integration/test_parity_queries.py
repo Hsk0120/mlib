@@ -82,12 +82,12 @@ class PointPositionParityTest(NamespaceCase):
                         self.assertAlmostEqual(actual, expected, places=5)
                     for actual, expected in zip(item.getPosition(), local):
                         self.assertAlmostEqual(actual, expected, places=5)
-                    self.assertAlmostEqual(item.getPositionX(worldSpace=True), world[0], places=5)
-                    self.assertAlmostEqual(item.getPositionY(worldSpace=True), world[1], places=5)
-                    self.assertAlmostEqual(item.getPositionZ(), local[2], places=5)
+                    self.assertAlmostEqual(item.getPosition(worldSpace=True).x, world[0], places=5)
+                    self.assertAlmostEqual(item.getPosition(worldSpace=True).y, world[1], places=5)
+                    self.assertAlmostEqual(item.getPosition().z, local[2], places=5)
         vertices = mesh.getVertices([0, 3, 5])
-        for actual, index in zip(vertices.getPositionY(worldSpace=True), (0, 3, 5)):
-            self.assertAlmostEqual(actual, mesh.getVertex(index).getPositionY(worldSpace=True), places=9)
+        for actual, index in zip([p.y for p in vertices.getPosition(worldSpace=True)], (0, 3, 5)):
+            self.assertAlmostEqual(actual, mesh.getVertex(index).getPosition(worldSpace=True).y, places=9)
         self.assertEqual(vertices.shape, mesh)
         with self.assertRaises(IndexError):
             mesh.getVertex(mesh.mfn().numVertices).getPosition()

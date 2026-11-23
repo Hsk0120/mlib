@@ -1,12 +1,11 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """メッシュの、現在のUVセットのUVを扱うクラス。"""
 
-import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import _edit_context, _require_bool
 from ..util import _finite, _finite_vector
-from .component import Component, Components
+from .component import Component, Components, _axis_index, _axis_numbers, _edited_row, _require_single_row
 from typing import Any, Iterable, Iterator
 from mlib.components.vertex import Vertex
 from mlib.nodes.mesh import Mesh
@@ -38,77 +37,32 @@ class UV(Component):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> None:
+    def setPosition(self, value: Iterable[float] | float, *, axis: str | None = ..., fast: bool = ...) -> None:
         """現在のUVセットで、このUVの位置をU/Vの絶対座標で設定する。
 
         移動量ではなく、移動先の座標を指定する。
+        ``axis`` を指定すると、その成分だけを書き込む(もう一方は今の値のまま変えない)。
+        1成分だけを読むときは ``getPosition()[0]`` (U)・``getPosition()[1]`` (V)のように書く。
 
         - ふだんは ``cmds.polyEditUV(relative=False)`` で書き込み、1回のUndoで戻せるようにまとめる。
         - ``fast=True`` なら ``MFnMesh.setUV`` で書き込み、Undoには記録しない(1点で約5倍速い)。
 
         Args:
-            value (Iterable[float]): 有限なU/Vの2つの値。単位は無く、0〜1の範囲に限らない。
+            value (Iterable[float] | float): 有限なU/Vの2つの値。単位は無く、0〜1の範囲に限らない。
+                ``axis`` を指定したときは、その成分の数値1つ。
+            axis (str | None): 書き込む成分。``"u"``・``"v"`` (大文字でもよい)。Noneなら両方を書き込む。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。UVセットや割り当ては作らない。
 
         Raises:
-            TypeError: fastがboolでない場合、または座標の型が合わない場合。
-            ValueError: 座標が2つの有限な数値でない場合。
+            TypeError: fastがboolでない場合、axisが文字列でもNoneでもない場合、または座標の型が合わない場合
+                (axisを指定して数値1つでない場合、axisを指定せずに2成分でない場合を含む)。
+            ValueError: 座標が有限な数値でない場合、成分が2つでない場合、またはaxisが ``"u"``・``"v"`` のどちらでもない場合。
             IndexError: 番号が、現在のUVセットの範囲の外にある場合。
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
-        """
-        ...
-    def getU(self) -> float:
-        """U成分の今の値を取得する。
-
-        Returns:
-            float: 座標の値。
-        """
-        ...
-    def setU(self, value: float, *, fast: bool = ...) -> None:
-        """U成分だけを設定する。Vは今の値のまま変えない。
-
-        Args:
-            value (float): 有限なU。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがboolでない場合、またはvalueが数値でない場合。
-            ValueError: valueが有限でない場合。
-            IndexError: 番号が、現在のUVセットの範囲の外にある場合。
-            RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
-        """
-        ...
-    def getV(self) -> float:
-        """V成分の今の値を取得する。
-
-        Returns:
-            float: 座標の値。
-        """
-        ...
-    def setV(self, value: float, *, fast: bool = ...) -> None:
-        """V成分だけを設定する。Uは今の値のまま変えない。
-
-        Args:
-            value (float): 有限なV。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがboolでない場合、またはvalueが数値でない場合。
-            ValueError: valueが有限でない場合。
-            IndexError: 番号が、現在のUVセットの範囲の外にある場合。
-            RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
         ...
     def getVertex(self) -> Vertex | None:
@@ -124,20 +78,6 @@ class UV(Component):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def _set_coordinate(self, axis: int, value: float, fast: bool, method: str, chunk: str) -> None:
-        """1つの成分だけを変えたU/Vを書き込む。
-
-        Args:
-            axis (int): 成分の番号(0=U、1=V)。
-            value (float): 設定する値。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
-            method (str): 例外のメッセージに使う、公開メソッドの名前。
-            chunk (str): Undoチャンク名。
-
-        Returns:
-            None: 値を返さない。
-        """
-        ...
 _UV_GET_POSITION: Any
 
 
@@ -147,7 +87,7 @@ class UVs(Components):
     UVの番号を持ち、現在のUVセットの座標を、持っている順にまとめて取得・編集する。
 
     - UVセットの名前や座標は覚えておかない。UVセットを切り替えた後は、切り替え先のセットの同じ番号を使う。
-    - setPositionは全要素を同じU/Vに、setPositionsは要素ごとに別のU/Vにする。
+    - setPositionは、既定では全要素を同じU/Vにする。``each=True`` で要素ごとに別のU/V、``axis`` で1成分だけの書き込みになる。
     - 書き込みは、入力をすべて確かめてから行う。ふだんは ``cmds.polyEditUV`` をUVごとに呼び、
       1回のUndoで戻せるようにまとめる。Mayaが途中で書き込みを受け付けなかった場合は、先に書いたUVを元に戻す。
     - ``fast=True`` なら ``MFnMesh.setUVs`` で全UVを1回で書き込み、Undoには記録しない。
@@ -158,58 +98,6 @@ class UVs(Components):
     @overload
     def __getitem__(self, index: slice) -> UVs: ...
     component_class: Any
-    def getU(self) -> list[float]:
-        """U成分の今の値を取得する。
-
-        Returns:
-            list[float]: 座標の値。持っている順に並ぶ。
-        """
-        ...
-    def setU(self, value: float | Iterable[float], *, fast: bool = ...) -> None:
-        """U成分だけを設定する。Vは今の値のまま変えない。
-
-        Args:
-            value (float | Iterable[float]): 全要素に同じ値を使うなら数値、
-                要素ごとに変えるなら、持っている順に並べた値を指定する。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがboolでない場合、または値の型が合わない場合。
-            ValueError: 値が有限でない場合、または値の並びの数が要素の数と違う場合。
-            IndexError: 持っている番号が、現在のUVセットの範囲の外にある場合。
-            RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
-        """
-        ...
-    def getV(self) -> list[float]:
-        """V成分の今の値を取得する。
-
-        Returns:
-            list[float]: 座標の値。持っている順に並ぶ。
-        """
-        ...
-    def setV(self, value: float | Iterable[float], *, fast: bool = ...) -> None:
-        """V成分だけを設定する。Uは今の値のまま変えない。
-
-        Args:
-            value (float | Iterable[float]): 全要素に同じ値を使うなら数値、
-                要素ごとに変えるなら、持っている順に並べた値を指定する。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがboolでない場合、または値の型が合わない場合。
-            ValueError: 値が有限でない場合、または値の並びの数が要素の数と違う場合。
-            IndexError: 持っている番号が、現在のUVセットの範囲の外にある場合。
-            RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
-        """
-        ...
     def getPosition(self) -> list[tuple[float, float]]:
         """現在のUVセットのU/V座標を、持っている順に取得する。
 
@@ -225,74 +113,48 @@ class UVs(Components):
             RuntimeError: Meshまたは現在のUVセットを使えない場合。
         """
         ...
-    def setPosition(self, value: Iterable[float], *, fast: bool = ...) -> None:
-        """持っているUVをすべて、現在のUVセットで同じ位置(U/Vの絶対座標)へ集める。
+    def setPosition(self, value: Iterable[float] | float | Iterable, *, axis: str | None = ..., each: bool = ..., fast: bool = ...) -> None:
+        """持っているUVの位置を、現在のUVセットのU/Vの絶対座標で設定する。
 
-        要素ごとに違う座標にするときは :meth:`setPositions` を使う。
+        既定では、**全要素を同じ位置へ集める**。引数で、値の意味を次のように変える。
+
+        - ``each=True``: valueを、持っている順に並べた要素ごとの値として使う(数は要素と同じにする)。
+          :meth:`getPosition` の結果をそのまま渡せる。
+        - ``axis``: その成分だけを書き込む。もう一方は今の値のまま変えない。valueは成分の数値
+          (``each=True`` なら数値の並び)にする。
+
+        ``each`` と値の形が合わないときはTypeErrorになる(1つの(U, V)を渡して ``each=True``、
+        (U, V)の並びを渡して ``each=False`` のどちらも書き込まない)。
+        値の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
+
+        - ふだんは ``cmds.polyEditUV`` をUVごとに呼び(目安は1UVあたり約1ms)、1回のUndoで戻せるようにまとめる。
+        - ``fast=True`` なら ``MFnMesh.setUVs`` で全UVを1回で書き込み、Undoには記録しない。
 
         Args:
-            value (Iterable[float]): 全要素に使う、有限なU/V。単位は無い。
+            value (Iterable[float] | float | Iterable): 有限な(U, V)。単位は無い。
+                ``each=True`` なら要素と同じ数の(U, V)の並び。``axis`` を指定したときは数値1つ(``each=True`` なら要素と同じ数の数値の並び)。
+            axis (str | None): 書き込む成分。``"u"``・``"v"`` (大文字でもよい)。Noneなら両方を書き込む。既定はNone。
+            each (bool): Trueなら、valueを要素ごとの値の並びとして使う。既定はFalse(全要素に同じ値)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
+            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。UVセットや割り当ては作らない。
 
         Raises:
-            TypeError: fastがboolでない場合、または座標の型が合わない場合。
-            ValueError: 座標が2つの有限な数値でない場合。
+            TypeError: eachかfastがboolでない場合、axisが文字列でもNoneでもない場合、または値の形がaxis・eachの指定と合わない場合。
+            ValueError: 値が有限な数値でない場合、成分が2つでない場合、each=Trueで値の数が要素の数と違う場合、
+                またはaxisが ``"u"``・``"v"`` のどちらでもない場合。
             IndexError: 持っている番号が、現在のUVセットの範囲の外にある場合。
             RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
         """
         ...
-    def setPositions(self, values: Iterable[Iterable[float]], *, fast: bool = ...) -> None:
-        """現在のUVセットで、要素ごとの位置を(U, V)の絶対座標で設定する。
-
-        座標の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
-
-        - ふだんは ``cmds.polyEditUV`` をUVごとに呼ぶ(目安は1UVあたり約1ms)。
-        - ``fast=True`` なら ``MFnMesh.setUVs`` で全UVを1回で書き込む。
-
-        Args:
-            values (Iterable[Iterable[float]]): 要素と同じ数の、有限な(U, V)。単位は無い。
-                :meth:`getPosition` の結果をそのまま渡せる。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
-
-        Raises:
-            TypeError: fastがboolでない場合、または座標の型が合わない場合。
-            ValueError: 座標の数が要素の数と違う場合、または座標が2つの有限な数値でない場合。
-            IndexError: 持っている番号が、現在のUVセットの範囲の外にある場合。
-            RuntimeError: Meshが無効かロックされている場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、inMeshへの入力がある場合。
-
-        Note:
-            UVセットや割り当ては作らない。
-        """
-        ...
-    def _set_coordinates(self, axis: int, value: float | Iterable[float], fast: bool, method: str, chunk: str) -> None:
-        """各要素の1つの成分だけを変えたU/Vを書き込む。
-
-        Args:
-            axis (int): 成分の番号(0=U、1=V)。
-            value (float | Iterable[float]): 全要素に同じ値、または持っている順に並べた値。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
-            method (str): 例外のメッセージに使う、公開メソッドの名前。
-            chunk (str): Undoチャンク名。
-
-        Returns:
-            None: 値を返さない。
-        """
-        ...
-    def _write(self, rows: list[tuple[float, float]], fast: bool, method: str, chunk: str) -> None:
+    def _write(self, rows: list[tuple[float, float]], fast: bool, chunk: str) -> None:
         """確かめてあるU/Vを、番号の範囲を確かめてから書き込む。
 
         Args:
             rows (list[tuple[float, float]]): 持っている順のU/V。
             fast (bool): TrueはUndoなしのOpenMaya更新。
-            method (str): 例外のメッセージに使う、公開メソッドの名前。
             chunk (str): Undoチャンク名。
 
         Returns:
@@ -327,23 +189,7 @@ def _uv_value(value: Iterable[float]) -> tuple[float, float]:
     """
     ...
 
-def _axis_values(value: float | Iterable[float], count: int) -> list[float]:
-    """1つの成分の値を確かめて、要素の数だけの値のリストにする。
-
-    Args:
-        value (float | Iterable[float]): 全要素に同じ値、またはcount個の値の並び。
-        count (int): 持っている要素の数。
-
-    Returns:
-        list[float]: count個の有限な値。
-
-    Raises:
-        TypeError: 数値でも数値の並びでもない場合(文字列も含む)。
-        ValueError: 有限でない場合、または値の並びの数がcountと違う場合。
-    """
-    ...
-
-def _write_uvs(shape: Mesh, indices: list[int], rows: list[tuple[float, float]], fast: bool, method: str, chunk: str):
+def _write_uvs(shape: Mesh, indices: list[int], rows: list[tuple[float, float]], fast: bool, chunk: str):
     """確かめてあるU/Vを、現在のUVセットへ書き込む。
 
     Args:
@@ -351,7 +197,6 @@ def _write_uvs(shape: Mesh, indices: list[int], rows: list[tuple[float, float]],
         indices (list[int]): UVの番号。
         rows (list[tuple[float, float]]): 番号と同じ数のU/V。
         fast (bool): TrueはUndoなしのOpenMaya更新。
-        method (str): 例外の文言に使う公開メソッド名。
         chunk (str): fastでないときのUndoチャンク名。
 
     Raises:

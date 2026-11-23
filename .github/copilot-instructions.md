@@ -319,7 +319,11 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   Transform の set 系は書けるチャンネルだけ更新して値は返さない)。「すでに目的の状態なら何もしない」は `skipExisting=True`
   (`addAttr`・`connect`・`connectTo`・`setAlias`)、「接続があるノードは消さない」は `skipConnected=True`(`Node.delete`・`Joint.delete`・`Joints.delete`)。
   別の意味の指定を `safe` という名前で増やさない。
-- 戻り値の型・単位・更新対象・破壊性が違う操作は、名前が似ていてもフラグで統合しない。
+- 似た操作は、違いをキーワード専用の引数で選ぶ1つのメソッドにまとめる(2026-11-23)。既定値は、いちばんふつうの呼び方と同じ動きにする。
+  種類を選ぶ引数で戻り値の型が変わってよい(`Face.getConnected(type="edge")`・`VertexFace.getNormal(locked=True)`。型スタブはオーバーロードで書く)。
+  更新する対象が違う操作も、同じ種類の値ならフラグでまとめてよい(`setPosition(..., axis="x")`・`relative=True`・`each=True`)。
+  壊し方(破壊性)・単位が違う操作と、向きが逆の変換(`Face.getPointAtUV`/`getUVAtPoint`)は別のメソッドにする。
+  意味が通らない引数の組み合わせは TypeError にし、取り違えても黙って別の結果にならないようにする。
 
 ## 単位
 
@@ -420,7 +424,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `Nodes._wrap(items)` と `mlib.ls` は、要素がすべて Joint なら `Joints`、すべて SkinCluster なら `SkinClusters` にする。
   こうして自動で決まった型の集まりは、型の合わない要素を `append`・`extend`・`insert`・`+` で足すと `Nodes` へ戻る
   (中身によって足せなくならないようにする)。`Joints([...])` のように自分で作った集まりは、これまでどおり TypeError。
-- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ(コンポーネントは `getNames()`(`cmds.ls(flatten=True)` と同じ1要素ずつの名前)・`getFullNames()`・`getCompactNames()`)。
+- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ。コンポーネントは `getNames(*, full=False, compact=False)` の1つ(既定は `cmds.ls(flatten=True)` と同じ1要素ずつの最短の名前、`full=True` は完全パス、`compact=True` は続き番号を `[0:3]` にまとめる。cmds へ渡すときは `full=True, compact=True`)。
 - 複数形の明示メソッドは、単数形と同じ引数を受ける(`check`・`children` などを落とさない)。
 - `mlib.ls` は常に集まりで返す(`Nodes`/`Joints`/`SkinClusters`、`Plugs`、同じシェイプ・同じ種類なら `Vertices` 等。混在のみ list)。
 
@@ -428,7 +432,12 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 - 作成時に番号を固定した参照。座標は都度シーンから取得する。トポロジー変更後の番号の同一性は保証しない。
 - 点の位置は単体なら `mlib.Vector`、複数なら `list[Vector]`(w で割らない)。UV は `(u, v)` の tuple。
-- 座標の書込み(`setPosition` 系・`mirror`)は `worldSpace`・`fast` を持つ。形状の座標書込みは `core/geometryEdit` を共有する。
+- 座標の書込み(`setPosition`・`mirror`)は `worldSpace`・`fast` を持つ。形状の座標書込みは `core/geometryEdit` を共有する。
+- 座標の書込みは `setPosition` の1つ: `axis="x"`(UV は `"u"`・`"v"`)で1成分だけ、`relative=True` で今の位置からの移動(頂点・CV)、
+  複数形の `each=True` で要素ごとの値(既定は全要素に同じ値)。1成分の読みは `getPosition().x`・`getPosition()[0]`。
+- メッシュのコンポーネントの照会: フェースの形の判定は `Face.isKind(kind)`(`isOnBoundary` は Vertex・Edge・Face に残す)、隣は `getConnected()`
+  (Face は `type="face"|"edge"|"vertex"`)、面積は `Face.getArea(uv=True)`、ループとリングは `getLoop(ring=True)`、
+  頂点フェースは `getTangent(binormal=True)`・`setNormal(locked=...)`・`getNormal(locked=True)`。
 - 周期カーブの末尾の重複 CV は先頭の対応 CV へ写す。
 
 ## 数学型(maths)

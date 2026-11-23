@@ -31,7 +31,7 @@ def _flat(names):
 
 def _names(components):
     """コンポーネントの集まりのコンポーネント部分の集合を返す。"""
-    return {name.rsplit(".", 1)[1] for name in components.getFullNames()}
+    return {name.rsplit(".", 1)[1] for name in components.getNames(full=True)}
 
 
 class _Case(NamespaceCase):
@@ -82,7 +82,7 @@ class VertexFaceTest(_Case):
         all_faces = VertexFaces(mesh)
         self.assertEqual(len(all_faces), 24)
         self.assertTrue(all_faces.isComplete())
-        self.assertEqual(_flat(all_faces.getFullNames()), _flat(name + ".vtxFace[*][*]"))
+        self.assertEqual(_flat(all_faces.getNames(full=True)), _flat(name + ".vtxFace[*][*]"))
         item = VertexFace(mesh, (3, 1))
         self.assertEqual(item.getMultiIndex(), (3, 1))
         self.assertEqual(item.getVertex(), mesh.getVertex(3))

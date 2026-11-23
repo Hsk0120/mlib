@@ -44,10 +44,10 @@ class Vertex(PointComponent):
         iterator = self._iterator()
         return Edges(self.shape, sorted(set(iterator.getConnectedEdges())))
 
-    def getConnectedVertices(self):
+    def getConnected(self):
         """エッジでつながった隣の頂点を取得する。
 
-        自身は含めない。
+        自身は含めない。集まるエッジは :meth:`getEdges`、触れている面は :meth:`getFaces` で取得する。
 
         Returns:
             Vertices: 頂点。番号の小さい順に並び、重なりは無い。

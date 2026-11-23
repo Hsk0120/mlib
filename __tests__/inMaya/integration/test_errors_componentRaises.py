@@ -2,10 +2,10 @@
 
 - Face・Edge・Vertex の照会・設定: トポロジーを変えて番号が範囲の外になると IndexError、Shape を削除すると RuntimeError。
 - Face の UV の照会: uvSet・tolerance の型は TypeError、無い UV セットは ValueError。
-- VertexFace.setNormalLocked・removeColor: 引数の型は TypeError、ロックしたメッシュは RuntimeError、
-  fast と入力ヒストリは NotImplementedError、無いカラーセットは ValueError。getBinormal は UV が無いと RuntimeError。
-- PointComponent(s) の getPositionY・getPositionZ の空間指定は TypeError、moveBy の fast と入力ヒストリは NotImplementedError。
-- Components.getFullNames・isComplete・CVs.getFullNames: 範囲の外は IndexError、Shape の削除後は RuntimeError。
+- VertexFace.setNormal の locked(ロックだけの切り替え)・removeColor: 引数の型と組み合わせは TypeError、ロックしたメッシュは RuntimeError、
+  fast と入力ヒストリは NotImplementedError、無いカラーセットは ValueError。getTangent(binormal=True) は UV が無いと RuntimeError。
+- PointComponent(s) の getPosition の空間指定は TypeError、setPosition(relative=True) の fast と入力ヒストリは NotImplementedError。
+- Components.getNames・isComplete・CVs.getNames: 範囲の外は IndexError、Shape の削除後は RuntimeError。full・compact の型は TypeError。
 
 例外の後は、可能なものについて座標・法線・色・ノード数が変わっていないことも確かめる。
 """
@@ -50,26 +50,30 @@ class _ComponentCase(NamespaceCase):
 
 #: 面3番(縮めた平面で範囲外になる)に対する照会。(名前, Face を受けて呼ぶ関数)。
 _FACE_CALLS = (
-    ("getConnectedFaces", lambda face: face.getConnectedFaces()),
-    ("getConnectedEdges", lambda face: face.getConnectedEdges()),
-    ("getConnectedVertices", lambda face: face.getConnectedVertices()),
+    ("getConnected type=face", lambda face: face.getConnected(type="face")),
+    ("getConnected type=edge", lambda face: face.getConnected(type="edge")),
+    ("getConnected type=vertex", lambda face: face.getConnected(type="vertex")),
     ("getVertexFaces", lambda face: face.getVertexFaces()),
     ("getUVSetNames", lambda face: face.getUVSetNames()),
     ("getPointAtUV", lambda face: face.getPointAtUV(0.9, 0.9)),
     ("getUVAtPoint", lambda face: face.getUVAtPoint((0.5, 0.0, 0.5))),
     ("isOnBoundary", lambda face: face.isOnBoundary()),
-    ("isPlanar", lambda face: face.isPlanar()),
-    ("isConvex", lambda face: face.isConvex()),
-    ("isStarlike", lambda face: face.isStarlike()),
-    ("isLamina", lambda face: face.isLamina()),
-    ("isHoled", lambda face: face.isHoled()),
-    ("isZeroArea", lambda face: face.isZeroArea()),
+    ("isKind planar", lambda face: face.isKind("planar")),
+    ("isKind convex", lambda face: face.isKind("convex")),
+    ("isKind starlike", lambda face: face.isKind("starlike")),
+    ("isKind lamina", lambda face: face.isKind("lamina")),
+    ("isKind holed", lambda face: face.isKind("holed")),
+    ("isKind validTriangulation", lambda face: face.isKind("validTriangulation")),
+    ("isKind zeroArea", lambda face: face.isKind("zeroArea")),
+    ("isKind zeroUVArea", lambda face: face.isKind("zeroUVArea")),
+    ("isKind uvReversed", lambda face: face.isKind("uvReversed")),
+    ("getArea uv", lambda face: face.getArea(uv=True)),
     ("getTriangleCount", lambda face: face.getTriangleCount()),
 )
 
 #: 辺11番に対する照会と設定。
 _EDGE_CALLS = (
-    ("getConnectedEdges", lambda edge: edge.getConnectedEdges()),
+    ("getConnected", lambda edge: edge.getConnected()),
     ("isOnBoundary", lambda edge: edge.isOnBoundary()),
     ("isSmooth", lambda edge: edge.isSmooth()),
     ("setSmooth", lambda edge: edge.setSmooth(False)),
@@ -78,7 +82,7 @@ _EDGE_CALLS = (
 #: 頂点8番に対する照会と設定。
 _VERTEX_CALLS = (
     ("getEdges", lambda vertex: vertex.getEdges()),
-    ("getConnectedVertices", lambda vertex: vertex.getConnectedVertices()),
+    ("getConnected", lambda vertex: vertex.getConnected()),
     ("getVertexFaces", lambda vertex: vertex.getVertexFaces()),
     ("isOnBoundary", lambda vertex: vertex.isOnBoundary()),
     ("getColor", lambda vertex: vertex.getColor()),
@@ -133,22 +137,28 @@ class TopologyRangeErrorTest(_ComponentCase):
         self._check(lambda mesh: Vertex(mesh, 8), _VERTEX_CALLS)
 
     def test_components_names_and_complete(self):
-        """Components.getFullNames・isComplete。"""
-        calls = (("getFullNames", lambda vertices: vertices.getFullNames()), ("isComplete", lambda vertices: vertices.isComplete()))
+        """Components.getNames(full・compact の組み合わせ)・isComplete。"""
+        calls = (
+            ("getNames", lambda vertices: vertices.getNames()),
+            ("getNames full", lambda vertices: vertices.getNames(full=True)),
+            ("getNames compact", lambda vertices: vertices.getNames(compact=True)),
+            ("getNames full compact", lambda vertices: vertices.getNames(full=True, compact=True)),
+            ("isComplete", lambda vertices: vertices.isComplete()),
+        )
         self._check(lambda mesh: Vertices(mesh, [0, 8]), calls)
 
     def test_cvs_full_names(self):
-        """CVs.getFullNames: CV数を減らすと IndexError、カーブの削除後は RuntimeError。"""
+        """CVs.getNames(full=True): CV数を減らすと IndexError、カーブの削除後は RuntimeError。"""
         transform = cmds.curve(name=self.name("curve"), degree=1, point=[(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0)])
         shape = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
         cvs = CVs(shape, [3, 4])
-        self.assertEqual(len(cvs.getFullNames()), 2)
+        self.assertEqual(len(cvs.getNames(full=True)), 2)
         cmds.rebuildCurve(transform, constructionHistory=False, replaceOriginal=True, rebuildType=0, spans=1, degree=1, keepRange=0)
         with self.assertRaises(IndexError):
-            cvs.getFullNames()
+            cvs.getNames(full=True)
         cmds.delete(transform)
         with self.assertRaises(RuntimeError):
-            cvs.getFullNames()
+            cvs.getNames(full=True)
 
 
 class FaceUVArgumentErrorTest(_ComponentCase):
@@ -159,48 +169,85 @@ class FaceUVArgumentErrorTest(_ComponentCase):
         _, mesh = self.plane()
         face = Face(mesh, 0)
         calls = (
-            ("getUVArea", lambda **kwargs: face.getUVArea(**kwargs)),
-            ("isUVReversed", lambda **kwargs: face.isUVReversed(**kwargs)),
-            ("isZeroUVArea", lambda **kwargs: face.isZeroUVArea(**kwargs)),
+            ("getArea uv", lambda **kwargs: face.getArea(uv=True, **kwargs)),
+            ("isKind uvReversed", lambda **kwargs: face.isKind("uvReversed", **kwargs)),
+            ("isKind zeroUVArea", lambda **kwargs: face.isKind("zeroUVArea", **kwargs)),
         )
         for name, call in calls:
             with self.subTest(method=name, state="valid"):
                 call()
             for error, kwargs in ((TypeError, {"uvSet": 5}), (TypeError, {"uvSet": ["map1"]}), (ValueError, {"uvSet": "noSuchUVSet"})):
-                if name == "isZeroUVArea" and error is ValueError:
+                if name == "isKind zeroUVArea" and error is ValueError:
                     continue
                 with self.subTest(method=name, kwargs=kwargs):
                     with self.assertRaises(error):
                         call(**kwargs)
 
     def test_tolerance_type(self):
-        """isZeroUVArea・isZeroArea の tolerance が数値でなければ TypeError。"""
+        """isKind の zeroUVArea・zeroArea の tolerance が数値でなければ TypeError(None は既定の許容値)。"""
         _, mesh = self.plane()
         face = Face(mesh, 0)
-        for name, call in (("isZeroUVArea", face.isZeroUVArea), ("isZeroArea", face.isZeroArea)):
-            for value in ("0.1", None, [0.1]):
-                with self.subTest(method=name, tolerance=value):
+        for kind in ("zeroUVArea", "zeroArea"):
+            for value in ("0.1", [0.1], True):
+                with self.subTest(kind=kind, tolerance=value):
                     with self.assertRaises(TypeError):
-                        call(tolerance=value)
+                        face.isKind(kind, tolerance=value)
+            with self.subTest(kind=kind, tolerance=None):
+                self.assertFalse(face.isKind(kind, tolerance=None))
 
 
 class VertexFaceErrorTest(_ComponentCase):
-    """VertexFace.setNormalLocked・removeColor・getBinormal の拒否。"""
+    """VertexFace.setNormal の locked・removeColor・getTangent(binormal=True) の拒否。"""
 
     def locks(self, mesh):
         """全頂点フェースの法線のロック状態を返す。"""
         return cmds.polyNormalPerVertex(mesh.getFullName() + ".vtxFace[*][*]", query=True, freezeNormal=True)
 
     def test_set_normal_locked_type(self):
-        """state・fast が bool 以外なら TypeError で、ロック状態を変えない。"""
+        """locked・fast が bool 以外、normal と合わない組み合わせは TypeError で、ロック状態を変えない。"""
         _, mesh = self.plane()
         target = VertexFace(mesh, 0)
         before = self.locks(mesh)
-        for kwargs in ({"state": "yes"}, {"state": 1}, {"fast": "yes"}, {"fast": None}):
+        rejected = (
+            {"locked": "yes"},
+            {"locked": 1},
+            {"locked": True, "fast": "yes"},
+            {"locked": True, "fast": None},
+            # normal も locked も無い。
+            {},
+            {"fast": True},
+            # normal を渡さないときは、空間と check を指定できない。
+            {"locked": True, "worldSpace": True},
+            {"locked": True, "worldSpace": False},
+            {"locked": False, "ws": True},
+            {"locked": True, "check": True},
+            {"locked": True, "check": 1},
+            # normal と locked=False は同時に指定できない。
+            {"normal": (0.0, 1.0, 0.0), "locked": False},
+            {"normal": (0.0, 1.0, 0.0), "locked": 0},
+        )
+        for kwargs in rejected:
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(TypeError):
-                    target.setNormalLocked(**kwargs)
+                    target.setNormal(**kwargs)
                 self.assertEqual(self.locks(mesh), before)
+
+    def test_get_normal_locked_arguments(self):
+        """getNormal: locked が bool 以外、locked=True と空間指定の同時指定は TypeError。"""
+        _, mesh = self.plane()
+        target = VertexFace(mesh, 0)
+        for kwargs in (
+            {"locked": 1},
+            {"locked": None},
+            {"locked": True, "worldSpace": True},
+            {"locked": True, "worldSpace": False},
+            {"locked": True, "ws": True},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    target.getNormal(**kwargs)
+        with self.assertRaises(TypeError):
+            target.getTangent(binormal=1)
 
     def test_set_normal_locked_locked_mesh(self):
         """lockNode したメッシュは RuntimeError で、ロック状態を変えない。"""
@@ -211,7 +258,7 @@ class VertexFaceErrorTest(_ComponentCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    target.setNormalLocked(True, fast=fast)
+                    target.setNormal(locked=True, fast=fast)
         cmds.lockNode(mesh.getFullName(), lock=False)
         self.assertEqual(self.locks(mesh), before)
 
@@ -221,7 +268,7 @@ class VertexFaceErrorTest(_ComponentCase):
         cmds.polyColorPerVertex(mesh.getFullName() + ".vtx[*]", rgb=(0.0, 0.0, 0.0), colorDisplayOption=True)
         target = VertexFace(mesh, 0)
         before = (self.locks(mesh), self.nodes())
-        for name, call in (("setNormalLocked", lambda: target.setNormalLocked(True, fast=True)), ("removeColor", lambda: target.removeColor(fast=True))):
+        for name, call in (("setNormal locked", lambda: target.setNormal(locked=True, fast=True)), ("removeColor", lambda: target.removeColor(fast=True))):
             with self.subTest(method=name):
                 with self.assertRaises(NotImplementedError):
                     call()
@@ -240,28 +287,23 @@ class VertexFaceErrorTest(_ComponentCase):
                 self.assertEqual(target.getColor(), before)
 
     def test_binormal_without_uv(self):
-        """UV を割り当てていないメッシュでは getBinormal が RuntimeError。"""
+        """UV を割り当てていないメッシュでは getTangent(binormal=True) が RuntimeError。"""
         transform = cmds.polyPlane(name=self.name("noUV"), subdivisionsX=1, subdivisionsY=1, createUVs=0, constructionHistory=False)[0]
         mesh = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
         self.assertEqual(cmds.polyEvaluate(mesh.getFullName(), uvcoord=True), 0)
         with self.assertRaises(RuntimeError):
-            VertexFace(mesh, 0).getBinormal()
+            VertexFace(mesh, 0).getTangent(binormal=True)
 
 
 class PointComponentArgumentErrorTest(_ComponentCase):
-    """PointComponent(s).getPositionY・getPositionZ の空間指定と、moveBy の fast の拒否。"""
+    """PointComponent(s).getPosition の空間指定と、setPosition(relative=True・axis)の fast の拒否。"""
 
     def test_get_position_space_type(self):
         """worldSpace が bool 以外、worldSpace と ws の同時指定は TypeError。"""
         _, mesh = self.plane()
         vertex = Vertex(mesh, 4)
         vertices = Vertices(mesh, [0, 4])
-        calls = (
-            ("Vertex.getPositionY", vertex.getPositionY),
-            ("Vertex.getPositionZ", vertex.getPositionZ),
-            ("Vertices.getPositionY", vertices.getPositionY),
-            ("Vertices.getPositionZ", vertices.getPositionZ),
-        )
+        calls = (("Vertex.getPosition", vertex.getPosition), ("Vertices.getPosition", vertices.getPosition))
         for name, call in calls:
             for args, kwargs in (((), {"worldSpace": "yes"}), ((1,), {}), ((), {"ws": 1}), ((True,), {"ws": True}), ((), {"worldSpace": True, "ws": True})):
                 with self.subTest(method=name, args=args, kwargs=kwargs):
@@ -272,11 +314,12 @@ class PointComponentArgumentErrorTest(_ComponentCase):
         """fast=True で入力ヒストリのある Shape なら NotImplementedError で、座標を変えない。"""
         _, mesh = self.plane(history=True)
         before = self.points(mesh)
-        for name, call in (("Vertex.moveBy", Vertex(mesh, 4).moveBy), ("Vertices.moveBy", Vertices(mesh, [0, 4]).moveBy)):
-            with self.subTest(method=name):
-                with self.assertRaises(NotImplementedError):
-                    call((1.0, 0.0, 0.0), fast=True)
-                self.assertEqual(self.points(mesh), before)
+        for name, target in (("Vertex", Vertex(mesh, 4)), ("Vertices", Vertices(mesh, [0, 4]))):
+            for value, flags in (((1.0, 0.0, 0.0), {"relative": True}), (1.0, {"axis": "x"}), (1.0, {"axis": "y", "relative": True})):
+                with self.subTest(target=name, flags=flags):
+                    with self.assertRaises(NotImplementedError):
+                        target.setPosition(value, fast=True, **flags)
+                    self.assertEqual(self.points(mesh), before)
 
 
 if __name__ == "__main__":

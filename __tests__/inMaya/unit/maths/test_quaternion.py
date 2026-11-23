@@ -221,7 +221,7 @@ def _flat(names):
 
 def _names(components):
     """コンポーネントの集まりのコンポーネント部分の集合を返す。"""
-    return {name.rsplit(".", 1)[1] for name in components.getFullNames()}
+    return {name.rsplit(".", 1)[1] for name in components.getNames(full=True)}
 
 
 class _Case(NamespaceCase):

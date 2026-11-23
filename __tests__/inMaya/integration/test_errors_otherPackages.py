@@ -5,6 +5,7 @@
 実装と docstring が食い違うものはここでは扱わない(別に記録する)。
 """
 
+import functools
 import math
 import os
 import shutil
@@ -457,43 +458,59 @@ class TimeErrorTest(_ErrorCase):
 
 
 class ComponentNameErrorTest(_ErrorCase):
-    """Components.getCompactNames・CVs.getCompactNames の拒否。"""
+    """Components.getNames・CVs.getNames の compact=True の拒否。"""
 
     def test_components_out_of_range_and_deleted(self):
         """トポロジー変更で範囲外なら IndexError、シェイプ削除後は RuntimeError。"""
         transform, mesh = self.plane()
         vertices = Vertices(mesh, [0, 1, 2, 8])
-        self.assertEqual(vertices.getCompactNames(), [mesh.getFullName() + ".vtx[0:2]", mesh.getFullName() + ".vtx[8]"])
+        self.assertEqual(vertices.getNames(full=True, compact=True), [mesh.getFullName() + ".vtx[0:2]", mesh.getFullName() + ".vtx[8]"])
         self.shrinkPlane(transform)
         with self.assertRaises(IndexError):
-            vertices.getCompactNames()
+            vertices.getNames(full=True, compact=True)
         cmds.delete(transform)
         with self.assertRaises(RuntimeError):
-            vertices.getCompactNames()
+            vertices.getNames(full=True, compact=True)
+
+    def test_flag_types(self):
+        """full・compact が bool でなければ TypeError。位置引数では渡せない。"""
+        _, mesh = self.plane()
+        vertices = Vertices(mesh, [0, 1, 2, 8])
+        for flags in ({"full": 1}, {"full": None}, {"full": "yes"}, {"compact": 1}, {"compact": None}, {"full": True, "compact": "yes"}):
+            with self.subTest(flags=flags):
+                with self.assertRaises(TypeError):
+                    vertices.getNames(**flags)
+        with self.assertRaises(TypeError):
+            vertices.getNames(True)
 
     def test_cvs_out_of_range_and_deleted(self):
         """CV数を減らすと IndexError、カーブ削除後は RuntimeError。"""
         transform = cmds.curve(name=self.name("curve"), degree=1, point=[(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0)])
         shape = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
         cvs = CVs(shape, [3, 4])
-        self.assertEqual(len(cvs.getCompactNames()), 2)
+        self.assertEqual(len(cvs.getNames(full=True, compact=True)), 2)
         cmds.rebuildCurve(transform, constructionHistory=False, replaceOriginal=True, rebuildType=0, spans=1, degree=1, keepRange=0)
         with self.assertRaises(IndexError):
-            cvs.getCompactNames()
+            cvs.getNames(full=True, compact=True)
         cmds.delete(transform)
         with self.assertRaises(RuntimeError):
-            cvs.getCompactNames()
+            cvs.getNames(full=True, compact=True)
 
 
 class TopologyQueryErrorTest(_ErrorCase):
-    """Edges.getLoop・getRing と Vertices.grow・shrink の拒否。"""
+    """Edges.getLoop(ring=False・True)と Vertices.grow・shrink の拒否。"""
 
     def test_out_of_range_and_deleted(self):
         """トポロジー変更で範囲外なら IndexError、シェイプ削除後は RuntimeError。"""
         transform, mesh = self.plane()
         edges = Edges(mesh, [11])
         vertices = Vertices(mesh, [4, 8])
-        calls = (("getLoop", edges.getLoop), ("getRing", edges.getRing), ("grow", vertices.grow), ("shrink", vertices.shrink))
+        calls = (
+            ("getLoop", edges.getLoop),
+            ("getLoop ring", functools.partial(edges.getLoop, ring=True)),
+            ("grow", vertices.grow),
+            ("shrink", vertices.shrink),
+        )
         for name, call in calls:
             with self.subTest(method=name, state="valid"):
                 call()
@@ -515,18 +532,30 @@ class PointComponentSetterErrorTest(_ErrorCase):
 
     def _singles(self, mesh, index):
         vertex = Vertex(mesh, index)
-        return (("Vertex.setPositionX", vertex.setPositionX), ("Vertex.setPositionY", vertex.setPositionY), ("Vertex.setPositionZ", vertex.setPositionZ))
+        return (
+            ("Vertex.setPosition axis=x", functools.partial(vertex.setPosition, axis="x")),
+            ("Vertex.setPosition axis=y", functools.partial(vertex.setPosition, axis="y")),
+            ("Vertex.setPosition axis=z", functools.partial(vertex.setPosition, axis="z")),
+            ("Vertex.setPosition axis=y relative", functools.partial(vertex.setPosition, axis="y", relative=True)),
+        )
 
     def _multis(self, mesh, indices):
         vertices = Vertices(mesh, indices)
         return (
-            ("Vertices.setPositionX", vertices.setPositionX),
-            ("Vertices.setPositionY", vertices.setPositionY),
-            ("Vertices.setPositionZ", vertices.setPositionZ),
+            ("Vertices.setPosition axis=x", functools.partial(vertices.setPosition, axis="x")),
+            ("Vertices.setPosition axis=y", functools.partial(vertices.setPosition, axis="y")),
+            ("Vertices.setPosition axis=z", functools.partial(vertices.setPosition, axis="z")),
+            ("Vertices.setPosition axis=x relative", functools.partial(vertices.setPosition, axis="x", relative=True)),
             (
-                "Vertices.setPositions",
-                lambda value, *args, **kwargs: vertices.setPositions(
-                    [(value, value, value)] * len(indices) if isinstance(value, (int, float)) else value, *args, **kwargs
+                "Vertices.setPosition each",
+                lambda value, *args, **kwargs: vertices.setPosition(
+                    [(value, value, value)] * len(indices) if isinstance(value, (int, float)) else value, *args, each=True, **kwargs
+                ),
+            ),
+            (
+                "Vertices.setPosition each relative",
+                lambda value, *args, **kwargs: vertices.setPosition(
+                    [(value, value, value)] * len(indices) if isinstance(value, (int, float)) else value, *args, each=True, relative=True, **kwargs
                 ),
             ),
         )
@@ -553,19 +582,49 @@ class PointComponentSetterErrorTest(_ErrorCase):
                     with self.assertRaises(error):
                         call(*args, **kwargs)
                     self.assertEqual(self.points(mesh), before)
-        for name, call in self._singles(mesh, 4) + self._multis(mesh, [0, 4])[:3]:
+        for name, call in self._singles(mesh, 4) + self._multis(mesh, [0, 4])[:4]:
             with self.subTest(method=name, value="text"):
                 with self.assertRaises(TypeError):
                     call("a")
         vertices = Vertices(mesh, [0, 4])
         for error, value in ((ValueError, [1.0]), (TypeError, ["a", 1.0])):
-            with self.subTest(method="Vertices.setPositionX", value=value):
+            with self.subTest(method="Vertices.setPosition axis=x each", value=value):
                 with self.assertRaises(error):
-                    vertices.setPositionX(value)
+                    vertices.setPosition(value, axis="x", each=True)
         for error, values in ((ValueError, [(0, 0, 0)]), (ValueError, [(0, 0), (0, 0)]), (TypeError, [(0, 0, "a"), (0, 0, 0)]), (TypeError, 5)):
-            with self.subTest(method="Vertices.setPositions", values=values):
+            with self.subTest(method="Vertices.setPosition each", values=values):
                 with self.assertRaises(error):
-                    vertices.setPositions(values)
+                    vertices.setPosition(values, each=True)
+        # axis・relative・each の型と、each と値の形の食い違い。
+        for target_name, target in (("Vertex", Vertex(mesh, 4)), ("Vertices", vertices)):
+            for error, value, kwargs in (
+                (TypeError, 1.0, {"axis": 0}),
+                (TypeError, 1.0, {"axis": ["x"]}),
+                (ValueError, 1.0, {"axis": "w"}),
+                (ValueError, 1.0, {"axis": "xy"}),
+                (TypeError, (1.0, 0.0, 0.0), {"axis": "x"}),
+                (TypeError, 1.0, {}),
+                (TypeError, (1.0, 0.0, 0.0), {"relative": "yes"}),
+                (TypeError, (1.0, 0.0, 0.0), {"relative": 1}),
+            ):
+                with self.subTest(target=target_name, value=value, kwargs=kwargs):
+                    with self.assertRaises(error):
+                        target.setPosition(value, **kwargs)
+        for value, kwargs in (
+            ((1.0, 0.0, 0.0), {"each": True}),
+            (1.0, {"each": True}),
+            (1.0, {"axis": "x", "each": True}),
+            ([1.0, 2.0], {"axis": "x"}),
+            ([(0, 0, 0), (1, 1, 1), (2, 2, 2)], {}),
+            ((1.0, 0.0, 0.0), {"each": 1}),
+            ((1.0, 0.0, 0.0), {"each": None}),
+        ):
+            with self.subTest(target="Vertices", value=value, kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    vertices.setPosition(value, **kwargs)
+        with self.subTest(target="Vertex", kwargs="each"):
+            with self.assertRaises(TypeError):
+                Vertex(mesh, 4).setPosition((1.0, 0.0, 0.0), each=True)
         self.assertEqual(self.points(mesh), before)
 
     def test_singular_world_matrix(self):
@@ -610,11 +669,16 @@ class PointComponentSetterErrorTest(_ErrorCase):
         """正常系: 1成分だけを変え、他の成分を保つ。"""
         _, mesh = self.plane()
         vertex = Vertex(mesh, 4)
-        y, z = vertex.getPositionY(), vertex.getPositionZ()
-        vertex.setPositionX(3.0)
+        y, z = vertex.getPosition().y, vertex.getPosition().z
+        vertex.setPosition(3.0, axis="x")
         self.assertSequenceAlmostEqual(vertex.getPosition(), (3.0, y, z))
-        Vertices(mesh, [0, 1]).setPositionZ([5.0, 6.0])
-        self.assertSequenceAlmostEqual(Vertices(mesh, [0, 1]).getPositionZ(), [5.0, 6.0])
+        Vertices(mesh, [0, 1]).setPosition([5.0, 6.0], axis="z", each=True)
+        self.assertSequenceAlmostEqual([p.z for p in Vertices(mesh, [0, 1]).getPosition()], [5.0, 6.0])
+        # relative=True は今の値に足す(axis と一緒なら、その成分だけ)。
+        vertex.setPosition(0.5, axis="x", relative=True)
+        self.assertSequenceAlmostEqual(vertex.getPosition(), (3.5, y, z))
+        Vertices(mesh, [0, 1]).setPosition([(0.0, 0.0, 1.0), (0.0, 0.0, -1.0)], each=True, relative=True)
+        self.assertSequenceAlmostEqual([p.z for p in Vertices(mesh, [0, 1]).getPosition()], [6.0, 5.0])
 
 
 class UVSetterErrorTest(_ErrorCase):
@@ -627,11 +691,14 @@ class UVSetterErrorTest(_ErrorCase):
         uv = UV(mesh, index)
         uvs = UVs(mesh, [0, index])
         return (
-            ("UV.setU", uv.setU),
-            ("UV.setV", uv.setV),
-            ("UVs.setU", uvs.setU),
-            ("UVs.setV", uvs.setV),
-            ("UVs.setPositions", lambda value, **kwargs: uvs.setPositions([(value, value)] * 2 if isinstance(value, (int, float)) else value, **kwargs)),
+            ("UV.setPosition axis=u", functools.partial(uv.setPosition, axis="u")),
+            ("UV.setPosition axis=v", functools.partial(uv.setPosition, axis="v")),
+            ("UVs.setPosition axis=u", functools.partial(uvs.setPosition, axis="u")),
+            ("UVs.setPosition axis=v", functools.partial(uvs.setPosition, axis="v")),
+            (
+                "UVs.setPosition each",
+                lambda value, **kwargs: uvs.setPosition([(value, value)] * 2 if isinstance(value, (int, float)) else value, each=True, **kwargs),
+            ),
         )
 
     def test_argument_rejections(self):
@@ -645,13 +712,25 @@ class UVSetterErrorTest(_ErrorCase):
                         call(*args, **kwargs)
                     self.assertEqual(self.uvs(mesh), before)
         uvs = UVs(mesh, [0, 4])
+        each = functools.partial(uvs.setPosition, each=True)
         for name, call, error, value in (
-            ("UVs.setU", uvs.setU, ValueError, [0.5]),
-            ("UVs.setV", uvs.setV, ValueError, [0.5, 0.5, 0.5]),
-            ("UVs.setPositions", uvs.setPositions, ValueError, [(0.5, 0.5)]),
-            ("UVs.setPositions", uvs.setPositions, ValueError, [(0.5,), (0.5,)]),
-            ("UVs.setPositions", uvs.setPositions, TypeError, "uv"),
-            ("UVs.setPositions", uvs.setPositions, TypeError, 5),
+            ("UVs.setPosition axis=u each", functools.partial(uvs.setPosition, axis="u", each=True), ValueError, [0.5]),
+            ("UVs.setPosition axis=v each", functools.partial(uvs.setPosition, axis="v", each=True), ValueError, [0.5, 0.5, 0.5]),
+            ("UVs.setPosition each", each, ValueError, [(0.5, 0.5)]),
+            ("UVs.setPosition each", each, ValueError, [(0.5,), (0.5,)]),
+            ("UVs.setPosition each", each, TypeError, "uv"),
+            ("UVs.setPosition each", each, TypeError, 5),
+            # each と値の形の食い違い。
+            ("UVs.setPosition each", each, TypeError, (0.5, 0.5)),
+            ("UVs.setPosition", uvs.setPosition, TypeError, [(0.1, 0.2), (0.3, 0.4)]),
+            ("UVs.setPosition axis=u", functools.partial(uvs.setPosition, axis="u"), TypeError, [0.1, 0.2]),
+            ("UVs.setPosition axis=u each", functools.partial(uvs.setPosition, axis="u", each=True), TypeError, 0.5),
+            # axis の型と名前。
+            ("UVs.setPosition axis=0", functools.partial(uvs.setPosition, axis=0), TypeError, 0.5),
+            ("UVs.setPosition axis=x", functools.partial(uvs.setPosition, axis="x"), ValueError, 0.5),
+            ("UV.setPosition axis=0", functools.partial(UV(mesh, 4).setPosition, axis=0), TypeError, 0.5),
+            ("UV.setPosition axis=w", functools.partial(UV(mesh, 4).setPosition, axis="w"), ValueError, 0.5),
+            ("UV.setPosition axis=u", functools.partial(UV(mesh, 4).setPosition, axis="u"), TypeError, (0.5, 0.5)),
         ):
             with self.subTest(method=name, value=value):
                 with self.assertRaises(error):
@@ -691,8 +770,8 @@ class UVSetterErrorTest(_ErrorCase):
         """正常系: U だけを変え、V を保つ。"""
         _, mesh = self.plane()
         uv = UV(mesh, 4)
-        v = uv.getV()
-        uv.setU(0.25)
+        v = uv.getPosition()[1]
+        uv.setPosition(0.25, axis="u")
         self.assertSequenceAlmostEqual(uv.getPosition(), (0.25, v), places=6)
 
 

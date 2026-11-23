@@ -107,20 +107,31 @@ class ComponentRefactoringTest(unittest.TestCase):
         list(items)
         self.assertEqual(events, [("create", 2), ("validate", 2), ("create", 0), ("validate", 0)])
 
-    def test_axis_access_validates_space_before_overridden_position_methods(self):
-        """座標getterの差替え時も、軸入口が先に空間指定を検証する。"""
+    def test_axis_write_validates_arguments_before_reading_positions(self):
+        """1成分の書込み(axis)は、空間・成分の名前・値を先に確かめ、不正なら今の位置を読まない。正しければ1回だけ読む。"""
+        from mlib.components import pointComponent
+
         single = self.mesh.getVertex(0)
-        collection = self.mesh.getVertices([0])
-        for item, positions in ((single, (1.0, 2.0, 3.0)), (collection, [(1.0, 2.0, 3.0)])):
-            for axis in "XYZ":
-                getter = getattr(item, "getPosition" + axis)
+        collection = self.mesh.getVertices([0, 1])
+        rejected = (
+            (TypeError, 1.0, {"axis": "x", "worldSpace": 1}),
+            (TypeError, 1.0, {"axis": 0}),
+            (ValueError, 1.0, {"axis": "w"}),
+            (TypeError, "1", {"axis": "x"}),
+            (TypeError, 1.0, {"axis": "x", "relative": 1}),
+            (TypeError, 1.0, {"axis": "x", "fast": 1}),
+        )
+        for item in (single, collection):
+            for axis in "xyz":
                 with self.subTest(collection=item is collection, axis=axis):
-                    with patch.object(item, "getPosition", return_value=positions) as read:
-                        with self.assertRaises(TypeError):
-                            getter(worldSpace=1)
+                    with patch.object(pointComponent, "_positions", wraps=pointComponent._positions) as read:
+                        for error, value, flags in rejected:
+                            with self.assertRaises(error):
+                                item.setPosition(value, **flags)
                         read.assert_not_called()
-                        getter(worldSpace=True)
-                        read.assert_called_once_with(worldSpace=True)
+                        item.setPosition(1.5, worldSpace=True, axis=axis)
+                        self.assertEqual(read.call_count, 1)
+                        self.assertIs(read.call_args[0][2], True)
 
     def test_uv_query_shares_function_set_and_current_set(self):
         """非連続番号でも関数セットと現在セットを呼出し内で一回だけ得る。"""

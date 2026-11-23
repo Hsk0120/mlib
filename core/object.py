@@ -430,7 +430,7 @@ class Object(metaclass=_ObjectType):
             if isinstance(value, components_class):
                 try:
                     # すべての番号の確認はコレクションごとに1回だけ行い、続いている番号は範囲にまとめる。
-                    names.extend(value.getCompactNames())
+                    names.extend(value.getNames(full=True, compact=True))
                 except (RuntimeError, IndexError) as error:
                     raise ValueError(f"無効なComponentは使えません: {error}") from error
                 return

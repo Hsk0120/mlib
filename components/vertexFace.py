@@ -69,114 +69,102 @@ class VertexFace(Component):
         """
         return Face(self.shape, self.getMultiIndex()[1])
 
-    def getNormal(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """頂点フェースの法線を、長さ1で取得する。
+    def getNormal(self, worldSpace=_UNSET, *, locked=False, ws=_UNSET):
+        """頂点フェースの法線を、長さ1で取得する。``locked=True`` なら、法線がロックされているかを調べる。
 
-        ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
+        法線は ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
         (``polyNormalPerVertex`` で取得した値と同じ)。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``locked=True`` とは同時に指定できない。
+            locked (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector: 長さ1の法線。
+            Vector | bool: 長さ1の法線。``locked=True`` なら、法線がロックされていればTrue。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceかlockedがboolでない場合、worldSpaceとwsを同時に指定した場合、
+                または ``locked=True`` とworldSpace(ws)を同時に指定した場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
+        _require_bool(locked, "locked")
+        if locked:
+            if worldSpace is not _UNSET or ws is not _UNSET:
+                raise TypeError("locked=TrueとworldSpace(ws)は同時に指定できません")
+            return self.shape.getFaceVertexNormalLocks(faceVertices=self)[0]
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         vertex, face = self.getMultiIndex()
         return Vector(self.shape._geometry_fn().getFaceVertexNormal(face, vertex, space)).normal()
 
-    def setNormal(self, normal, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
-        """この面頂点の法線を設定し、ロックする。
+    def setNormal(self, normal=None, worldSpace=_UNSET, *, locked=None, fast=False, check=False, ws=_UNSET):
+        """この面頂点の法線を設定してロックする。または、法線のロックだけを切り替える。
+
+        - ``normal`` を渡すと、法線を設定してロックする(``locked`` はNoneかTrue)。
+        - ``normal`` を省いて ``locked=True`` / ``locked=False`` を渡すと、法線の値は書かずに、ロックだけを掛ける/外す。
+          外した後は、Mayaが形状とエッジの硬軟から法線を計算し直す。
+        - ``normal`` と ``locked=False`` は同時に指定できない(外すとMayaが法線を計算し直し、設定した値が消えるため)。
 
         通常はpolyNormalPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
 
         Args:
-            normal (Sequence[float] | Vector): 長さが0でないXYZ。正規化して設定する。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            normal (Sequence[float] | Vector | None): 長さが0でないXYZ。正規化して設定する。Noneなら値は書かない。既定はNone。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。``normal`` を渡したときだけ指定できる。
+            locked (bool | None): Trueはロック、Falseは解除。Noneは ``normal`` を渡したときのロック(Trueと同じ)。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
+            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。``normal`` を渡したときだけ指定できる。
             ws (bool): worldSpaceの別名。同時指定は不可。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: fast・check・空間指定・法線の型が不正な場合。
+            TypeError: fast・check・locked・空間指定・法線の型が不正な場合、normalとlockedをどちらも指定しない場合、
+                normalとlocked=Falseを同時に指定した場合、またはnormalを渡さずにworldSpace(ws)・checkを指定した場合。
             ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
             RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
+        if locked is not None:
+            _require_bool(locked, "locked")
+        if normal is None:
+            if locked is None:
+                raise TypeError("normalかlockedのどちらかを指定してください")
+            if worldSpace is not _UNSET or ws is not _UNSET or check:
+                raise TypeError("worldSpace(ws)・checkはnormalを指定したときだけ指定できます")
+            self.shape.setFaceVertexNormalsLocked(locked, fast=fast, faceVertices=self)
+            return
+        if locked is False:
+            raise TypeError("normalとlocked=Falseは同時に指定できません(ロックを外すと、設定した法線は計算し直されます)")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         self.shape.setFaceVertexNormals([normal], worldSpace, fast=fast, check=check, faceVertices=self)
 
-    def isNormalLocked(self):
-        """この面頂点の法線がロックされているか調べる。
-
-        Returns:
-            bool: 法線がロックされていればTrue。
-        """
-        return self.shape.getFaceVertexNormalLocks(faceVertices=self)[0]
-
-    def setNormalLocked(self, state=True, *, fast=False):
-        """この面頂点の法線をロック、またはロック解除する。
-
-        Args:
-            state (bool): Trueはロック、Falseは解除。既定True。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。入力ヒストリの無いメッシュに限る。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: state・fastがbool以外の場合。
-            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
-            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
-        """
-        _require_bool(fast, "fast")
-        self.shape.setFaceVertexNormalsLocked(state, fast=fast, faceVertices=self)
-
-    def getTangent(self, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
-        """この面頂点のUVのU方向に沿う接線を取得する。
+    def getTangent(self, worldSpace=_UNSET, *, binormal=False, uvSet=None, ws=_UNSET):
+        """この面頂点の、UVのU方向に沿う接線を取得する。``binormal=True`` なら、UVに基づく従法線を取得する。
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            binormal (bool): Trueなら、接線でなく従法線を返す。既定はFalse。
             uvSet (str | None): UVセット。Noneは現在のセット。
             ws (bool): worldSpaceの別名。同時指定は不可。
 
         Returns:
-            Vector: 独立した正規化済み接線。
+            Vector: 独立した正規化済みの接線(``binormal=True`` なら従法線)。
 
         Raises:
-            RuntimeError: UVが未割当・縮退しているか、接線を求められない場合。
+            TypeError: binormalがboolでない場合、空間指定・uvSetの型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: UVが未割当・縮退しているか、接線(従法線)を求められない場合。
         """
+        _require_bool(binormal, "binormal")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        if binormal:
+            return self.shape.getFaceVertexBinormals(worldSpace, uvSet=uvSet, faceVertices=self)[0]
         return self.shape.getFaceVertexTangents(worldSpace, uvSet=uvSet, faceVertices=self)[0]
-
-    def getBinormal(self, worldSpace=_UNSET, *, uvSet=None, ws=_UNSET):
-        """この面頂点のUVに基づく従法線を取得する。
-
-        Args:
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-
-        Returns:
-            Vector: 独立した正規化済み従法線。
-
-        Raises:
-            RuntimeError: UVが未割当・縮退しているか、従法線を求められない場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        return self.shape.getFaceVertexBinormals(worldSpace, uvSet=uvSet, faceVertices=self)[0]
 
     def getColor(self, *, colorSet=None):
         """この面頂点の色を取得する。

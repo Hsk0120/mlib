@@ -757,6 +757,13 @@ def s_cube(c):
     cmds.select(clear=True)
 
 
+def s_cube_locked_normals(c):
+    """全コーナーの法線をロックした、履歴なしの polyCube を作る。"""
+    s_cube(c)
+    cmds.polyNormalPerVertex(c.shape + ".vtxFace[*][*]", freezeNormal=True)
+    cmds.select(clear=True)
+
+
 def s_offset_pivot(c):
     """ピボットを中心からずらした cube を作る。"""
     s_cube(c)
@@ -1738,9 +1745,24 @@ CASES = [
     ),
     C("Transform.setRotateOrder", "setRotateOrder preserve", s_one, lambda c, **kw: c.na.setRotateOrder("zxy", **kw)),
     C("Transform.setRotateOrder", "setRotateOrder no preserve", s_one, lambda c, **kw: c.na.setRotateOrder(3, preserve=False, **kw)),
-    C("PointComponent.moveBy", "Vertex.moveBy", s_cube, lambda c, **kw: c.nshape.getVertex(0).moveBy((1.0, 2.0, 3.0), **kw)),
-    C("PointComponent.moveBy", "CV.moveBy worldSpace", s_curve, lambda c, **kw: c.ncrvShape.getCV(1).moveBy((0.0, 1.0, 0.0), worldSpace=True, **kw)),
-    C("PointComponents.moveBy", "Vertices.moveBy", s_cube, lambda c, **kw: c.nshape.getVertices([0, 1, 2]).moveBy((0.0, 1.0, 0.0), **kw)),
+    C(
+        "PointComponent.setPosition",
+        "Vertex.setPosition relative",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertex(0).setPosition((1.0, 2.0, 3.0), relative=True, **kw),
+    ),
+    C(
+        "PointComponent.setPosition",
+        "CV.setPosition relative worldSpace",
+        s_curve,
+        lambda c, **kw: c.ncrvShape.getCV(1).setPosition((0.0, 1.0, 0.0), worldSpace=True, relative=True, **kw),
+    ),
+    C(
+        "PointComponents.setPosition",
+        "Vertices.setPosition relative",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertices([0, 1, 2]).setPosition((0.0, 1.0, 0.0), relative=True, **kw),
+    ),
     C("Mesh.setPoints", "Mesh.setPoints", s_cube, lambda c, **kw: c.nshape.setPoints([point * 2 for point in c.nshape.getPoints()], **kw)),
     C("Mesh.setPoints", "Mesh.setPoints worldSpace", s_cube, lambda c, **kw: c.nshape.setPoints([(i, 1, 0) for i in range(8)], worldSpace=True, **kw)),
     C("Transform.setLimits", "Transform.setLimits", s_one, lambda c, **kw: c.na.setLimits(translateX=(None, 5.0), rotateZ=(-45.0, 90.0))),
@@ -1799,29 +1821,57 @@ CASES = [
         s_curve,
         lambda c, **kw: c.ncrvShape.getCV(1).setPosition((1.0, 2.0, 3.0), worldSpace=True, **kw),
     ),
-    C("PointComponent.setPositionX", "Vertex.setPositionX", s_cube, lambda c, **kw: c.nshape.getVertex(1).setPositionX(2.0, **kw)),
-    C("PointComponent.setPositionY", "Vertex.setPositionY worldSpace", s_cube, lambda c, **kw: c.nshape.getVertex(1).setPositionY(2.0, worldSpace=True, **kw)),
-    C("PointComponent.setPositionZ", "CV.setPositionZ", s_curve, lambda c, **kw: c.ncrvShape.getCV(2).setPositionZ(2.0, **kw)),
+    C("PointComponent.setPosition", "Vertex.setPosition axis=x", s_cube, lambda c, **kw: c.nshape.getVertex(1).setPosition(2.0, axis="x", **kw)),
     C(
-        "PointComponents.setPositions",
-        "Vertices.setPositions",
+        "PointComponent.setPosition",
+        "Vertex.setPosition axis=y worldSpace",
         s_cube,
-        lambda c, **kw: c.nshape.getVertices([0, 1]).setPositions([(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)], **kw),
+        lambda c, **kw: c.nshape.getVertex(1).setPosition(2.0, worldSpace=True, axis="y", **kw),
+    ),
+    C("PointComponent.setPosition", "CV.setPosition axis=z", s_curve, lambda c, **kw: c.ncrvShape.getCV(2).setPosition(2.0, axis="z", **kw)),
+    C(
+        "PointComponents.setPosition",
+        "Vertices.setPosition each",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertices([0, 1]).setPosition([(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)], each=True, **kw),
     ),
     C(
-        "PointComponents.setPositions",
-        "CVs.setPositions worldSpace",
+        "PointComponents.setPosition",
+        "CVs.setPosition each worldSpace",
         s_curve,
-        lambda c, **kw: c.ncrvShape.getCVs().setPositions([(0, 1, 0), (1, 1, 0), (2, 2, 0)], worldSpace=True, **kw),
+        lambda c, **kw: c.ncrvShape.getCVs().setPosition([(0, 1, 0), (1, 1, 0), (2, 2, 0)], worldSpace=True, each=True, **kw),
     ),
     C("PointComponents.setPosition", "Vertices.setPosition", s_cube, lambda c, **kw: c.nshape.getVertices([2, 3]).setPosition((0.0, 3.0, 0.0), **kw)),
-    C("PointComponents.setPositionX", "Vertices.setPositionX", s_cube, lambda c, **kw: c.nshape.getVertices([2, 3]).setPositionX([1.0, 2.0], **kw)),
-    C("PointComponents.setPositionY", "CVs.setPositionY", s_curve, lambda c, **kw: c.ncrvShape.getCVs([0, 2]).setPositionY(3.0, **kw)),
     C(
-        "PointComponents.setPositionZ",
-        "Vertices.setPositionZ worldSpace",
+        "PointComponents.setPosition",
+        "Vertices.setPosition axis=x each",
         s_cube,
-        lambda c, **kw: c.nshape.getVertices([4, 5]).setPositionZ(-2.0, worldSpace=True, **kw),
+        lambda c, **kw: c.nshape.getVertices([2, 3]).setPosition([1.0, 2.0], axis="x", each=True, **kw),
+    ),
+    C("PointComponents.setPosition", "CVs.setPosition axis=y", s_curve, lambda c, **kw: c.ncrvShape.getCVs([0, 2]).setPosition(3.0, axis="y", **kw)),
+    C(
+        "PointComponents.setPosition",
+        "Vertices.setPosition axis=z worldSpace",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertices([4, 5]).setPosition(-2.0, worldSpace=True, axis="z", **kw),
+    ),
+    C(
+        "PointComponent.setPosition",
+        "Vertex.setPosition axis=z relative",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertex(3).setPosition(0.5, axis="z", relative=True, **kw),
+    ),
+    C(
+        "PointComponents.setPosition",
+        "Vertices.setPosition each relative",
+        s_cube,
+        lambda c, **kw: c.nshape.getVertices([6, 7]).setPosition([(1.0, 0.0, 0.0), (0.0, -1.0, 0.0)], each=True, relative=True, **kw),
+    ),
+    C(
+        "PointComponents.setPosition",
+        "CVs.setPosition axis=x each relative worldSpace",
+        s_curve,
+        lambda c, **kw: c.ncrvShape.getCVs([0, 1]).setPosition([0.5, -0.5], worldSpace=True, axis="x", each=True, relative=True, **kw),
     ),
     C("PointComponents.mirror", "Vertices.mirror", s_cube, lambda c, **kw: c.nshape.getVertices([0, 1, 2]).mirror("z", pivot=(0.0, 0.0, 1.0), **kw)),
     C(
@@ -1831,10 +1881,10 @@ CASES = [
         lambda c, **kw: mlib.SurfaceCV(c.nsrfShape, (1, 2)).setPosition((0.0, 2.0, 0.0), worldSpace=True, **kw),
     ),
     C(
-        "PointComponents.setPositions",
-        "LatticePoints.setPositions",
+        "PointComponents.setPosition",
+        "LatticePoints.setPosition each",
         s_lattice,
-        lambda c, **kw: mlib.LatticePoints(c.nlatShape, [(0, 0, 0), (1, 1, 1)]).setPositions([(-1.0, -1.0, -1.0), (1.0, 1.0, 1.0)], **kw),
+        lambda c, **kw: mlib.LatticePoints(c.nlatShape, [(0, 0, 0), (1, 1, 1)]).setPosition([(-1.0, -1.0, -1.0), (1.0, 1.0, 1.0)], each=True, **kw),
     ),
     C(
         "PointComponents.mirror",
@@ -1844,12 +1894,12 @@ CASES = [
     ),
     C("Vertex.setColor", "Vertex.setColor", s_cube, lambda c, **kw: c.nshape.getVertex(2).setColor((0.0, 0.0, 1.0), **kw)),
     C("UV.setPosition", "UV.setPosition", s_cube, lambda c, **kw: c.nshape.getUV(0).setPosition((0.9, 0.1), **kw)),
-    C("UV.setU", "UV.setU", s_cube, lambda c, **kw: c.nshape.getUV(1).setU(0.9, **kw)),
-    C("UV.setV", "UV.setV", s_cube, lambda c, **kw: c.nshape.getUV(1).setV(0.9, **kw)),
-    C("UVs.setPositions", "UVs.setPositions", s_cube, lambda c, **kw: c.nshape.getUVs([0, 1]).setPositions([(0.1, 0.2), (0.3, 0.4)], **kw)),
+    C("UV.setPosition", "UV.setPosition axis=u", s_cube, lambda c, **kw: c.nshape.getUV(1).setPosition(0.9, axis="u", **kw)),
+    C("UV.setPosition", "UV.setPosition axis=v", s_cube, lambda c, **kw: c.nshape.getUV(1).setPosition(0.9, axis="v", **kw)),
+    C("UVs.setPosition", "UVs.setPosition each", s_cube, lambda c, **kw: c.nshape.getUVs([0, 1]).setPosition([(0.1, 0.2), (0.3, 0.4)], each=True, **kw)),
     C("UVs.setPosition", "UVs.setPosition", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setPosition((0.5, 0.5), **kw)),
-    C("UVs.setU", "UVs.setU", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setU([0.1, 0.9], **kw)),
-    C("UVs.setV", "UVs.setV", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setV(0.75, **kw)),
+    C("UVs.setPosition", "UVs.setPosition axis=u each", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setPosition([0.1, 0.9], axis="u", each=True, **kw)),
+    C("UVs.setPosition", "UVs.setPosition axis=v", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setPosition(0.75, axis="v", **kw)),
     C("Mesh.reorderVertices", "reorderVertices position", s_reorder, a_reorder),
     # Joint
     C("Joint.setSegmentScaleCompensate", "setSegmentScaleCompensate", s_joints, lambda c, **kw: c.nj1.setSegmentScaleCompensate(False, **kw)),
@@ -2391,10 +2441,17 @@ CASES = [
         extraState=r_face_vertex_normals,
     ),
     C(
-        "VertexFace.setNormalLocked",
-        "VertexFace.setNormalLocked",
+        "VertexFace.setNormal",
+        "VertexFace.setNormal locked=True",
         s_cube,
-        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setNormalLocked(True, **kw),
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setNormal(locked=True, **kw),
+        extraState=r_face_vertex_normals,
+    ),
+    C(
+        "VertexFace.setNormal",
+        "VertexFace.setNormal locked=False",
+        s_cube_locked_normals,
+        lambda c, **kw: c.nshape.getVertexFaces([0])[0].setNormal(locked=False, **kw),
         extraState=r_face_vertex_normals,
     ),
     # decorator

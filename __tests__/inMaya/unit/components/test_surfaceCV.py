@@ -29,7 +29,7 @@ def _flat(names):
 
 def _names(components):
     """コンポーネントの集まりのコンポーネント部分の集合を返す。"""
-    return {name.rsplit(".", 1)[1] for name in components.getFullNames()}
+    return {name.rsplit(".", 1)[1] for name in components.getNames(full=True)}
 
 
 class _Case(NamespaceCase):
@@ -87,7 +87,7 @@ class SurfaceCVTest(_Case):
         cvs = SurfaceCVs(shape)
         self.assertEqual(len(cvs), count_u * count_v)
         self.assertTrue(cvs.isComplete())
-        self.assertEqual(_flat(cvs.getFullNames()), _flat(shape.getFullName() + ".cv[*][*]"))
+        self.assertEqual(_flat(cvs.getNames(full=True)), _flat(shape.getFullName() + ".cv[*][*]"))
         mixed = SurfaceCVs(shape, [(0, 0), 7, (0, 0)])
         self.assertEqual(mixed.indices, (0, 7))
         self.assertEqual(mixed.getMultiIndex(), [(0, 0), (1, 7 - count_v)])
@@ -134,7 +134,7 @@ class SurfaceCVTest(_Case):
             lambda: self.assertVectorAlmostEqual(cmds.pointPosition(name + ".cv[1][2]", world=True), (5, 6, 7)),
         )
         self.flushUndo()
-        cvs.moveBy((0.0, 1.0, 0.0), fast=True)
+        cvs.setPosition((0.0, 1.0, 0.0), fast=True, relative=True)
         self.assertUndoEmpty()
         self.assertVectorAlmostEqual(cv.getPosition(), before + Vector(0, 1, 0))
         self.flushUndo()
@@ -159,7 +159,7 @@ class SurfaceCVTest(_Case):
         self.assertVectorAlmostEqual(cmds.pointPosition(shape.getFullName() + ".cv[2][1]", local=True), (0, 3, 0))
         SurfaceCV(shape, (3, 0)).setPosition((0.0, -3.0, 0.0), fast=True)
         self.assertVectorAlmostEqual(SurfaceCV(shape, (3, 8)).getPosition(), (0, -3, 0))
-        self.assertEqual(len(_flat(cvs.getFullNames())), len(_flat(shape.getFullName() + ".cv[*][*]")))
+        self.assertEqual(len(_flat(cvs.getNames(full=True))), len(_flat(shape.getFullName() + ".cv[*][*]")))
 
     def test_fast_rejects_history_and_deleted(self):
         transform = cmds.nurbsPlane(name=self.name("hist#"), constructionHistory=True)[0]

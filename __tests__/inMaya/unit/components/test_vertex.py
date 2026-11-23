@@ -97,7 +97,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         for item in (mesh.getVertex(0), curve.getCV(0)):
             position = item.getPosition()
             for index, axis in enumerate("xyz"):
-                self.assertAlmostEqual(getattr(item, "getPosition" + axis.upper())(), position[index])
+                self.assertAlmostEqual(getattr(item.getPosition(), axis), position[index])
             cmds.xform(item.getFullName(), worldSpace=True, translation=(3, 4, 5))
             self.assert_positions([item.getPosition(worldSpace=True)], [(3, 4, 5)])
         self.assertEqual(len(mesh.getEdges()), mesh.getNumEdges())
@@ -108,7 +108,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertEqual(len(mesh.getFaces().getVertices()), mesh.getNumVertices())
         self.assertEqual(len(mesh.getUVs()), mesh.getNumUVs())
         uv = mesh.getUV(0)
-        self.assertEqual(uv.getPosition(), (uv.getU(), uv.getV()))
+        self.assertEqual(len(uv.getPosition()), 2)
         self.assertEqual(mesh.getUVs([0]).getPosition(), [uv.getPosition()])
         for collection in (mlib.Edges, mlib.Faces, mlib.UVs):
             with self.assertRaises(TypeError):

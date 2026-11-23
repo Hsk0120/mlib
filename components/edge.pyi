@@ -74,28 +74,28 @@ class Edge(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getLoop(self) -> Edges:
-        """このエッジを通るエッジのループを取得する。
+    def getLoop(self, *, ring: bool = ...) -> Edges:
+        """このエッジを通るエッジのループ(``ring=True`` ならリング)を取得する。
 
         :meth:`Edges.getLoop` と同じ規則。
 
-        Returns:
-            Edges: 自身を先頭に、たどった順のエッジ。
-        """
-        ...
-    def getRing(self) -> Edges:
-        """このエッジを通るエッジのリングを取得する。
-
-        :meth:`Edges.getRing` と同じ規則。
+        Args:
+            ring (bool): Trueなら、ループでなくリングをたどる。既定はFalse。
 
         Returns:
             Edges: 自身を先頭に、たどった順のエッジ。
+
+        Raises:
+            TypeError: ringがboolでない場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getConnectedEdges(self) -> Edges:
+    def getConnected(self) -> Edges:
         """このエッジと頂点を共有するエッジを取得する。
 
         自身は含めない。``MItMeshEdge.getConnectedEdges`` で求める。
+        接する面は :meth:`getFaces`、両端の頂点は :meth:`getVertices` で取得する。
 
         Returns:
             Edges: エッジ。番号の小さい順に並び、重なりは無い。
@@ -189,34 +189,29 @@ class Edges(Components):
             RuntimeError: シェイプが無効な場合。
         """
         ...
-    def getLoop(self) -> Edges:
-        """持っているエッジを通る、エッジのループを取得する。
+    def getLoop(self, *, ring: bool = ...) -> Edges:
+        """持っているエッジを通る、エッジのループ(``ring=True`` ならリング)を取得する。
 
-        選択は変えない。たどり方は ``cmds.polySelect(edgeLoop=...)`` と同じ。
+        選択は変えない。
+
+        ループ(既定)のたどり方は ``cmds.polySelect(edgeLoop=...)`` と同じ。
 
         - 4本のエッジが集まる頂点では、今のエッジとフェースを共有しない、向かいのエッジへ進む。
         - それ以外の頂点(極)、メッシュの縁のエッジ、一周して戻った所で止まる。
 
-        Returns:
-            Edges: エッジ。持っている順に、各エッジのループを両方向へたどった順で並び、重なりは無い。
-
-        Raises:
-            IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        ...
-    def getRing(self) -> Edges:
-        """持っているエッジを通る、エッジのリングを取得する。
-
-        選択は変えない。
+        リング(``ring=True``)は、ループと直交する向きにたどる。
 
         - 四角形のフェースを横切って、今のエッジと頂点を共有しない、向かいのエッジへ進む。
         - 四角形でないフェース、メッシュの縁、一周して戻った所で止まる。
 
+        Args:
+            ring (bool): Trueなら、ループでなくリングをたどる。既定はFalse。
+
         Returns:
-            Edges: エッジ。持っている順に、各エッジのリングを両方向へたどった順で並び、重なりは無い。
+            Edges: エッジ。持っている順に、各エッジのループ(リング)を両方向へたどった順で並び、重なりは無い。
 
         Raises:
+            TypeError: ringがboolでない場合。
             IndexError: トポロジーを変えたことで、持っている番号が範囲の外になった場合。
             RuntimeError: シェイプが無効な場合。
         """
@@ -227,8 +222,8 @@ class Edges(Components):
     def getCenter(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.edge.Edge.getCenter` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnectedEdges(self) -> list[Edges]:
-        """各要素の :meth:`~mlib.components.edge.Edge.getConnectedEdges` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getConnected(self) -> list[Edges]:
+        """各要素の :meth:`~mlib.components.edge.Edge.getConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isOnBoundary(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.edge.Edge.isOnBoundary` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

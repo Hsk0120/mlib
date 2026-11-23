@@ -523,7 +523,7 @@ class Mesh(Shape):
         if fast:
             self._set_face_vertex_normals_fast(components, values)
         else:
-            cmds.polyNormalPerVertex(components.getFullNames(), normalXYZ=[tuple(value) for value in values])
+            cmds.polyNormalPerVertex(components.getNames(full=True), normalXYZ=[tuple(value) for value in values])
 
     def getFaceVertexNormalLocks(self, *, faceVertices=None):
         """フェースごとの頂点の法線がロックされているか取得する。
@@ -568,9 +568,9 @@ class Mesh(Shape):
         if fast:
             self._set_face_vertex_normals_locked_fast(components, state)
         elif state:
-            cmds.polyNormalPerVertex(components.getFullNames(), freezeNormal=True)
+            cmds.polyNormalPerVertex(components.getNames(full=True), freezeNormal=True)
         else:
-            cmds.polyNormalPerVertex(components.getFullNames(), unFreezeNormal=True)
+            cmds.polyNormalPerVertex(components.getNames(full=True), unFreezeNormal=True)
 
     def getTangentData(self, worldSpace=_UNSET, *, ws=_UNSET):
         """現在のUVセットの接線のリストと、面頂点から接線番号への対応を取得する。
@@ -1955,7 +1955,7 @@ class Mesh(Shape):
         if current != color_set:
             cmds.polyColorSet(name, currentColorSet=True, colorSet=color_set)
         try:
-            cmds.polyColorPerVertex(components.getFullNames(), remove=True)
+            cmds.polyColorPerVertex(components.getNames(full=True), remove=True)
         finally:
             if current != color_set:
                 cmds.polyColorSet(name, currentColorSet=True, colorSet=current)
@@ -1998,7 +1998,7 @@ class Mesh(Shape):
             cmds.polyColorSet(name, currentColorSet=True, colorSet=color_set)
         try:
             groups = defaultdict(list)
-            for component, value in zip(components.getFullNames(), values):
+            for component, value in zip(components.getNames(full=True), values):
                 groups[value].append(component)
             for value, targets in groups.items():
                 cmds.polyColorPerVertex(targets, rgb=value[:3], alpha=value[3])

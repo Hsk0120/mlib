@@ -9,7 +9,7 @@ from ..util import _UNSET, _world_space
 from .component import Component, Components
 from .face import Face
 from .vertex import Vertex
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any, Iterable, Iterator, Literal, Sequence
 from mlib.nodes.mesh import Mesh
 from typing import overload
 
@@ -61,99 +61,77 @@ class VertexFace(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getNormal(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """頂点フェースの法線を、長さ1で取得する。
+    @overload
+    def getNormal(self, worldSpace: bool = ..., *, locked: Literal[True], ws: bool = ...) -> bool: ...
+    @overload
+    def getNormal(self, worldSpace: bool = ..., *, locked: Literal[False] = ..., ws: bool = ...) -> Vector: ...
+    @overload
+    def getNormal(self, worldSpace: bool = ..., *, locked: bool = ..., ws: bool = ...) -> Vector | bool:
+        """頂点フェースの法線を、長さ1で取得する。``locked=True`` なら、法線がロックされているかを調べる。
 
-        ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
+        法線は ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
         (``polyNormalPerVertex`` で取得した値と同じ)。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``locked=True`` とは同時に指定できない。
+            locked (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector: 長さ1の法線。
+            Vector | bool: 長さ1の法線。``locked=True`` なら、法線がロックされていればTrue。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceかlockedがboolでない場合、worldSpaceとwsを同時に指定した場合、
+                または ``locked=True`` とworldSpace(ws)を同時に指定した場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def setNormal(self, normal: Sequence[float] | Vector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """この面頂点の法線を設定し、ロックする。
+    def setNormal(self, normal: Sequence[float] | Vector | None = ..., worldSpace: bool = ..., *, locked: bool | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+        """この面頂点の法線を設定してロックする。または、法線のロックだけを切り替える。
+
+        - ``normal`` を渡すと、法線を設定してロックする(``locked`` はNoneかTrue)。
+        - ``normal`` を省いて ``locked=True`` / ``locked=False`` を渡すと、法線の値は書かずに、ロックだけを掛ける/外す。
+          外した後は、Mayaが形状とエッジの硬軟から法線を計算し直す。
+        - ``normal`` と ``locked=False`` は同時に指定できない(外すとMayaが法線を計算し直し、設定した値が消えるため)。
 
         通常はpolyNormalPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
 
         Args:
-            normal (Sequence[float] | Vector): 長さが0でないXYZ。正規化して設定する。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            normal (Sequence[float] | Vector | None): 長さが0でないXYZ。正規化して設定する。Noneなら値は書かない。既定はNone。
+            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。``normal`` を渡したときだけ指定できる。
+            locked (bool | None): Trueはロック、Falseは解除。Noneは ``normal`` を渡したときのロック(Trueと同じ)。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
+            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。``normal`` を渡したときだけ指定できる。
             ws (bool): worldSpaceの別名。同時指定は不可。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: fast・check・空間指定・法線の型が不正な場合。
+            TypeError: fast・check・locked・空間指定・法線の型が不正な場合、normalとlockedをどちらも指定しない場合、
+                normalとlocked=Falseを同時に指定した場合、またはnormalを渡さずにworldSpace(ws)・checkを指定した場合。
             ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
             RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         ...
-    def isNormalLocked(self) -> bool:
-        """この面頂点の法線がロックされているか調べる。
-
-        Returns:
-            bool: 法線がロックされていればTrue。
-        """
-        ...
-    def setNormalLocked(self, state: bool = ..., *, fast: bool = ...) -> None:
-        """この面頂点の法線をロック、またはロック解除する。
-
-        Args:
-            state (bool): Trueはロック、Falseは解除。既定True。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。入力ヒストリの無いメッシュに限る。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: state・fastがbool以外の場合。
-            RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
-            NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
-        """
-        ...
-    def getTangent(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> Vector:
-        """この面頂点のUVのU方向に沿う接線を取得する。
+    def getTangent(self, worldSpace: bool = ..., *, binormal: bool = ..., uvSet: str | None = ..., ws: bool = ...) -> Vector:
+        """この面頂点の、UVのU方向に沿う接線を取得する。``binormal=True`` なら、UVに基づく従法線を取得する。
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            binormal (bool): Trueなら、接線でなく従法線を返す。既定はFalse。
             uvSet (str | None): UVセット。Noneは現在のセット。
             ws (bool): worldSpaceの別名。同時指定は不可。
 
         Returns:
-            Vector: 独立した正規化済み接線。
+            Vector: 独立した正規化済みの接線(``binormal=True`` なら従法線)。
 
         Raises:
-            RuntimeError: UVが未割当・縮退しているか、接線を求められない場合。
-        """
-        ...
-    def getBinormal(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> Vector:
-        """この面頂点のUVに基づく従法線を取得する。
-
-        Args:
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-
-        Returns:
-            Vector: 独立した正規化済み従法線。
-
-        Raises:
-            RuntimeError: UVが未割当・縮退しているか、従法線を求められない場合。
+            TypeError: binormalがboolでない場合、空間指定・uvSetの型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            RuntimeError: UVが未割当・縮退しているか、接線(従法線)を求められない場合。
         """
         ...
     def getColor(self, *, colorSet: str | None = ...) -> tuple[float, float, float, float] | None:
@@ -264,23 +242,14 @@ class VertexFaces(Components):
     def getFace(self) -> list[Face]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getFace` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getNormal(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
+    def getNormal(self, worldSpace: bool = ..., *, locked: bool = ..., ws: bool = ...) -> list[Vector | bool]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setNormal(self, normal: Sequence[float] | Vector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+    def setNormal(self, normal: Sequence[float] | Vector | None = ..., worldSpace: bool = ..., *, locked: bool | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isNormalLocked(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.isNormalLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setNormalLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setNormalLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getTangent(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[Vector]:
+    def getTangent(self, worldSpace: bool = ..., *, binormal: bool = ..., uvSet: str | None = ..., ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getBinormal(self, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[Vector]:
-        """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getBinormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

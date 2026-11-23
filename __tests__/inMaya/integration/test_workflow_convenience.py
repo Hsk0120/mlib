@@ -191,18 +191,18 @@ class ApiProposalTest(unittest.TestCase):
             constraint.getWeight(c)
 
     def test_axis_flags_return_and_undo(self):
-        """単数・複数の軸照会は空間を受け、Transformの表示切替は自身の状態を変える。"""
+        """単数・複数の座標の照会は空間を受け(成分は結果から読む)、Transformの表示切替は自身の状態を変える。"""
         transform = cmds.polyCube(constructionHistory=False)[0]
         cmds.setAttr(transform + ".translateX", 10)
         mesh = Node(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
         vertex = mesh.getVertex(0)
         position = vertex.getPosition(worldSpace=True)
-        self.assertAlmostEqual(vertex.getPositionX(worldSpace=True), position[0])
-        self.assertAlmostEqual(vertex.getPositionX(), position[0] - 10)
+        self.assertAlmostEqual(vertex.getPosition(worldSpace=True).x, position[0])
+        self.assertAlmostEqual(vertex.getPosition().x, position[0] - 10)
         vertices = mesh.getVertices()[:2]
-        self.assertEqual(vertices.getPositionX(worldSpace=True), [v.getPositionX(worldSpace=True) for v in vertices])
+        self.assertEqual([p.x for p in vertices.getPosition(worldSpace=True)], [v.getPosition(worldSpace=True).x for v in vertices])
         uvs = mesh.getUVs()[:2]
-        self.assertEqual(uvs.getV(), [uv.getV() for uv in uvs])
+        self.assertEqual([row[1] for row in uvs.getPosition()], [uv.getPosition()[1] for uv in uvs])
         transform = mesh.getTransform()
         transform.setVisibility(False)
         self.assertFalse(transform.getVisibility())

@@ -43,10 +43,14 @@ class CVs(PointComponents):
 
     component_class = CV
 
-    def getFullNames(self):
-        """cmdsへ渡すCVの名前を、持っている順に返す。
+    def _full_names(self, compact):  # noqa: ARG002 引数は基底クラスとの決まり(CVは範囲にまとめない)
+        """cmdsへ渡すCVの完全パスの名前を、持っている順に返す。
 
         周期カーブの末尾で重なっているCVは、先頭側の同じCVの名前になる。
+        周期カーブのCVの対応を保つため、範囲にはまとめない。
+
+        Args:
+            compact (bool): 範囲にまとめる指定。CVでは使わない。
 
         Returns:
             list[str]: 持っている順のMayaのコンポーネント名。indicesはAPIの番号のまま変わらない。
@@ -59,21 +63,6 @@ class CVs(PointComponents):
         self._require_valid()
         name = self.shape.getFullName()
         return [f"{name}.cv[{index}]" for index in command_indices(self.shape, self.indices)]
-
-    def getCompactNames(self):
-        """cmdsへ渡すCVの名前を返す。
-
-        周期カーブのCVの対応を保つため、範囲にはまとめない。
-
-        Returns:
-            list[str]: getFullNamesと同じ、持っている順のMayaのコンポーネント名。
-
-        Raises:
-            TypeError: シェイプの種類がNurbsCurveでない場合。
-            IndexError: 持っている番号が、今のCVの範囲の外になった場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        return self.getFullNames()
 
     def _repr_indices(self):
         """reprに表示する番号を、cmdsで使うCVの番号に直して返す。

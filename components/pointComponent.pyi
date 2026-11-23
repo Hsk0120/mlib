@@ -2,14 +2,13 @@
 """XYZ座標を持つコンポーネントと、その集まりの座標の取得・編集。"""
 
 import math
-import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import _vectors_of_points
 from ..util import _UNSET, _finite, _world_space, mirrorArguments
-from .component import Component, Components
+from .component import Component, Components, _axis_index, _axis_numbers, _edited_row, _require_single_row
 from typing import Iterable, Iterator, Sequence
 from mlib.maths.vector import Vector
 from mlib.nodes.shape import Shape
@@ -49,189 +48,43 @@ class PointComponent(Component):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """頂点/CVの位置を、cmの絶対座標で設定する。
+    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector | float, worldSpace: bool = ..., *, axis: str | None = ..., relative: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+        """頂点/CVの位置を、cmの座標で設定する。
 
-        移動量ではなく、移動先の座標を指定する。UIの距離単位にかかわらずcmで受け取る。
+        既定では、移動量ではなく移動先の座標(絶対座標)を指定する。UIの距離単位にかかわらずcmで受け取る。
 
+        - ``axis`` を指定すると、その成分だけを書き込む。ほかの成分は、指定した空間での今の値のまま変えない。
+        - ``relative=True`` なら、指定した空間での今の位置にvalueを足す(``axis`` と一緒に使うと、その成分だけに足す)。
         - ふだんは ``cmds.xform`` で書き込み、1回のUndoで戻せるようにまとめる。
         - ``fast=True`` なら ``MFnMesh.setPoint`` / ``MFnNurbsCurve.setCVPosition`` で1点だけを書き込み、Undoには記録しない。
         - CVのウェイト(w)は変えない。周期カーブの末尾で重なっているCVは、先頭側の同じCVと同じ位置になる。
 
-        たくさんの点を設定するときは、:meth:`PointComponents.setPositions` で1回にまとめる。
+        たくさんの点を設定するときは、:meth:`PointComponents.setPosition` の ``each=True`` で1回にまとめる。
+        1成分だけを読むときは ``getPosition().x`` のように書く。
 
         Args:
-            value (Iterable[float] | om2.MPoint | om2.MVector): 有限なXYZ(cm)。MPointは、wで割らずにXYZをそのまま使う。
+            value (Iterable[float] | om2.MPoint | om2.MVector | float): 有限なXYZ(cm)。MPointは、wで割らずにXYZをそのまま使う。
+                ``axis`` を指定したときは、その成分の数値1つ。``relative=True`` のときは移動量。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            axis (str | None): 書き込む成分。``"x"``・``"y"``・``"z"`` (大文字でもよい)。Noneなら3成分とも書き込む。既定はNone。
+            relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、座標の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 座標が3つの有限な数値でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
+            TypeError: worldSpace・relative・fastがboolでない場合、axisが文字列でもNoneでもない場合、座標の型が合わない場合
+                (axisを指定して数値1つでない場合、axisを指定せずに3成分でない場合を含む)、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 座標が有限な数値でない場合、成分が3つでない場合、axisが ``"x"``・``"y"``・``"z"`` のどれでもない場合、
+                またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def getPositionX(self, worldSpace: bool = ..., *, ws: bool = ...) -> float:
-        """X成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            float: 座標の値。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionX(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """X成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float): 有限な座標(cm)。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: valueが有限でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def getPositionY(self, worldSpace: bool = ..., *, ws: bool = ...) -> float:
-        """Y成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            float: 座標の値。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionY(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """Y成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float): 有限な座標(cm)。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: valueが有限でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def getPositionZ(self, worldSpace: bool = ..., *, ws: bool = ...) -> float:
-        """Z成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            float: 座標の値。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionZ(self, value: float, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """Z成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float): 有限な座標(cm)。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、valueが数値でない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: valueが有限でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """頂点/CVを、今の位置からoffsetだけ動かす。
-
-        指定した空間で今の位置を読み、offsetを足した座標を :meth:`setPosition` と同じ方法で書き込む。
-
-        Args:
-            offset (Iterable[float] | om2.MPoint | om2.MVector): 移動量の有限なXYZ(cm)。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、移動量の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 移動量が3つの有限な数値でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def _set_coordinate(self, axis: int, value: float, worldSpace: bool, fast: bool, chunk: str, check: bool = ...) -> None:
-        """1つの成分だけを変えた座標を、同じ空間で書き込む。
-
-        Args:
-            axis (int): 成分の番号(0=X、1=Y、2=Z)。
-            value (float): 設定する座標(cm)。
-            worldSpace (bool): Trueならワールド空間。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
-            chunk (str): Undoチャンク名。
-            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
-
-        Returns:
-            None: 値を返さない。
         """
         ...
 
@@ -242,7 +95,8 @@ class PointComponents(Components):
     頂点/CVの番号を持ち、持っている順にXYZ座標をまとめて取得・編集する。
 
     - 座標は覚えておかず、getPositionで今の値を取得する。距離の単位はcm。
-    - setPositionは全要素を同じ座標に、setPositionsは要素ごとに別の座標にする。
+    - setPositionは、既定では全要素を同じ座標にする。``each=True`` で要素ごとに別の座標、``relative=True`` で今の位置からの移動、
+      ``axis`` で1成分だけの書き込みになる。
     - 書き込みは、入力をすべて確かめてから行う。ふだんは ``cmds.xform`` を点ごとに呼び、
       1回のUndoで戻せるようにまとめる。Mayaが途中で書き込みを受け付けなかった場合は、先に書いた点を元に戻す。
     - ``fast=True`` なら、OpenMayaで全点を1回で書き込み、Undoには記録しない。
@@ -253,126 +107,6 @@ class PointComponents(Components):
     def __getitem__(self, index: int) -> PointComponent: ...
     @overload
     def __getitem__(self, index: slice) -> PointComponents: ...
-    def getPositionX(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[float]:
-        """X成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[float]: 座標の値。持っている順に並ぶ。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionX(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """X成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float | Iterable[float]): 値(cm)。全要素に同じ値を使うなら数値、
-                要素ごとに変えるなら、持っている順に並べた値を指定する。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 値が有限でない場合、値の並びの数が要素の数と違う場合、または
-                worldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 持っている番号が、今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def getPositionY(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[float]:
-        """Y成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[float]: 座標の値。持っている順に並ぶ。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionY(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """Y成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float | Iterable[float]): 値(cm)。全要素に同じ値を使うなら数値、
-                要素ごとに変えるなら、持っている順に並べた値を指定する。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 値が有限でない場合、値の並びの数が要素の数と違う場合、または
-                worldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 持っている番号が、今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def getPositionZ(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[float]:
-        """Z成分の今の値を取得する。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[float]: 座標の値。持っている順に並ぶ。
-
-        Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-        """
-        ...
-    def setPositionZ(self, value: float | Iterable[float], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """Z成分だけを設定する。
-
-        ほかの成分は、指定した空間での今の値のまま変えない。
-
-        Args:
-            value (float | Iterable[float]): 値(cm)。全要素に同じ値を使うなら数値、
-                要素ごとに変えるなら、持っている順に並べた値を指定する。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、値の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 値が有限でない場合、値の並びの数が要素の数と違う場合、または
-                worldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 持っている番号が、今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
     def getPosition(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
         """頂点/CVの今のXYZ座標を、持っている順にcmで取得する。
 
@@ -393,56 +127,49 @@ class PointComponents(Components):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """持っている頂点/CVをすべて、同じ位置(cmの絶対座標)へ集める。
+    def setPosition(self, value: Iterable[float] | om2.MPoint | om2.MVector | float | Iterable, worldSpace: bool = ..., *, axis: str | None = ..., relative: bool = ..., each: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+        """持っている頂点/CVの位置を、cmの座標で設定する。
 
-        移動量を足すのではなく、移動先の座標を指定する。要素ごとに違う座標にするときは :meth:`setPositions` を使う。
+        既定では、**全要素を同じ位置(絶対座標)へ集める**。引数で、値の意味を次のように変える。
+
+        - ``each=True``: valueを、持っている順に並べた要素ごとの値として使う(数は要素と同じにする)。
+          :meth:`getPosition` の結果をそのまま渡せる。
+        - ``relative=True``: 指定した空間での今の位置にvalueを足す。``each=False`` なら全要素を同じだけ動かす。
+        - ``axis``: その成分だけを書き込む。ほかの成分は、指定した空間での今の値のまま変えない。valueは成分の数値
+          (``each=True`` なら数値の並び)にする。
+
+        ``setPosition(p)`` は全点を1か所へ集め、``setPosition(p, relative=True)`` は全点を同じだけ動かし、
+        ``setPosition(points, each=True)`` は点ごとに別の位置にする。``each`` と値の形が合わないときはTypeErrorになる
+        (1点を渡して ``each=True``、点の並びを渡して ``each=False`` のどちらも書き込まない)。
+
+        値の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
+
+        - ふだんは ``cmds.xform`` を点ごとに呼び(目安は1点あたり約0.2ms)、1回のUndoで戻せるようにまとめる。
+        - ``fast=True`` なら、``MFnMesh.setPoints`` / ``MFnNurbsCurve.setCVPositions`` で全点を1回で書き込み、Undoには記録しない。
+        - CVのウェイト(w)は変えない。
 
         Args:
-            value (Iterable[float] | om2.MPoint | om2.MVector): 全要素に使う、有限なXYZ(cm)。
+            value (Iterable[float] | om2.MPoint | om2.MVector | float | Iterable): 有限なXYZ(cm)。
+                ``each=True`` なら要素と同じ数のXYZの並び。``axis`` を指定したときは数値1つ(``each=True`` なら要素と同じ数の数値の並び)。
+                ``relative=True`` のときは移動量。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            axis (str | None): 書き込む成分。``"x"``・``"y"``・``"z"`` (大文字でもよい)。Noneなら3成分とも書き込む。既定はNone。
+            relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
+            each (bool): Trueなら、valueを要素ごとの値の並びとして使う。既定はFalse(全要素に同じ値)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
-            TypeError: worldSpaceかfastがboolでない場合、座標の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 座標が3つの有限な数値でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 持っている番号が、今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def setPositions(self, values: Iterable[Iterable[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """持っている順に、要素ごとの位置をcmの絶対座標で設定する。
-
-        座標の数、有限な値か、番号が今の範囲の中にあるかを先にすべて確かめる。問題があればシーンを変えない。
-
-        - ふだんは ``cmds.xform`` を点ごとに呼ぶ(目安は1点あたり約0.2ms)。
-        - ``fast=True`` なら、``MFnMesh.setPoints`` / ``MFnNurbsCurve.setCVPositions`` で全点を1回で書き込む。
-
-        Args:
-            values (Iterable[Iterable[float] | om2.MPoint | om2.MVector]): 要素と同じ数のXYZ(cm)。
-                :meth:`getPosition` の結果をそのまま渡せる。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。空の集まりに空の並びを渡した場合は、Shapeを調べ直さずに何もしない。
-                CVのウェイト(w)は変えない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、座標の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 座標の数が要素の数と違う場合、座標が3つの有限な数値でない場合、または
+            TypeError: worldSpace・relative・each・fastがboolでない場合、axisが文字列でもNoneでもない場合、
+                値の形がaxis・eachの指定と合わない場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 値が有限な数値でない場合、成分が3つでない場合、each=Trueで値の数が要素の数と違う場合、
+                axisが ``"x"``・``"y"``・``"z"`` のどれでもない場合、または
                 worldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
             IndexError: 持っている番号が、今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
@@ -503,47 +230,6 @@ class PointComponents(Components):
             RuntimeError: Shapeが無効な場合、またはMayaが座標の取得を受け付けなかった場合。
         """
         ...
-    def moveBy(self, offset: Iterable[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """持っている頂点/CVをすべて、今の位置から同じoffsetだけ動かす。
-
-        指定した空間で今の位置を読み、offsetを足した座標を :meth:`setPositions` と同じ方法で1回で書き込む。
-        ふだんは1回のUndoで戻せる。
-
-        Args:
-            offset (Iterable[float] | om2.MPoint | om2.MVector): 移動量の有限なXYZ(cm)。
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
-
-        Raises:
-            TypeError: worldSpaceかfastがboolでない場合、移動量の型が合わない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 移動量が3つの有限な数値でない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
-            IndexError: 持っている番号が、今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合、またはロックなどでMayaが書き込みを受け付けなかった場合。
-            NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
-        """
-        ...
-    def _set_coordinates(self, axis: int, value: float | Iterable[float], worldSpace: bool, fast: bool, chunk: str, check: bool = ...) -> None:
-        """各要素の1つの成分だけを変えた座標を、同じ空間で書き込む。
-
-        Args:
-            axis (int): 成分の番号(0=X、1=Y、2=Z)。
-            value (float | Iterable[float]): 全要素に同じ値、または持っている順に並べた値。
-            worldSpace (bool): Trueならワールド空間。
-            fast (bool): TrueはUndoなしのOpenMaya更新。
-            chunk (str): Undoチャンク名。
-            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
-
-        Returns:
-            None: 値を返さない。
-        """
-        ...
     def _write(self, rows: list[tuple[float, float, float]], ws: bool, fast: bool, chunk: str, check: bool = ...) -> None:
         """確かめてある座標を、番号の範囲と編集できるかを確かめてから書き込む。
 
@@ -580,22 +266,6 @@ def _point_value(value: Iterable[float] | om2.MPoint | om2.MVector) -> tuple[flo
     Raises:
         TypeError: 反復できない場合、または成分が数値でない場合。
         ValueError: 成分が3つでない場合、または有限でない場合。
-    """
-    ...
-
-def _axis_values(value: float | Iterable[float], count: int) -> list[float]:
-    """1つの成分の値を確かめて、要素の数だけの値のリストにする。
-
-    Args:
-        value (float | Iterable[float]): 全要素に同じ値、またはcount個の値の並び。
-        count (int): 持っている要素の数。
-
-    Returns:
-        list[float]: count個の有限な値。
-
-    Raises:
-        TypeError: 数値でも数値の並びでもない場合(文字列も含む)。
-        ValueError: 有限でない場合、または値の並びの数がcountと違う場合。
     """
     ...
 

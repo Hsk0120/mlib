@@ -233,7 +233,7 @@ class ConvertedInputTest(_Case):
         cube = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
         uvs = mlib.getNode(cube).getShape().getUVs([2, 3])
         before = [tuple(row) for row in uvs.getPosition()]
-        uvs.setU([0.1, 0.9])
+        uvs.setPosition([0.1, 0.9], axis="u", each=True)
         after = [tuple(row) for row in uvs.getPosition()]
         self.assertSequenceAlmostEqual([row[0] for row in after], [0.1, 0.9], places=6)
         self.assertSequenceAlmostEqual([row[1] for row in after], [row[1] for row in before], places=6)

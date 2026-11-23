@@ -206,7 +206,7 @@ class ObjectSetDeformAdditionsTest(_Case):
                 # cmds.setsの結果(名前の文字列)と比べるための経路。
                 result.update(cmds.ls(member, flatten=True, long=True))
             else:
-                result.update(cmds.ls(member.getCompactNames(), flatten=True, long=True))
+                result.update(cmds.ls(member.getNames(full=True, compact=True), flatten=True, long=True))
         return result
 
     def sets(self):

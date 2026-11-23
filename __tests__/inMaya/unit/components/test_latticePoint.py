@@ -28,7 +28,7 @@ def _flat(names):
 
 def _names(components):
     """コンポーネントの集まりのコンポーネント部分の集合を返す。"""
-    return {name.rsplit(".", 1)[1] for name in components.getFullNames()}
+    return {name.rsplit(".", 1)[1] for name in components.getNames(full=True)}
 
 
 class _Case(NamespaceCase):
@@ -79,7 +79,7 @@ class LatticePointTest(_Case):
         points = LatticePoints(shape)
         self.assertEqual(len(points), 24)
         self.assertTrue(points.isComplete())
-        self.assertEqual(_flat(points.getFullNames()), _flat(name + ".pt[*][*][*]"))
+        self.assertEqual(_flat(points.getNames(full=True)), _flat(name + ".pt[*][*][*]"))
         for stu in ((0, 0, 0), (1, 0, 0), (0, 2, 1), (1, 2, 3)):
             with self.subTest(stu=stu):
                 point = LatticePoint(shape, stu)
@@ -104,7 +104,7 @@ class LatticePointTest(_Case):
         points = LatticePoints(shape, [(0, 0, 0), (1, 1, 1)])
         before = points.getPosition()
         self.flushUndo()
-        points.setPositions([(-1.0, -1.0, -1.0), (1.0, 1.0, 1.0)])
+        points.setPosition([(-1.0, -1.0, -1.0), (1.0, 1.0, 1.0)], each=True)
         self.assertUndoesInOneStep(
             lambda: self.assertVectorAlmostEqual(points.getPosition()[1], before[1]),
             lambda: self.assertVectorAlmostEqual(cmds.pointPosition(name + ".pt[1][1][1]", local=True), (1, 1, 1)),
@@ -113,7 +113,7 @@ class LatticePointTest(_Case):
         point.setPosition((3.0, 4.0, 5.0), ws=True)
         self.assertVectorAlmostEqual(cmds.pointPosition(name + ".pt[1][0][1]", world=True), (3, 4, 5))
         self.flushUndo()
-        point.setPositionY(0.25, fast=True)
+        point.setPosition(0.25, fast=True, axis="y")
         self.assertUndoEmpty()
         self.assertAlmostEqual(cmds.pointPosition(name + ".pt[1][0][1]", local=True)[1], 0.25)
         self.assertVectorAlmostEqual(LatticePoint(shape, 0).getPosition(), before[0])

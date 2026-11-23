@@ -1035,6 +1035,46 @@ def _skin_get_weights_overloads(stub, node):
     return [f"def getWeights({rows}) -> list[list[float]]: ...", f"def getWeights({flat}) -> om2.MDoubleArray: ..."]
 
 
+def _face_get_connected_overloads(stub, node):
+    """``Face.getConnected`` の ``type`` ごとのオーバーロードを返す。
+
+    Args:
+        stub (ModuleStub): 出力中のモジュール。
+        node (ast.FunctionDef): ``getConnected`` の定義。
+
+    Returns:
+        list[str]: オーバーロードの行。
+    """
+    stub.typing.add("Literal")
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "Face.getConnected"
+    variants = []
+    for name, cls, has_default in (("face", "Faces", True), ("edge", "Edges", False), ("vertex", "Vertices", False)):
+        stub.annotation(cls, qualname)
+        params = stub._params(node.args, doc_types, qualname, {"type": (f'Literal["{name}"]', has_default)})
+        variants.append(f"def getConnected({params}) -> {cls}: ...")
+    return variants
+
+
+def _vertex_face_get_normal_overloads(stub, node):
+    """``VertexFace.getNormal`` の ``locked`` ごとのオーバーロードを返す。
+
+    Args:
+        stub (ModuleStub): 出力中のモジュール。
+        node (ast.FunctionDef): ``getNormal`` の定義。
+
+    Returns:
+        list[str]: オーバーロードの行。
+    """
+    stub.typing.add("Literal")
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "VertexFace.getNormal"
+    stub.annotation("Vector", qualname)
+    state = stub._params(node.args, doc_types, qualname, {"locked": ("Literal[True]", False)})
+    value = stub._params(node.args, doc_types, qualname, {"locked": ("Literal[False]", True)})
+    return [f"def getNormal({state}) -> bool: ...", f"def getNormal({value}) -> Vector: ..."]
+
+
 def _self_return(stub, _node):
     """自身を返すメソッドの戻り値を ``Self`` にする(``Joints.sort()`` が ``Joints`` のままになるように)。
 
@@ -1061,6 +1101,8 @@ OVERLOADS = {
     "mlib.plugs.plug:Plug.getConnections": lambda stub, node: _connection_variants(stub, node, "Plug.getConnections"),
     "mlib.plugs.plug:Plug.getSource": lambda stub, node: _keyword_connection_variants(stub, node, True),
     "mlib.plugs.plug:Plug.getDestinations": lambda stub, node: _keyword_connection_variants(stub, node, False),
+    "mlib.components.face:Face.getConnected": _face_get_connected_overloads,
+    "mlib.components.vertexFace:VertexFace.getNormal": _vertex_face_get_normal_overloads,
 }
 
 

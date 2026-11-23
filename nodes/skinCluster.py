@@ -563,7 +563,7 @@ class SkinCluster(GeometryFilter):
                 # 何も選んでいないときは、Mayaがメッシュ全体をならす。
                 cmds.select(clear=True)
             else:
-                cmds.select(Vertices(Node._wrap_dag_path(self.mesh_path), vertex_indices).getCompactNames(), replace=True)
+                cmds.select(Vertices(Node._wrap_dag_path(self.mesh_path), vertex_indices).getNames(full=True, compact=True), replace=True)
             cmds.skinCluster(self.getFullName(), edit=True, **flags)
 
     @undoChunk("mlibSkinClusterAddInfluences")

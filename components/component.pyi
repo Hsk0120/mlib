@@ -8,6 +8,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool
+from ..util import _finite
 from ..nodes.shape import Shape
 from typing import Any, Iterable, Iterator, Sequence
 from typing import overload
@@ -213,14 +214,6 @@ class Component(Object):
             ValueError: 空文字列を指定した場合、または指す要素が1つでない場合。
             IndexError: 個別に指定した番号が、今のShapeの範囲の外にある場合。
             RuntimeError: 名前やコンポーネントを持つShapeを見つけられない場合。
-        """
-        ...
-    def _get_coordinate(self, axis, **space):
-        """指定した軸の、今の座標を返す。axisは派生クラスで確かめてある整数。
-
-        Args:
-            axis: 座標成分の番号。0=X、1=Y、2=Z。
-            **space: 座標空間の指定。worldSpace=Trueでワールド空間。
         """
         ...
     def _require_valid(self) -> None:
@@ -615,50 +608,30 @@ class Components:
             None: 値を返さない。
         """
         ...
-    def getNames(self) -> list[str]:
-        """持っている順に、``cmds.ls(flatten=True)`` と同じ最短のコンポーネント名を取得する。
+    def getNames(self, *, full: bool = ..., compact: bool = ...) -> list[str]:
+        """持っている順に、コンポーネント名を取得する。
 
+        既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を、要素ごとに返す。
         シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``
-        のようにTransformの名前)。要素ごとの名前で、範囲にはまとめない。
+        のようにTransformの名前)。全部の番号を、まとめて1回だけ確かめ直す。
+
+        - ``full=True``: シェイプの部分を完全パスにする(``|cube|cubeShape.vtx[3]``)。
+        - ``compact=True``: 続いている番号を範囲にまとめる。たくさんの要素を ``maya.cmds`` へ渡すときに使う
+          (``mlib.select`` などは ``full=True, compact=True`` を使っている)。番号は並べ替えず、持っている順で1ずつ続く区間だけをまとめる。
+          たとえば番号 ``[0, 1, 2, 5, 3]`` は ``vtx[0:2]``・``vtx[5]``・``vtx[3]`` になる。
+          カーブのCVと、番号を複数持つ要素(曲面のCV・ラティスの点・頂点フェース)は範囲にまとめず、要素ごとの名前を返す。
+
+        Args:
+            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
+            compact (bool): Trueなら、続いている番号を範囲にまとめる。既定はFalse(要素ごとの名前)。
 
         Returns:
-            list[str]: ``cube.vtx[3]`` のような、要素ごとの名前。空の集まりなら空リスト。
+            list[str]: ``cube.vtx[3]`` のような名前。``full=True`` なら ``|cube|cubeShape.vtx[3]``、
+                ``compact=True`` なら ``cube.vtx[0:2]`` のような名前。番号を複数持つ要素は ``plane.cv[1][2]`` のような名前。
+                空の集まりなら空リスト。
 
         Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: いずれかの番号が範囲外の場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        ...
-    def getFullNames(self) -> list[str]:
-        """持っている順に、完全パスのコンポーネント名を取得する。
-
-        全部の番号を、まとめて1回だけ確かめ直す。
-
-        Returns:
-            list[str]: ``|cube|cubeShape.vtx[3]`` のような、要素ごとの名前。
-                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前。
-
-        Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: いずれかの番号が範囲外の場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        ...
-    def getCompactNames(self) -> list[str]:
-        """続いている番号を範囲にまとめた名前を取得する。
-
-        たくさんの要素を ``maya.cmds`` へ渡すときに使う(``mlib.select`` などが使っている)。
-        番号は並べ替えず、持っている順で1ずつ続く区間だけをまとめる。
-        たとえば番号 ``[0, 1, 2, 5, 3]`` は ``vtx[0:2]``・``vtx[5]``・``vtx[3]`` になる。
-        全部の番号を、まとめて1回だけ確かめ直す。
-        番号を複数持つ要素は範囲にまとめないので、:meth:`getFullNames` と同じ名前を返す。
-
-        Returns:
-            list[str]: ``|cube|cubeShape.vtx[0:2]`` のような名前。空の集まりなら空リスト。
-
-        Raises:
-            TypeError: 対応しないシェイプ型の場合。
+            TypeError: fullかcompactがboolでない場合、または対応しないシェイプ型の場合。
             IndexError: いずれかの番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
@@ -755,6 +728,24 @@ class Components:
             list[int]: 頂点の番号。持っている順に、つながりの順を保って並ぶ。重なりは、呼び出し元のVerticesが除く。
         """
         ...
+    def _full_names(self, compact: bool) -> list[str]:
+        """完全パスのコンポーネント名を、持っている順に返す。全部の番号を、まとめて1回だけ確かめ直す。
+
+        cmdsへ渡す番号が持っている番号と違う種類(カーブのCV)は、このメソッドを上書きする。
+
+        Args:
+            compact (bool): Trueなら、持っている順で1ずつ続く番号を ``[start:end]`` にまとめる。
+                番号を複数持つ要素はまとめない。
+
+        Returns:
+            list[str]: ``|cube|cubeShape.vtx[3]`` や ``|cube|cubeShape.vtx[0:2]`` のような名前。
+
+        Raises:
+            TypeError: 対応しないシェイプ型の場合。
+            IndexError: いずれかの番号が範囲外の場合。
+            RuntimeError: シェイプが無効な場合。
+        """
+        ...
     def _name_prefix(self) -> str:
         """全部の番号をまとめて確かめ直し、``<シェイプの完全パス>.<種類>`` を返す。
 
@@ -796,14 +787,6 @@ class Components:
 
         Returns:
             str: ``prefix[start]`` または ``prefix[start:end]``。
-        """
-        ...
-    def _get_coordinate(self, axis, **space):
-        """指定した軸の値を、持っている順に返す。axisは派生クラスが選ぶ。
-
-        Args:
-            axis: 座標成分の番号。0=X、1=Y、2=Z。
-            **space: 座標空間の指定。worldSpace=Trueでワールド空間。
         """
         ...
     def getFullName(self) -> list[str]:
@@ -849,5 +832,65 @@ def _component_name(prefix: str, numbers: Sequence[int]) -> str:
 
     Returns:
         str: コンポーネント名。
+    """
+    ...
+
+def _axis_index(axis: str, names: str) -> int:
+    """1成分だけを書き込むときの成分の名前を、成分の番号にする。
+
+    Args:
+        axis (str): 成分の名前。大文字でもよい。
+        names (str): 使える名前を番号の順に並べた文字列(``"xyz"`` または ``"uv"``)。
+
+    Returns:
+        int: 成分の番号。
+
+    Raises:
+        TypeError: axisが文字列でない場合。
+        ValueError: axisが使える名前でない場合。
+    """
+    ...
+
+def _axis_numbers(value: float | Iterable[float], count: int, each: bool) -> list[float]:
+    """1つの成分の値を確かめて、要素の数だけの値のリストにする。
+
+    Args:
+        value (float | Iterable[float]): 全要素に同じ値、またはeach=Trueならcount個の値の並び。
+        count (int): 持っている要素の数。
+        each (bool): Trueなら、valueを要素ごとの値の並びとして使う。
+
+    Returns:
+        list[float]: count個の有限な値。
+
+    Raises:
+        TypeError: each=Falseで数値でない場合、またはeach=Trueで数値の並びでない場合(文字列も含む)。
+        ValueError: 有限でない場合、または値の並びの数がcountと違う場合。
+    """
+    ...
+
+def _edited_row(current: Sequence[float], entered: Sequence[float] | float, column: int | None, relative: bool) -> tuple[float, ...]:
+    """今の座標と入力から、書き込む座標を作る。
+
+    Args:
+        current (Sequence[float]): 今の座標。
+        entered (Sequence[float] | float): 入力。columnがNoneなら全成分、そうでなければ1成分の数値。
+        column (int | None): 書き込む成分の番号。Noneなら全成分。
+        relative (bool): Trueなら、今の値に入力を足す。
+
+    Returns:
+        tuple[float, ...]: 書き込む座標。
+    """
+    ...
+
+def _require_single_row(value: object):
+    """each=Falseの値が、座標の並び(要素ごとの値)でないことを確かめる。
+
+    点の数が成分の数と同じ並びでも、成分の数の例外(ValueError)にせず、同じTypeErrorにそろえる。
+
+    Args:
+        value (object): 全要素に使う1つの座標として渡された値。
+
+    Raises:
+        TypeError: 座標の並びの場合。
     """
     ...

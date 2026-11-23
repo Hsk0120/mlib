@@ -35,7 +35,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                 mesh.setFaceVertexNormals([(1, 2, 3), (2, -1, 0)], faceVertices=components)
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.assertVector(components[1].getNormal(), om2.MVector(2, -1, 0).normal())
-                self.assertTrue(components[0].isNormalLocked())
+                self.assertTrue(components[0].getNormal(locked=True))
                 for index, value in enumerate(mesh.getFaceVertexNormals()):
                     if index not in components.indices:
                         self.assertVector(value, before[index])
@@ -46,10 +46,30 @@ class MeshFaceVerticesTest(NamespaceCase):
                 cmds.redo()
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.flushUndo()
-                components[0].setNormalLocked(False)
-                self.assertFalse(components[0].isNormalLocked())
+                components[0].setNormal(locked=False)
+                self.assertFalse(components[0].getNormal(locked=True))
+                self.assertFalse(mesh.getFaceVertexNormalLocks(faceVertices=components)[0])
+                self.assertTrue(components[1].getNormal(locked=True))
                 cmds.undo()
-                self.assertTrue(components[0].isNormalLocked())
+                self.assertTrue(components[0].getNormal(locked=True))
+                # locked=True は法線の値を書かずにロックだけを掛け、Undo 1回で戻る。
+                components[0].setNormal(locked=False)
+                value = components[0].getNormal()
+                self.flushUndo()
+                self.assertIsNone(components[0].setNormal(locked=True))
+                self.assertIs(components[0].getNormal(locked=True), True)
+                self.assertVector(components[0].getNormal(), value)
+                cmds.undo()
+                self.assertIs(components[0].getNormal(locked=True), False)
+                self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+                # normal を渡すと設定してロックする(locked は None か True)。
+                for locked in (None, True):
+                    components[0].setNormal(locked=False)
+                    components[0].setNormal((0, 0, 1), locked=locked)
+                    self.assertVector(components[0].getNormal(), (0, 0, 1))
+                    self.assertTrue(components[0].getNormal(locked=True))
+                # 複数形は各要素へ転送する。
+                self.assertEqual(components.getNormal(locked=True), mesh.getFaceVertexNormalLocks(faceVertices=components))
 
     def test_fast_normals_and_world_space(self):
         for fast in (False, True):
@@ -64,8 +84,15 @@ class MeshFaceVerticesTest(NamespaceCase):
                 self.assertVector(component.getNormal(ws=True), om2.MVector(1, 2, -1).normal())
                 if fast:
                     self.assertUndoEmpty()
-                component.setNormalLocked(False, fast=fast)
-                self.assertFalse(component.isNormalLocked())
+                self.assertTrue(component.getNormal(locked=True))
+                self.flushUndo()
+                component.setNormal(locked=False, fast=fast)
+                self.assertFalse(component.getNormal(locked=True))
+                self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
+                self.flushUndo()
+                component.setNormal(locked=True, fast=fast)
+                self.assertTrue(component.getNormal(locked=True))
+                self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
 
     def test_normal_validation_before_update(self):
         mesh = self.mesh()
@@ -84,10 +111,31 @@ class MeshFaceVerticesTest(NamespaceCase):
             mesh.setFaceVertexNormals([], fast=1)
         with self.assertRaises(TypeError):
             mesh.getFaceVertexNormals(True, ws=True)
+        component = mesh.getVertexFaces([0])[0]
+        locks = mesh.getFaceVertexNormalLocks()
+        for flags in (
+            {},
+            {"locked": 1},
+            {"locked": True, "worldSpace": True},
+            {"locked": True, "ws": False},
+            {"locked": False, "check": True},
+            {"normal": (1, 0, 0), "locked": False},
+        ):
+            with self.subTest(method="VertexFace.setNormal", flags=flags):
+                with self.assertRaises(TypeError):
+                    component.setNormal(**flags)
+        for flags in ({"locked": 1}, {"locked": True, "worldSpace": False}, {"locked": True, "ws": True}):
+            with self.subTest(method="VertexFace.getNormal", flags=flags):
+                with self.assertRaises(TypeError):
+                    component.getNormal(**flags)
+        self.assertEqual(mesh.getFaceVertexNormalLocks(), locks)
+        for value, expected in zip(mesh.getFaceVertexNormals(), before):
+            self.assertVector(value, expected)
         history = self.mesh(True)
         for operation in (
             lambda: history.setFaceVertexNormals([(1, 0, 0)], fast=True, faceVertices=[0]),
             lambda: history.setFaceVertexNormalsLocked(fast=True),
+            lambda: history.getVertexFaces([0])[0].setNormal(locked=True, fast=True),
         ):
             with self.assertRaises(NotImplementedError):
                 operation()
@@ -108,26 +156,32 @@ class MeshFaceVerticesTest(NamespaceCase):
                 self.assertVector(tangent, fn.getFaceVertexTangent(face, vertex, space, "extra"))
                 self.assertVector(binormal, fn.getFaceVertexBinormal(face, vertex, space, "extra"))
                 self.assertVector(component.getTangent(world, uvSet="extra"), tangent)
-                self.assertVector(component.getBinormal(world, uvSet="extra"), binormal)
+                self.assertVector(component.getTangent(world, uvSet="extra", binormal=True), binormal)
+                self.assertVector(component.getTangent(ws=world, binormal=False, uvSet="extra"), tangent)
+                self.assertVector(component.getTangent(world, binormal=True), fn.getFaceVertexBinormal(face, vertex, space, "map1"))
+        with self.assertRaises(TypeError):
+            components[0].getTangent(binormal=1)
+        with self.assertRaises(TypeError):
+            components[0].getTangent(False, True)
         self.assertEqual(mesh.getCurrentUVSet(), "map1")
 
     def test_uv_inspection_and_missing_tangents(self):
         mesh = self.mesh()
         mesh.setUVData([(0, 0), (1, 0), (1, 1), (0, 1)], [4, 4, 4, 0, 0, 0], [0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 0], fast=True)
-        self.assertAlmostEqual(mesh.getFace(0).getUVArea(), 1.0)
-        self.assertFalse(mesh.getFace(0).isUVReversed())
-        self.assertTrue(mesh.getFace(1).isUVReversed())
-        self.assertTrue(mesh.getFace(2).isZeroUVArea())
-        self.assertFalse(mesh.getFace(2).isUVReversed())
-        self.assertTrue(mesh.getFace(0).hasValidTriangulation())
+        self.assertAlmostEqual(mesh.getFace(0).getArea(uv=True), 1.0)
+        self.assertFalse(mesh.getFace(0).isKind("uvReversed"))
+        self.assertTrue(mesh.getFace(1).isKind("uvReversed"))
+        self.assertTrue(mesh.getFace(2).isKind("zeroUVArea"))
+        self.assertFalse(mesh.getFace(2).isKind("uvReversed"))
+        self.assertTrue(mesh.getFace(0).isKind("validTriangulation"))
         with self.assertRaises(RuntimeError):
-            mesh.getFace(3).getUVArea()
+            mesh.getFace(3).getArea(uv=True)
         with self.assertRaises(RuntimeError):
             mesh.getFaceVertexTangents(faceVertices=[8])
         with self.assertRaises(RuntimeError):
             mesh.getFaceVertexBinormals(faceVertices=[12])
         with self.assertRaises(ValueError):
-            mesh.getFace(0).isZeroUVArea(tolerance=-1)
+            mesh.getFace(0).isKind("zeroUVArea", tolerance=-1)
 
     def test_uv_data_changes_count_and_assignments_with_undo(self):
         for history in (False, True):

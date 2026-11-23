@@ -349,40 +349,42 @@ class _CheckCase(NamespaceCase):
     def c_PointComponent_setPosition(self):
         return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, **kw), (1.0, 2.0, 3.0), (1.0, 2.0, NAN))
 
-    def c_PointComponent_setPositionX(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPositionX(value, **kw), 2.0, NAN)
+    def c_PointComponent_setPosition_axisX(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="x", **kw), 2.0, NAN)
 
-    def c_PointComponent_setPositionY(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPositionY(value, **kw), 2.0, INF)
+    def c_PointComponent_setPosition_axisY(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="y", **kw), 2.0, INF)
 
-    def c_PointComponent_setPositionZ(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPositionZ(value, **kw), 2.0, NAN)
+    def c_PointComponent_setPosition_axisZ(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="z", **kw), 2.0, NAN)
 
-    def c_PointComponent_moveBy(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).moveBy(value, **kw), (1.0, 0.0, 0.0), (NAN, 0.0, 0.0))
+    def c_PointComponent_setPosition_relative(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, relative=True, **kw), (1.0, 0.0, 0.0), (NAN, 0.0, 0.0))
 
-    def c_PointComponents_setPositionX(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPositionX(value, **kw), 2.0, NAN)
+    def c_PointComponents_setPosition_axisX(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, axis="x", **kw), 2.0, NAN)
 
-    def c_PointComponents_setPositionY(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPositionY(value, **kw), [2.0, 3.0], [2.0, NAN])
+    def c_PointComponents_setPosition_axisY_each(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, axis="y", each=True, **kw), [2.0, 3.0], [2.0, NAN])
 
-    def c_PointComponents_setPositionZ(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPositionZ(value, **kw), 2.0, INF)
+    def c_PointComponents_setPosition_axisZ(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, axis="z", **kw), 2.0, INF)
 
     def c_PointComponents_setPosition(self):
         return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, **kw), (1.0, 2.0, 3.0), (NAN, 2.0, 3.0))
 
-    def c_PointComponents_setPositions(self):
+    def c_PointComponents_setPosition_each(self):
         return self._vertex_case(
-            lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPositions(value, **kw), [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)], [(1.0, 0.0, 0.0), (0.0, NAN, 0.0)]
+            lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, each=True, **kw),
+            [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
+            [(1.0, 0.0, 0.0), (0.0, NAN, 0.0)],
         )
 
     def c_PointComponents_mirror(self):
         return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).mirror("x", pivot=value, **kw), (0.25, 0.0, 0.0), (NAN, 0.0, 0.0))
 
-    def c_PointComponents_moveBy(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).moveBy(value, **kw), (0.0, 1.0, 0.0), (0.0, INF, 0.0))
+    def c_PointComponents_setPosition_relative(self):
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, relative=True, **kw), (0.0, 1.0, 0.0), (0.0, INF, 0.0))
 
     def c_Mesh_setPoints(self):
         good = [(x * 2.0, y * 2.0, z * 2.0) for x in (-0.5, 0.5) for y in (-0.5, 0.5) for z in (-0.5, 0.5)]

@@ -131,7 +131,7 @@ class ComponentUsabilityTest(unittest.TestCase):
         with self.assertRaises(IndexError):
             items[0].getPosition()
         with self.assertRaises(IndexError):
-            items[1].getFullNames()
+            items[1].getNames(full=True)
         cmds.undo()
         cmds.undo()
         self.assertTrue(all(item.isValid() for item in items))

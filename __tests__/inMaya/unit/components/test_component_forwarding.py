@@ -51,7 +51,7 @@ class ComponentForwardingTest(_Case):
         vertices = mesh.getVertices([0, 1])
         before = vertices.getPosition()
         self.flushUndo()
-        vertices.setPositionY(5.0)
+        vertices.setPosition(5.0, axis="y")
         self.assertEqual([p[1] for p in vertices.getPosition()], [5.0, 5.0])
         cmds.undo()
         self.assertEqual(vertices.getPosition(), before)

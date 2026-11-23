@@ -42,7 +42,7 @@ class MeshSurfaceDataTest(NamespaceCase):
     def test_normal_data_custom_locked_world_and_plural(self):
         mesh = self.mesh()
         mesh.setFaceVertexNormals([(1, 2, 3)], faceVertices=[0], fast=True)
-        self.assertTrue(mesh.getVertexFaces([0])[0].isNormalLocked())
+        self.assertTrue(mesh.getVertexFaces([0])[0].getNormal(locked=True))
         parent = mesh.getParent().getFullName()
         cmds.setAttr(parent + ".scale", 2, 3, 0.5)
         cmds.setAttr(parent + ".rotate", 20, -30, 10)

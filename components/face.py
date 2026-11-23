@@ -10,6 +10,16 @@ from .component import Component, Components
 from .uv import UVs
 from .vertex import Vertices
 
+#: :meth:`Face.isKind` の種類の名前と、``om2.MItMeshPolygon`` の判定メソッド名の対応(引数を取らないもの)。
+_FACE_KIND_QUERIES = {
+    "planar": "isPlanar",
+    "convex": "isConvex",
+    "starlike": "isStarlike",
+    "lamina": "isLamina",
+    "holed": "isHoled",
+    "validTriangulation": "hasValidTriangulation",
+}
+
 
 class Face(Component):
     """メッシュのフェース1つを表すクラス。"""
@@ -132,24 +142,41 @@ class Face(Component):
         self._require_valid()
         return Vector(self.shape._geometry_fn().getPolygonNormal(self.index, space)).normal()
 
-    def getArea(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """面の面積を、cm²で取得する。
+    def getArea(self, worldSpace=_UNSET, *, uv=False, uvSet=None, ws=_UNSET):
+        """面の面積を取得する。
 
-        ``MItMeshPolygon.getArea`` で求める。
+        既定では、3Dの面積をcm²で返す(``MItMeshPolygon.getArea``)。
+        ``uv=True`` なら、UV座標での面積を返す(``MItMeshPolygon.getUVArea``)。UV上の面積は単位が無く、
+        3D形状やTransformのスケールには依存しない。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``uv=True`` とは同時に指定できない。
+            uv (bool): TrueならUV上の面積を返す。既定はFalse(3Dの面積)。
+            uvSet (str | None): ``uv=True`` のときのUVセット。Noneは現在のセット。``uv=True`` のときだけ指定できる。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            float: 面積(cm²)。ワールド空間では、親のスケールも含む。
+            float: 面積(cm²)。ワールド空間では、親のスケールも含む。``uv=True`` ならUV座標での面積。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceかuvがboolでない場合、worldSpaceとwsを同時に指定した場合、``uv=True`` と
+                worldSpace(ws)を同時に指定した場合、``uv=True`` でないのにuvSetを指定した場合、またはuvSetが文字列でもNoneでもない場合。
+            ValueError: 指定したUVセットが無い場合。
             IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
+            RuntimeError: Shapeが無効な場合、または ``uv=True`` で、フェースにUVが割り当てられていない場合。
         """
+        _require_bool(uv, "uv")
+        if uv:
+            if worldSpace is not _UNSET or ws is not _UNSET:
+                raise TypeError("uv=TrueとworldSpace(ws)は同時に指定できません")
+            name = self.shape._resolve_uv_set(uvSet)
+            iterator = self._iterator()
+            if not iterator.hasUVs(name):
+                raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+            return iterator.getUVArea(name)
+        if uvSet is not None:
+            raise TypeError("uvSetはuv=Trueのときだけ指定できます")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         self._require_valid()
@@ -157,50 +184,39 @@ class Face(Component):
         it.setIndex(self.index)
         return it.getArea(space)
 
-    def getConnectedFaces(self):
-        """このフェースとエッジを共有するフェースを取得する。
+    def getConnected(self, *, type="face"):
+        """このフェースの隣にあるコンポーネントを取得する。
 
-        自身は含めない。``MItMeshPolygon.getConnectedFaces`` で求める。
+        ``type`` で、取得する種類を選ぶ。どれも自身(このフェースのエッジ・頂点)は含めない。
+
+        - ``"face"``: このフェースとエッジを共有するフェース(``MItMeshPolygon.getConnectedFaces``)。
+        - ``"edge"``: このフェースの頂点につながる、フェース外のエッジ。フェース自身のエッジは :meth:`getEdges` で取得する。
+        - ``"vertex"``: このフェースとエッジでつながる、フェース外の頂点。フェース自身の頂点は :meth:`getVertices` で取得する。
+
+        Args:
+            type (str): 取得する種類。``"face"``・``"edge"``・``"vertex"``。既定は ``"face"``。
 
         Returns:
-            Faces: フェース。番号の小さい順に並び、重なりは無い。
+            Faces | Edges | Vertices: ``type`` に合う集まり。番号の小さい順に並び、重なりは無い。
 
         Raises:
+            TypeError: typeが文字列でない場合。
+            ValueError: typeが ``"face"``・``"edge"``・``"vertex"`` のどれでもない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
-        return Faces(self.shape, sorted(set(self._iterator().getConnectedFaces())))
+        if not isinstance(type, str):
+            raise TypeError(f"typeは文字列で指定してください: {type.__class__.__name__}")
+        if type == "face":
+            return Faces(self.shape, sorted(set(self._iterator().getConnectedFaces())))
+        if type == "edge":
+            # edge.pyがFaceを参照するため、循環を避けて呼出し時に読む。
+            from .edge import Edges
 
-    def getConnectedEdges(self):
-        """このフェースの頂点につながる、フェース外のエッジを取得する。
-
-        フェース自身のエッジは含めない。getEdgesとは取得対象が異なる。
-
-        Returns:
-            Edges: 番号の小さい順に並ぶ、重複のないエッジ。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        # edge.pyがFaceを参照するため、循環を避けて呼出し時に読む。
-        from .edge import Edges
-
-        return Edges(self.shape, sorted(set(self._iterator().getConnectedEdges())))
-
-    def getConnectedVertices(self):
-        """このフェースとエッジでつながる、フェース外の頂点を取得する。
-
-        フェース自身の頂点は含めない。getVerticesとは取得対象が異なる。
-
-        Returns:
-            Vertices: 番号の小さい順に並ぶ、重複のない頂点。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return Vertices(self.shape, sorted(set(self._iterator().getConnectedVertices())))
+            return Edges(self.shape, sorted(set(self._iterator().getConnectedEdges())))
+        if type == "vertex":
+            return Vertices(self.shape, sorted(set(self._iterator().getConnectedVertices())))
+        raise ValueError(f'typeは"face"・"edge"・"vertex"のどれかで指定してください: {type!r}')
 
     def getVertexFaces(self):
         """このフェースの頂点フェースを、フェースの頂点の順に取得する。
@@ -304,74 +320,6 @@ class Face(Component):
         name = self.shape._resolve_uv_set(uvSet)
         return tuple(self._iterator().getUVAtPoint(value, space, name))
 
-    def getUVArea(self, *, uvSet=None):
-        """フェースのUV上の面積を取得する。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-
-        Returns:
-            float: UV座標での面積。3D形状やTransformのスケールには依存しない。
-
-        Raises:
-            TypeError: uvSetが文字列・None以外の場合。
-            ValueError: UVセットが無い場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        name = self.shape._resolve_uv_set(uvSet)
-        iterator = self._iterator()
-        if not iterator.hasUVs(name):
-            raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
-        return iterator.getUVArea(name)
-
-    def isUVReversed(self, *, uvSet=None):
-        """フェースのUVが時計回りに並ぶか調べる。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-
-        Returns:
-            bool: 面の頂点順にUVをたどり、符号付き面積が負ならTrue。面積0ならFalse。
-
-        Raises:
-            TypeError: uvSetが文字列・None以外の場合。
-            ValueError: UVセットが無い場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        name = self.shape._resolve_uv_set(uvSet)
-        iterator = self._iterator()
-        if not iterator.hasUVs(name):
-            raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
-        us, vs = iterator.getUVs(name)
-        # MItMeshPolygon.isUVReversedはPython API 2.0の引数変換が失敗する版があるため、UVの巻き方向から求める。
-        return sum(u * vs[(index + 1) % len(us)] - us[(index + 1) % len(us)] * vs[index] for index, u in enumerate(us)) < 0
-
-    def isZeroUVArea(self, *, uvSet=None, tolerance=1e-10):
-        """フェースのUV上の面積が許容誤差以下か調べる。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            tolerance (float): UV面積の許容誤差。0以上の有限値。
-
-        Returns:
-            bool: UV面積がtolerance以下ならTrue。
-
-        Raises:
-            TypeError: uvSet・toleranceの型が不正な場合。
-            ValueError: UVセットが無いか、許容誤差が不正な場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        tolerance = _checked_tolerance(tolerance)
-        return self.getUVArea(uvSet=uvSet) <= tolerance
-
-    def hasValidTriangulation(self):
-        """フェースがMayaで有効な三角形分割を持つか調べる。
-
-        Returns:
-            bool: MItMeshPolygon.hasValidTriangulationの判定。
-        """
-        return self._iterator().hasValidTriangulation()
-
     def isOnBoundary(self):
         """メッシュの縁に接するフェースか調べる。
 
@@ -386,98 +334,65 @@ class Face(Component):
         """
         return self._iterator().onBoundary()
 
-    def isPlanar(self):
-        """フェースの頂点が、同じ平面の上にあるか調べる。
+    def isKind(self, kind, *, uvSet=None, tolerance=None):
+        """フェースが、名前で選んだ種類の形に当たるか調べる。
 
-        ``MItMeshPolygon.isPlanar`` で調べる。
+        ``kind`` で、調べる内容を選ぶ。
 
-        Returns:
-            bool: 平面ならTrue。三角形は常にTrue。
+        - ``"planar"``: 頂点が同じ平面の上にある(``MItMeshPolygon.isPlanar``)。三角形は常にTrue。
+        - ``"convex"``: 凸多角形である(``MItMeshPolygon.isConvex``)。
+        - ``"starlike"``: Mayaの星状多角形の条件を満たす(``MItMeshPolygon.isStarlike``)。凸かどうか・三角形分割が有効かとは別の判定。
+        - ``"lamina"``: ラミナフェース(別のフェースとすべてのエッジを共有している、重なったフェース)である(``MItMeshPolygon.isLamina``)。
+        - ``"holed"``: 穴を持つ(``MItMeshPolygon.isHoled``)。
+        - ``"validTriangulation"``: Mayaで有効な三角形分割を持つ(``MItMeshPolygon.hasValidTriangulation``)。
+        - ``"zeroArea"``: 面積がtolerance以下である。頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。
+          Shapeのオブジェクト空間での面積(``MItMeshPolygon.getArea``)で判定する。
+          ``MItMeshPolygon.zeroArea`` は、頂点を1点へ集めたフェースでもFalseを返すことがあるので使わない。
+        - ``"zeroUVArea"``: UV上の面積(:meth:`getArea` の ``uv=True``)がtolerance以下である。
+        - ``"uvReversed"``: UVが時計回りに並ぶ。面の頂点順にUVをたどり、符号付き面積が負ならTrue(面積0ならFalse)。
 
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return self._iterator().isPlanar()
-
-    def isConvex(self):
-        """凸多角形のフェースか調べる。
-
-        ``MItMeshPolygon.isConvex`` で調べる。
-
-        Returns:
-            bool: 凸ならTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return self._iterator().isConvex()
-
-    def isStarlike(self):
-        """フェースがMayaの星状多角形の条件を満たすか調べる。
-
-        MItMeshPolygon.isStarlikeの判定を返す。凸性や三角形分割の有効性とは別の照会。
-
-        Returns:
-            bool: 星状多角形ならTrue。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return self._iterator().isStarlike()
-
-    def isLamina(self):
-        """ラミナフェースか調べる。
-
-        ラミナフェースとは、別のフェースとすべてのエッジを共有している、重なったフェースのこと。
-        ``MItMeshPolygon.isLamina`` で調べる。
-
-        Returns:
-            bool: ラミナフェースならTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return self._iterator().isLamina()
-
-    def isHoled(self):
-        """穴を持つフェースか調べる。
-
-        ``MItMeshPolygon.isHoled`` で調べる。
-
-        Returns:
-            bool: 穴があればTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        return self._iterator().isHoled()
-
-    def isZeroArea(self, *, tolerance=1e-10):
-        """面積がほぼ0のフェースか調べる。
-
-        頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。
-        Shapeのオブジェクト空間での面積(``MItMeshPolygon.getArea``)で判定する。
-        ``MItMeshPolygon.zeroArea`` は、頂点を1点へ集めたフェースでもFalseを返すことがあるので使わない。
+        メッシュの縁に接するかは :meth:`isOnBoundary` で調べる。
 
         Args:
-            tolerance (float): 面積の許容誤差(cm²)。0以上。既定は1e-10。
+            kind (str): 調べる種類。上の名前のどれか。
+            uvSet (str | None): UVセット。Noneは現在のセット。``"zeroUVArea"``・``"uvReversed"`` のときだけ指定できる。
+            tolerance (float | None): 面積の許容誤差。0以上の有限値。Noneなら1e-10。``"zeroArea"`` (cm²)・``"zeroUVArea"`` のときだけ指定できる。
 
         Returns:
-            bool: 面積がtolerance以下ならTrue。
+            bool: その種類に当たればTrue。
 
         Raises:
-            TypeError: toleranceが数値でない場合。
-            ValueError: toleranceが負の場合、または有限でない場合。
+            TypeError: kindが文字列でない場合、その種類で使わないuvSet・toleranceを指定した場合、
+                またはuvSet・toleranceの型が合わない場合。
+            ValueError: kindが決まった名前でない場合、toleranceが負か有限でない場合、またはUVセットが無い場合。
             IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
+            RuntimeError: Shapeが無効な場合、または ``"zeroUVArea"``・``"uvReversed"`` で、フェースにUVが割り当てられていない場合。
         """
-        limit = _checked_tolerance(tolerance)
-        return self._iterator().getArea() <= limit
+        if not isinstance(kind, str):
+            raise TypeError(f"kindは文字列で指定してください: {type(kind).__name__}")
+        uses_uv_set = kind in ("zeroUVArea", "uvReversed")
+        uses_tolerance = kind in ("zeroArea", "zeroUVArea")
+        if not (kind in _FACE_KIND_QUERIES or uses_uv_set or uses_tolerance):
+            names = "・".join(f'"{name}"' for name in (*_FACE_KIND_QUERIES, "zeroArea", "zeroUVArea", "uvReversed"))
+            raise ValueError(f"kindは{names}のどれかで指定してください: {kind!r}")
+        if uvSet is not None and not uses_uv_set:
+            raise TypeError(f'uvSetはkindが"zeroUVArea"・"uvReversed"のときだけ指定できます: {kind!r}')
+        if tolerance is not None and not uses_tolerance:
+            raise TypeError(f'toleranceはkindが"zeroArea"・"zeroUVArea"のときだけ指定できます: {kind!r}')
+        if uses_tolerance:
+            limit = _checked_tolerance(1e-10 if tolerance is None else tolerance)
+            if kind == "zeroUVArea":
+                return self.getArea(uv=True, uvSet=uvSet) <= limit
+            return self._iterator().getArea() <= limit
+        if kind == "uvReversed":
+            name = self.shape._resolve_uv_set(uvSet)
+            iterator = self._iterator()
+            if not iterator.hasUVs(name):
+                raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+            us, vs = iterator.getUVs(name)
+            # MItMeshPolygon.isUVReversedはPython API 2.0の引数変換が失敗する版があるため、UVの巻き方向から求める。
+            return sum(u * vs[(index + 1) % len(us)] - us[(index + 1) % len(us)] * vs[index] for index, u in enumerate(us)) < 0
+        return getattr(self._iterator(), _FACE_KIND_QUERIES[kind])()
 
     def getTriangleCount(self):
         """フェースを三角形に分けたときの、三角形の数を取得する。
@@ -588,7 +503,7 @@ class Faces(Components):
             if len(shapes) != 1:
                 raise TypeError(f"curveはNURBSカーブを1つ指定してください: {node.getFullName()}")
             flags["inputCurve"] = shapes[0].getFullName()
-        return Node(cmds.polyExtrudeFacet(self.getCompactNames(), **flags)[0])
+        return Node(cmds.polyExtrudeFacet(self.getNames(full=True, compact=True), **flags)[0])
 
     def getVertices(self):
         """各フェースの頂点を取得する。

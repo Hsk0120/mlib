@@ -9,7 +9,7 @@ from ..util import _UNSET, _checked_tolerance, _finite, _world_space
 from .component import Component, Components
 from .uv import UVs
 from .vertex import Vertices
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator, Literal, Sequence
 from mlib.components.edge import Edges
 from mlib.components.vertexFace import VertexFaces
 from mlib.nodes.node import Node
@@ -17,6 +17,7 @@ from mlib.nodes.node import Nodes
 from mlib.nodes.shadingEngine import ShadingEngine
 from typing import overload
 
+_FACE_KIND_QUERIES: dict
 
 
 class Face(Component):
@@ -112,61 +113,57 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getArea(self, worldSpace: bool = ..., *, ws: bool = ...) -> float:
-        """面の面積を、cm²で取得する。
+    def getArea(self, worldSpace: bool = ..., *, uv: bool = ..., uvSet: str | None = ..., ws: bool = ...) -> float:
+        """面の面積を取得する。
 
-        ``MItMeshPolygon.getArea`` で求める。
+        既定では、3Dの面積をcm²で返す(``MItMeshPolygon.getArea``)。
+        ``uv=True`` なら、UV座標での面積を返す(``MItMeshPolygon.getUVArea``)。UV上の面積は単位が無く、
+        3D形状やTransformのスケールには依存しない。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``uv=True`` とは同時に指定できない。
+            uv (bool): TrueならUV上の面積を返す。既定はFalse(3Dの面積)。
+            uvSet (str | None): ``uv=True`` のときのUVセット。Noneは現在のセット。``uv=True`` のときだけ指定できる。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            float: 面積(cm²)。ワールド空間では、親のスケールも含む。
+            float: 面積(cm²)。ワールド空間では、親のスケールも含む。``uv=True`` ならUV座標での面積。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceかuvがboolでない場合、worldSpaceとwsを同時に指定した場合、``uv=True`` と
+                worldSpace(ws)を同時に指定した場合、``uv=True`` でないのにuvSetを指定した場合、またはuvSetが文字列でもNoneでもない場合。
+            ValueError: 指定したUVセットが無い場合。
             IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
+            RuntimeError: Shapeが無効な場合、または ``uv=True`` で、フェースにUVが割り当てられていない場合。
         """
         ...
-    def getConnectedFaces(self) -> Faces:
-        """このフェースとエッジを共有するフェースを取得する。
+    @overload
+    def getConnected(self, *, type: Literal["face"] = ...) -> Faces: ...
+    @overload
+    def getConnected(self, *, type: Literal["edge"]) -> Edges: ...
+    @overload
+    def getConnected(self, *, type: Literal["vertex"]) -> Vertices: ...
+    @overload
+    def getConnected(self, *, type: str = ...) -> Faces | Edges | Vertices:
+        """このフェースの隣にあるコンポーネントを取得する。
 
-        自身は含めない。``MItMeshPolygon.getConnectedFaces`` で求める。
+        ``type`` で、取得する種類を選ぶ。どれも自身(このフェースのエッジ・頂点)は含めない。
+
+        - ``"face"``: このフェースとエッジを共有するフェース(``MItMeshPolygon.getConnectedFaces``)。
+        - ``"edge"``: このフェースの頂点につながる、フェース外のエッジ。フェース自身のエッジは :meth:`getEdges` で取得する。
+        - ``"vertex"``: このフェースとエッジでつながる、フェース外の頂点。フェース自身の頂点は :meth:`getVertices` で取得する。
+
+        Args:
+            type (str): 取得する種類。``"face"``・``"edge"``・``"vertex"``。既定は ``"face"``。
 
         Returns:
-            Faces: フェース。番号の小さい順に並び、重なりは無い。
+            Faces | Edges | Vertices: ``type`` に合う集まり。番号の小さい順に並び、重なりは無い。
 
         Raises:
+            TypeError: typeが文字列でない場合。
+            ValueError: typeが ``"face"``・``"edge"``・``"vertex"`` のどれでもない場合。
             IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def getConnectedEdges(self) -> Edges:
-        """このフェースの頂点につながる、フェース外のエッジを取得する。
-
-        フェース自身のエッジは含めない。getEdgesとは取得対象が異なる。
-
-        Returns:
-            Edges: 番号の小さい順に並ぶ、重複のないエッジ。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def getConnectedVertices(self) -> Vertices:
-        """このフェースとエッジでつながる、フェース外の頂点を取得する。
-
-        フェース自身の頂点は含めない。getVerticesとは取得対象が異なる。
-
-        Returns:
-            Vertices: 番号の小さい順に並ぶ、重複のない頂点。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
             RuntimeError: Shapeが無効な場合。
         """
         ...
@@ -247,59 +244,6 @@ class Face(Component):
             RuntimeError: Shapeが無効、UV未割り当て、またはMayaが照会を拒否した場合。
         """
         ...
-    def getUVArea(self, *, uvSet: str | None = ...) -> float:
-        """フェースのUV上の面積を取得する。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-
-        Returns:
-            float: UV座標での面積。3D形状やTransformのスケールには依存しない。
-
-        Raises:
-            TypeError: uvSetが文字列・None以外の場合。
-            ValueError: UVセットが無い場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        ...
-    def isUVReversed(self, *, uvSet: str | None = ...) -> bool:
-        """フェースのUVが時計回りに並ぶか調べる。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-
-        Returns:
-            bool: 面の頂点順にUVをたどり、符号付き面積が負ならTrue。面積0ならFalse。
-
-        Raises:
-            TypeError: uvSetが文字列・None以外の場合。
-            ValueError: UVセットが無い場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        ...
-    def isZeroUVArea(self, *, uvSet: str | None = ..., tolerance: float = ...) -> bool:
-        """フェースのUV上の面積が許容誤差以下か調べる。
-
-        Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            tolerance (float): UV面積の許容誤差。0以上の有限値。
-
-        Returns:
-            bool: UV面積がtolerance以下ならTrue。
-
-        Raises:
-            TypeError: uvSet・toleranceの型が不正な場合。
-            ValueError: UVセットが無いか、許容誤差が不正な場合。
-            RuntimeError: フェースにUVが割り当てられていない場合。
-        """
-        ...
-    def hasValidTriangulation(self) -> bool:
-        """フェースがMayaで有効な三角形分割を持つか調べる。
-
-        Returns:
-            bool: MItMeshPolygon.hasValidTriangulationの判定。
-        """
-        ...
     def isOnBoundary(self) -> bool:
         """メッシュの縁に接するフェースか調べる。
 
@@ -313,90 +257,39 @@ class Face(Component):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def isPlanar(self) -> bool:
-        """フェースの頂点が、同じ平面の上にあるか調べる。
+    def isKind(self, kind: str, *, uvSet: str | None = ..., tolerance: float | None = ...) -> bool:
+        """フェースが、名前で選んだ種類の形に当たるか調べる。
 
-        ``MItMeshPolygon.isPlanar`` で調べる。
+        ``kind`` で、調べる内容を選ぶ。
 
-        Returns:
-            bool: 平面ならTrue。三角形は常にTrue。
+        - ``"planar"``: 頂点が同じ平面の上にある(``MItMeshPolygon.isPlanar``)。三角形は常にTrue。
+        - ``"convex"``: 凸多角形である(``MItMeshPolygon.isConvex``)。
+        - ``"starlike"``: Mayaの星状多角形の条件を満たす(``MItMeshPolygon.isStarlike``)。凸かどうか・三角形分割が有効かとは別の判定。
+        - ``"lamina"``: ラミナフェース(別のフェースとすべてのエッジを共有している、重なったフェース)である(``MItMeshPolygon.isLamina``)。
+        - ``"holed"``: 穴を持つ(``MItMeshPolygon.isHoled``)。
+        - ``"validTriangulation"``: Mayaで有効な三角形分割を持つ(``MItMeshPolygon.hasValidTriangulation``)。
+        - ``"zeroArea"``: 面積がtolerance以下である。頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。
+          Shapeのオブジェクト空間での面積(``MItMeshPolygon.getArea``)で判定する。
+          ``MItMeshPolygon.zeroArea`` は、頂点を1点へ集めたフェースでもFalseを返すことがあるので使わない。
+        - ``"zeroUVArea"``: UV上の面積(:meth:`getArea` の ``uv=True``)がtolerance以下である。
+        - ``"uvReversed"``: UVが時計回りに並ぶ。面の頂点順にUVをたどり、符号付き面積が負ならTrue(面積0ならFalse)。
 
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def isConvex(self) -> bool:
-        """凸多角形のフェースか調べる。
-
-        ``MItMeshPolygon.isConvex`` で調べる。
-
-        Returns:
-            bool: 凸ならTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def isStarlike(self) -> bool:
-        """フェースがMayaの星状多角形の条件を満たすか調べる。
-
-        MItMeshPolygon.isStarlikeの判定を返す。凸性や三角形分割の有効性とは別の照会。
-
-        Returns:
-            bool: 星状多角形ならTrue。
-
-        Raises:
-            IndexError: フェース番号が範囲外の場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def isLamina(self) -> bool:
-        """ラミナフェースか調べる。
-
-        ラミナフェースとは、別のフェースとすべてのエッジを共有している、重なったフェースのこと。
-        ``MItMeshPolygon.isLamina`` で調べる。
-
-        Returns:
-            bool: ラミナフェースならTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def isHoled(self) -> bool:
-        """穴を持つフェースか調べる。
-
-        ``MItMeshPolygon.isHoled`` で調べる。
-
-        Returns:
-            bool: 穴があればTrue。
-
-        Raises:
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
-        """
-        ...
-    def isZeroArea(self, *, tolerance: float = ...) -> bool:
-        """面積がほぼ0のフェースか調べる。
-
-        頂点が1点に集まったり、一直線に並んだりして潰れたフェースを見つけるのに使う。
-        Shapeのオブジェクト空間での面積(``MItMeshPolygon.getArea``)で判定する。
-        ``MItMeshPolygon.zeroArea`` は、頂点を1点へ集めたフェースでもFalseを返すことがあるので使わない。
+        メッシュの縁に接するかは :meth:`isOnBoundary` で調べる。
 
         Args:
-            tolerance (float): 面積の許容誤差(cm²)。0以上。既定は1e-10。
+            kind (str): 調べる種類。上の名前のどれか。
+            uvSet (str | None): UVセット。Noneは現在のセット。``"zeroUVArea"``・``"uvReversed"`` のときだけ指定できる。
+            tolerance (float | None): 面積の許容誤差。0以上の有限値。Noneなら1e-10。``"zeroArea"`` (cm²)・``"zeroUVArea"`` のときだけ指定できる。
 
         Returns:
-            bool: 面積がtolerance以下ならTrue。
+            bool: その種類に当たればTrue。
 
         Raises:
-            TypeError: toleranceが数値でない場合。
-            ValueError: toleranceが負の場合、または有限でない場合。
+            TypeError: kindが文字列でない場合、その種類で使わないuvSet・toleranceを指定した場合、
+                またはuvSet・toleranceの型が合わない場合。
+            ValueError: kindが決まった名前でない場合、toleranceが負か有限でない場合、またはUVセットが無い場合。
             IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: Shapeが無効な場合。
+            RuntimeError: Shapeが無効な場合、または ``"zeroUVArea"``・``"uvReversed"`` で、フェースにUVが割り当てられていない場合。
         """
         ...
     def getTriangleCount(self) -> int:
@@ -501,17 +394,11 @@ class Faces(Components):
     def getNormal(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.face.Face.getNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getArea(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[float]:
+    def getArea(self, worldSpace: bool = ..., *, uv: bool = ..., uvSet: str | None = ..., ws: bool = ...) -> list[float]:
         """各要素の :meth:`~mlib.components.face.Face.getArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnectedFaces(self) -> list[Faces]:
-        """各要素の :meth:`~mlib.components.face.Face.getConnectedFaces` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getConnectedEdges(self) -> list[Edges]:
-        """各要素の :meth:`~mlib.components.face.Face.getConnectedEdges` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getConnectedVertices(self) -> list[Vertices]:
-        """各要素の :meth:`~mlib.components.face.Face.getConnectedVertices` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getConnected(self, *, type: str = ...) -> list[Faces | Edges | Vertices]:
+        """各要素の :meth:`~mlib.components.face.Face.getConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getVertexFaces(self) -> list[VertexFaces]:
         """各要素の :meth:`~mlib.components.face.Face.getVertexFaces` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -528,38 +415,11 @@ class Faces(Components):
     def getUVAtPoint(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, uvSet: str | None = ..., ws: bool = ...) -> list[tuple[float, float]]:
         """各要素の :meth:`~mlib.components.face.Face.getUVAtPoint` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getUVArea(self, *, uvSet: str | None = ...) -> list[float]:
-        """各要素の :meth:`~mlib.components.face.Face.getUVArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isUVReversed(self, *, uvSet: str | None = ...) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isUVReversed` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isZeroUVArea(self, *, uvSet: str | None = ..., tolerance: float = ...) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isZeroUVArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def hasValidTriangulation(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.hasValidTriangulation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def isOnBoundary(self) -> list[bool]:
         """各要素の :meth:`~mlib.components.face.Face.isOnBoundary` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isPlanar(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isPlanar` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isConvex(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isConvex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isStarlike(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isStarlike` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isLamina(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isLamina` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isHoled(self) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isHoled` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isZeroArea(self, *, tolerance: float = ...) -> list[bool]:
-        """各要素の :meth:`~mlib.components.face.Face.isZeroArea` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def isKind(self, kind: str, *, uvSet: str | None = ..., tolerance: float | None = ...) -> list[bool]:
+        """各要素の :meth:`~mlib.components.face.Face.isKind` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTriangleCount(self) -> list[int]:
         """各要素の :meth:`~mlib.components.face.Face.getTriangleCount` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

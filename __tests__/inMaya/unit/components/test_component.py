@@ -103,8 +103,8 @@ class ComponentCollectionOperatorSpecTest(_ComponentCase):
         self.assertEqual(part.indices, (5, 0, 3))
         a.sort(reverse=True)
         self.assertEqual(a.indices, (5, 3, 0))
-        a.sort(key=lambda vertex: vertex.getPositionX())
-        xs = [vertex.getPositionX() for vertex in a]
+        a.sort(key=lambda vertex: vertex.getPosition().x)
+        xs = [vertex.getPosition().x for vertex in a]
         self.assertEqual(xs, sorted(xs))
         with self.assertRaises(TypeError):
             a.sort(key=1)

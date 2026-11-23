@@ -159,9 +159,9 @@ class CoerceObjectInputTest(unittest.TestCase):
         vertices = Vertices(self.mesh, [2, 3])
         prefix = self.mesh.getFullName() + ".vtx"
         self.assertEqual(Object._input_name(vertex), prefix + "[1]")
-        # 連続する番号は範囲指定にまとめる(要素ごとの名前は fullNames())。
+        # 連続する番号は範囲指定にまとめる(要素ごとの名前は getNames(full=True))。
         self.assertEqual(Object._input_names(vertices), [prefix + "[2:3]"])
-        self.assertEqual(vertices.getFullNames(), [prefix + "[2]", prefix + "[3]"])
+        self.assertEqual(vertices.getNames(full=True), [prefix + "[2]", prefix + "[3]"])
         self.assertEqual(Object._input_names([vertex, vertices]), [prefix + "[1]", prefix + "[2:3]"])
         with self.assertRaises(TypeError):
             Object._input_name(vertices)
@@ -171,12 +171,25 @@ class CoerceObjectInputTest(unittest.TestCase):
 
         prefix = self.mesh.getFullName() + ".vtx"
         vertices = Vertices(self.mesh, [0, 1, 2, 5, 3, 4, 7])
-        self.assertEqual(vertices.getCompactNames(), [prefix + "[0:2]", prefix + "[5]", prefix + "[3:4]", prefix + "[7]"])
-        self.assertEqual(Vertices(self.mesh, []).getCompactNames(), [])
+        self.assertEqual(vertices.getNames(full=True, compact=True), [prefix + "[0:2]", prefix + "[5]", prefix + "[3:4]", prefix + "[7]"])
+        self.assertEqual(Vertices(self.mesh, []).getNames(full=True, compact=True), [])
         self.assertEqual(Object._input_names(Vertices(self.mesh, [])), [])
         # 展開した結果は要素ごとの名前と同じ順序・同じ要素になる。
-        expanded = cmds.ls(vertices.getCompactNames(), flatten=True, long=True)
-        self.assertEqual(sorted(expanded), sorted(cmds.ls(vertices.getFullNames(), flatten=True, long=True)))
+        expanded = cmds.ls(vertices.getNames(full=True, compact=True), flatten=True, long=True)
+        self.assertEqual(sorted(expanded), sorted(cmds.ls(vertices.getNames(full=True), flatten=True, long=True)))
+        # compact=True だけなら、最短の名前のまま範囲にまとめる。展開すると要素ごとの名前(getNames())に戻る。
+        short = vertices.getNames(compact=True)
+        short_prefix = cmds.ls(prefix + "[0]")[0].rsplit("[", 1)[0]
+        self.assertEqual(short, [short_prefix + "[0:2]", short_prefix + "[5]", short_prefix + "[3:4]", short_prefix + "[7]"])
+        self.assertEqual(cmds.ls(short, flatten=True), vertices.getNames())
+        self.assertEqual(cmds.ls(short, flatten=True, long=True), cmds.ls(vertices.getNames(full=True), flatten=True, long=True))
+        self.assertEqual(Vertices(self.mesh, []).getNames(compact=True), [])
+        # 既定(full=False・compact=False)を明示しても同じ。
+        self.assertEqual(vertices.getNames(full=False, compact=False), vertices.getNames())
+        for flags in ({"full": 1}, {"compact": 1}, {"full": None}, {"compact": "yes"}):
+            with self.subTest(flags=flags):
+                with self.assertRaises(TypeError):
+                    vertices.getNames(**flags)
         everything = Vertices(self.mesh)
         self.assertEqual(Object._input_names(everything), [prefix + f"[0:{self.mesh.getNumVertices() - 1:d}]"])
         # 検証はまとめて行い、範囲外の番号を含むコレクションは ValueError になる。

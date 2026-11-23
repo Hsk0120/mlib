@@ -42,10 +42,10 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getConnectedVertices(self) -> Vertices:
+    def getConnected(self) -> Vertices:
         """エッジでつながった隣の頂点を取得する。
 
-        自身は含めない。
+        自身は含めない。集まるエッジは :meth:`getEdges`、触れている面は :meth:`getFaces` で取得する。
 
         Returns:
             Vertices: 頂点。番号の小さい順に並び、重なりは無い。
@@ -229,8 +229,8 @@ class Vertices(PointComponents):
     def getEdges(self) -> list[Edges]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getEdges` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnectedVertices(self) -> list[Vertices]:
-        """各要素の :meth:`~mlib.components.vertex.Vertex.getConnectedVertices` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getConnected(self) -> list[Vertices]:
+        """各要素の :meth:`~mlib.components.vertex.Vertex.getConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getVertexFaces(self) -> list[VertexFaces]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getVertexFaces` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -67,12 +67,12 @@ class UVSpecTest(_ComponentCase):
     """UVの取得を固定する。"""
 
     def test_uv_positions_match_cmds_and_undo(self):
-        """getPosition・getU・getVはpolyEditUVの照会と一致する。"""
+        """getPositionと、その ``[0]`` (U)・``[1]`` (V)はpolyEditUVの照会と一致する。"""
         uv = UV(self.mesh, 3)
         expected = cmds.polyEditUV(uv.getFullName(), query=True)
         self.assertPoint(uv.getPosition(), expected)
-        self.assertAlmostEqual(uv.getU(), expected[0])
-        self.assertAlmostEqual(uv.getV(), expected[1])
+        self.assertAlmostEqual(uv.getPosition()[0], expected[0])
+        self.assertAlmostEqual(uv.getPosition()[1], expected[1])
         cmds.polyEditUV(uv.getFullName(), relative=False, uValue=1.5, vValue=-0.25)
         self.assertPoint(uv.getPosition(), (1.5, -0.25))
 
@@ -80,8 +80,8 @@ class UVSpecTest(_ComponentCase):
         """UVsは保持順に座標を返す。"""
         uvs = UVs(self.mesh, [1, 0])
         self.assertEqual(uvs.getPosition(), [UV(self.mesh, 1).getPosition(), UV(self.mesh, 0).getPosition()])
-        self.assertEqual(uvs.getU(), [UV(self.mesh, 1).getU(), UV(self.mesh, 0).getU()])
-        self.assertEqual(uvs.getV(), [UV(self.mesh, 1).getV(), UV(self.mesh, 0).getV()])
+        self.assertEqual([uv[0] for uv in uvs.getPosition()], [UV(self.mesh, 1).getPosition()[0], UV(self.mesh, 0).getPosition()[0]])
+        self.assertEqual([uv[1] for uv in uvs.getPosition()], [UV(self.mesh, 1).getPosition()[1], UV(self.mesh, 0).getPosition()[1]])
 
 
 PLACES = 4
@@ -187,25 +187,39 @@ class UVTest(_Case):
         uv = shape.getUV(3)
         self.assertIsNone(uv.setPosition((0.25, 1.5)))
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.25, 1.5)])
-        self.assertIsNone(uv.setU(-0.5))
-        self.assertIsNone(uv.setV(2.0))
+        self.assertIsNone(uv.setPosition(-0.5, axis="u"))
+        self.assertIsNone(uv.setPosition(2.0, axis="v"))
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(-0.5, 2.0)])
+        # 大文字でも同じ成分を指す。もう一方の成分は変えない。
+        uv.setPosition(0.125, axis="U")
+        self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.125, 2.0)])
+        uv.setPosition(0.875, axis="V")
+        self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.125, 0.875)])
 
     def test_collection_setters(self):
         shape = self.cube()
         name = shape.getFullName()
         uvs = shape.getUVs([0, 5, 2])
-        self.assertIsNone(uvs.setPositions([(0.1, 0.2), (0.3, 0.4), (0.5, 0.6)]))
+        self.assertIsNone(uvs.setPosition([(0.1, 0.2), (0.3, 0.4), (0.5, 0.6)], each=True))
         values = _uvs(name)
         self.assertPointsAlmostEqual([values[0], values[5], values[2]], [(0.1, 0.2), (0.3, 0.4), (0.5, 0.6)])
-        uvs.setU(0.75)
-        uvs.setV([1, 2, 3])
+        uvs.setPosition(0.75, axis="u")
+        uvs.setPosition([1, 2, 3], axis="v", each=True)
         values = _uvs(name)
         self.assertPointsAlmostEqual([values[0], values[5], values[2]], [(0.75, 1), (0.75, 2), (0.75, 3)])
         uvs.setPosition((0.5, 0.5))
         values = _uvs(name)
         self.assertPointsAlmostEqual([values[0], values[5], values[2]], [(0.5, 0.5)] * 3)
-        uvs.setPositions(uvs.getPosition())  # getPositionの結果をそのまま渡せる
+        uvs.setPosition(uvs.getPosition(), each=True)  # getPositionの結果をそのまま渡せる
+        # 空の集まりは、入力を確かめるだけで何もしない。
+        empty = shape.getUVs([])
+        self.flushUndo()
+        self.assertIsNone(empty.setPosition([], each=True))
+        self.assertIsNone(empty.setPosition(0.5, axis="u"))
+        self.assertIsNone(empty.setPosition([], axis="v", each=True))
+        self.assertUndoEmpty()
+        with self.assertRaises(ValueError):
+            empty.setPosition(0.5, axis="x")
 
     def test_writes_the_current_uv_set(self):
         shape = self.cube()
@@ -216,7 +230,7 @@ class UVTest(_Case):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 shape.getUV(1).setPosition((0.9, 0.1), fast=fast)
-                shape.getUVs([2]).setU(0.8, fast=fast)
+                shape.getUVs([2]).setPosition(0.8, fast=fast, axis="u")
                 self.assertPointsAlmostEqual(_uvs(name, "uv2")[1:3], [(0.9, 0.1), (0.8, _uvs(name, "uv2")[2][1])])
                 self.assertEqual(_uvs(name, "map1"), map1)
 
@@ -224,23 +238,23 @@ class UVTest(_Case):
         shape = self.cube()
         name = shape.getFullName()
         self.check_undo(name, lambda: shape.getUV(0).setPosition((0.9, 0.9)), uv=True)
-        self.check_undo(name, lambda: shape.getUV(1).setU(0.7), uv=True)
-        self.check_undo(name, lambda: shape.getUV(1).setV(0.7), uv=True)
+        self.check_undo(name, lambda: shape.getUV(1).setPosition(0.7, axis="u"), uv=True)
+        self.check_undo(name, lambda: shape.getUV(1).setPosition(0.7, axis="v"), uv=True)
         uvs = shape.getUVs([2, 3])
-        self.check_undo(name, lambda: uvs.setPositions([(0.1, 0.1), (0.2, 0.2)]), uv=True)
+        self.check_undo(name, lambda: uvs.setPosition([(0.1, 0.1), (0.2, 0.2)], each=True), uv=True)
         self.check_undo(name, lambda: uvs.setPosition((0.3, 0.3)), uv=True)
-        self.check_undo(name, lambda: uvs.setU([0.4, 0.5]), uv=True)
-        self.check_undo(name, lambda: uvs.setV(0.6), uv=True)
+        self.check_undo(name, lambda: uvs.setPosition([0.4, 0.5], axis="u", each=True), uv=True)
+        self.check_undo(name, lambda: uvs.setPosition(0.6, axis="v"), uv=True)
 
     def test_fast_matches_normal_without_undo(self):
         actions = (
             ("UV.setPosition", lambda shape, fast: shape.getUV(4).setPosition((0.3, 0.7), fast=fast)),
-            ("UV.setU", lambda shape, fast: shape.getUV(4).setU(0.3, fast=fast)),
-            ("UV.setV", lambda shape, fast: shape.getUV(4).setV(0.3, fast=fast)),
-            ("UVs.setPositions", lambda shape, fast: shape.getUVs([1, 4]).setPositions([(0, 1), (1, 0)], fast=fast)),
+            ("UV axis=u", lambda shape, fast: shape.getUV(4).setPosition(0.3, fast=fast, axis="u")),
+            ("UV axis=v", lambda shape, fast: shape.getUV(4).setPosition(0.3, fast=fast, axis="v")),
+            ("UVs each", lambda shape, fast: shape.getUVs([1, 4]).setPosition([(0, 1), (1, 0)], fast=fast, each=True)),
             ("UVs.setPosition", lambda shape, fast: shape.getUVs([1, 4]).setPosition((0.2, 0.4), fast=fast)),
-            ("UVs.setU", lambda shape, fast: shape.getUVs([1, 4]).setU([0.1, 0.9], fast=fast)),
-            ("UVs.setV", lambda shape, fast: shape.getUVs([1, 4]).setV(0.6, fast=fast)),
+            ("UVs axis=u each", lambda shape, fast: shape.getUVs([1, 4]).setPosition([0.1, 0.9], fast=fast, axis="u", each=True)),
+            ("UVs axis=v", lambda shape, fast: shape.getUVs([1, 4]).setPosition(0.6, fast=fast, axis="v")),
         )
         for label, action in actions:
             with self.subTest(method=label):
@@ -256,14 +270,29 @@ class UVTest(_Case):
                 (ValueError, lambda: uv.setPosition((1, 2, 3))),
                 (TypeError, lambda: uv.setPosition("ab")),
                 (ValueError, lambda: uv.setPosition((0, float("inf")))),
-                (TypeError, lambda: uv.setU("0.5")),
-                (TypeError, lambda: uv.setV(False)),
+                (TypeError, lambda: uv.setPosition("0.5", axis="u")),
+                (TypeError, lambda: uv.setPosition(False, axis="v")),
                 (TypeError, lambda: uv.setPosition((0, 0), fast=1)),
-                (ValueError, lambda: uvs.setPositions([(0, 0)])),
-                (TypeError, lambda: uvs.setPositions([(0, 0), (0, "a")])),
-                (TypeError, lambda: uvs.setPositions("abcd")),
-                (ValueError, lambda: uvs.setU([1, 2, 3])),
-                (TypeError, lambda: uvs.setV("ab")),
+                (TypeError, lambda: uv.setPosition((0.5, 0.5), axis="u")),
+                (TypeError, lambda: uv.setPosition(0.5, axis=0)),
+                (ValueError, lambda: uv.setPosition(0.5, axis="x")),
+                (ValueError, lambda: uv.setPosition(0.5, axis="uv")),
+                (ValueError, lambda: uv.setPosition(float("nan"), axis="v")),
+                (ValueError, lambda: uvs.setPosition([(0, 0)], each=True)),
+                (TypeError, lambda: uvs.setPosition([(0, 0), (0, "a")], each=True)),
+                (TypeError, lambda: uvs.setPosition("abcd", each=True)),
+                (ValueError, lambda: uvs.setPosition([1, 2, 3], axis="u", each=True)),
+                (TypeError, lambda: uvs.setPosition("ab", axis="v")),
+                (TypeError, lambda: uvs.setPosition("ab", axis="v", each=True)),
+                # each と値の形の食い違いは TypeError(1組・数値1つを each=True、並びを each=False)。
+                (TypeError, lambda: uvs.setPosition((0.5, 0.5), each=True)),
+                (TypeError, lambda: uvs.setPosition([(0.1, 0.2), (0.3, 0.4)])),
+                (TypeError, lambda: uvs.setPosition(0.5, axis="u", each=True)),
+                (TypeError, lambda: uvs.setPosition([0.1, 0.2], axis="u")),
+                (TypeError, lambda: uvs.setPosition([(0, 0), (1, 1)], each=1)),
+                (TypeError, lambda: uvs.setPosition(0.5, axis=None, each=True)),
+                (TypeError, lambda: uvs.setPosition(0.5, axis=1)),
+                (ValueError, lambda: uvs.setPosition(0.5, axis="z")),
             ),
             uv=True,
         )
@@ -272,7 +301,7 @@ class UVTest(_Case):
             history.getFullName(),
             (
                 (NotImplementedError, lambda: history.getUV(0).setPosition((0, 0), fast=True)),
-                (NotImplementedError, lambda: history.getUVs([0, 1]).setU(0.5, fast=True)),
+                (NotImplementedError, lambda: history.getUVs([0, 1]).setPosition(0.5, fast=True, axis="u")),
             ),
             uv=True,
         )
