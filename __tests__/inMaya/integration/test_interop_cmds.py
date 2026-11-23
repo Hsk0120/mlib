@@ -71,7 +71,7 @@ class DuplicateShortNameTest(_InteropCase):
 
     def test_plugs_resolve_with_unique_names(self):
         dup1, dup2 = self.duplicates()
-        self.assertEqual(dup1.getNodeName(), dup2.getNodeName())
+        self.assertEqual(dup1.getName(node=True), dup2.getName(node=True))
         expected = {"tx": ("DoubleLinearPlug", "translateX"), "t": ("Double3Plug", "translate"), "v": ("BoolPlug", "visibility")}
         for attribute, (class_name, longName) in expected.items():
             with self.subTest(attribute=attribute):
@@ -560,7 +560,7 @@ class NodeArgumentRulesTest(_InteropCase):
         other = self.create("transform", "other")
         geometry = other.addConstraint(mesh.getName() + ".vtx[0]", "geometry")
         self.assertEqual([node.getFullName() for node in geometry.getTargets()], [mesh.getTransform().getFullName()])
-        for source, error in ((dup1.getNodeName(), RuntimeError), (self.ns("missing"), RuntimeError), ("", TypeError), (None, TypeError)):
+        for source, error in ((dup1.getName(node=True), RuntimeError), (self.ns("missing"), RuntimeError), ("", TypeError), (None, TypeError)):
             with self.subTest(source=source):
                 with self.assertRaises(error):
                     mlib.getNode(target).addConstraint(source, type="point")
@@ -580,7 +580,7 @@ class NodeArgumentRulesTest(_InteropCase):
         _, mesh = self.cube()
         self.duplicate_cubes()
         # 同名ノードがあるとプラグ名・コンポーネント名も複数に一致し、最初の一致を黙って返さない。
-        for name in (dup1.getNodeName() + ".tx", dup1.getNodeName(), self.ns("cbShape.vtx[0]"), self.ns("cb.worldMatrix[0]")):
+        for name in (dup1.getName(node=True) + ".tx", dup1.getName(node=True), self.ns("cbShape.vtx[0]"), self.ns("cb.worldMatrix[0]")):
             with self.subTest(name=name):
                 self.assertEqual(len(cmds.ls(name)), 2)
                 with self.assertRaises(RuntimeError) as context:
@@ -1104,7 +1104,7 @@ class PlugValidityTest(_InteropCase):
         plugs = {"parent": parent.addAttr("foo", attributeType="double"), "child": child.addAttr("foo", attributeType="double")}
         mplugs = {key: om2.MPlug(plug.mplug()) for key, plug in plugs.items()}
         self.assertEqual(mlib.getNode(mplugs["child"]).getFullName(), child.getFullName())
-        self.assertTrue(parent.isParentOf(plugs["child"]))
+        self.assertTrue(parent.isAncestorOf(plugs["child"], direct=True))
         state = cmds.undoInfo(query=True, state=True)
         cmds.undoInfo(state=True)
         try:
@@ -1116,7 +1116,7 @@ class PlugValidityTest(_InteropCase):
             cmds.undo()
             for value in (plugs["child"], mplugs["child"]):
                 self.assertEqual(mlib.getNode(value).getFullName(), child.getFullName())
-                self.assertTrue(parent.isParentOf(value))
+                self.assertTrue(parent.isAncestorOf(value, direct=True))
             cmds.deleteAttr(child.getName() + ".foo")
         finally:
             cmds.undoInfo(state=state)
@@ -1142,7 +1142,7 @@ class PlugValidityTest(_InteropCase):
         # 判定メソッドは削除済みの対象に False を返す(削除前は True)。
         for value in (plugs["child"], mplugs["child"]):
             with self.subTest(owner="child", value=type(value).__name__):
-                self.assertFalse(parent.isParentOf(value))
+                self.assertFalse(parent.isAncestorOf(value, direct=True))
                 self.assertFalse(parent.isAncestorOf(value))
 
     def test_parent_queries_return_false_for_deleted_api_objects(self):
@@ -1150,20 +1150,20 @@ class PlugValidityTest(_InteropCase):
         child = self.create("transform", "child", parent)
         values = (child, child.getPlug("tx"), child.mnode(), child.mpath(), om2.MPlug(child.getPlug("tx").mplug()))
         for value in values:
-            self.assertTrue(parent.isParentOf(value))
+            self.assertTrue(parent.isAncestorOf(value, direct=True))
         cmds.delete(child.getFullName())
         # 削除済みのノードを指す om2 オブジェクトも、削除済みの Node と同じく False(Node(...) は
         # RuntimeError)。空の MObject・存在しない名前は従来どおり RuntimeError。
         for value in values:
             with self.subTest(value=type(value).__name__):
-                self.assertFalse(parent.isParentOf(value))
+                self.assertFalse(parent.isAncestorOf(value, direct=True))
                 self.assertFalse(parent.isAncestorOf(value))
         with self.assertRaises(RuntimeError):
             mlib.getNode(values[2])
         for value in (om2.MObject(), self.ns("missing")):
             with self.subTest(value=repr(value)):
                 with self.assertRaises(RuntimeError):
-                    parent.isParentOf(value)
+                    parent.isAncestorOf(value, direct=True)
 
     def test_renamed_attribute_and_undo(self):
         node = self.create("transform", "t")
@@ -1394,10 +1394,10 @@ class CommandEdgeCaseTest(_InteropCase):
 
     def test_objExists_matches_maya_cmds_for_strings(self):
         dup1, _ = self.duplicates()
-        for name in (dup1.getNodeName(), dup1.getNodeName() + ".tx", self.ns("missing"), dup1.getName()):
+        for name in (dup1.getName(node=True), dup1.getName(node=True) + ".tx", self.ns("missing"), dup1.getName()):
             with self.subTest(name=name):
                 self.assertEqual(cmds.objExists(name), bool(cmds.objExists(name)))
-        self.assertTrue(cmds.objExists(dup1.getNodeName()))
+        self.assertTrue(cmds.objExists(dup1.getName(node=True)))
 
     def test_drivenKey_accepts_plug_name_strings(self):
         from mlib.plugs.plug import Plug
@@ -1424,7 +1424,7 @@ class CommandEdgeCaseTest(_InteropCase):
                 relation = mlib.DrivenKey(dup1.getPlug("tx"), driven)
                 self.assertEqual(relation.getDrivenPlug().getFullName(), Plug._resolve_input(driven).getFullName())
         with self.assertRaises(RuntimeError):
-            mlib.DrivenKey(dup1.getNodeName() + ".tx", dup2.getPlug("tz"))  # 2つの dup に一致する
+            mlib.DrivenKey(dup1.getName(node=True) + ".tx", dup2.getPlug("tz"))  # 2つの dup に一致する
         with self.assertRaises(TypeError):
             mlib.DrivenKey(driver.getName(), dup2.getPlug("tz"))
 

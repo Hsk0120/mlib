@@ -25,10 +25,10 @@ class DagMembershipTest(NamespaceCase):
         set_node = mlib.getNode(cmds.sets(root + ".f[0:2]", name=self.name("set")))
         if not hasattr(om2.MFnSet, "getMemberPaths"):
             with self.assertRaises(NotImplementedError):
-                set_node.getMemberDagNodes()
+                set_node.getMembers(dagOnly=True)
             return
         for shading in (False, True):
-            result = set_node.getMemberDagNodes(shadingOnly=shading)
+            result = set_node.getMembers(dagOnly=True, shadingOnly=shading)
             native = om2.MFnSet(set_node.mnode()).getMemberPaths(shading)
             self.assertEqual([n.getFullName() for n in result], [p.fullPathName() for p in native])
 

@@ -266,7 +266,7 @@ class UnknownPluginTest(NamespaceCase):
         """listUnknown・listUnknownNodes は cmds と一致し、removeUnknown は外した名前を返す。"""
         self.assertIn(_FAKE_PLUGIN, Plugin.listUnknown())
         self.assertEqual(Plugin.listUnknown(), cmds.unknownPlugin(query=True, list=True))
-        nodes = [node for node in Plugin.listUnknownNodes() if node.getNodeName().startswith(self.ns + ":")]
+        nodes = [node for node in Plugin.listUnknownNodes() if node.getName(node=True).startswith(self.ns + ":")]
         for node in nodes:
             self.assertIsInstance(node, Node)
         self.assertEqual(sorted(node.getType() for node in nodes), ["unknown", "unknownDag"])

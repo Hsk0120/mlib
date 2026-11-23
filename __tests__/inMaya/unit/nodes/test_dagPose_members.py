@@ -110,12 +110,12 @@ class QueryTest(_PoseCase):
         self.assertEqual(indices, sorted(cmds.getAttr(pose.getFullName() + ".members", multiIndices=True)))
         self.assertTrue(all(type(index) is int for index in indices))
         for index, member in zip(indices, members):
-            self.assertEqual(pose.getMemberIndex(member), index)
-            self.assertEqual(pose.getMemberIndex(member.getFullName()), index)
+            self.assertEqual(pose.getMemberIndices(member), index)
+            self.assertEqual(pose.getMemberIndices(member.getFullName()), index)
 
     def test_indices_skip_disconnected_elements(self):
         pose = self.save(self.root, self.mid, self.tip)
-        index = pose.getMemberIndex(self.mid)
+        index = pose.getMemberIndices(self.mid)
         source = cmds.listConnections(f"{pose.getFullName()}.members[{index}]", source=True, destination=False, plugs=True)[0]
         cmds.disconnectAttr(source, f"{pose.getFullName()}.members[{index}]")
         self.assertNotIn(index, pose.getMemberIndices())
@@ -125,7 +125,7 @@ class QueryTest(_PoseCase):
         cmds.setAttr(self.mid + ".rz", 25)
         pose = self.save(self.root, self.mid)
         cmds.setAttr(self.mid + ".rz", 70)
-        index = pose.getMemberIndex(self.mid)
+        index = pose.getMemberIndices(self.mid)
         for worldSpace, attr in ((False, "xformMatrix"), (True, "worldMatrix")):
             with self.subTest(worldSpace=worldSpace):
                 matrix = pose.getMatrix(self.mid, worldSpace=worldSpace)
@@ -154,16 +154,16 @@ class QueryTest(_PoseCase):
     def test_query_errors(self):
         pose = self.save(self.root, self.mid)
         with self.assertRaises(ValueError):
-            pose.getMemberIndex(self.free)
+            pose.getMemberIndices(self.free)
         with self.assertRaises(ValueError):
             pose.getMatrix(self.free)
         for value in ("yes", 1, None):
             with self.subTest(worldSpace=value), self.assertRaises(TypeError):
                 pose.getMatrix(self.mid, worldSpace=value)
         with self.assertRaises(TypeError):
-            pose.getMemberIndex(1.5)
+            pose.getMemberIndices(1.5)
         cmds.delete(pose.getFullName())
-        for call in (pose.getMembers, pose.getMemberIndices, pose.isBindPose, pose.isAtPose, pose.getNotAtPose, pose.getSkinClusters):
+        for call in (pose.getMembers, pose.getMemberIndices, pose.isBindPose, pose.getNotAtPose, pose.getSkinClusters):
             with self.subTest(call=call.__name__), self.assertRaisesRegex(RuntimeError, "無効なDagPoseのため"):
                 call()
 
@@ -173,16 +173,18 @@ class AtPoseTest(_PoseCase):
 
     def test_at_pose_follows_maya(self):
         pose = self.save(self.root, self.mid, self.tip)
-        self.assertIs(pose.isAtPose(), True)
+        # ポーズどおりかは、getNotAtPose が空かどうかで確かめる(isAtPose は無い)。
+        self.assertFalse(hasattr(type(pose), "isAtPose"))
         self.assertEqual(pose.getNotAtPose(), [])
+        self.assertIsInstance(pose.getNotAtPose(), mlib.Nodes)
+        self.assertEqual(self.raw_not_at_pose(pose), set())
         cmds.setAttr(self.mid + ".rz", 30)
-        self.assertIs(pose.isAtPose(), False)
+        self.assertTrue(pose.getNotAtPose())
         not_at = pose.getNotAtPose()
         self.assertTrue(all(isinstance(item, Node) for item in not_at))
         self.assertEqual({item.getFullName() for item in not_at}, self.raw_not_at_pose(pose))
         self.assertIn(self.mid, {item.getFullName() for item in not_at})
         pose.restore()
-        self.assertIs(pose.isAtPose(), True)
         self.assertEqual(pose.getNotAtPose(), [])
         self.assertEqual(self.raw_not_at_pose(pose), set())
 
@@ -214,7 +216,7 @@ class EditTest(_PoseCase):
         result = self.assert_one_undo(pose, lambda: pose.addMembers(mlib.getNode(self.free), [mlib.getNode(self.xform)]))
         self.assertIsNone(result)
         self.assertTrue({self.free, self.xform} <= self.raw_members(pose))
-        index = pose.getMemberIndex(self.free)
+        index = pose.getMemberIndices(self.free)
         self.assert_matrix(pose.getMatrix(self.free, worldSpace=True), cmds.getAttr(self.free + ".worldMatrix[0]"))
         self.assertIsInstance(index, int)
         # 既存メンバーは無視し、保存姿勢も更新しない。
@@ -251,7 +253,7 @@ class EditTest(_PoseCase):
         pose = self.save(self.root, self.mid, self.tip)
         tip_before = pose.getMatrix(self.tip, worldSpace=True)
         cmds.setAttr(self.mid + ".rz", 30)
-        self.assertIs(pose.isAtPose(), False)
+        self.assertTrue(pose.getNotAtPose())
         result = self.assert_one_undo(pose, lambda: pose.reset([self.mid]))
         self.assertIsNone(result)
         self.assert_matrix(pose.getMatrix(self.mid, worldSpace=True), cmds.getAttr(self.mid + ".worldMatrix[0]"))
@@ -265,7 +267,7 @@ class EditTest(_PoseCase):
         cmds.setAttr(self.mid + ".rz", 30)
         cmds.setAttr(self.root + ".tx", 2)
         self.assert_one_undo(pose, lambda: pose.reset())
-        self.assertIs(pose.isAtPose(), True)
+        self.assertFalse(pose.getNotAtPose())
         for member in (self.root, self.mid, self.tip):
             self.assert_matrix(pose.getMatrix(member, worldSpace=True), cmds.getAttr(member + ".worldMatrix[0]"))
 
@@ -275,7 +277,7 @@ class EditTest(_PoseCase):
         self.assert_rejected(pose, ValueError, lambda: pose.reset([]))
         self.assert_rejected(pose, ValueError, lambda: pose.reset([self.mid, self.free]))
         self.assert_rejected(pose, TypeError, lambda: pose.reset([self.mid, 7]))
-        self.assertIs(pose.isAtPose(), False)
+        self.assertTrue(pose.getNotAtPose())
 
 
 class MergeTest(_PoseCase):
@@ -296,9 +298,9 @@ class MergeTest(_PoseCase):
                 self.assertEqual(cmds.objExists(source_name), not deleteSources)
                 # 統合元の保存マトリクスと親子関係を引き継ぐ。
                 self.assert_matrix(target.getMatrix(other_child, worldSpace=True), cmds.getAttr(other_child + ".worldMatrix[0]"))
-                parent = cmds.listConnections(f"{target.getFullName()}.parents[{target.getMemberIndex(other_child)}]", plugs=True)[0]
-                self.assertEqual(parent.split(".")[-1], f"members[{target.getMemberIndex(other_root)}]")
-                self.assertIs(target.isAtPose(), True)
+                parent = cmds.listConnections(f"{target.getFullName()}.parents[{target.getMemberIndices(other_child)}]", plugs=True)[0]
+                self.assertEqual(parent.split(".")[-1], f"members[{target.getMemberIndices(other_root)}]")
+                self.assertFalse(target.getNotAtPose())
                 cmds.undo()
                 self.assertEqual(self.pose_state(target), before)
                 self.assertTrue(cmds.objExists(source_name))
@@ -318,7 +320,7 @@ class MergeTest(_PoseCase):
         target.merge([source], currentPose=True, deleteSources=False)
         self.assertEqual(self.raw_members(target), {self.root, self.mid, self.tip})
         self.assert_matrix(target.getMatrix(self.mid, worldSpace=True), cmds.getAttr(self.mid + ".worldMatrix[0]"))
-        self.assertIs(target.isAtPose(), True)
+        self.assertFalse(target.getNotAtPose())
 
     def test_merge_skin_bind_poses(self):
         other_root, other_child = self.chain("oRoot", "oChild", x=5.0)
@@ -333,7 +335,7 @@ class MergeTest(_PoseCase):
         self.assertFalse(cmds.objExists(name_b))
         self.assertEqual(skin_b.getBindPose(), pose_a)
         self.assertEqual({skin.getFullName() for skin in pose_a.getSkinClusters()}, {skin_a.getFullName(), skin_b.getFullName()})
-        self.assertIs(pose_a.isAtPose(), True)
+        self.assertFalse(pose_a.getNotAtPose())
         cmds.undo()
         self.assertTrue(cmds.objExists(name_b))
         self.assertEqual(skin_b.getBindPose().getFullName(), name_b)
@@ -378,14 +380,14 @@ class SkinResetBindPoseTest(_PoseCase):
         weights = cmds.getAttr(name + ".weightList[*].weights[*]")
         cmds.setAttr(self.mid + ".rz", 35)
         cmds.setAttr(self.root + ".tx", 1.5)
-        self.assertIs(pose.isAtPose(), False)
+        self.assertTrue(pose.getNotAtPose())
         before = self.pose_state(pose)
         self.assertIsNone(skin.resetBindPose())
         after = self.pose_state(pose)
         for member in (self.root, self.mid):
             self.assert_matrix(pose.getMatrix(member, worldSpace=True), cmds.getAttr(member + ".worldMatrix[0]"))
             self.assert_matrix(pose.getMatrix(member), cmds.getAttr(member + ".matrix"))
-        self.assertIs(pose.isAtPose(), True)
+        self.assertFalse(pose.getNotAtPose())
         for index, values in enumerate(bind_pre):
             self.assert_matrix(cmds.getAttr(f"{name}.bindPreMatrix[{index}]"), values)
         self.assertEqual(cmds.getAttr(name + ".weightList[*].weights[*]"), weights)

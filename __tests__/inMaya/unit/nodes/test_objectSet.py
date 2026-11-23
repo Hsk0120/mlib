@@ -11,6 +11,7 @@ import sys
 import unittest
 from unittest import mock
 
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 import mlib
@@ -222,10 +223,10 @@ class ObjectSetDeformAdditionsTest(_Case):
         first, second, cube, _a, b = self.sets()
         one = self.flat(cmds.sets(first.getFullName(), query=True))
         two = self.flat(cmds.sets(second.getFullName(), query=True))
-        self.assertEqual(self.flat(first.getUnion(second)), one | two)
-        self.assertEqual(self.flat(first.getIntersection(second)), one & two)
-        self.assertEqual(self.flat(first.getDifference(second)), one - two)
-        self.assertEqual(self.flat(first.getIntersection(second.getName())), one & two)
+        self.assertEqual(self.flat(first.combine(second, "union")), one | two)
+        self.assertEqual(self.flat(first.combine(second, "intersection")), one & two)
+        self.assertEqual(self.flat(first.combine(second, "difference")), one - two)
+        self.assertEqual(self.flat(first.combine(second.getName(), "intersection")), one & two)
         self.assertFalse(first.isSubSet(second))
         sub = mlib.getNode(cmds.sets(cube + ".vtx[2]", b, name=self.name("sub")))
         self.assertTrue(sub.isSubSet(second))
@@ -236,15 +237,124 @@ class ObjectSetDeformAdditionsTest(_Case):
         first, second, _, a, _ = self.sets()
         before = self.flat(first.getMembers())
         self.flushUndo()
-        self.assertIsNone(first.removeAllMembers())
+        self.assertIsNone(first.removeMembers(all=True))
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.flat(first.getMembers()), before), lambda: self.assertEqual(first.getMembers(), []))
         with self.assertRaises(TypeError):
-            first.getUnion(a)
+            first.combine(a, "union")
         cmds.delete(second.getFullName())
         with self.assertRaises(RuntimeError):
-            first.getDifference(second)
+            first.combine(second, "difference")
         with self.assertRaises(RuntimeError):
             second.clear()
+
+
+class ObjectSetMergedArgumentsTest(_Case):
+    """フラグ・引数へまとめた ObjectSet のメソッド(getMembers(dagOnly=)・addMembers(exclusive=)・removeMembers(all=)・combine(mode=))。"""
+
+    def members(self, node):
+        return sorted(cmds.ls(cmds.sets(node.getFullName(), query=True) or [], long=True))
+
+    def test_get_members_dag_only_matches_api(self):
+        """getMembers(dagOnly=True) は MFnSet.getMemberPaths と同じ DAG パスの Nodes。DG ノード・Plug は返さない。"""
+        if not hasattr(om2.MFnSet, "getMemberPaths"):
+            self.skipTest("このMayaのAPI 2.0にはMFnSet.getMemberPathsが無い")
+        cube, _ = self.cube()
+        transform = self.make("transform", "member#")
+        utility = self.make("multiplyDivide", "utility#")
+        node = mlib.getNode(cmds.sets(cube + ".vtx[0:3]", transform, utility, transform + ".tx", name=self.name("mixed")))
+        for shading in (False, True):
+            with self.subTest(shadingOnly=shading):
+                paths = node.getMembers(dagOnly=True, shadingOnly=shading)
+                self.assertIsInstance(paths, mlib.Nodes)
+                raw = om2.MFnSet(node.mnode()).getMemberPaths(shading)
+                self.assertEqual([item.getFullName() for item in paths], [path.fullPathName() for path in raw])
+        names = [item.getFullName() for item in node.getMembers(dagOnly=True)]
+        self.assertIn(cmds.ls(transform, long=True)[0], names)
+        self.assertNotIn(utility, [name.rsplit("|", 1)[-1] for name in names])
+        # 既定(dagOnly=False)は、ノード・Plug・コンポーネントをそのまま返す。
+        self.assertEqual(len(node.getMembers()), 4)
+        self.assertIsInstance(node.getMembers(), list)
+
+    def test_get_members_exclusive_arguments(self):
+        """flatten と dagOnly は同時に指定できず、shadingOnly は dagOnly=True のときだけ使える(TypeError)。"""
+        node = mlib.getNode(cmds.sets(self.make("transform", "member#"), name=self.name("flags")))
+        cases = (
+            {"flatten": True, "dagOnly": True},
+            {"shadingOnly": True},
+            {"flatten": True, "shadingOnly": True},
+            {"dagOnly": 1},
+            {"flatten": 1},
+            {"dagOnly": True, "shadingOnly": 1},
+        )
+        for flags in cases:
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                node.getMembers(**flags)
+        with self.assertRaises(TypeError):
+            node.getMembers(True)
+
+    def test_remove_members_all_arguments(self):
+        """removeMembers(all=True) は members と同時に指定できない。何も渡さなければ何も変えず、Undo にも記録しない。"""
+        a, b = self.make("transform", "a#"), self.make("transform", "b#")
+        node = mlib.getNode(cmds.sets(a, b, name=self.name("remove")))
+        before = self.members(node)
+        for call in (lambda: node.removeMembers(a, all=True), lambda: node.removeMembers(all=1), lambda: node.removeMembers(a, all=None)):
+            with self.assertRaises(TypeError):
+                call()
+            self.assertEqual(self.members(node), before)
+        self.flushUndo()
+        self.assertIsNone(node.removeMembers())
+        self.assertIsNone(node.removeMembers(all=False))
+        self.assertUndoEmpty()
+        self.assertEqual(self.members(node), before)
+        # メンバー指定と all=True は、どちらも1回の Undo で戻る。
+        for label, call, expected in (
+            ("members", lambda: node.removeMembers(a), [cmds.ls(b, long=True)[0]]),
+            ("all", lambda: node.removeMembers(all=True), []),
+        ):
+            with self.subTest(label):
+                self.flushUndo()
+                self.assertIsNone(call())
+                self.assertUndoesInOneStep(lambda: self.assertEqual(self.members(node), before), lambda: self.assertEqual(self.members(node), expected))
+                if self.members(node) != before:
+                    cmds.undo()
+
+    def test_add_members_exclusive_moves_between_partition_sets(self):
+        """addMembers(exclusive=True) は、同じパーティションの別のセットから外して加える(cmds.sets(forceElement) と同じ)。Undo 1回。"""
+        member = cmds.ls(self.make("transform", "moved#"), long=True)[0]
+        first = mlib.getNode(cmds.sets(member, name=self.name("partFirst")))
+        second = mlib.getNode(cmds.sets(empty=True, name=self.name("partSecond")))
+        cmds.partition(first.getFullName(), second.getFullName(), name=self.name("part"))
+        self.flushUndo()
+        self.assertIsNone(second.addMembers(member, exclusive=True))
+        self.assertEqual(self.members(second), [member])
+        self.assertEqual(self.members(first), [])
+        self.assertUndoesInOneStep(
+            lambda: self.assertEqual((self.members(first), self.members(second)), ([member], [])),
+            lambda: self.assertEqual((self.members(first), self.members(second)), ([], [member])),
+        )
+        for call in (lambda: second.addMembers(member, exclusive=1), lambda: second.addMembers(member, exclusive=None)):
+            with self.assertRaises(TypeError):
+                call()
+
+    def test_combine_mode_arguments(self):
+        """combine の mode は既定が union。知らない名前は ValueError、str 以外は TypeError。どちらのセットも変えない。"""
+        a, b, c = (cmds.ls(self.make("transform", text), long=True)[0] for text in ("a#", "b#", "c#"))
+        first = mlib.getNode(cmds.sets(a, b, name=self.name("combineFirst")))
+        second = mlib.getNode(cmds.sets(b, c, name=self.name("combineSecond")))
+        before = (self.members(first), self.members(second))
+
+        def names(items):
+            return sorted(item.getFullName() for item in items)
+
+        self.assertEqual(names(first.combine(second)), sorted([a, b, c]))
+        self.assertEqual(names(first.combine(second, mode="union")), sorted([a, b, c]))
+        self.assertEqual(names(first.combine(second, "intersection")), [b])
+        self.assertEqual(names(first.combine(second, "difference")), [a])
+        self.assertEqual(names(second.combine(first, "difference")), [c])
+        for mode, error in (("Union", ValueError), ("xor", ValueError), ("", ValueError), (0, TypeError), (None, TypeError)):
+            with self.subTest(mode=mode), self.assertRaises(error):
+                first.combine(second, mode)
+        self.assertEqual((self.members(first), self.members(second)), before)
 
 
 if __name__ == "__main__":

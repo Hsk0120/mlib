@@ -10,7 +10,7 @@ import maya.cmds as cmds
 
 from ..core.fastWrite import require_range, require_writable, set_attr
 from ..core.object import Object
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from .node import Node, Nodes
 
 #: :meth:`GeometryFilter.dumpDeformerWeights` が書くファイルの形式の版。
@@ -43,108 +43,74 @@ class GeometryFilter(Node):
         self._require_valid("ツールの取得")
         return Nodes(cmds.deformer(self.getFullName(), query=True, deformerTools=True) or [])
 
-    def getGeometry(self):
-        """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。
+    def getGeometry(self, *, input=False, geometryIndex=None):
+        """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。``input=True`` なら、変形前の形状(入力ジオメトリ)を取得する。
 
-        ``outputGeometry`` の接続先の形状を、``input`` の番号順に返す。
-        ``cmds.deformer(query=True, geometry=True)`` と同じ結果になる。
+        - 既定: ``outputGeometry`` の接続先の形状を、``input`` の番号順に返す。
+          ``cmds.deformer(query=True, geometry=True)`` と同じ結果になる。
+        - ``input=True``: ``input[].inputGeometry`` から上流をたどって見つけた形状を、``input`` の番号順に返す。
+          ``MFnGeometryFilter.getInputGeometry`` と同じ結果になる。
+          手前に別のデフォーマーがあっても、それを越えた先の形状(``Orig`` の中間形状など)を返す。
+        - ``geometryIndex`` を渡すと、その論理番号の形状を1つだけ返す。
+
         skinCluster・cluster・deltaMushなど、どのデフォーマーでも使える。
 
+        Args:
+            input (bool): Trueなら、入力側の形状を取得する。既定はFalse(出力側)。
+            geometryIndex (int | None): input/outputGeometryの論理番号。渡すと、その番号の形状を1つ返す。既定はNone(すべて)。
+
         Returns:
-            Nodes: 変形する形状。無ければ空の集まり。
+            Nodes | Node | None: 形状の集まり。無ければ空の集まり。
+                geometryIndexを渡したときは、Mayaが返すDAGパスを持つShapeを1つ。
+                ``input=True`` で、その番号に入力のShapeが無ければNone。
+
+        Raises:
+            TypeError: inputがboolでない場合、またはgeometryIndexがintでない場合。
+            IndexError: geometryIndexの論理番号の出力が無い場合。
+            RuntimeError: ノードが無効な(削除された)場合、またはMayaが入力のShapeの取得を拒否した場合。
         """
+        _require_bool(input, "input")
+        if geometryIndex is not None:
+            fn = self._deformer_fn()
+            self._require_geometry_index(fn, geometryIndex)
+            if not input:
+                return Node._wrap_dag_path(fn.getPathAtIndex(geometryIndex))
+            shape = fn.inputShapeAtIndex(geometryIndex)
+            return None if shape.isNull() else Node(shape)
+        self._require_valid("形状の取得")
+        if input:
+            return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()])
         return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()])
 
-    def getInputGeometry(self):
-        """このデフォーマーへ入る、変形前の形状(入力ジオメトリ)を取得する。
-
-        ``input[].inputGeometry`` から上流をたどって見つけた形状を、``input`` の番号順に返す。
-        ``MFnGeometryFilter.getInputGeometry`` と同じ結果になる。
-        手前に別のデフォーマーがあっても、それを越えた先の形状(``Orig`` の中間形状など)を返す。
-
-        Returns:
-            Nodes: 入力側の形状。無ければ空の集まり。
-
-        Raises:
-            RuntimeError: ノードが無効な(削除された)場合。
-        """
-        self._require_valid("アトリビュートの取得")
-        return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()])
-
-    def getGeometryIndex(self, geometry):
-        """変形対象の形状に対応するinput/outputGeometryの論理番号を取得する。
+    def getGeometryIndices(self, geometry=None):
+        """接続されている出力の形状の論理番号を取得する。``geometry`` を渡すと、その形状の論理番号を1つ返す。
 
         Args:
-            geometry (str | Node | om2.MObject | om2.MDagPath): 出力側のShape、または直下に対象Shapeを1つだけ持つTransform。
+            geometry (str | Node | om2.MObject | om2.MDagPath | None): 出力側のShape、または直下に対象のShapeを1つだけ持つTransform。
+                既定のNoneなら、すべての出力の番号を返す。
 
         Returns:
-            int: 疎になり得る論理番号。getGeometryの一覧の位置とは異なる。
+            list[int] | int: 出力の接続の物理的な並び順に対応する論理番号(欠番を詰め直さない)。
+                geometryを渡したときは、その形状の論理番号(疎になり得る。getGeometryの一覧の位置とは違う)。
 
         Raises:
-            TypeError: DAGノードでない場合。
-            ValueError: 対象形状でない場合、またはTransformに対象Shapeが複数ある場合。
-            RuntimeError: ノードが無効、または名前を解決できない場合。
+            TypeError: geometryがDAGノードでない場合。
+            ValueError: geometryが変形の対象の形状でない場合、またはTransformに対象のShapeが複数ある場合。
+            RuntimeError: デフォーマーが無効な場合、またはgeometryの名前を解決できない場合。
         """
         fn = self._deformer_fn()
+        if geometry is None:
+            return [fn.indexForOutputConnection(index) for index in range(fn.numOutputConnections())]
         node = geometry if isinstance(geometry, Node) else Node(geometry)
         node._require_valid("ジオメトリの取得")
         if not node.mnode().hasFn(om2.MFn.kDagNode):
             raise TypeError("geometryはShapeかTransformで指定してください")
         outputs = fn.getOutputGeometry()
-        candidates = list(node.getShapes()) if node.mnode().hasFn(om2.MFn.kTransform) else [node]
+        candidates = list(node.getShape(all=True)) if node.mnode().hasFn(om2.MFn.kTransform) else [node]
         matches = [candidate for candidate in candidates if any(candidate.mnode() == output for output in outputs)]
         if len(matches) != 1:
             raise ValueError(f"変形対象のShapeを1つ指定してください: {node.getFullName()}")
         return fn.indexForOutputShape(matches[0].mnode())
-
-    def getGeometryAtIndex(self, *, geometryIndex):
-        """outputGeometryの論理番号に対応する出力Shapeを取得する。
-
-        Args:
-            geometryIndex (int): input/outputGeometryの論理番号。
-
-        Returns:
-            Node: Mayaが返す出力DAGパスを保持するShape。
-
-        Raises:
-            TypeError: geometryIndexがintでない場合。
-            IndexError: 指定した論理番号の出力が無い場合。
-            RuntimeError: デフォーマーが無効な場合。
-        """
-        fn = self._deformer_fn()
-        self._require_geometry_index(fn, geometryIndex)
-        return Node._wrap_dag_path(fn.getPathAtIndex(geometryIndex))
-
-    def getGeometryIndices(self):
-        """接続されている出力形状の論理番号を取得する。
-
-        Returns:
-            list[int]: 出力接続の物理的な並び順に対応する論理番号。欠番を詰め直さない。
-
-        Raises:
-            RuntimeError: デフォーマーが無効な場合。
-        """
-        fn = self._deformer_fn()
-        return [fn.indexForOutputConnection(index) for index in range(fn.numOutputConnections())]
-
-    def getInputGeometryAtIndex(self, *, geometryIndex):
-        """出力の論理番号に対応する、変形前の入力Shapeを取得する。
-
-        Args:
-            geometryIndex (int): input/outputGeometryの論理番号。
-
-        Returns:
-            Node | None: Mayaが返す入力Shape。入力ShapeがなければNone。
-
-        Raises:
-            TypeError: geometryIndexがintでない場合。
-            IndexError: 指定した論理番号の出力がない場合。
-            RuntimeError: デフォーマーが無効、またはMayaが入力Shapeの取得を拒否した場合。
-        """
-        fn = self._deformer_fn()
-        self._require_geometry_index(fn, geometryIndex)
-        shape = fn.inputShapeAtIndex(geometryIndex)
-        return None if shape.isNull() else Node(shape)
 
     def getGeometryComponents(self, *, geometryIndex=0):
         """指定した出力形状で変形対象となるコンポーネントを取得する。

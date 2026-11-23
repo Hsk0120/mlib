@@ -59,7 +59,7 @@ class MfnSpecTest(NamespaceCase):
                 self.assertIs(type(fn), om2.MFnDagNode)
                 self.assertEqual(fn.fullPathName(), shape.mpath().fullPathName())
                 self.assertFalse(shape.isIntermediateObject())
-                self.assertEqual([p.getFullName() for p in shape.getParents()], ["|" + parent])
+                self.assertEqual([p.getFullName() for p in shape.getParent(instances=True)], ["|" + parent])
                 with self.assertRaises(RuntimeError):
                     getattr(shape, query)()
 

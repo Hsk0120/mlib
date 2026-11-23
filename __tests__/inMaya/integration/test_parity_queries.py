@@ -130,13 +130,17 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         cmds.setAttr(b + ".translate", 0, 5, 3)
         constraint = mlib.getNode(cmds.parentConstraint(a, b, driven, name=self.name("parent"))[0])
         self.assertEqual([node.getName() for node in constraint.getTargets()], cmds.parentConstraint(constraint.getFullName(), query=True, targetList=True))
-        self.assertEqual(constraint.getWeightAliases(), cmds.parentConstraint(constraint.getFullName(), query=True, weightAliasList=True))
+        self.assertEqual(constraint.getWeightPlugs(aliases=True), cmds.parentConstraint(constraint.getFullName(), query=True, weightAliasList=True))
         constraint.setWeight(0.3, a)
-        self.assertAlmostEqual(constraint.getWeight(a), 0.3)
+        self.assertAlmostEqual(constraint.getWeights(a)[0], 0.3)
         self.assertAlmostEqual(cmds.parentConstraint(a, constraint.getFullName(), query=True, weight=True), 0.3)
         self.assertEqual(len(constraint.getWeights()), 2)
+        # 渡した順の list で返し、cmds の個別の照会と一致する。
+        expected = [cmds.parentConstraint(target, constraint.getFullName(), query=True, weight=True) for target in (b, a)]
+        self.assertEqual(constraint.getWeights(b, a), expected)
+        self.assertIsInstance(constraint.getWeights(a), list)
         with self.assertRaises(ValueError):
-            constraint.getWeight(driven)
+            constraint.getWeights(driven)
 
 
 if __name__ == "__main__":

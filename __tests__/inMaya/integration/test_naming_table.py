@@ -6,6 +6,7 @@ lowerCamelCase へ改名した公開引数に旧名が残らないことも確�
 マルチアトリビュートの呼び名へ揃えた ``MultiPlug``・``isMulti``・``getMulti`` について、
 旧名(``ArrayPlug``・``isArray``・``isElement``・``getArray``)が公開APIに残らないことも確かめる。
 フラグ・引数へまとめて無くした Plug のメソッド(``MERGED_PLUG``)が、Plug のどのクラスにも残らないことも確かめる。
+フラグ・引数へまとめて無くしたノードのメソッド(``MERGED_NODE``)が、持ち主のクラスと複数形に残らないことも確かめる。
 個々の新しい約束(引数・戻り値・Undo・fast)は test_spec_node_*/dag_*/transform_*/plug_* が受け持つ。
 """
 
@@ -20,7 +21,22 @@ mlib.reload()
 import functools
 import operator
 
-from mlib.nodes import DagNode, Joint, Joints, Node, Nodes, Shape, Transform
+from mlib.nodes import (
+    Constraint,
+    DagNode,
+    DagPose,
+    GeometryFilter,
+    IkHandle,
+    Joint,
+    Joints,
+    Node,
+    Nodes,
+    ObjectSet,
+    ShadingEngine,
+    Shape,
+    SkinCluster,
+    Transform,
+)
 from mlib.plugs import CompoundPlug, MultiPlug, Plug
 
 #: 廃止した名前。単数クラスと、その複数形の双方に残らない。
@@ -71,26 +87,68 @@ MERGED_PLUG = (
     (("getLongName", "getShortName", "getNiceName"), "getAttributeName"),
 )
 
+#: フラグ・引数へまとめて無くしたノードのメソッド(持ち主, 無くした名前の並び, まとめた先, まとめた先のキーワード専用引数)。
+#: 派生クラスが同じ名前の別のメソッドを持つもの(Joint.removeInfluence・SkinCluster.getWeights)があるので、持ち主ごとに確かめる。
+MERGED_NODE = (
+    (Node, ("getNodeName",), "getName", ("node", "removeNamespace")),
+    (Node, ("isParentOf",), "isAncestorOf", ("direct",)),
+    (Node, ("getAnimatablePlugs",), "getPlugs", ("writable", "animatable")),
+    (Node, ("setDgTimerEnabled", "resetDgTimer"), "setDgTimer", ("reset",)),
+    (Node, ("getDgCallbacks", "getDgTimerState"), "getDgTimer", ("timerType", "callbacks", "state")),
+    (DagNode, ("show", "hide"), "setVisibility", ("fast", "check")),
+    (DagNode, ("getParents",), "getParent", ("instances", "indirect")),
+    (DagNode, ("getShapes",), "getShape", ("all",)),
+    (DagNode, ("getBoundingBoxCorners",), "getBoundingBox", ("includeInvisible", "corners")),
+    (DagNode, ("setOutlinerOrder",), "reorder", ("index", "front", "back", "relative")),
+    (DagNode, ("getActiveColor", "getDormantColor", "getHiliteColor", "getDrawOverrideColor"), "getDrawColor", ("mode",)),
+    (DagNode, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "shape")),
+    (DagNode, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "shape", "fast", "check")),
+    (Transform, ("translateBy",), "setTranslation", ("relative", "safe", "get", "fast", "check")),
+    (Transform, ("rotateBy",), "setRotate", ("relative", "safe", "get", "unit", "fast", "check")),
+    (Transform, ("scaleBy",), "setScale", ("relative", "safe", "get", "fast", "check")),
+    (Transform, ("shearBy",), "setShear", ("relative", "safe", "get", "fast", "check")),
+    (Transform, ("centerPivotsOnComponents",), "centerPivot", ("fast", "check")),
+    (Transform, ("getPivotTranslation",), "getPivot", ("kind", "translation")),
+    (Transform, ("setPivotTranslation",), "setPivot", ("kind", "translation", "preserve", "fast", "check")),
+    (Joint, ("jointOrientToRotate",), "freezeRotate", ("toRotate",)),
+    (Joint, ("getIkHandles",), "getConnections", ()),
+    (SkinCluster, ("removeInfluence", "removeUnusedInfluences"), "removeInfluences", ("unused", "transferToParent", "requireAncestor", "force")),
+    (SkinCluster, ("forceNormalizeWeights",), "normalizeWeights", ("force", "fast")),
+    (SkinCluster, ("getLockedInfluences", "getUnusedInfluences"), "getInfluences", ("locked", "unused")),
+    (SkinCluster, ("isMaintainingMaxInfluences",), "getMaxInfluences", ("maintain",)),
+    (SkinCluster, ("getSkinningMethod", "getNormalizeMode"), "getMode", ()),
+    (SkinCluster, ("setSkinningMethod", "setNormalizeMode"), "setMode", ()),
+    (SkinCluster, ("getVertexWeights",), "getWeights", ("vertices", "vertex", "nonzero", "rows", "geometryIndex")),
+    (SkinCluster, ("setVertexWeights",), "setWeights", ("vertices", "vertex", "normalize", "broadcast", "rows", "fast", "check", "geometryIndex")),
+    (GeometryFilter, ("getInputGeometry", "getInputGeometryAtIndex", "getGeometryAtIndex"), "getGeometry", ("input", "geometryIndex")),
+    (GeometryFilter, ("getGeometryIndex",), "getGeometryIndices", ()),
+    (ObjectSet, ("addExclusiveMembers",), "addMembers", ("exclusive",)),
+    (ObjectSet, ("removeAllMembers",), "removeMembers", ("all",)),
+    (ObjectSet, ("getUnion", "getIntersection", "getDifference"), "combine", ()),
+    (ObjectSet, ("getMemberDagNodes",), "getMembers", ("flatten", "dagOnly", "shadingOnly")),
+    (ShadingEngine, ("getShaderPlug",), "getShader", ("plug",)),
+    (Constraint, ("getWeight",), "getWeights", ()),
+    (Constraint, ("getWeightAliases",), "getWeightPlugs", ("aliases",)),
+    (DagPose, ("getMemberIndex",), "getMemberIndices", ()),
+    (DagPose, ("isAtPose",), "getNotAtPose", ()),
+    (IkHandle, ("getEndJoint",), "getJoints", ("end",)),
+)
+
+#: フラグ・引数へまとめて無くした複数形のメソッド(複数形, 無くした名前の並び, まとめた先, まとめた先のキーワード専用引数)。
+MERGED_PLURAL = (
+    (Nodes, ("show", "hide"), "setVisibility", ("fast", "check")),
+    (Nodes, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "shape")),
+    (Nodes, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "shape", "fast", "check")),
+    (Nodes, ("setOverrideColors", "setOutlinerColors"), "setColors", ("outliner", "shape", "fast", "check")),
+    (Nodes, ("getFullNames",), "getNames", ("full",)),
+)
+
 #: 単数クラスと対応する複数形クラス。
 PLURALS = {Node: Nodes, Joint: Joints}
 
 #: 統合後に定義されている名前。単数の def を確かめる。
 REQUIRED = {
-    Node: (
-        "mfn",
-        "hasFn",
-        "setLocked",
-        "getType",
-        "isType",
-        "resetAttrs",
-        "getPlugs",
-        "getConnections",
-        "isParentOf",
-        "isAncestorOf",
-        "getName",
-        "getFullName",
-        "sameNode",
-    ),
+    Node: ("mfn", "hasFn", "setLocked", "getType", "isType", "resetAttrs", "getPlugs", "getConnections", "isAncestorOf", "getName", "getFullName", "sameNode"),
     DagNode: (
         "mfn",
         "getRoot",
@@ -98,16 +156,14 @@ REQUIRED = {
         "getBoundingBox",
         "isIntermediateObject",
         "getShape",
-        "show",
-        "hide",
+        "setVisibility",
         "getSkinClusters",
         "getParent",
-        "getParents",
         "getChildren",
         "mpath",
     ),
     Transform: ("mfn", "setPivot", "getPivot", "makeIdentity", "setParent", "getRotate", "getShear", "setShear", "getQuaternion", "getMatrix", "setMatrix"),
-    Joint: ("getJointOrient", "jointOrientToRotate", "freezeRotate", "getSkinClusters"),
+    Joint: ("getJointOrient", "freezeRotate", "getSkinClusters"),
 }
 
 #: 複数形が独自の集約として持つ名前(単数への転送ではない)。Joints.getSkinClusters は重複を除いた SkinClusters を返す。
@@ -117,20 +173,10 @@ PLURAL_OWN = ("getSkinClusters",)
 JOINTS_OWN = ("delete",)
 
 #: 複数形が明示的に持つ一括の書込み(Nodes._forward で各要素へ適用する)。
-PLURAL_BULK = ("resetAttrs", "setOverrideColor", "setOutlinerColor", "setVisibility", "show", "hide", "setParent")
+PLURAL_BULK = ("resetAttrs", "setColor", "setColors", "setVisibility", "setParent")
 
 #: 複数形が持たない一括転送と、その基盤の名前(callEach・getNames は持つ)。
-REMOVED_PLURAL = (
-    "delete",
-    "removeInfluences",
-    "jointOrientToRotate",
-    "freezeRotate",
-    "_bulk_entries",
-    "_bulk_methods",
-    "_bulk_returns",
-    "_dispatch_shared",
-    "_calculating_setters",
-)
+REMOVED_PLURAL = ("delete", "removeInfluences", "freezeRotate", "_bulk_entries", "_bulk_methods", "_bulk_returns", "_dispatch_shared", "_calculating_setters")
 
 
 class RemovedNamesTest(unittest.TestCase):
@@ -194,6 +240,75 @@ class RemovedNamesTest(unittest.TestCase):
                 for owner in mlib.plugs.__all__:
                     with self.subTest(cls=owner, name=name):
                         self.assertFalse(hasattr(getattr(mlib.plugs, owner), name), f"{owner}.{name} remains")
+
+    def test_merged_node_methods_are_removed(self):
+        """フラグ・引数へまとめたノードのメソッドは持ち主のクラスに無く、まとめた先が定義され、足した引数はキーワード専用。"""
+        for owner, names, target, keywords in MERGED_NODE + MERGED_PLURAL:
+            with self.subTest(cls=owner.__name__, target=target):
+                self.assertTrue(callable(getattr(owner, target)))
+                parameters = inspect.signature(getattr(owner, target)).parameters
+                for keyword in keywords:
+                    with self.subTest(keyword=keyword):
+                        self.assertEqual(parameters[keyword].kind, inspect.Parameter.KEYWORD_ONLY)
+            for name in names:
+                with self.subTest(cls=owner.__name__, name=name):
+                    self.assertFalse(hasattr(owner, name), f"{owner.__name__}.{name} remains")
+        # 複数形は、単数のまとめた名前を明示メソッドとして持つか、各要素へ転送する。無くした名前は転送もしない。
+        for name in ("show", "hide", "getFullNames", "setOverrideColors", "setOutlinerColors"):
+            for plural in (Nodes, Joints):
+                with self.subTest(cls=plural.__name__, name=name):
+                    self.assertFalse(hasattr(plural, name), f"{plural.__name__}.{name} remains")
+
+    def test_merged_node_defaults(self):
+        """まとめた先の引数の既定は、まとめる前の動き(フラグなし)のまま。
+
+        指定の有無で動きが変わる引数(setPivot の preserve、removeInfluences の transferToParent・requireAncestor、
+        setWeights の normalize)は既定が番兵なので、ここでは見ない(それぞれのテストが動きで確かめる)。
+        """
+        expected = (
+            (Node.getName, {"node": False, "removeNamespace": False}),
+            (Node.isAncestorOf, {"direct": False}),
+            (DagNode.getParent, {"step": 1, "instances": False, "indirect": False}),
+            (DagNode.getShape, {"index": 0, "intermediates": False, "all": False}),
+            (DagNode.getBoundingBox, {"includeInvisible": False, "corners": False}),
+            (DagNode.getDrawColor, {"mode": "dormant"}),
+            (DagNode.getColor, {"outliner": False, "shape": False}),
+            (DagNode.setColor, {"outliner": False, "shape": False, "fast": False, "check": False}),
+            (Transform.setTranslation, {"relative": False}),
+            (Transform.setRotate, {"relative": False}),
+            (Transform.setScale, {"relative": False}),
+            (Transform.setShear, {"relative": False}),
+            (Transform.centerPivot, {"components": None, "fast": False, "check": False}),
+            (Transform.getPivot, {"kind": "rotate", "translation": False}),
+            (Transform.setPivot, {"kind": "rotate", "translation": False}),
+            (Joint.freezeRotate, {"toRotate": False}),
+            (SkinCluster.removeInfluences, {"joints": None, "unused": False, "force": False}),
+            (SkinCluster.normalizeWeights, {"decimals": None, "force": False, "fast": False}),
+            (SkinCluster.getInfluences, {"locked": None, "unused": None}),
+            (SkinCluster.getMaxInfluences, {"maintain": False}),
+            (SkinCluster.getMode, {"kind": "skinning"}),
+            (SkinCluster.setMode, {"kind": "skinning"}),
+            (SkinCluster.getWeights, {"joints": None, "vertices": None, "vertex": None}),
+            (SkinCluster.setWeights, {"weights": None, "vertices": None, "vertex": None}),
+            (GeometryFilter.getGeometry, {"input": False, "geometryIndex": None}),
+            (GeometryFilter.getGeometryIndices, {"geometry": None}),
+            (ObjectSet.getMembers, {"flatten": False, "dagOnly": False, "shadingOnly": False}),
+            (ObjectSet.addMembers, {"exclusive": False}),
+            (ObjectSet.removeMembers, {"all": False}),
+            (ObjectSet.combine, {"mode": "union"}),
+            (ShadingEngine.getShader, {"kind": "surface", "plug": False}),
+            (Constraint.getWeightPlugs, {"aliases": False}),
+            (DagPose.getMemberIndices, {"member": None}),
+            (IkHandle.getJoints, {"includeTip": False, "end": False}),
+            (Nodes.getNames, {"full": False}),
+            (Nodes.setColors, {"outliner": False, "shape": False, "fast": False, "check": False}),
+        )
+        for function, defaults in expected:
+            parameters = inspect.signature(function).parameters
+            for name, default in defaults.items():
+                with self.subTest(function=function.__qualname__, name=name):
+                    self.assertEqual(parameters[name].default, default)
+                    self.assertIs(type(parameters[name].default), type(default))
 
     def test_merged_plug_arguments(self):
         """まとめた先の引数は、位置で渡す値(範囲・相手・番号・名前の種類)を除いてキーワード専用。"""
@@ -344,12 +459,12 @@ class RequiredNamesTest(unittest.TestCase):
         self.assertIs(parameters["userDefined"].default, False)
         self.assertIs(parameters["includeChildren"].default, True)
 
-    def test_show_hide_accept_fast(self):
-        for name in ("show", "hide"):
+    def test_set_visibility_accepts_fast(self):
+        """表示・非表示は setVisibility だけで行い、fast・check はキーワード専用。"""
+        for name in ("fast", "check"):
             with self.subTest(name=name):
-                parameters = inspect.signature(getattr(DagNode, name)).parameters
-                self.assertIn("fast", parameters)
-                self.assertEqual(parameters["fast"].kind, inspect.Parameter.KEYWORD_ONLY)
+                parameters = inspect.signature(DagNode.setVisibility).parameters
+                self.assertEqual(parameters[name].kind, inspect.Parameter.KEYWORD_ONLY)
 
     def test_enum_names_accepts_value(self):
         parameters = inspect.signature(Plug.getEnumNames).parameters
@@ -398,14 +513,14 @@ class RenamedArgumentsTest(unittest.TestCase):
 
         return (
             ("Node.isType", Node.isType, "node_type", "nodeType"),
-            ("Node.getNodeName", Node.getNodeName, "remove_namespace", "removeNamespace"),
+            ("Node.getName", Node.getName, "remove_namespace", "removeNamespace"),
             ("Transform.getClosestAxisToVector", Transform.getClosestAxisToVector, "ref_vector", "refVector"),
             ("Transform.getClosestAxisToVector", Transform.getClosestAxisToVector, "include_negative", "includeNegative"),
             ("Joint.removeInfluence", Joint.removeInfluence, "transfer_to_parent", "transferToParent"),
             ("Joint.removeInfluence", Joint.removeInfluence, "skin_cluster", "skinCluster"),
             ("Joint.reparentChildren", Joint.reparentChildren, "parent_joint", "parentJoint"),
             ("SkinCluster.__init__", SkinCluster.__init__, "skin_cluster", "skinCluster"),
-            ("SkinCluster.removeInfluence", SkinCluster.removeInfluence, "transfer_to_parent", "transferToParent"),
+            ("SkinCluster.removeInfluences", SkinCluster.removeInfluences, "transfer_to_parent", "transferToParent"),
             ("SkinCluster.transferWeights", SkinCluster.transferWeights, "source_target_pairs", "sourceTargetPairs"),
             ("DagPose.fromSkinCluster", DagPose.fromSkinCluster, "skin_cluster", "skinCluster"),
             ("IkHandle.getJoints", IkHandle.getJoints, "include_tip", "includeTip"),

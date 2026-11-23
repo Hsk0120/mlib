@@ -1,7 +1,7 @@
 """fast を持つ書込みメソッドの約束を固定する。
 
 対象は ``Mesh.setPoints``・``NurbsCurve.setCvPositions``(周期カーブを含む)・``Shape.scaleGeometry`` の
-周期カーブ・``DagNode.setOverrideColor``・``Nodes.setOverrideColor``・``BoolPlug.toggle``・``SkinCluster.pruneWeights``・
+周期カーブ・``DagNode.setColor``・``Nodes.setColor``・``BoolPlug.toggle``・``SkinCluster.pruneWeights``・
 ``DrivenKey.setKey``。各メソッドで、fast=True が通常経路と同じ結果になること、Undo キューへ何も
 記録しないこと、fast が bool 以外なら TypeError、未対応・書込み不可は変更前に拒否することを確かめる。
 
@@ -132,10 +132,10 @@ class DagNodeSetColorFastTest(_SpecCase):
                 normal = mlib.getNode(cmds.circle(name=self.ns + ":normal", constructionHistory=False)[0])
                 fast = mlib.getNode(cmds.circle(name=self.ns + ":fast", constructionHistory=False)[0])
                 group = mlib.getNode(cmds.createNode("transform", name=self.ns + ":group"))
-                normal.setOverrideColor(color)
-                self.assert_no_undo(lambda: fast.setOverrideColor(color, fast=True))
+                normal.setColor(color)
+                self.assert_no_undo(lambda: fast.setColor(color, fast=True))
                 self.assertEqual(self.colors(fast.getFullName()), self.colors(normal.getFullName()))
-                self.assert_no_undo(lambda: Nodes([group]).setOverrideColor(color, fast=True))
+                self.assert_no_undo(lambda: Nodes([group]).setColor(color, fast=True))
                 self.assertTrue(cmds.getAttr(group.getFullName() + ".overrideEnabled"))
                 cmds.delete(normal.getFullName(), fast.getFullName(), group.getFullName())
 
@@ -145,10 +145,10 @@ class DagNodeSetColorFastTest(_SpecCase):
         name = node.getFullName()
         cmds.setAttr(name + ".overrideColor", lock=True)
         with self.assertRaises(RuntimeError):
-            node.setOverrideColor(13, fast=True, check=True)
+            node.setColor(13, fast=True, check=True)
         self.assertFalse(cmds.getAttr(name + ".overrideEnabled"))
         with self.assertRaises(TypeError):
-            node.setOverrideColor(13, fast="yes")
+            node.setColor(13, fast="yes")
 
 
 class BoolPlugToggleFastTest(_SpecCase):
@@ -315,8 +315,7 @@ class FastArgumentRemovedTest(unittest.TestCase):
             Namespace.remove,
             Plug.setMuted,
             Transform.matchTransform,
-            SkinCluster.removeInfluence,
-            SkinCluster.removeUnusedInfluences,
+            SkinCluster.removeInfluences,
             Joint.removeInfluence,
         ]
         for target in targets:

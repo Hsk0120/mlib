@@ -23,19 +23,19 @@ class GeometryFilterMembershipTest(NamespaceCase):
         shapes = [self.cube() for _ in range(3)]
         cluster = mlib.getNode(cmds.cluster(shapes, name=self.name("cluster#"))[0])
         fn = oma2.MFnGeometryFilter(cluster.mnode())
-        original = [cluster.getGeometryIndex(shape) for shape in shapes]
+        original = [cluster.getGeometryIndices(shape) for shape in shapes]
         cmds.cluster(cluster.getFullName(), edit=True, geometry=shapes[1], remove=True)
-        self.assertEqual([cluster.getGeometryIndex(shape) for shape in (shapes[0], shapes[2])], [original[0], original[2]])
+        self.assertEqual([cluster.getGeometryIndices(shape) for shape in (shapes[0], shapes[2])], [original[0], original[2]])
         for shape in (shapes[0], shapes[2]):
             node = mlib.getNode(shape).getShape()
-            index = cluster.getGeometryIndex(node)
+            index = cluster.getGeometryIndices(node)
             self.assertEqual(index, fn.indexForOutputShape(node.mnode()))
-            self.assertEqual(cluster.getGeometryAtIndex(geometryIndex=index), node)
-            self.assertEqual(cluster.getGeometryIndex(node.mpath()), index)
+            self.assertEqual(cluster.getGeometry(geometryIndex=index), node)
+            self.assertEqual(cluster.getGeometryIndices(node.mpath()), index)
         with self.assertRaises(IndexError):
-            cluster.getGeometryAtIndex(geometryIndex=original[1])
+            cluster.getGeometry(geometryIndex=original[1])
         with self.assertRaises(ValueError):
-            cluster.getGeometryIndex(shapes[1])
+            cluster.getGeometryIndices(shapes[1])
 
     def test_partial_membership_and_set_do_not_change_selection(self):
         shape = self.cube()
@@ -70,15 +70,15 @@ class GeometryFilterMembershipTest(NamespaceCase):
     def test_invalid_indices_and_non_dag_input(self):
         cluster = mlib.getNode(cmds.cluster(self.cube(), name=self.name("cluster#"))[0])
         for value in (True, 0.0, "0"):
-            for method in (cluster.getGeometryAtIndex, cluster.getGeometryComponents):
+            for method in (cluster.getGeometry, lambda **flags: cluster.getGeometry(input=True, **flags), cluster.getGeometryComponents):
                 with self.assertRaises(TypeError):
                     method(geometryIndex=value)
         with self.assertRaises(TypeError):
-            cluster.getGeometryIndex(self.make("multiplyDivide"))
+            cluster.getGeometryIndices(self.make("multiplyDivide"))
         with self.assertRaises(IndexError):
             cluster.getGeometryComponents(geometryIndex=999)
         cmds.delete(cluster.getFullName())
-        for method in (cluster.getGeometryAtIndex, cluster.getGeometryComponents):
+        for method in (cluster.getGeometry, lambda **flags: cluster.getGeometry(input=True, **flags), cluster.getGeometryComponents):
             with self.assertRaises(RuntimeError):
                 method(geometryIndex=0)
         with self.assertRaises(RuntimeError):
@@ -88,11 +88,11 @@ class GeometryFilterMembershipTest(NamespaceCase):
         first, second = self.cube(), self.cube()
         cluster = mlib.getNode(cmds.cluster([first, second], name=self.name("cluster#"))[0])
         output = mlib.getNode(second).getShape()
-        index = cluster.getGeometryIndex(output)
+        index = cluster.getGeometryIndices(output)
         cmds.parent(output.getFullName(), first, shape=True, relative=True)
         with self.assertRaises(ValueError):
-            cluster.getGeometryIndex(first)
-        self.assertEqual(cluster.getGeometryIndex(output), index)
+            cluster.getGeometryIndices(first)
+        self.assertEqual(cluster.getGeometryIndices(output), index)
 
 
 if __name__ == "__main__":

@@ -79,10 +79,10 @@ class NativeFollowupTest(NamespaceCase):
         color = om1.MColor()
         enabled = fn.drawOverrideColor(color)
         expected = (color.r, color.g, color.b, color.a) if enabled else None
-        self.assertEqual(shape.getDrawOverrideColor(), expected)
-        self.assertEqual(len(shape.getActiveColor()), 4)
-        self.assertEqual(len(shape.getDormantColor()), 4)
-        self.assertEqual(len(shape.getHiliteColor()), 4)
+        self.assertEqual(shape.getDrawColor(mode="override"), expected)
+        self.assertEqual(len(shape.getDrawColor(mode="active")), 4)
+        self.assertEqual(len(shape.getDrawColor(mode="dormant")), 4)
+        self.assertEqual(len(shape.getDrawColor(mode="hilite")), 4)
 
     def test_object_group_components_preserve_owner_path(self):
         cube = self.cube()
@@ -214,7 +214,7 @@ class NativeFollowupTest(NamespaceCase):
         before = [cube.getPivot(kind=kind) for kind in ("rotate", "scale")]
         matrix = cube.getMatrix(worldSpace=True)
         self.flushUndo()
-        cube.centerPivotsOnComponents(cube.getFullName() + ".vtx[0:1]")
+        cube.centerPivot(cube.getFullName() + ".vtx[0:1]")
         after = [cube.getPivot(kind=kind) for kind in ("rotate", "scale")]
         self.assertNotEqual(before, after)
         self.assertEqual(cube.getMatrix(worldSpace=True), matrix)
@@ -232,7 +232,7 @@ class NativeFollowupTest(NamespaceCase):
         skin.setWeights(joints, rows, rows=True)
         cmds.setAttr(joints[0] + ".liw", True)
         self.flushUndo()
-        skin.forceNormalizeWeights()
+        skin.normalizeWeights(force=True)
         after = skin.getWeights(joints, rows=True)
         self.assertEqual(after[-1], [0.0, 0.0])
         self.assertAlmostEqual(after[0][0], 1.0 / 3.0)
@@ -244,7 +244,7 @@ class NativeFollowupTest(NamespaceCase):
         self.assertEqual(skin.getWeights(joints, rows=True), after)
         cmds.undo()
         self.flushUndo()
-        skin.forceNormalizeWeights(fast=True)
+        skin.normalizeWeights(force=True, fast=True)
         self.assertEqual(skin.getWeights(joints, rows=True), after)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
 

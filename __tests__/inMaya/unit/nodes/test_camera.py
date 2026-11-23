@@ -97,7 +97,7 @@ class IntermediateCameraTest(_SpecCase):
         """デフォーマーで作られる Orig は中間オブジェクト、表示 Shape は違う。"""
         cube = cmds.polyCube(name=self.name("cube"))[0]
         cmds.cluster(cube)
-        shapes = Node(cube).getShapes(intermediates=True)
+        shapes = Node(cube).getShape(intermediates=True, all=True)
         flags = [shape.isIntermediateObject() for shape in shapes]
         self.assertEqual(flags, [cmds.getAttr(shape.getFullName() + ".intermediateObject") for shape in shapes])
         self.assertEqual(sorted(flags), [False, True])

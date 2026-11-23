@@ -100,10 +100,10 @@ class ChildrenTypeTest(_SpecCase):
                 self.assertEqual(sorted(actual), sorted(expected))
         # 探索は型で絞らず、結果だけを絞る(型の違う grp の下の leaf も見つかる)。深さ優先の順。
         self.assertEqual(
-            [item.getNodeName() for item in node.getChildren(type=["joint", "mesh"], allDescendents=True)],
+            [item.getName(node=True) for item in node.getChildren(type=["joint", "mesh"], allDescendents=True)],
             [self.name("child"), self.name("leaf"), self.name("rootShape")],
         )
-        self.assertEqual(Node(shape).getNodeName(), self.name("rootShape"))
+        self.assertEqual(Node(shape).getName(node=True), self.name("rootShape"))
         self.assertEqual(Node(group).getChildren(type="joint"), [Node(leaf)])
         with self.assertRaises(TypeError):
             node.getChildren(type=1)
@@ -142,8 +142,7 @@ class BulkWriteTest(_SpecCase):
             (lambda: nodes.setAttrFlags(["tx"], locked=True), lambda name: cmds.getAttr(name + ".tx", lock=True), forwarded),
             (lambda: nodes.setLocked(True), lambda name: cmds.lockNode(name, query=True, lock=True)[0], forwarded),
             (lambda: nodes.setVisibility(False), lambda name: not cmds.getAttr(name + ".v"), None),
-            (lambda: nodes.hide(), lambda name: not cmds.getAttr(name + ".v"), None),
-            (lambda: nodes.setOverrideColor(17), lambda name: cmds.getAttr(name + ".overrideColor") == 17, None),
+            (lambda: nodes.setColor(17), lambda name: cmds.getAttr(name + ".overrideColor") == 17, None),
         )
         for action, check, expected in cases:
             with self.subTest(action=action):

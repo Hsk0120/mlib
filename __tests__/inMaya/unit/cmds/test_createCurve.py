@@ -1,6 +1,6 @@
 """``mlib.cmds.createCurve`` のテスト。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setOverrideColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 """
 
 import sys

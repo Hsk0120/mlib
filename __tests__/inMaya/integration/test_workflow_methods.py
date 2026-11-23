@@ -90,9 +90,11 @@ class MethodContractTest(unittest.TestCase):
         ):
             for name in names:
                 self.assertFalse(hasattr(cls, name), (cls, name))
-        # 複数形の一括の書込みは明示したもの(setVisibility・hide等)だけを持つ。
+        # 複数形の一括の書込みは明示したもの(setVisibility・setColor等)だけを持つ。show・hide は無い。
         self.assertTrue(hasattr(Joints, "setVisibility"))
-        self.assertTrue(hasattr(Joints, "hide"))
+        self.assertTrue(hasattr(Joints, "setColor"))
+        self.assertFalse(hasattr(Joints, "hide"))
+        self.assertFalse(hasattr(Joints, "show"))
         self.assertFalse(hasattr(Joints, "setTranslation"))
         self.assertFalse(hasattr(Joints, "getVisibility"))
 

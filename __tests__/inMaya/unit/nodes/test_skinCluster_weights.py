@@ -1,7 +1,7 @@
 """SkinCluster の頂点単位のウェイト編集の約束を固定する。
 
 - ``getWeights``/``setWeights`` の ``vertices=``・``normalize=``・``broadcast=``、influence と頂点の入力検証。
-- ``getVertexWeights``/``setVertexWeights`` の辞書による1頂点の照会・編集。
+- ``getWeights(vertex=)``/``setWeights({...}, vertex=, normalize=)`` の辞書による1頂点の照会・編集。
 - ``pruneWeights``・``mirrorWeights``、形状を受け付ける ``copyWeightsTo``。
 
 読取りと正規化・刈り込みの値は ``cmds.skinPercent`` と突き合わせ、通常経路は Undo 1 回、
@@ -104,7 +104,7 @@ class GetWeightsTest(_SkinCase):
                     call([other])
                 vertex = Vertex(Node(self.mesh).getShape(), 0)
                 for components in (vertex, [vertex], Vertices(Node(self.mesh).getShape(), [0, 1])):
-                    with self.assertRaisesRegex(TypeError, "vertices=.*getVertexWeights"):
+                    with self.assertRaisesRegex(TypeError, "vertices=.*vertex="):
                         call(components)
                 with self.assertRaisesRegex(TypeError, "コンポーネントかアトリビュートの名前"):
                     call(self.vtx(0))
@@ -291,58 +291,76 @@ class SetWeightsTest(_SkinCase):
 
 
 class VertexWeightsTest(_SkinCase):
-    """getVertexWeights/setVertexWeights。"""
+    """getWeights(vertex=)/setWeights({...}, vertex=, normalize=)。"""
 
     def test_get_matches_skinPercent(self):
         """influence の Node をキーに、物理順で skinPercent と同じ値を返す。nonzero は 0 を除く。"""
         mesh_node = Node(self.mesh).getShape()
         for vertex in (0, 4, Vertex(mesh_node, 6), self.vtx(9)):
             with self.subTest(vertex=str(vertex)):
-                weights = self.skin.getVertexWeights(vertex)
+                weights = self.skin.getWeights(vertex=vertex)
                 index = vertex if isinstance(vertex, int) else (vertex.index if isinstance(vertex, Vertex) else 9)
                 self.assertEqual([node.getUuid() for node in weights], [node.getUuid() for node in self.skin.getInfluences()])
                 self.assertTrue(all(isinstance(node, Joint) for node in weights))
                 self.assertSequenceAlmostEqual(list(weights.values()), self.row(index))
         self.writeRow(1, [0.0, 0.25, 0.75])
-        weights = self.skin.getVertexWeights(1, nonzero=True)
+        weights = self.skin.getWeights(vertex=1, nonzero=True)
         self.assertEqual([node.getName() for node in weights], [cmds.ls(j)[0] for j in self.joints[1:]])
         with self.assertRaisesRegex(ValueError, "頂点を1つだけ指定してください"):
-            self.skin.getVertexWeights([0, 1])
+            self.skin.getWeights(vertex=[0, 1])
         with self.assertRaisesRegex(ValueError, "頂点を1つだけ指定してください"):
-            self.skin.getVertexWeights(self.mesh + ".vtx[0:1]")
+            self.skin.getWeights(vertex=self.mesh + ".vtx[0:1]")
         with self.assertRaises(TypeError):
-            self.skin.getVertexWeights(None)
-        with self.assertRaises(TypeError):
-            self.skin.getVertexWeights(0, nonzero=1)
+            self.skin.getWeights(vertex=0, nonzero=1)
+
+    def test_get_vertex_exclusive_arguments(self):
+        """vertex は joints・vertices・rows と同時に指定できず、nonzero は vertex のときだけ使える(TypeError)。"""
+        j0 = self.joints[0]
+        cases = (
+            ("no joints", lambda: self.skin.getWeights()),
+            ("vertex None", lambda: self.skin.getWeights(vertex=None)),
+            ("joints", lambda: self.skin.getWeights([j0], vertex=0)),
+            ("vertices", lambda: self.skin.getWeights(vertex=0, vertices=[0])),
+            ("rows", lambda: self.skin.getWeights(vertex=0, rows=True)),
+            ("nonzero without vertex", lambda: self.skin.getWeights([j0], nonzero=True)),
+        )
+        for label, call in cases:
+            with self.subTest(label):
+                with self.assertRaises(TypeError):
+                    call()
+        # geometryIndex は vertex の形でも使える(先頭の形状は 0)。
+        self.assertEqual(list(self.skin.getWeights(vertex=3, geometryIndex=0).values()), list(self.skin.getWeights(vertex=3).values()))
+        # vertex の形は、joints・vertices で読んだ同じ頂点の行と一致する。
+        self.assertSequenceAlmostEqual(list(self.skin.getWeights(vertex=3).values()), list(self.skin.getWeights(self.joints, vertices=[3])))
 
     def test_set_normalize_matches_skinPercent(self):
-        """既定の normalize=True は skinPercent(transformValue) と同じ値になり、False は指定列だけを書く。"""
+        """normalize=True は skinPercent(transformValue) と同じ値になり、False は指定列だけを書く。"""
         j0, j1, j2 = self.joints
         before = self.row(5)
         with mlib.decorator.undoChunk("reference"):
             cmds.skinPercent(self.skinName, self.vtx(5), transformValue=[(j1, 0.3)], normalize=True)
         expected = self.row(5)
         cmds.undo()
-        self.assertIsNone(self.skin.setVertexWeights(5, {j1: 0.3}))
+        self.assertIsNone(self.skin.setWeights({j1: 0.3}, vertex=5, normalize=True))
         self.assertSequenceAlmostEqual(self.row(5), expected)
-        self.skin.setVertexWeights(self.vtx(5), {j0: 0.05, j2: 0.05}, normalize=False)
+        self.skin.setWeights({j0: 0.05, j2: 0.05}, vertex=self.vtx(5), normalize=False)
         self.assertSequenceAlmostEqual(self.row(5), [0.05, expected[1], 0.05])
-        # getVertexWeights の辞書をそのまま戻せる。
+        # getWeights(vertex=) の辞書をそのまま戻せる。
         self.writeRow(5, before)
-        weights = self.skin.getVertexWeights(5)
+        weights = self.skin.getWeights(vertex=5)
         self.writeRow(5, [1.0, 0.0, 0.0])
-        self.skin.setVertexWeights(5, weights)
+        self.skin.setWeights(weights, vertex=5, normalize=True)
         self.assertSequenceAlmostEqual(self.row(5), before)
 
     def test_set_undo_fast_and_errors(self):
         j0 = self.joints[0]
         before = self.row(2)
         self.flushUndo()
-        self.skin.setVertexWeights(2, {j0: 0.9})
+        self.skin.setWeights({j0: 0.9}, vertex=2, normalize=True)
         after = self.row(2)
         self.assertUndoesInOneStep(lambda: self.assertSequenceAlmostEqual(self.row(2), before), lambda: self.assertSequenceAlmostEqual(self.row(2), after))
         self.flushUndo()
-        self.skin.setVertexWeights(2, {j0: 0.9}, fast=True)
+        self.skin.setWeights({j0: 0.9}, vertex=2, normalize=True, fast=True)
         self.assertUndoEmpty()
         self.assertSequenceAlmostEqual(self.row(2), after)
         cases = (
@@ -353,11 +371,57 @@ class VertexWeightsTest(_SkinCase):
             ((2, {j0: float("nan")}), ValueError),
             ((self.count, {j0: 0.5}), IndexError),
         )
-        for args, error in cases:
-            with self.subTest(args=repr(args)):
-                with self.assertRaises(error):
-                    self.skin.setVertexWeights(*args)
+        for (vertex, weights), error in cases:
+            for fast in (False, True):
+                with self.subTest(args=repr((vertex, weights)), fast=fast):
+                    with self.assertRaises(error):
+                        self.skin.setWeights(weights, vertex=vertex, normalize=True, fast=fast)
         self.assertSequenceAlmostEqual(self.row(2), after)
+
+    def test_set_vertex_requires_normalize_and_exclusive_arguments(self):
+        """vertex の形では normalize を省けず、weights・vertices・broadcast・rows と同時に指定できない(TypeError)。値は変わらない。"""
+        j0, j1, _ = self.joints
+        before = self.row(2)
+        cases = (
+            ("normalize omitted", lambda: self.skin.setWeights({j0: 0.5}, vertex=2)),
+            ("weights", lambda: self.skin.setWeights({j0: 0.5}, [0.5], vertex=2, normalize=True)),
+            ("vertices", lambda: self.skin.setWeights({j0: 0.5}, vertex=2, vertices=[2], normalize=True)),
+            ("broadcast", lambda: self.skin.setWeights({j0: 0.5}, vertex=2, broadcast=True, normalize=True)),
+            ("rows", lambda: self.skin.setWeights({j0: 0.5}, vertex=2, rows=True, normalize=True)),
+            ("normalize int", lambda: self.skin.setWeights({j0: 0.5}, vertex=2, normalize=1)),
+            ("mapping without vertex", lambda: self.skin.setWeights({j0: 0.5}, normalize=True)),
+            ("mapping with weights", lambda: self.skin.setWeights({j0: 0.5}, [0.5], vertices=[2])),
+            ("weights omitted", lambda: self.skin.setWeights([j0, j1], vertices=[2])),
+        )
+        for label, call in cases:
+            with self.subTest(label):
+                with self.assertRaises(TypeError):
+                    call()
+                self.assertSequenceAlmostEqual(self.row(2), before)
+
+    def test_set_vertex_matches_list_form(self):
+        """vertex の形は、同じ値を joints・weights・vertices で書いた結果と一致する(normalize の両方、通常・fast)。"""
+        j0, j1, _ = self.joints
+        for normalize in (True, False):
+            for fast in (False, True):
+                with self.subTest(normalize=normalize, fast=fast):
+                    before = self.row(4)
+                    self.skin.setWeights([j0, j1], [0.2, 0.3], vertices=[4], normalize=normalize)
+                    expected = self.row(4)
+                    self.writeRow(4, before)
+                    self.flushUndo()
+                    self.assertIsNone(self.skin.setWeights({j0: 0.2, j1: 0.3}, vertex=4, normalize=normalize, fast=fast))
+                    self.assertSequenceAlmostEqual(self.row(4), expected)
+                    if fast:
+                        self.assertUndoEmpty()
+                    else:
+                        self.assertUndoesInOneStep(
+                            lambda: self.assertSequenceAlmostEqual(self.row(4), before), lambda: self.assertSequenceAlmostEqual(self.row(4), expected)
+                        )
+                    self.writeRow(4, before)
+        # geometryIndex も vertex の形で使える。
+        self.skin.setWeights({j0: 1.0}, vertex=4, normalize=True, geometryIndex=0)
+        self.assertSequenceAlmostEqual(self.row(4), [1.0, 0.0, 0.0])
 
 
 class PruneWeightsTest(_SkinCase):

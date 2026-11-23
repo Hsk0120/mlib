@@ -59,9 +59,9 @@ class UnlockedInfluencesTest(_RigCase):
         skin.setInfluencesLocked([self.root, self.tip], True)
         with skin.unlockedInfluences() as value:
             self.assertIs(value, skin)
-            self.assertEqual(skin.getLockedInfluences(), [])
+            self.assertEqual(skin.getInfluences(locked=True), [])
             skin.setWeights([self.root], [1.0], vertices=[0], normalize=True)
-        self.assertEqual(sorted(n.getName() for n in skin.getLockedInfluences()), sorted(mlib.getNode(n).getName() for n in (self.root, self.tip)))
+        self.assertEqual(sorted(n.getName() for n in skin.getInfluences(locked=True)), sorted(mlib.getNode(n).getName() for n in (self.root, self.tip)))
         self.assertAlmostEqual(skin.getWeights([self.root], vertices=[0])[0], 1.0, places=6)
 
     def test_subset_and_exception(self):
@@ -210,16 +210,16 @@ class SkinLockTest(_SkinCase):
     def test_lock_roundtrip(self):
         """SkinCluster と Joint のどちらからもロックを読み書きでき、cmds の値と一致する。"""
         skin = self.skinned()
-        self.assertEqual(skin.getLockedInfluences(), [])
+        self.assertEqual(skin.getInfluences(locked=True), [])
         self.assertIsNone(skin.setInfluencesLocked([self.root, self.tip]))
-        self.assertEqual([node.getName() for node in skin.getLockedInfluences()], [mlib.getNode(self.root).getName(), mlib.getNode(self.tip).getName()])
+        self.assertEqual([node.getName() for node in skin.getInfluences(locked=True)], [mlib.getNode(self.root).getName(), mlib.getNode(self.tip).getName()])
         self.assertTrue(cmds.getAttr(self.root + ".liw"))
         mid = Joint(self.mid)
         self.assertFalse(mid.isInfluenceLocked())
         self.assertIsNone(mid.setInfluenceLocked())
         self.assertTrue(cmds.getAttr(self.mid + ".liw"))
         skin.setInfluencesLocked([self.root, self.mid, self.tip], state=False)
-        self.assertEqual(skin.getLockedInfluences(), [])
+        self.assertEqual(skin.getInfluences(locked=True), [])
 
     def test_lock_errors_and_undo(self):
         """未登録・bool 以外は例外。バインドしていない joint は isInfluenceLocked が False で set は RuntimeError。"""
@@ -268,7 +268,8 @@ class SkinRemoveInfluencesTest(_SkinCase):
         skin = self.skinned()
         before = skin.getWeights([self.root, self.mid, self.tip], rows=True)
         cmds.flushUndo()
-        self.assertIsNone(skin.removeInfluences([self.mid, self.tip]))
+        removed = skin.removeInfluences([self.mid, self.tip])
+        self.assertEqual([node.getName() for node in removed], [mlib.getNode(self.mid).getName(), mlib.getNode(self.tip).getName()])
         self.assertEqual([node.getName() for node in skin.getInfluences()], [mlib.getNode(self.root).getName()])
         for value in skin.getWeights([self.root]):
             self.assertAlmostEqual(value, 1.0, places=6)
@@ -307,19 +308,36 @@ class SkinSettingsTest(_SkinCase):
     def test_settings_by_name(self):
         """名前で読み書きし、cmds の値と一致する。不正な名前は ValueError、型違いは TypeError。"""
         skin = self.skinned()
-        self.assertEqual(skin.getSkinningMethod(), "classicLinear")
-        self.assertIsNone(skin.setSkinningMethod("dualQuaternion"))
+        self.assertEqual(skin.getMode("skinning"), "classicLinear")
+        self.assertIsNone(skin.setMode("dualQuaternion", "skinning"))
         self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 1)
-        self.assertEqual(skin.getNormalizeMode(), "interactive")
-        skin.setNormalizeMode("post")
+        self.assertEqual(skin.getMode("normalize"), "interactive")
+        skin.setMode("post", "normalize")
         self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), 2)
-        self.assertEqual(skin.isMaintainingMaxInfluences(), bool(cmds.getAttr(skin.getFullName() + ".maintainMaxInfluences")))
-        self.assertRaises(ValueError, skin.setSkinningMethod, "linear")
-        self.assertRaises(TypeError, skin.setNormalizeMode, 1)
+        self.assertEqual(skin.getMaxInfluences(maintain=True), bool(cmds.getAttr(skin.getFullName() + ".maintainMaxInfluences")))
+        self.assertRaises(ValueError, skin.setMode, "linear", "skinning")
+        self.assertRaises(TypeError, skin.setMode, 1, "normalize")
+        # kind を省くと "skinning"。知らない kind は ValueError、str 以外は TypeError で、設定は変わらない。
+        self.assertEqual(skin.getMode(), skin.getMode("skinning"))
+        skin.setMode("classicLinear")
+        self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 0)
+        skin.setMode("dualQuaternion")
+        for kind, error in (("blend", ValueError), ("", ValueError), (1, TypeError), (None, TypeError)):
+            with self.subTest(kind=kind):
+                self.assertRaises(error, skin.getMode, kind)
+                self.assertRaises(error, skin.setMode, "post", kind)
+        # 名前は kind ごとに別で、取り違えは ValueError。
+        self.assertRaises(ValueError, skin.setMode, "post", "skinning")
+        self.assertRaises(ValueError, skin.setMode, "dualQuaternion", "normalize")
+        self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 1)
+        self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), 2)
+        self.assertIs(skin.getMaxInfluences(maintain=True), False)
+        self.assertEqual(skin.getMaxInfluences(), cmds.getAttr(skin.getFullName() + ".maxInfluences"))
+        self.assertRaises(TypeError, skin.getMaxInfluences, maintain=1)
         cmds.flushUndo()
-        skin.setSkinningMethod("weightBlended")
+        skin.setMode("weightBlended", "skinning")
         cmds.undo()
-        self.assertEqual(skin.getSkinningMethod(), "dualQuaternion")
+        self.assertEqual(skin.getMode("skinning"), "dualQuaternion")
 
 
 if __name__ == "__main__":

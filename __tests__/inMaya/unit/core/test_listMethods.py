@@ -153,14 +153,14 @@ class PluralReturnTest(NamespaceCase):
         transform = mesh.getTransform()
         skin = mlib.bindSkin([root, child], transform)
         cases = (
-            (transform.getShapes(), mlib.Nodes, [mesh]),
+            (transform.getShape(all=True), mlib.Nodes, [mesh]),
             # 要素がすべてジョイントなら、NodesでなくJointsで返る。
             (root.getChildren(), mlib.Joints, [child]),
-            (child.getParents(), mlib.Joints, [root]),
+            (child.getParent(instances=True), mlib.Joints, [root]),
             (root.getChainFromHere(), mlib.Joints, [root, child]),
             (transform.getSkinClusters(), mlib.SkinClusters, [skin]),
             (skin.getInfluences(), mlib.Joints, [root, child]),
-            (transform.getParents(), mlib.Nodes, []),
+            (transform.getParent(instances=True), mlib.Nodes, []),
             (root.getPlug("translate").getChildren(), mlib.Plugs, [root.getPlug(name) for name in ("tx", "ty", "tz")]),
         )
         for result, expected_type, expected in cases:
@@ -207,14 +207,14 @@ class PluralReturnTest(NamespaceCase):
         with self.assertRaises(TypeError):
             mlib.Joints([root]) + [transform]
         # 返った集まりは、そのままlistのように足せる。
-        shapes = transform.getShapes()
+        shapes = transform.getShape(all=True)
         shapes.append(root)
         self.assertEqual(shapes, [mesh, root])
-        self.assertEqual(transform.getShapes(), [mesh])
+        self.assertEqual(transform.getShape(all=True), [mesh])
 
 
 class ForwardingTest(NamespaceCase):
-    """複数形から、各要素のメソッドを同じ名前で呼べる。名前の一覧は getNames・getFullNames の両方がある。"""
+    """複数形から、各要素のメソッドを同じ名前で呼べる。名前の一覧は getNames、完全な名前は getNames(full=True)。"""
 
     PREFIX = "mlibPluralForward_"
 
@@ -241,10 +241,10 @@ class ForwardingTest(NamespaceCase):
         child = mlib.getNode(self.make("transform", "child#", parent=parent.getFullName()))
         nodes = mlib.Nodes([parent, child])
         self.assertEqual(nodes.getNames(), [parent.getName(), child.getName()])
-        self.assertEqual(nodes.getFullNames(), [parent.getFullName(), child.getFullName()])
+        self.assertEqual(nodes.getNames(full=True), [parent.getFullName(), child.getFullName()])
         plugs = mlib.Plugs([child.getPlug("tx")])
         self.assertEqual(plugs.getNames(), [child.getPlug("tx").getName()])
-        self.assertEqual(plugs.getFullNames(), [child.getPlug("tx").getFullName()])
+        self.assertEqual(plugs.getNames(full=True), [child.getPlug("tx").getFullName()])
 
     def test_renamed_scene_methods_are_forwarded(self):
         """listのメソッドと同じ名前だった操作は、別の名前にしてあるので、複数形からもシーンを操作できる。"""
@@ -253,7 +253,7 @@ class ForwardingTest(NamespaceCase):
         sets = mlib.Nodes([first])
         self.assertFalse(hasattr(mlib.ObjectSet, "clear"))
         self.assertFalse(hasattr(mlib.NurbsCurve, "reverse"))
-        sets.removeAllMembers()
+        sets.removeMembers(all=True)
         self.assertEqual(first.getMembers(), [])
         self.assertEqual(len(sets), 1)
         # clear は、集まりの中身を空にするだけで、シーンは変えない。

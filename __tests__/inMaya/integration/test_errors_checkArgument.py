@@ -10,7 +10,7 @@
 
 ロックは、後ろに書く成分・要素(または書き込む先の一部)へ付けて、途中まで書いてから止まらないことを確かめる。
 
-ほかのテストで ``check=True`` を確かめているメソッド(``Plug.set``・``setPivot``・``setOverrideColor`` など)は対象にしない。
+ほかのテストで ``check=True`` を確かめているメソッド(``Plug.set``・``setPivot``・``setColor`` など)は対象にしない。
 """
 
 import math
@@ -231,8 +231,8 @@ class _CheckCase(NamespaceCase):
             state=lambda: self.xf_state(node),
         )
 
-    def c_Transform_setPivotTranslation(self):
-        case = self._xf_case("setPivotTranslation", (1.0, 2.0, 3.0), (1.0, 2.0, NAN), "rotatePivotTranslateZ")
+    def c_Transform_setPivot_translation(self):
+        case = self._xf_case("setPivot", (1.0, 2.0, 3.0), (1.0, 2.0, NAN), "rotatePivotTranslateZ", translation=True)
         case.modes = (False,)
         return case
 
@@ -259,16 +259,17 @@ class _CheckCase(NamespaceCase):
     def c_Nodes_setVisibility(self):
         return self._pair_case("setVisibility", False, "visibility", ("visibility",))
 
-    def c_Nodes_setOverrideColors(self):
-        return self._pair_case("setOverrideColors", [13, 17], "overrideColor", ("overrideEnabled", "overrideRGBColors", "overrideColor"))
+    def c_Nodes_setColors(self):
+        return self._pair_case("setColors", [13, 17], "overrideColor", ("overrideEnabled", "overrideRGBColors", "overrideColor"))
 
-    def c_Nodes_setOutlinerColors(self):
+    def c_Nodes_setColors_outliner(self):
         return self._pair_case(
-            "setOutlinerColors",
+            "setColors",
             [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
             "outlinerColor",
             ("useOutlinerColor", "outlinerColor"),
             bad=[(1.0, 0.0, 0.0), (NAN, 1.0, 0.0)],
+            outliner=True,
         )
 
     def c_Nodes_resetAttrs(self):
@@ -537,7 +538,7 @@ class _CheckCase(NamespaceCase):
     def c_SkinCluster_setVertexWeights(self):
         skin, mesh, joints = self.skin()
         return Case(
-            call=lambda value, **kw: skin.setVertexWeights(0, {joints[0]: value}, **kw),
+            call=lambda value, **kw: skin.setWeights({joints[0]: value}, vertex=0, normalize=True, **kw),
             good=0.3,
             bad=NAN,
             lock=lambda: cmds.setAttr(skin.getFullName() + ".weightList[0].weights[1]", lock=True),
@@ -583,11 +584,11 @@ class _CheckCase(NamespaceCase):
             state=lambda: _attrs(node, *read),
         )
 
-    def _pair_case(self, method, good, locked, read, bad=None):
+    def _pair_case(self, method, good, locked, read, bad=None, **extra):
         names = [self.xf(), self.xf()]
         nodes = Nodes(names)
         return Case(
-            call=lambda value, **kw: getattr(nodes, method)(value, **kw),
+            call=lambda value, **kw: getattr(nodes, method)(value, **extra, **kw),
             good=good,
             bad=bad,
             lock=lambda: cmds.setAttr(names[1] + "." + locked, lock=True),

@@ -2,7 +2,7 @@
 
 import maya.cmds as cmds
 
-from ..decorator import _edit_context, undoChunk
+from ..decorator import _edit_context, _require_bool, undoChunk
 from ..plugs.plug import Plugs
 from .node import Node, Nodes
 from .transform import Transform
@@ -25,7 +25,7 @@ class Constraint(Transform):
 
         ノード型に対応するMaya標準のコンストレイントコマンドで調べる。
         並びはコマンドのtargetListの順のままで、targetマルチアトリビュートの論理番号では並べ替えない。
-        この順はgetWeightAliases()の並びと対応する。
+        この順はgetWeightPlugs()の並びと対応する。
 
         Returns:
             Nodes: ターゲットの新しいオブジェクト。登録が無ければ空の集まり。
@@ -34,50 +34,52 @@ class Constraint(Transform):
         names = getattr(cmds, self.getType())(self.getFullName(), query=True, targetList=True) or []
         return Nodes._wrap([Node(name) for name in names])
 
-    def getWeightAliases(self):
-        """登録されているターゲットの、ウェイトのエイリアスを取得する。
+    def getWeightPlugs(self, *, aliases=False):
+        """ターゲットのウェイトのアトリビュートを取得する。``aliases=True`` なら、そのエイリアスの名前を取得する。
 
         Maya標準のコンストレイントコマンドで調べる。
 
-        Returns:
-            list[str]: エイリアスの名前。getTargets()と同じ順に並ぶ。
-                ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
-        """
-        return getattr(cmds, self.getType())(self.getFullName(), query=True, weightAliasList=True) or []
-
-    def getWeightPlugs(self):
-        """ターゲットのウェイトのアトリビュートを取得する。
-
-        Returns:
-            Plugs: getTargets()と同じ順に並ぶ。set()で値を変更できる。
-        """
-        return Plugs._from_plugs([self.getPlug(alias) for alias in self.getWeightAliases()])
-
-    def getWeights(self):
-        """ターゲットの現在のウェイトを取得する。
-
-        Returns:
-            list[float]: getTargets()と同じ順に並ぶ値。正規化はしない。
-        """
-        return [plug.get() for plug in self.getWeightPlugs()]
-
-    def getWeight(self, target):
-        """指定したターゲットの現在のウェイトを取得する。
-
         Args:
-            target (Node | str): このコンストレイントに登録されたターゲット。
+            aliases (bool): Trueなら、Plugの代わりにウェイトのエイリアスの名前を返す。既定はFalse。
+                ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
 
         Returns:
-            float: ウェイトの値。正規化はしない。
+            Plugs | list[str]: getTargets()と同じ順に並ぶ。set()で値を変更できる。
+                aliases=Trueなら、エイリアスの名前のリスト。
 
         Raises:
-            ValueError: ターゲットが登録されていない場合。
+            TypeError: aliasesがboolでない場合。
         """
-        requested = Node._resolve_input(target).getFullName()
-        for node, plug in zip(self.getTargets(), self.getWeightPlugs()):
-            if node.getFullName() == requested:
-                return plug.get()
-        raise ValueError(f"このコンストレイントにターゲットが見つかりません: {requested}")
+        _require_bool(aliases, "aliases")
+        names = getattr(cmds, self.getType())(self.getFullName(), query=True, weightAliasList=True) or []
+        if aliases:
+            return names
+        return Plugs._from_plugs([self.getPlug(alias) for alias in names])
+
+    def getWeights(self, *targets):
+        """ターゲットの現在のウェイトを取得する。
+
+        Args:
+            *targets (Node | str): このコンストレイントに登録されたターゲット。省略すると全ターゲット。
+
+        Returns:
+            list[float]: 正規化しない値。targetsを省略したときはgetTargets()と同じ順、
+                渡したときは渡した順に並ぶ(1つ渡しても、要素が1つのリスト)。
+
+        Raises:
+            ValueError: 渡したターゲットが登録されていない場合。
+        """
+        plugs = self.getWeightPlugs()
+        if not targets:
+            return [plug.get() for plug in plugs]
+        available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), plugs)}
+        result = []
+        for target in Nodes._resolve_inputs(targets):
+            requested = Node._resolve_input(target).getFullName()
+            if requested not in available:
+                raise ValueError(f"このコンストレイントにターゲットが見つかりません: {requested}")
+            result.append(available[requested].get())
+        return result
 
     def setWeight(self, weight, *targets, fast=False, check=False):
         """ターゲットのウェイトを設定する。

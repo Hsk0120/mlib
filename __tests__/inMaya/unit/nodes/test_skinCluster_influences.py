@@ -37,9 +37,9 @@ class CommonMethodsTest(unittest.TestCase):
         joints, _mesh, skin = self.skin()
         names = [joint.getFullName() for joint in joints]
         skin.setWeights(names, [1, 0, 0], broadcast=True)
-        self.assertEqual([node.getUuid() for node in skin.getUnusedInfluences()], [j.getUuid() for j in joints[1:]])
+        self.assertEqual([node.getUuid() for node in skin.getInfluences(unused=True)], [j.getUuid() for j in joints[1:]])
         before = list(skin.getWeights(names))
-        removed = skin.removeUnusedInfluences()
+        removed = skin.removeInfluences(unused=True)
         self.assertEqual([node.getUuid() for node in removed], [j.getUuid() for j in joints[1:]])
         self.assertTrue(all(j.isValid() for j in joints))
         self.assertEqual(len(skin.getInfluences()), 1)
@@ -47,16 +47,16 @@ class CommonMethodsTest(unittest.TestCase):
         self.assertEqual(list(skin.getWeights(names)), before)
         cmds.redo()
         self.assertEqual(len(skin.getInfluences()), 1)
-        self.assertEqual(skin.removeUnusedInfluences(), [])
+        self.assertEqual(skin.removeInfluences(unused=True), [])
 
     def test_unused_influences_keep_small_weights_and_reject_empty_binding(self):
         joints, _mesh, skin = self.skin()
         names = [joint.getFullName() for joint in joints]
         skin.setWeights(names, [1 - 1e-8, 1e-8, 0], broadcast=True)
-        self.assertEqual([node.getUuid() for node in skin.getUnusedInfluences()], [joints[2].getUuid()])
+        self.assertEqual([node.getUuid() for node in skin.getInfluences(unused=True)], [joints[2].getUuid()])
         skin.setWeights(names, [0, 0, 0], broadcast=True)
         with self.assertRaises(ValueError):
-            skin.removeUnusedInfluences()
+            skin.removeInfluences(unused=True)
         self.assertEqual(len(skin.getInfluences()), 3)
 
 

@@ -21,13 +21,14 @@ from ..plugs.plug import Plug
 from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
 from .dagNode import DagNode
 from .node import Node, Nodes
-from typing import Iterable, Sequence
+from typing import Iterable, Literal, Sequence
 from mlib.components.component import Component
 from mlib.components.component import Components
 from mlib.components.pointComponent import PointComponents
 from mlib.nodes.constraint import Constraint
 from mlib.nodes.shadingEngine import ShadingEngine
 from mlib.nodes.shape import Shape
+from typing import overload
 import os
 import pathlib
 
@@ -127,7 +128,7 @@ def _curve_color(value: object, label: str) -> int | tuple[float, float, float] 
         label (str): 例外のメッセージに使う名前。
 
     Returns:
-        int | tuple[float, float, float] | None: :meth:`DagNode.setOverrideColor` へ渡せる値。
+        int | tuple[float, float, float] | None: :meth:`DagNode.setColor` へ渡せる値。
 
     Raises:
         ValueError: 表示色として正しくない場合。
@@ -389,52 +390,54 @@ class Transform(DagNode):
             NotImplementedError: fast=Trueで、入力のヒストリがあるShapeがある場合。
         """
         ...
-    def centerPivotsOnComponents(self, components: str | PointComponents | Iterable[PointComponent]) -> None:
-        """指定した頂点・CVのワールドバウンディングボックス中心へ両ピボットを移す。
-
-        直下Shapeの点コンポーネントを明示指定する。現在の選択は参照・変更しない。
-        setPivot(preserve=True)を使い、姿勢を維持して通常Undoへ記録する。
-        fast引数は持たない(既存のピボット更新を1回呼ぶため)。
-
-        Args:
-            components (str | PointComponents | Iterable[PointComponent]): 頂点・CVまたはその範囲。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 点以外の対象がある場合、またはJointの場合。
-            ValueError: 対象が空、または別のTransform下のコンポーネントの場合。
-            RuntimeError: 対象が無効、ロックや接続がある場合、またはMayaが更新を拒否した場合。
-        """
-        ...
-    def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Translate:
+    @overload
+    def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., translation: Literal[True], ws: bool = ...) -> Vector: ...
+    @overload
+    def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., translation: Literal[False] = ..., ws: bool = ...) -> Translate: ...
+    @overload
+    def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., translation: bool = ..., ws: bool = ...) -> Translate | Vector:
         """回転ピボットかスケールピボットの位置を、cmで取得する。
+
+        ``translation=True`` なら、ピボットの位置ではなく、ピボットを動かしたときの姿勢の補正値
+        (rotatePivotTranslate・scalePivotTranslate)を取得する。ワールド空間では選んだチャンネルだけを換算し、
+        ほかのピボットの補正は合算しない。JointではsegmentScaleCompensateが有効なときinverseScaleも反映する。
 
         Args:
             worldSpace (bool): Trueならワールド空間。Falseなら、xformのobjectSpaceに当たる
-                MSpace.kPreTransform。
+                MSpace.kPreTransform(translation=Trueではローカル空間)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): どのピボットか。rotateは回転ピボット、scaleはスケールピボット。
+            translation (bool): Trueなら、ピボットの補正値を取得する。既定はFalse。
 
         Returns:
-            Translate: 位置の新しい値。ノードとは切り離されている。UIの距離の単位に関係なくcm。
+            Translate | Vector: 位置の新しい値。ノードとは切り離されている。UIの距離の単位に関係なくcm。
+                translation=Trueなら、cm単位の補正のベクトル(Vector)。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: kindがrotateでもscaleでもない場合。
+            TypeError: worldSpace・translationがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: kindがrotateでもscaleでもない場合、またはtranslation=Trueで補正に使うJointのinverseScaleに0がある場合。
+            RuntimeError: translation=Trueで、ノードが無効な場合。
         """
         ...
-    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def setPivot(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., translation: bool = ..., preserve: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """ピボットを動かす。既定ではノードの姿勢を保つ。
+
+        ``translation=True`` なら、ピボットの位置ではなく、姿勢の補正値(rotatePivotTranslate・scalePivotTranslate)だけを
+        書き換える。ピボットの位置・translate・rotate・scaleは変えないので、ノードの姿勢が変わることがある。
+        ワールド空間でも、ほかのピボットの補正を含まない独立したベクトルを指定する。
+        ピボット(rotatePivot等)と補正値(rotatePivotTranslate等)の成分のロック・入力の接続は、checkに関係なく
+        書き込む前に確かめる(Mayaは例外にせず、黙って何も書かないため)。
 
         Args:
             value (Iterable[float]): 新しいピボットの位置。XYZの3つの値で、UIの距離の単位に関係なくcm。
+                translation=Trueなら、cm単位のXYZの補正のベクトル。
             worldSpace (bool): Trueならワールド空間。Falseなら、xformのobjectSpaceに当たる
-                MSpace.kPreTransform。
+                MSpace.kPreTransform(translation=Trueではローカル空間)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): どのピボットか。rotate・scale・bothのどれか。bothなら両方を同じ位置にする。
-            preserve (bool): Trueなら、ピボットの補正値を調整してマトリクスを保つ。
+                translation=Trueではrotateかscale。
+            translation (bool): Trueなら、ピボットの補正値を書き換える。既定はFalse。preserve・fastとは同時に指定できない。
+            preserve (bool): Trueなら、ピボットの補正値を調整してマトリクスを保つ。既定はTrue。
                 Falseなら補正しないので、姿勢が変わることがある。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -444,72 +447,31 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: preserveがboolでない場合、対象がJointの場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: kindが正しくない場合、または座標の数や値(有限か)が正しくない場合。
+            TypeError: preserve・translationがboolでない場合、対象がJointの場合、worldSpaceとwsを同時に指定した場合、
+                translation=Trueとpreserve・fastを同時に指定した場合、
+                またはtranslation=Trueでvalueが数値の並びでない(成分に数値以外がある)場合。
+            ValueError: kindが正しくない場合、座標の数や値(有限か)が正しくない場合、
+                またはtranslation=Trueで、空間の変換が特異な場合・JointのinverseScaleに0がある場合。
             RuntimeError: ノードが無効な場合、変えるピボットや補正値(preserve=Trueのとき)の成分が
                 ロックされている・入力が接続されている場合、またはMayaが設定を拒否した場合。
                 ロックは通常でもfastでも書き換える前に確かめ、そのときは何も変えない。
 
         Note:
-            Jointはピボットを単独で動かせないため、書き換える前に拒否する。
+            Jointはピボットを単独で動かせないため、書き換える前に拒否する(translation=Trueは補正値だけなのでJointでも書ける)。
         """
         ...
-    def getPivotTranslation(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Vector:
-        """ピボットを移動したときの姿勢補正値を取得する。
-
-        rotatePivotTranslateまたはscalePivotTranslateを扱う。ピボット位置そのものはgetPivotで取得する。
-        ワールド空間では選んだチャンネルだけを換算し、ほかのピボット補正は合算しない。
-        JointではsegmentScaleCompensateが有効なときinverseScaleも反映する。
-
-        Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-            kind (str): rotateは回転ピボット、scaleはスケールピボット。既定rotate。
-
-        Returns:
-            Vector: cm単位の補正ベクトルの独立したコピー。
-
-        Raises:
-            TypeError: worldSpaceの型が不正、またはwsと同時指定した場合。
-            ValueError: kindがrotate・scale以外、または補正に使うJointのinverseScaleに0がある場合。
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
-    def setPivotTranslation(self, value: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., check: bool = ..., ws: bool = ...) -> None:
-        """ピボットの姿勢補正値を設定する。
-
-        補正チャンネルだけを書き換えるので、ノードの姿勢が変わることがある。
-        ピボット位置・translate・rotate・scaleは変更しない。
-        ワールド空間でも、ほかのピボット補正を含まない独立したベクトルを指定する。
-        ピボット(rotatePivot等)と補正値(rotatePivotTranslate等)の成分のロック・入力の接続は、checkに関係なく
-        書き込む前に確かめる(Mayaは例外にせず、黙って何も書かないため)。
-        fast引数は持たない(Plugへの1回の通常書き込みで更新するため)。
-
-        Args:
-            value (Iterable[float]): cm単位のXYZ補正ベクトル。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-            kind (str): rotateは回転ピボット、scaleはスケールピボット。既定rotate。
-            check (bool): Trueなら値の有限性と書き込み可否を先に確認する。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 値やフラグの型が不正(数値の並びでない、または成分に数値以外がある)、
-                またはworldSpaceとwsを同時指定した場合。
-            ValueError: kind・成分数が不正、check=Trueで値が有限でない、空間変換が特異、またはJointのinverseScaleに0がある場合。
-            RuntimeError: ノードが無効、ピボットか補正値の成分がロックされている・入力が接続されている場合、
-                またはMayaが書き込みを拒否した場合。
-        """
-        ...
-    def centerPivot(self, *, fast: bool = ..., check: bool = ...) -> None:
+    def centerPivot(self, components: str | PointComponents | Iterable[PointComponent] | None = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """回転ピボットとスケールピボットを、バウンディングボックスの中心へ動かす。
 
         通常はxform(centerPivots=True)で動かす。fastでは、APIで求めた中心をsetPivotへ渡す。
-        preserve=Trueで、ピボットの補正値を調整する。コンポーネントの選択は使わない。
+        preserve=Trueで、ピボットの補正値を調整する。
+
+        ``components`` を渡すと、その頂点・CVのワールドのバウンディングボックスの中心へ両方のピボットを動かす
+        (setPivot(preserve=True)を1回呼ぶ)。今の選択は使わず、変えない。
 
         Args:
+            components (str | PointComponents | Iterable[PointComponent] | None): 中心を求める頂点・CV、またはその範囲。
+                直下のShapeのものを指定する。既定のNoneなら、ノードのバウンディングボックスの中心を使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -518,7 +480,9 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合、またはfastで対象がJointの場合。
+            TypeError: fast(componentsを渡したときはcheckも)がboolでない場合、fastで対象がJointの場合、componentsに点以外の対象がある場合、
+                またはcomponentsを渡して対象がJointの場合。
+            ValueError: componentsが空の場合、または別のTransformの下のコンポーネントの場合。
             RuntimeError: 無効なオブジェクトの場合、ピボットや補正値の成分がロックされている・入力が接続されている場合
                 (通常でもfastでも書き換える前に確かめる)、またはMayaが書き換えを拒否した場合。
         """
@@ -638,16 +602,6 @@ class Transform(DagNode):
             NotImplementedError: fastで、自身に同じ名前の子がある場合。
         """
         ...
-    def getShapes(self, intermediates: bool = ...) -> Nodes[Shape]:
-        """このTransformの直下のShapeを取得する。
-
-        Args:
-            intermediates (bool): ``True`` なら中間オブジェクトのShapeも含める。
-
-        Returns:
-            Nodes[Shape]: 条件に合うShape。
-        """
-        ...
     def replaceShapes(self, source: Transform | Shape | str, *, keepSource: bool = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
         """自身のShapeを、sourceのShape(中間オブジェクトを除く)に置き換える。
 
@@ -694,7 +648,7 @@ class Transform(DagNode):
         Returns:
             dict: ``{"color": 表示色, "shapes": [...]}``。``shapes`` の各要素は
                 ``{"name", "degree", "form", "knots", "points", "color", "lineWidth"}`` を持つ辞書。
-                ``form`` は ``"open"``・``"closed"``・``"periodic"`` のどれか。``points`` は ``[x, y, z]`` のリスト。表示色は :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` と同じ
+                ``form`` は ``"open"``・``"closed"``・``"periodic"`` のどれか。``points`` は ``[x, y, z]`` のリスト。表示色は :meth:`~mlib.nodes.dagNode.DagNode.getColor` と同じ
                 (カラー番号・(r, g, b)・None)。
 
         Raises:
@@ -760,15 +714,25 @@ class Transform(DagNode):
             OSError: 読み込みに失敗した場合。
         """
         ...
-    def getShape(self, index: int = ..., intermediates: bool = ...) -> Shape | None:
-        """指定した番号のShapeを取得する。
+    @overload
+    def getShape(self, index: int = ..., intermediates: bool = ..., *, all: Literal[True]) -> Nodes[Shape]: ...
+    @overload
+    def getShape(self, index: int = ..., intermediates: bool = ..., *, all: Literal[False] = ...) -> Shape | None: ...
+    @overload
+    def getShape(self, index: int = ..., intermediates: bool = ..., *, all: bool = ...) -> Shape | Nodes[Shape] | None:
+        """指定した番号のShapeを取得する。``all=True`` なら直下のShapeすべてを取得する。
 
         Args:
-            index (int): Shapeの番号。既定は0。
+            index (int): Shapeの番号。既定は0。all=Trueとは同時に指定できない。
             intermediates (bool): ``True`` なら中間オブジェクトのShapeも含めて数える。
+            all (bool): Trueなら、条件に合う直下のShapeすべてを集まりで返す。既定はFalse。
 
         Returns:
-            Shape | None: 指定した番号のShape。範囲外ならNone。
+            Shape | Nodes[Shape] | None: 指定した番号のShape。範囲外ならNone。
+                all=Trueなら、条件に合うShapeの集まり(無ければ空)。
+
+        Raises:
+            TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
         """
         ...
     def getTransform(self) -> Transform:
@@ -994,7 +958,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Translate | None:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Translate | None:
         """指定した基準の位置へ動かす。ピボットと回転は変えない。
 
         既定の ``at=2`` では、回転ピボットの位置(MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -1004,11 +968,16 @@ class Transform(DagNode):
         at=0以下では、位置をそのまま設定するのではなく、入力を親の空間へ変換した値から今のtranslateを
         引いた値を設定する。例えば、今が2で入力が5なら、translateは3になる。
 
+        ``relative=True`` は、今の位置からvalueだけ動かす(``cmds.move(relative=True)`` に当たる)。
+        ``worldSpace=False`` なら親の空間の軸(translateチャンネル)に沿ってvalueを足し、``worldSpace=True`` なら
+        ワールドの軸に沿ってvalueだけ動くようにtranslateを書き換える。
+
         Args:
-            value (Iterable[float]): cmで表した位置。
+            value (Iterable[float]): cmで表した位置。relative=Trueなら移動量。
             worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            at (int): どこを基準にするか。getTranslationと同じ。既定は2(回転ピボット)。
+            at (int): どこを基準にするか。getTranslationと同じ。既定は2(回転ピボット)。relative=Trueとは同時に指定できない。
+            relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse。
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、設定する予定のローカルのtranslateの値だけを返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1021,38 +990,16 @@ class Transform(DagNode):
 
         Raises:
             TypeError: worldSpaceがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
-                worldSpaceとwsを同時に指定した場合、または ``setTranslation(1, 2, 3)`` のように
-                成分を分けて渡した場合。
+                worldSpaceとwsを同時に指定した場合、``setTranslation(1, 2, 3)`` のように
+                成分を分けて渡した場合、relativeがboolでない場合、relative=Trueとatを同時に指定した場合、
+                またはrelative=Trueでvalueが数値の並びでない場合。
+            ValueError: relative=Trueで、valueの値の数が3でない場合、または有限でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
-        """
-        ...
-    def translateBy(self, value: Iterable[float], worldSpace: bool = ..., *, ws: bool = ...) -> None:
-        """今の位置から相対的に移動する。
-
-        ``cmds.move(relative=True)`` に当たる。
-
-        - ``worldSpace=False``: 親の空間の軸(translateチャンネル)に沿って、valueを足す。
-        - ``worldSpace=True``: ワールドの軸に沿ってvalueだけ動くように、translateを書き換える。
-
-        書き込むのはtranslateだけで、ピボットと回転は変えない。Undoが有効なら、1回のUndoで戻せる。fast引数は持たない。
-
-        Args:
-            value (Iterable[float]): 移動量。XYZの3つの値で、単位はcm。
-            worldSpace (bool): Trueならワールドの軸、既定のFalseなら親の空間の軸に沿って動かす。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: valueが数値の並びでない場合、worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: valueの値の数が3でない場合、または有限でない場合。
-            RuntimeError: ノードが無効な場合、またはtranslateがロックされている・入力が接続されているために書き込めない場合。
 
         Examples:
-            >>> node.translateBy((0, 1, 0))                 # 親の空間で上へ1cm
-            >>> node.translateBy((5, 0, 0), ws=True)        # ワールドのX方向へ5cm
+            >>> node.setTranslation((0, 1, 0), relative=True)            # 親の空間で上へ1cm
+            >>> node.setTranslation((5, 0, 0), ws=True, relative=True)   # ワールドのX方向へ5cm
         """
         ...
     def getRotate(self, worldSpace: bool = ..., *, order: int | str | None = ..., ws: bool = ...) -> EulerRotate:
@@ -1085,7 +1032,7 @@ class Transform(DagNode):
                 どれかのスケールの軸の長さが1e-10以下の場合も含む(Mayaはscaleの0を1e-12として計算する)。
         """
         ...
-    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> EulerRotate | None:
+    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> EulerRotate | None:
         """指定した空間での回転を設定する。書き込むrotateには、今の値にいちばん近い同じ回転の解を使う。
 
         - 3つの数値は、ノードのrotateOrderの順に読む。EulerRotateは、値そのものが持つ回転順序を使う。
@@ -1094,11 +1041,16 @@ class Transform(DagNode):
           これらはロック・接続されていても例外にせず、通知やUndoの記録もrotateの分だけになる(通常・fast・safeのどれでも同じ)。
         - ピボットが0でない場合は、cmds.setAttrでrotateを設定したときと同じく、ピボットのまわりに回る。
 
+        ``relative=True`` は、今の向きからvalueだけ回す(``cmds.rotate(relative=True)`` に当たる)。
+        ``worldSpace=False`` なら自身のローカルの軸で(``objectSpace=True``)、``worldSpace=True`` ならワールドの軸で回す。
+        書き込む値は、今のチャンネルの値にいちばん近い同じ回転の解にする(90度ずつ4回回すと、rotateは360になる)。
+
         Args:
-            value (Iterable[float] | EulerRotate | Quaternion): 回転の値。EulerRotate・Quaternionの代わりに、
+            value (Iterable[float] | EulerRotate | Quaternion): 回転の値。relative=Trueなら回転量。EulerRotate・Quaternionの代わりに、
                 それぞれの元になっているOpenMayaの型も受け付ける。書き込むときはノードのrotateOrderに揃える。
             worldSpace (bool): Trueならワールド、既定のFalseならローカルのマトリクスでの回転として設定する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            relative (bool): Trueなら、今の向きからvalueだけ回す。既定はFalse。
             safe (bool): Trueなら、書けない成分はそのままにする。目標の回転と一致することは保証しない。
             get (bool): Trueなら書き込まずに、設定する予定のローカルのrotateの値を返す。
             unit (str): 3つの数値の角度の単位。既定の ``"deg"`` は度、``"rad"`` は
@@ -1115,46 +1067,16 @@ class Transform(DagNode):
         Raises:
             TypeError: fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
                 (``worldSpace=True`` を使うよう案内する)、worldSpaceとwsを同時に指定した場合、
-                または成分を分けて渡した場合。
+                成分を分けて渡した場合、relativeがboolでない場合、
+                またはrelative=Trueでvalueが数値の並びでも回転の値でもない場合。
             ValueError: unitが対応していない単位の名前の場合、値が3つでない場合、マトリクスを分解できない場合、
-                または必要な親のマトリクスの逆が求められない場合。
+                必要な親のマトリクスの逆が求められない場合、またはrelative=Trueでvalueが有限でない場合。
             RuntimeError: ノードが無効な場合、またはアトリビュートに書き込めない場合(ロック・入力の接続がある
                 成分と、``safe=True`` を案内する)。
-        """
-        ...
-    def rotateBy(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, unit: str = ..., ws: bool = ...) -> None:
-        """今の向きから相対的に回転する。
-
-        ``cmds.rotate(relative=True)`` に当たる。
-
-        - ``worldSpace=False``: 自身のローカルの軸で回す(``cmds.rotate(relative=True, objectSpace=True)``)。
-        - ``worldSpace=True``: ワールドの軸で回す(``cmds.rotate(relative=True, worldSpace=True)``)。
-
-        3つの数値は、ノードのrotateOrderの順に読む(``cmds.rotate`` と同じ)。書き込むのはrotateだけ。
-        値は :meth:`setRotate` と同じく、今のチャンネルの値にいちばん近い同じ回転の解にする
-        (90度ずつ4回回すと、rotateは360になる)。
-        Undoが有効なら、1回のUndoで戻せる。fast引数は持たない。
-
-        Args:
-            value (Iterable[float] | EulerRotate | Quaternion): 回転量。EulerRotate・Quaternionの代わりに、
-                それぞれの元になっているOpenMayaの型も受け付け、その値が持つ回転順序・単位(rad)で読む。
-            worldSpace (bool): Trueならワールドの軸、既定のFalseなら自身のローカルの軸で回す。
-            unit (str): 3つの数値の角度の単位。既定の ``"deg"`` は度、``"rad"`` はラジアン(別名も使える)。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: valueが数値の並びでも回転の値でもない場合、worldSpaceがboolでない場合、
-                unitが文字列でもNoneでもない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: valueの値の数が3でない・有限でない場合、unitが対応していない単位の名前の場合、
-                またはマトリクスを分解できない(スケールが0の軸がある)場合。
-            RuntimeError: ノードが無効な場合、またはrotateがロックされている・入力が接続されているために書き込めない場合。
 
         Examples:
-            >>> node.rotateBy((0, 90, 0))              # 自身のY軸の周りに90度
-            >>> node.rotateBy((0, 0, 45), ws=True)     # ワールドのZ軸の周りに45度
+            >>> node.setRotate((0, 90, 0), relative=True)             # 自身のY軸の周りに90度
+            >>> node.setRotate((0, 0, 45), ws=True, relative=True)    # ワールドのZ軸の周りに45度
         """
         ...
     def getRotateOrder(self) -> str:
@@ -1209,16 +1131,20 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setScale(self, value: Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Scale | None:
+    def setScale(self, value: Iterable[float] | float, worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Scale | None:
         """scaleチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるスケールをローカルで設定する値へ変換する。
         変換しても、書き込むのはscaleだけで、rotateやshearは変えない。
 
+        ``relative=True`` は、今のscaleチャンネルにvalueを掛ける(``cmds.scale(relative=True)`` に当たる。足すのではない)。
+
         Args:
-            value (Iterable[float]): XYZのスケールの3つの値(単位なし)。
-            worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
+            value (Iterable[float] | float): XYZのスケールの3つの値(単位なし)。relative=Trueなら倍率で、
+                1つの数ならXYZに同じ倍率、3つなら軸ごとの倍率。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間。relative=Trueとは同時に指定できない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            relative (bool): Trueなら、今のscaleチャンネルにvalueを掛ける。既定はFalse。
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、チャンネルの値を返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1230,32 +1156,16 @@ class Transform(DagNode):
 
         Raises:
             TypeError: worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
-                案内する)、worldSpaceとwsを同時に指定した場合、または成分を分けて渡した場合。
+                案内する)、worldSpaceとwsを同時に指定した場合、成分を分けて渡した場合、relativeがboolでない場合、
+                relative=TrueとworldSpace=Trueを同時に指定した場合、
+                またはrelative=Trueでvalueが数値でも数値の並びでもない(boolも含む)場合。
             ValueError: valueが3つの有限の値でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
-        """
-        ...
-    def scaleBy(self, value: float | Iterable[float]) -> None:
-        """今のscaleチャンネルに倍率を掛ける。
-
-        ``cmds.scale(relative=True)`` に当たる。書き込むのはscaleだけで、ピボットを中心に拡大する。
-        Undoが有効なら、1回のUndoで戻せる。fast引数は持たない。
-
-        Args:
-            value (float | Iterable[float]): 倍率(単位なし)。1つの数ならXYZに同じ倍率、3つなら軸ごとの倍率。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: valueが数値でも数値の並びでもない(boolも含む)場合。
-            ValueError: valueの値の数が3でない場合、または有限でない場合。
-            RuntimeError: ノードが無効な場合、またはscaleがロックされている・入力が接続されているために書き込めない場合。
 
         Examples:
-            >>> node.scaleBy(2)              # XYZとも2倍
-            >>> node.scaleBy((1, 0.5, 1))    # Yだけ半分
+            >>> node.setScale(2, relative=True)              # XYZとも2倍
+            >>> node.setScale((1, 0.5, 1), relative=True)    # Yだけ半分
         """
         ...
     def getShear(self, worldSpace: bool = ..., *, ws: bool = ...) -> Shear:
@@ -1273,16 +1183,20 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Shear | None:
+    def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Shear | None:
         """shearチャンネルだけを設定する。
 
         ワールドを指定したときは、求めるシアーをローカルで設定する値へ変換する。
         変換しても、書き込むのはshearだけで、rotateやscaleは変えない。
 
+        ``relative=True`` は、今のshearチャンネルのXY・XZ・YZそれぞれにvalueを掛ける(``MFnTransform.shearBy`` と同じ。
+        足すのでもマトリクスの合成でもなく、0の成分は0のまま)。
+
         Args:
-            value (Iterable[float]): XY・XZ・YZのシアーの3つの値(単位なし)。
-            worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
+            value (Iterable[float]): XY・XZ・YZのシアーの3つの値(単位なし)。relative=Trueなら成分ごとの倍率。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間。relative=Trueとは同時に指定できない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            relative (bool): Trueなら、今のshearチャンネルにvalueを掛ける。既定はFalse。
             safe (bool): Trueなら、書けない成分は無視する。
             get (bool): Trueなら書き込まずに、チャンネルの値を返す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1293,28 +1207,11 @@ class Transform(DagNode):
             Shear | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値(シーンとは切り離されている)。
 
         Raises:
-            TypeError: worldSpace・fastがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpace・fast・relativeがboolでない場合、worldSpaceとwsを同時に指定した場合、
+                relative=TrueとworldSpace=Trueを同時に指定した場合、またはrelative=Trueでvalueが数値の並びでない場合。
             ValueError: valueが3つの有限の値でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
-        """
-        ...
-    def shearBy(self, value: Iterable[float]) -> None:
-        """ローカルのshearチャンネルに成分ごとの倍率を掛ける。
-
-        MFnTransform.shearByと同じくXY・XZ・YZそれぞれを乗算する。加算やマトリクス合成ではない。
-        0の成分は0のまま。fast引数は持たない(1回のPlugの書き込みで更新するため)。
-
-        Args:
-            value (Iterable[float]): XY・XZ・YZへ掛ける有限な3つの倍率。単位なし。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: valueが数値の並びでない場合。
-            ValueError: 成分数が3でない、または有限でない場合。
-            RuntimeError: ノードが無効、またはMayaが書き込みを拒否した場合。
         """
         ...
     def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> Quaternion:
@@ -1575,6 +1472,24 @@ class Transform(DagNode):
                 要素が数値でもNoneでもない場合、またはunitが文字列でもNoneでもない場合。
             ValueError: unitが対応していない単位の名前の場合。
             RuntimeError: ノードが無効な場合、またはMayaが設定を拒否した場合(最小が最大より大きい場合など)。
+        """
+        ...
+    def _set_pivot_translation(self, value: Iterable[float], worldSpace: bool, kind: str, check: bool) -> None:
+        """ピボットの姿勢の補正値を書き換える(``setPivot(translation=True)`` の本体)。
+
+        Args:
+            value (Iterable[float]): cm単位のXYZの補正のベクトル。
+            worldSpace (bool): 確かめ済みの空間。Trueならワールド空間。
+            kind (str): rotateかscale。
+            check (bool): Trueなら値が有限かと書き込めるかを先に確かめる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: 値やフラグの型が不正な場合。
+            ValueError: kind・成分の数が不正な場合、check=Trueで値が有限でない場合、空間の変換が特異な場合。
+            RuntimeError: ノードが無効な場合、ピボットか補正値の成分に書き込めない場合。
         """
         ...
     def _color_targets(self, shape: bool) -> list[DagNode]:

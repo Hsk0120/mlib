@@ -107,8 +107,8 @@ class ConvenienceTests(unittest.TestCase):
         cmds.parent(str(c), str(b), add=True)
         self.assertEqual(len(c.getInstances()), 2)
         self.assertEqual(len(c.getInstances(noSelf=True)), 1)
-        self.assertEqual(len(c.getParents()), 2)
-        self.assertEqual(len(c.getParents(indirect=True)), 2)
+        self.assertEqual(len(c.getParent(instances=True)), 2)
+        self.assertEqual(len(c.getParent(instances=True, indirect=True)), 2)
         self.assertEqual(len(list(root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
         self.assertNotEqual(c.getInstances()[0].getFullName(), c.getInstances()[1].getFullName())
 
@@ -186,9 +186,10 @@ class ApiProposalTest(unittest.TestCase):
         a, b, c = [Node(cmds.createNode("transform")) for _ in range(3)]
         constraint = c.addConstraint([a, b], type="point")
         constraint.setWeight(0.25, a)
-        self.assertAlmostEqual(constraint.getWeight(a), 0.25)
+        self.assertAlmostEqual(constraint.getWeights(a)[0], 0.25)
+        self.assertEqual(constraint.getWeights(b, a), [1.0, 0.25])
         with self.assertRaises(ValueError):
-            constraint.getWeight(c)
+            constraint.getWeights(c)
 
     def test_axis_flags_return_and_undo(self):
         """単数・複数の座標の照会は空間を受け(成分は結果から読む)、Transformの表示切替は自身の状態を変える。"""

@@ -2,7 +2,7 @@
 
 あわせて次も確かめる。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setOverrideColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 - DAG・Transform・アニメーションカーブ・DG の照会と編集の契約を固定する。
 """
 
@@ -57,39 +57,39 @@ class SetColorTest(_Case):
         shape = self.curve()
         transform = shape.getTransform()
         name = transform.getFullName()
-        self.assertIsNone(transform.getOverrideColor())
-        self.assertIsNone(transform.setOverrideColor(13))
+        self.assertIsNone(transform.getColor())
+        self.assertIsNone(transform.setColor(13))
         self.assertTrue(cmds.getAttr(name + ".overrideEnabled"))
         self.assertFalse(cmds.getAttr(name + ".overrideRGBColors"))
         self.assertEqual(cmds.getAttr(name + ".overrideColor"), 13)
         self.assertFalse(cmds.getAttr(shape.getFullName() + ".overrideEnabled"))
-        self.assertEqual(transform.getOverrideColor(), 13)
-        self.assertIsNone(shape.getOverrideColor())
-        transform.setOverrideColor((1.0, 0.5, 0.25))
+        self.assertEqual(transform.getColor(), 13)
+        self.assertIsNone(shape.getColor())
+        transform.setColor((1.0, 0.5, 0.25))
         self.assertTrue(cmds.getAttr(name + ".overrideRGBColors"))
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".overrideColorRGB")[0], (1.0, 0.5, 0.25), places=6)
-        self.assertSequenceAlmostEqual(transform.getOverrideColor(), (1.0, 0.5, 0.25), places=6)
-        transform.setOverrideColor(4)
+        self.assertSequenceAlmostEqual(transform.getColor(), (1.0, 0.5, 0.25), places=6)
+        transform.setColor(4)
         self.assertFalse(cmds.getAttr(name + ".overrideRGBColors"))
-        self.assertEqual(transform.getOverrideColor(), 4)
-        shape.setOverrideColor(9)
+        self.assertEqual(transform.getColor(), 4)
+        shape.setColor(9)
         self.assertEqual(cmds.getAttr(shape.getFullName() + ".overrideColor"), 9)
-        self.assertEqual(transform.getOverrideColor(), 4)
+        self.assertEqual(transform.getColor(), 4)
 
     def test_transform_without_shapes_and_joint(self):
         group = mlib.getNode(self.make("transform", "grp"))
-        group.setOverrideColor(6)
+        group.setColor(6)
         self.assertEqual(cmds.getAttr(group.getFullName() + ".overrideColor"), 6)
         joint = mlib.getNode(self.make("joint", "jnt"))
-        joint.setOverrideColor([0, 1, 0])
-        self.assertSequenceAlmostEqual(joint.getOverrideColor(), (0, 1, 0))
+        joint.setColor([0, 1, 0])
+        self.assertSequenceAlmostEqual(joint.getColor(), (0, 1, 0))
 
     def test_undo_once(self):
         shape = self.curve()
         transform = shape.getTransform()
         self.flushUndo()
-        transform.setOverrideColor((0.2, 0.4, 0.6))
-        self.assertUndoesInOneStep(lambda: self.assertIsNone(transform.getOverrideColor()), lambda: self.assertIsNotNone(transform.getOverrideColor()))
+        transform.setColor((0.2, 0.4, 0.6))
+        self.assertUndoesInOneStep(lambda: self.assertIsNone(transform.getColor()), lambda: self.assertIsNotNone(transform.getColor()))
 
     def test_invalid_inputs(self):
         shape = self.curve()
@@ -106,15 +106,15 @@ class SetColorTest(_Case):
         ):
             with self.subTest(value=value):
                 with self.assertRaises(error):
-                    shape.setOverrideColor(value)
-        self.assertIsNone(shape.getOverrideColor())
+                    shape.setColor(value)
+        self.assertIsNone(shape.getColor())
 
     def test_locked_attribute_rolls_back(self):
         transform = self.curve().getTransform()
         name = transform.getFullName()
         cmds.setAttr(name + ".overrideColor", lock=True)
         with self.assertRaises(RuntimeError):
-            transform.setOverrideColor(9)
+            transform.setColor(9)
         self.assertFalse(cmds.getAttr(name + ".overrideEnabled"))
         cmds.setAttr(name + ".overrideColor", lock=False)
 
@@ -201,39 +201,41 @@ class DisplayColorTest(NamespaceCase):
             self.assertAlmostEqual(value, wanted, places=5)
 
     def test_old_names_are_gone(self):
-        self.assertFalse(hasattr(DagNode, "getColor"))
-        self.assertFalse(hasattr(DagNode, "setColor"))
-        self.assertFalse(hasattr(Nodes, "setColor"))
+        for name in ("getOverrideColor", "setOverrideColor", "getOutlinerColor", "setOutlinerColor"):
+            self.assertFalse(hasattr(DagNode, name), name)
+            self.assertFalse(hasattr(Nodes, name), name)
+        for name in ("setOverrideColors", "setOutlinerColors"):
+            self.assertFalse(hasattr(Nodes, name), name)
 
     def test_outliner_rgb_stays_on_transform(self):
         """既定は None。RGB は Transform 自身に設定し、Shape には書かない。"""
-        self.assertIsNone(self.a.getOutlinerColor())
-        self.assertIsNone(self.a.setOutlinerColor((0.25, 0.5, 1.0)))
+        self.assertIsNone(self.a.getColor(outliner=True))
+        self.assertIsNone(self.a.setColor((0.25, 0.5, 1.0), outliner=True))
         name = self.a.getFullName()
         self.assertTrue(cmds.getAttr(name + ".useOutlinerColor"))
         self.assertRgb(cmds.getAttr(name + ".outlinerColor")[0], (0.25, 0.5, 1.0))
-        self.assertRgb(self.a.getOutlinerColor(), (0.25, 0.5, 1.0))
+        self.assertRgb(self.a.getColor(outliner=True), (0.25, 0.5, 1.0))
         self.assertFalse(cmds.getAttr(self.a.getShape().getFullName() + ".useOutlinerColor"))
 
     def test_outliner_index_becomes_rgb(self):
         """番号は標準パレットの RGB へ変換する(mayapy は GUI なし)。"""
-        self.a.setOutlinerColor(13)
-        self.assertRgb(self.a.getOutlinerColor(), (1.0, 0.0, 0.0))
-        self.a.setOutlinerColor(0)
-        self.assertRgb(self.a.getOutlinerColor(), (0.47, 0.47, 0.47))
+        self.a.setColor(13, outliner=True)
+        self.assertRgb(self.a.getColor(outliner=True), (1.0, 0.0, 0.0))
+        self.a.setColor(0, outliner=True)
+        self.assertRgb(self.a.getColor(outliner=True), (0.47, 0.47, 0.47))
 
     def test_override_stays_on_node_itself(self):
         """Transform も Joint も自身へ設定し、Shape には書かない。"""
-        self.a.setOverrideColor(13)
+        self.a.setColor(13)
         self.assertEqual(cmds.getAttr(self.a.getFullName() + ".overrideColor"), 13)
         self.assertFalse(cmds.getAttr(self.a.getShape().getFullName() + ".overrideEnabled"))
         joint = mlib.getNode(cmds.createNode("joint", name=self.name("joint")))
         curve = cmds.circle(constructionHistory=False, name=self.name("curve"))[0]
         cmds.parent(cmds.listRelatives(curve, shapes=True, fullPath=True)[0], joint.getFullName(), shape=True, relative=True)
         cmds.delete(curve)
-        joint.setOverrideColor(6)
+        joint.setColor(6)
         self.assertEqual(cmds.getAttr(joint.getFullName() + ".overrideColor"), 6)
-        self.assertFalse(cmds.getAttr(joint.getShapes()[0].getFullName() + ".overrideEnabled"))
+        self.assertFalse(cmds.getAttr(joint.getShape(all=True)[0].getFullName() + ".overrideEnabled"))
 
     def curve_joint(self):
         """カーブの Shape を 2 つ持つ Joint を返す。"""
@@ -246,99 +248,99 @@ class DisplayColorTest(NamespaceCase):
 
     def test_shape_flag_writes_every_shape_only(self):
         joint = self.curve_joint()
-        shapes = [shape.getFullName() for shape in joint.getShapes()]
+        shapes = [shape.getFullName() for shape in joint.getShape(all=True)]
         self.assertEqual(len(shapes), 2)
-        self.assertIsNone(joint.setOverrideColor(13, shape=True))
+        self.assertIsNone(joint.setColor(13, shape=True))
         self.assertEqual([cmds.getAttr(name + ".overrideColor") for name in shapes], [13, 13])
         self.assertFalse(cmds.getAttr(joint.getFullName() + ".overrideEnabled"))
-        self.assertEqual(joint.getOverrideColor(shape=True), 13)
-        self.assertIsNone(joint.getOverrideColor())
-        joint.setOutlinerColor((1, 0, 0), shape=True)
+        self.assertEqual(joint.getColor(shape=True), 13)
+        self.assertIsNone(joint.getColor())
+        joint.setColor((1, 0, 0), shape=True, outliner=True)
         self.assertTrue(all(cmds.getAttr(name + ".useOutlinerColor") for name in shapes))
         self.assertFalse(cmds.getAttr(joint.getFullName() + ".useOutlinerColor"))
-        self.assertRgb(joint.getOutlinerColor(shape=True), (1, 0, 0))
-        self.assertIsNone(joint.getOutlinerColor())
-        joint.setOverrideColor(None, shape=True)
-        self.assertIsNone(joint.getOverrideColor(shape=True))
+        self.assertRgb(joint.getColor(outliner=True, shape=True), (1, 0, 0))
+        self.assertIsNone(joint.getColor(outliner=True))
+        joint.setColor(None, shape=True)
+        self.assertIsNone(joint.getColor(shape=True))
 
     def test_shape_flag_without_shape_uses_node(self):
-        self.b.setOverrideColor(6, shape=True)
+        self.b.setColor(6, shape=True)
         self.assertEqual(cmds.getAttr(self.b.getFullName() + ".overrideColor"), 6)
-        self.assertEqual(self.b.getOverrideColor(shape=True), 6)
+        self.assertEqual(self.b.getColor(shape=True), 6)
         shape = self.a.getShape()
-        shape.setOverrideColor(4, shape=True)
-        self.assertEqual(shape.getOverrideColor(shape=True), 4)
+        shape.setColor(4, shape=True)
+        self.assertEqual(shape.getColor(shape=True), 4)
 
     def test_shape_flag_undo_and_fast(self):
         joint = self.curve_joint()
         cmds.flushUndo()
-        joint.setOverrideColor(13, shape=True)
+        joint.setColor(13, shape=True)
         cmds.undo()
-        self.assertIsNone(joint.getOverrideColor(shape=True))
+        self.assertIsNone(joint.getColor(shape=True))
         cmds.flushUndo()
-        joint.setOverrideColor((0, 1, 0), shape=True, fast=True)
+        joint.setColor((0, 1, 0), shape=True, fast=True)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertRgb(joint.getOverrideColor(shape=True), (0, 1, 0))
+        self.assertRgb(joint.getColor(shape=True), (0, 1, 0))
 
     def test_shape_flag_locked_shape_changes_nothing(self):
         joint = self.curve_joint()
-        names = [shape.getFullName() for shape in joint.getShapes()]
+        names = [shape.getFullName() for shape in joint.getShape(all=True)]
         cmds.setAttr(names[1] + ".overrideColor", lock=True)
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    joint.setOverrideColor(9, shape=True, fast=fast, check=True)
+                    joint.setColor(9, shape=True, fast=fast, check=True)
                 self.assertFalse(cmds.getAttr(names[0] + ".overrideEnabled"))
 
     def test_shape_flag_on_nodes(self):
         first, second = self.curve_joint(), self.a
         nodes = Nodes([first, second])
-        nodes.setOverrideColor(17, shape=True)
-        self.assertEqual(nodes.getOverrideColor(shape=True), [17, 17])
-        self.assertEqual(nodes.getOverrideColor(), [None, None])
-        nodes.setOutlinerColors([(1, 0, 0), None], shape=True)
-        self.assertRgb(nodes.getOutlinerColor(shape=True)[0], (1, 0, 0))
-        self.assertIsNone(nodes.getOutlinerColor(shape=True)[1])
-        nodes.setOverrideColors([13, 14], shape=True, fast=True)
-        self.assertEqual(nodes.getOverrideColor(shape=True), [13, 14])
+        nodes.setColor(17, shape=True)
+        self.assertEqual(nodes.getColor(shape=True), [17, 17])
+        self.assertEqual(nodes.getColor(), [None, None])
+        nodes.setColors([(1, 0, 0), None], shape=True, outliner=True)
+        self.assertRgb(nodes.getColor(outliner=True, shape=True)[0], (1, 0, 0))
+        self.assertIsNone(nodes.getColor(outliner=True, shape=True)[1])
+        nodes.setColors([13, 14], shape=True, fast=True)
+        self.assertEqual(nodes.getColor(shape=True), [13, 14])
 
     def test_shape_flag_must_be_bool(self):
         nodes = Nodes([self.a, self.b])
         for call in (
-            lambda: self.a.setOverrideColor(1, shape="yes"),
-            lambda: self.a.getOverrideColor(shape=1),
-            lambda: self.a.setOutlinerColor(1, shape=None),
-            lambda: self.a.getOutlinerColor(shape="x"),
-            lambda: nodes.setOverrideColor(1, shape="yes"),
-            lambda: nodes.setOutlinerColors([1, 2], shape=1),
+            lambda: self.a.setColor(1, shape="yes"),
+            lambda: self.a.getColor(shape=1),
+            lambda: self.a.setColor(1, shape=None, outliner=True),
+            lambda: self.a.getColor(outliner=True, shape="x"),
+            lambda: nodes.setColor(1, shape="yes"),
+            lambda: nodes.setColors([1, 2], shape=1, outliner=True),
         ):
             with self.assertRaises(TypeError):
                 call()
-        self.assertEqual(nodes.getOverrideColor(), [None, None])
+        self.assertEqual(nodes.getColor(), [None, None])
 
     def test_none_disables(self):
-        self.a.setOutlinerColor((1, 0, 0))
-        self.a.setOutlinerColor(None)
-        self.assertIsNone(self.a.getOutlinerColor())
-        self.a.setOverrideColor(13)
-        self.a.setOverrideColor(None)
-        self.assertIsNone(self.a.getOverrideColor())
+        self.a.setColor((1, 0, 0), outliner=True)
+        self.a.setColor(None, outliner=True)
+        self.assertIsNone(self.a.getColor(outliner=True))
+        self.a.setColor(13)
+        self.a.setColor(None)
+        self.assertIsNone(self.a.getColor())
         self.assertFalse(cmds.getAttr(self.a.getFullName() + ".overrideEnabled"))
 
     def test_fast_matches_normal_without_undo(self):
         cmds.flushUndo()
-        self.a.setOutlinerColor((0.1, 0.2, 0.3), fast=True)
-        self.b.setOverrideColor(None, fast=True)
+        self.a.setColor((0.1, 0.2, 0.3), fast=True, outliner=True)
+        self.b.setColor(None, fast=True)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertRgb(self.a.getOutlinerColor(), (0.1, 0.2, 0.3))
+        self.assertRgb(self.a.getColor(outliner=True), (0.1, 0.2, 0.3))
 
     def test_undo_in_one_step(self):
         cmds.flushUndo()
-        self.a.setOutlinerColor((0.1, 0.2, 0.3))
+        self.a.setColor((0.1, 0.2, 0.3), outliner=True)
         cmds.undo()
-        self.assertIsNone(self.a.getOutlinerColor())
+        self.assertIsNone(self.a.getColor(outliner=True))
         cmds.redo()
-        self.assertRgb(self.a.getOutlinerColor(), (0.1, 0.2, 0.3))
+        self.assertRgb(self.a.getColor(outliner=True), (0.1, 0.2, 0.3))
 
     def test_invalid_inputs_change_nothing(self):
         for error, value in (
@@ -352,57 +354,57 @@ class DisplayColorTest(NamespaceCase):
         ):
             with self.subTest(value=value):
                 with self.assertRaises(error):
-                    self.a.setOutlinerColor(value)
+                    self.a.setColor(value, outliner=True)
         with self.assertRaises(TypeError):
-            self.a.setOutlinerColor((1, 0, 0), fast="yes")
-        self.assertIsNone(self.a.getOutlinerColor())
+            self.a.setColor((1, 0, 0), fast="yes", outliner=True)
+        self.assertIsNone(self.a.getColor(outliner=True))
 
     def test_locked_attribute_is_rejected(self):
         cmds.setAttr(self.a.getFullName() + ".outlinerColor", lock=True)
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    self.a.setOutlinerColor((1, 0, 0), fast=fast, check=True)
+                    self.a.setColor((1, 0, 0), fast=fast, check=True, outliner=True)
                 self.assertFalse(cmds.getAttr(self.a.getFullName() + ".useOutlinerColor"))
 
     def test_nodes_same_color(self):
         nodes = Nodes([self.a, self.b])
-        self.assertEqual(nodes.getOutlinerColor(), [None, None])
-        self.assertIsNone(nodes.setOutlinerColor((0, 1, 0)))
-        for color in nodes.getOutlinerColor():
+        self.assertEqual(nodes.getColor(outliner=True), [None, None])
+        self.assertIsNone(nodes.setColor((0, 1, 0), outliner=True))
+        for color in nodes.getColor(outliner=True):
             self.assertRgb(color, (0, 1, 0))
-        self.assertIsNone(nodes.setOverrideColor(17))
-        self.assertEqual(nodes.getOverrideColor(), [17, 17])
+        self.assertIsNone(nodes.setColor(17))
+        self.assertEqual(nodes.getColor(), [17, 17])
 
     def test_nodes_one_color_each(self):
         nodes = Nodes([self.a, self.b])
-        self.assertIsNone(nodes.setOverrideColors([13, None]))
-        self.assertEqual(nodes.getOverrideColor(), [13, None])
+        self.assertIsNone(nodes.setColors([13, None]))
+        self.assertEqual(nodes.getColor(), [13, None])
         cmds.flushUndo()
-        nodes.setOutlinerColors([(1, 0, 0), (0, 0, 1)])
-        self.assertRgb(self.a.getOutlinerColor(), (1, 0, 0))
-        self.assertRgb(self.b.getOutlinerColor(), (0, 0, 1))
+        nodes.setColors([(1, 0, 0), (0, 0, 1)], outliner=True)
+        self.assertRgb(self.a.getColor(outliner=True), (1, 0, 0))
+        self.assertRgb(self.b.getColor(outliner=True), (0, 0, 1))
         cmds.undo()
-        self.assertEqual(nodes.getOutlinerColor(), [None, None])
+        self.assertEqual(nodes.getColor(outliner=True), [None, None])
 
     def test_nodes_each_validates_before_writing(self):
         nodes = Nodes([self.a, self.b])
         with self.assertRaises(ValueError):
-            nodes.setOutlinerColors([(1, 0, 0)])
+            nodes.setColors([(1, 0, 0)], outliner=True)
         with self.assertRaises(ValueError):
-            nodes.setOutlinerColors([(1, 0, 0), 99])
+            nodes.setColors([(1, 0, 0), 99], outliner=True)
         with self.assertRaises(TypeError):
-            nodes.setOverrideColors([13, "red"])
-        self.assertEqual(nodes.getOutlinerColor(), [None, None])
-        self.assertEqual(nodes.getOverrideColor(), [None, None])
+            nodes.setColors([13, "red"])
+        self.assertEqual(nodes.getColor(outliner=True), [None, None])
+        self.assertEqual(nodes.getColor(), [None, None])
 
     def test_nodes_reject_non_dag(self):
         other = mlib.getNode(cmds.createNode("multiplyDivide", name=self.name("md")))
         nodes = Nodes([self.a, other])
         with self.assertRaises(TypeError):
-            nodes.getOutlinerColor()
+            nodes.getColor(outliner=True)
         with self.assertRaises(TypeError):
-            nodes.setOverrideColors([1, 2])
+            nodes.setColors([1, 2])
 
 
 if __name__ == "__main__":

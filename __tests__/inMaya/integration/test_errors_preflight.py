@@ -135,7 +135,10 @@ class ApiRefinementsTest(unittest.TestCase):
         """SkinCluster・Jointとも文字列のFalseを更新前に拒否する。"""
         skin, joints = self.skin()
         before = list(skin.getWeights(joints))
-        actions = (lambda value: skin.removeInfluence(joints[1], transferToParent=value), lambda value: joints[1].removeInfluence(skin, transferToParent=value))
+        actions = (
+            lambda value: skin.removeInfluences(joints[1], transferToParent=value),
+            lambda value: joints[1].removeInfluence(skin, transferToParent=value),
+        )
         for action in actions:
             for value in ("False", 0, None):
                 with self.assertRaises(TypeError):

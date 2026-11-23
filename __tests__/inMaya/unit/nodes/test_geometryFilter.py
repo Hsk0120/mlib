@@ -15,6 +15,7 @@ import tempfile
 import unittest
 
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 
 import mlib
@@ -59,7 +60,7 @@ class _Case(NamespaceCase):
 
 
 class GeometryFilterTest(_Case):
-    """GeometryFilter.getInputGeometry。"""
+    """GeometryFilter.getGeometry(input=True)。"""
 
     def test_input_geometry_is_orig_shape(self):
         """skinCluster・cluster の入力は同じ transform の下の中間形状で、出力の形状とは別。"""
@@ -67,8 +68,21 @@ class GeometryFilterTest(_Case):
         cluster = mlib.createCluster(mesh)
         for deformer in (skin, cluster):
             with self.subTest(deformer=deformer.getType()):
-                inputs = deformer.getInputGeometry()
+                inputs = deformer.getGeometry(input=True)
+                self.assertIsInstance(inputs, mlib.Nodes)
                 self.assertEqual(len(inputs), 1)
+                # MFnGeometryFilter.getInputGeometry と同じ形状を返す。
+                raw = oma2.MFnGeometryFilter(deformer.mnode()).getInputGeometry()
+                self.assertEqual([node.mnode() for node in inputs], list(raw))
+                # geometryIndex を渡すと、その番号の形状を1つ返す(一覧の同じ番号と同じ形状)。
+                index = deformer.getGeometryIndices()[0]
+                self.assertEqual(deformer.getGeometry(input=True, geometryIndex=index), inputs[0])
+                self.assertEqual(deformer.getGeometry(geometryIndex=index), deformer.getGeometry()[0])
+                for flags in ({"input": 1}, {"input": None}, {"input": True, "geometryIndex": "0"}, {"geometryIndex": True}):
+                    with self.subTest(flags=flags), self.assertRaises(TypeError):
+                        deformer.getGeometry(**flags)
+                with self.assertRaises(IndexError):
+                    deformer.getGeometry(input=True, geometryIndex=999)
                 self.assertTrue(cmds.getAttr(inputs[0].getFullName() + ".intermediateObject"))
                 self.assertEqual(cmds.listRelatives(inputs[0].getFullName(), parent=True, fullPath=True)[0], mesh)
                 self.assertNotEqual(inputs[0], deformer.getGeometry()[0])
@@ -78,8 +92,9 @@ class GeometryFilterTest(_Case):
         transform, _ = self.cube()
         cluster = mlib.createCluster(transform)
         cmds.delete(cluster.getFullName())
-        with self.assertRaises(RuntimeError):
-            cluster.getInputGeometry()
+        for flags in ({"input": True}, {}, {"input": True, "geometryIndex": 0}, {"geometryIndex": 0}):
+            with self.subTest(flags=flags), self.assertRaises(RuntimeError):
+                cluster.getGeometry(**flags)
 
 
 class _CaseMethodAdditions(NamespaceCase):

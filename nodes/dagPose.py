@@ -72,19 +72,33 @@ class DagPose(Node):
         self._pose_name()
         return bool(self.getPlug("bindPose").mplug().asBool())
 
-    def getMemberIndices(self):
-        """今も接続されているメンバーの論理番号を取得する。
+    def getMemberIndices(self, member=None):
+        """今も接続されているメンバーの論理番号を取得する。``member`` を渡すと、そのメンバーの論理番号を1つ返す。
 
         membersマルチアトリビュートにある番号のうち、入力が接続されている要素だけを返す。
         接続が外れた空の要素は除く。抜けた番号は詰めないので、worldMatrix・xformMatrixの番号と対応したままになる。
 
+        Args:
+            member (Node | str | None): メンバーのノード。既定のNoneなら、すべてのメンバーの番号を返す。
+
         Returns:
-            list[int]: membersの論理番号。小さい順に並ぶ。並びの位置(物理番号)ではない。
+            list[int] | int: membersの論理番号。小さい順に並ぶ。並びの位置(物理番号)ではない。
+                memberを渡したときは、members・worldMatrix・xformMatrixに共通の、そのメンバーの論理番号。
 
         Raises:
+            TypeError: memberに対応しない型を指定した場合。
+            ValueError: memberのノードが無い場合、またはこのポーズのメンバーでない場合。
             RuntimeError: 無効なノードの場合。
         """
-        return [index for index, _ in self._member_sources()]
+        if member is None:
+            return [index for index, _ in self._member_sources()]
+        name = self._pose_name()
+        node = Node._resolve_input(member)
+        target = node.mnode()
+        for index, source in self._member_sources():
+            if source.node() == target:
+                return index
+        raise ValueError(f"{name}のメンバーではありません: {node.getFullName()}")
 
     def getMembers(self):
         """メンバーを取得する。
@@ -98,28 +112,6 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合。
         """
         return Nodes._wrap([Node(source.node()) for _, source in self._member_sources()])
-
-    def getMemberIndex(self, member):
-        """指定したメンバーの論理番号を取得する。
-
-        Args:
-            member (Node | str): メンバーのノード。
-
-        Returns:
-            int: members・worldMatrix・xformMatrixに共通の論理番号。
-
-        Raises:
-            TypeError: 対応しない型を指定した場合。
-            ValueError: ノードが無い場合、またはこのポーズのメンバーでない場合。
-            RuntimeError: 無効なdagPoseの場合。
-        """
-        name = self._pose_name()
-        node = Node._resolve_input(member)
-        target = node.mnode()
-        for index, source in self._member_sources():
-            if source.node() == target:
-                return index
-        raise ValueError(f"{name}のメンバーではありません: {node.getFullName()}")
 
     def getMatrix(self, member, worldSpace=_UNSET, *, ws=_UNSET):
         """指定したメンバーの、保存したマトリクスを取得する。
@@ -143,7 +135,7 @@ class DagPose(Node):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
-        index = self.getMemberIndex(member)
+        index = self.getMemberIndices(member)
         attribute = "worldMatrix" if ws else "xformMatrix"
         plug = self.getPlug(attribute).mplug().elementByLogicalIndex(index)
         return Matrix.fromMMatrix(om2.MFnMatrixData(plug.asMObject()).matrix())
@@ -155,24 +147,14 @@ class DagPose(Node):
         どこまでの差を許すかはMayaの判定に従う。
 
         Returns:
-            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり。
+            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり
+                (``not pose.getNotAtPose()`` で、全員が保存した姿勢にあるかを判定できる)。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。
         """
         names = cmds.dagPose(self._pose_name(), query=True, atPose=True) or []
         return Nodes._wrap([Node(name) for name in names])
-
-    def isAtPose(self):
-        """すべてのメンバーが保存した姿勢にあるか調べる。
-
-        Returns:
-            bool: getNotAtPose()が空ならTrue。
-
-        Raises:
-            RuntimeError: 無効なdagPoseの場合。
-        """
-        return not cmds.dagPose(self._pose_name(), query=True, atPose=True)
 
     def getSkinClusters(self):
         """このポーズをバインドポーズとして使っているskinClusterを取得する。
@@ -244,7 +226,7 @@ class DagPose(Node):
             else:
                 names = self._transform_names(members)
                 for target in names:
-                    self.getMemberIndex(target)
+                    self.getMemberIndices(target)
             cmds.dagPose(names, reset=True, name=name)
 
     def addMembers(self, *members):
@@ -293,7 +275,7 @@ class DagPose(Node):
             name = self._pose_name()
             names = self._transform_names(members)
             for target in names:
-                self.getMemberIndex(target)
+                self.getMemberIndices(target)
             cmds.dagPose(names, remove=True, name=name)
 
     def merge(self, sources, *, currentPose=False, deleteSources=True):

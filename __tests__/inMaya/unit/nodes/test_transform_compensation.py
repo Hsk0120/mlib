@@ -26,13 +26,13 @@ class CompensationTest(NamespaceCase):
                     plug = child.getPlug(kind + "PivotTranslate")
                     plug.set((0, 0, 0))
                     self.flushUndo()
-                    self.assertIsNone(child.setPivotTranslation((2, 4, 6), worldSpace=world, kind=kind))
-                    self.assertSequenceAlmostEqual(child.getPivotTranslation(ws=world, kind=kind), (2, 4, 6))
+                    self.assertIsNone(child.setPivot((2, 4, 6), worldSpace=world, kind=kind, translation=True))
+                    self.assertSequenceAlmostEqual(child.getPivot(ws=world, kind=kind, translation=True), (2, 4, 6))
                     cmds.undo()
                     self.assertSequenceAlmostEqual(plug.get(), (0, 0, 0))
                     self.assertUndoEmpty()
                     cmds.redo()
-                    self.assertSequenceAlmostEqual(child.getPivotTranslation(ws=world, kind=kind), (2, 4, 6))
+                    self.assertSequenceAlmostEqual(child.getPivot(ws=world, kind=kind, translation=True), (2, 4, 6))
 
     def test_compensation_offset_parent_and_joint(self):
         parent = mlib.Node(self.make(text="parent"))
@@ -52,8 +52,8 @@ class CompensationTest(NamespaceCase):
                 node.getPlug("inheritsTransform").set(inherits)
                 for kind in ("rotate", "scale"):
                     with self.subTest(node_type=node_type, inherits=inherits, kind=kind):
-                        node.setPivotTranslation((2, 4, 6), worldSpace=True, kind=kind)
-                        self.assertSequenceAlmostEqual(node.getPivotTranslation(ws=True, kind=kind), (2, 4, 6))
+                        node.setPivot((2, 4, 6), worldSpace=True, kind=kind, translation=True)
+                        self.assertSequenceAlmostEqual(node.getPivot(ws=True, kind=kind, translation=True), (2, 4, 6))
 
     def test_shear_by_matches_function_set(self):
         node = mlib.Node(self.make(text="value"))
@@ -61,7 +61,7 @@ class CompensationTest(NamespaceCase):
         node.setShear((0.2, 0.4, 0.8))
         reference.setShear((0.2, 0.4, 0.8))
         self.flushUndo()
-        self.assertIsNone(node.shearBy((2, 3, 0.5)))
+        self.assertIsNone(node.setShear((2, 3, 0.5), relative=True))
         om2.MFnTransform(reference.mpath()).shearBy((2, 3, 0.5))
         self.assertSequenceAlmostEqual(node.getShear(), reference.getShear())
         cmds.undo()
@@ -84,23 +84,23 @@ class CompensationTest(NamespaceCase):
                     node.getPlug("segmentScaleCompensate").set(compensated)
                 for kind in ("rotate", "scale"):
                     with self.subTest(node_type=node_type, compensated=compensated, kind=kind):
-                        node.setPivotTranslation((0, 0, 0), kind=kind)
+                        node.setPivot((0, 0, 0), kind=kind, translation=True)
                         before = tuple(node.getMatrix(worldSpace=True))[12:15]
-                        node.setPivotTranslation((1, 2, 3), kind=kind)
+                        node.setPivot((1, 2, 3), kind=kind, translation=True)
                         after = tuple(node.getMatrix(worldSpace=True))[12:15]
-                        self.assertSequenceAlmostEqual(node.getPivotTranslation(worldSpace=True, kind=kind), tuple(b - a for a, b in zip(before, after)))
-                        node.setPivotTranslation((2, 4, 6), worldSpace=True, kind=kind)
-                        self.assertSequenceAlmostEqual(node.getPivotTranslation(worldSpace=True, kind=kind), (2, 4, 6))
+                        self.assertSequenceAlmostEqual(node.getPivot(worldSpace=True, kind=kind, translation=True), tuple(b - a for a, b in zip(before, after)))
+                        node.setPivot((2, 4, 6), worldSpace=True, kind=kind, translation=True)
+                        self.assertSequenceAlmostEqual(node.getPivot(worldSpace=True, kind=kind, translation=True), (2, 4, 6))
 
     def test_invalid_inputs_leave_channels(self):
         node = mlib.Node(self.make())
         self.flushUndo()
         with self.assertRaises(ValueError):
-            node.setPivotTranslation((1, 2, 3), kind="both")
+            node.setPivot((1, 2, 3), kind="both", translation=True)
         with self.assertRaises(TypeError):
-            node.getPivotTranslation(True, ws=False)
+            node.getPivot(True, ws=False, translation=True)
         with self.assertRaises(ValueError):
-            node.shearBy((1, float("nan"), 2))
+            node.setShear((1, float("nan"), 2), relative=True)
         self.assertUndoEmpty()
 
 

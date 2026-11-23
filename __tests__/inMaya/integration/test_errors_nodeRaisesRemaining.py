@@ -462,19 +462,19 @@ class SkinClusterTest(_RemainingCase):
                 self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def test_remove_unused_influences_rejected_by_maya(self):
-        """matrix がロックされて外せない場合、removeUnusedInfluences は RuntimeError。インフルエンスと接続は残る。"""
+        """matrix がロックされて外せない場合、removeInfluences(unused=True) は RuntimeError。インフルエンスと接続は残る。"""
         node, _ = self.skin()
         extra = self.joints((5, 5, 5))[0]
         cmds.skinCluster(node.getFullName(), edit=True, addInfluence=extra, weight=0)
         self.lock(node.getFullName(), "matrix")
-        self.assertFails(RuntimeError, node.removeUnusedInfluences, state=lambda: self.state(node))
+        self.assertFails(RuntimeError, node.removeInfluences, unused=True, state=lambda: self.state(node))
 
     def test_unbind_deleted(self):
         node, _ = self.skin()
         self.assertFails(RuntimeError, self.kill(node).unbind)
 
     def test_force_normalize_invalid_weights(self):
-        """負・非有限のウェイトがあると forceNormalizeWeights は ValueError。ウェイトは変わらない。"""
+        """負・非有限のウェイトがあると normalizeWeights(force=True) は ValueError。ウェイトは変わらない。"""
         for value in (-0.5, float("nan")):
             for fast in (False, True):
                 with self.subTest(value=value, fast=fast):
@@ -487,7 +487,7 @@ class SkinClusterTest(_RemainingCase):
                         # nan は自身と等しくならないので、文字列にして比べる。
                         return repr(cmds.getAttr(name + ".weightList[0].weights"))
 
-                    self.assertFails(ValueError, node.forceNormalizeWeights, fast=fast, state=weights)
+                    self.assertFails(ValueError, node.normalizeWeights, force=True, fast=fast, state=weights)
 
 
 class TransformTest(_RemainingCase):
@@ -503,11 +503,12 @@ class TransformTest(_RemainingCase):
             (TypeError, "setMatrix", ("matrix",), {"fast": 1}),
             (TypeError, "setMatrix", ("matrix",), {"space": "world"}),
             (TypeError, "setMatrix", ("matrix",), {"worldSpace": True, "ws": True}),
-            (TypeError, "scaleBy", ("abc",), {}),
-            (TypeError, "scaleBy", (True,), {}),
-            (TypeError, "scaleBy", (None,), {}),
-            (ValueError, "scaleBy", ((1, 2),), {}),
-            (ValueError, "scaleBy", ((1, nan, 1),), {}),
+            (TypeError, "setScale", ("abc",), {"relative": True}),
+            (TypeError, "setScale", (True,), {"relative": True}),
+            (TypeError, "setScale", (None,), {"relative": True}),
+            (ValueError, "setScale", ((1, 2),), {"relative": True}),
+            (ValueError, "setScale", ((1, nan, 1),), {"relative": True}),
+            (ValueError, "setScale", (nan,), {"relative": True}),
             (ValueError, "getQuaternion", (), {"ra": True, "r": False, "jo": True}),
             (ValueError, "getQuaternion", (), {"worldSpace": True, "ra": True, "r": False}),
             (ValueError, "setQuaternion", ((0, 0, 0),), {}),
@@ -534,11 +535,13 @@ class TransformTest(_RemainingCase):
                 self.assertFails(RuntimeError, getattr(node, method), *args)
 
     def test_center_pivots_on_joint(self):
-        """Joint の centerPivotsOnComponents は、直下のシェイプの頂点を指定しても TypeError。"""
+        """Joint の centerPivot(components) は、直下のシェイプの頂点を指定しても TypeError(fast でも同じ)。"""
         joint = mlib.getNode(self.joints((0, 0, 0))[0])
         shape = cmds.listRelatives(self.cube(), shapes=True, fullPath=True)[0]
         shape = cmds.parent(shape, joint.getFullName(), shape=True, relative=True)[0]
-        self.assertFails(TypeError, joint.centerPivotsOnComponents, shape + ".vtx[0]", state=lambda: self.state(joint))
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                self.assertFails(TypeError, joint.centerPivot, shape + ".vtx[0]", fast=fast, state=lambda: self.state(joint))
 
 
 class LockedNodeTest(_RemainingCase):
@@ -558,10 +561,10 @@ class LockedNodeTest(_RemainingCase):
         return node, cube
 
     def test_object_set_remove(self):
-        """removeMembers・removeAllMembers は、セットか dagSetMembers がロックされていると外さない。"""
+        """removeMembers(メンバー指定・all=True)は、セットか dagSetMembers がロックされていると外さない。"""
         for case in ("node", "attribute", "element"):
-            for method in ("removeMembers", "removeAllMembers"):
-                with self.subTest(case=case, method=method):
+            for remove_all in (False, True):
+                with self.subTest(case=case, all=remove_all):
                     node, cube = self.object_set()
                     if case == "node":
                         self.lock_node(node)
@@ -569,12 +572,12 @@ class LockedNodeTest(_RemainingCase):
                         self.lock(node.getFullName(), "dagSetMembers")
                     else:
                         self.lock(node.getFullName(), "dagSetMembers[0]")
-                    args = (cube,) if method == "removeMembers" else ()
+                    args = () if remove_all else (cube,)
 
                     def state():
                         return cmds.sets(node.getFullName(), query=True)
 
-                    self.assertFails(RuntimeError, getattr(node, method), *args, state=state)
+                    self.assertFails(RuntimeError, node.removeMembers, *args, all=remove_all, state=state)
 
     def test_mesh_set_vertex_colors(self):
         """setVertexColors は、ロックされたシェイプへ fast でも通常でも書かない。"""
@@ -595,7 +598,7 @@ class LockedNodeTest(_RemainingCase):
                 with self.subTest(case=case, fast=fast):
                     transform = mlib.getNode(self.cube())
                     cmds.move(1, 0, 0, transform.getFullName() + ".vtx[*]", relative=True)
-                    shape = transform.getShapes()[0]
+                    shape = transform.getShape(all=True)[0]
                     if case == "node":
                         self.lock_node(shape)
                     elif case == "pnts":
@@ -679,7 +682,7 @@ class LockedNodeTest(_RemainingCase):
                 self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.skin_state(node), **flags)
 
     def test_skin_cluster_remove_unused_influences(self):
-        """removeUnusedInfluences は、skinCluster か外すインフルエンスの bindPreMatrix がロックされていると外さない。"""
+        """removeInfluences(unused=True) は、skinCluster か外すインフルエンスの bindPreMatrix がロックされていると外さない。"""
         for lock in ("node", "bindPreMatrix", "element"):
             with self.subTest(lock=lock):
                 node, _ = self.skin()
@@ -691,7 +694,7 @@ class LockedNodeTest(_RemainingCase):
                     self.lock(node.getFullName(), "bindPreMatrix")
                 else:
                     self.lock(node.getFullName(), "bindPreMatrix[3]")
-                self.assertFails(RuntimeError, node.removeUnusedInfluences, state=lambda: self.skin_state(node))
+                self.assertFails(RuntimeError, node.removeInfluences, unused=True, state=lambda: self.skin_state(node))
 
 
 if __name__ == "__main__":

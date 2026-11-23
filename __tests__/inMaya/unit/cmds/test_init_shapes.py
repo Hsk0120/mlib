@@ -69,7 +69,7 @@ class CreateShapeFunctionsTest(_SpecCase):
                 shape = self.assert_one_undo(lambda: create(name))
                 shape = mlib.getNode(name).getShape()
                 self.assertEqual(shape.getType(), kind)
-                self.assertEqual(shape.getNodeName(), name + "Shape")
+                self.assertEqual(shape.getName(node=True), name + "Shape")
                 self.assertEqual(cmds.ls(selection=True), [])
         cmds.currentUnit(linear="cm")
         line = mlib.getNode(self.name("shape0")).getShape()

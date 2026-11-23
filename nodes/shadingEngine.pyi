@@ -4,13 +4,16 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object
-from ..decorator import _edit_context, undoChunk
+from ..decorator import _edit_context, _require_bool, undoChunk
 from .node import Node
 from .objectSet import ObjectSet
-from typing import Iterable
+from typing import Iterable, Literal
 from mlib.components.face import Face
 from mlib.components.face import Faces
+from mlib.nodes.dagNode import DagNode
+from mlib.nodes.node import Nodes
 from mlib.plugs.plug import Plug
+from typing import overload
 
 
 
@@ -33,30 +36,24 @@ class ShadingEngine(ObjectSet):
         engine.setShader(shader)        # shader.outColor -> red_SG.surfaceShader
         engine.assign(mlib.getNode("pCube1"))  # 形状全体。フェースは Face/Faces や "pCube1.f[0:3]"
     """
-    def getShaderPlug(self, kind: str = ...) -> Plug | None:
-        """接続しているシェーダーの出力アトリビュートを取得する。
+    @overload
+    def getShader(self, kind: str = ..., *, plug: Literal[True]) -> Plug | None: ...
+    @overload
+    def getShader(self, kind: str = ..., *, plug: Literal[False] = ...) -> Node | None: ...
+    @overload
+    def getShader(self, kind: str = ..., *, plug: bool = ...) -> Node | Plug | None:
+        """接続しているシェーダーのノードを取得する。``plug=True`` なら、シェーダーの出力アトリビュートを取得する。
 
         Args:
             kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
+            plug (bool): Trueなら、ノードの代わりに接続元の出力のPlugを返す。既定はFalse。
 
         Returns:
-            Plug | None: 接続元の出力のPlug。接続されていなければNone。
+            Node | Plug | None: シェーダーのノード。ノード型に合ったクラスのオブジェクトになる。接続されていなければNone。
+                plug=Trueなら、接続元の出力のPlug。
 
         Raises:
-            ValueError: kindがsurface/volume/displacement以外の場合。
-            RuntimeError: ノードが無効な場合。
-        """
-        ...
-    def getShader(self, kind: str = ...) -> Node | None:
-        """接続しているシェーダーのノードを取得する。
-
-        Args:
-            kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
-
-        Returns:
-            Node | None: シェーダーのノード。ノード型に合ったクラスのオブジェクトになる。接続されていなければNone。
-
-        Raises:
+            TypeError: plugがboolでない場合。
             ValueError: kindがsurface/volume/displacement以外の場合。
             RuntimeError: ノードが無効な場合。
         """
@@ -103,12 +100,28 @@ class ShadingEngine(ObjectSet):
             RuntimeError: Mayaが割り当てを拒否した場合。
         """
         ...
-    def getMembers(self) -> list[Node | Face]:
+    @overload
+    def getMembers(self, *, flatten: bool = ..., dagOnly: Literal[True], shadingOnly: bool = ...) -> Nodes[DagNode]: ...
+    @overload
+    def getMembers(self, *, flatten: bool = ..., dagOnly: Literal[False] = ..., shadingOnly: Literal[False] = ...) -> list[Node | Face]: ...
+    @overload
+    def getMembers(self, *, flatten: bool = ..., dagOnly: bool = ..., shadingOnly: bool = ...) -> list[Node | Face] | Nodes[DagNode]:
         """割り当てている先を取得する。
 
+        Args:
+            flatten (bool): 指定できない(割り当て先は入れ子のセットを持たない)。既定False。
+            dagOnly (bool): Trueなら、:meth:`ObjectSet.getMembers` と同じく、DAGパスだけをNodesで返す。既定False。
+            shadingOnly (bool): dagOnly=Trueのときに、Trueならマテリアルの割り当てに関係するDAGパスだけを返す。既定False。
+
         Returns:
-            list[Node | Face]: 形状全体に割り当てていればそのノード、フェースに割り当てていれば
+            list[Node | Face] | Nodes[DagNode]: 形状全体に割り当てていればそのノード、フェースに割り当てていれば
                 フェース1つずつのオブジェクト。どれもインスタンスのDAGパスを保つ。
+                dagOnly=Trueなら、Mayaの順に並ぶパスごとのノードの集まり。
+
+        Raises:
+            TypeError: flattenを指定した場合、dagOnly・shadingOnlyがboolでない場合、
+                またはdagOnly=TrueなしでshadingOnlyを指定した場合。
+            NotImplementedError: dagOnly=Trueで、使っているMayaに対応するAPI 2.0のメソッドが無い場合。
         """
         ...
     @staticmethod

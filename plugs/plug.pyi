@@ -2672,18 +2672,20 @@ class Plugs(_ListMethods):
             TypeError: keyが呼び出せない場合、またはreverseがboolでない場合。
         """
         ...
-    def getFullNames(self) -> list[str]:
-        """持っている順に、完全なアトリビュート名を返す(``maya.cmds`` へ渡すときに使う)。
+    def getNames(self, *, full: bool = ...) -> list[str]:
+        """持っている順に、アトリビュートの名前を返す。
+
+        既定は :meth:`Plug.getName` を並べたもの。``full=True`` なら完全なアトリビュート名
+        (:meth:`Plug.getFullName` を並べたもの。``maya.cmds`` へ渡すときに使う)。
+
+        Args:
+            full (bool): Trueなら、完全なアトリビュート名を返す。既定はFalse。
 
         Returns:
-            list[str]: 各Plugの :meth:`Plug.getFullName`。無効なPlugは空文字列。
-        """
-        ...
-    def getNames(self) -> list[str]:
-        """持っている順に、アトリビュートの名前を返す(:meth:`Plug.getName` を並べたもの)。
+            list[str]: 各Plugの名前。無効なPlugは空文字列。
 
-        Returns:
-            list[str]: 各Plugの :meth:`Plug.getName`。無効なPlugは空文字列。
+        Raises:
+            TypeError: fullがboolでない場合。
         """
         ...
     @classmethod

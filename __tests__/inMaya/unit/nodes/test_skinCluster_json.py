@@ -271,31 +271,31 @@ class StateTest(SkinWeightsCase):
         self.assertRowsAlmostEqual(self.allWeights(), expected, places=12)
 
     def test_dq_blend_weights(self):
-        self.skin.setSkinningMethod("weightBlended")
+        self.skin.setMode("weightBlended", "skinning")
         blend = [vertex / float(self.count) for vertex in range(self.count)]
         cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *blend)
         data = self.skin.getWeightsData()
         self.assertSequenceAlmostEqual(data["blendWeights"], blend)
         self.skin.exportWeights(self.path)
         cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
-        self.skin.setSkinningMethod("classicLinear")
+        self.skin.setMode("classicLinear", "skinning")
         self.skin.importWeights(self.path)
-        self.assertEqual(self.skin.getSkinningMethod(), "weightBlended")
+        self.assertEqual(self.skin.getMode("skinning"), "weightBlended")
         self.assertSequenceAlmostEqual(self.skin.getWeightsData()["blendWeights"], blend)
 
     def test_settings(self):
-        self.skin.setSkinningMethod("dualQuaternion")
+        self.skin.setMode("dualQuaternion", "skinning")
         self.skin.setMaxInfluences(3, maintain=False)
-        self.skin.setNormalizeMode("post")
+        self.skin.setMode("post", "normalize")
         self.skin.exportWeights(self.path)
-        self.skin.setSkinningMethod("classicLinear")
+        self.skin.setMode("classicLinear", "skinning")
         self.skin.setMaxInfluences(5, maintain=True)
-        self.skin.setNormalizeMode("interactive")
+        self.skin.setMode("interactive", "normalize")
         self.skin.importWeights(self.path)
-        self.assertEqual(self.skin.getSkinningMethod(), "dualQuaternion")
+        self.assertEqual(self.skin.getMode("skinning"), "dualQuaternion")
         self.assertEqual(self.skin.getMaxInfluences(), 3)
-        self.assertFalse(self.skin.isMaintainingMaxInfluences())
-        self.assertEqual(self.skin.getNormalizeMode(), "post")
+        self.assertFalse(self.skin.getMaxInfluences(maintain=True))
+        self.assertEqual(self.skin.getMode("normalize"), "post")
 
     def test_locked_setting_is_skipped(self):
         self.skin.setMaxInfluences(3)
@@ -317,10 +317,10 @@ class UndoFastTest(SkinWeightsCase):
     def test_one_undo_restores(self):
         expected = self.allWeights()
         cmds.setAttr(self.joints[0] + ".liw", True)
-        self.skin.setSkinningMethod("dualQuaternion")
+        self.skin.setMode("dualQuaternion", "skinning")
         self.skin.exportWeights(self.path)
         cmds.setAttr(self.joints[0] + ".liw", False)
-        self.skin.setSkinningMethod("classicLinear")
+        self.skin.setMode("classicLinear", "skinning")
         self.scramble()
         scrambled = self.allWeights()
         self.flushUndo()
@@ -329,12 +329,12 @@ class UndoFastTest(SkinWeightsCase):
         def before():
             self.assertRowsAlmostEqual(self.allWeights(), scrambled)
             self.assertFalse(cmds.getAttr(self.joints[0] + ".liw"))
-            self.assertEqual(self.skin.getSkinningMethod(), "classicLinear")
+            self.assertEqual(self.skin.getMode("skinning"), "classicLinear")
 
         def after():
             self.assertRowsAlmostEqual(self.allWeights(), expected, places=12)
             self.assertTrue(cmds.getAttr(self.joints[0] + ".liw"))
-            self.assertEqual(self.skin.getSkinningMethod(), "dualQuaternion")
+            self.assertEqual(self.skin.getMode("skinning"), "dualQuaternion")
 
         self.assertUndoesInOneStep(before, after)
 
@@ -349,13 +349,13 @@ class UndoFastTest(SkinWeightsCase):
         self.assertEqual(len(skin.getInfluences()), 2)
 
     def test_fast_has_no_undo_and_same_result(self):
-        self.skin.setSkinningMethod("weightBlended")
+        self.skin.setMode("weightBlended", "skinning")
         cmds.setAttr(self.joints[2] + ".liw", True)
         blend = [vertex / float(self.count) for vertex in range(self.count)]
         cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *blend)
         expected = self.skin.getWeightsData()
         self.skin.exportWeights(self.path)
-        self.skin.setSkinningMethod("classicLinear")
+        self.skin.setMode("classicLinear", "skinning")
         cmds.setAttr(self.joints[2] + ".liw", False)
         cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
         self.scramble()
@@ -371,7 +371,7 @@ class BindSkinTest(SkinWeightsCase):
     """bindSkin のファイルからの作成。"""
 
     def test_bind_from_file(self):
-        self.skin.setSkinningMethod("dualQuaternion")
+        self.skin.setMode("dualQuaternion", "skinning")
         self.skin.setMaxInfluences(3, maintain=False)
         cmds.setAttr(self.joints[1] + ".liw", True)
         expected = self.skin.getWeightsData()
@@ -414,7 +414,7 @@ class BindSkinTest(SkinWeightsCase):
         mesh = self.makePlane(self.ns, "plain", 2)
         skin = mlib.bindSkin(self.joints[:2], mesh)
         self.assertEqual(skin.getMaxInfluences(), 4)
-        self.assertEqual(skin.getNormalizeMode(), "interactive")
+        self.assertEqual(skin.getMode("normalize"), "interactive")
 
 
 @unittest.skipUnless(os.path.exists(NGSKIN_PLUGIN), "ngSkinTools2 is not available for this Maya version")

@@ -2,10 +2,12 @@
 """Maya の標準コンストレイントに共通するターゲット・ウェイトの取得と設定を扱う。"""
 
 import maya.cmds as cmds
-from ..decorator import _edit_context, undoChunk
+from ..decorator import _edit_context, _require_bool, undoChunk
 from ..plugs.plug import Plugs
 from .node import Node, Nodes
 from .transform import Transform
+from typing import Literal
+from typing import overload
 
 
 
@@ -25,48 +27,47 @@ class Constraint(Transform):
 
         ノード型に対応するMaya標準のコンストレイントコマンドで調べる。
         並びはコマンドのtargetListの順のままで、targetマルチアトリビュートの論理番号では並べ替えない。
-        この順はgetWeightAliases()の並びと対応する。
+        この順はgetWeightPlugs()の並びと対応する。
 
         Returns:
             Nodes: ターゲットの新しいオブジェクト。登録が無ければ空の集まり。
                 ノードを複製したものではない。
         """
         ...
-    def getWeightAliases(self) -> list[str]:
-        """登録されているターゲットの、ウェイトのエイリアスを取得する。
+    @overload
+    def getWeightPlugs(self, *, aliases: Literal[True]) -> list[str]: ...
+    @overload
+    def getWeightPlugs(self, *, aliases: Literal[False] = ...) -> Plugs: ...
+    @overload
+    def getWeightPlugs(self, *, aliases: bool = ...) -> Plugs | list[str]:
+        """ターゲットのウェイトのアトリビュートを取得する。``aliases=True`` なら、そのエイリアスの名前を取得する。
 
         Maya標準のコンストレイントコマンドで調べる。
 
-        Returns:
-            list[str]: エイリアスの名前。getTargets()と同じ順に並ぶ。
-                ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
-        """
-        ...
-    def getWeightPlugs(self) -> Plugs:
-        """ターゲットのウェイトのアトリビュートを取得する。
-
-        Returns:
-            Plugs: getTargets()と同じ順に並ぶ。set()で値を変更できる。
-        """
-        ...
-    def getWeights(self) -> list[float]:
-        """ターゲットの現在のウェイトを取得する。
-
-        Returns:
-            list[float]: getTargets()と同じ順に並ぶ値。正規化はしない。
-        """
-        ...
-    def getWeight(self, target: Node | str) -> float:
-        """指定したターゲットの現在のウェイトを取得する。
-
         Args:
-            target (Node | str): このコンストレイントに登録されたターゲット。
+            aliases (bool): Trueなら、Plugの代わりにウェイトのエイリアスの名前を返す。既定はFalse。
+                ノードにあるエイリアスをすべて返すgetAliases()とは、対象が違う。
 
         Returns:
-            float: ウェイトの値。正規化はしない。
+            Plugs | list[str]: getTargets()と同じ順に並ぶ。set()で値を変更できる。
+                aliases=Trueなら、エイリアスの名前のリスト。
 
         Raises:
-            ValueError: ターゲットが登録されていない場合。
+            TypeError: aliasesがboolでない場合。
+        """
+        ...
+    def getWeights(self, *targets: Node | str) -> list[float]:
+        """ターゲットの現在のウェイトを取得する。
+
+        Args:
+            *targets (Node | str): このコンストレイントに登録されたターゲット。省略すると全ターゲット。
+
+        Returns:
+            list[float]: 正規化しない値。targetsを省略したときはgetTargets()と同じ順、
+                渡したときは渡した順に並ぶ(1つ渡しても、要素が1つのリスト)。
+
+        Raises:
+            ValueError: 渡したターゲットが登録されていない場合。
         """
         ...
     def setWeight(self, weight: float, *targets: Node | str, fast: bool = ..., check: bool = ...) -> None:

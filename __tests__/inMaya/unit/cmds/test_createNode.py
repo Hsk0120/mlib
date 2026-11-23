@@ -264,7 +264,7 @@ class FlagTest(_CreateCase):
         existing = Node(self.make("transform", "nsShared"))
         normal = mlib.createNode("transform", name=self.name("nsShared"), shared=True, skipSelect=True)
         self.assertNotEqual(normal, existing)
-        self.assertTrue(normal.getNodeName().startswith(self.name("nsShared")))
+        self.assertTrue(normal.getName(node=True).startswith(self.name("nsShared")))
         self.assertEqual(normal.getType(), "transform")
         before = self.nodes()
         fast = mlib.createNode("transform", name=self.name("nsShared"), shared=True, fast=True, skipSelect=True)
@@ -406,7 +406,7 @@ class MayaNamingTest(_CreateCase):
             with self.subTest(fast=fast):
                 node = mlib.createNode("transform", name=self.name("repeated"), fast=fast, skipSelect=True)
                 self.assertNotEqual(node.getName(), self.name("repeated"))
-                self.assertTrue(node.getNodeName().startswith(self.name("repeated")))
+                self.assertTrue(node.getName(node=True).startswith(self.name("repeated")))
                 self.assertNotEqual(cmds.ls(node.getFullName(), uuid=True), cmds.ls(original, uuid=True))
         occupied = self.make("network", "differentType")
         node = mlib.createNode("transform", name=self.name("differentType"), skipSelect=True)
@@ -423,8 +423,8 @@ class MayaNamingTest(_CreateCase):
             for fast in (False, True):
                 with self.subTest(fast=fast):
                     current = mlib.createNode("joint", name="current#", fast=fast, skipSelect=True)
-                    self.assertTrue(current.getNodeName().startswith(self.ns + ":current"))
-                    self.assertEqual(cmds.ls(current.getFullName(), long=True), ["|" + current.getNodeName()])
+                    self.assertTrue(current.getName(node=True).startswith(self.ns + ":current"))
+                    self.assertEqual(cmds.ls(current.getFullName(), long=True), ["|" + current.getName(node=True)])
         finally:
             cmds.namespace(set=":")
 
@@ -470,10 +470,10 @@ class ContainerBuilderTest(_CreateCase):
                 prefix = wrapper.__name__
                 positional = create(self.name(prefix + "Pos"))
                 self.assertIs(type(positional), wrapper)
-                self.assertEqual(positional.getNodeName(), self.name(prefix + "Pos"))
+                self.assertEqual(positional.getName(node=True), self.name(prefix + "Pos"))
                 self.assertEqual(positional.getMembers(), [])
                 keyword = create(name=self.name(prefix + "Kw"), members=[member_a, member_b])
-                self.assertEqual(keyword.getNodeName(), self.name(prefix + "Kw"))
+                self.assertEqual(keyword.getName(node=True), self.name(prefix + "Kw"))
                 self.assertEqual(set(keyword.getMembers()), {member_a, member_b})
                 self.assertEqual(cmds.container(query=True, findContainer=[member_a.getName()]), keyword.getName())
                 keyword.removeMembers(member_a, member_b)
@@ -486,7 +486,7 @@ class ContainerBuilderTest(_CreateCase):
         owner = mlib.createContainer(self.name("owner"))
         node = owner.createNode("multiplyDivide")
         self.assertEqual(node.getType(), "multiplyDivide")
-        self.assertEqual(node.getNodeName(), self.name("owner") + "_multiplyDivide")
+        self.assertEqual(node.getName(node=True), self.name("owner") + "_multiplyDivide")
         self.assertEqual(owner.getMembers(), [node])
         before = self.nodes()
         with self.assertRaises(RuntimeError):

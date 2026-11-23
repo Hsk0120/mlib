@@ -1,6 +1,6 @@
 """DagNode の階層とパス・表示の約束を固定する(担当C)。
 
-対象: getName・getFullName(インスタンスごと)、getParents(indirect)、getParent(step)、
+対象: getName・getFullName(インスタンスごと)、getParent(instances=True, indirect=)、getParent(step)、
 getInstances(noSelf)、mfn、show・hide・setVisibility(Undo・fast・ロック)、getVisibility と isVisible の違い、
 getChildren の引数検査、保持インスタンスだけが消えた参照と削除済みノードの扱い。
 """
@@ -50,9 +50,9 @@ class InstancedPathTest(_SpecCase):
 
     def test_get_parents(self):
         """直接の親を API の順で返し、保持パスの親はそのパスを使う。ワールド直下は空。"""
-        self.assertEqual([parent.getFullName() for parent in self.first.getParents()], ["|" + self.g1, "|" + self.g2])
-        self.assertEqual([parent.getFullName() for parent in self.second.getParents()], ["|" + self.g1, "|" + self.g2])
-        self.assertEqual(Node(self.g1).getParents(), [])
+        self.assertEqual([parent.getFullName() for parent in self.first.getParent(instances=True)], ["|" + self.g1, "|" + self.g2])
+        self.assertEqual([parent.getFullName() for parent in self.second.getParent(instances=True)], ["|" + self.g1, "|" + self.g2])
+        self.assertEqual(Node(self.g1).getParent(instances=True), [])
 
     def test_get_parents_indirect(self):
         """親自体がインスタンス化されると、indirect=True だけが親の別パスも返す。"""
@@ -62,8 +62,8 @@ class InstancedPathTest(_SpecCase):
         leaf_paths = cmds.ls(self.name("leaf"), allPaths=True, long=True)
         self.assertEqual(len(leaf_paths), 2)
         node = Node(leaf_paths[0])
-        self.assertEqual([parent.getFullName() for parent in node.getParents()], [leaf_paths[0].rsplit("|", 1)[0]])
-        self.assertEqual([parent.getFullName() for parent in node.getParents(indirect=True)], [path.rsplit("|", 1)[0] for path in leaf_paths])
+        self.assertEqual([parent.getFullName() for parent in node.getParent(instances=True)], [leaf_paths[0].rsplit("|", 1)[0]])
+        self.assertEqual([parent.getFullName() for parent in node.getParent(instances=True, indirect=True)], [path.rsplit("|", 1)[0] for path in leaf_paths])
 
     def test_get_parent_step(self):
         """step は保持パスを遡り、0以下・ワールド到達は None。"""
@@ -94,10 +94,18 @@ class InstancedPathTest(_SpecCase):
         """保持インスタンスだけが外れると、ノードは有効でもパスを使う照会は RuntimeError。"""
         cmds.parent(self.paths[1], removeObject=True)
         self.assertTrue(self.second.isValid())
-        for method in ("getName", "getFullName", "getName", "getParents", "getChildren", "mpath", "mfn"):
-            with self.subTest(method=method):
+        for method, flags in (
+            ("getName", {}),
+            ("getFullName", {}),
+            ("getParent", {"instances": True}),
+            ("getParent", {"instances": True, "indirect": True}),
+            ("getChildren", {}),
+            ("mpath", {}),
+            ("mfn", {}),
+        ):
+            with self.subTest(method=method, flags=flags):
                 with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
-                    getattr(self.second, method)()
+                    getattr(self.second, method)(**flags)
         self.assertEqual(self.first.getFullName(), self.paths[0])
 
 
@@ -105,7 +113,17 @@ class DeletedDagNodeTest(_SpecCase):
     """ノードごと削除した DAG 参照の照会。"""
 
     #: 削除直後(Undo の記録に残る間)も、破棄後も RuntimeError になるパスの照会。
-    PATH_METHODS = ("isVisible", "getParent", "getParents", "mpath", "mfn", "getInstances", "getSkinClusters", "getBindPoses")
+    PATH_METHODS = (
+        ("isVisible", {}),
+        ("getParent", {}),
+        ("getParent", {"instances": True}),
+        ("getParent", {"instances": True, "indirect": True}),
+        ("mpath", {}),
+        ("mfn", {}),
+        ("getInstances", {}),
+        ("getSkinClusters", {}),
+        ("getBindPoses", {}),
+    )
 
     def setUp(self):
         super().setUp()
@@ -119,10 +137,10 @@ class DeletedDagNodeTest(_SpecCase):
         名前の照会(getName・getFullName)は従来どおり空文字列、getChildren は空リスト、
         """
         self.assertTrue(self.node.isAlive())
-        for method in self.PATH_METHODS:
-            with self.subTest(method=method):
+        for method, flags in self.PATH_METHODS:
+            with self.subTest(method=method, flags=flags):
                 with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
-                    getattr(self.node, method)()
+                    getattr(self.node, method)(**flags)
         # 名前の取得は無効なノードでRuntimeError(str()は空文字列、getFullNameは従来どおり)。
         with self.assertRaisesRegex(RuntimeError, "削除されたか、Undoで取り消されました"):
             self.node.getName()
@@ -131,8 +149,9 @@ class DeletedDagNodeTest(_SpecCase):
         self.assertEqual(self.node.getChildren(), [])
         with self.assertRaises(RuntimeError):
             self.node.getVisibility()
-        with self.assertRaises(RuntimeError):
-            self.node.show()
+        for state in (True, False):
+            with self.assertRaises(RuntimeError):
+                self.node.setVisibility(state)
 
     def test_undo_restores_queries(self):
         """削除を Undo すると、同じ参照のパスの照会が再び使える。"""
@@ -145,15 +164,15 @@ class DeletedDagNodeTest(_SpecCase):
     def test_destroyed(self):
         """Undo の記録を消すと、パスの照会は RuntimeError になる。getChildren だけは空リスト。"""
         cmds.flushUndo()
-        for method in self.PATH_METHODS:
-            with self.subTest(method=method):
+        for method, flags in self.PATH_METHODS:
+            with self.subTest(method=method, flags=flags):
                 with self.assertRaisesRegex(RuntimeError, "すでに存在しません"):
-                    getattr(self.node, method)()
+                    getattr(self.node, method)(**flags)
         self.assertEqual(self.node.getChildren(), [])
 
 
 class VisibilityTest(_SpecCase):
-    """show・hide・setVisibility と、getVisibility・isVisible の違い。"""
+    """setVisibility と、getVisibility・isVisible の違い。"""
 
     def setUp(self):
         super().setUp()
@@ -161,28 +180,40 @@ class VisibilityTest(_SpecCase):
         self.child_name = self.make("transform", "visChild", parent=self.parent)
         self.node = Node(self.child_name)
 
-    def test_show_hide_return_self_and_undo(self):
-        """hide・show は visibility だけを変えて自身を返し、それぞれ1回の Undo で戻る。"""
+    def test_set_visibility_returns_none_and_undo(self):
+        """setVisibility は visibility だけを変えて値を返さず、それぞれ1回の Undo で戻る。"""
         cmds.flushUndo()
-        self.assertIsNone(self.node.hide())
+        self.assertIsNone(self.node.setVisibility(False))
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
+        # 親の visibility は変えない。
+        self.assertTrue(cmds.getAttr(self.parent + ".visibility"))
         cmds.undo()
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
         self.node.setVisibility(False)
-        self.assertIsNone(self.node.show())
-        self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
-
-    def test_show_hide_accept_fast(self):
-        """show・hide の fast=True は setVisibility(fast=True) と同じで、Undo に記録しない。bool 以外は TypeError。"""
-        with self.assertRaises(TypeError):
-            self.node.hide(fast=1)
         cmds.flushUndo()
-        self.assertIsNone(self.node.hide(fast=True))
+        self.assertIsNone(self.node.setVisibility(True))
+        self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
+        cmds.undo()
+        self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+    def test_set_visibility_accepts_fast(self):
+        """setVisibility の fast=True は Undo に記録しない。bool 以外は TypeError。check=True でも同じ値を書く。"""
+        with self.assertRaises(TypeError):
+            self.node.setVisibility(False, fast=1)
+        cmds.flushUndo()
+        self.assertIsNone(self.node.setVisibility(False, fast=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
-        self.assertIsNone(self.node.show(fast=True))
+        self.assertIsNone(self.node.setVisibility(True, fast=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
+        self.assertIsNone(self.node.setVisibility(False, fast=True, check=True))
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
+        self.node.setVisibility(True, check=True)
+        self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
+        cmds.flushUndo()
         self.node.setVisibility(False, fast=True)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertFalse(cmds.getAttr(self.child_name + ".visibility"))
@@ -197,13 +228,16 @@ class VisibilityTest(_SpecCase):
     def test_locked_or_connected(self):
         """ロック・入力接続された visibility は RuntimeError で、値を変えない。"""
         cmds.setAttr(self.child_name + ".visibility", lock=True)
-        with self.assertRaises(RuntimeError):
-            self.node.hide()
+        for flags in ({}, {"check": True}, {"fast": True}, {"fast": True, "check": True}):
+            with self.subTest(flags=flags):
+                with self.assertRaises(RuntimeError):
+                    self.node.setVisibility(False, **flags)
+                self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
         cmds.setAttr(self.child_name + ".visibility", lock=False)
         source = self.make("transform", "visSource")
         cmds.connectAttr(source + ".visibility", self.child_name + ".visibility")
         with self.assertRaises(RuntimeError):
-            self.node.hide()
+            self.node.setVisibility(False)
         self.assertTrue(cmds.getAttr(self.child_name + ".visibility"))
 
     def test_visibility_vs_is_visible(self):

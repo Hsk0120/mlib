@@ -1081,24 +1081,6 @@ def _create_node_overloads(stub, node):
     return variants
 
 
-def _skin_get_weights_overloads(stub, node):
-    """``SkinCluster.getWeights`` の ``rows`` ごとのオーバーロードを返す。
-
-    Args:
-        stub (ModuleStub): 出力中のモジュール。
-        node (ast.FunctionDef): ``getWeights`` の定義。
-
-    Returns:
-        list[str]: オーバーロードの行。
-    """
-    stub.typing.add("Literal")
-    doc_types = _arg_types(ast.get_docstring(node) or "")
-    qualname = "SkinCluster.getWeights"
-    rows = stub._params(node.args, doc_types, qualname, {"rows": ("Literal[True]", False)})
-    flat = stub._params(node.args, doc_types, qualname, {"rows": ("Literal[False]", True)})
-    return [f"def getWeights({rows}) -> list[list[float]]: ...", f"def getWeights({flat}) -> om2.MDoubleArray: ..."]
-
-
 def _face_get_connected_overloads(stub, node):
     """``Face.getConnected`` の ``type`` ごとのオーバーロードを返す。
 
@@ -1153,9 +1135,87 @@ def _self_return(stub, _node):
     return "Self"
 
 
+def _flag_overloads(qualname, cases):
+    """フラグや引数の有無で戻り値の型が変わるメソッドの、オーバーロードを作る関数を返す。
+
+    Args:
+        qualname (str): ``クラス名.メソッド名``。
+        cases (list[tuple[dict, str]]): 引数の型の上書き(``{引数名: (型, 既定値があるか)}``)と、戻り値の型の組。
+            上から順に書き出す(先に書いたものが優先される)。
+
+    Returns:
+        Callable: ``OVERLOADS`` に登録する関数。
+    """
+
+    def build(stub, node):
+        """オーバーロードの行を返す。"""
+        stub.typing.add("Literal")
+        doc_types = _arg_types(ast.get_docstring(node) or "")
+        lines = []
+        for overrides, returns in cases:
+            returns = stub.annotation(returns, qualname) or returns
+            lines.append(f"def {node.name}({stub._params(node.args, doc_types, qualname, overrides)}) -> {returns}: ...")
+        return lines
+
+    return build
+
+
+_TRUE, _FALSE, _NONE = ("Literal[True]", False), ("Literal[False]", True), ("None", True)
+
 OVERLOADS = {
     "mlib.cmds.createNode:createNode": _create_node_overloads,
-    "mlib.nodes.skinCluster:SkinCluster.getWeights": _skin_get_weights_overloads,
+    "mlib.nodes.skinCluster:SkinCluster.getWeights": _flag_overloads(
+        "SkinCluster.getWeights",
+        [
+            ({"vertex": ("Component | int | str", False), "rows": _FALSE}, "dict[Node, float]"),
+            ({"vertex": _NONE, "rows": _TRUE}, "list[list[float]]"),
+            ({"vertex": _NONE, "rows": _FALSE}, "om2.MDoubleArray"),
+        ],
+    ),
+    "mlib.nodes.skinCluster:SkinCluster.getMaxInfluences": _flag_overloads(
+        "SkinCluster.getMaxInfluences", [({"maintain": _TRUE}, "bool"), ({"maintain": _FALSE}, "int")]
+    ),
+    "mlib.nodes.geometryFilter:GeometryFilter.getGeometry": _flag_overloads(
+        "GeometryFilter.getGeometry", [({"geometryIndex": ("int", False)}, "Node | None"), ({"geometryIndex": _NONE}, "Nodes")]
+    ),
+    "mlib.nodes.geometryFilter:GeometryFilter.getGeometryIndices": _flag_overloads(
+        "GeometryFilter.getGeometryIndices", [({"geometry": ("str | Node | om2.MObject | om2.MDagPath", False)}, "int"), ({"geometry": _NONE}, "list[int]")]
+    ),
+    "mlib.nodes.dagNode:DagNode.getBoundingBox": _flag_overloads(
+        "DagNode.getBoundingBox", [({"corners": _TRUE}, "list[Vector]"), ({"corners": _FALSE}, "om2.MBoundingBox")]
+    ),
+    "mlib.nodes.dagNode:DagNode.getParent": _flag_overloads(
+        "DagNode.getParent", [({"instances": _TRUE}, "Nodes[Transform]"), ({"instances": _FALSE, "indirect": _FALSE}, "Transform | None")]
+    ),
+    "mlib.nodes.dagNode:DagNode.getShape": _flag_overloads("DagNode.getShape", [({"all": _TRUE}, "Nodes[DagNode]"), ({"all": _FALSE}, "DagNode | None")]),
+    "mlib.nodes.transform:Transform.getShape": _flag_overloads("Transform.getShape", [({"all": _TRUE}, "Nodes[Shape]"), ({"all": _FALSE}, "Shape | None")]),
+    "mlib.nodes.transform:Transform.getPivot": _flag_overloads(
+        "Transform.getPivot", [({"translation": _TRUE}, "Vector"), ({"translation": _FALSE}, "Translate")]
+    ),
+    "mlib.nodes.objectSet:ObjectSet.getMembers": _flag_overloads(
+        "ObjectSet.getMembers", [({"dagOnly": _TRUE}, "Nodes[DagNode]"), ({"dagOnly": _FALSE, "shadingOnly": _FALSE}, "list[Node | Plug | Components]")]
+    ),
+    "mlib.nodes.shadingEngine:ShadingEngine.getMembers": _flag_overloads(
+        "ShadingEngine.getMembers", [({"dagOnly": _TRUE}, "Nodes[DagNode]"), ({"dagOnly": _FALSE, "shadingOnly": _FALSE}, "list[Node | Face]")]
+    ),
+    "mlib.nodes.shadingEngine:ShadingEngine.getShader": _flag_overloads(
+        "ShadingEngine.getShader", [({"plug": _TRUE}, "Plug | None"), ({"plug": _FALSE}, "Node | None")]
+    ),
+    "mlib.nodes.constraint:Constraint.getWeightPlugs": _flag_overloads(
+        "Constraint.getWeightPlugs", [({"aliases": _TRUE}, "list[str]"), ({"aliases": _FALSE}, "Plugs")]
+    ),
+    "mlib.nodes.dagPose:DagPose.getMemberIndices": _flag_overloads(
+        "DagPose.getMemberIndices", [({"member": ("Node | str", False)}, "int"), ({"member": _NONE}, "list[int]")]
+    ),
+    "mlib.nodes.ikHandle:IkHandle.getJoints": _flag_overloads("IkHandle.getJoints", [({"end": _TRUE}, "Joint | None"), ({"end": _FALSE}, "Joints")]),
+    "mlib.nodes.node:Node.getDgTimer": _flag_overloads(
+        "Node.getDgTimer",
+        [
+            ({"metric": _NONE, "callbacks": _TRUE, "state": _FALSE}, "list[tuple[str, float]]"),
+            ({"metric": _NONE, "callbacks": _FALSE, "state": _TRUE}, "int"),
+            ({"metric": ("int", False), "callbacks": _FALSE, "state": _FALSE}, "float"),
+        ],
+    ),
     "mlib.nodes.node:Node.getType": lambda stub, _node: _get_type_overloads(stub),
     "mlib.util:_angle_unit": lambda _stub, _node: _angle_unit_overloads(_stub),
     "mlib.cmds.ls:ls": _ls_overloads,

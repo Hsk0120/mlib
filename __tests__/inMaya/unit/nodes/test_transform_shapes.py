@@ -1,6 +1,6 @@
 """``mlib.nodes.transform`` のテスト。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setOverrideColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 """
 
 import sys
@@ -55,7 +55,7 @@ class ReplaceShapesTest(_Case):
         source = self.curve([(0, 0, 0), (0, 3, 0)], name=self.name("src")).getTransform()
         source_name = source.getFullName()
         self.assertIsNone(control.replaceShapes(source))
-        shapes = control.getShapes()
+        shapes = control.getShape(all=True)
         self.assertEqual(len(shapes), 1)
         self.assertFalse(old.isValid())
         self.assertFalse(cmds.objExists(source_name))
@@ -72,7 +72,7 @@ class ReplaceShapesTest(_Case):
         expected = _world_cvs(source.getShape().getFullName())
         control.replaceShapes(source, keepSource=True, worldSpace=True)
         self.assertTrue(source.isValid())
-        self.assertEqual(len(source.getShapes()), 1)
+        self.assertEqual(len(source.getShape(all=True)), 1)
         self.assertPointsAlmostEqual(_world_cvs(control.getShape().getFullName()), expected)
         self.assertSequenceAlmostEqual(cmds.getAttr(control.getFullName() + ".scale")[0], (2, 2, 2))
 
@@ -87,7 +87,7 @@ class ReplaceShapesTest(_Case):
         target = mlib.getNode(control)
         target.replaceShapes(first)
         self.assertTrue(holder.isValid())
-        self.assertEqual(len(target.getShapes()), 1)
+        self.assertEqual(len(target.getShape(all=True)), 1)
         self.assertEqual(target.getShape().getNumCVs(), 4)
 
     def test_undo_once(self):
@@ -101,7 +101,7 @@ class ReplaceShapesTest(_Case):
         def before():
             self.assertTrue(cmds.objExists(old))
             self.assertTrue(cmds.objExists(source_name))
-            self.assertEqual([shape.getFullName() for shape in control.getShapes()], [old])
+            self.assertEqual([shape.getFullName() for shape in control.getShape(all=True)], [old])
 
         self.assertUndoesInOneStep(before, lambda: self.assertFalse(cmds.objExists(source_name)))
 
@@ -120,7 +120,7 @@ class ReplaceShapesTest(_Case):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
                     control.replaceShapes(*args, **kwargs)
-        self.assertEqual(len(control.getShapes()), 1)
+        self.assertEqual(len(control.getShape(all=True)), 1)
 
 
 if __name__ == "__main__":

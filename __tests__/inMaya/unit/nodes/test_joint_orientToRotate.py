@@ -61,7 +61,7 @@ class JointOrientToRotateTest(unittest.TestCase):
                         self.assertEqual(cmds.getAttr(node + ".rotate")[0], (0, 0, 0))
                         self.assertMatrix(node, before)
                         self.assertMatrix(child, child_before)
-                        self.assertIsNone(wrapper.jointOrientToRotate())
+                        self.assertIsNone(wrapper.freezeRotate(toRotate=True))
                         self.assertEqual(cmds.getAttr(node + ".jointOrient")[0], (0, 0, 0))
                         self.assertEqual(cmds.getAttr(node + ".rotateOrder"), order)
                         self.assertMatrix(node, before)
@@ -74,7 +74,7 @@ class JointOrientToRotateTest(unittest.TestCase):
         before = [(cmds.getAttr(n + ".rotate"), cmds.getAttr(n + ".jointOrient"), self.matrix(n)) for n in nodes]
         for n in nodes:
             wrapper = mlib.getNode(n)
-            self.assertIsNone(wrapper.jointOrientToRotate())
+            self.assertIsNone(wrapper.freezeRotate(toRotate=True))
         for n, state in zip(nodes, before):
             self.assertMatrix(n, state[2])
         for _ in nodes:
@@ -95,7 +95,7 @@ class JointOrientToRotateTest(unittest.TestCase):
             cmds.setAttr(b + "." + attribute, lock=True)
             try:
                 with self.assertRaises(RuntimeError):
-                    mlib.getNode(b).jointOrientToRotate()
+                    mlib.getNode(b).freezeRotate(toRotate=True)
                 with self.assertRaises(RuntimeError):
                     mlib.getNode(b).freezeRotate()
                 self.assertEqual((cmds.getAttr(b + ".rotate"), cmds.getAttr(b + ".jointOrient")), before)
@@ -104,13 +104,13 @@ class JointOrientToRotateTest(unittest.TestCase):
         a, b = self.joint(), self.joint()
         cmds.connectAttr(a + ".rotateX", b + ".rotateX")
         with self.assertRaises(RuntimeError):
-            mlib.getNode(b).jointOrientToRotate()
+            mlib.getNode(b).freezeRotate(toRotate=True)
         with self.assertRaises(RuntimeError):
             mlib.getNode(b).freezeRotate()
         cmds.disconnectAttr(a + ".rotateX", b + ".rotateX")
         cmds.setKeyframe(b, attribute="rotateY", time=1)
         with self.assertRaises(RuntimeError):
-            mlib.getNode(b).jointOrientToRotate()
+            mlib.getNode(b).freezeRotate(toRotate=True)
         with self.assertRaises(RuntimeError):
             mlib.getNode(b).freezeRotate()
 
@@ -119,11 +119,19 @@ class JointOrientToRotateTest(unittest.TestCase):
         cmds.setAttr(node + ".jointOrient", 0, 0, 0)
         cmds.setAttr(node + ".rotateX", 720)
         wrapper = mlib.getNode(node)
-        wrapper.jointOrientToRotate()
+        wrapper.freezeRotate(toRotate=True)
+        self.assertEqual(cmds.getAttr(node + ".rotateX"), 720)
+        # toRotate は bool のキーワード専用。不正な指定では何も変えない。
+        cmds.setAttr(node + ".jointOrient", 10, 20, 30)
+        for call in (lambda: wrapper.freezeRotate(toRotate=1), lambda: wrapper.freezeRotate(toRotate=None), lambda: wrapper.freezeRotate(True)):
+            with self.assertRaises(TypeError):
+                call()
+        for value, expected in zip(cmds.getAttr(node + ".jointOrient")[0], (10, 20, 30)):
+            self.assertAlmostEqual(value, expected)
         self.assertEqual(cmds.getAttr(node + ".rotateX"), 720)
         cmds.delete(node)
         with self.assertRaises(RuntimeError):
-            wrapper.jointOrientToRotate()
+            wrapper.freezeRotate(toRotate=True)
         with self.assertRaises(RuntimeError):
             wrapper.freezeRotate()
 

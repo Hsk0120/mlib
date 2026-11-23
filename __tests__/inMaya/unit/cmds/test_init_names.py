@@ -140,7 +140,7 @@ class CreateNodeFunctionsTest(_SpecCase):
             mlib.bindSkin([j0], mlib.createPolyCube().getParent(), maximumInfluences=2, mi=2)
         base = mlib.createPolyCube(name=self.name("base")).getParent()
         target = mlib.createPolyCube(name=self.name("target")).getParent()
-        self.assertEqual(mlib.createBlendShape(base, [target]).getTargetNames(), [target.getNodeName(removeNamespace=True)])
+        self.assertEqual(mlib.createBlendShape(base, [target]).getTargetNames(), [target.getName(node=True, removeNamespace=True)])
         for wrapper in (mlib.Container, mlib.DagContainer, mlib.DagPose, mlib.IkHandle, mlib.BlendShape, mlib.NurbsCurve):
             with self.subTest(wrapper=wrapper.__name__):
                 self.assertNotIn("create", vars(wrapper))

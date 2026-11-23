@@ -18,7 +18,7 @@ class ObjectSet(Node):
     取得にはMFnSet、編集にはcmds.setsを使う。
     """
 
-    def getMembers(self, *, flatten=False):
+    def getMembers(self, *, flatten=False, dagOnly=False, shadingOnly=False):
         """セットのメンバーを取得する。
 
         flatten=Trueでは入れ子セットを再帰的に展開する。コンポーネント範囲の単一要素への分解とは異なる。
@@ -30,37 +30,34 @@ class ObjectSet(Node):
 
         順番はMaya APIが列挙する順のまま。独自に並べ替えない。
 
+        ``dagOnly=True`` なら、セットに属するDAGパスだけを、ノードの集まりで返す。
+        コンポーネントはそれを持つDAGパスになり、DGノードやPlugは返さない。
+        Maya API 2.0にgetMemberPathsが無い版では対応していない。
+
         Args:
-            flatten (bool): Trueなら入れ子セットの内容を取得する。既定False。
+            flatten (bool): Trueなら入れ子セットの内容を取得する。既定False。dagOnly=Trueとは同時に指定できない。
+            dagOnly (bool): Trueなら、DAGパスだけをNodesで返す。既定False。
+            shadingOnly (bool): dagOnly=Trueのときに、Trueならマテリアルの割り当てに関係するDAGパスだけを返す。既定False。
 
         Returns:
-            list[Node | Plug | Components]: 新しいリスト。空のセットなら空リスト。
+            list[Node | Plug | Components] | Nodes[DagNode]: 新しいリスト。空のセットなら空リスト。
+                dagOnly=Trueなら、Mayaの順に並ぶパスごとのノードの集まり。
 
         Raises:
-            TypeError: flattenがboolでない場合。
+            TypeError: flatten・dagOnly・shadingOnlyがboolでない場合、flattenとdagOnlyを同時に指定した場合、
+                またはdagOnly=TrueなしでshadingOnlyを指定した場合。
             RuntimeError: ノードが無効な場合。
+            NotImplementedError: dagOnly=Trueで、使っているMayaに対応するAPI 2.0のメソッドが無い場合。
         """
         _require_bool(flatten, "flatten")
-        return self._member_names(om2.MFnSet(self.mnode()).getMembers(flatten))
-
-    def getMemberDagNodes(self, *, shadingOnly=False):
-        """セットに属するDAGパスをノード参照として取得する。
-
-        コンポーネントは所属先のDAGパスになる。getMembersとは異なり、DGノードやPlugは返さない。
-        Maya API2にgetMemberPathsがない版では未対応。
-
-        Args:
-            shadingOnly (bool): Trueならマテリアル割当てに影響するDAGパスだけを返す。既定False。
-
-        Returns:
-            Nodes[DagNode]: Mayaの順に並ぶパス別のノード参照。
-
-        Raises:
-            TypeError: shadingOnlyがbool以外の場合。
-            RuntimeError: セットが無効な場合。
-            NotImplementedError: 使用中のMayaに対応するAPI2メソッドがない場合。
-        """
+        _require_bool(dagOnly, "dagOnly")
         _require_bool(shadingOnly, "shadingOnly")
+        if not dagOnly:
+            if shadingOnly:
+                raise TypeError("shadingOnlyはdagOnly=Trueのときだけ指定できます")
+            return self._member_names(om2.MFnSet(self.mnode()).getMembers(flatten))
+        if flatten:
+            raise TypeError("flattenとdagOnlyは同時に指定できません")
         self._require_valid("セットのDAGパスの取得")
         if not hasattr(om2.MFnSet, "getMemberPaths"):
             raise NotImplementedError("このMayaのAPI2はセットのDAGパス照会に対応していません")
@@ -78,64 +75,57 @@ class ObjectSet(Node):
         self._require_valid("所属制限の取得")
         return om2.MFnSet(self.mnode()).restriction()
 
-    def addExclusiveMembers(self, *members):
-        """同じpartition内の排他所属を移して、このセットへメンバーを追加する。
-
-        Mayaのsets(forceElement=...)を使う。同じpartitionの別セットから対象が外れる場合がある。
-        partitionの作成や、partitionが異なるセットからの除外は行わない。
-        fast引数は持たない(排他所属の更新をMayaコマンドに委ねるため)。
-
-        Args:
-            members (Node | str): 追加するノードやコンポーネント。省略時は何もしない。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 入力の型や組合せが不正な場合。
-            ValueError: 対象を解決できない場合。
-            RuntimeError: セットが無効、またはMayaが所属変更を拒否した場合。
-        """
-        self._require_valid("排他所属の変更")
-        if members:
-            names = Object._input_names(members)
-            cmds.sets(names, forceElement=self.getName())
-
-    def addMembers(self, *members):
+    def addMembers(self, *members, exclusive=False):
         """ノードやコンポーネントなどを、このセットへ追加する。
 
-        入力はほかのメソッドと同じ方法で解決し、cmds.setsへ渡す。何も渡さなければ、何も変えずに自身を返す。
+        入力はほかのメソッドと同じ方法で解決し、cmds.setsへ渡す。何も渡さなければ、何も変えない。
         ノードを複製したり、親子付けしたりはしない。
         fast引数は持たない(MFnSetでの更新はcmds.setsより遅いため)。
 
+        ``exclusive=True`` は、同じpartitionの中の排他の所属を移して追加する(``cmds.sets(forceElement=...)``)。
+        同じpartitionの別のセットから、対象が外れる場合がある。
+        partitionの作成や、partitionが違うセットからの除外はしない。
+
         Args:
-            members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
+            *members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
+            exclusive (bool): Trueなら、同じpartitionの別のセットから外して追加する。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 対応していない型を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
+            TypeError: 対応していない型を渡した場合、名前とNodeなどのオブジェクトを混ぜて渡した場合、
+                またはexclusiveがboolでない場合。
             ValueError: 名前に一致するものが無い場合。
-            RuntimeError: Mayaが追加を拒否した場合。
+            RuntimeError: exclusive=Trueでセットが無効な場合、またはMayaが追加を拒否した場合。
         """
+        _require_bool(exclusive, "exclusive")
+        if exclusive:
+            self._require_valid("排他所属の変更")
         with undoChunk("mlibObjectSetAddMembers"):
             if members:
-                cmds.sets(Object._input_names(members), add=self.getName())
+                names = Object._input_names(members)
+                if exclusive:
+                    cmds.sets(names, forceElement=self.getName())
+                else:
+                    cmds.sets(names, add=self.getName())
 
-    def removeMembers(self, *members):
-        """指定したメンバーを、このセットから外す。
+    def removeMembers(self, *members, all=False):
+        """指定したメンバーを、このセットから外す。``all=True`` なら、直接入っているメンバーをすべて外す。
 
         外すのはセットへの所属だけで、ノードそのものは削除しない。何も渡さなければ何も変えない。
-        入力の解決のしかたは :meth:`addMembers` と同じ。
+        入力の解決のしかたは :meth:`addMembers` と同じ。``all=True`` は ``cmds.sets(clear=set)`` を使う。
+        fast引数は持たない(:meth:`addMembers` と同じ理由)。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。
+            *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
             RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
                 メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
                 またはMayaが外すのを拒否した場合。
@@ -143,6 +133,14 @@ class ObjectSet(Node):
         Note:
             Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
         """
+        _require_bool(all, "all")
+        if all:
+            if members:
+                raise TypeError("membersとall=Trueは同時に指定できません")
+            self._require_members_editable("クリア")
+            with undoChunk("mlibObjectSetRemoveMembers"):
+                cmds.sets(clear=self.getName())
+            return
         if not members:
             return
         self._require_members_editable("メンバーの削除")
@@ -187,86 +185,43 @@ class ObjectSet(Node):
                 return False
         return True
 
-    def removeAllMembers(self):
-        """セットに直接入っているメンバーを、すべて外す(``cmds.sets(clear=set)``)。
+    def combine(self, other, mode="union"):
+        """このセットと別のセットのメンバーを、集合の演算で組み合わせて取得する。セットは書き換えない。
 
-        ノードそのものは削除しない。fast引数は持たない(:meth:`addMembers` と同じ理由)。
-        Undoが有効なら、1回のUndoで戻せる。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: ノードが無効(削除済み)の場合、セットがロックされているかリファレンスの場合、
-                メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
-                またはMayaが処理を拒否した場合。
-
-        Note:
-            Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
-        """
-        self._require_members_editable("クリア")
-        with undoChunk("mlibObjectSetRemoveAllMembers"):
-            cmds.sets(clear=self.getName())
-
-    def getUnion(self, other):
-        """このセットと別のセットの、少なくとも一方に直接入っているものを取得する(和集合)。
-
-        入れ子になったセットの中身は展開しない。戻り値の形は :meth:`getMembers` と同じ。
-        コンポーネントの範囲は、Mayaの選択リストの決まりでまとめる。シーンは変更しない。
+        どちらも、直接入っているものだけを使う(入れ子になったセットの中身は展開しない)。
+        戻り値の形は :meth:`getMembers` と同じ。コンポーネントは1要素ずつ比べ、範囲はMayaの選択リストの決まりでまとめる。
+        たとえば ``cube.vtx[0:3]`` と ``cube.vtx[2:5]`` の共通部分は ``cube.vtx[2:3]`` になる。
 
         Args:
             other (ObjectSet | str): 比べるobjectSet。
+            mode (str): 演算の種類。既定は ``"union"``。
+
+                - ``"union"``: 少なくとも一方に入っているもの(和集合)。
+                - ``"intersection"``: 両方に入っているもの(共通部分)。
+                - ``"difference"``: このセットに入っていて、otherに入っていないもの(差集合)。
 
         Returns:
             list[Node | Plug | Components]: 新しいリスト。
 
         Raises:
-            TypeError: otherがobjectSetでない場合。
+            TypeError: otherがobjectSetでない場合、またはmodeがstrでない場合。
+            ValueError: modeが対応していない名前の場合。
             RuntimeError: どちらかのノードが無効(削除済み)の場合。
         """
+        if not isinstance(mode, str):
+            raise TypeError(f"modeはstrで指定してください: {type(mode).__name__}")
+        if mode not in ("union", "intersection", "difference"):
+            raise ValueError(f"modeは'union'・'intersection'・'difference'のどれかで指定してください: {mode!r}")
         members = self._member_list()
-        members.merge(self._other_member_list(other))
-        return self._member_names(members)
-
-    def getIntersection(self, other):
-        """このセットと別のセットの、両方に直接入っているものを取得する(共通部分)。
-
-        コンポーネントは1要素ずつ比べる。たとえば ``cube.vtx[0:3]`` と ``cube.vtx[2:5]`` の共通部分は
-        ``cube.vtx[2:3]`` になる。入れ子になったセットの中身は展開しない。シーンは変更しない。
-
-        Args:
-            other (ObjectSet | str): 比べるobjectSet。
-
-        Returns:
-            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
-
-        Raises:
-            TypeError: otherがobjectSetでない場合。
-            RuntimeError: どちらかのノードが無効(削除済み)の場合。
-        """
-        members = self._member_list()
-        only_self = om2.MSelectionList(members)
-        only_self.merge(self._other_member_list(other), om2.MSelectionList.kRemoveFromList)
-        members.merge(only_self, om2.MSelectionList.kRemoveFromList)
-        return self._member_names(members)
-
-    def getDifference(self, other):
-        """このセットに直接入っているもののうち、別のセットに直接入っていないものを取得する(差集合)。
-
-        コンポーネントは1要素ずつ除く。入れ子になったセットの中身は展開しない。シーンは変更しない。
-
-        Args:
-            other (ObjectSet | str): 除くメンバーを持つobjectSet。
-
-        Returns:
-            list[Node | Plug | Components]: 新しいリスト。形は :meth:`getMembers` と同じ。
-
-        Raises:
-            TypeError: otherがobjectSetでない場合。
-            RuntimeError: どちらかのノードが無効(削除済み)の場合。
-        """
-        members = self._member_list()
-        members.merge(self._other_member_list(other), om2.MSelectionList.kRemoveFromList)
+        others = self._other_member_list(other)
+        if mode == "union":
+            members.merge(others)
+        elif mode == "difference":
+            members.merge(others, om2.MSelectionList.kRemoveFromList)
+        else:
+            only_self = om2.MSelectionList(members)
+            only_self.merge(others, om2.MSelectionList.kRemoveFromList)
+            members.merge(only_self, om2.MSelectionList.kRemoveFromList)
         return self._member_names(members)
 
     def isSubSet(self, other):

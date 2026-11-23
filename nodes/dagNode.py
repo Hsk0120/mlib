@@ -51,6 +51,9 @@ _DEFAULT_COLOR_PALETTE = (
 #: overrideDisplayType の値(番号順)と、setDisplayType で指定する名前。
 _DISPLAY_TYPES = ("normal", "template", "reference")
 
+#: getDrawColor の mode と、om1.MFnDagNode のメソッド名("override" は別の形の照会なので名前を持たない)。
+_DRAW_COLOR_MODES = {"dormant": "dormantColor", "active": "activeColor", "hilite": "hiliteColor", "override": None}
+
 
 def _type_filter(value):
     """getChildren(type=) の指定を、型名のtupleにそろえる。
@@ -338,52 +341,19 @@ class DagNode(Node):
         self._require_valid("アウトライナーの並び順の取得")
         return self._sibling_position()[0]
 
-    def setOutlinerOrder(self, index):
-        """アウトライナーでの並び順を、指定した番号へ変える。
-
-        親の直接の子の中での順番を変える。番号の数え方は :meth:`getOutlinerOrder` と同じ。
-        ほかの子は、互いの順番を保ったまま詰める。
-        変えるのは、このオブジェクトが持つDAGパスの親の下だけ。インスタンスのほかの親の下の順番は変えない。
-        OpenMayaには子の順番を変える機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
-
-        Args:
-            index (int): 移動先の番号(0 始まり)。負の値は後ろから数える(-1 は最後)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: index が int でない場合。
-            IndexError: index が範囲外の場合。
-            RuntimeError: ノードが無効な場合、またはMayaが拒否した場合(ロックされたノードなど)。
-
-        Examples:
-            >>> node.setOutlinerOrder(0)     # 先頭へ
-            >>> node.setOutlinerOrder(-1)    # 最後へ
-        """
-        if isinstance(index, bool) or not isinstance(index, int):
-            raise TypeError(f"indexはintで指定してください: {type(index).__name__}")
-        with undoChunk("mlibDagNodeSetOutlinerOrder"):
-            self._require_valid("並べ替え")
-            current, count = self._sibling_position()
-            target = index + count if index < 0 else index
-            if not 0 <= target < count:
-                raise IndexError(f"アウトライナーの並び順が範囲外です: {index}")
-            if target != current:
-                # 範囲内の relative は循環せず、その数だけ前後へ動く。
-                cmds.reorder(self.getFullName(), relative=target - current)
-
-    def reorder(self, *, front=_UNSET, f=_UNSET, back=_UNSET, b=_UNSET, relative=_UNSET, r=_UNSET):
+    def reorder(self, *, index=None, front=_UNSET, f=_UNSET, back=_UNSET, b=_UNSET, relative=_UNSET, r=_UNSET):
         """アウトライナーでの並び順を変える(``cmds.reorder`` 相当)。
 
-        親の直接の子の中での順番を変える。``front``・``back``・``relative`` のどれか1つを指定する。
-        ほかの子は、互いの順番を保つ。
-        並びの数え方は :meth:`getOutlinerOrder` と同じ。変えるのは、このオブジェクトが持つDAGパスの親の下だけ。
+        親の直接の子の中での順番を変える。``index``・``front``・``back``・``relative`` のどれか1つを指定する。
+        ほかの子は、互いの順番を保ったまま詰める。
+        並びの数え方は :meth:`getOutlinerOrder` と同じ。変えるのは、このオブジェクトが持つDAGパスの親の下だけで、
+        インスタンスのほかの親の下の順番は変えない。
         ``relative`` は端を越えると反対側へ回る(最後の子に 1 を指定すると先頭になる)。
-        端で止めたいときや、番号で指定したいときは :meth:`setOutlinerOrder` を使う。
+        ``index`` は移動先の番号で、端を越えない(範囲外はIndexError)。
         OpenMayaには子の順番を変える機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Args:
+            index (int | None): 移動先の番号(0 始まり。:meth:`getOutlinerOrder` と同じ数え方)。負の値は後ろから数える(-1 は最後)。
             front (bool): Trueなら先頭へ移動する。
             f (bool): frontの別名。frontと同時には指定できない。
             back (bool): Trueなら最後へ移動する。
@@ -395,30 +365,44 @@ class DagNode(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: 長い名前と短い名前を同時に指定した場合、front・back が bool でない場合、relative が
-                int でない場合、または front・back・relative のちょうど1つを指定していない場合。
+            TypeError: 長い名前と短い名前を同時に指定した場合、front・back が bool でない場合、index・relative が
+                int でない場合、または index・front・back・relative のちょうど1つを指定していない場合。
+            IndexError: index が範囲外の場合。
             RuntimeError: ノードが無効な場合、またはMayaが拒否した場合(ロックされたノードなど)。
 
         Examples:
             >>> node.reorder(front=True)     # 先頭へ
             >>> node.reorder(back=True)      # 最後へ
             >>> node.reorder(relative=-1)    # 1つ前へ
+            >>> node.reorder(index=0)        # 番号で指定して先頭へ
+            >>> node.reorder(index=-1)       # 番号で指定して最後へ
         """
         front = _require_bool(_pick_alias(front, f, "front", "f", default=False), "front")
         back = _require_bool(_pick_alias(back, b, "back", "b", default=False), "back")
         relative = _pick_alias(relative, r, "relative", "r", default=None)
         if relative is not None and (isinstance(relative, bool) or not isinstance(relative, int)):
             raise TypeError(f"relativeはintで指定してください: {type(relative).__name__}")
-        if front + back + (relative is not None) != 1:
-            raise TypeError("front・back・relativeのどれか1つだけを指定してください")
-        if front:
-            flags = {"front": True}
-        elif back:
-            flags = {"back": True}
-        else:
-            flags = {"relative": relative}
+        if index is not None and (isinstance(index, bool) or not isinstance(index, int)):
+            raise TypeError(f"indexはintで指定してください: {type(index).__name__}")
+        if (index is not None) + front + back + (relative is not None) != 1:
+            raise TypeError("index・front・back・relativeのどれか1つだけを指定してください")
         with undoChunk("mlibDagNodeReorder"):
             self._require_valid("並べ替え")
+            if index is not None:
+                current, count = self._sibling_position()
+                target = index + count if index < 0 else index
+                if not 0 <= target < count:
+                    raise IndexError(f"アウトライナーの並び順が範囲外です: {index}")
+                if target == current:
+                    return
+                # 範囲内の relative は循環せず、その数だけ前後へ動く。
+                flags = {"relative": target - current}
+            elif front:
+                flags = {"front": True}
+            elif back:
+                flags = {"back": True}
+            else:
+                flags = {"relative": relative}
             cmds.reorder(self.getFullName(), **flags)
 
     def isInUnderworld(self):
@@ -445,7 +429,7 @@ class DagNode(Node):
         self._require_valid("モデル所属の照会")
         return om2.MFnDagNode(self.mpath()).inModel
 
-    def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET, includeInvisible=False):
+    def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET, includeInvisible=False, corners=False):
         """バウンディングボックスを取得する。
 
         既定では ``MFnDagNode.boundingBox`` の値を返す。これは自身のtranslate・rotate・scale
@@ -456,22 +440,35 @@ class DagNode(Node):
         TransformのincludeInvisible=Trueではcmds.xformの非表示を含むボックスを問い合わせる。
         Shapeはこの指定によらず自身の形状のボックスを返す。
 
+        ``corners=True`` なら、ボックスの代わりに8つの隅の点を返す。ワールド空間を指定しても、
+        ワールドの軸に沿ったボックスの隅になる(ノードの向きに合わせて回したボックスの隅ではない)。
+
         Args:
             worldSpace (bool): Trueならワールド空間、Falseなら親の変換を含まない空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             includeInvisible (bool): Trueなら非表示の子の形状も含む。既定False。
+            corners (bool): Trueなら、8つの隅の点を返す。既定はFalse。
 
         Returns:
-            om2.MBoundingBox: 軸に沿ったボックス。単位はMaya APIの内部の距離単位。
+            om2.MBoundingBox | list[Vector]: 軸に沿ったボックス。単位はMaya APIの内部の距離単位。
                 子のShapeが無いTransformでは、原点だけを含む、ほぼ空のボックスになる。
+                corners=Trueなら、cm単位の8点。X・Y・Zの順に、最小と最大を組み合わせた順に並ぶ
+                ((minX, minY, minZ), (minX, minY, maxZ), (minX, maxY, minZ), ..., (maxX, maxY, maxZ))。
 
         Raises:
-            TypeError: worldSpace・includeInvisibleがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpace・includeInvisible・cornersがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: ノードが無効な場合、または保持するDAGパスが無効な場合。
+
+        Examples:
+            >>> corners = node.getBoundingBox(ws=True, corners=True)
         """
         _require_bool(includeInvisible, "includeInvisible")
+        _require_bool(corners, "corners")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         world = _world_space(worldSpace)
+        if corners:
+            box = self.getBoundingBox(worldSpace=world, includeInvisible=includeInvisible)
+            return [Vector(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
         self._require_valid("バウンディングボックスの計算")
         if includeInvisible and self.mnode().hasFn(om2.MFn.kTransform):
             values = cmds.xform(self.getFullName(), query=True, boundingBoxInvisible=True, worldSpace=world)
@@ -489,32 +486,6 @@ class DagNode(Node):
                 for z in (box.min.z, box.max.z):
                     world_box.expand(om2.MPoint(x, y, z) * parent_matrix)
         return world_box
-
-    def getBoundingBoxCorners(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """バウンディングボックスの8つの隅の点を取得する。
-
-        :meth:`getBoundingBox` が返す、軸に沿ったボックスの隅を返す。
-        ワールド空間を指定しても、ワールドの軸に沿ったボックス(``getBoundingBox(worldSpace=True)``)の隅になる。
-        ノードの向きに合わせて回したボックスの隅ではない。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseなら親の変換を含まない空間(:meth:`getBoundingBox` と同じ)。既定はFalse。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[Vector]: cm単位の8点。X・Y・Zの順に、最小と最大を組み合わせた順に並ぶ
-                ((minX, minY, minZ), (minX, minY, maxZ), (minX, maxY, minZ), ..., (maxX, maxY, maxZ))。
-
-        Raises:
-            TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: ノードが無効な場合、または保持するDAGパスが無効な場合。
-
-        Examples:
-            >>> corners = node.getBoundingBoxCorners(ws=True)
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        box = self.getBoundingBox(worldSpace=worldSpace)
-        return [Vector(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
 
     def isIntermediateObject(self):
         """中間オブジェクトかどうかを調べる。
@@ -583,14 +554,18 @@ class DagNode(Node):
         """
         return self.mpath().instanceNumber()
 
-    def getParents(self, indirect=False):
-        """直接の親をすべて取得する。
+    def getParent(self, step=1, *, instances=False, indirect=False):
+        """親を取得する。
 
-        インスタンス化されたノードには親が複数ある。そのすべてを返す。
-        親の親など、さらに上の祖先は含まない。
+        このオブジェクトが持つDAGパスを、上へたどって求める。
+
+        ``instances=True`` なら、直接の親をすべて返す。インスタンス化されたノードには親が複数あり、そのすべてを返す
+        (親の親など、さらに上の祖先は含まない)。
 
         Args:
-            indirect (bool): 親の数え方を選ぶ。既定はFalse。
+            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。instances=Trueとは同時に指定できない。
+            instances (bool): Trueなら、インスタンスの直接の親をすべて取得する。既定はFalse。
+            indirect (bool): instances=Trueのときの、親の数え方を選ぶ。既定はFalse。
 
                 - False: 親のノードごとに1つ返す。順番はMaya APIの親の順。
                   このオブジェクトが持つパスの親にはそのパスを使い、ほかの親にはMaya APIが返すパスを1つ使う。
@@ -598,42 +573,24 @@ class DagNode(Node):
                   親がインスタンス化されたことで生じたパスの分も含む。
 
         Returns:
-            Nodes[Transform]: 親のオブジェクト。同じ親が重なってもまとめない。
-                DAGの親は必ずTransform系(Jointなど)になる。
-                このオブジェクトが持つパスがワールド直下なら空リスト。
-
-        Raises:
-            RuntimeError: 保持するDAGパスが無効な場合。
-        """
-        parent = self.getParent()
-        if parent is None:
-            return Nodes._wrap([])
-        if indirect:
-            return Nodes._wrap([instance.getParent() for instance in self.getInstances() if instance.getParent() is not None])
-        fn = self.mfn()
-        return Nodes._wrap(
-            [
-                parent if fn.parent(index) == parent.mnode() else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
-                for index in range(fn.parentCount())
-                if not fn.parent(index).hasFn(om2.MFn.kWorld)
-            ]
-        )
-
-    def getParent(self, step=1):
-        """親を取得する。
-
-        このオブジェクトが持つDAGパスを、上へたどって求める。
-
-        Args:
-            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。
-
-        Returns:
-            Transform | None: 親の新しいオブジェクト。DAGの親は必ずTransform系(Jointなど)になる。
+            Transform | Nodes[Transform] | None: 親の新しいオブジェクト。DAGの親は必ずTransform系(Jointなど)になる。
                 stepが0以下の場合と、ワールドまで(それより上へ)たどる場合はNone。
+                instances=Trueなら親の集まり。同じ親が重なってもまとめない。
+                このオブジェクトが持つパスがワールド直下なら空の集まり。
 
         Raises:
+            TypeError: instances・indirectがboolでない場合、instances=Trueとstepを同時に指定した場合、
+                またはinstances=Falseでindirect=Trueを指定した場合。
             RuntimeError: stepが正で、保持するDAGパスが無効な場合。
         """
+        if instances is not False or indirect is not False:
+            _require_bool(instances, "instances")
+            _require_bool(indirect, "indirect")
+            if not instances:
+                raise TypeError("indirectはinstances=Trueのときだけ指定できます")
+            if step != 1:
+                raise TypeError("instancesとstepは同時に指定できません")
+            return self._instance_parents(indirect)
         if step <= 0:
             return None
         path = om2.MDagPath(self.mpath())
@@ -697,7 +654,7 @@ class DagNode(Node):
             result = [node for node in result if any(node.isType(name) for name in types)]
         return Nodes._wrap(result)
 
-    def getShape(self, index=0, intermediates=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
+    def getShape(self, index=0, intermediates=False, *, all=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
         """Shapeを取得する。
 
         ノードの種類によって次のように返す。
@@ -708,18 +665,28 @@ class DagNode(Node):
         - それ以外のDAGノードならNone。
 
         範囲外のindexでもIndexErrorにはしない。
+        ``all=True`` なら、1つではなく当てはまるShapeすべてを集まりで返す(Shapeなら自身だけ、Transformなら直下のShapeすべて)。
 
         Args:
             index (int): Transformで、何番目のShapeを選ぶか。Shapeでは無視する。既定は0。
             intermediates (bool): Trueなら、Transformで中間オブジェクトも候補に含める。Shapeでは無視する。
+            all (bool): Trueなら、Shapeすべてを集まりで返す。既定はFalse。indexとは同時に指定できない。
 
         Returns:
-            DagNode | None: Shapeなら自身、Transformなら選んだShape。当てはまるものがなければNone。
+            DagNode | Nodes[DagNode] | None: Shapeなら自身、Transformなら選んだShape。当てはまるものがなければNone。
+                all=Trueなら集まり(当てはまるものがなければ空)。
 
         Raises:
+            TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
             RuntimeError: ノードが破棄されている場合。
         """
-        return self if self._require_mnode().hasFn(om2.MFn.kShape) else None
+        shape = self if self._require_mnode().hasFn(om2.MFn.kShape) else None
+        if all is not False:
+            _require_bool(all, "all")
+            if index != 0:
+                raise TypeError("allとindexは同時に指定できません")
+            return Nodes._wrap([] if shape is None else [shape])
+        return shape
 
     def isTemplated(self):
         """保持するDAGパスの親階層を含めてテンプレート表示の状態を調べる。
@@ -747,38 +714,6 @@ class DagNode(Node):
             RuntimeError: 保持するDAGパスが無効な場合(削除済みのノードを含む)。
         """
         return self.mpath().isVisible()
-
-    def show(self, *, fast=False):
-        """表示する。
-
-        visibilityをTrueにして自身を返す。``setVisibility(True, fast=fast)`` と同じ。
-
-        Args:
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがbool以外の場合。
-        """
-        self.setVisibility(True, fast=fast)
-
-    def hide(self, *, fast=False):
-        """非表示にする。
-
-        visibilityをFalseにして自身を返す。``setVisibility(False, fast=fast)`` と同じ。
-
-        Args:
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがbool以外の場合。
-        """
-        self.setVisibility(False, fast=fast)
 
     def getObjectGroupComponents(self, groupId):
         """groupIdが示す、このDAGパス上の所属コンポーネントを取得する。
@@ -808,75 +743,69 @@ class DagNode(Node):
 
         return Selection([self.getFullName() + "." + name.split(".", 1)[1] for name in names]).getComponents()
 
-    def getActiveColor(self):
-        """DAGノードの選択状態用の描画色を取得する。
+    def getDrawColor(self, *, mode="dormant"):
+        """DAGノードの描画色を、選択の状態ごとに取得する。
 
         API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
-        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
+        GUIのない環境では黒を返す場合がある。描画更新を強制せず、表示設定は変更しない。
+
+        Args:
+            mode (str): どの状態の色か。既定は ``"dormant"``。
+
+                - ``"dormant"``: 選択していないときの色。
+                - ``"active"``: 選択しているときの色。
+                - ``"hilite"``: ハイライトのときの色。
+                - ``"override"``: このDAGパスに適用される描画オーバーライドの色。自身のoverrideColorを直接読む
+                  :meth:`getColor` とは違い、MFnDagNodeの描画の照会を使う。
 
         Returns:
-            tuple[float, float, float, float]: RGBAの独立した値。
+            tuple[float, float, float, float] | None: RGBAの独立した値。
+                ``mode="override"`` で色のオーバーライドが無い場合だけNone。
+
+        Raises:
+            TypeError: modeがstrでない場合。
+            ValueError: modeが対応していない名前の場合。
         """
-        color = om1.MFnDagNode(self._api1_path()).activeColor()
+        if not isinstance(mode, str):
+            raise TypeError(f"modeはstrで指定してください: {type(mode).__name__}")
+        if mode not in _DRAW_COLOR_MODES:
+            raise ValueError(f"modeは'dormant'・'active'・'hilite'・'override'のどれかで指定してください: {mode!r}")
+        fn = om1.MFnDagNode(self._api1_path())
+        if mode == "override":
+            color = om1.MColor()
+            if not fn.drawOverrideColor(color):
+                return None
+        else:
+            color = getattr(fn, _DRAW_COLOR_MODES[mode])()
         return color.r, color.g, color.b, color.a
 
-    def getDormantColor(self):
-        """DAGノードの非選択状態用の描画色を取得する。
-
-        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
-        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
-
-        Returns:
-            tuple[float, float, float, float]: RGBAの独立した値。
-        """
-        color = om1.MFnDagNode(self._api1_path()).dormantColor()
-        return color.r, color.g, color.b, color.a
-
-    def getHiliteColor(self):
-        """DAGノードのハイライト状態用の描画色を取得する。
-
-        API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
-        GUIのない環境では黒を返す場合がある。表示設定は変更しない。
-
-        Returns:
-            tuple[float, float, float, float]: RGBAの独立した値。
-        """
-        color = om1.MFnDagNode(self._api1_path()).hiliteColor()
-        return color.r, color.g, color.b, color.a
-
-    def getDrawOverrideColor(self):
-        """DAGパスに適用される描画オーバーライド色を取得する。
-
-        自身のoverrideColorを直接読むgetOverrideColorとは異なり、MFnDagNodeの描画照会を使う。
-        描画更新を強制しないため、GUIのない環境では未反映の状態を返す場合がある。
-
-        Returns:
-            tuple[float, float, float, float] | None: RGBAの独立した値。色のオーバーライドが無い場合はNone。
-        """
-        color = om1.MColor()
-        if not om1.MFnDagNode(self._api1_path()).drawOverrideColor(color):
-            return None
-        return color.r, color.g, color.b, color.a
-
-    def getOverrideColor(self, *, shape=False):
-        """描画のオーバーライドの表示色を取得する。
+    def getColor(self, *, outliner=False, shape=False):
+        """表示色(描画のオーバーライドの色、またはアウトライナーの文字色)を取得する。
 
         既定では、Transformでも直下のShapeは読まず、自身のアトリビュートを読む。
 
         Args:
+            outliner (bool): Trueならアウトライナーの文字色、既定のFalseなら描画のオーバーライドの表示色。
             shape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
                 (Shapeが無ければ自身)。Falseなら自身を読む。既定はFalse。
 
         Returns:
-            int | tuple[float, float, float] | None: ``overrideEnabled`` が無効ならNone。
-                ``overrideRGBColors`` が有効なら (r, g, b)。それ以外はカラー番号(0は既定色)。
+            int | tuple[float, float, float] | None: 描画のオーバーライドでは、``overrideEnabled`` が無効ならNone、
+                ``overrideRGBColors`` が有効なら (r, g, b)、それ以外はカラー番号(0は既定色)。
+                アウトライナーでは (r, g, b)、``useOutlinerColor`` が無効ならNone。
 
         Raises:
-            TypeError: shapeがbool以外の場合。
+            TypeError: outliner・shapeがbool以外の場合。
             RuntimeError: ノードが無効な場合。
         """
+        _require_bool(outliner, "outliner")
         _require_bool(shape, "shape")
         fn = self._color_targets(shape)[0]._dependency_fn()
+        if outliner:
+            if not fn.findPlug("useOutlinerColor", False).asBool():
+                return None
+            plug = fn.findPlug("outlinerColor", False)
+            return tuple(plug.child(index).asFloat() for index in range(3))
         if not fn.findPlug("overrideEnabled", False).asBool():
             return None
         if fn.findPlug("overrideRGBColors", False).asBool():
@@ -884,14 +813,19 @@ class DagNode(Node):
             return tuple(plug.child(index).asFloat() for index in range(3))
         return fn.findPlug("overrideColor", False).asInt()
 
-    def setOverrideColor(self, color, *, shape=False, fast=False, check=False):
-        """描画のオーバーライドで表示色を設定する。
+    def setColor(self, color, *, outliner=False, shape=False, fast=False, check=False):
+        """表示色(描画のオーバーライドの色、またはアウトライナーの文字色)を設定する。
 
-        ``overrideEnabled`` を有効にしてから、指定に応じて次のように設定し、自身を返す。
+        既定(``outliner=False``)は描画のオーバーライドの表示色で、``overrideEnabled`` を有効にしてから、
+        指定に応じて次のように設定する。
 
         - カラー番号: ``overrideRGBColors`` を無効にして ``overrideColor`` を設定する。
         - RGB: ``overrideRGBColors`` を有効にして ``overrideColorRGB`` を設定する。
         - ``None``: ``overrideEnabled`` を無効にする。表示タイプなど、ほかのオーバーライドも効かなくなる。
+
+        ``outliner=True`` はアウトライナーの文字色で、``useOutlinerColor`` を有効にして ``outlinerColor`` を設定する
+        (``None`` なら ``useOutlinerColor`` を無効にする)。``outlinerColor`` はRGBしか持たないため、
+        カラー番号は指定した時点のRGBに直して書き込む。GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
 
         TransformやJointでも、直下のShapeではなく自身へ設定する。Mayaの描画のオーバーライドと同じく、
         Transformへの設定は子の階層全体に効く。``shape=True`` なら、直下のShape(中間オブジェクトを除く)
@@ -904,6 +838,7 @@ class DagNode(Node):
         Args:
             color (int | Sequence[float] | None): 表示色。カラー番号(0〜31。0は既定色)、
                 0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換はしない。
+            outliner (bool): Trueならアウトライナーの文字色、既定のFalseなら描画のオーバーライドの表示色を設定する。
             shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -915,66 +850,17 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
-                またはshape・fastがbool以外の場合。
+                またはoutliner・shape・fastがbool以外の場合。
             ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
+        _require_bool(outliner, "outliner")
         _require_bool(shape, "shape")
         _require_bool(fast, "fast")
-        self._set_display_values(_override_color_writes(color), "mlibDagNodeSetOverrideColor", fast, shape, check=check)
-
-    def getOutlinerColor(self, *, shape=False):
-        """アウトライナーの文字色を取得する。
-
-        Args:
-            shape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
-                (Shapeが無ければ自身)。Falseなら自身を読む。既定はFalse。
-
-        Returns:
-            tuple[float, float, float] | None: (r, g, b)。``useOutlinerColor`` が無効ならNone。
-
-        Raises:
-            TypeError: shapeがbool以外の場合。
-            RuntimeError: ノードが無効な場合。
-        """
-        _require_bool(shape, "shape")
-        fn = self._color_targets(shape)[0]._dependency_fn()
-        if not fn.findPlug("useOutlinerColor", False).asBool():
-            return None
-        plug = fn.findPlug("outlinerColor", False)
-        return tuple(plug.child(index).asFloat() for index in range(3))
-
-    def setOutlinerColor(self, color, *, shape=False, fast=False, check=False):
-        """アウトライナーの文字色を設定する。
-
-        ``useOutlinerColor`` を有効にして ``outlinerColor`` を設定し、自身を返す。
-        ``None`` なら ``useOutlinerColor`` を無効にする。
-        既定では、TransformやJointでも直下のShapeではなく自身へ設定する。
-
-        ``outlinerColor`` はRGBしか持たないため、カラー番号は指定した時点のRGBに直して書き込む。
-        GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
-
-        Args:
-            color (int | Sequence[float] | None): 文字色。カラー番号(0〜31)、0〜1の有限な数値3個の (r, g, b)、
-                または無効にするNone。
-            shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
-                Falseなら自身へ設定する。既定はFalse。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
-                またはshape・fastがbool以外の場合。
-            ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
-            RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
-        """
-        _require_bool(shape, "shape")
-        _require_bool(fast, "fast")
-        self._set_display_values(_outliner_color_writes(color), "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
+        if outliner:
+            self._set_display_values(_outliner_color_writes(color), "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
+        else:
+            self._set_display_values(_override_color_writes(color), "mlibDagNodeSetOverrideColor", fast, shape, check=check)
 
     def getVisibility(self):
         """自身のvisibilityアトリビュートの値を取得する。
@@ -1140,6 +1026,29 @@ class DagNode(Node):
             else:
                 cmds.delete(targets, constructionHistory=True)
 
+    def _instance_parents(self, indirect):
+        """インスタンスの直接の親をすべて返す(``getParent(instances=True)`` の本体)。
+
+        Args:
+            indirect (bool): Trueなら、getInstances()が返すパスごとに、その親を返す。
+
+        Returns:
+            Nodes[Transform]: 親のオブジェクト。ワールド直下なら空の集まり。
+        """
+        parent = self.getParent()
+        if parent is None:
+            return Nodes._wrap([])
+        if indirect:
+            return Nodes._wrap([instance.getParent() for instance in self.getInstances() if instance.getParent() is not None])
+        fn = self.mfn()
+        return Nodes._wrap(
+            [
+                parent if fn.parent(index) == parent.mnode() else Node._wrap_dag_path(om2.MDagPath.getAPathTo(fn.parent(index)))
+                for index in range(fn.parentCount())
+                if not fn.parent(index).hasFn(om2.MFn.kWorld)
+            ]
+        )
+
     def _api1_path(self):
         """保持するインスタンスの完全パスをAPI 1.0のMDagPathとして解決する。"""
         selection = om1.MSelectionList()
@@ -1184,7 +1093,7 @@ class DagNode(Node):
         return result
 
     def _set_display_values(self, values, chunk, fast, shape=False, *, check=False):
-        """表示のアトリビュートへ値を書き込む(:meth:`setOverrideColor`・:meth:`setDisplayType` などの本体)。
+        """表示のアトリビュートへ値を書き込む(:meth:`setColor`・:meth:`setDisplayType` などの本体)。
 
         fastでcheck=Trueなら、一部のアトリビュートだけが変わってしまうのを避けるため、すべてのアトリビュート
         (コンパウンドアトリビュートは子も)に書き込めるかを先に調べてから書き込む。
@@ -1373,10 +1282,10 @@ class DagNode(Node):
 
 
 def _override_color_writes(color):
-    """:meth:`DagNode.setOverrideColor` で書き込むアトリビュートと値を返す。
+    """``DagNode.setColor()`` で書き込むアトリビュートと値を返す。
 
     Args:
-        color (int | Sequence[float] | None): :meth:`DagNode.setOverrideColor` と同じ。
+        color (int | Sequence[float] | None): :meth:`DagNode.setColor` と同じ。
 
     Returns:
         list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。
@@ -1394,10 +1303,10 @@ def _override_color_writes(color):
 
 
 def _outliner_color_writes(color):
-    """:meth:`DagNode.setOutlinerColor` で書き込むアトリビュートと値を返す。
+    """``DagNode.setColor(outliner=True)`` で書き込むアトリビュートと値を返す。
 
     Args:
-        color (int | Sequence[float] | None): :meth:`DagNode.setOutlinerColor` と同じ。
+        color (int | Sequence[float] | None): :meth:`DagNode.setColor` と同じ。
 
     Returns:
         list[tuple[str, object]]: アトリビュート名と値の組を、書き込む順に並べたもの。

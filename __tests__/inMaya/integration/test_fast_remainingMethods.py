@@ -1,7 +1,7 @@
 """これまで ``fast=True`` の結果を通常と突き合わせていなかった書き込みメソッドを、表でまとめて確かめる。
 
 対象は ``Keyframe.remove``・``Keyframes.remove``・``VertexFace.removeColor``・``Joint.connectInverseScale``・
-``Joint.setPreferredAngle``・``Nodes.setOutlinerColors``・``SkinCluster.transferWeights``・``Transform.addShape``。
+``Joint.setPreferredAngle``・``Nodes.setColors(outliner=True)``・``SkinCluster.transferWeights``・``Transform.addShape``。
 表の各行について、次を確かめる。
 
 - ``fast=True`` と ``fast=False`` で、同じ結果(値・接続・親子)になる。
@@ -121,7 +121,7 @@ class _FastCase(NamespaceCase):
         def state():
             return tuple(_rounded((cmds.getAttr(name + ".useOutlinerColor"), cmds.getAttr(name + ".outlinerColor"))) for name in names)
 
-        return (lambda **kw: nodes.setOutlinerColors([(1.0, 0.5, 0.0), (0.0, 1.0, 0.0)], **kw)), state
+        return (lambda **kw: nodes.setColors([(1.0, 0.5, 0.0), (0.0, 1.0, 0.0)], **kw, outliner=True)), state
 
     def r_SkinCluster_transferWeights(self):
         mesh = cmds.ls(cmds.polyCube(name="skinMesh#", subdivisionsY=2, constructionHistory=False)[0], long=True)[0]

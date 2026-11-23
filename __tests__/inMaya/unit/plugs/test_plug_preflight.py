@@ -89,13 +89,13 @@ class ResponsibilityTest(unittest.TestCase):
         a, b = [cmds.polyCube(constructionHistory=False)[0] for _ in range(2)]
         cmds.parent(cmds.listRelatives(b, shapes=True)[0], a, shape=True, relative=True)
         node = mlib.getNode(a)
-        originals = [shape.getVertices().getPosition() for shape in node.getShapes()]
+        originals = [shape.getVertices().getPosition() for shape in node.getShape(all=True)]
         node.scaleGeometry((v for v in (2, 3, 4)), pivot=(v for v in (0, 0, 0)))
-        for shape, points in zip(node.getShapes(), originals):
+        for shape, points in zip(node.getShape(all=True), originals):
             for actual, old in zip(shape.getVertices().getPosition(), points):
                 self.assertEqual(tuple(actual), tuple(old[i] * (2, 3, 4)[i] for i in range(3)))
         cmds.undo()
-        self.assertEqual([shape.getVertices().getPosition() for shape in node.getShapes()], originals)
+        self.assertEqual([shape.getVertices().getPosition() for shape in node.getShape(all=True)], originals)
 
 
 if __name__ == "__main__":

@@ -308,13 +308,13 @@ class JointTest(unittest.TestCase):
         chain = root.getChainFromHere()
         self.assertEqual([joint.getFullName() for joint in chain], [root.getFullName(), mid.getFullName(), tip.getFullName()])
 
-        self.assertEqual(root.getIkHandles(), [])
+        self.assertEqual(root.getConnections(type="ikHandle", asNode=True), [])
         handle_name = cmds.ikHandle(startJoint=root.getFullName(), endEffector=tip.getFullName(), solver="ikRPsolver")[0]
         self.created.append(handle_name)
 
         # startJoint 接続に加え、poleVector 拘束などで同じ joint から同じ
         # ikHandle へ複数の接続が生じても、ノード単位で重複を除いて1件になる。
-        found = root.getIkHandles()
+        found = root.getConnections(type="ikHandle", asNode=True)
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].getName(), handle_name)
 
@@ -477,7 +477,7 @@ class RemovedApiTest(unittest.TestCase):
 
     def test_joints_has_no_forwarders(self):
         # resetAttrs・setParent は一括の書込みとして Nodes が持つ(test_spec_bulk_and_nodes)。
-        for name in ("mfn", "getShear", "setShear", "getRotate", "jointOrientToRotate", "freezeRotate", "_bulk_entries", "_bulk_methods"):
+        for name in ("mfn", "getShear", "setShear", "getRotate", "freezeRotate", "_bulk_entries", "_bulk_methods"):
             with self.subTest(name=name):
                 self.assertFalse(hasattr(Joints, name))
 
@@ -685,7 +685,7 @@ class InvalidJointTest(_SpecCaseJoint):
         joint = Node(self.make())
         cmds.delete(str(joint))
         self.assertFalse(joint.isValid())
-        for method, flags in (("jointOrientToRotate", {}), ("freezeRotate", {})):
+        for method, flags in (("freezeRotate", {"toRotate": True}), ("freezeRotate", {})):
             with self.subTest(method=method, flags=flags):
                 with self.assertRaises(RuntimeError):
                     getattr(joint, method)(**flags)

@@ -111,7 +111,7 @@ class JointInverseScaleTest(_SpecCase):
                 self.assertEqual(child.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True), root.getPlug("scale"))
         cmds.select(root.getFullName())
         reference = cmds.joint(name=self.name("cmdsChild"))
-        self.assertEqual(cmds.listConnections(reference + ".inverseScale", plugs=True), [root.getNodeName() + ".scale"])
+        self.assertEqual(cmds.listConnections(reference + ".inverseScale", plugs=True), [root.getName(node=True) + ".scale"])
 
     def test_undo_once_removes_node_and_connection(self):
         root = mlib.createNode("joint", name=self.name("root"))

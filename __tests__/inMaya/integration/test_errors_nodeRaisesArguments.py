@@ -5,7 +5,7 @@
 例外の後にシーンのノードの数と、書き込もうとした値・接続が変わらないことも確かめる。
 無効なノードの RuntimeError は ``test_errors_nodeRaises.py`` で確かめる。
 
-Mayaが例外にせず黙って何もしない場合(ロックしたピボットへの ``setPivotTranslation`` など)も、
+Mayaが例外にせず黙って何もしない場合(ロックしたピボットへの ``setPivot(translation=True)`` など)も、
 mlibが書き込む前に拒否することを確かめる。
 """
 
@@ -450,9 +450,12 @@ class NodeTest(_ArgumentCase):
     """Node の比較・交換の引数の型。"""
 
     def test_unsupported_other(self):
-        for method, kind in (("swapConnections", "multiplyDivide"), ("isAncestorOf", "transform"), ("isParentOf", "transform")):
-            with self.subTest(method=method):
-                self.assertFails(TypeError, getattr(self.node(kind), method), 1.5)
+        cases = (("swapConnections", "multiplyDivide", {}), ("isAncestorOf", "transform", {}), ("isAncestorOf", "transform", {"direct": True}))
+        for method, kind, flags in cases:
+            with self.subTest(method=method, flags=flags):
+                self.assertFails(TypeError, getattr(self.node(kind), method), 1.5, **flags)
+        with self.subTest(method="isAncestorOf", case="direct type"):
+            self.assertFails(TypeError, self.node("transform").isAncestorOf, self.node("transform"), direct=1)
 
 
 class NurbsCurveTest(_ArgumentCase):
@@ -526,10 +529,18 @@ class ObjectSetTest(_ArgumentCase):
 
         transform = self.node("transform")
         cases = (
-            (TypeError, "getMemberDagNodes", (), {"shadingOnly": 1}),
-            (TypeError, "addExclusiveMembers", (1.5,), {}),
-            (ValueError, "addExclusiveMembers", (self.ns + ":noSuchObject",), {}),
-            (TypeError, "getIntersection", (transform,), {}),
+            (TypeError, "getMembers", (), {"dagOnly": True, "shadingOnly": 1}),
+            (TypeError, "getMembers", (), {"dagOnly": 1}),
+            (TypeError, "getMembers", (), {"dagOnly": True, "flatten": True}),
+            (TypeError, "addMembers", (1.5,), {"exclusive": True}),
+            (TypeError, "addMembers", (transform,), {"exclusive": 1}),
+            (ValueError, "addMembers", (self.ns + ":noSuchObject",), {"exclusive": True}),
+            (TypeError, "removeMembers", (), {"all": 1}),
+            (TypeError, "combine", (transform, "union"), {}),
+            (TypeError, "combine", (transform, "intersection"), {}),
+            (TypeError, "combine", (transform, "difference"), {}),
+            (TypeError, "combine", (object_set, 1), {}),
+            (ValueError, "combine", (object_set, "xor"), {}),
             (TypeError, "isSubSet", (transform,), {}),
         )
         for error, method, args, flags in cases:
@@ -628,9 +639,14 @@ class SkinClusterTest(_ArgumentCase):
             (ValueError, "setDropoffRate", (stranger, 4.0), {}),
             (TypeError, "restoreBindPose", (1,), {}),
             (TypeError, "restoreBindPose", (True,), {"ws": True}),
-            (TypeError, "removeUnusedInfluences", (), {"force": 1}),
-            (IndexError, "getVertexWeights", (999,), {}),
-            (IndexError, "setVertexWeights", (999, {joints[0]: 1.0}), {}),
+            (TypeError, "removeInfluences", (), {"unused": True, "force": 1}),
+            (TypeError, "removeInfluences", (), {"unused": 1}),
+            (TypeError, "removeInfluences", (joints[2],), {"requireAncestor": 1}),
+            (TypeError, "removeInfluences", (joints[2],), {"transferToParent": 1}),
+            (IndexError, "getWeights", (), {"vertex": 999}),
+            (IndexError, "setWeights", ({joints[0]: 1.0},), {"vertex": 999, "normalize": True}),
+            (TypeError, "getWeights", (), {"vertex": 0, "vertices": [0]}),
+            (TypeError, "setWeights", ({joints[0]: 1.0},), {"vertex": 0}),
             (ValueError, "getBlendWeights", (), {"vertices": [0, 0]}),
             (IndexError, "getBlendWeights", (), {"vertices": [999]}),
             (ValueError, "setBlendWeights", ([0.5, 0.5],), {"vertices": [0, 0]}),
@@ -641,7 +657,15 @@ class SkinClusterTest(_ArgumentCase):
             (TypeError, "transferWeights", ([(joints[0], joints[1])],), {"fast": 1}),
             (TypeError, "transferWeights", ([(1.5, 2.5)],), {}),
             (TypeError, "setMoveJointsMode", (1,), {}),
-            (TypeError, "forceNormalizeWeights", (), {"fast": 1}),
+            (TypeError, "normalizeWeights", (), {"force": True, "fast": 1}),
+            (TypeError, "normalizeWeights", (), {"force": 1}),
+            (TypeError, "normalizeWeights", (3,), {"force": True}),
+            (TypeError, "getMode", (1,), {}),
+            (ValueError, "getMode", ("blend",), {}),
+            (ValueError, "setMode", ("post", "blend"), {}),
+            (TypeError, "getMaxInfluences", (), {"maintain": 1}),
+            (TypeError, "getInfluences", (), {"locked": 1}),
+            (TypeError, "getInfluences", (), {"unused": 1}),
             (TypeError, "setMaxInfluences", (2,), {"maintain": 1}),
             (TypeError, "setMaxInfluences", (2,), {"fast": 1}),
         )
@@ -666,19 +690,19 @@ class SkinClusterTest(_ArgumentCase):
 
     def test_locked_settings(self):
         cases = (
-            ("setDropoffRate", ("joint", 4.0), "dropoff"),
-            ("setSkinningMethod", ("dualQuaternion",), "skinningMethod"),
-            ("setNormalizeMode", ("post",), "normalizeWeights"),
-            ("setVertexWeights", (0, "weights"), "weightList"),
-            ("setWeightsData", ("data",), "weightList"),
+            ("setDropoffRate", ("joint", 4.0), {}, "dropoff"),
+            ("setMode", ("dualQuaternion", "skinning"), {}, "skinningMethod"),
+            ("setMode", ("post", "normalize"), {}, "normalizeWeights"),
+            ("setWeights", ("weights",), {"vertex": 0, "normalize": True}, "weightList"),
+            ("setWeightsData", ("data",), {}, "weightList"),
         )
-        for method, args, attribute in cases:
-            with self.subTest(method=method):
+        for method, args, flags, attribute in cases:
+            with self.subTest(method=method, attribute=attribute):
                 node, joints = self.skin()
                 data = node.getWeightsData()
                 args = tuple(self.resolve(value, joints, data) for value in args)
                 self.lock(node, attribute)
-                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node))
+                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def resolve(self, value, joints, data):
         if value == "joint":
@@ -690,12 +714,11 @@ class SkinClusterTest(_ArgumentCase):
         return value
 
     def test_locked_node(self):
-        for method in ("setMoveJointsMode", "forceNormalizeWeights"):
+        for method, args, flags in (("setMoveJointsMode", (True,), {}), ("normalizeWeights", (), {"force": True})):
             with self.subTest(method=method):
                 node, _ = self.skin()
                 cmds.lockNode(node.getFullName(), lock=True)
-                args = (True,) if method == "setMoveJointsMode" else ()
-                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node))
+                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def test_curve_output(self):
         """出力が Mesh でない skinCluster では smoothWeights・getInfluenceVertices が NotImplementedError。"""
@@ -725,22 +748,37 @@ class TransformTest(_ArgumentCase):
             (TypeError, "mirrorGeometry", (), {"worldSpace": 1}),
             (TypeError, "mirrorGeometry", (1.5,), {}),
             (IndexError, "mirrorGeometry", (), {"indices": [999]}),
-            (TypeError, "centerPivotsOnComponents", (1.5,), {}),
-            (ValueError, "centerPivotsOnComponents", ([],), {}),
+            (TypeError, "centerPivot", (1.5,), {}),
+            (ValueError, "centerPivot", ([],), {}),
             (TypeError, "centerPivot", (), {"fast": 1}),
             (TypeError, "deleteUnusedIntermediateShapes", (), {"fast": 1}),
-            (TypeError, "translateBy", ("abc",), {}),
-            (TypeError, "translateBy", ((1, 0, 0), 1), {}),
-            (ValueError, "translateBy", ((1, 0),), {}),
-            (ValueError, "translateBy", ((1, 0, nan),), {}),
+            (TypeError, "setTranslation", ("abc",), {"relative": True}),
+            (TypeError, "setTranslation", ((1, 0, 0), 1), {"relative": True}),
+            (TypeError, "setTranslation", ((1, 0, 0),), {"relative": 1}),
+            (TypeError, "setTranslation", ((1, 0, 0),), {"relative": True, "at": 0}),
+            (ValueError, "setTranslation", ((1, 0),), {"relative": True}),
+            (ValueError, "setTranslation", ((1, 0, nan),), {"relative": True}),
+            (TypeError, "setRotate", ((1, 0, 0),), {"relative": 1}),
+            (TypeError, "setRotate", ("abc",), {"relative": True}),
+            (ValueError, "setRotate", ((1, 0, nan),), {"relative": True}),
+            (TypeError, "setScale", ((1, 1, 1),), {"relative": 1}),
+            (TypeError, "setScale", ((2, 1, 1),), {"relative": True, "worldSpace": True}),
+            (TypeError, "setShear", ((1, 1, 1),), {"relative": 1}),
+            (TypeError, "setShear", ((2, 1, 1),), {"relative": True, "ws": True}),
+            (TypeError, "setShear", ("abc",), {"relative": True}),
+            (ValueError, "setShear", ((1, nan, 1),), {"relative": True}),
             (TypeError, "getScale", (1,), {}),
             (TypeError, "getScale", (True,), {"ws": True}),
             (TypeError, "getShear", (1,), {}),
             (TypeError, "getLimits", (), {"unit": 1}),
-            (TypeError, "setPivotTranslation", ("abc",), {}),
-            (TypeError, "setPivotTranslation", (5,), {}),
-            (TypeError, "setPivotTranslation", ((1, "a", 3),), {}),
-            (ValueError, "setPivotTranslation", ((1, 2),), {}),
+            (TypeError, "setPivot", ("abc",), {"translation": True}),
+            (TypeError, "setPivot", (5,), {"translation": True}),
+            (TypeError, "setPivot", ((1, "a", 3),), {"translation": True}),
+            (ValueError, "setPivot", ((1, 2),), {"translation": True}),
+            (TypeError, "setPivot", ((1, 2, 3),), {"translation": 1}),
+            (TypeError, "setPivot", ((1, 2, 3),), {"translation": True, "fast": True}),
+            (TypeError, "setPivot", ((1, 2, 3),), {"translation": True, "preserve": False}),
+            (TypeError, "getPivot", (), {"translation": 1}),
         )
         node = mlib.getNode(self.cube())
         cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
@@ -749,9 +787,11 @@ class TransformTest(_ArgumentCase):
                 self.assertFails(error, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def test_center_pivots_on_other_components(self):
-        """centerPivotsOnComponents は別の Transform 下のコンポーネントで ValueError。"""
+        """centerPivot(components) は別の Transform 下のコンポーネントで ValueError(fast でも同じ)。"""
         node = mlib.getNode(self.cube())
-        self.assertFails(ValueError, node.centerPivotsOnComponents, self.cube() + ".vtx[0]", state=lambda: self.state(node))
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                self.assertFails(ValueError, node.centerPivot, self.cube() + ".vtx[0]", fast=fast, state=lambda: self.state(node))
 
     def test_joint_fast_center_pivot(self):
         """fast の centerPivot は Joint で TypeError。"""
@@ -763,21 +803,26 @@ class TransformTest(_ArgumentCase):
         self.assertFails(NotImplementedError, node.mirrorGeometry, fast=True, state=lambda: self.state(node))
 
     def test_locked_channels(self):
+        relative = {"relative": True}
+        pivot = {"translation": True}
         cases = (
-            ("translateBy", ((1, 0, 0),), "translate"),
-            ("shearBy", ((0.1, 0, 0),), "shear"),
-            ("mirrorTransform", (), "translate"),
+            ("setTranslation", ((1, 0, 0),), relative, "translate"),
+            ("setRotate", ((10, 0, 0),), relative, "rotate"),
+            ("setScale", ((2, 1, 1),), relative, "scale"),
+            ("setShear", ((0.1, 0, 0),), relative, "shear"),
+            ("mirrorTransform", (), {}, "translate"),
             # Mayaは例外にせず何もしないが、mlibはcheckに関係なく書き込む前に拒否する。
-            ("setPivotTranslation", ((1, 2, 3),), "rotatePivot"),
-            ("setPivotTranslation", ((1, 2, 3),), "rotatePivotTranslate"),
-            ("setPivotTranslation", ((1, 2, 3),), "rotatePivotX"),
+            ("setPivot", ((1, 2, 3),), pivot, "rotatePivot"),
+            ("setPivot", ((1, 2, 3),), pivot, "rotatePivotTranslate"),
+            ("setPivot", ((1, 2, 3),), pivot, "rotatePivotX"),
         )
-        for method, args, attribute in cases:
+        for method, args, flags, attribute in cases:
             with self.subTest(method=method, attribute=attribute):
                 node = self.node("transform")
                 cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
+                cmds.setAttr(node.getFullName() + ".shear", 0.5, 0.5, 0.5)
                 self.lock(node, attribute)
-                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node))
+                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def test_deleted_attribute_plug(self):
         """matchTransform・addConstraint は、アトリビュートを削除した Plug で DeletedAttributeError。"""

@@ -201,9 +201,15 @@ class GeometryFilterTest(_RaisesCase):
     """削除したデフォーマー(cluster)。"""
 
     def test_deleted_deformer(self):
-        cases = (("getInputGeometryAtIndex", (), {"geometryIndex": 0}), ("getDeformerTools", (), {}))
+        cases = (
+            ("getGeometry", (), {"input": True, "geometryIndex": 0}),
+            ("getGeometry", (), {"input": True}),
+            ("getGeometry", (), {"geometryIndex": 0}),
+            ("getGeometryIndices", (), {}),
+            ("getDeformerTools", (), {}),
+        )
         for method, args, flags in cases:
-            with self.subTest(method=method):
+            with self.subTest(method=method, flags=flags):
                 deformer = self.kill(mlib.getNode(cmds.cluster(self.cube())[0]))
                 self.assertFailsWithoutChange(RuntimeError, getattr(deformer, method), *args, **flags)
 
@@ -251,41 +257,41 @@ class NodeTest(_RaisesCase):
 
     def test_deleted_node(self):
         cases = (
-            ("getDgTimerState", ()),
-            ("setDgTimerEnabled", (True,)),
-            ("resetDgTimer", ()),
-            ("getDgTimer", (0,)),
-            ("getDgCallbacks", ()),
-            ("getContainer", ()),
-            ("getAnimatablePlugs", ()),
-            ("hasUniqueName", ()),
+            ("getDgTimer", (), {"state": True}),
+            ("setDgTimer", (True,), {}),
+            ("setDgTimer", (), {"reset": True}),
+            ("getDgTimer", (0,), {}),
+            ("getDgTimer", (), {"callbacks": True}),
+            ("getContainer", (), {}),
+            ("getPlugs", (), {"animatable": True}),
+            ("hasUniqueName", (), {}),
         )
         for kind in ("transform", "multiplyDivide"):
-            for method, args in cases:
-                with self.subTest(kind=kind, method=method):
+            for method, args, flags in cases:
+                with self.subTest(kind=kind, method=method, flags=flags):
                     node = self.kill(self.node(kind))
-                    self.assertFailsWithoutChange(RuntimeError, getattr(node, method), *args)
+                    self.assertFailsWithoutChange(RuntimeError, getattr(node, method), *args, **flags)
 
     def test_nodes_with_deleted_element(self):
-        """Nodes.setOverrideColors・callEach は無効な要素を含むと RuntimeError。残りの要素も変えない。"""
+        """Nodes.setColors・callEach・getNames は無効な要素を含むと RuntimeError。残りの要素も変えない。"""
         for fast in (False, True):
-            with self.subTest(method="setOverrideColors", fast=fast):
+            with self.subTest(method="setColors", fast=fast):
                 first, second = self.node("transform"), self.node("transform")
                 nodes = mlib.Nodes([first, second])
                 self.kill(second)
-                self.assertFailsWithoutChange(RuntimeError, nodes.setOverrideColors, [1, 2], fast=fast)
+                self.assertFailsWithoutChange(RuntimeError, nodes.setColors, [1, 2], fast=fast)
                 self.assertFalse(cmds.getAttr(first.getFullName() + ".overrideEnabled"))
         with self.subTest(method="callEach"):
             first, second = self.node("transform"), self.node("transform")
             nodes = mlib.Nodes([first, second])
             self.kill(second)
             self.assertFailsWithoutChange(RuntimeError, nodes.callEach, "getName")
-        with self.subTest(method="getFullNames"):
+        with self.subTest(method="getNames full"):
             first, second = self.node("transform"), self.node("transform")
             nodes = mlib.Nodes([first, second])
             self.kill(second)
             with self.assertRaisesRegex(RuntimeError, "要素の番号1"):
-                nodes.getFullNames()
+                nodes.getNames(full=True)
 
 
 class NurbsTest(_RaisesCase):
@@ -336,16 +342,19 @@ class ObjectSetTest(_RaisesCase):
 
     def test_deleted_set(self):
         member = cmds.createNode("transform", skipSelect=True)
-        with self.subTest(method="getMemberDagNodes"):
-            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).getMemberDagNodes)
-        with self.subTest(method="addExclusiveMembers"):
-            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).addExclusiveMembers, member)
+        with self.subTest(method="getMembers dagOnly"):
+            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).getMembers, dagOnly=True)
+        with self.subTest(method="addMembers exclusive"):
+            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).addMembers, member, exclusive=True)
             self.assertFalse(cmds.listSets(object=member))
-        for method in ("getIntersection", "isSubSet"):
-            with self.subTest(method=method, case="other"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.objectSet(), method), self.kill(self.objectSet()))
-            with self.subTest(method=method, case="self"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.objectSet()), method), self.objectSet())
+        with self.subTest(method="removeMembers all"):
+            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).removeMembers, all=True)
+        cases = [("combine", (mode,)) for mode in ("union", "intersection", "difference")] + [("isSubSet", ())]
+        for method, args in cases:
+            with self.subTest(method=method, args=args, case="other"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.objectSet(), method), self.kill(self.objectSet()), *args)
+            with self.subTest(method=method, args=args, case="self"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.objectSet()), method), self.objectSet(), *args)
 
 
 class ConstraintCacheTest(_RaisesCase):
@@ -387,10 +396,10 @@ class ShadingEngineTest(_RaisesCase):
     """削除した shadingEngine。"""
 
     def test_deleted_shading_engine(self):
-        for method in ("getShaderPlug", "getShader"):
-            with self.subTest(method=method):
+        for flags in ({"plug": True}, {}):
+            with self.subTest(method="getShader", flags=flags):
                 engine = mlib.getNode(cmds.sets(renderable=True, noSurfaceShader=True, empty=True))
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(engine), method))
+                self.assertFailsWithoutChange(RuntimeError, self.kill(engine).getShader, **flags)
 
 
 class SkinClusterTest(_RaisesCase):
@@ -417,18 +426,22 @@ class TransformTest(_RaisesCase):
     """削除した Transform と、削除したシェイプ・データの書き込み先。"""
 
     def test_deleted_transform(self):
+        relative = {"relative": True}
         cases = (
-            ("getPivotTranslation", ()),
-            ("setPivotTranslation", ((1, 2, 3),)),
-            ("getTransformation", ()),
-            ("getRotateOrder", ()),
-            ("shearBy", ((0.1, 0, 0),)),
-            ("eulerFilter", ()),
+            ("getPivot", (), {"translation": True}),
+            ("setPivot", ((1, 2, 3),), {"translation": True}),
+            ("getTransformation", (), {}),
+            ("getRotateOrder", (), {}),
+            ("setTranslation", ((1, 0, 0),), relative),
+            ("setRotate", ((10, 0, 0),), relative),
+            ("setScale", ((2, 1, 1),), relative),
+            ("setShear", ((0.1, 0, 0),), relative),
+            ("eulerFilter", (), {}),
         )
-        for method, args in cases:
-            with self.subTest(method=method):
+        for method, args, flags in cases:
+            with self.subTest(method=method, flags=flags):
                 node = self.kill(self.node("transform"))
-                self.assertFailsWithoutChange(RuntimeError, getattr(node, method), *args)
+                self.assertFailsWithoutChange(RuntimeError, getattr(node, method), *args, **flags)
 
     def test_add_shape(self):
         """addShape は自身かシェイプが無効なら RuntimeError。シェイプの親は変わらない。"""

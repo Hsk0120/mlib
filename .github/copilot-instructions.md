@@ -152,7 +152,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 - 例外: `node.tx` は `node.getPlug("tx")` の省略アクセスで、`node.tx = 10` は `getPlug("tx").set(10)` と同じ書込み(Undo あり、角度は度)。
   Maya アトリビュートの無い名前への代入は AttributeError(Node のインスタンスへ任意の Python 属性を足さない)。
 - 戻り値の決まり(メソッドごとに変えない):
-  - 既にあるものを書き換えるメソッド(`set*`・`rename`・`setParent`・`show`・`hide`・`reset`・`addMembers`・`removeKey` など)は値を返さない
+  - 既にあるものを書き換えるメソッド(`set*`・`rename`・`setParent`・`reset`・`addMembers`・`removeKey` など)は値を返さない
     (docstring は `None: 値を返さない。`)。自身を返さないので、つなげて書かず1行ずつ書く。複数形の明示メソッドと `sort` も同じ。
   - 例外は、計算だけをして値を返す指定(`get=True` は数学型)、`safe=True` の失敗数(`Plug.set`)、`Plug.setIfChanged` の bool。
   - 新しく作ったもの・相手を返すメソッドはそのオブジェクトを返す(`Node.addAttr()` は Plug、`Plug.connect()` は実際の接続先、
@@ -226,7 +226,7 @@ def setFoo(self, value, *, fast=False):
 - 2026-11-15のユーザー指定により、書き込む前の検査(値が有限か・書き込めるか)は既定では行わず、`check=True` を渡したときだけ行う。
   `safe` は「失敗を例外にせず数える」ままで、検査は足さない。fast でも既定では確かめない。
 - `check` を持つのは、`Plug.set`、`Transform` の値の設定(`setMatrix`・`setTranslation` など)と `setParent`・`setPivot`・`centerPivot`、
-  キーの設定(`AnimCurve`・`Keyframe`・`DrivenKey`)、`BlendShape` のデルタとウェイト、表示の設定(`setOverrideColor` など)、
+  キーの設定(`AnimCurve`・`Keyframe`・`DrivenKey`)、`BlendShape` のデルタとウェイト、表示の設定(`setColor` など)、
   デフォーマーのウェイト、ポイントの書き込み(頂点・CV・`scaleGeometry`・`mirror`)、スキンのウェイト。
   fast の中で `require_writable` を呼ぶ処理を新しく書くときは、公開メソッドに `check=False` を足し、`check=True` のときだけ呼ぶ。
 - 複数のコマンドで補償値まで書き換える通常の経路、構造を変える処理(インフルエンスの除去・頂点の並べ替え)、
@@ -323,6 +323,14 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   種類を選ぶ引数で戻り値の型が変わってよい(`Face.getConnected(type="edge")`・`VertexFace.getNormal(locked=True)`。型スタブはオーバーロードで書く)。
   更新する対象が違う操作も、同じ種類の値ならフラグでまとめてよい(`setPosition(..., axis="x")`・`relative=True`・`each=True`)。
   壊し方(破壊性)・単位が違う操作と、向きが逆の変換(`Face.getPointAtUV`/`getUVAtPoint`)は別のメソッドにする。
+- 基本のノードでの形(2026-11-24): 表示・非表示は `setVisibility(state)` だけ(`show`・`hide` は置かない。2026-10-26 の「両方残す」を改めた)。
+  相対の変更は `setTranslation`・`setRotate`・`setScale`・`setShear` の `relative=True`(scale・shear は掛ける)、表示色は `getColor`/`setColor(outliner=)`、
+  描画色は `getDrawColor(mode=)`、1つと全部は `getShape(all=True)`・`getParent(instances=True)`・`IkHandle.getJoints(end=True)`・`getGeometry(geometryIndex=)`、
+  名前は `Node.getName(node=True, removeNamespace=)`(完全な名前の `getFullName` は別に残る)、スキンは `getInfluences(locked=, unused=)`・
+  `removeInfluences(joints | unused=True, requireAncestor=)`・`normalizeWeights(force=)`・`getMode`/`setMode(kind=)`・`getWeights`/`setWeights` の `vertex=`(頂点1つの辞書の形)。
+  2つの形で既定が逆になる引数(`setWeights` の `normalize`)は、後から足した形(`vertex=`)では省けない引数にして、取り違えを TypeError にする。
+  別のクラスで意味が違う同名のメソッドを上書きしているもの(`Joint.getSkinClusters`)は、消すと親クラスの別の意味の結果が黙って返るので残す。
+  兄弟クラスの同じ本体は、ミックスインでなく間に置く非公開の基底クラスへ上げる(`_InterpCacheConstraint`: `OrientConstraint`・`ParentConstraint` の `createCache`・`deleteCache`)。
   意味が通らない引数の組み合わせは TypeError にし、取り違えても黙って別の結果にならないようにする。
 
 ## 単位
@@ -429,11 +437,11 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   足す値は作るときと同じ決まりで解決して確かめ、同じ要素は2つ持たない(すでにある要素の追加は何もしない)。シーンは変えない。
   これらの名前は各要素へ転送しない(転送は `callEach`)。`Keyframes` は `remove` がキーの削除なので対象外。
   ノード・アトリビュート・コンポーネントの単数のクラスには、list のメソッドと同じ名前(`clear`・`reverse` など)の公開メソッドを
-  置かない(複数形から呼んだときに、シーンではなく集まりを操作してしまうため。`ObjectSet.removeAllMembers`・`NurbsCurve.reverseDirection`)。
+  置かない(複数形から呼んだときに、シーンではなく集まりを操作してしまうため。`ObjectSet.removeMembers(all=True)`・`NurbsCurve.reverseDirection`)。
 - `Nodes._wrap(items)` と `mlib.ls` は、要素がすべて Joint なら `Joints`、すべて SkinCluster なら `SkinClusters` にする。
   こうして自動で決まった型の集まりは、型の合わない要素を `append`・`extend`・`insert`・`+` で足すと `Nodes` へ戻る
   (中身によって足せなくならないようにする)。`Joints([...])` のように自分で作った集まりは、これまでどおり TypeError。
-- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ。コンポーネントは `getNames(*, full=False, compact=False)` の1つ(既定は `cmds.ls(flatten=True)` と同じ1要素ずつの最短の名前、`full=True` は完全パス、`compact=True` は続き番号を `[0:3]` にまとめる。cmds へ渡すときは `full=True, compact=True`)。
+- 名前の一覧は、`Nodes`・`Plugs` とも `getNames(*, full=False)` の1つ(`full=True` は完全な名前)。コンポーネントは `getNames(*, full=False, compact=False)` の1つ(既定は `cmds.ls(flatten=True)` と同じ1要素ずつの最短の名前、`full=True` は完全パス、`compact=True` は続き番号を `[0:3]` にまとめる。cmds へ渡すときは `full=True, compact=True`)。
 - 複数形の明示メソッドは、単数形と同じ引数を受ける(`check`・`children` などを落とさない)。
 - `mlib.ls` は常に集まりで返す(`Nodes`/`Joints`/`SkinClusters`、`Plugs`、同じシェイプ・同じ種類なら `Vertices` 等。混在のみ list)。
 
@@ -528,7 +536,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   クラス内に区切り線のコメントを置かない。
 - クラス内の順: docstring → クラス属性 → `__new__`/`__init__`/`__post_init__` → その他の特殊メソッド → 公開 classmethod/staticmethod →
   property → 公開メソッド → 非公開メソッド。公開メソッドをアルファベット順に並べ替えない。
-- 対になる操作は隣接させる(`getX`/`setX`、`isX`/`setX`、`connect`/`disconnect*`、`show`/`hide`、`addX`/`removeX`、`__eq__`/`__ne__`/`__hash__`、
+- 対になる操作は隣接させる(`getX`/`setX`、`isX`/`setX`、`connect`/`disconnect*`、`addX`/`removeX`、`__eq__`/`__ne__`/`__hash__`、
   `__repr__`/`__str__`、演算子と `__r*__`/`__i*__`)。property の setter は getter の直後。
 - `@dataclass` のフィールド順、先行定義を参照する代入(`__str__ = __repr__`)、`item_class = Node` 等は参照先の後の位置を保つ。
 - 単純な番号と要素の列挙は `enumerate`、ファイルパスは `pathlib`、テキストの読み書きは明示的な `encoding`。

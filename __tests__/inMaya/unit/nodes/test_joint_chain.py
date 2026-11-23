@@ -64,16 +64,16 @@ class ShapesConstraintsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             j1.getChainFromHere(unrelated)
 
-        self.assertEqual(j1.getIkHandles(), [])
+        self.assertEqual(j1.getConnections(type="ikHandle", asNode=True), [])
         handle = mlib.Node(cmds.ikHandle(startJoint=j1.getFullName(), endEffector=j3.getFullName(), solver="ikRPsolver")[0])
         self.assertIsInstance(handle, mlib.IkHandle)
 
-        found_handles = j1.getIkHandles()
+        found_handles = j1.getConnections(type="ikHandle", asNode=True)
         self.assertEqual(len(found_handles), 1)
         self.assertEqual(found_handles[0].getFullName(), handle.getFullName())
-        self.assertEqual(j2.getIkHandles(), [])
+        self.assertEqual(j2.getConnections(type="ikHandle", asNode=True), [])
 
-        self.assertEqual(handle.getEndJoint().getFullName(), j3.getFullName())
+        self.assertEqual(handle.getJoints(end=True).getFullName(), j3.getFullName())
         joint_list = handle.getJoints()
         self.assertEqual([joint.getFullName() for joint in joint_list], [j1.getFullName(), j2.getFullName()])
         joint_list_with_tip = handle.getJoints(includeTip=True)

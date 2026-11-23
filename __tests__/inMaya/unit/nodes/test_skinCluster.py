@@ -65,7 +65,7 @@ class SkinClusterTransferWeightsBatchTest(unittest.TestCase):
 
 
 class SkinClusterInfluenceTest(unittest.TestCase):
-    """hasInfluence/removeInfluence/transferWeights(単一ペア)を検証する。"""
+    """hasInfluence/removeInfluences/transferWeights(単一ペア)を検証する。"""
 
     def setUp(self):
         self.root = cmds.createNode("joint", name="mlibSkinInfluenceRoot")
@@ -101,7 +101,10 @@ class SkinClusterInfluenceTest(unittest.TestCase):
 
     def test_remove_influence_drops_influence_from_skin_cluster(self):
         self.assertIn(self.mid, [node.getName() for node in self.skin.getInfluences()])
-        self.skin.removeInfluence(self.mid)
+        removed = self.skin.removeInfluences(self.mid)
+        # 戻り値は、外したノードの Nodes(mid は joint なので Joints)。
+        self.assertIsInstance(removed, mlib.Nodes)
+        self.assertEqual([node.getName() for node in removed], [self.mid])
         self.assertNotIn(self.mid, [node.getName() for node in self.skin.getInfluences()])
         self.assertFalse(self.skin.hasInfluence(self.mid))
 
@@ -164,12 +167,12 @@ class SkinClustersBatchTest(unittest.TestCase):
         self.assertIsInstance(skin_clusters, mlib.SkinClusters)
         for skin in skin_clusters:
             for joint in mid_joints:
-                skin.removeInfluence(joint)
+                skin.removeInfluences(joint, requireAncestor=False)
 
         self.assertTrue(cmds.objExists(self.mid))
         self.assertFalse(self.skin.hasInfluence(self.mid))
         self.assertEqual(list(self.skin.getWeights([self.root])), [1.0] * 8)
-        # removeInfluence は joint ノード自体を削除しないため、階層はそのまま。
+        # removeInfluences は joint ノード自体を削除しないため、階層はそのまま。
         self.assertEqual(cmds.listRelatives(self.leaf, parent=True), [self.mid])
 
 

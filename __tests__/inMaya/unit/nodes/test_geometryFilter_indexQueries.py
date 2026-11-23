@@ -21,10 +21,10 @@ class GeometryIndexQueriesTest(NamespaceCase):
         self.assertEqual(len(expected), 2)
         self.assertNotEqual(expected, list(range(2)))
         for index in expected:
-            shape = cluster.getInputGeometryAtIndex(geometryIndex=index)
+            shape = cluster.getGeometry(input=True, geometryIndex=index)
             self.assertEqual(shape.mnode(), fn.inputShapeAtIndex(index))
         with self.assertRaises(IndexError):
-            cluster.getInputGeometryAtIndex(geometryIndex=999)
+            cluster.getGeometry(input=True, geometryIndex=999)
 
 
 if __name__ == "__main__":

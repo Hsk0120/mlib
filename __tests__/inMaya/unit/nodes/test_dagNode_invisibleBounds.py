@@ -33,7 +33,7 @@ class InvisibleBoundsTest(NamespaceCase):
 
     def test_shape_keeps_own_geometry(self):
         shape = mlib.getNode(cmds.polyCube(name=self.name("cube"))[0]).getShape()
-        shape.hide()
+        shape.setVisibility(False)
         for world in (False, True):
             regular = shape.getBoundingBox(ws=world)
             included = shape.getBoundingBox(ws=world, includeInvisible=True)

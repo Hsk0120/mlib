@@ -27,10 +27,30 @@ class MembershipTest(NamespaceCase):
         cmds.select(str(node))
         expected = cmds.listAnimatable(str(node)) or []
         selection = cmds.ls(selection=True, long=True)
-        actual = node.getAnimatablePlugs()
+        actual = node.getPlugs(animatable=True)
         self.assertIsInstance(actual, mlib.Plugs)
         self.assertEqual([mlib.getPlug(name) for name in expected], list(actual))
         self.assertEqual(cmds.ls(selection=True, long=True), selection)
+        # animatable=True は、ほかの引数と同時に指定できない(TypeError)。animatable は bool だけ。
+        for args, flags in (
+            ((True,), {"animatable": True}),
+            ((), {"animatable": True, "userDefined": True}),
+            ((), {"animatable": True, "includeChildren": False}),
+            ((), {"animatable": True, "writable": True}),
+            ((), {"animatable": True, "keyable": True}),
+            ((), {"animatable": 1}),
+            ((False, True, True), {}),
+        ):
+            with self.subTest(args=args, flags=flags), self.assertRaises(TypeError):
+                node.getPlugs(*args, **flags)
+        # animatable=False(既定)は今までどおりの一覧で、writable=True はロックしたものを除く。
+        self.assertEqual(list(node.getPlugs(animatable=False)), list(node.getPlugs()))
+        writable = [plug.getAttributeName() for plug in node.getPlugs(writable=True)]
+        self.assertNotIn("translateX", writable)
+        self.assertIn("translateY", writable)
+        cmds.delete(str(node))
+        with self.assertRaises(RuntimeError):
+            node.getPlugs(animatable=True)
 
     def test_nested_set_flatten(self):
         cube = cmds.polyCube(name=self.name("cube"))[0]

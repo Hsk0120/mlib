@@ -11,8 +11,9 @@ from ..decorator import _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths import Matrix
 from ..util import _UNSET, _world_space
 from .node import Node, Nodes
-from typing import Iterable
+from typing import Iterable, Literal
 from mlib.nodes.skinCluster import SkinClusters
+from typing import overload
 
 
 
@@ -56,16 +57,27 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合。
         """
         ...
-    def getMemberIndices(self) -> list[int]:
-        """今も接続されているメンバーの論理番号を取得する。
+    @overload
+    def getMemberIndices(self, member: Node | str) -> int: ...
+    @overload
+    def getMemberIndices(self, member: None = ...) -> list[int]: ...
+    @overload
+    def getMemberIndices(self, member: Node | str | None = ...) -> list[int] | int:
+        """今も接続されているメンバーの論理番号を取得する。``member`` を渡すと、そのメンバーの論理番号を1つ返す。
 
         membersマルチアトリビュートにある番号のうち、入力が接続されている要素だけを返す。
         接続が外れた空の要素は除く。抜けた番号は詰めないので、worldMatrix・xformMatrixの番号と対応したままになる。
 
+        Args:
+            member (Node | str | None): メンバーのノード。既定のNoneなら、すべてのメンバーの番号を返す。
+
         Returns:
-            list[int]: membersの論理番号。小さい順に並ぶ。並びの位置(物理番号)ではない。
+            list[int] | int: membersの論理番号。小さい順に並ぶ。並びの位置(物理番号)ではない。
+                memberを渡したときは、members・worldMatrix・xformMatrixに共通の、そのメンバーの論理番号。
 
         Raises:
+            TypeError: memberに対応しない型を指定した場合。
+            ValueError: memberのノードが無い場合、またはこのポーズのメンバーでない場合。
             RuntimeError: 無効なノードの場合。
         """
         ...
@@ -79,21 +91,6 @@ class DagPose(Node):
 
         Raises:
             RuntimeError: 無効なノードの場合。
-        """
-        ...
-    def getMemberIndex(self, member: Node | str) -> int:
-        """指定したメンバーの論理番号を取得する。
-
-        Args:
-            member (Node | str): メンバーのノード。
-
-        Returns:
-            int: members・worldMatrix・xformMatrixに共通の論理番号。
-
-        Raises:
-            TypeError: 対応しない型を指定した場合。
-            ValueError: ノードが無い場合、またはこのポーズのメンバーでない場合。
-            RuntimeError: 無効なdagPoseの場合。
         """
         ...
     def getMatrix(self, member: Node | str, worldSpace: bool = ..., *, ws: bool = ...) -> Matrix:
@@ -124,17 +121,8 @@ class DagPose(Node):
         どこまでの差を許すかはMayaの判定に従う。
 
         Returns:
-            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり。
-
-        Raises:
-            RuntimeError: 無効なdagPoseの場合。
-        """
-        ...
-    def isAtPose(self) -> bool:
-        """すべてのメンバーが保存した姿勢にあるか調べる。
-
-        Returns:
-            bool: getNotAtPose()が空ならTrue。
+            Nodes: 保存した姿勢から外れているメンバー。全員が保存した姿勢なら空の集まり
+                (``not pose.getNotAtPose()`` で、全員が保存した姿勢にあるかを判定できる)。
 
         Raises:
             RuntimeError: 無効なdagPoseの場合。

@@ -215,7 +215,7 @@ class CoerceObjectInputTest(unittest.TestCase):
 
         instance = cmds.instance(self.cube, name="cubeInstance")[0]
         selection = om2.MSelectionList()
-        selection.add(instance + "|" + self.mesh.getNodeName())
+        selection.add(instance + "|" + self.mesh.getName(node=True))
         path = selection.getDagPath(0)
         self.assertIn("cubeInstance", Object._input_name(path))
         self.assertEqual(Object._input_name(path), path.fullPathName())
@@ -293,7 +293,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             Node._input_name(Vertices(self.mesh, [0, 1]))
         with self.assertRaises(RuntimeError):
-            Node._input_name(self.node.getNodeName())  # 2つの dup に一致する
+            Node._input_name(self.node.getName(node=True))  # 2つの dup に一致する
         doomed = self.twin.getPlug("tx")
         cmds.delete(self.twin.getFullName())
         with self.assertRaises(ValueError):
@@ -309,7 +309,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         self.assertEqual(Plug._resolve_input(plug.getFullName()).getFullName(), plug.getFullName())
         with self.assertRaises(RuntimeError):
             # 短い名前だけでは2つの dup に一致する(存在しない名前と同じく解決できない)。
-            Plug._resolve_input(self.node.getNodeName() + ".tx")
+            Plug._resolve_input(self.node.getName(node=True) + ".tx")
         with self.assertRaises(TypeError):
             Plug._resolve_input(self.node.getFullName())
         with self.assertRaises(AttributeError):

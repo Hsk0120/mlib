@@ -158,7 +158,7 @@ class ShapeMirrorTest(_Case):
         transform = mesh.getTransform()
         curve = self.curve()
         cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShapes()]
+        names = [shape.getFullName() for shape in transform.getShape(all=True)]
         self.assertEqual(len(names), 2)
         for worldSpace in (False, True):
             with self.subTest(worldSpace=worldSpace):
@@ -172,7 +172,7 @@ class ShapeMirrorTest(_Case):
         transform = mesh.getTransform()
         curve = self.curve()
         cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShapes()]
+        names = [shape.getFullName() for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         transform.mirrorGeometry("y", pivot=iter((0, 1, 0)), indices=iter([1]))
         for name, points in zip(names, before):
@@ -187,7 +187,7 @@ class ShapeMirrorTest(_Case):
         self.check_undo(transform.getShape().getFullName(), lambda: transform.mirrorGeometry("z", pivot=(0, 0, 1)))
         # 2つのShapeも1回のUndoでまとめて戻る。
         cmds.parent(self.curve("crv2").getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShapes()]
+        names = [shape.getFullName() for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         self.flushUndo()
         transform.mirrorGeometry()
@@ -241,7 +241,7 @@ class ShapeMirrorTest(_Case):
         transform = mesh.getTransform()
         curve = self.curve()
         cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShapes()]
+        names = [shape.getFullName() for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         for error, kwargs in ((IndexError, {"indices": [6]}), (ValueError, {"worldSpace": True})):
             with self.subTest(error=error.__name__):

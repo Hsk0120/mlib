@@ -77,9 +77,9 @@ class SkinClusterCvWeightsTest(NamespaceCase):
                     duplicate = fn.numCVsInV - fn.degreeInV
                     component = SurfaceCV(shape, duplicate)
                     name = shape.getFullName() + ".cv[0][0]"
-                skin.setVertexWeights(component, {joints[0]: 0.4, joints[1]: 0.6})
+                skin.setWeights({joints[0]: 0.4, joints[1]: 0.6}, vertex=component, normalize=True)
                 self.assertSequenceAlmostEqual(skin.getWeights(joints, vertices=name), [0.4, 0.6])
-                self.assertSequenceAlmostEqual(skin.getVertexWeights(component).values(), [0.4, 0.6])
+                self.assertSequenceAlmostEqual(skin.getWeights(vertex=component).values(), [0.4, 0.6])
                 before = list(skin.getWeights(joints))
                 with self.assertRaises(ValueError):
                     skin.setWeights(joints, [0.5, 0.5], vertices=[0, duplicate], broadcast=True)
@@ -150,7 +150,7 @@ class SkinClusterCvWeightsTest(NamespaceCase):
                 cmds.setAttr(joints[1] + ".ty", 2.0)
                 actual = cmds.pointPosition(name, world=True)
                 self.assertSequenceAlmostEqual(actual, [original[0], original[1] + 2.0, original[2]], places=7)
-                skin.setNormalizeMode("interactive")
+                skin.setMode("interactive", "normalize")
                 for fast in (False, True):
                     skin.setWeights(joints, [2.0, 3.0], vertices=index, fast=fast)
                     self.assertSequenceAlmostEqual(skin.getWeights(joints, vertices=index), [2.0, 3.0])

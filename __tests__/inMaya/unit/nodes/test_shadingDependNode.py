@@ -8,6 +8,7 @@
 import sys
 import unittest
 
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 import mlib
@@ -91,7 +92,7 @@ class MaterialNodesTest(unittest.TestCase):
         group = mlib.getNode(cmds.sets(renderable=True, noSurfaceShader=True, empty=True, n="surfaceSG"))
         self.assertIsNone(group.getShader())
         group.setShader(material.getPlug("outColor"))
-        self.assertEqual(group.getShaderPlug(), material.getPlug("outColor"))
+        self.assertEqual(group.getShader(plug=True), material.getPlug("outColor"))
         replacement = mlib.getNode(cmds.shadingNode("lambert", asShader=True))
         group.setShader(replacement)
         self.assertEqual(group.getShader(), replacement)
@@ -111,7 +112,7 @@ class _SpecCase(NamespaceCase):
 
 
 class MaterialTest(_SpecCase):
-    """ShadingEngine.getShaderPlug と、マテリアル・割り当ての照会。"""
+    """ShadingEngine.getShader(plug=True) と、マテリアル・割り当ての照会。"""
 
     def setUp(self):
         super().setUp()
@@ -124,13 +125,46 @@ class MaterialTest(_SpecCase):
     def test_shader_plug(self):
         """接続元の出力 Plug、未接続は None、不正な種類は ValueError。"""
         group = Node(self.group)
-        self.assertEqual(group.getShaderPlug().getFullName(), self.material + ".outColor")
-        self.assertIsNone(group.getShaderPlug("volume"))
-        self.assertIsNone(group.getShaderPlug("displacement"))
+        self.assertEqual(group.getShader(plug=True).getFullName(), self.material + ".outColor")
+        self.assertIsNone(group.getShader("volume", plug=True))
+        self.assertIsNone(group.getShader("displacement", plug=True))
         with self.assertRaisesRegex(ValueError, "kindは"):
-            group.getShaderPlug("light")
+            group.getShader("light", plug=True)
         empty = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=self.name("emptySG"))
-        self.assertIsNone(Node(empty).getShaderPlug())
+        self.assertIsNone(Node(empty).getShader(plug=True))
+        # plug=False(既定)は接続元のノード、plug=True はその出力の Plug。plug は bool のキーワード専用。
+        self.assertEqual(group.getShader().getName(), self.material)
+        self.assertEqual(group.getShader(plug=False), group.getShader())
+        self.assertEqual(group.getShader(plug=True).getNode(), group.getShader())
+        self.assertEqual(group.getShader("surface", plug=True), group.getShader(plug=True))
+        self.assertIsNone(Node(empty).getShader())
+        for call in (lambda: group.getShader(plug=1), lambda: group.getShader(plug=None), lambda: group.getShader("surface", True)):
+            with self.assertRaises(TypeError):
+                call()
+        with self.assertRaisesRegex(ValueError, "kindは"):
+            group.getShader("light")
+
+    def test_members_flags(self):
+        """ShadingEngine.getMembers は flatten を受けず(TypeError)、dagOnly=True は割り当て先の DAG パスの Nodes を返す。"""
+        group = Node(self.group)
+        self.assertIs(type(group), ShadingEngine)
+        with self.assertRaises(TypeError):
+            group.getMembers(flatten=True)
+        with self.assertRaises(TypeError):
+            group.getMembers(shadingOnly=True)
+        with self.assertRaises(TypeError):
+            group.getMembers(dagOnly=1)
+        if not hasattr(om2.MFnSet, "getMemberPaths"):
+            # このMayaのAPI 2.0にはMFnSet.getMemberPathsが無いので、未対応の例外になる。
+            with self.assertRaises(NotImplementedError):
+                group.getMembers(dagOnly=True)
+            return
+        shape = cmds.listRelatives(self.cube, shapes=True, noIntermediate=True, fullPath=True)[0]
+        for shading in (False, True):
+            with self.subTest(shadingOnly=shading):
+                paths = group.getMembers(dagOnly=True, shadingOnly=shading)
+                self.assertIsInstance(paths, mlib.Nodes)
+                self.assertEqual([node.getFullName() for node in paths], [shape])
 
     @staticmethod
     def assigned(node):

@@ -96,12 +96,9 @@ WRITER_PREFIXES = (
     "append",
     "center",
     "make",
-    "jointOrientToRotate",
     "normalize",
     "shift",
     "toggle",
-    "show",
-    "hide",
     "assign",
     "apply",
     "clear",
@@ -134,8 +131,7 @@ EXCLUDED = {
     "SkinCluster.setMoveJointsMode": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Reference.setReferenceLocked": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Reference.cleanEdits": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
-    "Node.setDgTimerEnabled": "診断用のDG計測状態。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
-    "Node.resetDgTimer": "診断用のDG計測結果の消去。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
+    "Node.setDgTimer": "診断用のDG計測状態の切り替えと計測結果の消去(reset=True)。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "DagContainer.addMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
     "DagContainer.removeMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
     "DagContainer.createNode": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
@@ -645,6 +641,12 @@ def s_siblings(c):
     _xf("b", parent=c.p)
     _xf("d", parent=c.p)
     c.na = mlib.getNode(c.a)
+
+
+def s_sheared(c):
+    """shear=(0.5, 0.25, 0.1) の transform a を作る。"""
+    s_one(c)
+    cmds.setAttr(c.a + ".shear", 0.5, 0.25, 0.1)
 
 
 def s_hidden(c):
@@ -1193,7 +1195,7 @@ def s_skin_locked(c):
 def _unlocked_set_weights(c):
     """ロックを外した中でウェイトを書く。"""
     with c.skin.unlockedInfluences():
-        c.skin.setVertexWeights(0, {c.j0: 0.4, c.j1: 0.6})
+        c.skin.setWeights({c.j0: 0.4, c.j1: 0.6}, vertex=0, normalize=True)
 
 
 def s_constraint(c):
@@ -1657,14 +1659,13 @@ CASES = [
     C("Node.addAttr", "addAttr enum", s_one, lambda c, **kw: c.na.addAttr("choice", type="enum", enumName="x:y", **kw)),
     C("Node.moveAttrOrder", "moveAttrOrder", s_order, lambda c, **kw: c.na.moveAttrOrder("baz", -1)),
     # DagNode
-    C("DagNode.show", "show", s_hidden, lambda c, **kw: c.na.show(**kw)),
-    C("DagNode.hide", "hide", s_one, lambda c, **kw: c.na.hide(**kw)),
     C("DagNode.setVisibility", "setVisibility", s_one, lambda c, **kw: c.na.setVisibility(False, **kw)),
-    C("DagNode.setOverrideColor", "setOverrideColor index", s_curves, lambda c, **kw: c.ncrv.setOverrideColor(13, **kw)),
-    C("DagNode.setOverrideColor", "setOverrideColor rgb", s_one, lambda c, **kw: c.na.setOverrideColor((1.0, 0.5, 0.0), **kw)),
-    C("DagNode.setOverrideColor", "setOverrideColor shape", s_curves, lambda c, **kw: c.ncrv.setOverrideColor(13, shape=True, **kw)),
-    C("DagNode.setOutlinerColor", "setOutlinerColor rgb", s_one, lambda c, **kw: c.na.setOutlinerColor((1.0, 0.5, 0.0), **kw)),
-    C("DagNode.setOutlinerOrder", "setOutlinerOrder", s_siblings, lambda c, **kw: c.na.setOutlinerOrder(2)),
+    C("DagNode.setVisibility", "setVisibility show", s_hidden, lambda c, **kw: c.na.setVisibility(True, **kw)),
+    C("DagNode.setColor", "setColor index", s_curves, lambda c, **kw: c.ncrv.setColor(13, **kw)),
+    C("DagNode.setColor", "setColor rgb", s_one, lambda c, **kw: c.na.setColor((1.0, 0.5, 0.0), **kw)),
+    C("DagNode.setColor", "setColor shape", s_curves, lambda c, **kw: c.ncrv.setColor(13, shape=True, **kw)),
+    C("DagNode.setColor", "setColor outliner rgb", s_one, lambda c, **kw: c.na.setColor((1.0, 0.5, 0.0), outliner=True, **kw)),
+    C("DagNode.reorder", "reorder index", s_siblings, lambda c, **kw: c.na.reorder(index=2)),
     C("DagNode.reorder", "reorder back", s_siblings, lambda c, **kw: c.na.reorder(back=True)),
     C("DagNode.reorder", "reorder relative", s_siblings, lambda c, **kw: c.na.reorder(relative=1)),
     # Transform
@@ -1704,12 +1705,7 @@ CASES = [
         s_joints,
         lambda c, **kw: c.nj1.setQuaternion((0.0, 0.0, 0.2588190451, 0.9659258263), r=False, **kw),
     ),
-    C(
-        "Transform.centerPivotsOnComponents",
-        "centerPivotsOnComponents",
-        s_cube,
-        lambda c, **kw: c.ncube.centerPivotsOnComponents(c.ncube.getFullName() + ".vtx[0:1]"),
-    ),
+    C("Transform.centerPivot", "centerPivot components", s_cube, lambda c, **kw: c.ncube.centerPivot(c.ncube.getFullName() + ".vtx[0:1]", **kw)),
     C("Transform.setPivot", "setPivot", s_one, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), **kw)),
     C("Transform.setPivot", "setPivot scale worldSpace", s_child, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), worldSpace=True, kind="scale", **kw)),
     C("Transform.centerPivot", "centerPivot", s_offset_pivot, lambda c, **kw: c.ncube.centerPivot(**kw)),
@@ -1791,27 +1787,34 @@ CASES = [
     C("Mesh.setPoints", "Mesh.setPoints", s_cube, lambda c, **kw: c.nshape.setPoints([point * 2 for point in c.nshape.getPoints()], **kw)),
     C("Mesh.setPoints", "Mesh.setPoints worldSpace", s_cube, lambda c, **kw: c.nshape.setPoints([(i, 1, 0) for i in range(8)], worldSpace=True, **kw)),
     C("Transform.setLimits", "Transform.setLimits", s_one, lambda c, **kw: c.na.setLimits(translateX=(None, 5.0), rotateZ=(-45.0, 90.0))),
-    C("Transform.translateBy", "translateBy worldSpace", s_child, lambda c, **kw: c.na.translateBy((1.0, 2.0, 3.0), ws=True)),
-    C("Transform.rotateBy", "rotateBy", s_one, lambda c, **kw: c.na.rotateBy((10.0, 20.0, 30.0))),
-    C("Transform.rotateBy", "rotateBy worldSpace", s_child, lambda c, **kw: c.na.rotateBy((0.0, 45.0, 0.0), worldSpace=True)),
-    C("Transform.scaleBy", "scaleBy", s_one, lambda c, **kw: c.na.scaleBy((2.0, 1.0, 0.5))),
+    C("Transform.setTranslation", "setTranslation relative", s_one, lambda c, **kw: c.na.setTranslation((1.0, 2.0, 3.0), relative=True, **kw)),
+    C(
+        "Transform.setTranslation",
+        "setTranslation relative worldSpace",
+        s_child,
+        lambda c, **kw: c.na.setTranslation((1.0, 2.0, 3.0), ws=True, relative=True, **kw),
+    ),
+    C("Transform.setRotate", "setRotate relative", s_one, lambda c, **kw: c.na.setRotate((10.0, 20.0, 30.0), relative=True, **kw)),
+    C("Transform.setRotate", "setRotate relative worldSpace", s_child, lambda c, **kw: c.na.setRotate((0.0, 45.0, 0.0), worldSpace=True, relative=True, **kw)),
+    C("Transform.setScale", "setScale relative", s_one, lambda c, **kw: c.na.setScale((2.0, 1.0, 0.5), relative=True, **kw)),
+    C("Transform.setScale", "setScale relative uniform", s_one, lambda c, **kw: c.na.setScale(2.0, relative=True, **kw)),
+    C("Transform.setShear", "setShear relative", s_sheared, lambda c, **kw: c.na.setShear((2.0, 1.0, 0.5), relative=True, **kw)),
     C("Transform.scaleGeometry", "Transform.scaleGeometry", s_cube, lambda c, **kw: c.ncube.scaleGeometry(2.0, **kw)),
     C("Node.resetAttrs", "Transform.resetAttrs", s_two, lambda c, **kw: c.nb.resetAttrs(**kw)),
     C("Node.resetAttrs", "Transform.resetAttrs named", s_two, lambda c, **kw: c.nb.resetAttrs(["translateX", "scale"], **kw)),
     # 複数形の一括の書込み
     C("Nodes.resetAttrs", "Nodes.resetAttrs", s_two, lambda c, **kw: Nodes([c.a, c.b]).resetAttrs(**kw)),
-    C("Nodes.setOverrideColor", "Nodes.setOverrideColor", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOverrideColor(13, **kw)),
-    C("Nodes.setOverrideColors", "Nodes.setOverrideColors", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOverrideColors([13, (1.0, 0.5, 0.0)], **kw)),
-    C("Nodes.setOutlinerColor", "Nodes.setOutlinerColor", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOutlinerColor((1.0, 0.5, 0.0), **kw)),
+    C("Nodes.setColor", "Nodes.setColor", s_two, lambda c, **kw: Nodes([c.a, c.b]).setColor(13, **kw)),
+    C("Nodes.setColors", "Nodes.setColors", s_two, lambda c, **kw: Nodes([c.a, c.b]).setColors([13, (1.0, 0.5, 0.0)], **kw)),
+    C("Nodes.setColor", "Nodes.setColor outliner", s_two, lambda c, **kw: Nodes([c.a, c.b]).setColor((1.0, 0.5, 0.0), outliner=True, **kw)),
     C(
-        "Nodes.setOutlinerColors",
-        "Nodes.setOutlinerColors",
+        "Nodes.setColors",
+        "Nodes.setColors outliner",
         s_two,
-        lambda c, **kw: Nodes([c.a, c.b]).setOutlinerColors([(1.0, 0.5, 0.0), (0.0, 1.0, 0.0)], **kw),
+        lambda c, **kw: Nodes([c.a, c.b]).setColors([(1.0, 0.5, 0.0), (0.0, 1.0, 0.0)], outliner=True, **kw),
     ),
     C("Nodes.setVisibility", "Nodes.setVisibility", s_two, lambda c, **kw: Nodes([c.a, c.b]).setVisibility(False, **kw)),
-    C("Nodes.hide", "Nodes.hide", s_two, lambda c, **kw: Nodes([c.a, c.b]).hide(**kw)),
-    C("Nodes.show", "Nodes.show", s_hidden, lambda c, **kw: Nodes([c.a]).show(**kw)),
+    C("Nodes.setVisibility", "Nodes.setVisibility show", s_hidden, lambda c, **kw: Nodes([c.a]).setVisibility(True, **kw)),
     C("Nodes.setParent", "Nodes.setParent", s_two, lambda c, **kw: Nodes([c.b]).setParent(c.a, **kw)),
     C("Joints.setRadius", "Joints.setRadius", s_joints, lambda c, **kw: Joints([c.j0, c.jx]).setRadius(2.5, **kw)),
     C(
@@ -1928,7 +1931,7 @@ CASES = [
     C("Mesh.reorderVertices", "reorderVertices position", s_reorder, a_reorder),
     # Joint
     C("Joint.setSegmentScaleCompensate", "setSegmentScaleCompensate", s_joints, lambda c, **kw: c.nj1.setSegmentScaleCompensate(False, **kw)),
-    C("Joint.jointOrientToRotate", "jointOrientToRotate", s_joints_oriented, lambda c, **kw: c.nj1.jointOrientToRotate(**kw)),
+    C("Joint.freezeRotate", "freezeRotate toRotate", s_joints_oriented, lambda c, **kw: c.nj1.freezeRotate(toRotate=True, **kw)),
     C("Joint.freezeRotate", "freezeRotate", s_joints_rotated, lambda c, **kw: c.nj1.freezeRotate(**kw)),
     C("Joint.connectInverseScale", "connectInverseScale", s_loose_joints, lambda c, **kw: c.nj.connectInverseScale(**kw)),
     C("Joint.disconnectInverseScale", "disconnectInverseScale", s_joints, lambda c, **kw: c.nj1.disconnectInverseScale(**kw)),
@@ -2059,7 +2062,7 @@ CASES = [
     C("Container.removeMembers", "Container.removeMembers", s_container_member, lambda c, **kw: c.ncont.removeMembers(c.a)),
     C("Container.createNode", "Container.createNode", s_container, lambda c, **kw: c.ncont.createNode("transform", name="inCont")),
     C("Container.removeContainer", "Container.removeContainer", s_container_member, lambda c, **kw: c.ncont.removeContainer()),
-    C("SkinCluster.forceNormalizeWeights", "SkinCluster.forceNormalizeWeights", s_skin_unnormalized, lambda c, **kw: c.skin.forceNormalizeWeights(**kw)),
+    C("SkinCluster.normalizeWeights", "SkinCluster.normalizeWeights force", s_skin_unnormalized, lambda c, **kw: c.skin.normalizeWeights(force=True, **kw)),
     C("SkinCluster.setDropoffRate", "SkinCluster.setDropoffRate", s_skin, lambda c, **kw: c.skin.setDropoffRate(c.j0, 2.0)),
     C("Node.swapConnections", "Node.swapConnections", s_swap_connections, lambda c, **kw: c.nsource.swapConnections(c.ntarget)),
     C("Container.publishConnections", "Container.publishConnections", s_container_connected, lambda c, **kw: c.ncont.publishConnections()),
@@ -2084,9 +2087,9 @@ CASES = [
     C("DisplayLayer.setCurrent", "DisplayLayer.setCurrent", s_layer, lambda c, **kw: c.nlayer.setCurrent(**kw)),
     # ObjectSet
     C("ObjectSet.addMembers", "ObjectSet.addMembers", s_set, lambda c, **kw: c.nset.addMembers(c.a, **kw)),
-    C("ObjectSet.addExclusiveMembers", "ObjectSet.addExclusiveMembers", s_exclusive_set, lambda c, **kw: c.nset.addExclusiveMembers(c.a)),
+    C("ObjectSet.addMembers", "ObjectSet.addMembers exclusive", s_exclusive_set, lambda c, **kw: c.nset.addMembers(c.a, exclusive=True, **kw)),
     C("ObjectSet.removeMembers", "ObjectSet.removeMembers", s_set_member, lambda c, **kw: c.nset.removeMembers(c.a, **kw)),
-    C("ObjectSet.removeAllMembers", "ObjectSet.removeAllMembers", s_set_member, lambda c, **kw: c.nset.removeAllMembers()),
+    C("ObjectSet.removeMembers", "ObjectSet.removeMembers all", s_set_member, lambda c, **kw: c.nset.removeMembers(all=True, **kw)),
     # Shading
     C("ShadingEngine.setShader", "ShadingEngine.setShader", s_shading, lambda c, **kw: c.nsg.setShader(c.lambert, **kw)),
     C("ShadingEngine.assign", "ShadingEngine.assign shape", s_shading, lambda c, **kw: c.nsg.assign(c.shape, **kw)),
@@ -2104,7 +2107,7 @@ CASES = [
     C("SkinCluster.addInfluences", "SkinCluster.addInfluences", s_skin, lambda c, **kw: c.skin.addInfluences([c.jx])),
     C("SkinCluster.restoreBindPose", "SkinCluster.restoreBindPose", s_skin_posed, lambda c, **kw: c.skin.restoreBindPose()),
     C("SkinCluster.resetBindPose", "SkinCluster.resetBindPose", s_skin_posed, lambda c, **kw: c.skin.resetBindPose()),
-    C("SkinCluster.removeUnusedInfluences", "SkinCluster.removeUnusedInfluences", s_skin_unused, lambda c, **kw: c.skin.removeUnusedInfluences()),
+    C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences unused", s_skin_unused, lambda c, **kw: c.skin.removeInfluences(unused=True)),
     C("SkinCluster.removeInvalidWeights", "SkinCluster.removeInvalidWeights", s_skin_invalid, lambda c, **kw: c.skin.removeInvalidWeights(**kw)),
     C(
         "SkinCluster.setWeightsData",
@@ -2120,7 +2123,18 @@ CASES = [
         s_skin,
         lambda c, **kw: c.skin.setWeights([c.j0], [0.25, 0.5], vertices=[0, 1], normalize=True, **kw),
     ),
-    C("SkinCluster.setVertexWeights", "SkinCluster.setVertexWeights", s_skin, lambda c, **kw: c.skin.setVertexWeights(0, {c.j0: 0.3}, **kw)),
+    C(
+        "SkinCluster.setWeights",
+        "SkinCluster.setWeights vertex normalize",
+        s_skin,
+        lambda c, **kw: c.skin.setWeights({c.j0: 0.3}, vertex=0, normalize=True, **kw),
+    ),
+    C(
+        "SkinCluster.setWeights",
+        "SkinCluster.setWeights vertex",
+        s_skin,
+        lambda c, **kw: c.skin.setWeights({c.j0: 0.3, c.j1: 0.7}, vertex=0, normalize=False, **kw),
+    ),
     C("SkinCluster.mirrorWeights", "SkinCluster.mirrorWeights", s_skin_uneven, lambda c, **kw: c.skin.mirrorWeights()),
     C("SkinCluster.pruneWeights", "SkinCluster.pruneWeights", s_skin_uneven, lambda c, **kw: c.skin.pruneWeights(0.2, **kw)),
     C("SkinCluster.limitInfluences", "SkinCluster.limitInfluences", s_skin_uneven, lambda c, **kw: c.skin.limitInfluences(1, **kw)),
@@ -2135,7 +2149,14 @@ CASES = [
         s_skin_uneven,
         lambda c, **kw: c.skin.transferWeights([(c.j1, c.j0)], vertices=[0], add=True, **kw),
     ),
-    C("SkinCluster.removeInfluence", "SkinCluster.removeInfluence", s_skin, lambda c, **kw: c.skin.removeInfluence(c.j1)),
+    C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences single", s_skin, lambda c, **kw: c.skin.removeInfluences(c.j1, requireAncestor=False)),
+    C(
+        "SkinCluster.removeInfluences",
+        "SkinCluster.removeInfluences transferToParent=False",
+        s_skin,
+        lambda c, **kw: c.skin.removeInfluences(c.j1, transferToParent=False),
+    ),
+    C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences force", s_skin_locked, lambda c, **kw: c.skin.removeInfluences([c.j1], force=True)),
     C("SkinCluster.normalizeWeights", "SkinCluster.normalizeWeights", s_skin_unnormalized, lambda c, **kw: c.skin.normalizeWeights(**kw)),
     C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, **kw)),
     C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences prune", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, prune=True, **kw)),
@@ -2148,8 +2169,8 @@ CASES = [
     C("SkinCluster.setInfluencesLocked", "SkinCluster.setInfluencesLocked", s_skin, lambda c, **kw: c.skin.setInfluencesLocked([c.j0, c.j1], **kw)),
     C("Joint.setInfluenceLocked", "Joint.setInfluenceLocked", s_skin, lambda c, **kw: c.nj1.setInfluenceLocked(True, **kw)),
     C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences", s_skin, lambda c, **kw: c.skin.removeInfluences([c.j1])),
-    C("SkinCluster.setSkinningMethod", "SkinCluster.setSkinningMethod", s_skin, lambda c, **kw: c.skin.setSkinningMethod("dualQuaternion")),
-    C("SkinCluster.setNormalizeMode", "SkinCluster.setNormalizeMode", s_skin, lambda c, **kw: c.skin.setNormalizeMode("post")),
+    C("SkinCluster.setMode", "SkinCluster.setMode skinning", s_skin, lambda c, **kw: c.skin.setMode("dualQuaternion", "skinning")),
+    C("SkinCluster.setMode", "SkinCluster.setMode normalize", s_skin, lambda c, **kw: c.skin.setMode("post", "normalize")),
     C("SkinCluster.setBlendWeights", "SkinCluster.setBlendWeights", s_skin, lambda c, **kw: c.skin.setBlendWeights([0.25, 0.5, 1.0], vertices=[0, 1, 3], **kw)),
     C("SkinCluster.unbind", "SkinCluster.unbind", s_skin, lambda c, **kw: c.skin.unbind()),
     C("SkinCluster.unbind", "SkinCluster.unbind keepHistory", s_skin, lambda c, **kw: c.skin.unbind(keepHistory=True)),
@@ -2478,10 +2499,11 @@ CASES = [
     ),
     C("Plug.setRange", "Plug.setRange soft", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-2.0, 7.0, soft=True), extraState=r_ranges),
     C(
-        "Transform.setPivotTranslation",
-        "Transform.setPivotTranslation",
+        "Transform.setPivot",
+        "Transform.setPivot translation",
         s_one,
-        lambda c, **kw: c.na.setPivotTranslation((1.0, 2.0, 3.0), kind="scale", worldSpace=False, **kw),
+        lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), kind="scale", worldSpace=False, translation=True),
+        fastSkip="translation=True は fast と同時に指定できない(TypeError)。",
     ),
     C(
         "VertexFace.removeColor",

@@ -638,9 +638,9 @@ class LookupWrapperTest(unittest.TestCase):
 
         ns = self.ns + ":"
         a = mlib.getNode(self.a)
-        shapes = a.getShapes()
+        shapes = a.getShape(all=True)
         self.assertEqual([shape.getFullName() for shape in shapes], ["|" + ns + "grp|" + ns + "a|" + ns + "aShape"])
-        self.assertEqual([shape.getFullName() for shape in a.getShapes(intermediates=True)], cmds.listRelatives(self.a, shapes=True, fullPath=True))
+        self.assertEqual([shape.getFullName() for shape in a.getShape(intermediates=True, all=True)], cmds.listRelatives(self.a, shapes=True, fullPath=True))
         self.assertEqual(type(shapes[0]), type(Node(shapes[0].getFullName())))
         self.assertIsNone(mlib.getNode(self.grp).getShape())
         parent = a.getParent()
@@ -720,7 +720,7 @@ class CollectionWrapperTest(unittest.TestCase):
         skin = mlib.getNode(self.skin)
         influences = skin.getInfluences()
         self.assertEqual([(type(node), node.getFullName()) for node in influences], [(type(Node(name)), name) for name in cmds.ls(self.joints, long=True)])
-        unused = skin.getUnusedInfluences()
+        unused = skin.getInfluences(unused=True)
         self.assertTrue(all(type(node) is type(Node(node.getFullName())) for node in unused))
         skin.addInfluences(self.joints[:1])
         self.assertEqual(len(skin.getInfluences()), len(self.joints))

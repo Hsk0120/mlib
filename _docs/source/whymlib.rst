@@ -122,7 +122,7 @@ JointならJointの操作、SkinClusterならウェイト関連の操作を、�
 
    source.setTranslation((1, 2, 3))
    source.setScale((2, 2, 2))
-   source.setOutlinerColor((0.3, 0.7, 1.0))
+   source.setColor((0.3, 0.7, 1.0), outliner=True)
    target.setMatrix(source.getMatrix(worldSpace=True), worldSpace=True)
 
 .. list-table:: 便利な操作の例
@@ -147,7 +147,7 @@ JointならJointの操作、SkinClusterならウェイト関連の操作を、�
      - ``addConstraint()`` / ``deleteConstraints()``
      - コンストレイントを作成・削除する
    * - Joint
-     - ``freezeRotate()`` / ``jointOrientToRotate()``
+     - ``freezeRotate()`` / ``freezeRotate(toRotate=True)``
      - rotateとjointOrientの間で姿勢を移す
    * - SkinCluster
      - ``getWeights()`` / ``setWeights()``

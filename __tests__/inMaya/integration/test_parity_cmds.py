@@ -1148,7 +1148,7 @@ class IkHandleJointsParityTest(_NewSceneCase):
                 self.assertEqual([joint.getUuid() for joint in node.getJoints()], expected)
                 with_tip = node.getJoints(includeTip=True)
                 self.assertEqual([joint.getUuid() for joint in with_tip[:-1]], expected)
-                self.assertEqual(with_tip[-1], node.getEndJoint())
+                self.assertEqual(with_tip[-1], node.getJoints(end=True))
 
 
 class NodeHistoryParityTest(_NewSceneCase):

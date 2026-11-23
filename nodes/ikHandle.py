@@ -6,7 +6,7 @@ import maya.mel as mel
 
 from ..core.fastWrite import require_unlocked
 from ..core.nodeEdit import require_editable
-from ..decorator import undoChunk
+from ..decorator import _require_bool, undoChunk
 from .node import Node
 from .transform import Transform
 
@@ -80,28 +80,8 @@ class IkHandle(Transform):
                 raise RuntimeError(f"{name}がロックされています")
         cmds.ikHandle(self.getFullName(), edit=True, startJoint=start.getFullName(), endEffector=end.getFullName())
 
-    def getEndJoint(self):
-        """IKチェーンの末端のジョイントを取得する。
-
-        ikEffectorノードのtranslateの接続元をたどって、末端のジョイントを見つける。
-        ``cmds.ikHandle(query=True, jointList=True)`` は末端のジョイントを含まないので、この方法で求める。
-
-        Returns:
-            Joint | None: 末端のジョイント。接続が見つからない場合は ``None``。
-        """
-        # nodes の初期化順に依存しないよう、使う時点で読み込む。
-        from .joint import Joint
-
-        effector_plug = self.getPlug("endEffector").getConnections(input=True)
-        if effector_plug is None:
-            return None
-        source = effector_plug.getNode().getPlug("translateX").getConnections(input=True)
-        if source is None:
-            return None
-        return Joint(source.getNode().getFullName())
-
-    def getJoints(self, includeTip=False):
-        """IKチェーンのジョイントを、開始ジョイントから順に取得する。
+    def getJoints(self, includeTip=False, *, end=False):
+        """IKチェーンのジョイントを、開始ジョイントから順に取得する。``end=True`` なら、末端のジョイントを1つ取得する。
 
         ``cmds.ikHandle(query=True, jointList=True)`` と同じジョイントを、OpenMayaで求める。
         ``endEffector`` の接続元(ikEffector)から、DAGの親を ``startJoint`` の接続元までたどる。
@@ -110,19 +90,32 @@ class IkHandle(Transform):
         既定(``includeTip=False``)では、末端のジョイントを含まない。
         末端まで含めたチェーン全体は ``getJoints(includeTip=True)`` で取得する。
 
+        ``end=True`` は、ikEffectorノードのtranslateの接続元をたどって、末端のジョイントを見つける
+        (``jointList`` は末端のジョイントを含まないので、この方法で求める)。
+        ``getJoints(includeTip=True)[-1]`` とは違い、末端が見つからないときはNoneになる(途中のジョイントは返さない)。
+
         Args:
-            includeTip (bool): Trueなら、末端のジョイント(``getEndJoint()``)も最後に加える。
+            includeTip (bool): Trueなら、末端のジョイントも最後に加える。
                 既定はFalseで、``cmds.ikHandle(query=True, jointList=True)`` と同じく末端のジョイントを含まない。
+            end (bool): Trueなら、末端のジョイントだけを返す。既定はFalse。includeTip=Trueとは同時に指定できない。
 
         Returns:
-            Joints: 開始ジョイントから順に並んだジョイント。次の場合は空の集まり。
+            Joints | Joint | None: 開始ジョイントから順に並んだジョイント。次の場合は空の集まり。
 
                 - startJointかendEffectorが接続されていない。
                 - ikEffectorが開始ジョイントの子孫でない。
 
+                end=Trueなら、末端のジョイント。接続が見つからない場合は ``None``。
+
         Raises:
+            TypeError: endがboolでない場合、またはend=TrueとincludeTip=Trueを同時に指定した場合。
             RuntimeError: ノードが無効な場合。
         """
+        _require_bool(end, "end")
+        if end:
+            if includeTip:
+                raise TypeError("endとincludeTipは同時に指定できません")
+            return self._end_joint()
         self._require_valid("ジョイントの一覧の取得")
         fn = self._dependency_fn()
         start = fn.findPlug("startJoint", False).source()
@@ -139,7 +132,7 @@ class IkHandle(Transform):
                     joints = [Node(item) for item in reversed(paths)]
                     break
         if includeTip:
-            tip = self.getEndJoint()
+            tip = self._end_joint()
             if tip is not None:
                 joints.append(tip)
         # 循環参照の回避: jointがikHandleを参照するため、使う時点で読み込む。
@@ -226,3 +219,20 @@ class IkHandle(Transform):
             raise RuntimeError(f"IKハンドルにエンドエフェクターがありません: {self.getFullName()}")
         with undoChunk("mlibIkHandleSnapToEffector"):
             self.setTranslation(effector.getTranslation(worldSpace=True), worldSpace=True)
+
+    def _end_joint(self):
+        """IKチェーンの末端のジョイントを返す(``getJoints(end=True)`` の本体)。
+
+        Returns:
+            Joint | None: 末端のジョイント。接続が見つからない場合は ``None``。
+        """
+        # nodes の初期化順に依存しないよう、使う時点で読み込む。
+        from .joint import Joint
+
+        effector_plug = self.getPlug("endEffector").getConnections(input=True)
+        if effector_plug is None:
+            return None
+        source = effector_plug.getNode().getPlug("translateX").getConnections(input=True)
+        if source is None:
+            return None
+        return Joint(source.getNode().getFullName())

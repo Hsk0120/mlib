@@ -137,7 +137,7 @@ class ConsolidatedNodesTest(unittest.TestCase):
             child.delete(fast=True)
         self.assertTrue(parent.isValid())
         self.assertFalse(child.isValid())
-        mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShapes()[0]
+        mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape(all=True)[0]
         with self.assertRaises(NotImplementedError):
             mlib.delete([parent, mesh.getVertices([0])], fast=True)
         self.assertTrue(parent.isValid())
@@ -150,10 +150,10 @@ class ConsolidatedNodesTest(unittest.TestCase):
         matrix = list(transform.getMatrix(worldSpace=True))
         with self.api_only():
             self.assertIsNone(transform.rename("new", fast=True))
-            self.assertEqual(transform.getNodeName(), "new")
-            self.assertEqual(shape.getNodeName(), "newShape")
+            self.assertEqual(transform.getName(node=True), "new")
+            self.assertEqual(shape.getName(node=True), "newShape")
             transform.setNamespace(":direct:children", fast=True)
-            self.assertEqual(transform.getNodeName(), "direct:children:new")
+            self.assertEqual(transform.getName(node=True), "direct:children:new")
         self.assertMatrixEqual(transform.getMatrix(worldSpace=True), matrix)
 
     def test_fast_rename_keeps_foreign_namespace_shape(self):
@@ -164,8 +164,8 @@ class ConsolidatedNodesTest(unittest.TestCase):
         normal = mlib.createNode("mesh", name="oldShape", parent=transform)
         with self.api_only():
             transform.rename("new", fast=True)
-        self.assertEqual(foreign.getNodeName(), "foreign:oldShape")
-        self.assertEqual(normal.getNodeName(), "newShape")
+        self.assertEqual(foreign.getName(node=True), "foreign:oldShape")
+        self.assertEqual(normal.getName(node=True), "newShape")
 
     def skin_fixture(self):
         """単一meshと3influenceの最小スキンを作る。"""

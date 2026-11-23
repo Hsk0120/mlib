@@ -29,7 +29,7 @@ class _Case(NamespaceCase):
         self.skinName = cmds.skinCluster(joints, self.cube, toSelectedBones=True, name=f"{self.ns}:skin")[0]
         cmds.skinCluster(self.skinName, edit=True, geometry=self.plane)
         self.skin = mlib.getNode(self.skinName)
-        self.index = self.skin.getGeometryIndex(self.plane)
+        self.index = self.skin.getGeometryIndices(self.plane)
         cmds.select(clear=True)
         cmds.flushUndo()
 
@@ -54,7 +54,7 @@ class GeometryIndexTest(_Case):
         self.assertEqual(len(rows), 4)
         for vertex, row in enumerate(rows):
             self.assertListAlmostEqual(row, self.percent(self.plane, vertex))
-        values = self.skin.getVertexWeights(f"{self.plane}.vtx[2]", geometryIndex=self.index)
+        values = self.skin.getWeights(vertex=f"{self.plane}.vtx[2]", geometryIndex=self.index)
         self.assertListAlmostEqual(list(values.values()), self.percent(self.plane, 2))
 
     def test_set_weights_on_second_shape(self):
@@ -62,12 +62,12 @@ class GeometryIndexTest(_Case):
         self.skin.setWeights(self.joints, [0.25, 0.75], vertices=vertices, broadcast=True, geometryIndex=self.index)
         for vertex in (1, 2):
             self.assertListAlmostEqual(self.percent(self.plane, vertex), [0.25, 0.75])
-        self.skin.setVertexWeights(f"{self.plane}.vtx[3]", {self.joints[0]: 0.4}, geometryIndex=self.index)
+        self.skin.setWeights({self.joints[0]: 0.4}, vertex=f"{self.plane}.vtx[3]", normalize=True, geometryIndex=self.index)
         self.assertListAlmostEqual(self.percent(self.plane, 3), [0.4, 0.6])
 
     def test_weight_list_is_shared(self):
         # Mayaのskinクラスタは形状どうしでweightListを共有するため、同じ番号の頂点は同じウェイトになる。
-        self.skin.setVertexWeights(1, {self.joints[0]: 0.1, self.joints[1]: 0.9}, geometryIndex=self.index)
+        self.skin.setWeights({self.joints[0]: 0.1, self.joints[1]: 0.9}, vertex=1, normalize=True, geometryIndex=self.index)
         self.assertListAlmostEqual(self.percent(self.cube, 1), [0.1, 0.9])
 
     def test_vertices_of_other_shape_are_rejected(self):
@@ -79,7 +79,7 @@ class GeometryIndexTest(_Case):
             self.skin.getWeights(self.joints, vertices=[4], geometryIndex=self.index)
 
     def test_first_shape_index_is_same_as_default(self):
-        first = self.skin.getGeometryIndex(self.cube)
+        first = self.skin.getGeometryIndices(self.cube)
         self.assertEqual(list(self.skin.getWeights(self.joints, geometryIndex=first)), list(self.skin.getWeights(self.joints)))
 
     def test_invalid_index(self):
@@ -104,8 +104,8 @@ class GeometryIndexTest(_Case):
         self.assertFalse(cmds.undoInfo(query=True, undoName=True))
 
     def test_smooth_weights_on_second_shape(self):
-        self.skin.setVertexWeights(0, {self.joints[0]: 1.0}, geometryIndex=self.index)
-        self.skin.setVertexWeights(1, {self.joints[1]: 1.0}, geometryIndex=self.index)
+        self.skin.setWeights({self.joints[0]: 1.0}, vertex=0, normalize=True, geometryIndex=self.index)
+        self.skin.setWeights({self.joints[1]: 1.0}, vertex=1, normalize=True, geometryIndex=self.index)
         selection = cmds.ls(f"{self.cube}.vtx[5]")
         cmds.select(selection, replace=True)
         before = self.percent(self.plane, 0)

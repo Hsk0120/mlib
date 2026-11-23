@@ -1,7 +1,7 @@
 """``mlib.nodes.nurbsCurve`` のテスト。
 
 - 形状ラッパーと標準コンストレイントを Maya 内で検証する。
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setOverrideColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 - Shape 系(Mesh・NurbsCurve・Camera)とデフォーマー(Cluster)の照会の約束を固定する(担当C)。
 - 形状のシェイプのメソッドと createNurbsPlane を確かめる。
 """

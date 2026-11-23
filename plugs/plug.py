@@ -4383,20 +4383,24 @@ class Plugs(_ListMethods):
             raise TypeError("keyは呼び出せるオブジェクトかNoneで指定してください")
         self._items.sort(key=methodcaller("getFullName") if key is None else key, reverse=reverse)
 
-    def getFullNames(self):
-        """持っている順に、完全なアトリビュート名を返す(``maya.cmds`` へ渡すときに使う)。
+    def getNames(self, *, full=False):
+        """持っている順に、アトリビュートの名前を返す。
+
+        既定は :meth:`Plug.getName` を並べたもの。``full=True`` なら完全なアトリビュート名
+        (:meth:`Plug.getFullName` を並べたもの。``maya.cmds`` へ渡すときに使う)。
+
+        Args:
+            full (bool): Trueなら、完全なアトリビュート名を返す。既定はFalse。
 
         Returns:
-            list[str]: 各Plugの :meth:`Plug.getFullName`。無効なPlugは空文字列。
-        """
-        return [plug.getFullName() for plug in self._items]
+            list[str]: 各Plugの名前。無効なPlugは空文字列。
 
-    def getNames(self):
-        """持っている順に、アトリビュートの名前を返す(:meth:`Plug.getName` を並べたもの)。
-
-        Returns:
-            list[str]: 各Plugの :meth:`Plug.getName`。無効なPlugは空文字列。
+        Raises:
+            TypeError: fullがboolでない場合。
         """
+        _require_bool(full, "full")
+        if full:
+            return [plug.getFullName() for plug in self._items]
         return [plug.getName() for plug in self._items]
 
     @classmethod

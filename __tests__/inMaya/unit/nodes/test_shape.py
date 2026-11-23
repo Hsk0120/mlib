@@ -60,7 +60,7 @@ class ShapeSetParentTest(_SpecCase):
                 cmds.flushUndo()
                 self.assertIsNone(shape.setParent(target, fast=fast))
                 self.assertEqual(shape.getParent(), target)
-                self.assertEqual(old.getShapes(), [])
+                self.assertEqual(old.getShape(all=True), [])
                 self.assertTrue(old.isValid())
                 if fast:
                     self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
@@ -70,9 +70,9 @@ class ShapeSetParentTest(_SpecCase):
         target = mlib.createNode("transform", name=self.name("dup"), skipSelect=True)
         first = mlib.createLocator(name=self.name("loc"))
         target.addShape(first)
-        self.assertEqual(target.getShapes(), [first])
+        self.assertEqual(target.getShape(all=True), [first])
         other = mlib.createNode("transform", name=self.name("other"), skipSelect=True)
-        twin = mlib.createNode("locator", name=first.getNodeName(), parent=other, skipSelect=True)
+        twin = mlib.createNode("locator", name=first.getName(node=True), parent=other, skipSelect=True)
         with self.assertRaises(NotImplementedError):
             twin.setParent(target, fast=True)
         with self.assertRaises(TypeError):

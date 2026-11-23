@@ -25,7 +25,7 @@ class SkinClusterStandardOperationsTest(NamespaceCase):
 
     def test_influence_logical_index_survives_sparse_removal(self):
         skin, joints = self.makeSkin()
-        skin.removeInfluence(joints[1])
+        skin.removeInfluences(joints[1], requireAncestor=False)
         self.assertEqual(skin.getInfluenceIndex(joints[0]), 0)
         self.assertEqual(skin.getInfluenceIndex(mlib.getNode(joints[2])), 2)
         self.assertEqual(len(skin.getInfluences()), 2)

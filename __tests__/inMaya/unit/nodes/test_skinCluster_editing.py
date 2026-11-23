@@ -37,7 +37,7 @@ class SkinWeightEditingTest(unittest.TestCase):
 
     def test_joint_remove_without_parent_transfer_matches_skin(self):
         """Joint入口も親移送を無効にでき、SkinCluster入口と同じ値になる。"""
-        self.skin.removeInfluence(self.child, transferToParent=False)
+        self.skin.removeInfluences(self.child, transferToParent=False)
         expected = list(self.skin.getWeights([self.parent, self.other]))
         cmds.undo()
         joint = mlib.getNode(self.child)
@@ -52,7 +52,7 @@ class SkinWeightEditingTest(unittest.TestCase):
         self.assertTrue(self.skin.hasInfluence(self.child))
 
     def test_remove_influence_transfers_and_keeps_joint(self):
-        self.skin.removeInfluence(mlib.getNode(self.child))
+        self.skin.removeInfluences(mlib.getNode(self.child), requireAncestor=False)
         self.assertTrue(cmds.objExists(self.child))
         self.assertFalse(self.skin.hasInfluence(self.child))
         values = list(self.skin.getWeights([self.parent, self.other]))
@@ -71,9 +71,9 @@ class SkinWeightEditingTest(unittest.TestCase):
         cmds.undo()
         joint.removeInfluence()
         self.assertFalse(self.skin.hasInfluence(self.child))
-        self.skin.removeInfluence(self.other)
+        self.skin.removeInfluences(self.other, requireAncestor=False)
         with self.assertRaises(ValueError):
-            self.skin.removeInfluence(self.parent)
+            self.skin.removeInfluences(self.parent, requireAncestor=False)
         self.assertTrue(cmds.objExists(self.parent))
         self.assertTrue(cmds.objExists(self.skin.getFullName()))
 
@@ -134,7 +134,7 @@ class SkinWeightEditingTest(unittest.TestCase):
 
     def test_transfer_preserves_non_normalized_totals(self):
         self.skin.setWeights(self.names, [0.4, 1, 0.6], broadcast=True)
-        self.skin.removeInfluence(self.child)
+        self.skin.removeInfluences(self.child, requireAncestor=False)
         values = list(self.skin.getWeights([self.parent, self.other]))
         self.assertAlmostEqual(values[0], 1.4)
         self.assertAlmostEqual(values[1], 0.6)

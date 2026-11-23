@@ -101,10 +101,10 @@ class UndoSequenceStressTest(NamespaceCase):
                 return False
             mlib.delete(node)
         elif kind == "shape":
-            curves = [other for other in nodes if other.getShapes() and other != node]
+            curves = [other for other in nodes if other.getShape(all=True) and other != node]
             if not curves:
                 return False
-            curves[0].getShapes()[0].setParent(node)
+            curves[0].getShape(all=True)[0].setParent(node)
         return True
 
     def test_each_step_undo_and_redo_in_sequence(self):

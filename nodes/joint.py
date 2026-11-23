@@ -68,7 +68,7 @@ def _unlocked_influences(skins, fast=False):
     """
     locked = {}
     for skin in skins:
-        for node in skin.getLockedInfluences():
+        for node in skin.getInfluences(locked=True):
             locked[node.getUuid()] = node
     for node in locked.values():
         node.getPlug("lockInfluenceWeights")._require_writable()
@@ -223,7 +223,7 @@ class Joint(Transform):
         """jointOrientを設定する。
 
         jointOrientの値だけを書き換えるので、rotateが同じでもジョイントの向きは変わる。
-        向きを変えずにrotateとの間で値を移すときは、:meth:`freezeRotate`・:meth:`jointOrientToRotate` を使う。
+        向きを変えずにrotateとの間で値を移すときは、:meth:`freezeRotate` を使う。
         jointOrientの回転順はXYZで、ノードのrotateOrderは使わない。
 
         Args:
@@ -292,46 +292,35 @@ class Joint(Transform):
                         plugs.append(plug)
             return Plugs._from_plugs(plugs)
 
-    def jointOrientToRotate(self):
-        """jointOrientをrotateへ移して0にする。
+    def freezeRotate(self, *, toRotate=False):
+        """rotateをjointOrientへ移して0にする。``toRotate=True`` なら逆に、jointOrientをrotateへ移して0にする。
 
         見た目の姿勢は変わらない。XYZの数値をそのまま足すのではなく、回転として合成する。
-        rotateAxis・rotateOrder・移動・スケールは変えず、今のフレームだけを処理する。
-        jointOrientがXYZとも0なら、書き込めるかの確認も書き込みもしない。
+        rotateAxis・rotateOrder・移動・スケールはそのまま残る。
+        今のフレームだけを処理し、アニメーションはベイクしない。ウェイト・bindPreMatrix・バインドポーズは変えない。
+        移す元(既定はrotate、toRotate=TrueではjointOrient)がXYZとも0なら、書き込めるかの確認も書き込みもしない。
         fast引数は無い(処理のほとんどが値の確認と計算で、OpenMayaで書いても速くならないため)。
 
+        Args:
+            toRotate (bool): Trueなら、jointOrientをrotateへ移す。既定のFalseは、rotateをjointOrientへ移す。
+
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: toRotateがboolでない場合。
             RuntimeError: ジョイントが無効な場合、rotateかjointOrientがロック・入力の接続などで書き込めない場合、
                 または変更に失敗した場合。
 
         Note:
             Undoが有効なら、1回のUndoで戻せる。途中で失敗しても、それまでに済んだ変更は自動では戻さない。
         """
-        with undoChunk("mlibJointJointOrientToRotate"):
-            self._require_valid("方向の変更")
-            self._apply_rotate_transfer(self._joint_rotate_transfer_values())
-
-    def freezeRotate(self):
-        """rotateをjointOrientへ移して0にする。
-
-        見た目の姿勢は変わらない。rotateAxis・rotateOrder・移動・スケールはそのまま残る。
-        今のフレームだけを処理し、アニメーションはベイクしない。ウェイト・bindPreMatrix・バインドポーズは変えない。
-        rotateがXYZとも0なら、書き込めるかの確認も書き込みもしない。
-        fast引数は無い(:meth:`jointOrientToRotate` と同じ理由)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: ジョイントが無効な場合、rotateかjointOrientがロック・入力の接続などで書き込めない場合、
-                または変更に失敗した場合。
-
-        Note:
-            Undoが有効なら、1回のUndoで戻せる。途中で失敗しても、それまでに済んだ変更は自動では戻さない。
-        """
+        _require_bool(toRotate, "toRotate")
+        if toRotate:
+            with undoChunk("mlibJointJointOrientToRotate"):
+                self._require_valid("方向の変更")
+                self._apply_rotate_transfer(self._joint_rotate_transfer_values())
+            return
         with undoChunk("mlibJointFreezeRotate"):
             self._require_valid("回転のフリーズ")
             self._apply_rotate_transfer(self._joint_rotate_transfer_values(to_orient=True), to_orient=True)
@@ -769,7 +758,7 @@ class Joint(Transform):
         """skinClusterのインフルエンスから自身を外す。
 
         ジョイントのノードは残す。外す前に、すべての対象でインフルエンスになっているかと、
-        ウェイトを移せるかを確かめる。そのあと、取得した順に、SkinCluster.removeInfluenceと同じ処理で外す。
+        ウェイトを移せるかを確かめる。そのあと、取得した順に、SkinCluster.removeInfluencesと同じ処理で外す。
 
         - ウェイトのロックは一時的に外し、終わったら元に戻す。
         - ngSkinTools2のレイヤーは、レイヤーごとにウェイトを移す。
@@ -1079,32 +1068,6 @@ class Joint(Transform):
             raise ValueError("3つのジョイントが一直線上にあります")
         result = middle + bend.normal() * (length if distance is None else float(distance))
         return Vector(result.x, result.y, result.z)
-
-    def getIkHandles(self):
-        """自身を開始ジョイントにしているIKハンドルを取得する。
-
-        自身がIKチェーンの途中や末端のジョイントの場合は見つからない。
-        ジョイントからIKハンドルをたどれるのは、IKハンドルの ``startJoint`` への接続だけのため。
-
-        Returns:
-            Nodes[IkHandle]: 自身を開始ジョイントにしているIkHandle。無ければ空の集まり。
-        """
-        # nodes の初期化順に依存しないよう、使う時点で読み込む。
-        from .ikHandle import IkHandle
-
-        if not self.isValid():
-            return Nodes._wrap([])
-        seen = set()
-        result = []
-        for plug in self.getConnections(type="ikHandle"):
-            node = plug.getNode()
-            if node.getUuid() in seen:
-                continue
-            seen.add(node.getUuid())
-            mobject = node.mnode()
-            assert mobject is not None
-            result.append(IkHandle(mobject))
-        return Nodes._wrap(result)
 
     def _orient(self, flags):
         """検証済みのフラグで向きを揃え、末端jointのjointOrientを0にする。

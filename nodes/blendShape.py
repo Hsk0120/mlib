@@ -156,7 +156,7 @@ class BlendShape(GeometryFilter):
         # Mayaは形状の無いtransformやjointを渡しても例外にせず、何も追加しないため、先に確かめる。
         shapes = [node] if node.mnode().hasFn(om2.MFn.kShape) else []
         if node.mnode().hasFn(om2.MFn.kTransform):
-            shapes = list(node.getShapes())
+            shapes = list(node.getShape(all=True))
         if not any(cmds.objectType(shape.getFullName(), isAType="deformableShape") for shape in shapes):
             raise ValueError(f"geometryには変形できる形状か、それを持つTransformを指定してください: {node.getName()}")
         require_editable(self.mnode())

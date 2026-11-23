@@ -361,12 +361,12 @@ class ReferenceNodePlugAdditionsTest(_Case):
         name = reference.getFullName()
         nodes = reference.importContents()
         self.assertFalse(cmds.objExists(name))
-        self.assertIn(self.ns + "_r1:" + self.asset, [node.getNodeName() for node in nodes])
+        self.assertIn(self.ns + "_r1:" + self.asset, [node.getName(node=True) for node in nodes])
         self.assertFalse(mlib.getNode(self.ns + "_r1:" + self.asset).isFromReferencedFile())
         second = self._reference(self.path_a, "r2")
         imported = second.importContents(removeNamespace=True)
         self.assertFalse(cmds.namespace(exists=":" + self.ns + "_r2"))
-        names = [node.getNodeName() for node in imported]
+        names = [node.getName(node=True) for node in imported]
         self.assertIn(self.asset, names)
         defaults = set(cmds.ls(defaultNodes=True))
         for node in imported:

@@ -88,7 +88,7 @@ class NodeApiTest(unittest.TestCase):
         shape = transform.getShape()
 
         self.assertEqual(transform.getFullName(), "|" + transform.getName())
-        self.assertEqual(len(transform.getShapes()), 1)
+        self.assertEqual(len(transform.getShape(all=True)), 1)
         self.assertEqual(shape.getTransform().getName(), transform.getName())
         self.assertTrue(shape.getFullName().endswith("|" + shape_name))
 
@@ -177,21 +177,21 @@ class DagQueryTest(_Case):
         cmds.setAttr(cube + ".t", 1, 2, 3)
         cmds.setAttr(cube + ".r", 0, 45, 0)
         node = mlib.getNode(cube)
-        corners = node.getBoundingBoxCorners(ws=True)
+        corners = node.getBoundingBox(ws=True, corners=True)
         self.assertEqual(len(corners), 8)
         self.assertIsInstance(corners[0], mlib.Vector)
         xmin, ymin, zmin, xmax, ymax, zmax = cmds.exactWorldBoundingBox(cube)
         self.assertSequenceAlmostEqual(corners[0], (xmin, ymin, zmin), places=5)
         self.assertSequenceAlmostEqual(corners[1], (xmin, ymin, zmax), places=5)
         self.assertSequenceAlmostEqual(corners[7], (xmax, ymax, zmax), places=5)
-        local = node.getShape().getBoundingBoxCorners()
+        local = node.getShape().getBoundingBox(corners=True)
         self.assertSequenceAlmostEqual(local[0], (-1, -2, -3))
         self.assertSequenceAlmostEqual(local[7], (1, 2, 3))
         with self.assertRaises(TypeError):
-            node.getBoundingBoxCorners(True, ws=True)
+            node.getBoundingBox(True, ws=True, corners=True)
         cmds.delete(cube)
         with self.assertRaises(RuntimeError):
-            node.getBoundingBoxCorners()
+            node.getBoundingBox(corners=True)
 
     def test_instances(self):
         cube = cmds.polyCube(name=self.name("cube#"), constructionHistory=False)[0]
@@ -209,6 +209,157 @@ class DagQueryTest(_Case):
             single.isInstanced()
         with self.assertRaises(RuntimeError):
             single.getInstanceIndex()
+
+
+class MergedDagQueryTest(_Case):
+    """フラグ・引数へまとめた DagNode の照会(getShape(all=)・getParent(instances=)・getBoundingBox(corners=)・getDrawColor(mode=))。"""
+
+    def test_get_shape_all_by_node_kind(self):
+        """getShape(all=True) は、Shape なら自身1つ、Transform なら直下の Shape すべて、それ以外の DAG ノードなら空の Nodes。"""
+        cube = mlib.getNode(cmds.polyCube(name=self.name("cube#"))[0])
+        cmds.select(clear=True)
+        shape = cube.getShape()
+        expected = [cmds.ls(name, long=True)[0] for name in cmds.listRelatives(cube.getFullName(), shapes=True, noIntermediate=True, fullPath=True)]
+        with self.subTest(kind="Transform"):
+            shapes = cube.getShape(all=True)
+            self.assertIsInstance(shapes, mlib.Nodes)
+            self.assertEqual([node.getFullName() for node in shapes], expected)
+            self.assertEqual(shapes[0], cube.getShape(0))
+        with self.subTest(kind="Transform intermediates"):
+            cmds.cluster(cube.getFullName())
+            cmds.select(clear=True)
+            every = cmds.listRelatives(cube.getFullName(), shapes=True, fullPath=True)
+            self.assertGreater(len(every), 1)
+            self.assertEqual([node.getFullName() for node in cube.getShape(intermediates=True, all=True)], every)
+            self.assertEqual([node.getFullName() for node in cube.getShape(all=True)], expected)
+        with self.subTest(kind="Shape"):
+            shapes = shape.getShape(all=True)
+            self.assertIsInstance(shapes, mlib.Nodes)
+            self.assertEqual(list(shapes), [shape])
+            # Shape では intermediates を無視する。
+            self.assertEqual(list(shape.getShape(intermediates=True, all=True)), [shape])
+        with self.subTest(kind="empty Transform"):
+            empty = self.transform().getShape(all=True)
+            self.assertIsInstance(empty, mlib.Nodes)
+            self.assertEqual(list(empty), [])
+        with self.subTest(kind="other DagNode"):
+            # Transform でも Shape でもない DAG ノードの動き(DagNode の実装)は、空の集まりと None。
+            node = self.transform()
+            others = DagNode.getShape(node, all=True)
+            self.assertIsInstance(others, mlib.Nodes)
+            self.assertEqual(list(others), [])
+            self.assertIsNone(DagNode.getShape(node))
+
+    def test_get_shape_all_rejects_index_and_non_bool(self):
+        """all=True と index は同時に指定できず、all は bool だけ(Transform・Shape とも TypeError)。"""
+        cube = mlib.getNode(cmds.polyCube(name=self.name("cube#"), constructionHistory=False)[0])
+        for node in (cube, cube.getShape()):
+            for call in (
+                lambda: node.getShape(1, all=True),
+                lambda: node.getShape(index=2, all=True),
+                lambda: node.getShape(all=1),
+                lambda: node.getShape(all=None),
+            ):
+                with self.subTest(node=type(node).__name__), self.assertRaises(TypeError):
+                    call()
+            # all=False(既定)は今までどおり1つ(無ければ None)。
+            self.assertEqual(node.getShape(all=False), cube.getShape())
+        self.assertIsNone(cube.getShape(5))
+
+    def test_get_parent_instances_matches_cmds(self):
+        """getParent(instances=True) は cmds.listRelatives(allParents=True) と同じ親、indirect=True は全インスタンスのパスの親。"""
+        top = self.transform("top#")
+        g1 = self.transform("g1#", top.getFullName())
+        g2 = self.transform("g2#", top.getFullName())
+        leaf = self.transform("leaf#", g1.getFullName())
+        cmds.parent(leaf.getFullName(), g2.getFullName(), addObject=True, relative=True)
+        cmds.select(clear=True)
+        parents = leaf.getParent(instances=True)
+        self.assertIsInstance(parents, mlib.Nodes)
+        self.assertEqual([node.getFullName() for node in parents], cmds.listRelatives(leaf.getFullName(), allParents=True, fullPath=True))
+        self.assertEqual(parents, [g1, g2])
+        indirect = leaf.getParent(instances=True, indirect=True)
+        self.assertEqual([node.getFullName() for node in indirect], [g1.getFullName(), g2.getFullName()])
+        # ワールド直下は空の集まり。既定の getParent() は1つ(ワールド直下は None)。
+        self.assertEqual(list(top.getParent(instances=True)), [])
+        self.assertIsInstance(top.getParent(instances=True), mlib.Nodes)
+        self.assertIsNone(top.getParent())
+        self.assertEqual(leaf.getParent(), g1)
+        self.assertEqual(leaf.getParent(2), top)
+
+    def test_get_parent_exclusive_arguments(self):
+        """instances=True と step は同時に指定できず、indirect は instances=True のときだけ使える(TypeError)。"""
+        parent = self.transform("parent#")
+        node = self.transform("node#", parent.getFullName())
+        cases = (
+            ("step", lambda: node.getParent(2, instances=True)),
+            ("step keyword", lambda: node.getParent(step=0, instances=True)),
+            ("indirect only", lambda: node.getParent(indirect=True)),
+            ("instances int", lambda: node.getParent(instances=1)),
+            ("indirect int", lambda: node.getParent(instances=True, indirect=1)),
+            ("positional", lambda: node.getParent(1, True)),
+        )
+        for label, call in cases:
+            with self.subTest(label), self.assertRaises(TypeError):
+                call()
+
+    def test_bounding_box_corners_with_invisible(self):
+        """getBoundingBox(corners=True, includeInvisible=True) は、非表示の子を含むボックスの8つの隅を返す。"""
+        group = self.transform("group#")
+        shown = cmds.polyCube(name=self.name("shown#"), constructionHistory=False)[0]
+        hidden = cmds.polyCube(name=self.name("hidden#"), constructionHistory=False)[0]
+        shown, hidden = cmds.parent(shown, hidden, group.getFullName())
+        cmds.setAttr(hidden + ".translate", 5, 2, -3)
+        cmds.setAttr(hidden + ".visibility", False)
+        cmds.setAttr(group.getFullName() + ".translate", 1, 0, 0)
+        cmds.select(clear=True)
+        for world in (False, True):
+            for invisible in (False, True):
+                with self.subTest(worldSpace=world, includeInvisible=invisible):
+                    box = group.getBoundingBox(ws=world, includeInvisible=invisible)
+                    corners = group.getBoundingBox(ws=world, includeInvisible=invisible, corners=True)
+                    self.assertEqual(len(corners), 8)
+                    self.assertTrue(all(isinstance(corner, mlib.Vector) for corner in corners))
+                    expected = [(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
+                    for corner, values in zip(corners, expected):
+                        self.assertSequenceAlmostEqual(tuple(corner), values)
+                    if invisible and world:
+                        raw = cmds.xform(group.getFullName(), query=True, boundingBoxInvisible=True, worldSpace=True)
+                        self.assertSequenceAlmostEqual(tuple(corners[0]), raw[:3])
+                        self.assertSequenceAlmostEqual(tuple(corners[7]), raw[3:])
+        visible = group.getBoundingBox(ws=True, corners=True)
+        included = group.getBoundingBox(ws=True, corners=True, includeInvisible=True)
+        # 非表示の子(x=5 の先)を含めると、最大の隅が広がる。
+        self.assertGreater(included[7].x, visible[7].x + 1.0)
+        for flags in ({"corners": 1}, {"includeInvisible": 1}, {"corners": True, "includeInvisible": None}):
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                group.getBoundingBox(**flags)
+
+    def test_draw_color_modes(self):
+        """getDrawColor(mode=) は MFnDagNode の描画色と同じ値を返す。既定は dormant。知らない名前は ValueError、str 以外は TypeError。"""
+        import maya.OpenMaya as om1  # API 1.0 の MFnDagNode と突き合わせるため。
+
+        curve = mlib.getNode(cmds.circle(name=self.name("circle#"), constructionHistory=False)[0]).getShape()
+        cmds.select(clear=True)
+        selection = om1.MSelectionList()
+        selection.add(curve.getFullName())
+        path = om1.MDagPath()
+        selection.getDagPath(0, path)
+        fn = om1.MFnDagNode(path)
+        for mode, raw in (("dormant", fn.dormantColor), ("active", fn.activeColor), ("hilite", fn.hiliteColor)):
+            with self.subTest(mode=mode):
+                color = raw()
+                self.assertSequenceAlmostEqual(curve.getDrawColor(mode=mode), (color.r, color.g, color.b, color.a))
+        self.assertEqual(curve.getDrawColor(), curve.getDrawColor(mode="dormant"))
+        self.assertIsNone(curve.getDrawColor(mode="override"))
+        curve.setColor((1.0, 0.5, 0.25))
+        override = curve.getDrawColor(mode="override")
+        self.assertSequenceAlmostEqual(override[:3], (1.0, 0.5, 0.25))
+        for mode, error in (("Dormant", ValueError), ("", ValueError), ("selected", ValueError), (0, TypeError), (None, TypeError)):
+            with self.subTest(mode=mode), self.assertRaises(error):
+                curve.getDrawColor(mode=mode)
+        with self.assertRaises(TypeError):
+            curve.getDrawColor("active")
 
 
 if __name__ == "__main__":

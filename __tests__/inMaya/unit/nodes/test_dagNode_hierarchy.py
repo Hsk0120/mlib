@@ -1,7 +1,7 @@
 """DagNode の共通化後の約束を固定する(Phase 2 2A)。
 
 対象: mfn()(MFnDagNode)、DagNode へ移した getRoot・getSiblings・getBoundingBox(worldSpace/ws)・
-isIntermediateObject(Transform・Shape 双方で使える)、show/hide の fast(Undo 1 回・fast は Undo なし)、
+isIntermediateObject(Transform・Shape 双方で使える)、setVisibility の fast(Undo 1 回・fast は Undo なし)、
 getShape の契約(Shape は自身)、廃止した名前(dagFn・getParentPath・getFullPath・getPartialPath・
 collectSkinClusters)が DagNode から消えていること。
 
@@ -183,35 +183,53 @@ class ShowHideTest(HierarchyFixture):
         return cmds.getAttr(self.leaf + ".visibility")
 
     def test_normal_path_is_one_undo(self):
-        """hide/show は 1 回の Undo で戻り、自身を返す。"""
+        """setVisibility(False)・setVisibility(True) は 1 回の Undo で戻り、値を返さない。show・hide は無い。"""
         node = Node(self.leaf)
         cmds.flushUndo()
-        self.assertIsNone(node.hide())
+        self.assertIsNone(node.setVisibility(False))
         self.assertFalse(self.visible())
         cmds.undo()
         self.assertTrue(self.visible())
-        node.hide()
-        self.assertIsNone(node.show())
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        node.setVisibility(False)
+        cmds.flushUndo()
+        self.assertIsNone(node.setVisibility(True))
         self.assertTrue(self.visible())
+        cmds.undo()
+        self.assertFalse(self.visible())
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        cmds.redo()
+        self.assertTrue(self.visible())
+        # state を省くと表示する。
+        node.setVisibility(False)
+        self.assertIsNone(node.setVisibility())
+        self.assertTrue(self.visible())
+        for name in ("show", "hide"):
+            with self.subTest(name=name):
+                self.assertFalse(hasattr(type(node), name))
+                with self.assertRaises(AttributeError):
+                    getattr(node, name)
 
     def test_fast_leaves_no_undo(self):
         """fast=True は Undo に残らず値だけ変わる。"""
         node = Node(self.leaf)
-        for method, expected in (("hide", False), ("show", True)):
-            with self.subTest(method=method):
+        for expected in (False, True):
+            with self.subTest(state=expected):
                 cmds.flushUndo()
-                self.assertIsNone(getattr(node, method)(fast=True))
+                self.assertIsNone(node.setVisibility(expected, fast=True))
                 self.assertEqual(self.visible(), expected)
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_fast_validation(self):
         node = Node(self.leaf)
-        for method in ("show", "hide"):
-            with self.subTest(method=method):
+        for state in (True, False):
+            with self.subTest(state=state):
                 with self.assertRaisesRegex(TypeError, "fastはboolで指定してください"):
-                    getattr(node, method)(fast=1)
+                    node.setVisibility(state, fast=1)
                 with self.assertRaises(TypeError):
-                    getattr(node, method)(True)
+                    node.setVisibility(state, True)
+                with self.assertRaises(TypeError):
+                    node.setVisibility(state, check=1)
         self.assertTrue(self.visible())
 
 

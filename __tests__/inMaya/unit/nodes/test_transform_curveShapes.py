@@ -46,11 +46,11 @@ class CurveShapesTest(NamespaceCase):
         cmds.delete(open_curve)
         cmds.rename(cmds.listRelatives(control, shapes=True, fullPath=True)[2], "ctrlOpenShape")
         node = mlib.getNode(control)
-        circle, square_shape, _open_shape = node.getShapes()
-        circle.setOverrideColor(17)
-        square_shape.setOverrideColor((0.25, 0.5, 1.0))
+        circle, square_shape, _open_shape = node.getShape(all=True)
+        circle.setColor(17)
+        square_shape.setColor((0.25, 0.5, 1.0))
         cmds.setAttr(circle.getFullName() + ".lineWidth", 3.0)
-        node.setOverrideColor(6)
+        node.setColor(6)
         return node
 
     @staticmethod
@@ -68,8 +68,8 @@ class CurveShapesTest(NamespaceCase):
 
     def assert_same_curves(self, source, target):
         """2つのTransformのカーブ形状が同じであることを確かめる。"""
-        expected = [self.curve_values(shape) for shape in source.getShapes()]
-        actual = [self.curve_values(shape) for shape in target.getShapes()]
+        expected = [self.curve_values(shape) for shape in source.getShape(all=True)]
+        actual = [self.curve_values(shape) for shape in target.getShape(all=True)]
         self.assertEqual(len(actual), len(expected))
         for (form, degree, knots, points), (form2, degree2, knots2, points2) in zip(expected, actual):
             self.assertEqual((form2, degree2), (form, degree))
@@ -105,16 +105,16 @@ class CurveShapesTest(NamespaceCase):
         cmds.setAttr(target.getFullName() + ".translate", 3, 4, 5)
         self.assertIsNone(target.importCurveShapes(path))
         self.assert_same_curves(control, target)
-        shapes = target.getShapes()
+        shapes = target.getShape(all=True)
         # 別の親の下では同じ短い名前を使える(Mayaは同じ親の下の重複だけ番号で避ける)。
         self.assertEqual([shape.getName() for shape in shapes], [self.name("ctrlCircleShape"), self.name("ctrlSquareShape"), self.name("ctrlOpenShape")])
-        self.assertEqual(shapes[0].getOverrideColor(), 17)
-        for value, expected in zip(shapes[1].getOverrideColor(), (0.25, 0.5, 1.0)):
+        self.assertEqual(shapes[0].getColor(), 17)
+        for value, expected in zip(shapes[1].getColor(), (0.25, 0.5, 1.0)):
             self.assertAlmostEqual(value, expected, places=6)
-        self.assertIsNone(shapes[2].getOverrideColor())
+        self.assertIsNone(shapes[2].getColor())
         self.assertEqual(cmds.getAttr(shapes[0].getFullName() + ".lineWidth"), 3.0)
         self.assertEqual(cmds.getAttr(shapes[2].getFullName() + ".lineWidth"), -1.0)
-        self.assertEqual(target.getOverrideColor(), 6)
+        self.assertEqual(target.getColor(), 6)
         self.assertEqual(list(target.getTranslation()), [3.0, 4.0, 5.0])
 
     def test_shape_names_after_source_removed(self):
@@ -124,7 +124,7 @@ class CurveShapesTest(NamespaceCase):
         target = mlib.getNode(cmds.createNode("transform", name=self.name("target")))
         target.setCurveShapesData(data)
         self.assertEqual(
-            [shape.getName() for shape in target.getShapes()], [self.name("ctrlCircleShape"), self.name("ctrlSquareShape"), self.name("ctrlOpenShape")]
+            [shape.getName() for shape in target.getShape(all=True)], [self.name("ctrlCircleShape"), self.name("ctrlSquareShape"), self.name("ctrlOpenShape")]
         )
 
     def test_fewer_shapes_and_colors_cleared(self):
@@ -133,9 +133,9 @@ class CurveShapesTest(NamespaceCase):
         data["shapes"] = data["shapes"][1:2]
         data["color"] = None
         control.setCurveShapesData(data)
-        self.assertEqual(len(control.getShapes()), 1)
-        self.assertEqual(self.curve_values(control.getShapes()[0])[1], 1)
-        self.assertIsNone(control.getOverrideColor())
+        self.assertEqual(len(control.getShape(all=True)), 1)
+        self.assertEqual(self.curve_values(control.getShape(all=True)[0])[1], 1)
+        self.assertIsNone(control.getColor())
 
     def test_linear_unit_independent(self):
         control = self.make_control()
@@ -155,7 +155,7 @@ class CurveShapesTest(NamespaceCase):
         before = target.getCurveShapesData()
         cmds.flushUndo()
         target.setCurveShapesData(data)
-        self.assertEqual(len(target.getShapes()), 3)
+        self.assertEqual(len(target.getShape(all=True)), 3)
         cmds.undo()
         self.assertEqual(target.getCurveShapesData(), before)
         cmds.redo()
@@ -165,12 +165,12 @@ class CurveShapesTest(NamespaceCase):
         control = self.make_control()
         data = control.getCurveShapesData()
         target = mlib.getNode(cmds.spaceLocator(name=self.name("target"))[0])
-        locator = target.getShapes()[0].getFullName()
+        locator = target.getShape(all=True)[0].getFullName()
         target.setCurveShapesData(data)
         self.assertTrue(cmds.objExists(locator))
-        self.assertEqual(len(target.getShapes()), 4)
+        self.assertEqual(len(target.getShape(all=True)), 4)
         target.setCurveShapesData({"color": None, "shapes": []})
-        self.assertEqual([shape.getFullName() for shape in target.getShapes()], [locator])
+        self.assertEqual([shape.getFullName() for shape in target.getShape(all=True)], [locator])
 
     def test_joint(self):
         control = self.make_control()
@@ -180,7 +180,7 @@ class CurveShapesTest(NamespaceCase):
         self.assertIsInstance(joint, mlib.Joint)
         joint.setCurveShapesData(data)
         self.assert_same_curves(control, joint)
-        self.assertEqual(joint.getOverrideColor(), 6)
+        self.assertEqual(joint.getColor(), 6)
         for entry, expected in zip(joint.getCurveShapesData()["shapes"], data["shapes"]):
             self.assert_points_close(entry.pop("points"), expected["points"])
             self.assertEqual(entry, {key: value for key, value in expected.items() if key != "points"})

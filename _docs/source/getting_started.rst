@@ -59,16 +59,16 @@ mlib入門
 
 :meth:`~mlib.nodes.node.Node.getName` はMayaコマンドへ渡せる最短の一意な名前で、別の階層に同じ短い名前の
 ノードがあると ``grp1|ctrl`` のような部分パスになります。新しい名前を組み立てる(接尾辞を付け替える)ときは、
-DAGパスを含まない :meth:`~mlib.nodes.node.Node.getNodeName` を使います。ノード名に ``|`` は使えず、
+DAGパスを含まない ``getName(node=True)`` (:meth:`~mlib.nodes.node.Node.getName`)を使います。ノード名に ``|`` は使えず、
 ``createNode(name=...)``・``rename()`` はValueErrorにします(Mayaは黙って別の文字へ置き換えるため)。
 
 .. code-block:: python
 
    joint = mlib.getNode("L_arm_JNT")
-   ctrl = mlib.createNode("transform", name=joint.getNodeName().replace("_JNT", "_CTRL"))
+   ctrl = mlib.createNode("transform", name=joint.getName(node=True).replace("_JNT", "_CTRL"))
 
 名前の取得は呼び出すたびにMayaへ問い合わせます。保持したノードを削除した場合や、作成をUndoで
-取り消した場合は参照が無効になり、``getName()``・``getNodeName()`` はRuntimeErrorになります
+取り消した場合は参照が無効になり、``getName()`` はRuntimeErrorになります
 (``isValid()`` で確かめられます。``str(node)`` だけは ``maya.cmds`` へ渡せるよう空文字列を返します)。
 Redoで戻したノードを使う場合も、``mlib.getNode`` などで取得し直してください。
 
@@ -254,8 +254,8 @@ Mayaの規則で連番化されます。``name``・``parent``・``shared``・``s
 詳細は :func:`~mlib.cmds.createNode.createNode` を参照してください。
 
 複数形(``Joints``・``SkinClusters`` 等)は、重複を除いたノード参照を保持順に持つ容器です。
-よく使う書込み(``setAttrFlags``・``resetAttrs``・``setLocked``・``setOverrideColor``・``setOutlinerColor``・``setVisibility``・
-``show``・``hide``・``setParent``、``Joints`` では ``setRadius``・``setSegmentScaleCompensate`` も)は
+よく使う書込み(``setAttrFlags``・``resetAttrs``・``setLocked``・``setColor``・``setColors``・``setVisibility``・
+``setParent``、``Joints`` では ``setRadius``・``setSegmentScaleCompensate`` も)は
 容器から全要素へまとめて適用でき、1回のUndoで戻ります。それ以外の単数のメソッドも、同じ名前で容器から呼べます
 (``nodes.getTranslation()`` や ``plugs.get()`` は、各要素の戻り値を並べたlistを返します)。
 
@@ -264,7 +264,7 @@ Mayaの規則で連番化されます。``name``・``parent``・``shared``・``s
    joints = mlib.ls(type="joint")
    joints.setRadius(1)
    for joint in joints:
-       print(joint.getNodeName(), joint.getDepth())
+       print(joint.getName(node=True), joint.getDepth())
 
 .. _dynamic-node-classes:
 

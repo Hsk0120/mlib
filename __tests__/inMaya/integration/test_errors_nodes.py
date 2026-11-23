@@ -250,26 +250,41 @@ class BlendShapeErrorTest(_ErrorCase):
 class DagNodeInvalidTest(_ErrorCase):
     """DagNode の照会メソッドが、削除済みのノード・取り除いたインスタンスで RuntimeError になること。"""
 
+    #: (メソッド名, キーワード引数)。
     DELETED = (
-        "getBindPoses",
-        "mpath",
-        "getRoot",
-        "isIntermediateObject",
-        "getInstances",
-        "getParents",
-        "isVisible",
-        "getOverrideColor",
-        "getDisplayType",
-        "getSkinClusters",
+        ("getBindPoses", {}),
+        ("mpath", {}),
+        ("getRoot", {}),
+        ("isIntermediateObject", {}),
+        ("getInstances", {}),
+        ("getParent", {"instances": True}),
+        ("getParent", {"instances": True, "indirect": True}),
+        ("isVisible", {}),
+        ("getColor", {}),
+        ("getColor", {"outliner": True}),
+        ("getDrawColor", {}),
+        ("getBoundingBox", {"corners": True}),
+        ("getDisplayType", {}),
+        ("getSkinClusters", {}),
     )
-    REMOVED_INSTANCE = ("getBindPoses", "mpath", "getRoot", "getSiblings", "isIntermediateObject", "getInstances", "getParents", "isVisible", "getSkinClusters")
+    REMOVED_INSTANCE = (
+        ("getBindPoses", {}),
+        ("mpath", {}),
+        ("getRoot", {}),
+        ("getSiblings", {}),
+        ("isIntermediateObject", {}),
+        ("getInstances", {}),
+        ("getParent", {"instances": True}),
+        ("isVisible", {}),
+        ("getSkinClusters", {}),
+    )
 
     def test_deleted_node(self):
         node = self.dead("transform")
-        for method in self.DELETED:
-            with self.subTest(method=method):
+        for method, flags in self.DELETED:
+            with self.subTest(method=method, flags=flags):
                 with self.assertRaises(RuntimeError):
-                    getattr(node, method)()
+                    getattr(node, method)(**flags)
         # getSiblings は無効なノードでは空リストを返す(docstring の記載どおり)。
         self.assertEqual(node.getSiblings(), [])
 
@@ -281,18 +296,18 @@ class DagNodeInvalidTest(_ErrorCase):
         cmds.parent(instance.getFullName(), removeObject=True)
         # ノード自体は残り、保持するパスだけが無効になる。
         self.assertTrue(instance.isValid())
-        for method in self.REMOVED_INSTANCE:
-            with self.subTest(method=method):
+        for method, flags in self.REMOVED_INSTANCE:
+            with self.subTest(method=method, flags=flags):
                 with self.assertRaises(RuntimeError):
-                    getattr(instance, method)()
+                    getattr(instance, method)(**flags)
 
-    def test_get_override_color_shape_flag(self):
+    def test_get_color_shape_flag(self):
         node = mlib.getNode(self.make("transform"))
         for value in (1, 0, None, "true"):
             with self.subTest(shape=value):
                 with self.assertRaises(TypeError):
-                    node.getOverrideColor(shape=value)
-        self.assertIsNone(node.getOverrideColor(shape=True))
+                    node.getColor(shape=value)
+        self.assertIsNone(node.getColor(shape=True))
 
     def test_get_bind_poses_with_invalid_connection(self):
         (joint,) = self.joints("bindJoint")
@@ -325,7 +340,7 @@ class DagPoseErrorTest(_ErrorCase):
     def test_queries_on_deleted_pose(self):
         pose = mlib.getNode(cmds.rename(cmds.dagPose(self.root, save=True, selection=True), self.name("gone")))
         cmds.delete(pose.getFullName())
-        for method in ("getNotAtPose", "isAtPose", "getSkinClusters", "isBindPose", "getMemberIndices", "getMembers"):
+        for method in ("getNotAtPose", "getSkinClusters", "isBindPose", "getMemberIndices", "getMembers"):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
                     getattr(pose, method)()
@@ -709,28 +724,36 @@ class NodeErrorTest(_Case):
 class NodesErrorTest(_Case):
     """Nodes の一括照会。"""
 
-    def test_get_override_color_rejects_non_dag(self):
-        """DAG ノード以外を含む Nodes の getOverrideColor は TypeError。"""
+    def test_get_color_rejects_non_dag(self):
+        """DAG ノード以外を含む Nodes の getColor は TypeError(outliner=True でも同じ)。"""
         dag = self.node("transform")
         for items in ([self.node("multiplyDivide")], [dag, self.node("multiplyDivide")]):
-            with self.subTest(items=len(items)):
-                self.assertRaises(TypeError, mlib.Nodes(items).getOverrideColor)
+            for outliner in (False, True):
+                with self.subTest(items=len(items), outliner=outliner):
+                    self.assertRaises(TypeError, mlib.Nodes(items).getColor, outliner=outliner)
 
     def test_invalid_items_raise_runtime_error(self):
-        """保持中のノードを削除した後の getOverrideColor・getNames は RuntimeError。"""
-        for method in ("getOverrideColor", "getNames"):
-            with self.subTest(method=method):
+        """保持中のノードを削除した後の getColor・getNames は RuntimeError。"""
+        for method, flags in (("getColor", {}), ("getColor", {"outliner": True}), ("getNames", {}), ("getNames", {"full": True})):
+            with self.subTest(method=method, flags=flags):
                 first, second = self.node("transform"), self.node("transform")
                 nodes = mlib.Nodes([first, second])
                 cmds.delete(second.getFullName())
-                self.assertRaises(RuntimeError, getattr(nodes, method))
+                self.assertRaises(RuntimeError, getattr(nodes, method), **flags)
 
     def test_valid_items(self):
-        """正常系: getNames は保持順の名前、getOverrideColor は各ノードの表示色。"""
+        """正常系: getNames は保持順の名前、getColor は各ノードの表示色・アウトライナーの色。"""
         first, second = self.node("transform"), self.node("transform")
         nodes = mlib.Nodes([first, second])
         self.assertEqual(nodes.getNames(), [first.getName(), second.getName()])
-        self.assertEqual(nodes.getOverrideColor(), [first.getOverrideColor(), second.getOverrideColor()])
+        self.assertEqual(nodes.getNames(full=True), [first.getFullName(), second.getFullName()])
+        self.assertEqual(nodes.getColor(), [first.getColor(), second.getColor()])
+        second.setColor((1.0, 0.5, 0.0), outliner=True)
+        self.assertEqual(nodes.getColor(outliner=True), [first.getColor(outliner=True), second.getColor(outliner=True)])
+        for flags in ({"full": 1}, {"outliner": 1}):
+            with self.subTest(flags=flags):
+                method = nodes.getNames if "full" in flags else nodes.getColor
+                self.assertRaises(TypeError, method, **flags)
 
 
 class NurbsCurveErrorTest(_Case):
@@ -983,15 +1006,15 @@ class SkinClusterErrorTest(_Case):
     def test_get_unused_influences(self):
         """正常系: 頂点にウェイトを持たない influence だけを返す。"""
         skin = self.skin()
-        self.assertEqual([node.getName() for node in skin.getUnusedInfluences()], [self.name("unused")])
+        self.assertEqual([node.getName() for node in skin.getInfluences(unused=True)], [self.name("unused")])
 
     def test_get_unused_influences_invalid(self):
-        """削除した skinCluster の getUnusedInfluences は RuntimeError(Undo の記録の有無によらない)。"""
+        """削除した skinCluster の getInfluences(unused=True) は RuntimeError(Undo の記録の有無によらない)。"""
         skin = self.skin()
         cmds.delete(skin.getFullName())
-        self.assertRaises(RuntimeError, skin.getUnusedInfluences)
+        self.assertRaises(RuntimeError, skin.getInfluences, unused=True)
         cmds.flushUndo()
-        self.assertRaises(RuntimeError, skin.getUnusedInfluences)
+        self.assertRaises(RuntimeError, skin.getInfluences, unused=True)
 
     def test_export_weights_invalid(self):
         """削除した skinCluster の exportWeights は RuntimeError で、ファイルを作らない。"""

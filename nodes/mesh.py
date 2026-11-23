@@ -78,7 +78,7 @@ class Mesh(Shape):
             raise ValueError("uvSetは空でない名前で指定してください")
         reference = Node(Node._input_name(reference))
         if reference.hasFn(om2.MFn.kTransform):
-            shapes = reference.getShapes()
+            shapes = reference.getShape(all=True)
             if len(shapes) != 1:
                 raise ValueError("参照するトランスフォームにはシェイプが1つだけ必要です")
             reference = shapes[0]

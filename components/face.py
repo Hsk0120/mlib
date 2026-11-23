@@ -498,7 +498,11 @@ class Faces(Components):
         if curve is not None:
             node = curve if isinstance(curve, Node) else Node(curve)
             shapes = (
-                [node] if node.isType("nurbsCurve") else [shape for shape in node.getShapes() if shape.isType("nurbsCurve")] if node.isType("transform") else []
+                [node]
+                if node.isType("nurbsCurve")
+                else [shape for shape in node.getShape(all=True) if shape.isType("nurbsCurve")]
+                if node.isType("transform")
+                else []
             )
             if len(shapes) != 1:
                 raise TypeError(f"curveはNURBSカーブを1つ指定してください: {node.getFullName()}")

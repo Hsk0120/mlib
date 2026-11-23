@@ -166,7 +166,7 @@ class ShapesConstraintsTest(unittest.TestCase):
                 self.assertIsInstance(mlib.Node(result.getFullName()), expected)
                 self.assertEqual([node.getUuid() for node in result.getTargets()], [source.getUuid(), second.getUuid()])
                 self.assertEqual(result.getWeights(), [1.0, 1.0])
-                self.assertEqual(len(result.getWeightAliases()), 2)
+                self.assertEqual(len(result.getWeightPlugs(aliases=True)), 2)
                 result.getWeightPlugs()[0].set(0.25)
                 self.assertEqual(result.getWeights(), [0.25, 1.0])
 
@@ -282,7 +282,7 @@ class _SpecCase(NamespaceCase):
 
 
 class ConstraintAnimCurveTest(_SpecCase):
-    """Constraint.getWeightAliases と AnimCurve.isTimeInput。"""
+    """Constraint.getWeightPlugs(aliases=True) と AnimCurve.isTimeInput。"""
 
     def test_weight_aliases(self):
         """getTargets と同じ順の weight 名。ノードの aliasAttr を列挙する getAliases とは別。"""
@@ -291,13 +291,48 @@ class ConstraintAnimCurveTest(_SpecCase):
         driven = cmds.createNode("transform", name=self.name("driven"), skipSelect=True)
         constraint = cmds.parentConstraint(first, second, driven)[0]
         node = Node(constraint)
-        aliases = node.getWeightAliases()
+        aliases = node.getWeightPlugs(aliases=True)
         self.assertEqual(aliases, cmds.parentConstraint(constraint, query=True, weightAliasList=True))
         self.assertEqual(len(aliases), 2)
         self.assertEqual([target.getName() for target in node.getTargets()], [first, second])
         # parentConstraint の weight は aliasAttr ではなく動的アトリビュートなので、getAliases には出ない。
         self.assertTrue(all(node.hasAttr(alias) for alias in aliases))
         self.assertEqual([plug.getFullName().split(".")[-1] for plug in node.getWeightPlugs()], aliases)
+        # aliases=False(既定)は Plugs、aliases=True は名前の list。aliases は bool のキーワード専用。
+        self.assertIsInstance(node.getWeightPlugs(), mlib.Plugs)
+        self.assertIsInstance(node.getWeightPlugs(aliases=False), mlib.Plugs)
+        self.assertIsInstance(aliases, list)
+        self.assertTrue(all(isinstance(alias, str) for alias in aliases))
+        for call in (lambda: node.getWeightPlugs(aliases=1), lambda: node.getWeightPlugs(aliases=None), lambda: node.getWeightPlugs(True)):
+            with self.assertRaises(TypeError):
+                call()
+
+    def test_weights_by_targets(self):
+        """getWeights(*targets) は渡した順の list。省くと getTargets の順。1つでも list で、未登録は ValueError。"""
+        first = cmds.createNode("transform", name=self.name("first"), skipSelect=True)
+        second = cmds.createNode("transform", name=self.name("second"), skipSelect=True)
+        driven = cmds.createNode("transform", name=self.name("driven"), skipSelect=True)
+        constraint = cmds.parentConstraint(first, second, driven)[0]
+        node = Node(constraint)
+        node.setWeight(0.25, first)
+        node.setWeight(0.75, second)
+
+        def raw(target):
+            return cmds.parentConstraint(target, constraint, query=True, weight=True)
+
+        self.assertEqual(node.getWeights(), [raw(first), raw(second)])
+        self.assertEqual(node.getWeights(second, first), [raw(second), raw(first)])
+        self.assertEqual(node.getWeights(first), [raw(first)])
+        self.assertEqual(node.getWeights(Node(second)), [0.75])
+        self.assertEqual(node.getWeights(first, first), [0.25, 0.25])
+        self.assertFalse(hasattr(type(node), "getWeight"))
+        for targets in ((driven,), (first, driven)):
+            with self.subTest(targets=targets), self.assertRaises(ValueError):
+                node.getWeights(*targets)
+        cmds.delete(constraint)
+        # 削除済みのコンストレイントは、Mayaのコマンドが名前を解決できずに例外にする。
+        with self.assertRaises((RuntimeError, ValueError)):
+            node.getWeights()
 
     def test_is_time_input(self):
         """横軸が時間の T 型は True、U 型は False。削除済みは RuntimeError。"""

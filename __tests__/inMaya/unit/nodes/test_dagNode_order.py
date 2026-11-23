@@ -1,7 +1,7 @@
 """DagNode の並び順(アウトライナーの順番)の約束を固定する。
 
 対象: getOutlinerOrder(親の直接の子の中の番号。Shape・中間オブジェクトも数え、ワールド直下は
-``cmds.ls(assemblies=True)`` の並びで数える)、setOutlinerOrder(番号で移動。負の値・範囲外・型)、
+``cmds.ls(assemblies=True)`` の並びで数える)、reorder(index=)(番号で移動。負の値・範囲外・型)、
 reorder(front/f・back/b・relative/r のどれか1つ。relative は端を越えると反対側へ回る)、
 Undo 1 回、インスタンスは保持パスの親の下だけ、無効なノード・ロックされたノードの例外、
 複数形(Nodes)からの呼出し。
@@ -105,7 +105,7 @@ class SetOutlinerOrderTest(SiblingsFixture):
             for target in range(self.COUNT):
                 with self.subTest(current=current, target=target):
                     node = Node(self.kids[current])
-                    self.assertIsNone(node.setOutlinerOrder(target))
+                    self.assertIsNone(node.reorder(index=target))
                     self.assertEqual(children(self.grp), self.moved(current, target))
                     self.assertEqual(node.getOutlinerOrder(), target)
                     if current != target:
@@ -117,9 +117,9 @@ class SetOutlinerOrderTest(SiblingsFixture):
         for index in range(-self.COUNT, 0):
             with self.subTest(index=index):
                 node = Node(self.kids[2])
-                node.setOutlinerOrder(index)
+                node.reorder(index=index)
                 self.assertEqual(node.getOutlinerOrder(), index + self.COUNT)
-                node.setOutlinerOrder(2)
+                node.reorder(index=2)
                 self.assertEqual(children(self.grp), self.kids)
 
     def test_out_of_range_raises(self):
@@ -128,7 +128,7 @@ class SetOutlinerOrderTest(SiblingsFixture):
         for index in (self.COUNT, self.COUNT + 3, -self.COUNT - 1):
             with self.subTest(index=index):
                 with self.assertRaises(IndexError):
-                    node.setOutlinerOrder(index)
+                    node.reorder(index=index)
                 self.assertEqual(children(self.grp), self.kids)
 
     def test_non_int_raises(self):
@@ -137,7 +137,7 @@ class SetOutlinerOrderTest(SiblingsFixture):
         for index in (1.0, True, "1", None):
             with self.subTest(index=index):
                 with self.assertRaises(TypeError):
-                    node.setOutlinerOrder(index)
+                    node.reorder(index=index)
                 self.assertEqual(children(self.grp), self.kids)
 
     def test_world(self):
@@ -145,12 +145,12 @@ class SetOutlinerOrderTest(SiblingsFixture):
         names = [self.xf(f"w{index}") for index in range(3)]
         before = assemblies()
         node = Node(names[2])
-        node.setOutlinerOrder(0)
+        node.reorder(index=0)
         self.assertEqual(assemblies()[0], names[2])
         self.assertEqual(node.getOutlinerOrder(), 0)
         cmds.undo()
         self.assertEqual(assemblies(), before)
-        node.setOutlinerOrder(-2)
+        node.reorder(index=-2)
         self.assertEqual(assemblies()[-2], names[2])
         cmds.undo()
         self.assertEqual(assemblies(), before)
@@ -160,13 +160,13 @@ class SetOutlinerOrderTest(SiblingsFixture):
         cube = cmds.ls(cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0], long=True)[0]
         shape = children(cube)[0]
         child = self.xf("cubeChild", parent=cube)
-        Node(shape).setOutlinerOrder(1)
+        Node(shape).reorder(index=1)
         self.assertEqual(children(cube), [child, shape])
 
     def test_undo_once(self):
         """Undo 1 回で元の順番へ戻り、Redo で再び移る。"""
         node = Node(self.kids[0])
-        node.setOutlinerOrder(3)
+        node.reorder(index=3)
         moved = children(self.grp)
         cmds.undo()
         self.assertEqual(children(self.grp), self.kids)
@@ -178,7 +178,7 @@ class SetOutlinerOrderTest(SiblingsFixture):
         node = Node(self.kids[1])
         cmds.delete(self.kids[1])
         with self.assertRaises(RuntimeError):
-            node.setOutlinerOrder(0)
+            node.reorder(index=0)
 
 
 class ReorderTest(SiblingsFixture):
@@ -315,7 +315,7 @@ class ReorderTest(SiblingsFixture):
         with self.assertRaises(RuntimeError):
             node.reorder(front=True)
         with self.assertRaises(RuntimeError):
-            node.setOutlinerOrder(0)
+            node.reorder(index=0)
         self.assertEqual(children(self.grp), self.kids)
 
 
@@ -343,7 +343,7 @@ class InstanceTest(_SpecCase):
         self.assertEqual(node.getOutlinerOrder(), 2)
         self.assertEqual(Node(shared).getOutlinerOrder(), 1)
 
-        node.setOutlinerOrder(0)
+        node.reorder(index=0)
         self.assertEqual(children(first), under_first)
         self.assertEqual(next(name.rsplit("|", 1)[-1] for name in children(second)), self.name("k1"))
 
