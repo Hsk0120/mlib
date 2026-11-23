@@ -73,63 +73,6 @@ class _RaisesCase(NamespaceCase):
         self.assertEqual(len(cmds.ls()), before)
 
 
-class CalculationNodeTest(_RaisesCase):
-    """計算ノードの setInput・setOperation・addInput・removeInput。ノードが無効なら RuntimeError。"""
-
-    SET_INPUT = (
-        ("addDoubleLinear", {"input1": 1.0}),
-        ("aimMatrix", {"primaryTargetVector": (1, 0, 0)}),
-        ("angleBetween", {"vector1": (1, 0, 0)}),
-        ("blendColors", {"blender": 0.5}),
-        ("blendMatrix", {"inputMatrix": "matrix"}),
-        ("clamp", {"input": (1, 2, 3)}),
-        ("composeMatrix", {"inputTranslate": (1, 2, 3)}),
-        ("condition", {"firstTerm": 1.0}),
-        ("curveInfo", {}),
-        ("decomposeMatrix", {"inputMatrix": "matrix"}),
-        ("distanceBetween", {"point1": (1, 2, 3)}),
-        ("fourByFourMatrix", {"in00": 2.0}),
-        ("inverseMatrix", {"inputMatrix": "matrix"}),
-        ("multDoubleLinear", {"input1": 1.0}),
-        ("multiplyDivide", {"input1": (1, 2, 3)}),
-        ("pairBlend", {"weight": 0.5}),
-        ("pickMatrix", {"useTranslate": False}),
-        ("pointOnCurveInfo", {"parameter": 0.5}),
-        ("pointOnSurfaceInfo", {"parameterU": 0.5}),
-        ("remapValue", {"inputValue": 0.5}),
-        ("reverse", {"input": (1, 0, 0)}),
-        ("setRange", {"value": (1, 0, 0)}),
-        ("unitConversion", {"conversionFactor": 2.0}),
-        ("vectorProduct", {"input1": (1, 0, 0)}),
-    )
-
-    def test_set_input_on_deleted_node(self):
-        for kind, flags in self.SET_INPUT:
-            flags = {key: (mlib.Matrix() if value == "matrix" else value) for key, value in flags.items()}
-            with self.subTest(kind=kind):
-                node = self.kill(self.node(kind))
-                self.assertFailsWithoutChange(RuntimeError, node.setInput, **flags)
-
-    def test_multi_input_methods_on_deleted_node(self):
-        cases = (
-            ("multMatrix", "setInput", ([mlib.Matrix()],)),
-            ("multMatrix", "addInput", (mlib.Matrix(),)),
-            ("multMatrix", "removeInput", (0,)),
-            ("blendWeighted", "addInput", (1.0,)),
-            ("blendWeighted", "removeInput", (0,)),
-            ("plusMinusAverage", "addInput", (1.0,)),
-            ("plusMinusAverage", "removeInput", (0,)),
-            ("condition", "setOperation", (1,)),
-            ("multiplyDivide", "setOperation", (2,)),
-            ("plusMinusAverage", "setOperation", (1,)),
-            ("vectorProduct", "setOperation", (1,)),
-        )
-        for kind, method, args in cases:
-            with self.subTest(kind=kind, method=method):
-                node = self.kill(self.node(kind))
-                self.assertFailsWithoutChange(RuntimeError, getattr(node, method), *args)
-
-
 class AnimCurveTest(_RaisesCase):
     """削除した animCurve と、キーの無い animCurve。"""
 

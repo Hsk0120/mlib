@@ -248,36 +248,6 @@ class CameraTest(_ArgumentCase):
         self.assertFails(RuntimeError, camera.setCenterOfInterestPoint, (0, 0, -3), fast=True, state=lambda: self.state(camera))
 
 
-class CalculationNodeTest(_ArgumentCase):
-    """計算ノードの書込みの拒否・入力の型。拒否されたらそれまでの変更を戻す。"""
-
-    def test_set_input_rolls_back_when_maya_rejects(self):
-        node = self.node("multiplyDivide")
-        self.lock(node, "input2X")
-        plug = node.getFullName() + ".input1"
-        self.assertFails(RuntimeError, node.setInput, input1=(5, 6, 7), input2=(1, 2, 3), state=lambda: cmds.getAttr(plug))
-        self.assertEqual(cmds.getAttr(plug)[0], (0.0, 0.0, 0.0))
-
-    def test_set_input_rejects_unknown_source_type(self):
-        node = self.node("addDoubleLinear")
-        plug = node.getFullName() + ".input1"
-        self.assertFails(TypeError, node.setInput, input1=object(), state=lambda: cmds.getAttr(plug))
-
-    def test_set_operation_on_locked_attribute(self):
-        for kind in ("condition", "multiplyDivide", "plusMinusAverage", "vectorProduct"):
-            with self.subTest(kind=kind):
-                node = self.node(kind)
-                plug = self.lock(node, "operation")
-                self.assertFails(RuntimeError, node.setOperation, 3 if kind == "plusMinusAverage" else 2, state=lambda: cmds.getAttr(plug))
-
-    def test_plus_minus_average_dimension_type(self):
-        node = self.node("plusMinusAverage")
-        plug = node.getFullName() + ".input1D"
-        for method, args in (("addInput", (1.0,)), ("removeInput", (0,))):
-            with self.subTest(method=method):
-                self.assertFails(TypeError, getattr(node, method), *args, dimension=[1], state=lambda: cmds.getAttr(plug, multiIndices=True))
-
-
 class DagNodeTest(_ArgumentCase):
     """DAG ノードの引数・ロックの例外。"""
 
@@ -656,20 +626,6 @@ class ReferenceTest(_ArgumentCase):
         for error, method, args, flags in cases:
             with self.subTest(method=method, flags=flags):
                 self.assertFails(error, getattr(live, method), *args, state=locked, **flags)
-
-
-class RemapValueTest(_ArgumentCase):
-    """addRampPoint の型の例外。ランプは変わらない。"""
-
-    def test_add_ramp_point_types(self):
-        node = self.node("remapValue")
-
-        def ramp():
-            return cmds.getAttr(node.getFullName() + ".value", multiIndices=True)
-
-        for args, flags in ((("a", 0.5), {}), ((0.5, 0.5), {"interpolation": 1})):
-            with self.subTest(args=args, flags=flags):
-                self.assertFails(TypeError, node.addRampPoint, *args, state=ramp, **flags)
 
 
 class SkinClusterTest(_ArgumentCase):

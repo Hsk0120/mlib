@@ -1,52 +1,14 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """2点の距離を計算する。"""
 
-from . import _calculation
 from .node import Node
-from typing import Iterable
-from mlib.maths.matrix import Matrix
-from mlib.plugs.plug import Plug
 
 
 
 class DistanceBetween(Node):
-    """2点(それぞれのマトリクスで変換した点)の距離を計算する。"""
-    def setInput(self, point1: Iterable[float] | Plug | str | None = ..., point2: Iterable[float] | Plug | str | None = ..., inMatrix1: Matrix | Iterable[float] | Plug | str | None = ..., inMatrix2: Matrix | Iterable[float] | Plug | str | None = ...) -> None:
-        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
+    """2点(それぞれのマトリクスで変換した点)の距離を計算する。
 
-        各入力は、渡したものの種類で扱いが変わる。
-
-        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
-        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
-        - None: その入力は変更しない。
-
-        まとめて1回のUndoで戻せる。
-
-        Args:
-            point1 (Iterable[float] | Plug | str | None): 1つ目の点(cm)。
-            point2 (Iterable[float] | Plug | str | None): 2つ目の点(cm)。
-            inMatrix1 (Matrix | Iterable[float] | Plug | str | None): point1を変換するマトリクス。
-            inMatrix2 (Matrix | Iterable[float] | Plug | str | None): point2を変換するマトリクス。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 接続元の型が不正な場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書き込みや接続を拒否した場合。それまでの変更は元に戻す。
-        """
-        ...
-    def getResult(self) -> float:
-        """出力 ``distance`` の現在の値を取得する。
-
-        Returns:
-            float: 距離(cm)。
-        """
-        ...
-    def getOutputPlug(self) -> Plug:
-        """出力のアトリビュート ``distance`` を取得する(接続元に使う)。
-
-        Returns:
-            Plug: 出力のアトリビュート。
-        """
-        ...
+    専用のメソッドは持たない。入力・出力・演算の種類などは、アトリビュート(Plug)で読み書きする
+    (``node.getPlug("input1").set(...)``・``plug.connect(...)``・``node.getPlug("output").get()``。
+    enumは ``Plug.getEnumName()`` と、Mayaのフィールド名を渡す ``Plug.set("Divide")`` で名前でも扱える)。
+    """

@@ -9,7 +9,7 @@
 - ``fast=False`` は Undo 1 回で呼ぶ前の状態へ戻る。
 
 ``place2dTexture.connectTexture``・``File.setFilePath``・``File.setColorSpace``・``AimConstraint.setOffset`` は
-``inMaya/unit/nodes/test_calculation_fast.py`` が同じ内容を確かめているので対象にしない。
+``inMaya/integration/test_fast_utilityNodes.py`` が同じ内容を確かめているので対象にしない。
 """
 
 import sys

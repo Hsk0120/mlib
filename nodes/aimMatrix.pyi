@@ -1,105 +1,14 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """指定した軸をターゲットへ向けるマトリクスを作る。"""
 
-from . import _calculation
 from .node import Node
-from typing import Iterable
-from mlib.maths.matrix import Matrix
-from mlib.plugs.plug import Plug
 
-_PRIMARY_MODES: tuple
-_SECONDARY_MODES: tuple
 
 
 class AimMatrix(Node):
-    """入力マトリクスの主軸・副軸を、ターゲットのマトリクスまたはベクトルへ向けたマトリクスを出力する。"""
-    def setInput(self, inputMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryInputAxis: Iterable[float] | Plug | str | None = ..., primaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., primaryTargetVector: Iterable[float] | Plug | str | None = ..., secondaryInputAxis: Iterable[float] | Plug | str | None = ..., secondaryTargetMatrix: Matrix | Iterable[float] | Plug | str | None = ..., secondaryTargetVector: Iterable[float] | Plug | str | None = ...) -> None:
-        """主な入力をまとめて設定する。値は書き込み、Plugは接続する。
+    """入力マトリクスの主軸・副軸を、ターゲットのマトリクスまたはベクトルへ向けたマトリクスを出力する。
 
-        各入力は、渡したものの種類で扱いが変わる。
-
-        - Plug・MPlug・``"node.attr"`` の文字列: 接続元として接続する。すでにある入力の接続は置き換える。
-        - それ以外: 値として書き込む。入力が接続されていれば、先に接続を外す。
-        - None: その入力は変更しない。
-
-        まとめて1回のUndoで戻せる。
-
-        Args:
-            inputMatrix (Matrix | Iterable[float] | Plug | str | None): 向きを変える元のマトリクス。
-            primaryInputAxis (Iterable[float] | Plug | str | None): 主軸(入力マトリクスの空間)。
-            primaryTargetMatrix (Matrix | Iterable[float] | Plug | str | None): 主軸のターゲットのマトリクス。
-            primaryTargetVector (Iterable[float] | Plug | str | None): 主軸のターゲットのベクトル。
-            secondaryInputAxis (Iterable[float] | Plug | str | None): 副軸(入力マトリクスの空間)。
-            secondaryTargetMatrix (Matrix | Iterable[float] | Plug | str | None): 副軸のターゲットのマトリクス。
-            secondaryTargetVector (Iterable[float] | Plug | str | None): 副軸のターゲットのベクトル。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 接続元の型が不正な場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込み・接続を拒否した場合(それまでの変更は戻す)。
-        """
-        ...
-    def getPrimaryMode(self) -> str:
-        """主軸の向け方を名前で取得する(``primaryMode``)。
-
-        Returns:
-            str: ``"lockAxis"``・``"aim"``・``"align"`` のいずれか。
-        """
-        ...
-    def setPrimaryMode(self, mode: str | int) -> None:
-        """主軸の向け方を、名前または番号で設定する(``primaryMode``)。
-
-        1回のUndoで戻せる。
-
-        Args:
-            mode (str | int): ``"lockAxis"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: modeが文字列・int以外の場合。
-            ValueError: 対応していない名前の場合、または番号が範囲外の場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
-        """
-        ...
-    def getSecondaryMode(self) -> str:
-        """副軸の向け方を名前で取得する(``secondaryMode``)。
-
-        Returns:
-            str: ``"none"``・``"aim"``・``"align"`` のいずれか。
-        """
-        ...
-    def setSecondaryMode(self, mode: str | int) -> None:
-        """副軸の向け方を、名前または番号で設定する(``secondaryMode``)。
-
-        1回のUndoで戻せる。
-
-        Args:
-            mode (str | int): ``"none"``・``"aim"``・``"align"`` のいずれか、またはMayaの番号(0から)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: modeが文字列・int以外の場合。
-            ValueError: 対応していない名前の場合、または番号が範囲外の場合。
-            RuntimeError: ノードが無効な場合、またはMayaが書込みを拒否した場合。
-        """
-        ...
-    def getResult(self) -> Matrix:
-        """出力 ``outputMatrix`` の現在の値を取得する。
-
-        Returns:
-            Matrix: 向きを変えたマトリクス。
-        """
-        ...
-    def getOutputPlug(self) -> Plug:
-        """出力のアトリビュート ``outputMatrix`` を取得する(接続元に使う)。
-
-        Returns:
-            Plug: 出力のアトリビュート。
-        """
-        ...
+    専用のメソッドは持たない。入力・出力・演算の種類などは、アトリビュート(Plug)で読み書きする
+    (``node.getPlug("input1").set(...)``・``plug.connect(...)``・``node.getPlug("output").get()``。
+    enumは ``Plug.getEnumName()`` と、Mayaのフィールド名を渡す ``Plug.set("Divide")`` で名前でも扱える)。
+    """

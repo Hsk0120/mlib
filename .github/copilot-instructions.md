@@ -133,6 +133,10 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 ## メソッドとプロパティ
 
 - Maya へ問い合わせる操作はメソッド、オブジェクトが保持する値はプロパティ。シーン更新は明示的なメソッドで行う。
+- 公開メソッドを増やしすぎない。アトリビュート1つを読み書きするだけ・om2 の値を1つ返すだけの専用メソッドは、利用側で使うものだけを置く。
+  それ以外は `node.getPlug("x").get()`/`set()`(enum は `Plug.getEnumName()` と Maya のフィールド名の `Plug.set("Divide")`)や `mfn()` で書く。
+  似たメソッドは、違いをキーワード専用の引数で選ぶ1つにまとめる。
+- 計算ノード(`multiplyDivide`・`plusMinusAverage`・`condition`・`decomposeMatrix` など27型)のクラスは、型の選択と `isinstance` のために置き、専用メソッドは持たない。
 
 | 対象 | 形式 | 例 |
 | --- | --- | --- |

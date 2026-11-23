@@ -151,18 +151,6 @@ class CameraTest(_RemainingCase):
         self.assertFails(ValueError, camera.getFieldOfView, unit="bad")
 
 
-class CalculationNodeTest(_RemainingCase):
-    """addInput は Maya が書き込みを拒否すると RuntimeError。入力の要素は増えない。"""
-
-    def test_add_input_on_locked_multi(self):
-        cases = (("blendWeighted", "input", (1.0,)), ("multMatrix", "matrixIn", (mlib.Matrix(),)), ("plusMinusAverage", "input1D", (1.0,)))
-        for kind, attribute, args in cases:
-            with self.subTest(kind=kind):
-                node = self.node(kind)
-                plug = self.lock(node.getFullName(), attribute)
-                self.assertFails(RuntimeError, node.addInput, *args, state=lambda: cmds.getAttr(plug, multiIndices=True))
-
-
 class DagNodeTest(_RemainingCase):
     """visibility を書き込めない場合の RuntimeError。値と接続は変わらない。"""
 
@@ -417,33 +405,6 @@ class ReferenceTest(_RemainingCase):
         for path in (self.temp_file("missing.ma"), "mlibSpecErrNodeRemainMissing.ma"):
             with self.subTest(path=path):
                 self.assertFails(FileNotFoundError, self.outer.replaceFile, path, state=state)
-
-
-class RemapValueTest(_RemainingCase):
-    """ランプの点の形・値の例外。ランプは変わらない。"""
-
-    def test_ramp_point_errors(self):
-        node = self.node("remapValue")
-        nan = float("nan")
-
-        def ramp():
-            name = node.getFullName()
-            return (cmds.getAttr(name + ".value", multiIndices=True), cmds.getAttr(name + ".value[*]"))
-
-        cases = (
-            (TypeError, "setRampPoints", (1.5,), {}),
-            (TypeError, "setRampPoints", ([(0.0, 0.0)],), {}),
-            (ValueError, "setRampPoints", ([],), {}),
-            (ValueError, "setRampPoints", ([(0.0, 0.0, "linear")], "bad"), {}),
-            (ValueError, "setRampPoints", ([(nan, 0.0, "linear")],), {}),
-            (ValueError, "setRampPoints", ([(0.0, 0.0, "bad")],), {}),
-            (ValueError, "addRampPoint", (nan, 0.5), {}),
-            (ValueError, "addRampPoint", (0.5, 0.5), {"kind": "bad"}),
-            (ValueError, "addRampPoint", (0.5, 0.5), {"interpolation": "bad"}),
-        )
-        for error, method, args, flags in cases:
-            with self.subTest(method=method, args=args, flags=flags):
-                self.assertFails(error, getattr(node, method), *args, state=ramp, **flags)
 
 
 class ScaleGeometryTest(_RemainingCase):

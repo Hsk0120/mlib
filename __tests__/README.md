@@ -157,7 +157,7 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 
 - `_` は区切りにだけ使い、各部分は lowerCamelCase にします(`test_skinCluster_weights.py`)。
 - 対象はソースのファイル名をそのまま書きます(`nodes/skinCluster.py` → `inMaya/unit/nodes/test_skinCluster.py`)。
-  パッケージの `__init__.py` は `init`、先頭の `_` は付けません(`nodes/_calculation.py` → `test_calculation.py`)。
+  パッケージの `__init__.py` は `init`、先頭の `_` は付けません。
   mlib直下のモジュールは `inMaya/unit/root/` に置きます。スネークケースのツール(`_tools/check_mlib_exports.py`)は
   lowerCamelCase に直して書きます(`noMaya/test_checkMlibExports.py`)。
 - `inMaya/integration/` の観点は `naming`(公開名・引数名) `units`(角度・時間・長さ) `fast`(fast経路)
