@@ -1,7 +1,7 @@
 """``mlib.nodes.nurbsCurve`` のテスト。
 
 - 形状ラッパーと標準コンストレイントを Maya 内で検証する。
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setPoints・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 - Shape 系(Mesh・NurbsCurve・Camera)とデフォーマー(Cluster)の照会の約束を固定する(担当C)。
 - 形状のシェイプのメソッドと createNurbsPlane を確かめる。
 """
@@ -58,7 +58,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def positions(self, shape, ws=False):
         """API の内部距離単位で形状の全位置を返す。"""
-        points = shape.getPoints(ws) if isinstance(shape, mlib.Mesh) else shape.getCvPositions(ws)
+        points = shape.getPoints(ws)
         return [tuple(point)[:3] for point in points]
 
     def assert_positions(self, actual, expected):
@@ -115,8 +115,26 @@ class _Case(NamespaceCase):
             self.assertSequenceAlmostEqual(tuple(a)[:3], tuple(e)[:3], places=places)
 
 
-class SetCvPositionsTest(_Case):
-    """CV位置の一括書込み。"""
+class SetPointsTest(_Case):
+    """CV位置の一括の読み書き(getPoints・setPoints)と、番号でのCVの取得(getCVs)。"""
+
+    def test_getCVs_single_index_returns_cv(self):
+        """getCVs は番号1つで CV、並び・None で CVs を返し、bool は TypeError、範囲外は IndexError。"""
+        shape = self.curve()
+        cv = shape.getCVs(2)
+        self.assertIs(type(cv), mlib.CV)
+        self.assertEqual(cv.index, 2)
+        self.assertSequenceAlmostEqual(tuple(cv.getPosition())[:3], SQUARE[2])
+        self.assertIs(type(shape.getCVs([2])), mlib.CVs)
+        self.assertEqual(shape.getCVs([2])[0], cv)
+        self.assertIs(type(shape.getCVs()), mlib.CVs)
+        self.assertEqual(len(shape.getCVs()), len(SQUARE))
+        with self.assertRaises(TypeError):
+            shape.getCVs(True)
+        for index in (-1, len(SQUARE)):
+            with self.subTest(index=index):
+                with self.assertRaises(IndexError):
+                    shape.getCVs(index)
 
     def test_object_and_world_space_match_cmds(self):
         shape = self.curve(degree=3)
@@ -124,37 +142,37 @@ class SetCvPositionsTest(_Case):
         cmds.setAttr(transform + ".translate", 1, 2, 3)
         cmds.setAttr(transform + ".scale", 2, 2, 2)
         local = [(0, 1, 0), (1, 1, 0), (2, 1, 0), (3, 1, 0)]
-        self.assertIsNone(shape.setCvPositions(local))
+        self.assertIsNone(shape.setPoints(local))
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), local)
         world = [(5, 0, 0), (7, 0, 0), (9, 0, 0), (11, 0, 0)]
-        shape.setCvPositions(world, worldSpace=True)
+        shape.setPoints(world, worldSpace=True)
         self.assertPointsAlmostEqual(_world_cvs(shape.getFullName()), world)
-        self.assertPointsAlmostEqual(shape.getCvPositions(worldSpace=True), world)
+        self.assertPointsAlmostEqual(shape.getPoints(worldSpace=True), world)
 
     def test_round_trip_with_get_and_mm_units(self):
         shape = self.curve()
         cmds.currentUnit(linear="mm")
-        moved = [om2.MPoint(point.x + 1, point.y, point.z) for point in shape.getCvPositions()]
-        shape.setCvPositions(moved)
+        moved = [om2.MPoint(point.x + 1, point.y, point.z) for point in shape.getPoints()]
+        shape.setPoints(moved)
         cmds.currentUnit(linear="cm")
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), [(x + 1, y, z) for x, y, z in SQUARE])
 
     def test_periodic_curve_accepts_both_counts(self):
         shape = self.curve(degree=3, closed=True)
         independent = [(x * 2, y, z * 2) for x, y, z in SQUARE]
-        shape.setCvPositions(independent)
-        self.assertPointsAlmostEqual(shape.getCvPositions(), independent + independent[:3])
-        shape.setCvPositions(independent + independent[:3])
+        shape.setPoints(independent)
+        self.assertPointsAlmostEqual(shape.getPoints(), independent + independent[:3])
+        shape.setPoints(independent + independent[:3])
         self.assertEqual(shape.mfn().form, om2.MFnNurbsCurve.kPeriodic)
         with self.assertRaises(ValueError):
-            shape.setCvPositions([*independent, (9, 9, 9), *independent[1:3]])
+            shape.setPoints([*independent, (9, 9, 9), *independent[1:3]])
         with self.assertRaises(ValueError):
-            shape.setCvPositions(independent[:3])
+            shape.setPoints(independent[:3])
 
     def test_undo_once(self):
         shape = self.curve()
         self.flushUndo()
-        shape.setCvPositions([(0, 5, 0)] * 4)
+        shape.setPoints([(0, 5, 0)] * 4)
         self.assertUndoesInOneStep(
             lambda: self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE),
             lambda: self.assertPointsAlmostEqual(_cvs(shape.getFullName()), [(0, 5, 0)] * 4),
@@ -171,11 +189,11 @@ class SetCvPositionsTest(_Case):
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
-                    shape.setCvPositions(*args, **kwargs)
+                    shape.setPoints(*args, **kwargs)
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE)
         # CV単体の書込み(setPosition)も、不正な座標は形状を変えずに拒否する。
         with self.assertRaises(TypeError):
-            shape.getCV(0).setPosition((0, 0, "a"))
+            shape.getCVs(0).setPosition((0, 0, "a"))
         self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE)
 
 
@@ -243,12 +261,12 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         """rebuild はスパン・次数・範囲を変え、同じシェイプのノードを保ち、Undo 1回で戻る。"""
         shape = self.curve(self.POINTS)
         uuid = cmds.ls(shape.getFullName(), uuid=True)[0]
-        before = shape.getCvPositions()
-        start = shape.getPointAtParam(shape.getParamRange()[0])
+        before = shape.getPoints()
+        start = shape.getAtParam(shape.getParamRange()[0])
         self.flushUndo()
         self.assertIsNone(shape.rebuild(6, keepRange="unit"))
         self.assertUndoesInOneStep(
-            lambda: self.assertEqual(len(shape.getCvPositions()), len(before)),
+            lambda: self.assertEqual(len(shape.getPoints()), len(before)),
             lambda: (self.assertEqual(shape.mfn().numSpans, 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
         )
         self.assertEqual(cmds.ls(uuid)[0], cmds.ls(shape.getFullName())[0])
@@ -256,7 +274,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         self.assertEqual(shape.mfn().degree, 1)
         self.assertEqual(shape.mfn().numSpans, 3)
         self.assertSequenceAlmostEqual(shape.getParamRange(), (0.0, 3.0))
-        self.assertSequenceAlmostEqual(shape.getPointAtParam(0.0), start)
+        self.assertSequenceAlmostEqual(shape.getAtParam(0.0), start)
         spans = shape.mfn().numSpans
         shape.rebuild()
         self.assertEqual(shape.mfn().numSpans, spans)
@@ -276,12 +294,12 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
     def test_reverse_undo(self):
         """reverse は CV の並びを逆にし、Undo 1回で戻る。"""
         shape = self.curve(self.POINTS)
-        before = shape.getCvPositions()
+        before = shape.getPoints()
         self.flushUndo()
         self.assertIsNone(shape.reverseDirection())
         self.assertUndoesInOneStep(
-            lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in before]),
-            lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getCvPositions()], [tuple(p) for p in reversed(before)]),
+            lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getPoints()], [tuple(p) for p in before]),
+            lambda: self.assertSequenceAlmostEqual([tuple(p) for p in shape.getPoints()], [tuple(p) for p in reversed(before)]),
         )
 
     def test_empty_and_deleted(self):

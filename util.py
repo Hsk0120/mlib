@@ -479,6 +479,29 @@ def _world_space(value):
     return value
 
 
+def _require_choice(value, name, choices):
+    """文字列の選択肢を検証する。
+
+    Args:
+        value (str): 検証する値。
+        name (str): 例外メッセージに使う引数名。
+        choices (Sequence[str]): 受け付ける値。
+
+    Returns:
+        str: 検証済みの値。
+
+    Raises:
+        TypeError: 文字列でない場合。
+        ValueError: 選択肢に無い場合。
+    """
+    if not isinstance(value, str):
+        raise TypeError(f"{name}はstrで指定してください: {type(value).__name__}")
+    if value not in choices:
+        listed = "・".join(repr(choice) for choice in choices)
+        raise ValueError(f"{name}は{listed}のどれかで指定してください: {value!r}")
+    return value
+
+
 def _finite(value, name):
     """有限な実数を検証し、floatへ変換する。
 

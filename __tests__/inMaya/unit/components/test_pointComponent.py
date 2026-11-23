@@ -218,7 +218,7 @@ class PointTypeSpecTest(_ComponentCase):
     """点の位置はすべてVector(単体)またはlist[Vector]で返す。UVは(U, V)のtuple。"""
 
     def test_point_types(self):
-        """Vertex/CV・Vertices/CVs・Mesh.getPoints・NurbsCurve.getCvPositionsの型と値。"""
+        """Vertex/CV・Vertices/CVs・Mesh.getPoints・NurbsCurve.getPointsの型と値。"""
         cases = [("Vertex", Vertex(self.mesh, 0).getPosition(), self.om2_point(self.mesh, 0)), ("CV", CV(self.curve, 1).getPosition(), (1, 2, 3))]
         for name, value, expected in cases:
             with self.subTest(name=name):
@@ -239,7 +239,7 @@ class PointTypeSpecTest(_ComponentCase):
                     self.assertEqual(len(values), len(expected))
                     for value, point in zip(values, expected):
                         self.assertPoint(value, (point.x, point.y, point.z))
-        curve_points = self.curve.getCvPositions()
+        curve_points = self.curve.getPoints()
         self.assertTrue(all(type(value) is Vector for value in curve_points))
         self.assertEqual(curve_points, [(0, 0, 0), (1, 2, 3), (4, 5, 6)])
         self.assertEqual(CVs(self.curve).getPosition(), curve_points)
@@ -368,7 +368,7 @@ class MeshComponentTest(_Case):
 
     def test_adjacency_matches_cmds(self):
         _, mesh = self.cube()
-        vertex = mesh.getVertex(3)
+        vertex = mesh.getVertices(3)
         self.assertEqual(self.names(vertex.getEdges()), self.convert(vertex, toEdge=True))
         self.assertEqual(list(vertex.getEdges().indices), sorted(vertex.getEdges().indices))
         connected = vertex.getConnected()
@@ -391,8 +391,8 @@ class MeshComponentTest(_Case):
 
     def test_boundary(self):
         mesh = self.plane()
-        border_edges = set(mesh.getBorderEdges().indices)
-        border_vertices = set(mesh.getBorderVertices().indices)
+        border_edges = set(mesh.getBorder().indices)
+        border_vertices = set(mesh.getBorder(type="vertex").indices)
         self.assertEqual({e for e in range(mesh.getNumEdges()) if Edge(mesh, e).isOnBoundary()}, border_edges)
         self.assertEqual({v for v in range(mesh.getNumVertices()) if Vertex(mesh, v).isOnBoundary()}, border_vertices)
         self.assertEqual(sum(Face(mesh, f).isOnBoundary() for f in range(mesh.getNumPolygons())), 6)
@@ -404,7 +404,7 @@ class MeshComponentTest(_Case):
         face = Face(mesh, 1)
         uvs = face.getUVs()
         self.assertEqual(self.names(uvs), self.convert(face, toUV=True))
-        vertex = mesh.getVertex(0)
+        vertex = mesh.getVertices(0)
         self.assertEqual(self.names(vertex.getUVs()), self.convert(vertex, toUV=True))
         for uv in vertex.getUVs():
             with self.subTest(uv=uv.index):
@@ -427,7 +427,7 @@ class MeshComponentTest(_Case):
         self.assertFalse(face.isKind("zeroArea"))
         self.assertEqual(face.getTriangleCount(), 2)
         self.assertEqual(sum(mesh.getFaces().getTriangleCount()), cmds.polyEvaluate(mesh.getFullName(), triangle=True))
-        mesh.getVertex(0).setPosition((0.0, 0.0, 0.5), relative=True)
+        mesh.getVertices(0).setPosition((0.0, 0.0, 0.5), relative=True)
         self.assertFalse(face.isKind("planar"))
         flat = mesh.getVertices(Face(mesh, 1).getVertices().indices)
         flat.setPosition((0.0, 5.0, 0.0))
@@ -458,13 +458,13 @@ class MeshComponentTest(_Case):
 
     def test_vertex_color(self):
         _, mesh = self.cube()
-        vertex = mesh.getVertex(2)
+        vertex = mesh.getVertices(2)
         self.assertIsNone(vertex.getColor())
         self.flushUndo()
         self.assertIsNone(vertex.setColor((1.0, 0.5, 0.0)))
         self.assertSequenceAlmostEqual(vertex.getColor(), (1.0, 0.5, 0.0, 1.0), places=5)
         self.assertSequenceAlmostEqual(cmds.polyColorPerVertex(vertex.getFullName(), query=True, rgb=True), (1.0, 0.5, 0.0), places=5)
-        self.assertIsNone(mesh.getVertex(3).getColor())
+        self.assertIsNone(mesh.getVertices(3).getColor())
         cmds.undo()
         self.assertIsNone(vertex.getColor())
         cmds.redo()
@@ -491,7 +491,7 @@ class MeshComponentTest(_Case):
 
     def test_deleted_shape(self):
         transform, mesh = self.cube()
-        vertex, edge, face = mesh.getVertex(0), Edge(mesh, 0), Face(mesh, 0)
+        vertex, edge, face = mesh.getVertices(0), Edge(mesh, 0), Face(mesh, 0)
         vertices = mesh.getVertices([0, 1])
         cmds.delete(transform)
         for call in (
@@ -544,7 +544,7 @@ class MeshComponentQueryTest(_CaseMethodAdditions):
         transform, shape = self.cube()
         cmds.setAttr(transform.getFullName() + ".translate", 0, 5, 0)
         cmds.setAttr(transform.getFullName() + ".scale", 2, 2, 2)
-        face = shape.getFace(1)  # polyCube の f[1] は +Y の面。
+        face = shape.getFaces(1)  # polyCube の f[1] は +Y の面。
         self.assertSequenceAlmostEqual(face.getCenter(), (0, 1, 0))
         self.assertSequenceAlmostEqual(face.getCenter(ws=True), (0, 7, 0))
         self.assertSequenceAlmostEqual(face.getNormal(), (0, 1, 0))
@@ -559,7 +559,7 @@ class MeshComponentQueryTest(_CaseMethodAdditions):
         """エッジの長さ・中点と頂点の法線(om2 の getVertexNormal と同じ)。"""
         transform, shape = self.cube()
         cmds.setAttr(transform.getFullName() + ".scale", 3, 1, 1)
-        edge = shape.getEdge(0)
+        edge = shape.getEdges(0)
         a, b = [
             cmds.pointPosition(f"{shape.getFullName()}.vtx[{i}]", world=True)
             for i in cmds.polyInfo(edge.getFullName(), edgeToVertex=True)[0].split(":")[1].split()[:2]
@@ -570,23 +570,23 @@ class MeshComponentQueryTest(_CaseMethodAdditions):
         fn = om2.MFnMesh(shape.mpath())
         for weighted in (False, True):
             with self.subTest(angleWeighted=weighted):
-                normal = shape.getVertex(0).getNormal(angleWeighted=weighted)
+                normal = shape.getVertices(0).getNormal(angleWeighted=weighted)
                 expected = om2.MVector(fn.getVertexNormal(0, weighted, om2.MSpace.kObject)).normal()
                 self.assertSequenceAlmostEqual(normal, expected)
                 self.assertAlmostEqual(normal.length(), 1.0)
         with self.assertRaises(TypeError):
-            shape.getVertex(0).getNormal(angleWeighted=1)
+            shape.getVertices(0).getNormal(angleWeighted=1)
 
     def test_query_errors(self):
         """範囲外の番号は IndexError、worldSpace の型違い・ws との同時指定は TypeError、削除済みは RuntimeError。"""
         transform, shape = self.cube()
         calls = (
-            lambda c, **f: shape.getFace(c).getCenter(**f),
-            lambda c, **f: shape.getFace(c).getNormal(**f),
-            lambda c, **f: shape.getFace(c).getArea(**f),
-            lambda c, **f: shape.getEdge(c).getLength(**f),
-            lambda c, **f: shape.getEdge(c).getCenter(**f),
-            lambda c, **f: shape.getVertex(c).getNormal(**f),
+            lambda c, **f: shape.getFaces(c).getCenter(**f),
+            lambda c, **f: shape.getFaces(c).getNormal(**f),
+            lambda c, **f: shape.getFaces(c).getArea(**f),
+            lambda c, **f: shape.getEdges(c).getLength(**f),
+            lambda c, **f: shape.getEdges(c).getCenter(**f),
+            lambda c, **f: shape.getVertices(c).getNormal(**f),
         )
         for number, call in enumerate(calls):
             with self.subTest(call=number):
@@ -596,7 +596,7 @@ class MeshComponentQueryTest(_CaseMethodAdditions):
                     call(0, worldSpace=1)
                 with self.assertRaises(TypeError):
                     call(0, worldSpace=True, ws=True)
-        face = shape.getFace(0)
+        face = shape.getFaces(0)
         cmds.delete(transform.getFullName())
         with self.assertRaises(RuntimeError):
             face.getCenter()
@@ -608,7 +608,7 @@ class PointMoveTest(_CaseMethodAdditions):
     def test_move_by_single_and_undo(self):
         """1点の relative=True は相対移動で、Undo 1回で戻り、fast はUndoに残らない。ワールド指定は親の変換を含む。"""
         transform, shape = self.cube()
-        vertex = shape.getVertex(2)
+        vertex = shape.getVertices(2)
         before = vertex.getPosition()
         self.flushUndo()
         self.assertIsNone(vertex.setPosition((1, 2, 3), relative=True))
@@ -647,7 +647,7 @@ class PointMoveTest(_CaseMethodAdditions):
         """axis と relative の併用は、その成分だけに足す。Undo 1回で戻り、fast はUndoに残らない。"""
         transform, shape = self.cube()
         cmds.setAttr(transform.getFullName() + ".scale", 2, 3, 4)
-        vertex = shape.getVertex(3)
+        vertex = shape.getVertices(3)
         for worldSpace in (False, True):
             for column, axis in enumerate(("x", "Y", "z")):
                 for fast in (False, True):
@@ -845,12 +845,12 @@ class PointComponentTest(_CaseShapeEditing):
     def test_set_position_object_and_world_space(self):
         shape = self.cube()
         name = shape.getFullName()
-        vertex = shape.getVertex(2)
+        vertex = shape.getVertices(2)
         self.assertIsNone(vertex.setPosition((1.5, -2.0, 0.25)))
         self.assertPointsAlmostEqual([_points(name)[2]], [(1.5, -2.0, 0.25)])
         vertex.setPosition(om2.MPoint(4, 5, 6), worldSpace=True)
         self.assertPointsAlmostEqual([_points(name, True)[2]], [(4, 5, 6)])
-        cv = self.curve().getCV(1)
+        cv = self.curve().getCVs(1)
         cv.setPosition((7, 8, 9), worldSpace=True)
         self.assertPointsAlmostEqual([_points(cv.shape.getFullName(), True)[1]], [(7, 8, 9)])
         cv.setPosition((1, 2, 3))
@@ -859,7 +859,7 @@ class PointComponentTest(_CaseShapeEditing):
     def test_set_position_axis_keeps_other_axes_in_the_same_space(self):
         shape = self.cube()
         name = shape.getFullName()
-        vertex = shape.getVertex(3)
+        vertex = shape.getVertices(3)
         for axis, letter in enumerate("xyz"):
             for worldSpace in (False, True):
                 with self.subTest(axis=letter, worldSpace=worldSpace):
@@ -878,27 +878,27 @@ class PointComponentTest(_CaseShapeEditing):
         shape = self.cube()
         name = shape.getFullName()
         cmds.currentUnit(linear="m")
-        shape.getVertex(0).setPosition((100, 0, 0))
-        shape.getVertex(1).setPosition(50, axis="y")
+        shape.getVertices(0).setPosition((100, 0, 0))
+        shape.getVertices(1).setPosition(50, axis="y")
         points = _points(name)
         self.assertPointsAlmostEqual([points[0]], [(100, 0, 0)])
         self.assertAlmostEqual(points[1][1], 50, places=PLACES)
-        self.assertAlmostEqual(shape.getVertex(0).getPosition().x, 100, places=PLACES)
+        self.assertAlmostEqual(shape.getVertices(0).getPosition().x, 100, places=PLACES)
         curve = self.curve()
-        curve.getCV(0).setPosition((10, 20, 30), worldSpace=True)
+        curve.getCVs(0).setPosition((10, 20, 30), worldSpace=True)
         self.assertPointsAlmostEqual([_points(curve.getFullName(), True)[0]], [(10, 20, 30)])
 
     def test_undo_once(self):
         shape = self.cube()
         name = shape.getFullName()
-        vertex = shape.getVertex(4)
+        vertex = shape.getVertices(4)
         self.check_undo(name, lambda: vertex.setPosition((3, 3, 3)))
         self.check_undo(name, lambda: vertex.setPosition((3, 1, 3), worldSpace=True))
         self.check_undo(name, lambda: vertex.setPosition(-4, axis="x"))
         self.check_undo(name, lambda: vertex.setPosition(-4, worldSpace=True, axis="y"))
         self.check_undo(name, lambda: vertex.setPosition(-4, axis="z"))
         curve = self.curve()
-        self.check_undo(curve.getFullName(), lambda: curve.getCV(2).setPosition((5, 5, 5), worldSpace=True))
+        self.check_undo(curve.getFullName(), lambda: curve.getCVs(2).setPosition((5, 5, 5), worldSpace=True))
 
     def test_fast_matches_normal_without_undo(self):
         cases = (
@@ -913,23 +913,24 @@ class PointComponentTest(_CaseShapeEditing):
             for worldSpace in (False, True):
                 with self.subTest(case=label, worldSpace=worldSpace):
                     self.check_fast(
-                        lambda text: self.cube(text + "#"), lambda shape, fast: shape.getVertex(5).setPosition(value, worldSpace=worldSpace, fast=fast, **flags)
+                        lambda text: self.cube(text + "#"),
+                        lambda shape, fast: shape.getVertices(5).setPosition(value, worldSpace=worldSpace, fast=fast, **flags),
                     )
                     self.check_fast(
-                        lambda text: self.curve(text + "#"), lambda shape, fast: shape.getCV(1).setPosition(value, worldSpace=worldSpace, fast=fast, **flags)
+                        lambda text: self.curve(text + "#"), lambda shape, fast: shape.getCVs(1).setPosition(value, worldSpace=worldSpace, fast=fast, **flags)
                     )
 
     def test_fast_periodic_curve_keeps_overlapping_cvs(self):
         curve = self.curve(periodic=True)
         name = curve.getFullName()
         count = len(_points(name))
-        curve.getCV(count - 1).setPosition((9, 9, 9), fast=True)  # 末尾の重複CVは先頭の独立CVを書く
+        curve.getCVs(count - 1).setPosition((9, 9, 9), fast=True)  # 末尾の重複CVは先頭の独立CVを書く
         points = _points(name)
         self.assertPointsAlmostEqual([points[2], points[count - 1]], [(9, 9, 9), (9, 9, 9)])
 
     def test_invalid_inputs_do_not_change_the_shape(self):
         shape = self.cube()
-        vertex = shape.getVertex(0)
+        vertex = shape.getVertices(0)
         self.check_rejects(
             shape.getFullName(),
             (
@@ -955,14 +956,14 @@ class PointComponentTest(_CaseShapeEditing):
 
     def test_fast_rejects_input_history_and_singular_world_matrix(self):
         shape = self.cube(history=True)
-        self.check_rejects(shape.getFullName(), ((NotImplementedError, lambda: shape.getVertex(0).setPosition((1, 2, 3), fast=True)),))
+        self.check_rejects(shape.getFullName(), ((NotImplementedError, lambda: shape.getVertices(0).setPosition((1, 2, 3), fast=True)),))
         flat = self.cube("flat")
         cmds.setAttr(flat.getTransform().getFullName() + ".scaleX", 0)
         self.check_rejects(
             flat.getFullName(),
             (
-                (ValueError, lambda: flat.getVertex(0).setPosition((1, 2, 3), worldSpace=True)),
-                (ValueError, lambda: flat.getVertex(0).setPosition((1, 2, 3), worldSpace=True, fast=True)),
+                (ValueError, lambda: flat.getVertices(0).setPosition((1, 2, 3), worldSpace=True)),
+                (ValueError, lambda: flat.getVertices(0).setPosition((1, 2, 3), worldSpace=True, fast=True)),
             ),
         )
 

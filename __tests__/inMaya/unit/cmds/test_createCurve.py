@@ -1,6 +1,6 @@
 """``mlib.cmds.createCurve`` のテスト。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setPoints・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 """
 
 import sys
@@ -72,7 +72,7 @@ class NurbsCurveCreateTest(_Case):
                 self.assertEqual(cmds.getAttr(name + ".form"), form)
                 self.assertEqual(shape.mfn().form, forms[form])
                 self.assertEqual(shape.getNumCVs(), count)
-                self.assertPointsAlmostEqual(shape.getCvPositions(), points)
+                self.assertPointsAlmostEqual(shape.getPoints(), points)
                 self.assertIsInstance(shape.getTransform(), Transform)
         self.assertEqual(cmds.ls(selection=True), [])
 
@@ -94,7 +94,7 @@ class NurbsCurveCreateTest(_Case):
     def test_point_types(self):
         """MPoint・MVector・listを受け付け、MPointはwで割らない。"""
         shape = self.curve([om2.MPoint(1, 2, 3, 2), om2.MVector(4, 5, 6), [7, 8, 9]])
-        self.assertPointsAlmostEqual(shape.getCvPositions(), [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
+        self.assertPointsAlmostEqual(shape.getPoints(), [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     def test_undo_once(self):
         """作成はUndo 1回で消える。"""

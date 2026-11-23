@@ -14,7 +14,7 @@ from ..core.fastWrite import require_writable
 from ..core.nodeEdit import delete_nodes
 from ..decorator import _edit_context, _require_bool, undoChunk
 from ..plugs.plug import Plugs
-from ..util import _angle_unit, _from_radians, _time_unit, _to_radians
+from ..util import _UNSET, _angle_unit, _from_radians, _time_unit, _to_radians
 from .node import Node
 
 #: コマンドの接線名からAPIの接線定数への対応。APIのSmooth等の別表記を外へ出さない。
@@ -213,8 +213,13 @@ class AnimCurve(Node):
             raise RuntimeError("空のカーブではキーを検索できません")
         return int(fn.findClosest(self._api_input(_to_seconds(self._finite(input), input_unit))))
 
-    def setKey(self, input, value, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame", fast=False, check=False):
+    def setKey(self, input, value=None, inTangentType=None, outTangentType=None, *, unit=_UNSET, timeUnit="frame", fast=False, check=False):
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
+
+        ``value`` を省く(None)と、カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
+        値と接線は、Mayaがその位置のカーブから決める。そのため、挿入の前と後で評価した値は変わらない。
+        同じ入力の位置にすでにキーがあれば、何もしない。Undoが有効なら1回で戻せる。
+        挿入では、接線の型・unit・fast・checkは指定できない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
 
         接線の型を省略したときは、``cmds.setKeyframe`` と同じ扱いになる。すでにあるキーは接線の型を保ち、
         新しいキーはMayaの設定(Preferences > Animation の Default tangent、``keyTangent -q -g``)に従う。
@@ -227,8 +232,8 @@ class AnimCurve(Node):
 
         Args:
             input (float): 入力の位置。入力が時間(T)のカーブではtimeUnitの単位(既定はフレーム)、単位なし(U)のカーブでは単位の無い値。
-            value (float): キーの値。出力の種類に応じて度(unit)・cm・フレーム(timeUnit)、または単位の無い値。
-                inputと同じく、有限な数値へ変換する。
+            value (float | None): キーの値。出力の種類に応じて度(unit)・cm・フレーム(timeUnit)、または単位の無い値。
+                inputと同じく、有限な数値へ変換する。Noneなら、形を変えない挿入。既定はNone。
             inTangentType (str | None): Mayaの入力側の接線の型。Noneなら上に書いた既定の型。fastではstepをautoに置き換える。
             outTangentType (str | None): Mayaの出力側の接線の型。Noneなら上に書いた既定の型。
             unit (str): 出力が角度(A)のカーブでのvalueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
@@ -243,13 +248,28 @@ class AnimCurve(Node):
             None: 値を返さない。fixedの接線の角度やウェイトを指定するときは、setTangentを使う。
 
         Raises:
-            TypeError: fastがbool以外の場合、unit・timeUnitが文字列・None以外の場合、または数値へ変換できない型の場合。
+            TypeError: fastがbool以外の場合、unit・timeUnitが文字列・None以外の場合、数値へ変換できない型の場合、
+                またはvalue=None(挿入)で接線の型・unit・fast・checkを指定した場合。
             ValueError: 有限でない値や正しくない数値の場合、unit・timeUnitに対応していない場合、
                 またはfastでfixed・global・知らない接線の型を指定した場合。
             RuntimeError: ノードが無効(削除済み)の場合。fastでも通常と同じ文言で、編集する前に例外にする。
                 check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
+                value=None(挿入)で、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
+        if value is None:
+            if inTangentType is not None or outTangentType is not None or unit is not _UNSET or fast or check:
+                raise TypeError("valueを省いた挿入では、接線の型・unit・fast・checkは指定できません")
+            self._require_number_input(input)
+            input_unit = self._input_time_unit(timeUnit)
+            position = _to_seconds(self._finite(input), input_unit)
+            if not self.getKeyCount():
+                raise RuntimeError("空のカーブへはキーを挿入できません。valueを指定します")
+            with undoChunk("mlibAnimCurveInsertKey"):
+                flags = {"time" if self.isTimeInput() else "float": self._unit_value(position)}
+                cmds.setKeyframe(self.getFullName(), insert=True, **flags)
+            return
+        unit = "deg" if unit is _UNSET else unit
         with _edit_context("mlibAnimCurveSetKey", fast):
             angle_unit = self._output_angle_unit(unit)
             input_unit, output_unit = self._input_time_unit(timeUnit), self._output_time_unit(timeUnit)
@@ -375,33 +395,6 @@ class AnimCurve(Node):
                 if tangents or "lock" in values or "weightLock" in values:
                     self.setTangent(index, lock=values.get("lock", old["lock"]), weightLock=values.get("weightLock", old["weightLock"]))
             cmds.dgdirty(self.getFullName())
-
-    def insertKey(self, input, *, timeUnit="frame"):
-        """カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
-
-        値と接線は、Mayaがその位置のカーブから決める。そのため、挿入の前と後で評価した値は変わらない。
-        同じ入力の位置にすでにキーがあれば、何もしない。fast引数は持たない。Undoが有効なら1回で戻せる。
-
-        Args:
-            input (float): 入力の位置。入力が時間(T)のカーブではtimeUnitの単位(既定はフレーム)、単位なし(U)のカーブでは単位の無い値。
-            timeUnit (str): 入力が時間のカーブでのinputの単位。``"frame"`` / ``"sec"``。
-
-        Returns:
-            None: 値を返さない。挿入したキーの番号は :meth:`findClosestIndex` で取得できる。
-
-        Raises:
-            TypeError: inputが数値へ変換できない型(文字列を含む)の場合、またはtimeUnitが文字列・None以外の場合。
-            ValueError: inputが有限でない場合、またはtimeUnitに対応していない単位名の場合。
-            RuntimeError: ノードが無効(削除済み)の場合、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
-        """
-        self._require_number_input(input)
-        input_unit = self._input_time_unit(timeUnit)
-        position = _to_seconds(self._finite(input), input_unit)
-        if not self.getKeyCount():
-            raise RuntimeError("空のカーブへはキーを挿入できません。setKeyを使います")
-        with undoChunk("mlibAnimCurveInsertKey"):
-            flags = {"time" if self.isTimeInput() else "float": self._unit_value(position)}
-            cmds.setKeyframe(self.getFullName(), insert=True, **flags)
 
     def removeKey(self, *, index=None, time=None, timeUnit="frame", keepCurve=True, fast=False, check=False):
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
@@ -812,27 +805,6 @@ class AnimCurve(Node):
                 # moveKey と同じく、キーが1つだけのカーブも拡縮するようキーを番号で指定する。
                 cmds.scaleKey(self.getFullName(), animation="objects", index=ranges, valueScale=y, valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
 
-    def mirror(self, input=False, value=True, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
-        """入力の軸(横軸)と出力の軸(縦軸)を反転する。
-
-        中では :meth:`scaleKey` を使うので、Undoは1回にまとまる。fast引数は持たない(:meth:`scaleKey` と同じ)。
-
-        Args:
-            input (bool): Trueなら横軸を反転する。
-            value (bool): Trueなら縦軸を反転する。
-            inputPivot (float): 横軸の反転の中心。入力が時間(T)のカーブではtimeUnitの単位(既定はフレーム)、単位なし(U)のカーブでは単位の無い値。
-            valuePivot (float): 縦軸の反転の中心。出力が角度(A)のカーブではunitの単位(既定は度)、出力が時間のカーブではtimeUnitの単位。
-            index (int | Sequence[int] | None): 反転するキーの番号。indexとtimeを両方省略すると、すべてのキーが対象になる。
-            time (float | Sequence[float] | None): 反転するキーの入力の時刻、または両端を含む範囲。
-            unit (str): 出力が角度のカーブでのvaluePivotの単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 入力が時間のカーブでのinputPivotの単位と、出力が時間のカーブでのvaluePivotの単位。
-                ``"frame"`` / ``"sec"``。
-
-        Returns:
-            None: 値を返さない。
-        """
-        self.scaleKey(-1 if input else 1, -1 if value else 1, inputPivot, valuePivot, index=index, time=time, unit=unit, timeUnit=timeUnit)
-
     def eulerFilter(self):
         """回転のカーブへEulerフィルターをかけ、360度の飛びを取り除く。
 
@@ -941,39 +913,27 @@ class AnimCurve(Node):
         self._require_valid("アトリビュートの取得")
         return Plugs._from_plugs(list(self.getPlug("output").getConnections(outputs=True, skipConversionNodes=True)))
 
-    def getKeyframe(self, index):
-        """指定した番号のキーを、Keyframeとして返す。
+    def getKeyframes(self, indices=None):
+        """キーを取得する。番号を1つ渡すとKeyframe、番号の並びを渡すとKeyframesを返す。
 
         Args:
-            index (int): 0から始まる、すでにあるキーの番号。
+            indices (int | Iterable[int] | None): 0から始まる、すでにあるキーの番号1つ、またはその並び。Noneならすべてのキー。
 
         Returns:
-            Keyframe: このカーブとキーの番号を覚えているオブジェクト。
+            Keyframe | Keyframes: 番号1つなら、このカーブとキーの番号を覚えているオブジェクト。
+                並び・Noneなら、このカーブのキーの集まり(番号の小さい順に並び、同じ番号は1つにまとめる)。
 
         Raises:
             IndexError: 番号がbool・int以外・負の値の場合、またはキーの数以上の場合。
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         self._require_valid("アトリビュートの取得")
-        self._index(index)
-        return Keyframe(self, index)
-
-    def getKeyframes(self, indices=None):
-        """複数のキーを、Keyframesとして返す。
-
-        Args:
-            indices (Iterable[int] | None): 0から始まるキーの番号の並び。Noneならすべてのキー。
-
-        Returns:
-            Keyframes: このカーブのキーの集まり。番号の小さい順に並び、同じ番号は1つにまとめる。
-
-        Raises:
-            IndexError: 範囲外の番号を含む場合。
-            RuntimeError: ノードが無効(削除済み)の場合。
-        """
-        self._require_valid("アトリビュートの取得")
         if indices is None:
             indices = range(self.getKeyCount())
+        elif isinstance(indices, (str, bytes)) or not hasattr(type(indices), "__iter__"):
+            # 番号1つ。int以外(bool・floatなど)は _index がIndexErrorにする。
+            self._index(indices)
+            return Keyframe(self, indices)
         indices = list(indices)
         for index in indices:
             self._index(index)

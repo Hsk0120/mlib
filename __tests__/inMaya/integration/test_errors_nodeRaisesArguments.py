@@ -105,10 +105,10 @@ class AnimCurveTest(_ArgumentCase):
             (TypeError, "getKeyValues", (), {"timeUnit": 1}),
             (TypeError, "findClosestIndex", (None,), {}),
             (TypeError, "findClosestIndex", (3,), {"timeUnit": 1}),
-            (TypeError, "insertKey", (None,), {}),
-            (TypeError, "insertKey", (3,), {"timeUnit": 1}),
+            (TypeError, "setKey", (None,), {}),
+            (TypeError, "setKey", (3,), {"timeUnit": 1}),
             (TypeError, "findClosestIndex", ("x",), {}),
-            (TypeError, "insertKey", ("x",), {}),
+            (TypeError, "setKey", ("x",), {}),
             (IndexError, "scaleKey", (2,), {"index": 5}),
             (ValueError, "reduceKeys", (-1,), {}),
             (ValueError, "reduceKeys", (float("nan"),), {}),
@@ -142,12 +142,12 @@ class BlendShapeTest(_ArgumentCase):
             (ValueError, "getTargetItemIndices", (0,), {"base": "cube"}),
             (ValueError, "getTargetGeometry", (5,), {}),
             (ValueError, "getTargetGeometry", (0,), {"base": "cube"}),
-            (TypeError, "removeInBetween", (None, 0.5), {}),
-            (TypeError, "removeInBetween", (0, "a"), {}),
+            (TypeError, "removeTarget", (None,), {"inBetween": 0.5}),
+            (TypeError, "removeTarget", (0,), {"inBetween": "a"}),
             (IndexError, "setTargetDeltas", (0, {100: (1, 0, 0)}), {"disconnect": True}),
             (TypeError, "resetTargetVertices", (0, 1.5), {}),
-            (TypeError, "reduceTargetDeltas", (0,), {"tolerance": "a"}),
-            (TypeError, "reduceTargetDeltas", (0,), {"disconnect": 1}),
+            (TypeError, "resetTargetVertices", (0,), {"tolerance": "a"}),
+            (TypeError, "resetTargetVertices", (0,), {"tolerance": 0.0, "disconnect": 1}),
             (TypeError, "replaceTarget", (0, 1.5), {}),
         )
         for error, method, args, flags in cases:
@@ -157,7 +157,7 @@ class BlendShapeTest(_ArgumentCase):
 
     def test_connected_target_without_disconnect(self):
         """ターゲット形状が接続されていて disconnect=False なら RuntimeError。接続も変位も残る。"""
-        cases = (("resetTargetVertices", (0, [0]), {}), ("reduceTargetDeltas", (0,), {"tolerance": 10.0}), ("setTargetDeltas", (0, {1: (1, 0, 0)}), {}))
+        cases = (("resetTargetVertices", (0, [0]), {}), ("resetTargetVertices", (0,), {"tolerance": 10.0}), ("setTargetDeltas", (0, {1: (1, 0, 0)}), {}))
         for method, args, flags in cases:
             with self.subTest(method=method):
                 node = self.blend_shape()
@@ -206,20 +206,20 @@ class CameraTest(_ArgumentCase):
             (ValueError, "setFieldOfView", (nan,), {}),
             (ValueError, "setFieldOfView", (500,), {}),
             (ValueError, "setFieldOfView", (30,), {"unit": "bad"}),
-            (ValueError, "setNearFocusDistance", (0,), {}),
-            (ValueError, "setFarFocusDistance", (-1,), {}),
+            (ValueError, "setFocusDistance", (), {"near": 0}),
+            (ValueError, "setFocusDistance", (), {"far": -1}),
             (ValueError, "setAspectRatio", (0,), {}),
             (ValueError, "setAspectRatio", (float("inf"),), {}),
-            (TypeError, "setUpDirection", ("abc",), {}),
-            (ValueError, "setUpDirection", ((0, 0, 0),), {}),
-            (ValueError, "setUpDirection", ((0, 0, -1),), {}),
-            (ValueError, "setUpDirection", ((0, nan, 0),), {}),
-            (TypeError, "setCenterOfInterestPoint", ("abc",), {"fast": True}),
-            (TypeError, "setCenterOfInterestPoint", ((0, 0, -5),), {"worldSpace": True, "ws": True, "fast": True}),
-            (ValueError, "setCenterOfInterestPoint", ((0, nan, -5),), {"fast": True}),
-            (ValueError, "setCenterOfInterestPoint", ((0, 0, 0),), {"fast": True}),
-            (TypeError, "getRenderingFrustum", ("a",), {}),
-            (ValueError, "getRenderingFrustum", (0,), {}),
+            (TypeError, "setDirection", ("abc",), {"kind": "up"}),
+            (ValueError, "setDirection", ((0, 0, 0),), {"kind": "up"}),
+            (ValueError, "setDirection", ((0, 0, -1),), {"kind": "up"}),
+            (ValueError, "setDirection", ((0, nan, 0),), {"kind": "up"}),
+            (TypeError, "setPoint", ("abc",), {"kind": "centerOfInterest", "fast": True}),
+            (TypeError, "setPoint", ((0, 0, -5),), {"kind": "centerOfInterest", "worldSpace": True, "ws": True, "fast": True}),
+            (ValueError, "setPoint", ((0, nan, -5),), {"kind": "centerOfInterest", "fast": True}),
+            (ValueError, "setPoint", ((0, 0, 0),), {"kind": "centerOfInterest", "fast": True}),
+            (TypeError, "getFrustum", ("a",), {"kind": "rendering"}),
+            (ValueError, "getFrustum", (0,), {"kind": "rendering"}),
             (TypeError, "setView", (None, (0, 0, -1), (0, 1, 0), 30, 1.5), {"fast": True}),
             (TypeError, "setView", ((0, 0, 0), (0, 0, -1), (0, 1, 0), 30, 1.5), {"fast": 1}),
             (TypeError, "copyViewFrom", ("transform",), {"fast": True}),
@@ -242,10 +242,10 @@ class CameraTest(_ArgumentCase):
         return value
 
     def test_locked_center_of_interest(self):
-        """setCenterOfInterestPoint は centerOfInterest がロックされていると RuntimeError。"""
+        """setPoint(kind="centerOfInterest") は centerOfInterest がロックされていると RuntimeError。"""
         camera = self.camera()
         self.lock(camera, "centerOfInterest")
-        self.assertFails(RuntimeError, camera.setCenterOfInterestPoint, (0, 0, -3), fast=True, state=lambda: self.state(camera))
+        self.assertFails(RuntimeError, camera.setPoint, (0, 0, -3), kind="centerOfInterest", fast=True, state=lambda: self.state(camera))
 
 
 class DagNodeTest(_ArgumentCase):
@@ -369,17 +369,17 @@ class MeshTest(_ArgumentCase):
         cases = (
             (TypeError, "getVertexNormals", (1,), {}),
             (TypeError, "getVertexNormals", (True,), {"ws": True}),
-            (IndexError, "getFaceVertexNormals", (), {"faceVertices": [(99, 0)]}),
-            (IndexError, "getFaceVertexNormals", (), {"faceVertices": [(0, 99)]}),
+            (IndexError, "getVertexNormals", (), {"perFace": True, "faceVertices": [(99, 0)]}),
+            (IndexError, "getVertexNormals", (), {"perFace": True, "faceVertices": [(0, 99)]}),
             (IndexError, "setFaceVertexNormals", ([(0, 1, 0)],), {"faceVertices": [(99, 0)]}),
-            (IndexError, "setFaceVertexNormalsLocked", (), {"faceVertices": [(99, 0)]}),
+            (IndexError, "setFaceVertexNormals", (), {"locked": True, "faceVertices": [(99, 0)]}),
             (TypeError, "getTangentData", (1,), {}),
             (TypeError, "getTangentData", (True,), {"ws": True}),
             (TypeError, "getFaceVertexTangents", (), {"uvSet": 1}),
             (TypeError, "getFaceVertexTangents", (1,), {}),
             (IndexError, "getFaceVertexTangents", (), {"faceVertices": [(99, 0)]}),
-            (TypeError, "getFaceVertexBinormals", (), {"uvSet": 1}),
-            (IndexError, "getFaceVertexBinormals", (), {"faceVertices": [(99, 0)]}),
+            (TypeError, "getFaceVertexTangents", (), {"binormal": True, "uvSet": 1}),
+            (IndexError, "getFaceVertexTangents", (), {"binormal": True, "faceVertices": [(99, 0)]}),
             (TypeError, "getMirrorVertexMap", (1.5,), {}),
             (TypeError, "getMirrorVertexMap", (), {"tolerance": "a"}),
             (TypeError, "getMirrorVertexMap", (), {"worldSpace": 1}),
@@ -391,26 +391,26 @@ class MeshTest(_ArgumentCase):
             (ValueError, "getPointsAtUV", (nan, 0.5), {}),
             (ValueError, "getPointsAtUV", (0.5, 0.5), {"tolerance": -1}),
             (ValueError, "getPointsAtUV", (0.5, 0.5), {"uvSet": "nope"}),
-            (TypeError, "getFaceVertexColors", (), {"colorSet": 1}),
-            (TypeError, "getFaceVertexColors", (), {"faceVertices": 1.5}),
-            (ValueError, "getFaceVertexColors", (), {"colorSet": "nope"}),
-            (IndexError, "getFaceVertexColors", (), {"faceVertices": [(99, 0)]}),
-            (TypeError, "setFaceVertexColors", ([(1, 0, 0)],), {"colorSet": 1}),
-            (IndexError, "setFaceVertexColors", ([(1, 0, 0)],), {"faceVertices": [(99, 0)]}),
+            (TypeError, "getVertexColors", (), {"perFace": True, "colorSet": 1}),
+            (TypeError, "getVertexColors", (), {"perFace": True, "faceVertices": 1.5}),
+            (ValueError, "getVertexColors", (), {"perFace": True, "colorSet": "nope"}),
+            (IndexError, "getVertexColors", (), {"perFace": True, "faceVertices": [(99, 0)]}),
+            (TypeError, "setVertexColors", ([(1, 0, 0)],), {"perFace": True, "colorSet": 1}),
+            (IndexError, "setVertexColors", ([(1, 0, 0)],), {"perFace": True, "faceVertices": [(99, 0)]}),
             (IndexError, "setVertexColors", ([(1, 0, 0)],), {"vertices": [99]}),
-            (TypeError, "renameUVSet", (1, "x"), {}),
-            (TypeError, "renameUVSet", ("map1", 1), {}),
-            (TypeError, "setCurrentColorSet", (1,), {}),
-            (ValueError, "setCurrentColorSet", ("",), {}),
-            (ValueError, "setCurrentColorSet", ("nope",), {}),
-            (TypeError, "createColorSet", (1,), {}),
-            (ValueError, "createColorSet", ("",), {}),
-            (TypeError, "renameColorSet", (1, "x"), {}),
-            (ValueError, "renameColorSet", ("colorSet1", ""), {}),
-            (ValueError, "renameColorSet", ("nope", "x"), {}),
-            (TypeError, "deleteColorSet", (1,), {}),
-            (ValueError, "deleteColorSet", ("",), {}),
-            (ValueError, "deleteColorSet", ("nope",), {}),
+            (TypeError, "renameSet", (1, "x"), {}),
+            (TypeError, "renameSet", ("map1", 1), {}),
+            (TypeError, "setCurrentSet", (1,), {"color": True}),
+            (ValueError, "setCurrentSet", ("",), {"color": True}),
+            (ValueError, "setCurrentSet", ("nope",), {"color": True}),
+            (TypeError, "createSet", (1,), {"color": True}),
+            (ValueError, "createSet", ("",), {"color": True}),
+            (TypeError, "renameSet", (1, "x"), {"color": True}),
+            (ValueError, "renameSet", ("colorSet1", ""), {"color": True}),
+            (ValueError, "renameSet", ("nope", "x"), {"color": True}),
+            (TypeError, "deleteSet", (1,), {"color": True}),
+            (ValueError, "deleteSet", ("",), {"color": True}),
+            (ValueError, "deleteSet", ("nope",), {"color": True}),
         )
         mesh = self.mesh(colored=True)
         for error, method, args, flags in cases:
@@ -418,23 +418,23 @@ class MeshTest(_ArgumentCase):
                 self.assertFails(error, getattr(mesh, method), *args, state=lambda: self.state(mesh), **flags)
 
     def test_existing_color_set_names(self):
-        """createColorSet・renameColorSet は、すでにある名前で ValueError。"""
+        """createSet・renameSet(color=True)は、すでにある名前で ValueError。"""
         mesh = self.mesh(colored=True)
         current = cmds.polyColorSet(mesh.getFullName(), query=True, currentColorSet=True)[0]
-        mesh.createColorSet("extra")
-        for method, args in (("createColorSet", ("extra",)), ("renameColorSet", (current, "extra"))):
+        mesh.createSet("extra", color=True)
+        for method, args in (("createSet", ("extra",)), ("renameSet", (current, "extra"))):
             with self.subTest(method=method):
-                self.assertFails(ValueError, getattr(mesh, method), *args, state=lambda: self.state(mesh))
+                self.assertFails(ValueError, getattr(mesh, method), *args, color=True, state=lambda: self.state(mesh))
 
     def test_locked_mesh(self):
         """法線・面頂点の色の編集は、ロックされたメッシュで RuntimeError。"""
         cases = (
             ("setFaceVertexNormals", ([(0, 1, 0)],), {"faceVertices": [(0, 0)]}),
-            ("setFaceVertexNormalsLocked", (), {"faceVertices": [(0, 0)]}),
-            ("setFaceVertexColors", ([(0, 1, 0)],), {"faceVertices": [(0, 0)]}),
+            ("setFaceVertexNormals", (), {"locked": True, "faceVertices": [(0, 0)]}),
+            ("setVertexColors", ([(0, 1, 0)],), {"perFace": True, "faceVertices": [(0, 0)]}),
         )
         for method, args, flags in cases:
-            with self.subTest(method=method):
+            with self.subTest(method=method, flags=flags):
                 mesh = self.mesh(colored=True)
                 cmds.lockNode(mesh.getFullName(), lock=True)
                 self.assertFails(RuntimeError, getattr(mesh, method), *args, state=lambda: self.state(mesh), **flags)
@@ -596,12 +596,12 @@ class ReferenceTest(_ArgumentCase):
             (TypeError, "setReferenceLocked", (1,), {}),
             (TypeError, "cleanEdits", (), {"editCommand": 1}),
             (ValueError, "cleanEdits", (), {"editCommand": "bogus"}),
-            (TypeError, "getEditNodeNames", (), {"editCommand": 1}),
-            (ValueError, "getEditNodeNames", (), {"editCommand": "bogus"}),
-            (TypeError, "getEditNodeNames", (), {"onReferenceNode": transform}),
-            (TypeError, "getEditAttrNames", (), {"editCommand": 1}),
-            (ValueError, "getEditAttrNames", (), {"editCommand": "bogus"}),
-            (TypeError, "getEditAttrNames", (), {"onReferenceNode": transform}),
+            (TypeError, "getEdits", (), {"kind": "node", "editCommand": 1}),
+            (ValueError, "getEdits", (), {"kind": "node", "editCommand": "bogus"}),
+            (TypeError, "getEdits", (), {"kind": "node", "onReferenceNode": transform}),
+            (TypeError, "getEdits", (), {"kind": "attr", "editCommand": 1}),
+            (ValueError, "getEdits", (), {"kind": "attr", "editCommand": "bogus"}),
+            (TypeError, "getEdits", (), {"kind": "attr", "onReferenceNode": transform}),
         )
         for error, method, args, flags in cases:
             with self.subTest(method=method, flags=flags):
@@ -838,22 +838,6 @@ class TransformTest(_ArgumentCase):
     def test_import_missing_curve_file(self):
         node = self.node("transform")
         self.assertFails(OSError, node.importCurveShapes, self.temp_file("missing.json"), state=lambda: self.state(node))
-
-
-class LocatorTest(_ArgumentCase):
-    """Locator.setPosition の引数の例外。localPosition は変わらない。"""
-
-    def test_argument_errors(self):
-        locator = mlib.getNode(cmds.listRelatives(cmds.spaceLocator()[0], shapes=True, fullPath=True)[0])
-        nan = float("nan")
-        cases = (
-            (TypeError, ((1, 2, 3),), {"fast": 1}),
-            (ValueError, ((1, nan, 3),), {"check": True}),
-            (ValueError, ((1, nan, 3),), {"check": True, "fast": True}),
-        )
-        for error, args, flags in cases:
-            with self.subTest(args=args, flags=flags):
-                self.assertFails(error, locator.setPosition, *args, state=lambda: tuple(cmds.getAttr(locator.getFullName() + ".localPosition")[0]), **flags)
 
 
 if __name__ == "__main__":

@@ -52,7 +52,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def positions(self, shape, ws=False):
         """API の内部距離単位で形状の全位置を返す。"""
-        points = shape.getPoints(ws) if isinstance(shape, mlib.Mesh) else shape.getCvPositions(ws)
+        points = shape.getPoints(ws)
         return [tuple(point)[:3] for point in points]
 
     def assert_positions(self, actual, expected):
@@ -78,7 +78,7 @@ class ShapesConstraintsTest(unittest.TestCase):
             self.assertIsInstance(collection[:1], collection_type)
             self.assertEqual(collection[:1].indices, (2,))
             self.assertEqual(collection[0].getPosition(), collection.getPosition()[0])
-            single = shape.getVertex(2) if is_mesh else shape.getCV(2)
+            single = shape.getVertices(2) if is_mesh else shape.getCVs(2)
             cmds.xform(single.getFullName(), objectSpace=True, translation=(0.25, 0.5, -0.75))
             self.assert_positions([single.getPosition()], [(0.25, 0.5, -0.75)])
             old_name = single.getFullName()
@@ -94,7 +94,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def test_xyz_and_mesh_components(self):
         mesh, curve = self.mirror_shapes()
-        for item in (mesh.getVertex(0), curve.getCV(0)):
+        for item in (mesh.getVertices(0), curve.getCVs(0)):
             position = item.getPosition()
             for index, axis in enumerate("xyz"):
                 self.assertAlmostEqual(getattr(item.getPosition(), axis), position[index])
@@ -102,12 +102,12 @@ class ShapesConstraintsTest(unittest.TestCase):
             self.assert_positions([item.getPosition(worldSpace=True)], [(3, 4, 5)])
         self.assertEqual(len(mesh.getEdges()), mesh.getNumEdges())
         self.assertEqual(len(mesh.getFaces()), mesh.getNumPolygons())
-        self.assertEqual(len(mesh.getEdge(0).getVertices()), 2)
-        self.assertEqual(len(mesh.getFace(0).getVertices()), 4)
+        self.assertEqual(len(mesh.getEdges(0).getVertices()), 2)
+        self.assertEqual(len(mesh.getFaces(0).getVertices()), 4)
         self.assertEqual(len(mesh.getEdges().getVertices()), mesh.getNumVertices())
         self.assertEqual(len(mesh.getFaces().getVertices()), mesh.getNumVertices())
         self.assertEqual(len(mesh.getUVs()), mesh.getNumUVs())
-        uv = mesh.getUV(0)
+        uv = mesh.getUVs(0)
         self.assertEqual(len(uv.getPosition()), 2)
         self.assertEqual(mesh.getUVs([0]).getPosition(), [uv.getPosition()])
         for collection in (mlib.Edges, mlib.Faces, mlib.UVs):

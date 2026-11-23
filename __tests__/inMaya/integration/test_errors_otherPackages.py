@@ -301,7 +301,7 @@ class EnvironmentErrorTest(_ErrorCase):
 
 
 class KeyframeErrorTest(_ErrorCase):
-    """Keyframe.getTime・getValue・setValue の拒否。拒否時はキーの値を変えない。"""
+    """Keyframe.getValue(time=True)・getValue・setValue の拒否。拒否時はキーの値を変えない。"""
 
     def setUp(self):
         super().setUp()
@@ -315,12 +315,12 @@ class KeyframeErrorTest(_ErrorCase):
 
     def test_index_out_of_range(self):
         """キーを消して番号が範囲外になると IndexError。"""
-        key = self.curve.getKeyframe(1)
-        self.assertEqual(key.getTime(), 10.0)
+        key = self.curve.getKeyframes(1)
+        self.assertEqual(key.getValue(time=True), 10.0)
         cmds.cutKey(self.curve.getFullName(), time=(10, 10))
         before = self.values()
         for name, call in (
-            ("getTime", key.getTime),
+            ("getValue time", functools.partial(key.getValue, time=True)),
             ("getValue", key.getValue),
             ("setValue", lambda: key.setValue(1.0)),
             ("setValue fast", lambda: key.setValue(1.0, fast=True)),
@@ -332,16 +332,16 @@ class KeyframeErrorTest(_ErrorCase):
 
     def test_deleted_curve(self):
         """カーブを削除すると RuntimeError。"""
-        key = self.curve.getKeyframe(0)
+        key = self.curve.getKeyframes(0)
         cmds.delete(self.curve.getFullName())
-        for name, call in (("getTime", key.getTime), ("getValue", key.getValue), ("setValue", lambda: key.setValue(1.0))):
+        for name, call in (("getValue time", functools.partial(key.getValue, time=True)), ("getValue", key.getValue), ("setValue", lambda: key.setValue(1.0))):
             with self.subTest(name=name):
                 with self.assertRaises(RuntimeError):
                     call()
 
     def test_set_value_rejections(self):
         """値の型・fast の型・非有限値・未対応の単位名。値は変わらない。"""
-        key = self.curve.getKeyframe(0)
+        key = self.curve.getKeyframes(0)
         before = self.values()
         for error, args, kwargs in (
             (TypeError, (object(),), {}),

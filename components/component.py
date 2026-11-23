@@ -1221,6 +1221,25 @@ _COMPONENTS_INIT = Components.__init__
 _COMPONENTS_ITER = Components.__iter__
 
 
+def _component_of(single, plural, shape, indices):
+    """番号1つなら要素1つ、番号の並び・Noneならコレクションを作る。
+
+    Shapeの ``getVertices(3)`` のように、同じメソッドで1つとまとまりの両方を返すために使う。
+
+    Args:
+        single (type): 要素1つのクラス。
+        plural (type): コレクションのクラス。
+        shape (Shape): シェイプ。
+        indices (int | Iterable | None): 番号1つ(``__index__`` を持つ値)、番号の並び、またはNone。
+
+    Returns:
+        Component | Components: 番号1つなら要素1つ、ほかはコレクション。
+    """
+    if indices is not None and hasattr(type(indices), "__index__"):
+        return single(shape, indices)
+    return plural(shape, indices)
+
+
 def _flat_input(cls, shape, items):
     """番号の指定を、通し番号のリストへ変換する。
 

@@ -2,7 +2,7 @@
 
 あわせて次も確かめる。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setPoints・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 - DAG・Transform・アニメーションカーブ・DG の照会と編集の契約を固定する。
 """
 

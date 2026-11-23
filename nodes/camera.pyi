@@ -7,10 +7,12 @@ from ..core.fastWrite import require_writable
 from ..decorator import _pick_alias, _require_bool
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _angle_unit, _finite, _finite_vector, _from_radians, _world_space
+from ..util import _UNSET, _angle_unit, _finite, _finite_vector, _from_radians, _require_choice, _world_space
 from .shape import Shape
 from typing import Iterable
 
+_POINT_KINDS: tuple
+_DIRECTION_KINDS: tuple
 
 
 class Camera(Shape):
@@ -112,18 +114,20 @@ class Camera(Shape):
             RuntimeError: カメラが無効、またはMayaが変更を拒否した場合。
         """
         ...
-    def getFieldOfView(self, *, unit: str = ...) -> tuple[float, float]:
-        """水平と垂直の画角を取得する。
+    def getFieldOfView(self, *, port: tuple[int, int] | None = ..., unit: str = ...) -> tuple[float, float]:
+        """水平と垂直の画角を取得する。``port`` を渡すと、その表示の幅と高さに対応する画角を取得する。
 
-        ``MFnCamera.horizontalFieldOfView``・``verticalFieldOfView`` の値を返す。
+        既定では ``MFnCamera.horizontalFieldOfView``・``verticalFieldOfView`` の値を返す。
         画角は、焦点距離とフィルムバック(``horizontalFilmAperture``・``verticalFilmAperture``)から次の式で求まる。
         Mayaは1mmを0.03937インチとして換算する。
 
         ``2 * atan(フィルムバック(インチ) / 0.03937 / 2 / 焦点距離(mm))``
 
         Film Fitや解像度の縦横比で切り取られる分は含まない。
+        ``port`` を渡したときは ``MFnCamera.getPortFieldOfView`` の結果を返す。
 
         Args:
+            port (tuple[int, int] | None): 表示の (幅, 高さ)。どちらも正の整数。Noneならカメラ自身の画角。既定はNone。
             unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
                 ``"degree"`` などの別名も使える。
 
@@ -131,8 +135,8 @@ class Camera(Shape):
             tuple[float, float]: (水平の画角, 垂直の画角)。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: unitに使えない単位名を指定した場合。
+            TypeError: unitが文字列・None以外の場合、portが2つの値の並びでない場合、または幅・高さが整数以外の場合。
+            ValueError: unitに使えない単位名を指定した場合、または幅・高さが正でない場合。
             RuntimeError: ノードが削除済みの場合。
         """
         ...
@@ -156,65 +160,58 @@ class Camera(Shape):
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
         """
         ...
-    def setNearFocusDistance(self, distance: float) -> None:
-        """近側の合焦距離を指定して、カメラの焦点位置を補正する。
+    def setFocusDistance(self, *, near: float | None = ..., far: float | None = ...) -> None:
+        """近側か遠側の合焦距離を指定して、カメラの焦点位置を補正する。
 
-        Maya標準の補正に従い、反対側の合焦距離も変わる。クリップ面の設定ではない。
+        ``near`` と ``far`` のどちらか1つを指定する。Maya標準の補正に従い、反対側の合焦距離も変わる
+        (そのため、両方を同時には指定できない)。クリップ面の設定ではない。
         fast引数は持たない(1回のcmdsで更新するため)。
 
         Args:
-            distance (float): 正の有限距離(cm)。
+            near (float | None): 近側の合焦距離。正の有限距離(cm)。
+            far (float | None): 遠側の合焦距離。正の有限距離(cm)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            ValueError: distanceが有限の正数でない場合。
+            TypeError: nearとfarを両方指定したか、どちらも指定しない場合、または距離が数値でない場合。
+            ValueError: 距離が有限の正数でない場合。
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
         """
         ...
-    def setFarFocusDistance(self, distance: float) -> None:
-        """遠側の合焦距離を指定して、カメラの焦点位置を補正する。
+    def getPoint(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Vector:
+        """カメラの位置(視点)を取得する。``kind="centerOfInterest"`` なら、注視点を取得する。
 
-        Maya標準の補正に従い、反対側の合焦距離も変わる。クリップ面の設定ではない。
-        fast引数は持たない(1回のcmdsで更新するため)。
-
-        Args:
-            distance (float): 正の有限距離(cm)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            ValueError: distanceが有限の正数でない場合。
-            RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
-        """
-        ...
-    def getCenterOfInterestPoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの注視点を取得する。
+        ``MFnCamera.eyePoint``・``centerOfInterestPoint`` の値を返す。
 
         Args:
-            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定True。
-            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            kind (str): 取得する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
 
         Returns:
-            Vector: 注視点の位置(cm)。
+            Vector: 位置(cm)。
 
         Raises:
-            TypeError: 空間指定がbool以外、または長短名を同時指定した場合。
-            RuntimeError: カメラが無効な場合。
+            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: kindが対応していない名前の場合。
+            RuntimeError: ノードが削除済みの場合。
         """
         ...
-    def setCenterOfInterestPoint(self, point: Iterable[float], worldSpace: bool = ..., *, ws: bool = ..., fast: bool = ...) -> None:
-        """視点を保ちながらカメラの注視点を変更する。
+    def setPoint(self, point: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., ws: bool = ..., fast: bool = ...) -> None:
+        """カメラの位置(視点)を変更する。``kind="centerOfInterest"`` なら、視点を保ちながら注視点を変更する。
 
-        カメラの向きとcenterOfInterestをMFnCameraで更新する。
+        - ``"eye"``: ``MFnCamera.setEyePoint`` で、注視点を保ったままカメラを動かす(カメラは注視点を向き続けるので、向きは変わる)。
+        - ``"centerOfInterest"``: ``MFnCamera.setCenterOfInterestPoint`` で、カメラの向きとcenterOfInterestを更新する。
+
         fast=True専用でUndoには記録しない。Undo設定は変更しない。
 
         Args:
-            point (Iterable[float]): 注視点のXYZ座標(cm)。視点と異なる位置。
+            point (Iterable[float]): XYZ座標(cm)。注視点は、視点と異なる位置。
             worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。既定True。
             ws (bool): worldSpaceの短縮名。同時指定はできない。
+            kind (str): 変更する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -222,7 +219,7 @@ class Camera(Shape):
 
         Raises:
             TypeError: 型または長短名の指定が不正な場合。
-            ValueError: 非有限値、または視点と注視点が一致する場合。
+            ValueError: kindが対応していない名前の場合、非有限値、または視点と注視点が一致する場合。
             RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
             NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
         """
@@ -251,77 +248,50 @@ class Camera(Shape):
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
         """
         ...
-    def getEyePoint(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの位置を取得する。
+    def getDirection(self, worldSpace: bool = ..., *, kind: str = ..., ws: bool = ...) -> Vector:
+        """カメラの視線の向きを取得する。``kind="up"`` なら、カメラの上の向きを取得する。
 
-        ``MFnCamera.eyePoint`` の値を返す。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Vector: 位置(cm)。
-
-        Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: ノードが削除済みの場合。
-        """
-        ...
-    def getViewDirection(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの視線の向きを取得する。
-
-        ``MFnCamera.viewDirection`` の値を返す。ローカル空間では -Z の向きになる。
+        ``MFnCamera.viewDirection``・``upDirection`` の値を返す。ローカル空間では、視線は -Z、上は +Y の向きになる。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            kind (str): 取得する向き。``"view"`` は視線、``"up"`` は上。既定は ``"view"``。
 
         Returns:
             Vector: 長さ1の向き。
 
         Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: kindが対応していない名前の場合。
             RuntimeError: ノードが削除済みの場合。
         """
         ...
-    def getUpDirection(self, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """カメラの上の向きを取得する。
-
-        ``MFnCamera.upDirection`` の値を返す。ローカル空間では +Y の向きになる。
-
-        Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Vector: 長さ1の向き。
-
-        Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: ノードが削除済みの場合。
-        """
-        ...
-    def setUpDirection(self, direction: Iterable[float]) -> None:
-        """ワールド空間の上方向を基準にカメラのロールを変更する。
+    def setDirection(self, direction: Iterable[float], *, kind: str) -> None:
+        """ワールド空間の上方向を基準に、カメラのロールを変更する(``kind="up"``)。
 
         視線に直交する成分をMayaが上方向として使う。視線と平行な指定は拒否する。
         fast引数は持たない(1回のcmdsで更新するため)。
+        視線の向き(``kind="view"``)だけを変える操作は無い。視点・視線・上方向をまとめて変えるときは :meth:`setView`、
+        注視点で向きを変えるときは ``setPoint(point, kind="centerOfInterest", fast=True)`` を使う。
 
         Args:
             direction (Iterable[float]): ワールド空間の方向ベクトル。
+            kind (str): 変更する向き。:meth:`getDirection` と同じ名前で指定する。変更できるのは ``"up"`` だけ。
+                取得と既定を取り違えないよう、省略できない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: directionが3つの数値でない場合。
-            ValueError: 非有限値、ゼロベクトル、または視線と平行な場合。
+            TypeError: kindが文字列でない場合、またはdirectionが3つの数値でない場合。
+            ValueError: kindが対応していない名前の場合、非有限値、ゼロベクトル、または視線と平行な場合。
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
+            NotImplementedError: kind="view"の場合。
         """
         ...
-    def getProjectionMatrix(self) -> Matrix:
-        """投影マトリクスを取得する。
+    def getProjectionMatrix(self, *, post: bool = ...) -> Matrix:
+        """投影マトリクスを取得する。``post=True`` なら、フィルム面のロール等に使う後段の投影マトリクスを取得する。
 
         カメラ空間からクリップ空間へ写すマトリクスで、``MFnCamera.projectionMatrix`` の値を返す。
         焦点距離・フィルムバック・クリップ面から決まる。
@@ -332,10 +302,16 @@ class Camera(Shape):
         2. このマトリクスを掛ける。
         3. w で割る。
 
+        ``post=True`` は ``MFnCamera.postProjectionMatrix`` の値で、通常の投影マトリクスは含めない。
+
+        Args:
+            post (bool): Trueなら、後段の投影マトリクスを返す。既定はFalse。
+
         Returns:
-            Matrix: 投影マトリクス(``om2.MFloatMatrix`` の値を倍精度にしたもの)。
+            Matrix: 投影マトリクス(``om2.MFloatMatrix`` の値を倍精度にした、独立した値)。
 
         Raises:
+            TypeError: postがboolでない場合。
             RuntimeError: ノードが削除済みの場合。
         """
         ...
@@ -360,28 +336,17 @@ class Camera(Shape):
             RuntimeError: カメラが無効な場合。
         """
         ...
-    def getRenderingFrustum(self, aspectRatio: float) -> tuple[float, float, float, float]:
-        """レンダーに使うニアクリップ面の撮影範囲を取得する。
+    def getFrustum(self, aspectRatio: float, *, kind: str = ..., applyOverscan: bool = ..., applySqueeze: bool = ..., applyPanZoom: bool = ...) -> tuple[float, float, float, float]:
+        """ニアクリップ面の撮影範囲を取得する。
 
-        MFnCamera.getRenderingFrustumへ指定縦横比を渡す。表示用のoverscan等の選択はgetViewingFrustumで行う。
+        - ``"viewing"`` (既定): 表示条件に対応する範囲(``MFnCamera.getViewingFrustum``)。overscan等を反映するかを選べる。
+        - ``"rendering"``: レンダーに使う範囲(``MFnCamera.getRenderingFrustum``)。``apply…`` の引数は指定できない。
+
+        指定した距離でのフィルムゲートの寸法(戻り値の意味が違う)は :meth:`getFilmFrustum` で取得する。
 
         Args:
             aspectRatio (float): 横幅/高さ。正の有限値。
-
-        Returns:
-            tuple[float, float, float, float]: (左, 右, 下, 上)。カメラ空間の距離(cm)。
-
-        Raises:
-            TypeError: aspectRatioが数値以外の場合。
-            ValueError: aspectRatioが正の有限値でない場合。
-            RuntimeError: カメラが無効な場合。
-        """
-        ...
-    def getViewingFrustum(self, aspectRatio: float, *, applyOverscan: bool = ..., applySqueeze: bool = ..., applyPanZoom: bool = ...) -> tuple[float, float, float, float]:
-        """表示条件に対応するニアクリップ面の撮影範囲を取得する。
-
-        Args:
-            aspectRatio (float): 表示の横幅/高さ。正の有限値。
+            kind (str): 範囲の種類。``"viewing"``・``"rendering"``。既定は ``"viewing"``。
             applyOverscan (bool): overscanを反映する。既定False。
             applySqueeze (bool): lensSqueezeRatioを反映する。既定False。
             applyPanZoom (bool): 2D pan/zoomを反映する。既定False。
@@ -390,8 +355,9 @@ class Camera(Shape):
             tuple[float, float, float, float]: (左, 右, 下, 上)。カメラ空間の距離(cm)。
 
         Raises:
-            TypeError: 数値・boolの引数の型が不正な場合。
-            ValueError: aspectRatioが正の有限値でない場合。
+            TypeError: kindが文字列でない場合、数値・boolの引数の型が不正な場合、
+                またはkind="rendering"でapplyOverscan・applySqueeze・applyPanZoomを指定した場合。
+            ValueError: kindが対応していない名前の場合、またはaspectRatioが正の有限値でない場合。
             RuntimeError: カメラが無効な場合。
         """
         ...
@@ -413,33 +379,6 @@ class Camera(Shape):
         Raises:
             TypeError: 数値・boolの引数の型が不正な場合。
             ValueError: aspectRatioが正の有限値でない場合。
-            RuntimeError: カメラが無効な場合。
-        """
-        ...
-    def getPortFieldOfView(self, width: int, height: int, *, unit: str = ...) -> tuple[float, float]:
-        """表示の幅と高さに対応する水平・垂直画角を取得する。
-
-        Args:
-            width (int): 表示の幅。正の整数。
-            height (int): 表示の高さ。正の整数。
-            unit (str): 角度の単位。deg(既定)またはrad。
-
-        Returns:
-            tuple[float, float]: (水平画角, 垂直画角)。MFnCamera.getPortFieldOfViewの結果。
-
-        Raises:
-            TypeError: width・heightが整数以外の場合。
-            ValueError: width・heightが正でないか、unitが未対応の場合。
-            RuntimeError: カメラが無効な場合。
-        """
-        ...
-    def getPostProjectionMatrix(self) -> Matrix:
-        """フィルム面のロール等に使う後段の投影マトリクスを取得する。
-
-        Returns:
-            Matrix: MFnCamera.postProjectionMatrixの独立した値。通常の投影マトリクスは含めない。
-
-        Raises:
             RuntimeError: カメラが無効な場合。
         """
         ...

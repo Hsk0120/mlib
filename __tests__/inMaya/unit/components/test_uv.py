@@ -184,7 +184,7 @@ class UVTest(_Case):
     def test_set_position_u_v(self):
         shape = self.cube()
         name = shape.getFullName()
-        uv = shape.getUV(3)
+        uv = shape.getUVs(3)
         self.assertIsNone(uv.setPosition((0.25, 1.5)))
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.25, 1.5)])
         self.assertIsNone(uv.setPosition(-0.5, axis="u"))
@@ -229,7 +229,7 @@ class UVTest(_Case):
         map1 = _uvs(name, "map1")
         for fast in (False, True):
             with self.subTest(fast=fast):
-                shape.getUV(1).setPosition((0.9, 0.1), fast=fast)
+                shape.getUVs(1).setPosition((0.9, 0.1), fast=fast)
                 shape.getUVs([2]).setPosition(0.8, fast=fast, axis="u")
                 self.assertPointsAlmostEqual(_uvs(name, "uv2")[1:3], [(0.9, 0.1), (0.8, _uvs(name, "uv2")[2][1])])
                 self.assertEqual(_uvs(name, "map1"), map1)
@@ -237,9 +237,9 @@ class UVTest(_Case):
     def test_undo_once(self):
         shape = self.cube()
         name = shape.getFullName()
-        self.check_undo(name, lambda: shape.getUV(0).setPosition((0.9, 0.9)), uv=True)
-        self.check_undo(name, lambda: shape.getUV(1).setPosition(0.7, axis="u"), uv=True)
-        self.check_undo(name, lambda: shape.getUV(1).setPosition(0.7, axis="v"), uv=True)
+        self.check_undo(name, lambda: shape.getUVs(0).setPosition((0.9, 0.9)), uv=True)
+        self.check_undo(name, lambda: shape.getUVs(1).setPosition(0.7, axis="u"), uv=True)
+        self.check_undo(name, lambda: shape.getUVs(1).setPosition(0.7, axis="v"), uv=True)
         uvs = shape.getUVs([2, 3])
         self.check_undo(name, lambda: uvs.setPosition([(0.1, 0.1), (0.2, 0.2)], each=True), uv=True)
         self.check_undo(name, lambda: uvs.setPosition((0.3, 0.3)), uv=True)
@@ -248,9 +248,9 @@ class UVTest(_Case):
 
     def test_fast_matches_normal_without_undo(self):
         actions = (
-            ("UV.setPosition", lambda shape, fast: shape.getUV(4).setPosition((0.3, 0.7), fast=fast)),
-            ("UV axis=u", lambda shape, fast: shape.getUV(4).setPosition(0.3, fast=fast, axis="u")),
-            ("UV axis=v", lambda shape, fast: shape.getUV(4).setPosition(0.3, fast=fast, axis="v")),
+            ("UV.setPosition", lambda shape, fast: shape.getUVs(4).setPosition((0.3, 0.7), fast=fast)),
+            ("UV axis=u", lambda shape, fast: shape.getUVs(4).setPosition(0.3, fast=fast, axis="u")),
+            ("UV axis=v", lambda shape, fast: shape.getUVs(4).setPosition(0.3, fast=fast, axis="v")),
             ("UVs each", lambda shape, fast: shape.getUVs([1, 4]).setPosition([(0, 1), (1, 0)], fast=fast, each=True)),
             ("UVs.setPosition", lambda shape, fast: shape.getUVs([1, 4]).setPosition((0.2, 0.4), fast=fast)),
             ("UVs axis=u each", lambda shape, fast: shape.getUVs([1, 4]).setPosition([0.1, 0.9], fast=fast, axis="u", each=True)),
@@ -262,7 +262,7 @@ class UVTest(_Case):
 
     def test_invalid_inputs_do_not_change_the_uvs(self):
         shape = self.cube()
-        uv = shape.getUV(0)
+        uv = shape.getUVs(0)
         uvs = shape.getUVs([0, 1])
         self.check_rejects(
             shape.getFullName(),
@@ -300,7 +300,7 @@ class UVTest(_Case):
         self.check_rejects(
             history.getFullName(),
             (
-                (NotImplementedError, lambda: history.getUV(0).setPosition((0, 0), fast=True)),
+                (NotImplementedError, lambda: history.getUVs(0).setPosition((0, 0), fast=True)),
                 (NotImplementedError, lambda: history.getUVs([0, 1]).setPosition(0.5, fast=True, axis="u")),
             ),
             uv=True,

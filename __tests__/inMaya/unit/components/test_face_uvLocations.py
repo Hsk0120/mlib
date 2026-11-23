@@ -18,10 +18,10 @@ class FaceUvLocationsTest(NamespaceCase):
         combined = cmds.polyUnite(first, second, constructionHistory=False, name=self.ns + ":combined")[0]
         cmds.move(3, 0, 0, combined)
         shape = mlib.getNode(combined).getShape()
-        points = [shape.getFace(i).getPointAtUV(0.5, 0.5) for i in range(2)]
+        points = [shape.getFaces(i).getPointAtUV(0.5, 0.5) for i in range(2)]
         self.assertAlmostEqual(abs(points[1].y - points[0].y), 10)
         for index in range(2):
-            face = shape.getFace(index)
+            face = shape.getFaces(index)
             iterator = om2.MItMeshPolygon(shape.mpath())
             iterator.setIndex(index)
             self.assertEqual(face.getUVSetNames(), iterator.getUVSetNames())
@@ -33,11 +33,11 @@ class FaceUvLocationsTest(NamespaceCase):
                 expected = iterator.getPointAtUV((0.5, 0.5), om2.MSpace.kWorld if world else om2.MSpace.kObject, "map1", 0.0)
                 self.assertAlmostEqual((om2.MPoint(*point) - expected).length(), 0, places=5)
         with self.assertRaises(TypeError):
-            shape.getFace(0).getPointAtUV(0.5, 0.5, False, ws=True)
+            shape.getFaces(0).getPointAtUV(0.5, 0.5, False, ws=True)
         with self.assertRaises(ValueError):
-            shape.getFace(0).getPointAtUV(float("nan"), 0.5)
+            shape.getFaces(0).getPointAtUV(float("nan"), 0.5)
         with self.assertRaises(ValueError):
-            shape.getFace(0).getUVAtPoint((0, 0, 0), uvSet="missing")
+            shape.getFaces(0).getUVAtPoint((0, 0, 0), uvSet="missing")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ class FaceNeighboursTest(NamespaceCase):
     def test_cube_neighbours_exclude_face_members(self):
         node = cmds.polyCube(name=self.ns + ":cube")[0]
         shape = mlib.getNode(node).getShape()
-        face = shape.getFace(0)
+        face = shape.getFaces(0)
         iterator = om2.MItMeshPolygon(shape.mpath())
         iterator.setIndex(0)
         edges = [x.index for x in face.getConnected(type="edge")]
@@ -34,7 +34,7 @@ class FaceNeighboursTest(NamespaceCase):
 
     def test_isolated_face_has_no_external_neighbours(self):
         node = cmds.polyCreateFacet(point=[(0, 0, 0), (2, 0, 0), (1, 0, 1)], name=self.ns + ":triangle")[0]
-        face = mlib.getNode(node).getShape().getFace(0)
+        face = mlib.getNode(node).getShape().getFaces(0)
         self.assertEqual(len(face.getConnected(type="edge")), 0)
         self.assertEqual(len(face.getConnected(type="vertex")), 0)
         self.assertEqual(len(face.getConnected()), 0)
@@ -56,7 +56,7 @@ class FaceNeighboursTest(NamespaceCase):
             ("vertex", mlib.Vertices, lambda: iterator.getConnectedVertices()),
         )
         for index in (0, 4, 8):
-            face = shape.getFace(index)
+            face = shape.getFaces(index)
             iterator.setIndex(index)
             for kind, cls, native in cases:
                 with self.subTest(face=index, type=kind):
@@ -66,15 +66,15 @@ class FaceNeighboursTest(NamespaceCase):
             self.assertEqual(face.getConnected().indices, face.getConnected(type="face").indices)
         # 複数形は各要素へ転送し、要素ごとの集まりの list を返す。
         many = shape.getFaces([0, 4]).getConnected(type="vertex")
-        self.assertEqual([list(item.indices) for item in many], [list(shape.getFace(i).getConnected(type="vertex").indices) for i in (0, 4)])
+        self.assertEqual([list(item.indices) for item in many], [list(shape.getFaces(i).getConnected(type="vertex").indices) for i in (0, 4)])
         # エッジ・頂点は引数なし。
-        self.assertIs(type(shape.getEdge(0).getConnected()), mlib.Edges)
-        self.assertIs(type(shape.getVertex(0).getConnected()), mlib.Vertices)
+        self.assertIs(type(shape.getEdges(0).getConnected()), mlib.Edges)
+        self.assertIs(type(shape.getVertices(0).getConnected()), mlib.Vertices)
 
     def test_connected_rejects_invalid_type(self):
         """type が文字列でなければ TypeError、決まった名前でなければ ValueError。位置引数では渡せない。"""
         node = cmds.polyCube(name=self.ns + ":cube")[0]
-        face = mlib.getNode(node).getShape().getFace(0)
+        face = mlib.getNode(node).getShape().getFaces(0)
         for value in (None, 1, True, ["face"], b"face"):
             with self.subTest(type=value):
                 with self.assertRaises(TypeError):
@@ -117,7 +117,7 @@ class FaceNeighboursTest(NamespaceCase):
             iterator = om2.MItMeshPolygon(shape.mpath())
             for index in range(shape.getNumPolygons()):
                 iterator.setIndex(index)
-                face = shape.getFace(index)
+                face = shape.getFaces(index)
                 for kind, native in natives.items():
                     if kind == "zeroUVArea" and not iterator.hasUVs():
                         continue
@@ -137,7 +137,7 @@ class FaceNeighboursTest(NamespaceCase):
         """uvReversed は UV の巻き方向、zeroArea・zeroUVArea は tolerance 以下かで決まり、uvSet を選べる。"""
         node = cmds.polyPlane(name=self.ns + ":uvPlane", subdivisionsX=1, subdivisionsY=1, width=2, height=2, constructionHistory=False)[0]
         shape = mlib.getNode(node).getShape()
-        face = shape.getFace(0)
+        face = shape.getFaces(0)
         self.assertFalse(face.isKind("uvReversed"))
         self.assertFalse(face.isKind("zeroUVArea"))
         self.assertAlmostEqual(face.getArea(uv=True), 1.0)
@@ -160,7 +160,7 @@ class FaceNeighboursTest(NamespaceCase):
     def test_kind_rejects_invalid_arguments(self):
         """kind が文字列でなければ TypeError、知らない名前は ValueError、その種類で使わない uvSet・tolerance は TypeError。"""
         node = cmds.polyCube(name=self.ns + ":cube")[0]
-        face = mlib.getNode(node).getShape().getFace(0)
+        face = mlib.getNode(node).getShape().getFaces(0)
         for value in (None, 1, True, ["planar"], b"planar"):
             with self.subTest(kind=value):
                 with self.assertRaises(TypeError):
@@ -193,14 +193,14 @@ class FaceNeighboursTest(NamespaceCase):
         iterator = om2.MItMeshPolygon(shape.mpath())
         for index in range(shape.getNumPolygons()):
             iterator.setIndex(index)
-            face = shape.getFace(index)
+            face = shape.getFaces(index)
             with self.subTest(face=index):
                 self.assertAlmostEqual(face.getArea(uv=True), iterator.getUVArea("map1"))
                 self.assertAlmostEqual(face.getArea(uv=True, uvSet="map1"), iterator.getUVArea("map1"))
                 self.assertAlmostEqual(face.getArea(), iterator.getArea(om2.MSpace.kObject))
                 self.assertAlmostEqual(face.getArea(uv=False, ws=True), iterator.getArea(om2.MSpace.kWorld), places=5)
-        face = shape.getFace(0)
-        self.assertEqual(shape.getFaces([0, 1]).getArea(uv=True), [shape.getFace(0).getArea(uv=True), shape.getFace(1).getArea(uv=True)])
+        face = shape.getFaces(0)
+        self.assertEqual(shape.getFaces([0, 1]).getArea(uv=True), [shape.getFaces(0).getArea(uv=True), shape.getFaces(1).getArea(uv=True)])
         rejected = (
             {"uv": True, "worldSpace": True},
             {"uv": True, "worldSpace": False},

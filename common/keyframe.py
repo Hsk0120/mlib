@@ -15,12 +15,13 @@
 
     for curve, keys in Selection.getKeyframes().iterCurves():
         print(curve, [key.getValue() for key in keys])
-    mlib.getNode("pCube1_translateX").getKeyframe(0).setValue(5)
+    mlib.getNode("pCube1_translateX").getKeyframes(0).setValue(5)
 """
 
 import maya.cmds as cmds
 
 from ..decorator import _require_bool, undoChunk
+from ..util import _UNSET
 
 
 class Keyframe:
@@ -90,38 +91,30 @@ class Keyframe:
         """
         return self._curve.isValid() and self._index < self._curve.getKeyCount()
 
-    def getTime(self, *, timeUnit="frame"):
-        """キーの入力(時刻、またはドリブンキーの入力の値)を返す。
+    def getValue(self, *, time=False, unit=_UNSET, timeUnit="frame"):
+        """キーの値を返す。``time=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
 
         Args:
-            timeUnit (str): 入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
+            time (bool): Trueなら、値でなく入力を返す。既定はFalse。
+            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``time=True`` では指定できない。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            float: 入力の値。
+            float: 値、または入力の値。
 
         Raises:
+            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
+        _require_bool(time, "time")
+        if time:
+            if unit is not _UNSET:
+                raise TypeError("unitはtime=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
+            self._require_valid()
+            return self._curve.getKeyInputs(timeUnit=timeUnit)[self._index]
         self._require_valid()
-        return self._curve.getKeyInputs(timeUnit=timeUnit)[self._index]
-
-    def getValue(self, *, unit="deg", timeUnit="frame"):
-        """キーの値を返す。
-
-        Args:
-            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
-
-        Returns:
-            float: 値。
-
-        Raises:
-            IndexError: 番号がキーの数の範囲から外れた場合。
-            RuntimeError: カーブが無効(削除済み)の場合。
-        """
-        self._require_valid()
-        return self._curve.getKeyValues(unit=unit, timeUnit=timeUnit)[self._index]
+        return self._curve.getKeyValues(unit="deg" if unit is _UNSET else unit, timeUnit=timeUnit)[self._index]
 
     def setValue(self, value, *, unit="deg", timeUnit="frame", fast=False, check=False):
         """キーの値を、接線の型を保ったまま変える。
@@ -350,34 +343,27 @@ class Keyframes:
                 return list(indices)
         return []
 
-    def getTimes(self, *, timeUnit="frame"):
-        """各キーの入力を返す(並びはforで取り出す順と同じ)。
+    def getValues(self, *, time=False, unit=_UNSET, timeUnit="frame"):
+        """各キーの値を返す(並びはforで取り出す順と同じ)。``time=True`` なら、各キーの入力を返す。
 
         Args:
-            timeUnit (str): 入力が時間(T型)のときの単位。
+            time (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
+            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``time=True`` では指定できない。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。
 
         Returns:
-            list[float]: 入力の値。
+            list[float]: 値、または入力の値。
+
+        Raises:
+            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
         """
+        _require_bool(time, "time")
+        if time and unit is not _UNSET:
+            raise TypeError("unitはtime=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
+        unit = "deg" if unit is _UNSET else unit
         result = []
         for curve, indices in self._groups:
-            inputs = curve.getKeyInputs(timeUnit=timeUnit)
-            result.extend(inputs[index] for index in indices)
-        return result
-
-    def getValues(self, *, unit="deg", timeUnit="frame"):
-        """各キーの値を返す(並びはforで取り出す順と同じ)。
-
-        Args:
-            unit (str): 出力が角度のときの単位。
-            timeUnit (str): 出力が時間のときの単位。
-
-        Returns:
-            list[float]: 値。
-        """
-        result = []
-        for curve, indices in self._groups:
-            values = curve.getKeyValues(unit=unit, timeUnit=timeUnit)
+            values = curve.getKeyInputs(timeUnit=timeUnit) if time else curve.getKeyValues(unit=unit, timeUnit=timeUnit)
             result.extend(values[index] for index in indices)
         return result
 

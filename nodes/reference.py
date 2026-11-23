@@ -8,7 +8,11 @@ import maya.cmds as cmds
 
 from ..core.fastWrite import require_writable
 from ..decorator import _require_bool, undoChunk
+from ..util import _require_choice
 from .node import Node, Nodes
+
+#: :meth:`Reference.getEdits` の kind と ``cmds.referenceQuery`` のフラグ。
+_EDIT_KINDS = {"string": "editStrings", "node": "editNodes", "attr": "editAttrs"}
 
 
 class Reference(Node):
@@ -186,6 +190,30 @@ class Reference(Node):
         """
         return self.mfn().isLoaded()
 
+    def setLoaded(self, state=True):
+        """リファレンスをロードする。``state=False`` なら、アンロードする。
+
+        :meth:`isLoaded` と対になる。
+
+        Args:
+            state (bool): Trueならロード、Falseならアンロードする。既定はTrue。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            RuntimeError: Mayaがロード・アンロードを拒否した場合。
+        """
+        _require_bool(state, "state")
+        if state:
+            with undoChunk("mlibReferenceLoad"):
+                # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。
+                cmds.file(loadReference=self.getName(), prompt=False)
+            return
+        with undoChunk("mlibReferenceUnload"):
+            cmds.file(unloadReference=self.getName())
+
     def getNodes(self):
         """このリファレンスがシーンへ読み込んだノードを取得する。
 
@@ -199,16 +227,31 @@ class Reference(Node):
             raise RuntimeError("アンロードされたリファレンスのノードは列挙できません")
         return Nodes._wrap([Node(mobject) for mobject in self.mfn().nodes()])
 
-    def getParentReference(self):
-        """親のリファレンスを取得する。
+    def getParentReference(self, *, root=False):
+        """親のリファレンスを取得する。``root=True`` なら、入れ子のいちばん上(トップレベル)のリファレンスを取得する。
 
         リファレンスしたファイルの中に、さらにリファレンスがある(入れ子になっている)場合に使う。
+
+        Args:
+            root (bool): Trueなら、親をいちばん上までたどる。既定はFalse(1つ上の親)。
 
         Returns:
             Reference | None: 親のリファレンス。トップレベルのリファレンスではNone。
                 ファイルを持たないreferenceノード(createNodeで作ったものなど)もNoneになる。
                 このノードではMFnReference.parentReferenceが失敗するため。
+                ``root=True`` では必ずReferenceを返し、自身がトップレベルなら自身を返す(Noneにならない)。
+
+        Raises:
+            TypeError: rootがboolでない場合。
         """
+        _require_bool(root, "root")
+        if root:
+            reference = self
+            parent = reference.getParentReference()
+            while parent is not None:
+                reference = parent
+                parent = reference.getParentReference()
+            return reference
         try:
             parent = self.mfn().parentReference()
         except RuntimeError:
@@ -238,19 +281,6 @@ class Reference(Node):
                 children.append(reference)
         return Nodes._wrap(children)
 
-    def getRoot(self):
-        """入れ子のいちばん上(トップレベル)のリファレンスを取得する。
-
-        Returns:
-            Reference: トップレベルのリファレンス。自身がトップレベルなら自身。
-        """
-        reference = self
-        parent = reference.getParentReference()
-        while parent is not None:
-            reference = parent
-            parent = reference.getParentReference()
-        return reference
-
     def isTopLevel(self):
         """トップレベルのリファレンス(親を持たないもの)かを判定する。
 
@@ -259,95 +289,37 @@ class Reference(Node):
         """
         return self.getParentReference() is None
 
-    def getEditStrings(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
-        """このリファレンスに対するEditの一覧を、MELコマンドの文字列で取得する。
+    def getEdits(self, successful=True, failed=False, *, kind="string", editCommand=None, onReferenceNode=None):
+        """このリファレンスに対するEditの一覧を取得する。
+
+        ``kind`` で、Editの何を返すかを選ぶ。
+
+        - ``"string"`` (既定): Editを表すMELコマンドの文字列。過去の名前を含む場合がある。
+        - ``"node"``: Editに記録されたノード名。過去の名前や重複を含み、現在のDAGパスとは限らない。
+        - ``"attr"``: Editで変更されたアトリビュートの短縮名。Mayaの ``referenceQuery -editAttrs`` は、ノード名を含まない
+          アトリビュート名だけを返す。コンパウンドアトリビュートの子を編集した場合は、親の短縮名になる。同じ名前が重なることがある。
+          どのノードのアトリビュートかは、``"node"``・``"string"`` と合わせて調べる。
 
         Args:
             successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
+            kind (str): 返すもの。``"string"``・``"node"``・``"attr"``。既定は ``"string"``。
             editCommand (str | None): addAttr・connectAttr・deleteAttr・disconnectAttr・parent・setAttr・lock・unlockの1種類。
                 Noneなら種類を絞らない。
             onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
 
         Returns:
-            list[str]: Editを表すMELコマンド文字列。過去の名前を含む場合がある。無ければ空リスト。
+            list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
 
         Raises:
-            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
-            ValueError: editCommandが未対応の名前の場合。
+            TypeError: kind・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            ValueError: kind・editCommandが未対応の名前の場合。
             RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
+        kind = _require_choice(kind, "kind", tuple(_EDIT_KINDS))
         flags = self._edit_query_filters(editCommand, onReferenceNode)
-        return cmds.referenceQuery(self.getName(), editStrings=True, successfulEdits=successful, failedEdits=failed, **flags) or []
-
-    def getEditNodeNames(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
-        """Editに記録されたノード名の一覧を取得する。
-
-        Args:
-            successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
-            failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
-            editCommand (str | None): Editのコマンド名。対応する名前はgetEditStringsを参照。Noneなら全種類。
-            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
-
-        Returns:
-            list[str]: Mayaが返すノード名。過去の名前や重複を含み、現在のDAGパスとは限らない。無ければ空リスト。
-
-        Raises:
-            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
-            ValueError: editCommandが未対応の名前の場合。
-            RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
-        """
-        flags = self._edit_query_filters(editCommand, onReferenceNode)
-        return cmds.referenceQuery(self.getName(), editNodes=True, successfulEdits=successful, failedEdits=failed, **flags) or []
-
-    def getEditAttrNames(self, successful=True, failed=False, *, editCommand=None, onReferenceNode=None):
-        """Editで変更されたアトリビュートの短縮名の一覧を取得する。
-
-        Mayaの ``referenceQuery -editAttrs`` は、ノード名を含まないアトリビュート名だけを返す。
-        コンパウンドアトリビュートの子を編集した場合は、親の短縮名になる。
-        どのノードのアトリビュートかは、``getEditNodeNames()`` や ``getEditStrings()`` と合わせて調べる。
-
-        Args:
-            successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
-            failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
-            editCommand (str | None): Editのコマンド名。対応する名前はgetEditStringsを参照。Noneなら全種類。
-            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
-
-        Returns:
-            list[str]: Editの対象になったアトリビュートの短縮名。同じ名前が重なることがある。無ければ空リスト。
-
-        Raises:
-            TypeError: editCommandの型、またはonReferenceNodeのノード型が不正な場合。
-            ValueError: editCommandが未対応の名前の場合。
-            RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
-        """
-        flags = self._edit_query_filters(editCommand, onReferenceNode)
-        return cmds.referenceQuery(self.getName(), editAttrs=True, successfulEdits=successful, failedEdits=failed, **flags) or []
-
-    @undoChunk("mlibReferenceLoad")
-    def load(self):
-        """リファレンスをロードする。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: Mayaがロードを拒否した場合。
-        """
-        # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。
-        cmds.file(loadReference=self.getName(), prompt=False)
-
-    @undoChunk("mlibReferenceUnload")
-    def unload(self):
-        """リファレンスをアンロードする。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: Mayaがアンロードを拒否した場合。
-        """
-        cmds.file(unloadReference=self.getName())
+        flags[_EDIT_KINDS[kind]] = True
+        return cmds.referenceQuery(self.getName(), successfulEdits=successful, failedEdits=failed, **flags) or []
 
     @undoChunk("mlibReferenceRemoveEdits")
     def removeEdits(self, successful=True, failed=True, editCommand=None):

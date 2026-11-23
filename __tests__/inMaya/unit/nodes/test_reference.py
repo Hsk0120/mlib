@@ -91,37 +91,50 @@ class ReferenceTest(unittest.TestCase):
     def test_is_root_root_and_children_for_top_level_reference(self):
         reference = Node(self.ref_node_name)
         self.assertTrue(reference.isTopLevel())
-        self.assertEqual(reference.getRoot().getName(), reference.getName())
+        self.assertEqual(reference.getParentReference(root=True).getName(), reference.getName())
         self.assertEqual(reference.getChildren(), [])
 
     def test_edit_strings_nodes_attrs_reflect_applied_edit(self):
         reference = Node(self.ref_node_name)
-        self.assertEqual(reference.getEditStrings(), [])
-        self.assertEqual(reference.getEditNodeNames(), [])
-        self.assertEqual(reference.getEditAttrNames(), [])
+        self.assertEqual(reference.getEdits(), [])
+        self.assertEqual(reference.getEdits(kind="node"), [])
+        self.assertEqual(reference.getEdits(kind="attr"), [])
 
         node_name = f"{self.namespace_name}:mlibReferenceExportHelper"
         cmds.setAttr(node_name + ".translateX", 3.0)
 
-        editStrings = reference.getEditStrings()
+        editStrings = reference.getEdits()
         self.assertTrue(any("translate" in edit for edit in editStrings))
-        self.assertIn("|" + node_name, reference.getEditNodeNames())
-        self.assertIn("translate", reference.getEditAttrNames())
+        self.assertIn("|" + node_name, reference.getEdits(kind="node"))
+        self.assertIn("translate", reference.getEdits(kind="attr"))
 
     def test_unload_load_round_trip(self):
         reference = Node(self.ref_node_name)
-        result = reference.unload()
+        result = reference.setLoaded(False)
         self.assertIsNone(result)
         self.assertFalse(reference.isLoaded())
         self.assertFalse(cmds.referenceQuery(self.ref_node_name, isLoaded=True))
 
-        result = reference.load()
+        result = reference.setLoaded()
         self.assertIsNone(result)
         self.assertTrue(reference.isLoaded())
+        # state を明示しても同じ。すでに同じ状態でも例外にしない。bool 以外は TypeError。
+        for state in (False, False, True, True):
+            with self.subTest(state=state):
+                self.assertIsNone(reference.setLoaded(state))
+                self.assertIs(reference.isLoaded(), state)
+                self.assertIs(cmds.referenceQuery(self.ref_node_name, isLoaded=True), state)
+        self.assertIsNone(reference.setLoaded(state=False))
+        self.assertFalse(reference.isLoaded())
+        for state in (1, None, "on"):
+            with self.subTest(invalid=state):
+                with self.assertRaises(TypeError):
+                    reference.setLoaded(state)
+                self.assertFalse(reference.isLoaded())
 
     def test_nodes_raises_when_unloaded(self):
         reference = Node(self.ref_node_name)
-        reference.unload()
+        reference.setLoaded(False)
         with self.assertRaises(RuntimeError):
             reference.getNodes()
 
@@ -175,7 +188,7 @@ class NestedReferenceTest(unittest.TestCase):
 
     def test_top_level_reference_reports_nested_child(self):
         self.assertTrue(self.top.isTopLevel())
-        self.assertEqual(self.top.getRoot().getName(), self.top.getName())
+        self.assertEqual(self.top.getParentReference(root=True).getName(), self.top.getName())
         child_names = [child.getName() for child in self.top.getChildren()]
         self.assertEqual(child_names, [self.nested_name])
 
@@ -183,7 +196,16 @@ class NestedReferenceTest(unittest.TestCase):
         nested = Node(self.nested_name)
         self.assertFalse(nested.isTopLevel())
         self.assertEqual(nested.getParentReference().getName(), self.top.getName())
-        self.assertEqual(nested.getRoot().getName(), self.top.getName())
+        self.assertEqual(nested.getParentReference(root=True).getName(), self.top.getName())
+        # root=False(既定)は1つ上の親で、トップレベルでは None。root=True はトップレベルで自身を返す(None にならない)。
+        self.assertEqual(nested.getParentReference(root=False), nested.getParentReference())
+        self.assertIsInstance(nested.getParentReference(root=True), mlib.Reference)
+        self.assertIsNone(self.top.getParentReference(root=False))
+        self.assertEqual(self.top.getParentReference(root=True), self.top)
+        with self.assertRaises(TypeError):
+            nested.getParentReference(root=1)
+        with self.assertRaises(TypeError):
+            nested.getParentReference(True)
 
 
 class _SpecCase(NamespaceCase):
@@ -249,10 +271,10 @@ class ReferenceSpecTest(unittest.TestCase):
         self.assertFalse(Node(self.refs[0]).isFromReferencedFile())
         cmds.setAttr(content.getFullName() + ".translateX", 3)
         reference = Node(self.refs[0])
-        self.assertEqual(len(reference.getEditStrings()), 1)
-        self.assertEqual(reference.getEditStrings(successful=False, failed=True), [])
-        self.assertEqual(reference.getEditAttrNames(successful=False), [])
-        self.assertEqual(Node(self.refs[1]).getEditNodeNames(), [])
+        self.assertEqual(len(reference.getEdits()), 1)
+        self.assertEqual(reference.getEdits(successful=False, failed=True), [])
+        self.assertEqual(reference.getEdits(successful=False, kind="attr"), [])
+        self.assertEqual(Node(self.refs[1]).getEdits(kind="node"), [])
 
 
 class _Case(NamespaceCase):
@@ -320,7 +342,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
         local = self.make("transform", "local#")
         cmds.connectAttr(asset.getFullName() + ".tz", local + ".tx")
         self.assertFalse(mlib.getPlug(local + ".tx").isFromReferencedFile())
-        second.unload()
+        second.setLoaded(False)
         self.assertEqual(second.isDeferred(), cmds.file(cmds.referenceQuery(second.getFullName(), filename=True), query=True, deferReference=True))
 
     def test_remove_edits(self):
@@ -332,12 +354,12 @@ class ReferenceNodePlugAdditionsTest(_Case):
         cmds.connectAttr(asset + ".tx", local + ".tx")
         self.assertIsNone(reference.removeEdits(editCommand="setAttr"))
         self.assertTrue(reference.isLoaded())
-        edits = reference.getEditStrings()
+        edits = reference.getEdits()
         self.assertFalse([edit for edit in edits if edit.startswith("setAttr")])
         self.assertTrue([edit for edit in edits if edit.startswith("connectAttr")])
         self.assertEqual(cmds.getAttr(asset + ".tz"), 0.0)
         reference.removeEdits()
-        self.assertEqual(reference.getEditStrings(), [])
+        self.assertEqual(reference.getEdits(), [])
         for flags, error in (({"successful": 1}, TypeError), ({"editCommand": 3}, TypeError), ({"editCommand": ""}, ValueError)):
             with self.subTest(flags=flags):
                 with self.assertRaises(error):
@@ -374,7 +396,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
                 with contextlib.suppress(RuntimeError):
                     cmds.delete(node.getFullName())
         third = self._reference(self.path_a, "r3")
-        third.unload()
+        third.setLoaded(False)
         with self.assertRaises(RuntimeError):
             third.importContents()
         with self.assertRaises(TypeError):

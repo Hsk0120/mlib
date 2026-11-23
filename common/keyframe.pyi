@@ -16,11 +16,12 @@
 
     for curve, keys in Selection.getKeyframes().iterCurves():
         print(curve, [key.getValue() for key in keys])
-    mlib.getNode("pCube1_translateX").getKeyframe(0).setValue(5)
+    mlib.getNode("pCube1_translateX").getKeyframes(0).setValue(5)
 """
 
 import maya.cmds as cmds
 from ..decorator import _require_bool, undoChunk
+from ..util import _UNSET
 from typing import Iterator
 from mlib.nodes.animCurve import AnimCurve
 from mlib.nodes.node import Nodes
@@ -74,31 +75,19 @@ class Keyframe:
             bool: 有効ならTrue。番号が同じキーを指し続けているかまでは確かめない。
         """
         ...
-    def getTime(self, *, timeUnit: str = ...) -> float:
-        """キーの入力(時刻、またはドリブンキーの入力の値)を返す。
+    def getValue(self, *, time: bool = ..., unit: str = ..., timeUnit: str = ...) -> float:
+        """キーの値を返す。``time=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
 
         Args:
-            timeUnit (str): 入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
+            time (bool): Trueなら、値でなく入力を返す。既定はFalse。
+            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``time=True`` では指定できない。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
-            float: 入力の値。
+            float: 値、または入力の値。
 
         Raises:
-            IndexError: 番号がキーの数の範囲から外れた場合。
-            RuntimeError: カーブが無効(削除済み)の場合。
-        """
-        ...
-    def getValue(self, *, unit: str = ..., timeUnit: str = ...) -> float:
-        """キーの値を返す。
-
-        Args:
-            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
-
-        Returns:
-            float: 値。
-
-        Raises:
+            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
@@ -288,25 +277,19 @@ class Keyframes:
             list[int]: 番号(小さい順)。このカーブのキーが無ければ空。
         """
         ...
-    def getTimes(self, *, timeUnit: str = ...) -> list[float]:
-        """各キーの入力を返す(並びはforで取り出す順と同じ)。
+    def getValues(self, *, time: bool = ..., unit: str = ..., timeUnit: str = ...) -> list[float]:
+        """各キーの値を返す(並びはforで取り出す順と同じ)。``time=True`` なら、各キーの入力を返す。
 
         Args:
-            timeUnit (str): 入力が時間(T型)のときの単位。
+            time (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
+            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``time=True`` では指定できない。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。
 
         Returns:
-            list[float]: 入力の値。
-        """
-        ...
-    def getValues(self, *, unit: str = ..., timeUnit: str = ...) -> list[float]:
-        """各キーの値を返す(並びはforで取り出す順と同じ)。
+            list[float]: 値、または入力の値。
 
-        Args:
-            unit (str): 出力が角度のときの単位。
-            timeUnit (str): 出力が時間のときの単位。
-
-        Returns:
-            list[float]: 値。
+        Raises:
+            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
         """
         ...
     def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:

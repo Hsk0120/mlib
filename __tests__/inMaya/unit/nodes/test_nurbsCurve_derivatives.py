@@ -18,31 +18,31 @@ class CurveDerivativesTest(NamespaceCase):
         self.flushUndo()
         for world in (False, True):
             with self.subTest(world=world):
-                values = curve.getDerivativesAtParam(0.4, world, secondOrder=True)
+                values = curve.getAtParam(0.4, world, secondOrder=True, what="derivatives")
                 direct = curve.mfn().getDerivativesAtParam(0.4, space=om2.MSpace.kWorld if world else om2.MSpace.kObject, dUU=True)
                 self.assertEqual(len(values), 3)
                 for actual, expected in zip(values, direct):
                     self.assertSequenceAlmostEqual(actual, list(expected)[:3])
-                self.assertEqual(len(curve.getDerivativesAtParam(0.4)), 2)
+                self.assertEqual(len(curve.getAtParam(0.4, what="derivatives")), 2)
         self.assertUndoEmpty()
         with self.assertRaises(ValueError):
-            curve.getDerivativesAtParam(-10)
+            curve.getAtParam(-10, what="derivatives")
         with self.assertRaises(TypeError):
-            curve.getDerivativesAtParam(0.4, False, ws=False)
+            curve.getAtParam(0.4, False, ws=False, what="derivatives")
         with self.assertRaises(TypeError):
-            curve.getDerivativesAtParam(0.4, secondOrder=1)
+            curve.getAtParam(0.4, secondOrder=1, what="derivatives")
 
     def test_degenerate_derivative_is_zero(self):
         name = cmds.curve(name=self.name("zero"), degree=1, point=[(1, 1, 1), (1, 1, 1)])
         curve = mlib.Node(name).getShape()
-        self.assertAlmostEqual(curve.getDerivativesAtParam(0.5)[1].length(), 0)
+        self.assertAlmostEqual(curve.getAtParam(0.5, what="derivatives")[1].length(), 0)
 
     def test_periodic_endpoint_derivatives(self):
         name = cmds.circle(name=self.name("periodic"), constructionHistory=False)[0]
         curve = mlib.Node(name).getShape()
         start, end = curve.getParamRange()
-        first = curve.getDerivativesAtParam(start, secondOrder=True)
-        last = curve.getDerivativesAtParam(end, secondOrder=True)
+        first = curve.getAtParam(start, secondOrder=True, what="derivatives")
+        last = curve.getAtParam(end, secondOrder=True, what="derivatives")
         for a, b in zip(first, last):
             self.assertSequenceAlmostEqual(a, b)
 

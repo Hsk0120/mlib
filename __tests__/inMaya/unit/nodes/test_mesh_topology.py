@@ -1,4 +1,4 @@
-"""``Mesh.getTopology`` と ``Mesh.copyUVSet(replace=True)`` のテスト。"""
+"""``Mesh.getTopology`` と ``Mesh.copySet(replace=True)`` のテスト。"""
 
 import sys
 import unittest
@@ -30,7 +30,7 @@ class MeshTopologyTest(NamespaceCase):
 
 
 class CopyUVSetReplaceTest(NamespaceCase):
-    """copyUVSet(replace=True) は既にあるUVセットのUVを置き換える。"""
+    """copySet(replace=True) は既にあるUVセットのUVを置き換える。"""
 
     PREFIX = "mlibCopyUVSetReplace_"
 
@@ -38,7 +38,7 @@ class CopyUVSetReplaceTest(NamespaceCase):
         """map1を動かしたコピー(moved)を持つメッシュを返す。"""
         transform = cmds.polyPlane(name=self.name("plane"), subdivisionsX=2, subdivisionsY=2, constructionHistory=False)[0]
         mesh = mlib.getNode(transform).getShape()
-        mesh.copyUVSet("map1", "moved")
+        mesh.copySet("map1", "moved")
         cmds.polyEditUV(transform + ".map[*]", uValue=0.5, vValue=0.25, uvSetName="moved")
         return mesh
 
@@ -56,25 +56,25 @@ class CopyUVSetReplaceTest(NamespaceCase):
         mesh = self.mesh()
         self.assertNotEqual(self.uvs(mesh, "map1"), self.uvs(mesh, "moved"))
         self.flushUndo()
-        mesh.copyUVSet("moved", "map1", replace=True)
+        mesh.copySet("moved", "map1", replace=True)
         expected = self.uvs(mesh, "moved")
         self.assertUndoesInOneStep(lambda: self.assertNotEqual(self.uvs(mesh, "map1"), expected), lambda: self.assertEqual(self.uvs(mesh, "map1"), expected))
-        self.assertEqual(mesh.getCurrentUVSet(), "map1")
-        mesh.copyUVSet("moved", "fresh", replace=True)
-        self.assertIn("fresh", mesh.getUVSetNames())
+        self.assertEqual(mesh.getCurrentSet(), "map1")
+        mesh.copySet("moved", "fresh", replace=True)
+        self.assertIn("fresh", mesh.getSetNames())
         self.assertFalse(mesh.getHistory(type="polyCopyUV"))
 
     def test_errors(self):
         """replaceを指定しなければ従来どおり拒否し、型と同じ名前を確かめる。"""
         mesh = self.mesh()
         with self.assertRaises(ValueError):
-            mesh.copyUVSet("map1", "moved")
+            mesh.copySet("map1", "moved")
         with self.assertRaises(ValueError):
-            mesh.copyUVSet("map1", "map1", replace=True)
+            mesh.copySet("map1", "map1", replace=True)
         with self.assertRaises(TypeError):
-            mesh.copyUVSet("map1", "moved", replace=1)
+            mesh.copySet("map1", "moved", replace=1)
         with self.assertRaises(ValueError):
-            mesh.copyUVSet("missing", "moved", replace=True)
+            mesh.copySet("missing", "moved", replace=True)
 
 
 if __name__ == "__main__":

@@ -29,26 +29,26 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(history=history):
                 mesh = self.mesh(history)
                 components = mesh.getVertexFaces([0, 5])
-                before = mesh.getFaceVertexNormals()
-                locks = mesh.getFaceVertexNormalLocks()
+                before = mesh.getVertexNormals(perFace=True)
+                locks = mesh.getVertexNormals(perFace=True, locked=True)
                 self.flushUndo()
                 mesh.setFaceVertexNormals([(1, 2, 3), (2, -1, 0)], faceVertices=components)
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.assertVector(components[1].getNormal(), om2.MVector(2, -1, 0).normal())
                 self.assertTrue(components[0].getNormal(locked=True))
-                for index, value in enumerate(mesh.getFaceVertexNormals()):
+                for index, value in enumerate(mesh.getVertexNormals(perFace=True)):
                     if index not in components.indices:
                         self.assertVector(value, before[index])
                 cmds.undo()
-                self.assertEqual(mesh.getFaceVertexNormalLocks(), locks)
-                for value, expected in zip(mesh.getFaceVertexNormals(), before):
+                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+                for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
                     self.assertVector(value, expected)
                 cmds.redo()
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.flushUndo()
                 components[0].setNormal(locked=False)
                 self.assertFalse(components[0].getNormal(locked=True))
-                self.assertFalse(mesh.getFaceVertexNormalLocks(faceVertices=components)[0])
+                self.assertFalse(mesh.getVertexNormals(perFace=True, locked=True, faceVertices=components)[0])
                 self.assertTrue(components[1].getNormal(locked=True))
                 cmds.undo()
                 self.assertTrue(components[0].getNormal(locked=True))
@@ -69,7 +69,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                     self.assertVector(components[0].getNormal(), (0, 0, 1))
                     self.assertTrue(components[0].getNormal(locked=True))
                 # 複数形は各要素へ転送する。
-                self.assertEqual(components.getNormal(locked=True), mesh.getFaceVertexNormalLocks(faceVertices=components))
+                self.assertEqual(components.getNormal(locked=True), mesh.getVertexNormals(perFace=True, locked=True, faceVertices=components))
 
     def test_fast_normals_and_world_space(self):
         for fast in (False, True):
@@ -96,7 +96,7 @@ class MeshFaceVerticesTest(NamespaceCase):
 
     def test_normal_validation_before_update(self):
         mesh = self.mesh()
-        before = mesh.getFaceVertexNormals()
+        before = mesh.getVertexNormals(perFace=True)
         calls = [
             lambda: mesh.setFaceVertexNormals([(0, 0, 0)], faceVertices=[0]),
             lambda: mesh.setFaceVertexNormals([(1, 0, 0)], faceVertices=[0, 1]),
@@ -105,14 +105,39 @@ class MeshFaceVerticesTest(NamespaceCase):
         for call in calls:
             with self.assertRaises(ValueError):
                 call()
-        for value, expected in zip(mesh.getFaceVertexNormals(), before):
+        for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
             self.assertVector(value, expected)
         with self.assertRaises(TypeError):
             mesh.setFaceVertexNormals([], fast=1)
         with self.assertRaises(TypeError):
-            mesh.getFaceVertexNormals(True, ws=True)
+            mesh.getVertexNormals(True, ws=True, perFace=True)
+        # 同時に指定できない組み合わせは、照会も設定もTypeErrorにする。
+        for flags in (
+            {"faceVertices": [0]},
+            {"locked": True},
+            {"perFace": True, "angleWeighted": True},
+            {"perFace": True, "locked": True, "worldSpace": True},
+            {"perFace": True, "locked": True, "ws": False},
+            {"perFace": 1},
+            {"perFace": True, "locked": 1},
+        ):
+            with self.subTest(method="Mesh.getVertexNormals", flags=flags):
+                with self.assertRaises(TypeError):
+                    mesh.getVertexNormals(**flags)
+        for flags in (
+            {},
+            {"faceVertices": [0]},
+            {"locked": 1},
+            {"normals": [(1, 0, 0)], "locked": False, "faceVertices": [0]},
+            {"locked": True, "worldSpace": True},
+            {"locked": False, "ws": False},
+            {"locked": True, "check": True},
+        ):
+            with self.subTest(method="Mesh.setFaceVertexNormals", flags=flags):
+                with self.assertRaises(TypeError):
+                    mesh.setFaceVertexNormals(**flags)
         component = mesh.getVertexFaces([0])[0]
-        locks = mesh.getFaceVertexNormalLocks()
+        locks = mesh.getVertexNormals(perFace=True, locked=True)
         for flags in (
             {},
             {"locked": 1},
@@ -128,13 +153,28 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(method="VertexFace.getNormal", flags=flags):
                 with self.assertRaises(TypeError):
                     component.getNormal(**flags)
-        self.assertEqual(mesh.getFaceVertexNormalLocks(), locks)
-        for value, expected in zip(mesh.getFaceVertexNormals(), before):
+        self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+        for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
             self.assertVector(value, expected)
+        # lockedだけを渡すと、法線の値を変えずにロックだけを切り替える(Undo 1回・fastはUndoなし)。
+        for fast in (False, True):
+            with self.subTest(method="Mesh.setFaceVertexNormals", locked=True, fast=fast):
+                self.flushUndo()
+                self.assertIsNone(mesh.setFaceVertexNormals(locked=True, fast=fast, faceVertices=[0, 5]))
+                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True, faceVertices=[0, 5, 1]), [True, True, False])
+                self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
+                for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
+                    self.assertVector(value, expected)
+                if not fast:
+                    cmds.undo()
+                    self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+                    cmds.redo()
+                mesh.setFaceVertexNormals(locked=False, fast=fast, faceVertices=[0, 5])
+                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
         history = self.mesh(True)
         for operation in (
             lambda: history.setFaceVertexNormals([(1, 0, 0)], fast=True, faceVertices=[0]),
-            lambda: history.setFaceVertexNormalsLocked(fast=True),
+            lambda: history.setFaceVertexNormals(locked=True, fast=True),
             lambda: history.getVertexFaces([0])[0].setNormal(locked=True, fast=True),
         ):
             with self.assertRaises(NotImplementedError):
@@ -142,14 +182,14 @@ class MeshFaceVerticesTest(NamespaceCase):
 
     def test_tangents_and_binormals_match_openmaya(self):
         mesh = self.mesh()
-        mesh.copyUVSet("map1", "extra")
-        mesh.setCurrentUVSet("map1")
+        mesh.copySet("map1", "extra")
+        mesh.setCurrentSet("map1")
         cmds.setAttr(mesh.getParent().getFullName() + ".rotateY", 31)
         components = mesh.getVertexFaces([9, 0, 17])
         for world in (False, True):
             space = om2.MSpace.kWorld if world else om2.MSpace.kObject
             tangents = mesh.getFaceVertexTangents(world, uvSet="extra", faceVertices=components)
-            binormals = mesh.getFaceVertexBinormals(ws=world, uvSet="extra", faceVertices=components)
+            binormals = mesh.getFaceVertexTangents(ws=world, uvSet="extra", faceVertices=components, binormal=True)
             for component, tangent, binormal in zip(components, tangents, binormals):
                 vertex, face = component.getMultiIndex()
                 fn = mesh.mfn()
@@ -163,25 +203,25 @@ class MeshFaceVerticesTest(NamespaceCase):
             components[0].getTangent(binormal=1)
         with self.assertRaises(TypeError):
             components[0].getTangent(False, True)
-        self.assertEqual(mesh.getCurrentUVSet(), "map1")
+        self.assertEqual(mesh.getCurrentSet(), "map1")
 
     def test_uv_inspection_and_missing_tangents(self):
         mesh = self.mesh()
         mesh.setUVData([(0, 0), (1, 0), (1, 1), (0, 1)], [4, 4, 4, 0, 0, 0], [0, 1, 2, 3, 3, 2, 1, 0, 0, 0, 0, 0], fast=True)
-        self.assertAlmostEqual(mesh.getFace(0).getArea(uv=True), 1.0)
-        self.assertFalse(mesh.getFace(0).isKind("uvReversed"))
-        self.assertTrue(mesh.getFace(1).isKind("uvReversed"))
-        self.assertTrue(mesh.getFace(2).isKind("zeroUVArea"))
-        self.assertFalse(mesh.getFace(2).isKind("uvReversed"))
-        self.assertTrue(mesh.getFace(0).isKind("validTriangulation"))
+        self.assertAlmostEqual(mesh.getFaces(0).getArea(uv=True), 1.0)
+        self.assertFalse(mesh.getFaces(0).isKind("uvReversed"))
+        self.assertTrue(mesh.getFaces(1).isKind("uvReversed"))
+        self.assertTrue(mesh.getFaces(2).isKind("zeroUVArea"))
+        self.assertFalse(mesh.getFaces(2).isKind("uvReversed"))
+        self.assertTrue(mesh.getFaces(0).isKind("validTriangulation"))
         with self.assertRaises(RuntimeError):
-            mesh.getFace(3).getArea(uv=True)
+            mesh.getFaces(3).getArea(uv=True)
         with self.assertRaises(RuntimeError):
             mesh.getFaceVertexTangents(faceVertices=[8])
         with self.assertRaises(RuntimeError):
-            mesh.getFaceVertexBinormals(faceVertices=[12])
+            mesh.getFaceVertexTangents(faceVertices=[12], binormal=True)
         with self.assertRaises(ValueError):
-            mesh.getFace(0).isKind("zeroUVArea", tolerance=-1)
+            mesh.getFaces(0).isKind("zeroUVArea", tolerance=-1)
 
     def test_uv_data_changes_count_and_assignments_with_undo(self):
         for history in (False, True):
@@ -213,10 +253,10 @@ class MeshFaceVerticesTest(NamespaceCase):
             self.skipTest("シーンを開き直す検証は隔離したmayapyで実行します")
 
         mesh = self.mesh(True)
-        mesh.copyUVSet("map1", "removed")
-        mesh.copyUVSet("map1", "kept")
+        mesh.copySet("map1", "removed")
+        mesh.copySet("map1", "kept")
         cmds.polyUVSet(mesh.getFullName(), delete=True, uvSet="removed")
-        mesh.setCurrentUVSet("kept")
+        mesh.setCurrentSet("kept")
         kept = mesh.getUVData(uvSet="kept")
         shape_name = mesh.getFullName()
         history = cmds.listHistory(shape_name) or []
@@ -237,7 +277,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                         restored = mlib.getNode(shape_name)
                         self.assertEqual(restored.getUVData(uvSet="map1"), (values, counts, indices))
                         self.assertEqual(restored.getUVData(uvSet="kept"), kept)
-                        self.assertEqual(restored.getCurrentUVSet(), "kept")
+                        self.assertEqual(restored.getCurrentSet(), "kept")
                         self.assertEqual(cmds.polyUVSet(shape_name, query=True, allUVSets=True), ["map1", "kept"])
                         self.assertTrue(all(cmds.objExists(node) for node in history))
         finally:
@@ -245,25 +285,35 @@ class MeshFaceVerticesTest(NamespaceCase):
 
     def test_uv_data_preserves_other_mesh_data(self):
         mesh = self.mesh(True)
-        mesh.copyUVSet("map1", "other")
-        mesh.setCurrentUVSet("other")
+        mesh.copySet("map1", "other")
+        mesh.setCurrentSet("other")
         other = mesh.getUVData(uvSet="other")
-        mesh.setFaceVertexColors([(1, 0, 0, 0.5)], faceVertices=[0])
+        mesh.setVertexColors([(1, 0, 0, 0.5)], faceVertices=[0], perFace=True)
         mesh.setFaceVertexNormals([(1, 2, 3)], faceVertices=[0])
-        shading = mesh.getFaceShadingEngines()
+        shading = mesh.getShadingEngines(perFace=True)
+        # perFace=Trueはフェースごとの並び、既定は重複の無い一覧。perFaceはboolだけを受け付ける。
+        self.assertEqual(len(shading), len(mesh.getFaces()))
+        engines = list(mesh.getShadingEngines())
+        self.assertEqual(len(engines), 1)
+        self.assertEqual(shading, engines * len(mesh.getFaces()))
+        self.assertEqual(list(mesh.getShadingEngines(perFace=False)), list(mesh.getShadingEngines()))
+        with self.assertRaises(TypeError):
+            mesh.getShadingEngines(perFace=1)
+        with self.assertRaises(TypeError):
+            mesh.getShadingEngines(True)
         points = [tuple(value) for value in mesh.getPoints()]
-        normals = mesh.getFaceVertexNormals()
-        colors = mesh.getFaceVertexColors()
-        member = cmds.sets(str(mesh.getVertex(1)), name=self.name("members"))
+        normals = mesh.getVertexNormals(perFace=True)
+        colors = mesh.getVertexColors(perFace=True)
+        member = cmds.sets(str(mesh.getVertices(1)), name=self.name("members"))
         members = cmds.sets(member, query=True)
         mesh.setUVData([(0, 0)], [4] * 6, [0] * 24, uvSet="map1")
-        self.assertEqual(mesh.getCurrentUVSet(), "other")
+        self.assertEqual(mesh.getCurrentSet(), "other")
         self.assertEqual(mesh.getUVData(uvSet="other"), other)
         self.assertEqual([tuple(value) for value in mesh.getPoints()], points)
-        self.assertEqual(mesh.getFaceVertexColors(), colors)
-        self.assertEqual(mesh.getFaceShadingEngines(), shading)
+        self.assertEqual(mesh.getVertexColors(perFace=True), colors)
+        self.assertEqual(mesh.getShadingEngines(perFace=True), shading)
         self.assertEqual(cmds.sets(member, query=True), members)
-        for value, expected in zip(mesh.getFaceVertexNormals(), normals):
+        for value, expected in zip(mesh.getVertexNormals(perFace=True), normals):
             self.assertVector(value, expected)
 
     def test_uv_validation_and_fast_empty(self):
@@ -305,8 +355,8 @@ class MeshFaceVerticesTest(NamespaceCase):
                 for operation in (
                     lambda: mesh.setUVData(*before, fast=fast),
                     lambda: mesh.setFaceVertexNormals([(1, 0, 0)], fast=fast, faceVertices=[0]),
-                    lambda: mesh.setFaceVertexNormalsLocked(fast=fast),
-                    lambda: mesh.setFaceVertexColors([(1, 0, 0)], fast=fast, faceVertices=[0]),
+                    lambda: mesh.setFaceVertexNormals(locked=True, fast=fast),
+                    lambda: mesh.setVertexColors([(1, 0, 0)], fast=fast, faceVertices=[0], perFace=True),
                 ):
                     with self.assertRaises(RuntimeError):
                         operation()
@@ -320,34 +370,47 @@ class MeshFaceVerticesTest(NamespaceCase):
                 mesh = self.mesh(history)
                 vertex = mesh.getVertexFaces([0])[0].getMultiIndex()[0]
                 targets = [component for component in mesh.getVertexFaces() if component.getMultiIndex()[0] == vertex][:2]
-                before = mesh.getFaceVertexColors()
+                before = mesh.getVertexColors(perFace=True)
                 self.flushUndo()
-                mesh.setFaceVertexColors([(1, 0, 0, 0.25), (0, 0, 1, 0.75)], faceVertices=[item.index for item in targets])
+                mesh.setVertexColors([(1, 0, 0, 0.25), (0, 0, 1, 0.75)], faceVertices=[item.index for item in targets], perFace=True)
                 self.assertEqual(targets[0].getColor(), (1, 0, 0, 0.25))
                 self.assertEqual(targets[1].getColor(), (0, 0, 1, 0.75))
                 cmds.undo()
-                self.assertEqual(mesh.getFaceVertexColors(), before)
+                self.assertEqual(mesh.getVertexColors(perFace=True), before)
                 cmds.redo()
                 self.assertEqual(targets[0].getColor(), (1, 0, 0, 0.25))
 
     def test_face_colors_named_set_fast_and_validation(self):
         mesh = self.mesh()
-        mesh.createColorSet("first")
-        mesh.createColorSet("second")
+        mesh.createSet("first", color=True)
+        mesh.createSet("second", color=True)
         component = mesh.getVertexFaces([0])[0]
         self.flushUndo()
         component.setColor((0.2, 0.4, 0.6), fast=True, colorSet="first")
         self.assertUndoEmpty()
-        self.assertEqual(mesh.getCurrentColorSet(), "second")
+        self.assertEqual(mesh.getCurrentSet(color=True), "second")
         self.assertVector(component.getColor(colorSet="first"), (0.2, 0.4, 0.6, 1))
         self.assertIsNone(component.getColor(colorSet="second"))
         component.setColor((1, 0, 0), colorSet="first")
-        self.assertEqual(mesh.getCurrentColorSet(), "second")
+        self.assertEqual(mesh.getCurrentSet(color=True), "second")
         with self.assertRaises(ValueError):
-            mesh.setFaceVertexColors([(1, 0, 0)], faceVertices=[0, 1])
+            mesh.setVertexColors([(1, 0, 0)], faceVertices=[0, 1], perFace=True)
+        # 頂点ごと(perFace=False)はvertices、面頂点ごと(perFace=True)はfaceVerticesだけを受け付ける。
+        colors = mesh.getVertexColors(perFace=True, colorSet="first")
+        for flags in ({"faceVertices": [0]}, {"perFace": False, "faceVertices": [0]}, {"perFace": True, "vertices": [0]}, {"perFace": 1}):
+            with self.subTest(method="Mesh.setVertexColors", flags=flags):
+                with self.assertRaises(TypeError):
+                    mesh.setVertexColors([(1, 0, 0)], colorSet="first", **flags)
+        for flags in ({"faceVertices": [0]}, {"perFace": False, "faceVertices": [0]}, {"perFace": 1}):
+            with self.subTest(method="Mesh.getVertexColors", flags=flags):
+                with self.assertRaises(TypeError):
+                    mesh.getVertexColors(colorSet="first", **flags)
+        self.assertEqual(mesh.getVertexColors(perFace=True, colorSet="first"), colors)
+        self.assertEqual(len(mesh.getVertexColors(colorSet="first")), mesh.getNumVertices())
+        self.assertEqual(len(colors), len(mesh.getVertexFaces()))
         history = self.mesh(True)
         with self.assertRaises(NotImplementedError):
-            history.setFaceVertexColors([(1, 0, 0)], faceVertices=[0], fast=True)
+            history.setVertexColors([(1, 0, 0)], faceVertices=[0], fast=True, perFace=True)
 
     def test_face_colors_distinguish_missing_from_black_and_negative(self):
         mesh = self.mesh()
@@ -367,7 +430,6 @@ class MeshFaceVerticesTest(NamespaceCase):
         for uv in ((0.5, 0.5), (0, 0)):
             result = mesh.getPointsAtUV(*uv)
             self.assertEqual([face for face, _ in result], list(range(6)))
-            self.assertVector(result[0][1], mesh.getPointAtUV(*uv))
             for face, point in result:
                 self.assertVector(point, mesh.mfn().getPointAtUV(face, *uv, om2.MSpace.kObject, "map1", 1e-6))
         self.assertEqual(mesh.getPointsAtUV(2, 2), [])

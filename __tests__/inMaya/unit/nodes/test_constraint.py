@@ -262,7 +262,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def positions(self, shape, ws=False):
         """API の内部距離単位で形状の全位置を返す。"""
-        points = shape.getPoints(ws) if isinstance(shape, mlib.Mesh) else shape.getCvPositions(ws)
+        points = shape.getPoints(ws)
         return [tuple(point)[:3] for point in points]
 
     def assert_positions(self, actual, expected):

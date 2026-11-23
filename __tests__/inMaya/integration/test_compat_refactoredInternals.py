@@ -193,7 +193,7 @@ class EdgeLoopOrderTest(_Case):
             mesh = mlib.getNode(name).getShape()
             for edge in range(0, mesh.getNumEdges(), 2):
                 with self.subTest(mesh=name, edge=edge):
-                    loop = list(mesh.getEdge(edge).getLoop().indices)
+                    loop = list(mesh.getEdges(edge).getLoop().indices)
                     self.assertEqual(sorted(loop), sorted(set(cmds.polySelect(name, edgeLoop=edge, noSelection=True) or [])))
                     self.assertLoopOrder(mesh, edge, loop)
 
@@ -294,7 +294,7 @@ class ConvertedInputTest(_Case):
         cube = cmds.polyCube(name=self.name("cube"))[0]
         cluster = mlib.getNode(cmds.cluster(cube, name=self.name("cl"))[0])
         mesh = mlib.getNode(cube).getShape()
-        cluster.setDeformerWeights([0.25, 0.5], vertices=[mesh.getVertex(5), 2])
+        cluster.setDeformerWeights([0.25, 0.5], vertices=[mesh.getVertices(5), 2])
         values = cluster.getDeformerWeights()
         self.assertAlmostEqual(values[5], 0.25, places=6)
         self.assertAlmostEqual(values[2], 0.5, places=6)
@@ -304,7 +304,7 @@ class ConvertedInputTest(_Case):
         self.assertAlmostEqual(values[6], 0.125, places=6)
         before = cluster.getDeformerWeights()
         with self.assertRaises(ValueError):
-            cluster.setDeformerWeights([0.1, 0.2], vertices=[mesh.getVertex(4), 4])
+            cluster.setDeformerWeights([0.1, 0.2], vertices=[mesh.getVertices(4), 4])
         self.assertEqual(cluster.getDeformerWeights(), before)
 
     def test_plug_path_indices_are_read_as_numbers(self):
@@ -374,19 +374,19 @@ class ConvertedInputTest(_Case):
         cmds.xform(plane, rotation=(30, 45, 0), scale=(2, 1, 3))
         shape = mlib.getNode(plane).getShape()
         fn = om2.MFnNurbsSurface(shape.mpath())
-        self.assertSequenceAlmostEqual(shape.getPointAtParam(1, 0), list(fn.getPointAtParam(1.0, 0.0, om2.MSpace.kObject))[:3], places=6)
+        self.assertSequenceAlmostEqual(shape.getAtParam(1, 0), list(fn.getPointAtParam(1.0, 0.0, om2.MSpace.kObject))[:3], places=6)
         for second, count in ((False, 3), (True, 6)):
             with self.subTest(secondOrder=second):
-                values = shape.getDerivativesAtParam(1, 0, secondOrder=second)
+                values = shape.getAtParam(1, 0, what="derivatives", secondOrder=second)
                 self.assertIs(type(values), tuple)
                 self.assertEqual(len(values), count)
                 self.assertTrue(all(isinstance(value, mlib.Vector) for value in values))
         matrix = shape.mpath().inclusiveMatrix()
-        for derivative, actual in zip(fn.tangents(0.5, 0.25, om2.MSpace.kObject), shape.getTangentsAtParam(0.5, 0.25, ws=True)):
+        for derivative, actual in zip(fn.tangents(0.5, 0.25, om2.MSpace.kObject), shape.getAtParam(0.5, 0.25, what="tangents", ws=True)):
             expected = (om2.MVector(derivative) * matrix).normal()
             self.assertSequenceAlmostEqual(actual, expected, places=6)
         curve = cmds.curve(name=self.name("curve"), degree=3, point=[(0, 0, 0), (1, 1, 0), (2, -1, 0), (3, 0, 0)])
-        values = mlib.getNode(curve).getShape().getDerivativesAtParam(0.5, secondOrder=True)
+        values = mlib.getNode(curve).getShape().getAtParam(0.5, what="derivatives", secondOrder=True)
         self.assertIs(type(values), tuple)
         self.assertEqual(len(values), 3)
         self.assertTrue(all(isinstance(value, mlib.Vector) for value in values))

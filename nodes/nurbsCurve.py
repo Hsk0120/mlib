@@ -6,14 +6,15 @@ import numbers
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..components.component import _component_of
 from ..components.cv import CV, CVs
-from ..components.pointComponent import _mirror_plan, _write_points
+from ..components.pointComponent import _mirror_plan
 from ..core import geometryEdit
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.matrix import Matrix
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _checked_tolerance, _finite, _world_space
-from .shape import Shape
+from ..util import _UNSET, _checked_tolerance, _finite, _require_choice, _world_space
+from .controlPointShape import _ControlPointShape
 
 #: aimAxis・upAxis の名前と (軸番号, 符号)。
 _AXES = {"x": (0, 1.0), "y": (1, 1.0), "z": (2, 1.0), "-x": (0, -1.0), "-y": (1, -1.0), "-z": (2, -1.0)}
@@ -222,44 +223,37 @@ def _frame_matrix(position, aim, up, aim_axis, up_axis):
     return Matrix(values)
 
 
-class NurbsCurve(Shape):
+class NurbsCurve(_ControlPointShape):
     """NURBSカーブのシェイプを扱うクラス。
 
     - 点を並べてカーブを作るときは :func:`mlib.createCurve <mlib.cmds.createCurve.createCurve>` を使う。
-    - CVの位置をまとめて設定するときは :meth:`setCvPositions` を使う。
+    - CVの位置をまとめて設定するときは :meth:`setPoints` を使う。
     - CV(:class:`~mlib.components.cv.CV`)のオブジェクトからも、座標を取得・編集できる。
     - 形を反転するときは :meth:`mirror` を使う。
     """
 
-    def getCV(self, index):
-        """CVの番号から、CVを1つ取得する。
-
-        Args:
-            index (int): 0から始まるCVの番号。
-
-        Returns:
-            CV: シーン上のCVを指すオブジェクト。
-
-        Raises:
-            IndexError: CVの番号が範囲外の場合。
-        """
-        return CV(self, index)
+    _mirror_chunk = "mlibNurbsCurveMirror"
 
     def getCVs(self, indices=None):
-        """複数のCVをまとめて取得する。
+        """CVを取得する。番号を1つ渡すとCV1つ、番号の並びを渡すとCVのコレクションを返す。
 
-        番号は、渡した中で最初に出てきた順に並べる。
+        番号の並びは、渡した中で最初に出てきた順に並べる。
 
         Args:
-            indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら、今あるすべてのCVを小さい順に取得する。
-                空の並びを渡すと、空のまとまりになる。負の数とboolは受け付けない。
+            indices (int | Iterable[int] | None): 0から始まるOpenMayaのCVの番号1つ、またはその並び。
+                Noneなら、今あるすべてのCVを小さい順に取得する。空の並びを渡すと、空のまとまりになる。負の数とboolは受け付けない。
 
         Returns:
-            CVs: CVをまとめた新しいオブジェクト。どのCVも同じShapeを使い、重なった番号は1つにまとめる。
+            CV | CVs: 番号1つなら、シーン上のCVを指すオブジェクト。並び・Noneなら、CVをまとめた新しいオブジェクト
+                (どのCVも同じShapeを使い、重なった番号は1つにまとめる)。
                 周期カーブの末尾で重なっているCVもOpenMayaの番号のまま持つ。ただしcmdsへ渡す名前では、
                 対応する先頭側のCVの名前にする。
+
+        Raises:
+            TypeError: 番号の型が不正な場合(boolを含む)。
+            IndexError: CVの番号が範囲外の場合。
         """
-        return CVs(self, indices)
+        return _component_of(CV, CVs, self, indices)
 
     def mfn(self):
         """このカーブに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
@@ -439,15 +433,17 @@ class NurbsCurve(Shape):
         fn.makeMultipleEndKnots()
         self._write_curve_data(fn)
 
-    def getLength(self, *, tolerance=1e-06, worldSpace=_UNSET, unit="cm", ws=_UNSET):
-        """カーブの長さを取得する。
+    def getLength(self, param=None, worldSpace=_UNSET, *, tolerance=_UNSET, unit="cm", ws=_UNSET):
+        """カーブの長さを取得する。``param`` を渡すと、カーブの始点からそのパラメーターの位置までの長さを取得する。
 
-        計算用のノードをシーンに作らない。
+        計算用のノードをシーンに作らない。``param`` を渡したときの値は ``arcLengthDimension`` の ``arcLength`` にあたる。
 
         Args:
-            tolerance (float): 長さを計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。
+            param (float | None): :meth:`getParamRange` の範囲内のパラメーター。Noneなら全長。既定はNone。
             worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 全長を計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。既定は1e-06。
+                ``param`` を渡したときは指定できない。
             unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。
                 mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する。
 
@@ -456,18 +452,24 @@ class NurbsCurve(Shape):
                 worldSpace=Trueでは、親の非均等スケール・シアーと、インスタンスのトランスフォームも反映する。
 
         Raises:
-            TypeError: 単位の型が不正な場合、worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: toleranceが正の有限な値でない場合、または単位の名前が対応していない場合。
+            TypeError: paramが数値でない場合、単位の型が不正な場合、worldSpaceがboolでない場合、
+                worldSpaceとwsを同時に指定した場合、またはparamとtoleranceを同時に指定した場合。
+            ValueError: toleranceが正の有限な値でない場合、paramが有限でないか範囲外の場合、または単位の名前が対応していない場合。
             RuntimeError: カーブが無効な場合、またはMayaが評価を拒否した場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
-        # 循環importを避けるため、単位の照会時に読み込む。
-        from ..common import units
-
         # 単位は毎回照会する。係数を使うためシーンの単位設定は変更しない。
-        factor = units.convertDistance(1.0, fromUnit="cm", toUnit=unit)
-        tolerance = float(tolerance)
+        factor = self._unit_factor(unit)
+        if param is not None:
+            if tolerance is not _UNSET:
+                raise TypeError("toleranceは全長(param=None)のときだけ指定できます")
+            curve = self._space_curve(ws)
+            value = self._require_param(curve, param)
+            if value <= curve.knotDomain[0]:
+                return 0.0
+            return curve.findLengthFromParam(value) * factor
+        tolerance = 1e-06 if tolerance is _UNSET else float(tolerance)
         if not math.isfinite(tolerance) or tolerance <= 0:
             raise ValueError("toleranceは正の有限な数値で指定してください")
         return self._space_curve(ws).length(tolerance) * factor
@@ -513,123 +515,6 @@ class NurbsCurve(Shape):
                     # tangentは正規化しない微分ベクトル(dP/dt)を返す。
                     total += (om2.MVector(curve.getPointAtParam(param)) ^ curve.tangent(param)) * (weight * step * 0.5)
         return total.length() * 0.5
-
-    def getCvPositions(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """CVの位置を取得する。
-
-        Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[Vector]: CVの順の位置(:class:`~mlib.maths.vector.Vector`)。距離はMaya APIの
-                内部単位(cm)。有理カーブのウェイト(w)は含まず、wで割らないXYZを返す。
-                そのまま :meth:`setCvPositions` へ渡せる。
-
-        Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        ws = _world_space(worldSpace)
-        space = om2.MSpace.kWorld if ws else om2.MSpace.kObject
-        return _vectors_of_points(self._geometry_fn().cvPositions(space))
-
-    def setCvPositions(self, points, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
-        """全CVの位置をまとめて設定する。
-
-        :meth:`getCvPositions` と同じ並び・単位(内部単位のcm)の点を受け付ける。
-
-        - 通常: ``cmds.xform`` で書き込み、1回のUndoにまとめる。
-        - ``fast=True``: ``MFnNurbsCurve.setCVPositions`` で全CVを一度に書き込む。Undoには記録しない。
-
-        CVの数・次数・ノット・ウェイトは変更しない。周期カーブでは、次のどちらかの数の点を受け付ける。
-
-        - 重なっていないCVの数(``getNumCVs() - getDegree()``)。
-        - 末尾の重なったCVも含む ``getNumCVs()`` 個。重なったCVには、対応する先頭のCVと同じ位置を渡す。
-
-        Args:
-            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの順の位置。各点は
-                有限な数値3つ。MPointはwで割らずにXYZを使う。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 点の数がCVの数と合わない場合、成分が有限でない場合、周期カーブの重なったCVが
-                先頭のCVと一致しない場合、またはworldSpace=Trueでトランスフォームのマトリクスが特異な場合。
-            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
-            NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        _require_bool(fast, "fast")
-        ws = _world_space(worldSpace)
-        values = geometryEdit.point_list(points)
-        fn = self._geometry_fn()
-        count = fn.numCVs
-        independent = count
-        if fn.form == om2.MFnNurbsCurve.kPeriodic:
-            independent = count - fn.degree
-            if len(values) == count:
-                for index in range(independent, count):
-                    if values[index] != values[index - independent]:
-                        raise ValueError("周期カーブの重なるCVは、先頭のCVと一致させてください")
-                values = values[:independent]
-        if len(values) != independent:
-            if independent != count:
-                raise ValueError(f"点を{independent}個か{count}個指定してください: {len(values)}個")
-            raise ValueError(f"点を{count}個指定してください: {len(values)}個")
-        with _edit_context("mlibNurbsCurveSetCvPositions", fast, transaction=True):
-            geometryEdit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
-
-    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
-        """CVの座標を、中心pivotに対して反転する。
-
-        反転後の座標は ``2 * pivot - 今の座標`` になる。
-
-        - Transform・次数・ノット・CVの順番とウェイト(w)は変更しない。
-        - Shapeを共有しているインスタンスすべてに反映される。複製や、パラメーターの向きの反転はしない。
-        - 全CVの座標を先に読んでから書くので、周期カーブの末尾の重なったCVを二重に反転しない
-          (重なったCVは、先頭側の対応するCVと同じ位置にそろう)。
-        - 入力をすべて確かめてから書き込む。通常は ``cmds.xform`` をCVごとに呼び、1回のUndoにまとめる。
-          ``fast=True`` では ``MFnNurbsCurve.setCVPositions`` で全CVを一度に書く。
-
-        Args:
-            axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、またはミラー面 ``"YZ"``・``"XZ"``・``"XY"``
-                (x⇔YZ、y⇔XZ、z⇔XY。文字の順序・大文字小文字は問わない)、または0/1/2。
-            worldSpace (bool): Trueなら、このオブジェクトが持つDAGパスのワールド空間で反転する。
-                FalseならShapeのオブジェクト空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            pivot (Iterable[float]): 反転の中心のXYZ(cm)。worldSpaceで選んだ空間で指定する。
-                既定は原点で、Transformのピボットとは関係しない。
-            indices (Iterable[int] | None): OpenMayaのCVの番号。Noneなら全CV。空の並びなら何も変えない。
-                同じ番号は1回だけ処理する。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: axisやpivotが不正な場合、またはworldSpace=Trueでトランスフォームのマトリクスがほぼ特異な場合。
-            IndexError: CVの番号が負か範囲外の場合。
-            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
-            NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        _require_bool(fast, "fast")
-        ws = _world_space(worldSpace)
-        _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibNurbsCurveMirror", check)
 
     def rebuild(self, spans=None, degree=None, *, keepRange="original", keepTangents=False):
         """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
@@ -756,30 +641,51 @@ class NurbsCurve(Shape):
         start, end = self._geometry_fn().knotDomain
         return start, end
 
-    def getParamAtPoint(self, point, worldSpace=_UNSET, *, tolerance=1e-7, ws=_UNSET):
-        """カーブ上の点に対応するパラメーターを取得する。
+    def getParam(self, *, point=None, length=None, worldSpace=_UNSET, tolerance=_UNSET, unit=_UNSET, ws=_UNSET):
+        """カーブ上の点、または始点からの長さにあたるパラメーターを取得する。
 
-        カーブからtoleranceより離れた点は拒否する。最寄りの点を探す場合はgetClosestPointを使う。
+        ``point`` と ``length`` のどちらか1つを指定する。
+
+        - ``point``: カーブ上の点に対応するパラメーター。カーブからtoleranceより離れた点は拒否する。
+          最寄りの点を探す場合は :meth:`getClosestPoint` を使う。
+        - ``length``: カーブの始点からの長さにあたるパラメーター。0は始点、全長は終点のパラメーター。
 
         Args:
-            point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
+            point (Sequence[float] | om2.MPoint | om2.MVector | None): 指定空間での位置(cm)。
+            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はunit。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+                ワールド空間の長さには、親の非均等スケールも反映する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。既定は1e-7。``point`` のときだけ指定できる。
+            unit (str | None): lengthの単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
+                ``length`` のときだけ指定できる。
 
         Returns:
-            float: 点に対応するパラメーター。
+            float: パラメーター。
 
         Raises:
-            TypeError: 点・空間・許容誤差の型が不正、または長短名を同時指定した場合。
-            ValueError: 点が有限の3成分でない、または許容誤差が負か有限でない場合。
-            RuntimeError: 点が許容誤差内のカーブ上にない、または形状が無効な場合。
+            TypeError: pointとlengthを両方指定したか、どちらも指定しない場合、点・長さ・空間・許容誤差・単位の型が不正な場合、
+                worldSpaceとwsを同時に指定した場合、lengthとtoleranceを同時に指定した場合、またはpointとunitを同時に指定した場合。
+            ValueError: 点が有限の3成分でない場合、許容誤差が負か有限でない場合、lengthが有限でないか0未満か全長を超える場合、
+                または単位の名前が対応していない場合。
+            RuntimeError: 点が許容誤差内のカーブ上にない場合、または形状データを持たない空のシェイプの場合。
         """
+        if (point is None) == (length is None):
+            raise TypeError("pointかlengthのどちらか1つを指定してください")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        x, y, z = geometryEdit.point_list([point])[0]
-        tolerance = _checked_tolerance(tolerance)
+        if point is not None:
+            if unit is not _UNSET:
+                raise TypeError("unitはlengthを指定したときだけ指定できます")
+            x, y, z = geometryEdit.point_list([point])[0]
+            tolerance = _checked_tolerance(1e-7 if tolerance is _UNSET else tolerance)
+            curve = self._space_curve(worldSpace)
+            return curve.getParamAtPoint(om2.MPoint(x, y, z), tolerance)
+        if tolerance is not _UNSET:
+            raise TypeError("toleranceはpointを指定したときだけ指定できます")
         curve = self._space_curve(worldSpace)
-        return curve.getParamAtPoint(om2.MPoint(x, y, z), tolerance)
+        factor = self._unit_factor("cm" if unit is _UNSET else unit)
+        value = _finite(length, "length") / factor
+        return self._param_at_length(curve, value, curve.length(1e-6))
 
     def isPointOnCurve(self, point, worldSpace=_UNSET, *, tolerance=1e-7, ws=_UNSET):
         """指定点が許容誤差内でカーブ上にあるか調べる。
@@ -829,100 +735,55 @@ class NurbsCurve(Shape):
         found, param = curve.closestPoint(om2.MPoint(x, y, z), tolerance=1e-7)
         return _vectors_of_points([found])[0], param
 
-    def getPointAtParam(self, param, worldSpace=_UNSET, *, ws=_UNSET):
-        """パラメーターの位置を取得する。
+    def getAtParam(self, param, worldSpace=_UNSET, *, what="point", secondOrder=False, ws=_UNSET):
+        """パラメーターの位置での値(位置・接線・法線・微分)を取得する。
+
+        ``what`` で取得するものを選ぶ。
+
+        - ``"point"`` (既定): 位置(cm)。``pointOnCurveInfo`` の ``position`` と同じ。
+        - ``"tangent"``: パラメーターが増える向きの、長さ1の接線。``pointOnCurveInfo`` の ``normalizedTangent`` と同じ。
+        - ``"normal"``: 長さ1の法線(``MFnNurbsCurve.normal``)。次数2以上では曲がっていく向き(主法線)、
+          次数1ではCVの平均の平面の中で接線に直交する向き。``pointOnCurveInfo`` の ``normalizedNormal`` と同じ。
+        - ``"derivatives"``: 位置と、正規化前の一次微分(``secondOrder=True`` なら二次微分も)。
+          パラメーターに対する変化量を返す。縮退点のゼロベクトルもそのまま返す。
 
         Args:
             param (float): :meth:`getParamRange` の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定False。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            what (str): 取得するもの。``"point"``・``"tangent"``・``"normal"``・``"derivatives"``。既定は ``"point"``。
+            secondOrder (bool): Trueなら二次微分も返す。既定False。``what="derivatives"`` のときだけ指定できる。
 
         Returns:
-            Vector: 位置(cm)。``pointOnCurveInfo`` の ``position`` と同じ。
+            Vector | tuple[Vector, ...]: ``"point"``・``"tangent"``・``"normal"`` はVector。
+                ``"derivatives"`` は (位置, 一次微分)、または(位置, 一次微分, 二次微分)。
 
         Raises:
-            TypeError: paramが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でない、または範囲外の場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        curve = self._space_curve(worldSpace)
-        return _vectors_of_points([curve.getPointAtParam(self._require_param(curve, param))])[0]
-
-    def getDerivativesAtParam(self, param, worldSpace=_UNSET, *, secondOrder=False, ws=_UNSET):
-        """カーブ上の位置と、正規化前の一次・二次微分を取得する。
-
-        パラメーターに対する変化量を返す。縮退点のゼロベクトルもそのまま返す。
-
-        Args:
-            param (float): getParamRangeの範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            secondOrder (bool): Trueなら二次微分も返す。既定False。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-
-        Returns:
-            tuple[Vector, ...]: (位置, 一次微分)、または(位置, 一次微分, 二次微分)。位置はcm。
-
-        Raises:
-            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でないか範囲外の場合。
-            RuntimeError: 形状が無効な場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        _require_bool(secondOrder, "secondOrder")
-        curve = self._space_curve(worldSpace)
-        values = curve.getDerivativesAtParam(self._require_param(curve, param), dUU=secondOrder)
-        return (_vectors_of_points([values[0]])[0], *(Vector(value) for value in values[1:]))
-
-    def getTangentAtParam(self, param, worldSpace=_UNSET, *, ws=_UNSET):
-        """パラメーターの位置の接線を、長さ1にして取得する。
-
-        Args:
-            param (float): :meth:`getParamRange` の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Vector: パラメーターが増える向きの、長さ1のベクトル。``pointOnCurveInfo`` の ``normalizedTangent`` と同じ。
-
-        Raises:
-            TypeError: paramが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でないか範囲外の場合、または重なったCVで接線が0になる位置の場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        curve = self._space_curve(worldSpace)
-        tangent = self._tangent(curve, self._require_param(curve, param))
-        if tangent is None:
-            raise ValueError(f"パラメータ{param}ではタンジェントが定義できません: {self.getFullName()}")
-        return Vector(tangent)
-
-    def getNormalAtParam(self, param, worldSpace=_UNSET, *, ws=_UNSET):
-        """パラメーターの位置の法線を、長さ1にして取得する(``MFnNurbsCurve.normal``)。
-
-        - 次数2以上: 曲がっていく向き(主法線)。
-        - 次数1: CVの平均の平面の中で、接線に直交する向き。
-
-        ``pointOnCurveInfo`` の ``normalizedNormal`` と同じ。
-
-        Args:
-            param (float): :meth:`getParamRange` の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Vector: 長さ1のベクトル。
-
-        Raises:
-            TypeError: paramが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でないか範囲外の場合、または法線を決められない場合。
+            TypeError: paramが数値でない場合、whatが文字列でない場合、worldSpace・secondOrderがbool以外の場合、
+                worldSpaceとwsを同時に指定した場合、またはwhat="derivatives"以外でsecondOrder=Trueを指定した場合。
+            ValueError: paramが有限でないか範囲外の場合、whatが対応していない名前の場合、
+                重なったCVで接線が0になる位置の場合(``"tangent"``)、または法線を決められない場合(``"normal"``)。
                 法線を決められないのは、次数2以上で曲率が0の位置(まっすぐな部分・変曲点)と、
                 次数1でCVがすべて一直線上にある場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
+        what = _require_choice(what, "what", ("point", "tangent", "normal", "derivatives"))
+        _require_bool(secondOrder, "secondOrder")
+        if secondOrder and what != "derivatives":
+            raise TypeError('secondOrderはwhat="derivatives"のときだけ指定できます')
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         curve = self._space_curve(worldSpace)
         value = self._require_param(curve, param)
+        if what == "point":
+            return _vectors_of_points([curve.getPointAtParam(value)])[0]
+        if what == "derivatives":
+            values = curve.getDerivativesAtParam(value, dUU=secondOrder)
+            return (_vectors_of_points([values[0]])[0], *(Vector(item) for item in values[1:]))
+        if what == "tangent":
+            tangent = self._tangent(curve, value)
+            if tangent is None:
+                raise ValueError(f"パラメータ{param}ではタンジェントが定義できません: {self.getFullName()}")
+            return Vector(tangent)
         if curve.degree == 1:
             # 次数1の直線にもMayaは任意の直交方向を返すため、CVの一直線を先に拒否する。
             points = curve.cvPositions()
@@ -939,59 +800,6 @@ class NurbsCurve(Shape):
         if length < _DEGENERATE:
             raise ValueError(f"パラメータ{param}では法線が定義できません: {self.getFullName()}")
         return Vector(normal / length)
-
-    def getLengthAtParam(self, param, worldSpace=_UNSET, *, unit="cm", ws=_UNSET):
-        """カーブの始点から、パラメーターの位置までの長さを取得する。
-
-        ``arcLengthDimension`` の ``arcLength`` にあたる。計算用のノードをシーンに作らない。
-
-        Args:
-            param (float): :meth:`getParamRange` の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
-
-        Returns:
-            float: 指定した単位での長さ。
-
-        Raises:
-            TypeError: paramが数値でない場合、worldSpaceがbool以外の場合、単位の型が不正な場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: paramが有限でないか範囲外の場合、または単位の名前が対応していない場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        curve = self._space_curve(worldSpace)
-        factor = self._unit_factor(unit)
-        value = self._require_param(curve, param)
-        if value <= curve.knotDomain[0]:
-            return 0.0
-        return curve.findLengthFromParam(value) * factor
-
-    def getParamAtLength(self, length, worldSpace=_UNSET, *, unit="cm", ws=_UNSET):
-        """カーブの始点からの長さにあたる、パラメーターを取得する。
-
-        Args:
-            length (float): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はunit。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-                ワールド空間の長さには、親の非均等スケールも反映する。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            unit (str | None): lengthの単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
-
-        Returns:
-            float: パラメーター。0は始点、全長は終点のパラメーター。
-
-        Raises:
-            TypeError: lengthが数値でない場合、worldSpaceがbool以外の場合、単位の型が不正な場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: lengthが有限でないか、0未満か、全長を超える場合、または単位の名前が対応していない場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        curve = self._space_curve(worldSpace)
-        factor = self._unit_factor(unit)
-        value = _finite(length, "length") / factor
-        return self._param_at_length(curve, value, curve.length(1e-6))
 
     def getParamsAlong(self, count, worldSpace=_UNSET, *, ws=_UNSET):
         """カーブに沿った長さで、等間隔に並ぶパラメーターを取得する。
@@ -1301,7 +1109,64 @@ class NurbsCurve(Shape):
             tuple | None: ``(shape, indices, rows, ws)``。対象が無ければNone。
         """
         self._geometry_fn()
-        return _mirror_plan(self.getCVs(indices), axis, ws, pivot, fast, check)
+        return _mirror_plan(CVs(self, indices), axis, ws, pivot, fast, check)
+
+    def _raw_points(self, worldSpace):
+        """全CVの位置を om2 の点列で返す。
+
+        Args:
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。
+
+        Returns:
+            om2.MPointArray: CVの順の位置。有理カーブのウェイト(w)では割らない。
+        """
+        ws = _world_space(worldSpace)
+        return self._geometry_fn().cvPositions(om2.MSpace.kWorld if ws else om2.MSpace.kObject)
+
+    def _set_points(self, values, ws, fast, check):
+        """確かめてある点の並びを、全CVへ書き込む。
+
+        周期カーブでは、重なっていないCVの数(``numCVs - degree``)か、末尾の重なったCVも含む ``numCVs`` 個の点を受け付ける。
+
+        Args:
+            values (list[tuple[float, float, float]]): CVの順のXYZ(cm)。
+            ws (bool): Trueならワールド空間。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: 点の数がCVの数と合わない場合、または周期カーブの重なったCVが先頭のCVと一致しない場合。
+        """
+        fn = self._geometry_fn()
+        count = fn.numCVs
+        independent = count
+        if fn.form == om2.MFnNurbsCurve.kPeriodic:
+            independent = count - fn.degree
+            if len(values) == count:
+                for index in range(independent, count):
+                    if values[index] != values[index - independent]:
+                        raise ValueError("周期カーブの重なるCVは、先頭のCVと一致させてください")
+                values = values[:independent]
+        if len(values) != independent:
+            if independent != count:
+                raise ValueError(f"点を{independent}個か{count}個指定してください: {len(values)}個")
+            raise ValueError(f"点を{count}個指定してください: {len(values)}個")
+        with _edit_context("mlibNurbsCurveSetCvPositions", fast, transaction=True):
+            geometryEdit.set_positions(self, list(range(independent)), values, ws, fast=fast, check=check)
+
+    def _point_components(self, indices):
+        """CVのコレクションを返す。
+
+        Args:
+            indices (Iterable[int] | None): CVの番号。Noneは全CV。
+
+        Returns:
+            CVs: CVのコレクション。
+        """
+        return CVs(self, indices)
 
     def _geometry_fn(self):
         """形状データを要する照会用に ``om2.MFnNurbsCurve`` を返す。

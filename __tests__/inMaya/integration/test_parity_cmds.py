@@ -77,7 +77,7 @@ test_*.py にそのまま残してよい。このファイルは「cmds との�
 
 ### 点の位置を Vector で返す読み取りと書込み
 
-- ``Mesh.getPoints``・``NurbsCurve.getCvPositions``・``Vertices``/``CVs``/``Vertex``/``CV`` の ``getPosition``
+- ``Mesh.getPoints``・``NurbsCurve.getPoints``・``Vertices``/``CVs``/``Vertex``/``CV`` の ``getPosition``
   (om2 の点列を ``Vector`` へ写す)と ``cmds.xform(query=True, translation=True)`` (object/world、cm/m、
   移動・回転・負のスケールの Transform、履歴付きメッシュ)
 - ``Mesh.setPoints`` の結果と ``cmds.pointPosition`` (object/world、cm/m)、1回の ``cmds.undo`` で戻ること
@@ -1483,11 +1483,11 @@ class PointPositionsParityTest(_NewSceneCase):
                         expected = self.xform_points(names, ws)
                         self.assert_points(node.getPoints(worldSpace=ws), expected)
                         self.assert_points(node.getVertices().getPosition(ws), expected)
-                        self.assert_points([node.getVertex(3).getPosition(ws)], expected[3:4])
+                        self.assert_points([node.getVertices(3).getPosition(ws)], expected[3:4])
                 with self.subTest(unit=unit, ws=ws, shape="curve"):
                     node = mlib.getNode(curve)
                     expected = self.xform_points(cmds.ls(curve + ".cv[*]", flatten=True), ws)
-                    self.assert_points(node.getCvPositions(worldSpace=ws), expected)
+                    self.assert_points(node.getPoints(worldSpace=ws), expected)
                     self.assert_points(node.getCVs().getPosition(ws), expected)
         cmds.currentUnit(linear="cm")
 

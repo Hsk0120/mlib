@@ -1,8 +1,9 @@
 """NurbsCurve の照会(最近点・パラメーター・弧長・等間隔の点とマトリクス)の契約を固定する。
 
-- getClosestPoint は nearestPointOnCurve、getPointAtParam・getTangentAtParam・getNormalAtParam は
-  pointOnCurveInfo、getLengthAtParam は arcLengthDimension と突き合わせる(ローカル・ワールドの両方)。
-- getParamAtLength・getParamsAlong は弧長の往復で確かめ、閉じたカーブは終点を含めない。
+- getClosestPoint は nearestPointOnCurve、getAtParam(what="point"・"tangent"・"normal")は
+  pointOnCurveInfo、getLength(param) は arcLengthDimension と突き合わせる(ローカル・ワールドの両方)。
+- getParam(length=)・getParamsAlong は弧長の往復で確かめ、閉じたカーブは終点を含めない。
+- getLength・getParam・getAtParam の、同時に指定できない引数と種類の名前の違いの例外型。
 - getMatricesAlong は正規直交・右手系・接線と位置・up の向き・平行移動のねじれの無さを確かめる。
 - どれもシーンにノードを作らず、Undo キューに積まない読み取り。不正入力の例外型。
 """
@@ -76,14 +77,14 @@ class ParamTest(_CurveCase):
             for param in (0.0, 0.3, 1.0, 1.7, 2.0):
                 with self.subTest(world=world, param=param):
                     node = self.poci(self.shape, param, world)
-                    point = self.curve.getPointAtParam(param, worldSpace=world)
+                    point = self.curve.getAtParam(param, worldSpace=world)
                     self.assertIsInstance(point, Vector)
                     self.assertVector(point, cmds.getAttr(node + ".position")[0])
-                    tangent = self.curve.getTangentAtParam(param, worldSpace=world)
+                    tangent = self.curve.getAtParam(param, worldSpace=world, what="tangent")
                     self.assertIsInstance(tangent, Vector)
                     self.assertAlmostEqual(tangent.length(), 1.0, places=9)
                     self.assertVector(tangent, cmds.getAttr(node + ".normalizedTangent")[0])
-                    normal = self.curve.getNormalAtParam(param, worldSpace=world)
+                    normal = self.curve.getAtParam(param, worldSpace=world, what="normal")
                     self.assertIsInstance(normal, Vector)
                     self.assertVector(normal, cmds.getAttr(node + ".normalizedNormal")[0], places=4)
 
@@ -100,7 +101,7 @@ class ParamTest(_CurveCase):
                     self.assertIsInstance(param, float)
                     self.assertVector(point, cmds.getAttr(node + ".result.position")[0], places=3)
                     self.assertAlmostEqual(param, cmds.getAttr(node + ".result.parameter"), places=3)
-                    self.assertVector(self.curve.getPointAtParam(param, worldSpace=world), point)
+                    self.assertVector(self.curve.getAtParam(param, worldSpace=world), point)
         point, param = self.curve.getClosestPoint(om2.MPoint(3, 4, 0))
         self.assertVector(point, self.curve.getClosestPoint([3, 4, 0])[0])
 
@@ -110,12 +111,12 @@ class ParamTest(_CurveCase):
             with self.subTest(param=param):
                 node = cmds.arcLengthDimension(self.shape + f".u[{param}]")
                 node = cmds.rename(cmds.listRelatives(node, parent=True)[0], self.name("arc#"))
-                self.assertAlmostEqual(self.curve.getLengthAtParam(param, worldSpace=True), cmds.getAttr(node + ".arcLength"), places=4)
+                self.assertAlmostEqual(self.curve.getLength(param, worldSpace=True), cmds.getAttr(node + ".arcLength"), places=4)
         end = self.curve.getParamRange()[1]
-        self.assertEqual(self.curve.getLengthAtParam(0.0), 0.0)
-        self.assertAlmostEqual(self.curve.getLengthAtParam(end), self.curve.getLength(), places=4)
-        self.assertAlmostEqual(self.curve.getLengthAtParam(end, True), self.curve.getLength(worldSpace=True), places=4)
-        self.assertAlmostEqual(self.curve.getLengthAtParam(1.0, unit="mm"), self.curve.getLengthAtParam(1.0) * 10, places=6)
+        self.assertEqual(self.curve.getLength(0.0), 0.0)
+        self.assertAlmostEqual(self.curve.getLength(end), self.curve.getLength(), places=4)
+        self.assertAlmostEqual(self.curve.getLength(end, True), self.curve.getLength(worldSpace=True), places=4)
+        self.assertAlmostEqual(self.curve.getLength(1.0, unit="mm"), self.curve.getLength(1.0) * 10, places=6)
 
     def test_param_at_length_round_trip(self):
         """弧長→パラメーター→弧長が往復し、両端は範囲の端。"""
@@ -123,13 +124,13 @@ class ParamTest(_CurveCase):
             total = self.curve.getLength(worldSpace=world)
             start, end = self.curve.getParamRange()
             with self.subTest(world=world):
-                self.assertEqual(self.curve.getParamAtLength(0.0, world), start)
-                self.assertEqual(self.curve.getParamAtLength(total, world), end)
+                self.assertEqual(self.curve.getParam(length=0.0, worldSpace=world), start)
+                self.assertEqual(self.curve.getParam(length=total, worldSpace=world), end)
                 for ratio in (0.1, 0.5, 0.9):
-                    param = self.curve.getParamAtLength(total * ratio, world)
-                    self.assertAlmostEqual(self.curve.getLengthAtParam(param, world), total * ratio, places=3)
-        param = self.curve.getParamAtLength(10.0, unit="mm")
-        self.assertAlmostEqual(param, self.curve.getParamAtLength(1.0), places=6)
+                    param = self.curve.getParam(length=total * ratio, worldSpace=world)
+                    self.assertAlmostEqual(self.curve.getLength(param, world), total * ratio, places=3)
+        param = self.curve.getParam(length=10.0, unit="mm")
+        self.assertAlmostEqual(param, self.curve.getParam(length=1.0), places=6)
 
     def test_params_along_open_and_closed(self):
         """開いたカーブは両端を含む等間隔、閉じたカーブは終点を含めない count 個。"""
@@ -138,7 +139,7 @@ class ParamTest(_CurveCase):
         self.assertEqual((params[0], params[-1]), self.curve.getParamRange())
         total = self.curve.getLength(worldSpace=True)
         for index, param in enumerate(params):
-            self.assertAlmostEqual(self.curve.getLengthAtParam(param, True), total * index / 4, places=3)
+            self.assertAlmostEqual(self.curve.getLength(param, True), total * index / 4, places=3)
         self.assertEqual(self.curve.getParamsAlong(1), [0.0])
         circle = self.circle.getParamsAlong(4)
         self.assertEqual(len(circle), 4)
@@ -150,8 +151,8 @@ class ParamTest(_CurveCase):
         cmds.flushUndo()
         before = set(cmds.ls())
         self.curve.getClosestPoint((1, 1, 1), True)
-        self.curve.getNormalAtParam(1.0, True)
-        self.curve.getParamAtLength(1.0, True)
+        self.curve.getAtParam(1.0, True, what="normal")
+        self.curve.getParam(length=1.0, worldSpace=True)
         self.curve.getMatricesAlong(4, worldSpace=True)
         self.curve.getMatricesAlong(4, up=(0, 0, 1))
         self.assertEqual(set(cmds.ls()), before)
@@ -162,15 +163,15 @@ class ParamTest(_CurveCase):
         end = self.curve.getParamRange()[1]
         total = self.curve.getLength()
         cases = [
-            (ValueError, self.curve.getPointAtParam, (end + 0.1,), {}),
-            (ValueError, self.curve.getTangentAtParam, (-0.1,), {}),
-            (ValueError, self.curve.getLengthAtParam, (float("nan"),), {}),
-            (TypeError, self.curve.getPointAtParam, ("1",), {}),
-            (TypeError, self.curve.getPointAtParam, (True,), {}),
-            (TypeError, self.curve.getPointAtParam, (0.5,), {"worldSpace": 1}),
-            (ValueError, self.curve.getParamAtLength, (total + 0.1,), {}),
-            (ValueError, self.curve.getParamAtLength, (-0.1,), {}),
-            (TypeError, self.curve.getParamAtLength, (None,), {}),
+            (ValueError, self.curve.getAtParam, (end + 0.1,), {}),
+            (ValueError, self.curve.getAtParam, (-0.1,), {"what": "tangent"}),
+            (ValueError, self.curve.getLength, (float("nan"),), {}),
+            (TypeError, self.curve.getAtParam, ("1",), {}),
+            (TypeError, self.curve.getAtParam, (True,), {}),
+            (TypeError, self.curve.getAtParam, (0.5,), {"worldSpace": 1}),
+            (ValueError, self.curve.getParam, (), {"length": total + 0.1}),
+            (ValueError, self.curve.getParam, (), {"length": -0.1}),
+            (TypeError, self.curve.getParam, (), {"length": "1"}),
             (TypeError, self.curve.getClosestPoint, ("abc",), {}),
             (ValueError, self.curve.getClosestPoint, ((1, 2),), {}),
             (TypeError, self.curve.getParamsAlong, (True,), {}),
@@ -186,17 +187,44 @@ class ParamTest(_CurveCase):
             with self.subTest(method=method.__name__, args=args, kwargs=kwargs):
                 self.assertRaises(error, method, *args, **kwargs)
 
+    def test_merged_arguments_reject_invalid_combinations(self):
+        """getLength・getParam・getAtParam は、同時に指定できない引数を TypeError、種類の名前の違いを ValueError にする。"""
+        point = tuple(self.curve.getAtParam(1.0))[:3]
+        cases = [
+            ("length param+tolerance", TypeError, self.curve.getLength, (1.0,), {"tolerance": 1e-3}),
+            ("param none", TypeError, self.curve.getParam, (), {}),
+            ("param length=None", TypeError, self.curve.getParam, (), {"length": None}),
+            ("param point+length", TypeError, self.curve.getParam, (), {"point": point, "length": 1.0}),
+            ("param length+tolerance", TypeError, self.curve.getParam, (), {"length": 1.0, "tolerance": 1e-3}),
+            ("param point+unit", TypeError, self.curve.getParam, (), {"point": point, "unit": "mm"}),
+            ("param positional", TypeError, self.curve.getParam, (point,), {}),
+            ("atParam unknown what", ValueError, self.curve.getAtParam, (1.0,), {"what": "binormal"}),
+            ("atParam what type", TypeError, self.curve.getAtParam, (1.0,), {"what": 1}),
+            ("atParam point+secondOrder", TypeError, self.curve.getAtParam, (1.0,), {"secondOrder": True}),
+            ("atParam tangent+secondOrder", TypeError, self.curve.getAtParam, (1.0,), {"what": "tangent", "secondOrder": True}),
+            ("atParam normal+secondOrder", TypeError, self.curve.getAtParam, (1.0,), {"what": "normal", "secondOrder": True}),
+        ]
+        for label, error, method, args, kwargs in cases:
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    method(*args, **kwargs)
+        # 指定できる組み合わせは、今までどおりの値を返す。
+        self.assertAlmostEqual(self.curve.getParam(point=point, tolerance=1e-4), 1.0, places=6)
+        self.assertAlmostEqual(self.curve.getLength(tolerance=1e-3), self.curve.getLength(), places=2)
+        self.assertEqual(len(self.curve.getAtParam(1.0, what="derivatives", secondOrder=True)), 3)
+        self.assertVector(self.curve.getAtParam(1.0, what="point"), self.curve.getAtParam(1.0))
+
     def test_normal_undefined_on_straight_curve(self):
         """直線は次数1・3とも ValueError。"""
         for degree, points in ((1, [(0, 0, 0), (1, 1, 1), (3, 3, 3)]), (3, [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0)])):
             with self.subTest(degree=degree):
                 transform = cmds.curve(name=self.name("line#"), degree=degree, point=points)
                 curve = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
-                self.assertRaises(ValueError, curve.getNormalAtParam, 0.5)
-                self.assertVector(curve.getTangentAtParam(0.5), Vector(points[-1]).normal())
+                self.assertRaises(ValueError, curve.getAtParam, 0.5, what="normal")
+                self.assertVector(curve.getAtParam(0.5, what="tangent"), Vector(points[-1]).normal())
         transform = cmds.curve(name=self.name("poly#"), degree=1, point=[(0, 0, 0), (1, 0, 0), (1, 0, 1)])
         curve = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
-        self.assertAlmostEqual(curve.getNormalAtParam(0.5).length(), 1.0, places=9)
+        self.assertAlmostEqual(curve.getAtParam(0.5, what="normal").length(), 1.0, places=9)
 
 
 class MatricesAlongTest(_CurveCase):
@@ -208,8 +236,8 @@ class MatricesAlongTest(_CurveCase):
                 self.assertAlmostEqual(_dot(rows[index], rows[index]), 1.0, places=9)
                 self.assertAlmostEqual(_dot(rows[index], rows[(index + 1) % 3]), 0.0, places=9)
             self.assertAlmostEqual(matrix.det3x3(), 1.0, places=9)
-            self.assertVector(_row(matrix, 3), curve.getPointAtParam(param, world))
-            self.assertVector([value * aim_sign for value in rows[aim_index]], curve.getTangentAtParam(param, world))
+            self.assertVector(_row(matrix, 3), curve.getAtParam(param, world))
+            self.assertVector([value * aim_sign for value in rows[aim_index]], curve.getAtParam(param, world, what="tangent"))
 
     def test_parallel_transport_on_planar_circle(self):
         """XZ 平面の円は最初の上方向が Y で、平行移動しても全点で Y のまま。"""
@@ -245,7 +273,7 @@ class MatricesAlongTest(_CurveCase):
                 up_sign = -1.0 if upAxis.startswith("-") else 1.0
                 self.check_frames(self.curve, matrices, params, False, aim_index, aim_sign)
                 for matrix, param in zip(matrices, params):
-                    tangent = self.curve.getTangentAtParam(param)
+                    tangent = self.curve.getAtParam(param, what="tangent")
                     expected = Vector(up) - tangent * _dot(up, tangent)
                     expected.normalize()
                     self.assertVector([value * up_sign for value in _row(matrix, up_index)], expected)

@@ -801,6 +801,22 @@ class Components:
 _COMPONENTS_INIT: Any
 _COMPONENTS_ITER: Any
 
+def _component_of(single: type, plural: type, shape: Shape, indices: int | Iterable | None) -> Component | Components:
+    """番号1つなら要素1つ、番号の並び・Noneならコレクションを作る。
+
+    Shapeの ``getVertices(3)`` のように、同じメソッドで1つとまとまりの両方を返すために使う。
+
+    Args:
+        single (type): 要素1つのクラス。
+        plural (type): コレクションのクラス。
+        shape (Shape): シェイプ。
+        indices (int | Iterable | None): 番号1つ(``__index__`` を持つ値)、番号の並び、またはNone。
+
+    Returns:
+        Component | Components: 番号1つなら要素1つ、ほかはコレクション。
+    """
+    ...
+
 def _flat_input(cls, shape: Shape, items: list[int | Sequence[int]]) -> list[int]:
     """番号の指定を、通し番号のリストへ変換する。
 

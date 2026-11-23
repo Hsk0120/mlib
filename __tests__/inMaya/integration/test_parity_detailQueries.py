@@ -52,7 +52,7 @@ class DetailQueryTest(NamespaceCase):
         camera = mlib.getNode(cmds.camera(name=self.ns + ":camera")[1])
         fn = camera.mfn()
         self.assertAlmostEqual(camera.getAspectRatio(), fn.aspectRatio())
-        self.assertEqual(tuple(camera.getCenterOfInterestPoint(ws=False)), tuple(fn.centerOfInterestPoint(om2.MSpace.kObject))[:3])
+        self.assertEqual(tuple(camera.getPoint(ws=False, kind="centerOfInterest")), tuple(fn.centerOfInterestPoint(om2.MSpace.kObject))[:3])
 
     def test_surface_point(self):
         transform = mlib.getNode(cmds.nurbsPlane(name=self.ns + ":surface", constructionHistory=False)[0])

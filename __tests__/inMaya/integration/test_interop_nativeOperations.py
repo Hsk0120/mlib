@@ -136,7 +136,7 @@ class NativeFollowupTest(NamespaceCase):
         mesh.setNormals(values, fast=True)
         after = mesh.getNormalData()
         self.assertEqual(after[1:], (counts, indices))
-        self.assertTrue(all(mesh.getFaceVertexNormalLocks()))
+        self.assertTrue(all(mesh.getVertexNormals(perFace=True, locked=True)))
         for actual, expected in zip(after[0], values):
             for a, b in zip(actual, expected):
                 self.assertAlmostEqual(a, b, places=5)
@@ -192,21 +192,21 @@ class NativeFollowupTest(NamespaceCase):
             camera.setView((1, 2, 3), (0, 0, -1), (0, 1, 0), 45, 1.5)
         self.flushUndo()
         camera.setView((1, 2, 3), (0, 0, -1), (0, 1, 0), 45, 1.5, fast=True)
-        for a, b in zip(camera.getEyePoint(), (1, 2, 3)):
+        for a, b in zip(camera.getPoint(), (1, 2, 3)):
             self.assertAlmostEqual(a, b, places=6)
         self.assertAlmostEqual(camera.getAspectRatio(), 1.5, places=5)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
-        camera.setCenterOfInterestPoint((2, 3, -4), fast=True)
-        for a, b in zip(camera.getCenterOfInterestPoint(), (2, 3, -4)):
+        camera.setPoint((2, 3, -4), kind="centerOfInterest", fast=True)
+        for a, b in zip(camera.getPoint(kind="centerOfInterest"), (2, 3, -4)):
             self.assertAlmostEqual(a, b, places=5)
         other = self.camera()
         other.copyViewFrom(camera, fast=True)
         self.assertTrue(other.mfn().hasSamePerspective(camera.mpath()))
         camera.getPlug("focalLength").setLocked(True)
-        before = camera.getEyePoint()
+        before = camera.getPoint()
         with self.assertRaises(RuntimeError):
             camera.setView((8, 9, 10), (0, 0, -1), (0, 1, 0), 60, 1.0, fast=True)
-        self.assertEqual(camera.getEyePoint(), before)
+        self.assertEqual(camera.getPoint(), before)
 
     def test_component_pivots_undo_redo(self):
         cube = self.cube()
@@ -286,14 +286,16 @@ class NativeFollowupTest(NamespaceCase):
         points = fn.getPoints()
         center_edge = next(index for index in range(fn.numEdges) if all(abs(points[v].x) < 1e-6 for v in fn.getEdgeVertices(index)))
         edge = mesh.getFullName() + ".e[" + str(center_edge) + "]"
-        for operation in ("mirrorTarget", "flipTarget"):
+        for operation in ("mirror", "flip"):
             before = blend.getTargetDeltas(0)
             old_edges = cmds.blendShape(blend.getName(), query=True, symmetryEdge=True)
             self.flushUndo()
             flags = {"symmetrySpace": "topology", "symmetryEdge": edge}
-            if operation == "mirrorTarget":
+            if operation == "mirror":
                 flags["positiveToNegative"] = False
-            getattr(blend, operation)(0, **flags)
+            else:
+                flags["flip"] = True
+            blend.mirrorTarget(0, **flags)
             after = blend.getTargetDeltas(0)
             self.assertNotEqual(before, after)
             cmds.undo()
@@ -305,7 +307,7 @@ class NativeFollowupTest(NamespaceCase):
         with self.assertRaises(ValueError):
             blend.mirrorTarget(0, symmetrySpace="topology")
         with self.assertRaises(ValueError):
-            blend.flipTarget(0, symmetrySpace="object", symmetryEdge=edge)
+            blend.mirrorTarget(0, flip=True, symmetrySpace="object", symmetryEdge=edge)
 
     def test_fast_geometry_rejects_history_and_locks(self):
         mesh = mlib.getNode(cmds.polyCube(name=self.name("history"))[0]).getShape()
@@ -342,13 +344,13 @@ class NativeFollowupTest(NamespaceCase):
                 target.getPlug("tx").set(7)
                 with self.assertRaises(RuntimeError):
                     ref.cleanEdits()
-                ref.unload()
-                self.assertTrue(ref.getEditStrings())
+                ref.setLoaded(False)
+                self.assertTrue(ref.getEdits())
                 self.flushUndo()
                 ref.cleanEdits(editCommand="setAttr")
                 self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
-                self.assertEqual(ref.getEditStrings(), [])
-                ref.load()
+                self.assertEqual(ref.getEdits(), [])
+                ref.setLoaded()
                 self.assertEqual(ref.getNodes()[0].getPlug("tx").get(), 0)
             finally:
                 ref.setReferenceLocked(False)

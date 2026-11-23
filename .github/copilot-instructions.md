@@ -33,10 +33,10 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - B: カメラの視点コピー/一括姿勢/注視点変更、コンポーネント基準のピボット中央化、スキン強制正規化は、通常Undoの代替経路に加え、Undoなしを明示した限定APIも検討できる。単にUndoチャンクで囲んで復元可能と説明しない。
 - C: NURBS曲面のUV割当/一括割当/解除と、共有法線番号を維持したMeshの法線配列更新は、検証できたものをfast=True専用で追加できる。fast省略/Falseは更新前に拒否し、ヒストリ等の未対応条件も更新前に拒否する。
 - D: スキンのジョイント移動モード、Referenceのロック/解除/編集履歴削除は、Undo対象外と明示した専用操作として検証・実装する。特に編集履歴削除の保存内容への影響を説明する。cmdsの呼出しをfastと呼び替えない。
-- E: BlendShapeのトポロジー/UV基準の対称編集は、既存mirrorTarget/flipTargetの操作時指定として検証する。省略時のobject空間の動作を維持する。通常Undoが成立しない場合もUndoなしの限定版を検討できる。単独のsymmetry設定setterを形だけ追加しない。
+- E: BlendShapeのトポロジー/UV基準の対称編集は、既存mirrorTarget(flip=Trueを含む)の操作時指定として検証する。省略時のobject空間の動作を維持する。通常Undoが成立しない場合もUndoなしの限定版を検討できる。単独のsymmetry設定setterを形だけ追加しない。
 - F: カーブのノット削除とカメラのクリップ状態照会は、API 1.0も含む代替経路を再検証する。結果が正しくない入口は公開しない。同じ意味なら既存APIへ集約し、解決できなければ理由付きで未対応とする。
 
-BはカメラのsetView/copyViewFrom/setCenterOfInterestPointをfast=True専用、ピボット中央化と強制正規化を通常Undo対応として実装する。EはmirrorTarget/flipTargetのsymmetrySpace/symmetryEdgeでtopologyに対応し、object既定を維持する。API 1.0併用の明示許可はA/Fに限定する。
+BはカメラのsetView/copyViewFrom/setPoint(視点・注視点)をfast=True専用、ピボット中央化と強制正規化を通常Undo対応として実装する。EはmirrorTarget(flip=Trueを含む)のsymmetrySpace/symmetryEdgeでtopologyに対応し、object既定を維持する。API 1.0併用の明示許可はA/Fに限定する。
 通常Undoなしの操作はdocstringとテストで区別する。既存APIの省略時動作や返却を変更しない。
 
 2026-11-20の追加回答により、NurbsCurve.removeKnotは形状が変わり得る標準EP削除として限定実装する。
@@ -109,7 +109,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 - om2 から継承・オーバーライドする名前、Python の特殊メソッド、`dump`/`load` 等の標準 API 名は維持する。
 - 動詞: `get`/`set` は値の取得・設定、`is`/`has` は判定、`create`/`add`/`remove` は作成・追加・除外。
   独自の取得は `getName()`・`getChildren()` のように `get` を付ける。判定は正式な `isX` に一本化する(is 省略入口は作らない)。
-- シーン照会には get を付ける(`getNumVertices`・`getCvPositions`)。数学演算・保持値のプロパティ・om2 標準名は一律 get 化しない。
+- シーン照会には get を付ける(`getNumVertices`・`getPoints`)。数学演算・保持値のプロパティ・om2 標準名は一律 get 化しない。
 - 型変換は `as` 接頭辞。コピーを返す数学操作は `inverse`/`normal`/`mirror`、自身の更新は om2 から継承した名前(`invertIt`・`normalize()` など)だけで、独自の「…It」は置かない(`v = v.unit()` のようにコピーを受け取る)。
 - 変換は Maya の表記に揃える: `Translate`/`EulerRotate`/`Scale`/`Shear`、`getTranslation`/`setTranslation`・`getRotate`/`setRotate`・
   `getScale`/`setScale`・`getShear`/`setShear`。`getT`・`getQ` 等の短縮アクセサーは作らない。
@@ -332,6 +332,22 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   別のクラスで意味が違う同名のメソッドを上書きしているもの(`Joint.getSkinClusters`)は、消すと親クラスの別の意味の結果が黙って返るので残す。
   兄弟クラスの同じ本体は、ミックスインでなく間に置く非公開の基底クラスへ上げる(`_InterpCacheConstraint`: `OrientConstraint`・`ParentConstraint` の `createCache`・`deleteCache`)。
   意味が通らない引数の組み合わせは TypeError にし、取り違えても黙って別の結果にならないようにする。
+- 形状・デフォーマー・カメラ・リファレンス・アニメーションカーブでの形(2026-11-24):
+  - 番号1つと並びは同じメソッドで受ける(`mesh.getVertices(3)` は Vertex、`getVertices([3])`・`getVertices()` は Vertices。`getEdges`・`getFaces`・`getUVs`・`getCVs`・`AnimCurve.getKeyframes` も同じ。
+    `getVertex` のような単数の名前は置かない)。サーフェスの (u, v) は `getCVs([(u, v)])[0]`(`getCVs((u, v))` は通し番号2つのまま)。
+  - 頂点ごとと面頂点ごとは `perFace=`(`getVertexNormals`・`getVertexColors`・`setVertexColors`・`getShadingEngines`)、法線のロックは `locked=`
+    (`getVertexNormals(perFace=True, locked=True)`・`setFaceVertexNormals(locked=)`。`VertexFace.getNormal`・`setNormal` と同じ形)、接線と従法線は `binormal=`。
+  - UV セットとカラーセットは同じ7つのメソッド(`getSetNames`・`getCurrentSet`・`setCurrentSet`・`createSet`・`copySet`・`renameSet`・`deleteSet`)の `color=` で選ぶ(既定は UV セット)。
+  - 取得するものを名前で選ぶ引数は `what=`(`getAtParam(param, what="tangent")`・`Mesh.getClosestPoint(point, what="normal")`)、対象の種類は `kind=`
+    (`Camera.getPoint(kind="eye")`・`getDirection(kind="view")`・`getFrustum(kind="viewing")`・`Reference.getEdits(kind="string")`)、返すコンポーネントの種類は `type=`(`Mesh.getBorder(type="vertex")`)。
+    その種類でしか使わない引数(`secondOrder`・`aimAxis`・`uvSet`・`apply…`)をほかの種類で渡すと TypeError。名前の検査は `util._require_choice`。
+  - 主な値を2通りで受けるものは、どちらか1つだけを必須にする(`NurbsCurve.getParam(point=/length=)`・`Camera.setFocusDistance(near=/far=)`・`BlendShape.resetTargetVertices(vertices | tolerance=)`)。
+    値を省くと別の操作になるもの(`AnimCurve.setKey(input)` は形を変えない挿入、`BlendShape.getTargetWeights()`・`setTargetWeights(None, w)` はベース、`NurbsCurve.getLength(param)` は始点からの長さ)は、その操作で使えない引数を TypeError にする。
+  - 取得と設定で既定の種類が食い違うときは、設定側の種類を省けない引数にする(`Camera.setDirection(direction, kind="up")`)。
+  - 点の位置は、メッシュ・カーブ・サーフェスとも `getPoints`・`setPoints`・`mirror`(`getCvPositions` は置かない)。3つは非公開の基底 `_ControlPointShape`(`nodes/controlPointShape.py`)の1つの定義で、
+    種類ごとの違いは `_raw_points`・`_set_points`・`_point_components` と `_mirror_chunk` が持つ。Undo チャンク名は、まとめる前の名前を分岐でそのまま使う(値として決めたものなので変えない)。
+  - まとめないもの: `NurbsCurve.removeKnot` と `reduceKnotMultiplicity`、`AnimCurve.addKeys` と `replaceKeys`(壊し方が違う)、`Camera.getFilmFrustum`(戻り値の意味が違うのに型が同じ)、
+    `Reference.getCopyNumber` と `getCopyNumbers`(別の情報)、`Mesh.removeFaceVertexColors`、`AnimCurve` の番号を渡す形と `Keyframe`・`Keyframes` の同じ操作(両方残す)。
 
 ## 単位
 

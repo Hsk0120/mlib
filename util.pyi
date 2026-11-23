@@ -313,6 +313,23 @@ def _world_space(value: bool) -> bool:
     """
     ...
 
+def _require_choice(value: str, name: str, choices: Sequence[str]) -> str:
+    """文字列の選択肢を検証する。
+
+    Args:
+        value (str): 検証する値。
+        name (str): 例外メッセージに使う引数名。
+        choices (Sequence[str]): 受け付ける値。
+
+    Returns:
+        str: 検証済みの値。
+
+    Raises:
+        TypeError: 文字列でない場合。
+        ValueError: 選択肢に無い場合。
+    """
+    ...
+
 def _finite(value: numbers.Real, name: str) -> float:
     """有限な実数を検証し、floatへ変換する。
 

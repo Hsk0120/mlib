@@ -196,7 +196,7 @@ class ApiProposalTest(unittest.TestCase):
         transform = cmds.polyCube(constructionHistory=False)[0]
         cmds.setAttr(transform + ".translateX", 10)
         mesh = Node(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
-        vertex = mesh.getVertex(0)
+        vertex = mesh.getVertices(0)
         position = vertex.getPosition(worldSpace=True)
         self.assertAlmostEqual(vertex.getPosition(worldSpace=True).x, position[0])
         self.assertAlmostEqual(vertex.getPosition().x, position[0] - 10)

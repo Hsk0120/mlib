@@ -529,7 +529,7 @@ class RenamedArgumentsTest(unittest.TestCase):
             ("Reference.getFilename", Reference.getFilename, "with_copy_number", "withCopyNumber"),
             ("AnimCurve.moveKey", AnimCurve.moveKey, "time_offset", "timeOffset"),
             ("AnimCurve.scaleKey", AnimCurve.scaleKey, "value_pivot", "valuePivot"),
-            ("AnimCurve.mirror", AnimCurve.mirror, "input_pivot", "inputPivot"),
+            ("AnimCurve.scaleKey", AnimCurve.scaleKey, "input_pivot", "inputPivot"),
             ("CompoundPlug.__getitem__", CompoundPlug.__getitem__, "name_or_index", "nameOrIndex"),
             ("DampedSpring.solve", common.DampedSpring.solve, "seconds_per_sample", "secondsPerSample"),
             ("DrivenKey.setKey", common.DrivenKey.setKey, "driver_value", "driverValue"),

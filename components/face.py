@@ -37,7 +37,7 @@ class Face(Component):
             ShadingEngine | None: 割り当てられたシェーディンググループ。無ければNone。
         """
         self._require_valid()
-        return self.shape.getFaceShadingEngines()[self.index]
+        return self.shape.getShadingEngines(perFace=True)[self.index]
 
     def getMaterial(self):
         """このフェースに割り当てられたサーフェスシェーダーを取得する。
@@ -89,7 +89,7 @@ class Face(Component):
         name = self.shape._resolve_color_set(colorSet, fn)
         if name is None:
             return None
-        values = self.shape.getFaceVertexColors(colorSet=name, faceVertices=self.getVertexFaces())
+        values = self.shape.getVertexColors(perFace=True, colorSet=name, faceVertices=self.getVertexFaces())
         if all(value is None for value in values):
             return None
         return tuple(self._iterator().getColor(name))
@@ -435,7 +435,7 @@ class Faces(Components):
             Nodes[ShadingEngine]: シェーディンググループ。重なりは除く。
         """
         result = []
-        assignments = self.shape.getFaceShadingEngines()
+        assignments = self.shape.getShadingEngines(perFace=True)
         for face in self:
             face._require_valid()
             group = assignments[face.index]

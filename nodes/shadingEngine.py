@@ -142,7 +142,7 @@ class ShadingEngine(ObjectSet):
             if component.hasFn(om2.MFn.kMeshPolygonComponent):
                 fn = om2.MFnSingleIndexedComponent(component)
                 indices = range(om2.MFnMesh(path).numPolygons) if fn.isComplete else fn.getElements()
-                result.extend(node.getFace(value) for value in indices)
+                result.extend(node.getFaces(value) for value in indices)
             else:
                 result.append(node)
         return result

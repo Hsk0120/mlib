@@ -16,7 +16,7 @@ class DeformerLinksTest(NamespaceCase):
         middle = cmds.duplicate(base, name=self.name("middle"))[0]
         blend = mlib.getNode(cmds.blendShape(base, name=self.name("blend"))[0])
         blend.addTarget(target, index=5)
-        blend.addInBetween(5, middle, 0.5)
+        blend.addTarget(middle, inBetween=5, fullWeight=0.5)
         cmds.flushUndo()
         self.assertEqual(blend.getTargetItemIndices(5), [5500, 6000])
         data = blend.getTargetGeometry(5)

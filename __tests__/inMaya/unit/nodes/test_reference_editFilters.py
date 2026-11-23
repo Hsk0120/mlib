@@ -1,5 +1,6 @@
 """Editの種類と保存元referenceノードによる絞り込みを検証する。"""
 
+import functools
 import sys
 import tempfile
 import unittest
@@ -26,7 +27,19 @@ class ReferenceEditFiltersTest(NamespaceCase):
                 cmds.setAttr(referenced + ".tx", 4)
                 cmds.addAttr(referenced, longName="extra", attributeType="double")
                 cmds.setAttr(referenced + ".extra", 3)
-                methods = ((reference.getEditStrings, "editStrings"), (reference.getEditNodeNames, "editNodes"), (reference.getEditAttrNames, "editAttrs"))
+                methods = tuple(
+                    (functools.partial(reference.getEdits, kind=kind), flag)
+                    for kind, flag in (("string", "editStrings"), ("node", "editNodes"), ("attr", "editAttrs"))
+                )
+                # kind を省くと "string"。名前違いは ValueError、str 以外は TypeError で、位置引数では渡せない。
+                self.assertEqual(reference.getEdits(), reference.getEdits(kind="string"))
+                self.assertEqual(reference.getEdits(), cmds.referenceQuery(ref_name, editStrings=True, successfulEdits=True, failedEdits=False) or [])
+                with self.assertRaises(ValueError):
+                    reference.getEdits(kind="strings")
+                with self.assertRaises(TypeError):
+                    reference.getEdits(kind=None)
+                with self.assertRaises(TypeError):
+                    reference.getEdits(True, False, "node")
                 for loaded in (True, False):
                     if not loaded:
                         cmds.file(unloadReference=ref_name)
@@ -80,9 +93,9 @@ class ReferenceEditFiltersTest(NamespaceCase):
                         or []
                     )
                     self.assertTrue(expected)
-                    self.assertEqual(child.getEditStrings(editCommand="setAttr", onReferenceNode=owner), expected)
-                inner = child.getEditStrings(editCommand="setAttr", onReferenceNode=child)
-                outer = child.getEditStrings(editCommand="setAttr", onReferenceNode=top)
+                    self.assertEqual(child.getEdits(editCommand="setAttr", onReferenceNode=owner), expected)
+                inner = child.getEdits(editCommand="setAttr", onReferenceNode=child)
+                outer = child.getEdits(editCommand="setAttr", onReferenceNode=top)
                 self.assertNotEqual(inner, outer)
             finally:
                 cmds.file(removeReference=True, referenceNode=top_name)

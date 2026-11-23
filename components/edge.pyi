@@ -111,7 +111,7 @@ class Edge(Component):
         縁のエッジとは、接する面が1つだけのエッジのこと。
 
         Returns:
-            bool: 縁ならTrue。:meth:`Mesh.getBorderEdges <mlib.nodes.mesh.Mesh.getBorderEdges>` と同じ判定。
+            bool: 縁ならTrue。:meth:`Mesh.getBorder <mlib.nodes.mesh.Mesh.getBorder>` と同じ判定。
 
         Raises:
             IndexError: 番号が今の範囲の外にある場合。

@@ -58,14 +58,14 @@ class MaterialNodesTest(unittest.TestCase):
         group.assign(mesh)
         self.assertEqual([engine.getShader() for engine in mesh.getShadingEngines()], [material])
         other.assign(mesh.getFaces([0, 1]))
-        self.assertEqual(mesh.getFace(0).getMaterial(), second)
-        self.assertEqual(mesh.getFace(2).getMaterial(), material)
+        self.assertEqual(mesh.getFaces(0).getMaterial(), second)
+        self.assertEqual(mesh.getFaces(2).getMaterial(), material)
         self.assertEqual(mesh.getFaces([0, 1]).getMaterials(), [second])
         self.assertTrue(all(member.shape == mesh for member in other.getMembers()))
         self.assertEqual(material.getShadingEngines(), [group])
         self.assertTrue(any(engine.getMembers() for engine in material.getShadingEngines()))
         cmds.undo()
-        self.assertEqual(mesh.getFace(0).getMaterial(), material)
+        self.assertEqual(mesh.getFaces(0).getMaterial(), material)
 
     def test_instance_assignments(self):
         transform = Node(cmds.polyCube()[0])

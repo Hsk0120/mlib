@@ -53,10 +53,10 @@ class MeshColorSetTest(_Case):
     def test_uv_shells(self):
         """UV シェルは getUvShellsIds の分類と一致し、UV を切ると分かれる。存在しない UV セットは ValueError。"""
         shape = self.mesh()
-        self.assertEqual(shape.getUVShells(), [list(range(shape.getNumUVs()))])
+        self.assertEqual(shape.getShells(uv=True), [list(range(shape.getNumUVs()))])
         name = shape.getFullName()
         cmds.polyMapCut(name + ".e[*]", constructionHistory=False)
-        shells = shape.getUVShells(uvSet="map1")
+        shells = shape.getShells(uv=True, uvSet="map1")
         self.assertEqual(len(shells), 4)
         count, ids = om2.MFnMesh(shape.mpath()).getUvShellsIds("map1")
         self.assertEqual(
@@ -69,7 +69,12 @@ class MeshColorSetTest(_Case):
         for value, error in (("missing", ValueError), ("", ValueError), (1, TypeError)):
             with self.subTest(uvSet=value):
                 with self.assertRaises(error):
-                    shape.getUVShells(uvSet=value)
+                    shape.getShells(uv=True, uvSet=value)
+        # uvSetはUVシェル(uv=True)のときだけ指定できる。uvはboolだけを受け付ける。
+        for flags in ({"uvSet": "map1"}, {"uv": False, "uvSet": "map1"}, {"uv": 1}):
+            with self.subTest(flags=flags):
+                with self.assertRaises(TypeError):
+                    shape.getShells(**flags)
 
     def test_color_sets_match_poly_color_set(self):
         """作成・現在・複製・名前変更・削除が polyColorSet の照会と一致し、それぞれ Undo 1回で戻る。"""
@@ -83,51 +88,76 @@ class MeshColorSetTest(_Case):
             found = cmds.polyColorSet(name, query=True, currentColorSet=True)
             return found[0] if found else None
 
-        self.assertEqual(shape.getColorSetNames(), [])
-        self.assertIsNone(shape.getCurrentColorSet())
+        self.assertEqual(shape.getSetNames(color=True), [])
+        self.assertIsNone(shape.getCurrentSet(color=True))
         self.flushUndo()
-        self.assertIsNone(shape.createColorSet("a"))
+        self.assertIsNone(shape.createSet("a", color=True))
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), []), lambda: self.assertEqual(names(), ["a"]))
-        shape.createColorSet("a")
-        shape.createColorSet("b")
-        self.assertEqual(shape.getColorSetNames(), names())
-        self.assertEqual(shape.getCurrentColorSet(), current())
+        shape.createSet("a", color=True)
+        shape.createSet("b", color=True)
+        self.assertEqual(shape.getSetNames(color=True), names())
+        self.assertEqual(shape.getCurrentSet(color=True), current())
         self.assertEqual(current(), "b")
         self.flushUndo()
-        shape.setCurrentColorSet("a")
+        shape.setCurrentSet("a", color=True)
         self.assertUndoesInOneStep(lambda: self.assertEqual(current(), "b"), lambda: self.assertEqual(current(), "a"))
         self.flushUndo()
-        shape.copyColorSet("a", "c")
+        shape.copySet("a", "c", color=True)
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a", "b", "c"]))
         self.flushUndo()
-        shape.renameColorSet("b", "d")
+        shape.renameSet("b", "d", color=True)
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a", "d"]))
         self.flushUndo()
-        shape.deleteColorSet("b")
+        shape.deleteSet("b", color=True)
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a"]))
-        self.assertEqual(shape.getColorSetNames(), ["a", "b"])
+        self.assertEqual(shape.getSetNames(color=True), ["a", "b"])
 
     def test_color_set_errors(self):
         """名前の型・空・有無の誤りは TypeError/ValueError で、シーンを変えない。削除済みは RuntimeError。"""
         shape = self.mesh()
-        shape.createColorSet("a")
+        shape.createSet("a", color=True)
         cases = (
-            (shape.createColorSet, ("a",), ValueError),
-            (shape.createColorSet, ("",), ValueError),
-            (shape.createColorSet, (None,), TypeError),
-            (shape.setCurrentColorSet, ("x",), ValueError),
-            (shape.deleteColorSet, ("x",), ValueError),
-            (shape.renameColorSet, ("x", "y"), ValueError),
-            (shape.renameColorSet, ("a", "a"), ValueError),
-            (shape.copyColorSet, ("a", 1), TypeError),
-            (shape.copyColorSet, ("x", "y"), ValueError),
+            (shape.createSet, ("a",), ValueError),
+            (shape.createSet, ("",), ValueError),
+            (shape.createSet, (None,), TypeError),
+            (shape.setCurrentSet, ("x",), ValueError),
+            (shape.deleteSet, ("x",), ValueError),
+            (shape.renameSet, ("x", "y"), ValueError),
+            (shape.renameSet, ("a", "a"), ValueError),
+            (shape.copySet, ("a", 1), TypeError),
+            (shape.copySet, ("x", "y"), ValueError),
         )
         for method, args, error in cases:
             with self.subTest(method=method.__name__, args=args):
                 with self.assertRaises(error):
-                    method(*args)
-                self.assertEqual(shape.getColorSetNames(), ["a"])
-        self.assertDeletedRaises(shape, (lambda node: node.getColorSetNames(), lambda node: node.getUVShells(), lambda node: node.createColorSet("z")))
+                    method(*args, color=True)
+                self.assertEqual(shape.getSetNames(color=True), ["a"])
+        # colorはboolだけを受け付ける。replaceはUVセットの複製だけで使える。
+        calls = (
+            ("getSetNames", ()),
+            ("getCurrentSet", ()),
+            ("setCurrentSet", ("a",)),
+            ("createSet", ("b",)),
+            ("copySet", ("a", "b")),
+            ("renameSet", ("a", "b")),
+            ("deleteSet", ("a",)),
+        )
+        for name, args in calls:
+            with self.subTest(method=name, color=1):
+                with self.assertRaises(TypeError):
+                    getattr(shape, name)(*args, color=1)
+                self.assertEqual(shape.getSetNames(color=True), ["a"])
+        with self.subTest(method="copySet", color=True, replace=True):
+            with self.assertRaises(TypeError):
+                shape.copySet("a", "b", color=True, replace=True)
+            self.assertEqual(shape.getSetNames(color=True), ["a"])
+        # 同じ名前でも、UVセットとカラーセットは別々に調べる。
+        self.assertNotIn("a", shape.getSetNames())
+        with self.assertRaises(ValueError):
+            shape.setCurrentSet("a")
+        self.assertDeletedRaises(
+            shape, (lambda node: node.getSetNames(color=True), lambda node: node.getShells(uv=True), lambda node: node.createSet("z", color=True))
+        )
 
 
 if __name__ == "__main__":

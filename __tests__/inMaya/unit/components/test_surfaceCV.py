@@ -142,7 +142,7 @@ class SurfaceCVTest(_Case):
         self.assertVectorAlmostEqual(cv.getPosition(), (-before.x, before.y + 1, before.z))
         cmds.undo()
         self.assertVectorAlmostEqual(cv.getPosition(), before + Vector(0, 1, 0))
-        self.assertAlmostEqual(cvs.getCenter().y, (shape.getCvPositions()[0].y + cv.getPosition().y) / 2.0)
+        self.assertAlmostEqual(cvs.getCenter().y, (shape.getPoints()[0].y + cv.getPosition().y) / 2.0)
 
     def test_periodic_surface(self):
         transform = cmds.sphere(name=self.name("sphere#"), sections=8, spans=4, constructionHistory=False)[0]

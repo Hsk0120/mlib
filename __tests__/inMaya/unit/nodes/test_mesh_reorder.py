@@ -188,12 +188,12 @@ class MeshReorderTest(unittest.TestCase):
         fn.lockFaceVertexNormals([0], [vertex])
         before = self.snapshot()
         uv = (tuple(fn.getUVs("secondUV")[0]), tuple(fn.getAssignedUVs("secondUV")[1]))
-        materials = self.target.getFaceShadingEngines()
+        materials = self.target.getShadingEngines(perFace=True)
         normals = [tuple(n) for i in range(fn.numPolygons) for n in fn.getFaceVertexNormals(i)]
         self.target.reorderVertices(self.reference)
         fn = self.target.mfn()
         self.assertEqual(self.snapshot()[0], [before[0][i] for i in self.permutation])
-        self.assertEqual(self.target.getFaceShadingEngines(), materials)
+        self.assertEqual(self.target.getShadingEngines(perFace=True), materials)
         self.assertEqual((tuple(fn.getUVs("secondUV")[0]), tuple(fn.getAssignedUVs("secondUV")[1])), uv)
         self.assertEqual(fn.currentUVSetName(), "secondUV")
         after_normals = [tuple(n) for i in range(fn.numPolygons) for n in fn.getFaceVertexNormals(i)]
@@ -202,9 +202,9 @@ class MeshReorderTest(unittest.TestCase):
                 self.assertAlmostEqual(x, y, places=6)
         cmds.undo()
         self.assertEqual(self.snapshot(), before)
-        self.assertEqual(self.target.getFaceShadingEngines(), materials)
+        self.assertEqual(self.target.getShadingEngines(perFace=True), materials)
         cmds.redo()
-        self.assertEqual(self.target.getFaceShadingEngines(), materials)
+        self.assertEqual(self.target.getShadingEngines(perFace=True), materials)
         self.assertEqual(self.target.mfn().currentUVSetName(), "secondUV")
 
     def test_fast_with_tweaks_materials_and_uvs(self):
@@ -214,13 +214,13 @@ class MeshReorderTest(unittest.TestCase):
         cmds.polyUVSet(name, currentUVSet=True, uvSet="secondUV")
         cmds.move(0.3, 0, 0, name + ".vtx[0]", r=True)
         before = self.snapshot()
-        materials = self.target.getFaceShadingEngines()
+        materials = self.target.getShadingEngines(perFace=True)
         with self.assertRaises(NotImplementedError):
             self.target.reorderVertices(self.reference)
         self.assertEqual(self.snapshot(), before)
         self.target.reorderVertices(self.reference, fast=True)
         self.assertEqual(self.snapshot()[0], [before[0][i] for i in self.permutation])
-        self.assertEqual(self.target.getFaceShadingEngines(), materials)
+        self.assertEqual(self.target.getShadingEngines(perFace=True), materials)
         self.assertEqual(self.target.mfn().getUVSetNames(), ("map1", "secondUV"))
         self.assertEqual(self.target.mfn().currentUVSetName(), "secondUV")
 

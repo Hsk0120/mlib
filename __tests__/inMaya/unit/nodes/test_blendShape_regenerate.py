@@ -71,7 +71,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
     def test_inbetween_recreates_its_own_shape(self):
         blend, base, _target = self.setup_blend()
         between = self.make_target(base, "between", 0.75)
-        blend.addInBetween(3, between, 0.5)
+        blend.addTarget(between, inBetween=3, fullWeight=0.5)
         cmds.delete(between)
         self.flushUndo()
         meshes = blend.regenerateTarget(3, fullWeight=0.5)
@@ -122,7 +122,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
         finally:
             cmds.setAttr(path, lock=False)
         between = self.make_target(base, "between", 0.75)
-        blend.addInBetween(3, between, 0.5, base=base)
+        blend.addTarget(between, inBetween=3, fullWeight=0.5, base=base)
         cmds.delete(between)
         with self.assertRaises(ValueError):
             blend.regenerateTarget(3, fullWeight=0.5)

@@ -84,14 +84,19 @@ class AnimCurveEditTest(_KeyCase):
         self.assertAlmostEqual(self.values(rotate)[0], 270.0)
 
     def test_scale_key_ranges(self):
-        """scaleKey と mirror も index・time で絞れる。"""
+        """scaleKey(倍率 -1 の反転を含む)も index・time で絞れる。"""
         self.curve.scaleKey(1, 2, valuePivot=0, index=[1, 2])
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
         self.curve.scaleKey(2, 1, inputPivot=5, time=(5, 10))
         self.assertSequenceAlmostEqual(self.times(), [1.0, 5.0, 15.0], places=5)
-        self.curve.mirror(value=True, valuePivot=4, index=1)
+        self.curve.scaleKey(1, -1, valuePivot=4, index=1)
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
-        self.curve.mirror(value=True, valuePivot=0, index=0)
+        self.curve.scaleKey(valueScale=-1, valuePivot=0, index=0)
+        self.assertEqual(self.values(), [0.0, 4.0, 8.0])
+        # 基準から離れたキーは、値が基準の反対側へ移る。
+        self.curve.scaleKey(valueScale=-1, valuePivot=4, index=2)
+        self.assertEqual(self.values(), [0.0, 4.0, 0.0])
+        self.curve.scaleKey(valueScale=-1, valuePivot=4, index=2)
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
         with self.assertRaises(TypeError):
             self.curve.scaleKey(2, index=0, time=1)

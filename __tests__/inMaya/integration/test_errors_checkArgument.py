@@ -304,12 +304,12 @@ class _CheckCase(NamespaceCase):
         return self._joints_case("setSegmentScaleCompensate", False, "segmentScaleCompensate", ("segmentScaleCompensate",))
 
     # そのほかのノード・Plug。
-    def c_Locator_setPosition(self):
+    def c_Plug_set_localPosition(self):
         transform = cmds.ls(cmds.spaceLocator(name="loc#")[0], long=True)[0]
         shape = cmds.listRelatives(transform, shapes=True, fullPath=True)[0]
         locator = mlib.getNode(shape)
         return Case(
-            call=lambda value, **kw: locator.setPosition(value, **kw),
+            call=lambda value, **kw: locator.getPlug("localPosition").set(value, **kw),
             good=(1.0, 2.0, 3.0),
             bad=(1.0, NAN, 3.0),
             lock=lambda: cmds.setAttr(shape + ".localPositionZ", lock=True),
@@ -348,19 +348,19 @@ class _CheckCase(NamespaceCase):
         )
 
     def c_PointComponent_setPosition(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, **kw), (1.0, 2.0, 3.0), (1.0, 2.0, NAN))
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices(0).setPosition(value, **kw), (1.0, 2.0, 3.0), (1.0, 2.0, NAN))
 
     def c_PointComponent_setPosition_axisX(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="x", **kw), 2.0, NAN)
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices(0).setPosition(value, axis="x", **kw), 2.0, NAN)
 
     def c_PointComponent_setPosition_axisY(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="y", **kw), 2.0, INF)
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices(0).setPosition(value, axis="y", **kw), 2.0, INF)
 
     def c_PointComponent_setPosition_axisZ(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, axis="z", **kw), 2.0, NAN)
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices(0).setPosition(value, axis="z", **kw), 2.0, NAN)
 
     def c_PointComponent_setPosition_relative(self):
-        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertex(0).setPosition(value, relative=True, **kw), (1.0, 0.0, 0.0), (NAN, 0.0, 0.0))
+        return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices(0).setPosition(value, relative=True, **kw), (1.0, 0.0, 0.0), (NAN, 0.0, 0.0))
 
     def c_PointComponents_setPosition_axisX(self):
         return self._vertex_case(lambda mesh, value, **kw: mesh.getVertices([1, 0]).setPosition(value, axis="x", **kw), 2.0, NAN)
@@ -407,9 +407,9 @@ class _CheckCase(NamespaceCase):
             state=lambda: self.points(shape + ".vtx[*]"),
         )
 
-    def c_NurbsCurve_setCvPositions(self):
+    def c_NurbsCurve_setPoints(self):
         return self._curve_case(
-            lambda curve, value, **kw: curve.setCvPositions(value, **kw),
+            lambda curve, value, **kw: curve.setPoints(value, **kw),
             [(0.0, 1.0, 0.0), (1.0, 1.0, 0.0), (2.0, 2.0, 0.0)],
             [(0.0, 1.0, 0.0), (1.0, NAN, 0.0), (2.0, 2.0, 0.0)],
         )
@@ -417,15 +417,15 @@ class _CheckCase(NamespaceCase):
     def c_NurbsCurve_mirror(self):
         return self._curve_case(lambda curve, value, **kw: curve.mirror("y", pivot=value, **kw), (0.0, 1.0, 0.0), (0.0, INF, 0.0))
 
-    def c_NurbsSurface_setCvPositions(self):
+    def c_NurbsSurface_setPoints(self):
         transform = cmds.ls(cmds.nurbsPlane(name="srf#", constructionHistory=False)[0], long=True)[0]
         shape = cmds.listRelatives(transform, shapes=True, fullPath=True)[0]
         surface = mlib.getNode(shape)
-        good = [(x + 0.5, 1.0, z) for x, _y, z in surface.getCvPositions()]
+        good = [(x + 0.5, 1.0, z) for x, _y, z in surface.getPoints()]
         bad = list(good)
         bad[3] = (NAN, 1.0, 0.0)
         return Case(
-            call=lambda value, **kw: surface.setCvPositions(value, **kw),
+            call=lambda value, **kw: surface.setPoints(value, **kw),
             good=good,
             bad=bad,
             lock=lambda: cmds.setAttr(shape + ".controlPoints[0].xValue", lock=True),
@@ -455,10 +455,10 @@ class _CheckCase(NamespaceCase):
         return self._key_case(lambda curve, value, **kw: curve.setTangent(1, **value, **kw), {"inTangentType": "flat", "outTangentType": "flat"})
 
     def c_Keyframe_setValue(self):
-        return self._key_case(lambda curve, value, **kw: curve.getKeyframe(1).setValue(value, **kw), 3.0, NAN)
+        return self._key_case(lambda curve, value, **kw: curve.getKeyframes(1).setValue(value, **kw), 3.0, NAN)
 
     def c_Keyframe_setTangent(self):
-        return self._key_case(lambda curve, value, **kw: curve.getKeyframe(1).setTangent(**value, **kw), {"inTangentType": "flat", "outTangentType": "flat"})
+        return self._key_case(lambda curve, value, **kw: curve.getKeyframes(1).setTangent(**value, **kw), {"inTangentType": "flat", "outTangentType": "flat"})
 
     def c_Keyframes_setValue(self):
         return self._key_case(lambda curve, value, **kw: curve.getKeyframes([0, 1]).setValue(value, **kw), 3.0, INF)
@@ -504,8 +504,8 @@ class _CheckCase(NamespaceCase):
     def c_BlendShape_resetTargetVertices(self):
         return self._delta_case(lambda blend, value, **kw: blend.resetTargetVertices(0, value, **kw), [0, 1])
 
-    def c_BlendShape_reduceTargetDeltas(self):
-        return self._delta_case(lambda blend, value, **kw: blend.reduceTargetDeltas(0, tolerance=value, **kw), 0.5, NAN)
+    def c_BlendShape_resetTargetVertices_tolerance(self):
+        return self._delta_case(lambda blend, value, **kw: blend.resetTargetVertices(0, tolerance=value, **kw), 0.5, NAN)
 
     def c_GeometryFilter_setDeformerWeights(self):
         transform, _shape = self.cube()

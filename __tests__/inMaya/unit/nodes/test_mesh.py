@@ -56,8 +56,8 @@ class ShapesConstraintsTest(unittest.TestCase):
         cmds.setAttr(curve.getFullName() + ".scaleX", 2)
         self.assertAlmostEqual(shape.getLength(), 7)
         cmds.setAttr(curve.getFullName() + ".translateY", 2)
-        self.assertAlmostEqual(shape.getCvPositions(worldSpace=True)[0].y, 2)
-        self.assertAlmostEqual(shape.getCvPositions()[0].y, 0)
+        self.assertAlmostEqual(shape.getPoints(worldSpace=True)[0].y, 2)
+        self.assertAlmostEqual(shape.getPoints()[0].y, 0)
         with self.assertRaises(ValueError):
             shape.getLength(tolerance=0)
 
@@ -91,7 +91,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def positions(self, shape, ws=False):
         """API の内部距離単位で形状の全位置を返す。"""
-        points = shape.getPoints(ws) if isinstance(shape, mlib.Mesh) else shape.getCvPositions(ws)
+        points = shape.getPoints(ws)
         return [tuple(point)[:3] for point in points]
 
     def assert_positions(self, actual, expected):

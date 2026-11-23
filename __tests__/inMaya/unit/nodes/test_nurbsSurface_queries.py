@@ -19,7 +19,7 @@ class SurfaceQueriesTest(NamespaceCase):
         self.assertEqual(surface.getKnots(), (list(fn.knotsInU()), list(fn.knotsInV())))
         self.assertFalse(surface.isPointInTrimmedRegion(0.5, 0.5))
         for second in (False, True):
-            actual = surface.getDerivativesAtParam(0.5, 0.5, secondOrder=second)
+            actual = surface.getAtParam(0.5, 0.5, secondOrder=second, what="derivatives")
             expected = fn.getDerivativesAtParam(0.5, 0.5, secondOrder=second)
             self.assertEqual(len(actual), 6 if second else 3)
             for value, reference in zip(actual, expected):
@@ -34,7 +34,7 @@ class SurfaceQueriesTest(NamespaceCase):
         with self.assertRaises(ValueError):
             surface.isPointInTrimmedRegion(100, 0)
         with self.assertRaises(TypeError):
-            surface.getDerivativesAtParam(0.5, 0.5, secondOrder=1)
+            surface.getAtParam(0.5, 0.5, secondOrder=1, what="derivatives")
 
     def test_world_space_and_trimmed_regions(self):
         name = cmds.nurbsPlane(name=self.name("trimSurface"), axis=(0, 1, 0), width=10, constructionHistory=False)[0]
@@ -49,7 +49,7 @@ class SurfaceQueriesTest(NamespaceCase):
         cmds.setAttr(name + ".translate", 2, 3, 4)
         cmds.setAttr(name + ".scale", 2, 3, 4)
         expected = surface.mfn().getDerivativesAtParam(0.5, 0.5, space=om2.MSpace.kWorld, secondOrder=True)
-        for actual, value in zip(surface.getDerivativesAtParam(0.5, 0.5, ws=True, secondOrder=True), expected):
+        for actual, value in zip(surface.getAtParam(0.5, 0.5, ws=True, secondOrder=True, what="derivatives"), expected):
             self.assertSequenceAlmostEqual(actual, list(value)[:3])
         hit = surface.getRayIntersection((2, 10, 4), (0, -2, 0), ws=True)
         self.assertIsNotNone(hit)

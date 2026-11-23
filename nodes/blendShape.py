@@ -16,7 +16,7 @@ from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context, _require_bool, undoChunk
 from ..maths.vector import Vector
 from ..plugs.plug import Plug
-from ..util import _mirror_axis
+from ..util import _UNSET, _mirror_axis
 from .geometryFilter import GeometryFilter
 from .node import Node, Nodes
 
@@ -168,30 +168,69 @@ class BlendShape(GeometryFilter):
             raise ValueError(f"ベースジオメトリはすでに登録されています: {node.getName()}")
         cmds.blendShape(self.getFullName(), edit=True, geometry=node.getFullName())
 
-    def addTarget(self, mesh, name=None, *, base=None, index=None, fullWeight=1.0):
-        """指定したベースへターゲット形状を追加する。
+    def addTarget(self, mesh, name=None, *, base=None, index=None, fullWeight=1.0, inBetween=None, relative=False):
+        """指定したベースへターゲット形状を追加する。``inBetween`` を渡すと、すでにあるターゲットへin-betweenを追加する。
 
-        省略時はgetBaseGeometryの先頭へ、空いている次の番号・fullWeight=1.0で追加する。
-        別のベースで使用中のindexを指定すると、同じweight要素とエイリアスを共有する。
-        同じベースの既存番号への追加は拒否する。in-betweenの追加にはaddInBetweenを使う。
-        ターゲット形状との接続はMayaの既定どおり残す。Undoが有効なら1回で戻せる。
+        ターゲットの追加(既定):
+
+        - 省略時はgetBaseGeometryの先頭へ、空いている次の番号・fullWeight=1.0で追加する。
+        - 別のベースで使用中のindexを指定すると、同じweight要素とエイリアスを共有する。同じベースの既存番号への追加は拒否する。
+
+        in-betweenの追加(``inBetween=ターゲット``):
+
+        - ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。``fullWeight`` が、in-betweenが完全に効くウェイトになる
+          (0と1以外の、-5以上で0.001刻みの値。省略できない)。
+        - ``name``・``index`` は指定できない。
+
+        形状との接続はMayaの既定どおり残す。Undoが有効なら1回で戻せる。
         fast引数は持たない(デフォーマーの接続とターゲット登録をcmdsで更新するため)。
 
         Args:
-            mesh (str | Node): ターゲットの形状、またはそのTransform。
+            mesh (str | Node): ターゲット(in-between)の形状、またはそのTransform。in-betweenはベースと頂点数が同じメッシュ。
             name (str | None): ターゲット名。新しい番号ではNoneならMayaの既定名。共有番号では既存名だけを指定できる。
-            base (str | Node | None): 登録済みのベース形状かそのTransform。Noneなら先頭のベース。
+            base (str | Node | None): 登録済みのベース形状かそのTransform。Noneなら先頭のベース
+                (in-betweenでは論理番号がいちばん小さいベース)。
             index (int | None): weightの論理番号。Noneなら未使用の番号。boolは不可。
-            fullWeight (float): 完全に変形するウェイト。0より大きい0.001刻みの値。現在のweight値は変更しない。
+            fullWeight (float): 完全に変形するウェイト。ターゲットでは0より大きい0.001刻みの値。現在のweight値は変更しない。
+            inBetween (str | int | Plug | None): in-betweenの追加先のターゲット。ターゲット名・論理番号、
+                またはこのノードの ``weight`` の要素のPlug。Noneならターゲットを追加する。既定はNone。
+            relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
+                ``inBetween`` を渡したときだけ指定できる。
 
         Returns:
-            Plug: 追加したターゲットのウェイト(``weight[i]``)。
+            Plug: 追加したターゲット(in-betweenでは追加先のターゲット)のウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: name・index・fullWeight・形状の型が不正な場合。
-            ValueError: 名前・番号・ウェイトが不正、ベースが未登録、または同じベースの番号が使用中の場合。
+            TypeError: name・index・fullWeight・形状の型が不正な場合、relativeがbool以外の場合、in-betweenの形状がメッシュでない場合、
+                inBetweenとname・indexを同時に指定した場合、またはinBetweenを渡さずにrelative=Trueを指定した場合。
+            ValueError: 名前・番号・ウェイトが不正、ベースが未登録、同じベースの番号が使用中の場合。
+                in-betweenでは、ターゲットが無い場合、fullWeightが0か1・すでにある項目・範囲外・0.001刻みでない場合、
+                または頂点数がベースと違う場合。
             RuntimeError: ノードが無効な場合、ベースが無い場合、またはMayaが追加を拒否した場合。
         """
+        _require_bool(relative, "relative")
+        if inBetween is not None:
+            if name is not None or index is not None:
+                raise TypeError("name・indexはinBetweenと同時に指定できません")
+            bi, index = self._resolve_group(inBetween, base)
+            item = _weight_item(fullWeight)
+            if item in (_ITEM_OFFSET, _FULL_ITEM):
+                raise ValueError(f"インビトウィーンのウェイトに0と1は指定できません: {fullWeight}")
+            if item in self._item_indices(bi, index):
+                raise ValueError(f"ターゲット{index}には、ウェイト{fullWeight}のインビトウィーンがすでに存在します")
+            shape = _mesh_shape(mesh)
+            self._require_vertex_count(bi, shape)
+            with undoChunk("mlibBlendShapeAddInBetween"):
+                cmds.blendShape(
+                    self.getFullName(),
+                    edit=True,
+                    inBetween=True,
+                    inBetweenType="relative" if relative else "absolute",
+                    target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), fullWeight),
+                )
+            return self.getPlug("weight")[index]
+        if relative:
+            raise TypeError("relativeはinBetweenを指定したときだけ指定できます")
         if name is not None and not isinstance(name, str):
             raise TypeError("nameは文字列かNoneで指定してください")
         if name == "":
@@ -228,11 +267,11 @@ class BlendShape(GeometryFilter):
                 cmds.aliasAttr(alias, f"{self.getFullName()}.weight[{index}]")
             return self.getPlug("weight")[index]
 
-    def removeTarget(self, target):
-        """ターゲットを完全に取り除く。
+    def removeTarget(self, target, *, inBetween=None):
+        """ターゲットを完全に取り除く。``inBetween`` にウェイトを渡すと、そのウェイトのin-betweenだけを取り除く。
 
         ターゲット形状がすでに削除されていてもよい。
-        ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、次のものを取り除く
+        既定では ``cmds.blendShape(edit=True, remove=True, target=...)`` と同じく、次のものを取り除く
         (Maya標準の ``blendShapeDeleteTargetGroup`` を使う)。
 
         - ウェイトの要素とエイリアス
@@ -240,20 +279,34 @@ class BlendShape(GeometryFilter):
         - Shape Editorでどこに入っているかの情報
 
         ウェイトへの入力の接続は外し、ウェイトを動かしているcombinationShapeノードはMayaの決まりどおり削除する。
-        ターゲット形状のノードは削除しない。Undoが有効なら、1回のUndoで戻せる。
+        ターゲット形状のノードは削除しない。
+
+        ``inBetween`` を渡したときは、そのウェイトのin-betweenをすべてのベースから取り除く
+        (Maya標準の ``blendShapeDeleteInBetweenTarget`` を使う)。ターゲット本体は残す。
+
+        Undoが有効なら、1回のUndoで戻せる。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            inBetween (float | None): 取り除くin-betweenのウェイト。1.0は指定できない。Noneならターゲットを取り除く。既定はNone。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: targetが使えない型(boolを含む)の場合。
-            ValueError: ターゲットが無い場合。
-            RuntimeError: ノードが無効な場合、ウェイトがロックされている場合、またはMayaが取り除くのを拒否した場合。
+            TypeError: targetが使えない型(boolを含む)の場合、またはinBetweenが数値でない場合。
+            ValueError: ターゲットが無い場合、またはそのウェイトのin-betweenが無い場合。
+            RuntimeError: ノードが無効な場合、ウェイトがロックされている場合(ターゲットを取り除くとき)、
+                またはMayaが取り除くのを拒否した場合。
         """
         index = self._target_index(target)
+        if inBetween is not None:
+            item = _weight_item(inBetween)
+            if item == _FULL_ITEM or not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
+                raise ValueError(f"ターゲット{index}に、ウェイト{inBetween}のインビトウィーンはありません")
+            with undoChunk("mlibBlendShapeRemoveInBetween"):
+                mel.eval(f'blendShapeDeleteInBetweenTarget("{self.getFullName()}", {index}, {item})')
+            return
         if self.getPlug("weight")[index].isLocked():
             raise RuntimeError(f"{self.getName()}のロックされたblendShapeのターゲット{target!r}は削除できません")
         with undoChunk("mlibBlendShapeRemoveTarget"):
@@ -281,131 +334,6 @@ class BlendShape(GeometryFilter):
         """
         bi, index = self._resolve_group(target, base)
         return [(item - _ITEM_OFFSET) / 1000.0 for item in self._item_indices(bi, index) if item != _FULL_ITEM]
-
-    def addInBetween(self, target, geometry, weight, base=None, *, relative=False):
-        """すでにあるターゲットへin-betweenを追加する。
-
-        ``cmds.blendShape(edit=True, inBetween=True)`` と同じ処理をする。
-        ``geometry`` との接続は、Mayaの既定どおり残す。Undoが有効なら、1回のUndoで戻せる。
-
-        Args:
-            target (str | int | Plug): 追加先のターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            geometry (str | Node): in-betweenの形状。ベースと頂点数が同じメッシュ(かそのTransform)。
-            weight (float): in-betweenが完全に効くウェイト。0と1以外の、-5以上で0.001刻みの値。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: target・geometry・base・weightの型が不正な場合、relativeがbool以外の場合、
-                またはgeometryがメッシュでない場合。
-            ValueError: ターゲットが無い場合、weightが0か1・すでにある項目・範囲外・0.001刻みでない場合、
-                または頂点数がベースと違う場合。
-        """
-        _require_bool(relative, "relative")
-        bi, index = self._resolve_group(target, base)
-        item = _weight_item(weight)
-        if item in (_ITEM_OFFSET, _FULL_ITEM):
-            raise ValueError(f"インビトウィーンのウェイトに0と1は指定できません: {weight}")
-        if item in self._item_indices(bi, index):
-            raise ValueError(f"ターゲット{index}には、ウェイト{weight}のインビトウィーンがすでに存在します")
-        shape = _mesh_shape(geometry)
-        self._require_vertex_count(bi, shape)
-        with undoChunk("mlibBlendShapeAddInBetween"):
-            cmds.blendShape(
-                self.getFullName(),
-                edit=True,
-                inBetween=True,
-                inBetweenType="relative" if relative else "absolute",
-                target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), weight),
-            )
-
-    def removeInBetween(self, target, weight):
-        """指定したウェイトのin-betweenを取り除く。
-
-        すべてのベースから取り除く。Maya標準の ``blendShapeDeleteInBetweenTarget`` を使う。
-        Undoが有効なら、1回のUndoで戻せる。
-
-        Args:
-            target (str | int | Plug): in-betweenを持つターゲット。ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            weight (float): 取り除くin-betweenのウェイト。1.0は指定できない。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: targetの型が不正な場合、またはweightが数値でない場合。
-            ValueError: ターゲットが無い場合、またはそのウェイトのin-betweenが無い場合。
-        """
-        index = self._target_index(target)
-        item = _weight_item(weight)
-        if item == _FULL_ITEM or not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
-            raise ValueError(f"ターゲット{index}に、ウェイト{weight}のインビトウィーンはありません")
-        with undoChunk("mlibBlendShapeRemoveInBetween"):
-            mel.eval(f'blendShapeDeleteInBetweenTarget("{self.getFullName()}", {index}, {item})')
-
-    def getBaseWeights(self, base=None):
-        """ベースのbaseWeightsを、頂点番号の順に取得する。
-
-        未設定の頂点は1.0。targetWeightsと異なり、ベースに共通するマスクを保持する。
-        Maya 2022〜2024では変形へ作用する。Maya 2025〜2027の標準blendShapeでは、変形に使われるのは
-        weightListのウェイトで、baseWeightsだけを変更しても変形へ反映されない。
-        weightListを読む場合はgetDeformerWeightsを使う。
-
-        Args:
-            base (str | Node | None): ベースのメッシュまたはTransform。Noneなら最小の論理番号のベース。
-
-        Returns:
-            list[float]: 全頂点の値を持つ新しいlist。アトリビュートの要素は作らない。
-
-        Raises:
-            TypeError: baseが対応しない型、またはメッシュでない場合。
-            ValueError: ベースが無い、またはbaseがこのblendShapeのベースでない場合。
-        """
-        bi = self._base_index(base)
-        return self._read_vertex_weights(f"inputTarget[{bi}].baseWeights", self._vertex_count(bi))
-
-    def setBaseWeights(self, weights, base=None, *, fast=False, check=False):
-        """ベースのbaseWeightsを設定する。
-
-        全頂点の並び、または変更する頂点だけの辞書を渡す。値は0〜1に制限しない。
-        targetWeightsとweightListは変更しない。Maya版による変形への作用の違いはgetBaseWeightsを参照。
-        通常は連続する番号をsetAttrの範囲指定にまとめ、全体を1回のUndoにする。
-        複数回に分けて書く場合は、checkにかかわらず全対象のロックと接続を先に確かめる。
-
-        Args:
-            weights (Sequence[float] | dict[int, float]): 全頂点の値、または頂点番号と値の辞書。
-            base (str | Node | None): ベースのメッシュまたはTransform。Noneなら最小の論理番号のベース。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら有限値・ロック・入力接続を更新前に検査する。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: weights・baseの型が不正、またはfast・checkがboolでない場合。
-            ValueError: ベースが無い、値の数が頂点数と違う、またはcheck=Trueで有限でない値がある場合。
-            IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: ノードがロック・リファレンス、対象にロック・入力接続がある、またはMayaが更新を拒否した場合。
-        """
-        _require_bool(fast, "fast")
-        _require_bool(check, "check")
-        bi = self._base_index(base)
-        values = _vertex_values(weights, self._vertex_count(bi), check=check)
-        if not values:
-            return
-        require_editable(self.mnode())
-        path = f"inputTarget[{bi}].baseWeights"
-        runs = _runs(sorted(values))
-        if check or (fast and len(values) > 1) or len(runs) > 1:
-            plug = self._mplug(path)
-            fn = om2.MFnAttribute(plug.attribute())
-            for index in values:
-                require_writable(plug.elementByLogicalIndex(index), fn)
-        with _edit_context("mlibBlendShapeSetBaseWeights", fast, single=len(runs) == 1):
-            self._write_vertex_weights(path, values, fast=fast)
 
     def getTargetItemIndices(self, target, base=None):
         """ターゲット本体とin-betweenの項目の論理番号を取得する。
@@ -450,14 +378,20 @@ class BlendShape(GeometryFilter):
             result[item] = source.getNode() if source is not None else None
         return result
 
-    def getTargetWeights(self, target, base=None):
-        """ターゲットの頂点マスクを、頂点番号の順に取得する。
+    def getTargetWeights(self, target=None, base=None):
+        """ターゲットの頂点マスクを、頂点番号の順に取得する。``target=None`` なら、ベースのbaseWeightsを取得する。
 
-        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
-        値が書かれていない頂点は、Mayaの既定どおり1.0として返す。
+        - ターゲット: 頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
+        - ベース(``target=None``): ``inputTarget[].baseWeights`` の値。ターゲットに共通するマスクを保持する。
+          Maya 2022〜2024では変形へ作用する。Maya 2025〜2027の標準blendShapeでは、変形に使われるのは
+          weightListのウェイトで、baseWeightsだけを変更しても変形へ反映されない。
+          weightListを読む場合はgetDeformerWeightsを使う。
+
+        値が書かれていない頂点は、Mayaの既定どおり1.0として返す。アトリビュートの要素は作らない。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            target (str | int | Plug | None): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+                Noneならベースのウェイト。既定はNone。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
 
         Returns:
@@ -465,40 +399,65 @@ class BlendShape(GeometryFilter):
 
         Raises:
             TypeError: target・baseが使えない型の場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットが無い場合、baseがこのblendShapeのベースでない場合、
+            ValueError: ターゲットが無い場合、ベースが無い場合、baseがこのblendShapeのベースでない場合、
                 またはターゲットがそのベースのデータを持たない場合。
         """
+        if target is None:
+            bi = self._base_index(base)
+            return self._read_vertex_weights(f"inputTarget[{bi}].baseWeights", self._vertex_count(bi))
         bi, index = self._resolve_group(target, base)
         return self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights", self._vertex_count(bi))
 
     def setTargetWeights(self, target, weights, base=None, *, fast=False, check=False):
-        """ターゲットの頂点マスクを設定する。
+        """ターゲットの頂点マスクを設定する。``target`` にNoneを渡すと、ベースのbaseWeightsを設定する。
 
-        頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。値は0〜1に制限しない。
+        ターゲットの頂点マスクは ``inputTargetGroup[i].targetWeights``、ベースは ``inputTarget[].baseWeights`` の値。
+        値は0〜1に制限しない。互いのウェイトとweightListは変更しない。
+        baseWeightsのMaya版による変形への作用の違いは :meth:`getTargetWeights` を参照。
 
         - 並び(list等)を渡すと、頂点番号の順にすべての頂点を書き換える。
         - 辞書を渡すと、指定した頂点だけを書き換える。
 
         通常は、番号が1ずつ続く頂点を範囲指定の1回の ``setAttr`` にまとめ、全体を1回のUndoにする。
+        ベースのウェイトを複数回に分けて書く場合は、checkにかかわらず全対象のロックと接続を先に確かめる。
 
         Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+            target (str | int | Plug | None): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
+                Noneならベースのウェイト。
             weights (Sequence[float] | dict[int, float]): 頂点数と同じ数の値、または頂点番号から値への辞書。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。ベースのウェイトでは、有限な値かも確かめる。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: target・base・値の型が不正な場合、fastがbool以外の場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットが無い場合、並びの長さが頂点数と違う場合、または有限でない値がある場合。
+            TypeError: target・base・値の型が不正な場合、fast・checkがbool以外の場合、またはベースがメッシュでない場合。
+            ValueError: ターゲットが無い場合、ベースが無い場合、並びの長さが頂点数と違う場合、または有限でない値がある場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
-                またはMayaが書き込みを拒否した場合。
+            RuntimeError: ノードがロック・リファレンスの場合(ベースのウェイト)、アトリビュートがロックされているか
+                入力が接続されている場合、またはMayaが書き込みを拒否した場合。
         """
+        if target is None:
+            _require_bool(fast, "fast")
+            _require_bool(check, "check")
+            bi = self._base_index(base)
+            values = _vertex_values(weights, self._vertex_count(bi), check=check)
+            if not values:
+                return
+            require_editable(self.mnode())
+            path = f"inputTarget[{bi}].baseWeights"
+            runs = _runs(sorted(values))
+            if check or (fast and len(values) > 1) or len(runs) > 1:
+                plug = self._mplug(path)
+                fn = om2.MFnAttribute(plug.attribute())
+                for index in values:
+                    require_writable(plug.elementByLogicalIndex(index), fn)
+            with _edit_context("mlibBlendShapeSetBaseWeights", fast, single=len(runs) == 1):
+                self._write_vertex_weights(path, values, fast=fast)
+            return
         with _edit_context("mlibBlendShapeSetTargetWeights", fast):
             bi, index = self._resolve_group(target, base)
             values = _vertex_values(weights, self._vertex_count(bi))
@@ -583,18 +542,24 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
-    def resetTargetVertices(self, target, vertices, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
-        """指定した頂点の変位を0に戻す。
+    def resetTargetVertices(self, target, vertices=None, base=None, fullWeight=1.0, disconnect=False, *, tolerance=None, fast=False, check=False):
+        """指定した頂点の変位を0に戻す。``tolerance`` を渡すと、デルタの長さがしきい値以下の頂点を項目のデータから取り除く。
+
+        ``vertices`` と ``tolerance`` のどちらか1つを指定する。
+
+        - ``vertices``: 指定した頂点の変位を0に戻す。変位を持たない頂点だけを指定した場合は、何も変えない。
+        - ``tolerance``: その長さ(cm)以下の変位の頂点を取り除く。保存するデータが減る。0なら、変位0の頂点だけを取り除くので
+          変形の結果は変わらない。正の値を指定すると、その長さ以下の小さな変位は0になるため、変形の結果もわずかに変わる。
 
         ほかの頂点の変位はそのまま残す。ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
-        変位を持たない頂点だけを指定した場合は、何も変えない。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            vertices (int | Vertex | Vertices | Iterable[int | Vertex]): ベースの頂点、または頂点番号。
+            vertices (int | Vertex | Vertices | Iterable[int | Vertex] | None): ベースの頂点、または頂点番号。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
+            tolerance (float | None): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -603,65 +568,48 @@ class BlendShape(GeometryFilter):
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットや項目が無い場合、または頂点が別の形状のものの場合。
+            TypeError: 引数の型が不正な場合、verticesとtoleranceを両方指定したか、どちらも指定しない場合、
+                またはverticesの指定でベースがメッシュでない場合(toleranceの指定では、ベースはメッシュ以外のカーブなどでもよい)。
+            ValueError: ターゲットや項目が無い場合、頂点が別の形状のものの場合、またはtoleranceが負の数か有限でない場合。
             IndexError: 頂点番号が範囲外の場合。
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
+        if (vertices is None) == (tolerance is None):
+            raise TypeError("verticesかtoleranceのどちらか1つを指定してください")
+        if tolerance is not None:
+            with _edit_context("mlibBlendShapeReduceTargetDeltas", fast):
+                _require_bool(disconnect, "disconnect")
+                limit = _tolerance(tolerance)
+                bi, index, item = self._resolve_item(target, base, fullWeight)
+                path = self._item_path(bi, index, item)
+                indices, offsets = self._read_deltas(path)
+                remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
+                self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
+            return
         with _edit_context("mlibBlendShapeResetTargetVertices", fast):
             _require_bool(disconnect, "disconnect")
             bi, index, item = self._resolve_item(target, base, fullWeight)
             remove = set(self._vertex_indices(vertices, bi))
             self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast, check=check)
 
-    def reduceTargetDeltas(self, target, base=None, fullWeight=1.0, disconnect=False, *, tolerance=0.0, fast=False, check=False):
-        """デルタの長さがしきい値以下の頂点を、項目のデータから取り除く。
+    def mirrorTarget(self, target, axis="x", positiveToNegative=_UNSET, base=None, *, flip=False, symmetrySpace="object", symmetryEdge=None):
+        """ターゲットの片側の変形を、反対側へミラーする。``flip=True`` なら、ターゲットの変形を左右反転する。
 
-        保存するデータが減る。toleranceが0(既定)なら、変位0の頂点だけを取り除くので変形の結果は変わらない。
-        正の値を指定すると、その長さ以下の小さな変位は0になるため、変形の結果もわずかに変わる。
-        ターゲット形状が接続されている場合の扱いは :meth:`setTargetDeltas` と同じ。
-
-        Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            tolerance (float): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。既定は0で、変位0の頂点だけを取り除く。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
-            disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 引数の型が不正な場合(ベースはメッシュ以外のカーブなどでもよい)。
-            ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
-            RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
-        """
-        with _edit_context("mlibBlendShapeReduceTargetDeltas", fast):
-            _require_bool(disconnect, "disconnect")
-            limit = _tolerance(tolerance)
-            bi, index, item = self._resolve_item(target, base, fullWeight)
-            path = self._item_path(bi, index, item)
-            indices, offsets = self._read_deltas(path)
-            remove = {vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() <= limit}
-            self._remove_vertices(path, remove, disconnect, fast=fast, check=check)
-
-    def mirrorTarget(self, target, axis="x", positiveToNegative=True, base=None, *, symmetrySpace="object", symmetryEdge=None):
-        """ターゲットの片側の変形を、反対側へミラーする。
-
-        ``cmds.blendShape(edit=True, mirrorTarget=...)`` を使う。既定では対称の頂点をオブジェクト空間の座標で探す。
+        ``cmds.blendShape(edit=True, mirrorTarget=...)``(``flip=True`` では ``flipTarget=...``)を使う。
+        既定では対称の頂点をオブジェクト空間の座標で探す。
         topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
         ターゲットと基準エッジ設定は1回のUndoで戻せる。
         Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
+        左右で別々のターゲットを作るなら、ターゲットを複製してから反転する。
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"`` (大文字・小文字は問わない)、
                 ミラー面の ``"YZ"`` など、または0〜2で指定する。
             positiveToNegative (bool): Trueなら正の側を負の側へ、Falseなら負の側を正の側へ写す。既定はTrue。
+                ``flip=True`` では指定できない。
             base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            flip (bool): Trueなら、片側を写すのでなく、左右を入れ替える。既定はFalse。
             symmetrySpace (str): object(既定)またはtopology。UV基準は未対応。
             symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。
 
@@ -669,52 +617,32 @@ class BlendShape(GeometryFilter):
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
+            TypeError: 引数の型が不正な場合、ベースがメッシュでない場合、またはflip=TrueとpositiveToNegativeを同時に指定した場合。
             ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
             RuntimeError: ターゲット形状が接続されている場合(先に複製するなどして、接続の無い形状にしておく)。
         """
+        _require_bool(flip, "flip")
+        if flip and positiveToNegative is not _UNSET:
+            raise TypeError("positiveToNegativeはflip=Trueと同時に指定できません")
+        positiveToNegative = True if positiveToNegative is _UNSET else positiveToNegative
         _require_bool(positiveToNegative, "positiveToNegative")
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
         space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
-        with undoChunk("mlibBlendShapeMirrorTarget"):
+        with undoChunk("mlibBlendShapeFlipTarget" if flip else "mlibBlendShapeMirrorTarget"):
             if edge is not None:
                 cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
-            cmds.blendShape(
-                self.getFullName(), edit=True, mirrorTarget=(bi, index), symmetryAxis=name, symmetrySpace=space, mirrorDirection=0 if positiveToNegative else 1
-            )
-
-    def flipTarget(self, target, axis="x", base=None, *, symmetrySpace="object", symmetryEdge=None):
-        """ターゲットの変形を左右反転する。
-
-        ``cmds.blendShape(edit=True, flipTarget=...)`` を使う。
-        左右で別々のターゲットを作るなら、ターゲットを複製してから反転する。
-        topology指定では基準エッジから対応を求め、基準エッジ情報もノードに保存する。
-        ターゲットと基準エッジ設定は1回のUndoで戻せる。
-        Mayaの対称編集キャッシュ(topoSymmetrySet)の作成・破棄はUndoでは復元されない。
-
-        Args:
-            target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            axis (str | int): 反転する軸。既定は ``"x"``。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"`` など、または0〜2で指定する。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
-            symmetrySpace (str): object(既定)またはtopology。UV基準は未対応。
-            symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 引数の型が不正な場合、またはベースがメッシュでない場合。
-            ValueError: ターゲットが無い場合、またはaxisが軸として使えない場合。
-            RuntimeError: ターゲット形状が接続されている場合。
-        """
-        bi, index = self._resolve_group(target, base)
-        name = self._mirror_axis_name(bi, index, axis)
-        space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
-        with undoChunk("mlibBlendShapeFlipTarget"):
-            if edge is not None:
-                cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
-            cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
+            if flip:
+                cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
+            else:
+                cmds.blendShape(
+                    self.getFullName(),
+                    edit=True,
+                    mirrorTarget=(bi, index),
+                    symmetryAxis=name,
+                    symmetrySpace=space,
+                    mirrorDirection=0 if positiveToNegative else 1,
+                )
 
     def replaceTarget(self, target, geometry, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。

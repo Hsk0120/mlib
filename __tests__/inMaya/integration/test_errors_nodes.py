@@ -11,6 +11,7 @@ docstring と実際の挙動が食い違う項目はここでは確かめず、�
 - nodes のメソッド(aimConstraint〜mesh)の docstring の Raises に書かれた例外を確かめる。
 """
 
+import functools
 import math
 import os
 import shutil
@@ -143,7 +144,7 @@ class AnimCurveErrorTest(_ErrorCase):
 
 
 class BlendShapeErrorTest(_ErrorCase):
-    """BlendShape.getBaseGeometry・getInBetweenWeights・reduceTargetDeltas・getTargetsData・exportTargets。"""
+    """BlendShape.getBaseGeometry・getInBetweenWeights・resetTargetVertices(tolerance)・getTargetsData・exportTargets。"""
 
     def setUp(self):
         super().setUp()
@@ -203,14 +204,15 @@ class BlendShapeErrorTest(_ErrorCase):
 
     def test_reduce_target_deltas_invalid_arguments(self):
         before = self.item_state()
-        type_errors = (dict(tolerance="a"), dict(disconnect=1), dict(fast=1), dict(target=1.5))
+        type_errors = (dict(tolerance="a"), dict(disconnect=1), dict(fast=1), dict(target=1.5), dict(tolerance=None), dict(vertices=[0]))
         value_errors = (dict(tolerance=-1), dict(tolerance=float("inf")), dict(tolerance=float("nan")), dict(target="missing"), dict(fullWeight=0.5))
         for flags, error in [(f, TypeError) for f in type_errors] + [(f, ValueError) for f in value_errors]:
-            flags = dict(flags)
+            # tolerance を指定しない行は、以前の既定の 0.0 で呼ぶ。vertices と tolerance の両方・どちらも無しは TypeError。
+            flags = dict({"tolerance": 0.0}, **flags)
             target = flags.pop("target", 0)
             with self.subTest(flags=flags, target=target):
                 with self.assertRaises(error):
-                    self.bs.reduceTargetDeltas(target, **flags)
+                    self.bs.resetTargetVertices(target, **flags)
                 self.assertEqual(self.item_state(), before)
 
     def test_reduce_target_deltas_connected_target(self):
@@ -219,10 +221,10 @@ class BlendShapeErrorTest(_ErrorCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    self.bs.reduceTargetDeltas(0, tolerance=10.0, fast=fast)
+                    self.bs.resetTargetVertices(0, tolerance=10.0, fast=fast)
                 self.assertEqual(self.item_state(), before)
         # disconnect=True なら接続を切ってから取り除く。
-        self.bs.reduceTargetDeltas(0, tolerance=10.0, disconnect=True)
+        self.bs.resetTargetVertices(0, tolerance=10.0, disconnect=True)
         self.assertEqual(self.item_state(), ({}, None))
 
     def test_targets_data_requires_mesh_bases(self):
@@ -486,33 +488,33 @@ class JointDisconnectInverseScaleTest(_ErrorCase):
 
 
 class MeshClosestVertexTest(_ErrorCase):
-    """Mesh.getClosestVertex。docstring と食い違う成分数の誤り・データの無いメッシュは扱わない。"""
+    """Mesh.getClosestVertices(点1つ)。docstring と食い違う成分数の誤り・データの無いメッシュは扱わない。"""
 
     def setUp(self):
         super().setUp()
         self.mesh = mlib.getNode(cmds.listRelatives(self.cube("mesh"), shapes=True, fullPath=True)[0])
 
     def test_errors(self):
-        self.assertEqual(self.mesh.getClosestVertex((0.5, 0.5, 0.5)).index, 3)
+        self.assertEqual(self.mesh.getVertices(self.mesh.getClosestVertices([(0.5, 0.5, 0.5)])[0]).index, 3)
         for point in ("abc", object(), ("a", 0, 0)):
             with self.subTest(point=point):
                 with self.assertRaises(TypeError):
-                    self.mesh.getClosestVertex(point)
+                    self.mesh.getClosestVertices([point])
         for flags in (dict(worldSpace=1), dict(ws="yes"), dict(worldSpace=True, ws=True)):
             with self.subTest(flags=flags):
                 with self.assertRaises(TypeError):
-                    self.mesh.getClosestVertex((0, 0, 0), **flags)
+                    self.mesh.getClosestVertices([(0, 0, 0)], **flags)
         for point in ((float("nan"), 0, 0), (0, float("inf"), 0)):
             with self.subTest(point=point):
                 with self.assertRaises(ValueError):
-                    self.mesh.getClosestVertex(point)
+                    self.mesh.getClosestVertices([point])
 
     def test_mesh_without_vertices(self):
         parent = om2.MSelectionList().add(self.make("transform", "emptyMesh")).getDependNode(0)
         shape = om2.MFnMesh().create([], [], [], parent=parent)
         empty = mlib.getNode(om2.MFnDagNode(shape).fullPathName())
         with self.assertRaises(ValueError):
-            empty.getClosestVertex((0, 0, 0))
+            empty.getClosestVertices([(0, 0, 0)])
 
 
 class _Case(NamespaceCase):
@@ -574,8 +576,8 @@ class MeshErrorTest(_Case):
         """点が文字列・非シーケンスは TypeError、成分が有限でない・面の無いメッシュは ValueError、worldSpace が bool 以外は TypeError。"""
         mesh = self.cube()
         faceless = self.faceless()
-        for method in ("getClosestPoint", "getClosestNormal"):
-            call = getattr(mesh, method)
+        for method in ("point", "normal"):
+            call = functools.partial(mesh.getClosestPoint, what=method)
             with self.subTest(method=method, case="str"):
                 self.assertRaises(TypeError, call, "abc")
             with self.subTest(method=method, case="object"):
@@ -590,23 +592,23 @@ class MeshErrorTest(_Case):
             with self.subTest(method=method, case="both aliases"):
                 self.assertRaises(TypeError, call, (0, 0, 0), worldSpace=True, ws=True)
             with self.subTest(method=method, case="no faces"):
-                self.assertRaises(ValueError, getattr(faceless, method), (0, 0, 0))
+                self.assertRaises(ValueError, faceless.getClosestPoint, (0, 0, 0), what=method)
 
     def test_closest_point_and_normal_component_count_and_empty_shape(self):
         """成分の数が3でない点は ValueError、形状データを持たない空のシェイプは RuntimeError。"""
         mesh = self.cube()
         empty = self.node("mesh")
-        for method in ("getClosestPoint", "getClosestNormal"):
-            call = getattr(mesh, method)
+        for method in ("point", "normal"):
+            call = functools.partial(mesh.getClosestPoint, what=method)
             for point in ((1, 2), (1, 2, 3, 4)):
                 with self.subTest(method=method, point=point):
                     self.assertRaises(ValueError, call, point)
             with self.subTest(method=method, case="empty shape"):
-                self.assertRaises(RuntimeError, getattr(empty, method), (0, 0, 0))
+                self.assertRaises(RuntimeError, empty.getClosestPoint, (0, 0, 0), what=method)
 
     def test_closest_normal_on_cube_face(self):
         """正常系: 立方体の +X 面の外の点では、+X 方向の法線になる。"""
-        normal = self.cube().getClosestNormal((2, 0.1, 0.1))
+        normal = self.cube().getClosestPoint((2, 0.1, 0.1), what="normal")
         self.assertSequenceAlmostEqual(normal, (1, 0, 0), places=6)
 
     def assertUVSets(self, mesh, expected, current="map1"):
@@ -619,7 +621,7 @@ class MeshErrorTest(_Case):
         cases = ((TypeError, 5), (TypeError, None), (ValueError, ""), (ValueError, "missing"))
         for error, name in cases:
             with self.subTest(name=name):
-                self.assertRaises(error, mesh.setCurrentUVSet, name)
+                self.assertRaises(error, mesh.setCurrentSet, name)
                 self.assertUVSets(mesh, ["map1"])
 
     def test_create_uv_set_errors(self):
@@ -627,13 +629,13 @@ class MeshErrorTest(_Case):
         mesh = self.cube()
         for error, name in ((TypeError, 5), (TypeError, b"bytes"), (ValueError, ""), (ValueError, "map1")):
             with self.subTest(name=name):
-                self.assertRaises(error, mesh.createUVSet, name)
+                self.assertRaises(error, mesh.createSet, name)
                 self.assertUVSets(mesh, ["map1"])
 
     def test_copy_uv_set_errors(self):
         """source・target が文字列以外は TypeError、空・source が無い・target が既にあるは ValueError。"""
         mesh = self.cube()
-        mesh.createUVSet("second")
+        mesh.createSet("second")
         cases = (
             (TypeError, 5, "copy"),
             (TypeError, "map1", 5),
@@ -645,13 +647,13 @@ class MeshErrorTest(_Case):
         )
         for error, source, target in cases:
             with self.subTest(source=source, target=target):
-                self.assertRaises(error, mesh.copyUVSet, source, target)
+                self.assertRaises(error, mesh.copySet, source, target)
                 self.assertUVSets(mesh, ["map1", "second"])
 
     def test_rename_uv_set_errors(self):
         """name・newName が文字列以外は TypeError、空・name が無い・newName が既にあるは ValueError。"""
         mesh = self.cube()
-        mesh.createUVSet("second")
+        mesh.createSet("second")
         cases = (
             (TypeError, None, "renamed"),
             (TypeError, "second", 5),
@@ -662,7 +664,7 @@ class MeshErrorTest(_Case):
         )
         for error, name, new_name in cases:
             with self.subTest(name=name, newName=new_name):
-                self.assertRaises(error, mesh.renameUVSet, name, new_name)
+                self.assertRaises(error, mesh.renameSet, name, new_name)
                 self.assertUVSets(mesh, ["map1", "second"])
 
 
@@ -763,35 +765,46 @@ class NurbsCurveErrorTest(_Case):
         transform = cmds.curve(name=self.name("curve#"), degree=degree, point=points)
         return mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
 
+    def queries(self, curve):
+        """照会の呼び方ごとに、位置引数1つ(param か length)とフラグを受けて呼ぶ関数を返す。"""
+        return {
+            "getAtParam": curve.getAtParam,
+            "getAtParam(tangent)": functools.partial(curve.getAtParam, what="tangent"),
+            "getLength(param)": curve.getLength,
+            "getParam(length)": lambda length, **flags: curve.getParam(length=length, **flags),
+        }
+
     def test_empty_shape_raises_runtime_error(self):
         """形状データを持たない空の nurbsCurve では各照会が RuntimeError。"""
         empty = mlib.getNode(self.make("nurbsCurve", "emptyCurve#", parent=self.make("transform", "emptyParent#")))
         calls = (
             ("getParamRange", ()),
             ("getClosestPoint", ((0, 0, 0),)),
-            ("getPointAtParam", (0.0,)),
-            ("getTangentAtParam", (0.0,)),
-            ("getLengthAtParam", (0.0,)),
-            ("getParamAtLength", (0.0,)),
+            ("getAtParam", (0.0,)),
+            ("getAtParam(tangent)", (0.0,)),
+            ("getLength(param)", (0.0,)),
+            ("getParam(length)", (0.0,)),
             ("getParamsAlong", (2,)),
         )
+        queries = self.queries(empty)
         for method, args in calls:
             with self.subTest(method=method):
-                self.assertRaises(RuntimeError, getattr(empty, method), *args)
+                self.assertRaises(RuntimeError, queries.get(method) or getattr(empty, method), *args)
 
     def test_world_space_must_be_bool(self):
         """worldSpace・ws が bool 以外、または両方の指定は TypeError。"""
         curve = self.curve()
         calls = (
             ("getClosestPoint", ((0, 0, 0),)),
-            ("getPointAtParam", (0.5,)),
-            ("getTangentAtParam", (0.5,)),
-            ("getLengthAtParam", (0.5,)),
-            ("getParamAtLength", (1.0,)),
+            ("getAtParam", (0.5,)),
+            ("getAtParam(tangent)", (0.5,)),
+            ("getLength(param)", (0.5,)),
+            ("getParam(length)", (1.0,)),
             ("getParamsAlong", (2,)),
         )
+        queries = self.queries(curve)
         for method, args in calls:
-            call = getattr(curve, method)
+            call = queries.get(method) or getattr(curve, method)
             with self.subTest(method=method):
                 self.assertRaises(TypeError, call, *args, worldSpace=1)
                 self.assertRaises(TypeError, call, *args, ws="yes")
@@ -813,8 +826,9 @@ class NurbsCurveErrorTest(_Case):
     def test_param_errors(self):
         """param が数値でない(bool を含む)は TypeError、有限でない・範囲外は ValueError。"""
         curve = self.curve()
-        for method in ("getPointAtParam", "getTangentAtParam", "getLengthAtParam"):
-            call = getattr(curve, method)
+        queries = self.queries(curve)
+        for method in ("getAtParam", "getAtParam(tangent)", "getLength(param)"):
+            call = queries[method]
             for error, param in (
                 (TypeError, "a"),
                 (TypeError, None),
@@ -824,27 +838,30 @@ class NurbsCurveErrorTest(_Case):
                 (ValueError, -0.5),
                 (ValueError, 1.5),
             ):
+                if param is None and method == "getLength(param)":
+                    continue  # getLength の param=None は全長の指定で、例外にならない
                 with self.subTest(method=method, param=param):
                     self.assertRaises(error, call, param)
 
     def test_tangent_undefined_at_coincident_cvs(self):
-        """重なった CV で接線が 0 になる位置の getTangentAtParam は ValueError。"""
+        """重なった CV で接線が 0 になる位置の getAtParam(what="tangent") は ValueError。"""
         curve = self.curve(points=((0, 0, 0), (0, 0, 0), (1, 0, 0)), degree=1)
         for param in (0.0, 0.5):
             with self.subTest(param=param):
-                self.assertRaises(ValueError, curve.getTangentAtParam, param)
-        self.assertSequenceAlmostEqual(curve.getTangentAtParam(1.5), (1, 0, 0), places=6)
+                self.assertRaises(ValueError, curve.getAtParam, param, what="tangent")
+        self.assertSequenceAlmostEqual(curve.getAtParam(1.5, what="tangent"), (1, 0, 0), places=6)
 
     def test_unit_errors(self):
         """unit が文字列・None 以外は TypeError、未対応の単位名は ValueError。"""
         curve = self.curve()
-        for method, value in (("getLengthAtParam", 0.5), ("getParamAtLength", 1.0)):
-            call = getattr(curve, method)
+        queries = self.queries(curve)
+        for method, value in (("getLength(param)", 0.5), ("getParam(length)", 1.0)):
+            call = queries[method]
             with self.subTest(method=method):
                 self.assertRaises(TypeError, call, value, unit=5)
                 self.assertRaises(ValueError, call, value, unit="furlong")
-        self.assertAlmostEqual(curve.getLengthAtParam(1.0, unit="m"), 0.03, places=6)
-        self.assertAlmostEqual(curve.getParamAtLength(0.015, unit="m"), 0.5, places=5)
+        self.assertAlmostEqual(curve.getLength(1.0, unit="m"), 0.03, places=6)
+        self.assertAlmostEqual(curve.getParam(length=0.015, unit="m"), 0.5, places=5)
 
     def test_get_param_at_length_errors(self):
         """length が数値でないは TypeError、有限でない・負・全長超えは ValueError。"""
@@ -858,7 +875,7 @@ class NurbsCurveErrorTest(_Case):
             (ValueError, 3.5),
         ):
             with self.subTest(length=length):
-                self.assertRaises(error, curve.getParamAtLength, length)
+                self.assertRaises(error, curve.getParam, length=length)
 
     def test_get_params_along_errors(self):
         """count が int 以外(bool を含む)は TypeError、1 未満は ValueError。"""
@@ -910,12 +927,12 @@ class ObjectSetErrorTest(_Case):
 
 
 class ReferenceErrorTest(_Case):
-    """Reference.unload で Maya がアンロードを拒否する場合。"""
+    """Reference.setLoaded(False) で Maya がアンロードを拒否する場合。"""
 
     def test_unload_without_file_raises(self):
-        """ファイルに結び付いていない reference ノードの unload は RuntimeError。"""
+        """ファイルに結び付いていない reference ノードの setLoaded(False) は RuntimeError。"""
         reference = mlib.getNode(self.make("reference", "unboundRN#"))
-        self.assertRaises(RuntimeError, reference.unload)
+        self.assertRaises(RuntimeError, reference.setLoaded, False)
         self.assertTrue(cmds.objExists(reference.getFullName()))
 
 

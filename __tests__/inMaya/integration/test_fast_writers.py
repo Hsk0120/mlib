@@ -1,6 +1,6 @@
 """fast を持つ書込みメソッドの約束を固定する。
 
-対象は ``Mesh.setPoints``・``NurbsCurve.setCvPositions``(周期カーブを含む)・``Shape.scaleGeometry`` の
+対象は ``Mesh.setPoints``・``NurbsCurve.setPoints``(周期カーブを含む)・``Shape.scaleGeometry`` の
 周期カーブ・``DagNode.setColor``・``Nodes.setColor``・``BoolPlug.toggle``・``SkinCluster.pruneWeights``・
 ``DrivenKey.setKey``。各メソッドで、fast=True が通常経路と同じ結果になること、Undo キューへ何も
 記録しないこと、fast が bool 以外なら TypeError、未対応・書込み不可は変更前に拒否することを確かめる。
@@ -88,20 +88,20 @@ class MeshSetPointsFastTest(_SpecCase):
 
 
 class NurbsCurveSetCvPositionsFastTest(_SpecCase):
-    """NurbsCurve.setCvPositionsのfastは周期カーブでも通常と同じ位置を書く。"""
+    """NurbsCurve.setPointsのfastは周期カーブでも通常と同じ位置を書く。"""
 
     def test_periodic_matches_normal(self):
         """独立CVだけの点列・重複CVを含む点列のどちらも、通常とfastが一致し、重複CVが揃う。"""
         for overlap in (False, True):
             with self.subTest(overlap=overlap):
                 normal, fast = self.circle("normal"), self.circle("fast")
-                count = len(normal.getCvPositions()) - normal.mfn().degree
+                count = len(normal.getPoints()) - normal.mfn().degree
                 points = [(i, i * 0.5, 1.0) for i in range(count)]
                 if overlap:
                     points += points[: normal.mfn().degree]
-                normal.setCvPositions(points)
-                self.assert_no_undo(lambda: fast.setCvPositions(points, fast=True))
-                self.assert_points(fast.getCvPositions(), normal.getCvPositions())
+                normal.setPoints(points)
+                self.assert_no_undo(lambda: fast.setPoints(points, fast=True))
+                self.assert_points(fast.getPoints(), normal.getPoints())
                 cmds.delete(normal.getParent().getFullName(), fast.getParent().getFullName())
 
     def test_open_curve_world_space(self):
@@ -111,9 +111,9 @@ class NurbsCurveSetCvPositionsFastTest(_SpecCase):
         for name in names:
             cmds.xform(name, translation=(0, 3, 0), scale=(2, 2, 2))
         points = [(0, 1, 0), (1, 1, 0), (2, 2, 0)]
-        normal.setCvPositions(points, worldSpace=True)
-        self.assert_no_undo(lambda: fast.setCvPositions(points, worldSpace=True, fast=True))
-        self.assert_points(fast.getCvPositions(worldSpace=True), normal.getCvPositions(worldSpace=True))
+        normal.setPoints(points, worldSpace=True)
+        self.assert_no_undo(lambda: fast.setPoints(points, worldSpace=True, fast=True))
+        self.assert_points(fast.getPoints(worldSpace=True), normal.getPoints(worldSpace=True))
 
 
 class DagNodeSetColorFastTest(_SpecCase):

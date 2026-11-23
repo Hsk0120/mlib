@@ -66,7 +66,7 @@ class BlendShapeAddTargetTest(NamespaceCase):
         plug.set(2)
         self.assertAlmostEqual(cmds.pointPosition(base + ".vtx[0]", local=True)[1], 1.5)
         self.assertEqual(blend.getInBetweenWeights(7), [2.0])
-        blend.addInBetween(7, between, 0.5)
+        blend.addTarget(between, inBetween=7, fullWeight=0.5)
         self.assertAlmostEqual(blend.getTargetDeltas(7, fullWeight=0.5)[0].y, 0.8, places=5)
         data = blend.getTargetsData()
         cmds.delete(target, between)

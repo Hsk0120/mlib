@@ -93,7 +93,7 @@ class AnimCurveTimeTest(_SpecCase):
                     self.assertAlmostEqual(cmds.getAttr(name + ".output", time=fps / 2), 5.0)
 
     def test_shift_scale_and_mirror_use_frames(self):
-        """moveKeyの移動量、scaleKey/mirrorの基準値は既定でフレーム(cmdsのtimeChange・timePivotと同じ)。"""
+        """moveKeyの移動量、scaleKey(倍率-1の反転を含む)の基準値は既定でフレーム(cmdsのtimeChange・timePivotと同じ)。"""
         for frame, fps in _FRAME_RATES:
             cmds.currentUnit(time=frame)
             with self.subTest(frame=frame):
@@ -106,7 +106,7 @@ class AnimCurveTimeTest(_SpecCase):
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 15 + fps], places=4)
                 curve.scaleKey(2, 1, 5 + fps)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 25 + fps], places=4)
-                curve.mirror(input=True, value=False, inputPivot=5 + fps)
+                curve.scaleKey(-1, 1, inputPivot=5 + fps)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [-15 + fps, 5 + fps], places=4)
                 curve.scaleKey(1, 1, 0, 0, timeUnit="sec")
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(timeUnit="sec"), [v / fps for v in curve.getKeyInputs()], places=6)

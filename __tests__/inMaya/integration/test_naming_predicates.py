@@ -183,7 +183,7 @@ class PredicateAliasesTest(unittest.TestCase):
         self.assertTrue(self.first.isType("dagNode"))
         self.assertEqual(self.first.getRoot(), self.first)
         self.assertIsInstance(mlib.Plugin.loaded(), list)
-        self.assertTrue(callable(mlib.Reference.getRoot))
+        self.assertTrue(callable(mlib.Reference.getParentReference))
         attribute = self.first.addAttr("valid", attributeType="bool")
         self.assertEqual(self.first.valid, attribute)
         self.assertTrue(self.first.isValid())

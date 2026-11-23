@@ -74,7 +74,7 @@ class ApiUnitsTest(unittest.TestCase):
         for shape_name in (cmds.polyCube(ch=False)[0], cmds.curve(d=1, p=[(0, 0, 0), (1, 2, 3)])):
             node = mlib.getNode(shape_name)
             shape = node.getShape()
-            item = shape.getVertex(0) if shape.getType() == "mesh" else shape.getCV(0)
+            item = shape.getVertices(0) if shape.getType() == "mesh" else shape.getCVs(0)
             cmds.currentUnit(linear="m")
             for fast in (False, True):
                 node.setTranslation((25, 50, 75), fast=fast, at=4)
@@ -93,10 +93,10 @@ class ApiUnitsTest(unittest.TestCase):
         shape = mlib.getNode(cmds.circle(ch=False)[0]).getShape()
         fn = shape.mfn()
         index = fn.numCVs - fn.degree
-        cv = shape.getCV(index)
+        cv = shape.getCVs(index)
         before = cv.getPosition()
-        self.assertEqual(cv.getPosition(), shape.getCV(0).getPosition())
-        self.assertEqual(cv.getFullName(), shape.getCV(0).getFullName())
+        self.assertEqual(cv.getPosition(), shape.getCVs(0).getPosition())
+        self.assertEqual(cv.getFullName(), shape.getCVs(0).getFullName())
         shape.scaleGeometry(2, indices=[index])
         for a, b in zip(cv.getPosition(), before):
             self.assertAlmostEqual(a, b * 2)

@@ -74,7 +74,7 @@ class _FastCase(NamespaceCase):
 
     def r_Keyframe_remove(self):
         curve, state = self.keyed()
-        return (lambda **kw: curve.getKeyframe(1).remove(**kw)), state
+        return (lambda **kw: curve.getKeyframes(1).remove(**kw)), state
 
     def r_Keyframes_remove(self):
         curve, state = self.keyed()
@@ -84,7 +84,7 @@ class _FastCase(NamespaceCase):
         transform = cmds.polyCube(name="cube#", constructionHistory=False)[0]
         shape = mlib.getNode(transform).getShape()
         cmds.polyColorSet(shape.getFullName(), create=True, colorSet="colors")
-        shape.setFaceVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, colorSet="colors")
+        shape.setVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, perFace=True, colorSet="colors")
 
         def state():
             return _rounded([face.getColor(colorSet="colors") for face in shape.getVertexFaces([0, 1, 2])])

@@ -3,27 +3,29 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from ..components.component import _component_of
 from ..components.surfaceCV import SurfaceCV, SurfaceCVs
 from ..core import geometryEdit
 from ..core.fastWrite import require_writable
 from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..maths.vector import Vector, _vectors_of_points
-from ..util import _UNSET, _checked_tolerance, _finite, _world_space
+from ..util import _UNSET, _checked_tolerance, _finite, _require_choice, _world_space
+from .controlPointShape import _ControlPointShape
 from .node import Node, Nodes
 from .nurbsCurve import _DEGENERATE, _frame_matrix, _perpendicular, _require_axis
-from .shape import Shape
-from typing import Iterable, Sequence
+from typing import Iterable, Literal, Sequence
 from mlib.maths.matrix import Matrix
 from mlib.nodes.shadingEngine import ShadingEngine
+from typing import overload
 
 
 
-class NurbsSurface(Shape):
+class NurbsSurface(_ControlPointShape):
     """NURBS曲面のシェイプを扱うクラス。
 
     アトリビュートや親のTransformの操作はShapeから受け継ぐ。
 
-    CVの番号は ``cv[u][v]`` の (u, v) で表す。:meth:`getCvPositions` などが返すCVの並びは、
+    CVの番号は ``cv[u][v]`` の (u, v) で表す。:meth:`getPoints` などが返すCVの並びは、
     Uを外側・Vを内側にした ``u * numCVsInV + v`` の順になる(``om2.MFnNurbsSurface.cvPositions`` と同じ)。
     距離はMayaの内部単位(cm)。
     """
@@ -263,76 +265,28 @@ class NurbsSurface(Shape):
             RuntimeError: 形状が無効な場合。
         """
         ...
-    def getCV(self, u: int, v: int) -> SurfaceCV:
-        """``(u, v)`` の番号から、CVを1つ取得する。
+    @overload
+    def getCVs(self, indices: int) -> SurfaceCV: ...
+    @overload
+    def getCVs(self, indices: Iterable[int | tuple[int, int]] | None = ...) -> SurfaceCVs: ...
+    @overload
+    def getCVs(self, indices: int | Iterable[int | tuple[int, int]] | None = ...) -> SurfaceCV | SurfaceCVs:
+        """CVを取得する。通し番号を1つ渡すとCV1つ、番号の並びを渡すとCVのコレクションを返す。
+
+        ``(u, v)`` でCVを1つ取得するときは ``getCVs([(u, v)])[0]`` と書く
+        (``getCVs((u, v))`` は、通し番号 u と v の2つのCVになる)。
 
         Args:
-            u (int): U方向のCV番号。
-            v (int): V方向のCV番号。
+            indices (int | Iterable[int | tuple[int, int]] | None): 通し番号(``u * V方向のCV数 + v``)1つ、または番号の並び。
+                並びの中では、通し番号と ``(u, v)`` を混ぜて指定できる。Noneなら、今あるすべてのCV。
 
         Returns:
-            SurfaceCV: シーン上のCV(``cv[u][v]``)を指すオブジェクト。
+            SurfaceCV | SurfaceCVs: 通し番号1つなら、シーン上のCV(``cv[u][v]``)を指すオブジェクト。
+                並び・Noneなら、CVをまとめたオブジェクト(どのCVも同じShapeを使い、重なった番号は1つにまとめる)。
 
         Raises:
+            TypeError: 番号の型が不正な場合(boolを含む)。
             IndexError: CVの番号が範囲外の場合。
-        """
-        ...
-    def getCVs(self, indices: Iterable[int | tuple[int, int]] | None = ...) -> SurfaceCVs:
-        """複数のCVをまとめて取得する。
-
-        Args:
-            indices (Iterable[int | tuple[int, int]] | None): CVの番号。1つの通し番号か ``(u, v)`` で指定する。
-                Noneなら、今あるすべてのCV。
-
-        Returns:
-            SurfaceCVs: CVをまとめたオブジェクト。どのCVも同じShapeを使う。重なった番号は1つにまとめる。
-        """
-        ...
-    def getCvPositions(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Vector]:
-        """全CVの位置を取得する。
-
-        Args:
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            list[Vector]: ``u * numCVsInV + v`` の順に並べた位置(cm)。有理曲面のウェイト(w)では割らない。
-                そのまま :meth:`setCvPositions` へ渡せる。
-
-        Raises:
-            TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def setCvPositions(self, points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], worldSpace: bool = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
-        """全CVの位置をまとめて設定する。
-
-        :meth:`getCvPositions` と同じ並び・単位(cm)の点を受け付ける。
-
-        - 通常: ``cmds.xform`` で書き込み、1回のUndoにまとめる。
-        - ``fast=True``: ``MFnNurbsSurface.setCVPositions`` で一度に書き込む。Undoには記録しない。
-
-        CVの数・次数・ノット・ウェイトは変更しない。周期曲面で重なっているCVには、対応する先頭のCVと
-        同じ位置を渡す(違う位置を渡すと、後に書いた値になる)。
-
-        Args:
-            points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの順の位置。各点は有限な数値3つ。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 点の数がCVの数と合わない場合、成分が有限でない場合、
-                またはworldSpace=Trueでトランスフォームのマトリクスが特異(逆マトリクスが無い)な場合。
-            RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
-            NotImplementedError: fast=Trueで、createへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
     def isPointOnSurface(self, point: Sequence[float] | om2.MPoint | om2.MVector, worldSpace: bool = ..., *, tolerance: float = ..., ws: bool = ...) -> bool:
@@ -373,111 +327,56 @@ class NurbsSurface(Shape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def getPointAtParam(self, u: float, v: float, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """パラメーター (u, v) の位置を取得する。
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: Literal["point"] = ..., secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> Vector: ...
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: Literal["normal"], secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> Vector: ...
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: Literal["tangents"], secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> tuple[Vector, Vector]: ...
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: Literal["matrix"], secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> Matrix: ...
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: Literal["derivatives"], secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> tuple[Vector, ...]: ...
+    @overload
+    def getAtParam(self, u: float, v: float, worldSpace: bool = ..., *, what: str = ..., secondOrder: bool = ..., aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> Vector | tuple[Vector, ...] | Matrix:
+        """パラメーター (u, v) の位置での値(位置・法線・接線・マトリクス・微分)を取得する。
+
+        ``what`` で取得するものを選ぶ。
+
+        - ``"point"`` (既定): 位置(cm)。``pointOnSurfaceInfo`` の ``position`` と同じ。
+        - ``"normal"``: 長さ1の法線。``pointOnSurfaceInfo`` の ``normalizedNormal`` と同じ向き。
+        - ``"tangents"``: U方向とV方向の、パラメーターが増える向きの長さ1の接線。
+          ``pointOnSurfaceInfo`` の ``normalizedTangentU``・``normalizedTangentV`` と同じ向き。互いに直交するとは限らない。
+        - ``"matrix"``: aimAxisの軸をU方向の接線へ、upAxisの軸を法線へ向けたマトリクス。リボンの上にジョイントなどを並べるときに使う。
+          正規直交の右手系(スケール1)で、移動は曲面上の位置(cm)。upAxisは、法線から接線方向の成分を除いた向きになる。
+          残りの軸は、aimAxisとupAxisから右手系で決まる。既定のx・yでは、zはおおむねV方向と同じ向きか逆向きになる。
+          軸の指定のしかたは :meth:`NurbsCurve.getMatricesAlong <mlib.nodes.nurbsCurve.NurbsCurve.getMatricesAlong>` と同じ。
+        - ``"derivatives"``: 位置と、正規化前のU・V方向の微分(``secondOrder=True`` なら二次微分も)。
+          パラメーターに対する変化量を返す。縮退点のゼロベクトルもそのまま返す。
 
         Args:
             u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
             v (float): :meth:`getParamRange` の V の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定False。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            what (str): 取得するもの。``"point"``・``"normal"``・``"tangents"``・``"matrix"``・``"derivatives"``。既定は ``"point"``。
+            secondOrder (bool): Trueなら二次微分も返す。既定False。``what="derivatives"`` のときだけ指定できる。
+            aimAxis (str): U方向の接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。既定は"x"。``what="matrix"`` のときだけ指定できる。
+            upAxis (str): 法線へ向ける軸。aimAxisとは別の軸を指定する。既定は"y"。``what="matrix"`` のときだけ指定できる。
 
         Returns:
-            Vector: 位置(cm)。``pointOnSurfaceInfo`` の ``position`` と同じ。
+            Vector | tuple[Vector, ...] | Matrix: ``"point"``・``"normal"`` はVector。``"tangents"`` は (U方向, V方向)。
+                ``"matrix"`` は行ベクトルの決まりのMatrix(各行が軸、4行目が位置)。
+                ``"derivatives"`` は (位置, dU, dV)、または(位置, dU, dV, dUU, dVV, dUV)。
 
         Raises:
-            TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でない、または範囲外の場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getDerivativesAtParam(self, u: float, v: float, worldSpace: bool = ..., *, secondOrder: bool = ..., ws: bool = ...) -> tuple[Vector, ...]:
-        """曲面上の位置と、正規化前のU・V方向の微分を取得する。
-
-        縮退点のゼロベクトルもそのまま返す。微分はパラメーターに対する変化量。
-
-        Args:
-            u (float): U方向のパラメーター。
-            v (float): V方向のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            secondOrder (bool): Trueなら二次微分も返す。既定False。
-            ws (bool): worldSpaceの別名。同時指定は不可。
-
-        Returns:
-            tuple[Vector, ...]: (位置, dU, dV)、または(位置, dU, dV, dUU, dVV, dUV)。位置はcm。
-
-        Raises:
-            TypeError: 引数の型が不正か、worldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でないか範囲外の場合。
-            RuntimeError: 形状が無効な場合。
-        """
-        ...
-    def getNormalAtParam(self, u: float, v: float, worldSpace: bool = ..., *, ws: bool = ...) -> Vector:
-        """パラメーター (u, v) の位置の法線を、長さ1にして取得する。
-
-        Args:
-            u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
-            v (float): :meth:`getParamRange` の V の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Vector: 長さ1の法線。``pointOnSurfaceInfo`` の ``normalizedNormal`` と同じ向き。
-
-        Raises:
-            TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でないか範囲外の場合、または形がつぶれた位置で法線が0になる場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getTangentsAtParam(self, u: float, v: float, worldSpace: bool = ..., *, ws: bool = ...) -> tuple[Vector, Vector]:
-        """パラメーター (u, v) の位置の、U方向とV方向の接線を長さ1にして取得する。
-
-        Args:
-            u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
-            v (float): :meth:`getParamRange` の V の範囲内のパラメーター。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            tuple[Vector, Vector]: U・Vのパラメーターが増える向きの、長さ1のベクトル。
-                ``pointOnSurfaceInfo`` の ``normalizedTangentU``・``normalizedTangentV`` と同じ向き。
-                互いに直交するとは限らない。
-
-        Raises:
-            TypeError: u・vが数値でない、worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でないか範囲外の場合、または重なったCVなどで接線が0になる位置の場合。
-            RuntimeError: 形状データを持たない空のシェイプの場合。
-        """
-        ...
-    def getMatrixAtParam(self, u: float, v: float, *, aimAxis: str = ..., upAxis: str = ..., worldSpace: bool = ..., ws: bool = ...) -> Matrix:
-        """パラメーター (u, v) の位置の向きを、マトリクスで取得する。
-
-        aimAxisの軸をU方向の接線へ、upAxisの軸を法線へ向けたマトリクスを返す。
-        リボンの上にジョイントなどを並べるときに使う。
-
-        - マトリクスは正規直交の右手系(スケール1)。移動は曲面上の位置(cm)。
-        - upAxisは、法線から接線方向の成分を除いた向きになる。
-        - 残りの軸は、aimAxisとupAxisから右手系で決まる。既定のx・yでは、zはおおむねV方向と同じ向きか逆向きになる。
-
-        軸の指定のしかたは :meth:`NurbsCurve.getMatricesAlong <mlib.nodes.nurbsCurve.NurbsCurve.getMatricesAlong>` と同じ。
-
-        Args:
-            u (float): :meth:`getParamRange` の U の範囲内のパラメーター。
-            v (float): :meth:`getParamRange` の V の範囲内のパラメーター。
-            aimAxis (str): U方向の接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。
-            upAxis (str): 法線へ向ける軸。aimAxisとは別の軸を指定する。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-
-        Returns:
-            Matrix: 行ベクトルの決まりのマトリクス(各行が軸、4行目が位置)。
-
-        Raises:
-            TypeError: u・vが数値でない場合、aimAxis・upAxisがstr以外の場合、worldSpaceがbool以外の場合、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: u・vが有限でないか範囲外の場合、軸の名前が対応していないかaimAxisとupAxisが同じ軸の場合、
-                またはU方向の接線や法線が0か、互いに平行で向きを決められない場合。
+            TypeError: u・vが数値でない場合、whatが文字列でない場合、aimAxis・upAxisがstr以外の場合、
+                worldSpace・secondOrderがbool以外の場合、worldSpaceとwsを同時に指定した場合、
+                what="derivatives"以外でsecondOrder=Trueを指定した場合、またはwhat="matrix"以外でaimAxis・upAxisを指定した場合。
+            ValueError: u・vが有限でないか範囲外の場合、whatが対応していない名前の場合、
+                形がつぶれた位置で法線が0になる場合(``"normal"``)、重なったCVなどで接線が0になる位置の場合(``"tangents"``)、
+                軸の名前が対応していないかaimAxisとupAxisが同じ軸の場合、
+                またはU方向の接線や法線が0か、互いに平行で向きを決められない場合(``"matrix"``)。
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
@@ -496,6 +395,42 @@ class NurbsSurface(Shape):
         Raises:
             TypeError: worldSpaceがbool以外、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: 形状データを持たない空のシェイプの場合。
+        """
+        ...
+    def _raw_points(self, worldSpace: bool) -> om2.MPointArray:
+        """全CVの位置を om2 の点列で返す。
+
+        Args:
+            worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。
+
+        Returns:
+            om2.MPointArray: ``u * numCVsInV + v`` の順の位置。有理曲面のウェイト(w)では割らない。
+        """
+        ...
+    def _set_points(self, values: list[tuple[float, float, float]], ws: bool, fast: bool, check: bool) -> None:
+        """確かめてある点の並びを、全CVへ書き込む。
+
+        Args:
+            values (list[tuple[float, float, float]]): ``u * numCVsInV + v`` の順のXYZ(cm)。
+            ws (bool): Trueならワールド空間。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: 点の数がCVの数と合わない場合、またはワールド空間でトランスフォームのマトリクスが特異な場合。
+        """
+        ...
+    def _point_components(self, indices: Iterable[int | tuple[int, int]] | None) -> SurfaceCVs:
+        """CVのコレクションを返す。
+
+        Args:
+            indices (Iterable[int | tuple[int, int]] | None): CVの番号。Noneは全CV。
+
+        Returns:
+            SurfaceCVs: CVのコレクション。
         """
         ...
     def _require_uv_edit(self):

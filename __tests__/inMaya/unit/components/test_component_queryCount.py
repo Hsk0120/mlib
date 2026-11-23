@@ -111,7 +111,7 @@ class ComponentRefactoringTest(unittest.TestCase):
         """1成分の書込み(axis)は、空間・成分の名前・値を先に確かめ、不正なら今の位置を読まない。正しければ1回だけ読む。"""
         from mlib.components import pointComponent
 
-        single = self.mesh.getVertex(0)
+        single = self.mesh.getVertices(0)
         collection = self.mesh.getVertices([0, 1])
         rejected = (
             (TypeError, 1.0, {"axis": "x", "worldSpace": 1}),

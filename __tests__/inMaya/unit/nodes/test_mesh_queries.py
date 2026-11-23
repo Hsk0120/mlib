@@ -2,7 +2,7 @@
 
 - Mesh: 面の上の最近点・補間した法線・半直線の交点・UV と位置の相互変換は closestPointOnMesh ノードや om2 と突き合わせる。
 - Mesh: 頂点の色の読み書き(Undo 1回・fast は Undo なし)、UV セットの照会と作成・複製・改名・削除(Undo 1回)。
-- Mesh.getBorderEdges/getBorderVertices、Vertices/Edges.getFaces・Faces.getEdges は polyListComponentConversion と突き合わせる。
+- Mesh.getBorder(type=)、Vertices/Edges.getFaces・Faces.getEdges は polyListComponentConversion と突き合わせる。
 
 あわせて次も確かめる。
 
@@ -25,6 +25,12 @@ from support.namespaceCase import NamespaceCase
 from mlib.components import Edges, Faces, Vertices
 from mlib.maths import Vector
 from mlib.nodes import SkinCluster
+
+
+def _point_at_uv(mesh, u, v, *args, **kwargs):
+    """UV座標に対応する最初のフェースの位置を返す。該当するフェースが無ければNone。"""
+    found = mesh.getPointsAtUV(u, v, *args, **kwargs)
+    return found[0][1] if found else None
 
 
 def _distance(first, second):
@@ -91,7 +97,7 @@ class ClosestPointTest(_MeshCase):
         cmds.xform(self.transform_of(mesh), translation=(10, 0, 0))
         position, face = mesh.getClosestPoint((0.2, 5, 0.3))
         self.assertSequenceAlmostEqual(position, (0.2, 1, 0.3), places=6)
-        self.assertTrue(all(abs(point.y - 1) < 1e-6 for point in mesh.getFace(face).getVertices().getPosition()))
+        self.assertTrue(all(abs(point.y - 1) < 1e-6 for point in mesh.getFaces(face).getVertices().getPosition()))
         position, _face = mesh.getClosestPoint(om2.MPoint(10.2, 5, 0.3), worldSpace=True)
         self.assertSequenceAlmostEqual(position, (10.2, 1, 0.3), places=6)
 
@@ -109,7 +115,7 @@ class ClosestPointTest(_MeshCase):
             with self.subTest(vertex=vertex):
                 position = fn.getPoint(vertex, om2.MSpace.kWorld)
                 point = center + (Vector(position) - center) * 1.5
-                normal = mesh.getClosestNormal(point, worldSpace=True)
+                normal = mesh.getClosestPoint(point, worldSpace=True, what="normal")
                 face = mesh.getClosestPoint(point, worldSpace=True)[1]
                 self.assertIsInstance(normal, Vector)
                 self.assertAlmostEqual(normal.length(), 1.0, places=6)
@@ -117,7 +123,7 @@ class ClosestPointTest(_MeshCase):
                 self.assertSequenceAlmostEqual(normal, expected, places=4)
         for point in ((3, 4, 3.5), (1.4, 4.5, 3.1)):
             with self.subTest(point=point):
-                normal = mesh.getClosestNormal(point, worldSpace=True)
+                normal = mesh.getClosestPoint(point, worldSpace=True, what="normal")
                 closest = self.closest_node(mesh, point)
                 self.assertSequenceAlmostEqual(normal, Vector(closest["normal"]).normal(), places=4)
                 face_normal = Vector(fn.getPolygonNormal(closest["face"], om2.MSpace.kWorld)).normal()
@@ -128,18 +134,27 @@ class ClosestPointTest(_MeshCase):
     def test_closest_normal_hard_edges_is_face_normal(self):
         """ハードエッジの立方体では面法線。"""
         mesh = self.cube()
-        self.assertSequenceAlmostEqual(mesh.getClosestNormal((0.1, 3, 0.2)), (0, 1, 0), places=6)
-        self.assertSequenceAlmostEqual(mesh.getClosestNormal((3, 0.1, 0.2)), (1, 0, 0), places=6)
+        self.assertSequenceAlmostEqual(mesh.getClosestPoint((0.1, 3, 0.2), what="normal"), (0, 1, 0), places=6)
+        self.assertSequenceAlmostEqual(mesh.getClosestPoint((3, 0.1, 0.2), what="normal"), (1, 0, 0), places=6)
 
     def test_errors(self):
         """入力の型・値の不正。"""
         mesh = self.cube()
-        for method in (mesh.getClosestPoint, mesh.getClosestNormal, mesh.getUVAtPoint):
-            with self.subTest(method=method.__name__):
-                self.assertRaises(TypeError, method, "abc")
-                self.assertRaises(TypeError, method, (0, 0, 0), worldSpace=1)
-                self.assertRaises(ValueError, method, (0, 0))
-                self.assertRaises(ValueError, method, (0, float("nan"), 0))
+        for what in ("point", "normal", "uv"):
+            with self.subTest(what=what):
+                self.assertRaises(TypeError, mesh.getClosestPoint, "abc", what=what)
+                self.assertRaises(TypeError, mesh.getClosestPoint, (0, 0, 0), worldSpace=1, what=what)
+                self.assertRaises(ValueError, mesh.getClosestPoint, (0, 0), what=what)
+                self.assertRaises(ValueError, mesh.getClosestPoint, (0, float("nan"), 0), what=what)
+        # whatは決まった名前だけを受け付ける。uvSetはwhat="uv"のときだけ指定できる。
+        for what, error in (("face", ValueError), ("", ValueError), ("Normal", ValueError), (1, TypeError), (None, TypeError)):
+            with self.subTest(what=what):
+                self.assertRaises(error, mesh.getClosestPoint, (0, 0, 0), what=what)
+        for what in ("point", "normal"):
+            with self.subTest(what=what, uvSet="map1"):
+                self.assertRaises(TypeError, mesh.getClosestPoint, (0, 0, 0), what=what, uvSet="map1")
+        self.assertRaises(TypeError, mesh.getClosestPoint, (0, 0, 0), uvSet="map1")
+        self.assertRaises(TypeError, mesh.getClosestPoint, (0, 0, 0), False, "normal")
 
 
 class IntersectTest(_MeshCase):
@@ -208,7 +223,7 @@ class UVPointTest(_MeshCase):
         cmds.xform(self.transform_of(mesh), translation=(2, 0, 0))
         for point in ((2.3, 0.9, 0.2), (3.5, -0.2, 0.1)):
             with self.subTest(point=point):
-                uv = mesh.getUVAtPoint(point, worldSpace=True)
+                uv = mesh.getClosestPoint(point, worldSpace=True, what="uv")
                 self.assertIsInstance(uv, tuple)
                 self.assertSequenceAlmostEqual(uv, self.closest_node(mesh, point)["uv"], places=4)
 
@@ -219,14 +234,14 @@ class UVPointTest(_MeshCase):
         for point in ((0.3, 0.8, 0.4), (-0.5, -0.3, 0.6)):
             with self.subTest(point=point):
                 on_surface, _face = mesh.getClosestPoint(point)
-                u, v = mesh.getUVAtPoint(on_surface)
-                found = mesh.getPointAtUV(u, v)
+                u, v = mesh.getClosestPoint(on_surface, what="uv")
+                found = _point_at_uv(mesh, u, v)
                 self.assertIsInstance(found, Vector)
                 self.assertLess(_distance(found, on_surface), 1e-3)
-                world = mesh.getPointAtUV(u, v, worldSpace=True)
+                world = _point_at_uv(mesh, u, v, worldSpace=True)
                 self.assertLess(_distance(world, (on_surface.x, on_surface.y + 3, on_surface.z)), 1e-3)
-        self.assertIsNone(mesh.getPointAtUV(5, 5))
-        self.assertIsNone(mesh.getPointAtUV(-0.5, 0.5))
+        self.assertIsNone(_point_at_uv(mesh, 5, 5))
+        self.assertIsNone(_point_at_uv(mesh, -0.5, 0.5))
 
     def test_uv_set_argument(self):
         """uvSet を指定すると、そのセットの UV を使う。無いセット・空のセット。"""
@@ -235,22 +250,21 @@ class UVPointTest(_MeshCase):
         fn = mesh.mfn()
         us, vs = fn.getUVs("shifted")
         fn.setUVs([value + 2 for value in us], vs, "shifted")
-        u, v = mesh.getUVAtPoint((0.1, 0.5, 0.1))
-        shifted = mesh.getUVAtPoint((0.1, 0.5, 0.1), uvSet="shifted")
+        u, v = mesh.getClosestPoint((0.1, 0.5, 0.1), what="uv")
+        shifted = mesh.getClosestPoint((0.1, 0.5, 0.1), uvSet="shifted", what="uv")
         self.assertSequenceAlmostEqual(shifted, (u + 2, v), places=5)
-        found = mesh.getPointAtUV(u + 2, v, uvSet="shifted")
+        found = _point_at_uv(mesh, u + 2, v, uvSet="shifted")
         self.assertSequenceAlmostEqual(found, (0.1, 0.5, 0.1), places=4)
-        self.assertIsNone(mesh.getPointAtUV(u + 2, v))
-        self.assertRaises(ValueError, mesh.getUVAtPoint, (0, 0, 0), uvSet="missing")
-        self.assertRaises(ValueError, mesh.getPointAtUV, 0.5, 0.5, uvSet="missing")
-        self.assertRaises(TypeError, mesh.getUVAtPoint, (0, 0, 0), uvSet=1)
-        self.assertRaises(ValueError, mesh.getUVAtPoint, (0, 0, 0), uvSet="")
-        self.assertRaises(TypeError, mesh.getPointAtUV, "0", 0.5)
-        self.assertRaises(TypeError, mesh.getPointAtUV, 0.5, True)
-        self.assertRaises(ValueError, mesh.getPointAtUV, float("inf"), 0.5)
+        self.assertIsNone(_point_at_uv(mesh, u + 2, v))
+        self.assertRaises(ValueError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet="missing")
+        self.assertRaises(ValueError, _point_at_uv, mesh, 0.5, 0.5, uvSet="missing")
+        self.assertRaises(TypeError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet=1)
+        self.assertRaises(ValueError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet="")
+        self.assertRaises(TypeError, _point_at_uv, mesh, "0", 0.5)
+        self.assertRaises(ValueError, _point_at_uv, mesh, float("inf"), 0.5)
         cmds.polyUVSet(mesh.getFullName(), create=True, uvSet="empty")
-        self.assertIsNone(mesh.getPointAtUV(0.5, 0.5, uvSet="empty"))
-        self.assertRaises(RuntimeError, mesh.getUVAtPoint, (0, 0, 0), uvSet="empty")
+        self.assertIsNone(_point_at_uv(mesh, 0.5, 0.5, uvSet="empty"))
+        self.assertRaises(RuntimeError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet="empty")
 
 
 class VertexColorTest(_MeshCase):
@@ -283,7 +297,7 @@ class VertexColorTest(_MeshCase):
         self.assertSequenceAlmostEqual(values[2], (1, 0, 0, 0.25), places=5)
         self.assertSequenceAlmostEqual(values[5], (0, 1, 0, 1), places=5)
         self.assertIsNone(values[0])
-        mesh.setVertexColors([(0, 0, 1)], vertices=mesh.getVertex(0))
+        mesh.setVertexColors([(0, 0, 1)], vertices=mesh.getVertices(0))
         self.assertSequenceAlmostEqual(mesh.getVertexColors()[0], (0, 0, 1, 1), places=5)
 
     def test_color_set_argument(self):
@@ -349,24 +363,24 @@ class UVSetTest(_MeshCase):
         mesh = self.cube()
         name = mesh.getFullName()
         cmds.polyUVSet(name, create=True, uvSet="extra")
-        self.assertEqual(mesh.getUVSetNames(), cmds.polyUVSet(name, query=True, allUVSets=True))
-        self.assertEqual(mesh.getCurrentUVSet(), cmds.polyUVSet(name, query=True, currentUVSet=True)[0])
-        self.assertEqual(mesh.getUVSetNames(), ["map1", "extra"])
+        self.assertEqual(mesh.getSetNames(), cmds.polyUVSet(name, query=True, allUVSets=True))
+        self.assertEqual(mesh.getCurrentSet(), cmds.polyUVSet(name, query=True, currentUVSet=True)[0])
+        self.assertEqual(mesh.getSetNames(), ["map1", "extra"])
 
     def test_edits_undo_in_one_step(self):
         """作成・複製・改名・削除・現在の切替は、それぞれ Undo 1回で戻る。"""
         mesh = self.cube(history=True)
         name = mesh.getFullName()
-        mesh.createUVSet("base")
+        mesh.createSet("base")
 
         def names(expected):
-            return lambda: self.assertEqual(mesh.getUVSetNames(), expected)
+            return lambda: self.assertEqual(mesh.getSetNames(), expected)
 
         steps = [
-            (lambda: mesh.createUVSet("made"), ["map1", "base"], ["map1", "base", "made"]),
-            (lambda: mesh.copyUVSet("map1", "copied"), ["map1", "base"], ["map1", "base", "copied"]),
-            (lambda: mesh.renameUVSet("base", "renamed"), ["map1", "base"], ["map1", "renamed"]),
-            (lambda: mesh.deleteUVSet("base"), ["map1", "base"], ["map1"]),
+            (lambda: mesh.createSet("made"), ["map1", "base"], ["map1", "base", "made"]),
+            (lambda: mesh.copySet("map1", "copied"), ["map1", "base"], ["map1", "base", "copied"]),
+            (lambda: mesh.renameSet("base", "renamed"), ["map1", "base"], ["map1", "renamed"]),
+            (lambda: mesh.deleteSet("base"), ["map1", "base"], ["map1"]),
         ]
         for action, before, after in steps:
             with self.subTest(after=after):
@@ -374,49 +388,49 @@ class UVSetTest(_MeshCase):
                 self.assertIsNone(action())
                 self.assertUndoesInOneStep(names(before), names(after))
         self.flushUndo()
-        self.assertIsNone(mesh.setCurrentUVSet("base"))
-        self.assertUndoesInOneStep(lambda: self.assertEqual(mesh.getCurrentUVSet(), "map1"), lambda: self.assertEqual(mesh.getCurrentUVSet(), "base"))
-        mesh.copyUVSet("map1", "copied")
+        self.assertIsNone(mesh.setCurrentSet("base"))
+        self.assertUndoesInOneStep(lambda: self.assertEqual(mesh.getCurrentSet(), "map1"), lambda: self.assertEqual(mesh.getCurrentSet(), "base"))
+        mesh.copySet("map1", "copied")
         self.assertEqual([list(values) for values in mesh.mfn().getUVs("copied")], [list(values) for values in mesh.mfn().getUVs("map1")])
-        self.assertEqual(mesh.getCurrentUVSet(), "map1")
+        self.assertEqual(mesh.getCurrentSet(), "map1")
         self.assertEqual(cmds.polyUVSet(name, query=True, allUVSets=True), ["map1", "base", "copied"])
 
     def test_delete_current_and_default(self):
         """現在の UV セットを消すと既定の UV セットが現在になる。既定の UV セットは名前が違っても消せない。"""
         mesh = self.cube()
-        mesh.createUVSet("other")
-        mesh.setCurrentUVSet("other")
-        mesh.deleteUVSet("other")
-        self.assertEqual(mesh.getCurrentUVSet(), "map1")
-        self.assertRaises(ValueError, mesh.deleteUVSet, "map1")
-        mesh.renameUVSet("map1", "base")
-        mesh.createUVSet("map1")
-        self.assertRaises(ValueError, mesh.deleteUVSet, "base")
-        mesh.deleteUVSet("map1")
-        self.assertEqual(mesh.getUVSetNames(), ["base"])
-        self.assertEqual(mesh.getCurrentUVSet(), "base")
+        mesh.createSet("other")
+        mesh.setCurrentSet("other")
+        mesh.deleteSet("other")
+        self.assertEqual(mesh.getCurrentSet(), "map1")
+        self.assertRaises(ValueError, mesh.deleteSet, "map1")
+        mesh.renameSet("map1", "base")
+        mesh.createSet("map1")
+        self.assertRaises(ValueError, mesh.deleteSet, "base")
+        mesh.deleteSet("map1")
+        self.assertEqual(mesh.getSetNames(), ["base"])
+        self.assertEqual(mesh.getCurrentSet(), "base")
 
     def test_errors(self):
         """無い名前・既にある名前・型の不正。"""
         mesh = self.cube()
-        mesh.createUVSet("extra")
+        mesh.createSet("extra")
         cases = [
-            (ValueError, mesh.setCurrentUVSet, ("missing",)),
-            (ValueError, mesh.createUVSet, ("extra",)),
-            (ValueError, mesh.createUVSet, ("",)),
-            (TypeError, mesh.createUVSet, (None,)),
-            (ValueError, mesh.copyUVSet, ("missing", "new")),
-            (ValueError, mesh.copyUVSet, ("map1", "extra")),
-            (ValueError, mesh.renameUVSet, ("missing", "new")),
-            (ValueError, mesh.renameUVSet, ("extra", "map1")),
-            (TypeError, mesh.renameUVSet, ("extra", 3)),
-            (ValueError, mesh.deleteUVSet, ("missing",)),
-            (TypeError, mesh.deleteUVSet, (1,)),
+            (ValueError, mesh.setCurrentSet, ("missing",)),
+            (ValueError, mesh.createSet, ("extra",)),
+            (ValueError, mesh.createSet, ("",)),
+            (TypeError, mesh.createSet, (None,)),
+            (ValueError, mesh.copySet, ("missing", "new")),
+            (ValueError, mesh.copySet, ("map1", "extra")),
+            (ValueError, mesh.renameSet, ("missing", "new")),
+            (ValueError, mesh.renameSet, ("extra", "map1")),
+            (TypeError, mesh.renameSet, ("extra", 3)),
+            (ValueError, mesh.deleteSet, ("missing",)),
+            (TypeError, mesh.deleteSet, (1,)),
         ]
         for error, method, args in cases:
             with self.subTest(method=method.__name__, args=args):
                 self.assertRaises(error, method, *args)
-        self.assertEqual(mesh.getUVSetNames(), ["map1", "extra"])
+        self.assertEqual(mesh.getSetNames(), ["map1", "extra"])
 
 
 class TopologyConversionTest(_MeshCase):
@@ -424,8 +438,8 @@ class TopologyConversionTest(_MeshCase):
         """縁のエッジ・頂点は polyListComponentConversion(border=True) と同じ。閉じたメッシュは空。"""
         mesh = self.plane()
         name = mesh.getFullName()
-        edges = mesh.getBorderEdges()
-        vertices = mesh.getBorderVertices()
+        edges = mesh.getBorder()
+        vertices = mesh.getBorder(type="vertex")
         self.assertIsInstance(edges, Edges)
         self.assertIsInstance(vertices, Vertices)
         self.assertEqual(list(edges.indices), _indices(cmds.polyListComponentConversion(name + ".f[*]", toEdge=True, border=True)))
@@ -433,8 +447,14 @@ class TopologyConversionTest(_MeshCase):
         self.assertEqual(list(vertices.indices), _indices(cmds.polyListComponentConversion(border, toVertex=True)))
         self.assertEqual(len(edges), 10)
         self.assertEqual(len(vertices), 10)
-        self.assertEqual(len(self.cube().getBorderEdges()), 0)
-        self.assertEqual(len(self.cube().getBorderVertices()), 0)
+        self.assertEqual(len(self.cube().getBorder()), 0)
+        self.assertEqual(len(self.cube().getBorder(type="vertex")), 0)
+        self.assertEqual(mesh.getBorder(type="edge"), edges)
+        # typeは決まった名前だけを受け付け、キーワードで指定する。
+        for value, error in (("face", ValueError), ("", ValueError), ("Edge", ValueError), (1, TypeError), (None, TypeError)):
+            with self.subTest(type=value):
+                self.assertRaises(error, mesh.getBorder, type=value)
+        self.assertRaises(TypeError, mesh.getBorder, "vertex")
 
     def test_conversions_match_cmds(self):
         """頂点・エッジから面、面からエッジへの変換は polyListComponentConversion と同じ(番号の昇順)。"""
@@ -455,9 +475,9 @@ class TopologyConversionTest(_MeshCase):
                 self.assertIsInstance(edges, Edges)
                 expected = _indices(cmds.polyListComponentConversion([f"{name}.f[{index}]" for index in selected], toEdge=True))
                 self.assertEqual(list(edges.indices), expected)
-        self.assertEqual(mesh.getVertex(5).getFaces(), mesh.getVertices([5]).getFaces())
-        self.assertEqual(mesh.getEdge(5).getFaces(), mesh.getEdges([5]).getFaces())
-        self.assertEqual(mesh.getFace(5).getEdges(), mesh.getFaces([5]).getEdges())
+        self.assertEqual(mesh.getVertices(5).getFaces(), mesh.getVertices([5]).getFaces())
+        self.assertEqual(mesh.getEdges(5).getFaces(), mesh.getEdges([5]).getFaces())
+        self.assertEqual(mesh.getFaces(5).getEdges(), mesh.getFaces([5]).getEdges())
         self.assertEqual(len(mesh.getVertices([]).getFaces()), 0)
         self.assertEqual(len(mesh.getFaces([]).getEdges()), 0)
 
@@ -536,7 +556,7 @@ class MeshQueryTest(_SkinCase):
         for query, index in zip(queries, found):
             best = min(_distance(point, query) for point in points)
             self.assertAlmostEqual(_distance(points[index], query), best)
-        self.assertEqual(mesh.getClosestVertex(queries[0]).index, found[0])
+        self.assertEqual(mesh.getVertices(mesh.getClosestVertices([queries[0]])[0]).index, found[0])
         self.assertRaises(ValueError, mesh.getClosestVertices, [(math.inf, 0, 0)])
 
 

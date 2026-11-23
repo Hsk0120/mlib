@@ -1162,7 +1162,64 @@ def _flag_overloads(qualname, cases):
 
 _TRUE, _FALSE, _NONE = ("Literal[True]", False), ("Literal[False]", True), ("None", True)
 
+
+def _one_or_many(qualname, argument, single, plural, many):
+    """番号1つなら要素1つ、並び・Noneならコレクションを返すメソッドのオーバーロードを作る関数を返す。
+
+    Args:
+        qualname (str): ``クラス名.メソッド名``。
+        argument (str): 番号を受ける引数の名前。
+        single (str): 番号1つのときの戻り値の型。
+        plural (str): 並び・Noneのときの戻り値の型。
+        many (str): 並びの引数の型。
+
+    Returns:
+        Callable: ``OVERLOADS`` に登録する関数。
+    """
+    return _flag_overloads(qualname, [({argument: ("int", False)}, single), ({argument: (f"{many} | None", True)}, plural)])
+
+
+def _choice_overloads(qualname, argument, cases):
+    """名前で種類を選ぶ引数ごとのオーバーロードを作る関数を返す。先頭の名前を既定値として扱う。
+
+    Args:
+        qualname (str): ``クラス名.メソッド名``。
+        argument (str): 種類を選ぶ引数の名前。
+        cases (list[tuple[str, str]]): ``(種類の名前, 戻り値の型)``。
+
+    Returns:
+        Callable: ``OVERLOADS`` に登録する関数。
+    """
+    return _flag_overloads(qualname, [({argument: (f'Literal["{name}"]', index == 0)}, returns) for index, (name, returns) in enumerate(cases)])
+
+
 OVERLOADS = {
+    "mlib.nodes.mesh:Mesh.getVertices": _one_or_many("Mesh.getVertices", "indices", "Vertex", "Vertices", "Iterable[int]"),
+    "mlib.nodes.mesh:Mesh.getEdges": _one_or_many("Mesh.getEdges", "indices", "Edge", "Edges", "Iterable[int]"),
+    "mlib.nodes.mesh:Mesh.getFaces": _one_or_many("Mesh.getFaces", "indices", "Face", "Faces", "Iterable[int]"),
+    "mlib.nodes.mesh:Mesh.getUVs": _one_or_many("Mesh.getUVs", "indices", "UV", "UVs", "Iterable[int]"),
+    "mlib.nodes.nurbsCurve:NurbsCurve.getCVs": _one_or_many("NurbsCurve.getCVs", "indices", "CV", "CVs", "Iterable[int]"),
+    "mlib.nodes.nurbsSurface:NurbsSurface.getCVs": _one_or_many("NurbsSurface.getCVs", "indices", "SurfaceCV", "SurfaceCVs", "Iterable[int | tuple[int, int]]"),
+    "mlib.nodes.animCurve:AnimCurve.getKeyframes": _one_or_many("AnimCurve.getKeyframes", "indices", "Keyframe", "Keyframes", "Iterable[int]"),
+    "mlib.nodes.mesh:Mesh.getShadingEngines": _flag_overloads(
+        "Mesh.getShadingEngines", [({"perFace": _TRUE}, "list[ShadingEngine | None]"), ({"perFace": _FALSE}, "Nodes[ShadingEngine]")]
+    ),
+    "mlib.nodes.mesh:Mesh.getVertexNormals": _flag_overloads(
+        "Mesh.getVertexNormals", [({"perFace": _TRUE, "locked": _TRUE}, "list[bool]"), ({"locked": _FALSE}, "list[Vector]")]
+    ),
+    "mlib.nodes.mesh:Mesh.getShells": _flag_overloads("Mesh.getShells", [({"uv": _TRUE}, "list[list[int]]"), ({"uv": _FALSE}, "list[Vertices]")]),
+    "mlib.nodes.mesh:Mesh.getBorder": _choice_overloads("Mesh.getBorder", "type", [("edge", "Edges"), ("vertex", "Vertices")]),
+    "mlib.nodes.mesh:Mesh.getClosestPoint": _choice_overloads(
+        "Mesh.getClosestPoint", "what", [("point", "tuple[Vector, int]"), ("normal", "Vector"), ("uv", "tuple[float, float]")]
+    ),
+    "mlib.nodes.nurbsCurve:NurbsCurve.getAtParam": _choice_overloads(
+        "NurbsCurve.getAtParam", "what", [("point", "Vector"), ("tangent", "Vector"), ("normal", "Vector"), ("derivatives", "tuple[Vector, ...]")]
+    ),
+    "mlib.nodes.nurbsSurface:NurbsSurface.getAtParam": _choice_overloads(
+        "NurbsSurface.getAtParam",
+        "what",
+        [("point", "Vector"), ("normal", "Vector"), ("tangents", "tuple[Vector, Vector]"), ("matrix", "Matrix"), ("derivatives", "tuple[Vector, ...]")],
+    ),
     "mlib.cmds.createNode:createNode": _create_node_overloads,
     "mlib.nodes.skinCluster:SkinCluster.getWeights": _flag_overloads(
         "SkinCluster.getWeights",

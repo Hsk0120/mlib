@@ -40,12 +40,12 @@ class MeshDetailTest(NamespaceCase):
 
     def test_average_color(self):
         shape = mlib.getNode(cmds.polyPlane(name=self.ns + ":plane", sx=1, sy=1, constructionHistory=False)[0]).getShape()
-        face = shape.getFace(0)
+        face = shape.getFaces(0)
         self.assertIsNone(face.getColor())
         vertices = face.getVertexFaces()
         vertices[0].setColor((0.2, 0.4, 0.6, 1))
         it = om2.MItMeshPolygon(shape.mpath())
-        self.assertEqual(face.getColor(), tuple(it.getColor(shape.getCurrentColorSet())))
+        self.assertEqual(face.getColor(), tuple(it.getColor(shape.getCurrentSet(color=True))))
         vertices[0].removeColor()
         self.assertIsNone(face.getColor())
 

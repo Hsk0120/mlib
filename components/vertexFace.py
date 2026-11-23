@@ -94,7 +94,7 @@ class VertexFace(Component):
         if locked:
             if worldSpace is not _UNSET or ws is not _UNSET:
                 raise TypeError("locked=TrueとworldSpace(ws)は同時に指定できません")
-            return self.shape.getFaceVertexNormalLocks(faceVertices=self)[0]
+            return self.shape.getVertexNormals(perFace=True, locked=True, faceVertices=self)[0]
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         vertex, face = self.getMultiIndex()
@@ -137,7 +137,7 @@ class VertexFace(Component):
                 raise TypeError("normalかlockedのどちらかを指定してください")
             if worldSpace is not _UNSET or ws is not _UNSET or check:
                 raise TypeError("worldSpace(ws)・checkはnormalを指定したときだけ指定できます")
-            self.shape.setFaceVertexNormalsLocked(locked, fast=fast, faceVertices=self)
+            self.shape.setFaceVertexNormals(locked=locked, fast=fast, faceVertices=self)
             return
         if locked is False:
             raise TypeError("normalとlocked=Falseは同時に指定できません(ロックを外すと、設定した法線は計算し直されます)")
@@ -162,9 +162,7 @@ class VertexFace(Component):
         """
         _require_bool(binormal, "binormal")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        if binormal:
-            return self.shape.getFaceVertexBinormals(worldSpace, uvSet=uvSet, faceVertices=self)[0]
-        return self.shape.getFaceVertexTangents(worldSpace, uvSet=uvSet, faceVertices=self)[0]
+        return self.shape.getFaceVertexTangents(worldSpace, binormal=binormal, uvSet=uvSet, faceVertices=self)[0]
 
     def getColor(self, *, colorSet=None):
         """この面頂点の色を取得する。
@@ -175,7 +173,7 @@ class VertexFace(Component):
         Returns:
             tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
         """
-        return self.shape.getFaceVertexColors(colorSet=colorSet, faceVertices=self)[0]
+        return self.shape.getVertexColors(perFace=True, colorSet=colorSet, faceVertices=self)[0]
 
     def setColor(self, color, *, fast=False, colorSet=None):
         """この面頂点の色を設定する。
@@ -197,7 +195,7 @@ class VertexFace(Component):
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         _require_bool(fast, "fast")
-        self.shape.setFaceVertexColors([color], fast=fast, colorSet=colorSet, faceVertices=self)
+        self.shape.setVertexColors([color], perFace=True, fast=fast, colorSet=colorSet, faceVertices=self)
 
     def removeColor(self, *, fast=False, colorSet=None):
         """この面頂点のカラー割り当てを解除する。

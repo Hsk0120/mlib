@@ -1,6 +1,6 @@
 """``mlib.nodes.transform`` のテスト。
 
-- コントローラー作成の補助(NurbsCurve.create・setCvPositions・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
+- コントローラー作成の補助(NurbsCurve.create・setPoints・Transform.replaceShapes・DagNode.setColor)の仕様テスト。
 """
 
 import sys

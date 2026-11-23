@@ -1,4 +1,4 @@
-"""テストの少なかった照会系(Version・点の座標・Locator・デフォーマ・コンストレイント)を cmds と突き合わせる。"""
+"""テストの少なかった照会系(Version・点の座標・デフォーマ・コンストレイント)を cmds と突き合わせる。"""
 
 import math
 import random
@@ -73,7 +73,7 @@ class PointPositionParityTest(NamespaceCase):
         cmds.currentUnit(linear="m")
         for shape, component, count in ((mesh, "vtx", mesh.mfn().numVertices), (nurbs, "cv", nurbs.mfn().numCVs)):
             for index in range(count):
-                item = shape.getVertex(index) if component == "vtx" else shape.getCV(index)
+                item = shape.getVertices(index) if component == "vtx" else shape.getCVs(index)
                 name = f"{shape.getFullName()}.{component}[{index}]"
                 with self.subTest(component=component, index=index):
                     world = [v * 100 for v in cmds.xform(name, query=True, worldSpace=True, translation=True)]
@@ -87,29 +87,19 @@ class PointPositionParityTest(NamespaceCase):
                     self.assertAlmostEqual(item.getPosition().z, local[2], places=5)
         vertices = mesh.getVertices([0, 3, 5])
         for actual, index in zip([p.y for p in vertices.getPosition(worldSpace=True)], (0, 3, 5)):
-            self.assertAlmostEqual(actual, mesh.getVertex(index).getPosition(worldSpace=True).y, places=9)
+            self.assertAlmostEqual(actual, mesh.getVertices(index).getPosition(worldSpace=True).y, places=9)
         self.assertEqual(vertices.shape, mesh)
         with self.assertRaises(IndexError):
-            mesh.getVertex(mesh.mfn().numVertices).getPosition()
+            mesh.getVertices(mesh.mfn().numVertices).getPosition()
 
 
 class DeformerAndConstraintParityTest(NamespaceCase):
-    """デフォーマ・コンストレイント・Locatorの照会をcmdsと比べる。"""
+    """デフォーマ・コンストレイントの照会をcmdsと比べる。"""
 
     PREFIX = "mlibQueryParity_"
 
-    def test_locator_cluster_and_blend_shape(self):
-        """Locatorの位置(通常・fast)、clusterとblendShapeの変形対象、weightのPlug。"""
-        locator = mlib.createLocator(name=self.name("loc"))
-        cmds.flushUndo()
-        locator.setPosition((1, 2, 3))
-        self.assertEqual(cmds.getAttr(locator.getFullName() + ".localPosition")[0], (1.0, 2.0, 3.0))
-        cmds.undo()
-        self.assertEqual(tuple(locator.getPosition()), (0.0, 0.0, 0.0))
-        cmds.flushUndo()
-        locator.setPosition((4, 5, 6), fast=True)
-        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertEqual(tuple(locator.getPosition()), (4.0, 5.0, 6.0))
+    def test_cluster_and_blend_shape(self):
+        """clusterとblendShapeの変形対象、weightのPlug。"""
         cube = cmds.polyCube(name=self.name("deformed"), constructionHistory=False)[0]
         cluster, handle = cmds.cluster(cube + ".vtx[0:3]", name=self.name("cluster"))
         node = mlib.getNode(cluster)

@@ -150,18 +150,32 @@ class DeltaTest(_BlendCase):
         with self.assertRaises(ValueError):
             self.bs.getTargetVertices(0, tolerance=-1)
         self.flushUndo()
-        self.assertIsNone(self.bs.resetTargetVertices(0, [self.bs.getBaseGeometry()[0].getVertex(3)]))
+        self.assertIsNone(self.bs.resetTargetVertices(0, [self.bs.getBaseGeometry()[0].getVertices(3)]))
         self.assertUndoesInOneStep(lambda: self.assertIn(3, self.raw_deltas()), lambda: self.assertEqual(sorted(self.raw_deltas()), [1, 4, 8]))
         self.flushUndo()
-        self.bs.reduceTargetDeltas(0, tolerance=0.01)
+        self.bs.resetTargetVertices(0, tolerance=0.01)
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(sorted(self.raw_deltas()), [1, 3, 4, 8]), lambda: self.assertEqual(sorted(self.raw_deltas()), [3, 4])
         )
         self.flushUndo()
         self.bs.resetTargetVertices(0, 4, fast=True)
-        self.bs.reduceTargetDeltas(0, fast=True)
+        self.bs.resetTargetVertices(0, fast=True, tolerance=0.0)
         self.assertUndoEmpty()
         self.assertEqual(sorted(self.raw_deltas()), [1, 3])
+        # vertices と tolerance は、どちらか1つを指定する。
+        before = sorted(self.raw_deltas())
+        for label, args, kwargs in (
+            ("neither", (), {}),
+            ("neither fast", (), {"fast": True}),
+            ("both", ([1],), {"tolerance": 0.0}),
+            ("both keyword", (), {"vertices": [1], "tolerance": 0.01}),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(TypeError):
+                    self.bs.resetTargetVertices(0, *args, **kwargs)
+                self.assertEqual(sorted(self.raw_deltas()), before)
+        with self.assertRaises(ValueError):
+            self.bs.resetTargetVertices(0, tolerance=-1)
         with self.assertRaises(IndexError):
             self.bs.resetTargetVertices(0, [99])
         other = self.plane("other")
@@ -204,12 +218,14 @@ class InBetweenTest(_BlendCase):
         half = self.lifted("half", amount=0.5)
         rel = self.lifted("rel", side=-1.0, amount=0.25)
         self.flushUndo()
-        self.assertIsNone(self.bs.addInBetween("smile", half, 0.5))
+        plug = self.bs.addTarget(half, inBetween="smile", fullWeight=0.5)
+        self.assertIsInstance(plug, mlib.Plug)
+        self.assertEqual(plug, self.bs.getPlug("weight")[0])
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.bs.getInBetweenWeights(0), []), lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.5])
         )
-        self.bs.addInBetween(0, half, 0.5)
-        self.bs.addInBetween(self.bs.getPlug("weight")[0], rel, 0.25, relative=True)
+        self.bs.addTarget(half, inBetween=0, fullWeight=0.5)
+        self.bs.addTarget(rel, inBetween=self.bs.getPlug("weight")[0], fullWeight=0.25, relative=True)
         self.assertEqual(self.bs.getInBetweenWeights("smile"), [0.25, 0.5])
         self.assertEqual(cmds.getAttr(f"{self.bs}.inbetweenInfoGroup[0].inbetweenInfo[5250].inbetweenTargetType"), 1)
         self.assertEqual(cmds.getAttr(f"{self.bs}.inbetweenInfoGroup[0].inbetweenInfo[5500].inbetweenTargetType"), 0)
@@ -219,17 +235,31 @@ class InBetweenTest(_BlendCase):
         self.assertAlmostEqual(point[1], 0.5, places=5)
         for weight, error in ((1.0, ValueError), (0.0, ValueError), (0.5, ValueError), (0.0005, ValueError), ("a", TypeError)):
             with self.subTest(weight=weight), self.assertRaises(error):
-                self.bs.addInBetween(0, half, weight)
+                self.bs.addTarget(half, inBetween=0, fullWeight=weight)
         with self.assertRaises(ValueError):
-            self.bs.addInBetween(0, cmds.polyCube(name=self.name("cube"))[0], 0.75)
+            self.bs.addTarget(cmds.polyCube(name=self.name("cube"))[0], inBetween=0, fullWeight=0.75)
+        # inBetween と name・index は同時に指定できない。inBetween 無しの relative=True も指定できない。
+        other = self.lifted("other", amount=0.75)
+        for label, args, kwargs in (
+            ("name", ("named",), {"inBetween": 0, "fullWeight": 0.75}),
+            ("index", (), {"inBetween": 0, "fullWeight": 0.75, "index": 3}),
+            ("name+index", ("named",), {"inBetween": 0, "fullWeight": 0.75, "index": 3}),
+            ("relative without inBetween", (), {"relative": True}),
+            ("relative type", (), {"inBetween": 0, "fullWeight": 0.75, "relative": 1}),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(TypeError):
+                    self.bs.addTarget(other, *args, **kwargs)
+                self.assertEqual(self.bs.getInBetweenWeights(0), [0.25, 0.5])
+                self.assertEqual(self.bs.getTargetNames(), ["smile"])
         self.flushUndo()
-        self.assertIsNone(self.bs.removeInBetween("smile", 0.5))
+        self.assertIsNone(self.bs.removeTarget("smile", inBetween=0.5))
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.25, 0.5]), lambda: self.assertEqual(self.bs.getInBetweenWeights(0), [0.25])
         )
         for weight in (1.0, 0.75):
             with self.subTest(weight=weight), self.assertRaises(ValueError):
-                self.bs.removeInBetween(0, weight)
+                self.bs.removeTarget(0, inBetween=weight)
 
 
 class MirrorTest(_BlendCase):
@@ -245,19 +275,39 @@ class MirrorTest(_BlendCase):
         self.assertEqual(set(self.raw_deltas()), set())
         cmds.undo()
         self.flushUndo()
-        self.assertIsNone(self.bs.flipTarget(0, axis="x"))
+        self.assertIsNone(self.bs.mirrorTarget(0, axis="x", flip=True))
         self.assertUndoesInOneStep(lambda: self.assertEqual(set(self.raw_deltas()), positive), lambda: self.assertEqual(set(self.raw_deltas()), negative))
         for axis, error in (("w", ValueError), (None, TypeError)):
             with self.subTest(axis=axis), self.assertRaises(error):
-                self.bs.flipTarget(0, axis=axis)
+                self.bs.mirrorTarget(0, axis=axis, flip=True)
         with self.assertRaises(TypeError):
             self.bs.mirrorTarget(0, positiveToNegative=1)
+        # flip=True と positiveToNegative は同時に指定できない(True・False のどちらを渡しても)。
+        before = set(self.raw_deltas())
+        for label, args, kwargs in (
+            ("keyword True", (), {"flip": True, "positiveToNegative": True}),
+            ("keyword False", (), {"flip": True, "positiveToNegative": False}),
+            ("positional", ("x", True), {"flip": True}),
+            ("flip type", (), {"flip": 1}),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(TypeError):
+                    self.bs.mirrorTarget(0, *args, **kwargs)
+                self.assertEqual(set(self.raw_deltas()), before)
+        # flip の Undo チャンク名は今までどおり。
+        self.flushUndo()
+        self.bs.mirrorTarget(0, flip=True)
+        self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibBlendShapeFlipTarget")
+        cmds.undo()
+        self.bs.mirrorTarget(0)
+        self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibBlendShapeMirrorTarget")
+        cmds.undo()
 
     def test_connected_target_is_rejected(self):
         with self.assertRaises(RuntimeError):
             self.bs.mirrorTarget(0)
         with self.assertRaises(RuntimeError):
-            self.bs.flipTarget(0)
+            self.bs.mirrorTarget(0, flip=True)
 
 
 class DuplicateReplaceEditTest(_BlendCase):

@@ -113,7 +113,7 @@ class BlendShapeTest(_RemainingCase):
         return mlib.getNode(cmds.blendShape(target, base)[0])
 
     def test_set_base_weights_out_of_range(self):
-        """setBaseWeights は範囲外の頂点番号で IndexError。baseWeights は変わらない。"""
+        """setTargetWeights(None, ...) は範囲外の頂点番号で IndexError。baseWeights は変わらない。"""
         node = self.blend_shape()
         plug = node.getFullName() + ".inputTarget[0].baseWeights"
 
@@ -123,7 +123,7 @@ class BlendShapeTest(_RemainingCase):
         for weights in ({999: 0.5}, {-1: 0.5}):
             for fast in (False, True):
                 with self.subTest(weights=weights, fast=fast):
-                    self.assertFails(IndexError, node.setBaseWeights, weights, fast=fast, state=state)
+                    self.assertFails(IndexError, node.setTargetWeights, None, weights, fast=fast, state=state)
 
     def test_replace_target_rejected_by_maya(self):
         """接続先がロックされていて Maya が接続を拒否すると、replaceTarget は RuntimeError。接続は変わらない。"""
@@ -270,14 +270,14 @@ class MeshTest(_RemainingCase):
             return (cmds.polyColorSet(name, query=True, allColorSets=True), cmds.polyUVSet(name, query=True, allUVSets=True))
 
         cases = (
-            (TypeError, "getUVShells", (), {"uvSet": 1}),
-            (ValueError, "getUVShells", (), {"uvSet": ""}),
-            (ValueError, "getUVShells", (), {"uvSet": "nope"}),
-            (TypeError, "copyColorSet", (1, "copied"), {}),
-            (TypeError, "copyColorSet", (current, 1), {}),
-            (ValueError, "copyColorSet", (current, ""), {}),
-            (ValueError, "copyColorSet", ("nope", "copied"), {}),
-            (ValueError, "copyColorSet", (current, current), {}),
+            (TypeError, "getShells", (), {"uv": True, "uvSet": 1}),
+            (ValueError, "getShells", (), {"uv": True, "uvSet": ""}),
+            (ValueError, "getShells", (), {"uv": True, "uvSet": "nope"}),
+            (TypeError, "copySet", (1, "copied"), {"color": True}),
+            (TypeError, "copySet", (current, 1), {"color": True}),
+            (ValueError, "copySet", (current, ""), {"color": True}),
+            (ValueError, "copySet", ("nope", "copied"), {"color": True}),
+            (ValueError, "copySet", (current, current), {"color": True}),
         )
         for error, method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
@@ -301,12 +301,12 @@ class NurbsSurfaceTest(_RemainingCase):
         surface = self.shape(cmds.nurbsPlane(constructionHistory=False)[0])
         nan = float("nan")
         cases = (
-            ("getTangentsAtParam", (nan, 0.5), {}),
-            ("getTangentsAtParam", (5.0, 0.5), {}),
-            ("getMatrixAtParam", (nan, 0.5), {}),
-            ("getMatrixAtParam", (0.5, 5.0), {}),
-            ("getMatrixAtParam", (0.5, 0.5), {"aimAxis": "w"}),
-            ("getMatrixAtParam", (0.5, 0.5), {"aimAxis": "x", "upAxis": "x"}),
+            ("getAtParam", (nan, 0.5), {"what": "tangents"}),
+            ("getAtParam", (5.0, 0.5), {"what": "tangents"}),
+            ("getAtParam", (nan, 0.5), {"what": "matrix"}),
+            ("getAtParam", (0.5, 5.0), {"what": "matrix"}),
+            ("getAtParam", (0.5, 0.5), {"what": "matrix", "aimAxis": "w"}),
+            ("getAtParam", (0.5, 0.5), {"what": "matrix", "aimAxis": "x", "upAxis": "x"}),
         )
         for method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
@@ -362,9 +362,9 @@ class ReferenceTest(_RemainingCase):
     def test_argument_errors(self):
         transform = self.node("transform")
         cases = (
-            (TypeError, "getEditStrings", (), {"editCommand": 1}),
-            (ValueError, "getEditStrings", (), {"editCommand": "bogus"}),
-            (TypeError, "getEditStrings", (), {"onReferenceNode": transform}),
+            (TypeError, "getEdits", (), {"editCommand": 1}),
+            (ValueError, "getEdits", (), {"editCommand": "bogus"}),
+            (TypeError, "getEdits", (), {"onReferenceNode": transform}),
             (TypeError, "removeEdits", (), {"successful": 1}),
             (TypeError, "removeEdits", (), {"failed": 1}),
             (TypeError, "removeEdits", (), {"editCommand": 1}),

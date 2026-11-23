@@ -124,7 +124,7 @@ WRITER_OPERATORS = ("__rshift__", "__lshift__", "__floordiv__")
 EXCLUDED = {
     "Node.setDgTimingEnabled": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Camera.setView": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
-    "Camera.setCenterOfInterestPoint": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
+    "Camera.setPoint": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Camera.copyViewFrom": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Mesh.setNormals": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "NurbsSurface.setUVData": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
@@ -173,8 +173,7 @@ EXCLUDED = {
         "inMaya/unit/plugs/test_plug_default.pyのtest_normal_native_undo_and_fastでUndo後0・Redo後指定値・fastのキュー不変を検証する。"
     ),
     "Plug.setDirty": "DGの評価状態をdirtyにする診断操作。値や接続を書き換えず、Undoには記録しない。",
-    "Reference.load": "外部ファイルの参照の読込み(ファイル I/O)。Undo 検査の対象外。",
-    "Reference.unload": "外部ファイルの参照のアンロード(ファイル I/O)。Undo 検査の対象外。",
+    "Reference.setLoaded": "外部ファイルの参照の読込み・アンロード(ファイル I/O)。Undo 検査の対象外。",
     "Reference.remove": "外部ファイルの参照の削除(ファイル I/O)。Undo 検査の対象外。",
     "Reference.removeEdits": "リファレンスの Edit の削除(アンロード・再ロードを含むファイル I/O)。Undo 検査の対象外。",
     "Reference.replaceFile": "リファレンスするファイルの置き換え(ファイル I/O)。Undo 検査の対象外。",
@@ -193,7 +192,6 @@ EXCLUDED = {
     "util.mirrorArguments": "ミラー用の引数を計算するだけで、シーンを変更しない。",
     "Version.replace": "版番号の値を作り直すだけで、シーンを変更しない。",
     "BlendShape.resetTargetVertices": "デルタ(pointArray・componentList)はスナップショットの対象外。Undo 1 回と fast は test_spec_blendshape_targets で確認する。",
-    "BlendShape.reduceTargetDeltas": "デルタ(pointArray・componentList)はスナップショットの対象外。Undo 1 回と fast は test_spec_blendshape_targets で確認する。",
     "Time.setCurrent": "現在時刻の変更。Maya の currentTime は Undo キューへ記録しない。",
     "Time.setPlaybackRange": "再生範囲の変更。Maya の playbackOptions は Undo キューへ記録しない。",
     "Time.setAnimationRange": "アニメーション範囲の変更。Maya の playbackOptions は Undo キューへ記録しない。",
@@ -896,14 +894,6 @@ def s_lattice(c):
     cmds.select(clear=True)
 
 
-def s_locator(c):
-    """spaceLocator を作る。"""
-    c.loc = cmds.spaceLocator(name="loc")[0]
-    c.locShape = cmds.listRelatives(c.loc, shapes=True, fullPath=True)[0]
-    c.nloc = mlib.getNode(c.locShape)
-    cmds.select(clear=True)
-
-
 def s_joints(c):
     """cmds.joint で j0→j1→j2 の連鎖(inverseScale 接続あり)と、独立した jx を作る。"""
     cmds.select(clear=True)
@@ -1095,14 +1085,14 @@ def s_face_vertex_colors(c):
     """ヒストリなしのcubeへRGBAを用意し、同じ頂点の面境界差を検査できるようにする。"""
     s_cube(c)
     cmds.polyColorSet(c.shape, create=True, colorSet="colors")
-    c.nshape.setFaceVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, colorSet="colors", fast=True)
+    c.nshape.setVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, perFace=True, colorSet="colors", fast=True)
 
 
 def s_uv_assignment(c):
     """変更対象のmap1と、保持を確認する別UVセットを用意する。"""
     s_cube(c)
-    c.nshape.copyUVSet("map1", "secondary")
-    c.nshape.setCurrentUVSet("secondary")
+    c.nshape.copySet("map1", "secondary")
+    c.nshape.setCurrentSet("secondary")
 
 
 def r_face_vertex_normals(c):
@@ -1573,7 +1563,7 @@ _STIPPLE_UNDO = "Maya 2022〜2024 は素の cmds.filterCurve でも Undo 後に 
 
 C = _Case
 CASES = [
-    C("Camera.setUpDirection", "Camera.setUpDirection", s_camera, lambda c, **kw: c.camera.setUpDirection((1, 1, 0))),
+    C("Camera.setDirection", "Camera.setDirection(up)", s_camera, lambda c, **kw: c.camera.setDirection((1, 1, 0), kind="up")),
     C("Joint.resetScaleOrientation", "Joint.resetScaleOrientation", s_joint_scale_orientation, lambda c, **kw: c.joint.resetScaleOrientation()),
     C(
         "Camera.setVerticalLocked",
@@ -1596,8 +1586,8 @@ CASES = [
     ),
     C("Camera.setFieldOfView", "Camera.setFieldOfView", s_camera, lambda c, **kw: c.camera.setFieldOfView(40)),
     C("Camera.setAspectRatio", "Camera.setAspectRatio", s_camera, lambda c, **kw: c.camera.setAspectRatio(2)),
-    C("Camera.setNearFocusDistance", "Camera.setNearFocusDistance", s_camera, lambda c, **kw: c.camera.setNearFocusDistance(3)),
-    C("Camera.setFarFocusDistance", "Camera.setFarFocusDistance", s_camera, lambda c, **kw: c.camera.setFarFocusDistance(9)),
+    C("Camera.setFocusDistance", "Camera.setFocusDistance(near)", s_camera, lambda c, **kw: c.camera.setFocusDistance(near=3)),
+    C("Camera.setFocusDistance", "Camera.setFocusDistance(far)", s_camera, lambda c, **kw: c.camera.setFocusDistance(far=9)),
     # cmds
     C("cmds.createNode", "createNode transform", None, lambda c, **kw: mlib.createNode("transform", name="made", **kw)),
     C("cmds.createNode", "createNode transform (選択あり)", None, lambda c, **kw: mlib.createNode("transform", name="made", skipSelect=False, **kw)),
@@ -1618,7 +1608,7 @@ CASES = [
     C("cmds.createPolySphere", "createPolySphere constructionHistory", None, lambda c, **kw: mlib.createPolySphere(name="madeBall", constructionHistory=True)),
     C("Node.setKeyTangent", "Node.setKeyTangent", s_keyed, lambda c, **kw: c.na.setKeyTangent(["tx"], inTangentType="linear", outTangentType="step")),
     C("Plug.setKeyTangent", "Plug.setKeyTangent", s_keyed, lambda c, **kw: c.na.getPlug("tx").setKeyTangent(outTangentType="flat", time=(1, 5))),
-    C("Mesh.copyUVSet", "Mesh.copyUVSet replace", s_uv_sets, lambda c, **kw: c.nshape.copyUVSet("map1", "uv2", replace=True)),
+    C("Mesh.copySet", "Mesh.copySet(uv) replace", s_uv_sets, lambda c, **kw: c.nshape.copySet("map1", "uv2", replace=True)),
     C(
         "SkinCluster.smoothWeights",
         "SkinCluster.smoothWeights vertices",
@@ -1737,22 +1727,22 @@ CASES = [
         lambda c, **kw: mlib.createCurve([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)], degree=3, closed=True, name="made"),
     ),
     C(
-        "NurbsCurve.setCvPositions",
-        "setCvPositions worldSpace",
+        "NurbsCurve.setPoints",
+        "NurbsCurve.setPoints worldSpace",
         s_curves,
-        lambda c, **kw: c.ncrvShape.setCvPositions([(0, 1, 0), (1, 1, 0), (2, 2, 0)], worldSpace=True, **kw),
+        lambda c, **kw: c.ncrvShape.setPoints([(0, 1, 0), (1, 1, 0), (2, 2, 0)], worldSpace=True, **kw),
     ),
     C(
-        "NurbsSurface.setCvPositions",
-        "NurbsSurface.setCvPositions",
+        "NurbsSurface.setPoints",
+        "NurbsSurface.setPoints",
         s_surface,
-        lambda c, **kw: c.nsrfShape.setCvPositions([p + (0, 1, 0) for p in c.nsrfShape.getCvPositions()], **kw),  # noqa: RUF005 Vector の加算
+        lambda c, **kw: c.nsrfShape.setPoints([p + (0, 1, 0) for p in c.nsrfShape.getPoints()], **kw),  # noqa: RUF005 Vector の加算
     ),
     C(
-        "NurbsSurface.setCvPositions",
-        "NurbsSurface.setCvPositions worldSpace",
+        "NurbsSurface.setPoints",
+        "NurbsSurface.setPoints worldSpace",
         s_surface,
-        lambda c, **kw: c.nsrfShape.setCvPositions(c.nsrfShape.getCvPositions(worldSpace=True)[::-1], worldSpace=True, **kw),
+        lambda c, **kw: c.nsrfShape.setPoints(c.nsrfShape.getPoints(worldSpace=True)[::-1], worldSpace=True, **kw),
     ),
     C(
         "Constraint.removeTarget",
@@ -1770,13 +1760,13 @@ CASES = [
         "PointComponent.setPosition",
         "Vertex.setPosition relative",
         s_cube,
-        lambda c, **kw: c.nshape.getVertex(0).setPosition((1.0, 2.0, 3.0), relative=True, **kw),
+        lambda c, **kw: c.nshape.getVertices(0).setPosition((1.0, 2.0, 3.0), relative=True, **kw),
     ),
     C(
         "PointComponent.setPosition",
         "CV.setPosition relative worldSpace",
         s_curve,
-        lambda c, **kw: c.ncrvShape.getCV(1).setPosition((0.0, 1.0, 0.0), worldSpace=True, relative=True, **kw),
+        lambda c, **kw: c.ncrvShape.getCVs(1).setPosition((0.0, 1.0, 0.0), worldSpace=True, relative=True, **kw),
     ),
     C(
         "PointComponents.setPosition",
@@ -1827,10 +1817,16 @@ CASES = [
     C("Shape.scaleGeometry", "Mesh.scaleGeometry", s_cube, lambda c, **kw: c.nshape.scaleGeometry(2.0, **kw)),
     C("Shape.scaleGeometry", "Mesh.scaleGeometry indices", s_cube, lambda c, **kw: c.nshape.scaleGeometry(2.0, indices=[0, 1], pivot=(0.5, 0.5, 0.5), **kw)),
     C("Shape.scaleGeometry", "NurbsCurve.scaleGeometry", s_curve, lambda c, **kw: c.ncrvShape.scaleGeometry(2.0, **kw)),
-    C("Locator.setPosition", "Locator.setPosition", s_locator, lambda c, **kw: c.nloc.setPosition((1.0, 2.0, 3.0), **kw)),
     C("Mesh.mirror", "Mesh.mirror", s_cube, lambda c, **kw: c.nshape.mirror("x", pivot=(0.25, 0.0, 0.0), **kw)),
     C("Mesh.mirror", "Mesh.mirror indices worldSpace", s_cube, lambda c, **kw: c.nshape.mirror("YZ", worldSpace=True, indices=[0, 2], **kw)),
     C("NurbsCurve.mirror", "NurbsCurve.mirror", s_curve, lambda c, **kw: c.ncrvShape.mirror("y", pivot=(0.0, 1.0, 0.0), **kw)),
+    C("NurbsSurface.mirror", "NurbsSurface.mirror", s_surface, lambda c, **kw: c.nsrfShape.mirror("x", pivot=(0.25, 0.0, 0.0), **kw)),
+    C(
+        "NurbsSurface.mirror",
+        "NurbsSurface.mirror indices worldSpace",
+        s_surface,
+        lambda c, **kw: c.nsrfShape.mirror("YZ", worldSpace=True, pivot=(1.0, 0.0, 0.0), indices=[0, 5], **kw),
+    ),
     C("NurbsCurve.setKnots", "NurbsCurve.setKnots", s_curve, lambda c, **kw: c.ncrvShape.setKnots([v * 2 for v in c.ncrvShape.getKnots()])),
     C("NurbsCurve.makeMultipleEndKnots", "NurbsCurve.makeMultipleEndKnots", s_periodic_curve, lambda c, **kw: c.ncrvShape.makeMultipleEndKnots()),
     C(
@@ -1842,21 +1838,21 @@ CASES = [
     C("NurbsCurve.rebuild", "NurbsCurve.rebuild", s_curve, lambda c, **kw: c.ncrvShape.rebuild(4, 3, keepRange="unit")),
     C("NurbsCurve.reverseDirection", "NurbsCurve.reverseDirection", s_curve, lambda c, **kw: c.ncrvShape.reverseDirection()),
     C("Transform.mirrorGeometry", "Transform.mirrorGeometry", s_cube, lambda c, **kw: c.ncube.mirrorGeometry("x", worldSpace=True, **kw)),
-    C("PointComponent.setPosition", "Vertex.setPosition", s_cube, lambda c, **kw: c.nshape.getVertex(0).setPosition((1.0, 2.0, 3.0), **kw)),
+    C("PointComponent.setPosition", "Vertex.setPosition", s_cube, lambda c, **kw: c.nshape.getVertices(0).setPosition((1.0, 2.0, 3.0), **kw)),
     C(
         "PointComponent.setPosition",
         "CV.setPosition worldSpace",
         s_curve,
-        lambda c, **kw: c.ncrvShape.getCV(1).setPosition((1.0, 2.0, 3.0), worldSpace=True, **kw),
+        lambda c, **kw: c.ncrvShape.getCVs(1).setPosition((1.0, 2.0, 3.0), worldSpace=True, **kw),
     ),
-    C("PointComponent.setPosition", "Vertex.setPosition axis=x", s_cube, lambda c, **kw: c.nshape.getVertex(1).setPosition(2.0, axis="x", **kw)),
+    C("PointComponent.setPosition", "Vertex.setPosition axis=x", s_cube, lambda c, **kw: c.nshape.getVertices(1).setPosition(2.0, axis="x", **kw)),
     C(
         "PointComponent.setPosition",
         "Vertex.setPosition axis=y worldSpace",
         s_cube,
-        lambda c, **kw: c.nshape.getVertex(1).setPosition(2.0, worldSpace=True, axis="y", **kw),
+        lambda c, **kw: c.nshape.getVertices(1).setPosition(2.0, worldSpace=True, axis="y", **kw),
     ),
-    C("PointComponent.setPosition", "CV.setPosition axis=z", s_curve, lambda c, **kw: c.ncrvShape.getCV(2).setPosition(2.0, axis="z", **kw)),
+    C("PointComponent.setPosition", "CV.setPosition axis=z", s_curve, lambda c, **kw: c.ncrvShape.getCVs(2).setPosition(2.0, axis="z", **kw)),
     C(
         "PointComponents.setPosition",
         "Vertices.setPosition each",
@@ -1887,7 +1883,7 @@ CASES = [
         "PointComponent.setPosition",
         "Vertex.setPosition axis=z relative",
         s_cube,
-        lambda c, **kw: c.nshape.getVertex(3).setPosition(0.5, axis="z", relative=True, **kw),
+        lambda c, **kw: c.nshape.getVertices(3).setPosition(0.5, axis="z", relative=True, **kw),
     ),
     C(
         "PointComponents.setPosition",
@@ -1920,10 +1916,10 @@ CASES = [
         s_lattice,
         lambda c, **kw: mlib.LatticePoints(c.nlatShape, [1, 3]).mirror("x", pivot=(0.25, 0.0, 0.0), **kw),
     ),
-    C("Vertex.setColor", "Vertex.setColor", s_cube, lambda c, **kw: c.nshape.getVertex(2).setColor((0.0, 0.0, 1.0), **kw)),
-    C("UV.setPosition", "UV.setPosition", s_cube, lambda c, **kw: c.nshape.getUV(0).setPosition((0.9, 0.1), **kw)),
-    C("UV.setPosition", "UV.setPosition axis=u", s_cube, lambda c, **kw: c.nshape.getUV(1).setPosition(0.9, axis="u", **kw)),
-    C("UV.setPosition", "UV.setPosition axis=v", s_cube, lambda c, **kw: c.nshape.getUV(1).setPosition(0.9, axis="v", **kw)),
+    C("Vertex.setColor", "Vertex.setColor", s_cube, lambda c, **kw: c.nshape.getVertices(2).setColor((0.0, 0.0, 1.0), **kw)),
+    C("UV.setPosition", "UV.setPosition", s_cube, lambda c, **kw: c.nshape.getUVs(0).setPosition((0.9, 0.1), **kw)),
+    C("UV.setPosition", "UV.setPosition axis=u", s_cube, lambda c, **kw: c.nshape.getUVs(1).setPosition(0.9, axis="u", **kw)),
+    C("UV.setPosition", "UV.setPosition axis=v", s_cube, lambda c, **kw: c.nshape.getUVs(1).setPosition(0.9, axis="v", **kw)),
     C("UVs.setPosition", "UVs.setPosition each", s_cube, lambda c, **kw: c.nshape.getUVs([0, 1]).setPosition([(0.1, 0.2), (0.3, 0.4)], each=True, **kw)),
     C("UVs.setPosition", "UVs.setPosition", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setPosition((0.5, 0.5), **kw)),
     C("UVs.setPosition", "UVs.setPosition axis=u each", s_cube, lambda c, **kw: c.nshape.getUVs([2, 3]).setPosition([0.1, 0.9], axis="u", each=True, **kw)),
@@ -1973,8 +1969,8 @@ CASES = [
         lambda c, **kw: c.nblend.setTargetDeltas(0, {0: (0.0, 2.0, 0.0)}, disconnect=True, **kw),
     ),
     C("BlendShape.setTargetWeights", "BlendShape.setTargetWeights", s_blend, lambda c, **kw: c.nblend.setTargetWeights(0, {1: 0.5, 2: 0.25}, **kw)),
-    C("BlendShape.addInBetween", "BlendShape.addInBetween", s_blend, lambda c, **kw: c.nblend.addInBetween(0, c.target2, 0.5)),
-    C("BlendShape.removeInBetween", "BlendShape.removeInBetween", s_blend_inbetween, lambda c, **kw: c.nblend.removeInBetween(0, 0.5)),
+    C("BlendShape.addTarget", "BlendShape.addTarget(inBetween)", s_blend, lambda c, **kw: c.nblend.addTarget(c.target2, inBetween=0, fullWeight=0.5)),
+    C("BlendShape.removeTarget", "BlendShape.removeTarget(inBetween)", s_blend_inbetween, lambda c, **kw: c.nblend.removeTarget(0, inBetween=0.5)),
     C("BlendShape.mirrorTarget", "BlendShape.mirrorTarget", s_blend_baked, lambda c, **kw: c.nblend.mirrorTarget(0)),
     C("BlendShape.replaceTarget", "BlendShape.replaceTarget", s_blend_baked, lambda c, **kw: c.nblend.replaceTarget(0, c.target2)),
     C(
@@ -2001,8 +1997,8 @@ CASES = [
     C("AnimCurve.setInfinity", "AnimCurve.setInfinity", s_keyed, lambda c, **kw: c.ncurve.setInfinity(pre="cycle", post="linear", **kw)),
     C("AnimCurve.moveKey", "AnimCurve.moveKey", s_keyed, lambda c, **kw: c.ncurve.moveKey(timeOffset=0.1, valueOffset=1.0, **kw)),
     C("AnimCurve.scaleKey", "AnimCurve.scaleKey", s_keyed, lambda c, **kw: c.ncurve.scaleKey(2.0, 2.0, **kw)),
-    C("AnimCurve.mirror", "AnimCurve.mirror", s_keyed, lambda c, **kw: c.ncurve.mirror(**kw)),
-    C("AnimCurve.insertKey", "AnimCurve.insertKey", s_keyed, lambda c, **kw: c.ncurve.insertKey(4)),
+    C("AnimCurve.scaleKey", "AnimCurve.scaleKey valueScale=-1", s_keyed, lambda c, **kw: c.ncurve.scaleKey(valueScale=-1)),
+    C("AnimCurve.setKey", "AnimCurve.setKey(insert)", s_keyed, lambda c, **kw: c.ncurve.setKey(4), fastSkip="挿入(value を省く形)は fast を受け付けない"),
     C("AnimCurve.setBreakdown", "AnimCurve.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.setBreakdown([0, 1])),
     C("AnimCurve.moveKey", "AnimCurve.moveKey index", s_keyed, lambda c, **kw: c.ncurve.moveKey(index=1, timeOffset=2, valueOffset=-1)),
     C("AnimCurve.scaleKey", "AnimCurve.scaleKey time", s_keyed, lambda c, **kw: c.ncurve.scaleKey(1, 3, valuePivot=1, time=(5, 15))),
@@ -2032,15 +2028,15 @@ CASES = [
     ),
     C("Plug.moveKey", "Plug.moveKey", s_keyed, lambda c, **kw: c.na.getPlug("tx").moveKey(timeOffset=1, valueOffset=2)),
     C("Node.moveKey", "Node.moveKey", s_keyed, lambda c, **kw: c.na.moveKey(["tx"], time=(5, 15), timeOffset=-1)),
-    C("Keyframe.setValue", "Keyframe.setValue", s_keyed, lambda c, **kw: c.ncurve.getKeyframe(1).setValue(7.0, **kw)),
-    C("Keyframe.setTangent", "Keyframe.setTangent", s_keyed, lambda c, **kw: c.ncurve.getKeyframe(0).setTangent(outTangentType="flat", **kw)),
-    C("Keyframe.setBreakdown", "Keyframe.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.getKeyframe(1).setBreakdown()),
-    C("Keyframe.move", "Keyframe.move", s_keyed, lambda c, **kw: c.ncurve.getKeyframe(0).move(timeOffset=1, valueOffset=1)),
+    C("Keyframe.setValue", "Keyframe.setValue", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(1).setValue(7.0, **kw)),
+    C("Keyframe.setTangent", "Keyframe.setTangent", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(0).setTangent(outTangentType="flat", **kw)),
+    C("Keyframe.setBreakdown", "Keyframe.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(1).setBreakdown()),
+    C("Keyframe.move", "Keyframe.move", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(0).move(timeOffset=1, valueOffset=1)),
     C(
         "Keyframe.remove",
         "Keyframe.remove",
         s_keyed,
-        lambda c, **kw: c.ncurve.getKeyframe(0).remove(**kw),
+        lambda c, **kw: c.ncurve.getKeyframes(0).remove(**kw),
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
@@ -2233,16 +2229,16 @@ CASES = [
     ),
     C("Transform.freezeToOffsetParent", "Transform.freezeToOffsetParent", s_child, lambda c, **kw: c.na.freezeToOffsetParent()),
     C("Mesh.setVertexColors", "Mesh.setVertexColors", s_cube, lambda c, **kw: c.nshape.setVertexColors([(1, 0, 0), (0, 1, 0)], vertices=[0, 1], **kw)),
-    C("Mesh.createUVSet", "Mesh.createUVSet", s_cube, lambda c, **kw: c.nshape.createUVSet("uvNew")),
-    C("Mesh.copyUVSet", "Mesh.copyUVSet", s_uv_sets, lambda c, **kw: c.nshape.copyUVSet("map1", "uvCopy")),
-    C("Mesh.renameUVSet", "Mesh.renameUVSet", s_uv_sets, lambda c, **kw: c.nshape.renameUVSet("uv2", "uvRenamed")),
-    C("Mesh.setCurrentUVSet", "Mesh.setCurrentUVSet", s_uv_sets, lambda c, **kw: c.nshape.setCurrentUVSet("uv2")),
-    C("Mesh.deleteUVSet", "Mesh.deleteUVSet", s_uv_sets, lambda c, **kw: c.nshape.deleteUVSet("uv2")),
-    C("Mesh.createColorSet", "Mesh.createColorSet", s_cube, lambda c, **kw: c.nshape.createColorSet("colNew")),
-    C("Mesh.copyColorSet", "Mesh.copyColorSet", s_color_sets, lambda c, **kw: c.nshape.copyColorSet("col1", "colCopy")),
-    C("Mesh.renameColorSet", "Mesh.renameColorSet", s_color_sets, lambda c, **kw: c.nshape.renameColorSet("col2", "colRenamed")),
-    C("Mesh.setCurrentColorSet", "Mesh.setCurrentColorSet", s_color_sets, lambda c, **kw: c.nshape.setCurrentColorSet("col1")),
-    C("Mesh.deleteColorSet", "Mesh.deleteColorSet", s_color_sets, lambda c, **kw: c.nshape.deleteColorSet("col2")),
+    C("Mesh.createSet", "Mesh.createSet(uv)", s_cube, lambda c, **kw: c.nshape.createSet("uvNew")),
+    C("Mesh.copySet", "Mesh.copySet(uv)", s_uv_sets, lambda c, **kw: c.nshape.copySet("map1", "uvCopy")),
+    C("Mesh.renameSet", "Mesh.renameSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.renameSet("uv2", "uvRenamed")),
+    C("Mesh.setCurrentSet", "Mesh.setCurrentSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.setCurrentSet("uv2")),
+    C("Mesh.deleteSet", "Mesh.deleteSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.deleteSet("uv2")),
+    C("Mesh.createSet", "Mesh.createSet(color)", s_cube, lambda c, **kw: c.nshape.createSet("colNew", color=True)),
+    C("Mesh.copySet", "Mesh.copySet(color)", s_color_sets, lambda c, **kw: c.nshape.copySet("col1", "colCopy", color=True)),
+    C("Mesh.renameSet", "Mesh.renameSet(color)", s_color_sets, lambda c, **kw: c.nshape.renameSet("col2", "colRenamed", color=True)),
+    C("Mesh.setCurrentSet", "Mesh.setCurrentSet(color)", s_color_sets, lambda c, **kw: c.nshape.setCurrentSet("col1", color=True)),
+    C("Mesh.deleteSet", "Mesh.deleteSet(color)", s_color_sets, lambda c, **kw: c.nshape.deleteSet("col2", color=True)),
     # Plug
     C("Plug.set", "Plug.set double", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").set(4.0, **kw)),
     C("Plug.set", "Plug.set bool", s_one, lambda c, **kw: mlib.getPlug(c.a + ".visibility").set(False, **kw)),
@@ -2439,11 +2435,11 @@ CASES = [
     ),
     C("BlendShape.regenerateTarget", "BlendShape.regenerateTarget", s_blend_regenerate, lambda c, **kw: c.nblend.regenerateTarget(0)),
     C(
-        "BlendShape.setBaseWeights",
-        "BlendShape.setBaseWeights",
+        "BlendShape.setTargetWeights",
+        "BlendShape.setTargetWeights(base)",
         s_blend_base_weights,
-        lambda c, **kw: c.nblend.setBaseWeights({0: 0.25, 3: 0.75}, **kw),
-        extraState=lambda c: c.nblend.getBaseWeights(),
+        lambda c, **kw: c.nblend.setTargetWeights(None, {0: 0.25, 3: 0.75}, **kw),
+        extraState=lambda c: c.nblend.getTargetWeights(),
     ),
     C(
         "Mesh.removeFaceVertexColors",
@@ -2453,10 +2449,10 @@ CASES = [
         extraState=r_face_vertex_colors,
     ),
     C(
-        "Mesh.setFaceVertexColors",
-        "Mesh.setFaceVertexColors",
+        "Mesh.setVertexColors",
+        "Mesh.setVertexColors(perFace)",
         s_face_vertex_colors,
-        lambda c, **kw: c.nshape.setFaceVertexColors([(1, 0, 0, 0.25)], faceVertices=[0], colorSet="colors", **kw),
+        lambda c, **kw: c.nshape.setVertexColors([(1, 0, 0, 0.25)], perFace=True, faceVertices=[0], colorSet="colors", **kw),
         extraState=r_face_vertex_colors,
     ),
     C(
@@ -2467,10 +2463,10 @@ CASES = [
         extraState=r_face_vertex_normals,
     ),
     C(
-        "Mesh.setFaceVertexNormalsLocked",
-        "Mesh.setFaceVertexNormalsLocked",
+        "Mesh.setFaceVertexNormals",
+        "Mesh.setFaceVertexNormals(locked)",
         s_cube,
-        lambda c, **kw: c.nshape.setFaceVertexNormalsLocked(True, faceVertices=[0], **kw),
+        lambda c, **kw: c.nshape.setFaceVertexNormals(locked=True, faceVertices=[0], **kw),
         extraState=r_face_vertex_normals,
     ),
     C(

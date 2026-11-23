@@ -31,7 +31,7 @@ class SurfaceCV(PointComponent):
     NurbsSurfaceのShapeとCVの番号(``cv[u][v]``)を持ち、今のXYZ座標を取得・編集する。
 
     - 持っている :attr:`index` は、``u * V方向のCV数 + v`` の通し番号。
-      :meth:`NurbsSurface.getCvPositions <mlib.nodes.nurbsSurface.NurbsSurface.getCvPositions>` の並びと同じになる。
+      :meth:`NurbsSurface.getPoints <mlib.nodes.nurbsSurface.NurbsSurface.getPoints>` の並びと同じになる。
       ``(u, v)`` は :meth:`getMultiIndex` で取得する。
     - 周期曲面でも、OpenMayaの番号(重なっているCVを含む)で持つ。
       cmdsへ渡す名前では、末尾で重なっているCVを、先頭側の同じCVの番号に直す。

@@ -41,10 +41,10 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         """Verticesと単体Vertexを受理し、他meshの頂点を全件検証で拒否する。"""
         shape = self.base.getShape()
         self.skin.redistributeWeights(shape.getVertices([0, 1]))
-        self.skin.redistributeWeights(shape.getVertex(2))
+        self.skin.redistributeWeights(shape.getVertices(2))
         other = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
         before = list(self.skin.getWeights([self.first, self.second]))
-        for vertices in (other.getVertices([]), [shape.getVertex(0), other.getVertex(0)]):
+        for vertices in (other.getVertices([]), [shape.getVertices(0), other.getVertices(0)]):
             with self.assertRaises(ValueError):
                 self.skin.redistributeWeights(vertices)
         self.assertEqual(list(self.skin.getWeights([self.first, self.second])), before)

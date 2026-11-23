@@ -99,7 +99,7 @@ class Vertex(PointComponent):
         縁とは、接する面が1つだけのエッジのこと。``MItMeshVertex.onBoundary`` で調べる。
 
         Returns:
-            bool: 縁の上ならTrue。:meth:`Mesh.getBorderVertices <mlib.nodes.mesh.Mesh.getBorderVertices>` に
+            bool: 縁の上ならTrue。:meth:`Mesh.getBorder(type="vertex") <mlib.nodes.mesh.Mesh.getBorder>` に
                 含まれる頂点と同じになる。
 
         Raises:

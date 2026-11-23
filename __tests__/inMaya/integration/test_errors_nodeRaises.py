@@ -86,7 +86,7 @@ class AnimCurveTest(_RaisesCase):
         cases = (
             ("animCurveTL", "isWeighted", ()),
             ("animCurveTL", "findClosestIndex", (3,)),
-            ("animCurveTL", "insertKey", (3,)),
+            ("animCurveTL", "setKey", (3,)),
             ("animCurveTL", "replaceKeys", ([(1, 2)],)),
             ("animCurveTL", "getKeyframes", ()),
             ("animCurveTL", "addKeys", ([{"time": 20, "value": 1}],)),
@@ -98,9 +98,9 @@ class AnimCurveTest(_RaisesCase):
                 self.assertFailsWithoutChange(RuntimeError, getattr(curve, method), *args)
 
     def test_curve_without_keys(self):
-        """findClosestIndex・insertKey はキーの無いカーブで RuntimeError。キーは増えない。"""
+        """findClosestIndex・setKey(value を省く挿入)はキーの無いカーブで RuntimeError。キーは増えない。"""
         curve = self.node("animCurveTL")
-        for method in ("findClosestIndex", "insertKey"):
+        for method in ("findClosestIndex", "setKey"):
             with self.subTest(method=method):
                 self.assertFailsWithoutChange(RuntimeError, getattr(curve, method), 3)
                 self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, keyframeCount=True), 0)
@@ -126,29 +126,30 @@ class CameraTest(_RaisesCase):
     CASES = (
         ("getDepthOfFieldRange", (), {}),
         ("getFieldOfView", (), {}),
-        ("getCenterOfInterestPoint", (), {}),
-        ("getViewDirection", (), {}),
-        ("getUpDirection", (), {}),
-        ("setUpDirection", ((0, 1, 0),), {}),
+        ("getPoint", (), {}),
+        ("getPoint", (), {"kind": "centerOfInterest"}),
+        ("getDirection", (), {}),
+        ("getDirection", (), {"kind": "up"}),
+        ("setDirection", ((0, 1, 0),), {"kind": "up"}),
         ("getProjectionMatrix", (), {}),
-        ("getRenderingFrustum", (1.5,), {}),
-        ("getViewingFrustum", (1.5,), {}),
+        ("getFrustum", (1.5,), {"kind": "rendering"}),
+        ("getFrustum", (1.5,), {}),
         ("getViewParameters", (1.5,), {}),
-        ("getPortFieldOfView", (640, 480), {}),
-        ("getPostProjectionMatrix", (), {}),
+        ("getFieldOfView", (), {"port": (640, 480)}),
+        ("getProjectionMatrix", (), {"post": True}),
         ("isOrtho", (), {}),
-        ("setCenterOfInterestPoint", ((0, 0, -5),), {"fast": True}),
+        ("setPoint", ((0, 0, -5),), {"kind": "centerOfInterest", "fast": True}),
         ("copyViewFrom", ("camera",), {"fast": True}),
         ("setVerticalLocked", (True,), {}),
         ("setFieldOfView", (40.0,), {}),
-        ("setNearFocusDistance", (5.0,), {}),
-        ("setFarFocusDistance", (50.0,), {}),
+        ("setFocusDistance", (), {"near": 5.0}),
+        ("setFocusDistance", (), {"far": 50.0}),
         ("setAspectRatio", (1.5,), {}),
     )
 
     def test_deleted_camera(self):
         for method, args, flags in self.CASES:
-            with self.subTest(method=method):
+            with self.subTest(method=method, flags=flags):
                 camera = mlib.getNode(cmds.camera()[1])
                 args = tuple(mlib.getNode(cmds.camera()[1]) if value == "camera" else value for value in args)
                 self.kill(camera)
@@ -297,17 +298,17 @@ class NodeTest(_RaisesCase):
 class NurbsTest(_RaisesCase):
     """形状データの無い・削除した NURBS のカーブと曲面。"""
 
-    CURVE = (("getNormalAtParam", (0.5,)), ("getMatricesAlong", (3,)), ("getDerivativesAtParam", (0.5,)))
+    CURVE = (("getAtParam", (0.5,), {"what": "normal"}), ("getMatricesAlong", (3,), {}), ("getAtParam", (0.5,), {"what": "derivatives"}))
     SURFACE = (
-        ("getForm", ()),
-        ("getPatchShaders", ()),
-        ("getTrimBoundaryCurveData", (0, 0, 0)),
-        ("isPointInTrimmedRegion", (0.5, 0.5)),
-        ("getRayIntersection", ((0, 5, 0), (0, -1, 0))),
-        ("isPointOnSurface", ((0, 0, 0),)),
-        ("getDerivativesAtParam", (0.5, 0.5)),
-        ("getNormalAtParam", (0.5, 0.5)),
-        ("removeKnot", (0.5,)),
+        ("getForm", (), {}),
+        ("getPatchShaders", (), {}),
+        ("getTrimBoundaryCurveData", (0, 0, 0), {}),
+        ("isPointInTrimmedRegion", (0.5, 0.5), {}),
+        ("getRayIntersection", ((0, 5, 0), (0, -1, 0)), {}),
+        ("isPointOnSurface", ((0, 0, 0),), {}),
+        ("getAtParam", (0.5, 0.5), {"what": "derivatives"}),
+        ("getAtParam", (0.5, 0.5), {"what": "normal"}),
+        ("removeKnot", (0.5,), {}),
     )
 
     def curve(self):
@@ -317,21 +318,21 @@ class NurbsTest(_RaisesCase):
         return self.shape(cmds.nurbsPlane(constructionHistory=False)[0])
 
     def test_curve(self):
-        for method, args in self.CURVE:
-            with self.subTest(method=method, case="empty"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.node("nurbsCurve"), method), *args)
-            with self.subTest(method=method, case="deleted"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.curve()), method), *args)
+        for method, args, flags in self.CURVE:
+            with self.subTest(method=method, flags=flags, case="empty"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.node("nurbsCurve"), method), *args, **flags)
+            with self.subTest(method=method, flags=flags, case="deleted"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.curve()), method), *args, **flags)
         for method, args in (("removeKnot", (1.0,)), ("makeMultipleEndKnots", ())):
             with self.subTest(method=method, case="deleted"):
                 self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.curve()), method), *args)
 
     def test_surface(self):
-        for method, args in self.SURFACE:
-            with self.subTest(method=method, case="empty"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.node("nurbsSurface"), method), *args)
-            with self.subTest(method=method, case="deleted"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.surface()), method), *args)
+        for method, args, flags in self.SURFACE:
+            with self.subTest(method=method, flags=flags, case="empty"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.node("nurbsSurface"), method), *args, **flags)
+            with self.subTest(method=method, flags=flags, case="deleted"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.surface()), method), *args, **flags)
 
 
 class ObjectSetTest(_RaisesCase):
@@ -386,10 +387,10 @@ class ReferenceTest(_RaisesCase):
         for method in ("getCopyNumbers", "removeEdits"):
             with self.subTest(method=method):
                 self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.node("reference")), method))
-        for method in ("getEditNodeNames", "getEditAttrNames"):
-            with self.subTest(method=method, case="onReferenceNode"):
+        for kind in ("node", "attr"):
+            with self.subTest(method="getEdits", kind=kind, case="onReferenceNode"):
                 live = self.node("reference")
-                self.assertFailsWithoutChange(RuntimeError, getattr(live, method), onReferenceNode=self.kill(self.node("reference")))
+                self.assertFailsWithoutChange(RuntimeError, live.getEdits, kind=kind, onReferenceNode=self.kill(self.node("reference")))
 
 
 class ShadingEngineTest(_RaisesCase):

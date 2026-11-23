@@ -71,7 +71,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def positions(self, shape, ws=False):
         """API の内部距離単位で形状の全位置を返す。"""
-        points = shape.getPoints(ws) if isinstance(shape, mlib.Mesh) else shape.getCvPositions(ws)
+        points = shape.getPoints(ws)
         return [tuple(point)[:3] for point in points]
 
     def assert_positions(self, actual, expected):
@@ -167,17 +167,35 @@ class CameraQueryTest(_Case):
         """位置・視線・上方向は Transform の配置(xform)と一致し、ローカルは原点・-Z・+Y。"""
         transform, shape = self.camera()
         cmds.xform(transform.getFullName(), translation=(1, 2, 3), rotation=(0, 90, 0), worldSpace=True)
-        self.assertSequenceAlmostEqual(shape.getEyePoint(), (1, 2, 3))
-        self.assertSequenceAlmostEqual(shape.getEyePoint(ws=False), (0, 0, 0))
-        self.assertSequenceAlmostEqual(shape.getViewDirection(), (-1, 0, 0))
-        self.assertSequenceAlmostEqual(shape.getViewDirection(worldSpace=False), (0, 0, -1))
-        self.assertSequenceAlmostEqual(shape.getUpDirection(), (0, 1, 0))
+        self.assertSequenceAlmostEqual(shape.getPoint(), (1, 2, 3))
+        self.assertSequenceAlmostEqual(shape.getPoint(ws=False), (0, 0, 0))
+        self.assertSequenceAlmostEqual(shape.getDirection(), (-1, 0, 0))
+        self.assertSequenceAlmostEqual(shape.getDirection(worldSpace=False), (0, 0, -1))
+        self.assertSequenceAlmostEqual(shape.getDirection(kind="up"), (0, 1, 0))
         cmds.setAttr(transform.getFullName() + ".scale", 2, 2, 2)
-        self.assertAlmostEqual(shape.getViewDirection().length(), 1.0)
+        self.assertAlmostEqual(shape.getDirection().length(), 1.0)
         with self.assertRaises(TypeError):
-            shape.getEyePoint(worldSpace=True, ws=True)
+            shape.getPoint(worldSpace=True, ws=True)
         with self.assertRaises(TypeError):
-            shape.getUpDirection(worldSpace=0)
+            shape.getDirection(worldSpace=0, kind="up")
+        # kind を明示しても既定と同じ値。注視点は視点から視線の向きへ centerOfInterest だけ進んだ位置。
+        self.assertSequenceAlmostEqual(shape.getPoint(kind="eye"), shape.getPoint())
+        self.assertSequenceAlmostEqual(shape.getDirection(kind="view"), shape.getDirection())
+        self.assertSequenceAlmostEqual(shape.getDirection(ws=False, kind="up"), (0, 1, 0))
+        distance = cmds.getAttr(shape.getFullName() + ".centerOfInterest")
+        self.assertSequenceAlmostEqual(shape.getPoint(kind="centerOfInterest"), tuple(shape.mfn().centerOfInterestPoint(om2.MSpace.kWorld))[:3], places=6)
+        self.assertSequenceAlmostEqual(shape.getPoint(ws=False, kind="centerOfInterest"), (0, 0, -distance), places=6)
+        for method in (shape.getPoint, shape.getDirection):
+            with self.subTest(method=method.__name__):
+                with self.assertRaises(ValueError):
+                    method(kind="center")
+                with self.assertRaises(TypeError):
+                    method(kind=1)
+        # 種類の名前は取得ごとに別(点の名前を向きへ、向きの名前を点へ渡すと ValueError)。
+        with self.assertRaises(ValueError):
+            shape.getPoint(kind="up")
+        with self.assertRaises(ValueError):
+            shape.getDirection(kind="eye")
 
     def test_projection_and_ortho(self):
         """投影マトリクスの [0][0] は 1/tan(水平画角/2) で、カメラ前方の点は画面の中央へ写る。正投影の判定。"""
@@ -193,7 +211,7 @@ class CameraQueryTest(_Case):
         ortho = mlib.getNode(cmds.camera(name=self.name("ortho#"), orthographic=True)[1])
         self.assertTrue(ortho.isOrtho())
         self.assertDeletedRaises(
-            shape, (lambda node: node.getFieldOfView(), lambda node: node.getEyePoint(), lambda node: node.getProjectionMatrix(), lambda node: node.isOrtho())
+            shape, (lambda node: node.getFieldOfView(), lambda node: node.getPoint(), lambda node: node.getProjectionMatrix(), lambda node: node.isOrtho())
         )
 
 
