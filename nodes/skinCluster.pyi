@@ -273,41 +273,54 @@ class SkinCluster(GeometryFilter):
             NotImplementedError: 対象が単一Meshでない場合。
         """
         ...
-    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ...) -> None:
+    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ...) -> None:
         """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。
 
-        cmds.skinClusterのsmoothWeightsを1回実行する。対象はMesh全体で、インフルエンスのロックは変更しない。
-        結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。
+        cmds.skinClusterのsmoothWeightsを1回実行する。対象は先頭のMeshの、verticesで指定した頂点(Noneなら全体)で、
+        インフルエンスのロックは変更しない。Mayaのsmoothweightsは選んでいる頂点を対象にするため、
+        実行の間だけ対象を選び、終わったら元の選択へ戻す(作業中の選択には左右されない)。
+        結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。Undoが有効なら1回で戻せる。
 
         Args:
             tolerance (float): 周囲とのウェイト差の判定値。0以上1以下。
             iterations (int): 最大反復回数。1以上。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。Noneなら先頭のMesh全体。
+                指定のしかたは :meth:`getWeights` と同じ。空なら何もしない。
+            obeyMaxInfluences (bool | None): Trueなら、ならした後もインフルエンスの最大数(maxInfluences)を守る
+                (``cmds.skinCluster`` の ``obeyMaxInfluences``)。NoneならMayaの既定。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: toleranceが数値でない場合、またはiterationsがintでない場合。
-            ValueError: toleranceが範囲外、またはiterationsが1未満の場合。
+            TypeError: toleranceが数値でない場合、iterationsがintでない場合、obeyMaxInfluencesがbool・None以外の場合、
+                または頂点の入力の型が正しくない場合。
+            ValueError: toleranceが範囲外、iterationsが1未満の場合、または頂点が重複している・別の形状のものである場合。
+            IndexError: 頂点の番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、skinClusterがロックされているかリファレンスの場合、
                 ``weightList`` かその要素がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
                 またはMayaが編集を拒否した場合。
             NotImplementedError: 出力がMeshでない場合。
         """
         ...
-    def addInfluences(self, joints: Joint | str | Iterable[Joint | str]) -> None:
-        """ジョイントを、ウェイト0のインフルエンスとして登録する。
+    def addInfluences(self, joints: Joint | str | Iterable[Joint | str], *, weight: float = ..., lockWeights: bool = ...) -> None:
+        """ジョイントを、インフルエンスとして登録する。
 
         すでにインフルエンスになっているものと、重ねて指定したものは無視する。
+        ``cmds.skinCluster(edit=True, addInfluence=..., weight=weight, lockWeights=lockWeights)`` で追加する。
 
         Args:
             joints (Joint | str | Iterable[Joint | str]): 追加するジョイント。空なら何もしない。
+            weight (float): 追加したインフルエンスの初めのウェイト。0以上1以下。既定は0(ほかのウェイトを変えない)。
+                0より大きいと、Mayaがその分をほかのインフルエンスから減らす。
+            lockWeights (bool): Trueなら、追加したインフルエンスのウェイトをロックする。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            ValueError: Joint以外を指定した場合。編集する前に、すべての対象を確かめる。
+            TypeError: weightが数値でない場合、またはlockWeightsがboolでない場合。
+            ValueError: Joint以外を指定した場合、またはweightが0以上1以下の有限な値でない場合。編集する前に、すべての対象を確かめる。
             RuntimeError: 対象が無効な場合、またはMayaが追加を拒否した場合。
 
         Note:
@@ -2052,10 +2065,10 @@ class SkinClusters(Nodes[SkinCluster]):
     def setDropoffRate(self, influence: Node | str, value: float) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setDropoffRate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ...) -> list[None]:
+    def smoothWeights(self, *, tolerance: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.smoothWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addInfluences(self, joints: Joint | str | Iterable[Joint | str]) -> list[None]:
+    def addInfluences(self, joints: Joint | str | Iterable[Joint | str], *, weight: float = ..., lockWeights: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.addInfluences` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def removeInfluences(self, joints: str | Node | Iterable, *, transferToParent: bool = ..., force: bool = ...) -> list[None]:
@@ -2274,6 +2287,9 @@ class SkinClusters(Nodes[SkinCluster]):
     def getClassification(self) -> list[list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getClassification` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def isClassified(self, classification: str) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isClassified` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def isType(self, nodeType: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2342,6 +2358,9 @@ class SkinClusters(Nodes[SkinCluster]):
         ...
     def moveKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.moveKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setKeyTangent(self, attributes: str | Iterable[str] | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setKeyTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getHistory(self, *, type: str | None = ..., future: bool = ...) -> list[Nodes]:
         """各要素の :meth:`~mlib.nodes.node.Node.getHistory` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

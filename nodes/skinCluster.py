@@ -406,22 +406,30 @@ class SkinCluster(GeometryFilter):
         require_writable(self.getPlug("dropoff")[index].mplug())
         cmds.skinCluster(self.getFullName(), edit=True, influence=node.getFullName(), dropoffRate=value)
 
-    def smoothWeights(self, *, tolerance=0.5, iterations=2):
+    def smoothWeights(self, *, tolerance=0.5, iterations=2, vertices=None, obeyMaxInfluences=None):
         """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。
 
-        cmds.skinClusterのsmoothWeightsを1回実行する。対象はMesh全体で、インフルエンスのロックは変更しない。
-        結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。
+        cmds.skinClusterのsmoothWeightsを1回実行する。対象は先頭のMeshの、verticesで指定した頂点(Noneなら全体)で、
+        インフルエンスのロックは変更しない。Mayaのsmoothweightsは選んでいる頂点を対象にするため、
+        実行の間だけ対象を選び、終わったら元の選択へ戻す(作業中の選択には左右されない)。
+        結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。Undoが有効なら1回で戻せる。
 
         Args:
             tolerance (float): 周囲とのウェイト差の判定値。0以上1以下。
             iterations (int): 最大反復回数。1以上。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。Noneなら先頭のMesh全体。
+                指定のしかたは :meth:`getWeights` と同じ。空なら何もしない。
+            obeyMaxInfluences (bool | None): Trueなら、ならした後もインフルエンスの最大数(maxInfluences)を守る
+                (``cmds.skinCluster`` の ``obeyMaxInfluences``)。NoneならMayaの既定。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: toleranceが数値でない場合、またはiterationsがintでない場合。
-            ValueError: toleranceが範囲外、またはiterationsが1未満の場合。
+            TypeError: toleranceが数値でない場合、iterationsがintでない場合、obeyMaxInfluencesがbool・None以外の場合、
+                または頂点の入力の型が正しくない場合。
+            ValueError: toleranceが範囲外、iterationsが1未満の場合、または頂点が重複している・別の形状のものである場合。
+            IndexError: 頂点の番号が範囲外の場合。
             RuntimeError: ノードが無効な場合、skinClusterがロックされているかリファレンスの場合、
                 ``weightList`` かその要素がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
                 またはMayaが編集を拒否した場合。
@@ -435,31 +443,58 @@ class SkinCluster(GeometryFilter):
             raise TypeError("iterationsはintで指定してください")
         if iterations < 1:
             raise ValueError("iterationsは1以上で指定してください")
+        if obeyMaxInfluences is not None:
+            _require_bool(obeyMaxInfluences, "obeyMaxInfluences")
         self._require_valid("ウェイトのスムーズ")
         if not self.mesh_path.hasFn(om2.MFn.kMesh):
             raise NotImplementedError("smoothWeightsはMeshだけに対応しています")
+        vertex_indices = self._vertex_indices(vertices)
+        if vertex_indices is not None and not vertex_indices:
+            return
         self._require_skin_unlocked("weightList")
-        cmds.skinCluster(self.getFullName(), edit=True, smoothWeights=tolerance, smoothWeightsMaxIterations=iterations)
+        flags = {"smoothWeights": tolerance, "smoothWeightsMaxIterations": iterations}
+        if obeyMaxInfluences is not None:
+            flags["obeyMaxInfluences"] = obeyMaxInfluences
+        # 循環参照の回避: componentsはnodesを参照するため、使う時点で読み込む。
+        from ..components.vertex import Vertices
+
+        with undoChunk("mlibSkinClusterSmoothWeights"), preservedSelection():
+            if vertex_indices is None:
+                # 何も選んでいないときは、Mayaがメッシュ全体をならす。
+                cmds.select(clear=True)
+            else:
+                cmds.select(Vertices(Node._wrap_dag_path(self.mesh_path), vertex_indices).getCompactNames(), replace=True)
+            cmds.skinCluster(self.getFullName(), edit=True, **flags)
 
     @undoChunk("mlibSkinClusterAddInfluences")
-    def addInfluences(self, joints):
-        """ジョイントを、ウェイト0のインフルエンスとして登録する。
+    def addInfluences(self, joints, *, weight=0.0, lockWeights=False):
+        """ジョイントを、インフルエンスとして登録する。
 
         すでにインフルエンスになっているものと、重ねて指定したものは無視する。
+        ``cmds.skinCluster(edit=True, addInfluence=..., weight=weight, lockWeights=lockWeights)`` で追加する。
 
         Args:
             joints (Joint | str | Iterable[Joint | str]): 追加するジョイント。空なら何もしない。
+            weight (float): 追加したインフルエンスの初めのウェイト。0以上1以下。既定は0(ほかのウェイトを変えない)。
+                0より大きいと、Mayaがその分をほかのインフルエンスから減らす。
+            lockWeights (bool): Trueなら、追加したインフルエンスのウェイトをロックする。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            ValueError: Joint以外を指定した場合。編集する前に、すべての対象を確かめる。
+            TypeError: weightが数値でない場合、またはlockWeightsがboolでない場合。
+            ValueError: Joint以外を指定した場合、またはweightが0以上1以下の有限な値でない場合。編集する前に、すべての対象を確かめる。
             RuntimeError: 対象が無効な場合、またはMayaが追加を拒否した場合。
 
         Note:
             すでにあるウェイトの配り直しや正規化はしない。すでにあるロックの設定も変えない。
         """
+        if isinstance(weight, bool) or not isinstance(weight, (int, float)):
+            raise TypeError(f"weightは数値で指定してください: {type(weight).__name__}")
+        if not (math.isfinite(weight) and 0.0 <= weight <= 1.0):
+            raise ValueError(f"weightは0以上1以下の有限な値で指定してください: {weight}")
+        _require_bool(lockWeights, "lockWeights")
         self._require_valid("インフルエンスの追加")
         existing = {om2.MFnDependencyNode(path.node()).uuid().asString() for path in self._skin_fn.influenceObjects()}
         names = []
@@ -471,7 +506,7 @@ class SkinCluster(GeometryFilter):
                 existing.add(node.getUuid())
                 names.append(node.getFullName())
         if names:
-            cmds.skinCluster(self.getFullName(), edit=True, addInfluence=names, weight=0.0)
+            cmds.skinCluster(self.getFullName(), edit=True, addInfluence=names, weight=float(weight), lockWeights=lockWeights)
 
     def removeInfluences(self, joints, *, transferToParent=True, force=False):
         """複数のインフルエンスを、階層の深いものから順に外す。ノードそのものは削除しない。

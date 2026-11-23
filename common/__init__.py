@@ -31,6 +31,7 @@ _exports = {
     "ProgressCancelled": ("progress", "ProgressCancelled"),
     "SKIPPED": ("pluginPackage", "SKIPPED"),
     "ScalarGraph": ("scalarGraph", "ScalarGraph"),
+    "Scene": ("scene", "Scene"),
     "ScriptJob": ("scriptJob", "ScriptJob"),
     "ScriptJobs": ("scriptJobs", "ScriptJobs"),
     "Selection": ("selection", "Selection"),
@@ -60,6 +61,7 @@ if TYPE_CHECKING:
     from .plugin import Plugin
     from .pluginPackage import LOAD_FAILED, LOADED, MISSING, OUTDATED, SKIPPED, PluginPackage
     from .scalarGraph import ScalarGraph
+    from .scene import Scene
     from .sceneTime import Time
     from .scriptJob import ScriptJob
     from .scriptJobs import ScriptJobs

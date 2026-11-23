@@ -3,10 +3,13 @@
 
 import maya.api.OpenMaya as om2
 from .. import logger
+from ..util import _time_unit
 from typing import Callable
 from mlib.nodes.node import Node
 
 _SCENE_EVENTS: tuple
+_SCENE_CHECK_EVENTS: tuple
+_SCENE_CHECK_FILE_EVENTS: tuple
 
 
 class Callbacks:
@@ -71,6 +74,27 @@ class Callbacks:
             ValueError: 知らないイベント名の場合、またはこの版のMayaに無いイベントの場合。
         """
         ...
+    def addSceneCheckCallback(self, event: str, function: Callable) -> int:
+        """シーンの操作の前に呼び、Falseを返せばその操作を止めるコールバックを登録する。
+
+        ``om2.MSceneMessage.addCheckCallback``(``beforeNewCheck``・``beforeSaveCheck``)と
+        ``addCheckFileCallback``(``beforeOpenCheck`` など。対象のファイルは関数へ渡さない)を使う。
+        関数の中で起きた例外は警告にして、操作は続ける(Trueを返したのと同じ)。
+
+        Args:
+            event (str): イベント名。``"beforeNewCheck"``・``"beforeSaveCheck"``・``"beforeOpenCheck"``・
+                ``"beforeImportCheck"``・``"beforeExportCheck"``・``"beforeCreateReferenceCheck"``・
+                ``"beforeLoadReferenceCheck"`` のどれか(``MSceneMessage.k*`` から ``k`` を除いた名前)。
+            function (Callable): 引数なしで呼ぶ処理。真の値を返せば操作を続け、偽の値を返せば止める。
+
+        Returns:
+            int: 登録したコールバックの識別子。
+
+        Raises:
+            TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
+            ValueError: 知らないイベント名の場合。
+        """
+        ...
     def addEventCallback(self, eventName: str, function: Callable) -> int:
         """Mayaのイベント(``om2.MEventMessage``)のコールバックを登録する。
 
@@ -85,6 +109,24 @@ class Callbacks:
         Raises:
             TypeError: eventNameが文字列でない場合、またはfunctionが呼び出せない場合。
             ValueError: Mayaに無いイベント名の場合。
+        """
+        ...
+    def addTimeChangeCallback(self, function: Callable, *, timeUnit: str = ...) -> int:
+        """現在時刻が変わったときのコールバックを登録する。
+
+        ``om2.MDGMessage.addTimeChangeCallback`` を使う。``function(time)`` の形で、変わった後の時刻を渡して呼ぶ。
+        ``addEventCallback("timeChanged", ...)`` と違い、時刻を受け取れる。
+
+        Args:
+            function (Callable): ``function(time)`` の形で呼ぶ処理。timeはfloat。
+            timeUnit (str): timeの単位。``"frame"``(既定。現在のUIの時間単位のフレーム)か ``"sec"``。
+
+        Returns:
+            int: 登録したコールバックの識別子。
+
+        Raises:
+            TypeError: functionが呼び出せない場合、またはtimeUnitが文字列でない場合。
+            ValueError: timeUnitが対応していない単位名の場合。
         """
         ...
     def addAttributeChangedCallback(self, node: Node | str, function: Callable) -> int:

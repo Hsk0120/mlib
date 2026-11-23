@@ -172,6 +172,21 @@ def _cut_key_flags(time: float | Sequence[float] | None, time_unit: str | None) 
     """
     ...
 
+def _key_tangent_flags(in_tangent_type: str | None, out_tangent_type: str | None) -> dict[str, str]:
+    """接線の型の指定を確かめ、``cmds.keyTangent`` のフラグへ変換する。
+
+    Args:
+        in_tangent_type (str | None): 入力側の接線の型。Noneは変えない。
+        out_tangent_type (str | None): 出力側の接線の型。Noneは変えない。
+
+    Returns:
+        dict[str, str]: ``inTangentType``・``outTangentType`` のフラグ(小文字)。
+
+    Raises:
+        ValueError: どちらもNoneの場合、対応していない接線の型の場合、またはfixedの場合。
+    """
+    ...
+
 def _frames_from_seconds(value: float | Sequence[float]) -> float | tuple[float, ...] | list[float]:
     """setKeyframeのtimeへ渡す秒の数値(または数値の並び)を、現在のUIの時間単位でのフレームへ換算する。
 
@@ -1652,6 +1667,30 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが移動を拒否した場合。
         """
         ...
+    def setKeyTangent(self, *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> None:
+        """このアトリビュートのキーの、接線の型をまとめて変える。
+
+        ``cmds.keyTangent(plug, edit=True, time=..., inTangentType=..., outTangentType=...)`` と同じ。
+        時刻か範囲で選んだキーをまとめて変える。カーブの1つのキーの角度・ウェイトまで変えるときは
+        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` を使う。
+        Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は持たない(1回のcmdsで全キーを処理するため)。
+
+        Args:
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
+
+        Returns:
+            None: 値を返さない。範囲にキーが無ければ何もしない。
+
+        Raises:
+            TypeError: timeが数値・2つの数値の並び・Noneのどれでもない場合、またはtimeUnitが文字列でもNoneでもない場合。
+            ValueError: 接線の型を1つも指定しない場合、対応していない接線の型かfixedを指定した場合、timeが有限でない場合、
+                範囲の開始が終了より大きい場合、またはtimeUnitが対応していない単位名の場合。
+            RuntimeError: アトリビュートが無効な場合、またはMayaが変更を拒否した場合。
+        """
+        ...
     def getAnimLayers(self, selected: bool = ..., exact: bool = ...) -> Nodes:
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーを取得する。
 
@@ -2115,11 +2154,14 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def getAnimCurve(self, layer: Node | str | None = ...) -> Node | None:
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> Node | None:
         """このPlugのアニメーションカーブ(animCurve ノード)を取得する。
 
         - ``layer`` を指定しなければ、直接つながっている animCurve だけを探す。pairBlend や
           アニメーションレイヤーを通した、間接的な animCurve は探さない。
+        - ``indirect=True`` なら、直接つながっている animCurve が無いときに、``cmds.setKeyframe`` がキーを打つ先の
+          カーブ(選んでいる・優先するアニメーションレイヤーのカーブや、pairBlend の先のカーブ)を
+          ``cmds.keyframe(plug, q=True, name=True)`` の先頭で取得する。
         - ``layer`` を指定すると、そのアニメーションレイヤーでこのPlugの値を持つカーブを、
           ``cmds.animLayer(layer, q=True, findCurveForPlug=...)`` で取得する。
         - ベースレイヤー(``cmds.animLayer(q=True, root=True)``)を指定し、Plugがどのレイヤーにも
@@ -2127,12 +2169,15 @@ class Plug(Object):
 
         Args:
             layer (Node | str | None): アニメーションレイヤー(animLayer ノード)か、その名前。既定は None。
+            indirect (bool): Trueなら、直接のカーブが無いときに、レイヤーや pairBlend の先のカーブも探す。
+                layer とは同時に指定できない。既定は False。
 
         Returns:
             Node | None: animCurve ノード。無ければ ``None``。
 
         Raises:
-            TypeError: layer が animLayer ノード・名前・None のどれでもない場合。
+            TypeError: layer が animLayer ノード・名前・None のどれでもない場合、または indirect が bool でない場合。
+            ValueError: layer と indirect=True を同時に指定した場合。
             RuntimeError: ノードかアトリビュートが削除されている場合、または layer の名前に当たる
                 レイヤーが見つからない場合。
         """
@@ -3539,6 +3584,9 @@ class Plugs(_ListMethods):
     def moveKey(self, *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.moveKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def setKeyTangent(self, *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.setKeyTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getAnimLayers(self, selected: bool = ..., exact: bool = ...) -> list[Nodes]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimLayers` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -3596,7 +3644,7 @@ class Plugs(_ListMethods):
     def getAffecting(self) -> list[Plugs]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAffecting` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getAnimCurve(self, layer: Node | str | None = ...) -> list[Node | None]:
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> list[Node | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurve` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getLayeredPlug(self, layer: Node | str | None = ...) -> list[Plug | None]:

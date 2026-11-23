@@ -2552,24 +2552,36 @@ class Transform(DagNode):
             new_offset = Matrix._wrap(after.inverse() * before * offset)
             cmds.setAttr(name + ".offsetParentMatrix", *tuple(new_offset), type="matrix")
 
-    def eulerFilter(self):
+    def eulerFilter(self, *, indirect=False):
         """rotateX/Y/Zの時間のアニメーションカーブ(animCurveTA)に、オイラーフィルターをかける。
 
         3本のカーブを1回の ``cmds.filterCurve(filter="euler")`` にまとめて渡す(Mayaのグラフエディターの
-        Euler Filterと同じ)。入力に直接(単位変換のノードを飛ばして)つながっているanimCurveTAだけを対象にし、
+        Euler Filterと同じ)。既定では、入力に直接(単位変換のノードを飛ばして)つながっているanimCurveTAだけを対象にする。
+        ``indirect=True`` なら、:meth:`Plug.getAnimCurve(indirect=True) <mlib.plugs.Plug.getAnimCurve>` と同じく、
+        アニメーションレイヤーや pairBlend の先の、キーを打つ先のカーブも対象にする。
         キーが無ければ何もしない。fast引数は持たない。Undoが有効なら1回で戻せる。
+
+        Args:
+            indirect (bool): Trueなら、レイヤーや pairBlend の先のカーブも対象にする。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: indirectがboolでない場合。
             RuntimeError: ノードが無効な場合、またはMayaがフィルターを拒否した場合。
         """
+        _require_bool(indirect, "indirect")
         self._require_valid("回転のフィルター")
         name = self.getFullName()
         curves = []
         for axis in "XYZ":
-            for curve in cmds.listConnections(name + ".rotate" + axis, source=True, destination=False, type="animCurveTA", skipConversionNodes=True) or []:
+            if indirect:
+                anim_curve = self.getPlug("rotate" + axis).getAnimCurve(indirect=True)
+                found = [anim_curve.getFullName()] if anim_curve is not None and anim_curve.getType() == "animCurveTA" else []
+            else:
+                found = cmds.listConnections(name + ".rotate" + axis, source=True, destination=False, type="animCurveTA", skipConversionNodes=True) or []
+            for curve in found:
                 if curve not in curves:
                     curves.append(curve)
         if curves:

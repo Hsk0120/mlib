@@ -20,6 +20,7 @@ from .namespace import Namespace
 from .plugin import Plugin
 from .pluginPackage import LOAD_FAILED, LOADED, MISSING, OUTDATED, SKIPPED, PluginPackage
 from .scalarGraph import ScalarGraph
+from .scene import Scene
 from .sceneTime import Time
 from .scriptJob import ScriptJob
 from .scriptJobs import ScriptJobs
@@ -29,7 +30,7 @@ from .progress import ProgressCancelled, progressBar
 from typing import Any
 
 _exports: dict
-__all__ = ['Callbacks', 'CurveFit', 'DampedSpring', 'Deferred', 'DrivenKey', 'Environment', 'Keyframe', 'Keyframes', 'LOADED', 'LOAD_FAILED', 'MISSING', 'Module', 'Namespace', 'OUTDATED', 'Plugin', 'PluginPackage', 'ProgressCancelled', 'SKIPPED', 'ScalarGraph', 'ScriptJob', 'ScriptJobs', 'Selection', 'Time', 'Version', 'progressBar', 'units']
+__all__ = ['Callbacks', 'CurveFit', 'DampedSpring', 'Deferred', 'DrivenKey', 'Environment', 'Keyframe', 'Keyframes', 'LOADED', 'LOAD_FAILED', 'MISSING', 'Module', 'Namespace', 'OUTDATED', 'Plugin', 'PluginPackage', 'ProgressCancelled', 'SKIPPED', 'ScalarGraph', 'Scene', 'ScriptJob', 'ScriptJobs', 'Selection', 'Time', 'Version', 'progressBar', 'units']
 
 def __getattr__(name: str) -> Any:
     """公開する名前を、それを定義している現在のモジュールから取得する。

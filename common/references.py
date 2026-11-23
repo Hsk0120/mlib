@@ -6,8 +6,6 @@ from typing import Any, Dict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..decorator import undoChunk
-
 # Maya が常に作る共有のリファレンスノード。ユーザーが作ったリファレンスではないため、一覧から除く。
 _SHARED_REFERENCE_NODE = "sharedReferenceNode"
 
@@ -35,35 +33,64 @@ def _reference_nodes():
     return nodes
 
 
-def listReferences(topLevelOnly=False):
+def listReferences(topLevelOnly=False, *, order="name"):
     """シーンのリファレンスを、Reference のオブジェクトの一覧として取得する。
 
     Args:
         topLevelOnly (bool): True なら、ほかのリファレンスの中に入っていない(ネストされていない)
             トップレベルのリファレンスだけを返す。
+        order (str): 並び順。``"name"``(既定)は ``cmds.ls(type="reference")`` と同じ名前順。
+            ``"load"`` はシーンに読み込んだ順(``cmds.file(q=True, reference=True)`` と同じ順)で、
+            ネストされたリファレンスは親のすぐ後に、親の中で読み込んだ順に並べる。
 
     Returns:
-        Nodes[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
-            リファレンスが無ければ空の集まり。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
+        Nodes[Reference]: リファレンスのオブジェクトの一覧。リファレンスが無ければ空の集まり。
+
+    Raises:
+        ValueError: orderがnameとload以外の場合。
     """
     # commonの初期化時にnodesを読み込まないよう、使用時にReferenceを読み込む。
     from ..nodes.node import Nodes
     from ..nodes.reference import Reference
 
+    if order not in ("name", "load"):
+        raise ValueError(f"orderはnameかloadで指定してください: {order!r}")
+    if order == "load":
+        references = [Reference(name) for name in _reference_nodes_in_load_order(None, topLevelOnly)]
+        return Nodes._wrap(references)
     references = [Reference(mobject) for _, mobject in _reference_nodes()]
     if topLevelOnly:
         references = [reference for reference in references if reference.getParentReference() is None]
     return Nodes._wrap(references)
 
 
-@undoChunk("mlibCreateReference")
-def _require_scene_file(path):
+def _reference_nodes_in_load_order(parent, top_level_only):
+    """リファレンスノードの名前を、読み込んだ順に集める。
+
+    Args:
+        parent (str | None): 親のリファレンスのファイル名(コピー番号付き)。Noneならシーン。
+        top_level_only (bool): Trueなら、ネストされたリファレンスをたどらない。
+
+    Returns:
+        list[str]: リファレンスノードの名前。親の後にその子を続ける。
+    """
+    paths = cmds.file(parent, query=True, reference=True) if parent else cmds.file(query=True, reference=True)
+    names = []
+    for path in paths or ():
+        names.append(cmds.referenceQuery(path, referenceNode=True))
+        if not top_level_only:
+            names.extend(_reference_nodes_in_load_order(path, False))
+    return names
+
+
+def _require_scene_file(path, action="リファレンスする"):
     """リファレンスするファイルがあるかを確かめる。シーンは変えない。
 
     ``~`` はユーザーのホームに展開し、相対パスは ``cmds.file`` と同じくMayaのプロジェクト(workspace)から探す。
 
     Args:
         path (str | os.PathLike): 確かめるファイルのパス。空でないことは呼び出し側で確かめてある。
+        action (str): メッセージに入れる、ファイルに対して行うこと(例: ``"開く"``)。
 
     Returns:
         Path: ``~`` を展開したパス。相対パスは相対のまま返す。
@@ -74,7 +101,7 @@ def _require_scene_file(path):
     scene_path = Path(path).expanduser()
     found_path = scene_path if scene_path.is_absolute() else Path(cmds.workspace(expandName=str(scene_path)))
     if not found_path.is_file():
-        raise FileNotFoundError(f"リファレンスするファイルが見つかりません: {scene_path}")
+        raise FileNotFoundError(f"{action}ファイルが見つかりません: {scene_path}")
     return scene_path
 
 

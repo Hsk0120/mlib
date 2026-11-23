@@ -34,6 +34,24 @@ class ScriptJobSpecTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScriptJob(event="SelectionChanged", attribute="persp.tx", callback=lambda: None)
 
+    def test_new_options_are_checked_before_batch(self):
+        """uiDeleted・allChildren・parent・runOnce・protectedの誤りは、バッチ判定より前に例外にする。"""
+        cases = [
+            ({"event": "SelectionChanged", "uiDeleted": "window1"}, ValueError),
+            ({"event": "SelectionChanged", "allChildren": True}, ValueError),
+            ({"event": "SelectionChanged", "parent": ""}, ValueError),
+            ({"uiDeleted": ""}, ValueError),
+            ({"event": "SelectionChanged", "runOnce": 1}, TypeError),
+            ({"event": "SelectionChanged", "protected": "yes"}, TypeError),
+            ({"attribute": "persp.tx", "allChildren": 1}, TypeError),
+        ]
+        for kwargs, error in cases:
+            with self.subTest(kwargs=kwargs), self.assertRaises(error):
+                ScriptJob(callback=lambda: None, **kwargs)
+        if cmds.about(batch=True):
+            with self.assertRaises(RuntimeError):
+                ScriptJob(uiDeleted="window1", callback=lambda: None, runOnce=True, protected=True)
+
     def test_rejects_non_callable(self):
         """callbackが呼び出せない場合はTypeError(バッチ判定より前)。"""
         with self.assertRaises(TypeError):

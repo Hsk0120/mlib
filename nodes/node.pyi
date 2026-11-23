@@ -736,6 +736,25 @@ class Node(Object):
             list[str]: ``MNodeClass.classification`` を1つだけ入れたリスト。分類が無ければ ``[""]``。
         """
         ...
+    def isClassified(self, classification: str) -> bool:
+        """ノードの型が、指定した分類に入るかを調べる。
+
+        ``cmds.getClassification(type, satisfies=classification)`` と同じ判定で、``cmds.listNodeTypes(classification)`` が
+        返す型の一覧にこのノードの型が入るかと同じ結果になる。たとえばblinnは ``isClassified("shader")``・
+        ``isClassified("shader/surface")`` でTrue、fileは ``isClassified("texture")`` でTrueになる。
+
+        Args:
+            classification (str): 分類(``"shader"``・``"texture/2d"``・``"utility"`` など)。
+
+        Returns:
+            bool: 分類に入ればTrue。
+
+        Raises:
+            TypeError: classificationが文字列でない場合。
+            ValueError: classificationが空文字列の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        ...
     def isType(self, nodeType: str) -> bool:
         """このノードの型が、指定した型そのものか、その派生の型か調べる。
 
@@ -1197,6 +1216,30 @@ class Node(Object):
             RuntimeError: ノードが無効な場合、またはMayaが移動を拒否した場合。
         """
         ...
+    def setKeyTangent(self, attributes: str | Iterable[str] | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> None:
+        """複数のアトリビュートのキーの、接線の型をまとめて変える(``cmds.keyTangent(node, attribute=[...], edit=True)`` にあたる)。
+
+        時刻か範囲で選んだキーをまとめて変える。Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。
+        fast引数は持たない(1回のcmdsで全キーを処理するため)。
+
+        Args:
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
+
+        Returns:
+            None: 値を返さない。キーが無ければ何もしない。
+
+        Raises:
+            TypeError: attributesが文字列・文字列の並び・None以外の場合、timeが数値・2つの数値の並び・None以外の場合、
+                またはtimeUnitが文字列・None以外の場合。
+            ValueError: attributesが空の並びの場合、接線の型を1つも指定しない場合、対応していない接線の型かfixedを指定した場合、
+                timeが有限でない場合、範囲の始まりが終わりより大きい場合、またはtimeUnitが対応していない単位の名前の場合。
+            RuntimeError: ノードが無効な場合、またはMayaが変更を拒否した場合。
+        """
+        ...
     def getHistory(self, *, type: str | None = ..., future: bool = ...) -> Nodes:
         """ヒストリのノードを取得する。
 
@@ -1636,7 +1679,7 @@ class Node(Object):
         """
         ...
     @staticmethod
-    def _create_node(node_type: str, flags: dict, *, fast: bool = ...) -> Node:
+    def _create_node(node_type: str, flags: dict, *, fast: bool = ..., classification: str | None = ...) -> Node:
         """Mayaのノードを作り、実際のnodeTypeに合ったクラスのオブジェクトを返す(作成処理の唯一の実体)。
 
         :func:`mlib.createNode` と :meth:`Container.createNode` が呼ぶ内部ヘルパーで、Undoチャンクは
@@ -1652,6 +1695,8 @@ class Node(Object):
             node_type (str): Maya nodeType名。
             flags (dict): createNodeへ渡す正規化済みのフラグ。parent/pを所有ノード名へ変換する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            classification (str | None): ``"asShader"`` など、``cmds.shadingNode`` で作るときの分類のフラグ名。
+                Noneなら ``cmds.createNode`` で作る。fastとは組み合わせない(呼出し側で拒否する)。
 
         Returns:
             Node: 作った(sharedでは共有した)ノードの、実際のnodeTypeに合ったクラスのオブジェクト。
@@ -2666,6 +2711,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getClassification(self) -> list[list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getClassification` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def isClassified(self, classification: str) -> list[bool]:
+        """各要素の :meth:`~mlib.nodes.node.Node.isClassified` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def isType(self, nodeType: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2734,6 +2782,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def moveKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.moveKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setKeyTangent(self, attributes: str | Iterable[str] | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setKeyTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getHistory(self, *, type: str | None = ..., future: bool = ...) -> list[Nodes]:
         """各要素の :meth:`~mlib.nodes.node.Node.getHistory` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3047,7 +3098,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def freezeToOffsetParent(self) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.freezeToOffsetParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def eulerFilter(self) -> list[None]:
+    def eulerFilter(self, *, indirect: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.eulerFilter` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getClosestAxisToVector(self, refVector: Vector | Iterable[float], includeNegative: bool = ...) -> list[str]:

@@ -255,6 +255,8 @@ class Selection:
 
         Returns:
             list[Node | Plug | Component]: 選択リストの順のまま変換したオブジェクト。
+                同じ形状の種類の違うコンポーネント(頂点とフェースなど)は、Mayaが1つの要素にまとめるので、
+                その要素の中では ``MItSelectionList`` の順(種類ごと)に並べる。
         """
         ...
     def _valid(self, item: Node | Plug | Component) -> bool:
@@ -281,6 +283,20 @@ class Selection:
             list[str]: 使える対象のフルネーム。missingがskipなら、削除された対象を除く。
         """
         ...
+
+def _components_by_path(selection: om2.MSelectionList) -> dict[str, list[tuple[om2.MDagPath, om2.MObject]]]:
+    """選択リストのコンポーネントを、形状のDAGパスごとに種類の順で集める。
+
+    ``MSelectionList.getComponent`` は、同じ形状で種類の違うコンポーネントを1つの要素にまとめた場合、
+    最初の種類しか返さない。``MItSelectionList`` は種類ごとに分けて返すので、それで集める。
+
+    Args:
+        selection (om2.MSelectionList): 選択リスト。
+
+    Returns:
+        dict[str, list[tuple[om2.MDagPath, om2.MObject]]]: {DAGパスの完全名: [(DAGパス, コンポーネント), ...]}。
+    """
+    ...
 
 def _selection_node(selection: om2.MSelectionList, index: int) -> om2.MDagPath | om2.MObject:
     """選択リストのノードの要素を取得する。

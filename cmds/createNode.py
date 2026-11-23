@@ -2,11 +2,30 @@
 
 from contextlib import nullcontext
 
-from ..decorator import _edit_context, _merge_flags
+from ..decorator import _edit_context, _merge_flags, _require_bool
 from ..util import _UNSET
 
 
-def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNSET, shared=_UNSET, s=_UNSET, skipSelect=_UNSET, ss=_UNSET, **kwargs):
+def createNode(
+    type,
+    *,
+    fast=False,
+    name=_UNSET,
+    n=_UNSET,
+    parent=_UNSET,
+    p=_UNSET,
+    shared=_UNSET,
+    s=_UNSET,
+    skipSelect=_UNSET,
+    ss=_UNSET,
+    asShader=False,
+    asTexture=False,
+    asUtility=False,
+    asLight=False,
+    asPostProcess=False,
+    asRendering=False,
+    **kwargs,
+):
     """Mayaのノードを作り、実際の型に合ったオブジェクトを返す。
 
     mlibでノードを作る入口はこれだけで、``Node.create`` や ``Node(name, create=True)`` のような作り方は無い。
@@ -40,6 +59,12 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
     2026で名前が変わった型は、どの版でも ``multDoubleLinear``/``multDL``・``addDoubleLinear``/``addDL`` の
     どちらの名前でも作れる。作られるのは、その版での実際の型のノード。
 
+    ``asShader``・``asTexture``・``asUtility``・``asLight``・``asPostProcess``・``asRendering`` のどれかを
+    Trueにすると、``cmds.shadingNode`` で作る(Hypershadeで作るのと同じく、``defaultShaderList1`` などの
+    既定のリストへつなぐ)。同時にTrueにできるのは1つだけ。``name``・``parent``・``shared``・``skipSelect`` は
+    同じ意味で渡し、そのほかのフラグはMayaが受け付けない。fast=Trueとは同時に指定できない。
+    これらの指定は短縮名を持たない(``cmds.shadingNode`` の ``s`` は ``shared`` の ``s`` と重なるため)。
+
     Args:
         type (str): Mayaのノード型名。
         fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -52,6 +77,12 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
         s (bool): sharedの短縮名。sharedと同時には指定できない。
         skipSelect (bool): Trueなら、作ったノードを選択しない。
         ss (bool): skipSelectの短縮名。skipSelectと同時には指定できない。
+        asShader (bool): Trueなら、シェーダーとして作る(``cmds.shadingNode(asShader=True)``)。既定False。
+        asTexture (bool): Trueなら、テクスチャとして作る。既定False。
+        asUtility (bool): Trueなら、ユーティリティとして作る。既定False。
+        asLight (bool): Trueなら、ライトとして作る。既定False。
+        asPostProcess (bool): Trueなら、ポストプロセスとして作る。既定False。
+        asRendering (bool): Trueなら、レンダリングのノードとして作る。既定False。
         **kwargs (object): 通常の処理では、そのほかのMayaのフラグとしてそのまま渡す。
             fast=Trueでは、対応していないフラグを作る前にエラーにする。
 
@@ -60,13 +91,14 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
 
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、fastがboolでない場合、parentが対応していない型の場合、
-            またはcmds.createNodeに無いフラグ(query/editなど)を指定した場合。
+            cmds.createNodeに無いフラグ(query/editなど)を指定した場合、asShaderなどの指定がboolでない場合、
+            またはasShaderなどを2つ以上Trueにした場合。
         ValueError: typeが空文字列か文字列でない場合、nameに ``|`` を含む場合、parent が空文字列の場合、
             または削除済みの対象を指定した場合。
         RuntimeError: Mayaが知らないノード型名の場合(unknownノードは残さない。この版に無い型は
             「not available in this Maya version」と示す)、parent が見つからない場合、
             fast=Trueでロックされた親かリファレンスされた親を指定した場合、またはMayaが作成を拒否した場合。
-        NotImplementedError: fast=Trueで、対応していないフラグを指定した場合。
+        NotImplementedError: fast=Trueで、対応していないフラグを指定した場合、またはasShaderなどを指定した場合。
 
     Examples:
         >>> import mlib
@@ -76,8 +108,15 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
         >>> selected = mlib.ls(selection=True)  # 作成したノードが選択されるため、選択は先に取る。
         >>> shape = mlib.createNode("locator", name="exampleShape")
         >>> transform = shape.getTransform()
+        >>> shader = mlib.createNode("blinn", name="exampleMat", asShader=True)
     """
     _merge_flags(kwargs, ((name, n, "name", "n"), (parent, p, "parent", "p"), (shared, s, "shared", "s"), (skipSelect, ss, "skipSelect", "ss")))
+    classification = _shading_classification(
+        asShader=asShader, asTexture=asTexture, asUtility=asUtility, asLight=asLight, asPostProcess=asPostProcess, asRendering=asRendering
+    )
+    _require_bool(fast, "fast")
+    if classification is not None and fast:
+        raise NotImplementedError(f"fastのcreateNodeは{classification}に対応していません")
     # 親を指定しない作成は1回のcreateNodeなので、チャンクを開かない(親がjointなら inverseScale の接続もまとめる)。
     chunk = kwargs.get("parent") is not None or kwargs.get("p") is not None
     context = _edit_context("mlibCreateNode", fast)
@@ -85,4 +124,24 @@ def createNode(type, *, fast=False, name=_UNSET, n=_UNSET, parent=_UNSET, p=_UNS
         # 作成の実体はNodeの内部ヘルパー。nodesはcmdsを参照するため循環importを避けて関数内で読み込む。
         from ..nodes import Node
 
-        return Node._create_node(type, kwargs, fast=fast)
+        return Node._create_node(type, kwargs, fast=fast, classification=classification)
+
+
+def _shading_classification(**flags):
+    """``cmds.shadingNode`` の分類の指定を確かめ、Trueにしたフラグの名前を返す。
+
+    Args:
+        **flags (bool): ``asShader`` などの指定。
+
+    Returns:
+        str | None: Trueにしたフラグの名前。どれもFalseならNone。
+
+    Raises:
+        TypeError: 指定がboolでない場合、または2つ以上Trueにした場合。
+    """
+    for key, value in flags.items():
+        _require_bool(value, key)
+    chosen = [key for key, value in flags.items() if value]
+    if len(chosen) > 1:
+        raise TypeError(f"{'と'.join(chosen)}は同時に指定できません")
+    return chosen[0] if chosen else None

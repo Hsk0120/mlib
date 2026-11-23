@@ -242,6 +242,9 @@ EXCLUDED = {
     "Edge.setSmooth": "ソフト/ハードエッジ(メッシュのエッジのデータ)はスナップショットの対象外。Undo 1 回で戻ることは test_spec_maths_components_additions の test_smooth_edges で確認する。",
     "Callbacks.addSceneCallback": "MMessage のコールバックの登録。シーンを変更せず Maya の Undo 対象外。",
     "Callbacks.addEventCallback": "MMessage のコールバックの登録。シーンを変更せず Maya の Undo 対象外。",
+    "Scene.save": "シーンファイルの保存。ファイルへ書き出すだけで、シーンを変更せず Maya の Undo 対象外。",
+    "Callbacks.addSceneCheckCallback": "MMessage のコールバックの登録。シーンを変更せず Maya の Undo 対象外。",
+    "Callbacks.addTimeChangeCallback": "MMessage のコールバックの登録。シーンを変更せず Maya の Undo 対象外。",
     "Callbacks.addAttributeChangedCallback": "MMessage のコールバックの登録。シーンを変更せず Maya の Undo 対象外。",
     "Callbacks.remove": "MMessage のコールバックの解除。シーンを変更せず Maya の Undo 対象外。",
     "Plugin.removeUnknown": "未知のプラグインの要求の削除。unknownPlugin は Maya の Undo 対象外。",
@@ -751,6 +754,16 @@ def s_keyed(c):
     cmds.setKeyframe(c.a, attribute="translateX", time=10, value=5.0)
     c.curve = cmds.listConnections(c.a + ".tx", type="animCurve")[0]
     c.ncurve = mlib.getNode(c.curve)
+
+
+def s_keyed_source(c):
+    """s_keyed に加えて、写す元のカーブ(接線の型を変えた3キー)を作る。"""
+    s_keyed(c)
+    source = cmds.createNode("animCurveTL", name="sourceCurve")
+    for time, value in ((2, 1.0), (6, 4.0), (9, -2.0)):
+        cmds.setKeyframe(source, time=time, value=value)
+    cmds.keyTangent(source, edit=True, index=(1, 1), inTangentType="linear", outTangentType="step")
+    c.source_curve = mlib.getNode(source)
 
 
 def s_reducible_keys(c):
@@ -1585,6 +1598,36 @@ CASES = [
     C("cmds.createNode", "createNode joint parent", s_one, lambda c, **kw: mlib.createNode("joint", name="madeJoint", parent=c.a, **kw)),
     C("cmds.createNode", "createNode mesh(shape)", None, lambda c, **kw: mlib.createNode("mesh", name="madeMesh", **kw)),
     C("cmds.createNode", "createNode network", None, lambda c, **kw: mlib.createNode("network", name="madeNetwork", skipSelect=True, **kw)),
+    C(
+        "cmds.createNode",
+        "createNode asShader",
+        None,
+        lambda c, **kw: mlib.createNode("blinn", name="madeShader", asShader=True),
+        fastSkip="asShaderなどの分類の指定はfastの対象外(NotImplementedError)",
+    ),
+    C("cmds.createShadingEngine", "createShadingEngine", s_shading, lambda c, **kw: mlib.createShadingEngine(c.lambert, name="madeSG")),
+    C("cmds.createShadingEngine", "createShadingEngine empty", None, lambda c, **kw: mlib.createShadingEngine(name="madeEmptySG")),
+    C("cmds.createMotionTrail", "createMotionTrail", s_keyed, lambda c, **kw: mlib.createMotionTrail(c.a, startTime=1, endTime=10, name="madeTrail")),
+    C("cmds.createExpression", "createExpression", s_one, lambda c, **kw: mlib.createExpression(c.a + ".ty = 2;", name="madeExpression")),
+    C("cmds.createPolySphere", "createPolySphere constructionHistory", None, lambda c, **kw: mlib.createPolySphere(name="madeBall", constructionHistory=True)),
+    C("Node.setKeyTangent", "Node.setKeyTangent", s_keyed, lambda c, **kw: c.na.setKeyTangent(["tx"], inTangentType="linear", outTangentType="step")),
+    C("Plug.setKeyTangent", "Plug.setKeyTangent", s_keyed, lambda c, **kw: c.na.getPlug("tx").setKeyTangent(outTangentType="flat", time=(1, 5))),
+    C("Mesh.copyUVSet", "Mesh.copyUVSet replace", s_uv_sets, lambda c, **kw: c.nshape.copyUVSet("map1", "uv2", replace=True)),
+    C(
+        "SkinCluster.smoothWeights",
+        "SkinCluster.smoothWeights vertices",
+        s_skin,
+        lambda c, **kw: c.skin.smoothWeights(tolerance=0.01, vertices=[0, 1, 2], obeyMaxInfluences=True),
+    ),
+    C(
+        "SkinCluster.addInfluences",
+        "SkinCluster.addInfluences weight",
+        s_skin,
+        lambda c, **kw: c.skin.addInfluences([c.jx], weight=0.25, lockWeights=True),
+        mayaQuirk="Maya標準の skinCluster -addInfluence -weight も、Undo で追加したインフルエンスの weightList の値を消さない",
+        ignoreAttrs=("weights",),
+    ),
+    C("NurbsCurve.rebuild", "NurbsCurve.rebuild keepTangents", s_curve, lambda c, **kw: c.ncrvShape.rebuild(4, 3, keepTangents=True)),
     C("cmds.delete", "delete 2 nodes", s_two, lambda c, **kw: mlib.delete([c.a, c.b], **kw)),
     C("cmds.delete", "delete face component", s_cube, lambda c, **kw: mlib.delete(c.cube + ".f[0]", **kw), fastSkip="コンポーネントの削除は fast の対象外"),
     C("cmds.duplicate", "duplicate transform", s_one, lambda c, **kw: mlib.duplicate(c.a)),
@@ -1932,6 +1975,14 @@ CASES = [
         s_keyed,
         lambda c, **kw: c.ncurve.replaceKeys([(2, 1.0), (4, 3.0, "linear", "step")]),
         mayaQuirk=_TANGENT_CACHE + "。replaceKeys が最後に呼ぶ cmds.dgdirty(Undoに記録されない)は内部の keyValueSwitch を進める",
+        ignoreAttrs=(*_TANGENT_ATTRS, "keyValueSwitch"),
+    ),
+    C(
+        "AnimCurve.replaceKeys",
+        "AnimCurve.replaceKeys from curve",
+        s_keyed_source,
+        lambda c, **kw: c.ncurve.replaceKeys(c.source_curve),
+        mayaQuirk=_TANGENT_CACHE + "。cmds.dgdirty(Undoに記録されない)は内部の keyValueSwitch を進める",
         ignoreAttrs=(*_TANGENT_ATTRS, "keyValueSwitch"),
     ),
     C("Plug.moveKey", "Plug.moveKey", s_keyed, lambda c, **kw: c.na.getPlug("tx").moveKey(timeOffset=1, valueOffset=2)),

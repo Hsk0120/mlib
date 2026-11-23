@@ -829,12 +829,18 @@ class Matrix(om2.MMatrix):
 
         :attr:`quaternion` と同じく、MTransformationMatrixの規約で分解する。
         行列式が負のときは、負のZスケールと180度の補償回転に分ける。
+        ``asScaleMatrix() * asRotateMatrix() * asTranslateMatrix()`` が自身(誤差の範囲)になる。
 
         Returns:
             Matrix: 自身と同じクラスの新しい正規直交のマトリクス。
 
         Raises:
             ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
+
+        Note:
+            ``om2.MTransformationMatrix(m).asRotateMatrix()``(:class:`Transformation` も同じ)は、マトリクスから作った
+            ときにスケール・シアーを含んだ3x3(平行移動だけを除いたもの)を返し、正規直交にならない(Maya 2027で確認)。
+            スケールやシアーのあるマトリクスでは、このメソッドと結果が違う。
         """
         ...
     def asScaleMatrix(self) -> Matrix:

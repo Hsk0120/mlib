@@ -172,6 +172,17 @@ class Time:
         return _from_ui(start, unit), _from_ui(float(end) - 1.0, unit)
 
     @staticmethod
+    def isPlaying():
+        """タイムスライダーで再生中かを調べる。
+
+        ``cmds.play(query=True, state=True)`` と同じ。バッチ(mayapy)では常にFalse。
+
+        Returns:
+            bool: 再生中ならTrue。
+        """
+        return bool(cmds.play(query=True, state=True))
+
+    @staticmethod
     @contextlib.contextmanager
     def preserved():
         """``with`` を抜けたときに元の時刻へ戻すコンテキストを作る。

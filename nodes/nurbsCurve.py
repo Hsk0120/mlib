@@ -680,7 +680,7 @@ class NurbsCurve(Shape):
         ws = _world_space(worldSpace)
         _write_points([self._mirror_plan(axis, ws, pivot, indices, fast, check)], fast, "mlibNurbsCurveMirror", check)
 
-    def rebuild(self, spans=None, degree=None, *, keepRange="original"):
+    def rebuild(self, spans=None, degree=None, *, keepRange="original", keepTangents=False):
         """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
 
         ``cmds.rebuildCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
@@ -695,12 +695,13 @@ class NurbsCurve(Shape):
             degree (int | None): 新しい次数。1・2・3・5・7のいずれか。Noneなら今の次数。
             keepRange (str): パラメーターの範囲。``"original"`` は元の範囲(既定)、``"unit"`` は0〜1、
                 ``"spans"`` は0〜スパンの数。
+            keepTangents (bool): Trueなら、両端の接線の向きを保つ(``cmds.rebuildCurve`` の ``keepTangents``)。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: spans・degreeがint・None以外(boolを含む)の場合、またはkeepRangeがstr以外の場合。
+            TypeError: spans・degreeがint・None以外(boolを含む)の場合、keepRangeがstr以外の場合、またはkeepTangentsがboolでない場合。
             ValueError: spansが1未満の場合、degreeが対応していない値の場合、またはkeepRangeが対応していない名前の場合。
             RuntimeError: 形状のデータを持たない空のシェイプの場合、またはロックなどでMayaが書込みを拒否した場合。
         """
@@ -717,6 +718,7 @@ class NurbsCurve(Shape):
             raise TypeError("degreeはintかNoneで指定してください")
         elif degree not in _REBUILD_DEGREES:
             raise ValueError(f"degreeは1・2・3・5・7のどれかで指定してください: {degree}")
+        _require_bool(keepTangents, "keepTangents")
         if not isinstance(keepRange, str):
             raise TypeError("keepRangeはstrで指定してください")
         if keepRange not in _KEEP_RANGES:
@@ -730,7 +732,7 @@ class NurbsCurve(Shape):
                 rebuildType=0,
                 keepEndPoints=True,
                 keepControlPoints=False,
-                keepTangents=False,
+                keepTangents=keepTangents,
                 constructionHistory=False,
                 replaceOriginal=True,
             )

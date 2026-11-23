@@ -4,7 +4,7 @@
 import contextlib
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..decorator import nativeUnits, preservedSelection, undoTransaction
+from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelection, undoTransaction
 from ..util import _finite
 from typing import Any, Callable, Iterable, Iterator, Sequence
 from mlib._stubtypes import GeneratorContextManager
@@ -139,10 +139,29 @@ def subdivision_counts(value: Sequence[int], size: int, name: str = ...) -> tupl
     """
     ...
 
+def poly_history_flags(constructionHistory: object, ch: object, createUVs: object, cuv: object) -> dict[str, Any]:
+    """ポリゴンのプリミティブの、コンストラクションヒストリとUVの指定を確かめる。
+
+    Args:
+        constructionHistory (object): コンストラクションヒストリを残すか。省略は ``_UNSET``。
+        ch (object): constructionHistoryの短縮名。省略は ``_UNSET``。
+        createUVs (object): UVの作り方(Mayaの ``createUVs`` の番号)。省略は ``_UNSET``。
+        cuv (object): createUVsの短縮名。省略は ``_UNSET``。
+
+    Returns:
+        dict[str, Any]: コマンドへ渡すフラグ。createUVsを省略したときは含めない(Mayaの既定)。
+
+    Raises:
+        TypeError: 長い名前と短縮名を同時に指定した場合、constructionHistoryがboolでない場合、
+            またはcreateUVsがintでない場合。
+        ValueError: createUVsが負の場合。
+    """
+    ...
+
 def create_poly(command: Callable[..., Any], flags: dict, name: str | None, parent: Node | None) -> Mesh:
     """ポリゴンのプリミティブを作り、シェイプを返す。
 
-    コンストラクションヒストリは作らない。
+    flagsに ``constructionHistory`` が無ければ、コンストラクションヒストリは作らない。
 
     Args:
         command (callable): ``cmds.polyCube`` など。

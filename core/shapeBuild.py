@@ -5,7 +5,7 @@ import contextlib
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..decorator import nativeUnits, preservedSelection, undoTransaction
+from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelection, undoTransaction
 from ..util import _finite
 
 
@@ -223,10 +223,40 @@ def subdivision_counts(value, size, name="subdivisions"):
     return items
 
 
+def poly_history_flags(constructionHistory, ch, createUVs, cuv):
+    """ポリゴンのプリミティブの、コンストラクションヒストリとUVの指定を確かめる。
+
+    Args:
+        constructionHistory (object): コンストラクションヒストリを残すか。省略は ``_UNSET``。
+        ch (object): constructionHistoryの短縮名。省略は ``_UNSET``。
+        createUVs (object): UVの作り方(Mayaの ``createUVs`` の番号)。省略は ``_UNSET``。
+        cuv (object): createUVsの短縮名。省略は ``_UNSET``。
+
+    Returns:
+        dict[str, Any]: コマンドへ渡すフラグ。createUVsを省略したときは含めない(Mayaの既定)。
+
+    Raises:
+        TypeError: 長い名前と短縮名を同時に指定した場合、constructionHistoryがboolでない場合、
+            またはcreateUVsがintでない場合。
+        ValueError: createUVsが負の場合。
+    """
+    history = _pick_alias(constructionHistory, ch, "constructionHistory", "ch", default=False)
+    _require_bool(history, "constructionHistory")
+    flags = {"constructionHistory": history}
+    uvs = _pick_alias(createUVs, cuv, "createUVs", "cuv", default=None)
+    if uvs is not None:
+        if isinstance(uvs, bool) or not isinstance(uvs, int):
+            raise TypeError(f"createUVsはintで指定してください: {type(uvs).__name__}")
+        if uvs < 0:
+            raise ValueError(f"createUVsは0以上で指定してください: {uvs}")
+        flags["createUVs"] = uvs
+    return flags
+
+
 def create_poly(command, flags, name, parent):
     """ポリゴンのプリミティブを作り、シェイプを返す。
 
-    コンストラクションヒストリは作らない。
+    flagsに ``constructionHistory`` が無ければ、コンストラクションヒストリは作らない。
 
     Args:
         command (callable): ``cmds.polyCube`` など。
@@ -237,7 +267,7 @@ def create_poly(command, flags, name, parent):
     Returns:
         Mesh: 作成したシェイプ。
     """
-    flags = dict(flags, constructionHistory=False)
+    flags = dict({"constructionHistory": False}, **flags)
     if name:
         flags["name"] = name
     with undoTransaction("mlibCreate" + command.__name__[0].upper() + command.__name__[1:]), preservedSelection():

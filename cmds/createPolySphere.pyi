@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
-"""ポリゴンの球を作り、シェイプを返す(``cmds.polySphere(constructionHistory=False)`` 相当)。"""
+"""ポリゴンの球を作り、シェイプを返す(``cmds.polySphere`` 相当)。"""
 
 import maya.cmds as cmds
-from ..core.shapeBuild import create_poly, positive_size, require_name, resolve_parent, subdivision_counts
+from ..core.shapeBuild import create_poly, poly_history_flags, positive_size, require_name, resolve_parent, subdivision_counts
 from ..decorator import _pick_alias
 from ..util import _UNSET, _finite_vector
 from typing import Sequence
@@ -10,10 +10,12 @@ from mlib.nodes.mesh import Mesh
 from mlib.nodes.node import Node
 
 
-def createPolySphere(radius: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., name: str | None = ..., parent: Node | str | None = ..., *, r: float = ..., ax: Sequence[float] = ..., n: str | None = ...) -> Mesh:
+def createPolySphere(radius: float = ..., subdivisions: Sequence[int] = ..., axis: Sequence[float] = ..., name: str | None = ..., parent: Node | str | None = ..., *, r: float = ..., ax: Sequence[float] = ..., n: str | None = ..., constructionHistory: bool = ..., createUVs: int = ..., ch: bool = ..., cuv: int = ...) -> Mesh:
     """原点を中心とするポリゴンの球を作り、そのシェイプを返す。
 
-    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。
+    既定ではコンストラクションヒストリを作らない。``constructionHistory=True`` なら作成ノード(``polySphere`` ノード)を残し、
+    ``shape.getHistory(type="polySphere")`` で取得できる(作成ノードの大きさのアトリビュートもcm)。
     作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
     radius・axis・nameは ``cmds.polySphere`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
@@ -30,13 +32,17 @@ def createPolySphere(radius: float = ..., subdivisions: Sequence[int] = ..., axi
         r (float): radiusの短縮名。radiusと同時には指定できない。
         ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        constructionHistory (bool): Trueなら、コンストラクションヒストリ(作成ノード)を残す。既定はFalse。
+        createUVs (int): UVの作り方。``cmds.polySphere`` の ``createUVs`` と同じ番号(0はUVを作らない)。省略するとMayaの既定。
+        ch (bool): constructionHistoryの短縮名。constructionHistoryと同時には指定できない。
+        cuv (int): createUVsの短縮名。createUVsと同時には指定できない。
 
     Returns:
         Mesh: 作ったメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
 
     Raises:
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
-        ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
+        ValueError: 大きさが0以下か有限でない場合、分割数や軸が正しくない場合、またはcreateUVsが負の場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
 
     Examples:

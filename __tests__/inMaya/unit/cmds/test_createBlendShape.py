@@ -111,7 +111,21 @@ class BlendShapeCreateTest(_SpecCase):
             mlib.createBlendShape(self.base, self.smile, name="")
         with self.assertRaises(RuntimeError):
             mlib.createBlendShape(self.name("missing"), self.smile)
+        with self.assertRaises(ValueError):
+            mlib.createBlendShape(self.base, self.smile, origin="object")
+        with self.assertRaises(TypeError):
+            mlib.createBlendShape(self.base, self.smile, origin="world", o="world")
         self.assertEqual(cmds.ls(type="blendShape"), before)
+
+    def test_origin(self):
+        """originはcmds.blendShapeのoriginへそのまま渡す(省略はMayaの既定のlocal)。短縮名oも受ける。"""
+        default = mlib.createBlendShape(self.base, self.smile, name=self.name("originDefault"))
+        world = mlib.createBlendShape(self.base, self.blink, name=self.name("originWorld"), origin="world")
+        local = mlib.createBlendShape(self.base, name=self.name("originLocal"), o="local")
+        expected_world = cmds.blendShape(self.blink, self.base, name=self.name("refWorld"), origin="world")[0]
+        self.assertEqual(world.getPlug("origin").get(), cmds.getAttr(expected_world + ".origin"))
+        self.assertEqual(default.getPlug("origin").get(), local.getPlug("origin").get())
+        self.assertNotEqual(default.getPlug("origin").get(), world.getPlug("origin").get())
 
 
 if __name__ == "__main__":

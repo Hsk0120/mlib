@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..decorator import undoChunk
 from mlib.nodes.node import Nodes
 from mlib.nodes.reference import Reference
 import os
@@ -22,26 +21,44 @@ def _reference_nodes() -> list[tuple[str, om2.MObject]]:
     """
     ...
 
-def listReferences(topLevelOnly: bool = ...) -> Nodes[Reference]:
+def listReferences(topLevelOnly: bool = ..., *, order: str = ...) -> Nodes[Reference]:
     """シーンのリファレンスを、Reference のオブジェクトの一覧として取得する。
 
     Args:
         topLevelOnly (bool): True なら、ほかのリファレンスの中に入っていない(ネストされていない)
             トップレベルのリファレンスだけを返す。
+        order (str): 並び順。``"name"``(既定)は ``cmds.ls(type="reference")`` と同じ名前順。
+            ``"load"`` はシーンに読み込んだ順(``cmds.file(q=True, reference=True)`` と同じ順)で、
+            ネストされたリファレンスは親のすぐ後に、親の中で読み込んだ順に並べる。
 
     Returns:
-        Nodes[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
-            リファレンスが無ければ空の集まり。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
+        Nodes[Reference]: リファレンスのオブジェクトの一覧。リファレンスが無ければ空の集まり。
+
+    Raises:
+        ValueError: orderがnameとload以外の場合。
     """
     ...
 
-def _require_scene_file(path: str | os.PathLike) -> Path:
+def _reference_nodes_in_load_order(parent: str | None, top_level_only: bool) -> list[str]:
+    """リファレンスノードの名前を、読み込んだ順に集める。
+
+    Args:
+        parent (str | None): 親のリファレンスのファイル名(コピー番号付き)。Noneならシーン。
+        top_level_only (bool): Trueなら、ネストされたリファレンスをたどらない。
+
+    Returns:
+        list[str]: リファレンスノードの名前。親の後にその子を続ける。
+    """
+    ...
+
+def _require_scene_file(path: str | os.PathLike, action: str = ...) -> Path:
     """リファレンスするファイルがあるかを確かめる。シーンは変えない。
 
     ``~`` はユーザーのホームに展開し、相対パスは ``cmds.file`` と同じくMayaのプロジェクト(workspace)から探す。
 
     Args:
         path (str | os.PathLike): 確かめるファイルのパス。空でないことは呼び出し側で確かめてある。
+        action (str): メッセージに入れる、ファイルに対して行うこと(例: ``"開く"``)。
 
     Returns:
         Path: ``~`` を展開したパス。相対パスは相対のまま返す。

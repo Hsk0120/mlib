@@ -397,8 +397,11 @@ class Selection:
 
         Returns:
             list[Node | Plug | Component]: 選択リストの順のまま変換したオブジェクト。
+                同じ形状の種類の違うコンポーネント(頂点とフェースなど)は、Mayaが1つの要素にまとめるので、
+                その要素の中では ``MItSelectionList`` の順(種類ごと)に並べる。
         """
         result = []
+        components = None
         for index in range(selection.length()):
             plug = _selection_plug(selection, index)
             if plug is not None:
@@ -411,7 +414,11 @@ class Selection:
             if found is None:
                 result.append(Node(_selection_node(selection, index)))
                 continue
-            result.extend(Component._from_api(*found))
+            if components is None:
+                components = _components_by_path(selection)
+            # getComponentは要素の最初の種類だけを返すため、同じ形状のほかの種類も続けて加える。
+            for path, component in components.get(found[0].fullPathName(), [found]):
+                result.extend(Component._from_api(path, component))
         return result
 
     def _valid(self, item):
@@ -455,6 +462,29 @@ class Selection:
             elif missing == "error":
                 raise RuntimeError("選択に存在しない項目が含まれています")
         return names
+
+
+def _components_by_path(selection):
+    """選択リストのコンポーネントを、形状のDAGパスごとに種類の順で集める。
+
+    ``MSelectionList.getComponent`` は、同じ形状で種類の違うコンポーネントを1つの要素にまとめた場合、
+    最初の種類しか返さない。``MItSelectionList`` は種類ごとに分けて返すので、それで集める。
+
+    Args:
+        selection (om2.MSelectionList): 選択リスト。
+
+    Returns:
+        dict[str, list[tuple[om2.MDagPath, om2.MObject]]]: {DAGパスの完全名: [(DAGパス, コンポーネント), ...]}。
+    """
+    result = {}
+    iterator = om2.MItSelectionList(selection)
+    while not iterator.isDone():
+        if iterator.itemType() == om2.MItSelectionList.kDagSelectionItem and iterator.hasComponents():
+            path, component = iterator.getComponent()
+            if not component.isNull():
+                result.setdefault(path.fullPathName(), []).append((path, component))
+        iterator.next()
+    return result
 
 
 def _selection_node(selection, index):

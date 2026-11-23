@@ -1,18 +1,36 @@
-"""ポリゴンの円柱を作り、シェイプを返す(``cmds.polyCylinder(constructionHistory=False)`` 相当)。"""
+"""ポリゴンの円柱を作り、シェイプを返す(``cmds.polyCylinder`` 相当)。"""
 
 import maya.cmds as cmds
 
-from ..core.shapeBuild import create_poly, positive_size, require_name, resolve_parent, subdivision_counts
-from ..decorator import _pick_alias
+from ..core.shapeBuild import create_poly, poly_history_flags, positive_size, require_name, resolve_parent, subdivision_counts
+from ..decorator import _pick_alias, _require_bool
 from ..util import _UNSET, _finite_vector
 
 
 def createPolyCylinder(
-    radius=_UNSET, height=_UNSET, subdivisions=(20, 1, 1), axis=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, h=_UNSET, ax=_UNSET, n=_UNSET
+    radius=_UNSET,
+    height=_UNSET,
+    subdivisions=(20, 1, 1),
+    axis=_UNSET,
+    name=_UNSET,
+    parent=None,
+    *,
+    r=_UNSET,
+    h=_UNSET,
+    ax=_UNSET,
+    n=_UNSET,
+    roundCap=_UNSET,
+    constructionHistory=_UNSET,
+    createUVs=_UNSET,
+    rcp=_UNSET,
+    ch=_UNSET,
+    cuv=_UNSET,
 ):
     """原点を中心とするポリゴンの円柱を作り、そのシェイプを返す。
 
-    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
+    大きさはMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。
+    既定ではコンストラクションヒストリを作らない。``constructionHistory=True`` なら作成ノード(``polyCylinder`` ノード)を残し、
+    ``shape.getHistory(type="polyCylinder")`` で取得できる(作成ノードの大きさのアトリビュートもcm)。
     作成と親子付けは1回のUndoにまとめ、現在の選択は変えない。
     fast引数は無い(Mayaのコマンドと同じUV・法線のメッシュをOpenMayaで組み立て直すことになり、同じ結果を保つのが難しいため)。
     radius・height・axis・nameは ``cmds.polyCylinder`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
@@ -31,13 +49,19 @@ def createPolyCylinder(
         h (float): heightの短縮名。heightと同時には指定できない。
         ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        roundCap (bool): Trueなら、ふたを丸くする(丸みの分割数はsubdivisionsの3つ目)。既定はFalse。
+        constructionHistory (bool): Trueなら、コンストラクションヒストリ(作成ノード)を残す。既定はFalse。
+        createUVs (int): UVの作り方。``cmds.polyCylinder`` の ``createUVs`` と同じ番号(0はUVを作らない)。省略するとMayaの既定。
+        rcp (bool): roundCapの短縮名。roundCapと同時には指定できない。
+        ch (bool): constructionHistoryの短縮名。constructionHistoryと同時には指定できない。
+        cuv (int): createUVsの短縮名。createUVsと同時には指定できない。
 
     Returns:
         Mesh: 作ったメッシュのシェイプ。Transformは ``getTransform()`` で取得する。
 
     Raises:
         TypeError: 長い名前と短縮名を同時に指定した場合、または引数の型が正しくない場合。
-        ValueError: 大きさが0以下か有限でない場合、または分割数や軸が正しくない場合。
+        ValueError: 大きさが0以下か有限でない場合、分割数や軸が正しくない場合、またはcreateUVsが負の場合。
         RuntimeError: 親が無効な場合、またはMayaが作成を拒否した場合。
 
     Examples:
@@ -58,6 +82,11 @@ def createPolyCylinder(
         "subdivisionsZ": sz,
         "axis": _axis(axis),
     }
+    round_cap = _pick_alias(roundCap, rcp, "roundCap", "rcp", default=False)
+    _require_bool(round_cap, "roundCap")
+    if round_cap:
+        flags["roundCap"] = True
+    flags.update(poly_history_flags(constructionHistory, ch, createUVs, cuv))
     return create_poly(cmds.polyCylinder, flags, require_name(name), resolve_parent(parent))
 
 

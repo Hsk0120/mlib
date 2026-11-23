@@ -17,7 +17,7 @@ from ..components.vertexFace import VertexFace, VertexFaces
 from ..core import geometryEdit
 from ..core.fastWrite import require_writable
 from ..core.nodeEdit import require_editable
-from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
+from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points
 from ..util import _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _PointGrid, _world_space
 from .shape import Shape
@@ -765,6 +765,18 @@ class Mesh(Shape):
         _counts, vertices = self._geometry_fn().getTriangles()
         return [(vertices[index], vertices[index + 1], vertices[index + 2]) for index in range(0, len(vertices), 3)]
 
+    def getTopology(self):
+        """フェースごとの頂点の数と、頂点番号の並びを取得する。
+
+        ``om2.MFnMesh.getVertices()`` と同じ値。メッシュを作り直す(``MFnMesh.create`` など)ときの
+        polygonCounts・polygonConnectsに当たる。
+
+        Returns:
+            tuple[list[int], list[int]]: (フェース番号の順の各フェースの頂点の数, それらをつなげた頂点番号の並び)。
+        """
+        counts, vertices = self._geometry_fn().getVertices()
+        return list(counts), list(vertices)
+
     def getMirrorVertexMap(self, axis="x", worldSpace=_UNSET, *, tolerance=0.01, ws=_UNSET):
         """頂点ごとに、位置を軸で反転した反対側の頂点を取得する。
 
@@ -1482,23 +1494,36 @@ class Mesh(Shape):
         with undoChunk("mlibMeshCreateUVSet"):
             cmds.polyUVSet(self.getFullName(), create=True, uvSet=name)
 
-    def copyUVSet(self, source, target):
-        """UVセットを新しい名前へ複製し、自身を返す。
+    def copyUVSet(self, source, target, *, replace=False):
+        """UVセットを新しい名前へ複製する。
 
-        ``cmds.polyUVSet(copy=True)`` で複製する。1回のUndoで戻せる。現在のUVセットは変えない。
+        ``cmds.polyUVSet(copy=True)`` で複製する。``replace=True`` でtargetがすでにあれば、
+        ``cmds.polyCopyUV(uvSetNameInput=source, uvSetName=target, constructionHistory=False)`` で
+        targetのUVをsourceの値で置き換える(コンストラクションヒストリは作らない)。
+        1回のUndoで戻せる。現在のUVセットと選択は変えない。fast引数は持たない(Mayaのコマンドの1回で処理するため)。
 
         Args:
             source (str): 複製元のUVセットの名前。
-            target (str): 新しいUVセットの名前。すでにある名前は不可(上書きしない)。
+            target (str): 複製先のUVセットの名前。replace=Falseなら、すでにある名前は不可(上書きしない)。
+            replace (bool): Trueなら、すでにあるtargetのUVを置き換える。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: source・targetが文字列以外の場合。
-            ValueError: 名前が空、sourceが無い、またはtargetがすでにある場合。
+            TypeError: source・targetが文字列以外の場合、またはreplaceがboolでない場合。
+            ValueError: 名前が空の場合、sourceが無い場合、sourceとtargetが同じ場合、
+                またはreplace=Falseでtargetがすでにある場合。
         """
+        _require_bool(replace, "replace")
         self._require_uv_set(source, "source", exists=True)
+        if replace and source == target:
+            raise ValueError(f"sourceとtargetに同じUVセットは指定できません: {source}")
+        if replace and target in self.getUVSetNames():
+            # polyCopyUVはフェースを選ぶので、選択を戻すまでを1回のUndoにまとめる。
+            with undoChunk("mlibMeshCopyUVSet"), preservedSelection():
+                cmds.polyCopyUV(self.getFullName(), uvSetNameInput=source, uvSetName=target, constructionHistory=False)
+            return
         self._require_uv_set(target, "target", exists=False)
         with undoChunk("mlibMeshCopyUVSet"):
             cmds.polyUVSet(self.getFullName(), copy=True, uvSet=source, newUVSet=target)

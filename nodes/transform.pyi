@@ -1482,17 +1482,23 @@ class Transform(DagNode):
             (Mayaはマトリクスの計算で0のスケールをとても小さい値に置き換える)ので、逆マトリクスは確かめずに求める。
         """
         ...
-    def eulerFilter(self) -> None:
+    def eulerFilter(self, *, indirect: bool = ...) -> None:
         """rotateX/Y/Zの時間のアニメーションカーブ(animCurveTA)に、オイラーフィルターをかける。
 
         3本のカーブを1回の ``cmds.filterCurve(filter="euler")`` にまとめて渡す(Mayaのグラフエディターの
-        Euler Filterと同じ)。入力に直接(単位変換のノードを飛ばして)つながっているanimCurveTAだけを対象にし、
+        Euler Filterと同じ)。既定では、入力に直接(単位変換のノードを飛ばして)つながっているanimCurveTAだけを対象にする。
+        ``indirect=True`` なら、:meth:`Plug.getAnimCurve(indirect=True) <mlib.plugs.Plug.getAnimCurve>` と同じく、
+        アニメーションレイヤーや pairBlend の先の、キーを打つ先のカーブも対象にする。
         キーが無ければ何もしない。fast引数は持たない。Undoが有効なら1回で戻せる。
+
+        Args:
+            indirect (bool): Trueなら、レイヤーや pairBlend の先のカーブも対象にする。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: indirectがboolでない場合。
             RuntimeError: ノードが無効な場合、またはMayaがフィルターを拒否した場合。
         """
         ...

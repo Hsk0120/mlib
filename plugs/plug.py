@@ -301,6 +301,34 @@ def _cut_key_flags(time, time_unit):
     return {"time": (float(values[0]), float(values[1]))}
 
 
+def _key_tangent_flags(in_tangent_type, out_tangent_type):
+    """接線の型の指定を確かめ、``cmds.keyTangent`` のフラグへ変換する。
+
+    Args:
+        in_tangent_type (str | None): 入力側の接線の型。Noneは変えない。
+        out_tangent_type (str | None): 出力側の接線の型。Noneは変えない。
+
+    Returns:
+        dict[str, str]: ``inTangentType``・``outTangentType`` のフラグ(小文字)。
+
+    Raises:
+        ValueError: どちらもNoneの場合、対応していない接線の型の場合、またはfixedの場合。
+    """
+    # nodes.animCurve は plugs を参照するため、循環importを避けて関数内で読み込む。
+    from ..nodes.animCurve import _TANGENT_TYPES
+
+    flags = {}
+    for key, value in (("inTangentType", in_tangent_type), ("outTangentType", out_tangent_type)):
+        if value is None:
+            continue
+        if not isinstance(value, str) or value.lower() not in _TANGENT_TYPES or value.lower() == "fixed":
+            raise ValueError(f"{key}は対応している接線の型(fixed以外)で指定してください: {value!r}")
+        flags[key] = value.lower()
+    if not flags:
+        raise ValueError("inTangentTypeかoutTangentTypeを指定してください")
+    return flags
+
+
 def _frames_from_seconds(value):
     """setKeyframeのtimeへ渡す秒の数値(または数値の並び)を、現在のUIの時間単位でのフレームへ換算する。
 
@@ -2240,6 +2268,34 @@ class Plug(Object):
             self._require_valid()
             _move_plug_keys(self.getFullName(), flags)
 
+    def setKeyTangent(self, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
+        """このアトリビュートのキーの、接線の型をまとめて変える。
+
+        ``cmds.keyTangent(plug, edit=True, time=..., inTangentType=..., outTangentType=...)`` と同じ。
+        時刻か範囲で選んだキーをまとめて変える。カーブの1つのキーの角度・ウェイトまで変えるときは
+        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` を使う。
+        Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は持たない(1回のcmdsで全キーを処理するため)。
+
+        Args:
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
+
+        Returns:
+            None: 値を返さない。範囲にキーが無ければ何もしない。
+
+        Raises:
+            TypeError: timeが数値・2つの数値の並び・Noneのどれでもない場合、またはtimeUnitが文字列でもNoneでもない場合。
+            ValueError: 接線の型を1つも指定しない場合、対応していない接線の型かfixedを指定した場合、timeが有限でない場合、
+                範囲の開始が終了より大きい場合、またはtimeUnitが対応していない単位名の場合。
+            RuntimeError: アトリビュートが無効な場合、またはMayaが変更を拒否した場合。
+        """
+        flags = dict(_key_tangent_flags(inTangentType, outTangentType), **_cut_key_flags(time, timeUnit))
+        self._require_valid()
+        # keyTangentの1回だけなので、チャンクを開かない。
+        cmds.keyTangent(self.getFullName(), edit=True, **flags)
+
     def getAnimLayers(self, selected=False, exact=False):
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーを取得する。
 
@@ -2865,11 +2921,14 @@ class Plug(Object):
         fn = self._node._dependency_fn()
         return Plugs._from_plugs(self._attribute_plugs(fn.getAffectingAttributes(self._mplug.attribute())))
 
-    def getAnimCurve(self, layer=None):
+    def getAnimCurve(self, layer=None, *, indirect=False):
         """このPlugのアニメーションカーブ(animCurve ノード)を取得する。
 
         - ``layer`` を指定しなければ、直接つながっている animCurve だけを探す。pairBlend や
           アニメーションレイヤーを通した、間接的な animCurve は探さない。
+        - ``indirect=True`` なら、直接つながっている animCurve が無いときに、``cmds.setKeyframe`` がキーを打つ先の
+          カーブ(選んでいる・優先するアニメーションレイヤーのカーブや、pairBlend の先のカーブ)を
+          ``cmds.keyframe(plug, q=True, name=True)`` の先頭で取得する。
         - ``layer`` を指定すると、そのアニメーションレイヤーでこのPlugの値を持つカーブを、
           ``cmds.animLayer(layer, q=True, findCurveForPlug=...)`` で取得する。
         - ベースレイヤー(``cmds.animLayer(q=True, root=True)``)を指定し、Plugがどのレイヤーにも
@@ -2877,25 +2936,37 @@ class Plug(Object):
 
         Args:
             layer (Node | str | None): アニメーションレイヤー(animLayer ノード)か、その名前。既定は None。
+            indirect (bool): Trueなら、直接のカーブが無いときに、レイヤーや pairBlend の先のカーブも探す。
+                layer とは同時に指定できない。既定は False。
 
         Returns:
             Node | None: animCurve ノード。無ければ ``None``。
 
         Raises:
-            TypeError: layer が animLayer ノード・名前・None のどれでもない場合。
+            TypeError: layer が animLayer ノード・名前・None のどれでもない場合、または indirect が bool でない場合。
+            ValueError: layer と indirect=True を同時に指定した場合。
             RuntimeError: ノードかアトリビュートが削除されている場合、または layer の名前に当たる
                 レイヤーが見つからない場合。
         """
+        _require_bool(indirect, "indirect")
+        if indirect and layer is not None:
+            raise ValueError("layerとindirect=Trueは同時に指定できません")
         self._require_valid()
         if layer is not None:
             return self._layer_anim_curve(layer)
         sources = self._mplug.connectedTo(True, False)
-        if not sources:
+        if sources and sources[0].node().hasFn(om2.MFn.kAnimCurve):
+            return self._node_from_mplug(sources[0])
+        if not indirect or not sources:
             return None
-        source_mobject = sources[0].node()
-        if not source_mobject.hasFn(om2.MFn.kAnimCurve):
+        # レイヤー・pairBlend の先のどのカーブへキーを打つかは、Mayaのkeyframeの照会と同じ決まりにする。
+        names = cmds.keyframe(self.getFullName(), query=True, name=True) or []
+        if not names:
             return None
-        return self._node_from_mplug(sources[0])
+        # nodes.node が ..plugs.plug を逆方向 import するため、循環回避のためここで遅延 import する。
+        from ..nodes.node import Node
+
+        return Node(names[0])
 
     def getLayeredPlug(self, layer=None):
         """アニメーションレイヤーで、このPlugの値を受け持つ入力のPlugを取得する。

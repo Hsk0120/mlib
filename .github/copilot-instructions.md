@@ -13,7 +13,7 @@ mlib は `maya.api.OpenMaya`(API 2.0)を基盤にした Maya 用 Python ライ�
 - Qt 関連(PySide/PyQt/shiboken/qtpy 等)を import しない。Maya 標準 UI は利用側が cmds/mel で扱う。
 - 独自の Maya プラグインを実装・同梱・自動ロードしない(`MPxCommand`・`MPxNode`・`MFnPlugin` による登録は
   Undo 対応やバージョン差の回避目的でも追加しない)。既存プラグインの状態照会・明示的なロード管理は可。
-- 汎用 UI・設定ストア(OptionVar/Preferences)・シーン/プロジェクト/FBX 操作・専用 Color 型は本体へ追加しない。
+- 汎用 UI・設定ストア(OptionVar/Preferences)・専用 Color 型は本体へ追加しない。シーンのファイルの操作は `common/scene.py` の `Scene`(`pathlib.Path` の派生。照会・新規・開く・保存・インポート・リファレンス・書き出し)に置く。Path の `open()` などの名前は上書きしない(シーンを開くのは `openFile`)。
 - 旧名の互換別名・互換ファイルは残さない。改名したら使用側・テスト・docstring・Sphinx を同時に更新する。
 - 同じ処理の別名を増やさない。正式な入口へ集約する。
 - **コミットの前に、必ず `_tools/format_mlib.bat --check --no-pause` を実行し、最後の行が `[OK]` であることを確かめる。**
@@ -324,7 +324,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   単位名を逆の引数へ渡したら正しい引数名を示す ValueError。`uiUnits=True` は UI 単位で、`unit`/`timeUnit` と同時指定は ValueError。
 - `EulerRotate`・`Quaternion`・`MTime`・`MAngle` は値自身が単位を持つので換算しない。数学型の生成は既定 rad(`unit="deg"` で度)。
 - 内部は rad で計算し、公開境界で一度だけ換算する(通常・fast・safe で同じ)。fast は同じ内部単位の値を om2 へ直接渡す。
-- `Plug.get()` の既定は内部単位、`get(uiUnits=True)` で UI 単位。Maya コマンド自体の単位解釈の例外(`addAttr` の範囲は内部単位等)に注意し、全コマンドへ UI 単位変換を機械的に当てない。
+- `Plug.get()` の既定はオブジェクト層の単位(角度は度・距離は cm・時間は UI 時間単位のフレーム。`unit="rad"`・`timeUnit="sec"` で変える)、`get(uiUnits=True)` で UI 単位。Maya コマンド自体の単位解釈の例外(`addAttr` の範囲は内部単位等)に注意し、全コマンドへ UI 単位変換を機械的に当てない。
 - 形状の作成関数の大きさは cm(UI 単位に依存しない)。
 
 ## 公開名と型の登録
@@ -415,7 +415,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `Nodes._wrap(items)` と `mlib.ls` は、要素がすべて Joint なら `Joints`、すべて SkinCluster なら `SkinClusters` にする。
   こうして自動で決まった型の集まりは、型の合わない要素を `append`・`extend`・`insert`・`+` で足すと `Nodes` へ戻る
   (中身によって足せなくならないようにする)。`Joints([...])` のように自分で作った集まりは、これまでどおり TypeError。
-- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ(コンポーネントは `getFullNames()`・`getCompactNames()`)。
+- 名前の一覧は、`Nodes`・`Plugs` とも `getNames()` と `getFullNames()` の両方を持つ(コンポーネントは `getNames()`(`cmds.ls(flatten=True)` と同じ1要素ずつの名前)・`getFullNames()`・`getCompactNames()`)。
 - 複数形の明示メソッドは、単数形と同じ引数を受ける(`check`・`children` などを落とさない)。
 - `mlib.ls` は常に集まりで返す(`Nodes`/`Joints`/`SkinClusters`、`Plugs`、同じシェイプ・同じ種類なら `Vertices` 等。混在のみ list)。
 

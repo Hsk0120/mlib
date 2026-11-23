@@ -279,10 +279,16 @@ class AnimCurve(Node):
             RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
         """
         ...
-    def replaceKeys(self, keys: Iterable[Sequence], *, unit: str = ..., timeUnit: str = ...) -> None:
+    def replaceKeys(self, keys: AnimCurve | Iterable[Sequence], *, unit: str = ..., timeUnit: str = ...) -> None:
         """カーブを残したまま、すべてのキーを指定したキーへ置き換える。
 
-        1回のUndoで戻せる。fast引数は持たない。``keys`` の各要素は、次のどちらかの形で指定する。
+        1回のUndoで戻せる。fast引数は持たない。``keys`` には同じ型のカーブ(AnimCurve)か、キーの並びを渡す。
+
+        カーブを渡すと、そのカーブのキーを、接線の型・角度・ウェイト・ロック・ブレイクダウンとカーブ全体の
+        ウェイト付き接線まで含めて写す(``cmds.copyKey`` → ``cmds.pasteKey(option="replaceCompletely")`` と同じ結果。
+        キーのクリップボードは使わず、変えない)。前後の無限(infinity)は写さない。このときunit・timeUnitは使わない。
+
+        キーの並びの各要素は、次のどちらかの形で指定する。
 
         - ``(入力, 値)``
         - ``(入力, 値, 入力側の接線の型, 出力側の接線の型)``
@@ -293,7 +299,8 @@ class AnimCurve(Node):
         すべての要素を確かめてから、カーブを書き換える。
 
         Args:
-            keys (Iterable[Sequence]): 新しいキーの並び。入力と値の単位は :meth:`setKey` と同じ。
+            keys (AnimCurve | Iterable[Sequence]): 写すキーを持つ同じ型のカーブ、または新しいキーの並び。
+                並びの入力と値の単位は :meth:`setKey` と同じ。
             unit (str): 出力が角度(A)のカーブでの値の単位。``"deg"`` / ``"rad"``。
             timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。
 
@@ -301,9 +308,9 @@ class AnimCurve(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: 要素が2つか4つの並びでない場合、または数値へ変換できない型の場合。
+            TypeError: 要素が2つか4つの並びでない場合、数値へ変換できない型の場合、またはカーブの型が違う場合。
             ValueError: 有限でない値の場合、知らない接線の型かfixedの場合(角度・ウェイトは :meth:`setTangent` で書く)、
-                またはunit・timeUnitに対応していない単位名の場合。
+                unit・timeUnitに対応していない単位名の場合、または自分自身のカーブを渡した場合。
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         ...
@@ -600,6 +607,21 @@ class AnimCurve(Node):
 
         Returns:
             AnimCurve: 自身。
+        """
+        ...
+    def _replace_keys_from_curve(self, source: AnimCurve) -> None:
+        """別のカーブのキーを、接線・ブレイクダウンまで含めて写す(:meth:`replaceKeys` の実体)。
+
+        Args:
+            source (AnimCurve): 写すキーを持つカーブ。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: カーブの型が違う場合。
+            ValueError: 自分自身を渡した場合。
+            RuntimeError: どちらかのカーブが無効な場合。
         """
         ...
     def _kept_curve(self) -> GeneratorContextManager[Any]:

@@ -53,6 +53,9 @@ class CommandNamesTest(unittest.TestCase):
             "createCluster",
             "createLattice",
             "createWire",
+            "createShadingEngine",
+            "createMotionTrail",
+            "createExpression",
         }
         mlib.reload()
         self.assertEqual(set(mlib.cmds.__all__), expected)

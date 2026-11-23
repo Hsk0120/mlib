@@ -477,7 +477,13 @@ class AnimCurve(Node):
     def replaceKeys(self, keys, *, unit="deg", timeUnit="frame"):
         """カーブを残したまま、すべてのキーを指定したキーへ置き換える。
 
-        1回のUndoで戻せる。fast引数は持たない。``keys`` の各要素は、次のどちらかの形で指定する。
+        1回のUndoで戻せる。fast引数は持たない。``keys`` には同じ型のカーブ(AnimCurve)か、キーの並びを渡す。
+
+        カーブを渡すと、そのカーブのキーを、接線の型・角度・ウェイト・ロック・ブレイクダウンとカーブ全体の
+        ウェイト付き接線まで含めて写す(``cmds.copyKey`` → ``cmds.pasteKey(option="replaceCompletely")`` と同じ結果。
+        キーのクリップボードは使わず、変えない)。前後の無限(infinity)は写さない。このときunit・timeUnitは使わない。
+
+        キーの並びの各要素は、次のどちらかの形で指定する。
 
         - ``(入力, 値)``
         - ``(入力, 値, 入力側の接線の型, 出力側の接線の型)``
@@ -488,7 +494,8 @@ class AnimCurve(Node):
         すべての要素を確かめてから、カーブを書き換える。
 
         Args:
-            keys (Iterable[Sequence]): 新しいキーの並び。入力と値の単位は :meth:`setKey` と同じ。
+            keys (AnimCurve | Iterable[Sequence]): 写すキーを持つ同じ型のカーブ、または新しいキーの並び。
+                並びの入力と値の単位は :meth:`setKey` と同じ。
             unit (str): 出力が角度(A)のカーブでの値の単位。``"deg"`` / ``"rad"``。
             timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。
 
@@ -496,13 +503,16 @@ class AnimCurve(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: 要素が2つか4つの並びでない場合、または数値へ変換できない型の場合。
+            TypeError: 要素が2つか4つの並びでない場合、数値へ変換できない型の場合、またはカーブの型が違う場合。
             ValueError: 有限でない値の場合、知らない接線の型かfixedの場合(角度・ウェイトは :meth:`setTangent` で書く)、
-                またはunit・timeUnitに対応していない単位名の場合。
+                unit・timeUnitに対応していない単位名の場合、または自分自身のカーブを渡した場合。
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         _angle_unit(unit)
         _time_unit(timeUnit)
+        if isinstance(keys, AnimCurve):
+            self._replace_keys_from_curve(keys)
+            return
         entries = []
         for key in keys:
             if not isinstance(key, (list, tuple)) or len(key) not in (2, 4):
@@ -1014,6 +1024,66 @@ class AnimCurve(Node):
                 return self
             cmds.keyframe(self.getFullName(), edit=True, absolute=True, animation="objects", index=ranges, valueChange=self._unit_value(value, output=True))
             return self
+
+    def _replace_keys_from_curve(self, source):
+        """別のカーブのキーを、接線・ブレイクダウンまで含めて写す(:meth:`replaceKeys` の実体)。
+
+        Args:
+            source (AnimCurve): 写すキーを持つカーブ。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: カーブの型が違う場合。
+            ValueError: 自分自身を渡した場合。
+            RuntimeError: どちらかのカーブが無効な場合。
+        """
+        source._require_valid("キーの取得")
+        self._require_valid("キーの設定")
+        if source.getType() != self.getType():
+            raise TypeError(f"replaceKeysには同じ型のカーブを指定してください: {source.getType()}: {source.getName()}")
+        if source.sameNode(self):
+            raise ValueError(f"replaceKeysに自分自身のカーブは指定できません: {self.getName()}")
+        inputs = source.getKeyInputs(timeUnit="sec")
+        values = source.getKeyValues(unit="rad", timeUnit="sec")
+        weighted = source.isWeighted()
+        # ウェイト付きでないカーブのウェイトは固定の値なので写さない(角度だけで接線が決まる)。
+        tangent_keys = ("inAngle", "outAngle", "inWeight", "outWeight", "lock", "weightLock") if weighted else ("inAngle", "outAngle", "lock")
+        records = []
+        for index, (position, value) in enumerate(zip(inputs, values)):
+            tangent = source.getTangent(index, unit="rad")
+            record = {"input": position, "value": value}
+            record.update({key: tangent[key] for key in tangent_keys})
+            # 名前の登録の無いAPIの接線の型(空文字列)は、写せないのでMayaの既定に任せる。
+            record.update({key: tangent[key] for key in ("inTangentType", "outTangentType") if tangent[key]})
+            records.append(record)
+        breakdowns = [index for index in range(len(records)) if source.isBreakdown(index)]
+        with undoChunk("mlibAnimCurveReplaceKeys"):
+            count = self.getKeyCount()
+            if count:
+                with self._kept_curve():
+                    cmds.cutKey(self.getFullName(), index=(0, count - 1), clear=True, animation="objects")
+            if records:
+                # ウェイト付き接線はキーのあるカーブでしか切り替えられない(setAttrも拒否される)ため、
+                # 先に入力と値だけのキーを打ってから、ウェイト付き接線と接線を書く。
+                self.addKeys([{"input": record["input"], "value": record["value"]} for record in records], unit="rad", timeUnit="sec")
+                cmds.keyTangent(self.getFullName(), edit=True, weightedTangents=weighted)
+                for index, record in enumerate(records):
+                    # 角度・ウェイトを書くと接線の型がfixedになるため、角度・ウェイトの後で型を戻し、最後にロックを戻す。
+                    shape = {key: record[key] for key in ("inAngle", "outAngle", "inWeight", "outWeight") if key in record}
+                    types = {key: record[key] for key in ("inTangentType", "outTangentType") if record.get(key, "fixed") != "fixed"}
+                    # ウェイトのロックはウェイト付きのカーブでしか変えられない。
+                    unlocked = {"lock": False, "weightLock": False} if weighted else {"lock": False}
+                    locked = {"lock": record["lock"], "weightLock": record["weightLock"]} if weighted else {"lock": record["lock"]}
+                    self.setTangent(index, **unlocked)
+                    self.setTangent(index, unit="rad", **shape)
+                    if types:
+                        self.setTangent(index, **types)
+                    self.setTangent(index, **locked)
+                cmds.dgdirty(self.getFullName())
+            if breakdowns:
+                self.setBreakdown(breakdowns)
 
     @contextmanager
     def _kept_curve(self):

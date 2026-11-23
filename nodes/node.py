@@ -1118,6 +1118,31 @@ class Node(Object):
         # cmdsは分類なしでも[""]を返す。その既存の返却形を維持する。
         return [om2.MNodeClass(self.getType()).classification]
 
+    def isClassified(self, classification):
+        """ノードの型が、指定した分類に入るかを調べる。
+
+        ``cmds.getClassification(type, satisfies=classification)`` と同じ判定で、``cmds.listNodeTypes(classification)`` が
+        返す型の一覧にこのノードの型が入るかと同じ結果になる。たとえばblinnは ``isClassified("shader")``・
+        ``isClassified("shader/surface")`` でTrue、fileは ``isClassified("texture")`` でTrueになる。
+
+        Args:
+            classification (str): 分類(``"shader"``・``"texture/2d"``・``"utility"`` など)。
+
+        Returns:
+            bool: 分類に入ればTrue。
+
+        Raises:
+            TypeError: classificationが文字列でない場合。
+            ValueError: classificationが空文字列の場合。
+            RuntimeError: ノードが無効な場合。
+        """
+        if not isinstance(classification, str):
+            raise TypeError(f"classificationはstrで指定してください: {type(classification).__name__}")
+        if not classification:
+            raise ValueError("classificationは空でない文字列で指定してください")
+        self._require_valid("分類の照会")
+        return bool(cmds.getClassification(self.getType(), satisfies=classification))
+
     def isType(self, nodeType):
         """このノードの型が、指定した型そのものか、その派生の型か調べる。
 
@@ -1820,6 +1845,40 @@ class Node(Object):
             flags = [(plug, _move_key_flags(plug, time, timeOffset, valueOffset, unit, timeUnit)) for plug in plugs]
             for plug, plug_flags in flags:
                 _move_plug_keys(plug.getFullName(), plug_flags)
+
+    def setKeyTangent(self, attributes=None, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
+        """複数のアトリビュートのキーの、接線の型をまとめて変える(``cmds.keyTangent(node, attribute=[...], edit=True)`` にあたる)。
+
+        時刻か範囲で選んだキーをまとめて変える。Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。
+        fast引数は持たない(1回のcmdsで全キーを処理するため)。
+
+        Args:
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
+
+        Returns:
+            None: 値を返さない。キーが無ければ何もしない。
+
+        Raises:
+            TypeError: attributesが文字列・文字列の並び・None以外の場合、timeが数値・2つの数値の並び・None以外の場合、
+                またはtimeUnitが文字列・None以外の場合。
+            ValueError: attributesが空の並びの場合、接線の型を1つも指定しない場合、対応していない接線の型かfixedを指定した場合、
+                timeが有限でない場合、範囲の始まりが終わりより大きい場合、またはtimeUnitが対応していない単位の名前の場合。
+            RuntimeError: ノードが無効な場合、またはMayaが変更を拒否した場合。
+        """
+        # plugs は nodes を参照するため、循環importを避けて関数内で読み込む。
+        from ..plugs.plug import _cut_key_flags, _key_tangent_flags
+
+        names = _attribute_names(attributes)
+        flags = dict(_key_tangent_flags(inTangentType, outTangentType), **_cut_key_flags(time, timeUnit))
+        self._require_valid("接線の変更")
+        if names is not None:
+            flags["attribute"] = names
+        # keyTangentの1回だけなので、チャンクを開かない。
+        cmds.keyTangent(self.getFullName(), edit=True, **flags)
 
     def getHistory(self, *, type=None, future=False):
         """ヒストリのノードを取得する。
@@ -2780,7 +2839,7 @@ class Node(Object):
         return plugs
 
     @staticmethod
-    def _create_node(node_type, flags, *, fast=False):
+    def _create_node(node_type, flags, *, fast=False, classification=None):
         """Mayaのノードを作り、実際のnodeTypeに合ったクラスのオブジェクトを返す(作成処理の唯一の実体)。
 
         :func:`mlib.createNode` と :meth:`Container.createNode` が呼ぶ内部ヘルパーで、Undoチャンクは
@@ -2796,6 +2855,8 @@ class Node(Object):
             node_type (str): Maya nodeType名。
             flags (dict): createNodeへ渡す正規化済みのフラグ。parent/pを所有ノード名へ変換する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            classification (str | None): ``"asShader"`` など、``cmds.shadingNode`` で作るときの分類のフラグ名。
+                Noneなら ``cmds.createNode`` で作る。fastとは組み合わせない(呼出し側で拒否する)。
 
         Returns:
             Node: 作った(sharedでは共有した)ノードの、実際のnodeTypeに合ったクラスのオブジェクト。
@@ -2836,7 +2897,11 @@ class Node(Object):
             # 作成したばかりの有効なMObjectなので、Node(obj)と同じ解決・型選択を入口の再判定なしで行う。
             node = Node._wrap_resolved(*_resolve_node(obj))
             return Node._connect_joint_parent(node, parent, fast=True)
-        if known:
+        if classification is not None:
+            if not known:
+                raise RuntimeError(_unknown_node_type_message(node_type))
+            created = cmds.shadingNode(node_type, **{classification: True}, **flags)
+        elif known:
             created = cmds.createNode(node_type, **flags)
         else:
             # 作成・削除・選択の復元を、1回のUndoにまとめる。

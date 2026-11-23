@@ -18,17 +18,20 @@ from .createContainer import createContainer
 from .createCurve import createCurve
 from .createDagContainer import createDagContainer
 from .createDagPose import createDagPose
+from .createExpression import createExpression
 from .createGroup import createGroup
 from .createIkHandle import createIkHandle
 from .createJointChain import createJointChain
 from .createLattice import createLattice
 from .createLocator import createLocator
+from .createMotionTrail import createMotionTrail
 from .createNode import createNode
 from .createNurbsPlane import createNurbsPlane
 from .createPolyCube import createPolyCube
 from .createPolyCylinder import createPolyCylinder
 from .createPolyPlane import createPolyPlane
 from .createPolySphere import createPolySphere
+from .createShadingEngine import createShadingEngine
 from .createWire import createWire
 from .delete import delete
 from .duplicate import duplicate
@@ -49,17 +52,20 @@ __all__ = [
     "createCurve",
     "createDagContainer",
     "createDagPose",
+    "createExpression",
     "createGroup",
     "createIkHandle",
     "createJointChain",
     "createLattice",
     "createLocator",
+    "createMotionTrail",
     "createNode",
     "createNurbsPlane",
     "createPolyCube",
     "createPolyCylinder",
     "createPolyPlane",
     "createPolySphere",
+    "createShadingEngine",
     "createWire",
     "delete",
     "duplicate",

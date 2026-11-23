@@ -5,6 +5,7 @@ import functools
 import operator
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 import maya.api.OpenMaya as om2
+import maya.cmds as cmds
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool
 from ..nodes.shape import Shape
@@ -564,6 +565,21 @@ class Components:
 
         Returns:
             None: 値を返さない。
+        """
+        ...
+    def getNames(self) -> list[str]:
+        """持っている順に、``cmds.ls(flatten=True)`` と同じ最短のコンポーネント名を取得する。
+
+        シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``
+        のようにTransformの名前)。要素ごとの名前で、範囲にはまとめない。
+
+        Returns:
+            list[str]: ``cube.vtx[3]`` のような、要素ごとの名前。空の集まりなら空リスト。
+
+        Raises:
+            TypeError: 対応しないシェイプ型の場合。
+            IndexError: いずれかの番号が範囲外の場合。
+            RuntimeError: シェイプが無効な場合。
         """
         ...
     def getFullNames(self) -> list[str]:
