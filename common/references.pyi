@@ -8,6 +8,7 @@ import maya.cmds as cmds
 from ..decorator import undoChunk
 from mlib.nodes.node import Nodes
 from mlib.nodes.reference import Reference
+import os
 
 _SHARED_REFERENCE_NODE: str
 
@@ -31,6 +32,22 @@ def listReferences(topLevelOnly: bool = ...) -> Nodes[Reference]:
     Returns:
         Nodes[Reference]: リファレンスのオブジェクトの一覧(``cmds.ls(type="reference")`` と同じ名前順)。
             リファレンスが無ければ空の集まり。名前順なので、リファレンスを作った順や読み込んだ順とは限らない。
+    """
+    ...
+
+def _require_scene_file(path: str | os.PathLike) -> Path:
+    """リファレンスするファイルがあるかを確かめる。シーンは変えない。
+
+    ``~`` はユーザーのホームに展開し、相対パスは ``cmds.file`` と同じくMayaのプロジェクト(workspace)から探す。
+
+    Args:
+        path (str | os.PathLike): 確かめるファイルのパス。空でないことは呼び出し側で確かめてある。
+
+    Returns:
+        Path: ``~`` を展開したパス。相対パスは相対のまま返す。
+
+    Raises:
+        OSError: ファイルが無い場合(``FileNotFoundError``)。
     """
     ...
 

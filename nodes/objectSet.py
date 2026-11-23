@@ -3,6 +3,8 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..core.fastWrite import require_unlocked
+from ..core.nodeEdit import require_editable
 from ..core.object import Object
 from ..decorator import _require_bool, undoChunk
 from .node import Node, Nodes
@@ -134,11 +136,18 @@ class ObjectSet(Node):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: Mayaが外すのを拒否した場合。
+            RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
+                メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
+                またはMayaが外すのを拒否した場合。
+
+        Note:
+            Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
         """
+        if not members:
+            return
+        self._require_members_editable("メンバーの削除")
         with undoChunk("mlibObjectSetRemoveMembers"):
-            if members:
-                cmds.sets(Object._input_names(members), remove=self.getName())
+            cmds.sets(Object._input_names(members), remove=self.getName())
 
     def isMember(self, member):
         """渡したものが、すべてこのセットに直接入っているか調べる。
@@ -188,9 +197,14 @@ class ObjectSet(Node):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
+            RuntimeError: ノードが無効(削除済み)の場合、セットがロックされているかリファレンスの場合、
+                メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
+                またはMayaが処理を拒否した場合。
+
+        Note:
+            Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
         """
-        self._require_valid("クリア")
+        self._require_members_editable("クリア")
         with undoChunk("mlibObjectSetRemoveAllMembers"):
             cmds.sets(clear=self.getName())
 
@@ -273,6 +287,25 @@ class ObjectSet(Node):
         members = self._member_list()
         members.merge(self._other_member_list(other), om2.MSelectionList.kRemoveFromList)
         return members.isEmpty()
+
+    def _require_members_editable(self, action):
+        """メンバーを外す前に、セットとメンバーのアトリビュートを編集できるかを確かめる。
+
+        Args:
+            action (str): 例外の文に入れる操作の名前。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
+                またはメンバーのアトリビュートかその要素がロックされている場合。
+        """
+        self._require_valid(action)
+        require_editable(self.mnode())
+        dependency = self._dependency_fn()
+        for name in ("dagSetMembers", "dnSetMembers"):
+            require_unlocked(dependency.findPlug(name, False))
 
     def _member_list(self):
         """直接メンバーの選択リストを返す。

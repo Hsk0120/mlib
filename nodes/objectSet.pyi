@@ -3,6 +3,8 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from ..core.fastWrite import require_unlocked
+from ..core.nodeEdit import require_editable
 from ..core.object import Object
 from ..decorator import _require_bool, undoChunk
 from .node import Node, Nodes
@@ -121,7 +123,12 @@ class ObjectSet(Node):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: Mayaが外すのを拒否した場合。
+            RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
+                メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
+                またはMayaが外すのを拒否した場合。
+
+        Note:
+            Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
         """
         ...
     def isMember(self, member: Node | str) -> bool:
@@ -154,7 +161,12 @@ class ObjectSet(Node):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: ノードが無効(削除済み)の場合、またはMayaが処理を拒否した場合。
+            RuntimeError: ノードが無効(削除済み)の場合、セットがロックされているかリファレンスの場合、
+                メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
+                またはMayaが処理を拒否した場合。
+
+        Note:
+            Mayaはセットのロックを見ずにメンバーを外すため、ロックとリファレンスは ``cmds.sets`` を呼ぶ前に確かめる。
         """
         ...
     def getUnion(self, other: ObjectSet | str) -> list[Node | Plug | Components]:
@@ -221,6 +233,20 @@ class ObjectSet(Node):
         Raises:
             TypeError: otherがobjectSetでない場合。
             RuntimeError: どちらかのノードが無効(削除済み)の場合。
+        """
+        ...
+    def _require_members_editable(self, action: str) -> None:
+        """メンバーを外す前に、セットとメンバーのアトリビュートを編集できるかを確かめる。
+
+        Args:
+            action (str): 例外の文に入れる操作の名前。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
+                またはメンバーのアトリビュートかその要素がロックされている場合。
         """
         ...
     def _member_list(self) -> om2.MSelectionList:

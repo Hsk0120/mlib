@@ -1211,14 +1211,19 @@ class TransformErrorTest(_Case):
         self.assertSequenceAlmostEqual(transform.getPivot(kind="scale"), (1, 2, 3))
 
     def test_get_closest_axis_to_vector_zero_vectors(self):
-        """refVector がゼロ、またはローカル軸がワールド変換でゼロになる場合は ValueError。"""
+        """refVector がゼロなら ValueError。ワールドで長さ0になる軸は選ばず、すべて0なら "x"。"""
         transform = self.node("transform")
         self.assertRaises(ValueError, transform.getClosestAxisToVector, (0, 0, 0))
         flat = self.node("transform")
         cmds.setAttr(flat.getFullName() + ".offsetParentMatrix", [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], type="matrix")
+        empty = self.node("transform")
+        cmds.setAttr(empty.getFullName() + ".offsetParentMatrix", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], type="matrix")
         for include_negative in (True, False):
             with self.subTest(includeNegative=include_negative):
-                self.assertRaises(ValueError, flat.getClosestAxisToVector, (0, 1, 0), include_negative)
+                # x の軸は長さ0なので、refVector と同じ向きでも選ばない(内積が同じ0の軸は y・z の順に先のもの)。
+                self.assertEqual(flat.getClosestAxisToVector((1, 0, 0), include_negative), "y")
+                self.assertEqual(flat.getClosestAxisToVector((0, 1, 0), include_negative), "y")
+                self.assertEqual(empty.getClosestAxisToVector((0, 1, 0), include_negative), "x")
         cmds.setAttr(transform.getFullName() + ".rotateZ", 90)
         self.assertEqual(transform.getClosestAxisToVector((0, 1, 0)), "x")
         self.assertEqual(transform.getClosestAxisToVector((1, 0, 0)), "-y")

@@ -352,7 +352,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
         self.assertEqual(os.path.normcase(reference.getFilename()), os.path.normcase(self.path_b))
         self.assertTrue(cmds.objExists(self.ns + "_r1:mlibNodePlugAddextra_" + self.asset.rsplit("_", 1)[-1]))
         self.assertFalse(cmds.objExists(self.ns + "_r1:" + self.driven))
-        for value, error in ((1, TypeError), ("", ValueError), (os.path.join(self.tmp_dir, "missing.ma"), RuntimeError)):
+        for value, error in ((1, TypeError), ("", ValueError), (os.path.join(self.tmp_dir, "missing.ma"), FileNotFoundError)):
             with self.subTest(value=value):
                 with self.assertRaises(error):
                     reference.replaceFile(value)

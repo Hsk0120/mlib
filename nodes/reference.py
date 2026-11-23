@@ -398,6 +398,8 @@ class Reference(Node):
 
         ``cmds.file(path, loadReference=ref)`` と同じ。名前空間とEditはそのまま残る。
         ファイルの操作なので、Undoには記録されない。
+        ファイルがあるかは置き換える前に確かめ、無ければ何も変えずにOSErrorにする(相対パスはMayaのプロジェクトから探す。
+        :func:`~mlib.common.references.createReference` と同じ)。Mayaは無いファイルでも参照先を書き換えてしまうため。
 
         Args:
             path (str | os.PathLike): 新しいファイルのパス。
@@ -408,7 +410,8 @@ class Reference(Node):
         Raises:
             TypeError: pathが文字列でもPathLikeでもない場合。
             ValueError: pathが空の場合。
-            RuntimeError: referenceノードが無効な場合、ファイルが無い場合、またはMayaが読み込みを拒否した場合。
+            OSError: ファイルが無い場合(``FileNotFoundError``)。
+            RuntimeError: referenceノードが無効な場合、またはMayaが読み込みを拒否した場合。
         """
         if not isinstance(path, (str, os.PathLike)):
             raise TypeError("pathはstrかos.PathLikeで指定してください")
@@ -416,6 +419,10 @@ class Reference(Node):
         if not path:
             raise ValueError("pathは空でない文字列で指定してください")
         self._require_valid("ファイルの置き換え")
+        # 循環参照の回避: common.references は使う時点で nodes を読み込むため、こちらも使う時点で読み込む。
+        from ..common.references import _require_scene_file
+
+        _require_scene_file(path)
         # GUIでも「ファイルが見つかりません」の確認ダイアログで止めず、例外にする。
         cmds.file(path.replace("\\", "/"), loadReference=self.getName(), prompt=False)
 

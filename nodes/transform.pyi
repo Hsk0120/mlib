@@ -383,7 +383,9 @@ class Transform(DagNode):
             ValueError: axis・pivotが正しくない場合、Mesh・NurbsCurve以外のShapeがある場合、またはworldSpace=Trueで
                 変換のマトリクスがほぼ特異な場合。
             IndexError: 番号がどれかのShapeの範囲外の場合。
-            RuntimeError: Transformが無効な場合、またはロックなどのためにMayaが書き込みを拒否した場合。
+            RuntimeError: Transformが無効な場合、Shapeがロックされているかリファレンスの場合、
+                書き込む点のアトリビュート(pnts・controlPoints)がロックされている場合、またはMayaが書き込みを拒否した場合。
+                Mayaはこれらのロックを見ずに書くため、ロックとリファレンスはcheckに関係なく書く前に確かめる。
             NotImplementedError: fast=Trueで、入力のヒストリがあるShapeがある場合。
         """
         ...
@@ -1473,8 +1475,11 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            ValueError: 初期化した後のローカルのマトリクスの逆が求められない場合(inverseScaleが0のJointなど)。
             RuntimeError: ノードが無効な場合、または対象のチャンネル・offsetParentMatrixがロックされている・入力が接続されている場合。
+
+        Note:
+            初期化した後のローカルのマトリクスは、scaleが0だったtransformやinverseScaleが0のJointでも特異にならない
+            (Mayaはマトリクスの計算で0のスケールをとても小さい値に置き換える)ので、逆マトリクスは確かめずに求める。
         """
         ...
     def eulerFilter(self) -> None:
@@ -1496,6 +1501,9 @@ class Transform(DagNode):
 
         各ローカルの軸をワールドマトリクス(回転とスケールだけ。移動は無視する)で変換し、
         正規化してからrefVectorとの内積を比べ、いちばん大きいものを選ぶ。
+        ワールドで長さ0になる軸(``offsetParentMatrix`` などで軸が0になった場合)は選ばない。
+        すべての軸が長さ0なら ``"x"`` を返す。scaleの0は、Mayaがとても小さい値に置き換えるので長さ0にはならず、
+        その軸の向きで比べる。
 
         Args:
             refVector (Vector | Iterable[float]): 比べるワールド空間での向きのベクトル。
@@ -1507,8 +1515,7 @@ class Transform(DagNode):
 
         Raises:
             TypeError: refVectorが3つの数値の並びでもベクトルでもない場合、またはincludeNegativeがboolでない場合。
-            ValueError: refVectorの値の数が3でない・有限でない場合、またはrefVectorか、どれかのローカルの軸が
-                ワールドへ変換すると長さ0のベクトルになる場合。
+            ValueError: refVectorの値の数が3でない・有限でない場合、またはrefVectorが長さ0のベクトルの場合。
             RuntimeError: ノードが無効な場合。
         """
         ...

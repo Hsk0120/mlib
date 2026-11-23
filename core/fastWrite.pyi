@@ -61,6 +61,24 @@ def require_writable(plug: om2.MPlug, _fn: om2.MFnAttribute | None = ...) -> Non
     """
     ...
 
+def require_unlocked(plug: om2.MPlug, *, connected: bool = ...) -> None:
+    """プラグ・その上にあるプラグ・その下にあるすでにある要素と子が、ロックされていないかを調べる。
+
+    Mayaのコマンドには、アトリビュートのロックを見ずに書くものがあるため、呼ぶ前に確かめるときに使う。
+    まだ無い要素は作らない。シーンは変えない。
+
+    Args:
+        plug (om2.MPlug): 調べるプラグ。
+        connected (bool): Trueなら、入力の接続がある場合も止める。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: どれかがロックされている場合、またはconnected=Trueで入力の接続がある場合。
+    """
+    ...
+
 def writable_compound(mplug: om2.MPlug) -> None:
     """プラグとその子へ書き込めるかを調べる。
 

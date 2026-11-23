@@ -789,7 +789,6 @@ class DagNode(Node):
 
         Raises:
             TypeError: stateまたはfastがbool以外の場合。
-            AttributeError: 対応するアトリビュートがない場合。
             RuntimeError: ロックや入力接続などのために書き込めない場合。
 
         Note:

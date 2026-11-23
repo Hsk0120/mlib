@@ -102,6 +102,40 @@ def require_writable(plug, _fn=None):
         raise RuntimeError(f"アトリビュートは書き込めません: {plug.name()}")
 
 
+def require_unlocked(plug, *, connected=False):
+    """プラグ・その上にあるプラグ・その下にあるすでにある要素と子が、ロックされていないかを調べる。
+
+    Mayaのコマンドには、アトリビュートのロックを見ずに書くものがあるため、呼ぶ前に確かめるときに使う。
+    まだ無い要素は作らない。シーンは変えない。
+
+    Args:
+        plug (om2.MPlug): 調べるプラグ。
+        connected (bool): Trueなら、入力の接続がある場合も止める。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: どれかがロックされている場合、またはconnected=Trueで入力の接続がある場合。
+    """
+    for current in _ancestor_plugs(plug):
+        if current.isLocked or (connected and current.isDestination):
+            raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {current.name()}")
+    pending = [plug]
+    while pending:
+        current = pending.pop()
+        if current.isArray:
+            children = [current.elementByLogicalIndex(index) for index in current.getExistingArrayAttributeIndices()]
+        elif current.isCompound:
+            children = [current.child(index) for index in range(current.numChildren())]
+        else:
+            continue
+        for child in children:
+            if child.isLocked or (connected and child.isDestination):
+                raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {child.name()}")
+        pending.extend(children)
+
+
 def writable_compound(mplug):
     """プラグとその子へ書き込めるかを調べる。
 

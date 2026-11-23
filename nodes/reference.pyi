@@ -293,6 +293,8 @@ class Reference(Node):
 
         ``cmds.file(path, loadReference=ref)`` と同じ。名前空間とEditはそのまま残る。
         ファイルの操作なので、Undoには記録されない。
+        ファイルがあるかは置き換える前に確かめ、無ければ何も変えずにOSErrorにする(相対パスはMayaのプロジェクトから探す。
+        :func:`~mlib.common.references.createReference` と同じ)。Mayaは無いファイルでも参照先を書き換えてしまうため。
 
         Args:
             path (str | os.PathLike): 新しいファイルのパス。
@@ -303,7 +305,8 @@ class Reference(Node):
         Raises:
             TypeError: pathが文字列でもPathLikeでもない場合。
             ValueError: pathが空の場合。
-            RuntimeError: referenceノードが無効な場合、ファイルが無い場合、またはMayaが読み込みを拒否した場合。
+            OSError: ファイルが無い場合(``FileNotFoundError``)。
+            RuntimeError: referenceノードが無効な場合、またはMayaが読み込みを拒否した場合。
         """
         ...
     def importContents(self, removeNamespace: bool = ...) -> Nodes:

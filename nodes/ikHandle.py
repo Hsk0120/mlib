@@ -4,6 +4,8 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 import maya.mel as mel
 
+from ..core.fastWrite import require_unlocked
+from ..core.nodeEdit import require_editable
 from ..decorator import undoChunk
 from .node import Node
 from .transform import Transform
@@ -202,7 +204,9 @@ class IkHandle(Transform):
         Raises:
             TypeError: solverが文字列でない場合。
             ValueError: solverに使えない名前を指定した場合、またはハンドルがikSplineSolverを使っている場合。
-            RuntimeError: ノードが無効な場合、またはMayaが切り替えを拒否した場合。
+            RuntimeError: ノードが無効な場合、ハンドルがロックされているかリファレンスの場合、
+                ``ikSolver`` がロックされている場合(Mayaはロックを見ずに切り替えるため、切り替える前に確かめる)、
+                またはMayaが切り替えを拒否した場合。
         """
         if not isinstance(solver, str):
             raise TypeError(f"solverは文字列で指定してください: {solver!r}")
@@ -210,6 +214,8 @@ class IkHandle(Transform):
             raise ValueError(f"solverは{', '.join(_SWITCHABLE_SOLVERS)}のどれかで指定してください: {solver!r}")
         if self.getSolver() == "ikSplineSolver":
             raise ValueError(f"スプラインIKハンドルのソルバーは切り替えられません: {self.getFullName()}")
+        require_editable(self.mnode())
+        require_unlocked(self._dependency_fn().findPlug("ikSolver", False))
         with undoChunk("mlibIkHandleSetSolver"):
             if solver == "ikSpringSolver" and not cmds.ls(type="ikSpringSolver"):
                 # ikSpringSolverはソルバーノードの登録が要るため、Maya標準の手続きで用意する。

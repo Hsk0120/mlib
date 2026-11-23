@@ -68,6 +68,39 @@ def _require_points_writable(target: _Geometry, indices: Iterable[int]) -> None:
     """
     ...
 
+def require_points_unlocked(shape: Mesh | NurbsCurve, indices: Iterable[int]) -> None:
+    """指定した点のpnts・controlPointsとその子が、ロックされていないかを確かめる。シーンは変えない。
+
+    入力の接続と書き込めるかは調べない(``check=True`` のときの :func:`_require_points_writable` が調べる)。
+    Mayaのコマンドは点のアトリビュートのロックを見ずに書くので、ロックだけは書く前に必ず確かめるときに使う。
+    すでにある要素だけを調べ、要素を作らない。
+
+    Args:
+        shape (Mesh | NurbsCurve): 型が決まっているShapeのオブジェクト。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: マルチアトリビュート全体・指定した点の要素・その子のどれかがロックされている場合。
+    """
+    ...
+
+def _point_plugs(target: _Geometry, indices: Iterable[int]) -> tuple[om2.MPlug, list[int]]:
+    """点のアトリビュート(pnts・controlPoints)と、調べる点番号を返す。
+
+    周期カーブでは、指定した独立CVに重なる末尾の重複CVの番号も足す。
+
+    Args:
+        target (_Geometry): :func:`geometry` の戻り値。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        tuple[om2.MPlug, list[int]]: 点のマルチアトリビュートと、調べる点番号。
+    """
+    ...
+
 def _require_control_points_writable(shape: Shape) -> None:
     """すでにあるすべての制御点(controlPoints)とその子へ書き込めるかを確かめる。シーンは変えない。
 

@@ -11,8 +11,9 @@ import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
 import maya.cmds as cmds
 
-from ..core.fastWrite import require_range, require_writable, set_attr
+from ..core.fastWrite import require_range, require_unlocked, require_writable, set_attr
 from ..core.ngSkinLayers import _layer_api, _move_layer_weights
+from ..core.nodeEdit import require_editable
 from ..core.object import Object
 from ..decorator import _edit_context, _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths import easing
@@ -239,7 +240,9 @@ class SkinCluster(GeometryFilter):
             TypeError: 引数の型が正しくない場合。
             ValueError: 面や対応の付け方の名前が正しくない場合、またはインフルエンスの対応の付け方が
                 0個・4個以上・重複している場合。
-            RuntimeError: Mayaがミラーを拒否した場合。
+            RuntimeError: ノードが無効な場合、skinClusterがロックされているかリファレンスの場合、
+                ``weightList`` かその要素がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
+                またはMayaがミラーを拒否した場合。
         """
         axis = _MIRROR_PLANES[_mirror_axis(axis)]
         _require_bool(positiveToNegative, "positiveToNegative")
@@ -255,6 +258,8 @@ class SkinCluster(GeometryFilter):
         for method in influence_association:
             self._require_choice(method, "influenceAssociation", self._INFLUENCE_ASSOCIATIONS)
         _require_bool(normalize, "normalize")
+        self._require_valid("ウェイトのミラー")
+        self._require_skin_unlocked("weightList")
         name = self.getFullName()
         cmds.copySkinWeights(
             sourceSkin=name,
@@ -417,7 +422,9 @@ class SkinCluster(GeometryFilter):
         Raises:
             TypeError: toleranceが数値でない場合、またはiterationsがintでない場合。
             ValueError: toleranceが範囲外、またはiterationsが1未満の場合。
-            RuntimeError: Mayaが編集を拒否した場合。
+            RuntimeError: ノードが無効な場合、skinClusterがロックされているかリファレンスの場合、
+                ``weightList`` かその要素がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
+                またはMayaが編集を拒否した場合。
             NotImplementedError: 出力がMeshでない場合。
         """
         if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
@@ -431,6 +438,7 @@ class SkinCluster(GeometryFilter):
         self._require_valid("ウェイトのスムーズ")
         if not self.mesh_path.hasFn(om2.MFn.kMesh):
             raise NotImplementedError("smoothWeightsはMeshだけに対応しています")
+        self._require_skin_unlocked("weightList")
         cmds.skinCluster(self.getFullName(), edit=True, smoothWeights=tolerance, smoothWeightsMaxIterations=iterations)
 
     @undoChunk("mlibSkinClusterAddInfluences")
@@ -611,10 +619,13 @@ class SkinCluster(GeometryFilter):
 
         Raises:
             TypeError: keepHistoryがboolでない場合。
-            RuntimeError: ノードが無効(削除済み)な場合、またはMayaが処理を拒否した場合。
+            RuntimeError: ノードが無効(削除済み)な場合、skinClusterがロックされているかリファレンスの場合、
+                keepHistory=Trueで ``nodeState`` がロックされている場合(Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、
+                またはMayaが処理を拒否した場合。
         """
         _require_bool(keepHistory, "keepHistory")
         self._require_valid("バインドの解除")
+        self._require_skin_unlocked(*(("nodeState",) if keepHistory else ()))
         flag = "unbindKeepHistory" if keepHistory else "unbind"
         with undoChunk("mlibSkinClusterUnbind"):
             cmds.skinCluster(self.getFullName(), edit=True, **{flag: True})
@@ -653,10 +664,14 @@ class SkinCluster(GeometryFilter):
         Raises:
             TypeError: forceがboolでない場合。
             ValueError: 外すとインフルエンスが1つも残らなくなる場合。
-            RuntimeError: レイヤー・ロック・接続のために編集できない場合、またはMayaの編集が失敗した場合。
+            RuntimeError: skinClusterがロックされているかリファレンスの場合、外すインフルエンスの
+                ``matrix``・``bindPreMatrix``・``lockWeights``・``influenceColor`` の要素がロックされている場合
+                (Mayaはこれらのロックを見ずに書くため、書く前に確かめる。)、レイヤー・ロック・接続のために編集できない場合、またはMayaの編集が失敗した場合。
         """
         with undoChunk("mlibSkinClusterRemoveUnusedInfluences"):
             _require_bool(force, "force")
+            self._require_valid("インフルエンスの削除")
+            self._require_skin_unlocked()
             if force:
                 _, used = self._weight_cleanup_plan()
                 if not used:
@@ -665,6 +680,11 @@ class SkinCluster(GeometryFilter):
             unused = self.getUnusedInfluences()
             if unused and len(unused) == len(self.getInfluences()):
                 raise ValueError("skinClusterからすべてのインフルエンスを削除することはできません")
+            dependency = self._dependency_fn()
+            for node in unused:
+                index = self._skin_fn.indexForInfluenceObject(node.mpath())
+                for attribute in ("matrix", "bindPreMatrix", "lockWeights", "influenceColor"):
+                    require_unlocked(dependency.findPlug(attribute, False).elementByLogicalIndex(index))
             for node in unused:
                 self.removeInfluence(node.getFullName(), transferToParent=False)
             return Nodes._wrap(unused)
@@ -1060,8 +1080,8 @@ class SkinCluster(GeometryFilter):
             ValueError: 値の数が頂点の数と違う場合、値が0〜1の有限の数でない場合、
                 または頂点が重複している・別の形状のものである場合。
             IndexError: 頂点の番号が範囲外の場合。
-            RuntimeError: ノードが無効な場合、blendWeightsがロックされている・入力が接続されている場合、
-                またはMayaが設定を拒否した場合。
+            RuntimeError: ノードが無効な場合、blendWeightsがロックされている・入力が接続されている場合
+                (fast=Trueでは、check=Trueのときだけ確かめる)、またはMayaが設定を拒否した場合。
         """
         with _edit_context("mlibSkinClusterSetBlendWeights", fast):
             self._require_valid("ブレンドウェイトの設定")
@@ -1280,6 +1300,8 @@ class SkinCluster(GeometryFilter):
                 ``method="index"`` で頂点の数が違う場合、または保存したインフルエンスが1つもシーンに無い場合。
             OSError: 読み込みに失敗した場合。
             RuntimeError: ウェイトが編集できない場合、またはMayaが設定を拒否した場合。
+                fast=Trueでは ``weightList`` のロックを確かめずに書く(このメソッドはcheckを持たないため。
+                ロックを確かめてから書くには、:meth:`setWeights` に ``check=True`` を渡す)。
         """
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json import file
@@ -1466,6 +1488,8 @@ class SkinCluster(GeometryFilter):
             TypeError: 組を順に取り出せない場合、対応していない参照の型の場合、またはfastがboolでない場合。
             ValueError: 組が2つの要素でない場合、または未登録のインフルエンスの場合。
             RuntimeError: レイヤー・ロックなどのために編集できない場合、またはMayaの処理が失敗した場合。
+                通常の経路でも、skinClusterがロックされているかリファレンスの場合と、``weightList`` かその要素が
+                ロックされている場合は、移す前に確かめて例外にする(skinPercentはロックされた要素を黙って飛ばすため)。
             NotImplementedError: fastで、ジオメトリが1つでない場合。
         """
         with _edit_context("mlibSkinClusterTransferWeights", fast):
@@ -1489,6 +1513,8 @@ class SkinCluster(GeometryFilter):
 
                 transfer_weights(self, pairs)
             else:
+                if pairs:
+                    self._require_skin_unlocked("weightList")
                 with preservedSelection():
                     for source_joint, target_joint in pairs:
                         self._transfer_pair(source_joint, target_joint)
@@ -1574,7 +1600,7 @@ class SkinCluster(GeometryFilter):
             if dependency.isLocked or dependency.isFromReferencedFile:
                 raise RuntimeError("ロック・参照スキンの強制正規化には対応していません")
             self._raise_if_layers()
-            self._require_weight_locks(self.getPlug("weightList").mplug())
+            require_unlocked(self.getPlug("weightList").mplug(), connected=True)
             influences = self.getInfluences()
             if not influences:
                 raise ValueError("インフルエンスがありません")
@@ -3516,6 +3542,25 @@ class SkinCluster(GeometryFilter):
             raise ValueError("ウェイトは0以上の有限な数値で指定してください")
         return names, weights
 
+    def _require_skin_unlocked(self, *attributes):
+        """Mayaのコマンドを呼ぶ前に、skinClusterと書き込む先のアトリビュートのロックを確かめる。
+
+        skinClusterのコマンドとcopySkinWeightsには、ノードやアトリビュートのロックを見ずに書くものがあるため使う。
+
+        Args:
+            *attributes (str): ロックを確かめるアトリビュートの名前。その上と、すでにある要素・子も調べる。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: skinClusterがロックされているかリファレンスの場合、またはアトリビュートがロックされている場合。
+        """
+        require_editable(self.mnode())
+        dependency = self._dependency_fn()
+        for attribute in attributes:
+            require_unlocked(dependency.findPlug(attribute, False))
+
     def _editable_weight_list(self, *, check_layers=True):
         """正規化・整理用に全ウェイトの編集条件を検査し、名前列とweightList参照を返す。
 
@@ -3538,7 +3583,7 @@ class SkinCluster(GeometryFilter):
         weight_list = self.getPlug("weightList").mplug()
         if weight_list.isLocked or weight_list.isDestination:
             raise RuntimeError("ウェイトがロックされているか、接続されています")
-        self._require_weight_locks(weight_list)
+        require_unlocked(weight_list, connected=True)
         return names, weight_list
 
     def _require_unlocked_influences(self):
@@ -3584,28 +3629,6 @@ class SkinCluster(GeometryFilter):
                 elif value > 0:
                     used.add(index)
         return elements, used
-
-    @staticmethod
-    def _require_weight_locks(plug):
-        """既存の疎なウェイト要素だけを辿りロックを検証する。
-
-        Args:
-            plug (om2.MPlug): weightListとその子。未存在要素は作成しない。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            RuntimeError: 要素または親のアトリビュートがロックされている場合。
-        """
-        if plug.isLocked or plug.isDestination:
-            raise RuntimeError(f"ウェイトのマルチアトリビュートの要素がロックされているか、接続されています: {plug.name()}")
-        if plug.isArray:
-            for index in plug.getExistingArrayAttributeIndices():
-                SkinCluster._require_weight_locks(plug.elementByLogicalIndex(index))
-        elif plug.isCompound:
-            for index in range(plug.numChildren()):
-                SkinCluster._require_weight_locks(plug.child(index))
 
     def _normalized_weights(self, decimals=None, limit=None):
         """すべての頂点ウェイトの正規化・列の削減・10進数の丸めを、メモリの上で計算する。

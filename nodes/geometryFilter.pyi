@@ -173,7 +173,6 @@ class GeometryFilter(Node):
             TypeError: geometryIndexがintでない場合、または未対応のコンポーネント種別の場合。
             IndexError: 指定した論理番号の出力が無い場合。
             RuntimeError: デフォーマーが無効、またはMayaが対象を取得できない場合。
-            NotImplementedError: MayaにgetComponentAtIndexが無い場合。
         """
         ...
     def getDeformerSet(self) -> ObjectSet | None:
@@ -260,6 +259,7 @@ class GeometryFilter(Node):
         デフォーマー名は比べないので、別のデフォーマーへも読み込める。
 
         書き込む前に全部の形状を確かめ、合わないものがあれば何も変えずにValueErrorにする。
+        ロックと入力の接続も、fastでも書き込む前に全部の要素を確かめ、書けないものがあれば何も変えずにRuntimeErrorにする。
         通常は、全部の形状の書き込みを1回のUndoにまとめる。
 
         Args:
@@ -274,7 +274,7 @@ class GeometryFilter(Node):
                 またはデフォーマーのウェイトを持たない型の場合。
             ValueError: ファイルの形式や版が違う場合、形状の番号がこのデフォーマーに無い場合、
                 または頂点数が違う場合。
-            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合(何も書かない)、
                 またはMayaが書き込みを拒否した場合。
         """
         ...

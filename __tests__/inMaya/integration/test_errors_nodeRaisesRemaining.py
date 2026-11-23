@@ -4,7 +4,8 @@
 書かなかった項目を、docstring の条件どおりの入力で ``assertRaises`` し、例外の後にシーンのノードの数と、
 書き込もうとした値・接続が変わらないことも確かめる。
 
-Mayaが拒否しないため例外の条件を作れない項目(``ObjectSet.removeMembers`` のロックなど)は書かない。
+Mayaがロックを見ずに通すため、mlibがMayaを呼ぶ前に確かめる項目(``ObjectSet.removeMembers`` のロックなど)は
+``LockedNodeTest`` で確かめる。
 """
 
 import os
@@ -220,8 +221,13 @@ class GeometryFilterTest(_RemainingCase):
     """loadDeformerWeights はロックされたウェイトへ書き込めず RuntimeError。ウェイトは変わらない。"""
 
     def test_load_into_locked_weights(self):
-        # 要素を1つだけロックした fast は、例外の前にロックしていない要素を書いてしまうため確かめない(報告済み)。
-        cases = (("weightList[0].weights", False), ("weightList[0].weights", True), ("weightList[0].weights[1]", False))
+        cases = (
+            ("weightList[0].weights", False),
+            ("weightList[0].weights", True),
+            ("weightList[0].weights[1]", False),
+            # fast は要素を1つずつ書くが、書く前に全部の要素を確かめるので、ロックしていない weights[0] も書かない。
+            ("weightList[0].weights[1]", True),
+        )
         for attribute, fast in cases:
             with self.subTest(attribute=attribute, fast=fast):
                 deformer = mlib.getNode(cmds.cluster(self.cube())[0])
@@ -403,12 +409,14 @@ class ReferenceTest(_RemainingCase):
                 self.assertFails(error, getattr(self.outer, method), *args, state=self.locked, **flags)
 
     def test_replace_with_missing_file(self):
-        """存在しないファイルへの replaceFile は RuntimeError。
+        """存在しないファイルへの replaceFile は、Mayaを呼ぶ前に FileNotFoundError。参照先と読み込みの状態は変わらない。"""
 
-        Mayaは失敗してもリファレンスの参照先を書き換え、アンロードしたまま残すため、シーンの変化は確かめない。
-        """
-        with self.assertRaises(RuntimeError):
-            self.outer.replaceFile(self.temp_file("missing.ma"))
+        def state():
+            return (self.outer.getFilename(), self.outer.isLoaded(), self.locked())
+
+        for path in (self.temp_file("missing.ma"), "mlibSpecErrNodeRemainMissing.ma"):
+            with self.subTest(path=path):
+                self.assertFails(FileNotFoundError, self.outer.replaceFile, path, state=state)
 
 
 class RemapValueTest(_RemainingCase):
@@ -497,6 +505,8 @@ class SkinClusterTest(_RemainingCase):
         cases = (
             ("weightList", "redistributeWeights", ([0],), {}),
             ("weightList", "transferWeights", ("pair",), {"fast": True}),
+            ("weightList", "transferWeights", ("pair",), {}),
+            ("weightList[0].weights", "transferWeights", ("pair",), {}),
             ("weightList", "importWeights", ("path",), {}),
             ("blendWeights", "setBlendWeights", ([0.5],), {"vertices": [0]}),
             ("blendWeights", "setBlendWeights", ([0.5],), {"vertices": [0], "fast": True, "check": True}),
@@ -588,6 +598,159 @@ class TransformTest(_RemainingCase):
         shape = cmds.listRelatives(self.cube(), shapes=True, fullPath=True)[0]
         shape = cmds.parent(shape, joint.getFullName(), shape=True, relative=True)[0]
         self.assertFails(TypeError, joint.centerPivotsOnComponents, shape + ".vtx[0]", state=lambda: self.state(joint))
+
+
+class LockedNodeTest(_RemainingCase):
+    """Mayaがロックを見ずに通すため、mlibがMayaを呼ぶ前に確かめる RuntimeError(check に関係なく)。
+
+    ノードのロック(lockNode)と、書き込む先のアトリビュートのロックで、何も変えずに例外にする。
+    """
+
+    def lock_node(self, node):
+        """ノードを lockNode し、そのノードを返す。"""
+        cmds.lockNode(node.getFullName(), lock=True)
+        return node
+
+    def object_set(self):
+        cube = self.cube()
+        node = mlib.getNode(cmds.sets(cube, name="lockedSet"))
+        return node, cube
+
+    def test_object_set_remove(self):
+        """removeMembers・removeAllMembers は、セットか dagSetMembers がロックされていると外さない。"""
+        for case in ("node", "attribute", "element"):
+            for method in ("removeMembers", "removeAllMembers"):
+                with self.subTest(case=case, method=method):
+                    node, cube = self.object_set()
+                    if case == "node":
+                        self.lock_node(node)
+                    elif case == "attribute":
+                        self.lock(node.getFullName(), "dagSetMembers")
+                    else:
+                        self.lock(node.getFullName(), "dagSetMembers[0]")
+                    args = (cube,) if method == "removeMembers" else ()
+
+                    def state():
+                        return cmds.sets(node.getFullName(), query=True)
+
+                    self.assertFails(RuntimeError, getattr(node, method), *args, state=state)
+
+    def test_mesh_set_vertex_colors(self):
+        """setVertexColors は、ロックされたシェイプへ fast でも通常でも書かない。"""
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                mesh = self.lock_node(self.shape(self.cube()))
+                name = mesh.getFullName()
+
+                def state():
+                    return cmds.polyColorSet(name, query=True, allColorSets=True)
+
+                self.assertFails(RuntimeError, mesh.setVertexColors, [(1, 0, 0)] * 8, fast=fast, state=state)
+
+    def test_transform_mirror_geometry(self):
+        """mirrorGeometry は、ロックされたシェイプや pnts へ、fast・check に関係なく書かない。"""
+        for case in ("node", "pnts", "element"):
+            for fast in (False, True):
+                with self.subTest(case=case, fast=fast):
+                    transform = mlib.getNode(self.cube())
+                    cmds.move(1, 0, 0, transform.getFullName() + ".vtx[*]", relative=True)
+                    shape = transform.getShapes()[0]
+                    if case == "node":
+                        self.lock_node(shape)
+                    elif case == "pnts":
+                        self.lock(shape.getFullName(), "pnts")
+                    else:
+                        self.lock(shape.getFullName(), "pnts[0].pntx")
+                    name = shape.getFullName()
+
+                    def state():
+                        return cmds.xform(name + ".vtx[*]", query=True, translation=True, objectSpace=True)
+
+                    self.assertFails(RuntimeError, transform.mirrorGeometry, "x", fast=fast, state=state)
+
+    def test_ik_handle_set_solver(self):
+        """setSolver は、ハンドルか ikSolver がロックされていると切り替えない。"""
+        for case in ("node", "attribute"):
+            with self.subTest(case=case):
+                names = self.joints((0, 0, 0), (0, 1, 0), (0, 2, 1))
+                handle = mlib.getNode(cmds.ikHandle(startJoint=names[0], endEffector=names[2], solver="ikSCsolver")[0])
+                if case == "node":
+                    self.lock_node(handle)
+                else:
+                    self.lock(handle.getFullName(), "ikSolver")
+
+                def state():
+                    return cmds.listConnections(handle.getFullName() + ".ikSolver", source=True, destination=False)
+
+                self.assertFails(RuntimeError, handle.setSolver, "ikRPsolver", state=state)
+
+    def test_blend_shape_add_base_geometry(self):
+        """addBaseGeometry は、形状の無い transform・joint は ValueError、ロックされた blendShape へは RuntimeError。"""
+        base, target = self.cube(), self.cube()
+        node = mlib.getNode(cmds.blendShape(target, base)[0])
+
+        def state():
+            return cmds.blendShape(node.getFullName(), query=True, geometry=True)
+
+        for geometry in (cmds.createNode("transform", skipSelect=True), self.joints((0, 0, 0))[0]):
+            with self.subTest(geometry=geometry):
+                self.assertFails(ValueError, node.addBaseGeometry, geometry, state=state)
+        extra = self.cube()
+        self.lock_node(node)
+        self.assertFails(RuntimeError, node.addBaseGeometry, extra, state=state)
+
+    def skin(self):
+        names = self.joints((0, -1, 0), (0, 0, 0), (0, 1, 0))
+        node = mlib.getNode(cmds.skinCluster(names, self.cube(), toSelectedBones=True)[0])
+        return node, names
+
+    def skin_state(self, node):
+        name = node.getFullName()
+        return (
+            cmds.getAttr(name + ".weightList[0].weights"),
+            cmds.getAttr(name + ".weightList[1].weights"),
+            cmds.skinCluster(name, query=True, influence=True),
+            cmds.getAttr(name + ".nodeState"),
+            cmds.listConnections(name, source=False, destination=True, plugs=True),
+        )
+
+    def test_skin_cluster_locked(self):
+        """skinCluster か weightList がロックされていると、mirrorWeights・smoothWeights・unbind・transferWeights は何も変えない。"""
+        cases = (
+            ("node", "mirrorWeights", (), {}),
+            ("weightList", "mirrorWeights", (), {}),
+            ("weightList[0].weights", "mirrorWeights", (), {}),
+            ("node", "smoothWeights", (), {}),
+            ("weightList", "smoothWeights", (), {}),
+            ("node", "unbind", (), {}),
+            ("node", "unbind", (True,), {}),
+            ("nodeState", "unbind", (True,), {}),
+            ("node", "transferWeights", ("pair",), {}),
+        )
+        for lock, method, args, flags in cases:
+            with self.subTest(lock=lock, method=method, args=args):
+                node, names = self.skin()
+                if lock == "node":
+                    self.lock_node(node)
+                else:
+                    self.lock(node.getFullName(), lock)
+                args = tuple([(names[0], names[1])] if value == "pair" else value for value in args)
+                self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.skin_state(node), **flags)
+
+    def test_skin_cluster_remove_unused_influences(self):
+        """removeUnusedInfluences は、skinCluster か外すインフルエンスの bindPreMatrix がロックされていると外さない。"""
+        for lock in ("node", "bindPreMatrix", "element"):
+            with self.subTest(lock=lock):
+                node, _ = self.skin()
+                extra = self.joints((5, 5, 5))[0]
+                cmds.skinCluster(node.getFullName(), edit=True, addInfluence=extra, weight=0)
+                if lock == "node":
+                    self.lock_node(node)
+                elif lock == "bindPreMatrix":
+                    self.lock(node.getFullName(), "bindPreMatrix")
+                else:
+                    self.lock(node.getFullName(), "bindPreMatrix[3]")
+                self.assertFails(RuntimeError, node.removeUnusedInfluences, state=lambda: self.skin_state(node))
 
 
 if __name__ == "__main__":

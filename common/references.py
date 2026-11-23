@@ -57,6 +57,27 @@ def listReferences(topLevelOnly=False):
 
 
 @undoChunk("mlibCreateReference")
+def _require_scene_file(path):
+    """リファレンスするファイルがあるかを確かめる。シーンは変えない。
+
+    ``~`` はユーザーのホームに展開し、相対パスは ``cmds.file`` と同じくMayaのプロジェクト(workspace)から探す。
+
+    Args:
+        path (str | os.PathLike): 確かめるファイルのパス。空でないことは呼び出し側で確かめてある。
+
+    Returns:
+        Path: ``~`` を展開したパス。相対パスは相対のまま返す。
+
+    Raises:
+        OSError: ファイルが無い場合(``FileNotFoundError``)。
+    """
+    scene_path = Path(path).expanduser()
+    found_path = scene_path if scene_path.is_absolute() else Path(cmds.workspace(expandName=str(scene_path)))
+    if not found_path.is_file():
+        raise FileNotFoundError(f"リファレンスするファイルが見つかりません: {scene_path}")
+    return scene_path
+
+
 def createReference(path, namespace=None):
     """ファイルをリファレンスし、新しく作られたトップレベルのReferenceを返す。
 
@@ -88,11 +109,7 @@ def createReference(path, namespace=None):
 
     if not isinstance(path, (str, Path)) or not str(path):
         raise ValueError("pathは空でない文字列かPathで指定してください")
-    scene_path = Path(path).expanduser()
-    # 相対パスは、cmds.fileと同じくMayaのプロジェクト(workspace)から探す。
-    found_path = scene_path if scene_path.is_absolute() else Path(cmds.workspace(expandName=str(scene_path)))
-    if not found_path.is_file():
-        raise FileNotFoundError(f"リファレンスするファイルが見つかりません: {scene_path}")
+    scene_path = _require_scene_file(path)
 
     existing = {name for name, _ in _reference_nodes()}
     # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。

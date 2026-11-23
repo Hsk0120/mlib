@@ -154,8 +154,10 @@ class BlendShape(GeometryFilter):
 
         Raises:
             TypeError: geometryの型が不正な場合。
-            ValueError: geometryが無効か、すでにベースとして登録されている場合。
-            RuntimeError: ノードが無効か、Mayaが追加を拒否した場合。
+            ValueError: geometryが無効な場合、変形できる形状(deformableShape)でもそれを持つTransformでもない場合、
+                またはすでにベースとして登録されている場合。
+            RuntimeError: ノードが無効な場合、blendShapeがロックされているかリファレンスの場合
+                (Mayaはロックを見ずに追加するため、追加する前に確かめる)、またはMayaが追加を拒否した場合。
         """
         ...
     def addTarget(self, mesh: str | Node, name: str | None = ..., *, base: str | Node | None = ..., index: int | None = ..., fullWeight: float = ...) -> Plug:

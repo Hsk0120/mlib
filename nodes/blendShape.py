@@ -163,11 +163,20 @@ class BlendShape(GeometryFilter):
 
         Raises:
             TypeError: geometryの型が不正な場合。
-            ValueError: geometryが無効か、すでにベースとして登録されている場合。
-            RuntimeError: ノードが無効か、Mayaが追加を拒否した場合。
+            ValueError: geometryが無効な場合、変形できる形状(deformableShape)でもそれを持つTransformでもない場合、
+                またはすでにベースとして登録されている場合。
+            RuntimeError: ノードが無効な場合、blendShapeがロックされているかリファレンスの場合
+                (Mayaはロックを見ずに追加するため、追加する前に確かめる)、またはMayaが追加を拒否した場合。
         """
         self._require_valid("ベースジオメトリの追加")
         node = Node(Node._input_name(geometry))
+        # Mayaは形状の無いtransformやjointを渡しても例外にせず、何も追加しないため、先に確かめる。
+        shapes = [node] if node.mnode().hasFn(om2.MFn.kShape) else []
+        if node.mnode().hasFn(om2.MFn.kTransform):
+            shapes = list(node.getShapes())
+        if not any(cmds.objectType(shape.getFullName(), isAType="deformableShape") for shape in shapes):
+            raise ValueError(f"geometryには変形できる形状か、それを持つTransformを指定してください: {node.getName()}")
+        require_editable(self.mnode())
         try:
             self._base_index(node)
         except ValueError:

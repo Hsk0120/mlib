@@ -737,7 +737,9 @@ class Transform(DagNode):
             ValueError: axis・pivotが正しくない場合、Mesh・NurbsCurve以外のShapeがある場合、またはworldSpace=Trueで
                 変換のマトリクスがほぼ特異な場合。
             IndexError: 番号がどれかのShapeの範囲外の場合。
-            RuntimeError: Transformが無効な場合、またはロックなどのためにMayaが書き込みを拒否した場合。
+            RuntimeError: Transformが無効な場合、Shapeがロックされているかリファレンスの場合、
+                書き込む点のアトリビュート(pnts・controlPoints)がロックされている場合、またはMayaが書き込みを拒否した場合。
+                Mayaはこれらのロックを見ずに書くため、ロックとリファレンスはcheckに関係なく書く前に確かめる。
             NotImplementedError: fast=Trueで、入力のヒストリがあるShapeがある場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -753,6 +755,10 @@ class Transform(DagNode):
             if planner is None:
                 raise ValueError(f"mirrorGeometryはmeshとnurbsCurveのシェイプに対応しています: {shape.getFullName()}")
             plans.append(planner(axis, ws, center, indices, fast, check))
+        for plan in plans:
+            if plan:
+                require_editable(plan[0].mnode())
+                geometryEdit.require_points_unlocked(plan[0], plan[1])
         _write_points(plans, fast, "mlibTransformMirrorGeometry", check)
 
     def centerPivotsOnComponents(self, components):
@@ -2519,8 +2525,11 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            ValueError: 初期化した後のローカルのマトリクスの逆が求められない場合(inverseScaleが0のJointなど)。
             RuntimeError: ノードが無効な場合、または対象のチャンネル・offsetParentMatrixがロックされている・入力が接続されている場合。
+
+        Note:
+            初期化した後のローカルのマトリクスは、scaleが0だったtransformやinverseScaleが0のJointでも特異にならない
+            (Mayaはマトリクスの計算で0のスケールをとても小さい値に置き換える)ので、逆マトリクスは確かめずに求める。
         """
         self._require_valid("offsetParentMatrixへのフリーズ")
         fn = self._dependency_fn()
@@ -2540,8 +2549,6 @@ class Transform(DagNode):
             for attribute, value in resets:
                 cmds.setAttr(name + "." + attribute, *value)
             after = self.getMatrix()
-            if after.isSingular():
-                raise ValueError(f"{name}のoffsetParentMatrixへフリーズできません: リセットしたローカルマトリクスが特異です")
             new_offset = Matrix._wrap(after.inverse() * before * offset)
             cmds.setAttr(name + ".offsetParentMatrix", *tuple(new_offset), type="matrix")
 
@@ -2574,6 +2581,9 @@ class Transform(DagNode):
 
         各ローカルの軸をワールドマトリクス(回転とスケールだけ。移動は無視する)で変換し、
         正規化してからrefVectorとの内積を比べ、いちばん大きいものを選ぶ。
+        ワールドで長さ0になる軸(``offsetParentMatrix`` などで軸が0になった場合)は選ばない。
+        すべての軸が長さ0なら ``"x"`` を返す。scaleの0は、Mayaがとても小さい値に置き換えるので長さ0にはならず、
+        その軸の向きで比べる。
 
         Args:
             refVector (Vector | Iterable[float]): 比べるワールド空間での向きのベクトル。
@@ -2585,8 +2595,7 @@ class Transform(DagNode):
 
         Raises:
             TypeError: refVectorが3つの数値の並びでもベクトルでもない場合、またはincludeNegativeがboolでない場合。
-            ValueError: refVectorの値の数が3でない・有限でない場合、またはrefVectorか、どれかのローカルの軸が
-                ワールドへ変換すると長さ0のベクトルになる場合。
+            ValueError: refVectorの値の数が3でない・有限でない場合、またはrefVectorが長さ0のベクトルの場合。
             RuntimeError: ノードが無効な場合。
         """
         self._require_valid("軸の評価")
@@ -2596,11 +2605,13 @@ class Transform(DagNode):
         axes = {"x": Vector(1.0, 0.0, 0.0), "y": Vector(0.0, 1.0, 0.0), "z": Vector(0.0, 0.0, 1.0)}
         if includeNegative:
             axes.update({f"-{name}": axis * -1.0 for name, axis in axes.items()})
-        best_axis = None
+        best_axis = "x"
         best_dot = None
         for name, axis in axes.items():
-            world_axis = matrix.transformVector(axis).unit()
-            dot = world_axis.dot(refVector)
+            world_axis = matrix.transformVector(axis)
+            if world_axis.length() == 0.0:
+                continue
+            dot = world_axis.unit().dot(refVector)
             if best_dot is None or dot > best_dot:
                 best_dot = dot
                 best_axis = name

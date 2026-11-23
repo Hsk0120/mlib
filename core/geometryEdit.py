@@ -75,18 +75,62 @@ def _require_points_writable(target, indices):
     Raises:
         RuntimeError: ロック・入力接続・書き込み禁止がある場合。
     """
-    path, fn, mesh = target
-    indices = list(indices)
-    if not mesh and fn.form == om2.MFnNurbsCurve.kPeriodic:
-        # 周期カーブは末尾の重複CVも先頭の独立CVと同じ位置に書くので、重複側の書込み可否も調べる。
-        independent = fn.numCVs - fn.degree
-        indices += [index % independent + independent for index in indices if index % independent < fn.degree]
-    points = om2.MFnDependencyNode(path.node()).findPlug("pnts" if mesh else "controlPoints", False)
+    points, indices = _point_plugs(target, indices)
     for index in indices:
         point = points.elementByLogicalIndex(index)
         require_writable(point)
         for child in range(point.numChildren()):
             require_writable(point.child(child))
+
+
+def require_points_unlocked(shape, indices):
+    """指定した点のpnts・controlPointsとその子が、ロックされていないかを確かめる。シーンは変えない。
+
+    入力の接続と書き込めるかは調べない(``check=True`` のときの :func:`_require_points_writable` が調べる)。
+    Mayaのコマンドは点のアトリビュートのロックを見ずに書くので、ロックだけは書く前に必ず確かめるときに使う。
+    すでにある要素だけを調べ、要素を作らない。
+
+    Args:
+        shape (Mesh | NurbsCurve): 型が決まっているShapeのオブジェクト。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: マルチアトリビュート全体・指定した点の要素・その子のどれかがロックされている場合。
+    """
+    points, indices = _point_plugs(geometry(shape, ()), indices)
+    if points.isLocked:
+        raise RuntimeError(f"アトリビュートがロックされています: {points.name()}")
+    targets = set(indices)
+    for index in points.getExistingArrayAttributeIndices():
+        if index not in targets:
+            continue
+        point = points.elementByLogicalIndex(index)
+        if point.isLocked or any(point.child(child).isLocked for child in range(point.numChildren())):
+            raise RuntimeError(f"アトリビュートがロックされています: {point.name()}")
+
+
+def _point_plugs(target, indices):
+    """点のアトリビュート(pnts・controlPoints)と、調べる点番号を返す。
+
+    周期カーブでは、指定した独立CVに重なる末尾の重複CVの番号も足す。
+
+    Args:
+        target (_Geometry): :func:`geometry` の戻り値。
+        indices (Iterable[int]): 範囲を確かめてあるAPIの点番号。
+
+    Returns:
+        tuple[om2.MPlug, list[int]]: 点のマルチアトリビュートと、調べる点番号。
+    """
+    path, fn, mesh = target
+    indices = list(indices)
+    if not mesh and fn.form == om2.MFnNurbsCurve.kPeriodic:
+        # 周期カーブは末尾の重複CVも先頭の独立CVと同じ位置に書くので、重複側も調べる。
+        independent = fn.numCVs - fn.degree
+        indices += [index % independent + independent for index in indices if index % independent < fn.degree]
+    return om2.MFnDependencyNode(path.node()).findPlug("pnts" if mesh else "controlPoints", False), indices
 
 
 def _require_control_points_writable(shape):

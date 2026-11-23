@@ -15,6 +15,7 @@ from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
 from ..core import geometryEdit
 from ..core.fastWrite import require_writable
+from ..core.nodeEdit import require_editable
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk, undoTransaction
 from ..maths.vector import Vector, _vector_of, _vectors_of_points
 from ..util import _UNSET, _checked_tolerance, _finite_vector, _mirror_axis, _PointGrid, _world_space
@@ -910,7 +911,8 @@ class Mesh(Shape):
             ValueError: 色の数が頂点の数と合わない場合、成分の数が3・4以外か有限でない場合、頂点が重なっている場合、
                 別のメッシュの頂点を渡した場合、またはカラーセットが無い場合。
             IndexError: 頂点番号が範囲外の場合。
-            RuntimeError: シェイプのロックなどでMayaが書き込みを拒否した場合。
+            RuntimeError: シェイプがロックされているかリファレンスの場合(Mayaはロックを見ずに書くため、
+                fastに関係なく書く前に確かめる)、またはMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
 
         Note:

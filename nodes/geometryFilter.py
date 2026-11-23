@@ -205,15 +205,12 @@ class GeometryFilter(Node):
             TypeError: geometryIndexがintでない場合、または未対応のコンポーネント種別の場合。
             IndexError: 指定した論理番号の出力が無い場合。
             RuntimeError: デフォーマーが無効、またはMayaが対象を取得できない場合。
-            NotImplementedError: MayaにgetComponentAtIndexが無い場合。
         """
         # Selectionはnodesを読み込むため、循環importを避けて使用時に読み込む。
         from ..common.selection import Selection
 
         fn = self._deformer_fn()
         self._require_geometry_index(fn, geometryIndex)
-        if not hasattr(fn, "getComponentAtIndex"):
-            raise NotImplementedError("このMaya版ではデフォーマーの対象コンポーネント取得に対応していません")
         component = fn.getComponentAtIndex(geometryIndex)
         if component.isNull():
             return []
@@ -337,6 +334,7 @@ class GeometryFilter(Node):
         デフォーマー名は比べないので、別のデフォーマーへも読み込める。
 
         書き込む前に全部の形状を確かめ、合わないものがあれば何も変えずにValueErrorにする。
+        ロックと入力の接続も、fastでも書き込む前に全部の要素を確かめ、書けないものがあれば何も変えずにRuntimeErrorにする。
         通常は、全部の形状の書き込みを1回のUndoにまとめる。
 
         Args:
@@ -351,7 +349,7 @@ class GeometryFilter(Node):
                 またはデフォーマーのウェイトを持たない型の場合。
             ValueError: ファイルの形式や版が違う場合、形状の番号がこのデフォーマーに無い場合、
                 または頂点数が違う場合。
-            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合(何も書かない)、
                 またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibGeometryFilterLoadDeformerWeights", fast):
@@ -368,14 +366,18 @@ class GeometryFilter(Node):
                 if isinstance(index, bool) or not isinstance(index, int):
                     raise ValueError(f"{path}のジオメトリの項目が不正です")
                 try:
-                    _, count = self._deformer_weight_plug(index)
+                    plug, count = self._deformer_weight_plug(index)
                 except IndexError:
                     raise ValueError(f"番号{index}のジオメトリはありません: {self.getFullName()}") from None
                 values = entry.get("weights")
                 if entry.get("numVertices") != count or not isinstance(values, list) or len(values) != count:
                     raise ValueError(f"保存された頂点数({entry.get('numVertices')})がジオメトリ{index}の頂点数({count})と合っていません")
-                plans.append((index, self._resolve_weight_values(values, count)))
-            for index, values in plans:
+                plans.append((index, plug, self._resolve_weight_values(values, count)))
+            # fastは要素を1つずつ書くので、途中の要素で止まって一部だけ書き換わらないよう、全部を先に確かめる。
+            for _, plug, values in plans:
+                for vertex in range(len(values)):
+                    require_writable(plug.elementByLogicalIndex(vertex))
+            for index, _, values in plans:
                 self.setDeformerWeights(values, geometryIndex=index, fast=fast)
 
     def copyDeformerWeightsTo(self, other, *, geometryIndex=0, otherGeometryIndex=0, fast=False):
