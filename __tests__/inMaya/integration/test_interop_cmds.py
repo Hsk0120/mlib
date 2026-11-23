@@ -115,10 +115,10 @@ class DuplicateShortNameTest(_InteropCase):
             sorted([dup1.getName() + ".translateX", dup2.getName() + ".translateX"]),
         )
         self.assertTrue(cmds.isConnected(source.getPlug("tx"), dup2.getPlug("tx")))
-        self.assertTrue(dup1.getPlug("tx").isConnectedTo(source.getPlug("tx")))
+        self.assertTrue(dup1.getPlug("tx").isConnected(source.getPlug("tx")))
         dup2.getPlug("tx").disconnectAll()
         self.assertFalse(cmds.isConnected(str(source.getPlug("tx")), str(dup2.getPlug("tx"))))
-        self.assertEqual(dup1.getPlug("tx").getSource().getFullName(), source.getName() + ".translateX")
+        self.assertEqual(dup1.getPlug("tx").getConnections(input=True).getFullName(), source.getName() + ".translateX")
         # 接続先に MPlug や一意なアトリビュート名も指定できる。
         source.getPlug("ty").connectTo(dup2.getPlug("ty").mplug())
         source.getPlug("tz").connectTo(dup2.getPlug("tz").getFullName())
@@ -214,7 +214,7 @@ class NamingSpecTest(_InteropCase):
         instance = cmds.instance(transform, name="cubeInstance")[0]
         shape = Node(cmds.listRelatives(instance, shapes=True, fullPath=True)[0])
         self.assertIn("cubeInstance", shape.getFullName())
-        elements = shape.getPlug("worldMatrix").getElements()
+        elements = shape.getPlug("worldMatrix").getElement()
         self.assertEqual([element.mplug().logicalIndex() for element in elements], [0, 1])
         cmds.setAttr(instance + ".tx", 5.0)
         for element in elements:
@@ -262,7 +262,7 @@ class NamingSpecTest(_InteropCase):
                     plugs.append(node.getPlug(name))
                 except (AttributeError, RuntimeError):
                     continue
-            plugs.extend(instanced.getPlug("worldMatrix").getElements() if node is instanced else [])
+            plugs.extend(instanced.getPlug("worldMatrix").getElement() if node is instanced else [])
             for plug in plugs:
                 with self.subTest(plug=plug.getFullName()):
                     self.assertEqual(plug.getFullName(), node.getName() + "." + Plug._plug_path(plug.mplug()))
@@ -456,7 +456,7 @@ class MlibCommandInputTest(_InteropCase):
         self.assertEqual([Node(name).getFullName() for name in cmds.pointConstraint(constraint, query=True, targetList=True)], [source.getFullName()])
         other = self.create("transform", "other")
         target.addConstraint([other.mpath()], "orient")
-        self.assertTrue(target.getPlug("rx").isDestination())
+        self.assertTrue(target.getPlug("rx").isConnected(destination=False))
 
     def test_node_constructor_accepts_wrappers(self):
         joint = Node(cmds.createNode("joint", name="jnt"))
@@ -691,7 +691,7 @@ class InstanceSpecificWrapperTest(_InteropCase):
         self.assertEqual(second.mpath().instanceNumber(), 1)
         # 祖先のインスタンス化による間接インスタンスも、評価前から要素として扱う。
         world = second.getPlug("worldMatrix")
-        self.assertEqual([plug.getFullName() for plug in world.getElements()], [world.getFullName() + "[0]", world.getFullName() + "[1]"])
+        self.assertEqual([plug.getFullName() for plug in world.getElement()], [world.getFullName() + "[0]", world.getFullName() + "[1]"])
         self.assertEqual(sorted(world.get()), [0, 1])
         self.assertEqual(world[1].getFullName(), world.getFullName() + "[1]")
         # getMatrix(ws=True) はラッパーが保持するインスタンスの worldMatrix を使う。
@@ -717,7 +717,7 @@ class ComponentNamedAttributeTest(_InteropCase):
         source = self.create("transform", "src")
         source.getPlug("translate").connectTo(str(point))
         self.assertTrue(cmds.isConnected(str(source.getPlug("translate")), str(point)))
-        self.assertTrue(point.isConnectedTo(str(source.getPlug("translate"))))
+        self.assertTrue(point.isConnected(str(source.getPlug("translate"))))
         curve = Node(cmds.curve(degree=1, point=[(0, 0, 0), (1, 0, 0)], name="crv")).getShape()
         control_point = curve.getPlug("controlPoints")[1]
         self.assertEqual(Plug._resolve_input(str(control_point)).getFullName(), control_point.getFullName())
@@ -781,7 +781,7 @@ class PlugCreationSideEffectTest(_InteropCase):
         # 既存要素・接続された要素はそのまま。
         source = self.create("transform", "source")
         cmds.connectAttr(source.getPlug("tx"), averages[0].getName() + ".input1D[3]")
-        self.assertTrue(Plug._resolve_input(averages[0].getName() + ".input1D[3]").isDestination())
+        self.assertTrue(Plug._resolve_input(averages[0].getName() + ".input1D[3]").isConnected(destination=False))
         self.assertEqual(self.existing(averages[0].getPlug("input1D")), [3])
         # 要素は参照への書込みで作成する。
         created = averages[1].getPlug("input1D")[5]
@@ -889,7 +889,7 @@ class PlugCreationSideEffectTest(_InteropCase):
 
         cmds.setAttr(source.getPlug("tx"), 5.0)
         before = count()
-        destinations = middle.getPlug("rx").getDestinations()
+        destinations = middle.getPlug("rx").getConnections(outputs=True)
         element = choice.getPlug("input[0]")
         self.assertEqual(count(), before)
         self.assertIs(type(element), Plug)
@@ -980,7 +980,9 @@ class PlugCreationSideEffectTest(_InteropCase):
         calls = {
             "element": lambda: multi_plug.getElement(2),
             "getitem": lambda: multi_plug[2],
-            "elements": multi_plug.getElements,
+            "elements": multi_plug.getElement,
+            "elementPhysical": lambda: multi_plug.getElement(0, physical=True),
+            "connectedIndices": lambda: multi_plug.getIndices(connected=True),
             "get": multi_plug.get,
             "remove": lambda: multi_plug.removeElement(2),
             "getNextAvailable": multi_plug.getNextAvailable,
@@ -999,10 +1001,10 @@ class PlugCreationSideEffectTest(_InteropCase):
         first = multi_plug.getNextAvailable(start=0)
         self.assertEqual(first.getFullName(), network.getName() + ".links[0]")
         # message 型の要素は値を持たないため作成できず、接続するまでは同じ番号を返す。
-        self.assertEqual(multi_plug.getElements(), [])
+        self.assertEqual(multi_plug.getElement(), [])
         self.assertEqual(multi_plug.getNextAvailable(start=0).getFullName(), first.getFullName())
         self.create("network", "src").getPlug("message").connectTo(first)
-        self.assertEqual([plug.getFullName() for plug in multi_plug.getElements()], [first.getFullName()])
+        self.assertEqual([plug.getFullName() for plug in multi_plug.getElement()], [first.getFullName()])
         self.assertEqual(multi_plug.getNextAvailable(start=0).getFullName(), network.getName() + ".links[1]")
 
 
@@ -1035,7 +1037,7 @@ class PlugValidityTest(_InteropCase):
             lambda: plug.set(1.0),
             lambda: plug.set(1.0, fast=True),
             lambda: compound.set((1, 2, 3)),
-            multi_plug.getElements,
+            multi_plug.getElement,
             lambda: multi_plug[2],
             multi_plug.getNextAvailable,
             lambda: compound[0],
@@ -1221,16 +1223,21 @@ class PlugValidityTest(_InteropCase):
                 self.assertEqual(repr(plug), f"<{type(plug).__name__} invalid>")
                 self.assertFalse(cmds.objExists(str(plug)))
                 calls = [
-                    plug.getLongName,
-                    plug.getNiceName,
+                    plug.getAttributeName,
+                    lambda: plug.getAttributeName("short"),
+                    lambda: plug.getAttributeName("nice"),
                     plug.isLocked,
-                    plug.isKeyable,
+                    plug.getFlags,
                     plug.isConnected,
-                    plug.isHidden,
+                    lambda: plug.isConnected(source=False),
+                    lambda: plug.isConnected(destination=False),
                     plug.getDefault,
+                    plug.getRange,
+                    lambda: plug.getRange(soft=True),
                     plug.getParent,
-                    plug.getSource,
-                    plug.getDestinations,
+                    lambda: plug.getParent(all=True),
+                    lambda: plug.getConnections(input=True),
+                    lambda: plug.getConnections(outputs=True),
                     plug.get,
                     lambda: plug.connectTo(self.create("transform", "x").getPlug("tx")),
                 ]
@@ -1239,8 +1246,11 @@ class PlugValidityTest(_InteropCase):
                 for call in calls:
                     with self.assertRaises(RuntimeError):
                         call()
-                # 構造の判定は例外にしない。
+                # 構造の判定は例外にしない。要素が実在するかの確認(elements=True)も、無効なら False を返すだけ。
                 self.assertIsInstance(plug.isMulti(), bool)
+                self.assertIsInstance(plug.isMulti(element=True), bool)
+                self.assertIsInstance(plug.isCompound(child=True), bool)
+                self.assertFalse(plug.isValid(elements=True))
 
     def test_deleted_extension_attribute(self):
         node_type = "network"

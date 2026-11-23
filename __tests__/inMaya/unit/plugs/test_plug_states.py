@@ -61,10 +61,36 @@ class PlugNameSpecTest(_StateSpecCase):
         tx = self.node.getPlug("tx")
         self.assertEqual(tx.getName(), self.name + ".tx")
         self.assertFalse(hasattr(tx, "getAttrName"))
-        self.assertEqual(tx.getShortName(), "tx")
-        self.assertEqual(tx.getLongName(), "translateX")
-        self.assertEqual(tx.getNiceName(), "Translate X")
+        self.assertEqual(tx.getAttributeName("short"), "tx")
+        self.assertEqual(tx.getAttributeName(), "translateX")
+        self.assertEqual(tx.getAttributeName("nice"), "Translate X")
+        self.assertEqual(tx.getAttributeName("long"), "translateX")
+        self.assertEqual(tx.getAttributeName(kind="short"), "tx")
         self.assertEqual(tx.getFullName(), self.name + ".translateX")
+
+    def test_attribute_name_kinds_match_cmds(self):
+        """getAttributeName(kind)はcmds.attributeQuery・cmds.attributeNameと同じ名前。知らないkindはValueError。"""
+        cmds.addAttr(self.name, longName="myWeight", shortName="mw", niceName="My Nice Weight", attributeType="double")
+        cmds.addAttr(self.name, longName="items", shortName="its", attributeType="double", multi=True)
+        for attribute, plug in (
+            ("translateX", self.node.getPlug("tx")),
+            ("translate", self.node.getPlug("t")),
+            ("myWeight", self.node.getPlug("myWeight")),
+            ("items", self.node.getPlug("items")),
+            ("items", self.node.getPlug("items[3]")),
+            ("worldMatrix", self.node.getPlug("worldMatrix[0]")),
+        ):
+            with self.subTest(plug=str(plug)):
+                self.assertEqual(plug.getAttributeName(), cmds.attributeQuery(attribute, node=self.name, longName=True))
+                self.assertEqual(plug.getAttributeName("long"), plug.getAttributeName())
+                self.assertEqual(plug.getAttributeName("short"), cmds.attributeQuery(attribute, node=self.name, shortName=True))
+                self.assertEqual(plug.getAttributeName("nice"), cmds.attributeName(str(plug), nice=True))
+        self.assertEqual(self.node.getPlug("myWeight").getAttributeName("nice"), "My Nice Weight")
+        tx = self.node.getPlug("tx")
+        for kind in ("Long", "niceName", "", "full", None, 1):
+            with self.subTest(kind=kind):
+                with self.assertRaises(ValueError):
+                    tx.getAttributeName(kind)
         self.assertEqual(str(tx), tx.getFullName())
         self.assertEqual(repr(tx), f"DoubleLinearPlug({tx.getFullName()!r})")
         self.assertEqual(cmds.getAttr(tx), 0.0)
@@ -82,14 +108,14 @@ class PlugNameSpecTest(_StateSpecCase):
         child = self.node.getPlug("items[3].weight")
         self.assertEqual(child.getFullName(), self.name + ".items[3].weight")
         self.assertEqual(child.getName(), self.name + ".its[3].wt")
-        self.assertEqual(child.getShortName(), "wt")
+        self.assertEqual(child.getAttributeName("short"), "wt")
         self.assertEqual(child.getParent().getFullName(), self.name + ".items[3]")
 
     def test_world_space_element_names_keep_index(self):
         """worldSpaceの要素もgetNameで論理番号を省かない。アトリビュート部分はgetPlugへ戻せる。"""
         element = self.node.getPlug("worldMatrix[0]")
         self.assertEqual(element.getName(), self.name + ".wm[0]")
-        self.assertEqual(element.getShortName(), "wm")
+        self.assertEqual(element.getAttributeName("short"), "wm")
         self.assertEqual(self.node.getPlug(element.getName().partition(".")[2]), element)
         self.assertEqual(self.node.getPlug("worldMatrix").getName(), self.name + ".wm")
 
@@ -115,50 +141,101 @@ class PlugNameSpecTest(_StateSpecCase):
         self.assertTrue(tx.getFullName().endswith(self.name + ".translateX"))
 
     def test_alias_is_used_by_full_name_only(self):
-        """別名があればgetFullNameは別名を使い、getName・getLongNameは元の名前。"""
+        """別名があればgetFullNameは別名を使い、getName・getAttributeNameは元の名前。"""
         cmds.aliasAttr("myAlias", self.name + ".ty")
         ty = self.node.getPlug("ty")
         self.assertEqual(ty.getFullName(), self.name + ".myAlias")
         self.assertEqual(ty.getName(), self.name + ".ty")
-        self.assertEqual(ty.getLongName(), "translateY")
+        self.assertEqual(ty.getAttributeName(), "translateY")
         self.assertEqual(self.node.getPlug("myAlias"), ty)
 
 
 class PlugFlagSpecTest(_StateSpecCase):
-    """setKeyable・setChannelBox・setLocked・setFlags・unlock。"""
+    """setFlags(keyable・channelBox・locked・children・leaf)・getFlags・setLocked。"""
+
+    def state(self, attribute="tx"):
+        """(keyable, channelBox) をcmdsで読む。"""
+        return (cmds.getAttr(f"{self.name}.{attribute}", keyable=True), cmds.getAttr(f"{self.name}.{attribute}", channelBox=True))
 
     def test_keyable_and_channel_box_are_exclusive(self):
-        """setChannelBox(True)はkeyableを外し、setKeyable(True)はchannelBoxを外す。自身を返す。"""
+        """setFlags(channelBox=True)はkeyableを外し、setFlags(keyable=True)はchannelBoxを外す。値を返さない。"""
         tx = self.node.getPlug("tx")
-        self.assertTrue(tx.isKeyable())
-        self.assertFalse(tx.isChannelBox())
-        self.assertIsNone(tx.setChannelBox(True))
-        self.assertTrue(cmds.getAttr(self.name + ".tx", channelBox=True))
-        self.assertFalse(cmds.getAttr(self.name + ".tx", keyable=True))
-        self.assertIsNone(tx.setKeyable(True))
-        self.assertTrue(cmds.getAttr(self.name + ".tx", keyable=True))
-        self.assertFalse(cmds.getAttr(self.name + ".tx", channelBox=True))
-        self.assertIsNone(tx.setKeyable(False))
-        self.assertFalse(tx.isKeyable())
-        self.assertFalse(tx.isChannelBox())
+        self.assertTrue(tx.getFlags()["keyable"])
+        self.assertFalse(tx.getFlags()["channelBox"])
+        self.assertIsNone(tx.setFlags(channelBox=True))
+        self.assertEqual(self.state(), (False, True))
+        self.assertIsNone(tx.setFlags(keyable=True))
+        self.assertEqual(self.state(), (True, False))
+        self.assertIsNone(tx.setFlags(keyable=False))
+        self.assertFalse(tx.getFlags()["keyable"])
+        self.assertFalse(tx.getFlags()["channelBox"])
+        # channelBox=False はkeyableを変えない(keyableなら、Channel Boxには出たまま)。
+        tx.setFlags(keyable=True)
+        tx.setFlags(channelBox=False)
+        self.assertEqual(self.state(), (True, False))
+        # 両方を明示したときは、渡した値のまま書く。
+        tx.setFlags(keyable=False, channelBox=True)
+        self.assertEqual(self.state(), (False, True))
+        tx.setFlags(keyable=False, channelBox=False)
+        self.assertEqual(self.state(), (False, False))
+
+    def test_get_flags_matches_cmds(self):
+        """getFlagsは locked・keyable・channelBox・hidden の新しい辞書で、cmds.getAttrの各フラグと一致する。"""
+        tx = self.node.getPlug("tx")
+        steps = ({}, {"channelBox": True}, {"keyable": True, "locked": True}, {"keyable": False, "channelBox": False}, {"locked": False})
+        for flags in steps:
+            with self.subTest(flags=flags):
+                if flags:
+                    tx.setFlags(**flags)
+                result = tx.getFlags()
+                self.assertEqual(sorted(result), ["channelBox", "hidden", "keyable", "locked"])
+                self.assertTrue(all(type(value) is bool for value in result.values()))
+                keyable, channel_box = self.state()
+                expected = {"locked": cmds.getAttr(self.name + ".tx", lock=True), "keyable": keyable, "channelBox": channel_box}
+                expected["hidden"] = not (keyable or channel_box)
+                self.assertEqual(result, expected)
+                self.assertEqual(result["locked"], tx.isLocked())
+                self.assertIsNot(tx.getFlags(), result)
+        with self.assertRaises(TypeError):
+            tx.getFlags(True)
 
     def test_flag_undo_and_fast(self):
-        """通常の変更は1回のUndoで両方のフラグが戻り、fastは記録しない。"""
+        """通常の変更は1回のUndoで両方のフラグが元の組み合わせへ戻り、fastは記録しない。"""
         tx = self.node.getPlug("tx")
         cmds.flushUndo()
-        tx.setChannelBox(True)
+        tx.setFlags(channelBox=True)
         cmds.undo()
-        self.assertTrue(cmds.getAttr(self.name + ".tx", keyable=True))
-        self.assertFalse(cmds.getAttr(self.name + ".tx", channelBox=True))
+        self.assertEqual(self.state(), (True, False))
         self.assertUndoEmpty()
-        tx.setChannelBox(True, fast=True)
+        cmds.redo()
+        self.assertEqual(self.state(), (False, True))
+        # Channel Box表示からkeyableへ(2回の書き込み)も、1回のUndoで (keyable=False, channelBox=True) へ戻る。
+        cmds.flushUndo()
+        tx.setFlags(keyable=True)
+        self.assertEqual(self.state(), (True, False))
+        cmds.undo()
+        self.assertEqual(self.state(), (False, True))
+        self.assertUndoEmpty()
+        cmds.redo()
+        self.assertEqual(self.state(), (True, False))
+        cmds.undo()
+        # 隠した状態からの keyable=True・channelBox=True も1回で戻る。
+        for flags, expected in (({"keyable": True}, (True, False)), ({"channelBox": True}, (False, True))):
+            with self.subTest(flags=flags):
+                tx.setFlags(keyable=False, channelBox=False)
+                cmds.flushUndo()
+                tx.setFlags(**flags)
+                self.assertEqual(self.state(), expected)
+                cmds.undo()
+                self.assertEqual(self.state(), (False, False))
+                self.assertUndoEmpty()
+        cmds.flushUndo()
+        tx.setFlags(channelBox=True, fast=True)
         tx.setLocked(True, fast=True)
-        self.assertTrue(cmds.getAttr(self.name + ".tx", channelBox=True))
-        self.assertFalse(cmds.getAttr(self.name + ".tx", keyable=True))
+        self.assertEqual(self.state(), (False, True))
         self.assertTrue(cmds.getAttr(self.name + ".tx", lock=True))
-        tx.setKeyable(True, fast=True)
-        self.assertTrue(cmds.getAttr(self.name + ".tx", keyable=True))
-        self.assertFalse(cmds.getAttr(self.name + ".tx", channelBox=True))
+        tx.setFlags(keyable=True, fast=True)
+        self.assertEqual(self.state(), (True, False))
         self.assertUndoEmpty()
 
     def test_leaf_applies_to_children(self):
@@ -170,10 +247,16 @@ class PlugFlagSpecTest(_StateSpecCase):
         translate.setLocked(False)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, lock=True) for a in "xyz"], [True] * 3)
         translate.setLocked(False, leaf=True)
-        translate.setKeyable(False, leaf=True)
+        parent_state = self.state("t")
+        translate.setFlags(keyable=False, leaf=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, keyable=True) for a in "xyz"], [False] * 3)
-        translate.setChannelBox(True, leaf=True)
+        self.assertEqual(self.state("t"), parent_state)
+        translate.setFlags(channelBox=True, leaf=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, channelBox=True) for a in "xyz"], [True] * 3)
+        self.assertEqual(self.state("t"), parent_state)
+        with self.assertRaises(TypeError):
+            translate.setFlags(keyable=True, children=True, leaf=True)
+        self.assertEqual([cmds.getAttr(self.name + ".t" + a, keyable=True) for a in "xyz"], [False] * 3)
 
     def test_set_flags_validation(self):
         """setFlagsは省略した状態を変えず、bool・None以外は変更前にTypeError。"""
@@ -189,8 +272,12 @@ class PlugFlagSpecTest(_StateSpecCase):
             with self.subTest(**kwargs):
                 with self.assertRaises(TypeError):
                     tx.setFlags(**kwargs)
-        for method in (tx.setLocked, tx.setKeyable, tx.setChannelBox):
-            with self.subTest(method=method.__name__):
+        for label, method in (
+            ("setLocked", tx.setLocked),
+            ("keyable", lambda state, **kw: tx.setFlags(keyable=state, **kw)),
+            ("channelBox", lambda state, **kw: tx.setFlags(channelBox=state, **kw)),
+        ):
+            with self.subTest(method=label):
                 with self.assertRaises(TypeError):
                     method(1)
                 with self.assertRaises(TypeError):
@@ -297,82 +384,120 @@ class PlugMuteSpecTest(_StateSpecCase):
 
 
 class PlugDefinitionQuerySpecTest(_StateSpecCase):
-    """定義の照会(範囲)・Channel Boxの表示(isHidden)と構造の判定。"""
+    """定義の照会(範囲)・Channel Boxの表示(getFlagsのhidden)と構造の判定。"""
 
-    def test_is_hidden_matches_hide_and_show(self):
-        """isHiddenはkeyableでもChannel Box表示でもないときTrue(hide/showと対応。attributeQueryのhiddenではない)。"""
+    def test_hidden_matches_channel_box_flags(self):
+        """getFlags()["hidden"]はkeyableでもChannel Box表示でもないときTrue(attributeQueryのhiddenではない)。"""
         tx = self.node.getPlug("tx")
-        self.assertFalse(tx.isHidden())
-        self.assertTrue(self.node.getPlug("worldMatrix").isHidden())
+        self.assertFalse(tx.getFlags()["hidden"])
+        self.assertTrue(self.node.getPlug("worldMatrix").getFlags()["hidden"])
         cmds.addAttr(self.name, longName="defHidden", attributeType="double", hidden=True, keyable=True)
         # 定義のhiddenフラグとは別(keyableならChannel Boxに出る扱い)。
         self.assertTrue(cmds.attributeQuery("defHidden", node=self.name, hidden=True))
-        self.assertFalse(self.node.getPlug("defHidden").isHidden())
+        self.assertFalse(self.node.getPlug("defHidden").getFlags()["hidden"])
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIsNone(tx.hide(fast=fast))
-                self.assertTrue(tx.isHidden())
-                tx.show(fast=fast)
-                self.assertFalse(tx.isHidden())
-                tx.show(keyable=False, fast=fast)
-                self.assertFalse(tx.isHidden())
-                self.assertEqual(tx.isHidden(), not (cmds.getAttr(tx, keyable=True) or cmds.getAttr(tx, channelBox=True)))
-                tx.show(fast=fast)
+                self.assertIsNone(tx.setFlags(keyable=False, channelBox=False, children=True, fast=fast))
+                self.assertTrue(tx.getFlags()["hidden"])
+                tx.setFlags(keyable=True, children=True, fast=fast)
+                self.assertFalse(tx.getFlags()["hidden"])
+                self.assertEqual((cmds.getAttr(tx, keyable=True), cmds.getAttr(tx, channelBox=True)), (True, False))
+                tx.setFlags(channelBox=True, children=True, fast=fast)
+                self.assertFalse(tx.getFlags()["hidden"])
+                self.assertEqual((cmds.getAttr(tx, keyable=True), cmds.getAttr(tx, channelBox=True)), (False, True))
+                self.assertEqual(tx.getFlags()["hidden"], not (cmds.getAttr(tx, keyable=True) or cmds.getAttr(tx, channelBox=True)))
+                tx.setFlags(keyable=True, children=True, fast=fast)
 
-    def test_is_hidden_for_compound(self):
+    def test_hidden_for_compound(self):
         """コンパウンドアトリビュートは子孫の末端がすべて隠れているときTrue。"""
         translate = self.node.getPlug("t")
-        self.assertFalse(translate.isHidden())
-        translate.hide()
-        self.assertTrue(translate.isHidden())
-        self.node.getPlug("ty").show()
-        self.assertFalse(translate.isHidden())
+        self.assertFalse(translate.getFlags()["hidden"])
+        translate.setFlags(keyable=False, channelBox=False, children=True)
+        self.assertTrue(translate.getFlags()["hidden"])
+        self.node.getPlug("ty").setFlags(keyable=True)
+        self.assertFalse(translate.getFlags()["hidden"])
         # 親だけを隠しても、子が表示されていればChannel Boxに出る。
-        translate.show()
+        translate.setFlags(keyable=True, children=True)
         translate.setFlags(keyable=False, channelBox=False)
-        self.assertFalse(translate.isHidden())
+        self.assertFalse(translate.getFlags()["hidden"])
+        # 子(末端)だけを隠すと、親のフラグが残っていても隠れている扱い。
+        translate.setFlags(keyable=True)
+        translate.setFlags(keyable=False, channelBox=False, leaf=True)
+        self.assertTrue(cmds.getAttr(self.name + ".t", keyable=True))
+        self.assertTrue(translate.getFlags()["hidden"])
 
     def test_structure_predicates(self):
-        """isMulti・isCompound・isMultiElement・isChildはMPlugの構造を返す。"""
+        """isMulti・isCompoundと、その element=True・child=True はMPlugの構造を返す。"""
         world = self.node.getPlug("worldMatrix")
-        self.assertEqual((world.isMulti(), world.isCompound(), world.isMultiElement(), world.isChild()), (True, False, False, False))
+        self.assertEqual((world.isMulti(), world.isCompound(), world.isMulti(element=True), world.isCompound(child=True)), (True, False, False, False))
         element = world[0]
-        self.assertEqual((element.isMulti(), element.isMultiElement()), (False, True))
+        self.assertEqual((element.isMulti(), element.isMulti(element=True)), (False, True))
         tx = self.node.getPlug("tx")
-        self.assertEqual((tx.isChild(), tx.isCompound()), (True, False))
+        self.assertEqual((tx.isCompound(child=True), tx.isCompound()), (True, False))
         self.assertTrue(self.node.getPlug("translate").isCompound())
         self.assertIsNone(self.node.getPlug("translate").getParent())
+        for plug in (world, element, tx, self.node.getPlug("translate")):
+            with self.subTest(plug=str(plug)):
+                mplug = plug.mplug()
+                self.assertEqual(
+                    (plug.isMulti(), plug.isMulti(element=True), plug.isCompound(), plug.isCompound(child=True)),
+                    (mplug.isArray, mplug.isElement, mplug.isCompound, mplug.isChild),
+                )
+        for call in (lambda: tx.isMulti(True), lambda: tx.isCompound(True)):
+            with self.assertRaises(TypeError):
+                call()
 
     def test_numeric_ranges(self):
-        """数値の範囲はfloat、無い場合はNone・False。"""
+        """数値の範囲はfloat、無い側はNone。softの有無で制限とソフトリミットを分けて返す。"""
         cmds.addAttr(self.name, longName="rng", attributeType="double", minValue=-1, maxValue=2, softMinValue=0, softMaxValue=1)
         cmds.addAttr(self.name, longName="soft", attributeType="double", softMinValue=-5, softMaxValue=5)
         rng, soft = self.node.getPlug("rng"), self.node.getPlug("soft")
-        self.assertEqual((rng.hasMin(), rng.hasMax(), rng.getMin(), rng.getMax()), (True, True, -1.0, 2.0))
-        self.assertEqual((rng.hasSoftMin(), rng.hasSoftMax(), rng.getSoftMin(), rng.getSoftMax()), (True, True, 0.0, 1.0))
-        self.assertEqual((soft.hasMin(), soft.getMin(), soft.hasMax(), soft.getMax()), (False, None, False, None))
-        self.assertEqual((soft.getSoftMin(), soft.getSoftMax()), (-5.0, 5.0))
+        self.assertEqual(rng.getRange(), (-1.0, 2.0))
+        self.assertEqual(rng.getRange(soft=True), (0.0, 1.0))
+        self.assertEqual(rng.getRange(soft=False), rng.getRange())
+        self.assertTrue(all(type(value) is float for value in rng.getRange() + rng.getRange(soft=True)))
+        self.assertEqual(soft.getRange(), (None, None))
+        self.assertEqual(soft.getRange(soft=True), (-5.0, 5.0))
         tx = self.node.getPlug("tx")
-        self.assertEqual((tx.hasMin(), tx.getMin(), tx.hasSoftMin(), tx.getSoftMin()), (False, None, False, None))
-        self.assertEqual(self.node.getPlug("visibility").getMin(), 0.0)
+        self.assertEqual(tx.getRange(), (None, None))
+        self.assertEqual(tx.getRange(soft=True), (None, None))
+        self.assertEqual(self.node.getPlug("visibility").getRange()[0], 0.0)
+        # 片側だけの制限は、無い側だけがNone。cmds.attributeQueryと突き合わせる。
+        cmds.addAttr(self.name, longName="low", attributeType="double", minValue=-3)
+        cmds.addAttr(self.name, longName="high", attributeType="double", softMaxValue=7)
+        self.assertEqual(self.node.getPlug("low").getRange(), (-3.0, None))
+        self.assertEqual(self.node.getPlug("high").getRange(soft=True), (None, 7.0))
+        for name in ("rng", "soft", "low", "high"):
+            with self.subTest(attribute=name):
+
+                def query(exists, value, name=name):
+                    return (
+                        cmds.attributeQuery(name, node=self.name, **{value: True})[0] if cmds.attributeQuery(name, node=self.name, **{exists: True}) else None
+                    )
+
+                plug = self.node.getPlug(name)
+                self.assertEqual(plug.getRange(), (query("minExists", "minimum"), query("maxExists", "maximum")))
+                self.assertEqual(plug.getRange(soft=True), (query("softMinExists", "softMin"), query("softMaxExists", "softMax")))
+        with self.assertRaises(TypeError):
+            rng.getRange(True)
 
     def test_unit_ranges_return_numbers(self):
         """角度・距離・時間の範囲は get() と同じ規則の数値で返す(角度は度・距離はcm・時間はフレーム)。"""
         cmds.addAttr(self.name, longName="angleLimit", attributeType="doubleAngle", minValue=-1, maxValue=1)
         cmds.addAttr(self.name, longName="lengthLimit", attributeType="doubleLinear", minValue=-2, maxValue=3)
         angle, length = self.node.getPlug("angleLimit"), self.node.getPlug("lengthLimit")
-        for value in (angle.getMin(), angle.getMax(), length.getMin(), length.getMax()):
+        for value in (angle.getRange()[0], angle.getRange()[1], length.getRange()[0], length.getRange()[1]):
             self.assertIsInstance(value, float)
-        self.assertAlmostEqual(angle.getMin(), math.degrees(-1.0))
-        self.assertAlmostEqual(angle.getMax(unit="rad"), 1.0)
-        self.assertAlmostEqual(length.getMin(), -2.0)
-        self.assertAlmostEqual(length.getMax(), 3.0)
+        self.assertAlmostEqual(angle.getRange()[0], math.degrees(-1.0))
+        self.assertAlmostEqual(angle.getRange(unit="rad")[1], 1.0)
+        self.assertAlmostEqual(length.getRange()[0], -2.0)
+        self.assertAlmostEqual(length.getRange()[1], 3.0)
         previous = cmds.currentUnit(query=True, linear=True)
         try:
             # cm 以外の UI 単位でも、既定は get() と同じ cm、uiUnits=True は UI 単位。
             cmds.currentUnit(linear="mm")
-            self.assertAlmostEqual(length.getMax(), 3.0)
-            self.assertAlmostEqual(length.getMax(uiUnits=True), 30.0)
+            self.assertAlmostEqual(length.getRange()[1], 3.0)
+            self.assertAlmostEqual(length.getRange(uiUnits=True)[1], 30.0)
         finally:
             cmds.currentUnit(linear=previous)
 
@@ -383,9 +508,9 @@ class PlugDefinitionQuerySpecTest(_StateSpecCase):
             cmds.currentUnit(time="film")
             cmds.addAttr(self.name, longName="timeLimit", attributeType="time", minValue=0, maxValue=48)
             plug = self.node.getPlug("timeLimit")
-            self.assertAlmostEqual(plug.getMax(), 48.0)
-            self.assertAlmostEqual(plug.getMax(timeUnit="sec"), 2.0)
-            self.assertIsInstance(plug.getMin(), float)
+            self.assertAlmostEqual(plug.getRange()[1], 48.0)
+            self.assertAlmostEqual(plug.getRange(timeUnit="sec")[1], 2.0)
+            self.assertIsInstance(plug.getRange()[0], float)
         finally:
             cmds.currentUnit(time=previous)
 
@@ -395,8 +520,8 @@ class PlugDefinitionQuerySpecTest(_StateSpecCase):
         for attr in ("txt", "message", "worldMatrix"):
             with self.subTest(attr=attr):
                 plug = self.node.getPlug(attr)
-                self.assertEqual((plug.hasMin(), plug.hasMax(), plug.hasSoftMin(), plug.hasSoftMax()), (False, False, False, False))
-                self.assertEqual((plug.getMin(), plug.getMax(), plug.getSoftMin(), plug.getSoftMax()), (None, None, None, None))
+                self.assertEqual(plug.getRange(), (None, None))
+                self.assertEqual(plug.getRange(soft=True), (None, None))
 
     def test_identity_get_node_and_mplug(self):
         """getNodeは所有Nodeそのもの、mplugは保持中のMPlug。同じアトリビュートは等しくハッシュも同じ。"""
@@ -430,40 +555,47 @@ class PlugValiditySpecTest(_StateSpecCase):
         self.assertIs(type(plug), plugs.DoublePlug)
         for method in (
             "get",
-            "getLongName",
-            "getShortName",
-            "getNiceName",
+            "getAttributeName",
             "getType",
             "getParent",
             "isLocked",
-            "isKeyable",
-            "isChannelBox",
+            "getFlags",
             "isConnected",
-            "isSource",
-            "isDestination",
-            "getSource",
-            "getDestinations",
             "getConnections",
             "getDefault",
-            "hasMin",
-            "getMin",
+            "getRange",
             "isSettable",
-            "isHidden",
             "getAnimCurve",
             "isMuted",
             "reset",
             "delete",
-            "disconnectInput",
+            "disconnectAll",
         ):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
                     getattr(plug, method)()
+        self.assertFalse(plug.isValid(elements=True))
+        self.assertFalse(plug.isMulti(element=True))
+        self.assertFalse(plug.isCompound(child=True))
         for call in (
+            lambda: plug.getAttributeName("short"),
+            lambda: plug.getAttributeName("nice"),
+            lambda: plug.getParent(all=True),
+            lambda: plug.isConnected(source=False),
+            lambda: plug.isConnected(destination=False),
+            lambda: plug.getConnections(input=True),
+            lambda: plug.getConnections(outputs=True),
+            lambda: plug.getRange(soft=True),
+            lambda: plug.setRange(0.0),
+            lambda: plug.setFlags(keyable=True),
+            lambda: plug.getAnimCurve(suitableType=True),
+            lambda: plug.disconnectAll(destination=False),
+            lambda: plug.disconnectAll(destination=False, fast=True),
             lambda: plug.set(1),
             lambda: plug.set(1, fast=True),
             lambda: plug.setLocked(True),
             lambda: plug.setIfChanged(2.0),
-            lambda: plug.getEnumName(0),
+            lambda: plug.getEnumNames(value=0),
             lambda: plug.connect(self.node.getPlug("tx")),
         ):
             with self.assertRaises(RuntimeError):
@@ -527,7 +659,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         with self.assertRaises(RuntimeError):
             tx.get()
         with self.assertRaises(RuntimeError):
-            tx.getLongName()
+            tx.getAttributeName()
         with self.assertRaises(RuntimeError):
             tx.set(1)
         cmds.undo()

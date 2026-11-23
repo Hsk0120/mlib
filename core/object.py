@@ -22,8 +22,9 @@ _MEMBER_HINTS = {
     "lockNode": ("setLocked", "setLocked(True)を使います"),
     "listConnections": ("getConnections", "getConnections()を使います"),
     "connections": ("getConnections", "getConnections()を使います"),
-    "inputs": ("getSource", "getSource()を使います"),
-    "outputs": ("getDestinations", "getDestinations()を使います"),
+    # 1つ目は、Plugだけにある名前(Plugのときだけ案内する)。
+    "inputs": ("getAttributeName", "getConnections(input=True)を使います"),
+    "outputs": ("getAttributeName", "getConnections(outputs=True)を使います"),
     "listRelatives": ("getChildren", "getChildren()かgetParent()を使います"),
     "getAllChildren": ("getChildren", "getChildren(allDescendents=True)を使います"),
     "listHistory": ("getHistory", "getHistory()を使います"),
@@ -54,7 +55,7 @@ _MEMBER_HINTS = {
     "unlock": ("setLocked", "setLocked(False)を使います"),
     "mute": ("setMuted", "setMuted(True)を使います"),
     "unmute": ("setMuted", "setMuted(False)を使います"),
-    "getAttrName": ("getShortName", "アトリビュートのパスはgetName().partition('.')[2]、短い名前はgetShortName()を使います"),
+    "getAttrName": ("getAttributeName", "アトリビュートのパスはgetName().partition('.')[2]、短い名前はgetAttributeName(\"short\")を使います"),
     "connect": ("connectTo", "connectTo(destination)を使います"),
     "select": (None, "mlib.select(obj)を使います"),
 }

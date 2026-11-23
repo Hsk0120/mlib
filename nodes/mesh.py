@@ -1921,7 +1921,7 @@ class Mesh(Shape):
         Raises:
             RuntimeError: 入力に指定セットのカラー編集が無いか、途中に未対応ノードがある場合。
         """
-        source = self.getPlug("inMesh").getSource()
+        source = self.getPlug("inMesh").getConnections(input=True)
         if source is None:
             return
         visited = set()
@@ -1937,7 +1937,7 @@ class Mesh(Shape):
                 break
             if kind != "polyMoveVertex":
                 break
-            source = node.getPlug("inputPolymesh").getSource()
+            source = node.getPlug("inputPolymesh").getConnections(input=True)
         raise RuntimeError(f"removeFaceVertexColorsに対応していない入力ヒストリです: {self.getFullName()}")
 
     def _remove_face_vertex_colors_cmds(self, color_set, components):

@@ -62,10 +62,10 @@ class NodeResetAttrsSpecTest(NamespaceCase):
         cmds.connectAttr(driver + ".ty", self.node + ".input1Y")
 
     def test_normal_and_fast_select_the_same_attributes(self):
-        normal = [plug.getLongName() for plug in mlib.getNode(self.node).resetAttrs()]
+        normal = [plug.getAttributeName() for plug in mlib.getNode(self.node).resetAttrs()]
         cmds.setAttr(self.node + ".input1X", 3)
         cmds.setAttr(self.node + ".input1Z", 4)
-        fast = [plug.getLongName() for plug in mlib.getNode(self.node).resetAttrs(fast=True)]
+        fast = [plug.getAttributeName() for plug in mlib.getNode(self.node).resetAttrs(fast=True)]
         self.assertEqual(normal, fast)
         self.assertIn("input1X", normal)
         self.assertNotIn("input1Y", normal)
@@ -89,7 +89,7 @@ class NodeResetAttrsSpecTest(NamespaceCase):
         cmds.setAttr(average + ".input1D[0]", 2)
         for fast in (False, True):
             with self.subTest(fast=fast):
-                names = [plug.getLongName() for plug in mlib.getNode(average).resetAttrs(fast=fast)]
+                names = [plug.getAttributeName() for plug in mlib.getNode(average).resetAttrs(fast=fast)]
                 self.assertNotIn("input1D", names)
         self.assertEqual(cmds.getAttr(average + ".input1D[0]"), 2)
 
@@ -121,10 +121,10 @@ class NodeHistoryAndPlugsSpecTest(NamespaceCase):
             plugs = node.getPlugs()
             keyable = node.getPlugs(keyable=True)
             scalar = node.getPlugs(scalar=True, includeChildren=False)
-        self.assertIn("translateX", [plug.getLongName() for plug in plugs])
-        self.assertEqual([plug.getLongName() for plug in keyable][:3], ["visibility", "translateX", "translateY"])
-        self.assertNotIn("translateX", [plug.getLongName() for plug in scalar])
-        self.assertIn("values", [plug.getLongName() for plug in scalar])
+        self.assertIn("translateX", [plug.getAttributeName() for plug in plugs])
+        self.assertEqual([plug.getAttributeName() for plug in keyable][:3], ["visibility", "translateX", "translateY"])
+        self.assertNotIn("translateX", [plug.getAttributeName() for plug in scalar])
+        self.assertIn("values", [plug.getAttributeName() for plug in scalar])
         # om2 で扱わないフラグ・False の値は cmds.listAttr へそのまま渡す。
         for flags in ({"multi": True}, {"keyable": False}, {"k": True}):
             with self.subTest(flags=flags):

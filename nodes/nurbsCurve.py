@@ -411,9 +411,9 @@ class NurbsCurve(Shape):
         geometry = om2.MFnGeometryData(self.getPlug("local").mplug().asMObject())
         if geometry.componentTags():
             raise NotImplementedError("コンポーネントタグを持つカーブのノット削除には対応していません")
-        for point in self.getPlug("controlPoints").getElements():
+        for point in self.getPlug("controlPoints").getElement():
             for plug in [point, *point.getChildren()]:
-                if plug.getDestinations():
+                if plug.getConnections(outputs=True):
                     raise NotImplementedError("CVから出力接続があるカーブのノット削除には対応していません")
         # 両端が最大多重度の開いたカーブでは、異なるノット値の順番がEP番号になる。
         ep_index = sorted(set(knots)).index(parameter)
@@ -1090,15 +1090,15 @@ class NurbsCurve(Shape):
         if dependency.isFromReferencedFile:
             raise NotImplementedError("参照カーブのノット編集には対応していません")
         source = self.getPlug("create")
-        if source.getSource() is not None:
+        if source.getConnections(input=True) is not None:
             raise NotImplementedError("ヒストリ付きカーブのノット編集には対応していません")
         if dependency.isLocked or source.isLocked():
             raise RuntimeError("カーブまたはcreateがロックされています")
-        for plug in self.getPlug("controlPoints").getElements():
-            if plug.isLocked() or plug.getSource() is not None:
+        for plug in self.getPlug("controlPoints").getElement():
+            if plug.isLocked() or plug.getConnections(input=True) is not None:
                 raise NotImplementedError("CVのロック・接続があるカーブのノット編集には対応していません")
             for child in plug.getChildren():
-                if child.isLocked() or child.getSource() is not None:
+                if child.isLocked() or child.getConnections(input=True) is not None:
                     raise NotImplementedError("CVのロック・接続があるカーブのノット編集には対応していません")
 
     def _write_curve_data(self, fn):

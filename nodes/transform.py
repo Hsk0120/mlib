@@ -151,8 +151,8 @@ def _unwritable_channel_message(plug):
     for target in [plug, *plug.getChildren()]:
         if target.isLocked():
             reason = "ロックされています"
-        elif target.isDestination():
-            source = target.getSource(skipConversionNodes=True)
+        elif target.isConnected(destination=False):
+            source = target.getConnections(input=True, skipConversionNodes=True)
             reason = f"{source.getFullName()}から接続されています" if source is not None else "入力が接続されています"
         else:
             continue

@@ -62,17 +62,17 @@ class CompoundPlugSpecTest(_PlugSpecCase):
         """子は定義順の番号・ロング名・ショート名・Pythonアトリビュートで参照する。"""
         self.assertIs(type(self.pair), plugs.CompoundPlug)
         children = self.pair.getChildren()
-        self.assertEqual([c.getLongName() for c in children], ["first", "second"])
-        self.assertEqual([c.getLongName() for c in self.pair], ["first", "second"])
+        self.assertEqual([c.getAttributeName() for c in children], ["first", "second"])
+        self.assertEqual([c.getAttributeName() for c in self.pair], ["first", "second"])
         self.assertEqual(self.pair[0], children[0])
         self.assertEqual(self.pair["second"], children[1])
         self.assertEqual(self.pair["se"], children[1])
         self.assertEqual(self.pair.first, children[0])
         self.assertIs(type(self.pair[1]), plugs.DoubleLinearPlug)
         self.assertEqual(self.pair[0].getParent(), self.pair)
-        self.assertTrue(self.pair[0].isChild())
+        self.assertTrue(self.pair[0].isCompound(child=True))
         self.assertTrue(self.pair.isCompound())
-        self.assertFalse(self.pair.isChild())
+        self.assertFalse(self.pair.isCompound(child=True))
 
     def test_child_access_errors(self):
         """範囲外はIndexError、無い名前はAttributeError、bool・float・sliceはTypeError。"""

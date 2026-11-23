@@ -77,9 +77,11 @@ class ConsolidatedNodesTest(unittest.TestCase):
             text = node.addAttr("label", "string", defaultValue="sample", fast=True)
             self.assertEqual(text.get(), "sample")
             enum = node.addAttr("mode", "enum", enumName="zero:three=3:four", defaultValue=3, fast=True)
-            self.assertEqual(enum.getEnumName(), "three")
+            self.assertEqual(enum.getEnumNames(current=True), "three")
             node.resetAttrs(["amount"], fast=True)
-        self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["amount", "ignored", "offset", "label", "mode"])
+        self.assertEqual(
+            [p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["amount", "ignored", "offset", "label", "mode"]
+        )
         self.assertEqual(len(node.getPlugs(userDefined=True, includeChildren=False)), 5)
         for obsolete in ("getInputs", "getOutputs", "getExtraAttrNames"):
             self.assertFalse(hasattr(type(node), obsolete))

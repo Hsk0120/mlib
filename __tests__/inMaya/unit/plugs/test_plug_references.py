@@ -174,12 +174,12 @@ class PlugSimplificationTest(unittest.TestCase):
             with self.assertRaises(TypeError):
                 array.getElement(9, create=True)
         self.assertFalse(hasattr(array, "addElement"))
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
         reference.set(4)
         self.assertEqual(array.getElement(index=9), reference)
         cmds.undo()
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
 
     def test_generic_set_keeps_matrix_units_and_reads_repeated_type_changes(self):
         """genericへの行列書込みはUI距離に依存せず、同じ参照をUndoでも保つ。"""
@@ -225,14 +225,14 @@ class PlugSimplificationTest(unittest.TestCase):
         reference.connect(source.getPlug("message"))
         self.assertEqual(array.getElement(12), reference)
         cmds.undo()
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
         # messageの便利操作も同じ安全な参照経路を使い、接続だけで実体化する。
         for fast in (False, True):
             index = array.appendMessage(source, fast=fast)
-            self.assertEqual(array[index].getSource(skipConversionNodes=True), source.getPlug("message"))
+            self.assertEqual(array[index].getConnections(input=True, skipConversionNodes=True), source.getPlug("message"))
             if not fast:
                 cmds.undo()
-                self.assertEqual(array.getElements(), [])
+                self.assertEqual(array.getElement(), [])
 
     def test_logical_indices_remain_strict_without_materialization(self):
         """bool・範囲外の番号を拒否し、上限の未作成参照を別番号へ変換しない。"""
@@ -244,10 +244,15 @@ class PlugSimplificationTest(unittest.TestCase):
                 with self.assertRaises(error):
                     array.getElement(index)
         self.assertEqual(array[2147483647].mplug().logicalIndex(), 2147483647)
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
         parameters = inspect.signature(type(array).getElement).parameters
-        self.assertEqual(tuple(parameters), ("self", "index"))
-        self.assertIs(parameters["index"].default, inspect.Parameter.empty)
+        self.assertEqual(tuple(parameters), ("self", "index", "physical"))
+        self.assertIsNone(parameters["index"].default)
+        self.assertIs(parameters["physical"].default, False)
+        self.assertEqual(parameters["physical"].kind, inspect.Parameter.KEYWORD_ONLY)
+        with self.assertRaises(TypeError):
+            array.getElement(physical=True)
+        self.assertEqual(array.getIndices(), [])
 
 
 if __name__ == "__main__":

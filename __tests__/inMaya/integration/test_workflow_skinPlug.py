@@ -108,7 +108,7 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         plug.setFlags(locked=False)
         self.first.getPlug("translateX").connectTo(plug)
         self.assertFalse(plug.isSettable())
-        plug.disconnectInput()
+        plug.disconnectAll(destination=False)
         plug.setKey()
         candidates = (plug, control.getPlug("translate"), control.getPlug("worldMatrix")[0])
         for candidate in candidates:

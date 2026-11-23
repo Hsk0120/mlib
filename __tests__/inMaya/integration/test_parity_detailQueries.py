@@ -32,12 +32,12 @@ class DetailQueryTest(NamespaceCase):
         node = mlib.getNode(cmds.createNode("plusMinusAverage", name=self.ns + ":sum"))
         element = node.getPlug("input3D")[13]
         self.assertTrue(element.isValid())
-        self.assertFalse(element.isExisting())
-        self.assertFalse(element.getChildren()[0].isExisting())
+        self.assertFalse(element.isValid(elements=True))
+        self.assertFalse(element.getChildren()[0].isValid(elements=True))
         self.assertEqual(node.getPlug("input3D").getIndices(), [])
         element.set((1, 2, 3))
-        self.assertTrue(element.isExisting())
-        self.assertTrue(element.getChildren()[0].isExisting())
+        self.assertTrue(element.isValid(elements=True))
+        self.assertTrue(element.getChildren()[0].isValid(elements=True))
 
     def test_container_connections(self):
         node = mlib.getNode(cmds.createNode("transform", name=self.ns + ":member"))

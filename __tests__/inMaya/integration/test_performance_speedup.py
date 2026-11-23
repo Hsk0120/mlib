@@ -430,7 +430,7 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
                     source = node_a.getPlug(source_attr)
                     result = plug.disconnect(source if explicit else None, fast=fast)
                     # 2026-10-26 の約束の変更で、src を渡した場合は渡した Plug そのものを返す
-                    # (名前から取り直さない)。省略時は getSource で得た別の Plug になる。
+                    # (名前から取り直さない)。省略時は getConnections(input=True) で得た別の Plug になる。
                     if explicit:
                         self.assertIs(result, source)
                     else:
@@ -913,7 +913,7 @@ class MultiAndWeightRunTest(unittest.TestCase):
         for name in ("worldMatrix", "worldPosition", "worldInverseMatrix"):
             array = shape.getPlug(name)
             actual = array.get()
-            expected = {plug.mplug().logicalIndex(): plug.get() for plug in array.getElements()}
+            expected = {plug.mplug().logicalIndex(): plug.get() for plug in array.getElement()}
             self.assertEqual(list(actual), [0, 1])
             self.assertEqual(actual, expected)
 
@@ -1314,10 +1314,10 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
                 if definition.dynamic and (include_children or definition.parent.isNull()):
                     expected.append(definition.name)
             with self.subTest(include_children=include_children):
-                self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
-                self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
+                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
+                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
                 self.assertNotIn(self.extension, expected)
-        self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["dynM", "dynV", "late"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["dynM", "dynV", "late"])
 
     def test_container_membership_and_namespace_nodes(self):
         from mlib.common.namespace import Namespace

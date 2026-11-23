@@ -1,9 +1,9 @@
 """プラグ(Plug・MultiPlug・RampPlug)の docstring の Raises に書かれた例外を固定する。
 
 - 無効な参照: 所有ノードの削除・動的アトリビュートの削除の後の照会・設定は RuntimeError。
-- 範囲の照会(getSoftMin・getSoftMax・getDefault): uiUnits・unit・timeUnit の型は TypeError、
+- 範囲の照会(getRange(soft=True)・getDefault): uiUnits・unit・timeUnit の型は TypeError、
   未対応の単位名・uiUnits=True との同時指定は ValueError。
-- 範囲の設定(setMin・setMax・setSoftMin・setSoftMax): 静的・数値以外のアトリビュートと不正な値は TypeError、
+- 範囲の設定(setRange の片側だけの指定。soft の有無): 静的・数値以外のアトリビュートと不正な値は TypeError、
   不正な単位名は ValueError、ソフト値の None は NotImplementedError。例外の後は定義が変わらない。
 - setMuted: bool 以外は TypeError で mute ノードを作らない。
 - RampPlug.getValueAt: 実数以外は TypeError、有限でない値は ValueError。
@@ -21,33 +21,38 @@ from support.namespaceCase import NamespaceCase
 
 from mlib.plugs import MultiPlug, RampPlug
 
-#: 無効な参照で RuntimeError になる、引数なしの照会メソッド。
+#: 無効な参照で RuntimeError になる照会。(名前, Plug を受けて呼ぶ関数)。
 _QUERIES = (
-    "getShortName",
-    "getNiceName",
-    "isKeyable",
-    "isSource",
-    "isDestination",
-    "isHidden",
-    "isProxy",
-    "getProxyMaster",
-    "hasMin",
-    "hasMax",
-    "hasSoftMin",
-    "hasSoftMax",
-    "getSoftMin",
-    "getSoftMax",
-    "getDefault",
-    "getAlias",
-    "isMuted",
-    "getDestinations",
+    ("getAttributeName(short)", lambda plug: plug.getAttributeName("short")),
+    ("getAttributeName(nice)", lambda plug: plug.getAttributeName("nice")),
+    ("getFlags", lambda plug: plug.getFlags()),
+    ("isConnected(source=False)", lambda plug: plug.isConnected(source=False)),
+    ("isConnected(destination=False)", lambda plug: plug.isConnected(destination=False)),
+    ("isProxy", lambda plug: plug.isProxy()),
+    ("getProxyMaster", lambda plug: plug.getProxyMaster()),
+    ("getRange", lambda plug: plug.getRange()),
+    ("getRange(soft)", lambda plug: plug.getRange(soft=True)),
+    ("getDefault", lambda plug: plug.getDefault()),
+    ("getAlias", lambda plug: plug.getAlias()),
+    ("isMuted", lambda plug: plug.isMuted()),
+    ("getConnections(input)", lambda plug: plug.getConnections(input=True)),
+    ("getConnections(outputs)", lambda plug: plug.getConnections(outputs=True)),
 )
 
-#: 範囲の設定メソッド。
-_SETTERS = ("setMin", "setMax", "setSoftMin", "setSoftMax")
+#: 範囲の片側だけを設定する書き方。(名前, Plug・値・単位の指定を受けて呼ぶ関数)。
+_SETTERS = (
+    ("minimum", lambda plug, value, **flags: plug.setRange(value, **flags)),
+    ("maximum", lambda plug, value, **flags: plug.setRange(maximum=value, **flags)),
+    ("softMinimum", lambda plug, value, **flags: plug.setRange(value, soft=True, **flags)),
+    ("softMaximum", lambda plug, value, **flags: plug.setRange(maximum=value, soft=True, **flags)),
+)
 
-#: 範囲の照会で単位の引数を受けるメソッド。
-_LIMIT_GETTERS = ("getSoftMin", "getSoftMax", "getDefault")
+#: 範囲の照会で単位の引数を受ける書き方。(名前, Plug・単位の指定を受けて呼ぶ関数)。
+_LIMIT_GETTERS = (
+    ("getRange(soft)", lambda plug, **flags: plug.getRange(soft=True, **flags)),
+    ("getRange", lambda plug, **flags: plug.getRange(**flags)),
+    ("getDefault", lambda plug, **flags: plug.getDefault(**flags)),
+)
 
 
 class _PlugCase(NamespaceCase):
@@ -102,81 +107,86 @@ class InvalidPlugTest(_PlugCase):
         """削除済みノード・削除済み動的アトリビュートの Plug で、各照会が RuntimeError になる。"""
         cases = (("deletedNode", self.dead_node_plug), ("deletedAttribute", self.dead_attr_plug))
         for label, factory in cases:
-            for method in _QUERIES:
+            for method, call in _QUERIES:
                 with self.subTest(case=label, method=method):
                     plug = factory()
                     with self.assertRaises(RuntimeError):
-                        getattr(plug, method)()
+                        call(plug)
 
-    def test_get_destinations_with_options_raises(self):
-        """getConnections へ委ねる指定(asNode 等)でも、無効な Plug は RuntimeError。"""
+    def test_outputs_with_options_raises(self):
+        """getConnections(outputs=True) に絞り込みの指定(asNode 等)を足しても、無効な Plug は RuntimeError。"""
         for label, factory in (("deletedNode", self.dead_node_plug), ("deletedAttribute", self.dead_attr_plug)):
             for flags in ({"asNode": True}, {"skipConversionNodes": True}, {"index": 0}):
                 with self.subTest(case=label, flags=flags):
                     plug = factory()
                     with self.assertRaises(RuntimeError):
-                        plug.getDestinations(**flags)
+                        plug.getConnections(outputs=True, **flags)
 
     def test_setters_raise_runtime_error(self):
         """削除済みの Plug への範囲の設定・ミュートは RuntimeError で、他のノードを作らない。"""
         for label, factory in (("deletedNode", self.dead_node_plug), ("deletedAttribute", self.dead_attr_plug)):
-            for method, args in [(name, (1.0,)) for name in _SETTERS] + [("setMuted", (True,))]:
+            for method, call in (*_SETTERS, ("setMuted", lambda plug, value: plug.setMuted(True))):
                 with self.subTest(case=label, method=method):
                     plug = factory()
                     before = set(cmds.ls(type="mute") or [])
                     with self.assertRaises(RuntimeError):
-                        getattr(plug, method)(*args)
+                        call(plug, 1.0)
                     self.assertEqual(set(cmds.ls(type="mute") or []), before)
 
 
 class LimitQueryArgumentTest(_PlugCase):
-    """getSoftMin・getSoftMax・getDefault の引数の検証。"""
+    """getRange・getDefault の引数の検証。"""
 
     def test_type_errors(self):
         """uiUnits が bool 以外、unit・timeUnit が文字列・None 以外は TypeError。"""
         plug = mlib.getNode(self.ranged()).getPlug("amount")
-        for method in _LIMIT_GETTERS:
+        for method, call in _LIMIT_GETTERS:
             for flags in ({"uiUnits": 1}, {"uiUnits": "yes"}, {"unit": 1}, {"unit": True}, {"timeUnit": 1}, {"timeUnit": 24.0}):
                 with self.subTest(method=method, flags=flags):
                     with self.assertRaises(TypeError):
-                        getattr(plug, method)(**flags)
+                        call(plug, **flags)
+        for soft in (1, "yes", None):
+            with self.subTest(method="getRange", soft=soft):
+                with self.assertRaises(TypeError):
+                    plug.getRange(soft=soft)
 
     def test_value_errors(self):
         """未対応の単位名と、uiUnits=True との同時指定は ValueError。"""
         plug = mlib.getNode(self.ranged()).getPlug("amount")
-        for method in _LIMIT_GETTERS:
+        for method, call in _LIMIT_GETTERS:
             for flags in ({"unit": "furlong"}, {"timeUnit": "fortnight"}, {"unit": "deg", "uiUnits": True}, {"timeUnit": "sec", "uiUnits": True}):
                 with self.subTest(method=method, flags=flags):
                     with self.assertRaises(ValueError):
-                        getattr(plug, method)(**flags)
+                        call(plug, **flags)
 
     def test_valid_values(self):
         """正常系: ソフト値・既定値を定義どおりに返し、角度は度、unit="rad" でラジアン。"""
         node = self.ranged()
         plug = mlib.getNode(node).getPlug("amount")
-        self.assertEqual(plug.getSoftMin(), 1.0)
-        self.assertEqual(plug.getSoftMax(), 9.0)
+        self.assertEqual(plug.getRange(soft=True), (1.0, 9.0))
+        self.assertEqual(plug.getRange(), (0.0, 10.0))
         self.assertEqual(plug.getDefault(), 5.0)
         cmds.addAttr(node, longName="spin", attributeType="doubleAngle", defaultValue=math.pi / 2, softMinValue=-math.pi, softMaxValue=math.pi)
         spin = mlib.getNode(node).getPlug("spin")
         self.assertAlmostEqual(spin.getDefault(), 90.0)
         self.assertAlmostEqual(spin.getDefault(unit="rad"), math.pi / 2)
-        self.assertAlmostEqual(spin.getSoftMin(), -180.0)
-        self.assertAlmostEqual(spin.getSoftMax(unit="rad"), math.pi)
+        self.assertAlmostEqual(spin.getRange(soft=True)[0], -180.0)
+        self.assertAlmostEqual(spin.getRange(soft=True, unit="rad")[1], math.pi)
+        self.assertEqual(spin.getRange(), (None, None))
 
 
 class SetRangeErrorTest(_PlugCase):
-    """setMin・setMax・setSoftMin・setSoftMax の例外と、例外後に定義が変わらないこと。"""
+    """setRange の片側だけの指定(soft の有無)の例外と、例外後に定義が変わらないこと。"""
 
     def test_static_attribute_type_error(self):
         """静的アトリビュート(translateX)は TypeError。"""
         node = self.make("transform", "static")
         plug = mlib.getNode(node).getPlug("translateX")
         before = self.limits(node, "translateX")
-        for method in _SETTERS:
+        for method, call in _SETTERS:
             with self.subTest(method=method):
                 with self.assertRaises(TypeError):
-                    getattr(plug, method)(1.0)
+                    call(plug, 1.0)
                 self.assertEqual(self.limits(node, "translateX"), before)
 
     def test_non_numeric_attribute_type_error(self):
@@ -187,29 +197,45 @@ class SetRangeErrorTest(_PlugCase):
         cmds.addAttr(node, longName="mat", attributeType="matrix")
         for attribute in ("label", "link", "mat"):
             plug = mlib.getNode(node).getPlug(attribute)
-            for method in _SETTERS:
+            for method, call in _SETTERS:
                 with self.subTest(attribute=attribute, method=method):
                     with self.assertRaises(TypeError):
-                        getattr(plug, method)(1.0)
+                        call(plug, 1.0)
 
     def test_bad_value_type_error(self):
         """値が数値・単位付きの値・None 以外(文字列・bool・list)は TypeError で、定義は変わらない。"""
         node = self.ranged()
         plug = mlib.getNode(node).getPlug("amount")
         before = self.limits(node)
-        for method in _SETTERS:
+        for method, call in _SETTERS:
             for value in ("1.0", True, [1.0]):
                 with self.subTest(method=method, value=value):
                     with self.assertRaises(TypeError):
-                        getattr(plug, method)(value)
+                        call(plug, value)
                     self.assertEqual(self.limits(node), before)
+
+    def test_omitted_both_type_error(self):
+        """minimum・maximum の両方を省略すると TypeError。soft が bool 以外も TypeError。定義は変わらない。"""
+        node = self.ranged()
+        plug = mlib.getNode(node).getPlug("amount")
+        before = self.limits(node)
+        for label, call in (
+            ("omitted", lambda: plug.setRange()),
+            ("omittedSoft", lambda: plug.setRange(soft=True)),
+            ("softInt", lambda: plug.setRange(1.0, soft=1)),
+            ("softNone", lambda: plug.setRange(1.0, soft=None)),
+        ):
+            with self.subTest(case=label):
+                with self.assertRaises(TypeError):
+                    call()
+                self.assertEqual(self.limits(node), before)
 
     def test_unit_argument_errors(self):
         """unit・timeUnit の型違いは TypeError、未対応の単位名は ValueError で、定義は変わらない。"""
         node = self.ranged()
         plug = mlib.getNode(node).getPlug("amount")
         before = self.limits(node)
-        for method in _SETTERS:
+        for method, call in _SETTERS:
             for flags, error in (
                 ({"unit": 1}, TypeError),
                 ({"timeUnit": 1}, TypeError),
@@ -218,18 +244,23 @@ class SetRangeErrorTest(_PlugCase):
             ):
                 with self.subTest(method=method, flags=flags):
                     with self.assertRaises(error):
-                        getattr(plug, method)(2.0, **flags)
+                        call(plug, 2.0, **flags)
                     self.assertEqual(self.limits(node), before)
 
     def test_soft_none_not_implemented(self):
-        """setSoftMin(None)・setSoftMax(None) は NotImplementedError で、ソフト値は残る。"""
+        """setRange(soft=True) のどちらかの側が None なら NotImplementedError で、ソフト値は残る。"""
         node = self.ranged()
         plug = mlib.getNode(node).getPlug("amount")
         before = self.limits(node)
-        for method in ("setSoftMin", "setSoftMax"):
-            with self.subTest(method=method):
+        for label, call in (
+            ("minimum", lambda: plug.setRange(None, soft=True)),
+            ("maximum", lambda: plug.setRange(maximum=None, soft=True)),
+            ("minimumWithMaximum", lambda: plug.setRange(None, 8.0, soft=True)),
+            ("maximumWithMinimum", lambda: plug.setRange(2.0, None, soft=True)),
+        ):
+            with self.subTest(case=label):
                 with self.assertRaises(NotImplementedError):
-                    getattr(plug, method)(None)
+                    call()
                 self.assertEqual(self.limits(node), before)
 
     def test_reversed_range_value_error(self):
@@ -237,34 +268,44 @@ class SetRangeErrorTest(_PlugCase):
         node = self.ranged()
         cmds.addAttr(node, longName="angle", attributeType="doubleAngle", minValue=0.0, maxValue=1.0)
         cases = (
-            ("amount", "setMin", 11.0, {}),
-            ("amount", "setMax", -1.0, {}),
-            ("angle", "setMin", 60.0, {}),
-            ("angle", "setMax", -5.0, {}),
-            ("angle", "setMin", 1.5, {"unit": "rad"}),
+            ("amount", "minimum", 11.0, {}),
+            ("amount", "maximum", -1.0, {}),
+            ("angle", "minimum", 60.0, {}),
+            ("angle", "maximum", -5.0, {}),
+            ("angle", "minimum", 1.5, {"unit": "rad"}),
         )
-        for attribute, method, value, flags in cases:
+        for attribute, side, value, flags in cases:
             plug = mlib.getNode(node).getPlug(attribute)
             before = self.limits(node, attribute)
-            with self.subTest(attribute=attribute, method=method, value=value):
+            with self.subTest(attribute=attribute, side=side, value=value):
                 with self.assertRaises(ValueError):
-                    getattr(plug, method)(value, **flags)
+                    plug.setRange(**dict({side: value}, **flags))
                 self.assertEqual(self.limits(node, attribute), before)
+        with self.subTest(case="both"):
+            plug = mlib.getNode(node).getPlug("amount")
+            before = self.limits(node)
+            with self.assertRaises(ValueError):
+                plug.setRange(5.0, 2.0)
+            self.assertEqual(self.limits(node), before)
         # 範囲内の値・等しい値は通る(56度は1ラジアン未満)。
         plug = mlib.getNode(node).getPlug("angle")
-        self.assertIsNone(plug.setMin(56.0))
-        self.assertIsNone(plug.setMax(56.0))
+        self.assertIsNone(plug.setRange(56.0))
+        self.assertIsNone(plug.setRange(maximum=56.0))
 
     def test_valid_set_and_undo(self):
-        """正常系: 4つの設定が定義へ反映され、Undo 1回で戻る。"""
+        """正常系: 片側だけの4つの設定が定義へ反映され(ほかの3つは変わらない)、Undo 1回で戻る。"""
         node = self.ranged()
         plug = mlib.getNode(node).getPlug("amount")
-        expected = {"setMin": (-1.0, "minimum"), "setMax": (20.0, "maximum"), "setSoftMin": (2.0, "softMin"), "setSoftMax": (8.0, "softMax")}
-        for method, (value, query) in expected.items():
+        expected = {"minimum": (-1.0, "minimum", 2), "maximum": (20.0, "maximum", 3), "softMinimum": (2.0, "softMin", 6), "softMaximum": (8.0, "softMax", 7)}
+        for method, call in _SETTERS:
+            value, query, position = expected[method]
             with self.subTest(method=method):
                 before = cmds.attributeQuery("amount", node=node, **{query: True})[0]
+                limits = self.limits(node)
                 self.flushUndo()
-                self.assertIsNone(getattr(plug, method)(value))
+                self.assertIsNone(call(plug, value))
+                changed = [index for index, (old, new) in enumerate(zip(limits, self.limits(node))) if old != new]
+                self.assertEqual(changed, [position])
 
                 def after(query=query, value=value):
                     self.assertAlmostEqual(cmds.attributeQuery("amount", node=node, **{query: True})[0], value)
@@ -330,8 +371,8 @@ class NameQueryTest(_PlugCase):
         cmds.addAttr(other, longName="weight", attributeType="double")
         cmds.addAttr(node, longName="weightProxy", proxy=other + ".weight")
         plug = mlib.getNode(node).getPlug("translateX")
-        self.assertEqual(plug.getShortName(), "tx")
-        self.assertEqual(plug.getNiceName(), cmds.attributeName(node + ".translateX", nice=True))
+        self.assertEqual(plug.getAttributeName("short"), "tx")
+        self.assertEqual(plug.getAttributeName("nice"), cmds.attributeName(node + ".translateX", nice=True))
         self.assertIsNone(plug.getAlias())
         cmds.aliasAttr("slide", node + ".translateX")
         self.assertEqual(plug.getAlias(), "slide")
@@ -340,21 +381,21 @@ class NameQueryTest(_PlugCase):
         self.assertEqual(str(proxy.getProxyMaster()), other + ".weight")
         self.assertIsNone(plug.getProxyMaster())
 
-    def test_destinations(self):
-        """getDestinations は cmds.listConnections と同じ出力先を返す。"""
+    def test_outputs(self):
+        """getConnections(outputs=True) は cmds.listConnections と同じ出力先を返す。"""
         source = self.make("transform", "src")
         target = self.make("transform", "dst")
         cmds.connectAttr(source + ".translateX", target + ".translateY")
         plug = mlib.getNode(source).getPlug("translateX")
-        self.assertTrue(plug.isSource())
-        self.assertFalse(plug.isDestination())
+        self.assertTrue(plug.isConnected(source=False))
+        self.assertFalse(plug.isConnected(destination=False))
         self.assertEqual(
-            [str(item) for item in plug.getDestinations()], cmds.listConnections(source + ".translateX", source=False, destination=True, plugs=True)
+            [str(item) for item in plug.getConnections(outputs=True)], cmds.listConnections(source + ".translateX", source=False, destination=True, plugs=True)
         )
 
 
 class MultiPlugErrorTest(_PlugCase):
-    """MultiPlug.getIndices・getElements は無効な参照で RuntimeError。"""
+    """MultiPlug.getIndices・getElement は無効な参照で RuntimeError。"""
 
     def test_invalid_raises(self):
         """削除済みノード・削除済み動的マルチアトリビュートで RuntimeError。"""
@@ -375,12 +416,17 @@ class MultiPlugErrorTest(_PlugCase):
             return multi
 
         for label, factory in (("deletedNode", dead_node), ("deletedAttribute", dead_attr)):
-            for method in ("getIndices", "getElements"):
+            calls = (
+                ("getIndices", lambda multi: multi.getIndices()),
+                ("getIndices(connected)", lambda multi: multi.getIndices(connected=True)),
+                ("getElement()", lambda multi: multi.getElement()),
+            )
+            for method, call in calls:
                 with self.subTest(case=label, method=method):
                     multi = factory()
                     self.assertIsInstance(multi, MultiPlug)
                     with self.assertRaises(RuntimeError):
-                        getattr(multi, method)()
+                        call(multi)
 
 
 class RampPlugErrorTest(_PlugCase):

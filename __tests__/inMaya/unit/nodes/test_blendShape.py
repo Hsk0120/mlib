@@ -88,7 +88,7 @@ class BlendShapeTargetTest(_SpecCase):
         """次の番号へ追加し、name でエイリアスを付ける。cmds の照会と一致し、Undo 1回で戻る。"""
         self.flushUndo()
         plug = self.bs.addTarget(self.blink, name="eyeBlink")
-        self.assertEqual((plug.getMulti().getLongName(), plug.getIndex()), ("weight", 2))
+        self.assertEqual((plug.getMulti().getAttributeName(), plug.getIndex()), ("weight", 2))
         self.assertEqual(self.bs.getTargetNames(), ["smile_L", "frown", "eyeBlink"])
         self.assertEqual(self.bs.getTargetNames(), self.aliases(self.bs))
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.bs.getTargetNames(), ["smile_L", "frown"]), lambda: self.assertIn("eyeBlink", self.bs))

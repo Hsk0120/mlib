@@ -48,7 +48,7 @@ def createIkHandle(
     - エフェクター(ikEffector)は、Mayaの規則どおり、末端のjointの1つ上のjointの子に作られる。
       :meth:`~mlib.nodes.IkHandle.getEffector` で取得できる。
     - ``ikSplineSolver`` で ``curve`` を省略すると、Mayaがカーブを自動で作る。
-      ``handle.getPlug("inCurve").getSource()`` で取得できる。
+      ``handle.getPlug("inCurve").getConnections(input=True)`` で取得できる。
     - ``ikSpringSolver`` は、ソルバーノードが無ければMaya標準の ``ikSpringSolver`` で用意する。
     - Mayaの規則どおり、作ったハンドルが選択される。
 

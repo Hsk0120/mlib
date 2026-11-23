@@ -139,7 +139,7 @@ class PlugDefaultTest(NamespaceCase):
             target.connect(source)
             target.setDefault(9, fast=fast)
             self.assertEqual(target.get(), 4)
-            self.assertEqual(target.getSource(), source)
+            self.assertEqual(target.getConnections(input=True), source)
             self.assertEqual(target.getDefault(), 9)
 
     def test_fast_preserves_undo_queue_and_plural_dispatch(self):

@@ -31,7 +31,7 @@ class GetAttrNamesTest(NamespaceCase):
 
     def test_includes_names_without_plugs(self):
         names = mlib.getNode(self.cube).getAttrNames()
-        plugs = {plug.getLongName() for plug in mlib.getNode(self.cube).getPlugs()}
+        plugs = {plug.getAttributeName() for plug in mlib.getNode(self.cube).getPlugs()}
         self.assertIn("instObjGroups.objectGroups.objectGroupId", names)
         self.assertTrue(any(name not in plugs for name in names))
 

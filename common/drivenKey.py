@@ -111,14 +111,14 @@ def _curves(driven, strict=False):
                 continue
             visited.append(source.mplug())
             node = source.getNode()
-            attribute, kind = source.getLongName(), node.getType()
+            attribute, kind = source.getAttributeName(), node.getType()
             if kind in {"animCurveUA", "animCurveUL", "animCurveUT", "animCurveUU"} and attribute == "output":
                 found.append(node)
             elif kind == "blendWeighted" and attribute == "output":
                 visit(node.getPlug("input"))
             elif strict:
                 raise RuntimeError(
-                    f"{driven.getFullName()}にドリブンキーを設定できません: {destination.getFullName()}にはすでに{source.getFullName()}({kind})からの入力があり、これはドリブンキーのカーブではありません。先に切断するか(plug.disconnectInput()など)、blendWeightedノードで両方の入力をまとめてください"
+                    f"{driven.getFullName()}にドリブンキーを設定できません: {destination.getFullName()}にはすでに{source.getFullName()}({kind})からの入力があり、これはドリブンキーのカーブではありません。先に切断するか(plug.disconnectAll(destination=False)など)、blendWeightedノードで両方の入力をまとめてください"
                 )
 
     visit(driven)

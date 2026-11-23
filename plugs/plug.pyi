@@ -16,7 +16,7 @@ from ..core.listMethods import _ListMethods
 from ..core.nodeEdit import require_editable
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
-from ..util import _angle_unit, _finite, _time_unit
+from ..util import _UNSET, _angle_unit, _finite, _time_unit
 from typing import Any, Callable, Dict, Literal, Optional, Union
 from ..nodes.node import Node
 from typing import Any, Iterable, Iterator, Literal, Sequence
@@ -259,13 +259,13 @@ class Plug(Object):
        * - :meth:`getFullName` / ``str(plug)``
          - ``<ノードの一意名>.<ロング名のパス>``。エイリアスがあれば使う。Mayaコマンドへ渡す名前
          - ``pCube1.translateX``・``pCube1.worldMatrix[0]``
-       * - :meth:`getShortName`
-         - アトリビュート自身のショート名。ノード名・親・論理番号を含まない
-         - ``tx``・``wm``
-       * - :meth:`getLongName`
+       * - :meth:`getAttributeName`
          - アトリビュート自身のロング名。ノード名・親・論理番号を含まない
          - ``translateX``・``worldMatrix``
-       * - :meth:`getNiceName`
+       * - ``getAttributeName("short")``
+         - アトリビュート自身のショート名。ノード名・親・論理番号を含まない
+         - ``tx``・``wm``
+       * - ``getAttributeName("nice")``
          - UI表示用の名前
          - ``Translate X``・``World Matrix``
 
@@ -426,25 +426,22 @@ class Plug(Object):
             Node: このオブジェクトが持っているノードそのもの。新しいオブジェクトは作らない。
         """
         ...
-    def isValid(self) -> bool:
+    def isValid(self, *, elements: bool = ...) -> bool:
         """ノードとアトリビュートが有効か判定する。
 
         ロック・接続・アトリビュートの定義によって読み書きできるかどうかは判定しない。
+        既定では、まだ作られていないマルチアトリビュートの要素(``multi[5]`` で取得しただけの要素)も
+        ``True`` になる。``elements=True`` なら、自身と、上にあるマルチアトリビュートの要素が
+        すべて実際にあることも確かめる。値の評価や要素の作成は行わない。
+
+        Args:
+            elements (bool): Trueなら、通るマルチアトリビュートの要素がすべて実在することも確かめる。既定はFalse。
 
         Returns:
             bool: ノードが有効で、アトリビュートがあれば ``True``
                 (動的アトリビュートは ``deleteAttr`` で削除されることがある)。
                 Undo でノードやアトリビュートが戻れば、再び ``True`` になる。
-        """
-        ...
-    def isExisting(self) -> bool:
-        """アトリビュートと、参照するマルチ要素が実在するか調べる。
-
-        isValidは未作成要素の参照でもTrueになる。ここでは祖先のマルチ要素も確認する。
-        値の評価や要素の作成は行わない。
-
-        Returns:
-            bool: アトリビュートが有効で、参照する全マルチ要素が既存ならTrue。
+                ``elements=True`` では、まだ無い要素を通る場合に ``False``。
         """
         ...
     def isInstancedAttribute(self) -> bool:
@@ -484,22 +481,6 @@ class Plug(Object):
 
         Raises:
             RuntimeError: アトリビュートが無効、またはMayaが照会を拒否した場合。
-        """
-        ...
-    def getAnimCurveType(self, *, timeInput: bool = ...) -> str | None:
-        """このPlugの値型に適したアニメーションカーブのノード型を取得する。
-
-        カーブや接続は作らない。接続済みカーブの型ではなく、出力先としてのPlugの型を調べる。
-
-        Args:
-            timeInput (bool): Trueなら時間入力、Falseなら単位なし入力のカーブ。既定True。
-
-        Returns:
-            str | None: animCurveTA等の型名。Mayaが適切な型を決められない場合はNone。
-
-        Raises:
-            TypeError: timeInputがboolでない場合。
-            RuntimeError: Plugが無効、またはMayaが型の照会を拒否した場合。
         """
         ...
     def getSetAttrCmds(self, *, valueSelector: str = ..., useLongNames: bool = ...) -> list[str]:
@@ -566,19 +547,6 @@ class Plug(Object):
                 空文字列(:meth:`getFullName` と同じ)。
         """
         ...
-    def getShortName(self) -> str:
-        """アトリビュート自身のショート名を取得する(``tx``・``wm``)。
-
-        ノード名・親のコンパウンドアトリビュート・要素の論理番号は含まない。論理番号を含むパスが
-        必要なら :meth:`getName` を使う。
-
-        Returns:
-            str: アトリビュートのショート名。要素の番号や階層は含まない。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
     def getFullName(self) -> str:
         """maya.cmdsで1つに決まるPlugの名前を取得する。
 
@@ -590,24 +558,23 @@ class Plug(Object):
         """
         ...
     __str__: Any
-    def getLongName(self) -> str:
-        """アトリビュートのロング名を取得する。
+    def getAttributeName(self, kind: str = ...) -> str:
+        """アトリビュート自身の名前を取得する(``translateX``・``tx``・``Translate X``)。
+
+        :meth:`getName`・:meth:`getFullName` と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
+        含まない(アトリビュートの定義の名前)。``bs.it[0].itg[3].tw[2]`` なら ``targetWeights``。
+        Plugのパスが必要なら :meth:`getName`(ショート名のパス)か :meth:`getFullName`(ロング名のパス)を使う。
+        無効なときは、空文字列を返す :meth:`getName` と違って例外にする。
+
+        Args:
+            kind (str): 名前の種類。``"long"``(既定。ロング名)・``"short"``(ショート名)・
+                ``"nice"``(Attribute Editor などに表示する名前。``translateX`` なら ``"Translate X"``)。
 
         Returns:
-            str: MFnAttribute が返すアトリビュートの名前。
+            str: アトリビュートの名前。要素の番号や階層は含まない。
 
         Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getNiceName(self) -> str:
-        """UI に表示する名前(ナイスネーム)を取得する。
-
-        Returns:
-            str: Attribute Editor などで表示される名前(例: ``translateX`` なら
-                ``"Translate X"``)。
-
-        Raises:
+            ValueError: kindが ``"long"``・``"short"``・``"nice"`` のどれでもない場合。
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
@@ -657,44 +624,55 @@ class Plug(Object):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def isMulti(self) -> bool:
-        """マルチアトリビュートか判定する。
+    def isMulti(self, *, element: bool = ...) -> bool:
+        """マルチアトリビュートか(``element=True`` なら、マルチアトリビュートの要素か)判定する。
 
-        ``isMulti``/``isCompound``/``isMultiElement``/``isChild`` はPlugの構造を見るだけなので、
+        ``isMulti``/``isCompound`` はPlugの構造を見るだけなので、
         無効な Plug(:meth:`isValid` が ``False``)でも例外にしない。
 
-        Returns:
-            bool: マルチアトリビュートのPlugなら ``True``。
-        """
-        ...
-    def isCompound(self) -> bool:
-        """コンパウンドアトリビュートか判定する。
+        Args:
+            element (bool): Trueなら、マルチアトリビュート全体かではなく、その要素(``multi[2]``)かを判定する。既定はFalse。
 
         Returns:
-            bool: 子のPlugを持つなら ``True``。
+            bool: マルチアトリビュート全体のPlugなら ``True``。``element=True`` では、要素のPlugなら ``True``。
         """
         ...
-    def isMultiElement(self) -> bool:
-        """マルチアトリビュートの要素のPlugか判定する。
+    def isCompound(self, *, child: bool = ...) -> bool:
+        """コンパウンドアトリビュートか(``child=True`` なら、コンパウンドアトリビュートの子か)判定する。
+
+        Args:
+            child (bool): Trueなら、子を持つかではなく、コンパウンドアトリビュートの子(``translate`` の ``tx``)かを
+                判定する。既定はFalse。
 
         Returns:
-            bool: マルチアトリビュートの要素の場合は ``True``。
+            bool: 子のPlugを持つなら ``True``。``child=True`` では、子のPlugなら ``True``。
         """
         ...
-    def isChild(self) -> bool:
-        """コンパウンドアトリビュートの子のPlugか判定する。
-
-        Returns:
-            bool: 子のPlugなら ``True``。
-        """
-        ...
-    def getParent(self) -> Plug | None:
+    @overload
+    def getParent(self, *, all: Literal[True], includeMulti: bool = ...) -> Plugs: ...
+    @overload
+    def getParent(self, *, all: Literal[False] = ..., includeMulti: bool = ...) -> Plug | None: ...
+    @overload
+    def getParent(self, *, all: bool = ..., includeMulti: bool = ...) -> Plug | Plugs | None:
         """コンパウンドアトリビュートの子なら、親のPlugを取得する。
 
+        ``all=True`` なら、上にあるコンパウンドアトリビュートを近い順にすべて取得する。
+        このときは、マルチアトリビュートの要素も通って上へたどる(``bs.it[0].itg[3].tw[2]`` なら
+        ``bs.it[0].itg[3]``・``bs.it[0]``)。``all=False`` を繰り返した結果とは同じにならない
+        (``bs.it[0].itg[3]`` はマルチアトリビュートの要素で、コンパウンドアトリビュートの子ではないので、
+        ``getParent()`` は ``None``、``getParent(all=True)`` は ``bs.it[0]`` を返す)。
+
+        Args:
+            all (bool): Trueなら、上にあるコンパウンドアトリビュートをすべて返す。既定はFalseで、すぐ上の親だけ。
+            includeMulti (bool): Trueなら、途中のマルチアトリビュート全体のPlugも含める。``all=True`` のときだけ指定できる。
+                上の例では ``bs.it[0].itg[3].tw``・``bs.it[0].itg[3]``・``bs.it[0].itg``・``bs.it[0]``・``bs.it`` になる。
+
         Returns:
-            Plug | None: 親のPlug。子でない場合は ``None``。
+            Plug | Plugs | None: 親のPlug。子でない場合は ``None``。
+                ``all=True`` では、上にあるPlugを近い順に並べたPlugs(いちばん上のアトリビュートでは空)。
 
         Raises:
+            TypeError: all・includeMultiがboolでない場合、または ``all=False`` で ``includeMulti=True`` を指定した場合。
             RuntimeError: ノードかアトリビュートが削除されている場合。子かどうかにかかわらず例外にする
                 (削除された MPlug は、子かどうかを正しく返さないため)。
         """
@@ -727,24 +705,6 @@ class Plug(Object):
             Plugs: 自身を除く兄弟の子を定義順に並べたリスト。子プラグでない場合は空の集まり。
 
         Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getAllParents(self, includeMulti: bool = ...) -> Plugs:
-        """上にあるコンパウンドアトリビュートを、近い順にすべて取得する。
-
-        マルチアトリビュートの要素も通って上へたどる(``bs.it[0].itg[3].tw[2]`` なら
-        ``bs.it[0].itg[3]``・``bs.it[0]``)。
-
-        Args:
-            includeMulti (bool): True なら、途中のマルチアトリビュート全体のPlugも含める。既定はFalse。
-                上の例では ``bs.it[0].itg[3].tw``・``bs.it[0].itg[3]``・``bs.it[0].itg``・``bs.it[0]``・``bs.it`` になる。
-
-        Returns:
-            Plugs: 上にあるPlugを近い順に並べたもの。いちばん上のアトリビュートでは空の集まり。
-
-        Raises:
-            TypeError: includeMulti が bool 以外の場合。
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
@@ -806,157 +766,107 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが評価を拒否した場合。
         """
         ...
-    def isKeyable(self) -> bool:
-        """キーを打てる(チャンネルボックスでキー可能な)アトリビュートか判定する。
+    def getFlags(self) -> dict[str, bool]:
+        """アトリビュートの状態(ロック・keyable・Channel Box表示・Channel Boxに出ていないか)をまとめて取得する。
 
-        setAttr(keyable=...) でPlugごとに変えた設定を反映する。
-        アトリビュートの定義の既定値だけを見る MFnAttribute.keyable とは違う。
+        :meth:`setFlags` と対になる。``plug.getFlags()["keyable"]`` のように1つだけ取り出して使える。
+
+        - ``"locked"``: ロックされているか(:meth:`isLocked` と同じ)。
+        - ``"keyable"``: キーを打てるか。``setAttr(keyable=...)`` でPlugごとに変えた設定を反映する
+          (アトリビュートの定義の既定値だけを見る ``MFnAttribute.keyable`` とは違う)。
+        - ``"channelBox"``: Channel Boxに表示するフラグ。keyableだから表示されている、という分は含まない。
+        - ``"hidden"``: Channel Boxに出ていないか。keyableでもChannel Box表示でもなければ、出ていないとみなす。
+          コンパウンドアトリビュート(``t`` など)は、Channel Boxに子(``tx`` など)が並ぶので、
+          下の末端の子がすべて隠れている場合にTrueになる。
+          ``addAttr(hidden=True)`` で付ける、アトリビュートの定義の hidden フラグ(``cmds.attributeQuery(hidden=True)``)とは別のもの。
 
         Returns:
-            bool: キーを打てるなら ``True``。
+            dict[str, bool]: ``"locked"``・``"keyable"``・``"channelBox"``・``"hidden"`` をキーにした新しい辞書。
 
         Raises:
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def setKeyable(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> None:
-        """キーを打てるかどうか(keyable)を設定する。
-
-        Args:
-            state (bool): Trueならキーを打てるようにする。既定はTrue。
-            leaf (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
-                自身と、その下の子の両方へ設定するには、:meth:`setFlags` の ``children=True`` を使う。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: stateがboolでもNoneでもない場合、またはfastがboolでない場合。
-            RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
-        """
-        ...
-    def setFlags(self, *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> None:
+    def setFlags(self, *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., leaf: bool = ..., fast: bool = ...) -> None:
         """アトリビュートの状態(ロック・keyable・Channel Box表示)をまとめて変える。
 
-        指定しなかった状態は変えない。
+        指定しなかった状態は変えない。今の状態は :meth:`getFlags` で取得する。
         Mayaの ``setAttr(keyable=..., channelBox=...)`` は、コンパウンドアトリビュートの親にだけ効く。
         子のkeyableやChannel Box表示は変わらない(ロックだけは、親のロックが子へ引き継がれる)。
         ``children=True`` なら、自身に続けて、コンパウンドアトリビュートの子(孫より下も)へ同じ状態を設定する。
-        マルチアトリビュートの要素へは広げない。
+        ``leaf=True`` なら、自身は変えずに、コンパウンドアトリビュートの末端の子だけへ設定する。
+        どちらも、マルチアトリビュートの要素へは広げない。
+
+        Mayaでは、keyableとChannel Box表示のフラグは同時にTrueにならない。``keyable=True`` はChannel Box表示のフラグを外し、
+        ``channelBox=True`` はkeyableを外す(``channelBox=True`` だけを指定したときは ``keyable=False`` も指定したものとして扱う)。
+        どちらの場合も、1回のUndoで元の2つの状態へ戻る。
+
+        .. list-table::
+           :header-rows: 1
+
+           * - やりたいこと
+             - 書き方
+             - ``getFlags()["hidden"]``
+           * - キーを打てる状態でChannel Boxに出す
+             - ``setFlags(keyable=True)``
+             - False
+           * - キーを打てない状態でChannel Boxに出す
+             - ``setFlags(channelBox=True)``
+             - False
+           * - Channel Boxから隠す
+             - ``setFlags(keyable=False, channelBox=False)``
+             - True
+
+        ``translate`` のようなコンパウンドアトリビュートを子ごと出す・隠すときは ``children=True`` を足す。
 
         Args:
             locked (bool | None): ロックするかどうか。
             keyable (bool | None): キーを打てるかどうか。
             channelBox (bool | None): Channel Boxに表示するかどうか。キーを打てるアトリビュートは、Falseでも表示される。
             children (bool): Trueなら、コンパウンドアトリビュートの下の子にも同じ状態を設定する。
-                既定はFalseで、自身だけを変える。:meth:`setKeyable` などの ``leaf=True``
-                (末端だけを変え、自身は変えない)とは違う。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 状態やchildrenが、boolでもNoneでもない場合。
-            RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
-        """
-        ...
-    def isChannelBox(self) -> bool:
-        """Channel Boxに表示するフラグ(channelBox)を取得する。
-
-        keyableだから表示されている、という分は含まない。
-
-        Returns:
-            bool: channelBoxのフラグ。keyableによる表示は含まない。
-        """
-        ...
-    def setChannelBox(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> None:
-        """Channel Boxに表示するかどうかを設定する。
-
-        Args:
-            state (bool): Trueなら表示する。既定はTrue。Trueにするとkeyableは無効になる。
+                既定はFalseで、自身だけを変える。leafとは同時に指定できない。
             leaf (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
-                自身と、その下の子の両方へ設定するには、:meth:`setFlags` の ``children=True`` を使う。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
+                コンパウンドアトリビュートでなければ自身を変える。既定はFalse。childrenとは同時に指定できない。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがboolでもNoneでもない場合、またはfastがboolでない場合。
+            TypeError: 状態がboolでもNoneでもない場合、children・leaf・fastがboolでない場合、
+                またはchildrenとleafを同時にTrueにした場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
         ...
-    def show(self, keyable: bool = ..., *, fast: bool = ...) -> None:
-        """Channel Boxに表示する(:meth:`hide` の逆)。
-
-        コンパウンドアトリビュートは子も表示する。ロックは変えない。表示したあとの :meth:`isHidden` はFalseになる。
-
-        Args:
-            keyable (bool): Trueなら、キーを打てる状態で表示する。既定はTrue。
-                Falseなら、キーを打てない状態で表示する(keyable=False, channelBox=True)。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: keyable・fastがboolでない場合。
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def hide(self, *, fast: bool = ...) -> None:
-        """Channel Boxから隠す。
-
-        keyableとChannel Box表示をFalseにする。コンパウンドアトリビュート(``t`` など)は子(``tx`` など)も隠す
-        (``setFlags(keyable=False, channelBox=False, children=True)`` と同じ)。
-        ロックは変えない。隠れているかどうかは :meth:`isHidden` で確かめる。
-
-        Args:
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: fastがboolでない場合。
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def isConnected(self, *, source: bool = ..., destination: bool = ...) -> bool:
+    def isConnected(self, other: Plug | om2.MPlug | str | None = ..., *, source: bool = ..., destination: bool = ...) -> bool:
         """指定した向きの、直接の接続があるか判定する。
 
+        ``other`` を渡すと、そのPlugとつながっているかを判定する。
+        子やマルチアトリビュートの要素に別々につながっている接続や、変換ノードの先の接続までは調べない。
+
+        引数の名前は :meth:`getConnections` と同じで、調べる相手の側を表す
+        (``source`` は入力元、``destination`` は出力先)。向きを取り違えやすいので注意する。
+
+        - 入力がある(自身が接続先になっている)か: ``isConnected(destination=False)``
+        - 出力がある(自身が接続元になっている)か: ``isConnected(source=False)``
+
         Args:
-            source (bool): Trueなら、入力(接続元から入ってくる接続)を調べる。既定はTrue。
-            destination (bool): Trueなら、出力(接続先へ出ていく接続)を調べる。既定はTrue。
+            other (Plug | om2.MPlug | str | None): 相手のPlug。文字列なら ``"node.attribute"`` の形のアトリビュート名。
+                既定はNoneで、相手を決めずに接続があるかだけを調べる。
+            source (bool): Trueなら、入力(接続元から入ってくる接続。otherを渡したときはotherから自身への接続)を調べる。既定はTrue。
+            destination (bool): Trueなら、出力(接続先へ出ていく接続。otherを渡したときは自身からotherへの接続)を調べる。既定はTrue。
 
         Returns:
             bool: 指定した向きに接続があれば ``True``。両方Falseなら ``False``。
 
         Raises:
-            TypeError: sourceかdestinationがboolでない場合。
+            TypeError: sourceかdestinationがboolでない場合。other が Plug・MPlug・アトリビュート名・None のどれでもない場合、
+                または文字列がアトリビュートを指していない場合。
+            ValueError: other が空文字列の場合、または空の MPlug の場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isSource(self) -> bool:
-        """出力の接続がある(接続元になっている)か判定する。
-
-        Returns:
-            bool: ほかのPlugへの出力の接続があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isDestination(self) -> bool:
-        """入力の接続がある(接続先になっている)か判定する。
-
-        Returns:
-            bool: ほかのPlugからの入力の接続があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
+                other の文字列が複数のアトリビュートに一致する場合や、
+                other のPlug・MPlugのノードかアトリビュートが削除されている場合も含む。
         """
         ...
     def isFromReferencedFile(self) -> bool:
@@ -968,43 +878,6 @@ class Plug(Object):
 
         Returns:
             bool: リファレンスしたファイルで作られた接続の一部なら ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def isHidden(self) -> bool:
-        """Channel Boxに出ていないか判定する。
-
-        keyableでもChannel Box表示でもなければ、出ていないとみなす。:meth:`hide` / :meth:`show` と対になる。
-        コンパウンドアトリビュート(``t`` など)は、Channel Boxに子(``tx`` など)が並ぶ。
-        そのため、下の末端の子がすべて隠れている場合にTrueを返す。
-
-        .. list-table::
-           :header-rows: 1
-
-           * - 操作
-             - keyable
-             - channelBox
-             - ``isHidden()``
-           * - ``hide()``
-             - False
-             - False
-             - True
-           * - ``show()``
-             - True
-             - False
-             - False
-           * - ``show(keyable=False)``
-             - False
-             - True
-             - False
-
-        ``addAttr(hidden=True)`` で付ける、アトリビュートの定義の hidden フラグ(``cmds.attributeQuery(hidden=True)``)
-        とは別のもの。
-
-        Returns:
-            bool: Channel Boxに表示されないなら ``True``。
 
         Raises:
             RuntimeError: ノードかアトリビュートが削除されている場合。
@@ -1051,37 +924,17 @@ class Plug(Object):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def hasMin(self) -> bool:
-        """最小値の制限があるアトリビュートか判定する。
-
-        対象は、数値・角度・距離・時間のアトリビュートだけ。それ以外は常に ``False``。
-
-        Returns:
-            bool: 最小値の制限があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def hasMax(self) -> bool:
-        """最大値の制限があるアトリビュートか判定する。
-
-        対象は、数値・角度・距離・時間のアトリビュートだけ。それ以外は常に ``False``。
-
-        Returns:
-            bool: 最大値の制限があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> float | tuple[float, ...] | None:
-        """設定されている最小値を取得する。数値は :meth:`get` と同じ決まりで返す。
+    def getRange(self, *, soft: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> tuple[float | tuple[float, ...] | None, float | tuple[float, ...] | None]:
+        """アトリビュートの定義の最小値と最大値を取得する。数値は :meth:`get` と同じ決まりで返す。
 
         角度は度(``unit="rad"`` でラジアン)、距離はcm、時間は現在のUIの時間単位でのフレーム(``timeUnit="sec"`` で秒)、
         数値は ``float`` を返す(角度・距離・時間を ``MAngle``/``MDistance``/``MTime`` のまま返さない)。
+        対象は、数値・角度・距離・時間のアトリビュートだけ。それ以外は ``(None, None)``。
+        制限があるかどうかは、``None`` かどうかで判定する(``plug.getRange()[0] is not None``)。
 
         Args:
+            soft (bool): Trueなら、ソフト最小値・ソフト最大値(UIスライダーの下限・上限)を返す。
+                入力できる値そのものは制限しない値。既定はFalse。
             unit (str | None): 角度の単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン(``"degree"`` などの別名も使える)。
                 角度以外では使わない。uiUnits=Trueとは同時に指定できない。
             timeUnit (str | None): 時間の単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
@@ -1090,19 +943,22 @@ class Plug(Object):
             uiUnits (bool): Trueなら、現在のUIの単位(UIの角度・距離の単位)の数値で返す。既定はFalse。
 
         Returns:
-            float | tuple[float, ...] | None: 最小値。数値のコンパウンドアトリビュートは子ごとのtuple。
-                制限が無い、または対応しないアトリビュート型では ``None``。
+            tuple[float | tuple[float, ...] | None, float | tuple[float, ...] | None]: ``(最小値, 最大値)``。
+                制限が無い側と、対応しないアトリビュート型では ``None``。数値のコンパウンドアトリビュートは子ごとのtuple。
 
         Raises:
-            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
+            TypeError: soft・uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
-    def setMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュートの最小値を設定する。
+    def setRange(self, minimum: float | om2.MAngle | om2.MDistance | om2.MTime | None = ..., maximum: float | om2.MAngle | om2.MDistance | om2.MTime | None = ..., *, soft: bool = ..., unit: str | None = ..., timeUnit: str | None = ...) -> None:
+        """動的アトリビュートの定義の最小値・最大値を設定する。
 
-        ``cmds.addAttr(edit=True, minValue=...)`` と同じ。``None`` を渡すと最小値の制限を外す。
+        ``cmds.addAttr(edit=True, minValue=..., maxValue=...)`` と同じ。現在の値そのものは変えない。
+        **省略した側は変えず、None を渡した側は制限を外す**
+        (``setRange(0)`` は最小値だけを0にし、``setRange(0, None)`` は最小値を0にして最大値の制限を外す。
+        最大値だけなら ``setRange(maximum=10)``)。
         値の単位は :meth:`Node.addAttr` の ``minValue`` と同じ。
 
         - 角度は ``unit`` の単位で、既定は度。
@@ -1111,10 +967,15 @@ class Plug(Object):
         - ``om2.MAngle`` などの単位付きの値は、そのまま使う。
 
         アトリビュートの定義を変えるので、マルチアトリビュートの要素では全要素に効く。
-        Undoが有効なら、1回のUndoで戻せる。fast引数は無い(addAttr -e は1回が十数µsで、OpenMayaにしても差が小さいため)。
+        1回の ``cmds.addAttr`` で更新し、Undoが有効なら1回のUndoで戻せる
+        (Noneで制限を外した側だけは、MayaのUndoでは制限が戻らない)。
+        fast引数は無い(addAttr -e は1回が十数µsで、OpenMayaにしても差が小さいため)。
 
         Args:
-            value (float | om2.MAngle | om2.MDistance | om2.MTime | None): 最小値。Noneは制限を外す。
+            minimum (float | om2.MAngle | om2.MDistance | om2.MTime | None): 最小値。Noneは制限を外す。省略すると変えない。
+            maximum (float | om2.MAngle | om2.MDistance | om2.MTime | None): 最大値。Noneは制限を外す。省略すると変えない。
+            soft (bool): Trueなら、ソフト最小値・ソフト最大値(UIスライダーの下限・上限)を設定する。既定はFalse。
+                Mayaにはソフトリミットを消す手段が無いので、Noneは渡せない。
             unit (str | None): 角度の数値の単位。既定はNoneで度、``"rad"`` はラジアン。
             timeUnit (str | None): 時間の数値の単位。既定はNoneで現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。
@@ -1123,253 +984,15 @@ class Plug(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: 次のどれかの場合。静的な(ノードの型に組み込みの)アトリビュート。数値・単位の型でない
-                アトリビュート。valueが数値・単位付きの値・Noneのどれでもない。unit・timeUnitが文字列でもNoneでもない。
-            ValueError: unit・timeUnitが対応していない単位名の場合、または最小値が設定済みの最大値より大きい場合
-                (Mayaは逆になった範囲を警告だけで無視するので、何も変えずに例外にする)。
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def getMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> float | tuple[float, ...] | None:
-        """設定されている最大値を取得する。数値は :meth:`get` と同じ決まりで返す。
-
-        角度は度(``unit="rad"`` でラジアン)、距離はcm、時間は現在のUIの時間単位でのフレーム(``timeUnit="sec"`` で秒)、
-        数値は ``float`` を返す(角度・距離・時間を ``MAngle``/``MDistance``/``MTime`` のまま返さない)。
-
-        Args:
-            unit (str | None): 角度の単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン(``"degree"`` などの別名も使える)。
-                角度以外では使わない。uiUnits=Trueとは同時に指定できない。
-            timeUnit (str | None): 時間の単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒(``"frames"`` / ``"seconds"`` などの別名も使える)。時間以外では使わない。
-                uiUnits=Trueとは同時に指定できない。
-            uiUnits (bool): Trueなら、現在のUIの単位(UIの角度・距離の単位)の数値で返す。既定はFalse。
-
-        Returns:
-            float | tuple[float, ...] | None: 最大値。数値のコンパウンドアトリビュートは子ごとのtuple。
-                制限が無い、または対応しないアトリビュート型では ``None``。
-
-        Raises:
-            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
-            ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def setMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュートの最大値を設定する。
-
-        ``cmds.addAttr(edit=True, maxValue=...)`` と同じ。値の単位と制限は :meth:`setMin` と同じ。
-        ``None`` を渡すと最大値の制限を外す。
-
-        Args:
-            value (float | om2.MAngle | om2.MDistance | om2.MTime | None): 最大値。Noneは制限を外す。
-            unit (str | None): 角度の数値の単位。既定はNoneで度、``"rad"`` はラジアン。
-            timeUnit (str | None): 時間の数値の単位。既定はNoneで現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: :meth:`setMin` と同じ。
-            ValueError: unit・timeUnitが対応していない単位名の場合、または最大値が設定済みの最小値より小さい場合。
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def hasSoftMin(self) -> bool:
-        """ソフト最小値(UIスライダーの下限)があるアトリビュートか判定する。
-
-        対象は、数値・角度・距離・時間のアトリビュートだけ。それ以外は常に ``False``。
-
-        Returns:
-            bool: ソフト最小値があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def hasSoftMax(self) -> bool:
-        """ソフト最大値(UIスライダーの上限)があるアトリビュートか判定する。
-
-        対象は、数値・角度・距離・時間のアトリビュートだけ。それ以外は常に ``False``。
-
-        Returns:
-            bool: ソフト最大値があれば ``True``。
-
-        Raises:
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getSoftMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> float | tuple[float, ...] | None:
-        """設定されているソフト最小値(UIスライダーの下限)を取得する。数値は :meth:`get` と同じ決まりで返す。
-
-        角度は度(``unit="rad"`` でラジアン)、距離はcm、時間は現在のUIの時間単位でのフレーム(``timeUnit="sec"`` で秒)、
-        数値は ``float`` を返す(角度・距離・時間を ``MAngle``/``MDistance``/``MTime`` のまま返さない)。
-        min/max と違い、入力できる値そのものは制限しない。
-
-        Args:
-            unit (str | None): 角度の単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン(``"degree"`` などの別名も使える)。
-                角度以外では使わない。uiUnits=Trueとは同時に指定できない。
-            timeUnit (str | None): 時間の単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒(``"frames"`` / ``"seconds"`` などの別名も使える)。時間以外では使わない。
-                uiUnits=Trueとは同時に指定できない。
-            uiUnits (bool): Trueなら、現在のUIの単位(UIの角度・距離の単位)の数値で返す。既定はFalse。
-
-        Returns:
-            float | tuple[float, ...] | None: ソフト最小値(UIスライダーの下限)。数値のコンパウンドアトリビュートは子ごとのtuple。
-                制限が無い、または対応しないアトリビュート型では ``None``。
-
-        Raises:
-            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
-            ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def setSoftMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュートのソフト最小値(UIスライダーの下限)を設定する。
-
-        ``cmds.addAttr(edit=True, softMinValue=...)`` と同じ。値の単位と制限は :meth:`setMin` と同じ。
-        Mayaにはソフト最小値を消す手段が無い(``cmds.addAttr`` は ``hasSoftMinValue`` を編集できない)ので、
-        ``None`` はNotImplementedErrorにする。
-
-        Args:
-            value (float | om2.MAngle | om2.MDistance | om2.MTime): ソフト最小値。
-            unit (str | None): 角度の数値の単位。既定はNoneで度、``"rad"`` はラジアン。
-            timeUnit (str | None): 時間の数値の単位。既定はNoneで現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: :meth:`setMin` と同じ。
-            ValueError: unit・timeUnitが未対応の単位名の場合。
+            TypeError: 次のどれかの場合。minimumとmaximumの両方を省略した。softがboolでない。
+                静的な(ノードの型に組み込みの)アトリビュート。数値・単位の型でないアトリビュート。
+                両方を指定したときのコンパウンドアトリビュート・マルチアトリビュート全体。
+                値が数値・単位付きの値・Noneのどれでもない。unit・timeUnitが文字列でもNoneでもない。
+            ValueError: unit・timeUnitが対応していない単位名の場合、値が有限でない場合、最小値が最大値より大きい場合、
+                または片側だけを指定して、設定済みの反対側と矛盾する場合
+                (Mayaは逆になった範囲を警告だけで無視するので、何も変えずに例外にする。ソフトリミットの片側は確かめない)。
             RuntimeError: ノードまたはアトリビュートが無効な場合、またはMayaが変更を拒否した場合。
-            NotImplementedError: valueがNoneの場合。変更前に拒否する。
-        """
-        ...
-    def getSoftMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> float | tuple[float, ...] | None:
-        """設定されているソフト最大値(UIスライダーの上限)を取得する。数値は :meth:`get` と同じ決まりで返す。
-
-        角度は度(``unit="rad"`` でラジアン)、距離はcm、時間は現在のUIの時間単位でのフレーム(``timeUnit="sec"`` で秒)、
-        数値は ``float`` を返す(角度・距離・時間を ``MAngle``/``MDistance``/``MTime`` のまま返さない)。
-        min/max と違い、入力できる値そのものは制限しない。
-
-        Args:
-            unit (str | None): 角度の単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン(``"degree"`` などの別名も使える)。
-                角度以外では使わない。uiUnits=Trueとは同時に指定できない。
-            timeUnit (str | None): 時間の単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒(``"frames"`` / ``"seconds"`` などの別名も使える)。時間以外では使わない。
-                uiUnits=Trueとは同時に指定できない。
-            uiUnits (bool): Trueなら、現在のUIの単位(UIの角度・距離の単位)の数値で返す。既定はFalse。
-
-        Returns:
-            float | tuple[float, ...] | None: ソフト最大値(UIスライダーの上限)。数値のコンパウンドアトリビュートは子ごとのtuple。
-                制限が無い、または対応しないアトリビュート型では ``None``。
-
-        Raises:
-            TypeError: uiUnitsがboolでない場合、またはunit・timeUnitが文字列でもNoneでもない場合。
-            ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合。
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def setSoftMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュートのソフト最大値(UIスライダーの上限)を設定する。
-
-        ``cmds.addAttr(edit=True, softMaxValue=...)`` と同じ。値の単位と制限は :meth:`setMin` と同じ。
-        Mayaにはソフト最大値を消す手段が無い(``cmds.addAttr`` は ``hasSoftMaxValue`` を編集できない)ので、
-        ``None`` はNotImplementedErrorにする。
-
-        Args:
-            value (float | om2.MAngle | om2.MDistance | om2.MTime): ソフト最大値。
-            unit (str | None): 角度の数値の単位。既定はNoneで度、``"rad"`` はラジアン。
-            timeUnit (str | None): 時間の数値の単位。既定はNoneで現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: :meth:`setMin` と同じ。
-            ValueError: unit・timeUnitが未対応の単位名の場合。
-            RuntimeError: ノードまたはアトリビュートが無効な場合、またはMayaが変更を拒否した場合。
-            NotImplementedError: valueがNoneの場合。変更前に拒否する。
-        """
-        ...
-    def getRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> tuple[object, object]:
-        """アトリビュート定義の最小値と最大値を取得する。
-
-        Args:
-            unit (str | None): 角度の単位。Noneは度、radはラジアン。
-            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
-            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
-
-        Returns:
-            tuple[object, object]: (最小値, 最大値)。定義されていない側はNone。
-
-        Raises:
-            TypeError: 単位またはuiUnitsの型が不正な場合。
-            ValueError: 単位の指定が不正な場合。
-            RuntimeError: アトリビュートが無効な場合。
-        """
-        ...
-    def setRange(self, minimum: float | None, maximum: float | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュート定義の最小値と最大値をまとめて設定する。
-
-        値そのものは設定しない。片側のNoneはその制限を取り除く。
-        fast引数は持たない(1回のcmds.addAttrで更新するため)。
-
-        Args:
-            minimum (float | None): 最小値。角度は既定で度、距離はcm、時間はフレーム。
-            maximum (float | None): 最大値。単位はminimumと同じ。
-            unit (str | None): 角度の単位。Noneは度、radはラジアン。
-            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
-            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
-            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
-        """
-        ...
-    def getSoftRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> tuple[object, object]:
-        """アトリビュート定義のソフト最小値とソフト最大値を取得する。
-
-        Args:
-            unit (str | None): 角度の単位。Noneは度、radはラジアン。
-            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
-            uiUnits (bool): TrueならUI単位。unit・timeUnitとは同時指定できない。
-
-        Returns:
-            tuple[object, object]: (ソフト最小値, ソフト最大値)。定義されていない側はNone。
-
-        Raises:
-            TypeError: 単位またはuiUnitsの型が不正な場合。
-            ValueError: 単位の指定が不正な場合。
-            RuntimeError: アトリビュートが無効な場合。
-        """
-        ...
-    def setSoftRange(self, minimum: float, maximum: float, *, unit: str | None = ..., timeUnit: str | None = ...) -> None:
-        """動的アトリビュート定義のソフト最小値とソフト最大値を設定する。
-
-        現在の値は変更しない。Mayaにはソフト制限の削除がないためNoneは受け付けない。
-        fast引数は持たない(1回のcmds.addAttrで更新するため)。
-
-        Args:
-            minimum (float): ソフト最小値。角度は既定で度、距離はcm、時間はフレーム。
-            maximum (float): ソフト最大値。単位はminimumと同じ。
-            unit (str | None): 角度の単位。Noneは度、radはラジアン。
-            timeUnit (str | None): 時間の単位。Noneはフレーム、secは秒。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: 値の型が不正、または単一の数値・単位付き動的アトリビュートでない場合。
-            ValueError: 値が有限でない、最小値が最大値を超える、または単位の指定が不正な場合。
-            RuntimeError: アトリビュートが無効、またはMayaが変更を拒否した場合。
-            NotImplementedError: minimumかmaximumがNoneの場合。
+            NotImplementedError: ``soft=True`` でNoneを渡した場合。変更前に拒否する。
         """
         ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> Any:
@@ -1576,32 +1199,38 @@ class Plug(Object):
             Nodes: animLayerのノード。条件に合えば、最後にベースレイヤーを含む。名前は ``getAnimLayers().getNames()`` で取得する。
         """
         ...
-    def getEnumName(self, value: int | None = ...) -> str:
-        """enum アトリビュートの値から、フィールド名を取得する(:meth:`getEnumValue` の逆)。
+    @overload
+    def getEnumNames(self, *, value: int, name: None = ..., current: Literal[False] = ...) -> str: ...
+    @overload
+    def getEnumNames(self, *, value: None = ..., name: str, current: Literal[False] = ...) -> int: ...
+    @overload
+    def getEnumNames(self, *, value: None = ..., name: None = ..., current: Literal[True]) -> str: ...
+    @overload
+    def getEnumNames(self, *, value: None = ..., name: None = ..., current: Literal[False] = ...) -> list[tuple[str, int]]: ...
+    @overload
+    def getEnumNames(self, *, value: int | None = ..., name: str | None = ..., current: bool = ...) -> list[tuple[str, int]] | str | int:
+        """enum アトリビュートのフィールドを取得する。名前と値を相互に変換する指定もここにある。
+
+        - 引数なし: すべてのフィールドを ``(名前, 値)`` の組で返す。値の小さい順に並べ、``a=1:b=5`` のように
+          値が飛んでいる定義では、フィールドのある値だけを含む。
+        - ``current=True``: 今の値(``get()``)のフィールド名を返す。
+        - ``value=3``: その値のフィールド名を返す。
+        - ``name="b"``: その名前のフィールドの値を返す(大文字・小文字を区別して、完全に一致するものを探す)。
 
         Args:
-            value (int | None): 名前を調べる enum の値。既定の None なら、今の値(``get()``)を使う。
-                bool は受け付けない。
+            value (int | None): 名前を調べる enum の値。bool は受け付けない。
+            name (str | None): 値を調べるフィールド名。
+            current (bool): Trueなら、今の値のフィールド名を返す。既定はFalse。
 
         Returns:
-            str: 値に対応するフィールド名。
+            list[tuple[str, int]] | str | int: 引数なしは ``(フィールド名, enum の値)`` の新しい list。
+                ``current=True``・``value`` はフィールド名、``name`` は enum の値。
 
         Raises:
-            TypeError: enum アトリビュートでない場合、または value が None でも整数でもない場合。
-            ValueError: 値に対応するフィールドが無い場合(``a=1:b=5`` で3を指定した場合など、欠けている値)。
-            RuntimeError: ノードかアトリビュートが削除されている場合。
-        """
-        ...
-    def getEnumNames(self) -> list[tuple[str, int]]:
-        """enum アトリビュートのすべてのフィールドを、``(名前, 値)`` の組で取得する。
-
-        値の小さい順に並べる。``a=1:b=5`` のように値が飛んでいる定義では、フィールドのある値だけを含む。
-
-        Returns:
-            list[tuple[str, int]]: ``(フィールド名, enum の値)`` の新しい list。値の小さい順。
-
-        Raises:
-            TypeError: enum アトリビュートでない場合。
+            TypeError: enum アトリビュートでない場合、value が整数でない場合、current が bool でない場合、
+                または value・name・current のうち2つ以上を同時に指定した場合。
+            ValueError: 値に対応するフィールドが無い場合(``a=1:b=5`` で3を指定した場合など、欠けている値)、
+                または name に一致するフィールドが無い場合(文言には、使えるフィールド名を並べる)。
             RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
@@ -1620,22 +1249,6 @@ class Plug(Object):
             TypeError: enumアトリビュートでない場合、または名前が文字列でない場合。
             ValueError: 並びが空の場合、空の名前がある場合、または区切り文字(``:``・``=``)を含む名前がある場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaが変更を拒否した場合。
-        """
-        ...
-    def getEnumValue(self, name: str) -> int:
-        """enum アトリビュートのフィールド名から、値を取得する(getEnumNameの逆)。
-
-        Args:
-            name (str): 探すフィールド名。
-
-        Returns:
-            int: name に対応する enum の値。
-
-        Raises:
-            TypeError: enum アトリビュートでない場合。
-            ValueError: name に一致するフィールドが無い場合(大文字・小文字を区別して、完全に一致するものを探す)。
-                文言には、使えるフィールド名を並べる。
-            RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
     def isLocked(self) -> bool:
@@ -1877,95 +1490,68 @@ class Plug(Object):
         """
         ...
     @overload
-    def getSource(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[True], **kwargs: Any) -> tuple[Plug, Node] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[True], outputs: Literal[False] = ...) -> tuple[Plug, Node] | None: ...
     @overload
-    def getSource(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., **kwargs: Any) -> tuple[Plug, Plug] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[True], outputs: Literal[False] = ...) -> tuple[Plug, Plug] | None: ...
     @overload
-    def getSource(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], **kwargs: Any) -> Node | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[True], outputs: Literal[False] = ...) -> Node | None: ...
     @overload
-    def getSource(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., **kwargs: Any) -> Plug | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[True], outputs: Literal[False] = ...) -> Plug | None: ...
     @overload
-    def getSource(self, *, skipConversionNodes: bool = ..., **kwargs) -> Plug | Node | tuple | None:
-        """直接の入力元(接続元)を取得する。
-
-        子やマルチアトリビュートの要素に、別々につながっている接続までは調べない。
-
-        Args:
-            skipConversionNodes (bool): 既定はFalseで、直接つながっているPlugを返す(``cmds.listConnections`` と同じ)。
-                Trueなら、unitConversion系のノードを飛ばして、その先のPlugを返す(:meth:`getConnections` と同じ)。
-            **kwargs: getConnectionsの指定(型・ペア・Nodeで返すかなど)。子・要素を調べる指定は無効で、indexは0に固定する。
-
-        Returns:
-            Plug | Node | tuple | None: 既定は入力元のPlug。接続が無い場合や、型の条件に合わない場合はNone。
-                asPairなら(自身側のPlug, 入力元)、asNodeなら相手のNode。値や接続は変えない。
-
-        Raises:
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[True]) -> tuple[Plug, Node] | None: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[True], index: int, **kwargs: Any) -> tuple[Plug, Node] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[True]) -> list[tuple[Plug, Node]]: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[True], index: None = ..., **kwargs: Any) -> list[tuple[Plug, Node]]: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[True]) -> tuple[Plug, Plug] | None: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., index: int, **kwargs: Any) -> tuple[Plug, Plug] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[True]) -> list[tuple[Plug, Plug]]: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., index: None = ..., **kwargs: Any) -> list[tuple[Plug, Plug]]: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[True]) -> Node | None: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], index: int, **kwargs: Any) -> Node | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[True]) -> Nodes: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], index: None = ..., **kwargs: Any) -> Nodes: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[True]) -> Plug | None: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., index: int, **kwargs: Any) -> Plug | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[True]) -> Plugs: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., index: None = ..., **kwargs: Any) -> Plugs: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[False] = ...) -> tuple[Plug, Node] | None: ...
     @overload
-    def getDestinations(self, *, skipConversionNodes: bool = ..., **kwargs) -> Plugs | Nodes | list | Plug | Node | tuple | None:
-        """直接の出力先(接続先)を取得する。
-
-        子やマルチアトリビュートの要素に、別々につながっている接続までは調べない。
-
-        Args:
-            skipConversionNodes (bool): 既定はFalseで、直接つながっているPlugを返す(``cmds.listConnections`` と同じ)。
-                Trueなら、unitConversion系のノードを飛ばして、その先のPlugを返す。
-            **kwargs: getConnectionsの指定(型・ペア・Nodeで返すか・indexなど)。子・要素を調べる指定は無効。
-
-        Returns:
-            Plugs | Nodes | list | Plug | Node | tuple | None: 既定は出力先のPlugs。接続が無ければ空のPlugs。
-                asPairなら(自身側のPlug, 出力先)、asNodeなら相手のNode。
-                indexを指定すると、絞り込みと重複の除去をしたあとの1件を返し、範囲外ならNone。値や接続は変えない。
-
-        Raises:
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[False] = ...) -> list[tuple[Plug, Node]]: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int) -> tuple[Plug, Node] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[False] = ...) -> tuple[Plug, Plug] | None: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ...) -> list[tuple[Plug, Node]]: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[False] = ...) -> list[tuple[Plug, Plug]]: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int) -> tuple[Plug, Plug] | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[False] = ...) -> Node | None: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[True], asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ...) -> list[tuple[Plug, Plug]]: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[False] = ...) -> Nodes: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: int) -> Node | None: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int, input: Literal[False] = ..., outputs: Literal[False] = ...) -> Plug | None: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[True], checkChildren: bool = ..., checkElements: bool = ..., index: None = ...) -> Nodes: ...
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ..., input: Literal[False] = ..., outputs: Literal[False] = ...) -> Plugs: ...
     @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int) -> Plug | None: ...
-    @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: Literal[False] = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: Literal[False] = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: Literal[False] = ..., asNode: Literal[False] = ..., checkChildren: bool = ..., checkElements: bool = ..., index: None = ...) -> Plugs: ...
-    @overload
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ...) -> Plugs | Nodes | list | Plug | Node | tuple | None:
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ..., input: bool = ..., outputs: bool = ...) -> Plugs | Nodes | list | Plug | Node | tuple | None:
         """接続している相手を取得する。
 
         既定では、直接つながっているPlugを返す(``cmds.listConnections`` と同じ)。
-        ``skipConversionNodes=True`` (または ``scn=True``)なら、:meth:`getSource` / :meth:`getDestinations` と同じく、
+        ``skipConversionNodes=True`` (または ``scn=True``)なら、
         unitConversion系(unitConversion・unitToTimeConversion・timeToUnitConversion)のノードを飛ばして、
         その先のPlugを返す。
 
         まず自身の入力・出力を調べ、続けてマルチアトリビュートのすでにある要素か、子を順に下へたどる。
         型で絞り、最初に出てきた順で重複を除いてから、indexを当てはめる。
+
+        このPlug自身の入力元・出力先だけが要るときは、``input=True``・``outputs=True`` を使う
+        (子やマルチアトリビュートの要素に別々につながっている接続までは調べない)。
+
+        - ``getConnections(input=True)``: 自身の入力元を1つ返す。無ければ ``None``
+          (``source=True, destination=False, checkChildren=False, checkElements=False, index=0`` と同じ)。
+          接続が無いかどうかは ``plug.getConnections(input=True) is None`` で判定できる。
+        - ``getConnections(outputs=True)``: 自身の出力先をPlugsで返す。無ければ空
+          (``source=False, destination=True, checkChildren=False, checkElements=False`` と同じ)。
+
+        ``getConnections(destination=False)`` は、これらとは違う。子・要素の接続も集めたPlugsを返すので、
+        ``is None`` の判定には使えない。
 
         Args:
             s (bool): 入力を調べるか。sourceとの両方がTrueのときだけ調べる(AND)。
@@ -1986,17 +1572,31 @@ class Plug(Object):
             checkChildren (bool): Trueなら、コンパウンドアトリビュートの子も調べる。
             checkElements (bool): Trueなら、マルチアトリビュートのすでにある要素も調べる。
             index (int | None): 絞り込んだ結果の、Pythonでの位置の番号。負の数も使える。範囲外ならNone。
+            input (bool): Trueなら、このPlug自身の入力元を1件(無ければNone)で返す。既定はFalse。
+                outputs・index、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定とは
+                同時に指定できない。型・ペア・Nodeで返す指定・変換ノードを飛ばす指定は使える。
+            outputs (bool): Trueなら、このPlug自身の出力先を返す。既定はFalse。
+                input、向きとたどり方の指定とは同時に指定できない。indexは使える。
 
         Returns:
             Plugs | Nodes | list | Plug | Node | tuple | None: 既定は相手のPlugs。indexを指定したら1件かNone。
+                ``input=True`` は入力元のPlugかNone(接続が無い場合や、型の条件に合わない場合)。
+                ``outputs=True`` は出力先のPlugs(接続が無ければ空)。
+                asPairなら(自身側のPlug, 相手側)、asNodeなら相手のNode。
                 重複は、通常は相手のPlugごと、asNodeでは相手のNodeごと、asPairでは自身側も含めた組ごとにまとめる。
                 値やノードは複製しない。
 
         Raises:
+            TypeError: input・outputsがboolでない場合、または同時に指定できない引数と一緒に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> Node | None:
+    @overload
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ..., suitableType: Literal[True], timeInput: bool | None = ...) -> str | None: ...
+    @overload
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ..., suitableType: Literal[False] = ..., timeInput: bool | None = ...) -> Node | None: ...
+    @overload
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ..., suitableType: bool = ..., timeInput: bool | None = ...) -> Node | str | None:
         """このPlugのアニメーションカーブ(animCurve ノード)を取得する。
 
         - ``layer`` を指定しなければ、直接つながっている animCurve だけを探す。pairBlend や
@@ -2008,20 +1608,31 @@ class Plug(Object):
           ``cmds.animLayer(layer, q=True, findCurveForPlug=...)`` で取得する。
         - ベースレイヤー(``cmds.animLayer(q=True, root=True)``)を指定し、Plugがどのレイヤーにも
           入っていない場合は、直接つながっている animCurve を返す。
+        - ``suitableType=True`` なら、カーブではなく、**このPlugの値の型に合うアニメーションカーブのノード型の名前**
+          (``animCurveTA`` など)を返す。**つながっているカーブの型ではない**。カーブがつながっていなくても答え、
+          カーブや接続は作らない(これからカーブを作るときに、どの型で作るかを調べるためのもの)。
+          つながっているカーブの型は ``plug.getAnimCurve().getType()`` で取得する。
 
         Args:
             layer (Node | str | None): アニメーションレイヤー(animLayer ノード)か、その名前。既定は None。
             indirect (bool): Trueなら、直接のカーブが無いときに、レイヤーや pairBlend の先のカーブも探す。
                 layer とは同時に指定できない。既定は False。
+            suitableType (bool): Trueなら、このPlugに合うアニメーションカーブのノード型の名前を返す。既定は False。
+                layer・indirect とは同時に指定できない。
+            timeInput (bool | None): ``suitableType=True`` のときだけ指定できる。True(省略したときも同じ)なら
+                時間入力のカーブ(``animCurveT*``)、Falseなら単位なし入力のカーブ(``animCurveU*``。ドリブンキー用)の型。
 
         Returns:
-            Node | None: animCurve ノード。無ければ ``None``。
+            Node | str | None: animCurve ノード。無ければ ``None``。
+                ``suitableType=True`` では ``animCurveTA`` などの型名。Mayaが適切な型を決められない場合は ``None``。
 
         Raises:
-            TypeError: layer が animLayer ノード・名前・None のどれでもない場合、または indirect が bool でない場合。
+            TypeError: layer が animLayer ノード・名前・None のどれでもない場合、indirect・suitableType が bool でない場合、
+                timeInput が bool でも None でもない場合。suitableType=True と layer・indirect=True を同時に指定した場合、
+                または suitableType=False で timeInput を指定した場合。
             ValueError: layer と indirect=True を同時に指定した場合。
-            RuntimeError: ノードかアトリビュートが削除されている場合、または layer の名前に当たる
-                レイヤーが見つからない場合。
+            RuntimeError: ノードかアトリビュートが削除されている場合、layer の名前に当たる
+                レイヤーが見つからない場合、またはMayaが型の照会を拒否した場合。
         """
         ...
     def getLayeredPlug(self, layer: Node | str | None = ...) -> Plug | None:
@@ -2045,30 +1656,6 @@ class Plug(Object):
             TypeError: layer が animLayer ノード・名前・None のどれでもない場合。
             RuntimeError: ノードかアトリビュートが削除されている場合、または layer の名前に当たる
                 レイヤーが見つからない場合。
-        """
-        ...
-    def isConnectedTo(self, other: Plug | om2.MPlug | str, *, source: bool = ..., destination: bool = ...) -> bool:
-        """指定したPlugと接続されているか判定する。
-
-        既定では、入力・出力のどちらの向きでも、つながっていれば True を返す。
-        子やマルチアトリビュートの要素に別々につながっている接続や、変換ノードの先の接続までは調べない。
-
-        Args:
-            other (Plug | om2.MPlug | str): 相手のPlug。文字列なら ``"node.attribute"`` の形のアトリビュート名。
-            source (bool): Trueなら、otherから自身への入力の接続を調べる。既定はTrue。
-            destination (bool): Trueなら、自身からotherへの出力の接続を調べる。既定はTrue。
-
-        Returns:
-            bool: 指定した向きで接続されていれば True。両方Falseなら False。
-
-        Raises:
-            TypeError: other が Plug・MPlug・アトリビュート名のどれでもない場合、または文字列が
-                アトリビュートを指していない場合。sourceかdestinationがboolでない場合。
-            ValueError: other が空文字列の場合、または空の MPlug の場合。
-            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
-            RuntimeError: 自身のノードかアトリビュートが削除されている場合。
-                other の文字列が複数のアトリビュートに一致する場合や、
-                other のPlug・MPlugのノードかアトリビュートが削除されている場合も含む。
         """
         ...
     def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., skipExisting: bool = ..., fast: bool = ...) -> Plug:
@@ -2111,23 +1698,6 @@ class Plug(Object):
                 (接続元については、削除前のアトリビュートのパスを文言に入れる)。
         """
         ...
-    def disconnectInput(self, *, fast: bool = ...) -> None:
-        """直接の入力の接続だけを切る。
-
-        接続が無ければ、何もせずに自身を返す。変換ノードを飛ばさずに今の入力を調べ、disconnectで切る。
-        子やマルチアトリビュートの要素に別々につながっている接続までは調べず、ロックも一時的に外さない。
-
-        Args:
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。disconnectが1件のときに返す入力元ではない。
-
-        Raises:
-            TypeError: fastがboolでない場合。
-            RuntimeError: アトリビュートが無効な場合、またはロックなどで切断できない場合。
-        """
-        ...
     def disconnect(self, source: Plug | om2.MPlug | str | None = ..., *, force: bool = ..., f: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> Plug | list[Plug]:
         """指定した入力元との、直接の接続を切る。
 
@@ -2161,7 +1731,7 @@ class Plug(Object):
 
         Note:
             マルチアトリビュートの中を探した場合は、すでにある順に切る。途中で失敗しても、それまでに切った接続は戻さない。
-            接続が無いときに何もしない入力の切断には :meth:`disconnectInput` を使う。
+            接続が無いときに何もしない入力の切断には ``disconnectAll(destination=False)`` を使う。
         """
         ...
     def disconnectAll(self, *, source: bool = ..., destination: bool = ..., fast: bool = ...) -> None:
@@ -2170,6 +1740,9 @@ class Plug(Object):
         ロックは外さない。子やマルチアトリビュートの要素に別々につながっている接続までは調べず、変換ノードも削除しない。
         通常は、Undoが有効なら同じチャンクに記録する。途中で失敗しても、それまでに切った接続は戻さない。
 
+        入力だけを切るときは ``disconnectAll(destination=False)`` と書く。:meth:`disconnect` と違い、
+        入力が無ければ何もしない(例外にしない)。変換ノードを飛ばさずに今の入力を調べて切る。
+
         Args:
             source (bool): Trueなら入力の接続を切る。既定はTrue。
             destination (bool): Trueなら出力の接続をすべて切る。既定はTrue。
@@ -2177,6 +1750,7 @@ class Plug(Object):
 
         Returns:
             None: 値を返さない。接続が無い場合や、両方Falseの場合は何も変えない。
+                disconnectが1件のときに返す入力元は返さない。
 
         Raises:
             TypeError: source・destination・fastがboolでない場合。
@@ -2213,7 +1787,7 @@ class Plug(Object):
 
         ``入力元 → node.inputAttribute`` と ``node.outputAttribute → 自身`` の2つの接続にする。
 
-        - 入力元は、unitConversion 系を飛ばした先のPlug(:meth:`getSource` の ``skipConversionNodes=True``)。
+        - 入力元は、unitConversion 系を飛ばした先のPlug(``getConnections(input=True, skipConversionNodes=True)``)。
           挟んだあとに変換ノードが要るかどうかは、Mayaが決める。
         - 入力の接続が無い場合は、``node.outputAttribute → 自身`` だけを接続する。
         - 自身がロックされていれば、:meth:`connect` と同じく一時的に外して接続する。
@@ -2315,20 +1889,24 @@ class Plug(Object):
         """
         ...
     def _source_plug(self, skipConversionNodes: bool = ...) -> Plug | None:
-        """絞り込みなしで :meth:`getSource` を呼び、入力元の Plug を返す(内部用)。
+        """このPlug自身の入力元のPlugを返す(``getConnections(input=True)`` の絞り込みなしの本体)。
+
+        有効かどうかは呼び出し側が確かめておく。子・マルチアトリビュートの要素の接続は調べない。
 
         Args:
-            skipConversionNodes (bool): :meth:`getSource` へ渡す。
+            skipConversionNodes (bool): Trueなら、unitConversion系のノードを飛ばした先のPlugを返す。
 
         Returns:
             Plug | None: 入力元の Plug。未接続ならNone。
         """
         ...
     def _destination_plugs(self, skipConversionNodes: bool = ...) -> list[Plug]:
-        """絞り込みなしで :meth:`getDestinations` を呼び、出力先の Plug を返す(内部用)。
+        """このPlug自身の出力先のPlugを返す(``getConnections(outputs=True)`` の絞り込みなしの本体)。
+
+        有効かどうかは呼び出し側が確かめておく。子・マルチアトリビュートの要素の接続は調べない。
 
         Args:
-            skipConversionNodes (bool): :meth:`getDestinations` へ渡す。
+            skipConversionNodes (bool): Trueなら、unitConversion系のノードを飛ばした先のPlugを返す。
 
         Returns:
             list[Plug]: 出力先の Plug。未接続なら空リスト。
@@ -2483,44 +2061,15 @@ class Plug(Object):
             NotImplementedError: cmds.getAttrでの読み取りが必要な型の場合。
         """
         ...
-    def _set_range_pair(self, minimum: float | None, maximum: float | None, unit: str | None, time_unit: str | None, soft: bool) -> None:
-        """上下限を検証してから、1回のMayaコマンドで定義を更新する。
-
-        Args:
-            minimum (float | None): 最小値。
-            maximum (float | None): 最大値。
-            unit (str | None): 角度の単位。
-            time_unit (str | None): 時間の単位。
-            soft (bool): Trueならソフト制限。
-
-        Returns:
-            None: 値を返さない。
-        """
-        ...
-    def _set_range(self, kind: str, value: object, unit: str | None, time_unit: str | None = ...) -> None:
-        """setMinなどの共通の処理。値を ``cmds.addAttr`` の単位へ換算して、アトリビュートの定義を変える。
-
-        Args:
-            kind (str): ``"Min"``・``"Max"``・``"SoftMin"``・``"SoftMax"``。
-            value (object): 設定値。Noneは制限を外す。
-            unit (str | None): 角度の数値の単位。
-            time_unit (str | None): 時間の数値の単位。Noneはフレーム。
-
-        Returns:
-            None: 値を返さない。
-        """
-        ...
-    def _require_range_order(self, fn: om2.MFnNumericAttribute | om2.MFnUnitAttribute, kind: str, number: float, angle_unit: str, method: str, time_unit: str):
-        """最小値が最大値を超えないことを確かめる。
+    def _require_range_order(self, fn: om2.MFnNumericAttribute | om2.MFnUnitAttribute, numbers: dict[str, float], angle_unit: str, time_unit: str):
+        """片側だけを設定するときに、設定済みの反対側と矛盾しないことを確かめる。
 
         Mayaは、最小と最大が逆になる値を、警告を出すだけで無視するため。
 
         Args:
             fn (om2.MFnNumericAttribute | om2.MFnUnitAttribute): 対象の定義。
-            kind (str): ``"Min"``・``"Max"``・``"SoftMin"``・``"SoftMax"``。ソフト値は検証しない。
-            number (float): ``cmds.addAttr`` の単位へ換算した設定値。
+            numbers (dict[str, float]): ``"Min"`` か ``"Max"`` をキーにした、``cmds.addAttr`` の単位へ換算した設定値。
             angle_unit (str): 角度の数値の単位。
-            method (str): 例外メッセージに使うメソッド名。
             time_unit (str): 時間の数値の単位。
 
         Raises:
@@ -2528,7 +2077,7 @@ class Plug(Object):
         """
         ...
     def _range_input(self, fn: om2.MFnNumericAttribute | om2.MFnUnitAttribute, value: object, angle_unit: str, method: str, time_unit: str = ...) -> float:
-        """setMinなどの値を、``cmds.addAttr`` が受け取る単位の数値へ換算する。
+        """setRangeの値を、``cmds.addAttr`` が受け取る単位の数値へ換算する。
 
         ``cmds.addAttr`` は角度をrad、距離をcm、時間を現在の時間単位で受け取る(:meth:`Node.addAttr` と同じ換算)。
 
@@ -2561,15 +2110,6 @@ class Plug(Object):
         Raises:
             TypeError: アトリビュートがマトリクスのデータを受け付けない場合。
             RuntimeError: ロック・入力接続・書込み禁止の場合。
-        """
-        ...
-    def _set_flags(self, leaf, *, fast: bool = ..., **flags):
-        """フラグを、自身か、その下の末端の子へ設定する。
-
-        Args:
-            leaf: Trueなら、コンパウンドアトリビュートの末端の子へ設定する。
-            fast (bool): 自身と子の状態の更新へ渡す、更新の方法。
-            **flags: 呼び出し先へ渡すキーワード引数。
         """
         ...
     @staticmethod
@@ -2872,7 +2412,7 @@ class Plug(Object):
         """
         ...
     def _range_value(self, value: object, angle_unit: str | None, ui_units: bool, time_unit: str | None = ...) -> Any:
-        """getMin等の戻り値を、uiUnits・unit・timeUnitの指定に従って換算する。
+        """getRange等の戻り値を、uiUnits・unit・timeUnitの指定に従って換算する。
 
         Args:
             value (object): 定義から読んだ値(単位付きオブジェクト・数値・tuple)。
@@ -2882,20 +2422,6 @@ class Plug(Object):
 
         Returns:
             object: 換算した値。
-        """
-        ...
-    def _limit_value(self, has: str, getter: str, unit: str | None, time_unit: str | None, ui_units: bool) -> float | tuple[float, ...] | None:
-        """getMin・getMax・getSoftMin・getSoftMaxの共通の処理。定義の制限を、get() と同じ決まりの数値で返す。
-
-        Args:
-            has (str): 制限があるかを調べる、Function Setのメソッド名(``"hasMin"`` など)。
-            getter (str): 制限の値を取得する、Function Setのメソッド名(``"getMin"`` など)。
-            unit (str | None): 角度の単位。Noneは度。
-            time_unit (str | None): 時間の単位。Noneはフレーム。
-            ui_units (bool): Trueは現在のUI単位の数値。
-
-        Returns:
-            float | tuple[float, ...] | None: 制限の値。制限が無い・対応しない型はNone。
         """
         ...
     def _plain_range_value(self, value: object, angle_unit: str, ui_units: bool, time_unit: str) -> Any:
@@ -3189,11 +2715,8 @@ class Plugs(_ListMethods):
     def getNode(self) -> list[Node]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getNode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isValid(self) -> list[bool]:
+    def isValid(self, *, elements: bool = ...) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isValid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isExisting(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isExisting` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isInstancedAttribute(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isInstancedAttribute` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3203,9 +2726,6 @@ class Plugs(_ListMethods):
         ...
     def getNumConnectedChildren(self) -> list[int]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getNumConnectedChildren` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getAnimCurveType(self, *, timeInput: bool = ...) -> list[str | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurveType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getSetAttrCmds(self, *, valueSelector: str = ..., useLongNames: bool = ...) -> list[list[str]]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getSetAttrCmds` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3222,17 +2742,11 @@ class Plugs(_ListMethods):
     def getName(self) -> list[str]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getShortName(self) -> list[str]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getShortName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getLongName(self) -> list[str]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getLongName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getNiceName(self) -> list[str]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getNiceName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getAttributeName(self, kind: str = ...) -> list[str]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getAttributeName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setNiceName(self, name: str) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.setNiceName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3243,19 +2757,13 @@ class Plugs(_ListMethods):
     def getType(self) -> list[str | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isMulti(self) -> list[bool]:
+    def isMulti(self, *, element: bool = ...) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isMulti` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isCompound(self) -> list[bool]:
+    def isCompound(self, *, child: bool = ...) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isCompound` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isMultiElement(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isMultiElement` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isChild(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isChild` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getParent(self) -> list[Plug | None]:
+    def getParent(self, *, all: bool = ..., includeMulti: bool = ...) -> list[Plug | Plugs | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMulti(self) -> list[MultiPlug | None]:
@@ -3266,9 +2774,6 @@ class Plugs(_ListMethods):
         ...
     def getSiblings(self) -> list[Plugs]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getSiblings` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getAllParents(self, includeMulti: bool = ...) -> list[Plugs]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getAllParents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getDescendants(self, *, levels: int | None = ..., leavesOnly: bool = ...) -> list[Plugs]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getDescendants` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3282,41 +2787,17 @@ class Plugs(_ListMethods):
     def evaluate(self) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.evaluate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isKeyable(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isKeyable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getFlags(self) -> list[dict[str, bool]]:
+        """各要素の :meth:`~mlib.plugs.plug.Plug.getFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setKeyable(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setKeyable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setFlags(self, *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+    def setFlags(self, *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., leaf: bool = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.setFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isChannelBox(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isChannelBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setChannelBox(self, state: bool = ..., *, leaf: bool = ..., fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setChannelBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def show(self, keyable: bool = ..., *, fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.show` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def hide(self, *, fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.hide` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isConnected(self, *, source: bool = ..., destination: bool = ...) -> list[bool]:
+    def isConnected(self, other: Plug | om2.MPlug | str | None = ..., *, source: bool = ..., destination: bool = ...) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isSource(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isSource` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isDestination(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isDestination` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def isHidden(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isHidden` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isProxy(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isProxy` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3327,53 +2808,11 @@ class Plugs(_ListMethods):
     def isSettable(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isSettable` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def hasMin(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.hasMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def hasMax(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.hasMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def hasSoftMin(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.hasSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def hasSoftMax(self) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.hasSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getSoftMin(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setSoftMin(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftMin` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getSoftMax(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[float | tuple[float, ...] | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setSoftMax(self, value: float | om2.MAngle | om2.MDistance | om2.MTime, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftMax` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[tuple[object, object]]:
+    def getRange(self, *, soft: bool = ..., unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[tuple[float | tuple[float, ...] | None, float | tuple[float, ...] | None]]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRange(self, minimum: float | None, maximum: float | None, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+    def setRange(self, minimum: float | om2.MAngle | om2.MDistance | om2.MTime | None = ..., maximum: float | om2.MAngle | om2.MDistance | om2.MTime | None = ..., *, soft: bool = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.setRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getSoftRange(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[tuple[object, object]]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getSoftRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def setSoftRange(self, minimum: float, maximum: float, *, unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.setSoftRange` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getDefault(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ...) -> list[Any]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getDefault` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3405,17 +2844,11 @@ class Plugs(_ListMethods):
     def getAnimLayers(self, selected: bool = ..., exact: bool = ...) -> list[Nodes]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimLayers` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getEnumName(self, value: int | None = ...) -> list[str]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getEnumNames(self) -> list[list[tuple[str, int]]]:
+    def getEnumNames(self, *, value: int | None = ..., name: str | None = ..., current: bool = ...) -> list[list[tuple[str, int]] | str | int]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setEnumNames(self, names: Iterable[str]) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.setEnumNames` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getEnumValue(self, name: str) -> list[int]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getEnumValue` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -3444,29 +2877,17 @@ class Plugs(_ListMethods):
     def reset(self, *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.reset` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getSource(self, *, skipConversionNodes: bool = ..., **kwargs) -> list[Plug | Node | tuple | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getSource` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getDestinations(self, *, skipConversionNodes: bool = ..., **kwargs) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getDestinations` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
+    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., checkChildren: bool = ..., checkElements: bool = ..., index: int | None = ..., input: bool = ..., outputs: bool = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ...) -> list[Node | None]:
+    def getAnimCurve(self, layer: Node | str | None = ..., *, indirect: bool = ..., suitableType: bool = ..., timeInput: bool | None = ...) -> list[Node | str | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAnimCurve` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getLayeredPlug(self, layer: Node | str | None = ...) -> list[Plug | None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getLayeredPlug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isConnectedTo(self, other: Plug | om2.MPlug | str, *, source: bool = ..., destination: bool = ...) -> list[bool]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.isConnectedTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
     def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., skipExisting: bool = ..., fast: bool = ...) -> list[Plug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.connect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def disconnectInput(self, *, fast: bool = ...) -> list[None]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.disconnectInput` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def disconnect(self, source: Plug | om2.MPlug | str | None = ..., *, force: bool = ..., f: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> list[Plug | list[Plug]]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.disconnect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -29,8 +29,8 @@ class NamingContractsTest(unittest.TestCase):
             blender = node.getPlug("blender")
             blender.set(0.25)
             self.assertAlmostEqual(blender.get(), 0.25)
-            self.assertEqual(blender.getLongName(), "blender")
-            self.assertEqual(node.getPlug("output").getLongName(), "output")
+            self.assertEqual(blender.getAttributeName(), "blender")
+            self.assertEqual(node.getPlug("output").getAttributeName(), "output")
         finally:
             cmds.delete(node.getFullName())
 

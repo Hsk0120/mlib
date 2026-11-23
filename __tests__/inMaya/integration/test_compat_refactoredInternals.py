@@ -250,7 +250,7 @@ class ConvertedInputTest(_Case):
                     SurfaceCVs(shape, value)
 
     def test_selection_splits_complete_and_listed_components(self):
-        """完全な(complete)コンポーネントは番号0から、番号を並べたものはgetElements()の順に分ける。"""
+        """完全な(complete)コンポーネントは番号0から、番号を並べたものはMFnSingleIndexedComponent.getElements()の順に分ける。"""
         plane = cmds.polyPlane(name=self.name("p"), subdivisionsX=2, subdivisionsY=2, constructionHistory=False)[0]
         mesh = mlib.getNode(plane).getShape()
         for complete in (True, False):

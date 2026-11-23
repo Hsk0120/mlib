@@ -163,13 +163,13 @@ class GetPlugsTest(_SpecCase):
     def test_user_defined_top_level_matches_definition_order(self):
         """userDefined=True, includeChildren=False はトップレベルの動的アトリビュートを追加順に返す。"""
         plugs = self.node.getPlugs(userDefined=True, includeChildren=False)
-        self.assertEqual([plug.getLongName() for plug in plugs], ["scalar", "vec", "arr", "hiddenAttr"])
+        self.assertEqual([plug.getAttributeName() for plug in plugs], ["scalar", "vec", "arr", "hiddenAttr"])
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
         self.assertIsInstance(plugs[2], MultiPlug)
 
     def test_user_defined_with_children_matches_list_attr(self):
         """userDefined=True(既定 includeChildren=True)は子も含み、cmds.listAttr(userDefined=True) と同じ集合。"""
-        names = [plug.getLongName() for plug in self.node.getPlugs(userDefined=True)]
+        names = [plug.getAttributeName() for plug in self.node.getPlugs(userDefined=True)]
         self.assertEqual(sorted(names), sorted(cmds.listAttr(self.node_name, userDefined=True)))
         self.assertEqual(names[:5], ["scalar", "vec", "vecX", "vecY", "vecZ"])
 
@@ -177,16 +177,16 @@ class GetPlugsTest(_SpecCase):
         """userDefined=False は cmds.listAttr のフラグをそのまま使い、同じ順で返す。"""
         plugs = self.node.getPlugs(keyable=True)
         expected = cmds.listAttr(self.node_name, keyable=True)
-        self.assertEqual([plug.getLongName() for plug in plugs], expected)
+        self.assertEqual([plug.getAttributeName() for plug in plugs], expected)
 
     def test_include_children_false_filters_list_attr(self):
         """includeChildren=False は listAttr 経路でもコンパウンドアトリビュートの子(translateX 等)を除く。"""
         plugs = self.node.getPlugs(includeChildren=False)
-        names = [plug.getLongName() for plug in plugs]
+        names = [plug.getAttributeName() for plug in plugs]
         self.assertIn("translate", names)
         self.assertNotIn("translateX", names)
         self.assertTrue(all(not plug.mplug().isChild for plug in plugs))
-        self.assertIn("translateX", [plug.getLongName() for plug in self.node.getPlugs()])
+        self.assertIn("translateX", [plug.getAttributeName() for plug in self.node.getPlugs()])
 
     def test_invalid_inputs(self):
         """bool 以外、または userDefined=True と listAttr フラグの併用は TypeError。"""
@@ -210,7 +210,7 @@ class GetPlugsTest(_SpecCase):
         for attr in ("a1", "a2", "a3"):
             cmds.addAttr(str(node), longName=attr, attributeType="double")
         node.moveAttrOrder("a3", -10)
-        names = [plug.getLongName() for plug in node.getPlugs(userDefined=True, includeChildren=False)]
+        names = [plug.getAttributeName() for plug in node.getPlugs(userDefined=True, includeChildren=False)]
         self.assertEqual(names, ["a3", "a1", "a2"])
 
 

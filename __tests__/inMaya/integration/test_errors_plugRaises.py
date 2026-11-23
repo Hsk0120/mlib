@@ -2,8 +2,8 @@
 
 - 無効な参照: 所有ノードの削除・動的アトリビュートの削除の後の照会・設定は RuntimeError。
   (``test_errors_plugs.py`` の表にある照会は除く)
-- getRange・getSoftRange: unit・timeUnit・uiUnits の型は TypeError。
-- setRange・setSoftRange: 値の型と、静的・数値以外のアトリビュートは TypeError。例外の後は定義が変わらない。
+- getRange(soft の有無): unit・timeUnit・uiUnits の型は TypeError。
+- setRange(soft の有無): 値の型と、静的・数値以外のアトリビュートは TypeError。例外の後は定義が変わらない。
 - MultiPlug.appendMessage: 論理番号が上限に達していれば IndexError で、接続を足さない。
 - getNumConnectedChildren: コンパウンドでない Plug では 0 を返す。
 - setIfChanged: check=True で NaN なら ValueError で、値を変えない。
@@ -27,18 +27,18 @@ _PLUG_CALLS = (
     ("isExactlyEqual", lambda plug, other: plug.isExactlyEqual(other)),
     ("isExactlyEqual(other)", lambda plug, other: other.isExactlyEqual(plug)),
     ("getNumConnectedChildren", lambda plug, other: plug.getNumConnectedChildren()),
-    ("getAnimCurveType", lambda plug, other: plug.getAnimCurveType()),
+    ("getAnimCurve(suitableType)", lambda plug, other: plug.getAnimCurve(suitableType=True)),
     ("getSetAttrCmds", lambda plug, other: plug.getSetAttrCmds()),
     ("getAttributeClass", lambda plug, other: plug.getAttributeClass()),
-    ("getAllParents", lambda plug, other: plug.getAllParents()),
+    ("getParent(all)", lambda plug, other: plug.getParent(all=True)),
     ("getDescendants", lambda plug, other: plug.getDescendants()),
-    ("setKeyable", lambda plug, other: plug.setKeyable(True)),
-    ("setChannelBox", lambda plug, other: plug.setChannelBox(True)),
-    ("getMin", lambda plug, other: plug.getMin()),
+    ("setFlags(keyable)", lambda plug, other: plug.setFlags(keyable=True)),
+    ("setFlags(channelBox)", lambda plug, other: plug.setFlags(channelBox=True)),
+    ("setFlags(leaf)", lambda plug, other: plug.setFlags(keyable=True, leaf=True)),
     ("getRange", lambda plug, other: plug.getRange()),
     ("setRange", lambda plug, other: plug.setRange(0.0, 1.0)),
-    ("getSoftRange", lambda plug, other: plug.getSoftRange()),
-    ("setSoftRange", lambda plug, other: plug.setSoftRange(0.0, 1.0)),
+    ("getRange(soft)", lambda plug, other: plug.getRange(soft=True)),
+    ("setRange(soft)", lambda plug, other: plug.setRange(0.0, 1.0, soft=True)),
     ("isDefaultValue", lambda plug, other: plug.isDefaultValue()),
     ("isDirty", lambda plug, other: plug.isDirty()),
     ("setDirty", lambda plug, other: plug.setDirty()),
@@ -48,8 +48,8 @@ _PLUG_CALLS = (
 _MULTI_CALLS = (
     ("getElementCount", lambda multi: multi.getElementCount()),
     ("getElementCount(evaluate)", lambda multi: multi.getElementCount(evaluate=True)),
-    ("getElementByPhysicalIndex", lambda multi: multi.getElementByPhysicalIndex(0)),
-    ("getConnectedIndices", lambda multi: multi.getConnectedIndices()),
+    ("getElement(physical)", lambda multi: multi.getElement(0, physical=True)),
+    ("getIndices(connected)", lambda multi: multi.getIndices(connected=True)),
 )
 
 
@@ -153,18 +153,18 @@ class InvalidPlugTest(_PlugCase):
 
 
 class RangeArgumentTest(_PlugCase):
-    """getRange・getSoftRange・setRange・setSoftRange の引数の型の拒否。"""
+    """getRange・setRange(soft の有無)の引数の型の拒否。"""
 
     def test_get_range_type_errors(self):
         """unit・timeUnit が文字列・None 以外、uiUnits が bool 以外は TypeError。"""
         plug = mlib.getNode(self.ranged()).getPlug("amount")
-        for name in ("getRange", "getSoftRange"):
-            with self.subTest(method=name, state="valid"):
-                self.assertEqual(len(getattr(plug, name)()), 2)
+        for soft in (False, True):
+            with self.subTest(soft=soft, state="valid"):
+                self.assertEqual(len(plug.getRange(soft=soft)), 2)
             for kwargs in ({"unit": 5}, {"timeUnit": 1.0}, {"uiUnits": "yes"}, {"uiUnits": 1}):
-                with self.subTest(method=name, kwargs=kwargs):
+                with self.subTest(soft=soft, kwargs=kwargs):
                     with self.assertRaises(TypeError):
-                        getattr(plug, name)(**kwargs)
+                        plug.getRange(soft=soft, **kwargs)
 
     def test_set_range_type_errors(self):
         """値の型の不正・静的アトリビュート・数値以外のアトリビュートは TypeError で、定義を変えない。"""
@@ -174,18 +174,18 @@ class RangeArgumentTest(_PlugCase):
         amount = mlib.getNode(node).getPlug("amount")
         before = self.limits(node)
         cases = (("amount", ("a", 1.0)), ("amount", (0.0, [1.0])), ("translateX", (0.0, 1.0)), ("label", (0.0, 1.0)))
-        for name in ("setRange", "setSoftRange"):
+        for soft in (False, True):
             for attribute, values in cases:
-                with self.subTest(method=name, attribute=attribute, values=values):
+                with self.subTest(soft=soft, attribute=attribute, values=values):
                     plug = amount if attribute == "amount" else mlib.getNode(node).getPlug(attribute)
                     with self.assertRaises(TypeError):
-                        getattr(plug, name)(*values)
+                        plug.setRange(*values, soft=soft)
                     self.assertEqual(self.limits(node), before)
-        for name in ("setRange", "setSoftRange"):
+        for soft in (False, True):
             for kwargs in ({"unit": 5}, {"timeUnit": 1.0}):
-                with self.subTest(method=name, kwargs=kwargs):
+                with self.subTest(soft=soft, kwargs=kwargs):
                     with self.assertRaises(TypeError):
-                        getattr(amount, name)(0.0, 1.0, **kwargs)
+                        amount.setRange(0.0, 1.0, soft=soft, **kwargs)
                     self.assertEqual(self.limits(node), before)
 
 

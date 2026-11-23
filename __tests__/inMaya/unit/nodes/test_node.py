@@ -62,13 +62,13 @@ class CommonMethodsTest(unittest.TestCase):
     def test_attr_flags_batch_undo(self):
         node = self.create("flags")
         attrs = ["translateX", "translateY"]
-        before = [(node.getPlug(a).isLocked(), node.getPlug(a).isKeyable()) for a in attrs]
+        before = [(node.getPlug(a).isLocked(), node.getPlug(a).getFlags()["keyable"]) for a in attrs]
         self.assertIsNone(node.setAttrFlags(attrs, locked=True, keyable=False))
         for a in attrs:
             self.assertTrue(node.getPlug(a).isLocked())
-            self.assertFalse(node.getPlug(a).isKeyable())
+            self.assertFalse(node.getPlug(a).getFlags()["keyable"])
         cmds.undo()
-        self.assertEqual([(node.getPlug(a).isLocked(), node.getPlug(a).isKeyable()) for a in attrs], before)
+        self.assertEqual([(node.getPlug(a).isLocked(), node.getPlug(a).getFlags()["keyable"]) for a in attrs], before)
         cmds.redo()
         self.assertTrue(all(node.getPlug(a).isLocked() for a in attrs))
         node.setAttrFlags(attrs, locked=False, channelBox=True)
@@ -171,7 +171,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual(transform.getNamespace(), Namespace(missing_namespace))
 
         plug = transform.addAttr("mlibNodeApiValue", attributeType="double", defaultValue=1.5)
-        self.assertEqual(plug.getLongName(), "mlibNodeApiValue")
+        self.assertEqual(plug.getAttributeName(), "mlibNodeApiValue")
         self.assertEqual(plug.get(), 1.5)
 
     def test_parent_and_connections(self):
@@ -250,7 +250,7 @@ class NodeApiTest(unittest.TestCase):
         transform = self.create_transform("mlibNodeApiPlugs")
 
         plugs = transform.getPlugs()
-        self.assertIn("translateX", {plug.getLongName() for plug in plugs})
+        self.assertIn("translateX", {plug.getAttributeName() for plug in plugs})
         self.assertTrue(all(hasattr(plug, "get") for plug in plugs))
         # listAttr が報告する名前の一部(未確保の要素を持つマルチアトリビュートであるコンパウンドアトリビュートの子など)は
         # 実際には評価できず黙ってスキップされるため、件数は必ずしも一致しない。
@@ -258,7 +258,7 @@ class NodeApiTest(unittest.TestCase):
 
         keyable_names = set(cmds.listAttr(transform.getName(), keyable=True) or [])
         keyable_plugs = transform.getPlugs(keyable=True)
-        self.assertEqual({plug.getLongName() for plug in keyable_plugs}, keyable_names)
+        self.assertEqual({plug.getAttributeName() for plug in keyable_plugs}, keyable_names)
 
     def test_node_aliases_returns_alias_plug_pairs(self):
         transform = self.create_transform("mlibNodeApiAliases")
@@ -330,7 +330,7 @@ class NodeApiTest(unittest.TestCase):
         cmds.addAttr(node.getFullName(), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
         node.addAttr("attrB", attributeType="double", defaultValue=0.0)
 
-        self.assertEqual([p.getLongName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrCompound", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrCompound", "attrB"])
 
     def test_unresolvable_node_name_raises_runtime_error(self):
         with self.assertRaises(RuntimeError) as context:
@@ -801,7 +801,7 @@ class AttributeQueryTest(_SpecCase):
         """getPlugs(userDefined=True) は追加順で、子は includeChildren=True のときだけ。aliasAttr の内部領域も含む。"""
 
         def names(include_children):
-            return [plug.getLongName() for plug in self.node.getPlugs(userDefined=True, includeChildren=include_children)]
+            return [plug.getAttributeName() for plug in self.node.getPlugs(userDefined=True, includeChildren=include_children)]
 
         self.assertFalse(hasattr(self.node, "getExtraAttrs"))
         self.assertEqual(self.node.getPlugs(userDefined=True), [])
@@ -1082,7 +1082,7 @@ class FindCyclesTest(NamespaceCase):
         listed = {str(plug) for cycle in cycles for plug in cycle}
         expected = {cmds.ls(name)[0] for name in cmds.cycleCheck(a, list=True)}
         self.assertEqual(listed, expected)
-        self.assertEqual(mlib.getNode(c).findCycles()[0][0].getLongName(), "input1D")
+        self.assertEqual(mlib.getNode(c).findCycles()[0][0].getAttributeName(), "input1D")
         self.assertEqual(len(mlib.getNode(c).findCycles()), 1)
 
     def test_no_cycle(self):

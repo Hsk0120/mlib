@@ -1,7 +1,7 @@
 """シーン操作の時間の既定を現在のUI時間単位のフレームにした約束を固定する。
 
 Plug.get/setの時間アトリビュート・Plug.setKeyのtime・AnimCurveのT型入力と時間出力・DrivenKey.setKey・
-Node.addAttrの時間の範囲と既定値・Plug.setMin等は既定でフレーム、``timeUnit="sec"`` で秒。
+Node.addAttrの時間の範囲と既定値・Plug.setRangeは既定でフレーム、``timeUnit="sec"`` で秒。
 film(24fps)以外の時間単位(ntsc 30fps)でも、フレームの数値がcmdsのUI単位と一致することを確かめる。
 U型(無次元入力)のカーブの入力は換算しない。
 """
@@ -53,7 +53,7 @@ class PlugSetKeyTimeTest(_SpecCase):
                 plug = mlib.getNode(self.make("transform", "key#")).getPlug("tx")
                 plug.setKey(time=10, value=1)
                 plug.setKey(t=2.0, v=2, timeUnit="sec")
-                curve = plug.getSource().getNode()
+                curve = plug.getConnections(input=True).getNode()
                 self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, timeChange=True), [10.0, 2.0 * fps])
                 self.assertEqual(curve.getKeyInputs(), [10.0, 2.0 * fps])
 
@@ -64,10 +64,10 @@ class PlugSetKeyTimeTest(_SpecCase):
             plug.setKey(time="1:10", timeUnit="sec")
         with self.assertRaises(ValueError):
             plug.setKey(time=1, timeUnit="minute")
-        self.assertIsNone(plug.getSource(skipConversionNodes=True))
+        self.assertIsNone(plug.getConnections(input=True, skipConversionNodes=True))
         plug.setKey(time=0.5, value=3, timeUnit="sec")
         plug.setKey(time=1.0, value=4, timeUnit="sec")
-        curve = plug.getSource().getNode()
+        curve = plug.getConnections(input=True).getNode()
         self.assertEqual(curve.getKeyInputs(timeUnit="sec"), [0.5, 1.0])
 
 
@@ -196,7 +196,7 @@ class DrivenKeyTimeTest(_SpecCase):
 
 
 class AddAttrTimeTest(_SpecCase):
-    """Node.addAttrとPlug.setMin等の時間の範囲・既定値。"""
+    """Node.addAttrとPlug.setRange・getRangeの時間の範囲・既定値。"""
 
     def test_limits_in_frames_and_seconds(self):
         """timeのmin/max/softは既定でフレーム、timeUnit="sec"で秒。cmds.attributeQueryのUI単位と一致する。"""
@@ -204,26 +204,26 @@ class AddAttrTimeTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 plug = self.transform.addAttr(f"clip{fast:d}", attributeType="time", minValue=-30, maxValue=90, softMinValue=0, softMaxValue=60, fast=fast)
-                name = plug.getLongName()
+                name = plug.getAttributeName()
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, minimum=True)[0], -30.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, maximum=True)[0], 90.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, softMin=True)[0], 0.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, softMax=True)[0], 60.0)
-                self.assertIsInstance(plug.getMin(), float)
-                self.assertAlmostEqual(plug.getMin(), plug.getMin(timeUnit="frame"))
-                self.assertAlmostEqual(plug.getMin(timeUnit="frame"), -30.0)
-                self.assertAlmostEqual(plug.getMax(timeUnit="sec"), 3.0)
-                self.assertAlmostEqual(plug.getSoftMax(timeUnit="sec"), 2.0)
-                self.assertAlmostEqual(plug.getMax(uiUnits=True), 90.0)
+                self.assertIsInstance(plug.getRange()[0], float)
+                self.assertAlmostEqual(plug.getRange()[0], plug.getRange(timeUnit="frame")[0])
+                self.assertAlmostEqual(plug.getRange(timeUnit="frame")[0], -30.0)
+                self.assertAlmostEqual(plug.getRange(timeUnit="sec")[1], 3.0)
+                self.assertAlmostEqual(plug.getRange(soft=True, timeUnit="sec")[1], 2.0)
+                self.assertAlmostEqual(plug.getRange(uiUnits=True)[1], 90.0)
                 with self.assertRaises(ValueError):
-                    plug.getMax(timeUnit="sec", uiUnits=True)
+                    plug.getRange(timeUnit="sec", uiUnits=True)
         seconds = self.transform.addAttr("clipSec", attributeType="time", maxValue=2, timeUnit="sec")
         self.assertAlmostEqual(cmds.attributeQuery("clipSec", node=self.node_name, maximum=True)[0], 60.0)
-        seconds.setMax(45)
+        seconds.setRange(maximum=45)
         self.assertAlmostEqual(cmds.attributeQuery("clipSec", node=self.node_name, maximum=True)[0], 45.0)
-        seconds.setMax(1.0, timeUnit="sec")
+        seconds.setRange(maximum=1.0, timeUnit="sec")
         self.assertAlmostEqual(cmds.attributeQuery("clipSec", node=self.node_name, maximum=True)[0], 30.0)
-        seconds.setMin(om2.MTime(10, om2.MTime.uiUnit()), timeUnit="sec")
+        seconds.setRange(om2.MTime(10, om2.MTime.uiUnit()), timeUnit="sec")
         self.assertAlmostEqual(cmds.attributeQuery("clipSec", node=self.node_name, minimum=True)[0], 10.0)
         with self.assertRaises(ValueError):
             self.transform.addAttr("badTime", attributeType="time", timeUnit="minute")

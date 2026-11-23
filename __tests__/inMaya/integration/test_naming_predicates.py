@@ -13,7 +13,24 @@ import maya.cmds as cmds
 
 import mlib
 
-_PRESERVED_NAMES = {("Node", "isType"), ("Plug", "isSource"), ("Plug", "isMultiElement"), ("Plugin", "isLoaded"), ("Matrix", "isIdentity")}
+_PRESERVED_NAMES = {("Node", "isType"), ("Plugin", "isLoaded"), ("Matrix", "isIdentity")}
+
+#: フラグ・引数へまとめて無くした Plug の判定(isConnected・isMulti・isCompound・isValid・getFlags・getRange へ)。
+_MERGED_PLUG_PREDICATES = (
+    "isSource",
+    "isDestination",
+    "isConnectedTo",
+    "isMultiElement",
+    "isChild",
+    "isExisting",
+    "isKeyable",
+    "isChannelBox",
+    "isHidden",
+    "hasMin",
+    "hasMax",
+    "hasSoftMin",
+    "hasSoftMax",
+)
 
 
 def _predicate_definitions():
@@ -59,6 +76,18 @@ class PredicateAliasesTest(unittest.TestCase):
                         inspect.getattr_static(owner, short)
         self.assertFalse((Path(mlib.__file__).parent / "core/getterAlias.py").exists())
 
+    def test_merged_plug_predicates_are_removed(self):
+        """フラグ・引数へまとめた Plug の判定は、どの Plug のクラスにも残らない。"""
+        defined = {name for _module, owner, name in _predicate_definitions() if owner in mlib.plugs.__all__}
+        for name in _MERGED_PLUG_PREDICATES:
+            with self.subTest(name=name):
+                self.assertNotIn(name, defined)
+                for owner in mlib.plugs.__all__:
+                    self.assertFalse(hasattr(getattr(mlib.plugs, owner), name), f"{owner}.{name} remains")
+        for name in ("isConnected", "isMulti", "isCompound", "isValid", "isLocked"):
+            with self.subTest(name=name):
+                self.assertIn(name, mlib.Plug.__dict__)
+
     def test_canonical_override_and_instance_replacement_remain_available(self):
         """通常のPython差替えと派生メソッドを追加する方法を維持する。"""
         marker = object()
@@ -84,12 +113,19 @@ class PredicateAliasesTest(unittest.TestCase):
         self.assertTrue(src.isConnected(source=False, destination=True))
         self.assertFalse(src.isConnected(source=True, destination=False))
         self.assertTrue(dst.isConnected(source=True, destination=False))
-        self.assertTrue(src.isConnectedTo(dst, source=False, destination=True))
-        self.assertFalse(dst.isConnectedTo(src, source=False, destination=True))
+        self.assertTrue(src.isConnected(dst, source=False, destination=True))
+        self.assertFalse(dst.isConnected(src, source=False, destination=True))
         self.assertFalse(dst.isConnected(source=False, destination=False))
-        self.assertEqual(dst.getSource(skipConversionNodes=True), src)
-        self.assertTrue(src.isSource())
-        self.assertTrue(dst.isDestination())
+        self.assertEqual(dst.getConnections(input=True, skipConversionNodes=True), src)
+        # 引数の名前は調べる相手の側: source=False は「出力がある」、destination=False は「入力がある」。
+        self.assertTrue(src.isConnected(source=False))
+        self.assertFalse(src.isConnected(destination=False))
+        self.assertTrue(dst.isConnected(destination=False))
+        self.assertFalse(dst.isConnected(source=False))
+        for plug, name in ((src, str(src)), (dst, str(dst))):
+            with self.subTest(plug=name):
+                self.assertEqual(plug.isConnected(source=False), cmds.connectionInfo(name, isSource=True))
+                self.assertEqual(plug.isConnected(destination=False), cmds.connectionInfo(name, isDestination=True))
         with self.assertRaises(TypeError):
             dst.isConnected(source=1)
 
@@ -99,8 +135,11 @@ class PredicateAliasesTest(unittest.TestCase):
         array = self.first.getPlug("worldMatrix")
         self.assertTrue(array.isMulti())
         self.assertTrue(self.first.getPlug("translate").isCompound())
-        self.assertTrue(scalar.isChild())
-        self.assertTrue(array[0].isMultiElement())
+        self.assertTrue(scalar.isCompound(child=True))
+        self.assertFalse(scalar.isCompound())
+        self.assertTrue(array[0].isMulti(element=True))
+        self.assertFalse(array[0].isMulti())
+        self.assertFalse(array.isMulti(element=True))
         self.assertEqual(array.getElement(0), array.getElement(0))
         self.first.delete()
         self.assertFalse(self.first.isValid())

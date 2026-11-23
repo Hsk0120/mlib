@@ -172,10 +172,10 @@ class PluralReturnTest(NamespaceCase):
         self.assertIsInstance(root.resetAttrs(), mlib.Plugs)
         # 接続の一覧は、PlugならPlugs、NodeならNodes、組ならlist。
         root.getPlug("tx").connectTo(child.getPlug("tx"))
-        self.assertEqual(root.getPlug("tx").getDestinations(), [child.getPlug("tx")])
-        self.assertIs(type(root.getPlug("tx").getDestinations()), mlib.Plugs)
-        self.assertIs(type(root.getPlug("tx").getDestinations(asNode=True)), mlib.Joints)
-        self.assertIs(type(root.getPlug("tx").getDestinations(asPair=True)), list)
+        self.assertEqual(root.getPlug("tx").getConnections(outputs=True), [child.getPlug("tx")])
+        self.assertIs(type(root.getPlug("tx").getConnections(outputs=True)), mlib.Plugs)
+        self.assertIs(type(root.getPlug("tx").getConnections(outputs=True, asNode=True)), mlib.Joints)
+        self.assertIs(type(root.getPlug("tx").getConnections(outputs=True, asPair=True)), list)
         self.assertIs(type(root.getConnections(source=False, type="joint")), mlib.Plugs)
         # mlib.lsも、typeを指定しなくても、すべてジョイントならJointsで返す。
         self.assertIs(type(mlib.ls(root.getFullName(), child.getFullName())), mlib.Joints)

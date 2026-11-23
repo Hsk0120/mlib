@@ -108,7 +108,7 @@ class JointInverseScaleTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 child = mlib.createNode("joint", name=self.name("child#"), parent=root, fast=fast)
-                self.assertEqual(child.getPlug("inverseScale").getSource(skipConversionNodes=True), root.getPlug("scale"))
+                self.assertEqual(child.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True), root.getPlug("scale"))
         cmds.select(root.getFullName())
         reference = cmds.joint(name=self.name("cmdsChild"))
         self.assertEqual(cmds.listConnections(reference + ".inverseScale", plugs=True), [root.getNodeName() + ".scale"])
@@ -126,7 +126,7 @@ class JointInverseScaleTest(_SpecCase):
     def test_other_parents_are_not_connected(self):
         group = mlib.createNode("transform", name=self.name("grp"))
         joint = mlib.createNode("joint", name=self.name("underGroup"), parent=group)
-        self.assertIsNone(joint.getPlug("inverseScale").getSource(skipConversionNodes=True))
+        self.assertIsNone(joint.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True))
         transform = mlib.createNode("transform", name=self.name("underJoint"), parent=joint)
         self.assertEqual(cmds.listConnections(joint.getFullName() + ".scale") or [], [])
         self.assertTrue(transform.isValid())

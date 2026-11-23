@@ -284,10 +284,10 @@ class Joint(Transform):
         with _edit_context("mlibNodeResetAttrs", fast):
             plugs = super().resetAttrs(attributes, fast=fast, check=check)
             if attributes is None:
-                done = {plug.getLongName() for plug in plugs}
+                done = {plug.getAttributeName() for plug in plugs}
                 for name in ("jointOrientX", "jointOrientY", "jointOrientZ"):
                     plug = self.getPlug(name)
-                    if name not in done and not plug.isDestination() and _writable_plug(plug):
+                    if name not in done and not plug.isConnected(destination=False) and _writable_plug(plug):
                         plug.reset(fast=fast, check=check)
                         plugs.append(plug)
             return Plugs._from_plugs(plugs)
@@ -514,7 +514,7 @@ class Joint(Transform):
                 raise ValueError("inverseScaleの入力元に、そのジョイント自身は指定できません")
             origin = source.getPlug("scale")
             target = self.getPlug("inverseScale")
-            if target.getSource() != origin:
+            if target.getConnections(input=True) != origin:
                 origin.connectTo(target, force=force, fast=fast)
 
     def disconnectInverseScale(self, *, fast=False):
@@ -540,7 +540,7 @@ class Joint(Transform):
         with _edit_context("mlibJointDisconnectInverseScale", fast):
             for name in ("inverseScale", "inverseScaleX", "inverseScaleY", "inverseScaleZ"):
                 target = self.getPlug(name)
-                origin = target.getSource()
+                origin = target.getConnections(input=True)
                 if origin is not None:
                     target.disconnect(origin, fast=fast)
 

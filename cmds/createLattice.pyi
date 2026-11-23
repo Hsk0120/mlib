@@ -62,9 +62,9 @@ def createLattice(targets: str | Node | Component | Iterable, name: str | None =
     Examples:
         >>> import mlib
         >>> ffd = mlib.createLattice("head_geo", divisions=(3, 4, 3), name="head_ffd")
-        >>> lattice = ffd.getPlug("deformedLatticePoints").getSource().getNode()
+        >>> lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode()
 
         >>> ffd = mlib.createLattice(["arm_geo", "hand_geo"], dv=(2, 6, 2), oc=True)
-        >>> base = ffd.getPlug("baseLatticeMatrix").getSource().getNode()
+        >>> base = ffd.getPlug("baseLatticeMatrix").getConnections(input=True).getNode()
     """
     ...

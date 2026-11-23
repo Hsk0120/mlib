@@ -81,7 +81,7 @@ class JointStandardDeleteTest(unittest.TestCase):
         root = mlib.createNode("joint")
         # jointの下へ作ったjointはinverseScaleを自動で接続する(cmds.jointと同じ)。
         child = mlib.createNode("joint", parent=root)
-        self.assertEqual(child.getPlug("inverseScale").getSource(skipConversionNodes=True), root.getPlug("scale"))
+        self.assertEqual(child.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True), root.getPlug("scale"))
         root.delete(skipConnected=True)
         self.assertTrue(root.isValid())
         self.assertTrue(child.isValid())

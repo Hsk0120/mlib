@@ -57,7 +57,7 @@ class BakeResultsTest(NamespaceCase):
     def test_attributes_time_and_sample(self):
         """attributes・time・sampleBy を cmds.bakeResults へ渡し、指定したアトリビュートのカーブだけを返す。"""
         curves = bakeResults([self.target], attributes=["tx", "rotate"], time=(2, 6), sampleBy=2, simulation=True)
-        driven = {plug.getLongName() for curve in curves for plug in curve.getDrivenPlugs()}
+        driven = {plug.getAttributeName() for curve in curves for plug in curve.getDrivenPlugs()}
         self.assertEqual(driven, {"translateX", "rotateX", "rotateY", "rotateZ"})
         self.assertEqual(cmds.keyframe(self.target + ".translateX", query=True, timeChange=True), [2.0, 4.0, 6.0])
         self.assertFalse(cmds.listConnections(self.target + ".translateY", source=True, destination=False, type="animCurve"))

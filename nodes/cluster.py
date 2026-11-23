@@ -14,5 +14,5 @@ class Cluster(GeometryFilter):
         Returns:
             Node | None: クラスターハンドルのTransform。見つからない場合は ``None``。
         """
-        source = self.getPlug("matrix").getSource()
+        source = self.getPlug("matrix").getConnections(input=True)
         return None if source is None else source.getNode()

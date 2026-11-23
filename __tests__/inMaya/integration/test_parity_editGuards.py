@@ -43,11 +43,11 @@ class GuardTest(NamespaceCase):
         b = cmds.joint(name=self.name("b"), position=(2, 1, 0))
         end = cmds.joint(name=self.name("end"), position=(4, 0, 0))
         handle = mlib.getNode(cmds.ikHandle(startJoint=a, endEffector=end, solver="ikRPsolver")[0])
-        before = handle.getPlug("startJoint").getSource()
+        before = handle.getPlug("startJoint").getConnections(input=True)
         cmds.flushUndo()
         with self.assertRaises(NotImplementedError):
             handle.setChain(b, end)
-        self.assertEqual(handle.getPlug("startJoint").getSource(), before)
+        self.assertEqual(handle.getPlug("startJoint").getConnections(input=True), before)
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
     def test_surface_rejects_uv_and_lock(self):

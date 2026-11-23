@@ -3,8 +3,9 @@
 旧名(別名を含む)が単数・複数形クラスのどこにも残らないこと、新名が単数に定義されること、
 複数形クラスが単数への一括転送を持たないこと、mlib 本体のソースに旧名の def が無いことを確かめる。
 lowerCamelCase へ改名した公開引数に旧名が残らないことも確かめる。
-マルチアトリビュートの呼び名へ揃えた ``MultiPlug``・``isMulti``・``isMultiElement``・``getMulti`` について、
+マルチアトリビュートの呼び名へ揃えた ``MultiPlug``・``isMulti``・``getMulti`` について、
 旧名(``ArrayPlug``・``isArray``・``isElement``・``getArray``)が公開APIに残らないことも確かめる。
+フラグ・引数へまとめて無くした Plug のメソッド(``MERGED_PLUG``)が、Plug のどのクラスにも残らないことも確かめる。
 個々の新しい約束(引数・戻り値・Undo・fast)は test_spec_node_*/dag_*/transform_*/plug_* が受け持つ。
 """
 
@@ -47,7 +48,28 @@ REMOVED = {
 }
 
 #: マルチアトリビュートの呼び名へ改名したPlugの判定・取得(旧名, 新名)。
-RENAMED_MULTI = (("isArray", "isMulti"), ("isElement", "isMultiElement"), ("getArray", "getMulti"))
+RENAMED_MULTI = (("isArray", "isMulti"), ("isElement", "isMulti"), ("getArray", "getMulti"))
+
+#: フラグ・引数へまとめて無くした Plug のメソッド(無くした名前の並び, まとめた先)。
+#: show・hide・getShortName のように別のクラスが持つ名前もあるので、REMOVED(複数形とソース全体を見る)とは分ける。
+MERGED_PLUG = (
+    (("getMin", "getMax", "hasMin", "hasMax", "getSoftMin", "getSoftMax", "hasSoftMin", "hasSoftMax", "getSoftRange"), "getRange"),
+    (("setMin", "setMax", "setSoftMin", "setSoftMax", "setSoftRange"), "setRange"),
+    (("isSource", "isDestination", "isConnectedTo"), "isConnected"),
+    (("setKeyable", "setChannelBox", "show", "hide"), "setFlags"),
+    (("isKeyable", "isChannelBox", "isHidden"), "getFlags"),
+    (("disconnectInput",), "disconnectAll"),
+    (("getConnectedIndices",), "getIndices"),
+    (("getElementByPhysicalIndex", "getElements"), "getElement"),
+    (("isMultiElement",), "isMulti"),
+    (("isChild",), "isCompound"),
+    (("getAllParents",), "getParent"),
+    (("getAnimCurveType",), "getAnimCurve"),
+    (("getEnumName", "getEnumValue"), "getEnumNames"),
+    (("isExisting",), "isValid"),
+    (("getSource", "getDestinations"), "getConnections"),
+    (("getLongName", "getShortName", "getNiceName"), "getAttributeName"),
+)
 
 #: 単数クラスと対応する複数形クラス。
 PLURALS = {Node: Nodes, Joint: Joints}
@@ -154,18 +176,57 @@ class RemovedNamesTest(unittest.TestCase):
                 self.assertTrue(callable(getattr(Plug, name)))
 
     def test_lock_and_mute_use_set_methods(self):
-        """lock/unlock/mute/unmuteは無く、setLocked/setMutedだけを持つ。show/hideは残す。"""
+        """lock/unlock/mute/unmuteは無く、setLocked/setMutedだけを持つ。Channel Boxの表示はsetFlags/getFlagsで扱う。"""
         for name in ("lock", "unlock", "mute", "unmute", "getAttrName"):
             with self.subTest(name=name):
                 self.assertFalse(hasattr(Plug, name))
-        for name in ("setLocked", "setMuted", "show", "hide", "isHidden"):
+        for name in ("setLocked", "setMuted", "isLocked", "setFlags", "getFlags"):
             with self.subTest(name=name):
                 self.assertIn(name, Plug.__dict__)
         self.assertIn("fast", inspect.signature(Plug.setLocked).parameters)
 
+    def test_merged_plug_methods_are_removed(self):
+        """フラグ・引数へまとめたメソッドはどのPlugクラスにも無く、まとめた先はPlugかMultiPlugに定義される。"""
+        for names, target in MERGED_PLUG:
+            with self.subTest(target=target):
+                self.assertTrue(target in Plug.__dict__ or target in MultiPlug.__dict__)
+            for name in names:
+                for owner in mlib.plugs.__all__:
+                    with self.subTest(cls=owner, name=name):
+                        self.assertFalse(hasattr(getattr(mlib.plugs, owner), name), f"{owner}.{name} remains")
+
+    def test_merged_plug_arguments(self):
+        """まとめた先の引数は、位置で渡す値(範囲・相手・番号・名前の種類)を除いてキーワード専用。"""
+        expected = {
+            "getRange": ("soft", "unit", "timeUnit", "uiUnits"),
+            "setRange": ("soft", "unit", "timeUnit"),
+            "isConnected": ("source", "destination"),
+            "setFlags": ("locked", "keyable", "channelBox", "children", "leaf", "fast"),
+            "disconnectAll": ("source", "destination", "fast"),
+            "isMulti": ("element",),
+            "isCompound": ("child",),
+            "getParent": ("all", "includeMulti"),
+            "getAnimCurve": ("indirect", "suitableType", "timeInput"),
+            "getEnumNames": ("value", "name", "current"),
+            "isValid": ("elements",),
+            "getConnections": ("input", "outputs"),
+        }
+        for method, names in expected.items():
+            parameters = inspect.signature(getattr(Plug, method)).parameters
+            for name in names:
+                with self.subTest(method=method, name=name):
+                    self.assertEqual(parameters[name].kind, inspect.Parameter.KEYWORD_ONLY)
+        for method, names in (("getIndices", ("connected",)), ("getElement", ("physical",))):
+            parameters = inspect.signature(getattr(MultiPlug, method)).parameters
+            for name in names:
+                with self.subTest(method=method, name=name):
+                    self.assertEqual(parameters[name].kind, inspect.Parameter.KEYWORD_ONLY)
+        self.assertEqual(list(inspect.signature(Plug.getFlags).parameters), ["self"])
+        self.assertEqual(inspect.signature(Plug.getAttributeName).parameters["kind"].default, "long")
+
     def test_connections_do_not_skip_conversion_nodes_by_default(self):
         """接続照会のskipConversionNodes・scnは既定False(cmds.listConnectionsと同じ直結)。"""
-        for function in (Node.getConnections, Plug.getConnections, Plug.getSource, Plug.getDestinations):
+        for function in (Node.getConnections, Plug.getConnections):
             parameters = inspect.signature(function).parameters
             with self.subTest(function=function.__qualname__):
                 self.assertIs(parameters["skipConversionNodes"].default, False)
@@ -179,7 +240,7 @@ class RemovedNamesTest(unittest.TestCase):
 
 
 class MultiRenameTest(unittest.TestCase):
-    """マルチアトリビュートの改名: ArrayPlug → MultiPlug、isArray/isElement/getArray → isMulti/isMultiElement/getMulti。
+    """マルチアトリビュートの改名: ArrayPlug → MultiPlug、isArray/isElement/getArray → isMulti/isMulti(element=True)/getMulti。
 
     互換の別名・旧モジュールは残さない。
     """
@@ -290,14 +351,15 @@ class RequiredNamesTest(unittest.TestCase):
                 self.assertIn("fast", parameters)
                 self.assertEqual(parameters["fast"].kind, inspect.Parameter.KEYWORD_ONLY)
 
-    def test_enum_name_accepts_value(self):
-        parameters = inspect.signature(Plug.getEnumName).parameters
-        self.assertIn("value", parameters)
-        self.assertIsNone(parameters["value"].default)
-        self.assertTrue(callable(Plug.getEnumNames))
+    def test_enum_names_accepts_value(self):
+        parameters = inspect.signature(Plug.getEnumNames).parameters
+        for name in ("value", "name"):
+            with self.subTest(name=name):
+                self.assertIsNone(parameters[name].default)
+        self.assertIs(parameters["current"].default, False)
 
     def test_ui_units_on_limits(self):
-        for name in ("getMin", "getMax", "getSoftMin", "getSoftMax", "getDefault"):
+        for name in ("getRange", "getDefault"):
             with self.subTest(name=name):
                 parameters = inspect.signature(getattr(Plug, name)).parameters
                 self.assertIn("uiUnits", parameters)

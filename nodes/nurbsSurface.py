@@ -879,12 +879,12 @@ class NurbsSurface(Shape):
         if uv_count:
             raise NotImplementedError("明示テクスチャUVを持つ曲面のノット編集には対応していません")
         create = self.getPlug("create")
-        if create.getSource() is not None:
+        if create.getConnections(input=True) is not None:
             raise NotImplementedError("ヒストリ付き曲面のノット編集には対応していません")
         require_writable(create.mplug())
-        for point in self.getPlug("controlPoints").getElements():
+        for point in self.getPlug("controlPoints").getElement():
             for plug in [point, *point.getChildren()]:
-                if plug.isLocked() or plug.getSource() is not None:
+                if plug.isLocked() or plug.getConnections(input=True) is not None:
                     raise NotImplementedError("CVのロック・接続がある曲面のノット編集には対応していません")
 
     def _geometry_fn(self):

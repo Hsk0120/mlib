@@ -19,21 +19,21 @@ class ResponsibilityTest(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg")
 
-    def test_disconnect_input_preserves_outputs_and_undo(self):
+    def test_disconnect_all_input_only_preserves_outputs_and_undo(self):
         """入力だけ解除し、未接続・Undo/Redo・変換ノードを維持する。"""
         a, b, c = [mlib.createNode("transform") for _ in range(3)]
         a.getPlug("tx").connectTo(b.getPlug("rx"))
         b.getPlug("rx").connectTo(c.getPlug("rx"))
-        source = b.getPlug("rx").getSource()
-        self.assertIsNone(b.getPlug("rx").disconnectInput())
-        self.assertIsNone(b.getPlug("rx").getSource())
-        self.assertTrue(b.getPlug("rx").isConnectedTo(c.getPlug("rx")))
+        source = b.getPlug("rx").getConnections(input=True)
+        self.assertIsNone(b.getPlug("rx").disconnectAll(destination=False))
+        self.assertIsNone(b.getPlug("rx").getConnections(input=True))
+        self.assertTrue(b.getPlug("rx").isConnected(c.getPlug("rx")))
         self.assertTrue(source.getNode().isValid())
         cmds.undo()
-        self.assertEqual(b.getPlug("rx").getSource(), source)
+        self.assertEqual(b.getPlug("rx").getConnections(input=True), source)
         cmds.redo()
         before = cmds.undoInfo(query=True, undoName=True)
-        b.getPlug("rx").disconnectInput()
+        b.getPlug("rx").disconnectAll(destination=False)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), before)
 
     def test_disconnect_compound_input_keeps_outputs(self):
@@ -41,11 +41,11 @@ class ResponsibilityTest(unittest.TestCase):
         a, b, c = [mlib.createNode("transform") for _ in range(3)]
         a.getPlug("translate").connectTo(b.getPlug("translate"))
         b.getPlug("tx").connectTo(c.getPlug("tx"))
-        b.getPlug("translate").disconnectInput()
-        self.assertIsNone(b.getPlug("translate").getSource())
-        self.assertTrue(b.getPlug("tx").isConnectedTo(c.getPlug("tx")))
+        b.getPlug("translate").disconnectAll(destination=False)
+        self.assertIsNone(b.getPlug("translate").getConnections(input=True))
+        self.assertTrue(b.getPlug("tx").isConnected(c.getPlug("tx")))
         cmds.undo()
-        self.assertEqual(b.getPlug("translate").getSource(), a.getPlug("translate"))
+        self.assertEqual(b.getPlug("translate").getConnections(input=True), a.getPlug("translate"))
 
     def test_multi_failed_edit_does_not_create_elements(self):
         """不正値・入力元・ロックの失敗前にマルチアトリビュートの穴を実体化しない。"""

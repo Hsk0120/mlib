@@ -348,8 +348,8 @@ class WritablePlugsTest(_KeyCase):
         cmds.setKeyframe(name, attribute="rx", time=1, value=5)
         cmds.connectAttr(driver.getFullName() + ".ty", name + ".sx")
         cmds.setAttr(name + ".scale", lock=True)
-        keyable = [plug.getLongName() for plug in node.getPlugs(keyable=True)]
-        writable = [plug.getLongName() for plug in node.getPlugs(keyable=True, writable=True)]
+        keyable = [plug.getAttributeName() for plug in node.getPlugs(keyable=True)]
+        writable = [plug.getAttributeName() for plug in node.getPlugs(keyable=True, writable=True)]
         self.assertEqual(writable, [plug for plug in keyable if plug not in ("translateY", "translateZ", "scaleX", "scaleY", "scaleZ")])
         self.assertIn("rotateX", writable)
         self.assertEqual(node.getPlugs(writable=False), node.getPlugs())

@@ -262,7 +262,7 @@ class ResetAttrsTest(_SpecCase):
         plugs = node.resetAttrs()
         self.assertIsInstance(plugs, mlib.Plugs)
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
-        self.assertEqual([plug.getLongName() for plug in plugs], list(self.KEYABLE))
+        self.assertEqual([plug.getAttributeName() for plug in plugs], list(self.KEYABLE))
         self.assertValues(name, [(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (0.1, 0.2, 0.3)])
         self.assertTrue(cmds.getAttr(name + ".visibility"))
         self.assertUndoesInOneStep(
@@ -274,7 +274,7 @@ class ResetAttrsTest(_SpecCase):
         name = self._dirty()
         node = Node(name)
         plugs = node.resetAttrs([node.getPlug("tx"), "scale", node.shear])
-        self.assertEqual([plug.getLongName() for plug in plugs], ["translateX", "scale", "shear"])
+        self.assertEqual([plug.getAttributeName() for plug in plugs], ["translateX", "scale", "shear"])
         self.assertValues(name, [(0.0, 2.0, 3.0), (10.0, 20.0, 30.0), (1.0, 1.0, 1.0), (0.0, 0.0, 0.0)])
         other = Node(self.make())
         with self.assertRaisesRegex(ValueError, "のものではありません"):
@@ -288,11 +288,11 @@ class ResetAttrsTest(_SpecCase):
                 cmds.setAttr(name + ".translateX", 1.0)
                 cmds.setAttr(name + ".scale", 2.0, 3.0, 4.0)
                 plugs = node.resetAttrs(**flags)
-                self.assertEqual([plug.getLongName() for plug in plugs], ["translateX", "scale"])
+                self.assertEqual([plug.getAttributeName() for plug in plugs], ["translateX", "scale"])
                 self.assertEqual(cmds.getAttr(name + ".translate")[0], (0.0, 2.0, 3.0))
                 self.assertEqual(cmds.getAttr(name + ".scale")[0], (1.0, 1.0, 1.0))
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (10.0, 20.0, 30.0))
-        self.assertEqual([plug.getLongName() for plug in node.resetAttrs("rotate")], ["rotate"])
+        self.assertEqual([plug.getAttributeName() for plug in node.resetAttrs("rotate")], ["rotate"])
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (0.0, 0.0, 0.0))
 
     def test_fast_has_no_undo(self):

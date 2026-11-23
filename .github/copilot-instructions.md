@@ -134,7 +134,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 
 - Maya へ問い合わせる操作はメソッド、オブジェクトが保持する値はプロパティ。シーン更新は明示的なメソッドで行う。
 - 公開メソッドを増やしすぎない。アトリビュート1つを読み書きするだけ・om2 の値を1つ返すだけの専用メソッドは、利用側で使うものだけを置く。
-  それ以外は `node.getPlug("x").get()`/`set()`(enum は `Plug.getEnumName()` と Maya のフィールド名の `Plug.set("Divide")`)や `mfn()` で書く。
+  それ以外は `node.getPlug("x").get()`/`set()`(enum は `Plug.getEnumNames(current=True)` と Maya のフィールド名の `Plug.set("Divide")`)や `mfn()` で書く。
   似たメソッドは、違いをキーワード専用の引数で選ぶ1つにまとめる。
 - 計算ノード(`multiplyDivide`・`plusMinusAverage`・`condition`・`decomposeMatrix` など27型)のクラスは、型の選択と `isinstance` のために置き、専用メソッドは持たない。
 
@@ -312,7 +312,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   `tolerance`(ノード・コンポーネントのメソッド。数学型の `isEquivalent(other, tolerance)` などは OpenMaya と同じ位置引数のまま)と、
   `getConnections` のフラグ全部。位置で受けるのは、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
   同じ意味の引数を、メソッドによって位置引数とキーワード専用で分けない。
-- オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setKeyable`・`setChannelBox`・`setMuted`・
+- オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setMuted`・
   `setShadingOverride`・`setSegmentScaleCompensate`・`setInfluenceLocked`・`Edge.setSmooth`)。
 - `fast` を持つ値の書き込みは `check` も持つ(UV・頂点カラーのように、切り替える事前確認が無いものは除く)。
 - 意味ごとに引数名を分ける(2026-11-16)。`safe=True` は「失敗しても例外にしない」だけに使う(`Plug.set` は失敗数を返す、
@@ -398,14 +398,23 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ### Plug
 
-- 用語: 要素を持つものは「マルチアトリビュート」(`MultiPlug`・`isMulti()`、要素は `isMultiElement()`・`getMulti()`・論理番号 `getIndex()`)、
-  子を持つものは「コンパウンドアトリビュート」(`CompoundPlug`・`isCompound()`、子は `isChild()`・`getParent()`)。
+- 用語: 要素を持つものは「マルチアトリビュート」(`MultiPlug`・`isMulti()`、要素は `isMulti(element=True)`・`getMulti()`・論理番号 `getIndex()`)、
+  子を持つものは「コンパウンドアトリビュート」(`CompoundPlug`・`isCompound()`、子は `isCompound(child=True)`・`getParent()`)。
   om2 の `MPlug.isArray`/`isElement` の名前を mlib 側に持ち込まない。例外の文言でも「マルチアトリビュート」「マルチアトリビュートの要素」「コンパウンドアトリビュート」と書く。
-- `multi[index]` は未作成の要素も参照を返す。既存要素だけは `getElements()`、存在は `index in multi`。
+- `multi[index]`・`getElement(index)` は未作成の要素も参照を返す。既存要素だけは `getElement()`(index を省く)か反復、存在は `index in multi`。
+  接続のある番号は `getIndices(connected=True)`、物理番号は `getElement(index, physical=True)`。
 - コンパウンドアトリビュートの子は `compound[index]`・`compound[name]`。
 - `Plug.get/set` は対象アトリビュートだけを扱い、マトリクスアトリビュートから所有ノードの TRS 更新へ暗黙に切り替えない(ノードの変換は `Transform.getMatrix/setMatrix`)。
 - 演算子は `src >> dst`・`dst << src`・`src // dst` の3つだけ。`__len__`・`__add__` 等を足さない。
-- 接続元・接続先は `getSource`/`getDestinations`、方向付きの照会は `getConnections`。`skipConversionNodes`(`scn`)の既定は False。
+- 接続の相手は `getConnections` の1つ。この Plug 自身の入力元(1つか None)は `getConnections(input=True)`、出力先(Plugs)は `getConnections(outputs=True)`
+  (子・要素はたどらない。向き・たどり方の指定とは同時に指定できない)。`getConnections(destination=False)` は子・要素もたどる Plugs なので、`is None` の判定に使わない。
+  `skipConversionNodes`(`scn`)の既定は False。接続の有無は `isConnected(other=None, *, source=True, destination=True)`
+  (入力があるかは `isConnected(destination=False)`、出力があるかは `isConnected(source=False)`。引数は調べる相手の側)。入力だけ切るのは `disconnectAll(destination=False)`。
+- 似たメソッドは引数でまとめてある(単機能の別名を足さない): 範囲は `getRange(*, soft=False)`・`setRange(minimum, maximum, *, soft=False)`(省略した側は変えず、None は制限を外す)、
+  状態は `setFlags(locked=, keyable=, channelBox=, children=, leaf=)` と `getFlags()`(`locked`・`keyable`・`channelBox`・`hidden` の辞書。`isLocked`/`setLocked` は残す)、
+  アトリビュート自身の名前は `getAttributeName(kind="long"|"short"|"nice")`(ノード名・親・番号を含まない。`getName`・`getFullName` とは別)、
+  親は `getParent(*, all=False, includeMulti=False)`、要素まで実在するかは `isValid(elements=True)`、enum は `getEnumNames(*, value=None, name=None, current=False)`、
+  この Plug に合うアニメーションカーブの型は `getAnimCurve(suitableType=True)`(つながっているカーブの型ではない)。
 
 ### 複数形
 

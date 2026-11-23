@@ -103,12 +103,12 @@ class JointTest(unittest.TestCase):
         child = self.create_joint("connectChild", parent)
         for joint in (parent, child):
             joint.disconnectInverseScale()
-        self.assertIsNone(child.getPlug("inverseScale").getSource())
+        self.assertIsNone(child.getPlug("inverseScale").getConnections(input=True))
         for joint in (parent, child):
             joint.connectInverseScale()
-        self.assertEqual(child.getPlug("inverseScale").getSource(), parent.getPlug("scale"))
+        self.assertEqual(child.getPlug("inverseScale").getConnections(input=True), parent.getPlug("scale"))
         cmds.undo()
-        self.assertIsNone(child.getPlug("inverseScale").getSource())
+        self.assertIsNone(child.getPlug("inverseScale").getConnections(input=True))
         child.connectInverseScale(parent.getFullName())
         child.connectInverseScale()  # 同じ接続はそのまま
         child.disconnectInverseScale()
@@ -116,9 +116,9 @@ class JointTest(unittest.TestCase):
         parent.getPlug("sy").connectTo(child.getPlug("inverseScaleY"))
         child.getPlug("inverseScaleZ").connectTo(parent.getPlug("radius"))
         child.disconnectInverseScale()
-        self.assertIsNone(child.getPlug("inverseScaleX").getSource())
-        self.assertIsNone(child.getPlug("inverseScaleY").getSource())
-        self.assertEqual(parent.getPlug("radius").getSource(), child.getPlug("inverseScaleZ"))
+        self.assertIsNone(child.getPlug("inverseScaleX").getConnections(input=True))
+        self.assertIsNone(child.getPlug("inverseScaleY").getConnections(input=True))
+        self.assertEqual(parent.getPlug("radius").getConnections(input=True), child.getPlug("inverseScaleZ"))
         with self.assertRaises(ValueError):
             child.connectInverseScale(child)
 
@@ -640,7 +640,7 @@ class ResetAttrsTest(_SpecCaseJoint):
                 name = self.build()
                 cmds.flushUndo()
                 plugs = Node(name).resetAttrs(fast=fast)
-                self.assertEqual([plug.getLongName() for plug in plugs], [*self.KEYABLE, "jointOrientX", "jointOrientY", "jointOrientZ"])
+                self.assertEqual([plug.getAttributeName() for plug in plugs], [*self.KEYABLE, "jointOrientX", "jointOrientY", "jointOrientZ"])
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rotate")[0], (0.0, 0.0, 0.0))
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
                 if fast:
@@ -658,17 +658,17 @@ class ResetAttrsTest(_SpecCaseJoint):
                 cmds.setAttr(name + ".jointOrientX", lock=True)
                 cmds.connectAttr(source + ".translateY", name + ".jointOrientY")
                 plugs = Node(name).resetAttrs(fast=fast)
-                self.assertEqual([plug.getLongName() for plug in plugs], [*self.KEYABLE, "jointOrientZ"])
+                self.assertEqual([plug.getAttributeName() for plug in plugs], [*self.KEYABLE, "jointOrientZ"])
                 self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 0.0, 0.0))
 
     def test_explicit_attributes_keep_joint_orient(self):
         name = self.build()
         joint = Node(name)
         plugs = joint.resetAttrs(["rotate"])
-        self.assertEqual([plug.getLongName() for plug in plugs], ["rotate"])
+        self.assertEqual([plug.getAttributeName() for plug in plugs], ["rotate"])
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (5.0, 6.0, 7.0))
         plugs = joint.resetAttrs("jointOrient")
-        self.assertEqual([plug.getLongName() for plug in plugs], ["jointOrient"])
+        self.assertEqual([plug.getAttributeName() for plug in plugs], ["jointOrient"])
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".jointOrient")[0], (0.0, 0.0, 0.0))
 
     def test_plural(self):

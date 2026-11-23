@@ -21,7 +21,7 @@ class PlugQueriesTest(NamespaceCase):
         parent[3].getChildren()[0].set(1)
         parent[9].getChildren()[1].set(2)
         self.flushUndo()
-        self.assertEqual([p.getLongName() for p in parent.getDescendants(leavesOnly=True)], ["first", "second", "first", "second"])
+        self.assertEqual([p.getAttributeName() for p in parent.getDescendants(leavesOnly=True)], ["first", "second", "first", "second"])
         self.assertEqual([p.getIndex() for p in parent.getDescendants(levels=1)], [3, 9])
         self.assertEqual(len(parent.getDescendants()), 6)
         self.assertEqual(len(parent.getDescendants(levels=1, leavesOnly=True)), 0)
@@ -104,7 +104,7 @@ class PlugQueriesTest(NamespaceCase):
         items = node.getPlug("items")
         self.flushUndo()
         children = items[20].getDescendants(leavesOnly=True)
-        self.assertEqual([child.getLongName() for child in children], ["itemX", "itemY", "itemZ"])
+        self.assertEqual([child.getAttributeName() for child in children], ["itemX", "itemY", "itemZ"])
         self.assertEqual(items.getIndices(), [])
         self.assertUndoEmpty()
 
@@ -127,16 +127,16 @@ class PlugQueriesTest(NamespaceCase):
     def test_soft_range_and_prevalidation(self):
         node = mlib.Node(self.make())
         plug = node.addAttr("amount", attributeType="double")
-        plug.setSoftRange(1, 4)
-        self.assertEqual(plug.getSoftRange(), (1, 4))
+        plug.setRange(1, 4, soft=True)
+        self.assertEqual(plug.getRange(soft=True), (1, 4))
         self.flushUndo()
         with self.assertRaises(ValueError):
-            plug.setSoftRange(5, 2)
+            plug.setRange(5, 2, soft=True)
         with self.assertRaises(NotImplementedError):
-            plug.setSoftRange(None, 2)
+            plug.setRange(None, 2, soft=True)
         with self.assertRaises(ValueError):
             plug.setRange(0, float("inf"))
-        self.assertEqual(plug.getSoftRange(), (1, 4))
+        self.assertEqual(plug.getRange(soft=True), (1, 4))
         self.assertUndoEmpty()
 
     def test_range_angle_and_time_units(self):

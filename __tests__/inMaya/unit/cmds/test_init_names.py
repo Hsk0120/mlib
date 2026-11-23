@@ -76,11 +76,11 @@ class CommandNamesTest(unittest.TestCase):
         try:
             enum = node.addAttr("mode", attributeType="enum", enumName="one:two")
             enum.setEnumNames(["local", "world", "foot"])
-            self.assertEqual(enum.getEnumValue("foot"), 2)
+            self.assertEqual(enum.getEnumNames(name="foot"), 2)
             cmds.undo()
-            self.assertEqual(enum.getEnumValue("two"), 1)
+            self.assertEqual(enum.getEnumNames(name="two"), 1)
             cmds.redo()
-            self.assertEqual(enum.getEnumValue("world"), 1)
+            self.assertEqual(enum.getEnumNames(name="world"), 1)
         finally:
             node.delete()
 

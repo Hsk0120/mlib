@@ -51,7 +51,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
         self.assertEqual(cmds.ls(selection=True, long=True), selected)
         self.assertEqual(cmds.getAttr(blend.getFullName() + ".inputTarget[0].sculptTargetIndex"), 3)
         self.assertAlmostEqual(cmds.pointPosition(mesh.getFullName() + ".vtx[0]", local=True)[1], 1.5)
-        self.assertEqual(blend.getPlug(self.input_path(blend).split(".", 1)[1]).getSource().getNode(), mesh)
+        self.assertEqual(blend.getPlug(self.input_path(blend).split(".", 1)[1]).getConnections(input=True).getNode(), mesh)
         name = mesh.getFullName()
         cmds.undo()
         self.assertFalse(cmds.objExists(name))

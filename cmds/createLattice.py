@@ -72,10 +72,10 @@ def createLattice(targets, name=_UNSET, divisions=_UNSET, ldivisions=_UNSET, obj
     Examples:
         >>> import mlib
         >>> ffd = mlib.createLattice("head_geo", divisions=(3, 4, 3), name="head_ffd")
-        >>> lattice = ffd.getPlug("deformedLatticePoints").getSource().getNode()
+        >>> lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode()
 
         >>> ffd = mlib.createLattice(["arm_geo", "hand_geo"], dv=(2, 6, 2), oc=True)
-        >>> base = ffd.getPlug("baseLatticeMatrix").getSource().getNode()
+        >>> base = ffd.getPlug("baseLatticeMatrix").getConnections(input=True).getNode()
     """
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.node import Node

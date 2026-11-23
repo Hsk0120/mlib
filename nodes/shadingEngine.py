@@ -42,7 +42,7 @@ class ShadingEngine(ObjectSet):
             ValueError: kindがsurface/volume/displacement以外の場合。
             RuntimeError: ノードが無効な場合。
         """
-        return self.getPlug(self._shader_attribute(kind)).getSource()
+        return self.getPlug(self._shader_attribute(kind)).getConnections(input=True)
 
     def getShader(self, kind="surface"):
         """接続しているシェーダーのノードを取得する。

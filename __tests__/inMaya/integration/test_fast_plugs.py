@@ -70,20 +70,20 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         self.assertEqual(translation.set((1, 2, 3), safe=True, uiUnits=True), 1)
         self.assertEqual(tuple(translation.get()), (100, 0, 300))
 
-    def test_get_source_conversion_flag_and_general_query(self):
+    def test_input_conversion_flag_and_general_query(self):
         """省略・直結を一つのgetterで切替える。一般照会(getConnections)も既定で変換ノードを飛ばす。"""
         source = mlib.createNode("transform").getPlug("tx")
         conversion = mlib.createNode("unitConversion")
         source.connectTo(conversion.getPlug("input"))
         destination = self.node.getPlug("tx")
         conversion.getPlug("output").connectTo(destination)
-        self.assertEqual(destination.getSource(skipConversionNodes=True), source)
-        self.assertEqual(destination.getSource().getNode(), conversion)
+        self.assertEqual(destination.getConnections(input=True, skipConversionNodes=True), source)
+        self.assertEqual(destination.getConnections(input=True).getNode(), conversion)
         self.assertEqual(destination.getConnections(s=True, d=False, skipConversionNodes=True), [source])
         self.assertEqual(destination.getConnections(s=True, d=False), [conversion.getPlug("output")])
-        self.assertEqual(source.getDestinations(skipConversionNodes=True), [destination])
-        self.assertEqual(source.getDestinations(), [conversion.getPlug("input")])
-        self.assertEqual(destination.getSource(asNode=True, skipConversionNodes=True), source.getNode())
+        self.assertEqual(source.getConnections(outputs=True, skipConversionNodes=True), [destination])
+        self.assertEqual(source.getConnections(outputs=True), [conversion.getPlug("input")])
+        self.assertEqual(destination.getConnections(input=True, asNode=True, skipConversionNodes=True), source.getNode())
         self.assertFalse(hasattr(type(destination), "getSourceWithConversion"))
         self.assertFalse(hasattr(type(destination), "getInputs"))
 
@@ -97,16 +97,16 @@ class ConsolidatedPlugsTest(unittest.TestCase):
             cmds, "disconnectAttr", side_effect=AssertionError("cmds disconnect")
         ), patch.object(cmds, "setAttr", side_effect=AssertionError("cmds set")):
             self.assertEqual(source.connectTo(destination, fast=True), destination)
-            self.assertEqual(destination.getSource(), source)
+            self.assertEqual(destination.getConnections(input=True), source)
             destination.setLocked(True, fast=True)
             replacement = self.node.getPlug("ty")
             replacement.set(33, fast=True)
             destination.connect(replacement, force=True, fast=True)
             self.assertTrue(destination.isLocked())
-            self.assertEqual(destination.getSource(), replacement)
+            self.assertEqual(destination.getConnections(input=True), replacement)
             destination.setLocked(False, fast=True)
             destination.disconnectAll(fast=True, source=True, destination=False)
-        self.assertIsNone(destination.getSource(skipConversionNodes=True))
+        self.assertIsNone(destination.getConnections(input=True, skipConversionNodes=True))
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
     def test_normal_connection_undo_restores_existing_multi_constant(self):
@@ -120,7 +120,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         target.connect(source)
         self.assertEqual(target.get(), 21)
         cmds.undo()
-        self.assertIsNone(target.getSource(skipConversionNodes=True))
+        self.assertIsNone(target.getConnections(input=True, skipConversionNodes=True))
         self.assertEqual(target.get(), 7)
         cmds.redo()
         self.assertEqual(target.get(), 21)
@@ -139,9 +139,9 @@ class ConsolidatedPlugsTest(unittest.TestCase):
                     cmds, "undoInfo", side_effect=AssertionError("cmds undoInfo")
                 ):
                     target.connect(source)
-                self.assertEqual(target.getSource(), source)
+                self.assertEqual(target.getConnections(input=True), source)
                 cmds.undo()
-                self.assertIsNone(target.getSource(skipConversionNodes=True))
+                self.assertIsNone(target.getConnections(input=True, skipConversionNodes=True))
                 self.assertEqual(target.get(), value)
                 self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
@@ -266,12 +266,12 @@ class ConsolidatedPlugsTest(unittest.TestCase):
             with self.assertRaises(TypeError):
                 array.getElement(4, create=True)
         self.assertFalse(hasattr(array, "addElement"))
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
         element.set(2)
         self.assertEqual(array.getElement(4).get(), 2)
         cmds.undo()
-        self.assertEqual(array.getElements(), [])
+        self.assertEqual(array.getElement(), [])
 
     def test_connection_undo_record_does_not_read_proxy_or_uninitialized_matrix(self):
         """定数のUndo保護がproxyや未初期化matrixの接続を妨げない。"""
@@ -281,7 +281,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         matrix = mlib.createNode("distanceBetween").getPlug("inMatrix1")
         source = self.node.getPlug("worldMatrix")[0]
         self.assertEqual(matrix.connect(source), matrix)
-        self.assertEqual(matrix.getSource(), source)
+        self.assertEqual(matrix.getConnections(input=True), source)
 
     def test_fast_alias_and_mute_query(self):
         """別名をAPIで編集し、muteの状態照会もAPIで読む。"""

@@ -54,7 +54,7 @@ class NodeApiTest(unittest.TestCase):
 
         element = multi_plug[1]
         element.set(2)
-        self.assertEqual(element.getLongName(), "samples")
+        self.assertEqual(element.getAttributeName(), "samples")
         self.assertTrue(element.getFullName().endswith("[1]"))
 
         multi_plug.removeElement(1)
@@ -74,9 +74,9 @@ class NodeApiTest(unittest.TestCase):
         multi_plug = target.getPlug("worldMatrix")
         multi_plug.getElement(0)
 
-        elements = multi_plug.getElements()
+        elements = multi_plug.getElement()
         self.assertEqual(len(elements), 1)
-        self.assertTrue(elements[0].isMultiElement())
+        self.assertTrue(elements[0].isMulti(element=True))
 
 
 class _PlugSpecCase(unittest.TestCase):
@@ -130,17 +130,17 @@ class MultiPlugSpecTest(_PlugSpecCase):
         self.assertIs(type(self.array), plugs.MultiPlug)
         self.assertEqual(self.array.get(), {})
         self.assertEqual(self.array.getIndices(), [])
-        self.assertEqual(self.array.getElements(), [])
+        self.assertEqual(self.array.getElement(), [])
         self.assertEqual(list(self.array), [])
         self.assertEqual(self.array.getSourceNodes(), {})
         self.assertTrue(self.array.isMulti())
-        self.assertFalse(self.array.isMultiElement())
+        self.assertFalse(self.array.isMulti(element=True))
 
     def test_reference_does_not_create_but_set_does(self):
         """参照だけでは要素を作らず、setが作る。番号は詰めずにキーへ残る。"""
         element = self.array[5]
         self.assertEqual(element.getFullName(), self.net_name + ".vals[5]")
-        self.assertTrue(element.isMultiElement())
+        self.assertTrue(element.isMulti(element=True))
         self.assertEqual(self.indices(self.net_name + ".vals"), [])
         element.set(1.5)
         self.array[2].set(0.5, fast=True)
@@ -163,17 +163,80 @@ class MultiPlugSpecTest(_PlugSpecCase):
                     self.array[bad]
 
     def test_get_element(self):
-        """getElementは欠番も参照を返し(multi[index]と同じ)、要素を作らない。"""
+        """getElementは欠番も参照を返し(multi[index]と同じ)、要素を作らない。番号を省くと、すでにある要素のPlugs。"""
+        self.assertEqual(self.array.getElement(), [])
+        self.assertIsInstance(self.array.getElement(), plugs.Plugs)
         self.array[3].set(1.0)
         self.assertEqual(self.array.getElement(3).get(), 1.0)
         self.assertEqual(self.array.getElement(index=3).getFullName(), self.net_name + ".vals[3]")
         self.assertEqual(self.array.getElement(4), self.array[4])
         self.assertNotIn(4, self.array)
-        with self.assertRaises(TypeError):
-            self.array.getElement()
+        self.assertEqual(self.array.getElement(), [self.array[3]])
+        self.assertEqual(self.array.getElement(index=None), [self.array[3]])
         with self.assertRaises(TypeError):
             self.array.getElement(True)
+        with self.assertRaises(TypeError):
+            self.array.getElement(physical=True)
+        with self.assertRaises(TypeError):
+            self.array.getElement(3, True)
+        with self.assertRaises(TypeError):
+            self.array.getElement(3, physical=1)
         self.assertEqual(self.indices(self.net_name + ".vals"), [3])
+
+    def test_get_element_without_index_lists_existing(self):
+        """getElement()はgetIndices()の番号の要素を小さい順に返し、for文で回した要素と同じ。欠番は埋めず、要素を作らない。"""
+        for index in (9, 2, 5):
+            self.array[index].set(float(index))
+        self.array[7]
+        cmds.flushUndo()
+        elements = self.array.getElement()
+        self.assertIsInstance(elements, plugs.Plugs)
+        self.assertEqual([element.getIndex() for element in elements], [2, 5, 9])
+        self.assertEqual([element.getIndex() for element in elements], self.array.getIndices())
+        self.assertEqual(list(elements), list(self.array))
+        self.assertEqual([element.getFullName() for element in elements], [f"{self.net_name}.vals[{index}]" for index in (2, 5, 9)])
+        self.assertEqual(self.indices(self.net_name + ".vals"), [2, 5, 9])
+        self.assertIsNot(self.array.getElement(), elements)
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+    def test_get_element_physical(self):
+        """physical=Trueは、Mayaが保持する並びでの位置(MPlug.elementByPhysicalIndex)の要素を返す。"""
+        for index in (9, 2, 5):
+            self.array[index].set(float(index))
+        mplug = self.array.mplug()
+        count = self.array.getElementCount()
+        self.assertEqual(count, 3)
+        for physical in range(count):
+            with self.subTest(physical=physical):
+                element = self.array.getElement(physical, physical=True)
+                self.assertEqual(element.getIndex(), mplug.elementByPhysicalIndex(physical).logicalIndex())
+                self.assertEqual(element, self.array[element.getIndex()])
+        self.assertEqual(sorted(self.array.getElement(i, physical=True).getIndex() for i in range(count)), self.array.getIndices())
+        for bad, error in ((count, IndexError), (-1, IndexError), (True, TypeError), (1.5, TypeError), ("0", TypeError)):
+            with self.subTest(bad=bad):
+                with self.assertRaises(error):
+                    self.array.getElement(bad, physical=True)
+        self.assertEqual(self.indices(self.net_name + ".vals"), [2, 5, 9])
+
+    def test_get_indices_connected(self):
+        """getIndices(connected=True)は接続のある要素の番号だけを返す。値だけの要素は含まない。"""
+        self.assertEqual(self.array.getIndices(connected=True), [])
+        self.array[4].set(1.0)
+        self.array[8].set(2.0)
+        source = cmds.createNode("transform", name=self.namespace + ":indexSource", skipSelect=True)
+        cmds.connectAttr(source + ".translateX", self.net_name + ".vals[8]")
+        cmds.connectAttr(source + ".translateY", self.net_name + ".vals[1]")
+        self.assertEqual(self.array.getIndices(), [1, 4, 8])
+        self.assertEqual(self.array.getIndices(connected=True), [1, 8])
+        self.assertEqual(self.array.getIndices(connected=False), [1, 4, 8])
+        expected = sorted(int(name.rpartition("[")[2][:-1]) for name in cmds.listConnections(self.net_name + ".vals", plugs=True, connections=True)[::2])
+        self.assertEqual(self.array.getIndices(connected=True), expected)
+        for bad in (1, None, "yes"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(TypeError):
+                    self.array.getIndices(connected=bad)
+        with self.assertRaises(TypeError):
+            self.array.getIndices(True)
 
     def test_get_next_available_index(self):
         """getNextAvailable(vacant=True)は既存番号に無い最初の番号。負数は0から。要素を作らない。"""
@@ -270,7 +333,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         child = items[4]["ib"]
         self.assertEqual(child.getFullName(), self.net_name + ".items[4].ib")
         self.assertEqual(child.getParent().getFullName(), self.net_name + ".items[4]")
-        self.assertTrue(child.getParent().isMultiElement())
+        self.assertTrue(child.getParent().isMulti(element=True))
 
     def test_world_space_multi_includes_instances(self):
         """worldMatrixはインスタンス番号の要素を評価前から含む。"""

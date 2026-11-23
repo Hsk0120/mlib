@@ -53,5 +53,5 @@ class Place2dTexture(ShadingDependNode):
                 if texture.hasAttr(target):
                     source = self.getPlug(origin)
                     destination = texture.getPlug(target)
-                    if destination.getSource() != source:
+                    if destination.getConnections(input=True) != source:
                         source.connectTo(destination, force=force, fast=fast)

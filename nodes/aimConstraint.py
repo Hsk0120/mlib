@@ -23,12 +23,12 @@ class AimConstraint(Constraint):
             list[tuple[Plug, Plug]]: 接続元と接続先の組。コンパウンドアトリビュートごと接続している場合は、親どうしの組だけを返す。
         """
         root = self.getPlug("constraintRotate")
-        destinations = root.getDestinations()
+        destinations = root.getConnections(outputs=True)
         result = [(root, destination) for destination in destinations]
         for axis in "XYZ":
             source = self.getPlug("constraintRotate" + axis)
-            for destination in source.getDestinations():
-                if destination.isChild() and destination.getParent() in destinations:
+            for destination in source.getConnections(outputs=True):
+                if destination.isCompound(child=True) and destination.getParent() in destinations:
                     continue
                 result.append((source, destination))
         return result
@@ -112,7 +112,7 @@ class AimConstraint(Constraint):
             parent = self.getPlug(attribute)
             children = [self.getPlug(attribute + axis) for axis in "XYZ"]
             require_editable(self.mnode())
-            if check and any(plug.isLocked() or plug.getSource() is not None for plug in [parent, *children]):
+            if check and any(plug.isLocked() or plug.getConnections(input=True) is not None for plug in [parent, *children]):
                 raise RuntimeError(f"アトリビュートがロックされているか、接続されています: {parent.getFullName()}")
             for plug, component in zip(children, values):
                 plug.set(component, unit="rad", fast=fast)

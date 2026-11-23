@@ -446,7 +446,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         result = {}
         for item in self._item_indices(bi, index):
-            source = self.getPlug(self._item_path(bi, index, item) + ".inputGeomTarget").getSource()
+            source = self.getPlug(self._item_path(bi, index, item) + ".inputGeomTarget").getConnections(input=True)
             result[item] = source.getNode() if source is not None else None
         return result
 
@@ -1588,7 +1588,7 @@ class BlendShape(GeometryFilter):
             # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
             from ..json.plugRef import PlugRef
 
-            plug = weight_plug.getSource(skipConversionNodes=True)
+            plug = weight_plug.getConnections(input=True, skipConversionNodes=True)
             source = None if plug is None else PlugRef.capture(plug)._to_data()
         bases = []
         for bi in self._base_indices():
@@ -1797,7 +1797,7 @@ class BlendShape(GeometryFilter):
                 report._add_skipped(label, "locked")
             elif driver is not None:
                 cmds.connectAttr(str(driver), str(weight), force=True)
-            elif weight.isDestination():
+            elif weight.isConnected(destination=False):
                 report._add_skipped(label, "connected")
             else:
                 weight.set(record["weight"])

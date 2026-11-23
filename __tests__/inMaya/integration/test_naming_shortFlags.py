@@ -254,7 +254,7 @@ class RigCreatorShortFlagsTest(_ShortFlagCase):
             return (node,)
 
         def probe(curves):
-            plugs = sorted(plug.getLongName() for curve in curves for plug in curve.getDrivenPlugs())
+            plugs = sorted(plug.getAttributeName() for curve in curves for plug in curve.getDrivenPlugs())
             times = [_rounded(cmds.keyframe(str(curve), query=True, timeChange=True)) for curve in curves]
             return plugs, times
 

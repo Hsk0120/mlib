@@ -10,9 +10,9 @@ class EnumPlug(Plug):
 
     - getは整数の値を返す。
     - setには整数の値か、フィールド名を渡せる。
-    - getEnumName・getEnumValueで、名前と値を相互に変換できる。
+    - getEnumNamesの ``value``・``name`` で、名前と値を相互に変換できる。
 
-    ``set("head")`` のようにフィールド名を渡すと、:meth:`getEnumValue` で値へ変換してから書き込む。
+    ``set("head")`` のようにフィールド名を渡すと、``getEnumNames(name=...)`` で値へ変換してから書き込む。
     名前は大文字・小文字を区別して、完全に一致するものを探す。通常・fast・safeのどれでも同じ。
     一致しない名前を渡すと、有効な名前を並べたValueErrorになる(``safe=True`` では失敗数1)。
     """

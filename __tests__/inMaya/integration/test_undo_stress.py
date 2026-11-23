@@ -85,11 +85,11 @@ class UndoSequenceStressTest(NamespaceCase):
             if not others:
                 return False
             target = rng.choice(others).getPlug(rng.choice(("tx", "ty", "tz")))
-            if target.getSource() is not None or target.isLocked():
+            if target.getConnections(input=True) is not None or target.isLocked():
                 return False
             node.getPlug(rng.choice(("tx", "ty", "tz"))).connectTo(target)
         elif kind == "key":
-            if any(node.getPlug(name).getSource() is not None for name in ("tx", "ry")):
+            if any(node.getPlug(name).getConnections(input=True) is not None for name in ("tx", "ry")):
                 return False
             node.setKey(["tx", "ry"], time=rng.randrange(1, 50))
         elif kind == "rename":

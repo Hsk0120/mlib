@@ -491,7 +491,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
             (self.node.getPlug("rx"), om2.MAngle(nan)),
         ]
         for plug, value in cases:
-            with self.subTest(plug=plug.getLongName(), value=repr(value)):
+            with self.subTest(plug=plug.getAttributeName(), value=repr(value)):
                 with self.assertRaises(ValueError):
                     plug.set(value, check=True)
         matrix = self.add("mtx", dataType="matrix")
@@ -647,40 +647,40 @@ class PlugEnumSpecTest(_PlugSpecCase):
         self.enum_plug = self.add("en", attributeType="enum", enumName="a=1:b=5:c=10")
 
     def test_names_values_and_field_lookup(self):
-        """番号とフィールド名の往復。getEnumValueは名前から番号、getEnumName(value)は番号から名前。"""
+        """番号とフィールド名の往復。getEnumNames(name=)は名前から番号、getEnumNames(value=)は番号から名前。"""
         plug = self.enum_plug
         plug.set(5)
-        self.assertEqual(plug.getEnumName(), "b")
-        self.assertEqual(plug.getEnumValue("c"), 10)
-        self.assertEqual(plug.getEnumName(1), "a")
-        self.assertEqual(plug.getEnumName(10), "c")
+        self.assertEqual(plug.getEnumNames(current=True), "b")
+        self.assertEqual(plug.getEnumNames(name="c"), 10)
+        self.assertEqual(plug.getEnumNames(value=1), "a")
+        self.assertEqual(plug.getEnumNames(value=10), "c")
         self.assertEqual(cmds.getAttr(plug.getFullName(), asString=True), "b")
         rotate_order = self.node.getPlug("rotateOrder")
-        self.assertEqual(rotate_order.getEnumName(5), "zyx")
-        self.assertEqual(rotate_order.getEnumValue("zyx"), 5)
+        self.assertEqual(rotate_order.getEnumNames(value=5), "zyx")
+        self.assertEqual(rotate_order.getEnumNames(name="zyx"), 5)
 
     def test_missing_field_errors(self):
         """名前・番号に対応するフィールドが無ければValueError。"""
         plug = self.enum_plug
         with self.assertRaises(ValueError):
-            plug.getEnumValue("zz")
+            plug.getEnumNames(name="zz")
         for value in (3, 0, 11, -1):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
-                    plug.getEnumName(value)
+                    plug.getEnumNames(value=value)
         for value in (1.0, True, "1"):
             with self.subTest(bad=value):
                 with self.assertRaises(TypeError):
-                    plug.getEnumName(value)
-        # 既定値0はフィールドの無い番号。getEnumNameもValueError。
+                    plug.getEnumNames(value=value)
+        # 既定値0はフィールドの無い番号。getEnumNames(current=True)もValueError。
         self.assertEqual(plug.get(), 0)
         with self.assertRaises(ValueError):
-            plug.getEnumName()
+            plug.getEnumNames(current=True)
         plug.set(3)
         with self.assertRaises(ValueError):
-            plug.getEnumName()
+            plug.getEnumNames(current=True)
         plug.set(10)
-        self.assertEqual(plug.getEnumName(), "c")
+        self.assertEqual(plug.getEnumNames(current=True), "c")
 
     def test_values_without_fields_can_be_set(self):
         """フィールドの無い番号でも最小〜最大の範囲内なら書ける。最小未満はRuntimeError。"""
@@ -707,12 +707,44 @@ class PlugEnumSpecTest(_PlugSpecCase):
         self.assertEqual(plug.get(), 5)
 
     def test_non_enum_errors(self):
-        """enum以外ではgetEnumName・getEnumValue・getEnumName(value)・setEnumNamesがTypeError。"""
+        """enum以外ではgetEnumNames(引数なし・current・name・value)・setEnumNamesがTypeError。"""
         for plug in (self.node.getPlug("tx"), self.add("txt", dataType="string"), self.node.getPlug("visibility")):
-            for call in (plug.getEnumName, lambda: plug.getEnumValue("a"), lambda: plug.getEnumName(0), lambda: plug.setEnumNames(["a"])):
-                with self.subTest(plug=plug.getName(), call=call):
+            calls = (
+                ("getEnumNames", lambda plug=plug: plug.getEnumNames()),
+                ("current", lambda plug=plug: plug.getEnumNames(current=True)),
+                ("name", lambda plug=plug: plug.getEnumNames(name="a")),
+                ("value", lambda plug=plug: plug.getEnumNames(value=0)),
+                ("setEnumNames", lambda plug=plug: plug.setEnumNames(["a"])),
+            )
+            for label, call in calls:
+                with self.subTest(plug=plug.getName(), call=label):
                     with self.assertRaises(TypeError):
                         call()
+
+    def test_exclusive_arguments(self):
+        """value・name・currentは同時に指定できない(TypeError)。currentはbool、位置引数は受け付けない。"""
+        plug = self.enum_plug
+        plug.set(5)
+        for kwargs in (
+            {"value": 1, "name": "a"},
+            {"value": 1, "current": True},
+            {"name": "a", "current": True},
+            {"value": 1, "name": "a", "current": True},
+            {"current": 1},
+            {"current": None},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    plug.getEnumNames(**kwargs)
+        with self.assertRaises(TypeError):
+            plug.getEnumNames(1)
+        # 省略と同じ値(None・False)は、指定していない扱い。
+        self.assertEqual(plug.getEnumNames(value=None, name=None, current=False), [("a", 1), ("b", 5), ("c", 10)])
+        self.assertEqual(plug.getEnumNames(value=5, current=False), "b")
+        self.assertEqual(plug.getEnumNames(name="b", value=None), 5)
+        # 名前は大文字・小文字を区別する。
+        with self.assertRaises(ValueError):
+            plug.getEnumNames(name="B")
 
     def test_set_enum_names_validation_and_undo(self):
         """setEnumNamesは0から順の名前へ更新し、1回のUndoで戻す。不正な入力は変更前に拒否する。"""
@@ -720,7 +752,7 @@ class PlugEnumSpecTest(_PlugSpecCase):
         cmds.flushUndo()
         self.assertIsNone(plug.setEnumNames(("x", "y", "z")))
         self.assertEqual(cmds.attributeQuery("mode", node=self.name, listEnum=True), ["x:y:z"])
-        self.assertEqual(plug.getEnumValue("z"), 2)
+        self.assertEqual(plug.getEnumNames(name="z"), 2)
         cmds.undo()
         self.assertEqual(cmds.attributeQuery("mode", node=self.name, listEnum=True), ["off:on"])
         for names, error in (("x", TypeError), ([1], TypeError), ([], ValueError), ([""], ValueError), (["a:b"], ValueError), (["a=1"], ValueError)):

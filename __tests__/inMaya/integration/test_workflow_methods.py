@@ -152,11 +152,11 @@ class MethodContractTest(unittest.TestCase):
         """省略・不正値・Undo・fastの状態設定契約を確認する。"""
         plug = self.node.getPlug("tx")
         plug.setFlags(keyable=False, channelBox=True)
-        self.assertFalse(plug.isKeyable())
+        self.assertFalse(plug.getFlags()["keyable"])
         self.assertTrue(cmds.getAttr(plug.getFullName(), channelBox=True))
         plug.setFlags(locked=True)
         self.assertTrue(plug.isLocked())
-        self.assertFalse(plug.isKeyable())
+        self.assertFalse(plug.getFlags()["keyable"])
         cmds.undo()
         self.assertFalse(plug.isLocked())
         with self.assertRaises(TypeError):
@@ -165,7 +165,7 @@ class MethodContractTest(unittest.TestCase):
         self.node.setAttrFlags(["tx"], locked=True, fast=True)
         self.assertTrue(plug.isLocked())
         plug.setFlags(locked=False, keyable=True, fast=True)
-        self.assertTrue(plug.isKeyable())
+        self.assertTrue(plug.getFlags()["keyable"])
         self.assertFalse(plug.isLocked())
         self.assertFalse(hasattr(type(plug), "set_locked"))
 

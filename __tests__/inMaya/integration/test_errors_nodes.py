@@ -679,7 +679,7 @@ class NodeErrorTest(_Case):
         self.assertEqual(node.findCycles(), [])
         aliases = node.getAliases()
         self.assertEqual([alias for alias, _ in aliases], ["moveX"])
-        self.assertEqual(aliases[0][1].getLongName(), "translateX")
+        self.assertEqual(aliases[0][1].getAttributeName(), "translateX")
 
     def test_is_ancestor_of_rejects_unresolvable_input(self):
         """other が未対応型は TypeError、解決できない名前・null の MObject・MPlug は RuntimeError。"""

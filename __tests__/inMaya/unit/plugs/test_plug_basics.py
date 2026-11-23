@@ -161,7 +161,7 @@ class PlugBasicsTest(unittest.TestCase):
         self.assertTrue(cmds.isConnected(replacement.getFullName(), destination.getFullName()))
         self.assertTrue(cmds.getAttr(destination.getFullName(), lock=True))
 
-    def test_disconnect_input_is_idempotent_and_keeps_output_connections(self):
+    def test_disconnect_all_input_only_is_idempotent_and_keeps_output_connections(self):
         """入力解除を繰り返しても出力接続を消さず、自身を返す。"""
         source, downstream = self.number(), self.number()
         center = self.node.getPlug("amount")
@@ -169,8 +169,8 @@ class PlugBasicsTest(unittest.TestCase):
         downstream.connect(center)
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIsNone(center.disconnectInput(fast=fast))
-                self.assertIsNone(center.disconnectInput(fast=fast))
+                self.assertIsNone(center.disconnectAll(destination=False, fast=fast))
+                self.assertIsNone(center.disconnectAll(destination=False, fast=fast))
                 self.assertFalse(cmds.isConnected(source.getFullName(), center.getFullName()))
                 self.assertTrue(cmds.isConnected(center.getFullName(), downstream.getFullName()))
                 center.connect(source)

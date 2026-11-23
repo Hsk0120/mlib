@@ -933,6 +933,22 @@ def _connection_variants(stub, node, qualname):
     ]
     doc_types = _arg_types(ast.get_docstring(node) or "")
     variants = []
+    if any(argument.arg == "input" for argument in node.args.kwonlyargs):
+        # Plug: このPlug自身の入力元(1件かNone)・出力先(一覧。indexを渡せば1件かNone)。
+        one = {"input": true, "outputs": false, "index": ("None", True)}
+        many = {"input": false, "outputs": true}
+        own = [
+            (dict(one, asPair=true, asNode=true), "tuple[Plug, Node] | None"),
+            (dict(one, asPair=true, asNode=false), "tuple[Plug, Plug] | None"),
+            (dict(one, **no_pair, asNode=true), "Node | None"),
+            (dict(one, **no_pair, asNode=false), "Plug | None"),
+        ]
+        own += [(dict(overrides, **many), returns) for overrides, returns in cases]
+        for overrides, returns in own:
+            stub.annotation(returns, qualname)
+            params = stub._params(node.args, doc_types, qualname, overrides, kwonly_from="asPair")
+            variants.append(f"def getConnections({params}) -> {returns}: ...")
+        cases = [(dict(overrides, input=false, outputs=false), returns) for overrides, returns in cases]
     for overrides, returns in cases:
         stub.annotation(returns, qualname)
         params = stub._params(node.args, doc_types, qualname, overrides, kwonly_from="asPair")
@@ -940,35 +956,83 @@ def _connection_variants(stub, node, qualname):
     return variants
 
 
-def _keyword_connection_variants(stub, node, single):
-    """``getSource``・``getDestinations`` の、``**kwargs`` で受ける指定ごとのオーバーロードを返す。
+def _plug_get_parent_overloads(stub, node):
+    """``Plug.getParent`` の ``all`` ごとのオーバーロードを返す。
 
     Args:
         stub (ModuleStub): 出力中のモジュール。
-        node (ast.FunctionDef): 元の定義。
-        single (bool): Trueは常に一件(``getSource``)、Falseは ``index`` の有無で一件か一覧。
+        node (ast.FunctionDef): ``getParent`` の定義。
 
     Returns:
         list[str]: オーバーロードの行。
     """
-    stub.typing.update({"Any", "Literal"})
-    pairs = [
-        ("asPair: Literal[True], asNode: Literal[True]", "tuple[Plug, Node]"),
-        ("asPair: Literal[True], asNode: Literal[False] = ...", "tuple[Plug, Plug]"),
-        ("asPair: Literal[False] = ..., asNode: Literal[True]", "Node"),
-        ("asPair: Literal[False] = ..., asNode: Literal[False] = ...", "Plug"),
+    stub.typing.add("Literal")
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "Plug.getParent"
+    stub.annotation("Plugs", qualname)
+    many = stub._params(node.args, doc_types, qualname, {"all": ("Literal[True]", False)})
+    one = stub._params(node.args, doc_types, qualname, {"all": ("Literal[False]", True)})
+    return [f"def getParent({many}) -> Plugs: ...", f"def getParent({one}) -> Plug | None: ..."]
+
+
+def _plug_get_anim_curve_overloads(stub, node):
+    """``Plug.getAnimCurve`` の ``suitableType`` ごとのオーバーロードを返す。
+
+    Args:
+        stub (ModuleStub): 出力中のモジュール。
+        node (ast.FunctionDef): ``getAnimCurve`` の定義。
+
+    Returns:
+        list[str]: オーバーロードの行。
+    """
+    stub.typing.add("Literal")
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "Plug.getAnimCurve"
+    stub.annotation("Node", qualname)
+    name = stub._params(node.args, doc_types, qualname, {"suitableType": ("Literal[True]", False)})
+    curve = stub._params(node.args, doc_types, qualname, {"suitableType": ("Literal[False]", True)})
+    return [f"def getAnimCurve({name}) -> str | None: ...", f"def getAnimCurve({curve}) -> Node | None: ..."]
+
+
+def _plug_get_enum_names_overloads(stub, node):
+    """``Plug.getEnumNames`` の ``value``・``name``・``current`` ごとのオーバーロードを返す。
+
+    Args:
+        stub (ModuleStub): 出力中のモジュール。
+        node (ast.FunctionDef): ``getEnumNames`` の定義。
+
+    Returns:
+        list[str]: オーバーロードの行。
+    """
+    stub.typing.add("Literal")
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "Plug.getEnumNames"
+    none, false = ("None", True), ("Literal[False]", True)
+    cases = [
+        ({"value": ("int", False), "name": none, "current": false}, "str"),
+        ({"value": none, "name": ("str", False), "current": false}, "int"),
+        ({"value": none, "name": none, "current": ("Literal[True]", False)}, "str"),
+        ({"value": none, "name": none, "current": false}, "list[tuple[str, int]]"),
     ]
-    head = "self, *, skipConversionNodes: bool = ..., type: str | None = ..., exactType: bool = ..., "
-    variants = []
-    for flags, item in pairs:
-        stub.annotation(item, node.name)
-        if single:
-            variants.append(f"def {node.name}({head}{flags}, **kwargs: Any) -> {item} | None: ...")
-        else:
-            variants.append(f"def {node.name}({head}{flags}, index: int, **kwargs: Any) -> {item} | None: ...")
-            many = {"Plug": "Plugs", "Node": "Nodes"}.get(item, f"list[{item}]")
-            variants.append(f"def {node.name}({head}{flags}, index: None = ..., **kwargs: Any) -> {many}: ...")
-    return variants
+    return [f"def getEnumNames({stub._params(node.args, doc_types, qualname, overrides)}) -> {returns}: ..." for overrides, returns in cases]
+
+
+def _multi_get_element_overloads(stub, node):
+    """``MultiPlug.getElement`` の ``index`` の有無ごとのオーバーロードを返す。
+
+    Args:
+        stub (ModuleStub): 出力中のモジュール。
+        node (ast.FunctionDef): ``getElement`` の定義。
+
+    Returns:
+        list[str]: オーバーロードの行。
+    """
+    doc_types = _arg_types(ast.get_docstring(node) or "")
+    qualname = "MultiPlug.getElement"
+    stub.annotation("Plugs", qualname)
+    one = stub._params(node.args, doc_types, qualname, {"index": ("int", False)})
+    many = stub._params(node.args, doc_types, qualname, {"index": ("None", True)})
+    return [f"def getElement({one}) -> Plug: ...", f"def getElement({many}) -> Plugs: ..."]
 
 
 def _get_type_overloads(stub):
@@ -1099,8 +1163,10 @@ OVERLOADS = {
     "mlib.nodes.node:Node.duplicate#return": _self_return,
     "mlib.nodes.node:Node.getConnections": lambda stub, node: _connection_variants(stub, node, "Node.getConnections"),
     "mlib.plugs.plug:Plug.getConnections": lambda stub, node: _connection_variants(stub, node, "Plug.getConnections"),
-    "mlib.plugs.plug:Plug.getSource": lambda stub, node: _keyword_connection_variants(stub, node, True),
-    "mlib.plugs.plug:Plug.getDestinations": lambda stub, node: _keyword_connection_variants(stub, node, False),
+    "mlib.plugs.plug:Plug.getParent": _plug_get_parent_overloads,
+    "mlib.plugs.plug:Plug.getAnimCurve": _plug_get_anim_curve_overloads,
+    "mlib.plugs.plug:Plug.getEnumNames": _plug_get_enum_names_overloads,
+    "mlib.plugs.multiPlug:MultiPlug.getElement": _multi_get_element_overloads,
     "mlib.components.face:Face.getConnected": _face_get_connected_overloads,
     "mlib.components.vertexFace:VertexFace.getNormal": _vertex_face_get_normal_overloads,
 }

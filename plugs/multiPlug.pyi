@@ -8,8 +8,9 @@ import maya.cmds as cmds
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, _plain_angle_unit, _plain_time_unit, is_internal_data_type, value_reader
 from ..decorator import _edit_context, _require_bool, undoChunk
 from .plug import MAX_LOGICAL_INDEX, Plug, Plugs, _instance_count
-from typing import Iterator
+from typing import Iterator, Literal
 from mlib.nodes.node import Node
+from typing import overload
 
 
 def _descendants(mplug: om2.MPlug, steps: tuple[tuple[str, int], ...] = ...) -> Iterator[tuple[tuple[tuple[str, int], ...], om2.MPlug]]:
@@ -99,7 +100,7 @@ class MultiPlug(Plug):
     def __iter__(self) -> Iterator[Plug]:
         """すでにある要素を、論理番号の順に1つずつ返す。
 
-        反復を始めた時点のgetElements()の結果を使う。欠けている番号は返さない。要素の値は読み出さない。
+        反復を始めた時点のgetElement()(すでにある要素の一覧)の結果を使う。欠けている番号は返さない。要素の値は読み出さない。
 
         Returns:
             Iterator[Plug]: 反復を始めた時点で集めた要素のイテレーター。
@@ -108,7 +109,7 @@ class MultiPlug(Plug):
     def get(self, *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., time: float | om2.MTime | None = ...) -> dict[int, object]:
         """すでにある要素の値を、論理番号をキーにしたdictで取得する。
 
-        getElements()の要素ごとに値を読むので、DGの評価が起きることがある。
+        すでにある要素(getElement())ごとに値を読むので、DGの評価が起きることがある。
         番号は詰め直さない。要素がコンパウンドアトリビュートや ``doubleArray`` などのデータ型でも、
         値を平らにならさない。
 
@@ -152,55 +153,39 @@ class MultiPlug(Plug):
             RuntimeError: Plugが無効、または評価できない場合。
         """
         ...
-    def getElementByPhysicalIndex(self, index: int) -> Plug:
-        """保持済み要素の物理番号からPlugを取得する。
+    @overload
+    def getElement(self, index: int, *, physical: bool = ...) -> Plug: ...
+    @overload
+    def getElement(self, index: None = ..., *, physical: bool = ...) -> Plugs: ...
+    @overload
+    def getElement(self, index: int | None = ..., *, physical: bool = ...) -> Plug | Plugs:
+        """要素を取得する。番号を渡すとその要素、省略するとすでにある要素をすべて返す。
 
-        値は評価しない。物理番号はMaya内部の並びの位置で、論理番号の昇順とは限らない。
-        要素の追加・削除後も同じ要素を指す番号ではない。
+        値の評価も、要素の作成もしない。
 
-        Args:
-            index (int): 0以上、getElementCount()未満の物理番号。
+        - ``getElement(index)``: 論理番号で要素を1つ取得する(``multi[index]`` と同じ)。
+          **まだ無い要素(欠けている番号)も取得でき**、その要素へset・connectしたときに作られる。
+        - ``getElement()``: **すでにある要素だけ**を、論理番号の小さい順にPlugsで返す(``for plug in multi`` と同じ要素)。
+          :meth:`getIndices` の番号の要素だけで、欠けている番号は埋めない。
+          worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
+        - ``getElement(index, physical=True)``: 論理番号でなく、Mayaが保持している要素の並びでの位置(物理番号)で取得する。
+          物理番号は論理番号の小さい順とは限らず、要素の追加・削除のあとも同じ要素を指す番号ではない。
 
-        Returns:
-            Plug: 対応する要素の新しい参照。値はコピーしない。
-
-        Raises:
-            TypeError: indexがbool、または整数でない場合。
-            IndexError: 物理番号が範囲外の場合。
-            RuntimeError: Plugが無効な場合。
-        """
-        ...
-    def getElement(self, index: int) -> Plug:
-        """論理番号で要素を取得する(``multi[index]`` と同じ)。
-
-        値の評価も、要素の作成もしない。まだ無い要素(欠けている番号)も取得でき、
-        その要素へset・connectしたときに作られる。
-        すでにある要素だけが必要なら、:meth:`getElements` (すでにある要素の一覧)か
-        ``index in multi`` (あるかどうかの判定)を使う。
+        ある番号の要素がすでにあるかどうかは ``index in multi`` で判定する。
 
         Args:
-            index (int): 0〜2147483647の論理番号。
+            index (int | None): 0〜2147483647の論理番号。``physical=True`` なら、0以上、
+                :meth:`getElementCount` 未満の物理番号。既定はNoneで、すでにある要素をすべて返す。
+            physical (bool): Trueなら、indexを物理番号として扱う。既定はFalse。indexを省略したときは指定できない。
 
         Returns:
-            Plug: 要素の新しいオブジェクト。ノードはマルチアトリビュートと同じもの。
+            Plug | Plugs: 要素の新しいオブジェクト。ノードはマルチアトリビュートと同じもので、シーンのものを複製しない。
+                indexを省略したときは、すでにある要素のPlugs。
 
         Raises:
-            TypeError: indexを指定していない場合、boolの場合、または整数でない場合。
-            IndexError: 番号が0〜2147483647の範囲外の場合。
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def getElements(self) -> Plugs:
-        """すでにある要素のPlugを、論理番号の小さい順に取得する。
-
-        getIndices()の番号の要素だけを返す。欠けている番号は埋めず、要素の値も読み出さない。
-        まだ作られていない要素も取得できる :meth:`getElement` とは、この点が違う。
-        worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
-
-        Returns:
-            Plugs: 要素の新しいオブジェクト。ノードは共有し、シーンのものを複製しない。
-
-        Raises:
+            TypeError: indexがboolの場合、整数でもNoneでもない場合、physicalがboolでない場合、
+                またはindexを省略して ``physical=True`` を指定した場合。
+            IndexError: 論理番号が0〜2147483647の範囲外の場合、または物理番号が範囲外の場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
@@ -344,31 +329,26 @@ class MultiPlug(Plug):
             RuntimeError: ノードまたはアトリビュートが無効な場合、nodeが無い場合、または接続に失敗した場合。
         """
         ...
-    def getIndices(self) -> list[int]:
+    def getIndices(self, *, connected: bool = ...) -> list[int]:
         """すでにある要素の論理番号を、小さい順に取得する。
 
         値は評価しない。番号がとびとびの[2, 10]なら[2, 10]を返し、並びの位置の[0, 1]へ詰め直さない。
         worldSpaceのマルチアトリビュートでは、OpenMayaが返す番号に、DAGのすべてのインスタンスの
         番号(0から数-1まで)を補う。祖先がインスタンス化されたことによる間接的なインスタンスも含む。
-        欠けている番号の要素は作らない。getElements()も同じ番号を使う。
+        欠けている番号の要素は作らない。getElement()(すでにある要素の一覧)も同じ番号を使う。
+
+        ``connected=True`` なら、接続のある要素の番号だけを返す。要素自身か、その下(コンパウンドアトリビュートの子・
+        入れ子の要素)に、入力か出力の接続がある要素が対象で、値だけを持つ要素は含まない
+        (``MPlug.numConnectedElements`` / ``connectionByPhysicalIndex`` で求め、インスタンスの番号は補わない)。
+
+        Args:
+            connected (bool): Trueなら、接続のある要素の番号だけを返す。既定はFalse。
 
         Returns:
-            list[int]: 論理番号の新しいリスト。
+            list[int]: 論理番号の新しいリスト。``connected=True`` で接続が無ければ空リスト。
 
         Raises:
-            RuntimeError: ノードまたはアトリビュートが無効な場合。
-        """
-        ...
-    def getConnectedIndices(self) -> list[int]:
-        """接続のある要素の論理番号を、小さい順に取得する。
-
-        要素自身か、その下(コンパウンドアトリビュートの子・入れ子の要素)に、入力か出力の接続がある要素を返す。
-        ``MPlug.numConnectedElements`` / ``connectionByPhysicalIndex`` で求める。値だけを持つ要素は含まない。
-
-        Returns:
-            list[int]: 論理番号の新しいリスト。接続が無ければ空リスト。
-
-        Raises:
+            TypeError: connectedがboolでない場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...

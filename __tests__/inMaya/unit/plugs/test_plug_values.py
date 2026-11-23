@@ -1,7 +1,7 @@
 """Plugの型照会・範囲と既定値の単位・enum名・エイリアス・マルチアトリビュートの要素の情報の約束を固定する。
 
 対象: ``getType()`` がMayaの型名を返すこと(旧 ``getDataType`` の契約)、
-``getMin/getMax/getSoftMin/getSoftMax/getDefault(uiUnits=)``、``getEnumName(value=None)``・``getEnumNames()``、
+``getRange(soft=, uiUnits=)``・``getDefault(uiUnits=)``、``getEnumNames(value=, name=, current=)``、
 ``getAlias()``・``getMulti()``・``getIndex()``、``setLocked``・``setFlags(locked=, children=)``(``lock``/``unlock`` は無い)、
 廃止した名前(``getDataType``・``getPlugName``・``lock``・``getEnumFieldName``・``getNextAvailable`` 等)が
 無いこと。期待値は maya.cmds / OpenMaya で独立に求める。
@@ -151,35 +151,42 @@ class RemovedNamesSpecTest(_ValueSpecCase):
 
 
 class RangeUnitsSpecTest(_ValueSpecCase):
-    """getMin/getMax/getSoftMin/getSoftMax・getDefaultは get() と同じ数値、uiUnits=TrueはUI単位の数値。"""
+    """getRange(softの有無)・getDefaultは get() と同じ数値、uiUnits=TrueはUI単位の数値。"""
 
     def test_distance_range_in_ui_units(self):
         """doubleLinearの範囲はcmの数値。uiUnits=TrueはUI単位(cm→m切替に追従)の数値。"""
         plug = self.add("dist", attributeType="doubleLinear", minValue=-10, maxValue=20, softMinValue=-5, softMaxValue=15, defaultValue=2.5)
-        getters = (("getMin", -10.0), ("getMax", 20.0), ("getSoftMin", -5.0), ("getSoftMax", 15.0))
+        getters = (
+            ("minimum", lambda **kw: plug.getRange(**kw)[0], -10.0),
+            ("maximum", lambda **kw: plug.getRange(**kw)[1], 20.0),
+            ("softMinimum", lambda **kw: plug.getRange(soft=True, **kw)[0], -5.0),
+            ("softMaximum", lambda **kw: plug.getRange(soft=True, **kw)[1], 15.0),
+        )
         # getDefaultはget()と同じくcmの数値(UI単位によらない)、uiUnits=TrueはUI単位の数値。
         self.assertIsInstance(plug.getDefault(), float)
         self.assertAlmostEqual(plug.getDefault(), 2.5)
         self.assertAlmostEqual(plug.getDefault(uiUnits=True), 2.5)
-        for name, cm_value in getters:
+        for name, getter, cm_value in getters:
             with self.subTest(getter=name, unit="cm"):
-                internal = getattr(plug, name)()
+                internal = getter()
                 self.assertIsInstance(internal, float)
                 self.assertAlmostEqual(internal, cm_value)
-                ui = getattr(plug, name)(uiUnits=True)
+                ui = getter(uiUnits=True)
                 self.assertIsInstance(ui, float)
                 self.assertAlmostEqual(ui, cm_value)
         cmds.currentUnit(linear="m")
         self.assertAlmostEqual(plug.getDefault(), 2.5)
         self.assertAlmostEqual(plug.getDefault(uiUnits=True), 0.025)
-        for name, cm_value in getters:
+        for name, getter, cm_value in getters:
             with self.subTest(getter=name, unit="m"):
-                self.assertAlmostEqual(getattr(plug, name)(uiUnits=True), cm_value / 100.0)
+                self.assertAlmostEqual(getter(uiUnits=True), cm_value / 100.0)
                 # 既定は get() と同じく UI 単位によらない cm。
-                self.assertAlmostEqual(getattr(plug, name)(), cm_value)
+                self.assertAlmostEqual(getter(), cm_value)
         # cmds.attributeQuery の範囲も UI 単位で返るので突き合わせる。
-        self.assertAlmostEqual(plug.getMin(uiUnits=True), cmds.attributeQuery("dist", node=self.name, minimum=True)[0])
-        self.assertAlmostEqual(plug.getMax(uiUnits=True), cmds.attributeQuery("dist", node=self.name, maximum=True)[0])
+        self.assertAlmostEqual(plug.getRange(uiUnits=True)[0], cmds.attributeQuery("dist", node=self.name, minimum=True)[0])
+        self.assertAlmostEqual(plug.getRange(uiUnits=True)[1], cmds.attributeQuery("dist", node=self.name, maximum=True)[0])
+        self.assertAlmostEqual(plug.getRange(soft=True, uiUnits=True)[0], cmds.attributeQuery("dist", node=self.name, softMin=True)[0])
+        self.assertAlmostEqual(plug.getRange(soft=True, uiUnits=True)[1], cmds.attributeQuery("dist", node=self.name, softMax=True)[0])
 
     def test_angle_range_in_ui_units(self):
         """doubleAngleの範囲・既定値は度の数値。uiUnits=TrueはUI単位の数値でcmds.attributeQueryと一致。
@@ -188,17 +195,17 @@ class RangeUnitsSpecTest(_ValueSpecCase):
         (-90 は -90 radian)ので、uiUnits=True の値は度に換算した値になる。unitを指定すると数値で返す。
         """
         angle = self.add("ang", attributeType="doubleAngle", minValue=-90, maxValue=180, defaultValue=45)
-        self.assertIsInstance(angle.getMin(), float)
-        self.assertAlmostEqual(angle.getMin(), math.degrees(-90.0))
-        self.assertAlmostEqual(angle.getMin(unit="rad"), -90.0)
-        self.assertAlmostEqual(angle.getMax(unit="deg"), math.degrees(180.0))
-        self.assertAlmostEqual(angle.getMin(uiUnits=True), math.degrees(-90.0))
-        self.assertAlmostEqual(angle.getMax(uiUnits=True), math.degrees(180.0))
+        self.assertIsInstance(angle.getRange()[0], float)
+        self.assertAlmostEqual(angle.getRange()[0], math.degrees(-90.0))
+        self.assertAlmostEqual(angle.getRange(unit="rad")[0], -90.0)
+        self.assertAlmostEqual(angle.getRange(unit="deg")[1], math.degrees(180.0))
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], math.degrees(-90.0))
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[1], math.degrees(180.0))
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), math.degrees(45.0))
         self.assertAlmostEqual(angle.getDefault(unit="degrees"), math.degrees(45.0))
         with self.assertRaises(ValueError):
-            angle.getMin(unit="deg", uiUnits=True)
-        self.assertAlmostEqual(angle.getMin(uiUnits=True), cmds.attributeQuery("ang", node=self.name, minimum=True)[0])
+            angle.getRange(unit="deg", uiUnits=True)
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], cmds.attributeQuery("ang", node=self.name, minimum=True)[0])
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), cmds.attributeQuery("ang", node=self.name, listDefault=True)[0])
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), cmds.getAttr(angle.getFullName()))
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), angle.get(uiUnits=True))
@@ -206,10 +213,10 @@ class RangeUnitsSpecTest(_ValueSpecCase):
         self.assertAlmostEqual(angle.getDefault(), angle.get())
         self.assertAlmostEqual(angle.getDefault(unit="rad"), 45.0)
         cmds.currentUnit(angle="rad")
-        self.assertAlmostEqual(angle.getMin(uiUnits=True), -90.0)
-        self.assertAlmostEqual(angle.getMin(uiUnits=True), angle.getMin(unit="rad"))
-        self.assertAlmostEqual(angle.getMin(), math.degrees(-90.0))
-        self.assertAlmostEqual(angle.getMin(uiUnits=True), cmds.attributeQuery("ang", node=self.name, minimum=True)[0])
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], -90.0)
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], angle.getRange(unit="rad")[0])
+        self.assertAlmostEqual(angle.getRange()[0], math.degrees(-90.0))
+        self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], cmds.attributeQuery("ang", node=self.name, minimum=True)[0])
 
     def test_time_range_in_ui_units(self):
         """timeの範囲は現在のUI時間単位のフレームの数値で、uiUnits=True・cmds.attributeQueryと一致。"""
@@ -217,10 +224,10 @@ class RangeUnitsSpecTest(_ValueSpecCase):
         for unit in ("film", "ntsc"):
             with self.subTest(unit=unit):
                 cmds.currentUnit(time=unit)
-                self.assertIsInstance(time.getMax(), float)
-                self.assertIsInstance(time.getMax(uiUnits=True), float)
-                self.assertAlmostEqual(time.getMax(uiUnits=True), time.getMax())
-                self.assertAlmostEqual(time.getMax(uiUnits=True), cmds.attributeQuery("tm", node=self.name, maximum=True)[0])
+                self.assertIsInstance(time.getRange()[1], float)
+                self.assertIsInstance(time.getRange(uiUnits=True)[1], float)
+                self.assertAlmostEqual(time.getRange(uiUnits=True)[1], time.getRange()[1])
+                self.assertAlmostEqual(time.getRange(uiUnits=True)[1], cmds.attributeQuery("tm", node=self.name, maximum=True)[0])
                 self.assertIsInstance(time.getDefault(), float)
                 self.assertAlmostEqual(time.getDefault(), time.get())
                 self.assertAlmostEqual(time.getDefault(uiUnits=True), time.getDefault())
@@ -230,10 +237,11 @@ class RangeUnitsSpecTest(_ValueSpecCase):
     def test_plain_numbers_and_compounds(self):
         """単位の無い数値はuiUnitsで変わらず、数値のコンパウンドアトリビュートは子ごとに換算したtuple。"""
         plain = self.add("num", attributeType="double", minValue=-1, maxValue=1, defaultValue=0.5)
-        for name in ("getMin", "getMax", "getDefault"):
-            with self.subTest(getter=name):
-                self.assertEqual(getattr(plain, name)(), getattr(plain, name)(uiUnits=True))
-                self.assertIsInstance(getattr(plain, name)(uiUnits=True), float)
+        self.assertEqual(plain.getRange(), (-1.0, 1.0))
+        self.assertEqual(plain.getRange(), plain.getRange(uiUnits=True))
+        self.assertTrue(all(type(value) is float for value in plain.getRange(uiUnits=True)))
+        self.assertEqual(plain.getDefault(), plain.getDefault(uiUnits=True))
+        self.assertIsInstance(plain.getDefault(uiUnits=True), float)
         self.assertEqual(self.node.getPlug("scale").getDefault(), (1.0, 1.0, 1.0))
         self.assertEqual(self.node.getPlug("scale").getDefault(uiUnits=True), (1.0, 1.0, 1.0))
         cmds.currentUnit(angle="rad")
@@ -241,23 +249,23 @@ class RangeUnitsSpecTest(_ValueSpecCase):
         self.assertEqual(rotate, (0.0, 0.0, 0.0))
         self.assertIsNone(self.node.getPlug("message").getDefault())
         self.assertIsNone(self.node.getPlug("message").getDefault(uiUnits=True))
-        self.assertIsNone(plain.getSoftMin())
-        self.assertIsNone(plain.getSoftMin(uiUnits=True))
+        self.assertEqual(plain.getRange(soft=True), (None, None))
+        self.assertEqual(plain.getRange(soft=True, uiUnits=True), (None, None))
         self.assertEqual(self.node.getPlug("rotateOrder").getDefault(uiUnits=True), 0)
 
     def test_ui_units_argument_errors(self):
         """uiUnitsはbool限定のキーワード引数。"""
         tx = self.node.getPlug("tx")
-        for name in ("getMin", "getMax", "getSoftMin", "getSoftMax", "getDefault"):
-            with self.subTest(getter=name):
+        for name, kwargs in (("getRange", {}), ("getRange", {"soft": True}), ("getDefault", {})):
+            with self.subTest(getter=name, kwargs=kwargs):
                 with self.assertRaises(TypeError):
-                    getattr(tx, name)(uiUnits=1)
+                    getattr(tx, name)(uiUnits=1, **kwargs)
                 with self.assertRaises(TypeError):
-                    getattr(tx, name)(True)
+                    getattr(tx, name)(True, **kwargs)
 
 
 class EnumNamesSpecTest(_ValueSpecCase):
-    """getEnumName(value=None)とgetEnumNames()。"""
+    """getEnumNames()と、その current=True・value=・name=。"""
 
     def listed(self, attr):
         """cmds.attributeQuery(listEnum)の文字列を(名前, 値)の組へ展開する。"""
@@ -270,45 +278,47 @@ class EnumNamesSpecTest(_ValueSpecCase):
             value += 1
         return result
 
-    def test_enum_name_default_is_current_value(self):
-        """valueを省くと現在値の名前、指定するとその値の名前(getEnumValueの逆引き)。"""
+    def test_enum_name_of_current_value_and_value(self):
+        """current=Trueは現在値の名前、value=はその値の名前(name=の逆引き)。"""
         plug = self.add("kind", attributeType="enum", enumName="a=1:b=5:c")
-        # 既定値 0 にはフィールドが無いので現在値の名前は ValueError(getEnumName() は値を補正しない)。
+        # 既定値 0 にはフィールドが無いので現在値の名前は ValueError(値を補正しない)。
         self.assertEqual(cmds.getAttr(plug.getFullName()), 0)
         with self.assertRaises(ValueError):
-            plug.getEnumName()
+            plug.getEnumNames(current=True)
         cmds.setAttr(plug.getFullName(), 1)
-        self.assertEqual(plug.getEnumName(), "a")
+        self.assertEqual(plug.getEnumNames(current=True), "a")
         cmds.setAttr(plug.getFullName(), 5)
-        self.assertEqual(plug.getEnumName(), "b")
-        self.assertEqual(plug.getEnumName(None), "b")
+        self.assertEqual(plug.getEnumNames(current=True), "b")
+        self.assertEqual(plug.getEnumNames(current=True), cmds.getAttr(plug.getFullName(), asString=True))
+        # value=None は指定していない扱いで、すべてのフィールドを返す。
+        self.assertEqual(plug.getEnumNames(value=None), plug.getEnumNames())
         for value, name in ((1, "a"), (5, "b"), (6, "c")):
             with self.subTest(value=value):
-                self.assertEqual(plug.getEnumName(value), name)
-                self.assertEqual(plug.getEnumValue(name), value)
+                self.assertEqual(plug.getEnumNames(value=value), name)
+                self.assertEqual(plug.getEnumNames(name=name), value)
         rotate_order = self.node.getPlug("rotateOrder")
-        self.assertEqual(rotate_order.getEnumName(5), "zyx")
-        self.assertEqual(rotate_order.getEnumName(value=0), "xyz")
+        self.assertEqual(rotate_order.getEnumNames(value=5), "zyx")
+        self.assertEqual(rotate_order.getEnumNames(value=0), "xyz")
 
-    def test_enum_name_errors(self):
+    def test_enum_names_value_errors(self):
         """欠番はValueError、bool・float・strはTypeError、enum以外はTypeError。"""
         plug = self.add("kind", attributeType="enum", enumName="a=1:b=5:c")
         for value in (0, 2, 3, 4, 7, -1):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError):
-                    plug.getEnumName(value)
+                    plug.getEnumNames(value=value)
         for value in (True, 1.0, "a"):
             with self.subTest(value=repr(value)):
                 with self.assertRaises(TypeError):
-                    plug.getEnumName(value)
+                    plug.getEnumNames(value=value)
         cmds.setAttr(plug.getFullName(), 3)
         with self.assertRaises(ValueError):
-            plug.getEnumName()
+            plug.getEnumNames(current=True)
         tx = self.node.getPlug("tx")
         with self.assertRaises(TypeError):
-            tx.getEnumName()
+            tx.getEnumNames(current=True)
         with self.assertRaises(TypeError):
-            tx.getEnumName(0)
+            tx.getEnumNames(value=0)
         with self.assertRaises(TypeError):
             tx.getEnumNames()
 
@@ -324,7 +334,7 @@ class EnumNamesSpecTest(_ValueSpecCase):
         self.assertEqual([name for name, _ in rotate_order], ["xyz", "yzx", "zxy", "xzy", "yxz", "zyx"])
         self.assertEqual(rotate_order, self.listed("rotateOrder"))
         for name, value in rotate_order:
-            self.assertEqual(self.node.getPlug("rotateOrder").getEnumName(value), name)
+            self.assertEqual(self.node.getPlug("rotateOrder").getEnumNames(value=value), name)
         cmds.setAttr(plug.getFullName(), 6)
         self.assertEqual(plug.getEnumNames(), names)
 
@@ -333,7 +343,7 @@ class EnumNamesSpecTest(_ValueSpecCase):
         plug = self.add("kind", attributeType="enum", enumName="a:b")
         plug.setEnumNames(["x", "y", "z"])
         self.assertEqual(plug.getEnumNames(), [("x", 0), ("y", 1), ("z", 2)])
-        self.assertEqual(plug.getEnumName(2), "z")
+        self.assertEqual(plug.getEnumNames(value=2), "z")
 
 
 class AliasMultiIndexSpecTest(_ValueSpecCase):

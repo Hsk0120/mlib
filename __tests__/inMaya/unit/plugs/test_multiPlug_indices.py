@@ -39,13 +39,13 @@ class MaintenanceDelegationTest(unittest.TestCase):
                 array[7]
                 cmds.flushUndo()
                 with patch.object(cmds, "getAttr", side_effect=AssertionError("value evaluated")), patch.object(
-                    MultiPlug, "getElements", side_effect=AssertionError("wrappers created")
+                    MultiPlug, "getElement", side_effect=AssertionError("wrappers created")
                 ):
                     self.assertEqual(array.getIndices(), [2, 9])
                 indices = array.getIndices()
                 indices.append(99)
                 self.assertEqual(array.getIndices(), [2, 9])
-                self.assertEqual([plug.mplug().logicalIndex() for plug in array.getElements()], [2, 9])
+                self.assertEqual([plug.mplug().logicalIndex() for plug in array.getElement()], [2, 9])
                 self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
     def test_world_indices_do_not_change_stored_element_operations(self):
@@ -92,19 +92,14 @@ class MaintenanceDelegationTest(unittest.TestCase):
             plug = node.getPlug(name)
             attribute = plug.mplug().attribute()
             fn = om2.MFnNumericAttribute(attribute) if attribute.hasFn(om2.MFn.kNumericAttribute) else om2.MFnUnitAttribute(attribute)
-            for suffix in ("Min", "Max", "SoftMin", "SoftMax"):
+            for suffix, soft, side in (("Min", False, 0), ("Max", False, 1), ("SoftMin", True, 0), ("SoftMax", True, 1)):
                 with self.subTest(attribute=name, limit=suffix):
-                    has_name, get_name = f"has{suffix}", f"get{suffix}"
-                    if not hasattr(fn, has_name):
-                        with self.assertRaises(AttributeError):
-                            getattr(plug, has_name)()
-                        with self.assertRaises(AttributeError):
-                            getattr(plug, get_name)()
+                    present = getattr(fn, f"has{suffix}")()
+                    expected = getattr(fn, f"get{suffix}")() if present else None
+                    actual = plug.getRange(soft=soft)[side]
+                    self.assertEqual(actual is not None, present)
+                    if expected is None:
                         continue
-                    present = getattr(fn, has_name)()
-                    expected = getattr(fn, get_name)() if present else None
-                    self.assertEqual(getattr(plug, has_name)(), present)
-                    actual = getattr(plug, get_name)()
                     if isinstance(expected, om2.MAngle):
                         self.assertIsInstance(actual, float)
                         self.assertAlmostEqual(actual, expected.asDegrees())
@@ -120,20 +115,18 @@ class MaintenanceDelegationTest(unittest.TestCase):
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
     def test_range_queries_preserve_unsupported_and_deleted_guards(self):
-        """非対応型ではFalse/None、削除済み参照では全8照会が寿命エラーになる。"""
+        """非対応型では(None, None)、削除済み参照では制限・ソフトリミットのどちらの照会も寿命エラーになる。"""
         node = mlib.createNode("network")
-        for suffix in ("Min", "Max", "SoftMin", "SoftMax"):
-            self.assertIs(getattr(node.getPlug("message"), f"has{suffix}")(), False)
-            self.assertIsNone(getattr(node.getPlug("message"), f"get{suffix}")())
+        for soft in (False, True):
+            self.assertEqual(node.getPlug("message").getRange(soft=soft), (None, None))
         removed_attribute = node.addAttr("removed", "double")
         removed_node = node.getPlug("message")
         cmds.deleteAttr(removed_attribute.getFullName())
         node.delete()
         for plug in (removed_attribute, removed_node):
-            for suffix in ("Min", "Max", "SoftMin", "SoftMax"):
-                for prefix in ("has", "get"):
-                    with self.subTest(method=prefix + suffix), self.assertRaises(RuntimeError):
-                        getattr(plug, prefix + suffix)()
+            for soft in (False, True):
+                with self.subTest(soft=soft), self.assertRaises(RuntimeError):
+                    plug.getRange(soft=soft)
 
 
 if __name__ == "__main__":

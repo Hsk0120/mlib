@@ -1,8 +1,8 @@
 """アトリビュート編集の仕様テスト。
 
-- ``setFlags/setAttrFlags(children=)``・``lock/hide/show``: コンパウンドアトリビュートの子への状態の設定。
+- ``setFlags/setAttrFlags(children=)``・``setFlags(leaf=)``・``setLocked``: コンパウンドアトリビュートの子への状態の設定。
 - ``EnumPlug.set("name")``・``addAttr(defaultValue="name")``: enumのフィールド名。
-- ``setMin/setMax/setSoftMin/setSoftMax``・``Transform.setLimits``: 範囲の編集(cmdsとの突き合わせ)。
+- ``setRange``(片側だけ・None・soft)・``Transform.setLimits``: 範囲の編集(cmdsとの突き合わせ)。
 - 再実行向けの ``safe=True``(``addAttr``・``connect/connectTo``・``setAlias``)。
 各項目で通常経路のUndo1回、fastのUndoなし、不正入力の例外型を確かめる。
 """
@@ -88,8 +88,47 @@ class CompoundFlagsTest(_Case):
             self.node.setAttrFlags("t", keyable=False, children="yes")
         self.assertTrue(self.flags("t")[0] or self.flags("tx")[0])
 
-    def test_lock_hide_show(self):
-        """setLockedは自身をロックし、hide/showは子へ広げる。各1回のUndoで戻る。"""
+    def test_leaf_only_changes_leaves(self):
+        """setFlags(leaf=True) は末端の子だけを変え、自身(親)は変えない。コンパウンドでなければ自身を変える。"""
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                for name in ("s", "sx", "sy", "sz"):
+                    cmds.setAttr(self.full + "." + name, lock=False, keyable=True, channelBox=False)
+                scale = self.node.getPlug("s")
+                self.assertIsNone(scale.setFlags(keyable=False, leaf=True, fast=fast))
+                self.assertEqual([self.flags(axis)[0] for axis in ("sx", "sy", "sz")], [False] * 3)
+                self.assertTrue(self.flags("s")[0])
+                self.assertIsNone(scale.setFlags(locked=True, channelBox=True, leaf=True, fast=fast))
+                self.assertEqual([self.flags(axis) for axis in ("sx", "sy", "sz")], [(False, True, True)] * 3)
+                self.assertEqual(self.flags("s"), (True, False, False))
+                scale.setFlags(locked=False, leaf=True, fast=fast)
+                single = self.node.getPlug("sx")
+                single.setFlags(keyable=True, leaf=True, fast=fast)
+                self.assertEqual(self.flags("sx")[:2], (True, False))
+                self.assertEqual(self.flags("sy")[:2], (False, True))
+
+    def test_leaf_undo_and_errors(self):
+        """leaf=True の複数の子の変更は1回のUndoで戻る。fastはUndoに積まない。childrenとの同時指定・bool以外はTypeError。"""
+        translate = self.node.getPlug("t")
+        self.flushUndo()
+        translate.setFlags(keyable=False, leaf=True)
+        self.assertUndoesInOneStep(
+            lambda: self.assertTrue(all(self.flags(axis)[0] for axis in ("tx", "ty", "tz"))),
+            lambda: self.assertFalse(any(self.flags(axis)[0] for axis in ("tx", "ty", "tz"))),
+        )
+        self.flushUndo()
+        translate.setFlags(keyable=False, leaf=True, fast=True)
+        self.assertUndoEmpty()
+        self.assertFalse(self.flags("tx")[0])
+        before = [self.flags(name) for name in ("t", "tx", "ty", "tz")]
+        for kwargs in ({"children": True, "leaf": True}, {"leaf": 1}, {"leaf": None}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    translate.setFlags(keyable=True, **kwargs)
+                self.assertEqual([self.flags(name) for name in ("t", "tx", "ty", "tz")], before)
+
+    def test_lock_and_channel_box_children(self):
+        """setLockedは自身をロックし、setFlags(children=True)はChannel Boxの表示を子へ広げる。各1回のUndoで戻る。"""
         for fast in (False, True):
             with self.subTest(fast=fast):
                 plug = self.node.getPlug("sx")
@@ -98,17 +137,31 @@ class CompoundFlagsTest(_Case):
                 self.assertIsNone(plug.setLocked(False, fast=fast))
                 self.assertFalse(plug.isLocked())
                 rotate = self.node.getPlug("r")
-                self.assertIsNone(rotate.hide(fast=fast))
+                self.assertIsNone(rotate.setFlags(keyable=False, channelBox=False, children=True, fast=fast))
                 self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(False, False)] * 3)
-                rotate.show(keyable=False, fast=fast)
+                self.assertTrue(rotate.getFlags()["hidden"])
+                rotate.setFlags(channelBox=True, children=True, fast=fast)
                 self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(False, True)] * 3)
-                rotate.show(fast=fast)
+                self.assertFalse(rotate.getFlags()["hidden"])
+                rotate.setFlags(keyable=True, children=True, fast=fast)
                 self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(True, False)] * 3)
+                self.assertFalse(rotate.getFlags()["hidden"])
         self.flushUndo()
-        self.node.getPlug("t").hide()
+        self.node.getPlug("t").setFlags(keyable=False, channelBox=False, children=True)
         self.assertUndoesInOneStep(lambda: self.assertTrue(self.flags("ty")[0]), lambda: self.assertFalse(self.flags("ty")[0]))
-        with self.assertRaises(TypeError):
-            self.node.getPlug("t").show(keyable=None)
+        # Channel Box表示の子をkeyableへ戻す(子ごとに2回の書き込み)のも、1回のUndoで元の2つの状態へ戻る。
+        rotate = self.node.getPlug("r")
+        rotate.setFlags(channelBox=True, children=True)
+        self.flushUndo()
+        rotate.setFlags(keyable=True, children=True)
+        self.assertUndoesInOneStep(
+            lambda: self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(False, True)] * 3),
+            lambda: self.assertEqual([self.flags(axis)[:2] for axis in ("rx", "ry", "rz")], [(True, False)] * 3),
+        )
+        for kwargs in ({"keyable": 1}, {"channelBox": "yes"}, {"locked": 0}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    self.node.getPlug("t").setFlags(children=True, **kwargs)
 
 
 class EnumNameTest(_Case):
@@ -149,7 +202,7 @@ class EnumNameTest(_Case):
                 self.assertEqual(self.enum.set("nope", safe=True, fast=fast), 1)
                 self.assertEqual(self.enum.set("head", safe=True, fast=fast), 0)
         with self.assertRaises(ValueError):
-            self.enum.getEnumValue("missing")
+            self.enum.getEnumNames(name="missing")
 
     def test_add_attr_default_by_name(self):
         """addAttr(defaultValue="名前") はenumNameから値を求める(通常・fast)。無い名前はValueErrorで追加しない。"""
@@ -164,68 +217,129 @@ class EnumNameTest(_Case):
 
 
 class RangeEditTest(_Case):
-    """setMin等は動的アトリビュートの定義をcmds.addAttr(edit=True)で編集する。"""
+    """setRangeは動的アトリビュートの定義をcmds.addAttr(edit=True)で編集する。"""
 
     def test_double_matches_cmds(self):
-        """数値の範囲はcmds.attributeQueryと一致し、setMin/setMax(None)で外れる。"""
+        """片側ずつ設定した数値の範囲はcmds.attributeQueryと一致し、Noneを渡した側だけ制限が外れる。"""
         plug = self.node.addAttr("amount", "double")
         node = self.full
 
         def query(**flags):
             return cmds.attributeQuery("amount", node=node, **flags)
 
-        plug.setMin(-1.5)
-        plug.setMax(4.0)
-        plug.setSoftMin(0.0)
-        plug.setSoftMax(2.0)
+        plug.setRange(-1.5)
+        plug.setRange(maximum=4.0)
+        plug.setRange(0.0, soft=True)
+        plug.setRange(maximum=2.0, soft=True)
         self.assertEqual((query(minimum=True), query(maximum=True), query(softMin=True), query(softMax=True)), ([-1.5], [4.0], [0.0], [2.0]))
-        self.assertEqual((plug.getMin(), plug.getMax(), plug.getSoftMin(), plug.getSoftMax()), (-1.5, 4.0, 0.0, 2.0))
-        plug.setMin(None)
+        self.assertEqual(plug.getRange() + plug.getRange(soft=True), (-1.5, 4.0, 0.0, 2.0))
+        plug.setRange(None)
         self.assertFalse(query(minExists=True))
-        self.assertFalse(plug.hasMin())
-        self.assertTrue(plug.hasMax())
-        plug.setMax(None)
+        self.assertEqual(plug.getRange(), (None, 4.0))
+        plug.setRange(maximum=None)
         self.assertFalse(query(maxExists=True))
-        for call in (plug.setSoftMin, plug.setSoftMax):
-            with self.subTest(call=call):
+        self.assertEqual(plug.getRange(), (None, None))
+        for kwargs in ({"minimum": None}, {"maximum": None}):
+            with self.subTest(kwargs=kwargs):
                 with self.assertRaises(NotImplementedError):
-                    call(None)
-        self.assertEqual((plug.getSoftMin(), plug.getSoftMax()), (0.0, 2.0))
+                    plug.setRange(soft=True, **kwargs)
+        self.assertEqual(plug.getRange(soft=True), (0.0, 2.0))
+
+    def test_omitted_side_is_kept(self):
+        """省略した側は変えず、Noneを渡した側は制限を外す。cmds.attributeQueryと突き合わせる。両方の省略はTypeError。"""
+        node = self.full
+
+        def limits(name):
+            def one(exists, value):
+                return cmds.attributeQuery(name, node=node, **{value: True})[0] if cmds.attributeQuery(name, node=node, **{exists: True}) else None
+
+            return (one("minExists", "minimum"), one("maxExists", "maximum"), one("softMinExists", "softMin"), one("softMaxExists", "softMax"))
+
+        cases = (
+            ("minimum", lambda plug: plug.setRange(-3.0), (-3.0, 5.0, 0.0, 4.0)),
+            ("minimumKeyword", lambda plug: plug.setRange(minimum=-3.0), (-3.0, 5.0, 0.0, 4.0)),
+            ("maximum", lambda plug: plug.setRange(maximum=8.0), (-1.0, 8.0, 0.0, 4.0)),
+            ("minimumNone", lambda plug: plug.setRange(None), (None, 5.0, 0.0, 4.0)),
+            ("maximumNone", lambda plug: plug.setRange(maximum=None), (-1.0, None, 0.0, 4.0)),
+            ("minimumWithMaximumNone", lambda plug: plug.setRange(-2.0, None), (-2.0, None, 0.0, 4.0)),
+            ("minimumNoneWithMaximum", lambda plug: plug.setRange(None, 9.0), (None, 9.0, 0.0, 4.0)),
+            ("bothNone", lambda plug: plug.setRange(None, None), (None, None, 0.0, 4.0)),
+            ("both", lambda plug: plug.setRange(-2.0, 9.0), (-2.0, 9.0, 0.0, 4.0)),
+            ("softMinimum", lambda plug: plug.setRange(-0.5, soft=True), (-1.0, 5.0, -0.5, 4.0)),
+            ("softMaximum", lambda plug: plug.setRange(maximum=4.5, soft=True), (-1.0, 5.0, 0.0, 4.5)),
+            ("softBoth", lambda plug: plug.setRange(1.0, 3.0, soft=True), (-1.0, 5.0, 1.0, 3.0)),
+        )
+        for index, (label, call, expected) in enumerate(cases):
+            with self.subTest(case=label):
+                name = f"ranged{index}"
+                plug = self.node.addAttr(name, "double", minValue=-1.0, maxValue=5.0, softMinValue=0.0, softMaxValue=4.0)
+                before = limits(name)
+                self.assertEqual(before, (-1.0, 5.0, 0.0, 4.0))
+                self.flushUndo()
+                self.assertIsNone(call(plug))
+                self.assertEqual(limits(name), expected)
+                self.assertEqual(plug.getRange() + plug.getRange(soft=True), expected)
+                # どの書き方も1回の cmds.addAttr で、Undoキューに積むのは1件だけ。
+                cmds.undo()
+                self.assertUndoEmpty()
+                if None not in expected:
+                    # 制限を外した側は、素の cmds.addAttr(edit=True, hasMinValue=False) でもUndoで戻らない(Mayaの挙動)ので確かめない。
+                    self.assertEqual(limits(name), before)
+        plug = self.node.addAttr("untouched", "double", minValue=-1.0, maxValue=5.0)
+        for kwargs in ({}, {"soft": True}, {"unit": "deg"}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(TypeError):
+                    plug.setRange(**kwargs)
+        self.assertEqual(limits("untouched")[:2], (-1.0, 5.0))
+
+    def test_compound_and_multi(self):
+        """コンパウンドアトリビュート・マルチアトリビュート全体は、両方を指定するとTypeError。要素からの設定は全要素の定義に効く。"""
+        multi = self.node.addAttr("weights", "double", multi=True)
+        multi[2].set(1.0)
+        multi[5].set(2.0)
+        multi[2].setRange(-1.0, 1.0)
+        self.assertEqual(multi[5].getRange(), (-1.0, 1.0))
+        self.assertEqual(cmds.attributeQuery("weights", node=self.full, range=True), [-1.0, 1.0])
+        with self.assertRaises(TypeError):
+            multi.setRange(0.0, 2.0)
+        with self.assertRaises(TypeError):
+            self.node.addAttr("offset", "double3").setRange(0.0, 2.0)
+        self.assertEqual(cmds.attributeQuery("weights", node=self.full, range=True), [-1.0, 1.0])
 
     def test_angle_units(self):
-        """角度は既定で度、unit="rad"はラジアン、MAngleはそのまま。getMinと往復する。"""
+        """角度は既定で度、unit="rad"はラジアン、MAngleはそのまま。getRangeと往復する。"""
         plug = self.node.addAttr("bend", "doubleAngle")
-        plug.setMin(-45)
-        plug.setMax(math.pi, unit="rad")
-        plug.setSoftMax(om2.MAngle(30, om2.MAngle.kDegrees))
-        self.assertAlmostEqual(plug.getMin(unit="deg"), -45.0)
-        self.assertAlmostEqual(plug.getMax(unit="deg"), 180.0)
-        self.assertAlmostEqual(plug.getSoftMax(unit="deg"), 30.0)
+        plug.setRange(-45)
+        plug.setRange(maximum=math.pi, unit="rad")
+        plug.setRange(maximum=om2.MAngle(30, om2.MAngle.kDegrees), soft=True)
+        self.assertAlmostEqual(plug.getRange(unit="deg")[0], -45.0)
+        self.assertAlmostEqual(plug.getRange(unit="deg")[1], 180.0)
+        self.assertAlmostEqual(plug.getRange(soft=True, unit="deg")[1], 30.0)
         self.assertAlmostEqual(cmds.addAttr(self.full + ".bend", query=True, minValue=True), math.radians(-45))
 
     def test_undo_once(self):
         """1回のUndoで元の範囲へ戻る。"""
         plug = self.node.addAttr("amount", "double", minValue=0.0)
         self.flushUndo()
-        plug.setMin(5.0)
-        self.assertUndoesInOneStep(lambda: self.assertEqual(plug.getMin(), 0.0), lambda: self.assertEqual(plug.getMin(), 5.0))
+        plug.setRange(5.0)
+        self.assertUndoesInOneStep(lambda: self.assertEqual(plug.getRange()[0], 0.0), lambda: self.assertEqual(plug.getRange()[0], 5.0))
 
     def test_errors(self):
         """静的アトリビュート・数値以外の型・不正な値・単位はTypeError/ValueError。"""
         text = self.node.addAttr("label", "string")
         amount = self.node.addAttr("amount", "double")
         for call, error in (
-            (lambda: self.node.getPlug("tx").setMin(0), TypeError),
-            (lambda: text.setMax(1), TypeError),
-            (lambda: amount.setMin("1"), TypeError),
-            (lambda: amount.setMin(True), TypeError),
-            (lambda: amount.setSoftMin(1, unit=3), TypeError),
-            (lambda: amount.setSoftMin(1, unit="turn"), ValueError),
+            (lambda: self.node.getPlug("tx").setRange(0), TypeError),
+            (lambda: text.setRange(maximum=1), TypeError),
+            (lambda: amount.setRange("1"), TypeError),
+            (lambda: amount.setRange(True), TypeError),
+            (lambda: amount.setRange(1, unit=3, soft=True), TypeError),
+            (lambda: amount.setRange(1, unit="turn", soft=True), ValueError),
         ):
             with self.subTest(call=call):
                 with self.assertRaises(error):
                     call()
-        self.assertFalse(amount.hasMin())
+        self.assertEqual(amount.getRange(), (None, None))
 
 
 class TransformLimitsTest(_Case):
@@ -291,7 +405,7 @@ class RerunSafeTest(_Case):
         for fast in (False, True):
             again = self.node.addAttr("amount", "double", defaultValue=2.0, minValue=3.0, skipExisting=True, fast=fast)
             self.assertEqual(again, first)
-            self.assertEqual((again.get(), again.getDefault(), again.getMin()), (5.0, 1.0, 0.0))
+            self.assertEqual((again.get(), again.getDefault(), again.getRange()[0]), (5.0, 1.0, 0.0))
             self.assertIsNone(self.node.addAttr("amount", "double", getPlug=False, skipExisting=True, fast=fast))
         self.assertUndoEmpty()
         created = self.node.addAttr("fresh", "double", skipExisting=True)

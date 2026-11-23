@@ -169,11 +169,11 @@ class NodeAliasesParityTest(unittest.TestCase):
         cmds.aliasAttr("mlibParityAliasTy", self.node.getPlug("translateY").getFullName())
 
         # cmds.aliasAttr(query=True) はフラットな [alias1, longName1, alias2, longName2, ...]
-        # を返す。longName は Plug.getLongName(ロング名)と直接比較できる。
+        # を返す。longName は Plug.getAttributeName()(ロング名)と直接比較できる。
         raw = cmds.aliasAttr(self.node.getName(), query=True) or []
         expected = {(raw[index], raw[index + 1]) for index in range(0, len(raw), 2)}
 
-        actual = {(alias, plug.getLongName()) for alias, plug in self.node.getAliases()}
+        actual = {(alias, plug.getAttributeName()) for alias, plug in self.node.getAliases()}
         self.assertEqual(actual, expected)
 
     def test_aliases_empty_matches_cmds_when_no_alias_set(self):
@@ -677,7 +677,7 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
             else:
                 cmds.setAttr(element, 1)
         checked = {}
-        top_level = [attribute for attribute in cmds.listAttr(name, userDefined=True) or [] if not network.getPlug(attribute).isChild()]
+        top_level = [attribute for attribute in cmds.listAttr(name, userDefined=True) or [] if not network.getPlug(attribute).isCompound(child=True)]
         for plug in [network.getPlug(attribute) for attribute in top_level]:
             plugs = [plug[0]] if plug.isMulti() else [plug]
             if plug.isCompound():
@@ -925,7 +925,7 @@ class NameResolutionParityTest(unittest.TestCase):
             with self.subTest(plug=text):
                 cmds.connectAttr(str(source_plug), text)
                 resolved = Plug._resolve_input(text)
-                self.assertEqual(resolved.getSource().mplug(), source_plug.mplug())
+                self.assertEqual(resolved.getConnections(input=True).mplug(), source_plug.mplug())
                 self.assertIn(resolved.mplug(), list(source_plug.mplug().connectedTo(False, True)))
                 self.assertEqual(cmds.getAttr(str(resolved), type=True), cmds.getAttr(text, type=True))
 
@@ -1092,7 +1092,7 @@ class NodeResetAttrsParityTest(_NewSceneCase):
             for fast in (False, True):
                 with self.subTest(node=name, fast=fast):
                     expected = self.expected(name)
-                    actual = [plug.getLongName() for plug in mlib.getNode(name).resetAttrs(fast=fast)]
+                    actual = [plug.getAttributeName() for plug in mlib.getNode(name).resetAttrs(fast=fast)]
                     self.assertEqual(sorted(actual), sorted(expected))
 
 

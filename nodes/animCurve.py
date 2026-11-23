@@ -939,7 +939,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         self._require_valid("アトリビュートの取得")
-        return Plugs._from_plugs(list(self.getPlug("output").getDestinations(skipConversionNodes=True)))
+        return Plugs._from_plugs(list(self.getPlug("output").getConnections(outputs=True, skipConversionNodes=True)))
 
     def getKeyframe(self, index):
         """指定した番号のキーを、Keyframeとして返す。

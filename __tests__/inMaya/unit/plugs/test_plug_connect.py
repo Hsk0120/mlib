@@ -62,11 +62,11 @@ class ConnectionDefaultTest(_SpecCase):
         target = mlib.createNode("transform", name=self.name("dst"), skipSelect=True)
         cmds.connectAttr(source.getFullName() + ".tx", target.getFullName() + ".rx")
         plug = target.getPlug("rx")
-        self.assertEqual(plug.getSource().getNode().getType(), "unitConversion")
-        self.assertEqual(plug.getSource(skipConversionNodes=True).getNode(), source)
+        self.assertEqual(plug.getConnections(input=True).getNode().getType(), "unitConversion")
+        self.assertEqual(plug.getConnections(input=True, skipConversionNodes=True).getNode(), source)
         self.assertEqual(plug.getConnections(destination=False, asNode=True)[0].getType(), "unitConversion")
         self.assertEqual(plug.getConnections(destination=False, asNode=True, scn=True), [source])
-        self.assertEqual(source.getPlug("tx").getDestinations(skipConversionNodes=True), [plug])
+        self.assertEqual(source.getPlug("tx").getConnections(outputs=True, skipConversionNodes=True), [plug])
 
 
 class _ConnectionSpecCase(unittest.TestCase):
@@ -269,7 +269,7 @@ class ConnectSpecTest(_ConnectionSpecCase):
 
 
 class DisconnectSpecTest(_ConnectionSpecCase):
-    """disconnect・disconnectInput・disconnectAllの戻り値と例外。"""
+    """disconnect・disconnectAll(入力だけ・出力だけ)の戻り値と例外。"""
 
     def test_disconnect_returns_source(self):
         """disconnectは切断した入力元Plugを返す。srcを渡せばそのオブジェクト自身。"""
@@ -360,19 +360,32 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         with self.assertRaises(RuntimeError):
             values.disconnect(self.a.getPlug("tx"), na=True)
 
-    def test_disconnect_input_is_noop_without_input(self):
-        """disconnectInputは入力が無ければ何もせず自身を返し、あれば切断して自身を返す。"""
+    def test_disconnect_all_input_only_is_noop_without_input(self):
+        """disconnectAll(destination=False)は入力が無ければ何もせず、あれば入力だけを切る。出力は残し、値は返さない。"""
         ty = self.b.getPlug("ty")
-        self.assertIsNone(ty.disconnectInput())
+        cmds.flushUndo()
+        self.assertIsNone(ty.disconnectAll(destination=False))
+        self.assertUndoEmpty()
         cmds.connectAttr(self.an + ".ty", self.bn + ".ty")
-        self.assertIsNone(ty.disconnectInput())
+        cmds.connectAttr(self.bn + ".ty", self.an + ".sy")
+        cmds.flushUndo()
+        self.assertIsNone(ty.disconnectAll(destination=False))
+        self.assertEqual(self.inputs(self.bn + ".ty"), [])
+        self.assertTrue(cmds.isConnected(self.bn + ".ty", self.an + ".sy"))
+        # 入力だけなら1回のdisconnectAttrで、Undo 1回で戻る。
+        cmds.undo()
+        self.assertTrue(cmds.isConnected(self.an + ".ty", self.bn + ".ty"))
+        self.assertUndoEmpty()
+        cmds.redo()
         self.assertEqual(self.inputs(self.bn + ".ty"), [])
         cmds.connectAttr(self.an + ".ty", self.bn + ".ty")
         cmds.flushUndo()
-        ty.disconnectInput(fast=True)
+        ty.disconnectAll(destination=False, fast=True)
+        self.assertEqual(self.inputs(self.bn + ".ty"), [])
+        self.assertTrue(cmds.isConnected(self.bn + ".ty", self.an + ".sy"))
         self.assertUndoEmpty()
         with self.assertRaises(TypeError):
-            ty.disconnectInput(fast=1)
+            ty.disconnectAll(destination=False, fast=1)
 
     def test_disconnect_all_directions_and_undo(self):
         """disconnectAllは入力と全出力を外し、方向指定・別名を受け付け、1回のUndoで戻る。"""
@@ -417,7 +430,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
 
 
 class ConnectionQuerySpecTest(_ConnectionSpecCase):
-    """getSource・getDestinations・getConnections・isConnected系の照会。"""
+    """getConnections(input=True・outputs=Trueを含む)・isConnectedの照会。"""
 
     def setUp(self):
         super().setUp()
@@ -426,36 +439,38 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
         cmds.connectAttr(self.an + ".tx", self.bn + ".rx")  # unitConversionを経由する。
         self.conversion = cmds.listConnections(self.bn + ".rx", source=True, destination=False, skipConversionNodes=False)[0]
 
-    def test_get_source(self):
-        """getSourceは既定で変換ノードを飛ばし、未接続はNone。asNode・asPair・typeも使える。"""
-        self.assertEqual(self.b.getPlug("ty").getSource(skipConversionNodes=True), self.a.getPlug("tx"))
-        self.assertIsNone(self.b.getPlug("tx").getSource(skipConversionNodes=True))
-        self.assertEqual(self.b.getPlug("rx").getSource(skipConversionNodes=True), self.a.getPlug("tx"))
-        direct = self.b.getPlug("rx").getSource()
+    def test_get_input(self):
+        """getConnections(input=True)は入力元を1つ返し、未接続はNone。既定は直結で、skipConversionNodes・asNode・asPair・typeも使える。"""
+        self.assertEqual(self.b.getPlug("ty").getConnections(input=True, skipConversionNodes=True), self.a.getPlug("tx"))
+        self.assertIsNone(self.b.getPlug("tx").getConnections(input=True, skipConversionNodes=True))
+        self.assertEqual(self.b.getPlug("rx").getConnections(input=True, skipConversionNodes=True), self.a.getPlug("tx"))
+        direct = self.b.getPlug("rx").getConnections(input=True)
         self.assertEqual(direct.getNode().getName(), self.conversion)
-        self.assertEqual(self.b.getPlug("rx").getSource(), direct)
-        self.assertEqual(self.b.getPlug("ty").getSource(asNode=True, skipConversionNodes=True), self.a)
-        pair = self.b.getPlug("ty").getSource(asPair=True, skipConversionNodes=True)
+        self.assertEqual(self.b.getPlug("rx").getConnections(input=True), direct)
+        self.assertEqual(self.b.getPlug("ty").getConnections(input=True, asNode=True, skipConversionNodes=True), self.a)
+        pair = self.b.getPlug("ty").getConnections(input=True, asPair=True, skipConversionNodes=True)
         self.assertEqual(pair, (self.b.getPlug("ty"), self.a.getPlug("tx")))
-        self.assertEqual(self.b.getPlug("ty").getSource(type="transform", skipConversionNodes=True), self.a.getPlug("tx"))
-        self.assertIsNone(self.b.getPlug("ty").getSource(type="joint", skipConversionNodes=True))
+        self.assertEqual(self.b.getPlug("ty").getConnections(input=True, type="transform", skipConversionNodes=True), self.a.getPlug("tx"))
+        self.assertIsNone(self.b.getPlug("ty").getConnections(input=True, type="joint", skipConversionNodes=True))
         with self.assertRaises(TypeError):
-            self.b.getPlug("ty").getSource(idx=0, skipConversionNodes=True)
+            self.b.getPlug("ty").getConnections(input=True, idx=0, skipConversionNodes=True)
 
-    def test_get_source_does_not_expand_children(self):
-        """getSourceは子の独立した接続を展開しない。"""
-        self.assertIsNone(self.b.getPlug("translate").getSource(skipConversionNodes=True))
+    def test_get_input_does_not_expand_children(self):
+        """getConnections(input=True)は子の独立した接続を展開しない。"""
+        self.assertIsNone(self.b.getPlug("translate").getConnections(input=True, skipConversionNodes=True))
+        self.assertIsNone(self.b.getPlug("translate").getConnections(input=True))
+        self.assertEqual(self.b.getPlug("translate").getConnections(outputs=True), [])
 
-    def test_get_destinations(self):
-        """getDestinationsは出力先のlist。未接続は[]、asNodeはノード単位で統合、indexは範囲外None。"""
-        destinations = self.a.getPlug("tx").getDestinations(skipConversionNodes=True)
+    def test_get_outputs(self):
+        """getConnections(outputs=True)は出力先のPlugs。未接続は空、asNodeはノード単位で統合、indexは範囲外None。"""
+        destinations = self.a.getPlug("tx").getConnections(outputs=True, skipConversionNodes=True)
         self.assertEqual(sorted(p.getFullName() for p in destinations), sorted([self.bn + ".rotateX", self.bn + ".translateY", self.bn + ".translateZ"]))
-        direct = self.a.getPlug("tx").getDestinations()
+        direct = self.a.getPlug("tx").getConnections(outputs=True)
         self.assertIn(self.conversion + ".input", [p.getFullName() for p in direct])
-        self.assertEqual(self.a.getPlug("tx").getDestinations(asNode=True, skipConversionNodes=True), [self.b])
-        self.assertEqual(self.a.getPlug("sx").getDestinations(skipConversionNodes=True), [])
-        self.assertIsNone(self.a.getPlug("tx").getDestinations(index=99, skipConversionNodes=True))
-        self.assertIsInstance(self.a.getPlug("tx").getDestinations(index=-1, skipConversionNodes=True), plugs.Plug)
+        self.assertEqual(self.a.getPlug("tx").getConnections(outputs=True, asNode=True, skipConversionNodes=True), [self.b])
+        self.assertEqual(self.a.getPlug("sx").getConnections(outputs=True, skipConversionNodes=True), [])
+        self.assertIsNone(self.a.getPlug("tx").getConnections(outputs=True, index=99, skipConversionNodes=True))
+        self.assertIsInstance(self.a.getPlug("tx").getConnections(outputs=True, index=-1, skipConversionNodes=True), plugs.Plug)
 
     def test_get_connections_on_compound_and_flags(self):
         """getConnectionsは子を再帰し、変換ノードは既定で飛ばす。方向・ペア・indexの扱い(pclsは無い)。"""
@@ -491,36 +506,38 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
         self.assertFalse(ax.isConnected(source=False, destination=False))
         self.assertTrue(self.b.getPlug("ty").isConnected(destination=False))
         self.assertFalse(self.b.getPlug("translate").isConnected())
-        self.assertTrue(ax.isSource())
-        self.assertFalse(ax.isDestination())
-        self.assertTrue(self.b.getPlug("ty").isDestination())
-        self.assertFalse(self.b.getPlug("ty").isSource())
+        self.assertFalse(self.b.getPlug("ty").isConnected(source=False))
+        # 引数は調べる相手の側: source=False は出力がある(cmdsのisSource)、destination=False は入力がある(isDestination)。
+        for name, plug in ((self.an + ".tx", ax), (self.bn + ".ty", self.b.getPlug("ty")), (self.bn + ".sx", self.b.getPlug("sx"))):
+            with self.subTest(plug=name):
+                self.assertEqual(plug.isConnected(source=False), cmds.connectionInfo(name, isSource=True))
+                self.assertEqual(plug.isConnected(destination=False), cmds.connectionInfo(name, isDestination=True))
         with self.assertRaises(TypeError):
             ax.isConnected(source=1)
 
-    def test_is_connected_to(self):
-        """isConnectedToは直結だけを方向別に判定し、変換ノードの先は展開しない。"""
+    def test_is_connected_with_other(self):
+        """isConnected(other)は直結だけを方向別に判定し、変換ノードの先は展開しない。"""
         ax, by = self.a.getPlug("tx"), self.b.getPlug("ty")
-        self.assertTrue(by.isConnectedTo(ax))
-        self.assertTrue(by.isConnectedTo(self.an + ".tx"))
-        self.assertTrue(by.isConnectedTo(ax.mplug()))
-        self.assertTrue(ax.isConnectedTo(by))
-        self.assertFalse(by.isConnectedTo(ax, source=False))
-        self.assertTrue(ax.isConnectedTo(by, source=False))
-        self.assertFalse(ax.isConnectedTo(by, destination=False))
-        self.assertFalse(by.isConnectedTo(ax, source=False, destination=False))
-        self.assertFalse(self.b.getPlug("rx").isConnectedTo(ax))
-        self.assertFalse(by.isConnectedTo(self.a.getPlug("ty")))
+        self.assertTrue(by.isConnected(ax))
+        self.assertTrue(by.isConnected(self.an + ".tx"))
+        self.assertTrue(by.isConnected(ax.mplug()))
+        self.assertTrue(ax.isConnected(by))
+        self.assertFalse(by.isConnected(ax, source=False))
+        self.assertTrue(ax.isConnected(by, source=False))
+        self.assertFalse(ax.isConnected(by, destination=False))
+        self.assertFalse(by.isConnected(ax, source=False, destination=False))
+        self.assertFalse(self.b.getPlug("rx").isConnected(ax))
+        self.assertFalse(by.isConnected(self.a.getPlug("ty")))
         with self.assertRaises(TypeError):
-            by.isConnectedTo(5)
+            by.isConnected(5)
         with self.assertRaises(TypeError):
-            by.isConnectedTo(self.an)
+            by.isConnected(self.an)
         with self.assertRaises(ValueError):
-            by.isConnectedTo("")
+            by.isConnected("")
         with self.assertRaises(AttributeError):
-            by.isConnectedTo(self.an + ".missingAttr")
+            by.isConnected(self.an + ".missingAttr")
         with self.assertRaises(TypeError):
-            by.isConnectedTo(ax, source=1)
+            by.isConnected(ax, source=1)
 
     def test_get_anim_curve_direct_only(self):
         """getAnimCurveは直接のanimCurve入力だけを返し、それ以外はNone。"""

@@ -305,11 +305,11 @@ def _dump_movable_attr(plug):
     if not definition.connectable:
         raise TypeError(f"接続できないアトリビュートは、Mayaのコマンドでは作り直せません: {plug.getFullName()}")
     info = {
-        "longName": plug.getLongName(),
-        "shortName": plug.getShortName(),
-        "niceName": plug.getNiceName(),
+        "longName": plug.getAttributeName(),
+        "shortName": plug.getAttributeName("short"),
+        "niceName": plug.getAttributeName("nice"),
         "hidden": definition.hidden,  # addAttr(hidden=)の定義フラグ。Channel Boxの表示はkeyable/channelBox。
-        "keyable": plug.isKeyable(),
+        "keyable": plug.mplug().isKeyable,
         "channelBox": plug.mplug().isChannelBox,
         "locked": plug.isLocked(),
         "value": plug.get(),
@@ -326,23 +326,19 @@ def _dump_movable_attr(plug):
             )
         },
     }
-    source = plug.getSource()
+    source = plug.getConnections(input=True)
     info["source"] = _movable_connection_ref(source) if source is not None else None
-    info["destinations"] = [_movable_connection_ref(target) for target in plug.getDestinations()]
+    info["destinations"] = [_movable_connection_ref(target) for target in plug.getConnections(outputs=True)]
     if attr.hasFn(om2.MFn.kNumericAttribute):
         numeric_type = om2.MFnNumericAttribute(attr).numericType()
         type_name = _MOVABLE_NUMERIC_TYPES.get(numeric_type)
         if type_name is None:
             raise TypeError(f"並べ替えに対応していない数値アトリビュートの型です: {plug.getFullName()}")
         info["attributeType"] = type_name
-        if plug.hasMin():
-            info["min"] = plug.getMin()
-        if plug.hasMax():
-            info["max"] = plug.getMax()
-        if plug.hasSoftMin():
-            info["softMin"] = plug.getSoftMin()
-        if plug.hasSoftMax():
-            info["softMax"] = plug.getSoftMax()
+        for keys, limits in ((("min", "max"), plug.getRange()), (("softMin", "softMax"), plug.getRange(soft=True))):
+            for key, limit in zip(keys, limits):
+                if limit is not None:
+                    info[key] = limit
         info["defaultValue"] = plug._raw_default()
     elif attr.hasFn(om2.MFn.kEnumAttribute):
         info["attributeType"] = "enum"
@@ -1548,8 +1544,8 @@ class Node(Object):
         結果はPlug・Node・ペアのどれかの形で返す。既定では、直接つながっている相手を返す
         (``cmds.listConnections`` と同じ)。
 
-        ``skipConversionNodes=True`` (または ``scn=True``)では、:meth:`~mlib.plugs.plug.Plug.getSource` /
-        :meth:`~mlib.plugs.plug.Plug.getDestinations` と同じく、unitConversionの仲間
+        ``skipConversionNodes=True`` (または ``scn=True``)では、:meth:`~mlib.plugs.plug.Plug.getConnections`
+        と同じく、unitConversionの仲間
         (unitConversion・unitToTimeConversion・timeToUnitConversion)を飛ばして、その先を返す。
 
         Args:
@@ -1929,7 +1925,7 @@ class Node(Object):
                 plugs = [
                     plug
                     for plug in self.getPlugs(keyable=True, scalar=True)
-                    if not plug.mplug().isArray and plug.getDefault() is not None and not plug.isDestination()
+                    if not plug.mplug().isArray and plug.getDefault() is not None and not plug.mplug().isDestination
                 ]
                 # 通常/fastとも、ロック・入力接続・書込み禁止をfastの書込みと同じ検査で除く。
                 plugs = [plug for plug in plugs if _writable_plug(plug)]
@@ -2004,7 +2000,7 @@ class Node(Object):
         Returns:
             Plugs: 新しいリスト。userDefinedでは追加した順、それ以外はlistAttrの順。
                 解決できないパスは省き、見つからなければ空リスト。
-                名前が必要なら ``[plug.getLongName() for plug in ...]`` を使う。
+                名前が必要なら ``[plug.getAttributeName() for plug in ...]`` を使う。
 
         Raises:
             TypeError: userDefined・includeChildren・writableがboolでない場合、

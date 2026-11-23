@@ -129,8 +129,8 @@ class AnimationNodesTest(unittest.TestCase):
         outgoing.getPlug("output").connectTo(driven)
         before = cmds.undoInfo(query=True, undoName=True)
 
-        source = curve.getPlug("input").getSource()
-        destinations = curve.getPlug("output").getDestinations()
+        source = curve.getPlug("input").getConnections(input=True)
+        destinations = curve.getPlug("output").getConnections(outputs=True)
 
         self.assertEqual(source, incoming.getPlug("output"))
         self.assertEqual(destinations, [outgoing.getPlug("input")])

@@ -27,14 +27,14 @@ class ConnectionLockTest(unittest.TestCase):
             destination.setFlags(locked=True)
             with self.assertRaises(RuntimeError):
                 replacement.getPlug("outputX").connectTo(destination, force=True, unlock=False)
-            self.assertEqual(destination.getSource(), output)
+            self.assertEqual(destination.getConnections(input=True), output)
             self.assertTrue(destination.isLocked())
             # 既定値は従来どおり一時解除して接続し、ロックを戻す。
             replacement.getPlug("outputX").connectTo(destination, force=True)
-            self.assertEqual(destination.getSource(), replacement.getPlug("outputX"))
+            self.assertEqual(destination.getConnections(input=True), replacement.getPlug("outputX"))
             self.assertTrue(destination.isLocked())
             cmds.undo()
-            self.assertEqual(destination.getSource(), output)
+            self.assertEqual(destination.getConnections(input=True), output)
             self.assertTrue(destination.isLocked())
         finally:
             cmds.delete([node.getFullName() for node in nodes if node.isValid()])
@@ -61,7 +61,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
         self.assertEqual(events, [("payload", False), ("value", False), ("value", True), ("payload", True)])
         self.assertTrue(target.isLocked())
         self.assertTrue(parent.isLocked())
-        self.assertIsNone(target.getSource())
+        self.assertIsNone(target.getConnections(input=True))
 
     def test_disconnect_failure_restores_parent_and_child_in_reverse_order(self):
         """入力切断の失敗時も同じ順序でロックを復元し、接続を保つ。"""
@@ -89,7 +89,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
 
                 def fail_child(plug, locked):
                     """子のロック解除を失敗させる。"""
-                    if plug.getLongName() == "value" and not locked:
+                    if plug.getAttributeName() == "value" and not locked:
                         raise error
 
                 command = "disconnectAttr" if disconnect else "connectAttr"
@@ -119,7 +119,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
 
                 def fail_restore(plug, locked):
                     """子のロック復元を失敗させる。"""
-                    if plug.getLongName() == "value" and locked:
+                    if plug.getAttributeName() == "value" and locked:
                         raise restore_error
 
                 command = "disconnectAttr" if disconnect else "connectAttr"
@@ -193,7 +193,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
 
         def record(plug, **flags):
             """フラグ変更の試行を記録して元のsetterへ委譲する。"""
-            events.append((plug.getLongName(), flags["locked"]))
+            events.append((plug.getAttributeName(), flags["locked"]))
             if failure is not None:
                 failure(plug, flags["locked"])
             return original(plug, **flags)

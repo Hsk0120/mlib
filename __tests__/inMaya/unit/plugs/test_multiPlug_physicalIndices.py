@@ -21,12 +21,12 @@ class MultiPhysicalIndicesTest(NamespaceCase):
         self.assertEqual(plug.getElementCount(evaluate=True), 2)
         self.assertNotIn(700, plug.getIndices())
         for physical in range(2):
-            self.assertEqual(plug.getElementByPhysicalIndex(physical).getIndex(), plug.mplug().elementByPhysicalIndex(physical).logicalIndex())
+            self.assertEqual(plug.getElement(physical, physical=True).getIndex(), plug.mplug().elementByPhysicalIndex(physical).logicalIndex())
         for index in (-1, 2):
             with self.assertRaises(IndexError):
-                plug.getElementByPhysicalIndex(index)
+                plug.getElement(index, physical=True)
         with self.assertRaises(TypeError):
-            plug.getElementByPhysicalIndex(True)
+            plug.getElement(True, physical=True)
         with self.assertRaises(TypeError):
             plug.getElementCount(evaluate=1)
 

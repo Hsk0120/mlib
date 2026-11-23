@@ -52,7 +52,7 @@ class DagPose(Node):
             raise RuntimeError("無効なskinClusterは使えません")
         if not skin.isType("skinCluster"):
             raise ValueError("skinClusterを指定してください")
-        source = skin.getPlug("bindPose").getSource()
+        source = skin.getPlug("bindPose").getConnections(input=True)
         if source is None:
             return None
         pose = source.getNode()

@@ -172,10 +172,6 @@ EXCLUDED = {
     "cmds.createCluster": "素の cmds.cluster も Redo でハンドルの形状名を clusterHandleShape へ変える(Maya の挙動)。Undo 1 回で戻ることは test_spec_deform_additions で確認する。",
     "Keyframe.select": "キーの選択はスナップショットの対象外。Undo 1 回は test_spec_keyframe で確認する。",
     "Keyframes.select": "キーの選択はスナップショットの対象外。Undo 1 回は test_spec_keyframe で確認する。",
-    "Plug.setMin": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
-    "Plug.setMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
-    "Plug.setSoftMin": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
-    "Plug.setSoftMax": "アトリビュートの定義(範囲)の編集。スナップショットは定義の範囲を比べないため、Undo 1 回は test_spec_plug_editing で確認する。",
     "Plug.setDefault": (
         "Maya 2022～2027の通常経路はUndoで旧既定値ではなく0に戻るという明示仕様のため、完全復元を要求する共通検査の対象外。"
         "inMaya/unit/plugs/test_plug_default.pyのtest_normal_native_undo_and_fastでUndo後0・Redo後指定値・fastのキュー不変を検証する。"
@@ -705,6 +701,35 @@ def s_insert(c):
     """a.tx → b.ty の接続と、間に挟む multDoubleLinear を作る。"""
     s_connected(c)
     c.mdl = _node("multDoubleLinear", "inserted")
+
+
+def s_channel_box(c):
+    """Channel Box表示のフラグだけを立てた(keyableでない)ユーザー定義アトリビュート hiddenNum を持つ transform a を作る。"""
+    s_user(c)
+    cmds.setAttr(c.a + ".hiddenNum", channelBox=True)
+
+
+def r_plug_flags(c):
+    """a のアトリビュートごとの keyable・Channel Box表示・ロックの状態を返す(Undoで元の組み合わせへ戻ることの確認用)。"""
+    names = ["tx", "ty", "tz", "translate"] + [name for name in ("hiddenNum", "foo") if cmds.attributeQuery(name, node=c.a, exists=True)]
+    return [(name, [cmds.getAttr(f"{c.a}.{name}", **{flag: True}) for flag in ("keyable", "channelBox", "lock")]) for name in names]
+
+
+def r_ranges(c):
+    """a.foo の範囲の定義(制限とソフトリミットの有無と値)を cmds で読んで返す。"""
+
+    def query(exists, value):
+        if not cmds.attributeQuery("foo", node=c.a, **{exists: True}):
+            return None
+        return cmds.attributeQuery("foo", node=c.a, **{value: True})[0]
+
+    return [query("minExists", "minimum"), query("maxExists", "maximum"), query("softMinExists", "softMin"), query("softMaxExists", "softMax")]
+
+
+def s_ranged(c):
+    """最小-1・最大5・ソフト最小0・ソフト最大4の範囲を持つ a.foo を作る。"""
+    s_user(c)
+    cmds.addAttr(c.a + ".foo", edit=True, minValue=-1.0, maxValue=5.0, softMinValue=0.0, softMaxValue=4.0)
 
 
 def s_locked(c):
@@ -2209,14 +2234,53 @@ CASES = [
     C("Double3Plug.set", "Double3Plug.set rotate", s_one, lambda c, **kw: mlib.getPlug(c.a + ".rotate").set((0.1, 0.2, 0.3), **kw)),
     C("Plug.setIfChanged", "Plug.setIfChanged", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setIfChanged(4.0, **kw)),
     C("Plug.reset", "Plug.reset", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").reset(**kw)),
-    C("Plug.setKeyable", "Plug.setKeyable", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setKeyable(False, **kw)),
-    C("Plug.setChannelBox", "Plug.setChannelBox", s_user, lambda c, **kw: mlib.getPlug(c.a + ".hiddenNum").setChannelBox(True, **kw)),
-    C("Plug.setFlags", "Plug.setFlags", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setFlags(locked=True, keyable=False, **kw)),
+    C("Plug.setFlags", "Plug.setFlags keyable False", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setFlags(keyable=False, **kw), extraState=r_plug_flags),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags channelBox",
+        s_user,
+        lambda c, **kw: mlib.getPlug(c.a + ".hiddenNum").setFlags(channelBox=True, **kw),
+        extraState=r_plug_flags,
+    ),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags channelBox on keyable",
+        s_user,
+        lambda c, **kw: mlib.getPlug(c.a + ".foo").setFlags(channelBox=True, **kw),
+        extraState=r_plug_flags,
+    ),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags keyable on channelBox",
+        s_channel_box,
+        lambda c, **kw: mlib.getPlug(c.a + ".hiddenNum").setFlags(keyable=True, **kw),
+        extraState=r_plug_flags,
+    ),
+    C("Plug.setFlags", "Plug.setFlags", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setFlags(locked=True, keyable=False, **kw), extraState=r_plug_flags),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags compound leaf",
+        s_one,
+        lambda c, **kw: mlib.getPlug(c.a + ".translate").setFlags(keyable=False, leaf=True, **kw),
+        extraState=r_plug_flags,
+    ),
     C("Plug.setLocked", "Plug.setLocked", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setLocked(True, **kw)),
     C("Plug.setLocked", "Plug.setLocked compound leaf", s_one, lambda c, **kw: mlib.getPlug(c.a + ".translate").setLocked(True, leaf=True, **kw)),
     C("Plug.setLocked", "Plug.setLocked False", s_locked, lambda c, **kw: mlib.getPlug(c.a + ".tx").setLocked(False, **kw)),
-    C("Plug.hide", "Plug.hide compound", s_one, lambda c, **kw: mlib.getPlug(c.a + ".translate").hide(**kw)),
-    C("Plug.show", "Plug.show", s_user, lambda c, **kw: mlib.getPlug(c.a + ".hiddenNum").show(**kw)),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags compound children hide",
+        s_one,
+        lambda c, **kw: mlib.getPlug(c.a + ".translate").setFlags(keyable=False, channelBox=False, children=True, **kw),
+        extraState=r_plug_flags,
+    ),
+    C(
+        "Plug.setFlags",
+        "Plug.setFlags children show",
+        s_user,
+        lambda c, **kw: mlib.getPlug(c.a + ".hiddenNum").setFlags(keyable=True, children=True, **kw),
+        extraState=r_plug_flags,
+    ),
     C(
         "Plug.setMuted",
         "Plug.setMuted False",
@@ -2278,7 +2342,8 @@ CASES = [
     C("Plug.connect", "Plug.connect force", s_connected, lambda c, **kw: mlib.getPlug(c.b + ".ty").connect(c.a + ".tz", force=True, **kw)),
     C("Plug.connectTo", "Plug.connectTo", s_two, lambda c, **kw: mlib.getPlug(c.a + ".tx").connectTo(c.b + ".ty", **kw)),
     C("Plug.insertInput", "Plug.insertInput", s_insert, lambda c, **kw: mlib.getPlug(c.b + ".ty").insertInput(c.mdl, "input1", "output")),
-    C("Plug.disconnectInput", "Plug.disconnectInput", s_connected, lambda c, **kw: mlib.getPlug(c.b + ".ty").disconnectInput(**kw)),
+    C("Plug.disconnectAll", "Plug.disconnectAll input only", s_connected, lambda c, **kw: mlib.getPlug(c.b + ".ty").disconnectAll(destination=False, **kw)),
+    C("Plug.disconnectAll", "Plug.disconnectAll output only", s_connected, lambda c, **kw: mlib.getPlug(c.a + ".tx").disconnectAll(source=False, **kw)),
     C("Plug.disconnect", "Plug.disconnect", s_connected, lambda c, **kw: mlib.getPlug(c.b + ".ty").disconnect(c.a + ".tx", **kw)),
     C("Plug.disconnectAll", "Plug.disconnectAll", s_connected, lambda c, **kw: mlib.getPlug(c.a + ".tx").disconnectAll(**kw)),
     C("Plug.__rshift__", "Plug >>", s_two, lambda c, **kw: mlib.getPlug(c.a + ".tx") >> mlib.getPlug(c.b + ".ty")),
@@ -2398,21 +2463,20 @@ CASES = [
     C("OrientConstraint.deleteCache", "OrientConstraint.deleteCache", s_orient_cached, lambda c, **kw: c.ncon.deleteCache()),
     C("ParentConstraint.createCache", "ParentConstraint.createCache", s_parent_cache, lambda c, **kw: c.ncon.createCache(1, 3)),
     C("ParentConstraint.deleteCache", "ParentConstraint.deleteCache", s_parent_cached, lambda c, **kw: c.ncon.deleteCache()),
-    C("Plug.setRange", "Plug.setRange", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-5.0, 10.0), extraState=lambda c: c.na.getPlug("foo").getRange()),
+    C("Plug.setRange", "Plug.setRange", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-5.0, 10.0), extraState=r_ranges),
+    C("Plug.setRange", "Plug.setRange minimum only", s_ranged, lambda c, **kw: c.na.getPlug("foo").setRange(-3.0), extraState=r_ranges),
+    C("Plug.setRange", "Plug.setRange maximum only", s_ranged, lambda c, **kw: c.na.getPlug("foo").setRange(maximum=8.0), extraState=r_ranges),
+    # 制限を外す指定(None)は表に入れない: 素の cmds.addAttr(edit=True, hasMinValue=False) も、Undoで制限が戻らない(Mayaの挙動)。
+    C("Plug.setRange", "Plug.setRange soft minimum only", s_ranged, lambda c, **kw: c.na.getPlug("foo").setRange(-0.5, soft=True), extraState=r_ranges),
+    C("Plug.setRange", "Plug.setRange soft maximum only", s_ranged, lambda c, **kw: c.na.getPlug("foo").setRange(maximum=4.5, soft=True), extraState=r_ranges),
     C(
         "Plug.setNiceName",
         "Plug.setNiceName",
         s_user,
         lambda c, **kw: c.na.getPlug("foo").setNiceName("表示名"),
-        extraState=lambda c: c.na.getPlug("foo").getNiceName(),
+        extraState=lambda c: c.na.getPlug("foo").getAttributeName("nice"),
     ),
-    C(
-        "Plug.setSoftRange",
-        "Plug.setSoftRange",
-        s_user,
-        lambda c, **kw: c.na.getPlug("foo").setSoftRange(-2.0, 7.0),
-        extraState=lambda c: c.na.getPlug("foo").getSoftRange(),
-    ),
+    C("Plug.setRange", "Plug.setRange soft", s_user, lambda c, **kw: c.na.getPlug("foo").setRange(-2.0, 7.0, soft=True), extraState=r_ranges),
     C(
         "Transform.setPivotTranslation",
         "Transform.setPivotTranslation",

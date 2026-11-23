@@ -121,7 +121,7 @@ class NextAvailableParityTest(_Case):
 
 
 class GetElementTest(_Case):
-    """getElementは未作成の要素も参照し、getElementsは既存要素だけを返す。"""
+    """getElement(index)は未作成の要素も参照し、getElement()は既存要素だけを返す。"""
 
     def test_missing_element_reference(self):
         cmds.addAttr(self.node.getFullName(), longName="values", attributeType="double", multi=True)
@@ -130,9 +130,9 @@ class GetElementTest(_Case):
         self.assertEqual(element, multi[4])
         self.assertEqual(element.getFullName(), multi.getFullName() + "[4]")
         self.assertNotIn(4, multi)
-        self.assertEqual(multi.getElements(), [])
+        self.assertEqual(multi.getElement(), [])
         element.set(2.0)
-        self.assertEqual(multi.getElements(), [element])
+        self.assertEqual(multi.getElement(), [element])
         self.assertEqual(cmds.getAttr(self.node.getFullName() + ".values", multiIndices=True), [4])
 
     def test_errors(self):

@@ -92,10 +92,10 @@ class IkHandle(Transform):
         # nodes の初期化順に依存しないよう、使う時点で読み込む。
         from .joint import Joint
 
-        effector_plug = self.getPlug("endEffector").getSource()
+        effector_plug = self.getPlug("endEffector").getConnections(input=True)
         if effector_plug is None:
             return None
-        source = effector_plug.getNode().getPlug("translateX").getSource()
+        source = effector_plug.getNode().getPlug("translateX").getConnections(input=True)
         if source is None:
             return None
         return Joint(source.getNode().getFullName())

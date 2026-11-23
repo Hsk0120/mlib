@@ -1031,8 +1031,8 @@ class Node(Object):
         結果はPlug・Node・ペアのどれかの形で返す。既定では、直接つながっている相手を返す
         (``cmds.listConnections`` と同じ)。
 
-        ``skipConversionNodes=True`` (または ``scn=True``)では、:meth:`~mlib.plugs.plug.Plug.getSource` /
-        :meth:`~mlib.plugs.plug.Plug.getDestinations` と同じく、unitConversionの仲間
+        ``skipConversionNodes=True`` (または ``scn=True``)では、:meth:`~mlib.plugs.plug.Plug.getConnections`
+        と同じく、unitConversionの仲間
         (unitConversion・unitToTimeConversion・timeToUnitConversion)を飛ばして、その先を返す。
 
         Args:
@@ -1271,7 +1271,7 @@ class Node(Object):
         Returns:
             Plugs: 新しいリスト。userDefinedでは追加した順、それ以外はlistAttrの順。
                 解決できないパスは省き、見つからなければ空リスト。
-                名前が必要なら ``[plug.getLongName() for plug in ...]`` を使う。
+                名前が必要なら ``[plug.getAttributeName() for plug in ...]`` を使う。
 
         Raises:
             TypeError: userDefined・includeChildren・writableがboolでない場合、

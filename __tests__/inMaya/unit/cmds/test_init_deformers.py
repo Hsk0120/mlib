@@ -74,7 +74,7 @@ class CreateDeformerTest(_Case):
         self.flushUndo()
         ffd = mlib.createLattice(cube, name=self.name("made"), dv=(3, 4, 2), ldv=(2, 3, 2))
         self.assertEqual(ffd.getType(), "ffd")
-        lattice = ffd.getPlug("deformedLatticePoints").getSource().getNode().getFullName()
+        lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getFullName()
         self.assertEqual([cmds.getAttr(lattice + "." + axis + "Divisions") for axis in "stu"], [3, 4, 2])
         self.assertEqual([cmds.getAttr(ffd.getFullName() + ".localInfluence" + axis) for axis in "STU"], [2, 3, 2])
         self.assertEqual(cmds.ls(selection=True), [])

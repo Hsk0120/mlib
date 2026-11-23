@@ -72,7 +72,7 @@ class MatrixPlug(Plug):
         """
         _require_bool(uiUnits, "uiUnits")
         self._require_valid()
-        if self.getLongName() in ("worldMatrix", "wm"):
+        if self.getAttributeName() in ("worldMatrix", "wm"):
             raise TypeError("worldMatrixは計算される出力なので設定できません")
         matrix = Matrix(value)
         if check:

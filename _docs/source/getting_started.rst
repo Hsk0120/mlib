@@ -188,13 +188,13 @@ Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Maya�
      - ``mlib.ls("名前やパターン")``、``mlib.ls(selection=True)``
      - :doc:`autoapi/mlib/cmds/index`
    * - 値・単位・接続を扱う
-     - ``node.getPlug("translateX").get()``、``plug.getSource()``
+     - ``node.getPlug("translateX").get()``、``plug.getConnections(input=True)``
      - :class:`~mlib.plugs.plug.Plug`
    * - ノードの型を調べ、Mayaの継承で判定する
      - ``node.getType()``、``node.isType("shape")``、``node.getType(inherited=True)``
      - :meth:`~mlib.nodes.node.Node.isType`、:ref:`dynamic-node-classes`
    * - ユーザー定義アトリビュートを列挙する
-     - ``node.getPlugs(userDefined=True)``。名前は ``[p.getLongName() for p in plugs]``。
+     - ``node.getPlugs(userDefined=True)``。名前は ``[p.getAttributeName() for p in plugs]``。
        ``userDefined=True`` は ``cmds.listAttr`` のフラグと併用できません(TypeError)
      - :meth:`~mlib.nodes.node.Node.getPlugs`
    * - 選択した頂点をShapeごとにまとめる

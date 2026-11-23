@@ -1875,7 +1875,7 @@ class SkinCluster(GeometryFilter):
             settings = [self.getPlug(attr) for attr in ("maxInfluences", "maintainMaxInfluences")]
             for plug in settings:
                 if plug.mplug().isFreeToChange() != om2.MPlug.kFreeToChange:
-                    attr = plug.getLongName()
+                    attr = plug.getAttributeName()
                     raise RuntimeError(f"設定がロックされているか、接続されています: {attr}")
             computed = self._normalized_weights(limit=count) if prune else None
             settings[0].set(count, fast=fast)

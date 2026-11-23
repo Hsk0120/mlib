@@ -276,7 +276,7 @@ class DrivenKeyAngleTest(_SpecCase):
 
 
 class AddAttrAngleTest(_SpecCase):
-    """Node.addAttrの角度の範囲・既定値と、Plug.getMin等の単位。"""
+    """Node.addAttrの角度の範囲・既定値と、Plug.getRangeの単位。"""
 
     def test_limits_and_default_in_degrees(self):
         """doubleAngleのmin/max/soft・既定値は既定で度。cmds.attributeQueryの度と一致する。"""
@@ -285,31 +285,31 @@ class AddAttrAngleTest(_SpecCase):
                 plug = self.transform.addAttr(
                     f"bend{fast:d}", attributeType="doubleAngle", minValue=-45, maxValue=90, softMinValue=-10, softMaxValue=60, defaultValue=30, fast=fast
                 )
-                name = plug.getLongName()
+                name = plug.getAttributeName()
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, minimum=True)[0], -45.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, maximum=True)[0], 90.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, softMin=True)[0], -10.0)
                 self.assertAlmostEqual(cmds.attributeQuery(name, node=self.node_name, softMax=True)[0], 60.0)
                 self.assertAlmostEqual(plug.get(), 30.0)
-                self.assertIsInstance(plug.getMin(), float)
-                self.assertAlmostEqual(plug.getMin(), -45.0)
-                self.assertAlmostEqual(plug.getMin(unit="deg"), -45.0)
-                self.assertAlmostEqual(plug.getMax(unit="rad"), math.pi / 2)
-                self.assertAlmostEqual(plug.getSoftMin(unit="deg"), -10.0)
-                self.assertAlmostEqual(plug.getSoftMax(unit="deg"), 60.0)
+                self.assertIsInstance(plug.getRange()[0], float)
+                self.assertAlmostEqual(plug.getRange()[0], -45.0)
+                self.assertAlmostEqual(plug.getRange(unit="deg")[0], -45.0)
+                self.assertAlmostEqual(plug.getRange(unit="rad")[1], math.pi / 2)
+                self.assertAlmostEqual(plug.getRange(soft=True, unit="deg")[0], -10.0)
+                self.assertAlmostEqual(plug.getRange(soft=True, unit="deg")[1], 60.0)
                 self.assertAlmostEqual(plug.getDefault(unit="deg"), 30.0)
 
     def test_rad_unit_and_angle_children(self):
         """unit="rad"はラジアン。subType="doubleAngle"の子へ配る値も同じ単位で換算する。"""
         plug = self.transform.addAttr("twist", attributeType="doubleAngle", maxValue=math.pi, unit="rad")
-        self.assertAlmostEqual(plug.getMax(unit="deg"), 180.0)
+        self.assertAlmostEqual(plug.getRange(unit="deg")[1], 180.0)
         for fast in (False, True):
             with self.subTest(fast=fast):
                 compound = self.transform.addAttr(f"aim{fast:d}", type="double3", subType="doubleAngle", defaultValue=(10, 20, 30), maxValue=90, fast=fast)
                 child = compound[1]
                 self.assertEqual(child.getType(), "doubleAngle")
                 self.assertAlmostEqual(child.get(), 20.0)
-                self.assertAlmostEqual(child.getMax(unit="deg"), 90.0)
+                self.assertAlmostEqual(child.getRange(unit="deg")[1], 90.0)
         with self.assertRaises(ValueError):
             self.transform.addAttr("badUnit", attributeType="doubleAngle", unit="grad")
         self.assertFalse(self.transform.hasAttr("badUnit"))

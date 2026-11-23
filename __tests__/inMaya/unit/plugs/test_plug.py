@@ -38,17 +38,17 @@ class NodeApiTest(unittest.TestCase):
         self.created.append(node.getName())
         return node
 
-    def test_plug_is_keyable_and_parent(self):
+    def test_plug_keyable_flag_and_parent(self):
         transform = self.create_transform("mlibNodeApiPlugMeta")
         translate = transform.getPlug("translate")
         translate_x = transform.getPlug("translateX")
 
-        self.assertTrue(translate_x.isKeyable())
+        self.assertTrue(translate_x.getFlags()["keyable"])
         self.assertIsNone(translate.getParent())
         self.assertEqual(translate_x.getParent().getFullName(), translate.getFullName())
 
         cmds.setAttr(translate_x.getFullName(), keyable=False)
-        self.assertFalse(translate_x.isKeyable())
+        self.assertFalse(translate_x.getFlags()["keyable"])
 
     def test_plug_hidden_limits_default_and_enum(self):
         transform = self.create_transform("mlibNodeApiPlugAttrMeta")
@@ -58,41 +58,33 @@ class NodeApiTest(unittest.TestCase):
 
         num_plug = transform.getPlug("mlibTestNum")
         self.assertTrue(cmds.attributeQuery("mlibTestNum", node=transform.getName(), hidden=True))
-        self.assertTrue(num_plug.isHidden())  # keyableでもChannel Box表示でもない。
-        self.assertTrue(num_plug.hasMin())
-        self.assertTrue(num_plug.hasMax())
-        self.assertEqual(num_plug.getMin(), 0.0)
-        self.assertEqual(num_plug.getMax(), 10.0)
+        self.assertTrue(num_plug.getFlags()["hidden"])  # keyableでもChannel Box表示でもない。
+        self.assertEqual(num_plug.getRange(), (0.0, 10.0))
+        self.assertEqual(num_plug.getRange(soft=True), (None, None))
         self.assertEqual(num_plug.getDefault(), 5.0)
 
         no_limit_plug = transform.getPlug("mlibTestNoLimit")
         self.assertFalse(cmds.attributeQuery("mlibTestNoLimit", node=transform.getName(), hidden=True))
-        self.assertFalse(no_limit_plug.hasMin())
-        self.assertFalse(no_limit_plug.hasMax())
-        self.assertIsNone(no_limit_plug.getMin())
-        self.assertIsNone(no_limit_plug.getMax())
+        self.assertEqual(no_limit_plug.getRange(), (None, None))
         self.assertEqual(no_limit_plug.getDefault(), 1.5)
 
         enum_plug = transform.getPlug("mlibTestEnum")
         self.assertEqual(enum_plug.getDefault(), 1)
-        self.assertEqual(enum_plug.getEnumName(), "B")
+        self.assertEqual(enum_plug.getEnumNames(current=True), "B")
 
         with self.assertRaises(TypeError):
-            transform.getPlug("translateX").getEnumName()
+            transform.getPlug("translateX").getEnumNames(current=True)
 
     def test_plug_soft_limits(self):
         transform = self.create_transform("mlibNodeApiPlugFlags")
         cmds.addAttr(transform.getName(), longName="mlibSoftAttr", attributeType="double", softMinValue=0, softMaxValue=10, defaultValue=2)
         plug = transform.getPlug("mlibSoftAttr")
 
-        self.assertTrue(plug.hasSoftMin())
-        self.assertTrue(plug.hasSoftMax())
-        self.assertEqual(plug.getSoftMin(), 0.0)
-        self.assertEqual(plug.getSoftMax(), 10.0)
+        self.assertEqual(plug.getRange(soft=True), (0.0, 10.0))
+        self.assertEqual(plug.getRange(), (None, None))
 
         translate_x = transform.getPlug("translateX")
-        self.assertFalse(translate_x.hasSoftMin())
-        self.assertFalse(translate_x.hasSoftMax())
+        self.assertEqual(translate_x.getRange(soft=True), (None, None))
 
     def test_plug_anim_curve_and_mute(self):
         transform = self.create_transform("mlibNodeApiAnimCurve")
@@ -144,47 +136,47 @@ class NodeApiTest(unittest.TestCase):
         plug.delete(force=True)
         self.assertFalse(cmds.attributeQuery("mlibLockedDelete", node=transform.getName(), exists=True))
 
-    def test_plug_set_keyable_and_set_channel_box(self):
+    def test_plug_set_flags_keyable_and_channel_box(self):
         transform = self.create_transform("mlibNodeApiKeyableCB")
         plug = transform.getPlug("translateX")
 
         result = plug.setFlags(keyable=False)
         self.assertIsNone(result)
-        self.assertFalse(plug.isKeyable())
+        self.assertFalse(plug.getFlags()["keyable"])
 
         plug.setFlags(channelBox=True)
-        self.assertFalse(plug.isKeyable())
+        self.assertFalse(plug.getFlags()["keyable"])
         self.assertTrue(cmds.getAttr(plug.getFullName(), channelBox=True))
 
         plug.setFlags(keyable=True)
-        self.assertTrue(plug.isKeyable())
+        self.assertTrue(plug.getFlags()["keyable"])
 
-    def test_plug_nice_name_and_is_connected_to(self):
+    def test_plug_nice_name_and_is_connected_with_other(self):
         source = self.create_transform("mlibNodeApiNiceNameSource")
         target = self.create_transform("mlibNodeApiNiceNameTarget")
 
-        self.assertEqual(source.getPlug("translateX").getNiceName(), "Translate X")
+        self.assertEqual(source.getPlug("translateX").getAttributeName("nice"), "Translate X")
 
         source_plug = source.getPlug("translateX")
         targetPlug = target.getPlug("translateX")
-        self.assertFalse(source_plug.isConnectedTo(targetPlug))
+        self.assertFalse(source_plug.isConnected(targetPlug))
 
         source_plug.connectTo(targetPlug)
-        self.assertTrue(source_plug.isConnectedTo(targetPlug))
-        self.assertTrue(targetPlug.isConnectedTo(source_plug))
-        self.assertFalse(source_plug.isConnectedTo(source.getPlug("translateY")))
+        self.assertTrue(source_plug.isConnected(targetPlug))
+        self.assertTrue(targetPlug.isConnected(source_plug))
+        self.assertFalse(source_plug.isConnected(source.getPlug("translateY")))
 
-    def test_plug_enum_value_reverses_enum_name(self):
+    def test_plug_enum_names_name_reverses_current(self):
         transform = self.create_transform("mlibNodeApiEnumValue")
         cmds.addAttr(transform.getName(), longName="mlibEnumValueAttr", attributeType="enum", enumName="A:B:C", defaultValue=0)
         plug = transform.getPlug("mlibEnumValueAttr")
 
-        self.assertEqual(plug.getEnumValue("B"), 1)
-        self.assertEqual(plug.getEnumValue(plug.getEnumName()), 0)
+        self.assertEqual(plug.getEnumNames(name="B"), 1)
+        self.assertEqual(plug.getEnumNames(name=plug.getEnumNames(current=True)), 0)
         with self.assertRaises(ValueError):
-            plug.getEnumValue("NotAField")
+            plug.getEnumNames(name="NotAField")
         with self.assertRaises(TypeError):
-            transform.getPlug("translateX").getEnumValue("A")
+            transform.getPlug("translateX").getEnumNames(name="A")
 
     def test_plug_get_dispatches_by_attribute_type_via_om2(self):
         # Plug.get() は bool/int/float/角度・距離・時間/enum/文字列を
@@ -275,10 +267,10 @@ class NodeApiTest(unittest.TestCase):
 
         self.assertTrue(translatePlug.isCompound())
         self.assertFalse(translatePlug.isMulti())
-        self.assertFalse(translatePlug.isMultiElement())
-        self.assertFalse(translatePlug.isChild())
+        self.assertFalse(translatePlug.isMulti(element=True))
+        self.assertFalse(translatePlug.isCompound(child=True))
 
-        self.assertTrue(translate_x_plug.isChild())
+        self.assertTrue(translate_x_plug.isCompound(child=True))
         self.assertFalse(translate_x_plug.isCompound())
 
         self.assertTrue(world_matrix_plug.isMulti())
@@ -286,7 +278,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertIsInstance(translatePlug.mplug(), om2.MPlug)
 
         element = world_matrix_plug.getElement(0)
-        self.assertTrue(element.isMultiElement())
+        self.assertTrue(element.isMulti(element=True))
 
     def test_plug_connection_introspection_and_disconnect(self):
         source = self.create_transform("mlibNodeApiPlugConnSource")
@@ -295,25 +287,25 @@ class NodeApiTest(unittest.TestCase):
         targetPlug = target.getPlug("translateX")
 
         self.assertFalse(source_plug.isConnected())
-        self.assertFalse(source_plug.isSource())
-        self.assertFalse(targetPlug.isDestination())
+        self.assertFalse(source_plug.isConnected(source=False))
+        self.assertFalse(targetPlug.isConnected(destination=False))
 
         source_plug.connectTo(targetPlug)
         self.assertTrue(source_plug.isConnected())
-        self.assertTrue(source_plug.isSource())
-        self.assertFalse(source_plug.isDestination())
+        self.assertTrue(source_plug.isConnected(source=False))
+        self.assertFalse(source_plug.isConnected(destination=False))
         self.assertTrue(targetPlug.isConnected())
-        self.assertTrue(targetPlug.isDestination())
-        self.assertFalse(targetPlug.isSource())
+        self.assertTrue(targetPlug.isConnected(destination=False))
+        self.assertFalse(targetPlug.isConnected(source=False))
 
-        destinations = source_plug.getDestinations()
+        destinations = source_plug.getConnections(outputs=True)
         self.assertEqual([plug.getFullName() for plug in destinations], [targetPlug.getFullName()])
 
         result = source_plug.disconnectAll()
         self.assertIsNone(result)
         self.assertFalse(source_plug.isConnected())
         self.assertFalse(targetPlug.isConnected())
-        self.assertEqual(source_plug.getDestinations(), [])
+        self.assertEqual(source_plug.getConnections(outputs=True), [])
 
     def test_plug_paths_reject_indices_beyond_logical_index_range(self):
         # MPlug.elementByLogicalIndex() は範囲外の番号を別の番号へ変換する(4294967296 は 0)。

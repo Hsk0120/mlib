@@ -42,12 +42,12 @@ class ExtraAttributesTest(unittest.TestCase):
         self.assertEqual(string.get(), "日本語")
         enum = self.node.addAttr("mode", attributeType="enum", enumName="off:on", defaultValue=1)
         self.assertIsInstance(enum, mlib.EnumPlug)
-        self.assertEqual(enum.getEnumName(), "on")
-        self.assertEqual(enum.getEnumValue("off"), 0)
+        self.assertEqual(enum.getEnumNames(current=True), "on")
+        self.assertEqual(enum.getEnumNames(name="off"), 0)
         message = self.node.addAttr("link", attributeType="message")
         self.assertIsInstance(message, mlib.MessagePlug)
         self.node.getPlug("message").connectTo(message)
-        self.assertEqual(message.getSource(), self.node.getPlug("message"))
+        self.assertEqual(message.getConnections(input=True), self.node.getPlug("message"))
         self.assertEqual(len(self.node.getPlugs(userDefined=True, includeChildren=False)), len(cases) + 3)
         self.assertNotIn(self.node.getPlug("translate"), self.node.getPlugs(userDefined=True, includeChildren=False))
 
@@ -72,20 +72,21 @@ class ExtraAttributesTest(unittest.TestCase):
         self.node.addAttr("last", dt="string")
         expected = cmds.listAttr(self.node.getFullName(), userDefined=True)
         with contextlib.nullcontext():
-            self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["first", "vector", "last"])
-            self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], expected)
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["first", "vector", "last"])
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], expected)
         cmds.renameAttr(self.node.getFullName() + ".first", "renamed")
         cmds.deleteAttr(self.node.getFullName() + ".vector")
-        self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
         cmds.undo()
         # Mayaは削除Undoで定義を末尾へ再追加する。元の順序を仮定せず標準照会と比較する。
         restored = cmds.listAttr(self.node.getFullName(), userDefined=True)
         self.assertEqual(
-            [p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], [p for p in restored if p in {"renamed", "vector", "last"}]
+            [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)],
+            [p for p in restored if p in {"renamed", "vector", "last"}],
         )
-        self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], restored)
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], restored)
         cmds.redo()
-        self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
 
     def test_sparse_compound_multi_roots_do_not_expand(self):
         """マルチアトリビュートであるコンパウンドアトリビュートの子を解決せず、空のマルチアトリビュート・疎なマルチアトリビュートを維持する。"""
@@ -96,7 +97,7 @@ class ExtraAttributesTest(unittest.TestCase):
         cmds.setAttr(name + ".items[7].amount", 2)
         undo_name = cmds.undoInfo(query=True, undoName=True)
         with contextlib.nullcontext():
-            self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["items", "empty"])
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["items", "empty"])
             roots = self.node.getPlugs(userDefined=True, includeChildren=False)
             self.assertTrue(all(isinstance(p, mlib.MultiPlug) for p in roots))
             # 番号なしのマルチアトリビュートであるコンパウンドアトリビュートの子は、通常のNode.plugと同じく公開Plugにできない。
@@ -116,7 +117,7 @@ class ExtraAttributesTest(unittest.TestCase):
         cmds.addAttr(name, longName="enabled", attributeType="bool", parent="outer")
         expected = [self.node.getPlug(p) for p in cmds.listAttr(name, userDefined=True)]
         self.assertEqual(self.node.getPlugs(userDefined=True, includeChildren=True), expected)
-        self.assertEqual([p.getLongName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["outer"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["outer"])
 
     def test_invalid_node_and_include_children(self):
         """無効入力をAPIに渡す前に拒否する。"""
