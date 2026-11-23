@@ -342,6 +342,100 @@ class SkinCluster(GeometryFilter):
                 else:
                     self._set_weight_values_cmds(values, len(columns), edited_vertices, logical, check)
 
+    def limitInfluences(self, count, *, vertices=None, fast=False, check=False):
+        """先頭のMeshの各頂点で、ウェイトを持つインフルエンスの数をcount以下にする。
+
+        - ロックしたインフルエンス(lockInfluenceWeights)は0にせず、先に数に入れる(ロックだけでcountを超えても残す)。
+        - 残りは値の大きい順に残し、ほかを0にする。同じ値なら :meth:`getInfluences` の順の早いものを残す。
+        - 0にした頂点は、ロックしていない残りの比率を保ったまま、合計を1(ロックした分を除いた残り)へ戻す。
+        - 数がcount以下の頂点と、ロックしていない値がすべて0になる頂点は変えない。
+
+        値が変わった頂点・列だけを書き込む。書き込み方は :meth:`pruneWeights` と同じ(通常は1回のUndoで戻せる)。
+
+        Args:
+            count (int): 1頂点あたりの最大数。1以上の整数で指定する。boolは指定できない。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: countが整数でない場合、fast・checkがboolでない場合、またはverticesが頂点でない場合。
+            ValueError: countが1未満の場合、verticesが別の形状・重複の場合、または変える頂点に負の値・有限でない値・
+                合計が1を超えるロックした値がある場合。
+            IndexError: verticesの番号が範囲外の場合。
+            RuntimeError: ウェイトがロックされている・入力が接続されている場合、またはMayaが書き込みを拒否した場合。
+        """
+        with _edit_context("mlibSkinClusterLimitInfluences", fast):
+            if isinstance(count, bool) or not isinstance(count, int):
+                raise TypeError(f"countは整数で指定してください: {type(count).__name__}")
+            if count < 1:
+                raise ValueError(f"countは1以上で指定してください: {count}")
+
+            def limit(row, vertex, free, locked):
+                """countを超える頂点だけ、小さい値から0にして正規化した行を返す。"""
+                if sum(1 for value in row if value != 0.0) <= count:
+                    return None
+                order = sorted(range(len(row)), key=lambda i: (i not in locked, -row[i], i))
+                kept = set(order[:count]) | locked
+                new = [value if i in kept else 0.0 for i, value in enumerate(row)]
+                if not any(new[i] > 0.0 for i in free):
+                    return None
+                self._normalize_row(new, vertex, (), free, locked)
+                return new
+
+            self._rewrite_rows(vertices, limit, fast, check)
+
+    def roundWeights(self, decimals=3, *, vertices=None, fast=False, check=False):
+        """先頭のMeshの各頂点のウェイトを、小数decimals桁に丸める。
+
+        - ロックしたインフルエンス(lockInfluenceWeights)は丸めない。
+        - 丸めで生じた合計のずれ(1との差)は、丸めた後で最も大きいロックしていない値に足して吸収する
+          (0未満にはしない。吸収した値はdecimals+3桁に丸める)。
+        - ロックしていないインフルエンスが無い頂点は変えない。
+
+        値が変わった頂点・列だけを書き込む。書き込み方は :meth:`pruneWeights` と同じ(通常は1回のUndoで戻せる)。
+
+        Args:
+            decimals (int): 残す小数の桁数。1以上の整数で指定する。boolは指定できない。既定は3。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: decimalsが整数でない場合、fast・checkがboolでない場合、またはverticesが頂点でない場合。
+            ValueError: decimalsが1未満の場合、verticesが別の形状・重複の場合、または有限でない値がある場合。
+            IndexError: verticesの番号が範囲外の場合。
+            RuntimeError: ウェイトがロックされている・入力が接続されている場合、またはMayaが書き込みを拒否した場合。
+        """
+        with _edit_context("mlibSkinClusterRoundWeights", fast):
+            if isinstance(decimals, bool) or not isinstance(decimals, int):
+                raise TypeError(f"decimalsは整数で指定してください: {type(decimals).__name__}")
+            if decimals < 1:
+                raise ValueError(f"decimalsは1以上で指定してください: {decimals}")
+
+            def round_row(row, vertex, free, locked):  # noqa: ARG001 引数は_rewrite_rowsが決める
+                """ロックしていない値を丸め、合計のずれを最も大きい値で吸収した行を返す。"""
+                if not free:
+                    return None
+                if not all(math.isfinite(value) for value in row):
+                    raise ValueError(f"頂点{vertex}のウェイトに有限でない値があるため、丸められません")
+                new = [round(value, decimals) if i in free else value for i, value in enumerate(row)]
+                largest = max(free, key=lambda i: new[i])
+                new[largest] = round(max(0.0, new[largest] + 1.0 - sum(new)), decimals + 3)
+                return new
+
+            self._rewrite_rows(vertices, round_row, fast, check)
+
     def getInfluences(self):
         """登録されているインフルエンスを取得する。
 
@@ -1499,36 +1593,48 @@ class SkinCluster(GeometryFilter):
                 for logical_index, value in zip(logical_indices, final):
                     set_attr(f"{name}.weightList[{vertex}].weights[{logical_index}]", value)
 
-    def transferWeights(self, sourceTargetPairs, *, fast=False):
+    def transferWeights(self, sourceTargetPairs, *, vertices=None, add=False, fast=False):
         """sourceとtargetの組ごとに、sourceのウェイトをtargetへ移す。
 
         組は指定した順に処理し、sourceが影響している頂点だけを変える。
 
         - すべての組の参照と登録を確かめてから処理する。同じインフルエンスどうしの組は飛ばす。
-        - targetへは足し算せず、sourceの値で置き換える。そしてsourceを0にする。sourceが0の頂点は変えない。
+        - 既定では、targetへは足し算せず、sourceの値で置き換える。そしてsourceを0にする。sourceが0の頂点は変えない。
         - 通常は、skinPercentとnormalizeWeightsの設定に従う。選択はpreservedSelectionで戻そうとする。
         - fastでは、ジオメトリが1つであることと、編集できるかを確かめ、interactiveの正規化と同じ結果にする。
+
+        ``vertices`` か ``add=True`` を指定したときは、先頭のMeshの頂点のウェイトを読んで組ごとに移し、
+        値が変わった頂点・列だけを書き込む(:meth:`pruneWeights` と同じ書き込み方。正規化はしない)。
+        このときは、sourceかtargetがロック(lockInfluenceWeights)されていればRuntimeErrorにする。
 
         途中で失敗しても、それまでに終わった変更は戻さない。
 
         Args:
             sourceTargetPairs (Iterable[tuple[Node | str, Node | str]]): 登録済みのインフルエンスの組。
                 Maya APIのノードの参照も受け付ける。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            add (bool): Trueなら、targetの値にsourceの値を足す(合計は変わらない)。Falseならsourceの値で置き換える。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 組を順に取り出せない場合、対応していない参照の型の場合、またはfastがboolでない場合。
-            ValueError: 組が2つの要素でない場合、または未登録のインフルエンスの場合。
+            TypeError: 組を順に取り出せない場合、対応していない参照の型の場合、add・fastがboolでない場合、
+                またはverticesが頂点でない場合。
+            ValueError: 組が2つの要素でない場合、未登録のインフルエンスの場合、またはverticesが別の形状・重複の場合。
+            IndexError: verticesの番号が範囲外の場合。
             RuntimeError: レイヤー・ロックなどのために編集できない場合、またはMayaの処理が失敗した場合。
+                ``vertices`` か ``add=True`` を指定して、sourceかtargetがロックされている場合も含む。
                 通常の経路でも、skinClusterがロックされているかリファレンスの場合と、``weightList`` かその要素が
                 ロックされている場合は、移す前に確かめて例外にする(skinPercentはロックされた要素を黙って飛ばすため)。
             NotImplementedError: fastで、ジオメトリが1つでない場合。
         """
         with _edit_context("mlibSkinClusterTransferWeights", fast):
+            _require_bool(add, "add")
             self._raise_if_layers()
+            vertex_indices = self._vertex_indices(vertices)
 
             pairs = []
             for item in sourceTargetPairs:
@@ -1542,7 +1648,9 @@ class SkinCluster(GeometryFilter):
                     raise ValueError("両方のノードをこのskinClusterのインフルエンスにしてください")
                 if source.getUuid() != target.getUuid():
                     pairs.append((source.getFullName(), target.getFullName()))
-            if fast:
+            if vertex_indices is not None or add:
+                self._transfer_rows(pairs, vertex_indices, add, fast)
+            elif fast:
                 # 循環参照の回避: core は nodes を参照するため、使う時点で読み込む。
                 from ..core.skinEdit import transfer_weights
 
@@ -3312,6 +3420,104 @@ class SkinCluster(GeometryFilter):
             candidates = (by_uuid.get(self._uuid_or_none(joint)), by_name.get(joint))
             result.append(min((i for i in candidates if i is not None), default=None))
         return result
+
+    def _rewrite_rows(self, vertices, change, fast, check):
+        """先頭のMeshの頂点の行を change で変え、値が変わった頂点・列だけを書き込む。
+
+        Args:
+            vertices: 対象の頂点の指定(:meth:`_vertex_indices` と同じ)。Noneならすべての頂点。
+            change (Callable): ``change(row, vertex, free, locked)`` が新しい行を返す。Noneなら変えない。
+                freeはロックしていない物理番号のlist、lockedはロックした物理番号のset。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら書き込む前に書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+        """
+        vertex_indices = self._vertex_indices(vertices)
+        if vertex_indices is None:
+            vertex_indices = self._weight_point_indices()
+        paths = self._skin_fn.influenceObjects()
+        locked = {i for i, path in enumerate(paths) if self._influence_locked(path)}
+        free = [i for i in range(len(paths)) if i not in locked]
+        rows = self._read_rows(vertex_indices, range(len(paths)))
+        edited = []
+        for vertex, row in zip(vertex_indices, rows):
+            new = change(list(row), vertex, free, locked)
+            if new is not None:
+                edited.append((vertex, row, new))
+        self._write_changed_rows(paths, list(range(len(paths))), edited, fast, check)
+
+    def _write_changed_rows(self, paths, physical, edited, fast, check):
+        """(頂点, 元の行, 新しい行) のうち、値が変わった頂点・列だけを書き込む。
+
+        Args:
+            paths (om2.MDagPathArray): influenceObjects() のパス。
+            physical (list[int]): 行の列に当たる物理番号。
+            edited (list[tuple[int, list[float], list[float]]]): 頂点と、元の行・新しい行。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら書き込む前に書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+        """
+        changed = set()
+        vertices, rows = [], []
+        for vertex, row, new in edited:
+            columns = [c for c in range(len(physical)) if abs(new[c] - row[c]) > 1e-12]
+            if columns:
+                changed.update(columns)
+                vertices.append(vertex)
+                rows.append(new)
+        if not vertices:
+            return
+        columns = sorted(changed)
+        values = [row[c] for row in rows for c in columns]
+        logical = [self._skin_fn.indexForInfluenceObject(paths[physical[c]]) for c in columns]
+        if fast:
+            self._set_weight_values_fast(values, len(columns), vertices, logical, check)
+        else:
+            self._set_weight_values_cmds(values, len(columns), vertices, logical, check)
+
+    def _transfer_rows(self, pairs, vertex_indices, add, fast):
+        """頂点の行を読み、組ごとにsourceの値をtargetへ移して、変わった値だけを書き込む。
+
+        Args:
+            pairs (list[tuple[str, str]]): sourceとtargetのフルパスの組(同じものどうしは除いてある)。
+            vertex_indices (list[int] | None): 対象の頂点。Noneならすべての頂点。
+            add (bool): Trueならtargetへ足し、Falseならsourceの値で置き換える。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: sourceかtargetがロックされている場合。
+        """
+        if not pairs:
+            return
+        paths = self._skin_fn.influenceObjects()
+        index_of = {paths[i].fullPathName(): i for i in range(len(paths))}
+        for name in sorted({name for pair in pairs for name in pair}):
+            if self._influence_locked(paths[index_of[name]]):
+                raise RuntimeError(f"ロックしたインフルエンスのウェイトは移せません: {name}")
+        physical = sorted({index_of[name] for pair in pairs for name in pair})
+        column_of = {index: c for c, index in enumerate(physical)}
+        if vertex_indices is None:
+            vertex_indices = self._weight_point_indices()
+        if not fast:
+            self._require_skin_unlocked("weightList")
+        edited = []
+        for vertex, row in zip(vertex_indices, self._read_rows(vertex_indices, physical)):
+            new = list(row)
+            for source, target in pairs:
+                s, d = column_of[index_of[source]], column_of[index_of[target]]
+                if new[s] == 0.0:
+                    continue
+                new[d] = new[d] + new[s] if add else new[s]
+                new[s] = 0.0
+            edited.append((vertex, row, new))
+        self._write_changed_rows(paths, physical, edited, fast, False)
 
     def _transfer_pair(self, source_joint, target_joint):
         """sourceのインフルエンスのウェイトをtargetへ移す。

@@ -984,6 +984,13 @@ def s_skin_uneven(c):
     cmds.setAttr(c.skinName + ".weightList[0].weights[1]", 0.1)
 
 
+def s_skin_fraction(c):
+    """s_skin_uneven の頂点 0 を、丸めると変わる値(j0=0.876・j1=0.124)にする。"""
+    s_skin_uneven(c)
+    cmds.setAttr(c.skinName + ".weightList[0].weights[0]", 0.876)
+    cmds.setAttr(c.skinName + ".weightList[0].weights[1]", 0.124)
+
+
 def s_skin_copy_unbound(c):
     """スキンと、まだバインドしていない 2 つ目のメッシュを作る。"""
     s_skin(c)
@@ -2083,10 +2090,18 @@ CASES = [
     C("SkinCluster.setVertexWeights", "SkinCluster.setVertexWeights", s_skin, lambda c, **kw: c.skin.setVertexWeights(0, {c.j0: 0.3}, **kw)),
     C("SkinCluster.mirrorWeights", "SkinCluster.mirrorWeights", s_skin_uneven, lambda c, **kw: c.skin.mirrorWeights()),
     C("SkinCluster.pruneWeights", "SkinCluster.pruneWeights", s_skin_uneven, lambda c, **kw: c.skin.pruneWeights(0.2, **kw)),
+    C("SkinCluster.limitInfluences", "SkinCluster.limitInfluences", s_skin_uneven, lambda c, **kw: c.skin.limitInfluences(1, **kw)),
+    C("SkinCluster.roundWeights", "SkinCluster.roundWeights", s_skin_fraction, lambda c, **kw: c.skin.roundWeights(1, **kw)),
     C("SkinCluster.copyWeightsTo", "SkinCluster.copyWeightsTo unbound mesh", s_skin_copy_unbound, lambda c, **kw: c.skin.copyWeightsTo(c.mesh2)),
     C("SkinCluster.importWeights", "SkinCluster.importWeights", s_skin_saved, lambda c, **kw: c.skin.importWeights(c.path, **kw)),
     C("SkinCluster.redistributeWeights", "SkinCluster.redistributeWeights", s_skin, lambda c, **kw: c.skin.redistributeWeights([0, 1, 2, 3, 4, 5], **kw)),
     C("SkinCluster.transferWeights", "SkinCluster.transferWeights", s_skin, lambda c, **kw: c.skin.transferWeights([(c.j1, c.j0)], **kw)),
+    C(
+        "SkinCluster.transferWeights",
+        "SkinCluster.transferWeights vertices add",
+        s_skin_uneven,
+        lambda c, **kw: c.skin.transferWeights([(c.j1, c.j0)], vertices=[0], add=True, **kw),
+    ),
     C("SkinCluster.removeInfluence", "SkinCluster.removeInfluence", s_skin, lambda c, **kw: c.skin.removeInfluence(c.j1)),
     C("SkinCluster.normalizeWeights", "SkinCluster.normalizeWeights", s_skin_unnormalized, lambda c, **kw: c.skin.normalizeWeights(**kw)),
     C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, **kw)),

@@ -21,7 +21,7 @@ from .dagNode import DagNode
 from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
 from .node import Node, Nodes
-from typing import Any, Iterable, Iterator, Literal, Sequence
+from typing import Any, Callable, Iterable, Iterator, Literal, Sequence
 from mlib._stubtypes import GeneratorContextManager
 from mlib.common.namespace import Namespace
 from mlib.components.component import Component
@@ -224,6 +224,63 @@ class SkinCluster(GeometryFilter):
             TypeError: thresholdが数値でない場合、またはnormalize・fastがboolでない場合。
             ValueError: thresholdが負・有限でない場合、または0にする頂点に、負の値・有限でない値・
                 合計が1を超えるロックした値がある場合。
+            RuntimeError: ウェイトがロックされている・入力が接続されている場合、またはMayaが書き込みを拒否した場合。
+        """
+        ...
+    def limitInfluences(self, count: int, *, vertices: Component | Components | int | str | Iterable | None = ..., fast: bool = ..., check: bool = ...) -> None:
+        """先頭のMeshの各頂点で、ウェイトを持つインフルエンスの数をcount以下にする。
+
+        - ロックしたインフルエンス(lockInfluenceWeights)は0にせず、先に数に入れる(ロックだけでcountを超えても残す)。
+        - 残りは値の大きい順に残し、ほかを0にする。同じ値なら :meth:`getInfluences` の順の早いものを残す。
+        - 0にした頂点は、ロックしていない残りの比率を保ったまま、合計を1(ロックした分を除いた残り)へ戻す。
+        - 数がcount以下の頂点と、ロックしていない値がすべて0になる頂点は変えない。
+
+        値が変わった頂点・列だけを書き込む。書き込み方は :meth:`pruneWeights` と同じ(通常は1回のUndoで戻せる)。
+
+        Args:
+            count (int): 1頂点あたりの最大数。1以上の整数で指定する。boolは指定できない。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: countが整数でない場合、fast・checkがboolでない場合、またはverticesが頂点でない場合。
+            ValueError: countが1未満の場合、verticesが別の形状・重複の場合、または変える頂点に負の値・有限でない値・
+                合計が1を超えるロックした値がある場合。
+            IndexError: verticesの番号が範囲外の場合。
+            RuntimeError: ウェイトがロックされている・入力が接続されている場合、またはMayaが書き込みを拒否した場合。
+        """
+        ...
+    def roundWeights(self, decimals: int = ..., *, vertices: Component | Components | int | str | Iterable | None = ..., fast: bool = ..., check: bool = ...) -> None:
+        """先頭のMeshの各頂点のウェイトを、小数decimals桁に丸める。
+
+        - ロックしたインフルエンス(lockInfluenceWeights)は丸めない。
+        - 丸めで生じた合計のずれ(1との差)は、丸めた後で最も大きいロックしていない値に足して吸収する
+          (0未満にはしない。吸収した値はdecimals+3桁に丸める)。
+        - ロックしていないインフルエンスが無い頂点は変えない。
+
+        値が変わった頂点・列だけを書き込む。書き込み方は :meth:`pruneWeights` と同じ(通常は1回のUndoで戻せる)。
+
+        Args:
+            decimals (int): 残す小数の桁数。1以上の整数で指定する。boolは指定できない。既定は3。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: decimalsが整数でない場合、fast・checkがboolでない場合、またはverticesが頂点でない場合。
+            ValueError: decimalsが1未満の場合、verticesが別の形状・重複の場合、または有限でない値がある場合。
+            IndexError: verticesの番号が範囲外の場合。
             RuntimeError: ウェイトがロックされている・入力が接続されている場合、またはMayaが書き込みを拒否した場合。
         """
         ...
@@ -958,30 +1015,40 @@ class SkinCluster(GeometryFilter):
             NotImplementedError: 出力がMeshでない場合。
         """
         ...
-    def transferWeights(self, sourceTargetPairs: Iterable[tuple[Node | str, Node | str]], *, fast: bool = ...) -> None:
+    def transferWeights(self, sourceTargetPairs: Iterable[tuple[Node | str, Node | str]], *, vertices: Component | Components | int | str | Iterable | None = ..., add: bool = ..., fast: bool = ...) -> None:
         """sourceとtargetの組ごとに、sourceのウェイトをtargetへ移す。
 
         組は指定した順に処理し、sourceが影響している頂点だけを変える。
 
         - すべての組の参照と登録を確かめてから処理する。同じインフルエンスどうしの組は飛ばす。
-        - targetへは足し算せず、sourceの値で置き換える。そしてsourceを0にする。sourceが0の頂点は変えない。
+        - 既定では、targetへは足し算せず、sourceの値で置き換える。そしてsourceを0にする。sourceが0の頂点は変えない。
         - 通常は、skinPercentとnormalizeWeightsの設定に従う。選択はpreservedSelectionで戻そうとする。
         - fastでは、ジオメトリが1つであることと、編集できるかを確かめ、interactiveの正規化と同じ結果にする。
+
+        ``vertices`` か ``add=True`` を指定したときは、先頭のMeshの頂点のウェイトを読んで組ごとに移し、
+        値が変わった頂点・列だけを書き込む(:meth:`pruneWeights` と同じ書き込み方。正規化はしない)。
+        このときは、sourceかtargetがロック(lockInfluenceWeights)されていればRuntimeErrorにする。
 
         途中で失敗しても、それまでに終わった変更は戻さない。
 
         Args:
             sourceTargetPairs (Iterable[tuple[Node | str, Node | str]]): 登録済みのインフルエンスの組。
                 Maya APIのノードの参照も受け付ける。
+            vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
+                Noneならすべての頂点。
+            add (bool): Trueなら、targetの値にsourceの値を足す(合計は変わらない)。Falseならsourceの値で置き換える。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 組を順に取り出せない場合、対応していない参照の型の場合、またはfastがboolでない場合。
-            ValueError: 組が2つの要素でない場合、または未登録のインフルエンスの場合。
+            TypeError: 組を順に取り出せない場合、対応していない参照の型の場合、add・fastがboolでない場合、
+                またはverticesが頂点でない場合。
+            ValueError: 組が2つの要素でない場合、未登録のインフルエンスの場合、またはverticesが別の形状・重複の場合。
+            IndexError: verticesの番号が範囲外の場合。
             RuntimeError: レイヤー・ロックなどのために編集できない場合、またはMayaの処理が失敗した場合。
+                ``vertices`` か ``add=True`` を指定して、sourceかtargetがロックされている場合も含む。
                 通常の経路でも、skinClusterがロックされているかリファレンスの場合と、``weightList`` かその要素が
                 ロックされている場合は、移す前に確かめて例外にする(skinPercentはロックされた要素を黙って飛ばすため)。
             NotImplementedError: fastで、ジオメトリが1つでない場合。
@@ -1819,6 +1886,50 @@ class SkinCluster(GeometryFilter):
                 同じUUIDに複数のパスがある場合は、1つずつ探していた以前の方法と同じく先頭のものを選ぶ。
         """
         ...
+    def _rewrite_rows(self, vertices, change: Callable, fast: bool, check: bool) -> None:
+        """先頭のMeshの頂点の行を change で変え、値が変わった頂点・列だけを書き込む。
+
+        Args:
+            vertices: 対象の頂点の指定(:meth:`_vertex_indices` と同じ)。Noneならすべての頂点。
+            change (Callable): ``change(row, vertex, free, locked)`` が新しい行を返す。Noneなら変えない。
+                freeはロックしていない物理番号のlist、lockedはロックした物理番号のset。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら書き込む前に書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+        """
+        ...
+    def _write_changed_rows(self, paths: om2.MDagPathArray, physical: list[int], edited: list[tuple[int, list[float], list[float]]], fast: bool, check: bool) -> None:
+        """(頂点, 元の行, 新しい行) のうち、値が変わった頂点・列だけを書き込む。
+
+        Args:
+            paths (om2.MDagPathArray): influenceObjects() のパス。
+            physical (list[int]): 行の列に当たる物理番号。
+            edited (list[tuple[int, list[float], list[float]]]): 頂点と、元の行・新しい行。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+            check (bool): Trueなら書き込む前に書き込めるかを確かめる。
+
+        Returns:
+            None: 値を返さない。
+        """
+        ...
+    def _transfer_rows(self, pairs: list[tuple[str, str]], vertex_indices: list[int] | None, add: bool, fast: bool) -> None:
+        """頂点の行を読み、組ごとにsourceの値をtargetへ移して、変わった値だけを書き込む。
+
+        Args:
+            pairs (list[tuple[str, str]]): sourceとtargetのフルパスの組(同じものどうしは除いてある)。
+            vertex_indices (list[int] | None): 対象の頂点。Noneならすべての頂点。
+            add (bool): Trueならtargetへ足し、Falseならsourceの値で置き換える。
+            fast (bool): TrueはUndoなしのOpenMaya更新。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: sourceかtargetがロックされている場合。
+        """
+        ...
     def _transfer_pair(self, source_joint: str, target_joint: str) -> None:
         """sourceのインフルエンスのウェイトをtargetへ移す。
 
@@ -2056,6 +2167,12 @@ class SkinClusters(Nodes[SkinCluster]):
     def pruneWeights(self, threshold: float, *, normalize: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.pruneWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def limitInfluences(self, count: int, *, vertices: Component | Components | int | str | Iterable | None = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.limitInfluences` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def roundWeights(self, decimals: int = ..., *, vertices: Component | Components | int | str | Iterable | None = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.roundWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def getInfluences(self) -> list[Nodes]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getInfluences` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2146,7 +2263,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def redistributeWeights(self, vertices: Vertex | Vertices | Iterable[int | Vertex], method: str = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.redistributeWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def transferWeights(self, sourceTargetPairs: Iterable[tuple[Node | str, Node | str]], *, fast: bool = ...) -> list[None]:
+    def transferWeights(self, sourceTargetPairs: Iterable[tuple[Node | str, Node | str]], *, vertices: Component | Components | int | str | Iterable | None = ..., add: bool = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.transferWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def removeInfluence(self, joint: Joint | str, *, transferToParent: bool = ..., force: bool = ...) -> list[None]:
