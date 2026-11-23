@@ -34,7 +34,7 @@ _TRANSFORMATION_VECTORS = {
 _TRANSFORMATION_ANGLES = frozenset(("rotate", "rotateAxis", "jointOrient"))
 
 
-def encode(value):
+def _encode(value):
     """値をJSONで書ける値へ変換する。
 
     辞書・list・tupleの中もたどって変換する。辞書のキーは文字列だけ使える。tupleはlistになる。
@@ -73,15 +73,15 @@ def encode(value):
         for key, item in value.items():
             if not isinstance(key, str):
                 raise TypeError(f"JSONのオブジェクトのキーは文字列で指定してください: {type(key).__name__}")
-            result[key] = encode(item)
+            result[key] = _encode(item)
         return result
     if isinstance(value, (list, tuple)):
-        return [encode(item) for item in value]
+        return [_encode(item) for item in value]
     raise TypeError(f"{type(value).__name__}はJSONへ書き出せません")
 
 
-def decode(value):
-    """:func:`encode` で書いた値を、数学型を含む元の値へ戻す。
+def _decode(value):
+    """``_encode`` で書いた値を、数学型を含む元の値へ戻す。
 
     数学型にするのは、``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけ。
     ほかの辞書・listは、中をたどって同じ形で返す。
@@ -96,12 +96,12 @@ def decode(value):
         ValueError: 型名付きの辞書の成分の数が型と合わない場合。
     """
     if isinstance(value, list):
-        return [decode(item) for item in value]
+        return [_decode(item) for item in value]
     if not isinstance(value, dict):
         return value
     if _is_math(value):
         return _decode_math(value)
-    return {key: decode(item) for key, item in value.items()}
+    return {key: _decode(item) for key, item in value.items()}
 
 
 def _finite(value):

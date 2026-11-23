@@ -37,13 +37,6 @@ class NameMapping:
             str: ``NameMapping(nameMap=..., replace=..., namespaceMap=...)`` の形式。
         """
         ...
-    def isIdentity(self) -> bool:
-        """名前を変えない規則かを返す。
-
-        Returns:
-            bool: どの規則も指定していなければTrue。
-        """
-        ...
     def apply(self, name: str) -> str:
         """ノード名(DAGパスの1要素)を変換する。
 
@@ -57,7 +50,7 @@ class NameMapping:
             TypeError: nameが文字列でない場合。
         """
         ...
-    def applyPath(self, path: str) -> str:
+    def _apply_path(self, path: str) -> str:
         """DAGパスのそれぞれの要素を :meth:`apply` で変換する。
 
         Args:

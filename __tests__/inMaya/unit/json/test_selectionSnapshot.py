@@ -156,7 +156,7 @@ class SelectionSnapshotTest(_SnapshotCase):
     def test_invalid_data(self):
         for data in ({}, {"items": [{}]}, {"items": [{"other": {}}]}, {"items": [{"components": {"node": {"name": "a"}, "type": "pt", "indices": [0]}}]}):
             with self.subTest(data=data), self.assertRaises(ValueError):
-                SelectionSnapshot.fromData(data)
+                SelectionSnapshot(data)
         with self.assertRaises(RuntimeError):
             SelectionSnapshot.capture([self.name("noSuchNode")])
         with self.assertRaises(TypeError):

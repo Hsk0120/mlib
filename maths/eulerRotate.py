@@ -740,21 +740,9 @@ class EulerRotate(om2.MEulerRotation):
             ValueError: axisが正しくない場合。
         """
         matrix = self.asMatrix().mirror(axis)
-        rotation = matrix.quaternion.asEulerRotate()
+        rotation = matrix.quaternion.asEulerRotation()
         rotation.reorderIt(self.order)
         return type(self)._wrap(rotation)
-
-    def mirrorIt(self, axis="x"):
-        """自身の向きをビヘイビアミラーする。
-
-        Args:
-            axis (str | int): mirrorと同じ反転軸。
-
-        Returns:
-            EulerRotate: 更新した自身。
-        """
-        self.setValue(self.mirror(axis))
-        return self
 
     def round(self, ndigits=None, *, unit="deg"):
         """XYZの角度を丸めたコピーを返す。
@@ -783,24 +771,6 @@ class EulerRotate(om2.MEulerRotation):
         unit = _angle_unit(unit)
         values = [_to_radians(_round_float(_from_radians(value, unit), ndigits), unit) for value in self]
         return type(self)(values[0], values[1], values[2], self.order)
-
-    def roundIt(self, ndigits=None, *, unit="deg"):
-        """自身のXYZの角度を丸める。
-
-        Args:
-            ndigits (int | None): roundと同じ桁数。
-            unit (str): roundと同じ丸める単位。
-
-        Returns:
-            EulerRotate: 更新した自身。
-
-        Raises:
-            TypeError: ndigitsがintでもNoneでもない場合(boolも不可)、またはunitが文字列でもNoneでもない場合。
-                自身は変えない。
-            ValueError: unitが対応していない単位の場合。自身は変えない。
-        """
-        self.setValue(self.round(ndigits, unit=unit))
-        return self
 
     def asMatrix(self):
         """回転順序に合わせた回転マトリクスを返す。
@@ -960,15 +930,6 @@ class EulerRotate(om2.MEulerRotation):
         index = max(range(3), key=lambda number: abs(values[number]))
         values[index] += -2.0 * math.pi if values[index] >= 0.0 else 2.0 * math.pi
         return type(self)(values[0], values[1], values[2], self.order)
-
-    def reverseDirectionIt(self):
-        """自身を、同じ姿勢へ逆回りでたどり着く回転(:meth:`reverseDirection`)に置き換える。
-
-        Returns:
-            EulerRotate: 更新した自身。
-        """
-        self.setValue(self.reverseDirection())
-        return self
 
     @classmethod
     def _wrap(cls, value):

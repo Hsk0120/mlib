@@ -61,20 +61,6 @@ class NodeRef:
             RuntimeError: ノードが無効な場合。
         """
         ...
-    @classmethod
-    def fromData(cls, data: dict) -> NodeRef:
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``name``・``path``・``type`` を持つ辞書。
-
-        Returns:
-            NodeRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        ...
     @property
     def name(self) -> str:
         """記録した名前空間付きの短い名前を返す。
@@ -99,23 +85,6 @@ class NodeRef:
             str | None: 型を記録していなければNone。
         """
         ...
-    def toData(self) -> dict:
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"name": ..., "path": ..., "type": ...}``。
-        """
-        ...
-    def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """名前の対応づけを当てた名前を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
-
-        Returns:
-            str: 変換後の名前。警告や報告の表示に使う。
-        """
-        ...
     def resolve(self, mapping: NameMapping | None = ...) -> Node | None:
         """名前の対応づけを当てた名前で、シーンのノードを探す。
 
@@ -130,5 +99,36 @@ class NodeRef:
 
         Raises:
             TypeError: mappingがNameMappingでもNoneでもない場合。
+        """
+        ...
+    @classmethod
+    def _from_data(cls, data: dict) -> NodeRef:
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``name``・``path``・``type`` を持つ辞書。
+
+        Returns:
+            NodeRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        ...
+    def _to_data(self) -> dict:
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"name": ..., "path": ..., "type": ...}``。
+        """
+        ...
+    def _mapped_name(self, mapping: NameMapping | None = ...) -> str:
+        """名前の対応づけを当てた名前を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
+
+        Returns:
+            str: 変換後の名前。警告や報告の表示に使う。
         """
         ...

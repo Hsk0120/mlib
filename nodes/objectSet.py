@@ -360,7 +360,7 @@ class ObjectSet(Node):
             if "." not in name:
                 result.append(Node(name))
                 continue
-            resolved = Selection(name).items
+            resolved = Selection(name).getItems()
             if resolved and isinstance(resolved[0], Component):
                 result.append(_collect(resolved))
             else:

@@ -545,16 +545,6 @@ class EulerRotate(om2.MEulerRotation):
             ValueError: axisが正しくない場合。
         """
         ...
-    def mirrorIt(self, axis: str | int = ...) -> EulerRotate:
-        """自身の向きをビヘイビアミラーする。
-
-        Args:
-            axis (str | int): mirrorと同じ反転軸。
-
-        Returns:
-            EulerRotate: 更新した自身。
-        """
-        ...
     def round(self, ndigits: int | None = ..., *, unit: str = ...) -> EulerRotate:
         """XYZの角度を丸めたコピーを返す。
 
@@ -577,22 +567,6 @@ class EulerRotate(om2.MEulerRotation):
         Raises:
             TypeError: ndigitsがintでもNoneでもない場合(boolも不可)、またはunitが文字列でもNoneでもない場合。
             ValueError: unitが対応していない単位の場合。
-        """
-        ...
-    def roundIt(self, ndigits: int | None = ..., *, unit: str = ...) -> EulerRotate:
-        """自身のXYZの角度を丸める。
-
-        Args:
-            ndigits (int | None): roundと同じ桁数。
-            unit (str): roundと同じ丸める単位。
-
-        Returns:
-            EulerRotate: 更新した自身。
-
-        Raises:
-            TypeError: ndigitsがintでもNoneでもない場合(boolも不可)、またはunitが文字列でもNoneでもない場合。
-                自身は変えない。
-            ValueError: unitが対応していない単位の場合。自身は変えない。
         """
         ...
     def asMatrix(self) -> Matrix:
@@ -727,13 +701,6 @@ class EulerRotate(om2.MEulerRotation):
 
         Returns:
             EulerRotate: 同じ型・同じ回転順序の、新しい回転。
-        """
-        ...
-    def reverseDirectionIt(self) -> EulerRotate:
-        """自身を、同じ姿勢へ逆回りでたどり着く回転(:meth:`reverseDirection`)に置き換える。
-
-        Returns:
-            EulerRotate: 更新した自身。
         """
         ...
     @classmethod

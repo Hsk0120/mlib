@@ -429,18 +429,6 @@ class Quaternion(om2.MQuaternion):
             float: 長さの2乗。
         """
         ...
-    def unitIt(self) -> Quaternion:
-        """自身を正規化する。
-
-        0のクォータニオンは正規化できないので、例外にする。
-
-        Returns:
-            Quaternion: 更新した自身。
-
-        Raises:
-            ValueError: 0のクォータニオンの場合。自身は変更しない。
-        """
-        ...
     def unit(self) -> Quaternion:
         """正規化した新しいクォータニオンを返す。
 
@@ -590,7 +578,7 @@ class Quaternion(om2.MQuaternion):
         """EulerRotateへ変換する。
 
         正規化した回転マトリクスを ``om2.MEulerRotation.decompose`` で分解する。
-        そのため、``Matrix.euler`` と同じ規約の角度になる。
+        そのため、``Matrix.rotate`` と同じ規約の角度になる。
         同じ向きを表す別の解として、中間の軸が90度を超える角度を返すことがある。
 
         Args:
@@ -619,16 +607,6 @@ class Quaternion(om2.MQuaternion):
         Raises:
             TypeError: axisが文字列・int以外の場合。
             ValueError: axisが不正な場合。
-        """
-        ...
-    def mirrorIt(self, axis: str | int = ...) -> Quaternion:
-        """自身の向きを「ビヘイビア」でミラーする。
-
-        Args:
-            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
-
-        Returns:
-            Quaternion: 更新した自身。
         """
         ...
     def asUnitMatrix(self) -> Matrix:
@@ -713,22 +691,6 @@ class Quaternion(om2.MQuaternion):
 
         Returns:
             EulerRotate: 計算結果の新しい値。
-        """
-        ...
-    def asEulerRotate(self, *args) -> EulerRotate:
-        """この回転を、EulerRotateの新しい値として返す。
-
-        中ではasEulerRotationを呼ぶ。
-
-        Args:
-            *args: OpenMayaのasEulerRotationへ渡す位置引数。
-
-        Returns:
-            EulerRotate: ラジアンのEulerの回転値。asEulerRotationと同じ結果になる。
-
-        Note:
-            OpenMayaのasEulerRotationも、これまでどおり使える。
-            引数・例外・自身を変更しない点は、asEulerRotationと同じ。
         """
         ...
     def asAxisAngle(self) -> tuple[Vector, float]:

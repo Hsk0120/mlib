@@ -16,6 +16,12 @@ class PoseSnapshot(Snapshot):
     ロックされたアトリビュートや、接続されているアトリビュートも保存する。適用するときに書けないものは、
     飛ばして報告する。適用してもキーは打たない。ワールド空間は扱わない。
 
+    ``apply`` は、保存した値を、対応づけたノードのアトリビュートへ書き戻す。
+
+    1回のUndoにまとめる。キーは打たない。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+    見つからないノードは ``missing`` に、ロック・入力接続(アニメカーブを含む)のあるアトリビュートと
+    対象に無いアトリビュートは ``skipped`` に記録する。
+
     データの形::
 
         {"nodes": [{"node": {<NodeRef>}, "attrs": {"translateX": 1.0, "rotateY": 45.0, ...}}, ...]}
@@ -54,25 +60,8 @@ class PoseSnapshot(Snapshot):
             if full in seen:
                 continue
             seen.add(full)
-            entries.append({"node": NodeRef.capture(node).toData(), "attrs": _capture_pose_attributes(node)})
+            entries.append({"node": NodeRef.capture(node)._to_data(), "attrs": _capture_pose_attributes(node)})
         return cls({"nodes": entries})
-
-    def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存した値を、対応づけたノードのアトリビュートへ書き戻す。
-
-        1回のUndoにまとめる。キーは打たない。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-        見つからないノードは ``missing`` に、ロック・入力接続(アニメカーブを含む)のあるアトリビュートと
-        対象に無いアトリビュートは ``skipped`` に記録する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
-        """
-        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def _require_data(self, data):
         """``nodes`` のそれぞれの項目が、ノードの参照とスカラー値の辞書を持つか確かめる。
@@ -89,7 +78,7 @@ class PoseSnapshot(Snapshot):
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("attrs"), dict):
                 raise ValueError(f"ポーズの項目が不正です: {entry!r}")
-            NodeRef.fromData(entry.get("node"))
+            NodeRef._from_data(entry.get("node"))
             for name, value in entry["attrs"].items():
                 if not isinstance(name, str) or not name:
                     raise ValueError(f"ポーズのデータのアトリビュート名が不正です: {name!r}")
@@ -134,20 +123,20 @@ class PoseSnapshot(Snapshot):
         """
         writes = []
         for entry in self._data["nodes"]:
-            ref = NodeRef.fromData(entry["node"])
+            ref = NodeRef._from_data(entry["node"])
             node = ref.resolve(mapping)
             if node is None:
-                report.addMissing(ref.mappedName(mapping))
+                report._add_missing(ref._mapped_name(mapping))
                 continue
             for name, value in entry["attrs"].items():
                 plug = _find_plug(node, name)
                 label = node.getName() + "." + name
                 if plug is None:
-                    report.addSkipped(label, "アトリビュートがありません")
+                    report._add_skipped(label, "アトリビュートがありません")
                     continue
                 reason = _block_reason(plug.mplug())
                 if reason:
-                    report.addSkipped(label, reason)
+                    report._add_skipped(label, reason)
                     continue
                 writes.append((plug, value))
         return writes
@@ -277,4 +266,4 @@ def _write_plug(plug, value, report):
     try:
         plug.set(value)
     except (RuntimeError, TypeError, ValueError) as error:
-        report.addSkipped(plug.getName(), f"failed ({error})")
+        report._add_skipped(plug.getName(), f"failed ({error})")

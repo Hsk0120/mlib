@@ -1752,9 +1752,7 @@ CASES = [
     C("Node.resetAttrs", "Transform.resetAttrs", s_two, lambda c, **kw: c.nb.resetAttrs(**kw)),
     C("Node.resetAttrs", "Transform.resetAttrs named", s_two, lambda c, **kw: c.nb.resetAttrs(["translateX", "scale"], **kw)),
     # 複数形の一括の書込み
-    C("Nodes.setAttrFlags", "Nodes.setAttrFlags", s_two, lambda c, **kw: Nodes([c.a, c.b]).setAttrFlags(["tx", "ry"], locked=True, keyable=False, **kw)),
     C("Nodes.resetAttrs", "Nodes.resetAttrs", s_two, lambda c, **kw: Nodes([c.a, c.b]).resetAttrs(**kw)),
-    C("Nodes.setLocked", "Nodes.setLocked", s_two, lambda c, **kw: Nodes([c.a, c.b]).setLocked(True, **kw)),
     C("Nodes.setOverrideColor", "Nodes.setOverrideColor", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOverrideColor(13, **kw)),
     C("Nodes.setOverrideColors", "Nodes.setOverrideColors", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOverrideColors([13, (1.0, 0.5, 0.0)], **kw)),
     C("Nodes.setOutlinerColor", "Nodes.setOutlinerColor", s_two, lambda c, **kw: Nodes([c.a, c.b]).setOutlinerColor((1.0, 0.5, 0.0), **kw)),

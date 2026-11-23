@@ -2,35 +2,20 @@
 
 import maya.cmds as cmds
 
-from .version import Version
+from .versionedItem import _VersionedItem
 
 # Versionへ集約した旧関数参照をreload時に残さない。
 for _name in ("parse_version", "is_at_least", "format_version"):
     globals().pop(_name, None)
 
 
-class Module:
+class Module(_VersionedItem):
     """名前で指す Maya のモジュール。作るときには、存在するかを確かめない。
 
     Autodesk 製品(Bifrost・MayaUSD・Arnold など)や ``maya/modules/*.mod`` は、
     プラグインとは別に「モジュール」として登録される。モジュールは版と場所を持つ。
+    名前は、``.mod`` の ``+`` 行に書いたモジュール名(``"Bifrost"`` など)で指定する。
     """
-
-    def __init__(self, name):
-        """モジュール名を保持する。
-
-        Args:
-            name (str): モジュール名(``.mod`` の ``+`` 行に書いた名前。例: ``"Bifrost"``)。
-
-        Raises:
-            TypeError: name が文字列でない場合。
-            ValueError: name が空文字列の場合。
-        """
-        if not isinstance(name, str):
-            raise TypeError("nameはstrで指定してください")
-        if not name:
-            raise ValueError("nameは空でない文字列で指定してください")
-        self._name = name
 
     def __eq__(self, other):
         """モジュール名で、同じモジュールか判定する。
@@ -61,23 +46,6 @@ class Module:
         """
         return f"Module({self._name!r})"
 
-    def __str__(self):
-        """モジュール名を返す。
-
-        Returns:
-            str: 保持しているモジュール名。
-        """
-        return self._name
-
-    @property
-    def name(self):
-        """保持しているモジュール名を取得する。
-
-        Returns:
-            str: モジュール名。
-        """
-        return self._name
-
     def isRegistered(self):
         """Maya がこのモジュールを認識しているか判定する。
 
@@ -95,33 +63,6 @@ class Module:
         if not self.isRegistered():
             return None
         return cmds.moduleInfo(version=True, moduleName=self._name) or None
-
-    def getVersion(self):
-        """モジュールの現在の版を、Versionの値として取得する。
-
-        Returns:
-            Version | None: 問い合わせたときの版。登録されていない場合と、版として読み取れない場合はNone。
-                取得した値をreplaceで変えても、Maya側の版は変わらない。
-        """
-        return Version.parse(self.getVersionText())
-
-    def isVersionAtLeast(self, minimum):
-        """モジュールの版が ``minimum`` 以上か判定する。
-
-        Args:
-            minimum (Version | str | int | tuple[int, ...]): 必要な最小の版(``"3.0.0"`` など)。
-
-        Returns:
-            bool: minimum以上ならTrue。登録されていなければ False。
-
-        Raises:
-            ValueError: minimum を版として読み取れない場合。
-        """
-        required = Version.parse(minimum)
-        if required is None:
-            raise ValueError(f"最小バージョンが不正です: {minimum!r}")
-        version = self.getVersion()
-        return version is not None and version >= required
 
     def getPath(self):
         """モジュールのフォルダーを取得する。

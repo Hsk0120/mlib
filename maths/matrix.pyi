@@ -737,26 +737,14 @@ class Matrix(om2.MMatrix):
         """
         ...
     @property
-    def euler(self) -> EulerRotate:
-        """回転の成分を、XYZ順のEulerRotateとして取得する。
-
-        om2.MTransformationMatrix.rotation()と同じ角度を返す。
-        同じ向きを表す別の解として、中間の軸が90度を超える値になることがある。
-
-        Returns:
-            EulerRotate: 分解した回転値(ラジアン)。
-
-        Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
-        """
-        ...
-    @property
     def rotate(self) -> EulerRotate:
         """回転の成分を、XYZ順のEulerRotateとして取得・設定する。
 
         設定するときは、XYZ順のラジアンの3成分、EulerRotate(回転順序も反映する)、
         またはQuaternionを渡す。スケール・シアー・平行移動はそのままにして、マトリクスを組み立て直す。
         取得・設定のどちらも、分解できないときはValueErrorになる。
+        取得する角度はom2.MTransformationMatrix.rotation()と同じで、同じ向きを表す別の解として、
+        中間の軸が90度を超える値になることがある。
         取得したEulerRotateを書き換えても、元のマトリクスは変わらない。書き換えるときはrotateへ代入する。
 
         Returns:
@@ -931,13 +919,6 @@ class Matrix(om2.MMatrix):
             Matrix: 自身と同じクラスの転置マトリクス。
         """
         ...
-    def transposeIt(self) -> Matrix:
-        """自身を転置する。
-
-        Returns:
-            Matrix: 更新した自身。
-        """
-        ...
     def blend(self, other: om2.MMatrix | Iterable[float], weight: float) -> Matrix:
         """別のマトリクスとの間を、成分ごとに補間した新しいマトリクスを返す。
 
@@ -1025,19 +1006,6 @@ class Matrix(om2.MMatrix):
         Raises:
             TypeError: axisが文字列・int以外の場合。
             ValueError: axisが不正、またはpivotが有限の3成分でない場合。
-        """
-        ...
-    def mirrorIt(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Matrix:
-        """自身を「ビヘイビア」でミラーする。
-
-        反転の仕方は :meth:`mirror` と同じ。
-
-        Args:
-            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
-            pivot (Iterable[float]): ミラーの中心。平行移動と同じ単位・空間で指定する。
-
-        Returns:
-            Matrix: 更新した自身。
         """
         ...
     def adjoint(self, *args) -> Matrix:

@@ -109,7 +109,7 @@ class QuaternionSpecTest(unittest.TestCase):
     def test_normalization_and_inverse(self):
         """unit・inverseはゼロを拒否し、normalはom2に従う。非単位のinverseもom2と一致する。"""
         zero = Quaternion(0, 0, 0, 0)
-        for method in (zero.unit, zero.unitIt, zero.inverse):
+        for method in (zero.unit, zero.inverse):
             with self.assertRaises(ValueError):
                 method()
         self.assertEqual(tuple(zero), (0.0, 0.0, 0.0, 0.0))
@@ -120,8 +120,6 @@ class QuaternionSpecTest(unittest.TestCase):
         self.assertEqual(tuple(value.conjugate()), (-1.0, -2.0, -3.0, 4.0))
         self.assertAlmostEqual(value.unit().length(), 1.0)
         self.assertEqual(tuple(value), (1.0, 2.0, 3.0, 4.0))
-        self.assertIs(value.unitIt(), value)
-        self.assertAlmostEqual(value.length(), 1.0)
         self.assertAlmostEqual(Quaternion(1, 2, 3, 4).dot(Quaternion(1, 0, 0, 1)), 5.0)
 
     def test_rotate_vector_normalizes_a_copy(self):
@@ -182,7 +180,7 @@ class QuaternionSpecTest(unittest.TestCase):
         euler = self.a.asEulerRotation()
         self.assertIs(type(euler), EulerRotate)
         self.assertTrue(euler.isEquivalent(self.om_a.asEulerRotation(), 1e-12))
-        self.assertTrue(self.a.asEulerRotate().isEquivalent(euler, 0.0))
+        self.assertFalse(hasattr(self.a, "asEulerRotate"))
         self.assertIs(type(self.a.log()), Quaternion)
         self.assertTrue(self.a.log().isEquivalent(self.om_a.log(), 1e-12))
         self.assertTrue(self.a.log().exp().isEquivalent(self.om_a.log().exp(), 1e-12))
@@ -210,9 +208,7 @@ class QuaternionSpecTest(unittest.TestCase):
         self.assertIs(type(mirrored), Quaternion)
         expected = self.a.asUnitMatrix().mirror("x").quaternion
         self.assertAlmostEqual(mirrored.angleTo(expected), 0.0, places=7)
-        value = Quaternion(self.a)
-        self.assertIs(value.mirrorIt("x"), value)
-        self.assertAlmostEqual(value.angleTo(mirrored), 0.0, places=7)
+        self.assertAlmostEqual(mirrored.mirror("x").angleTo(self.a), 0.0, places=7)
 
 
 def _flat(names):

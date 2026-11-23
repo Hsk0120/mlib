@@ -96,7 +96,7 @@ class AnimationSnapshot(Snapshot):
                 data = _read_curve(curve, input_range=time_range)
                 if not data["keys"]:
                     continue
-                curves.append({"plug": PlugRef.capture(full + "." + attribute).toData(), "layer": layer, "curve": data})
+                curves.append({"plug": PlugRef.capture(full + "." + attribute)._to_data(), "layer": layer, "curve": data})
                 if layer is not None and layer not in used_layers:
                     used_layers.append(layer)
         layers = _capture_layers(used_layers, root)
@@ -185,7 +185,7 @@ class AnimationSnapshot(Snapshot):
         for entry in curves:
             if not isinstance(entry, dict) or set(entry) != {"plug", "layer", "curve"}:
                 raise ValueError(f"アニメーションカーブの項目が不正です: {entry!r}")
-            PlugRef.fromData(entry["plug"])
+            PlugRef._from_data(entry["plug"])
             if entry["layer"] is not None and entry["layer"] not in names:
                 raise ValueError(f"アニメーションカーブが知らないレイヤーを指しています: {entry['layer']!r}")
             _require_curve(entry["curve"])
@@ -250,22 +250,22 @@ class AnimationSnapshot(Snapshot):
             kind = _output_kind(saved["curveType"])
             keys = _transform_keys(saved["keys"], scale, offset, scale if kind == "T" else 1.0)
             if cmds.getAttr(name, lock=True):
-                report.addSkipped(name, "locked")
+                report._add_skipped(name, "locked")
                 continue
             layer = None
             if entry["layer"] is not None:
                 layer, reason = layers.resolve(entry["layer"])
                 if layer is None:
-                    report.addSkipped(name, reason)
+                    report._add_skipped(name, reason)
                     continue
             curve, reason, created = _target_curve(name, layer, keys)
             if curve is None:
                 if reason:
-                    report.addSkipped(name, reason)
+                    report._add_skipped(name, reason)
                 continue
             curve_type = cmds.nodeType(curve)
             if _output_kind(curve_type) != kind or not _is_time_input(curve_type):
-                report.addSkipped(name, f"カーブの型{curve_type}が{saved['curveType']}と合っていません")
+                report._add_skipped(name, f"カーブの型{curve_type}が{saved['curveType']}と合っていません")
                 continue
             settings = saved
             existing = []
@@ -526,11 +526,11 @@ def _resolve_plug(entry, mapping, report):
     Returns:
         Plug | None: 見つかったPlug。
     """
-    ref = PlugRef.fromData(entry["plug"])
+    ref = PlugRef._from_data(entry["plug"])
     plug = ref.resolve(mapping)
     if plug is None:
         node_missing = ref.node.resolve(mapping) is None
-        report.addMissing(ref.node.mappedName(mapping) if node_missing else ref.mappedName(mapping))
+        report._add_missing(ref.node._mapped_name(mapping) if node_missing else ref._mapped_name(mapping))
     return plug
 
 

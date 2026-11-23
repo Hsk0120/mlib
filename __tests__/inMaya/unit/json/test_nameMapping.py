@@ -24,14 +24,14 @@ class NameMappingTest(unittest.TestCase):
         self.assertEqual(mapping.apply("chrA:arm_L_jnt"), "chrB:leftArm")
         self.assertEqual(mapping.apply("chrA:leg_L_jnt"), "chrB:leg_R_jnt")
         self.assertEqual(mapping.apply("leg_L_jnt"), "leg_R_jnt")
-        self.assertEqual(mapping.applyPath("|chrA:root|chrA:arm_L_jnt"), "|chrB:root|chrB:leftArm")
+        self.assertEqual(mapping._apply_path("|chrA:root|chrA:arm_L_jnt"), "|chrB:root|chrB:leftArm")
 
     def test_namespaces(self):
         mapping = NameMapping(namespaceMap={"": "chrB", ":chrA:": "", "chrC": "x:y"})
         self.assertEqual(mapping.apply("root"), "chrB:root")
         self.assertEqual(mapping.apply("chrA:root"), "root")
         self.assertEqual(mapping.apply("chrC:sub:root"), "x:y:sub:root")
-        self.assertTrue(NameMapping().isIdentity())
+        self.assertFalse(hasattr(NameMapping, "isIdentity"))
         self.assertEqual(NameMapping().apply("a:b"), "a:b")
 
     def test_invalid(self):
@@ -54,22 +54,22 @@ class _OffsetSnapshot(Snapshot):
 
     @classmethod
     def capture(cls, nodes):
-        return cls({"items": [{"node": NodeRef.capture(node).toData(), "value": cmds.getAttr(str(node) + ".tx")} for node in nodes]})
+        return cls({"items": [{"node": NodeRef.capture(node)._to_data(), "value": cmds.getAttr(str(node) + ".tx")} for node in nodes]})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None, fail=False):
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {"fail": fail})
 
     def _validate(self, mapping, report, options):
         for item in self._data["items"]:
-            ref = NodeRef.fromData(item["node"])
+            ref = NodeRef._from_data(item["node"])
             if ref.resolve(mapping) is None:
-                report.addMissing(ref.mappedName(mapping))
+                report._add_missing(ref._mapped_name(mapping))
             if item["value"] < 0:
-                report.addError("negative value")
+                report._add_error("negative value")
 
     def _apply(self, mapping, report, options, fast):
         for item in self._data["items"]:
-            node = NodeRef.fromData(item["node"]).resolve(mapping)
+            node = NodeRef._from_data(item["node"]).resolve(mapping)
             if node is not None:
                 cmds.setAttr(node.getFullName() + ".tx", item["value"])
         if options["fail"]:

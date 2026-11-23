@@ -63,20 +63,6 @@ class ComponentRef:
             ValueError: 種類が記録できないものの場合。
         """
         ...
-    @classmethod
-    def fromData(cls, data: dict) -> ComponentRef:
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``node``・``type``・``indices`` を持つ辞書。
-
-        Returns:
-            ComponentRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        ...
     @property
     def node(self) -> NodeRef:
         """シェイプの参照を返す。
@@ -101,23 +87,6 @@ class ComponentRef:
             tuple[int, ...]: 記録した順の番号。
         """
         ...
-    def toData(self) -> dict:
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"node": {...}, "type": ..., "indices": [...]}``。
-        """
-        ...
-    def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """名前の対応づけを当てたシェイプ名と、種類を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。
-
-        Returns:
-            str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
-        """
-        ...
     def resolve(self, mapping: NameMapping | None = ...) -> Components | None:
         """シーンのコンポーネントの集まりを返す。
 
@@ -132,5 +101,36 @@ class ComponentRef:
 
         Raises:
             TypeError: mappingがNameMappingでもNoneでもない場合。
+        """
+        ...
+    @classmethod
+    def _from_data(cls, data: dict) -> ComponentRef:
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``node``・``type``・``indices`` を持つ辞書。
+
+        Returns:
+            ComponentRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        ...
+    def _to_data(self) -> dict:
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"node": {...}, "type": ..., "indices": [...]}``。
+        """
+        ...
+    def _mapped_name(self, mapping: NameMapping | None = ...) -> str:
+        """名前の対応づけを当てたシェイプ名と、種類を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。
+
+        Returns:
+            str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
         """
         ...

@@ -19,7 +19,7 @@ _TYPE_NAMES: Any
 _TRANSFORMATION_VECTORS: dict
 _TRANSFORMATION_ANGLES: frozenset
 
-def encode(value: object) -> Any:
+def _encode(value: object) -> Any:
     """値をJSONで書ける値へ変換する。
 
     辞書・list・tupleの中もたどって変換する。辞書のキーは文字列だけ使える。tupleはlistになる。
@@ -37,8 +37,8 @@ def encode(value: object) -> Any:
     """
     ...
 
-def decode(value: object) -> Any:
-    """:func:`encode` で書いた値を、数学型を含む元の値へ戻す。
+def _decode(value: object) -> Any:
+    """``_encode`` で書いた値を、数学型を含む元の値へ戻す。
 
     数学型にするのは、``{"type": <型名>, "value": [...]}`` (EulerRotateは ``"order"`` も)の形の辞書だけ。
     ほかの辞書・listは、中をたどって同じ形で返す。

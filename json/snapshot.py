@@ -18,8 +18,7 @@ class ValidationReport:
     - ``skipped``: ロックや接続などで書けず、飛ばしたもの。
     - ``errors``: 適用できない問題(頂点数の違いなど)。
 
-    ``errors`` があると、それぞれの種類の ``apply``
-    (:meth:`PoseSnapshot.apply <mlib.json.poseSnapshot.PoseSnapshot.apply>` など)は何も変えずに例外にする。
+    ``errors`` があると、:meth:`Snapshot.apply` は何も変えずに例外にする。
     """
 
     def __init__(self):
@@ -72,32 +71,6 @@ class ValidationReport:
         """
         return not self._errors
 
-    def addMissing(self, name):
-        """見つからなかったものを記録する。同じ名前は1回だけ記録する。
-
-        Args:
-            name (str): 名前の対応づけを当てた後の名前。
-        """
-        if name not in self._missing:
-            self._missing.append(name)
-
-    def addSkipped(self, name, reason):
-        """書けずに飛ばしたものを記録する。
-
-        Args:
-            name (str): 飛ばしたものの名前。
-            reason (str): 理由(``"locked"`` など)。
-        """
-        self._skipped.append(f"{name}: {reason}")
-
-    def addError(self, message):
-        """適用できない問題を記録する。
-
-        Args:
-            message (str): 問題の説明。
-        """
-        self._errors.append(message)
-
     def warn(self, label):
         """missing・skippedがあれば、まとめて警告を1回出す。
 
@@ -112,12 +85,38 @@ class ValidationReport:
         if parts:
             logger.warning("%s: %s", label, "; ".join(parts))
 
+    def _add_missing(self, name):
+        """見つからなかったものを記録する。同じ名前は1回だけ記録する。
+
+        Args:
+            name (str): 名前の対応づけを当てた後の名前。
+        """
+        if name not in self._missing:
+            self._missing.append(name)
+
+    def _add_skipped(self, name, reason):
+        """書けずに飛ばしたものを記録する。
+
+        Args:
+            name (str): 飛ばしたものの名前。
+            reason (str): 理由(``"locked"`` など)。
+        """
+        self._skipped.append(f"{name}: {reason}")
+
+    def _add_error(self, message):
+        """適用できない問題を記録する。
+
+        Args:
+            message (str): 問題の説明。
+        """
+        self._errors.append(message)
+
 
 class Snapshot:
     """シーンのデータを取得し、JSONへ保存・復元するクラスに共通する基底クラス。
 
     それぞれの種類は、:attr:`FORMAT`・:attr:`VERSION` と、``capture`` (取得)・``_validate`` (検査)・
-    ``_apply`` (適用)を書く。持っているデータは数学型を含む辞書で、:meth:`toData` で取得できる。
+    ``_apply`` (適用)を書く。``apply`` は、種類ごとの指定を足すときだけ上書きする。持っているデータは数学型を含む辞書で、:meth:`toData` で取得できる。
     名前の対応づけ(``nameMap``・``replace``・``namespaceMap``)は :class:`NameMapping` の規則に従う。
     """
 
@@ -166,22 +165,6 @@ class Snapshot:
         raise NotImplementedError(f"{cls.__name__}はcaptureを実装していません")
 
     @classmethod
-    def fromData(cls, data):
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): 種類の形式のデータ。
-
-        Returns:
-            Snapshot: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            TypeError: dataが辞書でない場合。
-            ValueError: データの形が種類と合わない場合。
-        """
-        return cls(data)
-
-    @classmethod
     def load(cls, path):
         """JSONファイルを読み込んで作る。
 
@@ -195,7 +178,7 @@ class Snapshot:
             ValueError: 形式名・版が違う場合、またはデータの形が種類と合わない場合。
             OSError: 読み込みに失敗した場合。
         """
-        header, data = file.load(path, cls.FORMAT, cls.VERSION)
+        header, data = file._load(path, cls.FORMAT, cls.VERSION)
         return cls(data, header)
 
     @property
@@ -227,7 +210,7 @@ class Snapshot:
         Raises:
             OSError: 書き出しに失敗した場合。
         """
-        return file.dump(self._data, path, self.FORMAT, self.VERSION)
+        return file._dump(self._data, path, self.FORMAT, self.VERSION)
 
     def validate(self, *, nameMap=None, replace=None, namespaceMap=None):
         """適用する前に、シーンとの対応を確かめる。シーンは変えない。
@@ -243,6 +226,27 @@ class Snapshot:
         report = ValidationReport()
         self._validate(NameMapping(nameMap, replace, namespaceMap), report, {})
         return report
+
+    def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
+        """持っているデータを、名前を対応づけたシーンのノードへ適用する。
+
+        先に検査し、適用できない問題があれば何も変えずに例外にする。1回のUndoにまとめ、途中で失敗したら元に戻す。
+        適用できなかったものは飛ばして記録し、最後にまとめて警告する。何を ``missing``・``skipped`` に記録するかは、
+        それぞれの種類のクラスの説明に書く。種類ごとの指定を足す種類は、このメソッドを上書きする。
+
+        Args:
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。
+
+        Returns:
+            ValidationReport: 適用の結果。
+
+        Raises:
+            ValueError: 適用できない問題がある場合。
+            NotImplementedError: 基底クラスで呼んだ場合。
+        """
+        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def _run_apply(self, mapping_args, options, fast=False):
         """検査してから、1回のUndoで適用する(それぞれの種類の ``apply`` の中身)。
@@ -284,7 +288,7 @@ class Snapshot:
         if self._header is None:
             file._require_timing(timing)
             return frame
-        return self._header.convertTime(frame, timing)
+        return self._header._convert_time(frame, timing)
 
     def _require_data(self, data):
         """データの形を確かめる。それぞれの種類が上書きする。

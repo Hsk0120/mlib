@@ -23,6 +23,13 @@ class SelectionSnapshot(Snapshot):
     同じシェイプ・同じ種類のコンポーネントが続いていれば、1つの :class:`ComponentRef` にまとめる。
     NURBSサーフェスのCVのように、番号1つで表せないコンポーネントは保存しない。
 
+    ``apply`` は、保存した項目を選択し直す。
+
+    名前を対応づけたシーンのノード・コンポーネントを選び、今の選択と置き換える。
+    選べないものは飛ばして記録し、最後にまとめて警告する。見つからないノードは ``missing`` に、
+    範囲の外の番号を含むコンポーネントは ``skipped`` に記録する。
+    見つかるものが1つも無ければ、選択を解除する。
+
     データの形::
 
         {"items": [{"node": {<NodeRef>}}, {"components": {<ComponentRef>}}, ...]}
@@ -51,23 +58,6 @@ class SelectionSnapshot(Snapshot):
         Raises:
             TypeError: itemsの型が正しくない場合。
             RuntimeError: 指定したノード・コンポーネントが無い場合。
-        """
-        ...
-    def apply(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
-        """保存した項目を選択し直す。
-
-        名前を対応づけたシーンのノード・コンポーネントを選び、今の選択と置き換える。
-        選べないものは飛ばして記録し、最後にまとめて警告する。見つからないノードは ``missing`` に、
-        範囲の外の番号を含むコンポーネントは ``skipped`` に記録する。
-        見つかるものが1つも無ければ、選択を解除する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
         """
         ...
     def _require_data(self, data: dict):

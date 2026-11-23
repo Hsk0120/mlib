@@ -83,11 +83,10 @@ class ValueReturnTest(unittest.TestCase):
             before = tuple(value)
             self.assertIsNot(value.unit(), value)
             self.assertEqual(tuple(value), before)
-            self.assertIs(value.unitIt(), value)
             zero = cls(0, 0, 0) if cls is Vector else cls(0, 0, 0, 0)
             self.assertIs(type(zero.normal()), cls)
             with self.assertRaises(ValueError):
-                zero.unitIt()
+                zero.unit()
             self.assertTrue(all(x == 0 for x in zero))
 
     def test_retired_names(self):

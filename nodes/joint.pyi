@@ -1424,6 +1424,9 @@ class Joints(Nodes[Joint]):
     def isLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1486,6 +1489,9 @@ class Joints(Nodes[Joint]):
         ...
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setAttrFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -437,7 +437,7 @@ def ls(
             if found is not None:
                 result.append(Plug(Node._wrap_resolved(found[0], found[1]), found[2]))
                 continue
-        resolved = Selection(name).items
+        resolved = Selection(name).getItems()
         if resolved and isinstance(resolved[0], Component):
             result.extend(resolved)
         elif component is None:

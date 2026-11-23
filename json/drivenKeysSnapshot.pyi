@@ -35,6 +35,24 @@ class DrivenKeysSnapshot(Snapshot):
     複数のドライバーを合計するblendWeightedは、Mayaのドリブンキーの設定(``setDrivenKeyframe``)で作り直し、
     それぞれの入力の重み(weight)を元に戻す。
 
+    ``apply`` は、保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
+
+    ドライバーと駆動先の組ごとに、次のように書く。
+
+    - すでにカーブがあれば、そのすべてのキーを置き換える。
+    - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
+      作られる)でカーブを作ってから書く。
+
+    保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
+
+    書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+
+    - ``missing``: 見つからないドライバー・駆動先。
+    - ``skipped``: ロックされた駆動先。ドリブンキー以外(コンストレイント・入力が時間のカーブなど)が
+      入力につながった駆動先。出力の種類が違うカーブ。
+
+    fast引数は持たない(ドリブンキーはキーが少なく、作成はcmdsで行うので、速くならない)。
+
     データの形::
 
         {"items": [{"driven": {<PlugRef>}, "blendWeighted": False,
@@ -63,34 +81,6 @@ class DrivenKeysSnapshot(Snapshot):
         Raises:
             TypeError: nodesがノードでもその並びでもない場合。
             RuntimeError: ノードが無い場合。
-        """
-        ...
-    def apply(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
-        """保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
-
-        ドライバーと駆動先の組ごとに、次のように書く。
-
-        - すでにカーブがあれば、そのすべてのキーを置き換える。
-        - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
-          作られる)でカーブを作ってから書く。
-
-        保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
-
-        書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-
-        - ``missing``: 見つからないドライバー・駆動先。
-        - ``skipped``: ロックされた駆動先。ドリブンキー以外(コンストレイント・入力が時間のカーブなど)が
-          入力につながった駆動先。出力の種類が違うカーブ。
-
-        fast引数は持たない(ドリブンキーはキーが少なく、作成はcmdsで行うので、速くならない)。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。ドライバーと駆動先の両方に当てる。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
         """
         ...
     def _require_data(self, data: dict):

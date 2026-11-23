@@ -255,18 +255,8 @@ class Selection:
             iterator.next()
         return {mesh: weights for mesh, weights in result.items() if weights}
 
-    @property
-    def items(self):
-        """list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
-
-        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。
-        """
-        return list(self._items)
-
     def getItems(self):
         """持っている対象を、新しいリストで取得する。
-
-        :attr:`items` と同じ値になる。
 
         Returns:
             list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。

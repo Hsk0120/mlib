@@ -9,7 +9,7 @@
 - 例外を絞った ``maths.matrix._reinit_is_safe``・``Transform._channel_equals``。
 - 三項演算子・``contextlib.suppress`` にした ``jointOrient`` の読み取り・クリースの判定・トレースバックを省く処理。
 - 名前を変えたキャッシュが ``mlib.reload()`` の後も使われること、``Double3Plug`` の値の型の対応表。
-- まだテストの無い ``mlib.json.file.currentFps``・``ValidationReport.addSkipped``・``ValidationReport.warn`` の文言。
+- まだテストの無い ``mlib.json.file._current_fps``・``ValidationReport._add_skipped``・``ValidationReport.warn`` の文言。
 """
 
 import copy
@@ -622,7 +622,7 @@ class WrapAndCacheTest(_Case):
 
 
 class JsonHelpersTest(_Case):
-    """``currentFps`` と ``ValidationReport.addSkipped``・``warn``。"""
+    """``_current_fps`` と ``ValidationReport._add_skipped``・``warn``。"""
 
     def test_current_fps_follows_the_time_unit(self):
         saved = cmds.currentUnit(query=True, time=True)
@@ -630,16 +630,16 @@ class JsonHelpersTest(_Case):
             for unit, fps in (("film", 24.0), ("ntsc", 30.0), ("pal", 25.0), ("game", 15.0), ("ntscf", 60.0)):
                 with self.subTest(unit=unit):
                     cmds.currentUnit(time=unit)
-                    self.assertAlmostEqual(json_file.currentFps(), fps, places=9)
-                    self.assertIs(type(json_file.currentFps()), float)
+                    self.assertAlmostEqual(json_file._current_fps(), fps, places=9)
+                    self.assertIs(type(json_file._current_fps()), float)
         finally:
             cmds.currentUnit(time=saved)
 
     def test_add_skipped_records_name_and_reason(self):
         report = ValidationReport()
-        self.assertIsNone(report.addSkipped("pCube1.tx", "locked"))
-        report.addSkipped("pCube1.tx", "locked")
-        report.addSkipped("pCube1.ty", "connected")
+        self.assertIsNone(report._add_skipped("pCube1.tx", "locked"))
+        report._add_skipped("pCube1.tx", "locked")
+        report._add_skipped("pCube1.ty", "connected")
         self.assertEqual(report.skipped, ["pCube1.tx: locked", "pCube1.tx: locked", "pCube1.ty: connected"])
         self.assertTrue(report.valid)
         self.assertEqual(report.missing, [])
@@ -651,9 +651,9 @@ class JsonHelpersTest(_Case):
     def test_warn_message_is_japanese(self):
         """warn は見つからないもの・飛ばしたものの件数を、日本語の1回の警告にまとめる。"""
         report = ValidationReport()
-        report.addMissing("pCube1")
-        report.addSkipped("pCube1.tx", "locked")
-        report.addSkipped("pCube1.ty", "connected")
+        report._add_missing("pCube1")
+        report._add_skipped("pCube1.tx", "locked")
+        report._add_skipped("pCube1.ty", "connected")
         with mock.patch.object(logger, "warning") as warning:
             report.warn("PoseSnapshot")
         self.assertEqual(warning.call_count, 1)

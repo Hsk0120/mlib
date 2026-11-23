@@ -16,10 +16,9 @@ for _name in globals().get("__all__", ()):
 from . import codec, file
 from .animationSnapshot import AnimationSnapshot
 from .attributesSnapshot import AttributesSnapshot
-from .codec import decode, encode
 from .componentRef import ComponentRef
 from .drivenKeysSnapshot import DrivenKeysSnapshot
-from .file import Header, dump, load
+from .file import Header
 from .nameMapping import NameMapping
 from .nodeRef import NodeRef
 from .plugRef import PlugRef
@@ -41,9 +40,5 @@ __all__ = [
     "Snapshot",
     "ValidationReport",
     "codec",
-    "decode",
-    "dump",
-    "encode",
     "file",
-    "load",
 ]

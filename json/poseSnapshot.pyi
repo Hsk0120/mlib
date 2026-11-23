@@ -21,6 +21,12 @@ class PoseSnapshot(Snapshot):
     ロックされたアトリビュートや、接続されているアトリビュートも保存する。適用するときに書けないものは、
     飛ばして報告する。適用してもキーは打たない。ワールド空間は扱わない。
 
+    ``apply`` は、保存した値を、対応づけたノードのアトリビュートへ書き戻す。
+
+    1回のUndoにまとめる。キーは打たない。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+    見つからないノードは ``missing`` に、ロック・入力接続(アニメカーブを含む)のあるアトリビュートと
+    対象に無いアトリビュートは ``skipped`` に記録する。
+
     データの形::
 
         {"nodes": [{"node": {<NodeRef>}, "attrs": {"translateX": 1.0, "rotateY": 45.0, ...}}, ...]}
@@ -49,22 +55,6 @@ class PoseSnapshot(Snapshot):
         Raises:
             TypeError: nodesがノードでもその並びでもない場合。
             RuntimeError: ノードが無い場合。
-        """
-        ...
-    def apply(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
-        """保存した値を、対応づけたノードのアトリビュートへ書き戻す。
-
-        1回のUndoにまとめる。キーは打たない。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-        見つからないノードは ``missing`` に、ロック・入力接続(アニメカーブを含む)のあるアトリビュートと
-        対象に無いアトリビュートは ``skipped`` に記録する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
         """
         ...
     def _require_data(self, data: dict):

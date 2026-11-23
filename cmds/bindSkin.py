@@ -186,7 +186,7 @@ def _load_weights(path, geometry, nameMap, replace, namespaceMap, method):
 
     SkinCluster._require_choice(method, "method", ("index", "position"))
     mapping = NameMapping(nameMap, replace, namespaceMap)
-    _, data = file.load(path, SkinCluster._WEIGHTS_FORMAT, SkinCluster._WEIGHTS_VERSION)
+    _, data = file._load(path, SkinCluster._WEIGHTS_FORMAT, SkinCluster._WEIGHTS_VERSION)
     saved = SkinCluster._parse_weights_data(data)
     shape = Node(Object._input_name(geometry)).mpath()
     if shape.node().hasFn(om2.MFn.kTransform):

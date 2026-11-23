@@ -150,7 +150,7 @@ class AttributesSnapshotTest(_SnapshotCase):
         plug = {"node": {"name": "a", "path": None, "type": None}, "attr": "tx"}
         for data in ({}, {"plugs": [{"plug": plug}]}, {"plugs": [{"plug": {"node": {}}, "value": 1}]}, {"plugs": [{"plug": plug, "value": object()}]}):
             with self.subTest(data=data), self.assertRaises(ValueError):
-                AttributesSnapshot.fromData(data)
+                AttributesSnapshot(data)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 """名前で指定したアトリビュートの値を、型を問わず保存・復元する。"""
 
 from .. import logger
-from .codec import encode
+from .codec import _encode
 from .plugRef import PlugRef
 from .poseSnapshot import _block_reason, _require_nodes, _write_plug
 from .snapshot import Snapshot, ValidationReport
@@ -23,6 +23,12 @@ class AttributesSnapshot(Snapshot):
 
     ユーザー定義アトリビュートの定義(addAttr)は保存しない。そのため、適用先に無いアトリビュートは飛ばす。
     マルチアトリビュート全体・message・値の無いものは保存しない。
+
+    ``apply`` は、保存した値を、対応づけたノードのアトリビュートへ書き戻す。
+
+    1回のUndoにまとめる。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+    見つからないノードは ``missing`` に、ロック・入力接続のあるアトリビュートと対象に無いアトリビュートは
+    ``skipped`` に記録する。
 
     データの形::
 
@@ -56,22 +62,6 @@ class AttributesSnapshot(Snapshot):
             ValueError: attributesを指定せずにノードを渡した場合。
             RuntimeError: ノードが無い場合。
             MissingAttributeError: 指定したPlugが無い場合。
-        """
-        ...
-    def apply(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
-        """保存した値を、対応づけたノードのアトリビュートへ書き戻す。
-
-        1回のUndoにまとめる。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-        見つからないノードは ``missing`` に、ロック・入力接続のあるアトリビュートと対象に無いアトリビュートは
-        ``skipped`` に記録する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
         """
         ...
     def _require_data(self, data: dict):

@@ -136,18 +136,20 @@ class BulkWriteTest(_SpecCase):
     def test_bulk_writes_match_singular_and_undo_once(self):
         names = [self.make(text=f"n{index}") for index in range(3)]
         nodes = Nodes(names)
+        # setAttrFlags・setLocked は明示メソッドを持たず、各要素への転送なので、戻り値は要素ごとのリストになる。
+        forwarded = [None, None, None]
         cases = (
-            (lambda: nodes.setAttrFlags(["tx"], locked=True), lambda name: cmds.getAttr(name + ".tx", lock=True)),
-            (lambda: nodes.setLocked(True), lambda name: cmds.lockNode(name, query=True, lock=True)[0]),
-            (lambda: nodes.setVisibility(False), lambda name: not cmds.getAttr(name + ".v")),
-            (lambda: nodes.hide(), lambda name: not cmds.getAttr(name + ".v")),
-            (lambda: nodes.setOverrideColor(17), lambda name: cmds.getAttr(name + ".overrideColor") == 17),
+            (lambda: nodes.setAttrFlags(["tx"], locked=True), lambda name: cmds.getAttr(name + ".tx", lock=True), forwarded),
+            (lambda: nodes.setLocked(True), lambda name: cmds.lockNode(name, query=True, lock=True)[0], forwarded),
+            (lambda: nodes.setVisibility(False), lambda name: not cmds.getAttr(name + ".v"), None),
+            (lambda: nodes.hide(), lambda name: not cmds.getAttr(name + ".v"), None),
+            (lambda: nodes.setOverrideColor(17), lambda name: cmds.getAttr(name + ".overrideColor") == 17, None),
         )
-        for action, check in cases:
+        for action, check, expected in cases:
             with self.subTest(action=action):
                 self.flushUndo()
                 result = action()
-                self.assertIsNone(result)
+                self.assertEqual(result, expected)
                 self.assertUndoesInOneStep(
                     lambda: self.assertFalse(any(check(name) for name in names)), lambda: self.assertTrue(all(check(name) for name in names))
                 )

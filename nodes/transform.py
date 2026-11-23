@@ -1391,9 +1391,9 @@ class Transform(DagNode):
             OSError: 書き出しに失敗した場合。
         """
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
-        from ..json.file import dump
+        from ..json.file import _dump
 
-        return dump(self.getCurveShapesData(), path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
+        return _dump(self.getCurveShapesData(), path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
 
     def importCurveShapes(self, path):
         """:meth:`exportCurveShapes` のファイルを読み込み、直下のカーブ形状を作り直す。
@@ -1412,9 +1412,9 @@ class Transform(DagNode):
             OSError: 読み込みに失敗した場合。
         """
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
-        from ..json.file import load
+        from ..json.file import _load
 
-        _header, data = load(path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
+        _header, data = _load(path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
         self.setCurveShapesData(data)
 
     def getShape(self, index=0, intermediates=False):

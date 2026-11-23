@@ -22,8 +22,7 @@ class ValidationReport:
     - ``skipped``: ロックや接続などで書けず、飛ばしたもの。
     - ``errors``: 適用できない問題(頂点数の違いなど)。
 
-    ``errors`` があると、それぞれの種類の ``apply``
-    (:meth:`PoseSnapshot.apply <mlib.json.poseSnapshot.PoseSnapshot.apply>` など)は何も変えずに例外にする。
+    ``errors`` があると、:meth:`Snapshot.apply` は何も変えずに例外にする。
     """
     def __init__(self) -> None:
         """空の報告を作る。"""
@@ -67,14 +66,21 @@ class ValidationReport:
             bool: errorsが空ならTrue。missing・skippedがあってもTrue。
         """
         ...
-    def addMissing(self, name: str):
+    def warn(self, label: str):
+        """missing・skippedがあれば、まとめて警告を1回出す。
+
+        Args:
+            label (str): 警告の先頭に付ける名前(``"PoseSnapshot"`` など)。
+        """
+        ...
+    def _add_missing(self, name: str):
         """見つからなかったものを記録する。同じ名前は1回だけ記録する。
 
         Args:
             name (str): 名前の対応づけを当てた後の名前。
         """
         ...
-    def addSkipped(self, name: str, reason: str):
+    def _add_skipped(self, name: str, reason: str):
         """書けずに飛ばしたものを記録する。
 
         Args:
@@ -82,18 +88,11 @@ class ValidationReport:
             reason (str): 理由(``"locked"`` など)。
         """
         ...
-    def addError(self, message: str):
+    def _add_error(self, message: str):
         """適用できない問題を記録する。
 
         Args:
             message (str): 問題の説明。
-        """
-        ...
-    def warn(self, label: str):
-        """missing・skippedがあれば、まとめて警告を1回出す。
-
-        Args:
-            label (str): 警告の先頭に付ける名前(``"PoseSnapshot"`` など)。
         """
         ...
 
@@ -102,7 +101,7 @@ class Snapshot:
     """シーンのデータを取得し、JSONへ保存・復元するクラスに共通する基底クラス。
 
     それぞれの種類は、:attr:`FORMAT`・:attr:`VERSION` と、``capture`` (取得)・``_validate`` (検査)・
-    ``_apply`` (適用)を書く。持っているデータは数学型を含む辞書で、:meth:`toData` で取得できる。
+    ``_apply`` (適用)を書く。``apply`` は、種類ごとの指定を足すときだけ上書きする。持っているデータは数学型を含む辞書で、:meth:`toData` で取得できる。
     名前の対応づけ(``nameMap``・``replace``・``namespaceMap``)は :class:`NameMapping` の規則に従う。
     """
     FORMAT: None
@@ -136,21 +135,6 @@ class Snapshot:
 
         Raises:
             NotImplementedError: 基底クラスで呼んだ場合。
-        """
-        ...
-    @classmethod
-    def fromData(cls, data: dict) -> Snapshot:
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): 種類の形式のデータ。
-
-        Returns:
-            Snapshot: 呼び出したクラスの新しいインスタンス。
-
-        Raises:
-            TypeError: dataが辞書でない場合。
-            ValueError: データの形が種類と合わない場合。
         """
         ...
     @classmethod
@@ -206,6 +190,26 @@ class Snapshot:
 
         Returns:
             ValidationReport: 見つからないもの・書けないもの・適用できない問題。
+        """
+        ...
+    def apply(self, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> ValidationReport:
+        """持っているデータを、名前を対応づけたシーンのノードへ適用する。
+
+        先に検査し、適用できない問題があれば何も変えずに例外にする。1回のUndoにまとめ、途中で失敗したら元に戻す。
+        適用できなかったものは飛ばして記録し、最後にまとめて警告する。何を ``missing``・``skipped`` に記録するかは、
+        それぞれの種類のクラスの説明に書く。種類ごとの指定を足す種類は、このメソッドを上書きする。
+
+        Args:
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。
+
+        Returns:
+            ValidationReport: 適用の結果。
+
+        Raises:
+            ValueError: 適用できない問題がある場合。
+            NotImplementedError: 基底クラスで呼んだ場合。
         """
         ...
     def _run_apply(self, mapping_args: dict, options: dict, fast: bool = ...) -> ValidationReport:

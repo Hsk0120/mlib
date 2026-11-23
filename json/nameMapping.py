@@ -51,14 +51,6 @@ class NameMapping:
         """
         return f"NameMapping(nameMap={self._name_map!r}, replace={list(self._replace)!r}, namespaceMap={self._namespace_map!r})"
 
-    def isIdentity(self):
-        """名前を変えない規則かを返す。
-
-        Returns:
-            bool: どの規則も指定していなければTrue。
-        """
-        return not (self._name_map or self._replace or self._namespace_map)
-
     def apply(self, name):
         """ノード名(DAGパスの1要素)を変換する。
 
@@ -83,7 +75,7 @@ class NameMapping:
         namespace = self._map_namespace(namespace)
         return f"{namespace}:{short}" if namespace else short
 
-    def applyPath(self, path):
+    def _apply_path(self, path):
         """DAGパスのそれぞれの要素を :meth:`apply` で変換する。
 
         Args:

@@ -593,7 +593,7 @@ class LookupWrapperTest(unittest.TestCase):
             if "." not in name:
                 expected.append(Node(name))
                 continue
-            items = Selection(name).items
+            items = Selection(name).getItems()
             expected.extend(items if isinstance(items[0], mlib.Component) else [Plug._resolve_input(name)])
         result = mlib.ls(names)
         self.assertEqual([self._describe(item) for item in result], [self._describe(item) for item in expected])

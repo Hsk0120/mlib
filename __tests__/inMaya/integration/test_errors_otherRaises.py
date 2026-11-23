@@ -4,7 +4,7 @@
   引数の型・名前の値・見つからないノード・読めないファイルの拒否。例外の後はノードが増減しない。
   createWire は形状の無い transform を ValueError にし、Mayaが失敗したときは作りかけのノードを消す。
 - common.references.createReference: 無いファイルは OSError で、リファレンスを作らない。
-- json: dump・load・Snapshot.load の OSError、Snapshot.fromData・NameMapping.applyPath の TypeError、
+- json: _dump・_load・Snapshot.load の OSError、Snapshot(data)・NameMapping._apply_path の TypeError、
   AttributesSnapshot.capture の MissingAttributeError。
 - maths: tolerance の型の TypeError、Quaternion.fromRollBend・asRollBend の引数の拒否、Vector.cotan の ValueError。
 - logger.raiseWithNotify: fromException が例外でも None でもなければ TypeError。
@@ -26,7 +26,8 @@ from support.namespaceCase import NamespaceCase
 
 from mlib import logger
 from mlib.common.references import createReference
-from mlib.json import AttributesSnapshot, NameMapping, PoseSnapshot, dump, load
+from mlib.json import AttributesSnapshot, NameMapping, PoseSnapshot
+from mlib.json.file import _dump, _load
 from mlib.maths import EulerRotate, Matrix, Quaternion, Vector
 from mlib.plugs.plug import MissingAttributeError
 
@@ -257,7 +258,7 @@ class JsonErrorTest(_ErrorCase):
         for label, path in (("missing folder", os.path.join(self.folder, "missing", "data.json")), ("directory", os.path.join(self.folder, "dir"))):
             with self.subTest(path=label):
                 with self.assertRaises(OSError):
-                    dump({"a": 1}, path, "mlib.spec", 1)
+                    _dump({"a": 1}, path, "mlib.spec", 1)
                 self.assertEqual(sorted(os.listdir(self.folder)), ["dir"])
                 self.assertEqual(os.listdir(os.path.join(self.folder, "dir")), [])
 
@@ -266,26 +267,26 @@ class JsonErrorTest(_ErrorCase):
         for label, path in (("missing", os.path.join(self.folder, "missing.json")), ("directory", self.folder)):
             with self.subTest(function="load", path=label):
                 with self.assertRaises(OSError):
-                    load(path, "mlib.spec", 1)
+                    _load(path, "mlib.spec", 1)
             with self.subTest(function="PoseSnapshot.load", path=label):
                 with self.assertRaises(OSError):
                     PoseSnapshot.load(path)
 
     def test_from_data_type(self):
-        """Snapshot.fromData へ辞書以外を渡すと TypeError。"""
+        """Snapshot へ辞書以外を渡すと TypeError。"""
         for data in ("data", 5, None, [("a", 1)]):
             with self.subTest(data=data):
                 with self.assertRaises(TypeError):
-                    PoseSnapshot.fromData(data)
+                    PoseSnapshot(data)
 
     def test_apply_path_type(self):
-        """NameMapping.applyPath へ文字列以外を渡すと TypeError。"""
+        """NameMapping._apply_path へ文字列以外を渡すと TypeError。"""
         mapping = NameMapping(replace=[("_L_", "_R_")])
-        self.assertEqual(mapping.applyPath("|root|arm_L_jnt"), "|root|arm_R_jnt")
+        self.assertEqual(mapping._apply_path("|root|arm_L_jnt"), "|root|arm_R_jnt")
         for path in (5, None, ["root"]):
             with self.subTest(path=path):
                 with self.assertRaises(TypeError):
-                    mapping.applyPath(path)
+                    mapping._apply_path(path)
 
     def test_capture_missing_plug(self):
         """無い Plug を指定すると MissingAttributeError(AttributeError の派生。RuntimeError の派生ではない)。"""

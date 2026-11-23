@@ -30,6 +30,24 @@ class DrivenKeysSnapshot(Snapshot):
     複数のドライバーを合計するblendWeightedは、Mayaのドリブンキーの設定(``setDrivenKeyframe``)で作り直し、
     それぞれの入力の重み(weight)を元に戻す。
 
+    ``apply`` は、保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
+
+    ドライバーと駆動先の組ごとに、次のように書く。
+
+    - すでにカーブがあれば、そのすべてのキーを置き換える。
+    - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
+      作られる)でカーブを作ってから書く。
+
+    保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
+
+    書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+
+    - ``missing``: 見つからないドライバー・駆動先。
+    - ``skipped``: ロックされた駆動先。ドリブンキー以外(コンストレイント・入力が時間のカーブなど)が
+      入力につながった駆動先。出力の種類が違うカーブ。
+
+    fast引数は持たない(ドリブンキーはキーが少なく、作成はcmdsで行うので、速くならない)。
+
     データの形::
 
         {"items": [{"driven": {<PlugRef>}, "blendWeighted": False,
@@ -85,40 +103,11 @@ class DrivenKeysSnapshot(Snapshot):
                         continue
                     weight = 1.0 if index is None else cmds.getAttr(f"{source_node}.weight[{index}]")
                     data = _read_curve(curve, input_scale=_input_scale(curve, driver))
-                    drivers.append({"driver": PlugRef.capture(driver).toData(), "weight": float(weight), "curve": data})
+                    drivers.append({"driver": PlugRef.capture(driver)._to_data(), "weight": float(weight), "curve": data})
                 if drivers:
                     driven = full + "." + destination.partition(".")[2]
-                    items.append({"driven": PlugRef.capture(driven).toData(), "blendWeighted": source_type == "blendWeighted", "drivers": drivers})
+                    items.append({"driven": PlugRef.capture(driven)._to_data(), "blendWeighted": source_type == "blendWeighted", "drivers": drivers})
         return cls({"items": items})
-
-    def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
-
-        ドライバーと駆動先の組ごとに、次のように書く。
-
-        - すでにカーブがあれば、そのすべてのキーを置き換える。
-        - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
-          作られる)でカーブを作ってから書く。
-
-        保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
-
-        書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-
-        - ``missing``: 見つからないドライバー・駆動先。
-        - ``skipped``: ロックされた駆動先。ドリブンキー以外(コンストレイント・入力が時間のカーブなど)が
-          入力につながった駆動先。出力の種類が違うカーブ。
-
-        fast引数は持たない(ドリブンキーはキーが少なく、作成はcmdsで行うので、速くならない)。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。ドライバーと駆動先の両方に当てる。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
-        """
-        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def _require_data(self, data):
         """``items`` の形を確かめる。
@@ -140,11 +129,11 @@ class DrivenKeysSnapshot(Snapshot):
                 or not isinstance(item["drivers"], list)
             ):
                 raise ValueError(f"ドリブンキーの項目が不正です: {item!r}")
-            PlugRef.fromData(item["driven"])
+            PlugRef._from_data(item["driven"])
             for driver in item["drivers"]:
                 if not isinstance(driver, dict) or set(driver) != {"driver", "weight", "curve"}:
                     raise ValueError(f"ドリブンキーのドライバーが不正です: {driver!r}")
-                PlugRef.fromData(driver["driver"])
+                PlugRef._from_data(driver["driver"])
                 weight = driver["weight"]
                 if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(weight):
                     raise ValueError(f"ドリブンキーのウェイトが不正です: {weight!r}")
@@ -180,12 +169,12 @@ class DrivenKeysSnapshot(Snapshot):
                 continue
             name = str(driven)
             if cmds.getAttr(name, lock=True):
-                report.addSkipped(name, "locked")
+                report._add_skipped(name, "locked")
                 continue
             sources = cmds.listConnections(name, source=True, destination=False, skipConversionNodes=True) or []
             source_type = cmds.nodeType(sources[0]) if sources else None
             if source_type is not None and source_type != "blendWeighted" and not source_type.startswith("animCurveU"):
-                report.addSkipped(name, f"{source_type}に接続されています")
+                report._add_skipped(name, f"{source_type}に接続されています")
                 continue
             for saved in item["drivers"]:
                 driver = _resolve(saved["driver"], mapping, report)
@@ -207,7 +196,7 @@ def _apply_driver(driver, driven, saved, report):
     try:
         relation = DrivenKey(driver, driven)
     except (TypeError, ValueError) as error:
-        report.addSkipped(label, str(error))
+        report._add_skipped(label, str(error))
         return
     curves = relation.getCurves()
     if not curves:
@@ -218,12 +207,12 @@ def _apply_driver(driver, driven, saved, report):
         relation.setKey(first["input"], first["value"])
         curves = relation.getCurves()
     if len(curves) != 1:
-        report.addSkipped(label, "ドリブンキーのカーブが複数あります")
+        report._add_skipped(label, "ドリブンキーのカーブが複数あります")
         return
     curve = curves[0].getFullName()
     curve_type = cmds.nodeType(curve)
     if _output_kind(curve_type) != _output_kind(data["curveType"]):
-        report.addSkipped(label, f"カーブの型{curve_type}が{data['curveType']}と合っていません")
+        report._add_skipped(label, f"カーブの型{curve_type}が{data['curveType']}と合っていません")
         return
     _write_curve(curve, data, data["keys"], input_scale=_input_scale(curve, str(driver)))
     for destination in cmds.listConnections(curve + ".output", source=False, destination=True, plugs=True, skipConversionNodes=True) or []:
@@ -245,11 +234,11 @@ def _resolve(data, mapping, report):
     Returns:
         Plug | None: 見つかったPlug。
     """
-    ref = PlugRef.fromData(data)
+    ref = PlugRef._from_data(data)
     plug = ref.resolve(mapping)
     if plug is None:
         node_missing = ref.node.resolve(mapping) is None
-        report.addMissing(ref.node.mappedName(mapping) if node_missing else ref.mappedName(mapping))
+        report._add_missing(ref.node._mapped_name(mapping) if node_missing else ref._mapped_name(mapping))
     return plug
 
 

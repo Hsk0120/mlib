@@ -92,26 +92,6 @@ class ComponentRef:
             raise TypeError("componentsはmlibのComponentかComponentsで指定してください")
         return cls(NodeRef.capture(shape), kind, indices)
 
-    @classmethod
-    def fromData(cls, data):
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``node``・``type``・``indices`` を持つ辞書。
-
-        Returns:
-            ComponentRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        if not isinstance(data, dict) or "node" not in data or not isinstance(data.get("indices"), list):
-            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}")
-        try:
-            return cls(NodeRef.fromData(data["node"]), data.get("type"), data["indices"])
-        except TypeError as error:
-            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}") from error
-
     @property
     def node(self):
         """シェイプの参照を返す。
@@ -138,25 +118,6 @@ class ComponentRef:
             tuple[int, ...]: 記録した順の番号。
         """
         return self._indices
-
-    def toData(self):
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"node": {...}, "type": ..., "indices": [...]}``。
-        """
-        return {"node": self._node.toData(), "type": self._type, "indices": list(self._indices)}
-
-    def mappedName(self, mapping=None):
-        """名前の対応づけを当てたシェイプ名と、種類を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。
-
-        Returns:
-            str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
-        """
-        return f"{self._node.mappedName(mapping)}.{self._type}[...]"
 
     def resolve(self, mapping=None):
         """シーンのコンポーネントの集まりを返す。
@@ -185,3 +146,42 @@ class ComponentRef:
             return getattr(components, _COLLECTIONS[self._type])(shape, self._indices)
         except (IndexError, TypeError, RuntimeError):
             return None
+
+    @classmethod
+    def _from_data(cls, data):
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``node``・``type``・``indices`` を持つ辞書。
+
+        Returns:
+            ComponentRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        if not isinstance(data, dict) or "node" not in data or not isinstance(data.get("indices"), list):
+            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}")
+        try:
+            return cls(NodeRef._from_data(data["node"]), data.get("type"), data["indices"])
+        except TypeError as error:
+            raise ValueError(f"JSONのコンポーネントの参照が不正です: {data!r}") from error
+
+    def _to_data(self):
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"node": {...}, "type": ..., "indices": [...]}``。
+        """
+        return {"node": self._node._to_data(), "type": self._type, "indices": list(self._indices)}
+
+    def _mapped_name(self, mapping=None):
+        """名前の対応づけを当てたシェイプ名と、種類を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。
+
+        Returns:
+            str: ``<シェイプ名>.<種類>[...]``。警告や報告の表示に使う。
+        """
+        return f"{self._node._mapped_name(mapping)}.{self._type}[...]"

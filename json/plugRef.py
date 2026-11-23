@@ -81,23 +81,6 @@ class PlugRef:
         attribute = plug.mplug().partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=True)
         return cls(NodeRef.capture(plug.getNode()), attribute)
 
-    @classmethod
-    def fromData(cls, data):
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``node``・``attr`` を持つ辞書。
-
-        Returns:
-            PlugRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        if not isinstance(data, dict) or "node" not in data or not isinstance(data.get("attr"), str):
-            raise ValueError(f"JSONのPlugの参照が不正です: {data!r}")
-        return cls(NodeRef.fromData(data["node"]), data["attr"])
-
     @property
     def node(self):
         """持ち主のノードの参照を返す。
@@ -115,25 +98,6 @@ class PlugRef:
             str: ``"translateX"``・``"weight[3]"`` など。
         """
         return self._attribute
-
-    def toData(self):
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"node": {...}, "attr": ...}``。
-        """
-        return {"node": self._node.toData(), "attr": self._attribute}
-
-    def mappedName(self, mapping=None):
-        """名前の対応づけを当てたPlug名を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。
-
-        Returns:
-            str: ``<ノード名>.<アトリビュート>``。警告や報告の表示に使う。
-        """
-        return self._node.mappedName(mapping) + "." + self._attribute
 
     def resolve(self, mapping=None):
         """シーンのPlugを返す。
@@ -158,3 +122,39 @@ class PlugRef:
             return node.getPlug(self._attribute)
         except (AttributeError, RuntimeError, ValueError):
             return None
+
+    @classmethod
+    def _from_data(cls, data):
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``node``・``attr`` を持つ辞書。
+
+        Returns:
+            PlugRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        if not isinstance(data, dict) or "node" not in data or not isinstance(data.get("attr"), str):
+            raise ValueError(f"JSONのPlugの参照が不正です: {data!r}")
+        return cls(NodeRef._from_data(data["node"]), data["attr"])
+
+    def _to_data(self):
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"node": {...}, "attr": ...}``。
+        """
+        return {"node": self._node._to_data(), "attr": self._attribute}
+
+    def _mapped_name(self, mapping=None):
+        """名前の対応づけを当てたPlug名を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。
+
+        Returns:
+            str: ``<ノード名>.<アトリビュート>``。警告や報告の表示に使う。
+        """
+        return self._node._mapped_name(mapping) + "." + self._attribute

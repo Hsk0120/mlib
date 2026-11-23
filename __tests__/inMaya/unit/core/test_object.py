@@ -79,7 +79,7 @@ class ObjectTest(unittest.TestCase):
         """全要素選択と、従来の文字列・Node混在拒否を維持する。"""
         from mlib.common import Selection
 
-        self.assertEqual(len(Selection(self.name + ".vtx[*]").items), 8)
+        self.assertEqual(len(Selection(self.name + ".vtx[*]").getItems()), 8)
         with self.assertRaises(TypeError):
             mlib.Nodes([self.name, mlib.core.object.Object(self.name)])
 

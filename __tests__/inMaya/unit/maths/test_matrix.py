@@ -143,7 +143,7 @@ class MatrixSpecTest(unittest.TestCase):
         zero = Matrix.compose(scale=(0, 1, 1))
         zero.translate = (1, 2, 3)
         self.assertEqual(zero[12], 1.0)
-        for name in ("scale", "shear", "rotate", "quaternion", "euler"):
+        for name in ("scale", "shear", "rotate", "quaternion"):
             with self.assertRaises(ValueError, msg=name):
                 getattr(zero, name)
         with self.assertRaises(ValueError):
@@ -199,9 +199,7 @@ class MatrixSpecTest(unittest.TestCase):
         self.assertGreater(mirrored.det4x4() * self.a.det4x4(), 0.0)
         self.assertAlmostEqual(mirrored[12], 2.0 - self.a[12])
         self.assertTrue(mirrored.scale.isEquivalent(self.a.scale, 1e-9))
-        value = Matrix(self.a)
-        self.assertIs(value.mirrorIt("x", pivot=(1, 0, 0)), value)
-        self.assertTrue(value.isEquivalent(mirrored, 0.0))
+        self.assertTrue(mirrored.mirror("x", pivot=(1, 0, 0)).isEquivalent(self.a, 1e-12))
         with self.assertRaises(ValueError):
             self.a.mirror("q")
 
@@ -320,11 +318,11 @@ class MatrixTest(_Case):
                 with self.assertRaises(error):
                     call()
 
-    def test_transpose_it_and_cofactor(self):
-        m = self.matrix()
-        expected = m.transpose()
-        self.assertIs(m.transposeIt(), m)
-        self.assertEqual(m.values, expected.values)
+    def test_transpose_and_cofactor(self):
+        source = self.matrix()
+        m = source.transpose()
+        self.assertIsNot(m, source)
+        self.assertEqual(m.transpose().values, source.values)
         m[0, 3] = 0.5
         adjoint = m.adjoint()
         for row in range(4):

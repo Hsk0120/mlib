@@ -3671,34 +3671,6 @@ class Nodes(_ListMethods):
             key = methodcaller("getFullName")
         self._items.sort(key=key, reverse=reverse)
 
-    def setAttrFlags(self, attributes, *, locked=None, keyable=None, channelBox=None, children=False, fast=False):
-        """各ノードへ、順に :meth:`Node.setAttrFlags` を呼ぶ。
-
-        このクラスでまとめて書き込めるメソッドは、:meth:`setAttrFlags`・:meth:`resetAttrs`・:meth:`setLocked`・
-        :meth:`setOverrideColor`・:meth:`setOutlinerColor`・:meth:`setVisibility`・:meth:`show`・:meth:`hide`・:meth:`setParent`
-        (:class:`~mlib.nodes.joint.Joints` では ``setRadius``・``setSegmentScaleCompensate`` も)。
-        通常は全体を1回のUndoにまとめる。書き込む前に、すべての要素がメソッドを持つことを確かめる。
-
-        Args:
-            attributes (str | Plug | Iterable[str | Plug]): :meth:`Node.setAttrFlags` と同じ。
-                すべての要素で同じ名前のアトリビュートを使うので、Plugではなく名前で指定する。
-            locked (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            keyable (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            channelBox (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            children (bool): :meth:`Node.setAttrFlags` と同じ。既定False。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            AttributeError: :meth:`Node.setAttrFlags` と同じ。
-            TypeError: :meth:`Node.setAttrFlags` と同じ。
-            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。それまでの要素の変更は
-                自動では戻さない(通常はUndoで戻せる)。
-        """
-        self._forward("setAttrFlags", (attributes,), fast, locked=locked, keyable=keyable, channelBox=channelBox, children=children)
-
     def resetAttrs(self, attributes=None, *, fast=False, check=False):
         """各ノードへ、順に :meth:`Node.resetAttrs` を呼ぶ。
 
@@ -3728,22 +3700,6 @@ class Nodes(_ListMethods):
         from ..plugs.plug import Plugs
 
         return Plugs._from_plugs([plug for plugs in results for plug in plugs])
-
-    def setLocked(self, state=True, *, fast=False):
-        """各ノードへ、順に :meth:`Node.setLocked` を呼ぶ。
-
-        Args:
-            state (bool): Trueならロック、Falseなら解除する。既定はTrue。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: stateかfastがbool以外の場合。
-            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。
-        """
-        self._forward("setLocked", (state,), fast)
 
     def getOverrideColor(self, *, shape=False):
         """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getOverrideColor` を、要素の順に取得する。

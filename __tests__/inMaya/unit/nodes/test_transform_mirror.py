@@ -47,9 +47,6 @@ class MirrorAxisNotationTest(_SpecCase):
                     self.assertTrue(rotation.mirror(axis).isEquivalent(expected_rotation, 1e-12))
                     quaternion = rotation.asQuaternion()
                     self.assertTrue(quaternion.mirror(axis).isEquivalent(quaternion.mirror(group[0]), 1e-12))
-                    copy = Vector(vector)
-                    self.assertIs(copy.mirrorIt(axis, pivot=(1, 1, 1)), copy)
-                    self.assertEqual(tuple(copy), tuple(expected_vector))
         self.assertEqual(tuple(vector.mirror("YZ")), (-1.0, 2.0, 3.0))
         for axis, error in (("xyz", ValueError), ("xx", ValueError), ("w", ValueError), (None, TypeError), (True, TypeError)):
             with self.subTest(axis=axis), self.assertRaises(error):

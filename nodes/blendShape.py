@@ -870,10 +870,10 @@ class BlendShape(GeometryFilter):
             shape = self._base_shape(bi)
             count = self._vertex_count(bi)
             weights = self._read_vertex_weights(f"inputTarget[{bi}].baseWeights", count)
-            bases.append({"index": bi, "geometry": NodeRef.capture(shape).toData(), "vertexCount": count, "baseWeights": _sparse(weights)})
+            bases.append({"index": bi, "geometry": NodeRef.capture(shape)._to_data(), "vertexCount": count, "baseWeights": _sparse(weights)})
         targets = [self._capture_target(index, driver=True) for index in self._target_indices()]
         return {
-            "blendShape": NodeRef.capture(self).toData(),
+            "blendShape": NodeRef.capture(self)._to_data(),
             "bases": bases,
             "targets": targets,
             "folders": _Directories.read(self).toData(self._target_indices()),
@@ -949,7 +949,7 @@ class BlendShape(GeometryFilter):
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json import file
 
-        return file.dump(self.getTargetsData(), path, _TARGETS_FORMAT, _TARGETS_VERSION)
+        return file._dump(self.getTargetsData(), path, _TARGETS_FORMAT, _TARGETS_VERSION)
 
     def importTargets(self, path, *, nameMap=None, replace=None, namespaceMap=None, mode="replace"):
         """:meth:`exportTargets` で書き出したファイルからターゲットを元に戻す。
@@ -973,7 +973,7 @@ class BlendShape(GeometryFilter):
         # 循環参照の回避: mlib.jsonはノード・Plugのクラスを使う。
         from ..json import file
 
-        _header, data = file.load(path, _TARGETS_FORMAT, _TARGETS_VERSION)
+        _header, data = file._load(path, _TARGETS_FORMAT, _TARGETS_VERSION)
         return self.setTargetsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, mode=mode)
 
     def _target_items(self):
@@ -1589,7 +1589,7 @@ class BlendShape(GeometryFilter):
             from ..json.plugRef import PlugRef
 
             plug = weight_plug.getSource(skipConversionNodes=True)
-            source = None if plug is None else PlugRef.capture(plug).toData()
+            source = None if plug is None else PlugRef.capture(plug)._to_data()
         bases = []
         for bi in self._base_indices():
             items = self._item_indices(bi, index)
@@ -1735,11 +1735,11 @@ class BlendShape(GeometryFilter):
         for entry in bases:
             bi = _data_index(entry.get("index") if isinstance(entry, dict) else None, "ベースの番号")
             if bi not in current:
-                report.addError(f"{self.getName()}にベース{bi}はありません")
+                report._add_error(f"{self.getName()}にベース{bi}はありません")
                 continue
             count = self._vertex_count(bi)
             if entry.get("vertexCount") != count:
-                report.addError(f"ベース{bi}の頂点数は{count}ですが、データは{entry.get('vertexCount')}です")
+                report._add_error(f"ベース{bi}の頂点数は{count}ですが、データは{entry.get('vertexCount')}です")
                 continue
             counts[bi] = count
             _require_sparse(entry.get("baseWeights"), count)
@@ -1758,7 +1758,7 @@ class BlendShape(GeometryFilter):
                 names[name] = True
                 index = self._target_lookup(name)
                 if index is None and self.hasAttr(name):
-                    report.addError(f"{self.getName()}には{name!r}という名前の、ターゲットではないアトリビュートがすでにあります")
+                    report._add_error(f"{self.getName()}には{name!r}という名前の、ターゲットではないアトリビュートがすでにあります")
                     continue
             created = index is None
             if created:
@@ -1768,10 +1768,10 @@ class BlendShape(GeometryFilter):
             reserved.add(index)
             driver = None
             if record["driver"] is not None:
-                reference = PlugRef.fromData(record["driver"])
+                reference = PlugRef._from_data(record["driver"])
                 driver = reference.resolve(mapping)
                 if driver is None:
-                    report.addMissing(reference.mappedName(mapping))
+                    report._add_missing(reference._mapped_name(mapping))
             plan.append((record, index, created, driver))
         return plan
 
@@ -1794,11 +1794,11 @@ class BlendShape(GeometryFilter):
             weight = self.getPlug("weight")[index]
             label = record["name"] or f"weight[{index}]"
             if weight.isLocked():
-                report.addSkipped(label, "locked")
+                report._add_skipped(label, "locked")
             elif driver is not None:
                 cmds.connectAttr(str(driver), str(weight), force=True)
             elif weight.isDestination():
-                report.addSkipped(label, "connected")
+                report._add_skipped(label, "connected")
             else:
                 weight.set(record["weight"])
         model = _Directories.read(self)
@@ -2284,7 +2284,7 @@ def _validated_target(target, counts, report):
         if bi not in counts:
             usable = False
             if not report.errors:
-                report.addError(f"ターゲット{name!r}が使うベース{bi}は復元できません")
+                report._add_error(f"ターゲット{name!r}が使うベース{bi}は復元できません")
             continue
         _require_sparse(entry.get("targetWeights"), counts[bi])
         for item in entry["items"]:

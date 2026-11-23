@@ -137,10 +137,9 @@ class TransformNamingTest(unittest.TestCase):
         """標準変換名と追加変換名は数学値を返し、元値を変えない。"""
         quaternion = mlib.EulerRotate(0.1, 0.2, 0.3, "zyx").asQuaternion()
         before = tuple(quaternion)
-        for method in (quaternion.asEulerRotation, quaternion.asEulerRotate):
-            result = method()
-            self.assertIsInstance(result, mlib.EulerRotate)
-            self.assertTrue(result.asQuaternion().isEquivalent(quaternion, 1e-12))
+        result = quaternion.asEulerRotation()
+        self.assertIsInstance(result, mlib.EulerRotate)
+        self.assertTrue(result.asQuaternion().isEquivalent(quaternion, 1e-12))
         self.assertEqual(tuple(quaternion), before)
 
 

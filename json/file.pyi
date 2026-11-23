@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from .codec import decode, encode
+from .codec import _decode, _encode
 import pathlib
 
 _LINEAR_UNIT: str
@@ -24,7 +24,7 @@ _TIMINGS: tuple
 class Header:
     """JSONファイルのヘッダー(形式名・版・書き出した環境・単位)を持つ。
 
-    :func:`load` が返し、時間の換算(:meth:`convertTime`)に使う。書き出すときは :func:`dump` が
+    ``_load`` が返し、時間の換算(``_convert_time``)に使う。書き出すときは ``_dump`` が
     今のシーンから作るので、自分で作る必要はない。
     """
     def __init__(self, format: str, version: int, mlib: str | None = ..., maya: str | None = ..., fps: float | None = ...) -> None:
@@ -48,20 +48,6 @@ class Header:
 
         Returns:
             str: ``Header('mlib.pose', 1, fps=30.0)`` の形式。
-        """
-        ...
-    @classmethod
-    def fromData(cls, data: dict) -> Header:
-        """ファイルのヘッダーの辞書から作る。
-
-        Args:
-            data (dict): :meth:`toData` の形の辞書。
-
-        Returns:
-            Header: 新しいヘッダー。
-
-        Raises:
-            ValueError: 必要なキーが無い場合、または単位に対応していない場合。
         """
         ...
     @property
@@ -104,7 +90,21 @@ class Header:
             float: 1秒あたりのフレーム数。
         """
         ...
-    def convertTime(self, frame: float, timing: str = ...) -> float:
+    @classmethod
+    def _from_data(cls, data: dict) -> Header:
+        """ファイルのヘッダーの辞書から作る。
+
+        Args:
+            data (dict): ``_to_data`` の形の辞書。
+
+        Returns:
+            Header: 新しいヘッダー。
+
+        Raises:
+            ValueError: 必要なキーが無い場合、または単位に対応していない場合。
+        """
+        ...
+    def _convert_time(self, frame: float, timing: str = ...) -> float:
         """保存したときのフレームを、今のシーンのフレームへ換算する。
 
         ``timing="frame"`` は、フレーム番号をそのまま返す(何コマ目かを保つ)。
@@ -122,7 +122,7 @@ class Header:
             ValueError: timingが ``"frame"``・``"second"`` 以外の場合。
         """
         ...
-    def toData(self) -> dict:
+    def _to_data(self) -> dict:
         """ファイルに書くヘッダーの辞書を返す。
 
         Returns:
@@ -130,7 +130,7 @@ class Header:
         """
         ...
 
-def currentFps() -> float:
+def _current_fps() -> float:
     """今のシーンのUIの時間の単位でのfpsを返す。
 
     Returns:
@@ -138,10 +138,10 @@ def currentFps() -> float:
     """
     ...
 
-def dump(data: dict, path: str | os.PathLike, format: str, version: int) -> pathlib.Path:
+def _dump(data: dict, path: str | os.PathLike, format: str, version: int) -> pathlib.Path:
     """データにヘッダーを付けて、JSONファイルへ書き出す。
 
-    データは :func:`mlib.json.codec.encode` で変換してから書く。同じフォルダーの一時ファイルへ
+    データは ``codec._encode`` で変換してから書く。同じフォルダーの一時ファイルへ
     書いてから置き換えるので、途中で失敗しても元のファイルは壊れない。フォルダーは作らない。
 
     Args:
@@ -160,10 +160,10 @@ def dump(data: dict, path: str | os.PathLike, format: str, version: int) -> path
     """
     ...
 
-def load(path: str | os.PathLike, format: str, version: int) -> tuple[Header, dict]:
+def _load(path: str | os.PathLike, format: str, version: int) -> tuple[Header, dict]:
     """JSONファイルを読み込み、ヘッダーとデータを返す。
 
-    形式名と版が期待どおりかを確かめる。データは :func:`mlib.json.codec.decode` で数学型へ戻す。
+    形式名と版が期待どおりかを確かめる。データは ``codec._decode`` で数学型へ戻す。
     古い版のデータを新しい版へ変換することはしない。
 
     Args:

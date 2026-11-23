@@ -1336,9 +1336,9 @@ class SkinCluster(GeometryFilter):
             values.append([row[index] for index in used])
         blend = list(self._skin_fn.getBlendWeights(self.mesh_path, component)) if count else []
         data = {
-            "geometry": NodeRef.capture(self.mesh_path).toData(),
+            "geometry": NodeRef.capture(self.mesh_path)._to_data(),
             "vertexCount": count,
-            "influences": [NodeRef.capture(path).toData() for path in paths],
+            "influences": [NodeRef.capture(path)._to_data() for path in paths],
             "influenceLocks": [self._influence_locked(path) for path in paths],
             "weights": {"indices": indices, "values": values},
             "blendWeights": blend,
@@ -1440,7 +1440,7 @@ class SkinCluster(GeometryFilter):
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json import file
 
-        return file.dump(self.getWeightsData(), path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
+        return file._dump(self.getWeightsData(), path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
 
     def importWeights(self, path, *, nameMap=None, replace=None, namespaceMap=None, method="index", fast=False):
         """:meth:`exportWeights` のファイルを読み込み、書き戻す。
@@ -1470,7 +1470,7 @@ class SkinCluster(GeometryFilter):
         # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
         from ..json import file
 
-        _, data = file.load(path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
+        _, data = file._load(path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
         return self.setWeightsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, method=method, fast=fast)
 
     def invertShape(self, sculpted, name=None):
@@ -1971,17 +1971,17 @@ class SkinCluster(GeometryFilter):
         report = ValidationReport()
         count = len(self._weight_point_indices())
         if method == "index" and saved["vertexCount"] != count:
-            report.addError(f"保存された頂点数({saved['vertexCount']})が{self.mesh}の頂点数({count})と合っていません。method='position'を使います")
+            report._add_error(f"保存された頂点数({saved['vertexCount']})が{self.mesh}の頂点数({count})と合っていません。method='position'を使います")
         if method == "index" and saved["pointIndices"] is not None and saved["pointIndices"] != self._weight_point_indices():
-            report.addError("保存したCV番号の並びが対象形状と違います。method='position'を使います")
+            report._add_error("保存したCV番号の並びが対象形状と違います。method='position'を使います")
         if method == "position" and not saved["positions"]:
-            report.addError("データに頂点の位置がありません")
+            report._add_error("データに頂点の位置がありません")
         if not report.valid:
             raise ValueError(f"スキンウェイトを適用できません: {'; '.join(report.errors)}")
         nodes = [ref.resolve(mapping) for ref in saved["influences"]]
         for ref, node in zip(saved["influences"], nodes):
             if node is None:
-                report.addMissing(ref.mappedName(mapping))
+                report._add_missing(ref._mapped_name(mapping))
         if all(node is None for node in nodes):
             raise ValueError(f"保存されたインフルエンスがシーンに1つもありません: {', '.join(report.missing)}")
         return saved, nodes, report
@@ -2097,7 +2097,7 @@ class SkinCluster(GeometryFilter):
                 else:
                     u, v = divmod(vertex, om2.MFnNurbsSurface(self.mesh_path).numCVsInV)
                     point_name = f"{self.mesh}.cv[{u}][{v}]"
-                report.addSkipped(point_name, "存在しないインフルエンスだけにウェイトがあります")
+                report._add_skipped(point_name, "存在しないインフルエンスだけにウェイトがあります")
                 continue
             vertices.append(vertex)
             values.extend(row)
@@ -2149,7 +2149,7 @@ class SkinCluster(GeometryFilter):
             if int(plug.get()) == int(value):
                 continue
             if plug.mplug().isFreeToChange() != om2.MPlug.kFreeToChange:
-                report.addSkipped(f"{self.getName()}.{attr}", "ロックされているか、接続されています")
+                report._add_skipped(f"{self.getName()}.{attr}", "ロックされているか、接続されています")
                 continue
             plug.set(value, fast=fast)
 
@@ -2206,15 +2206,15 @@ class SkinCluster(GeometryFilter):
         name = self.getFullName()
         if not self.mesh_path.hasFn(om2.MFn.kMesh):
             if saved_layers:
-                report.addSkipped(f"{self.getName()}のngSkinToolsのレイヤー", "NURBSにはレイヤーを書き込みません")
+                report._add_skipped(f"{self.getName()}のngSkinToolsのレイヤー", "NURBSにはレイヤーを書き込みません")
             return
         if not saved_layers:
             if _layer_api(name) is not None:
-                report.addSkipped(f"{self.getName()}のngSkinToolsのレイヤー", "既存のレイヤーを残しました。書き込んだウェイトを上書きする可能性があります")
+                report._add_skipped(f"{self.getName()}のngSkinToolsのレイヤー", "既存のレイヤーを残しました。書き込んだウェイトを上書きする可能性があります")
             return
         api = self._ngskin_api()
         if api is None:
-            report.addSkipped(f"{self.getName()}のngSkinToolsのレイヤー", "ngSkinTools2が利用できません")
+            report._add_skipped(f"{self.getName()}のngSkinToolsのレイヤー", "ngSkinTools2が利用できません")
             return
         layers = api.init_layers(name)
         undo = not fast
@@ -2335,7 +2335,7 @@ class SkinCluster(GeometryFilter):
             raise ValueError(f"pointIndicesは{count}個の重複しない非負整数を番号順に指定してください")
         if not isinstance(data["influences"], list) or not data["influences"]:
             raise ValueError("influencesは空でないリストで指定してください")
-        influences = [NodeRef.fromData(item) for item in data["influences"]]
+        influences = [NodeRef._from_data(item) for item in data["influences"]]
         width = len(influences)
         locks = data.get("influenceLocks")
         locks = [False] * width if locks is None else locks

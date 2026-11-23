@@ -15,7 +15,7 @@ import mlib
 mlib.reload()
 from support.namespaceCase import NamespaceCase
 
-from mlib.json import dump
+from mlib.json.file import _dump
 
 #: CV位置の比較の許容誤差(cm)。
 _TOLERANCE = 1e-9
@@ -221,7 +221,7 @@ class CurveShapesTest(NamespaceCase):
         with self.assertRaises(TypeError):
             target.setCurveShapesData([])
         wrong = os.path.join(self.folder, "wrong.json")
-        dump({"shapes": []}, wrong, "mlib.other", 1)
+        _dump({"shapes": []}, wrong, "mlib.other", 1)
         with self.assertRaises(ValueError):
             target.importCurveShapes(wrong)
         self.assertEqual(target.getCurveShapesData(), before)

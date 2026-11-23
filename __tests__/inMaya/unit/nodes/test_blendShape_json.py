@@ -230,9 +230,9 @@ class ModeAndErrorTest(_JsonBlendCase):
         self.assertAlmostEqual(cmds.getAttr(f"{bs}.smile"), 0.7, places=6)
 
     def test_rejects_other_format(self):
-        from mlib.json import dump
+        from mlib.json.file import _dump
 
-        dump({"bases": []}, self.path, "mlib.other", 1)
+        _dump({"bases": []}, self.path, "mlib.other", 1)
         with self.assertRaises(ValueError):
             self.bs.importTargets(self.path)
 

@@ -110,7 +110,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 - 動詞: `get`/`set` は値の取得・設定、`is`/`has` は判定、`create`/`add`/`remove` は作成・追加・除外。
   独自の取得は `getName()`・`getChildren()` のように `get` を付ける。判定は正式な `isX` に一本化する(is 省略入口は作らない)。
 - シーン照会には get を付ける(`getNumVertices`・`getCvPositions`)。数学演算・保持値のプロパティ・om2 標準名は一律 get 化しない。
-- 型変換は `as` 接頭辞。コピーを返す数学操作は `inverse`/`normal`/`mirror`、自身の更新は `invertIt`/`mirrorIt`(om2 標準の `normalize()` は例外)。
+- 型変換は `as` 接頭辞。コピーを返す数学操作は `inverse`/`normal`/`mirror`、自身の更新は om2 から継承した名前(`invertIt`・`normalize()` など)だけで、独自の「…It」は置かない(`v = v.unit()` のようにコピーを受け取る)。
 - 変換は Maya の表記に揃える: `Translate`/`EulerRotate`/`Scale`/`Shear`、`getTranslation`/`setTranslation`・`getRotate`/`setRotate`・
   `getScale`/`setScale`・`getShear`/`setShear`。`getT`・`getQ` 等の短縮アクセサーは作らない。
 - アトリビュートを扱うメソッド名は `Attr`/`Attrs`。子クラスで基底メソッドと同名の別機能を公開しない。
@@ -409,7 +409,8 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `item_class` で受け入れる型を宣言する。型の不一致は黙って除外せず例外。重複は同一ノードかつ同一 DAG パスで判定する。
 - `Nodes`・コンポーネントの複数形は、自分に無い公開メソッド名を `__getattr__` で各要素の同名メソッドへ転送し、戻り値を保持順の
   list で返す(書込みも常に list。明示メソッドが優先。通常は Undo 1回)。`Nodes.callEach(method, ...)` も同じ。`Plugs` も同じ決まりで転送する。
-- 複数形に置く明示メソッドは list としての振る舞い・入力検証・一括の書込みと、必要最小限の専用メソッドに限る。
+- 複数形に置く明示メソッドは list としての振る舞い・入力検証と、転送と動きが違う一括の処理(書く前に全要素を確かめる・結果を1つにまとめる・
+  空の集まりでも呼べるようにする)に限る。転送と同じ動きのものは置かない。
 - 複数形は Python の list と同じ名前の `append`・`extend`・`insert`・`remove`・`pop`・`index`・`count`・`clear`・`reverse`・`sort`・`in`・
   `del`・`+=` を持つ(`Nodes`・`Plugs` は番号への代入も。`core/listMethods.py` の `_ListMethods`、コンポーネントは `Components` に直接)。
   足す値は作るときと同じ決まりで解決して確かめ、同じ要素は2つ持たない(すでにある要素の追加は何もしない)。シーンは変えない。
@@ -439,7 +440,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 値は可変でハッシュ不可。`EulerRotate` は内部 rad、`order` は om2 の番号(名前は `orderName`)。
 - 継承メソッドの数学値の戻り型も対応する mlib 型へ揃える。対応型の無いもの(MPoint・単位値・クラス定数)はそのまま。
 - 独自の正規化・分解補助は `asUnitMatrix`・`asCanonicalAxisAngle`・`asDecomposedEulerRotate` 等の独自名で標準名と区別する。
-  ゼロ値を拒否する正規化は `unit`/`unitIt`、標準のコピー正規化は `normal`。
+  ゼロ値を拒否する正規化は `unit`、標準のコピー正規化は `normal`。
 - `Transformation` は `om2.MTransformationMatrix` を継承し、translate・rotate(回転順序つき)・scale・shear・rotateAxis・ピボット4種に加えて、
   Joint のための jointOrient と inverseScale を持つ(距離 cm・角度 rad)。値はプロパティで読み書きし、取得した値は複製。
   `matrix` プロパティは Maya の transform・joint のローカルのマトリクスと同じ決まりで合成する(jointOrient・inverseScale を含む)。
@@ -454,12 +455,16 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `Transformation` は `{"type": "Transformation", "value": {成分名: [x, y, z], "rotateOrder": "xyz"}}` で書く。角度は度。
   既定値のままの rotateAxis・ピボット・jointOrient・inverseScale は書かず、読むときに既定値で補う。
 - 中の層: `Snapshot` 基底と `ValidationReport`。
+- mlib の中だけが使う部品は先頭に `_` を付ける(参照クラスの `_from_data`・`_to_data`・`_mapped_name`、`ValidationReport._add_missing` など、
+  `Header._from_data`・`_to_data`・`_convert_time`、`codec._encode`・`_decode`、`file._dump`・`_load`・`_current_fps`、`NameMapping._apply_path`)。
+  公開するのは、利用者が使う `capture`・`validate`・`apply`・`save`・`load`・`toData` と、結果・ヘッダーを読むプロパティ。
 - 1つのノードが持つデータはノードクラスのメソッドに直接書く(`SkinCluster.exportWeights`・`Transform.exportCurveShapes`・
   `BlendShape.exportTargets` と、それぞれの `get…Data`・`set…Data`・`import…`)。`exportData` のような汎用名にしない。
   json 側に中間の内部クラスを置かず、nodes からはメソッド内で `mlib.json` を import する(循環参照の回避)。
 - 複数ノードのデータは `mlib.json` の `Snapshot` 派生(`PoseSnapshot`・`AnimationSnapshot`・`AttributesSnapshot`・
   `DrivenKeysSnapshot`・`SelectionSnapshot`)。流れは `capture` → `save`/`load` → `validate`/`apply`。
-  各種類は `capture`・`toData`・`fromData`・`_validate`・`_apply` を書き、`apply` は引数を明示して基底の `_run_apply` に渡す
+  各種類は `capture`・`_validate`・`_apply` を書く。`apply`(名前の対応付けの3引数)と `toData` は基底が持ち、種類ごとの指定を足す種類だけが
+  `apply` を上書きして、引数を明示して基底の `_run_apply` に渡す
   (検査 → errors があれば何も変えず ValueError → 1回の Undo で適用・失敗時は巻き戻し → 警告)。
 - 形式名・版が期待と違うファイルは ValueError で読まない(版の変換は持たない)。書き出しは UTF-8 で一時ファイル経由、失敗しても既存のファイルを壊さない。
 - 名前の対応付けは `nameMap`(名前空間を除いた名前)→ `replace`(順に置換)→ `namespaceMap` の順。見つからないノードは飛ばして最後にまとめて警告する。

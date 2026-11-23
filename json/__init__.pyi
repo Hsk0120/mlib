@@ -13,10 +13,9 @@
 from . import codec, file
 from .animationSnapshot import AnimationSnapshot
 from .attributesSnapshot import AttributesSnapshot
-from .codec import decode, encode
 from .componentRef import ComponentRef
 from .drivenKeysSnapshot import DrivenKeysSnapshot
-from .file import Header, dump, load
+from .file import Header
 from .nameMapping import NameMapping
 from .nodeRef import NodeRef
 from .plugRef import PlugRef
@@ -24,4 +23,4 @@ from .poseSnapshot import PoseSnapshot
 from .selectionSnapshot import SelectionSnapshot
 from .snapshot import Snapshot, ValidationReport
 
-__all__ = ['AnimationSnapshot', 'AttributesSnapshot', 'ComponentRef', 'DrivenKeysSnapshot', 'Header', 'NameMapping', 'NodeRef', 'PlugRef', 'PoseSnapshot', 'SelectionSnapshot', 'Snapshot', 'ValidationReport', 'codec', 'decode', 'dump', 'encode', 'file', 'load']
+__all__ = ['AnimationSnapshot', 'AttributesSnapshot', 'ComponentRef', 'DrivenKeysSnapshot', 'Header', 'NameMapping', 'NodeRef', 'PlugRef', 'PoseSnapshot', 'SelectionSnapshot', 'Snapshot', 'ValidationReport', 'codec', 'file']

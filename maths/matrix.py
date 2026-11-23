@@ -1015,27 +1015,14 @@ class Matrix(om2.MMatrix):
         return Quaternion._wrap(self._checked_transformation().rotation(asQuaternion=True))
 
     @property
-    def euler(self):
-        """回転の成分を、XYZ順のEulerRotateとして取得する。
-
-        om2.MTransformationMatrix.rotation()と同じ角度を返す。
-        同じ向きを表す別の解として、中間の軸が90度を超える値になることがある。
-
-        Returns:
-            EulerRotate: 分解した回転値(ラジアン)。
-
-        Raises:
-            ValueError: 分解できない場合(いずれかのスケール軸がゼロなど)。
-        """
-        return EulerRotate._wrap(self._checked_transformation().rotation())
-
-    @property
     def rotate(self):
         """回転の成分を、XYZ順のEulerRotateとして取得・設定する。
 
         設定するときは、XYZ順のラジアンの3成分、EulerRotate(回転順序も反映する)、
         またはQuaternionを渡す。スケール・シアー・平行移動はそのままにして、マトリクスを組み立て直す。
         取得・設定のどちらも、分解できないときはValueErrorになる。
+        取得する角度はom2.MTransformationMatrix.rotation()と同じで、同じ向きを表す別の解として、
+        中間の軸が90度を超える値になることがある。
         取得したEulerRotateを書き換えても、元のマトリクスは変わらない。書き換えるときはrotateへ代入する。
 
         Returns:
@@ -1263,15 +1250,6 @@ class Matrix(om2.MMatrix):
         """
         return type(self)._wrap(_MMatrix.transpose(self))
 
-    def transposeIt(self):
-        """自身を転置する。
-
-        Returns:
-            Matrix: 更新した自身。
-        """
-        _assign(self, _MMatrix.transpose(self))
-        return self
-
     def blend(self, other, weight):
         """別のマトリクスとの間を、成分ごとに補間した新しいマトリクスを返す。
 
@@ -1412,23 +1390,6 @@ class Matrix(om2.MMatrix):
                         _SET(result, index, -_GET(result, index))
             _SET(result, 12 + axis, 2 * center[axis] - _GET(result, 12 + axis))
         return result
-
-    def mirrorIt(self, axis="x", pivot=(0.0, 0.0, 0.0)):
-        """自身を「ビヘイビア」でミラーする。
-
-        反転の仕方は :meth:`mirror` と同じ。
-
-        Args:
-            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
-            pivot (Iterable[float]): ミラーの中心。平行移動と同じ単位・空間で指定する。
-
-        Returns:
-            Matrix: 更新した自身。
-        """
-        result = self.mirror(axis, pivot)
-        for index in range(16):
-            _SET(self, index, _GET(result, index))
-        return self
 
     def adjoint(self, *args):
         """随伴マトリクスを、新しいMatrixとして返す。

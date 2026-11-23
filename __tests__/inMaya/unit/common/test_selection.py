@@ -155,7 +155,7 @@ class SelectionSpecTest(unittest.TestCase):
         self.assertTrue(all(isinstance(item, Vertex) for item in selection))
         self.assertEqual([item.index for item in selection], [2, 3, 4])
         self.assertIsInstance(selection[0:2], tuple)
-        items = selection.items
+        items = selection.getItems()
         items.clear()
         self.assertEqual(len(selection), 3)
         self.assertIsInstance(selection[-1], Vertex)
@@ -238,7 +238,7 @@ class SelectionReadableReprTest(_Case):
         selection = Selection([transform, Vertex(self.mesh, 1), plug])
         self.assertEqual(repr(selection), f"Selection([{transform!r}, Vertex('{self.mesh_name}.vtx[1]'), {plug!r}])")
         items = selection.getItems()
-        self.assertEqual(items, selection.items)
+        self.assertFalse(hasattr(selection, "items"))
         self.assertEqual(items, [transform, Vertex(self.mesh, 1), plug])
         items.append("extra")
         self.assertEqual(len(selection), 3)

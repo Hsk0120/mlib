@@ -3,28 +3,17 @@
 
 import maya.cmds as cmds
 from ..core.registry import _clear_type_hierarchy_cache
-from .version import Version
+from .versionedItem import _VersionedItem
 from mlib.nodes.node import Nodes
 import types
 
 
 
-class Plugin:
-    """名前で指す Maya のプラグイン(.mll/.py/.so)。作るときには、存在するかを確かめない。"""
-    def __init__(self, name: str) -> None:
-        """プラグイン名を保持する。
+class Plugin(_VersionedItem):
+    """名前で指す Maya のプラグイン(.mll/.py/.so)。作るときには、存在するかを確かめない。
 
-        Args:
-            name (str): プラグインファイル名(拡張子を除く。例: ``"matrixNodes"``)。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: name が文字列でない場合。
-            ValueError: name が空文字列の場合。
-        """
-        ...
+    名前は、拡張子を除いたプラグインファイル名(``"matrixNodes"`` など)で指定する。
+    """
     def __eq__(self, other: object) -> bool | types.NotImplementedType:
         """プラグイン名で、同じプラグインか判定する。
 
@@ -48,13 +37,6 @@ class Plugin:
 
         Returns:
             str: 型名とプラグイン名を含む文字列。
-        """
-        ...
-    def __str__(self) -> str:
-        """プラグイン名を返す。
-
-        Returns:
-            str: 保持しているプラグイン名。
         """
         ...
     @classmethod
@@ -120,14 +102,6 @@ class Plugin:
             Nodes: 未知のノード。``cmds.ls`` の順に並ぶ。無ければ空の集まり。
         """
         ...
-    @property
-    def name(self) -> str:
-        """保持しているプラグイン名を取得する。
-
-        Returns:
-            str: プラグイン名。
-        """
-        ...
     def isRegistered(self) -> bool:
         """Maya がこのプラグインを認識しているか判定する。
 
@@ -155,27 +129,6 @@ class Plugin:
 
         Returns:
             str | None: 手を加えていない版の文字列。登録されていない場合と、空の場合はNone。
-        """
-        ...
-    def getVersion(self) -> Version | None:
-        """プラグインの現在の版を、Versionの値として取得する。
-
-        Returns:
-            Version | None: 問い合わせたときの版。登録されていない場合と、版として読み取れない場合はNone。
-                取得した値をreplaceで変えても、Maya側の版は変わらない。
-        """
-        ...
-    def isVersionAtLeast(self, minimum: Version | str | int | tuple[int, ...]) -> bool:
-        """プラグインの版が ``minimum`` 以上か判定する。
-
-        Args:
-            minimum (Version | str | int | tuple[int, ...]): 必要な最小の版(``"3.0.0"`` など)。
-
-        Returns:
-            bool: minimum以上ならTrue。登録されていない場合と、版が取れない場合は False。
-
-        Raises:
-            ValueError: minimum を版として読み取れない場合。
         """
         ...
     def load(self, **kwargs: object) -> None:

@@ -188,8 +188,8 @@ class ApiRefinementsTest(unittest.TestCase):
         with patch.object(cmds, "pluginInfo", side_effect=AssertionError("Unexpected query")):
             self.assertEqual(plugin.name, "example")
             self.assertEqual(module.name, "example")
-            selection.items.clear()
-            self.assertEqual(len(selection.items), 1)
+            selection.getItems().clear()
+            self.assertEqual(len(selection.getItems()), 1)
 
 
 if __name__ == "__main__":

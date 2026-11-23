@@ -25,6 +25,13 @@ class SelectionSnapshot(Snapshot):
     同じシェイプ・同じ種類のコンポーネントが続いていれば、1つの :class:`ComponentRef` にまとめる。
     NURBSサーフェスのCVのように、番号1つで表せないコンポーネントは保存しない。
 
+    ``apply`` は、保存した項目を選択し直す。
+
+    名前を対応づけたシーンのノード・コンポーネントを選び、今の選択と置き換える。
+    選べないものは飛ばして記録し、最後にまとめて警告する。見つからないノードは ``missing`` に、
+    範囲の外の番号を含むコンポーネントは ``skipped`` に記録する。
+    見つかるものが1つも無ければ、選択を解除する。
+
     データの形::
 
         {"items": [{"node": {<NodeRef>}}, {"components": {<ComponentRef>}}, ...]}
@@ -62,24 +69,6 @@ class SelectionSnapshot(Snapshot):
                 _append_ref(groups, ref)
         return cls({"items": [_item_data(ref) for ref in groups]})
 
-    def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存した項目を選択し直す。
-
-        名前を対応づけたシーンのノード・コンポーネントを選び、今の選択と置き換える。
-        選べないものは飛ばして記録し、最後にまとめて警告する。見つからないノードは ``missing`` に、
-        範囲の外の番号を含むコンポーネントは ``skipped`` に記録する。
-        見つかるものが1つも無ければ、選択を解除する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
-        """
-        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
-
     def _require_data(self, data):
         """``items`` のそれぞれの項目が、ノードかコンポーネントの参照か確かめる。
 
@@ -96,9 +85,9 @@ class SelectionSnapshot(Snapshot):
             if not isinstance(entry, dict) or len(entry) != 1:
                 raise ValueError(f"選択の項目が不正です: {entry!r}")
             if "node" in entry:
-                NodeRef.fromData(entry["node"])
+                NodeRef._from_data(entry["node"])
             elif "components" in entry:
-                ComponentRef.fromData(entry["components"])
+                ComponentRef._from_data(entry["components"])
             else:
                 raise ValueError(f"選択の項目が不正です: {entry!r}")
 
@@ -142,20 +131,20 @@ class SelectionSnapshot(Snapshot):
         names = []
         for entry in self._data["items"]:
             if "node" in entry:
-                ref = NodeRef.fromData(entry["node"])
+                ref = NodeRef._from_data(entry["node"])
                 node = ref.resolve(mapping)
                 if node is None:
-                    report.addMissing(ref.mappedName(mapping))
+                    report._add_missing(ref._mapped_name(mapping))
                 else:
                     names.append(node.getFullName())
                 continue
-            ref = ComponentRef.fromData(entry["components"])
+            ref = ComponentRef._from_data(entry["components"])
             if ref.node.resolve(mapping) is None:
-                report.addMissing(ref.node.mappedName(mapping))
+                report._add_missing(ref.node._mapped_name(mapping))
                 continue
             components = ref.resolve(mapping)
             if components is None:
-                report.addSkipped(ref.mappedName(mapping), "番号が範囲外です")
+                report._add_skipped(ref._mapped_name(mapping), "番号が範囲外です")
                 continue
             names.extend(str(component) for component in components)
         return names
@@ -279,5 +268,5 @@ def _item_data(ref):
         dict: ``{"node": ...}`` か ``{"components": ...}``。
     """
     if isinstance(ref, ComponentRef):
-        return {"components": ref.toData()}
-    return {"node": ref.toData()}
+        return {"components": ref._to_data()}
+    return {"node": ref._to_data()}

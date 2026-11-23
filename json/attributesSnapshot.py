@@ -1,7 +1,7 @@
 """名前で指定したアトリビュートの値を、型を問わず保存・復元する。"""
 
 from .. import logger
-from .codec import encode
+from .codec import _encode
 from .plugRef import PlugRef
 from .poseSnapshot import _block_reason, _require_nodes, _write_plug
 from .snapshot import Snapshot, ValidationReport
@@ -19,6 +19,12 @@ class AttributesSnapshot(Snapshot):
 
     ユーザー定義アトリビュートの定義(addAttr)は保存しない。そのため、適用先に無いアトリビュートは飛ばす。
     マルチアトリビュート全体・message・値の無いものは保存しない。
+
+    ``apply`` は、保存した値を、対応づけたノードのアトリビュートへ書き戻す。
+
+    1回のUndoにまとめる。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
+    見つからないノードは ``missing`` に、ロック・入力接続のあるアトリビュートと対象に無いアトリビュートは
+    ``skipped`` に記録する。
 
     データの形::
 
@@ -66,25 +72,8 @@ class AttributesSnapshot(Snapshot):
             seen.add(identity)
             value = _capture_value(plug)
             if value is not _UNSUPPORTED:
-                entries.append({"plug": key.toData(), "value": value})
+                entries.append({"plug": key._to_data(), "value": value})
         return cls({"plugs": entries})
-
-    def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
-        """保存した値を、対応づけたノードのアトリビュートへ書き戻す。
-
-        1回のUndoにまとめる。書き戻せないものは飛ばして記録し、最後にまとめて警告する。
-        見つからないノードは ``missing`` に、ロック・入力接続のあるアトリビュートと対象に無いアトリビュートは
-        ``skipped`` に記録する。
-
-        Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-
-        Returns:
-            ValidationReport: 適用の結果。
-        """
-        return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def _require_data(self, data):
         """``plugs`` のそれぞれの項目が、Plugの参照と値を持つか確かめる。
@@ -101,9 +90,9 @@ class AttributesSnapshot(Snapshot):
         for entry in entries:
             if not isinstance(entry, dict) or "value" not in entry:
                 raise ValueError(f"アトリビュートの項目が不正です: {entry!r}")
-            PlugRef.fromData(entry.get("plug"))
+            PlugRef._from_data(entry.get("plug"))
             try:
-                encode(entry["value"])
+                _encode(entry["value"])
             except TypeError as error:
                 raise ValueError(f"JSONのアトリビュートの値が不正です: {entry['value']!r}") from error
 
@@ -145,22 +134,22 @@ class AttributesSnapshot(Snapshot):
         """
         writes = []
         for entry in self._data["plugs"]:
-            ref = PlugRef.fromData(entry["plug"])
+            ref = PlugRef._from_data(entry["plug"])
             node = ref.node.resolve(mapping)
             if node is None:
-                report.addMissing(ref.node.mappedName(mapping))
+                report._add_missing(ref.node._mapped_name(mapping))
                 continue
             label = node.getName() + "." + ref.attribute
             plug = ref.resolve(mapping)
             if plug is None:
-                report.addSkipped(label, "アトリビュートがありません")
+                report._add_skipped(label, "アトリビュートがありません")
                 continue
             reason = _block_reason(plug.mplug())
             if reason:
-                report.addSkipped(label, reason)
+                report._add_skipped(label, reason)
                 continue
             if entry["value"] is None:
-                report.addSkipped(label, "値がありません")
+                report._add_skipped(label, "値がありません")
                 continue
             writes.append((plug, entry["value"]))
         return writes
@@ -260,7 +249,7 @@ def _capture_value(plug):
         return _UNSUPPORTED
     try:
         value = plug.get()
-        encode(value)
+        _encode(value)
     except (RuntimeError, TypeError, ValueError) as error:
         logger.warning("AttributesSnapshot: %sを省きました(%s)", name, error)
         return _UNSUPPORTED

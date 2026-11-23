@@ -287,8 +287,7 @@ def test_matrix_exposes_translation_scale_and_shear_values():
     m = Matrix(translate=(1.0, 2.0, 3.0), scale=(2.0, 3.0, 4.0), shear=(0.1, 0.2, 0.3))
     assert isinstance(m.translate, Translate)
     assert isinstance(m.rotate, EulerRotate)
-    assert isinstance(m.rotate, EulerRotate)
-    assert isinstance(m.euler, EulerRotate)
+    assert not hasattr(m, "euler")
     assert isinstance(m.quaternion, Quaternion)
     assert isinstance(m.scale, Scale)
     assert isinstance(m.shear, Shear)
@@ -1418,8 +1417,7 @@ def test_mirror_value_types():
         assert type(result) is cls
         assert tuple(result) == (1, 8, 3)
         assert tuple(value) == (1, 2, 3)
-        assert result.mirrorIt("xz", pivot=(4, 5, 6)) is result
-        assert tuple(result) == tuple(value)
+        assert tuple(result.mirror("xz", pivot=(4, 5, 6))) == tuple(value)
     for axis in ("x", "y", "z", "xy", "xz", "yz", "YZ", "ZX", 0, 1, 2):
         rotation = EulerRotate(0.3, -0.4, 0.7)
         rotation.order = 4
@@ -1428,14 +1426,12 @@ def test_mirror_value_types():
         for value in (rotation, matrix.quaternion):
             result = value.mirror(axis)
             assert result.asMatrix().isEquivalent(expected, 1e-9)
-            assert result.mirrorIt(axis) is result
-            assert result.asMatrix().isEquivalent(matrix, 1e-9)
+            assert result.mirror(axis).asMatrix().isEquivalent(matrix, 1e-9)
         assert rotation.mirror(axis).order == rotation.order
         matrix = Matrix(translate=(1, 2, 3), rotate=rotation, scale=(2, 3, 4))
         original = Matrix(matrix)
-        assert matrix.mirrorIt(axis, (3, 4, 5)) is matrix
-        matrix.mirrorIt(axis, (3, 4, 5))
-        assert matrix.isEquivalent(original, 1e-9)
+        assert matrix.mirror(axis, (3, 4, 5)).mirror(axis, (3, 4, 5)).isEquivalent(original, 1e-9)
+        assert matrix.isEquivalent(original, 0.0)
     for axis in ("", "xx", "a", "xyz", True, 3):
         try:
             Matrix().mirror(axis)

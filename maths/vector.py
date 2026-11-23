@@ -938,19 +938,6 @@ class Vector(om2.MVector):
             values[index] = 2 * center[index] - values[index]
         return type(self)(values)
 
-    def mirrorIt(self, axis="x", pivot=(0.0, 0.0, 0.0)):
-        """自身の成分を反転する。
-
-        Args:
-            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
-            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。
-
-        Returns:
-            Vector: 更新した自身。
-        """
-        self.x, self.y, self.z = self.mirror(axis, pivot)
-        return self
-
     def round(self, ndigits=None):
         """各成分を小数点以下ndigits桁に丸めた、新しい値を返す。
 
@@ -969,21 +956,6 @@ class Vector(om2.MVector):
         """
         ndigits = _checked_digits(ndigits)
         return type(self)([_round_float(value, ndigits) for value in self])
-
-    def roundIt(self, ndigits=None):
-        """自身の3成分を丸める。
-
-        Args:
-            ndigits (int | None): roundと同じ桁数。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            TypeError: ndigitsがint・None以外(boolを含む)の場合。自身は変更しない。
-        """
-        self.x, self.y, self.z = self.round(ndigits)
-        return self
 
     def dot(self, other):
         """内積を返す。
@@ -1077,21 +1049,6 @@ class Vector(om2.MVector):
             Vector: 計算結果の新しい値。
         """
         return _vector_of(Vector, _MVector.transformAsNormal(self, *args))
-
-    def unitIt(self):
-        """自身を正規化する。
-
-        0のベクトルは正規化できないので、例外にする。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            ValueError: 0のベクトルの場合。自身は変更しない。
-        """
-        value = self.unit()
-        self.x, self.y, self.z = value
-        return self
 
     def unit(self):
         """正規化した新しいベクトルを返す。
@@ -1217,21 +1174,6 @@ class Vector(om2.MVector):
         _MVector.__imul__(result, -1.0)
         _MVector.__iadd__(result, self)
         return result
-
-    def orthogonalIt(self, axis):
-        """自身を、指定した軸に直交する成分へ置き換える。
-
-        Args:
-            axis (om2.MVector | om2.MPoint | Iterable[float]): :meth:`orthogonal` と同じ軸。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            ValueError: axisがゼロベクトルの場合。自身は変更しない。
-        """
-        self.x, self.y, self.z = self.orthogonal(axis)
-        return self
 
     def distanceSqTo(self, other):
         """2点間の距離の2乗を返す。

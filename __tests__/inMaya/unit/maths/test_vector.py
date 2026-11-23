@@ -203,20 +203,16 @@ class VectorSpecTest(unittest.TestCase):
         self.assertAlmostEqual(a.distanceTo(om2.MPoint(4, 0.5, -1)), (oa - ob).length())
 
     def test_normalization(self):
-        """unitはゼロを拒否し、normalはom2に従いゼロを受け付ける。unitItは失敗時に変更しない。"""
+        """unitはゼロを拒否し、normalはom2に従いゼロを受け付ける。unitは自身を変更しない。"""
         value = Translate(3, 0, 4)
         unit = value.unit()
         self.assertIs(type(unit), Vector)
         self.assertTrue(unit.isEquivalent((0.6, 0.0, 0.8)))
         self.assertEqual(tuple(value), (3.0, 0.0, 4.0))
-        self.assertIs(value.unitIt(), value)
-        self.assertIs(type(value), Translate)
-        self.assertAlmostEqual(value.length(), 1.0)
+        self.assertAlmostEqual(unit.length(), 1.0)
         zero = Vector()
         with self.assertRaises(ValueError):
             zero.unit()
-        with self.assertRaises(ValueError):
-            zero.unitIt()
         self.assertEqual(tuple(zero), (0.0, 0.0, 0.0))
         normal = zero.normal()
         self.assertIs(type(normal), Vector)
@@ -273,8 +269,8 @@ class VectorSpecTest(unittest.TestCase):
         self.assertEqual(tuple(mirrored), (-1.0, 2.0, 1.0))
         self.assertEqual(tuple(value.mirror("yz")), (-3.0, 2.0, 1.0))
         self.assertEqual(tuple(value.mirror(2)), (3.0, 2.0, -1.0))
-        self.assertIs(value.mirrorIt("XY"), value)
-        self.assertEqual(tuple(value), (3.0, 2.0, -1.0))
+        self.assertEqual(tuple(value.mirror("XY")), (3.0, 2.0, -1.0))
+        self.assertEqual(tuple(value), (3.0, 2.0, 1.0))
         for axis in ("w", "xx", "", "xyz", 3):
             with self.assertRaises(ValueError):
                 value.mirror(axis)
@@ -462,13 +458,15 @@ class VectorRoundTest(NamespaceCase):
         """組み込みの round と同じく、ちょうど半分は偶数側へ丸める。"""
         self.assertEqual(list(Vector(0.5, 1.5, 2.5).round()), [0.0, 2.0, 2.0])
 
-    def test_round_it(self):
-        """roundIt は自身を更新して自身を返す。"""
+    def test_round_keeps_source(self):
+        """round は同じ型の新しい値を返し、自身を変えない。"""
         for cls in VECTOR_TYPES:
             with self.subTest(cls=cls.__name__):
                 value = cls(1.23456, -2.34567, 3.45678)
-                self.assertIs(value.roundIt(1), value)
-                self.assertEqual(list(value), [1.2, -2.3, 3.5])
+                result = value.round(1)
+                self.assertIs(type(result), cls)
+                self.assertEqual(list(result), [1.2, -2.3, 3.5])
+                self.assertEqual(list(value), [1.23456, -2.34567, 3.45678])
 
     def test_builtin(self):
         """組み込みの round は round メソッドと同じ結果を返す。"""
@@ -479,12 +477,11 @@ class VectorRoundTest(NamespaceCase):
         self.assertEqual(list(round(value)), [1.0, 2.0, -4.0])
 
     def test_invalid(self):
-        """int・None 以外の桁数は TypeError で、roundIt は値を変えない。"""
+        """int・None 以外の桁数は TypeError で、自身は変えない。"""
         value = Vector(1.25, 2.5, 3.75)
         for ndigits in (True, 1.0, "2", (1,)):
             with self.subTest(ndigits=ndigits):
                 self.assertRaises(TypeError, value.round, ndigits)
-                self.assertRaises(TypeError, value.roundIt, ndigits)
                 self.assertEqual(list(value), [1.25, 2.5, 3.75])
 
 
@@ -524,17 +521,17 @@ class VectorProjectionTest(NamespaceCase):
         self.assertTrue(value.orthogonal((0, 1, 0)).isEquivalent((3, 0, 5)))
         self.assertTrue(mlib.Vector(0, 2, 0).orthogonal((0, 1, 0)).isEquivalent((0, 0, 0)))
 
-    def test_orthogonal_it_and_errors(self):
-        """orthogonalIt は自身を書き換えて返し、ゼロ軸は ValueError で自身を変えない。派生型でも基底 Vector を返す。"""
+    def test_orthogonal_errors(self):
+        """orthogonal は自身を変えず、ゼロ軸は ValueError。派生型でも基底 Vector を返す。"""
         value = mlib.Translate(1.0, 2.0, 3.0)
-        self.assertIs(value.orthogonalIt((1, 0, 0)), value)
-        self.assertSequenceAlmostEqual(value, (0, 2, 3))
+        self.assertSequenceAlmostEqual(value.orthogonal((1, 0, 0)), (0, 2, 3))
+        self.assertSequenceAlmostEqual(value, (1, 2, 3))
         self.assertIs(type(mlib.Translate(1, 2, 3).orthogonal((0, 0, 1))), mlib.Vector)
-        for method in ("projected", "orthogonal", "orthogonalIt"):
+        for method in ("projected", "orthogonal"):
             with self.subTest(method=method):
                 with self.assertRaises(ValueError):
                     getattr(value, method)((0, 0, 0))
-                self.assertSequenceAlmostEqual(value, (0, 2, 3))
+                self.assertSequenceAlmostEqual(value, (1, 2, 3))
 
 
 if __name__ == "__main__":

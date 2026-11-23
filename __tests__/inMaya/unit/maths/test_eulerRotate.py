@@ -261,8 +261,7 @@ class EulerRotateTest(_Case):
         q0 = rotation.asQuaternion()
         q1 = reversed_rotation.asQuaternion()
         self.assertAlmostEqual(q0.dot(q1), -1.0)
-        self.assertIs(rotation.reverseDirectionIt(), rotation)
-        self.assertSequenceAlmostEqual(rotation.asDegrees(), (30, 240, 45))
+        self.assertSequenceAlmostEqual(rotation.asDegrees(), (30, -120, 45))
 
     def test_from_yaw_pitch(self):
         direction = Vector(1.0, 2.0, -3.0)
@@ -313,12 +312,14 @@ class EulerRoundTest(NamespaceCase):
         self.assertEqual(math.copysign(1.0, result.x), 1.0)
         self.assertEqual(math.copysign(1.0, result.z), 1.0)
 
-    def test_round_it(self):
-        """roundIt は自身を更新して自身を返し、回転順序を保つ。"""
+    def test_round_keeps_source_and_order(self):
+        """round は新しい値を返して自身を変えず、回転順序を保つ。"""
         value = EulerRotate.fromDegrees(10.04, 20.06, -30.01, order="yxz")
-        self.assertIs(value.roundIt(1), value)
-        self.assertEqual(value.orderName, "yxz")
-        self.assertSequenceAlmostEqual(value.asDegrees(), (10.0, 20.1, -30.0), places=10)
+        result = value.round(1)
+        self.assertIsNot(result, value)
+        self.assertEqual(result.orderName, "yxz")
+        self.assertSequenceAlmostEqual(result.asDegrees(), (10.0, 20.1, -30.0), places=10)
+        self.assertSequenceAlmostEqual(value.asDegrees(), (10.04, 20.06, -30.01), places=10)
 
     def test_builtin(self):
         """組み込みの round は度で丸める。"""
@@ -328,15 +329,14 @@ class EulerRoundTest(NamespaceCase):
         self.assertSequenceAlmostEqual(result.asDegrees(), (45.0, 0.0, -180.0), places=10)
 
     def test_invalid(self):
-        """桁数の型は TypeError、単位は文字列以外 TypeError・未対応 ValueError。roundIt は値を変えない。"""
+        """桁数の型は TypeError、単位は文字列以外 TypeError・未対応 ValueError。自身は変えない。"""
         value = EulerRotate(0.1, 0.2, 0.3)
         for ndigits in (True, 1.0, "2"):
             with self.subTest(ndigits=ndigits):
                 self.assertRaises(TypeError, value.round, ndigits)
-                self.assertRaises(TypeError, value.roundIt, ndigits)
         self.assertRaises(TypeError, value.round, 2, unit=1)
         self.assertRaises(ValueError, value.round, 2, unit="frame")
-        self.assertRaises(ValueError, value.roundIt, 2, unit="grad")
+        self.assertRaises(ValueError, value.round, 2, unit="grad")
         self.assertEqual(list(value), [0.1, 0.2, 0.3])
 
 

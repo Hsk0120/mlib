@@ -163,7 +163,7 @@ class PoseSnapshotTest(_SnapshotCase):
             {"nodes": [{"node": {"path": "x"}, "attrs": {}}]},
         ):
             with self.subTest(data=data), self.assertRaises(ValueError):
-                PoseSnapshot.fromData(data)
+                PoseSnapshot(data)
         with self.assertRaises(RuntimeError):
             PoseSnapshot.capture([self.name("noSuchNode")])
         with self.assertRaises(TypeError):

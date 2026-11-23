@@ -38,7 +38,7 @@ class ReferenceTest(NamespaceCase):
         self.assertEqual(ref.name, self.name("arm"))
         self.assertEqual(ref.type, "joint")
         self.assertTrue(ref.path.startswith("|"))
-        self.assertEqual(NodeRef.fromData(std_json.loads(std_json.dumps(ref.toData()))), ref)
+        self.assertEqual(NodeRef._from_data(std_json.loads(std_json.dumps(ref._to_data()))), ref)
         self.assertEqual(ref.resolve().getFullName(), cmds.ls(self.joint, long=True)[0])
         mapped = ref.resolve(NameMapping(namespaceMap={self.ns: self.other}))
         self.assertEqual(mapped.getFullName(), cmds.ls(self.joint_b, long=True)[0])
@@ -59,7 +59,7 @@ class ReferenceTest(NamespaceCase):
         ref = PlugRef.capture(node.getPlug("tx"))
         self.assertEqual(ref.attribute, "translateX")
         self.assertEqual(PlugRef.capture(self.joint + ".worldMatrix[0]").attribute, "worldMatrix[0]")
-        self.assertEqual(PlugRef.fromData(ref.toData()), ref)
+        self.assertEqual(PlugRef._from_data(ref._to_data()), ref)
         plug = ref.resolve(NameMapping(namespaceMap={self.ns: self.other}))
         self.assertEqual(plug.getNode(), mlib.getNode(self.joint_b))
         self.assertEqual(plug.getShortName(), "tx")
@@ -71,7 +71,7 @@ class ReferenceTest(NamespaceCase):
         ref = ComponentRef.capture(shape.getVertices([5, 1, 3]))
         self.assertEqual(ref.type, "vtx")
         self.assertEqual(ref.indices, (5, 1, 3))
-        self.assertEqual(ComponentRef.fromData(ref.toData()), ref)
+        self.assertEqual(ComponentRef._from_data(ref._to_data()), ref)
         resolved = ref.resolve()
         self.assertEqual(resolved.indices, (5, 1, 3))
         self.assertEqual(ComponentRef.capture(shape.getVertices([2])[0]).indices, (2,))
@@ -88,22 +88,22 @@ class _OffsetSnapshot(Snapshot):
 
     @classmethod
     def capture(cls, nodes):
-        return cls({"items": [{"node": NodeRef.capture(node).toData(), "value": cmds.getAttr(str(node) + ".tx")} for node in nodes]})
+        return cls({"items": [{"node": NodeRef.capture(node)._to_data(), "value": cmds.getAttr(str(node) + ".tx")} for node in nodes]})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None, fail=False):
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {"fail": fail})
 
     def _validate(self, mapping, report, options):
         for item in self._data["items"]:
-            ref = NodeRef.fromData(item["node"])
+            ref = NodeRef._from_data(item["node"])
             if ref.resolve(mapping) is None:
-                report.addMissing(ref.mappedName(mapping))
+                report._add_missing(ref._mapped_name(mapping))
             if item["value"] < 0:
-                report.addError("negative value")
+                report._add_error("negative value")
 
     def _apply(self, mapping, report, options, fast):
         for item in self._data["items"]:
-            node = NodeRef.fromData(item["node"]).resolve(mapping)
+            node = NodeRef._from_data(item["node"]).resolve(mapping)
             if node is not None:
                 cmds.setAttr(node.getFullName() + ".tx", item["value"])
         if options["fail"]:

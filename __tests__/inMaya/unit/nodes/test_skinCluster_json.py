@@ -19,7 +19,8 @@ import mlib
 mlib.reload()
 from support.namespaceCase import NamespaceCase
 
-from mlib.json import ValidationReport, dump
+from mlib.json import ValidationReport
+from mlib.json.file import _dump
 from mlib.nodes import SkinCluster
 
 CONTENTS = r"C:\ProgramData\Autodesk\ApplicationPlugins\ngskintools2\Contents"
@@ -134,7 +135,7 @@ class DataTest(SkinWeightsCase):
         self.assertEqual(self.skin.getWeightsData()["weights"], data["weights"])
 
     def test_wrong_format_and_bad_data(self):
-        dump({"a": 1}, self.path, "mlib.pose", 1)
+        _dump({"a": 1}, self.path, "mlib.pose", 1)
         with self.assertRaises(ValueError):
             self.skin.importWeights(self.path)
         data = self.skin.getWeightsData()

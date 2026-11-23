@@ -13,7 +13,7 @@ from pathlib import Path
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from .codec import decode, encode
+from .codec import _decode, _encode
 
 #: ヘッダーに書く単位。長さ・角度・時間の種類は決まっていて、fpsだけ保存したときのシーンの値を書く。
 _LINEAR_UNIT = "cm"
@@ -26,7 +26,7 @@ _TIMINGS = ("frame", "second")
 class Header:
     """JSONファイルのヘッダー(形式名・版・書き出した環境・単位)を持つ。
 
-    :func:`load` が返し、時間の換算(:meth:`convertTime`)に使う。書き出すときは :func:`dump` が
+    ``_load`` が返し、時間の換算(``_convert_time``)に使う。書き出すときは ``_dump`` が
     今のシーンから作るので、自分で作る必要はない。
     """
 
@@ -54,7 +54,7 @@ class Header:
         if version < 1:
             raise ValueError("versionは1以上で指定してください")
         if fps is None:
-            fps = currentFps()
+            fps = _current_fps()
         if isinstance(fps, bool) or not isinstance(fps, (int, float)):
             raise TypeError("fpsは数値で指定してください")
         if not fps > 0:
@@ -72,31 +72,6 @@ class Header:
             str: ``Header('mlib.pose', 1, fps=30.0)`` の形式。
         """
         return f"Header({self._format!r}, {self._version}, fps={self._fps})"
-
-    @classmethod
-    def fromData(cls, data):
-        """ファイルのヘッダーの辞書から作る。
-
-        Args:
-            data (dict): :meth:`toData` の形の辞書。
-
-        Returns:
-            Header: 新しいヘッダー。
-
-        Raises:
-            ValueError: 必要なキーが無い場合、または単位に対応していない場合。
-        """
-        if not isinstance(data, dict) or not isinstance(data.get("units"), dict):
-            raise ValueError("JSONのヘッダーは'units'を持つオブジェクトにしてください")
-        units = data["units"]
-        expected = {"linear": _LINEAR_UNIT, "angle": _ANGLE_UNIT, "time": _TIME_UNIT}
-        for key, unit in expected.items():
-            if units.get(key) != unit:
-                raise ValueError(f"JSONのヘッダーの{key}の単位に対応していません: {units.get(key)!r}({unit!r}が必要です)")
-        try:
-            return cls(data["format"], data["version"], data.get("mlib"), data.get("maya"), units.get("fps"))
-        except (KeyError, TypeError) as error:
-            raise ValueError(f"JSONのヘッダーが不正です: {error}") from error
 
     @property
     def format(self):
@@ -143,7 +118,32 @@ class Header:
         """
         return self._fps
 
-    def convertTime(self, frame, timing="frame"):
+    @classmethod
+    def _from_data(cls, data):
+        """ファイルのヘッダーの辞書から作る。
+
+        Args:
+            data (dict): ``_to_data`` の形の辞書。
+
+        Returns:
+            Header: 新しいヘッダー。
+
+        Raises:
+            ValueError: 必要なキーが無い場合、または単位に対応していない場合。
+        """
+        if not isinstance(data, dict) or not isinstance(data.get("units"), dict):
+            raise ValueError("JSONのヘッダーは'units'を持つオブジェクトにしてください")
+        units = data["units"]
+        expected = {"linear": _LINEAR_UNIT, "angle": _ANGLE_UNIT, "time": _TIME_UNIT}
+        for key, unit in expected.items():
+            if units.get(key) != unit:
+                raise ValueError(f"JSONのヘッダーの{key}の単位に対応していません: {units.get(key)!r}({unit!r}が必要です)")
+        try:
+            return cls(data["format"], data["version"], data.get("mlib"), data.get("maya"), units.get("fps"))
+        except (KeyError, TypeError) as error:
+            raise ValueError(f"JSONのヘッダーが不正です: {error}") from error
+
+    def _convert_time(self, frame, timing="frame"):
         """保存したときのフレームを、今のシーンのフレームへ換算する。
 
         ``timing="frame"`` は、フレーム番号をそのまま返す(何コマ目かを保つ)。
@@ -163,9 +163,9 @@ class Header:
         _require_timing(timing)
         if timing == "frame":
             return frame
-        return frame / self._fps * currentFps()
+        return frame / self._fps * _current_fps()
 
-    def toData(self):
+    def _to_data(self):
         """ファイルに書くヘッダーの辞書を返す。
 
         Returns:
@@ -180,7 +180,7 @@ class Header:
         }
 
 
-def currentFps():
+def _current_fps():
     """今のシーンのUIの時間の単位でのfpsを返す。
 
     Returns:
@@ -189,10 +189,10 @@ def currentFps():
     return 1.0 / om2.MTime(1, om2.MTime.uiUnit()).asUnits(om2.MTime.kSeconds)
 
 
-def dump(data, path, format, version):
+def _dump(data, path, format, version):
     """データにヘッダーを付けて、JSONファイルへ書き出す。
 
-    データは :func:`mlib.json.codec.encode` で変換してから書く。同じフォルダーの一時ファイルへ
+    データは ``codec._encode`` で変換してから書く。同じフォルダーの一時ファイルへ
     書いてから置き換えるので、途中で失敗しても元のファイルは壊れない。フォルダーは作らない。
 
     Args:
@@ -215,7 +215,7 @@ def dump(data, path, format, version):
     from .. import __version__
 
     header = Header(format, version, __version__, cmds.about(version=True))
-    payload = {"header": header.toData(), "data": encode(data)}
+    payload = {"header": header._to_data(), "data": _encode(data)}
     text = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
     destination = Path(os.fspath(path)).resolve()
     descriptor, temporary = tempfile.mkstemp(prefix=".mlib-", suffix=".json", dir=str(destination.parent))
@@ -231,10 +231,10 @@ def dump(data, path, format, version):
     return destination
 
 
-def load(path, format, version):
+def _load(path, format, version):
     """JSONファイルを読み込み、ヘッダーとデータを返す。
 
-    形式名と版が期待どおりかを確かめる。データは :func:`mlib.json.codec.decode` で数学型へ戻す。
+    形式名と版が期待どおりかを確かめる。データは ``codec._decode`` で数学型へ戻す。
     古い版のデータを新しい版へ変換することはしない。
 
     Args:
@@ -257,12 +257,12 @@ def load(path, format, version):
             raise ValueError(f"{os.fspath(path)}をJSONとして読み込めません: {error}") from error
     if not isinstance(payload, dict) or set(payload) != {"header", "data"} or not isinstance(payload["data"], dict):
         raise ValueError(f"{os.fspath(path)}はmlibのJSONファイルではありません('header'と'data'が必要です)")
-    header = Header.fromData(payload["header"])
+    header = Header._from_data(payload["header"])
     if header.format != format:
         raise ValueError(f"{os.fspath(path)}の形式は{header.format!r}です。{format!r}が必要です")
     if header.version != version:
         raise ValueError(f"{os.fspath(path)}は{format}のバージョン{header.version}です。バージョン{version}が必要です")
-    return header, decode(payload["data"])
+    return header, _decode(payload["data"])
 
 
 def _require_timing(timing):

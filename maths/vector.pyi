@@ -618,17 +618,6 @@ class Vector(om2.MVector):
             ValueError: axisが不正、またはpivotが有限の3成分でない場合。
         """
         ...
-    def mirrorIt(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Vector:
-        """自身の成分を反転する。
-
-        Args:
-            axis (str | int): 反転する軸。:meth:`mirror` と同じ。
-            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。
-
-        Returns:
-            Vector: 更新した自身。
-        """
-        ...
     def round(self, ndigits: int | None = ...) -> Vector:
         """各成分を小数点以下ndigits桁に丸めた、新しい値を返す。
 
@@ -644,19 +633,6 @@ class Vector(om2.MVector):
 
         Raises:
             TypeError: ndigitsがint・None以外(boolを含む)の場合。
-        """
-        ...
-    def roundIt(self, ndigits: int | None = ...) -> Vector:
-        """自身の3成分を丸める。
-
-        Args:
-            ndigits (int | None): roundと同じ桁数。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            TypeError: ndigitsがint・None以外(boolを含む)の場合。自身は変更しない。
         """
         ...
     def dot(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:
@@ -737,18 +713,6 @@ class Vector(om2.MVector):
 
         Returns:
             Vector: 計算結果の新しい値。
-        """
-        ...
-    def unitIt(self) -> Vector:
-        """自身を正規化する。
-
-        0のベクトルは正規化できないので、例外にする。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            ValueError: 0のベクトルの場合。自身は変更しない。
         """
         ...
     def unit(self) -> Vector:
@@ -840,19 +804,6 @@ class Vector(om2.MVector):
 
         Raises:
             ValueError: axisがゼロベクトルの場合。
-        """
-        ...
-    def orthogonalIt(self, axis: om2.MVector | om2.MPoint | Iterable[float]) -> Vector:
-        """自身を、指定した軸に直交する成分へ置き換える。
-
-        Args:
-            axis (om2.MVector | om2.MPoint | Iterable[float]): :meth:`orthogonal` と同じ軸。
-
-        Returns:
-            Vector: 更新した自身。
-
-        Raises:
-            ValueError: axisがゼロベクトルの場合。自身は変更しない。
         """
         ...
     def distanceSqTo(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:

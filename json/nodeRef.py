@@ -83,26 +83,6 @@ class NodeRef:
         path = full if full.startswith("|") else None
         return cls(full.rpartition("|")[2], path, node.getType())
 
-    @classmethod
-    def fromData(cls, data):
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``name``・``path``・``type`` を持つ辞書。
-
-        Returns:
-            NodeRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        if not isinstance(data, dict) or "name" not in data:
-            raise ValueError(f"JSONのノードの参照が不正です: {data!r}")
-        try:
-            return cls(data["name"], data.get("path"), data.get("type"))
-        except TypeError as error:
-            raise ValueError(f"JSONのノードの参照が不正です: {data!r}") from error
-
     @property
     def name(self):
         """記録した名前空間付きの短い名前を返す。
@@ -130,25 +110,6 @@ class NodeRef:
         """
         return self._type
 
-    def toData(self):
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"name": ..., "path": ..., "type": ...}``。
-        """
-        return {"name": self._name, "path": self._path, "type": self._type}
-
-    def mappedName(self, mapping=None):
-        """名前の対応づけを当てた名前を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
-
-        Returns:
-            str: 変換後の名前。警告や報告の表示に使う。
-        """
-        return self._name if mapping is None else mapping.apply(self._name)
-
     def resolve(self, mapping=None):
         """名前の対応づけを当てた名前で、シーンのノードを探す。
 
@@ -166,12 +127,12 @@ class NodeRef:
         """
         if mapping is not None and not isinstance(mapping, NameMapping):
             raise TypeError("mappingはNameMappingかNoneで指定してください")
-        name = self.mappedName(mapping)
+        name = self._mapped_name(mapping)
         candidates = cmds.ls(name, long=True) or []
         if self._type is not None:
             candidates = [candidate for candidate in candidates if cmds.nodeType(candidate) == self._type]
         if len(candidates) > 1 and self._path is not None:
-            path = self._path if mapping is None else mapping.applyPath(self._path)
+            path = self._path if mapping is None else mapping._apply_path(self._path)
             candidates = [candidate for candidate in candidates if candidate == path]
         if len(candidates) != 1:
             return None
@@ -179,3 +140,42 @@ class NodeRef:
         from ..nodes.node import Node
 
         return Node(candidates[0])
+
+    @classmethod
+    def _from_data(cls, data):
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``name``・``path``・``type`` を持つ辞書。
+
+        Returns:
+            NodeRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        if not isinstance(data, dict) or "name" not in data:
+            raise ValueError(f"JSONのノードの参照が不正です: {data!r}")
+        try:
+            return cls(data["name"], data.get("path"), data.get("type"))
+        except TypeError as error:
+            raise ValueError(f"JSONのノードの参照が不正です: {data!r}") from error
+
+    def _to_data(self):
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"name": ..., "path": ..., "type": ...}``。
+        """
+        return {"name": self._name, "path": self._path, "type": self._type}
+
+    def _mapped_name(self, mapping=None):
+        """名前の対応づけを当てた名前を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら変換しない。
+
+        Returns:
+            str: 変換後の名前。警告や報告の表示に使う。
+        """
+        return self._name if mapping is None else mapping.apply(self._name)

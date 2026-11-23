@@ -2085,33 +2085,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             RuntimeError: keyを省いたときに、無効なノードを含む場合。
         """
         ...
-    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> None:
-        """各ノードへ、順に :meth:`Node.setAttrFlags` を呼ぶ。
-
-        このクラスでまとめて書き込めるメソッドは、:meth:`setAttrFlags`・:meth:`resetAttrs`・:meth:`setLocked`・
-        :meth:`setOverrideColor`・:meth:`setOutlinerColor`・:meth:`setVisibility`・:meth:`show`・:meth:`hide`・:meth:`setParent`
-        (:class:`~mlib.nodes.joint.Joints` では ``setRadius``・``setSegmentScaleCompensate`` も)。
-        通常は全体を1回のUndoにまとめる。書き込む前に、すべての要素がメソッドを持つことを確かめる。
-
-        Args:
-            attributes (str | Plug | Iterable[str | Plug]): :meth:`Node.setAttrFlags` と同じ。
-                すべての要素で同じ名前のアトリビュートを使うので、Plugではなく名前で指定する。
-            locked (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            keyable (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            channelBox (bool | None): :meth:`Node.setAttrFlags` と同じ。
-            children (bool): :meth:`Node.setAttrFlags` と同じ。既定False。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            AttributeError: :meth:`Node.setAttrFlags` と同じ。
-            TypeError: :meth:`Node.setAttrFlags` と同じ。
-            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。それまでの要素の変更は
-                自動では戻さない(通常はUndoで戻せる)。
-        """
-        ...
     def resetAttrs(self, attributes: str | Iterable[str] | None = ..., *, fast: bool = ..., check: bool = ...) -> Plugs:
         """各ノードへ、順に :meth:`Node.resetAttrs` を呼ぶ。
 
@@ -2128,21 +2101,6 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             AttributeError: :meth:`Node.resetAttrs` と同じ。
             TypeError: :meth:`Node.resetAttrs` と同じ。
             RuntimeError: 無効なノードを含む場合、またはアトリビュートを書き込めない場合。
-        """
-        ...
-    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> None:
-        """各ノードへ、順に :meth:`Node.setLocked` を呼ぶ。
-
-        Args:
-            state (bool): Trueならロック、Falseなら解除する。既定はTrue。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            TypeError: stateかfastがbool以外の場合。
-            RuntimeError: 無効なノードを含む場合、またはMayaが変更を拒否した場合。
         """
         ...
     def getOverrideColor(self, *, shape: bool = ...) -> list[int | tuple[float, float, float] | None]:
@@ -2611,6 +2569,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def isLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
+    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
     def isFromReferencedFile(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isFromReferencedFile` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -2676,6 +2637,9 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         ...
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.setAttrFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -151,17 +151,8 @@ class Selection:
                 頂点の選択が無ければ空の辞書。
         """
         ...
-    @property
-    def items(self) -> list[Node | Plug | Component]:
-        """list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。
-
-        fullNameが同じ対象は、作ったときに除いてある(__init__を参照)。:meth:`getItems` と同じ値。
-        """
-        ...
     def getItems(self) -> list[Node | Plug | Component]:
         """持っている対象を、新しいリストで取得する。
-
-        :attr:`items` と同じ値になる。
 
         Returns:
             list[Node | Plug | Component]: 持っている順の対象。削除された対象も含む。

@@ -62,20 +62,6 @@ class PlugRef:
             RuntimeError: Plugが無効な場合。
         """
         ...
-    @classmethod
-    def fromData(cls, data: dict) -> PlugRef:
-        """:meth:`toData` の辞書から作る。
-
-        Args:
-            data (dict): ``node``・``attr`` を持つ辞書。
-
-        Returns:
-            PlugRef: 新しい参照。
-
-        Raises:
-            ValueError: 辞書の形が正しくない場合。
-        """
-        ...
     @property
     def node(self) -> NodeRef:
         """持ち主のノードの参照を返す。
@@ -92,23 +78,6 @@ class PlugRef:
             str: ``"translateX"``・``"weight[3]"`` など。
         """
         ...
-    def toData(self) -> dict:
-        """JSONに書く辞書を返す。
-
-        Returns:
-            dict: ``{"node": {...}, "attr": ...}``。
-        """
-        ...
-    def mappedName(self, mapping: NameMapping | None = ...) -> str:
-        """名前の対応づけを当てたPlug名を返す。
-
-        Args:
-            mapping (NameMapping | None): 名前の対応づけ。
-
-        Returns:
-            str: ``<ノード名>.<アトリビュート>``。警告や報告の表示に使う。
-        """
-        ...
     def resolve(self, mapping: NameMapping | None = ...) -> Plug | None:
         """シーンのPlugを返す。
 
@@ -122,5 +91,36 @@ class PlugRef:
 
         Raises:
             TypeError: mappingがNameMappingでもNoneでもない場合。
+        """
+        ...
+    @classmethod
+    def _from_data(cls, data: dict) -> PlugRef:
+        """``_to_data`` の辞書から作る。
+
+        Args:
+            data (dict): ``node``・``attr`` を持つ辞書。
+
+        Returns:
+            PlugRef: 新しい参照。
+
+        Raises:
+            ValueError: 辞書の形が正しくない場合。
+        """
+        ...
+    def _to_data(self) -> dict:
+        """JSONに書く辞書を返す。
+
+        Returns:
+            dict: ``{"node": {...}, "attr": ...}``。
+        """
+        ...
+    def _mapped_name(self, mapping: NameMapping | None = ...) -> str:
+        """名前の対応づけを当てたPlug名を返す。
+
+        Args:
+            mapping (NameMapping | None): 名前の対応づけ。
+
+        Returns:
+            str: ``<ノード名>.<アトリビュート>``。警告や報告の表示に使う。
         """
         ...
