@@ -243,7 +243,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 with self.subTest(target=target is deleted_node, direction=kwargs):
                     with self.assertRaises(RuntimeError):
                         valid.isConnectedTo(target, **kwargs)
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             valid.isConnectedTo("doesNotExist.value", source=True, destination=False)
 
     def test_both_false_and_unconnected_calls_do_not_create_undo_entries(self):

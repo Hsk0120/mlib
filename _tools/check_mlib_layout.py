@@ -9,6 +9,7 @@ pathlib への置換は ruff(``ruff.toml``・``_tools/format_mlib.bat``)が担�
 - 公開入口の入力assert(L040)と、単純な列挙の確認候補(L041)
 - 内部名と function set の取得・関数内importの理由コメント(L050〜L052)
 - 関数・メソッド・クラスの名前の形、モジュール直下の名前の形、mlib内部のimportの別名(L053〜L055)
+- クラスの親は1つ(L056)
 - 例外の文言とUndoチャンク名・fastの受け取り(L060〜L064)
 - docstringの見出し・Raisesの並び・固定文・用語・定数の説明、Args:と引数名の一致、残ったTODO(L070〜L077)
 - Python 3.7(Maya 2022)で動く書き方と、propertyのgetter(L080・L081)
@@ -1047,6 +1048,18 @@ def check_import_aliases(src, violations):
                 violations.append(Violation(src.path, node.lineno, "L055", f"mlibの中のimportに別名を付けない({name} as {asname})。隠すだけなら _{original}"))
 
 
+def check_single_base(src, violations):
+    """クラスの親が1つだけかを調べる。
+
+    ミックスイン・多重継承は使わない(責務を1本の継承の中に収める)。例外クラスも同じ。
+    関数の中で定義したクラスも対象にする。
+    """
+    for node in ast.walk(src.tree):
+        if isinstance(node, ast.ClassDef) and len(node.bases) > 1:
+            bases = ", ".join(ast.unparse(base) for base in node.bases)
+            violations.append(Violation(src.path, node.lineno, "L056", f"クラス {node.name} の親は1つにする({bases})。ミックスイン・多重継承は使わない"))
+
+
 # ---------------------------------------------------------------- 例外・ログ・fast
 
 
@@ -1480,6 +1493,7 @@ def check_source(src):
     check_definition_names(src, violations)
     check_module_names(src, violations)
     check_import_aliases(src, violations)
+    check_single_base(src, violations)
     check_raise_messages(src, violations)
     check_notify_and_raise(src, violations)
     check_undo_chunk_names(src, violations)

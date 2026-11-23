@@ -30,7 +30,10 @@ class DagContainerTest(unittest.TestCase):
         """自動型解決とTransform・Container双方の操作を確認する。"""
         self.assertIsInstance(Node(self.owner.getFullName()), DagContainer)
         self.assertIsInstance(self.owner, Transform)
-        self.assertIsInstance(self.owner, Container)
+        # クラスの親は1つ(Transform)。Containerの派生ではないので、コンテナかはisTypeで調べる。
+        self.assertNotIsInstance(self.owner, Container)
+        self.assertEqual(DagContainer.__bases__, (Transform,))
+        self.assertTrue(self.owner.isType("containerBase"))
         self.owner.getPlug("translateX").set(4)
         self.assertAlmostEqual(self.owner.getTranslation(at=4)[0], 4)
         node = self.owner.createNode("multiplyDivide")

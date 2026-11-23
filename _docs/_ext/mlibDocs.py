@@ -44,7 +44,7 @@ class _ReexportedSubpackageFilter(logging.Filter):
 def _include_private_base_members(app, what, name, obj, skip, options):
     """掲載する member を AutoAPI の既定から調整する。
 
-    - 非公開の基底クラス(先頭 ``_``、例 ``_ContainerMixin``)から受け継いだ公開 member は、
+    - 非公開の基底クラス(先頭 ``_``)から受け継いだ公開 member は、
       基底のページを載せないため、受け継いだ公開クラスのページに掲載する。
       公開の基底から受け継いだ member は従来どおり基底のページだけに載せる。
 
@@ -98,7 +98,7 @@ def _display_bases(bases):
 
     - ``A if TYPE_CHECKING else B`` の形の基底(Lambert 等)は、式ではなく型検査用の A を載せる。
       実行時の継承は変えず、表示だけを整える。
-    - 非公開の基底(先頭 ``_``、例 ``_ContainerMixin``)はページが無いため載せない。
+    - 非公開の基底(先頭 ``_``)はページが無いため載せない。
       受け継いだ member は :func:`_include_private_base_members` で派生クラスのページに載る。
 
     Args:

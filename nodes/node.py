@@ -131,7 +131,7 @@ def _resolve_node(node):
     Raises:
         TypeError: 対応しない入力型、または依存ノード以外(アトリビュートなど)を指す MObject の場合。
         ValueError: 所有ノードは有効で、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-            (:class:`mlib.plugs.plug.DeletedAttributeError`。``RuntimeError`` の派生でもある)。
+            (:class:`mlib.plugs.plug.DeletedAttributeError`)。
         RuntimeError: 名前を解決できない(存在しない、または複数の対象に一致する)場合、
             または空・無効な(削除済みの)mlibのオブジェクトやom2のオブジェクトを指定した場合。
     """
@@ -597,7 +597,7 @@ class Node(Object):
     Raises:
         TypeError: 入力の型が不正な場合、または指定したクラスと対象のノードの型が合わない場合。
         ValueError: ノードは有効だが、アトリビュートだけが削除済みのPlugを渡した場合。
-            MPlugも同じ。DeletedAttributeError(RuntimeErrorの派生でもある)になる。
+            MPlugも同じ。DeletedAttributeErrorになる。
         RuntimeError: 対象が空・削除済み・存在しない・一意でない場合。
     """
 
@@ -630,7 +630,7 @@ class Node(Object):
             TypeError: 入力の型が対応していない場合、指定したクラスと対象の型が合わない場合、
                 または選んだクラスの ``__init__`` が受け付けない引数(廃止した ``create`` など)を渡した場合。
             ValueError: アトリビュートが ``deleteAttr`` で削除済みのPlug・MPlugを渡した場合
-                (``DeletedAttributeError``。RuntimeErrorの派生でもある)。
+                (``DeletedAttributeError``)。
             RuntimeError: ノードを解決できない場合。
         """
         if args or kwargs:
@@ -668,7 +668,7 @@ class Node(Object):
         Raises:
             TypeError: 入力の型が対応していない場合。
             ValueError: アトリビュートが ``deleteAttr`` で削除済みのPlug・MPlugを渡した場合
-                (``DeletedAttributeError``。RuntimeErrorの派生でもある)。
+                (``DeletedAttributeError``)。
             RuntimeError: ノード名を解決できない場合。
         """
         # __new__ が解決済みの結果を引き継いだ場合は、同じ入力を再び解決しない。
@@ -2634,7 +2634,7 @@ class Node(Object):
             ValueError: nameが空か、文字列以外の場合。
             RuntimeError: ノードが無効な場合、または ``input3Dx`` のように、決まっていない論理番号を含む場合。
             MissingAttributeError: アトリビュートが存在しない場合(文言は ``アトリビュートが見つかりません: <ノード名>.<name>``)。
-                ``AttributeError`` と ``RuntimeError`` の両方の派生で、``mlib.getPlug("node.name")`` と同じ例外。
+                ``AttributeError`` の派生で、``mlib.getPlug("node.name")`` と同じ例外。
             AttributeError: 論理番号が上限を超える場合。
         """
         # nodes/plugsの相互依存を避けるため遅延importする。
@@ -3110,7 +3110,7 @@ class Node(Object):
         Raises:
             TypeError: 対応しない型の場合。
             ValueError: 所有ノードは有効で、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-                (:class:`DeletedAttributeError`。``RuntimeError`` の派生でもある)。
+                (:class:`DeletedAttributeError`)。
             RuntimeError: 名前を解決できない(存在しない、または複数のノードに一致する)場合、
                 または空・削除済みのノードを指す om2 オブジェクトの場合(``Node(value)`` と同じ)。
         """
@@ -3171,7 +3171,7 @@ class Node(Object):
         Raises:
             TypeError: 対応しないノード入力型の場合。
             ValueError: アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-                (``DeletedAttributeError``。RuntimeError の派生でもある)。
+                (``DeletedAttributeError``)。
             RuntimeError: ノード名を解決できない場合。
         """
         self._mobject, self._dag_path = _resolve_node(node)

@@ -6,7 +6,7 @@ import maya.api.OpenMaya as om2
 from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector
 from ..util import _UNSET, _world_space
-from .component import Component, Components, _MultiIndexComponent, _MultiIndexComponents
+from .component import Component, Components
 from .face import Face
 from .vertex import Vertex
 from typing import Any, Iterable, Iterator, Sequence
@@ -27,7 +27,7 @@ def _face_vertex_layout(shape: Mesh) -> tuple[list[int], list[int], list[int]]:
     ...
 
 
-class VertexFace(_MultiIndexComponent, Component):
+class VertexFace(Component):
     """メッシュの頂点フェース(``vtxFace[頂点][フェース]``)1つを表すクラス。
 
     頂点フェースは、フェースごとに法線や色を持たせるときの単位。
@@ -247,7 +247,7 @@ class VertexFace(_MultiIndexComponent, Component):
         ...
 
 
-class VertexFaces(_MultiIndexComponents, Components):
+class VertexFaces(Components):
     """同じメッシュにある頂点フェースの集まりを表すクラス。
 
     番号の指定には、通し番号と ``(頂点, フェース)`` を混ぜて使える。名前は範囲にまとめない。
@@ -293,6 +293,9 @@ class VertexFaces(_MultiIndexComponents, Components):
         ...
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMultiIndex(self) -> list[tuple[int, ...]]:
+        """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

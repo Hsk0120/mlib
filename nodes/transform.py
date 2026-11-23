@@ -477,7 +477,7 @@ class Transform(DagNode):
                 またはworldUpObjectが無効な場合。
             RuntimeError: ノードが無効な場合、ターゲットの名前からノードを特定できない場合(存在しない場合や、
                 複数のノードに一致する場合)、またはMayaが作成を拒否した場合。
-            DeletedAttributeError: 削除されたアトリビュートのPlug・MPlugの場合。ValueErrorとRuntimeErrorの派生クラス。
+            DeletedAttributeError: 削除されたアトリビュートのPlug・MPlugの場合。ValueErrorの派生クラス。
 
         Note:
             PoleVectorにはRP IKハンドル、Geometry・Normal・PointOnPolyには対応する形状、TangentにはNURBSカーブが必要。
@@ -1515,7 +1515,7 @@ class Transform(DagNode):
             TypeError: targetがTransformではない場合。
             RuntimeError: ノードが無効な場合、またはMayaが変更を拒否した場合。
             DeletedAttributeError: targetに、アトリビュートが削除されたPlug・MPlugを渡した場合
-                (ValueErrorとRuntimeErrorの両方の派生クラス)。
+                (ValueErrorの派生クラス)。
         """
         with undoChunk("mlibTransformMatchTransform"):
             target = Node._resolve_input(target)

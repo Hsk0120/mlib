@@ -226,14 +226,14 @@ class DrivenKeySpecTest(unittest.TestCase):
         self.assertFalse(key.exists())
 
     def test_validation(self):
-        """同じアトリビュート・非数値はValueError、型不正はTypeError、存在しないはRuntimeError。"""
+        """同じアトリビュート・非数値はValueError、型不正はTypeError、存在しないはAttributeError。"""
         with self.assertRaises(ValueError):
             DrivenKey(self.driver + ".tx", self.driver + ".translateX")
         with self.assertRaises(ValueError):
             DrivenKey(self.driver + ".translate", self.driven + ".tx")
         with self.assertRaises(TypeError):
             DrivenKey(5, self.driven + ".tx")
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             DrivenKey(self.driver + ".noSuchAttribute", self.driven + ".tx")
         key = DrivenKey(self.driver + ".tx", self.driven + ".tx")
         for value in (float("nan"), float("inf")):

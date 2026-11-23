@@ -139,7 +139,7 @@ class ConnectSpecTest(_ConnectionSpecCase):
             sy.connect(self.a.getPlug("tx"), fast=1)
         with self.assertRaises(ValueError):
             sy.connect("")
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             sy.connect(self.namespace + ":missing.tx")
         self.assertEqual(self.inputs(self.bn + ".sy"), [])
 
@@ -517,7 +517,7 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
             by.isConnectedTo(self.an)
         with self.assertRaises(ValueError):
             by.isConnectedTo("")
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             by.isConnectedTo(self.an + ".missingAttr")
         with self.assertRaises(TypeError):
             by.isConnectedTo(ax, source=1)

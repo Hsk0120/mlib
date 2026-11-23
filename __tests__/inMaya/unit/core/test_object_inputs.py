@@ -253,7 +253,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         self.assertEqual(Node._resolve_input(mplug).getFullName(), self.network.getFullName())
         cmds.deleteAttr(self.network.getName() + ".doomed")
         # 所有ノードは有効なため、所有ノードを返すと削除済みの対象を黙って受け付けてしまう。
-        # to_name と同じく ValueError(Node(...) の規則に合わせ RuntimeError の派生でもある)。
+        # to_name と同じく ValueError(クラスの親は1つにする決まりのため、RuntimeError の派生ではない)。
         for value in (plug, mplug):
             for convert in (Node._resolve_input, Object._input_name, Node._input_name):
                 with self.subTest(value=type(value).__name__, convert=convert.__name__):
@@ -261,7 +261,7 @@ class CoerceObjectInputTest(unittest.TestCase):
                         convert(value)
             with self.assertRaises(DeletedAttributeError) as context:
                 Node._resolve_input(value)
-            self.assertIsInstance(context.exception, RuntimeError)
+            self.assertNotIsInstance(context.exception, RuntimeError)
         # 所有ノードが削除済みの Plug は従来どおり無効な所有ノードを返す(扱いは呼び出し側)。
         doomed = self.twin.getPlug("tx")
         cmds.delete(self.twin.getFullName())
@@ -299,7 +299,7 @@ class CoerceObjectInputTest(unittest.TestCase):
             Plug._resolve_input(self.node.getNodeName() + ".tx")
         with self.assertRaises(TypeError):
             Plug._resolve_input(self.node.getFullName())
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             Plug._resolve_input(self.node.getFullName() + ".mlibCoerceMissing")
         with self.assertRaises(TypeError):
             Plug._resolve_input(self.node)

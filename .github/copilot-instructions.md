@@ -467,6 +467,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 ## ファイル・クラスのレイアウト
 
 - 原則1クラス1ファイル。単数クラスと対応する複数クラスは単数形のファイルにまとめる(`joint.py` に `Joint`/`Joints`、`vertex.py` に `Vertex`/`Vertices`)。
+- クラスの親は1つにする。ミックスイン・多重継承は使わない(例外クラスも同じ。`check_mlib_layout.py` の L056)。
+  責務は1本の継承の中に収める。別の系統のクラスで同じ処理が要るときは、共通の親へ上げるか、モジュールの関数に置いて各クラスから呼ぶ。
+  種類ごとの違いは、クラス属性(`index_size` など)と、派生クラスが上書きする先頭 `_` のメソッドで持つ。
 - ファイル内の順: docstring → `from __future__` → import → `if TYPE_CHECKING:` → `__all__`・定数 → 関数・クラス。
   `__all__` は import 群の直後に置く。定数は原則 import 群の直後(先行定義を参照するものは依存先の後)。
 - import は標準ライブラリ → `maya.*` 等の外部 → mlib 内部(相対 import・`mlib.*`)の3グループ、間に空行1行。
@@ -522,7 +525,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - `check_mlib_layout.py --check` に残る検査は、定数・`__all__`・`if TYPE_CHECKING:` の位置(L004〜L006)・
   クラス内メンバー順と対になる操作の隣接(L020〜L023)・公開入口の入力 assert(L040)・列挙(L041 は確認候補)・
   内部名と function set の取得・関数内 import の理由コメント(L050〜L052)・関数・メソッド・クラスの名前の形(L053)・
-  モジュール直下の名前の形(L054)・mlib の中の import の別名(L055)・例外の文言と Undo チャンク名・
+  モジュール直下の名前の形(L054)・mlib の中の import の別名(L055)・クラスの親は1つ(L056)・例外の文言と Undo チャンク名・
   fast の受け取り(L060〜L064)・docstring の見出し・Raises の並び・1行目・fast の固定文・用語・公開定数の
   説明・`Args:` の名前と位置引数の順・残った `TODO`(L070〜L077。L077 は情報)・
   Python 3.7 で動く書き方と property の getter(L080・L081)。

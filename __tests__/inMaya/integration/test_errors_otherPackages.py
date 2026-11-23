@@ -264,7 +264,7 @@ class DrivenKeyErrorTest(_ErrorCase):
             (TypeError, self.driven),
             (ValueError, self.driven + ".translate"),
             (ValueError, self.driven + ".label"),
-            (RuntimeError, self.driven + ".noSuchAttr"),
+            (AttributeError, self.driven + ".noSuchAttr"),
         ):
             with self.subTest(value=value):
                 with self.assertRaises(error):

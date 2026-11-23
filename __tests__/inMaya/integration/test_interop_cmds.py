@@ -1092,7 +1092,7 @@ class PlugValidityTest(_InteropCase):
     def test_node_arguments_reject_deleted_attributes(self):
         # 所有ノードは有効なままアトリビュートだけが削除された Plug・MPlug は、ノードが必要な引数でも
         # 所有ノードへ解決せず、mlib のコマンド(mlib.select など)と同じく ValueError にする。
-        # Node(...) の「解決できない対象は RuntimeError」の規則に合わせ、RuntimeError の派生でもある。
+        # クラスの親は1つにする決まりのため、RuntimeError の派生ではない。
         from mlib.nodes.node import Node
         from mlib.plugs.plug import DeletedAttributeError
 
@@ -1133,7 +1133,7 @@ class PlugValidityTest(_InteropCase):
                     with self.assertRaises(ValueError) as context:
                         call(value)
                     self.assertIsInstance(context.exception, DeletedAttributeError)
-                    self.assertIsInstance(context.exception, RuntimeError)
+                    self.assertNotIsInstance(context.exception, RuntimeError)
             with self.assertRaises(ValueError):
                 mlib.select(value)
         self.assertEqual(cmds.ls(self.ns("*"), type="pointConstraint"), [])

@@ -136,6 +136,16 @@ EXCLUDED = {
     "Reference.cleanEdits": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Node.setDgTimerEnabled": "診断用のDG計測状態。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "Node.resetDgTimer": "診断用のDG計測結果の消去。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
+    "DagContainer.addMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.removeMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.createNode": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.removeContainer": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.publishConnections": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.publishName": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.bindAttr": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.publishAndBind": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.unbindAttr": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
+    "DagContainer.unpublishName": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
     "Components.append": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
     "Components.clear": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
     "Components.extend": "まとまりが持つ要素を変えるだけで、シーンは変更しない(Pythonのlistと同じ操作)。",
@@ -2517,7 +2527,7 @@ def _public_functions():
 
 
 def _owner_name(cls, definer):
-    """メンバーを定義したクラスの公開名。非公開の mixin は直後に継承した公開クラス名にする。"""
+    """メンバーを定義したクラスの公開名。非公開の基底クラスは、直後に継承した公開クラス名にする。"""
     if not definer.__name__.startswith("_"):
         return definer.__name__
     mro = cls.__mro__

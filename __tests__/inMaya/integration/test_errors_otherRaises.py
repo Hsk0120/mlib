@@ -288,14 +288,14 @@ class JsonErrorTest(_ErrorCase):
                     mapping.applyPath(path)
 
     def test_capture_missing_plug(self):
-        """無い Plug を指定すると MissingAttributeError(AttributeError・RuntimeError の派生)。"""
+        """無い Plug を指定すると MissingAttributeError(AttributeError の派生。RuntimeError の派生ではない)。"""
         node = self.make("transform", "node")
         for target in (node + ".noSuchAttr", [node + ".translateX", node + ".noSuchAttr"]):
             with self.subTest(target=target):
                 with self.assertRaises(MissingAttributeError) as context:
                     AttributesSnapshot.capture(target)
                 self.assertIsInstance(context.exception, AttributeError)
-                self.assertIsInstance(context.exception, RuntimeError)
+                self.assertNotIsInstance(context.exception, RuntimeError)
 
 
 class MathsErrorTest(unittest.TestCase):

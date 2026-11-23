@@ -119,7 +119,7 @@ class PlugReferencesTest(unittest.TestCase):
                 mlib.getPlug(value)
         with self.assertRaises(TypeError):
             mlib.getPlug(self.node.getFullName())
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             mlib.getPlug(self.node.getFullName() + ".missingAttribute")
         plug = self.node.getPlug("translateX")
         cmds.delete(self.node.getFullName())

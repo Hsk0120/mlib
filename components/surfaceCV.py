@@ -2,7 +2,6 @@
 
 import maya.api.OpenMaya as om2
 
-from .component import _MultiIndexComponent, _MultiIndexComponents
 from .pointComponent import PointComponent, PointComponents
 
 
@@ -28,7 +27,7 @@ def _surface_layout(shape):
     return count_u, count_v, independent_u, independent_v
 
 
-class SurfaceCV(_MultiIndexComponent, PointComponent):
+class SurfaceCV(PointComponent):
     """NURBS曲面のCV1つを表すクラス。
 
     NurbsSurfaceのShapeとCVの番号(``cv[u][v]``)を持ち、今のXYZ座標を取得・編集する。
@@ -105,7 +104,7 @@ class SurfaceCV(_MultiIndexComponent, PointComponent):
         return result
 
 
-class SurfaceCVs(_MultiIndexComponents, PointComponents):
+class SurfaceCVs(PointComponents):
     """同じNURBS曲面にあるCVの集まりを表すクラス。
 
     CVを1つずつ取り出したり、座標をまとめて扱ったりする。

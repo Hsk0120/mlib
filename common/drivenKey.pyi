@@ -107,7 +107,7 @@ class DrivenKey:
         Raises:
             TypeError: Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: スカラーでない場合、数値でない場合、または2つが同じアトリビュートの場合。
-            RuntimeError: アトリビュートが存在しない場合。
+            AttributeError: アトリビュートが存在しない場合(``MissingAttributeError``)。
         """
         ...
     def __repr__(self) -> str:
@@ -134,7 +134,7 @@ class DrivenKey:
         Raises:
             TypeError: driven が Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: driven がスカラーでない場合、または数値でない場合。
-            RuntimeError: driven のアトリビュートが存在しない場合。
+            AttributeError: driven のアトリビュートが存在しない場合(``MissingAttributeError``)。
         """
         ...
     def getDriverPlug(self) -> Plug:

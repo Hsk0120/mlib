@@ -30,7 +30,7 @@ def getNode(value: str | Node | Plug | Component | Components | om2.MObject | om
     Raises:
         TypeError: 対応していない型を渡した場合、または依存ノード以外(アトリビュートなど)を指す MObject の場合。
         ValueError: 持ち主のノードは有効だが、アトリビュートが ``deleteAttr`` で削除済みの Plug・MPlug の場合
-            (``mlib.plugs.plug.DeletedAttributeError``。RuntimeError の派生でもある)。
+            (``mlib.plugs.plug.DeletedAttributeError``)。
         RuntimeError: ノードが1つに決まらない場合(存在しない場合や、``"bulk*"`` のようなパターンを
             含めて複数の対象に一致する場合)、または空か削除済みのオブジェクトや om2 のオブジェクトを
             渡した場合。

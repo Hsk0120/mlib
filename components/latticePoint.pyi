@@ -2,7 +2,6 @@
 """ラティスの点と、点の集まり。"""
 
 import maya.api.OpenMaya as om2
-from .component import _MultiIndexComponent, _MultiIndexComponents
 from .pointComponent import PointComponent, PointComponents
 from typing import Any, Iterable, Iterator
 from mlib.nodes.node import Node
@@ -21,7 +20,7 @@ def _lattice_divisions(shape: Node) -> tuple[int, int, int]:
     ...
 
 
-class LatticePoint(_MultiIndexComponent, PointComponent):
+class LatticePoint(PointComponent):
     """ラティスの点1つを表すクラス。
 
     ラティスのShapeと点の番号(``pt[s][t][u]``)を持ち、今のXYZ座標を取得・編集する。
@@ -77,7 +76,7 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
         ...
 
 
-class LatticePoints(_MultiIndexComponents, PointComponents):
+class LatticePoints(PointComponents):
     """同じラティスにある点の集まりを表すクラス。
 
     点を1つずつ取り出したり、座標をまとめて扱ったりする。
@@ -92,6 +91,9 @@ class LatticePoints(_MultiIndexComponents, PointComponents):
     component_class: Any
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMultiIndex(self) -> list[tuple[int, ...]]:
+        """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

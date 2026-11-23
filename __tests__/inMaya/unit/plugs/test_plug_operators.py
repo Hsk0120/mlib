@@ -125,7 +125,7 @@ class RightShiftSpecTest(_ConnectionSpecCase):
             with self.subTest(dst=type(value).__name__):
                 with self.assertRaises(TypeError):
                     tx >> value
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             tx >> self.bn + ".noSuchAttr"
         tx >> self.b.getPlug("tx")
         with self.assertRaises(RuntimeError):

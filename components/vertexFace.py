@@ -7,7 +7,7 @@ import maya.api.OpenMaya as om2
 from ..decorator import _pick_alias, _require_bool
 from ..maths.vector import Vector
 from ..util import _UNSET, _world_space
-from .component import Component, Components, _MultiIndexComponent, _MultiIndexComponents
+from .component import Component, Components
 from .face import Face
 from .vertex import Vertex
 
@@ -31,7 +31,7 @@ def _face_vertex_layout(shape):
     return offsets, list(counts), list(vertices)
 
 
-class VertexFace(_MultiIndexComponent, Component):
+class VertexFace(Component):
     """メッシュの頂点フェース(``vtxFace[頂点][フェース]``)1つを表すクラス。
 
     頂点フェースは、フェースごとに法線や色を持たせるときの単位。
@@ -287,7 +287,7 @@ class VertexFace(_MultiIndexComponent, Component):
         return result
 
 
-class VertexFaces(_MultiIndexComponents, Components):
+class VertexFaces(Components):
     """同じメッシュにある頂点フェースの集まりを表すクラス。
 
     番号の指定には、通し番号と ``(頂点, フェース)`` を混ぜて使える。名前は範囲にまとめない。

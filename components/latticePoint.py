@@ -2,7 +2,6 @@
 
 import maya.api.OpenMaya as om2
 
-from .component import _MultiIndexComponent, _MultiIndexComponents
 from .pointComponent import PointComponent, PointComponents
 
 
@@ -19,7 +18,7 @@ def _lattice_divisions(shape):
     return tuple(dependency.findPlug(name, False).asInt() for name in ("sDivisions", "tDivisions", "uDivisions"))
 
 
-class LatticePoint(_MultiIndexComponent, PointComponent):
+class LatticePoint(PointComponent):
     """ラティスの点1つを表すクラス。
 
     ラティスのShapeと点の番号(``pt[s][t][u]``)を持ち、今のXYZ座標を取得・編集する。
@@ -92,7 +91,7 @@ class LatticePoint(_MultiIndexComponent, PointComponent):
         return result
 
 
-class LatticePoints(_MultiIndexComponents, PointComponents):
+class LatticePoints(PointComponents):
     """同じラティスにある点の集まりを表すクラス。
 
     点を1つずつ取り出したり、座標をまとめて扱ったりする。

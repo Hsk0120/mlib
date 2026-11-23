@@ -168,7 +168,7 @@ class InsertInputTest(_Case):
         for args, error in (
             ((mdl, 1, "output"), TypeError),
             ((mdl, "input1", ""), ValueError),
-            ((mdl, "nope", "output"), RuntimeError),
+            ((mdl, "nope", "output"), AttributeError),
             ((mdl, "input1", "output"), RuntimeError),
             ((5, "input1", "output"), TypeError),
         ):

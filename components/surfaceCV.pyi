@@ -2,7 +2,6 @@
 """NURBS曲面のCVと、CVの集まり。"""
 
 import maya.api.OpenMaya as om2
-from .component import _MultiIndexComponent, _MultiIndexComponents
 from .pointComponent import PointComponent, PointComponents
 from typing import Any, Iterable, Iterator
 from mlib.nodes.nurbsSurface import NurbsSurface
@@ -26,7 +25,7 @@ def _surface_layout(shape: NurbsSurface) -> tuple[int, int, int, int]:
     ...
 
 
-class SurfaceCV(_MultiIndexComponent, PointComponent):
+class SurfaceCV(PointComponent):
     """NURBS曲面のCV1つを表すクラス。
 
     NurbsSurfaceのShapeとCVの番号(``cv[u][v]``)を持ち、今のXYZ座標を取得・編集する。
@@ -84,7 +83,7 @@ class SurfaceCV(_MultiIndexComponent, PointComponent):
         ...
 
 
-class SurfaceCVs(_MultiIndexComponents, PointComponents):
+class SurfaceCVs(PointComponents):
     """同じNURBS曲面にあるCVの集まりを表すクラス。
 
     CVを1つずつ取り出したり、座標をまとめて扱ったりする。
@@ -98,6 +97,9 @@ class SurfaceCVs(_MultiIndexComponents, PointComponents):
     component_class: Any
     def getFullName(self) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def getMultiIndex(self) -> list[tuple[int, ...]]:
+        """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

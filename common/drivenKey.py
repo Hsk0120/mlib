@@ -153,7 +153,7 @@ class DrivenKey:
         Raises:
             TypeError: Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: スカラーでない場合、数値でない場合、または2つが同じアトリビュートの場合。
-            RuntimeError: アトリビュートが存在しない場合。
+            AttributeError: アトリビュートが存在しない場合(``MissingAttributeError``)。
         """
         self._driver, self._driven = _plug(driver), _plug(driven)
         if self._driver.mplug() == self._driven.mplug():
@@ -184,7 +184,7 @@ class DrivenKey:
         Raises:
             TypeError: driven が Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: driven がスカラーでない場合、または数値でない場合。
-            RuntimeError: driven のアトリビュートが存在しない場合。
+            AttributeError: driven のアトリビュートが存在しない場合(``MissingAttributeError``)。
         """
         target = _plug(driven)
         items, seen = [], []

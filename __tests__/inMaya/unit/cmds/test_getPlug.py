@@ -72,7 +72,7 @@ class GetPlugSpecTest(_CmdsCase):
         self.assertIsNone(cmds.getAttr(node + ".values", multiIndices=True))
 
     def test_errors(self):
-        """空の名前・空のMPlugはValueError、未対応型はTypeError、解決できない名前はRuntimeError。"""
+        """空の名前・空のMPlugはValueError、未対応型はTypeError、見つからない名前はAttributeError(MissingAttributeError)。"""
         node = cmds.createNode("transform", name=self.name("node"))
         with self.assertRaises(ValueError):
             mlib.getPlug("")
@@ -80,9 +80,9 @@ class GetPlugSpecTest(_CmdsCase):
             mlib.getPlug(om2.MPlug())
         with self.assertRaises(TypeError):
             mlib.getPlug(5)
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             mlib.getPlug(node + ".noSuchAttribute")
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AttributeError):
             mlib.getPlug(self.name("missing") + ".tx")
 
 

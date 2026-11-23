@@ -64,12 +64,17 @@ class Component(Object):
     - 渡されたShapeのオブジェクトをそのまま共有する。形状や座標のコピーは持たない。
     - 番号は作るときに確かめる。ただし、トポロジーを変えた後も同じ要素を指し続けるとは限らない。
     - UVの番号の範囲は、現在のUVセットに従う。
+    - 番号を複数持つ要素(``cv[u][v]``・``pt[s][t][u]``・``vtxFace[v][f]``)は、具体的なクラスが ``index_size`` を2以上にし、
+      ``_element_count``・``_multi_indices``・``_flat_indices`` を定義する。持っている :attr:`index` は、要素を一列に並べたときの
+      通し番号になり、``==``・ハッシュ・:attr:`Components.indices` もこの通し番号を使う。複数の番号は :meth:`getMultiIndex` で取得する。
     """
 
     # シェイプ型・cmds用の種類名・要素数を返すシェイプのメソッド名。具体型が定義し、基底ではNone。
     shape_type: Optional[str] = None
     component_type: Optional[str] = None
     count_attribute: Optional[str] = None
+    #: 番号の数。番号を複数持つ要素(SurfaceCV・LatticePoint・VertexFace)の具体的なクラスが2以上にする。
+    index_size = 1
 
     def __init__(self, shape, index):
         """シェイプとコンポーネントの番号を確かめて、コンポーネントを作る。
@@ -78,15 +83,22 @@ class Component(Object):
 
         Args:
             shape (Shape): このクラスに対応するShape(MeshやNurbsCurveなど)のオブジェクト。
-            index (int): Mayaでの番号。0から始まる。__index__を持つ値も使えるが、boolは受け付けない。
+            index (int | Sequence[int]): Mayaでの番号。0から始まる。__index__を持つ値も使えるが、boolは受け付けない。
                 負の数を、末尾から数えた位置としては扱わない。
+                番号を複数持つ要素では、通し番号か、複数の番号(``(u, v)`` など)を渡す。
 
         Raises:
             TypeError: シェイプの型が合わない場合、またはindexがboolか、整数として扱えない場合。
+            ValueError: 番号を複数持つ要素で、複数の番号の数が違う場合。
             IndexError: 番号が、今の要素数の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
+        if type(self).index_size > 1:
+            self._require_shape(shape, self.shape_type)
+            self._index = _flat_input(type(self), shape, [index])[0]
+            self._require_valid()
+            return
         if isinstance(index, bool):
             raise TypeError("コンポーネントの番号は整数で指定してください(boolは指定できません)")
         self._index = operator.index(index)
@@ -170,9 +182,31 @@ class Component(Object):
 
         Returns:
             str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
+                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前
+                (周期曲面で重なっているCVは、先頭側の番号で表す)。
         """
         self._require_valid()
+        if type(self).index_size > 1:
+            numbers = self._multi_indices(self._shape, [self._index], command=True)[0]
+            return _component_name(f"{self._shape.getFullName()}.{self.component_type}", numbers)
         return f"{self._shape.getFullName()}.{self.component_type}[{self._index}]"
+
+    def getMultiIndex(self):
+        """この要素の番号を、今の形状からtupleで取得する。
+
+        Returns:
+            tuple[int, ...]: 番号を複数持つ要素では ``(u, v)``・``(s, t, u)``・``(頂点, フェース)`` のような番号。
+                番号が1つの要素では ``(index,)``。
+
+        Raises:
+            TypeError: 対応していないシェイプの型の場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: シェイプが無効な場合。
+        """
+        self._require_valid()
+        if type(self).index_size > 1:
+            return self._multi_indices(self._shape, [self._index])[0]
+        return (self._index,)
 
     def isValid(self):
         """このコンポーネントが今も使えるか調べる。
@@ -333,6 +367,33 @@ class Component(Object):
         """
         return getattr(shape, _count_name(cls))()
 
+    @classmethod
+    def _multi_indices(cls, shape, indices, command=False):  # noqa: ARG003 引数は上書きするクラスとの決まり
+        """通し番号を、複数の番号の並びに変える。番号を複数持つ種類(``index_size`` が2以上)が上書きする。
+
+        Args:
+            shape (Shape): 型を確かめてあるシェイプ。
+            indices (Sequence[int]): 通し番号。
+            command (bool): Trueなら、cmdsの名前に使う番号にする。
+
+        Returns:
+            list[tuple[int, ...]]: 要素ごとの複数の番号。基底では、番号1つのtuple。
+        """
+        return [(index,) for index in indices]
+
+    @classmethod
+    def _flat_indices(cls, shape, numbers):  # noqa: ARG003 引数は上書きするクラスとの決まり
+        """複数の番号の並びを、通し番号に変える。番号を複数持つ種類(``index_size`` が2以上)が上書きする。
+
+        Args:
+            shape (Shape): 型を確かめてあるシェイプ。
+            numbers (Sequence[Sequence[int]]): 要素ごとの複数の番号。
+
+        Returns:
+            list[int]: 通し番号。基底では、先頭の番号。
+        """
+        return [number[0] for number in numbers]
+
     @staticmethod
     def _require_shape(shape, shape_type):
         """シェイプが削除されていないかと、型を確かめる。
@@ -419,16 +480,30 @@ class Components:
 
         Args:
             shape (Shape): このクラスに対応するShapeのオブジェクト。同じオブジェクトをそのまま持つ。
-            indices (Iterable[int] | None): Mayaでの番号。Noneなら、作った時点の全要素を番号の小さい順に持つ。
+            indices (Iterable[int | Sequence[int]] | None): Mayaでの番号。Noneなら、作った時点の全要素を番号の小さい順に持つ。
                 空の並びなら空の集まりになる。各番号は__index__を持つ値で、boolと負の数は受け付けない。
+                番号を複数持つ要素では、通し番号と複数の番号を混ぜて渡せる(持つのは通し番号)。
 
         Raises:
             TypeError: シェイプの型、または番号の型が合わない場合。
+            ValueError: 番号を複数持つ要素で、複数の番号の数が違う場合。
             IndexError: どれかの番号が、今の要素数の範囲の外にある場合。
             RuntimeError: シェイプが無効な場合。
         """
         self._shape = shape
         Component._require_shape(shape, self.component_class.shape_type)
+        if self.component_class.index_size > 1:
+            count = self.component_class._element_count(shape)
+            if indices is None:
+                self._indices = tuple(range(count))
+                return
+            if isinstance(indices, (str, bytes)):
+                raise TypeError("indicesはコンポーネントの番号の並びで指定してください")
+            flats = _flat_input(self.component_class, shape, list(indices))
+            for index in flats:
+                Component._require_index_range(index, count)
+            self._indices = tuple(dict.fromkeys(flats))
+            return
         selected = range(self.component_class._element_count(shape)) if indices is None else indices
         # 一般の反復入力や独自__index__は従来どおり一件ずつ構築する。
         # これにより入力の副作用・途中例外・利用側constructor/_validateを維持する。
@@ -487,6 +562,13 @@ class Components:
         if not self._indices:
             return f"{cls}({shape!r}, count=0)"
         prefix = f"{shape}.{self.component_class.component_type}"
+        if self.component_class.index_size > 1:
+            # 番号を複数持つ要素は範囲にまとめない。
+            shown = self.component_class._multi_indices(self._shape, self._indices[:_REPR_LIMIT], command=True)
+            text = ", ".join(repr(_component_name(prefix, numbers)) for numbers in shown)
+            if len(self._indices) > _REPR_LIMIT:
+                return f"{cls}({text}, ..., count={len(self._indices)})"
+            return f"{cls}({text})"
         names = []
         start = previous = None
         for index in self._repr_indices():
@@ -864,12 +946,17 @@ class Components:
 
         Returns:
             list[str]: ``|cube|cubeShape.vtx[3]`` のような、要素ごとの名前。
+                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前。
 
         Raises:
             TypeError: 対応しないシェイプ型の場合。
             IndexError: いずれかの番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
+        if self.component_class.index_size > 1:
+            self._require_valid()
+            prefix = f"{self._shape.getFullName()}.{self.component_class.component_type}"
+            return [_component_name(prefix, numbers) for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
         prefix = self._name_prefix()
         return [f"{prefix}[{index}]" for index in self._indices]
 
@@ -880,6 +967,7 @@ class Components:
         番号は並べ替えず、持っている順で1ずつ続く区間だけをまとめる。
         たとえば番号 ``[0, 1, 2, 5, 3]`` は ``vtx[0:2]``・``vtx[5]``・``vtx[3]`` になる。
         全部の番号を、まとめて1回だけ確かめ直す。
+        番号を複数持つ要素は範囲にまとめないので、:meth:`getFullNames` と同じ名前を返す。
 
         Returns:
             list[str]: ``|cube|cubeShape.vtx[0:2]`` のような名前。空の集まりなら空リスト。
@@ -889,6 +977,8 @@ class Components:
             IndexError: いずれかの番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
+        if self.component_class.index_size > 1:
+            return self.getFullNames()
         prefix = self._name_prefix()
         names = []
         start = previous = None
@@ -1209,168 +1299,3 @@ def _component_name(prefix, numbers):
         str: コンポーネント名。
     """
     return prefix + "".join(f"[{number}]" for number in numbers)
-
-
-class _MultiIndexComponent:
-    """番号を複数持つコンポーネント1つに共通の処理。
-
-    ``cv[u][v]``・``pt[s][t][u]``・``vtxFace[v][f]`` のように、番号を複数持つ要素に使う。
-    :class:`Component` の具体的なクラスと組み合わせて使う(``class SurfaceCV(_MultiIndexComponent, PointComponent)``)。
-
-    持っている :attr:`~Component.index` は、要素を一列に並べたときの通し番号になる。
-    ``==``・ハッシュ・:attr:`Components.indices` は、この通し番号を使う。
-    複数の番号は :meth:`getMultiIndex` で取得する。
-    具体的なクラスは ``index_size`` と、``_element_count``・``_multi_indices``・``_flat_indices`` を定義する。
-    """
-
-    #: 番号の数。具体的なクラスが定義する。
-    index_size = 0
-
-    if TYPE_CHECKING:
-        _shape: "Shape"
-        _index: int
-        shape_type: Optional[str]
-        component_type: Optional[str]
-        _require_shape: Callable[..., None]
-        _require_valid: Callable[[], None]
-        _multi_indices: Callable[..., List[Tuple[int, ...]]]
-        _flat_indices: Callable[..., List[int]]
-
-    def __init__(self, shape, index):
-        """シェイプと番号を確かめて、コンポーネントを作る。
-
-        Args:
-            shape (Shape): このクラスに対応するシェイプのオブジェクト。
-            index (int | Sequence[int]): 通し番号、または複数の番号(``(u, v)`` など)。
-                boolと負の数は受け付けない。
-
-        Raises:
-            TypeError: シェイプの型が合わない場合、または番号が整数として扱えないかboolの場合。
-            ValueError: 複数の番号の数が違う場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        self._shape = shape
-        self._require_shape(shape, self.shape_type)
-        self._index = _flat_input(type(self), shape, [index])[0]
-        self._require_valid()
-
-    def getFullName(self):
-        """今のDAGパスと複数の番号を使って、コンポーネント名を取得する。
-
-        Returns:
-            str: ``|plane|planeShape.cv[1][2]`` のような名前。周期曲面で重なっているCVは、先頭側の番号で表す。
-        """
-        self._require_valid()
-        numbers = self._multi_indices(self._shape, [self._index], command=True)[0]
-        return _component_name(f"{self._shape.getFullName()}.{self.component_type}", numbers)
-
-    def getMultiIndex(self):
-        """この要素の複数の番号を、今の形状から取得する。
-
-        Returns:
-            tuple[int, ...]: ``(u, v)``・``(s, t, u)``・``(頂点, フェース)`` のような番号。
-
-        Raises:
-            TypeError: 対応していないシェイプの型の場合。
-            IndexError: 番号が今の範囲の外にある場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        self._require_valid()
-        return self._multi_indices(self._shape, [self._index])[0]
-
-
-class _MultiIndexComponents:
-    """番号を複数持つコンポーネントの集まりに共通の処理。
-
-    :class:`Components` の具体的なクラスと組み合わせて使う。
-    番号の指定には、通し番号と複数の番号を混ぜて使える。持つのは通し番号にする。
-    名前は範囲にまとめない。
-    """
-
-    if TYPE_CHECKING:
-        _shape: "Shape"
-        _indices: Tuple[int, ...]
-        component_class: Any
-        isValid: Callable[[], bool]
-        _require_valid: Callable[[], None]
-
-    def __init__(self, shape, indices=None):
-        """指定した番号を確かめて、コンポーネントの集まりを作る。
-
-        初めて出てきた順を保ち、重なりを除いて持つ。
-
-        Args:
-            shape (Shape): このクラスに対応するシェイプのオブジェクト。
-            indices (Iterable[int | Sequence[int]] | None): 通し番号、または複数の番号の並び。
-                Noneなら、作った時点の全要素を通し番号の小さい順に持つ。
-
-        Raises:
-            TypeError: シェイプの型、または番号の型が合わない場合。
-            ValueError: 複数の番号の数が違う場合。
-            IndexError: どれかの番号が今の範囲の外にある場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        self._shape = shape
-        component_class = self.component_class
-        Component._require_shape(shape, component_class.shape_type)
-        count = component_class._element_count(shape)
-        if indices is None:
-            self._indices = tuple(range(count))
-            return
-        if isinstance(indices, (str, bytes)):
-            raise TypeError("indicesはコンポーネントの番号の並びで指定してください")
-        flats = _flat_input(component_class, shape, list(indices))
-        for index in flats:
-            Component._require_index_range(index, count)
-        self._indices = tuple(dict.fromkeys(flats))
-
-    def __repr__(self):
-        """デバッグ用に、型名と先頭の要素の名前を表す文字列を返す。
-
-        Returns:
-            str: ``SurfaceCVs('planeShape.cv[0][0]', 'planeShape.cv[0][1]')`` のような文字列。多い場合は数を付ける。
-                空なら ``SurfaceCVs('planeShape', count=0)``、無効なら ``<SurfaceCVs invalid>``。
-        """
-        cls = type(self).__name__
-        if not self.isValid():
-            return f"<{cls} invalid>"
-        shape = self._shape.getName()
-        if not self._indices:
-            return f"{cls}({shape!r}, count=0)"
-        prefix = f"{shape}.{self.component_class.component_type}"
-        shown = self.component_class._multi_indices(self._shape, self._indices[:_REPR_LIMIT], command=True)
-        text = ", ".join(repr(_component_name(prefix, numbers)) for numbers in shown)
-        if len(self._indices) > _REPR_LIMIT:
-            return f"{cls}({text}, ..., count={len(self._indices)})"
-        return f"{cls}({text})"
-
-    def getFullNames(self):
-        """持っている順に、完全パスのコンポーネント名を取得する。
-
-        Returns:
-            list[str]: ``|plane|planeShape.cv[1][2]`` のような、要素ごとの名前。
-
-        Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: いずれかの番号が範囲外の場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        self._require_valid()
-        prefix = f"{self._shape.getFullName()}.{self.component_class.component_type}"
-        return [_component_name(prefix, numbers) for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
-
-    def getCompactNames(self):
-        """cmdsへ渡す名前を返す。
-
-        番号を複数持つ要素は範囲にまとめないので、:meth:`getFullNames` と同じ名前を返す。
-
-        Returns:
-            list[str]: 持っている順のコンポーネント名。
-
-        Raises:
-            TypeError: 対応しないシェイプ型の場合。
-            IndexError: いずれかの番号が範囲外の場合。
-            RuntimeError: シェイプが無効な場合。
-        """
-        return self.getFullNames()

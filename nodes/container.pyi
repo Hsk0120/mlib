@@ -1,7 +1,6 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Maya containerによる計算ノードの所有管理。"""
 
-from typing import TYPE_CHECKING
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..decorator import undoTransaction
@@ -11,13 +10,8 @@ from typing import Iterable
 
 
 
-class _ContainerMixin(Node if TYPE_CHECKING else object):
-    """containerBase系のノードが共有する、メンバーと公開名の操作。
-
-    :class:`Container` と :class:`~mlib.nodes.dagContainer.DagContainer` が使う。
-    Nodeを継承しない、混ぜ込み用のクラスで、単独では使わない。
-    Containerは ``_ContainerMixin`` とNodeを、DagContainerはTransformとContainerを基底に持つ。
-    そのため、``isinstance(x, Container)`` はcontainerでもdagContainerでもTrueになる。
+class Container(Node):
+    """containerノードを扱うクラス。直接のメンバーと、公開名と内部のアトリビュートの対応を管理する。
 
     つながっているノードを自動で集めるクラスではない。Mayaのcontainerのメンバーと、
     公開名のバインド(内部のアトリビュートとの対応付け)を扱う。
@@ -26,6 +20,9 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
     変更はundoTransactionでまとめる(Undoが有効であることが前提)。失敗したときはUndoで元に戻そうとするが、
     その戻す処理まで失敗しないとは限らない。fast引数は無い。
     createNodeでノードを作るときも、通常のUndoできる変更を使う。
+
+    :class:`~mlib.nodes.dagContainer.DagContainer` は同じ名前のメソッドを持ち、このクラスのメソッドを呼ぶ
+    (クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。
     """
     def getExternalConnections(self) -> Plugs:
         """コンテナ内部から外部へつながる、外部側のPlugを取得する。
@@ -205,12 +202,3 @@ class _ContainerMixin(Node if TYPE_CHECKING else object):
             ValueError: nameが公開名でない場合、またはバインドされている場合。このときは何も変えない。
         """
         ...
-
-
-class Container(_ContainerMixin, Node):
-    """containerノードを扱うクラス。直接のメンバーと、公開名と内部のアトリビュートの対応を管理する。
-
-    メンバーと公開名の操作(create・getMembers・addMembers・removeMembers・createNode・removeContainer・
-    publishName・getPublishedAttrs・bindAttr・publishAndBind・unbindAttr・unpublishName)は、
-    非公開の ``_ContainerMixin`` に書いてあり、:class:`~mlib.nodes.dagContainer.DagContainer` と共有する。
-    """

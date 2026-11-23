@@ -344,6 +344,12 @@ class ProjectRuleLayoutTest(unittest.TestCase):
         self.assertEqual(self.only("from ..core import geometryEdit", "L055"), [])
         self.assertEqual(self.only("from operator import index as _as_index\nimport maya.api.OpenMaya as om2", "L055"), [])
 
+    def test_classes_have_a_single_base(self):
+        """クラスの親は1つにする(ミックスイン・多重継承を使わない。例外クラスも同じ)。"""
+        self.assertEqual(self.only("class Base:\n    pass\n\n\nclass Other:\n    pass\n\n\nclass Both(Base, Other):\n    pass", "L056"), ["L056"])
+        self.assertEqual(self.only("class MissingError(AttributeError, RuntimeError):\n    pass", "L056"), ["L056"])
+        self.assertEqual(self.only("class Base:\n    pass\n\n\nclass Child(Base):\n    pass\n\n\nclass MissingError(AttributeError):\n    pass", "L056"), [])
+
     def test_exception_messages_are_japanese_f_strings(self):
         """例外の文言は日本語で、f-string 1つにまとめる。"""
         self.assertEqual(self.only('def run(value):\n    raise TypeError("value must be a bool")', "L060"), ["L060"])

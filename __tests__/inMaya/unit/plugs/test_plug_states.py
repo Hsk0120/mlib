@@ -503,17 +503,17 @@ class PlugValiditySpecTest(_StateSpecCase):
         self.assertNotEqual(old, new)
 
     def test_deleted_attribute_error_types(self):
-        """DeletedAttributeErrorはValueErrorとRuntimeErrorの両方として捕捉できる。"""
-        self.assertTrue(issubclass(DeletedAttributeError, ValueError))
-        self.assertTrue(issubclass(DeletedAttributeError, RuntimeError))
+        """DeletedAttributeErrorはValueErrorだけの派生(クラスの親は1つ)。"""
+        self.assertEqual(DeletedAttributeError.__bases__, (ValueError,))
+        self.assertFalse(issubclass(DeletedAttributeError, RuntimeError))
 
     def test_missing_attribute_error_is_shared(self):
         """存在しないアトリビュートは mlib.getPlug・node.getPlug とも MissingAttributeError で文言も同じ。"""
-        self.assertTrue(issubclass(MissingAttributeError, AttributeError))
-        self.assertTrue(issubclass(MissingAttributeError, RuntimeError))
+        self.assertEqual(MissingAttributeError.__bases__, (AttributeError,))
+        self.assertFalse(issubclass(MissingAttributeError, RuntimeError))
         expected = f"アトリビュートが見つかりません: {self.name}.nope"
         for label, call in (("mlib.getPlug", lambda: mlib.getPlug(self.name + ".nope")), ("Node.getPlug", lambda: self.node.getPlug("nope"))):
-            for error in (MissingAttributeError, AttributeError, RuntimeError):
+            for error in (MissingAttributeError, AttributeError):
                 with self.subTest(call=label, error=error.__name__):
                     with self.assertRaises(error) as context:
                         call()

@@ -217,27 +217,24 @@ def _multi_element_exists(mplug: om2.MPlug) -> bool:
     ...
 
 
-class DeletedAttributeError(ValueError, RuntimeError):
+class DeletedAttributeError(ValueError):
     """``deleteAttr`` で削除したアトリビュートの Plug・MPlug を、ノードを受け取る引数に渡した場合の例外。
 
     ノードは残っていてアトリビュートだけが削除された Plug・MPlug を、そのノードとして扱うと、
     削除されたものを黙って受け付けてしまう。そのため、``Node._resolve_input``・``Node(...)``/``mlib.getNode``・
     ``Transform.addConstraint()`` のターゲットやコンストレイント先などでも例外にする。
 
-    mlib のコマンド(``Object._input_name``)と同じく、``ValueError`` として扱う。
-    また ``Node(...)`` は、ノードとして扱えない入力をすべて ``RuntimeError`` にする決まりなので、
-    ``RuntimeError`` としても捕まえられるようにしている(標準ライブラリの ``io.UnsupportedOperation`` が
-    ``OSError`` と ``ValueError`` の両方を継承するのと同じ考え方)。
+    mlib のコマンド(``Object._input_name``)と同じく、``ValueError`` の派生クラス
+    (クラスの親は1つにする決まりのため、``RuntimeError`` の派生ではない)。
     """
 
 
-class MissingAttributeError(AttributeError, RuntimeError):
+class MissingAttributeError(AttributeError):
     """指定した名前のアトリビュートが見つからない場合の例外。
 
     ``mlib.getPlug("node.nope")`` と ``node.getPlug("nope")`` のどちらもこの例外を送出する(文言は
     ``アトリビュートが見つかりません: <ノード名>.<アトリビュート名>``)。
-    これまで前者は見つからない名前を ``RuntimeError``、後者は ``AttributeError`` にしてきた。
-    どちらの ``except`` でも捕まえられるよう、両方を継承する(:class:`DeletedAttributeError` と同じ考え方)。
+    ``AttributeError`` の派生クラス(クラスの親は1つにする決まりのため、``RuntimeError`` の派生ではない)。
     ``node.nope`` のように書いた場合は、近い名前の候補を含む ``AttributeError`` を送出し、
     この例外を ``__cause__`` に入れる。
     """
@@ -371,6 +368,7 @@ class Plug(Object):
 
         Raises:
             TypeError: dst が対応していない型の場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: すでに同じ接続がある・すでに入力がある・ロックされている・Plugが無効な場合、
                 またはマルチアトリビュート全体へ接続しようとした場合(:meth:`connect` と同じ)。
         """
@@ -388,6 +386,7 @@ class Plug(Object):
 
         Raises:
             TypeError: src が対応していない型の場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: すでに同じ接続がある・すでに入力がある・ロックされている・Plugが無効な場合
                 (:meth:`connect` と同じ)。
         """
@@ -405,6 +404,7 @@ class Plug(Object):
 
         Raises:
             TypeError: dst が対応していない型の場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 自身から dst への接続が無い場合、または Plug が無効な場合。
         """
         ...
@@ -2223,8 +2223,9 @@ class Plug(Object):
             TypeError: other が Plug・MPlug・アトリビュート名のどれでもない場合、または文字列が
                 アトリビュートを指していない場合。sourceかdestinationがboolでない場合。
             ValueError: other が空文字列の場合、または空の MPlug の場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 自身のノードかアトリビュートが削除されている場合。
-                other の文字列に当たるアトリビュートが1つに決まらない(無い、または複数に一致する)場合や、
+                other の文字列が複数のアトリビュートに一致する場合や、
                 other のPlug・MPlugのノードかアトリビュートが削除されている場合も含む。
         """
         ...
@@ -2261,6 +2262,7 @@ class Plug(Object):
 
         Raises:
             TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
                 forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
                 接続元・接続先のノードかアトリビュートが削除されている場合も、何も変えずに送出する
@@ -2312,6 +2314,7 @@ class Plug(Object):
 
         Raises:
             TypeError: sourceがboolなど対応していない型の場合、またはfastがboolでない場合。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 入力や指定した接続が無い場合、または切断やロックの復元に失敗した場合。
 
         Note:
@@ -2358,6 +2361,7 @@ class Plug(Object):
         Raises:
             TypeError: 接続先が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合
                 (:meth:`connect` と同じ)。
+            AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 同じ接続がすでにある(skipExisting=Falseのとき)・forceなしで入力を置き換えようとした・
                 ロックされている・接続に失敗した場合、または接続元・接続先が削除されている場合(:meth:`connect` と同じ)。
         """
@@ -2385,7 +2389,8 @@ class Plug(Object):
         Raises:
             TypeError: node が対応していない型の場合、または inputAttribute・outputAttribute が文字列でない場合。
             ValueError: inputAttribute・outputAttribute が空文字列の場合。
-            RuntimeError: 自身か node が無効な場合、アトリビュートが無い場合(``MissingAttributeError``)、
+            AttributeError: node にその名前のアトリビュートが無い場合(``MissingAttributeError``)。
+            RuntimeError: 自身か node が無効な場合、
                 node の入力側にすでに入力の接続がある場合、または Maya が接続を拒否した場合。
         """
         ...
@@ -2951,7 +2956,7 @@ class Plug(Object):
             TypeError: 対応していない型の場合、または文字列がアトリビュートを指していない場合。
             ValueError: 空文字列の場合、または空の MPlug の場合。
             MissingAttributeError: 文字列のアトリビュート(またはノード)が無い場合。
-                ``AttributeError`` と ``RuntimeError`` の両方を継承している。
+                ``AttributeError`` の派生クラス。
             RuntimeError: 文字列が複数のものに一致する場合。
                 MPlug のノードが削除されている場合や、アトリビュートが ``deleteAttr`` で削除されている場合も含む
                 (``Node(...)``・``Plug(...)`` を作るときと同じ。Undo で戻せない形で削除された
@@ -3200,7 +3205,8 @@ class Plugs(_ListMethods):
         Raises:
             TypeError: アトリビュートを指さない値や、対応していない型を含む場合。
             ValueError: 空文字列や空のMPlugを含む場合。
-            RuntimeError: 名前に当たるアトリビュートが見つからない場合、または無効な(削除された)アトリビュートを含む場合。
+            AttributeError: 名前に当たるアトリビュートが見つからない場合(``MissingAttributeError``)。
+            RuntimeError: 無効な(削除された)アトリビュートを含む場合。
         """
         ...
     def __getattr__(self, name: str) -> Callable[..., list]:
@@ -3261,7 +3267,8 @@ class Plugs(_ListMethods):
 
         Raises:
             TypeError: 相手が対応していない型の場合、またはアトリビュートでないものを含む場合。
-            RuntimeError: 見つからないアトリビュートや、無効なアトリビュートを含む場合。
+            AttributeError: 見つからないアトリビュートを含む場合(``MissingAttributeError``)。
+            RuntimeError: 無効なアトリビュートを含む場合。
         """
         ...
     def __radd__(self, other: list | tuple) -> Plugs:
@@ -3275,7 +3282,8 @@ class Plugs(_ListMethods):
 
         Raises:
             TypeError: 相手が対応していない型の場合、またはアトリビュートでないものを含む場合。
-            RuntimeError: 見つからないアトリビュートや、無効なアトリビュートを含む場合。
+            AttributeError: 見つからないアトリビュートを含む場合(``MissingAttributeError``)。
+            RuntimeError: 無効なアトリビュートを含む場合。
         """
         ...
     def sort(self, key: Callable[[Plug], object] | None = ..., reverse: bool = ...) -> None:
@@ -3332,7 +3340,8 @@ class Plugs(_ListMethods):
 
         Raises:
             TypeError: アトリビュートを指さない値や、対応していない型の場合。
-            RuntimeError: 名前に当たるアトリビュートが見つからない場合、または無効なアトリビュートの場合。
+            AttributeError: 名前に当たるアトリビュートが見つからない場合(``MissingAttributeError``)。
+            RuntimeError: 無効なアトリビュートの場合。
         """
         ...
     def getNode(self) -> list[Node]:
