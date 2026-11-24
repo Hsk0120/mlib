@@ -183,6 +183,20 @@ class PoseSnapshotTest(_SnapshotCase):
         self.assertNotIn("aim", attrs)
         self.assertEqual(attrs["aimY"], 4.0)
 
+    def test_non_finite_values_are_left_out(self):
+        """NaN・無限大の値は警告して省き、そのまま保存できることを確かめる。"""
+        for name, value in (("broken", float("nan")), ("huge", float("inf"))):
+            cmds.addAttr(self.joint, longName=name, attributeType="double", keyable=True)
+            cmds.setAttr(self.joint + "." + name, value)
+        with self.assertLogs("mlib", level="WARNING") as logs:
+            snap = PoseSnapshot.capture([self.joint])
+        attrs = snap.toData()["nodes"][0]["attrs"]
+        self.assertNotIn("broken", attrs)
+        self.assertNotIn("huge", attrs)
+        self.assertEqual(attrs["blend"], 0.25)
+        self.assertIn("有限ではありません", "\n".join(logs.output))
+        std_json.dumps(snap.toData(), allow_nan=False)
+
     def test_failed_write_is_skipped(self):
         """書き込みに失敗した値を「failed」で報告し、ほかの値は書くことを確かめる。"""
         snap = PoseSnapshot.capture([self.joint])

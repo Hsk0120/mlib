@@ -103,6 +103,18 @@ _tools\.venv\Scripts\python.exe _tools\check_mlib_doc_getter_names.py _docs\_bui
 Wikiへ貼り付けるMarkdownが必要な場合は、`_tools/build_mlib_markdown.bat --no-pause`を実行します。
 出力先・リンク・継承図の制限は[_docs/README.md](_docs/README.md)を参照してください。
 
+**テストを足したら、どの行がまだ一度も実行されていないかを測れます。**
+
+```powershell
+py -3 _tools\measure_mlib_coverage.py --versions 2022 2027
+py -3 _tools\measure_mlib_coverage.py --tests test_joint.py --only nodes/joint.py
+```
+
+Mayaのテストをトレース付きで実行し、`__tests__/_output/coverage/<日時>/`へ、パッケージごとの割合(`summary.txt`)と、
+実行されなかった行を関数ごとに並べたもの(`gaps/<パッケージ>.md`)を書き出します。版を並べると、版ごとの値と合わせた値を出します
+(版ごとの分岐は、その版でしか通りません)。標準ライブラリだけで動き、追加のパッケージは要りません。
+トレース付きなので、ふつうのテストより時間がかかります。
+
 ### なぜスタブと文書を2本から外すのか
 
 どちらも「解析」でも「テスト」でもなく**生成物のビルド**です。コードの正しさとは別の工程なので、

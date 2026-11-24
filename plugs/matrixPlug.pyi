@@ -37,7 +37,7 @@ class MatrixPlug(Plug):
 
         """
         ...
-    def _set_value(self, value: Matrix | om2.MMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
+    def _set_value(self, value: Matrix | om2.MMatrix | om2.MTransformationMatrix | Sequence[Any], *, uiUnits: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """マトリクスのアトリビュートへ値を直接設定する。
 
         Transformの移動・回転・スケールは操作しない。全体の流れは :meth:`Plug.set` が受け持つ。
@@ -47,7 +47,8 @@ class MatrixPlug(Plug):
         - safe=Trueで失敗したときは、成分ごとに再試行せず1を返す。
 
         Args:
-            value (Matrix | om2.MMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
+            value (Matrix | om2.MMatrix | om2.MTransformationMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
+                MTransformationMatrix(``Transformation`` を含む)は ``asMatrix()`` のマトリクスにする(genericの型と同じ)。
             uiUnits (bool): Plug共通のフラグとして受け付けるが、マトリクスの成分は換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。

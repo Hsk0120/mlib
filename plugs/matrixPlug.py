@@ -57,7 +57,8 @@ class MatrixPlug(Plug):
         - safe=Trueで失敗したときは、成分ごとに再試行せず1を返す。
 
         Args:
-            value (Matrix | om2.MMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
+            value (Matrix | om2.MMatrix | om2.MTransformationMatrix | sequence): マトリクスの値。Matrix(value)で変換する。
+                MTransformationMatrix(``Transformation`` を含む)は ``asMatrix()`` のマトリクスにする(genericの型と同じ)。
             uiUnits (bool): Plug共通のフラグとして受け付けるが、マトリクスの成分は換算しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるかを確かめる。
@@ -74,7 +75,8 @@ class MatrixPlug(Plug):
         self._require_valid()
         if self.getAttributeName() in ("worldMatrix", "wm"):
             raise TypeError("worldMatrixは計算される出力なので設定できません")
-        matrix = Matrix(value)
+        # Matrix は MTransformationMatrix を直接受け付けないため、genericの型と同じくマトリクスへ変換する。
+        matrix = Matrix(value.asMatrix() if isinstance(value, om2.MTransformationMatrix) else value)
         if check:
             self._require_writable()
         if fast:

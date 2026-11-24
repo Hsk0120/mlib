@@ -1782,7 +1782,7 @@ class Transform(DagNode):
                 worldSpaceとwsを同時に指定した場合、``setTranslation(1, 2, 3)`` のように
                 成分を分けて渡した場合、relativeがboolでない場合、relative=Trueとatを同時に指定した場合、
                 またはrelative=Trueでvalueが数値の並びでない場合。
-            ValueError: relative=Trueで、valueの値の数が3でない場合、または有限でない場合。
+            ValueError: valueの値の数が3でない場合(MPointは除く)。relative=Trueかcheck=Trueで、値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
 
@@ -1802,6 +1802,10 @@ class Transform(DagNode):
                 # at=1(translate の位置)を基準にすると、ワールド指定でも移動量だけを親の空間へ変換して足せる。
                 at = 1
                 value = om2.MVector(self.getTranslation(worldSpace=ws, at=1)) + delta
+            elif not isinstance(value, (om2.MPoint, om2.MFloatPoint)):
+                # 成分の数は書き込みの形そのものなので、checkに関係なく確かめる(2つの値を(x, y, 0)として書かない)。
+                # 有限かどうかは、ほかの書き込みと同じくcheck=Trueのときだけ確かめる。
+                value = _finite_vector(value, 3, "value") if check else _vector_of_three(value)
             if ws and at == 2 and not (safe or get or fast or check) and self._set_world_translation_at_once(value):
                 return None
             point = om2.MPoint(tuple(value))
@@ -3421,3 +3425,25 @@ class Transform(DagNode):
         assert isinstance(base, Matrix)
         translate = source.translate - base.translate
         return {"translate": Translate(*translate), "rotate": EulerRotate._wrap(rotation), "scale": Scale(*scale), "shear": Shear(*shear)}
+
+
+def _vector_of_three(value):
+    """値が3つの成分の並びであることだけを確かめて、tupleにする。有限かどうかは調べない。
+
+    Args:
+        value (Iterable[float]): 確かめる値。
+
+    Returns:
+        tuple: 3つの成分。
+
+    Raises:
+        TypeError: 並びでない場合。
+        ValueError: 成分の数が3でない場合。
+    """
+    try:
+        items = tuple(value)
+    except TypeError:
+        raise TypeError("valueは3個の数値の並びで指定してください") from None
+    if len(items) != 3:
+        raise ValueError("valueは3個の成分で指定してください")
+    return items

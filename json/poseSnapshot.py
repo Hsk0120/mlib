@@ -1,8 +1,11 @@
 """ノードのローカルなアトリビュートの値(ポーズ)を保存・復元する。"""
 
+import math
+
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from .. import logger
 from .nodeRef import NodeRef
 from .snapshot import Snapshot, ValidationReport
 
@@ -41,6 +44,7 @@ class PoseSnapshot(Snapshot):
 
         対象は、キーを打てるアトリビュートと、チャンネルボックスに表示されるアトリビュート。
         ユーザー定義アトリビュートも含む。値がスカラーでないものは保存しない。
+        値が有限でない(NaN・無限大)アトリビュートは、保存できないので警告して省く(:class:`AttributesSnapshot` と同じ)。
         同じノードを何回か指定した場合は、最初の1回だけ記録する。
 
         Args:
@@ -189,6 +193,9 @@ def _capture_pose_attributes(node):
         try:
             value = plug.get()
         except (RuntimeError, TypeError, ValueError):
+            continue
+        if isinstance(value, float) and not math.isfinite(value):
+            logger.warning("PoseSnapshot: %sを省きました(値が有限ではありません: %r)", plug._full_name(), value)
             continue
         if isinstance(value, (bool, int, float)):
             values[path] = value

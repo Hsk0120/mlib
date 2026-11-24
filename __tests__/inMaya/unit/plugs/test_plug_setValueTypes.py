@@ -57,6 +57,27 @@ class GenericMatrixCheckTest(_SetCase):
         plug.set(om2.MTransformationMatrix(expected), check=True)
         self.assertEqual(cmds.getAttr(plug.getName(full=True))[14], 4.0)
 
+    def test_transformation_matrix_on_matrix_attribute(self):
+        """matrix型のアトリビュートもMTransformationMatrix・Transformationを受け付け、通常はUndo 1回、fastはUndoなし。"""
+        cmds.addAttr(self.node, longName="typedMatrix", shortName="typedMatrix", attributeType="matrix")
+        plug = mlib.getPlug(self.node + ".typedMatrix")
+        name = plug.getName(full=True)
+        for kind, fast in ((om2.MTransformationMatrix, False), (mlib.Transformation, True)):
+            with self.subTest(kind=kind.__name__, fast=fast):
+                value = kind()
+                value.setTranslation(om2.MVector(1.0, 2.0, 3.0), om2.MSpace.kTransform)
+                before = cmds.getAttr(name)
+                self.flushUndo()
+                plug.set(value, fast=fast, check=True)
+                self.assertEqual(cmds.getAttr(name)[12:15], [1.0, 2.0, 3.0])
+                if fast:
+                    self.assertUndoEmpty()
+                else:
+                    self.assertUndoesInOneStep(
+                        lambda: self.assertEqual(cmds.getAttr(name), before), lambda: self.assertEqual(cmds.getAttr(name)[12:15], [1.0, 2.0, 3.0])
+                    )
+                plug.set(Matrix())
+
     def test_locked_or_connected(self):
         """ロック・入力の接続があれば、通常・fastともRuntimeErrorで値を変えない。"""
         plug = self.generic()

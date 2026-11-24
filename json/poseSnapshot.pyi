@@ -1,8 +1,10 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """ノードのローカルなアトリビュートの値(ポーズ)を保存・復元する。"""
 
+import math
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from .. import logger
 from .nodeRef import NodeRef
 from .snapshot import Snapshot, ValidationReport
 from typing import Iterable
@@ -44,6 +46,7 @@ class PoseSnapshot(Snapshot):
 
         対象は、キーを打てるアトリビュートと、チャンネルボックスに表示されるアトリビュート。
         ユーザー定義アトリビュートも含む。値がスカラーでないものは保存しない。
+        値が有限でない(NaN・無限大)アトリビュートは、保存できないので警告して省く(:class:`AttributesSnapshot` と同じ)。
         同じノードを何回か指定した場合は、最初の1回だけ記録する。
 
         Args:

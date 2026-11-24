@@ -183,6 +183,25 @@ class TransformInputErrorsTest(_Case):
             target.replaceShapes(shape)
         self.assertIsNone(cmds.listRelatives(str(target), shapes=True))
 
+    def test_set_translation_component_count(self):
+        """setTranslationの成分の数は、checkに関係なく確かめる。有限かどうかはcheck=Trueのときだけ確かめる。"""
+        node = mlib.getNode(self.make(text="node"))
+        name = node.getName(full=True)
+        cmds.setAttr(name + ".translate", 1.0, 1.0, 1.0)
+        for kwargs in ({}, {"ws": True}, {"fast": True}, {"check": True}, {"ws": True, "fast": True}):
+            for value in ((1.0, 2.0), (1.0, 2.0, 3.0, 4.0)):
+                with self.subTest(kwargs=kwargs, value=value), self.assertRaises(ValueError):
+                    node.setTranslation(value, **kwargs)
+            with self.subTest(kwargs=kwargs, value=5), self.assertRaises(TypeError):
+                node.setTranslation(5, **kwargs)
+        for kwargs in ({"check": True}, {"ws": True, "check": True}, {"ws": True, "fast": True, "check": True}):
+            with self.subTest(kwargs=kwargs, value="inf"), self.assertRaises(ValueError):
+                node.setTranslation((float("inf"), 0.0, 0.0), **kwargs)
+        self.assertEqual(cmds.getAttr(name + ".translate")[0], (1.0, 1.0, 1.0))
+        # MPointは4つの成分を持つが、これまでどおり位置として受け付ける。
+        node.setTranslation(om2.MPoint(4.0, 5.0, 6.0))
+        self.assertEqual(cmds.getAttr(name + ".translate")[0], (4.0, 5.0, 6.0))
+
     def test_set_parent_fast_invalid_parent(self):
         """fastの親がtransformでなければTypeError、親のマトリクスが特異ならRuntimeError。どちらも親は変わらない。"""
         node = mlib.getNode(self.make(text="node"))

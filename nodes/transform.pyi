@@ -992,7 +992,7 @@ class Transform(DagNode):
                 worldSpaceとwsを同時に指定した場合、``setTranslation(1, 2, 3)`` のように
                 成分を分けて渡した場合、relativeがboolでない場合、relative=Trueとatを同時に指定した場合、
                 またはrelative=Trueでvalueが数値の並びでない場合。
-            ValueError: relative=Trueで、valueの値の数が3でない場合、または有限でない場合。
+            ValueError: valueの値の数が3でない場合(MPointは除く)。relative=Trueかcheck=Trueで、値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
 
@@ -1904,3 +1904,18 @@ class Transform(DagNode):
             scale_reference: スケール補正の基準となるノードまたは値。
         """
         ...
+
+def _vector_of_three(value: Iterable[float]) -> tuple:
+    """値が3つの成分の並びであることだけを確かめて、tupleにする。有限かどうかは調べない。
+
+    Args:
+        value (Iterable[float]): 確かめる値。
+
+    Returns:
+        tuple: 3つの成分。
+
+    Raises:
+        TypeError: 並びでない場合。
+        ValueError: 成分の数が3でない場合。
+    """
+    ...
