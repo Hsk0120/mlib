@@ -353,8 +353,7 @@ class Transform(DagNode):
     def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """直下のShape(MeshとNurbsCurve。中間オブジェクトを除く)の頂点やCVを、中心pivotに対して反転する。
 
-        処理は各Shapeの :meth:`Mesh.mirror <mlib.nodes.mesh.Mesh.mirror>`・
-        :meth:`NurbsCurve.mirror <mlib.nodes.nurbsCurve.NurbsCurve.mirror>` と同じ。
+        処理は各Shapeの ``Mesh.mirror()``・``NurbsCurve.mirror()`` と同じ。
         すべてのShapeについて、入力・番号の範囲・fastで書き換えられる条件を先に確かめてから、
         1回のUndoにまとめて行う(fastではUndoに記録しない)。
 
