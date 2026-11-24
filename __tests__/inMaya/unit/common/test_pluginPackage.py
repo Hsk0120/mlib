@@ -16,7 +16,7 @@ import mlib
 mlib.reload()
 
 import mlib.common.pluginPackage as package_module
-from mlib.common import LOAD_FAILED, LOADED, MISSING, OUTDATED, SKIPPED, Plugin, PluginPackage, Version
+from mlib.common import LOAD_FAILED, LOADED, MISSING, OUTDATED, SKIPPED, Module, Plugin, PluginPackage, Version
 
 
 def _versions(installed, loadedVersion=None):
@@ -176,6 +176,29 @@ class PluginPackageFlowTest(unittest.TestCase):
         result, loader = self.run_flow(package, (1, 0))
         self.assertEqual(result, LOADED)
         loader.assert_called_once_with()
+
+    def test_is_installed_without_minimum_version(self):
+        """minimumVersionが無ければ、版が取れるか、モジュール・プラグインのどれかが登録されていれば入っているとする。"""
+        package = self.make(minimumVersion=None)
+        registered = {"module": False, "plugins": []}
+        with mock.patch.object(PluginPackage, "getVersion", _versions((1, 0))):
+            self.assertTrue(package.isInstalled())
+        with mock.patch.object(PluginPackage, "getVersion", _versions(None)), mock.patch.object(
+            Module, "isRegistered", lambda module: registered["module"]
+        ), mock.patch.object(Plugin, "isRegistered", lambda plugin: plugin.name in registered["plugins"]):
+            self.assertFalse(package.isInstalled())
+            registered["plugins"] = ["pluginB"]
+            self.assertTrue(package.isInstalled())
+            registered["plugins"] = []
+            registered["module"] = True
+            self.assertTrue(package.isInstalled())
+
+    def test_is_installed_with_minimum_version(self):
+        """minimumVersionがあれば、取れた版がそれ以上のときだけ入っているとする。"""
+        package = self.make(minimumVersion="3.0.0")
+        for installed, expected in (((3, 0, 0), True), ((3, 1), True), ((2, 9, 9), False), (None, False)):
+            with self.subTest(installed=installed), mock.patch.object(PluginPackage, "getVersion", _versions(installed)):
+                self.assertIs(package.isInstalled(), expected)
 
     def test_dialog_options(self):
         package = self.make()

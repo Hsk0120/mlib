@@ -3,6 +3,7 @@
 import sys
 import unittest
 
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 import mlib
@@ -43,6 +44,13 @@ class LocatorTest(unittest.TestCase):
                 self.assertIsNone(result)
                 self.assertEqual(plug.get(), value)
                 self.assertEqual(cmds.getAttr(self.locator.getName(full=True) + ".localPosition")[0], value)
+
+    def test_mfn_is_dag_node_function_set(self):
+        """mfn()は保持するDAGパスのMFnDagNodeを毎回新しく作る。"""
+        fn = self.locator.mfn()
+        self.assertIs(type(fn), om2.MFnDagNode)
+        self.assertEqual(fn.fullPathName(), cmds.ls(self.locator.getName(full=True), long=True)[0])
+        self.assertIsNot(self.locator.mfn(), fn)
 
 
 if __name__ == "__main__":

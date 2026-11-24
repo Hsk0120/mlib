@@ -237,6 +237,79 @@ class ExtensionsTest(unittest.TestCase):
         self.assertEqual(mlib.core.extensions.status()[name]["state"], "error")
         self.assertIsNone(mlib.Node._registry.lookup("fixtureInvalidMapNode"))
 
+    def assertExtensionError(self, name, pattern):
+        """拡張の状態がerrorで、理由が指定の文言を含むことを確かめる。"""
+        state = mlib.core.extensions.status()[name]
+        self.assertEqual(state["state"], "error")
+        self.assertRegex(state["reason"], pattern)
+
+    def test_invalid_declarations_are_reported(self):
+        """is_availableが呼べない・型対応がマッピングでない・型名がstrでないか空の拡張はerrorにして登録しない。"""
+        self.package("mlib_fixture_notcallable", "MLIB_EXTENSION_API = 1\nis_available = True\n")
+        sample = "from mlib.nodes import Node\nclass Sample(Node): pass\n"
+        cases = {
+            "mlib_fixture_notmapping": ("_WRAPPER_CLASSES = [1]\n", "マッピング"),
+            "mlib_fixture_intkey": (sample + "_WRAPPER_CLASSES = {1: Sample}\n", "strで指定"),
+            "mlib_fixture_emptykey": (sample + "_WRAPPER_CLASSES = {'': Sample}\n", "空でない文字列"),
+        }
+        for name, (body, _) in cases.items():
+            path = self.package(name, "MLIB_EXTENSION_API = 1\ndef is_available(): return True\n")
+            (path / "nodes").mkdir()
+            (path / "nodes" / "__init__.py").write_text(body, encoding="utf-8")
+        mlib.reload()
+        self.assertExtensionError("mlib_fixture_notcallable", "呼び出せる")
+        for name, (_, pattern) in cases.items():
+            with self.subTest(name=name):
+                self.assertExtensionError(name, pattern)
+        self.assertIsNotNone(mlib.Node._registry.lookup("transform"))
+
+    def test_dynamic_import_of_other_extension_class_is_rejected(self):
+        """静的な検査をすり抜けて、ほかの拡張のクラスを継承したラッパーもerrorにする。"""
+        base = self.package("mlib_fixture_dynbase", "MLIB_EXTENSION_API = 1\ndef is_available(): return True\n")
+        self.wrappers(base, "nodes", "from mlib.nodes import Node\nclass Base(Node): pass\n", type_name="fixtureDynBase", class_name="Base")
+        child = self.package("mlib_fixture_dynchild", "MLIB_EXTENSION_API = 1\ndef is_available(): return True\n")
+        body = "import importlib\nBase = importlib.import_module('mlib_fixture_' + 'dynbase.nodes.sample').Base\nclass Child(Base): pass\n"
+        self.wrappers(child, "nodes", body, type_name="fixtureDynChild", class_name="Child")
+        mlib.reload()
+        self.assertExtensionError("mlib_fixture_dynchild", "ほかの拡張のクラス")
+        self.assertIsNone(mlib.Node._registry.lookup("fixtureDynChild"))
+        self.assertIsNotNone(mlib.Node._registry.lookup("fixtureDynBase"))
+
+    def test_duplicate_locations_are_reported(self):
+        """同じ名前の拡張が2つの探索パスにあればerrorにする。"""
+        self.package("mlib_fixture_twice", "MLIB_EXTENSION_API = 1\ndef is_available(): return True\n")
+        other = tempfile.TemporaryDirectory(prefix="mlib_extensions_other_")
+        self.addCleanup(other.cleanup)
+        (Path(other.name) / "mlib_fixture_twice").mkdir()
+        (Path(other.name) / "mlib_fixture_twice" / "__init__.py").write_text("MLIB_EXTENSION_API = 1\n", encoding="utf-8")
+        sys.path.insert(0, other.name)
+        self.addCleanup(sys.path.remove, other.name)
+        importlib.invalidate_caches()
+        mlib.reload()
+        self.assertExtensionError("mlib_fixture_twice", "重複")
+
+    def test_internal_guards(self):
+        """探索パスが読めない場合・拡張の初期化中・読み込み中の再入を、例外か何もしない扱いにする。"""
+        from unittest import mock
+
+        with mock.patch.object(Path, "iterdir", side_effect=PermissionError("denied")):
+            self.assertFalse(extensions._may_contain_candidate(self.temp.name))
+        fake = mock.Mock()
+        fake.path = None
+        with mock.patch.object(extensions.pkgutil, "get_importer", return_value=fake), mock.patch.object(
+            extensions.importlib.machinery, "FileFinder", type(fake)
+        ):
+            self.assertFalse(extensions._may_contain_candidate(self.temp.name))
+        module = mock.Mock()
+        module.__spec__ = mock.Mock(_initializing=True)
+        with mock.patch.dict(sys.modules, {"mlib_fixture_initializing": module}), self.assertRaisesRegex(RuntimeError, "importしないでください"):
+            extensions._load_candidate("mlib_fixture_initializing", {self.temp.name})
+        before = extensions.status()
+        with mock.patch.object(extensions, "_loading", True), mock.patch.object(extensions, "_find_candidates") as find:
+            extensions._initialize()
+        find.assert_not_called()
+        self.assertEqual(extensions.status(), before)
+
 
 class ExtensionsSpecTest(unittest.TestCase):
     """extensionsの照会が記録を変更しないことを固定する。"""

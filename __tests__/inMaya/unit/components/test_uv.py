@@ -307,5 +307,43 @@ class UVTest(_Case):
         )
 
 
+class UVVertexAndLockTest(_Case):
+    """UV.getVertexと、ロックしたメッシュへの書き込み。"""
+
+    UNLOCK_NODES = True
+
+    def test_get_vertex_matches_poly_list_component_conversion(self):
+        """UVの頂点はpolyListComponentConversionと同じ。どのフェースにも割り当てていないUVはNone。"""
+        shape = self.cube()
+        name = shape.getName(full=True)
+        for index in (0, 5, 13):
+            with self.subTest(index=index):
+                expected = cmds.ls(cmds.polyListComponentConversion(f"{name}.map[{index}]", toVertex=True), flatten=True)
+                vertex = shape.getUVs(index).getVertex()
+                self.assertEqual(vertex.getName(full=True).rsplit(".", 1)[1], expected[0].rsplit(".", 1)[1])
+        fn = om2.MFnMesh(shape.mpath())
+        us, vs = fn.getUVs()
+        fn.setUVs([*us, 0.25], [*vs, 0.75])
+        self.assertIsNone(UV(shape, len(us)).getVertex())
+
+    def test_locked_mesh_is_rejected(self):
+        """ロックしたメッシュへの書き込みは通常・fastともRuntimeErrorで、UVを変えない。"""
+        shape = self.cube()
+        name = shape.getName(full=True)
+        cmds.lockNode(name, lock=True)
+        try:
+            self.check_rejects(
+                name,
+                (
+                    (RuntimeError, lambda: shape.getUVs(0).setPosition((0.5, 0.5))),
+                    (RuntimeError, lambda: shape.getUVs(0).setPosition((0.5, 0.5), fast=True)),
+                    (RuntimeError, lambda: shape.getUVs([0, 1]).setPosition(0.5, axis="u", fast=True)),
+                ),
+                uv=True,
+            )
+        finally:
+            cmds.lockNode(name, lock=False)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

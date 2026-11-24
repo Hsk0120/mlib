@@ -40,6 +40,41 @@ class DagContainerTest(unittest.TestCase):
         self.owner.publishAndBind("Gain", node.getPlug("input2X"))
         self.assertEqual(self.owner.getPublishedAttrs()["Gain"], node.getPlug("input2X"))
 
+    def test_publish_name_bind_unbind_and_connections(self):
+        """公開名の作成・バインド・解除・削除と外部接続の照会がcmds.containerの照会と一致し、Undo 1回で戻る。"""
+        name = self.owner.getName(full=True)
+        node = self.owner.createNode("multiplyDivide")
+        external = Node(cmds.createNode("transform"))
+        self.assertEqual(self.owner.publishName("Gain"), "Gain")
+        self.assertIsNone(self.owner.getPublishedAttrs()["Gain"])
+        self.assertEqual(self.owner.bindAttr("Gain", node.getPlug("input2X")), node.getPlug("input2X"))
+        self.assertIn("Gain", cmds.container(name, query=True, publishName=True))
+        self.assertEqual(self.owner.getPublishedAttrs()["Gain"], node.getPlug("input2X"))
+        with self.assertRaises(ValueError):
+            self.owner.publishAndBind("Gain", node.getPlug("input1X"))
+        self.assertEqual(self.owner.getPublishedAttrs()["Gain"], node.getPlug("input2X"))
+        cmds.flushUndo()
+        self.assertIsNone(self.owner.unbindAttr("Gain"))
+        self.assertIsNone(self.owner.getPublishedAttrs()["Gain"])
+        cmds.undo()
+        self.assertEqual(self.owner.getPublishedAttrs()["Gain"], node.getPlug("input2X"))
+        self.owner.unbindAttr("Gain")
+        self.assertIsNone(self.owner.unpublishName("Gain"))
+        self.assertNotIn("Gain", self.owner.getPublishedAttrs())
+        self.assertEqual(len(self.owner.getExternalConnections()), 0)
+        cmds.connectAttr(str(node.getPlug("outputX")), str(external.getPlug("tx")))
+        connections = self.owner.getExternalConnections()
+        self.assertEqual(list(connections), [external.getPlug("tx")])
+        self.assertEqual(list(connections), [mlib.getPlug(plug) for plug in cmds.container(name, query=True, connectionList=True)])
+        cmds.flushUndo()
+        self.assertIsNone(self.owner.publishConnections())
+        published = self.owner.getPublishedAttrs()
+        self.assertTrue(published)
+        self.assertEqual(sorted(published), sorted(cmds.container(name, query=True, publishName=True)))
+        self.assertTrue(all(plug is not None and plug.getNode() == node for plug in published.values()))
+        cmds.undo()
+        self.assertEqual(self.owner.getPublishedAttrs(), {})
+
     def test_remove_preserves_members_and_local_values(self):
         """標準の解除は子のローカル値を保持し、Undoで階層と姿勢を戻す。"""
         self.owner.getPlug("translateX").set(4)

@@ -161,6 +161,8 @@ class PoseSnapshotTest(_SnapshotCase):
             {"nodes": [{"node": node}]},
             {"nodes": [{"node": node, "attrs": {"tx": "1"}}]},
             {"nodes": [{"node": {"path": "x"}, "attrs": {}}]},
+            {"nodes": [{"node": node, "attrs": {"": 1.0}}]},
+            {"nodes": [5]},
         ):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 PoseSnapshot(data)
@@ -168,6 +170,30 @@ class PoseSnapshotTest(_SnapshotCase):
             PoseSnapshot.capture([self.name("noSuchNode")])
         with self.assertRaises(TypeError):
             PoseSnapshot.capture(5)
+
+    def test_compound_and_duplicate_nodes(self):
+        """キーを打てるコンパウンドの親は省いて子だけを記録し、同じノードは1回だけ記録することを確かめる。"""
+        cmds.addAttr(self.joint, longName="aim", attributeType="double3", keyable=True)
+        for axis in "XYZ":
+            cmds.addAttr(self.joint, longName="aim" + axis, attributeType="double", parent="aim", keyable=True)
+        cmds.setAttr(self.joint + ".aimY", 4.0)
+        data = PoseSnapshot.capture([self.joint, mlib.getNode(self.joint), self.joint]).toData()
+        self.assertEqual(len(data["nodes"]), 1)
+        attrs = data["nodes"][0]["attrs"]
+        self.assertNotIn("aim", attrs)
+        self.assertEqual(attrs["aimY"], 4.0)
+
+    def test_failed_write_is_skipped(self):
+        """書き込みに失敗した値を「failed」で報告し、ほかの値は書くことを確かめる。"""
+        snap = PoseSnapshot.capture([self.joint])
+        data = snap.toData()
+        data["nodes"][0]["attrs"]["mode"] = 99
+        cmds.setAttr(self.joint + ".rx", 0.0)
+        report = PoseSnapshot(data).apply()
+        failed = [item for item in report.skipped if "failed" in item]
+        self.assertEqual(len(failed), 1, report.skipped)
+        self.assertIn("mode", failed[0])
+        self.assertAlmostEqual(cmds.getAttr(self.joint + ".rx"), 10.0)
 
 
 if __name__ == "__main__":

@@ -82,6 +82,13 @@ class IkHandleCreateTest(_SpecCase):
         self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, solver=True), "ikSCsolver")
         self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, priority=True), 3)
 
+    def test_spring_solver(self):
+        """ikSpringSolverを指定すると、ソルバーが無ければ用意してから作る。"""
+        handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSpringSolver")
+        self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, solver=True), "ikSpringSolver")
+        self.assertEqual(handle.getSolver(), "ikSpringSolver")
+        self.assertTrue(cmds.ls(type="ikSpringSolver"))
+
     def test_spline_auto_curve(self):
         """ikSplineSolver で curve を省略すると Maya がカーブを作り、ハンドルへつなぐ。"""
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSplineSolver")

@@ -66,5 +66,50 @@ class DetailedNotificationTest(unittest.TestCase):
         self.assertNotIn("original detail", viewport.call_args[1]["amg"])
 
 
+class HandlerFallbackTest(unittest.TestCase):
+    """Mayaの表示が使えないときも、ハンドラーが例外を出さずに戻ることを確かめる。"""
+
+    def record(self, level):
+        """指定のレベルのレコードを作る。"""
+        return logging.getLogger("mlibHandlerFallback").makeRecord("mlibHandlerFallback", level, __file__, 0, "fallback message", None, None)
+
+    def test_uninitialized_maya_shows_nothing(self):
+        """maya.cmdsにaboutが無い(mayapyの初期化前)なら、何も表示しない。"""
+        import maya
+
+        bare = SimpleNamespace()
+        display = mock.Mock()
+        with mock.patch.object(maya, "cmds", bare), mock.patch.dict(sys.modules, {"maya.cmds": bare}), mock.patch.object(
+            om2, "MGlobal", SimpleNamespace(displayWarning=display)
+        ):
+            logger.MayaHandler().emit(self.record(logging.WARNING))
+        display.assert_not_called()
+
+    def test_missing_open_maya_shows_nothing(self):
+        """maya.api.OpenMayaをimportできなければ、何も表示しない。"""
+        with mock.patch.dict(sys.modules, {"maya.api.OpenMaya": None}), mock.patch.object(cmds, "inViewMessage") as viewport:
+            logger.MayaHandler().emit(self.record(logging.ERROR))
+        viewport.assert_not_called()
+
+    def test_display_errors_are_ignored(self):
+        """Script Editorとビューポートの表示がRuntimeErrorでも、例外を出さない。"""
+        display = mock.Mock(side_effect=RuntimeError("display"))
+        with mock.patch.object(om2, "MGlobal", SimpleNamespace(displayWarning=display)), mock.patch.object(
+            cmds, "inViewMessage", side_effect=RuntimeError("viewport")
+        ) as viewport:
+            logger.MayaHandler().emit(self.record(logging.WARNING))
+        display.assert_called_once()
+        viewport.assert_called_once()
+
+    def test_exception_formatter_needs_maya_utils(self):
+        """maya.utilsが無いか、差し替え口が無ければ、設定せずFalseを返す。"""
+        import maya.utils as maya_utils
+
+        with mock.patch.dict(sys.modules, {"maya.utils": None}):
+            self.assertFalse(logger._install_exception_formatter())
+        with mock.patch.object(maya_utils, "formatGuiException", None, create=True):
+            self.assertFalse(logger._install_exception_formatter())
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

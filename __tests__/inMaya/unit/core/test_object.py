@@ -163,5 +163,26 @@ class ObjectSpecTest(unittest.TestCase):
             Joint(self.node)
 
 
+class SelectionHelpersTest(unittest.TestCase):
+    """選択リストの要素からアトリビュート・コンポーネントを取り出す補助を確かめる。"""
+
+    def test_nodes_are_not_plugs_or_components(self):
+        """ノードだけの要素は、アトリビュートでもコンポーネントでもなくNoneにする。"""
+        from mlib.core import object as object_module
+
+        transform = cmds.createNode("transform", skipSelect=True)
+        try:
+            selection = om2.MSelectionList()
+            selection.add("time1")
+            selection.add(transform)
+            selection.add(transform + ".translateX")
+            self.assertIsNone(object_module._selection_plug(selection, 0))
+            self.assertIsNone(object_module._selection_component(selection, 0))
+            self.assertIsNone(object_module._selection_component(selection, 1))
+            self.assertEqual(object_module._selection_plug(selection, 2).partialName(includeNodeName=True, useLongNames=True), transform + ".translateX")
+        finally:
+            cmds.delete(transform)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

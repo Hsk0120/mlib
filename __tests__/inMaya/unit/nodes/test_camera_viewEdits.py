@@ -183,6 +183,64 @@ class CameraEditTest(NamespaceCase):
                 with self.assertRaisesRegex(ValueError, name + "は正の距離で指定してください"):
                     camera.setFocusDistance(**{name: -1})
 
+    def test_set_view_matches_openmaya_without_undo(self):
+        """setView(fast=True)の視点・画角・比率がom2のカメラと一致し、unit="rad"も受け、Undoに載らない。"""
+        camera, _transform = self.parented_camera()
+        self.flushUndo()
+        self.assertIsNone(camera.setView((1, 2, 3), (0, 0, -2), (0, 3, 0), 0.5, 1.5, unit="rad", fast=True))
+        self.assertUndoEmpty()
+        fn = om2.MFnCamera(camera.mpath())
+        self.assertSequenceAlmostEqual(tuple(fn.eyePoint(om2.MSpace.kWorld))[:3], (1, 2, 3), places=5)
+        self.assertSequenceAlmostEqual(tuple(fn.viewDirection(om2.MSpace.kWorld)), (0, 0, -1), places=5)
+        self.assertAlmostEqual(fn.horizontalFieldOfView(), 0.5, places=5)
+        self.assertAlmostEqual(fn.aspectRatio(), 1.5, places=5)
+        camera.setView((0, 0, 0), (1, 0, 0), (0, 1, 0), 60, 1.0, fast=True)
+        self.assertAlmostEqual(om2.MFnCamera(camera.mpath()).horizontalFieldOfView(), om2.MAngle(60, om2.MAngle.kDegrees).asRadians(), places=5)
+
+    def test_set_view_rejects_invalid_values_before_change(self):
+        """画角0・180度以上、比率0以下、上方向が視線と平行のときはValueErrorで、カメラは変わらない。"""
+        camera, transform = self.parented_camera()
+        before = cmds.xform(transform, query=True, matrix=True, worldSpace=True)
+        for label, args in (
+            ("fov zero", ((0, 0, 0), (0, 0, -1), (0, 1, 0), 0, 1.5)),
+            ("fov 180", ((0, 0, 0), (0, 0, -1), (0, 1, 0), 180, 1.5)),
+            ("aspect zero", ((0, 0, 0), (0, 0, -1), (0, 1, 0), 45, 0)),
+            ("aspect negative", ((0, 0, 0), (0, 0, -1), (0, 1, 0), 45, -1)),
+            ("parallel up", ((0, 0, 0), (0, 0, -1), (0, 0, 2), 45, 1.5)),
+            ("zero direction", ((0, 0, 0), (0, 0, 0), (0, 1, 0), 45, 1.5)),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(ValueError):
+                    camera.setView(*args, fast=True)
+                self.assertSequenceAlmostEqual(cmds.xform(transform, query=True, matrix=True, worldSpace=True), before)
+
+    def test_view_edit_requires_plain_transform_and_unlocked_camera(self):
+        """親がTransform以外・インスタンスならNotImplementedError、ロックしたカメラはRuntimeErrorで、何も変えない。"""
+        args = ((1, 2, 3), (0, 0, -1), (0, 1, 0), 45, 1.5)
+        joint = cmds.createNode("joint", name=self.name("joint"))
+        under_joint = mlib.getNode(cmds.createNode("camera", name=self.name("jointCameraShape"), parent=joint))
+        with self.assertRaises(NotImplementedError):
+            under_joint.setView(*args, fast=True)
+        with self.assertRaises(NotImplementedError):
+            under_joint.setPoint((1, 2, 3), fast=True)
+        camera = self.camera()
+        transform = camera.getParent().getName(full=True)
+        instance = cmds.instance(transform, name=self.name("instance"))[0]
+        with self.assertRaises(NotImplementedError):
+            camera.setView(*args, fast=True)
+        cmds.delete(instance)
+        shape = camera.getName(full=True)
+        before = cmds.xform(transform, query=True, matrix=True, worldSpace=True)
+        cmds.lockNode(shape, lock=True)
+        try:
+            with self.assertRaises(RuntimeError):
+                camera.setView(*args, fast=True)
+            self.assertSequenceAlmostEqual(cmds.xform(transform, query=True, matrix=True, worldSpace=True), before)
+        finally:
+            cmds.lockNode(shape, lock=False)
+        camera.setView(*args, fast=True)
+        self.assertSequenceAlmostEqual(cmds.xform(transform, query=True, translation=True, worldSpace=True), (1, 2, 3), places=5)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

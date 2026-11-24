@@ -4,6 +4,7 @@ import contextlib
 import io
 import sys
 import unittest
+from unittest import mock
 
 import mlib
 
@@ -411,6 +412,131 @@ class ProgressBarGuiTest(unittest.TestCase):
             cmds.progressBar = original
         self.assertEqual(processed, [0])
         self.assertEqual(list(progressBar(range(2), gui=True)), [0, 1])
+
+
+class _FakeMainBar:
+    """cmds.progressBar の代役。編集の引数を記録し、中止と閉じる処理の失敗を差し込める。"""
+
+    def __init__(self, name="mlibFakeMainBar"):
+        self.name = name
+        self.exists = True
+        self.cancelled = False
+        self.fail_end = False
+        self.edits = []
+
+    def __call__(self, bar, **kwargs):
+        if kwargs.get("exists"):
+            return bar == self.name and self.exists
+        if kwargs.get("query"):
+            if kwargs.get("isCancelled"):
+                return self.cancelled
+            raise AssertionError(kwargs)
+        if kwargs.get("edit"):
+            if kwargs.get("endProgress") and self.fail_end:
+                raise RuntimeError("endProgress failed")
+            self.edits.append({key: value for key, value in kwargs.items() if key != "edit"})
+            return None
+        raise AssertionError(kwargs)
+
+
+class ProgressBarSimulatedMainBarTest(unittest.TestCase):
+    """mayapyでも、メインのプログレスバーの代役でGUIの経路(開始・更新・中止・終了)を確かめる。"""
+
+    def setUp(self):
+        import maya.mel as mel
+
+        self.fake = _FakeMainBar()
+        self.mel_answer = self.fake.name
+        original_about = cmds.about
+
+        def about(*args, **kwargs):
+            if kwargs.get("batch"):
+                return False
+            return original_about(*args, **kwargs)
+
+        def mel_eval(command):
+            if isinstance(self.mel_answer, Exception):
+                raise self.mel_answer
+            return self.mel_answer
+
+        for owner, name, value in ((cmds, "about", about), (cmds, "progressBar", self.fake), (mel, "eval", mel_eval)):
+            patcher = mock.patch.object(owner, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_main_bar_progress_and_status(self):
+        """開始でmaxValueと見出し付きの状態を設定し、1件ごとにprogressを進め、最後にendProgressで閉じる。"""
+        received = []
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            result = list(progressBar(["a", "b", "c"], label="demo ", width=4, notify=received.append))
+        self.assertEqual(result, ["a", "b", "c"])
+        self.assertEqual(buffer.getvalue(), "")
+        begin = self.fake.edits[0]
+        self.assertTrue(begin["beginProgress"])
+        self.assertTrue(begin["isInterruptable"])
+        self.assertEqual((begin["minValue"], begin["maxValue"], begin["status"]), (0, 3, "demo 0/3"))
+        self.assertEqual(self.fake.edits[1], {"progress": 0})
+        updates = [edit for edit in self.fake.edits[2:] if "status" in edit]
+        self.assertEqual([(edit["progress"], edit["status"]) for edit in updates], [(1, "demo 1/3"), (2, "demo 2/3"), (3, "demo 3/3")])
+        self.assertEqual(self.fake.edits[-1], {"endProgress": True})
+        self.assertEqual(received[0], "demo |----|   0% 0/3")
+        self.assertEqual(received[-1], "demo |====| 100% 3/3")
+
+    def test_unknown_total_keeps_progress_zero(self):
+        """長さの分からない反復は、maxValue=1・progress=0のまま、状態に件数と?を出す(見出しが空なら件数だけ)。"""
+        list(progressBar(iter("ab")))
+        self.assertEqual(self.fake.edits[0]["maxValue"], 1)
+        self.assertEqual(self.fake.edits[0]["status"], "0/?")
+        updates = [edit for edit in self.fake.edits if "status" in edit and "progress" in edit]
+        self.assertEqual([(edit["progress"], edit["status"]) for edit in updates], [(0, "1/?"), (0, "2/?")])
+
+    def test_cancel_raises_and_closes(self):
+        """中止されたらProgressCancelledを送出し、バーを閉じて、次の反復でまた使える。"""
+        processed = []
+        self.fake.cancelled = True
+        with self.assertRaises(ProgressCancelled):
+            processed.extend(progressBar(range(3), gui=True))
+        self.assertEqual(processed, [0])
+        self.assertEqual(self.fake.edits[-1], {"endProgress": True})
+        self.fake.cancelled = False
+        self.assertEqual(list(progressBar(range(2), gui=True)), [0, 1])
+
+    def test_nested_progress_uses_text(self):
+        """使用中のバーは入れ子で開き直さず、テキストへ切り替える。gui=Trueの入れ子はRuntimeError。"""
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            for _ in progressBar(["outer"]):
+                self.assertEqual(list(progressBar(["x"], width=2)), ["x"])
+                with self.assertRaises(RuntimeError):
+                    progressBar(["y"], gui=True)
+        self.assertEqual(buffer.getvalue(), "\r|--|   0% 0/1\r|==| 100% 1/1\n")
+        self.assertEqual(sum(1 for edit in self.fake.edits if edit.get("beginProgress")), 1)
+
+    def test_end_failure_is_raised_only_after_completion(self):
+        """最後まで回したあとの閉じる処理の失敗は送出し、本文の例外があればそちらを優先する。"""
+        self.fake.fail_end = True
+        with self.assertRaises(RuntimeError):
+            list(progressBar(range(2), gui=True))
+        with self.assertRaises(ValueError):
+            for _ in progressBar(range(2), gui=True):
+                raise ValueError("body")
+        # 失敗しても使用中の登録は外れるので、次の反復でまたバーを使える。
+        self.fake.fail_end = False
+        self.assertEqual(list(progressBar(range(1), gui=True)), [0])
+
+    def test_unavailable_bar_falls_back_to_text(self):
+        """バーの名前が取れない・バーが無い場合は自動でテキストにし、gui=TrueはRuntimeError。"""
+        for answer in (RuntimeError("no variable"), "", "mlibNoSuchBar"):
+            with self.subTest(answer=answer):
+                self.mel_answer = answer
+                buffer = io.StringIO()
+                with contextlib.redirect_stdout(buffer):
+                    self.assertEqual(list(progressBar(["a"], width=2)), ["a"])
+                self.assertEqual(buffer.getvalue(), "\r|--|   0% 0/1\r|==| 100% 1/1\n")
+                with self.assertRaises(RuntimeError):
+                    progressBar(["a"], gui=True)
+        self.assertEqual(self.fake.edits, [])
 
 
 if __name__ == "__main__":

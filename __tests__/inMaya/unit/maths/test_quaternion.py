@@ -314,5 +314,50 @@ class QuaternionTest(_Case):
                     call()
 
 
+class QuaternionBoundaryTest(unittest.TestCase):
+    """表示・自身を書き換える減算・分解の境界。"""
+
+    def test_repr(self):
+        """reprは型名とx・y・z・wを表し、evalで同じ値に戻る。"""
+        value = Quaternion(0.1, -0.2, 0.3, 0.9)
+        self.assertEqual(repr(value), "Quaternion(0.1, -0.2, 0.3, 0.9)")
+        self.assertEqual(eval(repr(value), {"Quaternion": Quaternion}), value)
+
+    def test_in_place_sub_rejects_other_types(self):
+        """-=はMQuaternion系だけを受け、数値はTypeErrorで値を変えない。"""
+        value = Quaternion(0.1, -0.2, 0.3, 0.9)
+        same = value
+        value -= om2.MQuaternion(0.1, 0.1, 0.1, 0.1)
+        expected = om2.MQuaternion(0.1, -0.2, 0.3, 0.9) - om2.MQuaternion(0.1, 0.1, 0.1, 0.1)
+        self.assertIs(value, same)
+        self.assertTrue(value.isEquivalent(expected, 1e-12))
+        with self.assertRaises(TypeError):
+            value -= 1
+        self.assertTrue(value.isEquivalent(expected, 1e-12))
+
+    def test_swing_twist_without_twist_component(self):
+        """捻りの軸に直交する180度の回転は、捻りが単位クォータニオンで、曲げが元の回転になる。"""
+        for axis, rotation_axis in (((1, 0, 0), om2.MVector(0, 1, 0)), ((0, 1, 0), om2.MVector(0, 0, 1)), ((0, 0, 1), om2.MVector(1, 0, 0))):
+            with self.subTest(axis=axis):
+                value = Quaternion(math.pi, rotation_axis)
+                swing, twist = value.asSwingTwist(axis)
+                self.assertTrue(twist.isEquivalent(om2.MQuaternion(), 1e-12))
+                self.assertTrue((twist * swing).asMatrix().isEquivalent(value.asMatrix(), 1e-9))
+
+    def test_roll_bend_with_negative_w(self):
+        """wが負になる180度を超えるロールも、-180〜180度の角度で返し、fromRollBendで同じ回転に戻る。"""
+        for degrees in (200, 270, 300, -200):
+            for aim, up, axis in (("x", "y", om2.MVector(1, 0, 0)), ("-z", "x", om2.MVector(0, 0, -1))):
+                with self.subTest(degrees=degrees, aim=aim):
+                    value = Quaternion(math.radians(degrees), axis)
+                    roll, bend_h, bend_v = value.asRollBend(aimAxis=aim, upAxis=up)
+                    expected = math.degrees(math.remainder(math.radians(degrees), 2 * math.pi))
+                    self.assertAlmostEqual(roll, expected, places=9)
+                    self.assertAlmostEqual(bend_h, 0.0, places=9)
+                    self.assertAlmostEqual(bend_v, 0.0, places=9)
+                    back = Quaternion.fromRollBend(roll, bend_h, bend_v, aimAxis=aim, upAxis=up)
+                    self.assertTrue(back.asMatrix().isEquivalent(value.asMatrix(), 1e-9))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

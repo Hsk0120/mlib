@@ -118,6 +118,39 @@ class SnapshotBaseTest(NamespaceCase):
         with self.assertRaises(NotImplementedError):
             Snapshot.capture()
 
+    def test_repr_and_base_not_implemented(self):
+        """表記と、基底のままの検査・適用がNotImplementedErrorになることを確かめる。"""
+        self.assertEqual(repr(_OffsetSnapshot({"items": []})), "_OffsetSnapshot('mlib.test.offset', 1)")
+        self.assertEqual(repr(Snapshot({})), "Snapshot(None, None)")
+        report = _OffsetSnapshot.capture([self.a]).validate(nameMap={"a": "missing"})
+        self.assertEqual(repr(report), "ValidationReport(missing=1, skipped=0, errors=0)")
+        with self.assertRaises(NotImplementedError):
+            Snapshot({}).validate()
+        with self.assertRaises(NotImplementedError):
+            Snapshot({}).apply()
+        with self.assertRaises(NotImplementedError):
+            _ValidateOnlySnapshot({}).apply()
+
+    def test_replace_and_name_map(self):
+        """replace・nameMapで別の名前のノードへ適用できることを確かめる。"""
+        snap = _OffsetSnapshot.capture([self.a])
+        target = cmds.createNode("transform", name=self.name("a_copy"))
+        snap.apply(replace=[(":a", ":a_copy")])
+        self.assertEqual(cmds.getAttr(target + ".tx"), 0.0)  # replaceは名前空間を除いた名前にだけ当てる。
+        snap.apply(replace=[("a", "a_copy")])
+        self.assertEqual(cmds.getAttr(target + ".tx"), 3.0)
+        cmds.setAttr(self.b + ".tx", 0.0)
+        report = snap.apply(nameMap={"a": "b"})
+        self.assertEqual(report.missing, [])
+        self.assertEqual(cmds.getAttr(self.b + ".tx"), 3.0)
+
+
+class _ValidateOnlySnapshot(Snapshot):
+    """テスト用: 検査だけを書いた種類。"""
+
+    def _validate(self, mapping, report, options):
+        pass
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

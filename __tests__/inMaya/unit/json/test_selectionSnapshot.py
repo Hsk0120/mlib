@@ -161,6 +161,23 @@ class SelectionSnapshotTest(_SnapshotCase):
             SelectionSnapshot.capture([self.name("noSuchNode")])
         with self.assertRaises(TypeError):
             SelectionSnapshot.capture([1.5])
+        with self.assertRaises(TypeError):
+            SelectionSnapshot.capture(1.5)
+
+    def test_single_item_and_unsupported_components(self):
+        """1つだけ渡した項目を記録し、対応しないコンポーネントは警告して省くことを確かめる。"""
+        data = SelectionSnapshot.capture(self.name("md")).toData()
+        self.assertEqual([item["node"]["name"] for item in data["items"]], [self.name("md")])
+        component = mlib.getNode(self.name("cube")).getShape().getVertices([4])
+        self.assertEqual(SelectionSnapshot.capture(component).toData()["items"][0]["components"]["indices"], [4])
+        surface = cmds.nurbsPlane(name=self.name("surf"), constructionHistory=False)[0]
+        with self.assertLogs("mlib", level="WARNING") as logs:
+            data = SelectionSnapshot.capture([surface + ".cv[0][0]", self.name("cube") + ".vtx[1]"]).toData()
+        self.assertIn("対応していないコンポーネント", "\n".join(logs.output))
+        self.assertEqual([item["components"]["type"] for item in data["items"]], ["vtx"])
+        transform_path = cmds.ls(self.name("cube"), long=True)[0]
+        data = SelectionSnapshot.capture([transform_path + ".f[1]"]).toData()
+        self.assertEqual(data["items"][0]["components"]["node"]["type"], "mesh")
 
 
 if __name__ == "__main__":

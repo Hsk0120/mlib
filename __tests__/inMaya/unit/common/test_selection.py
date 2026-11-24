@@ -11,7 +11,9 @@ import math
 import sys
 import unittest
 import uuid
+from unittest import mock
 
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 import mlib
@@ -21,10 +23,11 @@ mlib.reload()
 from support.namespaceCase import NamespaceCase
 
 from mlib.common import selection as selection_module
+from mlib.common.environment import Environment
 from mlib.common.selection import Selection
 from mlib.components import Edges, Vertex, Vertices
 from mlib.nodes import Node, SkinCluster
-from mlib.plugs import Plug
+from mlib.plugs import Plug, Plugs
 
 
 class SelectionTest(unittest.TestCase):
@@ -173,6 +176,36 @@ class SelectionSpecTest(unittest.TestCase):
         self.assertEqual(len(selection.filter("vertex")), len(selection.filter("vtx")))
         self.assertEqual(len(selection.filter("transform")), 1)
 
+    def test_accepts_api_objects_and_selection(self):
+        """MObject・MDagPath・MPlug・MSelectionList(DGノードを含む)・Selectionを受け付け、名前で受けた場合と同じになる。"""
+        lookup = om2.MSelectionList()
+        lookup.add(self.node)
+        lookup.add("time1")
+        lookup.add(self.node + ".tx")
+        dag_path = lookup.getDagPath(0)
+        time_object = lookup.getDependNode(1)
+        selection = Selection([dag_path, time_object, lookup.getPlug(2)])
+        self.assertIs(type(selection[1]), type(Node("time1")))
+        self.assertIsInstance(selection[2], Plug)
+        self.assertEqual(selection[0].getName(full=True), cmds.ls(self.node, long=True)[0])
+        self.assertEqual(selection[1].getName(), "time1")
+        self.assertEqual(str(selection[2]), str(mlib.getPlug(self.node + ".tx")))
+        from_list = Selection(lookup)
+        self.assertEqual([str(item) for item in from_list], [str(item) for item in selection])
+        nested = Selection([selection, self.mesh])
+        self.assertEqual(len(nested), 4)
+        self.assertEqual([str(item) for item in nested][:3], [str(item) for item in selection])
+
+    def test_filter_skips_deleted_items(self):
+        """filterは削除された対象を除き、元の選択は変えない。"""
+        other = cmds.createNode("transform", name=self.ns + ":other")
+        selection = Selection([self.node, other, self.mesh + ".vtx[0]"])
+        cmds.delete(other)
+        filtered = selection.filter("transform")
+        self.assertEqual([item.getName() for item in filtered], [self.node])
+        self.assertEqual(len(selection), 3)
+        self.assertEqual(len(selection.filter("joint")), 0)
+
     def test_capture_is_a_snapshot(self):
         """captureは現在選択を取得時点の順で保持し、その後の選択変更に追従しない。"""
         cmds.select(self.node, self.mesh + ".vtx[1]", replace=True)
@@ -318,6 +351,50 @@ class SelectionReadableReprTest(_Case):
         )
 
 
+class ChannelBoxFallbackTest(_Case):
+    """Channel Boxの名前が取れない・Channel Boxが無い・何も選んでいない場合を、代役で確かめる。"""
+
+    def setUp(self):
+        super().setUp()
+        self.state = {"name": "mlibFakeChannelBox", "exists": True, "queried": []}
+
+        def mel_eval(command):
+            if isinstance(self.state["name"], Exception):
+                raise self.state["name"]
+            return self.state["name"]
+
+        def channel_box(name, **kwargs):
+            if kwargs.get("exists"):
+                self.state["queried"].append(name)
+                return self.state["exists"]
+            # どの区分も、何も選んでいない。
+            return None
+
+        for patcher in (
+            mock.patch.object(Environment, "isBatch", return_value=False),
+            mock.patch.object(selection_module.mel, "eval", mel_eval),
+            mock.patch.object(cmds, "channelBox", channel_box),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_nothing_selected_is_empty(self):
+        """何も選んでいなければ空のPlugs。"""
+        plugs = Selection.getChannelBoxPlugs()
+        self.assertIsInstance(plugs, Plugs)
+        self.assertEqual(len(plugs), 0)
+        self.assertEqual(self.state["queried"], ["mlibFakeChannelBox"])
+
+    def test_missing_variable_uses_main_channel_box(self):
+        """名前の変数が読めなければmainChannelBoxを調べ、無ければ空。"""
+        self.state["name"] = RuntimeError("no variable")
+        self.state["exists"] = False
+        self.assertEqual(len(Selection.getChannelBoxPlugs()), 0)
+        self.assertEqual(self.state["queried"], ["mainChannelBox"])
+        self.state["name"] = ""
+        self.assertEqual(len(Selection.getChannelBoxPlugs()), 0)
+
+
 def _distance(first, second):
     """2点の距離(Python 3.7 には math.dist が無いため)。"""
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(first, second)))
@@ -365,6 +442,21 @@ class SoftSelectionTest(_SkinCase):
         self.assertEqual(next(iter(result)), mlib.getNode(plane).getShape())
         cmds.select(clear=True)
         self.assertEqual(Selection.getSoftSelection(), {})
+
+    def test_component_on_transform_path_uses_shape(self):
+        """TransformのDAGパスで選んだ頂点も、Shape(Mesh)をキーにして返す。"""
+        cmds.softSelect(softSelectEnabled=False)
+        plane = cmds.polyPlane(name=self.name("p"))[0]
+        lookup = om2.MSelectionList()
+        lookup.add(plane)
+        component = om2.MFnSingleIndexedComponent().create(om2.MFn.kMeshVertComponent)
+        om2.MFnSingleIndexedComponent(component).addElements([1, 2])
+        active = om2.MSelectionList()
+        active.add((lookup.getDagPath(0), component))
+        om2.MGlobal.setActiveSelectionList(active)
+        result = Selection.getSoftSelection()
+        self.assertEqual(list(result.values()), [{1: 1.0, 2: 1.0}])
+        self.assertEqual(next(iter(result)), mlib.getNode(plane).getShape())
 
     def test_with_soft_select(self):
         """ソフト選択が有効なら、選んだ頂点は1、周りの頂点は0〜1の重みになる。"""

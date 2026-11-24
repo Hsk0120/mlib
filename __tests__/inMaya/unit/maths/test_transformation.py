@@ -178,5 +178,47 @@ class MayaParityTest(NamespaceCase):
         self.assertSequenceAlmostEqual(list(value.matrix), cmds.getAttr(child + ".matrix"))
 
 
+class TransformationBoundaryTest(unittest.TestCase):
+    """表示・比較の相手の型・プロパティの入力の境界。"""
+
+    def test_repr(self):
+        """reprはtranslate・rotate・scaleを表す。"""
+        value = Transformation()
+        value.translate = (1.0, 2.0, 3.0)
+        value.scale = (2.0, 2.0, 2.0)
+        text = repr(value)
+        self.assertTrue(text.startswith("Transformation(translate=(1.0, 2.0, 3.0), rotate=EulerRotate("))
+        self.assertTrue(text.endswith("scale=(2.0, 2.0, 2.0))"))
+
+    def test_equality_with_other_types(self):
+        """om2.MTransformationMatrix系でない相手との==はFalse、!=はTrue。"""
+        value = Transformation()
+        for other in (1, None, Matrix(), "a"):
+            with self.subTest(other=other):
+                self.assertFalse(value == other)
+                self.assertTrue(value != other)
+        self.assertTrue(value == om2.MTransformationMatrix())
+
+    def test_three_values_reject_non_numbers(self):
+        """translateなどに数値でない要素・反復できない値を渡すとTypeErrorで、値は変わらない。"""
+        value = Transformation()
+        for name in ("translate", "rotate", "scale"):
+            for bad in ([1, "a", 3], 5, None):
+                with self.subTest(name=name, bad=bad):
+                    with self.assertRaises(TypeError):
+                        setattr(value, name, bad)
+        self.assertTrue(value == Transformation())
+
+    def test_rotate_accepts_quaternion(self):
+        """rotateへQuaternionを渡すとquaternionと同じ設定になり、om2のsetRotationと一致する。"""
+        rotation = om2.MQuaternion(0.5, om2.MVector(0.3, 1.0, -0.2).normal())
+        value = Transformation()
+        value.rotate = Quaternion(rotation)
+        expected = om2.MTransformationMatrix()
+        expected.setRotation(rotation)
+        self.assertTrue(value.asMatrix().isEquivalent(expected.asMatrix(), 1e-12))
+        self.assertTrue(same_rotation(value.quaternion, rotation))
+
+
 if __name__ == "__main__":
     unittest.main()

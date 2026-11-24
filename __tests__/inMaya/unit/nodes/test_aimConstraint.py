@@ -80,6 +80,43 @@ class AimConstraintTest(unittest.TestCase):
         cmds.undo()
         self.assertEqual(tuple(self.aim.getRestRotate()), (0, 0, 0))
 
+    def test_euler_rest_rotate_is_reordered(self):
+        """EulerRotateはconstraintRotateOrderの順へ並べ直して書く。通常はUndo1回、fastはUndoなし。"""
+        cmds.setAttr(self.driven + ".rotateOrder", 2)
+        name = self.aim.getName(full=True)
+        self.assertEqual(cmds.getAttr(name + ".constraintRotateOrder"), 2)
+        value = EulerRotate(0.1, 0.2, 0.3)
+        reordered = value.reorder(2)
+        expected = [math.degrees(item) for item in (reordered.x, reordered.y, reordered.z)]
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                cmds.setAttr(name + ".restRotate", 0, 0, 0)
+                cmds.flushUndo()
+                self.assertIsNone(self.aim.setRestRotate(value, fast=fast))
+                for actual, wanted in zip(cmds.getAttr(name + ".restRotate")[0], expected):
+                    self.assertAlmostEqual(actual, wanted)
+                self.assertEqual(self.aim.getRestRotate().order, 2)
+                if fast:
+                    self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+                else:
+                    cmds.undo()
+                    self.assertEqual(cmds.getAttr(name + ".restRotate")[0], (0.0, 0.0, 0.0))
+
+    def test_child_connection_under_compound(self):
+        """コンパウンドアトリビュートの接続の子どうしの接続は、親の組だけにまとめる。"""
+        for source, destination in self.aim.getRotateConnections():
+            cmds.disconnectAttr(source.getName(full=True), destination.getName(full=True))
+        name = self.aim.getName(full=True)
+        cmds.connectAttr(name + ".constraintRotate", self.driven + ".rotate")
+        # 親どうしの接続の上から子どうしを接続しても、Mayaは親の接続のまま扱う。
+        cmds.connectAttr(name + ".constraintRotateX", self.driven + ".rotateX", force=True)
+        pairs = self.aim.getRotateConnections()
+        self.assertEqual(len(pairs), 1)
+        source, destination = pairs[0]
+        self.assertEqual((source.getAttributeName(), destination.getAttributeName()), ("constraintRotate", "rotate"))
+        self.assertEqual(destination.getNode().getName(full=True), cmds.ls(self.driven, long=True)[0])
+        self.assertEqual(cmds.listConnections(name + ".constraintRotate", source=False, plugs=True), [self.driven + ".rotate"])
+
 
 if __name__ == "__main__":
     unittest.main()

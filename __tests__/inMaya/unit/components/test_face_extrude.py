@@ -65,10 +65,20 @@ class ExtrudeTest(NamespaceCase):
             ({"divisions": True}, TypeError),
             ({"keepFacesTogether": 1}, TypeError),
             ({"curve": self.cube}, TypeError),
+            ({"curve": cmds.listRelatives(self.cube, shapes=True, fullPath=True)[0]}, TypeError),
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(error):
                 faces.extrude(**kwargs)
         self.assertEqual(self.faces(), 6)
+
+    def test_empty_faces(self):
+        """空のFacesの押し出しはValueErrorで、ノードを作らない。"""
+        empty = mlib.ls(f"{self.cube}.f[1]")
+        empty.clear()
+        with self.assertRaises(ValueError):
+            empty.extrude()
+        self.assertEqual(self.faces(), 6)
+        self.assertFalse(cmds.ls(f"{self.ns}:*", type="polyExtrudeFace"))
 
 
 if __name__ == "__main__":

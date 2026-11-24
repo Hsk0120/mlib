@@ -2,6 +2,7 @@
 
 import sys
 import unittest
+import uuid
 from unittest import mock
 
 import maya.api.OpenMaya as om2
@@ -148,6 +149,118 @@ class MeshReorderTest(unittest.TestCase):
         before = self.snapshot()
         with self.assertRaises(ValueError):
             self.target.reorderVertices(self.reference)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_reference_input_rejected_before_change(self):
+        """基準のメッシュが不正(空のuvSet・シェイプが2つ・メッシュ以外・数の違い・フェース無し)なら何も変えずに例外。"""
+        before = self.snapshot()
+        two_shapes = cmds.polyCube(ch=False)[0]
+        extra = cmds.polyCube(ch=False)[0]
+        cmds.parent(cmds.listRelatives(extra, shapes=True, fullPath=True)[0], two_shapes, shape=True, relative=True)
+        curve = cmds.curve(degree=1, point=[(0, 0, 0), (1, 0, 0)])
+        plane = cmds.polyPlane(ch=False)[0]
+        empty = [mlib.getNode(om2.MFnDagNode(om2.MFnMesh().create(om2.MPointArray(), [], [])).fullPathName()).getShape() for _ in range(2)]
+        for label, reference, kwargs, error in (
+            ("empty uvSet", self.reference, {"uvSet": ""}, ValueError),
+            ("two shapes", two_shapes, {}, ValueError),
+            ("curve", curve, {}, TypeError),
+            ("counts", plane, {}, ValueError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    self.target.reorderVertices(reference, **kwargs)
+                self.assertEqual(self.snapshot(), before)
+        with self.assertRaises(ValueError):
+            empty[0].reorderVertices(empty[1], match="position")
+
+    # findings/nodes-geometry.md「Mesh.reorderVertices(uvSet=1)」: 型違いなのにValueErrorになる(docstringは型の誤りをTypeErrorとする)。
+    @unittest.expectedFailure
+    def test_uv_set_type_rejected_with_type_error(self):
+        """uvSetにstr以外を渡すとTypeError。"""
+        with self.assertRaises(TypeError):
+            self.target.reorderVertices(self.reference, uvSet=1)
+
+    def test_reversed_winding_and_duplicate_positions_rejected(self):
+        """位置は合っても面の巻き方向が逆、または2頂点が同じ基準頂点に当たるならValueError。"""
+        self.set_matching_positions()
+        reversed_mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
+        reversed_mesh.mfn().setPoints(self.reference.mfn().getPoints())
+        cmds.polyNormal(reversed_mesh.getName(full=True), normalMode=0, constructionHistory=False)
+        with self.assertRaises(ValueError):
+            reversed_mesh.reorderVertices(self.reference, match="position")
+        fn = self.target.mfn()
+        fn.setPoint(1, fn.getPoint(0))
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            self.target.reorderVertices(self.reference, match="position")
+        self.assertEqual(self.snapshot(), before)
+
+    def test_missing_and_non_finite_data_rejected(self):
+        """UVの無いメッシュ・UVや位置に非有限な値があるメッシュは、照らし合わせる前にValueError。"""
+        source = self.reference.mfn()
+        counts, connects = source.getVertices()
+        without_uv = mlib.getNode(om2.MFnDagNode(om2.MFnMesh().create(source.getPoints(), counts, connects)).fullPathName()).getShape()
+        with self.assertRaises(ValueError):
+            without_uv.reorderVertices(self.reference)
+        fn = self.target.mfn()
+        u, v = fn.getUVs()
+        u = list(u)
+        u[0] = float("nan")
+        fn.setUVs(u, list(v))
+        with self.assertRaises(ValueError):
+            self.target.reorderVertices(self.reference)
+        fn.setPoint(0, om2.MPoint(float("nan"), 0, 0))
+        with self.assertRaises(ValueError):
+            self.target.reorderVertices(self.reference, match="position")
+
+    def test_isolated_vertex_and_blind_data_rejected(self):
+        """どの面にも属さない頂点はUVで照らし合わせられず、ブラインドデータのあるメッシュは作り直せないのでValueError。"""
+        source = self.reference.mfn()
+        counts, connects = source.getVertices()
+        meshes = []
+        for _ in range(2):
+            points = om2.MPointArray(source.getPoints())
+            points.append(om2.MPoint(9, 9, 9))
+            mesh = mlib.getNode(om2.MFnDagNode(om2.MFnMesh().create(points, counts, connects)).fullPathName()).getShape()
+            fn = mesh.mfn()
+            fn.setUVs(*source.getUVs("map1"), uvSet="map1")
+            fn.assignUVs(*source.getAssignedUVs("map1"), uvSet="map1")
+            meshes.append(mesh)
+        self.assertEqual(meshes[0].getNumVertices(), source.numVertices + 1)
+        with self.assertRaisesRegex(ValueError, "孤立した頂点"):
+            meshes[1].reorderVertices(meshes[0], match="uv")
+        type_id = 70000 + int(uuid.uuid4().hex[:4], 16)
+        long_name = "mlibReorderBlind" + uuid.uuid4().hex[:6]
+        cmds.blindDataType(id=type_id, dataType="int", longDataName=long_name, shortDataName=long_name[-6:])
+        name = self.target.getName(full=True)
+        cmds.polyBlindData(name + ".vtx[0]", typeId=type_id, associationType="vertex", longDataName=long_name, intData=1)
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            self.target.reorderVertices(self.reference)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_undo_disabled_locked_and_component_sets_rejected(self):
+        """Undoが無効な通常の処理はRuntimeError、ロックしたメッシュもRuntimeError、頂点のセットがあればValueError。"""
+        before = self.snapshot()
+        cmds.undoInfo(state=False)
+        try:
+            with self.assertRaises(RuntimeError):
+                self.target.reorderVertices(self.reference)
+        finally:
+            cmds.undoInfo(state=True)
+        self.assertEqual(self.snapshot(), before)
+        name = self.target.getName(full=True)
+        cmds.lockNode(name, lock=True)
+        try:
+            with self.assertRaises(RuntimeError):
+                self.target.reorderVertices(self.reference, fast=True)
+        finally:
+            cmds.lockNode(name, lock=False)
+        self.assertEqual(self.snapshot(), before)
+        component_set = cmds.sets(name + ".vtx[0:2]")
+        with self.assertRaises(ValueError):
+            self.target.reorderVertices(self.reference)
+        cmds.delete(component_set)
         self.assertEqual(self.snapshot(), before)
 
     def test_history_rejected(self):

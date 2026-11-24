@@ -178,6 +178,14 @@ class InputHandlingTest(unittest.TestCase):
                 self.assertEqual(easing.ease(1e9, curve), 1.0)
                 self.assertEqual(easing.ease(float("inf"), curve), 1.0)
 
+    def test_integers_too_large_for_float_are_clamped(self):
+        """floatにできない大きさの整数(OverflowError)も、符号に合わせて0か1へ切り詰める。"""
+        for curve in easing.CURVES:
+            with self.subTest(curve=curve):
+                self.assertEqual(easing.ease(10**400, curve), 1.0)
+                self.assertEqual(easing.ease(-(10**400), curve), 0.0)
+                self.assertEqual(easing.ease(fractions.Fraction(10**400, 3), curve), 1.0)
+
     def test_unknown_curve_name_raises_value_error(self):
         for curve in ("", "Cubic", "sinusoidal", "ease_in_out_cubic", "bounce"):
             with self.subTest(curve=curve):

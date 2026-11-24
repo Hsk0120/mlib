@@ -404,6 +404,55 @@ class NurbsSurfaceFrameTest(_CaseShapeAdditions):
             shape, (lambda node: node.getArea(), lambda node: node.getAtParam(0, 0, what="tangents"), lambda node: node.getAtParam(0, 0, what="matrix"))
         )
 
+    def collapsed_surface(self):
+        """すべてのCVを原点へ集めた(形のつぶれた)NURBS平面を作る。"""
+        shape = self.surface()
+        cmds.xform(shape.getName(full=True) + ".cv[*]", translation=(0, 0, 0), worldSpace=True)
+        return shape
+
+    def test_collapsed_surface_tangents_and_matrix(self):
+        """形のつぶれた曲面ではtangents・matrixがValueError(接線もフレームも決まらない)。"""
+        shape = self.collapsed_surface()
+        for what in ("tangents", "matrix"):
+            with self.subTest(what=what):
+                with self.assertRaises(ValueError):
+                    shape.getAtParam(0.5, 0.5, what=what)
+
+    # findings/nodes-geometry.md「NurbsSurface.getAtParam(what="normal")」: MFnNurbsSurface.normalがMayaのRuntimeErrorを投げ、ValueErrorにならない。
+    @unittest.expectedFailure
+    def test_collapsed_surface_normal_raises_value_error(self):
+        """形のつぶれた曲面のnormalはdocstringのとおりValueError。"""
+        shape = self.collapsed_surface()
+        with self.assertRaises(ValueError):
+            shape.getAtParam(0.5, 0.5, what="normal")
+
+    def test_set_points_world_space_with_singular_transform(self):
+        """親のマトリクスが特異ならsetPoints(ws=True)はValueErrorで、CVは変わらない(fastでも同じ)。"""
+        shape = self.surface()
+        transform = shape.getParent().getName(full=True)
+        cmds.setAttr(transform + ".offsetParentMatrix", [0.0] * 15 + [1.0], type="matrix")
+        before = [tuple(point) for point in shape.mfn().cvPositions()]
+        for kwargs in ({"ws": True}, {"worldSpace": True, "fast": True}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    shape.setPoints([(1, 1, 1)] * len(before), **kwargs)
+                self.assertEqual([tuple(point) for point in shape.mfn().cvPositions()], before)
+
+    def test_set_points_fast_rejects_locked_shape(self):
+        """ロックしたシェイプへのsetPoints(fast=True)はRuntimeErrorで、CVは変わらない。"""
+        shape = self.surface()
+        name = shape.getName(full=True)
+        before = [tuple(point) for point in shape.mfn().cvPositions()]
+        cmds.lockNode(name, lock=True)
+        try:
+            for check in (False, True):
+                with self.subTest(check=check):
+                    with self.assertRaises(RuntimeError):
+                        shape.setPoints([(1, 1, 1)] * len(before), fast=True, check=check)
+        finally:
+            cmds.lockNode(name, lock=False)
+        self.assertEqual([tuple(point) for point in shape.mfn().cvPositions()], before)
+
 
 if __name__ == "__main__":
     unittest.main()

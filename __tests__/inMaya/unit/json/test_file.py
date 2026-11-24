@@ -68,6 +68,14 @@ class FileTest(unittest.TestCase):
         self.assertEqual(_load(self.path, "mlib.test", 1)[1], {"a": 1})
         self.assertEqual(os.listdir(self.folder), ["data.json"])
 
+    def test_failed_replace_leaves_no_temporary_file(self):
+        """書き出し先がフォルダーで置き換えに失敗したとき、OSErrorにして一時ファイルを残さないことを確かめる。"""
+        target = os.path.join(self.folder, "dir.json")
+        os.mkdir(target)
+        with self.assertRaises(OSError):
+            _dump({"a": 1}, target, "mlib.test", 1)
+        self.assertEqual(os.listdir(self.folder), ["dir.json"])
+
     def test_convert_time(self):
         cmds.currentUnit(time="ntsc")
         _dump({}, self.path, "mlib.test", 1)
@@ -78,6 +86,55 @@ class FileTest(unittest.TestCase):
         self.assertAlmostEqual(header._convert_time(30.0, timing="second"), 24.0)
         with self.assertRaises(ValueError):
             header._convert_time(1.0, timing="seconds")
+
+    def test_header_properties_and_invalid_arguments(self):
+        """Headerの値・表記と、不正な引数の例外の型を確かめる。"""
+        header = Header("mlib.test", 3, "1.2.3", "2027", 30)
+        self.assertEqual((header.format, header.version, header.mlib, header.maya, header.fps), ("mlib.test", 3, "1.2.3", "2027", 30.0))
+        self.assertEqual(repr(header), "Header('mlib.test', 3, fps=30.0)")
+        cmds.currentUnit(time="ntsc")
+        self.assertAlmostEqual(Header("mlib.test", 1).fps, 30.0)
+        cmds.currentUnit(time="film")
+        self.assertAlmostEqual(Header("mlib.test", 1).fps, 24.0)
+        for args, error in (
+            ((1, 1), TypeError),
+            (("", 1), ValueError),
+            (("mlib.test", 1.0), TypeError),
+            (("mlib.test", True), TypeError),
+            (("mlib.test", 0), ValueError),
+            (("mlib.test", 1, None, None, "24"), TypeError),
+            (("mlib.test", 1, None, None, True), TypeError),
+            (("mlib.test", 1, None, None, 0), ValueError),
+            (("mlib.test", 1, None, None, -24.0), ValueError),
+        ):
+            with self.subTest(args=args), self.assertRaises(error):
+                Header(*args)
+
+    def test_invalid_files(self):
+        """壊れたヘッダー・ファイルの形をValueErrorにし、dataがdictでなければTypeErrorにすることを確かめる。"""
+        with self.assertRaises(TypeError):
+            _dump([], self.path, "mlib.test", 1)
+        _dump({}, self.path, "mlib.test", 1)
+        with open(self.path, encoding="utf-8") as stream:
+            good = std_json.load(stream)
+        header = good["header"]
+        units = header["units"]
+        for label, payload in (
+            ("list", []),
+            ("extraKey", dict(good, extra=1)),
+            ("dataNotDict", {"header": header, "data": []}),
+            ("headerNotDict", {"header": [], "data": {}}),
+            ("noUnits", {"header": {"format": "mlib.test", "version": 1}, "data": {}}),
+            ("linear", {"header": dict(header, units=dict(units, linear="m")), "data": {}}),
+            ("angle", {"header": dict(header, units=dict(units, angle="rad")), "data": {}}),
+            ("time", {"header": dict(header, units=dict(units, time="second")), "data": {}}),
+            ("noFormat", {"header": {key: value for key, value in header.items() if key != "format"}, "data": {}}),
+            ("badVersion", {"header": dict(header, version="1"), "data": {}}),
+        ):
+            with open(self.path, "w", encoding="utf-8") as stream:
+                std_json.dump(payload, stream)
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                _load(self.path, "mlib.test", 1)
 
 
 class _OffsetSnapshot(Snapshot):

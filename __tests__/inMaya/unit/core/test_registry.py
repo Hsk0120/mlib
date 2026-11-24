@@ -220,6 +220,29 @@ class NodeRegistrySpecTest(unittest.TestCase):
         resolved = registry.wrapper_class("mlibNoSuchType")
         self.assertIs(resolved, Node)
 
+    def test_renamed_type_helpers(self):
+        """改名された型名の読み替えは文字列だけを対象にし、並びはlistへ、それ以外はそのまま返す。"""
+        from mlib.core import registry as registry_module
+
+        self.assertEqual(registry_module._real_node_type(123), 123)
+        self.assertIsNone(registry_module._real_node_types(None))
+        resolved = registry_module._real_node_types(("multDL", "transform"))
+        self.assertEqual(resolved[1], "transform")
+        self.assertIn(resolved[0], ("multDL", "multDoubleLinear"))
+        self.assertTrue(cmds.nodeType(resolved[0], isTypeName=True))
+
+    def test_unknown_type_message_names_version(self):
+        """作れない型の文言は、Mayaの版と、型が加わった版を示す。版を取れなければunknownにする。"""
+        from unittest import mock
+
+        from mlib.core import registry as registry_module
+
+        message = registry_module._unknown_node_type_message("parentMatrix")
+        self.assertIn(cmds.about(majorVersion=True), message)
+        self.assertIn("以降が必要です", message)
+        with mock.patch.object(registry_module.cmds, "about", side_effect=RuntimeError):
+            self.assertIn("このMaya unknown", registry_module._unknown_node_type_message("mlibNoSuchType"))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

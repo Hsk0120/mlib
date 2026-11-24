@@ -150,6 +150,24 @@ class CreateDeformerTest(_Case):
                     mlib.createDeformer(*args, **kwargs)
                 self.assertEqual(set(cmds.ls()), before)
 
+    def test_divisions_must_be_sequences(self):
+        """divisions・ldivisionsが文字列や並びでない値ならTypeErrorにして、何も作らない。"""
+        cube, _ = self.cube()
+        before = set(cmds.ls())
+        for kwargs in ({"divisions": "222"}, {"divisions": 2}, {"ldivisions": b"222"}, {"ldv": 3}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(TypeError):
+                mlib.createDeformer("lattice", cube, **kwargs)
+            self.assertEqual(set(cmds.ls()), before)
+
+    def test_wire_accepts_shapes_directly(self):
+        """ターゲットとカーブにシェイプを直接渡しても作れる。"""
+        _, shape = self.cube()
+        curve = cmds.curve(degree=1, point=[(-2, 0, 1), (2, 0, 1)], name=self.name("crv#"))
+        curve_shape = cmds.listRelatives(curve, shapes=True, fullPath=True)[0]
+        wire = mlib.createDeformer("wire", shape, curves=curve_shape, name=self.name("shapeWire"))
+        self.assertEqual(wire.getType(), "wire")
+        self.assertIn(shape, cmds.ls(cmds.wire(wire.getName(full=True), query=True, geometry=True), long=True))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

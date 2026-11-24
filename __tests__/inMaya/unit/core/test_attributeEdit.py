@@ -18,6 +18,7 @@ import maya.cmds as cmds
 import mlib
 
 mlib.reload()
+from support.namespaceCase import NamespaceCase
 
 
 class AttributeEditsTest(unittest.TestCase):
@@ -396,6 +397,68 @@ class EditRefactoringTest(unittest.TestCase):
         self.assertEqual(tuple(plug.get()), (1, 2, 3))
         cmds.undo()
         self.assertFalse(node.hasAttr("customVector"))
+
+
+class FastAddAttrDefinitionTest(NamespaceCase):
+    """fastのaddAttrが作るアトリビュートの型と、追加前の検査を確かめる。"""
+
+    PREFIX = "mlibAttributeEditFast_"
+
+    def setUp(self):
+        super().setUp()
+        self.node = mlib.getNode(self.make("network", "node"))
+
+    def query(self, name, **flags):
+        """cmds.addAttrで定義を問い合わせる。"""
+        return cmds.addAttr(f"{self.node.getName(full=True)}.{name}", query=True, **flags)
+
+    def test_message_and_matrix_types_match_cmds(self):
+        """message・matrix・fltMatrixを、cmdsと同じ型で追加し、Undoに載せない。"""
+        cmds.flushUndo()
+        for name, kind, expected in (
+            ("fastMessage", "message", "message"),
+            ("fastMatrix", "at:matrix", "matrix"),
+            ("fastFltMatrix", "at:fltMatrix", "fltMatrix"),
+        ):
+            with self.subTest(kind=kind):
+                plug = self.node.addAttr(name, kind, fast=True)
+                self.assertEqual(plug.getAttributeName("long"), name)
+                self.assertEqual(self.query(name, attributeType=True), expected)
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
+    def test_nice_name_and_disconnect_behaviour(self):
+        """fastでもniceNameとdisconnectBehaviourを、cmdsで作ったときと同じ定義にする。"""
+        self.node.addAttr("fastNice", niceName="Pretty Name", disconnectBehaviour=0, fast=True)
+        self.node.addAttr("slowNice", niceName="Pretty Name", disconnectBehaviour=0)
+        for name in ("fastNice", "slowNice"):
+            with self.subTest(name=name):
+                self.assertEqual(self.query(name, niceName=True), "Pretty Name")
+                self.assertEqual(self.query(name, disconnectBehaviour=True), 0)
+
+    def test_compound_with_named_children(self):
+        """compoundは子の名前を渡すと、子を持つ親として1回で追加する。"""
+        self.node.addAttr("fastParent", "compound", childNames=["fastA", "fastB"], subType="double", fast=True)
+        self.assertEqual(cmds.attributeQuery("fastParent", node=self.node.getName(full=True), listChildren=True), ["fastA", "fastB"])
+        self.assertEqual(self.query("fastA", attributeType=True), "double")
+
+    def test_unsupported_definitions_add_nothing(self):
+        """fastで作れない型・データ型・子の数は、何も追加せずNotImplementedErrorにする。"""
+        before = cmds.listAttr(self.node.getName(full=True))
+        for kwargs in ({"type": "double4"}, {"dataType": "notAType"}, {"type": "addr"}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(NotImplementedError):
+                self.node.addAttr("fastBad", fast=True, **kwargs)
+        self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
+
+    def test_preflight_rejects_before_changes(self):
+        """空の子の名前・マルチへの既定値・書き込めない定義への既定値は、追加する前に例外にする。"""
+        before = cmds.listAttr(self.node.getName(full=True))
+        with self.assertRaises(ValueError):
+            self.node.addAttr("vectorValue", "double3", childNames=["", "vy", "vz"])
+        with self.assertRaises(TypeError):
+            self.node.addAttr("multiValue", dataType="string", multi=True, defaultValue="x")
+        with self.assertRaises(RuntimeError):
+            self.node.addAttr("readOnlyValue", dataType="string", writable=False, defaultValue="x")
+        self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
 
 
 if __name__ == "__main__":

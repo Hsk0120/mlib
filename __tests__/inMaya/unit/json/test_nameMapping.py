@@ -41,9 +41,20 @@ class NameMappingTest(unittest.TestCase):
             ({"replace": [("a",)]}, ValueError),
             ({"replace": [("", "b")]}, ValueError),
             ({"namespaceMap": {"a": 1}}, TypeError),
+            ({"replace": [("a", 1)]}, TypeError),
+            ({"replace": [(1, "a")]}, TypeError),
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(error):
                 NameMapping(**kwargs)
+        with self.assertRaises(TypeError):
+            NameMapping().apply(1)
+        with self.assertRaises(TypeError):
+            NameMapping()._apply_path(None)
+
+    def test_repr(self):
+        """表記に指定した規則がすべて入ることを確かめる。"""
+        text = repr(NameMapping(nameMap={"a": "b"}, replace=[("_L", "_R")], namespaceMap={"chrA": "chrB"}))
+        self.assertEqual(text, "NameMapping(nameMap={'a': 'b'}, replace=[('_L', '_R')], namespaceMap={'chrA': 'chrB'})")
 
 
 class _OffsetSnapshot(Snapshot):

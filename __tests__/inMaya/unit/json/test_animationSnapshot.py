@@ -236,6 +236,177 @@ class AnimationSnapshotTest(_AnimCase):
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         self.assertEqual(self.keyTimes(self.b + ".tx"), [3.0])
         self.assertIsNone(self.curve(self.b + ".rx"))
+        cmds.redo()
+        self.assertEqual(self.keyTimes(self.b + ".tx"), [0.0, 10.0, 15.0, 20.0, 30.0])
+        self.assertCurveData(_read_curve(self.curve(self.b + ".rx")), self.original("rx"))
+
+    def test_invalid_data_details(self):
+        """壊れた保存データ(ルート・項目・カーブ・キー・レイヤー)をValueErrorにすることを確かめる。"""
+        layer = {
+            "name": "L1",
+            "parent": None,
+            "weight": 1.0,
+            "lock": False,
+            "mute": False,
+            "solo": False,
+            "override": False,
+            "passthrough": True,
+            "rotationAccumulationMode": "Euler",
+            "scaleAccumulationMode": "Multiply",
+        }
+
+        def curve(d):
+            return d["curves"][0]["curve"]
+
+        def key(d):
+            return curve(d)["keys"][0]
+
+        def layers(*changes):
+            return lambda d: d.update(layers=[dict(layer, **change) for change in changes])
+
+        cases = {
+            "rootLayer": lambda d: d.update(rootLayer=5),
+            "timeRangeNaN": lambda d: d.update(timeRange=[0, float("nan")]),
+            "timeRangeType": lambda d: d.update(timeRange=[0, "1"]),
+            "entryNotDict": lambda d: d["curves"].append(5),
+            "entryKeys": lambda d: d["curves"][0].pop("layer"),
+            "entryPlug": lambda d: d["curves"][0].update(plug={"node": {}}),
+            "curveNotDict": lambda d: d["curves"][0].update(curve=[]),
+            "curveTypeOutput": lambda d: curve(d).update(curveType="animCurveTZ"),
+            "curveTypeShort": lambda d: curve(d).update(curveType="animCurveT"),
+            "curveTypeNotStr": lambda d: curve(d).update(curveType=None),
+            "weighted": lambda d: curve(d).update(weighted=1),
+            "preInfinity": lambda d: curve(d).update(preInfinity="bogus"),
+            "postInfinity": lambda d: curve(d).pop("postInfinity"),
+            "keysNotList": lambda d: curve(d).update(keys="x"),
+            "keyNotDict": lambda d: curve(d)["keys"].append(5),
+            "keyValueStr": lambda d: key(d).update(value="1"),
+            "keyInputBool": lambda d: key(d).update(input=True),
+            "keyLockInt": lambda d: key(d).update(lock=1),
+            "keyValueInf": lambda d: key(d).update(value=float("inf")),
+            "keyWeight": lambda d: key(d).update(inWeight=-1.0),
+            "layerNotDict": lambda d: d.update(layers=[5]),
+            "layerKeys": lambda d: d.update(layers=[{"name": "L1"}]),
+            "layerName": layers({"name": ""}),
+            "layerNameNotStr": layers({"name": 1}),
+            "layerDuplicate": layers({}, {}),
+            "layerParent": layers({"parent": "L0"}),
+            "layerWeightStr": layers({"weight": "1"}),
+            "layerWeightBool": layers({"weight": True}),
+            "layerWeightInf": layers({"weight": float("inf")}),
+            "layerFlag": layers({"mute": 1}),
+            "layerEnum": layers({"rotationAccumulationMode": 0}),
+        }
+        snap = AnimationSnapshot.capture(self.a)
+        for label, mutate in cases.items():
+            data = snap.toData()
+            mutate(data)
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                AnimationSnapshot(data)
+        data = snap.toData()
+        data["layers"] = [layer, dict(layer, name="L2", parent="L1")]
+        data["curves"][0]["layer"] = "L2"
+        self.assertEqual(AnimationSnapshot(data).toData()["layers"][1]["parent"], "L1")
+
+    def test_invalid_capture_arguments(self):
+        """captureのnodes・timeの誤りの例外の型と、同じノードを1回だけ記録することを確かめる。"""
+        for args, kwargs, error in (
+            ((5,), {}, TypeError),
+            (([self.name("noSuchNode")],), {}, RuntimeError),
+            ((self.a,), {"time": (0, float("inf"))}, ValueError),
+            ((self.a,), {"time": (True, 2)}, TypeError),
+            ((self.a,), {"time": (1, 2, 3)}, TypeError),
+        ):
+            with self.subTest(args=args, kwargs=kwargs), self.assertRaises(error):
+                AnimationSnapshot.capture(*args, **kwargs)
+        snap = AnimationSnapshot.capture([self.a, mlib.getNode(self.a), self.a])
+        self.assertEqual(len(snap.toData()["curves"]), 3)
+
+    def test_name_map_replace_and_missing_on_apply(self):
+        """nameMap・replaceで別の名前のノードへ書き、見つからないノードはmissingに入れることを確かめる。"""
+        snap = AnimationSnapshot.capture(self.a)
+        for kwargs, text in (({"nameMap": {"a": "c"}}, "c"), ({"replace": [("a", "d")]}, "d")):
+            with self.subTest(kwargs=kwargs):
+                target = cmds.createNode("transform", name=self.name(text))
+                report = snap.apply(**kwargs)
+                self.assertEqual((report.missing, report.skipped), ([], []))
+                self.assertCurveData(_read_curve(self.curve(target + ".tx")), self.original("tx"))
+        report = snap.apply(namespaceMap={self.ns: "noSuchNs"})
+        self.assertEqual(report.missing, ["noSuchNs:a"])
+        report = snap.apply(nameMap={"a": "e"})
+        self.assertEqual(report.missing, [self.name("e")])
+
+    def test_output_type_mismatch_is_skipped(self):
+        """出力の種類が違う既存のカーブは書かずに報告することを確かめる。"""
+        data = AnimationSnapshot.capture(self.a).toData()
+        entry = next(item for item in data["curves"] if item["plug"]["attr"] == "translateX")
+        entry["curve"]["curveType"] = "animCurveTA"
+        cmds.setKeyframe(self.b + ".tx", time=3, value=9)
+        report = AnimationSnapshot(data).apply(namespaceMap={self.ns: self.other})
+        self.assertEqual(len(report.skipped), 1)
+        self.assertIn("カーブの型animCurveTLがanimCurveTAと合っていません", report.skipped[0])
+        self.assertEqual(self.keyTimes(self.b + ".tx"), [3.0])
+
+    def test_empty_keys(self):
+        """キーの無い保存データは、既存のカーブのキーを消し(fastも同じ)、カーブの無いアトリビュートには何も作らないことを確かめる。"""
+        data = AnimationSnapshot.capture(self.a).toData()
+        for entry in data["curves"]:
+            entry["curve"]["keys"] = []
+        snap = AnimationSnapshot(data)
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                cmds.cutKey(self.b, clear=True)
+                cmds.setKeyframe(self.b + ".tx", time=3, value=9)
+                report = snap.apply(namespaceMap={self.ns: self.other}, fast=fast)
+                self.assertEqual((report.missing, report.skipped), ([], []))
+                curve = self.curve(self.b + ".tx")
+                self.assertIsNotNone(curve)
+                self.assertEqual(cmds.keyframe(curve, query=True, keyframeCount=True), 0)
+                self.assertIsNone(self.curve(self.b + ".rx"))
+        cmds.cutKey(self.b, clear=True)
+        cmds.setKeyframe(self.b + ".tx", time=3, value=9)
+        snap.apply(namespaceMap={self.ns: self.other}, mode="insert")
+        self.assertEqual(self.keyTimes(self.b + ".tx"), [3.0])
+
+    def test_insert_without_time_range(self):
+        """timeを省いて取得したときのinsertは、カーブごとの最初と最後のキーの間だけを置き換えることを確かめる。"""
+        snap = AnimationSnapshot.capture(self.a)
+        for frame in (-5, 5, 50):
+            cmds.setKeyframe(self.b + ".tx", time=frame, value=-50)
+        snap.apply(namespaceMap={self.ns: self.other}, mode="insert")
+        self.assertEqual(self.keyTimes(self.b + ".tx"), [-5.0, 0.0, 10.0, 15.0, 20.0, 30.0, 50.0])
+        self.assertAlmostEqual(cmds.getAttr(self.b + ".tx", time=10), 5.0)
+        self.assertAlmostEqual(cmds.getAttr(self.b + ".tx", time=50), -50.0)
+
+    def test_time_output_curve(self):
+        """出力が時間のカーブ(animCurveTT)の値をフレームで保存し、通常・fastとも同じ値で書き戻すことを確かめる。"""
+        for node in (self.a, self.b):
+            cmds.addAttr(node, longName="delay", attributeType="time", keyable=True)
+        cmds.setKeyframe(self.a + ".delay", time=0, value=5)
+        cmds.setKeyframe(self.a + ".delay", time=10, value=20)
+        curve = self.curve(self.a + ".delay")
+        self.assertEqual(cmds.nodeType(curve), "animCurveTT")
+        snap = AnimationSnapshot.capture(self.a)
+        saved = next(item["curve"] for item in snap.toData()["curves"] if item["plug"]["attr"] == "delay")
+        self.assertEqual([key["value"] for key in saved["keys"]], cmds.keyframe(curve, query=True, valueChange=True))
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                cmds.cutKey(self.b, clear=True)
+                snap.apply(namespaceMap={self.ns: self.other}, fast=fast)
+                self.assertSequenceAlmostEqual(cmds.keyframe(self.b + ".delay", query=True, valueChange=True), [5.0, 20.0], places=6)
+                self.assertCurveData(_read_curve(self.curve(self.b + ".delay")), _read_curve(curve))
+
+    def test_base_curve_of_layered_target(self):
+        """レイヤーに入った先のアトリビュートへは、ベースのカーブをルートレイヤーのカーブとして書くことを確かめる。"""
+        snap = AnimationSnapshot.capture(self.a)
+        cmds.setKeyframe(self.b + ".tx", time=3, value=9)
+        layer = cmds.animLayer(self.ns + "_target")
+        cmds.animLayer(layer, edit=True, attribute=self.b + ".tx")
+        root = cmds.animLayer(query=True, root=True)
+        report = snap.apply(namespaceMap={self.ns: self.other})
+        self.assertEqual((report.missing, report.skipped), ([], []))
+        base = cmds.animLayer(root, query=True, findCurveForPlug=self.b + ".tx")[0]
+        self.assertCurveData(_read_curve(base), self.original("tx"))
 
     def test_invalid_input(self):
         snap = AnimationSnapshot.capture(self.a)
@@ -341,6 +512,30 @@ class AnimationLayerTest(_AnimCase):
         self.assertIn("アニメーションレイヤー" + self.layer2 + "が見つかりません", report.skipped[0])
         self.assertTrue(cmds.animLayer(self.layer1, query=True, override=True))
         self.assertCurveData(self.layerCurve(self.layer1, self.b + ".tx"), self.layerCurve(self.layer1, self.a + ".tx"))
+
+    def test_locked_layers(self):
+        """ロックしたレイヤーとその子のカーブは飛ばし、作り直したレイヤーは最後にロックし直すことを確かめる。"""
+        unused = cmds.animLayer(self.ns + "_unused")
+        cmds.animLayer(self.layer1, edit=True, lock=True)
+        snap = AnimationSnapshot.capture(self.a)
+        names = [layer["name"] for layer in snap.toData()["layers"]]
+        self.assertEqual(names, [self.layer1, self.layer2])
+        self.assertNotIn(unused, names)
+        self.assertTrue(snap.toData()["layers"][0]["lock"])
+        cmds.delete(self.layer2)
+        report = snap.apply(namespaceMap={self.ns: self.other})
+        skipped = "\n".join(report.skipped)
+        self.assertEqual(len(report.skipped), 3, skipped)
+        self.assertIn("アニメーションレイヤー" + self.layer1 + "がロックされています", skipped)
+        self.assertFalse(cmds.objExists(self.layer2))
+        cmds.animLayer(self.layer1, edit=True, lock=False)
+        cmds.delete(self.layer1)
+        report = snap.apply(namespaceMap={self.ns: self.other})
+        self.assertEqual(report.skipped, [])
+        self.assertTrue(cmds.animLayer(self.layer1, query=True, lock=True))
+        self.assertFalse(cmds.animLayer(self.layer2, query=True, lock=True))
+        saved = next(entry["curve"] for entry in snap.toData()["curves"] if entry["layer"] == self.layer1 and entry["plug"]["attr"] == "rotateY")
+        self.assertCurveData(self.layerCurve(self.layer1, self.b + ".ry"), saved)
 
 
 if __name__ == "__main__":

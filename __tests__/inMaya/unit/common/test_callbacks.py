@@ -100,6 +100,40 @@ class CallbacksTest(NamespaceCase):
                 with callbacks:
                     pass
 
+    def test_remove_failure_keeps_failed_ids(self):
+        """解除に失敗したものはRuntimeError(__cause__に原因)で一覧に残し、解除できたものは除く。"""
+        node = self.make("transform", "removeFail")
+        callbacks = Callbacks()
+        broken = callbacks.addAttributeChangedCallback(node, lambda message, plug: None)
+        healthy = callbacks.addEventCallback("SelectionChanged", lambda: None)
+        # ほかの持ち主が先に解除した状態を作る(このグループの解除は失敗する)。
+        om2.MMessage.removeCallback(broken)
+        with self.assertRaises(RuntimeError) as caught:
+            callbacks.remove()
+        self.assertIsNotNone(caught.exception.__cause__)
+        self.assertIn(repr(broken), str(caught.exception))
+        self.assertEqual(callbacks._ids, [broken])
+        self.assertNotIn(healthy, callbacks._ids)
+        # もう一度呼ぶと、残った分をもう一度試す。
+        self.assertRaises(RuntimeError, callbacks.remove)
+        callbacks._ids.clear()
+
+    def test_exit_raises_remove_failure_only_without_body_error(self):
+        """withの本文が正常なら解除の失敗を送出し、本文の例外は解除の失敗で置き換えない。"""
+        node = self.make("transform", "exitFail")
+        with self.assertRaises(RuntimeError):
+            with Callbacks() as callbacks:
+                om2.MMessage.removeCallback(callbacks.addAttributeChangedCallback(node, lambda message, plug: None))
+        callbacks._ids.clear()
+        with self.assertRaises(ValueError):
+            with Callbacks() as callbacks:
+                om2.MMessage.removeCallback(callbacks.addAttributeChangedCallback(node, lambda message, plug: None))
+                raise ValueError("body")
+        callbacks._ids.clear()
+        # with を抜けた後は、もう一度 with に入れる。
+        with callbacks:
+            pass
+
     def test_errors(self):
         """不正な入力は例外で、登録は残さない。"""
         callbacks = Callbacks()

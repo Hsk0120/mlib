@@ -61,6 +61,45 @@ class CurveFitMayaSpecTest(unittest.TestCase):
             closest = fn.closestPoint(om2.MPoint(*point), space=om2.MSpace.kObject)[0]
             self.assertLess(closest.distanceTo(om2.MPoint(*point)), 1e-4)
 
+    def test_basis_end_and_partition_of_unity(self):
+        """parameter=1は最後のCVだけが1で、どのparameterでもウェイトの合計は1。"""
+        self.assertEqual(CurveFit.basis(5, 1.0), [0.0, 0.0, 0.0, 0.0, 1.0])
+        for parameter in (0.0, 0.25, 0.5, 0.99):
+            with self.subTest(parameter=parameter):
+                weights = CurveFit.basis(6, parameter)
+                self.assertEqual(len(weights), 6)
+                self.assertAlmostEqual(sum(weights), 1.0)
+
+    def test_fit_returns_count_controls_in_same_space(self):
+        """fitはcount個の3次元のCVを返し、両端のCVは端の点に一致する。"""
+        points = [(0.0, 0.0, 0.0), (2.0, 1.0, 0.0), (4.0, 0.0, 1.0)]
+        controls = CurveFit.fit(points, 4)
+        self.assertEqual(len(controls), 4)
+        self.assertTrue(all(len(row) == 3 for row in controls))
+        for axis in range(3):
+            self.assertAlmostEqual(controls[0][axis], points[0][axis], places=4)
+            self.assertAlmostEqual(controls[-1][axis], points[-1][axis], places=4)
+
+    def test_invalid_input(self):
+        """countやparameterの範囲外、点の不足・次元違い・有限でない値・長さ0の並びはValueError。"""
+        for count, parameter in ((3, 0.5), (4, -0.1), (4, 1.1)):
+            with self.subTest(count=count, parameter=parameter), self.assertRaises(ValueError):
+                CurveFit.basis(count, parameter)
+        line = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]
+        cases = [
+            (line, 3),
+            (line, 33),
+            (line, 4.0),
+            (line, True),
+            ([(0.0, 0.0, 0.0)], 4),
+            ([(0.0, 0.0), (1.0, 0.0)], 4),
+            ([(0.0, 0.0, 0.0), (float("nan"), 0.0, 0.0)], 4),
+            ([(1.0, 2.0, 3.0)] * 3, 4),
+        ]
+        for points, count in cases:
+            with self.subTest(points=points, count=count), self.assertRaises(ValueError):
+                CurveFit.fit(points, count)
+
     def _maya_curve(self, controls):
         """同じノット列を持つMayaの3次カーブを作り、関数セットを返す。"""
         count = len(controls)

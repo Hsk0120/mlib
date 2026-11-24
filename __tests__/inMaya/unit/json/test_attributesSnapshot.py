@@ -152,6 +152,47 @@ class AttributesSnapshotTest(_SnapshotCase):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 AttributesSnapshot(data)
 
+    def test_invalid_arguments(self):
+        """captureの引数の型・値の誤りを、docstringどおりの例外の型にすることを確かめる。"""
+        for args, error in (
+            (([self.node], 5), TypeError),
+            (([self.node], [""]), ValueError),
+            ((5, ["tx"]), TypeError),
+            (([self.name("noSuchNode")], ["tx"]), (RuntimeError, ValueError)),
+        ):
+            with self.subTest(args=args), self.assertRaises(error):
+                AttributesSnapshot.capture(*args)
+        snap = AttributesSnapshot.capture(self.node, "dist")
+        self.assertEqual([entry["plug"]["attr"] for entry in snap.toData()["plugs"]], ["dist"])
+
+    def test_unsupported_values_are_left_out(self):
+        """マルチ・message・値の無いアトリビュートを省き、警告することを確かめる。"""
+        cmds.addAttr(self.node, longName="items", attributeType="double", multi=True)
+        cmds.setAttr(self.node + ".items[0]", 1.5)
+        cmds.addAttr(self.node, longName="link", attributeType="message")
+        cmds.addAttr(self.node, longName="mesh", dataType="mesh")
+        cmds.addAttr(self.node, longName="broken", attributeType="double")
+        cmds.setAttr(self.node + ".broken", float("nan"))
+        with self.assertLogs("mlib", level="WARNING") as logs:
+            snap = AttributesSnapshot.capture([self.node], ["items", "link", "mesh", "broken", "items[0]"])
+        attrs = [entry["plug"]["attr"] for entry in snap.toData()["plugs"]]
+        self.assertEqual(attrs, ["items[0]"])
+        text = "\n".join(logs.output)
+        self.assertIn("マルチアトリビュート", text)
+        self.assertIn("messageアトリビュート", text)
+        self.assertIn("mesh", text)
+        self.assertIn("有限でない", text)
+
+    def test_none_value_is_skipped(self):
+        """保存した値がNoneの項目は書かずに「値がありません」で報告することを確かめる。"""
+        snap = AttributesSnapshot.capture([self.node], ["dist"])
+        data = snap.toData()
+        data["plugs"][0]["value"] = None
+        cmds.setAttr(self.node_b + ".dist", 9.0)
+        report = AttributesSnapshot(data).apply(namespaceMap={self.ns: self.other})
+        self.assertEqual(report.skipped, [self.other_name("node") + ".dist: 値がありません"])
+        self.assertEqual(cmds.getAttr(self.node_b + ".dist"), 9.0)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -542,5 +542,34 @@ class VectorProjectionTest(NamespaceCase):
                 self.assertSequenceAlmostEqual(value, (1, 2, 3))
 
 
+class VectorBoundaryTest(unittest.TestCase):
+    """自身を書き換える演算の相手の型と、isPlanarの境界。"""
+
+    def test_in_place_operators_reject_other_types(self):
+        """-=・/=の相手が数値・ベクトル以外ならTypeErrorで、値は変わらない。"""
+        for label in ("sub", "div"):
+            with self.subTest(label=label):
+                value = Vector(1.0, 2.0, 3.0)
+                with self.assertRaises(TypeError):
+                    if label == "sub":
+                        value -= "abc"
+                    else:
+                        value /= "a"
+                self.assertEqual(tuple(value), (1.0, 2.0, 3.0))
+
+    def test_is_planar_collinear_and_invalid(self):
+        """4点以上でも一直線上ならTrue。点の並びでない値はTypeError。"""
+        self.assertTrue(Vector.isPlanar([(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (-4, 0, 0)]))
+        self.assertTrue(Vector.isPlanar([(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]))
+        # 3点以下はいつも同じ平面の上にある。
+        self.assertTrue(Vector.isPlanar([(0, 0, 0), (1, 0, 0), (0, 1, 5)]))
+        self.assertTrue(Vector.isPlanar([]))
+        self.assertFalse(Vector.isPlanar([(0, 0, 0), (1, 0, 0), (2, 0, 0), (0, 1, 0), (0, 0, 1)]))
+        for value in (5, None, "abc", Vector(1, 2, 3)):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError):
+                    Vector.isPlanar(value)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -365,6 +365,37 @@ class ReferenceNodePlugAdditionsTest(_Case):
                 with self.assertRaises(error):
                     reference.removeEdits(**flags)
 
+    def test_clean_edits_all_commands_when_unloaded(self):
+        """cleanEdits()はアンロード中の全種類の編集を消し(referenceQueryで確かめる)、ロード中・ロック中はRuntimeError。"""
+        reference = self._reference(self.path_a, "r1")
+        name = reference.getName(full=True)
+        asset = self.ns + "_r1:" + self.asset
+        cmds.setAttr(asset + ".tz", 5.0)
+        local = self.make("transform", "local#")
+        cmds.connectAttr(asset + ".tx", local + ".tx")
+        with self.assertRaises(RuntimeError):
+            reference.cleanEdits()
+        reference.setLoaded(False)
+        self.assertTrue(cmds.referenceQuery(name, editStrings=True))
+        reference.setReferenceLocked(True)
+        try:
+            with self.assertRaises(RuntimeError):
+                reference.cleanEdits()
+        finally:
+            reference.setReferenceLocked(False)
+        self.assertIsNone(reference.cleanEdits())
+        self.assertEqual(cmds.referenceQuery(name, editStrings=True) or [], [])
+        self.assertEqual(reference.getEdits(), [])
+        reference.setLoaded()
+        self.assertEqual(cmds.getAttr(asset + ".tz"), 0.0)
+
+    def test_parent_reference_of_file_less_reference_node(self):
+        """ファイルを持たないreferenceノードのgetParentReferenceはNoneで、root=Trueは自身を返す。"""
+        reference = mlib.getNode(cmds.createNode("reference", name=self.name("fileLessRN")))
+        self.assertIsInstance(reference, Reference)
+        self.assertIsNone(reference.getParentReference())
+        self.assertEqual(reference.getParentReference(root=True), reference)
+
     def test_replace_file(self):
         """別のファイルへ置き換え、名前空間を保つ。不正な path は例外。"""
         reference = self._reference(self.path_a, "r1")

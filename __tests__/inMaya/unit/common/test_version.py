@@ -35,6 +35,17 @@ class VersionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             Version("3").isAtLeast("bad")
 
+    def test_ordering_with_other_types_and_repr(self):
+        """Version以外との大小比較はTypeError、reprは作るときの書き方の文字列になる。"""
+        for other in ("3", (3,), 3, None):
+            with self.subTest(other=other):
+                with self.assertRaises(TypeError):
+                    Version("3") < other
+                with self.assertRaises(TypeError):
+                    Version("3") >= other
+        self.assertEqual(repr(Version("3.0.1-beta")), "Version('3.0.1-beta')")
+        self.assertEqual(sorted([Version("3.10"), Version("3.2"), Version("3")]), [Version("3"), Version("3.2"), Version("3.10")])
+
     def test_invalid_values(self):
         """小数の切捨て・bool・負数・空値を版番号として採用しない。"""
         for value in (None, "", "bad", "v3", (), True, -1, (3, -1), (3, 1.5), (False,)):

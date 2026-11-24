@@ -99,6 +99,53 @@ class DrivenKeyTest(unittest.TestCase):
         relation.setKey(10, 10)
         self.assertEqual(relation.getCurves()[0].getKeyCount(), 2)
 
+    def test_repr_shows_full_plug_names(self):
+        """reprはドライバーと駆動先の完全名を含む。"""
+        relation = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
+        driver = mlib.getPlug(self.a + ".tx")._full_name()
+        driven = mlib.getPlug(self.b + ".ty")._full_name()
+        self.assertEqual(repr(relation), f"DrivenKey({driver!r}, {driven!r})")
+
+    def _driver_curve(self, name, slope):
+        """ドライバー a.tx から入力を受ける animCurveUL を作る。"""
+        curve = cmds.createNode("animCurveUL", name=self.ns + ":" + name)
+        cmds.setKeyframe(curve, float=0.0, value=0.0)
+        cmds.setKeyframe(curve, float=10.0, value=10.0 * slope)
+        cmds.connectAttr(self.a + ".tx", curve + ".input")
+        return curve
+
+    def test_same_curve_through_two_blend_paths_is_counted_once(self):
+        """同じカーブが2つのblendWeightedを通る2つの経路でつながっていても、カーブは1回だけ数える。"""
+        curve = self._driver_curve("shared", 1.0)
+        left = cmds.createNode("blendWeighted", name=self.ns + ":left")
+        right = cmds.createNode("blendWeighted", name=self.ns + ":right")
+        blend = cmds.createNode("blendWeighted", name=self.ns + ":blend")
+        cmds.connectAttr(curve + ".output", left + ".input[0]")
+        cmds.connectAttr(curve + ".output", right + ".input[0]")
+        cmds.connectAttr(left + ".output", blend + ".input[0]")
+        cmds.connectAttr(right + ".output", blend + ".input[1]")
+        cmds.connectAttr(blend + ".output", self.b + ".ty")
+        relation = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
+        curves = relation.getCurves()
+        self.assertEqual(len(curves), 1)
+        self.assertEqual(curves[0].getName(full=True), cmds.ls(curve, long=True)[0])
+
+    def test_set_key_rejects_two_curves_for_one_pair(self):
+        """同じドライバーと駆動先の組にカーブが2つあると、setKeyはRuntimeErrorで何も変えない。"""
+        first = self._driver_curve("first", 1.0)
+        second = self._driver_curve("second", 2.0)
+        blend = cmds.createNode("blendWeighted", name=self.ns + ":blend")
+        cmds.connectAttr(first + ".output", blend + ".input[0]")
+        cmds.connectAttr(second + ".output", blend + ".input[1]")
+        cmds.connectAttr(blend + ".output", self.b + ".ty")
+        relation = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
+        self.assertEqual(len(relation.getCurves()), 2)
+        for fast in (False, True):
+            with self.subTest(fast=fast), self.assertRaises(RuntimeError):
+                relation.setKey(5, 1, fast=fast)
+        self.assertEqual(cmds.keyframe(first, query=True, keyframeCount=True), 2)
+        self.assertEqual(cmds.keyframe(second, query=True, keyframeCount=True), 2)
+
     def test_time_animation_is_not_replaced(self):
         cmds.setKeyframe(self.b + ".tx", time=1, value=2)
         before = cmds.listConnections(self.b + ".tx", source=True, destination=False, plugs=True)

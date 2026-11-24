@@ -120,6 +120,14 @@ class DuplicateSuffixTest(_SpecCase):
         copy = mlib.duplicate(self.joints[0])
         self.assertEqual(self.leaves(copy.getName(full=True)), sorted(("L_hip", "L_knee", "L_ankle", "box", "boxShape")))
 
+    def test_suffix_on_dg_node(self):
+        """DGノードの複製にもsuffixを付ける。"""
+        network = self.make("network", "data")
+        copy = mlib.duplicate(network, suffix="_Copy")
+        self.assertEqual(copy.getName(), "data_Copy")
+        self.assertEqual(cmds.nodeType(copy.getName(full=True)), "network")
+        self.assertTrue(cmds.objExists(network))
+
     def test_undo_once(self):
         """複製と改名が Undo 1回で戻る。"""
         self.flushUndo()

@@ -211,6 +211,19 @@ class LsSpecTest(_CmdsCase):
         self.assertIs(type(mlib.ls(sl=True, type="face")), mlib.Faces)
         self.assertEqual(len(mlib.ls(sl=True, type="face")), 1)
 
+    def test_multi_attribute_names(self):
+        """マルチアトリビュート全体・要素のワイルドカード・番号の無い要素1つの名前を、cmds.lsと同じ数のPlugにする。"""
+        node = cmds.createNode("plusMinusAverage", name=self.name("pma"))
+        cmds.setAttr(node + ".input1D[0]", 1)
+        cmds.setAttr(node + ".input1D[3]", 2)
+        whole = mlib.ls(node + ".input1D")
+        self.assertEqual([type(plug).__name__ for plug in whole], ["MultiPlug"])
+        elements = mlib.ls(node + ".input1D[*]")
+        self.assertEqual([plug.get() for plug in elements], [1.0, 2.0])
+        self.assertEqual(len(elements), len(cmds.ls(node + ".input1D[*]")))
+        matrix = mlib.ls(self.cube + ".worldMatrix")
+        self.assertEqual(cmds.ls(str(matrix[0])), cmds.ls(self.cube + ".worldMatrix[0]"))
+
     def test_result_collection_kinds(self):
         """結果の種類ごとの集まり。混在(ノードとアトリビュート、複数の種類・形状のコンポーネント)だけlist。"""
         other = cmds.polyCube(name=self.name("other"), constructionHistory=False)[0]

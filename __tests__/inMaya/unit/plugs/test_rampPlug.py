@@ -113,6 +113,8 @@ class RampPlugTest(NamespaceCase):
         before = plug.getEntries()
         cases = (
             (TypeError, plug.setEntries, (0.0,)),
+            (TypeError, plug.setEntries, "0.0"),
+            (TypeError, plug.setEntries, 5),
             (TypeError, plug.setEntries, [(0.0, 1.0)]),
             (TypeError, plug.setEntries, [("a", 1.0, "linear")]),
             (TypeError, plug.setEntries, [(0.0, (1, 0, 0), "linear")]),

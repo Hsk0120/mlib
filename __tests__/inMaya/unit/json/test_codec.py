@@ -90,6 +90,12 @@ class CodecTest(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises((TypeError, ValueError)):
                 _encode(value)
 
+    def test_rejects_non_finite_math_values(self):
+        """数学型の成分にNaN・無限大があればValueErrorにすることを確かめる。"""
+        for value in (Vector(float("inf"), 0, 0), Translate(0, float("nan"), 0), Quaternion(0, 0, 0, float("inf"))):
+            with self.subTest(value=type(value).__name__), self.assertRaisesRegex(ValueError, "有限でない"):
+                _encode({"value": [value]})
+
 
 class _OffsetSnapshot(Snapshot):
     """テスト用: ノードの translateX を書く最小の種類。"""

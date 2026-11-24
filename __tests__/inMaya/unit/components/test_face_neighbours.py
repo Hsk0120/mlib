@@ -157,6 +157,14 @@ class FaceNeighboursTest(NamespaceCase):
         self.assertFalse(face.isKind("zeroUVArea", uvSet="map1", tolerance=0.25))
         self.assertEqual(cmds.polyUVSet(shape.getName(full=True), query=True, currentUVSet=True), ["map1"])
 
+    def test_kind_uv_reversed_without_uvs(self):
+        """UVを割り当てていないフェースの uvReversed は RuntimeError。"""
+        node = cmds.polyPlane(name=self.ns + ":noUV", subdivisionsX=1, subdivisionsY=1, constructionHistory=False)[0]
+        cmds.polyMapDel(node + ".f[0]")
+        face = mlib.getNode(node).getShape().getFaces(0)
+        with self.assertRaises(RuntimeError):
+            face.isKind("uvReversed")
+
     def test_kind_rejects_invalid_arguments(self):
         """kind が文字列でなければ TypeError、知らない名前は ValueError、その種類で使わない uvSet・tolerance は TypeError。"""
         node = cmds.polyCube(name=self.ns + ":cube")[0]

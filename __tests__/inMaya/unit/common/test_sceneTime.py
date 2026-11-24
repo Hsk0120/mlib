@@ -6,6 +6,7 @@
 
 import sys
 import unittest
+from unittest import mock
 
 import maya.cmds as cmds
 
@@ -15,7 +16,8 @@ mlib.reload()
 
 from support.namespaceCase import NamespaceCase
 
-from mlib.common import Time
+from mlib.common import Environment, Time
+from mlib.common import sceneTime as scene_time_module
 
 
 class _SpecCase(NamespaceCase):
@@ -105,6 +107,74 @@ class TimeTest(_SpecCase):
         with self.assertRaises(TypeError):
             Time.getRange(True)
         self.assertEqual((Time.getRange(), Time.getRange(animation=True)), before)
+
+    def test_set_current_update_flag(self):
+        """update=Falseでも時刻は変わり、updateがbool以外ならTypeErrorで時刻を変えない。"""
+        cmds.currentUnit(time="film")
+        Time.setCurrent(7, update=False)
+        self.assertEqual(cmds.currentTime(query=True), 7.0)
+        for value in (1, None, "no"):
+            with self.subTest(update=value), self.assertRaises(TypeError):
+                Time.setCurrent(9, update=value)
+        self.assertEqual(cmds.currentTime(query=True), 7.0)
+        for value in (float("nan"), float("inf")):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                Time.setCurrent(value)
+        with self.assertRaises(ValueError):
+            Time.setCurrent(1, timeUnit="minute")
+
+
+class SimulatedSelectedRangeTest(_SpecCase):
+    """タイムスライダーの代役で、selected=Trueの範囲の読み方(終わりは1フレーム引く)を確かめる。"""
+
+    def setUp(self):
+        super().setUp()
+        self.slider = {"name": "mlibFakeSlider", "exists": True, "visible": True, "range": [10.0, 21.0]}
+
+        def mel_eval(command):
+            if isinstance(self.slider["name"], Exception):
+                raise self.slider["name"]
+            return self.slider["name"]
+
+        def time_control(name, **kwargs):
+            if kwargs.get("exists"):
+                return self.slider["exists"]
+            if kwargs.get("rangeVisible"):
+                return self.slider["visible"]
+            if kwargs.get("rangeArray"):
+                return list(self.slider["range"])
+            raise AssertionError(kwargs)
+
+        for patcher in (
+            mock.patch.object(Environment, "isBatch", return_value=False),
+            mock.patch.object(scene_time_module.mel, "eval", mel_eval),
+            mock.patch.object(cmds, "timeControl", time_control),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_selected_range_in_frames_and_seconds(self):
+        """rangeArrayの終わりから1フレーム引いた範囲を、フレームと秒で返す。"""
+        cmds.currentUnit(time="film")
+        self.assertEqual(Time.getRange(selected=True), (10.0, 20.0))
+        start, end = Time.getRange(selected=True, timeUnit="sec")
+        self.assertAlmostEqual(start, 10.0 / 24.0)
+        self.assertAlmostEqual(end, 20.0 / 24.0)
+        self.slider["range"] = [5.0, 6.0]
+        self.assertEqual(Time.getRange(selected=True), (5.0, 5.0))
+
+    def test_selected_range_is_none_without_slider_or_selection(self):
+        """範囲を選んでいない・スライダーが無い・名前が取れない場合はNone。"""
+        self.slider["visible"] = False
+        self.assertIsNone(Time.getRange(selected=True))
+        self.slider["visible"] = True
+        self.slider["exists"] = False
+        self.assertIsNone(Time.getRange(selected=True))
+        self.slider["exists"] = True
+        for name in ("", RuntimeError("no variable")):
+            with self.subTest(name=name):
+                self.slider["name"] = name
+                self.assertIsNone(Time.getRange(selected=True))
 
 
 _FAKE_PLUGIN = "mlibSpecFakePlugin"

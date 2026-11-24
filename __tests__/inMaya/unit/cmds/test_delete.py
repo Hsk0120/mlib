@@ -11,6 +11,7 @@ import re
 import tempfile
 import unittest
 import uuid
+from unittest import mock
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -423,6 +424,36 @@ class DeleteSpecTest(_CmdsCase):
         cmds.undo()
         self.assertTrue(all(cmds.objExists(name) for name in names))
         mlib.delete([mlib.getNode(name) for name in names])
+        self.assertFalse(any(cmds.objExists(name) for name in names))
+
+    @unittest.expectedFailure
+    def test_missing_attribute_name_is_runtime_error(self):
+        """見つからないアトリビュート名・ノード名を含む文字列は、docstringどおりRuntimeErrorにして何も削除しない。
+
+        findings(core-root-cmds)の「mlib.deleteで見つからないアトリビュート名がValueError」。
+        今はMayaのValueError(No object matches name)がそのまま出る。
+        """
+        owner = cmds.createNode("transform", name=self.name("owner"))
+        for fast in (False, True):
+            with self.subTest(fast=fast), self.assertRaises(RuntimeError):
+                mlib.delete([owner + ".noSuchAttribute", owner], fast=fast)
+            self.assertTrue(cmds.objExists(owner))
+
+    def test_overridden_delete_is_called_per_node(self):
+        """deleteを上書きしたクラスのノードは、まとめず1つずつそのクラスのdeleteで消す。"""
+        names = [cmds.createNode("network", name=self.name(f"custom{index}")) for index in range(2)]
+        nodes = [mlib.getNode(name) for name in names]
+        cls = type(nodes[0])
+        calls = []
+
+        def custom_delete(node, *, fast=False):
+            """呼ばれた対象を記録してから、標準の削除を行う。"""
+            calls.append((node, fast))
+            mlib.Node.delete(node, fast=fast)
+
+        with mock.patch.object(cls, "delete", custom_delete, create=True):
+            mlib.delete(nodes)
+        self.assertEqual(calls, [(nodes[0], False), (nodes[1], False)])
         self.assertFalse(any(cmds.objExists(name) for name in names))
 
     def test_mixed_names_and_nodes_are_rejected(self):

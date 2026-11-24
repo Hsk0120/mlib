@@ -121,6 +121,12 @@ class NurbsCurveCreateTest(_Case):
             (TypeError, dict(points=SQUARE, degree=True)),
             (TypeError, dict(points=SQUARE, closed=1)),
             (TypeError, dict(points=SQUARE, name=3)),
+            (TypeError, dict(points=SQUARE, degree=1, knots="0123")),
+            (TypeError, dict(points=SQUARE, degree=1, knots=5)),
+            (TypeError, dict(points=SQUARE, degree=1, knots=[0, 1, "2", 3])),
+            (TypeError, dict(points=SQUARE, degree=1, knots=[0, 1, True, 3])),
+            (ValueError, dict(points=SQUARE, degree=1, knots=[0, 1, 2, float("inf")])),
+            (ValueError, dict(points=SQUARE, degree=1, knots=[0, 1, 2])),
         )
         for error, kwargs in cases:
             with self.subTest(kwargs=kwargs):

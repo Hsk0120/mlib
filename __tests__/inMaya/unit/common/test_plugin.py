@@ -290,6 +290,11 @@ class UnknownPluginTest(NamespaceCase):
         self.assertEqual(Plugin.removeUnknown(_FAKE_PLUGIN), [_FAKE_PLUGIN])
         self.assertNotIn(_FAKE_PLUGIN, Plugin.listUnknown())
 
+    def test_remove_duplicate_names_once(self):
+        """同じ名前を重ねて渡しても、1回だけ外して1回だけ返す(タプルも受け付ける)。"""
+        self.assertEqual(Plugin.removeUnknown((_FAKE_PLUGIN, _FAKE_PLUGIN)), [_FAKE_PLUGIN])
+        self.assertNotIn(_FAKE_PLUGIN, cmds.unknownPlugin(query=True, list=True) or [])
+
     def test_remove_all(self):
         """names=None は未知のプラグインをすべて外す。"""
         before = Plugin.listUnknown()

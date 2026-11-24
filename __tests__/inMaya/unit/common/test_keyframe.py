@@ -233,6 +233,29 @@ class KeyframeReferenceTest(_KeyCase):
         # keepCurve=True(既定)なので、全キーを消した rotateY のカーブも残る。
         self.assertTrue(rotate.isValid())
 
+    def test_keyframes_container_protocol(self):
+        """位置での取得(負の位置も)・含むかの判定・比較・repr・持たないカーブの番号を確かめる。"""
+        rotate = self.node.getPlug("ry").getAnimCurve()
+        keys = Keyframes([self.curve.getKeyframes(0), self.curve.getKeyframes(2), rotate.getKeyframes(0)])
+        self.assertEqual(keys[0], self.curve.getKeyframes(0))
+        self.assertEqual(keys[-1], rotate.getKeyframes(0))
+        self.assertIn(self.curve.getKeyframes(2), keys)
+        self.assertNotIn(self.curve.getKeyframes(1), keys)
+        self.assertNotIn("not a key", keys)
+        self.assertNotIn(0, keys)
+        self.assertEqual(repr(keys), "Keyframes(count=3, curves=2)")
+        self.assertEqual(keys, Keyframes([self.curve.getKeyframes(0), self.curve.getKeyframes(2), rotate.getKeyframes(0)]))
+        self.assertNotEqual(keys, list(keys))
+        self.assertFalse(keys == [])
+        # Keyframe と Keyframe 以外の比較は NotImplemented になり、等しくない。
+        self.assertNotEqual(self.curve.getKeyframes(0), 0)
+        self.assertFalse(self.curve.getKeyframes(0) == "key")
+        other = self.node.getPlug("tz")
+        cmds.setKeyframe(self.name_, attribute="translateZ", time=1, value=1.0)
+        self.assertEqual(keys.getIndices(other.getAnimCurve()), [])
+        self.assertEqual(len(Keyframes([])), 0)
+        self.assertEqual(Keyframes([]).getIndices(self.curve), [])
+
     def test_move_keeps_neighbor_order(self):
         """1つのキーを動かすと隣を越えない(Maya と同じ)。まとめて動かすキー同士は一緒に動く。"""
         self.curve.getKeyframes(0).move(timeOffset=20)

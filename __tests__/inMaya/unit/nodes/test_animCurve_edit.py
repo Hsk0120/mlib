@@ -196,6 +196,57 @@ class AnimCurveEditTest(_KeyCase):
         self.assertEqual(set(self.curve.getDrivenPlugs()), {self.node.getPlug("tx"), other.getPlug("ty")})
         self.assertEqual(mlib.createNode("animCurveTL", name=self.name("lonely")).getDrivenPlugs(), [])
 
+    def test_remove_key_outside_keys_does_nothing(self):
+        """キーの無い範囲のremoveKeyは、通常・fastとも何も消さずNoneを返す。"""
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                self.assertIsNone(self.curve.removeKey(time=(20, 30), fast=fast))
+                self.assertIsNone(self.curve.removeKey(time=3, fast=fast))
+                self.assertEqual(self.times(), [1.0, 5.0, 10.0])
+                self.assertEqual(self.values(), [0.0, 2.0, 4.0])
+
+    def test_time_range_inputs_rejected_before_change(self):
+        """timeの組が2値でない・開始が終了より大きい場合は、removeKey・moveKeyとも何も変えずに例外。"""
+        for label, operation, error in (
+            ("remove three values", lambda: self.curve.removeKey(time=(1, 2, 3)), TypeError),
+            ("remove reversed", lambda: self.curve.removeKey(time=(10, 1)), ValueError),
+            ("move three values", lambda: self.curve.moveKey(time=[1, 2, 3], timeOffset=1), TypeError),
+            ("move reversed", lambda: self.curve.moveKey(time=(10, 1), timeOffset=1), ValueError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    operation()
+                self.assertEqual(self.times(), [1.0, 5.0, 10.0])
+
+    def test_add_keys_and_set_tangent_reject_invalid_items(self):
+        """addKeysの要素がdictでなければTypeError、setTangentのフラグが無いか知らない名前ならValueErrorで、何も変えない。"""
+        tangents = cmds.keyTangent(self.curve.getName(full=True), query=True, index=(0, 0), inTangentType=True, outTangentType=True)
+        for label, operation, error in (
+            ("key tuple", lambda: self.curve.addKeys([(2, 1.0)]), TypeError),
+            ("key mixed", lambda: self.curve.addKeys([{"input": 2, "value": 1.0}, 3]), TypeError),
+            ("no flags", lambda: self.curve.setTangent(0), ValueError),
+            ("unknown flag", lambda: self.curve.setTangent(0, ott="linear"), ValueError),
+            ("unknown flag fast", lambda: self.curve.setTangent(0, fast=True, itt="linear"), ValueError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    operation()
+                self.assertEqual(self.times(), [1.0, 5.0, 10.0])
+        self.assertEqual(cmds.keyTangent(self.curve.getName(full=True), query=True, index=(0, 0), inTangentType=True, outTangentType=True), tangents)
+
+    def test_reduce_keys_rejects_invalid_preserved_tangents(self):
+        """reduceKeysのpreserveKeyTangentは文字列かその並びで、違う型はTypeError・知らない名前はValueError。"""
+        for label, value, error in (
+            ("int", 5, TypeError),
+            ("item int", [1], TypeError),
+            ("item None", ("linear", None), TypeError),
+            ("name", ["curvy"], ValueError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    self.curve.reduceKeys(0.5, preserveKeyTangent=value)
+                self.assertEqual(self.times(), [1.0, 5.0, 10.0])
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

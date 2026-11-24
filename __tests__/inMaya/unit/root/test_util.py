@@ -135,5 +135,51 @@ class UtilSpecTest(unittest.TestCase):
                 util.mirrorArguments("x", pivot)
 
 
+class UtilInternalHelpersTest(unittest.TestCase):
+    """型のキャッシュ・番号の確認・最も近い点の格子など、内部の補助の分岐を確かめる。"""
+
+    def test_type_caches_are_cleared_at_limit(self):
+        """型ごとの判定のキャッシュは、上限に達したら空にしてから覚え直す。"""
+
+        class Fresh:
+            """まだキャッシュに無い型。"""
+
+            __slots__ = ()
+
+        with mock.patch.object(util, "_TYPE_CACHE_LIMIT", 0):
+            util._om2_types[int] = False
+            self.assertFalse(util._is_om2_type(Fresh))
+            self.assertEqual(util._om2_types, {Fresh: False})
+            util._stateful_types[int] = False
+            self.assertEqual(util._instance_state(Fresh()), (None, None))
+            self.assertEqual(util._stateful_types, {Fresh: False})
+
+    def test_checked_index(self):
+        """負の番号は後ろから数え、範囲外はIndexError、整数でなければTypeErrorにする。"""
+        self.assertEqual(util._checked_index(1, 3, "Vector"), 1)
+        self.assertEqual(util._checked_index(-1, 3, "Vector"), 2)
+        with self.assertRaises(IndexError):
+            util._checked_index(3, 3, "Vector")
+        with self.assertRaises(TypeError):
+            util._checked_index("0", 3, "Vector")
+        self.assertEqual(mlib.Vector(1, 2, 3)[-1], 3.0)
+
+    def test_unique_ordered(self):
+        """最初の出現順を保って重複を除く。keyで判定の値を変えられる。"""
+        self.assertEqual(util._unique_ordered([3, 1, 3, 2, 1]), [3, 1, 2])
+        self.assertEqual(util._unique_ordered(["a", "B", "b", "A"], key=str.lower), ["a", "B"])
+
+    def test_point_grid_rejects_empty_points(self):
+        """点の無い格子はValueErrorにする。"""
+        with self.assertRaises(ValueError):
+            util._PointGrid([])
+
+    def test_class_sources_skip_common_constants(self):
+        """commonの__all__にある大文字だけの名前(定数)は、ルートのクラスとして扱わない。"""
+        common = mlib.common
+        with mock.patch.object(common, "__all__", [*common.__all__, "MLIB_TEST_CONSTANT"]):
+            self.assertNotIn("MLIB_TEST_CONSTANT", mlib._class_sources())
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -166,6 +166,101 @@ class DrivenKeysSnapshotTest(_AnimCase):
             with self.assertRaises(ValueError):
                 DrivenKeysSnapshot(data)
 
+    def test_invalid_data_details(self):
+        """ドライバーの項目・PlugRef・カーブの誤りをValueErrorにし、captureの引数の誤りを例外にすることを確かめる。"""
+        good = DrivenKeysSnapshot.capture(self.driven).toData()
+        cases = {
+            "itemNotDict": lambda d: d["items"].append(5),
+            "blendWeightedInt": lambda d: d["items"][0].update(blendWeighted=1),
+            "driversNotList": lambda d: d["items"][0].update(drivers={}),
+            "driven": lambda d: d["items"][0].update(driven={"node": {}}),
+            "driverNotDict": lambda d: d["items"][0]["drivers"].append(5),
+            "driverKeys": lambda d: d["items"][0]["drivers"][0].pop("weight"),
+            "driverPlug": lambda d: d["items"][0]["drivers"][0].update(driver={"attr": "tx"}),
+            "weightBool": lambda d: d["items"][0]["drivers"][0].update(weight=True),
+            "weightNaN": lambda d: d["items"][0]["drivers"][0].update(weight=float("nan")),
+            "curve": lambda d: d["items"][0]["drivers"][0]["curve"].update(weighted="no"),
+        }
+        for label, mutate in cases.items():
+            data = DrivenKeysSnapshot(good).toData()
+            mutate(data)
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                DrivenKeysSnapshot(data)
+        for nodes, error in ((5, TypeError), ([1], TypeError), ([self.name("noSuchNode")], RuntimeError)):
+            with self.subTest(nodes=nodes), self.assertRaises(error):
+                DrivenKeysSnapshot.capture(nodes)
+
+    def test_capture_ignores_other_inputs(self):
+        """ドリブンキー以外の入力とドライバーの無いカーブは保存せず、同じノードは1回だけ見ることを確かめる。"""
+        cmds.connectAttr(self.driverA + ".ty", self.driven + ".tz")
+        lonely = cmds.createNode("animCurveUL", name=self.name("lonely"))
+        cmds.setKeyframe(lonely, float=0.0, value=1.0)
+        cmds.connectAttr(lonely + ".output", self.driven + ".ty")
+        data = DrivenKeysSnapshot.capture([self.driven, mlib.getNode(self.driven), self.driven]).toData()
+        self.assertEqual(sorted(item["driven"]["attr"] for item in data["items"]), ["rotateX", "translateX"])
+
+    def timeDriverSnapshot(self):
+        """時間のアトリビュートをドライバーにしたドリブンキーを作って取得する。"""
+        for namespace in (self.ns, self.other):
+            cmds.addAttr(namespace + ":drvA", longName="clock", attributeType="time", keyable=True)
+        for x, y in ((0, 0), (12, 6)):
+            cmds.setDrivenKeyframe(self.driven + ".sx", currentDriver=self.driverA + ".clock", driverValue=x, value=y)
+        return DrivenKeysSnapshot.capture(self.driven)
+
+    def test_time_driver_round_trip(self):
+        """時間のアトリビュートのドライバーのドリブンキーを、同じfpsの別の名前空間で同じ動きに作り直すことを確かめる。"""
+        snap = self.timeDriverSnapshot()
+        report = snap.apply(namespaceMap={self.ns: self.other})
+        self.assertEqual((report.missing, report.skipped), ([], []))
+        for namespace in (self.ns, self.other):
+            cmds.setAttr(namespace + ":drvA.clock", 6)
+        self.assertAlmostEqual(cmds.getAttr(self.other_name("dvn.sx")), cmds.getAttr(self.driven + ".sx"))
+        self.assertAlmostEqual(cmds.getAttr(self.other_name("dvn.sx")), 3.0)
+
+    @unittest.expectedFailure
+    def test_time_driver_input_in_frames(self):
+        """時間のドライバーの入力を、docstringのとおりフレームで保存することを確かめる。"""
+        # findings/json.md「時間のドライバーの入力の倍率(timeToUnitConversion)」: 今は12フレームが288で保存される。
+        snap = self.timeDriverSnapshot()
+        item = next(item for item in snap.toData()["items"] if item["driven"]["attr"] == "scaleX")
+        self.assertSequenceAlmostEqual([key["input"] for key in item["drivers"][0]["curve"]["keys"]], [0.0, 12.0], places=6)
+
+    def test_apply_skips(self):
+        """ロック・ほかの接続・同じPlug・出力の種類の違いは飛ばし、見つからない駆動先はmissingにすることを確かめる。"""
+        data = DrivenKeysSnapshot.capture(self.driven).toData()
+        single = next(item for item in data["items"] if not item["blendWeighted"])
+        blend = next(item for item in data["items"] if item["blendWeighted"])
+        report = DrivenKeysSnapshot(data).apply(namespaceMap={self.ns: "noSuchNs"})
+        self.assertIn("noSuchNs:dvn", report.missing)
+        cmds.setAttr(self.other_name("dvn.tx"), lock=True)
+        cmds.connectAttr(self.other_name("drvB.ty"), self.other_name("dvn.rx"))
+        report = DrivenKeysSnapshot(data).apply(namespaceMap={self.ns: self.other})
+        self.assertEqual(sorted(item.rpartition(": ")[2] for item in report.skipped), ["locked", "transformに接続されています"])
+        cmds.setAttr(self.other_name("dvn.tx"), lock=False)
+        cmds.disconnectAttr(self.other_name("drvB.ty"), self.other_name("dvn.rx"))
+        # ドライバーを駆動先と同じPlugにした項目は、DrivenKeyの作成の失敗として飛ばす。
+        blend["drivers"][0]["driver"] = blend["driven"]
+        # 出力の種類を変えた項目は、既にある距離のカーブと合わないので飛ばす。
+        single["drivers"][0]["curve"]["curveType"] = "animCurveUA"
+        cmds.setDrivenKeyframe(self.other_name("dvn.tx"), currentDriver=self.other_name("drvA.rz"), driverValue=0, value=1)
+        report = DrivenKeysSnapshot(data).apply(namespaceMap={self.ns: self.other})
+        skipped = "\n".join(report.skipped)
+        self.assertEqual(len(report.skipped), 2, skipped)
+        self.assertIn("ドライバーとドリブンは別のPlug", skipped)
+        self.assertIn("カーブの型animCurveULがanimCurveUAと合っていません", skipped)
+        self.assertEqual(cmds.keyframe(self.curve(self.other_name("dvn.tx")), query=True, valueChange=True), [1.0])
+
+    def test_empty_keys_create_nothing(self):
+        """キーの無い保存データでは、カーブの無い組に何も作らないことを確かめる。"""
+        data = DrivenKeysSnapshot.capture(self.driven).toData()
+        for item in data["items"]:
+            for driver in item["drivers"]:
+                driver["curve"]["keys"] = []
+        report = DrivenKeysSnapshot(data).apply(namespaceMap={self.ns: self.other})
+        self.assertEqual((report.missing, report.skipped), ([], []))
+        self.assertIsNone(cmds.listConnections(self.other_name("dvn.tx"), source=True, destination=False))
+        self.assertIsNone(cmds.listConnections(self.other_name("dvn.rx"), source=True, destination=False))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

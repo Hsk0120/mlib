@@ -62,6 +62,16 @@ class BakeResultsTest(NamespaceCase):
         self.assertEqual(cmds.keyframe(self.target + ".translateX", query=True, timeChange=True), [2.0, 4.0, 6.0])
         self.assertFalse(cmds.listConnections(self.target + ".translateY", source=True, destination=False, type="animCurve"))
 
+    def test_attribute_missing_on_some_targets(self):
+        """一部の対象に無いアトリビュートを含めても、ある対象のカーブだけを返す。"""
+        other = self.make(text="other")
+        cmds.addAttr(self.target, longName="extraValue", keyable=True)
+        cmds.setKeyframe(other, attribute="translateY", time=1, value=1)
+        curves = bakeResults([self.target, other], attributes=["tx", "extraValue"], simulation=True)
+        owners = {plug.getNode().getName(full=True) for curve in curves for plug in curve.getDrivenPlugs()}
+        self.assertIn(cmds.ls(self.target, long=True)[0], owners)
+        self.assertTrue(cmds.listConnections(self.target + ".extraValue", source=True, destination=False, type="animCurve"))
+
     def test_errors(self):
         """引数で受けるフラグ・query・不正な time/sampleBy/attributes/nodes は例外。"""
         for kwargs, error in (
@@ -72,6 +82,9 @@ class BakeResultsTest(NamespaceCase):
             ({"time": (5, 1)}, ValueError),
             ({"time": (1,)}, ValueError),
             ({"time": "1:5"}, TypeError),
+            ({"time": ("1", 5)}, TypeError),
+            ({"time": (True, 5)}, TypeError),
+            ({"time": (1, float("inf"))}, ValueError),
             ({"sampleBy": 0}, ValueError),
             ({"sampleBy": "1"}, TypeError),
             ({"attributes": 1}, TypeError),

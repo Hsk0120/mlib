@@ -17,6 +17,7 @@ import mlib
 mlib.reload()
 
 from mlib.nodes import Node
+from mlib.nodes import displayLayer as display_layer_module
 from mlib.nodes.displayLayer import DisplayLayer
 
 
@@ -61,6 +62,31 @@ class DisplayLayerTest(unittest.TestCase):
     def test_set_current(self):
         self.layer.setCurrent()
         self.assertEqual(cmds.editDisplayLayerGlobals(query=True, currentDisplayLayer=True), self.layer.getName())
+
+    def test_members_without_display_layer_api(self):
+        """MFnDisplayLayerが無い版(2022/2023)の経路でも、メンバーがeditDisplayLayerMembersの照会と一致する。"""
+
+        class _WithoutDisplayLayerApi:
+            """MFnDisplayLayerだけを持たないom2の代わり。"""
+
+            def __getattr__(self, name):
+                if name == "MFnDisplayLayer":
+                    raise AttributeError(name)
+                return getattr(om2, name)
+
+        self.layer.addMembers(self.a, self.b)
+        default = Node("defaultLayer")
+        with mock.patch.object(display_layer_module, "om2", _WithoutDisplayLayerApi()):
+            members = self.layer.getMembers()
+            default_members = default.getMembers()
+        self.assertEqual(type(members).__name__, type(self.layer.getMembers()).__name__)
+        expected = cmds.editDisplayLayerMembers(self.layer.getName(), query=True, fullNames=True) or []
+        self.assertEqual(sorted(member.getName(full=True) for member in members), sorted(expected))
+        expected_default = cmds.editDisplayLayerMembers("defaultLayer", query=True, fullNames=True) or []
+        self.assertEqual(sorted(member.getName(full=True) for member in default_members), sorted(expected_default))
+        self.layer.removeMembers(self.a, self.b)
+        with mock.patch.object(display_layer_module, "om2", _WithoutDisplayLayerApi()):
+            self.assertEqual(list(self.layer.getMembers()), [])
 
 
 class ConsolidatedSetsLayersTests(unittest.TestCase):

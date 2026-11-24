@@ -81,6 +81,37 @@ class SurfaceTextureAndTrimTest(NamespaceCase):
                 self.assertEqual(surface.getUVData()[2][0], 3)
                 self.assertUndoEmpty()
 
+    def test_set_uv_data_matches_openmaya_and_rejects_invalid(self):
+        """setUVData(fast=True)の結果がom2のUVと一致してUndoに載らず、型・長さ・数の誤りは何も変えずに例外。"""
+        surface = self.surface(patches=2)
+        uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+        counts = [4, 0, 4, 0]
+        indices = [0, 1, 2, 3, 3, 2, 1, 0]
+        self.flushUndo()
+        self.assertIsNone(surface.setUVData(uvs, counts, indices, fast=True))
+        self.assertUndoEmpty()
+        fn = surface.mfn()
+        self.assertEqual(list(zip(*fn.getUVs())), uvs)
+        self.assertEqual(tuple(list(a) for a in fn.getAssignedUVs()), (counts, indices))
+        before = surface.getUVData()
+        for label, args, kwargs, error in (
+            ("not fast", (uvs, counts, indices), {}, NotImplementedError),
+            ("fast type", (uvs, counts, indices), {"fast": 1}, TypeError),
+            ("empty uvs", ([], counts, indices), {"fast": True}, ValueError),
+            ("uv length", ([(0.0, 0.0, 0.0)] * 4, counts, indices), {"fast": True}, ValueError),
+            ("count float", (uvs, [4.0, 0, 4, 0], indices), {"fast": True}, TypeError),
+            ("index float", (uvs, counts, [0.0, *indices[1:]]), {"fast": True}, TypeError),
+            ("count three", (uvs, [3, 0, 4, 0], indices[:-1]), {"fast": True}, ValueError),
+            ("count length", (uvs, [4, 0], indices[:4]), {"fast": True}, ValueError),
+            ("index range", (uvs, counts, [9, *indices[1:]]), {"fast": True}, ValueError),
+            ("index length", (uvs, counts, indices[:-1]), {"fast": True}, ValueError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    surface.setUVData(*args, **kwargs)
+                self.assertEqual(surface.getUVData(), before)
+        self.assertUndoEmpty()
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

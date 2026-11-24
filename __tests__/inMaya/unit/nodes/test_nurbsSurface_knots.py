@@ -55,6 +55,31 @@ class SurfaceKnotsTest(NamespaceCase):
         with self.assertRaises(NotImplementedError):
             history.setKnots(*history.getKnots())
 
+    def test_remove_knot_rejects_invalid_direction_closed_and_trimmed(self):
+        """removeKnotは方向の名前・内側でない値・閉じた方向・トリム曲面を拒否し、ノットもUndoも変えない。"""
+        plane = mlib.getNode(cmds.nurbsPlane(name=self.name("plane"), constructionHistory=False, patchesU=4, patchesV=4)[0]).getShape()
+        sphere = mlib.getNode(cmds.sphere(name=self.name("sphere"), constructionHistory=False)[0]).getShape()
+        trimmed = mlib.getNode(cmds.nurbsPlane(name=self.name("trimmed"), constructionHistory=False, patchesU=4, patchesV=4)[0]).getShape()
+        name = trimmed.getName(full=True)
+        boundary = cmds.curveOnSurface(name, degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
+        cmds.trim(name, boundary, constructionHistory=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
+        before = [shape.getKnots() for shape in (plane, sphere, trimmed)]
+        self.flushUndo()
+        for label, operation, error in (
+            ("direction", lambda: plane.removeKnot(0.5, "w"), ValueError),
+            ("direction upper", lambda: plane.removeKnot(0.5, "U"), ValueError),
+            ("not a knot", lambda: plane.removeKnot(0.3), ValueError),
+            ("end knot", lambda: plane.removeKnot(0.0, "v"), ValueError),
+            ("all type", lambda: plane.removeKnot(0.5, all=1), TypeError),
+            ("periodic v", lambda: sphere.removeKnot(2.0, "v"), NotImplementedError),
+            ("trimmed", lambda: trimmed.removeKnot(0.5), NotImplementedError),
+        ):
+            with self.subTest(label=label):
+                with self.assertRaises(error):
+                    operation()
+        self.assertEqual([shape.getKnots() for shape in (plane, sphere, trimmed)], before)
+        self.assertUndoEmpty()
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

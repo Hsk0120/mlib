@@ -74,6 +74,24 @@ class ListMethodsTest(NamespaceCase):
         # 取り除いても、シーンのノードは残る。
         self.assertTrue(all(node.isValid() for node in (self.a, self.b, self.c, self.joint)))
 
+    def test_setitem_with_index_and_slice(self):
+        """番号とスライスで置き換え、同じ要素が2つになる置き換えはValueErrorにして変えない。"""
+        nodes = mlib.Nodes([self.a, self.b, self.c])
+        nodes[1] = self.joint
+        self.assertEqual(nodes, [self.a, self.joint, self.c])
+        nodes[0:2] = [self.b.getName(full=True)]
+        self.assertEqual(nodes, [self.b, self.c])
+        with self.assertRaises(ValueError):
+            nodes[0:1] = [self.c]
+        self.assertEqual(nodes, [self.b, self.c])
+
+    def test_base_resolve_item_is_abstract(self):
+        """派生クラスが_resolve_itemを実装していなければNotImplementedErrorにする。"""
+        from mlib.core.listMethods import _ListMethods
+
+        with self.assertRaises(NotImplementedError):
+            _ListMethods._resolve_item(mlib.Nodes([]), self.a)
+
     def test_item_type_is_checked(self):
         joints = mlib.Joints([self.joint])
         for action in (lambda: joints.append(self.a), lambda: joints.extend([self.a]), lambda: joints.insert(0, self.a)):

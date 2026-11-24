@@ -359,5 +359,55 @@ class MatrixTest(_Case):
                     m.cofactor(*args)
 
 
+class MatrixOperatorBoundaryTest(unittest.TestCase):
+    """表示・番号・自身を書き換える演算の、相手の型が合わない場合。"""
+
+    def test_repr_and_str_show_rows(self):
+        """reprとstrは型名と4行の値を表し、evalで同じ値に戻る。"""
+        value = Matrix([float(index) for index in range(16)])
+        self.assertEqual(repr(value), f"Matrix({value.rows!r})")
+        self.assertEqual(str(value), repr(value))
+        self.assertEqual(eval(repr(value), {"Matrix": Matrix}), value)
+
+    def test_unhashable_cell_index(self):
+        """(行, 列)にハッシュできない値を渡すと、読み書きともTypeErrorで値は変わらない。"""
+        value = Matrix()
+        for index in (([0], 1), (0, [1]), ({}, {})):
+            with self.subTest(index=index):
+                with self.assertRaises(TypeError):
+                    value[index]
+                with self.assertRaises(TypeError):
+                    value[index] = 2.0
+        self.assertEqual(value, Matrix())
+
+    def test_in_place_add_and_sub(self):
+        """+=・-=はMMatrix系を足し引きして自身を書き換え、om2と同じ値になる。数値はTypeError。"""
+        source = om2.MMatrix([float(index) for index in range(16)])
+        value = Matrix(source)
+        same = value
+        value += Matrix()
+        self.assertIs(value, same)
+        self.assertIs(type(value), Matrix)
+        self.assertEqual(value, source + om2.MMatrix())
+        value -= om2.MMatrix()
+        self.assertIs(value, same)
+        self.assertEqual(value, source)
+        for label in ("add", "sub"):
+            with self.subTest(label=label):
+                with self.assertRaises(TypeError):
+                    if label == "add":
+                        value += 1
+                    else:
+                        value -= 1
+                self.assertEqual(value, source)
+
+    def test_float_matrix_input(self):
+        """MFloatMatrixからも作れ、同じ値のMatrixになる。"""
+        source = om2.MFloatMatrix([float(index) for index in range(16)])
+        value = Matrix(source)
+        self.assertIs(type(value), Matrix)
+        self.assertEqual([value[index] for index in range(16)], [float(source[index]) for index in range(16)])
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])
