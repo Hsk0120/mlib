@@ -633,27 +633,6 @@ def _round_float(value, ndigits):
     return 0.0 if result == 0.0 else result
 
 
-def _unique_ordered(items, key=None):
-    """最初の出現順を保ったまま重複を除く。
-
-    Args:
-        items (Iterable[object]): 要素列。keyを省略する場合はハッシュ可能な要素。
-        key (callable | None): 重複判定に使うキーを返す関数。Noneは要素自身。
-
-    Returns:
-        list: 最初の出現順を維持した要素。
-    """
-    seen = set()
-    result = []
-    for item in items:
-        marker = item if key is None else key(item)
-        if marker in seen:
-            continue
-        seen.add(marker)
-        result.append(item)
-    return result
-
-
 def _rethrow_init_error(cls, error):
     """キーワード引数の解析で起きたTypeErrorを、作っているクラスの名前を先頭にした文言で送り直す。
 

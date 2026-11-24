@@ -426,18 +426,14 @@ class DeleteSpecTest(_CmdsCase):
         mlib.delete([mlib.getNode(name) for name in names])
         self.assertFalse(any(cmds.objExists(name) for name in names))
 
-    @unittest.expectedFailure
     def test_missing_attribute_name_is_runtime_error(self):
-        """見つからないアトリビュート名・ノード名を含む文字列は、docstringどおりRuntimeErrorにして何も削除しない。
-
-        findings(core-root-cmds)の「mlib.deleteで見つからないアトリビュート名がValueError」。
-        今はMayaのValueError(No object matches name)がそのまま出る。
-        """
+        """見つからないアトリビュート名・ノード名を含む文字列は、docstringどおりRuntimeErrorにして何も削除しない。"""
         owner = cmds.createNode("transform", name=self.name("owner"))
         for fast in (False, True):
-            with self.subTest(fast=fast), self.assertRaises(RuntimeError):
-                mlib.delete([owner + ".noSuchAttribute", owner], fast=fast)
-            self.assertTrue(cmds.objExists(owner))
+            for name in (owner + ".noSuchAttribute", self.name("missing") + ".tx", owner + ".vtx[0]"):
+                with self.subTest(fast=fast, name=name), self.assertRaises(RuntimeError):
+                    mlib.delete([name, owner], fast=fast)
+                self.assertTrue(cmds.objExists(owner))
 
     def test_overridden_delete_is_called_per_node(self):
         """deleteを上書きしたクラスのノードは、まとめず1つずつそのクラスのdeleteで消す。"""

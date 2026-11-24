@@ -217,13 +217,23 @@ class DrivenKeysSnapshotTest(_AnimCase):
         self.assertAlmostEqual(cmds.getAttr(self.other_name("dvn.sx")), cmds.getAttr(self.driven + ".sx"))
         self.assertAlmostEqual(cmds.getAttr(self.other_name("dvn.sx")), 3.0)
 
-    @unittest.expectedFailure
     def test_time_driver_input_in_frames(self):
-        """時間のドライバーの入力を、docstringのとおりフレームで保存することを確かめる。"""
-        # findings/json.md「時間のドライバーの入力の倍率(timeToUnitConversion)」: 今は12フレームが288で保存される。
+        """時間のドライバーの入力をフレームで保存し、別のfpsで適用してもフレームの値を保つことを確かめる。"""
         snap = self.timeDriverSnapshot()
         item = next(item for item in snap.toData()["items"] if item["driven"]["attr"] == "scaleX")
         self.assertSequenceAlmostEqual([key["input"] for key in item["drivers"][0]["curve"]["keys"]], [0.0, 12.0], places=6)
+        unit = cmds.currentUnit(query=True, time=True)
+        try:
+            cmds.currentUnit(time="ntsc" if unit != "ntsc" else "film")
+            report = snap.apply(namespaceMap={self.ns: self.other})
+            self.assertEqual((report.missing, report.skipped), ([], []))
+            cmds.setAttr(self.other_name("drvA.clock"), 12)
+            self.assertAlmostEqual(cmds.getAttr(self.other_name("dvn.sx")), 6.0)
+            applied = DrivenKeysSnapshot.capture(self.other_name("dvn")).toData()
+            item = next(item for item in applied["items"] if item["driven"]["attr"] == "scaleX")
+            self.assertSequenceAlmostEqual([key["input"] for key in item["drivers"][0]["curve"]["keys"]], [0.0, 12.0], places=6)
+        finally:
+            cmds.currentUnit(time=unit)
 
     def test_apply_skips(self):
         """ロック・ほかの接続・同じPlug・出力の種類の違いは飛ばし、見つからない駆動先はmissingにすることを確かめる。"""

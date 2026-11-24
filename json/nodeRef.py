@@ -70,8 +70,7 @@ class NodeRef:
 
         Raises:
             TypeError: nodeが対応しない型の場合。
-            ValueError: ノードが無い場合。
-            RuntimeError: ノードが無効な場合。
+            RuntimeError: ノードが無い場合、または無効な場合。
         """
         # 循環参照の回避: nodesはノードのメソッドからmlib.jsonを使うので、使うときに読み込む。
         from ..nodes.node import Node

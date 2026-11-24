@@ -276,7 +276,7 @@ def _input_scale(curve, driver):
     """カーブの入力の値を、ドライバーのmlibの単位の値へ直す倍率を返す。
 
     カーブの入力の値にこの倍率を掛けると、ドライバーのmlibの単位の値になる。
-    カーブの入力は、ドライバーの内部の単位(rad・cm・秒)の値に、unitConversionの係数を掛けた値になっている。
+    カーブの入力は、ドライバーの内部の単位(rad・cm)の値に、unitConversionの係数を掛けた値になっている。時間のドライバーはtimeToUnitConversionを通り、カーブの入力がUIのフレームになる。
 
     Args:
         curve (str): カーブ名。
@@ -287,6 +287,9 @@ def _input_scale(curve, driver):
     """
     factor = 1.0
     sources = cmds.listConnections(curve + ".input", source=True, destination=False) or []
+    if sources and cmds.nodeType(sources[0]) == "timeToUnitConversion":
+        # 時間のドライバーにはtimeToUnitConversionが入り、カーブの入力はすでにUIの時間の単位のフレームになっている。
+        return 1.0
     if sources and cmds.nodeType(sources[0]) == "unitConversion":
         factor = cmds.getAttr(sources[0] + ".conversionFactor")
     attribute = getPlug(driver).mplug().attribute()

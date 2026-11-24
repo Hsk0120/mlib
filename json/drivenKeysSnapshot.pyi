@@ -163,7 +163,7 @@ def _input_scale(curve: str, driver: str) -> float:
     """カーブの入力の値を、ドライバーのmlibの単位の値へ直す倍率を返す。
 
     カーブの入力の値にこの倍率を掛けると、ドライバーのmlibの単位の値になる。
-    カーブの入力は、ドライバーの内部の単位(rad・cm・秒)の値に、unitConversionの係数を掛けた値になっている。
+    カーブの入力は、ドライバーの内部の単位(rad・cm)の値に、unitConversionの係数を掛けた値になっている。時間のドライバーはtimeToUnitConversionを通り、カーブの入力がUIのフレームになる。
 
     Args:
         curve (str): カーブ名。

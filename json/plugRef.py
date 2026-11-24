@@ -68,7 +68,7 @@ class PlugRef:
 
         Raises:
             TypeError: plugが対応しない型の場合。
-            ValueError: Plugが無い場合。
+            MissingAttributeError: ノードかアトリビュートが無い場合(``AttributeError`` の派生)。
             RuntimeError: Plugが無効な場合。
         """
         # 循環参照の回避: plugs・cmdsはノードのメソッドからmlib.jsonを使うので、使うときに読み込む。

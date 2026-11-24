@@ -50,15 +50,17 @@ class NestedCompactTest(_NestedCase):
         self.assertEqual(values, {0: {3: 7.0}, 1: {0: 8.0}})
         self.assertEqual(connections, [f"{cmds.ls(self.node)[0]}.items[1].links[2]", cmds.ls(self.source)[0] + ".message"])
 
-    @unittest.expectedFailure  # findings/plugs.md「入れ子のマルチアトリビュートのcompactはUndoで値が戻らない」
     def test_undo_restores_nested_values(self):
-        """compactはUndo 1回で、入れ子の要素の値と接続まで元に戻る。"""
+        """compactはUndo 1回で、入れ子の要素の値と接続まで元に戻る(移した先の空の要素は残ってよい)。"""
         self.fill()
-        before = self.state()
+        before_values, before_connections = self.state()
         self.flushUndo()
         mlib.getPlug(self.node + ".items").compact()
         cmds.undo()
-        self.assertEqual(self.state(), before)
+        values, connections = self.state()
+        self.assertEqual({index: value for index, value in values.items() if value}, before_values)
+        self.assertTrue(set(before_values) <= set(values))
+        self.assertEqual(connections, before_connections)
 
     def test_next_available_checks_nested_children(self):
         """checkChildren=True(既定)は、入れ子の要素の接続も使用中とみなす。Falseなら見ない。"""

@@ -16,6 +16,7 @@ mlib.reload()
 from support.namespaceCase import NamespaceCase
 
 from mlib.json import ComponentRef, NameMapping, NodeRef, PlugRef, Snapshot
+from mlib.plugs.plug import MissingAttributeError
 
 
 class ReferenceTest(NamespaceCase):
@@ -120,14 +121,13 @@ class ReferenceTest(NamespaceCase):
             with self.subTest(ref_type=ref_type.__name__), self.assertRaises(TypeError):
                 ref_type._from_data({"name": "a", "node": {"name": "a"}, "attr": "tx", "type": "vtx", "indices": [0]}).resolve("a")
 
-    @unittest.expectedFailure
-    def test_capture_missing_raises_value_error(self):
-        """docstringのとおり、無いノード・Plugの記録をValueErrorにすることを確かめる。"""
-        # findings/json.md「NodeRef.capture・PlugRef.captureの無いものの例外の型」: 実際はRuntimeError・MissingAttributeError。
-        with self.assertRaises(ValueError):
+    def test_capture_missing(self):
+        """無いノードはRuntimeError、無いアトリビュート・無いノードのPlugはMissingAttributeErrorになることを確かめる。"""
+        with self.assertRaises(RuntimeError):
             NodeRef.capture(self.name("noSuchNode"))
-        with self.assertRaises(ValueError):
-            PlugRef.capture(self.joint + ".noSuchAttr")
+        for name in (self.joint + ".noSuchAttr", self.name("nothing") + ".tx"):
+            with self.subTest(name=name), self.assertRaises(MissingAttributeError):
+                PlugRef.capture(name)
 
     def test_invalid_data(self):
         """壊れた参照の辞書をValueErrorにすることを確かめる。"""

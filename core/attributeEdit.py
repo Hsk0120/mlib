@@ -127,6 +127,9 @@ def _build(flags, children=None):
         fn = om2.MFnMatrixAttribute()
         obj = fn.create(name, short, fn.kFloat if kind == "fltMatrix" else fn.kDouble)
     elif kind == "compound":
+        if not children:
+            # 子が0個の定義をノードへ足すとMayaが異常終了する。
+            raise NotImplementedError("fastのcompoundアトリビュートは、childNamesで子を一緒に作る場合だけに対応しています")
         fn = om2.MFnCompoundAttribute()
         obj = fn.create(name, short)
         for child in children or []:

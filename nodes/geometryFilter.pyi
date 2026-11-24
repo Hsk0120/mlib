@@ -162,7 +162,8 @@ class GeometryFilter(Node):
         Raises:
             TypeError: fastがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
                 またはデフォーマーのウェイトを持たない型の場合。
-            ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、または頂点が重なっている場合。
+            ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、頂点が重なっている場合、
+                または頂点が変形する形状のものでない場合。
             IndexError: geometryIndexの番号の形状が無い場合、または頂点番号が範囲外の場合。
             RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
@@ -283,19 +284,20 @@ class GeometryFilter(Node):
         """
         ...
     @staticmethod
-    def _resolve_point_indices(vertices: Component | Components | Iterable[int], count: int) -> list[int]:
+    def _resolve_point_indices(vertices: Component | Components | Iterable[int], count: int, shape: om2.MObject) -> list[int]:
         """頂点の指定を、範囲内で重複の無い番号の list にする。
 
         Args:
             vertices (Component | Components | Iterable[int]): 頂点・点の参照または番号。
             count (int): 形状の点の数。
+            shape (om2.MObject): 変形する形状。コンポーネントで指定したときは、この形状のものかを確かめる。
 
         Returns:
             list[int]: 指定順の番号。
 
         Raises:
             TypeError: 番号に変換できない型の場合。
-            ValueError: 番号が重複している場合。
+            ValueError: 番号が重複している場合、または別の形状のコンポーネントの場合。
             IndexError: 番号が範囲外の場合。
         """
         ...

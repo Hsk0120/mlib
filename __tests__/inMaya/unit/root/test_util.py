@@ -164,11 +164,6 @@ class UtilInternalHelpersTest(unittest.TestCase):
             util._checked_index("0", 3, "Vector")
         self.assertEqual(mlib.Vector(1, 2, 3)[-1], 3.0)
 
-    def test_unique_ordered(self):
-        """最初の出現順を保って重複を除く。keyで判定の値を変えられる。"""
-        self.assertEqual(util._unique_ordered([3, 1, 3, 2, 1]), [3, 1, 2])
-        self.assertEqual(util._unique_ordered(["a", "B", "b", "A"], key=str.lower), ["a", "B"])
-
     def test_point_grid_rejects_empty_points(self):
         """点の無い格子はValueErrorにする。"""
         with self.assertRaises(ValueError):

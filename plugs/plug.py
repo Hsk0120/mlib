@@ -1414,7 +1414,7 @@ class Plug(Object):
         Raises:
             TypeError: 次のどれかの場合。minimumとmaximumの両方を省略した。softがboolでない。
                 静的な(ノードの型に組み込みの)アトリビュート。数値・単位の型でないアトリビュート。
-                両方を指定したときのコンパウンドアトリビュート・マルチアトリビュート全体。
+                コンパウンドアトリビュート。両方を指定したときのマルチアトリビュート全体。
                 値が数値・単位付きの値・Noneのどれでもない。unit・timeUnitが文字列でもNoneでもない。
             ValueError: unit・timeUnitが対応していない単位名の場合、値が有限でない場合、最小値が最大値より大きい場合、
                 または片側だけを指定して、設定済みの反対側と矛盾する場合
@@ -1433,7 +1433,8 @@ class Plug(Object):
         if fn is None:
             raise TypeError(f"setRangeには数値か単位付きのアトリビュートが必要です: {self._full_name()}")
         both = minimum is not _UNSET and maximum is not _UNSET
-        if both and (self.isCompound() or self.isMulti()):
+        # double3などのコンパウンドは、片側だけでもMayaが警告だけを出して何も変えない。
+        if self.isCompound() or (both and self.isMulti()):
             raise TypeError("単一の数値か単位付きの動的アトリビュートを指定してください")
         if soft and (minimum is None or maximum is None):
             raise NotImplementedError("setRange(soft=True)はNoneに対応していません: Mayaはソフトリミットを削除できません")
@@ -2868,34 +2869,6 @@ class Plug(Object):
             inputs.append((layers[0], node.getPlug("inputB" + suffix)))
             current = base = node.getPlug("inputA" + suffix)
         return inputs, base
-
-    def _attribute_plugs(self, attributes):
-        """同じノードのアトリビュートの定義の並びを、重複の無い Plug のリストにする。
-
-        getAffected などで共通に使う。マルチアトリビュートの中の子(要素の番号が決まらないもの)は、
-        いちばん外側のマルチアトリビュートにまとめる。
-
-        Args:
-            attributes (om2.MObjectArray): アトリビュート定義の MObject。
-
-        Returns:
-            list[Plug]: 定義の順の Plug。
-        """
-        fn = self._node._dependency_fn()
-        result, seen = [], set()
-        for attribute in attributes:
-            top = attribute
-            parent = om2.MFnAttribute(attribute).parent
-            while not parent.isNull():
-                if om2.MFnAttribute(parent).array:
-                    top = parent
-                parent = om2.MFnAttribute(parent).parent
-            name = om2.MFnAttribute(top).name
-            if name in seen:
-                continue
-            seen.add(name)
-            result.append(Plug(self._node, fn.findPlug(top, False)))
-        return result
 
     def _raw_default(self):
         """アトリビュートの定義の既定値を、単位付きのom2の値のまま返す。
@@ -4376,7 +4349,7 @@ class Plugs(_ListMethods):
     def sort(self, key=None, reverse=False):
         """持っている並びを、その場で並べ替える。
 
-        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
+        ``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
         並べ替わるのはこのコレクションだけで、スライスや ``+`` で作った別のコレクションの順番は変わらない
         (各要素のPlugは共有している)。
 

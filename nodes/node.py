@@ -304,6 +304,9 @@ def _dump_movable_attr(plug):
     definition = om2.MFnAttribute(attr)
     if not definition.connectable:
         raise TypeError(f"接続できないアトリビュートは、Mayaのコマンドでは作り直せません: {plug._full_name()}")
+    if attr.hasFn(om2.MFn.kMessageAttribute):
+        # messageは値を持たず、下のgetでMayaのエラーになるため、先に拒否する。
+        raise TypeError(f"messageのアトリビュートは並べ替えられません: {plug._full_name()}")
     info = {
         "longName": plug.getAttributeName(),
         "shortName": plug.getAttributeName("short"),

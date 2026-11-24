@@ -72,7 +72,7 @@ def require_points_unlocked(shape: Mesh | NurbsCurve, indices: Iterable[int]) ->
     """指定した点のpnts・controlPointsとその子が、ロックされていないかを確かめる。シーンは変えない。
 
     入力の接続と書き込めるかは調べない(``check=True`` のときの :func:`_require_points_writable` が調べる)。
-    Mayaのコマンドは点のアトリビュートのロックを見ずに書くので、ロックだけは書く前に必ず確かめるときに使う。
+    Mayaのコマンドはロックした点へ書かずに警告だけを出すので、ロックだけは書く前に必ず確かめるときに使う。
     すでにある要素だけを調べ、要素を作らない。
 
     Args:
@@ -114,6 +114,25 @@ def _require_control_points_writable(shape: Shape) -> None:
 
     Raises:
         RuntimeError: 制御点のアトリビュートにロックか入力の接続がある場合。
+    """
+    ...
+
+def require_control_points_unlocked(shape: Shape, indices: Iterable[int]) -> None:
+    """指定した制御点(controlPoints)とその子が、ロックされていないかを確かめる。シーンは変えない。
+
+    NURBS曲面・ラティスのように、点を複数の番号で表すシェイプで使う。
+    Mayaのコマンドはロックした点へ書かずに警告だけを出すので、ロックだけは書く前に必ず確かめるときに使う。
+    すでにある要素だけを調べ、要素を作らない。
+
+    Args:
+        shape (Shape): controlPointsを持つシェイプ。
+        indices (Iterable[int]): 制御点の通し番号(controlPointsの論理番号)。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: 制御点のアトリビュートがロックされている場合。
     """
     ...
 

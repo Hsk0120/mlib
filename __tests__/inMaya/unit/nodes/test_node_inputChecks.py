@@ -151,13 +151,12 @@ class MoveAttrOrderTypesTest(_Case):
                     node.moveAttrOrder("qq2", -2)
                 self.assertEqual(cmds.listAttr(str(node), userDefined=True), ["qq1", "qqm", "qq2"])
 
-    # findings nodes-dag 1: messageのアトリビュートを含むと、Mayaの RuntimeError がそのまま出る。
-    @unittest.expectedFailure
     def test_message_type(self):
-        """messageのアトリビュートも、docstringのとおりTypeErrorで拒否する。"""
+        """messageのアトリビュートも、docstringのとおりTypeErrorで拒否し、並びは変わらない。"""
         node = self.make_with({"attributeType": "message"})
         with self.assertRaises(TypeError):
             node.moveAttrOrder("qq2", -2)
+        self.assertEqual(cmds.listAttr(str(node), userDefined=True), ["qq1", "qqm", "qq2"])
 
 
 class NodesOperatorsTest(_Case):

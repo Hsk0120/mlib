@@ -89,6 +89,9 @@ def delete(nodes, *, fast=False):
             # "node.tx" のようなアトリビュート名の文字列も、Plugと同じく削除の前に拒否する。
             if _resolves_to_plug(name):
                 raise TypeError(f"アトリビュート名は指定できません: {name}(持ち主のノードを削除するにはノード名を指定します)")
+            # 見つからない名前は、cmds.deleteのValueErrorにせず、ノード名と同じRuntimeErrorにする。
+            if not cmds.ls(name):
+                raise RuntimeError(f"ノードが見つかりません: {name}")
         if components and fast:
             raise NotImplementedError("fastはコンポーネントとトポロジーの削除に対応していません")
         nodes = direct

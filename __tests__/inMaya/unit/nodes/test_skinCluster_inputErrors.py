@@ -113,10 +113,8 @@ class WeightsDataValidationTest(_SkinCase):
         self.assertIn("ngSkinTools2", report.skipped[0])
         self.assertEqual(self.raw_rows(), expected)
 
-    @unittest.expectedFailure
     def test_empty_settings_are_not_written(self):
         """設定の項目が無いデータは設定を変えない。"""
-        # findings/nodes-deformer.md の項目2: 保存に無い設定(None)を書く前に tuple.index(None) で ValueError になる。
         data = self.skin.getWeightsData()
         data["settings"] = {}
         cmds.setAttr(self.full + ".maxInfluences", 2)

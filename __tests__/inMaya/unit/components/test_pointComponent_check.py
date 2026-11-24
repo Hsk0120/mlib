@@ -95,15 +95,21 @@ class MeshCheckTest(_Case):
         self.assertUndoEmpty()
         self.assertVectorAlmostEqual(vertex.getPosition(), (1, 2, 3))
 
-    @unittest.expectedFailure
     def test_locked_point_without_check_raises(self):
-        """check無しでも、Mayaがロックで書き込みを拒否した点はRuntimeErrorになる(docstringのRaises)。"""
-        # findings components-maths「ロックした点への通常の書き込みが黙って何もしない」。
+        """check無しでも、ロックした点への通常の書き込みは何も書かずにRuntimeErrorになる。"""
         _, mesh = self.cube()
         self.lock_point(mesh, "pnts[0].pntx")
         vertex = Vertex(mesh, 0)
-        with self.assertRaises(RuntimeError):
-            vertex.setPosition((1.0, 2.0, 3.0))
+        before = vertex.getPosition()
+        for label, call in (
+            ("single", lambda: vertex.setPosition((1.0, 2.0, 3.0))),
+            ("collection", lambda: Vertices(mesh, [1, 0]).setPosition((4.0, 5.0, 6.0))),
+            ("mirror", lambda: Vertices(mesh, [0]).mirror("x")),
+        ):
+            with self.subTest(label):
+                with self.assertRaises(RuntimeError):
+                    call()
+                self.assertVectorAlmostEqual(vertex.getPosition(), before)
 
     def test_mirror_rejects_non_finite_result(self):
         """反転した位置が有限にならないpivotはValueErrorで、形状は変えない。"""
@@ -133,9 +139,14 @@ class GridCheckTest(_Case):
                 with self.assertRaises(RuntimeError):
                     SurfaceCVs(shape, [(1, 1)]).mirror("y", fast=fast, check=True)
                 self.assertVectorAlmostEqual(cv.getPosition(), before)
-        # checkを付けなければ、ロックの無い点へ書く。
+        # checkを付けなければ、ロックの無い点へ書く。ロックした点そのものへは、checkが無くてもRuntimeError。
         cv.setPosition((1.0, 2.0, 3.0))
         self.assertVectorAlmostEqual(cv.getPosition(), (1, 2, 3))
+        locked = SurfaceCV(shape, (0, 0))
+        locked_before = locked.getPosition()
+        with self.assertRaises(RuntimeError):
+            locked.setPosition((1.0, 2.0, 3.0))
+        self.assertVectorAlmostEqual(locked.getPosition(), locked_before)
 
     def test_fast_rejects_locked_shape_node(self):
         """ロックしたシェイプノードへのfastはRuntimeError。通常の経路はcmdsで書ける。"""

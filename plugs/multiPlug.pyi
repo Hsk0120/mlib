@@ -301,6 +301,8 @@ class MultiPlug(Plug):
             値はmlibの :meth:`~mlib.plugs.plug.Plug.get` / :meth:`~mlib.plugs.plug.Plug.set` で移す。
             書き込めない子・保存されない子と、接続の無いmessageの要素は移せない(移した先に作られない)。
             同じマルチアトリビュートの要素どうしの接続は考慮していない。
+            要素の下にマルチアトリビュートがある場合、Undoで値と接続は戻るが、移した先の番号に空の要素が残ることがある
+            (Mayaは子の要素への書き込みをUndoしても、親の要素を消さないため)。
         """
         ...
     def getSourceNodes(self) -> dict[int, Node]:

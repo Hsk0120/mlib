@@ -48,7 +48,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             reference (Mesh | Node | str): 基準のMesh、またはメッシュを1つだけ持つTransform。
-            uvSet (str): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない。
+            uvSet (str | None): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない(Noneも可)。
             tolerance (float): 許す誤差。0以上の有限な数値。UVでは成分の差、位置ではcmの距離。既定は1e-6。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueなら、0でないtweakを今の位置へベイクしてから作り直す。
                 FalseならUndoが有効である必要があり、0でないtweakには対応しない。
@@ -77,7 +77,9 @@ class Mesh(_ControlPointShape):
         _require_bool(worldSpace, "worldSpace")
         if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)) or not math.isfinite(tolerance) or tolerance < 0:
             raise ValueError("toleranceは0以上の有限な数値で指定してください")
-        if match == "uv" and (not isinstance(uvSet, str) or not uvSet):
+        if uvSet is not None and not isinstance(uvSet, str):
+            raise TypeError(f"uvSetは文字列かNoneで指定してください: {type(uvSet).__name__}")
+        if match == "uv" and not uvSet:
             raise ValueError("uvSetは空でない名前で指定してください")
         reference = Node(Node._input_name(reference))
         if reference.hasFn(om2.MFn.kTransform):

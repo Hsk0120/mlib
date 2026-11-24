@@ -57,8 +57,7 @@ class NodeRef:
 
         Raises:
             TypeError: nodeが対応しない型の場合。
-            ValueError: ノードが無い場合。
-            RuntimeError: ノードが無効な場合。
+            RuntimeError: ノードが無い場合、または無効な場合。
         """
         ...
     @property

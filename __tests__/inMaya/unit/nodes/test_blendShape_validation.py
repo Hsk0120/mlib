@@ -139,15 +139,16 @@ class TargetsDataValidationTest(_BlendCase):
         cmds.undo()
         self.assertEqual(cmds.getAttr(self.full + ".inbetweenInfoGroup[0].inbetweenInfo", multiIndices=True), [5500])
 
-    @unittest.expectedFailure
     def test_non_numeric_item_weight_is_value_error(self):
         """データの項目のウェイトが数値でなくても、データの形の不正として ValueError になる。"""
-        # findings/nodes-deformer.md の項目1: docstring ではデータの形の不正は ValueError だが、実際は TypeError が出る。
         cmds.delete(self.smile)
         data = self.bs.getTargetsData()
-        data["targets"][0]["bases"][0]["items"][0]["weight"] = "a"
-        with self.assertRaises(ValueError):
-            self.bs.setTargetsData(data)
+        for value in ("a", None, True):
+            with self.subTest(value=value):
+                broken = copy.deepcopy(data)
+                broken["targets"][0]["bases"][0]["items"][0]["weight"] = value
+                with self.assertRaises(ValueError):
+                    self.bs.setTargetsData(broken)
 
 
 class ArgumentValidationTest(_BlendCase):

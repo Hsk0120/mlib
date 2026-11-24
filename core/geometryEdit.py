@@ -87,7 +87,7 @@ def require_points_unlocked(shape, indices):
     """指定した点のpnts・controlPointsとその子が、ロックされていないかを確かめる。シーンは変えない。
 
     入力の接続と書き込めるかは調べない(``check=True`` のときの :func:`_require_points_writable` が調べる)。
-    Mayaのコマンドは点のアトリビュートのロックを見ずに書くので、ロックだけは書く前に必ず確かめるときに使う。
+    Mayaのコマンドはロックした点へ書かずに警告だけを出すので、ロックだけは書く前に必ず確かめるときに使う。
     すでにある要素だけを調べ、要素を作らない。
 
     Args:
@@ -103,10 +103,7 @@ def require_points_unlocked(shape, indices):
     points, indices = _point_plugs(geometry(shape, ()), indices)
     if points.isLocked:
         raise RuntimeError(f"アトリビュートがロックされています: {points.name()}")
-    targets = set(indices)
-    for index in points.getExistingArrayAttributeIndices():
-        if index not in targets:
-            continue
+    for index in sorted(set(indices).intersection(points.getExistingArrayAttributeIndices())):
         point = points.elementByLogicalIndex(index)
         if point.isLocked or any(point.child(child).isLocked for child in range(point.numChildren())):
             raise RuntimeError(f"アトリビュートがロックされています: {point.name()}")
@@ -153,6 +150,32 @@ def _require_control_points_writable(shape):
         require_writable(point)
         for child in range(point.numChildren()):
             require_writable(point.child(child))
+
+
+def require_control_points_unlocked(shape, indices):
+    """指定した制御点(controlPoints)とその子が、ロックされていないかを確かめる。シーンは変えない。
+
+    NURBS曲面・ラティスのように、点を複数の番号で表すシェイプで使う。
+    Mayaのコマンドはロックした点へ書かずに警告だけを出すので、ロックだけは書く前に必ず確かめるときに使う。
+    すでにある要素だけを調べ、要素を作らない。
+
+    Args:
+        shape (Shape): controlPointsを持つシェイプ。
+        indices (Iterable[int]): 制御点の通し番号(controlPointsの論理番号)。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        RuntimeError: 制御点のアトリビュートがロックされている場合。
+    """
+    points = om2.MFnDependencyNode(shape.mnode()).findPlug("controlPoints", False)
+    if points.isLocked:
+        raise RuntimeError(f"アトリビュートがロックされています: {points.name()}")
+    for index in sorted(set(indices).intersection(points.getExistingArrayAttributeIndices())):
+        point = points.elementByLogicalIndex(index)
+        if point.isLocked or any(point.child(child).isLocked for child in range(point.numChildren())):
+            raise RuntimeError(f"アトリビュートがロックされています: {point.name()}")
 
 
 def _points(shape, indices, ws=False):
@@ -256,8 +279,10 @@ def set_positions(shape, indices, values, ws=False, *, fast=False, check=False):
         return
     target = geometry(shape, indices)
     if check:
-        # cmds.xformはpntsのロックを見ずに書くので、確かめる指定のときは書く前に全部の点を確かめる。
         _require_points_writable(target, indices)
+    else:
+        # cmds.xformはロックした点へ書かずに警告だけを出すので、ロックはcheckに関係なく書く前に確かめる。
+        require_points_unlocked(shape, indices)
     mesh = target.is_mesh
     if ws and not mesh:
         values = object_positions(shape, indices, values)

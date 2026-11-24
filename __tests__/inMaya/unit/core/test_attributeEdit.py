@@ -426,6 +426,13 @@ class FastAddAttrDefinitionTest(NamespaceCase):
                 self.assertEqual(self.query(name, attributeType=True), expected)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
+    def test_compound_without_children_is_rejected(self):
+        """子の名前を渡さないcompoundは、fastでは何も追加せずNotImplementedError。"""
+        before = cmds.listAttr(self.node.getName(full=True))
+        with self.assertRaises(NotImplementedError):
+            self.node.addAttr("cc", attributeType="compound", numberOfChildren=2, fast=True)
+        self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
+
     def test_nice_name_and_disconnect_behaviour(self):
         """fastでもniceNameとdisconnectBehaviourを、cmdsで作ったときと同じ定義にする。"""
         self.node.addAttr("fastNice", niceName="Pretty Name", disconnectBehaviour=0, fast=True)

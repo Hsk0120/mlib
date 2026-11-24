@@ -113,17 +113,6 @@ class FiniteTest(unittest.TestCase):
             util._checked_tolerance(float("inf"))
 
 
-class UniqueOrderedTest(unittest.TestCase):
-    """_unique_ordered は最初の出現順を保って重複を除く。"""
-
-    def test_default_key(self):
-        self.assertEqual(util._unique_ordered([3, 1, 3, 2, 1]), [3, 1, 2])
-        self.assertEqual(util._unique_ordered(()), [])
-
-    def test_custom_key_keeps_first(self):
-        self.assertEqual(util._unique_ordered(["a", "B", "A", "b"], key=str.lower), ["a", "B"])
-
-
 class WorldSpaceTest(unittest.TestCase):
     """_world_space はbool以外をTypeErrorで拒否する(ValueErrorから変更)。"""
 

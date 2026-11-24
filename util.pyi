@@ -421,18 +421,6 @@ def _round_float(value: float, ndigits: int | None) -> float:
     """
     ...
 
-def _unique_ordered(items: Iterable[object], key: Callable[..., Any] | None = ...) -> list:
-    """最初の出現順を保ったまま重複を除く。
-
-    Args:
-        items (Iterable[object]): 要素列。keyを省略する場合はハッシュ可能な要素。
-        key (callable | None): 重複判定に使うキーを返す関数。Noneは要素自身。
-
-    Returns:
-        list: 最初の出現順を維持した要素。
-    """
-    ...
-
 def _rethrow_init_error(cls, error: TypeError) -> NoReturn:
     """キーワード引数の解析で起きたTypeErrorを、作っているクラスの名前を先頭にした文言で送り直す。
 

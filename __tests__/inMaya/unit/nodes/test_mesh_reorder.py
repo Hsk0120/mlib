@@ -173,12 +173,11 @@ class MeshReorderTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             empty[0].reorderVertices(empty[1], match="position")
 
-    # findings/nodes-geometry.md「Mesh.reorderVertices(uvSet=1)」: 型違いなのにValueErrorになる(docstringは型の誤りをTypeErrorとする)。
-    @unittest.expectedFailure
     def test_uv_set_type_rejected_with_type_error(self):
-        """uvSetにstr以外を渡すとTypeError。"""
-        with self.assertRaises(TypeError):
-            self.target.reorderVertices(self.reference, uvSet=1)
+        """uvSetにstr以外を渡すとTypeError(match="position"でも)。"""
+        for match in ("uv", "position"):
+            with self.subTest(match=match), self.assertRaises(TypeError):
+                self.target.reorderVertices(self.reference, uvSet=1, match=match)
 
     def test_reversed_winding_and_duplicate_positions_rejected(self):
         """位置は合っても面の巻き方向が逆、または2頂点が同じ基準頂点に当たるならValueError。"""

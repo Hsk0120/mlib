@@ -36,7 +36,7 @@ _UNSET_COLOR: Any
 
 class Mesh(_ControlPointShape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
-    def reorderVertices(self, reference: Mesh | Node | str, *, uvSet: str = ..., tolerance: float = ..., fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
+    def reorderVertices(self, reference: Mesh | Node | str, *, uvSet: str | None = ..., tolerance: float = ..., fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
         """頂点番号の並びを、基準のメッシュに合わせる。
 
         UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
@@ -47,7 +47,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             reference (Mesh | Node | str): 基準のMesh、またはメッシュを1つだけ持つTransform。
-            uvSet (str): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない。
+            uvSet (str | None): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない(Noneも可)。
             tolerance (float): 許す誤差。0以上の有限な数値。UVでは成分の差、位置ではcmの距離。既定は1e-6。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueなら、0でないtweakを今の位置へベイクしてから作り直す。
                 FalseならUndoが有効である必要があり、0でないtweakには対応しない。

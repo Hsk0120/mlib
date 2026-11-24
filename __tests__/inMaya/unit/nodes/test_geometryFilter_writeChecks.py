@@ -105,6 +105,16 @@ class VertexSpecifierTest(_ClusterCase):
             with self.subTest(vertices=vertices), self.assertRaises(error):
                 self.cluster.setDeformerWeights([0.0], vertices=vertices)
 
+    def test_vertex_of_other_shape(self):
+        """変形していない別の形状の頂点は、BlendShape・SkinClusterと同じくValueErrorで、何も書かない。"""
+        other = mlib.getNode(cmds.polyCube(name=self.name("other"), constructionHistory=False)[0]).getShape()
+        self.cluster.setDeformerWeights([1.0] * 8)
+        for fast in (False, True):
+            for vertices in (other.getVertices(0), [self.shape.getVertices(1), other.getVertices(0)]):
+                with self.subTest(fast=fast, vertices=vertices), self.assertRaises(ValueError):
+                    self.cluster.setDeformerWeights([0.0] * (1 if not isinstance(vertices, list) else 2), vertices=vertices, fast=fast)
+                self.assertEqual([self.raw(index) for index in range(8)], [1.0] * 8)
+
 
 class LoadFileErrorTest(_ClusterCase):
     def write(self, payload):

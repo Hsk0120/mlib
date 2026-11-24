@@ -983,7 +983,7 @@ class Plug(Object):
         Raises:
             TypeError: 次のどれかの場合。minimumとmaximumの両方を省略した。softがboolでない。
                 静的な(ノードの型に組み込みの)アトリビュート。数値・単位の型でないアトリビュート。
-                両方を指定したときのコンパウンドアトリビュート・マルチアトリビュート全体。
+                コンパウンドアトリビュート。両方を指定したときのマルチアトリビュート全体。
                 値が数値・単位付きの値・Noneのどれでもない。unit・timeUnitが文字列でもNoneでもない。
             ValueError: unit・timeUnitが対応していない単位名の場合、値が有限でない場合、最小値が最大値より大きい場合、
                 または片側だけを指定して、設定済みの反対側と矛盾する場合
@@ -1855,19 +1855,6 @@ class Plug(Object):
                 つながりのいちばん手前の入力(最後のブレンドノードの inputA。レイヤーが無ければ自身)。
         """
         ...
-    def _attribute_plugs(self, attributes: om2.MObjectArray) -> list[Plug]:
-        """同じノードのアトリビュートの定義の並びを、重複の無い Plug のリストにする。
-
-        getAffected などで共通に使う。マルチアトリビュートの中の子(要素の番号が決まらないもの)は、
-        いちばん外側のマルチアトリビュートにまとめる。
-
-        Args:
-            attributes (om2.MObjectArray): アトリビュート定義の MObject。
-
-        Returns:
-            list[Plug]: 定義の順の Plug。
-        """
-        ...
     def _raw_default(self) -> Any:
         """アトリビュートの定義の既定値を、単位付きのom2の値のまま返す。
 
@@ -2665,7 +2652,7 @@ class Plugs(_ListMethods):
     def sort(self, key: Callable[[Plug], object] | None = ..., reverse: bool = ...) -> None:
         """持っている並びを、その場で並べ替える。
 
-        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
+        ``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
         並べ替わるのはこのコレクションだけで、スライスや ``+`` で作った別のコレクションの順番は変わらない
         (各要素のPlugは共有している)。
 

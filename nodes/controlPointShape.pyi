@@ -69,7 +69,7 @@ class _ControlPointShape(Shape):
         Raises:
             TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 点の数が合わない場合、有限でない成分がある場合、周期カーブの重なったCVが先頭のCVと一致しない場合、
-                またはNURBSをworldSpace=Trueで書くときにトランスフォームのマトリクスが特異な場合。
+                またはworldSpace=Trueで、NURBSの場合かメッシュをfastで書く場合に、トランスフォームのマトリクスが特異な場合。
             RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、入力(コンストラクションヒストリ)がある場合。
         """

@@ -2123,11 +2123,13 @@ class SkinCluster(GeometryFilter):
         Returns:
             None: 値を返さない。
         """
+        method, normalize = settings.get("skinningMethod"), settings.get("normalizeWeights")
+        # 保存に無い設定(None)は書かない。
         values = {
-            "skinningMethod": self._SKINNING_METHODS.index(settings["skinningMethod"]),
-            "maxInfluences": settings["maxInfluences"],
-            "maintainMaxInfluences": settings["maintainMaxInfluences"],
-            "normalizeWeights": self._NORMALIZE_MODES.index(settings["normalizeWeights"]),
+            "skinningMethod": None if method is None else self._SKINNING_METHODS.index(method),
+            "maxInfluences": settings.get("maxInfluences"),
+            "maintainMaxInfluences": settings.get("maintainMaxInfluences"),
+            "normalizeWeights": None if normalize is None else self._NORMALIZE_MODES.index(normalize),
         }
         for attr, value in values.items():
             if value is None:

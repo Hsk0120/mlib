@@ -201,14 +201,19 @@ class GeometryFilter(Node):
         Raises:
             TypeError: fastがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
                 またはデフォーマーのウェイトを持たない型の場合。
-            ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、または頂点が重なっている場合。
+            ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、頂点が重なっている場合、
+                または頂点が変形する形状のものでない場合。
             IndexError: geometryIndexの番号の形状が無い場合、または頂点番号が範囲外の場合。
             RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
         """
         with _edit_context("mlibGeometryFilterSetDeformerWeights", fast):
             plug, count = self._deformer_weight_plug(geometryIndex)
-            indices = list(range(count)) if vertices is None else self._resolve_point_indices(vertices, count)
+            if vertices is None:
+                indices = list(range(count))
+            else:
+                shape = oma2.MFnGeometryFilter(self.mnode()).outputShapeAtIndex(geometryIndex)
+                indices = self._resolve_point_indices(vertices, count, shape)
             values = self._resolve_weight_values(weights, len(indices))
             if fast:
                 self._set_deformer_weights_fast(plug, indices, values, check)
@@ -400,21 +405,26 @@ class GeometryFilter(Node):
         return weight_list.elementByLogicalIndex(geometry_index).child(0), count
 
     @staticmethod
-    def _resolve_point_indices(vertices, count):
+    def _resolve_point_indices(vertices, count, shape):
         """頂点の指定を、範囲内で重複の無い番号の list にする。
 
         Args:
             vertices (Component | Components | Iterable[int]): 頂点・点の参照または番号。
             count (int): 形状の点の数。
+            shape (om2.MObject): 変形する形状。コンポーネントで指定したときは、この形状のものかを確かめる。
 
         Returns:
             list[int]: 指定順の番号。
 
         Raises:
             TypeError: 番号に変換できない型の場合。
-            ValueError: 番号が重複している場合。
+            ValueError: 番号が重複している場合、または別の形状のコンポーネントの場合。
             IndexError: 番号が範囲外の場合。
         """
+        owners = [vertices] if hasattr(vertices, "shape") else [item for item in vertices if hasattr(item, "shape")]
+        for owner in owners:
+            if owner.shape.mnode() != shape:
+                raise ValueError(f"verticesは変形する形状のものを指定してください: {owner.shape.getName()}")
         if hasattr(vertices, "indices"):
             vertices = vertices.indices
         elif isinstance(getattr(vertices, "index", None), int):

@@ -766,27 +766,6 @@ class BlendShape(GeometryFilter):
             int: 空いている論理番号。
         """
         ...
-    def _require_new_name(self, name: str):
-        """新しいターゲット名が使えることを確かめる。
-
-        Args:
-            name (str): ターゲット名。
-
-        Raises:
-            TypeError: 文字列でない場合。
-            ValueError: 空、または既存のアトリビュート・エイリアスと重なる場合。
-        """
-        ...
-    def _copy_name(self, source: str) -> str:
-        """複製の既定の名前(``<元の名前>Copy``、重なれば末尾に番号)を返す。
-
-        Args:
-            source (str): 元のターゲット名。
-
-        Returns:
-            str: 使われていない名前。
-        """
-        ...
     def _symmetry_settings(self, bi: int, space: str, edge: str | Edge | None) -> tuple[int, str | None]:
         """操作時の対称空間とベース上の基準エッジを検証する。
 
@@ -1155,6 +1134,22 @@ def _weight_item(weight: float) -> int:
     Raises:
         TypeError: 数値でない(boolを含む)場合。
         ValueError: 有限でない、範囲外、または0.001刻みで表せない場合。
+    """
+    ...
+
+def _data_weight_item(weight: object) -> int:
+    """保存データの項目のウェイトを、:func:`_weight_item` と同じ論理番号にする。
+
+    保存データの形の不正はValueErrorにそろえるため、数値でない場合もValueErrorにする。
+
+    Args:
+        weight (object): 保存データの項目のウェイト。
+
+    Returns:
+        int: 論理番号。
+
+    Raises:
+        ValueError: 数値でない(boolを含む)、有限でない、範囲外、または0.001刻みで表せない場合。
     """
     ...
 

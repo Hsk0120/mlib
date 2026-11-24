@@ -598,8 +598,10 @@ def _set_grid_positions(shape, indices, rows, ws, fast, check=False):
         om2.MItGeometry(path).setAllPositions(current)
         return
     if check:
-        # cmds.xformは制御点のロックを見ずに書くので、確かめる指定のときは書く前に確かめる。
         geometryEdit._require_control_points_writable(shape)
+    else:
+        # cmds.xformはロックした点へ書かずに警告だけを出すので、ロックはcheckに関係なく書く前に確かめる。
+        geometryEdit.require_control_points_unlocked(shape, local)
     prefix = f"{shape._full_name()}.{component_class.component_type}"
     numbers = component_class._multi_indices(shape, list(local), command=True)
     unit = om2.MDistance.uiUnit()

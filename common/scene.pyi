@@ -120,17 +120,19 @@ class Scene(type(Path())):
             RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。
         """
         ...
-    def export(self, nodes: Node | Nodes | Iterable[Node | str] | None = ..., *, force: bool = ...):
+    def export(self, nodes: Node | Nodes | Iterable[Node] | Iterable[str] | None = ..., *, force: bool = ...):
         """今のシーンを、このファイルへ書き出す。今のシーンの名前は変えない。
 
         形式は拡張子で決める(``.ma`` はmayaAscii、``.mb`` はmayaBinary)。
 
         Args:
-            nodes (Node | Nodes | Iterable[Node | str] | None): 書き出すノード。Noneならシーン全体を書き出す。
+            nodes (Node | Nodes | Iterable[Node] | Iterable[str] | None): 書き出すノード。Noneならシーン全体を書き出す。
                 ノードを指定したときは、その選択で書き出し(``exportSelected``)、終わったら選択を元に戻す。
+                並びは、Nodeだけか名前だけにする(``Nodes`` と同じく、混ぜるとTypeError)。
             force (bool): Trueなら、ファイルがすでにあっても上書きする。
 
         Raises:
+            TypeError: nodesが対応しない型の場合、またはNodeと名前が混ざっている場合。
             ValueError: 拡張子が ``.ma`` でも ``.mb`` でもない場合、またはnodesが空の場合。
             OSError: ファイルがすでにあり、forceがFalseの場合(``FileExistsError``)。
             RuntimeError: 今のシーンと同じファイルへ書き出そうとした場合。保存は :meth:`save` で行う。

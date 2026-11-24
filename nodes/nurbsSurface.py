@@ -547,7 +547,11 @@ class NurbsSurface(_ControlPointShape):
             values = fn.getDerivativesAtParam(u, v, space=space, secondOrder=secondOrder)
             return (_vectors_of_points([values[0]])[0], *(Vector(value) for value in values[1:]))
         if what == "normal":
-            normal = Vector(fn.normal(u, v, space))
+            try:
+                normal = Vector(fn.normal(u, v, space))
+            except RuntimeError as error:
+                # 形のつぶれた位置では、MFnNurbsSurface.normalがMayaのエラーになる。
+                raise ValueError(f"({u}, {v})では法線が定義できません: {self._full_name()}") from error
             if normal.length() < 1e-12:
                 raise ValueError(f"({u}, {v})では法線が定義できません: {self._full_name()}")
             return normal.normal()

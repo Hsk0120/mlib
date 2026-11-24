@@ -1140,39 +1140,6 @@ class BlendShape(GeometryFilter):
             index += 1
         return index
 
-    def _require_new_name(self, name):
-        """新しいターゲット名が使えることを確かめる。
-
-        Args:
-            name (str): ターゲット名。
-
-        Raises:
-            TypeError: 文字列でない場合。
-            ValueError: 空、または既存のアトリビュート・エイリアスと重なる場合。
-        """
-        if not isinstance(name, str):
-            raise TypeError("nameは文字列かNoneで指定してください")
-        if not name:
-            raise ValueError("nameは空でない文字列かNoneで指定してください")
-        if self.hasAttr(name):
-            raise ValueError(f"{self.getName()}には{name!r}という名前のアトリビュートかターゲットがすでにあります")
-
-    def _copy_name(self, source):
-        """複製の既定の名前(``<元の名前>Copy``、重なれば末尾に番号)を返す。
-
-        Args:
-            source (str): 元のターゲット名。
-
-        Returns:
-            str: 使われていない名前。
-        """
-        name = f"{source}Copy"
-        number = 1
-        while self.hasAttr(name):
-            name = f"{source}Copy{number}"
-            number += 1
-        return name
-
     def _symmetry_settings(self, bi, space, edge):
         """操作時の対称空間とベース上の基準エッジを検証する。
 
@@ -1951,6 +1918,26 @@ def _weight_item(weight):
     return round(scaled)
 
 
+def _data_weight_item(weight):
+    """保存データの項目のウェイトを、:func:`_weight_item` と同じ論理番号にする。
+
+    保存データの形の不正はValueErrorにそろえるため、数値でない場合もValueErrorにする。
+
+    Args:
+        weight (object): 保存データの項目のウェイト。
+
+    Returns:
+        int: 論理番号。
+
+    Raises:
+        ValueError: 数値でない(boolを含む)、有限でない、範囲外、または0.001刻みで表せない場合。
+    """
+    try:
+        return _weight_item(weight)
+    except TypeError as error:
+        raise ValueError(f"データのweightは数値で指定してください: {weight!r}") from error
+
+
 def _mesh_shape(value):
     """形状またはtransformを、中間オブジェクトでない1つのメッシュにする。
 
@@ -2200,7 +2187,7 @@ def _validated_target(target, counts, report):
             or not isinstance(entry.get("curve"), list)
         ):
             raise ValueError(f"ターゲット{name!r}のインビトウィーンが不正です: {entry!r}")
-        _weight_item(entry.get("weight"))
+        _data_weight_item(entry.get("weight"))
     bases = target.get("bases")
     if not isinstance(bases, list) or not bases:
         raise ValueError(f"ターゲット{name!r}にベースのデータがありません")
@@ -2218,7 +2205,7 @@ def _validated_target(target, counts, report):
         for item in entry["items"]:
             if not isinstance(item, dict):
                 raise ValueError(f"ターゲット{name!r}の項目が不正です")
-            _weight_item(item.get("weight"))
+            _data_weight_item(item.get("weight"))
             indices, offsets = item.get("indices"), item.get("offsets")
             if not isinstance(indices, list) or not isinstance(offsets, list) or len(offsets) != 3 * len(indices) or len(set(indices)) != len(indices):
                 raise ValueError(f"ターゲット{name!r}のデルタが不正です")

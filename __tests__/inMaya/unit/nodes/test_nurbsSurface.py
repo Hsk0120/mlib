@@ -418,8 +418,6 @@ class NurbsSurfaceFrameTest(_CaseShapeAdditions):
                 with self.assertRaises(ValueError):
                     shape.getAtParam(0.5, 0.5, what=what)
 
-    # findings/nodes-geometry.md「NurbsSurface.getAtParam(what="normal")」: MFnNurbsSurface.normalがMayaのRuntimeErrorを投げ、ValueErrorにならない。
-    @unittest.expectedFailure
     def test_collapsed_surface_normal_raises_value_error(self):
         """形のつぶれた曲面のnormalはdocstringのとおりValueError。"""
         shape = self.collapsed_surface()

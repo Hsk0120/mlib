@@ -437,6 +437,8 @@ class MultiPlug(Plug):
             値はmlibの :meth:`~mlib.plugs.plug.Plug.get` / :meth:`~mlib.plugs.plug.Plug.set` で移す。
             書き込めない子・保存されない子と、接続の無いmessageの要素は移せない(移した先に作られない)。
             同じマルチアトリビュートの要素どうしの接続は考慮していない。
+            要素の下にマルチアトリビュートがある場合、Undoで値と接続は戻るが、移した先の番号に空の要素が残ることがある
+            (Mayaは子の要素への書き込みをUndoしても、親の要素を消さないため)。
         """
         with undoChunk("mlibMultiPlugCompact"):
             self._require_valid()
@@ -564,6 +566,12 @@ class MultiPlug(Plug):
         captured = [(target, self._capture_element(source)) for source, target in moves]
         name = self._full_name()
         for source, _ in moves:
+            element = self._mplug.elementByLogicalIndex(source)
+            # 要素を丸ごと消すと、Undoで要素は戻っても、その下のマルチアトリビュートの値が戻らない(Mayaの制約)。
+            # 下の要素を深いものから先に1つずつ消して、Undoで値まで戻るようにする。
+            nested = [steps for steps, mplug in _descendants(element) if steps and mplug.isElement]
+            for steps in sorted(nested, key=len, reverse=True):
+                cmds.removeMultiInstance(_follow(element, steps).name(), b=True)
             cmds.removeMultiInstance(f"{name}[{source}]", b=True)
         for target, (values, inputs, outputs) in captured:
             element = self._mplug.elementByLogicalIndex(target)

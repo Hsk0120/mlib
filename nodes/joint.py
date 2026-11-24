@@ -11,7 +11,7 @@ import maya.cmds as cmds
 from ..core.fastWrite import require_writable, set_attr
 from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
-from ..maths import EulerRotate, Matrix, Scale, Vector
+from ..maths import EulerRotate, Scale, Vector
 from ..plugs.plug import Plugs
 from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
@@ -1162,31 +1162,6 @@ class Joint(Transform):
         values = self._compound_values(attribute, angle=True)
         rotation = om2.MEulerRotation(*(math.radians(value) for value in values))
         return rotation.asQuaternion()
-
-    def _remove_segment_scale_compensation(self, matrix):
-        """ssc と inverseScale が適用された後のマトリクスから補正前の値を戻す。
-
-        Maya の joint のマトリクスは S · RA · R · JO · IS · T(IS は inverseScale の逆数の
-        対角マトリクス)なので、3x3 部分へ inverseScale の対角マトリクスを右から掛けて IS を打ち消す。
-        平行移動は IS の後に適用されるため変えない。
-
-        Args:
-            matrix (Matrix): スケール補正を取り除く対象マトリクス。
-
-        Returns:
-            Matrix: ssc が無効なら入力そのもの。有効なら IS を打ち消した新しいマトリクス。
-
-        Raises:
-            ValueError: ssc が有効で inverseScale の成分の絶対値が 1e-12 未満の場合。
-        """
-        if not self.getPlug("ssc").get():
-            return matrix
-        inverse_scale = self._compound_values("inverseScale")
-        if any(abs(value) < 1e-12 for value in inverse_scale):
-            raise ValueError("segmentScaleCompensateが有効な場合、inverseScaleの各成分に0は指定できません")
-        result = matrix * Matrix(scale=inverse_scale)
-        result.translate = matrix.translate
-        return result
 
     def _rotate_reference(self, reference):
         """:meth:`getRotate` が Euler の解を選ぶ基準を返す。

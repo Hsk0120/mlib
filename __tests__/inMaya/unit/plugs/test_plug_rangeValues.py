@@ -96,18 +96,18 @@ class SetRangeUnitValueTest(_RangeCase):
                     plug.setRange(value)
                 self.assertFalse(cmds.addAttr(plug.getName(full=True), query=True, hasMinValue=True))
 
-    @unittest.expectedFailure  # findings/plugs.md「setRangeの片側をdouble3へ指定すると黙って何もしない」
     def test_compound_one_side(self):
-        """double3へ片側だけを指定したら、範囲が変わるか、例外になる(Mayaの警告だけで何も変えずに終わらない)。"""
-        plug = self.attr("vectorValue", attributeType="double3")
+        """double3へ片側だけを指定しても、両方のときと同じくTypeErrorで、定義を変えない。"""
+        cmds.addAttr(self.node, longName="vectorValue", shortName="vectorValue", attributeType="double3")
         for axis in "XYZ":
             cmds.addAttr(self.node, longName="vectorValue" + axis, attributeType="double", parent="vectorValue")
+        plug = mlib.getPlug(self.node + ".vectorValue")
         before = plug.getRange()
-        try:
-            plug.setRange(0)
-        except (TypeError, RuntimeError):
-            return
-        self.assertNotEqual(plug.getRange(), before)
+        for kwargs in ({"minimum": 0}, {"maximum": 1}, {"minimum": 0, "maximum": 1}):
+            with self.subTest(**kwargs):
+                with self.assertRaises(TypeError):
+                    plug.setRange(**kwargs)
+                self.assertEqual(plug.getRange(), before)
 
 
 if __name__ == "__main__":
