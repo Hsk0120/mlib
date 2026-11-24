@@ -856,7 +856,7 @@ class Plug(Object):
 
         :meth:`getName`・:meth:`getFullName` と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
         含まない(アトリビュートの定義の名前)。``bs.it[0].itg[3].tw[2]`` なら ``targetWeights``。
-        Plugのパスが必要なら :meth:`getName`(ショート名のパス)か :meth:`getFullName`(ロング名のパス)を使う。
+        Plugのパスが必要なら ショート名のパスには :meth:`getName` を、ロング名のパスには :meth:`getFullName` を使う。
         無効なときは、空文字列を返す :meth:`getName` と違って例外にする。
 
         Args:

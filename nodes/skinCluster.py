@@ -1494,7 +1494,7 @@ class SkinCluster(GeometryFilter):
             回転・拡大を伴うデフォーマー(cluster・nonLinearなど)の効果は逆にしないため、その分ずれる。
             skinningMethodがdualQuaternion・weightBlendedの場合も、線形の変形として逆にするので、おおよその結果になる。
             スキンのマトリクスの和が特異な(ウェイトがほぼ0の)頂点は、skinClusterの入力の位置をそのまま使う。
-            頂点の書き込みには :meth:`Mesh.setPoints <mlib.nodes.mesh.Mesh.setPoints>` を使うので、
+            頂点の書き込みには ``Mesh.setPoints()`` を使うので、
             頂点の数に比例して時間がかかる。
         """
         # nodes の初期化順に依存しないよう、使う時点で読み込む。

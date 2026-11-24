@@ -222,8 +222,8 @@ class MultiPlug(Plug):
         値の評価も、要素の作成もしない。
 
         - ``getElement(index)``: 論理番号で要素を1つ取得する(``multi[index]`` と同じ)。
-          **まだ無い要素(欠けている番号)も取得でき**、その要素へset・connectしたときに作られる。
-        - ``getElement()``: **すでにある要素だけ**を、論理番号の小さい順にPlugsで返す(``for plug in multi`` と同じ要素)。
+          まだ無い要素(欠けている番号)も取得でき、その要素へset・connectしたときに作られる。
+        - ``getElement()``: すでにある要素だけを、論理番号の小さい順にPlugsで返す(``for plug in multi`` と同じ要素)。
           :meth:`getIndices` の番号の要素だけで、欠けている番号は埋めない。
           worldSpaceのアトリビュートでは、評価の前でもDAGのインスタンス番号の要素を含む。
         - ``getElement(index, physical=True)``: 論理番号でなく、Mayaが保持している要素の並びでの位置(物理番号)で取得する。
