@@ -63,7 +63,7 @@ class BlendShapeTargetTest(_SpecCase):
         self.frown = self.sphere("frown")
         self.blink = self.sphere("blink")
         self.bs = mlib.createBlendShape(self.base, [self.smile, self.frown], name=self.name("bs"))
-        self.full = self.bs.getFullName()
+        self.full = self.bs.getName(full=True)
 
     def test_membership(self):
         """in はターゲット名の有無。"""

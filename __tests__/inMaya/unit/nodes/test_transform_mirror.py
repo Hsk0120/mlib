@@ -79,10 +79,10 @@ class MirrorAxisNotationTest(_SpecCase):
             results.append(
                 [
                     cmds.xform(n, query=True, worldSpace=True, translation=True)
-                    for n in [new_root.getFullName(), *cmds.listRelatives(new_root.getFullName(), allDescendents=True, fullPath=True)]
+                    for n in [new_root.getName(full=True), *cmds.listRelatives(new_root.getName(full=True), allDescendents=True, fullPath=True)]
                 ]
             )
-            cmds.delete(new_root.getFullName())
+            cmds.delete(new_root.getName(full=True))
         for result in results[1:]:
             for actual, wanted in zip(result, results[0]):
                 self.assertSequenceAlmostEqual(actual, wanted, places=6)

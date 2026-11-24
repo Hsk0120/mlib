@@ -39,9 +39,9 @@ class ReferenceTest(NamespaceCase):
         self.assertEqual(ref.type, "joint")
         self.assertTrue(ref.path.startswith("|"))
         self.assertEqual(NodeRef._from_data(std_json.loads(std_json.dumps(ref._to_data()))), ref)
-        self.assertEqual(ref.resolve().getFullName(), cmds.ls(self.joint, long=True)[0])
+        self.assertEqual(ref.resolve().getName(full=True), cmds.ls(self.joint, long=True)[0])
         mapped = ref.resolve(NameMapping(namespaceMap={self.ns: self.other}))
-        self.assertEqual(mapped.getFullName(), cmds.ls(self.joint_b, long=True)[0])
+        self.assertEqual(mapped.getName(full=True), cmds.ls(self.joint_b, long=True)[0])
         self.assertIsNone(ref.resolve(NameMapping(namespaceMap={self.ns: "missingNs"})))
 
     def test_node_ref_type_and_ambiguity(self):
@@ -50,7 +50,7 @@ class ReferenceTest(NamespaceCase):
         wrong_type = NodeRef(ref.name, ref.path, "transform")
         self.assertIsNone(wrong_type.resolve())
         twin = cmds.createNode("joint", name=self.name("arm"), parent=cmds.createNode("transform", name=self.name("g")))
-        self.assertEqual(ref.resolve().getFullName(), full)
+        self.assertEqual(ref.resolve().getName(full=True), full)
         self.assertIsNone(NodeRef(ref.name, None, "joint").resolve())
         self.assertTrue(cmds.objExists(twin))
 
@@ -105,7 +105,7 @@ class _OffsetSnapshot(Snapshot):
         for item in self._data["items"]:
             node = NodeRef._from_data(item["node"]).resolve(mapping)
             if node is not None:
-                cmds.setAttr(node.getFullName() + ".tx", item["value"])
+                cmds.setAttr(node.getName(full=True) + ".tx", item["value"])
         if options["fail"]:
             raise RuntimeError("fail on purpose")
 

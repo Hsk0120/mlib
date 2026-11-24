@@ -58,7 +58,7 @@ class KeyMethodsTest(_SpecCase):
         """複数アトリビュートへのキー、範囲の削除、秒での指定、1回のUndoを確かめる。"""
         cmds.currentUnit(time="film")
         node = mlib.createNode("transform", name=self.name("keyed"), skipSelect=True)
-        name = node.getFullName()
+        name = node.getName(full=True)
         cmds.flushUndo()
         node.setKey(["tx", "ry"], time=1)
         node.setKey(["tx", "ry"], time=1.0, timeUnit="sec", value=3)
@@ -102,7 +102,7 @@ class _KeyCase(NamespaceCase):
         self.tangents = cmds.keyTangent(query=True, g=True, inTangentType=True, outTangentType=True)
         self.time = (cmds.currentUnit(query=True, time=True), cmds.currentTime(query=True))
         self.node = mlib.getNode(self.make("transform", "node"))
-        self.name_ = self.node.getFullName()
+        self.name_ = self.node.getName(full=True)
         for time, value in ((1, 0.0), (5, 2.0), (10, 4.0)):
             cmds.setKeyframe(self.name_, attribute="translateX", time=time, value=value)
         cmds.setKeyframe(self.name_, attribute="rotateY", time=1, value=90.0)
@@ -119,10 +119,10 @@ class _KeyCase(NamespaceCase):
         super().tearDown()
 
     def times(self, curve=None):
-        return cmds.keyframe((curve or self.curve).getFullName(), query=True, timeChange=True) or []
+        return cmds.keyframe((curve or self.curve).getName(full=True), query=True, timeChange=True) or []
 
     def values(self, curve=None):
-        return cmds.keyframe((curve or self.curve).getFullName(), query=True, valueChange=True) or []
+        return cmds.keyframe((curve or self.curve).getName(full=True), query=True, valueChange=True) or []
 
 
 class KeyframeReferenceTest(_KeyCase):
@@ -264,7 +264,7 @@ class KeySelectionTest(_KeyCase):
         rotate = self.node.getPlug("ry").getAnimCurve()
         self.flushUndo()
         Keyframes([self.curve.getKeyframes(0), self.curve.getKeyframes(2), rotate.getKeyframes(0)]).select()
-        self.assertEqual(sorted(cmds.keyframe(self.curve.getFullName(), query=True, selected=True, indexValue=True)), [0, 2])
+        self.assertEqual(sorted(cmds.keyframe(self.curve.getName(full=True), query=True, selected=True, indexValue=True)), [0, 2])
         selected = Selection.getKeyframes()
         self.assertEqual(len(selected), 3)
         self.assertEqual(set(selected.getCurves()), {self.curve, rotate})
@@ -370,12 +370,12 @@ class WritablePlugsTest(_KeyCase):
 
     def test_writable_filter(self):
         node = mlib.getNode(self.make("transform", "w"))
-        name = node.getFullName()
+        name = node.getName(full=True)
         driver = mlib.getNode(self.make("transform", "driver"))
         cmds.setAttr(name + ".ty", lock=True)
-        cmds.connectAttr(driver.getFullName() + ".tx", name + ".tz")
+        cmds.connectAttr(driver.getName(full=True) + ".tx", name + ".tz")
         cmds.setKeyframe(name, attribute="rx", time=1, value=5)
-        cmds.connectAttr(driver.getFullName() + ".ty", name + ".sx")
+        cmds.connectAttr(driver.getName(full=True) + ".ty", name + ".sx")
         cmds.setAttr(name + ".scale", lock=True)
         keyable = [plug.getAttributeName() for plug in node.getPlugs(keyable=True)]
         writable = [plug.getAttributeName() for plug in node.getPlugs(keyable=True, writable=True)]

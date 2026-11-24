@@ -15,10 +15,10 @@ class MeshDetailTest(NamespaceCase):
         shape = mlib.getNode(cmds.polyCube(name=self.ns + ":mesh", constructionHistory=False)[0]).getShape()
         for name in ["map1", "second"]:
             if name == "second":
-                cmds.polyUVSet(shape.getFullName(), copy=True, uvSet="map1", newUVSet=name)
-                cmds.polyUVSet(shape.getFullName(), currentUVSet=True, uvSet=name)
-                cmds.polyEditUV(shape.getFullName() + ".map[*]", scaleU=-1)
-            before = cmds.polyUVSet(shape.getFullName(), q=True, currentUVSet=True)
+                cmds.polyUVSet(shape.getName(full=True), copy=True, uvSet="map1", newUVSet=name)
+                cmds.polyUVSet(shape.getName(full=True), currentUVSet=True, uvSet=name)
+                cmds.polyEditUV(shape.getName(full=True) + ".map[*]", scaleU=-1)
+            before = cmds.polyUVSet(shape.getName(full=True), q=True, currentUVSet=True)
             data = shape.getTangentData(ws=True)
             fn = shape.mfn()
             offset = 0
@@ -33,8 +33,8 @@ class MeshDetailTest(NamespaceCase):
                         self.assertAlmostEqual(actual, value, places=6)
                 offset += count
             self.assertEqual(len(data["rightHanded"]), len(data["tangents"]))
-            self.assertEqual(cmds.polyUVSet(shape.getFullName(), q=True, currentUVSet=True), before)
-        cmds.polyMapDel(shape.getFullName() + ".f[0]")
+            self.assertEqual(cmds.polyUVSet(shape.getName(full=True), q=True, currentUVSet=True), before)
+        cmds.polyMapDel(shape.getName(full=True) + ".f[0]")
         with self.assertRaises(RuntimeError):
             shape.getTangentData()
 

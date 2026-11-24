@@ -63,7 +63,7 @@ class SpaceFlagsTest(unittest.TestCase):
     def test_curve_connection_flags(self):
         """カーブ長のワールド空間指定はTransformの拡大を含む。"""
         curve = mlib.getNode(cmds.curve(degree=1, point=[(0, 0, 0), (2, 0, 0)]))
-        cmds.setAttr(curve.getFullName() + ".scaleX", 3)
+        cmds.setAttr(curve.getName(full=True) + ".scaleX", 3)
         self.assertAlmostEqual(curve.getShape().getLength(), 2.0)
         self.assertAlmostEqual(curve.getShape().getLength(worldSpace=True), 6.0)
 

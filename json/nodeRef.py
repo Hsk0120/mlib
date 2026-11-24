@@ -77,7 +77,7 @@ class NodeRef:
         from ..nodes.node import Node
 
         node = node if isinstance(node, Node) else Node(node)
-        full = node.getFullName()
+        full = node._full_name()
         if not full:
             raise RuntimeError("削除されたノードは記録できません")
         path = full if full.startswith("|") else None

@@ -258,10 +258,10 @@ def _write_uvs(shape, indices, rows, fast, chunk):
     path = shape.mpath()
     dependency = om2.MFnDependencyNode(path.node())
     if dependency.isLocked:
-        raise RuntimeError(f"メッシュがロックされています: {shape.getFullName()}")
+        raise RuntimeError(f"メッシュがロックされています: {shape._full_name()}")
     if fast and dependency.findPlug("inMesh", False).isDestination:
         # 入力履歴のあるMeshはinMeshの再評価でUVが上書きされるため、直接は書かない。
-        raise NotImplementedError(f"fastのsetPositionは入力ヒストリのあるメッシュに対応していません: {shape.getFullName()}")
+        raise NotImplementedError(f"fastのsetPositionは入力ヒストリのあるメッシュに対応していません: {shape._full_name()}")
     mesh_fn = om2.MFnMesh(path)
     uv_set = mesh_fn.currentUVSetName()
     # polyEditUVの途中でMayaが書込みを拒否した場合に、先に書いたUVを戻すためundoTransactionを使う。
@@ -269,7 +269,7 @@ def _write_uvs(shape, indices, rows, fast, chunk):
         if fast:
             _write_uvs_fast(mesh_fn, uv_set, indices, rows)
             return
-        name = shape.getFullName()
+        name = shape._full_name()
         for index, (u, v) in zip(indices, rows):
             cmds.polyEditUV(f"{name}.map[{index}]", relative=False, uValue=u, vValue=v, uvSetName=uv_set)
 

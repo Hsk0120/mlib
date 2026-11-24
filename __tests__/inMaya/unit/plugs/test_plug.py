@@ -45,9 +45,9 @@ class NodeApiTest(unittest.TestCase):
 
         self.assertTrue(translate_x.getFlags()["keyable"])
         self.assertIsNone(translate.getParent())
-        self.assertEqual(translate_x.getParent().getFullName(), translate.getFullName())
+        self.assertEqual(translate_x.getParent().getName(full=True), translate.getName(full=True))
 
-        cmds.setAttr(translate_x.getFullName(), keyable=False)
+        cmds.setAttr(translate_x.getName(full=True), keyable=False)
         self.assertFalse(translate_x.getFlags()["keyable"])
 
     def test_plug_hidden_limits_default_and_enum(self):
@@ -92,8 +92,8 @@ class NodeApiTest(unittest.TestCase):
 
         self.assertIsNone(plug.getAnimCurve())
 
-        cmds.setKeyframe(plug.getFullName(), time=1, value=0.0)
-        cmds.setKeyframe(plug.getFullName(), time=24, value=10.0)
+        cmds.setKeyframe(plug.getName(full=True), time=1, value=0.0)
+        cmds.setKeyframe(plug.getName(full=True), time=24, value=10.0)
 
         curve = plug.getAnimCurve()
         self.assertIsNotNone(curve)
@@ -146,7 +146,7 @@ class NodeApiTest(unittest.TestCase):
 
         plug.setFlags(channelBox=True)
         self.assertFalse(plug.getFlags()["keyable"])
-        self.assertTrue(cmds.getAttr(plug.getFullName(), channelBox=True))
+        self.assertTrue(cmds.getAttr(plug.getName(full=True), channelBox=True))
 
         plug.setFlags(keyable=True)
         self.assertTrue(plug.getFlags()["keyable"])
@@ -299,7 +299,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertFalse(targetPlug.isConnected(source=False))
 
         destinations = source_plug.getConnections(outputs=True)
-        self.assertEqual([plug.getFullName() for plug in destinations], [targetPlug.getFullName()])
+        self.assertEqual([plug.getName(full=True) for plug in destinations], [targetPlug.getName(full=True)])
 
         result = source_plug.disconnectAll()
         self.assertIsNone(result)

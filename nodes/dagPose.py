@@ -98,7 +98,7 @@ class DagPose(Node):
         for index, source in self._member_sources():
             if source.node() == target:
                 return index
-        raise ValueError(f"{name}のメンバーではありません: {node.getFullName()}")
+        raise ValueError(f"{name}のメンバーではありません: {node._full_name()}")
 
     def getMembers(self):
         """メンバーを取得する。
@@ -220,7 +220,7 @@ class DagPose(Node):
         with undoChunk("mlibDagPoseReset"):
             name = self._pose_name()
             if members is None:
-                names = [node.getFullName() for node in self.getMembers()]
+                names = [node._full_name() for node in self.getMembers()]
                 if not names:
                     return
             else:
@@ -328,11 +328,11 @@ class DagPose(Node):
             indices = self._merge_allocate_indices(rows, target_rows)
             self._merge_write_rows(name, rows, target_rows, indices, currentPose)
             if temp is not None:
-                cmds.delete(temp.getFullName())
+                cmds.delete(temp._full_name())
             for skin in skins.values():
-                cmds.connectAttr(name + ".message", skin.getFullName() + ".bindPose", force=True)
+                cmds.connectAttr(name + ".message", skin._full_name() + ".bindPose", force=True)
             if deleteSources:
-                cmds.delete([pose.getFullName() for pose in others])
+                cmds.delete([pose._full_name() for pose in others])
 
     def _member_sources(self):
         """接続されたmembers要素の論理番号と接続元を取得する。
@@ -367,7 +367,7 @@ class DagPose(Node):
             node = Node._resolve_input(value)
             if not node.isValid() or not node.isType("dagPose"):
                 raise ValueError(f"dagPoseを指定してください: {value}")
-            poses.setdefault(node.getFullName(), node)
+            poses.setdefault(node._full_name(), node)
         others = [pose for key, pose in poses.items() if key != name]
         return name, poses, others
 
@@ -400,7 +400,7 @@ class DagPose(Node):
                     rows[member] = row
             if pose is not self:
                 for skin in pose.getSkinClusters():
-                    skins[skin.getFullName()] = skin
+                    skins[skin._full_name()] = skin
                 if delete_sources:
                     pose._merge_check_delete()
         if not rows:
@@ -421,7 +421,7 @@ class DagPose(Node):
         for skin in skins.values():
             require_editable(skin.mnode())
             if skin.getPlug("bindPose").mplug().isLocked:
-                raise RuntimeError(f"bindPoseがロックされています: {skin.getFullName()}")
+                raise RuntimeError(f"bindPoseがロックされています: {skin._full_name()}")
 
     def _merge_allocate_indices(self, rows, target_rows):
         """既存の疎な保存番号を保ち、未登録メンバーへ後続の番号を割り当てる。
@@ -546,10 +546,10 @@ class DagPose(Node):
             if not node.isType("transform") or source.partialName(useLongNames=True) != "message":
                 raise RuntimeError(f"対応していないポーズのメンバーです: {members.name()}[{index}]")
             if om2.MFnDagNode(source.node()).isInstanced():
-                raise RuntimeError(f"ポーズのメンバーがインスタンスです: {node.getFullName()}")
-            indices[index] = node.getFullName()
+                raise RuntimeError(f"ポーズのメンバーがインスタンスです: {node._full_name()}")
+            indices[index] = node._full_name()
         if len(set(indices.values())) != len(indices):
-            raise RuntimeError(f"ポーズのメンバーが重複しています: {self.getFullName()}")
+            raise RuntimeError(f"ポーズのメンバーが重複しています: {self._full_name()}")
         world = self.getPlug("world").mplug()
         rows = {}
         for index, member in indices.items():
@@ -563,7 +563,7 @@ class DagPose(Node):
             elif source.isElement and source.array() == members and source.logicalIndex() in indices:
                 parent = indices[source.logicalIndex()]
             elif source.node().hasFn(om2.MFn.kTransform) and source.partialName(useLongNames=True) == "message":
-                parent = Node(source.node()).getFullName()
+                parent = Node(source.node())._full_name()
                 external_parent = True
             else:
                 raise RuntimeError(f"対応していない保存された親です: {member}")
@@ -646,8 +646,8 @@ class DagPose(Node):
             node = Node(name)
             if not node.isValid() or not node.isType("transform"):
                 raise ValueError(f"有効なtransformかjointを指定してください: {name}")
-            if node.getFullName() not in names:
-                names.append(node.getFullName())
+            if node._full_name() not in names:
+                names.append(node._full_name())
         if not names:
             raise ValueError("transformかjointを1つ以上指定してください")
         return names
@@ -655,4 +655,4 @@ class DagPose(Node):
     def _pose_name(self):
         """有効なdagPoseの名前を返す。削除済みならRuntimeError。"""
         self._require_valid("値の取得")
-        return self.getFullName()
+        return self._full_name()

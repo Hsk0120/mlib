@@ -36,9 +36,9 @@ _MEMBER_HINTS = {
     "type": ("getType", "getType()を使います"),
     "name": ("getName", "getName()を使います。DAGパスを含まない名前はgetName(node=True)です"),
     "nodeName": ("getName", "getName(node=True)を使います"),
-    "longName": ("getFullName", "getFullName()を使います"),
-    "fullPath": ("getFullName", "getFullName()を使います"),
-    "fullPathName": ("getFullName", "getFullName()を使います"),
+    "longName": ("getName", "getName(full=True)を使います"),
+    "fullPath": ("getName", "getName(full=True)を使います"),
+    "fullPathName": ("getName", "getName(full=True)を使います"),
     "shortName": ("getName", "getName(node=True)を使います"),
     "exists": ("isValid", "isValid()を使います"),
     "getTranslate": ("getTranslation", "getTranslation()を使います。translateのチャンネルはt.get()です"),
@@ -303,16 +303,16 @@ class Object(metaclass=_ObjectType):
         if isinstance(value, str):
             name = value
         elif isinstance(value, node_class):
-            name = value.getFullName()
+            name = value._full_name()
             if not name:
                 raise ValueError("無効な(削除された)Nodeは使えません")
         elif isinstance(value, plug_class):
-            name = value.getFullName()
+            name = value._full_name()
             if not name:
                 raise ValueError("無効なPlugは使えません(ノードかアトリビュートが削除されています)")
         elif isinstance(value, component_class):
             try:
-                name = value.getFullName()
+                name = value._full_name()
             except (RuntimeError, IndexError) as error:
                 raise ValueError(f"無効なComponentは使えません: {error}") from error
         elif isinstance(value, om2.MPlug):

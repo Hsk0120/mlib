@@ -114,16 +114,16 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=N
     for long, short, default in _DEFAULT_FLAGS:
         if long not in flags and short not in flags:
             flags[long] = default
-    names = [node.getFullName() for node in influences]
+    names = [node._full_name() for node in influences]
     if saved is None:
         with undoChunk("mlibBindSkin"):
-            result = cmds.skinCluster(names, target.getFullName(), **flags)
+            result = cmds.skinCluster(names, target._full_name(), **flags)
             return Node(result[0])
     # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
     from ..json.nameMapping import NameMapping
 
     with undoTransaction("mlibBindSkin"):
-        skin = Node(cmds.skinCluster(names, target.getFullName(), **flags)[0])
+        skin = Node(cmds.skinCluster(names, target._full_name(), **flags)[0])
         data, nodes, report = skin._prepare_weights_data(saved["data"], NameMapping(nameMap, replace, namespaceMap), method)
         skin._apply_weights_data(data, nodes, method, report, False)
     report.warn(f"SkinCluster {skin.getName()}")

@@ -22,7 +22,7 @@ class MeshSurfaceDataTest(NamespaceCase):
         mesh = self.mesh()
         for angle, number in ((0, 24), (180, 8)):
             with self.subTest(angle=angle):
-                cmds.polySoftEdge(mesh.getFullName(), angle=angle, constructionHistory=False)
+                cmds.polySoftEdge(mesh.getName(full=True), angle=angle, constructionHistory=False)
                 self.flushUndo()
                 normals, counts, indices = mesh.getNormalData()
                 self.assertEqual(len(normals), number)
@@ -43,7 +43,7 @@ class MeshSurfaceDataTest(NamespaceCase):
         mesh = self.mesh()
         mesh.setFaceVertexNormals([(1, 2, 3)], faceVertices=[0], fast=True)
         self.assertTrue(mesh.getVertexFaces([0])[0].getNormal(locked=True))
-        parent = mesh.getParent().getFullName()
+        parent = mesh.getParent().getName(full=True)
         cmds.setAttr(parent + ".scale", 2, 3, 0.5)
         cmds.setAttr(parent + ".rotate", 20, -30, 10)
         self.flushUndo()
@@ -96,7 +96,7 @@ class MeshSurfaceDataTest(NamespaceCase):
                 corners = mesh.getVertexFaces([(0, 0), (0, 3)])
                 mesh.setVertexColors([(1, 0, 0, 0.7), (0, 1, 0, 0.3)], faceVertices=corners, perFace=True)
                 if moved:
-                    cmds.polyMoveVertex(mesh.getFullName() + ".vtx[7]", ty=0.25, constructionHistory=True)
+                    cmds.polyMoveVertex(mesh.getName(full=True) + ".vtx[7]", ty=0.25, constructionHistory=True)
                 before = mesh.getVertexColors(perFace=True)
                 self.flushUndo()
                 self.assertIsNone(corners[0].removeColor())
@@ -179,7 +179,7 @@ class MeshSurfaceDataTest(NamespaceCase):
                 operation()
         self.assertEqual(mesh.getVertexColors(perFace=True), before)
         self.assertUndoEmpty()
-        cmds.polyMoveVertex(mesh.getFullName() + ".vtx[7]", ty=0.25, constructionHistory=True)
+        cmds.polyMoveVertex(mesh.getName(full=True) + ".vtx[7]", ty=0.25, constructionHistory=True)
         self.flushUndo()
         with mock.patch.object(cmds, "polyColorPerVertex", side_effect=AssertionError("更新前に拒否する")):
             with self.assertRaises(RuntimeError):
@@ -210,7 +210,7 @@ class MeshSurfaceDataTest(NamespaceCase):
         mesh = self.mesh()
         mesh.setVertexColors([(1, 0, 0)], faceVertices=[0], fast=True, perFace=True)
         before = mesh.getVertexColors(perFace=True)
-        cmds.lockNode(mesh.getFullName(), lock=True)
+        cmds.lockNode(mesh.getName(full=True), lock=True)
         try:
             self.flushUndo()
             for fast in (False, True):
@@ -219,7 +219,7 @@ class MeshSurfaceDataTest(NamespaceCase):
             self.assertEqual(mesh.getVertexColors(perFace=True), before)
             self.assertUndoEmpty()
         finally:
-            cmds.lockNode(mesh.getFullName(), lock=False)
+            cmds.lockNode(mesh.getName(full=True), lock=False)
 
 
 if __name__ == "__main__":

@@ -477,7 +477,7 @@ class Keyframes:
                     cmds.selectKey(selected, clear=True)
             for curve, indices in self._groups:
                 ranges = curve._key_ranges(indices, None, "frame")
-                cmds.selectKey(curve.getFullName(), index=ranges, add=True, animation="objects")
+                cmds.selectKey(curve._full_name(), index=ranges, add=True, animation="objects")
 
 
 def _keyframe(curve, index):

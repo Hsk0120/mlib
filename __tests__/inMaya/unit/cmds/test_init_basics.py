@@ -154,7 +154,7 @@ class SceneEditingCommandsTest(unittest.TestCase):
         self.created.append(copy.getName())
 
         self.assertIsInstance(copy, Node)
-        self.assertNotEqual(copy.getFullName(), original.getFullName())
+        self.assertNotEqual(copy.getName(full=True), original.getName(full=True))
         self.assertTrue(cmds.objExists("mlibDuplicateCopy"))
 
 
@@ -206,7 +206,7 @@ class SelectionAndAnimationCommandsTest(unittest.TestCase):
         cmds.currentTime(24)
         cmds.setKeyframe(node.getPlug("translateX"), value=10.0)
 
-        times = cmds.keyframe(node.getFullName(), attribute="translateX", query=True, timeChange=True)
+        times = cmds.keyframe(node.getName(full=True), attribute="translateX", query=True, timeChange=True)
         self.assertEqual(sorted(times), [1.0, 24.0])
 
     def test_bake_results_creates_keys_across_range(self):
@@ -216,9 +216,9 @@ class SelectionAndAnimationCommandsTest(unittest.TestCase):
         cmds.currentTime(10)
         cmds.setKeyframe(node.getPlug("translateX"), value=9.0)
 
-        cmds.bakeResults(node.getFullName(), time=(1, 10), attribute=["translateX"], simulation=True)
+        cmds.bakeResults(node.getName(full=True), time=(1, 10), attribute=["translateX"], simulation=True)
 
-        times = cmds.keyframe(node.getFullName(), attribute="translateX", query=True, timeChange=True)
+        times = cmds.keyframe(node.getName(full=True), attribute="translateX", query=True, timeChange=True)
         self.assertEqual(len(times), 10)
         self.assertEqual(sorted(times), [float(t) for t in range(1, 11)])
 

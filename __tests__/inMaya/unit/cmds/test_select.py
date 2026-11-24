@@ -185,7 +185,7 @@ class SelectTest(_CommonCase):
         for mode, flag in (("replace", "replace"), ("add", "add"), ("remove", "deselect")):
             with self.subTest(mode=mode):
                 cmds.select(base)
-                cmds.select([item.getFullName() for item in selection], noExpand=True, **{flag: True})
+                cmds.select([item.getName(full=True) for item in selection], noExpand=True, **{flag: True})
                 expected = self.state()
                 cmds.select(base)
                 self.assertIsNone(selection.select(mode=mode))

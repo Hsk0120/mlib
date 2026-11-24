@@ -45,7 +45,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertIsInstance(mesh, mlib.Mesh)
         self.assertEqual((mesh.getNumVertices(), mesh.getNumEdges(), mesh.getNumPolygons()), (8, 12, 6))
         local_x = mesh.getPoints()[0].x
-        cmds.setAttr(cube.getFullName() + ".translateX", 5)
+        cmds.setAttr(cube.getName(full=True) + ".translateX", 5)
         self.assertAlmostEqual(mesh.getPoints(worldSpace=True)[0].x, local_x + 5)
 
         curve = mlib.Node(cmds.curve(degree=1, point=[(0, 0, 0), (3, 0, 0), (3, 4, 0)]))
@@ -53,9 +53,9 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertIsInstance(shape, mlib.NurbsCurve)
         self.assertEqual((shape.getNumCVs(), shape.mfn().numSpans, shape.mfn().degree), (3, 2, 1))
         self.assertAlmostEqual(shape.getLength(), 7)
-        cmds.setAttr(curve.getFullName() + ".scaleX", 2)
+        cmds.setAttr(curve.getName(full=True) + ".scaleX", 2)
         self.assertAlmostEqual(shape.getLength(), 7)
-        cmds.setAttr(curve.getFullName() + ".translateY", 2)
+        cmds.setAttr(curve.getName(full=True) + ".translateY", 2)
         self.assertAlmostEqual(shape.getPoints(worldSpace=True)[0].y, 2)
         self.assertAlmostEqual(shape.getPoints()[0].y, 0)
         with self.assertRaises(ValueError):
@@ -70,7 +70,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         for normal in local_normals:
             self.assertAlmostEqual(sum(c * c for c in (normal.x, normal.y, normal.z)) ** 0.5, 1.0, places=5)
 
-        cmds.setAttr(cube.getFullName() + ".rotateY", 90)
+        cmds.setAttr(cube.getName(full=True) + ".rotateY", 90)
         world_normals = mesh.getVertexNormals(worldSpace=True)
         self.assertEqual(len(world_normals), mesh.getNumVertices())
         self.assertFalse(all(abs(a.x - b.x) < 1e-5 and abs(a.y - b.y) < 1e-5 and abs(a.z - b.z) < 1e-5 for a, b in zip(local_normals, world_normals)))
@@ -83,10 +83,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):

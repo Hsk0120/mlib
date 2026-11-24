@@ -1477,8 +1477,8 @@ class Node(Object):
             str | None: ノードのUUID。ノードが無効なら ``None``。
         """
         ...
-    def getName(self, *, node: bool = ..., removeNamespace: bool = ...) -> str:
-        """最短の一意な名前を取得する。``node=True`` なら、DAGパスを付けないノード名を取得する。
+    def getName(self, *, full: bool = ..., node: bool = ..., removeNamespace: bool = ...) -> str:
+        """最短の一意な名前を取得する。``full=True`` なら完全な名前、``node=True`` ならDAGパスを付けないノード名を取得する。
 
         既定の名前は、Mayaのコマンドへ渡すと、このオブジェクトが持つインスタンスを指せる名前になる。
 
@@ -1491,23 +1491,28 @@ class Node(Object):
         ``node=True`` では、DAGの別の階層に同じ名前のノードがあっても、親のパスは付けない(DGノードにも使える)。
         新しい名前を組み立てる元にするとき(接尾辞の付け替えなど)に使う。Mayaのコマンドへ渡す一意な名前が要るときは、既定のままにする。
 
+        ``full=True`` では、DAGノードはこのオブジェクトが持つインスタンスの完全なDAGパス(``|grp1|ctrl``)、DGノードはノード名を返す。
+        ノードそのものが無効なら、例外にせず空文字列を返す。
+
         Args:
+            full (bool): Trueなら、完全な名前を返す。node・removeNamespaceと同時には指定できない。既定はFalse。
             node (bool): Trueなら、DAGパスを付けないノード名(ネームスペースは含む)を返す。既定はFalse。
             removeNamespace (bool): Trueなら、ネームスペースも取り除く。``node=True`` のときだけ指定できる。既定はFalse。
 
         Returns:
-            str: 今の名前。
+            str: 今の名前。``full=True`` でノードが無効なら空文字列。
 
         Raises:
-            TypeError: node・removeNamespaceがboolでない場合、または ``node=True`` なしでremoveNamespaceを指定した場合。
-            RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合、
-                またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前のときだけ)。
+            TypeError: full・node・removeNamespaceがboolでない場合、``full=True`` とnode・removeNamespaceを同時に指定した場合、
+                または ``node=True`` なしでremoveNamespaceを指定した場合。
+            RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合(``full=True`` を除く)、
+                またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前と ``full=True`` のとき)。
         """
         ...
-    def getFullName(self) -> str:
-        """完全な名前を取得する。
+    def _full_name(self) -> str:
+        """完全な名前(:meth:`getName` の ``full=True``)を、引数の検査なしで取得する。
 
-        DAGノードでは、このオブジェクトが持つインスタンスの完全なDAGパスを返す。DGノードではノード名を返す。
+        maya.cmdsへ名前を渡す内部の処理から、毎回の引数の検査を省いて呼ぶ。
 
         Returns:
             str: DAGノードではワールドから始まる完全なパス。DGノードではノード名。
@@ -2016,7 +2021,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def sort(self, key: Callable[[Node], object] | None = ..., reverse: bool = ...) -> None:
         """要素をその場で並べ替える。
 
-        ``key`` を省くと、ノードの完全な名前(:meth:`Node.getFullName`)の順にする。
+        ``key`` を省くと、ノードの完全な名前(``Node.getName(full=True)``)の順にする。
         Nodeは大小を比べられないため、Pythonのlistと違い、要素そのものは比べない。
         並べ替えるのはこのまとまりの要素の順だけ。:meth:`copy`・スライス・``+`` で作った
         別のまとまりの順は変わらない(各要素のNodeのオブジェクトは共有している)。
@@ -2148,7 +2153,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
         """各ノードの名前を取得する。
 
         既定は一意な名前(:meth:`Node.getName` を並べたもの)。``full=True`` なら完全な名前
-        (:meth:`Node.getFullName` を並べたもの)。
+        (``Node.getName(full=True)`` を並べたもの)。
 
         Args:
             full (bool): Trueなら、DAGノードではワールドから始まる完全なパス(DGノードではノード名)を返す。既定はFalse。
@@ -2499,11 +2504,8 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self, *, node: bool = ..., removeNamespace: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., node: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

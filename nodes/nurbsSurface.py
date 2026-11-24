@@ -213,7 +213,7 @@ class NurbsSurface(_ControlPointShape):
             us, vs = fn.getUVs()
             counts, indices = fn.getAssignedUVs()
         except RuntimeError as error:
-            raise RuntimeError(f"明示的なテクスチャUVデータを取得できません: {self.getFullName()}") from error
+            raise RuntimeError(f"明示的なテクスチャUVデータを取得できません: {self._full_name()}") from error
         return list(zip(us, vs)), list(counts), list(indices)
 
     def setUVData(self, uvs, counts, indices, *, fast=False):
@@ -549,17 +549,17 @@ class NurbsSurface(_ControlPointShape):
         if what == "normal":
             normal = Vector(fn.normal(u, v, space))
             if normal.length() < 1e-12:
-                raise ValueError(f"({u}, {v})では法線が定義できません: {self.getFullName()}")
+                raise ValueError(f"({u}, {v})では法線が定義できません: {self._full_name()}")
             return normal.normal()
         if what == "tangents":
             tangent_u, tangent_v = self._tangents(fn, u, v, world)
             if tangent_u is None or tangent_v is None:
-                raise ValueError(f"({u}, {v})ではタンジェントが定義できません: {self.getFullName()}")
+                raise ValueError(f"({u}, {v})ではタンジェントが定義できません: {self._full_name()}")
             return Vector(tangent_u), Vector(tangent_v)
         aim = self._tangents(fn, u, v, world)[0]
         up = None if aim is None else _perpendicular(fn.normal(u, v, space), aim)
         if up is None:
-            raise ValueError(f"({u}, {v})ではフレームが定義できません: {self.getFullName()}")
+            raise ValueError(f"({u}, {v})ではフレームが定義できません: {self._full_name()}")
         return _frame_matrix(fn.getPointAtParam(u, v, space), aim, up, aim_axis, up_axis)
 
     def getArea(self, worldSpace=_UNSET, *, ws=_UNSET):
@@ -637,7 +637,7 @@ class NurbsSurface(_ControlPointShape):
                 if check:
                     # cmds.xformはCVのロックを見ずに書くので、確かめる指定のときは書く前に確かめる。
                     geometryEdit._require_control_points_writable(self)
-                name = self.getFullName()
+                name = self._full_name()
                 unit = om2.MDistance.uiUnit()
                 for index, point in enumerate(local):
                     u, v = divmod(index, count_v)
@@ -762,7 +762,7 @@ class NurbsSurface(_ControlPointShape):
         """
         points = [tuple(point) for point in fn.cvPositions()]
         cmds.setAttr(
-            self.getFullName() + ".create",
+            self._full_name() + ".create",
             fn.degreeInU,
             fn.degreeInV,
             fn.formInU - 1,
@@ -810,5 +810,5 @@ class NurbsSurface(_ControlPointShape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnNurbsSurface):
-            raise RuntimeError(f"nurbsSurfaceにジオメトリのデータがありません: {self.getFullName()}")
+            raise RuntimeError(f"nurbsSurfaceにジオメトリのデータがありません: {self._full_name()}")
         return fn

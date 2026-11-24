@@ -81,7 +81,7 @@ class ApiUnitsTest(unittest.TestCase):
                 self.assertEqual(tuple(node.getTranslation(at=4)), (25, 50, 75))
                 self.assertEqual(tuple(node.getPlug("translate").get()), (25, 50, 75))
                 # 表示単位mでの0.01・0.02・0.03 = 1・2・3cm。
-                cmds.xform(item.getFullName(), objectSpace=True, translation=(0.01, 0.02, 0.03))
+                cmds.xform(item.getName(full=True), objectSpace=True, translation=(0.01, 0.02, 0.03))
                 for actual, expected in zip(item.getPosition(), (1, 2, 3)):
                     self.assertAlmostEqual(actual, expected)
                 for actual, expected in zip(item.getPosition(worldSpace=True), (26, 52, 78)):
@@ -96,7 +96,7 @@ class ApiUnitsTest(unittest.TestCase):
         cv = shape.getCVs(index)
         before = cv.getPosition()
         self.assertEqual(cv.getPosition(), shape.getCVs(0).getPosition())
-        self.assertEqual(cv.getFullName(), shape.getCVs(0).getFullName())
+        self.assertEqual(cv.getName(full=True), shape.getCVs(0).getName(full=True))
         shape.scaleGeometry(2, indices=[index])
         for a, b in zip(cv.getPosition(), before):
             self.assertAlmostEqual(a, b * 2)

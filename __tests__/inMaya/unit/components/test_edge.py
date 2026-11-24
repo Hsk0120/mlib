@@ -59,7 +59,7 @@ class _ComponentCase(unittest.TestCase):
 
     def om2_point(self, shape, index, world=False):
         """OpenMayaで頂点座標をcmで独立に求める。"""
-        path = om2.MSelectionList().add(shape.getFullName()).getDagPath(0)
+        path = om2.MSelectionList().add(shape.getName(full=True)).getDagPath(0)
         space = om2.MSpace.kWorld if world else om2.MSpace.kObject
         point = om2.MFnMesh(path).getPoint(index, space)
         return (point.x, point.y, point.z)
@@ -72,7 +72,7 @@ class TopologySpecTest(_ComponentCase):
         """要素が減って範囲外になった番号はisValid()がFalseで、操作はIndexError。"""
         vertex = Vertex(self.history_mesh, 7)
         vertices = Vertices(self.history_mesh, [0, 7])
-        cmds.delete(self.history_mesh.getFullName() + ".f[0:4]")
+        cmds.delete(self.history_mesh.getName(full=True) + ".f[0:4]")
         self.assertLess(self.history_mesh.getNumVertices(), 8)
         self.assertFalse(vertex.isValid())
         self.assertFalse(vertices.isValid())
@@ -82,7 +82,7 @@ class TopologySpecTest(_ComponentCase):
         with self.assertRaises(IndexError):
             vertices.getPosition()
         with self.assertRaises(IndexError):
-            vertex.getFullName()
+            vertex.getName(full=True)
 
     def test_deleted_shape(self):
         """削除済みShapeのコンポーネントはisValid()がFalseで、照会はRuntimeError。"""
@@ -101,7 +101,7 @@ class EdgeFaceSpecTest(_ComponentCase):
 
     def mesh_fn(self):
         """履歴なし立方体のMFnMeshを返す。"""
-        return om2.MFnMesh(om2.MSelectionList().add(self.mesh.getFullName()).getDagPath(0))
+        return om2.MFnMesh(om2.MSelectionList().add(self.mesh.getName(full=True)).getDagPath(0))
 
     def test_vertices_match_om2(self):
         """Edge/Face.getVerticesはMFnMeshの接続順、複数形は保持順で重複を除く。"""
@@ -127,7 +127,7 @@ class EdgeFaceSpecTest(_ComponentCase):
         shader = cmds.shadingNode("lambert", asShader=True, name=self.ns + ":lambert")
         group = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=self.ns + ":lambertSG")
         cmds.connectAttr(shader + ".outColor", group + ".surfaceShader")
-        cmds.sets(self.mesh.getFullName() + ".f[1]", edit=True, forceElement=group)
+        cmds.sets(self.mesh.getName(full=True) + ".f[1]", edit=True, forceElement=group)
         assigned = Face(self.mesh, 1).getShadingEngine()
         self.assertEqual(assigned.getName(), group)
         self.assertEqual(Face(self.mesh, 1).getMaterial().getName(), shader)
@@ -141,8 +141,8 @@ class EdgeFaceSpecTest(_ComponentCase):
 
     def test_unassigned_face_returns_none(self):
         """割り当てのないフェースはNoneを返し、複数形の結果には含めない。"""
-        cmds.sets(self.mesh.getFullName(), edit=True, remove="initialShadingGroup")
-        cmds.sets(self.mesh.getFullName() + ".f[*]", edit=True, remove="initialShadingGroup")
+        cmds.sets(self.mesh.getName(full=True), edit=True, remove="initialShadingGroup")
+        cmds.sets(self.mesh.getName(full=True) + ".f[*]", edit=True, remove="initialShadingGroup")
         self.assertIsNone(Face(self.mesh, 0).getShadingEngine())
         self.assertIsNone(Face(self.mesh, 0).getMaterial())
         self.assertEqual(Faces(self.mesh, [0, 1]).getShadingEngines(), [])

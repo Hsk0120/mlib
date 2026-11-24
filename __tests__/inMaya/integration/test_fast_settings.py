@@ -68,7 +68,7 @@ class FastSettingsTest(NamespaceCase):
                 else:
                     cmds.undo()
                     self.assertEqual(joint.getDegreesOfFreedom(), "xyz")
-                cmds.setAttr(joint.getFullName() + ".jointTypeZ", lock=True)
+                cmds.setAttr(joint.getName(full=True) + ".jointTypeZ", lock=True)
                 before = joint.getDegreesOfFreedom()
                 with self.assertRaises(RuntimeError):
                     joint.setDegreesOfFreedom("", fast=fast, check=True)
@@ -78,7 +78,7 @@ class FastSettingsTest(NamespaceCase):
     def test_influence_locked(self):
         cmds.select(clear=True)
         root = mlib.getNode(self.make("joint", "root#"))
-        child = mlib.getNode(self.make("joint", "child#", parent=root.getFullName()))
+        child = mlib.getNode(self.make("joint", "child#", parent=root.getName(full=True)))
         mesh = mlib.createPoly("cube", name=self.name("cube#"))
         skin = mlib.bindSkin([root, child], mesh.getTransform())
         for fast in (False, True):
@@ -90,7 +90,7 @@ class FastSettingsTest(NamespaceCase):
                 self.assertEqual((root.isInfluenceLocked(), child.isInfluenceLocked()), (False, False))
                 if fast:
                     self.assertUndoEmpty()
-        cmds.setAttr(child.getFullName() + ".lockInfluenceWeights", lock=True)
+        cmds.setAttr(child.getName(full=True) + ".lockInfluenceWeights", lock=True)
         for fast in (False, True):
             with self.subTest(fast=fast, check=True):
                 with self.assertRaises(RuntimeError):

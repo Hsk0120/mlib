@@ -78,7 +78,7 @@ class CreateShapeErrorTest(_ErrorCase):
     def _parent_cases(self):
         """親の不正(存在しない名前・削除済み・transform 以外)の (例外型, 引数) を返す。"""
         deleted = mlib.getNode(self.transform("deleted"))
-        cmds.delete(deleted.getFullName())
+        cmds.delete(deleted.getName(full=True))
         mesh = self.plane("parentMesh")[1]
         return [
             (RuntimeError, {"parent": self.name("noSuchParent")}),
@@ -289,7 +289,7 @@ class DrivenKeyErrorTest(_ErrorCase):
         """駆動先の動的アトリビュートを削除すると RuntimeError。"""
         cmds.addAttr(self.driven, longName="amount", attributeType="double")
         relation = DrivenKey(self.driver + ".tx", self.driven + ".amount")
-        self.assertEqual(relation.getDrivenPlug().getFullName(), self.driven + ".amount")
+        self.assertEqual(relation.getDrivenPlug().getName(full=True), self.driven + ".amount")
         cmds.deleteAttr(self.driven + ".amount")
         with self.assertRaises(RuntimeError):
             relation.getDrivenPlug()
@@ -324,13 +324,13 @@ class KeyframeErrorTest(_ErrorCase):
         self.curve = mlib.getNode(cmds.listConnections(self.node + ".tx", source=True, destination=False)[0])
 
     def values(self):
-        return cmds.keyframe(self.curve.getFullName(), query=True, valueChange=True)
+        return cmds.keyframe(self.curve.getName(full=True), query=True, valueChange=True)
 
     def test_index_out_of_range(self):
         """キーを消して番号が範囲外になると IndexError。"""
         key = self.curve.getKeyframes(1)
         self.assertEqual(key.getValue(time=True), 10.0)
-        cmds.cutKey(self.curve.getFullName(), time=(10, 10))
+        cmds.cutKey(self.curve.getName(full=True), time=(10, 10))
         before = self.values()
         for name, call in (
             ("getValue time", functools.partial(key.getValue, time=True)),
@@ -346,7 +346,7 @@ class KeyframeErrorTest(_ErrorCase):
     def test_deleted_curve(self):
         """カーブを削除すると RuntimeError。"""
         key = self.curve.getKeyframes(0)
-        cmds.delete(self.curve.getFullName())
+        cmds.delete(self.curve.getName(full=True))
         for name, call in (("getValue time", functools.partial(key.getValue, time=True)), ("getValue", key.getValue), ("setValue", lambda: key.setValue(1.0))):
             with self.subTest(name=name):
                 with self.assertRaises(RuntimeError):
@@ -478,7 +478,7 @@ class ComponentNameErrorTest(_ErrorCase):
         """トポロジー変更で範囲外なら IndexError、シェイプ削除後は RuntimeError。"""
         transform, mesh = self.plane()
         vertices = Vertices(mesh, [0, 1, 2, 8])
-        self.assertEqual(vertices.getNames(full=True, compact=True), [mesh.getFullName() + ".vtx[0:2]", mesh.getFullName() + ".vtx[8]"])
+        self.assertEqual(vertices.getNames(full=True, compact=True), [mesh.getName(full=True) + ".vtx[0:2]", mesh.getName(full=True) + ".vtx[8]"])
         self.shrinkPlane(transform)
         with self.assertRaises(IndexError):
             vertices.getNames(full=True, compact=True)
@@ -575,7 +575,7 @@ class PointComponentSetterErrorTest(_ErrorCase):
         )
 
     def points(self, mesh):
-        return cmds.xform(mesh.getFullName() + ".vtx[*]", query=True, translation=True, objectSpace=True)
+        return cmds.xform(mesh.getName(full=True) + ".vtx[*]", query=True, translation=True, objectSpace=True)
 
     def _all(self, mesh, index):
         return self._singles(mesh, index) + self._multis(mesh, [0, index])
@@ -699,7 +699,7 @@ class UVSetterErrorTest(_ErrorCase):
     """UV・UVs の書込みの拒否。拒否時は UV を変えない。"""
 
     def uvs(self, mesh):
-        return cmds.polyEditUV(mesh.getFullName() + ".map[*]", query=True)
+        return cmds.polyEditUV(mesh.getName(full=True) + ".map[*]", query=True)
 
     def _calls(self, mesh, index):
         uv = UV(mesh, index)
@@ -764,10 +764,10 @@ class UVSetterErrorTest(_ErrorCase):
     def test_out_of_range_and_deleted(self):
         """UV数が減って範囲外なら IndexError、メッシュ削除後は RuntimeError。"""
         transform, mesh = self.plane()
-        last = cmds.polyEvaluate(mesh.getFullName(), uvcoord=True) - 1
+        last = cmds.polyEvaluate(mesh.getName(full=True), uvcoord=True) - 1
         calls = self._calls(mesh, last)
         self.shrinkPlane(transform)
-        self.assertLessEqual(cmds.polyEvaluate(mesh.getFullName(), uvcoord=True), last)
+        self.assertLessEqual(cmds.polyEvaluate(mesh.getName(full=True), uvcoord=True), last)
         before = self.uvs(mesh)
         for name, call in calls:
             with self.subTest(method=name, state="shrunk"):

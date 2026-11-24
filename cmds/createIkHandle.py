@@ -127,7 +127,7 @@ def createIkHandle(
     if not start.isAncestorOf(end):
         raise ValueError("endJointはstartJointの子孫で指定してください")
     flags = dict(kwargs)
-    flags.update(startJoint=start.getFullName(), endEffector=end.getFullName(), solver=solver)
+    flags.update(startJoint=start._full_name(), endEffector=end._full_name(), solver=solver)
     if name is not None:
         flags["name"] = name
     if curve is not None:
@@ -137,6 +137,6 @@ def createIkHandle(
         if solver == "ikSpringSolver" and not cmds.ls(type="ikSpringSolver"):
             # ikSpringSolverはソルバーノードの登録が要るため、Maya標準の手続きで用意する。
             mel.eval("ikSpringSolver")
-        _record_chain_angles(start.getFullName(), end.getFullName())
+        _record_chain_angles(start._full_name(), end._full_name())
         result = cmds.ikHandle(**flags)
         return Node(result[0])

@@ -73,16 +73,16 @@ class ResponsibilityTest(unittest.TestCase):
         node = mlib.createNode("blendColors")
         node.getPlug("color1").set((0.2, 0.3, 0.4))
         before = node.getPlug("color1").get()
-        cmds.setAttr(node.getFullName() + ".color1G", lock=True)
+        cmds.setAttr(node.getName(full=True) + ".color1G", lock=True)
         for fast in (False, True):
             with self.assertRaises(RuntimeError):
                 node.getPlug("color1").set((0.8, 0.7, 0.6), fast=fast, check=True)
             self.assertEqual(node.getPlug("color1").get(), before)
-        cmds.setAttr(node.getFullName() + ".color1G", lock=False)
+        cmds.setAttr(node.getName(full=True) + ".color1G", lock=False)
         node.getPlug("color1").set((0.8, 0.7, 0.6))
         cmds.undo()
         self.assertEqual(node.getPlug("color1").get(), before)
-        self.assertEqual(cmds.getAttr(node.getFullName() + ".color1", type=True), "float3")
+        self.assertEqual(cmds.getAttr(node.getName(full=True) + ".color1", type=True), "float3")
 
     def test_multi_shape_generator_inputs(self):
         """複数Shapeで倍率・pivotのgeneratorを再消費しない。"""

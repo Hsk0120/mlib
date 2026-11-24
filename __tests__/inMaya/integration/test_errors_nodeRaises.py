@@ -61,7 +61,7 @@ class _RaisesCase(NamespaceCase):
 
     def kill(self, node):
         """ノードを削除し、ラッパーが無効になったことを確かめて返す。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         self.assertFalse(node.isValid())
         return node
 
@@ -103,7 +103,7 @@ class AnimCurveTest(_RaisesCase):
         for method in ("findClosestIndex", "setKey"):
             with self.subTest(method=method):
                 self.assertFailsWithoutChange(RuntimeError, getattr(curve, method), 3)
-                self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, keyframeCount=True), 0)
+                self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, keyframeCount=True), 0)
 
 
 class BlendShapeTest(_RaisesCase):
@@ -281,7 +281,7 @@ class NodeTest(_RaisesCase):
                 nodes = mlib.Nodes([first, second])
                 self.kill(second)
                 self.assertFailsWithoutChange(RuntimeError, nodes.setColors, [1, 2], fast=fast)
-                self.assertFalse(cmds.getAttr(first.getFullName() + ".overrideEnabled"))
+                self.assertFalse(cmds.getAttr(first.getName(full=True) + ".overrideEnabled"))
         with self.subTest(method="callEach"):
             first, second = self.node("transform"), self.node("transform")
             nodes = mlib.Nodes([first, second])
@@ -448,9 +448,9 @@ class TransformTest(_RaisesCase):
         """addShape は自身かシェイプが無効なら RuntimeError。シェイプの親は変わらない。"""
         with self.subTest(case="self"):
             shape = self.shape(cmds.circle(constructionHistory=False)[0])
-            parent = shape.getParent().getFullName()
+            parent = shape.getParent().getName(full=True)
             self.assertFailsWithoutChange(RuntimeError, self.kill(self.node("transform")).addShape, shape)
-            self.assertEqual(shape.getParent().getFullName(), parent)
+            self.assertEqual(shape.getParent().getName(full=True), parent)
         with self.subTest(case="shape"):
             shape = self.kill(self.shape(cmds.circle(constructionHistory=False)[0]))
             self.assertFailsWithoutChange(RuntimeError, self.node("transform").addShape, shape)

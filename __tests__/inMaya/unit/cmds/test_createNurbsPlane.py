@@ -39,7 +39,7 @@ class _Case(NamespaceCase):
 
     def assertDeletedRaises(self, node, calls):
         """ノードを削除し、各呼出しが RuntimeError になることを確かめる。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in calls:
             with self.subTest(call=call):
                 with self.assertRaises(RuntimeError):
@@ -54,21 +54,21 @@ class CreateNurbsPlaneTest(_Case):
         self.flushUndo()
         shape = mlib.createNurbsPlane(width=4.0, lengthRatio=0.25, patchesU=4, patchesV=2, name=self.name("ribbon"))
         self.assertIsInstance(shape, mlib.NurbsSurface)
-        transform = shape.getTransform().getFullName()
-        self.assertEqual(shape.getFullName().rsplit("|", 1)[-1], self.name("ribbonShape").rsplit("|", 1)[-1])
+        transform = shape.getTransform().getName(full=True)
+        self.assertEqual(shape.getName(full=True).rsplit("|", 1)[-1], self.name("ribbonShape").rsplit("|", 1)[-1])
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(transform)), lambda: self.assertTrue(cmds.objExists(transform)))
         shape = mlib.createNurbsPlane(w=4.0, lr=0.25, u=4, v=2, d=1, ax=(0, 0, 1), n=self.name("short"))
         self.assertEqual((shape.mfn().numSpansInU, shape.mfn().numSpansInV), (4, 2))
         self.assertEqual((shape.mfn().degreeInU, shape.mfn().degreeInV), (1, 1))
         self.assertAlmostEqual(shape.getArea(), 4.0 * 1.0, places=6)
         self.assertAlmostEqual(abs(shape.getAtParam(0.5, 0.5, what="normal").z), 1.0)
-        self.assertFalse(cmds.listConnections(shape.getFullName() + ".create"))
+        self.assertFalse(cmds.listConnections(shape.getName(full=True) + ".create"))
         default = mlib.createNurbsPlane(name=self.name("default"))
         self.assertAlmostEqual(abs(default.getAtParam(0.5, 0.5, what="normal").y), 1.0)
         self.assertAlmostEqual(default.getArea(), 1.0, places=6)
         parent = self.make("transform", "parent#")
         child = mlib.createNurbsPlane(name=self.name("child"), parent=parent)
-        self.assertEqual(child.getTransform().getParent().getFullName(), cmds.ls(parent, long=True)[0])
+        self.assertEqual(child.getTransform().getParent().getName(full=True), cmds.ls(parent, long=True)[0])
 
     def test_units_and_errors(self):
         """幅は UI 単位によらず cm で、不正な入力は例外になりノードを残さない。"""

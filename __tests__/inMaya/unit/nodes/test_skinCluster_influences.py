@@ -30,12 +30,12 @@ class CommonMethodsTest(unittest.TestCase):
     def skin(self):
         joints = [self.create("joint" + str(i), type="joint") for i in range(3)]
         mesh = cmds.polyCube(name=self.namespace + ":mesh")[0]
-        skin = mlib.getNode(cmds.skinCluster([j.getFullName() for j in joints], mesh)[0])
+        skin = mlib.getNode(cmds.skinCluster([j.getName(full=True) for j in joints], mesh)[0])
         return joints, mlib.getNode(mesh), skin
 
     def test_unused_influences_undo_and_joint_survival(self):
         joints, _mesh, skin = self.skin()
-        names = [joint.getFullName() for joint in joints]
+        names = [joint.getName(full=True) for joint in joints]
         skin.setWeights(names, [1, 0, 0], broadcast=True)
         self.assertEqual([node.getUuid() for node in skin.getInfluences(unused=True)], [j.getUuid() for j in joints[1:]])
         before = list(skin.getWeights(names))
@@ -51,7 +51,7 @@ class CommonMethodsTest(unittest.TestCase):
 
     def test_unused_influences_keep_small_weights_and_reject_empty_binding(self):
         joints, _mesh, skin = self.skin()
-        names = [joint.getFullName() for joint in joints]
+        names = [joint.getName(full=True) for joint in joints]
         skin.setWeights(names, [1 - 1e-8, 1e-8, 0], broadcast=True)
         self.assertEqual([node.getUuid() for node in skin.getInfluences(unused=True)], [joints[2].getUuid()])
         skin.setWeights(names, [0, 0, 0], broadcast=True)
@@ -74,17 +74,17 @@ class InfluencesColorsTest(unittest.TestCase):
     def test_add_zero_influences_and_undo(self):
         joints = [self.getNode("joint") for _ in range(4)]
         mesh = cmds.polyCube(name=self.ns + ":mesh")[0]
-        name = cmds.skinCluster([j.getFullName() for j in joints[:2]], mesh, name=self.ns + ":skin")[0]
+        name = cmds.skinCluster([j.getName(full=True) for j in joints[:2]], mesh, name=self.ns + ":skin")[0]
         skin = mlib.getNode(name)
         pose = skin.getBindPose()
         if pose:
-            cmds.rename(pose.getFullName(), self.ns + ":pose")
+            cmds.rename(pose.getName(full=True), self.ns + ":pose")
         vertices = cmds.ls(mesh + ".vtx[*]", flatten=True)
         for v in vertices:
-            cmds.skinPercent(name, v, transformValue=[(joints[0].getFullName(), 0.25), (joints[1].getFullName(), 0.75)])
+            cmds.skinPercent(name, v, transformValue=[(joints[0].getName(full=True), 0.25), (joints[1].getName(full=True), 0.75)])
         # 合計1でない保存ウェイトも再正規化されないことを確認する。
         cmds.setAttr(name + ".normalizeWeights", 0)
-        cmds.skinPercent(name, vertices[0], normalize=False, transformValue=[(joints[0].getFullName(), 0.2), (joints[1].getFullName(), 0.3)])
+        cmds.skinPercent(name, vertices[0], normalize=False, transformValue=[(joints[0].getName(full=True), 0.2), (joints[1].getName(full=True), 0.3)])
         joints[0].getPlug("lockInfluenceWeights").set(True)
         for normalization in (0, 1, 2):
             for obey in (False, True):
@@ -92,12 +92,12 @@ class InfluencesColorsTest(unittest.TestCase):
                     cmds.setAttr(name + ".normalizeWeights", normalization)
                     cmds.setAttr(name + ".maintainMaxInfluences", obey)
                     cmds.setAttr(name + ".maxInfluences", 2)
-                    before = [[cmds.skinPercent(name, v, query=True, transform=j.getFullName()) for j in joints[:2]] for v in vertices]
+                    before = [[cmds.skinPercent(name, v, query=True, transform=j.getName(full=True)) for j in joints[:2]] for v in vertices]
                     indices = [skin.mfn().indexForInfluenceObject(j.mpath()) for j in joints[:2]]
                     raw = [[cmds.getAttr(f"{name}.weightList[{v}].weights[{i}]") for i in indices] for v in range(len(vertices))]
                     skin.addInfluences([joints[2], joints[3], joints[2], joints[0]])
                     for i, v in enumerate(vertices):
-                        after = [cmds.skinPercent(name, v, query=True, transform=j.getFullName()) for j in joints]
+                        after = [cmds.skinPercent(name, v, query=True, transform=j.getName(full=True)) for j in joints]
                         self.assertEqual(after[:2], before[i])
                         self.assertEqual(after[2:], [0, 0])
                         self.assertEqual([cmds.getAttr(f"{name}.weightList[{i}].weights[{k}]") for k in indices], raw[i])

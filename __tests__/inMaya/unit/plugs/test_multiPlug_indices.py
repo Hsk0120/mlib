@@ -51,7 +51,7 @@ class MaintenanceDelegationTest(unittest.TestCase):
     def test_world_indices_do_not_change_stored_element_operations(self):
         """仮想インスタンス番号の列挙と、削除・空き番号探索の実データ判定を混同しない。"""
         transform = mlib.getNode(cmds.polyCube(constructionHistory=False)[0])
-        cmds.instance(transform.getFullName())
+        cmds.instance(transform.getName(full=True))
         array = transform.getShape().getPlug("worldMesh")
         stored = list(array.mplug().getExistingArrayAttributeIndices())
         cmds.flushUndo()
@@ -84,8 +84,8 @@ class MaintenanceDelegationTest(unittest.TestCase):
         """数値型はネイティブAPIの値、単位型は get() と同じ規則の数値(度・cm・UI時間単位のフレーム)を返す。"""
         node = mlib.createNode("network")
         for kind in ("double", "doubleAngle", "doubleLinear", "time"):
-            cmds.addAttr(node.getFullName(), longName=kind, attributeType=kind, minValue=-2, maxValue=5)
-        cmds.addAttr(node.getFullName(), longName="soft", attributeType="double", softMinValue=-1, softMaxValue=4)
+            cmds.addAttr(node.getName(full=True), longName=kind, attributeType=kind, minValue=-2, maxValue=5)
+        cmds.addAttr(node.getName(full=True), longName="soft", attributeType="double", softMinValue=-1, softMaxValue=4)
         cmds.currentUnit(linear="m", angle="rad", time="ntsc")
         cmds.flushUndo()
         for name in ("double", "doubleAngle", "doubleLinear", "time", "soft"):
@@ -121,7 +121,7 @@ class MaintenanceDelegationTest(unittest.TestCase):
             self.assertEqual(node.getPlug("message").getRange(soft=soft), (None, None))
         removed_attribute = node.addAttr("removed", "double")
         removed_node = node.getPlug("message")
-        cmds.deleteAttr(removed_attribute.getFullName())
+        cmds.deleteAttr(removed_attribute.getName(full=True))
         node.delete()
         for plug in (removed_attribute, removed_node):
             for soft in (False, True):

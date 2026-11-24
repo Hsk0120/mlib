@@ -54,7 +54,7 @@ class _ComponentCase(unittest.TestCase):
 
     def om2_point(self, shape, index, world=False):
         """OpenMayaで頂点座標をcmで独立に求める。"""
-        path = om2.MSelectionList().add(shape.getFullName()).getDagPath(0)
+        path = om2.MSelectionList().add(shape.getName(full=True)).getDagPath(0)
         space = om2.MSpace.kWorld if world else om2.MSpace.kObject
         point = om2.MFnMesh(path).getPoint(index, space)
         return (point.x, point.y, point.z)

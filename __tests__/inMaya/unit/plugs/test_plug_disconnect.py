@@ -48,7 +48,7 @@ class DisconnectReferenceTest(unittest.TestCase):
                 elif mode == "source":
                     result = center.disconnect(source=source)
                 else:
-                    value = source.mplug() if mode == "mplug" else source.getFullName() if mode == "string" else source
+                    value = source.mplug() if mode == "mplug" else source.getName(full=True) if mode == "string" else source
                     result = center.disconnect(value)
                 self.assertIsInstance(result, mlib.Plug)
                 self.assertEqual(result, source)
@@ -187,10 +187,10 @@ class DisconnectReferenceTest(unittest.TestCase):
                     source, destination = self._value("deletedSource"), self._value("deletedDestination")
                     destination.connect(source)
                     if removed == "attribute":
-                        cmds.deleteAttr(source.getFullName())
+                        cmds.deleteAttr(source.getName(full=True))
                     else:
                         target = source if removed == "source" else destination
-                        cmds.delete(target.getNode().getFullName())
+                        cmds.delete(target.getNode().getName(full=True))
                     with patch.object(cmds, "disconnectAttr", side_effect=AssertionError("deleted plug reached cmds")):
                         with self.assertRaises(RuntimeError):
                             destination.disconnect(source, fast=fast)
@@ -247,10 +247,10 @@ class DisconnectReturnTest(unittest.TestCase):
                 cmds.connectAttr(self.a + ".r", self.b + ".r")
                 cmds.connectAttr(self.a + ".ty", self.bs + ".weight[2]")
                 result = node_b.getPlug("r").disconnect(fast=fast)
-                self.assertEqual(result.getFullName(), mlib.getNode(self.a).getPlug("r").getFullName())
+                self.assertEqual(result.getName(full=True), mlib.getNode(self.a).getPlug("r").getName(full=True))
                 self.assertIsInstance(result, mlib.CompoundPlug)
                 element = node_bs.getPlug("weight[2]").disconnect(fast=fast)
-                self.assertEqual(element.getFullName(), mlib.getNode(self.a).getPlug("ty").getFullName())
+                self.assertEqual(element.getName(full=True), mlib.getNode(self.a).getPlug("ty").getName(full=True))
                 self.assertTrue(element.isValid())
 
     def test_alias_source_resolves_to_real_attribute(self):

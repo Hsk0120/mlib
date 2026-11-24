@@ -78,7 +78,9 @@ class BlendShapeCreateTest(_SpecCase):
         self.assertEqual(bs.getTargetNames(), self.aliases(bs))
         self.assertEqual(bs.getTargetNames(), ["smile_L", "blink"])
         self.assertEqual(bs.getTargetIndex("blink"), 1)
-        self.assertEqual([n.getFullName() for n in bs.getBaseGeometry()], cmds.ls(cmds.blendShape(bs.getFullName(), query=True, geometry=True), long=True))
+        self.assertEqual(
+            [n.getName(full=True) for n in bs.getBaseGeometry()], cmds.ls(cmds.blendShape(bs.getName(full=True), query=True, geometry=True), long=True)
+        )
 
     def test_front_of_chain(self):
         """既定はスキンより前(履歴の上流)、frontOfChain=False は最後に置く。"""
@@ -96,7 +98,7 @@ class BlendShapeCreateTest(_SpecCase):
         """ターゲット省略で空の blendShape を作る。作成は Undo 1回で戻る。"""
         self.flushUndo()
         bs = mlib.createBlendShape(self.base, name=self.name("empty"))
-        name = bs.getFullName()
+        name = bs.getName(full=True)
         self.assertEqual(bs.getTargetNames(), [])
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 

@@ -46,22 +46,22 @@ class CurveKnotTest(NamespaceCase):
                             )
                         ).getShape()
                         if multiple and degree > 1:
-                            cmds.insertKnotCurve(shape.getFullName() + f".u[{parameter}]", ch=False, rpo=True, nk=degree - 1, add=True)
+                            cmds.insertKnotCurve(shape.getName(full=True) + f".u[{parameter}]", ch=False, rpo=True, nk=degree - 1, add=True)
                         before = shape.getKnots()
                         expected = [value for value in before if value != parameter]
-                        uuid = cmds.ls(shape.getFullName(), uuid=True)
+                        uuid = cmds.ls(shape.getName(full=True), uuid=True)
                         self.check_edit(shape, lambda: shape.removeKnot(parameter))
                         self.assertEqual(shape.getKnots(), expected)
-                        self.assertEqual(cmds.ls(shape.getFullName(), uuid=True), uuid)
+                        self.assertEqual(cmds.ls(shape.getName(full=True), uuid=True), uuid)
 
     def test_remove_knot_preserves_connection_and_changes_shape(self):
         shape = self.make_curve()
         sink = cmds.createNode("pointOnCurveInfo", name=self.name("sink"))
-        cmds.connectAttr(shape.getFullName() + ".worldSpace[0]", sink + ".inputCurve")
+        cmds.connectAttr(shape.getName(full=True) + ".worldSpace[0]", sink + ".inputCurve")
         cmds.setAttr(sink + ".parameter", 0.7)
         before = cmds.getAttr(sink + ".position")
         self.check_edit(shape, lambda: shape.removeKnot(1))
-        self.assertTrue(cmds.isConnected(shape.getFullName() + ".worldSpace[0]", sink + ".inputCurve"))
+        self.assertTrue(cmds.isConnected(shape.getName(full=True) + ".worldSpace[0]", sink + ".inputCurve"))
         self.assertNotEqual(cmds.getAttr(sink + ".position"), before)
 
     def test_remove_knot_rejects_before_update(self):
@@ -71,23 +71,23 @@ class CurveKnotTest(NamespaceCase):
             with self.subTest(parameter=parameter), self.assertRaises(error):
                 shape.removeKnot(parameter)
             self.assertEqual(self.snapshot(shape), before)
-        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=True)
+        cmds.setAttr(shape.getName(full=True) + ".controlPoints[0].xValue", lock=True)
         with self.assertRaises(NotImplementedError):
             shape.removeKnot(1)
-        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=False)
+        cmds.setAttr(shape.getName(full=True) + ".controlPoints[0].xValue", lock=False)
         sink = cmds.createNode("addDoubleLinear", name=self.name("sink"))
-        cmds.connectAttr(shape.getFullName() + ".controlPoints[0].xValue", sink + ".input1")
+        cmds.connectAttr(shape.getName(full=True) + ".controlPoints[0].xValue", sink + ".input1")
         with self.assertRaises(NotImplementedError):
             shape.removeKnot(1)
         self.assertEqual(self.snapshot(shape), before)
 
     def test_remove_knot_rejects_instance_tags_history_and_nonclamped(self):
         shape = self.make_curve()
-        cmds.instance(shape.getFullName(), name=self.name("instance"))
+        cmds.instance(shape.getName(full=True), name=self.name("instance"))
         with self.assertRaises(NotImplementedError):
             shape.removeKnot(1)
         tagged = self.make_curve()
-        cmds.setAttr(tagged.getFullName() + ".componentTags[0].componentTagName", "keep", type="string")
+        cmds.setAttr(tagged.getName(full=True) + ".componentTags[0].componentTagName", "keep", type="string")
         with self.assertRaises(NotImplementedError):
             tagged.removeKnot(1)
         history = mlib.getNode(cmds.circle(name=self.name("history"), ch=True)[0]).getShape()
@@ -125,7 +125,7 @@ class CurveKnotTest(NamespaceCase):
             with self.assertRaises(ValueError):
                 shape.setKnots(values)
             self.assertEqual(self.snapshot(shape), before)
-        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=True)
+        cmds.setAttr(shape.getName(full=True) + ".controlPoints[0].xValue", lock=True)
         with self.assertRaises(NotImplementedError):
             shape.setKnots(shape.getKnots())
         history = mlib.getNode(cmds.circle(name=self.ns + ":history", constructionHistory=True)[0]).getShape()

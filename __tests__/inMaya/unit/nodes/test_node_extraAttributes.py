@@ -18,7 +18,7 @@ class ExtraAttributesTest(unittest.TestCase):
         self.node = mlib.createNode("transform")
 
     def tearDown(self):
-        cmds.delete(self.node.getFullName())
+        cmds.delete(self.node.getName(full=True))
 
     def test_types_values_and_list(self):
         cases = [
@@ -70,16 +70,16 @@ class ExtraAttributesTest(unittest.TestCase):
         self.node.addAttr("first", at="double", hidden=True)
         self.node.addAttr("vector", at="double3")
         self.node.addAttr("last", dt="string")
-        expected = cmds.listAttr(self.node.getFullName(), userDefined=True)
+        expected = cmds.listAttr(self.node.getName(full=True), userDefined=True)
         with contextlib.nullcontext():
             self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["first", "vector", "last"])
             self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], expected)
-        cmds.renameAttr(self.node.getFullName() + ".first", "renamed")
-        cmds.deleteAttr(self.node.getFullName() + ".vector")
+        cmds.renameAttr(self.node.getName(full=True) + ".first", "renamed")
+        cmds.deleteAttr(self.node.getName(full=True) + ".vector")
         self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
         cmds.undo()
         # Mayaは削除Undoで定義を末尾へ再追加する。元の順序を仮定せず標準照会と比較する。
-        restored = cmds.listAttr(self.node.getFullName(), userDefined=True)
+        restored = cmds.listAttr(self.node.getName(full=True), userDefined=True)
         self.assertEqual(
             [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)],
             [p for p in restored if p in {"renamed", "vector", "last"}],
@@ -90,7 +90,7 @@ class ExtraAttributesTest(unittest.TestCase):
 
     def test_sparse_compound_multi_roots_do_not_expand(self):
         """マルチアトリビュートであるコンパウンドアトリビュートの子を解決せず、空のマルチアトリビュート・疎なマルチアトリビュートを維持する。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.addAttr(name, longName="items", attributeType="compound", numberOfChildren=1, multi=True)
         cmds.addAttr(name, longName="amount", attributeType="double", parent="items")
         self.node.addAttr("empty", at="double", multi=True)
@@ -109,7 +109,7 @@ class ExtraAttributesTest(unittest.TestCase):
 
     def test_nested_compound_order(self):
         """入れ子のコンパウンドアトリビュートの定義でもMayaの列挙順と型を保持する。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.addAttr(name, longName="outer", attributeType="compound", numberOfChildren=2)
         cmds.addAttr(name, longName="inner", attributeType="double3", parent="outer")
         for axis in "XYZ":
@@ -124,7 +124,7 @@ class ExtraAttributesTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.node.getPlugs(userDefined=True, includeChildren=1)
         deleted = mlib.createNode("network")
-        cmds.delete(deleted.getFullName())
+        cmds.delete(deleted.getName(full=True))
         for method in (lambda: deleted.getPlugs(userDefined=True), lambda: deleted.getPlugs(userDefined=True, includeChildren=False)):
             with self.assertRaises(RuntimeError):
                 method()

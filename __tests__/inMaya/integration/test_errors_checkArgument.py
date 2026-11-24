@@ -90,7 +90,7 @@ class _CheckCase(NamespaceCase):
     @staticmethod
     def curve_state(curve):
         """animCurve のキーの入力・値・接線の型を返す。"""
-        name = curve.getFullName()
+        name = curve.getName(full=True)
         return _rounded(
             (
                 cmds.keyframe(name, query=True, floatChange=True) or cmds.keyframe(name, query=True, timeChange=True),
@@ -104,17 +104,17 @@ class _CheckCase(NamespaceCase):
     @staticmethod
     def lock_keys(curve):
         """キーを格納する keyTimeValue をロックする。"""
-        cmds.setAttr(curve.getFullName() + ".keyTimeValue", lock=True)
+        cmds.setAttr(curve.getName(full=True) + ".keyTimeValue", lock=True)
 
     @staticmethod
     def item(blend):
         """ターゲット 0 の本体の項目のアトリビュート名を返す。"""
-        return blend.getFullName() + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
+        return blend.getName(full=True) + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
 
     @staticmethod
     def vertex_weights(skin, mesh, indices=(0, 1, 2)):
         """頂点ごとのウェイトを返す。"""
-        return tuple(_rounded(cmds.skinPercent(skin.getFullName(), f"{mesh}.vtx[{index}]", query=True, value=True)) for index in indices)
+        return tuple(_rounded(cmds.skinPercent(skin.getName(full=True), f"{mesh}.vtx[{index}]", query=True, value=True)) for index in indices)
 
     def setUp(self):
         super().setUp()
@@ -163,7 +163,7 @@ class _CheckCase(NamespaceCase):
         cmds.setAttr(target + ".vtx[0]", 0.0, 1.0, 0.0)
         blend = mlib.getNode(cmds.blendShape(target, base, name="blend#", frontOfChain=True)[0])
         if baked:
-            plug = blend.getFullName() + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000].inputGeomTarget"
+            plug = blend.getName(full=True) + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000].inputGeomTarget"
             cmds.disconnectAttr(cmds.listConnections(plug, source=True, plugs=True)[0], plug)
             blend.setTargetDeltas(0, {0: (0.0, 1.0, 0.0), 1: (0.0, 0.1, 0.0), 2: (0.0, 0.0, 2.0)})
         return blend
@@ -482,7 +482,7 @@ class _CheckCase(NamespaceCase):
     # デフォーマーのウェイトとデルタ。
     def c_BlendShape_setTargetWeights(self):
         blend = self.blend()
-        group = blend.getFullName() + ".inputTarget[0].inputTargetGroup[0].targetWeights"
+        group = blend.getName(full=True) + ".inputTarget[0].inputTargetGroup[0].targetWeights"
 
         def lock():
             cmds.setAttr(group + "[2]", 1.0)
@@ -511,7 +511,7 @@ class _CheckCase(NamespaceCase):
         transform, _shape = self.cube()
         cmds.cluster(transform, name="cluster#")
         cluster = mlib.getNode(cmds.ls(cmds.listHistory(transform), type="cluster", long=True)[0])
-        weights = cluster.getFullName() + ".weightList[0].weights"
+        weights = cluster.getName(full=True) + ".weightList[0].weights"
 
         def lock():
             cmds.setAttr(weights + "[3]", 1.0)
@@ -531,7 +531,7 @@ class _CheckCase(NamespaceCase):
             call=lambda value, **kw: skin.pruneWeights(value, **kw),
             good=0.2,
             bad=NAN,
-            lock=lambda: cmds.setAttr(skin.getFullName() + ".weightList[0].weights[0]", lock=True),
+            lock=lambda: cmds.setAttr(skin.getName(full=True) + ".weightList[0].weights[0]", lock=True),
             state=lambda: self.vertex_weights(skin, mesh),
         )
 
@@ -541,13 +541,13 @@ class _CheckCase(NamespaceCase):
             call=lambda value, **kw: skin.setWeights({joints[0]: value}, vertex=0, normalize=True, **kw),
             good=0.3,
             bad=NAN,
-            lock=lambda: cmds.setAttr(skin.getFullName() + ".weightList[0].weights[1]", lock=True),
+            lock=lambda: cmds.setAttr(skin.getName(full=True) + ".weightList[0].weights[1]", lock=True),
             state=lambda: self.vertex_weights(skin, mesh),
         )
 
     def c_SkinCluster_setBlendWeights(self):
         skin, _mesh, _joints = self.skin()
-        blend = skin.getFullName() + ".blendWeights"
+        blend = skin.getName(full=True) + ".blendWeights"
 
         def lock():
             cmds.setAttr(blend + "[1]", 0.0)

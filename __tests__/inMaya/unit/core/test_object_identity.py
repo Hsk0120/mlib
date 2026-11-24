@@ -84,7 +84,7 @@ class IdentityContractTest(unittest.TestCase):
             with self.assertRaises(TypeError):
                 Nodes(values)
         self.assertEqual(len(Nodes([n, Node(n)])), 1)
-        self.assertEqual(Object._input_names([n]), [n.getFullName()])
+        self.assertEqual(Object._input_names([n]), [n.getName(full=True)])
 
     def test_instance_identity(self):
         """同じノードの別インスタンスを比較で区別する。"""
@@ -97,7 +97,7 @@ class IdentityContractTest(unittest.TestCase):
         self.assertEqual(hash(a), hash(b))
         cmds.delete(t)
         with self.assertRaises(RuntimeError):
-            a.getFullName()
+            a.getName(full=True)
         self.assertTrue(b.isValid())
 
 

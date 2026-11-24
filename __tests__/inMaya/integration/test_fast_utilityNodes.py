@@ -66,7 +66,7 @@ class CalcFastTest(NamespaceCase):
             def call(**kwargs):
                 return place.connectTexture(texture, **kwargs)
 
-            return call, [place.getFullName(), texture]
+            return call, [place.getName(full=True), texture]
 
         result.append(("place2dTexture.connectTexture", place2d))
 

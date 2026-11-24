@@ -47,7 +47,7 @@ class LsBulkResolveTest(_ContractCase):
         """16件を超える名前でも、cmds.ls の返した順に同じ完全名の参照を返す。"""
         names = list(reversed(self.transforms)) + self.dg
         expected = cmds.ls(names, long=True)
-        self.assertEqual([item.getFullName() for item in mlib.ls(names, long=True)], expected)
+        self.assertEqual([item.getName(full=True) for item in mlib.ls(names, long=True)], expected)
         pattern = self.ns + ":*"
         self.assertEqual([str(item) for item in mlib.ls(pattern)], cmds.ls(pattern))
 
@@ -55,7 +55,7 @@ class LsBulkResolveTest(_ContractCase):
         """インスタンスの全パスと、インスタンスのアトリビュートの所有パスを名前ごとの解決と同じにする。"""
         paths = cmds.ls(self.ns + ":box", allPaths=True, long=True)
         self.assertEqual(len(paths), 2)
-        self.assertEqual([item.getFullName() for item in mlib.ls(self.ns + ":box", allPaths=True, long=True)], paths)
+        self.assertEqual([item.getName(full=True) for item in mlib.ls(self.ns + ":box", allPaths=True, long=True)], paths)
         shape = paths[1] + "|" + self.ns + ":boxShape"
         names = [shape + ".castsShadows", paths[0] + ".worldMatrix[1]", self.dg[0] + ".input1", self.transforms[0] + ".tx"]
         result = mlib.ls(names)
@@ -65,7 +65,7 @@ class LsBulkResolveTest(_ContractCase):
         self.assertTrue(all(isinstance(item, Plug) for item in result))
         for item, name in zip(result, returned):
             expected = mlib.getPlug(name)
-            self.assertEqual(item.getNode().getFullName(), expected.getNode().getFullName())
+            self.assertEqual(item.getNode().getName(full=True), expected.getNode().getName(full=True))
             self.assertEqual(str(item), str(expected))
 
     def test_components_keep_old_path(self):
@@ -83,7 +83,7 @@ class LsBulkResolveTest(_ContractCase):
         self.assertIsNotNone(found[0])
         self.assertIsNone(found[1])
         self.assertIsNotNone(found[2])
-        self.assertEqual([item.getFullName() for item in Selection([name, self.transforms[1], name])], cmds.ls([name, self.transforms[1]], long=True))
+        self.assertEqual([item.getName(full=True) for item in Selection([name, self.transforms[1], name])], cmds.ls([name, self.transforms[1]], long=True))
 
     def test_unresolved_names_keep_errors(self):
         """解決できない名前は、従来の名前ごとの経路の例外のまま。"""
@@ -99,7 +99,7 @@ class LsBulkResolveTest(_ContractCase):
             for full in cmds.ls(name, long=True):
                 if full not in expected:
                     expected.append(full)
-        self.assertEqual([item.getFullName() for item in Selection(names)], expected)
+        self.assertEqual([item.getName(full=True) for item in Selection(names)], expected)
 
     def test_time_scales_linearly(self):
         """名前の数を16倍にしても、1件あたりの時間が大きく増えない(件数の2乗にならない)。"""
@@ -168,7 +168,7 @@ class LsSpecTest(_CmdsCase):
             result = mlib.ls(self.ns + ":*", **kwargs)
             self.assertIsInstance(result, Nodes)
             expected = cmds.ls(self.ns + ":*", long=True, **{k: v for k, v in kwargs.items() if k not in ("long", "sn")})
-            self.assertEqual([item.getFullName() for item in result], expected, msg=repr(kwargs))
+            self.assertEqual([item.getName(full=True) for item in result], expected, msg=repr(kwargs))
             self.assertTrue(all(isinstance(item, Node) for item in result))
 
     def test_special_collections(self):
@@ -279,7 +279,7 @@ class LsSpecTest(_CmdsCase):
         self.assertEqual(len(plugs), 3)
         self.assertTrue(plugs)
         self.assertFalse(Plugs())
-        self.assertEqual([plug.getFullName() for plug in plugs], [mlib.getPlug(name).getFullName() for name in names])
+        self.assertEqual([plug.getName(full=True) for plug in plugs], [mlib.getPlug(name).getName(full=True) for name in names])
         self.assertIs(type(plugs[1:]), Plugs)
         self.assertEqual(plugs[-1], mlib.getPlug(names[2]))
         self.assertEqual(Plugs(names + names[:1]), plugs)
@@ -293,9 +293,9 @@ class LsSpecTest(_CmdsCase):
             Plugs([self.cube])
         with self.assertRaises(TypeError):
             hash(plugs)
-        expected = sorted(plug.getFullName() for plug in plugs)
+        expected = sorted(plug.getName(full=True) for plug in plugs)
         self.assertIsNone(plugs.sort())
-        self.assertEqual([plug.getFullName() for plug in plugs], expected)
+        self.assertEqual([plug.getName(full=True) for plug in plugs], expected)
         cmds.select(plugs, replace=True)
         self.assertEqual(len(cmds.ls(selection=True)), 3)
         self.assertEqual(cmds.getAttr(Plugs([self.cube + ".t"])), [(0.0, 0.0, 0.0)])

@@ -52,7 +52,7 @@ class UnifiedConstraintTest(unittest.TestCase):
         self.assertAlmostEqual(weight.get(), 0.25)
         cmds.undo()
         self.assertAlmostEqual(weight.get(), 1.0)
-        name = result.getFullName()
+        name = result.getName(full=True)
         cmds.undo()
         self.assertFalse(cmds.objExists(name))
         cmds.redo()
@@ -64,7 +64,7 @@ class UnifiedConstraintTest(unittest.TestCase):
                 result = self.target.addConstraint(self.source, type=kind, weight=0.3)
                 self.assertEqual(result.getType(), kind + "Constraint")
                 self.assertAlmostEqual(result.getWeights()[0], 0.3)
-                cmds.delete(result.getFullName())
+                cmds.delete(result.getName(full=True))
 
     def test_conflicting_flags_and_modes_do_not_create_nodes(self):
         before = set(cmds.ls())
@@ -111,7 +111,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         source, driven, other = self.getTransform(), self.getTransform(), self.getTransform()
         constraint = driven.addConstraint(source)
         untouched = other.addConstraint(driven)
-        name, untouched_name = constraint.getFullName(), untouched.getFullName()
+        name, untouched_name = constraint.getName(full=True), untouched.getName(full=True)
         self.assertEqual(driven.deleteConstraints(), [name])
         self.assertFalse(cmds.objExists(name))
         self.assertTrue(cmds.objExists(untouched_name))
@@ -124,11 +124,11 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def test_delete_constraints_pair_blend_preserves_animation(self):
         source, driven = self.getTransform(), self.getTransform()
-        cmds.setKeyframe(driven.getFullName(), attribute="translateX", time=1, value=2)
-        animation = cmds.listConnections(driven.getFullName(), source=True, destination=False, type="animCurve")[0]
+        cmds.setKeyframe(driven.getName(full=True), attribute="translateX", time=1, value=2)
+        animation = cmds.listConnections(driven.getName(full=True), source=True, destination=False, type="animCurve")[0]
         constraint = driven.addConstraint(source, type="point")
-        name = constraint.getFullName()
-        blends = cmds.listConnections(driven.getFullName(), source=True, destination=False, type="pairBlend")
+        name = constraint.getName(full=True)
+        blends = cmds.listConnections(driven.getName(full=True), source=True, destination=False, type="pairBlend")
         self.assertTrue(blends)
         deleted = driven.deleteConstraints()
         self.assertIn(name, deleted)
@@ -143,7 +143,7 @@ class ShapesConstraintsTest(unittest.TestCase):
     def test_delete_constraints_shared_output_rejected(self):
         source, driven, other = self.getTransform(), self.getTransform(), self.getTransform()
         constraint = driven.addConstraint(source, type="point")
-        cmds.connectAttr(constraint.getFullName() + ".constraintTranslateX", other.getFullName() + ".translateX")
+        cmds.connectAttr(constraint.getName(full=True) + ".constraintTranslateX", other.getName(full=True) + ".translateX")
         with self.assertRaises(RuntimeError):
             driven.deleteConstraints()
         self.assertTrue(constraint.isValid())
@@ -151,7 +151,7 @@ class ShapesConstraintsTest(unittest.TestCase):
     def test_delete_constraints_keeps_unrelated_pair_blend(self):
         driven = self.getTransform()
         blend = cmds.createNode("pairBlend")
-        cmds.connectAttr(blend + ".outTranslate", driven.getFullName() + ".translate")
+        cmds.connectAttr(blend + ".outTranslate", driven.getName(full=True) + ".translate")
         self.assertEqual(driven.deleteConstraints(), [])
         self.assertTrue(cmds.objExists(blend))
 
@@ -159,11 +159,11 @@ class ShapesConstraintsTest(unittest.TestCase):
         for kind in ("parent", "point", "orient", "scale", "aim"):
             with self.subTest(kind=kind):
                 source, second, driven = self.getTransform(), self.getTransform(), self.getTransform()
-                cmds.setAttr(source.getFullName() + ".translateX", 3)
+                cmds.setAttr(source.getName(full=True) + ".translateX", 3)
                 result = driven.addConstraint([source, second], kind, maintainOffset=True)
                 expected = getattr(mlib.nodes, kind.title() + "Constraint")
                 self.assertIsInstance(result, expected)
-                self.assertIsInstance(mlib.Node(result.getFullName()), expected)
+                self.assertIsInstance(mlib.Node(result.getName(full=True)), expected)
                 self.assertEqual([node.getUuid() for node in result.getTargets()], [source.getUuid(), second.getUuid()])
                 self.assertEqual(result.getWeights(), [1.0, 1.0])
                 self.assertEqual(len(result.getWeightPlugs(aliases=True)), 2)
@@ -219,7 +219,7 @@ class ShapesConstraintsTest(unittest.TestCase):
             self.skipTest("Undo is disabled in this Maya session")
         source, driven = self.getTransform(), self.getTransform()
         result = driven.addConstraint(source, "pointConstraint")
-        name = result.getFullName()
+        name = result.getName(full=True)
         cmds.undo()
         self.assertFalse(cmds.objExists(name))
         cmds.redo()
@@ -227,18 +227,18 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def test_point_evaluation_and_parent_offset(self):
         source, driven = self.getTransform(), self.getTransform()
-        cmds.setAttr(source.getFullName() + ".translateX", 4)
-        driven.addConstraint(source.getFullName(), "point")
-        self.assertAlmostEqual(cmds.getAttr(driven.getFullName() + ".translateX"), 4)
-        cmds.setAttr(source.getFullName() + ".translateX", 7)
-        self.assertAlmostEqual(cmds.getAttr(driven.getFullName() + ".translateX"), 7)
+        cmds.setAttr(source.getName(full=True) + ".translateX", 4)
+        driven.addConstraint(source.getName(full=True), "point")
+        self.assertAlmostEqual(cmds.getAttr(driven.getName(full=True) + ".translateX"), 4)
+        cmds.setAttr(source.getName(full=True) + ".translateX", 7)
+        self.assertAlmostEqual(cmds.getAttr(driven.getName(full=True) + ".translateX"), 7)
 
         offset_driven = self.getTransform()
-        cmds.setAttr(offset_driven.getFullName() + ".translateX", 10)
+        cmds.setAttr(offset_driven.getName(full=True) + ".translateX", 10)
         offset_driven.addConstraint(source, maintainOffset=True)
-        self.assertAlmostEqual(cmds.getAttr(offset_driven.getFullName() + ".translateX"), 10)
-        cmds.setAttr(source.getFullName() + ".translateX", 9)
-        self.assertAlmostEqual(cmds.getAttr(offset_driven.getFullName() + ".translateX"), 12)
+        self.assertAlmostEqual(cmds.getAttr(offset_driven.getName(full=True) + ".translateX"), 10)
+        cmds.setAttr(source.getName(full=True) + ".translateX", 9)
+        self.assertAlmostEqual(cmds.getAttr(offset_driven.getName(full=True) + ".translateX"), 12)
 
     def test_invalid_requests_do_not_create_nodes(self):
         source, driven = self.getTransform(), self.getTransform()
@@ -254,10 +254,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):
@@ -297,7 +297,7 @@ class ConstraintAnimCurveTest(_SpecCase):
         self.assertEqual([target.getName() for target in node.getTargets()], [first, second])
         # parentConstraint の weight は aliasAttr ではなく動的アトリビュートなので、getAliases には出ない。
         self.assertTrue(all(node.hasAttr(alias) for alias in aliases))
-        self.assertEqual([plug.getFullName().split(".")[-1] for plug in node.getWeightPlugs()], aliases)
+        self.assertEqual([plug.getName(full=True).split(".")[-1] for plug in node.getWeightPlugs()], aliases)
         # aliases=False(既定)は Plugs、aliases=True は名前の list。aliases は bool のキーワード専用。
         self.assertIsInstance(node.getWeightPlugs(), mlib.Plugs)
         self.assertIsInstance(node.getWeightPlugs(aliases=False), mlib.Plugs)

@@ -66,7 +66,7 @@ class NurbsCurveCreateTest(_Case):
             with self.subTest(flags=flags):
                 shape = self.curve(**flags)
                 self.assertIsInstance(shape, NurbsCurve)
-                name = shape.getFullName()
+                name = shape.getName(full=True)
                 self.assertEqual(cmds.nodeType(name), "nurbsCurve")
                 self.assertEqual(cmds.getAttr(name + ".degree"), degree)
                 self.assertEqual(cmds.getAttr(name + ".form"), form)
@@ -85,11 +85,11 @@ class NurbsCurveCreateTest(_Case):
         transform = shape.getTransform()
         self.assertEqual(transform.getName().rsplit(":", 1)[-1], "ctl")
         self.assertEqual(shape.getName().rsplit("|", 1)[-1].rsplit(":", 1)[-1], "ctlShape")
-        self.assertEqual(transform.getParent().getFullName(), cmds.ls(parent, long=True)[0])
-        self.assertSequenceAlmostEqual(cmds.getAttr(transform.getFullName() + ".translate")[0], (0, 0, 0))
+        self.assertEqual(transform.getParent().getName(full=True), cmds.ls(parent, long=True)[0])
+        self.assertSequenceAlmostEqual(cmds.getAttr(transform.getName(full=True) + ".translate")[0], (0, 0, 0))
         cmds.currentUnit(linear="cm")
-        self.assertPointsAlmostEqual(_cvs(shape.getFullName()), [(0, 0, 0), (2, 0, 0)])
-        self.assertPointsAlmostEqual(_world_cvs(shape.getFullName()), [(5, 0, 0), (7, 0, 0)])
+        self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), [(0, 0, 0), (2, 0, 0)])
+        self.assertPointsAlmostEqual(_world_cvs(shape.getName(full=True)), [(5, 0, 0), (7, 0, 0)])
 
     def test_point_types(self):
         """MPoint・MVector・listを受け付け、MPointはwで割らない。"""
@@ -100,7 +100,7 @@ class NurbsCurveCreateTest(_Case):
         """作成はUndo 1回で消える。"""
         self.flushUndo()
         shape = self.curve()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
     def test_invalid_inputs(self):

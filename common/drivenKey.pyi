@@ -41,7 +41,7 @@ def _contains_plug(plugs: Iterable[om2.MPlug], mplug: om2.MPlug) -> bool:
 
     持ち主のノード・アトリビュート・論理番号がすべて同じなら、同じプラグとみなす。
     インスタンス化されたシェイプのアトリビュートは、どのインスタンスのパスから取得しても同じ
-    プラグになる。名前(インスタンスのパスを含む ``getFullName()``)では比べない。
+    プラグになる。名前(インスタンスのパスを含む ``getName(full=True)``)では比べない。
 
     Args:
         plugs (Iterable[om2.MPlug]): 比べる相手のプラグ。

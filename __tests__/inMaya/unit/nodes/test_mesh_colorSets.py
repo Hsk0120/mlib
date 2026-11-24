@@ -40,7 +40,7 @@ class _Case(NamespaceCase):
 
     def assertDeletedRaises(self, node, calls):
         """ノードを削除し、各呼出しが RuntimeError になることを確かめる。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in calls:
             with self.subTest(call=call):
                 with self.assertRaises(RuntimeError):
@@ -54,7 +54,7 @@ class MeshColorSetTest(_Case):
         """UV シェルは getUvShellsIds の分類と一致し、UV を切ると分かれる。存在しない UV セットは ValueError。"""
         shape = self.mesh()
         self.assertEqual(shape.getShells(uv=True), [list(range(shape.getNumUVs()))])
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         cmds.polyMapCut(name + ".e[*]", constructionHistory=False)
         shells = shape.getShells(uv=True, uvSet="map1")
         self.assertEqual(len(shells), 4)
@@ -79,7 +79,7 @@ class MeshColorSetTest(_Case):
     def test_color_sets_match_poly_color_set(self):
         """作成・現在・複製・名前変更・削除が polyColorSet の照会と一致し、それぞれ Undo 1回で戻る。"""
         shape = self.mesh()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
 
         def names():
             return cmds.polyColorSet(name, query=True, allColorSets=True) or []

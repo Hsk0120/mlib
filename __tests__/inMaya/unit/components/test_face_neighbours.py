@@ -146,16 +146,16 @@ class FaceNeighboursTest(NamespaceCase):
         self.assertTrue(face.isKind("zeroArea", tolerance=4.0))
         self.assertFalse(face.isKind("zeroArea", tolerance=3.9))
         # 別のUVセットを左右反転すると、そのセットだけ裏返る。
-        cmds.polyUVSet(shape.getFullName(), copy=True, uvSet="map1", newUVSet="flipped")
-        cmds.polyUVSet(shape.getFullName(), currentUVSet=True, uvSet="flipped")
-        cmds.polyEditUV(shape.getFullName() + ".map[*]", pivotU=0.5, pivotV=0.5, scaleU=-0.5, scaleV=0.5)
-        cmds.polyUVSet(shape.getFullName(), currentUVSet=True, uvSet="map1")
+        cmds.polyUVSet(shape.getName(full=True), copy=True, uvSet="map1", newUVSet="flipped")
+        cmds.polyUVSet(shape.getName(full=True), currentUVSet=True, uvSet="flipped")
+        cmds.polyEditUV(shape.getName(full=True) + ".map[*]", pivotU=0.5, pivotV=0.5, scaleU=-0.5, scaleV=0.5)
+        cmds.polyUVSet(shape.getName(full=True), currentUVSet=True, uvSet="map1")
         self.assertTrue(face.isKind("uvReversed", uvSet="flipped"))
         self.assertFalse(face.isKind("uvReversed", uvSet="map1"))
         self.assertAlmostEqual(face.getArea(uv=True, uvSet="flipped"), 0.25)
         self.assertTrue(face.isKind("zeroUVArea", uvSet="flipped", tolerance=0.25))
         self.assertFalse(face.isKind("zeroUVArea", uvSet="map1", tolerance=0.25))
-        self.assertEqual(cmds.polyUVSet(shape.getFullName(), query=True, currentUVSet=True), ["map1"])
+        self.assertEqual(cmds.polyUVSet(shape.getName(full=True), query=True, currentUVSet=True), ["map1"])
 
     def test_kind_rejects_invalid_arguments(self):
         """kind が文字列でなければ TypeError、知らない名前は ValueError、その種類で使わない uvSet・tolerance は TypeError。"""

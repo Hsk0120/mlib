@@ -72,7 +72,7 @@ class CommonMethodsTest(unittest.TestCase):
         cmds.redo()
         self.assertTrue(all(node.getPlug(a).isLocked() for a in attrs))
         node.setAttrFlags(attrs, locked=False, channelBox=True)
-        self.assertTrue(cmds.getAttr(node.getPlug(attrs[0]).getFullName(), channelBox=True))
+        self.assertTrue(cmds.getAttr(node.getPlug(attrs[0]).getName(full=True), channelBox=True))
         with self.assertRaises(TypeError):
             node.setAttrFlags(attrs, locked="false")
 
@@ -83,13 +83,13 @@ class CommonMethodsTest(unittest.TestCase):
         try:
             cmds.currentUnit(linear="m", angle="rad")
             for name, kind, default in (("distance", "doubleLinear", 2.5), ("angle", "doubleAngle", 0.75), ("time", "time", 12.0), ("amount", "double", 1.25)):
-                cmds.addAttr(node.getFullName(), longName=name, attributeType=kind, defaultValue=default)
-                value_before = cmds.getAttr(node.getFullName() + "." + name)
+                cmds.addAttr(node.getName(full=True), longName=name, attributeType=kind, defaultValue=default)
+                value_before = cmds.getAttr(node.getName(full=True) + "." + name)
                 plug = node.getPlug(name)
                 plug.set(99)
                 plug.reset()
-                self.assertAlmostEqual(cmds.getAttr(plug.getFullName()), value_before)
-            cmds.addAttr(node.getFullName(), longName="choice", attributeType="enum", enumName="A:B:C", defaultValue=2)
+                self.assertAlmostEqual(cmds.getAttr(plug.getName(full=True)), value_before)
+            cmds.addAttr(node.getName(full=True), longName="choice", attributeType="enum", enumName="A:B:C", defaultValue=2)
             node.getPlug("choice").set(0)
             node.getPlug("choice").reset()
             self.assertEqual(node.getPlug("choice").get(), 2)
@@ -102,29 +102,29 @@ class CommonMethodsTest(unittest.TestCase):
         node.getPlug("translateX").setFlags(locked=True)
         source.getPlug("translateY").connectTo(node.getPlug("translateY"))
         changed = node.resetAttrs()
-        names = [plug.getFullName() for plug in changed]
-        self.assertNotIn(node.getPlug("translateX").getFullName(), names)
-        self.assertNotIn(node.getPlug("translateY").getFullName(), names)
+        names = [plug.getName(full=True) for plug in changed]
+        self.assertNotIn(node.getPlug("translateX").getName(full=True), names)
+        self.assertNotIn(node.getPlug("translateY").getName(full=True), names)
         self.assertEqual(node.getPlug("translateZ").get(), 0)
         cmds.undo()
         self.assertEqual(node.getPlug("translateZ").get(), 4)
         with self.assertRaises(RuntimeError):
             node.resetAttrs("translateX")
-        cmds.addAttr(node.getFullName(), longName="text", dataType="string")
+        cmds.addAttr(node.getName(full=True), longName="text", dataType="string")
         with self.assertRaises(TypeError):
             node.getPlug("text").reset()
 
     def skin(self):
         joints = [self.create("joint" + str(i), type="joint") for i in range(3)]
         mesh = cmds.polyCube(name=self.namespace + ":mesh")[0]
-        skin = mlib.getNode(cmds.skinCluster([j.getFullName() for j in joints], mesh)[0])
+        skin = mlib.getNode(cmds.skinCluster([j.getName(full=True) for j in joints], mesh)[0])
         return joints, mlib.getNode(mesh), skin
 
     def test_history_filtered_and_empty(self):
         _joints, mesh, skin = self.skin()
         self.assertIn(skin.getUuid(), [node.getUuid() for node in mesh.getHistory(type="skinCluster")])
         self.assertIn(skin.getUuid(), [node.getUuid() for node in mesh.getHistory(type="geometryFilter")])
-        native = cmds.listHistory(mesh.getFullName()) or []
+        native = cmds.listHistory(mesh.getName(full=True)) or []
         expected = list(dict.fromkeys(mlib.getNode(name).getUuid() for name in native if mlib.getNode(name).getUuid() != mesh.getUuid()))
         self.assertEqual([node.getUuid() for node in mesh.getHistory()], expected)
         self.assertEqual(self.create("empty").getHistory(type="skinCluster"), [])
@@ -187,17 +187,17 @@ class NodeApiTest(unittest.TestCase):
 
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
         self.assertEqual(
-            [plug.getFullName() for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)],
-            [source.getPlug("translateX").getFullName()],
+            [plug.getName(full=True) for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)],
+            [source.getPlug("translateX").getName(full=True)],
         )
         self.assertEqual(
-            [plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)],
-            [target.getPlug("translateX").getFullName()],
+            [plug.getName(full=True) for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)],
+            [target.getPlug("translateX").getName(full=True)],
         )
         self.assertEqual(len(source.getConnections(skipConversionNodes=True)), 1)
 
         def names(plugs):
-            return [plug.getFullName() for plug in plugs]
+            return [plug.getName(full=True) for plug in plugs]
 
         self.assertEqual(
             names(target.getConnections(source=True, destination=False, type="transform", skipConversionNodes=True)),
@@ -249,7 +249,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertTrue(grandparent.isAncestorOf(child, direct=False))
         # cmds.listRelatives(children=True) と一致する。
         direct = [node for node in (grandparent, parent, child) if grandparent.isAncestorOf(node, direct=True)]
-        self.assertEqual([node.getFullName() for node in direct], cmds.listRelatives(grandparent.getFullName(), children=True, fullPath=True))
+        self.assertEqual([node.getName(full=True) for node in direct], cmds.listRelatives(grandparent.getName(full=True), children=True, fullPath=True))
         for value in (1, 0, None, "true"):
             with self.subTest(direct=value), self.assertRaises(TypeError):
                 grandparent.isAncestorOf(parent, direct=value)
@@ -261,7 +261,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertFalse(grandparent.isAncestorOf(utility, direct=True))
         self.assertFalse(utility.isAncestorOf(grandparent, direct=True))
         # 自身が無効なら、direct の指定によらず RuntimeError(相手が無効なら False)。
-        cmds.delete(child.getFullName())
+        cmds.delete(child.getName(full=True))
         self.assertFalse(parent.isAncestorOf(child, direct=True))
         for flags in ({}, {"direct": True}, {"direct": False}):
             with self.subTest(flags=flags), self.assertRaises(RuntimeError):
@@ -287,12 +287,12 @@ class NodeApiTest(unittest.TestCase):
         transform = self.create_transform("mlibNodeApiAliases")
         self.assertEqual(transform.getAliases(), [])
 
-        cmds.aliasAttr("mlibTx", transform.getPlug("translateX").getFullName())
+        cmds.aliasAttr("mlibTx", transform.getPlug("translateX").getName(full=True))
         aliases = transform.getAliases()
         self.assertEqual(len(aliases), 1)
         alias_name, plug = aliases[0]
         self.assertEqual(alias_name, "mlibTx")
-        self.assertEqual(plug.getFullName(), transform.getPlug("translateX").getFullName())
+        self.assertEqual(plug.getName(full=True), transform.getPlug("translateX").getName(full=True))
 
     def test_node_is_valid_is_alive_and_has_attr(self):
         transform = self.create_transform("mlibNodeApiValidity")
@@ -331,7 +331,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertTrue(node.getMatrix().isEquivalent(matrix, 1e-9))
 
         selection = om2.MSelectionList()
-        selection.add(node.getFullName())
+        selection.add(node.getName(full=True))
         world = selection.getDagPath(0).inclusiveMatrix()
         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(world, 1e-12))
         self.assertTrue(
@@ -347,10 +347,10 @@ class NodeApiTest(unittest.TestCase):
     def test_user_attribute_names_excludes_compound_children(self):
         node = self.create_transform("mlibNodeApiUserAttrNames")
         node.addAttr("attrA", attributeType="double", defaultValue=0.0)
-        cmds.addAttr(node.getFullName(), longName="attrCompound", attributeType="double3")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundX", attributeType="double", parent="attrCompound")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundY", attributeType="double", parent="attrCompound")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompound", attributeType="double3")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundX", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundY", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
         node.addAttr("attrB", attributeType="double", defaultValue=0.0)
 
         self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrCompound", "attrB"])
@@ -403,8 +403,8 @@ class TypeSelectionTest(_SpecCase):
         node = Node(light)
         self.assertIsInstance(node, Shape)
         self.assertEqual(node.getType(), "pointLight")
-        self.assertEqual(node.getFullName(), cmds.ls(light, long=True)[0])
-        self.assertEqual(node.getParent().getFullName(), cmds.listRelatives(light, parent=True, fullPath=True)[0])
+        self.assertEqual(node.getName(full=True), cmds.ls(light, long=True)[0])
+        self.assertEqual(node.getParent().getName(full=True), cmds.listRelatives(light, parent=True, fullPath=True)[0])
         # shape・transform 以外の DAG 型(unknownDag 等、dagNode の直接の派生)は DagNode の派生。
         registry = Node._registry
         self.assertIs(registry.wrapper_class("dagNode"), DagNode)
@@ -524,7 +524,7 @@ class IdentityTest(_SpecCase):
         self.assertEqual(hash(Node(node.getName())), value)
         node.rename(self.name("renamedForHash"))
         self.assertEqual(hash(node), value)
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         self.assertEqual(hash(node), value)
 
 
@@ -541,7 +541,7 @@ class DeletedNodeTest(_SpecCase):
         self.assertEqual(str(node), "")
         with self.assertRaisesRegex(RuntimeError, r"削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
             node.getName()
-        self.assertEqual(node.getFullName(), "")
+        self.assertEqual(node.getName(full=True), "")
         self.assertIsNone(node.getUuid())
         self.assertEqual(repr(node), "<Transform invalid>")
         self.assertEqual(node.getType(), "transform")
@@ -556,7 +556,7 @@ class DeletedNodeTest(_SpecCase):
     def test_deleted_node_methods_raise(self):
         """アトリビュート・履歴・エイリアス・削除・改名は RuntimeError、接続照会は空リスト。"""
         node = Node(self.make())
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for method, args in (("getPlug", ("tx",)), ("getHistory", ()), ("getAliases", ()), ("getPlugs", ()), ("delete", ()), ("rename", (self.name("x"),))):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
@@ -568,7 +568,7 @@ class DeletedNodeTest(_SpecCase):
     def test_deleted_node_rename_message(self):
         """削除済みノードの rename は通常・fast とも文言付きの RuntimeError。"""
         node = Node(self.make())
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaisesRegex(RuntimeError, r"^無効な\w+のため、名前の変更はできません$"):
@@ -580,7 +580,7 @@ class DeletedNodeTest(_SpecCase):
     def test_destroyed_node(self):
         """Undo の記録を消すと isAlive も False になり、型の照会が RuntimeError になる。"""
         node = Node(self.make())
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         cmds.flushUndo()
         self.assertFalse(node.isAlive())
         self.assertFalse(node.sameNode(node))
@@ -610,7 +610,7 @@ class TypeQueryTest(_SpecCase):
             with self.subTest(type=node.getType()):
                 chain = node.getType(inherited=True)
                 self.assertIsInstance(chain, list)
-                self.assertEqual(chain, cmds.nodeType(node.getFullName(), inherited=True))
+                self.assertEqual(chain, cmds.nodeType(node.getName(full=True), inherited=True))
                 self.assertEqual(chain[-1], node.getType())
                 self.assertNotIn("node", chain)
                 self.assertEqual(node.getType(inherited=False), node.getType())
@@ -644,7 +644,7 @@ class TypeQueryTest(_SpecCase):
             with self.subTest(value=value):
                 with self.assertRaises(TypeError):
                     shape.hasFn(value)
-        cmds.delete(network.getFullName())
+        cmds.delete(network.getName(full=True))
         cmds.flushUndo()
         with self.assertRaises(RuntimeError):
             network.hasFn(om2.MFn.kDependencyNode)
@@ -695,7 +695,7 @@ class NamePathTest(_SpecCase):
         parent_a, parent_b = self.make("transform", "pa"), self.make("transform", "pb")
         first = Node(self.make("transform", "leaf", parent=parent_a))
         self.make("transform", "leaf", parent=parent_b)
-        self.assertEqual(first.getName(), cmds.ls(first.getFullName())[0])
+        self.assertEqual(first.getName(), cmds.ls(first.getName(full=True))[0])
         self.assertIn("|", first.getName())
         self.assertEqual(first.getName(node=True), self.name("leaf"))
         self.assertEqual(first.getName(node=True, removeNamespace=True), "leaf")
@@ -706,13 +706,13 @@ class NamePathTest(_SpecCase):
         self.assertEqual(first.getName(node=False), first.getName())
         with self.assertRaises(TypeError):
             first.getName(True)
-        self.assertEqual(first.getFullName(), "|" + self.name("pa") + "|" + self.name("leaf"))
+        self.assertEqual(first.getName(full=True), "|" + self.name("pa") + "|" + self.name("leaf"))
         self.assertFalse(hasattr(first, "getPath"))
 
     def test_dg_names(self):
-        """DG ノードの getFullName はノード名。"""
+        """DG ノードの getName(full=True) はノード名。"""
         node = Node(self.make("network", "dg"))
-        self.assertEqual(node.getFullName(), self.name("dg"))
+        self.assertEqual(node.getName(full=True), self.name("dg"))
         self.assertEqual(node.getName(), self.name("dg"))
 
     def test_get_namespace(self):
@@ -783,7 +783,7 @@ class NamePathTest(_SpecCase):
         node.rename(self.name("kept"), ignoreShape=True)
         self.assertTrue(cmds.objExists(shape))
         other = Node(self.make("transform", "limb"))
-        self.make("mesh", "limbShape", parent=other.getFullName())
+        self.make("mesh", "limbShape", parent=other.getName(full=True))
         other.rename(self.name("follow"))
         self.assertTrue(cmds.objExists(self.name("followShape")))
 
@@ -806,7 +806,7 @@ class AttributeQueryTest(_SpecCase):
             self.node.getPlug("mlibMissing")
         with self.assertRaisesRegex(AttributeError, "2147483647"):
             self.node.getPlug("worldMatrix[2147483648]")
-        self.assertEqual(self.node.getPlug("worldMatrix[5]").getFullName(), self.node_name + ".worldMatrix[5]")
+        self.assertEqual(self.node.getPlug("worldMatrix[5]").getName(full=True), self.node_name + ".worldMatrix[5]")
 
     def test_has_attr(self):
         """hasAttr は解決できる名前だけ True。不正値も例外にせず False。"""
@@ -844,7 +844,7 @@ class AttributeQueryTest(_SpecCase):
         self.assertEqual(names(True), ["first", "vec", "vecX", "vecY", "vecZ", "text"])
         plugs = self.node.getPlugs(userDefined=True, includeChildren=False)
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
-        self.assertEqual([plug.getFullName() for plug in plugs], [self.node_name + "." + name for name in ("first", "vec", "text")])
+        self.assertEqual([plug.getName(full=True) for plug in plugs], [self.node_name + "." + name for name in ("first", "vec", "text")])
         cmds.aliasAttr("firstAlias", self.node_name + ".first")
         # cmds.listAttr(userDefined=True) と同じく aliasAttr の内部アトリビュートを含む。
         self.assertIn("attributeAliasList", names(False))
@@ -859,7 +859,7 @@ class AttributeQueryTest(_SpecCase):
         """getPlugs は listAttr と同じ順・同じ名前。"""
         names = cmds.listAttr(self.node_name, keyable=True)
         plugs = self.node.getPlugs(keyable=True)
-        self.assertEqual([plug.getFullName() for plug in plugs], [cmds.ls(self.node_name + "." + name)[0] for name in names])
+        self.assertEqual([plug.getName(full=True) for plug in plugs], [cmds.ls(self.node_name + "." + name)[0] for name in names])
 
 
 class ResetAndFlagsTest(_SpecCase):
@@ -1008,7 +1008,7 @@ class HistoryInvalidNodeTest(unittest.TestCase):
 
     def test_deleted_node_raises_runtime_error(self):
         node = mlib.getNode(cmds.createNode("transform", name="mlibContractA_history_" + uuid.uuid4().hex))
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため、ヒストリの取得はできません"):
             node.getHistory()
         with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため"):
@@ -1035,7 +1035,7 @@ class DestroyedNodeTest(unittest.TestCase):
         node = mlib.getNode(cmds.createNode("multiplyDivide", name="mlibContractA_dead_" + uuid.uuid4().hex))
         cmds.undoInfo(state=False)
         try:
-            cmds.delete(node.getFullName())
+            cmds.delete(node.getName(full=True))
             cmds.flushUndo()
         finally:
             cmds.undoInfo(state=state)
@@ -1140,13 +1140,13 @@ class NodeTest(_Case):
         for name in (cube, shape, md):
             with self.subTest(name=name):
                 expected = sorted(cmds.ls(cmds.listSets(object=name) or [], long=True))
-                self.assertEqual(sorted(node.getFullName() for node in mlib.getNode(name).getSets()), expected)
-        self.assertEqual([node.getFullName() for node in mlib.getNode(cube).getSets()], [whole])
+                self.assertEqual(sorted(node.getName(full=True) for node in mlib.getNode(name).getSets()), expected)
+        self.assertEqual([node.getName(full=True) for node in mlib.getNode(cube).getSets()], [whole])
         shape_sets = mlib.getNode(shape).getSets()
-        self.assertIn(faces, [node.getFullName() for node in shape_sets])
-        self.assertEqual([node.getFullName() for node in mlib.getNode(shape).getSets(type="shadingEngine")], ["initialShadingGroup"])
+        self.assertIn(faces, [node.getName(full=True) for node in shape_sets])
+        self.assertEqual([node.getName(full=True) for node in mlib.getNode(shape).getSets(type="shadingEngine")], ["initialShadingGroup"])
         self.assertIsInstance(mlib.getNode(md).getSets()[0], mlib.ObjectSet)
-        self.assertEqual(mlib.getNode(md).getSets()[0].getFullName(), dg_set)
+        self.assertEqual(mlib.getNode(md).getSets()[0].getName(full=True), dg_set)
         self.assertEqual(mlib.getNode(self.make("transform")).getSets(), [])
         for value, error in ((1, TypeError), ("", ValueError)):
             with self.subTest(type=value):
@@ -1156,7 +1156,7 @@ class NodeTest(_Case):
     def test_deleted_node_raises(self):
         """削除済みのノードは RuntimeError。"""
         node = mlib.getNode(self.make("transform"))
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in (node.getSets, node.getReference):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):

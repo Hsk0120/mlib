@@ -108,8 +108,8 @@ class RampPlug(MultiPlug):
             ramp = self._ramp()
             points = self._validated_entries(entries, ramp.isColorRamp)
             if self._mplug.isLocked:
-                raise RuntimeError(f"ランプアトリビュートがロックされています: {self.getFullName()}")
-            name = self.getFullName()
+                raise RuntimeError(f"ランプアトリビュートがロックされています: {self._full_name()}")
+            name = self._full_name()
             for index in self._mplug.getExistingArrayAttributeIndices():
                 cmds.removeMultiInstance(f"{name}[{index}]", b=True)
             element = self._mplug.elementByLogicalIndex(0)

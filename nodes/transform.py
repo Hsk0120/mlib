@@ -153,10 +153,10 @@ def _unwritable_channel_message(plug):
             reason = "ロックされています"
         elif target.isConnected(destination=False):
             source = target.getConnections(input=True, skipConversionNodes=True)
-            reason = f"{source.getFullName()}から接続されています" if source is not None else "入力が接続されています"
+            reason = f"{source._full_name()}から接続されています" if source is not None else "入力が接続されています"
         else:
             continue
-        return f"{plug.getFullName()}を設定できません: {target.getFullName()}は{reason}。ロックを解除するか切断してください。書き込めないチャンネルを飛ばすにはsafe=Trueを指定します"
+        return f"{plug._full_name()}を設定できません: {target._full_name()}は{reason}。ロックを解除するか切断してください。書き込めないチャンネルを飛ばすにはsafe=Trueを指定します"
     return None
 
 
@@ -552,7 +552,7 @@ class Transform(DagNode):
                     raise TypeError(
                         f"{command_name}のソースはトランスフォーム(ジョイントとIKハンドルを含む)で指定してください。シェイプ・コンポーネント・DGノードは指定できません: {source.__class__.__name__} {source.getName()!r}"
                     )
-                names.append(source.getFullName())
+                names.append(source._full_name())
             if not names:
                 raise ValueError("コンストレイントのソースを1つ以上指定してください")
 
@@ -563,7 +563,7 @@ class Transform(DagNode):
                 command_kwargs["worldUpObject"] = Node._input_name(command_kwargs["worldUpObject"])
             if command_name in {"parentConstraint", "pointConstraint", "orientConstraint", "scaleConstraint", "aimConstraint"}:
                 command_kwargs["maintainOffset"] = maintainOffset
-            result = getattr(cmds, command_name)(*names, self.getFullName(), **command_kwargs)
+            result = getattr(cmds, command_name)(*names, self._full_name(), **command_kwargs)
             return Node(result[0])
 
     def deleteConstraints(self, *, fast=False):
@@ -640,7 +640,7 @@ class Transform(DagNode):
                             raise RuntimeError(f"コンストレイントの経路に共有された出力があります: {fn.name()}")
             for token in deleting:
                 require_editable(objects[token])
-            names = sorted(Node(objects[token]).getFullName() for token in deleting)
+            names = sorted(Node(objects[token])._full_name() for token in deleting)
             if names:
                 if fast:
                     self._detach_inputs(objects[token] for token in deleting)
@@ -752,7 +752,7 @@ class Transform(DagNode):
         for shape in self.getShape(all=True):
             planner = getattr(shape, "_mirror_plan", None)
             if planner is None:
-                raise ValueError(f"mirrorGeometryはmeshとnurbsCurveのシェイプに対応しています: {shape.getFullName()}")
+                raise ValueError(f"mirrorGeometryはmeshとnurbsCurveのシェイプに対応しています: {shape._full_name()}")
             plans.append(planner(axis, ws, center, indices, fast, check))
         for plan in plans:
             if plan:
@@ -877,7 +877,7 @@ class Transform(DagNode):
             coordinates = [om2.MDistance(v).asUnits(om2.MDistance.uiUnit()) for v in values]
             flag = {"rotate": "rotatePivot", "scale": "scalePivot", "both": "pivots"}[kind]
             pivot_flags: Dict[str, Any] = {flag: coordinates}
-            cmds.xform(self.getFullName(), worldSpace=ws, objectSpace=not ws, preserve=preserve, **pivot_flags)
+            cmds.xform(self._full_name(), worldSpace=ws, objectSpace=not ws, preserve=preserve, **pivot_flags)
 
     def centerPivot(self, components=None, *, fast=False, check=False):
         """回転ピボットとスケールピボットを、バウンディングボックスの中心へ動かす。
@@ -918,7 +918,7 @@ class Transform(DagNode):
             for item in items:
                 if not isinstance(item, PointComponent):
                     raise TypeError("componentsは頂点またはCVで指定してください")
-                if item.shape.getParent().getFullName() != self.getFullName():
+                if item.shape.getParent()._full_name() != self._full_name():
                     raise ValueError("componentsはこのTransform直下のShapeから指定してください")
                 points.append(item.getPosition(worldSpace=True))
             center = [(min(point[axis] for point in points) + max(point[axis] for point in points)) * 0.5 for axis in range(3)]
@@ -931,7 +931,7 @@ class Transform(DagNode):
                 return
             # fast(setPivot経由)と同じく、xformが黙って飛ばすロックを先に拒否する。
             self._require_pivots_writable(("scale", "rotate"), True)
-            cmds.xform(self.getFullName(), centerPivots=True, preserve=True)
+            cmds.xform(self._full_name(), centerPivots=True, preserve=True)
 
     def zeroTransformPivots(self):
         """回転ピボット・スケールピボットとその補正値を0にし、姿勢が変わらないようにtranslateを書き換える。
@@ -956,7 +956,7 @@ class Transform(DagNode):
         for index in range(plug.numChildren()):
             require_writable(plug.child(index))
         with undoChunk("mlibTransformZeroTransformPivots"):
-            cmds.xform(self.getFullName(), zeroTransformPivots=True)
+            cmds.xform(self._full_name(), zeroTransformPivots=True)
 
     def ungroup(self, *, world=False):
         """子を親(またはワールド)の下へ移して、グループを解く。
@@ -982,7 +982,7 @@ class Transform(DagNode):
         self._require_valid("グループの解除")
         children = [child.mnode() for child in self.getChildren()]
         with undoChunk("mlibTransformUngroup"):
-            cmds.ungroup(self.getFullName(), world=world)
+            cmds.ungroup(self._full_name(), world=world)
         return Nodes._wrap([Node(child) for child in children])
 
     def getChildren(
@@ -1095,7 +1095,7 @@ class Transform(DagNode):
                         for plug in om2.MFnDependencyNode(shape.mnode()).getConnections():
                             for source in plug.connectedTo(True, False):
                                 cmds.disconnectAttr(source.name(), plug.name())
-                    cmds.delete([shape.getFullName() for shape in shapes])
+                    cmds.delete([shape._full_name() for shape in shapes])
 
     def addShape(self, shape, *, fast=False):
         """シェイプをこのTransformの下へ移す。
@@ -1179,18 +1179,18 @@ class Transform(DagNode):
             raise ValueError(f"{source.getName()}に使えるシェイプがありません")
         with undoTransaction("mlibTransformReplaceShapes"):
             duplicate = None
-            moving = [shape.getFullName() for shape in shapes]
+            moving = [shape._full_name() for shape in shapes]
             if keepSource:
                 # Shapeだけの複製は親Transformごと作られるため、Transformを複製して同じ位置の子Shapeを使う。
                 positions = [holder.getShape(intermediates=True, all=True).index(shape) for shape in shapes]
-                duplicate = cmds.duplicate(holder.getFullName(), returnRootsOnly=True)[0]
+                duplicate = cmds.duplicate(holder._full_name(), returnRootsOnly=True)[0]
                 duplicate = cmds.ls(duplicate, long=True)[0]
                 copies = cmds.listRelatives(duplicate, shapes=True, fullPath=True) or []
                 moving = [copies[position] for position in positions]
-            old = [shape.getFullName() for shape in self.getShape(intermediates=True, all=True)]
+            old = [shape._full_name() for shape in self.getShape(intermediates=True, all=True)]
             if old:
                 cmds.delete(old)
-            target = self.getFullName()
+            target = self._full_name()
             if worldSpace:
                 matrix = list(holder.mpath().inclusiveMatrix())
                 temporary = cmds.createNode("transform", name="mlibReplaceShapesTmp#", skipSelect=True)
@@ -1209,11 +1209,11 @@ class Transform(DagNode):
                 cmds.parent(moving, target, shape=True, relative=True)
             if duplicate is not None:
                 cmds.delete(duplicate)
-            elif isinstance(holder, Transform) and holder.isValid() and not cmds.listRelatives(holder.getFullName(), children=True):
-                cmds.delete(holder.getFullName())
-            leaf = self.getFullName().rsplit("|", 1)[-1]
+            elif isinstance(holder, Transform) and holder.isValid() and not cmds.listRelatives(holder._full_name(), children=True):
+                cmds.delete(holder._full_name())
+            leaf = self._full_name().rsplit("|", 1)[-1]
             for position, shape in enumerate(self.getShape(intermediates=True, all=True)):
-                cmds.rename(shape.getFullName(), leaf + ("Shape" if position == 0 else "Shape#"))
+                cmds.rename(shape._full_name(), leaf + ("Shape" if position == 0 else "Shape#"))
 
     def getCurveShapesData(self):
         """直下のカーブ形状(中間オブジェクトでないnurbsCurveのShape)を、JSONに書ける辞書で取得する。
@@ -1240,7 +1240,7 @@ class Transform(DagNode):
         shapes = []
         for shape in self._curve_shapes():
             fn = om2.MFnNurbsCurve(shape.mpath())
-            leaf = shape.getFullName().rsplit("|", 1)[-1]
+            leaf = shape._full_name().rsplit("|", 1)[-1]
             shapes.append(
                 {
                     "name": leaf.rsplit(":", 1)[-1],
@@ -1281,10 +1281,10 @@ class Transform(DagNode):
         color, entries = _checked_curve_shapes(data)
         self._require_valid("カーブ形状の設定")
         with _edit_context("mlibTransformSetCurveShapesData", False, transaction=True):
-            old = [shape.getFullName() for shape in self._curve_shapes()]
+            old = [shape._full_name() for shape in self._curve_shapes()]
             if old:
                 cmds.delete(old)
-            target = self.getFullName()
+            target = self._full_name()
             namespace = target.rsplit("|", 1)[-1].rpartition(":")[0]
             prefix = namespace + ":" if namespace else ""
             for entry in entries:
@@ -1422,18 +1422,18 @@ class Transform(DagNode):
             if parent is None:
                 if self.getParent() is None and not self.mpath().isInstanced():
                     return
-                cmds.parent(self.getFullName(), world=True, relative=relative)
+                cmds.parent(self._full_name(), world=True, relative=relative)
             else:
                 target = parent if isinstance(parent, Node) else Node(parent)
                 if isinstance(target, Transform):
                     self._require_not_own_descendant(target)
-                parent_name = target.getFullName()
+                parent_name = target._full_name()
                 # 古いMayaでは同じ親への再parentがエラーになる。
                 # add=Trueはインスタンス操作なのでMayaの判定に委ねる。
                 current = self.getParent()
                 if not add and not self.mpath().isInstanced() and current is not None and current.mpath().fullPathName() == parent_name:
                     return
-                cmds.parent(self.getFullName(), parent_name, relative=relative, add=add)
+                cmds.parent(self._full_name(), parent_name, relative=relative, add=add)
             return
 
     def matchTransform(self, target, position=True, rotation=True, scale=True, pivots=False):
@@ -1464,7 +1464,7 @@ class Transform(DagNode):
             if not isinstance(target, Transform):
                 raise TypeError("ターゲットはtransformかjointで指定してください")
             if any((position, rotation, scale, pivots)):
-                cmds.matchTransform(self.getFullName(), target.getFullName(), position=position, rotation=rotation, scale=scale, pivots=pivots)
+                cmds.matchTransform(self._full_name(), target._full_name(), position=position, rotation=rotation, scale=scale, pivots=pivots)
 
     def mirrorTransform(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), *, fast=False, check=False, ws=_UNSET):
         """位置と向きを、指定した空間でビヘイビアミラーする。
@@ -1995,9 +1995,9 @@ class Transform(DagNode):
                 # MTransformationMatrixの回転順序の番号は、MayaのrotateOrderより1つ大きい(0は無効)。
                 self._transform_fn().setRotationOrder(index + 1, preserve)
             elif preserve:
-                cmds.xform(self.getFullName(), rotateOrder=_ROTATE_ORDER_NAMES[index], preserve=True)
+                cmds.xform(self._full_name(), rotateOrder=_ROTATE_ORDER_NAMES[index], preserve=True)
             else:
-                cmds.setAttr(self.getFullName() + ".rotateOrder", index)
+                cmds.setAttr(self._full_name() + ".rotateOrder", index)
 
     def getScale(self, worldSpace=_UNSET, *, ws=_UNSET):
         """指定した空間でのスケールの値を取得する。
@@ -2266,7 +2266,7 @@ class Transform(DagNode):
                     self._set_rotate_axis_preserving_fast(rotation)
                 else:
                     values = [om2.MAngle(value).asUnits(om2.MAngle.uiUnit()) for value in rotation]
-                    cmds.xform(self.getFullName(), rotateAxis=values, preserve=True)
+                    cmds.xform(self._full_name(), rotateAxis=values, preserve=True)
                 return None
             self._set_channel_value(name, rotation, safe=safe, fast=fast, check=check)
             return None
@@ -2342,7 +2342,7 @@ class Transform(DagNode):
         )
         with undoChunk("mlibTransformMakeIdentity"):
             self._require_valid("トランスフォームのフリーズ")
-            cmds.makeIdentity(self.getFullName(), **kwargs)
+            cmds.makeIdentity(self._full_name(), **kwargs)
 
     def getOffsetParentMatrix(self):
         """``offsetParentMatrix`` アトリビュートの値を取得する。
@@ -2423,7 +2423,7 @@ class Transform(DagNode):
                 raise RuntimeError(f"offsetParentMatrixへフリーズできません: {error}") from error
         before = self.getMatrix()
         offset = self.getOffsetParentMatrix()
-        name = self.getFullName()
+        name = self._full_name()
         with undoTransaction("mlibTransformFreezeToOffsetParent"):
             for attribute, value in resets:
                 cmds.setAttr(name + "." + attribute, *value)
@@ -2452,12 +2452,12 @@ class Transform(DagNode):
         """
         _require_bool(indirect, "indirect")
         self._require_valid("回転のフィルター")
-        name = self.getFullName()
+        name = self._full_name()
         curves = []
         for axis in "XYZ":
             if indirect:
                 anim_curve = self.getPlug("rotate" + axis).getAnimCurve(indirect=True)
-                found = [anim_curve.getFullName()] if anim_curve is not None and anim_curve.getType() == "animCurveTA" else []
+                found = [anim_curve._full_name()] if anim_curve is not None and anim_curve.getType() == "animCurveTA" else []
             else:
                 found = cmds.listConnections(name + ".rotate" + axis, source=True, destination=False, type="animCurveTA", skipConversionNodes=True) or []
             for curve in found:
@@ -2580,7 +2580,7 @@ class Transform(DagNode):
         if unknown:
             raise TypeError(f"対応していないリミットのチャンネルです: {', '.join(unknown)}(translateX〜scaleZを使います)")
         self._require_valid("リミットの設定")
-        name = self.getFullName()
+        name = self._full_name()
         flags = {}
         for channel, limit in limits.items():
             flag, enable_flag, kind = _LIMIT_FLAGS[channel]
@@ -2854,7 +2854,7 @@ class Transform(DagNode):
         if unit != om2.MDistance.kCentimeters:
             values = tuple(om2.MDistance(item).asUnits(unit) for item in values)
         try:
-            cmds.xform(self.getFullName(), worldSpace=True, translation=values)
+            cmds.xform(self._full_name(), worldSpace=True, translation=values)
         except RuntimeError:
             return False
         return True
@@ -2906,7 +2906,7 @@ class Transform(DagNode):
         for path in om2.MDagPath.getAllPathsTo(target._require_mnode()):
             while path.length():
                 if path.node() == own:
-                    raise RuntimeError(f"ノードを自分自身や自分の子孫の下へは親子付けできません: {self.getFullName()} -> {target.getFullName()}")
+                    raise RuntimeError(f"ノードを自分自身や自分の子孫の下へは親子付けできません: {self._full_name()} -> {target._full_name()}")
                 path.pop()
 
     def _transform_fn(self):
@@ -3343,7 +3343,7 @@ class Transform(DagNode):
             unit = om2.MAngle.uiUnit()
             values = tuple(om2.MAngle(item).asUnits(unit) for item in values)
         try:
-            cmds.setAttr(self.getFullName() + "." + name, *values)
+            cmds.setAttr(self._full_name() + "." + name, *values)
         except RuntimeError:
             return False
         return True

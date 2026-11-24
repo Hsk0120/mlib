@@ -47,23 +47,23 @@ class RelativeTransformTest(_Case):
     def setUp(self):
         super().setUp()
         self.parent = self.transform("parent#")
-        cmds.setAttr(self.parent.getFullName() + ".r", 10, 40, -20)
+        cmds.setAttr(self.parent.getName(full=True) + ".r", 10, 40, -20)
         # 親の非一様なスケールはワールドのマトリクスにシアーを生み、ワールド軸の回転が定まらないため一様にする。
-        cmds.setAttr(self.parent.getFullName() + ".s", 2, 2, 2)
-        self.node = self.transform("node#", self.parent.getFullName())
-        self.reference = self.transform("reference#", self.parent.getFullName())
+        cmds.setAttr(self.parent.getName(full=True) + ".s", 2, 2, 2)
+        self.node = self.transform("node#", self.parent.getName(full=True))
+        self.reference = self.transform("reference#", self.parent.getName(full=True))
         for node in (self.node, self.reference):
-            cmds.setAttr(node.getFullName() + ".t", 1, 2, 3)
-            cmds.setAttr(node.getFullName() + ".r", 10, 20, 30)
-            cmds.setAttr(node.getFullName() + ".ro", 2)
-            cmds.setAttr(node.getFullName() + ".s", 1, 2, 3)
+            cmds.setAttr(node.getName(full=True) + ".t", 1, 2, 3)
+            cmds.setAttr(node.getName(full=True) + ".r", 10, 20, 30)
+            cmds.setAttr(node.getName(full=True) + ".ro", 2)
+            cmds.setAttr(node.getName(full=True) + ".s", 1, 2, 3)
 
     def values(self, node, attribute):
-        return cmds.getAttr(node.getFullName() + "." + attribute)[0]
+        return cmds.getAttr(node.getName(full=True) + "." + attribute)[0]
 
     def test_translate_by_matches_cmds_move(self):
         """setTranslation(relative=True) は親の空間・ワールドの軸で cmds.move(relative) と同じ translate になる。"""
-        ref = self.reference.getFullName()
+        ref = self.reference.getName(full=True)
         self.assertIsNone(self.node.setTranslation((1, -2, 0.5), relative=True))
         cmds.move(1, -2, 0.5, ref, relative=True, localSpace=True)
         self.assertSequenceAlmostEqual(self.values(self.node, "t"), self.values(self.reference, "t"))
@@ -73,14 +73,16 @@ class RelativeTransformTest(_Case):
 
     def test_rotate_by_matches_cmds_rotate(self):
         """setRotate(relative=True) はローカル軸・ワールドの軸で cmds.rotate(relative) と同じ向きになる(rotateOrder=zxy)。"""
-        ref = self.reference.getFullName()
+        ref = self.reference.getName(full=True)
         self.assertIsNone(self.node.setRotate((5, 15, 25), relative=True))
         cmds.rotate(5, 15, 25, ref, relative=True, objectSpace=True)
         self.assertSequenceAlmostEqual(self.values(self.node, "r"), self.values(self.reference, "r"), places=6)
         self.node.setRotate((math.radians(20), 0, math.radians(-10)), worldSpace=True, unit="rad", relative=True)
         cmds.rotate(20, 0, -10, ref, relative=True, worldSpace=True)
         self.assertSequenceAlmostEqual(
-            cmds.xform(self.node.getFullName(), query=True, matrix=True, worldSpace=True), cmds.xform(ref, query=True, matrix=True, worldSpace=True), places=6
+            cmds.xform(self.node.getName(full=True), query=True, matrix=True, worldSpace=True),
+            cmds.xform(ref, query=True, matrix=True, worldSpace=True),
+            places=6,
         )
 
     def test_rotate_by_accumulates(self):
@@ -88,13 +90,13 @@ class RelativeTransformTest(_Case):
         node = self.transform("free#")
         for _ in range(4):
             node.setRotate((0, 0, 90), relative=True)
-        self.assertAlmostEqual(cmds.getAttr(node.getFullName() + ".rz"), 360.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(node.getName(full=True) + ".rz"), 360.0, places=6)
         quarter = om2.MEulerRotation(0.0, math.radians(90), 0.0)
         node.setRotate(quarter, relative=True)
-        self.assertAlmostEqual(cmds.getAttr(node.getFullName() + ".ry"), 90.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(node.getName(full=True) + ".ry"), 90.0, places=6)
         # クォータニオンも回転量として受ける。
         node.setRotate(mlib.Quaternion(quarter.asQuaternion()), relative=True)
-        self.assertAlmostEqual(cmds.getAttr(node.getFullName() + ".ry"), 180.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(node.getName(full=True) + ".ry"), 180.0, places=6)
 
     def test_scale_by(self):
         """setScale(relative=True) は scale へ倍率を掛ける。数値1つは XYZ 共通。"""
@@ -105,12 +107,12 @@ class RelativeTransformTest(_Case):
 
     def test_shear_by(self):
         """setShear(relative=True) は shear の XY・XZ・YZ へ成分ごとに倍率を掛ける(0 の成分は 0 のまま)。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.setAttr(name + ".shear", 0.5, 0.0, 0.2)
         self.assertIsNone(self.node.setShear((2, 3, 0.5), relative=True))
         self.assertSequenceAlmostEqual(self.values(self.node, "shear"), (1.0, 0.0, 0.1))
         # MFnTransform.shearBy と同じ結果になる。
-        cmds.setAttr(self.reference.getFullName() + ".shear", 0.5, 0.0, 0.2)
+        cmds.setAttr(self.reference.getName(full=True) + ".shear", 0.5, 0.0, 0.2)
         om2.MFnTransform(self.reference.mpath()).shearBy((2, 3, 0.5))
         self.assertSequenceAlmostEqual(self.values(self.node, "shear"), self.values(self.reference, "shear"))
 
@@ -128,7 +130,7 @@ class RelativeTransformTest(_Case):
 
     def test_undo_one_step(self):
         """各メソッドの relative=True は Undo 1 回で戻る。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.setAttr(name + ".shear", 0.5, 0.25, 0.1)
         before = cmds.xform(name, query=True, matrix=True)
         for label, _attribute, call in self.relative_calls():
@@ -143,7 +145,7 @@ class RelativeTransformTest(_Case):
     def test_relative_fast_matches_normal_without_undo(self):
         """relative=True の fast=True は通常と同じ値を書き、Undo に記録しない。"""
         for node in (self.node, self.reference):
-            cmds.setAttr(node.getFullName() + ".shear", 0.5, 0.25, 0.1)
+            cmds.setAttr(node.getName(full=True) + ".shear", 0.5, 0.25, 0.1)
         for label, attribute, call in self.relative_calls():
             with self.subTest(label):
                 call(self.reference)
@@ -156,7 +158,7 @@ class RelativeTransformTest(_Case):
         """relative=True の get=True は書き込まずに、書き込む予定のローカルの値を返す。"""
         expected_types = {"t": mlib.Translate, "r": mlib.EulerRotate, "s": mlib.Scale, "shear": mlib.Shear}
         for node in (self.node, self.reference):
-            cmds.setAttr(node.getFullName() + ".shear", 0.5, 0.25, 0.1)
+            cmds.setAttr(node.getName(full=True) + ".shear", 0.5, 0.25, 0.1)
         for label, attribute, call in self.relative_calls():
             for fast in (False, True):
                 with self.subTest(label, fast=fast):
@@ -170,7 +172,7 @@ class RelativeTransformTest(_Case):
                     state = self.values(self.reference, attribute)
                     call(self.reference)
                     written = self.values(self.reference, attribute)
-                    cmds.setAttr(self.reference.getFullName() + "." + attribute, *state)
+                    cmds.setAttr(self.reference.getName(full=True) + "." + attribute, *state)
                     planned = [math.degrees(value) for value in planned] if attribute == "r" else list(planned)
                     self.assertSequenceAlmostEqual(planned, written, places=6)
 
@@ -184,8 +186,8 @@ class RelativeTransformTest(_Case):
         for label, attribute, locked, call, expected in cases:
             for fast in (False, True):
                 with self.subTest(label, fast=fast):
-                    node = self.transform("safe#", self.parent.getFullName())
-                    name = node.getFullName()
+                    node = self.transform("safe#", self.parent.getName(full=True))
+                    name = node.getName(full=True)
                     cmds.setAttr(name + ".t", 1, 2, 3)
                     cmds.setAttr(name + ".s", 1, 2, 3)
                     cmds.setAttr(name + ".shear", 0.5, 0.25, 0.1)
@@ -202,7 +204,7 @@ class RelativeTransformTest(_Case):
         for fast in (False, True):
             with self.subTest("rotate", fast=fast):
                 node = self.transform("safeRotate#")
-                name = node.getFullName()
+                name = node.getName(full=True)
                 cmds.setAttr(name + ".rz", lock=True)
                 self.assertIsNone(node.setRotate((10, 20, 30), relative=True, safe=True, fast=fast))
                 rotate = cmds.getAttr(name + ".r")[0]
@@ -212,7 +214,7 @@ class RelativeTransformTest(_Case):
     def test_relative_check_matches_default_when_writable(self):
         """relative=True の check=True は、書き込めるなら既定と同じ結果になる(通常・fast とも)。"""
         for node in (self.node, self.reference):
-            cmds.setAttr(node.getFullName() + ".shear", 0.5, 0.25, 0.1)
+            cmds.setAttr(node.getName(full=True) + ".shear", 0.5, 0.25, 0.1)
         for label, attribute, call in self.relative_calls():
             for fast in (False, True):
                 with self.subTest(label, fast=fast):
@@ -222,7 +224,7 @@ class RelativeTransformTest(_Case):
 
     def test_relative_exclusive_arguments(self):
         """relative=True は、setTranslation の at、setScale・setShear の worldSpace と同時に指定できない(TypeError)。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
 
         def read():
             return cmds.xform(name, query=True, matrix=True)
@@ -246,7 +248,7 @@ class RelativeTransformTest(_Case):
 
     def test_invalid_input(self):
         """不正な入力・ロック・削除済みノードは例外で、値を変えない。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
 
         def read():
             return cmds.xform(name, query=True, matrix=True)
@@ -278,7 +280,7 @@ class RelativeTransformTest(_Case):
             with self.subTest(locked=label):
                 self.assertRaisesNoChange(RuntimeError, read, call)
         free = self.transform("gone#")
-        cmds.delete(free.getFullName())
+        cmds.delete(free.getName(full=True))
         for call in (
             lambda: free.setTranslation((1, 0, 0), relative=True),
             lambda: free.setRotate((1, 0, 0), relative=True),
@@ -311,7 +313,7 @@ class LimitsTest(_Case):
     def test_matches_transform_limits_in_other_units(self):
         """UI の単位(mm・ラジアン)に依らず cm・度で返す。"""
         node = self.transform()
-        cmds.transformLimits(node.getFullName(), translationY=(-2, 5), enableTranslationY=(True, True), rotationX=(-30, 60), enableRotationX=(True, True))
+        cmds.transformLimits(node.getName(full=True), translationY=(-2, 5), enableTranslationY=(True, True), rotationX=(-30, 60), enableRotationX=(True, True))
         cmds.currentUnit(linear="mm", angle="rad")
         limits = node.getLimits()
         self.assertSequenceAlmostEqual(limits["translateY"], (-2.0, 5.0))
@@ -321,7 +323,7 @@ class LimitsTest(_Case):
         node = self.transform()
         with self.assertRaises(ValueError):
             node.getLimits(unit="turn")
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaises(RuntimeError):
             node.getLimits()
 
@@ -331,7 +333,7 @@ class PivotAndUngroupTest(_Case):
 
     def pivoted(self, text):
         node = self.transform(text)
-        name = node.getFullName()
+        name = node.getName(full=True)
         cmds.setAttr(name + ".t", 1, 2, 3)
         cmds.setAttr(name + ".r", 10, 20, 30)
         cmds.xform(name, rotatePivot=(1, 1, 1), scalePivot=(2, 0, 0), preserve=True)
@@ -341,14 +343,14 @@ class PivotAndUngroupTest(_Case):
     def test_zero_transform_pivots_matches_xform(self):
         """xform(zeroTransformPivots) と同じアトリビュートになり、ワールドのマトリクスを保つ。Undo 1回。"""
         node, reference = self.pivoted("node#"), self.pivoted("reference#")
-        name = node.getFullName()
+        name = node.getName(full=True)
         matrix = cmds.xform(name, query=True, matrix=True, worldSpace=True)
-        cmds.xform(reference.getFullName(), zeroTransformPivots=True)
+        cmds.xform(reference.getName(full=True), zeroTransformPivots=True)
         self.flushUndo()
         self.assertIsNone(node.zeroTransformPivots())
         for attribute in ("t", "rp", "sp", "rpt", "spt"):
             with self.subTest(attribute):
-                self.assertSequenceAlmostEqual(cmds.getAttr(name + "." + attribute)[0], cmds.getAttr(reference.getFullName() + "." + attribute)[0])
+                self.assertSequenceAlmostEqual(cmds.getAttr(name + "." + attribute)[0], cmds.getAttr(reference.getName(full=True) + "." + attribute)[0])
         self.assertSequenceAlmostEqual(cmds.xform(name, query=True, matrix=True, worldSpace=True), matrix)
         self.assertSequenceAlmostEqual(cmds.getAttr(name + ".rp")[0], (0, 0, 0))
         self.assertUndoesInOneStep(
@@ -359,7 +361,7 @@ class PivotAndUngroupTest(_Case):
     def test_zero_transform_pivots_locked(self):
         """translate のロックは更新前に拒否し、何も変えない。削除済みは RuntimeError。"""
         node = self.pivoted("node#")
-        name = node.getFullName()
+        name = node.getName(full=True)
         cmds.setAttr(name + ".tx", lock=True)
         self.assertRaisesNoChange(RuntimeError, lambda: cmds.getAttr(name + ".rp")[0], node.zeroTransformPivots)
         cmds.setAttr(name + ".tx", lock=False)
@@ -370,19 +372,19 @@ class PivotAndUngroupTest(_Case):
     def test_ungroup(self):
         """子を親の下へ移して自身を消し、ワールドの位置を保つ。world=True はワールド直下。Undo 1回。"""
         top = self.transform("top#")
-        group = self.transform("group#", top.getFullName())
-        cmds.setAttr(group.getFullName() + ".t", 1, 0, 0)
-        a = self.transform("a#", group.getFullName())
-        b = self.transform("b#", group.getFullName())
-        cmds.setAttr(a.getFullName() + ".t", 0, 2, 0)
-        world_a = cmds.xform(a.getFullName(), query=True, translation=True, worldSpace=True)
-        group_name = group.getFullName()
+        group = self.transform("group#", top.getName(full=True))
+        cmds.setAttr(group.getName(full=True) + ".t", 1, 0, 0)
+        a = self.transform("a#", group.getName(full=True))
+        b = self.transform("b#", group.getName(full=True))
+        cmds.setAttr(a.getName(full=True) + ".t", 0, 2, 0)
+        world_a = cmds.xform(a.getName(full=True), query=True, translation=True, worldSpace=True)
+        group_name = group.getName(full=True)
         self.flushUndo()
         children = group.ungroup()
         self.assertEqual([child.getUuid() for child in children], [a.getUuid(), b.getUuid()])
         self.assertFalse(cmds.objExists(group_name))
         self.assertEqual(children[0].getParent().getUuid(), top.getUuid())
-        self.assertSequenceAlmostEqual(cmds.xform(children[0].getFullName(), query=True, translation=True, worldSpace=True), world_a)
+        self.assertSequenceAlmostEqual(cmds.xform(children[0].getName(full=True), query=True, translation=True, worldSpace=True), world_a)
         self.assertUndoesInOneStep(lambda: self.assertTrue(cmds.objExists(group_name)), lambda: self.assertFalse(cmds.objExists(group_name)))
         group = mlib.getNode(group_name)
         children = group.ungroup(world=True)

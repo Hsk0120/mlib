@@ -30,7 +30,7 @@ class ApiNamingTest(unittest.TestCase):
 
     def test_subclasses_keep_node_connection_queries(self):
         driver = mlib.createNode("transform")
-        cmds.addAttr(driver.getFullName(), longName="driver", attributeType="double")
+        cmds.addAttr(driver.getName(full=True), longName="driver", attributeType="double")
         source = driver.getPlug("driver")
         curve = mlib.createNode("animCurveUU")
         source.connectTo(curve.getPlug("input"))
@@ -40,8 +40,8 @@ class ApiNamingTest(unittest.TestCase):
         source.connectTo(blend.getPlug("input")[0])
         for node in (curve, blend):
             self.assertEqual(
-                [p.getFullName() for p in node.getConnections(source=True, destination=False, type="transform", skipConversionNodes=True)],
-                [source.getFullName()],
+                [p.getName(full=True) for p in node.getConnections(source=True, destination=False, type="transform", skipConversionNodes=True)],
+                [source.getName(full=True)],
             )
             self.assertEqual(node.getConnections(source=True, destination=False, type="mesh", skipConversionNodes=True), [])
         self.assertEqual(curve.getKeyInputs(), [0, 3])
@@ -50,21 +50,21 @@ class ApiNamingTest(unittest.TestCase):
     def test_live_queries_and_stored_properties(self):
         node = mlib.createNode("joint")
         plug = node.getPlug("translateX")
-        self.assertTrue(callable(node.getFullName))
+        self.assertTrue(callable(node.getName))
         self.assertTrue(callable(node.isLocked))
         self.assertTrue(callable(plug.getName))
         self.assertTrue(inspect.isfunction(inspect.getattr_static(type(plug), "getNode")))
-        before = node.getFullName()
+        before = node.getName(full=True)
         node.rename("renamed")
-        self.assertNotEqual(node.getFullName(), before)
-        self.assertTrue(plug.getFullName().startswith(node.getName() + "."))
+        self.assertNotEqual(node.getName(full=True), before)
+        self.assertTrue(plug.getName(full=True).startswith(node.getName() + "."))
         self.assertEqual([joint.getUuid() for joint in mlib.Joints([node])], [node.getUuid()])
 
     def test_public_collection_has_no_deletion_workflow(self):
         for name in ("gather", "apply", "finalize"):
             self.assertFalse(hasattr(mlib.SkinClusters, name))
         joint = mlib.createNode("joint")
-        child = mlib.createNode("joint", parent=joint.getFullName())
+        child = mlib.createNode("joint", parent=joint.getName(full=True))
         self.assertEqual(child.getParent(), joint)
         self.assertEqual(joint.getChildren(type="joint"), [child])
 

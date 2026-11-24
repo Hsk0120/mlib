@@ -73,6 +73,7 @@ MERGED_PLUG = (
     (("setMin", "setMax", "setSoftMin", "setSoftMax", "setSoftRange"), "setRange"),
     (("isSource", "isDestination", "isConnectedTo"), "isConnected"),
     (("setKeyable", "setChannelBox", "show", "hide"), "setFlags"),
+    (("getFullName",), "getName"),
     (("isKeyable", "isChannelBox", "isHidden"), "getFlags"),
     (("disconnectInput",), "disconnectAll"),
     (("getConnectedIndices",), "getIndices"),
@@ -141,6 +142,7 @@ MERGED_PLURAL = (
     (Nodes, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "shape", "fast", "check")),
     (Nodes, ("setOverrideColors", "setOutlinerColors"), "setColors", ("outliner", "shape", "fast", "check")),
     (Nodes, ("getFullNames",), "getNames", ("full",)),
+    (Node, ("getFullName",), "getName", ("full", "node", "removeNamespace")),
 )
 
 #: 単数クラスと対応する複数形クラス。
@@ -148,7 +150,7 @@ PLURALS = {Node: Nodes, Joint: Joints}
 
 #: 統合後に定義されている名前。単数の def を確かめる。
 REQUIRED = {
-    Node: ("mfn", "hasFn", "setLocked", "getType", "isType", "resetAttrs", "getPlugs", "getConnections", "isAncestorOf", "getName", "getFullName", "sameNode"),
+    Node: ("mfn", "hasFn", "setLocked", "getType", "isType", "resetAttrs", "getPlugs", "getConnections", "isAncestorOf", "getName", "sameNode"),
     DagNode: (
         "mfn",
         "getRoot",
@@ -254,7 +256,7 @@ class RemovedNamesTest(unittest.TestCase):
                 with self.subTest(cls=owner.__name__, name=name):
                     self.assertFalse(hasattr(owner, name), f"{owner.__name__}.{name} remains")
         # 複数形は、単数のまとめた名前を明示メソッドとして持つか、各要素へ転送する。無くした名前は転送もしない。
-        for name in ("show", "hide", "getFullNames", "setOverrideColors", "setOutlinerColors"):
+        for name in ("show", "hide", "getFullName", "getFullNames", "setOverrideColors", "setOutlinerColors"):
             for plural in (Nodes, Joints):
                 with self.subTest(cls=plural.__name__, name=name):
                     self.assertFalse(hasattr(plural, name), f"{plural.__name__}.{name} remains")

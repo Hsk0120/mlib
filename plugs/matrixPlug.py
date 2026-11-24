@@ -80,4 +80,4 @@ class MatrixPlug(Plug):
         if fast:
             set_plug(self._mplug, matrix, _writable_checked=True)
         else:
-            set_attr(self.getFullName(), *tuple(matrix), type="matrix", fast=False)
+            set_attr(self._full_name(), *tuple(matrix), type="matrix", fast=False)

@@ -88,7 +88,7 @@ class AnimationSnapshot(Snapshot):
         curves, used_layers = [], []
         seen = set()
         for node in targets:
-            full = node.getFullName()
+            full = node._full_name()
             if full in seen:
                 continue
             seen.add(full)

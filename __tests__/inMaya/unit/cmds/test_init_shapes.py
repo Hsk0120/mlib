@@ -73,7 +73,7 @@ class CreateShapeFunctionsTest(_SpecCase):
                 self.assertEqual(cmds.ls(selection=True), [])
         cmds.currentUnit(linear="cm")
         line = mlib.getNode(self.name("shape0")).getShape()
-        self.assertAlmostEqual(cmds.xform(line.getFullName() + ".cv[1]", query=True, translation=True, objectSpace=True)[0], 100.0)
+        self.assertAlmostEqual(cmds.xform(line.getName(full=True) + ".cv[1]", query=True, translation=True, objectSpace=True)[0], 100.0)
         self.assertEqual(line.getParent().getParent(), group)
         box = cmds.exactWorldBoundingBox(self.name("shape3"))
         self.assertAlmostEqual(box[3] - box[0], 200.0)

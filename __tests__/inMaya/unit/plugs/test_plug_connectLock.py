@@ -37,7 +37,7 @@ class ConnectionLockTest(unittest.TestCase):
             self.assertEqual(destination.getConnections(input=True), output)
             self.assertTrue(destination.isLocked())
         finally:
-            cmds.delete([node.getFullName() for node in nodes if node.isValid()])
+            cmds.delete([node.getName(full=True) for node in nodes if node.isValid()])
 
 
 class ConnectionLockRefactoringTest(unittest.TestCase):

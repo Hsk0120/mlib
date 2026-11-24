@@ -113,7 +113,7 @@ class SelectNamesCallEachTest(_Case):
         cmds.undo()
         self.assertEqual(cmds.ls(selection=True, long=True), cmds.ls(self.a, long=True))
         node = mlib.createNode("transform", name=self.ns + ":gone")
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaisesRegex(RuntimeError, "のため、選択はできません"):
             node.select()
         with self.assertRaises(TypeError):

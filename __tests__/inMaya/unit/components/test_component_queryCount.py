@@ -175,7 +175,7 @@ class ComponentRefactoringTest(unittest.TestCase):
         cmds.polyUVSet(self.transform, currentUVSet=True, uvSet="alternate")
         values = [(10.0, 20.0), (30.0, 40.0)]
         for item, (u, v) in zip(items, values):
-            cmds.polyEditUV(item.getFullName(), relative=False, uValue=u, vValue=v, uvSetName="alternate")
+            cmds.polyEditUV(item.getName(full=True), relative=False, uValue=u, vValue=v, uvSetName="alternate")
         self.assertEqual(items.getPosition(), values)
         cmds.polyUVSet(self.transform, currentUVSet=True, uvSet="map1")
         self.assertEqual(items.getPosition(), before)
@@ -241,7 +241,7 @@ class ComponentRefactoringTest(unittest.TestCase):
             self.assertEqual(creates, [])
             self.assertEqual(vertices.indices, expected)
             self.assertIs(vertices.shape, shape)
-            self.assertEqual(vertices.shape.getFullName(), shape.getFullName())
+            self.assertEqual(vertices.shape.getName(full=True), shape.getName(full=True))
 
     def test_empty_topology_collections_keep_shape_without_function_set_queries(self):
         """空の頂点集約でもShapeを保持し、不要なFunction Setは生成しない。"""

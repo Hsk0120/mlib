@@ -13,7 +13,7 @@ import mlib
 
 def _uv_source(texture):
     """テクスチャの uvCoord の入力元ノードの名前を返す。入力が無ければ None。"""
-    return cmds.listConnections(texture.getFullName() + ".uvCoord", source=True, destination=False)
+    return cmds.listConnections(texture.getName(full=True) + ".uvCoord", source=True, destination=False)
 
 
 def _dag(name):
@@ -70,21 +70,21 @@ class TextureNodesTest(_GeometryCase):
             "vertexCameraOne",
         )
         pairs = [(n, n) for n in names] + [("outUV", "uvCoord"), ("outUvFilterSize", "uvFilterSize")]
-        expected = [(o, d) for o, d in pairs if cmds.attributeQuery(d, node=texture.getFullName(), exists=True)]
+        expected = [(o, d) for o, d in pairs if cmds.attributeQuery(d, node=texture.getName(full=True), exists=True)]
         for _origin, destination in expected:
             with self.subTest(attr=destination):
-                source = cmds.listConnections(f"{texture.getFullName()}.{destination}", source=True, destination=False)
+                source = cmds.listConnections(f"{texture.getName(full=True)}.{destination}", source=True, destination=False)
                 self.assertEqual(source, [place.getName()])
-        connections = cmds.listConnections(place.getFullName(), source=False, destination=True, connections=True)
+        connections = cmds.listConnections(place.getName(full=True), source=False, destination=True, connections=True)
         self.assertEqual(len(connections) // 2, len(expected))
         # 接続済みの再実行は何も変えず、Undoの記録も残さない。
         undo_name = cmds.undoInfo(query=True, undoName=True)
         place.connectTexture(texture)
-        self.assertEqual(len(cmds.listConnections(place.getFullName(), source=False, destination=True, connections=True)) // 2, len(expected))
+        self.assertEqual(len(cmds.listConnections(place.getName(full=True), source=False, destination=True, connections=True)) // 2, len(expected))
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         cmds.undo()
         self.assertIsNone(_uv_source(texture))
-        self.assertIsNone(cmds.listConnections(place.getFullName(), source=False, destination=True))
+        self.assertIsNone(cmds.listConnections(place.getName(full=True), source=False, destination=True))
 
     def test_place2d_force_and_errors(self):
         """別の配置ノードの接続はforce/fでだけ置き換える。Texture2d以外はTypeError。"""
@@ -98,7 +98,7 @@ class TextureNodesTest(_GeometryCase):
         self.assertEqual(_uv_source(texture), [first.getName()])
         second.connectTexture(texture, force=True)
         self.assertEqual(_uv_source(texture), [second.getName()])
-        self.assertIsNone(cmds.listConnections(first.getFullName(), source=False, destination=True))
+        self.assertIsNone(cmds.listConnections(first.getName(full=True), source=False, destination=True))
         for bad in (mlib.createNode("composeMatrix"), cmds.createNode("transform")):
             with self.assertRaisesRegex(TypeError, "textureはTexture2dで指定してください"):
                 second.connectTexture(bad)

@@ -20,7 +20,7 @@ class CV(PointComponent):
     shape_type: str
     component_type: str
     count_attribute: str
-    def getFullName(self) -> str:
+    def _full_name(self) -> str:
         """cmdsへ渡すCVの名前を返す。
 
         周期カーブの末尾で重なっているCVは、先頭側の同じCVの番号に直す。
@@ -73,8 +73,8 @@ class CVs(PointComponents):
             list[int]: 表示用の番号。持っている順に並び、重なりは除く。
         """
         ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.components.cv.CV.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getName(self, *, full: bool = ...) -> list[str]:
+        """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:
         """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

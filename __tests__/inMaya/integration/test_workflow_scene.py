@@ -31,12 +31,12 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
 
     def make(self, kind="transform", parent=None):
         """Mayaコマンドで試験用ノードを作り、mlibの参照を取得する。"""
-        flags = {"parent": parent.getFullName()} if parent is not None else {}
+        flags = {"parent": parent.getName(full=True)} if parent is not None else {}
         return mlib.getNode(cmds.createNode(kind, name=self.namespace + ":node#", skipSelect=True, **flags))
 
     def assertConnected(self, source, destination):
         """mlibの接続照会と独立したcmdsで接続の有無を判定する。"""
-        self.assertTrue(cmds.isConnected(source.getFullName(), destination.getFullName()))
+        self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
 
     def test_utility_graph_delete_undo_redo_restores_edges_and_evaluation(self):
         """中間ノードを削除し、Undoで上下流の接続とDG評価を回復する。"""
@@ -47,7 +47,7 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         utility.getPlug("input2X").set(2)
         input_plug.connect(source)
         destination.connect(output)
-        self.assertEqual(cmds.getAttr(destination.getFullName()), 6)
+        self.assertEqual(cmds.getAttr(destination.getName(full=True)), 6)
         cmds.flushUndo()
         utility.delete()
         self.assertFalse(utility.isValid())
@@ -57,17 +57,17 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         self.assertTrue(utility.isValid() and input_plug.isValid() and output.isValid())
         self.assertConnected(source, input_plug)
         self.assertConnected(output, destination)
-        self.assertEqual(cmds.getAttr(destination.getFullName()), 6)
+        self.assertEqual(cmds.getAttr(destination.getName(full=True)), 6)
         cmds.redo()
         self.assertFalse(utility.isValid())
         cmds.undo()
         source.set(5)
-        self.assertEqual(cmds.getAttr(destination.getFullName()), 10)
+        self.assertEqual(cmds.getAttr(destination.getName(full=True)), 10)
 
     def test_attribute_creation_connection_transform_and_delete_share_one_undo(self):
         """アトリビュート追加・接続・TRS更新・削除を一つの操作として戻す。"""
         driver, driven, temporary = self.make(), self.make(), self.make()
-        temporary_name = temporary.getFullName()
+        temporary_name = temporary.getName(full=True)
         cmds.flushUndo()
         with undoChunk("basicSceneWorkflow"):
             amount = driver.addAttr("amount", type="double", defaultValue=2)
@@ -75,18 +75,18 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
             driven.getPlug("tx").connect(amount)
             driven.setRotate((10, 20, 30), unit="deg")
             temporary.delete()
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".tx"), 8)
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".tx"), 8)
         self.assertFalse(temporary.isValid())
         cmds.undo()
-        self.assertFalse(cmds.attributeQuery("amount", node=driver.getFullName(), exists=True))
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".t"), [(0, 0, 0)])
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".r"), [(0, 0, 0)])
+        self.assertFalse(cmds.attributeQuery("amount", node=driver.getName(full=True), exists=True))
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".t"), [(0, 0, 0)])
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".r"), [(0, 0, 0)])
         self.assertTrue(cmds.objExists(temporary_name))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         cmds.redo()
         self.assertTrue(amount.isValid())
         self.assertConnected(amount, driven.getPlug("tx"))
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".tx"), 8)
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".tx"), 8)
         self.assertFalse(temporary.isValid())
 
     def test_transaction_exception_restores_attributes_connections_and_transform(self):
@@ -102,9 +102,9 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
                 driven.setTranslation((0, 7, 8), at=1, safe=True)
                 temporary.delete()
                 raise ValueError("workflow failure")
-        self.assertFalse(cmds.attributeQuery("amount", node=driver.getFullName(), exists=True))
+        self.assertFalse(cmds.attributeQuery("amount", node=driver.getName(full=True), exists=True))
         self.assertIsNone(driven.getPlug("tx").getConnections(input=True, skipConversionNodes=True))
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".t"), [(0, 0, 0)])
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".t"), [(0, 0, 0)])
         self.assertTrue(temporary.isValid())
         self.assertEqual(driver.getPlug("ty").get(), 11)
         cmds.undo()
@@ -113,7 +113,7 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
     def test_plain_chunk_exception_keeps_partial_work_until_explicit_undo(self):
         """通常のチャンクは例外で自動巻戻しせず、先行変更を一度のUndoで戻す。"""
         driver, driven = self.make(), self.make()
-        cmds.setAttr(driven.getFullName() + ".ty", lock=True)
+        cmds.setAttr(driven.getName(full=True) + ".ty", lock=True)
         cmds.flushUndo()
         with self.assertRaises(RuntimeError):
             with undoChunk("basicScenePartial"):
@@ -121,12 +121,12 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
                 amount.set(4)
                 driven.getPlug("tx").connect(amount)
                 driven.getPlug("ty").set(5)
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".tx"), 4)
-        self.assertTrue(cmds.getAttr(driven.getFullName() + ".ty", lock=True))
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".tx"), 4)
+        self.assertTrue(cmds.getAttr(driven.getName(full=True) + ".ty", lock=True))
         cmds.undo()
-        self.assertFalse(cmds.attributeQuery("amount", node=driver.getFullName(), exists=True))
+        self.assertFalse(cmds.attributeQuery("amount", node=driver.getName(full=True), exists=True))
         self.assertIsNone(driven.getPlug("tx").getConnections(input=True, skipConversionNodes=True))
-        self.assertEqual(cmds.getAttr(driven.getFullName() + ".tx"), 0)
+        self.assertEqual(cmds.getAttr(driven.getName(full=True) + ".tx"), 0)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_delete_connected_dynamic_attribute_and_undo_restores_reference(self):
@@ -143,7 +143,7 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         cmds.undo()
         self.assertTrue(destination.isValid())
         self.assertConnected(source, destination)
-        self.assertEqual(cmds.getAttr(destination.getFullName()), 7)
+        self.assertEqual(cmds.getAttr(destination.getName(full=True)), 7)
         cmds.redo()
         self.assertFalse(destination.isValid())
 
@@ -178,20 +178,20 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 parent, driver, child = self.make(), self.make(), self.make()
-                cmds.setAttr(parent.getFullName() + ".t", 10, 20, 30)
+                cmds.setAttr(parent.getName(full=True) + ".t", 10, 20, 30)
                 driver.getPlug("ty").set(12)
                 child.getPlug("ty").connect(driver.getPlug("ty"))
                 cmds.flushUndo()
                 child.setParent(parent, relative=True, fast=fast)
                 child.setTranslation((4, 5, 6), at=1, safe=True, fast=fast)
-                self.assertEqual(cmds.getAttr(child.getFullName() + ".t"), [(4, 12, 6)])
-                self.assertEqual(cmds.xform(child.getFullName(), query=True, translation=True, worldSpace=True), [14, 32, 36])
+                self.assertEqual(cmds.getAttr(child.getName(full=True) + ".t"), [(4, 12, 6)])
+                self.assertEqual(cmds.xform(child.getName(full=True), query=True, translation=True, worldSpace=True), [14, 32, 36])
                 self.assertConnected(driver.getPlug("ty"), child.getPlug("ty"))
                 if fast:
                     self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
                 else:
                     cmds.undo()
-                    self.assertEqual(cmds.getAttr(child.getFullName() + ".t"), [(0, 12, 0)])
+                    self.assertEqual(cmds.getAttr(child.getName(full=True) + ".t"), [(0, 12, 0)])
                     self.assertEqual(child.getParent().mnode(), parent.mnode())
                     cmds.undo()
                     self.assertIsNone(child.getParent())
@@ -224,15 +224,15 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
         source, destination = driver.getPlug("tx"), driven.getPlug("tz")
         source.set(9)
         destination.connect(source)
-        cmds.rename(driven.getFullName(), self.namespace + ":renamed")
+        cmds.rename(driven.getName(full=True), self.namespace + ":renamed")
         driven.setParent(parent, relative=True)
-        name = driven.getFullName()
+        name = driven.getName(full=True)
         cmds.flushUndo()
         driven.delete()
         for _ in range(3):
             self.assertFalse(driven.isValid() or destination.isValid())
             cmds.undo()
-            self.assertEqual(driven.getFullName(), name)
+            self.assertEqual(driven.getName(full=True), name)
             self.assertConnected(source, destination)
             self.assertEqual(destination.get(), 9)
             cmds.redo()
@@ -248,7 +248,7 @@ class BasicSceneWorkflowsTest(unittest.TestCase):
             with self.subTest(unit=unit):
                 cmds.currentUnit(linear=unit)
                 self.assertEqual(child.getPlug("tx").get(), 100)
-                self.assertAlmostEqual(cmds.xform(child.getFullName(), query=True, worldSpace=True, translation=True)[0], expected_ui)
+                self.assertAlmostEqual(cmds.xform(child.getName(full=True), query=True, worldSpace=True, translation=True)[0], expected_ui)
                 self.assertAlmostEqual(child.getTranslation(worldSpace=True, at=4).x, 300)
                 self.assertConnected(driver.getPlug("tx"), child.getPlug("tx"))
 

@@ -22,7 +22,7 @@ class SurfaceClearUVDataTest(NamespaceCase):
     def geometry(self, shape):
         fn = shape.mfn()
         return (
-            cmds.ls(shape.getFullName(), uuid=True),
+            cmds.ls(shape.getName(full=True), uuid=True),
             [tuple(p) for p in fn.cvPositions()],
             shape.getKnots(),
             fn.formInU,
@@ -35,9 +35,9 @@ class SurfaceClearUVDataTest(NamespaceCase):
         for sphere in (False, True):
             with self.subTest(sphere=sphere):
                 shape = self.make_surface(sphere)
-                cmds.move(2, 3, 4, shape.getFullName() + ".cv[0][0]", absolute=True, objectSpace=True)
+                cmds.move(2, 3, 4, shape.getName(full=True) + ".cv[0][0]", absolute=True, objectSpace=True)
                 sink = cmds.createNode("pointOnSurfaceInfo", name=self.name("sink"))
-                cmds.connectAttr(shape.getFullName() + ".worldSpace[0]", sink + ".inputSurface")
+                cmds.connectAttr(shape.getName(full=True) + ".worldSpace[0]", sink + ".inputSurface")
                 cmds.setAttr(sink + ".parameterU", 0.3)
                 cmds.setAttr(sink + ".parameterV", 0.4)
                 before = self.geometry(shape)
@@ -49,7 +49,7 @@ class SurfaceClearUVDataTest(NamespaceCase):
                 self.assertEqual(self.geometry(shape), before)
                 self.assertEqual(cmds.getAttr(sink + ".position"), position)
                 self.assertEqual(cmds.getAttr(sink + ".normal"), normal)
-                self.assertTrue(cmds.isConnected(shape.getFullName() + ".worldSpace[0]", sink + ".inputSurface"))
+                self.assertTrue(cmds.isConnected(shape.getName(full=True) + ".worldSpace[0]", sink + ".inputSurface"))
                 with self.assertRaises(RuntimeError):
                     shape.getUVData()
                 cmds.undo()
@@ -74,28 +74,28 @@ class SurfaceClearUVDataTest(NamespaceCase):
         before = (self.geometry(shape), shape.getUVData())
         for attr in ("create", "controlPoints[0].xValue", "uvSet[0].uvSetPoints[0].uvSetPointsU"):
             with self.subTest(attr=attr):
-                cmds.setAttr(shape.getFullName() + "." + attr, lock=True)
+                cmds.setAttr(shape.getName(full=True) + "." + attr, lock=True)
                 with self.assertRaises(RuntimeError):
                     shape.clearUVData()
-                cmds.setAttr(shape.getFullName() + "." + attr, lock=False)
+                cmds.setAttr(shape.getName(full=True) + "." + attr, lock=False)
                 self.assertEqual((self.geometry(shape), shape.getUVData()), before)
         driver = cmds.createNode("addDoubleLinear", name=self.name("driver"))
-        cmds.connectAttr(driver + ".output", shape.getFullName() + ".controlPoints[0].xValue")
+        cmds.connectAttr(driver + ".output", shape.getName(full=True) + ".controlPoints[0].xValue")
         with self.assertRaises(RuntimeError):
             shape.clearUVData()
         self.assertEqual(shape.getUVData(), before[1])
 
     def test_instance_tags_multiple_sets_and_history_rejected(self):
         shape = self.make_surface()
-        cmds.instance(shape.getFullName(), name=self.name("instance"))
+        cmds.instance(shape.getName(full=True), name=self.name("instance"))
         with self.assertRaises(NotImplementedError):
             shape.clearUVData()
         tagged = self.make_surface()
-        cmds.setAttr(tagged.getFullName() + ".componentTags[0].componentTagName", "keep", type="string")
+        cmds.setAttr(tagged.getName(full=True) + ".componentTags[0].componentTagName", "keep", type="string")
         with self.assertRaises(NotImplementedError):
             tagged.clearUVData()
         multiple = self.make_surface()
-        cmds.setAttr(multiple.getFullName() + ".uvSet[1].uvSetName", "second", type="string")
+        cmds.setAttr(multiple.getName(full=True) + ".uvSet[1].uvSetName", "second", type="string")
         with self.assertRaises(NotImplementedError):
             multiple.clearUVData()
         history = mlib.getNode(cmds.nurbsPlane(name=self.name("history"), ch=True)[0]).getShape()
@@ -104,8 +104,8 @@ class SurfaceClearUVDataTest(NamespaceCase):
 
     def test_trim_rejected_without_losing_boundary(self):
         shape = self.make_surface()
-        boundary = cmds.curveOnSurface(shape.getFullName(), degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
-        cmds.trim(shape.getFullName(), boundary, ch=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
+        boundary = cmds.curveOnSurface(shape.getName(full=True), degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
+        cmds.trim(shape.getName(full=True), boundary, ch=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
         before = shape.getTrimBoundaryInfo()
         self.assertTrue(shape.mfn().isTrimmedSurface)
         with self.assertRaises(NotImplementedError):
@@ -118,12 +118,12 @@ class SurfaceClearUVDataTest(NamespaceCase):
                 shape = self.make_surface()
                 uv_data = shape.getUVData()
                 path = str(Path(directory) / ("surface" + suffix))
-                cmds.select(shape.getParent().getFullName(), replace=True)
+                cmds.select(shape.getParent().getName(full=True), replace=True)
                 cmds.file(path, force=True, exportSelected=True, type=file_type)
                 namespace = self.name("reference")
                 nodes = cmds.file(path, reference=True, namespace=namespace, returnNewNodes=True)
                 referenced = mlib.getNode(next(node for node in nodes if cmds.nodeType(node) == "nurbsSurface"))
-                reference_node = cmds.referenceQuery(referenced.getFullName(), referenceNode=True)
+                reference_node = cmds.referenceQuery(referenced.getName(full=True), referenceNode=True)
                 try:
                     with self.assertRaises(NotImplementedError):
                         referenced.clearUVData()
@@ -131,11 +131,11 @@ class SurfaceClearUVDataTest(NamespaceCase):
                 finally:
                     cmds.file(removeReference=True, referenceNode=reference_node)
                 shape.clearUVData()
-                cmds.select(shape.getParent().getFullName(), replace=True)
+                cmds.select(shape.getParent().getName(full=True), replace=True)
                 cmds.file(path, force=True, exportSelected=True, type=file_type)
                 nodes = cmds.file(path, reference=True, namespace=namespace, returnNewNodes=True)
                 referenced = mlib.getNode(next(node for node in nodes if cmds.nodeType(node) == "nurbsSurface"))
-                reference_node = cmds.referenceQuery(referenced.getFullName(), referenceNode=True)
+                reference_node = cmds.referenceQuery(referenced.getName(full=True), referenceNode=True)
                 try:
                     with self.assertRaises(RuntimeError):
                         referenced.getUVData()

@@ -83,9 +83,9 @@ class ResultTypeTest(_CreateCase):
                 with self.subTest(kind=kind, fast=fast):
                     node = mlib.createNode(kind, name=self.name(kind + "#"), fast=fast, skipSelect=True)
                     self.assertIs(type(node), wrapper)
-                    self.assertEqual(node.getType(), cmds.nodeType(node.getFullName()))
+                    self.assertEqual(node.getType(), cmds.nodeType(node.getName(full=True)))
                     self.assertEqual(node.getType(), kind)
-                    self.assertEqual(Node(node.getFullName()), node)
+                    self.assertEqual(Node(node.getName(full=True)), node)
 
     def test_unregistered_types_follow_maya_inheritance(self):
         """未登録型(airField・network)も unknown にせず、isinstance が Maya の継承に沿う。"""
@@ -93,12 +93,12 @@ class ResultTypeTest(_CreateCase):
             with self.subTest(fast=fast):
                 field = mlib.createNode("airField", name=self.name("field#"), fast=fast, skipSelect=True)
                 self.assertEqual(field.getType(), "airField")
-                self.assertEqual(field.getType(), cmds.nodeType(field.getFullName()))
+                self.assertEqual(field.getType(), cmds.nodeType(field.getName(full=True)))
                 self.assertIsInstance(field, Transform)
                 self.assertIsInstance(field, DagNode)
                 self.assertNotIsInstance(field, Joint)
                 self.assertIs(type(field), Node._registry.wrapper_class("airField"))
-                self.assertEqual(field.getType(inherited=True), cmds.nodeType(field.getFullName(), inherited=True))
+                self.assertEqual(field.getType(inherited=True), cmds.nodeType(field.getName(full=True), inherited=True))
                 network = mlib.createNode("network", name=self.name("net#"), fast=fast, skipSelect=True)
                 self.assertEqual(network.getType(), "network")
                 self.assertIsInstance(network, Node)
@@ -112,13 +112,13 @@ class ResultTypeTest(_CreateCase):
                 before = set(cmds.ls(uuid=True))
                 mesh = mlib.createNode("mesh", name=self.name("meshShape#"), fast=fast)
                 self.assertIs(type(mesh), Mesh)
-                self.assertEqual(cmds.nodeType(mesh.getFullName()), "mesh")
+                self.assertEqual(cmds.nodeType(mesh.getName(full=True)), "mesh")
                 parent = mesh.getParent()
                 self.assertIs(type(parent), Transform)
-                self.assertEqual(cmds.listRelatives(mesh.getFullName(), parent=True, fullPath=True), [parent.getFullName()])
+                self.assertEqual(cmds.listRelatives(mesh.getName(full=True), parent=True, fullPath=True), [parent.getName(full=True)])
                 # 自動親は現在の名前空間(ルート)に作られるため、名前空間外の分も含めて 2 つ増える。
                 self.assertEqual(len(set(cmds.ls(uuid=True)) - before), 2)
-                cmds.delete(parent.getFullName())
+                cmds.delete(parent.getName(full=True))
 
     def test_version_compatible_type_names_are_created(self):
         """cmds.createNode が受け付ける版の互換名(2027 の addDoubleLinear→addDL 等)は作成できる。"""
@@ -144,7 +144,7 @@ class FlagTest(_CreateCase):
                 for child in (long_child, short_child):
                     self.assertIs(type(child), Joint)
                     self.assertEqual(child.getParent(), parent)
-                    self.assertEqual(cmds.listRelatives(child.getFullName(), parent=True, fullPath=True), [parent.getFullName()])
+                    self.assertEqual(cmds.listRelatives(child.getName(full=True), parent=True, fullPath=True), [parent.getName(full=True)])
 
     def test_conflicting_flags_and_invalid_type_are_rejected_before_creation(self):
         """長短名の同時指定・fast の非 bool・cmds に無い query/edit は TypeError、type の不正は ValueError。"""
@@ -177,7 +177,7 @@ class FlagTest(_CreateCase):
         parent = Node(self.make("transform", "owner"))
         inputs = (
             ("Node", parent),
-            ("str", parent.getFullName()),
+            ("str", parent.getName(full=True)),
             ("Plug", parent.getPlug("translateX")),
             ("MDagPath", parent.mpath()),
             ("MObject", parent.mnode()),
@@ -188,7 +188,7 @@ class FlagTest(_CreateCase):
                 with self.subTest(parent=label, fast=fast):
                     child = mlib.createNode("transform", name=self.name("child#"), parent=value, fast=fast, skipSelect=True)
                     self.assertEqual(child.getParent(), parent)
-                    self.assertEqual(cmds.listRelatives(child.getFullName(), parent=True, fullPath=True), [parent.getFullName()])
+                    self.assertEqual(cmds.listRelatives(child.getName(full=True), parent=True, fullPath=True), [parent.getName(full=True)])
         # Component は所有シェイプへ解決する。shape は transform の親になれないため fast は Maya が拒否する。
         mesh_transform = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
         mesh = Node(mesh_transform).getShape()
@@ -227,9 +227,9 @@ class FlagTest(_CreateCase):
                     with self.subTest(kind=kind, skipSelect=skip, fast=fast):
                         cmds.select(seed, replace=True)
                         created = mlib.createNode(kind, name=self.name("wrapped#"), skipSelect=skip, fast=fast)
-                        self.assertEqual(self.selection_roles(created.getFullName(), seed), expected)
+                        self.assertEqual(self.selection_roles(created.getName(full=True), seed), expected)
                         if kind == "mesh":
-                            cmds.delete(created.getParent().getFullName())
+                            cmds.delete(created.getParent().getName(full=True))
                 if kind == "mesh":
                     cmds.delete(cmds.listRelatives(native, parent=True, fullPath=True))
 
@@ -364,8 +364,8 @@ class UndoTest(_CreateCase):
             with self.subTest(kind=kind):
                 cmds.flushUndo()
                 created = mlib.createNode(kind, name=self.name("undo#"))
-                name = created.getFullName()
-                parent_name = created.getParent().getFullName() if kind == "mesh" else None
+                name = created.getName(full=True)
+                parent_name = created.getParent().getName(full=True) if kind == "mesh" else None
                 cmds.undo()
                 self.assertFalse(cmds.objExists(name))
                 self.assertFalse(created.isValid())
@@ -407,7 +407,7 @@ class MayaNamingTest(_CreateCase):
                 node = mlib.createNode("transform", name=self.name("repeated"), fast=fast, skipSelect=True)
                 self.assertNotEqual(node.getName(), self.name("repeated"))
                 self.assertTrue(node.getName(node=True).startswith(self.name("repeated")))
-                self.assertNotEqual(cmds.ls(node.getFullName(), uuid=True), cmds.ls(original, uuid=True))
+                self.assertNotEqual(cmds.ls(node.getName(full=True), uuid=True), cmds.ls(original, uuid=True))
         occupied = self.make("network", "differentType")
         node = mlib.createNode("transform", name=self.name("differentType"), skipSelect=True)
         self.assertEqual(cmds.nodeType(occupied), "network")
@@ -417,14 +417,14 @@ class MayaNamingTest(_CreateCase):
     def test_explicit_and_current_namespaces_follow_maya_names(self):
         """明示した名前空間と現在の名前空間は、Maya の名前解決どおりに使われる。"""
         explicit = mlib.createNode("transform", name=":" + self.name("explicit"), skipSelect=True)
-        self.assertEqual(cmds.ls(explicit.getFullName(), long=True), ["|" + self.name("explicit")])
+        self.assertEqual(cmds.ls(explicit.getName(full=True), long=True), ["|" + self.name("explicit")])
         cmds.namespace(set=self.ns)
         try:
             for fast in (False, True):
                 with self.subTest(fast=fast):
                     current = mlib.createNode("joint", name="current#", fast=fast, skipSelect=True)
                     self.assertTrue(current.getName(node=True).startswith(self.ns + ":current"))
-                    self.assertEqual(cmds.ls(current.getFullName(), long=True), ["|" + current.getName(node=True)])
+                    self.assertEqual(cmds.ls(current.getName(full=True), long=True), ["|" + current.getName(node=True)])
         finally:
             cmds.namespace(set=":")
 
@@ -502,7 +502,7 @@ class ContainerBuilderTest(_CreateCase):
                     self.assertTrue(node.getName(node=True).startswith(self.name(default_name)), node.getName(node=True))
                     self.assertEqual(cmds.undoInfo(query=True, undoName=True), chunk)
                     self.assertEqual(node.getMembers(), [member])
-                    full = node.getFullName()
+                    full = node.getName(full=True)
                     cmds.undo()
                     self.assertFalse(cmds.objExists(full))
                     self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
@@ -571,7 +571,7 @@ class CreateNodeSpecTest(_CmdsCase):
         self.assertEqual(parent.getName(), self.name("parent"))
         child = mlib.createNode("joint", n=self.name("child"), p=parent)
         self.assertEqual(type(child).__name__, "Joint")
-        self.assertEqual(cmds.listRelatives(child.getFullName(), parent=True, fullPath=True)[0], parent.getFullName())
+        self.assertEqual(cmds.listRelatives(child.getName(full=True), parent=True, fullPath=True)[0], parent.getName(full=True))
         cmds.select(clear=True)
         mlib.createNode("transform", name=self.name("quiet"), ss=True)
         self.assertEqual(cmds.ls(selection=True), [])

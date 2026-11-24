@@ -31,7 +31,7 @@ class Constraint(Transform):
             Nodes: ターゲットの新しいオブジェクト。登録が無ければ空の集まり。
                 ノードを複製したものではない。
         """
-        names = getattr(cmds, self.getType())(self.getFullName(), query=True, targetList=True) or []
+        names = getattr(cmds, self.getType())(self._full_name(), query=True, targetList=True) or []
         return Nodes._wrap([Node(name) for name in names])
 
     def getWeightPlugs(self, *, aliases=False):
@@ -51,7 +51,7 @@ class Constraint(Transform):
             TypeError: aliasesがboolでない場合。
         """
         _require_bool(aliases, "aliases")
-        names = getattr(cmds, self.getType())(self.getFullName(), query=True, weightAliasList=True) or []
+        names = getattr(cmds, self.getType())(self._full_name(), query=True, weightAliasList=True) or []
         if aliases:
             return names
         return Plugs._from_plugs([self.getPlug(alias) for alias in names])
@@ -72,10 +72,10 @@ class Constraint(Transform):
         plugs = self.getWeightPlugs()
         if not targets:
             return [plug.get() for plug in plugs]
-        available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), plugs)}
+        available = {node._full_name(): plug for node, plug in zip(self.getTargets(), plugs)}
         result = []
         for target in Nodes._resolve_inputs(targets):
-            requested = Node._resolve_input(target).getFullName()
+            requested = Node._resolve_input(target)._full_name()
             if requested not in available:
                 raise ValueError(f"このコンストレイントにターゲットが見つかりません: {requested}")
             result.append(available[requested].get())
@@ -114,8 +114,8 @@ class Constraint(Transform):
         with _edit_context("mlibConstraintSetWeight", fast):
             weight_plugs = self.getWeightPlugs()
             if targets:
-                requested = {Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)}
-                available = {node.getFullName(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
+                requested = {Node._resolve_input(target)._full_name() for target in Nodes._resolve_inputs(targets)}
+                available = {node._full_name(): plug for node, plug in zip(self.getTargets(), weight_plugs)}
                 missing = requested - available.keys()
                 if missing:
                     raise ValueError(f"このコンストレイントにターゲットが見つかりません: {sorted(missing)}")
@@ -150,10 +150,10 @@ class Constraint(Transform):
         if not targets:
             raise TypeError("removeTargetにはターゲットを1つ以上指定してください")
         self._require_valid("ターゲットの削除")
-        requested = [Node._resolve_input(target).getFullName() for target in Nodes._resolve_inputs(targets)]
-        registered = {node.getFullName() for node in self.getTargets()}
+        requested = [Node._resolve_input(target)._full_name() for target in Nodes._resolve_inputs(targets)]
+        registered = {node._full_name() for node in self.getTargets()}
         missing = sorted(set(requested) - registered)
         if missing:
             raise ValueError(f"このコンストレイントにターゲットが見つかりません: {missing}")
         with undoChunk("mlibConstraintRemoveTarget"):
-            getattr(cmds, self.getType())(*requested, self.getFullName(), edit=True, remove=True)
+            getattr(cmds, self.getType())(*requested, self._full_name(), edit=True, remove=True)

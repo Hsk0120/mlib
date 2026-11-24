@@ -87,10 +87,10 @@ class NodeApiTest(unittest.TestCase):
         self.created.append(shape_name)
         shape = transform.getShape()
 
-        self.assertEqual(transform.getFullName(), "|" + transform.getName())
+        self.assertEqual(transform.getName(full=True), "|" + transform.getName())
         self.assertEqual(len(transform.getShape(all=True)), 1)
         self.assertEqual(shape.getTransform().getName(), transform.getName())
-        self.assertTrue(shape.getFullName().endswith("|" + shape_name))
+        self.assertTrue(shape.getName(full=True).endswith("|" + shape_name))
 
     def test_ancestor_and_root_queries(self):
         grandparent = self.create_transform("mlibNodeApiRootGP")
@@ -105,9 +105,9 @@ class NodeApiTest(unittest.TestCase):
         self.assertFalse(child.isAncestorOf(grandparent))
         self.assertFalse(grandparent.isAncestorOf(grandparent))
 
-        self.assertEqual(child.getRoot().getFullName(), grandparent.getFullName())
-        self.assertEqual(parent.getRoot().getFullName(), grandparent.getFullName())
-        self.assertEqual(grandparent.getRoot().getFullName(), grandparent.getFullName())
+        self.assertEqual(child.getRoot().getName(full=True), grandparent.getName(full=True))
+        self.assertEqual(parent.getRoot().getName(full=True), grandparent.getName(full=True))
+        self.assertEqual(grandparent.getRoot().getName(full=True), grandparent.getName(full=True))
 
     def test_shape_is_intermediate_object(self):
         mesh_transform_name = cmds.polyCube(name="mlibNodeApiIntermediate", constructionHistory=False)[0]
@@ -115,7 +115,7 @@ class NodeApiTest(unittest.TestCase):
         shape = Node(mesh_transform_name).getShape()
 
         self.assertFalse(shape.isIntermediateObject())
-        cmds.setAttr(shape.getFullName() + ".intermediateObject", True)
+        cmds.setAttr(shape.getName(full=True) + ".intermediateObject", True)
         self.assertTrue(shape.isIntermediateObject())
 
     def assert_channels(self, name, rotate, scale, places=9):
@@ -154,12 +154,12 @@ class DagQueryTest(_Case):
 
     def test_common_ancestor(self):
         root = self.transform("root#")
-        hip = self.transform("hip#", root.getFullName())
-        hand = self.transform("hand#", self.transform("arm#", hip.getFullName()).getFullName())
-        foot = self.transform("foot#", self.transform("leg#", hip.getFullName()).getFullName())
+        hip = self.transform("hip#", root.getName(full=True))
+        hand = self.transform("hand#", self.transform("arm#", hip.getName(full=True)).getName(full=True))
+        foot = self.transform("foot#", self.transform("leg#", hip.getName(full=True)).getName(full=True))
         alone = self.transform("alone#")
         self.assertEqual(hand.getCommonAncestor(foot).getUuid(), hip.getUuid())
-        self.assertEqual(hand.getCommonAncestor(foot.getFullName()).getUuid(), hip.getUuid())
+        self.assertEqual(hand.getCommonAncestor(foot.getName(full=True)).getUuid(), hip.getUuid())
         self.assertIs(hip.getCommonAncestor(hand), hip)
         self.assertEqual(hand.getCommonAncestor(root).getUuid(), root.getUuid())
         self.assertIs(hand.getCommonAncestor(hand), hand)
@@ -167,7 +167,7 @@ class DagQueryTest(_Case):
         network = cmds.createNode("network", name=self.name("net#"))
         with self.assertRaises(TypeError):
             hand.getCommonAncestor(network)
-        cmds.delete(alone.getFullName())
+        cmds.delete(alone.getName(full=True))
         with self.assertRaises(RuntimeError):
             hand.getCommonAncestor(alone)
 
@@ -204,7 +204,7 @@ class DagQueryTest(_Case):
         instances = shape.getInstances()
         self.assertIs(shape.isInstanced(), True)
         self.assertEqual(sorted(node.getInstanceIndex() for node in instances), [0, 1])
-        cmds.delete(single.getFullName())
+        cmds.delete(single.getName(full=True))
         with self.assertRaises(RuntimeError):
             single.isInstanced()
         with self.assertRaises(RuntimeError):
@@ -219,19 +219,19 @@ class MergedDagQueryTest(_Case):
         cube = mlib.getNode(cmds.polyCube(name=self.name("cube#"))[0])
         cmds.select(clear=True)
         shape = cube.getShape()
-        expected = [cmds.ls(name, long=True)[0] for name in cmds.listRelatives(cube.getFullName(), shapes=True, noIntermediate=True, fullPath=True)]
+        expected = [cmds.ls(name, long=True)[0] for name in cmds.listRelatives(cube.getName(full=True), shapes=True, noIntermediate=True, fullPath=True)]
         with self.subTest(kind="Transform"):
             shapes = cube.getShape(all=True)
             self.assertIsInstance(shapes, mlib.Nodes)
-            self.assertEqual([node.getFullName() for node in shapes], expected)
+            self.assertEqual([node.getName(full=True) for node in shapes], expected)
             self.assertEqual(shapes[0], cube.getShape(0))
         with self.subTest(kind="Transform intermediates"):
-            cmds.cluster(cube.getFullName())
+            cmds.cluster(cube.getName(full=True))
             cmds.select(clear=True)
-            every = cmds.listRelatives(cube.getFullName(), shapes=True, fullPath=True)
+            every = cmds.listRelatives(cube.getName(full=True), shapes=True, fullPath=True)
             self.assertGreater(len(every), 1)
-            self.assertEqual([node.getFullName() for node in cube.getShape(intermediates=True, all=True)], every)
-            self.assertEqual([node.getFullName() for node in cube.getShape(all=True)], expected)
+            self.assertEqual([node.getName(full=True) for node in cube.getShape(intermediates=True, all=True)], every)
+            self.assertEqual([node.getName(full=True) for node in cube.getShape(all=True)], expected)
         with self.subTest(kind="Shape"):
             shapes = shape.getShape(all=True)
             self.assertIsInstance(shapes, mlib.Nodes)
@@ -269,17 +269,17 @@ class MergedDagQueryTest(_Case):
     def test_get_parent_instances_matches_cmds(self):
         """getParent(instances=True) は cmds.listRelatives(allParents=True) と同じ親、indirect=True は全インスタンスのパスの親。"""
         top = self.transform("top#")
-        g1 = self.transform("g1#", top.getFullName())
-        g2 = self.transform("g2#", top.getFullName())
-        leaf = self.transform("leaf#", g1.getFullName())
-        cmds.parent(leaf.getFullName(), g2.getFullName(), addObject=True, relative=True)
+        g1 = self.transform("g1#", top.getName(full=True))
+        g2 = self.transform("g2#", top.getName(full=True))
+        leaf = self.transform("leaf#", g1.getName(full=True))
+        cmds.parent(leaf.getName(full=True), g2.getName(full=True), addObject=True, relative=True)
         cmds.select(clear=True)
         parents = leaf.getParent(instances=True)
         self.assertIsInstance(parents, mlib.Nodes)
-        self.assertEqual([node.getFullName() for node in parents], cmds.listRelatives(leaf.getFullName(), allParents=True, fullPath=True))
+        self.assertEqual([node.getName(full=True) for node in parents], cmds.listRelatives(leaf.getName(full=True), allParents=True, fullPath=True))
         self.assertEqual(parents, [g1, g2])
         indirect = leaf.getParent(instances=True, indirect=True)
-        self.assertEqual([node.getFullName() for node in indirect], [g1.getFullName(), g2.getFullName()])
+        self.assertEqual([node.getName(full=True) for node in indirect], [g1.getName(full=True), g2.getName(full=True)])
         # ワールド直下は空の集まり。既定の getParent() は1つ(ワールド直下は None)。
         self.assertEqual(list(top.getParent(instances=True)), [])
         self.assertIsInstance(top.getParent(instances=True), mlib.Nodes)
@@ -290,7 +290,7 @@ class MergedDagQueryTest(_Case):
     def test_get_parent_exclusive_arguments(self):
         """instances=True と step は同時に指定できず、indirect は instances=True のときだけ使える(TypeError)。"""
         parent = self.transform("parent#")
-        node = self.transform("node#", parent.getFullName())
+        node = self.transform("node#", parent.getName(full=True))
         cases = (
             ("step", lambda: node.getParent(2, instances=True)),
             ("step keyword", lambda: node.getParent(step=0, instances=True)),
@@ -308,10 +308,10 @@ class MergedDagQueryTest(_Case):
         group = self.transform("group#")
         shown = cmds.polyCube(name=self.name("shown#"), constructionHistory=False)[0]
         hidden = cmds.polyCube(name=self.name("hidden#"), constructionHistory=False)[0]
-        shown, hidden = cmds.parent(shown, hidden, group.getFullName())
+        shown, hidden = cmds.parent(shown, hidden, group.getName(full=True))
         cmds.setAttr(hidden + ".translate", 5, 2, -3)
         cmds.setAttr(hidden + ".visibility", False)
-        cmds.setAttr(group.getFullName() + ".translate", 1, 0, 0)
+        cmds.setAttr(group.getName(full=True) + ".translate", 1, 0, 0)
         cmds.select(clear=True)
         for world in (False, True):
             for invisible in (False, True):
@@ -324,7 +324,7 @@ class MergedDagQueryTest(_Case):
                     for corner, values in zip(corners, expected):
                         self.assertSequenceAlmostEqual(tuple(corner), values)
                     if invisible and world:
-                        raw = cmds.xform(group.getFullName(), query=True, boundingBoxInvisible=True, worldSpace=True)
+                        raw = cmds.xform(group.getName(full=True), query=True, boundingBoxInvisible=True, worldSpace=True)
                         self.assertSequenceAlmostEqual(tuple(corners[0]), raw[:3])
                         self.assertSequenceAlmostEqual(tuple(corners[7]), raw[3:])
         visible = group.getBoundingBox(ws=True, corners=True)
@@ -342,7 +342,7 @@ class MergedDagQueryTest(_Case):
         curve = mlib.getNode(cmds.circle(name=self.name("circle#"), constructionHistory=False)[0]).getShape()
         cmds.select(clear=True)
         selection = om1.MSelectionList()
-        selection.add(curve.getFullName())
+        selection.add(curve.getName(full=True))
         path = om1.MDagPath()
         selection.getDagPath(0, path)
         fn = om1.MFnDagNode(path)

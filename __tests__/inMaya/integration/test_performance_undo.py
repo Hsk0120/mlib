@@ -143,7 +143,7 @@ class PerformanceContractsTest(unittest.TestCase):
         n = cmds.rename(n, "renamed")
         cmds.parent(n, a)
         self.assert_matrix(node)
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaises(RuntimeError):
             node.getMatrix(worldSpace=True)
         cmds.undo()

@@ -86,7 +86,7 @@ class CompoundPlug(Plug):
             attribute = om2.MFnAttribute(child.attribute())
             if nameOrIndex in (attribute.name, attribute.shortName):
                 return Plug(self._node, child)
-        raise AttributeError(f"{self.getFullName()}に{nameOrIndex!r}という名前の子はありません")
+        raise AttributeError(f"{self._full_name()}に{nameOrIndex!r}という名前の子はありません")
 
     def __iter__(self):
         """直接の子を、アトリビュートの定義順に1つずつ返す。
@@ -259,7 +259,7 @@ class CompoundPlug(Plug):
         if len(values) != len(converters):
             return False
         try:
-            set_attr(self.getFullName(), *[item if convert is None else convert(item) for convert, item in zip(converters, values)], fast=False)
+            set_attr(self._full_name(), *[item if convert is None else convert(item) for convert, item in zip(converters, values)], fast=False)
         except (RuntimeError, TypeError, ValueError):
             return False
         return True

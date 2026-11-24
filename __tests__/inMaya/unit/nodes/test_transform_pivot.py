@@ -156,7 +156,7 @@ class CenterPivotOnComponentsTest(_SpecCase):
             for fast in (False, True):
                 with self.subTest(components=components, fast=fast):
                     node = self.cube()
-                    name = node.getFullName()
+                    name = node.getName(full=True)
                     matrix = cmds.getAttr(name + ".worldMatrix[0]")
                     before = self.pivots(name)
                     expected = self.expected_center(name, components)
@@ -178,7 +178,7 @@ class CenterPivotOnComponentsTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 node = self.cube()
-                name = node.getFullName()
+                name = node.getName(full=True)
                 cmds.select(name + ".vtx[6:7]", replace=True)
                 selection = cmds.ls(selection=True)
                 node.centerPivot(node.getShape().getVertices([2, 3]), fast=fast)
@@ -206,7 +206,7 @@ class CenterPivotOnComponentsTest(_SpecCase):
                     continue
                 with self.subTest(fast=fast, check=check):
                     node = self.cube()
-                    name = node.getFullName()
+                    name = node.getName(full=True)
                     cmds.setAttr(name + ".scalePivotY", lock=True)
                     before = self.pivots(name)
                     with self.assertRaises(RuntimeError):
@@ -216,7 +216,7 @@ class CenterPivotOnComponentsTest(_SpecCase):
     def test_invalid_arguments(self):
         """fast・check は bool だけ。面などの点でないコンポーネントは TypeError、空は ValueError。ピボットは変わらない。"""
         node = self.cube()
-        name = node.getFullName()
+        name = node.getName(full=True)
         before = self.pivots(name)
         cases = (
             (TypeError, lambda: node.centerPivot(name + ".vtx[0]", fast=1)),

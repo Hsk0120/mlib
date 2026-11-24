@@ -34,16 +34,16 @@ class FastEditTest(unittest.TestCase):
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         cmds.undo()
         self.assertEqual(cmds.getAttr(sentinel + ".tx"), 0)
-        self.assertEqual(cmds.getAttr(node.getFullName() + ".tx"), 12)
+        self.assertEqual(cmds.getAttr(node.getName(full=True) + ".tx"), 12)
         node.getPlug("tx").set(24)
         cmds.undo()
         self.assertEqual(node.getPlug("tx").get(), 12)
         with self.assertRaises(TypeError):
             node.getPlug("tx").set(0, fast=1)
-        cmds.setAttr(node.getFullName() + ".tx", lock=True)
+        cmds.setAttr(node.getName(full=True) + ".tx", lock=True)
         with self.assertRaises(RuntimeError):
             node.getPlug("tx").set(0, fast=True)
-        cmds.setAttr(node.getFullName() + ".tx", lock=False)
+        cmds.setAttr(node.getName(full=True) + ".tx", lock=False)
         node.getPlug("tx").set(33)
         cmds.undo()
         self.assertEqual(node.getPlug("tx").get(), 12)
@@ -67,7 +67,7 @@ class FastEditTest(unittest.TestCase):
         joints = [cmds.createNode("joint") for _ in range(3)]
         skin = mlib.getNode(cmds.skinCluster(joints, mesh, toSelectedBones=True)[0])
         for normalize in (0, 1, 2):
-            cmds.setAttr(skin.getFullName() + ".normalizeWeights", normalize)
+            cmds.setAttr(skin.getName(full=True) + ".normalizeWeights", normalize)
             skin.setWeights(joints, [0.2, 0.3, 0.5], broadcast=True)
             expected = list(skin.getWeights(joints))
             skin.setWeights(joints, [1, 0, 0], broadcast=True)
@@ -97,7 +97,7 @@ class FastEditTest(unittest.TestCase):
             for joint in collection:
                 joint.setTranslation((1, 2, 3), fast=True, at=4)
             node.setAttrFlags(["tx"], locked=True, keyable=False, channelBox=True, fast=True)
-        self.assertTrue(cmds.getAttr(node.getFullName() + ".tx", lock=True))
+        self.assertTrue(cmds.getAttr(node.getName(full=True) + ".tx", lock=True))
         for joint in joints:
             self.assertEqual(cmds.getAttr(joint + ".translate")[0], (1, 2, 3))
 
@@ -105,11 +105,11 @@ class FastEditTest(unittest.TestCase):
         mesh = cmds.polyPlane(ch=False, sx=1, sy=1)[0]
         joints = [cmds.createNode("joint") for _ in range(4)]
         skin = mlib.getNode(cmds.skinCluster(joints, mesh, toSelectedBones=True)[0])
-        cmds.skinCluster(skin.getFullName(), edit=True, removeInfluence=joints[1])
+        cmds.skinCluster(skin.getName(full=True), edit=True, removeInfluence=joints[1])
         joints.pop(1)
         for maintain in (False, True):
-            cmds.setAttr(skin.getFullName() + ".maxInfluences", 1)
-            cmds.setAttr(skin.getFullName() + ".maintainMaxInfluences", maintain)
+            cmds.setAttr(skin.getName(full=True) + ".maxInfluences", 1)
+            cmds.setAttr(skin.getName(full=True) + ".maintainMaxInfluences", maintain)
             cmds.setAttr(joints[2] + ".liw", True)
             skin.setWeights(joints, [0.2, 0.3, 0.5], broadcast=True)
             skin.setWeights([joints[2]], [0.4, 0.3, 0.2, 0.1])
@@ -122,24 +122,24 @@ class FastEditTest(unittest.TestCase):
     def test_data_types_and_connections(self):
         node = mlib.getNode(cmds.createNode("network"))
         for name, kind in [("text", "string"), ("numbers", "doubleArray"), ("matrixValue", "matrix")]:
-            cmds.addAttr(node.getFullName(), longName=name, dataType=kind)
-        cmds.addAttr(node.getFullName(), longName="timeValue", attributeType="time")
-        cmds.addAttr(node.getFullName(), longName="choice", attributeType="enum", enumName="a:b:c")
-        cmds.addAttr(node.getFullName(), longName="limited", attributeType="double", minValue=0, maxValue=1)
+            cmds.addAttr(node.getName(full=True), longName=name, dataType=kind)
+        cmds.addAttr(node.getName(full=True), longName="timeValue", attributeType="time")
+        cmds.addAttr(node.getName(full=True), longName="choice", attributeType="enum", enumName="a:b:c")
+        cmds.addAttr(node.getName(full=True), longName="limited", attributeType="double", minValue=0, maxValue=1)
         for value in (-1, 2):
             with self.assertRaises(RuntimeError):
                 node.getPlug("limited").set(value, fast=True)
-        self.assertEqual(cmds.getAttr(node.getFullName() + ".limited"), 0)
+        self.assertEqual(cmds.getAttr(node.getName(full=True) + ".limited"), 0)
         with self.api_only():
             node.getPlug("text").set("hello", fast=True)
             node.getPlug("numbers").set([1.0, 2.0, 3.0], fast=True)
             node.getPlug("matrixValue").set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 3, 4, 1], fast=True)
             node.getPlug("timeValue").set(12, timeUnit="sec", fast=True)
             node.getPlug("choice").set(2, fast=True)
-        self.assertEqual(cmds.getAttr(node.getFullName() + ".text"), "hello")
-        self.assertEqual(list(cmds.getAttr(node.getFullName() + ".numbers")), [1, 2, 3])
+        self.assertEqual(cmds.getAttr(node.getName(full=True) + ".text"), "hello")
+        self.assertEqual(list(cmds.getAttr(node.getName(full=True) + ".numbers")), [1, 2, 3])
         self.assertEqual(node.getPlug("timeValue").mplug().asMTime().asUnits(__import__("maya.api.OpenMaya", fromlist=["MTime"]).MTime.kSeconds), 12)
-        self.assertEqual(cmds.getAttr(node.getFullName() + ".choice"), 2)
+        self.assertEqual(cmds.getAttr(node.getName(full=True) + ".choice"), 2)
         with self.api_only():
             node.getPlug("timeValue").set(36, fast=True)
         self.assertAlmostEqual(node.getPlug("timeValue").mplug().asMTime().asUnits(__import__("maya.api.OpenMaya", fromlist=["MTime"]).MTime.uiUnit()), 36)

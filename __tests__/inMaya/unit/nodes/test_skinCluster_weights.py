@@ -565,14 +565,14 @@ class CopyWeightsToGeometryTest(NamespaceCase):
         self.source = cmds.polyCylinder(name=self.name("source"), height=2, subdivisionsHeight=4)[0]
         cmds.move(0, 1, 0, self.source)
         self.skin = SkinCluster(cmds.skinCluster(self.root, self.tip, self.source, toSelectedBones=True, maximumInfluences=2)[0])
-        cmds.skinPercent(self.skin.getFullName(), self.source + ".vtx[*]", transformValue=[(self.root, 1.0)])
-        cmds.skinPercent(self.skin.getFullName(), [self.source + ".vtx[80:99]", self.source + ".vtx[101]"], transformValue=[(self.tip, 1.0)])
+        cmds.skinPercent(self.skin.getName(full=True), self.source + ".vtx[*]", transformValue=[(self.root, 1.0)])
+        cmds.skinPercent(self.skin.getName(full=True), [self.source + ".vtx[80:99]", self.source + ".vtx[101]"], transformValue=[(self.tip, 1.0)])
         self.target = cmds.polyCylinder(name=self.name("target"), height=2, subdivisionsHeight=4, subdivisionsAxis=10)[0]
         cmds.move(0, 1, 0, self.target)
         cmds.select(clear=True)
 
     def weights(self, skin, index):
-        return cmds.skinPercent(skin.getFullName(), f"{self.target}.vtx[{index}]", query=True, value=True)
+        return cmds.skinPercent(skin.getName(full=True), f"{self.target}.vtx[{index}]", query=True, value=True)
 
     def test_unbound_geometry_is_bound_then_copied(self):
         """未バインドの Transform・Shape は同じ influence でバインドしてから写し、Undo 1 回でバインドごと戻る。"""

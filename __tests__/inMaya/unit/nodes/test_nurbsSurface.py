@@ -87,7 +87,7 @@ class NurbsSurfaceTest(_Case):
     def test_counts_and_range(self):
         """CV 数・形式・パラメーター範囲がアトリビュート・om2 と一致する。"""
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         self.assertEqual(shape.getNumCVs(), (2 + 3, 3 + 3))
         self.assertEqual(shape.getForm(), (om2.MFnNurbsSurface.kOpen, om2.MFnNurbsSurface.kOpen))
         (u0, u1), (v0, v1) = shape.getParamRange()
@@ -97,7 +97,7 @@ class NurbsSurfaceTest(_Case):
     def test_cv_positions_match_cmds(self):
         """getPoints は cv[u][v] の順で、ローカルとワールドが pointPosition と一致する。"""
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         count_u, count_v = shape.getNumCVs()
         local = shape.getPoints()
         world = shape.getPoints(ws=True)
@@ -148,7 +148,7 @@ class NurbsSurfaceTest(_Case):
     def test_getCVs_single_index_and_uv(self):
         """getCVs は通し番号1つで SurfaceCV、[(u, v)] の並びで SurfaceCVs を返し、座標は pointPosition と一致する。"""
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         _count_u, count_v = shape.getNumCVs()
         flat = 1 * count_v + 2
         cv = shape.getCVs(flat)
@@ -246,7 +246,7 @@ class NurbsSurfaceTest(_Case):
     def test_closest_point_and_params_match_cmds(self):
         """最近点・(u, v) の位置・法線が closestPointOnSurface・pointOnSurface と一致する。"""
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         found, u, v = shape.getClosestPoint((1.5, 9.0, 3.5), worldSpace=True)
         node = cmds.createNode("closestPointOnSurface", name=self.name("cpos#"))
         cmds.connectAttr(name + ".worldSpace[0]", node + ".inputSurface")
@@ -310,7 +310,7 @@ class _CaseShapeAdditions(NamespaceCase):
 
     def assertDeletedRaises(self, node, calls):
         """ノードを削除し、各呼出しが RuntimeError になることを確かめる。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in calls:
             with self.subTest(call=call):
                 with self.assertRaises(RuntimeError):
@@ -323,7 +323,7 @@ class NurbsSurfaceFrameTest(_CaseShapeAdditions):
     def test_tangents_match_point_on_surface(self):
         """接線は pointOnSurface の normalizedTangentU/V と一致し、非均等スケールのワールドでも向きが正しい。"""
         shape = self.surface(scale=(3, 1, 0.5))
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         for flag in ({}, {"ws": True}, {"worldSpace": True}):
             with self.subTest(flag=flag):
                 tangent_u, tangent_v = shape.getAtParam(0.3, 0.6, what="tangents", **flag)

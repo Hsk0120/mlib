@@ -43,16 +43,16 @@ class PlugStructureTest(_Case):
     def test_parent_all_and_include_multi(self):
         """getParent(all=True)は近い順のPlugsで、マルチアトリビュートの要素も通ってたどる。all=Falseはすぐ上の親かNone。"""
         node = mlib.getNode(self.make("transform"))
-        cmds.addAttr(node.getFullName(), longName="outer", attributeType="compound", numberOfChildren=1, multi=True)
-        cmds.addAttr(node.getFullName(), longName="inner", attributeType="compound", numberOfChildren=1, multi=True, parent="outer")
-        cmds.addAttr(node.getFullName(), longName="leaf", attributeType="double", multi=True, parent="inner")
+        cmds.addAttr(node.getName(full=True), longName="outer", attributeType="compound", numberOfChildren=1, multi=True)
+        cmds.addAttr(node.getName(full=True), longName="inner", attributeType="compound", numberOfChildren=1, multi=True, parent="outer")
+        cmds.addAttr(node.getName(full=True), longName="leaf", attributeType="double", multi=True, parent="inner")
         name = node.getName()
         leaf = node.getPlug("outer[0].inner[3].leaf[2]")
         parents = leaf.getParent(all=True)
         self.assertIsInstance(parents, mlib.Plugs)
-        self.assertEqual([plug.getFullName() for plug in parents], [name + ".outer[0].inner[3]", name + ".outer[0]"])
+        self.assertEqual([plug.getName(full=True) for plug in parents], [name + ".outer[0].inner[3]", name + ".outer[0]"])
         self.assertEqual(
-            [plug.getFullName() for plug in leaf.getParent(all=True, includeMulti=True)],
+            [plug.getName(full=True) for plug in leaf.getParent(all=True, includeMulti=True)],
             [name + ".outer[0].inner[3].leaf", name + ".outer[0].inner[3]", name + ".outer[0].inner", name + ".outer[0]", name + ".outer"],
         )
         # all=False はコンパウンドアトリビュートの子だけが親を持つ(要素は子ではないのでNone)。
@@ -60,9 +60,9 @@ class PlugStructureTest(_Case):
         self.assertIsNone(leaf.getParent(all=False))
         inner_element = node.getPlug("outer[0].inner[3]")
         self.assertIsNone(inner_element.getParent())
-        self.assertEqual([plug.getFullName() for plug in inner_element.getParent(all=True)], [name + ".outer[0]"])
+        self.assertEqual([plug.getName(full=True) for plug in inner_element.getParent(all=True)], [name + ".outer[0]"])
         leaf_multi = node.getPlug("outer[0].inner[3].leaf")
-        self.assertEqual(leaf_multi.getParent().getFullName(), name + ".outer[0].inner[3]")
+        self.assertEqual(leaf_multi.getParent().getName(full=True), name + ".outer[0].inner[3]")
         self.assertEqual(leaf_multi.getParent(all=True)[0], leaf_multi.getParent())
         # いちばん上のアトリビュートは空のPlugs。
         self.assertEqual(node.translate.getParent(all=True), [])
@@ -89,7 +89,7 @@ class PlugStructureTest(_Case):
     def test_is_valid_elements(self):
         """isValid(elements=True)は、通るマルチアトリビュートの要素が実在することも確かめる。要素は作らない。"""
         node = mlib.getNode(self.make("transform"))
-        name = node.getFullName()
+        name = node.getName(full=True)
         cmds.addAttr(name, longName="outer", attributeType="compound", numberOfChildren=1, multi=True)
         cmds.addAttr(name, longName="values", attributeType="double", multi=True, parent="outer")
         cmds.setAttr(name + ".outer[2].values[5]", 1.0)
@@ -140,23 +140,23 @@ class PlugStructureTest(_Case):
         """接続のある要素(子の接続・出力接続を含む)の番号だけを返す。値だけの要素は含まない。"""
         a = mlib.getNode(self.make("transform"))
         pma = mlib.getNode(self.make("plusMinusAverage", "pma#"))
-        cmds.connectAttr(a.getFullName() + ".tx", pma.getFullName() + ".input1D[3]")
-        cmds.connectAttr(a.getFullName() + ".ty", pma.getFullName() + ".input1D[1]")
-        cmds.setAttr(pma.getFullName() + ".input1D[7]", 2.0)
-        cmds.connectAttr(a.getFullName() + ".tz", pma.getFullName() + ".input3D[5].input3Dy")
+        cmds.connectAttr(a.getName(full=True) + ".tx", pma.getName(full=True) + ".input1D[3]")
+        cmds.connectAttr(a.getName(full=True) + ".ty", pma.getName(full=True) + ".input1D[1]")
+        cmds.setAttr(pma.getName(full=True) + ".input1D[7]", 2.0)
+        cmds.connectAttr(a.getName(full=True) + ".tz", pma.getName(full=True) + ".input3D[5].input3Dy")
         self.assertEqual(pma.getPlug("input1D").getIndices(connected=True), [1, 3])
         self.assertEqual(pma.getPlug("input1D").getIndices(), [1, 3, 7])
         self.assertEqual(pma.getPlug("input3D").getIndices(connected=True), [5])
         self.assertEqual(pma.getPlug("input2D").getIndices(connected=True), [])
         b = mlib.getNode(self.make("transform"))
-        cmds.connectAttr(a.getFullName() + ".worldMatrix[0]", b.getFullName() + ".offsetParentMatrix")
+        cmds.connectAttr(a.getName(full=True) + ".worldMatrix[0]", b.getName(full=True) + ".offsetParentMatrix")
         self.assertEqual(a.getPlug("worldMatrix").getIndices(connected=True), [0])
 
     def test_deleted_plug_raises(self):
         """削除済みのノードの Plug は RuntimeError。"""
         node = mlib.getNode(self.make("transform"))
         plug, multi = node.tx, node.worldMatrix
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         calls = (
             ("getSiblings", plug.getSiblings),
             ("getParent", plug.getParent),
@@ -202,13 +202,13 @@ class InsertInputTest(_Case):
         cmds.connectAttr(a + ".rx", b + ".ty")
         mlib.getPlug(b + ".ty").insertInput(mdl, "input1", "output")
         self.assertEqual(
-            mlib.getPlug(mdl + ".input1").getConnections(input=True, skipConversionNodes=True).getFullName(), mlib.getPlug(a + ".rx").getFullName()
+            mlib.getPlug(mdl + ".input1").getConnections(input=True, skipConversionNodes=True).getName(full=True), mlib.getPlug(a + ".rx").getName(full=True)
         )
-        self.assertEqual(mlib.getPlug(b + ".ty").getConnections(input=True).getFullName(), mlib.getPlug(mdl + ".output").getFullName())
+        self.assertEqual(mlib.getPlug(b + ".ty").getConnections(input=True).getName(full=True), mlib.getPlug(mdl + ".output").getName(full=True))
         c = self.make("transform", "c#")
         mdl2 = self.make("multDoubleLinear", "mdl#")
         mlib.getPlug(c + ".tz").insertInput(mdl2, "input1", "output")
-        self.assertEqual(mlib.getPlug(c + ".tz").getConnections(input=True).getFullName(), mlib.getPlug(mdl2 + ".output").getFullName())
+        self.assertEqual(mlib.getPlug(c + ".tz").getConnections(input=True).getName(full=True), mlib.getPlug(mdl2 + ".output").getName(full=True))
         self.assertIsNone(mlib.getPlug(mdl2 + ".input1").getConnections(input=True))
 
     def test_insert_errors(self):
@@ -261,12 +261,12 @@ class LayeredPlugTest(_Case):
         for layer in (layer1, layer2):
             with self.subTest(layer=layer):
                 expected = cmds.animLayer(layer, query=True, layeredPlug=node + ".tx")
-                self.assertEqual(plug.getLayeredPlug(layer).getFullName(), mlib.getPlug(expected).getFullName())
+                self.assertEqual(plug.getLayeredPlug(layer).getName(full=True), mlib.getPlug(expected).getName(full=True))
         top = plug.getAnimLayers()[0]
-        self.assertEqual(plug.getLayeredPlug().getFullName(), mlib.getPlug(cmds.animLayer(top, query=True, layeredPlug=node + ".tx")).getFullName())
+        self.assertEqual(plug.getLayeredPlug().getName(full=True), mlib.getPlug(cmds.animLayer(top, query=True, layeredPlug=node + ".tx")).getName(full=True))
         base = plug.getLayeredPlug(root)
         curve = plug.getAnimCurve(layer=root)
-        self.assertEqual(base.getConnections(input=True).getNode().getFullName(), curve.getFullName())
+        self.assertEqual(base.getConnections(input=True).getNode().getName(full=True), curve.getName(full=True))
         other = self.make("transform", "b#")
         self.assertIsNone(mlib.getPlug(other + ".tx").getLayeredPlug(layer1))
         for layer, error in ((5, TypeError), (other, TypeError), (self.name("missingLayer"), RuntimeError)):

@@ -28,11 +28,11 @@ class BlendShapeRegenerateTest(NamespaceCase):
         return target
 
     def input_path(self, blend, base=0, item=6000):
-        return f"{blend.getFullName()}.inputTarget[{base}].inputTargetGroup[3].inputTargetItem[{item}].inputGeomTarget"
+        return f"{blend.getName(full=True)}.inputTarget[{base}].inputTargetGroup[3].inputTargetItem[{item}].inputGeomTarget"
 
     def track_created(self, meshes):
         for mesh in meshes:
-            parent = cmds.listRelatives(mesh.getFullName(), parent=True, fullPath=True)[0]
+            parent = cmds.listRelatives(mesh.getName(full=True), parent=True, fullPath=True)[0]
             self.addCleanup(self.delete_if_exists, parent)
 
     def test_generate_keeps_selection_and_edit_mode_and_undo(self):
@@ -49,10 +49,10 @@ class BlendShapeRegenerateTest(NamespaceCase):
         mesh = meshes[0]
         self.assertIsInstance(mesh, mlib.Mesh)
         self.assertEqual(cmds.ls(selection=True, long=True), selected)
-        self.assertEqual(cmds.getAttr(blend.getFullName() + ".inputTarget[0].sculptTargetIndex"), 3)
-        self.assertAlmostEqual(cmds.pointPosition(mesh.getFullName() + ".vtx[0]", local=True)[1], 1.5)
+        self.assertEqual(cmds.getAttr(blend.getName(full=True) + ".inputTarget[0].sculptTargetIndex"), 3)
+        self.assertAlmostEqual(cmds.pointPosition(mesh.getName(full=True) + ".vtx[0]", local=True)[1], 1.5)
         self.assertEqual(blend.getPlug(self.input_path(blend).split(".", 1)[1]).getConnections(input=True).getNode(), mesh)
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         cmds.undo()
         self.assertFalse(cmds.objExists(name))
         self.assertFalse(cmds.listConnections(self.input_path(blend), source=True, destination=False))
@@ -76,7 +76,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
         self.flushUndo()
         meshes = blend.regenerateTarget(3, fullWeight=0.5)
         self.track_created(meshes)
-        self.assertAlmostEqual(cmds.pointPosition(meshes[0].getFullName() + ".vtx[0]", local=True)[1], 0.25)
+        self.assertAlmostEqual(cmds.pointPosition(meshes[0].getName(full=True) + ".vtx[0]", local=True)[1], 0.25)
         self.assertTrue(cmds.listConnections(self.input_path(blend, item=5500), source=True, destination=False))
         cmds.undo()
         self.assertFalse(cmds.listConnections(self.input_path(blend, item=5500), source=True, destination=False))
@@ -96,7 +96,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
         meshes = blend.regenerateTarget(3)
         self.track_created([meshes[1]])
         self.assertEqual(meshes[0], mlib.getNode(target).getShape())
-        self.assertAlmostEqual(cmds.pointPosition(meshes[1].getFullName() + ".vtx[0]", local=True)[1], 3.5)
+        self.assertAlmostEqual(cmds.pointPosition(meshes[1].getName(full=True) + ".vtx[0]", local=True)[1], 3.5)
         self.assertEqual(cmds.ls(selection=True, long=True), selected)
         cmds.undo()
         self.assertTrue(cmds.listConnections(self.input_path(blend), source=True, destination=False))
@@ -145,7 +145,7 @@ class BlendShapeRegenerateTest(NamespaceCase):
     def test_post_deformation_mode_is_rejected(self):
         blend, _base, target = self.setup_blend()
         cmds.delete(target)
-        cmds.setAttr(blend.getFullName() + ".inputTarget[0].inputTargetGroup[3].postDeformersMode", 1)
+        cmds.setAttr(blend.getName(full=True) + ".inputTarget[0].inputTargetGroup[3].postDeformersMode", 1)
         self.flushUndo()
         with self.assertRaises(NotImplementedError):
             blend.regenerateTarget(3)

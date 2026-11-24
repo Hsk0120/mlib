@@ -57,7 +57,7 @@ def _contains_plug(plugs, mplug):
 
     持ち主のノード・アトリビュート・論理番号がすべて同じなら、同じプラグとみなす。
     インスタンス化されたシェイプのアトリビュートは、どのインスタンスのパスから取得しても同じ
-    プラグになる。名前(インスタンスのパスを含む ``getFullName()``)では比べない。
+    プラグになる。名前(インスタンスのパスを含む ``getName(full=True)``)では比べない。
 
     Args:
         plugs (Iterable[om2.MPlug]): 比べる相手のプラグ。
@@ -118,7 +118,7 @@ def _curves(driven, strict=False):
                 visit(node.getPlug("input"))
             elif strict:
                 raise RuntimeError(
-                    f"{driven.getFullName()}にドリブンキーを設定できません: {destination.getFullName()}にはすでに{source.getFullName()}({kind})からの入力があり、これはドリブンキーのカーブではありません。先に切断するか(plug.disconnectAll(destination=False)など)、blendWeightedノードで両方の入力をまとめてください"
+                    f"{driven._full_name()}にドリブンキーを設定できません: {destination._full_name()}にはすでに{source._full_name()}({kind})からの入力があり、これはドリブンキーのカーブではありません。先に切断するか(plug.disconnectAll(destination=False)など)、blendWeightedノードで両方の入力をまとめてください"
                 )
 
     visit(driven)
@@ -165,7 +165,7 @@ class DrivenKey:
         Returns:
             str: ドライバーと駆動先のアトリビュート名を含む表示。
         """
-        return f"DrivenKey({self.getDriverPlug().getFullName()!r}, {self.getDrivenPlug().getFullName()!r})"
+        return f"DrivenKey({self.getDriverPlug()._full_name()!r}, {self.getDrivenPlug()._full_name()!r})"
 
     @classmethod
     def find(cls, driven):
@@ -319,8 +319,8 @@ class DrivenKey:
                 return
             y = _convert_times(driven.mplug(), _convert_angles(driven.mplug(), y, angle_unit), time_unit)
             count = cmds.setDrivenKeyframe(
-                driven.getFullName(),
-                currentDriver=driver.getFullName(),
+                driven._full_name(),
+                currentDriver=driver._full_name(),
                 driverValue=_convert_units(driver.mplug(), x),
                 value=_convert_units(driven.mplug(), y),
                 inTangentType=inTangentType,
@@ -330,7 +330,7 @@ class DrivenKey:
             if not count:
                 raise RuntimeError("Mayaがドリブンキーを設定しませんでした")
             # 現在値と異なる位置のキー更新後も、駆動先が古い評価値を保持しないようにする。
-            cmds.dgdirty([curve.getFullName() for curve in self.getCurves()])
+            cmds.dgdirty([curve._full_name() for curve in self.getCurves()])
 
     def _set_key_fast(self, curves, input, value, inTangentType, outTangentType, unit, timeUnit, check=False):
         """:meth:`setKey` のfastの処理。必要ならカーブを作ってつなぎ、OpenMayaでキーを書き込む。
@@ -357,7 +357,7 @@ class DrivenKey:
             driver, driven = self.getDriverPlug(), self.getDrivenPlug()
             if _sources(driven):
                 raise NotImplementedError(
-                    f"fastのsetKeyは{driven.getFullName()}への2つ目のドライバーに対応していません(MayaがblendWeightedノードを挿入するため)"
+                    f"fastのsetKeyは{driven._full_name()}への2つ目のドライバーに対応していません(MayaがblendWeightedノードを挿入するため)"
                 )
             if check:
                 require_writable(driven.mplug())

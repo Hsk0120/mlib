@@ -44,10 +44,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):
@@ -79,16 +79,16 @@ class ShapesConstraintsTest(unittest.TestCase):
             self.assertEqual(collection[:1].indices, (2,))
             self.assertEqual(collection[0].getPosition(), collection.getPosition()[0])
             single = shape.getVertices(2) if is_mesh else shape.getCVs(2)
-            cmds.xform(single.getFullName(), objectSpace=True, translation=(0.25, 0.5, -0.75))
+            cmds.xform(single.getName(full=True), objectSpace=True, translation=(0.25, 0.5, -0.75))
             self.assert_positions([single.getPosition()], [(0.25, 0.5, -0.75)])
-            old_name = single.getFullName()
+            old_name = single.getName(full=True)
             shape.rename("renamedMirrorShape")
-            self.assertNotEqual(single.getFullName(), old_name)
-            self.assertTrue(cmds.objExists(single.getFullName()))
+            self.assertNotEqual(single.getName(full=True), old_name)
+            self.assertTrue(cmds.objExists(single.getName(full=True)))
             other_type = mlib.CVs if is_mesh else mlib.Vertices
             with self.assertRaises(TypeError):
                 other_type(shape, [])
-            cmds.delete(shape.getFullName())
+            cmds.delete(shape.getName(full=True))
             with self.assertRaises(RuntimeError):
                 single.getPosition()
 
@@ -98,7 +98,7 @@ class ShapesConstraintsTest(unittest.TestCase):
             position = item.getPosition()
             for index, axis in enumerate("xyz"):
                 self.assertAlmostEqual(getattr(item.getPosition(), axis), position[index])
-            cmds.xform(item.getFullName(), worldSpace=True, translation=(3, 4, 5))
+            cmds.xform(item.getName(full=True), worldSpace=True, translation=(3, 4, 5))
             self.assert_positions([item.getPosition(worldSpace=True)], [(3, 4, 5)])
         self.assertEqual(len(mesh.getEdges()), mesh.getNumEdges())
         self.assertEqual(len(mesh.getFaces()), mesh.getNumPolygons())

@@ -444,7 +444,7 @@ class SkinClusterTest(_Case):
                     expected = [index for index, row in enumerate(rows) if row[column] > threshold]
                     vertices = skin.getInfluenceVertices(joint, threshold)
                     self.assertEqual(list(vertices.indices), expected)
-                    self.assertEqual(vertices.shape.getFullName(), cmds.listRelatives(mesh, shapes=True, fullPath=True)[0])
+                    self.assertEqual(vertices.shape.getName(full=True), cmds.listRelatives(mesh, shapes=True, fullPath=True)[0])
 
     def test_influence_vertices_invalid(self):
         """閾値・influence の不正は例外。"""
@@ -464,7 +464,7 @@ class SkinClusterTest(_Case):
     def test_blend_weights_match_set_attr(self):
         """getBlendWeights は blendWeights の値と一致し、setBlendWeights は Undo 1回で戻る。"""
         skin, mesh, _, _ = self.skinned()
-        name = skin.getFullName()
+        name = skin.getName(full=True)
         count = cmds.polyEvaluate(mesh, vertex=True)
         self.assertEqual(skin.getBlendWeights(), [0.0] * count)
         cmds.setAttr(name + ".blendWeights[2]", 0.75)
@@ -489,8 +489,8 @@ class SkinClusterTest(_Case):
         self.flushUndo()
         skin.setBlendWeights([0.5, 0.125], vertices=[3, 1], fast=True)
         self.assertUndoEmpty()
-        self.assertAlmostEqual(cmds.getAttr(skin.getFullName() + ".blendWeights[3]"), 0.5)
-        self.assertAlmostEqual(cmds.getAttr(skin.getFullName() + ".blendWeights[1]"), 0.125)
+        self.assertAlmostEqual(cmds.getAttr(skin.getName(full=True) + ".blendWeights[3]"), 0.5)
+        self.assertAlmostEqual(cmds.getAttr(skin.getName(full=True) + ".blendWeights[1]"), 0.125)
 
     def test_set_blend_weights_invalid(self):
         """件数・値・頂点の不正は例外で、値は変わらない。"""
@@ -515,7 +515,7 @@ class SkinClusterTest(_Case):
         for keep in (False, True):
             with self.subTest(keepHistory=keep):
                 skin, mesh, joints, _ = self.skinned()
-                name = skin.getFullName()
+                name = skin.getName(full=True)
                 cmds.setAttr(joints[1] + ".tx", 3.0)
                 bound_point = cmds.pointPosition(mesh + ".vtx[10]")
                 self.flushUndo()
@@ -539,7 +539,7 @@ class SkinClusterTest(_Case):
         """recacheBindMatrices は自身を返す。削除済みでは RuntimeError。"""
         skin, _mesh, joints, _ = self.skinned()
         self.assertIsNone(skin.recacheBindMatrices())
-        cmds.delete(skin.getFullName())
+        cmds.delete(skin.getName(full=True))
         for call in (
             skin.recacheBindMatrices,
             skin.unbind,

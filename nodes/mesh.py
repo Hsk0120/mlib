@@ -122,21 +122,21 @@ class Mesh(_ControlPointShape):
                 parent = cmds.listRelatives(temporary, parent=True, fullPath=True)[0]
                 uv_names = om2.MFnMesh(data).getUVSetNames()
                 for i, uv_set_name in enumerate(uv_names):
-                    cmds.setAttr(temp_node.getFullName() + f".uvSet[{i}].uvSetName", uv_set_name, type="string")
+                    cmds.setAttr(temp_node._full_name() + f".uvSet[{i}].uvSetName", uv_set_name, type="string")
                 temp_node.getPlug("cachedInMesh").mplug().setMObject(data)
                 # 元のキャッシュをsetAttrのUndoへ保存する。接続のUndoだけではデータは復元されない。
-                cmds.setAttr(self.getFullName() + ".outMesh", "v", 0, "vn", 0, "e", 0, type="mesh")
+                cmds.setAttr(self._full_name() + ".outMesh", "v", 0, "vn", 0, "e", 0, type="mesh")
                 for uv_set_name in uv_names:
-                    if uv_set_name not in (cmds.polyUVSet(self.getFullName(), query=True, allUVSets=True) or []):
-                        cmds.polyUVSet(self.getFullName(), create=True, uvSet=uv_set_name)
-                cmds.connectAttr(temp_node.getFullName() + ".outMesh", self.getFullName() + ".inMesh")
-                cmds.delete(self.getFullName(), constructionHistory=True)
+                    if uv_set_name not in (cmds.polyUVSet(self._full_name(), query=True, allUVSets=True) or []):
+                        cmds.polyUVSet(self._full_name(), create=True, uvSet=uv_set_name)
+                cmds.connectAttr(temp_node._full_name() + ".outMesh", self._full_name() + ".inMesh")
+                cmds.delete(self._full_name(), constructionHistory=True)
                 cmds.delete(parent)
-                cmds.polyUVSet(self.getFullName(), currentUVSet=True, uvSet=current_uv)
+                cmds.polyUVSet(self._full_name(), currentUVSet=True, uvSet=current_uv)
                 groups = defaultdict(list)
                 for face, material in enumerate(materials):
                     if material is not None:
-                        groups[material.getFullName()].append(f"{self.getFullName()}.f[{face}]")
+                        groups[material._full_name()].append(f"{self._full_name()}.f[{face}]")
                 for material, faces in groups.items():
                     cmds.sets(faces, edit=True, forceElement=material)
 
@@ -679,7 +679,7 @@ class Mesh(_ControlPointShape):
         values = geometryEdit.point_list(points)
         vertices = [(point.x, point.y, point.z) for point in self._raw_points(worldSpace)]
         if not vertices:
-            raise ValueError(f"メッシュに頂点がありません: {self.getFullName()}")
+            raise ValueError(f"メッシュに頂点がありません: {self._full_name()}")
         grid = _PointGrid(vertices)
         return [grid.nearest(value)[0] for value in values]
 
@@ -856,7 +856,7 @@ class Mesh(_ControlPointShape):
             try:
                 corner_u, corner_v = fn.getUV(fn.getPolygonUVid(face, local.index(vertex), name), name)
             except RuntimeError:
-                raise RuntimeError(f"最も近いフェースには{name}のUVがありません: {self.getFullName()}") from None
+                raise RuntimeError(f"最も近いフェースには{name}のUVがありません: {self._full_name()}") from None
             u += corner_u * weight
             v += corner_v * weight
         return u, v
@@ -1184,10 +1184,10 @@ class Mesh(_ControlPointShape):
         self._require_set(name, "name", color, exists=True)
         if color:
             with undoChunk("mlibMeshSetCurrentColorSet"):
-                cmds.polyColorSet(self.getFullName(), currentColorSet=True, colorSet=name)
+                cmds.polyColorSet(self._full_name(), currentColorSet=True, colorSet=name)
             return
         with undoChunk("mlibMeshSetCurrentUVSet"):
-            cmds.polyUVSet(self.getFullName(), currentUVSet=True, uvSet=name)
+            cmds.polyUVSet(self._full_name(), currentUVSet=True, uvSet=name)
 
     def createSet(self, name, *, color=False):
         """空のUVセットを作る。``color=True`` なら、空のRGBAのカラーセットを作る。
@@ -1213,10 +1213,10 @@ class Mesh(_ControlPointShape):
         self._require_set(name, "name", color, exists=False)
         if color:
             with undoChunk("mlibMeshCreateColorSet"):
-                cmds.polyColorSet(self.getFullName(), create=True, colorSet=name, representation="RGBA")
+                cmds.polyColorSet(self._full_name(), create=True, colorSet=name, representation="RGBA")
             return
         with undoChunk("mlibMeshCreateUVSet"):
-            cmds.polyUVSet(self.getFullName(), create=True, uvSet=name)
+            cmds.polyUVSet(self._full_name(), create=True, uvSet=name)
 
     def copySet(self, source, target, *, color=False, replace=False):
         """UVセットを新しい名前へ複製する。``color=True`` なら、カラーセットを複製する。
@@ -1249,7 +1249,7 @@ class Mesh(_ControlPointShape):
             self._require_set(source, "source", True, exists=True)
             self._require_set(target, "target", True, exists=False)
             with undoChunk("mlibMeshCopyColorSet"):
-                cmds.polyColorSet(self.getFullName(), copy=True, colorSet=source, newColorSet=target)
+                cmds.polyColorSet(self._full_name(), copy=True, colorSet=source, newColorSet=target)
             return
         self._require_set(source, "source", False, exists=True)
         if replace and source == target:
@@ -1257,11 +1257,11 @@ class Mesh(_ControlPointShape):
         if replace and target in self.getSetNames():
             # polyCopyUVはフェースを選ぶので、選択を戻すまでを1回のUndoにまとめる。
             with undoChunk("mlibMeshCopyUVSet"), preservedSelection():
-                cmds.polyCopyUV(self.getFullName(), uvSetNameInput=source, uvSetName=target, constructionHistory=False)
+                cmds.polyCopyUV(self._full_name(), uvSetNameInput=source, uvSetName=target, constructionHistory=False)
             return
         self._require_set(target, "target", False, exists=False)
         with undoChunk("mlibMeshCopyUVSet"):
-            cmds.polyUVSet(self.getFullName(), copy=True, uvSet=source, newUVSet=target)
+            cmds.polyUVSet(self._full_name(), copy=True, uvSet=source, newUVSet=target)
 
     def renameSet(self, name, newName, *, color=False):
         """UVセットの名前を変える。``color=True`` なら、カラーセットの名前を変える。
@@ -1286,10 +1286,10 @@ class Mesh(_ControlPointShape):
         self._require_set(newName, "newName", color, exists=False)
         if color:
             with undoChunk("mlibMeshRenameColorSet"):
-                cmds.polyColorSet(self.getFullName(), rename=True, colorSet=name, newColorSet=newName)
+                cmds.polyColorSet(self._full_name(), rename=True, colorSet=name, newColorSet=newName)
             return
         with undoChunk("mlibMeshRenameUVSet"):
-            cmds.polyUVSet(self.getFullName(), rename=True, uvSet=name, newUVSet=newName)
+            cmds.polyUVSet(self._full_name(), rename=True, uvSet=name, newUVSet=newName)
 
     def deleteSet(self, name, *, color=False):
         """UVセットを削除する。``color=True`` なら、カラーセットを削除する。
@@ -1317,12 +1317,12 @@ class Mesh(_ControlPointShape):
         self._require_set(name, "name", color, exists=True)
         if color:
             with undoChunk("mlibMeshDeleteColorSet"):
-                cmds.polyColorSet(self.getFullName(), delete=True, colorSet=name)
+                cmds.polyColorSet(self._full_name(), delete=True, colorSet=name)
             return
         if name == self._default_uv_set():
             raise ValueError(f"既定のUVセットは削除できません: {name}")
         with undoChunk("mlibMeshDeleteUVSet"):
-            cmds.polyUVSet(self.getFullName(), delete=True, uvSet=name)
+            cmds.polyUVSet(self._full_name(), delete=True, uvSet=name)
 
     def getBorder(self, *, type="edge"):
         """メッシュの縁のエッジを取得する。``type="vertex"`` なら、縁のエッジの両端の頂点を取得する。
@@ -1399,9 +1399,9 @@ class Mesh(_ControlPointShape):
         """
         dependency = self._dependency_fn()
         if dependency.isLocked:
-            raise RuntimeError(f"メッシュがロックされています: {self.getFullName()}")
+            raise RuntimeError(f"メッシュがロックされています: {self._full_name()}")
         if dependency.isFromReferencedFile:
-            raise RuntimeError(f"メッシュがリファレンスです: {self.getFullName()}")
+            raise RuntimeError(f"メッシュがリファレンスです: {self._full_name()}")
         if fast and self.getPlug("inMesh").mplug().isDestination:
             raise NotImplementedError(f"fastの{method}は入力ヒストリのあるメッシュに対応していません")
 
@@ -1458,10 +1458,10 @@ class Mesh(_ControlPointShape):
         for vertex, face in VertexFace._multi_indices(self, components.indices):
             iterator.setIndex(face)
             if not iterator.hasUVs(name) or iterator.getUVArea(name) == 0:
-                raise RuntimeError(f"接線を求める面のUVが未割当か縮退しています: {self.getFullName()}.f[{face}]")
+                raise RuntimeError(f"接線を求める面のUVが未割当か縮退しています: {self._full_name()}.f[{face}]")
             value = fn.getFaceVertexBinormal(face, vertex, space, name) if binormal else fn.getFaceVertexTangent(face, vertex, space, name)
             if not all(math.isfinite(component) for component in value) or value.length() == 0:
-                raise RuntimeError(f"面頂点の方向を求められません: {self.getFullName()}.vtxFace[{vertex}][{face}]")
+                raise RuntimeError(f"面頂点の方向を求められません: {self._full_name()}.vtxFace[{vertex}][{face}]")
             result.append(Vector(value).normal())
         return result
 
@@ -1540,16 +1540,16 @@ class Mesh(_ControlPointShape):
             try:
                 # 書き込み先は作業用の形状だけ。対象への反映はpolyTransferがUndoへ記録する。
                 for index, uv_set in enumerate(fn.getUVSetNames()):
-                    cmds.setAttr(f"{temporary.getFullName()}.uvSet[{index}].uvSetName", uv_set, type="string")
+                    cmds.setAttr(f"{temporary._full_name()}.uvSet[{index}].uvSetName", uv_set, type="string")
                 temporary.getPlug("cachedInMesh").mplug().setMObject(data)
                 self._set_uv_data_fast(temporary._geometry_fn(), name, values, counts, indices)
                 cmds.polyTransfer(
-                    self.getFullName(), alternateObject=temporary.getFullName(), uvSets=True, vertices=False, vertexColor=False, constructionHistory=False
+                    self._full_name(), alternateObject=temporary._full_name(), uvSets=True, vertices=False, vertexColor=False, constructionHistory=False
                 )
                 if self._geometry_fn().currentUVSetName() != current:
-                    cmds.polyUVSet(self.getFullName(), currentUVSet=True, uvSet=current)
+                    cmds.polyUVSet(self._full_name(), currentUVSet=True, uvSet=current)
             finally:
-                cmds.delete(parent.getFullName())
+                cmds.delete(parent._full_name())
 
     def _require_color_removal_history(self, color_set):
         """カラー解除を確認したヒストリの連鎖か検証する。
@@ -1580,7 +1580,7 @@ class Mesh(_ControlPointShape):
             if kind != "polyMoveVertex":
                 break
             source = node.getPlug("inputPolymesh").getConnections(input=True)
-        raise RuntimeError(f"removeFaceVertexColorsに対応していない入力ヒストリです: {self.getFullName()}")
+        raise RuntimeError(f"removeFaceVertexColorsに対応していない入力ヒストリです: {self._full_name()}")
 
     def _remove_face_vertex_colors_cmds(self, color_set, components):
         """現在のカラーセットを復元しながら、標準コマンドで色の割り当てを解除する。
@@ -1592,7 +1592,7 @@ class Mesh(_ControlPointShape):
         Returns:
             None: 値を返さない。
         """
-        name = self.getFullName()
+        name = self._full_name()
         current = self._geometry_fn().currentColorSetName()
         if current != color_set:
             cmds.polyColorSet(name, currentColorSet=True, colorSet=color_set)
@@ -1634,7 +1634,7 @@ class Mesh(_ControlPointShape):
         Returns:
             None: 値を返さない。
         """
-        name = self.getFullName()
+        name = self._full_name()
         current = self._geometry_fn().currentColorSetName() or None
         if color_set is not None and current != color_set:
             cmds.polyColorSet(name, currentColorSet=True, colorSet=color_set)
@@ -1925,7 +1925,7 @@ class Mesh(_ControlPointShape):
         """
         fn = self._geometry_fn()
         if not fn.numPolygons:
-            raise ValueError(f"メッシュにフェースがありません: {self.getFullName()}")
+            raise ValueError(f"メッシュにフェースがありません: {self._full_name()}")
         return fn
 
     def _closest_triangle(self, point, worldSpace):
@@ -1971,7 +1971,7 @@ class Mesh(_ControlPointShape):
         if uvSet is None:
             name = self._geometry_fn().currentUVSetName()
             if not name:
-                raise ValueError(f"メッシュにUVセットがありません: {self.getFullName()}")
+                raise ValueError(f"メッシュにUVセットがありません: {self._full_name()}")
             return name
         self._require_set(uvSet, "uvSet", False, exists=True)
         return uvSet
@@ -2056,7 +2056,7 @@ class Mesh(_ControlPointShape):
         """
         shape = getattr(vertices, "shape", None)
         if shape is not None and shape != self:
-            raise ValueError(f"verticesが別のメッシュのものです: {shape.getFullName()}")
+            raise ValueError(f"verticesが別のメッシュのものです: {shape._full_name()}")
         if hasattr(vertices, "indices"):
             vertices = vertices.indices
         elif isinstance(getattr(vertices, "index", None), int):
@@ -2135,7 +2135,7 @@ class Mesh(_ControlPointShape):
         """
         if not indices:
             return
-        name = self.getFullName()
+        name = self._full_name()
         current = None
         if color_set is not None:
             current = (cmds.polyColorSet(name, query=True, currentColorSet=True) or [None])[0]
@@ -2168,7 +2168,7 @@ class Mesh(_ControlPointShape):
         if self.getPlug("inMesh").mplug().isDestination:
             raise NotImplementedError("fastのsetVertexColorsは入力ヒストリのあるメッシュに対応していません")
         if self._dependency_fn().isLocked:
-            raise RuntimeError(f"メッシュがロックされています: {self.getFullName()}")
+            raise RuntimeError(f"メッシュがロックされています: {self._full_name()}")
         if not indices:
             return
         if color_set is None:
@@ -2215,5 +2215,5 @@ class Mesh(_ControlPointShape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnMesh):
-            raise RuntimeError(f"メッシュにジオメトリのデータがありません: {self.getFullName()}")
+            raise RuntimeError(f"メッシュにジオメトリのデータがありません: {self._full_name()}")
         return fn

@@ -50,39 +50,39 @@ class ReplaceShapesTest(_Case):
 
     def test_moves_shapes_and_deletes_old_ones(self):
         control = self.curve(name=self.name("ctl")).getTransform()
-        cmds.setAttr(control.getFullName() + ".translate", 1, 2, 3)
+        cmds.setAttr(control.getName(full=True) + ".translate", 1, 2, 3)
         old = control.getShape()
         source = self.curve([(0, 0, 0), (0, 3, 0)], name=self.name("src")).getTransform()
-        source_name = source.getFullName()
+        source_name = source.getName(full=True)
         self.assertIsNone(control.replaceShapes(source))
         shapes = control.getShape(all=True)
         self.assertEqual(len(shapes), 1)
         self.assertFalse(old.isValid())
         self.assertFalse(cmds.objExists(source_name))
-        self.assertEqual(shapes[0].getFullName().rsplit("|", 1)[-1], control.getFullName().rsplit("|", 1)[-1] + "Shape")
-        self.assertPointsAlmostEqual(_cvs(shapes[0].getFullName()), [(0, 0, 0), (0, 3, 0)])
-        self.assertSequenceAlmostEqual(cmds.getAttr(control.getFullName() + ".translate")[0], (1, 2, 3))
+        self.assertEqual(shapes[0].getName(full=True).rsplit("|", 1)[-1], control.getName(full=True).rsplit("|", 1)[-1] + "Shape")
+        self.assertPointsAlmostEqual(_cvs(shapes[0].getName(full=True)), [(0, 0, 0), (0, 3, 0)])
+        self.assertSequenceAlmostEqual(cmds.getAttr(control.getName(full=True) + ".translate")[0], (1, 2, 3))
 
     def test_keep_source_and_world_space(self):
         control = self.curve(name=self.name("ctl")).getTransform()
-        cmds.setAttr(control.getFullName() + ".translate", 1, 0, 0)
-        cmds.setAttr(control.getFullName() + ".scale", 2, 2, 2)
+        cmds.setAttr(control.getName(full=True) + ".translate", 1, 0, 0)
+        cmds.setAttr(control.getName(full=True) + ".scale", 2, 2, 2)
         source = self.curve([(0, 0, 0), (0, 4, 0)], name=self.name("src")).getTransform()
-        cmds.setAttr(source.getFullName() + ".translate", 5, 0, 0)
-        expected = _world_cvs(source.getShape().getFullName())
+        cmds.setAttr(source.getName(full=True) + ".translate", 5, 0, 0)
+        expected = _world_cvs(source.getShape().getName(full=True))
         control.replaceShapes(source, keepSource=True, worldSpace=True)
         self.assertTrue(source.isValid())
         self.assertEqual(len(source.getShape(all=True)), 1)
-        self.assertPointsAlmostEqual(_world_cvs(control.getShape().getFullName()), expected)
-        self.assertSequenceAlmostEqual(cmds.getAttr(control.getFullName() + ".scale")[0], (2, 2, 2))
+        self.assertPointsAlmostEqual(_world_cvs(control.getShape().getName(full=True)), expected)
+        self.assertSequenceAlmostEqual(cmds.getAttr(control.getName(full=True) + ".scale")[0], (2, 2, 2))
 
     def test_source_shape_keeps_other_shapes_of_its_transform(self):
         control = self.make("transform", "grp")
         first = self.curve(name=self.name("src"))
         holder = first.getTransform()
         second = mlib.createCurve([(0, 0, 0), (1, 1, 1)])
-        temporary = second.getTransform().getFullName()
-        cmds.parent(second.getFullName(), holder.getFullName(), shape=True, relative=True)
+        temporary = second.getTransform().getName(full=True)
+        cmds.parent(second.getName(full=True), holder.getName(full=True), shape=True, relative=True)
         cmds.delete(temporary)
         target = mlib.getNode(control)
         target.replaceShapes(first)
@@ -92,16 +92,16 @@ class ReplaceShapesTest(_Case):
 
     def test_undo_once(self):
         control = self.curve(name=self.name("ctl")).getTransform()
-        old = control.getShape().getFullName()
+        old = control.getShape().getName(full=True)
         source = self.curve([(0, 0, 0), (0, 3, 0)], name=self.name("src")).getTransform()
-        source_name = source.getFullName()
+        source_name = source.getName(full=True)
         self.flushUndo()
         control.replaceShapes(source, worldSpace=True)
 
         def before():
             self.assertTrue(cmds.objExists(old))
             self.assertTrue(cmds.objExists(source_name))
-            self.assertEqual([shape.getFullName() for shape in control.getShape(all=True)], [old])
+            self.assertEqual([shape.getName(full=True) for shape in control.getShape(all=True)], [old])
 
         self.assertUndoesInOneStep(before, lambda: self.assertFalse(cmds.objExists(source_name)))
 

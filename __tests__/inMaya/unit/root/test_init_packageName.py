@@ -61,7 +61,7 @@ try:
         previous = core.nodes.Node
         core.reload()
         assert previous is not core.nodes.Node
-        assert isinstance(core.getNode(node.getFullName()), core.nodes.Node)
+        assert isinstance(core.getNode(node.getName(full=True)), core.nodes.Node)
 finally:
     maya.standalone.uninitialize()
 """

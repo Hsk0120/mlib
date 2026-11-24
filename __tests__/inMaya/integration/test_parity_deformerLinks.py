@@ -32,16 +32,16 @@ class DeformerLinksTest(NamespaceCase):
         target = cmds.duplicate(base, name=self.name("target"))[0]
         blend = mlib.getNode(cmds.blendShape(base, name=self.name("blend"))[0])
         blend.addTarget(target, index=5)
-        self.assertEqual(blend.getWeightCount(), cmds.blendShape(blend.getFullName(), query=True, weightCount=True))
+        self.assertEqual(blend.getWeightCount(), cmds.blendShape(blend.getName(full=True), query=True, weightCount=True))
         self.assertEqual(blend.getNormalizationGroups(), [])
-        cmds.setAttr(blend.getFullName() + ".inputTarget[0].inputTargetGroup[5].normalizationId", 3)
+        cmds.setAttr(blend.getName(full=True) + ".inputTarget[0].inputTargetGroup[5].normalizationId", 3)
         self.assertEqual(blend.getNormalizationGroups(), [3])
 
     def test_deformer_tools(self):
         base = cmds.polyPlane(name=self.name("base"))[0]
         cluster = mlib.getNode(cmds.cluster(base, name=self.name("cluster"))[0])
         tools = cluster.getDeformerTools()
-        self.assertEqual([node.getFullName() for node in tools], cmds.ls(cmds.deformer(cluster.getFullName(), q=True, deformerTools=True), long=True))
+        self.assertEqual([node.getName(full=True) for node in tools], cmds.ls(cmds.deformer(cluster.getName(full=True), q=True, deformerTools=True), long=True))
         blend = mlib.getNode(cmds.blendShape(base, name=self.name("blend"))[0])
         self.assertEqual(len(blend.getDeformerTools()), 0)
 

@@ -110,13 +110,13 @@ class NodeHistoryAndPlugsSpecTest(NamespaceCase):
 
     def test_get_history_of_invalid_node_raises(self):
         node = mlib.getNode(self.make())
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaises(RuntimeError):
             node.getHistory()
 
     def test_get_plugs_uses_om2_only_for_known_true_flags(self):
         node = mlib.getNode(self.make())
-        cmds.addAttr(node.getFullName(), longName="values", attributeType="double", multi=True, keyable=True)
+        cmds.addAttr(node.getName(full=True), longName="values", attributeType="double", multi=True, keyable=True)
         with patch.object(cmds, "listAttr", side_effect=AssertionError("listAttr")):
             plugs = node.getPlugs()
             keyable = node.getPlugs(keyable=True)
@@ -130,7 +130,7 @@ class NodeHistoryAndPlugsSpecTest(NamespaceCase):
             with self.subTest(flags=flags):
                 with patch.object(cmds, "listAttr", wraps=cmds.listAttr) as spy:
                     node.getPlugs(**flags)
-                spy.assert_called_once_with(node.getFullName(), **flags)
+                spy.assert_called_once_with(node.getName(full=True), **flags)
 
 
 class IkHandleJointsSpecTest(NamespaceCase):

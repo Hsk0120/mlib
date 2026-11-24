@@ -63,7 +63,7 @@ class MeshReorderTest(unittest.TestCase):
 
     def test_position_world_space_and_alias(self):
         self.set_matching_positions(offset=-5)
-        transform = cmds.listRelatives(self.target.getFullName(), parent=True, fullPath=True)[0]
+        transform = cmds.listRelatives(self.target.getName(full=True), parent=True, fullPath=True)[0]
         cmds.setAttr(transform + ".translateX", 5)
         before = self.snapshot()
         with self.assertRaises(ValueError):
@@ -130,7 +130,7 @@ class MeshReorderTest(unittest.TestCase):
 
     def test_named_uv_set(self):
         for mesh in (self.reference, self.target):
-            cmds.polyUVSet(mesh.getFullName(), rename=True, uvSet="map1", newUVSet="matchUV")
+            cmds.polyUVSet(mesh.getName(full=True), rename=True, uvSet="map1", newUVSet="matchUV")
         self.target.reorderVertices(self.reference, uvSet="matchUV")
         self.assertEqual(self.target.mfn().getUVSetNames(), ("matchUV",))
 
@@ -168,17 +168,17 @@ class MeshReorderTest(unittest.TestCase):
 
     def test_locked_and_instanced_rejected(self):
         before = self.snapshot()
-        cmds.setAttr(self.target.getFullName() + ".outMesh", lock=True)
+        cmds.setAttr(self.target.getName(full=True) + ".outMesh", lock=True)
         with self.assertRaises(RuntimeError):
             self.target.reorderVertices(self.reference)
-        cmds.setAttr(self.target.getFullName() + ".outMesh", lock=False)
+        cmds.setAttr(self.target.getName(full=True) + ".outMesh", lock=False)
         self.assertEqual(self.snapshot(), before)
-        cmds.instance(cmds.listRelatives(self.target.getFullName(), parent=True, fullPath=True)[0])
+        cmds.instance(cmds.listRelatives(self.target.getName(full=True), parent=True, fullPath=True)[0])
         with self.assertRaises(ValueError):
             self.target.reorderVertices(self.reference)
 
     def test_materials_normals_multiple_uvs(self):
-        name = self.target.getFullName()
+        name = self.target.getName(full=True)
         cmds.sets(name + ".f[0:2]", e=True, forceElement="initialShadingGroup")
         cmds.polyUVSet(name, copy=True, uvSet="map1", newUVSet="secondUV")
         cmds.polyUVSet(name, currentUVSet=True, uvSet="secondUV")
@@ -208,7 +208,7 @@ class MeshReorderTest(unittest.TestCase):
         self.assertEqual(self.target.mfn().currentUVSetName(), "secondUV")
 
     def test_fast_with_tweaks_materials_and_uvs(self):
-        name = self.target.getFullName()
+        name = self.target.getName(full=True)
         cmds.sets(name + ".f[0:2]", e=True, forceElement="initialShadingGroup")
         cmds.polyUVSet(name, copy=True, uvSet="map1", newUVSet="secondUV")
         cmds.polyUVSet(name, currentUVSet=True, uvSet="secondUV")
@@ -236,13 +236,13 @@ class MeshReorderTest(unittest.TestCase):
 
     def test_downstream_and_color_data_rejected(self):
         destination = cmds.createNode("mesh")
-        cmds.connectAttr(self.target.getFullName() + ".outMesh", destination + ".inMesh")
+        cmds.connectAttr(self.target.getName(full=True) + ".outMesh", destination + ".inMesh")
         before = self.snapshot()
         with self.assertRaises(ValueError):
             self.target.reorderVertices(self.reference)
         self.assertEqual(self.snapshot(), before)
-        cmds.disconnectAttr(self.target.getFullName() + ".outMesh", destination + ".inMesh")
-        cmds.polyColorSet(self.target.getFullName(), create=True, colorSet="colors")
+        cmds.disconnectAttr(self.target.getName(full=True) + ".outMesh", destination + ".inMesh")
+        cmds.polyColorSet(self.target.getName(full=True), create=True, colorSet="colors")
         with self.assertRaises(ValueError):
             self.target.reorderVertices(self.reference)
 

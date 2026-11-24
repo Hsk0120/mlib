@@ -66,7 +66,7 @@ class PlugNameSpecTest(_StateSpecCase):
         self.assertEqual(tx.getAttributeName("nice"), "Translate X")
         self.assertEqual(tx.getAttributeName("long"), "translateX")
         self.assertEqual(tx.getAttributeName(kind="short"), "tx")
-        self.assertEqual(tx.getFullName(), self.name + ".translateX")
+        self.assertEqual(tx.getName(full=True), self.name + ".translateX")
 
     def test_attribute_name_kinds_match_cmds(self):
         """getAttributeName(kind)はcmds.attributeQuery・cmds.attributeNameと同じ名前。知らないkindはValueError。"""
@@ -91,25 +91,25 @@ class PlugNameSpecTest(_StateSpecCase):
             with self.subTest(kind=kind):
                 with self.assertRaises(ValueError):
                     tx.getAttributeName(kind)
-        self.assertEqual(str(tx), tx.getFullName())
-        self.assertEqual(repr(tx), f"DoubleLinearPlug({tx.getFullName()!r})")
+        self.assertEqual(str(tx), tx.getName(full=True))
+        self.assertEqual(repr(tx), f"DoubleLinearPlug({tx.getName(full=True)!r})")
         self.assertEqual(cmds.getAttr(tx), 0.0)
 
     def test_full_attribute_path_option(self):
-        """コンパウンドアトリビュートの子でも getFullName は最短のパス(全階層のパスを返す入口は無い)。"""
+        """コンパウンドアトリビュートの子でも getName(full=True) は最短のパス(全階層のパスを返す入口は無い)。"""
         child = self.node.getPlug("boundingBoxMinX")
         self.assertFalse(hasattr(child, "getPlugName"))
-        self.assertEqual(child.getFullName(), self.name + ".boundingBoxMinX")
+        self.assertEqual(child.getName(full=True), self.name + ".boundingBoxMinX")
 
     def test_element_and_child_names(self):
         """マルチアトリビュートの要素の子は必要な論理番号を含む名前になる。"""
         cmds.addAttr(self.name, longName="items", shortName="its", attributeType="compound", numberOfChildren=1, multi=True)
         cmds.addAttr(self.name, longName="weight", shortName="wt", attributeType="double", parent="items")
         child = self.node.getPlug("items[3].weight")
-        self.assertEqual(child.getFullName(), self.name + ".items[3].weight")
+        self.assertEqual(child.getName(full=True), self.name + ".items[3].weight")
         self.assertEqual(child.getName(), self.name + ".its[3].wt")
         self.assertEqual(child.getAttributeName("short"), "wt")
-        self.assertEqual(child.getParent().getFullName(), self.name + ".items[3]")
+        self.assertEqual(child.getParent().getName(full=True), self.name + ".items[3]")
 
     def test_world_space_element_names_keep_index(self):
         """worldSpaceの要素もgetNameで論理番号を省かない。アトリビュート部分はgetPlugへ戻せる。"""
@@ -131,20 +131,20 @@ class PlugNameSpecTest(_StateSpecCase):
         finally:
             cmds.namespace(set=":")
         self.assertTrue(cmds.objExists(same))
-        self.assertTrue(tx.getFullName().endswith(self.name + ".translateX"))
-        self.assertEqual(len(cmds.ls(tx.getFullName())), 1)
+        self.assertTrue(tx.getName(full=True).endswith(self.name + ".translateX"))
+        self.assertEqual(len(cmds.ls(tx.getName(full=True))), 1)
         cmds.delete(same_in_namespace)
         cmds.flushUndo()
-        renamed = cmds.rename(self.node.getFullName(), self.namespace + ":renamed")
-        self.assertEqual(tx.getFullName(), renamed + ".translateX")
+        renamed = cmds.rename(self.node.getName(full=True), self.namespace + ":renamed")
+        self.assertEqual(tx.getName(full=True), renamed + ".translateX")
         cmds.undo()
-        self.assertTrue(tx.getFullName().endswith(self.name + ".translateX"))
+        self.assertTrue(tx.getName(full=True).endswith(self.name + ".translateX"))
 
     def test_alias_is_used_by_full_name_only(self):
-        """別名があればgetFullNameは別名を使い、getName・getAttributeNameは元の名前。"""
+        """別名があればgetName(full=True)は別名を使い、getName・getAttributeNameは元の名前。"""
         cmds.aliasAttr("myAlias", self.name + ".ty")
         ty = self.node.getPlug("ty")
-        self.assertEqual(ty.getFullName(), self.name + ".myAlias")
+        self.assertEqual(ty.getName(full=True), self.name + ".myAlias")
         self.assertEqual(ty.getName(), self.name + ".ty")
         self.assertEqual(ty.getAttributeName(), "translateY")
         self.assertEqual(self.node.getPlug("myAlias"), ty)
@@ -299,14 +299,14 @@ class PlugAliasSpecTest(_StateSpecCase):
         tz = self.node.getPlug("tz")
         self.assertIsNone(tz.setAlias("zAlias"))
         self.assertEqual(cmds.aliasAttr(self.name, query=True), ["zAlias", "translateZ"])
-        self.assertEqual(tz.getFullName(), self.name + ".zAlias")
+        self.assertEqual(tz.getName(full=True), self.name + ".zAlias")
         self.assertIsNone(tz.setAlias())
         self.assertIsNone(cmds.aliasAttr(self.name, query=True))
         tz.setAlias("zAlias")
         tz.setAlias("")
         self.assertIsNone(cmds.aliasAttr(self.name, query=True))
         self.assertIsNone(tz.setAlias(None))
-        self.assertEqual(tz.getFullName(), self.name + ".translateZ")
+        self.assertEqual(tz.getName(full=True), self.name + ".translateZ")
 
     def test_alias_undo_fast_and_errors(self):
         """通常の設定は1回のUndoで戻り、fastは記録しない。既存名と重なる別名はRuntimeError。"""
@@ -549,7 +549,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         cmds.flushUndo()
         cmds.deleteAttr(self.name + ".dynValue")
         self.assertFalse(plug.isValid())
-        self.assertEqual((plug.getFullName(), plug.getName(), str(plug)), ("", "", ""))
+        self.assertEqual((plug.getName(full=True), plug.getName(), str(plug)), ("", "", ""))
         self.assertEqual(repr(plug), "<DoublePlug invalid>")
         self.assertFalse(plug.isMulti())
         self.assertIs(type(plug), plugs.DoublePlug)
@@ -606,7 +606,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         cmds.undo()
         self.assertTrue(plug.isValid())
         self.assertEqual(plug.get(), 3.0)
-        self.assertEqual(plug.getFullName(), self.name + ".dynValue")
+        self.assertEqual(plug.getName(full=True), self.name + ".dynValue")
         cmds.redo()
         self.assertFalse(plug.isValid())
 
@@ -651,9 +651,9 @@ class PlugValiditySpecTest(_StateSpecCase):
         tx = node.getPlug("tx")
         tx.set(4)
         cmds.flushUndo()
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         self.assertFalse(tx.isValid())
-        self.assertEqual(tx.getFullName(), "")
+        self.assertEqual(tx.getName(full=True), "")
         self.assertEqual(repr(tx), "<DoubleLinearPlug invalid>")
         self.assertFalse(tx.isMulti())
         with self.assertRaises(RuntimeError):
@@ -679,7 +679,7 @@ class PlugValiditySpecTest(_StateSpecCase):
         cmds.addAttr(net.getName(), longName="vals", attributeType="double", multi=True)
         element = net.getPlug("vals")[20]
         self.assertTrue(element.isValid())
-        self.assertEqual(element.getFullName(), net.getName() + ".vals[20]")
+        self.assertEqual(element.getName(full=True), net.getName() + ".vals[20]")
         self.assertEqual(cmds.getAttr(net.getName() + ".vals", multiIndices=True), None)
 
 

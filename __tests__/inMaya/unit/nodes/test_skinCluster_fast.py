@@ -50,7 +50,7 @@ class _SkinCase(NamespaceCase):
 
     def raw(self, skin):
         """weightList の既存要素と値を、論理番号つきで返す。"""
-        name = skin.getFullName()
+        name = skin.getName(full=True)
         rows = []
         for vertex in cmds.getAttr(name + ".weightList", multiIndices=True) or []:
             prefix = f"{name}.weightList[{vertex}].weights"
@@ -130,7 +130,7 @@ class SetWeightsFastTest(_SkinCase):
                     results = []
                     for fast in (False, True):
                         _, skin = self.skin()
-                        cmds.setAttr(skin.getFullName() + ".normalizeWeights", mode)
+                        cmds.setAttr(skin.getName(full=True) + ".normalizeWeights", mode)
                         cmds.setAttr(self.tip + ".liw", locked)
                         count = cmds.polyEvaluate(skin.mesh, vertex=True)
                         values = []
@@ -143,7 +143,7 @@ class SetWeightsFastTest(_SkinCase):
                     for normal, bulk in zip(results[0], results[1]):
                         for index in set(normal) | set(bulk):
                             self.assertAlmostEqual(normal.get(index, 0.0), bulk.get(index, 0.0), places=12)
-                    self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), mode)
+                    self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), mode)
 
 
 if __name__ == "__main__":

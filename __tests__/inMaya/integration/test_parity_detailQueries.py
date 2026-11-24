@@ -42,7 +42,7 @@ class DetailQueryTest(NamespaceCase):
     def test_container_connections(self):
         node = mlib.getNode(cmds.createNode("transform", name=self.ns + ":member"))
         external = mlib.getNode(cmds.createNode("transform", name=self.ns + ":external"))
-        box = mlib.getNode(cmds.container(name=self.ns + ":box", addNode=[node.getFullName()]))
+        box = mlib.getNode(cmds.container(name=self.ns + ":box", addNode=[node.getName(full=True)]))
         node.getPlug("tx").connect(external.getPlug("tx"))
         self.assertEqual(node.getContainer(), box)
         self.assertIsNone(external.getContainer())
@@ -59,7 +59,7 @@ class DetailQueryTest(NamespaceCase):
         surface = transform.getShape()
         self.assertTrue(surface.isPointOnSurface((0, 0, 0)))
         self.assertFalse(surface.isPointOnSurface((0, 0, 5)))
-        cmds.setAttr(transform.getFullName() + ".translateZ", 10)
+        cmds.setAttr(transform.getName(full=True) + ".translateZ", 10)
         self.assertTrue(surface.isPointOnSurface((0, 0, 10), ws=True))
         self.assertFalse(surface.isPointOnSurface((0, 0, 10)))
         with self.assertRaises(ValueError):

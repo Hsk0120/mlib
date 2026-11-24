@@ -38,7 +38,7 @@ def findCycles(nodes: str | Node | Plug | Iterable[str | Node | Plug] | None = .
     Examples:
         >>> import mlib
         >>> for path in mlib.findCycles(timeLimit=10.0):
-        ...     print([plug.getFullName() for plug in path])
+        ...     print([plug._full_name() for plug in path])
         >>> mlib.findCycles(["arm_ctrl", "arm_jnt"], dag=True, firstOnly=True)
     """
     ...

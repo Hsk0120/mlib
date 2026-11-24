@@ -69,8 +69,8 @@ class CalculationTypeTest(unittest.TestCase):
                 self.assertIs(mlib.nodes._WRAPPER_CLASSES[kind], cls)
                 node = mlib.createNode(kind)
                 self.assertIs(type(node), cls)
-                self.assertEqual(cmds.nodeType(node.getFullName()), kind)
-                self.assertIs(type(mlib.getNode(node.getFullName())), cls)
+                self.assertEqual(cmds.nodeType(node.getName(full=True)), kind)
+                self.assertIs(type(mlib.getNode(node.getName(full=True))), cls)
                 self.assertEqual(cls.__mro__[1].__name__, base_name)
 
     def test_double_linear_by_version(self):
@@ -78,7 +78,7 @@ class CalculationTypeTest(unittest.TestCase):
         for legacy, modern in (("addDoubleLinear", "addDL"), ("multDoubleLinear", "multDL")):
             with self.subTest(kind=legacy):
                 node = mlib.createNode(legacy)
-                actual = cmds.nodeType(node.getFullName())
+                actual = cmds.nodeType(node.getName(full=True))
                 self.assertIn(actual, (legacy, modern))
                 self.assertIs(type(node), mlib.nodes._WRAPPER_CLASSES[actual])
 
@@ -128,7 +128,7 @@ class PlainCalculationNodeTest(unittest.TestCase):
         for name, value in values:
             node.getPlug(name).set(value)
         actual = node.getPlug(output).get()
-        raw = cmds.getAttr(node.getFullName() + "." + output)
+        raw = cmds.getAttr(node.getName(full=True) + "." + output)
         return actual, raw
 
     def assertValues(self, actual, expected):

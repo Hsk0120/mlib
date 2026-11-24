@@ -81,7 +81,7 @@ class GeneratedWrapperSpecTest(_DynamicTypeCase):
         self.assertTrue(cls._generated)
         self.assertEqual(cls.__module__, "mlib.nodes")
         self.assertEqual(cls.__qualname__, "AirField")
-        self.assertEqual(node.getFullName(), cmds.ls(name, long=True)[0])
+        self.assertEqual(node.getName(full=True), cmds.ls(name, long=True)[0])
         self.assertIsNone(mlib.nodes.Node._registry.lookup("airField"))
 
     def test_intermediate_abstract_types_are_not_generated_as_parents(self):
@@ -118,7 +118,7 @@ class GeneratedWrapperSpecTest(_DynamicTypeCase):
         self.assertIsInstance(node, mlib.nodes.Shape)
         self.assertNotIsInstance(node, mlib.nodes.Transform)
         self.assertTrue(node.isType("light"))
-        self.assertEqual(node.getParent().getFullName(), cmds.listRelatives(light, parent=True, fullPath=True)[0])
+        self.assertEqual(node.getParent().getName(full=True), cmds.listRelatives(light, parent=True, fullPath=True)[0])
 
     def test_constraint_subtypes_derive_from_registered_constraint(self):
         """抽象型 constraint の登録により、symmetryConstraint は Constraint の派生になる。"""

@@ -109,7 +109,7 @@ class PlugDefaultTest(NamespaceCase):
                     plug = self.make_plug(defaultValue=7)
                     plug.set(2)
                     plug.setDefault(9, fast=fast)
-                    node = plug.getFullName().rsplit(".", 1)[0]
+                    node = plug.getName(full=True).rsplit(".", 1)[0]
                     cmds.select(node, replace=True)
                     path = str(Path(directory) / ("default." + extension))
                     cmds.file(path, force=True, exportSelected=True, type=file_type)
@@ -148,7 +148,7 @@ class PlugDefaultTest(NamespaceCase):
         self.flushUndo()
         first.set(4)
         undo_name = cmds.undoInfo(query=True, undoName=True)
-        mlib.ls(first.getFullName(), second.getFullName()).setDefault(9, fast=True)
+        mlib.ls(first.getName(full=True), second.getName(full=True)).setDefault(9, fast=True)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         cmds.undo()
         self.assertEqual(first.get(), 7)

@@ -38,11 +38,11 @@ class AimConstraintTest(unittest.TestCase):
         pairs = self.aim.getRotateConnections()
         self.assertEqual(len(pairs), 3)
         for source, destination in pairs:
-            cmds.disconnectAttr(source.getFullName(), destination.getFullName())
-        cmds.connectAttr(self.aim.getFullName() + ".constraintRotate", self.driven + ".rotate")
+            cmds.disconnectAttr(source.getName(full=True), destination.getName(full=True))
+        cmds.connectAttr(self.aim.getName(full=True) + ".constraintRotate", self.driven + ".rotate")
         self.assertEqual(len(self.aim.getRotateConnections()), 1)
         extra = cmds.createNode("composeMatrix")
-        cmds.connectAttr(self.aim.getFullName() + ".constraintRotateX", extra + ".inputRotateX")
+        cmds.connectAttr(self.aim.getName(full=True) + ".constraintRotateX", extra + ".inputRotateX")
         pairs = self.aim.getRotateConnections()
         self.assertEqual(len(pairs), 2)
         self.assertEqual({destination.getNode().getType() for _, destination in pairs}, {"transform", "composeMatrix"})
@@ -58,7 +58,7 @@ class AimConstraintTest(unittest.TestCase):
             for actual, expected in zip(result.asDegrees(), values):
                 self.assertAlmostEqual(actual, expected)
         self.assertFalse(hasattr(type(self.aim), "getSettingPlugs"))
-        cmds.connectAttr(self.target + ".rotateX", self.aim.getFullName() + ".restRotateX")
+        cmds.connectAttr(self.target + ".rotateX", self.aim.getName(full=True) + ".restRotateX")
         with self.assertRaises(RuntimeError):
             self.aim.setRestRotate((1, 2, 3))
         self.assertAlmostEqual(self.aim.getRestRotate().asDegrees()[1], values[1])
@@ -66,13 +66,13 @@ class AimConstraintTest(unittest.TestCase):
     def test_locked_invalid_and_undo(self):
         """後半のロックでも部分更新せず、更新はUndoできる。"""
         self.aim.setRestRotate((0, 0, 0))
-        cmds.setAttr(self.aim.getFullName() + ".restRotateZ", lock=True)
+        cmds.setAttr(self.aim.getName(full=True) + ".restRotateZ", lock=True)
         try:
             with self.assertRaises(RuntimeError):
                 self.aim.setRestRotate((1, 2, 3), check=True)
             self.assertEqual(tuple(self.aim.getRestRotate()), (0, 0, 0))
         finally:
-            cmds.setAttr(self.aim.getFullName() + ".restRotateZ", lock=False)
+            cmds.setAttr(self.aim.getName(full=True) + ".restRotateZ", lock=False)
         for invalid in ((1, 2), (0, math.nan, 0)):
             with self.assertRaises(ValueError):
                 self.aim.setRestRotate(invalid)

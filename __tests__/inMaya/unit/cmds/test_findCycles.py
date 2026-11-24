@@ -26,19 +26,19 @@ class FindCyclesTest(NamespaceCase):
         cmds.connectAttr(f"{self.b}.tx", f"{self.a}.tx")
 
     def names(self, path):
-        return {plug.getFullName() for plug in path}
+        return {plug.getName(full=True) for plug in path}
 
     def test_targets_match_cycle_check(self):
         paths = mlib.findCycles(self.a)
         self.assertEqual(len(paths), 1)
         self.assertIsInstance(paths[0], mlib.Plugs)
         expected = cmds.cycleCheck(self.a, list=True, secondary=True)
-        self.assertEqual(self.names(paths[0]), {mlib.getPlug(name).getFullName() for name in expected})
+        self.assertEqual(self.names(paths[0]), {mlib.getPlug(name).getName(full=True) for name in expected})
         self.assertEqual(mlib.findCycles([mlib.getNode(self.a)]), paths)
 
     def test_whole_scene_contains_cycle(self):
         paths = mlib.findCycles(timeLimit=10.0)
-        own = {mlib.getPlug(f"{self.a}.tx").getFullName(), mlib.getPlug(f"{self.b}.tx").getFullName()}
+        own = {mlib.getPlug(f"{self.a}.tx").getName(full=True), mlib.getPlug(f"{self.b}.tx").getName(full=True)}
         self.assertTrue(any(own <= self.names(path) for path in paths))
 
     def test_several_paths_are_separated(self):

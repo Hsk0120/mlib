@@ -47,10 +47,10 @@ class SurfaceKnotsTest(NamespaceCase):
             with self.assertRaises(ValueError):
                 shape.setKnots(values, v)
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
-        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=True)
+        cmds.setAttr(shape.getName(full=True) + ".controlPoints[0].xValue", lock=True)
         with self.assertRaises(NotImplementedError):
             shape.setKnots(u, v)
-        cmds.setAttr(shape.getFullName() + ".controlPoints[0].xValue", lock=False)
+        cmds.setAttr(shape.getName(full=True) + ".controlPoints[0].xValue", lock=False)
         history = mlib.getNode(cmds.nurbsPlane(name=self.name("history"))[0]).getShape()
         with self.assertRaises(NotImplementedError):
             history.setKnots(*history.getKnots())

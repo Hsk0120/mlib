@@ -107,7 +107,7 @@ class QueryParityTest(_ParityCase):
         rng = random.Random(11)
         for trial in range(TRIALS):
             node = self.build(rng, trial, joint=trial % 2 == 1)
-            name = node.getFullName()
+            name = node.getName(full=True)
             with self.subTest(trial=trial, type=node.getType()):
                 world = cmds.xform(name, query=True, worldSpace=True, matrix=True)
                 self.assert_close(node.getMatrix(worldSpace=True), world, msg="world matrix")
@@ -132,7 +132,7 @@ class QueryParityTest(_ParityCase):
         rng = random.Random(12)
         node = self.build(rng, 0, joint=False)
         cmds.currentUnit(linear="m")
-        meters = cmds.xform(node.getFullName(), query=True, worldSpace=True, rotatePivot=True)
+        meters = cmds.xform(node.getName(full=True), query=True, worldSpace=True, rotatePivot=True)
         self.assert_close(node.getTranslation(worldSpace=True), [v * 100 for v in meters], msg="m to cm")
 
 
@@ -155,7 +155,7 @@ class SetterParityTest(_ParityCase):
                 state = rng.getstate()
                 node = self.build(random.Random(trial), trial * 2 + int(fast), joint)
                 rng.setstate(state)
-                name = node.getFullName()
+                name = node.getName(full=True)
                 with self.subTest(trial=trial, fast=fast, type=node.getType()):
                     # 親のスケールが不均一でも届く値にするため、ワールド位置・回転は個別に確かめる。
                     node.setTranslation(position, worldSpace=True, fast=fast)
@@ -166,7 +166,7 @@ class SetterParityTest(_ParityCase):
                     order = cmds.getAttr(name + ".rotateOrder")
                     expected = om2.MEulerRotation(*[math.radians(v) for v in rotation], order).asQuaternion()
                     # 親の不均一なスケールで回転は厳密には届かないことがあるため、親のスケールを1にして確かめる。
-                    parent = node.getParent().getFullName()
+                    parent = node.getParent().getName(full=True)
                     cmds.setAttr(parent + ".scale", 1, 1, 1)
                     node.setRotate(rotation, worldSpace=True, fast=fast)
                     world = om2.MTransformationMatrix(om2.MMatrix(cmds.xform(name, query=True, worldSpace=True, matrix=True)))

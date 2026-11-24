@@ -267,7 +267,7 @@ class AnimCurve(Node):
                 raise RuntimeError("空のカーブへはキーを挿入できません。valueを指定します")
             with undoChunk("mlibAnimCurveInsertKey"):
                 flags = {"time" if self.isTimeInput() else "float": self._unit_value(position)}
-                cmds.setKeyframe(self.getFullName(), insert=True, **flags)
+                cmds.setKeyframe(self._full_name(), insert=True, **flags)
             return
         unit = "deg" if unit is _UNSET else unit
         with _edit_context("mlibAnimCurveSetKey", fast):
@@ -310,7 +310,7 @@ class AnimCurve(Node):
                 flags["inTangentType"] = inTangentType
             if outTangentType is not None:
                 flags["outTangentType"] = outTangentType
-            cmds.setKeyframe(self.getFullName(), value=value, **flags)
+            cmds.setKeyframe(self._full_name(), value=value, **flags)
 
     def addKeys(self, keys, *, unit="deg", timeUnit="frame", replaceExisting=False, weightedTangents=None, check=False):
         """キーの値と接線情報をまとめて追加する。
@@ -382,7 +382,7 @@ class AnimCurve(Node):
             self._require_curve_writable()
         with undoChunk("mlibAnimCurveAddKeys"):
             if weightedTangents is not None:
-                cmds.keyTangent(self.getFullName(), edit=True, weightedTangents=weightedTangents)
+                cmds.keyTangent(self._full_name(), edit=True, weightedTangents=weightedTangents)
             for values in entries:
                 self.setKey(values["input"], values["value"], unit=unit, timeUnit=timeUnit)
             for values in entries:
@@ -394,7 +394,7 @@ class AnimCurve(Node):
                     self.setTangent(index, unit=unit, **tangents)
                 if tangents or "lock" in values or "weightLock" in values:
                     self.setTangent(index, lock=values.get("lock", old["lock"]), weightLock=values.get("weightLock", old["weightLock"]))
-            cmds.dgdirty(self.getFullName())
+            cmds.dgdirty(self._full_name())
 
     def removeKey(self, *, index=None, time=None, timeUnit="frame", keepCurve=True, fast=False, check=False):
         """指定した番号のキー、または入力の範囲にあるキーを削除する。
@@ -449,9 +449,9 @@ class AnimCurve(Node):
                 self._require_curve_writable()
             if keepCurve and emptied:
                 with self._kept_curve():
-                    cmds.cutKey(self.getFullName(), index=ranges, clear=True, animation="objects")
+                    cmds.cutKey(self._full_name(), index=ranges, clear=True, animation="objects")
             else:
-                cmds.cutKey(self.getFullName(), index=ranges, clear=True, animation="objects")
+                cmds.cutKey(self._full_name(), index=ranges, clear=True, animation="objects")
 
     def replaceKeys(self, keys, *, unit="deg", timeUnit="frame"):
         """カーブを残したまま、すべてのキーを指定したキーへ置き換える。
@@ -508,11 +508,11 @@ class AnimCurve(Node):
             count = self.getKeyCount()
             if count:
                 with self._kept_curve():
-                    cmds.cutKey(self.getFullName(), index=(0, count - 1), clear=True, animation="objects")
+                    cmds.cutKey(self._full_name(), index=(0, count - 1), clear=True, animation="objects")
             for input, value, tangent_in, tangent_out in entries:
                 self.setKey(input, value, tangent_in, tangent_out, unit=unit, timeUnit=timeUnit)
             # カーブ名へ直接キーを打つと、Mayaは出力先を再評価しないことがあるため、出力を更新し直させる。
-            cmds.dgdirty(self.getFullName())
+            cmds.dgdirty(self._full_name())
 
     def getTangent(self, index, *, unit="deg"):
         """指定したキーの接線の情報を取得する。
@@ -634,7 +634,7 @@ class AnimCurve(Node):
             for flag in ("inAngle", "outAngle"):
                 if flag in kwargs:
                     kwargs[flag] = convertAngle(kwargs[flag], angle_unit, None)
-            cmds.keyTangent(self.getFullName(), edit=True, index=self._index(index), animation="objects", **kwargs)
+            cmds.keyTangent(self._full_name(), edit=True, index=self._index(index), animation="objects", **kwargs)
 
     def getInfinity(self):
         """カーブの前後の外挿の方法を、名前で取得する。
@@ -720,7 +720,7 @@ class AnimCurve(Node):
         ranges = self._key_ranges(index, None, "frame")
         with undoChunk("mlibAnimCurveSetBreakdown"):
             if ranges:
-                cmds.keyframe(self.getFullName(), edit=True, animation="objects", index=ranges, breakdown=state)
+                cmds.keyframe(self._full_name(), edit=True, animation="objects", index=ranges, breakdown=state)
 
     def moveKey(self, *, index=None, time=None, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """キーの入力(時刻)と値をずらす。indexとtimeを両方省略すると、すべてのキーを動かす。
@@ -760,7 +760,7 @@ class AnimCurve(Node):
             if ranges:
                 flag = "timeChange" if self.isTimeInput() else "floatChange"
                 # 範囲を省くと、キーが1つだけのカーブをMayaが動かさないため、キーを番号で指定する。
-                cmds.keyframe(self.getFullName(), edit=True, relative=True, animation="objects", index=ranges, valueChange=y, **{flag: x})
+                cmds.keyframe(self._full_name(), edit=True, relative=True, animation="objects", index=ranges, valueChange=y, **{flag: x})
 
     def scaleKey(self, inputScale=1, valueScale=1, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
         """キーを、基準の値を中心に拡大・縮小する。
@@ -803,7 +803,7 @@ class AnimCurve(Node):
             if ranges:
                 prefix = "time" if self.isTimeInput() else "float"
                 # moveKey と同じく、キーが1つだけのカーブも拡縮するようキーを番号で指定する。
-                cmds.scaleKey(self.getFullName(), animation="objects", index=ranges, valueScale=y, valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
+                cmds.scaleKey(self._full_name(), animation="objects", index=ranges, valueScale=y, valuePivot=py, **{prefix + "Scale": x, prefix + "Pivot": px})
 
     def eulerFilter(self):
         """回転のカーブへEulerフィルターをかけ、360度の飛びを取り除く。
@@ -823,7 +823,7 @@ class AnimCurve(Node):
         if self.getType() != "animCurveTA":
             raise TypeError(f"eulerFilterにはanimCurveTA(回転)のカーブが必要です: {self.getType()}: {self.getName()}")
         with undoChunk("mlibAnimCurveEulerFilter"):
-            cmds.filterCurve(self.getFullName(), filter="euler")
+            cmds.filterCurve(self._full_name(), filter="euler")
 
     def reduceKeys(self, precision, *, precisionMode=0, time=None, preserveKeyTangent=(), unit="deg", timeUnit="frame"):
         """MayaのKey Reducerで、指定した許容値に従ってキーを削減する。
@@ -890,14 +890,12 @@ class AnimCurve(Node):
         if tangents:
             options["preserveKeyTangent"] = tangents
         if not self.getPlug("output").mplug().connectedTo(False, True):
-            raise RuntimeError(f"reduceKeysには接続された出力先が必要です: {self.getFullName()}")
+            raise RuntimeError(f"reduceKeysには接続された出力先が必要です: {self._full_name()}")
         self._require_curve_writable()
         if precisionMode == 0:
             # keyReducerのprecisionはUI単位ではなく、カーブの内部単位(rad/cm)。
             precision = _to_radians(precision, angle_unit)
-        cmds.filterCurve(
-            self.getFullName(), filter="keyReducer", precision=precision, precisionMode=precisionMode, keySync=False, selectedKeys=False, **options
-        )
+        cmds.filterCurve(self._full_name(), filter="keyReducer", precision=precision, precisionMode=precisionMode, keySync=False, selectedKeys=False, **options)
 
     def getDrivenPlugs(self):
         """このカーブが動かしているアトリビュートを返す。
@@ -968,7 +966,7 @@ class AnimCurve(Node):
                     for key in range(start, end + 1):
                         self._set_api_value(fn, key, value)
                 return self
-            cmds.keyframe(self.getFullName(), edit=True, absolute=True, animation="objects", index=ranges, valueChange=self._unit_value(value, output=True))
+            cmds.keyframe(self._full_name(), edit=True, absolute=True, animation="objects", index=ranges, valueChange=self._unit_value(value, output=True))
             return self
 
     def _replace_keys_from_curve(self, source):
@@ -1009,12 +1007,12 @@ class AnimCurve(Node):
             count = self.getKeyCount()
             if count:
                 with self._kept_curve():
-                    cmds.cutKey(self.getFullName(), index=(0, count - 1), clear=True, animation="objects")
+                    cmds.cutKey(self._full_name(), index=(0, count - 1), clear=True, animation="objects")
             if records:
                 # ウェイト付き接線はキーのあるカーブでしか切り替えられない(setAttrも拒否される)ため、
                 # 先に入力と値だけのキーを打ってから、ウェイト付き接線と接線を書く。
                 self.addKeys([{"input": record["input"], "value": record["value"]} for record in records], unit="rad", timeUnit="sec")
-                cmds.keyTangent(self.getFullName(), edit=True, weightedTangents=weighted)
+                cmds.keyTangent(self._full_name(), edit=True, weightedTangents=weighted)
                 for index, record in enumerate(records):
                     # 角度・ウェイトを書くと接線の型がfixedになるため、角度・ウェイトの後で型を戻し、最後にロックを戻す。
                     shape = {key: record[key] for key in ("inAngle", "outAngle", "inWeight", "outWeight") if key in record}
@@ -1027,7 +1025,7 @@ class AnimCurve(Node):
                     if types:
                         self.setTangent(index, **types)
                     self.setTangent(index, **locked)
-                cmds.dgdirty(self.getFullName())
+                cmds.dgdirty(self._full_name())
             if breakdowns:
                 self.setBreakdown(breakdowns)
 
@@ -1038,7 +1036,7 @@ class AnimCurve(Node):
         ``cmds.cutKey`` は空になったカーブ(つながっていないものも)を削除するが、ロックしたノードは
         削除しない。ロックの変更もUndoへ記録され、呼び出し側のチャンクにまとまる。
         """
-        name = self.getFullName()
+        name = self._full_name()
         locked = cmds.lockNode(name, query=True, lock=True)[0]
         if not locked:
             cmds.lockNode(name, lock=True)

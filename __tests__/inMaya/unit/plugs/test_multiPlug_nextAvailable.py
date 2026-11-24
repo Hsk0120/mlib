@@ -28,7 +28,7 @@ class _MultiSpecCase(unittest.TestCase):
         self.undo_state = cmds.undoInfo(query=True, state=True)
         cmds.undoInfo(state=True)
         self.net = self.make("network")
-        # Plug.getFullName() とcmdsの照会はノードの一意名なので同じ形で比べる。
+        # Plug.getName(full=True) とcmdsの照会はノードの一意名なので同じ形で比べる。
         self.name = self.net.getName()
         cmds.addAttr(self.name, longName="vals", attributeType="double", multi=True)
         cmds.addAttr(self.name, longName="msgs", attributeType="message", multi=True)
@@ -165,8 +165,8 @@ class DefaultSearchSpecTest(_MultiSpecCase):
                 self.assertIsInstance(plug, plugs.Plug)
                 self.assertNotIsInstance(plug, plugs.MultiPlug)
                 self.assertEqual(plug.getIndex(), index)
-                self.assertEqual(plug.getMulti().getFullName(), self.values.getFullName())
-                self.assertEqual(plug.getFullName(), f"{self.name}.vals[{index}]")
+                self.assertEqual(plug.getMulti().getName(full=True), self.values.getName(full=True))
+                self.assertEqual(plug.getName(full=True), f"{self.name}.vals[{index}]")
         self.assertEqual(self.existing(), [0])
         with self.assertRaises(TypeError):
             self.values.getNextAvailable(asPlug=True)
@@ -315,12 +315,12 @@ class ContainerProtocolSpecTest(_MultiSpecCase):
 
     def test_repr_shows_wrapper_type(self):
         pairs = self.net.getPlug("pairs")
-        self.assertEqual(repr(self.values), f"MultiPlug({self.values.getFullName()!r})")
-        self.assertEqual(repr(pairs[0]), f"CompoundPlug({pairs[0].getFullName()!r})")
-        self.assertEqual(repr(pairs[0]["px"]), "DoublePlug({!r})".format(pairs[0]["px"].getFullName()))
+        self.assertEqual(repr(self.values), f"MultiPlug({self.values.getName(full=True)!r})")
+        self.assertEqual(repr(pairs[0]), f"CompoundPlug({pairs[0].getName(full=True)!r})")
+        self.assertEqual(repr(pairs[0]["px"]), "DoublePlug({!r})".format(pairs[0]["px"].getName(full=True)))
         translate = self.src.getPlug("translate")
-        self.assertEqual(repr(translate), f"Double3Plug({translate.getFullName()!r})")
-        self.assertEqual(repr(translate[0]), f"DoubleLinearPlug({translate[0].getFullName()!r})")
+        self.assertEqual(repr(translate), f"Double3Plug({translate.getName(full=True)!r})")
+        self.assertEqual(repr(translate[0]), f"DoubleLinearPlug({translate[0].getName(full=True)!r})")
 
     def test_compound_has_no_len(self):
         with self.assertRaises(TypeError):

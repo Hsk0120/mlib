@@ -173,7 +173,7 @@ class Face(Component):
             name = self.shape._resolve_uv_set(uvSet)
             iterator = self._iterator()
             if not iterator.hasUVs(name):
-                raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+                raise RuntimeError(f"フェースにUVが割り当てられていません: {self._full_name()}")
             return iterator.getUVArea(name)
         if uvSet is not None:
             raise TypeError("uvSetはuv=Trueのときだけ指定できます")
@@ -388,7 +388,7 @@ class Face(Component):
             name = self.shape._resolve_uv_set(uvSet)
             iterator = self._iterator()
             if not iterator.hasUVs(name):
-                raise RuntimeError(f"フェースにUVが割り当てられていません: {self.getFullName()}")
+                raise RuntimeError(f"フェースにUVが割り当てられていません: {self._full_name()}")
             us, vs = iterator.getUVs(name)
             # MItMeshPolygon.isUVReversedはPython API 2.0の引数変換が失敗する版があるため、UVの巻き方向から求める。
             return sum(u * vs[(index + 1) % len(us)] - us[(index + 1) % len(us)] * vs[index] for index, u in enumerate(us)) < 0
@@ -505,8 +505,8 @@ class Faces(Components):
                 else []
             )
             if len(shapes) != 1:
-                raise TypeError(f"curveはNURBSカーブを1つ指定してください: {node.getFullName()}")
-            flags["inputCurve"] = shapes[0].getFullName()
+                raise TypeError(f"curveはNURBSカーブを1つ指定してください: {node._full_name()}")
+            flags["inputCurve"] = shapes[0]._full_name()
         return Node(cmds.polyExtrudeFacet(self.getNames(full=True, compact=True), **flags)[0])
 
     def getVertices(self):

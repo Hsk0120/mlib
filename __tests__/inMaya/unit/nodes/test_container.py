@@ -81,7 +81,7 @@ class ContainerTest(unittest.TestCase):
         self.owner.removeContainer()
         self.assertTrue(node.isValid())
         cmds.undo()
-        restored = Container(cmds.container(query=True, findContainer=node.getFullName()))
+        restored = Container(cmds.container(query=True, findContainer=node.getName(full=True)))
         self.assertIn(node, restored.getMembers())
         self.assertEqual(restored.getPublishedAttrs()["Gain"], node.getPlug("input2X"))
         restored.delete()
@@ -93,11 +93,11 @@ class ContainerTest(unittest.TestCase):
         self.owner.addMembers(inner)
         node = inner.createNode("multiplyDivide")
         inner.removeMembers(node)
-        self.assertEqual(cmds.container(query=True, findContainer=node.getFullName()), self.owner.getFullName())
+        self.assertEqual(cmds.container(query=True, findContainer=node.getName(full=True)), self.owner.getName(full=True))
         self.owner.removeMembers(node)
         inner.addMembers(node)
         inner.removeMembers(node, force=True)
-        self.assertFalse(cmds.container(query=True, findContainer=node.getFullName()))
+        self.assertFalse(cmds.container(query=True, findContainer=node.getName(full=True)))
 
     def test_factory_accepts_container_or_callback(self):
         """Containerとコールバックの両生成先で同じ計算結果になる。"""
@@ -139,7 +139,7 @@ class ContainerPublishTest(_SpecCase):
         self.assertEqual(self.container.getPublishedAttrs(), {"inX": None})
         plug = self.container.bindAttr("inX", self.member.getPlug("input1X"))
         self.assertIsInstance(plug, Plug)
-        self.assertEqual(self.container.getPublishedAttrs()["inX"].getFullName(), self.member.getName() + ".input1X")
+        self.assertEqual(self.container.getPublishedAttrs()["inX"].getName(full=True), self.member.getName() + ".input1X")
         self.assertIsNone(self.container.unbindAttr("inX"))
         self.assertEqual(self.container.getPublishedAttrs(), {"inX": None})
         self.assertIsNone(self.container.unpublishName("inX"))
@@ -148,7 +148,7 @@ class ContainerPublishTest(_SpecCase):
     def test_bind_by_name(self):
         """bindAttr は名前の Plug も受ける。"""
         self.container.publishName("inY")
-        self.assertEqual(self.container.bindAttr("inY", self.member.getName() + ".input1Y").getFullName(), self.member.getName() + ".input1Y")
+        self.assertEqual(self.container.bindAttr("inY", self.member.getName() + ".input1Y").getName(full=True), self.member.getName() + ".input1Y")
 
     def test_errors(self):
         """重複の公開・Bind 済みや無い名前の Bind・未 Bind の解除・Bind 済みの削除・非メンバーは ValueError。"""

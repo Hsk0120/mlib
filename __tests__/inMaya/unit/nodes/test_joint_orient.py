@@ -182,7 +182,7 @@ class JointOrientQuaternionTest(_SpecCaseTransformMisc):
         self.assertSameRotation(self.transform.getQuaternion(r=False), [0, 0, 0, 1])
         self.assertSameRotation(self.transform.getQuaternion(worldSpace=True, r=False), [0, 0, 0, 1])
         child = Node(self.make("transform", "child", parent=self.parent))
-        cmds.setAttr(child.getFullName() + ".rotate", 0, 90, 0)
+        cmds.setAttr(child.getName(full=True) + ".rotate", 0, 90, 0)
         self.assertSameRotation(child.getQuaternion(worldSpace=True, r=False), om2.MEulerRotation(math.radians(30), 0, 0).asQuaternion())
 
     def test_argument_errors(self):

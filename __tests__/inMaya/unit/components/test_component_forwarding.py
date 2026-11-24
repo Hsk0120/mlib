@@ -41,8 +41,8 @@ class ComponentForwardingTest(_Case):
     def test_vertices_forward(self):
         mesh = mlib.getNode(self.cube).getShape()
         vertices = mesh.getVertices([0, 1])
-        names = vertices.getFullName()
-        self.assertEqual(names, [vertex.getFullName() for vertex in vertices])
+        names = vertices.getName(full=True)
+        self.assertEqual(names, [vertex.getName(full=True) for vertex in vertices])
         with self.assertRaises(AttributeError):
             vertices.noSuchMethod
 

@@ -135,7 +135,7 @@ class Camera(Shape):
         """
         _require_bool(state, "state")
         self._require_valid("設定の変更")
-        cmds.camera(self.getFullName(), edit=True, verticalLock=state)
+        cmds.camera(self._full_name(), edit=True, verticalLock=state)
 
     def getFieldOfView(self, *, port=None, unit="deg"):
         """水平と垂直の画角を取得する。``port`` を渡すと、その表示の幅と高さに対応する画角を取得する。
@@ -207,9 +207,9 @@ class Camera(Shape):
             raise ValueError("angleは0より大きく180度未満で指定してください")
         self._require_valid("画角の変更")
         if vertical:
-            cmds.camera(self.getFullName(), edit=True, verticalFieldOfView=value)
+            cmds.camera(self._full_name(), edit=True, verticalFieldOfView=value)
         else:
-            cmds.camera(self.getFullName(), edit=True, horizontalFieldOfView=value)
+            cmds.camera(self._full_name(), edit=True, horizontalFieldOfView=value)
 
     def setFocusDistance(self, *, near=None, far=None):
         """近側か遠側の合焦距離を指定して、カメラの焦点位置を補正する。
@@ -237,7 +237,7 @@ class Camera(Shape):
         if value <= 0:
             raise ValueError(f"{name}は正の距離で指定してください")
         self._require_valid("合焦距離の変更")
-        cmds.camera(self.getFullName(), edit=True, **{flag: om2.MDistance(value).asUnits(om2.MDistance.uiUnit())})
+        cmds.camera(self._full_name(), edit=True, **{flag: om2.MDistance(value).asUnits(om2.MDistance.uiUnit())})
 
     def getPoint(self, worldSpace=_UNSET, *, kind="eye", ws=_UNSET):
         """カメラの位置(視点)を取得する。``kind="centerOfInterest"`` なら、注視点を取得する。
@@ -328,7 +328,7 @@ class Camera(Shape):
         if value <= 0:
             raise ValueError("valueは正の縦横比で指定してください")
         self._require_valid("縦横比の変更")
-        cmds.camera(self.getFullName(), edit=True, aspectRatio=value)
+        cmds.camera(self._full_name(), edit=True, aspectRatio=value)
 
     def getDirection(self, worldSpace=_UNSET, *, kind="view", ws=_UNSET):
         """カメラの視線の向きを取得する。``kind="up"`` なら、カメラの上の向きを取得する。
@@ -382,7 +382,7 @@ class Camera(Shape):
         direction = Vector(_finite_vector(direction, 3, "direction"))
         if (direction ^ self.getDirection()).length() < 1e-12:
             raise ValueError("directionは視線と平行でない方向で指定してください")
-        cmds.camera(self.getFullName(), edit=True, worldUp=list(direction))
+        cmds.camera(self._full_name(), edit=True, worldUp=list(direction))
 
     def getProjectionMatrix(self, *, post=False):
         """投影マトリクスを取得する。``post=True`` なら、フィルム面のロール等に使う後段の投影マトリクスを取得する。

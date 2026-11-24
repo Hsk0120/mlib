@@ -108,13 +108,13 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
         skin = self._bind(self._plane(), self.joints)
         reference = self._bind(self._plane(), self.joints)
         for cluster in (self.source_skin, skin, reference):
-            cmds.setAttr(cluster.getFullName() + ".skinningMethod", 2)
+            cmds.setAttr(cluster.getName(full=True) + ".skinningMethod", 2)
         self.source_skin.setBlendWeights([0, 0.25, 0.75, 1])
         cmds.setAttr(self.joints[0] + ".liw", True)
         self.source_skin.copyWeightsTo(skin, influenceAssociation="oneToOne", normalize=False)
         cmds.copySkinWeights(
-            sourceSkin=self.source_skin.getFullName(),
-            destinationSkin=reference.getFullName(),
+            sourceSkin=self.source_skin.getName(full=True),
+            destinationSkin=reference.getName(full=True),
             noMirror=True,
             surfaceAssociation="closestPoint",
             influenceAssociation="oneToOne",
@@ -132,11 +132,11 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
                 skin = self._bind(target, self.joints)
                 shape = mlib.getNode(target).getShape()
                 if lock == "skin":
-                    cmds.lockNode(skin.getFullName(), lock=True)
+                    cmds.lockNode(skin.getName(full=True), lock=True)
                 elif lock == "shape":
-                    cmds.lockNode(shape.getFullName(), lock=True)
+                    cmds.lockNode(shape.getName(full=True), lock=True)
                 elif lock == "weights":
-                    cmds.setAttr(skin.getFullName() + ".weightList", lock=True)
+                    cmds.setAttr(skin.getName(full=True) + ".weightList", lock=True)
                 else:
                     cmds.setAttr(self.joints[0] + ".liw", True)
                 try:
@@ -151,20 +151,20 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
                     self.source_skin.copyWeightsTo(skin)
                     self.assertSequenceAlmostEqual(skin.getWeights(self.joints), self.expected)
                     if lock == "skin":
-                        self.assertTrue(cmds.lockNode(skin.getFullName(), query=True, lock=True)[0])
+                        self.assertTrue(cmds.lockNode(skin.getName(full=True), query=True, lock=True)[0])
                     elif lock == "shape":
-                        self.assertTrue(cmds.lockNode(shape.getFullName(), query=True, lock=True)[0])
+                        self.assertTrue(cmds.lockNode(shape.getName(full=True), query=True, lock=True)[0])
                     elif lock == "weights":
-                        self.assertTrue(cmds.getAttr(skin.getFullName() + ".weightList", lock=True))
+                        self.assertTrue(cmds.getAttr(skin.getName(full=True) + ".weightList", lock=True))
                     else:
                         self.assertTrue(cmds.getAttr(self.joints[0] + ".liw"))
                     cmds.undo()
                     self.assertSequenceAlmostEqual(skin.getWeights(self.joints), before)
                     self.assertUndoEmpty()
                 finally:
-                    cmds.lockNode(skin.getFullName(), lock=False)
-                    cmds.lockNode(shape.getFullName(), lock=False)
-                    cmds.setAttr(skin.getFullName() + ".weightList", lock=False)
+                    cmds.lockNode(skin.getName(full=True), lock=False)
+                    cmds.lockNode(shape.getName(full=True), lock=False)
+                    cmds.setAttr(skin.getName(full=True) + ".weightList", lock=False)
                     cmds.setAttr(self.joints[0] + ".liw", False)
 
     def test_locked_weight_descendants_reject_only_unsupported_undo_version(self):
@@ -172,7 +172,7 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
             with self.subTest(attribute=attribute):
                 skin = self._bind(self._plane(), self.joints)
                 before = skin.getWeights(self.joints)
-                cmds.setAttr(skin.getFullName() + "." + attribute, lock=True)
+                cmds.setAttr(skin.getName(full=True) + "." + attribute, lock=True)
                 self.flushUndo()
                 if 20230000 <= om2.MGlobal.apiVersion() < 20240000:
                     with self.assertRaisesRegex(RuntimeError, "Undo"):
@@ -192,8 +192,8 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
                     reference = self._bind(self._plane(100), self.joints)
                     self.source_skin.copyWeightsTo(skin, surfaceAssociation=surface, sampleSpace=space)
                     cmds.copySkinWeights(
-                        sourceSkin=self.source_skin.getFullName(),
-                        destinationSkin=reference.getFullName(),
+                        sourceSkin=self.source_skin.getName(full=True),
+                        destinationSkin=reference.getName(full=True),
                         noMirror=True,
                         surfaceAssociation=surface,
                         influenceAssociation=["name", "closestJoint"],
@@ -216,8 +216,8 @@ class SkinClusterCopyOptionsTest(NamespaceCase):
         source.setWeights(self.joints, [[1, 0] if index < 3 else [0, 1] for index in range(6)], rows=True)
         source.copyWeightsTo(destination, uvSpace=("map1", "map1"))
         cmds.copySkinWeights(
-            sourceSkin=source.getFullName(),
-            destinationSkin=reference.getFullName(),
+            sourceSkin=source.getName(full=True),
+            destinationSkin=reference.getName(full=True),
             noMirror=True,
             uvSpace=("map1", "map1"),
             surfaceAssociation="closestPoint",

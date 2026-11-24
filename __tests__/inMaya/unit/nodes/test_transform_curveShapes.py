@@ -49,7 +49,7 @@ class CurveShapesTest(NamespaceCase):
         circle, square_shape, _open_shape = node.getShape(all=True)
         circle.setColor(17)
         square_shape.setColor((0.25, 0.5, 1.0))
-        cmds.setAttr(circle.getFullName() + ".lineWidth", 3.0)
+        cmds.setAttr(circle.getName(full=True) + ".lineWidth", 3.0)
         node.setColor(6)
         return node
 
@@ -102,7 +102,7 @@ class CurveShapesTest(NamespaceCase):
             self.assertEqual(std_json.load(stream)["header"]["format"], "mlib.curveShapes")
         # 読み込み先は別のShapeを1つ(既定の色・線幅)持つ。
         target = mlib.getNode(cmds.circle(name=self.name("target"), radius=5.0, constructionHistory=False)[0])
-        cmds.setAttr(target.getFullName() + ".translate", 3, 4, 5)
+        cmds.setAttr(target.getName(full=True) + ".translate", 3, 4, 5)
         self.assertIsNone(target.importCurveShapes(path))
         self.assert_same_curves(control, target)
         shapes = target.getShape(all=True)
@@ -112,15 +112,15 @@ class CurveShapesTest(NamespaceCase):
         for value, expected in zip(shapes[1].getColor(), (0.25, 0.5, 1.0)):
             self.assertAlmostEqual(value, expected, places=6)
         self.assertIsNone(shapes[2].getColor())
-        self.assertEqual(cmds.getAttr(shapes[0].getFullName() + ".lineWidth"), 3.0)
-        self.assertEqual(cmds.getAttr(shapes[2].getFullName() + ".lineWidth"), -1.0)
+        self.assertEqual(cmds.getAttr(shapes[0].getName(full=True) + ".lineWidth"), 3.0)
+        self.assertEqual(cmds.getAttr(shapes[2].getName(full=True) + ".lineWidth"), -1.0)
         self.assertEqual(target.getColor(), 6)
         self.assertEqual(list(target.getTranslation()), [3.0, 4.0, 5.0])
 
     def test_shape_names_after_source_removed(self):
         control = self.make_control()
         data = control.getCurveShapesData()
-        cmds.delete(control.getFullName())
+        cmds.delete(control.getName(full=True))
         target = mlib.getNode(cmds.createNode("transform", name=self.name("target")))
         target.setCurveShapesData(data)
         self.assertEqual(
@@ -165,12 +165,12 @@ class CurveShapesTest(NamespaceCase):
         control = self.make_control()
         data = control.getCurveShapesData()
         target = mlib.getNode(cmds.spaceLocator(name=self.name("target"))[0])
-        locator = target.getShape(all=True)[0].getFullName()
+        locator = target.getShape(all=True)[0].getName(full=True)
         target.setCurveShapesData(data)
         self.assertTrue(cmds.objExists(locator))
         self.assertEqual(len(target.getShape(all=True)), 4)
         target.setCurveShapesData({"color": None, "shapes": []})
-        self.assertEqual([shape.getFullName() for shape in target.getShape(all=True)], [locator])
+        self.assertEqual([shape.getName(full=True) for shape in target.getShape(all=True)], [locator])
 
     def test_joint(self):
         control = self.make_control()

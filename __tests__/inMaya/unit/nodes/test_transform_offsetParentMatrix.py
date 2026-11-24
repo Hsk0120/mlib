@@ -30,7 +30,7 @@ class OffsetParentMatrixTest(unittest.TestCase):
         self.target = mlib.createNode("transform", parent=self.root)
 
     def tearDown(self):
-        cmds.delete(self.root.getFullName())
+        cmds.delete(self.root.getName(full=True))
 
     def test_matrix_type_copy_undo_and_fast(self):
         self.source.setTranslation((2, 3, 4), at=4)
@@ -89,7 +89,7 @@ class OffsetParentMatrixTest(unittest.TestCase):
         self.assertTrue(all(node.getPlug("offsetParentMatrix").get().isEquivalent(Matrix()) for node in nodes))
         plug.set(value, fast=True)
         self.assertTrue(plug.get().isEquivalent(value))
-        cmds.setAttr(self.target.getFullName() + ".offsetParentMatrix", lock=True)
+        cmds.setAttr(self.target.getName(full=True) + ".offsetParentMatrix", lock=True)
         with self.assertRaises(RuntimeError):
             plug.set(Matrix())
 

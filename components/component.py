@@ -148,7 +148,7 @@ class Component(Object):
         cls = type(self).__name__
         if not self.isValid():
             return f"<{cls} invalid>"
-        full = self.getFullName()
+        full = self._full_name()
         return f"{cls}({self._shape.getName() + full[full.rindex('.') :]!r})"
 
     def __str__(self):
@@ -157,7 +157,7 @@ class Component(Object):
         Returns:
             str: 今の完全パスを付けたコンポーネント名。
         """
-        return self.getFullName()
+        return self._full_name()
 
     @property
     def shape(self):
@@ -178,19 +178,33 @@ class Component(Object):
         """
         return self._index
 
-    def getFullName(self):
-        """今のDAGパスを使って、コンポーネント名を取得する。
+    def getName(self, *, full=False):
+        """コンポーネント名を取得する。
+
+        既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を返す(:meth:`Components.getNames` の1要素と同じ)。
+        シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``)。
+        ``full=True`` なら、シェイプの部分を完全パスにした名前を返す(``|cube|cubeShape.vtx[3]``。``str(component)`` と同じ)。
+        ``maya.cmds`` へ渡すときは ``full=True`` を使う。
+
+        Args:
+            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
 
         Returns:
-            str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
-                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前
-                (周期曲面で重なっているCVは、先頭側の番号で表す)。
+            str: ``cube.vtx[3]`` のような名前。番号を複数持つ要素は ``plane.cv[1][2]`` のような名前。
+
+        Raises:
+            TypeError: fullがboolでない場合、またはシェイプの種類が合わない場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: シェイプが無効な場合。
         """
-        self._require_valid()
-        if type(self).index_size > 1:
-            numbers = self._multi_indices(self._shape, [self._index], command=True)[0]
-            return _component_name(f"{self._shape.getFullName()}.{self.component_type}", numbers)
-        return f"{self._shape.getFullName()}.{self.component_type}[{self._index}]"
+        _require_bool(full, "full")
+        name = self._full_name()
+        if full:
+            return name
+        # シェイプの部分の最短の名前の決め方は Components.getNames と同じにする。
+        full_prefix = name.rsplit(".", 1)[0]
+        short_prefix = cmds.ls(name)[0].rsplit(".", 1)[0]
+        return short_prefix + name[len(full_prefix) :]
 
     def getMultiIndex(self):
         """この要素の番号を、今の形状からtupleで取得する。
@@ -226,6 +240,20 @@ class Component(Object):
         except (RuntimeError, TypeError, ValueError, IndexError):
             return False
         return True
+
+    def _full_name(self):
+        """今のDAGパスを使って、完全パスのコンポーネント名(:meth:`getName` の ``full=True``)を取得する。
+
+        Returns:
+            str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
+                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前
+                (周期曲面で重なっているCVは、先頭側の番号で表す)。
+        """
+        self._require_valid()
+        if type(self).index_size > 1:
+            numbers = self._multi_indices(self._shape, [self._index], command=True)[0]
+            return _component_name(f"{self._shape._full_name()}.{self.component_type}", numbers)
+        return f"{self._shape._full_name()}.{self.component_type}[{self._index}]"
 
     @staticmethod
     def _from_api(path, component):
@@ -1140,7 +1168,7 @@ class Components:
         """
         if self.component_class.index_size > 1:
             self._require_valid()
-            prefix = f"{self._shape.getFullName()}.{self.component_class.component_type}"
+            prefix = f"{self._shape._full_name()}.{self.component_class.component_type}"
             return [_component_name(prefix, numbers) for numbers in self.component_class._multi_indices(self._shape, self._indices, command=True)]
         prefix = self._name_prefix()
         if not compact:
@@ -1170,7 +1198,7 @@ class Components:
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
-        return f"{self._shape.getFullName()}.{self.component_class.component_type}"
+        return f"{self._shape._full_name()}.{self.component_class.component_type}"
 
     def _repr_indices(self):
         """reprに表示する番号を、持っている順で返す。カーブのCVは、cmdsで使う番号に直す。

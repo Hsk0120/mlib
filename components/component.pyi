@@ -135,13 +135,24 @@ class Component(Object):
                 カーブのCVはOpenMayaの番号で、周期カーブの末尾ではcmdsで使う番号と違うことがある。
         """
         ...
-    def getFullName(self) -> str:
-        """今のDAGパスを使って、コンポーネント名を取得する。
+    def getName(self, *, full: bool = ...) -> str:
+        """コンポーネント名を取得する。
+
+        既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を返す(:meth:`Components.getNames` の1要素と同じ)。
+        シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``)。
+        ``full=True`` なら、シェイプの部分を完全パスにした名前を返す(``|cube|cubeShape.vtx[3]``。``str(component)`` と同じ)。
+        ``maya.cmds`` へ渡すときは ``full=True`` を使う。
+
+        Args:
+            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
 
         Returns:
-            str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
-                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前
-                (周期曲面で重なっているCVは、先頭側の番号で表す)。
+            str: ``cube.vtx[3]`` のような名前。番号を複数持つ要素は ``plane.cv[1][2]`` のような名前。
+
+        Raises:
+            TypeError: fullがboolでない場合、またはシェイプの種類が合わない場合。
+            IndexError: 番号が範囲外の場合。
+            RuntimeError: シェイプが無効な場合。
         """
         ...
     def getMultiIndex(self) -> tuple[int, ...]:
@@ -168,6 +179,15 @@ class Component(Object):
         Note:
             トポロジーを変えた前後で、同じ要素を指すとは限らない。
             UVは、現在のUVセットの番号の範囲を使う。
+        """
+        ...
+    def _full_name(self) -> str:
+        """今のDAGパスを使って、完全パスのコンポーネント名(:meth:`getName` の ``full=True``)を取得する。
+
+        Returns:
+            str: シェイプの完全パスと、コンポーネントの種類・番号を含む名前。
+                番号を複数持つ要素は ``|plane|planeShape.cv[1][2]`` のような名前
+                (周期曲面で重なっているCVは、先頭側の番号で表す)。
         """
         ...
     @staticmethod
@@ -789,8 +809,8 @@ class Components:
             str: ``prefix[start]`` または ``prefix[start:end]``。
         """
         ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getName(self, *, full: bool = ...) -> list[str]:
+        """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:
         """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

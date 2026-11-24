@@ -136,7 +136,7 @@ class InvertShapeTest(_RigCase):
             front()
         result = skin.invertShape(sculpt)
         self.assertIsInstance(result, Mesh)
-        blend = cmds.blendShape(result.getParent().getFullName(), self.mesh, frontOfChain=True, name=self.name("corrective"))[0]
+        blend = cmds.blendShape(result.getParent().getName(full=True), self.mesh, frontOfChain=True, name=self.name("corrective"))[0]
         cmds.setAttr(blend + ".weight[0]", 1.0)
         for actual, expected in zip(_world_points(self.mesh), _world_points(sculpt)):
             self.assertLess(_distance(actual, expected), 1e-3)
@@ -310,17 +310,17 @@ class SkinSettingsTest(_SkinCase):
         skin = self.skinned()
         self.assertEqual(skin.getMode("skinning"), "classicLinear")
         self.assertIsNone(skin.setMode("dualQuaternion", "skinning"))
-        self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 1)
+        self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 1)
         self.assertEqual(skin.getMode("normalize"), "interactive")
         skin.setMode("post", "normalize")
-        self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), 2)
-        self.assertEqual(skin.getMaxInfluences(maintain=True), bool(cmds.getAttr(skin.getFullName() + ".maintainMaxInfluences")))
+        self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), 2)
+        self.assertEqual(skin.getMaxInfluences(maintain=True), bool(cmds.getAttr(skin.getName(full=True) + ".maintainMaxInfluences")))
         self.assertRaises(ValueError, skin.setMode, "linear", "skinning")
         self.assertRaises(TypeError, skin.setMode, 1, "normalize")
         # kind を省くと "skinning"。知らない kind は ValueError、str 以外は TypeError で、設定は変わらない。
         self.assertEqual(skin.getMode(), skin.getMode("skinning"))
         skin.setMode("classicLinear")
-        self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 0)
+        self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 0)
         skin.setMode("dualQuaternion")
         for kind, error in (("blend", ValueError), ("", ValueError), (1, TypeError), (None, TypeError)):
             with self.subTest(kind=kind):
@@ -329,10 +329,10 @@ class SkinSettingsTest(_SkinCase):
         # 名前は kind ごとに別で、取り違えは ValueError。
         self.assertRaises(ValueError, skin.setMode, "post", "skinning")
         self.assertRaises(ValueError, skin.setMode, "dualQuaternion", "normalize")
-        self.assertEqual(cmds.getAttr(skin.getFullName() + ".skinningMethod"), 1)
-        self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), 2)
+        self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 1)
+        self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), 2)
         self.assertIs(skin.getMaxInfluences(maintain=True), False)
-        self.assertEqual(skin.getMaxInfluences(), cmds.getAttr(skin.getFullName() + ".maxInfluences"))
+        self.assertEqual(skin.getMaxInfluences(), cmds.getAttr(skin.getName(full=True) + ".maxInfluences"))
         self.assertRaises(TypeError, skin.getMaxInfluences, maintain=1)
         cmds.flushUndo()
         skin.setMode("weightBlended", "skinning")

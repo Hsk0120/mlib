@@ -86,7 +86,7 @@ class TransformRotateAxisTest(NamespaceCase):
                 for connected in (False, True):
                     with self.subTest(fast=fast, attribute=attribute, connected=connected):
                         node = self._node()
-                        name = node.getFullName()
+                        name = node.getName(full=True)
                         if connected:
                             source = self.make("transform", "source#")
                             cmds.connectAttr(source + ".rx", name + "." + attribute)
@@ -122,9 +122,9 @@ class TransformRotateAxisTest(NamespaceCase):
     @staticmethod
     def _state(node):
         return [
-            cmds.getAttr(node.getFullName() + "." + name)
+            cmds.getAttr(node.getName(full=True) + "." + name)
             for name in ("rotateAxis", "rotate", "jointOrient")
-            if cmds.attributeQuery(name, node=node.getFullName(), exists=True)
+            if cmds.attributeQuery(name, node=node.getName(full=True), exists=True)
         ]
 
 

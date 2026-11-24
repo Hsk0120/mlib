@@ -58,7 +58,7 @@ class RenamedTypeTest(_SpecCase):
     def test_create_undoes_once(self):
         self.flushUndo()
         node = mlib.createNode("multDL", name=self.name("undo"))
-        name = node.getFullName()
+        name = node.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
     def test_ls_type_flags_accept_both_names(self):
@@ -109,7 +109,7 @@ class JointInverseScaleTest(_SpecCase):
             with self.subTest(fast=fast):
                 child = mlib.createNode("joint", name=self.name("child#"), parent=root, fast=fast)
                 self.assertEqual(child.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True), root.getPlug("scale"))
-        cmds.select(root.getFullName())
+        cmds.select(root.getName(full=True))
         reference = cmds.joint(name=self.name("cmdsChild"))
         self.assertEqual(cmds.listConnections(reference + ".inverseScale", plugs=True), [root.getName(node=True) + ".scale"])
 
@@ -117,9 +117,9 @@ class JointInverseScaleTest(_SpecCase):
         root = mlib.createNode("joint", name=self.name("root"))
         self.flushUndo()
         child = mlib.createNode("joint", name=self.name("child"), parent=root)
-        name = child.getFullName()
+        name = child.getName(full=True)
         self.assertUndoesInOneStep(
-            lambda: (self.assertFalse(cmds.objExists(name)), self.assertEqual(cmds.listConnections(root.getFullName() + ".scale") or [], [])),
+            lambda: (self.assertFalse(cmds.objExists(name)), self.assertEqual(cmds.listConnections(root.getName(full=True) + ".scale") or [], [])),
             lambda: self.assertTrue(cmds.objExists(name)),
         )
 
@@ -128,7 +128,7 @@ class JointInverseScaleTest(_SpecCase):
         joint = mlib.createNode("joint", name=self.name("underGroup"), parent=group)
         self.assertIsNone(joint.getPlug("inverseScale").getConnections(input=True, skipConversionNodes=True))
         transform = mlib.createNode("transform", name=self.name("underJoint"), parent=joint)
-        self.assertEqual(cmds.listConnections(joint.getFullName() + ".scale") or [], [])
+        self.assertEqual(cmds.listConnections(joint.getName(full=True) + ".scale") or [], [])
         self.assertTrue(transform.isValid())
 
 

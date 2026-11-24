@@ -24,7 +24,7 @@ class _PlugSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg")
         self.node = self.make("transform")
-        self.name = self.node.getFullName()
+        self.name = self.node.getName(full=True)
 
     def tearDown(self):
         cmds.currentUnit(linear=self.units[0], angle=self.units[1])

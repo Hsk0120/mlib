@@ -29,7 +29,7 @@ class _ValueSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg", time="film")
         self.node = self.make("transform")
-        # Plug.getFullName() はノードの一意名(ルートの "|" 無し)で始まるので、同じ形で期待値を作る。
+        # Plug.getName(full=True) はノードの一意名(ルートの "|" 無し)で始まるので、同じ形で期待値を作る。
         self.name = self.node.getName()
 
     def tearDown(self):
@@ -84,7 +84,7 @@ class GetTypeSpecTest(_ValueSpecCase):
             with self.subTest(type=type_name):
                 plug = self.add("attr_" + type_name, **flags)
                 self.assertEqual(plug.getType(), type_name)
-                self.assertEqual(plug.getType(), cmds.getAttr(plug.getFullName(), type=True))
+                self.assertEqual(plug.getType(), cmds.getAttr(plug.getName(full=True), type=True))
                 self.assertIs(type(plug), cls)
                 self.assertNotIsInstance(plug.getType(), type)
 
@@ -106,7 +106,7 @@ class GetTypeSpecTest(_ValueSpecCase):
         choice = mlib.getNode(cmds.createNode("choice", name=self.namespace + ":c#", skipSelect=True))
         element = choice.getPlug("input")[0]
         self.assertIsNone(element.getType())
-        cmds.setAttr(choice.getFullName() + ".input[0]", 1.5)
+        cmds.setAttr(choice.getName(full=True) + ".input[0]", 1.5)
         self.assertIsNone(element.getType())
         self.assertIsNone(choice.getPlug("output").getType())
 
@@ -207,7 +207,7 @@ class RangeUnitsSpecTest(_ValueSpecCase):
             angle.getRange(unit="deg", uiUnits=True)
         self.assertAlmostEqual(angle.getRange(uiUnits=True)[0], cmds.attributeQuery("ang", node=self.name, minimum=True)[0])
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), cmds.attributeQuery("ang", node=self.name, listDefault=True)[0])
-        self.assertAlmostEqual(angle.getDefault(uiUnits=True), cmds.getAttr(angle.getFullName()))
+        self.assertAlmostEqual(angle.getDefault(uiUnits=True), cmds.getAttr(angle.getName(full=True)))
         self.assertAlmostEqual(angle.getDefault(uiUnits=True), angle.get(uiUnits=True))
         self.assertIsInstance(angle.getDefault(), float)
         self.assertAlmostEqual(angle.getDefault(), angle.get())
@@ -282,14 +282,14 @@ class EnumNamesSpecTest(_ValueSpecCase):
         """current=Trueは現在値の名前、value=はその値の名前(name=の逆引き)。"""
         plug = self.add("kind", attributeType="enum", enumName="a=1:b=5:c")
         # 既定値 0 にはフィールドが無いので現在値の名前は ValueError(値を補正しない)。
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 0)
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 0)
         with self.assertRaises(ValueError):
             plug.getEnumNames(current=True)
-        cmds.setAttr(plug.getFullName(), 1)
+        cmds.setAttr(plug.getName(full=True), 1)
         self.assertEqual(plug.getEnumNames(current=True), "a")
-        cmds.setAttr(plug.getFullName(), 5)
+        cmds.setAttr(plug.getName(full=True), 5)
         self.assertEqual(plug.getEnumNames(current=True), "b")
-        self.assertEqual(plug.getEnumNames(current=True), cmds.getAttr(plug.getFullName(), asString=True))
+        self.assertEqual(plug.getEnumNames(current=True), cmds.getAttr(plug.getName(full=True), asString=True))
         # value=None は指定していない扱いで、すべてのフィールドを返す。
         self.assertEqual(plug.getEnumNames(value=None), plug.getEnumNames())
         for value, name in ((1, "a"), (5, "b"), (6, "c")):
@@ -311,7 +311,7 @@ class EnumNamesSpecTest(_ValueSpecCase):
             with self.subTest(value=repr(value)):
                 with self.assertRaises(TypeError):
                     plug.getEnumNames(value=value)
-        cmds.setAttr(plug.getFullName(), 3)
+        cmds.setAttr(plug.getName(full=True), 3)
         with self.assertRaises(ValueError):
             plug.getEnumNames(current=True)
         tx = self.node.getPlug("tx")
@@ -335,7 +335,7 @@ class EnumNamesSpecTest(_ValueSpecCase):
         self.assertEqual(rotate_order, self.listed("rotateOrder"))
         for name, value in rotate_order:
             self.assertEqual(self.node.getPlug("rotateOrder").getEnumNames(value=value), name)
-        cmds.setAttr(plug.getFullName(), 6)
+        cmds.setAttr(plug.getName(full=True), 6)
         self.assertEqual(plug.getEnumNames(), names)
 
     def test_enum_names_follow_set_enum_names(self):
@@ -372,11 +372,11 @@ class AliasMultiIndexSpecTest(_ValueSpecCase):
         element = values[7]
         array = element.getMulti()
         self.assertIsInstance(array, plugs.MultiPlug)
-        self.assertEqual(array.getFullName(), values.getFullName())
+        self.assertEqual(array.getName(full=True), values.getName(full=True))
         self.assertEqual(element.getIndex(), 7)
         self.assertEqual(self.node.getPlug("vals[12]").getIndex(), 12)
         self.assertEqual(self.node.getPlug("worldMatrix")[0].getIndex(), 0)
-        self.assertEqual(self.node.getPlug("worldMatrix")[0].getMulti().getFullName(), self.name + ".worldMatrix")
+        self.assertEqual(self.node.getPlug("worldMatrix")[0].getMulti().getName(full=True), self.name + ".worldMatrix")
         # 要素の子はgetMulti()がNone(子であって要素ではない)。
         cmds.addAttr(self.name, longName="pairs", attributeType="compound", numberOfChildren=2, multi=True)
         cmds.addAttr(self.name, longName="px", attributeType="double", parent="pairs")
@@ -386,7 +386,7 @@ class AliasMultiIndexSpecTest(_ValueSpecCase):
         with self.assertRaises(TypeError):
             child.getIndex()
         self.assertEqual(child.getParent().getIndex(), 3)
-        self.assertEqual(child.getParent().getMulti().getFullName(), self.name + ".pairs")
+        self.assertEqual(child.getParent().getMulti().getName(full=True), self.name + ".pairs")
         # 参照を作っただけでは要素は作られない。
         self.assertIsNone(cmds.getAttr(self.name + ".vals", multiIndices=True))
 

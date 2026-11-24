@@ -46,7 +46,7 @@ class MfnSpecTest(NamespaceCase):
         mesh = Node(box).getShape()
         self.assertEqual(mesh.mfn().numVertices, mesh.getNumVertices())
         self.assertEqual(Node(curve).getShape().mfn().numCVs, 2)
-        self.assertAlmostEqual(Node(camera).getShape().mfn().focalLength, cmds.getAttr(Node(camera).getShape().getFullName() + ".focalLength"))
+        self.assertAlmostEqual(Node(camera).getShape().mfn().focalLength, cmds.getAttr(Node(camera).getShape().getName(full=True) + ".focalLength"))
 
     def test_empty_shapes_fall_back_to_dag_node(self):
         """形状データの無い mesh・nurbsCurve は MFnDagNode を返し、DagNode 共通の照会が使える。"""
@@ -59,7 +59,7 @@ class MfnSpecTest(NamespaceCase):
                 self.assertIs(type(fn), om2.MFnDagNode)
                 self.assertEqual(fn.fullPathName(), shape.mpath().fullPathName())
                 self.assertFalse(shape.isIntermediateObject())
-                self.assertEqual([p.getFullName() for p in shape.getParent(instances=True)], ["|" + parent])
+                self.assertEqual([p.getName(full=True) for p in shape.getParent(instances=True)], ["|" + parent])
                 with self.assertRaises(RuntimeError):
                     getattr(shape, query)()
 
@@ -77,15 +77,15 @@ class MfnSpecTest(NamespaceCase):
         mesh = mlib.createNode("mesh", name=self.name("filledShape"), parent=transform)
         self.assertIs(type(mesh.mfn()), om2.MFnDagNode)
         creator = cmds.polyCube(name=self.name("source"))[1]
-        cmds.connectAttr(creator + ".output", mesh.getFullName() + ".inMesh")
-        cmds.getAttr(mesh.getFullName() + ".outMesh", size=True)
+        cmds.connectAttr(creator + ".output", mesh.getName(full=True) + ".inMesh")
+        cmds.getAttr(mesh.getName(full=True) + ".outMesh", size=True)
         self.assertIsInstance(mesh.mfn(), om2.MFnMesh)
         self.assertEqual(mesh.getNumVertices(), 8)
 
     def test_deleted_shape_raises_runtime_error(self):
         """削除後の mfn() は RuntimeError。"""
         mesh = Node(cmds.polyCube(name=self.name("gone"))[0]).getShape()
-        cmds.delete(mesh.getParent().getFullName())
+        cmds.delete(mesh.getParent().getName(full=True))
         with self.assertRaises(RuntimeError):
             mesh.mfn()
 

@@ -200,7 +200,7 @@ class MappingTest(SkinWeightsCase):
         skin = mlib.bindSkin(self.joints[:2], mesh)
         self.assertEqual(len(skin.getInfluences()), 2)
         skin.importWeights(self.path)
-        self.assertEqual(sorted(node.getFullName() for node in skin.getInfluences()), sorted(self.joints))
+        self.assertEqual(sorted(node.getName(full=True) for node in skin.getInfluences()), sorted(self.joints))
         self.assertRowsAlmostEqual(self.allWeights(skin), expected, places=12)
 
     def test_target_only_influence_is_zeroed(self):
@@ -273,11 +273,11 @@ class StateTest(SkinWeightsCase):
     def test_dq_blend_weights(self):
         self.skin.setMode("weightBlended", "skinning")
         blend = [vertex / float(self.count) for vertex in range(self.count)]
-        cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *blend)
+        cmds.setAttr(f"{self.skin.getName(full=True)}.blendWeights[0:{self.count - 1}]", *blend)
         data = self.skin.getWeightsData()
         self.assertSequenceAlmostEqual(data["blendWeights"], blend)
         self.skin.exportWeights(self.path)
-        cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
+        cmds.setAttr(f"{self.skin.getName(full=True)}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
         self.skin.setMode("classicLinear", "skinning")
         self.skin.importWeights(self.path)
         self.assertEqual(self.skin.getMode("skinning"), "weightBlended")
@@ -301,11 +301,11 @@ class StateTest(SkinWeightsCase):
         self.skin.setMaxInfluences(3)
         self.skin.exportWeights(self.path)
         self.skin.setMaxInfluences(5)
-        cmds.setAttr(self.skin.getFullName() + ".maxInfluences", lock=True)
+        cmds.setAttr(self.skin.getName(full=True) + ".maxInfluences", lock=True)
         try:
             report = self.skin.importWeights(self.path)
         finally:
-            cmds.setAttr(self.skin.getFullName() + ".maxInfluences", lock=False)
+            cmds.setAttr(self.skin.getName(full=True) + ".maxInfluences", lock=False)
         self.assertEqual(len(report.skipped), 1)
         self.assertIn("maxInfluences", report.skipped[0])
         self.assertEqual(self.skin.getMaxInfluences(), 5)
@@ -352,12 +352,12 @@ class UndoFastTest(SkinWeightsCase):
         self.skin.setMode("weightBlended", "skinning")
         cmds.setAttr(self.joints[2] + ".liw", True)
         blend = [vertex / float(self.count) for vertex in range(self.count)]
-        cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *blend)
+        cmds.setAttr(f"{self.skin.getName(full=True)}.blendWeights[0:{self.count - 1}]", *blend)
         expected = self.skin.getWeightsData()
         self.skin.exportWeights(self.path)
         self.skin.setMode("classicLinear", "skinning")
         cmds.setAttr(self.joints[2] + ".liw", False)
-        cmds.setAttr(f"{self.skin.getFullName()}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
+        cmds.setAttr(f"{self.skin.getName(full=True)}.blendWeights[0:{self.count - 1}]", *([0.0] * self.count))
         self.scramble()
         self.flushUndo()
         self.skin.importWeights(self.path, fast=True)
@@ -380,7 +380,7 @@ class BindSkinTest(SkinWeightsCase):
         self.flushUndo()
         skin = mlib.bindSkin(None, mesh, weights=self.path)
         self.assertIsInstance(skin, SkinCluster)
-        self.assertEqual([node.getFullName() for node in skin.getInfluences()], self.joints)
+        self.assertEqual([node.getName(full=True) for node in skin.getInfluences()], self.joints)
         actual = skin.getWeightsData()
         for key in ("weights", "influenceLocks", "settings", "blendWeights"):
             self.assertEqual(actual[key], expected[key], key)
@@ -396,7 +396,7 @@ class BindSkinTest(SkinWeightsCase):
         joints = self.makeJoints(other)
         mesh = self.makePlane(other, "mesh", 4)
         skin = mlib.bindSkin(None, mesh, weights=self.path, namespaceMap={self.ns: other}, method="position")
-        self.assertEqual([node.getFullName() for node in skin.getInfluences()], joints)
+        self.assertEqual([node.getName(full=True) for node in skin.getInfluences()], joints)
         self.assertRowsAlmostEqual(self.allWeights(skin, joints), expected, places=12)
 
     def test_bind_from_file_rejects_before_binding(self):

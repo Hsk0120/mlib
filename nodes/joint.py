@@ -95,7 +95,7 @@ def _influences_by_skin(joints):
     groups = {}
     for joint in joints:
         for skin in joint.getSkinClusters():
-            if skin.hasInfluence(joint.getFullName()):
+            if skin.hasInfluence(joint._full_name()):
                 groups.setdefault(skin.getUuid(), (skin, []))[1].append(joint)
     return list(groups.values())
 
@@ -347,7 +347,7 @@ class Joint(Transform):
                     require_writable(plug.mplug())
                     for child in plug.getChildren():
                         require_writable(child.mplug())
-        cmds.joint(self.getFullName(), edit=True, zeroScaleOrient=True)
+        cmds.joint(self._full_name(), edit=True, zeroScaleOrient=True)
 
     def getHikJointName(self):
         """HumanIKでのジョイント名を取得する。
@@ -457,13 +457,13 @@ class Joint(Transform):
         with undoChunk("mlibJointMirror"):
             parent = self.getParent()
             # mirrorJointの選択変更はUndoに記録されないため、前後の選択を明示してUndo/Redoで再現する。
-            cmds.select(self.getFullName(), replace=True)
-            result = cmds.mirrorJoint(self.getFullName(), **flags)
+            cmds.select(self._full_name(), replace=True)
+            result = cmds.mirrorJoint(self._full_name(), **flags)
             if not result:
                 raise RuntimeError(f"Mayaが{self.getName()}のミラーしたジョイントを作成しませんでした")
-            prefix = parent.getFullName() if parent is not None else ""
+            prefix = parent._full_name() if parent is not None else ""
             root = Joint(prefix + "|" + result[0])
-            cmds.select(root.getFullName(), replace=True)
+            cmds.select(root._full_name(), replace=True)
             return root
 
     def connectInverseScale(self, source=None, *, force=False, fast=False):
@@ -652,7 +652,7 @@ class Joint(Transform):
         _require_bool(children, "children")
         self._require_valid("優先角度の適用")
         with undoChunk("mlibJointAssumePreferredAngles"):
-            cmds.joint(self.getFullName(), edit=True, assumePreferredAngles=True, children=children)
+            cmds.joint(self._full_name(), edit=True, assumePreferredAngles=True, children=children)
 
     def getDegreesOfFreedom(self):
         """回転できる軸を取得する。
@@ -863,7 +863,7 @@ class Joint(Transform):
         with _edit_context("mlibJointSetInfluenceLocked", fast, single=True):
             _require_bool(state, "state")
             if not self.hasAttr("lockInfluenceWeights"):
-                raise RuntimeError(f"ジョイントはどのskinClusterのインフルエンスでもありません: {self.getFullName()}")
+                raise RuntimeError(f"ジョイントはどのskinClusterのインフルエンスでもありません: {self._full_name()}")
             self.getPlug("lockInfluenceWeights").set(state, fast=fast, check=check)
 
     def getBoneSegments(self, worldSpace=_UNSET, *, ws=_UNSET):
@@ -930,7 +930,7 @@ class Joint(Transform):
         with undoChunk("mlibJointReparentChildren"):
             parent_name = Node._input_name(parentJoint)
             for child_joint in self.getChildren(type="joint"):
-                cmds.parent(child_joint.getFullName(), parent_name)
+                cmds.parent(child_joint._full_name(), parent_name)
 
     def getChainFromHere(self, to=None):
         """自身から始まるジョイントのチェーンを、順に取得する。
@@ -1001,12 +1001,12 @@ class Joint(Transform):
         self._require_valid("ジョイントの挿入")
         children = self.getChildren(type="joint")
         if len(children) != 1:
-            raise ValueError(f"ジョイントには子のジョイントが1つだけ必要です: {len(children)}個: {self.getFullName()}")
+            raise ValueError(f"ジョイントには子のジョイントが1つだけ必要です: {len(children)}個: {self._full_name()}")
         child = children[0]
         start = self.getTranslation(worldSpace=True)
         end = child.getTranslation(worldSpace=True)
         base = self.getName().split("|")[-1] + "_insert#"
-        name = self.getFullName()
+        name = self._full_name()
         unit = om2.MDistance.uiUnit()
         with undoChunk("mlibJointInsertJoints"):
             created = []
@@ -1022,7 +1022,7 @@ class Joint(Transform):
                 cmds.xform(joint, worldSpace=True, translation=position)
                 created.append(joint)
                 parent = joint
-            cmds.parent(child.getFullName(), parent)
+            cmds.parent(child._full_name(), parent)
             return Joints._wrap([Joint(joint) for joint in created])
 
     def getPolePosition(self, distance=None):
@@ -1055,7 +1055,7 @@ class Joint(Transform):
         for _ in range(2):
             children = chain[-1].getChildren(type="joint")
             if len(children) != 1:
-                raise ValueError(f"ジョイントには子のジョイントが1つだけ必要です: {len(children)}個: {chain[-1].getFullName()}")
+                raise ValueError(f"ジョイントには子のジョイントが1つだけ必要です: {len(children)}個: {chain[-1]._full_name()}")
             chain.append(children[0])
         start, middle, end = (om2.MVector(joint.getTranslation(worldSpace=True)) for joint in chain)
         length = (middle - start).length() + (end - middle).length()
@@ -1078,7 +1078,7 @@ class Joint(Transform):
         Returns:
             None: 値を返さない。
         """
-        name = self.getFullName()
+        name = self._full_name()
         cmds.joint(name, **flags)
         targets = [name]
         if flags["children"]:
@@ -1114,7 +1114,7 @@ class Joint(Transform):
         rotate = self._compound_values("rotate", angle=True)
         if not any(rotate if to_orient else orient):
             return None
-        name = self.getFullName()
+        name = self._full_name()
         for attribute in ("rotate", "jointOrient"):
             for suffix in ("", "X", "Y", "Z"):
                 plug = name + "." + attribute + suffix
@@ -1142,8 +1142,8 @@ class Joint(Transform):
         """
         if values is None:
             return
-        set_attr(self.getFullName() + ".jointOrient", *(values if to_orient else (0, 0, 0)))
-        set_attr(self.getFullName() + ".rotate", *((0, 0, 0) if to_orient else values))
+        set_attr(self._full_name() + ".jointOrient", *(values if to_orient else (0, 0, 0)))
+        set_attr(self._full_name() + ".rotate", *((0, 0, 0) if to_orient else values))
 
     def _rotate_quaternion(self, attribute):
         """jointOrient / rotateAxis を API quaternion へ変換する。

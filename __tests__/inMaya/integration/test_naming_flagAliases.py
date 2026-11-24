@@ -51,7 +51,7 @@ class FlagAliasesTest(unittest.TestCase):
         self.assertEqual(node.translateX.get(), 3.5)
         node.getPlug("translateX").set(7)
         self.assertEqual(node.getPlug("tx").get(), 7)
-        cmds.addAttr(node.getFullName(), longName="customAmount", shortName="ca", attributeType="double")
+        cmds.addAttr(node.getName(full=True), longName="customAmount", shortName="ca", attributeType="double")
         node.ca.set(2)
         self.assertEqual(node.customAmount.get(), 2)
 
@@ -59,7 +59,7 @@ class FlagAliasesTest(unittest.TestCase):
         source = mlib.createNode("transform")
         joint = mlib.createNode("joint")
         result = mlib.getNode(joint).addConstraint(source, typ="point", mo=True)
-        self.assertEqual(cmds.nodeType(result.getFullName()), "pointConstraint")
+        self.assertEqual(cmds.nodeType(result.getName(full=True)), "pointConstraint")
         mlib.delete(result)
         with self.assertRaises(TypeError):
             joint.addConstraint(source, "point", typ="point")
@@ -68,12 +68,12 @@ class FlagAliasesTest(unittest.TestCase):
 
     def test_native_command_specific_flags(self):
         parent = mlib.getNode(cmds.group(em=True, n="parent"))
-        node = mlib.createNode("transform", n="child", p=parent.getFullName())
+        node = mlib.createNode("transform", n="child", p=parent.getName(full=True))
         copy = mlib.duplicate(node, n="copy")
-        self.assertTrue(cmds.objExists(copy.getFullName()))
+        self.assertTrue(cmds.objExists(copy.getName(full=True)))
         # setKeyframeのtはtime。lsのtypeに対する短縮名ではない。
         cmds.setKeyframe(node, at="tx", t=1, v=4)
-        self.assertEqual(cmds.keyframe(node.getFullName(), q=True, at="tx", vc=True), [4])
+        self.assertEqual(cmds.keyframe(node.getName(full=True), q=True, at="tx", vc=True), [4])
         mlib.select(cl=True)
         self.assertEqual(mlib.ls(sl=True), [])
 
@@ -106,7 +106,7 @@ class FlagAliasesTest(unittest.TestCase):
         """予約語の辞書指定と、indexの短名で必須番号を満たす経路を確認する。"""
         roots = mlib.ls(assemblies=True, long=True)
         short_roots = mlib.ls(long=True, **{"as": True})
-        self.assertEqual([node.getFullName() for node in roots], [node.getFullName() for node in short_roots])
+        self.assertEqual([node.getName(full=True) for node in roots], [node.getName(full=True) for node in short_roots])
         with self.assertRaises(TypeError):
             mlib.ls(assemblies=False, **{"as": False})
         curve = mlib.createNode("animCurveTL")

@@ -41,7 +41,7 @@ class GeometryFilter(Node):
             RuntimeError: デフォーマーが無効、またはMayaが照会を拒否した場合。
         """
         self._require_valid("ツールの取得")
-        return Nodes(cmds.deformer(self.getFullName(), query=True, deformerTools=True) or [])
+        return Nodes(cmds.deformer(self._full_name(), query=True, deformerTools=True) or [])
 
     def getGeometry(self, *, input=False, geometryIndex=None):
         """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。``input=True`` なら、変形前の形状(入力ジオメトリ)を取得する。
@@ -109,7 +109,7 @@ class GeometryFilter(Node):
         candidates = list(node.getShape(all=True)) if node.mnode().hasFn(om2.MFn.kTransform) else [node]
         matches = [candidate for candidate in candidates if any(candidate.mnode() == output for output in outputs)]
         if len(matches) != 1:
-            raise ValueError(f"変形対象のShapeを1つ指定してください: {node.getFullName()}")
+            raise ValueError(f"変形対象のShapeを1つ指定してください: {node._full_name()}")
         return fn.indexForOutputShape(matches[0].mnode())
 
     def getGeometryComponents(self, *, geometryIndex=0):
@@ -291,7 +291,7 @@ class GeometryFilter(Node):
                 try:
                     plug, count = self._deformer_weight_plug(index)
                 except IndexError:
-                    raise ValueError(f"番号{index}のジオメトリはありません: {self.getFullName()}") from None
+                    raise ValueError(f"番号{index}のジオメトリはありません: {self._full_name()}") from None
                 values = entry.get("weights")
                 if entry.get("numVertices") != count or not isinstance(values, list) or len(values) != count:
                     raise ValueError(f"保存された頂点数({entry.get('numVertices')})がジオメトリ{index}の頂点数({count})と合っていません")
@@ -329,7 +329,7 @@ class GeometryFilter(Node):
         with _edit_context("mlibGeometryFilterCopyDeformerWeightsTo", fast):
             target = other if isinstance(other, GeometryFilter) else Node(Object._input_name(other))
             if not isinstance(target, GeometryFilter):
-                raise TypeError(f"otherはデフォーマーで指定してください: {target.getType()}: {target.getFullName()}")
+                raise TypeError(f"otherはデフォーマーで指定してください: {target.getType()}: {target._full_name()}")
             values = self.getDeformerWeights(geometryIndex=geometryIndex)
             _, count = target._deformer_weight_plug(otherGeometryIndex)
             if count != len(values):
@@ -370,7 +370,7 @@ class GeometryFilter(Node):
             TypeError: デフォーマーのウェイトを持たない型の場合。
         """
         if self.isType("skinCluster") or not self.hasAttr("weightList"):
-            raise TypeError(f"{self.getType()}にデフォーマーのウェイトはありません: {self.getFullName()}")
+            raise TypeError(f"{self.getType()}にデフォーマーのウェイトはありません: {self._full_name()}")
         fn = oma2.MFnGeometryFilter(self.mnode())
         return sorted(fn.indexForOutputShape(shape) for shape in fn.getOutputGeometry())
 
@@ -390,11 +390,11 @@ class GeometryFilter(Node):
         if isinstance(geometry_index, bool) or not isinstance(geometry_index, int):
             raise TypeError(f"geometryIndexはintで指定してください: {type(geometry_index).__name__}")
         if self.isType("skinCluster") or not self.hasAttr("weightList"):
-            raise TypeError(f"{self.getType()}にデフォーマーのウェイトはありません: {self.getFullName()}")
+            raise TypeError(f"{self.getType()}にデフォーマーのウェイトはありません: {self._full_name()}")
         try:
             shape = oma2.MFnGeometryFilter(self.mnode()).outputShapeAtIndex(geometry_index)
         except RuntimeError:
-            raise IndexError(f"番号{geometry_index}のジオメトリはありません: {self.getFullName()}") from None
+            raise IndexError(f"番号{geometry_index}のジオメトリはありません: {self._full_name()}") from None
         count = om2.MItGeometry(om2.MDagPath.getAPathTo(shape)).exactCount()
         weight_list = self._dependency_fn().findPlug("weightList", False)
         return weight_list.elementByLogicalIndex(geometry_index).child(0), count
@@ -492,7 +492,7 @@ class GeometryFilter(Node):
         Returns:
             None: 値を返さない。
         """
-        prefix = f"{self.getFullName()}.weightList[{geometry_index}].weights"
+        prefix = f"{self._full_name()}.weightList[{geometry_index}].weights"
         start = 0
         while start < len(indices):
             end = start + 1

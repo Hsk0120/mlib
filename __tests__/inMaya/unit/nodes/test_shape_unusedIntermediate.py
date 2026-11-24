@@ -22,15 +22,15 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
         cmds.namespace(removeNamespace=self.ns, deleteNamespaceContent=True)
 
     def intermediate(self, node_type="mesh"):
-        shape = cmds.createNode(node_type, name=self.ns + ":unused", parent=self.transform.getFullName())
+        shape = cmds.createNode(node_type, name=self.ns + ":unused", parent=self.transform.getName(full=True))
         cmds.setAttr(shape + ".intermediateObject", True)
         return mlib.getNode(shape)
 
     def test_delete_multiple_types_undo_redo_and_parent_survives(self):
         shapes = [self.intermediate(t) for t in ("mesh", "nurbsCurve", "nurbsSurface")]
-        names = [s.getFullName() for s in shapes]
+        names = [s.getName(full=True) for s in shapes]
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), shapes)
-        visible = self.transform.getShape().getFullName()
+        visible = self.transform.getShape().getName(full=True)
         self.assertIsNone(self.transform.deleteUnusedIntermediateShapes())
         self.assertTrue(cmds.objExists(visible))
         self.assertTrue(all(not cmds.objExists(n) for n in names))
@@ -46,13 +46,13 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
 
     def test_keeps_skin_history_and_custom_consumers(self):
         joint = cmds.createNode("joint", name=self.ns + ":joint")
-        skin = mlib.getNode(cmds.skinCluster(joint, self.transform.getFullName(), name=self.ns + ":skin")[0])
-        cmds.rename(skin.getBindPose().getFullName(), self.ns + ":pose")
+        skin = mlib.getNode(cmds.skinCluster(joint, self.transform.getName(full=True), name=self.ns + ":skin")[0])
+        cmds.rename(skin.getBindPose().getName(full=True), self.ns + ":pose")
         unused = self.intermediate()
         message_used = self.intermediate()
         consumer = cmds.createNode("network", name=self.ns + ":consumer")
         cmds.addAttr(consumer, longName="sourceShape", attributeType="message")
-        cmds.connectAttr(message_used.getFullName() + ".message", consumer + ".sourceShape")
+        cmds.connectAttr(message_used.getName(full=True) + ".message", consumer + ".sourceShape")
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), [unused])
         self.transform.deleteUnusedIntermediateShapes()
         self.assertTrue(message_used.isValid())
@@ -64,7 +64,7 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
         generator = cmds.listConnections(shape + ".inMesh", source=True, destination=False)[0]
         cmds.rename(generator, self.ns + ":generator")
         generator = self.ns + ":generator"
-        shape = cmds.parent(shape, self.transform.getFullName(), shape=True, relative=True)[0]
+        shape = cmds.parent(shape, self.transform.getName(full=True), shape=True, relative=True)[0]
         cmds.setAttr(shape + ".intermediateObject", True)
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), [mlib.getNode(shape)])
         self.transform.deleteUnusedIntermediateShapes()
@@ -76,21 +76,21 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
     def test_keeps_custom_set_membership_and_indirect_instances(self):
         member = self.intermediate()
         object_set = cmds.sets(empty=True, name=self.ns + ":set")
-        cmds.sets(member.getFullName(), add=object_set)
+        cmds.sets(member.getName(full=True), add=object_set)
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), [])
         unused = self.intermediate()
-        cmds.instance(self.transform.getFullName(), name=self.ns + ":instance")
+        cmds.instance(self.transform.getName(full=True), name=self.ns + ":instance")
         self.assertEqual(self.transform.getUnusedIntermediateShapes(), [])
         self.transform.deleteUnusedIntermediateShapes()
         self.assertTrue(unused.isValid())
 
     def test_skips_locks_instances_and_descendants(self):
         locked = self.intermediate()
-        cmds.lockNode(locked.getFullName(), lock=True)
+        cmds.lockNode(locked.getName(full=True), lock=True)
         instanced = self.intermediate()
         other = cmds.createNode("transform", name=self.ns + ":other")
-        cmds.parent(instanced.getFullName(), other, add=True, shape=True)
-        child = cmds.createNode("transform", name=self.ns + ":child", parent=self.transform.getFullName())
+        cmds.parent(instanced.getName(full=True), other, add=True, shape=True)
+        child = cmds.createNode("transform", name=self.ns + ":child", parent=self.transform.getName(full=True))
         descendant = cmds.createNode("mesh", name=self.ns + ":descendant", parent=child)
         cmds.setAttr(descendant + ".intermediateObject", True)
         try:
@@ -100,11 +100,11 @@ class UnusedIntermediateShapesTest(unittest.TestCase):
             self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
             self.assertTrue(cmds.objExists(descendant))
         finally:
-            cmds.lockNode(locked.getFullName(), lock=False)
+            cmds.lockNode(locked.getName(full=True), lock=False)
 
     def test_failure_rolls_back(self):
         first, second = self.intermediate(), self.intermediate()
-        names = [first.getFullName(), second.getFullName()]
+        names = [first.getName(full=True), second.getName(full=True)]
         original = cmds.delete
 
         def fail_after_first(nodes, **kwargs):

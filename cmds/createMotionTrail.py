@@ -68,4 +68,4 @@ def createMotionTrail(node, *, startTime=_UNSET, endTime=_UNSET, increment=_UNSE
     if name:
         flags["name"] = name
     # snapshotの1回だけなので、チャンクを開かない。
-    return Node(cmds.snapshot(target.getFullName(), **flags)[0])
+    return Node(cmds.snapshot(target._full_name(), **flags)[0])

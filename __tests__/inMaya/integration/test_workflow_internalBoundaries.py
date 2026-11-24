@@ -28,7 +28,7 @@ class InternalRefactoringTest(unittest.TestCase):
         plug = node.addAttr("referenceCheck", attributeType="double", defaultValue=3)
         self.assertEqual(plug.get(), 3)
         cmds.undo()
-        self.assertFalse(cmds.attributeQuery("referenceCheck", node=node.getFullName(), exists=True))
+        self.assertFalse(cmds.attributeQuery("referenceCheck", node=node.getName(full=True), exists=True))
 
         def callback():
             return None
@@ -44,9 +44,9 @@ class InternalRefactoringTest(unittest.TestCase):
         node = mlib.createNode("transform")
         plug = node.getPlug("tx")
         with patch.object(Nodes, "_resolve_inputs", side_effect=AssertionError("input cycle")):
-            self.assertEqual(mlib.core.object.Object._input_names(x for x in [[plug]]), [plug.getFullName()])
+            self.assertEqual(mlib.core.object.Object._input_names(x for x in [[plug]]), [plug.getName(full=True)])
             with self.assertRaises(TypeError):
-                mlib.core.object.Object._input_names([node, node.getFullName()])
+                mlib.core.object.Object._input_names([node, node.getName(full=True)])
 
     def test_influence_single_multiple_and_scene_changes(self):
         """単数・複数検索が改名・除去後にも同じ物理番号を返す。"""
@@ -56,7 +56,7 @@ class InternalRefactoringTest(unittest.TestCase):
         joints[0] = cmds.rename(joints[0], "renamedInfluence")
         queries = [joints[2], joints[0], joints[2], "notAnInfluence"]
         self.assertEqual([skin._influence_index(x) for x in queries], skin._influence_indices(queries, skin.mfn().influenceObjects()))
-        cmds.skinCluster(skin.getFullName(), edit=True, removeInfluence=joints[1])
+        cmds.skinCluster(skin.getName(full=True), edit=True, removeInfluence=joints[1])
         self.assertIsNone(skin._influence_index(joints[1]))
         self.assertEqual(skin._influence_index(joints[2]), 1)
         cmds.undo()
@@ -67,7 +67,7 @@ class InternalRefactoringTest(unittest.TestCase):
         node = mlib.createNode("transform")
         for kind, value in (("bool", True), ("byte", 12), ("char", 3), ("short", -2), ("long", 53), ("float", 1.25), ("double", 2.5)):
             name = "value_" + kind
-            cmds.addAttr(node.getFullName(), longName=name, attributeType=kind)
+            cmds.addAttr(node.getName(full=True), longName=name, attributeType=kind)
             plug = node.getPlug(name)
             plug.set(value)
             normal = plug.get()

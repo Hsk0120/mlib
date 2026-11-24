@@ -26,7 +26,7 @@ class _PlugSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg")
         self.node = self.make("transform")
-        self.name = self.node.getFullName()
+        self.name = self.node.getName(full=True)
 
     def tearDown(self):
         cmds.currentUnit(linear=self.units[0], angle=self.units[1])
@@ -144,7 +144,7 @@ class Double3PlugSpecTest(_PlugSpecCase):
     def test_connected_child_strict_and_safe(self):
         """入力接続された子があると通常・fast(check=True)は全体を拒否し、safeは他の子を更新して1を返す。"""
         other = self.make("transform")
-        cmds.connectAttr(other.getFullName() + ".ty", self.name + ".ty")
+        cmds.connectAttr(other.getName(full=True) + ".ty", self.name + ".ty")
         translate = self.node.getPlug("translate")
         with self.assertRaises(RuntimeError):
             translate.set((1, 2, 3))
@@ -169,11 +169,11 @@ class Double3DirectWriteTest(_PlugSpecCase):
     """通常の書き込みは親への1回のsetAttrで行い、拒否されたときの結果はこれまでと同じ。"""
 
     def test_locked_or_connected_child_changes_nothing(self):
-        source = self.make("transform").getFullName()
+        source = self.make("transform").getName(full=True)
         for case in ("lockChild", "connectChild", "lockParent"):
             with self.subTest(case=case):
                 node = self.make("transform")
-                name = node.getFullName()
+                name = node.getName(full=True)
                 cmds.setAttr(name + ".t", 1, 2, 3)
                 if case == "lockChild":
                     cmds.setAttr(name + ".tz", lock=True)
@@ -205,7 +205,7 @@ class Double3DirectWriteTest(_PlugSpecCase):
             for attr, value in (("t", (100.0, 200.0, 300.0)), ("jointOrient", (10.0, 20.0, 30.0)), ("s", (2.0, 3.0, 4.0))):
                 with self.subTest(attr=attr):
                     node = self.make("joint")
-                    name = node.getFullName()
+                    name = node.getName(full=True)
                     before = cmds.getAttr(f"{name}.{attr}")
                     cmds.flushUndo()
                     node.getPlug(attr).set(value)

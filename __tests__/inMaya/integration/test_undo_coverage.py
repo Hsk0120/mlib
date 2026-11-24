@@ -820,7 +820,7 @@ def s_joint_scale_orientation(c):
     cmds.select(clear=True)
     c.joint = mlib.getNode(cmds.joint())
     cmds.joint(position=(3, 2, 0))
-    cmds.setAttr(c.joint.getFullName() + ".rotateAxis", 10, 20, 30)
+    cmds.setAttr(c.joint.getName(full=True) + ".rotateAxis", 10, 20, 30)
 
 
 def s_camera(c):
@@ -1691,7 +1691,7 @@ CASES = [
         s_joints,
         lambda c, **kw: c.nj1.setQuaternion((0.0, 0.0, 0.2588190451, 0.9659258263), r=False, **kw),
     ),
-    C("Transform.centerPivot", "centerPivot components", s_cube, lambda c, **kw: c.ncube.centerPivot(c.ncube.getFullName() + ".vtx[0:1]", **kw)),
+    C("Transform.centerPivot", "centerPivot components", s_cube, lambda c, **kw: c.ncube.centerPivot(c.ncube.getName(full=True) + ".vtx[0:1]", **kw)),
     C("Transform.setPivot", "setPivot", s_one, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), **kw)),
     C("Transform.setPivot", "setPivot scale worldSpace", s_child, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), worldSpace=True, kind="scale", **kw)),
     C("Transform.centerPivot", "centerPivot", s_offset_pivot, lambda c, **kw: c.ncube.centerPivot(**kw)),

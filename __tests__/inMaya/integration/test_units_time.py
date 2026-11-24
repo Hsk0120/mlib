@@ -34,7 +34,7 @@ class _SpecCase(NamespaceCase):
         self.current_time = cmds.currentTime(query=True)
         cmds.currentUnit(time="film")
         self.transform = mlib.getNode(self.make("transform", "node"))
-        self.node_name = self.transform.getFullName()
+        self.node_name = self.transform.getName(full=True)
 
     def tearDown(self):
         cmds.currentUnit(time=self.time_unit)
@@ -54,7 +54,7 @@ class PlugSetKeyTimeTest(_SpecCase):
                 plug.setKey(time=10, value=1)
                 plug.setKey(t=2.0, v=2, timeUnit="sec")
                 curve = plug.getConnections(input=True).getNode()
-                self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, timeChange=True), [10.0, 2.0 * fps])
+                self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, timeChange=True), [10.0, 2.0 * fps])
                 self.assertEqual(curve.getKeyInputs(), [10.0, 2.0 * fps])
 
     def test_seconds_rejects_range_strings(self):
@@ -84,7 +84,7 @@ class AnimCurveTimeTest(_SpecCase):
                     curve.setKey(0, 0, "linear", "linear", fast=fast)
                     curve.setKey(fps, 10, "linear", "linear", fast=fast)
                     curve.setKey(3.0, 30, "linear", "linear", timeUnit="seconds", fast=fast)
-                    name = curve.getFullName()
+                    name = curve.getName(full=True)
                     self.assertEqual(curve.getKeyInputs(), [0.0, float(fps), 3.0 * fps])
                     self.assertEqual(cmds.keyframe(name, query=True, timeChange=True), [0.0, float(fps), 3.0 * fps])
                     self.assertEqual(curve.getKeyInputs(timeUnit="sec"), [0.0, 1.0, 3.0])
@@ -119,7 +119,7 @@ class AnimCurveTimeTest(_SpecCase):
                 curve = mlib.createNode("animCurveTT", name=self.name("tt#"))
                 curve.setKey(0, 0, fast=fast)
                 curve.setKey(30, 60, fast=fast)
-                self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, valueChange=True), [0.0, 60.0])
+                self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, valueChange=True), [0.0, 60.0])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(), [0, 60])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(timeUnit="sec"), [0, 2])
                 self.assertAlmostEqual(curve.evaluate(15), 30.0)
@@ -177,7 +177,7 @@ class DrivenKeyTimeTest(_SpecCase):
         key.setKey(30, 10)
         key.setKey(2.0, 20, timeUnit="sec")
         curve = key.getCurves()[0]
-        self.assertEqual(cmds.keyframe(curve.getFullName(), query=True, floatChange=True), [0.0, 30.0, 60.0])
+        self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, floatChange=True), [0.0, 30.0, 60.0])
         driver.set(15)
         self.assertAlmostEqual(cmds.getAttr(self.node_name + ".ty"), 5.0)
         with self.assertRaises(ValueError):
@@ -191,7 +191,7 @@ class DrivenKeyTimeTest(_SpecCase):
         key.setKey(0, 0)
         key.setKey(1, 30)
         self.transform.getPlug("tx").set(1)
-        self.assertAlmostEqual(cmds.getAttr(driven.getFullName()), 30.0)
+        self.assertAlmostEqual(cmds.getAttr(driven.getName(full=True)), 30.0)
         self.assertAlmostEqual(driven.get(timeUnit="sec"), 1.0)
 
 

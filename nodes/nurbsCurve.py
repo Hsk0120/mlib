@@ -411,7 +411,7 @@ class NurbsCurve(_ControlPointShape):
                     raise NotImplementedError("CVから出力接続があるカーブのノット削除には対応していません")
         # 両端が最大多重度の開いたカーブでは、異なるノット値の順番がEP番号になる。
         ep_index = sorted(set(knots)).index(parameter)
-        cmds.delete(f"{self.getFullName()}.ep[{ep_index}]")
+        cmds.delete(f"{self._full_name()}.ep[{ep_index}]")
 
     def makeMultipleEndKnots(self):
         """カーブ両端のノットを最大多重度にする。
@@ -501,9 +501,9 @@ class NurbsCurve(_ControlPointShape):
             first = curve.getPointAtParam(start)
             last = curve.getPointAtParam(end)
             if first.distanceTo(last) > 1e-6 * max(1.0, curve.length(1e-6)):
-                raise ValueError(f"カーブが閉じていません: {self.getFullName()}")
+                raise ValueError(f"カーブが閉じていません: {self._full_name()}")
         if not _points_planar(curve.cvPositions()):
-            raise ValueError(f"カーブが平面上にありません: {self.getFullName()}")
+            raise ValueError(f"カーブが平面上にありません: {self._full_name()}")
         breaks = sorted({knot for knot in curve.knots() if start <= knot <= end} | {start, end})
         total = om2.MVector()
         for low, high in zip(breaks, breaks[1:]):
@@ -561,7 +561,7 @@ class NurbsCurve(_ControlPointShape):
             raise ValueError(f"keepRangeはoriginal・unit・spansのどれかで指定してください: {keepRange!r}")
         with undoChunk("mlibNurbsCurveRebuild"), preservedSelection():
             cmds.rebuildCurve(
-                self.getFullName(),
+                self._full_name(),
                 spans=int(spans),
                 degree=int(degree),
                 keepRange=_KEEP_RANGES[keepRange],
@@ -588,7 +588,7 @@ class NurbsCurve(_ControlPointShape):
         """
         self._geometry_fn()
         with undoChunk("mlibNurbsCurveReverseDirection"), preservedSelection():
-            cmds.reverseCurve(self.getFullName(), constructionHistory=False, replaceOriginal=True)
+            cmds.reverseCurve(self._full_name(), constructionHistory=False, replaceOriginal=True)
 
     def getCollocatedCVGroups(self, worldSpace=_UNSET, *, tolerance=1e-06, ws=_UNSET):
         """ほぼ同じ位置にあるCVを、グループに分けて取得する。
@@ -782,7 +782,7 @@ class NurbsCurve(_ControlPointShape):
         if what == "tangent":
             tangent = self._tangent(curve, value)
             if tangent is None:
-                raise ValueError(f"パラメータ{param}ではタンジェントが定義できません: {self.getFullName()}")
+                raise ValueError(f"パラメータ{param}ではタンジェントが定義できません: {self._full_name()}")
             return Vector(tangent)
         if curve.degree == 1:
             # 次数1の直線にもMayaは任意の直交方向を返すため、CVの一直線を先に拒否する。
@@ -790,7 +790,7 @@ class NurbsCurve(_ControlPointShape):
             first = om2.MVector(points[0])
             span = max((om2.MVector(item) - first for item in points), key=lambda item: item.length())
             if span.length() < _DEGENERATE or all((span ^ (om2.MVector(item) - first)).length() <= 1e-9 * span.length() ** 2 for item in points):
-                raise ValueError(f"直線のカーブでは法線が定義できません: {self.getFullName()}")
+                raise ValueError(f"直線のカーブでは法線が定義できません: {self._full_name()}")
         try:
             normal = curve.normal(value)
         except RuntimeError:
@@ -798,7 +798,7 @@ class NurbsCurve(_ControlPointShape):
             normal = om2.MVector()
         length = normal.length()
         if length < _DEGENERATE:
-            raise ValueError(f"パラメータ{param}では法線が定義できません: {self.getFullName()}")
+            raise ValueError(f"パラメータ{param}では法線が定義できません: {self._full_name()}")
         return Vector(normal / length)
 
     def getParamsAlong(self, count, worldSpace=_UNSET, *, ws=_UNSET):
@@ -881,7 +881,7 @@ class NurbsCurve(_ControlPointShape):
         params = self._params_along(curve, count)
         aims = _fill_missing([self._tangent(curve, param) for param in params])
         if aims is None:
-            raise ValueError(f"カーブ全体でタンジェントが定義できません: {self.getFullName()}")
+            raise ValueError(f"カーブ全体でタンジェントが定義できません: {self._full_name()}")
         positions = [curve.getPointAtParam(param) for param in params]
         if up_vector is not None:
             ups = _fill_missing([_perpendicular(up_vector, aim) for aim in aims])
@@ -916,7 +916,7 @@ class NurbsCurve(_ControlPointShape):
             fn (om2.MFnNurbsCurve): コピー側の編集済みデータ。
         """
         points = [(p.x, p.y, p.z, p.w) for p in fn.cvPositions()]
-        cmds.setAttr(self.getFullName() + ".create", fn.degree, fn.numSpans, fn.form - 1, True, 3, list(fn.knots()), 0, len(points), *points, type="nurbsCurve")
+        cmds.setAttr(self._full_name() + ".create", fn.degree, fn.numSpans, fn.form - 1, True, 3, list(fn.knots()), 0, len(points), *points, type="nurbsCurve")
 
     def _space_curve(self, worldSpace):
         """指定空間の形状をオブジェクト空間で照会できる ``om2.MFnNurbsCurve`` を返す。
@@ -1179,5 +1179,5 @@ class NurbsCurve(_ControlPointShape):
         """
         fn = self.mfn()
         if not isinstance(fn, om2.MFnNurbsCurve):
-            raise RuntimeError(f"nurbsCurveにジオメトリのデータがありません: {self.getFullName()}")
+            raise RuntimeError(f"nurbsCurveにジオメトリのデータがありません: {self._full_name()}")
         return fn

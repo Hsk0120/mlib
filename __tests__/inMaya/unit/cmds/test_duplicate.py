@@ -88,13 +88,15 @@ class DuplicateSuffixTest(_SpecCase):
         copy = mlib.duplicate(self.joints[0], suffix="_FK")
         self.assertIs(type(copy), Joint)
         self.assertEqual(copy.getName(), "L_hip_FK")
-        self.assertEqual(self.names(copy.getFullName()), sorted(("L_hip_FK", "L_knee_FK", "L_ankle_FK", "box_FK", "boxShape_FK")))
+        self.assertEqual(self.names(copy.getName(full=True)), sorted(("L_hip_FK", "L_knee_FK", "L_ankle_FK", "box_FK", "boxShape_FK")))
         cmds.namespace(set=self.ns)
         try:
             copy = mlib.duplicate(self.joints[0], suffix="_IK")
         finally:
             cmds.namespace(set=":")
-        self.assertEqual(self.names(copy.getFullName()), sorted(self.name(text) for text in ("L_hip_IK", "L_knee_IK", "L_ankle_IK", "box_IK", "boxShape_IK")))
+        self.assertEqual(
+            self.names(copy.getName(full=True)), sorted(self.name(text) for text in ("L_hip_IK", "L_knee_IK", "L_ankle_IK", "box_IK", "boxShape_IK"))
+        )
         self.assertEqual(cmds.ls(self.joints[0], long=True), [self.joints[0]])
         self.assertEqual(self.names(self.joints[0]), sorted(self.name(text) for text in ("L_hip", "L_knee", "L_ankle", "box", "boxShape")))
 
@@ -102,12 +104,12 @@ class DuplicateSuffixTest(_SpecCase):
         """name を指定すると起点は name のまま、子孫だけに接尾辞を付ける。"""
         copy = mlib.duplicate(self.joints[0], name=self.name("hipRoot"), suffix="_IK")
         self.assertEqual(copy.getName(), self.name("hipRoot"))
-        self.assertEqual(self.leaves(copy.getFullName()), sorted(("hipRoot", "L_knee_IK", "L_ankle_IK", "box_IK", "boxShape_IK")))
+        self.assertEqual(self.leaves(copy.getName(full=True)), sorted(("hipRoot", "L_knee_IK", "L_ankle_IK", "box_IK", "boxShape_IK")))
 
     def test_parent_only_and_instance_leaf(self):
         """parentOnly は起点だけ、instanceLeaf の共有 shape は改名しない。"""
         copy = mlib.duplicate(self.joints[0], parentOnly=True, suffix="_P")
-        self.assertEqual(self.leaves(copy.getFullName()), ["L_hip_P"])
+        self.assertEqual(self.leaves(copy.getName(full=True)), ["L_hip_P"])
         copy = mlib.duplicate(self.cube, instanceLeaf=True, suffix="_I")
         self.assertEqual(self.leaf(copy.getName()), "box_I")
         self.assertTrue(cmds.objExists(self.name("boxShape")))
@@ -116,7 +118,7 @@ class DuplicateSuffixTest(_SpecCase):
     def test_without_suffix_unchanged(self):
         """suffix を省略すると従来どおり Maya の自動命名。"""
         copy = mlib.duplicate(self.joints[0])
-        self.assertEqual(self.leaves(copy.getFullName()), sorted(("L_hip", "L_knee", "L_ankle", "box", "boxShape")))
+        self.assertEqual(self.leaves(copy.getName(full=True)), sorted(("L_hip", "L_knee", "L_ankle", "box", "boxShape")))
 
     def test_undo_once(self):
         """複製と改名が Undo 1回で戻る。"""
@@ -183,9 +185,9 @@ class DuplicateSpecTest(_CmdsCase):
         copied = mlib.duplicate(parent, name=self.name("copy"))
         self.assertIsInstance(copied, Node)
         self.assertEqual(copied.getName(), self.name("copy"))
-        self.assertEqual(len(cmds.listRelatives(copied.getFullName(), children=True) or []), 1)
+        self.assertEqual(len(cmds.listRelatives(copied.getName(full=True), children=True) or []), 1)
         only = mlib.duplicate(mlib.getNode(parent), n=self.name("only"), po=True)
-        self.assertIsNone(cmds.listRelatives(only.getFullName(), children=True))
+        self.assertIsNone(cmds.listRelatives(only.getName(full=True), children=True))
         joint = cmds.createNode("joint", name=self.name("joint"))
         self.assertEqual(type(mlib.duplicate(joint)).__name__, "Joint")
 
@@ -248,8 +250,8 @@ class NodeDuplicateTest(NamespaceCase):
                 copied = node.duplicate()
                 self.assertIs(type(copied), type(node))
                 self.assertEqual(copied.getType(), node_type)
-                self.assertNotEqual(copied.getFullName(), node.getFullName())
-                self.assertTrue(cmds.objExists(copied.getFullName()))
+                self.assertNotEqual(copied.getName(full=True), node.getName(full=True))
+                self.assertTrue(cmds.objExists(copied.getName(full=True)))
 
     def test_shape_returns_duplicated_shape(self):
         cmds.cluster(self.cube)
@@ -259,11 +261,11 @@ class NodeDuplicateTest(NamespaceCase):
                 shape = mlib.getNode(shape_name)
                 copied = shape.duplicate()
                 self.assertIs(type(copied), type(shape))
-                self.assertNotEqual(copied.getFullName(), shape.getFullName())
-                parent = cmds.listRelatives(copied.getFullName(), parent=True, fullPath=True)[0]
+                self.assertNotEqual(copied.getName(full=True), shape.getName(full=True))
+                parent = cmds.listRelatives(copied.getName(full=True), parent=True, fullPath=True)[0]
                 self.assertNotEqual(parent, cmds.ls(self.cube, long=True)[0])
                 children = cmds.listRelatives(parent, shapes=True, fullPath=True)
-                self.assertEqual(children[index], copied.getFullName())
+                self.assertEqual(children[index], copied.getName(full=True))
 
     def test_name_suffix_and_flags(self):
         root = mlib.getNode(self.root)
@@ -282,13 +284,13 @@ class NodeDuplicateTest(NamespaceCase):
         before = set(cmds.ls(long=True))
         self.flushUndo()
         copied = node.duplicate(suffix="_copy")
-        self.assertIn(copied.getFullName(), set(cmds.ls(long=True)) - before)
+        self.assertIn(copied.getName(full=True), set(cmds.ls(long=True)) - before)
         cmds.undo()
         self.assertEqual(set(cmds.ls(long=True)), before)
 
     def test_invalid_inputs(self):
         node = mlib.createNode("transform", name=self.ns + ":gone")
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaisesRegex(RuntimeError, "のため、複製はできません"):
             node.duplicate()
         root = mlib.getNode(self.root)

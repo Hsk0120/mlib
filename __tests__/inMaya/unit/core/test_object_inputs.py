@@ -42,7 +42,7 @@ class CoerceTest(unittest.TestCase):
         from mlib.core.object import Object
 
         node = self.create_transform("mlibCoerceToName")
-        self.assertEqual(Object._input_name(node), node.getFullName())
+        self.assertEqual(Object._input_name(node), node.getName(full=True))
 
     def test_to_name_rejects_invalid_types_and_empty_string(self):
         from mlib.core.object import Object
@@ -56,7 +56,7 @@ class CoerceTest(unittest.TestCase):
         from mlib.core.object import Object
 
         node = self.create_transform("mlibCoerceToNamesSingle")
-        self.assertEqual(Object._input_names(node), [node.getFullName()])
+        self.assertEqual(Object._input_names(node), [node.getName(full=True)])
         self.assertEqual(Object._input_names("literalName"), ["literalName"])
 
     def test_to_names_rejects_mixed_iterable(self):
@@ -91,7 +91,7 @@ class CoerceTest(unittest.TestCase):
         node = self.create_transform("mlibCoerceToNodeResolve")
         resolved = Node._resolve_input(node.getName())
         self.assertIsInstance(resolved, Node)
-        self.assertEqual(resolved.getFullName(), node.getFullName())
+        self.assertEqual(resolved.getName(full=True), node.getName(full=True))
 
     def test_to_node_rejects_invalid_type(self):
         from mlib.nodes.node import Node
@@ -116,8 +116,8 @@ class CoerceObjectInputTest(unittest.TestCase):
         self.group = Node(cmds.createNode("transform", name="grp"))
         self.other_group = Node(cmds.createNode("transform", name="otherGrp"))
         # 短い名前が重複するノード(grp|dup と otherGrp|dup)。
-        self.node = Node(cmds.createNode("transform", name="dup", parent=self.group.getFullName()))
-        self.twin = Node(cmds.createNode("transform", name="dup", parent=self.other_group.getFullName()))
+        self.node = Node(cmds.createNode("transform", name="dup", parent=self.group.getName(full=True)))
+        self.twin = Node(cmds.createNode("transform", name="dup", parent=self.other_group.getName(full=True)))
         self.network = Node(cmds.createNode("network", name="net"))
         self.cube = cmds.polyCube(name="cube", constructionHistory=False)[0]
         self.mesh = Node(self.cube).getShape()
@@ -157,7 +157,7 @@ class CoerceObjectInputTest(unittest.TestCase):
 
         vertex = Vertex(self.mesh, 1)
         vertices = Vertices(self.mesh, [2, 3])
-        prefix = self.mesh.getFullName() + ".vtx"
+        prefix = self.mesh.getName(full=True) + ".vtx"
         self.assertEqual(Object._input_name(vertex), prefix + "[1]")
         # 連続する番号は範囲指定にまとめる(要素ごとの名前は getNames(full=True))。
         self.assertEqual(Object._input_names(vertices), [prefix + "[2:3]"])
@@ -169,7 +169,7 @@ class CoerceObjectInputTest(unittest.TestCase):
     def test_compact_names_keep_held_order(self):
         from mlib.core.object import Object
 
-        prefix = self.mesh.getFullName() + ".vtx"
+        prefix = self.mesh.getName(full=True) + ".vtx"
         vertices = Vertices(self.mesh, [0, 1, 2, 5, 3, 4, 7])
         self.assertEqual(vertices.getNames(full=True, compact=True), [prefix + "[0:2]", prefix + "[5]", prefix + "[3:4]", prefix + "[7]"])
         self.assertEqual(Vertices(self.mesh, []).getNames(full=True, compact=True), [])
@@ -193,16 +193,16 @@ class CoerceObjectInputTest(unittest.TestCase):
         everything = Vertices(self.mesh)
         self.assertEqual(Object._input_names(everything), [prefix + f"[0:{self.mesh.getNumVertices() - 1:d}]"])
         # 検証はまとめて行い、範囲外の番号を含むコレクションは ValueError になる。
-        cmds.polyDelFacet(self.mesh.getFullName() + ".f[0:4]")
+        cmds.polyDelFacet(self.mesh.getName(full=True) + ".f[0:4]")
         with self.assertRaises(ValueError):
             Object._input_names(vertices)
 
     def test_api_objects(self):
         from mlib.core.object import Object
 
-        self.assertEqual(Object._input_name(self.node.mnode()), self.node.getFullName())
+        self.assertEqual(Object._input_name(self.node.mnode()), self.node.getName(full=True))
         self.assertEqual(Object._input_name(self.network.mnode()), self.network.getName())
-        self.assertEqual(Object._input_name(self.node.mpath()), self.node.getFullName())
+        self.assertEqual(Object._input_name(self.node.mpath()), self.node.getName(full=True))
         with self.assertRaises(TypeError):
             Object._input_name(self.node.getPlug("tx").mplug().attribute())
         with self.assertRaises(ValueError):
@@ -226,7 +226,10 @@ class CoerceObjectInputTest(unittest.TestCase):
         vertex = Vertex(self.mesh, 0)
         selection = Selection([self.twin, vertex])
         names = Object._input_names([self.node, [self.twin.mnode(), (item for item in [vertex])], selection])
-        self.assertEqual(names, [self.node.getFullName(), self.twin.getFullName(), vertex.getFullName(), self.twin.getFullName(), vertex.getFullName()])
+        self.assertEqual(
+            names,
+            [self.node.getName(full=True), self.twin.getName(full=True), vertex.getName(full=True), self.twin.getName(full=True), vertex.getName(full=True)],
+        )
 
     def test_invalid_objects_raise_value_error(self):
         from mlib.core.object import Object
@@ -236,7 +239,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         path = self.twin.mpath()
         mplug = plug.mplug()
         vertex = Vertex(self.mesh, 0)
-        cmds.delete(self.twin.getFullName(), self.cube)
+        cmds.delete(self.twin.getName(full=True), self.cube)
         for value in (self.twin, plug, mobject, path, mplug, vertex):
             with self.subTest(value=type(value).__name__):
                 with self.assertRaises(ValueError):
@@ -247,9 +250,9 @@ class CoerceObjectInputTest(unittest.TestCase):
 
         plug = self.node.getPlug("tx")
         self.assertIs(Node._resolve_input(plug), self.node)
-        self.assertEqual(Node._resolve_input(plug.mplug()).getFullName(), self.node.getFullName())
-        self.assertEqual(Node._resolve_input(self.node.mnode()).getFullName(), self.node.getFullName())
-        self.assertEqual(Node._resolve_input(self.node.mpath()).getFullName(), self.node.getFullName())
+        self.assertEqual(Node._resolve_input(plug.mplug()).getName(full=True), self.node.getName(full=True))
+        self.assertEqual(Node._resolve_input(self.node.mnode()).getName(full=True), self.node.getName(full=True))
+        self.assertEqual(Node._resolve_input(self.node.mpath()).getName(full=True), self.node.getName(full=True))
         self.assertIs(Node._resolve_input(Vertex(self.mesh, 0)), self.mesh)
         self.assertIs(Node._resolve_input(Vertices(self.mesh, [0, 1])), self.mesh)
         with self.assertRaises(TypeError):
@@ -263,7 +266,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         plug = self.network.addAttr("doomed", attributeType="double")
         mplug = om2.MPlug(plug.mplug())
         self.assertIs(Node._resolve_input(plug), self.network)
-        self.assertEqual(Node._resolve_input(mplug).getFullName(), self.network.getFullName())
+        self.assertEqual(Node._resolve_input(mplug).getName(full=True), self.network.getName(full=True))
         cmds.deleteAttr(self.network.getName() + ".doomed")
         # 所有ノードは有効なため、所有ノードを返すと削除済みの対象を黙って受け付けてしまう。
         # to_name と同じく ValueError(クラスの親は1つにする決まりのため、RuntimeError の派生ではない)。
@@ -277,7 +280,7 @@ class CoerceObjectInputTest(unittest.TestCase):
             self.assertNotIsInstance(context.exception, RuntimeError)
         # 所有ノードが削除済みの Plug は従来どおり無効な所有ノードを返す(扱いは呼び出し側)。
         doomed = self.twin.getPlug("tx")
-        cmds.delete(self.twin.getFullName())
+        cmds.delete(self.twin.getName(full=True))
         self.assertIs(Node._resolve_input(doomed), self.twin)
         self.assertFalse(Node._resolve_input(doomed).isValid())
 
@@ -285,17 +288,17 @@ class CoerceObjectInputTest(unittest.TestCase):
         from mlib.nodes.node import Node
 
         plug = self.node.getPlug("tx")
-        self.assertEqual(Node._input_name(plug), self.node.getFullName())
-        self.assertEqual(Node._input_name(plug.mplug()), self.node.getFullName())
-        self.assertEqual(Node._input_name(plug.getFullName()), self.node.getFullName())
-        self.assertEqual(Node._input_name(Vertex(self.mesh, 0)), self.mesh.getFullName())
+        self.assertEqual(Node._input_name(plug), self.node.getName(full=True))
+        self.assertEqual(Node._input_name(plug.mplug()), self.node.getName(full=True))
+        self.assertEqual(Node._input_name(plug.getName(full=True)), self.node.getName(full=True))
+        self.assertEqual(Node._input_name(Vertex(self.mesh, 0)), self.mesh.getName(full=True))
         self.assertEqual(Node._input_name(self.network.mnode()), self.network.getName())
         with self.assertRaises(TypeError):
             Node._input_name(Vertices(self.mesh, [0, 1]))
         with self.assertRaises(RuntimeError):
             Node._input_name(self.node.getName(node=True))  # 2つの dup に一致する
         doomed = self.twin.getPlug("tx")
-        cmds.delete(self.twin.getFullName())
+        cmds.delete(self.twin.getName(full=True))
         with self.assertRaises(ValueError):
             Node._input_name(doomed)
         with self.assertRaises(ValueError):
@@ -305,15 +308,15 @@ class CoerceObjectInputTest(unittest.TestCase):
 
         plug = self.node.getPlug("tx")
         self.assertIs(Plug._resolve_input(plug), plug)
-        self.assertEqual(Plug._resolve_input(plug.mplug()).getFullName(), plug.getFullName())
-        self.assertEqual(Plug._resolve_input(plug.getFullName()).getFullName(), plug.getFullName())
+        self.assertEqual(Plug._resolve_input(plug.mplug()).getName(full=True), plug.getName(full=True))
+        self.assertEqual(Plug._resolve_input(plug.getName(full=True)).getName(full=True), plug.getName(full=True))
         with self.assertRaises(RuntimeError):
             # 短い名前だけでは2つの dup に一致する(存在しない名前と同じく解決できない)。
             Plug._resolve_input(self.node.getName(node=True) + ".tx")
         with self.assertRaises(TypeError):
-            Plug._resolve_input(self.node.getFullName())
+            Plug._resolve_input(self.node.getName(full=True))
         with self.assertRaises(AttributeError):
-            Plug._resolve_input(self.node.getFullName() + ".mlibCoerceMissing")
+            Plug._resolve_input(self.node.getName(full=True) + ".mlibCoerceMissing")
         with self.assertRaises(TypeError):
             Plug._resolve_input(self.node)
         self.assertIsInstance(Plug._resolve_input(plug.mplug()), Plug)
@@ -322,7 +325,7 @@ class CoerceObjectInputTest(unittest.TestCase):
         from mlib.core.object import Object
 
         plug = self.node.getPlug("tx")
-        names = [self.node.getFullName(), plug.getFullName()]
+        names = [self.node.getName(full=True), plug.getName(full=True)]
         self.assertEqual(Object._input_names([self.node, plug]), names)
         for value in (plug, plug.mplug(), [self.node, [plug]], Selection([self.node, plug])):
             with self.subTest(value=type(value).__name__):

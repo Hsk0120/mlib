@@ -91,7 +91,7 @@ def check_deletion(nodes, fast=False):
         handle = om2.MObjectHandle(obj) if obj is not None else None
         if handle is None or not handle.isValid() or not handle.isAlive():
             raise _deletion_error(index, "無効なノードは編集できません" if fast else "無効なノードは削除できません")
-        entries.append((obj, node.getFullName()))
+        entries.append((obj, node._full_name()))
     # 対象ごとのDAGの子孫をAPIでたどり、ロック・リファレンスの子孫と、削除できるかを問い合わせる名前を集める。
     descendants = []
     names = [path for _obj, path in entries]

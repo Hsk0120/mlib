@@ -50,10 +50,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):
@@ -74,10 +74,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         shape = curve.getShape()
         self.assertEqual(shape.getCollocatedCVGroups(), [])
 
-        cmds.move(1, 0, 0, shape.getFullName() + ".cv[2]", absolute=True)
+        cmds.move(1, 0, 0, shape.getName(full=True) + ".cv[2]", absolute=True)
         self.assertEqual(shape.getCollocatedCVGroups(), [[1, 2]])
 
-        cmds.move(1, 0, 0, shape.getFullName() + ".cv[3]", absolute=True)
+        cmds.move(1, 0, 0, shape.getName(full=True) + ".cv[3]", absolute=True)
         self.assertEqual(shape.getCollocatedCVGroups(), [[1, 2, 3]])
 
         with self.assertRaises(ValueError):
@@ -138,15 +138,15 @@ class SetPointsTest(_Case):
 
     def test_object_and_world_space_match_cmds(self):
         shape = self.curve(degree=3)
-        transform = shape.getTransform().getFullName()
+        transform = shape.getTransform().getName(full=True)
         cmds.setAttr(transform + ".translate", 1, 2, 3)
         cmds.setAttr(transform + ".scale", 2, 2, 2)
         local = [(0, 1, 0), (1, 1, 0), (2, 1, 0), (3, 1, 0)]
         self.assertIsNone(shape.setPoints(local))
-        self.assertPointsAlmostEqual(_cvs(shape.getFullName()), local)
+        self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), local)
         world = [(5, 0, 0), (7, 0, 0), (9, 0, 0), (11, 0, 0)]
         shape.setPoints(world, worldSpace=True)
-        self.assertPointsAlmostEqual(_world_cvs(shape.getFullName()), world)
+        self.assertPointsAlmostEqual(_world_cvs(shape.getName(full=True)), world)
         self.assertPointsAlmostEqual(shape.getPoints(worldSpace=True), world)
 
     def test_round_trip_with_get_and_mm_units(self):
@@ -155,7 +155,7 @@ class SetPointsTest(_Case):
         moved = [om2.MPoint(point.x + 1, point.y, point.z) for point in shape.getPoints()]
         shape.setPoints(moved)
         cmds.currentUnit(linear="cm")
-        self.assertPointsAlmostEqual(_cvs(shape.getFullName()), [(x + 1, y, z) for x, y, z in SQUARE])
+        self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), [(x + 1, y, z) for x, y, z in SQUARE])
 
     def test_periodic_curve_accepts_both_counts(self):
         shape = self.curve(degree=3, closed=True)
@@ -174,8 +174,8 @@ class SetPointsTest(_Case):
         self.flushUndo()
         shape.setPoints([(0, 5, 0)] * 4)
         self.assertUndoesInOneStep(
-            lambda: self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE),
-            lambda: self.assertPointsAlmostEqual(_cvs(shape.getFullName()), [(0, 5, 0)] * 4),
+            lambda: self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), SQUARE),
+            lambda: self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), [(0, 5, 0)] * 4),
         )
 
     def test_invalid_inputs(self):
@@ -190,11 +190,11 @@ class SetPointsTest(_Case):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
                     shape.setPoints(*args, **kwargs)
-        self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE)
+        self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), SQUARE)
         # CV単体の書込み(setPosition)も、不正な座標は形状を変えずに拒否する。
         with self.assertRaises(TypeError):
             shape.getCVs(0).setPosition((0, 0, "a"))
-        self.assertPointsAlmostEqual(_cvs(shape.getFullName()), SQUARE)
+        self.assertPointsAlmostEqual(_cvs(shape.getName(full=True)), SQUARE)
 
 
 class _CaseShapeAdditions(NamespaceCase):
@@ -221,7 +221,7 @@ class _CaseShapeAdditions(NamespaceCase):
 
     def assertDeletedRaises(self, node, calls):
         """ノードを削除し、各呼出しが RuntimeError になることを確かめる。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in calls:
             with self.subTest(call=call):
                 with self.assertRaises(RuntimeError):
@@ -237,7 +237,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         """getKnots は getAttr の knots と一致する。"""
         shape = self.curve(self.POINTS)
         info = cmds.createNode("curveInfo", name=self.name("info#"))
-        cmds.connectAttr(shape.getFullName() + ".worldSpace[0]", info + ".inputCurve")
+        cmds.connectAttr(shape.getName(full=True) + ".worldSpace[0]", info + ".inputCurve")
         self.assertSequenceAlmostEqual(shape.getKnots(), cmds.getAttr(info + ".knots")[0])
         self.assertEqual(len(shape.getKnots()), shape.getNumCVs() + shape.mfn().degree - 1)
 
@@ -245,7 +245,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         """正方形(次数1)は辺の2乗、円は πr² にほぼ等しく、ワールドではスケールを含む。開いたカーブは ValueError。"""
         square = self.curve([(0, 0, 0), (2, 0, 0), (2, 0, 2), (0, 0, 2), (0, 0, 0)], degree=1)
         self.assertAlmostEqual(square.getArea(), 4.0, places=9)
-        cmds.setAttr(square.getTransform().getFullName() + ".scale", 3, 1, 2)
+        cmds.setAttr(square.getTransform().getName(full=True) + ".scale", 3, 1, 2)
         self.assertAlmostEqual(square.getArea(ws=True), 4.0 * 6, places=8)
         circle = mlib.createCircle(radius=2.0, sections=16, name=self.name("circle#"))
         # Maya の円は有理でない近似のため、厳密な πr² とは少し違う。
@@ -260,7 +260,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
     def test_rebuild_undo(self):
         """rebuild はスパン・次数・範囲を変え、同じシェイプのノードを保ち、Undo 1回で戻る。"""
         shape = self.curve(self.POINTS)
-        uuid = cmds.ls(shape.getFullName(), uuid=True)[0]
+        uuid = cmds.ls(shape.getName(full=True), uuid=True)[0]
         before = shape.getPoints()
         start = shape.getAtParam(shape.getParamRange()[0])
         self.flushUndo()
@@ -269,7 +269,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
             lambda: self.assertEqual(len(shape.getPoints()), len(before)),
             lambda: (self.assertEqual(shape.mfn().numSpans, 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
         )
-        self.assertEqual(cmds.ls(uuid)[0], cmds.ls(shape.getFullName())[0])
+        self.assertEqual(cmds.ls(uuid)[0], cmds.ls(shape.getName(full=True))[0])
         shape.rebuild(3, 1, keepRange="spans")
         self.assertEqual(shape.mfn().degree, 1)
         self.assertEqual(shape.mfn().numSpans, 3)

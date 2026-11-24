@@ -42,7 +42,7 @@ class SkinClusterStandardOperationsTest(NamespaceCase):
         cmds.setAttr(joints[1] + ".liw", True)
         cmds.setAttr(reference_joints[1] + ".liw", True)
         before = list(skin.getWeights(joints))
-        cmds.skinCluster(reference.getFullName(), edit=True, smoothWeights=0.5, smoothWeightsMaxIterations=3)
+        cmds.skinCluster(reference.getName(full=True), edit=True, smoothWeights=0.5, smoothWeightsMaxIterations=3)
         expected = list(reference.getWeights(reference_joints))
         self.assertNotEqual(expected, before)
         self.assertIsNone(skin.smoothWeights(tolerance=0.5, iterations=3))

@@ -46,7 +46,7 @@ class ObjectTest(unittest.TestCase):
             with self.subTest(item=type(item).__name__):
                 self.assertIsInstance(item, mlib.core.object.Object)
                 self.assertIs(mlib.core.object.Object(item), item)
-                resolved = mlib.core.object.Object(item.getFullName())
+                resolved = mlib.core.object.Object(item.getName(full=True))
                 self.assertEqual(resolved, item)
                 self.assertEqual(hash(resolved), hash(item))
         self.assertNotIsInstance(mlib.Nodes([node]), mlib.core.object.Object)
@@ -116,7 +116,7 @@ class ObjectSpecTest(unittest.TestCase):
         vertex = Object(self.cube + ".vtx[3]")
         self.assertIsInstance(vertex, Vertex)
         self.assertEqual(vertex.index, 3)
-        self.assertEqual(vertex.shape.getFullName(), self.shape)
+        self.assertEqual(vertex.shape.getName(full=True), self.shape)
 
     def test_api_inputs(self):
         """MObject・MDagPathはNode、MPlugはPlug、(MDagPath, MObject)はComponentへ解決する。"""

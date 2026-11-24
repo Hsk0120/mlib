@@ -25,7 +25,7 @@ class NodeDeleteTest(unittest.TestCase):
     def test_command_delegates_and_batch_undo(self):
         root = mlib.createNode("transform", skipSelect=True)
         child = mlib.createNode("transform", parent=root, skipSelect=True)
-        names = [root.getFullName(), child.getFullName()]
+        names = [root.getName(full=True), child.getName(full=True)]
         # 2026-10-26 の削除の一括化で、各Node.deleteへの委譲から1回のcmds.deleteへ変わった。
         # 重複・親子を含めてもMayaの1回の削除にまとめることを確かめる。
         with patch.object(cmds, "delete", wraps=cmds.delete) as method:
@@ -47,15 +47,15 @@ class NodeDeleteTest(unittest.TestCase):
     def test_safe_preserves_incoming_outgoing_and_message(self):
         source = mlib.createNode("multiplyDivide", skipSelect=True)
         destination = mlib.createNode("multiplyDivide", skipSelect=True)
-        cmds.connectAttr(source.getFullName() + ".outputX", destination.getFullName() + ".input1X")
+        cmds.connectAttr(source.getName(full=True) + ".outputX", destination.getName(full=True) + ".input1X")
         before_undo = cmds.undoInfo(query=True, undoName=True)
         self.assertIsNone(source.delete(skipConnected=True))
         self.assertIsNone(destination.delete(skipConnected=True))
         self.assertTrue(source.isValid() and destination.isValid())
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), before_undo)
         owner = mlib.createNode("network", skipSelect=True)
-        cmds.addAttr(owner.getFullName(), longName="ref", attributeType="message")
-        cmds.connectAttr(source.getFullName() + ".message", owner.getFullName() + ".ref")
+        cmds.addAttr(owner.getName(full=True), longName="ref", attributeType="message")
+        cmds.connectAttr(source.getName(full=True) + ".message", owner.getName(full=True) + ".ref")
         owner.delete(skipConnected=True)
         self.assertTrue(owner.isValid())
         destination.delete()  # 既定値は従来どおり接続があっても削除する。
@@ -65,7 +65,7 @@ class NodeDeleteTest(unittest.TestCase):
         root = mlib.createNode("transform", skipSelect=True)
         child = mlib.createNode("transform", parent=root, skipSelect=True)
         source = mlib.createNode("multiplyDivide", skipSelect=True)
-        cmds.connectAttr(source.getFullName() + ".outputX", child.getFullName() + ".tx")
+        cmds.connectAttr(source.getName(full=True) + ".outputX", child.getName(full=True) + ".tx")
         root.delete(skipConnected=True)
         self.assertTrue(root.isValid() and child.isValid())
         mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
@@ -79,20 +79,20 @@ class NodeDeleteTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             node.delete(skipConnected="yes")
         self.assertTrue(node.isValid())
-        cmds.lockNode(node.getFullName(), lock=True)
+        cmds.lockNode(node.getName(full=True), lock=True)
         try:
             with self.assertRaises(RuntimeError):
                 node.delete(skipConnected=True)
             self.assertTrue(node.isValid())
         finally:
-            cmds.lockNode(node.getFullName(), lock=False)
+            cmds.lockNode(node.getName(full=True), lock=False)
 
     def test_joint_command_uses_standard_delete(self):
         joint = mlib.createNode("joint", skipSelect=True)
         child = mlib.createNode("joint", parent=joint, skipSelect=True)
         original = mlib.Joint.delete
         with patch.object(mlib.Joint, "delete", autospec=True, side_effect=original) as method:
-            mlib.delete(joint.getFullName())
+            mlib.delete(joint.getName(full=True))
             self.assertEqual(method.call_count, 0)
         self.assertFalse(joint.isValid())
         self.assertFalse(child.isValid())
@@ -104,8 +104,8 @@ class NodeDeleteTest(unittest.TestCase):
         mesh = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
         # 公開済みの入力規則ではNodeと名前の混在は不可。名前へ揃えて実行する。
         with self.assertRaises(TypeError):
-            mlib.delete([mesh.getTransform(), mesh.getFullName() + ".f[0]"])
-        mlib.delete([mesh.getTransform().getFullName(), mesh.getFullName() + ".f[0]"])
+            mlib.delete([mesh.getTransform(), mesh.getName(full=True) + ".f[0]"])
+        mlib.delete([mesh.getTransform().getName(full=True), mesh.getName(full=True) + ".f[0]"])
         self.assertFalse(mesh.isValid())
         for name in ("matchA", "matchB"):
             mlib.createNode("transform", name=name, skipSelect=True)

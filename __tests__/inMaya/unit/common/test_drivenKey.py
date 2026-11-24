@@ -51,7 +51,7 @@ class DrivenKeyTest(unittest.TestCase):
         cmds.undo()
         self.assertAlmostEqual(cmds.getAttr(self.b + ".rz"), 22.5, places=4)
         self.a = cmds.rename(self.a, self.ns + ":renamed")
-        self.assertIn("renamed", relation.getDriverPlug().getFullName())
+        self.assertIn("renamed", relation.getDriverPlug().getName(full=True))
         self.assertEqual(len(relation.getCurves()), 1)
 
     def test_multiple_drivers_and_find(self):
@@ -63,7 +63,7 @@ class DrivenKeyTest(unittest.TestCase):
         two.setKey(10, 20)
         self.assertEqual(len(one.getCurves()), 1)
         self.assertEqual(len(two.getCurves()), 1)
-        self.assertNotEqual(one.getCurves()[0].getFullName(), two.getCurves()[0].getFullName())
+        self.assertNotEqual(one.getCurves()[0].getName(full=True), two.getCurves()[0].getName(full=True))
         found = mlib.DrivenKey.find(self.b + ".ty")
         self.assertEqual(len(found), 2)
         cmds.setAttr(self.a + ".tx", 5)
@@ -91,8 +91,8 @@ class DrivenKeyTest(unittest.TestCase):
         found = mlib.DrivenKey.find(self.b + ".ty")
         self.assertEqual(len(found), 2)
         self.assertEqual(
-            {p.getFullName() for p in [relation.getDriverPlug() for relation in found]},
-            {mlib.getNode(self.a).getPlug("tx").getFullName(), mlib.getNode(self.c).getPlug("tx").getFullName()},
+            {p.getName(full=True) for p in [relation.getDriverPlug() for relation in found]},
+            {mlib.getNode(self.a).getPlug("tx").getName(full=True), mlib.getNode(self.c).getPlug("tx").getName(full=True)},
         )
         relation = mlib.DrivenKey(self.a + ".tx", self.b + ".ty")
         self.assertEqual(len(relation.getCurves()), 1)
@@ -145,7 +145,7 @@ class DrivenKeyTest(unittest.TestCase):
         self.assertTrue(relation.exists())
         # 1つ目のインスタンスのパスで指定しても同じ関係として見つかる。
         same = mlib.DrivenKey(mlib.getNode(first_shape).getPlug("drv"), self.c + ".tx")
-        self.assertEqual([curve.getFullName() for curve in same.getCurves()], [curve.getFullName() for curve in relation.getCurves()])
+        self.assertEqual([curve.getName(full=True) for curve in same.getCurves()], [curve.getName(full=True) for curve in relation.getCurves()])
         found = mlib.DrivenKey.find(self.c + ".tx")
         self.assertEqual(len(found), 1)
         cmds.setAttr(first_shape + ".drv", 1)
@@ -214,8 +214,8 @@ class DrivenKeySpecTest(unittest.TestCase):
         self.assertAlmostEqual(cmds.getAttr(self.driven + ".tx"), 10.0, places=4)
         found = DrivenKey.find(self.driven + ".tx")
         self.assertEqual(len(found), 1)
-        self.assertEqual(found[0].getDriverPlug().getFullName(), key.getDriverPlug().getFullName())
-        self.assertEqual(found[0].getDrivenPlug().getFullName(), key.getDrivenPlug().getFullName())
+        self.assertEqual(found[0].getDriverPlug().getName(full=True), key.getDriverPlug().getName(full=True))
+        self.assertEqual(found[0].getDrivenPlug().getName(full=True), key.getDrivenPlug().getName(full=True))
         self.assertEqual(len(key.getCurves()), 1)
 
     def test_one_undo_per_key(self):

@@ -251,7 +251,7 @@ def _write_curve(curve, data, keys, input_scale=1.0, fast=False):
         _write_cmds(node, time_input, data["weighted"], entries)
     node.setInfinity(pre=data["preInfinity"], post=data["postInfinity"], fast=fast)
     if not fast:
-        cmds.dgdirty(node.getFullName())
+        cmds.dgdirty(node._full_name())
 
 
 def _write_cmds(node, time_input, weighted, entries):
@@ -263,7 +263,7 @@ def _write_cmds(node, time_input, weighted, entries):
         weighted (bool): Trueならウェイト付き接線にする。
         entries (list[dict]): :func:`_write_curve` が内部の単位へ直したキー。
     """
-    name = node.getFullName()
+    name = node._full_name()
     count = node.getKeyCount()
     if count:
         # すべてのキーを消すとMayaがカーブを削除してしまうので、その間だけノードをロックする。

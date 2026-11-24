@@ -115,7 +115,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
   `getScale`/`setScale`・`getShear`/`setShear`。`getT`・`getQ` 等の短縮アクセサーは作らない。
 - アトリビュートを扱うメソッド名は `Attr`/`Attrs`。子クラスで基底メソッドと同名の別機能を公開しない。
 - 状態の切替は `setVisibility(state)`・`setLocked(state)`・`setMuted(state)` の形。排他的な選択は `mode=` で指定する。
-- 名前の取得は `getName()`(最短一意名)/`getFullName()`(完全パス)。生 API 取得は `mnode()`・`mpath()`・`mplug()`、
+- 名前の取得は `getName()`(最短一意名)/`getName(full=True)`(完全パス。Node・Plug・コンポーネントで同じ。複数形は `getNames(full=True)`)。生 API 取得は `mnode()`・`mpath()`・`mplug()`、
   function set は `mfn()`(毎回新規の最も具体的な MFn)。
 
 ### 内部名の規則
@@ -128,7 +128,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 - 内部専用の引数は先頭 `_`(`_fn=None`)。公開 def には置かない。
 - 略語を使わず完全語にする(`_influence_index`・`_all_vertices`)。
 - 入力の名前解決は `Node._from_name`・`Node._input_name`・`Nodes._resolve_inputs` を使い、`Node(n)` で二重解決しない。
-  cmds へ渡す名前は DAG ノードでは `getFullName()`。
+  cmds へ渡す名前は DAG ノードでは完全パス。mlib の中では引数の検査を省くため `_full_name()`(Node・Plug・Component)を直接呼ぶ。
 
 ## メソッドとプロパティ
 
@@ -140,7 +140,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 
 | 対象 | 形式 | 例 |
 | --- | --- | --- |
-| Maya の現在の状態・名前・アトリビュート情報 | メソッド | `node.getFullName()`・`plug.isLocked()` |
+| Maya の現在の状態・名前・アトリビュート情報 | メソッド | `node.getName(full=True)`・`plug.isLocked()` |
 | 評価済みの座標など | メソッド | `vertex.getPosition()`・`mesh.getNumVertices()` |
 | Maya の状態の変更 | 明示的なメソッド | `plug.set(value)`・`node.rename(name)` |
 | 保持している参照・番号 | プロパティ | `component.shape`・`component.index` |
@@ -157,7 +157,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
   - 例外は、計算だけをして値を返す指定(`get=True` は数学型)、`safe=True` の失敗数(`Plug.set`)、`Plug.setIfChanged` の bool。
   - 新しく作ったもの・相手を返すメソッドはそのオブジェクトを返す(`Node.addAttr()` は Plug、`Plug.connect()` は実際の接続先、
     `Joint.mirror()` は新しいルート、`resetAttrs()` は戻した Plugs)。
-  - 名前(str)ではなく mlib のオブジェクトを返す。str を返すのは、名前そのものを聞くメソッド(`getName`・`getFullName` など)、
+  - 名前(str)ではなく mlib のオブジェクトを返す。str を返すのは、名前そのものを聞くメソッド(`getName`・`getNames` など)、
     列挙の値(`getRotateOrder`・`getOperation` など)、ファイルパス、もう存在しないものの名前(`Transform.deleteConstraints`)だけ。
   - 一覧は list でなく複数形のクラスで返す: ノードは `Nodes`(要素が Joint と決まっていれば `Joints`、SkinCluster なら `SkinClusters`)、
     アトリビュートは `Plugs`、コンポーネントは `Vertices` など。docstring の型は `Nodes[Shape]` のように要素の型を書く。
@@ -266,7 +266,7 @@ def setFoo(self, value, *, fast=False):
 
 - 「空でない文字列」の検証は、非 str を TypeError、空文字を ValueError に分ける。
 - 文言は日本語の f-string(`+` 連結は不可)。引数名・型名・メソッド名・ノード型名などの識別子は英字のまま書き、
-  日本語との間に空白を入れない。括弧は半角 `()`。対象名は末尾に `: <getFullName() または plug.name()>`。
+  日本語との間に空白を入れない。括弧は半角 `()`。対象名は末尾に `: <_full_name() または plug.name()>`。
   用語は docstring と同じ(アトリビュート・マルチアトリビュート・コンパウンドアトリビュート・マトリクス・コンストレイント・
   クォータニオン・リファレンス・インフルエンス等)。
   - 型違い `<arg>は<型>で指定してください`(`fastはboolで指定してください`)/ 値違い `<arg>は<条件>で指定してください` または `<条件>を指定してください`
@@ -326,7 +326,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 基本のノードでの形(2026-11-24): 表示・非表示は `setVisibility(state)` だけ(`show`・`hide` は置かない。2026-10-26 の「両方残す」を改めた)。
   相対の変更は `setTranslation`・`setRotate`・`setScale`・`setShear` の `relative=True`(scale・shear は掛ける)、表示色は `getColor`/`setColor(outliner=)`、
   描画色は `getDrawColor(mode=)`、1つと全部は `getShape(all=True)`・`getParent(instances=True)`・`IkHandle.getJoints(end=True)`・`getGeometry(geometryIndex=)`、
-  名前は `Node.getName(node=True, removeNamespace=)`(完全な名前の `getFullName` は別に残る)、スキンは `getInfluences(locked=, unused=)`・
+  名前は `Node.getName(full=True | node=True, removeNamespace=)`(`full` と `node`・`removeNamespace` の同時指定は TypeError)、スキンは `getInfluences(locked=, unused=)`・
   `removeInfluences(joints | unused=True, requireAncestor=)`・`normalizeWeights(force=)`・`getMode`/`setMode(kind=)`・`getWeights`/`setWeights` の `vertex=`(頂点1つの辞書の形)。
   2つの形で既定が逆になる引数(`setWeights` の `normalize`)は、後から足した形(`vertex=`)では省けない引数にして、取り違えを TypeError にする。
   別のクラスで意味が違う同名のメソッドを上書きしているもの(`Joint.getSkinClusters`)は、消すと親クラスの別の意味の結果が黙って返るので残す。
@@ -449,7 +449,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   (入力があるかは `isConnected(destination=False)`、出力があるかは `isConnected(source=False)`。引数は調べる相手の側)。入力だけ切るのは `disconnectAll(destination=False)`。
 - 似たメソッドは引数でまとめてある(単機能の別名を足さない): 範囲は `getRange(*, soft=False)`・`setRange(minimum, maximum, *, soft=False)`(省略した側は変えず、None は制限を外す)、
   状態は `setFlags(locked=, keyable=, channelBox=, children=, leaf=)` と `getFlags()`(`locked`・`keyable`・`channelBox`・`hidden` の辞書。`isLocked`/`setLocked` は残す)、
-  アトリビュート自身の名前は `getAttributeName(kind="long"|"short"|"nice")`(ノード名・親・番号を含まない。`getName`・`getFullName` とは別)、
+  アトリビュート自身の名前は `getAttributeName(kind="long"|"short"|"nice")`(ノード名・親・番号を含まない。`getName` とは別)、
   親は `getParent(*, all=False, includeMulti=False)`、要素まで実在するかは `isValid(elements=True)`、enum は `getEnumNames(*, value=None, name=None, current=False)`、
   この Plug に合うアニメーションカーブの型は `getAnimCurve(suitableType=True)`(つながっているカーブの型ではない)。
 

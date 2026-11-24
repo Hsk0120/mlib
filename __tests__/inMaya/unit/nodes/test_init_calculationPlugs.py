@@ -64,12 +64,12 @@ class ConsolidatedCalculationTests(unittest.TestCase):
                 # 2026の改名(addDoubleLinear→addDL等)の両方の名前を全版で作成できる。
                 node = mlib.createNode(node_type)
                 # MayaはaddDoubleLinear等を新しい派生nodeTypeへ正規化する版がある。
-                actual_type = cmds.nodeType(node.getFullName())
+                actual_type = cmds.nodeType(node.getName(full=True))
                 registered = mlib.Node._registry.lookup(actual_type)
                 self.assertIsNotNone(registered)
                 expected = registered
                 self.assertIs(type(node), expected)
-                self.assertIs(type(mlib.getNode(node.getFullName())), expected)
+                self.assertIs(type(mlib.getNode(node.getName(full=True))), expected)
                 self.assertIs(mlib.nodes._WRAPPER_CLASSES[node_type], cls)
                 self.assertTrue(issubclass(cls, mlib.Node))
                 self.assertFalse(_REMOVED_METHODS.intersection(cls.__dict__))

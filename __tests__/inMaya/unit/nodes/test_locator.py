@@ -42,7 +42,7 @@ class LocatorTest(unittest.TestCase):
                 result = plug.set(value, fast=fast)
                 self.assertIsNone(result)
                 self.assertEqual(plug.get(), value)
-                self.assertEqual(cmds.getAttr(self.locator.getFullName() + ".localPosition")[0], value)
+                self.assertEqual(cmds.getAttr(self.locator.getName(full=True) + ".localPosition")[0], value)
 
 
 if __name__ == "__main__":

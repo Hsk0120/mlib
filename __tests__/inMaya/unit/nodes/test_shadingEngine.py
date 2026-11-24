@@ -33,14 +33,14 @@ class ConsolidatedSetsLayersTests(unittest.TestCase):
         second = mlib.ShadingEngine(cmds.sets(renderable=True, noSurfaceShader=True, empty=True))
         first.assign([cube.getName() + ".f[0:2]", other.getName()])
         expected = cmds.ls(cmds.sets(first.getName(), query=True), long=True, flatten=True)
-        expected = [name.replace(cube.getFullName() + ".f[", cube.getShape().getFullName() + ".f[") for name in expected]
-        self.assertEqual([item.getFullName() for item in first.getMembers()], expected)
+        expected = [name.replace(cube.getName(full=True) + ".f[", cube.getShape().getName(full=True) + ".f[") for name in expected]
+        self.assertEqual([item.getName(full=True) for item in first.getMembers()], expected)
         cmds.flushUndo()
         second.assign(cube)
         mesh = cube.getShape()
         shaders, indices = om2.MFnMesh(mesh.mpath()).getConnectedShaders(mesh.mpath().instanceNumber())
         self.assertTrue(all(shaders[index] == second.mnode() for index in indices))
-        self.assertEqual([item.getFullName() for item in first.getMembers()], [other.getShape().getFullName()])
+        self.assertEqual([item.getName(full=True) for item in first.getMembers()], [other.getShape().getName(full=True)])
         with mock.patch.object(cmds, "sets", side_effect=AssertionError("cmds set read used")):
             second.getMembers()
 

@@ -37,16 +37,16 @@ class DagPoseTest(unittest.TestCase):
 
     @staticmethod
     def at_pose(pose):
-        return not cmds.dagPose(pose.getFullName(), query=True, atPose=True)
+        return not cmds.dagPose(pose.getName(full=True), query=True, atPose=True)
 
     @staticmethod
     def members(pose):
-        return set(cmds.ls(cmds.dagPose(pose.getFullName(), query=True, members=True) or [], long=True))
+        return set(cmds.ls(cmds.dagPose(pose.getName(full=True), query=True, members=True) or [], long=True))
 
     def test_discovery(self):
         pose = self.pose()
-        self.assertIsInstance(mlib.getNode(pose.getFullName()), mlib.DagPose)
-        self.assertFalse(cmds.getAttr(pose.getFullName() + ".bindPose"))
+        self.assertIsInstance(mlib.getNode(pose.getName(full=True)), mlib.DagPose)
+        self.assertFalse(cmds.getAttr(pose.getName(full=True) + ".bindPose"))
         self.assertEqual(len(self.members(pose)), 2)
 
     def test_restore_undo_redo(self):
@@ -68,8 +68,8 @@ class DagPoseTest(unittest.TestCase):
         pose_name = cmds.listConnections(skin + ".bindPose", source=True, destination=False)[0]
         cmds.rename(pose_name, self.ns + ":bindPose")
         pose = mlib.getNode(self.ns + ":bindPose")
-        self.assertEqual(mlib.DagPose.fromSkinCluster(skin).getFullName(), pose.getFullName())
-        cmds.disconnectAttr(pose.getFullName() + ".message", skin + ".bindPose")
+        self.assertEqual(mlib.DagPose.fromSkinCluster(skin).getName(full=True), pose.getName(full=True))
+        cmds.disconnectAttr(pose.getName(full=True) + ".message", skin + ".bindPose")
         self.assertIsNone(mlib.DagPose.fromSkinCluster(skin))
         with self.assertRaises(ValueError):
             mlib.DagPose.fromSkinCluster(self.root)
@@ -78,7 +78,7 @@ class DagPoseTest(unittest.TestCase):
         mesh = cmds.polyCube(name=self.ns + ":mesh")[0]
         name = cmds.skinCluster([self.root, self.child], mesh, name=self.ns + ":skin")[0]
         skin = mlib.getNode(name)
-        cmds.rename(skin.getBindPose().getFullName(), self.ns + ":bindPose")
+        cmds.rename(skin.getBindPose().getName(full=True), self.ns + ":bindPose")
         return skin
 
     def test_skin_restore(self):
@@ -101,7 +101,7 @@ class DagPoseTest(unittest.TestCase):
     def test_skin_missing_pose(self):
         skin = self.make_skin()
         pose = skin.getBindPose()
-        cmds.disconnectAttr(pose.getFullName() + ".message", skin.getFullName() + ".bindPose")
+        cmds.disconnectAttr(pose.getName(full=True) + ".message", skin.getName(full=True) + ".bindPose")
         self.assertIsNone(skin.getBindPose())
         with self.assertRaises(RuntimeError):
             skin.restoreBindPose()
@@ -110,7 +110,7 @@ class DagPoseTest(unittest.TestCase):
         other = cmds.createNode("transform", name=self.ns + ":other")
         cmds.select(other)
         pose = self.pose(bindPose=True)
-        name = pose.getFullName()
+        name = pose.getName(full=True)
         self.assertTrue(cmds.getAttr(name + ".bindPose"))
         self.assertNotIn(cmds.ls(other, long=True)[0], self.members(pose))
         self.assertEqual(cmds.ls(selection=True), [other])

@@ -59,9 +59,9 @@ class GetPlugSpecTest(_CmdsCase):
         plug = mlib.getPlug(node + ".tx")
         self.assertIsInstance(plug, Plug)
         self.assertIs(mlib.getPlug(plug), plug)
-        self.assertEqual(plug.getFullName(), mlib.getPlug(node + ".translateX").getFullName())
+        self.assertEqual(plug.getName(full=True), mlib.getPlug(node + ".translateX").getName(full=True))
         mplug = om2.MSelectionList().add(node + ".ty").getPlug(0)
-        self.assertEqual(mlib.getPlug(mplug).getFullName().split(".")[-1], "translateY")
+        self.assertEqual(mlib.getPlug(mplug).getName(full=True).split(".")[-1], "translateY")
 
     def test_multi_element_is_not_created(self):
         """未作成のマルチアトリビュートの要素も参照でき、参照取得だけでは要素を作らない。"""

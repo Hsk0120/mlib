@@ -34,7 +34,7 @@ class Container(Node):
         Raises:
             RuntimeError: コンテナが無効、またはMayaが照会を拒否した場合。
         """
-        return Plugs(cmds.container(self.getFullName(), query=True, connectionList=True) or [])
+        return Plugs(cmds.container(self._full_name(), query=True, connectionList=True) or [])
 
     def publishConnections(self):
         """内部ノードから外部への接続を、Mayaの方法でコンテナへ公開する。
@@ -48,7 +48,7 @@ class Container(Node):
         Raises:
             RuntimeError: コンテナのロック等でMayaが公開を拒否した場合。
         """
-        cmds.container(self.getFullName(), edit=True, publishConnections=True)
+        cmds.container(self._full_name(), edit=True, publishConnections=True)
 
     def getMembers(self):
         """containerに直接入っているメンバーを取得する。
@@ -77,7 +77,7 @@ class Container(Node):
         """
         nodes = Nodes._resolve_inputs(members)
         if nodes:
-            cmds.container(self.getFullName(), edit=True, addNode=[Node._resolve_input(n).getFullName() for n in nodes])
+            cmds.container(self._full_name(), edit=True, addNode=[Node._resolve_input(n)._full_name() for n in nodes])
 
     def removeMembers(self, *members, force=False):
         """ノードをメンバーから外す。
@@ -103,7 +103,7 @@ class Container(Node):
             if any(node not in current for node in nodes):
                 raise ValueError("nodesはすべてこのコンテナのメンバーで指定してください")
             if nodes:
-                cmds.container(self.getFullName(), edit=True, removeNode=[node.getFullName() for node in nodes], force=force)
+                cmds.container(self._full_name(), edit=True, removeNode=[node._full_name() for node in nodes], force=force)
 
     @undoTransaction("mlibContainerCreateNode")
     def createNode(self, type, name=None):
@@ -142,8 +142,8 @@ class Container(Node):
         # 所属を先に外し、メンバーの生存を保証してから空の箱を除去する。
         members = self.getMembers()
         if members:
-            cmds.container(self.getFullName(), edit=True, removeNode=[node.getFullName() for node in members])
-        cmds.container(self.getFullName(), edit=True, removeContainer=True)
+            cmds.container(self._full_name(), edit=True, removeNode=[node._full_name() for node in members])
+        cmds.container(self._full_name(), edit=True, removeContainer=True)
 
     @undoTransaction("mlibContainerPublishName")
     def publishName(self, name):
@@ -163,7 +163,7 @@ class Container(Node):
         """
         if name in self.getPublishedAttrs():
             raise ValueError(f"パブリッシュ名はすでに存在します: {name}")
-        result = cmds.container(self.getFullName(), edit=True, publishName=name)
+        result = cmds.container(self._full_name(), edit=True, publishName=name)
         return result[0] if isinstance(result, (list, tuple)) else result
 
     def getPublishedAttrs(self):
@@ -203,7 +203,7 @@ class Container(Node):
         plug = Plug._resolve_input(plug)
         if plug.getNode() not in self.getMembers():
             raise ValueError("plugはメンバーのノードのものを指定してください")
-        cmds.container(self.getFullName(), edit=True, bindAttr=(plug.getFullName(), name))
+        cmds.container(self._full_name(), edit=True, bindAttr=(plug._full_name(), name))
         return plug
 
     @undoTransaction("mlibContainerPublishAndBind")
@@ -225,7 +225,7 @@ class Container(Node):
         plug = Plug._resolve_input(plug)
         if plug.getNode() not in self.getMembers():
             raise ValueError("plugはメンバーのノードのものを指定してください")
-        cmds.container(self.getFullName(), edit=True, publishAndBind=(plug.getFullName(), name))
+        cmds.container(self._full_name(), edit=True, publishAndBind=(plug._full_name(), name))
         return plug
 
     @undoTransaction("mlibContainerUnbindAttr")
@@ -246,7 +246,7 @@ class Container(Node):
         plug = self.getPublishedAttrs().get(name)
         if plug is None:
             raise ValueError(f"バインドされたパブリッシュ名を指定してください: {name}")
-        cmds.container(self.getFullName(), edit=True, unbindAttr=(plug.getFullName(), name))
+        cmds.container(self._full_name(), edit=True, unbindAttr=(plug._full_name(), name))
 
     @undoTransaction("mlibContainerUnpublishName")
     def unpublishName(self, name):
@@ -264,4 +264,4 @@ class Container(Node):
         published = self.getPublishedAttrs()
         if name not in published or published[name] is not None:
             raise ValueError(f"バインドされていないパブリッシュ名を指定してください: {name}")
-        cmds.container(self.getFullName(), edit=True, unpublishName=name)
+        cmds.container(self._full_name(), edit=True, unpublishName=name)

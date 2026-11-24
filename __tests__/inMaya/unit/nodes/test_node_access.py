@@ -217,8 +217,8 @@ class StaticPlugTest(_SpecCase):
                 self.assertIs(type(second), type(other))
                 self.assertEqual(second, first)
                 self.assertEqual(hash(second), hash(first))
-                self.assertEqual(second.getFullName(), first.getFullName())
-                self.assertEqual(str(getattr(node, attr)), first.getFullName())
+                self.assertEqual(second.getName(full=True), first.getName(full=True))
+                self.assertEqual(str(getattr(node, attr)), first.getName(full=True))
         node.tx = 3
         self.assertEqual(node.getPlug("tx").get(), 3.0)
         self.assertEqual(node.tx.get(), cmds.getAttr(name + ".tx"))
@@ -241,7 +241,7 @@ class StaticPlugTest(_SpecCase):
             node.getPlug("tx")
         cmds.undo()
         self.assertTrue(node.hasAttr("tx"))
-        self.assertEqual(node.getPlug("tx").getFullName(), name + ".translateX")
+        self.assertEqual(node.getPlug("tx").getName(full=True), name + ".translateX")
 
     def test_dynamic_attribute_follows_delete_and_recreate(self):
         name = self.make()

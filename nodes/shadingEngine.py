@@ -84,7 +84,7 @@ class ShadingEngine(ObjectSet):
                 source = Node._resolve_input(shader).getPlug(output or ("displacement" if kind == "displacement" else "outColor"))
             if source == target:
                 # fastのMDGModifierは自己接続を拒否しないため、cmdsの経路と同じく先に拒否する。
-                raise RuntimeError(f"アトリビュート{target.getFullName()}を自分自身へは接続できません")
+                raise RuntimeError(f"アトリビュート{target._full_name()}を自分自身へは接続できません")
             # 同じ割り当ての再実行は、既存の同じ接続をそのまま残して成功させる。
             source.connectTo(target, force=True, skipExisting=True, fast=fast)
 
@@ -109,7 +109,7 @@ class ShadingEngine(ObjectSet):
         with undoChunk("mlibShadingEngineAssign"):
             names = Object._input_names(targets)
             if names:
-                cmds.sets(names, edit=True, forceElement=self.getFullName())
+                cmds.sets(names, edit=True, forceElement=self._full_name())
 
     def getMembers(self, *, flatten=False, dagOnly=False, shadingOnly=False):
         """割り当てている先を取得する。

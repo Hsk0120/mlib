@@ -20,22 +20,22 @@ class CreateMotionTrailTest(NamespaceCase):
     def animated(self):
         """translateXにキーのあるtransformを作る。"""
         node = mlib.getNode(self.make("transform", "ball#"))
-        cmds.setKeyframe(node.getFullName(), attribute="translateX", time=1, value=0)
-        cmds.setKeyframe(node.getFullName(), attribute="translateX", time=10, value=5)
+        cmds.setKeyframe(node.getName(full=True), attribute="translateX", time=1, value=0)
+        cmds.setKeyframe(node.getName(full=True), attribute="translateX", time=10, value=5)
         return node
 
     def test_create_and_undo(self):
         """ハンドルのTransformを返し、選択を変えず、Undo 1回で戻る。短縮名も受ける。"""
         node = self.animated()
-        cmds.select(node.getFullName())
+        cmds.select(node.getName(full=True))
         self.flushUndo()
         handle = mlib.createMotionTrail(node, startTime=1, endTime=10, increment=2, name=self.name("trail"))
         self.assertIsInstance(handle, mlib.Transform)
         self.assertEqual(handle.getName().rsplit(":", 1)[-1], "trailHandle")
-        self.assertEqual(cmds.ls(selection=True, long=True), [node.getFullName()])
-        name = handle.getFullName()
+        self.assertEqual(cmds.ls(selection=True, long=True), [node.getName(full=True)])
+        name = handle.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
-        handle = mlib.createMotionTrail(node.getFullName(), st=1, et=5, i=1, n=self.name("short"))
+        handle = mlib.createMotionTrail(node.getName(full=True), st=1, et=5, i=1, n=self.name("short"))
         self.assertTrue(handle.isValid())
 
     def test_errors(self):

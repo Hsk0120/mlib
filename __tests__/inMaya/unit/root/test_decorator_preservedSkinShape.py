@@ -33,7 +33,7 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
         Returns:
             tuple: skins・命令呼出・警告・本体通過の記録。
         """
-        skins = [SimpleNamespace(getFullName=lambda: "skinA"), SimpleNamespace(getFullName=lambda: "skinB")]
+        skins = [SimpleNamespace(_full_name=lambda: "skinA"), SimpleNamespace(_full_name=lambda: "skinB")]
         collection = SimpleNamespace(getSkinClusters=lambda: skins)
         entered = []
         calls = []
@@ -100,7 +100,7 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
         self.assertIn("moveJointsModeを元に戻せませんでした", messages[0])
 
     def test_bad_formatter_does_not_interrupt_cleanup_or_replace_body_exception(self):
-        skins = [SimpleNamespace(getFullName=lambda: "skinA"), SimpleNamespace(getFullName=lambda: "skinB")]
+        skins = [SimpleNamespace(_full_name=lambda: "skinA"), SimpleNamespace(_full_name=lambda: "skinB")]
         collection = SimpleNamespace(getSkinClusters=lambda: skins)
         handler = next(item for item in logger.getLogger().handlers if isinstance(item, logger.MayaHandler))
         formatter = handler.formatter

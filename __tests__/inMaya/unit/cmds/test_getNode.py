@@ -72,14 +72,14 @@ class GetNodeSpecTest(_CmdsCase):
         cube = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
         shape = cmds.listRelatives(cube, shapes=True, fullPath=True)[0]
         selection = om2.MSelectionList().add(cube).add(cube + ".tx")
-        self.assertEqual(mlib.getNode(cube + ".tx").getFullName(), "|" + cube)
-        self.assertEqual(mlib.getNode(mlib.getPlug(cube + ".tx")).getFullName(), "|" + cube)
-        self.assertEqual(mlib.getNode(selection.getPlug(1)).getFullName(), "|" + cube)
-        self.assertEqual(mlib.getNode(selection.getDagPath(0)).getFullName(), "|" + cube)
-        self.assertEqual(mlib.getNode(selection.getDependNode(0)).getFullName(), "|" + cube)
+        self.assertEqual(mlib.getNode(cube + ".tx").getName(full=True), "|" + cube)
+        self.assertEqual(mlib.getNode(mlib.getPlug(cube + ".tx")).getName(full=True), "|" + cube)
+        self.assertEqual(mlib.getNode(selection.getPlug(1)).getName(full=True), "|" + cube)
+        self.assertEqual(mlib.getNode(selection.getDagPath(0)).getName(full=True), "|" + cube)
+        self.assertEqual(mlib.getNode(selection.getDependNode(0)).getName(full=True), "|" + cube)
         vertex = Vertex(mlib.getNode(shape), 0)
-        self.assertEqual(mlib.getNode(vertex).getFullName(), shape)
-        self.assertEqual(mlib.getNode(Vertices(mlib.getNode(shape), [0, 1])).getFullName(), shape)
+        self.assertEqual(mlib.getNode(vertex).getName(full=True), shape)
+        self.assertEqual(mlib.getNode(Vertices(mlib.getNode(shape), [0, 1])).getName(full=True), shape)
 
     def test_errors(self):
         """存在しない・複数一致・削除済みはRuntimeError、未対応型はTypeError、削除済みアトリビュートはValueError。"""

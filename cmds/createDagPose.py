@@ -49,8 +49,8 @@ def createDagPose(members, name=_UNSET, bindPose=_UNSET, hierarchy=True, *, n=_U
         node = Node(item)
         if not node.isValid() or not node.isType("transform"):
             raise ValueError(f"有効なtransformかjointを指定してください: {item}")
-        if node.getFullName() not in names:
-            names.append(node.getFullName())
+        if node._full_name() not in names:
+            names.append(node._full_name())
     if not names:
         raise ValueError("transformかjointを1つ以上指定してください")
     if name is not None and (not isinstance(name, str) or not name):

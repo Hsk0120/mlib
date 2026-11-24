@@ -39,7 +39,7 @@ class PlugUnitMatrixTest(NamespaceCase):
         self.units = (cmds.currentUnit(query=True, linear=True), cmds.currentUnit(query=True, angle=True), cmds.currentUnit(query=True, time=True))
         cmds.currentUnit(linear="cm", angle="deg", time="film")
         self.node = mlib.createNode("transform", name=self.name("node"), skipSelect=True)
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.addAttr(name, longName="dist", attributeType="doubleLinear")
         cmds.addAttr(name, longName="ang", attributeType="doubleAngle")
         cmds.addAttr(name, longName="tm", attributeType="time")
@@ -60,7 +60,7 @@ class PlugUnitMatrixTest(NamespaceCase):
     def test_unit_conversions_for_get_and_set(self):
         """距離・角度・時間・3成分の距離を、全UI単位の組み合わせで往復させる。"""
         rng = random.Random(31)
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         for linear, angle, time in itertools.product(LINEAR, ANGLE, TIME):
             cmds.currentUnit(linear=linear, angle=angle, time=time)
             for fast in (False, True):
@@ -91,7 +91,7 @@ class PlugUnitMatrixTest(NamespaceCase):
 
     def test_unitless_types_and_undo(self):
         """無単位の型は単位に関係なくそのまま往復し、通常は1回のUndoで戻り、fastは記録しない。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.currentUnit(linear="m", angle="rad", time="ntsc")
         values = (("plain", 2.5, 2.5), ("count", 7, 7), ("flag", True, True), ("mode", 2, 2), ("text", "日本語 text", "日本語 text"))
         for attribute, value, expected in values:
@@ -116,7 +116,7 @@ class PlugUnitMatrixTest(NamespaceCase):
 
     def test_invalid_values_are_rejected_before_writing(self):
         """型の合わない値は書き込む前に拒否し、元の値を保つ(通常・fast)。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cases = (("dist", "abc"), ("flag", "yes"), ("vec", (1, 2)), ("mode", 9), ("text", 5))
         for attribute, value in cases:
             for fast in (False, True):
@@ -128,7 +128,7 @@ class PlugUnitMatrixTest(NamespaceCase):
 
     def test_integer_types_round_fractions(self):
         """整数・bool・enumへの小数は、通常・fastとも四捨五入して書く(Plug.setの仕様)。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         for attribute, value, expected in (("count", 1.6, 2), ("count", -2.4, -2), ("mode", 1.6, 2), ("flag", 0.7, True)):
             for fast in (False, True):
                 with self.subTest(attribute=attribute, value=value, fast=fast):

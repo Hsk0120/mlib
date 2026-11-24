@@ -22,9 +22,9 @@ class InvisibleBoundsTest(NamespaceCase):
             cmds.currentUnit(linear=unit)
             for node in [mlib.getNode(root), mlib.getNode(cube)]:
                 for world in (False, True):
-                    with self.subTest(unit=unit, node=node.getFullName(), world=world):
+                    with self.subTest(unit=unit, node=node.getName(full=True), world=world):
                         box = node.getBoundingBox(ws=world, includeInvisible=True)
-                        expected = cmds.xform(node.getFullName(), q=True, boundingBoxInvisible=True, worldSpace=world)
+                        expected = cmds.xform(node.getName(full=True), q=True, boundingBoxInvisible=True, worldSpace=world)
                         expected = [om2.MDistance(v, om2.MDistance.uiUnit()).asCentimeters() for v in expected]
                         actual = list(box.min)[:3] + list(box.max)[:3]
                         for a, b in zip(actual, expected):

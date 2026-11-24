@@ -50,7 +50,7 @@ class NgSkinLayersTest(NamespaceCase):
         cmds.select(clear=True)
         self.joints = (self.root, self.mid, self.tip, self.other)
         mesh = cmds.polyPlane(name=self.name("mesh"), constructionHistory=False, subdivisionsX=1, subdivisionsY=1)[0]
-        name = cmds.skinCluster([joint.getFullName() for joint in self.joints], mesh, toSelectedBones=True)[0]
+        name = cmds.skinCluster([joint.getName(full=True) for joint in self.joints], mesh, toSelectedBones=True)[0]
         cmds.select(clear=True)
         self.skin = SkinCluster(name)
         self.count = 4
@@ -69,7 +69,7 @@ class NgSkinLayersTest(NamespaceCase):
     def assertSkin(self, expected):
         """{joint: 値} が全頂点の skinCluster のウェイトであることを確かめる。"""
         joints = list(expected)
-        values = list(self.skin.getWeights([joint.getFullName() for joint in joints]))
+        values = list(self.skin.getWeights([joint.getName(full=True) for joint in joints]))
         for position, value in enumerate(values):
             self.assertAlmostEqual(value, expected[joints[position % len(joints)]], places=5)
 
@@ -91,7 +91,7 @@ class NgSkinLayersTest(NamespaceCase):
         """レイヤーごとに移送し、合成結果は親子の和になる。Undo 1 回で戻る。"""
         cmds.flushUndo()
         Joints([self.tip]).removeInfluence()
-        self.assertFalse(self.skin.hasInfluence(self.tip.getFullName()))
+        self.assertFalse(self.skin.hasInfluence(self.tip.getName(full=True)))
         layers = self._fresh_layers()
         self.assertLayer(layers["base"], 1, 0.4)
         self.assertLayer(layers["top"], 1, 0.5)
@@ -100,7 +100,7 @@ class NgSkinLayersTest(NamespaceCase):
         self.assertNotIn(2, layers["base"].get_used_influences())
         self.assertSkin({self.root: 0.25, self.mid: 0.7, self.other: 0.05})
         cmds.undo()
-        self.assertTrue(self.skin.hasInfluence(self.tip.getFullName()))
+        self.assertTrue(self.skin.hasInfluence(self.tip.getName(full=True)))
         layers = self._fresh_layers()
         self.assertLayer(layers["base"], 2, 0.2)
         self.assertLayer(layers["top"], 2, 0.25)
@@ -138,9 +138,9 @@ class NgSkinLayersTest(NamespaceCase):
 
     def test_locked_weight_is_restored(self):
         """ウェイトのロックがあっても移送し、元へ戻す。"""
-        cmds.setAttr(self.other.getFullName() + ".liw", True)
+        cmds.setAttr(self.other.getName(full=True) + ".liw", True)
         self.tip.delete()
-        self.assertTrue(cmds.getAttr(self.other.getFullName() + ".liw"))
+        self.assertTrue(cmds.getAttr(self.other.getName(full=True) + ".liw"))
         self.assertSkin({self.root: 0.25, self.mid: 0.7, self.other: 0.05})
 
     def test_layers_keep_working_after_removal(self):

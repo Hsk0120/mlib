@@ -40,14 +40,14 @@ class CreatePolyKindTest(NamespaceCase):
                 expected = command(constructionHistory=False, name=self.name(kind + "Ref"), **flags)[0]
                 cmds.select(clear=True)
                 self.assertEqual(shape.getNumVertices(), cmds.polyEvaluate(expected, vertex=True))
-                self.assertEqual(cmds.polyEvaluate(shape.getFullName(), face=True), cmds.polyEvaluate(expected, face=True))
+                self.assertEqual(cmds.polyEvaluate(shape.getName(full=True), face=True), cmds.polyEvaluate(expected, face=True))
 
     def test_undo_once(self):
         """どの形も Undo 1回で作成前へ戻る。"""
         for kind in ("cube", "sphere", "cylinder", "plane"):
             with self.subTest(kind=kind):
                 self.flushUndo()
-                transform = mlib.createPoly(kind, name=self.name(kind + "Undo")).getTransform().getFullName()
+                transform = mlib.createPoly(kind, name=self.name(kind + "Undo")).getTransform().getName(full=True)
                 self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(transform)), lambda: self.assertTrue(cmds.objExists(transform)))
 
     def test_invalid_kind_and_arguments(self):

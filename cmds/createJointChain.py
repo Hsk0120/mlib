@@ -112,7 +112,7 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
     if parent is not None:
         parent_node = Node(Object._input_name(parent))
         if not isinstance(parent_node, Transform):
-            raise TypeError(f"parentはtransformで指定してください: {parent_node.getFullName()}")
+            raise TypeError(f"parentはtransformで指定してください: {parent_node._full_name()}")
     rotations = []
     for index, position in enumerate(positions[:-1]):
         aim = positions[index + 1] - position
@@ -127,7 +127,7 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
     unit = om2.MDistance.uiUnit()
     angle = om2.MAngle.uiUnit()
     with undoChunk("mlibCreateJointChain"):
-        parent_name = parent_node.getFullName() if parent_node is not None else None
+        parent_name = parent_node._full_name() if parent_node is not None else None
         parent_matrix = parent_node.getMatrix(worldSpace=True) if parent_node is not None else om2.MMatrix()
         created = []
         for index, (position, rotation) in enumerate(zip(positions, rotations)):

@@ -30,7 +30,7 @@ class _Case(NamespaceCase):
         super().setUp()
         self.node = mlib.getNode(self.make("transform", "node"))
         self.other = mlib.getNode(self.make("transform", "other"))
-        self.full = self.node.getFullName()
+        self.full = self.node.getName(full=True)
 
     def flags(self, attribute):
         """(keyable, channelBox, locked) をcmdsで読む。"""
@@ -455,7 +455,7 @@ class RerunSafeTest(_Case):
         with self.assertRaises(RuntimeError):
             source.connectTo(locked, skipExisting=True)
         fresh = self.other.getPlug("ty").connectTo(self.node.getPlug("sx"), skipExisting=True)
-        self.assertEqual(cmds.listConnections(fresh.getFullName(), source=True, plugs=True), [self.other.getName() + ".translateY"])
+        self.assertEqual(cmds.listConnections(fresh.getName(full=True), source=True, plugs=True), [self.other.getName() + ".translateY"])
 
     def test_connect_safe_through_conversion(self):
         """unitConversion経由の同じ接続もsafeでは何もしない(safe=FalseはAlready connectedのRuntimeError)。"""
@@ -464,7 +464,7 @@ class RerunSafeTest(_Case):
         self.assertEqual(source.connectTo(destination, skipExisting=True), destination)
         with self.assertRaisesRegex(RuntimeError, "すでに接続されています"):
             source.connectTo(destination)
-        self.assertEqual(len(cmds.ls(cmds.listConnections(destination.getFullName(), source=True) or [], type="unitConversion")), 1)
+        self.assertEqual(len(cmds.ls(cmds.listConnections(destination.getName(full=True), source=True) or [], type="unitConversion")), 1)
 
     def test_connect_safe_next_available(self):
         """nextAvailableでも、接続元が既に接続された要素があればその要素を返す。"""

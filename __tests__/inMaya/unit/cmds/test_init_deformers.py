@@ -61,12 +61,12 @@ class CreateDeformerTest(_Case):
         self.assertEqual(cluster.getType(), "cluster")
         self.assertIsInstance(cluster, mlib.Cluster)
         self.assertEqual(cluster.getName(), self.name("made"))
-        self.assertTrue(cmds.getAttr(cluster.getFullName() + ".relative"))
-        self.assertTrue(cmds.listRelatives(cluster.getWeightedNode().getFullName(), shapes=True, type="clusterHandle"))
+        self.assertTrue(cmds.getAttr(cluster.getName(full=True) + ".relative"))
+        self.assertTrue(cmds.listRelatives(cluster.getWeightedNode().getName(full=True), shapes=True, type="clusterHandle"))
         self.assertEqual(cmds.ls(selection=True), [])
-        name = cluster.getFullName()
+        name = cluster.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
-        self.assertFalse(cmds.getAttr(mlib.createDeformer("cluster", cube).getFullName() + ".relative"))
+        self.assertFalse(cmds.getAttr(mlib.createDeformer("cluster", cube).getName(full=True) + ".relative"))
 
     def test_create_lattice(self):
         """ffd を作り、分割数がラティスに設定される。"""
@@ -75,11 +75,11 @@ class CreateDeformerTest(_Case):
         self.flushUndo()
         ffd = mlib.createDeformer("lattice", cube, name=self.name("made"), dv=(3, 4, 2), ldv=(2, 3, 2))
         self.assertEqual(ffd.getType(), "ffd")
-        lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getFullName()
+        lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getName(full=True)
         self.assertEqual([cmds.getAttr(lattice + "." + axis + "Divisions") for axis in "stu"], [3, 4, 2])
-        self.assertEqual([cmds.getAttr(ffd.getFullName() + ".localInfluence" + axis) for axis in "STU"], [2, 3, 2])
+        self.assertEqual([cmds.getAttr(ffd.getName(full=True) + ".localInfluence" + axis) for axis in "STU"], [2, 3, 2])
         self.assertEqual(cmds.ls(selection=True), [])
-        name = ffd.getFullName()
+        name = ffd.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
     def test_create_wire(self):
@@ -90,9 +90,9 @@ class CreateDeformerTest(_Case):
         self.flushUndo()
         wire = mlib.createDeformer("wire", cube, curves=curves, name=self.name("made"), dds=2.5)
         self.assertEqual(wire.getType(), "wire")
-        self.assertEqual([cmds.getAttr(f"{wire.getFullName()}.dropoffDistance[{i}]") for i in (0, 1)], [2.5, 2.5])
+        self.assertEqual([cmds.getAttr(f"{wire.getName(full=True)}.dropoffDistance[{i}]") for i in (0, 1)], [2.5, 2.5])
         self.assertEqual(cmds.ls(selection=True), [])
-        name = wire.getFullName()
+        name = wire.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
     def test_undo_chunk_names(self):

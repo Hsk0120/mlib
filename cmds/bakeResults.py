@@ -88,7 +88,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
     flags = dict(kwargs, time=(start, end), sampleBy=sampleBy)
     if names is not None:
         flags["attribute"] = names
-    full_names = [node.getFullName() for node in targets]
+    full_names = [node._full_name() for node in targets]
     current = cmds.currentTime(query=True)
     try:
         with undoChunk("mlibBakeResults"):
@@ -100,7 +100,7 @@ def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_U
     with_shapes = kwargs.get("shape", kwargs.get("s", True))
     result = []
     for node in targets:
-        owners = [node.getFullName()]
+        owners = [node._full_name()]
         if with_shapes and node.hasFn(om2.MFn.kTransform):
             owners += cmds.listRelatives(owners[0], shapes=True, noIntermediate=True, fullPath=True) or []
         for owner in owners:

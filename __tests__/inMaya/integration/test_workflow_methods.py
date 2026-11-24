@@ -155,7 +155,7 @@ class MethodContractTest(unittest.TestCase):
         plug = self.node.getPlug("tx")
         plug.setFlags(keyable=False, channelBox=True)
         self.assertFalse(plug.getFlags()["keyable"])
-        self.assertTrue(cmds.getAttr(plug.getFullName(), channelBox=True))
+        self.assertTrue(cmds.getAttr(plug.getName(full=True), channelBox=True))
         plug.setFlags(locked=True)
         self.assertTrue(plug.isLocked())
         self.assertFalse(plug.getFlags()["keyable"])

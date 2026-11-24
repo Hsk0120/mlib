@@ -57,7 +57,7 @@ class _ComponentCase(unittest.TestCase):
 
     def om2_point(self, shape, index, world=False):
         """OpenMayaで頂点座標をcmで独立に求める。"""
-        path = om2.MSelectionList().add(shape.getFullName()).getDagPath(0)
+        path = om2.MSelectionList().add(shape.getName(full=True)).getDagPath(0)
         space = om2.MSpace.kWorld if world else om2.MSpace.kObject
         point = om2.MFnMesh(path).getPoint(index, space)
         return (point.x, point.y, point.z)
@@ -69,11 +69,11 @@ class UVSpecTest(_ComponentCase):
     def test_uv_positions_match_cmds_and_undo(self):
         """getPositionと、その ``[0]`` (U)・``[1]`` (V)はpolyEditUVの照会と一致する。"""
         uv = UV(self.mesh, 3)
-        expected = cmds.polyEditUV(uv.getFullName(), query=True)
+        expected = cmds.polyEditUV(uv.getName(full=True), query=True)
         self.assertPoint(uv.getPosition(), expected)
         self.assertAlmostEqual(uv.getPosition()[0], expected[0])
         self.assertAlmostEqual(uv.getPosition()[1], expected[1])
-        cmds.polyEditUV(uv.getFullName(), relative=False, uValue=1.5, vValue=-0.25)
+        cmds.polyEditUV(uv.getName(full=True), relative=False, uValue=1.5, vValue=-0.25)
         self.assertPoint(uv.getPosition(), (1.5, -0.25))
 
     def test_uvs_bulk(self):
@@ -163,9 +163,9 @@ class _Case(NamespaceCase):
         self.flushUndo()
         action(fast, True)
         self.assertUndoEmpty()
-        self.assertPointsAlmostEqual(read(fast.getFullName()), read(normal.getFullName()))
+        self.assertPointsAlmostEqual(read(fast.getName(full=True)), read(normal.getName(full=True)))
         if not uv:
-            self.assertPointsAlmostEqual(read(fast.getFullName(), True), read(normal.getFullName(), True))
+            self.assertPointsAlmostEqual(read(fast.getName(full=True), True), read(normal.getName(full=True), True))
 
     def check_rejects(self, name, cases, uv=False):
         """不正な入力が指定の例外型で拒否され、形状を変えないことを確かめる。"""
@@ -183,7 +183,7 @@ class UVTest(_Case):
 
     def test_set_position_u_v(self):
         shape = self.cube()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         uv = shape.getUVs(3)
         self.assertIsNone(uv.setPosition((0.25, 1.5)))
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.25, 1.5)])
@@ -198,7 +198,7 @@ class UVTest(_Case):
 
     def test_collection_setters(self):
         shape = self.cube()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         uvs = shape.getUVs([0, 5, 2])
         self.assertIsNone(uvs.setPosition([(0.1, 0.2), (0.3, 0.4), (0.5, 0.6)], each=True))
         values = _uvs(name)
@@ -223,7 +223,7 @@ class UVTest(_Case):
 
     def test_writes_the_current_uv_set(self):
         shape = self.cube()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         cmds.polyUVSet(name, copy=True, uvSet="map1", newUVSet="uv2")
         cmds.polyUVSet(name, currentUVSet=True, uvSet="uv2")
         map1 = _uvs(name, "map1")
@@ -236,7 +236,7 @@ class UVTest(_Case):
 
     def test_undo_once(self):
         shape = self.cube()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         self.check_undo(name, lambda: shape.getUVs(0).setPosition((0.9, 0.9)), uv=True)
         self.check_undo(name, lambda: shape.getUVs(1).setPosition(0.7, axis="u"), uv=True)
         self.check_undo(name, lambda: shape.getUVs(1).setPosition(0.7, axis="v"), uv=True)
@@ -265,7 +265,7 @@ class UVTest(_Case):
         uv = shape.getUVs(0)
         uvs = shape.getUVs([0, 1])
         self.check_rejects(
-            shape.getFullName(),
+            shape.getName(full=True),
             (
                 (ValueError, lambda: uv.setPosition((1, 2, 3))),
                 (TypeError, lambda: uv.setPosition("ab")),
@@ -298,7 +298,7 @@ class UVTest(_Case):
         )
         history = self.cube("history", history=True)
         self.check_rejects(
-            history.getFullName(),
+            history.getName(full=True),
             (
                 (NotImplementedError, lambda: history.getUVs(0).setPosition((0, 0), fast=True)),
                 (NotImplementedError, lambda: history.getUVs([0, 1]).setPosition(0.5, fast=True, axis="u")),

@@ -27,15 +27,15 @@ class CreateNodeShadingTest(NamespaceCase):
             with self.subTest(flag=flag):
                 node = mlib.createNode(node_type, name=self.name(node_type), **{flag: True})
                 self.assertEqual(node.getType(), node_type)
-                self.assertIn(listing, cmds.listConnections(node.getFullName(), source=False, destination=True) or [])
+                self.assertIn(listing, cmds.listConnections(node.getName(full=True), source=False, destination=True) or [])
         plain = mlib.createNode("blinn", name=self.name("plain"))
-        self.assertNotIn("defaultShaderList1", cmds.listConnections(plain.getFullName(), source=False, destination=True) or [])
+        self.assertNotIn("defaultShaderList1", cmds.listConnections(plain.getName(full=True), source=False, destination=True) or [])
 
     def test_undo_once(self):
         """作成はUndo 1回で戻る。"""
         self.flushUndo()
         node = mlib.createNode("lambert", name=self.name("undoMat"), asShader=True)
-        name = node.getFullName()
+        name = node.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
     def test_errors(self):

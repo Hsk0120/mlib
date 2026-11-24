@@ -22,17 +22,17 @@ class VersionCompatibilityTest(unittest.TestCase):
             before = cmds.xform(joint, query=True, worldSpace=True, matrix=True)
             for target in (parent, mlib.getNode(parent)):
                 self.assertIsNone(node.setParent(target))
-                self.assertEqual(cmds.xform(node.getFullName(), query=True, worldSpace=True, matrix=True), before)
+                self.assertEqual(cmds.xform(node.getName(full=True), query=True, worldSpace=True, matrix=True), before)
             node.setParent(None)
             self.assertIsNone(node.getParent())
             node.setParent(None)
             cmds.undo()
-            self.assertEqual(node.getParent().getFullName(), mlib.getNode(parent).getFullName())
+            self.assertEqual(node.getParent().getName(full=True), mlib.getNode(parent).getName(full=True))
             cmds.redo()
             self.assertIsNone(node.getParent())
             with self.assertRaises(RuntimeError):
                 node.setParent(prefix + "missing")
-            cmds.delete(node.getFullName())
+            cmds.delete(node.getName(full=True))
             with self.assertRaises(RuntimeError):
                 node.setParent(None)
         finally:

@@ -26,7 +26,7 @@ class MixedComponentSelectionTest(NamespaceCase):
         cmds.select(cube + ".vtx[0:2]", cube + ".f[3]", cube + ".e[1]", other, other + ".vtx[5]")
         captured = Selection.capture().getItems()
         listed = list(mlib.ls(selection=True))
-        self.assertEqual([item.getFullName() for item in captured], [item.getFullName() for item in listed])
+        self.assertEqual([item.getName(full=True) for item in captured], [item.getName(full=True) for item in listed])
         kinds = [type(item).__name__ for item in captured]
         for kind in ("Vertex", "Face", "Edge"):
             self.assertIn(kind, kinds)

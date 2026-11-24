@@ -82,7 +82,7 @@ class DrivenKeysSnapshot(Snapshot):
         items = []
         seen = set()
         for node in _require_nodes(nodes):
-            full = node.getFullName()
+            full = node._full_name()
             if full in seen:
                 continue
             seen.add(full)
@@ -209,7 +209,7 @@ def _apply_driver(driver, driven, saved, report):
     if len(curves) != 1:
         report._add_skipped(label, "ドリブンキーのカーブが複数あります")
         return
-    curve = curves[0].getFullName()
+    curve = curves[0]._full_name()
     curve_type = cmds.nodeType(curve)
     if _output_kind(curve_type) != _output_kind(data["curveType"]):
         report._add_skipped(label, f"カーブの型{curve_type}が{data['curveType']}と合っていません")

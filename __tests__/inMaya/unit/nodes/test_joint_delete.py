@@ -68,9 +68,9 @@ class JointStandardDeleteTest(unittest.TestCase):
             middle = mlib.createNode("joint", parent=root)
             other = mlib.createNode("joint")
             mesh = cmds.polyPlane(ch=False, sx=1, sy=1)[0]
-            skin = mlib.getNode(cmds.skinCluster([n.getFullName() for n in (root, middle, other)], mesh, toSelectedBones=True)[0])
-            skin.setWeights([n.getFullName() for n in (root, middle, other)], [0.2, 0.3, 0.5], broadcast=True)
-            cmds.delete(middle.getFullName())
+            skin = mlib.getNode(cmds.skinCluster([n.getName(full=True) for n in (root, middle, other)], mesh, toSelectedBones=True)[0])
+            skin.setWeights([n.getName(full=True) for n in (root, middle, other)], [0.2, 0.3, 0.5], broadcast=True)
+            cmds.delete(middle.getName(full=True))
             expected = list(skin.getWeights([root, other]))
             cmds.undo()
             middle.delete(fast=fast, removeInfluence=False)
@@ -106,19 +106,19 @@ class JointDeleteTest(NamespaceCase):
         cmds.select(clear=True)
         self.skin = self._bind([self.root, self.mid, self.tip, self.other], "mesh")
         self.values = (0.1, 0.2, 0.3, 0.4)
-        self.names = [joint.getFullName() for joint in (self.root, self.mid, self.tip, self.other)]
+        self.names = [joint.getName(full=True) for joint in (self.root, self.mid, self.tip, self.other)]
         self.skin.setWeights(self.names, list(self.values), broadcast=True)
 
     def _bind(self, joints, name):
         """平面を joints へバインドした SkinCluster を返す。"""
         mesh = cmds.polyPlane(name=self.name(name), constructionHistory=False, subdivisionsX=2, subdivisionsY=2)[0]
-        skin = cmds.skinCluster([joint.getFullName() for joint in joints], mesh, toSelectedBones=True)[0]
+        skin = cmds.skinCluster([joint.getName(full=True) for joint in joints], mesh, toSelectedBones=True)[0]
         cmds.select(clear=True)
         return SkinCluster(skin)
 
     def _column(self, joint, skin=None):
         """joint の列の値を返す。"""
-        return list((skin or self.skin).getWeights([joint.getFullName()]))
+        return list((skin or self.skin).getWeights([joint.getName(full=True)]))
 
     def _influences(self, skin=None):
         """登録された influence の UUID を返す。"""
@@ -182,17 +182,17 @@ class JointDeleteTest(NamespaceCase):
 
     def _lock(self, joint, state=True):
         """joint のウェイトのロックを切り替える。"""
-        cmds.setAttr(joint.getFullName() + ".liw", state)
+        cmds.setAttr(joint.getName(full=True) + ".liw", state)
 
     def _is_locked(self, joint):
         """joint のウェイトのロックを返す。"""
-        return cmds.getAttr(joint.getFullName() + ".liw")
+        return cmds.getAttr(joint.getName(full=True) + ".liw")
 
     def _link_layer(self):
         """レイヤーと推定される接続を skinCluster へ作る。"""
         layer = cmds.createNode("network", name=self.name("ngSkinToolsData_test"))
-        cmds.addAttr(self.skin.getFullName(), longName="layerLink", attributeType="message")
-        cmds.connectAttr(layer + ".message", self.skin.getFullName() + ".layerLink")
+        cmds.addAttr(self.skin.getName(full=True), longName="layerLink", attributeType="message")
+        cmds.connectAttr(layer + ".message", self.skin.getName(full=True) + ".layerLink")
 
     def test_locked_influence_is_restored(self):
         """ロックを保ったまま移送し、Undo 1 回で全て戻る。"""
@@ -229,14 +229,14 @@ class JointDeleteTest(NamespaceCase):
     def test_unwritable_lock_changes_nothing(self):
         """ロックを切り替えられない場合は何も変えない。"""
         self._lock(self.other)
-        cmds.setAttr(self.other.getFullName() + ".liw", lock=True)
+        cmds.setAttr(self.other.getName(full=True) + ".liw", lock=True)
         try:
             with self.assertRaises(RuntimeError):
                 self.tip.delete()
             self.assertUntouched()
             self.assertTrue(self._is_locked(self.other))
         finally:
-            cmds.setAttr(self.other.getFullName() + ".liw", lock=False)
+            cmds.setAttr(self.other.getName(full=True) + ".liw", lock=False)
 
     def test_layers_are_not_rejected(self):
         """レイヤーがあっても各入口で解除できる。"""
@@ -262,13 +262,13 @@ class JointDeleteTest(NamespaceCase):
 
     def test_locked_node_changes_nothing(self):
         """削除できないノードでは influence も外さない。"""
-        cmds.lockNode(self.tip.getFullName(), lock=True)
+        cmds.lockNode(self.tip.getName(full=True), lock=True)
         try:
             with self.assertRaises(RuntimeError):
                 self.mid.delete()
             self.assertUntouched()
         finally:
-            cmds.lockNode(self.tip.getFullName(), lock=False)
+            cmds.lockNode(self.tip.getName(full=True), lock=False)
 
     def test_safe_skips_connected_joints(self):
         """safe は skinCluster の接続があれば何もしない。"""
@@ -283,7 +283,7 @@ class JointDeleteTest(NamespaceCase):
 
     def _weights(self, joints):
         """joints の列を返す。"""
-        return list(self.skin.getWeights([joint.getFullName() for joint in joints]))
+        return list(self.skin.getWeights([joint.getName(full=True) for joint in joints]))
 
     def _fast_case(self, label):
         """現在の fixture での処理と、残るジョイントを返す。"""
@@ -377,7 +377,7 @@ class JointDeleteTest(NamespaceCase):
         self.assertEqual(len(self._influences()), 3)
         self.assertEqual(len(self._influences(second)), 4)
         with self.assertRaises(ValueError):
-            Joints([self.tip]).removeInfluence(self.skin.getFullName())
+            Joints([self.tip]).removeInfluence(self.skin.getName(full=True))
 
     def test_joints_remove_influence_ignores_unbound_joints(self):
         """対象省略の未スキニングは変更しない。"""

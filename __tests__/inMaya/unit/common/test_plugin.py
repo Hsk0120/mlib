@@ -286,7 +286,7 @@ class UnknownPluginTest(NamespaceCase):
             self.assertIsInstance(node, Node)
         self.assertEqual(sorted(node.getType() for node in nodes), ["unknown", "unknownDag"])
         expected = cmds.ls(type=["unknown", "unknownDag", "unknownTransform"], long=True)
-        self.assertEqual([node.getFullName() for node in Plugin.listUnknownNodes()], expected)
+        self.assertEqual([node.getName(full=True) for node in Plugin.listUnknownNodes()], expected)
         self.assertEqual(Plugin.removeUnknown(_FAKE_PLUGIN), [_FAKE_PLUGIN])
         self.assertNotIn(_FAKE_PLUGIN, Plugin.listUnknown())
 

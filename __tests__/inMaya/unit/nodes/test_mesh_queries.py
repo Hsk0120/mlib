@@ -62,12 +62,12 @@ class _MeshCase(NamespaceCase):
         return mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
 
     def transform_of(self, mesh):
-        return cmds.listRelatives(mesh.getFullName(), parent=True, fullPath=True)[0]
+        return cmds.listRelatives(mesh.getName(full=True), parent=True, fullPath=True)[0]
 
     def closest_node(self, mesh, point):
         """closestPointOnMesh ノードで、ワールド空間の位置に最も近い点の結果を返す。"""
         node = self.make("closestPointOnMesh", "cpom#")
-        cmds.connectAttr(mesh.getFullName() + ".worldMesh[0]", node + ".inMesh")
+        cmds.connectAttr(mesh.getName(full=True) + ".worldMesh[0]", node + ".inMesh")
         cmds.connectAttr(self.transform_of(mesh) + ".worldMatrix[0]", node + ".inputMatrix")
         cmds.setAttr(node + ".inPosition", *point)
         return {
@@ -246,7 +246,7 @@ class UVPointTest(_MeshCase):
     def test_uv_set_argument(self):
         """uvSet を指定すると、そのセットの UV を使う。無いセット・空のセット。"""
         mesh = self.cube()
-        cmds.polyUVSet(mesh.getFullName(), copy=True, uvSet="map1", newUVSet="shifted")
+        cmds.polyUVSet(mesh.getName(full=True), copy=True, uvSet="map1", newUVSet="shifted")
         fn = mesh.mfn()
         us, vs = fn.getUVs("shifted")
         fn.setUVs([value + 2 for value in us], vs, "shifted")
@@ -262,7 +262,7 @@ class UVPointTest(_MeshCase):
         self.assertRaises(ValueError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet="")
         self.assertRaises(TypeError, _point_at_uv, mesh, "0", 0.5)
         self.assertRaises(ValueError, _point_at_uv, mesh, float("inf"), 0.5)
-        cmds.polyUVSet(mesh.getFullName(), create=True, uvSet="empty")
+        cmds.polyUVSet(mesh.getName(full=True), create=True, uvSet="empty")
         self.assertIsNone(_point_at_uv(mesh, 0.5, 0.5, uvSet="empty"))
         self.assertRaises(RuntimeError, mesh.getClosestPoint, (0, 0, 0), what="uv", uvSet="empty")
 
@@ -286,7 +286,7 @@ class VertexColorTest(_MeshCase):
             values = mesh.getVertexColors()
             for index, value in enumerate(values):
                 self.assertSequenceAlmostEqual(value, colors[index] + (1.0,), places=5)
-            self.assertSequenceAlmostEqual(cmds.polyColorPerVertex(mesh.getFullName() + ".vtx[3]", query=True, rgb=True), colors[3], places=5)
+            self.assertSequenceAlmostEqual(cmds.polyColorPerVertex(mesh.getName(full=True) + ".vtx[3]", query=True, rgb=True), colors[3], places=5)
 
         def before():
             self.assertEqual(mesh.getVertexColors(), [None] * 8)
@@ -303,7 +303,7 @@ class VertexColorTest(_MeshCase):
     def test_color_set_argument(self):
         """colorSet を指定すると、そのセットへ書き、現在のカラーセットは変えない。"""
         mesh = self.cube()
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         cmds.polyColorSet(name, create=True, colorSet="first")
         cmds.polyColorSet(name, create=True, colorSet="second")
         cmds.polyColorSet(name, currentColorSet=True, colorSet="first")
@@ -323,7 +323,7 @@ class VertexColorTest(_MeshCase):
         mesh.setVertexColors([(0.5, 0.5, 0.5)] * 8, fast=True)
         self.assertUndoEmpty()
         self.assertSequenceAlmostEqual(mesh.getVertexColors()[7], (0.5, 0.5, 0.5, 1), places=5)
-        self.assertEqual(cmds.polyColorSet(mesh.getFullName(), query=True, allColorSets=True), ["colorSet1"])
+        self.assertEqual(cmds.polyColorSet(mesh.getName(full=True), query=True, allColorSets=True), ["colorSet1"])
         history = self.cube(history=True)
         self.assertRaises(NotImplementedError, history.setVertexColors, [(1, 0, 0)] * 8, fast=True)
         history.setVertexColors([(1, 0, 0)] * 8)
@@ -361,7 +361,7 @@ class UVSetTest(_MeshCase):
     def test_queries_match_cmds(self):
         """名前と現在の UV セットは cmds.polyUVSet と同じ。"""
         mesh = self.cube()
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         cmds.polyUVSet(name, create=True, uvSet="extra")
         self.assertEqual(mesh.getSetNames(), cmds.polyUVSet(name, query=True, allUVSets=True))
         self.assertEqual(mesh.getCurrentSet(), cmds.polyUVSet(name, query=True, currentUVSet=True)[0])
@@ -370,7 +370,7 @@ class UVSetTest(_MeshCase):
     def test_edits_undo_in_one_step(self):
         """作成・複製・改名・削除・現在の切替は、それぞれ Undo 1回で戻る。"""
         mesh = self.cube(history=True)
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         mesh.createSet("base")
 
         def names(expected):
@@ -437,7 +437,7 @@ class TopologyConversionTest(_MeshCase):
     def test_border_matches_cmds(self):
         """縁のエッジ・頂点は polyListComponentConversion(border=True) と同じ。閉じたメッシュは空。"""
         mesh = self.plane()
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         edges = mesh.getBorder()
         vertices = mesh.getBorder(type="vertex")
         self.assertIsInstance(edges, Edges)
@@ -459,7 +459,7 @@ class TopologyConversionTest(_MeshCase):
     def test_conversions_match_cmds(self):
         """頂点・エッジから面、面からエッジへの変換は polyListComponentConversion と同じ(番号の昇順)。"""
         mesh = self.sphere()
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         for selected in ([0], [5, 17, 3], [40, 41]):
             with self.subTest(vertices=selected):
                 faces = mesh.getVertices(selected).getFaces()
@@ -486,9 +486,9 @@ class TopologyConversionTest(_MeshCase):
         mesh = self.cube()
         faces = mesh.getFaces([5])
         vertices = mesh.getVertices([7])
-        cmds.delete(mesh.getFullName() + ".f[3:5]")
+        cmds.delete(mesh.getName(full=True) + ".f[3:5]")
         self.assertRaises(IndexError, faces.getEdges)
-        cmds.delete(mesh.getFullName() + ".vtx[6:7]")
+        cmds.delete(mesh.getName(full=True) + ".vtx[6:7]")
         self.assertRaises(IndexError, vertices.getFaces)
 
 

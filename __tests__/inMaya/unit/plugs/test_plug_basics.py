@@ -20,7 +20,7 @@ class PlugBasicsTest(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg")
         self.node = self.make()
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.addAttr(name, longName="amount", attributeType="double", defaultValue=3)
         cmds.addAttr(name, longName="count", attributeType="long", defaultValue=2)
         cmds.addAttr(name, longName="enabled", attributeType="bool", defaultValue=True)
@@ -45,7 +45,7 @@ class PlugBasicsTest(unittest.TestCase):
     def number(self, node=None):
         """接続用の独立したdoubleアトリビュートを用意する。"""
         node = self.make() if node is None else node
-        cmds.addAttr(node.getFullName(), longName="number", attributeType="double")
+        cmds.addAttr(node.getName(full=True), longName="number", attributeType="double")
         return node.getPlug("number")
 
     def test_false_zero_and_empty_string_are_real_values(self):
@@ -55,7 +55,7 @@ class PlugBasicsTest(unittest.TestCase):
                 with self.subTest(fast=fast, attr=attr):
                     plug = self.node.getPlug(attr)
                     self.assertIsNone(plug.set(value, fast=fast))
-                    self.assertEqual(cmds.getAttr(plug.getFullName()), value)
+                    self.assertEqual(cmds.getAttr(plug.getName(full=True)), value)
                     self.assertEqual(plug.get(), value)
 
     def test_scalar_types_each_have_one_step_undo_redo(self):
@@ -63,21 +63,21 @@ class PlugBasicsTest(unittest.TestCase):
         for attr, value in (("amount", -4.5), ("count", 12), ("enabled", False), ("label", "日本語"), ("mode", 2)):
             with self.subTest(attr=attr):
                 plug = self.node.getPlug(attr)
-                previous = cmds.getAttr(plug.getFullName())
+                previous = cmds.getAttr(plug.getName(full=True))
                 cmds.flushUndo()
                 plug.set(value)
                 cmds.undo()
-                self.assertEqual(cmds.getAttr(plug.getFullName()), previous)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True)), previous)
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
                 cmds.redo()
-                self.assertEqual(cmds.getAttr(plug.getFullName()), value)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True)), value)
 
     def test_fast_scalar_edits_leave_the_undo_queue_empty(self):
         """fastの型別設定はUndo設定を変えず、記録を追加しない。"""
         cmds.flushUndo()
         for attr, value in (("amount", 5.5), ("count", 6), ("enabled", False), ("label", "direct"), ("mode", 1)):
             self.node.getPlug(attr).set(value, fast=True)
-            self.assertEqual(cmds.getAttr(self.node.getFullName() + "." + attr), value)
+            self.assertEqual(cmds.getAttr(self.node.getName(full=True) + "." + attr), value)
         self.assertTrue(cmds.undoInfo(query=True, state=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
@@ -90,8 +90,8 @@ class PlugBasicsTest(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     plug.set(8, fast=fast)
                 self.assertEqual(plug.set(8, safe=True, fast=fast), 1)
-                self.assertEqual(cmds.getAttr(plug.getFullName()), 3)
-                self.assertTrue(cmds.getAttr(plug.getFullName(), lock=True))
+                self.assertEqual(cmds.getAttr(plug.getName(full=True)), 3)
+                self.assertTrue(cmds.getAttr(plug.getName(full=True), lock=True))
 
     def test_equal_set_if_changed_does_not_unlock_or_record(self):
         """ロック済みでも同じ値の要求はFalseで、ロック変更もUndoも発生しない。"""
@@ -100,7 +100,7 @@ class PlugBasicsTest(unittest.TestCase):
         for fast in (False, True):
             cmds.flushUndo()
             self.assertFalse(plug.setIfChanged(3, unlock=True, fast=fast))
-            self.assertTrue(cmds.getAttr(plug.getFullName(), lock=True))
+            self.assertTrue(cmds.getAttr(plug.getName(full=True), lock=True))
             self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_set_if_changed_updates_and_relocks_with_one_undo(self):
@@ -109,14 +109,14 @@ class PlugBasicsTest(unittest.TestCase):
         plug.setLocked(True)
         cmds.flushUndo()
         self.assertTrue(plug.setIfChanged(9, unlock=True))
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 9)
-        self.assertTrue(cmds.getAttr(plug.getFullName(), lock=True))
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 9)
+        self.assertTrue(cmds.getAttr(plug.getName(full=True), lock=True))
         cmds.undo()
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 3)
-        self.assertTrue(cmds.getAttr(plug.getFullName(), lock=True))
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 3)
+        self.assertTrue(cmds.getAttr(plug.getName(full=True), lock=True))
         cmds.redo()
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 9)
-        self.assertTrue(cmds.getAttr(plug.getFullName(), lock=True))
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 9)
+        self.assertTrue(cmds.getAttr(plug.getName(full=True), lock=True))
 
     def test_failed_set_if_changed_relocks_and_keeps_input(self):
         """入力接続による書込み失敗の後も、接続と一時解除前のロックを保つ。"""
@@ -129,9 +129,9 @@ class PlugBasicsTest(unittest.TestCase):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
                     destination.setIfChanged(8, unlock=True, fast=fast)
-                self.assertTrue(cmds.isConnected(source.getFullName(), destination.getFullName()))
-                self.assertTrue(cmds.getAttr(destination.getFullName(), lock=True))
-                self.assertEqual(cmds.getAttr(destination.getFullName()), 4)
+                self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
+                self.assertTrue(cmds.getAttr(destination.getName(full=True), lock=True))
+                self.assertEqual(cmds.getAttr(destination.getName(full=True)), 4)
 
     def test_wrong_disconnect_source_preserves_the_real_connection(self):
         """別の入力元や長短名の競合を指定しても、既存の入力を切断しない。"""
@@ -142,7 +142,7 @@ class PlugBasicsTest(unittest.TestCase):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
                     destination.disconnect(wrong, fast=fast)
-                self.assertTrue(cmds.isConnected(source.getFullName(), destination.getFullName()))
+                self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
 
     def test_force_reconnect_restores_lock_and_undo_restores_old_source(self):
         """force置換のUndo/redoで入力元を往復し、接続先ロックを維持する。"""
@@ -152,14 +152,14 @@ class PlugBasicsTest(unittest.TestCase):
         destination.setLocked(True)
         cmds.flushUndo()
         self.assertEqual(destination.connect(replacement, force=True), destination)
-        self.assertTrue(cmds.isConnected(replacement.getFullName(), destination.getFullName()))
-        self.assertTrue(cmds.getAttr(destination.getFullName(), lock=True))
+        self.assertTrue(cmds.isConnected(replacement.getName(full=True), destination.getName(full=True)))
+        self.assertTrue(cmds.getAttr(destination.getName(full=True), lock=True))
         cmds.undo()
-        self.assertTrue(cmds.isConnected(source.getFullName(), destination.getFullName()))
-        self.assertTrue(cmds.getAttr(destination.getFullName(), lock=True))
+        self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
+        self.assertTrue(cmds.getAttr(destination.getName(full=True), lock=True))
         cmds.redo()
-        self.assertTrue(cmds.isConnected(replacement.getFullName(), destination.getFullName()))
-        self.assertTrue(cmds.getAttr(destination.getFullName(), lock=True))
+        self.assertTrue(cmds.isConnected(replacement.getName(full=True), destination.getName(full=True)))
+        self.assertTrue(cmds.getAttr(destination.getName(full=True), lock=True))
 
     def test_disconnect_all_input_only_is_idempotent_and_keeps_output_connections(self):
         """入力解除を繰り返しても出力接続を消さず、自身を返す。"""
@@ -171,8 +171,8 @@ class PlugBasicsTest(unittest.TestCase):
             with self.subTest(fast=fast):
                 self.assertIsNone(center.disconnectAll(destination=False, fast=fast))
                 self.assertIsNone(center.disconnectAll(destination=False, fast=fast))
-                self.assertFalse(cmds.isConnected(source.getFullName(), center.getFullName()))
-                self.assertTrue(cmds.isConnected(center.getFullName(), downstream.getFullName()))
+                self.assertFalse(cmds.isConnected(source.getName(full=True), center.getName(full=True)))
+                self.assertTrue(cmds.isConnected(center.getName(full=True), downstream.getName(full=True)))
                 center.connect(source)
 
     def test_safe_compound_set_keeps_connected_child_and_updates_others(self):
@@ -186,11 +186,11 @@ class PlugBasicsTest(unittest.TestCase):
                 plug = transform.getPlug("translate")
                 cmds.flushUndo()
                 self.assertEqual(plug.set((4, 5, 6), safe=True, fast=fast), 1)
-                self.assertEqual(cmds.getAttr(transform.getFullName() + ".t")[0], (4, 12, 6))
-                self.assertTrue(cmds.isConnected(source.getFullName(), transform.getFullName() + ".ty"))
+                self.assertEqual(cmds.getAttr(transform.getName(full=True) + ".t")[0], (4, 12, 6))
+                self.assertTrue(cmds.isConnected(source.getName(full=True), transform.getName(full=True) + ".ty"))
                 if not fast:
                     cmds.undo()
-                    self.assertEqual(cmds.getAttr(transform.getFullName() + ".t")[0], (0, 12, 0))
+                    self.assertEqual(cmds.getAttr(transform.getName(full=True) + ".t")[0], (0, 12, 0))
 
     def test_sparse_multi_reference_errors_do_not_create_elements(self):
         """欠番・不正番号・別名競合の照会はマルチアトリビュートの論理番号を増やさない。"""
@@ -203,7 +203,7 @@ class PlugBasicsTest(unittest.TestCase):
             with self.assertRaises(IndexError):
                 array[index]
         self.assertEqual(array.getIndices(), [3, 1000])
-        self.assertEqual(cmds.getAttr(array.getFullName(), multiIndices=True), [3, 1000])
+        self.assertEqual(cmds.getAttr(array.getName(full=True), multiIndices=True), [3, 1000])
 
     def test_multi_remove_restores_element_value_and_connection_on_undo(self):
         """接続された疎なマルチアトリビュートの要素の削除をUndo/redoし、欠番と他要素を保つ。"""
@@ -217,11 +217,11 @@ class PlugBasicsTest(unittest.TestCase):
         self.assertEqual(array.getIndices(), [2])
         cmds.undo()
         self.assertEqual(array.getIndices(), [2, 7])
-        self.assertTrue(cmds.isConnected(source.getFullName(), array[7].getFullName()))
-        self.assertEqual(cmds.getAttr(array[7].getFullName()), 9)
+        self.assertTrue(cmds.isConnected(source.getName(full=True), array[7].getName(full=True)))
+        self.assertEqual(cmds.getAttr(array[7].getName(full=True)), 9)
         cmds.redo()
         self.assertEqual(array.getIndices(), [2])
-        self.assertEqual(cmds.getAttr(array[2].getFullName()), 3)
+        self.assertEqual(cmds.getAttr(array[2].getName(full=True)), 3)
 
     def test_multi_whole_set_rejection_preserves_sparse_values(self):
         """マルチアトリビュート全体のsetはsafe指定でも拒否し、既存値を変更しない。"""
@@ -243,8 +243,8 @@ class PlugBasicsTest(unittest.TestCase):
                     cmds.currentUnit(linear=linear, angle=angular)
                     distance.set(100, fast=fast)
                     angle.set(90, fast=fast)
-                    self.assertAlmostEqual(cmds.getAttr(distance.getFullName()), ui_distance)
-                    self.assertAlmostEqual(cmds.getAttr(angle.getFullName()), ui_angle)
+                    self.assertAlmostEqual(cmds.getAttr(distance.getName(full=True)), ui_distance)
+                    self.assertAlmostEqual(cmds.getAttr(angle.getName(full=True)), ui_angle)
                     self.assertAlmostEqual(distance.get(), 100)
                     self.assertAlmostEqual(angle.get(), 90)
                     self.assertAlmostEqual(angle.get(unit="rad"), math.pi / 2)
@@ -254,22 +254,22 @@ class PlugBasicsTest(unittest.TestCase):
     def test_held_plug_follows_node_and_attribute_rename(self):
         """取得済みPlugはノード名とアトリビュート名の変更後も同じ対象を更新する。"""
         plug = self.node.getPlug("amount")
-        renamed = cmds.rename(self.node.getFullName(), self.namespace + ":renamed")
+        renamed = cmds.rename(self.node.getName(full=True), self.namespace + ":renamed")
         cmds.renameAttr(renamed + ".amount", "renamedAmount")
         self.assertTrue(plug.isValid())
-        self.assertEqual(plug.getFullName(), renamed + ".renamedAmount")
+        self.assertEqual(plug.getName(full=True), renamed + ".renamedAmount")
         plug.set(17)
         self.assertEqual(cmds.getAttr(renamed + ".renamedAmount"), 17)
 
     def test_recreated_attribute_does_not_revive_the_old_plug(self):
         """同名アトリビュートの再作成と、Undoによる元の復元を混同しない。"""
         old = self.node.getPlug("amount")
-        cmds.deleteAttr(old.getFullName())
-        cmds.addAttr(self.node.getFullName(), longName="amount", attributeType="double", defaultValue=20)
+        cmds.deleteAttr(old.getName(full=True))
+        cmds.addAttr(self.node.getName(full=True), longName="amount", attributeType="double", defaultValue=20)
         self.assertFalse(old.isValid())
         with self.assertRaises(RuntimeError):
             old.set(99)
-        self.assertEqual(cmds.getAttr(self.node.getFullName() + ".amount"), 20)
+        self.assertEqual(cmds.getAttr(self.node.getName(full=True) + ".amount"), 20)
 
     def test_reset_uses_attribute_defaults_and_has_undo(self):
         """resetは型ごとの既定値へ戻し、Undoで設定済みの値を復元する。"""
@@ -279,9 +279,9 @@ class PlugBasicsTest(unittest.TestCase):
                 plug.set(value)
                 cmds.flushUndo()
                 self.assertIsNone(plug.reset())
-                self.assertEqual(cmds.getAttr(plug.getFullName()), expected)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True)), expected)
                 cmds.undo()
-                self.assertEqual(cmds.getAttr(plug.getFullName()), value)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True)), value)
 
 
 if __name__ == "__main__":

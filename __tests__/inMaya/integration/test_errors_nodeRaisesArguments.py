@@ -62,7 +62,7 @@ class _ArgumentCase(NamespaceCase):
 
     def lock(self, node, attribute):
         """アトリビュートをロックし、そのPlugの名前を返す。"""
-        plug = node.getFullName() + "." + attribute
+        plug = node.getName(full=True) + "." + attribute
         cmds.setAttr(plug, lock=True)
         return plug
 
@@ -90,12 +90,12 @@ class AnimCurveTest(_ArgumentCase):
 
     def curve(self):
         curve = self.node("animCurveTL")
-        cmds.setKeyframe(curve.getFullName(), time=1, value=0)
-        cmds.setKeyframe(curve.getFullName(), time=10, value=5)
+        cmds.setKeyframe(curve.getName(full=True), time=1, value=0)
+        cmds.setKeyframe(curve.getName(full=True), time=10, value=5)
         return curve
 
     def keys(self, curve):
-        name = curve.getFullName()
+        name = curve.getName(full=True)
         return (cmds.keyframe(name, query=True, timeChange=True), cmds.keyframe(name, query=True, valueChange=True))
 
     def test_argument_errors(self):
@@ -132,7 +132,7 @@ class BlendShapeTest(_ArgumentCase):
         return node
 
     def data(self, node):
-        item = node.getFullName() + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
+        item = node.getName(full=True) + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
         return (cmds.getAttr(item + ".inputComponentsTarget"), cmds.listConnections(item + ".inputGeomTarget", plugs=True))
 
     def test_argument_errors(self):
@@ -190,9 +190,9 @@ class CameraTest(_ArgumentCase):
         return mlib.getNode(cmds.camera()[1])
 
     def state(self, camera):
-        name = camera.getFullName()
+        name = camera.getName(full=True)
         attributes = ("focalLength", "verticalFilmAperture", "horizontalFilmAperture", "centerOfInterest", "nearClipPlane")
-        transform = camera.getParent().getFullName()
+        transform = camera.getParent().getName(full=True)
         values = [cmds.getAttr(name + "." + attribute) for attribute in attributes]
         values.append(cmds.camera(name, query=True, verticalLock=True))
         values.append(tuple(cmds.xform(transform, query=True, matrix=True, worldSpace=True)))
@@ -235,7 +235,7 @@ class CameraTest(_ArgumentCase):
     def resolve(self, value):
         if value == "camera":
             other = self.camera()
-            cmds.setAttr(other.getParent().getFullName() + ".translate", 1, 2, 3)
+            cmds.setAttr(other.getParent().getName(full=True) + ".translate", 1, 2, 3)
             return other
         if value == "transform":
             return self.node("transform")
@@ -268,7 +268,7 @@ class DagPoseTest(_ArgumentCase):
         pose = mlib.getNode(cmds.dagPose(joints, save=True))
 
         def members():
-            return cmds.dagPose(pose.getFullName(), query=True, members=True)
+            return cmds.dagPose(pose.getName(full=True), query=True, members=True)
 
         self.assertFails(TypeError, pose.removeMembers, 1.5, state=members)
 
@@ -279,7 +279,7 @@ class GeometryFilterTest(_ArgumentCase):
     def test_argument_errors(self):
         deformer = mlib.getNode(cmds.cluster(self.cube())[0])
         with self.subTest(method="copyDeformerWeightsTo"):
-            weights = deformer.getFullName() + ".weightList[0].weights"
+            weights = deformer.getName(full=True) + ".weightList[0].weights"
 
             def state():
                 return cmds.getAttr(weights, multiIndices=True)
@@ -296,7 +296,7 @@ class IkHandleTest(_ArgumentCase):
         return handle, joints
 
     def chain(self, handle):
-        return cmds.ikHandle(handle.getFullName(), query=True, jointList=True)
+        return cmds.ikHandle(handle.getName(full=True), query=True, jointList=True)
 
     def test_set_chain_errors(self):
         handle, joints = self.handle()
@@ -310,12 +310,12 @@ class IkHandleTest(_ArgumentCase):
     def test_set_chain_rejects_invalid_or_locked(self):
         with self.subTest(case="locked"):
             handle, joints = self.handle()
-            cmds.lockNode(handle.getFullName(), lock=True)
+            cmds.lockNode(handle.getName(full=True), lock=True)
             self.assertFails(RuntimeError, handle.setChain, joints[0], joints[1], state=lambda: self.chain(handle))
-            cmds.lockNode(handle.getFullName(), lock=False)
+            cmds.lockNode(handle.getName(full=True), lock=False)
         with self.subTest(case="deleted"):
             handle, joints = self.handle()
-            cmds.delete(handle.getFullName())
+            cmds.delete(handle.getName(full=True))
             self.assertFails(RuntimeError, handle.setChain, joints[0], joints[1])
 
 
@@ -350,11 +350,11 @@ class MeshTest(_ArgumentCase):
     def mesh(self, colored=False):
         mesh = self.shape(self.cube())
         if colored:
-            cmds.polyColorPerVertex(mesh.getFullName() + ".vtx[*]", rgb=(1, 0, 0), colorDisplayOption=True)
+            cmds.polyColorPerVertex(mesh.getName(full=True) + ".vtx[*]", rgb=(1, 0, 0), colorDisplayOption=True)
         return mesh
 
     def state(self, mesh):
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         return (
             cmds.polyColorSet(name, query=True, allColorSets=True),
             cmds.polyColorSet(name, query=True, currentColorSet=True),
@@ -420,7 +420,7 @@ class MeshTest(_ArgumentCase):
     def test_existing_color_set_names(self):
         """createSet・renameSet(color=True)は、すでにある名前で ValueError。"""
         mesh = self.mesh(colored=True)
-        current = cmds.polyColorSet(mesh.getFullName(), query=True, currentColorSet=True)[0]
+        current = cmds.polyColorSet(mesh.getName(full=True), query=True, currentColorSet=True)[0]
         mesh.createSet("extra", color=True)
         for method, args in (("createSet", ("extra",)), ("renameSet", (current, "extra"))):
             with self.subTest(method=method):
@@ -436,13 +436,13 @@ class MeshTest(_ArgumentCase):
         for method, args, flags in cases:
             with self.subTest(method=method, flags=flags):
                 mesh = self.mesh(colored=True)
-                cmds.lockNode(mesh.getFullName(), lock=True)
+                cmds.lockNode(mesh.getName(full=True), lock=True)
                 self.assertFails(RuntimeError, getattr(mesh, method), *args, state=lambda: self.state(mesh), **flags)
 
     def test_fast_mirror_with_history(self):
         """fast=True の mirror は、inMesh に入力があると NotImplementedError。頂点は変わらない。"""
         mesh = self.shape(self.cube(history=True))
-        cmds.move(1, 0, 0, mesh.getFullName() + ".vtx[0]", relative=True)
+        cmds.move(1, 0, 0, mesh.getName(full=True) + ".vtx[0]", relative=True)
         self.assertFails(NotImplementedError, mesh.mirror, fast=True, state=lambda: self.state(mesh))
 
 
@@ -465,7 +465,7 @@ class NurbsCurveTest(_ArgumentCase):
         return self.shape(cmds.curve(degree=3, point=[(0, 0, 0), (1, 1, 0), (2, 0, 0), (3, 1, 0), (4, 0, 0), (5, 1, 0)]))
 
     def state(self, curve):
-        name = curve.getFullName()
+        name = curve.getName(full=True)
         return (cmds.getAttr(name + ".cv[*]"), cmds.getAttr(name + ".spans"))
 
     def test_argument_errors(self):
@@ -487,7 +487,7 @@ class NurbsCurveTest(_ArgumentCase):
         for method, args in (("removeKnot", (1.0,)), ("makeMultipleEndKnots", ())):
             with self.subTest(method=method):
                 curve = self.curve()
-                cmds.lockNode(curve.getFullName(), lock=True)
+                cmds.lockNode(curve.getName(full=True), lock=True)
                 self.assertFails(RuntimeError, getattr(curve, method), *args, state=lambda: self.state(curve))
 
     def test_fast_mirror_with_history(self):
@@ -505,7 +505,7 @@ class NurbsSurfaceTest(_ArgumentCase):
         surface = self.surface()
 
         def cvs():
-            return cmds.getAttr(surface.getFullName() + ".cv[*][*]")
+            return cmds.getAttr(surface.getName(full=True) + ".cv[*][*]")
 
         cases = ((TypeError, "removeKnot", (0.5,), {"all": 1}),)
         for error, method, args, flags in cases:
@@ -514,8 +514,8 @@ class NurbsSurfaceTest(_ArgumentCase):
 
     def test_locked_surface(self):
         surface = self.surface(patches=2)
-        cmds.lockNode(surface.getFullName(), lock=True)
-        self.assertFails(RuntimeError, surface.removeKnot, 0.5, state=lambda: cmds.getAttr(surface.getFullName() + ".spansU"))
+        cmds.lockNode(surface.getName(full=True), lock=True)
+        self.assertFails(RuntimeError, surface.removeKnot, 0.5, state=lambda: cmds.getAttr(surface.getName(full=True) + ".spansU"))
 
 
 class ObjectSetTest(_ArgumentCase):
@@ -525,7 +525,7 @@ class ObjectSetTest(_ArgumentCase):
         object_set = mlib.getNode(cmds.sets(empty=True))
 
         def members():
-            return cmds.sets(object_set.getFullName(), query=True)
+            return cmds.sets(object_set.getName(full=True), query=True)
 
         transform = self.node("transform")
         cases = (
@@ -589,7 +589,7 @@ class ReferenceTest(_ArgumentCase):
         live = self.reference
 
         def locked():
-            return cmds.getAttr(live.getFullName() + ".locked")
+            return cmds.getAttr(live.getName(full=True) + ".locked")
 
         transform = self.node("transform")
         cases = (
@@ -618,7 +618,7 @@ class SkinClusterTest(_ArgumentCase):
         return node, joints
 
     def state(self, node):
-        name = node.getFullName()
+        name = node.getName(full=True)
         return (
             cmds.getAttr(name + ".weightList[0].weights"),
             cmds.getAttr(name + ".blendWeights", multiIndices=True),
@@ -717,7 +717,7 @@ class SkinClusterTest(_ArgumentCase):
         for method, args, flags in (("setMoveJointsMode", (True,), {}), ("normalizeWeights", (), {"force": True})):
             with self.subTest(method=method):
                 node, _ = self.skin()
-                cmds.lockNode(node.getFullName(), lock=True)
+                cmds.lockNode(node.getName(full=True), lock=True)
                 self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 
     def test_curve_output(self):
@@ -736,7 +736,7 @@ class TransformTest(_ArgumentCase):
     """Transform の引数・ロック・ファイルの例外。トランスフォームとジオメトリは変わらない。"""
 
     def state(self, node):
-        name = node.getFullName()
+        name = node.getName(full=True)
         shapes = cmds.listRelatives(name, shapes=True, fullPath=True) or []
         points = [cmds.xform(shape + (".vtx[*]" if cmds.nodeType(shape) == "mesh" else ".cv[*]"), query=True, translation=True) for shape in shapes]
         return (tuple(cmds.xform(name, query=True, matrix=True)), cmds.xform(name, query=True, rotatePivot=True), points)
@@ -781,7 +781,7 @@ class TransformTest(_ArgumentCase):
             (TypeError, "getPivot", (), {"translation": 1}),
         )
         node = mlib.getNode(self.cube())
-        cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
+        cmds.setAttr(node.getName(full=True) + ".translate", 1, 2, 3)
         for error, method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
                 self.assertFails(error, getattr(node, method), *args, state=lambda: self.state(node), **flags)
@@ -819,8 +819,8 @@ class TransformTest(_ArgumentCase):
         for method, args, flags, attribute in cases:
             with self.subTest(method=method, attribute=attribute):
                 node = self.node("transform")
-                cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
-                cmds.setAttr(node.getFullName() + ".shear", 0.5, 0.5, 0.5)
+                cmds.setAttr(node.getName(full=True) + ".translate", 1, 2, 3)
+                cmds.setAttr(node.getName(full=True) + ".shear", 0.5, 0.5, 0.5)
                 self.lock(node, attribute)
                 self.assertFails(RuntimeError, getattr(node, method), *args, state=lambda: self.state(node), **flags)
 

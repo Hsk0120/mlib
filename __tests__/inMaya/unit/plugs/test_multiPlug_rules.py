@@ -51,12 +51,12 @@ class NextAvailableParityTest(_Case):
     )
 
     def add_multi(self, node, name):
-        cmds.addAttr(node.getFullName(), longName=name, attributeType="double", multi=True, indexMatters=False)
-        return node.getFullName() + "." + name
+        cmds.addAttr(node.getName(full=True), longName=name, attributeType="double", multi=True, indexMatters=False)
+        return node.getName(full=True) + "." + name
 
     def chosen_by_cmds(self, attr):
         connected = set(cmds.listConnections(attr, source=True, destination=False, plugs=True, connections=True) or [])
-        cmds.connectAttr(self.source.getFullName() + ".sx", attr, nextAvailable=True)
+        cmds.connectAttr(self.source.getName(full=True) + ".sx", attr, nextAvailable=True)
         pairs = cmds.listConnections(attr, source=True, destination=False, plugs=True, connections=True) or []
         for destination, source in zip(pairs[::2], pairs[1::2]):
             if source.endswith(".scaleX") and destination not in connected:
@@ -70,8 +70,8 @@ class NextAvailableParityTest(_Case):
                 with self.subTest(case=label, fast=fast):
                     reference = self.add_multi(self.node, f"ref{index:d}{fast:d}")
                     ours = self.add_multi(self.node, f"our{index:d}{fast:d}")
-                    setup(reference, self.feeder.getFullName())
-                    setup(ours, self.feeder.getFullName())
+                    setup(reference, self.feeder.getName(full=True))
+                    setup(ours, self.feeder.getName(full=True))
                     expected = self.chosen_by_cmds(reference)
                     multi = mlib.getPlug(ours)
                     self.assertEqual(multi.getNextAvailable().getIndex(), expected)
@@ -82,18 +82,18 @@ class NextAvailableParityTest(_Case):
         """子の接続を持つ要素は使われている扱いで、その次から選ぶ(cmdsと同じ)。"""
         results = []
         for prefix in ("ref", "our"):
-            name = self.node.getFullName()
+            name = self.node.getName(full=True)
             cmds.addAttr(name, longName=prefix + "Pair", attributeType="double2", multi=True, indexMatters=False)
             for axis in "XY":
                 cmds.addAttr(name, longName=prefix + "Pair" + axis, attributeType="double", parent=prefix + "Pair")
-            cmds.connectAttr(self.feeder.getFullName() + ".tx", f"{name}.{prefix}Pair[1].{prefix}PairX")
-        cmds.addAttr(self.source.getFullName(), longName="pair", attributeType="double2")
+            cmds.connectAttr(self.feeder.getName(full=True) + ".tx", f"{name}.{prefix}Pair[1].{prefix}PairX")
+        cmds.addAttr(self.source.getName(full=True), longName="pair", attributeType="double2")
         for axis in "XY":
-            cmds.addAttr(self.source.getFullName(), longName="pair" + axis, attributeType="double", parent="pair")
-        cmds.connectAttr(self.source.getFullName() + ".pair", self.node.getFullName() + ".refPair", nextAvailable=True)
-        results.append(cmds.getAttr(self.node.getFullName() + ".refPair", multiIndices=True))
+            cmds.addAttr(self.source.getName(full=True), longName="pair" + axis, attributeType="double", parent="pair")
+        cmds.connectAttr(self.source.getName(full=True) + ".pair", self.node.getName(full=True) + ".refPair", nextAvailable=True)
+        results.append(cmds.getAttr(self.node.getName(full=True) + ".refPair", multiIndices=True))
         element = self.source.getPlug("pair").connectTo(self.node.getPlug("ourPair"), nextAvailable=True)
-        results.append(cmds.getAttr(self.node.getFullName() + ".ourPair", multiIndices=True))
+        results.append(cmds.getAttr(self.node.getName(full=True) + ".ourPair", multiIndices=True))
         self.assertEqual(results[0], results[1])
         self.assertEqual(element.getIndex(), 2)
 
@@ -110,7 +110,7 @@ class NextAvailableParityTest(_Case):
         multi = mlib.getPlug(self.add_multi(self.node, "values"))
 
         def inputs():
-            return cmds.listConnections(multi.getFullName(), source=True, destination=False) or []
+            return cmds.listConnections(multi.getName(full=True), source=True, destination=False) or []
 
         self.flushUndo()
         self.source.getPlug("sx").connectTo(multi, nextAvailable=True)
@@ -124,16 +124,16 @@ class GetElementTest(_Case):
     """getElement(index)は未作成の要素も参照し、getElement()は既存要素だけを返す。"""
 
     def test_missing_element_reference(self):
-        cmds.addAttr(self.node.getFullName(), longName="values", attributeType="double", multi=True)
+        cmds.addAttr(self.node.getName(full=True), longName="values", attributeType="double", multi=True)
         multi = self.node.getPlug("values")
         element = multi.getElement(4)
         self.assertEqual(element, multi[4])
-        self.assertEqual(element.getFullName(), multi.getFullName() + "[4]")
+        self.assertEqual(element.getName(full=True), multi.getName(full=True) + "[4]")
         self.assertNotIn(4, multi)
         self.assertEqual(multi.getElement(), [])
         element.set(2.0)
         self.assertEqual(multi.getElement(), [element])
-        self.assertEqual(cmds.getAttr(self.node.getFullName() + ".values", multiIndices=True), [4])
+        self.assertEqual(cmds.getAttr(self.node.getName(full=True) + ".values", multiIndices=True), [4])
 
     def test_errors(self):
         multi = self.node.getPlug("worldMatrix")
@@ -148,8 +148,8 @@ class PlugNamesTest(_Case):
 
     def test_names(self):
         name = self.node.getName()
-        cmds.addAttr(self.node.getFullName(), longName="items", shortName="its", attributeType="compound", numberOfChildren=1, multi=True)
-        cmds.addAttr(self.node.getFullName(), longName="weight", shortName="wt", attributeType="double", parent="items")
+        cmds.addAttr(self.node.getName(full=True), longName="items", shortName="its", attributeType="compound", numberOfChildren=1, multi=True)
+        cmds.addAttr(self.node.getName(full=True), longName="weight", shortName="wt", attributeType="double", parent="items")
         for path, short in (
             ("worldMatrix[0]", "wm[0]"),
             ("worldMatrix", "wm"),
@@ -170,7 +170,7 @@ class GenericMatrixTest(_Case):
 
     def test_dynamic_generic_accepts_matrix(self):
         """matrixを受け付ける動的genericは通常・fastとも書け、cmdsで同じ値を読める。"""
-        cmds.addAttr(self.node.getFullName(), longName="anything", dataType=["matrix", "string"])
+        cmds.addAttr(self.node.getName(full=True), longName="anything", dataType=["matrix", "string"])
         plug = self.node.getPlug("anything")
         value = Matrix()
         value.setElement(3, 0, 5.0)
@@ -179,7 +179,7 @@ class GenericMatrixTest(_Case):
                 plug.set(Matrix(), fast=fast)
                 plug.set(value, fast=fast)
                 self.assertEqual(plug.get(), value)
-                self.assertEqual(cmds.getAttr(plug.getFullName())[12], 5.0)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True))[12], 5.0)
         self.flushUndo()
         plug.set(Matrix())
         self.assertUndoesInOneStep(lambda: self.assertEqual(plug.get(), value), lambda: self.assertEqual(plug.get(), Matrix()))
@@ -189,7 +189,7 @@ class GenericMatrixTest(_Case):
 
     def test_dynamic_generic_accepts_transformation_matrix(self):
         """matrixを受け付ける動的genericへ om2.MTransformationMatrix も通常・fastとも書ける。"""
-        cmds.addAttr(self.node.getFullName(), longName="anything", dataType=["matrix", "string"])
+        cmds.addAttr(self.node.getName(full=True), longName="anything", dataType=["matrix", "string"])
         plug = self.node.getPlug("anything")
         expected = Matrix()
         expected.setElement(3, 1, 7.0)
@@ -198,7 +198,7 @@ class GenericMatrixTest(_Case):
                 plug.set(Matrix(), fast=fast)
                 plug.set(om2.MTransformationMatrix(expected), fast=fast)
                 self.assertEqual(plug.get(), expected)
-                self.assertEqual(cmds.getAttr(plug.getFullName())[13], 7.0)
+                self.assertEqual(cmds.getAttr(plug.getName(full=True))[13], 7.0)
 
     def test_choice_input_raises_type_error(self):
         """choice.inputはMayaが定数のマトリクスを保存・復元できないため、通常・fastともTypeErrorで変更しない。"""
@@ -209,11 +209,11 @@ class GenericMatrixTest(_Case):
                 with self.assertRaisesRegex(TypeError, "holdMatrix"):
                     element.set(Matrix(), fast=fast)
                 self.assertEqual(element.set(Matrix(), safe=True, fast=fast), 1)
-        self.assertEqual(cmds.getAttr(choice.getFullName() + ".input", multiIndices=True) or [], [])
+        self.assertEqual(cmds.getAttr(choice.getName(full=True) + ".input", multiIndices=True) or [], [])
 
     def test_locked_generic_fast(self):
         """fastでもロック中のgenericはRuntimeError。"""
-        cmds.addAttr(self.node.getFullName(), longName="anything", dataType=["matrix", "string"])
+        cmds.addAttr(self.node.getName(full=True), longName="anything", dataType=["matrix", "string"])
         plug = self.node.getPlug("anything")
         plug.setLocked(True)
         with self.assertRaises(RuntimeError):

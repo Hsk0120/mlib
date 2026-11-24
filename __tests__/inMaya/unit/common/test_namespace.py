@@ -413,8 +413,8 @@ class NamespaceNodePlugAdditionsTest(_Case):
         """名前空間を付けたノードを返し、無ければ RuntimeError。引数の型・空文字列は例外。"""
         name = self.make("transform", "target")
         node = Namespace(self.ns).getNode("target")
-        self.assertEqual(node.getFullName(), cmds.ls(name, long=True)[0])
-        self.assertEqual(Namespace(":").getNode("time1").getFullName(), "time1")
+        self.assertEqual(node.getName(full=True), cmds.ls(name, long=True)[0])
+        self.assertEqual(Namespace(":").getNode("time1").getName(full=True), "time1")
         for value, error in (("missing", RuntimeError), (1, TypeError), ("", ValueError)):
             with self.subTest(value=value):
                 with self.assertRaises(error):

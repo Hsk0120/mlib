@@ -53,12 +53,12 @@ class GuardTest(NamespaceCase):
     def test_surface_rejects_uv_and_lock(self):
         surface = mlib.getNode(cmds.nurbsPlane(name=self.name("surface"), constructionHistory=False)[0]).getShape()
         before = surface.getKnots()
-        cmds.lockNode(surface.getFullName(), lock=True)
+        cmds.lockNode(surface.getName(full=True), lock=True)
         cmds.flushUndo()
         with self.assertRaises(RuntimeError):
             surface.setKnots(*before)
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
-        cmds.lockNode(surface.getFullName(), lock=False)
+        cmds.lockNode(surface.getName(full=True), lock=False)
         fn = surface.mfn()
         fn.setUVs([0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0])
         fn.assignUVs([4], [0, 1, 2, 3])

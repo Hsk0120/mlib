@@ -74,7 +74,7 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual(len(selection.getPlugs()), 1)
         self.assertEqual(len(selection.filter(type="plug")), 1)
         cmds.renameAttr(self.joint + ".amount", "renamed")
-        self.assertTrue(selection.getPlugs()[0].getFullName().endswith(".renamed"))
+        self.assertTrue(selection.getPlugs()[0].getName(full=True).endswith(".renamed"))
         cmds.deleteAttr(self.joint + ".renamed")
         self.assertEqual(selection.getPlugs(), [])
         with self.assertRaises(RuntimeError):
@@ -262,14 +262,14 @@ class SelectionReadableReprTest(_Case):
         for attributes_flag, objects_flag in selection_module._CHANNEL_BOX_SECTIONS:
             attributes = cmds.channelBox(name, query=True, **{attributes_flag: True}) or []
             for owner in cmds.channelBox(name, query=True, **{objects_flag: True}) or [] if attributes else []:
-                expected.extend(mlib.getPlug(owner + "." + attribute).getFullName() for attribute in attributes if cmds.objExists(owner + "." + attribute))
-        actual = [plug.getFullName() for plug in Selection.getChannelBoxPlugs()]
+                expected.extend(mlib.getPlug(owner + "." + attribute).getName(full=True) for attribute in attributes if cmds.objExists(owner + "." + attribute))
+        actual = [plug.getName(full=True) for plug in Selection.getChannelBoxPlugs()]
         self.assertEqual(actual, list(dict.fromkeys(expected)))
 
     def test_channel_box_plugs_from_simulated_channel_box(self):
         """Channel Boxの各区分の選択を、区分の順・選択順のPlugへ変換し、存在しない組合せと重複を除く。"""
-        transform = self.mesh.getParent().getFullName()
-        mesh = self.mesh.getFullName()
+        transform = self.mesh.getParent().getName(full=True)
+        mesh = self.mesh.getName(full=True)
         other = self.make("transform", "other")
         answers = {
             "selectedMainAttributes": ["ty", "tx"],
@@ -313,8 +313,8 @@ class SelectionReadableReprTest(_Case):
             cmds.channelBox = original_channel_box
             selection_module.mel = original_mel
         self.assertEqual(
-            [plug.getFullName() for plug in plugs],
-            [mlib.getPlug(name).getFullName() for name in (transform + ".ty", transform + ".tx", other + ".ty", other + ".tx", mesh + ".castsShadows")],
+            [plug.getName(full=True) for plug in plugs],
+            [mlib.getPlug(name).getName(full=True) for name in (transform + ".ty", transform + ".tx", other + ".ty", other + ".tx", mesh + ".castsShadows")],
         )
 
 

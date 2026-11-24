@@ -21,7 +21,7 @@ class SurfaceTextureAndTrimTest(NamespaceCase):
         return mlib.getNode(name).getShape()
 
     def trim_hole(self, surface):
-        name = surface.getFullName()
+        name = surface.getName(full=True)
         boundary = cmds.curveOnSurface(name, degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
         cmds.trim(name, boundary, constructionHistory=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
 

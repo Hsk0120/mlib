@@ -28,7 +28,7 @@ class _PlugSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg", time="film")
         self.node = self.make("transform")
-        self.name = self.node.getFullName()
+        self.name = self.node.getName(full=True)
 
     def tearDown(self):
         cmds.currentUnit(linear=self.units[0], angle=self.units[1], time=self.units[2])
@@ -83,7 +83,7 @@ class PlugTypeSelectionSpecTest(_PlugSpecCase):
                 self.assertIs(type(plug), cls)
                 self.assertEqual(plug.getType(), type_name)
                 if type_name != "message":
-                    self.assertEqual(cmds.getAttr(plug.getFullName(), type=True), type_name)
+                    self.assertEqual(cmds.getAttr(plug.getName(full=True), type=True), type_name)
 
     def test_unregistered_types_use_base_plug(self):
         """byte・char・型付き配列は基底Plugのままで、型名は定義から返す。"""
@@ -137,9 +137,9 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         for attr, flags, value, kind in cases:
             with self.subTest(attr=attr):
                 plug = self.add(attr + "V", **flags)
-                cmds.setAttr(plug.getFullName(), value)
+                cmds.setAttr(plug.getName(full=True), value)
                 self.assertIs(type(plug.get()), kind)
-                self.assertEqual(plug.get(), cmds.getAttr(plug.getFullName()))
+                self.assertEqual(plug.get(), cmds.getAttr(plug.getName(full=True)))
 
     def test_float_keeps_single_precision(self):
         """floatは単精度で保存され、getはその値をdoubleで返す(通常・fastとも)。"""
@@ -193,7 +193,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
             cmds.currentUnit(time=frame)
             for fast in (False, True):
                 with self.subTest(frame=frame, fast=fast):
-                    cmds.setAttr(ti.getFullName(), 2 * fps)
+                    cmds.setAttr(ti.getName(full=True), 2 * fps)
                     self.assertAlmostEqual(ti.get(), 2.0 * fps)
                     self.assertAlmostEqual(ti.get(timeUnit="sec"), 2.0)
                     for alias in ("seconds", "second"):
@@ -201,10 +201,10 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     self.assertAlmostEqual(ti.get(timeUnit="frames"), 2.0 * fps)
                     self.assertAlmostEqual(ti.get(uiUnits=True), 2.0 * fps)
                     ti.set(12, fast=fast)
-                    self.assertAlmostEqual(cmds.getAttr(ti.getFullName()), 12.0)
+                    self.assertAlmostEqual(cmds.getAttr(ti.getName(full=True)), 12.0)
                     self.assertAlmostEqual(ti.mplug().asMTime().asUnits(om2.MTime.kSeconds), 12.0 / fps)
                     ti.set(0.5, timeUnit="sec", fast=fast)
-                    self.assertAlmostEqual(cmds.getAttr(ti.getFullName()), 0.5 * fps)
+                    self.assertAlmostEqual(cmds.getAttr(ti.getName(full=True)), 0.5 * fps)
                     ti.set(15, uiUnits=True, fast=fast)
                     self.assertAlmostEqual(ti.get(), 15.0)
                     self.assertAlmostEqual(ti.get(timeUnit="sec"), 15.0 / fps)
@@ -235,7 +235,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
 
     def test_time_children_of_compound_and_multi(self):
         """時間の子を持つコンパウンドアトリビュートと、時間のマルチアトリビュートも子ごとに換算する。"""
-        name = self.node.getFullName()
+        name = self.node.getName(full=True)
         cmds.addAttr(name, longName="span", attributeType="compound", numberOfChildren=2)
         cmds.addAttr(name, longName="spanTime", attributeType="time", parent="span")
         cmds.addAttr(name, longName="spanAngle", attributeType="doubleAngle", parent="span")
@@ -321,9 +321,9 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         with self.assertRaises(RuntimeError):
             plug.set(30, uiUnits=True)
         plug.set(0.5)
-        self.assertAlmostEqual(cmds.getAttr(plug.getFullName()), 5.0)
+        self.assertAlmostEqual(cmds.getAttr(plug.getName(full=True)), 5.0)
         plug.set(0.25, fast=True)
-        self.assertAlmostEqual(cmds.getAttr(plug.getFullName()), 2.5)
+        self.assertAlmostEqual(cmds.getAttr(plug.getName(full=True)), 2.5)
         plug.set(3, uiUnits=True)
         self.assertAlmostEqual(plug.get(), 0.3)
 
@@ -358,7 +358,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     with self.subTest(plug=plug.getName(), value=value, fast=fast):
                         plug.set(0)
                         plug.set(value, fast=fast)
-                        self.assertEqual(cmds.getAttr(plug.getFullName()), expected)
+                        self.assertEqual(cmds.getAttr(plug.getName(full=True)), expected)
         enum_plug = self.add("en", attributeType="enum", enumName="a:b:c:d")
         for value, expected in ((1.7, 2), (1.5, 2), (2.4, 2)):
             for fast in (False, True):
@@ -383,11 +383,11 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         for plug, value in ((flag, 1.4), (flag, -0.4), (limited, 5.4), (limited, -0.4), (enum_plug, 0.6), (enum_plug, 10.4), (enum_plug, 11), (enum_plug, 0)):
             for fast in (False, True):
                 with self.subTest(plug=plug.getName(), value=value, fast=fast):
-                    before = cmds.getAttr(plug.getFullName())
+                    before = cmds.getAttr(plug.getName(full=True))
                     with self.assertRaises(RuntimeError):
                         plug.set(value, fast=fast)
                     self.assertEqual(plug.set(value, safe=True, fast=fast), 1)
-                    self.assertEqual(cmds.getAttr(plug.getFullName()), before)
+                    self.assertEqual(cmds.getAttr(plug.getName(full=True)), before)
 
     def test_string_and_number_cross_input_rejected_by_both_paths(self):
         """数値へ文字列・Noneや文字列へ数値は拒否され、値を変えない。
@@ -405,14 +405,14 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     with self.assertRaises(TypeError if fast else (TypeError, RuntimeError)):
                         plug.set(value, fast=fast)
                     self.assertEqual(plug.set(value, safe=True, fast=fast), 1)
-                    self.assertEqual(cmds.getAttr(plug.getFullName()), 0)
+                    self.assertEqual(cmds.getAttr(plug.getName(full=True)), 0)
         # enumへの文字列はフィールド名として解釈し、無い名前はValueError。
         for fast in (False, True):
             with self.subTest(plug="en", fast=fast):
                 with self.assertRaises(ValueError):
                     enum_plug.set("1", fast=fast)
                 self.assertEqual(enum_plug.set("1", safe=True, fast=fast), 1)
-                self.assertEqual(cmds.getAttr(enum_plug.getFullName()), 0)
+                self.assertEqual(cmds.getAttr(enum_plug.getName(full=True)), 0)
         text = self.add("txt", dataType="string")
         text.set("keep")
         for value in (5, 7.0, None, True):
@@ -442,11 +442,11 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 sx.set(float("inf"), fast=fast)  # Mayaはそのまま受け取る。
-                self.assertTrue(math.isinf(cmds.getAttr(self.node.getFullName() + ".sx")))
+                self.assertTrue(math.isinf(cmds.getAttr(self.node.getName(full=True) + ".sx")))
                 sx.set(1.0, fast=fast)
         ty = self.node.getPlug("ty")
         ty.set(2.0)
-        cmds.setAttr(self.node.getFullName() + ".ty", lock=True)
+        cmds.setAttr(self.node.getName(full=True) + ".ty", lock=True)
         try:
             for fast in (False, True):
                 with self.subTest(locked=True, fast=fast):
@@ -461,7 +461,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
             with self.assertRaises(TypeError):
                 ty.set(5.0, check=1)
         finally:
-            cmds.setAttr(self.node.getFullName() + ".ty", lock=False)
+            cmds.setAttr(self.node.getName(full=True) + ".ty", lock=False)
 
     def test_non_finite_values_are_rejected(self):
         """check=Trueなら、nan・infは書く前にValueError(通常・fast)、safe=Trueは1で、値を変えない。"""
@@ -513,7 +513,7 @@ class PlugScalarValueSpecTest(_PlugSpecCase):
                     cmds.setAttr(self.name + ".t", lock=True)
                 else:
                     other = self.make("transform")
-                    cmds.connectAttr(other.getFullName() + ".ty", self.name + ".tx")
+                    cmds.connectAttr(other.getName(full=True) + ".ty", self.name + ".tx")
                 try:
                     with self.assertRaises(RuntimeError):
                         tx.set(1)
@@ -636,7 +636,7 @@ class PlugSetIfChangedSpecTest(_PlugSpecCase):
         enum_plug = self.add("en", attributeType="enum", enumName="a:b")
         self.assertFalse(enum_plug.setIfChanged(0))
         self.assertTrue(enum_plug.setIfChanged(1))
-        self.assertEqual(cmds.getAttr(enum_plug.getFullName()), 1)
+        self.assertEqual(cmds.getAttr(enum_plug.getName(full=True)), 1)
 
 
 class PlugEnumSpecTest(_PlugSpecCase):
@@ -654,7 +654,7 @@ class PlugEnumSpecTest(_PlugSpecCase):
         self.assertEqual(plug.getEnumNames(name="c"), 10)
         self.assertEqual(plug.getEnumNames(value=1), "a")
         self.assertEqual(plug.getEnumNames(value=10), "c")
-        self.assertEqual(cmds.getAttr(plug.getFullName(), asString=True), "b")
+        self.assertEqual(cmds.getAttr(plug.getName(full=True), asString=True), "b")
         rotate_order = self.node.getPlug("rotateOrder")
         self.assertEqual(rotate_order.getEnumNames(value=5), "zyx")
         self.assertEqual(rotate_order.getEnumNames(name="zyx"), 5)
@@ -686,9 +686,9 @@ class PlugEnumSpecTest(_PlugSpecCase):
         """フィールドの無い番号でも最小〜最大の範囲内なら書ける。最小未満はRuntimeError。"""
         plug = self.enum_plug
         plug.set(3)
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 3)
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 3)
         plug.set(7, fast=True)
-        self.assertEqual(cmds.getAttr(plug.getFullName()), 7)
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), 7)
         with self.assertRaises(RuntimeError):
             plug.set(-1)
         with self.assertRaises(ValueError):
@@ -775,7 +775,7 @@ class PlugDataValueSpecTest(_PlugSpecCase):
             for value in ("abc", "日本語", ""):
                 with self.subTest(fast=fast, value=value):
                     text.set(value, fast=fast)
-                    self.assertEqual(cmds.getAttr(text.getFullName()) or "", value)
+                    self.assertEqual(cmds.getAttr(text.getName(full=True)) or "", value)
                     self.assertEqual(text.get(uiUnits=True), value)
         with self.assertRaises(RuntimeError):
             text.set(None)
@@ -793,14 +793,14 @@ class PlugDataValueSpecTest(_PlugSpecCase):
         values = [1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 4, 5, 6, 1]
         cmds.currentUnit(linear="mm")
         self.assertIsNone(plug.set(values))
-        self.assertEqual(cmds.getAttr(plug.getFullName()), [float(v) for v in values])
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), [float(v) for v in values])
         result = plug.get()
         self.assertIsInstance(result, Matrix)
         self.assertEqual(list(result), [float(v) for v in values])
         self.assertEqual(list(plug.get(uiUnits=True)), [float(v) for v in values])
         cmds.flushUndo()
         plug.set(om2.MMatrix(), fast=True)
-        self.assertEqual(cmds.getAttr(plug.getFullName()), list(om2.MMatrix()))
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), list(om2.MMatrix()))
         self.assertUndoEmpty()
         self.assertEqual(plug.set(values, safe=True), 0)
 
@@ -810,7 +810,7 @@ class PlugDataValueSpecTest(_PlugSpecCase):
         cmds.flushUndo()
         plug.set([2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1])
         cmds.undo()
-        self.assertEqual(cmds.getAttr(plug.getFullName()), list(om2.MMatrix()))
+        self.assertEqual(cmds.getAttr(plug.getName(full=True)), list(om2.MMatrix()))
 
     def test_matrix_invalid_inputs(self):
         """16値でない入力はValueError、safeは1。worldMatrixはTypeError、resetとsetIfChangedは拒否。"""
@@ -873,7 +873,7 @@ class PlugDataValueSpecTest(_PlugSpecCase):
                 plug.set(value[:1], fast=True)
                 self.assertEqual(plug.get(), value[:1])
         double_array = self.node.getPlug("da")
-        self.assertEqual(cmds.getAttr(double_array.getFullName()), [1.0])
+        self.assertEqual(cmds.getAttr(double_array.getName(full=True)), [1.0])
 
 
 class PlugFastBackendSpecTest(_PlugSpecCase):
@@ -961,7 +961,7 @@ class PlugResetDefaultSpecTest(_PlugSpecCase):
         plug.set(5)
         plug.reset()
         self.assertAlmostEqual(plug.get(), 2.0)
-        self.assertAlmostEqual(cmds.getAttr(plug.getFullName()), 20.0)
+        self.assertAlmostEqual(cmds.getAttr(plug.getName(full=True)), 20.0)
 
     def test_reset_compound_undo_and_fast(self):
         """コンパウンドアトリビュートは子を定義順に戻し、通常は1回のUndoで戻る。fastは記録しない。"""

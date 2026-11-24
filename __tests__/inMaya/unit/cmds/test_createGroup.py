@@ -47,26 +47,26 @@ class CreateGroupTest(_Case):
     def test_group_children(self):
         """子を入れたグループを子の共通の親の下に作り、ピボットは子の中心。ワールドの位置を保つ。"""
         parent = self.transform("parent#")
-        cmds.setAttr(parent.getFullName() + ".t", 5, 0, 0)
-        a = self.transform("a#", parent.getFullName())
-        b = self.transform("b#", parent.getFullName())
-        cmds.setAttr(a.getFullName() + ".t", 2, 0, 0)
-        cmds.setAttr(b.getFullName() + ".t", 0, 4, 0)
-        world_a = cmds.xform(a.getFullName(), query=True, translation=True, worldSpace=True)
-        cmds.select(parent.getFullName())
-        group = mlib.createGroup([a, b.getFullName()], name=self.name("grp"))
+        cmds.setAttr(parent.getName(full=True) + ".t", 5, 0, 0)
+        a = self.transform("a#", parent.getName(full=True))
+        b = self.transform("b#", parent.getName(full=True))
+        cmds.setAttr(a.getName(full=True) + ".t", 2, 0, 0)
+        cmds.setAttr(b.getName(full=True) + ".t", 0, 4, 0)
+        world_a = cmds.xform(a.getName(full=True), query=True, translation=True, worldSpace=True)
+        cmds.select(parent.getName(full=True))
+        group = mlib.createGroup([a, b.getName(full=True)], name=self.name("grp"))
         self.assertIsInstance(group, mlib.Transform)
         self.assertEqual(group.getName(), self.name("grp"))
         self.assertEqual(group.getParent().getUuid(), parent.getUuid())
         self.assertEqual([child.getUuid() for child in group.getChildren()], [a.getUuid(), b.getUuid()])
-        self.assertSequenceAlmostEqual(cmds.xform(a.getFullName(), query=True, translation=True, worldSpace=True), world_a)
-        self.assertSequenceAlmostEqual(cmds.xform(group.getFullName(), query=True, rotatePivot=True, worldSpace=True), (6, 2, 0))
-        self.assertEqual(cmds.ls(selection=True, long=True), [parent.getFullName()])
+        self.assertSequenceAlmostEqual(cmds.xform(a.getName(full=True), query=True, translation=True, worldSpace=True), world_a)
+        self.assertSequenceAlmostEqual(cmds.xform(group.getName(full=True), query=True, rotatePivot=True, worldSpace=True), (6, 2, 0))
+        self.assertEqual(cmds.ls(selection=True, long=True), [parent.getName(full=True)])
 
     def test_parent_world_and_empty(self):
         """parent・world=True・空のグループ・短縮名。"""
         parent = self.transform("parent#")
-        child = self.transform("child#", parent.getFullName())
+        child = self.transform("child#", parent.getName(full=True))
         other = self.transform("other#")
         in_other = mlib.createGroup(child, parent=other)
         self.assertEqual(in_other.getParent().getUuid(), other.getUuid())
@@ -80,7 +80,7 @@ class CreateGroupTest(_Case):
 
     def test_undo_one_step(self):
         child = self.transform("child#")
-        child_name = child.getFullName()
+        child_name = child.getName(full=True)
         self.flushUndo()
         group = mlib.createGroup([child], name=self.name("grp"))
         self.assertUndoesInOneStep(
@@ -93,7 +93,7 @@ class CreateGroupTest(_Case):
         child = self.transform("child#")
         network = cmds.createNode("network", name=self.name("net#"))
         gone = self.transform("gone#")
-        cmds.delete(gone.getFullName())
+        cmds.delete(gone.getName(full=True))
 
         def read():
             return sorted(cmds.ls(self.ns + ":*", long=True))
@@ -105,7 +105,7 @@ class CreateGroupTest(_Case):
             ("name int", TypeError, lambda: mlib.createGroup(child, name=3)),
             ("name empty", ValueError, lambda: mlib.createGroup(child, name="")),
             ("parent and world", ValueError, lambda: mlib.createGroup(child, parent=child, world=True)),
-            ("same child", ValueError, lambda: mlib.createGroup([child, child.getFullName()])),
+            ("same child", ValueError, lambda: mlib.createGroup([child, child.getName(full=True)])),
             ("not transform", TypeError, lambda: mlib.createGroup([network])),
             ("parent not transform", TypeError, lambda: mlib.createGroup([child], parent=network)),
             ("deleted child", RuntimeError, lambda: mlib.createGroup([gone])),

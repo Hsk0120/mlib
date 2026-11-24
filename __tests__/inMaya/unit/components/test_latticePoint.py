@@ -75,7 +75,7 @@ class LatticePointTest(_Case):
 
     def test_index_names_positions(self):
         shape = self.lattice((2, 3, 4))
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         points = LatticePoints(shape)
         self.assertEqual(len(points), 24)
         self.assertTrue(points.isComplete())
@@ -86,7 +86,7 @@ class LatticePointTest(_Case):
                 self.assertEqual(point.getMultiIndex(), stu)
                 self.assertEqual(point.index, stu[0] + 2 * (stu[1] + 3 * stu[2]))
                 component = "{}.pt[{}][{}][{}]".format(name, *stu)
-                self.assertTrue(point.getFullName().endswith(component.split("|")[-1].split(".")[-1]))
+                self.assertTrue(point.getName(full=True).endswith(component.split("|")[-1].split(".")[-1]))
                 self.assertVectorAlmostEqual(point.getPosition(), cmds.pointPosition(component, local=True))
                 self.assertVectorAlmostEqual(point.getPosition(ws=True), cmds.pointPosition(component, world=True))
         resolved = Object(name + ".pt[1][2][3]")
@@ -100,7 +100,7 @@ class LatticePointTest(_Case):
 
     def test_write_undo_fast(self):
         shape = self.lattice((2, 2, 2))
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         points = LatticePoints(shape, [(0, 0, 0), (1, 1, 1)])
         before = points.getPosition()
         self.flushUndo()

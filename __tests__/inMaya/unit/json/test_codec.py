@@ -116,7 +116,7 @@ class _OffsetSnapshot(Snapshot):
         for item in self._data["items"]:
             node = NodeRef._from_data(item["node"]).resolve(mapping)
             if node is not None:
-                cmds.setAttr(node.getFullName() + ".tx", item["value"])
+                cmds.setAttr(node.getName(full=True) + ".tx", item["value"])
         if options["fail"]:
             raise RuntimeError("fail on purpose")
 

@@ -56,7 +56,7 @@ class PoseSnapshot(Snapshot):
         entries = []
         seen = set()
         for node in _require_nodes(nodes):
-            full = node.getFullName()
+            full = node._full_name()
             if full in seen:
                 continue
             seen.add(full)
@@ -176,7 +176,7 @@ def _capture_pose_attributes(node):
     Returns:
         dict[str, bool | int | float]: ロング名のアトリビュートのパスと値。listAttrの順に並ぶ。
     """
-    name = node.getFullName()
+    name = node._full_name()
     names = (cmds.listAttr(name, keyable=True) or []) + (cmds.listAttr(name, channelBox=True) or [])
     values = {}
     for attribute in names:

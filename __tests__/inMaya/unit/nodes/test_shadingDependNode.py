@@ -69,7 +69,7 @@ class MaterialNodesTest(unittest.TestCase):
 
     def test_instance_assignments(self):
         transform = Node(cmds.polyCube()[0])
-        instance = Node(cmds.instance(transform.getFullName())[0])
+        instance = Node(cmds.instance(transform.getName(full=True))[0])
         a = mlib.getNode(cmds.sets(renderable=True, noSurfaceShader=True, empty=True))
         a.setShader(mlib.getNode(cmds.shadingNode("lambert", asShader=True)))
         b = mlib.getNode(cmds.sets(renderable=True, noSurfaceShader=True, empty=True))
@@ -84,7 +84,7 @@ class MaterialNodesTest(unittest.TestCase):
         place = mlib.createNode("place2dTexture")
         self.assertIsInstance(texture, File)
         place.connectTexture(texture)
-        self.assertEqual(cmds.listConnections(texture.getFullName() + ".uvCoord", source=True, destination=False), [place.getName()])
+        self.assertEqual(cmds.listConnections(texture.getName(full=True) + ".uvCoord", source=True, destination=False), [place.getName()])
         place.connectTexture(texture)
 
     def test_shader_ports_and_aliases(self):
@@ -125,7 +125,7 @@ class MaterialTest(_SpecCase):
     def test_shader_plug(self):
         """接続元の出力 Plug、未接続は None、不正な種類は ValueError。"""
         group = Node(self.group)
-        self.assertEqual(group.getShader(plug=True).getFullName(), self.material + ".outColor")
+        self.assertEqual(group.getShader(plug=True).getName(full=True), self.material + ".outColor")
         self.assertIsNone(group.getShader("volume", plug=True))
         self.assertIsNone(group.getShader("displacement", plug=True))
         with self.assertRaisesRegex(ValueError, "kindは"):
@@ -164,7 +164,7 @@ class MaterialTest(_SpecCase):
             with self.subTest(shadingOnly=shading):
                 paths = group.getMembers(dagOnly=True, shadingOnly=shading)
                 self.assertIsInstance(paths, mlib.Nodes)
-                self.assertEqual([node.getFullName() for node in paths], [shape])
+                self.assertEqual([node.getName(full=True) for node in paths], [shape])
 
     @staticmethod
     def assigned(node):

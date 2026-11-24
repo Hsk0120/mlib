@@ -74,7 +74,7 @@ class SkinClusterPeriodicCvTest(_Case):
     def test_duplicate_cv_numbers_read_the_independent_cv(self):
         """重なるCVの番号・CV参照・名前は、独立CVの行を読む。指定した順を保つ。"""
         # Mayaは周期カーブのcv[8]以降の名前をcv[7]へ丸めるため、名前は独立CVの番号で確かめる。
-        cases = (([8], [0]), ([9], [1]), ([10, 0], [2, 0]), ([CV(self.shape, 9)], [1]), (self.shape.getFullName() + ".cv[2]", [2]))
+        cases = (([8], [0]), ([9], [1]), ([10, 0], [2, 0]), ([CV(self.shape, 9)], [1]), (self.shape.getName(full=True) + ".cv[2]", [2]))
         for vertices, expected in cases:
             with self.subTest(vertices=str(vertices)):
                 self.assertEqual(
@@ -273,9 +273,10 @@ class ConvertedInputTest(_Case):
         node = mlib.getNode(self.make())
         text = "a=3:b:c=10:d"
         node.addAttr("fastEnum", at="enum", en=text, fast=True)
-        cmds.addAttr(node.getFullName(), longName="cmdsEnum", attributeType="enum", enumName=text)
+        cmds.addAttr(node.getName(full=True), longName="cmdsEnum", attributeType="enum", enumName=text)
         self.assertEqual(
-            cmds.attributeQuery("fastEnum", node=node.getFullName(), listEnum=True), cmds.attributeQuery("cmdsEnum", node=node.getFullName(), listEnum=True)
+            cmds.attributeQuery("fastEnum", node=node.getName(full=True), listEnum=True),
+            cmds.attributeQuery("cmdsEnum", node=node.getName(full=True), listEnum=True),
         )
 
     def test_vector_children_count_must_match_the_type(self):
@@ -285,9 +286,9 @@ class ConvertedInputTest(_Case):
             with self.subTest(fast=fast):
                 with self.assertRaises(ValueError):
                     node.addAttr(f"bad{int(fast)}", at="double3", nc=2, fast=fast)
-                self.assertFalse(cmds.attributeQuery(f"bad{int(fast)}", node=node.getFullName(), exists=True))
+                self.assertFalse(cmds.attributeQuery(f"bad{int(fast)}", node=node.getName(full=True), exists=True))
                 node.addAttr(f"good{int(fast)}", at="double3", nc=3, fast=fast)
-                self.assertEqual(cmds.attributeQuery(f"good{int(fast)}", node=node.getFullName(), numberOfChildren=True), [3])
+                self.assertEqual(cmds.attributeQuery(f"good{int(fast)}", node=node.getName(full=True), numberOfChildren=True), [3])
 
     def test_deformer_weights_accept_vertex_objects(self):
         """setDeformerWeightsのverticesは、Vertex・Vertices・番号を混ぜてもよい。"""
@@ -313,7 +314,7 @@ class ConvertedInputTest(_Case):
         cases = (("input1D[007]", "input1D[7]"), ("input3D[2].input3Dx", "input3D[2].input3Dx"), ("i3[12].i3y", "input3D[12].input3Dy"))
         for text, expected in cases:
             with self.subTest(text=text):
-                self.assertEqual(str(mlib.getPlug(node.getFullName() + "." + text)), node.getFullName() + "." + expected)
+                self.assertEqual(str(mlib.getPlug(node.getName(full=True) + "." + text)), node.getName(full=True) + "." + expected)
 
     def test_default_tangents_of_fast_set_key(self):
         """fastで新しいキーを打つと、Mayaの既定の接線になる。fastで使えない型(fixed・入力側のstep)はautoにする。
@@ -346,8 +347,8 @@ class ConvertedInputTest(_Case):
                         cmds.keyTangent(g=True, inTangentType=settings[0], outTangentType=settings[1])
                         curve.setKey(1.0, 2.0, fast=True)
                     actual = (
-                        cmds.keyTangent(curve.getFullName(), query=True, index=(0, 0), inTangentType=True)[0],
-                        cmds.keyTangent(curve.getFullName(), query=True, index=(0, 0), outTangentType=True)[0],
+                        cmds.keyTangent(curve.getName(full=True), query=True, index=(0, 0), inTangentType=True)[0],
+                        cmds.keyTangent(curve.getName(full=True), query=True, index=(0, 0), outTangentType=True)[0],
                     )
                     self.assertEqual(actual, expected)
         finally:
@@ -396,8 +397,8 @@ class ConvertedInputTest(_Case):
         node = mlib.getNode(self.make())
         node.setLimits(translateX=(-1.0, 2.0))
         node.setLimits(translateX=[None, 4.0])
-        self.assertEqual(cmds.transformLimits(node.getFullName(), query=True, translationX=True), [-1.0, 4.0])
-        self.assertEqual(cmds.transformLimits(node.getFullName(), query=True, enableTranslationX=True), [False, True])
+        self.assertEqual(cmds.transformLimits(node.getName(full=True), query=True, translationX=True), [-1.0, 4.0])
+        self.assertEqual(cmds.transformLimits(node.getName(full=True), query=True, enableTranslationX=True), [False, True])
         with self.assertRaises(TypeError):
             node.setLimits(translateX="0:1")
 
@@ -411,7 +412,7 @@ class NarrowedExceptionTest(_Case):
     def test_channel_equals_returns_false_for_unreadable(self):
         """読めないアトリビュートはFalse(書込みへ委ねる)。同じ値はTrue、違う値はFalse。"""
         node = mlib.getNode(self.make())
-        cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
+        cmds.setAttr(node.getName(full=True) + ".translate", 1, 2, 3)
         self.assertTrue(node._channel_equals("translate", (1.0, 2.0, 3.0)))
         self.assertFalse(node._channel_equals("translate", (1.0, 2.0, 4.0)))
         self.assertFalse(node._channel_equals("translate", (1.0, 2.0)))
@@ -422,14 +423,14 @@ class NarrowedExceptionTest(_Case):
     def test_joint_orient_on_a_non_joint_is_read_through_the_plug(self):
         """joint以外でjointOrientを読むときは、Plugから(rad)読む。jointは組み込みの読み取りで読む。"""
         node = mlib.getNode(self.make())
-        cmds.addAttr(node.getFullName(), longName="jointOrient", attributeType="double3")
+        cmds.addAttr(node.getName(full=True), longName="jointOrient", attributeType="double3")
         for axis in "XYZ":
-            cmds.addAttr(node.getFullName(), longName="jointOrient" + axis, attributeType="doubleAngle", parent="jointOrient")
-        cmds.setAttr(node.getFullName() + ".jointOrient", 10, 20, 30)
+            cmds.addAttr(node.getName(full=True), longName="jointOrient" + axis, attributeType="doubleAngle", parent="jointOrient")
+        cmds.setAttr(node.getName(full=True) + ".jointOrient", 10, 20, 30)
         expected = om2.MEulerRotation(math.radians(10), math.radians(20), math.radians(30)).asQuaternion()
         self.assertSameRotation(node._component_quaternion("jointOrient"), expected)
         joint = mlib.getNode(self.make("joint", "joint"))
-        cmds.setAttr(joint.getFullName() + ".jointOrient", 10, 20, 30)
+        cmds.setAttr(joint.getName(full=True) + ".jointOrient", 10, 20, 30)
         self.assertSameRotation(joint._component_quaternion("jointOrient"), expected)
         self.assertSameRotation(joint.getQuaternion(r=False, jo=True), expected)
 
@@ -442,11 +443,11 @@ class NarrowedExceptionTest(_Case):
                 node = mlib.getNode(self.make(kind, kind + "#"))
                 if pivots:
                     if kind == "transform":
-                        cmds.setAttr(node.getFullName() + ".rotatePivot", 0.5, -1.0, 2.0)
-                    cmds.setAttr(node.getFullName() + ".scalePivot", 1.0, 0.25, 0.0)
-                    cmds.setAttr(node.getFullName() + ".rotateAxis", 15, 0, 30)
+                        cmds.setAttr(node.getName(full=True) + ".rotatePivot", 0.5, -1.0, 2.0)
+                    cmds.setAttr(node.getName(full=True) + ".scalePivot", 1.0, 0.25, 0.0)
+                    cmds.setAttr(node.getName(full=True) + ".rotateAxis", 15, 0, 30)
                 if kind == "joint":
-                    cmds.setAttr(node.getFullName() + ".jointOrient", 5, 10, 20)
+                    cmds.setAttr(node.getName(full=True) + ".jointOrient", 5, 10, 20)
                 node.setMatrix(target)
                 self.assertSequenceAlmostEqual(list(node.getMatrix()), list(target), places=6)
 
@@ -533,7 +534,7 @@ class WrapAndCacheTest(_Case):
         joints = [mlib.getNode(self.make("joint", "j#")) for _ in range(2)]
         transform = mlib.getNode(self.make())
         mesh = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
-        skin = mlib.getNode(cmds.skinCluster([j.getFullName() for j in joints], mesh, toSelectedBones=True, name=self.name("skin"))[0])
+        skin = mlib.getNode(cmds.skinCluster([j.getName(full=True) for j in joints], mesh, toSelectedBones=True, name=self.name("skin"))[0])
         cases = (
             (Nodes, joints, mlib.Joints, True),
             (Nodes, [skin], mlib.SkinClusters, True),
@@ -581,7 +582,7 @@ class WrapAndCacheTest(_Case):
         self.assertEqual(reloaded_registry._real_node_type("multDL"), real)
         self.assertEqual(reloaded_registry._real_type_cache.get("multDL"), real)
         node = mlib.createNode("multDL", name=self.name("mdl"))
-        self.assertEqual(cmds.nodeType(node.getFullName()), real)
+        self.assertEqual(cmds.nodeType(node.getName(full=True)), real)
         self.assertTrue(node.isType("multDoubleLinear"))
         joint = mlib.getNode(self.make("joint", "joint"))
         self.assertIsInstance(joint, mlib.Joint)
@@ -594,18 +595,18 @@ class WrapAndCacheTest(_Case):
         self.assertEqual(reloaded_registry._inherited_types_cache, {})
         self.assertEqual(reloaded_registry._real_type_cache, {})
         self.assertEqual(mlib.nodes.Node._registry._generated, {})
-        self.assertIsNot(type(mlib.getNode(network.getFullName())), generated)
+        self.assertIsNot(type(mlib.getNode(network.getName(full=True))), generated)
         # transform: アトリビュートの照会のキャッシュ。
         transform = mlib.getNode(self.make())
-        cmds.setAttr(transform.getFullName() + ".tx", 4)
+        cmds.setAttr(transform.getName(full=True) + ".tx", 4)
         self.assertEqual(transform.getMatrix().translate, mlib.Translate(4, 0, 0))
         self.assertIn("matrix", reloaded_transform._transform_attributes)
 
     def test_double3_value_types(self):
         node = mlib.getNode(self.make())
-        cmds.addAttr(node.getFullName(), longName="custom", attributeType="double3")
+        cmds.addAttr(node.getName(full=True), longName="custom", attributeType="double3")
         for axis in "XYZ":
-            cmds.addAttr(node.getFullName(), longName="custom" + axis, attributeType="double", parent="custom")
+            cmds.addAttr(node.getName(full=True), longName="custom" + axis, attributeType="double", parent="custom")
         cases = (
             ("translate", mlib.Translate),
             ("t", mlib.Translate),

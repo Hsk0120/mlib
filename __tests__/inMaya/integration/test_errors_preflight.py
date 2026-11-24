@@ -156,7 +156,7 @@ class ApiRefinementsTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 skin.transferWeights([(joints[0], joints[1]), bad])
             self.assertEqual(list(skin.getWeights(joints)), before)
-            self.assertEqual(cmds.ls(selection=True, long=True), [joints[2].getFullName()])
+            self.assertEqual(cmds.ls(selection=True, long=True), [joints[2].getName(full=True)])
 
     def test_transfer_generator_order_self_pair_and_undo(self):
         """Maya API参照とgeneratorを受け付け、連鎖移送の順序を保つ。"""

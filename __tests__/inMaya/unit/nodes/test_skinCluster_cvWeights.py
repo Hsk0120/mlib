@@ -71,12 +71,12 @@ class SkinClusterCvWeightsTest(NamespaceCase):
                     fn = om2.MFnNurbsCurve(shape.mpath())
                     duplicate = fn.numCVs - fn.degree
                     component = CV(shape, duplicate)
-                    name = shape.getFullName() + ".cv[0]"
+                    name = shape.getName(full=True) + ".cv[0]"
                 else:
                     fn = om2.MFnNurbsSurface(shape.mpath())
                     duplicate = fn.numCVsInV - fn.degreeInV
                     component = SurfaceCV(shape, duplicate)
-                    name = shape.getFullName() + ".cv[0][0]"
+                    name = shape.getName(full=True) + ".cv[0][0]"
                 skin.setWeights({joints[0]: 0.4, joints[1]: 0.6}, vertex=component, normalize=True)
                 self.assertSequenceAlmostEqual(skin.getWeights(joints, vertices=name), [0.4, 0.6])
                 self.assertSequenceAlmostEqual(skin.getWeights(vertex=component).values(), [0.4, 0.6])
@@ -140,10 +140,10 @@ class SkinClusterCvWeightsTest(NamespaceCase):
                 skin, shape, joints = self.makeSkin(kind)
                 index = self.pointIndices(shape)[-1]
                 if kind == "curve":
-                    name = shape.getFullName() + f".cv[{index}]"
+                    name = shape.getName(full=True) + f".cv[{index}]"
                 else:
                     u, v = divmod(index, om2.MFnNurbsSurface(shape.mpath()).numCVsInV)
-                    name = shape.getFullName() + f".cv[{u}][{v}]"
+                    name = shape.getName(full=True) + f".cv[{u}][{v}]"
                 skin.setWeights(joints, [1.0, 0.0], broadcast=True)
                 original = cmds.pointPosition(name, world=True)
                 skin.setWeights(joints, [0.0, 1.0], vertices=index)

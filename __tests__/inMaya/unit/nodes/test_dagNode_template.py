@@ -22,7 +22,7 @@ class DagNodeTemplateTest(NamespaceCase):
         self.assertTrue(first.isTemplated())
         self.assertFalse(second.isTemplated())
         self.assertUndoEmpty()
-        cmds.setAttr(second.getFullName() + ".template", True)
+        cmds.setAttr(second.getName(full=True) + ".template", True)
         self.assertTrue(second.isTemplated())
 
     def test_override_is_distinct_and_deleted_path_fails(self):

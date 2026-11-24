@@ -173,8 +173,8 @@ class ConsolidatedNodesTest(unittest.TestCase):
         root = mlib.createNode("joint", name="root")
         middle = mlib.createNode("joint", parent=root, name="middle")
         other = mlib.createNode("joint", name="other")
-        skin = mlib.getNode(cmds.skinCluster([root.getFullName(), middle.getFullName(), other.getFullName()], mesh, toSelectedBones=True)[0])
-        skin.setWeights([root.getFullName(), middle.getFullName(), other.getFullName()], [0.2, 0.3, 0.5], broadcast=True)
+        skin = mlib.getNode(cmds.skinCluster([root.getName(full=True), middle.getName(full=True), other.getName(full=True)], mesh, toSelectedBones=True)[0])
+        skin.setWeights([root.getName(full=True), middle.getName(full=True), other.getName(full=True)], [0.2, 0.3, 0.5], broadcast=True)
         return skin, root, middle, other
 
     def test_fast_native_skin_callback_and_last_influence(self):
@@ -183,25 +183,25 @@ class ConsolidatedNodesTest(unittest.TestCase):
             cmds.file(new=True, force=True)
             mesh = cmds.polyPlane(ch=False, sx=1, sy=1)[0]
             targets = [mlib.createNode("joint") for _ in range(1 if single else 2)]
-            skin = mlib.getNode(cmds.skinCluster([n.getFullName() for n in targets], mesh, toSelectedBones=True)[0])
-            name = targets[0].getFullName()
+            skin = mlib.getNode(cmds.skinCluster([n.getName(full=True) for n in targets], mesh, toSelectedBones=True)[0])
+            name = targets[0].getName(full=True)
             cmds.delete(name)
             expected_exists = skin.isValid()
-            expected_weights = list(skin.getWeights([targets[-1].getFullName()])) if expected_exists else None
+            expected_weights = list(skin.getWeights([targets[-1].getName(full=True)])) if expected_exists else None
             cmds.undo()
             with self.api_only():
                 mlib.getNode(name).delete(fast=True, removeInfluence=False)
             self.assertEqual(skin.isValid(), expected_exists)
             if expected_exists:
-                self.assertEqual(list(skin.getWeights([targets[-1].getFullName()])), expected_weights)
+                self.assertEqual(list(skin.getWeights([targets[-1].getName(full=True)])), expected_weights)
 
     def test_fast_mixed_delete_preflights_before_first_node(self):
         """後続Jointのノードロックで先行Nodeを部分削除しない。"""
         skin, root, middle, other = self.skin_fixture()
         untouched = mlib.createNode("network", name="untouched")
-        names = [n.getFullName() for n in (root, middle, other)]
+        names = [n.getName(full=True) for n in (root, middle, other)]
         weights = list(skin.getWeights(names))
-        cmds.lockNode(middle.getFullName(), lock=True)
+        cmds.lockNode(middle.getName(full=True), lock=True)
         with self.api_only(), self.assertRaises(RuntimeError):
             mlib.delete([untouched, middle], fast=True)
         self.assertTrue(untouched.isValid())

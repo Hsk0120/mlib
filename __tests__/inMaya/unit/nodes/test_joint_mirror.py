@@ -86,9 +86,9 @@ class JointMirrorTest(_SpecCase):
                     self.assertEqual(root.getParent(), Node(self.group))
                     self.assertEqual(self.leaf(root.getName()), "R_a")
                     self.assertEqual([self.leaf(n.getName()) for n in root.getChainFromHere()], ["R_a", "R_b", "R_c"])
-                    for actual, wanted in zip(self.matrices(root.getFullName()), self.matrices(expected_root)):
+                    for actual, wanted in zip(self.matrices(root.getName(full=True)), self.matrices(expected_root)):
                         self.assertSequenceAlmostEqual(actual, wanted, places=6)
-                    cmds.delete(root.getFullName(), expected_root)
+                    cmds.delete(root.getName(full=True), expected_root)
 
     def test_world_root_and_auto_name(self):
         """親の無いルートでも新しいルートを一意に返す。searchReplace 省略は Maya の自動命名。"""
@@ -105,7 +105,7 @@ class JointMirrorTest(_SpecCase):
         cmds.select(clear=True)
         self.flushUndo()
         root = Joint(self.joints[0]).mirror(searchReplace=("L_", "R_"))
-        self.assertEqual(cmds.ls(selection=True, long=True), [root.getFullName()])
+        self.assertEqual(cmds.ls(selection=True, long=True), [root.getName(full=True)])
         self.assertUndoesInOneStep(
             lambda: self.assertEqual((cmds.ls(self.name("R_*")), cmds.ls(selection=True)), ([], [])),
             lambda: self.assertEqual(len(cmds.ls(self.name("R_*"))), 3),

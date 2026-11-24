@@ -24,9 +24,9 @@ class SkinWeightEditingTest(unittest.TestCase):
         self.skin = mlib.getNode(cmds.skinCluster([self.parent, self.child, self.other], self.mesh, toSelectedBones=True, name=self.ns + ":skin")[0])
         pose = self.skin.getBindPose()
         if pose:
-            cmds.rename(pose.getFullName(), self.ns + ":pose")
+            cmds.rename(pose.getName(full=True), self.ns + ":pose")
         self.names = [self.parent, self.child, self.other]
-        cmds.setAttr(self.skin.getFullName() + ".normalizeWeights", 0)
+        cmds.setAttr(self.skin.getName(full=True) + ".normalizeWeights", 0)
         self.skin.setWeights(self.names, [0.2, 0.5, 0.3], broadcast=True)
 
     def tearDown(self):
@@ -75,7 +75,7 @@ class SkinWeightEditingTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.skin.removeInfluences(self.parent, requireAncestor=False)
         self.assertTrue(cmds.objExists(self.parent))
-        self.assertTrue(cmds.objExists(self.skin.getFullName()))
+        self.assertTrue(cmds.objExists(self.skin.getName(full=True)))
 
     def test_normalize_undo_and_decimal_sum(self):
         self.skin.setWeights(self.names, [1, 1, 1], broadcast=True)
@@ -86,7 +86,7 @@ class SkinWeightEditingTest(unittest.TestCase):
         self.skin.normalizeWeights(decimals=2)
         self.assertEqual(self.weights()[:3], [0.34, 0.33, 0.33])
         self.assertEqual(sum(Decimal(str(v)) for v in self.weights()[:3]), Decimal(1))
-        self.assertEqual(cmds.getAttr(self.skin.getFullName() + ".normalizeWeights"), 0)
+        self.assertEqual(cmds.getAttr(self.skin.getName(full=True) + ".normalizeWeights"), 0)
         cmds.undo()
         self.assertEqual(self.weights()[:3], [1, 1, 1])
         cmds.redo()

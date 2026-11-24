@@ -67,12 +67,12 @@ class MeshSetPointsFastTest(_SpecCase):
             with self.subTest(worldSpace=worldSpace):
                 normal, fast = self.cube("normal"), self.cube("fast")
                 for shape in (normal, fast):
-                    cmds.xform(shape.getParent().getFullName(), translation=(1, 2, 3), rotation=(10, 20, 30))
+                    cmds.xform(shape.getParent().getName(full=True), translation=(1, 2, 3), rotation=(10, 20, 30))
                 points = [(i * 0.5, i * 0.25, -i) for i in range(8)]
                 normal.setPoints(points, worldSpace=worldSpace)
                 self.assert_no_undo(lambda: fast.setPoints(points, worldSpace=worldSpace, fast=True))
                 self.assert_points(fast.getPoints(worldSpace=worldSpace), normal.getPoints(worldSpace=worldSpace))
-                cmds.delete(normal.getParent().getFullName(), fast.getParent().getFullName())
+                cmds.delete(normal.getParent().getName(full=True), fast.getParent().getName(full=True))
 
     def test_rejections_before_change(self):
         """履歴のあるMeshはNotImplementedError、fastがbool以外はTypeErrorで、位置を変えない。"""
@@ -102,7 +102,7 @@ class NurbsCurveSetCvPositionsFastTest(_SpecCase):
                 normal.setPoints(points)
                 self.assert_no_undo(lambda: fast.setPoints(points, fast=True))
                 self.assert_points(fast.getPoints(), normal.getPoints())
-                cmds.delete(normal.getParent().getFullName(), fast.getParent().getFullName())
+                cmds.delete(normal.getParent().getName(full=True), fast.getParent().getName(full=True))
 
     def test_open_curve_world_space(self):
         """開いたカーブのワールド空間指定も通常と一致する。"""
@@ -134,15 +134,15 @@ class DagNodeSetColorFastTest(_SpecCase):
                 group = mlib.getNode(cmds.createNode("transform", name=self.ns + ":group"))
                 normal.setColor(color)
                 self.assert_no_undo(lambda: fast.setColor(color, fast=True))
-                self.assertEqual(self.colors(fast.getFullName()), self.colors(normal.getFullName()))
+                self.assertEqual(self.colors(fast.getName(full=True)), self.colors(normal.getName(full=True)))
                 self.assert_no_undo(lambda: Nodes([group]).setColor(color, fast=True))
-                self.assertTrue(cmds.getAttr(group.getFullName() + ".overrideEnabled"))
-                cmds.delete(normal.getFullName(), fast.getFullName(), group.getFullName())
+                self.assertTrue(cmds.getAttr(group.getName(full=True) + ".overrideEnabled"))
+                cmds.delete(normal.getName(full=True), fast.getName(full=True), group.getName(full=True))
 
     def test_locked_attribute_rejects_before_change(self):
         """check=Trueなら、ロックされたアトリビュートがあれば、他のアトリビュートも書かずにRuntimeError。"""
         node = mlib.getNode(cmds.circle(name=self.ns + ":locked", constructionHistory=False)[0])
-        name = node.getFullName()
+        name = node.getName(full=True)
         cmds.setAttr(name + ".overrideColor", lock=True)
         with self.assertRaises(RuntimeError):
             node.setColor(13, fast=True, check=True)
@@ -233,13 +233,13 @@ class DrivenKeySetKeyFastTest(_SpecCase):
                 (
                     curve.getType(),
                     curve.getName().rpartition(":")[2],
-                    cmds.keyframe(curve.getFullName(), query=True, floatChange=True),
-                    cmds.keyframe(curve.getFullName(), query=True, valueChange=True),
-                    cmds.keyTangent(curve.getFullName(), query=True, inTangentType=True),
+                    cmds.keyframe(curve.getName(full=True), query=True, floatChange=True),
+                    cmds.keyframe(curve.getName(full=True), query=True, valueChange=True),
+                    cmds.keyTangent(curve.getName(full=True), query=True, inTangentType=True),
                     values,
                 )
             )
-        cmds.delete(driver, driven, [key.getCurves()[0].getFullName() for key in keys])
+        cmds.delete(driver, driven, [key.getCurves()[0].getName(full=True) for key in keys])
         return results
 
     def test_matches_normal(self):

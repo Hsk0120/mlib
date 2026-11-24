@@ -155,7 +155,7 @@ class ComponentUsabilityTest(unittest.TestCase):
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         self.assertEqual(empty.getPosition(), [])
         with self.assertRaises(RuntimeError):
-            single.getFullName()
+            single.getName(full=True)
         cmds.undo()
         self.assertTrue(all(value.isValid() for value in (single, items, empty)))
         cmds.redo()

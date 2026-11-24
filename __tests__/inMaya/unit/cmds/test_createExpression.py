@@ -21,15 +21,15 @@ class CreateExpressionTest(NamespaceCase):
         """式を設定したexpressionノードを返し、指定をそのまま渡し、Undo 1回で戻る。"""
         node = mlib.getNode(self.make("transform", "target#"))
         self.flushUndo()
-        expression = mlib.createExpression(f"{node.getFullName()}.translateY = 3;", name=self.name("exp"), alwaysEvaluate=False, unitConversion="none")
+        expression = mlib.createExpression(f"{node.getName(full=True)}.translateY = 3;", name=self.name("exp"), alwaysEvaluate=False, unitConversion="none")
         self.assertEqual(expression.getType(), "expression")
-        self.assertFalse(cmds.expression(expression.getFullName(), query=True, alwaysEvaluate=True))
-        self.assertEqual(cmds.expression(expression.getFullName(), query=True, unitConversion=True), "none")
-        self.assertAlmostEqual(cmds.getAttr(node.getFullName() + ".translateY"), 3.0)
-        name = expression.getFullName()
+        self.assertFalse(cmds.expression(expression.getName(full=True), query=True, alwaysEvaluate=True))
+        self.assertEqual(cmds.expression(expression.getName(full=True), query=True, unitConversion=True), "none")
+        self.assertAlmostEqual(cmds.getAttr(node.getName(full=True) + ".translateY"), 3.0)
+        name = expression.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
-        expression = mlib.createExpression(f"{node.getFullName()}.translateZ = 1;", n=self.name("short"), ae=True, uc="all")
-        self.assertTrue(cmds.expression(expression.getFullName(), query=True, alwaysEvaluate=True))
+        expression = mlib.createExpression(f"{node.getName(full=True)}.translateZ = 1;", n=self.name("short"), ae=True, uc="all")
+        self.assertTrue(cmds.expression(expression.getName(full=True), query=True, alwaysEvaluate=True))
 
     def test_errors(self):
         """型・値の誤りとMayaが拒否した式を例外にし、ノードを残さない。"""

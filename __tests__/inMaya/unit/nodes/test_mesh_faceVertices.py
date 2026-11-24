@@ -76,8 +76,8 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(fast=fast):
                 mesh = self.mesh()
                 parent = mesh.getParent()
-                cmds.setAttr(parent.getFullName() + ".rotate", 23, -17, 48)
-                cmds.setAttr(parent.getFullName() + ".scale", 2, 3, 0.7)
+                cmds.setAttr(parent.getName(full=True) + ".rotate", 23, -17, 48)
+                cmds.setAttr(parent.getName(full=True) + ".scale", 2, 3, 0.7)
                 component = mesh.getVertexFaces([0])[0]
                 self.flushUndo()
                 component.setNormal((1, 2, -1), ws=True, fast=fast)
@@ -184,7 +184,7 @@ class MeshFaceVerticesTest(NamespaceCase):
         mesh = self.mesh()
         mesh.copySet("map1", "extra")
         mesh.setCurrentSet("map1")
-        cmds.setAttr(mesh.getParent().getFullName() + ".rotateY", 31)
+        cmds.setAttr(mesh.getParent().getName(full=True) + ".rotateY", 31)
         components = mesh.getVertexFaces([9, 0, 17])
         for world in (False, True):
             space = om2.MSpace.kWorld if world else om2.MSpace.kObject
@@ -228,7 +228,7 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(history=history):
                 mesh = self.mesh(history)
                 before = mesh.getUVData()
-                history_before = cmds.listHistory(mesh.getFullName()) or []
+                history_before = cmds.listHistory(mesh.getName(full=True)) or []
                 nodes_before = set(cmds.ls(long=True))
                 selection = cmds.ls(selection=True, long=True)
                 self.flushUndo()
@@ -239,7 +239,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                 self.assertEqual(mesh.getUVData(), (values, counts, ids))
                 self.assertEqual(cmds.ls(selection=True, long=True), selection)
                 self.assertFalse(any("mesh" in node.rsplit("|", 1)[-1].lower() for node in set(cmds.ls(long=True)) - nodes_before))
-                history_after = cmds.listHistory(mesh.getFullName()) or []
+                history_after = cmds.listHistory(mesh.getName(full=True)) or []
                 for node in history_before:
                     self.assertIn(node, history_after)
                 cmds.undo()
@@ -255,10 +255,10 @@ class MeshFaceVerticesTest(NamespaceCase):
         mesh = self.mesh(True)
         mesh.copySet("map1", "removed")
         mesh.copySet("map1", "kept")
-        cmds.polyUVSet(mesh.getFullName(), delete=True, uvSet="removed")
+        cmds.polyUVSet(mesh.getName(full=True), delete=True, uvSet="removed")
         mesh.setCurrentSet("kept")
         kept = mesh.getUVData(uvSet="kept")
-        shape_name = mesh.getFullName()
+        shape_name = mesh.getName(full=True)
         history = cmds.listHistory(shape_name) or []
         scene_name = cmds.file(query=True, sceneName=True)
         values = [(0, 0), (1, 0), (1, 1), (0, 1), (9, 9)]
@@ -349,7 +349,7 @@ class MeshFaceVerticesTest(NamespaceCase):
     def test_locked_mesh_rejected_before_update(self):
         mesh = self.mesh()
         before = mesh.getUVData()
-        cmds.lockNode(mesh.getFullName(), lock=True)
+        cmds.lockNode(mesh.getName(full=True), lock=True)
         try:
             for fast in (False, True):
                 for operation in (
@@ -361,7 +361,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                     with self.assertRaises(RuntimeError):
                         operation()
         finally:
-            cmds.lockNode(mesh.getFullName(), lock=False)
+            cmds.lockNode(mesh.getName(full=True), lock=False)
         self.assertEqual(mesh.getUVData(), before)
 
     def test_face_colors_do_not_average_and_undo(self):
@@ -433,7 +433,7 @@ class MeshFaceVerticesTest(NamespaceCase):
             for face, point in result:
                 self.assertVector(point, mesh.mfn().getPointAtUV(face, *uv, om2.MSpace.kObject, "map1", 1e-6))
         self.assertEqual(mesh.getPointsAtUV(2, 2), [])
-        cmds.setAttr(mesh.getParent().getFullName() + ".translateX", 10)
+        cmds.setAttr(mesh.getParent().getName(full=True) + ".translateX", 10)
         for (_, local), (_, world) in zip(mesh.getPointsAtUV(0.5, 0.5), mesh.getPointsAtUV(0.5, 0.5, ws=True)):
             self.assertAlmostEqual(world.x - local.x, 10)
 

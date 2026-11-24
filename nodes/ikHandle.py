@@ -78,7 +78,7 @@ class IkHandle(Transform):
         for name in ("startJoint", "endEffector"):
             if self.getPlug(name).isLocked():
                 raise RuntimeError(f"{name}がロックされています")
-        cmds.ikHandle(self.getFullName(), edit=True, startJoint=start.getFullName(), endEffector=end.getFullName())
+        cmds.ikHandle(self._full_name(), edit=True, startJoint=start._full_name(), endEffector=end._full_name())
 
     def getJoints(self, includeTip=False, *, end=False):
         """IKチェーンのジョイントを、開始ジョイントから順に取得する。``end=True`` なら、末端のジョイントを1つ取得する。
@@ -185,14 +185,14 @@ class IkHandle(Transform):
         if solver not in _SWITCHABLE_SOLVERS:
             raise ValueError(f"solverは{', '.join(_SWITCHABLE_SOLVERS)}のどれかで指定してください: {solver!r}")
         if self.getSolver() == "ikSplineSolver":
-            raise ValueError(f"スプラインIKハンドルのソルバーは切り替えられません: {self.getFullName()}")
+            raise ValueError(f"スプラインIKハンドルのソルバーは切り替えられません: {self._full_name()}")
         require_editable(self.mnode())
         require_unlocked(self._dependency_fn().findPlug("ikSolver", False))
         with undoChunk("mlibIkHandleSetSolver"):
             if solver == "ikSpringSolver" and not cmds.ls(type="ikSpringSolver"):
                 # ikSpringSolverはソルバーノードの登録が要るため、Maya標準の手続きで用意する。
                 mel.eval("ikSpringSolver")
-            cmds.ikHandle(self.getFullName(), edit=True, solver=solver)
+            cmds.ikHandle(self._full_name(), edit=True, solver=solver)
 
     def snapToEffector(self):
         """ハンドルをエフェクターの位置へ移す。
@@ -216,7 +216,7 @@ class IkHandle(Transform):
         self._require_valid("スナップ")
         effector = self.getEffector()
         if effector is None:
-            raise RuntimeError(f"IKハンドルにエンドエフェクターがありません: {self.getFullName()}")
+            raise RuntimeError(f"IKハンドルにエンドエフェクターがありません: {self._full_name()}")
         with undoChunk("mlibIkHandleSnapToEffector"):
             self.setTranslation(effector.getTranslation(worldSpace=True), worldSpace=True)
 
@@ -235,4 +235,4 @@ class IkHandle(Transform):
         source = effector_plug.getNode().getPlug("translateX").getConnections(input=True)
         if source is None:
             return None
-        return Joint(source.getNode().getFullName())
+        return Joint(source.getNode()._full_name())

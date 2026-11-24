@@ -63,10 +63,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):
@@ -99,7 +99,7 @@ class IntermediateCameraTest(_SpecCase):
         cmds.cluster(cube)
         shapes = Node(cube).getShape(intermediates=True, all=True)
         flags = [shape.isIntermediateObject() for shape in shapes]
-        self.assertEqual(flags, [cmds.getAttr(shape.getFullName() + ".intermediateObject") for shape in shapes])
+        self.assertEqual(flags, [cmds.getAttr(shape.getName(full=True) + ".intermediateObject") for shape in shapes])
         self.assertEqual(sorted(flags), [False, True])
 
     def test_camera(self):
@@ -135,7 +135,7 @@ class _Case(NamespaceCase):
 
     def assertDeletedRaises(self, node, calls):
         """ノードを削除し、各呼出しが RuntimeError になることを確かめる。"""
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         for call in calls:
             with self.subTest(call=call):
                 with self.assertRaises(RuntimeError):
@@ -153,7 +153,7 @@ class CameraQueryTest(_Case):
     def test_field_of_view(self):
         """画角は 2*atan(フィルムバック(インチ)/0.03937/2/焦点距離) と一致し、unit で単位を変えられる。"""
         _transform, shape = self.camera()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         horizontal = 2 * math.atan(cmds.getAttr(name + ".horizontalFilmAperture") / 0.03937 / 2 / 50.0)
         vertical = 2 * math.atan(cmds.getAttr(name + ".verticalFilmAperture") / 0.03937 / 2 / 50.0)
         self.assertSequenceAlmostEqual(shape.getFieldOfView(), (math.degrees(horizontal), math.degrees(vertical)), places=6)
@@ -166,13 +166,13 @@ class CameraQueryTest(_Case):
     def test_directions(self):
         """位置・視線・上方向は Transform の配置(xform)と一致し、ローカルは原点・-Z・+Y。"""
         transform, shape = self.camera()
-        cmds.xform(transform.getFullName(), translation=(1, 2, 3), rotation=(0, 90, 0), worldSpace=True)
+        cmds.xform(transform.getName(full=True), translation=(1, 2, 3), rotation=(0, 90, 0), worldSpace=True)
         self.assertSequenceAlmostEqual(shape.getPoint(), (1, 2, 3))
         self.assertSequenceAlmostEqual(shape.getPoint(ws=False), (0, 0, 0))
         self.assertSequenceAlmostEqual(shape.getDirection(), (-1, 0, 0))
         self.assertSequenceAlmostEqual(shape.getDirection(worldSpace=False), (0, 0, -1))
         self.assertSequenceAlmostEqual(shape.getDirection(kind="up"), (0, 1, 0))
-        cmds.setAttr(transform.getFullName() + ".scale", 2, 2, 2)
+        cmds.setAttr(transform.getName(full=True) + ".scale", 2, 2, 2)
         self.assertAlmostEqual(shape.getDirection().length(), 1.0)
         with self.assertRaises(TypeError):
             shape.getPoint(worldSpace=True, ws=True)
@@ -182,7 +182,7 @@ class CameraQueryTest(_Case):
         self.assertSequenceAlmostEqual(shape.getPoint(kind="eye"), shape.getPoint())
         self.assertSequenceAlmostEqual(shape.getDirection(kind="view"), shape.getDirection())
         self.assertSequenceAlmostEqual(shape.getDirection(ws=False, kind="up"), (0, 1, 0))
-        distance = cmds.getAttr(shape.getFullName() + ".centerOfInterest")
+        distance = cmds.getAttr(shape.getName(full=True) + ".centerOfInterest")
         self.assertSequenceAlmostEqual(shape.getPoint(kind="centerOfInterest"), tuple(shape.mfn().centerOfInterestPoint(om2.MSpace.kWorld))[:3], places=6)
         self.assertSequenceAlmostEqual(shape.getPoint(ws=False, kind="centerOfInterest"), (0, 0, -distance), places=6)
         for method in (shape.getPoint, shape.getDirection):

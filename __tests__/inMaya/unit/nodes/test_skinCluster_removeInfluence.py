@@ -51,9 +51,9 @@ class _Rig:
     def configure(self, normalize=1, locked=False, dropoff=None):
         """normalizeWeights・ロック・dropoff を設定する。"""
         for skin in self.skins:
-            cmds.setAttr(skin.getFullName() + ".normalizeWeights", normalize)
+            cmds.setAttr(skin.getName(full=True) + ".normalizeWeights", normalize)
             if dropoff is not None:
-                cmds.setAttr(skin.getFullName() + ".dropoff[0]", dropoff)
+                cmds.setAttr(skin.getName(full=True) + ".dropoff[0]", dropoff)
         cmds.setAttr(self.other + ".liw", locked)
         return self
 
@@ -61,7 +61,7 @@ class _Rig:
         """全 skinCluster の weightList を {頂点: {論理番号: 値}} で返す(存在しない要素は 0 扱い)。"""
         result = []
         for skin in self.skins:
-            name = skin.getFullName()
+            name = skin.getName(full=True)
             rows = {}
             for vertex in cmds.getAttr(name + ".weightList", multiIndices=True) or []:
                 prefix = f"{name}.weightList[{vertex}].weights"
@@ -151,7 +151,7 @@ class RemoveInfluencesArgumentsTest(NamespaceCase):
                 rig = _Rig(self, f"b{normalize}").configure(normalize=normalize)
                 skin = rig.skins[0]
                 before = rig.raw()
-                cmds.skinCluster(skin.getFullName(), edit=True, removeInfluence=rig.root)
+                cmds.skinCluster(skin.getName(full=True), edit=True, removeInfluence=rig.root)
                 native = rig.raw()
                 cmds.undo()
                 self.assertEqual(rig.raw(), before)
@@ -189,7 +189,7 @@ class RemoveInfluencesArgumentsTest(NamespaceCase):
         rig = _Rig(self, "d")
         skin = rig.skins[0]
         before = rig.raw()
-        cmds.skinCluster(skin.getFullName(), edit=True, removeInfluence=rig.root)
+        cmds.skinCluster(skin.getName(full=True), edit=True, removeInfluence=rig.root)
         native = rig.raw()
         cmds.undo()
         self.assertEqual(rig.raw(), before)
@@ -310,7 +310,7 @@ class RemoveInfluencesArgumentsTest(NamespaceCase):
                 for row in rows:
                     self.assertAlmostEqual(sum(row), 1.0)
                     self.assertAlmostEqual(row[0], 0.5 / 1.5)
-                self.assertEqual(cmds.getAttr(skin.getFullName() + ".normalizeWeights"), 0)
+                self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), 0)
                 self.assertTrue(cmds.getAttr(rig.other + ".liw"))
                 if fast:
                     self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))

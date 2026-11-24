@@ -270,7 +270,7 @@ class DagNode(Node):
         """
         other_node = Node._resolve_input(other)
         if not isinstance(other_node, DagNode):
-            raise TypeError(f"otherはDAGノードで指定してください: {other_node.getFullName()}")
+            raise TypeError(f"otherはDAGノードで指定してください: {other_node._full_name()}")
         self._require_valid("共通の祖先の検索")
         other_node._require_valid("共通の祖先の検索")
         self_path = self.mpath().fullPathName()
@@ -403,7 +403,7 @@ class DagNode(Node):
                 flags = {"back": True}
             else:
                 flags = {"relative": relative}
-            cmds.reorder(self.getFullName(), **flags)
+            cmds.reorder(self._full_name(), **flags)
 
     def isInUnderworld(self):
         """このDAGノードがShape内部のunderworldにあるか調べる。
@@ -471,7 +471,7 @@ class DagNode(Node):
             return [Vector(x, y, z) for x in (box.min.x, box.max.x) for y in (box.min.y, box.max.y) for z in (box.min.z, box.max.z)]
         self._require_valid("バウンディングボックスの計算")
         if includeInvisible and self.mnode().hasFn(om2.MFn.kTransform):
-            values = cmds.xform(self.getFullName(), query=True, boundingBoxInvisible=True, worldSpace=world)
+            values = cmds.xform(self._full_name(), query=True, boundingBoxInvisible=True, worldSpace=world)
             unit = om2.MDistance.uiUnit()
             values = [om2.MDistance(value, unit).asCentimeters() for value in values]
             return om2.MBoundingBox(om2.MPoint(*values[:3]), om2.MPoint(*values[3:]))
@@ -741,7 +741,7 @@ class DagNode(Node):
         # SelectionはDAGノードを参照するため、照会結果の変換時に読み込む。
         from ..common.selection import Selection
 
-        return Selection([self.getFullName() + "." + name.split(".", 1)[1] for name in names]).getComponents()
+        return Selection([self._full_name() + "." + name.split(".", 1)[1] for name in names]).getComponents()
 
     def getDrawColor(self, *, mode="dormant"):
         """DAGノードの描画色を、選択の状態ごとに取得する。
@@ -1012,10 +1012,10 @@ class DagNode(Node):
         """
         _require_bool(keepDeformers, "keepDeformers")
         self._require_valid("ヒストリの削除")
-        name = self.getFullName()
+        name = self._full_name()
         if keepDeformers and not self._require_mnode().hasFn(om2.MFn.kShape):
             # bakePartialHistory は Shape の無い Transform を「Shapeを選択」のエラーにするため、Shapeを渡す。
-            targets = [shape.getFullName() for shape in self.getChildren(shapes=True) if shape.mnode().hasFn(om2.MFn.kShape)]
+            targets = [shape._full_name() for shape in self.getChildren(shapes=True) if shape.mnode().hasFn(om2.MFn.kShape)]
             if not targets:
                 return
         else:
@@ -1052,7 +1052,7 @@ class DagNode(Node):
     def _api1_path(self):
         """保持するインスタンスの完全パスをAPI 1.0のMDagPathとして解決する。"""
         selection = om1.MSelectionList()
-        selection.add(self.getFullName())
+        selection.add(self._full_name())
         path = om1.MDagPath()
         selection.getDagPath(0, path)
         return path
@@ -1125,7 +1125,7 @@ class DagNode(Node):
             for plug, value in writes:
                 set_plug(plug, value, _writable_checked=True)
             return
-        names = [target.getFullName() for target in targets]
+        names = [target._full_name() for target in targets]
         with undoTransaction(chunk):
             for name in names:
                 for attribute, value in values:
@@ -1215,7 +1215,7 @@ class DagNode(Node):
                     count += 1
                 iterator.next()
         if position is None:
-            raise RuntimeError(f"{type(self).__name__}のアウトライナーの並び順が見つかりません: {self.getFullName()}")
+            raise RuntimeError(f"{type(self).__name__}のアウトライナーの並び順が見つかりません: {self._full_name()}")
         return position, count
 
     def _direct_children(self, shapes, intermediates, shapes_only=False):

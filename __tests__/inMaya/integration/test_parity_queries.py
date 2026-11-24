@@ -74,7 +74,7 @@ class PointPositionParityTest(NamespaceCase):
         for shape, component, count in ((mesh, "vtx", mesh.mfn().numVertices), (nurbs, "cv", nurbs.mfn().numCVs)):
             for index in range(count):
                 item = shape.getVertices(index) if component == "vtx" else shape.getCVs(index)
-                name = f"{shape.getFullName()}.{component}[{index}]"
+                name = f"{shape.getName(full=True)}.{component}[{index}]"
                 with self.subTest(component=component, index=index):
                     world = [v * 100 for v in cmds.xform(name, query=True, worldSpace=True, translation=True)]
                     local = [v * 100 for v in cmds.xform(name, query=True, objectSpace=True, translation=True)]
@@ -103,12 +103,13 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         cube = cmds.polyCube(name=self.name("deformed"), constructionHistory=False)[0]
         cluster, handle = cmds.cluster(cube + ".vtx[0:3]", name=self.name("cluster"))
         node = mlib.getNode(cluster)
-        self.assertEqual([shape.getFullName() for shape in node.getGeometry()], cmds.ls(cmds.cluster(cluster, query=True, geometry=True), long=True))
-        self.assertEqual(node.getWeightedNode().getFullName(), cmds.ls(handle, long=True)[0])
+        self.assertEqual([shape.getName(full=True) for shape in node.getGeometry()], cmds.ls(cmds.cluster(cluster, query=True, geometry=True), long=True))
+        self.assertEqual(node.getWeightedNode().getName(full=True), cmds.ls(handle, long=True)[0])
         target = cmds.polyCube(name=self.name("target"), constructionHistory=False)[0]
         blend = mlib.createBlendShape(cube, [target], name=self.name("blend"))
         self.assertEqual(
-            [shape.getFullName() for shape in blend.getBaseGeometry()], cmds.ls(cmds.blendShape(blend.getFullName(), query=True, geometry=True), long=True)
+            [shape.getName(full=True) for shape in blend.getBaseGeometry()],
+            cmds.ls(cmds.blendShape(blend.getName(full=True), query=True, geometry=True), long=True),
         )
 
     def test_constraint_weights(self):
@@ -119,14 +120,16 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         cmds.setAttr(a + ".translate", 5, 0, 0)
         cmds.setAttr(b + ".translate", 0, 5, 3)
         constraint = mlib.getNode(cmds.parentConstraint(a, b, driven, name=self.name("parent"))[0])
-        self.assertEqual([node.getName() for node in constraint.getTargets()], cmds.parentConstraint(constraint.getFullName(), query=True, targetList=True))
-        self.assertEqual(constraint.getWeightPlugs(aliases=True), cmds.parentConstraint(constraint.getFullName(), query=True, weightAliasList=True))
+        self.assertEqual(
+            [node.getName() for node in constraint.getTargets()], cmds.parentConstraint(constraint.getName(full=True), query=True, targetList=True)
+        )
+        self.assertEqual(constraint.getWeightPlugs(aliases=True), cmds.parentConstraint(constraint.getName(full=True), query=True, weightAliasList=True))
         constraint.setWeight(0.3, a)
         self.assertAlmostEqual(constraint.getWeights(a)[0], 0.3)
-        self.assertAlmostEqual(cmds.parentConstraint(a, constraint.getFullName(), query=True, weight=True), 0.3)
+        self.assertAlmostEqual(cmds.parentConstraint(a, constraint.getName(full=True), query=True, weight=True), 0.3)
         self.assertEqual(len(constraint.getWeights()), 2)
         # 渡した順の list で返し、cmds の個別の照会と一致する。
-        expected = [cmds.parentConstraint(target, constraint.getFullName(), query=True, weight=True) for target in (b, a)]
+        expected = [cmds.parentConstraint(target, constraint.getName(full=True), query=True, weight=True) for target in (b, a)]
         self.assertEqual(constraint.getWeights(b, a), expected)
         self.assertIsInstance(constraint.getWeights(a), list)
         with self.assertRaises(ValueError):

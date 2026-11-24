@@ -20,8 +20,8 @@ class TransformResetScaleTest(unittest.TestCase):
     def test_reset_each(self):
         nodes = [Node(cmds.createNode("transform", parent=self.root)) for _ in range(2)]
         for node in nodes:
-            cmds.setAttr(node.getFullName() + ".translate", 1, 2, 3)
-            cmds.setAttr(node.getFullName() + ".scale", 2, 3, 4)
+            cmds.setAttr(node.getName(full=True) + ".translate", 1, 2, 3)
+            cmds.setAttr(node.getName(full=True) + ".scale", 2, 3, 4)
         for node in nodes:
             node.resetAttrs(["tx", "scale"])
         for node in nodes:
@@ -33,7 +33,7 @@ class TransformResetScaleTest(unittest.TestCase):
         self.assertEqual(tuple(nodes[0].getTranslation(at=4)), (1, 2, 3))
         nodes[0].resetAttrs(fast=True)
         self.assertEqual(tuple(nodes[0].getTranslation(at=4)), (0, 0, 0))
-        cmds.addAttr(nodes[0].getFullName(), longName="customValue", attributeType="double", defaultValue=7)
+        cmds.addAttr(nodes[0].getName(full=True), longName="customValue", attributeType="double", defaultValue=7)
         nodes[0].getPlug("customValue").set(12)
         nodes[0].resetAttrs("customValue")
         self.assertEqual(nodes[0].getPlug("customValue").get(), 7)
@@ -41,9 +41,9 @@ class TransformResetScaleTest(unittest.TestCase):
     def test_reset_pivot_preserves_matrix(self):
         node = Node(cmds.createNode("transform", parent=self.root))
         cmds.setAttr(self.root + ".rotate", 20, 30, 40)
-        cmds.setAttr(node.getFullName() + ".translate", 3, 4, 5)
-        cmds.setAttr(node.getFullName() + ".rotate", 10, 25, 35)
-        cmds.setAttr(node.getFullName() + ".scale", 2, 3, 4)
+        cmds.setAttr(node.getName(full=True) + ".translate", 3, 4, 5)
+        cmds.setAttr(node.getName(full=True) + ".rotate", 10, 25, 35)
+        cmds.setAttr(node.getName(full=True) + ".scale", 2, 3, 4)
         before = node.getMatrix(worldSpace=True)
         for ws in (True, False):
             node.setPivot((0, 0, 0), worldSpace=ws, kind="both")
@@ -68,7 +68,7 @@ class TransformResetScaleTest(unittest.TestCase):
             cmds.setAttr(transform + ".rotate", 20, 30, 40)
             cmds.setAttr(transform + ".scale", 2, 3, 4)
             token = ".vtx[*]" if shape.isType("mesh") else ".cv[*][*]" if shape.isType("nurbsSurface") else ".cv[*]"
-            components = cmds.ls(shape.getFullName() + token, flatten=True)
+            components = cmds.ls(shape.getName(full=True) + token, flatten=True)
             for ws in (False, True):
                 before = [cmds.xform(c, query=True, translation=True, worldSpace=ws, objectSpace=not ws) for c in components]
                 matrix = node.getMatrix(worldSpace=True)

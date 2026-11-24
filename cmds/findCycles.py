@@ -37,7 +37,7 @@ def findCycles(nodes=None, *, dag=False, timeLimit=None, firstOnly=False):
     Examples:
         >>> import mlib
         >>> for path in mlib.findCycles(timeLimit=10.0):
-        ...     print([plug.getFullName() for plug in path])
+        ...     print([plug._full_name() for plug in path])
         >>> mlib.findCycles(["arm_ctrl", "arm_jnt"], dag=True, firstOnly=True)
     """
     # 循環参照の回避: plugsはcmdsのgetPlugを経由してnodesを参照するため、使う時点で読み込む。

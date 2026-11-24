@@ -19,7 +19,7 @@ class BlendShapeBaseWeightsTest(NamespaceCase):
 
     def test_defaults_do_not_materialize_elements(self):
         blend, base, _target = self.setup_blend()
-        path = blend.getFullName() + ".inputTarget[0].baseWeights"
+        path = blend.getName(full=True) + ".inputTarget[0].baseWeights"
         before = cmds.getAttr(path, multiIndices=True)
         values = blend.getTargetWeights(base=base)
         self.assertEqual(values, [1.0] * 8)
@@ -62,7 +62,7 @@ class BlendShapeBaseWeightsTest(NamespaceCase):
 
     def test_preflight_lock_and_connection(self):
         blend, _base, _target = self.setup_blend()
-        path = blend.getFullName() + ".inputTarget[0].baseWeights[7]"
+        path = blend.getName(full=True) + ".inputTarget[0].baseWeights[7]"
         cmds.setAttr(path, lock=True)
         try:
             for fast in (False, True):
@@ -105,7 +105,7 @@ class BlendShapeBaseWeightsTest(NamespaceCase):
         self.assertEqual(blend.getTargetWeights(base=second), [1.0, 0.25] + [1.0] * 6)
         with self.assertRaises(ValueError):
             blend.setTargetWeights(None, {0: 0.5}, base=target)
-        name = blend.getFullName()
+        name = blend.getName(full=True)
         cmds.setAttr(name + ".weight[0]", 1)
         blend.setTargetWeights(None, {0: 0.5}, base)
         has_generic = cmds.attributeQuery("weightList", node=name, exists=True)

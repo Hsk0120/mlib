@@ -23,8 +23,8 @@ class CommonRigApiTest(unittest.TestCase):
     def test_plug_lookup(self):
         """名前・ラッパー・MPlugが同じアトリビュートを解決する。"""
         plug = self.node.getPlug("tx")
-        for value in (plug.getFullName(), plug, plug.mplug()):
-            self.assertEqual(mlib.getPlug(value).getFullName(), plug.getFullName())
+        for value in (plug.getName(full=True), plug, plug.mplug()):
+            self.assertEqual(mlib.getPlug(value).getName(full=True), plug.getName(full=True))
 
     def test_changed_value_and_lock(self):
         """無変更は更新せず、ロック付き更新を一度のUndoで戻せる。"""
@@ -54,7 +54,7 @@ class CommonRigApiTest(unittest.TestCase):
         previous = cmds.currentUnit(query=True, angle=True)
         try:
             cmds.currentUnit(angle="rad")
-            cmds.setAttr(self.driver.getFullName() + ".rotate", 0.2, 0.4, -0.3)
+            cmds.setAttr(self.driver.getName(full=True) + ".rotate", 0.2, 0.4, -0.3)
             matrix = self.driver.getMatrix(worldSpace=True)
             self.node.setMatrix(matrix, worldSpace=True)
             self.assertTrue(matrix.isEquivalent(self.node.getMatrix(worldSpace=True), 1e-8))

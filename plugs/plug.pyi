@@ -256,7 +256,7 @@ class Plug(Object):
        * - :meth:`getName`
          - ``<ノードの最短名>.<ショート名のパス>``。論理番号を含む。表示・ログ向け
          - ``pCube1.tx``・``pCube1.wm[0]``
-       * - :meth:`getFullName` / ``str(plug)``
+       * - ``getName(full=True)`` / ``str(plug)``
          - ``<ノードの一意名>.<ロング名のパス>``。エイリアスがあれば使う。Mayaコマンドへ渡す名前
          - ``pCube1.translateX``・``pCube1.worldMatrix[0]``
        * - :meth:`getAttributeName`
@@ -277,7 +277,7 @@ class Plug(Object):
     取得するときに値は評価しない。generic/kAnyは基底のPlugのままにし、getのときに値を読み解く。
     通常の編集はUndoが有効なら記録する。fastがある操作では、fast=TrueならUndoなしで直接更新する。
 
-    Mayaのコマンドへは、getFullName()で文字列にして渡す。名前は、名前の変更や親の変更に追従する。
+    Mayaのコマンドへは、getName(full=True)で文字列にして渡す。名前は、名前の変更や親の変更に追従する。
     特にMultiPlugとコンパウンドアトリビュートのPlugは、cmdsが並びとして展開してしまうので、文字列にする必要がある。
 
     ノードや動的アトリビュートを削除すると、isValidはFalse、名前は空文字列になる。
@@ -533,37 +533,34 @@ class Plug(Object):
             om2.MPlug: 内部で持っているMPlug。アトリビュートの値を別に複製したものではない。
         """
         ...
-    def getName(self) -> str:
-        """Plugの短い名前を取得する。
+    def getName(self, *, full: bool = ...) -> str:
+        """Plugの名前を取得する。既定は短い名前、``full=True`` ならmaya.cmdsで1つに決まる名前。
 
-        ``<Node.getName()>.<ショート名のパス>`` の形で、ノード名は重ならない範囲で最も短い名前になる。
+        既定は ``<Node.getName()>.<ショート名のパス>`` の形で、ノード名は重ならない範囲で最も短い名前になる。
         要素の論理番号は常に含む(``tt.wm[0]``・``bs.it[0].itg[3].tw[2]``)。エイリアスは使わない。
-        表示やログ向けの短い書き方なので、Mayaのコマンドへ渡す名前には :meth:`getFullName` を使う。
-        ほかの名前のメソッドとの違いは :class:`Plug` の表を参照する。
+        表示やログ向けの短い書き方なので、Mayaのコマンドへ渡す名前には ``full=True`` を使う。
         ``node.getPlug(plug.getName().partition(".")[2])`` で同じPlugを取得し直せる。
 
-        Returns:
-            str: Plugの名前。ノードかアトリビュートが削除されている場合は
-                空文字列(:meth:`getFullName` と同じ)。
-        """
-        ...
-    def getFullName(self) -> str:
-        """maya.cmdsで1つに決まるPlugの名前を取得する。
+        ``full=True`` では ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、アトリビュートの部分は
+        ロング名と必要な論理番号を含み、エイリアスがあればそれを使う(``str(plug)`` と同じ)。
+        ほかの名前のメソッドとの違いは :class:`Plug` の表を参照する。
 
-        ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、名前の変更や親の付け替えに追従する。
-        アトリビュートの部分はロング名と必要な論理番号を含み、エイリアスがあればそれを使う。
+        Args:
+            full (bool): Trueなら、maya.cmdsで1つに決まる名前を返す。既定はFalse。
 
         Returns:
-            str: 1つに決まるPlugの名前。ノードやアトリビュートが削除されていれば空文字列。
+            str: Plugの名前。ノードかアトリビュートが削除されている場合は空文字列。
+
+        Raises:
+            TypeError: fullがboolでない場合。
         """
         ...
-    __str__: Any
     def getAttributeName(self, kind: str = ...) -> str:
         """アトリビュート自身の名前を取得する(``translateX``・``tx``・``Translate X``)。
 
-        :meth:`getName`・:meth:`getFullName` と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
+        :meth:`getName` (``full=True`` を含む)と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
         含まない(アトリビュートの定義の名前)。``bs.it[0].itg[3].tw[2]`` なら ``targetWeights``。
-        Plugのパスが必要なら :meth:`getName`(ショート名のパス)か :meth:`getFullName`(ロング名のパス)を使う。
+        Plugのパスが必要なら :meth:`getName`(ショート名のパス)か ``getName(full=True)``(ロング名のパス)を使う。
         無効なときは、空文字列を返す :meth:`getName` と違って例外にする。
 
         Args:
@@ -1810,6 +1807,17 @@ class Plug(Object):
                 node の入力側にすでに入力の接続がある場合、または Maya が接続を拒否した場合。
         """
         ...
+    def _full_name(self) -> str:
+        """maya.cmdsで1つに決まるPlugの名前(:meth:`getName` の ``full=True``)を、引数の検査なしで取得する。
+
+        ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、名前の変更や親の付け替えに追従する。
+        アトリビュートの部分はロング名と必要な論理番号を含み、エイリアスがあればそれを使う。
+
+        Returns:
+            str: 1つに決まるPlugの名前。ノードやアトリビュートが削除されていれば空文字列。
+        """
+        ...
+    __str__: Any
     def _anim_layer_names(self, selected: bool = ..., exact: bool = ...) -> list[str]:
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーの名前を取得する。
 
@@ -2193,7 +2201,7 @@ class Plug(Object):
         ...
     @staticmethod
     def _mplug_name(mplug: om2.MPlug) -> str:
-        """MPlug を、``Plug.getFullName()`` と同じ形の、1つに決まるPlugの名前にする。
+        """MPlug を、``Plug._full_name()`` と同じ形の、1つに決まるPlugの名前にする。
 
         持ち主のノードが、Undo で戻せない形で削除された(``flushUndo`` のあと・Undo が無効・シーンの
         切り替え)MPlug では、``MPlug.node()`` を呼んだ時点で Maya が異常終了し、API では見分けられない。
@@ -2320,7 +2328,7 @@ class Plug(Object):
     def _resolve_input(value: Plug | om2.MPlug | str) -> Plug:
         """渡されたものを mlib の Plug にする。
 
-        文字列は、maya.cmds と同じ決まりで探す。``str(plug)``・``plug.getFullName()`` が返す形
+        文字列は、maya.cmds と同じ決まりで探す。``str(plug)``・``plug._full_name()`` が返す形
         (``grp1|dup.translateX``、``bs.weight[0]``、エイリアス名、``cubeShape.pnts[2].pntx`` など)も使える。
 
         - インスタンス化された DAG ノードのアトリビュートでは、名前が指すインスタンスのノードを持ち主にする。
@@ -2376,14 +2384,14 @@ class Plug(Object):
         """エラーの表示に使う名前を返す。削除されていても、作ったときのアトリビュートのパスで示す。
 
         Returns:
-            str: 有効なら :meth:`getFullName`。無効なら、ノード名(削除されていれば
+            str: 有効なら ``getName(full=True)`` と同じ名前。無効なら、ノード名(削除されていれば
                 ``<削除されたノード>``)と、作ったときのアトリビュートのパス。
         """
         ...
     def _attribute_exists(self) -> bool:
         """アトリビュートが、まだノードにあるか判定する(ノードは有効であること)。
 
-        よく呼ばれる :meth:`_require_valid`・:meth:`getFullName` は、呼び出しの負荷を
+        よく呼ばれる :meth:`_require_valid`・:meth:`_full_name` は、呼び出しの負荷を
         避けるため、同じ判定を直接書いている(変えるときは両方を揃えること)。
 
         Returns:
@@ -2555,7 +2563,7 @@ class Plugs(_ListMethods):
 
         plugs = mlib.ls("pCube1.tx", "pCube1.ty")
         for plug in plugs:
-            print(plug.getFullName())
+            print(plug._full_name())
     """
     def __iter__(self) -> Iterator[Plug]: ...
     @overload
@@ -2657,7 +2665,7 @@ class Plugs(_ListMethods):
     def sort(self, key: Callable[[Plug], object] | None = ..., reverse: bool = ...) -> None:
         """持っている並びを、その場で並べ替える。
 
-        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(:meth:`Plug.getFullName`)の順にする。
+        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
         並べ替わるのはこのコレクションだけで、スライスや ``+`` で作った別のコレクションの順番は変わらない
         (各要素のPlugは共有している)。
 
@@ -2676,7 +2684,7 @@ class Plugs(_ListMethods):
         """持っている順に、アトリビュートの名前を返す。
 
         既定は :meth:`Plug.getName` を並べたもの。``full=True`` なら完全なアトリビュート名
-        (:meth:`Plug.getFullName` を並べたもの。``maya.cmds`` へ渡すときに使う)。
+        (``Plug.getName(full=True)`` を並べたもの。``maya.cmds`` へ渡すときに使う)。
 
         Args:
             full (bool): Trueなら、完全なアトリビュート名を返す。既定はFalse。
@@ -2741,11 +2749,8 @@ class Plugs(_ListMethods):
     def mplug(self) -> list[om2.MPlug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.mplug` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self) -> list[str]:
+    def getName(self, *, full: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.plugs.plug.Plug.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getAttributeName(self, kind: str = ...) -> list[str]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.getAttributeName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

@@ -52,7 +52,7 @@ class ObjExistsTest(_SpecCase):
     def test_names_and_references(self):
         """ノード名・アトリビュート・Node・Plugを判定し、列はTypeError。"""
         node = mlib.createNode("transform", name=self.name("exists"), skipSelect=True)
-        name = node.getFullName()
+        name = node.getName(full=True)
         for target in (name, name + ".tx", self.name("missing"), name + ".missingAttr"):
             with self.subTest(target=target):
                 self.assertIs(mlib.objExists(target), bool(cmds.objExists(target)))

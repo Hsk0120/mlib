@@ -173,7 +173,7 @@ class Edge(Component):
         history = om2.MFnDependencyNode(self.shape.mnode()).findPlug("inMesh", False).isDestination
         # polySoftEdgeは対象のエッジを選択するため、選択を戻す処理も同じUndoに含める(Redoでも選択が変わらない)。
         with undoChunk("mlibEdgeSetSmooth"), preservedSelection():
-            cmds.polySoftEdge(self.getFullName(), angle=180 if state else 0, constructionHistory=history)
+            cmds.polySoftEdge(self._full_name(), angle=180 if state else 0, constructionHistory=history)
 
     def _iterator(self):
         """番号を確かめて、このエッジに合わせた ``om2.MItMeshEdge`` を返す。

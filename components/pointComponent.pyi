@@ -244,8 +244,8 @@ class PointComponents(Components):
             None: 値を返さない。
         """
         ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.components.component.Component.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+    def getName(self, *, full: bool = ...) -> list[str]:
+        """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:
         """各要素の :meth:`~mlib.components.component.Component.getMultiIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

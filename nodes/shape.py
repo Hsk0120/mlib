@@ -45,16 +45,16 @@ class Shape(DagNode):
             if not target.isValid():
                 raise RuntimeError("parentが有効なノードではありません")
             if not isinstance(target, Transform):
-                raise TypeError(f"parentはtransformで指定してください: {target.getFullName()}")
+                raise TypeError(f"parentはtransformで指定してください: {target._full_name()}")
             if self.mpath().isInstanced():
-                raise RuntimeError(f"インスタンスのシェイプは移動できません: {self.getFullName()}")
+                raise RuntimeError(f"インスタンスのシェイプは移動できません: {self._full_name()}")
             current = self.getParent()
             if current is not None and current.mpath().fullPathName() == target.mpath().fullPathName():
                 return
             if fast:
                 self._set_parent_fast(target)
             else:
-                cmds.parent(self.getFullName(), target.getFullName(), shape=True, relative=True)
+                cmds.parent(self._full_name(), target._full_name(), shape=True, relative=True)
 
     def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
@@ -182,7 +182,7 @@ class Shape(DagNode):
             for u, v in components:
                 point = surface.cvPosition(u, v, space)
                 positions.append([om2.MDistance(point[i]).asUnits(ui_unit) for i in range(3)])
-            name = self.getFullName() + "." + token
+            name = self._full_name() + "." + token
             for (u, v), position in zip(components, positions):
                 values = [center[i] + (position[i] - center[i]) * factors[i] for i in range(3)]
                 cmds.xform(f"{name}[{u}][{v}]", translation=values, worldSpace=ws, objectSpace=not ws)
@@ -218,7 +218,7 @@ class Shape(DagNode):
         name = om2.MFnDagNode(self.mnode()).name()
         parent_fn = om2.MFnDagNode(target.mpath())
         if any(om2.MFnDagNode(parent_fn.child(i)).name() == name for i in range(parent_fn.childCount())):
-            raise NotImplementedError(f"fastのsetParentはシェイプの名前を変更しません: {target.getFullName()}には{name}という名前の子があります")
+            raise NotImplementedError(f"fastのsetParentはシェイプの名前を変更しません: {target._full_name()}には{name}という名前の子があります")
         modifier = om2.MDagModifier()
         modifier.reparentNode(self.mnode(), target.mnode())
         modifier.doIt()

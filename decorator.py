@@ -472,7 +472,7 @@ def preservedSkinShape(joints):
     from .nodes.joint import Joints
 
     skins = Joints(joints).getSkinClusters()
-    skin_names = [skin.getFullName() for skin in skins]
+    skin_names = [skin._full_name() for skin in skins]
     previous_modes = {}
 
     with undoChunk("mlibPreservedSkinShape"):

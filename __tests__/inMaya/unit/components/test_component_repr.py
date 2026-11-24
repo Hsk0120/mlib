@@ -39,7 +39,7 @@ class ComponentReprTest(_Case):
         ):
             with self.subTest(text=text):
                 self.assertEqual(repr(component), text)
-                self.assertEqual(str(component), component.getFullName())
+                self.assertEqual(str(component), component.getName(full=True))
                 self.assertTrue(cmds.objExists(str(component)))
 
     def test_collections(self):
@@ -62,7 +62,7 @@ class ComponentReprTest(_Case):
         vertex = Vertex(self.mesh, 5)
         vertices = Vertices(self.mesh, [0, 1])
         selection = Selection([vertex, self.mesh])
-        cmds.delete(self.mesh.getFullName())
+        cmds.delete(self.mesh.getName(full=True))
         self.assertEqual(repr(vertex), "<Vertex invalid>")
         self.assertEqual(repr(vertices), "<Vertices invalid>")
         self.assertEqual(repr(selection), "Selection([<Vertex invalid>, <Mesh invalid>])")

@@ -34,7 +34,7 @@ def _points(shape):
 
 def _leaf(node):
     """ノードの、DAGパスを除いた名前(名前空間を含む)を返す。"""
-    return node.getFullName().split("|")[-1] if hasattr(node, "getFullName") else str(node)
+    return node.getName(full=True).split("|")[-1] if hasattr(node, "getName") else str(node)
 
 
 class _ShortFlagCase(NamespaceCase):
@@ -315,8 +315,8 @@ class LongArgumentNameTest(_Case):
         self.parent = cmds.joint(name=self.name("parent#"), position=(1, 0, 0))
         self.child = mlib.getNode(cmds.joint(name=self.name("child#"), position=(2, 1, 0)))
         cmds.setAttr(self.parent + ".rotate", 10, 20, 30)
-        cmds.setAttr(self.child.getFullName() + ".rotate", 5, 15, 25)
-        cmds.setAttr(self.child.getFullName() + ".rotateAxis", 3, 6, 9)
+        cmds.setAttr(self.child.getName(full=True) + ".rotate", 5, 15, 25)
+        cmds.setAttr(self.child.getName(full=True) + ".rotateAxis", 3, 6, 9)
 
     def test_get_matrix_long_names(self):
         """parent・inverse が p・inv と同じ結果になり、同時指定は TypeError。"""
@@ -349,12 +349,12 @@ class LongArgumentNameTest(_Case):
 
     def test_set_quaternion_value_errors(self):
         """クォータニオンでも数値の列でもない値は TypeError、成分数・有限でない値は ValueError で、rotate は変わらない。"""
-        before = cmds.getAttr(self.child.getFullName() + ".rotate")[0]
+        before = cmds.getAttr(self.child.getName(full=True) + ".rotate")[0]
         for value, error in (("abcd", TypeError), (5, TypeError), (("a", 0, 0, 1), TypeError), ((0, 0, 0), ValueError), ((0, 0, 0, float("inf")), ValueError)):
             with self.subTest(value=value):
                 with self.assertRaises(error):
                     self.child.setQuaternion(value)
-                self.assertSequenceAlmostEqual(cmds.getAttr(self.child.getFullName() + ".rotate")[0], before)
+                self.assertSequenceAlmostEqual(cmds.getAttr(self.child.getName(full=True) + ".rotate")[0], before)
 
     def test_closest_axis_errors(self):
         """getClosestAxisToVector は不正な型を TypeError、成分数・ゼロベクトルを ValueError にする。"""

@@ -67,23 +67,25 @@ class IkHandleCreateTest(_SpecCase):
         handle = mlib.createIkHandle(self.j1, self.j3, name=self.name("hdl"))
         self.assertIs(type(handle), IkHandle)
         self.assertEqual(handle.getName(), self.name("hdl"))
-        self.assertEqual(cmds.ikHandle(handle.getFullName(), query=True, solver=True), "ikRPsolver")
+        self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, solver=True), "ikRPsolver")
         effector = handle.getEffector()
         self.assertTrue(effector.isType("ikEffector"))
-        self.assertEqual(effector.getParent().getFullName(), self.j2)
-        self.assertEqual(effector.getFullName(), cmds.ls(cmds.ikHandle(handle.getFullName(), query=True, endEffector=True), long=True)[0])
-        self.assertEqual([j.getFullName() for j in handle.getJoints()], cmds.ls(cmds.ikHandle(handle.getFullName(), query=True, jointList=True), long=True))
+        self.assertEqual(effector.getParent().getName(full=True), self.j2)
+        self.assertEqual(effector.getName(full=True), cmds.ls(cmds.ikHandle(handle.getName(full=True), query=True, endEffector=True), long=True)[0])
+        self.assertEqual(
+            [j.getName(full=True) for j in handle.getJoints()], cmds.ls(cmds.ikHandle(handle.getName(full=True), query=True, jointList=True), long=True)
+        )
 
     def test_sc_and_extra_flags(self):
         """ikSCsolver と、Maya の他のフラグ(priority)をそのまま渡せる。"""
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSCsolver", priority=3)
-        self.assertEqual(cmds.ikHandle(handle.getFullName(), query=True, solver=True), "ikSCsolver")
-        self.assertEqual(cmds.ikHandle(handle.getFullName(), query=True, priority=True), 3)
+        self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, solver=True), "ikSCsolver")
+        self.assertEqual(cmds.ikHandle(handle.getName(full=True), query=True, priority=True), 3)
 
     def test_spline_auto_curve(self):
         """ikSplineSolver で curve を省略すると Maya がカーブを作り、ハンドルへつなぐ。"""
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSplineSolver")
-        curve = cmds.ikHandle(handle.getFullName(), query=True, curve=True)
+        curve = cmds.ikHandle(handle.getName(full=True), query=True, curve=True)
         self.assertEqual(cmds.nodeType(curve), "nurbsCurve")
 
     def test_spline_existing_curve(self):
@@ -92,7 +94,9 @@ class IkHandleCreateTest(_SpecCase):
         before = set(cmds.ls(type="nurbsCurve", long=True))
         handle = mlib.createIkHandle(self.j1, self.j3, solver="ikSplineSolver", curve=curve)
         self.assertEqual(set(cmds.ls(type="nurbsCurve", long=True)), before)
-        self.assertEqual(cmds.listRelatives(cmds.ikHandle(handle.getFullName(), query=True, curve=True), parent=True, fullPath=True), cmds.ls(curve, long=True))
+        self.assertEqual(
+            cmds.listRelatives(cmds.ikHandle(handle.getName(full=True), query=True, curve=True), parent=True, fullPath=True), cmds.ls(curve, long=True)
+        )
 
     def test_undo_once(self):
         """作成(ハンドル・エフェクター・Maya が設定する preferredAngle)は Undo 1回で戻る。"""

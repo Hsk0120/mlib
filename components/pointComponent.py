@@ -332,7 +332,7 @@ def _require_invertible(shape):
     matrix = shape.mpath().inclusiveMatrix()
     magnitude = max(1.0, *(sum(abs(matrix[row * 4 + col]) for col in range(3)) for row in range(3)))
     if abs(matrix.det4x4()) <= 1e-12 * magnitude**3:
-        raise ValueError(f"トランスフォームが特異に近いため、ワールド空間では点を編集できません: {shape.getFullName()}")
+        raise ValueError(f"トランスフォームが特異に近いため、ワールド空間では点を編集できません: {shape._full_name()}")
 
 
 def _mirror_plan(points, axis, ws, pivot, fast, check=False):
@@ -600,7 +600,7 @@ def _set_grid_positions(shape, indices, rows, ws, fast, check=False):
     if check:
         # cmds.xformは制御点のロックを見ずに書くので、確かめる指定のときは書く前に確かめる。
         geometryEdit._require_control_points_writable(shape)
-    prefix = f"{shape.getFullName()}.{component_class.component_type}"
+    prefix = f"{shape._full_name()}.{component_class.component_type}"
     numbers = component_class._multi_indices(shape, list(local), command=True)
     unit = om2.MDistance.uiUnit()
     for point, number in zip(local.values(), numbers):

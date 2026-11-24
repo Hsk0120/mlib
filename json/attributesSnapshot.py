@@ -66,7 +66,7 @@ class AttributesSnapshot(Snapshot):
         seen = set()
         for plug in _collect_plugs(nodes, names):
             key = PlugRef.capture(plug)
-            identity = (plug.getNode().getFullName(), key.attribute)
+            identity = (plug.getNode()._full_name(), key.attribute)
             if identity in seen:
                 continue
             seen.add(identity)

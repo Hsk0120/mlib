@@ -23,12 +23,12 @@ class PlugMetadataTest(NamespaceCase):
         source, destination = self.make_extra(), self.make_extra()
         source.set(4)
         destination.connect(source)
-        original_name = destination.getFullName()
+        original_name = destination.getName(full=True)
         before = destination.getAttributeName("nice")
         self.flushUndo()
         self.assertIsNone(destination.setNiceName("Weight Display"))
         self.assertEqual(destination.getAttributeName("nice"), "Weight Display")
-        self.assertEqual(destination.getFullName(), original_name)
+        self.assertEqual(destination.getName(full=True), original_name)
         self.assertEqual(destination.get(), 4)
         self.assertEqual(destination.getConnections(input=True), source)
         cmds.undo()
@@ -68,7 +68,7 @@ class PlugMetadataTest(NamespaceCase):
         with self.assertRaises(RuntimeError):
             plug.setNiceName("locked")
         plug.setLocked(False)
-        node = plug.getFullName().split(".")[0]
+        node = plug.getName(full=True).split(".")[0]
         cmds.lockNode(node, lock=True)
         with self.assertRaises(RuntimeError):
             plug.setNiceName("locked")
@@ -94,16 +94,16 @@ class PlugMetadataTest(NamespaceCase):
         cmds.addAttr(node, longName="arrayChild", attributeType="double", parent="array")
         with self.assertRaises(TypeError):
             mlib.getPlug(node + ".array[3].arrayChild").setNiceName("Element Child")
-        cmds.addAttr(node, longName="proxyValue", proxy=child.getFullName())
+        cmds.addAttr(node, longName="proxyValue", proxy=child.getName(full=True))
         with self.assertRaises(TypeError):
             mlib.getPlug(node + ".proxyValue").setNiceName("Proxy")
 
     def test_file_roundtrip_reference_and_plural(self):
         plug = self.make_extra(category="rig")
         other = self.make_extra()
-        mlib.ls(plug.getFullName(), other.getFullName()).setNiceName("Display")
+        mlib.ls(plug.getName(full=True), other.getName(full=True)).setNiceName("Display")
         self.assertEqual(other.getAttributeName("nice"), "Display")
-        node = plug.getFullName().split(".")[0]
+        node = plug.getName(full=True).split(".")[0]
         with tempfile.TemporaryDirectory() as directory:
             for extension, file_type in (("ma", "mayaAscii"), ("mb", "mayaBinary")):
                 path = str(Path(directory) / ("metadata." + extension))

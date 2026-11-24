@@ -30,7 +30,7 @@ class DagMembershipTest(NamespaceCase):
         for shading in (False, True):
             result = set_node.getMembers(dagOnly=True, shadingOnly=shading)
             native = om2.MFnSet(set_node.mnode()).getMemberPaths(shading)
-            self.assertEqual([n.getFullName() for n in result], [p.fullPathName() for p in native])
+            self.assertEqual([n.getName(full=True) for n in result], [p.fullPathName() for p in native])
 
     def test_instanced_attribute_definition(self):
         node = mlib.createNode("transform", name=self.name("node"))

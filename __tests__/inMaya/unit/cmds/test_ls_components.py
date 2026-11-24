@@ -30,7 +30,7 @@ class LsComponentsTest(unittest.TestCase):
         vertices = mlib.ls(sl=True, type="vertex")
         self.assertEqual([v.index for v in vertices], [1, 2, 3, 0])
         self.assertTrue(all(isinstance(v, mlib.Vertex) for v in vertices))
-        self.assertEqual(len({v.shape.getFullName() for v in vertices}), 2)
+        self.assertEqual(len({v.shape.getName(full=True) for v in vertices}), 2)
         self.assertEqual(mlib.ls(sl=True, type="face"), [])
 
     def test_component_names_ranges_and_no_conversion(self):
@@ -65,7 +65,7 @@ class LsComponentsTest(unittest.TestCase):
     def test_instance_path(self):
         instance = cmds.instance(self.mesh, name=self.ns + ":instance")[0]
         vertex = mlib.ls(instance + ".vtx[0]", type="vertex")[0]
-        self.assertIn(instance, vertex.getFullName())
+        self.assertIn(instance, vertex.getName(full=True))
 
 
 if __name__ == "__main__":

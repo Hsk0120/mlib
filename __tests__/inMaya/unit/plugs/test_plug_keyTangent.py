@@ -35,14 +35,14 @@ class PlugSetKeyTangentTest(_KeyCase):
         plug = node.getPlug("rotateX")
         self.flushUndo()
         plug.setKeyTangent(inTangentType="linear", outTangentType="step", time=(1, 5))
-        name = plug.getFullName()
+        name = plug.getName(full=True)
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(cmds.keyTangent(name, query=True, outTangentType=True), ["spline"] * 3),
             lambda: self.assertEqual(cmds.keyTangent(name, query=True, outTangentType=True), ["step", "step", "spline"]),
         )
         plug.setKeyTangent(inTangentType="AUTO")
         self.assertEqual(cmds.keyTangent(name, query=True, inTangentType=True), ["auto"] * 3)
-        self.assertEqual(cmds.keyTangent(node.getPlug("translateX").getFullName(), query=True, inTangentType=True), ["spline"] * 3)
+        self.assertEqual(cmds.keyTangent(node.getPlug("translateX").getName(full=True), query=True, inTangentType=True), ["spline"] * 3)
 
     def test_errors(self):
         """接線の型の誤り・範囲の誤りを変更前に拒否する。キーの無い範囲は何もしない。"""
@@ -59,7 +59,7 @@ class PlugSetKeyTangentTest(_KeyCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(error):
                 plug.setKeyTangent(**kwargs)
         plug.setKeyTangent(inTangentType="auto", time=(20, 30))
-        self.assertEqual(cmds.keyTangent(plug.getFullName(), query=True, inTangentType=True), ["spline"] * 3)
+        self.assertEqual(cmds.keyTangent(plug.getName(full=True), query=True, inTangentType=True), ["spline"] * 3)
 
 
 class NodeSetKeyTangentTest(_KeyCase):
@@ -69,12 +69,12 @@ class NodeSetKeyTangentTest(_KeyCase):
         """指定したアトリビュートだけを変え、Noneなら全部を変える。複数形からも呼べる。"""
         node = self.keyed()
         node.setKeyTangent(["rotateX"], outTangentType="linear")
-        self.assertEqual(cmds.keyTangent(node.getPlug("rotateX").getFullName(), query=True, outTangentType=True), ["linear"] * 3)
-        self.assertEqual(cmds.keyTangent(node.getPlug("translateX").getFullName(), query=True, outTangentType=True), ["spline"] * 3)
+        self.assertEqual(cmds.keyTangent(node.getPlug("rotateX").getName(full=True), query=True, outTangentType=True), ["linear"] * 3)
+        self.assertEqual(cmds.keyTangent(node.getPlug("translateX").getName(full=True), query=True, outTangentType=True), ["spline"] * 3)
         other = self.keyed()
         mlib.Nodes([node, other]).setKeyTangent(inTangentType="flat", time=(10, 10))
         for target in (node, other):
-            self.assertEqual(cmds.keyTangent(target.getPlug("translateX").getFullName(), query=True, inTangentType=True), ["spline", "spline", "flat"])
+            self.assertEqual(cmds.keyTangent(target.getPlug("translateX").getName(full=True), query=True, inTangentType=True), ["spline", "spline", "flat"])
         with self.assertRaises(ValueError):
             node.setKeyTangent([], inTangentType="auto")
 
@@ -100,14 +100,14 @@ class GetAnimCurveIndirectTest(NamespaceCase):
         cmds.setKeyframe(layered, attribute="translateX", time=1, value=2, animLayer=layer)
         plug = mlib.getNode(layered).getPlug("translateX")
         self.assertIsNone(plug.getAnimCurve())
-        self.assertEqual(plug.getAnimCurve(indirect=True).getName(), cmds.keyframe(plug.getFullName(), query=True, name=True)[0])
+        self.assertEqual(plug.getAnimCurve(indirect=True).getName(), cmds.keyframe(plug.getName(full=True), query=True, name=True)[0])
 
         blended = self.make("transform", "blended#")
         cmds.setKeyframe(blended, attribute="translateX", time=1, value=1)
         cmds.pointConstraint(self.make("transform", "target#"), blended)
         cmds.setKeyframe(blended, attribute="translateX", time=2, value=1)
         plug = mlib.getNode(blended).getPlug("translateX")
-        names = cmds.keyframe(plug.getFullName(), query=True, name=True) or []
+        names = cmds.keyframe(plug.getName(full=True), query=True, name=True) or []
         result = plug.getAnimCurve(indirect=True)
         self.assertEqual(None if result is None else result.getName(), names[0] if names else None)
 

@@ -41,7 +41,7 @@ class DeleteBasicsTest(unittest.TestCase):
         """専用名前空間にノードを作り、ラッパーを取得する。"""
         options = {"name": self.namespace + ":node#", "skipSelect": True}
         if parent is not None:
-            options["parent"] = parent.getFullName()
+            options["parent"] = parent.getName(full=True)
         return mlib.getNode(cmds.createNode(kind, **options))
 
     def test_command_accepts_name_node_and_api_references(self):
@@ -50,7 +50,7 @@ class DeleteBasicsTest(unittest.TestCase):
             for mode in ("name", "node", "mobject", "dagpath"):
                 with self.subTest(fast=fast, mode=mode):
                     node = self.make()
-                    name = node.getFullName()
+                    name = node.getName(full=True)
                     value = {"name": name, "node": node, "mobject": node.mnode(), "dagpath": node.mpath()}[mode]
                     self.assertIsNone(mlib.delete(value, fast=fast))
                     self.assertFalse(cmds.objExists(name))
@@ -59,7 +59,7 @@ class DeleteBasicsTest(unittest.TestCase):
     def test_nested_generator_input_is_deleted_in_one_undo(self):
         """入れ子とgeneratorの重複入力を削除し、1回のUndo/redoで全て戻せる。"""
         first, second, third = (self.make() for _ in range(3))
-        names = [node.getFullName() for node in (first, second, third)]
+        names = [node.getName(full=True) for node in (first, second, third)]
         items = (item for item in (first, (second, [third, first])))
         cmds.flushUndo()
         mlib.delete(items)
@@ -76,7 +76,7 @@ class DeleteBasicsTest(unittest.TestCase):
             for invalid in (1, object()):
                 with self.subTest(fast=fast, invalid=type(invalid).__name__):
                     first, second = self.make(), self.make()
-                    names = [first.getFullName(), second.getFullName()]
+                    names = [first.getName(full=True), second.getName(full=True)]
                     with self.assertRaises(TypeError):
                         mlib.delete([first, [second, invalid]], fast=fast)
                     self.assertTrue(all(cmds.objExists(name) for name in names))
@@ -95,7 +95,7 @@ class DeleteBasicsTest(unittest.TestCase):
     def test_empty_collections_are_rejected(self):
         """空list・tuple・generatorでは削除対象を暗黙の選択へ置き換えない。"""
         selected = self.make()
-        cmds.select(selected.getFullName())
+        cmds.select(selected.getName(full=True))
         for fast in (False, True):
             for kind in (list, tuple, iter):
                 with self.subTest(fast=fast, kind=kind.__name__):
@@ -120,14 +120,14 @@ class DeleteBasicsTest(unittest.TestCase):
         mesh = cmds.polyCube(name=self.namespace + ":mesh", constructionHistory=False)[0]
         before = cmds.polyEvaluate(mesh, vertex=True)
         with self.assertRaises(NotImplementedError):
-            mlib.delete([plain.getFullName(), mesh + ".vtx[0]"], fast=True)
+            mlib.delete([plain.getName(full=True), mesh + ".vtx[0]"], fast=True)
         self.assertTrue(plain.isValid())
         self.assertEqual(cmds.polyEvaluate(mesh, vertex=True), before)
 
     def test_fast_delete_does_not_consume_or_append_undo(self):
         """既存Undoの前後でfast削除が設定やキューを変更しない。"""
         marker, deleted = self.make(), self.make()
-        deleted_name = deleted.getFullName()
+        deleted_name = deleted.getName(full=True)
         cmds.flushUndo()
         marker.getPlug("tx").set(5)
         undo_name = cmds.undoInfo(query=True, undoName=True)
@@ -135,13 +135,13 @@ class DeleteBasicsTest(unittest.TestCase):
         self.assertTrue(cmds.undoInfo(query=True, state=True))
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
         cmds.undo()
-        self.assertEqual(cmds.getAttr(marker.getFullName() + ".tx"), 0)
+        self.assertEqual(cmds.getAttr(marker.getName(full=True) + ".tx"), 0)
         self.assertFalse(cmds.objExists(deleted_name))
 
     def test_normal_delete_restores_held_references_across_redo_cycles(self):
         """同じNodeとPlugを保持したまま、削除/Undo/redoを繰り返せる。"""
         node = self.make()
-        name = node.getFullName()
+        name = node.getName(full=True)
         plug = node.getPlug("tx")
         plug.set(7)
         cmds.flushUndo()
@@ -164,7 +164,7 @@ class DeleteBasicsTest(unittest.TestCase):
                 parent = self.make()
                 child = self.make(parent=parent)
                 receiver = self.make("network")
-                cmds.addAttr(receiver.getFullName(), longName="owner", attributeType="message")
+                cmds.addAttr(receiver.getName(full=True), longName="owner", attributeType="message")
                 source = child.getPlug("message")
                 destination = receiver.getPlug("owner")
                 destination.connect(source)
@@ -184,13 +184,13 @@ class DeleteBasicsTest(unittest.TestCase):
                 grandchild = self.make(parent=child)
                 sibling = self.make()
                 sibling.getPlug("tx").set(11)
-                names = [node.getFullName() for node in (root, child, grandchild, sibling)]
-                cmds.lockNode(grandchild.getFullName(), lock=True)
+                names = [node.getName(full=True) for node in (root, child, grandchild, sibling)]
+                cmds.lockNode(grandchild.getName(full=True), lock=True)
                 with self.assertRaises(RuntimeError):
                     mlib.delete([sibling, root], fast=fast)
                 self.assertTrue(all(cmds.objExists(name) for name in names))
-                self.assertEqual(cmds.getAttr(sibling.getFullName() + ".tx"), 11)
-                cmds.lockNode(grandchild.getFullName(), lock=False)
+                self.assertEqual(cmds.getAttr(sibling.getName(full=True) + ".tx"), 11)
+                cmds.lockNode(grandchild.getName(full=True), lock=False)
 
 
 def _unlock_and_remove(namespace):

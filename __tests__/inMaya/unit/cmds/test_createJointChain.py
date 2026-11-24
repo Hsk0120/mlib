@@ -57,7 +57,7 @@ class _RigCase(NamespaceCase):
 
 class CreateJointChainTest(NamespaceCase):
     def axes(self, joint):
-        matrix = cmds.xform(joint.getFullName(), query=True, matrix=True, worldSpace=True)
+        matrix = cmds.xform(joint.getName(full=True), query=True, matrix=True, worldSpace=True)
         return [matrix[0:3], matrix[4:7], matrix[8:11]]
 
     def test_default_axes(self):
@@ -68,8 +68,8 @@ class CreateJointChainTest(NamespaceCase):
         joints = createJointChain(points, names=names)
         self.assertEqual([j.getName() for j in joints], list(names))
         for joint, point in zip(joints, points):
-            self.assertSequenceAlmostEqual(cmds.xform(joint.getFullName(), query=True, translation=True, worldSpace=True), point, places=6)
-            self.assertSequenceAlmostEqual(cmds.getAttr(joint.getFullName() + ".rotate")[0], (0, 0, 0))
+            self.assertSequenceAlmostEqual(cmds.xform(joint.getName(full=True), query=True, translation=True, worldSpace=True), point, places=6)
+            self.assertSequenceAlmostEqual(cmds.getAttr(joint.getName(full=True) + ".rotate")[0], (0, 0, 0))
         for index in range(2):
             aim = om2.MVector(*points[index + 1]) - om2.MVector(*points[index])
             x_axis, y_axis, _z_axis = self.axes(joints[index])
@@ -96,7 +96,7 @@ class CreateJointChainTest(NamespaceCase):
         self.assertSequenceAlmostEqual(y_axis, (0, 1, 0), places=6)
         self.assertSequenceAlmostEqual(z_axis, (0, 0, 1), places=6)
         self.assertSequenceAlmostEqual(x_axis, (1, 0, 0), places=6)
-        self.assertSequenceAlmostEqual(cmds.xform(joints[1].getFullName(), query=True, translation=True, worldSpace=True), (0, 0, 0), places=6)
+        self.assertSequenceAlmostEqual(cmds.xform(joints[1].getName(full=True), query=True, translation=True, worldSpace=True), (0, 0, 0), places=6)
 
     def test_errors(self):
         transform = cmds.createNode("joint", name=self.name("j"), skipSelect=True)

@@ -50,29 +50,29 @@ class CommonMethodsTest(unittest.TestCase):
         parent = self.create("parent")
         parent.getPlug("translate").set((4, 2, -1))
         target = self.create("target")
-        actual = self.create("actual", parent=parent.getFullName())
-        expected = self.create("expected", parent=parent.getFullName())
+        actual = self.create("actual", parent=parent.getName(full=True))
+        expected = self.create("expected", parent=parent.getName(full=True))
         target.getPlug("translate").set((10, 3, -5))
         target.getPlug("rotate").set((20, 30, 10))
         target.getPlug("scale").set((2, 3, 4))
-        before = cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)
-        cmds.matchTransform(expected.getFullName(), target.getFullName(), position=True, rotation=True, scale=True, pivots=False)
+        before = cmds.xform(actual.getName(full=True), query=True, matrix=True, worldSpace=True)
+        cmds.matchTransform(expected.getName(full=True), target.getName(full=True), position=True, rotation=True, scale=True, pivots=False)
         self.assertIsNone(actual.matchTransform(target))
-        after = cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)
-        for a, b in zip(after, cmds.xform(expected.getFullName(), query=True, matrix=True, worldSpace=True)):
+        after = cmds.xform(actual.getName(full=True), query=True, matrix=True, worldSpace=True)
+        for a, b in zip(after, cmds.xform(expected.getName(full=True), query=True, matrix=True, worldSpace=True)):
             self.assertAlmostEqual(a, b)
         cmds.undo()
-        for a, b in zip(before, cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)):
+        for a, b in zip(before, cmds.xform(actual.getName(full=True), query=True, matrix=True, worldSpace=True)):
             self.assertAlmostEqual(a, b)
         cmds.redo()
-        for a, b in zip(after, cmds.xform(actual.getFullName(), query=True, matrix=True, worldSpace=True)):
+        for a, b in zip(after, cmds.xform(actual.getName(full=True), query=True, matrix=True, worldSpace=True)):
             self.assertAlmostEqual(a, b)
 
     def test_match_position_only_and_noop(self):
         actual, target = self.create("actual"), self.create("target")
-        cmds.setAttr(actual.getFullName() + ".rotate", 15, 0, 0)
+        cmds.setAttr(actual.getName(full=True) + ".rotate", 15, 0, 0)
         target.getPlug("translate").set((7, 8, 9))
-        actual.matchTransform(target.getFullName(), rotation=False, scale=False)
+        actual.matchTransform(target.getName(full=True), rotation=False, scale=False)
         self.assertEqual(tuple(actual.getPlug("translate").get()), (7, 8, 9))
         self.assertAlmostEqual(actual.getPlug("rotateX").get(), 15)
         undo_name = cmds.undoInfo(query=True, undoName=True)
@@ -84,7 +84,7 @@ class CommonMethodsTest(unittest.TestCase):
     def skin(self):
         joints = [self.create("joint" + str(i), type="joint") for i in range(3)]
         mesh = cmds.polyCube(name=self.namespace + ":mesh")[0]
-        skin = mlib.getNode(cmds.skinCluster([j.getFullName() for j in joints], mesh)[0])
+        skin = mlib.getNode(cmds.skinCluster([j.getName(full=True) for j in joints], mesh)[0])
         return joints, mlib.getNode(mesh), skin
 
 

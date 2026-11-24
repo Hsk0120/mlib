@@ -225,7 +225,7 @@ class ChildWrapperAndBulkTest(unittest.TestCase):
         # listRelativesは同じノードの別インスタンスのパスを1つにまとめるが、getChildrenは残す。
         expected = set(cmds.listRelatives(self.root, allDescendents=True, fullPath=True))
         expected.add(cmds.ls(self.instance, long=True)[0] + "|" + self.locator.split(":")[0] + ":locShape")
-        self.assertEqual(sorted(c.getFullName() for c in children), sorted(expected))
+        self.assertEqual(sorted(c.getName(full=True) for c in children), sorted(expected))
         for child in children:
             # 入力解決を省いても、Node(MDagPath)と同じ型・同じインスタンスのパスになる。
             self.assertIs(type(child), type(mlib.getNode(child.mpath())))
@@ -435,12 +435,12 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
                         self.assertIs(result, source)
                     else:
                         self.assertIsNot(result, source)
-                    self.assertEqual(result.getFullName(), source.getFullName())
+                    self.assertEqual(result.getName(full=True), source.getName(full=True))
                     self.assertEqual(type(result), type(source))
-                    self.assertFalse(cmds.isConnected(source.getFullName(), destination))
+                    self.assertFalse(cmds.isConnected(source.getName(full=True), destination))
                     with self.assertRaisesRegex(RuntimeError, "入力の接続が見つかりません"):
                         plug.disconnect(source if explicit else None, fast=fast)
-                    cmds.connectAttr(source.getFullName(), destination)
+                    cmds.connectAttr(source.getName(full=True), destination)
         # コンパウンドアトリビュートの子を入力元に指定しても、親同士の接続とは一致しない。
         with self.assertRaisesRegex(RuntimeError, "入力の接続が見つかりません"):
             node_b.getPlug("r").disconnect(node_a.getPlug("rx"))
@@ -470,9 +470,9 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
             node = mlib.createNode(node_type, fast=True, **flags)
             resolved = mlib.getNode(node.getName())
             self.assertEqual(type(node), type(resolved))
-            self.assertEqual(node.getFullName(), resolved.getFullName())
-            self.assertEqual(cmds.ls(selection=True, long=True), [node.getFullName()])
-            cmds.delete(node.getFullName() if node_type not in ("mesh",) else cmds.listRelatives(node.getFullName(), parent=True, fullPath=True))
+            self.assertEqual(node.getName(full=True), resolved.getName(full=True))
+            self.assertEqual(cmds.ls(selection=True, long=True), [node.getName(full=True)])
+            cmds.delete(node.getName(full=True) if node_type not in ("mesh",) else cmds.listRelatives(node.getName(full=True), parent=True, fullPath=True))
         shared = mlib.createNode("multiplyDivide", name=self.ns + ":sh", fast=True)
         again = mlib.createNode("multiplyDivide", name=self.ns + ":sh", shared=True, skipSelect=True, fast=True)
         self.assertTrue(again.sameNode(shared))
@@ -564,7 +564,7 @@ class LookupWrapperTest(unittest.TestCase):
         if isinstance(item, mlib.Plug):
             node = item.getNode()
             path = node.mpath().fullPathName() if hasattr(node, "mpath") else None
-        return type(item), item.getFullName(), path
+        return type(item), item.getName(full=True), path
 
     def test_ls_matches_individual_resolution(self):
         from mlib.common.selection import Selection
@@ -631,7 +631,7 @@ class LookupWrapperTest(unittest.TestCase):
             selection = om2.MSelectionList()
             selection.add(name)
             self.assertEqual(Node._selection_owner(selection, 0, name, plug=True), Node._selection_owner(selection, 0, name))
-            self.assertEqual(plug.getFullName(), Plug._resolve_input(name).getFullName())
+            self.assertEqual(plug.getName(full=True), Plug._resolve_input(name).getName(full=True))
 
     def test_hierarchy_wrappers(self):
         from mlib.nodes.node import Node
@@ -639,12 +639,14 @@ class LookupWrapperTest(unittest.TestCase):
         ns = self.ns + ":"
         a = mlib.getNode(self.a)
         shapes = a.getShape(all=True)
-        self.assertEqual([shape.getFullName() for shape in shapes], ["|" + ns + "grp|" + ns + "a|" + ns + "aShape"])
-        self.assertEqual([shape.getFullName() for shape in a.getShape(intermediates=True, all=True)], cmds.listRelatives(self.a, shapes=True, fullPath=True))
-        self.assertEqual(type(shapes[0]), type(Node(shapes[0].getFullName())))
+        self.assertEqual([shape.getName(full=True) for shape in shapes], ["|" + ns + "grp|" + ns + "a|" + ns + "aShape"])
+        self.assertEqual(
+            [shape.getName(full=True) for shape in a.getShape(intermediates=True, all=True)], cmds.listRelatives(self.a, shapes=True, fullPath=True)
+        )
+        self.assertEqual(type(shapes[0]), type(Node(shapes[0].getName(full=True))))
         self.assertIsNone(mlib.getNode(self.grp).getShape())
         parent = a.getParent()
-        self.assertEqual((type(parent), parent.getFullName()), (type(Node(self.grp)), "|" + ns + "grp"))
+        self.assertEqual((type(parent), parent.getName(full=True)), (type(Node(self.grp)), "|" + ns + "grp"))
         shape = mlib.getNode("|" + ns + "g2|" + ns + "box1|" + ns + "boxShape")
         self.assertEqual(shape.getParent().mpath().fullPathName(), "|" + ns + "g2|" + ns + "box1")
         self.assertEqual(sorted(item.mpath().fullPathName() for item in shape.getInstances()), sorted(cmds.ls(ns + "boxShape", allPaths=True, long=True)))
@@ -689,8 +691,8 @@ class CollectionWrapperTest(unittest.TestCase):
         paths = cmds.ls(self.ns + ":boxShape", allPaths=True, long=True)
         names = [self.md, self.box, self.md, *paths, *paths[::-1], *self.joints, self.joints[0]]
         wrappers = [Node(name) for name in names]
-        self.assertEqual([node.getFullName() for node in Nodes(names)], self._expected_unique(wrappers))
-        self.assertEqual([node.getFullName() for node in Nodes(wrappers)], self._expected_unique(wrappers))
+        self.assertEqual([node.getName(full=True) for node in Nodes(names)], self._expected_unique(wrappers))
+        self.assertEqual([node.getName(full=True) for node in Nodes(wrappers)], self._expected_unique(wrappers))
         # 同じノードの別ラッパーは同じ要素として1つにまとめ、最初の参照を保持する。
         first = Node(self.md)
         collected = Nodes([first, Node(self.md)])
@@ -699,7 +701,7 @@ class CollectionWrapperTest(unittest.TestCase):
         # 同じノードの別インスタンスは別要素として残す。
         self.assertEqual(len(Nodes(paths + paths)), len(paths))
         full = cmds.ls(self.joints, long=True)
-        self.assertEqual([node.getFullName() for node in Joints(full + full)], full)
+        self.assertEqual([node.getName(full=True) for node in Joints(full + full)], full)
         with self.assertRaisesRegex(TypeError, "JointsにはJointを指定してください: MultiplyDivide"):
             Joints([*self.joints, self.md])
 
@@ -719,14 +721,16 @@ class CollectionWrapperTest(unittest.TestCase):
 
         skin = mlib.getNode(self.skin)
         influences = skin.getInfluences()
-        self.assertEqual([(type(node), node.getFullName()) for node in influences], [(type(Node(name)), name) for name in cmds.ls(self.joints, long=True)])
+        self.assertEqual([(type(node), node.getName(full=True)) for node in influences], [(type(Node(name)), name) for name in cmds.ls(self.joints, long=True)])
         unused = skin.getInfluences(unused=True)
-        self.assertTrue(all(type(node) is type(Node(node.getFullName())) for node in unused))
+        self.assertTrue(all(type(node) is type(Node(node.getName(full=True))) for node in unused))
         skin.addInfluences(self.joints[:1])
         self.assertEqual(len(skin.getInfluences()), len(self.joints))
         members = mlib.getNode(self.layer).getMembers()
         expected = cmds.editDisplayLayerMembers(self.layer, query=True, fullNames=True)
-        self.assertEqual(sorted((type(node).__name__, node.getFullName()) for node in members), sorted((type(Node(name)).__name__, name) for name in expected))
+        self.assertEqual(
+            sorted((type(node).__name__, node.getName(full=True)) for node in members), sorted((type(Node(name)).__name__, name) for name in expected)
+        )
         sg_members = mlib.getNode(self.sg).getMembers()
         shapes = [item for item in sg_members if isinstance(item, Node)]
         self.assertEqual([(type(node), node.mpath().fullPathName()) for node in shapes], [(type(Node(self.instance_shape)), self.instance_shape)])
@@ -737,10 +741,10 @@ class CollectionWrapperTest(unittest.TestCase):
         """従来の (UUID, 完全パス) の集合による重複除去の結果を返す。"""
         result, seen = [], set()
         for node in nodes:
-            key = (node.getUuid(), node.getFullName())
+            key = (node.getUuid(), node.getName(full=True))
             if key not in seen:
                 seen.add(key)
-                result.append(node.getFullName())
+                result.append(node.getName(full=True))
         return result
 
 
@@ -779,7 +783,7 @@ class UndoTransactionNestingTest(unittest.TestCase):
                 node.getPlug("scale").set((1, 2, 3))
                 with undoChunk("inner"):
                     md = mlib.createNode("multiplyDivide")
-                    self.created.append(md.getFullName())
+                    self.created.append(md.getName(full=True))
                     node.getPlug("tx").connect(md.getPlug("input1X"))
                 with undoTransaction("mlibSpeedupInnerTx"):
                     node.getPlug("rx").set(0.5, unit="rad")
@@ -1074,11 +1078,11 @@ class FastPathOverheadTest(unittest.TestCase):
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
         with self.assertRaises(RuntimeError) as caught:
             dst.connect(mlib.getNode(c).getPlug("tx"), fast=True)
-        self.assertEqual(str(caught.exception), "アトリビュートがロックされています: " + dst.getFullName())
+        self.assertEqual(str(caught.exception), "アトリビュートがロックされています: " + dst.getName(full=True))
         cmds.setAttr(b + ".tx", lock=False)
         with self.assertRaises(RuntimeError) as caught:
             dst.connect(mlib.getNode(c).getPlug("tx"), fast=True)
-        self.assertEqual(str(caught.exception), "接続先にはすでに入力があります: " + dst.getFullName())
+        self.assertEqual(str(caught.exception), "接続先にはすでに入力があります: " + dst.getName(full=True))
         self.assertIs(dst.connect(mlib.getNode(c).getPlug("tx"), force=True, fast=True), dst)
         self.assertTrue(cmds.isConnected(c + ".tx", b + ".tx"))
         self.assertFalse(cmds.isConnected(a + ".tx", b + ".tx"))
@@ -1090,17 +1094,17 @@ class FastPathOverheadTest(unittest.TestCase):
         finally:
             cmds.namespace(setNamespace=":")
         for node in created:
-            expected = mlib.getNode(node.getFullName())
+            expected = mlib.getNode(node.getName(full=True))
             self.assertIs(type(node), type(expected))
-            self.assertEqual(node.getFullName(), expected.getFullName())
-        names = [node.getFullName() for node in created[:2]]
+            self.assertEqual(node.getName(full=True), expected.getName(full=True))
+        names = [node.getName(full=True) for node in created[:2]]
         self.assertIsNone(mlib.delete(names, fast=True))
         self.assertEqual(cmds.ls(names), [])
         missing = self.ns + ":missing"
         with self.assertRaises(RuntimeError) as expected:
             mlib.getNode(missing)
         with self.assertRaises(RuntimeError) as caught:
-            mlib.delete([created[2].getFullName(), missing], fast=True)
+            mlib.delete([created[2].getName(full=True), missing], fast=True)
         self.assertEqual(str(caught.exception), str(expected.exception))
         self.assertTrue(created[2].isValid())
 
@@ -1134,7 +1138,7 @@ class WrapperCreationCostTest(unittest.TestCase):
         cmds.createNode("pointEmitter", name=ns + ":em", parent=grp)  # 未登録のDAG型(祖先の型)
         dg = [cmds.createNode(t, name=ns + ":" + t) for t in ("addDoubleLinear", "animBlendNodeAdditive", "plusMinusAverage")]
         children = mlib.getNode(grp).getChildren()
-        self.assertEqual([self._state(c) for c in children], [self._state(Node(c.getFullName())) for c in children])
+        self.assertEqual([self._state(c) for c in children], [self._state(Node(c.getName(full=True))) for c in children])
         # 型の異なるノードを交互に包んでも、使い回しの関数セットが前の型名を返さない。
         for _ in range(3):
             for name in [*dg, grp]:
@@ -1196,10 +1200,10 @@ class WrapperCreationCostTest(unittest.TestCase):
         self.assertFalse(plug.isValid())
         cmds.undo()
         self.assertTrue(plug.isValid())
-        self.assertEqual(plug.getFullName(), mlib.getPlug(node + ".dynA").getFullName())
+        self.assertEqual(plug.getName(full=True), mlib.getPlug(node + ".dynA").getName(full=True))
 
     def _state(self, node):
-        return (type(node), sorted(node.__dict__), node.getFullName(), hash(node))
+        return (type(node), sorted(node.__dict__), node.getName(full=True), hash(node))
 
 
 class ConnectionHistoryAttrListTest(unittest.TestCase):
@@ -1279,7 +1283,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
         for name, flags in ((cube, {}), (shape, {}), (shape, {"type": "geometryFilter"}), (cube, {"future": True})):
             node = mlib.getNode(name)
             expected, seen = [], {node.getUuid()}
-            for item in cmds.listHistory(node.getFullName(), future=flags.get("future", False)) or []:
+            for item in cmds.listHistory(node.getName(full=True), future=flags.get("future", False)) or []:
                 wrapped = Node(item)
                 if wrapped.getUuid() in seen:
                     continue
@@ -1289,7 +1293,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
             with self.subTest(node=name, flags=flags):
                 self.assertEqual(self._key(node.getHistory(**flags)), self._key(expected))
         dead = mlib.getNode(cmds.createNode("transform", name=self.ns + ":dead"))
-        cmds.delete(dead.getFullName())
+        cmds.delete(dead.getName(full=True))
         # 削除済みノードは docstring どおり RuntimeError(2026-10-26 に実装を docstring へ揃えた。
         # 従来は cmds.listHistory("") の ValueError だった)。
         with self.assertRaisesRegex(RuntimeError, r"無効な\w+のため"):
@@ -1330,22 +1334,22 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
         cont = mlib.getNode(cmds.container(name=ns + ":cont"))
         cont.addMembers(*names)
         self.assertEqual(
-            [(type(m), m.getFullName()) for m in cont.getMembers()],
-            [(type(Node(o)), Node(o).getFullName()) for o in om2.MFnContainerNode(cont.mnode()).getMembers()],
+            [(type(m), m.getName(full=True)) for m in cont.getMembers()],
+            [(type(Node(o)), Node(o).getName(full=True)) for o in om2.MFnContainerNode(cont.mnode()).getMembers()],
         )
         with self.assertRaisesRegex(ValueError, "nodesはすべてこのコンテナのメンバーで指定してください"):
             cont.removeMembers(names[0], outsider)
         self.assertEqual(len(cont.getMembers()), 3)
         cmds.undoInfo(state=True)
         cont.removeMembers(names[0], names[0], names[2])
-        self.assertEqual([m.getFullName() for m in cont.getMembers()], [mlib.getNode(names[1]).getFullName()])
+        self.assertEqual([m.getName(full=True) for m in cont.getMembers()], [mlib.getNode(names[1]).getName(full=True)])
         cmds.undo()
         self.assertEqual(len(cont.getMembers()), 3)
         for recurse in (False, True):
             nodes = Namespace(":" + ns).getNodes(recurse=recurse)
             objects = om2.MNamespace.getNamespaceObjects(":" + ns, recurse)
             with self.subTest(recurse=recurse):
-                self.assertEqual([(type(n), n.getFullName()) for n in nodes], [(type(Node(o)), Node(o).getFullName()) for o in objects])
+                self.assertEqual([(type(n), n.getName(full=True)) for n in nodes], [(type(Node(o)), Node(o).getName(full=True)) for o in objects])
 
     def _scene(self):
         ns = self.ns
@@ -1373,7 +1377,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
         if isinstance(value, (list, tuple)):
             return (type(value).__name__, [ConnectionHistoryAttrListTest._key(v) for v in value])
         if isinstance(value, (Node, Plug)):
-            return (type(value).__name__, value.getFullName())
+            return (type(value).__name__, value.getName(full=True))
         return value
 
     @staticmethod

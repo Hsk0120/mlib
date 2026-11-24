@@ -28,7 +28,7 @@ test_*.py にそのまま残してよい。このファイルは「cmds との�
 - ``Node.getAliases()`` と ``cmds.aliasAttr(query=True)``
 - ``Node.inputs/outputs/connections`` と ``cmds.listConnections(plugs=True, skipConversionNodes=True)``
   (既定で変換ノードを飛ばす。``skipConversionNodes=False`` は直結と突き合わせる)
-  (短い名前が重複するノードを含む。``Plug.getFullName()`` の一意な名前と一致すること)
+  (短い名前が重複するノードを含む。``Plug.getName(full=True)`` の一意な名前と一致すること)
 - ``Namespace`` と ``cmds.namespace``/``cmds.namespaceInfo``
 - Plug のアトリビュート型判定(アトリビュート定義から om2 で求める ``mlib.core.attributeType.attributeType``)と
   ``cmds.getAttr(<プラグ名>, type=True)``。transform・mesh・nurbsCurve・blendShape・
@@ -165,8 +165,8 @@ class NodeAliasesParityTest(unittest.TestCase):
             cmds.delete(self.node.getName())
 
     def test_aliases_matches_cmds_aliasAttr(self):
-        cmds.aliasAttr("mlibParityAliasTx", self.node.getPlug("translateX").getFullName())
-        cmds.aliasAttr("mlibParityAliasTy", self.node.getPlug("translateY").getFullName())
+        cmds.aliasAttr("mlibParityAliasTx", self.node.getPlug("translateX").getName(full=True))
+        cmds.aliasAttr("mlibParityAliasTy", self.node.getPlug("translateY").getName(full=True))
 
         # cmds.aliasAttr(query=True) はフラットな [alias1, longName1, alias2, longName2, ...]
         # を返す。longName は Plug.getAttributeName()(ロング名)と直接比較できる。
@@ -206,7 +206,7 @@ class NodeConnectionsParityTest(unittest.TestCase):
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
 
         expected = set(cmds.listConnections(target.getName(), source=True, destination=False, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)}
+        actual = {plug.getName(full=True) for plug in target.getConnections(source=True, destination=False, skipConversionNodes=True)}
         self.assertEqual(actual, expected)
 
     def test_outputs_matches_cmds_listConnections_destination_side(self):
@@ -215,7 +215,7 @@ class NodeConnectionsParityTest(unittest.TestCase):
         source.getPlug("translateX").connectTo(target.getPlug("translateX"))
 
         expected = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
+        actual = {plug.getName(full=True) for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
         self.assertEqual(actual, expected)
 
     def test_connections_type_filter_matches_cmds_listConnections_type_filter(self):
@@ -228,11 +228,13 @@ class NodeConnectionsParityTest(unittest.TestCase):
         expected_transform = set(
             cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True, type="transform") or []
         )
-        actual_transform = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, type="transform", skipConversionNodes=True)}
+        actual_transform = {
+            plug.getName(full=True) for plug in source.getConnections(source=False, destination=True, type="transform", skipConversionNodes=True)
+        }
         self.assertEqual(actual_transform, expected_transform)
 
         expected_mesh = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True, type="mesh") or [])
-        actual_mesh = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, type="mesh", skipConversionNodes=True)}
+        actual_mesh = {plug.getName(full=True) for plug in source.getConnections(source=False, destination=True, type="mesh", skipConversionNodes=True)}
         self.assertEqual(actual_mesh, expected_mesh)
         self.assertEqual(actual_mesh, set())
 
@@ -240,20 +242,20 @@ class NodeConnectionsParityTest(unittest.TestCase):
         # grp1|dup と grp2|dup のように短い名前が重複しても、mlib の一意なプラグ名が
         # cmds.listConnections の返す名前と一致し、どちらの接続も失われないこと。
         groups = [self.create_transform(f"mlibParityDupGroup{index:d}") for index in (1, 2)]
-        duplicates = [Node(cmds.createNode("transform", name="mlibParityDup", parent=group.getFullName())) for group in groups]
+        duplicates = [Node(cmds.createNode("transform", name="mlibParityDup", parent=group.getName(full=True))) for group in groups]
         source = self.create_transform("mlibParityDupSource")
         for duplicate in duplicates:
             source.getPlug("translateX").connectTo(duplicate.getPlug("translateX"))
             source.getPlug("translateY").connectTo(duplicate.getPlug("translateZ"))
 
         expected = set(cmds.listConnections(source.getName(), source=False, destination=True, plugs=True, skipConversionNodes=True) or [])
-        actual = {plug.getFullName() for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
+        actual = {plug.getName(full=True) for plug in source.getConnections(source=False, destination=True, skipConversionNodes=True)}
         self.assertEqual(len(actual), 4)
         self.assertEqual(actual, expected)
         for duplicate in duplicates:
             expected_inputs = set(cmds.listConnections(duplicate.getName(), source=True, destination=False, plugs=True, skipConversionNodes=True) or [])
             self.assertEqual(
-                {plug.getFullName() for plug in duplicate.getConnections(source=True, destination=False, skipConversionNodes=True)}, expected_inputs
+                {plug.getName(full=True) for plug in duplicate.getConnections(source=True, destination=False, skipConversionNodes=True)}, expected_inputs
             )
 
     def test_skip_conversion_nodes_matches_cmds_listConnections(self):
@@ -261,7 +263,7 @@ class NodeConnectionsParityTest(unittest.TestCase):
         source = self.create_transform("mlibParityConvSource")
         target = self.create_transform("mlibParityConvTarget")
         # 距離→角度の接続はMayaがunitConversionを挟む。
-        cmds.connectAttr(source.getPlug("translateX").getFullName(), target.getPlug("rotateX").getFullName())
+        cmds.connectAttr(source.getPlug("translateX").getName(full=True), target.getPlug("rotateX").getName(full=True))
         conversion = cmds.listConnections(target.getName() + ".rotateX", source=True, destination=False)[0]
         self.created.append(conversion)
         self.assertEqual(cmds.nodeType(conversion), "unitConversion")
@@ -270,17 +272,17 @@ class NodeConnectionsParityTest(unittest.TestCase):
                 with self.subTest(node=node.getName(), skip=skip):
                     expected = set(cmds.listConnections(node.getName(), plugs=True, skipConversionNodes=skip, **flags) or [])
                     if skip:
-                        actual = {plug.getFullName() for plug in node.getConnections(skipConversionNodes=True, **flags)}
+                        actual = {plug.getName(full=True) for plug in node.getConnections(skipConversionNodes=True, **flags)}
                         self.assertEqual(
                             {
-                                plug.getFullName()
+                                plug.getName(full=True)
                                 for plug in node.getPlug("rotateX" if node is target else "translateX").getConnections(skipConversionNodes=True, **flags)
                             },
                             expected,
                         )
                     else:
-                        actual = {plug.getFullName() for plug in node.getConnections(**flags)}
-                        self.assertEqual(actual, {plug.getFullName() for plug in node.getConnections(scn=False, **flags)})
+                        actual = {plug.getName(full=True) for plug in node.getConnections(**flags)}
+                        self.assertEqual(actual, {plug.getName(full=True) for plug in node.getConnections(scn=False, **flags)})
                     self.assertEqual(actual, expected)
                     self.assertEqual(any(conversion in name for name in actual), not skip)
 
@@ -554,8 +556,8 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
 
     def assert_matches_cmds(self, plug):
         """存在するプラグについて、mlib の型名・ラッパーが cmds の型名と一致することを確かめる。"""
-        self.assertTrue(self.exists(plug.mplug()), plug.getFullName())
-        expected = cmds.getAttr(plug.getFullName(), type=True)
+        self.assertTrue(self.exists(plug.mplug()), plug.getName(full=True))
+        expected = cmds.getAttr(plug.getName(full=True), type=True)
         self.assertEqual(attributeType(plug.mplug()), expected)
         resolved = Plug._registry.lookup(expected)
         if resolved is not None:
@@ -683,7 +685,7 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
             if plug.isCompound():
                 plugs.extend(plug.getChildren())
             for item in plugs:
-                with self.subTest(plug=item.getFullName()):
+                with self.subTest(plug=item.getName(full=True)):
                     checked[item.getName().partition(".")[2]] = self.assert_matches_cmds(item)
         # 代表的な型名(登録ラッパーのキーを含む)が cmds と同じであること。
         expected = {
@@ -776,7 +778,7 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
             cmds.connectAttr(source.getName() + "." + attribute, choice.getName() + ".input[0]")
             for path in ("output", "input[0]"):
                 plug = choice.getPlug(path)
-                name = plug.getFullName()
+                name = plug.getName(full=True)
                 with self.subTest(plug=name, source=attribute):
                     self.assertTrue(self.exists(plug.mplug()))
                     self.assertIsNone(attributeType(plug.mplug()))
@@ -812,7 +814,7 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
             conversion.getPlug("input"),
             conversion.getPlug("output"),
         ):
-            name = plug.getFullName()
+            name = plug.getName(full=True)
             with self.subTest(plug=name):
                 expected = cmds.getAttr(name, type=True)
                 self.assertIs(type(plug), Plug)
@@ -835,7 +837,7 @@ class PlugAttributeTypeParityTest(unittest.TestCase):
         for selector in (0, 1, 0, 1, 0):
             cmds.setAttr(choice.getName() + ".selector", selector)
             value = output.get()
-            reference = cmds.getAttr(output.getFullName())
+            reference = cmds.getAttr(output.getName(full=True))
             self.assertIs(type(output), Plug)
             if selector == 0:
                 self.assertIsInstance(value, mlib.Matrix)
@@ -1223,13 +1225,13 @@ class NodeGetPlugsParityTest(_NewSceneCase):
 
     def expected(self, node, include_children, **flags):
         result = []
-        for name in cmds.listAttr(node.getFullName(), **flags) or []:
+        for name in cmds.listAttr(node.getName(full=True), **flags) or []:
             try:
                 plug = node.getPlug(name)
             except (AttributeError, RuntimeError, ValueError):
                 continue
             if include_children or not plug.mplug().isChild:
-                result.append((plug.getFullName(), type(plug).__name__))
+                result.append((plug.getName(full=True), type(plug).__name__))
         return result
 
     def test_get_plugs_matches_cmds_list_attr(self):
@@ -1291,7 +1293,7 @@ class NodeGetPlugsParityTest(_NewSceneCase):
             for flags in flag_sets:
                 for include_children in (True, False):
                     with self.subTest(node=name, flags=flags, includeChildren=include_children):
-                        actual = [(plug.getFullName(), type(plug).__name__) for plug in node.getPlugs(includeChildren=include_children, **flags)]
+                        actual = [(plug.getName(full=True), type(plug).__name__) for plug in node.getPlugs(includeChildren=include_children, **flags)]
                         self.assertEqual(actual, self.expected(node, include_children, **flags))
 
 

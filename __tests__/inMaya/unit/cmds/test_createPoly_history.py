@@ -35,7 +35,7 @@ class PolyHistoryTest(NamespaceCase):
                 self.assertEqual(len(history), 1)
                 self.assertAlmostEqual(history[0].getPlug(attribute).get(), value)
                 shape = mlib.createPoly(shape_kind, name=self.name(kind + "Short"), ch=True, cuv=0, **kwargs)
-                self.assertEqual(cmds.polyEvaluate(shape.getFullName(), uvcoord=True), 0)
+                self.assertEqual(cmds.polyEvaluate(shape.getName(full=True), uvcoord=True), 0)
 
     def test_round_cap_matches_command(self):
         """roundCap は cmds.polyCylinder(roundCap=True) と同じ頂点数になる。"""
@@ -52,7 +52,7 @@ class PolyHistoryTest(NamespaceCase):
         cmds.select(clear=True)
         self.flushUndo()
         shape = mlib.createPoly("sphere", name=self.name("undoBall"), constructionHistory=True)
-        transform = shape.getTransform().getFullName()
+        transform = shape.getTransform().getName(full=True)
         self.assertEqual(cmds.ls(selection=True), [])
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(transform)), lambda: self.assertTrue(cmds.objExists(transform)))
 

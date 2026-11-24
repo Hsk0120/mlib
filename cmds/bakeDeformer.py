@@ -63,15 +63,15 @@ def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, m
     target_root = root if destinationSkeleton is None else Node(Object._input_name(destinationSkeleton))
     with undoChunk("mlibBakeDeformer"):
         cmds.bakeDeformer(
-            srcMeshName=source_node.getFullName(),
-            srcSkeletonName=root.getFullName(),
-            dstMeshName=target.getFullName(),
-            dstSkeletonName=target_root.getFullName(),
+            srcMeshName=source_node._full_name(),
+            srcSkeletonName=root._full_name(),
+            dstMeshName=target._full_name(),
+            dstSkeletonName=target_root._full_name(),
             maxInfluences=maxInfluences,
             **kwargs,
         )
     # 結果の照会はUndoのまとまりの外で行う(中で行うとRedoでウェイトが焼き込み前の値になる)。
-    skins = cmds.ls(cmds.listHistory(target.getFullName()) or [], type="skinCluster")
+    skins = cmds.ls(cmds.listHistory(target._full_name()) or [], type="skinCluster")
     if not skins:
-        raise RuntimeError(f"bakeDeformerがskinClusterを作成できませんでした: {target.getFullName()}")
+        raise RuntimeError(f"bakeDeformerがskinClusterを作成できませんでした: {target._full_name()}")
     return SkinCluster(skins[0])

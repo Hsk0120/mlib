@@ -32,7 +32,7 @@ class NamingContractsTest(unittest.TestCase):
             self.assertEqual(blender.getAttributeName(), "blender")
             self.assertEqual(node.getPlug("output").getAttributeName(), "output")
         finally:
-            cmds.delete(node.getFullName())
+            cmds.delete(node.getName(full=True))
 
     def test_getters_are_exposed(self):
         """取得入口が正式名で公開され、複数形には転送しない。"""

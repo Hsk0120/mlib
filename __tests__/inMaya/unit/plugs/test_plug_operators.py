@@ -27,7 +27,7 @@ class _ConnectionSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         self.a = self.make("transform")
         self.b = self.make("transform")
-        # Plug.getFullName() とcmdsの接続照会はノードの一意名(ルートの "|" 無し)なので同じ形で比べる。
+        # Plug.getName(full=True) とcmdsの接続照会はノードの一意名(ルートの "|" 無し)なので同じ形で比べる。
         self.an = self.a.getName()
         self.bn = self.b.getName()
         cmds.flushUndo()
@@ -64,7 +64,7 @@ class RightShiftSpecTest(_ConnectionSpecCase):
         """戻り値は実際の接続先(dstと同じプラグ)。cmdsで接続を確認する。"""
         result = self.a.getPlug("tx") >> self.b.getPlug("ty")
         self.assertIsInstance(result, plugs.Plug)
-        self.assertEqual(result.getFullName(), self.bn + ".translateY")
+        self.assertEqual(result.getName(full=True), self.bn + ".translateY")
         self.assertEqual(self.inputs(self.bn + ".ty"), [self.an + ".translateX"])
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".ty"))
 
@@ -74,21 +74,21 @@ class RightShiftSpecTest(_ConnectionSpecCase):
             with self.subTest(dst=label):
                 result = self.a.getPlug("tx") >> dst
                 self.assertEqual(result.getNode(), self.b)
-                self.assertEqual(self.inputs(result.getFullName()), [self.an + ".translateX"])
+                self.assertEqual(self.inputs(result.getName(full=True)), [self.an + ".translateX"])
 
     def test_evaluation_order_with_attribute_access(self):
         """``a >> b.x`` は ``a >> (b.x)`` と評価される(属性参照が演算子より優先)。"""
         net = self.make("network")
-        cmds.addAttr(net.getFullName(), longName="val", attributeType="double")
+        cmds.addAttr(net.getName(full=True), longName="val", attributeType="double")
         result = self.a.getPlug("tx") >> net.val
-        self.assertEqual(result.getFullName(), net.getName() + ".val")
+        self.assertEqual(result.getName(full=True), net.getName() + ".val")
         self.assertEqual(self.inputs(net.getName() + ".val"), [self.an + ".translateX"])
 
     def test_chaining_through_returned_destination(self):
         """戻り値を次の ``>>`` の接続元にできる(a >> b >> c)。"""
         c = self.make("transform")
         result = self.a.getPlug("tx") >> self.b.getPlug("tx") >> c.getPlug("tx")
-        self.assertEqual(result.getFullName(), c.getName() + ".translateX")
+        self.assertEqual(result.getName(full=True), c.getName() + ".translateX")
         self.assertEqual(self.inputs(self.bn + ".tx"), [self.an + ".translateX"])
         self.assertEqual(self.inputs(c.getName() + ".tx"), [self.bn + ".translateX"])
 
@@ -103,7 +103,7 @@ class RightShiftSpecTest(_ConnectionSpecCase):
             values << self.a.getPlug("ty")
         self.assertIsNone(cmds.getAttr(net.getName() + ".vals", multiIndices=True))
         result = self.a.getPlug("ty") >> values[2]
-        self.assertEqual(result.getFullName(), net.getName() + ".vals[2]")
+        self.assertEqual(result.getName(full=True), net.getName() + ".vals[2]")
         # cmds.connectAttr(nextAvailable=True)と同じく、接続のある最後の要素の次を選ぶ。
         chosen = self.a.getPlug("tz").connectTo(values, nextAvailable=True)
         self.assertEqual(chosen.getIndex(), 3)
@@ -161,7 +161,7 @@ class LeftShiftSpecTest(_ConnectionSpecCase):
             with self.subTest(src=label):
                 dst = self.b.getPlug(attr)
                 self.assertIs(dst << src, dst)
-                self.assertEqual(self.inputs(dst.getFullName()), [self.an + ".translate" + attr[-1].upper()])
+                self.assertEqual(self.inputs(dst.getName(full=True)), [self.an + ".translate" + attr[-1].upper()])
 
     def test_undo_once_and_errors(self):
         """1回のUndoで戻る。未対応の型はTypeError、入力済みはRuntimeError。"""
@@ -190,11 +190,11 @@ class FloorDivSpecTest(_ConnectionSpecCase):
         cmds.flushUndo()
         result = self.a.getPlug("tx") // self.b.getPlug("tx")
         self.assertIsInstance(result, plugs.Plug)
-        self.assertEqual(result.getFullName(), self.bn + ".translateX")
+        self.assertEqual(result.getName(full=True), self.bn + ".translateX")
         self.assertEqual(self.inputs(self.bn + ".tx"), [])
         self.assertEqual(self.inputs(self.bn + ".ty"), [self.an + ".translateX"])
         result = self.a.getPlug("tx") // (self.bn + ".ty")
-        self.assertEqual(result.getFullName(), self.bn + ".translateY")
+        self.assertEqual(result.getName(full=True), self.bn + ".translateY")
         self.assertEqual(self.inputs(self.bn + ".ty"), [])
 
     def test_undo_once(self):
@@ -221,7 +221,7 @@ class FloorDivSpecTest(_ConnectionSpecCase):
         """``>>`` で作った接続を ``//`` で解除でき、戻り値は同じ接続先を指す。"""
         connected = self.a.getPlug("tx") >> self.b.getPlug("tz")
         released = self.a.getPlug("tx") // self.b.getPlug("tz")
-        self.assertEqual(connected.getFullName(), released.getFullName())
+        self.assertEqual(connected.getName(full=True), released.getName(full=True))
         self.assertEqual(self.inputs(self.bn + ".tz"), [])
 
 
@@ -236,9 +236,9 @@ class GetConnectionsSpecTest(_ConnectionSpecCase):
         result = tx.getConnections(s=True, d=False, skipConversionNodes=True)
         self.assertEqual(len(result), 1)
         self.assertIsInstance(result[0], plugs.DoubleLinearPlug)
-        self.assertEqual(result[0].getFullName(), self.an + ".translateX")
+        self.assertEqual(result[0].getName(full=True), self.an + ".translateX")
         pairs = self.b.getPlug("rx").getConnections(s=True, d=False, asPair=True, skipConversionNodes=True)
-        self.assertEqual([(p[0].getFullName(), p[1].getFullName()) for p in pairs], [(self.bn + ".rotateX", self.an + ".rotateY")])
+        self.assertEqual([(p[0].getName(full=True), p[1].getName(full=True)) for p in pairs], [(self.bn + ".rotateX", self.an + ".rotateY")])
         self.assertIsInstance(pairs[0][1], plugs.DoubleAnglePlug)
         nodes = tx.getConnections(s=True, d=False, asNode=True, skipConversionNodes=True)
         self.assertEqual(nodes, [self.a])
@@ -269,7 +269,7 @@ class NextAvailableLocationSpecTest(_ConnectionSpecCase):
         self.assertNotIn("getNextAvailable", plugs.Plug.__dict__)
         self.assertIn("getNextAvailable", plugs.MultiPlug.__dict__)
         net = self.make("network")
-        cmds.addAttr(net.getFullName(), longName="vals", attributeType="double", multi=True)
+        cmds.addAttr(net.getName(full=True), longName="vals", attributeType="double", multi=True)
         values = net.getPlug("vals")
         self.assertIsInstance(values, plugs.MultiPlug)
         self.assertEqual(values.getNextAvailable().getIndex(), 0)

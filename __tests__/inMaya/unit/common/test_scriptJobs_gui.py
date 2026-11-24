@@ -17,7 +17,7 @@ class NativeScriptJobContextsTest(unittest.TestCase):
     def tearDown(self):
         self.jobs.stop()
         self.external.stop()
-        cmds.delete(self.node.getFullName())
+        cmds.delete(self.node.getName(full=True))
 
     def test_native_registration_and_cleanup_preserve_target_and_external_job(self):
         """アトリビュート監視・イベント監視を解除しても対象ノードと外部監視を残す。"""

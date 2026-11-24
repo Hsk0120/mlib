@@ -167,7 +167,7 @@ class ConstructionTest(_SpecCase):
         with self.assertRaises(RuntimeError):
             Nodes([self.ns + ":missing"])
         node = Node(self.make())
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         with self.assertRaisesRegex(RuntimeError, "無効なノードは収集できません"):
             Nodes([node])
         with self.assertRaises(TypeError):

@@ -31,7 +31,7 @@ class SkinWeightRangeWriteTest(unittest.TestCase):
         name = cmds.skinCluster(self.joints, self.mesh, toSelectedBones=True, name=self.ns + ":skin")[0]
         self.skin = mlib.getNode(name)
         cmds.setAttr(name + ".normalizeWeights", 0)
-        self.prefix = self.skin.getFullName() + ".weightList"
+        self.prefix = self.skin.getName(full=True) + ".weightList"
         self.count = cmds.polyEvaluate(self.mesh, vertex=True)
 
     def tearDown(self):
@@ -81,7 +81,7 @@ class SkinWeightRangeWriteTest(unittest.TestCase):
 
     def test_order_and_holes_match_logical_indices(self):
         """物理番号と論理番号の穴、指定順の入れ替えで値が正しい論理番号へ入る。"""
-        cmds.skinCluster(self.skin.getFullName(), edit=True, removeInfluence=self.joints[1])
+        cmds.skinCluster(self.skin.getName(full=True), edit=True, removeInfluence=self.joints[1])
         order = [self.joints[4], self.joints[3], self.joints[0], self.joints[2]]
         values = [v for vertex in range(self.count) for v in (vertex, vertex + 0.25, vertex + 0.5, vertex + 0.75)]
         self.skin.setWeights(order, values)

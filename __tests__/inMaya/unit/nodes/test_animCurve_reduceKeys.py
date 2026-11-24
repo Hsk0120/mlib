@@ -66,7 +66,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
         curve.reduceKeys(1, preserveKeyTangent="linear")
         self.assertEqual(curve.getKeyCount(), 11)
         other = self._curve()
-        cmds.selectKey(other.getFullName(), time=(48, 120))
+        cmds.selectKey(other.getName(full=True), time=(48, 120))
         try:
             curve.reduceKeys(1, precisionMode=1)
             self.assertEqual(curve.getKeyCount(), 2)
@@ -76,14 +76,14 @@ class AnimCurveReduceKeysTest(NamespaceCase):
 
     def test_weighted_tangents_undo_and_step_preservation(self):
         curve = self._curve()
-        cmds.keyTangent(curve.getFullName(), weightedTangents=True)
+        cmds.keyTangent(curve.getName(full=True), weightedTangents=True)
         before = self._state(curve)
         self.flushUndo()
         curve.reduceKeys(0.001)
         cmds.undo()
         self.assertEqual(self._state(curve), before)
         step_curve = self._curve(values=(0, 1, 1, 2))
-        cmds.keyTangent(step_curve.getFullName(), outTangentType="step")
+        cmds.keyTangent(step_curve.getName(full=True), outTangentType="step")
         step_curve.reduceKeys(100, preserveKeyTangent=("step", "stepnext"))
         self.assertEqual(step_curve.getKeyCount(), 4)
 
@@ -110,7 +110,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
         self.assertEqual(self._state(curve), before)
         self.assertUndoEmpty()
         disconnected = self._curve(connected=False)
-        cmds.connectAttr("time1.outTime", disconnected.getFullName() + ".input")
+        cmds.connectAttr("time1.outTime", disconnected.getName(full=True) + ".input")
         self.flushUndo()
         with self.assertRaisesRegex(RuntimeError, "出力先"):
             disconnected.reduceKeys(1)
@@ -126,7 +126,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
             self.assertEqual(curve.getKeyCount(), 11)
             self.assertUndoEmpty()
         curve = self._curve()
-        cmds.setAttr(curve.getFullName() + ".keyTimeValue", lock=True)
+        cmds.setAttr(curve.getName(full=True) + ".keyTimeValue", lock=True)
         self.flushUndo()
         with self.assertRaises(RuntimeError):
             curve.reduceKeys(1)
@@ -140,7 +140,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
             attribute = {"A": "rx", "L": "tx", "U": "sx", "T": "timeValue"}[kind[-1]]
             if attribute == "timeValue":
                 cmds.addAttr(target, longName=attribute, attributeType="time")
-            cmds.connectAttr(curve.getFullName() + ".output", target + "." + attribute)
+            cmds.connectAttr(curve.getName(full=True) + ".output", target + "." + attribute)
         for index, value in enumerate(values if values is not None else range(11)):
             curve.setKey(index, value, unit="rad", timeUnit="sec", inTangentType="linear", outTangentType="linear")
         return curve

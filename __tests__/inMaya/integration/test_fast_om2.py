@@ -116,7 +116,7 @@ class Om2BackendsTest(unittest.TestCase):
             for values in states:
                 if values is not None:
                     args = (values,) if kind in ("doubleArray", "Int32Array") else (len(values), *values)
-                    cmds.setAttr(plug.getFullName(), *args, type=kind)
+                    cmds.setAttr(plug.getName(full=True), *args, type=kind)
                 expected = values
                 with self.forbidden("getAttr"):
                     self.assertEqual(plug.get(), expected, (kind, values))
@@ -183,17 +183,17 @@ class Om2BackendsTest(unittest.TestCase):
             node = mlib.getNode(name)
             shape = node.getShape()
             token = ".vtx[*]" if shape.getType() == "mesh" else ".cv[*][*]" if shape.getType() == "nurbsSurface" else ".cv[*]"
-            before = cmds.xform(shape.getFullName() + token, query=True, translation=True)
+            before = cmds.xform(shape.getName(full=True) + token, query=True, translation=True)
             with self.assertRaises(NotImplementedError):
                 node.scaleGeometry(2, fast=True)
-            self.assertEqual(cmds.xform(shape.getFullName() + token, query=True, translation=True), before)
+            self.assertEqual(cmds.xform(shape.getName(full=True) + token, query=True, translation=True), before)
         shape = mlib.getNode(cmds.polyCube(ch=False)[0]).getShape()
         before = shape.getVertices().getPosition()
         for indices, exception in (([0, 999], IndexError), ([True], TypeError)):
             with self.assertRaises(exception):
                 shape.scaleGeometry(2, indices=indices, fast=True)
             self.assert_points(shape.getVertices().getPosition(), before)
-        cmds.setAttr(shape.getFullName() + ".pnts[2].pntx", lock=True)
+        cmds.setAttr(shape.getName(full=True) + ".pnts[2].pntx", lock=True)
         with self.assertRaises(RuntimeError):
             shape.scaleGeometry(2, indices=[0, 2], fast=True, check=True)
         self.assert_points(shape.getVertices().getPosition(), before)
@@ -248,16 +248,16 @@ class Om2BackendsTest(unittest.TestCase):
     def test_aliases_use_api_for_sparse_and_renamed_nodes(self):
         """マルチアトリビュートの要素のalias取得はcmdsを使わず、改名・削除Undoを追跡する。"""
         node = mlib.createNode("blendShape")
-        cmds.setAttr(node.getFullName() + ".weight[7]", 0.5)
-        cmds.aliasAttr("sparseWeight", node.getFullName() + ".weight[7]")
-        cmds.aliasAttr("envelopeAlias", node.getFullName() + ".envelope")
-        expected = cmds.aliasAttr(node.getFullName(), query=True)
+        cmds.setAttr(node.getName(full=True) + ".weight[7]", 0.5)
+        cmds.aliasAttr("sparseWeight", node.getName(full=True) + ".weight[7]")
+        cmds.aliasAttr("envelopeAlias", node.getName(full=True) + ".envelope")
+        expected = cmds.aliasAttr(node.getName(full=True), query=True)
         node.rename("aliasRenamed")
         with self.forbidden("aliasAttr", "ls", "getAttr"):
             pairs = node.getAliases()
         self.assertEqual([alias for alias, _ in pairs], expected[::2])
         self.assertEqual(dict(pairs)["sparseWeight"], node.getPlug("weight[7]"))
-        cmds.aliasAttr(node.getFullName() + ".sparseWeight", remove=True)
+        cmds.aliasAttr(node.getName(full=True) + ".sparseWeight", remove=True)
         self.assertNotIn("sparseWeight", dict(node.getAliases()))
         cmds.undo()
         self.assertIn("sparseWeight", dict(node.getAliases()))

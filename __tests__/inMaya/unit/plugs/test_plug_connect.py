@@ -60,7 +60,7 @@ class ConnectionDefaultTest(_SpecCase):
         """unitConversionを挟む接続で、既定は変換ノード、Trueは先のノードを返す。"""
         source = mlib.createNode("transform", name=self.name("drv"), skipSelect=True)
         target = mlib.createNode("transform", name=self.name("dst"), skipSelect=True)
-        cmds.connectAttr(source.getFullName() + ".tx", target.getFullName() + ".rx")
+        cmds.connectAttr(source.getName(full=True) + ".tx", target.getName(full=True) + ".rx")
         plug = target.getPlug("rx")
         self.assertEqual(plug.getConnections(input=True).getNode().getType(), "unitConversion")
         self.assertEqual(plug.getConnections(input=True, skipConversionNodes=True).getNode(), source)
@@ -220,17 +220,17 @@ class ConnectSpecTest(_ConnectionSpecCase):
     def test_next_available_on_multi(self):
         """マルチアトリビュート全体へのnextAvailable/naは入力・ロックの無い最初の要素を選んで返す。"""
         net = self.make("network")
-        cmds.addAttr(net.getFullName(), longName="vals", attributeType="double", multi=True)
+        cmds.addAttr(net.getName(full=True), longName="vals", attributeType="double", multi=True)
         values = net.getPlug("vals")
-        cmds.setAttr(net.getFullName() + ".vals[0]", 1.0)
-        cmds.setAttr(net.getFullName() + ".vals[0]", lock=True)
-        cmds.connectAttr(self.an + ".tx", net.getFullName() + ".vals[1]")
+        cmds.setAttr(net.getName(full=True) + ".vals[0]", 1.0)
+        cmds.setAttr(net.getName(full=True) + ".vals[0]", lock=True)
+        cmds.connectAttr(self.an + ".tx", net.getName(full=True) + ".vals[1]")
         target = values.connect(self.a.getPlug("ty"), nextAvailable=True)
-        self.assertEqual(target.getFullName(), net.getFullName() + ".vals[2]")
+        self.assertEqual(target.getName(full=True), net.getName(full=True) + ".vals[2]")
         self.assertIsNot(target, values)
         target = values.connect(self.a.getPlug("tz"), na=True)
-        self.assertEqual(target.getFullName(), net.getFullName() + ".vals[3]")
-        self.assertTrue(cmds.isConnected(self.an + ".tz", net.getFullName() + ".vals[3]"))
+        self.assertEqual(target.getName(full=True), net.getName(full=True) + ".vals[3]")
+        self.assertTrue(cmds.isConnected(self.an + ".tz", net.getName(full=True) + ".vals[3]"))
 
     def test_connect_to_delegates_and_returns_destination(self):
         """connectToは接続先Plugを返し、force等の指定をconnectへ渡す。dstの欠落・重複はTypeError。"""
@@ -279,7 +279,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         self.assertEqual(self.inputs(self.bn + ".tx"), [])
         cmds.connectAttr(self.an + ".ty", self.bn + ".ty")
         result = self.b.getPlug("ty").disconnect()
-        self.assertEqual(result.getFullName(), self.an + ".translateY")
+        self.assertEqual(result.getName(full=True), self.an + ".translateY")
         self.assertIsInstance(result, plugs.Plug)
         cmds.connectAttr(self.an + ".tz", self.bn + ".tz")
         result = self.b.getPlug("tz").disconnect(source=self.an + ".tz")
@@ -348,14 +348,14 @@ class DisconnectSpecTest(_ConnectionSpecCase):
     def test_disconnect_next_available_on_multi(self):
         """マルチアトリビュートでsrcとnaを指定すると、srcへ直結した全要素を切断して要素のlistを返す。"""
         net = self.make("network")
-        name = net.getFullName()
+        name = net.getName(full=True)
         cmds.addAttr(name, longName="vals", attributeType="double", multi=True)
         cmds.connectAttr(self.an + ".tx", name + ".vals[1]")
         cmds.connectAttr(self.an + ".ty", name + ".vals[2]")
         cmds.connectAttr(self.an + ".tx", name + ".vals[4]")
         values = net.getPlug("vals")
         result = values.disconnect(self.a.getPlug("tx"), nextAvailable=True)
-        self.assertEqual([p.getFullName() for p in result], [name + ".vals[1]", name + ".vals[4]"])
+        self.assertEqual([p.getName(full=True) for p in result], [name + ".vals[1]", name + ".vals[4]"])
         self.assertEqual(values.getSourceNodes(), {2: self.a})
         with self.assertRaises(RuntimeError):
             values.disconnect(self.a.getPlug("tx"), na=True)
@@ -464,9 +464,9 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
     def test_get_outputs(self):
         """getConnections(outputs=True)は出力先のPlugs。未接続は空、asNodeはノード単位で統合、indexは範囲外None。"""
         destinations = self.a.getPlug("tx").getConnections(outputs=True, skipConversionNodes=True)
-        self.assertEqual(sorted(p.getFullName() for p in destinations), sorted([self.bn + ".rotateX", self.bn + ".translateY", self.bn + ".translateZ"]))
+        self.assertEqual(sorted(p.getName(full=True) for p in destinations), sorted([self.bn + ".rotateX", self.bn + ".translateY", self.bn + ".translateZ"]))
         direct = self.a.getPlug("tx").getConnections(outputs=True)
-        self.assertIn(self.conversion + ".input", [p.getFullName() for p in direct])
+        self.assertIn(self.conversion + ".input", [p.getName(full=True) for p in direct])
         self.assertEqual(self.a.getPlug("tx").getConnections(outputs=True, asNode=True, skipConversionNodes=True), [self.b])
         self.assertEqual(self.a.getPlug("sx").getConnections(outputs=True, skipConversionNodes=True), [])
         self.assertIsNone(self.a.getPlug("tx").getConnections(outputs=True, index=99, skipConversionNodes=True))
@@ -478,7 +478,7 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
         self.assertEqual(translate.getConnections(skipConversionNodes=True), [self.a.getPlug("tx")])
         self.assertEqual(translate.getConnections(checkChildren=False, skipConversionNodes=True), [])
         pairs = translate.getConnections(c=True, skipConversionNodes=True)
-        self.assertEqual(sorted(p[0].getFullName() for p in pairs), [self.bn + ".translateY", self.bn + ".translateZ"])
+        self.assertEqual(sorted(p[0].getName(full=True) for p in pairs), [self.bn + ".translateY", self.bn + ".translateZ"])
         self.assertTrue(all(p[1] == self.a.getPlug("tx") for p in pairs))
         self.assertEqual(translate.getConnections(d=False, skipConversionNodes=True), translate.getConnections(destination=False, skipConversionNodes=True))
         self.assertEqual(translate.getConnections(s=False, skipConversionNodes=True), [])

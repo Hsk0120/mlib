@@ -70,7 +70,7 @@ class JointTest(unittest.TestCase):
         cmds.select(clear=True)
         joint_name = cmds.joint(name=self.namespace + ":" + name)
         if parent is not None:
-            cmds.parent(joint_name, parent.getFullName())
+            cmds.parent(joint_name, parent.getName(full=True))
         self.created.append(joint_name)
         return Joint(joint_name)
 
@@ -109,7 +109,7 @@ class JointTest(unittest.TestCase):
         self.assertEqual(child.getPlug("inverseScale").getConnections(input=True), parent.getPlug("scale"))
         cmds.undo()
         self.assertIsNone(child.getPlug("inverseScale").getConnections(input=True))
-        child.connectInverseScale(parent.getFullName())
+        child.connectInverseScale(parent.getName(full=True))
         child.connectInverseScale()  # 同じ接続はそのまま
         child.disconnectInverseScale()
         parent.getPlug("sx").connectTo(child.getPlug("inverseScaleX"))
@@ -147,12 +147,12 @@ class JointTest(unittest.TestCase):
     def test_node_create_resolves_to_joint_wrapper(self):
         joint = self.create_joint("mlibJointBasic")
         self.assertIsInstance(joint, Joint)
-        self.assertIsInstance(Node(joint.getFullName()), Joint)
+        self.assertIsInstance(Node(joint.getName(full=True)), Joint)
 
     def test_joint_orient_returns_degrees_converted_to_radians(self):
         joint = self.create_joint("mlibJointOrient")
-        cmds.setAttr(joint.getFullName() + ".jointOrientX", 90.0)
-        cmds.setAttr(joint.getFullName() + ".jointOrientY", -45.0)
+        cmds.setAttr(joint.getName(full=True) + ".jointOrientX", 90.0)
+        cmds.setAttr(joint.getName(full=True) + ".jointOrientY", -45.0)
 
         orient = joint.getJointOrient()
         self.assertIsInstance(orient, EulerRotate)
@@ -162,12 +162,12 @@ class JointTest(unittest.TestCase):
 
     def test_joint_orient_z_returns_radians(self):
         joint = self.create_joint("mlibJointOrientation")
-        cmds.setAttr(joint.getFullName() + ".jointOrientZ", 30.0)
+        cmds.setAttr(joint.getName(full=True) + ".jointOrientZ", 30.0)
         self.assertAlmostEqual(joint.getJointOrient().z, math.radians(30.0))
 
     def test_inverse_scale_is_not_angle_converted(self):
         joint = self.create_joint("mlibJointInverseScale")
-        cmds.setAttr(joint.getFullName() + ".inverseScale", 2.0, 3.0, 4.0)
+        cmds.setAttr(joint.getName(full=True) + ".inverseScale", 2.0, 3.0, 4.0)
 
         inverse_scale = joint.getInverseScale()
         self.assertIsInstance(inverse_scale, Scale)
@@ -179,13 +179,13 @@ class JointTest(unittest.TestCase):
         # rotateAxis/jointOrient を補正した上で .rotate チャンネルへ書き込むため、
         # .rotate の生値ではなく getRotate() による round-trip で検証する。
         joint = self.create_joint("mlibJointOrientPreserve")
-        cmds.setAttr(joint.getFullName() + ".jointOrientX", 90.0)
-        cmds.setAttr(joint.getFullName() + ".rotateAxisY", 30.0)
+        cmds.setAttr(joint.getName(full=True) + ".jointOrientX", 90.0)
+        cmds.setAttr(joint.getName(full=True) + ".rotateAxisY", 30.0)
 
         joint.setRotate((0.0, 45.0, 0.0))
 
-        self.assertAlmostEqual(cmds.getAttr(joint.getFullName() + ".jointOrientX"), 90.0, places=6)
-        self.assertAlmostEqual(cmds.getAttr(joint.getFullName() + ".rotateAxisY"), 30.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(joint.getName(full=True) + ".jointOrientX"), 90.0, places=6)
+        self.assertAlmostEqual(cmds.getAttr(joint.getName(full=True) + ".rotateAxisY"), 30.0, places=6)
 
         rotate = joint.getRotate()
         self.assertAlmostEqual(rotate.x, 0.0, places=6)
@@ -197,8 +197,8 @@ class JointTest(unittest.TestCase):
         # 行列式が負(負スケール)の joint でも setMatrix(getMatrix()) で姿勢が変わらない。
         root = self.create_joint("mlibJointNegativeRoot")
         joint = self.create_joint("mlibJointNegative", parent=root)
-        name = joint.getFullName()
-        cmds.setAttr(root.getFullName() + ".rotate", 15.0, -25.0, 35.0)
+        name = joint.getName(full=True)
+        cmds.setAttr(root.getName(full=True) + ".rotate", 15.0, -25.0, 35.0)
         cmds.setAttr(name + ".translate", 1.0, 2.0, 3.0)
         cmds.setAttr(name + ".jointOrient", 10.0, 20.0, 30.0)
         cmds.setAttr(name + ".rotate", 40.0, -50.0, 60.0)
@@ -216,9 +216,9 @@ class JointTest(unittest.TestCase):
         # IS を正しく打ち消すため、非一様スケールの親の下でも姿勢とチャンネル値が変わらない。
         root = self.create_joint("mlibJointSscRoot")
         joint = self.create_joint("mlibJointSsc", parent=root)
-        name = joint.getFullName()
-        cmds.setAttr(root.getFullName() + ".scale", 2.0, 3.0, 0.5)
-        cmds.connectAttr(root.getFullName() + ".scale", name + ".inverseScale", force=True)
+        name = joint.getName(full=True)
+        cmds.setAttr(root.getName(full=True) + ".scale", 2.0, 3.0, 0.5)
+        cmds.connectAttr(root.getName(full=True) + ".scale", name + ".inverseScale", force=True)
         cmds.setAttr(name + ".segmentScaleCompensate", True)
         cmds.setAttr(name + ".translate", 1.0, 2.0, 3.0)
         cmds.setAttr(name + ".jointOrient", 10.0, 20.0, 30.0)
@@ -243,7 +243,7 @@ class JointTest(unittest.TestCase):
     def test_set_matrix_round_trip_for_every_rotate_order_with_orient_and_axis(self):
         for order in range(6):
             joint = self.create_joint(f"mlibJointOrder{order:d}")
-            name = joint.getFullName()
+            name = joint.getName(full=True)
             cmds.setAttr(name + ".rotateOrder", order)
             cmds.setAttr(name + ".jointOrient", 10.0, 20.0, 30.0)
             cmds.setAttr(name + ".rotateAxis", 5.0, -15.0, 25.0)
@@ -306,10 +306,10 @@ class JointTest(unittest.TestCase):
         tip = self.create_joint("mlibJointIkTip", parent=mid)
 
         chain = root.getChainFromHere()
-        self.assertEqual([joint.getFullName() for joint in chain], [root.getFullName(), mid.getFullName(), tip.getFullName()])
+        self.assertEqual([joint.getName(full=True) for joint in chain], [root.getName(full=True), mid.getName(full=True), tip.getName(full=True)])
 
         self.assertEqual(root.getConnections(type="ikHandle", asNode=True), [])
-        handle_name = cmds.ikHandle(startJoint=root.getFullName(), endEffector=tip.getFullName(), solver="ikRPsolver")[0]
+        handle_name = cmds.ikHandle(startJoint=root.getName(full=True), endEffector=tip.getName(full=True), solver="ikRPsolver")[0]
         self.created.append(handle_name)
 
         # startJoint 接続に加え、poleVector 拘束などで同じ joint から同じ
@@ -324,7 +324,7 @@ class JointTest(unittest.TestCase):
         joint = self.create_joint("mlibJointSkinCluster")
         mesh_transform = cmds.polyCube(name="mlibJointSkinClusterMesh", constructionHistory=False)[0]
         self.created.append(mesh_transform)
-        skin_name = cmds.skinCluster(joint.getFullName(), mesh_transform)[0]
+        skin_name = cmds.skinCluster(joint.getName(full=True), mesh_transform)[0]
         self.created.append(skin_name)
 
         found = joint.getSkinClusters()
@@ -816,7 +816,7 @@ class RigQueryAdditionsTest(_CaseMethodAdditions):
         constraint = mlib.getNode(cmds.parentConstraint(a, b, driven)[0])
 
         def names():
-            return [node.getFullName() for node in constraint.getTargets()]
+            return [node.getName(full=True) for node in constraint.getTargets()]
 
         both = names()
         self.flushUndo()
@@ -880,18 +880,18 @@ class InsertJointsTest(_RigCase):
         self.assertTrue(all(isinstance(joint, Joint) for joint in created))
         for number, joint in enumerate(created, 1):
             with self.subTest(number=number):
-                position = cmds.xform(joint.getFullName(), query=True, translation=True, worldSpace=True)
+                position = cmds.xform(joint.getName(full=True), query=True, translation=True, worldSpace=True)
                 expected = [a + (b - a) * number / 4.0 for a, b in zip(start, end)]
                 self.assertSequenceAlmostEqual(position, expected, places=6)
-                self.assertSequenceAlmostEqual(cmds.getAttr(joint.getFullName() + ".jointOrient")[0], (0, 0, 0))
+                self.assertSequenceAlmostEqual(cmds.getAttr(joint.getName(full=True) + ".jointOrient")[0], (0, 0, 0))
                 matrix = joint.getMatrix(worldSpace=True)
                 for row in range(3):
                     for column in range(3):
                         self.assertAlmostEqual(matrix.getElement(row, column), root_rotation.getElement(row, column), places=6)
         self.assertEqual(created[0].getParent().getUuid(), root.getUuid())
         self.assertEqual(Joint(self.mid).getParent().getUuid(), created[-1].getUuid())
-        self.assertTrue(cmds.isConnected(created[0].getFullName() + ".scale", created[1].getFullName() + ".inverseScale"))
-        self.assertTrue(cmds.isConnected(created[-1].getFullName() + ".scale", cmds.ls(self.mid, long=True)[0] + ".inverseScale"))
+        self.assertTrue(cmds.isConnected(created[0].getName(full=True) + ".scale", created[1].getName(full=True) + ".inverseScale"))
+        self.assertTrue(cmds.isConnected(created[-1].getName(full=True) + ".scale", cmds.ls(self.mid, long=True)[0] + ".inverseScale"))
         self.assertSequenceAlmostEqual(cmds.xform(self.mid, query=True, matrix=True, worldSpace=True), child_matrix, places=6)
         cmds.undo()
         self.assertEqual(cmds.listRelatives(self.mid, parent=True, fullPath=True)[0], cmds.ls(self.root, long=True)[0])

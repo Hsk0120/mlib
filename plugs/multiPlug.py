@@ -334,7 +334,7 @@ class MultiPlug(Plug):
                 raise IndexError("マルチアトリビュートに空いている論理番号がありません")
             return Plug(self._node, mp.elementByLogicalIndex(index))
         if checkLocked and mp.isLocked:
-            raise RuntimeError(f"マルチアトリビュートがロックされています: {self.getFullName()}")
+            raise RuntimeError(f"マルチアトリビュートがロックされています: {self._full_name()}")
         if start < 0:
             count = mp.numConnectedElements()
             start = mp.connectionByPhysicalIndex(count - 1).logicalIndex() + 1 if count else 0
@@ -401,7 +401,7 @@ class MultiPlug(Plug):
             index = self._validated_logical_index(index)
             existing = sorted(self._mplug.getExistingArrayAttributeIndices())
             if index not in existing:
-                raise IndexError(f"{self.getFullName()}に論理番号{index}の要素はありません")
+                raise IndexError(f"{self._full_name()}に論理番号{index}の要素はありません")
             moves = [(source, source - 1) for source in existing if source > index] if shift else []
             if not breakConnections:
                 for target in [index] + [source for source, _ in moves]:
@@ -415,7 +415,7 @@ class MultiPlug(Plug):
                 modifier.removeMultiInstance(self._mplug.elementByLogicalIndex(index), breakConnections)
                 modifier.doIt()
             else:
-                cmds.removeMultiInstance(self._element_at(index).getFullName(), b=breakConnections)
+                cmds.removeMultiInstance(self._element_at(index)._full_name(), b=breakConnections)
                 if moves:
                     self._move_elements(moves)
 
@@ -539,7 +539,7 @@ class MultiPlug(Plug):
             RuntimeError: マルチアトリビュートか移す要素(その下を含む)がロックされている場合、
                 またはリファレンスのノードの場合。
         """
-        name = self.getFullName()
+        name = self._full_name()
         if self._node._dependency_fn().isFromReferencedFile:
             raise RuntimeError(f"マルチアトリビュートがリファレンスです: {name}")
         if self._mplug.isLocked:
@@ -562,7 +562,7 @@ class MultiPlug(Plug):
             None: 値を返さない。
         """
         captured = [(target, self._capture_element(source)) for source, target in moves]
-        name = self.getFullName()
+        name = self._full_name()
         for source, _ in moves:
             cmds.removeMultiInstance(f"{name}[{source}]", b=True)
         for target, (values, inputs, outputs) in captured:
@@ -570,11 +570,11 @@ class MultiPlug(Plug):
             for steps, value in values:
                 Plug(self._node, _follow(element, steps)).set(value)
             for steps, source in inputs:
-                cmds.connectAttr(source.getFullName(), Plug(self._node, _follow(element, steps)).getFullName())
+                cmds.connectAttr(source._full_name(), Plug(self._node, _follow(element, steps))._full_name())
             for steps, destinations in outputs:
-                plug_name = Plug(self._node, _follow(element, steps)).getFullName()
+                plug_name = Plug(self._node, _follow(element, steps))._full_name()
                 for destination in destinations:
-                    cmds.connectAttr(plug_name, destination.getFullName())
+                    cmds.connectAttr(plug_name, destination._full_name())
 
     def _capture_element(self, index):
         """要素の値と、入力・出力の接続を、要素からのたどり方と組にして集める。
@@ -646,5 +646,5 @@ class MultiPlug(Plug):
         index = self._validated_logical_index(index)
         mplug = self._mplug.elementByLogicalIndex(index)
         if is_internal_data_type(mplug) and index not in self._mplug.getExistingArrayAttributeIndices():
-            raise RuntimeError(f"内部データ型のマルチアトリビュートの要素は作成できません: {self.getFullName()}")
+            raise RuntimeError(f"内部データ型のマルチアトリビュートの要素は作成できません: {self._full_name()}")
         return Plug(self._node, mplug)

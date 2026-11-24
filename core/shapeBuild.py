@@ -142,7 +142,7 @@ def resolve_parent(parent):
     if not node.isValid():
         raise RuntimeError("parentが有効なノードではありません")
     if not isinstance(node, Transform):
-        raise TypeError(f"parentはtransformで指定してください: {node.getFullName()}")
+        raise TypeError(f"parentはtransformで指定してください: {node._full_name()}")
     return node
 
 
@@ -165,7 +165,7 @@ def finish_shape(transform, kind, name, parent):
 
     transform = cmds.ls(transform, long=True)[0]
     if parent is not None:
-        transform = cmds.ls(cmds.parent(transform, parent.getFullName(), relative=True)[0], long=True)[0]
+        transform = cmds.ls(cmds.parent(transform, parent._full_name(), relative=True)[0], long=True)[0]
     shape = cmds.listRelatives(transform, shapes=True, fullPath=True, type=kind)[0]
     if name:
         expected = transform.rsplit("|", 1)[-1] + "Shape"

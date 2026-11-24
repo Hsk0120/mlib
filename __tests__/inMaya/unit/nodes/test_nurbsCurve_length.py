@@ -29,14 +29,14 @@ class CurveLengthTest(unittest.TestCase):
     def test_world_space_instances_and_no_edits(self):
         """非均等スケールとシアー、別インスタンスを正しく評価する。"""
         transform = mlib.getNode(cmds.curve(d=1, p=[(0, 0, 0), (1, 1, 0)]))
-        instance = mlib.getNode(cmds.instance(transform.getFullName())[0])
+        instance = mlib.getNode(cmds.instance(transform.getName(full=True))[0])
         transform.getPlug("scale").set((2, 3, 1))
         transform.getPlug("shearXY").set(0.5)
         curve = transform.getShape()
         before = set(cmds.ls())
         undo_before = cmds.undoInfo(query=True, undoName=True)
         self.assertAlmostEqual(curve.getLength(tolerance=1e-6), math.sqrt(2))
-        end = cmds.pointPosition(curve.getFullName() + ".cv[1]", world=True)
+        end = cmds.pointPosition(curve.getName(full=True) + ".cv[1]", world=True)
         expected = math.sqrt(sum(v * v for v in end))
         self.assertAlmostEqual(curve.getLength(worldSpace=True), expected)
         self.assertAlmostEqual(instance.getShape().getLength(worldSpace=True), math.sqrt(2))
@@ -68,7 +68,7 @@ class CurveLengthTest(unittest.TestCase):
         curve = mlib.getNode(transform).getShape()
         cmds.setAttr(transform + ".scale", 2, 3, 1)
         info = cmds.createNode("curveInfo")
-        cmds.connectAttr(curve.getFullName() + ".worldSpace[0]", info + ".inputCurve")
+        cmds.connectAttr(curve.getName(full=True) + ".worldSpace[0]", info + ".inputCurve")
         self.assertAlmostEqual(curve.getLength(worldSpace=True), cmds.getAttr(info + ".arcLength"), places=4)
         original = curve.getLength(worldSpace=True)
         cmds.setAttr(history + ".radius", 4)
@@ -93,7 +93,7 @@ class CurveLengthTest(unittest.TestCase):
         cmds.setAttr(transform + ".scale", 2, 3, 1)
         curve = mlib.getNode(transform).getShape()
         info = cmds.createNode("curveInfo")
-        cmds.connectAttr(curve.getFullName() + ".worldSpace[0]", info + ".inputCurve")
+        cmds.connectAttr(curve.getName(full=True) + ".worldSpace[0]", info + ".inputCurve")
         self.assertAlmostEqual(curve.getLength(worldSpace=True), cmds.getAttr(info + ".arcLength"), places=4)
 
 

@@ -45,7 +45,7 @@ class _ComponentCase(NamespaceCase):
 
     def points(self, mesh):
         """全頂点のオブジェクト空間の座標を返す。"""
-        return cmds.xform(mesh.getFullName() + ".vtx[*]", query=True, translation=True, objectSpace=True)
+        return cmds.xform(mesh.getName(full=True) + ".vtx[*]", query=True, translation=True, objectSpace=True)
 
 
 #: 面3番(縮めた平面で範囲外になる)に対する照会。(名前, Face を受けて呼ぶ関数)。
@@ -103,7 +103,7 @@ class TopologyRangeErrorTest(_ComponentCase):
             index_error (bool): 縮めた状態で IndexError を確かめるか。
         """
         transform, mesh = self.plane()
-        cmds.polyColorPerVertex(mesh.getFullName() + ".vtx[*]", rgb=(0.0, 0.0, 0.0), colorDisplayOption=True)
+        cmds.polyColorPerVertex(mesh.getName(full=True) + ".vtx[*]", rgb=(0.0, 0.0, 0.0), colorDisplayOption=True)
         target = factory(mesh)
         for name, call in calls:
             with self.subTest(method=name, state="valid"):
@@ -201,7 +201,7 @@ class VertexFaceErrorTest(_ComponentCase):
 
     def locks(self, mesh):
         """全頂点フェースの法線のロック状態を返す。"""
-        return cmds.polyNormalPerVertex(mesh.getFullName() + ".vtxFace[*][*]", query=True, freezeNormal=True)
+        return cmds.polyNormalPerVertex(mesh.getName(full=True) + ".vtxFace[*][*]", query=True, freezeNormal=True)
 
     def test_set_normal_locked_type(self):
         """locked・fast が bool 以外、normal と合わない組み合わせは TypeError で、ロック状態を変えない。"""
@@ -254,18 +254,18 @@ class VertexFaceErrorTest(_ComponentCase):
         _, mesh = self.plane()
         target = VertexFace(mesh, 0)
         before = self.locks(mesh)
-        cmds.lockNode(mesh.getFullName(), lock=True)
+        cmds.lockNode(mesh.getName(full=True), lock=True)
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
                     target.setNormal(locked=True, fast=fast)
-        cmds.lockNode(mesh.getFullName(), lock=False)
+        cmds.lockNode(mesh.getName(full=True), lock=False)
         self.assertEqual(self.locks(mesh), before)
 
     def test_fast_with_history(self):
         """fast=True で入力ヒストリのあるメッシュなら NotImplementedError で、ノードを増やさない。"""
         _, mesh = self.plane(history=True)
-        cmds.polyColorPerVertex(mesh.getFullName() + ".vtx[*]", rgb=(0.0, 0.0, 0.0), colorDisplayOption=True)
+        cmds.polyColorPerVertex(mesh.getName(full=True) + ".vtx[*]", rgb=(0.0, 0.0, 0.0), colorDisplayOption=True)
         target = VertexFace(mesh, 0)
         before = (self.locks(mesh), self.nodes())
         for name, call in (("setNormal locked", lambda: target.setNormal(locked=True, fast=True)), ("removeColor", lambda: target.removeColor(fast=True))):
@@ -290,7 +290,7 @@ class VertexFaceErrorTest(_ComponentCase):
         """UV を割り当てていないメッシュでは getTangent(binormal=True) が RuntimeError。"""
         transform = cmds.polyPlane(name=self.name("noUV"), subdivisionsX=1, subdivisionsY=1, createUVs=0, constructionHistory=False)[0]
         mesh = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
-        self.assertEqual(cmds.polyEvaluate(mesh.getFullName(), uvcoord=True), 0)
+        self.assertEqual(cmds.polyEvaluate(mesh.getName(full=True), uvcoord=True), 0)
         with self.assertRaises(RuntimeError):
             VertexFace(mesh, 0).getTangent(binormal=True)
 

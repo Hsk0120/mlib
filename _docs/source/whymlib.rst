@@ -193,7 +193,7 @@ JointならJointの操作、SkinClusterならウェイト関連の操作を、�
 
 ノードの ``setRotate()`` は姿勢を扱い、``getPlug("rotate").set()`` はrotateアトリビュートの値を扱います。
 JointのjointOrientなどがある場合、この2つは同じ操作とは限りません。
-Mayaコマンドへ渡すときは ``getFullName()`` で名前へ変換します。値・接続・単位の仕様は
+Mayaコマンドへ渡すときは ``getName(full=True)`` で名前へ変換します。値・接続・単位の仕様は
 :class:`~mlib.plugs.plug.Plug` と :doc:`getting_started` を参照してください。
 
 マトリクス・クォータニオンを取得して計算する

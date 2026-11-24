@@ -48,7 +48,9 @@ class IkHandleTest(_SpecCase):
         self.assertEqual(self.node.getJoints(includeTip=True), [Joint(self.j1), Joint(self.j2), Joint(self.j3)])
         self.assertTrue(all(type(item) is Joint for item in self.node.getJoints(True)))
         # cmds の jointList と一致し、end=True は includeTip=True の最後と同じジョイント。
-        self.assertEqual([item.getFullName() for item in self.node.getJoints()], cmds.ls(cmds.ikHandle(self.handle, query=True, jointList=True), long=True))
+        self.assertEqual(
+            [item.getName(full=True) for item in self.node.getJoints()], cmds.ls(cmds.ikHandle(self.handle, query=True, jointList=True), long=True)
+        )
         self.assertEqual(self.node.getJoints(end=True), self.node.getJoints(includeTip=True)[-1])
         self.assertEqual(self.node.getJoints(end=False), self.node.getJoints())
 
@@ -119,7 +121,7 @@ class IkHandleDagAdditionsTest(_Case):
     def test_solver(self):
         handle = self.handle
         self.assertEqual(handle.getSolver(), "ikRPsolver")
-        self.assertEqual(handle.getSolver(), cmds.ikHandle(handle.getFullName(), query=True, solver=True))
+        self.assertEqual(handle.getSolver(), cmds.ikHandle(handle.getName(full=True), query=True, solver=True))
         self.flushUndo()
         self.assertIsNone(handle.setSolver("ikSCsolver"))
         self.assertEqual(handle.getSolver(), "ikSCsolver")
@@ -129,8 +131,8 @@ class IkHandleDagAdditionsTest(_Case):
         for value, error in ((None, TypeError), ("ikSplineSolver", ValueError), ("bogus", ValueError)):
             with self.subTest(value=value):
                 self.assertRaisesNoChange(error, handle.getSolver, lambda: handle.setSolver(value))
-        source = cmds.listConnections(handle.getFullName() + ".ikSolver", plugs=True)[0]
-        cmds.disconnectAttr(source, handle.getFullName() + ".ikSolver")
+        source = cmds.listConnections(handle.getName(full=True) + ".ikSolver", plugs=True)[0]
+        cmds.disconnectAttr(source, handle.getName(full=True) + ".ikSolver")
         self.assertIsNone(handle.getSolver())
 
     def test_spline_handle_is_rejected(self):
@@ -144,10 +146,10 @@ class IkHandleDagAdditionsTest(_Case):
     def test_snap_to_effector(self):
         """届かない位置のハンドルをエフェクターの位置へ移す。Undo 1回。"""
         handle = self.handle
-        name = handle.getFullName()
+        name = handle.getName(full=True)
         cmds.setAttr(name + ".snapEnable", False)
         cmds.setAttr(name + ".t", 10, 10, 10)
-        effector = handle.getEffector().getFullName()
+        effector = handle.getEffector().getName(full=True)
         self.flushUndo()
         self.assertIsNone(handle.snapToEffector())
         self.assertSequenceAlmostEqual(

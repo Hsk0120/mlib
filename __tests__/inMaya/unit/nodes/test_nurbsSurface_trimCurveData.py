@@ -14,8 +14,8 @@ class SurfaceTrimCurveDataTest(NamespaceCase):
     def test_curve_values_and_no_nodes_created(self):
         name = cmds.nurbsPlane(name=self.ns + ":surface", constructionHistory=False)[0]
         shape = mlib.getNode(name).getShape()
-        boundary = cmds.curveOnSurface(shape.getFullName(), degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
-        cmds.trim(shape.getFullName(), boundary, constructionHistory=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
+        boundary = cmds.curveOnSurface(shape.getName(full=True), degree=1, positionUV=[(0.2, 0.2), (0.8, 0.2), (0.8, 0.8), (0.2, 0.8), (0.2, 0.2)])
+        cmds.trim(shape.getName(full=True), boundary, constructionHistory=False, replaceOriginal=True, locatorU=0.05, locatorV=0.05, selected=0)
         fn = shape.mfn()
         before = cmds.ls(long=True)
         undo_name = cmds.undoInfo(query=True, undoName=True)

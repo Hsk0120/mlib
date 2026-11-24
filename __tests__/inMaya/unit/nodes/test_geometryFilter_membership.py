@@ -24,7 +24,7 @@ class GeometryFilterMembershipTest(NamespaceCase):
         cluster = mlib.getNode(cmds.cluster(shapes, name=self.name("cluster#"))[0])
         fn = oma2.MFnGeometryFilter(cluster.mnode())
         original = [cluster.getGeometryIndices(shape) for shape in shapes]
-        cmds.cluster(cluster.getFullName(), edit=True, geometry=shapes[1], remove=True)
+        cmds.cluster(cluster.getName(full=True), edit=True, geometry=shapes[1], remove=True)
         self.assertEqual([cluster.getGeometryIndices(shape) for shape in (shapes[0], shapes[2])], [original[0], original[2]])
         for shape in (shapes[0], shapes[2]):
             node = mlib.getNode(shape).getShape()
@@ -77,7 +77,7 @@ class GeometryFilterMembershipTest(NamespaceCase):
             cluster.getGeometryIndices(self.make("multiplyDivide"))
         with self.assertRaises(IndexError):
             cluster.getGeometryComponents(geometryIndex=999)
-        cmds.delete(cluster.getFullName())
+        cmds.delete(cluster.getName(full=True))
         for method in (cluster.getGeometry, lambda **flags: cluster.getGeometry(input=True, **flags), cluster.getGeometryComponents):
             with self.assertRaises(RuntimeError):
                 method(geometryIndex=0)
@@ -89,7 +89,7 @@ class GeometryFilterMembershipTest(NamespaceCase):
         cluster = mlib.getNode(cmds.cluster([first, second], name=self.name("cluster#"))[0])
         output = mlib.getNode(second).getShape()
         index = cluster.getGeometryIndices(output)
-        cmds.parent(output.getFullName(), first, shape=True, relative=True)
+        cmds.parent(output.getName(full=True), first, shape=True, relative=True)
         with self.assertRaises(ValueError):
             cluster.getGeometryIndices(first)
         self.assertEqual(cluster.getGeometryIndices(output), index)

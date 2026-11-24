@@ -408,7 +408,7 @@ class Plug(Object):
        * - :meth:`getName`
          - ``<ノードの最短名>.<ショート名のパス>``。論理番号を含む。表示・ログ向け
          - ``pCube1.tx``・``pCube1.wm[0]``
-       * - :meth:`getFullName` / ``str(plug)``
+       * - ``getName(full=True)`` / ``str(plug)``
          - ``<ノードの一意名>.<ロング名のパス>``。エイリアスがあれば使う。Mayaコマンドへ渡す名前
          - ``pCube1.translateX``・``pCube1.worldMatrix[0]``
        * - :meth:`getAttributeName`
@@ -429,7 +429,7 @@ class Plug(Object):
     取得するときに値は評価しない。generic/kAnyは基底のPlugのままにし、getのときに値を読み解く。
     通常の編集はUndoが有効なら記録する。fastがある操作では、fast=TrueならUndoなしで直接更新する。
 
-    Mayaのコマンドへは、getFullName()で文字列にして渡す。名前は、名前の変更や親の変更に追従する。
+    Mayaのコマンドへは、getName(full=True)で文字列にして渡す。名前は、名前の変更や親の変更に追従する。
     特にMultiPlugとコンパウンドアトリビュートのPlugは、cmdsが並びとして展開してしまうので、文字列にする必要がある。
 
     ノードや動的アトリビュートを削除すると、isValidはFalse、名前は空文字列になる。
@@ -557,7 +557,7 @@ class Plug(Object):
                 ``<Plug invalid>`` のように、クラス名と無効であることを表示する。
         """
         cls = type(self).__name__
-        name = self.getFullName()
+        name = self._full_name()
         if not name:
             return f"<{cls} invalid>"
         return f"{cls}({name!r})"
@@ -796,19 +796,31 @@ class Plug(Object):
         """
         return self._mplug
 
-    def getName(self):
-        """Plugの短い名前を取得する。
+    def getName(self, *, full=False):
+        """Plugの名前を取得する。既定は短い名前、``full=True`` ならmaya.cmdsで1つに決まる名前。
 
-        ``<Node.getName()>.<ショート名のパス>`` の形で、ノード名は重ならない範囲で最も短い名前になる。
+        既定は ``<Node.getName()>.<ショート名のパス>`` の形で、ノード名は重ならない範囲で最も短い名前になる。
         要素の論理番号は常に含む(``tt.wm[0]``・``bs.it[0].itg[3].tw[2]``)。エイリアスは使わない。
-        表示やログ向けの短い書き方なので、Mayaのコマンドへ渡す名前には :meth:`getFullName` を使う。
-        ほかの名前のメソッドとの違いは :class:`Plug` の表を参照する。
+        表示やログ向けの短い書き方なので、Mayaのコマンドへ渡す名前には ``full=True`` を使う。
         ``node.getPlug(plug.getName().partition(".")[2])`` で同じPlugを取得し直せる。
 
+        ``full=True`` では ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、アトリビュートの部分は
+        ロング名と必要な論理番号を含み、エイリアスがあればそれを使う(``str(plug)`` と同じ)。
+        ほかの名前のメソッドとの違いは :class:`Plug` の表を参照する。
+
+        Args:
+            full (bool): Trueなら、maya.cmdsで1つに決まる名前を返す。既定はFalse。
+
         Returns:
-            str: Plugの名前。ノードかアトリビュートが削除されている場合は
-                空文字列(:meth:`getFullName` と同じ)。
+            str: Plugの名前。ノードかアトリビュートが削除されている場合は空文字列。
+
+        Raises:
+            TypeError: fullがboolでない場合。
         """
+        if full is not False:
+            _require_bool(full, "full")
+            if full:
+                return self._full_name()
         if not self.isValid():
             return ""
         return (
@@ -817,46 +829,12 @@ class Plug(Object):
             + self._mplug.partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=False)
         )
 
-    def getFullName(self):
-        """maya.cmdsで1つに決まるPlugの名前を取得する。
-
-        ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、名前の変更や親の付け替えに追従する。
-        アトリビュートの部分はロング名と必要な論理番号を含み、エイリアスがあればそれを使う。
-
-        Returns:
-            str: 1つに決まるPlugの名前。ノードやアトリビュートが削除されていれば空文字列。
-        """
-        node = self._node
-        handle = node._handle
-        if handle is None or not handle.isValid():
-            return ""
-        fn = node._fn_cache
-        if fn is None:
-            fn = node._dependency_fn()
-        if not self._static_attribute and (not self._attribute_handle.isValid() or fn.attributeClass(self._attribute) == _INVALID_ATTRIBUTE):
-            return ""  # _attribute_exists() と同じ判定(str() のたびに呼ばれるため直接書く)。
-        dag_path = node._dag_path
-        if dag_path is None:
-            # DG ノードの名前はシーン内で一意(Maya は DAG ノードとの重複も許さない)。
-            return self._mplug.name()
-        # インスタンス化されたノードとアンダーワールドのノード(``shape->node``)は、
-        # Node.name() がパスを含むため、同じ表記になるよう下の経路で求める。
-        if dag_path.isValid() and not dag_path.isInstanced() and dag_path.pathCount() == 1 and fn.hasUniqueName():
-            return self._mplug.name()
-        # plug_path() と同じ引数。頻繁に呼ばれるため関数呼び出しを省いて直接問い合わせる。
-        return node.getName() + "." + self._mplug.partialName(False, True, True, True, False, True)
-
-    #: ``str(plug)`` は :meth:`getFullName` と同じ(maya.cmds は文字列以外の引数に ``str()`` を
-    #: 適用するため、Plug をそのまま ``cmds.getAttr(plug)`` のように渡せる)。頻繁に呼ばれるため、
-    #: 呼び出しを1段省けるよう同じ関数を割り当てる。
-    __str__ = getFullName
-
     def getAttributeName(self, kind="long"):
         """アトリビュート自身の名前を取得する(``translateX``・``tx``・``Translate X``)。
 
-        :meth:`getName`・:meth:`getFullName` と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
+        :meth:`getName` (``full=True`` を含む)と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
         含まない(アトリビュートの定義の名前)。``bs.it[0].itg[3].tw[2]`` なら ``targetWeights``。
-        Plugのパスが必要なら ショート名のパスには :meth:`getName` を、ロング名のパスには :meth:`getFullName` を使う。
+        Plugのパスが必要なら :meth:`getName` (既定はショート名のパス、``full=True`` ならロング名のパス)を使う。
         無効なときは、空文字列を返す :meth:`getName` と違って例外にする。
 
         Args:
@@ -874,7 +852,7 @@ class Plug(Object):
             raise ValueError(f"kindはlong・short・niceのいずれかで指定してください: {kind!r}")
         self._require_valid()
         if kind == "nice":
-            return cmds.attributeName(self.getFullName(), nice=True)
+            return cmds.attributeName(self._full_name(), nice=True)
         fn = om2.MFnAttribute(self._mplug.attribute())
         return fn.name if kind == "long" else fn.shortName
 
@@ -906,7 +884,7 @@ class Plug(Object):
         if self.isLocked():
             raise RuntimeError("ロックされたアトリビュートの表示名は変更できません")
         with _edit_context("mlibPlugSetNiceName", False, single=True):
-            cmds.addAttr(self._node.getFullName() + "." + self.getAttributeName(), edit=True, niceName=name)
+            cmds.addAttr(self._node._full_name() + "." + self.getAttributeName(), edit=True, niceName=name)
 
     def getCategories(self):
         """アトリビュート定義に登録されたカテゴリ名を取得する。
@@ -919,7 +897,7 @@ class Plug(Object):
             RuntimeError: ノードかアトリビュートが無効な場合。
         """
         self._require_valid()
-        return list(cmds.attributeQuery(self.getAttributeName(), node=self._node.getFullName(), categories=True) or [])
+        return list(cmds.attributeQuery(self.getAttributeName(), node=self._node._full_name(), categories=True) or [])
 
     def getType(self):
         """アトリビュートのMayaでの型名を取得する。
@@ -1036,7 +1014,7 @@ class Plug(Object):
         """
         self._require_valid()
         if not self._mplug.isElement:
-            raise TypeError(f"getIndexにはマルチアトリビュートの要素が必要です: {self.getFullName()}")
+            raise TypeError(f"getIndexにはマルチアトリビュートの要素が必要です: {self._full_name()}")
         return self._mplug.logicalIndex()
 
     def getSiblings(self):
@@ -1111,7 +1089,7 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが照会を拒否した場合。
         """
         self._require_valid("状態の取得")
-        return bool(cmds.isDirty(self.getFullName(), datablock=True))
+        return bool(cmds.isDirty(self._full_name(), datablock=True))
 
     def setDirty(self):
         """アトリビュートと依存先をdirtyにして再評価を要求する。
@@ -1126,7 +1104,7 @@ class Plug(Object):
             RuntimeError: アトリビュートが無効な場合、またはMayaが要求を拒否した場合。
         """
         self._require_valid("再評価の要求")
-        cmds.dgdirty(self.getFullName())
+        cmds.dgdirty(self._full_name())
 
     def evaluate(self):
         """アトリビュートのDG評価を要求する。
@@ -1140,7 +1118,7 @@ class Plug(Object):
         Raises:
             RuntimeError: アトリビュートが無効な場合、またはMayaが評価を拒否した場合。
         """
-        cmds.dgeval(self.getFullName())
+        cmds.dgeval(self._full_name())
 
     def getFlags(self):
         """アトリビュートの状態(ロック・keyable・Channel Box表示・Channel Boxに出ていないか)をまとめて取得する。
@@ -1250,7 +1228,7 @@ class Plug(Object):
         # 自身だけの1回のsetAttrなら、チャンクを開かない。
         with undoChunk("mlibPlugSetFlags") if len(targets) > 1 or any(clear_first) else nullcontext():
             for mplug, clear in zip(targets, clear_first):
-                name = self.getFullName() if mplug is self._mplug else Plug(self._node, mplug).getFullName()
+                name = self._full_name() if mplug is self._mplug else Plug(self._node, mplug)._full_name()
                 if clear:
                     set_attr(name, channelBox=False, fast=False)
                 set_attr(name, **flags, fast=False)
@@ -1451,9 +1429,9 @@ class Plug(Object):
         time_unit = _time_unit(timeUnit)
         fn = self._range_attribute_fn()
         if self._static_attribute:
-            raise TypeError(f"setRangeは動的アトリビュートだけに対応しています: {self.getFullName()}")
+            raise TypeError(f"setRangeは動的アトリビュートだけに対応しています: {self._full_name()}")
         if fn is None:
-            raise TypeError(f"setRangeには数値か単位付きのアトリビュートが必要です: {self.getFullName()}")
+            raise TypeError(f"setRangeには数値か単位付きのアトリビュートが必要です: {self._full_name()}")
         both = minimum is not _UNSET and maximum is not _UNSET
         if both and (self.isCompound() or self.isMulti()):
             raise TypeError("単一の数値か単位付きの動的アトリビュートを指定してください")
@@ -1477,7 +1455,7 @@ class Plug(Object):
                 raise ValueError("minimumはmaximum以下で指定してください")
         elif not soft:
             self._require_range_order(fn, numbers, angle_unit, time_unit)
-        name = self._node.getFullName() + "." + om2.MFnAttribute(self._attribute).name
+        name = self._node._full_name() + "." + om2.MFnAttribute(self._attribute).name
         cmds.addAttr(name, edit=True, **options)
 
     def getDefault(self, *, unit=None, timeUnit=None, uiUnits=False):
@@ -1599,7 +1577,7 @@ class Plug(Object):
             fn.default = number
         else:
             # addAttrは1コマンド。既定値のUndoにあるMaya標準の制限は補償しない。
-            cmds.addAttr(self.getFullName(), edit=True, defaultValue=number)
+            cmds.addAttr(self._full_name(), edit=True, defaultValue=number)
 
     def isDefaultValue(self):
         """今の値が、アトリビュートの定義の既定値と同じか判定する(``MPlug.isDefaultValue``)。
@@ -1657,9 +1635,9 @@ class Plug(Object):
                 if alias:
                     fn.setAlias(alias, self._mplug.partialName(useLongNames=True), self._mplug, bool(name))
             elif name:
-                cmds.aliasAttr(name, self.getFullName())
-            elif cmds.aliasAttr(self.getFullName(), query=True):
-                cmds.aliasAttr(self.getFullName(), remove=True)
+                cmds.aliasAttr(name, self._full_name())
+            elif cmds.aliasAttr(self._full_name(), query=True):
+                cmds.aliasAttr(self._full_name(), remove=True)
 
     def setKey(self, *, unit=None, timeUnit=None, uiUnits=False, **kwargs):
         """このアトリビュートにキーを打つ。
@@ -1689,7 +1667,7 @@ class Plug(Object):
         kwargs = _key_flags_to_ui(self._mplug, kwargs, unit, timeUnit, uiUnits)
         # setKeyframeの1回だけなので、チャンクを開かない。
         self._require_valid()
-        cmds.setKeyframe(self.getFullName(), **kwargs)
+        cmds.setKeyframe(self._full_name(), **kwargs)
 
     def removeKey(self, *, time=None, timeUnit=None):
         """このアトリビュートのキーを削除する。
@@ -1716,7 +1694,7 @@ class Plug(Object):
         flags = _cut_key_flags(time, timeUnit)
         with undoChunk("mlibPlugRemoveKey"):
             self._require_valid()
-            cmds.cutKey(self.getFullName(), clear=True, **flags)
+            cmds.cutKey(self._full_name(), clear=True, **flags)
 
     def moveKey(self, *, time=None, timeOffset=0, valueOffset=0, unit=None, timeUnit=None):
         """このアトリビュートのキーの、時刻と値をずらす。
@@ -1746,7 +1724,7 @@ class Plug(Object):
         flags = _move_key_flags(self, time, timeOffset, valueOffset, unit, timeUnit)
         with undoChunk("mlibPlugMoveKey"):
             self._require_valid()
-            _move_plug_keys(self.getFullName(), flags)
+            _move_plug_keys(self._full_name(), flags)
 
     def setKeyTangent(self, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
         """このアトリビュートのキーの、接線の型をまとめて変える。
@@ -1774,7 +1752,7 @@ class Plug(Object):
         flags = dict(_key_tangent_flags(inTangentType, outTangentType), **_cut_key_flags(time, timeUnit))
         self._require_valid()
         # keyTangentの1回だけなので、チャンクを開かない。
-        cmds.keyTangent(self.getFullName(), edit=True, **flags)
+        cmds.keyTangent(self._full_name(), edit=True, **flags)
 
     def getAnimLayers(self, selected=False, exact=False):
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーを取得する。
@@ -1840,7 +1818,7 @@ class Plug(Object):
                 return field_value
             result.append((field, field_value))
         if name is not None:
-            raise ValueError(f"{self.getFullName()}に{name!r}というenumのフィールドはありません(使える名前: {', '.join(repr(field) for field, _ in result)})")
+            raise ValueError(f"{self._full_name()}に{name!r}というenumのフィールドはありません(使える名前: {', '.join(repr(field) for field, _ in result)})")
         return result
 
     def setEnumNames(self, names):
@@ -1869,7 +1847,7 @@ class Plug(Object):
                 raise TypeError("enumの名前は文字列で指定してください")
             if not names or any(not name or ":" in name or "=" in name for name in names):
                 raise ValueError("enumの名前は空にできません。':'と'='も使えません")
-            cmds.addAttr(self.getFullName(), edit=True, enumName=":".join(names))
+            cmds.addAttr(self._full_name(), edit=True, enumName=":".join(names))
 
     def isLocked(self):
         """Plugがロックされているか判定する。
@@ -1942,9 +1920,9 @@ class Plug(Object):
             self._require_valid()
             _require_bool(state, "state")
             if state:
-                cmds.mute(self.getFullName())
+                cmds.mute(self._full_name())
             else:
-                cmds.mute(self.getFullName(), disable=True, force=True)
+                cmds.mute(self._full_name(), disable=True, force=True)
 
     def delete(self, *, force=False, fast=False):
         """このアトリビュートをノードから削除する。
@@ -1975,7 +1953,7 @@ class Plug(Object):
                 if not fn.dynamic or not fn.parent.isNull():
                     raise RuntimeError("削除できるのは最上位の動的アトリビュートだけです")
                 if self.isLocked() and not force:
-                    raise RuntimeError(f"アトリビュートがロックされています: {self.getFullName()}")
+                    raise RuntimeError(f"アトリビュートがロックされています: {self._full_name()}")
                 modifier = om2.MDGModifier()
                 modifier.removeAttribute(self.getNode().mnode(), attribute)
                 if force and self.isLocked():
@@ -1983,8 +1961,8 @@ class Plug(Object):
                 modifier.doIt()
             else:
                 if force and self.isLocked():
-                    set_attr(self.getFullName(), lock=False, fast=False)
-                cmds.deleteAttr(self.getFullName())
+                    set_attr(self._full_name(), lock=False, fast=False)
+                cmds.deleteAttr(self._full_name())
 
     def get(self, *, unit=None, timeUnit=None, uiUnits=False, time=None):
         """今の値を評価して取得する。
@@ -2195,7 +2173,7 @@ class Plug(Object):
                 return
             value = self._raw_default()
             if value is None:
-                raise TypeError(f"{self.getFullName()}に対応している既定値がありません")
+                raise TypeError(f"{self._full_name()}に対応している既定値がありません")
             if isinstance(value, om2.MAngle):
                 value = value.asRadians()
             elif isinstance(value, om2.MDistance):
@@ -2404,7 +2382,7 @@ class Plug(Object):
         if not indirect or not sources:
             return None
         # レイヤー・pairBlend の先のどのカーブへキーを打つかは、Mayaのkeyframeの照会と同じ決まりにする。
-        names = cmds.keyframe(self.getFullName(), query=True, name=True) or []
+        names = cmds.keyframe(self._full_name(), query=True, name=True) or []
         if not names:
             return None
         # nodes.node が ..plugs.plug を逆方向 import するため、循環回避のためここで遅延 import する。
@@ -2496,16 +2474,16 @@ class Plug(Object):
             source = Plug._resolve_input(source)
             if not source.isValid():
                 # 削除済みの接続元をMayaへ渡すと名前が空になり、どれが原因か分からない。
-                raise RuntimeError(f"接続元が無効です(ノードかアトリビュートが削除されています): {source._label()} -> {self.getFullName()}")
+                raise RuntimeError(f"接続元が無効です(ノードかアトリビュートが削除されています): {source._label()} -> {self._full_name()}")
             if source.mplug() == self.mplug():
                 # cmds.connectAttr は自己接続を拒否するが、MDGModifier は通すため fast でも揃えて拒否する。
-                raise RuntimeError(f"アトリビュートを自分自身へは接続できません: {self.getFullName()}")
+                raise RuntimeError(f"アトリビュートを自分自身へは接続できません: {self._full_name()}")
             if skipExisting:
                 existing = self._existing_connection_target(source, nextAvailable or na)
                 if existing is not None:
                     return existing
             if self.isLocked() and not (force and unlock):
-                raise RuntimeError(f"アトリビュートがロックされています: {self.getFullName()}")
+                raise RuntimeError(f"アトリビュートがロックされています: {self._full_name()}")
             # 親のマルチアトリビュートを先に解除する。親がロックされたまま空き番号を探すと
             # 全要素がロック扱いになり、探索が終わらなくなる。
             # 一時解除しない場合は何もしない区間なので、generatorを作らずnullcontextにする。
@@ -2516,13 +2494,13 @@ class Plug(Object):
                     target = self.getNextAvailable()
                 current = target._source_plug(skipConversionNodes=False)
                 if current is not None and target._has_input_from(source):
-                    raise RuntimeError(f"すでに接続されています: {source.getFullName()} -> {target.getFullName()}")
+                    raise RuntimeError(f"すでに接続されています: {source._full_name()} -> {target._full_name()}")
                 keep_self = target is self and not self.mplug().isNetworked
                 # fastで自身を返す場合、名前はエラー表示だけに使うので必要になるまで求めない。
-                target_name = None if fast and keep_self else target.getFullName()
+                target_name = None if fast and keep_self else target._full_name()
                 if fast:
                     if current is not None and not force:
-                        raise RuntimeError(f"接続先にはすでに入力があります: {target_name or target.getFullName()}")
+                        raise RuntimeError(f"接続先にはすでに入力があります: {target_name or target._full_name()}")
                     modifier = om2.MDGModifier()
                     if current is not None:
                         modifier.disconnect(current.mplug(), target.mplug())
@@ -2533,7 +2511,7 @@ class Plug(Object):
                 else:
                     if current is None:
                         target._record_connection_value()
-                    cmds.connectAttr(source.getFullName(), target_name, force=force)
+                    cmds.connectAttr(source._full_name(), target_name, force=force)
                     if lock:
                         target.setFlags(locked=True, fast=False)
             if keep_self:
@@ -2588,8 +2566,8 @@ class Plug(Object):
             if self.isMulti() and (nextAvailable or na) and source is not None:
                 targets = [p for p in self.getElement() if p._source_plug(False) == source]
                 if not targets:
-                    raise RuntimeError(f"入力の接続が見つかりません: {self.getFullName()}")
-                names = [target.getFullName() for target in targets]
+                    raise RuntimeError(f"入力の接続が見つかりません: {self._full_name()}")
+                names = [target._full_name() for target in targets]
                 for target in targets:
                     target.disconnect(source, force=force, fast=fast)
                 return [Plug._resolve_input(name) for name in names]
@@ -2597,13 +2575,13 @@ class Plug(Object):
                 # 現在の直接入力はconnectedTo(True, False)の先頭なので、接続済みの再判定を省く。
                 source = self._source_plug(skipConversionNodes=False)
                 if source is None:
-                    raise RuntimeError(f"入力の接続が見つかりません: {self.getFullName()}")
+                    raise RuntimeError(f"入力の接続が見つかりません: {self._full_name()}")
             else:
                 # isConnected(source, destination=False)と同じ判定。自身の検証は済んでいる。
                 source._require_valid()
                 source_mplug = source.mplug()
                 if not any(connected == source_mplug for connected in self._mplug.connectedTo(True, False)):
-                    raise RuntimeError(f"入力の接続が見つかりません: {self.getFullName()}")
+                    raise RuntimeError(f"入力の接続が見つかりません: {self._full_name()}")
             # 接続から得たMPlug(networked)は切断すると破棄され、後の比較・使用でMayaが異常終了する。
             # 返すsrcと自身は、切断前に同じアトリビュートを指す非networkedのMPlugへ持ち替える。
             source._mplug = Plug._unnetworked(source._mplug)
@@ -2614,7 +2592,7 @@ class Plug(Object):
                     modifier.disconnect(source.mplug(), self.mplug())
                     modifier.doIt()
                 else:
-                    cmds.disconnectAttr(source.getFullName(), self.getFullName())
+                    cmds.disconnectAttr(source._full_name(), self._full_name())
             # 入力元は手元のPlugをそのまま返す(名前からの取り直しはしない)。
             return source
 
@@ -2723,10 +2701,44 @@ class Plug(Object):
             output_plug = target.getPlug(outputAttribute)
             source = self._source_plug()
             if source is not None and input_plug.isConnected(destination=False):
-                raise RuntimeError(f"入力アトリビュートにはすでに接続があります: {input_plug.getFullName()}")
+                raise RuntimeError(f"入力アトリビュートにはすでに接続があります: {input_plug._full_name()}")
             self.connect(output_plug, force=True)
             if source is not None:
                 input_plug.connect(source)
+
+    def _full_name(self):
+        """maya.cmdsで1つに決まるPlugの名前(:meth:`getName` の ``full=True``)を、引数の検査なしで取得する。
+
+        ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、名前の変更や親の付け替えに追従する。
+        アトリビュートの部分はロング名と必要な論理番号を含み、エイリアスがあればそれを使う。
+
+        Returns:
+            str: 1つに決まるPlugの名前。ノードやアトリビュートが削除されていれば空文字列。
+        """
+        node = self._node
+        handle = node._handle
+        if handle is None or not handle.isValid():
+            return ""
+        fn = node._fn_cache
+        if fn is None:
+            fn = node._dependency_fn()
+        if not self._static_attribute and (not self._attribute_handle.isValid() or fn.attributeClass(self._attribute) == _INVALID_ATTRIBUTE):
+            return ""  # _attribute_exists() と同じ判定(str() のたびに呼ばれるため直接書く)。
+        dag_path = node._dag_path
+        if dag_path is None:
+            # DG ノードの名前はシーン内で一意(Maya は DAG ノードとの重複も許さない)。
+            return self._mplug.name()
+        # インスタンス化されたノードとアンダーワールドのノード(``shape->node``)は、
+        # Node.name() がパスを含むため、同じ表記になるよう下の経路で求める。
+        if dag_path.isValid() and not dag_path.isInstanced() and dag_path.pathCount() == 1 and fn.hasUniqueName():
+            return self._mplug.name()
+        # plug_path() と同じ引数。頻繁に呼ばれるため関数呼び出しを省いて直接問い合わせる。
+        return node.getName() + "." + self._mplug.partialName(False, True, True, True, False, True)
+
+    #: ``str(plug)`` は ``getName(full=True)`` と同じ(maya.cmds は文字列以外の引数に ``str()`` を
+    #: 適用するため、Plug をそのまま ``cmds.getAttr(plug)`` のように渡せる)。頻繁に呼ばれるため、
+    #: 呼び出しを1段省けるよう同じ関数を割り当てる。
+    __str__ = _full_name
 
     def _anim_layer_names(self, selected=False, exact=False):
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーの名前を取得する。
@@ -2745,7 +2757,7 @@ class Plug(Object):
         visited = set()
         result = []
         while om2.MFnAttribute(current.mplug().attribute()).isProxyAttribute:
-            name = current.getFullName()
+            name = current._full_name()
             if name in visited:
                 return []
             visited.add(name)
@@ -2756,9 +2768,9 @@ class Plug(Object):
         visited.clear()
         while True:
             source = current._source_plug()
-            if source is None or source.getFullName() in visited:
+            if source is None or source._full_name() in visited:
                 break
-            visited.add(source.getFullName())
+            visited.add(source._full_name())
             node = source.getNode()
             kind = node.getType()
             if kind == "mute":
@@ -2805,8 +2817,8 @@ class Plug(Object):
             raise TypeError("layerはanimLayerノードか、その名前か、Noneで指定してください")
         layer_node = Node._resolve_input(layer)
         if not layer_node.isType("animLayer"):
-            raise TypeError(f"layerはanimLayerノードで指定してください: {layer_node.getFullName()}")
-        return layer_node.getFullName()
+            raise TypeError(f"layerはanimLayerノードで指定してください: {layer_node._full_name()}")
+        return layer_node._full_name()
 
     def _layer_inputs(self):
         """アニメーションレイヤーのブレンドのつながりを上からたどり、各レイヤーの入力を集める。
@@ -2820,7 +2832,7 @@ class Plug(Object):
         current = self
         visited = set()
         while om2.MFnAttribute(current.mplug().attribute()).isProxyAttribute:
-            name = current.getFullName()
+            name = current._full_name()
             if name in visited:
                 return [], self
             visited.add(name)
@@ -2833,9 +2845,9 @@ class Plug(Object):
         base = self
         while True:
             source = current._source_plug()
-            if source is None or source.getFullName() in visited:
+            if source is None or source._full_name() in visited:
                 break
-            visited.add(source.getFullName())
+            visited.add(source._full_name())
             node = source.getNode()
             kind = node.getType()
             if kind == "mute":
@@ -2925,7 +2937,7 @@ class Plug(Object):
         from ..nodes.node import Node
 
         name = self._anim_layer_name(layer)
-        curves = cmds.animLayer(name, query=True, findCurveForPlug=self.getFullName())
+        curves = cmds.animLayer(name, query=True, findCurveForPlug=self._full_name())
         if curves:
             return Node._from_name(curves[0])
         if name == cmds.animLayer(query=True, root=True) and self._anim_layer_names() == [name]:
@@ -3025,7 +3037,7 @@ class Plug(Object):
                     _require_finite_value(value)
                 except ValueError as error:
                     if not safe:
-                        raise ValueError(f"{error}: {self.getFullName() if self.isValid() else '<無効なPlug>'}") from None
+                        raise ValueError(f"{error}: {self._full_name() if self.isValid() else '<無効なPlug>'}") from None
                     return 1
             try:
                 writer = self._set_value if _writer is None else partial(_writer, self)
@@ -3077,18 +3089,18 @@ class Plug(Object):
             return
         value = _convert_units(self._mplug, value)
         if isinstance(value, str):
-            set_attr(self.getFullName(), value, type="string", fast=False)
+            set_attr(self._full_name(), value, type="string", fast=False)
             return
         if isinstance(value, (tuple, list)):
             attr_type = attributeType(self._mplug)
             if attr_type in _SCALAR_ARRAY_TYPES:
-                set_attr(self.getFullName(), value, type=attr_type, fast=False)
+                set_attr(self._full_name(), value, type=attr_type, fast=False)
             elif attr_type in _LENGTH_PREFIXED_ARRAY_TYPES:
-                set_attr(self.getFullName(), len(value), *value, type=attr_type, fast=False)
+                set_attr(self._full_name(), len(value), *value, type=attr_type, fast=False)
             else:
-                set_attr(self.getFullName(), *value, fast=False)
+                set_attr(self._full_name(), *value, fast=False)
             return
-        set_attr(self.getFullName(), value, fast=False)
+        set_attr(self._full_name(), value, fast=False)
 
     def _set_children_safely(self, value, *, uiUnits=False, fast=False):
         """失敗したコンパウンドアトリビュートの値を、子の定義順に1つずつやり直し、失敗の数を返す。
@@ -3153,7 +3165,7 @@ class Plug(Object):
             return reader(self._mplug)
 
         if is_internal_data_type(self._mplug) and not _multi_element_exists(self._mplug):
-            raise RuntimeError(f"内部データ型の、存在しないマルチアトリビュートの要素は読み取れません: {self.getFullName()}")
+            raise RuntimeError(f"内部データ型の、存在しないマルチアトリビュートの要素は読み取れません: {self._full_name()}")
         if attributeType(self._mplug) is None and om2.MFnAttribute(self._attribute).readable:
             # generic/kAnyの参照型は固定し、実際の値を読む時だけマトリクスを判定する。
             # 数値などMObjectを持たない値は、従来のcmds読取へ委譲する。
@@ -3166,7 +3178,7 @@ class Plug(Object):
                 from ..maths import Matrix
 
                 return Matrix._wrap(om2.MFnMatrixData(data).matrix())
-        value = cmds.getAttr(self.getFullName())
+        value = cmds.getAttr(self._full_name())
         if isinstance(value, list) and len(value) == 1 and isinstance(value[0], tuple):
             return tuple(value[0])
         return value
@@ -3294,7 +3306,7 @@ class Plug(Object):
         leaves = self.getDescendants(leavesOnly=True) if self.isMulti() or self.isCompound() else [self]
         for leaf in leaves:
             if type(leaf).get is Plug.get and value_reader(leaf._attribute) is False:
-                raise NotImplementedError(f"指定時刻の取得はOpenMayaで読み取れる型だけに対応しています: {leaf.getFullName()}")
+                raise NotImplementedError(f"指定時刻の取得はOpenMayaで読み取れる型だけに対応しています: {leaf._full_name()}")
         # Mayaが参照するコンテキストを評価終了まで保持する。式の一時値にすると参照が失われる。
         context = om2.MDGContext(when)
         previous = context.makeCurrent()
@@ -3326,7 +3338,7 @@ class Plug(Object):
                 continue
             limit = self._range_input(fn, limit, angle_unit, "setRange", time_unit)
             if (kind == "Min" and number > limit) or (kind == "Max" and number < limit):
-                raise ValueError(f"setRangeの値が現在の{'最小値' if opposite == 'Min' else '最大値'}と矛盾します: {self.getFullName()}")
+                raise ValueError(f"setRangeの値が現在の{'最小値' if opposite == 'Min' else '最大値'}と矛盾します: {self._full_name()}")
 
     def _range_input(self, fn, value, angle_unit, method, time_unit="frame"):
         """setRangeの値を、``cmds.addAttr`` が受け取る単位の数値へ換算する。
@@ -3385,7 +3397,7 @@ class Plug(Object):
             TypeError: アトリビュートがマトリクスのデータを受け付けない場合。
             RuntimeError: ロック・入力接続・書込み禁止の場合。
         """
-        name = self.getFullName()
+        name = self._full_name()
         message = f"{name}に定数のマトリクスを設定できません: Mayaはこのアトリビュートにマトリクスのデータを受け付けません(保存したシーンで復元できません)。代わりにholdMatrix.outMatrixのようなマトリクスの出力を接続してください"
         if not fast:
             try:
@@ -3396,7 +3408,7 @@ class Plug(Object):
                 raise
             return
         accepted = (
-            None if self._static_attribute else cmds.addAttr(self._node.getFullName() + "." + om2.MFnAttribute(self._attribute).name, query=True, dataType=True)
+            None if self._static_attribute else cmds.addAttr(self._node._full_name() + "." + om2.MFnAttribute(self._attribute).name, query=True, dataType=True)
         )
         if not accepted or "matrix" not in accepted:
             raise TypeError(message)
@@ -3429,7 +3441,7 @@ class Plug(Object):
             node = remote.getNode()
             if node_type and not (node.getType() == node_type if exact else node.isType(node_type)):
                 continue
-            key = (local.getFullName() if as_pair else None, node.getFullName() if as_node else remote.getFullName())
+            key = (local._full_name() if as_pair else None, node._full_name() if as_node else remote._full_name())
             if key in seen:
                 continue
             seen.add(key)
@@ -3544,7 +3556,7 @@ class Plug(Object):
 
     @staticmethod
     def _mplug_name(mplug):
-        """MPlug を、``Plug.getFullName()`` と同じ形の、1つに決まるPlugの名前にする。
+        """MPlug を、``Plug._full_name()`` と同じ形の、1つに決まるPlugの名前にする。
 
         持ち主のノードが、Undo で戻せない形で削除された(``flushUndo`` のあと・Undo が無効・シーンの
         切り替え)MPlug では、``MPlug.node()`` を呼んだ時点で Maya が異常終了し、API では見分けられない。
@@ -3777,7 +3789,7 @@ class Plug(Object):
     def _resolve_input(value):
         """渡されたものを mlib の Plug にする。
 
-        文字列は、maya.cmds と同じ決まりで探す。``str(plug)``・``plug.getFullName()`` が返す形
+        文字列は、maya.cmds と同じ決まりで探す。``str(plug)``・``plug._full_name()`` が返す形
         (``grp1|dup.translateX``、``bs.weight[0]``、エイリアス名、``cubeShape.pnts[2].pntx`` など)も使える。
 
         - インスタンス化された DAG ノードのアトリビュートでは、名前が指すインスタンスのノードを持ち主にする。
@@ -3851,7 +3863,7 @@ class Plug(Object):
         """
         attr = self._mplug.attribute()
         if not attr.hasFn(om2.MFn.kEnumAttribute):
-            raise TypeError(f"{caller}にはenumアトリビュートが必要です: {self.getFullName()}")
+            raise TypeError(f"{caller}にはenumアトリビュートが必要です: {self._full_name()}")
         return attr
 
     def _enum_field_name(self, attr, value):
@@ -3870,16 +3882,16 @@ class Plug(Object):
         try:
             return om2.MFnEnumAttribute(attr).fieldName(value)
         except RuntimeError as error:
-            raise ValueError(f"{self.getFullName()}に値{value}のenumのフィールドはありません") from error
+            raise ValueError(f"{self._full_name()}に値{value}のenumのフィールドはありません") from error
 
     def _label(self):
         """エラーの表示に使う名前を返す。削除されていても、作ったときのアトリビュートのパスで示す。
 
         Returns:
-            str: 有効なら :meth:`getFullName`。無効なら、ノード名(削除されていれば
+            str: 有効なら ``getName(full=True)`` と同じ名前。無効なら、ノード名(削除されていれば
                 ``<削除されたノード>``)と、作ったときのアトリビュートのパス。
         """
-        name = self.getFullName()
+        name = self._full_name()
         if name:
             return name
         node = self._node
@@ -3890,7 +3902,7 @@ class Plug(Object):
     def _attribute_exists(self):
         """アトリビュートが、まだノードにあるか判定する(ノードは有効であること)。
 
-        よく呼ばれる :meth:`_require_valid`・:meth:`getFullName` は、呼び出しの負荷を
+        よく呼ばれる :meth:`_require_valid`・:meth:`_full_name` は、呼び出しの負荷を
         避けるため、同じ判定を直接書いている(変えるときは両方を揃えること)。
 
         Returns:
@@ -4209,7 +4221,7 @@ class Plugs(_ListMethods):
 
         plugs = mlib.ls("pCube1.tx", "pCube1.ty")
         for plug in plugs:
-            print(plug.getFullName())
+            print(plug._full_name())
     """
 
     __hash__ = None  # type: ignore[assignment]
@@ -4364,7 +4376,7 @@ class Plugs(_ListMethods):
     def sort(self, key=None, reverse=False):
         """持っている並びを、その場で並べ替える。
 
-        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(:meth:`Plug.getFullName`)の順にする。
+        並べ替えた自身を返す。``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
         並べ替わるのはこのコレクションだけで、スライスや ``+`` で作った別のコレクションの順番は変わらない
         (各要素のPlugは共有している)。
 
@@ -4381,13 +4393,13 @@ class Plugs(_ListMethods):
         _require_bool(reverse, "reverse")
         if key is not None and not callable(key):
             raise TypeError("keyは呼び出せるオブジェクトかNoneで指定してください")
-        self._items.sort(key=methodcaller("getFullName") if key is None else key, reverse=reverse)
+        self._items.sort(key=methodcaller("_full_name") if key is None else key, reverse=reverse)
 
     def getNames(self, *, full=False):
         """持っている順に、アトリビュートの名前を返す。
 
         既定は :meth:`Plug.getName` を並べたもの。``full=True`` なら完全なアトリビュート名
-        (:meth:`Plug.getFullName` を並べたもの。``maya.cmds`` へ渡すときに使う)。
+        (``Plug.getName(full=True)`` を並べたもの。``maya.cmds`` へ渡すときに使う)。
 
         Args:
             full (bool): Trueなら、完全なアトリビュート名を返す。既定はFalse。
@@ -4400,7 +4412,7 @@ class Plugs(_ListMethods):
         """
         _require_bool(full, "full")
         if full:
-            return [plug.getFullName() for plug in self._items]
+            return [plug._full_name() for plug in self._items]
         return [plug.getName() for plug in self._items]
 
     @classmethod

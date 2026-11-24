@@ -273,11 +273,11 @@ class Reference(Node):
         # mlib 内の他の相互依存箇所と合わせて遅延 import で統一する。
         from ..common.references import listReferences
 
-        own_name = self.getFullName()
+        own_name = self._full_name()
         children = []
         for reference in listReferences():
             parent = reference.getParentReference()
-            if parent is not None and parent.getFullName() == own_name:
+            if parent is not None and parent._full_name() == own_name:
                 children.append(reference)
         return Nodes._wrap(children)
 

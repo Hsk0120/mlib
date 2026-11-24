@@ -110,7 +110,7 @@ class ConvenienceTests(unittest.TestCase):
         self.assertEqual(len(c.getParent(instances=True)), 2)
         self.assertEqual(len(c.getParent(instances=True, indirect=True)), 2)
         self.assertEqual(len(list(root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
-        self.assertNotEqual(c.getInstances()[0].getFullName(), c.getInstances()[1].getFullName())
+        self.assertNotEqual(c.getInstances()[0].getName(full=True), c.getInstances()[1].getName(full=True))
 
     def test_animation_layers(self):
         node = mlib.createNode("transform")
@@ -135,7 +135,7 @@ class ConvenienceTests(unittest.TestCase):
         self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 1)
         for order in ("breadthFirst", "depthFirst"):
             self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order=order, underWorld=True))), 2)
-            paths = [n.getFullName() for n in node.getChildren(shapes=True, allDescendents=True, includeSelf=True, order=order, underWorld=True)]
+            paths = [n.getName(full=True) for n in node.getChildren(shapes=True, allDescendents=True, includeSelf=True, order=order, underWorld=True)]
             self.assertEqual(len(paths), 4)
             self.assertIn("->", paths[-1])
 
@@ -182,7 +182,7 @@ class ApiProposalTest(unittest.TestCase):
         made = container.createNode(type="multiplyDivide")
         self.assertEqual(made.getType(), "multiplyDivide")
         # 所有containerと他のテスト用関係を分離し、Mayaの一括削除へ二重所有を渡さない。
-        cmds.delete(container.getFullName())
+        cmds.delete(container.getName(full=True))
         a, b, c = [Node(cmds.createNode("transform")) for _ in range(3)]
         constraint = c.addConstraint([a, b], type="point")
         constraint.setWeight(0.25, a)

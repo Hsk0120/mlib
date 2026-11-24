@@ -81,13 +81,13 @@ class SurfaceCVTest(_Case):
         self.assertEqual(cv.index, 2 * count_v + 3)
         self.assertEqual(cv.getMultiIndex(), (2, 3))
         self.assertEqual(SurfaceCV(shape, cv.index), cv)
-        self.assertTrue(cv.getFullName().endswith(".cv[2][3]"))
-        self.assertTrue(cmds.objExists(cv.getFullName()))
+        self.assertTrue(cv.getName(full=True).endswith(".cv[2][3]"))
+        self.assertTrue(cmds.objExists(cv.getName(full=True)))
         self.assertIn("cv[2][3]", repr(cv))
         cvs = SurfaceCVs(shape)
         self.assertEqual(len(cvs), count_u * count_v)
         self.assertTrue(cvs.isComplete())
-        self.assertEqual(_flat(cvs.getNames(full=True)), _flat(shape.getFullName() + ".cv[*][*]"))
+        self.assertEqual(_flat(cvs.getNames(full=True)), _flat(shape.getName(full=True) + ".cv[*][*]"))
         mixed = SurfaceCVs(shape, [(0, 0), 7, (0, 0)])
         self.assertEqual(mixed.indices, (0, 7))
         self.assertEqual(mixed.getMultiIndex(), [(0, 0), (1, 7 - count_v)])
@@ -109,7 +109,7 @@ class SurfaceCVTest(_Case):
 
     def test_resolve_from_names_and_selection(self):
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         resolved = Object(name + ".cv[1][4]")
         self.assertIsInstance(resolved, SurfaceCV)
         self.assertEqual(resolved.getMultiIndex(), (1, 4))
@@ -120,7 +120,7 @@ class SurfaceCVTest(_Case):
 
     def test_positions_and_write(self):
         shape = self.surface()
-        name = shape.getFullName()
+        name = shape.getName(full=True)
         cv = SurfaceCV(shape, (1, 2))
         self.assertVectorAlmostEqual(cv.getPosition(), cmds.pointPosition(name + ".cv[1][2]", local=True))
         self.assertVectorAlmostEqual(cv.getPosition(ws=True), cmds.pointPosition(name + ".cv[1][2]", world=True))
@@ -151,15 +151,15 @@ class SurfaceCVTest(_Case):
         cvs = SurfaceCVs(shape)
         self.assertEqual(len(cvs), count_u * count_v)
         duplicate = SurfaceCV(shape, (2, 9))
-        self.assertTrue(duplicate.getFullName().endswith(".cv[2][1]"))
+        self.assertTrue(duplicate.getName(full=True).endswith(".cv[2][1]"))
         self.assertEqual(duplicate.getMultiIndex(), (2, 9))
         self.assertVectorAlmostEqual(duplicate.getPosition(), SurfaceCV(shape, (2, 1)).getPosition())
         duplicate.setPosition((0.0, 3.0, 0.0))
         self.assertVectorAlmostEqual(SurfaceCV(shape, (2, 1)).getPosition(), (0, 3, 0))
-        self.assertVectorAlmostEqual(cmds.pointPosition(shape.getFullName() + ".cv[2][1]", local=True), (0, 3, 0))
+        self.assertVectorAlmostEqual(cmds.pointPosition(shape.getName(full=True) + ".cv[2][1]", local=True), (0, 3, 0))
         SurfaceCV(shape, (3, 0)).setPosition((0.0, -3.0, 0.0), fast=True)
         self.assertVectorAlmostEqual(SurfaceCV(shape, (3, 8)).getPosition(), (0, -3, 0))
-        self.assertEqual(len(_flat(cvs.getNames(full=True))), len(_flat(shape.getFullName() + ".cv[*][*]")))
+        self.assertEqual(len(_flat(cvs.getNames(full=True))), len(_flat(shape.getName(full=True) + ".cv[*][*]")))
 
     def test_fast_rejects_history_and_deleted(self):
         transform = cmds.nurbsPlane(name=self.name("hist#"), constructionHistory=True)[0]
@@ -170,7 +170,7 @@ class SurfaceCVTest(_Case):
         cv.setPosition((1, 1, 1))
         self.assertVectorAlmostEqual(cv.getPosition(), (1, 1, 1))
         cmds.delete(transform)
-        for call in (cv.getPosition, cv.getFullName, cv.getMultiIndex):
+        for call in (cv.getPosition, cv.getName, lambda: cv.getName(full=True), cv.getMultiIndex):
             with self.subTest(call=call.__name__):
                 with self.assertRaises(RuntimeError):
                     call()

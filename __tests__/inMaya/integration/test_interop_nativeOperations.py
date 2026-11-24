@@ -67,7 +67,7 @@ class NativeFollowupTest(NamespaceCase):
                 camera.getPlug("clippingPlanes").set(not state)
                 self.assertEqual(camera.mfn().isClippingPlanes, state)
                 self.assertEqual(om1.MFnCamera(camera._api1_path()).isClippingPlanes(), state)
-                self.assertEqual(cmds.camera(camera.getFullName(), query=True, clippingPlanes=True), state)
+                self.assertEqual(cmds.camera(camera.getName(full=True), query=True, clippingPlanes=True), state)
 
     def test_dag_colors_and_override_state(self):
         node = self.cube()
@@ -86,14 +86,14 @@ class NativeFollowupTest(NamespaceCase):
 
     def test_object_group_components_preserve_owner_path(self):
         cube = self.cube()
-        cmds.cluster(cube.getFullName() + ".vtx[0:2]", name=self.name("cluster"), useComponentTags=False)
+        cmds.cluster(cube.getName(full=True) + ".vtx[0:2]", name=self.name("cluster"), useComponentTags=False)
         shape = cube.getShape()
-        group = cmds.listConnections(shape.getFullName() + ".instObjGroups", type="groupId") or cmds.ls(self.ns + ":*", type="groupId")
+        group = cmds.listConnections(shape.getName(full=True) + ".instObjGroups", type="groupId") or cmds.ls(self.ns + ":*", type="groupId")
         number = cmds.getAttr(group[0] + ".groupId")
         result = shape.getObjectGroupComponents(number)
         self.assertEqual(len(result), 1)
         self.assertEqual(list(result[0].indices), [0, 1, 2])
-        self.assertEqual(result[0].shape.getFullName(), shape.getFullName())
+        self.assertEqual(result[0].shape.getName(full=True), shape.getName(full=True))
         with self.assertRaises(ValueError):
             shape.getObjectGroupComponents(-1)
 
@@ -125,7 +125,7 @@ class NativeFollowupTest(NamespaceCase):
 
     def test_normal_table_changes_values_without_splitting_ids(self):
         mesh = self.cube().getShape()
-        cmds.polySoftEdge(mesh.getFullName(), angle=180, constructionHistory=False)
+        cmds.polySoftEdge(mesh.getName(full=True), angle=180, constructionHistory=False)
         normals, counts, indices = mesh.getNormalData()
         before = mesh.getNormalData()
         with self.assertRaises(NotImplementedError):
@@ -214,7 +214,7 @@ class NativeFollowupTest(NamespaceCase):
         before = [cube.getPivot(kind=kind) for kind in ("rotate", "scale")]
         matrix = cube.getMatrix(worldSpace=True)
         self.flushUndo()
-        cube.centerPivot(cube.getFullName() + ".vtx[0:1]")
+        cube.centerPivot(cube.getName(full=True) + ".vtx[0:1]")
         after = [cube.getPivot(kind=kind) for kind in ("rotate", "scale")]
         self.assertNotEqual(before, after)
         self.assertEqual(cube.getMatrix(worldSpace=True), matrix)
@@ -226,7 +226,7 @@ class NativeFollowupTest(NamespaceCase):
     def test_force_normalization_preserves_zero_rows_and_undo(self):
         cube = self.cube()
         joints = [cmds.createNode("joint", name=self.name("influence")) for _ in range(2)]
-        skin = mlib.getNode(cmds.skinCluster(joints, cube.getFullName())[0])
+        skin = mlib.getNode(cmds.skinCluster(joints, cube.getName(full=True))[0])
         skin.getPlug("normalizeWeights").set(0)
         rows = [[2.0, 4.0]] * 7 + [[0.0, 0.0]]
         skin.setWeights(joints, rows, rows=True)
@@ -251,7 +251,7 @@ class NativeFollowupTest(NamespaceCase):
     def test_move_joint_mode_has_no_undo_entry(self):
         cube = self.cube()
         joint = cmds.createNode("joint", name=self.name("joint"))
-        skin = mlib.getNode(cmds.skinCluster(joint, cube.getFullName())[0])
+        skin = mlib.getNode(cmds.skinCluster(joint, cube.getName(full=True))[0])
         self.flushUndo()
         try:
             skin.setMoveJointsMode(True)
@@ -285,7 +285,7 @@ class NativeFollowupTest(NamespaceCase):
         fn = mesh.mfn()
         points = fn.getPoints()
         center_edge = next(index for index in range(fn.numEdges) if all(abs(points[v].x) < 1e-6 for v in fn.getEdgeVertices(index)))
-        edge = mesh.getFullName() + ".e[" + str(center_edge) + "]"
+        edge = mesh.getName(full=True) + ".e[" + str(center_edge) + "]"
         for operation in ("mirror", "flip"):
             before = blend.getTargetDeltas(0)
             old_edges = cmds.blendShape(blend.getName(), query=True, symmetryEdge=True)

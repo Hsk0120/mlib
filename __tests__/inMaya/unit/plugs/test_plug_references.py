@@ -56,7 +56,7 @@ class PlugReferencesTest(unittest.TestCase):
         for plug, expected in cases:
             with self.subTest(type=expected.__name__):
                 self.assertIs(entry(plug), plug)
-                self.assertIsInstance(entry(plug.getFullName()), expected)
+                self.assertIsInstance(entry(plug.getName(full=True)), expected)
                 self.assertIsInstance(entry(plug.mplug()), expected)
                 self.assertEqual(entry(plug.mplug()), plug)
         self.assertEqual(entry(samples).get(), {3: 4.0})
@@ -92,7 +92,7 @@ class PlugReferencesTest(unittest.TestCase):
         undo_name = cmds.undoInfo(query=True, undoName=True)
         with patch.object(cmds, "getAttr", side_effect=AssertionError("value query during resolution")):
             for array, index in ((numeric, 9), (message, 7)):
-                element = mlib.getPlug(array.getFullName() + f"[{index}]")
+                element = mlib.getPlug(array.getName(full=True) + f"[{index}]")
                 self.assertIs(mlib.getPlug(element), element)
                 self.assertEqual(list(array.mplug().getExistingArrayAttributeIndices()), [])
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
@@ -118,11 +118,11 @@ class PlugReferencesTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 mlib.getPlug(value)
         with self.assertRaises(TypeError):
-            mlib.getPlug(self.node.getFullName())
+            mlib.getPlug(self.node.getName(full=True))
         with self.assertRaises(AttributeError):
-            mlib.getPlug(self.node.getFullName() + ".missingAttribute")
+            mlib.getPlug(self.node.getName(full=True) + ".missingAttribute")
         plug = self.node.getPlug("translateX")
-        cmds.delete(self.node.getFullName())
+        cmds.delete(self.node.getName(full=True))
         self.assertIs(mlib.getPlug(plug), plug)
         self.assertFalse(plug.isValid())
         with self.assertRaises(RuntimeError):
@@ -200,7 +200,7 @@ class PlugSimplificationTest(unittest.TestCase):
                     value = reference.get(uiUnits=ui_units)
                     self.assertIsInstance(value, mlib.Matrix)
                     self.assertEqual(tuple(value.translate), (2, 3, 4))
-                    for actual, raw in zip(value, cmds.getAttr(reference.getFullName())):
+                    for actual, raw in zip(value, cmds.getAttr(reference.getName(full=True))):
                         self.assertAlmostEqual(actual, raw)
                     cmds.flushUndo()
                     self.assertIsNone(reference.set(7.5, uiUnits=ui_units))

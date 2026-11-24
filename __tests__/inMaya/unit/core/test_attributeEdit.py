@@ -65,10 +65,10 @@ class AttributeEditsTest(unittest.TestCase):
             locked=plug.isLocked(),
         )
         for flag in ("minExists", "maxExists", "softMinExists", "softMaxExists"):
-            data[flag] = cmds.attributeQuery(name, node=self.node.getFullName(), **{flag: True})
+            data[flag] = cmds.attributeQuery(name, node=self.node.getName(full=True), **{flag: True})
         for exists, query in (("minExists", "minimum"), ("maxExists", "maximum"), ("softMinExists", "softMin"), ("softMaxExists", "softMax")):
             if data[exists]:
-                data[query] = cmds.attributeQuery(name, node=self.node.getFullName(), **{query: True})
+                data[query] = cmds.attributeQuery(name, node=self.node.getName(full=True), **{query: True})
         return data
 
     def _linked_attributes(self):
@@ -95,8 +95,8 @@ class AttributeEditsTest(unittest.TestCase):
             other (Node): 外部接続先の所有ノード。
         """
         for source, target in (("first", "second"), ("second", "third")):
-            self.assertTrue(cmds.isConnected(self.node.getFullName() + "." + source, self.node.getFullName() + "." + target))
-        self.assertTrue(cmds.isConnected(self.node.getFullName() + ".third", other.getFullName() + ".input"))
+            self.assertTrue(cmds.isConnected(self.node.getName(full=True) + "." + source, self.node.getName(full=True) + "." + target))
+        self.assertTrue(cmds.isConnected(self.node.getName(full=True) + ".third", other.getName(full=True) + ".input"))
         self.assertEqual(self.node.getPlug("inputAlias"), self.node.getPlug("first"))
         self.assertTrue(self.node.getPlug("third").isLocked())
         self.assertEqual(other.getPlug("input").get(), 3.0)
@@ -112,7 +112,7 @@ class AttributeEditsTest(unittest.TestCase):
     def test_move_preserves_short_name_limits_and_flags(self):
         """短名・soft limit・表示状態・定義フラグを再作成とUndoで保つ。"""
         cmds.addAttr(
-            self.node.getFullName(),
+            self.node.getName(full=True),
             longName="firstValue",
             shortName="fv",
             niceName="First Value",
@@ -155,7 +155,7 @@ class AttributeEditsTest(unittest.TestCase):
 
     def test_move_restores_non_writable_definition(self):
         """元のreadable/writable定義で作成し、cmdsで値を復元する。"""
-        cmds.addAttr(self.node.getFullName(), longName="first", attributeType="double", defaultValue=4, writable=False, readable=False)
+        cmds.addAttr(self.node.getName(full=True), longName="first", attributeType="double", defaultValue=4, writable=False, readable=False)
         self.node.addAttr("second")
         before = self._definition("first")
         self.node.moveAttrOrder("first", 1)
@@ -306,7 +306,7 @@ class NodeApiTest(unittest.TestCase):
         self.assertEqual(node.getPlug("attrC").get(), 7.0)
         reconnected_source = node.getPlug("attrC").getConnections(input=True)
         self.assertIsNotNone(reconnected_source)
-        self.assertEqual(reconnected_source.getFullName(), source.getPlug("translateX").getFullName())
+        self.assertEqual(reconnected_source.getName(full=True), source.getPlug("translateX").getName(full=True))
 
     def test_move_attribute_supports_enum_and_string_attributes(self):
         node = self.create_transform("mlibNodeApiMoveAttrEnumString")
@@ -341,10 +341,10 @@ class NodeApiTest(unittest.TestCase):
     def test_move_attribute_raises_for_unknown_name_and_unsupported_type(self):
         node = self.create_transform("mlibNodeApiMoveAttrErrors")
         node.addAttr("attrA", attributeType="double", defaultValue=0.0)
-        cmds.addAttr(node.getFullName(), longName="attrCompound", attributeType="double3")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundX", attributeType="double", parent="attrCompound")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundY", attributeType="double", parent="attrCompound")
-        cmds.addAttr(node.getFullName(), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompound", attributeType="double3")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundX", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundY", attributeType="double", parent="attrCompound")
+        cmds.addAttr(node.getName(full=True), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
         node.addAttr("attrB", attributeType="double", defaultValue=0.0)
 
         with self.assertRaises(ValueError):

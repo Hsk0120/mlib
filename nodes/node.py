@@ -299,11 +299,11 @@ def _dump_movable_attr(plug):
         TypeError: コンパウンドアトリビュート・マルチアトリビュート、または対応しないアトリビュート型の場合。
     """
     if plug.isMulti() or plug.isCompound():
-        raise TypeError(f"コンパウンドアトリビュートとマルチアトリビュートは並べ替えられません: {plug.getFullName()}")
+        raise TypeError(f"コンパウンドアトリビュートとマルチアトリビュートは並べ替えられません: {plug._full_name()}")
     attr = plug.mplug().attribute()
     definition = om2.MFnAttribute(attr)
     if not definition.connectable:
-        raise TypeError(f"接続できないアトリビュートは、Mayaのコマンドでは作り直せません: {plug.getFullName()}")
+        raise TypeError(f"接続できないアトリビュートは、Mayaのコマンドでは作り直せません: {plug._full_name()}")
     info = {
         "longName": plug.getAttributeName(),
         "shortName": plug.getAttributeName("short"),
@@ -333,7 +333,7 @@ def _dump_movable_attr(plug):
         numeric_type = om2.MFnNumericAttribute(attr).numericType()
         type_name = _MOVABLE_NUMERIC_TYPES.get(numeric_type)
         if type_name is None:
-            raise TypeError(f"並べ替えに対応していない数値アトリビュートの型です: {plug.getFullName()}")
+            raise TypeError(f"並べ替えに対応していない数値アトリビュートの型です: {plug._full_name()}")
         info["attributeType"] = type_name
         for keys, limits in ((("min", "max"), plug.getRange()), (("softMin", "softMax"), plug.getRange(soft=True))):
             for key, limit in zip(keys, limits):
@@ -347,7 +347,7 @@ def _dump_movable_attr(plug):
     elif attr.hasFn(om2.MFn.kTypedAttribute) and om2.MFnTypedAttribute(attr).attrType() == om2.MFnData.kString:
         info["dataType"] = "string"
     else:
-        raise TypeError(f"並べ替えに対応していないアトリビュートの型です: {plug.getFullName()}")
+        raise TypeError(f"並べ替えに対応していないアトリビュートの型です: {plug._full_name()}")
     return info
 
 
@@ -370,9 +370,9 @@ def _require_same_attr_definition(plug, flags):
         requested = flags.get("attributeType") or data_type
         matched = existing == {"compound": "TdataCompound"}.get(requested, requested)
     if not matched:
-        raise TypeError(f"アトリビュートは別の型ですでに存在します: {plug.getFullName()}は{existing!r}で、指定は{requested!r}です")
+        raise TypeError(f"アトリビュートは別の型ですでに存在します: {plug._full_name()}は{existing!r}で、指定は{requested!r}です")
     if bool(flags.get("multi")) != plug.isMulti():
-        raise TypeError(f"アトリビュートは別のマルチの設定ですでに存在します: {plug.getFullName()}")
+        raise TypeError(f"アトリビュートは別のマルチの設定ですでに存在します: {plug._full_name()}")
 
 
 def _enum_field_value(enum_name, field):
@@ -1105,7 +1105,7 @@ class Node(Object):
             if fast:
                 fn.isLocked = state
             else:
-                cmds.lockNode(self.getFullName(), lock=state)
+                cmds.lockNode(self._full_name(), lock=state)
 
     def isFromReferencedFile(self):
         """ノードがリファレンスしたファイルから読み込まれたものか調べる。
@@ -1146,7 +1146,7 @@ class Node(Object):
                 raise NotImplementedError("DAG・参照・追加アトリビュートのあるノードの交換には対応していません")
             if node.isLocked():
                 raise RuntimeError("ロックされたノードの接続は交換できません")
-        result = cmds.nodeCast(self.getFullName(), other.getFullName(), swapNames=False, swapValues=False, force=False)
+        result = cmds.nodeCast(self._full_name(), other._full_name(), swapNames=False, swapValues=False, force=False)
         if result not in (None, 0):
             raise RuntimeError("Mayaがノード接続の交換を拒否しました")
 
@@ -1159,7 +1159,7 @@ class Node(Object):
         Raises:
             RuntimeError: ノードが無効、またはMayaが照会を拒否した場合。
         """
-        name = cmds.container(query=True, findContainer=self.getFullName())
+        name = cmds.container(query=True, findContainer=self._full_name())
         return Node._from_name(name) if name else None
 
     def getReference(self):
@@ -1177,7 +1177,7 @@ class Node(Object):
         self._require_valid("リファレンスの取得")
         if not self._alive_fn().isFromReferencedFile:
             return None
-        return Node._from_name(cmds.referenceQuery(self.getFullName(), referenceNode=True))
+        return Node._from_name(cmds.referenceQuery(self._full_name(), referenceNode=True))
 
     def hasUniqueName(self):
         """階層を含まないノード名がシーン内で一意か調べる。
@@ -1218,7 +1218,7 @@ class Node(Object):
             if not type:
                 raise ValueError("typeは空でない文字列で指定してください")
         self._require_valid("セットの取得")
-        names = cmds.listSets(object=self.getFullName()) or []
+        names = cmds.listSets(object=self._full_name()) or []
         sets = [Node._from_name(name) for name in sorted(names)]
         return Nodes._wrap([node for node in sets if type is None or node.isType(type)])
 
@@ -1244,10 +1244,10 @@ class Node(Object):
         _require_bool(direct, "direct")
         self._require_valid("子孫の取得")
         other_node = _resolve_input_or_none(other)
-        self_full = self.getFullName()
+        self_full = self._full_name()
         if other_node is None or not self_full:
             return False
-        other_full = other_node.getFullName()
+        other_full = other_node._full_name()
         if direct:
             parent_prefix, separator, _ = other_full.rpartition("|")
             return bool(separator) and parent_prefix == self_full
@@ -1589,12 +1589,12 @@ class Node(Object):
                 # 値の換算はアトリビュートの種類(角度・距離)ごとに違うため、アトリビュートごとに打つ。
                 plugs = [self.getPlug(name) for name in names] if names is not None else self.getPlugs(keyable=True, scalar=True)
                 for plug in plugs:
-                    cmds.setKeyframe(plug.getFullName(), **_key_flags_to_ui(plug.mplug(), kwargs, unit, timeUnit, uiUnits))
+                    cmds.setKeyframe(plug._full_name(), **_key_flags_to_ui(plug.mplug(), kwargs, unit, timeUnit, uiUnits))
                 return
             flags = _key_flags_to_ui(None, kwargs, None, timeUnit, True)
             if names is not None:
                 flags["attribute"] = names
-            cmds.setKeyframe(self.getFullName(), **flags)
+            cmds.setKeyframe(self._full_name(), **flags)
 
     def removeKey(self, attributes=None, *, time=None, timeUnit=None):
         """複数のアトリビュートのキーを削除する(``cmds.cutKey(node, attribute=[...], clear=True)`` にあたる)。
@@ -1626,7 +1626,7 @@ class Node(Object):
             self._require_valid("キーの削除")
             if names is not None:
                 flags["attribute"] = names
-            cmds.cutKey(self.getFullName(), clear=True, **flags)
+            cmds.cutKey(self._full_name(), clear=True, **flags)
 
     def moveKey(self, attributes=None, *, time=None, timeOffset=0, valueOffset=0, unit=None, timeUnit=None):
         """複数のアトリビュートのキーの、時刻と値をずらす。
@@ -1660,7 +1660,7 @@ class Node(Object):
             plugs = [self.getPlug(name) for name in names] if names is not None else self.getPlugs(keyable=True, scalar=True)
             flags = [(plug, _move_key_flags(plug, time, timeOffset, valueOffset, unit, timeUnit)) for plug in plugs]
             for plug, plug_flags in flags:
-                _move_plug_keys(plug.getFullName(), plug_flags)
+                _move_plug_keys(plug._full_name(), plug_flags)
 
     def setKeyTangent(self, attributes=None, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
         """複数のアトリビュートのキーの、接線の型をまとめて変える(``cmds.keyTangent(node, attribute=[...], edit=True)`` にあたる)。
@@ -1694,7 +1694,7 @@ class Node(Object):
         if names is not None:
             flags["attribute"] = names
         # keyTangentの1回だけなので、チャンクを開かない。
-        cmds.keyTangent(self.getFullName(), edit=True, **flags)
+        cmds.keyTangent(self._full_name(), edit=True, **flags)
 
     def getHistory(self, *, type=None, future=False):
         """ヒストリのノードを取得する。
@@ -1775,7 +1775,7 @@ class Node(Object):
         from ..plugs.plug import Plug
 
         self._require_valid("循環の検索")
-        names = cmds.cycleCheck(self.getFullName(), list=True) or []
+        names = cmds.cycleCheck(self._full_name(), list=True) or []
         own = om2.MObjectHandle(self._mobject)
         plugs = {}
         for name in names:
@@ -1948,7 +1948,7 @@ class Node(Object):
             if userDefined or not includeChildren or writable or listAttrFlags:
                 raise TypeError("animatableは、ほかの引数(userDefined・includeChildren・writable・listAttrのフラグ)と同時に指定できません")
             self._require_valid("アニメーション可能なアトリビュートの取得")
-            names = dict.fromkeys(cmds.listAnimatable(self.getFullName()) or [])
+            names = dict.fromkeys(cmds.listAnimatable(self._full_name()) or [])
             return Plugs._from_plugs([Plug._resolve_input(name) for name in names])
         self._require_valid("アトリビュートの一覧の取得")
         plugs = self._list_plugs(userDefined, includeChildren, listAttrFlags)
@@ -1974,7 +1974,7 @@ class Node(Object):
             RuntimeError: ノードが無効な場合、またはlistAttrが失敗した場合。
         """
         self._require_valid("アトリビュートの名前の取得")
-        return list(cmds.listAttr(self.getFullName(), **listAttrFlags) or [])
+        return list(cmds.listAttr(self._full_name(), **listAttrFlags) or [])
 
     def getAliases(self):
         """このノードのアトリビュートのエイリアス(別名)を取得する。
@@ -2389,7 +2389,7 @@ class Node(Object):
         names = [om2.MFnAttribute(attribute).name for attribute in self._user_attributes()]
         names = [name for name in names if name != "attributeAliasList"]
         if name not in names:
-            raise ValueError(f"{name}は{self.getFullName()}の最上位のユーザー定義アトリビュートではありません")
+            raise ValueError(f"{name}は{self._full_name()}の最上位のユーザー定義アトリビュートではありません")
         old_index = names.index(name)
         new_index = max(0, min(len(names) - 1, old_index + offset))
         if new_index == old_index:
@@ -2418,7 +2418,7 @@ class Node(Object):
         # 途中のMayaエラーでは、この処理のチャンクだけをUndoして元の状態へ戻す。
         with undoTransaction("mlibNodeMoveAttrOrder"):
             for alias, _ in aliases:
-                cmds.aliasAttr(self.getFullName() + "." + alias, remove=True)
+                cmds.aliasAttr(self._full_name() + "." + alias, remove=True)
             for attr_name in to_remove:
                 self.getPlug(attr_name).delete(force=True)
             for info in infos:
@@ -2553,8 +2553,8 @@ class Node(Object):
             return None
         return om2.MFnDependencyNode(self._mobject).uuid().asString()
 
-    def getName(self, *, node=False, removeNamespace=False):
-        """最短の一意な名前を取得する。``node=True`` なら、DAGパスを付けないノード名を取得する。
+    def getName(self, *, full=False, node=False, removeNamespace=False):
+        """最短の一意な名前を取得する。``full=True`` なら完全な名前、``node=True`` ならDAGパスを付けないノード名を取得する。
 
         既定の名前は、Mayaのコマンドへ渡すと、このオブジェクトが持つインスタンスを指せる名前になる。
 
@@ -2567,18 +2567,31 @@ class Node(Object):
         ``node=True`` では、DAGの別の階層に同じ名前のノードがあっても、親のパスは付けない(DGノードにも使える)。
         新しい名前を組み立てる元にするとき(接尾辞の付け替えなど)に使う。Mayaのコマンドへ渡す一意な名前が要るときは、既定のままにする。
 
+        ``full=True`` では、DAGノードはこのオブジェクトが持つインスタンスの完全なDAGパス(``|grp1|ctrl``)、DGノードはノード名を返す。
+        ノードそのものが無効なら、例外にせず空文字列を返す。
+
         Args:
+            full (bool): Trueなら、完全な名前を返す。node・removeNamespaceと同時には指定できない。既定はFalse。
             node (bool): Trueなら、DAGパスを付けないノード名(ネームスペースは含む)を返す。既定はFalse。
             removeNamespace (bool): Trueなら、ネームスペースも取り除く。``node=True`` のときだけ指定できる。既定はFalse。
 
         Returns:
-            str: 今の名前。
+            str: 今の名前。``full=True`` でノードが無効なら空文字列。
 
         Raises:
-            TypeError: node・removeNamespaceがboolでない場合、または ``node=True`` なしでremoveNamespaceを指定した場合。
-            RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合、
-                またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前のときだけ)。
+            TypeError: full・node・removeNamespaceがboolでない場合、``full=True`` とnode・removeNamespaceを同時に指定した場合、
+                または ``node=True`` なしでremoveNamespaceを指定した場合。
+            RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合(``full=True`` を除く)、
+                またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前と ``full=True`` のとき)。
         """
+        if full is not False:
+            _require_bool(full, "full")
+            if full:
+                if node is not False or removeNamespace is not False:
+                    _require_bool(node, "node")
+                    _require_bool(removeNamespace, "removeNamespace")
+                    raise TypeError("full=Trueはnode・removeNamespaceと同時に指定できません")
+                return self._full_name()
         if node is not False or removeNamespace is not False:
             _require_bool(node, "node")
             _require_bool(removeNamespace, "removeNamespace")
@@ -2597,10 +2610,10 @@ class Node(Object):
             self._current_dag_path()  # 保持するDAGインスタンスが消えた場合は RuntimeError にする。
         return dag_path.partialPathName()
 
-    def getFullName(self):
-        """完全な名前を取得する。
+    def _full_name(self):
+        """完全な名前(:meth:`getName` の ``full=True``)を、引数の検査なしで取得する。
 
-        DAGノードでは、このオブジェクトが持つインスタンスの完全なDAGパスを返す。DGノードではノード名を返す。
+        maya.cmdsへ名前を渡す内部の処理から、毎回の引数の検査を省いて呼ぶ。
 
         Returns:
             str: DAGノードではワールドから始まる完全なパス。DGノードではノード名。
@@ -2633,7 +2646,7 @@ class Node(Object):
             from ..plugs.plug import Plug
 
             return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._listed_attributes(includeChildren, **listAttrFlags)]
-        names = cmds.listAttr(self.getFullName(), **listAttrFlags) or []
+        names = cmds.listAttr(self._full_name(), **listAttrFlags) or []
         plugs = []
         for name in names:
             try:
@@ -2667,7 +2680,7 @@ class Node(Object):
         for item in attributes:
             if isinstance(item, Plug):
                 if not item.getNode().sameNode(self):
-                    raise ValueError(f"Plug {item.getFullName()!r}は{self.getName()!r}のものではありません")
+                    raise ValueError(f"Plug {item._full_name()!r}は{self.getName()!r}のものではありません")
                 plugs.append(item)
             elif isinstance(item, str):
                 if not item:
@@ -2975,7 +2988,7 @@ class Node(Object):
         """
         # 型と有効性の検査は Object._input_name と同じ規則(TypeError / ValueError)にそろえる。
         Object._input_name(value)
-        return Node._resolve_input(value).getFullName()
+        return Node._resolve_input(value)._full_name()
 
     def _resolve(self, node):
         """ノードを表す入力を内部 API オブジェクトへ変換する。
@@ -3021,7 +3034,7 @@ class Node(Object):
     def _api1_object(self):
         """API 1.0専用の照会に渡すMObjectを、その都度名前から解決する。"""
         selection = om1.MSelectionList()
-        selection.add(self.getFullName())
+        selection.add(self._full_name())
         node = om1.MObject()
         selection.getDependNode(0, node)
         return node
@@ -3302,12 +3315,12 @@ class Node(Object):
             # 子の範囲・既定値は子へ指定し、親には渡さない。
             for key in ("minValue", "maxValue", "softMinValue", "softMaxValue"):
                 flags.pop(key, None)
-            cmds.addAttr(self.getFullName(), **flags)
+            cmds.addAttr(self._full_name(), **flags)
             for child_name, child_type, child_flags in children:
                 # 角度の子の値は_prepare_extra_attr_definitionでrad換算済み。時間の子は親と同じ単位で渡す。
                 self.addAttr(child_name, child_type, getPlug=False, fast=fast, unit="rad", timeUnit=time_unit, **child_flags)
         else:
-            cmds.addAttr(self.getFullName(), **flags)
+            cmds.addAttr(self._full_name(), **flags)
         # 通常経路はcmdsが値まで設定するため、呼出し側へ渡すものはない。
         return None
 
@@ -3594,7 +3607,7 @@ class Nodes(_ListMethods):
     def sort(self, key=None, reverse=False):
         """要素をその場で並べ替える。
 
-        ``key`` を省くと、ノードの完全な名前(:meth:`Node.getFullName`)の順にする。
+        ``key`` を省くと、ノードの完全な名前(``Node.getName(full=True)``)の順にする。
         Nodeは大小を比べられないため、Pythonのlistと違い、要素そのものは比べない。
         並べ替えるのはこのまとまりの要素の順だけ。:meth:`copy`・スライス・``+`` で作った
         別のまとまりの順は変わらない(各要素のNodeのオブジェクトは共有している)。
@@ -3616,7 +3629,7 @@ class Nodes(_ListMethods):
         if key is None:
             for node in self._items:
                 node._require_valid("並べ替え")
-            key = methodcaller("getFullName")
+            key = methodcaller("_full_name")
         self._items.sort(key=key, reverse=reverse)
 
     def resetAttrs(self, attributes=None, *, fast=False, check=False):
@@ -3777,7 +3790,7 @@ class Nodes(_ListMethods):
         """各ノードの名前を取得する。
 
         既定は一意な名前(:meth:`Node.getName` を並べたもの)。``full=True`` なら完全な名前
-        (:meth:`Node.getFullName` を並べたもの)。
+        (``Node.getName(full=True)`` を並べたもの)。
 
         Args:
             full (bool): Trueなら、DAGノードではワールドから始まる完全なパス(DGノードではノード名)を返す。既定はFalse。
@@ -3796,7 +3809,7 @@ class Nodes(_ListMethods):
         for index, node in enumerate(self._items):
             if not node.isValid():
                 raise RuntimeError(f"無効な{type(node).__name__}のため、完全な名前の取得はできません: 要素の番号{index}")
-            names.append(node.getFullName())
+            names.append(node._full_name())
         return names
 
     def select(self, **kwargs):
@@ -4065,7 +4078,7 @@ class Nodes(_ListMethods):
         Returns:
             tuple[str | None, str]: UUIDと、DAGの完全パスまたはDGのノード名。
         """
-        return (node.getUuid(), node.getFullName())
+        return (node.getUuid(), node._full_name())
 
     @staticmethod
     def _validate_inputs(values):

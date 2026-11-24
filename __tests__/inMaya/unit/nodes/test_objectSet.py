@@ -64,7 +64,7 @@ class ObjectSetTest(unittest.TestCase):
         self.assertFalse(self.set.isMember(self.a))
         self.set.addMembers(self.a)
         self.assertTrue(self.set.isMember(self.a))
-        self.assertTrue(self.set.isMember(self.a.getFullName()))
+        self.assertTrue(self.set.isMember(self.a.getName(full=True)))
         self.assertFalse(self.set.isMember(self.b))
 
     def test_add_accepts_component_strings(self):
@@ -202,7 +202,7 @@ class ObjectSetDeformAdditionsTest(_Case):
         result = set()
         for member in members:
             if isinstance(member, mlib.Node):
-                result.add(member.getFullName())
+                result.add(member.getName(full=True))
             elif isinstance(member, str):
                 # cmds.setsの結果(名前の文字列)と比べるための経路。
                 result.update(cmds.ls(member, flatten=True, long=True))
@@ -221,8 +221,8 @@ class ObjectSetDeformAdditionsTest(_Case):
     def test_set_operations(self):
         """和・積・差は要素単位で cmds の結果を集合演算したものと一致する。"""
         first, second, cube, _a, b = self.sets()
-        one = self.flat(cmds.sets(first.getFullName(), query=True))
-        two = self.flat(cmds.sets(second.getFullName(), query=True))
+        one = self.flat(cmds.sets(first.getName(full=True), query=True))
+        two = self.flat(cmds.sets(second.getName(full=True), query=True))
         self.assertEqual(self.flat(first.combine(second, "union")), one | two)
         self.assertEqual(self.flat(first.combine(second, "intersection")), one & two)
         self.assertEqual(self.flat(first.combine(second, "difference")), one - two)
@@ -241,7 +241,7 @@ class ObjectSetDeformAdditionsTest(_Case):
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.flat(first.getMembers()), before), lambda: self.assertEqual(first.getMembers(), []))
         with self.assertRaises(TypeError):
             first.combine(a, "union")
-        cmds.delete(second.getFullName())
+        cmds.delete(second.getName(full=True))
         with self.assertRaises(RuntimeError):
             first.combine(second, "difference")
         with self.assertRaises(RuntimeError):
@@ -252,7 +252,7 @@ class ObjectSetMergedArgumentsTest(_Case):
     """フラグ・引数へまとめた ObjectSet のメソッド(getMembers(dagOnly=)・addMembers(exclusive=)・removeMembers(all=)・combine(mode=))。"""
 
     def members(self, node):
-        return sorted(cmds.ls(cmds.sets(node.getFullName(), query=True) or [], long=True))
+        return sorted(cmds.ls(cmds.sets(node.getName(full=True), query=True) or [], long=True))
 
     def test_get_members_dag_only_matches_api(self):
         """getMembers(dagOnly=True) は MFnSet.getMemberPaths と同じ DAG パスの Nodes。DG ノード・Plug は返さない。"""
@@ -267,8 +267,8 @@ class ObjectSetMergedArgumentsTest(_Case):
                 paths = node.getMembers(dagOnly=True, shadingOnly=shading)
                 self.assertIsInstance(paths, mlib.Nodes)
                 raw = om2.MFnSet(node.mnode()).getMemberPaths(shading)
-                self.assertEqual([item.getFullName() for item in paths], [path.fullPathName() for path in raw])
-        names = [item.getFullName() for item in node.getMembers(dagOnly=True)]
+                self.assertEqual([item.getName(full=True) for item in paths], [path.fullPathName() for path in raw])
+        names = [item.getName(full=True) for item in node.getMembers(dagOnly=True)]
         self.assertIn(cmds.ls(transform, long=True)[0], names)
         self.assertNotIn(utility, [name.rsplit("|", 1)[-1] for name in names])
         # 既定(dagOnly=False)は、ノード・Plug・コンポーネントをそのまま返す。
@@ -323,7 +323,7 @@ class ObjectSetMergedArgumentsTest(_Case):
         member = cmds.ls(self.make("transform", "moved#"), long=True)[0]
         first = mlib.getNode(cmds.sets(member, name=self.name("partFirst")))
         second = mlib.getNode(cmds.sets(empty=True, name=self.name("partSecond")))
-        cmds.partition(first.getFullName(), second.getFullName(), name=self.name("part"))
+        cmds.partition(first.getName(full=True), second.getName(full=True), name=self.name("part"))
         self.flushUndo()
         self.assertIsNone(second.addMembers(member, exclusive=True))
         self.assertEqual(self.members(second), [member])
@@ -344,7 +344,7 @@ class ObjectSetMergedArgumentsTest(_Case):
         before = (self.members(first), self.members(second))
 
         def names(items):
-            return sorted(item.getFullName() for item in items)
+            return sorted(item.getName(full=True) for item in items)
 
         self.assertEqual(names(first.combine(second)), sorted([a, b, c]))
         self.assertEqual(names(first.combine(second, mode="union")), sorted([a, b, c]))

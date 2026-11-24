@@ -96,7 +96,7 @@ class ChildrenTypeTest(_SpecCase):
         for flags, kind in (({}, "joint"), ({"allDescendents": True}, "joint"), ({"allDescendents": True}, "transform"), ({"allDescendents": True}, "mesh")):
             with self.subTest(flags=flags, type=kind):
                 expected = cmds.listRelatives(root, type=kind, fullPath=True, **flags) or []
-                actual = [item.getFullName() for item in node.getChildren(type=kind, **flags)]
+                actual = [item.getName(full=True) for item in node.getChildren(type=kind, **flags)]
                 self.assertEqual(sorted(actual), sorted(expected))
         # 探索は型で絞らず、結果だけを絞る(型の違う grp の下の leaf も見つかる)。深さ優先の順。
         self.assertEqual(
@@ -263,7 +263,7 @@ class SetParentCycleTest(_SpecCaseTranslationMirrorErrors):
     def test_joint_and_fast_joint(self):
         """Joint も同じ文言。fast の Joint 未対応より先に親の検査を行う。"""
         root = Node(self.make("joint", "jointRoot"))
-        child = Node(self.make("joint", "jointChild", parent=root.getFullName()))
+        child = Node(self.make("joint", "jointChild", parent=root.getName(full=True)))
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaisesRegex(RuntimeError, self.MESSAGE):

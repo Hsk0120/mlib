@@ -67,7 +67,7 @@ class _FastCase(NamespaceCase):
         curve = mlib.getNode(cmds.listConnections(node + ".tx", type="animCurve")[0])
 
         def state():
-            name = curve.getFullName()
+            name = curve.getName(full=True)
             return _rounded((cmds.keyframe(name, query=True, timeChange=True), cmds.keyframe(name, query=True, valueChange=True)))
 
         return curve, state
@@ -83,7 +83,7 @@ class _FastCase(NamespaceCase):
     def r_VertexFace_removeColor(self):
         transform = cmds.polyCube(name="cube#", constructionHistory=False)[0]
         shape = mlib.getNode(transform).getShape()
-        cmds.polyColorSet(shape.getFullName(), create=True, colorSet="colors")
+        cmds.polyColorSet(shape.getName(full=True), create=True, colorSet="colors")
         shape.setVertexColors([(0.2, 0.3, 0.4, 0.5)] * 24, perFace=True, colorSet="colors")
 
         def state():
@@ -147,8 +147,8 @@ class _FastCase(NamespaceCase):
 
         def state():
             shapes = [len(cmds.listRelatives(parent, shapes=True) or []) for parent in (receiver, source)]
-            parent = cmds.listRelatives(moved.getFullName(), parent=True, fullPath=True)[0]
-            return tuple(shapes), parent == receiver, _rounded(cmds.xform(moved.getFullName() + ".cv[*]", query=True, translation=True, worldSpace=True))
+            parent = cmds.listRelatives(moved.getName(full=True), parent=True, fullPath=True)[0]
+            return tuple(shapes), parent == receiver, _rounded(cmds.xform(moved.getName(full=True) + ".cv[*]", query=True, translation=True, worldSpace=True))
 
         return (lambda **kw: node.addShape(moved, **kw)), state
 

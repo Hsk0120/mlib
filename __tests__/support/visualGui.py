@@ -88,7 +88,7 @@ def main(output_dir=None, finished=None):
             name = cmds.circle(name=prefix + ":" + label, normal=(0, 0, 1), radius=1.3, constructionHistory=False)[0]
             cmds.setAttr(name + ".tx", x)
             curves.append(mlib.getNode(name))
-        cmds.addAttr(curves[0].getFullName(), longName="guiAmount", attributeType="double", keyable=True)
+        cmds.addAttr(curves[0].getName(full=True), longName="guiAmount", attributeType="double", keyable=True)
         camera, camera_shape = cmds.camera(name=prefix + ":camera", orthographic=True)
         cmds.setAttr(camera + ".tz", 20)
         cmds.setAttr(camera_shape + ".orthographicWidth", 15)
@@ -96,14 +96,14 @@ def main(output_dir=None, finished=None):
         pane = cmds.paneLayout(configuration="vertical3")
         connection = cmds.selectionConnection()
         for curve in curves:
-            cmds.selectionConnection(connection, edit=True, select=curve.getFullName())
+            cmds.selectionConnection(connection, edit=True, select=curve.getName(full=True))
         cmds.outlinerEditor(parent=pane, mainListConnection=connection, showDagOnly=True, showShapes=False)
         panel = cmds.modelPanel(parent=pane, camera=camera, menuBarVisible=False)
         channel_connection = cmds.selectionConnection()
-        cmds.selectionConnection(channel_connection, edit=True, select=curves[0].getFullName())
+        cmds.selectionConnection(channel_connection, edit=True, select=curves[0].getName(full=True))
         cmds.channelBox(parent=pane, mainListConnection=channel_connection)
         cmds.modelEditor(panel, edit=True, grid=False, cameras=False, displayAppearance="wireframe")
-        cmds.select([c.getFullName() for c in curves], replace=True)
+        cmds.select([c.getName(full=True) for c in curves], replace=True)
         cmds.isolateSelect(panel, state=True)
         cmds.isolateSelect(panel, loadSelected=True)
         cmds.select(clear=True)
@@ -135,7 +135,7 @@ def main(output_dir=None, finished=None):
         class VisualTests(unittest.TestCase):
             def test_component_selection(self):
                 """Component選択を保持し、明示的なSelection参照から復元する。"""
-                cmds.select(curves[0].getFullName() + ".cv[0:2]", replace=True)
+                cmds.select(curves[0].getName(full=True) + ".cv[0:2]", replace=True)
                 saved = mlib.Selection.capture()
                 before = cmds.ls(selection=True, flatten=True, long=True)
                 cmds.select(clear=True)

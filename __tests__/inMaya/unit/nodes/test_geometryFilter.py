@@ -83,15 +83,15 @@ class GeometryFilterTest(_Case):
                         deformer.getGeometry(**flags)
                 with self.assertRaises(IndexError):
                     deformer.getGeometry(input=True, geometryIndex=999)
-                self.assertTrue(cmds.getAttr(inputs[0].getFullName() + ".intermediateObject"))
-                self.assertEqual(cmds.listRelatives(inputs[0].getFullName(), parent=True, fullPath=True)[0], mesh)
+                self.assertTrue(cmds.getAttr(inputs[0].getName(full=True) + ".intermediateObject"))
+                self.assertEqual(cmds.listRelatives(inputs[0].getName(full=True), parent=True, fullPath=True)[0], mesh)
                 self.assertNotEqual(inputs[0], deformer.getGeometry()[0])
 
     def test_deleted_raises(self):
         """削除済みのデフォーマーは RuntimeError。"""
         transform, _ = self.cube()
         cluster = mlib.createDeformer("cluster", transform)
-        cmds.delete(cluster.getFullName())
+        cmds.delete(cluster.getName(full=True))
         for flags in ({"input": True}, {}, {"input": True, "geometryIndex": 0}, {"geometryIndex": 0}):
             with self.subTest(flags=flags), self.assertRaises(RuntimeError):
                 cluster.getGeometry(**flags)
@@ -125,14 +125,14 @@ class GeometryFilterGeometryTest(_CaseMethodAdditions):
         transform, _shape = self.cube()
         cmds.select(clear=True)
         joint = cmds.joint(name=self.name("jnt#"))
-        skin = mlib.getNode(cmds.skinCluster(joint, transform.getFullName(), name=self.name("skin#"))[0])
-        cluster = mlib.getNode(cmds.cluster(transform.getFullName(), name=self.name("cluster#"))[0])
-        mush = mlib.getNode(cmds.deltaMush(transform.getFullName(), name=self.name("mush#"))[0])
-        expected = cmds.ls(cmds.deformer(skin.getFullName(), query=True, geometry=True), long=True)
+        skin = mlib.getNode(cmds.skinCluster(joint, transform.getName(full=True), name=self.name("skin#"))[0])
+        cluster = mlib.getNode(cmds.cluster(transform.getName(full=True), name=self.name("cluster#"))[0])
+        mush = mlib.getNode(cmds.deltaMush(transform.getName(full=True), name=self.name("mush#"))[0])
+        expected = cmds.ls(cmds.deformer(skin.getName(full=True), query=True, geometry=True), long=True)
         for deformer in (skin, cluster, mush):
             with self.subTest(deformer=deformer.getType()):
                 self.assertIsInstance(deformer, mlib.GeometryFilter)
-                self.assertEqual([node.getFullName() for node in deformer.getGeometry()], expected)
+                self.assertEqual([node.getName(full=True) for node in deformer.getGeometry()], expected)
         for name in cmds.ls(type="dagPose") or []:
             if not cmds.listConnections(name + ".members"):
                 cmds.delete(name)

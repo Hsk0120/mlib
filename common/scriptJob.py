@@ -82,7 +82,7 @@ class ScriptJob:
         if event is not None:
             options["event"] = [event, callback]
         elif attribute is not None:
-            options["attributeChange"] = [Plug._resolve_input(attribute).getFullName(), callback]
+            options["attributeChange"] = [Plug._resolve_input(attribute)._full_name(), callback]
             if allChildren:
                 options["allChildren"] = True
         else:

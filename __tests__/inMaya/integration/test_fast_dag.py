@@ -57,9 +57,9 @@ class ConsolidatedDagTests(unittest.TestCase):
         a = mlib.getNode(first).getChildren()[0]
         b = mlib.getNode(second).getChildren()[0]
         self.assertEqual(a.mnode(), b.mnode())
-        self.assertNotEqual(a.getFullName(), b.getFullName())
-        self.assertEqual(a.getParent().getFullName(), "|firstRoot")
-        self.assertEqual(b.getParent().getFullName(), "|secondRoot")
+        self.assertNotEqual(a.getName(full=True), b.getName(full=True))
+        self.assertEqual(a.getParent().getName(full=True), "|firstRoot")
+        self.assertEqual(b.getParent().getName(full=True), "|secondRoot")
 
     def test_pivot_fast_matches_cmds_and_read_is_api_only(self):
         """非一様スケールと親を含むピボット設定を通常経路と比較する。"""
@@ -143,8 +143,8 @@ class ConsolidatedDagTests(unittest.TestCase):
         parent.setTranslation((3, 4, 5))
         parent.setRotate((0.2, 0.5, 0.7))
         first = mlib.getNode(cmds.polyCube(constructionHistory=False)[0])
-        cmds.move(5, 2, 8, first.getFullName() + ".vtx[0]", relative=True)
-        second = mlib.getNode(cmds.duplicate(first.getFullName())[0])
+        cmds.move(5, 2, 8, first.getName(full=True) + ".vtx[0]", relative=True)
+        second = mlib.getNode(cmds.duplicate(first.getName(full=True))[0])
         for node in (first, second):
             node.setParent(parent, relative=True)
             node.setTranslation((1, 2, 3))
@@ -163,7 +163,7 @@ class ConsolidatedDagTests(unittest.TestCase):
         source = mlib.createNode("transform")
         driven = mlib.createNode("transform")
         constraint = driven.addConstraint(source, type="point")
-        name = constraint.getFullName()
+        name = constraint.getName(full=True)
         cmds.flushUndo()
         with mock.patch.object(cmds, "listConnections", side_effect=AssertionError("cmds query used")), mock.patch.object(
             cmds, "delete", side_effect=AssertionError("cmds delete used")
@@ -217,7 +217,7 @@ class ConsolidatedDagTests(unittest.TestCase):
             cmds.flushUndo()
             node = mlib.getNode(child)
             self.assertIsNone(node.setParent(mlib.getNode(new), fast=fast))
-            path = node.getFullName()
+            path = node.getName(full=True)
             self.assertEqual(cmds.listRelatives(path, parent=True), ["newParent"])
             for actual, expected in zip(cmds.getAttr(path + ".worldMatrix"), world):
                 self.assertAlmostEqual(actual, expected, places=6)
@@ -280,7 +280,7 @@ class ConsolidatedDagTests(unittest.TestCase):
                     cmds.flushUndo()
                     node = mlib.getNode(child)
                     node.setParent(None if to_world else mlib.getNode(new), fast=True)
-                    path = node.getFullName()
+                    path = node.getName(full=True)
                     self.assertEqual(cmds.listRelatives(path, parent=True), None if to_world else ["newParent"])
                     for actual, expected in zip(cmds.getAttr(path + ".worldMatrix"), world):
                         self.assertAlmostEqual(actual, expected, places=6)

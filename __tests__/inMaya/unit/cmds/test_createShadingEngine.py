@@ -22,7 +22,7 @@ class CreateShadingEngineTest(NamespaceCase):
         engine = mlib.createShadingEngine(name=self.name("madeSG"))
         expected = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=self.name("refSG"))
         self.assertIsInstance(engine, mlib.ShadingEngine)
-        for name in (engine.getFullName(), expected):
+        for name in (engine.getName(full=True), expected):
             with self.subTest(name=name):
                 partitions = cmds.listConnections(name + ".partition", source=False, destination=True) or []
                 self.assertEqual(partitions, ["renderPartition"])
@@ -34,7 +34,7 @@ class CreateShadingEngineTest(NamespaceCase):
         cmds.select(clear=True)
         self.flushUndo()
         engine = mlib.createShadingEngine(shader, n=self.name("matSG"))
-        name = engine.getFullName()
+        name = engine.getName(full=True)
         self.assertEqual(engine.getShader(), shader)
         self.assertEqual(cmds.ls(selection=True), [])
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))

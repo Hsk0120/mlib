@@ -79,7 +79,7 @@ class GetRootTest(HierarchyFixture):
                 result = Node(name).getRoot()
                 self.assertIsInstance(result, Transform)
                 self.assertEqual(result, root)
-                self.assertEqual(result.getFullName(), "|" + self.root)
+                self.assertEqual(result.getName(full=True), "|" + self.root)
 
     def test_world_level_returns_self(self):
         node = Node(self.root)
@@ -88,14 +88,14 @@ class GetRootTest(HierarchyFixture):
     def test_matches_cmds_long_name(self):
         """cmds.ls(long=True) の先頭要素と一致する。"""
         expected = "|" + cmds.ls(self.leaf_shape, long=True)[0].split("|")[1]
-        self.assertEqual(Node(self.leaf_shape).getRoot().getFullName(), expected)
+        self.assertEqual(Node(self.leaf_shape).getRoot().getName(full=True), expected)
 
 
 class GetSiblingsTest(HierarchyFixture):
     def test_transform_siblings_match_cmds(self):
         """Transform の兄弟は親直下の他 Transform(DAG の子順)。"""
         expected = [path for path in cmds.listRelatives(self.mid, children=True, type="transform", fullPath=True) if path != self.leaf]
-        self.assertEqual([node.getFullName() for node in Node(self.leaf).getSiblings()], expected)
+        self.assertEqual([node.getName(full=True) for node in Node(self.leaf).getSiblings()], expected)
         self.assertEqual(expected, [self.leaf2])
 
     def test_shape_siblings_exclude_intermediate(self):
@@ -104,19 +104,19 @@ class GetSiblingsTest(HierarchyFixture):
         hidden = cmds.createNode("mesh", name=self.name("leafShapeOrig"), parent=self.leaf, skipSelect=True)
         cmds.setAttr(hidden + ".intermediateObject", True)
         siblings = Node(self.leaf_shape).getSiblings()
-        self.assertEqual([node.getFullName() for node in siblings], cmds.ls(second, long=True))
+        self.assertEqual([node.getName(full=True) for node in siblings], cmds.ls(second, long=True))
         self.assertTrue(all(isinstance(node, Shape) for node in siblings))
 
     def test_world_level_transform_uses_assemblies(self):
         """ワールド直下は cmds.ls(assemblies=True) から自身を除いたもの。"""
         expected = [path for path in cmds.ls(assemblies=True, long=True) if path != "|" + self.root]
-        self.assertEqual(sorted(node.getFullName() for node in Node(self.root).getSiblings()), sorted(expected))
+        self.assertEqual(sorted(node.getName(full=True) for node in Node(self.root).getSiblings()), sorted(expected))
 
     def test_instances_of_self_are_not_siblings(self):
         """自身の別インスタンスは兄弟に含めない。"""
         cmds.parent(self.leaf, self.leaf2, addObject=True, relative=True)
         instance = cmds.ls(self.name("leaf"), allPaths=True, long=True)[1]
-        self.assertEqual([node.getFullName() for node in Node(instance).getSiblings()], [])
+        self.assertEqual([node.getName(full=True) for node in Node(instance).getSiblings()], [])
 
     def test_invalid_node_returns_empty(self):
         node = Node(self.leaf2)
@@ -242,7 +242,7 @@ class GetShapeContractTest(HierarchyFixture):
 
     def test_transform_out_of_range_is_none(self):
         self.assertIsNone(Node(self.leaf).getShape(5))
-        self.assertEqual(Node(self.leaf).getShape(0).getFullName(), self.leaf_shape)
+        self.assertEqual(Node(self.leaf).getShape(0).getName(full=True), self.leaf_shape)
 
 
 class RemovedNamesTest(HierarchyFixture):
@@ -259,9 +259,9 @@ class RemovedNamesTest(HierarchyFixture):
                     getattr(node, name)
 
     def test_replacements(self):
-        """代替: getFullName / getName / getParent().mpath() / SkinClusters(getSkinClusters())。"""
+        """代替: getName(full=True) / getName / getParent().mpath() / SkinClusters(getSkinClusters())。"""
         node = Node(self.leaf_shape)
-        self.assertEqual(node.getFullName(), node.mpath().fullPathName())
+        self.assertEqual(node.getName(full=True), node.mpath().fullPathName())
         self.assertEqual(node.getName(), node.mpath().partialPathName())
         self.assertEqual(node.getParent().mpath().fullPathName(), self.leaf)
 

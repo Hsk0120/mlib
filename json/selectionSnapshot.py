@@ -136,7 +136,7 @@ class SelectionSnapshot(Snapshot):
                 if node is None:
                     report._add_missing(ref._mapped_name(mapping))
                 else:
-                    names.append(node.getFullName())
+                    names.append(node._full_name())
                 continue
             ref = ComponentRef._from_data(entry["components"])
             if ref.node.resolve(mapping) is None:

@@ -65,9 +65,9 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
         if not node.isValid():
             raise RuntimeError("childが有効なノードではありません")
         if not isinstance(node, Transform):
-            raise TypeError(f"childはtransformで指定してください: {node.getFullName()}")
+            raise TypeError(f"childはtransformで指定してください: {node._full_name()}")
         nodes.append(node)
-    paths = [node.getFullName() for node in nodes]
+    paths = [node._full_name() for node in nodes]
     if len(set(paths)) != len(paths):
         raise ValueError("childrenに同じノードを2回指定できません")
     parent_node = resolve_parent(parent)
@@ -75,7 +75,7 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
     if name:
         flags["name"] = name
     if parent_node is not None:
-        flags["parent"] = parent_node.getFullName()
+        flags["parent"] = parent_node._full_name()
     elif world:
         flags["world"] = True
     with undoTransaction("mlibCreateGroup"), preservedSelection():

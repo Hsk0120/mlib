@@ -78,7 +78,7 @@ class VertexFaceTest(_Case):
 
     def test_index_names(self):
         _, mesh = self.cube()
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         all_faces = VertexFaces(mesh)
         self.assertEqual(len(all_faces), 24)
         self.assertTrue(all_faces.isComplete())
@@ -87,7 +87,7 @@ class VertexFaceTest(_Case):
         self.assertEqual(item.getMultiIndex(), (3, 1))
         self.assertEqual(item.getVertex(), mesh.getVertices(3))
         self.assertEqual(item.getFace(), Face(mesh, 1))
-        self.assertTrue(item.getFullName().endswith(".vtxFace[3][1]"))
+        self.assertTrue(item.getName(full=True).endswith(".vtxFace[3][1]"))
         self.assertEqual(VertexFace(mesh, item.index), item)
         resolved = Object(name + ".vtxFace[3][1]")
         self.assertIsInstance(resolved, VertexFace)
@@ -103,7 +103,7 @@ class VertexFaceTest(_Case):
     def test_normal(self):
         transform, mesh = self.cube()
         cmds.setAttr(transform + ".rotateZ", 90)
-        name = mesh.getFullName()
+        name = mesh.getName(full=True)
         for vertex, face in ((2, 0), (7, 3)):
             with self.subTest(vertex=vertex, face=face):
                 item = VertexFace(mesh, (vertex, face))

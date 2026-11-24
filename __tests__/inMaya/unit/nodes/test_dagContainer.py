@@ -28,7 +28,7 @@ class DagContainerTest(unittest.TestCase):
 
     def test_type_and_publish(self):
         """自動型解決とTransform・Container双方の操作を確認する。"""
-        self.assertIsInstance(Node(self.owner.getFullName()), DagContainer)
+        self.assertIsInstance(Node(self.owner.getName(full=True)), DagContainer)
         self.assertIsInstance(self.owner, Transform)
         # クラスの親は1つ(Transform)。Containerの派生ではないので、コンテナかはisTypeで調べる。
         self.assertNotIsInstance(self.owner, Container)
@@ -43,12 +43,12 @@ class DagContainerTest(unittest.TestCase):
     def test_remove_preserves_members_and_local_values(self):
         """標準の解除は子のローカル値を保持し、Undoで階層と姿勢を戻す。"""
         self.owner.getPlug("translateX").set(4)
-        child = Node(cmds.createNode("transform", parent=self.owner.getFullName()))
+        child = Node(cmds.createNode("transform", parent=self.owner.getName(full=True)))
         child.getPlug("translateY").set(3)
         node = self.owner.createNode("multiplyDivide")
         child_name = child.getName()
         owner_name = self.owner.getName()
-        matrix = cmds.xform(child.getFullName(), query=True, worldSpace=True, matrix=True)
+        matrix = cmds.xform(child.getName(full=True), query=True, worldSpace=True, matrix=True)
         self.assertIn(child, self.owner.getMembers())
         self.owner.removeContainer()
         self.assertTrue(cmds.objExists(child_name))
@@ -63,7 +63,7 @@ class DagContainerTest(unittest.TestCase):
 
     def test_remove_member_and_delete(self):
         """子の所属解除と、箱ごとの通常削除を確認する。"""
-        child = Node(cmds.createNode("transform", parent=self.owner.getFullName()))
+        child = Node(cmds.createNode("transform", parent=self.owner.getName(full=True)))
         name = child.getName()
         self.owner.removeMembers(child)
         self.assertTrue(cmds.objExists(name))

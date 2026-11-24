@@ -2414,11 +2414,8 @@ class SkinClusters(Nodes[SkinCluster]):
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self, *, node: bool = ..., removeNamespace: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., node: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
-        ...
-    def getFullName(self) -> list[str]:
-        """各要素の :meth:`~mlib.nodes.node.Node.getFullName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:
         """各要素の :meth:`~mlib.core.object.Object.asString` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

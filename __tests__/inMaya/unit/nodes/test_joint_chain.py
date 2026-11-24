@@ -54,10 +54,10 @@ class ShapesConstraintsTest(unittest.TestCase):
         branch.setParent(j2)
 
         chain = j1.getChainFromHere()
-        self.assertEqual([joint.getFullName() for joint in chain], [j1.getFullName(), j2.getFullName()])
+        self.assertEqual([joint.getName(full=True) for joint in chain], [j1.getName(full=True), j2.getName(full=True)])
 
         chain_to_j3 = j1.getChainFromHere(j3)
-        self.assertEqual([joint.getFullName() for joint in chain_to_j3], [j1.getFullName(), j2.getFullName(), j3.getFullName()])
+        self.assertEqual([joint.getName(full=True) for joint in chain_to_j3], [j1.getName(full=True), j2.getName(full=True), j3.getName(full=True)])
 
         cmds.select(clear=True)
         unrelated = mlib.Joint(cmds.joint(position=(0, 5, 0)))
@@ -65,29 +65,29 @@ class ShapesConstraintsTest(unittest.TestCase):
             j1.getChainFromHere(unrelated)
 
         self.assertEqual(j1.getConnections(type="ikHandle", asNode=True), [])
-        handle = mlib.Node(cmds.ikHandle(startJoint=j1.getFullName(), endEffector=j3.getFullName(), solver="ikRPsolver")[0])
+        handle = mlib.Node(cmds.ikHandle(startJoint=j1.getName(full=True), endEffector=j3.getName(full=True), solver="ikRPsolver")[0])
         self.assertIsInstance(handle, mlib.IkHandle)
 
         found_handles = j1.getConnections(type="ikHandle", asNode=True)
         self.assertEqual(len(found_handles), 1)
-        self.assertEqual(found_handles[0].getFullName(), handle.getFullName())
+        self.assertEqual(found_handles[0].getName(full=True), handle.getName(full=True))
         self.assertEqual(j2.getConnections(type="ikHandle", asNode=True), [])
 
-        self.assertEqual(handle.getJoints(end=True).getFullName(), j3.getFullName())
+        self.assertEqual(handle.getJoints(end=True).getName(full=True), j3.getName(full=True))
         joint_list = handle.getJoints()
-        self.assertEqual([joint.getFullName() for joint in joint_list], [j1.getFullName(), j2.getFullName()])
+        self.assertEqual([joint.getName(full=True) for joint in joint_list], [j1.getName(full=True), j2.getName(full=True)])
         joint_list_with_tip = handle.getJoints(includeTip=True)
-        self.assertEqual([joint.getFullName() for joint in joint_list_with_tip], [j1.getFullName(), j2.getFullName(), j3.getFullName()])
+        self.assertEqual([joint.getName(full=True) for joint in joint_list_with_tip], [j1.getName(full=True), j2.getName(full=True), j3.getName(full=True)])
 
     def mirror_shapes(self):
         """非対称カーブと履歴付きメッシュを変換済みの親の下へ作成する。"""
         cube = mlib.Node(cmds.polyCube()[0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(1, 2, 3), (4, 1, -2), (2, 5, 1)]))
         parent = self.getTransform()
-        cmds.setAttr(parent.getFullName() + ".translate", 4, -2, 3)
-        cmds.setAttr(parent.getFullName() + ".rotate", 23, 41, -17)
-        cmds.setAttr(parent.getFullName() + ".scale", 2, 0.7, 1.3)
-        cmds.parent(cube.getFullName(), curve.getFullName(), parent.getFullName(), relative=True)
+        cmds.setAttr(parent.getName(full=True) + ".translate", 4, -2, 3)
+        cmds.setAttr(parent.getName(full=True) + ".rotate", 23, 41, -17)
+        cmds.setAttr(parent.getName(full=True) + ".scale", 2, 0.7, 1.3)
+        cmds.parent(cube.getName(full=True), curve.getName(full=True), parent.getName(full=True), relative=True)
         return [cube.getShape(), curve.getShape()]
 
     def positions(self, shape, ws=False):

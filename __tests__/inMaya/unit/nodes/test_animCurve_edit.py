@@ -27,7 +27,7 @@ class _KeyCase(NamespaceCase):
         self.tangents = cmds.keyTangent(query=True, g=True, inTangentType=True, outTangentType=True)
         self.time = (cmds.currentUnit(query=True, time=True), cmds.currentTime(query=True))
         self.node = mlib.getNode(self.make("transform", "node"))
-        self.name_ = self.node.getFullName()
+        self.name_ = self.node.getName(full=True)
         for time, value in ((1, 0.0), (5, 2.0), (10, 4.0)):
             cmds.setKeyframe(self.name_, attribute="translateX", time=time, value=value)
         cmds.setKeyframe(self.name_, attribute="rotateY", time=1, value=90.0)
@@ -44,10 +44,10 @@ class _KeyCase(NamespaceCase):
         super().tearDown()
 
     def times(self, curve=None):
-        return cmds.keyframe((curve or self.curve).getFullName(), query=True, timeChange=True) or []
+        return cmds.keyframe((curve or self.curve).getName(full=True), query=True, timeChange=True) or []
 
     def values(self, curve=None):
-        return cmds.keyframe((curve or self.curve).getFullName(), query=True, valueChange=True) or []
+        return cmds.keyframe((curve or self.curve).getName(full=True), query=True, valueChange=True) or []
 
 
 class AnimCurveEditTest(_KeyCase):
@@ -105,7 +105,7 @@ class AnimCurveEditTest(_KeyCase):
 
     def test_remove_key_keep_curve(self):
         """既定(keepCurve=True)は全キーを消してもカーブと接続が残り、False は Maya と同じく消える。"""
-        name = self.curve.getFullName()
+        name = self.curve.getName(full=True)
         self.flushUndo()
         self.curve.removeKey(index=[0, 1, 2])
         self.assertTrue(cmds.objExists(name))
@@ -192,7 +192,7 @@ class AnimCurveEditTest(_KeyCase):
         rotate = self.node.getPlug("ry").getAnimCurve()
         self.assertEqual(rotate.getDrivenPlugs(), [self.node.getPlug("ry")])
         other = mlib.getNode(self.make("transform", "other"))
-        cmds.connectAttr(self.curve.getFullName() + ".output", other.getFullName() + ".ty")
+        cmds.connectAttr(self.curve.getName(full=True) + ".output", other.getName(full=True) + ".ty")
         self.assertEqual(set(self.curve.getDrivenPlugs()), {self.node.getPlug("tx"), other.getPlug("ty")})
         self.assertEqual(mlib.createNode("animCurveTL", name=self.name("lonely")).getDrivenPlugs(), [])
 

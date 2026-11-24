@@ -82,7 +82,7 @@ class BlendShape(GeometryFilter):
         Returns:
             int: Mayaのウェイト数。
         """
-        return int(cmds.blendShape(self.getFullName(), query=True, weightCount=True))
+        return int(cmds.blendShape(self._full_name(), query=True, weightCount=True))
 
     def getNormalizationGroups(self):
         """使用されている正規化グループの番号を取得する。
@@ -90,7 +90,7 @@ class BlendShape(GeometryFilter):
         Returns:
             list[int]: Mayaが返す順のグループ番号。未使用なら空。
         """
-        return list(cmds.blendShape(self.getFullName(), query=True, normalizationGroups=True) or [])
+        return list(cmds.blendShape(self._full_name(), query=True, normalizationGroups=True) or [])
 
     def getTargetNames(self):
         """ターゲット名を、論理番号の順に取得する。
@@ -157,7 +157,7 @@ class BlendShape(GeometryFilter):
         shapes = [node] if node.mnode().hasFn(om2.MFn.kShape) else []
         if node.mnode().hasFn(om2.MFn.kTransform):
             shapes = list(node.getShape(all=True))
-        if not any(cmds.objectType(shape.getFullName(), isAType="deformableShape") for shape in shapes):
+        if not any(cmds.objectType(shape._full_name(), isAType="deformableShape") for shape in shapes):
             raise ValueError(f"geometryには変形できる形状か、それを持つTransformを指定してください: {node.getName()}")
         require_editable(self.mnode())
         try:
@@ -166,7 +166,7 @@ class BlendShape(GeometryFilter):
             pass
         else:
             raise ValueError(f"ベースジオメトリはすでに登録されています: {node.getName()}")
-        cmds.blendShape(self.getFullName(), edit=True, geometry=node.getFullName())
+        cmds.blendShape(self._full_name(), edit=True, geometry=node._full_name())
 
     def addTarget(self, mesh, name=None, *, base=None, index=None, fullWeight=1.0, inBetween=None, relative=False):
         """指定したベースへターゲット形状を追加する。``inBetween`` を渡すと、すでにあるターゲットへin-betweenを追加する。
@@ -222,11 +222,11 @@ class BlendShape(GeometryFilter):
             self._require_vertex_count(bi, shape)
             with undoChunk("mlibBlendShapeAddInBetween"):
                 cmds.blendShape(
-                    self.getFullName(),
+                    self._full_name(),
                     edit=True,
                     inBetween=True,
                     inBetweenType="relative" if relative else "absolute",
-                    target=(self._base_shape(bi).getFullName(), index, shape.getFullName(), fullWeight),
+                    target=(self._base_shape(bi)._full_name(), index, shape._full_name(), fullWeight),
                 )
             return self.getPlug("weight")[index]
         if relative:
@@ -261,10 +261,10 @@ class BlendShape(GeometryFilter):
             if found is not None and found != index:
                 raise ValueError(f"blendShapeのターゲット{name!r}は{self.getName()}にすでに存在します")
         with undoChunk("mlibBlendShapeAddTarget"):
-            cmds.blendShape(self.getFullName(), edit=True, target=(base_node.getFullName(), index, mesh_name, fullWeight))
+            cmds.blendShape(self._full_name(), edit=True, target=(base_node._full_name(), index, mesh_name, fullWeight))
             alias = old_alias if old_alias is not None else name
             if alias is not None and self._alias_of(index) != alias:
-                cmds.aliasAttr(alias, f"{self.getFullName()}.weight[{index}]")
+                cmds.aliasAttr(alias, f"{self._full_name()}.weight[{index}]")
             return self.getPlug("weight")[index]
 
     def removeTarget(self, target, *, inBetween=None):
@@ -305,12 +305,12 @@ class BlendShape(GeometryFilter):
             if item == _FULL_ITEM or not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
                 raise ValueError(f"ターゲット{index}に、ウェイト{inBetween}のインビトウィーンはありません")
             with undoChunk("mlibBlendShapeRemoveInBetween"):
-                mel.eval(f'blendShapeDeleteInBetweenTarget("{self.getFullName()}", {index}, {item})')
+                mel.eval(f'blendShapeDeleteInBetweenTarget("{self._full_name()}", {index}, {item})')
             return
         if self.getPlug("weight")[index].isLocked():
             raise RuntimeError(f"{self.getName()}のロックされたblendShapeのターゲット{target!r}は削除できません")
         with undoChunk("mlibBlendShapeRemoveTarget"):
-            command = f'blendShapeDeleteTargetGroup("{self.getFullName()}", {index})'
+            command = f'blendShapeDeleteTargetGroup("{self._full_name()}", {index})'
             if not mel.eval(command):
                 raise RuntimeError(f"Mayaが{self.getName()}のblendShapeのターゲット{target!r}を削除できませんでした")
 
@@ -631,12 +631,12 @@ class BlendShape(GeometryFilter):
         space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
         with undoChunk("mlibBlendShapeFlipTarget" if flip else "mlibBlendShapeMirrorTarget"):
             if edge is not None:
-                cmds.blendShape(self.getFullName(), edit=True, symmetryEdge=edge)
+                cmds.blendShape(self._full_name(), edit=True, symmetryEdge=edge)
             if flip:
-                cmds.blendShape(self.getFullName(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
+                cmds.blendShape(self._full_name(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
             else:
                 cmds.blendShape(
-                    self.getFullName(),
+                    self._full_name(),
                     edit=True,
                     mirrorTarget=(bi, index),
                     symmetryAxis=name,
@@ -667,7 +667,7 @@ class BlendShape(GeometryFilter):
         bi, index, item = self._resolve_item(target, base, fullWeight)
         shape = _mesh_shape(geometry)
         self._require_vertex_count(bi, shape)
-        source = f"{shape.getFullName()}.worldMesh[{shape.mpath().instanceNumber()}]"
+        source = f"{shape._full_name()}.worldMesh[{shape.mpath().instanceNumber()}]"
         path = self._item_path(bi, index, item)
         with undoChunk("mlibBlendShapeReplaceTarget"):
             if not self._mplug(path + ".inputGeomTarget").isDestination:
@@ -734,7 +734,7 @@ class BlendShape(GeometryFilter):
         if not paths:
             raise ValueError(f"ターゲット{index}には、ベースのデータがありません")
         if missing:
-            cmds.sculptTarget(self.getFullName(), edit=True, target=index, inbetweenWeight=fullWeight, regenerate=True)
+            cmds.sculptTarget(self._full_name(), edit=True, target=index, inbetweenWeight=fullWeight, regenerate=True)
         # Mayaの返却は新規Transformだけなので、接続から既存・新規の両方のShapeを取り直す。
         return Nodes._wrap([Node(self._mplug(path).source().node()) for path in paths])
 
@@ -759,7 +759,7 @@ class BlendShape(GeometryFilter):
         _require_bool(state, "state")
         if not state:
             with undoChunk("mlibBlendShapeTargetEdit"):
-                cmds.sculptTarget(self.getFullName(), edit=True, target=-1)
+                cmds.sculptTarget(self._full_name(), edit=True, target=-1)
                 return
         if target is None:
             raise ValueError("blendShapeのターゲットの編集を始めるにはtargetが必要です")
@@ -768,7 +768,7 @@ class BlendShape(GeometryFilter):
         if not any(item in self._item_indices(bi, index) for bi in self._base_indices()):
             raise ValueError(f"ターゲット{index}に、ウェイト{fullWeight}の項目はありません")
         with undoChunk("mlibBlendShapeTargetEdit"):
-            cmds.sculptTarget(self.getFullName(), edit=True, target=index, inbetweenWeight=fullWeight)
+            cmds.sculptTarget(self._full_name(), edit=True, target=index, inbetweenWeight=fullWeight)
 
     def getTargetsData(self):
         """すべてのターゲットを、JSONへ書ける辞書として取得する。
@@ -1237,7 +1237,7 @@ class BlendShape(GeometryFilter):
         Returns:
             str: ``<ノード>.<パス>``。
         """
-        return f"{self.getFullName()}.{path}"
+        return f"{self._full_name()}.{path}"
 
     def _mplug(self, path):
         """アトリビュートのパスのMPlugを返す。
@@ -1575,10 +1575,10 @@ class BlendShape(GeometryFilter):
             bases (Iterable[int]): ターゲットを作るベースの論理番号。
         """
         for bi in bases:
-            shape = self._base_shape(bi).getFullName()
+            shape = self._base_shape(bi)._full_name()
             temporary = cmds.duplicate(shape, returnRootsOnly=True)
             try:
-                cmds.blendShape(self.getFullName(), edit=True, target=(shape, index, temporary[0], 1.0))
+                cmds.blendShape(self._full_name(), edit=True, target=(shape, index, temporary[0], 1.0))
             finally:
                 cmds.delete(temporary)
 

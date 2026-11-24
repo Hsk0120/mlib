@@ -38,7 +38,7 @@ class _ErrorCase(NamespaceCase):
     def dead(self, kind):
         """名前空間に作ってすぐ削除したノードのラッパーを返す(無効なノードの確認用)。"""
         node = mlib.getNode(self.make(kind))
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         self.assertFalse(node.isValid())
         return node
 
@@ -133,11 +133,11 @@ class AnimCurveErrorTest(_ErrorCase):
                 with self.assertRaises(IndexError):
                     self.curve.getTangent(index)
         info = self.curve.getTangent(1)
-        self.assertEqual(info["inTangentType"], cmds.keyTangent(self.curve.getFullName(), query=True, index=(1, 1), inTangentType=True)[0])
+        self.assertEqual(info["inTangentType"], cmds.keyTangent(self.curve.getName(full=True), query=True, index=(1, 1), inTangentType=True)[0])
 
     def test_get_driven_plugs(self):
         plugs = self.curve.getDrivenPlugs()
-        self.assertEqual([plug.getFullName() for plug in plugs], [mlib.getPlug(self.target + ".rx").getFullName()])
+        self.assertEqual([plug.getName(full=True) for plug in plugs], [mlib.getPlug(self.target + ".rx").getName(full=True)])
         self.assertEqual(mlib.createNode("animCurveTL", name=self.name("free")).getDrivenPlugs(), [])
         with self.assertRaises(RuntimeError):
             self.dead("animCurveTL").getDrivenPlugs()
@@ -152,7 +152,7 @@ class BlendShapeErrorTest(_ErrorCase):
         self.target = self.cube("target")
         cmds.move(0, 1, 0, self.target + ".vtx[0]", relative=True)
         self.bs = mlib.getNode(cmds.blendShape(self.target, self.base, name=self.name("bs"))[0])
-        self.item = self.bs.getFullName() + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
+        self.item = self.bs.getName(full=True) + ".inputTarget[0].inputTargetGroup[0].inputTargetItem[6000]"
         self.directory = tempfile.mkdtemp(prefix="mlibSpecErrNodesA_")
 
     def tearDown(self):
@@ -174,18 +174,18 @@ class BlendShapeErrorTest(_ErrorCase):
 
     def test_get_base_geometry(self):
         shape = cmds.listRelatives(self.base, shapes=True, fullPath=True)[0]
-        self.assertEqual([node.getFullName() for node in self.bs.getBaseGeometry()], [shape])
+        self.assertEqual([node.getName(full=True) for node in self.bs.getBaseGeometry()], [shape])
         with self.assertRaises(RuntimeError):
             self.dead_blend_shape().getBaseGeometry()
 
     def dead_blend_shape(self):
         node = mlib.getNode(cmds.blendShape(self.cube("deadBase"), name=self.name("deadBs"))[0])
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         return node
 
     def test_get_in_between_weights(self):
         between = self.cube("between")
-        cmds.blendShape(self.bs.getFullName(), edit=True, inBetween=True, target=(self.base, 0, between, 0.5))
+        cmds.blendShape(self.bs.getName(full=True), edit=True, inBetween=True, target=(self.base, 0, between, 0.5))
         self.assertEqual(self.bs.getInBetweenWeights(0), [0.5])
         for target in (1.5, None, True, [0]):
             with self.subTest(target=target):
@@ -294,8 +294,8 @@ class DagNodeInvalidTest(_ErrorCase):
         first, second = self.make("transform", "first"), self.make("transform", "second")
         child = self.make("transform", "child", parent=first)
         cmds.parent(child, second, addObject=True)
-        instance = next(node for node in mlib.getNode(child).getInstances() if node.getFullName().startswith(cmds.ls(second, long=True)[0] + "|"))
-        cmds.parent(instance.getFullName(), removeObject=True)
+        instance = next(node for node in mlib.getNode(child).getInstances() if node.getName(full=True).startswith(cmds.ls(second, long=True)[0] + "|"))
+        cmds.parent(instance.getName(full=True), removeObject=True)
         # ノード自体は残り、保持するパスだけが無効になる。
         self.assertTrue(instance.isValid())
         for method, flags in self.REMOVED_INSTANCE:
@@ -317,8 +317,8 @@ class DagNodeInvalidTest(_ErrorCase):
         skin = mlib.getNode(cmds.skinCluster(joint, cube, name=self.name("skin"))[0])
         pose = skin.getBindPose()
         self.assertEqual(mlib.getNode(cube).getBindPoses(), [pose])
-        cmds.disconnectAttr(pose.getFullName() + ".message", skin.getFullName() + ".bindPose")
-        cmds.connectAttr(self.make("network", "fakePose") + ".message", skin.getFullName() + ".bindPose")
+        cmds.disconnectAttr(pose.getName(full=True) + ".message", skin.getName(full=True) + ".bindPose")
+        cmds.connectAttr(self.make("network", "fakePose") + ".message", skin.getName(full=True) + ".bindPose")
         for name in (cube, joint):
             with self.subTest(node=name):
                 with self.assertRaises(RuntimeError):
@@ -337,11 +337,11 @@ class DagPoseErrorTest(_ErrorCase):
         self.pose = mlib.getNode(cmds.rename(pose, self.name("pose")))
 
     def members(self):
-        return [node.getFullName() for node in self.pose.getMembers()]
+        return [node.getName(full=True) for node in self.pose.getMembers()]
 
     def test_queries_on_deleted_pose(self):
         pose = mlib.getNode(cmds.rename(cmds.dagPose(self.root, save=True, selection=True), self.name("gone")))
-        cmds.delete(pose.getFullName())
+        cmds.delete(pose.getName(full=True))
         for method in ("getNotAtPose", "getSkinClusters", "isBindPose", "getMemberIndices", "getMembers"):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
@@ -423,7 +423,7 @@ class GeometryFilterWeightTest(_ErrorCase):
                     self.assertEqual(self.cluster.getDeformerWeights(), [0.5] * 8)
 
     def test_set_locked_or_connected_attribute(self):
-        weights = self.cluster.getFullName() + ".weightList[0].weights"
+        weights = self.cluster.getName(full=True) + ".weightList[0].weights"
         cmds.setAttr(weights, lock=True)
         for fast in (False, True):
             with self.subTest(case="locked", fast=fast):
@@ -447,7 +447,7 @@ class IkHandleErrorTest(_ErrorCase):
         cmds.setAttr(end + ".tz", 1)
         handle, effector = cmds.ikHandle(startJoint=start, endEffector=end, name=self.name("ik"))
         ik = mlib.getNode(handle)
-        self.assertEqual(ik.getEffector().getFullName(), cmds.ls(effector, long=True)[0])
+        self.assertEqual(ik.getEffector().getName(full=True), cmds.ls(effector, long=True)[0])
         cmds.delete(handle)
         for method in ("getEffector",):
             with self.subTest(method=method):
@@ -480,7 +480,7 @@ class JointDisconnectInverseScaleTest(_ErrorCase):
                 self.assertEqual(self.source(), before)
         cmds.setAttr(self.child + ".inverseScale", lock=False)
         dead = mlib.getNode(self.joints("gone")[0])
-        cmds.delete(dead.getFullName())
+        cmds.delete(dead.getName(full=True))
         with self.assertRaises(RuntimeError):
             dead.disconnectInverseScale()
         self.assertIsNone(self.joint.disconnectInverseScale())
@@ -530,7 +530,7 @@ class _Case(NamespaceCase):
     def deleted(self, node_type="transform", flush=False):
         """作ってすぐ削除したノードのラッパーを返す。flush=True なら Undo の記録も消す。"""
         node = self.node(node_type)
-        cmds.delete(node.getFullName())
+        cmds.delete(node.getName(full=True))
         if flush:
             cmds.flushUndo()
         return node
@@ -612,8 +612,8 @@ class MeshErrorTest(_Case):
         self.assertSequenceAlmostEqual(normal, (1, 0, 0), places=6)
 
     def assertUVSets(self, mesh, expected, current="map1"):
-        self.assertEqual(cmds.polyUVSet(mesh.getFullName(), query=True, allUVSets=True), expected)
-        self.assertEqual(cmds.polyUVSet(mesh.getFullName(), query=True, currentUVSet=True), [current])
+        self.assertEqual(cmds.polyUVSet(mesh.getName(full=True), query=True, allUVSets=True), expected)
+        self.assertEqual(cmds.polyUVSet(mesh.getName(full=True), query=True, currentUVSet=True), [current])
 
     def test_set_current_uv_set_errors(self):
         """name が文字列以外は TypeError、空・存在しない名前は ValueError。UV セットは変わらない。"""
@@ -692,7 +692,7 @@ class NodeErrorTest(_Case):
     def test_find_cycles_and_aliases_on_valid_node(self):
         """正常系: 循環の無いノードは空リスト、エイリアスは (名前, Plug) の組。"""
         node = self.node("transform")
-        cmds.aliasAttr("moveX", node.getFullName() + ".translateX")
+        cmds.aliasAttr("moveX", node.getName(full=True) + ".translateX")
         self.assertEqual(node.findCycles(), [])
         aliases = node.getAliases()
         self.assertEqual([alias for alias, _ in aliases], ["moveX"])
@@ -740,7 +740,7 @@ class NodesErrorTest(_Case):
             with self.subTest(method=method, flags=flags):
                 first, second = self.node("transform"), self.node("transform")
                 nodes = mlib.Nodes([first, second])
-                cmds.delete(second.getFullName())
+                cmds.delete(second.getName(full=True))
                 self.assertRaises(RuntimeError, getattr(nodes, method), **flags)
 
     def test_valid_items(self):
@@ -748,7 +748,7 @@ class NodesErrorTest(_Case):
         first, second = self.node("transform"), self.node("transform")
         nodes = mlib.Nodes([first, second])
         self.assertEqual(nodes.getNames(), [first.getName(), second.getName()])
-        self.assertEqual(nodes.getNames(full=True), [first.getFullName(), second.getFullName()])
+        self.assertEqual(nodes.getNames(full=True), [first.getName(full=True), second.getName(full=True)])
         self.assertEqual(nodes.getColor(), [first.getColor(), second.getColor()])
         second.setColor((1.0, 0.5, 0.0), outliner=True)
         self.assertEqual(nodes.getColor(outliner=True), [first.getColor(outliner=True), second.getColor(outliner=True)])
@@ -893,7 +893,7 @@ class ObjectSetErrorTest(_Case):
         return mlib.getNode(cmds.sets(name=self.name("set#"), empty=True))
 
     def members(self, object_set):
-        return sorted(cmds.sets(object_set.getFullName(), query=True) or [])
+        return sorted(cmds.sets(object_set.getName(full=True), query=True) or [])
 
     def test_cycle_is_rejected(self):
         """セット自身の追加は循環になるため RuntimeError で、メンバーは変わらない。"""
@@ -908,8 +908,8 @@ class ObjectSetErrorTest(_Case):
         """同じ partition の別のセットに入っているノードの追加は RuntimeError で、どちらも加わらない。"""
         partition = cmds.partition(name=self.name("partition#"))
         first, second = self.object_set(), self.object_set()
-        cmds.partition(first.getFullName(), add=partition)
-        cmds.partition(second.getFullName(), add=partition)
+        cmds.partition(first.getName(full=True), add=partition)
+        cmds.partition(second.getName(full=True), add=partition)
         taken, free = self.node("transform"), self.node("transform")
         first.addMembers(taken)
         self.assertRaises(RuntimeError, second.addMembers, free, taken)
@@ -933,7 +933,7 @@ class ReferenceErrorTest(_Case):
         """ファイルに結び付いていない reference ノードの setLoaded(False) は RuntimeError。"""
         reference = mlib.getNode(self.make("reference", "unboundRN#"))
         self.assertRaises(RuntimeError, reference.setLoaded, False)
-        self.assertTrue(cmds.objExists(reference.getFullName()))
+        self.assertTrue(cmds.objExists(reference.getName(full=True)))
 
 
 class ShadingEngineErrorTest(_Case):
@@ -943,7 +943,7 @@ class ShadingEngineErrorTest(_Case):
         return mlib.getNode(cmds.sets(name=self.name("SG#"), renderable=True, noSurfaceShader=True, empty=True))
 
     def sources(self, engine, attribute="surfaceShader"):
-        return cmds.listConnections(engine.getFullName() + "." + attribute, source=True, destination=False, plugs=True) or []
+        return cmds.listConnections(engine.getName(full=True) + "." + attribute, source=True, destination=False, plugs=True) or []
 
     def test_unknown_kind_raises_value_error(self):
         """kind が surface・volume・displacement 以外は ValueError で、接続は変わらない(fast も同じ)。"""
@@ -1010,14 +1010,14 @@ class SkinClusterErrorTest(_Case):
     def test_get_bind_pose_errors(self):
         """bindPose が dagPose 以外へつながる・skinCluster が無効な場合は RuntimeError。"""
         skin = self.skin()
-        plug = skin.getFullName() + ".bindPose"
+        plug = skin.getName(full=True) + ".bindPose"
         pose = cmds.listConnections(plug, source=True, destination=False, plugs=True)[0]
-        self.assertEqual(skin.getBindPose().getFullName(), cmds.ls(pose.split(".")[0], long=True)[0])
+        self.assertEqual(skin.getBindPose().getName(full=True), cmds.ls(pose.split(".")[0], long=True)[0])
         cmds.disconnectAttr(pose, plug)
         self.assertIsNone(skin.getBindPose())
         cmds.connectAttr(self.make("transform", "notPose#") + ".message", plug)
         self.assertRaises(RuntimeError, skin.getBindPose)
-        cmds.delete(skin.getFullName())
+        cmds.delete(skin.getName(full=True))
         self.assertRaises(RuntimeError, skin.getBindPose)
 
     def test_get_unused_influences(self):
@@ -1028,7 +1028,7 @@ class SkinClusterErrorTest(_Case):
     def test_get_unused_influences_invalid(self):
         """削除した skinCluster の getInfluences(unused=True) は RuntimeError(Undo の記録の有無によらない)。"""
         skin = self.skin()
-        cmds.delete(skin.getFullName())
+        cmds.delete(skin.getName(full=True))
         self.assertRaises(RuntimeError, skin.getInfluences, unused=True)
         cmds.flushUndo()
         self.assertRaises(RuntimeError, skin.getInfluences, unused=True)
@@ -1037,7 +1037,7 @@ class SkinClusterErrorTest(_Case):
         """削除した skinCluster の exportWeights は RuntimeError で、ファイルを作らない。"""
         skin = self.skin()
         root = self.temp_dir()
-        cmds.delete(skin.getFullName())
+        cmds.delete(skin.getName(full=True))
         self.assertRaises(RuntimeError, skin.exportWeights, os.path.join(root, "weights.json"))
         self.assertEqual(os.listdir(root), [])
 
@@ -1045,7 +1045,7 @@ class SkinClusterErrorTest(_Case):
         """削除した skinCluster の getWeightsData は RuntimeError。"""
         skin = self.skin()
         self.assertEqual(skin.getWeightsData()["vertexCount"], cmds.polyEvaluate(self.name("body"), vertex=True))
-        cmds.delete(skin.getFullName())
+        cmds.delete(skin.getName(full=True))
         self.assertRaises(RuntimeError, skin.getWeightsData)
 
     def test_export_weights_to_missing_folder(self):
@@ -1084,7 +1084,7 @@ class TransformErrorTest(_Case):
         for kind in ("translate", "", "Rotate"):
             with self.subTest(kind=kind):
                 self.assertRaises(ValueError, transform.getPivot, kind=kind)
-        cmds.xform(transform.getFullName(), scalePivot=(1, 2, 3))
+        cmds.xform(transform.getName(full=True), scalePivot=(1, 2, 3))
         self.assertSequenceAlmostEqual(transform.getPivot(kind="scale"), (1, 2, 3))
 
     def test_get_closest_axis_to_vector_zero_vectors(self):
@@ -1092,23 +1092,23 @@ class TransformErrorTest(_Case):
         transform = self.node("transform")
         self.assertRaises(ValueError, transform.getClosestAxisToVector, (0, 0, 0))
         flat = self.node("transform")
-        cmds.setAttr(flat.getFullName() + ".offsetParentMatrix", [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], type="matrix")
+        cmds.setAttr(flat.getName(full=True) + ".offsetParentMatrix", [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], type="matrix")
         empty = self.node("transform")
-        cmds.setAttr(empty.getFullName() + ".offsetParentMatrix", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], type="matrix")
+        cmds.setAttr(empty.getName(full=True) + ".offsetParentMatrix", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], type="matrix")
         for include_negative in (True, False):
             with self.subTest(includeNegative=include_negative):
                 # x の軸は長さ0なので、refVector と同じ向きでも選ばない(内積が同じ0の軸は y・z の順に先のもの)。
                 self.assertEqual(flat.getClosestAxisToVector((1, 0, 0), include_negative), "y")
                 self.assertEqual(flat.getClosestAxisToVector((0, 1, 0), include_negative), "y")
                 self.assertEqual(empty.getClosestAxisToVector((0, 1, 0), include_negative), "x")
-        cmds.setAttr(transform.getFullName() + ".rotateZ", 90)
+        cmds.setAttr(transform.getName(full=True) + ".rotateZ", 90)
         self.assertEqual(transform.getClosestAxisToVector((0, 1, 0)), "x")
         self.assertEqual(transform.getClosestAxisToVector((1, 0, 0)), "-y")
 
     def test_set_quaternion_errors(self):
         """unit が文字列以外は TypeError、未対応の単位名・未対応の成分と空間の組合せは ValueError。rotate は変わらない。"""
         transform = self.node("transform")
-        cmds.setAttr(transform.getFullName() + ".rotate", 10, 20, 30)
+        cmds.setAttr(transform.getName(full=True) + ".rotate", 10, 20, 30)
         half = math.sqrt(0.5)
         value = (0.0, 0.0, half, half)
         cases = (
@@ -1121,9 +1121,9 @@ class TransformErrorTest(_Case):
         for error, flags in cases:
             with self.subTest(flags=flags):
                 self.assertRaises(error, transform.setQuaternion, value, **flags)
-                self.assertSequenceAlmostEqual(cmds.getAttr(transform.getFullName() + ".rotate")[0], (10, 20, 30), places=6)
+                self.assertSequenceAlmostEqual(cmds.getAttr(transform.getName(full=True) + ".rotate")[0], (10, 20, 30), places=6)
         transform.setQuaternion(value)
-        self.assertSequenceAlmostEqual(cmds.getAttr(transform.getFullName() + ".rotate")[0], (0, 0, 90), places=6)
+        self.assertSequenceAlmostEqual(cmds.getAttr(transform.getName(full=True) + ".rotate")[0], (0, 0, 90), places=6)
 
 
 if __name__ == "__main__":

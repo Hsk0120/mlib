@@ -20,7 +20,7 @@ class CameraEditTest(NamespaceCase):
         group = cmds.group(empty=True, name=self.name("parent"))
         cmds.setAttr(group + ".translate", 2, 3, 4)
         cmds.setAttr(group + ".rotate", 12, 23, 34)
-        transform = cmds.parent(camera.getParent().getFullName(), group)[0]
+        transform = cmds.parent(camera.getParent().getName(full=True), group)[0]
         cmds.setAttr(transform + ".rotate", -20, 35, 10)
         return camera, cmds.ls(transform, long=True)[0]
 
@@ -31,7 +31,7 @@ class CameraEditTest(NamespaceCase):
             group = cmds.group(empty=True, name=self.name("parent"))
             cmds.setAttr(group + ".translate", 2, 3, 4)
             cmds.setAttr(group + ".rotate", 12, 23, 34)
-            cmds.parent(camera.getParent().getFullName(), group)
+            cmds.parent(camera.getParent().getName(full=True), group)
             camera.setDirection((1, 0, 0), kind="up")
             self.assertAlmostEqual(camera.getDirection(kind="up") * camera.getDirection(), 0, places=5)
         cmds.currentUnit(linear="cm")
@@ -107,7 +107,7 @@ class CameraEditTest(NamespaceCase):
     def test_set_point_center_of_interest_fast(self):
         """setPoint(kind="centerOfInterest", fast=True) は視点を保って向きと注視点を変え、fast=False は NotImplementedError。"""
         camera = self.camera()
-        cmds.setAttr(camera.getParent().getFullName() + ".translate", 1, 2, 3)
+        cmds.setAttr(camera.getParent().getName(full=True) + ".translate", 1, 2, 3)
         eye = camera.getPoint()
         with self.assertRaises(NotImplementedError):
             camera.setPoint((1, 2, -7), kind="centerOfInterest")

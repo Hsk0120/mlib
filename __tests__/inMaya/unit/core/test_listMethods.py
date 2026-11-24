@@ -29,7 +29,7 @@ class ListMethodsTest(NamespaceCase):
         self.flushUndo()
         self.assertIsNone(nodes.append(self.b))
         nodes.append(self.b)  # すでにある要素は足さない。
-        nodes.append(self.c.getFullName())  # 名前も、作るときと同じ決まりで解決する。
+        nodes.append(self.c.getName(full=True))  # 名前も、作るときと同じ決まりで解決する。
         self.assertEqual(nodes, [self.a, self.b, self.c])
         nodes.extend([self.joint, self.a])
         self.assertEqual(nodes, [self.a, self.b, self.c, self.joint])
@@ -45,7 +45,7 @@ class ListMethodsTest(NamespaceCase):
     def test_nodes_remove_pop_index_count_clear_reverse(self):
         nodes = mlib.Nodes([self.a, self.b, self.c])
         self.assertEqual(nodes.index(self.b), 1)
-        self.assertEqual(nodes.index(self.c.getFullName()), 2)
+        self.assertEqual(nodes.index(self.c.getName(full=True)), 2)
         self.assertEqual((nodes.count(self.a), nodes.count(self.joint)), (1, 0))
         self.assertIn(self.a, nodes)
         self.assertNotIn(self.joint, nodes)
@@ -93,7 +93,7 @@ class ListMethodsTest(NamespaceCase):
         plugs = mlib.Plugs([tx])
         plugs.append(ty)
         plugs.append(ty)
-        plugs.append(self.a.getFullName() + ".tz")
+        plugs.append(self.a.getName(full=True) + ".tz")
         self.assertEqual(plugs, [tx, ty, tz])
         self.assertEqual(plugs.index(tz), 2)
         self.assertIn(ty, plugs)
@@ -136,7 +136,7 @@ class ListMethodsTest(NamespaceCase):
             vertices.remove(mesh.getVertices([0])[0])
         vertices.clear()
         self.assertEqual(len(vertices), 0)
-        self.assertEqual(cmds.polyEvaluate(mesh.getFullName(), vertex=True), 8)
+        self.assertEqual(cmds.polyEvaluate(mesh.getName(full=True), vertex=True), 8)
         self.assertUndoEmpty()
 
 
@@ -148,7 +148,7 @@ class PluralReturnTest(NamespaceCase):
     def test_getters_return_plural_classes(self):
         cmds.select(clear=True)
         root = mlib.getNode(self.make("joint", "root#"))
-        child = mlib.getNode(self.make("joint", "child#", parent=root.getFullName()))
+        child = mlib.getNode(self.make("joint", "child#", parent=root.getName(full=True)))
         mesh = mlib.createPoly("cube", name=self.name("cube#"))
         transform = mesh.getTransform()
         skin = mlib.bindSkin([root, child], transform)
@@ -178,8 +178,8 @@ class PluralReturnTest(NamespaceCase):
         self.assertIs(type(root.getPlug("tx").getConnections(outputs=True, asPair=True)), list)
         self.assertIs(type(root.getConnections(source=False, type="joint")), mlib.Plugs)
         # mlib.lsも、typeを指定しなくても、すべてジョイントならJointsで返す。
-        self.assertIs(type(mlib.ls(root.getFullName(), child.getFullName())), mlib.Joints)
-        self.assertIs(type(mlib.ls(root.getFullName(), transform.getFullName())), mlib.Nodes)
+        self.assertIs(type(mlib.ls(root.getName(full=True), child.getName(full=True))), mlib.Joints)
+        self.assertIs(type(mlib.ls(root.getName(full=True), transform.getName(full=True))), mlib.Nodes)
         self.assertEqual(root.getChildren().sortedByDepth(), [child])
         # 自動でJointsになった集まりは、ジョイント以外を足すとNodesへ戻る(中身によって足せなくならない)。
         children = root.getChildren()
@@ -238,18 +238,18 @@ class ForwardingTest(NamespaceCase):
 
     def test_names(self):
         parent = mlib.getNode(self.make("transform", "parent#"))
-        child = mlib.getNode(self.make("transform", "child#", parent=parent.getFullName()))
+        child = mlib.getNode(self.make("transform", "child#", parent=parent.getName(full=True)))
         nodes = mlib.Nodes([parent, child])
         self.assertEqual(nodes.getNames(), [parent.getName(), child.getName()])
-        self.assertEqual(nodes.getNames(full=True), [parent.getFullName(), child.getFullName()])
+        self.assertEqual(nodes.getNames(full=True), [parent.getName(full=True), child.getName(full=True)])
         plugs = mlib.Plugs([child.getPlug("tx")])
         self.assertEqual(plugs.getNames(), [child.getPlug("tx").getName()])
-        self.assertEqual(plugs.getNames(full=True), [child.getPlug("tx").getFullName()])
+        self.assertEqual(plugs.getNames(full=True), [child.getPlug("tx").getName(full=True)])
 
     def test_renamed_scene_methods_are_forwarded(self):
         """listのメソッドと同じ名前だった操作は、別の名前にしてあるので、複数形からもシーンを操作できる。"""
         a = mlib.getNode(self.make("transform", "node#"))
-        first = mlib.getNode(cmds.sets(a.getFullName(), name=self.name("set#")))
+        first = mlib.getNode(cmds.sets(a.getName(full=True), name=self.name("set#")))
         sets = mlib.Nodes([first])
         self.assertFalse(hasattr(mlib.ObjectSet, "clear"))
         self.assertFalse(hasattr(mlib.NurbsCurve, "reverse"))
@@ -261,10 +261,10 @@ class ForwardingTest(NamespaceCase):
         self.assertEqual(len(sets), 0)
         self.assertTrue(first.isValid())
         curve = mlib.createCurve([(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 1, 0)], name=self.name("curve#"))
-        start = cmds.pointPosition(curve.getFullName() + ".cv[0]")
+        start = cmds.pointPosition(curve.getName(full=True) + ".cv[0]")
         curves = mlib.Nodes([curve])
         curves.reverseDirection()
-        self.assertNotEqual(cmds.pointPosition(curve.getFullName() + ".cv[0]"), start)
+        self.assertNotEqual(cmds.pointPosition(curve.getName(full=True) + ".cv[0]"), start)
 
 
 if __name__ == "__main__":

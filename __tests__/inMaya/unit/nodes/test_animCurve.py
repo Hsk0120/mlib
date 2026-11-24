@@ -95,15 +95,15 @@ class AnimationNodesTest(unittest.TestCase):
         """両側を事前検証し、片側省略・不正値・ロック・接続を扱う。"""
         curve = self.create("animCurveUU")
         original = curve.getInfinity()
-        cmds.setAttr(curve.getFullName() + ".postInfinity", lock=True)
+        cmds.setAttr(curve.getName(full=True) + ".postInfinity", lock=True)
         with self.assertRaises(RuntimeError):
             curve.setInfinity(pre="cycle", post="linear", fast=True, check=True)
         self.assertEqual(curve.getInfinity(), original)
         curve.setInfinity(pre="oscillate", fast=True)
         self.assertEqual(curve.getInfinity(), dict(pre="oscillate", post="constant"))
-        cmds.setAttr(curve.getFullName() + ".postInfinity", lock=False)
+        cmds.setAttr(curve.getName(full=True) + ".postInfinity", lock=False)
         source = self.create("animCurveUU")
-        cmds.connectAttr(source.getFullName() + ".preInfinity", curve.getFullName() + ".postInfinity")
+        cmds.connectAttr(source.getName(full=True) + ".preInfinity", curve.getName(full=True) + ".postInfinity")
         with self.assertRaises(RuntimeError):
             curve.setInfinity(pre="linear", post="linear", fast=True, check=True)
         self.assertEqual(curve.getInfinity()["pre"], "oscillate")
@@ -145,7 +145,7 @@ class AnimationNodesTest(unittest.TestCase):
             curve.setKey(4, 9)
             other = self.create("animCurveTU")
             other.setKey(1, 10)
-            cmds.selectKey(other.getFullName(), index=(0, 0))
+            cmds.selectKey(other.getName(full=True), index=(0, 0))
             curve.scaleKey(-1, -1)
             self.assertEqual(curve.getKeyInputs(), [-4, 2])
             self.assertAlmostEqual(curve.evaluate(-1), -6)
@@ -321,7 +321,7 @@ class AnimCurveTest(_Case):
         """setBreakdown は keyframe -q -breakdown と一致し、Undo 1回で戻る。Keyframe からも使える。"""
         curve = self.keyed()
         curve.setKey(5)
-        name = curve.getFullName()
+        name = curve.getName(full=True)
 
         def queried():
             return cmds.keyframe(name, query=True, breakdown=True) or []

@@ -269,7 +269,7 @@ class ReferenceSpecTest(unittest.TestCase):
         content = Node(self.namespaces[0] + ":mlibSpecCRefHelper")
         self.assertTrue(content.isFromReferencedFile())
         self.assertFalse(Node(self.refs[0]).isFromReferencedFile())
-        cmds.setAttr(content.getFullName() + ".translateX", 3)
+        cmds.setAttr(content.getName(full=True) + ".translateX", 3)
         reference = Node(self.refs[0])
         self.assertEqual(len(reference.getEdits()), 1)
         self.assertEqual(reference.getEdits(successful=False, failed=True), [])
@@ -335,15 +335,15 @@ class ReferenceNodePlugAdditionsTest(_Case):
         self.assertFalse(first.isDeferred())
         asset = mlib.getNode(self.ns + "_r1:" + self.asset)
         driven = mlib.getNode(self.ns + "_r1:" + self.driven)
-        self.assertEqual(asset.getReference().getFullName(), first.getFullName())
+        self.assertEqual(asset.getReference().getName(full=True), first.getName(full=True))
         self.assertIsNone(mlib.getNode(self.make("transform")).getReference())
         self.assertTrue(driven.ty.isFromReferencedFile())
         self.assertFalse(driven.tz.isFromReferencedFile())
         local = self.make("transform", "local#")
-        cmds.connectAttr(asset.getFullName() + ".tz", local + ".tx")
+        cmds.connectAttr(asset.getName(full=True) + ".tz", local + ".tx")
         self.assertFalse(mlib.getPlug(local + ".tx").isFromReferencedFile())
         second.setLoaded(False)
-        self.assertEqual(second.isDeferred(), cmds.file(cmds.referenceQuery(second.getFullName(), filename=True), query=True, deferReference=True))
+        self.assertEqual(second.isDeferred(), cmds.file(cmds.referenceQuery(second.getName(full=True), filename=True), query=True, deferReference=True))
 
     def test_remove_edits(self):
         """コマンドで絞って削除し、ロード中の適用済み Edit も消える(ロード状態は保つ)。"""
@@ -380,7 +380,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
     def test_import_contents(self):
         """読み込んだノードを返してリファレンスを解除する。removeNamespace=True は名前空間を親へ移す。"""
         reference = self._reference(self.path_a, "r1")
-        name = reference.getFullName()
+        name = reference.getName(full=True)
         nodes = reference.importContents()
         self.assertFalse(cmds.objExists(name))
         self.assertIn(self.ns + "_r1:" + self.asset, [node.getName(node=True) for node in nodes])
@@ -394,7 +394,7 @@ class ReferenceNodePlugAdditionsTest(_Case):
         for node in imported:
             if node.isValid() and node.getName() not in defaults:
                 with contextlib.suppress(RuntimeError):
-                    cmds.delete(node.getFullName())
+                    cmds.delete(node.getName(full=True))
         third = self._reference(self.path_a, "r3")
         third.setLoaded(False)
         with self.assertRaises(RuntimeError):

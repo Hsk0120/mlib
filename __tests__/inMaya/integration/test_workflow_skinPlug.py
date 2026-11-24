@@ -26,7 +26,7 @@ class SkinPlugWorkflowTest(unittest.TestCase):
 
     def test_selected_vertices_and_mixed_indices_match_existing_values(self):
         """選択listと番号混在入力の計算・None返却・Undoが既存と一致する。"""
-        cmds.select(self.base.getFullName() + ".vtx[0:1]")
+        cmds.select(self.base.getName(full=True) + ".vtx[0:1]")
         selected = mlib.ls(sl=True, type="vertex")
         before = list(self.skin.getWeights([self.first, self.second]))
         self.assertIsNone(self.skin.redistributeWeights(selected))
@@ -53,8 +53,8 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         """既存int変換と、途中のゼロ合計失敗前に完了した更新を維持する。"""
         self.skin.redistributeWeights(["0", 1.9])
         self.skin.setWeights([self.first, self.second], [0.25, 0.75], broadcast=True)
-        cmds.setAttr(self.skin.getFullName() + ".weightList[1].weights[0]", 0)
-        cmds.setAttr(self.skin.getFullName() + ".weightList[1].weights[1]", 0)
+        cmds.setAttr(self.skin.getName(full=True) + ".weightList[1].weights[0]", 0)
+        cmds.setAttr(self.skin.getName(full=True) + ".weightList[1].weights[1]", 0)
         before = list(self.skin.getWeights([self.first, self.second]))
         with self.assertRaises(ValueError):
             self.skin.redistributeWeights(self.base.getShape().getVertices([0, 1]))

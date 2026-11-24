@@ -197,11 +197,11 @@ class SkinCluster(GeometryFilter):
             # 2023のcopySkinWeightsはロックを無視して書くが、Undoでは値を戻せない。
             # 本体のロックはlistAttr(multi=True)に出ないため、別に調べる。
             if weight_list.isLocked or cmds.listAttr(weight_list.name(), locked=True, multi=True):
-                raise RuntimeError(f"Maya 2023ではweightList内のロックを解除してから転送してください(Undoで戻せません): {destination.getFullName()}")
+                raise RuntimeError(f"Maya 2023ではweightList内のロックを解除してから転送してください(Undoで戻せません): {destination._full_name()}")
         options = {} if uv_sets is None else {"uvSpace": uv_sets}
         cmds.copySkinWeights(
-            sourceSkin=self.getFullName(),
-            destinationSkin=destination.getFullName(),
+            sourceSkin=self._full_name(),
+            destinationSkin=destination._full_name(),
             noMirror=True,
             surfaceAssociation=surface_association,
             influenceAssociation=influence_association,
@@ -260,7 +260,7 @@ class SkinCluster(GeometryFilter):
         _require_bool(normalize, "normalize")
         self._require_valid("ウェイトのミラー")
         self._require_skin_unlocked("weightList")
-        name = self.getFullName()
+        name = self._full_name()
         cmds.copySkinWeights(
             sourceSkin=name,
             destinationSkin=name,
@@ -523,7 +523,7 @@ class SkinCluster(GeometryFilter):
             raise NotImplementedError("減衰率の再計算は単一Meshのスキンに限ります")
         self._editable_weight_list()
         require_writable(self.getPlug("dropoff")[index].mplug())
-        cmds.skinCluster(self.getFullName(), edit=True, influence=node.getFullName(), dropoffRate=value)
+        cmds.skinCluster(self._full_name(), edit=True, influence=node._full_name(), dropoffRate=value)
 
     def smoothWeights(self, *, tolerance=0.5, iterations=2, vertices=None, obeyMaxInfluences=None, geometryIndex=None):
         """MeshのスキンウェイトをMaya標準の近傍スムーズ処理でならす。
@@ -589,7 +589,7 @@ class SkinCluster(GeometryFilter):
                 cmds.select(clear=True)
             else:
                 cmds.select(Vertices(Node._wrap_dag_path(self.mesh_path), vertex_indices).getNames(full=True, compact=True), replace=True)
-            cmds.skinCluster(self.getFullName(), edit=True, **flags)
+            cmds.skinCluster(self._full_name(), edit=True, **flags)
 
     @undoChunk("mlibSkinClusterAddInfluences")
     def addInfluences(self, joints, *, weight=0.0, lockWeights=False):
@@ -629,9 +629,9 @@ class SkinCluster(GeometryFilter):
                 raise ValueError(f"ジョイントを指定してください: {name}")
             if node.getUuid() not in existing:
                 existing.add(node.getUuid())
-                names.append(node.getFullName())
+                names.append(node._full_name())
         if names:
-            cmds.skinCluster(self.getFullName(), edit=True, addInfluence=names, weight=float(weight), lockWeights=lockWeights)
+            cmds.skinCluster(self._full_name(), edit=True, addInfluence=names, weight=float(weight), lockWeights=lockWeights)
 
     def removeInfluences(self, joints=None, *, unused=False, transferToParent=_UNSET, requireAncestor=_UNSET, force=False):
         """インフルエンスの登録を外す(1つでも複数でもよい)。ノードそのものは削除しない。
@@ -706,10 +706,10 @@ class SkinCluster(GeometryFilter):
             if transferToParent and requireAncestor:
                 for node in targets:
                     ancestor = node.getParent() if isinstance(node, Joint) else None
-                    while isinstance(ancestor, Joint) and (ancestor.getUuid() in removing or not self.hasInfluence(ancestor.getFullName())):
+                    while isinstance(ancestor, Joint) and (ancestor.getUuid() in removing or not self.hasInfluence(ancestor._full_name())):
                         ancestor = ancestor.getParent()
                     if not isinstance(ancestor, Joint):
-                        raise ValueError(f"ウェイトを受け取る祖先のインフルエンスが残っていません: {node.getFullName()}")
+                        raise ValueError(f"ウェイトを受け取る祖先のインフルエンスが残っていません: {node._full_name()}")
             with _unlocked_influences([self]):
                 plans, snapshot = self._influence_removal_plans(targets, transferToParent, force=force)
                 self._apply_influence_removals(plans, snapshot, force=force)
@@ -747,7 +747,7 @@ class SkinCluster(GeometryFilter):
         with undoChunk("mlibSkinClusterResetBindPose"):
             pose = self.getBindPose()
             if pose is None:
-                raise RuntimeError(f"{self.getFullName()}にバインドポーズが接続されていません")
+                raise RuntimeError(f"{self._full_name()}にバインドポーズが接続されていません")
             pose.reset(self.getInfluences())
 
     def restoreBindPose(self, worldSpace=_UNSET, *, ws=_UNSET):
@@ -772,7 +772,7 @@ class SkinCluster(GeometryFilter):
             ws = _world_space(worldSpace)
             pose = self.getBindPose()
             if pose is None:
-                raise RuntimeError(f"{self.getFullName()}にバインドポーズが接続されていません")
+                raise RuntimeError(f"{self._full_name()}にバインドポーズが接続されていません")
             pose.restore(worldSpace=ws)
 
     def recacheBindMatrices(self):
@@ -791,7 +791,7 @@ class SkinCluster(GeometryFilter):
         """
         self._require_valid("バインドマトリクスの再キャッシュ")
         with undoChunk("mlibSkinClusterRecacheBindMatrices"):
-            cmds.skinCluster(self.getFullName(), edit=True, recacheBindMatrices=True)
+            cmds.skinCluster(self._full_name(), edit=True, recacheBindMatrices=True)
 
     def unbind(self, keepHistory=False):
         """形状からスキンを外す。
@@ -823,7 +823,7 @@ class SkinCluster(GeometryFilter):
         self._require_skin_unlocked(*(("nodeState",) if keepHistory else ()))
         flag = "unbindKeepHistory" if keepHistory else "unbind"
         with undoChunk("mlibSkinClusterUnbind"):
-            cmds.skinCluster(self.getFullName(), edit=True, **{flag: True})
+            cmds.skinCluster(self._full_name(), edit=True, **{flag: True})
 
     def removeInvalidWeights(self, *, fast=False):
         """正しくないウェイトの要素を取り除く。
@@ -1262,7 +1262,7 @@ class SkinCluster(GeometryFilter):
                 component = self._point_component([index for index, _ in pairs])
                 self._skin_fn.setBlendWeights(self.mesh_path, component, om2.MDoubleArray([float(value) for _, value in pairs]))
                 return
-            name = self.getFullName()
+            name = self._full_name()
             for start, first, count in self._consecutive_runs(vertex_indices):
                 set_attr(f"{name}.blendWeights[{first}:{first + count - 1}]", *(float(value) for value in values[start : start + count]))
 
@@ -1595,7 +1595,7 @@ class SkinCluster(GeometryFilter):
             influence_paths = self._skin_fn.influenceObjects()
             all_indices = om2.MIntArray(range(len(influence_paths)))
             logical_indices = [self._skin_fn.indexForInfluenceObject(path) for path in influence_paths]
-            name = self.getFullName()
+            name = self._full_name()
             for vertex in vertex_indices:
                 component_fn = om2.MFnSingleIndexedComponent()
                 component = component_fn.create(om2.MFn.kMeshVertComponent)
@@ -1664,10 +1664,10 @@ class SkinCluster(GeometryFilter):
                 if len(pair) != 2:
                     raise ValueError("1組あたりインフルエンスをちょうど2つ指定してください")
                 source, target = (Node._resolve_input(value) for value in pair)
-                if any(not node.isValid() or not self.hasInfluence(node.getFullName()) for node in (source, target)):
+                if any(not node.isValid() or not self.hasInfluence(node._full_name()) for node in (source, target)):
                     raise ValueError("両方のノードをこのskinClusterのインフルエンスにしてください")
                 if source.getUuid() != target.getUuid():
-                    pairs.append((source.getFullName(), target.getFullName()))
+                    pairs.append((source._full_name(), target._full_name()))
             if vertex_indices is not None or add:
                 self._transfer_rows(pairs, vertex_indices, add, fast)
             elif fast:
@@ -1704,7 +1704,7 @@ class SkinCluster(GeometryFilter):
         dependency = self._dependency_fn()
         if dependency.isLocked or dependency.isFromReferencedFile:
             raise RuntimeError("ロック・参照スキンのジョイント移動モードは変更できません")
-        cmds.skinCluster(self.getFullName(), edit=True, moveJointsMode=state)
+        cmds.skinCluster(self._full_name(), edit=True, moveJointsMode=state)
 
     def normalizeWeights(self, decimals=None, *, force=False, fast=False):
         """先頭の形状の各頂点で、登録されているすべてのインフルエンスのウェイトを合計1へ正規化する。
@@ -1913,7 +1913,7 @@ class SkinCluster(GeometryFilter):
                     require_unlocked(dependency.findPlug(attribute, False).elementByLogicalIndex(index))
             for node in unused:
                 with _unlocked_influences([self]):
-                    plans, snapshot = self._influence_removal_plans([node.getFullName()], False)
+                    plans, snapshot = self._influence_removal_plans([node._full_name()], False)
                     self._apply_influence_removals(plans, snapshot)
             return Nodes._wrap(unused)
 
@@ -1991,9 +1991,9 @@ class SkinCluster(GeometryFilter):
         for node in nodes:
             if node is not None and node.getUuid() not in registered:
                 registered.add(node.getUuid())
-                adding.append(node.getFullName())
+                adding.append(node._full_name())
         if adding:
-            cmds.skinCluster(self.getFullName(), edit=True, addInfluence=adding, weight=0.0)
+            cmds.skinCluster(self._full_name(), edit=True, addInfluence=adding, weight=0.0)
         paths = self._skin_fn.influenceObjects()
         physical = {self._path_uuid(path): index for index, path in enumerate(paths)}
         columns = [None if node is None else physical[node.getUuid()] for node in nodes]
@@ -2151,7 +2151,7 @@ class SkinCluster(GeometryFilter):
         """
         if not self.mesh_path.hasFn(om2.MFn.kMesh):
             return None
-        found = _layer_api(self.getFullName())
+        found = _layer_api(self._full_name())
         if found is None:
             return None
         layers = found[1].list()
@@ -2190,7 +2190,7 @@ class SkinCluster(GeometryFilter):
         Returns:
             None: 値を返さない。
         """
-        name = self.getFullName()
+        name = self._full_name()
         if not self.mesh_path.hasFn(om2.MFn.kMesh):
             if saved_layers:
                 report._add_skipped(f"{self.getName()}のngSkinToolsのレイヤー", "NURBSにはレイヤーを書き込みません")
@@ -3396,7 +3396,7 @@ class SkinCluster(GeometryFilter):
         """
         if check:
             self._require_weight_plugs_writable(vertex_indices, logical_indices)
-        name = self.getFullName()
+        name = self._full_name()
         runs = self._consecutive_runs(logical_indices)
         shared = len(values) == width
         for position, vertex in enumerate(vertex_indices):
@@ -3599,7 +3599,7 @@ class SkinCluster(GeometryFilter):
         _require_bool(transfer_to_parent, "transferToParent")
         _require_bool(force, "force")
         source = joint if isinstance(joint, Node) else Node(joint)
-        if not source.isValid() or not self.hasInfluence(source.getFullName()):
+        if not source.isValid() or not self.hasInfluence(source._full_name()):
             raise ValueError("ジョイントはこのskinClusterのインフルエンスではありません")
         if len(self.getInfluences()) <= 1:
             raise ValueError("最後のインフルエンスは削除できません")
@@ -3672,12 +3672,12 @@ class SkinCluster(GeometryFilter):
             if moves and not layered:
                 self._move_weights(moves, logical, snapshot, fast=fast)
             # 値が残る列を一括で外すと再配分の結果が変わるため、0にした列だけをまとめる。
-            emptied = [source.getFullName() for source, target in plans if target is not None]
+            emptied = [source._full_name() for source, target in plans if target is not None]
             if emptied and not deleting:
                 cmds.skinCluster(self.getName(), edit=True, removeInfluence=emptied)
             for source, target in plans:
                 if target is None:
-                    cmds.skinCluster(self.getName(), edit=True, removeInfluence=source.getFullName())
+                    cmds.skinCluster(self.getName(), edit=True, removeInfluence=source._full_name())
 
     @contextmanager
     def _without_undo(self, enabled):
@@ -3801,7 +3801,7 @@ class SkinCluster(GeometryFilter):
             ValueError: 対象の列に負値・非有限値がある場合。
             RuntimeError: 書き込む要素のロック・入力接続がある場合。
         """
-        sources = {self._require_influences(source.getFullName())[0] for source, _ in pairs}
+        sources = {self._require_influences(source._full_name())[0] for source, _ in pairs}
         columns = sorted(sources.union(self._require_influences(target)[0] for _, target in pairs))
         component, _count = self._all_vertices()
         values = list(self._skin_fn.getWeights(self.mesh_path, component, om2.MIntArray(columns)))

@@ -44,7 +44,7 @@ class ReplaceKeysFromCurveTest(NamespaceCase):
         curve = mlib.createNode("animCurveTA", name=self.name("source"), skipSelect=True)
         for time, value in ((1, 0), (5, 30), (9, -10), (14, 45)):
             curve.setKey(time, value)
-        name = curve.getFullName()
+        name = curve.getName(full=True)
         if weighted:
             cmds.keyTangent(name, edit=True, weightedTangents=True)
         cmds.keyTangent(name, edit=True, index=(0, 0), outAngle=25, lock=False)
@@ -63,14 +63,14 @@ class ReplaceKeysFromCurveTest(NamespaceCase):
                 target = mlib.createNode("animCurveTA", name=self.name("target"), skipSelect=True)
                 target.setKey(3, 7)
                 reference = mlib.createNode("animCurveTA", name=self.name("reference"), skipSelect=True)
-                cmds.copyKey(source.getFullName())
-                cmds.pasteKey(reference.getFullName(), option="replaceCompletely")
-                before = _state(target.getFullName())
+                cmds.copyKey(source.getName(full=True))
+                cmds.pasteKey(reference.getName(full=True), option="replaceCompletely")
+                before = _state(target.getName(full=True))
                 self.flushUndo()
                 target.replaceKeys(source)
-                expected = _state(reference.getFullName())
+                expected = _state(reference.getName(full=True))
                 self.assertUndoesInOneStep(
-                    lambda: self.assertEqual(_state(target.getFullName()), before), lambda: self.assertEqual(_state(target.getFullName()), expected)
+                    lambda: self.assertEqual(_state(target.getName(full=True)), before), lambda: self.assertEqual(_state(target.getName(full=True)), expected)
                 )
 
     def test_errors(self):

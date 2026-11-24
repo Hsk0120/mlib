@@ -18,7 +18,7 @@ class CV(PointComponent):
     component_type = "cv"
     count_attribute = "getNumCVs"
 
-    def getFullName(self):
+    def _full_name(self):
         """cmdsへ渡すCVの名前を返す。
 
         周期カーブの末尾で重なっているCVは、先頭側の同じCVの番号に直す。
@@ -28,7 +28,7 @@ class CV(PointComponent):
         """
         self._require_valid()
         index = command_indices(self.shape, [self.index])[0]
-        return f"{self.shape.getFullName()}.cv[{index}]"
+        return f"{self.shape._full_name()}.cv[{index}]"
 
 
 class CVs(PointComponents):
@@ -61,7 +61,7 @@ class CVs(PointComponents):
             RuntimeError: シェイプが無効な場合。
         """
         self._require_valid()
-        name = self.shape.getFullName()
+        name = self.shape._full_name()
         return [f"{name}.cv[{index}]" for index in command_indices(self.shape, self.indices)]
 
     def _repr_indices(self):

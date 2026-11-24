@@ -94,9 +94,9 @@ class _Case(NamespaceCase):
         self.flushUndo()
         action(fast, True)
         self.assertUndoEmpty()
-        self.assertPointsAlmostEqual(read(fast.getFullName()), read(normal.getFullName()))
+        self.assertPointsAlmostEqual(read(fast.getName(full=True)), read(normal.getName(full=True)))
         if not uv:
-            self.assertPointsAlmostEqual(read(fast.getFullName(), True), read(normal.getFullName(), True))
+            self.assertPointsAlmostEqual(read(fast.getName(full=True), True), read(normal.getName(full=True), True))
 
     def check_rejects(self, name, cases, uv=False):
         """不正な入力が指定の例外型で拒否され、形状を変えないことを確かめる。"""
@@ -117,7 +117,7 @@ class ShapeMirrorTest(_Case):
             for indices in (None, [1, 3, 3, 5]):
                 with self.subTest(worldSpace=worldSpace, indices=indices):
                     shape = self.cube("cube#")
-                    name = shape.getFullName()
+                    name = shape.getName(full=True)
                     before = _points(name, worldSpace)
                     self.assertIsNone(shape.mirror("x", worldSpace=worldSpace, pivot=(0.5, 0, 0), indices=indices))
                     targets = range(len(before)) if indices is None else [1, 3, 5]
@@ -128,7 +128,7 @@ class ShapeMirrorTest(_Case):
         for axis in ("z", "XY", "yx", 2):
             shape = self.cube("cube#")
             shape.mirror(axis, pivot=(0, 0, 0.25))
-            results.append(_points(shape.getFullName()))
+            results.append(_points(shape.getName(full=True)))
         for result in results[1:]:
             self.assertPointsAlmostEqual(result, results[0])
 
@@ -137,28 +137,28 @@ class ShapeMirrorTest(_Case):
             for worldSpace in (False, True):
                 with self.subTest(periodic=periodic, worldSpace=worldSpace):
                     shape = self.curve("crv#", periodic=periodic)
-                    name = shape.getFullName()
+                    name = shape.getName(full=True)
                     before = _points(name, worldSpace)
                     self.assertIsNone(shape.mirror("y", worldSpace=worldSpace, pivot=(0, 1, 0)))
                     self.assertPointsAlmostEqual(_points(name, worldSpace), _mirrored(before, range(len(before)), 1, (0, 1, 0)))
         shape = self.curve("sub")
-        before = _points(shape.getFullName())
+        before = _points(shape.getName(full=True))
         shape.mirror("z", indices=[0, 4])
-        self.assertPointsAlmostEqual(_points(shape.getFullName()), _mirrored(before, [0, 4], 2, (0, 0, 0)))
+        self.assertPointsAlmostEqual(_points(shape.getName(full=True)), _mirrored(before, [0, 4], 2, (0, 0, 0)))
 
     def test_mirror_twice_restores(self):
         shape = self.curve(periodic=True)
-        before = _points(shape.getFullName())
+        before = _points(shape.getName(full=True))
         shape.mirror("x", worldSpace=True, pivot=(3, 0, 0))
         shape.mirror("x", worldSpace=True, pivot=(3, 0, 0))
-        self.assertPointsAlmostEqual(_points(shape.getFullName()), before)
+        self.assertPointsAlmostEqual(_points(shape.getName(full=True)), before)
 
     def test_transform_mirror_geometry_applies_to_every_shape(self):
         mesh = self.cube()
         transform = mesh.getTransform()
         curve = self.curve()
-        cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShape(all=True)]
+        cmds.parent(curve.getName(full=True), transform.getName(full=True), shape=True, relative=True)
+        names = [shape.getName(full=True) for shape in transform.getShape(all=True)]
         self.assertEqual(len(names), 2)
         for worldSpace in (False, True):
             with self.subTest(worldSpace=worldSpace):
@@ -171,8 +171,8 @@ class ShapeMirrorTest(_Case):
         mesh = self.cube()
         transform = mesh.getTransform()
         curve = self.curve()
-        cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShape(all=True)]
+        cmds.parent(curve.getName(full=True), transform.getName(full=True), shape=True, relative=True)
+        names = [shape.getName(full=True) for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         transform.mirrorGeometry("y", pivot=iter((0, 1, 0)), indices=iter([1]))
         for name, points in zip(names, before):
@@ -180,14 +180,14 @@ class ShapeMirrorTest(_Case):
 
     def test_undo_once(self):
         mesh = self.cube()
-        self.check_undo(mesh.getFullName(), lambda: mesh.mirror("y", worldSpace=True))
+        self.check_undo(mesh.getName(full=True), lambda: mesh.mirror("y", worldSpace=True))
         curve = self.curve(periodic=True)
-        self.check_undo(curve.getFullName(), lambda: curve.mirror("x", indices=[0, 1]))
+        self.check_undo(curve.getName(full=True), lambda: curve.mirror("x", indices=[0, 1]))
         transform = self.cube("other").getTransform()
-        self.check_undo(transform.getShape().getFullName(), lambda: transform.mirrorGeometry("z", pivot=(0, 0, 1)))
+        self.check_undo(transform.getShape().getName(full=True), lambda: transform.mirrorGeometry("z", pivot=(0, 0, 1)))
         # 2つのShapeも1回のUndoでまとめて戻る。
-        cmds.parent(self.curve("crv2").getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShape(all=True)]
+        cmds.parent(self.curve("crv2").getName(full=True), transform.getName(full=True), shape=True, relative=True)
+        names = [shape.getName(full=True) for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         self.flushUndo()
         transform.mirrorGeometry()
@@ -214,7 +214,7 @@ class ShapeMirrorTest(_Case):
         transform = mesh.getTransform()
         curve = self.curve()
         self.check_rejects(
-            mesh.getFullName(),
+            mesh.getName(full=True),
             (
                 (IndexError, lambda: mesh.mirror(indices=[0, 99])),
                 (IndexError, lambda: mesh.mirror(indices=[-1])),
@@ -233,32 +233,34 @@ class ShapeMirrorTest(_Case):
                 (ValueError, lambda: transform.mirrorGeometry("w")),
             ),
         )
-        self.check_rejects(curve.getFullName(), ((IndexError, lambda: curve.mirror(indices=[0, 5])), (ValueError, lambda: curve.mirror(pivot=(1, 2, 3, 4)))))
+        self.check_rejects(
+            curve.getName(full=True), ((IndexError, lambda: curve.mirror(indices=[0, 5])), (ValueError, lambda: curve.mirror(pivot=(1, 2, 3, 4))))
+        )
 
     def test_transform_validates_every_shape_before_writing(self):
         # 2つ目のShape(CV 5個)で範囲外の番号は、1つ目のMesh(頂点8個)も変更せずに拒否する。
         mesh = self.cube()
         transform = mesh.getTransform()
         curve = self.curve()
-        cmds.parent(curve.getFullName(), transform.getFullName(), shape=True, relative=True)
-        names = [shape.getFullName() for shape in transform.getShape(all=True)]
+        cmds.parent(curve.getName(full=True), transform.getName(full=True), shape=True, relative=True)
+        names = [shape.getName(full=True) for shape in transform.getShape(all=True)]
         before = [_points(name) for name in names]
         for error, kwargs in ((IndexError, {"indices": [6]}), (ValueError, {"worldSpace": True})):
             with self.subTest(error=error.__name__):
                 if kwargs.get("worldSpace"):
-                    cmds.setAttr(transform.getFullName() + ".scaleY", 0)
+                    cmds.setAttr(transform.getName(full=True) + ".scaleY", 0)
                 with self.assertRaises(error):
                     transform.mirrorGeometry(**kwargs)
                 self.assertEqual([_points(name) for name in names], before)
         # 対応しないShape(locator)があれば、どのShapeも変更せずにValueError。
         other = self.cube("other")
-        cmds.createNode("locator", name=self.name("locShape"), parent=other.getTransform().getFullName(), skipSelect=True)
-        self.check_rejects(other.getFullName(), ((ValueError, lambda: other.getTransform().mirrorGeometry()),))
+        cmds.createNode("locator", name=self.name("locShape"), parent=other.getTransform().getName(full=True), skipSelect=True)
+        self.check_rejects(other.getName(full=True), ((ValueError, lambda: other.getTransform().mirrorGeometry()),))
 
     def test_fast_rejects_input_history_before_writing(self):
         mesh = self.cube(history=True)
         self.check_rejects(
-            mesh.getFullName(),
+            mesh.getName(full=True),
             ((NotImplementedError, lambda: mesh.mirror(fast=True)), (NotImplementedError, lambda: mesh.getTransform().mirrorGeometry(fast=True))),
         )
         # 2つ目のShapeだけ入力履歴を持つ場合も、1つ目を変更しない。
@@ -266,8 +268,8 @@ class ShapeMirrorTest(_Case):
         transform = clean.getTransform()
         history = cmds.circle(name=self.name("circle"), constructionHistory=True)[0]
         history_shape = cmds.listRelatives(history, shapes=True, fullPath=True)[0]
-        cmds.parent(history_shape, transform.getFullName(), shape=True, relative=True)
-        self.check_rejects(clean.getFullName(), ((NotImplementedError, lambda: transform.mirrorGeometry(fast=True)),))
+        cmds.parent(history_shape, transform.getName(full=True), shape=True, relative=True)
+        self.check_rejects(clean.getName(full=True), ((NotImplementedError, lambda: transform.mirrorGeometry(fast=True)),))
 
     def test_transform_without_shapes_does_nothing(self):
         transform = mlib.getNode(self.make("transform", "empty"))

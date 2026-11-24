@@ -55,7 +55,7 @@ class NodeApiTest(unittest.TestCase):
         element = multi_plug[1]
         element.set(2)
         self.assertEqual(element.getAttributeName(), "samples")
-        self.assertTrue(element.getFullName().endswith("[1]"))
+        self.assertTrue(element.getName(full=True).endswith("[1]"))
 
         multi_plug.removeElement(1)
         self.assertNotIn(1, multi_plug.get())
@@ -91,7 +91,7 @@ class _PlugSpecCase(unittest.TestCase):
         cmds.undoInfo(state=True)
         cmds.currentUnit(linear="cm", angle="deg")
         self.node = self.make("transform")
-        self.name = self.node.getFullName()
+        self.name = self.node.getName(full=True)
 
     def tearDown(self):
         cmds.currentUnit(linear=self.units[0], angle=self.units[1])
@@ -121,7 +121,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
     def setUp(self):
         super().setUp()
         self.net = self.make("network")
-        self.net_name = self.net.getFullName()
+        self.net_name = self.net.getName(full=True)
         cmds.addAttr(self.net_name, longName="vals", attributeType="double", multi=True)
         self.array = self.net.getPlug("vals")
 
@@ -139,7 +139,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
     def test_reference_does_not_create_but_set_does(self):
         """参照だけでは要素を作らず、setが作る。番号は詰めずにキーへ残る。"""
         element = self.array[5]
-        self.assertEqual(element.getFullName(), self.net_name + ".vals[5]")
+        self.assertEqual(element.getName(full=True), self.net_name + ".vals[5]")
         self.assertTrue(element.isMulti(element=True))
         self.assertEqual(self.indices(self.net_name + ".vals"), [])
         element.set(1.5)
@@ -147,7 +147,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         self.assertEqual(self.array.getIndices(), [2, 5])
         self.assertEqual(self.indices(self.net_name + ".vals"), [2, 5])
         self.assertEqual(self.array.get(), {2: 0.5, 5: 1.5})
-        self.assertEqual([p.getFullName() for p in self.array], [self.net_name + ".vals[2]", self.net_name + ".vals[5]"])
+        self.assertEqual([p.getName(full=True) for p in self.array], [self.net_name + ".vals[2]", self.net_name + ".vals[5]"])
 
     def test_get_of_missing_element_creates_it(self):
         """未作成の要素のget()は要素を作る(cmds.getAttrと同じ)。"""
@@ -156,7 +156,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
 
     def test_logical_index_validation(self):
         """論理番号は0〜2147483647の整数。範囲外はIndexError、整数以外・boolはTypeError。"""
-        self.assertEqual(self.array[2147483647].getFullName(), self.net_name + ".vals[2147483647]")
+        self.assertEqual(self.array[2147483647].getName(full=True), self.net_name + ".vals[2147483647]")
         for bad, error in ((-1, IndexError), (2147483648, IndexError), (1.0, TypeError), (True, TypeError), (slice(0, 2), TypeError), ("0", TypeError)):
             with self.subTest(bad=bad):
                 with self.assertRaises(error):
@@ -168,7 +168,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         self.assertIsInstance(self.array.getElement(), plugs.Plugs)
         self.array[3].set(1.0)
         self.assertEqual(self.array.getElement(3).get(), 1.0)
-        self.assertEqual(self.array.getElement(index=3).getFullName(), self.net_name + ".vals[3]")
+        self.assertEqual(self.array.getElement(index=3).getName(full=True), self.net_name + ".vals[3]")
         self.assertEqual(self.array.getElement(4), self.array[4])
         self.assertNotIn(4, self.array)
         self.assertEqual(self.array.getElement(), [self.array[3]])
@@ -194,7 +194,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         self.assertEqual([element.getIndex() for element in elements], [2, 5, 9])
         self.assertEqual([element.getIndex() for element in elements], self.array.getIndices())
         self.assertEqual(list(elements), list(self.array))
-        self.assertEqual([element.getFullName() for element in elements], [f"{self.net_name}.vals[{index}]" for index in (2, 5, 9)])
+        self.assertEqual([element.getName(full=True) for element in elements], [f"{self.net_name}.vals[{index}]" for index in (2, 5, 9)])
         self.assertEqual(self.indices(self.net_name + ".vals"), [2, 5, 9])
         self.assertIsNot(self.array.getElement(), elements)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
@@ -251,7 +251,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
 
     def test_get_next_available_for_connections(self):
         """getNextAvailableは入力接続とロックを避ける。既定は最後の接続要素の次から探す。"""
-        source = self.make("transform").getFullName()
+        source = self.make("transform").getName(full=True)
         self.assertEqual(self.array.getNextAvailable().getIndex(), 0)
         cmds.connectAttr(source + ".tx", self.net_name + ".vals[2]")
         self.assertEqual(self.array.getNextAvailable().getIndex(), 3)
@@ -261,7 +261,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         self.assertEqual(self.array.getNextAvailable(0).getIndex(), 1)
         self.assertEqual(self.array.getNextAvailable(0, checkLocked=False).getIndex(), 0)
         element = self.array.getNextAvailable()
-        self.assertEqual(element.getFullName(), self.net_name + ".vals[3]")
+        self.assertEqual(element.getName(full=True), self.net_name + ".vals[3]")
         with self.assertRaises(AttributeError):
             self.array[2].getNextAvailable()
         cmds.setAttr(self.net_name + ".vals", lock=True)
@@ -270,7 +270,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
 
     def test_remove_element_undo_and_fast(self):
         """removeElementは接続ごと要素を消して自身を返し、1回のUndoで戻る。fastは記録しない。"""
-        source = self.make("transform").getFullName()
+        source = self.make("transform").getName(full=True)
         self.array[0].set(1.0)
         cmds.connectAttr(source + ".tx", self.net_name + ".vals[1]")
         self.array[2].set(3.0)
@@ -331,8 +331,8 @@ class MultiPlugSpecTest(_PlugSpecCase):
         items[4]["ib"].set(5)
         self.assertEqual(items.get(), {1: (1.0, 2.0), 4: (0.0, 5.0)})
         child = items[4]["ib"]
-        self.assertEqual(child.getFullName(), self.net_name + ".items[4].ib")
-        self.assertEqual(child.getParent().getFullName(), self.net_name + ".items[4]")
+        self.assertEqual(child.getName(full=True), self.net_name + ".items[4].ib")
+        self.assertEqual(child.getParent().getName(full=True), self.net_name + ".items[4]")
         self.assertTrue(child.getParent().isMulti(element=True))
 
     def test_world_space_multi_includes_instances(self):
@@ -342,12 +342,12 @@ class MultiPlugSpecTest(_PlugSpecCase):
         cmds.instance(self.name)
         self.assertEqual(world.getIndices(), [0, 1])
         self.assertEqual(sorted(world.get()), [0, 1])
-        self.assertTrue(world.getElement(1).getFullName().endswith(".worldMatrix[1]"))
+        self.assertTrue(world.getElement(1).getName(full=True).endswith(".worldMatrix[1]"))
 
     def test_source_nodes_keep_holes(self):
         """getSourceNodesは接続のある要素の番号と入力元ノードを返す。"""
         source = self.make("transform")
-        cmds.connectAttr(source.getFullName() + ".tx", self.net_name + ".vals[4]")
+        cmds.connectAttr(source.getName(full=True) + ".tx", self.net_name + ".vals[4]")
         self.array[1].set(1.0)
         self.assertEqual(self.array.getSourceNodes(), {4: source})
 
@@ -357,7 +357,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         links = self.net.getPlug("links")
         target = self.make("transform")
         self.assertEqual(links.appendMessage(target), 0)
-        self.assertEqual(links.appendMessage(target.getFullName()), 1)
+        self.assertEqual(links.appendMessage(target.getName(full=True)), 1)
         self.assertEqual(links.getSourceNodes(), {0: target, 1: target})
         links.removeElement(0)
         self.assertEqual(links.appendMessage(target), 2)
@@ -369,7 +369,7 @@ class MultiPlugSpecTest(_PlugSpecCase):
         cmds.flushUndo()
         self.assertEqual(links.appendMessage(target, fast=True), 3)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertTrue(cmds.isConnected(target.getFullName() + ".message", self.net_name + ".links[3]"))
+        self.assertTrue(cmds.isConnected(target.getName(full=True) + ".message", self.net_name + ".links[3]"))
         with self.assertRaises(TypeError):
             self.array.appendMessage(target)
         with self.assertRaises(RuntimeError):

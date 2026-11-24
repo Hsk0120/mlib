@@ -40,7 +40,7 @@ class _InterpCacheConstraint(Constraint):
             start = om2.MTime(start, om2.MTime.kSeconds).asUnits(om2.MTime.uiUnit())
             end = om2.MTime(end, om2.MTime.kSeconds).asUnits(om2.MTime.uiUnit())
         self._require_valid("キャッシュの作成")
-        getattr(cmds, self.getType())(self.getFullName(), edit=True, createCache=(start, end))
+        getattr(cmds, self.getType())(self._full_name(), edit=True, createCache=(start, end))
 
     def deleteCache(self):
         """補間キャッシュを削除する。
@@ -55,4 +55,4 @@ class _InterpCacheConstraint(Constraint):
             RuntimeError: ノードが無効か、Mayaが更新を拒否した場合。
         """
         self._require_valid("キャッシュの削除")
-        getattr(cmds, self.getType())(self.getFullName(), edit=True, deleteCache=True)
+        getattr(cmds, self.getType())(self._full_name(), edit=True, deleteCache=True)
