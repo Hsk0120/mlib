@@ -9,6 +9,7 @@
 """
 
 import argparse
+import contextlib
 import datetime
 import json
 import os
@@ -94,6 +95,21 @@ def worker(version, directory, suite_path=None):
     QtCore.QTimer.singleShot(500, wait_for_main_window)
 
 
+@contextlib.contextmanager
+def _working_directory(directory):
+    """専用cwdを後始末し、Windowsの共有ロックが残った場合は場所と理由を記録する。"""
+    temporary = tempfile.TemporaryDirectory(prefix="working-", dir=str(directory))
+    try:
+        yield temporary.name
+    finally:
+        try:
+            temporary.cleanup()
+        except PermissionError as exc:
+            if getattr(exc, "winerror", None) != 32:
+                raise
+            write_json(directory / "cleanup.json", {"status": "locked", "path": temporary.name, "error": str(exc)})
+
+
 def run_version(version, directory, install_root, timeout, shutdown_timeout=120, suite_path=None, environment=None):
     directory = Path(directory).resolve()
     suite_path = Path(suite_path).resolve() if suite_path else None
@@ -125,7 +141,7 @@ def run_version(version, directory, install_root, timeout, shutdown_timeout=120,
         args += ["-pythonver", "3"]
     start = time.monotonic()
     # 相対書込を実ソースへ出さない。所有する一時cwdだけを、Maya終了後に削除する。
-    with tempfile.TemporaryDirectory(prefix="working-", dir=str(directory)) as working, (directory / "launch.log").open("wb") as log:
+    with _working_directory(directory) as working, (directory / "launch.log").open("wb") as log:
         write_json(directory / "working-directory.json", {"path": working})
         process = subprocess.Popen(args, cwd=working, env=env, stdout=log, stderr=subprocess.STDOUT)
         write_json(directory / "launch.json", {"pid": process.pid, "version": version, "executable": str(executable)})
