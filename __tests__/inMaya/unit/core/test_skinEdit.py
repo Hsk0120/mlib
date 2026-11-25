@@ -59,6 +59,20 @@ class TransferWeightsTest(NamespaceCase):
             if row < 4:
                 self.assertSequenceAlmostEqual(got, before[row], places=5)
 
+    def test_fast_without_normalize_moves_value_only(self):
+        skin, mesh, joints = self.skinned()
+        cmds.setAttr(skin.getName(full=True) + ".normalizeWeights", 0)
+        before = self.weights(skin, mesh)
+        self.flushUndo()
+        skin.transferWeights([(joints[0], joints[1])], fast=True)
+        self.assertUndoEmpty()
+        for row, (got, old) in enumerate(zip(self.weights(skin, mesh), before)):
+            with self.subTest(vertex=row):
+                if old[0] > 0:
+                    self.assertSequenceAlmostEqual(got, [0.0, old[0], old[2]], places=5)
+                else:
+                    self.assertSequenceAlmostEqual(got, old, places=5)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

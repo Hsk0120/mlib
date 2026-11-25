@@ -57,6 +57,13 @@ class CreateDagPoseTest(NamespaceCase):
             mlib.createDagPose([])
         self.assertEqual(set(cmds.ls(type="dagPose")), before)
 
+    def test_long_and_short_names_together(self):
+        before = cmds.ls(type="dagPose")
+        for flags in ({"name": self.name("a"), "n": self.name("b")}, {"bindPose": True, "bp": True}):
+            with self.subTest(flags=sorted(flags)), self.assertRaises(TypeError):
+                mlib.createDagPose(self.root, **flags)
+        self.assertEqual(cmds.ls(type="dagPose"), before)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

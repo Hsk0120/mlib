@@ -412,6 +412,110 @@ class WritablePlugsTest(_KeyCase):
         self.assertNotIn(user, node.getPlugs(userDefined=True, writable=True))
 
 
+class KeyframeErrorsTest(_KeyCase):
+    """ブレイクダウン・削除・接線・選択の引数と例外。"""
+
+    def test_breakdown_matches_cmds_and_rejects_bad_keys(self):
+        """setBreakdown は cmds の照会と一致して1回で戻り、範囲外の番号は IndexError、削除したカーブは RuntimeError。"""
+        name = self.curve.getName(full=True)
+        last, first = self.curve.getKeyframes(2), self.curve.getKeyframes(0)
+        self.assertFalse(last.isBreakdown())
+        self.flushUndo()
+        last.setBreakdown()
+        self.assertTrue(last.isBreakdown())
+        self.assertEqual(cmds.keyframe(name, query=True, breakdown=True), [10.0])
+        cmds.undo()
+        self.assertFalse(cmds.keyframe(name, query=True, breakdown=True))
+        with self.assertRaises(TypeError):
+            last.setBreakdown(1)
+        cmds.cutKey(name, time=(10, 10), clear=True)
+        with self.assertRaises(IndexError):
+            last.isBreakdown()
+        with self.assertRaises(IndexError):
+            last.setBreakdown()
+        cmds.delete(name)
+        with self.assertRaises(RuntimeError):
+            first.isBreakdown()
+        with self.assertRaises(RuntimeError):
+            first.setBreakdown(False)
+
+    def test_remove_without_keeping_curve(self):
+        """keepCurve=False で最後のキーを消すとカーブも消え、keepCurve=True(既定)ならキーの無いカーブが残る。"""
+        rotate = self.node.getPlug("ry").getAnimCurve()
+        name = rotate.getName(full=True)
+        self.flushUndo()
+        rotate.getKeyframes(0).remove(keepCurve=False)
+        self.assertFalse(cmds.objExists(name))
+        cmds.undo()
+        self.assertEqual(cmds.keyframe(name, query=True, keyframeCount=True), 1)
+        rotate.getKeyframes(0).remove()
+        self.assertTrue(cmds.objExists(name))
+        self.assertEqual(cmds.keyframe(name, query=True, keyframeCount=True), 0)
+
+    def test_keyframes_remove_without_keeping_curves(self):
+        """Keyframes.remove(keepCurve=False) は両方のカーブを消し、1回のUndoで両方が戻る。"""
+        rotate = self.node.getPlug("ry").getAnimCurve()
+        names = [self.curve.getName(full=True), rotate.getName(full=True)]
+        keys = Keyframes([*self.curve.getKeyframes(), rotate.getKeyframes(0)])
+        self.flushUndo()
+        keys.remove(keepCurve=False)
+        self.assertEqual([cmds.objExists(name) for name in names], [False, False])
+        cmds.undo()
+        self.assertEqual([cmds.keyframe(name, query=True, keyframeCount=True) for name in names], [3, 1])
+
+    def test_keyframes_set_tangent_errors(self):
+        """Keyframes.setTangent の例外は docstring の通りで、失敗しても接線は変わらない。"""
+        name = self.curve.getName(full=True)
+        before = cmds.keyTangent(name, query=True, inTangentType=True)
+        keys = Keyframes(list(self.curve.getKeyframes()))
+        cases = (
+            ({"unit": 1, "inTangentType": "linear"}, TypeError),
+            ({}, ValueError),
+            ({"mlibUnknownFlag": 1}, ValueError),
+            ({"fast": True, "inTangentType": "stepnext"}, NotImplementedError),
+        )
+        for flags, error in cases:
+            with self.subTest(flags=flags):
+                self.flushUndo()
+                with self.assertRaises(error):
+                    keys.setTangent(**flags)
+                self.assertEqual(cmds.keyTangent(name, query=True, inTangentType=True), before)
+        keys.setTangent(fast=True, outTangentType="linear")
+        self.assertEqual(cmds.keyTangent(name, query=True, outTangentType=True), ["linear"] * 3)
+        cmds.cutKey(name, time=(10, 10), clear=True)
+        with self.assertRaises(IndexError):
+            keys.setTangent(inTangentType="linear")
+        cmds.delete(name)
+        with self.assertRaises(RuntimeError):
+            keys.setTangent(inTangentType="linear")
+
+    def test_keyframes_set_tangent_check_rejects_locked_curve(self):
+        """check=True では、キーを格納するアトリビュートがロックされたカーブを書く前に RuntimeError にする。"""
+        rotate = self.node.getPlug("ry").getAnimCurve()
+        name = self.curve.getName(full=True)
+        cmds.setAttr(rotate.getName(full=True) + ".keyTimeValue", lock=True)
+        keys = Keyframes([self.curve.getKeyframes(0), rotate.getKeyframes(0)])
+        before = cmds.keyTangent(name, query=True, outTangentType=True)
+        with self.assertRaises(RuntimeError):
+            keys.setTangent(check=True, outTangentType="step")
+        self.assertEqual(cmds.keyTangent(name, query=True, outTangentType=True), before)
+
+    def test_keyframes_select_add_and_errors(self):
+        """add=True は今の選択に加え、add がboolでなければ TypeError、削除したカーブは RuntimeError。"""
+        name = self.curve.getName(full=True)
+        Keyframes([self.curve.getKeyframes(0)]).select()
+        Keyframes([self.curve.getKeyframes(2)]).select(add=True)
+        self.assertEqual(sorted(cmds.keyframe(name, query=True, selected=True, indexValue=True)), [0, 2])
+        cmds.undo()
+        self.assertEqual(cmds.keyframe(name, query=True, selected=True, indexValue=True), [0])
+        with self.assertRaises(TypeError):
+            Keyframes([self.curve.getKeyframes(1)]).select(add=1)
+        keys = Keyframes([self.curve.getKeyframes(1)])
+        cmds.delete(name)
+        with self.assertRaises(RuntimeError):
+            keys.select(add=True)
+
+
 class UndoChunkOpenCloseTest(NamespaceCase):
     """undoChunk の戻り値の open/close。"""
 

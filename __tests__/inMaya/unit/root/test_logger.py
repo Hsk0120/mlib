@@ -275,5 +275,31 @@ class LoggerSpecTest(unittest.TestCase):
         handler.emit(record)
 
 
+class StaleHandlerTest(unittest.TestCase):
+    """reloadする前のMayaHandler(同じ名前の古いクラス)は、getLoggerが今の型のものへ置き換える。"""
+
+    def test_stale_handler_is_replaced(self):
+        log = logging.getLogger(LOGGER_NAME)
+        saved = list(log.handlers)
+        stale_class = type("MayaHandler", (logging.Handler,), {"__module__": logger.__name__, "emit": lambda self, record: None})
+        stale = stale_class()
+        foreign = logging.NullHandler()
+        try:
+            for handler in saved:
+                log.removeHandler(handler)
+            log.addHandler(stale)
+            log.addHandler(foreign)
+            result = getLogger()
+            self.assertIs(result, log)
+            self.assertNotIn(stale, log.handlers)
+            self.assertIn(foreign, log.handlers)
+            self.assertEqual(sum(isinstance(handler, MayaHandler) for handler in log.handlers), 1)
+        finally:
+            for handler in list(log.handlers):
+                log.removeHandler(handler)
+            for handler in saved:
+                log.addHandler(handler)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -525,6 +525,28 @@ class ProgressBarSimulatedMainBarTest(unittest.TestCase):
         self.fake.fail_end = False
         self.assertEqual(list(progressBar(range(1), gui=True)), [0])
 
+    def test_empty_input_does_not_open_bar(self):
+        """入力が空ならバーを開かず、通知もせず、使用中の登録も残さない(次の反復でバーを使える)。"""
+        from mlib.common import progress as progress_module
+
+        received = []
+        self.assertEqual(list(progressBar([], gui=True, notify=received.append)), [])
+        self.assertEqual(list(progressBar(iter(()), gui=True)), [])
+        self.assertEqual((self.fake.edits, received), ([], []))
+        self.assertNotIn(self.fake.name, progress_module._active_bars)
+        self.assertEqual(list(progressBar(["a"], gui=True)), ["a"])
+        self.assertTrue(self.fake.edits[0]["beginProgress"])
+
+    def test_finish_before_begin_does_not_end_progress(self):
+        """表示を始める前に閉じても endProgress を呼ばず、使用中の登録だけを外す。"""
+        from mlib.common import progress as progress_module
+
+        bar = progress_module._MainProgressBar("demo", 2, 4, self.fake.name, None)
+        progress_module._active_bars.add(self.fake.name)
+        bar.finish()
+        self.assertEqual(self.fake.edits, [])
+        self.assertNotIn(self.fake.name, progress_module._active_bars)
+
     def test_unavailable_bar_falls_back_to_text(self):
         """バーの名前が取れない・バーが無い場合は自動でテキストにし、gui=TrueはRuntimeError。"""
         for answer in (RuntimeError("no variable"), "", "mlibNoSuchBar"):

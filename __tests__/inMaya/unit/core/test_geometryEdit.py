@@ -73,5 +73,23 @@ class GeometryEditTest(NamespaceCase):
         self.assertEqual(mesh.getPoints(), points)
 
 
+class LockedControlPointsTest(NamespaceCase):
+    """controlPoints全体をロックしたNURBS曲面は、CVの位置の書き込みを書く前に止める。"""
+
+    PREFIX = "mlibGeometryEditLocked_"
+
+    def test_locked_control_points_are_refused(self):
+        surface = cmds.nurbsPlane(name=self.name("plane"), constructionHistory=False)[0]
+        shape = cmds.listRelatives(surface, shapes=True, fullPath=True)[0]
+        before = cmds.pointPosition(surface + ".cv[0][0]", local=True)
+        cmds.setAttr(shape + ".controlPoints", lock=True)
+        with self.assertRaises(RuntimeError):
+            geometryEdit.require_control_points_unlocked(mlib.getNode(shape), [0])
+        with self.assertRaises(RuntimeError):
+            mlib.ls(surface + ".cv[0][0]")[0].setPosition((1.0, 2.0, 3.0))
+        self.assertEqual(cmds.pointPosition(surface + ".cv[0][0]", local=True), before)
+        cmds.setAttr(shape + ".controlPoints", lock=False)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

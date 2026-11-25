@@ -108,5 +108,36 @@ class NodeEditTest(NamespaceCase):
         self.assertEqual(om2.MFnDependencyNode(node.mnode()).typeName, "network")
 
 
+class CreateNodeFastTest(NamespaceCase):
+    """fastのノード作成(create_node)の、対応しないフラグ・Undoなし・共有の名前の扱い。"""
+
+    PREFIX = "mlibNodeEditCreate_"
+
+    def test_unsupported_flags_are_rejected_before_creating(self):
+        before = set(cmds.ls(self.ns + ":*"))
+        with self.assertRaises(NotImplementedError):
+            nodeEdit.create_node("transform", {"name": self.name("made"), "foo": 1})
+        with self.assertRaises(NotImplementedError):
+            mlib.createNode("transform", name=self.name("made"), fast=True, foo=1)
+        self.assertEqual(set(cmds.ls(self.ns + ":*")), before)
+
+    def test_fast_create_is_not_undoable(self):
+        self.flushUndo()
+        made = nodeEdit.create_node("transform", {"name": self.name("made")})
+        name = om2.MFnDependencyNode(made).name()
+        self.assertEqual(cmds.nodeType(name), "transform")
+        self.assertUndoEmpty()
+
+    def test_shared_name_matching_several_nodes_creates_new_node(self):
+        """sharedの名前が複数のノードに一致するときは、既存のノードを返さずに新しく作る。"""
+        first = self.make("transform", "shr1")
+        second = self.make("transform", "shr2")
+        made = nodeEdit.create_node("transform", {"name": self.name("shr*"), "shared": True})
+        name = om2.MFnDependencyNode(made).name()
+        self.assertNotIn(name, (first, second))
+        self.assertTrue(cmds.objExists(first) and cmds.objExists(second))
+        self.assertEqual(cmds.nodeType(name), "transform")
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

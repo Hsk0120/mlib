@@ -96,5 +96,18 @@ class CreateNurbsPlaneTest(_Case):
         self.assertEqual(set(cmds.ls(self.ns + ":*")), before)
 
 
+class CreateNurbsPlaneNameTest(_Case):
+    """名前を省くと、Mayaの既定の名前で作る。"""
+
+    def test_without_name(self):
+        cmds.namespace(set=self.ns)
+        try:
+            shape = mlib.createNurbsPlane()
+        finally:
+            cmds.namespace(set=":")
+        self.assertEqual(cmds.nodeType(shape.getName(full=True)), "nurbsSurface")
+        self.assertTrue(shape.getName().split(":")[-1].startswith("nurbsPlane"))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

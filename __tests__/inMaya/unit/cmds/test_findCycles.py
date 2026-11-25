@@ -74,6 +74,17 @@ class FindCyclesTest(NamespaceCase):
             with self.subTest(args=args, kwargs=kwargs), self.assertRaises(error):
                 mlib.findCycles(*args, **kwargs)
 
+    @unittest.expectedFailure  # findings2/plugs-core-cmds.md 2: 見つからない名前がMayaのValueErrorのまま出る。
+    def test_missing_name_raises_runtime_error(self):
+        with self.assertRaises(RuntimeError):
+            mlib.findCycles([self.name("noSuchNode")])
+
+    def test_deleted_node_is_refused(self):
+        node = mlib.getNode(self.c)
+        cmds.delete(self.c)
+        with self.assertRaises(ValueError):
+            mlib.findCycles([node])
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -156,5 +156,21 @@ class IkHandleCreateTest(_SpecCase):
         self.assertIsNone(handle.getEffector())
 
 
+class IkHandleLockedPreferredAngleTest(_SpecCase):
+    """preferredAngleがロックされたjointは記録を飛ばし、作成とUndoはできる。"""
+
+    def test_locked_preferred_angle(self):
+        start, middle, end = self.chain(("a", (0, 0, 0)), ("b", (1, 1, 0)), ("c", (2, 0, 0)))
+        cmds.setAttr(middle + ".preferredAngle", lock=True)
+        before = cmds.getAttr(middle + ".preferredAngle")
+        self.flushUndo()
+        handle = mlib.createIkHandle(start, end, name=self.name("handle"))
+        name = handle.getName(full=True)
+        self.assertEqual(cmds.nodeType(name), "ikHandle")
+        self.assertEqual(cmds.getAttr(middle + ".preferredAngle"), before)
+        cmds.undo()
+        self.assertFalse(cmds.objExists(name))
+
+
 if __name__ == "__main__":
     unittest.main()

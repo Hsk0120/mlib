@@ -184,5 +184,23 @@ class SelectionHelpersTest(unittest.TestCase):
             cmds.delete(transform)
 
 
+class AsStringTest(unittest.TestCase):
+    """asStringは各型のstr()と同じで、コンポーネントは無効なら例外にする。"""
+
+    def test_invalid_objects(self):
+        node_name = cmds.createNode("transform", name="mlibAsStringNode#", skipSelect=True)
+        cube = cmds.polyCube(name="mlibAsStringCube#", constructionHistory=False)[0]
+        node = mlib.getNode(node_name)
+        plug = node.getPlug("tx")
+        vertex = mlib.ls(cube + ".vtx[0]")[0]
+        self.assertEqual(node.asString(), cmds.ls(node_name)[0])
+        self.assertEqual(cmds.ls(vertex.asString(), long=True), cmds.ls(cube + ".vtx[0]", long=True))
+        cmds.delete(node_name, cube)
+        self.assertEqual(node.asString(), "")
+        self.assertEqual(plug.asString(), "")
+        with self.assertRaises(RuntimeError):
+            vertex.asString()
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

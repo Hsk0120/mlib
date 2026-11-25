@@ -532,5 +532,33 @@ class DeleteSpecTest(_CmdsCase):
         self.assertEqual(cmds.polyEvaluate(cube, face=True), 6)
 
 
+class OverriddenDeleteTest(_CmdsCase):
+    """deleteを上書きしたクラスがあると1つずつ消し、親と一緒に消えた子は飛ばす。"""
+
+    def test_children_removed_with_parent_are_skipped(self):
+        calls = []
+
+        class CountingTransform(mlib.Transform):
+            def delete(self, **kwargs):
+                calls.append(self.getName())
+                mlib.Node.delete(self, **kwargs)
+
+        registry = mlib.Node._registry
+        saved = dict(registry._classes)
+        parent = cmds.createNode("transform", name=self.name("parent"))
+        child = cmds.createNode("transform", name=self.name("child"), parent=parent)
+        registry.register("transform", CountingTransform)
+        try:
+            targets = [mlib.getNode(parent), mlib.getNode(child)]
+            self.assertTrue(all(type(node) is CountingTransform for node in targets))
+            mlib.delete(targets)
+        finally:
+            registry.replace(saved)
+        self.assertEqual(calls, [self.name("parent")])
+        self.assertFalse(cmds.objExists(parent) or cmds.objExists(child))
+        cmds.undo()
+        self.assertTrue(cmds.objExists(parent) and cmds.objExists(child))
+
+
 if __name__ == "__main__":
     unittest.main()

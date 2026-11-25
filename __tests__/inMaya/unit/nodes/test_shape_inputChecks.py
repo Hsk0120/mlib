@@ -93,5 +93,24 @@ class ScaleGeometryInputTest(_Case):
         self.assertEqual(self.points(shape), before)
 
 
+class ShapeScaleGeometryFastTest(_Case):
+    """scaleGeometryのfastで書き換えられない形状。"""
+
+    def test_fast_surface_and_history(self):
+        """fastは、NURBSサーフェスとヒストリのあるメッシュをNotImplementedErrorにし、形を変えない。"""
+        surface = cmds.nurbsPlane(name=self.name("surf"), constructionHistory=False)[0]
+        shape = mlib.getNode(cmds.listRelatives(surface, shapes=True, fullPath=True)[0])
+        before = cmds.getAttr(str(shape) + ".cv[*][*]")
+        with self.assertRaises(NotImplementedError):
+            shape.scaleGeometry(2, fast=True)
+        self.assertEqual(cmds.getAttr(str(shape) + ".cv[*][*]"), before)
+        transform = cmds.polyCube(name=self.name("history"))[0]
+        mesh = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
+        points = self.points(mesh)
+        with self.assertRaises(NotImplementedError):
+            mesh.scaleGeometry(2, fast=True)
+        self.assertEqual(self.points(mesh), points)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

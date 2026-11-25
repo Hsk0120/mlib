@@ -3,6 +3,7 @@
 - mlib.decorator・mlib.util・mlib.logger の約束を固定する仕様テスト(担当D)。
 """
 
+import copy
 import sys
 import unittest
 import uuid
@@ -174,6 +175,26 @@ class UtilInternalHelpersTest(unittest.TestCase):
         common = mlib.common
         with mock.patch.object(common, "__all__", [*common.__all__, "MLIB_TEST_CONSTANT"]):
             self.assertNotIn("MLIB_TEST_CONSTANT", mlib._class_sources())
+
+
+class SlotStateCopyTest(unittest.TestCase):
+    """数学の値の派生クラスが持つ__slots__の値は、複数あってもすべてコピーへ写す。"""
+
+    def test_several_slots_are_copied(self):
+        class Tagged(mlib.Vector):
+            __slots__ = ("first", "second", "unset")
+
+        value = Tagged(1, 2, 3)
+        value.first = "a"
+        value.second = ["b"]
+        for copier in (copy.copy, copy.deepcopy):
+            with self.subTest(copier=copier.__name__):
+                result = copier(value)
+                self.assertEqual((result.first, result.second), ("a", ["b"]))
+                self.assertFalse(hasattr(result, "unset"))
+                self.assertEqual(tuple(result), (1.0, 2.0, 3.0))
+        self.assertIs(copy.copy(value).second, value.second)
+        self.assertIsNot(copy.deepcopy(value).second, value.second)
 
 
 if __name__ == "__main__":

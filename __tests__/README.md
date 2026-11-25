@@ -144,8 +144,9 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 終了コードは成功0、失敗・異常1、未インストールだけで未完了なら2です。
 `--timeout 1200`で各版の制限時間を変更できます（既定600秒）。
 
-テストが通っていない行は`..\_tools\measure_mlib_coverage.py`で測れます(手順は`CONTRIBUTING.md`の「任意の工程」)。
-結果は`_output/coverage/<日時>/`に置きます。
+テストが通っていない行・分岐と、確かめていない観点は`..\_tools\measure_mlib_coverage.py`、
+テストが結果まで確かめているかは`..\_tools\measure_mlib_mutations.py`で測れます(手順は`CONTRIBUTING.md`の「任意の工程」)。
+結果は`_output/coverage/<日時>/`・`_output/mutations/<日時>/`に置きます。
 
 ## テストを追加する
 

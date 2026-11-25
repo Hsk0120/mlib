@@ -254,6 +254,38 @@ class PluginPackageRealTest(unittest.TestCase):
         self.assertEqual(package.tryLoad(dialog=shown.append), MISSING)
         self.assertEqual(len(shown), 1)
 
+    def test_load_plugins_and_queries_match_cmds(self):
+        """loadPlugins は読めないものを返して残りを読み込み(Undoに記録しない)、版・Mayaの年・文は cmds の照会と一致する。"""
+        name = "quatNodes"
+        was_loaded = cmds.pluginInfo(name, query=True, loaded=True)
+        year = int(cmds.about(majorVersion=True))
+        try:
+            if was_loaded:
+                cmds.flushUndo()
+                cmds.unloadPlugin(name)
+            package = PluginPackage("Quat nodes", plugins=(name, "mlibDoesNotExistPlugin123"), minimumMaya=year)
+            cmds.flushUndo()
+            with mock.patch.object(package_module.logger, "warning") as warning:
+                failed = package.loadPlugins()
+            self.assertEqual([plugin.name for plugin in failed], ["mlibDoesNotExistPlugin123"])
+            warning.assert_called_once()
+            self.assertTrue(cmds.pluginInfo(name, query=True, loaded=True))
+            self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+            self.assertEqual(Plugin(name).getVersion(text=True), cmds.pluginInfo(name, query=True, version=True) or None)
+            self.assertEqual(package.getVersion(loaded=True), Version.parse(cmds.pluginInfo(name, query=True, version=True)))
+            self.assertTrue(package.isMayaSupported())
+            self.assertFalse(PluginPackage("Quat nodes", plugins=(name,), minimumMaya=year + 1).isMayaSupported())
+            message = package.getMessage(found=Version("1.2"))
+            self.assertIn(f"Maya {year}", message)
+            self.assertIn("1.2", message)
+        finally:
+            loaded = cmds.pluginInfo(name, query=True, loaded=True)
+            if was_loaded and not loaded:
+                cmds.loadPlugin(name, quiet=True)
+            elif not was_loaded and loaded:
+                cmds.flushUndo()
+                cmds.unloadPlugin(name)
+
     def test_installed_version_falls_back_to_plugin_version(self):
         package = PluginPackage("Matrix nodes", plugins=("matrixNodes",), module="mlibDoesNotExistModule123")
         self.assertEqual(package.getVersion(), Plugin("matrixNodes").getVersion())

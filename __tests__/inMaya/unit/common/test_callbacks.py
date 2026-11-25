@@ -50,6 +50,26 @@ class CallbacksTest(NamespaceCase):
         node.tx = 5
         self.assertEqual(len(calls), count)
 
+    def test_attribute_changed_is_called_on_undo(self):
+        """Undoで値が戻るときも呼ばれ、そのときの値は cmds.getAttr と一致する。Undoしても登録は外れない。"""
+        node = self.make("transform", "cbUndo")
+        values = []
+
+        def record(message, plug):
+            if message & om2.MNodeMessage.kAttributeSet and str(plug) == node + ".translateX":
+                values.append(cmds.getAttr(str(plug)))
+
+        with Callbacks() as callbacks:
+            callbacks.addAttributeChangedCallback(node, record)
+            self.flushUndo()
+            cmds.setAttr(node + ".translateX", 3)
+            cmds.undo()
+            self.assertEqual(values[-1], 0.0)
+            self.assertIn(3.0, values)
+            count = len(values)
+            cmds.setAttr(node + ".translateX", 5)
+            self.assertEqual(values[count:], [5.0])
+
     def test_time_changed(self):
         """timeChanged のイベントで呼ばれ、with を抜けると呼ばれない。"""
         calls = []

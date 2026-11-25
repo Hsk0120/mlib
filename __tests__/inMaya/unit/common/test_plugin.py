@@ -141,6 +141,8 @@ class PluginListingTest(unittest.TestCase):
             self.assertIsInstance(loaded, list)
             self.assertTrue(all(isinstance(item, Plugin) for item in loaded))
             self.assertIn(Plugin("matrixNodes"), loaded)
+            # 名前と並びは cmds.pluginInfo の一覧と同じ。
+            self.assertEqual([item.name for item in loaded], cmds.pluginInfo(query=True, listPlugins=True) or [])
         finally:
             if not was_loaded:
                 cmds.unloadPlugin("matrixNodes")
@@ -254,6 +256,45 @@ class PluginSpecTest(unittest.TestCase):
 _FAKE_PLUGIN = "mlibSpecFakePlugin"
 
 
+class PluginUnloadInUseTest(NamespaceCase):
+    """使用中のノードがあるプラグインのアンロードと、force の指定。"""
+
+    PREFIX = "mlibSpecPluginUnload_"
+    pluginName = "quatNodes"
+
+    def setUp(self):
+        super().setUp()
+        self.was_loaded = cmds.pluginInfo(self.pluginName, query=True, loaded=True)
+        cmds.loadPlugin(self.pluginName, quiet=True)
+
+    def tearDown(self):
+        super().tearDown()
+        loaded = cmds.pluginInfo(self.pluginName, query=True, loaded=True)
+        if self.was_loaded and not loaded:
+            cmds.loadPlugin(self.pluginName, quiet=True)
+        elif not self.was_loaded and loaded:
+            cmds.flushUndo()
+            cmds.unloadPlugin(self.pluginName)
+
+    def test_unload_in_use_needs_force(self):
+        """使用中なら force=False は RuntimeError でロードしたまま、ノードを消した後の force=True はアンロードする。"""
+        plugin = Plugin(self.pluginName)
+        node = self.make("quatToEuler", "inUse")
+        with self.assertRaises(RuntimeError):
+            plugin.unload()
+        self.assertTrue(cmds.pluginInfo(self.pluginName, query=True, loaded=True))
+        cmds.delete(node)
+        # 削除したノードがUndoの記録に残ると使用中とみなされるため、記録を空にしてから外す。
+        cmds.flushUndo()
+        self.assertIsNone(plugin.unload(force=True))
+        self.assertFalse(cmds.pluginInfo(self.pluginName, query=True, loaded=True))
+        self.assertFalse(plugin.isLoaded())
+        # load は cmds.loadPlugin と同じくUndoに記録されない。
+        plugin.load()
+        self.assertTrue(cmds.pluginInfo(self.pluginName, query=True, loaded=True))
+        self.assertUndoEmpty()
+
+
 class UnknownPluginTest(NamespaceCase):
     def setUp(self):
         super().setUp()
@@ -300,6 +341,13 @@ class UnknownPluginTest(NamespaceCase):
         before = Plugin.listUnknown()
         self.assertEqual(Plugin.removeUnknown(), before)
         self.assertEqual(Plugin.listUnknown(), [])
+
+    def test_remove_is_not_recorded_for_undo(self):
+        """removeUnknown は docstring の通りUndoに記録されず、cmds.unknownPlugin の一覧からも消える。"""
+        self.flushUndo()
+        Plugin.removeUnknown(_FAKE_PLUGIN)
+        self.assertUndoEmpty()
+        self.assertNotIn(_FAKE_PLUGIN, cmds.unknownPlugin(query=True, list=True) or [])
 
     def test_errors(self):
         """未知でない名前は ValueError で何も外さず、型の違いは TypeError。"""

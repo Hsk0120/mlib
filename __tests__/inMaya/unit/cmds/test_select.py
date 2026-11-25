@@ -225,5 +225,19 @@ class SelectTest(_CommonCase):
                 self.assertEqual(_exists(name), cmds.objExists(name))
 
 
+class SelectDeletedTest(_CommonCase):
+    """削除済みの対象は選択を変えずにValueErrorにする。"""
+
+    def test_deleted_node(self):
+        keep = self.make("transform", "keep")
+        cmds.select(keep)
+        name = self.make("transform", "gone")
+        node = mlib.getNode(name)
+        cmds.delete(name)
+        with self.assertRaises(ValueError):
+            mlib.select(node)
+        self.assertEqual(cmds.ls(selection=True), [keep])
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

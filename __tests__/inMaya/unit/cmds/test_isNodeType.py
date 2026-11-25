@@ -33,5 +33,18 @@ class IsNodeTypeTest(unittest.TestCase):
                 mlib.isNodeType(value)
 
 
+class IsNodeTypeParityTest(unittest.TestCase):
+    """cmds.nodeType(isTypeName=True)と同じ判定になる。"""
+
+    def test_matches_node_type_query(self):
+        for name in ("transform", "dagNode", "mesh", "noSuchNodeType"):
+            with self.subTest(name=name):
+                try:
+                    expected = bool(cmds.nodeType(name, isTypeName=True))
+                except RuntimeError:
+                    expected = False
+                self.assertEqual(mlib.isNodeType(name), expected)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

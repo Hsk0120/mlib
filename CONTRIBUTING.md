@@ -103,17 +103,29 @@ _tools\.venv\Scripts\python.exe _tools\check_mlib_doc_getter_names.py _docs\_bui
 Wikiへ貼り付けるMarkdownが必要な場合は、`_tools/build_mlib_markdown.bat --no-pause`を実行します。
 出力先・リンク・継承図の制限は[_docs/README.md](_docs/README.md)を参照してください。
 
-**テストを足したら、どの行がまだ一度も実行されていないかを測れます。**
+**テストを足したら、テストがmlibのどこをどう確かめているかを測れます。**
 
 ```powershell
 py -3 _tools\measure_mlib_coverage.py --versions 2022 2027
 py -3 _tools\measure_mlib_coverage.py --tests test_joint.py --only nodes/joint.py
 ```
 
-Mayaのテストをトレース付きで実行し、`__tests__/_output/coverage/<日時>/`へ、パッケージごとの割合(`summary.txt`)と、
-実行されなかった行を関数ごとに並べたもの(`gaps/<パッケージ>.md`)を書き出します。版を並べると、版ごとの値と合わせた値を出します
-(版ごとの分岐は、その版でしか通りません)。標準ライブラリだけで動き、追加のパッケージは要りません。
-トレース付きなので、ふつうのテストより時間がかかります。
+Mayaのテストをトレース付きで実行し、`__tests__/_output/coverage/<日時>/` へ次を書き出します。版を並べると、版ごとの値と合わせた値を出します
+(版ごとの分岐は、その版でしか通りません)。標準ライブラリだけで動き、追加のパッケージは要りません。トレース付きなので、ふつうのテストより時間がかかります。
+
+- `summary.txt`: パッケージごとの、実行された行・両側を通った分岐の割合と、観点の抜けの数。
+- `gaps/`: 実行されなかった行。`branches/`: 片側しか通っていない `if`・`for`・`while`。
+- `viewpoints/`: 公開メソッドごとの、テストで確かめていない観点(boolの引数の両方の値・docstringの `Raises:` の型・Undo・fastのUndoなし・cmdsとの突き合わせ)。
+
+**テストが結果まで確かめているかは、ミューテーションテストで確かめられます。**
+
+```powershell
+py -3 _tools\measure_mlib_mutations.py --only nodes/joint.py --limit 30 --workers 4
+```
+
+mlibの写しを少し書き換え(比較の向き・`and`/`or`・`not`・定数・`raise`・`return` の値)、その行を通るテストがその変化に気づくかを確かめます。
+気づかなかった書き換え(`__tests__/_output/mutations/<日時>/survived.md`)は、テストの確かめ方が弱い場所です。
+書き換え1つごとにテストを流すので時間がかかります。`--only` と `--limit` で範囲を絞ってください。
 
 ### なぜスタブと文書を2本から外すのか
 

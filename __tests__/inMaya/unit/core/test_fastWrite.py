@@ -92,5 +92,39 @@ class SetAttrTest(NamespaceCase):
             fastWrite.require_range(mplug(self.node + ".limitedLength"), 20.0)
 
 
+class SetPlugTypeTest(NamespaceCase):
+    """set_plug・prepare_dataの型の検査と、set_plugがUndoに載らないこと。"""
+
+    PREFIX = "mlibFastWriteType_"
+
+    def setUp(self):
+        super().setUp()
+        self.node = self.make("transform", "xform")
+        cmds.addAttr(self.node, longName="zzText", dataType="string")
+        cmds.setAttr(self.node + ".zzText", "before", type="string")
+
+    def test_string_attribute_rejects_non_string(self):
+        for value in (5, 1.5, None):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError):
+                    fastWrite.set_plug(mplug(self.node + ".zzText"), value)
+                with self.assertRaises(TypeError):
+                    fastWrite.prepare_data(mplug(self.node + ".zzText").attribute(), value)
+        self.assertEqual(cmds.getAttr(self.node + ".zzText"), "before")
+
+    def test_set_plug_is_not_undoable(self):
+        """set_plugはUndoに載らない。直後のUndoはその前のcmds.setAttrを戻す。"""
+        cmds.setAttr(self.node + ".tx", 1.0)
+        fastWrite.set_plug(mplug(self.node + ".ty"), 3.0)
+        self.assertEqual(cmds.getAttr(self.node + ".ty"), 3.0)
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(self.node + ".tx"), 0.0)
+        self.assertEqual(cmds.getAttr(self.node + ".ty"), 3.0)
+        self.flushUndo()
+        fastWrite.set_plug(mplug(self.node + ".zzText"), "after")
+        self.assertEqual(cmds.getAttr(self.node + ".zzText"), "after")
+        self.assertUndoEmpty()
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -67,6 +67,16 @@ class VersionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             original.replace(patch=-1)
 
+    def test_replace_rejects_non_integer_values(self):
+        """整数でない値(float・bool・数字でない文字列)は TypeError で、数字だけの文字列は受け付ける。"""
+        original = Version("1.2")
+        for flags in ({"major": 1.5}, {"minor": True}, {"patch": "x1"}, {"build": "-1"}):
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                original.replace(**flags)
+        self.assertEqual(original.replace(major="3").parts, (3, 2))
+        self.assertEqual(original.replace(build=7), Version("1.2.0.7"))
+        self.assertEqual(str(original), "1.2")
+
 
 class PluginVersionValueTest(unittest.TestCase):
     """Maya照会と版番号の値操作が互いを変更しないことを検証する。"""

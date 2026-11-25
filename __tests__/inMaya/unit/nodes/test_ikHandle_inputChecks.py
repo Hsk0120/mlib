@@ -72,5 +72,43 @@ class IkHandleInputTest(_Case):
         self.assertEqual(cmds.getAttr(handle + ".translate")[0], before)
 
 
+class IkHandleChainTest(_Case):
+    """getJointsの接続が欠けた場合と、ikSpringSolverのソルバーノードが無いときのsetSolver。"""
+
+    def test_get_joints_without_start(self):
+        """startJointが無い、またはエフェクターの祖先でないジョイントなら、getJointsは空(includeTipでも末端だけ)。"""
+        joints, handle, _ = self.chain("a")
+        node = mlib.getNode(handle)
+        self.assertEqual([joint.getName() for joint in node.getJoints()], joints[:2])
+        cmds.select(clear=True)
+        stray = cmds.joint(name=self.name("stray"), position=(0, 5, 0))
+        cmds.select(clear=True)
+        cmds.connectAttr(stray + ".message", handle + ".startJoint", force=True)
+        self.assertEqual(list(node.getJoints()), [])
+        cmds.disconnectAttr(stray + ".message", handle + ".startJoint")
+        self.assertIsNone(cmds.listConnections(handle + ".startJoint", source=True))
+        self.assertEqual(list(node.getJoints()), [])
+
+    def test_set_solver_creates_spring_solver(self):
+        """ikSpringSolverのソルバーノードが無ければ用意してから切り替え、Undo 1回で元のソルバーへ戻る。"""
+        for solver in cmds.ls(type="ikSpringSolver") or []:
+            if not cmds.listConnections(solver + ".message", destination=True) and not cmds.lockNode(solver, query=True, lock=True)[0]:
+                cmds.delete(solver)
+        if cmds.ls(type="ikSpringSolver"):
+            self.skipTest("使われているikSpringSolverのソルバーノードがあるため")
+        _joints, handle, _ = self.chain("s")
+        node = mlib.getNode(handle)
+        self.flushUndo()
+        node.setSolver("ikSpringSolver")
+        self.assertEqual(node.getSolver(), "ikSpringSolver")
+        self.assertEqual(cmds.ikHandle(handle, query=True, solver=True), cmds.ls(type="ikSpringSolver")[0])
+        cmds.undo()
+        self.assertEqual(node.getSolver(), "ikSCsolver")
+        # Mayaが新しく作ったソルバーノードはUndoしても残るため、テストで消す。
+        for solver in cmds.ls(type="ikSpringSolver") or []:
+            if not cmds.listConnections(solver + ".message", destination=True):
+                cmds.delete(solver)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

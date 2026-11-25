@@ -83,5 +83,21 @@ class AttributeTypeHelpersTest(NamespaceCase):
         self.assertEqual(attributeType._convert_unit_numbers(plug, (1.0, 2.0, 3.0), angle, lambda value: value * 2), (2.0, 4.0, 6.0))
 
 
+class DeletedAttributeTypeTest(NamespaceCase):
+    """Undoで戻せなくなった削除済みのアトリビュートは、型名を求められない。"""
+
+    PREFIX = "mlibAttributeTypeDeleted_"
+
+    def test_deleted_and_flushed_attribute_raises_runtime_error(self):
+        node = self.make("transform", "xform")
+        cmds.addAttr(node, longName="zzGone", attributeType="double")
+        plug = mplug(node + ".zzGone")
+        self.assertEqual(attributeType.attributeType(plug), cmds.getAttr(node + ".zzGone", type=True))
+        cmds.deleteAttr(node + ".zzGone")
+        cmds.flushUndo()
+        with self.assertRaises(RuntimeError):
+            attributeType.attributeType(plug)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

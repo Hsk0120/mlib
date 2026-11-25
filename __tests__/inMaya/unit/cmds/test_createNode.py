@@ -640,5 +640,23 @@ class CreateNodeSpecTest(_CmdsCase):
                 self.assertEqual(set(cmds.ls(type="unknown") or []), before)
 
 
+class ShadingNodeKindTest(_CreateCase):
+    """asLight・asPostProcess・asRenderingは、cmds.shadingNodeと同じ種類で作る。"""
+
+    def test_kinds(self):
+        for flag, kind in (("asPostProcess", "opticalFX"), ("asRendering", "renderLayer")):
+            with self.subTest(flag=flag):
+                node = mlib.createNode(kind, name=self.name(flag), **{flag: True})
+                self.assertEqual(cmds.nodeType(node.getName(full=True)), kind)
+        light = mlib.createNode("pointLight", name=self.name("light"), asLight=True)
+        shapes = cmds.listRelatives(light.getName(full=True), shapes=True, fullPath=True) or [light.getName(full=True)]
+        self.assertEqual(cmds.nodeType(shapes[0]), "pointLight")
+
+    @unittest.expectedFailure  # findings2/plugs-core-cmds.md 4: asLight=Trueは、指定した型でなくTransformを返す。
+    def test_as_light_returns_requested_type(self):
+        light = mlib.createNode("pointLight", name=self.name("light"), asLight=True)
+        self.assertEqual(light.getType(), "pointLight")
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

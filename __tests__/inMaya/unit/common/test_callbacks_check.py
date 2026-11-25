@@ -124,9 +124,23 @@ class TimeChangeCallbackTest(unittest.TestCase):
         cmds.currentTime(20)
         self.assertEqual(frames, [15.0])
 
+    def test_time_matches_cmds_and_undo(self):
+        """渡す時刻は、呼ばれた時点の cmds.currentTime と同じ。Undoで時刻が戻るときも呼ぶ。"""
+        cmds.currentUnit(time="film")
+        cmds.currentTime(1)
+        pairs = []
+        with Callbacks() as group:
+            group.addTimeChangeCallback(lambda time: pairs.append((time, cmds.currentTime(query=True))))
+            cmds.flushUndo()
+            cmds.currentTime(12)
+            cmds.undo()
+        self.assertEqual(pairs, [(12.0, 12.0), (1.0, 1.0)])
+
     def test_errors(self):
         """呼び出せない関数・知らない単位を拒否する。"""
         group = Callbacks()
+        with self.assertRaises(TypeError):
+            group.addTimeChangeCallback(print, timeUnit=1)
         with self.assertRaises(TypeError):
             group.addTimeChangeCallback(None)
         with self.assertRaises(ValueError):

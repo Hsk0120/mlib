@@ -115,6 +115,29 @@ class BindSkinTest(NamespaceCase):
             mlib.bindSkin(None, target, weights=str(no_positions), method="position")
         self.assertFalse(cmds.ls(cmds.listHistory(target), type="skinCluster"))
 
+    def test_missing_file_and_nodes(self):
+        mesh = self.cube("target")
+        with self.assertRaises(OSError):
+            mlib.bindSkin(None, mesh, weights=str(_TEMP / f"mlibBindSkin_missing_{uuid.uuid4().hex}.json"))
+        for joints, geometry in ((["noSuchJoint"], mesh), (self.joints, "noSuchGeometry")):
+            with self.subTest(joints=joints, geometry=geometry), self.assertRaises(RuntimeError):
+                mlib.bindSkin(joints, geometry)
+        self.assertEqual(cmds.ls(cmds.listHistory(mesh) or [], type="skinCluster"), [])
+
+    def test_weights_onto_shape(self):
+        """weightsで、transformでなくメッシュのシェイプを渡してもバインドできる。"""
+        path, _content = self.exported()
+        target = self.cube("target")
+        shape = cmds.listRelatives(target, shapes=True, fullPath=True)[0]
+        skin = mlib.bindSkin(None, shape, weights=str(path))
+        self.assertEqual(cmds.ls(cmds.listHistory(target), type="skinCluster"), [skin.getName()])
+        source_skin = cmds.ls(cmds.listHistory(self.source), type="skinCluster")[0]
+        for got, want in zip(
+            cmds.skinPercent(skin.getName(), target + ".vtx[0]", query=True, value=True),
+            cmds.skinPercent(source_skin, self.source + ".vtx[0]", query=True, value=True),
+        ):
+            self.assertAlmostEqual(got, want, places=5)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

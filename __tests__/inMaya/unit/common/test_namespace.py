@@ -10,6 +10,7 @@
 import sys
 import unittest
 import uuid
+from unittest import mock
 
 import maya.cmds as cmds
 
@@ -332,6 +333,33 @@ class NamespaceTest(_CommonCase):
         cmds.namespace(set=":")
         with self.assertRaises(RuntimeError):
             Namespace(":" + self.ns + ":missing").setCurrent()
+
+    def test_create_errors(self):
+        """空の名前・空の親は ValueError、Mayaが作成を拒否した場合は RuntimeError で、どれも名前空間を作らない。"""
+        root = ":" + self.ns
+        for name, parent in (("", root), ("a", "")):
+            with self.subTest(name=name, parent=parent):
+                with self.assertRaises(ValueError):
+                    Namespace.create(name, parent=parent)
+        # Mayaが拒否する場面はmayapyで作れないため、cmds.namespaceの追加だけを失敗させる。
+        with mock.patch.object(cmds, "namespace", side_effect=RuntimeError("refused")):
+            with self.assertRaises(RuntimeError):
+                Namespace.create("refused", parent=root)
+        self.assertEqual(self.namespaces(root), [])
+
+    def test_as_current_errors_and_removed_previous(self):
+        """存在しない名前空間の asCurrent は RuntimeError で切り替えず、元の名前空間がブロックの中で消えたら戻さない。"""
+        previous = Namespace.create("previous", parent=":" + self.ns)
+        target = Namespace.create("target", parent=":" + self.ns)
+        previous.setCurrent()
+        with self.assertRaises(RuntimeError):
+            with Namespace(":" + self.ns + ":missing").asCurrent():
+                self.fail("存在しない名前空間には切り替えない")
+        self.assertEqual(cmds.namespaceInfo(currentNamespace=True, absoluteName=True), previous.name)
+        with target.asCurrent() as current:
+            self.assertIs(current, target)
+            cmds.namespace(removeNamespace=previous.name)
+        self.assertEqual(cmds.namespaceInfo(currentNamespace=True, absoluteName=True), target.name)
 
     def build(self, root):
         """名前が衝突する A・B を root の下に作る。"""

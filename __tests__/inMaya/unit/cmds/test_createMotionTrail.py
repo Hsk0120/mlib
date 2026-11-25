@@ -56,6 +56,23 @@ class CreateMotionTrailTest(NamespaceCase):
             mlib.createMotionTrail(mlib.createNode("network", name=self.name("dg"), skipSelect=True))
         self.assertEqual(set(cmds.ls(type="motionTrail")), before)
 
+    def test_without_name_uses_maya_default(self):
+        node = self.animated()
+        before = set(cmds.ls(type="motionTrail"))
+        cmds.namespace(set=self.ns)
+        try:
+            handle = mlib.createMotionTrail(node, startTime=1, endTime=3)
+        finally:
+            cmds.namespace(set=":")
+        self.assertTrue(cmds.objExists(handle.getName(full=True)))
+        self.assertEqual(len(set(cmds.ls(type="motionTrail")) - before), 1)
+
+    def test_deleted_node_is_refused(self):
+        node = self.animated()
+        cmds.delete(node.getName(full=True))
+        with self.assertRaises(RuntimeError):
+            mlib.createMotionTrail(node, startTime=1, endTime=3)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

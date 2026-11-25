@@ -312,5 +312,17 @@ class NodeDuplicateTest(NamespaceCase):
         self.assertEqual(set(cmds.ls(long=True)), before)
 
 
+class DuplicateRefusedTest(NamespaceCase):
+    """Mayaが複製を拒否するノードはRuntimeErrorにする。"""
+
+    PREFIX = "mlibDuplicateRefused_"
+
+    def test_internal_node(self):
+        before = cmds.ls(type="time")
+        with self.assertRaises(RuntimeError):
+            mlib.duplicate("time1")
+        self.assertEqual(cmds.ls(type="time"), before)
+
+
 if __name__ == "__main__":
     unittest.main()

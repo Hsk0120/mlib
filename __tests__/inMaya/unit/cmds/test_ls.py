@@ -322,5 +322,18 @@ class LsSpecTest(_CmdsCase):
                 mlib.ls(self.ns + ":*", **kwargs)
 
 
+class LsDeletedInputTest(_ContractCase):
+    """位置引数の削除済みの対象はValueErrorにする。"""
+
+    def test_deleted_node_and_plug(self):
+        name = self.make("transform", "gone")
+        node = mlib.getNode(name)
+        plug = node.getPlug("tx")
+        cmds.delete(name)
+        for value in (node, plug):
+            with self.subTest(value=type(value).__name__), self.assertRaises(ValueError):
+                mlib.ls(value)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

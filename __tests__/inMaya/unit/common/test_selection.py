@@ -206,6 +206,18 @@ class SelectionSpecTest(unittest.TestCase):
         self.assertEqual(len(selection), 3)
         self.assertEqual(len(selection.filter("joint")), 0)
 
+    def test_owners_skip_deleted_items(self):
+        """getOwnersは削除されたノード・アトリビュートを除き、残りの持ち主は cmds.ls の完全名と一致する。"""
+        other = cmds.createNode("transform", name=self.ns + ":ownerGone")
+        cmds.addAttr(self.node, longName="mlibGone", attributeType="double")
+        selection = Selection([other, self.node + ".mlibGone", self.mesh + ".vtx[0]"])
+        self.assertEqual(len(selection.getOwners()), 3)
+        cmds.delete(other)
+        cmds.deleteAttr(self.node + ".mlibGone")
+        owners = selection.getOwners()
+        shape = cmds.listRelatives(self.mesh, shapes=True, fullPath=True)[0]
+        self.assertEqual([owner.getName(full=True) for owner in owners], [shape])
+
     def test_capture_is_a_snapshot(self):
         """captureは現在選択を取得時点の順で保持し、その後の選択変更に追従しない。"""
         cmds.select(self.node, self.mesh + ".vtx[1]", replace=True)

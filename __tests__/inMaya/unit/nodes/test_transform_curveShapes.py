@@ -226,6 +226,28 @@ class CurveShapesTest(NamespaceCase):
             target.importCurveShapes(wrong)
         self.assertEqual(target.getCurveShapesData(), before)
 
+    def test_import_undo_and_os_errors(self):
+        """importCurveShapesはUndo 1回で元の形状へ戻る。読めないファイル・書けない場所はOSErrorで、シーンは変えない。"""
+        control = self.make_control()
+        path = control.exportCurveShapes(os.path.join(self.folder, "control.json"))
+        target = mlib.getNode(cmds.circle(name=self.name("target"), degree=1, sections=4, constructionHistory=False)[0])
+        before = [self.curve_values(shape) for shape in target.getShape(all=True)]
+        self.flushUndo()
+        target.importCurveShapes(path)
+        self.assert_same_curves(control, target)
+        cmds.undo()
+        self.assertEqual([self.curve_values(shape) for shape in target.getShape(all=True)], before)
+        with self.assertRaises(OSError):
+            target.importCurveShapes(os.path.join(self.folder, "missing.json"))
+        self.assertEqual([self.curve_values(shape) for shape in target.getShape(all=True)], before)
+        # 書き出し先が既にあるフォルダーなら、置き換えられずOSErrorになる。
+        folder = os.path.join(self.folder, "folder")
+        os.makedirs(os.path.join(folder, "inner"))
+        with self.assertRaises(OSError):
+            control.exportCurveShapes(folder)
+        self.assertTrue(os.path.isdir(os.path.join(folder, "inner")))
+        self.assertEqual(sorted(os.listdir(self.folder)), ["control.json", "folder"])
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

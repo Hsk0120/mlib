@@ -95,6 +95,12 @@ class BakeResultsTest(NamespaceCase):
         self.assertRaises(ValueError, bakeResults, [])
         self.assertRaises(RuntimeError, bakeResults, self.name("missing"))
 
+    def test_shape_false(self):
+        curves = bakeResults(self.target, attributes=["translateX"], time=(1, 3), shape=False)
+        self.assertEqual(len(curves), 1)
+        self.assertIsInstance(curves[0], AnimCurve)
+        self.assertEqual(cmds.listConnections(self.target + ".translateX", source=True, destination=False, type="animCurve"), [curves[0].getName()])
+
 
 if __name__ == "__main__":
     unittest.main()

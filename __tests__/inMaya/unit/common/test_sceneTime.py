@@ -124,6 +124,56 @@ class TimeTest(_SpecCase):
             Time.setCurrent(1, timeUnit="minute")
 
 
+def _undo_if_recorded():
+    """Undoの記録があれば1回戻す(playbackOptionsはMayaの版によってUndoに記録されない)。
+
+    Returns:
+        bool: 記録があって戻した場合はTrue。
+    """
+    if cmds.undoInfo(query=True, undoQueueEmpty=True):
+        return False
+    cmds.undo()
+    return True
+
+
+class TimeUndoParityTest(_SpecCase):
+    """setCurrent・setRange のUndoの扱いは、同じ値を渡した cmds.currentTime・cmds.playbackOptions と同じになる。"""
+
+    def _range(self, animation):
+        flags = ("animationStartTime", "animationEndTime") if animation else ("minTime", "maxTime")
+        return tuple(cmds.playbackOptions(query=True, **{flag: True}) for flag in flags)
+
+    def test_set_current_undo_matches_cmds(self):
+        cmds.currentUnit(time="film")
+        results = []
+        for setter in (lambda: Time.setCurrent(7), lambda: cmds.currentTime(7)):
+            cmds.currentTime(3)
+            cmds.flushUndo()
+            setter()
+            after = cmds.currentTime(query=True)
+            results.append((after, _undo_if_recorded(), cmds.currentTime(query=True)))
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0][0], 7.0)
+
+    def test_set_range_undo_matches_cmds(self):
+        cmds.currentUnit(time="film")
+        for animation in (False, True):
+            flags = ("animationStartTime", "animationEndTime") if animation else ("minTime", "maxTime")
+            results = []
+            for use_mlib in (True, False):
+                cmds.playbackOptions(animationStartTime=1, animationEndTime=100, minTime=1, maxTime=100)
+                cmds.flushUndo()
+                if use_mlib:
+                    Time.setRange(5, 50, animation=animation)
+                else:
+                    cmds.playbackOptions(**{flags[0]: 5, flags[1]: 50})
+                after = self._range(animation)
+                results.append((after, _undo_if_recorded(), self._range(animation)))
+            with self.subTest(animation=animation):
+                self.assertEqual(results[0], results[1])
+                self.assertEqual(results[0][0], (5.0, 50.0))
+
+
 class SimulatedSelectedRangeTest(_SpecCase):
     """タイムスライダーの代役で、selected=Trueの範囲の読み方(終わりは1フレーム引く)を確かめる。"""
 

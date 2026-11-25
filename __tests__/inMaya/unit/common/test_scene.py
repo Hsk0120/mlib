@@ -9,6 +9,7 @@ import sys
 import unittest
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import maya.cmds as cmds
 
@@ -230,6 +231,57 @@ class SceneFileTest(_PreservedSceneCase):
         self.assertTrue({"two:mlibSceneA", "two:mlibSceneB"} <= names)
         with self.assertRaises(ValueError):
             Scene(self.folder / "bad.obj").export([b])
+
+    def test_file_operations_are_not_recorded_for_undo(self):
+        """新規・開く・保存・インポート・書き出しは、cmds.file と同じくUndoに記録されない(mlibもチャンクを足さない)。"""
+        operations = (
+            ("newFile", lambda: Scene.newFile(force=True)),
+            ("openFile", lambda: self.source.openFile(force=True)),
+            ("importFile", lambda: self.source.importFile(namespace="mlibSceneUndo")),
+            ("export", lambda: Scene(self.folder / "undo.ma").export(force=True)),
+            ("save", lambda: Scene(self.folder / "undoSaved.ma").save(force=True)),
+        )
+        for label, operation in operations:
+            with self.subTest(operation=label):
+                cmds.createNode("transform", name="mlibSceneUndoMarker")
+                cmds.flushUndo()
+                operation()
+                self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        # 最後の save で今のシーンの名前が変わったことを cmds でも確かめる。
+        self.assertEqual(Path(cmds.file(query=True, sceneName=True)), self.folder / "undoSaved.ma")
+
+    def test_reference_errors(self):
+        """リファレンスするファイルが無ければ OSError、新しいリファレンスを特定できなければ RuntimeError。"""
+        before = set(cmds.ls(type="reference") or [])
+        with self.assertRaises(OSError):
+            Scene(self.folder / "missing.ma").reference(namespace="mlibSceneMissing")
+        # cmds.file(reference=True) は必ず1件作るため、何も作らない代役で特定できない場合を作る。
+        with mock.patch.object(cmds, "file", return_value=None):
+            with self.assertRaises(RuntimeError):
+                self.source.reference(namespace="mlibSceneNone")
+        self.assertEqual(set(cmds.ls(type="reference") or []), before)
+
+    def test_export_rejects_bad_nodes_and_existing_file(self):
+        """nodes に名前とNodeを混ぜる・対応しない型は TypeError、既にあるファイルは force なしで OSError。"""
+        a = mlib.getNode(cmds.createNode("transform", name="mlibSceneA"))
+        b = cmds.createNode("transform", name="mlibSceneB")
+        target = Scene(self.folder / "typed.ma")
+        for nodes in ([a, b], 5):
+            with self.subTest(nodes=nodes):
+                with self.assertRaises(TypeError):
+                    target.export(nodes)
+                self.assertFalse(target.exists())
+        with self.assertRaises(OSError):
+            self.source.export([b])
+
+    def test_open_and_import_missing_file_raise_os_error(self):
+        """開く・インポートするファイルが無ければ OSError(FileNotFoundError の基底)。"""
+        missing = Scene(self.folder / "missing.mb")
+        with self.assertRaises(OSError):
+            missing.openFile(force=True)
+        with self.assertRaises(OSError):
+            missing.importFile()
+        self.assertIsNone(Scene.getCurrent())
 
     def test_export_refuses_existing_file_empty_nodes_and_current_scene(self):
         with self.assertRaises(FileExistsError):

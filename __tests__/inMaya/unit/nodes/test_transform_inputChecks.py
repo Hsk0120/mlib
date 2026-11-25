@@ -231,5 +231,193 @@ class TransformInputErrorsTest(_Case):
         self.assertEqual(cmds.ls(self.ns + ":*", type="constraint"), [])
 
 
+class TransformRejectTest(_Case):
+    """Transformの公開メソッドの例外と、使われていなかった引数・分岐。"""
+
+    def cube(self, text="cube"):
+        """ヒストリの無い立方体のtransformのTransformを返す。"""
+        return mlib.getNode(cmds.polyCube(name=self.name(text), constructionHistory=False)[0])
+
+    def points(self, node):
+        """cmdsで読んだ頂点のローカルの位置。"""
+        return cmds.xform(str(node) + ".vtx[*]", query=True, translation=True, objectSpace=True)
+
+    def test_scale_geometry_rejects(self):
+        """worldSpaceとwsの同時指定はTypeError、数値でない倍率はValueError、check=Trueはロックした点をRuntimeErrorにする。"""
+        node = self.cube()
+        before = self.points(node)
+        for error, call in (
+            (TypeError, lambda: node.scaleGeometry(2, worldSpace=True, ws=True)),
+            (ValueError, lambda: node.scaleGeometry("a")),
+            (ValueError, lambda: node.scaleGeometry((1, 2))),
+        ):
+            with self.subTest(error=error.__name__), self.assertRaises(error):
+                call()
+        shape = node.getShape()
+        cmds.setAttr(f"{shape}.pnts[0]", lock=True)
+        with self.assertRaises(RuntimeError):
+            node.scaleGeometry(2, check=True)
+        self.assertEqual(self.points(node), before)
+        cmds.setAttr(f"{shape}.pnts[0]", lock=False)
+        self.flushUndo()
+        node.scaleGeometry(2, check=True)
+        self.assertSequenceAlmostEqual(self.points(node), [value * 2 for value in before])
+        cmds.undo()
+        self.assertSequenceAlmostEqual(self.points(node), before)
+
+    def test_add_shape_fast_same_name(self):
+        """fastで、受け取る側に同じ名前の子があるとNotImplementedErrorで、シェイプは動かない。"""
+        first, second = self.cube("first"), self.cube("second")
+        shape = second.getShape()
+        cmds.rename(str(first.getShape()), shape.getName(node=True))
+        self.assertEqual(first.getShape().getName(node=True), shape.getName(node=True))
+        with self.assertRaises(NotImplementedError):
+            first.addShape(shape, fast=True)
+        self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), cmds.ls(str(second), long=True))
+
+    # findings2 nodes-dag の3: 削除したノードでは、無効の確認をせずにcmds.matchTransformへ空の名前を渡し、ValueErrorになる。
+    @unittest.expectedFailure
+    def test_match_transform_deleted(self):
+        """削除したノードのmatchTransformは、docstringのとおりRuntimeError。"""
+        node, target = self.cube("node"), self.cube("target")
+        cmds.delete(str(node))
+        with self.assertRaises(RuntimeError):
+            node.matchTransform(target)
+
+    def test_get_matrix_and_translation_aliases(self):
+        """getMatrix・getTranslationのロング名と短縮名の同時指定はTypeError。"""
+        node = self.cube()
+        for label, call in (
+            ("ws", lambda: node.getMatrix(worldSpace=True, ws=True)),
+            ("p", lambda: node.getMatrix(parent=True, p=True)),
+            ("inv", lambda: node.getMatrix(inverse=True, inv=True)),
+            ("translation ws", lambda: node.getTranslation(worldSpace=True, ws=True)),
+            ("translation type", lambda: node.getTranslation(worldSpace=1)),
+        ):
+            with self.subTest(label), self.assertRaises(TypeError):
+                call()
+
+    def test_make_identity_aliases(self):
+        """makeIdentityのロング名と短縮名の同時指定はTypeErrorで、値は変わらない。"""
+        node = self.cube()
+        cmds.setAttr(f"{node}.translateX", 3)
+        for flags in ({"apply": True, "a": True}, {"translate": True, "t": True}, {"rotate": True, "r": True}):
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                node.makeIdentity(**flags)
+        self.assertEqual(cmds.getAttr(f"{node}.translateX"), 3)
+
+    def test_set_limits_rejects_and_empty(self):
+        """最小が最大より大きいとMayaのRuntimeError、何も指定しなければ何もしない。"""
+        node = self.cube()
+        before = cmds.transformLimits(str(node), query=True, translationX=True)
+        with self.assertRaises(RuntimeError):
+            node.setLimits(translateX=(5, -5))
+        self.assertEqual(cmds.transformLimits(str(node), query=True, translationX=True), before)
+        self.flushUndo()
+        self.assertIsNone(node.setLimits())
+        self.assertUndoEmpty()
+
+    def test_set_parent_to_dg_node(self):
+        """Transformでない(DGノード)親はMayaが拒否してRuntimeErrorで、親は変わらない。"""
+        node = self.cube()
+        dg = self.make("multiplyDivide", "dg")
+        with self.assertRaises(RuntimeError):
+            node.setParent(dg)
+        self.assertIsNone(cmds.listRelatives(str(node), parent=True))
+
+    def test_mirror_geometry_empty_indices(self):
+        """indicesが空なら何も変えず、Undoにも記録しない。"""
+        node = self.cube()
+        before = self.points(node)
+        self.flushUndo()
+        node.mirrorGeometry(indices=[])
+        self.assertEqual(self.points(node), before)
+
+    def test_set_transformation_same_order_with_check(self):
+        """回転順序が同じならrotateOrderを書かず、check=Trueで残りだけを確かめて書く。Undo 1回で戻る。"""
+        node = self.cube()
+        value = node.getTransformation()
+        cmds.setAttr(f"{node}.translateY", 4)
+        cmds.setAttr(f"{node}.rotateOrder", 0)
+        self.flushUndo()
+        node.setTransformation(value, check=True)
+        self.assertEqual(cmds.getAttr(f"{node}.translateY"), 0)
+        self.assertEqual(cmds.getAttr(f"{node}.rotateOrder"), 0)
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(f"{node}.translateY"), 4)
+
+    def test_euler_filter_shared_curve(self):
+        """同じanimCurveが2つの回転チャンネルにつながっていても、フィルターは1回だけ渡す。"""
+        node = self.cube()
+        cmds.setKeyframe(str(node), attribute="rotateX", time=1, value=170)
+        cmds.setKeyframe(str(node), attribute="rotateX", time=2, value=-170)
+        curve = cmds.listConnections(f"{node}.rotateX", source=True, type="animCurveTA")[0]
+        cmds.connectAttr(curve + ".output", f"{node}.rotateY")
+        cmds.filterCurve([curve], filter="euler")
+        expected = cmds.keyframe(curve, query=True, valueChange=True)
+        cmds.undo()
+        self.assertEqual(cmds.keyframe(curve, query=True, valueChange=True), [170.0, -170.0])
+        self.flushUndo()
+        node.eulerFilter()
+        self.assertEqual(cmds.keyframe(curve, query=True, valueChange=True), expected)
+        cmds.undo()
+        self.assertEqual(cmds.keyframe(curve, query=True, valueChange=True), [170.0, -170.0])
+
+    def assert_world_rotation(self, node, quaternion):
+        """cmdsで読んだワールドのマトリクスの回転が、クォータニオンと同じことを確かめる。"""
+        world = om2.MTransformationMatrix(om2.MMatrix(cmds.xform(str(node), query=True, worldSpace=True, matrix=True)))
+        self.assertSameRotation(list(world.rotation(asQuaternion=True)), list(quaternion))
+
+    def test_set_quaternion_world_space_paths(self):
+        """ws=Trueで、ワールド直下のノードと、rotateAxisを含めた子のノードへ書くと、ワールドの回転が値と同じになる。"""
+        value = Quaternion(EulerRotate(0.3, 0.2, 0.1).asQuaternion())
+        top = self.cube("top")
+        top.setQuaternion(value, ws=True)
+        self.assert_world_rotation(top, value)
+        parent = self.cube("parent")
+        cmds.setAttr(f"{parent}.rotateZ", 30)
+        child = mlib.getNode(cmds.parent(str(self.cube("child")), str(parent))[0])
+        cmds.setAttr(f"{child}.rotateAxisX", 15)
+        before = cmds.getAttr(f"{child}.rotate")[0]
+        self.flushUndo()
+        child.setQuaternion(value, ws=True, rotateAxis=True)
+        self.assert_world_rotation(child, value)
+        self.assertAlmostEqual(cmds.getAttr(f"{child}.rotateAxisX"), 15)
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(f"{child}.rotate")[0], before)
+
+
+class _Float(float):
+    """floatの派生(numpyのfloat64などと同じく、型がfloatそのものではない数)。"""
+
+
+class TransformChannelFallbackTest(_Case):
+    """値をまとめて書く速い経路が使えないときに、通常の経路で書くこと。"""
+
+    def test_float_subclass_values(self):
+        """floatの派生の値も、translate(ws=True)・shearへ書け、cmdsで読んだ値が同じになる。Undo 1回で戻る。"""
+        node = mlib.getNode(self.make(text="node"))
+        self.flushUndo()
+        node.setTranslation((_Float(1.5), 0, 2), ws=True)
+        self.assertEqual(cmds.xform(str(node), query=True, worldSpace=True, translation=True), [1.5, 0.0, 2.0])
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(f"{node}.translate")[0], (0.0, 0.0, 0.0))
+        node.setShear((_Float(0.5), 0, 0.25))
+        self.assertEqual(cmds.getAttr(f"{node}.shear")[0], (0.5, 0.0, 0.25))
+
+    def test_wrong_count_and_deleted(self):
+        """成分の数が3でない値はValueError、削除したノードはRuntimeErrorで、値は変わらない。"""
+        node = mlib.getNode(self.make(text="node"))
+        for label, call in (("translate ws", lambda: node.setTranslation((1, 2), ws=True)), ("shear", lambda: node.setShear((1, 2)))):
+            with self.subTest(label), self.assertRaises(ValueError):
+                call()
+        self.assertEqual(cmds.getAttr(f"{node}.translate")[0], (0.0, 0.0, 0.0))
+        self.assertEqual(cmds.getAttr(f"{node}.shear")[0], (0.0, 0.0, 0.0))
+        cmds.delete(str(node))
+        for label, call in (("translate ws", lambda: node.setTranslation((1, 2, 3), ws=True)), ("shear", lambda: node.setShear((1, 2, 3)))):
+            with self.subTest(label), self.assertRaises(RuntimeError):
+                call()
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

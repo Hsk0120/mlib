@@ -135,5 +135,17 @@ class NurbsCurveCreateTest(_Case):
         self.assertEqual(set(cmds.ls(type="nurbsCurve")), before)
 
 
+class CreateCurveParentTest(_Case):
+    """無効な親は、作る前にRuntimeErrorにする。"""
+
+    def test_deleted_parent_is_refused(self):
+        parent = mlib.getNode(self.make("transform", "parent"))
+        cmds.delete(parent.getName(full=True))
+        before = cmds.ls(type="nurbsCurve")
+        with self.assertRaises(RuntimeError):
+            mlib.createCurve([(0, 0, 0), (1, 0, 0)], degree=1, parent=parent)
+        self.assertEqual(cmds.ls(type="nurbsCurve"), before)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

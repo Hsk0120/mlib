@@ -130,6 +130,25 @@ class DrivenKeyTest(unittest.TestCase):
         self.assertEqual(len(curves), 1)
         self.assertEqual(curves[0].getName(full=True), cmds.ls(curve, long=True)[0])
 
+    def test_find_merges_two_curves_of_one_driver(self):
+        """同じドライバーの2つのカーブがblendWeightedで1つの駆動先へつながっていても、findは1件にまとめる。"""
+        first = self._driver_curve("firstCurve", 1.0)
+        second = self._driver_curve("secondCurve", 2.0)
+        blend = cmds.createNode("blendWeighted", name=self.ns + ":merge")
+        cmds.connectAttr(first + ".output", blend + ".input[0]")
+        cmds.connectAttr(second + ".output", blend + ".input[1]")
+        cmds.connectAttr(blend + ".output", self.b + ".ty")
+        found = mlib.DrivenKey.find(self.b + ".ty")
+        self.assertEqual(len(found), 1)
+        self.assertTrue(found[0].getDriverPlug().mplug() == mlib.getNode(self.a).getPlug("tx").mplug())
+        # 2つのカーブは cmds でもどちらも a.tx から入力を受けている。
+        self.assertEqual(cmds.listConnections(first + ".input", plugs=True), cmds.listConnections(second + ".input", plugs=True))
+
+    def test_find_missing_attribute_raises_attribute_error(self):
+        """存在しないアトリビュートの駆動先は AttributeError(MissingAttributeError)。"""
+        with self.assertRaises(AttributeError):
+            mlib.DrivenKey.find(self.b + ".mlibNoSuchAttribute")
+
     def test_set_key_rejects_two_curves_for_one_pair(self):
         """同じドライバーと駆動先の組にカーブが2つあると、setKeyはRuntimeErrorで何も変えない。"""
         first = self._driver_curve("first", 1.0)

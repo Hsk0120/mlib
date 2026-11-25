@@ -102,5 +102,22 @@ class GetNodeSpecTest(_CmdsCase):
             mlib.getNode(node)
 
 
+class GetNodeDeletedAttributeTest(_CmdsCase):
+    """アトリビュートが削除されたPlugからは、持ち主のノードを解決しない。"""
+
+    def test_deleted_attribute_plug(self):
+        # このテストだけで使う例外の型。
+        from mlib.plugs.plug import DeletedAttributeError
+
+        node = cmds.createNode("transform", name=self.name("node"))
+        cmds.addAttr(node, longName="zzGone", attributeType="double")
+        plug = mlib.getPlug(node + ".zzGone")
+        cmds.deleteAttr(node + ".zzGone")
+        with self.assertRaises(ValueError) as caught:
+            mlib.getNode(plug)
+        self.assertIsInstance(caught.exception, DeletedAttributeError)
+        self.assertTrue(cmds.objExists(node))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

@@ -4,10 +4,14 @@
 - mlib.common の公開APIの約束を固定する仕様テスト(担当D)。
 """
 
+import contextlib
 import os
+import shutil
 import sys
 import tempfile
 import unittest
+import uuid
+from pathlib import Path
 from unittest import mock
 
 import maya.cmds as cmds
@@ -56,6 +60,56 @@ class CreateReferenceTest(unittest.TestCase):
     def test_invalid_path_raises_value_error(self):
         with self.assertRaises(ValueError):
             createReference("")
+
+
+#: 一時ファイルを作る場所(``__tests__/_output/temp``。Git の対象外)。
+_TEMP_ROOT = Path(__file__).resolve().parents[3] / "_output" / "temp"
+
+
+class CreateReferenceErrorsTest(unittest.TestCase):
+    """createReference の例外とUndoの扱い。一時ファイルは ``__tests__/_output/temp`` の下に作る。"""
+
+    def setUp(self):
+        self.folder = _TEMP_ROOT / ("references_" + uuid.uuid4().hex[:12])
+        self.folder.mkdir(parents=True)
+        self.path = self.folder / "target.ma"
+        helper = cmds.createNode("transform", name="mlibCreateReferenceErrorsHelper")
+        cmds.select(helper, replace=True)
+        cmds.file(str(self.path), exportSelected=True, type="mayaAscii", force=True)
+        cmds.delete(helper)
+        cmds.select(clear=True)
+        self.before = set(cmds.ls(type="reference") or [])
+
+    def tearDown(self):
+        for name in sorted(set(cmds.ls(type="reference") or []) - self.before):
+            with contextlib.suppress(RuntimeError):
+                cmds.file(removeReference=True, referenceNode=name)
+        shutil.rmtree(str(self.folder), ignore_errors=True)
+
+    def test_missing_file_raises_os_error_before_maya(self):
+        """ファイルが無ければ、cmds.file を呼ぶ前に OSError(FileNotFoundError)にし、何も作らない。"""
+        with mock.patch.object(cmds, "file", side_effect=AssertionError("file")):
+            with self.assertRaises(OSError):
+                createReference(self.folder / "missing.ma", namespace="mlibCreateReferenceMissing")
+        self.assertEqual(set(cmds.ls(type="reference") or []), self.before)
+
+    def test_unidentified_new_reference_raises_runtime_error(self):
+        """新しいトップレベルのリファレンスが1件に決まらない場合は RuntimeError。"""
+        # cmds.file(reference=True) は必ず1件作るため、何も作らない代役で0件の場合を作る。
+        with mock.patch.object(cmds, "file", return_value=None) as file:
+            with self.assertRaises(RuntimeError):
+                createReference(self.path, namespace="mlibCreateReferenceNone")
+        file.assert_called_once()
+        self.assertEqual(set(cmds.ls(type="reference") or []), self.before)
+
+    def test_reference_is_not_recorded_for_undo(self):
+        """cmds.file(reference=True) と同じくUndoに記録されず、作ったリファレンスは cmds の照会と一致する。"""
+        cmds.flushUndo()
+        reference = createReference(self.path, namespace="mlibCreateReferenceUndo")
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        self.assertEqual(set(cmds.ls(type="reference")) - self.before, {reference.getName()})
+        self.assertEqual(Path(cmds.referenceQuery(reference.getName(), filename=True, withoutCopyNumber=True)), self.path)
+        self.assertEqual(cmds.referenceQuery(reference.getName(), namespace=True), ":mlibCreateReferenceUndo")
 
 
 def _maya_year():

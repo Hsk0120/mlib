@@ -8,6 +8,7 @@
 import sys
 import unittest
 
+import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 import mlib
@@ -208,6 +209,226 @@ class NodesOperatorsTest(_Case):
         with self.assertRaises(RuntimeError):
             explicit.append(removed)
         self.assertEqual(len(explicit), 1)
+
+
+class NodeKeyRejectTest(_Case):
+    """キーの操作(setKey・removeKey・moveKey・setKeyTangent)の型違いと無効なノード。"""
+
+    def keyed(self):
+        """translateXに2つのキーを打ったtransformを返す。"""
+        node = self.node("keyed")
+        cmds.setKeyframe(str(node), attribute="translateX", time=1, value=0)
+        cmds.setKeyframe(str(node), attribute="translateX", time=10, value=5)
+        return node
+
+    def keys(self, node):
+        """cmdsで読んだtranslateXのキーの時刻。"""
+        return cmds.keyframe(f"{node}.translateX", query=True, timeChange=True) or []
+
+    def test_type_errors_keep_keys(self):
+        """attributesなどの型が違うとTypeErrorで、キーは変わらない。"""
+        node = self.keyed()
+        before = self.keys(node)
+        for label, call in (
+            ("removeKey", lambda: node.removeKey(5)),
+            ("removeKey item", lambda: node.removeKey([1])),
+            ("moveKey", lambda: node.moveKey(5, timeOffset=1)),
+            ("moveKey offset", lambda: node.moveKey("translateX", timeOffset="1")),
+            ("setKeyTangent", lambda: node.setKeyTangent(5, inTangentType="linear")),
+            ("setKeyTangent time", lambda: node.setKeyTangent("translateX", inTangentType="linear", time="1")),
+        ):
+            with self.subTest(label), self.assertRaises(TypeError):
+                call()
+            self.assertEqual(self.keys(node), before)
+
+    def test_deleted_node(self):
+        """削除したノードへのキーの操作はRuntimeError。"""
+        node = self.keyed()
+        cmds.delete(str(node))
+        for label, call in (
+            ("setKey", lambda: node.setKey("translateX")),
+            ("setKey value", lambda: node.setKey("translateX", value=1)),
+            ("removeKey", lambda: node.removeKey("translateX")),
+            ("moveKey", lambda: node.moveKey("translateX", timeOffset=1)),
+            ("setKeyTangent", lambda: node.setKeyTangent("translateX", inTangentType="linear")),
+        ):
+            with self.subTest(label), self.assertRaises(RuntimeError):
+                call()
+
+    def test_remove_all_keys_and_undo(self):
+        """attributesを省いたremoveKeyはすべてのキーを消し、Undo 1回で戻る。"""
+        node = self.keyed()
+        cmds.setKeyframe(str(node), attribute="rotateY", time=3, value=30)
+        self.flushUndo()
+        node.removeKey()
+        self.assertEqual(cmds.keyframe(str(node), query=True, keyframeCount=True), 0)
+        cmds.undo()
+        self.assertEqual(self.keys(node), [1.0, 10.0])
+        self.assertEqual(cmds.keyframe(f"{node}.rotateY", query=True, timeChange=True), [3.0])
+
+    def test_set_key_tangent_matches_cmds(self):
+        """setKeyTangentを直接呼ぶと、cmds.keyTangentで読んだ接線の型が変わり、Undo 1回で戻る。"""
+        node = self.keyed()
+        before = cmds.keyTangent(f"{node}.translateX", query=True, outTangentType=True)
+        self.flushUndo()
+        node.setKeyTangent("translateX", outTangentType="step")
+        self.assertEqual(cmds.keyTangent(f"{node}.translateX", query=True, outTangentType=True), ["step", "step"])
+        cmds.undo()
+        self.assertEqual(cmds.keyTangent(f"{node}.translateX", query=True, outTangentType=True), before)
+
+
+class NodeSelectRejectTest(_Case):
+    """select・Nodes.select のフラグの重なりと無効なノード。"""
+
+    CLEAR_SELECTION = True
+
+    def test_long_and_short_flags(self):
+        """ロング名と短縮名を同時に指定するとTypeErrorで、選択は変わらない。"""
+        node = self.node()
+        for label, call in (("Node", lambda: node.select(replace=True, r=True)), ("Nodes", lambda: Nodes([node]).select(replace=True, r=True))):
+            with self.subTest(label), self.assertRaises(TypeError):
+                call()
+            self.assertEqual(cmds.ls(selection=True), [])
+
+    def test_nodes_deleted_member(self):
+        """削除したノードを含むNodes.selectはRuntimeErrorで、選択は変わらない。"""
+        first, second = self.node("first"), self.node("second")
+        nodes = Nodes([first, second])
+        cmds.select(str(first), replace=True)
+        cmds.delete(str(second))
+        with self.assertRaises(RuntimeError):
+            nodes.select()
+        self.assertEqual(cmds.ls(selection=True, long=True), cmds.ls(str(first), long=True))
+
+
+class NodeResetAndFlagsRejectTest(_Case):
+    """resetAttrs・setAttrFlags の存在しないアトリビュートと、Mayaの拒否。"""
+
+    def test_missing_attribute(self):
+        """存在しないアトリビュートはAttributeErrorで、ほかのアトリビュートは変わらない。"""
+        node = self.node()
+        cmds.setAttr(f"{node}.translateX", 3)
+        for label, call in (
+            ("resetAttrs", lambda: node.resetAttrs(["translateX", "noSuchAttr"])),
+            ("setAttrFlags", lambda: node.setAttrFlags(["translateX", "noSuchAttr"], locked=True)),
+            ("Nodes.resetAttrs", lambda: Nodes([node]).resetAttrs("noSuchAttr")),
+        ):
+            with self.subTest(label), self.assertRaises(AttributeError):
+                call()
+        self.assertEqual(cmds.getAttr(f"{node}.translateX"), 3)
+        self.assertFalse(cmds.getAttr(f"{node}.translateX", lock=True))
+
+    def test_nodes_reset_type_error(self):
+        """Nodes.resetAttrsへ名前・Plug以外を渡すとTypeError。"""
+        node = self.node()
+        with self.assertRaises(TypeError):
+            Nodes([node]).resetAttrs(5)
+        with self.assertRaises(TypeError):
+            Nodes([node]).resetAttrs([5], check=True)
+
+    def test_reset_defaults_on_dg_node(self):
+        """attributesを省いたresetAttrsは、DGノードのキーを設定できる値を既定へ戻し、cmdsの値と合う。Undo 1回で戻る。"""
+        node = mlib.getNode(self.make("multiplyDivide", "md"))
+        cmds.setAttr(f"{node}.input1X", 4)
+        cmds.setAttr(f"{node}.input2X", 3)
+        self.flushUndo()
+        plugs = node.resetAttrs()
+        names = {plug.getAttributeName() for plug in plugs}
+        self.assertIn("input1X", names)
+        self.assertEqual(cmds.getAttr(f"{node}.input1X"), 0)
+        self.assertEqual(cmds.getAttr(f"{node}.input2X"), 1)
+        cmds.undo()
+        self.assertEqual(cmds.getAttr(f"{node}.input1X"), 4)
+        self.assertEqual(cmds.getAttr(f"{node}.input2X"), 3)
+
+    def test_set_attr_flags_on_locked_node(self):
+        """ロックしたノードのアトリビュートのロックを変えると、MayaのRuntimeError。"""
+        node = self.node()
+        cmds.lockNode(str(node), lock=True)
+        try:
+            with self.assertRaises(RuntimeError):
+                node.setAttrFlags("translateX", locked=True)
+            self.assertFalse(cmds.getAttr(f"{node}.translateX", lock=True))
+        finally:
+            cmds.lockNode(str(node), lock=False)
+
+
+class NodesRejectTest(_Case):
+    """Nodes の sort・setColor・setParent の拒否と、使われていなかった引数。"""
+
+    def test_sort_with_deleted_member(self):
+        """keyを省いたsortは、削除したノードを含むとRuntimeErrorで、並びは変わらない。"""
+        first, second = self.node("b"), self.node("a")
+        nodes = Nodes([first, second])
+        cmds.delete(str(second))
+        with self.assertRaises(RuntimeError):
+            nodes.sort()
+        self.assertEqual(list(nodes), [first, second])
+        # keyを渡せば、無効なノードがあっても並べ替えられる。
+        nodes.sort(key=lambda node: node.isValid())
+        self.assertEqual(list(nodes), [second, first])
+
+    def test_set_color_rejects(self):
+        """範囲外の色番号はValueError、check=Trueはロックを先に拒否し、削除したノードはRuntimeError。"""
+        first, second = self.node("first"), self.node("second")
+        nodes = Nodes([first, second])
+        for value in (99, -1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                nodes.setColor(value)
+        cmds.setAttr(f"{second}.overrideEnabled", lock=True)
+        with self.assertRaises(RuntimeError):
+            nodes.setColor(5, check=True)
+        self.assertFalse(cmds.getAttr(f"{first}.overrideEnabled"))
+        cmds.setAttr(f"{second}.overrideEnabled", lock=False)
+        self.flushUndo()
+        nodes.setColor(5, check=True)
+        self.assertEqual([cmds.getAttr(f"{node}.overrideColor") for node in nodes], [5, 5])
+        cmds.undo()
+        self.assertEqual([cmds.getAttr(f"{node}.overrideColor") for node in nodes], [0, 0])
+        cmds.delete(str(second))
+        with self.assertRaises(RuntimeError):
+            nodes.setColor(6)
+        self.assertEqual(cmds.getAttr(f"{first}.overrideColor"), 0)
+
+    def test_set_parent_flags(self):
+        """relative・add・checkをそのまま各要素へ渡し、cmdsで読んだ親が変わる。Undo 1回で戻る。"""
+        parent = self.node("parent")
+        cmds.setAttr(f"{parent}.translateX", 5)
+        first, second = self.node("first"), self.node("second")
+        nodes = Nodes([first, second])
+        self.flushUndo()
+        nodes.setParent(parent, relative=True, check=True)
+        for node in (first, second):
+            self.assertEqual(cmds.listRelatives(str(node), parent=True, fullPath=True), cmds.ls(str(parent), long=True))
+            self.assertEqual(cmds.getAttr(f"{node}.translateX"), 0)
+        cmds.undo()
+        self.assertIsNone(cmds.listRelatives(first.getName(full=True), parent=True))
+        other = self.node("other")
+        Nodes([first]).setParent(other, add=True)
+        self.assertEqual(om2.MFnDagNode(first.mnode()).instanceCount(False), 2)
+        self.assertIn(other.getName(full=True) + "|" + first.getName(node=True), cmds.listRelatives(str(other), children=True, fullPath=True))
+
+    def test_set_parent_to_world_and_rejects(self):
+        """parent=Noneはワールドへ移す。Transform以外を含むとTypeError、削除したアトリビュートのPlugはValueError、DGノードの親はMayaが拒否する。"""
+        parent = self.node("parent")
+        child = mlib.getNode(self.make(text="child", parent=str(parent)))
+        Nodes([child]).setParent()
+        self.assertIsNone(cmds.listRelatives(str(child), parent=True))
+        md = mlib.getNode(self.make("multiplyDivide", "md"))
+        with self.assertRaises(TypeError):
+            Nodes([child, md]).setParent(parent)
+        # 削除したアトリビュートのPlugはDeletedAttributeError(ValueErrorの派生)。
+        plug = parent.addAttr("removed")
+        cmds.deleteAttr(f"{parent}.removed")
+        with self.assertRaises(ValueError):
+            Nodes([child]).setParent(plug)
+        with self.assertRaises(RuntimeError):
+            Nodes([child]).setParent("")
+        self.assertIsNone(cmds.listRelatives(str(child), parent=True))
+        # 親がTransformでない(DGノード)ときは、子孫の確認を飛ばし、Mayaが拒否する。
+        with self.assertRaises(RuntimeError):
+            Nodes([child]).setParent(md)
+        self.assertIsNone(cmds.listRelatives(str(child), parent=True))
 
 
 if __name__ == "__main__":

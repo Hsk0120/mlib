@@ -109,6 +109,30 @@ class NodeDgTimerTest(NamespaceCase):
                 call()
             self.assertEqual(fn.dgTimerQueryState(), before)
 
+    def test_state_is_not_undone(self):
+        """setDgTimer・setDgTimingEnabledはUndoに載らず、直前の編集をUndoしても計測の状態は変わらない。"""
+        node = mlib.getNode(cmds.createNode("multiplyDivide", name=self.ns + ":undo"))
+        fn = om2.MFnDependencyNode(node.mnode())
+        global_state = cmds.dgtimer(query=True, on=True)
+        try:
+            cmds.setAttr(f"{node}.input1X", 2)
+            node.setDgTimer(True)
+            mlib.Node.setDgTimingEnabled(True)
+            cmds.undo()
+            self.assertEqual(cmds.getAttr(f"{node}.input1X"), 0)
+            self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOn)
+            self.assertTrue(cmds.dgtimer(query=True, on=True))
+            cmds.redo()
+            self.assertEqual(cmds.getAttr(f"{node}.input1X"), 2)
+            self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOn)
+            mlib.Node.setDgTimingEnabled(False)
+            self.assertFalse(cmds.dgtimer(query=True, on=True))
+            with self.assertRaises(TypeError):
+                mlib.Node.setDgTimingEnabled(1)
+        finally:
+            fn.dgTimerOff()
+            mlib.Node.setDgTimingEnabled(bool(global_state))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

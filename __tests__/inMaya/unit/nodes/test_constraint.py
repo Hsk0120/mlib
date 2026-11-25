@@ -346,5 +346,39 @@ class ConstraintAnimCurveTest(_SpecCase):
             deleted.isTimeInput()
 
 
+class ConstraintRejectTest(_SpecCase):
+    """Constraint.setWeight・removeTarget の拒否と、fastのUndoなし。"""
+
+    def make_constraint(self):
+        """2つのターゲットのparentConstraintを作り、(Node, 1つ目, 2つ目) を返す。"""
+        first = cmds.createNode("transform", name=self.name("first"), skipSelect=True)
+        second = cmds.createNode("transform", name=self.name("second"), skipSelect=True)
+        driven = cmds.createNode("transform", name=self.name("driven"), skipSelect=True)
+        return Node(cmds.parentConstraint(first, second, driven)[0]), first, second
+
+    def test_set_weight_rejects_and_fast(self):
+        """fastがboolでないとTypeError。fast=TrueはUndoに載らず、cmdsで読んだウェイトが変わる。"""
+        node, first, second = self.make_constraint()
+        name = node.getName()
+        with self.assertRaises(TypeError):
+            node.setWeight(0.5, fast=1)
+        self.assertEqual(cmds.parentConstraint(first, name, query=True, weight=True), 1.0)
+        self.flushUndo()
+        node.setWeight(0.5, second, fast=True)
+        self.assertUndoEmpty()
+        self.assertEqual(cmds.parentConstraint(second, name, query=True, weight=True), 0.5)
+        self.assertEqual(cmds.parentConstraint(first, name, query=True, weight=True), 1.0)
+
+    def test_remove_target_deleted_constraint(self):
+        """削除したコンストレイントのremoveTargetはRuntimeError、ターゲットの指定が無ければTypeError。"""
+        node, first, _second = self.make_constraint()
+        with self.assertRaises(TypeError):
+            node.removeTarget()
+        cmds.delete(node.getName())
+        with self.assertRaises(RuntimeError):
+            node.removeTarget(first)
+        self.assertTrue(cmds.objExists(first))
+
+
 if __name__ == "__main__":
     unittest.main()
