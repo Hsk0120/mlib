@@ -96,6 +96,15 @@ class PoseSnapshotTest(_SnapshotCase):
         self.assertIn("radius", attrs)
         self.assertIs(type(data["nodes"][0]["attrs"]["visibility"]), bool)
 
+    def test_file_format_and_version(self):
+        """保存したファイルのヘッダーは形式 mlib.pose・版1で、版1のファイルを読み込める。"""
+        self.assertEqual((PoseSnapshot.FORMAT, PoseSnapshot.VERSION), ("mlib.pose", 1))
+        path = PoseSnapshot.capture([self.root]).save(os.path.join(self.folder, "pose.json"))
+        with open(str(path), encoding="utf-8") as stream:
+            raw = std_json.load(stream)
+        self.assertEqual((raw["header"]["format"], raw["header"]["version"]), ("mlib.pose", 1))
+        self.assertEqual(PoseSnapshot.load(path).toData(), PoseSnapshot.capture([self.root]).toData())
+
     def test_round_trip_into_other_namespace(self):
         self.set_units("mm", "rad")
         snap = self.round_trip(PoseSnapshot.capture([self.root, self.joint]))

@@ -131,6 +131,21 @@ class SnapshotBaseTest(NamespaceCase):
         with self.assertRaises(NotImplementedError):
             _ValidateOnlySnapshot({}).apply()
 
+    def test_warning_lists_first_five_names(self):
+        """warnは、見つからない・飛ばした一覧を先頭の5件まで並べ、6件目からは「...」にまとめる。"""
+        for count, listed in ((5, "a0, a1, a2, a3, a4"), (6, "a0, a1, a2, a3, a4, ...")):
+            with self.subTest(count=count):
+                report = ValidationReport()
+                for index in range(count):
+                    report._add_missing(f"a{index}")
+                    report._add_skipped(f"a{index}", "理由")
+                with self.assertLogs("mlib", level="WARNING") as logs:
+                    report.warn("Demo")
+                self.assertEqual(len(logs.records), 1)
+                message = logs.records[0].getMessage()
+                self.assertIn(f"{count}件が見つかりません({listed})", message)
+                self.assertNotIn("a5,", message)
+
     def test_replace_and_name_map(self):
         """replace・nameMapで別の名前のノードへ適用できることを確かめる。"""
         snap = _OffsetSnapshot.capture([self.a])

@@ -291,6 +291,19 @@ class DrivenKeySpecTest(unittest.TestCase):
         cmds.undo()
         self.assertFalse(key.exists())
 
+    def test_multi_and_compound_plugs_are_refused(self):
+        """要素の型が数値でも、マルチアトリビュート全体(コンパウンドでない)とコンパウンドアトリビュートはValueError。"""
+        average = cmds.createNode("plusMinusAverage", name=self.ns + ":average")
+        self.assertTrue(cmds.attributeQuery("input1D", node=average, multi=True))
+        for driver, driven in (
+            (average + ".input1D", self.driven + ".tx"),
+            (self.driver + ".tx", average + ".input1D"),
+            (self.driver + ".translate", self.driven + ".tx"),
+        ):
+            with self.subTest(driver=driver, driven=driven), self.assertRaisesRegex(ValueError, "マルチアトリビュートやコンパウンドアトリビュート"):
+                DrivenKey(driver, driven)
+        self.assertIsNotNone(DrivenKey(self.driver + ".tx", average + ".input1D[0]"))
+
     def test_validation(self):
         """同じアトリビュート・非数値はValueError、型不正はTypeError、存在しないはAttributeError。"""
         with self.assertRaises(ValueError):

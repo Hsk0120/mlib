@@ -150,6 +150,17 @@ class IkHandleCreateTest(_SpecCase):
                     mlib.createIkHandle(**flags)
         self.assertEqual(cmds.ls(type=("ikHandle", "ikEffector")), [])
 
+    def test_valid_non_joint_is_refused_by_role(self):
+        """有効でもジョイントでないノードは、Mayaへ渡す前に、どちらの引数かを示すValueErrorにする。"""
+        top = cmds.createNode("transform", name=self.name("top"), skipSelect=True)
+        cmds.parent(self.j1, top)
+        start = cmds.ls(self.name("a"), long=True)[0]
+        end = cmds.createNode("transform", name=self.name("tip"), parent=self.name("b"), skipSelect=True)
+        for role, flags in (("startJoint", dict(startJoint=top, endJoint=self.name("c"))), ("endJoint", dict(startJoint=start, endJoint=end))):
+            with self.subTest(role=role), self.assertRaisesRegex(ValueError, f"^{role}は有効なジョイントで指定してください$"):
+                mlib.createIkHandle(**flags)
+        self.assertEqual(cmds.ls(type=("ikHandle", "ikEffector")), [])
+
     def test_get_effector_on_unconnected_handle(self):
         """createNode で作った未接続のハンドルの getEffector は None。"""
         handle = mlib.createNode("ikHandle", name=self.name("bare"))

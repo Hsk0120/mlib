@@ -33,6 +33,16 @@ class CreateLocatorTest(NamespaceCase):
         self.assertEqual(cmds.getAttr(transform + ".translate"), [(0.0, 0.0, 0.0)])
         self.assertEqual(cmds.ls(selection=True), selection)
 
+    def test_defaults_match_space_locator(self):
+        """引数を省くと、localPosition・localScaleは cmds.spaceLocator で作ったものと同じ(0, 0, 0)・(1, 1, 1)になる。"""
+        shape = mlib.createLocator(name=self.name("defaultLoc"))
+        name = shape.getName(full=True)
+        expected = cmds.listRelatives(cmds.spaceLocator(name=self.name("cmdsLoc"))[0], shapes=True, fullPath=True)[0]
+        for attribute, value in (("localPosition", [(0.0, 0.0, 0.0)]), ("localScale", [(1.0, 1.0, 1.0)])):
+            with self.subTest(attribute=attribute):
+                self.assertEqual(cmds.getAttr(name + "." + attribute), cmds.getAttr(expected + "." + attribute))
+                self.assertEqual(cmds.getAttr(name + "." + attribute), value)
+
     def test_undo_once(self):
         """作成と値の書き込みは、Undo 1回で消える。"""
         self.flushUndo()

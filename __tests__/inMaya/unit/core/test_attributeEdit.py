@@ -467,6 +467,18 @@ class FastAddAttrDefinitionTest(NamespaceCase):
             self.node.addAttr("readOnlyValue", dataType="string", writable=False, defaultValue="x")
         self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
 
+    def test_preflight_checks_child_defaults_with_type_prefix(self):
+        """subTypeにat:を付けても、子の既定値を追加する前に確かめ、何も追加せずに例外にする。"""
+        before = cmds.listAttr(self.node.getName(full=True))
+        for sub_type in ("at:double", "double"):
+            with self.subTest(subType=sub_type), self.assertRaises(TypeError):
+                self.node.addAttr("prefixedValue", "double3", subType=sub_type, defaultValue="abc")
+            self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
+        plug = self.node.addAttr("prefixedValue", "double3", subType="at:double", defaultValue=(1.0, 2.0, 3.0))
+        self.assertEqual(plug.getAttributeName("long"), "prefixedValue")
+        self.assertEqual(self.query("prefixedValueX", attributeType=True), "double")
+        self.assertEqual(self.query("prefixedValueY", defaultValue=True), 2.0)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

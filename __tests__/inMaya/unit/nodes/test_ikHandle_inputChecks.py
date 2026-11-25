@@ -109,6 +109,19 @@ class IkHandleChainTest(_Case):
             if not cmds.listConnections(solver + ".message", destination=True):
                 cmds.delete(solver)
 
+    def test_set_chain_to_grandchild(self):
+        """末端が開始ジョイントの孫でもチェーンを変えられ、ikHandleの照会と一致する。"""
+        joints, handle, _ = self.chain("g")
+        node = mlib.getNode(handle)
+        node.setChain(joints[1], joints[2])
+        self.assertEqual(cmds.ls(cmds.ikHandle(handle, query=True, startJoint=True), long=True), cmds.ls(joints[1], long=True))
+        self.flushUndo()
+        node.setChain(joints[0], joints[2])
+        self.assertEqual(cmds.ls(cmds.ikHandle(handle, query=True, startJoint=True), long=True), cmds.ls(joints[0], long=True))
+        self.assertEqual([joint.getName() for joint in node.getJoints()], joints[:2])
+        cmds.undo()
+        self.assertEqual(cmds.ls(cmds.ikHandle(handle, query=True, startJoint=True), long=True), cmds.ls(joints[1], long=True))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

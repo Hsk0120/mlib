@@ -102,6 +102,15 @@ class ShapesConstraintsTest(unittest.TestCase):
                 # Mesh の座標保存精度を考慮し、距離単位変更時も相対誤差で比較する。
                 self.assertAlmostEqual(component, value, delta=max(1e-5, abs(value) * 1e-6))
 
+    def test_set_normals_requires_fast_by_default(self):
+        """fastを省いたsetNormalsはNotImplementedErrorで、法線は変わらない(既定はfast=False)。"""
+        mesh = mlib.Node(cmds.polyCube(constructionHistory=False)[0]).getShape()
+        before = mesh.getNormalData()
+        normals = [(normal.x, -normal.y, normal.z) for normal in before[0]]
+        with self.assertRaises(NotImplementedError):
+            mesh.setNormals(normals)
+        self.assertEqual(mesh.getNormalData(), before)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

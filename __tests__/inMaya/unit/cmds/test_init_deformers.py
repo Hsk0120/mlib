@@ -82,6 +82,22 @@ class CreateDeformerTest(_Case):
         name = ffd.getName(full=True)
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
+    def test_lattice_is_object_centered_by_default(self):
+        """objectCenteredを省くと、cmds.lattice(objectCentered=True)と同じく、ラティスを対象の中心へ置く。"""
+        cube, _ = self.cube()
+        cmds.move(5, 2, 0, cube)
+        cmds.select(clear=True)
+        ffd = mlib.createDeformer("lattice", cube, name=self.name("centered"))
+        lattice = ffd.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getTransform().getName(full=True)
+        self.assertEqual(cmds.xform(lattice, query=True, worldSpace=True, translation=True), [5.0, 2.0, 0.0])
+        expected = cmds.lattice(cube, divisions=(2, 5, 2), ldivisions=(2, 2, 2), objectCentered=True, name=self.name("cmdsCentered"))
+        self.assertEqual(
+            cmds.xform(lattice, query=True, worldSpace=True, translation=True), cmds.xform(expected[1], query=True, worldSpace=True, translation=True)
+        )
+        off = mlib.createDeformer("lattice", cube, name=self.name("origin"), objectCentered=False)
+        lattice = off.getPlug("deformedLatticePoints").getConnections(input=True).getNode().getTransform().getName(full=True)
+        self.assertEqual(cmds.xform(lattice, query=True, worldSpace=True, translation=True), [0.0, 0.0, 0.0])
+
     def test_create_wire(self):
         """wire を作り、dropoffDistance を全カーブに設定する。"""
         cube, _ = self.cube()

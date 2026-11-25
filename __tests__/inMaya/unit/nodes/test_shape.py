@@ -78,6 +78,20 @@ class ShapeSetParentTest(_SpecCase):
         with self.assertRaises(TypeError):
             target.addShape(other)
 
+    def test_fast_set_parent_to_locked_transform(self):
+        """fastでも、ロックされたTransformへはRuntimeErrorで移さない(OpenMayaは移せてしまうため先に確かめる)。"""
+        target = cmds.createNode("transform", name=self.name("lockedTarget"))
+        shape = mlib.createLocator(name=self.name("lockedLoc"))
+        old = shape.getParent()
+        cmds.lockNode(target, lock=True)
+        try:
+            with self.assertRaises(RuntimeError):
+                shape.setParent(target, fast=True)
+            self.assertEqual(shape.getParent(), old)
+            self.assertIsNone(cmds.listRelatives(target, shapes=True))
+        finally:
+            cmds.lockNode(target, lock=False)
+
 
 if __name__ == "__main__":
     result = unittest.main(exit=False, verbosity=2).result

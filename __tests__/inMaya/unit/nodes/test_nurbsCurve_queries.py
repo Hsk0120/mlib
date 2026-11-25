@@ -290,6 +290,14 @@ class MatricesAlongTest(_CurveCase):
         self.assertRaises(ValueError, line.getMatricesAlong, 3, (0, 1, 0))
         self.assertEqual(len(line.getMatricesAlong(3)), 3)
 
+    def test_normal_rejects_nearly_straight_degree_one_curve(self):
+        """次数1で、許容誤差の中で一直線のカーブ(端から測ってずれが長さの1e-9倍以下)は法線がValueError。"""
+        transform = cmds.curve(name=self.name("nearLine"), degree=1, point=[(0, 0, 0), (1, 0, 0), (2, 2e-9, 0)])
+        shape = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
+        for param in (0.5, 1.5):
+            with self.subTest(param=param), self.assertRaises(ValueError):
+                shape.getAtParam(param, what="normal")
+
 
 if __name__ == "__main__":
     unittest.main()

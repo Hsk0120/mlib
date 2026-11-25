@@ -475,6 +475,28 @@ class UndoTransactionSpecTest(_SceneCase):
                     cmds.createNode("transform", name=self.name("inner"))
         self.assertEqual(self.opened(spy), 2)
 
+    def test_close_failure_skips_rollback(self):
+        """例外の後でチャンクを閉じられなかったら、Undoせずに警告を出し、元の例外を送り出す。"""
+        real_undo_info = cmds.undoInfo
+
+        def undo_info(*args, **kwargs):
+            """closeChunkだけを失敗させる。"""
+            if kwargs.get("closeChunk"):
+                raise RuntimeError("closeChunk failed")
+            return real_undo_info(*args, **kwargs)
+
+        try:
+            with mock.patch.object(decorator.cmds, "undoInfo", side_effect=undo_info), mock.patch.object(decorator.cmds, "undo") as undo:
+                with self.assertLogs("mlib", level="WARNING") as logs, self.assertRaisesRegex(ValueError, "^boom$"):
+                    with undoTransaction("mlibSpecDTxClose"):
+                        cmds.createNode("transform", name=self.name("unclosed"))
+                        raise ValueError("boom")
+            undo.assert_not_called()
+            self.assertTrue(any("Undoの巻き戻しを省略しました" in line for line in logs.output), logs.output)
+        finally:
+            real_undo_info(closeChunk=True)
+        self.assertTrue(cmds.objExists(self.name("unclosed")))
+
     def test_decorator_success_commits_one_step(self):
         """デコレーターとして正常終了した場合は1段のUndoとして残る。"""
 

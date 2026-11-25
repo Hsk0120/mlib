@@ -12,7 +12,7 @@ mlib.reload()
 import maya.cmds as cmds
 
 import mlib.common
-from mlib.common.progress import ProgressCancelled, progressBar
+from mlib.common.progress import ProgressCancelled, _active_bars, _MainProgressBar, progressBar
 
 
 def _frames(output):
@@ -482,6 +482,18 @@ class ProgressBarSimulatedMainBarTest(unittest.TestCase):
         self.assertEqual(self.fake.edits[-1], {"endProgress": True})
         self.assertEqual(received[0], "demo |----|   0% 0/3")
         self.assertEqual(received[-1], "demo |====| 100% 3/3")
+
+    def test_draw_returns_the_text_given_to_notify(self):
+        """メインのバーの draw は、notifyへ渡すものと同じ表示文字列を返す(通知先が無くても返す)。"""
+        received = []
+        for notify in (received.append, None):
+            with self.subTest(notify=notify is not None):
+                line = _MainProgressBar("demo", 2, 4, self.fake.name, notify)
+                self.assertEqual(line.draw(), "demo |----|   0% 0/2")
+                line.done = 1
+                self.assertEqual(line.draw(), "demo |==--|  50% 1/2")
+                _active_bars.discard(self.fake.name)
+        self.assertEqual(received, ["demo |----|   0% 0/2", "demo |==--|  50% 1/2"])
 
     def test_unknown_total_keeps_progress_zero(self):
         """長さの分からない反復は、maxValue=1・progress=0のまま、状態に件数と?を出す(見出しが空なら件数だけ)。"""

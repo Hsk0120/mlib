@@ -95,6 +95,22 @@ class BakeResultsTest(NamespaceCase):
         self.assertRaises(ValueError, bakeResults, [])
         self.assertRaises(RuntimeError, bakeResults, self.name("missing"))
 
+    def test_intermediate_shape_curves_are_not_returned(self):
+        """shapeの既定(True)は表示するシェイプのカーブを返し、中間のシェイプ(intermediateObject)と子のTransformのカーブは含めない。"""
+        owner = self.make(text="owner")
+        visible = cmds.createNode("mesh", name=self.name("ownerShape"), parent=owner)
+        orig = cmds.createNode("mesh", name=self.name("ownerShapeOrig"), parent=owner)
+        cmds.setAttr(orig + ".intermediateObject", True)
+        child = self.make("transform", "ownerChild", parent=owner)
+        for node in (owner, visible, orig, child):
+            cmds.setKeyframe(node, attribute="visibility", time=1, value=1)
+            cmds.setKeyframe(node, attribute="visibility", time=5, value=0)
+        curves = bakeResults(owner, attributes=["visibility"], time=(1, 5))
+        expected = {cmds.listConnections(node + ".visibility", source=True, destination=False, type="animCurve")[0] for node in (owner, visible)}
+        self.assertEqual({curve.getName() for curve in curves}, expected)
+        orig_curve = cmds.listConnections(orig + ".visibility", source=True, destination=False, type="animCurve")[0]
+        self.assertNotIn(orig_curve, {curve.getName() for curve in curves})
+
     def test_shape_false(self):
         curves = bakeResults(self.target, attributes=["translateX"], time=(1, 3), shape=False)
         self.assertEqual(len(curves), 1)

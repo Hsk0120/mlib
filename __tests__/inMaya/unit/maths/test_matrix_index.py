@@ -70,6 +70,23 @@ class MatrixWrapTest(unittest.TestCase):
         self.assertEqual(list(result), values)
 
 
+class CellIndexRangeTest(unittest.TestCase):
+    """(行, 列)の番号は、行・列とも -4〜3 だけを受け付ける。"""
+
+    def test_out_of_range_cells_raise_index_error(self):
+        """行か列が 4 か -5 なら、取得も設定もIndexErrorにして値を変えない。"""
+        matrix = Matrix([float(index) for index in range(16)])
+        for row, column in ((0, 4), (3, 4), (-1, 4), (0, -5), (4, 0), (-5, 0), (4, 4)):
+            with self.subTest(row=row, column=column):
+                with self.assertRaises(IndexError):
+                    matrix[row, column]
+                with self.assertRaises(IndexError):
+                    matrix[row, column] = 99.0
+        self.assertEqual(list(matrix), [float(index) for index in range(16)])
+        self.assertEqual(matrix[3, -4], om2.MMatrix(list(matrix)).getElement(3, 0))
+        self.assertEqual(matrix[-4, 3], 3.0)
+
+
 class RebuildTest(unittest.TestCase):
     """pickleの再構築の境界。"""
 

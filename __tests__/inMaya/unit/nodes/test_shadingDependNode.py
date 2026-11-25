@@ -18,7 +18,7 @@ mlib.reload()
 from support.namespaceCase import NamespaceCase
 
 from mlib.components import Face
-from mlib.nodes import Blinn, File, Lambert, Node, Reflect, ShadingEngine, StandardSurface
+from mlib.nodes import Blinn, File, Lambert, Node, PaintableShadingDependNode, Reflect, ShadingEngine, StandardSurface
 
 
 class MaterialNodesTest(unittest.TestCase):
@@ -196,6 +196,13 @@ class MaterialTest(_SpecCase):
         materials = self.materials(Node(self.cube).getShape())
         self.assertIn(Node(self.material), materials)
         self.assertEqual(len(materials), 2)
+
+    def test_surface_base_follows_maya_inheritance(self):
+        """LambertとStandardSurfaceは、MayaにpaintableShadingDependNodeがある版だけPaintableShadingDependNodeの派生になる。"""
+        for kind, cls in (("lambert", Lambert), ("standardSurface", StandardSurface)):
+            with self.subTest(kind=kind):
+                native = cmds.nodeType(kind, isTypeName=True, inherited=True)
+                self.assertEqual(issubclass(cls, PaintableShadingDependNode), "paintableShadingDependNode" in native)
 
 
 if __name__ == "__main__":

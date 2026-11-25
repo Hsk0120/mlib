@@ -17,7 +17,7 @@ import mlib
 mlib.reload()
 
 from mlib.components import Component, Vertex
-from mlib.core.object import Object
+from mlib.core.object import Object, _missing_member_message
 from mlib.nodes import Joint, Node, Transform
 from mlib.plugs import Plug
 
@@ -200,6 +200,34 @@ class AsStringTest(unittest.TestCase):
         self.assertEqual(plug.asString(), "")
         with self.assertRaises(RuntimeError):
             vertex.asString()
+
+
+class MissingMemberMessageTest(unittest.TestCase):
+    """無い名前を参照したときの文言には、近い公開名を3つまで挙げる。"""
+
+    def test_close_names_are_limited_to_three(self):
+        """近い名前が4つ以上あっても、近い順の3つだけを挙げる。"""
+
+        class Sample:
+            def getValueA(self):
+                pass
+
+            def getValueB(self):
+                pass
+
+            def getValueC(self):
+                pass
+
+            def getValueD(self):
+                pass
+
+            def getValueE(self):
+                pass
+
+        message = _missing_member_message(Sample(), "getValue")
+        listed = message.split("近い名前: ", 1)[1].split(", ")
+        self.assertEqual(len(listed), 3)
+        self.assertLessEqual(set(listed), {"getValueA", "getValueB", "getValueC", "getValueD", "getValueE"})
 
 
 if __name__ == "__main__":

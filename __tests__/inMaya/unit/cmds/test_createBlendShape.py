@@ -119,6 +119,15 @@ class BlendShapeCreateTest(_SpecCase):
             mlib.createBlendShape(self.base, self.smile, origin="world", o="world")
         self.assertEqual(cmds.ls(type="blendShape"), before)
 
+    def test_plug_targets_are_refused(self):
+        """ターゲットにPlug・MPlugを渡すと、持ち主のノードを使わずにTypeErrorにし、blendShapeを残さない。"""
+        before = cmds.ls(type="blendShape")
+        plug = mlib.getPlug(self.smile + ".translateX")
+        for target in (plug, [self.blink, plug], plug.mplug()):
+            with self.subTest(target=target), self.assertRaisesRegex(TypeError, "アトリビュート\\(Plug・MPlug\\)を指定できません"):
+                mlib.createBlendShape(self.base, target)
+        self.assertEqual(cmds.ls(type="blendShape"), before)
+
     def test_origin(self):
         """originはcmds.blendShapeのoriginへそのまま渡す(省略はMayaの既定のlocal)。短縮名oも受ける。"""
         default = mlib.createBlendShape(self.base, self.smile, name=self.name("originDefault"))

@@ -99,5 +99,62 @@ class DeletedAttributeTypeTest(NamespaceCase):
             attributeType.attributeType(plug)
 
 
+class TimeUnitDefaultTest(NamespaceCase):
+    """時間の子を持つコンパウンド・マルチアトリビュートのgetは、既定でUIの時間単位のフレームを返す。"""
+
+    PREFIX = "mlibAttributeTypeTime_"
+
+    def setUp(self):
+        super().setUp()
+        self.time_unit = cmds.currentUnit(query=True, time=True)
+        cmds.currentUnit(time="film")
+        self.node = self.make("network", "times")
+        cmds.addAttr(self.node, longName="span", attributeType="compound", numberOfChildren=2)
+        cmds.addAttr(self.node, longName="spanStart", attributeType="time", parent="span")
+        cmds.addAttr(self.node, longName="spanEnd", attributeType="time", parent="span")
+        cmds.addAttr(self.node, longName="marks", attributeType="time", multi=True)
+        cmds.setAttr(self.node + ".spanStart", 12)
+        cmds.setAttr(self.node + ".spanEnd", 36)
+        cmds.setAttr(self.node + ".marks[2]", 6)
+
+    def tearDown(self):
+        cmds.currentUnit(time=self.time_unit)
+        super().tearDown()
+
+    def test_plain_time_unit_defaults_to_frame(self):
+        """timeUnitを省くと"frame"、"sec"はそのまま、uiUnits=TrueはNoneになる。"""
+        self.assertEqual(attributeType._plain_time_unit(None, False), "frame")
+        self.assertEqual(attributeType._plain_time_unit("sec", False), "sec")
+        self.assertIsNone(attributeType._plain_time_unit(None, True))
+
+    def test_compound_and_multi_get_return_frames(self):
+        """既定のgetはcmds.getAttrと同じフレーム、timeUnit="sec"は秒を返す。"""
+        span = mlib.getPlug(self.node + ".span")
+        self.assertSequenceAlmostEqual(span.get(), cmds.getAttr(self.node + ".span")[0])
+        self.assertSequenceAlmostEqual(span.get(), (12.0, 36.0))
+        self.assertSequenceAlmostEqual(span.get(timeUnit="sec"), (0.5, 1.5))
+        marks = mlib.getPlug(self.node + ".marks")
+        self.assertEqual(list(marks.get()), [2])
+        self.assertAlmostEqual(marks.get()[2], cmds.getAttr(self.node + ".marks[2]"))
+        self.assertAlmostEqual(marks.get(timeUnit="sec")[2], 0.25)
+
+
+class DistanceToUiTest(unittest.TestCase):
+    """cmの数値をUIの距離の単位へ換算する。"""
+
+    def setUp(self):
+        self.linear = cmds.currentUnit(query=True, linear=True)
+
+    def tearDown(self):
+        cmds.currentUnit(linear=self.linear)
+
+    def test_distance_to_ui_matches_convert_unit(self):
+        """UIがcmならそのままの値、mmならcmds.convertUnitと同じ値を返す。"""
+        cmds.currentUnit(linear="cm")
+        self.assertEqual(attributeType._distance_to_ui(2.5), 2.5)
+        cmds.currentUnit(linear="mm")
+        self.assertAlmostEqual(attributeType._distance_to_ui(2.5), float(cmds.convertUnit(2.5, fromUnit="cm", toUnit="mm").rstrip("m")))
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

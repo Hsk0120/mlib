@@ -14,7 +14,7 @@
 2. 対象のファイルの、テストが通る行から書き換えを作る。1つのファイルからは ``--limit`` 個まで、行が偏らないように選ぶ。
    書き換えの種類: 比較の向き(``==``↔``!=``・``<``↔``>=`` など)、``in``↔``not in``、``is``↔``is not``、
    ``and``↔``or``、``not`` を外す、``True``↔``False``、整数に1を足す、``raise`` 文を ``pass`` にする、``return 値`` を ``return None`` にする。
-3. mlibを作業用のフォルダーへ写し(``_tools/.temp/mutations/``)、``--workers`` 個のmayapyで手分けして、
+3. mlibを作業用のフォルダーへ写し(``_tools/.temp/mutations/<出力先の名前>/``)、``--workers`` 個のmayapyで手分けして、
    書き換えを1つずつ当てて ``mlib.reload()`` し、その行を通るテストのファイルのうち近いもの(``--max-tests`` 個まで)を実行する。
    テストが1つでも失敗すれば「見つけた」、全部成功すれば「生き残った」。
 
@@ -31,6 +31,7 @@ import random
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -93,6 +94,15 @@ def _worker(job_path):
                 killed, reason = True, f"{type(error).__name__}: {error}"[:200]
         finally:
             path.write_text(original, encoding="utf-8")
+            # 書き換えたモジュール(再読み込みの処理そのものを含む)を、元のソースで読み直してから全体を読み直す。
+            module_name = "mlib." + mutant["file"][:-3].replace("/", ".")
+            module_name = module_name[: -len(".__init__")] if module_name.endswith(".__init__") else module_name
+            try:
+                if module_name in sys.modules:
+                    importlib.reload(sys.modules[module_name])
+                mlib.reload()
+            except Exception:  # noqa: BLE001 元に戻せなかったときは、次の書き換えの結果で分かる
+                pass
         results.append(dict(mutant, source=None, killed=killed, reason=reason, seconds=round(time.time() - started, 1)))
         (job_path.parent / (job_path.stem + "_result.json")).write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
     try:
@@ -180,6 +190,27 @@ def _mutations(source):
     return candidates
 
 
+def _function_bodies(source):
+    """関数の定義の行(デコレーター・引数の既定値の行)から、その関数の本体の行を引く表を作る。
+
+    既定値を書き換えた行は、モジュールを最初に読み込んだテストでしか実行されないので、
+    その関数を実際に呼ぶテスト(本体の行を通るテスト)から選ぶために使う。
+
+    Args:
+        source (str): ソース。
+
+    Returns:
+        dict[int, tuple[int, ...]]: 定義の行と、本体の行。
+    """
+    table = {}
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = tuple(range(node.body[0].lineno, node.end_lineno + 1))
+            for line in range(min([node.lineno] + [decorator.lineno for decorator in node.decorator_list]), node.body[0].lineno):
+                table[line] = body
+    return table
+
+
 def _load_coverage(directory):
     """``measure_mlib_coverage.py --by-test`` の結果から、ファイルの行ごとに通るテストのファイルを集める。
 
@@ -258,6 +289,8 @@ def main():
     parser.add_argument("--version", default="2027", help="使うMayaの版(既定: 2027)")
     parser.add_argument("--coverage", type=Path, help="measure_mlib_coverage.py --by-test の結果のフォルダー。省くと先に測る")
     parser.add_argument("--max-tests", type=int, default=8, help="1つの書き換えで流すテストのファイルの最大数(既定: 8。近いものから選ぶ)")
+    parser.add_argument("--lines", nargs="+", type=int, default=[], help="書き換える行(--only のファイルの行番号)。省くと全部の行から選ぶ")
+    parser.add_argument("--skip-done", type=Path, help="前の結果のフォルダー。そこで確かめ終えた書き換えは飛ばす(途中で止まったときの続き)")
     parser.add_argument("--seed", type=int, default=0, help="書き換えを選ぶ乱数の種(既定: 0)")
     parser.add_argument("--output", type=Path, help="書き出す先(既定: __tests__/_output/mutations/<日時>)")
     parser.add_argument("--worker", type=Path, help=argparse.SUPPRESS)
@@ -288,7 +321,14 @@ def main():
             continue
         source = path.read_text(encoding="utf-8")
         key = os.path.normcase(str(path))
-        usable = [item for item in _mutations(source) if (key, item["line"]) in by_line]
+        bodies = _function_bodies(source)
+        tests_of = {}
+        for item in _mutations(source):
+            lines = bodies.get(item["line"], (item["line"],))
+            found = set().union(*(by_line.get((key, line), set()) for line in lines))
+            if found:
+                tests_of[item["line"]] = found
+        usable = [item for item in _mutations(source) if item["line"] in tests_of and (not args.lines or item["line"] in args.lines)]
         generator.shuffle(usable)
         chosen, used_lines = [], set()
         # 行が偏らないよう、まず1行に1つずつ選び、足りなければ残りから足す。
@@ -305,9 +345,15 @@ def main():
                 ast.parse(mutated)
             except SyntaxError:
                 continue
-            tests = _closest_tests(relative, by_line[(key, item["line"])], args.max_tests)
+            tests = _closest_tests(relative, tests_of[item["line"]], args.max_tests)
             text = source.splitlines()[item["line"] - 1].strip()
             mutants.append({"file": relative, "line": item["line"], "label": item["label"], "code": text[:120], "tests": tests, "source": mutated})
+    if args.skip_done:
+        done = set()
+        for result in args.skip_done.glob("worker*/job*_result.json"):
+            done.update((item["file"], item["line"], item["label"]) for item in json.loads(result.read_text(encoding="utf-8")))
+        mutants = [item for item in mutants if (item["file"], item["line"], item["label"]) not in done]
+        print(f"前の結果で確かめ終えた書き換えを飛ばします: {len(done)}個")
     if not mutants:
         print("[NG] 書き換えを作れませんでした(--only と、テストが通る行を確かめてください)")
         return 1
@@ -316,28 +362,44 @@ def main():
     run_maya = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(run_maya)
     executable = run_maya.maya_executable(args.version, Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Autodesk")
-    processes = []
-    work_root = TOOLS_DIR / ".temp" / "mutations"
-    for index in range(max(1, args.workers)):
-        share = mutants[index :: max(1, args.workers)]
-        if not share:
-            continue
+    work_root = TOOLS_DIR / ".temp" / "mutations" / directory.name
+    count = max(1, args.workers)
+    collected = [[] for _ in range(count)]
+
+    def run_slot(index):
+        """1つのmayapyで割り当てを確かめる。Mayaが落ちたら、その書き換えを「見つけた」として残りを続ける。"""
+        remaining = mutants[index::count]
         work = directory / f"worker{index}"
-        work.mkdir()
+        work.mkdir(exist_ok=True)
         copy_root = _copy_mlib(work_root / f"w{index}")
-        job = work / "job.json"
-        job.write_text(json.dumps({"root": str(copy_root), "mutants": share}, ensure_ascii=False), encoding="utf-8")
-        env = run_maya.isolated_environment(executable, work)
-        env["PYTHONPATH"] = str(copy_root.parent)
-        console = (work / "console.log").open("w", encoding="utf-8")
-        command = [str(executable), str(Path(__file__).resolve()), "--worker", str(job)]
-        processes.append((subprocess.Popen(command, cwd=str(copy_root), env=env, stdout=console, stderr=subprocess.STDOUT), console))
-    for process, console in processes:
-        process.wait()
-        console.close()
-    results = []
-    for result in sorted(directory.glob("worker*/job_result.json")):
-        results.extend(json.loads(result.read_text(encoding="utf-8")))
+        round_number = 0
+        while remaining:
+            job = work / f"job{round_number}.json"
+            job.write_text(json.dumps({"root": str(copy_root), "mutants": remaining}, ensure_ascii=False), encoding="utf-8")
+            maya_dir = work / f"maya{round_number}"
+            maya_dir.mkdir()
+            env = run_maya.isolated_environment(executable, maya_dir)
+            env["PYTHONPATH"] = str(copy_root.parent)
+            command = [str(executable), str(Path(__file__).resolve()), "--worker", str(job)]
+            with (work / f"console{round_number}.log").open("w", encoding="utf-8") as console:
+                subprocess.call(command, cwd=str(copy_root), env=env, stdout=console, stderr=subprocess.STDOUT)
+            result_path = work / f"job{round_number}_result.json"
+            done = json.loads(result_path.read_text(encoding="utf-8")) if result_path.is_file() else []
+            collected[index].extend(done)
+            remaining = remaining[len(done) :]
+            if remaining:
+                # 書き換えたままMayaが落ちたので、写しを元に戻し、その書き換えは見つけたものとして数える。
+                crashed = remaining.pop(0)
+                shutil.copyfile(ROOT / crashed["file"], copy_root / crashed["file"])
+                collected[index].append(dict(crashed, source=None, killed=True, reason="Mayaが異常終了した", seconds=None))
+            round_number += 1
+
+    threads = [threading.Thread(target=run_slot, args=(index,)) for index in range(count) if mutants[index::count]]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    results = [item for items in collected for item in items]
     killed = [item for item in results if item["killed"]]
     survived = sorted((item for item in results if not item["killed"]), key=lambda item: (item["file"], item["line"]))
     by_file = {}
@@ -349,7 +411,7 @@ def main():
     total = len(results)
     rows.append(f"ALL\t{len(killed)}/{total} {len(killed) / total:.1%}" if total else "ALL\t-")
     if total < len(mutants):
-        rows.append(f"[NG] 確かめ終わらなかった書き換えがあります: {len(mutants) - total}個(worker*/console.log を確かめてください)")
+        rows.append(f"[NG] 確かめ終わらなかった書き換えがあります: {len(mutants) - total}個(worker*/console*.log を確かめてください)")
     summary = "\n".join(rows) + "\n"
     (directory / "summary.txt").write_text(summary, encoding="utf-8")
     lines = ["# 生き残った書き換え(テストが気づかなかったもの)", ""]

@@ -58,6 +58,23 @@ class BakeDeformerTest(_SkinCase):
         cmds.undo()
         self.assertEqual(cmds.ls(cmds.listHistory(target), type="skinCluster"), [])
 
+    def test_max_influences_default_and_short_name(self):
+        """maxInfluencesの既定は4、短縮名miも受ける。作ったskinClusterのmaxInfluencesをcmdsで読み直して比べる。"""
+        # Mayaはjointの数より大きいmaxInfluencesを切り詰めるため、既定の4と区別できるよう6本で作る。
+        cmds.select(clear=True)
+        joints = [cmds.joint(name=self.name(f"long{index}"), position=(0, index - 3, 0)) for index in range(6)]
+        cmds.select(clear=True)
+        mesh = cmds.polyCylinder(name=self.name("longGeo"), height=6, subdivisionsHeight=12)[0]
+        cmds.skinCluster(joints, mesh, toSelectedBones=True, maximumInfluences=6, obeyMaxInfluences=False)
+        cases = (({}, 4), ({"mi": 2}, 2), ({"maxInfluences": 5}, 5))
+        targets = [cmds.duplicate(mesh, name=self.name("bake#"))[0] for _ in cases]
+        cmds.deltaMush(mesh, name=self.name("mush"))
+        for (kwargs, expected), target in zip(cases, targets):
+            with self.subTest(kwargs=kwargs):
+                skin = mlib.bakeDeformer(mesh, joints[0], target, **kwargs)
+                self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".maxInfluences"), expected)
+                self.assertEqual(cmds.skinCluster(skin.getName(full=True), query=True, maximumInfluences=True), expected)
+
     def test_errors(self):
         """引数で受けるフラグ・query・maxInfluences の不正は例外。"""
         self.skinned()

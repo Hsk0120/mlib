@@ -131,6 +131,51 @@ class AnimationSnapshotTest(_AnimCase):
         cmds.currentTime(12)
         self.assertAlmostEqual(cmds.getAttr(self.a + ".tx"), cmds.getAttr(self.a + ".tx", time=12))
 
+    def test_first_key_with_unlocked_tangents_round_trips(self):
+        """先頭のキーの接線のロックを外して左右を違う角度・ウェイトにしても、適用で同じ接線に戻る。"""
+        node = cmds.createNode("transform", name=self.name("firstKey"))
+        for frame, value in ((1, 0), (10, 5), (20, 0)):
+            cmds.setKeyframe(node + ".tx", time=frame, value=value)
+        curve = self.curve(node + ".tx")
+        cmds.keyTangent(curve, edit=True, weightedTangents=True)
+        cmds.keyTangent(curve, edit=True, index=(0, 0), lock=False, weightLock=False)
+        cmds.keyTangent(curve, edit=True, index=(0, 0), inTangentType="fixed", outTangentType="fixed")
+        cmds.keyTangent(curve, edit=True, index=(0, 0), outAngle=40, outWeight=3, inAngle=-10, inWeight=2)
+        expected = _read_curve(curve)
+        self.assertFalse(expected["keys"][0]["lock"])
+        snap = AnimationSnapshot.capture(node)
+        cmds.cutKey(node, clear=True)
+        snap.apply()
+        restored = self.curve(node + ".tx")
+        self.assertCurveData(_read_curve(restored), expected)
+        angles = cmds.keyTangent(restored, query=True, index=(0, 0), inAngle=True, outAngle=True, inWeight=True, outWeight=True)
+        self.assertSequenceAlmostEqual(angles, (-10.0, 40.0, 2.0, 3.0), places=4)
+
+    def test_curve_through_unit_conversion_is_captured(self):
+        """角度のアトリビュートへ単位変換ノードを挟んでつながるanimCurveTUも、そのアトリビュートのカーブとして取得する。"""
+        node = cmds.createNode("transform", name=self.name("converted"))
+        curve = cmds.createNode("animCurveTU", name=self.name("unitless"))
+        cmds.setKeyframe(curve, time=1, value=1)
+        cmds.setKeyframe(curve, time=5, value=2)
+        cmds.connectAttr(curve + ".output", node + ".rotateX")
+        self.assertEqual(cmds.nodeType(cmds.listConnections(node + ".rotateX", source=True, destination=False)[0]), "unitConversion")
+        curves = AnimationSnapshot.capture(node).toData()["curves"]
+        self.assertEqual([entry["plug"]["attr"] for entry in curves], ["rotateX"])
+        self.assertEqual(curves[0]["curve"]["curveType"], "animCurveTU")
+        self.assertEqual([key["value"] for key in curves[0]["curve"]["keys"]], [1.0, 2.0])
+
+    def test_curve_driven_by_the_node_is_not_captured(self):
+        """ノードの出力を入力に受けるカーブ(このノードを動かさないカーブ)は、そのノードのカーブとして取得しない。"""
+        driver = cmds.createNode("transform", name=self.name("outputOnly"))
+        driven = cmds.createNode("transform", name=self.name("drivenByCurve"))
+        curve = cmds.createNode("animCurveTL", name=self.name("fedCurve"))
+        cmds.setKeyframe(curve, time=1, value=1)
+        cmds.setKeyframe(curve, time=5, value=2)
+        cmds.connectAttr(driver + ".translateX", curve + ".input")
+        cmds.connectAttr(curve + ".output", driven + ".translateY")
+        self.assertEqual(AnimationSnapshot.capture(driver).toData()["curves"], [])
+        self.assertEqual([entry["plug"]["attr"] for entry in AnimationSnapshot.capture(driven).toData()["curves"]], ["translateY"])
+
     def test_fast_matches_and_leaves_no_undo(self):
         expected = self.original("tx")
         snap = AnimationSnapshot.capture(self.a)

@@ -6,6 +6,7 @@
 import logging
 import sys
 import unittest
+from unittest import mock
 
 import maya.cmds as cmds
 
@@ -53,6 +54,13 @@ class ModuleTest(unittest.TestCase):
         self.assertEqual(len({module_class("a"), module_class("a")}), 1)
         self.assertEqual(str(module_class("a")), "a")
         self.assertIn("a", repr(module_class("a")))
+
+    def test_equality_with_other_types_defers_to_the_other_side(self):
+        """Module以外との==はNotImplementedを返し、相手の__eq__(mock.ANYなど)に判定を任せる。"""
+        module = mlib.Module("a")
+        self.assertIs(module.__eq__("a"), NotImplemented)
+        self.assertTrue(module == mock.ANY)
+        self.assertFalse(module != mock.ANY)
 
 
 class FakeCmds:

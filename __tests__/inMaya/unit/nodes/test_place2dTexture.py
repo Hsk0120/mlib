@@ -103,6 +103,16 @@ class TextureNodesTest(_GeometryCase):
             with self.assertRaisesRegex(TypeError, "textureはTexture2dで指定してください"):
                 second.connectTexture(bad)
 
+    def test_place2d_connect_texture_keeps_other_input_by_default(self):
+        """forceを省くと、別の配置ノードからの入力は置き換えずRuntimeErrorで、元の接続が残る。"""
+        texture = mlib.createNode("checker")
+        first = mlib.createNode("place2dTexture")
+        first.connectTexture(texture)
+        second = mlib.createNode("place2dTexture")
+        with self.assertRaises(RuntimeError):
+            second.connectTexture(texture)
+        self.assertEqual(_uv_source(texture), [first.getName()])
+
 
 if __name__ == "__main__":
     unittest.main()

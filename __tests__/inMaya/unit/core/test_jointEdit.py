@@ -101,6 +101,17 @@ class ReparentTest(NamespaceCase):
         with self.assertRaises(NotImplementedError):
             jointEdit.reparent_plan(self.joint, mlib.getNode(self.other))
 
+    def test_outgoing_inverse_scale_connection_is_not_an_input(self):
+        """inverseScaleから出ていく接続は入力として数えず、ワールド直下のJointも付け替えられる。"""
+        target = self.make("transform", "follower")
+        cmds.connectAttr(self.other + ".inverseScale", target + ".scale")
+        other = mlib.getNode(self.other)
+        before = cmds.xform(self.other, query=True, worldSpace=True, matrix=True)
+        jointEdit.reparent(jointEdit.reparent_plan(other, mlib.getNode(self.root)))
+        self.assertEqual(cmds.listRelatives(self.other, parent=True, fullPath=True), cmds.ls(self.root, long=True))
+        self.assertEqual(cmds.listConnections(self.other + ".inverseScale", source=False, destination=True, plugs=True), cmds.ls(target + ".scale"))
+        self.assertSequenceAlmostEqual(cmds.xform(self.other, query=True, worldSpace=True, matrix=True), before, places=6)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

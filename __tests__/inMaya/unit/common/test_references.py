@@ -61,6 +61,16 @@ class CreateReferenceTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             createReference("")
 
+    def test_reference_is_made_without_prompt(self):
+        """確認ダイアログで止めないよう、cmds.file へ reference=True・prompt=False を渡す。"""
+        previous = cmds.file(query=True, prompt=True)
+        self.addCleanup(cmds.file, prompt=previous)
+        with mock.patch.object(references.cmds, "file", wraps=cmds.file) as spy:
+            self.created = createReference(self.ref_path, namespace="mlibCreateReferenceNoPrompt")
+        calls = [call for call in spy.call_args_list if call[1].get("reference")]
+        self.assertEqual(len(calls), 1)
+        self.assertIs(calls[0][1]["prompt"], False)
+
 
 #: 一時ファイルを作る場所(``__tests__/_output/temp``。Git の対象外)。
 _TEMP_ROOT = Path(__file__).resolve().parents[3] / "_output" / "temp"

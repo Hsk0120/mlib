@@ -80,6 +80,17 @@ class CurveFitMayaSpecTest(unittest.TestCase):
             self.assertAlmostEqual(controls[0][axis], points[0][axis], places=4)
             self.assertAlmostEqual(controls[-1][axis], points[-1][axis], places=4)
 
+    def test_few_points_place_controls_evenly_on_the_line(self):
+        """点がCVより少なく決まらないCVは、端の点を結ぶ直線上へ等間隔に並ぶ(正則化の寄せ先)。"""
+        start, end = (1.0, -2.0, 3.0), (11.0, 3.0, -2.0)
+        for count in (5, 8):
+            with self.subTest(count=count):
+                controls = CurveFit.fit([start, end], count)
+                for index, control in enumerate(controls):
+                    expected = [a + (b - a) * index / (count - 1) for a, b in zip(start, end)]
+                    for axis in range(3):
+                        self.assertAlmostEqual(control[axis], expected[axis], places=3)
+
     def test_invalid_input(self):
         """countやparameterの範囲外、点の不足・次元違い・有限でない値・長さ0の並びはValueError。"""
         for count, parameter in ((3, 0.5), (4, -0.1), (4, 1.1)):

@@ -2,6 +2,7 @@
 
 import unittest
 from dataclasses import FrozenInstanceError
+from unittest import mock
 from unittest.mock import patch
 
 from mlib.common import Module, Plugin, PluginPackage, Version
@@ -34,6 +35,12 @@ class VersionTest(unittest.TestCase):
         self.assertNotEqual(Version("3"), (3,))
         with self.assertRaises(ValueError):
             Version("3").isAtLeast("bad")
+
+    def test_equality_with_other_types_defers_to_the_other_side(self):
+        """Version以外との==はNotImplementedを返し、相手の__eq__(mock.ANYなど)に判定を任せる。"""
+        self.assertIs(Version("3").__eq__("3"), NotImplemented)
+        self.assertTrue(Version("3") == mock.ANY)
+        self.assertFalse(Version("3") != mock.ANY)
 
     def test_ordering_with_other_types_and_repr(self):
         """Version以外との大小比較はTypeError、reprは作るときの書き方の文字列になる。"""

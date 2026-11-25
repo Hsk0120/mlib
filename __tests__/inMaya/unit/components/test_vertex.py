@@ -14,6 +14,9 @@ import mlib
 
 mlib.reload()
 
+from support.namespaceCase import NamespaceCase
+
+from mlib.components import Vertex
 
 mlib_cmds = importlib.import_module("mlib.cmds")
 
@@ -113,6 +116,25 @@ class ShapesConstraintsTest(unittest.TestCase):
         for collection in (mlib.Edges, mlib.Faces, mlib.UVs):
             with self.assertRaises(TypeError):
                 collection(curve)
+
+
+class VertexSetColorTest(NamespaceCase):
+    """単数のVertexのsetColorは、既定でUndoに載る通常の書き込みにする。"""
+
+    PREFIX = "mlibVertexColor_"
+
+    def test_default_set_color_is_undoable(self):
+        """fastを省くとヒストリのあるメッシュにも書け、cmdsと同じ色になり、Undo 1回で戻る。"""
+        transform = cmds.polyCube(name=self.name("cube"))[0]
+        mesh = mlib.getNode(cmds.listRelatives(transform, shapes=True, fullPath=True)[0])
+        vertex = Vertex(mesh, 2)
+        self.assertIsNone(vertex.getColor())
+        self.flushUndo()
+        self.assertIsNone(vertex.setColor((0.25, 0.5, 0.75)))
+        self.assertSequenceAlmostEqual(cmds.polyColorPerVertex(vertex.getName(full=True), query=True, rgb=True), (0.25, 0.5, 0.75), places=5)
+        self.assertUndoesInOneStep(
+            lambda: self.assertIsNone(vertex.getColor()), lambda: self.assertSequenceAlmostEqual(vertex.getColor(), (0.25, 0.5, 0.75, 1.0), places=5)
+        )
 
 
 if __name__ == "__main__":

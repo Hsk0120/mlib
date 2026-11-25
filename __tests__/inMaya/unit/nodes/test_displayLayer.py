@@ -127,6 +127,28 @@ class ConsolidatedSetsLayersTests(unittest.TestCase):
                 default.getMembers()
                 second.getMembers()
 
+    def test_default_layer_members_with_same_short_names_without_display_layer_api(self):
+        """MFnDisplayLayerが無い版の経路でも、短い名前が重なるdefaultLayerのメンバーをフルパスで区別して返す。"""
+
+        class _WithoutDisplayLayerApi:
+            """MFnDisplayLayerだけを持たないom2の代わり。"""
+
+            def __getattr__(self, name):
+                if name == "MFnDisplayLayer":
+                    raise AttributeError(name)
+                return getattr(om2, name)
+
+        children = []
+        for group_name in ("layerGroupA", "layerGroupB"):
+            group = cmds.createNode("transform", name=group_name)
+            children.append(cmds.ls(cmds.createNode("transform", name="layerTwin", parent=group), long=True)[0])
+        default = mlib.DisplayLayer("defaultLayer")
+        with mock.patch.object(display_layer_module, "om2", _WithoutDisplayLayerApi()):
+            members = [node.getName(full=True) for node in default.getMembers()]
+        for child in children:
+            self.assertIn(child, members)
+        self.assertEqual(sorted(members), sorted(cmds.editDisplayLayerMembers("defaultLayer", query=True, fullNames=True)))
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

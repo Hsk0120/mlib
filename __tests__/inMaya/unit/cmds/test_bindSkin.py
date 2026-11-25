@@ -57,6 +57,16 @@ class BindSkinTest(NamespaceCase):
             path.write_text(json.dumps(content), encoding="utf-8")
         return path, content
 
+    def test_binds_only_given_joints_by_default(self):
+        """既定はtoSelectedBones=True(指定したjointだけ)で、toSelectedBones・tsbを渡せばその値を使う(子孫もバインド)。"""
+        root = cmds.ls(self.joints[0], long=True)[0]
+        skin = mlib.bindSkin([root], self.cube("onlyRoot"))
+        self.assertEqual(cmds.ls(cmds.skinCluster(skin.getName(full=True), query=True, influence=True), long=True), [root])
+        for flags in ({"toSelectedBones": False}, {"tsb": False}):
+            with self.subTest(flags=flags):
+                skin = mlib.bindSkin([root], self.cube("hierarchy"), **flags)
+                self.assertEqual(len(cmds.skinCluster(skin.getName(full=True), query=True, influence=True)), 3)
+
     def test_short_flag_and_undo_once(self):
         """miはmaximumInfluencesと同じ値でバインドし、Undo 1回でskinClusterが消える。"""
         cube = self.cube()

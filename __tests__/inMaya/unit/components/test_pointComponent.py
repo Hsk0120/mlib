@@ -967,6 +967,17 @@ class PointComponentTest(_CaseShapeEditing):
             ),
         )
 
+    def test_small_scale_far_from_origin_is_not_singular(self):
+        """小さなスケールで原点から遠いShapeも、移動量を特異かの判定に含めずワールド空間で書き込める。"""
+        shape = self.cube("far")
+        transform = shape.getTransform().getName(full=True)
+        cmds.xform(transform, translation=(1000, 1000, 1000), rotation=(0, 0, 0), scale=(0.01, 0.01, 0.01))
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                shape.getVertices(0).setPosition((1000.5, 1000.25, 999.75), worldSpace=True, fast=fast)
+                position = cmds.xform(shape.getName(full=True) + ".vtx[0]", query=True, worldSpace=True, translation=True)
+                self.assertPointsAlmostEqual([position], [(1000.5, 1000.25, 999.75)], places=4)
+
 
 class PointComponentsTest(_CaseShapeEditing):
     """頂点・CVの集まりの書込み。"""

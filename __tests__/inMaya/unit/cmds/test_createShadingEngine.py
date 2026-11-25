@@ -39,6 +39,21 @@ class CreateShadingEngineTest(NamespaceCase):
         self.assertEqual(cmds.ls(selection=True), [])
         self.assertUndoesInOneStep(lambda: self.assertFalse(cmds.objExists(name)), lambda: self.assertTrue(cmds.objExists(name)))
 
+    def test_selection_is_not_added_and_no_shader_is_connected(self):
+        """選択があっても空のセットとして作り(empty)、surfaceShaderを自動でつながない(noSurfaceShader)。shaderの有無で同じ。"""
+        cube = cmds.polyCube(name=self.name("selectedCube"), constructionHistory=False)[0]
+        shader = mlib.createNode("lambert", name=self.name("selMat"), asShader=True, skipSelect=True)
+        for kwargs in ({"name": self.name("plainSG")}, {"shader": shader, "name": self.name("shadedSG")}):
+            with self.subTest(kwargs=sorted(kwargs)):
+                cmds.select(cube, replace=True)
+                engine = mlib.createShadingEngine(**kwargs)
+                name = engine.getName(full=True)
+                self.assertEqual(cmds.nodeType(name), "shadingEngine")
+                self.assertEqual(cmds.sets(name, query=True) or [], [])
+                expected = [shader.getName()] if "shader" in kwargs else []
+                self.assertEqual(cmds.listConnections(name + ".surfaceShader", source=True, destination=False) or [], expected)
+                self.assertEqual(cmds.ls(selection=True), [cube])
+
     def test_errors(self):
         """名前の指定と見つからないshaderを、作る前に拒否する。"""
         before = set(cmds.ls(type="shadingEngine"))

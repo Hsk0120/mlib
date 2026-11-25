@@ -67,6 +67,18 @@ class CreateMotionTrailTest(NamespaceCase):
         self.assertTrue(cmds.objExists(handle.getName(full=True)))
         self.assertEqual(len(set(cmds.ls(type="motionTrail")) - before), 1)
 
+    def test_default_range_is_playback_range(self):
+        """startTime・endTimeを省くと、再生範囲(playbackOptions の minTime・maxTime)で作る。"""
+        node = self.animated()
+        previous = (cmds.playbackOptions(query=True, minTime=True), cmds.playbackOptions(query=True, maxTime=True))
+        self.addCleanup(cmds.playbackOptions, minTime=previous[0], maxTime=previous[1])
+        cmds.playbackOptions(minTime=3, maxTime=8)
+        before = set(cmds.ls(type="motionTrail"))
+        mlib.createMotionTrail(node, name=self.name("ranged"))
+        trails = sorted(set(cmds.ls(type="motionTrail")) - before)
+        self.assertEqual(len(trails), 1)
+        self.assertEqual((cmds.getAttr(trails[0] + ".startTime"), cmds.getAttr(trails[0] + ".endTime")), (3.0, 8.0))
+
     def test_deleted_node_is_refused(self):
         node = self.animated()
         cmds.delete(node.getName(full=True))

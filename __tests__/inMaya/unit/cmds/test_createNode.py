@@ -379,6 +379,28 @@ class UndoTest(_CreateCase):
                     self.assertTrue(cmds.objExists(parent_name))
                     cmds.delete(parent_name)
 
+    def test_joint_under_joint_is_one_undo_step(self):
+        """jointの下へ作ると、作成とinverseScaleの接続を1つのチャンク(mlibCreateNode)にまとめ、Undo 1回で両方を戻す。"""
+        parent = mlib.createNode("joint", name=self.name("parentJoint"), skipSelect=True)
+        cmds.flushUndo()
+        child = mlib.createNode("joint", name=self.name("childJoint"), parent=parent, skipSelect=True)
+        name = child.getName(full=True)
+        self.assertEqual(cmds.listConnections(name + ".inverseScale", source=True, destination=False, plugs=True), [parent.getName() + ".scale"])
+        self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibCreateNode")
+        cmds.undo()
+        self.assertFalse(cmds.objExists(name))
+        self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
+        cmds.redo()
+        self.assertTrue(cmds.objExists(name))
+        self.assertEqual(cmds.listConnections(name + ".inverseScale", source=True, destination=False, plugs=True), [parent.getName() + ".scale"])
+
+    def test_without_parent_opens_no_chunk(self):
+        """親を指定しない作成は1回のcreateNodeなので、Undoチャンク(mlibCreateNode)を開かない。"""
+        cmds.flushUndo()
+        mlib.createNode("transform", name=self.name("single"), skipSelect=True)
+        self.assertNotEqual(cmds.undoInfo(query=True, undoName=True), "mlibCreateNode")
+        self.assertFalse(cmds.undoInfo(query=True, undoQueueEmpty=True))
+
     def test_fast_is_not_recorded(self):
         """fast=True は Undo キューに記録せず、直前の記録もそのまま。"""
         cmds.flushUndo()
@@ -485,6 +507,13 @@ class ContainerBuilderTest(_CreateCase):
                 single = create(self.name(prefix + "Single"), member_a)
                 self.assertEqual(single.getMembers(), [member_a])
                 single.removeMembers(member_a)
+
+    def test_dag_defaults_to_false(self):
+        """dagを省くと、cmds.container と同じ container(DAGでない)を作る。"""
+        node = mlib.createContainer(self.name("defaultKind"))
+        self.assertIs(type(node), Container)
+        self.assertEqual(cmds.nodeType(node.getName(full=True)), "container")
+        self.assertEqual(cmds.nodeType(cmds.container(name=self.name("cmdsKind"))), "container")
 
     def test_dag_flag(self):
         """dag の既定の名前・Undoチャンク名・Undo 1回。dag が bool でなければ TypeError でノードを作らない。"""

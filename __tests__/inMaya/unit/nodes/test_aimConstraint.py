@@ -117,6 +117,33 @@ class AimConstraintTest(unittest.TestCase):
         self.assertEqual(destination.getNode().getName(full=True), cmds.ls(self.driven, long=True)[0])
         self.assertEqual(cmds.listConnections(name + ".constraintRotate", source=False, plugs=True), [self.driven + ".rotate"])
 
+    def test_without_check_writes_until_maya_refuses(self):
+        """check=False(既定)では書く前の検査をせず、ロックされた成分の前までを書いてからMayaの拒否を例外にする。"""
+        self.aim.setRestRotate((0, 0, 0))
+        name = self.aim.getName(full=True)
+        cmds.setAttr(name + ".restRotateZ", lock=True)
+        try:
+            with self.assertRaises(RuntimeError):
+                self.aim.setRestRotate((1, 2, 3))
+            self.assertAlmostEqual(cmds.getAttr(name + ".restRotateX"), 1.0)
+            self.assertAlmostEqual(cmds.getAttr(name + ".restRotateY"), 2.0)
+            self.assertAlmostEqual(cmds.getAttr(name + ".restRotateZ"), 0.0)
+        finally:
+            cmds.setAttr(name + ".restRotateZ", lock=False)
+
+    def test_check_rejects_input_connection_before_writing(self):
+        """check=Trueは、入力の接続がある成分を書く前に見つけて何も書かずRuntimeError。問題が無ければ書き込む。"""
+        name = self.aim.getName(full=True)
+        self.aim.setRestRotate((0, 0, 0))
+        self.assertIsNone(self.aim.setRestRotate((1, 2, 3), check=True))
+        self.assertEqual([round(value, 6) for value in cmds.getAttr(name + ".restRotate")[0]], [1.0, 2.0, 3.0])
+        self.aim.setRestRotate((0, 0, 0))
+        source = cmds.createNode("transform")
+        cmds.connectAttr(source + ".rotateZ", name + ".restRotateZ")
+        with self.assertRaises(RuntimeError):
+            self.aim.setRestRotate((1, 2, 3), check=True)
+        self.assertEqual([cmds.getAttr(name + ".restRotateX"), cmds.getAttr(name + ".restRotateY")], [0.0, 0.0])
+
 
 if __name__ == "__main__":
     unittest.main()

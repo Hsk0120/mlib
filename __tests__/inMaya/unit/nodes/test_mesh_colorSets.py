@@ -159,6 +159,26 @@ class MeshColorSetTest(_Case):
             shape, (lambda node: node.getSetNames(color=True), lambda node: node.getShells(uv=True), lambda node: node.createSet("z", color=True))
         )
 
+    def test_uv_shells_are_ordered_by_smallest_uv(self):
+        """UVシェルは、それぞれのいちばん小さいUV番号の順に並ぶ(UV番号が飛び飛びのシェルでも)。"""
+        transform = cmds.createNode("transform", name=self.name("uvOrder#"))
+        selection = om2.MSelectionList()
+        selection.add(transform)
+        points = [om2.MPoint(x, 0, z) for x, z in ((0, 0), (1, 0), (1, 1), (0, 1), (3, 0), (4, 0), (4, 1), (3, 1))]
+        fn = om2.MFnMesh()
+        fn.create(points, [4, 4], list(range(8)), parent=selection.getDependNode(0))
+        # 1つ目の面はUV 0・5・6・7、2つ目の面はUV 1〜4 を使う。UVの位置は面ごとに離す。
+        fn.setUVs([0.0, 0.5, 0.6, 0.6, 0.5, 0.1, 0.1, 0.0], [0.0, 0.0, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1])
+        fn.assignUVs([4, 4], [0, 5, 6, 7, 1, 2, 3, 4])
+        shape = mlib.getNode(om2.MDagPath.getAPathTo(fn.object()).fullPathName())
+        mesh_fn = om2.MFnMesh(shape.mpath())
+        count, ids = mesh_fn.getUvShellsIds(mesh_fn.currentUVSetName())
+        self.assertEqual(count, 2)
+        self.assertEqual(shape.getShells(uv=True), [[0, 5, 6, 7], [1, 2, 3, 4]])
+        self.assertEqual(
+            sorted(map(tuple, shape.getShells(uv=True))), sorted(tuple(i for i, value in enumerate(ids) if value == shell) for shell in range(count))
+        )
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])
