@@ -81,31 +81,19 @@ class ContainerErrorTest(_ContainerCase):
         self.assertFalse(cmds.ls(self.ns + ":*", type="unknown"))
         self.assertFalse(self.owner.getMembers())
 
-    @unittest.expectedFailure
     def test_create_node_rejects_non_string_type(self):
-        """typeが文字列でなければ ValueError(docstring)。
-
-        findings2 nodes-geometry「1. Container.createNode に文字列でない type」: name を省くと名前を作る文字列の連結で TypeError になる。
-        """
+        """typeが文字列でなければ ValueError(docstring)。"""
         with self.assertRaises(ValueError):
             self.owner.createNode(3)
 
-    @unittest.expectedFailure
     def test_invalid_container_query_raises_runtime_error(self):
-        """削除済みのcontainerの getExternalConnections は RuntimeError(docstring)。
-
-        findings2 nodes-geometry「2. 削除済みのcontainerの getExternalConnections・publishConnections」: ValueError になる。
-        """
+        """削除済みのcontainerの getExternalConnections は RuntimeError(docstring)。"""
         self.owner.removeContainer()
         with self.assertRaises(RuntimeError):
             self.owner.getExternalConnections()
 
-    @unittest.expectedFailure
     def test_invalid_container_publish_raises_runtime_error(self):
-        """削除済みのcontainerの publishConnections は RuntimeError(docstring)。
-
-        findings2 nodes-geometry「2. 削除済みのcontainerの getExternalConnections・publishConnections」: ValueError になる。
-        """
+        """削除済みのcontainerの publishConnections は RuntimeError(docstring)。"""
         self.owner.removeContainer()
         with self.assertRaises(RuntimeError):
             self.owner.publishConnections()

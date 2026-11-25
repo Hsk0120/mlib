@@ -2,6 +2,7 @@
 """Mayaの依存ノードとDAGノードを扱う基底クラス。"""
 
 import inspect
+import numbers
 import re
 from operator import methodcaller
 from typing import Optional
@@ -1377,8 +1378,8 @@ class Node(Object):
 
         Raises:
             TypeError: ロング名と短縮名を同時に指定した場合、fast・skipExistingがbool以外の場合、
-                unitが文字列・None以外の場合、またはskipExisting=Trueで、既存のアトリビュートの型や
-                マルチアトリビュートかどうかが指定と違う場合。
+                unitが文字列・None以外の場合、単位のある型の既定値・範囲が数値でも単位付きの値でもない場合、
+                またはskipExisting=Trueで、既存のアトリビュートの型やマルチアトリビュートかどうかが指定と違う場合。
             ValueError: 名前を省いた場合、型の接頭辞が不正な場合、解決した結果attributeTypeとdataTypeを
                 両方指定することになった場合、query/edit=Trueの場合、unitが対応していない単位の名前の場合、
                 またはenumのdefaultValueのフィールド名がenumNameに無い場合。
@@ -2558,7 +2559,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getInstanceIndex(self) -> list[int]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getInstanceIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getParent(self, step: int = ..., *, instances: bool = ..., indirect: bool = ...) -> list[Transform | Nodes[Transform] | None]:
+    def getParent(self, step: int = ..., *, all: bool = ..., instances: bool = ..., indirect: bool = ...) -> list[Transform | Nodes[Transform] | None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> list[Nodes[DagNode]]:

@@ -34,6 +34,7 @@ class Container(Node):
         Raises:
             RuntimeError: コンテナが無効、またはMayaが照会を拒否した場合。
         """
+        self._require_valid("外部への接続の照会")
         return Plugs(cmds.container(self._full_name(), query=True, connectionList=True) or [])
 
     def publishConnections(self):
@@ -46,8 +47,9 @@ class Container(Node):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: コンテナのロック等でMayaが公開を拒否した場合。
+            RuntimeError: コンテナが無効な場合、またはコンテナのロック等でMayaが公開を拒否した場合。
         """
+        self._require_valid("接続の公開")
         cmds.container(self._full_name(), edit=True, publishConnections=True)
 
     def getMembers(self):
@@ -120,6 +122,8 @@ class Container(Node):
             ValueError: typeが空文字列、または文字列でない場合。
             RuntimeError: Mayaが知らないtypeの場合。unknownノードは残さない。
         """
+        if not isinstance(type, str) or not type:
+            raise ValueError("typeは空でない文字列で指定してください")
         node = Node._create_node(type, {"name": name or self.getName() + "_" + type, "skipSelect": True})
         self.addMembers(node)
         return node

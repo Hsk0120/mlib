@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import maya.cmds as cmds
 from ..decorator import preservedSelection
-from .references import _require_scene_file, createReference
+from .references import _file_without_prompt, _require_scene_file, createReference
 from typing import Iterable
 from mlib.nodes.node import Node
 from mlib.nodes.node import Nodes
@@ -23,6 +23,12 @@ class Scene(type(Path())):
 
     パスから作った値(``scene.parent``・``scene.with_suffix(".mb")``・``scene / "x"``)も ``Scene`` になる。
     ``str(scene)`` はそのままMayaのコマンドへ渡せる。
+
+    Note:
+        ファイルの操作(:meth:`newFile`・:meth:`openFile`・:meth:`save`・:meth:`importFile`・:meth:`reference`・
+        :meth:`export`)は、``cmds.file`` と同じくUndoに記録されない(Undoで取り消せない。mlibもチャンクを足さない)。
+        :meth:`openFile`・:meth:`importFile`・:meth:`reference` は確認のダイアログを出さず、
+        Mayaの ``file -prompt`` の設定は呼ぶ前の値へ戻す。
 
     Examples:
         >>> scene = mlib.Scene.getCurrent()

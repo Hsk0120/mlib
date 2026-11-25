@@ -38,6 +38,7 @@ _LIMIT_TYPES: dict
 _ROTATE_ORDER_NAMES: tuple
 _transform_attributes: dict
 _NEAR_ZERO_AXIS: float
+_SAME_ROTATION_TOLERANCE: float
 _CURVE_SHAPES_FORMAT: str
 _CURVE_SHAPES_VERSION: int
 _CURVE_FORM_NAMES: dict
@@ -79,6 +80,21 @@ def _match_scale_signs(quaternion: om2.MQuaternion, scale: Iterable[float], shea
     """
     ...
 
+def _rotation_quaternion(transformation: om2.MTransformationMatrix, matrix: om2.MMatrix) -> om2.MQuaternion:
+    """マトリクスの回転の部分を、誤差の少ないクォータニオンで求める。
+
+    ``MTransformationMatrix.rotation(asQuaternion=True)`` は、中間の軸が±90度に近い(ジンバルの近くの)回転で
+    1e-6ほどの誤差を持つ。分解したスケールとシアーを取り除いた回転のマトリクスから、``MQuaternion.setValue`` で求め直す。
+
+    Args:
+        transformation (om2.MTransformationMatrix): matrixを分解したもの。スケールとシアーを使う。
+        matrix (om2.MMatrix): 分解する元のマトリクス。
+
+    Returns:
+        om2.MQuaternion: 回転の部分。
+    """
+    ...
+
 def _closest_euler(quaternion: om2.MQuaternion, reference: om2.MEulerRotation) -> om2.MEulerRotation:
     """回転をreferenceの回転順序で表し、referenceにいちばん近い同じ回転の解を返す。
 
@@ -89,6 +105,8 @@ def _closest_euler(quaternion: om2.MQuaternion, reference: om2.MEulerRotation) -
     Returns:
         om2.MEulerRotation: referenceと同じ回転順序で、referenceにいちばん近い解。
             ``MEulerRotation.closestSolution`` で求め、360度の周期と、中間の軸を反転した別の解も考えに入れる。
+            referenceそのものが同じ回転(クォータニオンの成分の差が1e-10以下)なら、referenceの値をそのまま返す
+            (ジンバルの近くでは、クォータニオンからの分解の誤差で、referenceから離れた別の解を選ぶことがあるため)。
     """
     ...
 
@@ -791,7 +809,7 @@ class Transform(DagNode):
 
         Raises:
             TypeError: targetがTransformではない場合。
-            RuntimeError: ノードが無効な場合、またはMayaが変更を拒否した場合。
+            RuntimeError: 自身かtargetのノードが無効な場合、またはMayaが変更を拒否した場合。
             DeletedAttributeError: targetに、アトリビュートが削除されたPlug・MPlugを渡した場合
                 (ValueErrorの派生クラス)。
         """
@@ -942,6 +960,8 @@ class Transform(DagNode):
         既定の ``at=2`` は回転ピボットの位置で、MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
         使う基準になる。translateチャンネルの値ではない。translateチャンネルの値は
         ``node.t.get()`` (または ``node.getPlug("translate").get()``)で取得する。
+        ワールド空間の値は ``cmds.xform(query=True, worldSpace=True, rotatePivot=True)`` と同じ。Jointでは、Mayaと同じく回転ピボットは
+        オブジェクト空間の原点として扱われ、``at=2`` はマトリクスの原点(``at=4``)と同じ位置になる。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseなら親側の空間で表した位置。
@@ -1193,6 +1213,7 @@ class Transform(DagNode):
 
         Args:
             value (Iterable[float]): XY・XZ・YZのシアーの3つの値(単位なし)。relative=Trueなら成分ごとの倍率。
+                ``fractions.Fraction`` などfloatでない実数も、floatにして書く。
             worldSpace (bool): Trueならワールド空間、Falseならローカル空間。relative=Trueとは同時に指定できない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             relative (bool): Trueなら、今のshearチャンネルにvalueを掛ける。既定はFalse。
@@ -1559,7 +1580,8 @@ class Transform(DagNode):
             parent (Node | None): 新しい親。Noneならワールド。
             relative (bool): Trueなら、ローカルの変換を保つ。
             add (bool): Trueなら、今の親に加える。Trueには対応していない。
-            validate_only (bool): Trueなら、すべてを先に確かめるためだけに使い、DAGは変えない。
+            validate_only (bool): Trueなら、すべてを先に確かめるためだけに使い、DAGは変えない
+                (mlibの中では使わないが、複数のJointの親をまとめて変える利用側が、変える前に全部を確かめるために使う)。
             check (bool): Trueなら、親を変える前に、translate・rotate・scale・shearへ書き込めるかを確かめる。
                 Falseでは確かめない(MFnTransformは、ロックや入力の接続がある成分を例外にせず飛ばす)。
 
@@ -1629,6 +1651,7 @@ class Transform(DagNode):
 
         ``getPlug(name).get()`` と同じ読取関数(距離cm・角度rad)をMPlugへ直接適用する。
         translate・rotate・scale・shearとピボットは、MFnTransformでまとめて読む。
+        ただしJointの ``rotatePivot`` は、MFnTransformが0を返すため、アトリビュートの値ではなく0になる。
         コンパウンドアトリビュートは子の値のtuple、単一の値はその値を返す。計算の途中で何度も読む
         translate・ピボット等のために使い、値はキャッシュしない。ノードが無効な場合と
         読取関数を持たない型は、従来どおり ``getPlug(name).get()`` の結果・例外に委ねる。
@@ -1643,13 +1666,16 @@ class Transform(DagNode):
     def _inverse_scale_values(self):
         """jointの有効なinverseScaleを返す。joint以外では、大きさ1のスケールを返す。"""
         ...
-    def _scale_channel_value(self, value, ws, shear=...):
+    def _scale_channel_value(self, value, ws, shear=...) -> list[float]:
         """ワールドのscale/shear要求を、SSCを除いたチャンネル値へ変換する。
 
         Args:
             value: 変換・設定する入力値。
             ws: Trueはワールド空間、Falseはローカル空間。
             shear: XY/XZ/YZのシアー成分。
+
+        Returns:
+            list[float]: 書き込むチャンネルの値。Fractionなどの実数もfloatにする。
         """
         ...
     def _component_quaternion(self, name: str) -> om2.MQuaternion:

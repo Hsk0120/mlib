@@ -23,7 +23,8 @@ class SelectionSnapshot(Snapshot):
 
     コンポーネントは、頂点・エッジ・フェース・UV・カーブのCVを扱う。
     同じシェイプ・同じ種類のコンポーネントが続いていれば、1つの :class:`ComponentRef` にまとめる。
-    NURBSサーフェスのCVのように、番号1つで表せないコンポーネントは保存しない。
+    NURBSサーフェスのCVのように、番号1つで表せないコンポーネントは保存しない(名前で渡しても、mlibの
+    コンポーネントで渡しても、警告して省く)。
 
     ``apply`` は、保存した項目を選択し直す。
 
@@ -194,7 +195,12 @@ def _capture_item(item):
     from ..nodes.node import Node
 
     if isinstance(item, (Component, Components)):
-        return [ComponentRef.capture(item)]
+        try:
+            return [ComponentRef.capture(item)]
+        except ValueError:
+            # 名前で渡したときと同じく、保存しない種類(曲面のCVなど)は警告して省く。
+            logger.warning("SelectionSnapshot: 対応していないコンポーネント%sを省きました", item)
+            return []
     if isinstance(item, (Node, om2.MObject, om2.MDagPath)):
         return [NodeRef.capture(item)]
     if not isinstance(item, str):

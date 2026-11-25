@@ -277,12 +277,8 @@ class InfluenceRemovalEdgeTest(_SkinCase):
         self.assertEqual(self.raw_rows(), before)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
 
-    @unittest.expectedFailure
     def test_transfer_from_influence_without_weights(self):
-        """ウェイトを持たないインフルエンスからの移送は、何も変えずに終わる(fast と同じ)。
-
-        findings2/nodes-deformer.md の「transferWeights: ウェイトの無い source で RuntimeError」。
-        """
+        """ウェイトを持たないインフルエンスからの移送は、何も変えずに終わる(fast と同じ)。"""
         cmds.select(clear=True)
         extra = cmds.ls(cmds.joint(name=self.name("extra"), position=(9, 9, 9)), long=True)[0]
         cmds.select(clear=True)

@@ -1,5 +1,7 @@
 """アトリビュート名やMPlugから、型に合ったPlugを取得する。"""
 
+import maya.api.OpenMaya as om2
+
 
 def getPlug(value):
     """アトリビュート名やAPIのオブジェクトからプラグを取得する。
@@ -22,6 +24,8 @@ def getPlug(value):
         MissingAttributeError: アトリビュート(またはノード)が存在しない場合(文言は ``アトリビュートが見つかりません: <名前>``)。
             ``mlib.plugs.plug.MissingAttributeError`` は ``AttributeError`` の派生で、
             ``node.getPlug(name)`` と同じ例外。
+        DeletedAttributeError: ``deleteAttr`` で削除したアトリビュートのMPlugを渡した場合
+            (``mlib.getNode`` と同じ例外)。``mlib.plugs.plug.DeletedAttributeError`` は ``ValueError`` の派生。
         RuntimeError: 名前が複数の対象に一致する場合。
 
     Examples:
@@ -30,6 +34,11 @@ def getPlug(value):
         >>> value = translate_x.get()
     """
     # 循環参照の回避: plugs は cmds を参照するため、使う時点で読み込む。
-    from ..plugs.plug import Plug
+    from ..plugs.plug import DeletedAttributeError, Plug
 
+    # ノードが残っていてアトリビュートだけが削除されたMPlugは、mlib.getNodeと同じ例外にする。
+    if isinstance(value, om2.MPlug) and not value.isNull:
+        owner = value.node()
+        if om2.MObjectHandle(owner).isValid() and not Plug._mplug_attribute_exists(value, owner):
+            raise DeletedAttributeError("削除されたアトリビュートのMPlugからはPlugを作成できません")
     return Plug._resolve_input(value)

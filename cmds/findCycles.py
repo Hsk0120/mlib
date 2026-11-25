@@ -31,8 +31,9 @@ def findCycles(nodes=None, *, dag=False, timeLimit=None, firstOnly=False):
     Raises:
         TypeError: nodesの要素が名前・Node・Plugでない場合、dag・firstOnlyがboolでない場合、
             またはtimeLimitが数値・None以外の場合。
-        ValueError: nodesが空の場合、またはtimeLimitが0以下・有限でない場合。
-        RuntimeError: 対象が見つからない場合、またはMayaが調査を拒否した場合。
+        ValueError: nodesが空の場合、nodesに削除済みのNode・Plugがある場合、またはtimeLimitが0以下・有限でない場合。
+        RuntimeError: 名前の対象が見つからない場合(文言は ``ノードが見つかりません: <名前>``)、
+            またはMayaが調査を拒否した場合。
 
     Examples:
         >>> import mlib
@@ -64,7 +65,14 @@ def findCycles(nodes=None, *, dag=False, timeLimit=None, firstOnly=False):
         for item in items:
             if not isinstance(item, (str, Object)):
                 raise TypeError(f"nodesには名前・Node・Plugを指定してください: {type(item).__name__}")
-            names.append(str(item))
+            if isinstance(item, Object):
+                # 削除済みのNode・Plugは、ほかのコマンドと同じくValueErrorにする。
+                names.append(Object._input_name(item))
+                continue
+            # 見つからない名前は、cmds.cycleCheckのValueErrorにせず、ほかのコマンドと同じRuntimeErrorにする。
+            if not item or not cmds.ls(item):
+                raise RuntimeError(f"ノードが見つかりません: {item}")
+            names.append(item)
     paths, current = [], []
     for name in [*(cmds.cycleCheck(*names, **flags) or []), _SEPARATOR]:
         if name != _SEPARATOR:

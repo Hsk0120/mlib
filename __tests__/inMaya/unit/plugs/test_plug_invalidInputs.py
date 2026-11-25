@@ -15,7 +15,7 @@ import mlib
 mlib.reload()
 from support.namespaceCase import NamespaceCase
 
-from mlib.plugs.plug import MissingAttributeError, Plugs
+from mlib.plugs.plug import DeletedAttributeError, MissingAttributeError, Plugs
 
 
 def _mplug(name):
@@ -59,7 +59,6 @@ class InvalidPlugTest(_Case):
             with self.subTest(method=label), self.assertRaises(RuntimeError):
                 call()
 
-    @unittest.expectedFailure  # findings2/plugs-core-cmds.md 1: 削除済みのPlugのevaluateがValueErrorになる。
     def test_evaluate_on_deleted_plug_raises_runtime_error(self):
         with self.assertRaises(RuntimeError):
             self.deleted_plug().evaluate()
@@ -70,9 +69,11 @@ class InvalidPlugTest(_Case):
         mplug = _mplug(self.path + ".zzGone")
         cmds.deleteAttr(self.path + ".zzGone")
         self.assertFalse(cmds.attributeQuery("zzGone", node=self.path, exists=True))
-        # getPlugのdocstringに書いていない例外(findings2/plugs-core-cmds.md 5)。型が決まるまで両方を受ける。
-        with self.assertRaises((RuntimeError, ValueError)):
+        # mlib.getNodeと同じDeletedAttributeError(ValueErrorの派生)。
+        with self.assertRaises(DeletedAttributeError):
             mlib.getPlug(mplug)
+        with self.assertRaises(DeletedAttributeError):
+            mlib.getNode(mplug)
         with self.assertRaises(RuntimeError):
             self.node.getPlug("translateX").isConnected(mplug)
 

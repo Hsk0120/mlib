@@ -105,6 +105,26 @@ def _require_scene_file(path, action="リファレンスする"):
     return scene_path
 
 
+def _file_without_prompt(*args, **kwargs):
+    """``cmds.file`` を確認のダイアログなし(``prompt=False``)で呼び、呼ぶ前のpromptの設定へ戻す。
+
+    Mayaの ``file -prompt`` は一度指定すると以後のすべての ``file`` コマンドに残るため、戻さないと
+    利用者の後の操作(GUIでのリファレンスが見つからないときのダイアログなど)まで出なくなる。
+
+    Args:
+        *args: ``cmds.file`` へ渡す位置引数。
+        **kwargs: ``cmds.file`` へ渡すフラグ。``prompt`` は指定しない。
+
+    Returns:
+        object: ``cmds.file`` の戻り値。
+    """
+    previous = cmds.file(query=True, prompt=True)
+    try:
+        return cmds.file(*args, prompt=False, **kwargs)
+    finally:
+        cmds.file(prompt=bool(previous))
+
+
 def createReference(path, namespace=None):
     """ファイルをリファレンスし、新しく作られたトップレベルのReferenceを返す。
 
@@ -130,6 +150,9 @@ def createReference(path, namespace=None):
     Note:
         fast引数は無い。リファレンスの読み込み(ファイルの読み込み・リファレンスノードと名前空間の作成)は
         ``cmds.file(reference=True)`` でしかできず、OpenMayaに同じことをUndoなしで行う方法が無いため。
+
+        ``cmds.file`` と同じく、Undoに記録されない(Undoで取り消せない。mlibもチャンクを足さない)。
+        確認のダイアログは出さず、Mayaの ``file -prompt`` の設定は呼ぶ前の値へ戻す。
     """
     # commonの初期化時にnodesを読み込まないよう、使用時にReferenceを読み込む。
     from ..nodes.reference import Reference
@@ -139,11 +162,11 @@ def createReference(path, namespace=None):
     scene_path = _require_scene_file(path)
 
     existing = {name for name, _ in _reference_nodes()}
-    # GUIでも確認ダイアログで止めず、読み込めないときは例外にする。
-    kwargs: Dict[str, Any] = {"reference": True, "prompt": False}
+    # GUIでも確認ダイアログで止めず、読み込めないときは例外にする(promptの設定は呼ぶ前の値へ戻す)。
+    kwargs: Dict[str, Any] = {"reference": True}
     if namespace is not None:
         kwargs["namespace"] = namespace
-    cmds.file(str(scene_path), **kwargs)
+    _file_without_prompt(str(scene_path), **kwargs)
 
     created = [Reference(mobject) for name, mobject in _reference_nodes() if name not in existing]
     # 参照先ファイル自身がネストした参照を持つ場合、その子参照ノードも同時に

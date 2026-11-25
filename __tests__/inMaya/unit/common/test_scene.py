@@ -154,6 +154,23 @@ class SceneFileTest(_PreservedSceneCase):
         self.assertIn("mlibSceneImport:mlibSceneChild", names)
         self.assertIsNone(Scene.getCurrent())
 
+    def test_prompt_setting_is_restored(self):
+        """openFile・importFile・referenceの後も、Mayaの file -prompt の設定は呼ぶ前の値のまま残る。"""
+        previous = cmds.file(query=True, prompt=True)
+        self.addCleanup(cmds.file, prompt=previous)
+        for state in (True, False):
+            operations = (
+                ("openFile", lambda: self.source.openFile(force=True)),
+                ("importFile", lambda: self.source.importFile(namespace="mlibScenePrompt")),
+                ("reference", lambda: self.source.reference(namespace="mlibScenePromptRef")),
+            )
+            for label, operation in operations:
+                with self.subTest(state=state, operation=label):
+                    cmds.file(new=True, force=True)
+                    cmds.file(prompt=state)
+                    operation()
+                    self.assertIs(bool(cmds.file(query=True, prompt=True)), state)
+
     def test_import_missing_file_raises(self):
         with self.assertRaises(FileNotFoundError):
             Scene(self.folder / "missing.ma").importFile()

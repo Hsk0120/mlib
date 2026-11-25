@@ -2,6 +2,8 @@
 
 from contextlib import nullcontext
 
+import maya.cmds as cmds
+
 from ..decorator import _edit_context, _merge_flags, _require_bool
 from ..util import _UNSET
 
@@ -63,6 +65,9 @@ def createNode(
     Trueにすると、``cmds.shadingNode`` で作る(Hypershadeで作るのと同じく、``defaultShaderList1`` などの
     既定のリストへつなぐ)。同時にTrueにできるのは1つだけ。``name``・``parent``・``shared``・``skipSelect`` は
     同じ意味で渡し、そのほかのフラグはMayaが受け付けない。fast=Trueとは同時に指定できない。
+    ``asLight=True`` でも、ほかの作り方と同じく、指定した型のノード(ライトのshape)を返す
+    (``cmds.shadingNode`` はtransformの名前を返すが、mlibはshapeを返す)。``name=`` は ``cmds.shadingNode`` と同じく
+    shapeの名前になり、transformは ``getTransform()`` で取得する。
     これらの指定は短縮名を持たない(``cmds.shadingNode`` の ``s`` は ``shared`` の ``s`` と重なるため)。
 
     Args:
@@ -87,7 +92,7 @@ def createNode(
             fast=Trueでは、対応していないフラグを作る前にエラーにする。
 
     Returns:
-        Node: 作ったノードの、実際のnodeTypeに合ったオブジェクト。
+        Node: 作ったノードの、実際のnodeTypeに合ったオブジェクト。shapeの型(``asLight=True`` のライトを含む)ではshape。
 
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、fastがboolでない場合、parentが対応していない型の場合、
@@ -120,11 +125,37 @@ def createNode(
     # 親を指定しない作成は1回のcreateNodeなので、チャンクを開かない(親がjointなら inverseScale の接続もまとめる)。
     chunk = kwargs.get("parent") is not None or kwargs.get("p") is not None
     context = _edit_context("mlibCreateNode", fast)
+    # asLightのcmds.shadingNodeはライトのshapeでなくtransformを返すため、作る前のライトを覚えて作ったshapeを探す。
+    lights_before = set(cmds.ls(type=type, long=True) or []) if classification == "asLight" and isinstance(type, str) and type else None
     with context if chunk or fast else nullcontext():
         # 作成の実体はNodeの内部ヘルパー。nodesはcmdsを参照するため循環importを避けて関数内で読み込む。
         from ..nodes import Node
 
-        return Node._create_node(type, kwargs, fast=fast, classification=classification)
+        node = Node._create_node(type, kwargs, fast=fast, classification=classification)
+    if lights_before is not None:
+        node = _created_light_shape(node, type, lights_before, Node)
+    return node
+
+
+def _created_light_shape(node, node_type, before, node_class):
+    """``cmds.shadingNode(asLight=True)`` が返したtransformから、作ったライトのshapeを求める。
+
+    Args:
+        node (Node): shadingNodeが返した名前のノード(ふつうはライトのtransform)。
+        node_type (str): 作ったライトのノード型名。
+        before (set[str]): 作る前にあった、その型のノードの完全パス。
+        node_class (type): Nodeクラス(循環importを避けるため呼出し側から渡す)。
+
+    Returns:
+        Node: 作ったライトのshape。見つからなければnodeをそのまま返す。
+    """
+    if cmds.nodeType(node.getName(full=True)) == node_type:
+        return node
+    created = [name for name in cmds.ls(type=node_type, long=True) or [] if name not in before]
+    if not created:
+        # shared=Trueで既存のライトを使い回した場合は、返したtransformの下のshapeを使う。
+        created = cmds.listRelatives(node.getName(full=True), shapes=True, fullPath=True, type=node_type) or []
+    return node_class(created[0]) if created else node
 
 
 def _shading_classification(**flags):

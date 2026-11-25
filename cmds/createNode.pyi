@@ -2,6 +2,7 @@
 """Mayaのノードを作り、実際のノード型に合ったオブジェクトを返す(``cmds.createNode`` 相当)。"""
 
 from contextlib import nullcontext
+import maya.cmds as cmds
 from ..decorator import _edit_context, _merge_flags, _require_bool
 from ..util import _UNSET
 from typing import Literal
@@ -295,6 +296,9 @@ def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., pa
     Trueにすると、``cmds.shadingNode`` で作る(Hypershadeで作るのと同じく、``defaultShaderList1`` などの
     既定のリストへつなぐ)。同時にTrueにできるのは1つだけ。``name``・``parent``・``shared``・``skipSelect`` は
     同じ意味で渡し、そのほかのフラグはMayaが受け付けない。fast=Trueとは同時に指定できない。
+    ``asLight=True`` でも、ほかの作り方と同じく、指定した型のノード(ライトのshape)を返す
+    (``cmds.shadingNode`` はtransformの名前を返すが、mlibはshapeを返す)。``name=`` は ``cmds.shadingNode`` と同じく
+    shapeの名前になり、transformは ``getTransform()`` で取得する。
     これらの指定は短縮名を持たない(``cmds.shadingNode`` の ``s`` は ``shared`` の ``s`` と重なるため)。
 
     Args:
@@ -319,7 +323,7 @@ def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., pa
             fast=Trueでは、対応していないフラグを作る前にエラーにする。
 
     Returns:
-        Node: 作ったノードの、実際のnodeTypeに合ったオブジェクト。
+        Node: 作ったノードの、実際のnodeTypeに合ったオブジェクト。shapeの型(``asLight=True`` のライトを含む)ではshape。
 
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、fastがboolでない場合、parentが対応していない型の場合、
@@ -341,6 +345,20 @@ def createNode(type: str, *, fast: bool = ..., name: str = ..., n: str = ..., pa
         >>> shape = mlib.createNode("locator", name="exampleShape")
         >>> transform = shape.getTransform()
         >>> shader = mlib.createNode("blinn", name="exampleMat", asShader=True)
+    """
+    ...
+
+def _created_light_shape(node: Node, node_type: str, before: set[str], node_class: type) -> Node:
+    """``cmds.shadingNode(asLight=True)`` が返したtransformから、作ったライトのshapeを求める。
+
+    Args:
+        node (Node): shadingNodeが返した名前のノード(ふつうはライトのtransform)。
+        node_type (str): 作ったライトのノード型名。
+        before (set[str]): 作る前にあった、その型のノードの完全パス。
+        node_class (type): Nodeクラス(循環importを避けるため呼出し側から渡す)。
+
+    Returns:
+        Node: 作ったライトのshape。見つからなければnodeをそのまま返す。
     """
     ...
 

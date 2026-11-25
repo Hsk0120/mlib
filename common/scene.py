@@ -6,7 +6,7 @@ from pathlib import Path
 import maya.cmds as cmds
 
 from ..decorator import preservedSelection
-from .references import _require_scene_file, createReference
+from .references import _file_without_prompt, _require_scene_file, createReference
 
 # 拡張子とMayaのファイルの形式の対応。保存・書き出しの形式は拡張子で決める。
 _FILE_TYPES = {".ma": "mayaAscii", ".mb": "mayaBinary"}
@@ -21,6 +21,12 @@ class Scene(type(Path())):
 
     パスから作った値(``scene.parent``・``scene.with_suffix(".mb")``・``scene / "x"``)も ``Scene`` になる。
     ``str(scene)`` はそのままMayaのコマンドへ渡せる。
+
+    Note:
+        ファイルの操作(:meth:`newFile`・:meth:`openFile`・:meth:`save`・:meth:`importFile`・:meth:`reference`・
+        :meth:`export`)は、``cmds.file`` と同じくUndoに記録されない(Undoで取り消せない。mlibもチャンクを足さない)。
+        :meth:`openFile`・:meth:`importFile`・:meth:`reference` は確認のダイアログを出さず、
+        Mayaの ``file -prompt`` の設定は呼ぶ前の値へ戻す。
 
     Examples:
         >>> scene = mlib.Scene.getCurrent()
@@ -85,8 +91,8 @@ class Scene(type(Path())):
         """
         path = _require_scene_file(self, "開く")
         _require_discardable(force)
-        # GUIでも確認のダイアログで止めない。
-        cmds.file(str(path), open=True, force=True, prompt=False)
+        # GUIでも確認のダイアログで止めない(promptの設定は呼ぶ前の値へ戻す)。
+        _file_without_prompt(str(path), open=True, force=True)
 
     def save(self, *, force=False):
         """今のシーンを、このファイルへ保存する。今のシーンの名前もこのファイルにする。
@@ -123,10 +129,10 @@ class Scene(type(Path())):
         from ..nodes.node import Node, Nodes
 
         path = _require_scene_file(self, "インポートする")
-        kwargs = {"i": True, "returnNewNodes": True, "prompt": False}
+        kwargs = {"i": True, "returnNewNodes": True}
         if namespace is not None:
             kwargs["namespace"] = namespace
-        names = cmds.file(str(path), **kwargs) or []
+        names = _file_without_prompt(str(path), **kwargs) or []
         return Nodes._wrap([Node(name) for name in names if cmds.objExists(name)])
 
     def reference(self, *, namespace=None):

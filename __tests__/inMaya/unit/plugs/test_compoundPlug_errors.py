@@ -116,7 +116,6 @@ class MultiPlugTest(_Case):
         with self.assertRaises(NotImplementedError):
             self.node.getPlug("messages").get(time=1)
 
-    @unittest.expectedFailure  # findings2/plugs-core-cmds.md 3: 値の無い要素を移すと、移し先の要素が作られない。
     def test_remove_element_shift_keeps_unset_elements(self):
         """値を一度も設定していない要素も、shift=Trueで1つ前の番号へ移る。"""
         moved = om2.MMatrix()
@@ -127,6 +126,15 @@ class MultiPlugTest(_Case):
         self.assertEqual(cmds.getAttr(self.path + ".matrices", multiIndices=True), [0, 1, 2])
         self.node.getPlug("matrices").removeElement(0, shift=True)
         self.assertEqual(cmds.getAttr(self.path + ".matrices", multiIndices=True), [0, 1])
+        self.assertEqual(cmds.getAttr(self.path + ".matrices[1]"), list(moved))
+
+    def test_compact_keeps_unset_elements(self):
+        """値を一度も設定していない要素も、compactで詰めた番号へ移る。"""
+        cmds.getAttr(self.path + ".matrices[3]")  # 値の無い要素を作る。
+        cmds.setAttr(self.path + ".matrices[5]", list(om2.MMatrix()), type="matrix")
+        self.node.getPlug("matrices").compact()
+        self.assertEqual(cmds.getAttr(self.path + ".matrices", multiIndices=True), [0, 1])
+        self.assertIsNone(cmds.getAttr(self.path + ".matrices[0]"))
 
     def test_remove_element_shift_moves_values_and_undoes(self):
         moved = om2.MMatrix()

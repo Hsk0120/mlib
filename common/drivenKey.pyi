@@ -227,9 +227,25 @@ class DrivenKey:
                 どちらも、何も変更する前にエラーにする。
 
         Note:
-            複数のドライバーをまとめるときは、Maya標準のblendWeightedを使う。
+            複数のドライバーをまとめるときは、Maya標準のblendWeightedを使う。2つ目以降のドライバーのカーブと
+            blendWeightedは、Mayaの ``setDrivenKeyframe`` と同じ形にcmdsで作ってつなぐ(``setDrivenKeyframe`` に
+            作らせると、それらがUndoに記録されないため)。そのため、Undo1回でキーと一緒に戻る。
             pairBlendを自動で挟むことはしない。最終的な出力は、ほかのカーブやまとめるときのウェイトにも左右される。
             途中で失敗した場合に、自動で元へ戻すことはしない。
+        """
+        ...
+    def _add_blended_curve(self, source: Plug) -> None:
+        """駆動先にほかのドライバーのカーブがあるとき、この組の空のカーブをblendWeightedへつなぐ。
+
+        Mayaの ``setDrivenKeyframe`` は、2つ目のドライバーで作るblendWeighted・カーブとその接続をUndoに
+        記録しないため、同じ形(ドライバー→カーブ→blendWeighted→駆動先。単位の違う接続にはMayaが
+        unitConversionを挟む)をcmdsで作る。キーはこの後の ``setDrivenKeyframe`` が書く。
+
+        Args:
+            source (Plug): 駆動先の今の接続元(単位変換ノードを飛ばした先)。カーブかblendWeightedの出力。
+
+        Returns:
+            None: 値を返さない。
         """
         ...
     def _set_key_fast(self, curves: list[AnimCurve], input: float, value: float, inTangentType: str, outTangentType: str, unit: str, timeUnit: str, check: bool = ...) -> None:

@@ -296,7 +296,9 @@ class DrivenKey:
                 どちらも、何も変更する前にエラーにする。
 
         Note:
-            複数のドライバーをまとめるときは、Maya標準のblendWeightedを使う。
+            複数のドライバーをまとめるときは、Maya標準のblendWeightedを使う。2つ目以降のドライバーのカーブと
+            blendWeightedは、Mayaの ``setDrivenKeyframe`` と同じ形にcmdsで作ってつなぐ(``setDrivenKeyframe`` に
+            作らせると、それらがUndoに記録されないため)。そのため、Undo1回でキーと一緒に戻る。
             pairBlendを自動で挟むことはしない。最終的な出力は、ほかのカーブやまとめるときのウェイトにも左右される。
             途中で失敗した場合に、自動で元へ戻すことはしない。
         """
@@ -318,6 +320,10 @@ class DrivenKey:
                 self._set_key_fast(curves, _convert_units(driver.mplug(), x), y, inTangentType, outTangentType, unit, timeUnit, check)
                 return
             y = _convert_times(driven.mplug(), _convert_angles(driven.mplug(), y, angle_unit), time_unit)
+            if not curves:
+                sources = _sources(driven)
+                if sources:
+                    self._add_blended_curve(sources[0])
             count = cmds.setDrivenKeyframe(
                 driven._full_name(),
                 currentDriver=driver._full_name(),
@@ -331,6 +337,33 @@ class DrivenKey:
                 raise RuntimeError("Mayaがドリブンキーを設定しませんでした")
             # 現在値と異なる位置のキー更新後も、駆動先が古い評価値を保持しないようにする。
             cmds.dgdirty([curve._full_name() for curve in self.getCurves()])
+
+    def _add_blended_curve(self, source):
+        """駆動先にほかのドライバーのカーブがあるとき、この組の空のカーブをblendWeightedへつなぐ。
+
+        Mayaの ``setDrivenKeyframe`` は、2つ目のドライバーで作るblendWeighted・カーブとその接続をUndoに
+        記録しないため、同じ形(ドライバー→カーブ→blendWeighted→駆動先。単位の違う接続にはMayaが
+        unitConversionを挟む)をcmdsで作る。キーはこの後の ``setDrivenKeyframe`` が書く。
+
+        Args:
+            source (Plug): 駆動先の今の接続元(単位変換ノードを飛ばした先)。カーブかblendWeightedの出力。
+
+        Returns:
+            None: 値を返さない。
+        """
+        driver, driven = self.getDriverPlug(), self.getDrivenPlug()
+        node = source.getNode()
+        if node.getType() == "blendWeighted":
+            blend = node._full_name()
+        else:
+            blend = cmds.createNode("blendWeighted", skipSelect=True)
+            cmds.connectAttr(blend + ".output", driven._full_name(), force=True)
+            cmds.connectAttr(source._full_name(), blend + ".input[0]")
+        indices = cmds.getAttr(blend + ".input", multiIndices=True) or []
+        kind = _CURVE_TYPES.get(attributeType(driven.mplug()), "animCurveUU")
+        curve = cmds.createNode(kind, skipSelect=True)
+        cmds.connectAttr(driver._full_name(), curve + ".input")
+        cmds.connectAttr(curve + ".output", f"{blend}.input[{max(indices) + 1 if indices else 0}]")
 
     def _set_key_fast(self, curves, input, value, inTangentType, outTangentType, unit, timeUnit, check=False):
         """:meth:`setKey` のfastの処理。必要ならカーブを作ってつなぎ、OpenMayaでキーを書き込む。

@@ -44,6 +44,33 @@ from typing import overload
 import os
 import pathlib
 
+_move_joints_skins: set
+
+def _set_move_joints_mode(name: str, state: bool) -> None:
+    """moveJointsModeを切り替え、mlibが覚えている状態も更新する。
+
+    Args:
+        name (str): skinClusterの名前。
+        state (bool): Trueでモードを開始、Falseで終了する。
+
+    Returns:
+        None: 値を返さない。
+    """
+    ...
+
+def _get_move_joints_mode(name: str) -> bool:
+    """moveJointsModeが有効かを返す。
+
+    Mayaの照会が値を返せばそれを使い、Noneなら(mayapyなど)mlibで切り替えた記録から決める。
+    cmdsで直接切り替えた状態は、照会が値を返さない環境では分からないため、Falseとみなす。
+
+    Args:
+        name (str): skinClusterの名前。
+
+    Returns:
+        bool: 有効ならTrue。
+    """
+    ...
 
 def _finite_number(value: object) -> bool:
     """有限の数値かを判定する。boolは数値として扱わない。
@@ -1045,7 +1072,10 @@ class SkinCluster(GeometryFilter):
     def setMoveJointsMode(self, state: bool) -> None:
         """スキンのジョイント移動モードを切り替える。
 
-        有効中のジョイント移動に対する変形の扱いが変わる。切替自体はUndo対象外。
+        有効中のジョイント移動に対する変形の扱いが変わる。Mayaは切替をUndoの記録に残すが、
+        そのUndoではモードも接続も戻らない(戻すときはFalseを渡して呼ぶ)。
+        Mayaの照会はモードを返さないため、切り替えた状態はmlibが覚え、:func:`~mlib.decorator.preservedSkinShape`
+        が終わるときに元のモードへ戻すのに使う(``mlib.reload()`` で忘れる)。
         終了時は明示的にFalseへ戻す。Undo設定は変更しない。
         fast引数は持たない(Mayaコマンドのモード切替のため)。
 
@@ -1920,7 +1950,8 @@ class SkinCluster(GeometryFilter):
         """sourceのインフルエンスのウェイトをtargetへ移す。
 
         sourceが影響している頂点を選択し、skinPercentのtransformMoveWeightsを実行する。
-        選択の状態は呼び出し側が戻す。
+        selectInfluenceVertsは頂点が1つも無くてもシェイプとインフルエンスを選ぶため、
+        頂点のコンポーネントが選ばれたときだけskinPercentを呼ぶ。選択の状態は呼び出し側が戻す。
 
         Args:
             source_joint (str): 移し元のインフルエンスの名前。

@@ -1,6 +1,7 @@
 """Mayaの依存ノードとDAGノードを扱う基底クラス。"""
 
 import inspect
+import numbers
 import re
 from operator import methodcaller
 from typing import Optional
@@ -2212,8 +2213,8 @@ class Node(Object):
 
         Raises:
             TypeError: ロング名と短縮名を同時に指定した場合、fast・skipExistingがbool以外の場合、
-                unitが文字列・None以外の場合、またはskipExisting=Trueで、既存のアトリビュートの型や
-                マルチアトリビュートかどうかが指定と違う場合。
+                unitが文字列・None以外の場合、単位のある型の既定値・範囲が数値でも単位付きの値でもない場合、
+                またはskipExisting=Trueで、既存のアトリビュートの型やマルチアトリビュートかどうかが指定と違う場合。
             ValueError: 名前を省いた場合、型の接頭辞が不正な場合、解決した結果attributeTypeとdataTypeを
                 両方指定することになった場合、query/edit=Trueの場合、unitが対応していない単位の名前の場合、
                 またはenumのdefaultValueのフィールド名がenumNameに無い場合。
@@ -2588,13 +2589,13 @@ class Node(Object):
                 またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前と ``full=True`` のとき)。
         """
         if full is not False:
+            # _require_bool を通るので、ここではfullはTrue。
             _require_bool(full, "full")
-            if full:
-                if node is not False or removeNamespace is not False:
-                    _require_bool(node, "node")
-                    _require_bool(removeNamespace, "removeNamespace")
-                    raise TypeError("full=Trueはnode・removeNamespaceと同時に指定できません")
-                return self._full_name()
+            if node is not False or removeNamespace is not False:
+                _require_bool(node, "node")
+                _require_bool(removeNamespace, "removeNamespace")
+                raise TypeError("full=Trueはnode・removeNamespaceと同時に指定できません")
+            return self._full_name()
         if node is not False or removeNamespace is not False:
             _require_bool(node, "node")
             _require_bool(removeNamespace, "removeNamespace")
@@ -3258,6 +3259,9 @@ class Node(Object):
             for flag in ("defaultValue", "minValue", "maxValue", "softMinValue", "softMaxValue"):
                 if flag in flags:
                     value = flags[flag]
+                    if not isinstance(value, cls) and (isinstance(value, bool) or not isinstance(value, numbers.Real)):
+                        # MAngle などの作成でMayaの英語のエラーになる前に、型の誤りとして止める。
+                        raise TypeError(f"{flag}は数値か{cls.__name__}で指定してください: {value!r}")
                     source = {om2.MAngle: angle_input, om2.MTime: time_input}.get(cls, internal)
                     quantity = value if isinstance(value, cls) else cls(value, source)
                     flags[flag] = quantity.asUnits(cls.uiUnit() if cls is om2.MTime else internal)

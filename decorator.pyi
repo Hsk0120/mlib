@@ -276,7 +276,9 @@ def preservedSkinShape(joints: Iterable[Joint | str]) -> GeneratorContextManager
 
     ジョイントにつながっているskinClusterを、ブロックの中だけmoveJointsModeにする。
     終わるときは、recacheBindMatricesで今の姿勢をバインドマトリクスへ書き込み、
-    取得できた元のモードへ戻す。
+    取得できた元のモードへ戻す。Mayaの照会(``skinCluster -query -moveJointsMode``)は値を返さないため、
+    元のモードは :meth:`SkinCluster.setMoveJointsMode <mlib.nodes.skinCluster.SkinCluster.setMoveJointsMode>`
+    とこのコンテキストが覚えた状態から決める(cmdsで直接切り替えた状態は分からず、Falseとみなす)。
 
     - 階層の自由な変更や、インフルエンスの削除をしたときの結果は保証しない。
       すべてのフレームで変形が保たれることも保証しない。

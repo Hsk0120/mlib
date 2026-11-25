@@ -32,8 +32,9 @@ def findCycles(nodes: str | Node | Plug | Iterable[str | Node | Plug] | None = .
     Raises:
         TypeError: nodesの要素が名前・Node・Plugでない場合、dag・firstOnlyがboolでない場合、
             またはtimeLimitが数値・None以外の場合。
-        ValueError: nodesが空の場合、またはtimeLimitが0以下・有限でない場合。
-        RuntimeError: 対象が見つからない場合、またはMayaが調査を拒否した場合。
+        ValueError: nodesが空の場合、nodesに削除済みのNode・Plugがある場合、またはtimeLimitが0以下・有限でない場合。
+        RuntimeError: 名前の対象が見つからない場合(文言は ``ノードが見つかりません: <名前>``)、
+            またはMayaが調査を拒否した場合。
 
     Examples:
         >>> import mlib

@@ -188,6 +188,9 @@ class Plugin(_VersionedItem):
         Raises:
             TypeError: skipExisting が bool でない場合。
             RuntimeError: Mayaがロードを拒否した場合、または初期化のあともロードされていない場合。
+
+        Note:
+            ``cmds.loadPlugin`` と同じく、Undoに記録されない(Undoで取り消せない)。
         """
         _require_bool(skipExisting, "skipExisting")
         if skipExisting and self.isLoaded():
@@ -213,6 +216,9 @@ class Plugin(_VersionedItem):
 
         Raises:
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
+
+        Note:
+            ``cmds.unloadPlugin`` と同じく、Undoに記録されない(Undoで取り消せない)。
         """
         cmds.unloadPlugin(self._name, force=force)
         _clear_type_hierarchy_cache()

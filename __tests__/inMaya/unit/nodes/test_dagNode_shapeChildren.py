@@ -125,8 +125,6 @@ class ShapeGetChildrenRejectTest(_Case):
         with self.assertRaises(RuntimeError):
             shape.mfn()
 
-    # findings2 nodes-dag の1: 削除したShapeのgetShapeは、docstringのRaisesに反して自身を返す。
-    @unittest.expectedFailure
     def test_deleted_shape_get_shape(self):
         """削除したShapeのgetShapeは、docstringのとおりRuntimeErrorになる。"""
         locator = cmds.spaceLocator(name=self.name("gone"))[0]

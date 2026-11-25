@@ -80,16 +80,22 @@ class ComponentRef:
             ValueError: 種類が記録できないものの場合。
         """
         # 循環参照の回避: componentsはnodesを通してmlib.jsonを使うので、使うときに読み込む。
+        from .. import components as _components
         from ..components import Component, Components
 
         if isinstance(components, Component):
-            shape, kind, indices = components.shape, components.component_type, [components.index]
+            component_class = type(components)
+            shape, indices = components.shape, [components.index]
         elif isinstance(components, Components):
-            shape = components.shape
-            kind = components.component_class.component_type
-            indices = list(components.indices)
+            component_class = components.component_class
+            shape, indices = components.shape, list(components.indices)
         else:
             raise TypeError("componentsはmlibのComponentかComponentsで指定してください")
+        kind = component_class.component_type
+        # 曲面のCVはカーブのCVと同じ "cv" の表記を持つため、種類の表記だけでなくクラスで確かめる。
+        collection = getattr(_components, _COLLECTIONS.get(kind, ""), None)
+        if collection is None or not issubclass(component_class, collection.component_class):
+            raise ValueError(f"記録できないコンポーネントの種類です: {component_class.__name__}({', '.join(_COLLECTIONS.values())}の要素を指定します)")
         return cls(NodeRef.capture(shape), kind, indices)
 
     @property

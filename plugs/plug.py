@@ -1118,6 +1118,7 @@ class Plug(Object):
         Raises:
             RuntimeError: アトリビュートが無効な場合、またはMayaが評価を拒否した場合。
         """
+        self._require_valid("評価の要求")
         cmds.dgeval(self._full_name())
 
     def getFlags(self):

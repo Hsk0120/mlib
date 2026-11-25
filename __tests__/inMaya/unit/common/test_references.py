@@ -71,6 +71,19 @@ class CreateReferenceTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIs(calls[0][1]["prompt"], False)
 
+    def test_prompt_setting_is_restored(self):
+        """createReference の後も、Mayaの file -prompt の設定は呼ぶ前の値のまま残る(True・Falseの両方)。"""
+        previous = cmds.file(query=True, prompt=True)
+        self.addCleanup(cmds.file, prompt=previous)
+        for index, state in enumerate((True, False)):
+            with self.subTest(state=state):
+                cmds.file(prompt=state)
+                created = createReference(self.ref_path, namespace=f"mlibCreateReferencePrompt{index}")
+                try:
+                    self.assertIs(bool(cmds.file(query=True, prompt=True)), state)
+                finally:
+                    cmds.file(removeReference=True, referenceNode=created.getName())
+
 
 #: 一時ファイルを作る場所(``__tests__/_output/temp``。Git の対象外)。
 _TEMP_ROOT = Path(__file__).resolve().parents[3] / "_output" / "temp"
@@ -109,7 +122,7 @@ class CreateReferenceErrorsTest(unittest.TestCase):
         with mock.patch.object(cmds, "file", return_value=None) as file:
             with self.assertRaises(RuntimeError):
                 createReference(self.path, namespace="mlibCreateReferenceNone")
-        file.assert_called_once()
+        self.assertEqual(len([call for call in file.call_args_list if call[1].get("reference")]), 1)
         self.assertEqual(set(cmds.ls(type="reference") or []), self.before)
 
     def test_reference_is_not_recorded_for_undo(self):

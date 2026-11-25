@@ -356,20 +356,24 @@ class DagNode(Node):
         """
         ...
     @overload
-    def getParent(self, step: int = ..., *, instances: Literal[True], indirect: bool = ...) -> Nodes[Transform]: ...
+    def getParent(self, step: int = ..., *, all: bool = ..., instances: Literal[True], indirect: bool = ...) -> Nodes[Transform]: ...
     @overload
-    def getParent(self, step: int = ..., *, instances: Literal[False] = ..., indirect: Literal[False] = ...) -> Transform | None: ...
+    def getParent(self, step: int = ..., *, all: bool = ..., instances: Literal[False] = ..., indirect: Literal[False] = ...) -> Transform | None: ...
     @overload
-    def getParent(self, step: int = ..., *, instances: bool = ..., indirect: bool = ...) -> Transform | Nodes[Transform] | None:
+    def getParent(self, step: int = ..., *, all: bool = ..., instances: bool = ..., indirect: bool = ...) -> Transform | Nodes[Transform] | None:
         """親を取得する。
 
         このオブジェクトが持つDAGパスを、上へたどって求める。
+
+        ``all=True`` なら、祖先(親・親の親…ワールド直下まで)を近い順にすべて返す
+        (:meth:`Plug.getParent(all=True) <mlib.plugs.plug.Plug.getParent>` と同じ考え方)。
 
         ``instances=True`` なら、直接の親をすべて返す。インスタンス化されたノードには親が複数あり、そのすべてを返す
         (親の親など、さらに上の祖先は含まない)。
 
         Args:
-            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。instances=Trueとは同時に指定できない。
+            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。all=True・instances=Trueとは同時に指定できない。
+            all (bool): Trueなら、祖先を近い順にすべて取得する。既定はFalse。instances=Trueとは同時に指定できない。
             instances (bool): Trueなら、インスタンスの直接の親をすべて取得する。既定はFalse。
             indirect (bool): instances=Trueのときの、親の数え方を選ぶ。既定はFalse。
 
@@ -381,12 +385,13 @@ class DagNode(Node):
         Returns:
             Transform | Nodes[Transform] | None: 親の新しいオブジェクト。DAGの親は必ずTransform系(Jointなど)になる。
                 stepが0以下の場合と、ワールドまで(それより上へ)たどる場合はNone。
+                all=Trueなら祖先を近い順に並べた集まり(すべてJointなら ``Joints``)。
                 instances=Trueなら親の集まり。同じ親が重なってもまとめない。
-                このオブジェクトが持つパスがワールド直下なら空の集まり。
+                このオブジェクトが持つパスがワールド直下なら、all=True・instances=Trueとも空の集まり。
 
         Raises:
-            TypeError: instances・indirectがboolでない場合、instances=Trueとstepを同時に指定した場合、
-                またはinstances=Falseでindirect=Trueを指定した場合。
+            TypeError: all・instances・indirectがboolでない場合、allかinstancesとstepを同時に指定した場合、
+                allとinstancesを同時に指定した場合、またはinstances=Falseでindirect=Trueを指定した場合。
             RuntimeError: stepが正で、保持するDAGパスが無効な場合。
         """
         ...

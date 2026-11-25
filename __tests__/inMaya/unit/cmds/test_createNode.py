@@ -681,10 +681,15 @@ class ShadingNodeKindTest(_CreateCase):
         shapes = cmds.listRelatives(light.getName(full=True), shapes=True, fullPath=True) or [light.getName(full=True)]
         self.assertEqual(cmds.nodeType(shapes[0]), "pointLight")
 
-    @unittest.expectedFailure  # findings2/plugs-core-cmds.md 4: asLight=Trueは、指定した型でなくTransformを返す。
     def test_as_light_returns_requested_type(self):
         light = mlib.createNode("pointLight", name=self.name("light"), asLight=True)
         self.assertEqual(light.getType(), "pointLight")
+        self.assertEqual(light.getTransform().getType(), "transform")
+        group = cmds.createNode("transform", name=self.name("lightGroup"))
+        spot = mlib.createNode("spotLight", asLight=True, parent=group)
+        self.assertEqual(spot.getType(), "spotLight")
+        cmds.undo()
+        self.assertFalse(spot.isValid())
 
 
 if __name__ == "__main__":

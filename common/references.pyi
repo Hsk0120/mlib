@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from typing import Any
 from mlib.nodes.node import Nodes
 from mlib.nodes.reference import Reference
 import os
@@ -68,6 +69,21 @@ def _require_scene_file(path: str | os.PathLike, action: str = ...) -> Path:
     """
     ...
 
+def _file_without_prompt(*args, **kwargs) -> Any:
+    """``cmds.file`` を確認のダイアログなし(``prompt=False``)で呼び、呼ぶ前のpromptの設定へ戻す。
+
+    Mayaの ``file -prompt`` は一度指定すると以後のすべての ``file`` コマンドに残るため、戻さないと
+    利用者の後の操作(GUIでのリファレンスが見つからないときのダイアログなど)まで出なくなる。
+
+    Args:
+        *args: ``cmds.file`` へ渡す位置引数。
+        **kwargs: ``cmds.file`` へ渡すフラグ。``prompt`` は指定しない。
+
+    Returns:
+        object: ``cmds.file`` の戻り値。
+    """
+    ...
+
 def createReference(path: str | Path, namespace: str | None = ...) -> Reference:
     """ファイルをリファレンスし、新しく作られたトップレベルのReferenceを返す。
 
@@ -93,5 +109,8 @@ def createReference(path: str | Path, namespace: str | None = ...) -> Reference:
     Note:
         fast引数は無い。リファレンスの読み込み(ファイルの読み込み・リファレンスノードと名前空間の作成)は
         ``cmds.file(reference=True)`` でしかできず、OpenMayaに同じことをUndoなしで行う方法が無いため。
+
+        ``cmds.file`` と同じく、Undoに記録されない(Undoで取り消せない。mlibもチャンクを足さない)。
+        確認のダイアログは出さず、Mayaの ``file -prompt`` の設定は呼ぶ前の値へ戻す。
     """
     ...

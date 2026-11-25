@@ -23,6 +23,46 @@ from .geometryFilter import GeometryFilter
 from .joint import Joint, _unlocked_influences
 from .node import Node, Nodes
 
+#: mlibでmoveJointsModeをTrueにしたskinClusterのUUID。Mayaの ``skinCluster -query -moveJointsMode`` は
+#: 値を返さない(Noneになる)ため、:meth:`SkinCluster.setMoveJointsMode` と ``preservedSkinShape`` で覚える。
+_move_joints_skins = set()
+
+
+def _set_move_joints_mode(name, state):
+    """moveJointsModeを切り替え、mlibが覚えている状態も更新する。
+
+    Args:
+        name (str): skinClusterの名前。
+        state (bool): Trueでモードを開始、Falseで終了する。
+
+    Returns:
+        None: 値を返さない。
+    """
+    cmds.skinCluster(name, edit=True, moveJointsMode=state)
+    for uuid in cmds.ls(name, uuid=True) or []:
+        if state:
+            _move_joints_skins.add(uuid)
+        else:
+            _move_joints_skins.discard(uuid)
+
+
+def _get_move_joints_mode(name):
+    """moveJointsModeが有効かを返す。
+
+    Mayaの照会が値を返せばそれを使い、Noneなら(mayapyなど)mlibで切り替えた記録から決める。
+    cmdsで直接切り替えた状態は、照会が値を返さない環境では分からないため、Falseとみなす。
+
+    Args:
+        name (str): skinClusterの名前。
+
+    Returns:
+        bool: 有効ならTrue。
+    """
+    queried = cmds.skinCluster(name, query=True, moveJointsMode=True)
+    if queried is not None:
+        return bool(queried)
+    return any(uuid in _move_joints_skins for uuid in cmds.ls(name, uuid=True) or [])
+
 
 def _finite_number(value):
     """有限の数値かを判定する。boolは数値として扱わない。
@@ -1685,7 +1725,10 @@ class SkinCluster(GeometryFilter):
     def setMoveJointsMode(self, state):
         """スキンのジョイント移動モードを切り替える。
 
-        有効中のジョイント移動に対する変形の扱いが変わる。切替自体はUndo対象外。
+        有効中のジョイント移動に対する変形の扱いが変わる。Mayaは切替をUndoの記録に残すが、
+        そのUndoではモードも接続も戻らない(戻すときはFalseを渡して呼ぶ)。
+        Mayaの照会はモードを返さないため、切り替えた状態はmlibが覚え、:func:`~mlib.decorator.preservedSkinShape`
+        が終わるときに元のモードへ戻すのに使う(``mlib.reload()`` で忘れる)。
         終了時は明示的にFalseへ戻す。Undo設定は変更しない。
         fast引数は持たない(Mayaコマンドのモード切替のため)。
 
@@ -1704,7 +1747,7 @@ class SkinCluster(GeometryFilter):
         dependency = self._dependency_fn()
         if dependency.isLocked or dependency.isFromReferencedFile:
             raise RuntimeError("ロック・参照スキンのジョイント移動モードは変更できません")
-        cmds.skinCluster(self._full_name(), edit=True, moveJointsMode=state)
+        _set_move_joints_mode(self._full_name(), state)
 
     def normalizeWeights(self, decimals=None, *, force=False, fast=False):
         """先頭の形状の各頂点で、登録されているすべてのインフルエンスのウェイトを合計1へ正規化する。
@@ -3577,7 +3620,8 @@ class SkinCluster(GeometryFilter):
         """sourceのインフルエンスのウェイトをtargetへ移す。
 
         sourceが影響している頂点を選択し、skinPercentのtransformMoveWeightsを実行する。
-        選択の状態は呼び出し側が戻す。
+        selectInfluenceVertsは頂点が1つも無くてもシェイプとインフルエンスを選ぶため、
+        頂点のコンポーネントが選ばれたときだけskinPercentを呼ぶ。選択の状態は呼び出し側が戻す。
 
         Args:
             source_joint (str): 移し元のインフルエンスの名前。
@@ -3587,7 +3631,18 @@ class SkinCluster(GeometryFilter):
             None: 値を返さない。
         """
         cmds.skinCluster(self.getName(), edit=True, selectInfluenceVerts=source_joint)
-        if om2.MGlobal.getActiveSelectionList().length():
+        selection = om2.MGlobal.getActiveSelectionList()
+        has_vertices = False
+        for index in range(selection.length()):
+            try:
+                _dag_path, component = selection.getComponent(index)
+            except RuntimeError:
+                # DAGでない要素(インフルエンスでないノードなど)はコンポーネントを持たない。
+                continue
+            if not component.isNull():
+                has_vertices = True
+                break
+        if has_vertices:
             cmds.skinPercent(self.getName(), transformMoveWeights=[source_joint, target_joint])
 
     def _influence_removal_target(self, joint, transfer_to_parent=True, *, force=False):

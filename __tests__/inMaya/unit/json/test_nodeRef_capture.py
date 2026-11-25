@@ -15,8 +15,8 @@ mlib.reload()
 
 from support.namespaceCase import NamespaceCase
 
-from mlib.components import SurfaceCV, VertexFace, VertexFaces, Vertices
-from mlib.json import ComponentRef, NodeRef, PlugRef
+from mlib.components import CVs, SurfaceCV, SurfaceCVs, VertexFace, VertexFaces, Vertices
+from mlib.json import ComponentRef, NodeRef, PlugRef, SelectionSnapshot
 
 
 class CaptureRejectTest(NamespaceCase):
@@ -51,13 +51,26 @@ class CaptureRejectTest(NamespaceCase):
         self.assertEqual(ref.node.path, self.mesh.getName(full=True))
         self.assertEqual(ref.resolve(), vertices)
 
-    # findings2/components-maths-json.md の項目1: 曲面のCVは種類の表記が "cv" でカーブのCVと同じため、
-    # capture が例外にならず、resolve できない参照(CVs(曲面) は TypeError で None)を作る。
-    @unittest.expectedFailure
     def test_surface_cv_is_rejected_by_capture(self):
-        """曲面のCVは記録できる種類でないので、captureがValueErrorにする。"""
-        with self.assertRaises(ValueError):
-            ComponentRef.capture(SurfaceCV(self.surface, (0, 0)))
+        """曲面のCVは記録できる種類でないので、captureがValueErrorにする。カーブのCVは記録できる。"""
+        for value in (SurfaceCV(self.surface, (0, 0)), SurfaceCVs(self.surface, [(1, 2)])):
+            with self.subTest(value=type(value).__name__), self.assertRaises(ValueError):
+                ComponentRef.capture(value)
+        curve = mlib.getNode(
+            cmds.listRelatives(cmds.curve(name=self.name("curve"), point=[(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 0, 0)]), shapes=True, fullPath=True)[0]
+        )
+        ref = ComponentRef.capture(CVs(curve, [1, 3]))
+        self.assertEqual((ref.type, list(ref.indices)), ("cv", [1, 3]))
+        self.assertEqual(ref.resolve(), CVs(curve, [1, 3]))
+
+    def test_selection_snapshot_skips_surface_cvs_like_names(self):
+        """SelectionSnapshotはmlibの曲面のCVも、名前で渡したときと同じく警告して省く。"""
+        name = self.surface.getName(full=True) + ".cv[1][2]"
+        for value in (name, SurfaceCVs(self.surface, [(1, 2)])):
+            with self.subTest(value=type(value).__name__):
+                with self.assertLogs("mlib", level="WARNING"):
+                    snapshot = SelectionSnapshot.capture([self.mesh, value])
+                self.assertEqual([list(entry) for entry in snapshot.toData()["items"]], [["node"]])
 
 
 if __name__ == "__main__":

@@ -435,10 +435,12 @@ class MultiPlug(Plug):
 
         Note:
             値はmlibの :meth:`~mlib.plugs.plug.Plug.get` / :meth:`~mlib.plugs.plug.Plug.set` で移す。
-            書き込めない子・保存されない子と、接続の無いmessageの要素は移せない(移した先に作られない)。
+            書き込めない子・保存されない子の値と、接続の無いmessageの要素は移せない(messageの要素は移した先に作られない)。
+            値を一度も設定していない要素は、移した先に値の無い要素として作る。
             同じマルチアトリビュートの要素どうしの接続は考慮していない。
-            要素の下にマルチアトリビュートがある場合、Undoで値と接続は戻るが、移した先の番号に空の要素が残ることがある
-            (Mayaは子の要素への書き込みをUndoしても、親の要素を消さないため)。
+            要素の下にマルチアトリビュートがある場合と、値の無い要素を元に無かった番号へ移した場合は、
+            Undoで値と接続は戻るが、移した先の番号に空の要素が残ることがある
+            (Mayaは子の要素への書き込みや、値の無い要素の作成をUndoしても、その要素を消さないため)。
         """
         with undoChunk("mlibMultiPlugCompact"):
             self._require_valid()
@@ -555,6 +557,7 @@ class MultiPlug(Plug):
         """要素の値と、入力・出力の接続を、cmdsで別の番号の要素へ移す。
 
         先にすべての要素の値と接続を集め、移す元をすべて削除する。そのあと移す先へ値を設定し、接続し直す。
+        値も入力の接続も無い要素も、移す先に要素を作る(messageの要素を除く)。
         移す先は、移す元を削除したあとに空いている番号でなければならない(compact・shiftの順番ならそうなる)。
 
         Args:
@@ -583,6 +586,13 @@ class MultiPlug(Plug):
                 plug_name = Plug(self._node, _follow(element, steps))._full_name()
                 for destination in destinations:
                     cmds.connectAttr(plug_name, destination._full_name())
+        # 値も入力の接続も無い要素(値を一度も設定していない要素など)は、上の処理では移す先に作られない。
+        # 読み取ると要素が作られるので、移す先に要素を残す。messageの要素は読み取れないため対象外。
+        existing = set(self._mplug.getExistingArrayAttributeIndices())
+        for target, _ in captured:
+            element = self._mplug.elementByLogicalIndex(target)
+            if target not in existing and not element.attribute().hasFn(om2.MFn.kMessageAttribute):
+                cmds.getAttr(f"{name}[{target}]")
 
     def _capture_element(self, index):
         """要素の値と、入力・出力の接続を、要素からのたどり方と組にして集める。

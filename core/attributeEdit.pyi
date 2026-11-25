@@ -1,6 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """動的アトリビュートを、シーンを変える前に組み立てて、OpenMayaで追加する。"""
 
+import numbers
 import maya.api.OpenMaya as om2
 from .nodeEdit import require_editable
 from typing import Any, Sequence
@@ -11,6 +12,23 @@ _NUMERIC_TYPES: dict
 _DATA_TYPES: dict
 _PROPERTIES: dict
 _DEFINITION_FLAGS: Any
+
+def _require_numeric_default(name: str, default: object) -> None:
+    """数値・単位付きのアトリビュートの既定値が数値か確かめる。
+
+    OpenMayaの ``create`` へ文字列などを渡すと、何が悪いかの分からない英語の例外になるため、先に確かめる。
+
+    Args:
+        name (str): アトリビュートの名前(例外の文言に使う)。
+        default (object): 既定値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: 既定値が数値(と ``MAngle``・``MDistance``・``MTime``)でない場合。
+    """
+    ...
 
 def _build(flags: dict, children: list[om2.MObject] | None = ...) -> om2.MObject:
     """まだノードに追加していない、アトリビュートの定義を作る。
@@ -25,6 +43,7 @@ def _build(flags: dict, children: list[om2.MObject] | None = ...) -> om2.MObject
         MObject: 新しいアトリビュートの定義。
 
     Raises:
+        TypeError: 数値・単位付きの型へ数値でない既定値を渡した場合。
         ValueError: longNameとshortNameのどちらも無い場合。
         NotImplementedError: fastで扱えないフラグや型の場合。
     """
@@ -86,7 +105,8 @@ def validate_extra_attribute(node: Node, name: str, flags: dict, count: int, def
         None: 値を返さない。
 
     Raises:
-        TypeError: マルチアトリビュートへ直接、既定値を設定しようとした場合。
+        TypeError: マルチアトリビュートへ直接、既定値を設定しようとした場合、
+            または数値・単位付きの型(子を含む)へ数値でない既定値を渡した場合。
         ValueError: 名前が空文字列の場合、または文字列でない場合。
         RuntimeError: 同じ名前のアトリビュートがある場合、または書き込めない定義へ既定値を渡した場合。
     """

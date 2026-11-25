@@ -291,6 +291,31 @@ class DrivenKeySpecTest(unittest.TestCase):
         cmds.undo()
         self.assertFalse(key.exists())
 
+    def test_second_driver_is_undone_in_one_step(self):
+        """2つ目のドライバーのsetKeyも、blendWeighted・カーブ・接続ごと1回のUndoで戻る。角度の駆動先でも同じ値になる。"""
+        types = ["animCurve", "blendWeighted", "unitConversion"]
+        for attribute in ("tz", "rz"):
+            with self.subTest(attribute=attribute):
+                driven = self.driven + "." + attribute
+                first = DrivenKey(self.driver + ".rx", driven)
+                first.setKey(0.0, 0.0)
+                first.setKey(10.0, 1.0)
+                before = (cmds.listConnections(driven, source=True, destination=False), set(cmds.ls(type=types) or []))
+                second = DrivenKey(self.driver + ".ry", driven)
+                second.setKey(10.0, 2.0)
+                self.assertEqual(cmds.nodeType(cmds.listConnections(driven, source=True, destination=False, skipConversionNodes=True)[0]), "blendWeighted")
+                self.assertEqual(len(second.getCurves()), 1)
+                self.assertEqual(len(DrivenKey.find(driven)), 2)
+                cmds.setAttr(self.driver + ".rx", 10.0)
+                cmds.setAttr(self.driver + ".ry", 10.0)
+                self.assertAlmostEqual(cmds.getAttr(driven), 3.0, places=4)
+                cmds.undo()
+                cmds.undo()
+                cmds.undo()
+                self.assertEqual((cmds.listConnections(driven, source=True, destination=False), set(cmds.ls(type=types) or [])), before)
+                self.assertFalse(second.exists())
+                cmds.setAttr(self.driver + ".rx", 0.0)
+
     def test_multi_and_compound_plugs_are_refused(self):
         """要素の型が数値でも、マルチアトリビュート全体(コンパウンドでない)とコンパウンドアトリビュートはValueError。"""
         average = cmds.createNode("plusMinusAverage", name=self.ns + ":average")

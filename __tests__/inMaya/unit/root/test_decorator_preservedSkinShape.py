@@ -131,5 +131,45 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
             handler.setFormatter(formatter)
 
 
+class SkinProtectionModeRestoreTest(unittest.TestCase):
+    """実際のskinClusterで、ブロックの前のmoveJointsModeへ戻す。"""
+
+    def setUp(self):
+        cmds.select(clear=True)
+        self.joint = cmds.ls(cmds.joint(name="mlibSkinModeJoint#"), long=True)[0]
+        cmds.select(clear=True)
+        self.mesh = cmds.ls(cmds.polyCube(name="mlibSkinModeMesh#", constructionHistory=False)[0], long=True)[0]
+        self.skin = mlib.getNode(cmds.skinCluster([self.joint], self.mesh, toSelectedBones=True)[0])
+
+    def tearDown(self):
+        cmds.delete([self.mesh, self.joint])
+
+    def follows_joint(self):
+        """ジョイントを動かして、メッシュが付いてくるか(moveJointsModeが無効か)を返す。動かした後は元へ戻す。"""
+        before = cmds.pointPosition(self.mesh + ".vtx[0]")
+        cmds.setAttr(self.joint + ".ty", cmds.getAttr(self.joint + ".ty") + 1.0)
+        moved = cmds.pointPosition(self.mesh + ".vtx[0]") != before
+        cmds.setAttr(self.joint + ".ty", cmds.getAttr(self.joint + ".ty") - 1.0)
+        return moved
+
+    def test_mode_off_before_is_off_after(self):
+        """元が無効なら、ブロックの中だけ有効で、終わると無効へ戻る。"""
+        self.assertTrue(self.follows_joint())
+        with preservedSkinShape([self.joint]):
+            self.assertFalse(self.follows_joint())
+        self.assertTrue(self.follows_joint())
+
+    def test_mode_on_before_stays_on_after(self):
+        """setMoveJointsMode(True)で有効にしていれば、ブロックの後も有効のまま残る(照会がNoneでも覚えている)。"""
+        self.skin.setMoveJointsMode(True)
+        try:
+            with preservedSkinShape([self.joint]):
+                pass
+            self.assertFalse(self.follows_joint())
+        finally:
+            self.skin.setMoveJointsMode(False)
+        self.assertTrue(self.follows_joint())
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

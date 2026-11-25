@@ -224,6 +224,9 @@ class PluginPackage:
 
         Returns:
             list[Plugin]: ロードに失敗したプラグイン。失敗するたびに警告を出す。
+
+        Note:
+            ``cmds.loadPlugin`` と同じく、Undoに記録されない(Undoで取り消せない)。
         """
         failed = []
         for plugin in self._plugins:

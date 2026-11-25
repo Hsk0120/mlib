@@ -110,6 +110,7 @@ class Time:
 
         既定では、再生範囲(タイムスライダーの開始・終了)を変える。
         ``cmds.playbackOptions`` を1回呼ぶので、Undoの扱いもそれと同じになる。
+        Mayaの版で違い、Maya 2022ではUndoに記録されず、Maya 2027では記録される(1回のUndoで戻る)。
 
         Args:
             start (float): 開始。

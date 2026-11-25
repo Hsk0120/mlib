@@ -1,8 +1,8 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """アトリビュート名やMPlugから、型に合ったPlugを取得する。"""
 
-from mlib.plugs.plug import Plug
 import maya.api.OpenMaya as om2
+from mlib.plugs.plug import Plug
 
 
 def getPlug(value: str | Plug | om2.MPlug) -> Plug:
@@ -26,6 +26,8 @@ def getPlug(value: str | Plug | om2.MPlug) -> Plug:
         MissingAttributeError: アトリビュート(またはノード)が存在しない場合(文言は ``アトリビュートが見つかりません: <名前>``)。
             ``mlib.plugs.plug.MissingAttributeError`` は ``AttributeError`` の派生で、
             ``node.getPlug(name)`` と同じ例外。
+        DeletedAttributeError: ``deleteAttr`` で削除したアトリビュートのMPlugを渡した場合
+            (``mlib.getNode`` と同じ例外)。``mlib.plugs.plug.DeletedAttributeError`` は ``ValueError`` の派生。
         RuntimeError: 名前が複数の対象に一致する場合。
 
     Examples:

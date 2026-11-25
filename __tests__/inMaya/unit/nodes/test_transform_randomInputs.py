@@ -446,9 +446,6 @@ class NegativeScaleRandomTest(TransformRandomCase):
                 node.setMatrix(Matrix(matrix))
                 self.assertClose(cmds.getAttr(node_name + ".rotate")[0], values, tol=1e-6, label="setMatrix")
 
-    # findings2/random.md の R1: 中間の軸が ±90 度から 1e-4 度ほどの位置では、getRotate がチャンネルから数十度離れた
-    # 別の解を返し、setRotate(getRotate())・setMatrix(getMatrix()) がチャンネルを書き換える(マトリクスも 1e-6 ほどずれる)。
-    @unittest.expectedFailure
     def test_near_gimbal_channel_round_trip(self):
         node_name = self.make("transform", "nearGimbal#")
         node = Node(node_name)
@@ -521,10 +518,6 @@ class JointRandomTest(TransformRandomCase):
                 self.assertClose(node.getTranslation(ws=True, at=3), cmds.xform(name, query=True, worldSpace=True, scalePivot=True), tol=1e-8, label="at=3")
                 self.assertClose(node.getTranslation(ws=True, at=4), cmds.getAttr(name + ".worldMatrix[0]")[12:15], label="at=4")
 
-    # findings2/random.md の R2: rotatePivot が0でなく、回転(rotate・jointOrient・rotateAxis)を持つ Joint では、
-    # getTranslation(at=2) が cmds.xform(query=True, worldSpace=True, rotatePivot=True) と一致しない
-    # (MFnTransform.rotatePivot(kTransform) が Joint では0を返し、rotatePivot の値が入らない)。
-    @unittest.expectedFailure
     def test_rotate_pivot_position_with_pivots(self):
         rng = random.Random(SEED + 14)
         for index in range(COUNT):
@@ -532,6 +525,11 @@ class JointRandomTest(TransformRandomCase):
             with self.subTest(seed=SEED + 14, index=index, child=describe(values[1]), root=describe(values[0])):
                 node = Node(name)
                 self.assertClose(node.getTranslation(ws=True), cmds.xform(name, query=True, worldSpace=True, rotatePivot=True), tol=1e-8, label="at=2")
+                # setTranslation(at=2) も、cmds.xform の回転ピボットを目標の位置へ合わせる(通常・fast)。
+                for fast in (False, True):
+                    point = tuple(rng.uniform(-10, 10) for _ in range(3))
+                    node.setTranslation(point, ws=True, fast=fast)
+                    self.assertClose(cmds.xform(name, query=True, worldSpace=True, rotatePivot=True), point, tol=1e-8, label=f"setTranslation fast={fast}")
 
     def test_setters_reach_world_targets(self):
         rng = random.Random(SEED + 10)

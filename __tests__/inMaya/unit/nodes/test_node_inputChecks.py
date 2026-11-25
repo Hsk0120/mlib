@@ -160,6 +160,20 @@ class MoveAttrOrderTypesTest(_Case):
         self.assertEqual(cmds.listAttr(str(node), userDefined=True), ["qq1", "qqm", "qq2"])
 
 
+class AddAttrUnitDefaultTest(_Case):
+    """単位のある型の既定値・範囲の型の誤り。"""
+
+    def test_string_default_is_type_error(self):
+        """角度・距離・時間の型へ文字列や真偽値の既定値・範囲を渡すと、Mayaの英語のエラーでなく日本語のTypeErrorで、何も足さない。"""
+        node = self.node()
+        for kind in ("doubleAngle", "doubleLinear", "time"):
+            for flag, value in (("defaultValue", "abc"), ("minValue", True), ("maxValue", [1.0])):
+                with self.subTest(kind=kind, flag=flag):
+                    with self.assertRaisesRegex(TypeError, f"^{flag}は数値か"):
+                        node.addAttr("unitValue", attributeType=kind, **{flag: value})
+                    self.assertFalse(cmds.attributeQuery("unitValue", node=str(node), exists=True))
+
+
 class NodesOperatorsTest(_Case):
     """Nodesの比較・型注釈・足し算と、無効なノードの追加。"""
 

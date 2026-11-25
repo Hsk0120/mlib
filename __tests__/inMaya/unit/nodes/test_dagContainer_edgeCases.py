@@ -84,12 +84,8 @@ class DagContainerEdgeTest(NamespaceCase):
             cmds.lockNode(self.box, lock=False)
         self.assertEqual(cmds.container(self.box, query=True, publishName=True), ["Gain"])
 
-    @unittest.expectedFailure
     def test_invalid_container_query_raises_runtime_error(self):
-        """削除済みのdagContainerの getExternalConnections は RuntimeError(docstring)。
-
-        findings2 nodes-geometry「2. 削除済みのcontainerの getExternalConnections・publishConnections」: ValueError になる。
-        """
+        """削除済みのdagContainerの getExternalConnections は RuntimeError(docstring)。"""
         self.owner.removeContainer()
         with self.assertRaises(RuntimeError):
             self.owner.getExternalConnections()

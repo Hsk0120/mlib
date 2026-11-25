@@ -32,16 +32,16 @@ class DrivenKeysSnapshot(Snapshot):
     保存したときのUIの単位で決まる。そのため適用するときは、作り直された係数に合わせて入力を換算する。
     値はカーブの出力の単位(角度は度、距離はcm、それ以外は単位なし)。
 
-    複数のドライバーを合計するblendWeightedは、Mayaのドリブンキーの設定(``setDrivenKeyframe``)で作り直し、
-    それぞれの入力の重み(weight)を元に戻す。
+    複数のドライバーを合計するblendWeightedは、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>`
+    (``setDrivenKeyframe`` と同じ形をUndoできるcmdsで作る)で作り直し、それぞれの入力の重み(weight)を元に戻す。
 
     ``apply`` は、保存したドリブンキーを、対応づけたドライバーと駆動先で作り直す。
 
     ドライバーと駆動先の組ごとに、次のように書く。
 
     - すでにカーブがあれば、そのすべてのキーを置き換える。
-    - 無ければ、Mayaのドリブンキーの設定(``setDrivenKeyframe``。必要ならblendWeighted・unitConversionも
-      作られる)でカーブを作ってから書く。
+    - 無ければ、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>` (必要ならblendWeighted・
+      unitConversionも作られる)でカーブを作ってから書く。
 
     保存していない、ほかのドライバーのカーブは変えない。1回のUndoにまとめ、途中で失敗したら元に戻す。
 

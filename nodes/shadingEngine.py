@@ -4,7 +4,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..core.object import Object
-from ..decorator import _edit_context, _require_bool, undoChunk
+from ..decorator import _edit_context, _require_bool, undoTransaction
 from .node import Node
 from .objectSet import ObjectSet
 
@@ -97,19 +97,42 @@ class ShadingEngine(ObjectSet):
         シェーダーの接続は :meth:`setShader` で行う(クラスの説明の例を参照)。
         OpenMayaでの割り当ては ``cmds.sets`` より遅いため、fast引数は持たない。
 
+        Mayaは割り当てられない対象(頂点・形状の無いTransformなど)を警告だけで飛ばすため、割り当てた後に
+        対象ごとに所属を確かめる。割り当てられなかった対象があれば、Undoで割り当てをすべて戻してから
+        RuntimeErrorにする(undoTransactionと同じく、Undoが有効なことが前提)。
+
         Args:
             targets (Node | Face | Faces | str | Iterable): 割り当てる対象。選択されているものには関係しない。
+                Transformを渡すと、その下の中間オブジェクトでない形状へ割り当てる。
 
         Returns:
             None: 値を返さない。targetsが空なら何も変えない。
 
         Raises:
-            RuntimeError: Mayaが割り当てを拒否した場合。
+            TypeError: DAGでないノード(DGノード・セットなど)やPlugを渡した場合。何も変えない。
+            RuntimeError: Mayaが割り当てなかった対象(頂点・形状の無いTransformなど)がある場合。
+                割り当てた分も戻す。
         """
-        with undoChunk("mlibShadingEngineAssign"):
-            names = Object._input_names(targets)
-            if names:
-                cmds.sets(names, edit=True, forceElement=self._full_name())
+        names = Object._input_names(targets, allow_plugs=False)
+        for name in names:
+            selection = om2.MSelectionList()
+            try:
+                selection.add(name)
+            except RuntimeError:
+                # 見つからない名前は、これまでどおりMayaの例外に任せる。
+                continue
+            try:
+                selection.getDagPath(0)
+            except TypeError:
+                raise TypeError(f"ShadingEngineへ割り当てられるのは形状・フェースです: {name}") from None
+        if not names:
+            return
+        engine = self._full_name()
+        with undoTransaction("mlibShadingEngineAssign"):
+            cmds.sets(names, edit=True, forceElement=engine)
+            rejected = [name for name in names if not self._is_assigned(name, engine)]
+            if rejected:
+                raise RuntimeError(f"Mayaが割り当てなかった対象があります: {', '.join(rejected)}")
 
     def getMembers(self, *, flatten=False, dagOnly=False, shadingOnly=False):
         """割り当てている先を取得する。
@@ -146,6 +169,26 @@ class ShadingEngine(ObjectSet):
             else:
                 result.append(node)
         return result
+
+    @staticmethod
+    def _is_assigned(name, engine):
+        """1つの対象が、割り当てた後にこのシェーディングエンジンへ所属しているかを返す。
+
+        Transformはそれ自身ではなく形状が所属するので、中間オブジェクトでない形状がすべて所属しているかを見る。
+
+        Args:
+            name (str): 割り当てた対象の名前。
+            engine (str): シェーディングエンジンの名前。
+
+        Returns:
+            bool: 所属していればTrue。
+        """
+        if cmds.sets(name, isMember=engine):
+            return True
+        if "." in name or not cmds.objectType(name, isAType="transform"):
+            return False
+        shapes = cmds.listRelatives(name, shapes=True, noIntermediate=True, fullPath=True) or []
+        return bool(shapes) and all(cmds.sets(shape, isMember=engine) for shape in shapes)
 
     @staticmethod
     def _shader_attribute(kind):

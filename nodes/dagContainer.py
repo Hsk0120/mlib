@@ -41,7 +41,7 @@ class DagContainer(Transform):
             None: 値を返さない。
 
         Raises:
-            RuntimeError: コンテナのロック等でMayaが公開を拒否した場合。
+            RuntimeError: コンテナが無効な場合、またはコンテナのロック等でMayaが公開を拒否した場合。
         """
         Container.publishConnections(self)
 

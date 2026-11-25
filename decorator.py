@@ -452,7 +452,9 @@ def preservedSkinShape(joints):
 
     ジョイントにつながっているskinClusterを、ブロックの中だけmoveJointsModeにする。
     終わるときは、recacheBindMatricesで今の姿勢をバインドマトリクスへ書き込み、
-    取得できた元のモードへ戻す。
+    取得できた元のモードへ戻す。Mayaの照会(``skinCluster -query -moveJointsMode``)は値を返さないため、
+    元のモードは :meth:`SkinCluster.setMoveJointsMode <mlib.nodes.skinCluster.SkinCluster.setMoveJointsMode>`
+    とこのコンテキストが覚えた状態から決める(cmdsで直接切り替えた状態は分からず、Falseとみなす)。
 
     - 階層の自由な変更や、インフルエンスの削除をしたときの結果は保証しない。
       すべてのフレームで変形が保たれることも保証しない。
@@ -470,6 +472,7 @@ def preservedSkinShape(joints):
     """
     # 循環参照の回避: nodes は decorator を参照するので、使うときに読み込む。
     from .nodes.joint import Joints
+    from .nodes.skinCluster import _get_move_joints_mode, _set_move_joints_mode
 
     skins = Joints(joints).getSkinClusters()
     skin_names = [skin._full_name() for skin in skins]
@@ -478,12 +481,12 @@ def preservedSkinShape(joints):
     with undoChunk("mlibPreservedSkinShape"):
         for name in skin_names:
             try:
-                previous_modes[name] = bool(cmds.skinCluster(name, query=True, moveJointsMode=True))
+                previous_modes[name] = _get_move_joints_mode(name)
             except RuntimeError as exc:
                 logger.warning("スキン形状の保護: moveJointsModeを取得できませんでした: %s (%s)", name, exc)
                 continue
             try:
-                cmds.skinCluster(name, edit=True, moveJointsMode=True)
+                _set_move_joints_mode(name, True)
             except RuntimeError as exc:
                 logger.warning("スキン形状の保護: moveJointsModeを有効にできませんでした: %s (%s)", name, exc)
                 continue
@@ -497,7 +500,7 @@ def preservedSkinShape(joints):
                     logger.warning("スキン形状の保護: バインドマトリクスを再キャッシュできませんでした: %s (%s)", name, exc)
             for name, state in previous_modes.items():
                 try:
-                    cmds.skinCluster(name, edit=True, moveJointsMode=state)
+                    _set_move_joints_mode(name, state)
                 except RuntimeError as exc:
                     logger.warning("スキン形状の保護: moveJointsModeを元に戻せませんでした: %s (%s)", name, exc)
 

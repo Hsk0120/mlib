@@ -76,20 +76,19 @@ class BlendWeightedTest(_Case):
             self.assertAlmostEqual(cmds.getAttr(self.target + ".tz"), cmds.getAttr(self.source + ".tz"))
         self.assertAlmostEqual(cmds.getAttr(self.target + ".tz"), 4.0)
 
-    # findings2/components-maths-json.md の項目2: 2つ目のドライバーで Maya の setDrivenKeyframe が作る
-    # blendWeighted とその接続は Undo で戻らない(cmds だけでも同じ)。apply の「1回のUndoにまとめ」と合わない。
-    @unittest.expectedFailure
     def test_blend_weighted_apply_is_undone_in_one_step(self):
         """blendWeightedを作る適用も、1回のUndoで駆動先の接続ごと戻る。"""
         for x, y in ((0.0, 0.0), (1.0, 2.0)):
             for attribute in ("sx", "sy"):
                 cmds.setDrivenKeyframe(self.source + ".tz", currentDriver=self.driver + "." + attribute, driverValue=x, value=y)
         snap = DrivenKeysSnapshot.capture(self.source)
+        existing = set(cmds.ls(type=_CLEANUP_TYPES) or [])
         self.flushUndo()
         snap.apply(nameMap=self.mapping)
         self.assertEqual(cmds.nodeType(self.blend(self.target)), "blendWeighted")
         cmds.undo()
         self.assertIsNone(cmds.listConnections(self.target + ".tz", source=True, destination=False))
+        self.assertEqual(set(cmds.ls(type=_CLEANUP_TYPES) or []), existing)
 
     def test_two_curves_from_one_driver_are_skipped(self):
         """1つのドライバーから同じ駆動先へカーブが2本あれば、そのドライバーは飛ばして記録する。"""

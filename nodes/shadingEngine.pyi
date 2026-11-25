@@ -4,7 +4,7 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object
-from ..decorator import _edit_context, _require_bool, undoChunk
+from ..decorator import _edit_context, _require_bool, undoTransaction
 from .node import Node
 from .objectSet import ObjectSet
 from typing import Iterable, Literal
@@ -90,14 +90,21 @@ class ShadingEngine(ObjectSet):
         シェーダーの接続は :meth:`setShader` で行う(クラスの説明の例を参照)。
         OpenMayaでの割り当ては ``cmds.sets`` より遅いため、fast引数は持たない。
 
+        Mayaは割り当てられない対象(頂点・形状の無いTransformなど)を警告だけで飛ばすため、割り当てた後に
+        対象ごとに所属を確かめる。割り当てられなかった対象があれば、Undoで割り当てをすべて戻してから
+        RuntimeErrorにする(undoTransactionと同じく、Undoが有効なことが前提)。
+
         Args:
             targets (Node | Face | Faces | str | Iterable): 割り当てる対象。選択されているものには関係しない。
+                Transformを渡すと、その下の中間オブジェクトでない形状へ割り当てる。
 
         Returns:
             None: 値を返さない。targetsが空なら何も変えない。
 
         Raises:
-            RuntimeError: Mayaが割り当てを拒否した場合。
+            TypeError: DAGでないノード(DGノード・セットなど)やPlugを渡した場合。何も変えない。
+            RuntimeError: Mayaが割り当てなかった対象(頂点・形状の無いTransformなど)がある場合。
+                割り当てた分も戻す。
         """
         ...
     @overload
@@ -122,6 +129,20 @@ class ShadingEngine(ObjectSet):
             TypeError: flattenを指定した場合、dagOnly・shadingOnlyがboolでない場合、
                 またはdagOnly=TrueなしでshadingOnlyを指定した場合。
             NotImplementedError: dagOnly=Trueで、使っているMayaに対応するAPI 2.0のメソッドが無い場合。
+        """
+        ...
+    @staticmethod
+    def _is_assigned(name: str, engine: str) -> bool:
+        """1つの対象が、割り当てた後にこのシェーディングエンジンへ所属しているかを返す。
+
+        Transformはそれ自身ではなく形状が所属するので、中間オブジェクトでない形状がすべて所属しているかを見る。
+
+        Args:
+            name (str): 割り当てた対象の名前。
+            engine (str): シェーディングエンジンの名前。
+
+        Returns:
+            bool: 所属していればTrue。
         """
         ...
     @staticmethod

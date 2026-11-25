@@ -1,5 +1,7 @@
 """動的アトリビュートを、シーンを変える前に組み立てて、OpenMayaで追加する。"""
 
+import numbers
+
 import maya.api.OpenMaya as om2
 
 from .nodeEdit import require_editable
@@ -63,6 +65,25 @@ _DEFINITION_FLAGS = {
 } | set(_PROPERTIES)
 
 
+def _require_numeric_default(name, default):
+    """数値・単位付きのアトリビュートの既定値が数値か確かめる。
+
+    OpenMayaの ``create`` へ文字列などを渡すと、何が悪いかの分からない英語の例外になるため、先に確かめる。
+
+    Args:
+        name (str): アトリビュートの名前(例外の文言に使う)。
+        default (object): 既定値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: 既定値が数値(と ``MAngle``・``MDistance``・``MTime``)でない場合。
+    """
+    if not isinstance(default, (numbers.Real, om2.MAngle, om2.MDistance, om2.MTime)):
+        raise TypeError(f"defaultValueは数値で指定してください: {name}={default!r}")
+
+
 def _build(flags, children=None):
     """まだノードに追加していない、アトリビュートの定義を作る。
 
@@ -76,6 +97,7 @@ def _build(flags, children=None):
         MObject: 新しいアトリビュートの定義。
 
     Raises:
+        TypeError: 数値・単位付きの型へ数値でない既定値を渡した場合。
         ValueError: longNameとshortNameのどちらも無い場合。
         NotImplementedError: fastで扱えないフラグや型の場合。
     """
@@ -95,6 +117,7 @@ def _build(flags, children=None):
         fn = om2.MFnTypedAttribute()
         obj = fn.create(name, short, _DATA_TYPES[kind])
     elif kind in _NUMERIC_TYPES:
+        _require_numeric_default(name, default)
         fn = om2.MFnNumericAttribute()
         obj = fn.create(name, short, _NUMERIC_TYPES[kind], default)
     elif children and kind.startswith(("double", "float", "long", "short")):
@@ -105,6 +128,7 @@ def _build(flags, children=None):
     elif kind in ("doubleAngle", "doubleLinear", "time"):
         fn = om2.MFnUnitAttribute()
         units = {"doubleAngle": fn.kAngle, "doubleLinear": fn.kDistance, "time": fn.kTime}
+        _require_numeric_default(name, default)
         # MFnUnitAttribute.createのtime既定値も現在の時間単位で受け取る。
         # Node.addAttrが事前変換したフレーム値を再度秒へ変換しない。
         obj = fn.create(name, short, units[kind], default)
@@ -245,7 +269,8 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
         None: 値を返さない。
 
     Raises:
-        TypeError: マルチアトリビュートへ直接、既定値を設定しようとした場合。
+        TypeError: マルチアトリビュートへ直接、既定値を設定しようとした場合、
+            または数値・単位付きの型(子を含む)へ数値でない既定値を渡した場合。
         ValueError: 名前が空文字列の場合、または文字列でない場合。
         RuntimeError: 同じ名前のアトリビュートがある場合、または書き込めない定義へ既定値を渡した場合。
     """
@@ -262,6 +287,9 @@ def validate_extra_attribute(node, name, flags, count, deferred, children, *, va
         used.update((long_name, short_name))
     if not validate_defaults:
         return
+    kind = flags.get("attributeType")
+    if not flags.get("dataType") and "defaultValue" in flags and (kind in _NUMERIC_TYPES or kind in ("doubleAngle", "doubleLinear", "time")):
+        _require_numeric_default(name, flags["defaultValue"])
     for child_name, child_type, options in children:
         kind = child_type[3:] if child_type.startswith("at:") else child_type
         if kind in _NUMERIC_TYPES or kind in ("doubleAngle", "doubleLinear", "time"):

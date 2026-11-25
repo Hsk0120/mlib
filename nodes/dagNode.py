@@ -554,16 +554,20 @@ class DagNode(Node):
         """
         return self.mpath().instanceNumber()
 
-    def getParent(self, step=1, *, instances=False, indirect=False):
+    def getParent(self, step=1, *, all=False, instances=False, indirect=False):
         """親を取得する。
 
         このオブジェクトが持つDAGパスを、上へたどって求める。
+
+        ``all=True`` なら、祖先(親・親の親…ワールド直下まで)を近い順にすべて返す
+        (:meth:`Plug.getParent(all=True) <mlib.plugs.plug.Plug.getParent>` と同じ考え方)。
 
         ``instances=True`` なら、直接の親をすべて返す。インスタンス化されたノードには親が複数あり、そのすべてを返す
         (親の親など、さらに上の祖先は含まない)。
 
         Args:
-            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。instances=Trueとは同時に指定できない。
+            step (int): 何階層上の親を取得するか。1は直接の親、2は親の親。既定は1。all=True・instances=Trueとは同時に指定できない。
+            all (bool): Trueなら、祖先を近い順にすべて取得する。既定はFalse。instances=Trueとは同時に指定できない。
             instances (bool): Trueなら、インスタンスの直接の親をすべて取得する。既定はFalse。
             indirect (bool): instances=Trueのときの、親の数え方を選ぶ。既定はFalse。
 
@@ -575,14 +579,28 @@ class DagNode(Node):
         Returns:
             Transform | Nodes[Transform] | None: 親の新しいオブジェクト。DAGの親は必ずTransform系(Jointなど)になる。
                 stepが0以下の場合と、ワールドまで(それより上へ)たどる場合はNone。
+                all=Trueなら祖先を近い順に並べた集まり(すべてJointなら ``Joints``)。
                 instances=Trueなら親の集まり。同じ親が重なってもまとめない。
-                このオブジェクトが持つパスがワールド直下なら空の集まり。
+                このオブジェクトが持つパスがワールド直下なら、all=True・instances=Trueとも空の集まり。
 
         Raises:
-            TypeError: instances・indirectがboolでない場合、instances=Trueとstepを同時に指定した場合、
-                またはinstances=Falseでindirect=Trueを指定した場合。
+            TypeError: all・instances・indirectがboolでない場合、allかinstancesとstepを同時に指定した場合、
+                allとinstancesを同時に指定した場合、またはinstances=Falseでindirect=Trueを指定した場合。
             RuntimeError: stepが正で、保持するDAGパスが無効な場合。
         """
+        if all is not False:
+            _require_bool(all, "all")
+            if instances is not False or indirect is not False:
+                raise TypeError("allとinstances・indirectは同時に指定できません")
+            if step != 1:
+                raise TypeError("allとstepは同時に指定できません")
+            if all:
+                path = om2.MDagPath(self.mpath())
+                ancestors = []
+                while path.length() > 1:
+                    path.pop()
+                    ancestors.append(Node._wrap_dag_path(om2.MDagPath(path)))
+                return Nodes._wrap(ancestors)
         if instances is not False or indirect is not False:
             _require_bool(instances, "instances")
             _require_bool(indirect, "indirect")
@@ -680,6 +698,8 @@ class DagNode(Node):
             TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
             RuntimeError: ノードが破棄されている場合。
         """
+        self._require_valid("Shapeの取得")
+
         shape = self if self._require_mnode().hasFn(om2.MFn.kShape) else None
         if all is not False:
             _require_bool(all, "all")

@@ -30,7 +30,7 @@ _MEMBER_HINTS = {
     "listHistory": ("getHistory", "getHistory()を使います"),
     "history": ("getHistory", "getHistory()を使います"),
     "firstParent": ("getParent", "getParent()を使います"),
-    "getAllParents": ("getParent", "getParent(instances=True)を使います"),
+    "getAllParents": ("getParent", "祖先はgetParent(all=True)、インスタンスの親はgetParent(instances=True)を使います"),
     "parent": ("setParent", "setParent(parent)かgetParent()を使います"),
     "nodeType": ("getType", "getType()を使います"),
     "type": ("getType", "getType()を使います"),

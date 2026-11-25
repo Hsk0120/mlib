@@ -1260,7 +1260,7 @@ class Joints(Nodes[Joint]):
     def getInstanceIndex(self) -> list[int]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getInstanceIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getParent(self, step: int = ..., *, instances: bool = ..., indirect: bool = ...) -> list[Transform | Nodes[Transform] | None]:
+    def getParent(self, step: int = ..., *, all: bool = ..., instances: bool = ..., indirect: bool = ...) -> list[Transform | Nodes[Transform] | None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getParent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isTemplated(self) -> list[bool]:

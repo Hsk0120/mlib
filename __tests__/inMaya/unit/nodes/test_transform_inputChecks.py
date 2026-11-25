@@ -7,6 +7,7 @@
 
 import sys
 import unittest
+from fractions import Fraction
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -275,14 +276,21 @@ class TransformRejectTest(_Case):
             first.addShape(shape, fast=True)
         self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), cmds.ls(str(second), long=True))
 
-    # findings2 nodes-dag の3: 削除したノードでは、無効の確認をせずにcmds.matchTransformへ空の名前を渡し、ValueErrorになる。
-    @unittest.expectedFailure
     def test_match_transform_deleted(self):
         """削除したノードのmatchTransformは、docstringのとおりRuntimeError。"""
         node, target = self.cube("node"), self.cube("target")
         cmds.delete(str(node))
         with self.assertRaises(RuntimeError):
             node.matchTransform(target)
+
+    def test_match_transform_deleted_target(self):
+        """削除したtargetへのmatchTransformもRuntimeErrorで、自身は変わらない。"""
+        node, target = self.cube("node"), self.cube("target")
+        cmds.setAttr(f"{target}.translate", 1, 2, 3)
+        cmds.delete(str(target))
+        with self.assertRaises(RuntimeError):
+            node.matchTransform(target)
+        self.assertEqual(cmds.getAttr(f"{node}.translate")[0], (0.0, 0.0, 0.0))
 
     def test_get_matrix_and_translation_aliases(self):
         """getMatrix・getTranslationのロング名と短縮名の同時指定はTypeError。"""
@@ -404,6 +412,18 @@ class TransformChannelFallbackTest(_Case):
         self.assertEqual(cmds.getAttr(f"{node}.translate")[0], (0.0, 0.0, 0.0))
         node.setShear((_Float(0.5), 0, 0.25))
         self.assertEqual(cmds.getAttr(f"{node}.shear")[0], (0.5, 0.0, 0.25))
+
+    def test_fraction_values(self):
+        """floatでない実数(Fraction)も、shear・scaleへfloatにして書ける(通常・fast)。"""
+        node = mlib.getNode(self.make(text="node"))
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                node.setShear((Fraction(1, 2), 0, Fraction(1, 4)), fast=fast)
+                self.assertEqual(cmds.getAttr(f"{node}.shear")[0], (0.5, 0.0, 0.25))
+                node.setScale((Fraction(3, 2), 1, Fraction(1, 4)), fast=fast)
+                self.assertEqual(cmds.getAttr(f"{node}.scale")[0], (1.5, 1.0, 0.25))
+                cmds.setAttr(f"{node}.shear", 0, 0, 0)
+                cmds.setAttr(f"{node}.scale", 1, 1, 1)
 
     def test_wrong_count_and_deleted(self):
         """成分の数が3でない値はValueError、削除したノードはRuntimeErrorで、値は変わらない。"""

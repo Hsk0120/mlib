@@ -471,8 +471,12 @@ class FastAddAttrDefinitionTest(NamespaceCase):
         """subTypeにat:を付けても、子の既定値を追加する前に確かめ、何も追加せずに例外にする。"""
         before = cmds.listAttr(self.node.getName(full=True))
         for sub_type in ("at:double", "double"):
-            with self.subTest(subType=sub_type), self.assertRaises(TypeError):
+            with self.subTest(subType=sub_type), self.assertRaisesRegex(TypeError, "defaultValueは数値で指定してください"):
                 self.node.addAttr("prefixedValue", "double3", subType=sub_type, defaultValue="abc")
+            self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
+        for kind, fast in (("double", False), ("double", True), ("double3", True)):
+            with self.subTest(type=kind, fast=fast), self.assertRaisesRegex(TypeError, "defaultValueは数値で指定してください"):
+                self.node.addAttr("textDefault", kind, defaultValue="abc", fast=fast)
             self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
         plug = self.node.addAttr("prefixedValue", "double3", subType="at:double", defaultValue=(1.0, 2.0, 3.0))
         self.assertEqual(plug.getAttributeName("long"), "prefixedValue")
