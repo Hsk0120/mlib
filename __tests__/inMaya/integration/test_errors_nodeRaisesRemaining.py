@@ -219,7 +219,7 @@ class GeometryFilterTest(_RemainingCase):
                 cmds.setAttr(weights + "[0]", 0.5)
                 cmds.setAttr(weights + "[1]", 0.25)
                 self.lock(deformer.getName(full=True), attribute)
-                self.assertFails(RuntimeError, deformer.loadDeformerWeights, path, fast=fast, state=lambda: cmds.getAttr(weights))
+                self.assertFails(RuntimeError, deformer.loadDeformerWeights, path, fast=fast, check=True, state=lambda: cmds.getAttr(weights))
 
 
 class IkHandleTest(_RemainingCase):
@@ -445,10 +445,10 @@ class SkinClusterTest(_RemainingCase):
         path = self.temp_file("weights.json")
         cases = (
             ("weightList", "redistributeWeights", ([0],), {}),
-            ("weightList", "transferWeights", ("pair",), {"fast": True}),
+            ("weightList", "transferWeights", ("pair",), {"fast": True, "check": True}),
             ("weightList", "transferWeights", ("pair",), {}),
             ("weightList[0].weights", "transferWeights", ("pair",), {}),
-            ("weightList", "importWeights", ("path",), {}),
+            ("weightList", "importWeights", ("path",), {"check": True}),
             ("blendWeights", "setBlendWeights", ([0.5],), {"vertices": [0]}),
             ("blendWeights", "setBlendWeights", ([0.5],), {"vertices": [0], "fast": True, "check": True}),
         )

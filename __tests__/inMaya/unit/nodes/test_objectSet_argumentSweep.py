@@ -217,13 +217,6 @@ OTHER_VALUES = (_set(1), _set(1, wrap=True), _set(0))
 #: 段2の相手のセットの誤った値(セットでないノード・削除済み・存在しない名前・数)。
 OTHER_INVALID = (_cube(0), DELETED_NODE, MISSING_NAME, 1.5)
 
-#: 本体との食い違い(findings4/sweep-geometry.md)。
-KNOWN_IS_MEMBER = {"invalid:member=*": "docstring に Raises が無い"}
-#: removeMembers の本体との食い違い。
-KNOWN_REMOVE = {
-    "invalid:members=<削除済みのノード>": "Raises に無い ValueError になる",
-    "invalid:members='<存在しない名前>'": "Raises に無い ValueError になる",
-}
 
 #: 正しい呼び方の表。
 METHODS = (
@@ -236,10 +229,9 @@ METHODS = (
         invalid={"members": MEMBER_INVALID},
         conflicts=(_members_all,),
         expect=_expect_removed,
-        known=KNOWN_REMOVE,
         limit=40,
     ),
-    Method("isMember", _make_set, args=(_cube(0),), values={"member": IS_MEMBER_VALUES}, replace=("member",), expect=_expect_is_member, known=KNOWN_IS_MEMBER),
+    Method("isMember", _make_set, args=(_cube(0),), values={"member": IS_MEMBER_VALUES}, replace=("member",), expect=_expect_is_member),
     Method("combine", _make_set, args=(_set(1),), values={"other": OTHER_VALUES}, replace=("other",), invalid={"other": OTHER_INVALID}, expect=_expect_combine),
     Method("isSubSet", _make_set, args=(_set(1),), values={"other": OTHER_VALUES}, replace=("other",), invalid={"other": OTHER_INVALID}, expect=_expect_subset),
 )

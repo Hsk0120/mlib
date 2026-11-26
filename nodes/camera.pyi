@@ -31,12 +31,13 @@ class Camera(Shape):
             om2.MFnCamera: このカメラのfunction set。
         """
         ...
-    def setView(self, eye: Iterable[float], direction: Iterable[float], up: Iterable[float], fieldOfView: float, aspectRatio: float, *, unit: str = ..., fast: bool = ...) -> None:
+    def setView(self, eye: Iterable[float], direction: Iterable[float], up: Iterable[float], fieldOfView: float, aspectRatio: float, *, unit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """ワールド空間の視点・視線・上方向と画角をまとめて変更する。
 
         MFnCamera.setを使い、親Transformとカメラの投影設定を変更する。
         fast=True専用でUndoには記録しない。Undo設定は変更しない。
         途中でMayaエラーが発生した場合、更新前への復元は保証しない。
+        カメラ・親Transformのノードのロックとリファレンスは、checkに関係なく確かめる。
 
         Args:
             eye (Iterable[float]): 視点のワールド座標(cm)。
@@ -46,33 +47,45 @@ class Camera(Shape):
             aspectRatio (float): 正の横幅/高さ比。
             unit (str): 画角の単位。既定deg。radも指定できる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)を確かめて、
+                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型が不正な場合。
+            TypeError: 引数の型が不正な場合(fast・checkがbool以外の場合を含む)。
             ValueError: 座標・方向・画角・比率が不正な場合。
-            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            RuntimeError: ノードがロックされているかリファレンスの場合、check=Trueでアトリビュートがロック・入力の接続で書き込めない場合、
+                またはMayaが更新を拒否した場合。
             NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
+
+        Note:
+            広い画角は、Mayaが焦点距離とフィルム開口の範囲で切り詰める(Mayaの制限)。範囲を超える画角
+            (既定の開口で縦横比1.5なら約176.8度より広い画角)は、例外にならずに切り詰めた画角になる。
+            書いた画角は :meth:`getFieldOfView` で確かめられる。
         """
         ...
-    def copyViewFrom(self, camera: str | Camera, *, fast: bool = ...) -> None:
+    def copyViewFrom(self, camera: str | Camera, *, fast: bool = ..., check: bool = ...) -> None:
         """別のカメラの視点・透視投影に関わる設定をコピーする。
 
         MFnCamera.copyViewFromの対象設定をコピーする。全アトリビュートの複製ではない。
         コピー先の親Transformも変わる。fast=True専用でUndoには記録しない。
+        コピー先のカメラ・親Transformのノードのロックとリファレンスは、checkに関係なく確かめる。
 
         Args:
             camera (str | Camera): コピー元のカメラShape。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、コピー先のカメラと親Transformのアトリビュートが書き込めるか
+                (ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: cameraがカメラShapeでない場合、またはfastがboolでない場合。
-            RuntimeError: ロック・入力接続・参照がある場合、またはカメラが無効な場合。
+            TypeError: cameraがカメラShapeでない場合、またはfast・checkがboolでない場合。
+            RuntimeError: ノードがロックされているかリファレンスの場合、check=Trueでアトリビュートがロック・入力の接続で書き込めない場合、
+                またはカメラが無効な場合。
             NotImplementedError: fast=False、またはコピー先が対応しない階層の場合。
         """
         ...
@@ -200,13 +213,14 @@ class Camera(Shape):
             RuntimeError: ノードが削除済みの場合。
         """
         ...
-    def setPoint(self, point: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., ws: bool = ..., fast: bool = ...) -> None:
+    def setPoint(self, point: Iterable[float], worldSpace: bool = ..., *, kind: str = ..., ws: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """カメラの位置(視点)を変更する。``kind="centerOfInterest"`` なら、視点を保ちながら注視点を変更する。
 
         - ``"eye"``: ``MFnCamera.setEyePoint`` で、注視点を保ったままカメラを動かす(カメラは注視点を向き続けるので、向きは変わる)。
         - ``"centerOfInterest"``: ``MFnCamera.setCenterOfInterestPoint`` で、カメラの向きとcenterOfInterestを更新する。
 
         fast=True専用でUndoには記録しない。Undo設定は変更しない。
+        カメラ・親Transformのノードのロックとリファレンスは、checkに関係なく確かめる。
 
         Args:
             point (Iterable[float]): XYZ座標(cm)。注視点は、視点と異なる位置。
@@ -214,14 +228,17 @@ class Camera(Shape):
             ws (bool): worldSpaceの短縮名。同時指定はできない。
             kind (str): 変更する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)を確かめて、
+                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 型または長短名の指定が不正な場合。
+            TypeError: 型または長短名の指定が不正な場合(fast・checkがbool以外の場合を含む)。
             ValueError: kindが対応していない名前の場合、非有限値、または視点と注視点が一致する場合。
-            RuntimeError: ロック・入力接続・参照がある場合、またはMayaが更新を拒否した場合。
+            RuntimeError: ノードがロックされているかリファレンスの場合、check=Trueでアトリビュートがロック・入力の接続で書き込めない場合、
+                またはMayaが更新を拒否した場合。
             NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
         """
         ...
@@ -245,6 +262,7 @@ class Camera(Shape):
             None: 値を返さない。
 
         Raises:
+            TypeError: valueが数値でない場合(boolを含む)。
             ValueError: valueが有限の正数でない場合。
             RuntimeError: カメラが無効、またはMayaが更新を拒否した場合。
         """
@@ -397,11 +415,19 @@ class Camera(Shape):
             RuntimeError: ノードが削除済みの場合。
         """
         ...
-    def _require_view_edit(self, fast: bool):
+    def _require_view_edit(self, fast: bool, check: bool):
         """カメラと親Transformの直接編集条件を確認する。
+
+        fast・階層・ノードのロック・リファレンスは常に、アトリビュートのロック・入力の接続はcheck=Trueのときだけ確かめる。
 
         Args:
             fast (bool): Undoなしの更新を明示したか。
+            check (bool): アトリビュートが書き込めるかも確かめるか。
+
+        Raises:
+            TypeError: fast・checkがbool以外の場合。
+            NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
+            RuntimeError: ノードがロックされているかリファレンスの場合、またはcheck=Trueでアトリビュートが書き込めない場合。
         """
         ...
     @staticmethod

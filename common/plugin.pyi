@@ -51,6 +51,7 @@ class Plugin(_VersionedItem):
             None: 値を返さない。
 
         Raises:
+            TypeError: typeが文字列でない場合。
             RuntimeError: Mayaがプラグインのロードを拒否した場合。
         """
         ...
@@ -161,6 +162,7 @@ class Plugin(_VersionedItem):
             None: 値を返さない。
 
         Raises:
+            TypeError: forceがboolでない場合。
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
 
         Note:

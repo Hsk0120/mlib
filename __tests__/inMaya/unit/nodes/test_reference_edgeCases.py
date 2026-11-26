@@ -118,13 +118,13 @@ class ReferenceEdgeTest(NamespaceCase):
         self.assertFalse(cmds.referenceQuery(self.helper, isNodeReferenced=True))
 
     def test_remove_is_not_undone_and_invalid_reference_errors(self):
-        """remove は Undo で戻らない。削除済みのリファレンスの操作は RuntimeError。"""
-        self.reference.remove()
+        """removeReference は Undo で戻らない。削除済みのリファレンスの操作は RuntimeError。"""
+        self.reference.removeReference()
         self.undo_other_step()
         self.assertFalse(cmds.objExists(self.name_))
         self.assertFalse(cmds.objExists(self.helper))
         with self.assertRaises(RuntimeError):
-            self.reference.remove()
+            self.reference.removeReference()
         with self.assertRaises(RuntimeError):
             self.reference.setReferenceLocked(True)
         with self.assertRaises(RuntimeError):

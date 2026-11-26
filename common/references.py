@@ -47,12 +47,15 @@ def listReferences(topLevelOnly=False, *, sortBy="name"):
         Nodes[Reference]: リファレンスのオブジェクトの一覧。リファレンスが無ければ空の集まり。
 
     Raises:
+        TypeError: topLevelOnlyがbool以外の場合。
         ValueError: sortByがnameとload以外の場合。
     """
     # commonの初期化時にnodesを読み込まないよう、使用時にReferenceを読み込む。
     from ..nodes.node import Nodes
     from ..nodes.reference import Reference
 
+    if type(topLevelOnly) is not bool:
+        raise TypeError("topLevelOnlyはboolで指定してください")
     if sortBy not in ("name", "load"):
         raise ValueError(f"sortByはnameかloadで指定してください: {sortBy!r}")
     if sortBy == "load":
@@ -143,6 +146,7 @@ def createReference(path, namespace=None):
         Reference: 作ったトップレベルのリファレンスノード。
 
     Raises:
+        TypeError: namespaceが文字列・None以外の場合。
         ValueError: pathが空の場合、またはstrでもPathでもない場合。
         OSError: ファイルが無い場合(``FileNotFoundError``)。
         RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。
@@ -159,6 +163,8 @@ def createReference(path, namespace=None):
 
     if not isinstance(path, (str, Path)) or not str(path):
         raise ValueError("pathは空でない文字列かPathで指定してください")
+    if namespace is not None and not isinstance(namespace, str):
+        raise TypeError(f"namespaceはstrかNoneで指定してください: {type(namespace).__name__}")
     scene_path = _require_scene_file(path)
 
     existing = {name for name, _ in _reference_nodes()}

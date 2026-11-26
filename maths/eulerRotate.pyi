@@ -553,10 +553,14 @@ class EulerRotate(om2.MEulerRotation):
         Args:
             other (om2.MEulerRotation | Iterable[float]): 比べる相手。並びは、回転順序がxyzの
                 ラジアンとして扱う。
-            tolerance (float): それぞれの成分の許容誤差。
+            tolerance (float): それぞれの成分の許容誤差。0以上。
 
         Returns:
             bool: ほぼ等しければ True。
+
+        Raises:
+            TypeError: otherが回転・並びでない(Noneを含む)、またはtoleranceが数値でない場合。
+            ValueError: otherの成分の数が3でない、成分が数値でない、またはtoleranceが負・有限でない場合。
         """
         ...
     def alternateSolution(self, *args) -> EulerRotate:

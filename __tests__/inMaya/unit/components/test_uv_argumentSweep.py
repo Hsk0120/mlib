@@ -21,8 +21,6 @@ from mlib.components import UV, UVs
 UV_VALUES = ((0.25, 0.75), [0, 1], (2.5, -1.0), (-0.5, 0.5), 0.3)
 #: 1つの UV の段2の誤った値(成分の数・型・有限でない値)。
 UV_INVALID = ((1.0,), (1.0, 2.0, 3.0), "ab", None, (float("nan"), 0.0), object())
-#: check に bool でない値を渡すと、例外にせず真偽として読む(findings4/sweep-plugs-components.md)。
-KNOWN_CHECK = {f"invalid:check={value}": "bool でない値を真偽として読む" for value in ("1", "'yes'")}
 
 
 def _mesh(case):
@@ -115,7 +113,6 @@ class UVArgumentSweepTest(ArgumentSweepCase):
             expect=_expect_set_position,
             roundTrip=RoundTrip("getPosition", skip=_skip_trip, places=5),
             plural=_uv_pair,
-            known=KNOWN_CHECK,
             limit=60,
         ),
         Method("getVertex", _uv, expect=_expect_vertex),
@@ -135,7 +132,6 @@ class UVsArgumentSweepTest(ArgumentSweepCase):
             invalid={"value": (*UV_INVALID, [(0.0, 0.0)] * 2), "axis": (1.5, "x")},
             state=_uv_state,
             expect=_expect_set_position,
-            known=KNOWN_CHECK,
             limit=60,
         ),
     )

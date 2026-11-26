@@ -46,7 +46,7 @@ class DisconnectReferenceTest(unittest.TestCase):
                 if mode == "default":
                     result = center.disconnect()
                 elif mode == "source":
-                    result = center.disconnect(source=source)
+                    result = center.disconnect(other=source)
                 else:
                     value = source.mplug() if mode == "mplug" else source.getName(full=True) if mode == "string" else source
                     result = center.disconnect(value)
@@ -97,7 +97,7 @@ class DisconnectReferenceTest(unittest.TestCase):
         output = self._value("arrayOutput")
         output.connect(first)
         cmds.flushUndo()
-        self.assertCountEqual(array.disconnect(source=source, nextAvailable=True), [first, second])
+        self.assertCountEqual(array.disconnect(other=source, nextAvailable=True), [first, second])
         self.assertEqual(independent.getConnections(input=True, skipConversionNodes=True), other)
         self.assertEqual(output.getConnections(input=True, skipConversionNodes=True), first)
         with self.assertRaises(RuntimeError):

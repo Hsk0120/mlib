@@ -67,7 +67,7 @@ class _ControlPointShape(Shape):
             None: 値を返さない。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpace・fast・checkがbool以外の場合、点の型や成分が不正な場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 点の数が合わない場合、有限でない成分がある場合、周期カーブの重なったCVが先頭のCVと一致しない場合、
                 またはworldSpace=Trueで、NURBSの場合かメッシュをfastで書く場合に、トランスフォームのマトリクスが特異な場合。
             RuntimeError: 形状のデータが無いか無効なシェイプの場合、またはロックなどでMayaが書き込みを拒否した場合。
@@ -75,6 +75,7 @@ class _ControlPointShape(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         ws = _world_space(worldSpace)
         self._set_points(geometryEdit.point_list(points), ws, fast, check)
 
@@ -111,7 +112,7 @@ class _ControlPointShape(Shape):
             None: 値を返さない。
 
         Raises:
-            TypeError: worldSpace・fastがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
+            TypeError: worldSpace・fast・checkがbool以外の場合、axisが文字列・int以外の場合、番号の型が不正な場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: axisやpivotが不正な場合、またはworldSpace=Trueで変換のマトリクスがほぼ特異な(逆にできない)場合。
             IndexError: 点の番号が負の数か範囲外の場合。
@@ -120,6 +121,7 @@ class _ControlPointShape(Shape):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         ws = _world_space(worldSpace)
         self._geometry_fn()
         _write_points([_mirror_plan(self._point_components(indices), axis, ws, pivot, fast, check)], fast, self._mirror_chunk, check)

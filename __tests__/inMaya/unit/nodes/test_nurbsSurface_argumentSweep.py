@@ -35,16 +35,6 @@ TOLERANCE_VALUES = (1e-7, 0.0, 0.5, 5.0)
 TOLERANCE_INVALID = ("a", float("nan"), float("inf"), -1.0, None)
 #: パラメーターの誤った値。
 PARAM_INVALID = ("a", float("nan"), float("inf"), None, -0.5, 1.5)
-#: 本体との食い違い(findings4/sweep-geometry.md)。
-KNOWN_SET_KNOTS = {
-    "invalid:uKnots='abc'": "数でない・並びでない値は Raises に無い TypeError になる",
-    "invalid:uKnots=None": "数でない・並びでない値は Raises に無い TypeError になる",
-    "invalid:uKnots=1.0": "数でない・並びでない値は Raises に無い TypeError になる",
-    "invalid:vKnots=('a',*": "数でない・並びでない値は Raises に無い TypeError になる",
-    "invalid:vKnots=<object*": "数でない・並びでない値は Raises に無い TypeError になる",
-}
-#: fnmatch の [ は文字の組なので、[[] と書く。
-KNOWN_CVS = {"invalid:indices=[[](0,)]": "(u, v) の成分の数の違いが Raises に無い ValueError になる"}
 
 
 def _surface(case, patches=4, uvs=False, trim=False):
@@ -350,7 +340,6 @@ METHODS = (
         },
         expect=_expect_set_knots,
         state=_shape_state,
-        known=KNOWN_SET_KNOTS,
         limit=20,
     ),
     Method(
@@ -434,7 +423,6 @@ METHODS = (
         invalid={"indices": (-1, 49, True, "a", 1.5, [(0,)], [(7, 0)], [(0, -1)], [1.5])},
         expect=_expect_cvs,
         plural=_make_surfaces,
-        known=KNOWN_CVS,
     ),
     Method(
         "isPointOnSurface",

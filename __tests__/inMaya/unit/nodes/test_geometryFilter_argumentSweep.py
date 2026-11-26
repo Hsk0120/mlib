@@ -108,8 +108,8 @@ def _path(name):
     return Lazy(lambda case: str(OUTPUT / case.ns / name), f"'<出力>/{name}'")
 
 
-#: 形状の番号の誤った値(無い番号・負・数・bool・文字列)。
-INDEX_INVALID = (2, -1, 1.5, True, "a", None)
+#: 形状の番号の誤った値(無い番号・負・数・bool・文字列。Noneは先頭の形状)。
+INDEX_INVALID = (2, -1, 1.5, True, "a")
 
 
 # ----------------------------------------------------------------------
@@ -136,22 +136,27 @@ def _expect_tools(case, call):
     case.assertEqual([_full(node) for node in call.result], expected)
 
 
-def _expect_geometry(case, call):
-    index = call.kwargs.get("geometryIndex")
-    if call.kwargs.get("input"):
-        attr = "input[{}].inputGeometry"
-        indices = [index] if index is not None else cmds.getAttr(f"{call.target}.input", multiIndices=True)
-        expected = []
-        for number in indices:
-            source = cmds.listConnections(f"{call.target}." + attr.format(number), source=True, destination=False, shapes=True) or []
-            expected.append(_full(source[0]) if source else None)
-    else:
-        geometry = _cmds_geometry(call.target, index)
-        expected = [geometry[index]] if index is not None else list(geometry.values())
+def _index(call, name="geometryIndex"):
+    """geometryIndex の指定を番号にする(None・省略は先頭の形状)。"""
+    index = call.kwargs.get(name)
     if index is not None:
-        case.assertEqual(None if call.result is None else _full(call.result), expected[0])
-    elif not call.kwargs.get("input"):
-        case.assertEqual([_full(node) for node in call.result], expected)
+        return index
+    target = call.result if name == "otherGeometryIndex" else call.target
+    return (cmds.deformer(str(target), query=True, geometryIndices=True) or [0])[0]
+
+
+def _expect_geometry(case, call):
+    if call.kwargs.get("all"):
+        if not call.kwargs.get("input"):
+            case.assertEqual([_full(node) for node in call.result], list(_cmds_geometry(call.target, None).values()))
+        return
+    index = _index(call)
+    if call.kwargs.get("input"):
+        source = cmds.listConnections(f"{call.target}.input[{index}].inputGeometry", source=True, destination=False, shapes=True) or []
+        expected = _full(source[0]) if source else None
+    else:
+        expected = _cmds_geometry(call.target, index)[index]
+    case.assertEqual(None if call.result is None else _full(call.result), expected)
 
 
 def _expect_indices(case, call):
@@ -168,7 +173,7 @@ def _expect_indices(case, call):
 
 
 def _expect_components(case, call):
-    index = call.kwargs.get("geometryIndex", 0)
+    index = _index(call)
     shape = _cmds_geometry(call.target, index)[index]
     names = cmds.ls([str(item) for components in call.result for item in components], flatten=True)
     case.assertEqual(len(names), VERTEX_COUNT)
@@ -184,7 +189,7 @@ def _expect_set(case, call):
 
 
 def _expect_weights(case, call):
-    case.assertSequenceAlmostEqual(call.result, _cmds_weights(call.target, call.kwargs.get("geometryIndex", 0)), places=5)
+    case.assertSequenceAlmostEqual(call.result, _cmds_weights(call.target, _index(call)), places=5)
 
 
 def _vertex_indices(value):
@@ -198,7 +203,7 @@ def _vertex_indices(value):
 
 
 def _expect_set_weights(case, call):
-    actual = _cmds_weights(call.target, call.kwargs.get("geometryIndex", 0))
+    actual = _cmds_weights(call.target, _index(call))
     for vertex, value in zip(_vertex_indices(call.kwargs.get("vertices")), call.kwargs["weights"]):
         case.assertAlmostEqual(actual[vertex], value, places=5)
 
@@ -206,6 +211,9 @@ def _expect_set_weights(case, call):
 def _expect_dump(case, call):
     data = json.loads(pathlib.Path(call.kwargs["path"]).read_text(encoding="utf-8"))
     case.assertIsInstance(data, dict)
+    indices = cmds.deformer(str(call.target), query=True, geometryIndices=True) or []
+    expected = sorted(indices) if call.kwargs.get("all") else [_index(call)]
+    case.assertEqual([entry["index"] for entry in data["geometries"]], expected)
 
 
 def _expect_load(case, call):
@@ -214,8 +222,8 @@ def _expect_load(case, call):
 
 def _expect_copy(case, call):
     case.assertEqual(_full(call.result), _full(call.kwargs["other"]))
-    source = _cmds_weights(call.target, call.kwargs.get("geometryIndex", 0))
-    case.assertSequenceAlmostEqual(_cmds_weights(call.result, call.kwargs.get("otherGeometryIndex", 0)), source, places=5)
+    source = _cmds_weights(call.target, _index(call))
+    case.assertSequenceAlmostEqual(_cmds_weights(call.result, _index(call, "otherGeometryIndex")), source, places=5)
 
 
 # ----------------------------------------------------------------------
@@ -227,21 +235,21 @@ WEIGHT_VALUES = ([0.5] * VERTEX_COUNT, tuple(0.1 * vertex for vertex in range(VE
 #: 頂点の指定の候補。
 VERTEX_VALUES = (None, [0], (3, 4), _vertex(5), _vertices(6, 7), [])
 
-#: check に bool でない値を渡すと、真偽として読む(findings4/sweep-deform.md の1)。
-KNOWN_CHECK = {f"invalid:check={value}": "check の bool でない値を真偽として読む" for value in ("1", "'yes'")}
 
-#: ファイルの読み書きに失敗すると、Raises に無い OSError(FileNotFoundError)になる(findings4/sweep-deform.md の11)。
-KNOWN_DUMP = {"invalid:path='<出力>/missing/dir/w.json'": "Raises に無い OSError になる"}
-KNOWN_LOAD = {"invalid:path='<出力>/missing.json'": "Raises に無い OSError になる"}
+def _all_conflict(kwargs):
+    """all=True と geometryIndex は同時に指定できない。"""
+    return kwargs.get("all") is True and kwargs.get("geometryIndex") is not None
+
 
 METHODS = (
     Method("getDeformerTools", _deformers, expect=_expect_tools),
     Method(
         "getGeometry",
         _deformers,
-        values={"geometryIndex": (0, 1)},
+        values={"geometryIndex": (None, 0, 1)},
         replace=("geometryIndex",),
-        invalid={"input": (1, "yes", None), "geometryIndex": INDEX_INVALID[:-1]},
+        invalid={"input": (1, "yes", None), "geometryIndex": INDEX_INVALID},
+        conflicts=(_all_conflict,),
         expect=_expect_geometry,
     ),
     Method(
@@ -262,7 +270,7 @@ METHODS = (
     Method(
         "getGeometryComponents",
         _deformers,
-        values={"geometryIndex": (0, 1)},
+        values={"geometryIndex": (None, 0, 1)},
         replace=("geometryIndex",),
         invalid={"geometryIndex": INDEX_INVALID},
         expect=_expect_components,
@@ -271,7 +279,7 @@ METHODS = (
     Method(
         "getDeformerWeights",
         _deformers,
-        values={"geometryIndex": (0, 1)},
+        values={"geometryIndex": (None, 0, 1)},
         replace=("geometryIndex",),
         invalid={"geometryIndex": INDEX_INVALID},
         expect=_expect_weights,
@@ -280,7 +288,7 @@ METHODS = (
         "setDeformerWeights",
         _deformers,
         args=([0.5] * VERTEX_COUNT,),
-        values={"weights": WEIGHT_VALUES, "vertices": VERTEX_VALUES, "geometryIndex": (0, 1)},
+        values={"weights": WEIGHT_VALUES, "vertices": VERTEX_VALUES, "geometryIndex": (None, 0, 1)},
         replace=("weights", "vertices", "geometryIndex"),
         invalid={
             "weights": ([0.5] * 3, [float("nan")] * VERTEX_COUNT, ["a"] * VERTEX_COUNT, "abc", 1.5, None, object()),
@@ -288,7 +296,6 @@ METHODS = (
             "geometryIndex": INDEX_INVALID,
         },
         expect=_expect_set_weights,
-        known=KNOWN_CHECK,
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -297,9 +304,9 @@ METHODS = (
         args=(_path("weights.json"),),
         values={"path": (_path("weights.json"), Lazy(lambda case: OUTPUT / case.ns / "weights.dw", "<Path weights.dw>")), "geometryIndex": (None, 0, 1)},
         replace=("geometryIndex",),
-        invalid={"path": (_path("missing/dir/w.json"), 1.5, None), "geometryIndex": INDEX_INVALID[:-1]},
+        invalid={"path": (_path("missing/dir/w.json"), 1.5, None), "geometryIndex": INDEX_INVALID},
+        conflicts=(_all_conflict,),
         expect=_expect_dump,
-        known=KNOWN_DUMP,
     ),
     Method(
         "loadDeformerWeights",
@@ -308,14 +315,13 @@ METHODS = (
         values={"path": (Lazy(lambda case: pathlib.Path(_dumped(case)), "<Path 書き出したファイル>"),)},
         invalid={"path": (_path("missing.json"), 1.5, None)},
         expect=_expect_load,
-        known=KNOWN_LOAD,
         limit=WRITE_LIMIT,
     ),
     Method(
         "copyDeformerWeightsTo",
         _deformers,
         args=(_name("cl2"),),
-        values={"other": (_name("cl2"), _node("cl2"), _name("cl")), "geometryIndex": (0, 1), "otherGeometryIndex": (0, 1)},
+        values={"other": (_name("cl2"), _node("cl2"), _name("cl")), "geometryIndex": (None, 0, 1), "otherGeometryIndex": (None, 0, 1)},
         replace=("geometryIndex", "otherGeometryIndex"),
         invalid={
             "other": (_name("skin"), _name("pA"), MISSING_NAME, DELETED_NODE, 1.5, None),
@@ -323,7 +329,6 @@ METHODS = (
             "otherGeometryIndex": INDEX_INVALID,
         },
         expect=_expect_copy,
-        known=KNOWN_CHECK,
         limit=WRITE_LIMIT,
     ),
 )

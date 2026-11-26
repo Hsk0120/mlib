@@ -138,11 +138,6 @@ def _expect_delete(case, call):
         case.assertTrue(cmds.objExists(destination.rstrip(":") + ":node"))
 
 
-def _type_known(name):
-    """文字列でない名前は、Raises に無い TypeError になる(findings4 の N2)。"""
-    return {f"invalid:{name}={value}": "Raises に無い TypeError(文字列でない名前)" for value in ("1.5", "None")}
-
-
 NS = Lazy(lambda case: case.ns, "'<名前空間>'")
 NS_OBJECT = Lazy(lambda case: Namespace(case.ns), "<Namespace>")
 D_NAME = Lazy(lambda case: case.ns + ":d", "'<名前空間>:d'")
@@ -166,15 +161,6 @@ METHODS = (
         replace=("name", "parent"),
         invalid={"name": ("", "a b", "1a", "a::b", 1.5, None), "parent": ("", "a b", 1.5, None)},
         expect=_expect_create,
-        known={
-            "invalid:name='a b'": "使えない文字を例外にせず、直した名前で作る",
-            "invalid:name='1a'": "使えない文字を例外にせず、直した名前で作る",
-            "invalid:name='a::b'": "空の階層を例外にせず、詰めた名前で作る",
-            "invalid:name=1.5": "Raises に無い TypeError(文字列でない名前)",
-            "invalid:name=None": "Raises に無い TypeError(文字列でない名前)",
-            "invalid:parent=1.5": "Raises に無い TypeError(文字列でない親。文言も name と書く)",
-            "invalid:parent=None": "Raises に無い TypeError(文字列でない親。文言も name と書く)",
-        },
     ),
     Method("getParent", _b, invalid={"all": (1, "yes", None)}, expect=_expect_parent),
     Method(
@@ -187,7 +173,6 @@ METHODS = (
             "parent": ("", "a b", 1.5, None, Lazy(lambda case: case.ns + ":nowhere", "'<無い名前空間>'"), Lazy(lambda case: case.ns + ":a:b:c", "'<自分の子>'"))
         },
         expect=_expect_set_parent,
-        known=_type_known("parent"),
     ),
     Method("getChildren", _a, invalid={"allDescendents": (1, "yes", None)}, expect=_expect_children),
     Method(
@@ -215,7 +200,6 @@ METHODS = (
         replace=("name",),
         invalid={"name": ("", "a b", "1a", 1.5, None, "b")},
         expect=_expect_rename,
-        known=_type_known("name"),
     ),
     Method("deleteNodes", _a, invalid={"preserveChildren": (1, "yes", None)}, expect=_expect_delete_nodes),
     Method(

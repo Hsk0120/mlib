@@ -7,7 +7,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 from ..core.attributeType import _from_seconds, _to_seconds
 from ..decorator import _require_bool
-from ..util import _time_unit
+from ..util import _required_time_unit
 from .environment import Environment
 from typing import Any, Iterator, Literal
 from mlib._stubtypes import GeneratorContextManager
@@ -51,6 +51,10 @@ class Time:
 
         Returns:
             float: 現在時刻。
+
+        Raises:
+            TypeError: timeUnitが文字列でない場合(Noneを含む)。
+            ValueError: timeUnitが未対応の単位名の場合。
         """
         ...
     @staticmethod
@@ -68,7 +72,7 @@ class Time:
             None: 値を返さない。
 
         Raises:
-            TypeError: valueが数値でない、またはupdateがbool以外の場合。
+            TypeError: valueが数値でない、timeUnitが文字列でない(Noneを含む)、またはupdateがbool以外の場合。
             ValueError: valueが有限でない、またはtimeUnitが未対応の単位名の場合。
         """
         ...
@@ -100,7 +104,8 @@ class Time:
                 バッチ(mayapy)の場合、タイムスライダーが無い場合はNone。
 
         Raises:
-            TypeError: animation・selectedがbool以外の場合、またはanimationとselectedを両方Trueにした場合。
+            TypeError: animation・selectedがbool以外の場合、animationとselectedを両方Trueにした場合、
+                またはtimeUnitが文字列でない場合(Noneを含む)。
             ValueError: timeUnitが未対応の単位名の場合。
         """
         ...
@@ -109,12 +114,18 @@ class Time:
         """時間の範囲を変える。
 
         既定では、再生範囲(タイムスライダーの開始・終了)を変える。
-        ``cmds.playbackOptions`` を1回呼ぶので、Undoの扱いもそれと同じになる。
-        Mayaの版で違い、Maya 2022ではUndoに記録されず、Maya 2027では記録される(1回のUndoで戻る)。
+        再生範囲はアニメーション範囲の中に収まる必要があるため、もう一方の範囲も次のように合わせて変える
+        (Mayaが合わせて変えるのと同じ。ただしMayaだけに任せると、その変更はUndoで戻らない)。
+
+        - 再生範囲を変えるとき: アニメーション範囲を、新しい再生範囲を含むまで広げる。
+        - アニメーション範囲を変えるとき: 再生範囲を新しいアニメーション範囲の中へ縮める。重ならないときは、再生範囲もアニメーション範囲と同じにする。
+
+        4つの値を ``cmds.playbackOptions`` の1回の呼び出しで書くので、Undoの扱いもそれと同じになる。
+        Mayaの版で違い、Maya 2022ではUndoに記録されず、Maya 2027では記録される(1回のUndoで、もう一方の範囲も戻る)。
 
         Args:
             start (float): 開始。
-            end (float): 終了。start以上。
+            end (float): 終了。startより大きい値(同じ値にすると、Mayaが範囲を1フレーム広げるため)。
             animation (bool): True なら、アニメーション範囲(レンジスライダーの両端)を変える。
             timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。
 
@@ -122,8 +133,11 @@ class Time:
             None: 値を返さない。
 
         Raises:
-            TypeError: start・endが数値でない場合、またはanimationがbool以外の場合。
-            ValueError: 有限でない、startがendより大きい、またはtimeUnitが未対応の単位名の場合。
+            TypeError: start・endが数値でない場合、animationがbool以外の場合、またはtimeUnitが文字列でない場合(Noneを含む)。
+            ValueError: 有限でない、startがend以上、またはtimeUnitが未対応の単位名の場合。
+
+        Note:
+            Maya 2022では、範囲の変更がUndoに記録されない(Mayaの制限)。
         """
         ...
     @staticmethod
@@ -211,12 +225,11 @@ def _get_selected_range(unit: str) -> tuple[float, float] | None:
     """
     ...
 
-def _set_range(start_flag: str, end_flag: str, start: float, end: float, unit: str) -> None:
-    """playbackOptions の範囲を設定する。
+def _set_range(animation: bool, start: float, end: float, unit: str) -> None:
+    """playbackOptions の範囲を、もう一方の範囲と合わせて1回の呼び出しで設定する。
 
     Args:
-        start_flag (str): 開始のフラグ名。
-        end_flag (str): 終了のフラグ名。
+        animation (bool): Trueならアニメーション範囲、Falseなら再生範囲を変える。
         start (float): 開始。
         end (float): 終了。
         unit (str): start・endの単位。
@@ -226,6 +239,6 @@ def _set_range(start_flag: str, end_flag: str, start: float, end: float, unit: s
 
     Raises:
         TypeError: start・endが数値でない場合。
-        ValueError: 有限でない、またはstartがendより大きい場合。
+        ValueError: 有限でない、またはstartがend以上の場合。
     """
     ...

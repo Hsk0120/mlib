@@ -1,5 +1,6 @@
 """Maya の名前空間を取得・作成・移動・削除する。"""
 
+import re
 from contextlib import contextmanager
 
 import maya.api.OpenMaya as om2
@@ -7,6 +8,9 @@ import maya.cmds as cmds
 
 from ..core.nodeEdit import check_deletion
 from ..decorator import _require_bool, undoChunk
+
+#: 名前空間の1つの階層に使える名前(ASCIIの英字か_で始まり、英数字と_が続く)。
+_LEGAL_SEGMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
 
 class Namespace:
@@ -99,13 +103,12 @@ class Namespace:
             Namespace: 作った(またはすでにあった)名前空間の完全名を持つオブジェクト。
 
         Raises:
-            ValueError: nameまたはparentが正しくない場合。
+            TypeError: name・parentが文字列でもNamespaceでもない場合。
+            ValueError: name・parentが空、使えない文字(英数字と_以外・先頭の数字)を含む、または空の階層(``a::b``)を含む場合。
             RuntimeError: Mayaが作成を拒否した場合。
-
-        Note:
-            使えない文字(``-``・空白・先頭の数字・``#`` など)は、Mayaの規則で置き換える。
-            置き換えた名前がすでにあれば、末尾に番号を付ける。戻り値はMayaが実際に作った名前になる。
         """
+        _require_name(name, "name")
+        _require_name(parent, "parent")
         with undoChunk("mlibNamespaceCreate"):
             return cls._create(name, parent)
 
@@ -169,9 +172,11 @@ class Namespace:
             None: 値を返さない。
 
         Raises:
+            TypeError: parentが文字列でもNamespaceでもない場合。
             ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
             RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
         """
+        _require_name(parent, "parent")
         with undoChunk("mlibNamespaceSetParent"):
             if self._name == ":":
                 raise ValueError("ルートの名前空間は移動できません")
@@ -337,9 +342,11 @@ class Namespace:
             None: 値を返さない。
 
         Raises:
-            ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合。
+            TypeError: nameが文字列でもNamespaceでもない場合。
+            ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合(空・使えない文字・空の階層)。
             RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
+        _require_name(name, "name")
         with undoChunk("mlibNamespaceRename"):
             if self._name == ":":
                 raise ValueError("ルートの名前空間は名前を変更できません")
@@ -509,3 +516,30 @@ class Namespace:
         cmds.namespace(add=leaf_name, parent=target_parent.name)
         cmds.namespace(moveNamespace=(self._name, target.name), force=True)
         cmds.namespace(removeNamespace=self._name)
+
+
+def _require_name(value, name):
+    """名前空間の名前の引数を確かめる。
+
+    / は : と同じ区切りとして扱い、先頭・末尾の : は絶対名・区切りとして受け付ける。
+
+    Args:
+        value (str | Namespace): 確かめる値。
+        name (str): 例外メッセージに使う引数名。
+
+    Raises:
+        TypeError: 文字列でもNamespaceでもない場合。
+        ValueError: 空、使えない文字を含む、または空の階層を含む場合。
+    """
+    if isinstance(value, Namespace):
+        return
+    if not isinstance(value, str):
+        raise TypeError(f"{name}はstrかNamespaceで指定してください: {type(value).__name__}")
+    text = value.replace("/", ":")
+    if text == ":":
+        return
+    body = text[1:] if text.startswith(":") else text
+    body = body[:-1] if body.endswith(":") else body
+    for segment in body.split(":"):
+        if not _LEGAL_SEGMENT.match(segment):
+            raise ValueError(f"{name}は英数字と_の名前空間の名前で指定してください(先頭は数字以外。空の階層は不可): {value!r}")

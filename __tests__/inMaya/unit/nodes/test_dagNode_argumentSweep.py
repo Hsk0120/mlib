@@ -358,9 +358,6 @@ def _expect_delete_history(case, call):
 # ----------------------------------------------------------------------
 # 表
 
-#: check が bool でない値を受け付ける(findings4/sweep-dag.md の D3)。
-KNOWN_CHECK = _known("D3: check が bool でない値を受け付ける", "invalid:check=*")
-
 
 def _skip_color_trip(kwargs):
     """番号0(既定色)と、アウトライナーへの番号(RGB へ変えて書く)は、書いた値と読む値が違う。"""
@@ -411,17 +408,8 @@ METHODS = (
         invalid={"type": ("", 1.5, [1])},
         expect=_expect_children,
         limit=120,
-        known=_known("D1: shapes・intermediates が bool でない値を受け付ける", "invalid:shapes=*", "invalid:intermediates=*"),
     ),
-    Method(
-        "getShape",
-        _make_surface,
-        values={"index": (0, 1, 2, -1)},
-        replace=("index",),
-        conflicts=(_get_shape_conflict,),
-        expect=_expect_shape,
-        known=_known("D2: Shape では index・intermediates を使わないので型も確かめない", "invalid:index=*", "invalid:intermediates=*"),
-    ),
+    Method("getShape", _make_surface, values={"index": (0, 1, 2, -1)}, replace=("index",), conflicts=(_get_shape_conflict,), expect=_expect_shape),
     Method(
         "getObjectGroupComponents",
         _make_mesh,
@@ -444,7 +432,6 @@ METHODS = (
         roundTrip=RoundTrip("getColor", value="color", shared=("outliner", "toShape"), skip=_skip_color_trip, places=5),
         plural=_make_display_plural,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
     Method(
         "setVisibility",
@@ -464,11 +451,8 @@ METHODS = (
         roundTrip=RoundTrip("getDisplayType", value="kind"),
         plural=_make_display_plural,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
-    Method(
-        "setShadingOverride", _make_display, args=(True,), expect=_expect_shading_override, plural=_make_display_plural, known=KNOWN_CHECK, limit=WRITE_LIMIT
-    ),
+    Method("setShadingOverride", _make_display, args=(True,), expect=_expect_shading_override, plural=_make_display_plural, limit=WRITE_LIMIT),
     Method("deleteHistory", _make_mesh, expect=_expect_delete_history, limit=WRITE_LIMIT),
 )
 

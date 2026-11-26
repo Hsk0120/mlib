@@ -107,14 +107,9 @@ def _joint_names(*texts):
     return Lazy(lambda case: [case.name(text) for text in texts], f"[{', '.join(texts)}]")
 
 
-#: name に文字列でない値を渡すと、str にしてチャンク名に使う(Raises が無い。findings4 の5)。
-KNOWN_NAME = {"invalid:name=*": "文字列でない name を str にしてチャンク名に使う(Raises が無い)"}
-
 METHODS = (
-    Method("undoChunk", _node, values={"name": (None, "mlibSweepChunk", "")}, invalid={"name": (1.5, ["a"])}, expect=_expect_chunk, known=KNOWN_NAME),
-    Method(
-        "undoTransaction", _node, values={"name": (None, "mlibSweepTransaction", "")}, invalid={"name": (1.5, ["a"])}, expect=_expect_chunk, known=KNOWN_NAME
-    ),
+    Method("undoChunk", _node, values={"name": (None, "mlibSweepChunk", "")}, invalid={"name": (1.5, ["a"])}, expect=_expect_chunk),
+    Method("undoTransaction", _node, values={"name": (None, "mlibSweepTransaction", "")}, invalid={"name": (1.5, ["a"])}, expect=_expect_chunk),
     Method(
         "preservedSkinShape",
         _skinned,
@@ -123,7 +118,6 @@ METHODS = (
         replace=("joints",),
         invalid={"joints": (_joint_names("missing"), _joint_names("geo"), 1.5)},
         expect=_expect_shape,
-        known={"invalid:joints=*": "docstring に Raises が無い(Args に TypeError・例外と書いてある。findings4 の6)"},
     ),
 )
 

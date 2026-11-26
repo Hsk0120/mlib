@@ -3,7 +3,7 @@
 
 import maya.cmds as cmds
 from ..core.shapeBuild import require_name
-from ..decorator import _pick_alias, _require_bool
+from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..util import _UNSET
 from mlib.nodes.node import Node
 
@@ -14,7 +14,7 @@ def createExpression(string: str, *, name: str | None = ..., alwaysEvaluate: boo
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。
     省略した指定はMayaへ渡さず、Mayaの既定のままにする。現在の選択は変えない。
-    Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は無い(OpenMayaに式を解釈して接続する機能が無いため)。
+    Undoが有効なら1回で戻せる。名前は作ったあとに付ける(Mayaのコマンドのnameフラグは、Redoで名前空間を失うため)。fast引数は無い(OpenMayaに式を解釈して接続する機能が無いため)。
     name・alwaysEvaluate・unitConversionは ``cmds.expression`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:

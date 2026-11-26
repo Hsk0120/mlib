@@ -15,7 +15,7 @@ from ..core.fastWrite import _ancestor_plugs, require_supported_type, set_attr, 
 from ..core.listMethods import _ListMethods
 from ..core.nodeEdit import require_editable
 from ..core.object import Object, _missing_member_message
-from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
+from ..decorator import _edit_context, _pick_alias, _require_bool, _undo_recording, _validated_flags, undoChunk
 from ..util import _UNSET, _angle_unit, _finite, _remove_namespaces, _time_unit
 from typing import Any, Callable, Dict, Literal, Optional, Union
 from ..nodes.node import Node
@@ -239,24 +239,6 @@ class MissingAttributeError(AttributeError):
     この例外を ``__cause__`` に入れる。
     """
 
-def _short_alias(long: object, short: object, default: object, long_name: str, short_name: str) -> Any:
-    """長い名前(既定値あり)と短縮名(既定は ``_UNSET``)から、指定された方の値を選ぶ。
-
-    Args:
-        long (object): 長い名前の引数の値。
-        short (object): 短縮名の引数の値。指定されていなければ ``_UNSET``。
-        default (object): 長い名前の既定値。これと違えば、長い名前が指定されたとみなす。
-        long_name (str): 長い名前の引数名。例外メッセージに使う。
-        short_name (str): 短縮名の引数名。例外メッセージに使う。
-
-    Returns:
-        object: 指定された値。どちらも指定されていなければ長い名前の既定値。
-
-    Raises:
-        TypeError: 長い名前と短縮名を同時に指定した場合。
-    """
-    ...
-
 
 class Plug(Object):
     """アトリビュートを扱うクラス。値・接続・状態(ロックなど)を扱う。
@@ -460,6 +442,9 @@ class Plug(Object):
                 (動的アトリビュートは ``deleteAttr`` で削除されることがある)。
                 Undo でノードやアトリビュートが戻れば、再び ``True`` になる。
                 ``elements=True`` では、まだ無い要素を通る場合に ``False``。
+
+        Raises:
+            TypeError: elementsがboolでない場合。
         """
         ...
     def isInstancedAttribute(self) -> bool:
@@ -652,6 +637,9 @@ class Plug(Object):
 
         Returns:
             bool: マルチアトリビュート全体のPlugなら ``True``。``element=True`` では、要素のPlugなら ``True``。
+
+        Raises:
+            TypeError: elementがboolでない場合。
         """
         ...
     def isCompound(self, *, child: bool = ...) -> bool:
@@ -663,6 +651,9 @@ class Plug(Object):
 
         Returns:
             bool: 子のPlugを持つなら ``True``。``child=True`` では、子のPlugなら ``True``。
+
+        Raises:
+            TypeError: childがboolでない場合。
         """
         ...
     @overload
@@ -973,7 +964,7 @@ class Plug(Object):
         """動的アトリビュートの定義の最小値・最大値を設定する。
 
         ``cmds.addAttr(edit=True, minValue=..., maxValue=...)`` と同じ。現在の値そのものは変えない。
-        **省略した側は変えず、None を渡した側は制限を外す**
+        **省略した側は変えず、None を渡した側は制限を外す**(もともと制限が無い側へのNoneは何も変えない)
         (``setRange(0)`` は最小値だけを0にし、``setRange(0, None)`` は最小値を0にして最大値の制限を外す。
         最大値だけなら ``setRange(maximum=10)``)。
         値の単位は :meth:`Node.addAttr` の ``minValue`` と同じ。
@@ -1051,8 +1042,8 @@ class Plug(Object):
             value (bool | int | float | om2.MAngle | om2.MDistance): 新しい既定値。
                 角度は度、距離はcm。単位付きの値は自身の単位を使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Undo設定は変更しない。
-            unit (str | None): 角度の数値の単位(deg/rad)。uiUnitsより優先する。
-            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位として扱う。
+            unit (str | None): 角度の数値の単位(deg/rad)。None(既定)は度。uiUnits=Trueとは同時に指定できない。
+            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位(``currentUnit -angle``・``-linear``)として扱う。
 
         Returns:
             None: 値を返さない。
@@ -1213,6 +1204,10 @@ class Plug(Object):
 
         Returns:
             Nodes: animLayerのノード。条件に合えば、最後にベースレイヤーを含む。名前は ``getAnimLayers().getNames()`` で取得する。
+
+        Raises:
+            TypeError: selected・exactがboolでない場合。
+            RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
     @overload
@@ -1379,7 +1374,8 @@ class Plug(Object):
                 - MultiPlug.getは、論理番号をキーにしたdict。
                 - APIで読む ``doubleArray`` などのデータ型はlist。各要素は、vectorArrayならXYZ、
                   pointArrayならXYZW、matrixArrayなら16成分のtuple。
-                - 一度も値を入れていないデータはNone、空のデータは空のlist。
+                - 一度も値を入れていないデータはNone、空のデータは空のlist。ただし文字列(``dataType="string"``)は、
+                  一度も値を入れていなくても空文字列 ``""`` を返す(``cmds.getAttr`` はNone)。
                 - generic/kAnyは、今の値に合わせてMatrix・数値・tupleなどを返す。
 
                 マトリクスや ``doubleArray`` などのデータ型の成分と、単位の無い値は換算しない。
@@ -1431,7 +1427,7 @@ class Plug(Object):
                 変更されなかった成分の正確な数は保証しない。
 
         Raises:
-            TypeError: fastがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
+            TypeError: safe・fast・checkがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
                 safe=Trueでも例外にする。safe=Falseなら、unit・timeUnitが文字列でもNoneでもない場合や、
                 値が不正な場合にも送出する。
             ValueError: unit・timeUnitが対応していない単位名の場合、またはuiUnits=Trueと同時に指定した場合
@@ -1466,7 +1462,7 @@ class Plug(Object):
             bool: 書き込んだらTrue。値が同じで書き込まなかったらFalse。
 
         Raises:
-            TypeError: fastがboolでない場合、またはスカラーでない値を指定した場合。
+            TypeError: unlock・fast・checkがboolでない場合、またはスカラーでない値を指定した場合。
             ValueError: check=Trueで、値が有限でない(NaN・無限大の)場合。
             RuntimeError: アトリビュートが無効な場合、check=Trueでロック・入力の接続がある場合、
                 またはMayaがアトリビュートの更新を拒否した場合。
@@ -1605,8 +1601,10 @@ class Plug(Object):
                 値やノードは複製しない。
 
         Raises:
-            TypeError: input・outputがboolでない場合、同じフラグの長い名前と短縮名を同時に指定した場合、
+            TypeError: boolの引数がboolでない場合、type(t)が文字列でもNoneでもない場合、indexがintでもNoneでもない場合、
+                同じフラグの長い名前と短縮名を同時に指定した場合(値に関係なく)、
                 または同時に指定できない引数と一緒に指定した場合。
+            ValueError: type(t)が空文字列の場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
@@ -1709,8 +1707,8 @@ class Plug(Object):
             Plug: 実際の接続先。nextAvailableでは選んだ要素。取得し直すことがあるので、selfと同じオブジェクトとは限らない。
 
         Raises:
-            TypeError: 接続元が指定されていない場合や対応していない型の場合、fast・skipExistingがboolでない場合、
-                または同じフラグの長い名前と短縮名を同時に指定した場合。
+            TypeError: 接続元が指定されていない場合や対応していない型の場合、boolの引数(force・lock・nextAvailable・unlock・
+                skipExisting・fastと短縮名)がboolでない場合、または同じフラグの長い名前と短縮名を同時に指定した場合(値に関係なく)。
             AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
                 forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
@@ -1718,7 +1716,7 @@ class Plug(Object):
                 (接続元については、削除前のアトリビュートのパスを文言に入れる)。
         """
         ...
-    def disconnect(self, source: Plug | om2.MPlug | str | None = ..., *, unlock: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> Plug | list[Plug]:
+    def disconnect(self, other: Plug | om2.MPlug | str | None = ..., *, unlock: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> Plug | list[Plug]:
         """指定した入力元との、直接の接続を切る。
 
         子の接続まではたどらず、変換ノードも飛ばさない。変換ノードは削除しない。
@@ -1726,11 +1724,11 @@ class Plug(Object):
         ロックを戻すのに失敗したら、例外にしてそこで止める。切断し終えたものは戻さない。
 
         Args:
-            source (Plug | om2.MPlug | str | None): 入力元。省略するかNoneなら、今の直接の入力。
+            other (Plug | om2.MPlug | str | None): 入力元。省略するかNoneなら、今の直接の入力。
             unlock (bool): Trueなら、接続先とその上のロックを一時的に外し、逆の順にロックし直す。入力元のロックは変えない。
                 既定はFalse。
-            nextAvailable (bool): Trueなら、マルチアトリビュートの中で、sourceへ直接つながっている要素の接続をすべて切る。
-                sourceを指定したときだけ効く。``cmds.disconnectAttr(nextAvailable=True)`` は最初に見つかった1つだけを切るが、
+            nextAvailable (bool): Trueなら、マルチアトリビュートの中で、otherへ直接つながっている要素の接続をすべて切る。
+                otherを指定したときだけ効く。``cmds.disconnectAttr(nextAvailable=True)`` は最初に見つかった1つだけを切るが、
                 mlibではつながっている要素をすべて切る(Mayaとの違い)。
             na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -1738,7 +1736,7 @@ class Plug(Object):
         Returns:
             Plug | list[Plug]: 1つだけ切ったときは、切った入力元のPlug(自身ではない)。
 
-                - sourceを渡した場合は、そのPlug(Plugならそのオブジェクト、MPlug・名前なら、それから求めたPlug)。
+                - otherを渡した場合は、そのPlug(Plugならそのオブジェクト、MPlug・名前なら、それから求めたPlug)。
                 - 省略した場合は、切る前に今の直接の入力として取得したPlug。名前から取得し直さない。
 
                 接続から得た(networkedの)MPlugを持っている場合は、切る前に、同じアトリビュートを指す
@@ -1746,8 +1744,8 @@ class Plug(Object):
                 マルチアトリビュートの中を探した場合は、接続先の要素のlist。
 
         Raises:
-            TypeError: sourceがboolなど対応していない型の場合、unlock・fastがboolでない場合、
-                またはnextAvailableとnaを同時に指定した場合。
+            TypeError: otherがboolなど対応していない型の場合、unlock・fast・nextAvailable(na)がboolでない場合、
+                またはnextAvailableとnaを同時に指定した場合(値に関係なく)。
             AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 入力や指定した接続が無い場合、または切断やロックの復元に失敗した場合。
 
@@ -1956,7 +1954,7 @@ class Plug(Object):
             int | None: safe=Falseなら値を返さない。safe=Trueなら、成功は0、失敗は失敗の数。
 
         Raises:
-            TypeError: fastがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
+            TypeError: safe・fast・checkがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
                 safe=Trueでも例外にする。safe=Falseなら、unit・timeUnitが文字列でもNoneでもない場合にも送出する。
             ValueError: safe=Falseで、unit・timeUnitが対応していない場合、またはuiUnits=Trueと同時に指定した場合。
                 safe=Trueでは、どちらも書き込む前の失敗として1を返す。
@@ -2909,7 +2907,7 @@ class Plugs(_ListMethods):
     def connect(self, source: Plug | om2.MPlug | str, *, force: bool = ..., f: bool = ..., lock: bool = ..., l: bool = ..., nextAvailable: bool = ..., na: bool = ..., unlock: bool = ..., skipExisting: bool = ..., fast: bool = ...) -> list[Plug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.connect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def disconnect(self, source: Plug | om2.MPlug | str | None = ..., *, unlock: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> list[Plug | list[Plug]]:
+    def disconnect(self, other: Plug | om2.MPlug | str | None = ..., *, unlock: bool = ..., nextAvailable: bool = ..., na: bool = ..., fast: bool = ...) -> list[Plug | list[Plug]]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.disconnect` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def disconnectAll(self, *, source: bool = ..., destination: bool = ..., fast: bool = ...) -> list[None]:

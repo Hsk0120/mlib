@@ -8,7 +8,6 @@
 
 import inspect
 import math
-import re
 import sys
 import unittest
 
@@ -40,11 +39,6 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
-def _known(name, values, reason):
-    """段2の場合の名前を、fnmatch の記号([ など)を文字として扱う形にして返す。"""
-    return {"invalid:" + re.sub(r"([*?[])", r"[\1]", f"{name}={value!r}"): reason for value in values}
-
-
 def _value(case, target):
     """値の状態(4成分)。メソッドが自身を変えないことを確かめる。"""
     return [target.x, target.y, target.z, target.w] if isinstance(target, om2.MQuaternion) else None
@@ -69,9 +63,9 @@ def _mv(value):
 
 
 def _unit(kwargs):
-    """unit の指定。None は度として扱う(findings4/sweep-common-json-maths.md の M8)。"""
+    """unit の指定。None は既定と同じラジアン。"""
     unit = kwargs.get("unit", "rad")
-    return "deg" if unit is None else unit
+    return "rad" if unit is None else unit
 
 
 def _radians(value, unit):
@@ -182,16 +176,6 @@ def _expect_mirror(case, call):
     _assert_rotation(case, call.result, expected)
 
 
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の M9)。
-KNOWN_OTHER = _known("other", OTHER_INVALID[1:], "Raises に無い AttributeError(x・y・z・w を持たない値)")
-KNOWN_XYZ = _known("vector", XYZ_INVALID[3:], "Raises に無い TypeError(3成分の並びでない値)")
-KNOWN_SLERP = {
-    **KNOWN_OTHER,
-    **_known("t", ("a", None), "Raises に無い TypeError(om2 の slerp が MQuaternion expected と報告する)"),
-    **_known("spin", (1.5, "a", None), "Raises に無い TypeError(om2 の slerp が MQuaternion expected と報告する)"),
-    "invalid:t=nan": "NaN を受け付け、NaN のクォータニオンを返す",
-}
-
 METHODS = (
     Method(
         "fromAxisAngle",
@@ -202,7 +186,6 @@ METHODS = (
         invalid={"axis": XYZ_INVALID, "angle": ("a", None, float("nan"), float("inf")), "unit": UNIT_INVALID},
         expect=_expect_axis_angle,
         writes=False,
-        known={"invalid:angle=nan": "NaN を受け付け、NaN のクォータニオンを返す(fromRollBend は ValueError)"},
     ),
     Method(
         "fromRollBend",
@@ -231,7 +214,6 @@ METHODS = (
         expect=_expect_dot,
         state=_value,
         writes=False,
-        known=KNOWN_OTHER,
     ),
     Method(
         "rotateVector",
@@ -243,7 +225,6 @@ METHODS = (
         expect=_expect_rotate_vector,
         state=_value,
         writes=False,
-        known=KNOWN_XYZ,
     ),
     Method(
         "angleTo",
@@ -255,7 +236,6 @@ METHODS = (
         expect=_expect_angle_to,
         state=_value,
         writes=False,
-        known=KNOWN_OTHER,
     ),
     Method(
         "slerp",
@@ -267,7 +247,6 @@ METHODS = (
         expect=_expect_slerp,
         state=_value,
         writes=False,
-        known=KNOWN_SLERP,
     ),
     Method(
         "asSwingTwist",
@@ -278,7 +257,6 @@ METHODS = (
         expect=_expect_swing_twist,
         state=_value,
         writes=False,
-        known=_known("axis", XYZ_INVALID[3:], "Raises に無い TypeError(3成分の並びでない値)"),
     ),
     Method(
         "asRollBend",

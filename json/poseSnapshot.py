@@ -168,7 +168,15 @@ def _require_nodes(nodes):
         items = list(nodes)
     except TypeError:
         raise TypeError("nodesはノードかノードの並びで指定してください") from None
-    return [item if isinstance(item, Node) else Node(item) for item in items]
+    result = []
+    for item in items:
+        if isinstance(item, Node):
+            if not item.isValid():
+                raise RuntimeError("削除されたノードは指定できません")
+            result.append(item)
+        else:
+            result.append(Node(item))
+    return result
 
 
 def _capture_pose_attributes(node):

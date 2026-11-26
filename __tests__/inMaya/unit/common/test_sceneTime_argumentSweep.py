@@ -108,10 +108,6 @@ def _expect_set_range(case, call):
 UNITS = ("frame", "sec")
 UNIT_INVALID = ("frames ", "deg", "", 1.5, None)
 
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の T1〜T5)。
-KNOWN_NONE_UNIT = {"invalid:timeUnit=None": "None の timeUnit を例外にせず、フレームとして扱う"}
-KNOWN_GET_CURRENT = {**KNOWN_NONE_UNIT, **{f"invalid:timeUnit={value!r}": "Raises が無いのに ValueError・TypeError になる" for value in UNIT_INVALID[:4]}}
-
 
 def _range_undoable():
     """この版の Maya で、cmds.playbackOptions の変更が Undo に記録されるか(2022 では記録されない)。"""
@@ -125,16 +121,9 @@ def _range_undoable():
         cmds.undoInfo(state=state)
 
 
-#: Undo に記録されない版では、範囲の変更がすべて「Undo に記録せずにシーンを変えた」になる(findings4 の T5)。
-KNOWN_SET_RANGE_UNDO = {} if _range_undoable() else {"pairs:*": "この版の Maya では、範囲の変更が Undo に記録されない"}
-KNOWN_SET_RANGE = {
-    **KNOWN_SET_RANGE_UNDO,
-    **KNOWN_NONE_UNIT,
-    "values:start=24.0": "start と end が同じだと、Maya が範囲を1フレーム広げる",
-    "pairs:start=24.0,*": "start と end が同じだと、Maya が範囲を1フレーム広げる",
-    "pairs:*animation=True*": "Maya がもう一方の範囲も合わせて変え、その変更は Undo で戻らない",
-    "pairs:*timeUnit='sec'*": "Maya がもう一方の範囲も合わせて変え、その変更は Undo で戻らない",
-}
+#: Maya の制限: Maya 2022 では範囲の変更が Undo に記録されないため、範囲の変更がすべて「Undo に記録せずにシーンを変えた」になる
+#: (findings4 の T5。docstring の Note に書いてある)。
+KNOWN_SET_RANGE = {} if _range_undoable() else {"pairs:*": "Maya の制限: この版の Maya では、範囲の変更が Undo に記録されない"}
 
 METHODS = (
     Method(
@@ -145,7 +134,6 @@ METHODS = (
         invalid={"timeUnit": UNIT_INVALID},
         expect=_expect_get_current,
         state=_state,
-        known=KNOWN_GET_CURRENT,
     ),
     Method(
         "setCurrent",
@@ -156,7 +144,6 @@ METHODS = (
         invalid={"value": ("a", None, True, float("nan"), float("inf")), "timeUnit": UNIT_INVALID, "update": (1, "yes", None)},
         expect=_expect_set_current,
         state=_state,
-        known=KNOWN_NONE_UNIT,
     ),
     Method(
         "getRange",
@@ -167,16 +154,15 @@ METHODS = (
         conflicts=(lambda kwargs: kwargs.get("animation") is True and kwargs.get("selected") is True,),
         expect=_expect_get_range,
         state=_state,
-        known=KNOWN_NONE_UNIT,
     ),
     Method(
         "setRange",
         _functions,
         args=(1.0, 24.0),
-        values={"start": (1.0, 0, -10.0, 24.0), "end": (24.0, 100, 48.5), "timeUnit": UNITS},
+        values={"start": (1.0, 0, -10.0, 23.5), "end": (24.0, 100, 48.5), "timeUnit": UNITS},
         replace=("start", "end", "timeUnit"),
         invalid={
-            "start": ("a", None, True, float("nan"), 30.0),
+            "start": ("a", None, True, float("nan"), 30.0, 24.0),
             "end": ("a", None, float("inf"), 0.5),
             "animation": (1, "yes", None),
             "timeUnit": UNIT_INVALID,

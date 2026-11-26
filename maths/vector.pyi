@@ -23,7 +23,7 @@ _NUMBER: tuple
 _OM2_POINT_TYPES: tuple
 _AXIS_NAMES: dict
 
-def _resolve_mvector(value: om2.MVector | om2.MPoint | Iterable[float]) -> om2.MVector:
+def _resolve_mvector(value: om2.MVector | om2.MPoint | Iterable[float], name: str = ...) -> om2.MVector:
     """値を om2.MVector として扱える形へ変換する。
 
     MVector 系(mlib の Vector 派生を含む)はそのまま返す。MPoint などの om2 の
@@ -32,12 +32,13 @@ def _resolve_mvector(value: om2.MVector | om2.MPoint | Iterable[float]) -> om2.M
 
     Args:
         value (om2.MVector | om2.MPoint | Iterable[float]): 変換元。
+        name (str): 例外メッセージに使う引数名。
 
     Returns:
         om2.MVector: value 自身、または新しい MVector。
 
     Raises:
-        TypeError: 反復できない値の場合。
+        TypeError: 反復できない値・文字列、または成分が数値でない場合。
         ValueError: 反復可能オブジェクトの要素数が3でない場合。
     """
     ...
@@ -562,8 +563,8 @@ class Vector(om2.MVector):
             Vector: 呼び出したクラスの新しい値(``Translate.getCenter(...)`` はTranslate)。
 
         Raises:
-            TypeError: 点列が反復できない場合。
-            ValueError: 点列が空の場合。
+            TypeError: 点列が反復できない、または点が3個の数値の並びでない場合。
+            ValueError: 点列が空、または点の成分の数が3でない場合。
         """
         ...
     @classmethod
@@ -581,8 +582,8 @@ class Vector(om2.MVector):
             bool: 同一平面上ならTrue。
 
         Raises:
-            TypeError: 点列が反復できない、またはtoleranceが数値でない場合。
-            ValueError: toleranceが負・有限でない場合。
+            TypeError: 点列が反復できない、点が3個の数値の並びでない、またはtoleranceが数値でない場合。
+            ValueError: 点の成分の数が3でない、またはtoleranceが負・有限でない場合。
         """
         ...
     def mirror(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Vector:
@@ -629,6 +630,9 @@ class Vector(om2.MVector):
 
         Returns:
             float: 内積。
+        Raises:
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         ...
     def cross(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> Vector:
@@ -639,6 +643,9 @@ class Vector(om2.MVector):
 
         Returns:
             Vector: 外積。派生クラスの型は保持しない。
+        Raises:
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         ...
     def lengthSq(self) -> float:
@@ -725,7 +732,8 @@ class Vector(om2.MVector):
             float: 距離。``squared=True`` なら距離の2乗。
 
         Raises:
-            TypeError: squaredがboolでない場合。
+            TypeError: otherが3個の数値の並びでない、またはsquaredがboolでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         ...
     def angleTo(self, other: om2.MVector | om2.MPoint | Iterable[float]) -> float:
@@ -741,7 +749,8 @@ class Vector(om2.MVector):
             float: 0からpiまでのラジアンの角度。
 
         Raises:
-            ValueError: 自身またはotherが0のベクトルの場合。
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合、または自身・otherが0のベクトルの場合。
         """
         ...
     def isEquivalent(self, other: om2.MVector | om2.MPoint | Iterable[float], tolerance: float = ...) -> bool:
@@ -751,10 +760,14 @@ class Vector(om2.MVector):
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 比較対象。
-            tolerance (float): 距離の許容誤差。
+            tolerance (float): 距離の許容誤差。0以上。
 
         Returns:
             bool: ほぼ等しければ True。
+
+        Raises:
+            TypeError: otherが3個の数値の並びでない、またはtoleranceが数値でない場合。
+            ValueError: otherの成分の数が3でない場合、またはtoleranceが負・有限でない場合。
         """
         ...
     def lerp(self, other: om2.MVector | om2.MPoint | Iterable[float], t: float) -> Vector:
@@ -766,6 +779,10 @@ class Vector(om2.MVector):
 
         Returns:
             Vector: 補間した結果。派生クラスの型は保たない。
+
+        Raises:
+            TypeError: otherが3個の数値の並びでない、またはtが数値でない場合。
+            ValueError: otherの成分の数が3でない場合、またはtが有限でない場合。
         """
         ...
     def projected(self, axis: om2.MVector | om2.MPoint | Iterable[float]) -> Vector:
@@ -778,7 +795,8 @@ class Vector(om2.MVector):
             Vector: ``axis`` と平行な成分。派生クラスの型は保持しない。
 
         Raises:
-            ValueError: axisがゼロベクトルの場合。
+            TypeError: axisが3個の数値の並びでない場合。
+            ValueError: axisの成分の数が3でない場合、またはaxisがゼロベクトルの場合。
         """
         ...
     def orthogonal(self, axis: om2.MVector | om2.MPoint | Iterable[float]) -> Vector:
@@ -793,7 +811,8 @@ class Vector(om2.MVector):
             Vector: ``axis`` に直交する成分。派生クラスの型は保持しない。自身が軸と平行ならゼロベクトル。
 
         Raises:
-            ValueError: axisがゼロベクトルの場合。
+            TypeError: axisが3個の数値の並びでない場合。
+            ValueError: axisの成分の数が3でない場合、またはaxisがゼロベクトルの場合。
         """
         ...
     def isZero(self, tolerance: float = ...) -> bool:
@@ -832,7 +851,8 @@ class Vector(om2.MVector):
             float: コタンジェント。鋭角は正、鈍角は負。
 
         Raises:
-            ValueError: 自身またはotherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合、自身・otherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
         """
         ...
     def slerp(self, other: om2.MVector | om2.MPoint | Iterable[float], t: float, spin: int = ...) -> Vector:
@@ -851,8 +871,8 @@ class Vector(om2.MVector):
             Vector: 補間した結果。派生クラスの型は保たない。
 
         Raises:
-            TypeError: tが数値でない場合、またはspinが整数でない場合(boolを含む)。
-            ValueError: tが有限でない場合、または自身・otherが0のベクトルの場合。
+            TypeError: otherが3個の数値の並びでない場合、tが数値でない場合、またはspinが整数でない場合(boolを含む)。
+            ValueError: otherの成分の数が3でない場合、tが有限でない場合、または自身・otherが0のベクトルの場合。
         """
         ...
     def getClosestAxis(self, includeNegative: bool = ...) -> str:
@@ -886,8 +906,8 @@ class Vector(om2.MVector):
             tuple[float, ...]: 点と同じ数のウェイト。
 
         Raises:
-            TypeError: 点の数が2・3以外の場合。
-            ValueError: 線分の長さが0、または三角形の面積が0(3点が一直線上)の場合。
+            TypeError: 点の数が2・3以外の場合、または点が3個の数値の並びでない場合。
+            ValueError: 点の成分の数が3でない場合、線分の長さが0、または三角形の面積が0(3点が一直線上)の場合。
         """
         ...
     @classmethod

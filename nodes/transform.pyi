@@ -3,6 +3,7 @@
 
 import math
 import numbers
+import os
 from contextlib import nullcontext
 from typing import Any, Dict
 import maya.api.OpenMaya as om2
@@ -19,7 +20,7 @@ from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Transformatio
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
 from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
-from .dagNode import DagNode
+from .dagNode import DagNode, _require_index
 from .node import Node, Nodes
 from typing import Iterable, Literal, Sequence
 from mlib.components.component import Component
@@ -29,7 +30,6 @@ from mlib.nodes.constraint import Constraint
 from mlib.nodes.shadingEngine import ShadingEngine
 from mlib.nodes.shape import Shape
 from typing import overload
-import os
 import pathlib
 
 _TRANSFORM_SOURCE_CONSTRAINTS: frozenset
@@ -356,7 +356,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: fast・checkや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 倍率・中心・空間の指定が正しくない場合。
             IndexError: 番号が範囲外の場合。
             RuntimeError: Mayaが変更を拒否した場合。
@@ -391,7 +391,7 @@ class Transform(DagNode):
             None: 値を返さない。Shapeが無ければ何もしない。
 
         Raises:
-            TypeError: worldSpace・fastがboolでない場合、axisが文字列でもintでもない場合、番号の型が正しくない場合、
+            TypeError: worldSpace・fast・checkがboolでない場合、axisが文字列でもintでもない場合、番号の型が正しくない場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: axis・pivotが正しくない場合、Mesh・NurbsCurve以外のShapeがある場合、またはworldSpace=Trueで
                 変換のマトリクスがほぼ特異な場合。
@@ -459,7 +459,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: preserve・translationがboolでない場合、対象がJointの場合、worldSpaceとwsを同時に指定した場合、
+            TypeError: preserve・translation・fast・checkがboolでない場合、対象がJointの場合、worldSpaceとwsを同時に指定した場合、
                 translation=Trueとpreserve・fastを同時に指定した場合、
                 またはtranslation=Trueでvalueが数値の並びでない(成分に数値以外がある)場合。
             ValueError: kindが正しくない場合、座標の数や値(有限か)が正しくない場合、
@@ -492,7 +492,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fast(componentsを渡したときはcheckも)がboolでない場合、fastで対象がJointの場合、componentsに点以外の対象がある場合、
+            TypeError: fast・checkがboolでない場合、fastで対象がJointの場合、componentsに点以外の対象がある場合、
                 またはcomponentsを渡して対象がJointの場合。
             ValueError: componentsが空の場合、または別のTransformの下のコンポーネントの場合。
             RuntimeError: 無効なオブジェクトの場合、ピボットや補正値の成分がロックされている・入力が接続されている場合
@@ -553,6 +553,13 @@ class Transform(DagNode):
 
         Returns:
             Nodes[DagNode]: DAGの子の順に並んだノード。当てはまるものが無ければ空の集まり。
+
+        Raises:
+            TypeError: shapes・intermediates・allDescendents・leaves・includeSelf・underWorldがboolでない場合、
+                またはtypeが文字列・文字列の並び・Noneのどれでもない場合。
+            ValueError: sortByが不正な場合、leavesとshapesを同時に指定した場合、
+                またはtypeに空文字列を指定した場合。
+            RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         ...
     def getUnusedIntermediateShapes(self) -> Nodes[Shape]:
@@ -705,6 +712,7 @@ class Transform(DagNode):
             pathlib.Path: 書き出したファイルの絶対パス。
 
         Raises:
+            TypeError: pathが文字列・os.PathLikeでない場合。
             RuntimeError: 自身が無効な場合。
             OSError: 書き出しに失敗した場合。
         """
@@ -721,6 +729,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
+            TypeError: pathが文字列・os.PathLikeでない場合。
             ValueError: JSONとして読めない場合、形式の名前や版が違う場合、またはデータが正しくない場合(シーンは変えない)。
             RuntimeError: 自身が無効な場合、またはMayaが変更を拒否した場合。
             OSError: 読み込みに失敗した場合。
@@ -735,16 +744,17 @@ class Transform(DagNode):
         """指定した番号のShapeを取得する。``all=True`` なら直下のShapeすべてを取得する。
 
         Args:
-            index (int): Shapeの番号。既定は0。all=Trueとは同時に指定できない。
+            index (int): Shapeの番号(0始まり)。既定は0。負の数は範囲外として扱う(後ろから数えない)。
+                all=Trueとは同時に指定できない。
             intermediates (bool): ``True`` なら中間オブジェクトのShapeも含めて数える。
             all (bool): Trueなら、条件に合う直下のShapeすべてを集まりで返す。既定はFalse。
 
         Returns:
-            Shape | Nodes[Shape] | None: 指定した番号のShape。範囲外ならNone。
+            Shape | Nodes[Shape] | None: 指定した番号のShape。範囲外(負の数を含む)ならNone。
                 all=Trueなら、条件に合うShapeの集まり(無ければ空)。
 
         Raises:
-            TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
+            TypeError: indexがintでない場合、intermediates・allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
         """
         ...
     def getTransform(self) -> Transform:
@@ -779,8 +789,10 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合、またはfastで、parentがTransformでない場合。
-            RuntimeError: 自身が無効な場合、parentが自身か自身の子孫の場合(fastでも同じ)、
+            TypeError: relative・add・fast・checkがboolでない場合、parentがノードとして扱えない値の場合、
+                またはfastで、parentがTransformでない場合。
+            ValueError: parentに削除済みのノード(のPlug・MObject・MDagPath)を渡した場合。
+            RuntimeError: 自身が無効な場合、parentが見つからない名前の場合、parentが自身か自身の子孫の場合(fastでも同じ)、
                 またはfastで、ロック・リファレンスのために変えられない場合。
             NotImplementedError: fastで、Joint・インスタンス・add=Trueを指定した場合。
         """
@@ -803,7 +815,7 @@ class Transform(DagNode):
             None: 値を返さない。すべてのフラグがFalseなら何も変えない。
 
         Raises:
-            TypeError: targetがTransformではない場合。
+            TypeError: targetがTransformではない場合、またはposition・rotation・scale・pivotsがboolでない場合。
             RuntimeError: 自身かtargetのノードが無効な場合、またはMayaが変更を拒否した場合。
             DeletedAttributeError: targetに、アトリビュートが削除されたPlug・MPlugを渡した場合
                 (ValueErrorの派生クラス)。
@@ -901,9 +913,9 @@ class Transform(DagNode):
                 safe・fastに関係なく計算だけを行い、書き込めるかや、safeを当てた後の結果は確かめない。
 
         Raises:
-            TypeError: fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: マトリクスが正しくない・分解できない場合、またはワールドを指定したときに親側のマトリクスの
+            TypeError: safe・get・checkがboolでない場合、fastがboolでない場合、matrixがマトリクスでも数値の並びでもない場合(Noneを含む)、
+                ``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: マトリクスが正しくない(16個でない・有限でない値がある)・分解できない場合、またはワールドを指定したときに親側のマトリクスの
                 逆が求められない場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みを拒否した場合(ロック・入力の接続がある成分と、
                 ``safe=True`` を案内する)。
@@ -968,7 +980,7 @@ class Transform(DagNode):
             Translate: cmで表した位置。ノードとは切り離されている。既定のat=2では、translateチャンネルの値ではない。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがboolでない場合、worldSpaceとwsを同時に指定した場合、またはatがintでない場合。
         """
         ...
     def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> Translate | None:
@@ -1002,9 +1014,9 @@ class Transform(DagNode):
                 safeを指定しても、書き込めるかを反映した最終的な結果の予想ではない。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
+            TypeError: safe・get・checkがboolでない場合、worldSpaceがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
                 worldSpaceとwsを同時に指定した場合、``setTranslation(1, 2, 3)`` のように
-                成分を分けて渡した場合、relativeがboolでない場合、relative=Trueとatを同時に指定した場合、
+                成分を分けて渡した場合、relativeがboolでない場合、atがintでない場合、relative=Trueとatを同時に指定した場合、
                 またはrelative=Trueでvalueが数値の並びでない場合。
             ValueError: valueの値の数が3でない場合(MPointは除く)。relative=Trueかcheck=Trueで、値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
@@ -1078,12 +1090,12 @@ class Transform(DagNode):
                 シーンとは切り離されている)。safeを当てた後の最終的な結果を予想する値ではない。
 
         Raises:
-            TypeError: fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
+            TypeError: safe・get・checkがboolでない場合、fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
                 (``worldSpace=True`` を使うよう案内する)、worldSpaceとwsを同時に指定した場合、
                 成分を分けて渡した場合、relativeがboolでない場合、
-                またはrelative=Trueでvalueが数値の並びでも回転の値でもない場合。
+                またはvalueが数値の並びでも回転の値でもない場合(成分に数値以外がある場合を含む)。
             ValueError: unitが対応していない単位の名前の場合、値が3つでない場合、マトリクスを分解できない場合、
-                必要な親のマトリクスの逆が求められない場合、またはrelative=Trueでvalueが有限でない場合。
+                必要な親のマトリクスの逆が求められない場合、またはvalueの3つの数値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはアトリビュートに書き込めない場合(ロック・入力の接続がある
                 成分と、``safe=True`` を案内する)。
 
@@ -1168,7 +1180,7 @@ class Transform(DagNode):
             Scale | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のscaleの値(シーンとは切り離されている)。
 
         Raises:
-            TypeError: worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
+            TypeError: safe・get・checkがboolでない場合、worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
                 案内する)、worldSpaceとwsを同時に指定した場合、成分を分けて渡した場合、relativeがboolでない場合、
                 relative=TrueとworldSpace=Trueを同時に指定した場合、
                 またはrelative=Trueでvalueが数値でも数値の並びでもない(boolも含む)場合。
@@ -1221,7 +1233,7 @@ class Transform(DagNode):
             Shear | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値(シーンとは切り離されている)。
 
         Raises:
-            TypeError: worldSpace・fast・relativeがboolでない場合、worldSpaceとwsを同時に指定した場合、
+            TypeError: safe・get・checkがboolでない場合、worldSpace・fast・relativeがboolでない場合、worldSpaceとwsを同時に指定した場合、
                 relative=TrueとworldSpace=Trueを同時に指定した場合、またはrelative=Trueでvalueが数値の並びでない場合。
             ValueError: valueが3つの有限の値でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
@@ -1286,7 +1298,7 @@ class Transform(DagNode):
                 rotateに設定する予定の値はノードのrotateOrderの順、ほかの書き込み先はXYZの順。
 
         Raises:
-            TypeError: valueがクォータニオンでも数値の並びでもない場合、rotateAxis・rotate・jointOrientがboolでない場合、
+            TypeError: safe・get・checkがboolでない場合、valueがクォータニオンでも数値の並びでもない場合、rotateAxis・rotate・jointOrientがboolでない場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
                 preserve=TrueでrotateAxis以外を設定する場合、またはsafe=Trueで書き込む場合。
@@ -1355,8 +1367,8 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合。
-            ValueError: matrixをマトリクスへ変換できない場合。
+            TypeError: fastがboolでない場合、またはmatrixがマトリクスでも数値の並びでもない場合(Noneを含む)。
+            ValueError: matrixをマトリクスへ変換できない場合、または有限でない値がある場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが設定を拒否した場合。
         """
         ...
@@ -1541,7 +1553,8 @@ class Transform(DagNode):
             Matrix: ローカル空間のマトリクス。
 
         Raises:
-            ValueError: マトリクスが不正、またはワールド指定時の親が反転不能な場合。
+            TypeError: マトリクスでも数値の並びでもない場合。
+            ValueError: マトリクスが不正(16個でない・有限でない値がある)、またはワールド指定時の親が反転不能な場合。
             RuntimeError: ノードが無効な場合。
         """
         ...
@@ -1931,5 +1944,50 @@ def _vector_of_three(value: Iterable[float]) -> tuple:
     Raises:
         TypeError: 並びでない場合。
         ValueError: 成分の数が3でない場合。
+    """
+    ...
+
+def _require_path(path: object) -> None:
+    """ファイルのパスの引数が、文字列かos.PathLikeかを確かめる。
+
+    Args:
+        path (object): 確かめる値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: 文字列でもos.PathLikeでもない場合。
+    """
+    ...
+
+def _finite_matrix(matrix: object) -> Matrix:
+    """マトリクスの引数を確かめて、Matrixにする。
+
+    マトリクスを分解・変換する計算の入力なので、有限かどうかはcheckに関係なく確かめる。
+
+    Args:
+        matrix (object): Matrix・om2.MMatrix・16個の数値の並び。
+
+    Returns:
+        Matrix: 確かめた値。Matrixを渡したときはそのもの。
+
+    Raises:
+        TypeError: マトリクスでも数値の並びでもない場合(Noneを含む)。
+        ValueError: 16個の値でない場合、または有限でない値がある場合。
+    """
+    ...
+
+def _require_at(at: object) -> None:
+    """getTranslation・setTranslationのatが、int(boolを除く)かを確かめる。
+
+    Args:
+        at (object): 確かめる値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: intでない場合(有限でない数・小数を含む)。
     """
     ...

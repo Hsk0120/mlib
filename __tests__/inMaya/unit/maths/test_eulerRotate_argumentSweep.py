@@ -8,7 +8,6 @@
 
 import inspect
 import math
-import re
 import sys
 import unittest
 
@@ -40,11 +39,6 @@ def _host(owner, **functions):
         return method
 
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
-
-
-def _known(name, values, reason):
-    """段2の場合の名前を、fnmatch の記号([ など)を文字として扱う形にして返す。"""
-    return {"invalid:" + re.sub(r"([*?[])", r"[\1]", f"{name}={value!r}"): reason for value in values}
 
 
 def _value(case, target):
@@ -139,13 +133,6 @@ def _expect_gimbal(case, call):
 TOLERANCE_INVALID = {"tolerance": ("a", None, float("nan"), float("inf"), -1.0, True)}
 OTHER_INVALID = ((1.0, 2.0), "abc", None, 1.0, object())
 
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の M3)。Raises が無いのに TypeError・ValueError になる値と、負の tolerance。
-KNOWN_EQUIVALENT = {
-    **_known("other", OTHER_INVALID, "Raises が無いのに TypeError・ValueError になる(回転にできない値)"),
-    **_known("tolerance", ("a", None), "Raises が無いのに TypeError になる(om2 へそのまま渡す)"),
-    "invalid:tolerance=-1.0": "負の tolerance を受け付ける",
-}
-
 METHODS = (
     Method(
         "orderIndex",
@@ -206,7 +193,6 @@ METHODS = (
         expect=_expect_equivalent,
         state=_value,
         writes=False,
-        known=KNOWN_EQUIVALENT,
     ),
     Method(
         "isGimbalLocked",

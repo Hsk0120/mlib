@@ -90,6 +90,11 @@ def createDeformer(
             wireでターゲットに変形できる形状が無い場合、またはカーブに ``nurbsCurve`` の形状が無い場合(形状の無いtransformを含む)。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
+    Note:
+        名前空間付きのnameで作ると、Undoのあとの Redo で、Mayaがデフォーマーとハンドルなどを名前空間の外
+        (ルート)に作り直す(``cmds.cluster`` などでも同じ、Mayaの動き)。nameから決まるハンドル・ベースの名前を
+        保つため、作ったあとの名前の変更では補わない。
+
     Examples:
         >>> import mlib
         >>> cluster = mlib.createDeformer("cluster", "body_geo.vtx[0:20]", name="chest_cluster")

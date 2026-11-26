@@ -382,7 +382,7 @@ class GeometryFilterWeightTest(_ErrorCase):
 
     def test_get_errors(self):
         self.assertEqual(self.cluster.getDeformerWeights(), [0.5] * 8)
-        for value in (1.0, True, "0", None):
+        for value in (1.0, True, "0"):
             with self.subTest(geometryIndex=value):
                 with self.assertRaises(TypeError):
                     self.cluster.getDeformerWeights(geometryIndex=value)

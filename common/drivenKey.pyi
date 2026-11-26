@@ -6,7 +6,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.attributeType import _convert_angles, _convert_times, _convert_units, attributeType
 from ..core.fastWrite import require_writable
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from ..nodes.animCurve import AnimCurve
 from ..nodes.node import Node, Nodes
 from ..plugs.plug import Plug
@@ -135,6 +135,7 @@ class DrivenKey:
             TypeError: driven が Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: driven がスカラーでない場合、または数値でない場合。
             AttributeError: driven のアトリビュートが存在しない場合(``MissingAttributeError``)。
+            RuntimeError: driven のPlugが削除されている場合。
         """
         ...
     def getDriverPlug(self) -> Plug:
@@ -217,7 +218,7 @@ class DrivenKey:
 
         Raises:
             TypeError: 値の型がfloat()で変換できない場合、unit・timeUnitが文字列でもNoneでもない場合、
-                またはfastがboolでない場合。
+                またはfast・checkがboolでない場合。
             ValueError: 値が有限でない場合、float()で変換できない場合、unit・timeUnitが対応していない単位名の場合、
                 またはfastで、fixed・globalなど直接設定できない接線の型を指定した場合。
             RuntimeError: 対象にならない入力の接続がある場合、同じ組にカーブが複数ある場合、

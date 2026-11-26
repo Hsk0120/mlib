@@ -36,6 +36,7 @@ def listReferences(topLevelOnly: bool = ..., *, sortBy: str = ...) -> Nodes[Refe
         Nodes[Reference]: リファレンスのオブジェクトの一覧。リファレンスが無ければ空の集まり。
 
     Raises:
+        TypeError: topLevelOnlyがbool以外の場合。
         ValueError: sortByがnameとload以外の場合。
     """
     ...
@@ -102,6 +103,7 @@ def createReference(path: str | Path, namespace: str | None = ...) -> Reference:
         Reference: 作ったトップレベルのリファレンスノード。
 
     Raises:
+        TypeError: namespaceが文字列・None以外の場合。
         ValueError: pathが空の場合、またはstrでもPathでもない場合。
         OSError: ファイルが無い場合(``FileNotFoundError``)。
         RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。

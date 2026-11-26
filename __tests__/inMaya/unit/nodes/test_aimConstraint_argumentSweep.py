@@ -83,7 +83,6 @@ METHODS = (
         invalid={"value": ((1.0, 2.0), "abc", 1.5, None, (float("nan"), 0.0, 0.0)), "unit": (1.5, "__argumentSweepInvalid__")},
         expect=_expect_rest_rotate,
         plural=_make_plural,
-        known={"invalid:check=*": "D3: check が bool でない値を受け付ける"},
         limit=WRITE_LIMIT,
     ),
 )

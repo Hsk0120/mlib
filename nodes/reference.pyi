@@ -89,6 +89,9 @@ class Reference(Node):
 
         Returns:
             str: リファレンスしているファイルのパス。常にフォルダーを含む。
+
+        Raises:
+            TypeError: resolved・withCopyNumberがboolでない場合。
         """
         ...
     def getAssociatedNamespace(self) -> Namespace:
@@ -147,7 +150,7 @@ class Reference(Node):
     def setLoaded(self, state: bool = ...) -> None:
         """リファレンスをロードする。``state=False`` なら、アンロードする。
 
-        :meth:`isLoaded` と対になる。
+        :meth:`isLoaded` と対になる。ファイルの操作なので、Undoには記録されない。
 
         Args:
             state (bool): Trueならロード、Falseならアンロードする。既定はTrue。
@@ -227,7 +230,7 @@ class Reference(Node):
             list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
 
         Raises:
-            TypeError: what・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            TypeError: successful・failedがboolでない場合、what・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
             ValueError: what・editCommandが未対応の名前の場合。
             RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
@@ -281,7 +284,7 @@ class Reference(Node):
 
         ``cmds.file(importReference=True)`` で読み込む。呼び出した後、このreferenceノードはシーンから無くなる。
         入れ子になった子のリファレンスは、リファレンスのまま残る。
-        ファイルの操作なので、Undoには記録されない。
+        ファイルの操作なので、Undoには記録されない(removeNamespace=Trueの名前空間の削除も記録しない)。
 
         Args:
             removeNamespace (bool): Trueなら、読み込んだ名前空間を削除し、内容を親の名前空間へ移す。
@@ -295,11 +298,12 @@ class Reference(Node):
             RuntimeError: referenceノードが無効な場合、アンロードされている場合、またはMayaが操作を拒否した場合。
         """
         ...
-    def remove(self) -> None:
-        """リファレンスを削除する。
+    def removeReference(self) -> None:
+        """リファレンスを削除する(``cmds.file(removeReference=True)`` 相当)。
 
         referenceノードと、リファレンスで読み込んだ内容をシーンから取り除く。
         呼び出した後、このオブジェクトが指していたノードはシーンから無くなる。
+        :meth:`~mlib.nodes.node.Node.delete` (referenceノードだけを消す基底の操作)とは別の操作。
 
         Returns:
             None: 値を返さない。

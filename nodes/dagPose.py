@@ -44,6 +44,7 @@ class DagPose(Node):
             DagPose | None: bindPoseアトリビュートに接続されたポーズ。接続されていなければNone。
 
         Raises:
+            TypeError: skinClusterがノードとして扱えない型(数値など)の場合。
             ValueError: skinCluster以外を指定した場合。
             RuntimeError: 無効なノードの場合、またはdagPose以外が接続されている場合。
         """
@@ -258,7 +259,9 @@ class DagPose(Node):
         """メンバーをポーズから外す。``all=True`` なら、すべてのメンバーを外す。
 
         シーンのノードそのものは削除しない。
-        残るメンバーの親として必要なノードは、Mayaがポーズに残すことがある。
+        Mayaは、残るメンバーの祖先(姿勢を戻すのに要る親)をポーズから外さない。そのため、外すメンバーを
+        DAGの深いものから1つずつ ``cmds.dagPose(remove=True)`` で外し、外さずに残るメンバーの祖先を外そうとしたときは
+        何も変えずにValueErrorにする。全体を1回のUndoで戻せる。
 
         Args:
             *members (Node | str | Iterable[Node | str]): 外すメンバー。all=Falseでは空にはできない。all=Trueとは同時に指定できない。
@@ -269,22 +272,36 @@ class DagPose(Node):
 
         Raises:
             TypeError: 使えない型を指定した場合、allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
-            ValueError: all=Falseで何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
-            RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合。
+            ValueError: all=Falseで何も指定しなかった場合、Transform以外かメンバー以外を含む場合、
+                または外さずに残るメンバーの祖先を含む場合。
+            RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合(外せずに残ったメンバーがある場合を含む)。
         """
         _require_bool(all, "all")
         if all and members:
             raise TypeError("membersとall=Trueは同時に指定できません")
+        name = self._pose_name()
+        if all:
+            members = (self.getMembers(),)
+            if not members[0]:
+                return
+        names = self._transform_names(members)
+        removing = {self.getMemberIndices(target) for target in names}
+        paths = {index: Node(source.node()).mpath().fullPathName() for index, source in self._member_sources()}
+        ancestors = [paths[index] for index in removing]
+        for index, path in paths.items():
+            if index in removing:
+                continue
+            for ancestor in ancestors:
+                if path.startswith(ancestor + "|"):
+                    raise ValueError(f"残るメンバーの祖先は外せません: {ancestor}(子孫のメンバー: {path})")
+        # Mayaは1回のコマンドでは、外す子より先に親を外さないため、深いものから1つずつ外す。
+        ordered = sorted(removing, key=lambda index: paths[index].count("|"), reverse=True)
         with undoChunk("mlibDagPoseRemoveMembers"):
-            name = self._pose_name()
-            if all:
-                members = (self.getMembers(),)
-                if not members[0]:
-                    return
-            names = self._transform_names(members)
-            for target in names:
-                self.getMemberIndices(target)
-            cmds.dagPose(names, remove=True, name=name)
+            for index in ordered:
+                cmds.dagPose(paths[index], remove=True, name=name)
+        left = [paths[index] for index in self.getMemberIndices() if index in removing]
+        if left:
+            raise RuntimeError(f"Mayaがメンバーを外しませんでした: {', '.join(left)}")
 
     def merge(self, sources, *, currentPose=False, deleteSources=True):
         """ほかのポーズをこのポーズへまとめる。
@@ -302,7 +319,7 @@ class DagPose(Node):
 
         Args:
             sources (DagPose | str | Iterable[DagPose | str]): まとめる元のdagPose。
-                このポーズ自身や、2回以上指定したものは無視する。空にはできない。
+                このポーズ自身や、2回以上指定したものは無視する。空にはできず、自身を除いた後も1つ以上必要。
             currentPose (bool): Trueなら、保存した姿勢ではなく今の姿勢と階層を保存する。既定はFalse。
             deleteSources (bool): Trueなら、まとめた後に元のポーズを削除する。既定はTrue。
                 元のポーズに、メンバー・親の情報・skinCluster.bindPose・joint.bindPoseからの
@@ -313,8 +330,8 @@ class DagPose(Node):
 
         Raises:
             TypeError: currentPose・deleteSourcesがbool以外の場合、またはsourcesが使えない型の場合。
-            ValueError: 何も指定しなかった場合、dagPose以外を含む場合、保存した情報が食い違う場合、
-                または通常のポーズとバインドポーズが混ざっている場合。
+            ValueError: 何も指定しなかった場合(このポーズ自身だけを指定した場合を含む)、dagPose以外を含む場合、
+                保存した情報が食い違う場合、または通常のポーズとバインドポーズが混ざっている場合。
             RuntimeError: ロック・リファレンス・インスタンス・不正な保存情報がある場合、
                 またはMayaでの変更が失敗した場合。
         """
@@ -322,7 +339,7 @@ class DagPose(Node):
         _require_bool(deleteSources, "deleteSources")
         name, poses, others = self._merge_collect_poses(sources)
         if not others:
-            return
+            raise ValueError(f"このポーズ自身のほかに、まとめる元のポーズを1つ以上指定してください: {name}")
         rows, target_rows, skins = self._merge_collect_rows(poses, currentPose, deleteSources)
         self._merge_check_targets(skins)
 

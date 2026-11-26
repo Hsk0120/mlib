@@ -125,7 +125,9 @@ class ObjectSet(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            TypeError: allがboolでない場合、membersとall=Trueを同時に指定した場合、対応していない型を渡した場合、
+                または名前とNodeなどのオブジェクトを混ぜて渡した場合。
+            ValueError: 名前に一致するものが無い場合、または渡したものが無効な(削除された)場合。
             RuntimeError: ノードが無効な場合、セットがロックされているかリファレンスの場合、
                 メンバーのアトリビュート(``dagSetMembers``・``dnSetMembers``)がロックされている場合、
                 またはMayaが外すのを拒否した場合。
@@ -165,9 +167,17 @@ class ObjectSet(Node):
 
         Returns:
             bool: 解決したすべての要素が入っていればTrue。1つでも入っていなければFalse。
+
+        Raises:
+            TypeError: 対応していない型を渡した場合。
+            ValueError: 名前に一致するものが無い場合、または渡したものが無効な(削除された)場合。
         """
+        name = Object._input_name(member)
         query = om2.MSelectionList()
-        query.add(Object._input_name(member))
+        try:
+            query.add(name)
+        except RuntimeError:
+            raise ValueError(f"名前に一致するものがありません: {name}") from None
         members = om2.MFnSet(self.mnode()).getMembers(False)
         for index in range(query.length()):
             # getComponent は DG ノードやアトリビュートの要素で RuntimeError ではなく TypeError を出し、

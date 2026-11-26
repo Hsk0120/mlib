@@ -366,8 +366,9 @@ class MergeTest(_PoseCase):
                 action()
             self.assertEqual(self.pose_state(target), before)
             self.assertTrue(cmds.objExists(source.getName(full=True)))
-        # 自身だけの指定は何もしない。
-        self.assertIsNone(target.merge(target))
+        # 自身だけの指定は ValueError で、何も変えない。
+        with self.assertRaises(ValueError):
+            target.merge(target)
         self.assertEqual(self.pose_state(target), before)
 
 

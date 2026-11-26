@@ -1,13 +1,17 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Maya標準のノードで、スカラー(1つの数値)の計算を組み立てる。"""
 
+import re
 from typing import Any, Callable, Optional
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from ..nodes.container import Container
 from ..plugs.plug import Plug
+from ..util import _finite
+from typing import Any
 from mlib.nodes.node import Node
 import contextlib
 
+_NAME_CHARACTER: Any
 
 
 class ScalarGraph:
@@ -48,7 +52,12 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、subtractがboolでない場合、
+                またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                または入力のアトリビュート名が空の場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
         ...
@@ -66,7 +75,12 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、operationがintでない(boolを含む)場合、
+                またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                入力のアトリビュート名が空の場合、またはoperationが1〜3でない場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
         ...
@@ -85,7 +99,11 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                または入力のアトリビュート名が空の場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
         ...
@@ -129,3 +147,33 @@ class ScalarGraph:
             None: 値を返さない。
         """
         ...
+
+def _require_role(role: str):
+    """計算の名前を確かめる。
+
+    Args:
+        role (str): 計算の名前。
+
+    Raises:
+        TypeError: 文字列でない場合。
+        ValueError: 名前に使える文字(英数字と_)が1つも無い場合。
+    """
+    ...
+
+def _operand(value: float | str | Plug, name: str) -> float | Plug:
+    """計算の入力を、定数のfloatか、有効なPlugにする。
+
+    Args:
+        value (float | str | Plug): 定数、アトリビュート名、またはPlug。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        float | Plug: 定数か、入力にするPlug。
+
+    Raises:
+        TypeError: 数値・アトリビュート名・Plugのどれでもない場合(boolを含む)。
+        ValueError: 数値が有限でない、またはアトリビュート名が空の場合。
+        MissingAttributeError: アトリビュート(またはノード)が無い場合。
+        RuntimeError: Plugが削除されている、または名前が複数のものに一致する場合。
+    """
+    ...

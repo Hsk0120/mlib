@@ -1,6 +1,7 @@
 """減衰のあるばねの動きを、決まった時間の刻みで計算する。"""
 
 import math
+import numbers
 
 
 class DampedSpring:
@@ -21,6 +22,7 @@ class DampedSpring:
             list[tuple[float]]: 各目標へ遅れて追いかけた結果。
 
         Raises:
+            TypeError: samplesが値の並びの並びでない場合、または設定の値が数値でない場合。
             ValueError: samplesが空か、成分の数がそろわないか、有限でない場合。
                 設定の値が有限でないか範囲外の場合。
                 またはsecondsPerSampleが大きすぎて、内部の刻みの数が10000を超える場合。
@@ -29,7 +31,15 @@ class DampedSpring:
             最初の位置は先頭の目標、最初の速度は0。サンプルの間を細かく刻み、
             半陰的Euler法で計算する。回転に使う場合、角度の折り返し(360度で戻すなど)は呼び出す側で行う。
         """
-        rows = [tuple(float(v) for v in row) for row in samples]
+        for name, value in (("secondsPerSample", secondsPerSample), ("frequency", frequency), ("damping", damping), ("limit", limit)):
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
+                raise TypeError(f"{name}は数値で指定してください: {value!r}")
+        if not hasattr(samples, "__iter__") or isinstance(samples, (str, bytes)):
+            raise TypeError(f"samplesは値の並びの並びで指定してください: {samples!r}")
+        try:
+            rows = [tuple(float(v) for v in row) for row in samples]
+        except (TypeError, ValueError):
+            raise ValueError("samplesは数値の並びの並びで指定してください") from None
         if not rows or not rows[0] or any(len(row) != len(rows[0]) for row in rows):
             raise ValueError("同じ長さの、空でないサンプルを指定してください")
         if not all(math.isfinite(v) for row in rows for v in row):

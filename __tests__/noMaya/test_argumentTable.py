@@ -1,6 +1,7 @@
 """引数を網羅するテストの、Mayaを使わない部分(``support/argumentTable.py``)を確かめる。
 
 - docstring の Args・Raises の読み取り、型の分類、段1の候補・段2の違う型の値、段3の組の生成と上限。
+- known の型紙・関数・版、可変長の引数、Lazy の作り直し(並びの中・ほかの引数を受け取るもの)、可変長の引数を展開した呼び出し。
 """
 
 import math
@@ -152,6 +153,101 @@ class MethodTest(unittest.TestCase):
         self.assertTrue(method.conflicting({"worldSpace": False, "ws": True}))
         self.assertTrue(method.conflicting({"relative": True, "at": 1}))
         self.assertFalse(method.conflicting({"relative": False, "at": 1}))
+
+
+class KnownTest(unittest.TestCase):
+    """known の型紙・関数・版。"""
+
+    def test_bracket_is_also_literal(self):
+        method = table.Method("setX", None, known={"invalid:members=[<root>, <j1>]": "理由", "values:at=[[](0,)]": "古い書き方"})
+        self.assertEqual(method.isKnown("invalid:members=[<root>, <j1>]"), "理由")
+        self.assertEqual(method.isKnown("values:at=[(0,)]"), "古い書き方")
+        self.assertIsNone(method.isKnown("invalid:members=r"))
+        self.assertTrue(table.matchLabel("pairs:value=a,b", "pairs:value=a,[!f]*"))
+        self.assertFalse(table.matchLabel("pairs:value=a,f", "pairs:value=a,[!f]*"))
+        self.assertTrue(table.matchLabel("invalid:normals=[(1.0, 2.0)]", "invalid:normals=[(1.0, 2.0)*"))
+
+    def test_function_and_version(self):
+        method = table.Method(
+            "setX",
+            None,
+            known={(lambda stage, kwargs: stage == "pairs" and kwargs.get("time") == 1): "関数", "values:*": table.Known("2022だけ", versions=(2022,))},
+        )
+        self.assertEqual(method.isKnown("pairs:time=1", {"time": 1}), "関数")
+        self.assertIsNone(method.isKnown("values:time=1", {"time": 1}, version=2027))
+        self.assertEqual(method.isKnown("values:time=1", {"time": 1}, version=2022), "2022だけ")
+        self.assertTrue(method.hasVersionedKnown(2027))
+        self.assertFalse(method.hasVersionedKnown(2022))
+
+    def test_test_name(self):
+        self.assertEqual(table.Method("getWeights", None, variant="vertex").testName, "getWeights_vertex")
+        self.assertEqual(table.Method("getWeights", None).testName, "getWeights")
+
+
+def _variadic(weight, *targets, fast=False, **flags):
+    """可変長の引数を持つ関数。
+
+    Args:
+        weight (float): ウェイト。
+        *targets (Node | str): 対象。
+        fast (bool): 速く書くか。
+        **flags (object): そのほかのフラグ。
+    """
+    return weight, targets, fast, flags
+
+
+class VariadicTest(unittest.TestCase):
+    """可変長の引数。"""
+
+    def test_parameters_include_variadic_only_when_asked(self):
+        self.assertEqual([param.name for param in table.parameters(_variadic)], ["weight", "fast"])
+        params = {param.name: param for param in table.parameters(_variadic, include=("*", "flags"))}
+        self.assertEqual(params["targets"].variadic, "*")
+        self.assertEqual(params["flags"].variadic, "**")
+        self.assertEqual(params["targets"].kinds, ["node", "str"])
+        self.assertEqual(params["targets"].candidates((("a", "b"),)), [("a", "b")])
+        self.assertTrue(all(isinstance(value, tuple) and len(value) == 1 for value in params["targets"].invalidValues()))
+        self.assertEqual(params["flags"].invalidValues(), [])
+        method = table.Method("setX", None, values={"*": (("a",),), "flags": ({"q": 1},)})
+        self.assertEqual(method.valuesFor(params["targets"]), (("a",),))
+        self.assertEqual(method.valuesFor(params["flags"]), ({"q": 1},))
+        self.assertTrue(method.mentions("targets", "*"))
+        self.assertFalse(method.mentions("other", "**"))
+
+    def test_invoke_spreads_variadic(self):
+        self.assertEqual(table.invoke(_variadic, {"weight": 0.5, "targets": ("a", "b"), "fast": True}), (0.5, ("a", "b"), True, {}))
+        self.assertEqual(table.invoke(_variadic, {"weight": 1.0, "flags": {"time": 2}}), (1.0, (), False, {"time": 2}))
+        self.assertEqual(table.invoke(_variadic, {"targets": ["c"], "weight": 2.0}), (2.0, ("c",), False, {}))
+
+
+class _Case:
+    """Lazy に渡すテストケースの代わり。"""
+
+    def name(self, text):
+        return "ns:" + text
+
+
+class ResolveTest(unittest.TestCase):
+    """Lazy の作り直し。"""
+
+    def test_nested_and_argument_lazy(self):
+        node = table.Lazy(lambda case: case.name("a"), "<a>")
+        count = table.Lazy(lambda case, kwargs: len(kwargs["colors"]), "<数>", args=True)
+        resolved = table.resolve({"colors": [node, (node, 1)], "options": {"x": node}, "count": count, "plain": 3}, _Case())
+        self.assertEqual(resolved, {"colors": ["ns:a", ("ns:a", 1)], "options": {"x": "ns:a"}, "count": 2, "plain": 3})
+        self.assertEqual(list(resolved), ["colors", "options", "count", "plain"])
+        points = ((0, 0, 0), (1, 0, 0))
+        self.assertIs(table.resolve({"points": points}, _Case())["points"], points)
+
+    def test_any_kind_accepts_everything(self):
+        self.assertEqual(table.kindsOf("object", "書き込む値。"), ["any"])
+        self.assertEqual(table.kindsOf("object", "親のノード。"), ["node"])
+        self.assertEqual(table.Parameter("value", None, "object", "書き込む値。").invalidValues(), [])
+
+    def test_error_state_matches_by_type_or_name(self):
+        self.assertTrue(table.ErrorState("削除済み", None, RuntimeError).matches(RuntimeError("x")))
+        self.assertTrue(table.ErrorState("削除済み", None, ("_Error", ValueError)).matches(MissingAttributeError("x")))
+        self.assertFalse(table.ErrorState("削除済み", None, ValueError).matches(TypeError("x")))
 
 
 if __name__ == "__main__":

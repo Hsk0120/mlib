@@ -33,8 +33,6 @@ KINDS = {
 }
 #: 反転の軸の名前・番号と、反転する成分の番号。
 AXIS_INDEX = {"x": 0, "y": 1, "z": 2, "yz": 0, "xz": 1, "xy": 2, "zy": 0, "zx": 1, "yx": 2}
-#: check に bool でない値を渡すと、真偽として読む(findings4/sweep-geometry.md)。
-KNOWN_CHECK = {"invalid:check=1": "check の bool でない値を真偽として読む", "invalid:check='yes'": "check の bool でない値を真偽として読む"}
 
 
 def _place(case, transform):
@@ -227,7 +225,6 @@ def _methods(make, indices, bad_indices):
             expect=_expect_set_points,
             state=_shape_state,
             roundTrip=RoundTrip("getPoints", value="points", shared=SPACE, places=4),
-            known=KNOWN_CHECK,
             limit=25,
         ),
         Method(
@@ -247,7 +244,6 @@ def _methods(make, indices, bad_indices):
             conflicts=(SPACE,),
             expect=_expect_mirror,
             state=_shape_state,
-            known=KNOWN_CHECK,
             limit=25,
         ),
     )

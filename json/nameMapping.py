@@ -1,5 +1,40 @@
 """保存したときのノード名を、読み込み先のシーンの名前へ変換する規則。"""
 
+from collections.abc import Iterable
+
+
+def _replace_pairs(replace):
+    """名前の置き換え(``replace``)を確かめて、``(旧, 新)`` の組のタプルにする。
+
+    Args:
+        replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
+
+    Returns:
+        tuple[tuple[str, str], ...] | None: 置き換えの組。NoneならNone。
+
+    Raises:
+        TypeError: Noneでも文字列でない並びでもない場合、組が並びでない場合、または組の要素が文字列でない場合。
+        ValueError: 組が2つの要素でない場合、または置き換え前の文字列が空の場合。
+    """
+    if replace is None:
+        return None
+    if isinstance(replace, (str, bytes)) or not isinstance(replace, Iterable):
+        raise TypeError(f"replaceは(old, new)の組の並びで指定してください: {type(replace).__name__}")
+    pairs = []
+    for pair in replace:
+        if isinstance(pair, (str, bytes)) or not isinstance(pair, Iterable):
+            raise TypeError(f"replaceの要素は(old, new)の組で指定してください: {type(pair).__name__}")
+        items = tuple(pair)
+        if len(items) != 2:
+            raise ValueError("replaceの要素は(old, new)の組で指定してください")
+        old, new = items
+        if not isinstance(old, str) or not isinstance(new, str):
+            raise TypeError("replaceの組は文字列で指定してください")
+        if not old:
+            raise ValueError("replaceの置き換え前の文字列は空にできません")
+        pairs.append((old, new))
+    return tuple(pairs)
+
 
 class NameMapping:
     """名前の対応表・文字列の置き換え・名前空間の入れ替えをまとめ、ノード名を変換する。
@@ -23,25 +58,12 @@ class NameMapping:
                 先頭の ``":"`` は無視する。入れ子の名前空間では、一致する最も長い親を入れ替える。
 
         Raises:
-            TypeError: どれかの引数の型が正しくない場合。
+            TypeError: どれかの引数の型が正しくない場合(replaceが組の並びでない場合を含む)。
             ValueError: 置き換えの組が2つの要素でない場合、または置き換え前の文字列が空の場合。
         """
         self._name_map = _string_dict(nameMap, "nameMap")
         self._namespace_map = {_strip(key): _strip(value) for key, value in _string_dict(namespaceMap, "namespaceMap").items()}
-        pairs = []
-        if replace is not None:
-            if isinstance(replace, (str, bytes)):
-                raise TypeError("replaceは(old, new)の組の並びで指定してください")
-            for pair in replace:
-                if isinstance(pair, (str, bytes)) or len(pair) != 2:
-                    raise ValueError("replaceの要素は(old, new)の組で指定してください")
-                old, new = pair
-                if not isinstance(old, str) or not isinstance(new, str):
-                    raise TypeError("replaceの組は文字列で指定してください")
-                if not old:
-                    raise ValueError("replaceの置き換え前の文字列は空にできません")
-                pairs.append((old, new))
-        self._replace = tuple(pairs)
+        self._replace = _replace_pairs(replace) or ()
 
     def __repr__(self):
         """指定した規則を含む表記を返す。

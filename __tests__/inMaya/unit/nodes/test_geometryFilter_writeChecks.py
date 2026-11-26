@@ -146,15 +146,18 @@ class LoadFileErrorTest(_ClusterCase):
         self.assertEqual(self.cluster.getDeformerWeights(), before)
 
     def test_locked_element_rejects_load(self):
-        """ロックした要素があると、通常・fast のどちらも何も書かずに RuntimeError。"""
+        """check=True なら、ロックした要素があると、通常・fast のどちらも何も書かずに RuntimeError。"""
         self.cluster.dumpDeformerWeights(self.path)
         self.cluster.setDeformerWeights([0.5] * 8)
         cmds.setAttr(self.element(7), lock=True)
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    self.cluster.loadDeformerWeights(self.path, fast=fast)
+                    self.cluster.loadDeformerWeights(self.path, fast=fast, check=True)
                 self.assertEqual(self.cluster.getDeformerWeights(), [0.5] * 8)
+        for value in (1, "yes"):
+            with self.subTest(check=value), self.assertRaises(TypeError):
+                self.cluster.loadDeformerWeights(self.path, check=value)
 
     def test_dump_rejects_bad_index_type(self):
         """dumpDeformerWeights の geometryIndex が int 以外なら TypeError で、ファイルを作らない。"""

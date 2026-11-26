@@ -93,8 +93,6 @@ def _expect_scale(case, call):
     case.assertSequenceAlmostEqual(point, [-0.5 * scale[0], -0.5 * scale[1], 0.5 * scale[2]], places=5)
 
 
-FAST_CONFLICT = "部品: fast と同時に指定できない組(add=True は NotImplementedError)でも、fast=True と通常を比べる"
-
 METHODS = (
     Method(
         "setParent",
@@ -104,7 +102,6 @@ METHODS = (
         replace=("parent",),
         invalid={"parent": (None, DELETED_NODE, MISSING_NAME, 1.5, Lazy(lambda case: mlib.createNode("multiplyDivide", name=case.name("dg#")), "<DGノード>"))},
         expect=_expect_set_parent,
-        known=_known(FAST_CONFLICT, "pairs:parent=*,add=True", "pairs:relative=*,add=True", "pairs:add=True,check=*"),
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -117,7 +114,6 @@ METHODS = (
         conflicts=(("worldSpace", "ws"),),
         expect=_expect_scale,
         plural=_make_mesh_plural,
-        known=_known("D3: check が bool でない値を受け付ける", "invalid:check=*"),
         limit=WRITE_LIMIT,
     ),
 )

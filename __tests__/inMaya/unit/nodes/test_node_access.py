@@ -229,7 +229,9 @@ class StaticPlugTest(_SpecCase):
             self.assertTrue(node.hasAttr("tx"))
             self.assertFalse(node.hasAttr("noSuchAttribute"))
             self.assertFalse(node.hasAttr(""))
-            self.assertFalse(node.hasAttr(None))
+            for value in (None, 1.5):
+                with self.assertRaises(TypeError):
+                    node.hasAttr(value)
 
     def test_deleted_node_is_rejected_and_undo_restores(self):
         name = self.make()

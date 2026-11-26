@@ -103,7 +103,9 @@ class DeformerAndConstraintParityTest(NamespaceCase):
         cube = cmds.polyCube(name=self.name("deformed"), constructionHistory=False)[0]
         cluster, handle = cmds.cluster(cube + ".vtx[0:3]", name=self.name("cluster"))
         node = mlib.getNode(cluster)
-        self.assertEqual([shape.getName(full=True) for shape in node.getGeometry()], cmds.ls(cmds.cluster(cluster, query=True, geometry=True), long=True))
+        self.assertEqual(
+            [shape.getName(full=True) for shape in node.getGeometry(all=True)], cmds.ls(cmds.cluster(cluster, query=True, geometry=True), long=True)
+        )
         self.assertEqual(node.getWeightedNode().getName(full=True), cmds.ls(handle, long=True)[0])
         target = cmds.polyCube(name=self.name("target"), constructionHistory=False)[0]
         blend = mlib.createBlendShape(cube, [target], name=self.name("blend"))

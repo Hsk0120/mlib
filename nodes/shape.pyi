@@ -77,7 +77,7 @@ class Shape(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: fast・checkや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 倍率・中心・空間の指定が正しくない場合、ワールドへの変換がほぼ特異(逆に戻せない)な場合、
                 またはメッシュ・NURBS以外のShapeの場合。
             IndexError: 番号が範囲外の場合。

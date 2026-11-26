@@ -19,6 +19,21 @@ from mlib.nodes.shadingEngine import ShadingEngine
 from typing import overload
 
 
+def _knot_values(values: Iterable[float], name: str) -> list:
+    """ノット列の引数が並びかを確かめ、listにする。
+
+    Args:
+        values (Iterable[float]): 確かめる値。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        list: 並びの要素(数値かは呼び出し側が確かめる)。
+
+    Raises:
+        TypeError: 文字列・None・数値など、並びでない場合。
+    """
+    ...
+
 
 class NurbsSurface(_ControlPointShape):
     """NURBS曲面のシェイプを扱うクラス。
@@ -101,6 +116,7 @@ class NurbsSurface(_ControlPointShape):
             None: 値を返さない。
 
         Raises:
+            TypeError: uKnots・vKnotsが数値の並びでない場合(文字列・Noneなど)、または要素が数値でない場合。
             ValueError: 値が有限値でない、数や順序が不正、またはパラメーター範囲が潰れる場合。
             RuntimeError: 曲面が無効、ロックされている、またはMayaが編集を拒否した場合。
             NotImplementedError: ヒストリ・トリム・明示UV・参照・CVロックや接続がある場合。
@@ -286,6 +302,7 @@ class NurbsSurface(_ControlPointShape):
 
         Raises:
             TypeError: 番号の型が不正な場合(boolを含む)。
+            ValueError: ``(u, v)`` の組の数値が2つでない場合。
             IndexError: CVの番号が範囲外の場合。
         """
         ...

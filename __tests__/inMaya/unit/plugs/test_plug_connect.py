@@ -282,7 +282,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         self.assertEqual(result.getName(full=True), self.an + ".translateY")
         self.assertIsInstance(result, plugs.Plug)
         cmds.connectAttr(self.an + ".tz", self.bn + ".tz")
-        result = self.b.getPlug("tz").disconnect(source=self.an + ".tz")
+        result = self.b.getPlug("tz").disconnect(other=self.an + ".tz")
         self.assertEqual(result, self.a.getPlug("tz"))
 
     def test_disconnect_errors(self):
@@ -296,7 +296,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         with self.assertRaises(TypeError):
             bx.disconnect(True)
         with self.assertRaises(TypeError):
-            bx.disconnect(self.a.getPlug("tx"), source=self.a.getPlug("tx"))
+            bx.disconnect(self.a.getPlug("tx"), other=self.a.getPlug("tx"))
         with self.assertRaises(TypeError):
             bx.disconnect(fast=1)
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))

@@ -75,15 +75,6 @@ METHODS = (
         },
         expect=_expect_solve,
         writes=False,
-        known={
-            "invalid:samples=None": "並びでない samples で Raises に無い TypeError",
-            "invalid:samples=1.5": "並びでない samples で Raises に無い TypeError",
-            **{
-                f"invalid:{name}={value}": "数でない設定の値で Raises に無い TypeError"
-                for name in ("secondsPerSample", "frequency", "damping", "limit")
-                for value in ("'a'", "None")
-            },
-        },
     ),
 )
 

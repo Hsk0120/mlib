@@ -55,10 +55,12 @@ def _make_container(case):
     out = case.make("transform", "out#")
     foreign = case.make("transform", "foreign#")
     cmds.connectAttr(m + ".output", out + ".translateX")
+    # dagContainer へ加えると a はコンテナの子になり、パスが変わるので、ノードで持って名前を取り直す。
+    bound = mlib.getNode(a)
     box = cmds.container(type=NODE_TYPE, name=case.name("box#"), addNode=[a, m])
     cmds.container(type="container", name=case.name("other#"), addNode=[foreign])
     cmds.container(box, edit=True, publishName="pubFree")
-    cmds.container(box, edit=True, publishAndBind=(a + ".translateX", "pubBound"))
+    cmds.container(box, edit=True, publishAndBind=(str(bound) + ".translateX", "pubBound"))
     return mlib.getNode(box)
 
 
@@ -95,7 +97,10 @@ def _nodes(*prefixes):
 
 
 def _box_name(target):
-    return str(getattr(target, "node", target))
+    # Node の getattr はアトリビュートを探すので、削除した(removeContainer の後の)コンテナでは名前を返さない。
+    if isinstance(target, mlib.Node):
+        return str(target) if target.isValid() else ""
+    return str(target.node)
 
 
 def _members(box):
@@ -220,12 +225,6 @@ PLUG_VALUES = (_plug("a", "translateY", wrap=True), _plug("a", "rotateX"), _plug
 #: 段2のバインドするアトリビュートの誤った値(メンバーでないノード・削除済み・存在しない名前・数)。
 PLUG_INVALID = (_plug("out", "translateY"), DELETED_PLUG, MISSING_NAME, 1.5)
 
-#: 本体との食い違い(findings: sweep-geometry の Container・DagContainer)。addMembers の食い違い。
-KNOWN_ADD = {"invalid:members=1.5": "Raises に無い TypeError になる", "invalid:members=<object*": "Raises に無い TypeError になる"}
-#: removeMembers の食い違い。
-KNOWN_REMOVE = {"invalid:members='<存在しない名前>'": "Raises に無い RuntimeError になる"}
-#: bindAttr・publishAndBind の plug の食い違い。
-KNOWN_PLUG = {"invalid:plug='<存在しない名前>'": "Raises に無い例外になる", "invalid:plug=1.5": "Raises に無い TypeError になる"}
 
 #: 引数の無いメソッドを確かめるときに、対象を作る表の1行。
 _NO_ARGS = Method("getMembers", _make_container)
@@ -235,15 +234,7 @@ METHODS = (
     Method("getExternalConnections", _make_container, expect=_expect_external, plural=_plural),
     Method("publishConnections", _make_container, state=_state),
     Method("getMembers", _make_container, expect=_expect_members, plural=_plural),
-    Method(
-        "addMembers",
-        _spread_setup("addMembers"),
-        values={"members": ADD_VALUES},
-        invalid={"members": ADD_INVALID},
-        expect=_expect_added,
-        state=_state,
-        known=KNOWN_ADD,
-    ),
+    Method("addMembers", _spread_setup("addMembers"), values={"members": ADD_VALUES}, invalid={"members": ADD_INVALID}, expect=_expect_added, state=_state),
     Method(
         "removeMembers",
         _spread_setup("removeMembers"),
@@ -252,7 +243,6 @@ METHODS = (
         conflicts=(_members_all,),
         expect=_expect_removed,
         state=_state,
-        known=KNOWN_REMOVE,
         limit=30,
     ),
     Method(
@@ -286,7 +276,6 @@ METHODS = (
         invalid={"name": ("pubBound", "argumentSweepNoSuchName", 1.5), "plug": PLUG_INVALID},
         expect=_expect_bound,
         state=_state,
-        known=KNOWN_PLUG,
         limit=20,
     ),
     Method(
@@ -297,7 +286,6 @@ METHODS = (
         invalid={"name": ("pubFree", "pubBound"), "plug": PLUG_INVALID},
         expect=_expect_bound,
         state=_state,
-        known=KNOWN_PLUG,
         limit=20,
     ),
     Method(
@@ -328,9 +316,8 @@ class DagContainerArgumentSweepTest(ArgumentSweepCase):
 
     METHODS = METHODS
 
-    @unittest.expectedFailure
-    def test_publishName_deleted_known(self):
-        """削除したコンテナの publishName は Raises の RuntimeError でなく ValueError になる(食い違い)。"""
+    def test_publishName_deleted(self):
+        """削除したコンテナの publishName は Raises の RuntimeError になる。"""
         box = self.fresh(_NO_ARGS)
         cmds.delete(str(box))
         with self.assertRaises(RuntimeError):

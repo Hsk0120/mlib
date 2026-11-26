@@ -173,7 +173,7 @@ EXCLUDED = {
     ),
     "Plug.setDirty": "DGの評価状態をdirtyにする診断操作。値や接続を書き換えず、Undoには記録しない。",
     "Reference.setLoaded": "外部ファイルの参照の読込み・アンロード(ファイル I/O)。Undo 検査の対象外。",
-    "Reference.remove": "外部ファイルの参照の削除(ファイル I/O)。Undo 検査の対象外。",
+    "Reference.removeReference": "外部ファイルの参照の削除(ファイル I/O)。Undo 検査の対象外。",
     "Reference.removeEdits": "リファレンスの Edit の削除(アンロード・再ロードを含むファイル I/O)。Undo 検査の対象外。",
     "Reference.replaceFile": "リファレンスするファイルの置き換え(ファイル I/O)。Undo 検査の対象外。",
     "common.references.createReference": "外部ファイルの参照作成(ファイル I/O)。Undo 検査の対象外。",
@@ -1609,7 +1609,7 @@ CASES = [
         "SkinCluster.smoothWeights",
         "SkinCluster.smoothWeights vertices",
         s_skin,
-        lambda c, **kw: c.skin.smoothWeights(tolerance=0.01, vertices=[0, 1, 2], obeyMaxInfluences=True),
+        lambda c, **kw: c.skin.smoothWeights(threshold=0.01, vertices=[0, 1, 2], obeyMaxInfluences=True),
     ),
     C(
         "SkinCluster.addInfluences",

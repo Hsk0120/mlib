@@ -37,39 +37,6 @@ TIME_VALUES = (5, 5.0, (1, 5), [1.0, 10.0], (10, 1), 7)
 #: 段2の時刻の誤った値(範囲の文字列・3つの並び・有限でない数)。
 TIME_INVALID = ("1:5", (1, 2, 3), float("nan"), object())
 
-#: bool の引数(input・output を除く)に bool でない値を渡すと、真偽として読む(findings4/args-support.md の3)。
-_BOOL_NAMES = ("s", "d", "et", "scn", "source", "destination", "exactType", "skipConversionNodes", "asPair", "asNode", "checkChildren", "checkElements")
-#: getConnections の本体との食い違い(findings4/args-support.md の3〜5)。
-KNOWN = {
-    **{f"invalid:{name}={value}": "bool でない値を真偽として読む" for name in _BOOL_NAMES for value in ("1", "'yes'")},
-    "invalid:type=1.5": "Raises に無い ValueError になる",
-    "invalid:t=1.5": "Raises に無い ValueError になる",
-    **{
-        f"pairs:{short}=*,{long}={default!r}": "長い名前が既定値なら、短縮名と同時に指定しても例外にならない"
-        for long, short, default in (
-            ("source", "s", True),
-            ("destination", "d", True),
-            ("type", "t", None),
-            ("exactType", "et", False),
-            ("skipConversionNodes", "scn", False),
-        )
-    },
-}
-
-
-def _not_bool(*names):
-    """bool の引数に bool でない値(1・"yes")を渡すと、例外にせず真偽として読む場合の known。"""
-    return {f"invalid:{name}={value}": "bool でない値を真偽として読む" for name in names for value in ("1", "'yes'")}
-
-
-#: Plug.set の safe に bool でない値を渡すと、真偽として読む(findings4/sweep-plugs-components.md)。
-KNOWN_SAFE = _not_bool("safe")
-#: 長い名前が既定値なら、短縮名と同時に指定しても例外にならない(findings4/args-support.md の5と同じ)。
-KNOWN_ALIAS = {
-    f"pairs:{long}=False,{short}=*": "長い名前が既定値なら、短縮名と同時に指定しても例外にならない"
-    for long, short in (("force", "f"), ("lock", "l"), ("nextAvailable", "na"))
-}
-
 
 class _SweepCase(ArgumentSweepCase):
     """書き込むメソッドの戻り値(Plug・Node)を、呼んだ直後の名前に置き換える基底。
@@ -747,16 +714,11 @@ METHODS = (
         conflicts=(*SHORT_NAMES, _io_conflict),
         expect=_expect_connections,
         plural=_make_plugs,
-        known=KNOWN,
         limit=400,
     ),
     Method("getNode", _attr("ang")),
     Method(
-        "isValid",
-        _attr("lst[5]"),
-        expect=lambda case, call: case.assertEqual(call.result, call.kwargs.get("elements") is not True),
-        plural=_pair_of("lst[5]"),
-        known=_not_bool("elements"),
+        "isValid", _attr("lst[5]"), expect=lambda case, call: case.assertEqual(call.result, call.kwargs.get("elements") is not True), plural=_pair_of("lst[5]")
     ),
     Method("isInstancedAttribute", _attr("ang")),
     Method(
@@ -790,8 +752,8 @@ METHODS = (
     ),
     Method("getCategories", _attr("ang")),
     Method("getType", _attr("ang")),
-    Method("isMulti", _attr("lst[2]"), expect=_expect_is_multi, plural=_pair_of("lst[2]"), known=_not_bool("element")),
-    Method("isCompound", _attr("cmp[1].val"), expect=_expect_is_compound, known=_not_bool("child")),
+    Method("isMulti", _attr("lst[2]"), expect=_expect_is_multi, plural=_pair_of("lst[2]")),
+    Method("isCompound", _attr("cmp[1].val"), expect=_expect_is_compound),
     Method("getParent", _attr("cmp[1].val"), conflicts=(_include_multi_without_all,), expect=_expect_parent),
     Method("getMulti", _attr("lst[2]")),
     Method("getIndex", _attr("lst[2]")),
@@ -839,15 +801,6 @@ METHODS = (
         state=_range_state,
         expect=_expect_set_range,
         limit=60,
-        known={
-            **{
-                f"invalid:{side}={value}": "片側だけの有限でない値を例外にせず、Mayaの警告だけで何も変えない"
-                for side in ("minimum", "maximum")
-                for value in ("nan", "inf")
-            },
-            "values:minimum=None": "制限の無い側へ None を渡すと、0 の制限ができる",
-            "values:maximum=None": "制限の無い側へ None を渡すと、0 の制限ができる",
-        },
     ),
     Method("getDefault", _attr("ang"), expect=_expect_default, plural=_pair_of("ang")),
     Method(
@@ -859,10 +812,6 @@ METHODS = (
         expect=_expect_set_default,
         plural=_pair_of("freeAng"),
         limit=60,
-        known=dict.fromkeys(
-            ("values:uiUnits=True", "pairs:value=[-1-9]*,uiUnits=True", "pairs:fast=*,uiUnits=True", "pairs:unit=None,uiUnits=True"),
-            "uiUnits=True で、角度の数をUIの単位(度)でなくラジアンとして読む",
-        ),
     ),
     Method("isDefaultValue", _attr("ang")),
     Method("getAlias", _attr("ang")),
@@ -937,7 +886,6 @@ METHODS = (
         roundTrip=RoundTrip("get", shared=("unit", "timeUnit", "uiUnits"), skip=_skip_set_trip, places=5),
         plural=_pair_of("rotateX"),
         limit=200,
-        known={**KNOWN_SAFE, "pairs:value=maya.api.OpenMaya.MAngle*,[!f]*": "MAngle の値は、通常は書けるが fast=True では TypeError になる"},
     ),
     Method(
         "setIfChanged",
@@ -948,7 +896,6 @@ METHODS = (
         kwargs={"unlock": True},
         expect=_expect_set_if_changed,
         limit=40,
-        known=_not_bool("unlock"),
     ),
     Method("reset", _moved_translate, expect=_expect_reset, plural=_pair_of("translate")),
     Method(
@@ -970,13 +917,12 @@ METHODS = (
         conflicts=(("force", "f"), ("lock", "l"), ("nextAvailable", "na")),
         expect=_expect_connect,
         limit=200,
-        known={**KNOWN_ALIAS, "invalid:force=1": "bool でない値を真偽として読む", **_not_bool("lock", "l", "nextAvailable", "na", "unlock")},
     ),
     Method(
         "disconnect",
         _connected_holder,
         values={
-            "source": (
+            "other": (
                 None,
                 _lazy_plug("src1.outA", "<今の入力元>"),
                 _lazy_name("src1.outA", "'<入力元の名前>'"),
@@ -984,12 +930,11 @@ METHODS = (
                 _lazy_plug("src1.outB", "<つながっていない入力元>"),
             )
         },
-        replace=("source",),
-        invalid={"source": (1.5, True, _lazy_name("noSuchNode.outA", "'<存在しないノード>'")), "unlock": (1, "yes"), "fast": (1, "yes")},
+        replace=("other",),
+        invalid={"other": (1.5, True, _lazy_name("noSuchNode.outA", "'<存在しないノード>'")), "unlock": (1, "yes"), "fast": (1, "yes")},
         conflicts=(("nextAvailable", "na"),),
         expect=_expect_disconnect,
         limit=60,
-        known={**KNOWN_ALIAS, **_not_bool("nextAvailable", "na")},
     ),
     Method("disconnectAll", _make_network, expect=_expect_disconnect_all, limit=40),
     Method(
@@ -1127,7 +1072,7 @@ class PlugAnimLayerArgumentSweepTest(ArgumentSweepCase):
     """アニメーションレイヤーを使う Plug のメソッドの引数を網羅する。"""
 
     METHODS = (
-        Method("getAnimLayers", _layered, expect=_expect_anim_layers, known=_not_bool("selected", "exact")),
+        Method("getAnimLayers", _layered, expect=_expect_anim_layers),
         Method("getLayeredPlug", _layered, values={"layer": LAYER_VALUES}, replace=("layer",), expect=_expect_layered_plug),
         Method("getAnimCurve", _layered, values={"layer": LAYER_VALUES}, replace=("layer",), conflicts=(_suitable_conflict,), expect=_expect_anim_curve),
     )
@@ -1191,7 +1136,7 @@ def _expect_typed_get(case, call):
         case.assertAlmostEqual(float(call.result), float(expected), places=5)
 
 
-def _typed_case(class_name, add, name, values, invalid, places=5, skip=(), known=None):
+def _typed_case(class_name, add, name, values, invalid, places=5, skip=()):
     """型ごとの get・set を確かめるクラスを作る。"""
 
     def skip_trip(kwargs):
@@ -1209,7 +1154,6 @@ def _typed_case(class_name, add, name, values, invalid, places=5, skip=(), known
             invalid={"value": invalid},
             skip=skip,
             roundTrip=RoundTrip("get", shared=("timeUnit", "uiUnits"), skip=skip_trip, places=places),
-            known=KNOWN_SAFE if known is None else known,
             limit=40,
         ),
     )
@@ -1229,7 +1173,7 @@ StringPlugArgumentSweepTest = _typed_case(
 
 
 class EmptyStringPlugArgumentSweepTest(ArgumentSweepCase):
-    """一度も値を入れていない文字列の get。docstring では None だが "" を返す(findings4/sweep-plugs-components.md)。"""
+    """一度も値を入れていない文字列の get。``cmds.getAttr`` は None だが、mlib は空文字列を返す(docstring のとおり)。"""
 
     METHODS = (
         Method(
@@ -1238,17 +1182,14 @@ class EmptyStringPlugArgumentSweepTest(ArgumentSweepCase):
             values={"time": (None,)},
             replace=("time",),
             skip=("unit", "timeUnit", "uiUnits"),
-            expect=_expect_typed_get,
-            known={"values:time=None": "一度も値を入れていない文字列で None でなく空文字列を返す"},
+            expect=lambda case, call: case.assertEqual(call.result, ""),
         ),
     )
 
 
 TimePlugArgumentSweepTest = _typed_case("TimePlugArgumentSweepTest", _add(attributeType="time"), "typed", (12.0, -3.5, 0.0), ("a", None, object()))
 #: message は書けないので、safe=True の失敗の数(1)と fast の NotImplementedError を比べ合わせない(部品への要望)。
-MessagePlugArgumentSweepTest = _typed_case(
-    "MessagePlugArgumentSweepTest", _add(attributeType="message"), "typed", (1.0,), ("a", None), skip=("safe",), known={}
-)
+MessagePlugArgumentSweepTest = _typed_case("MessagePlugArgumentSweepTest", _add(attributeType="message"), "typed", (1.0,), ("a", None), skip=("safe",))
 
 
 if __name__ == "__main__":

@@ -44,20 +44,44 @@ class Vertex(PointComponent):
         iterator = self._iterator()
         return Edges(self.shape, sorted(set(iterator.getConnectedEdges())))
 
-    def getConnected(self):
-        """エッジでつながった隣の頂点を取得する。
+    def getConnected(self, *, type="vertex"):
+        """この頂点の隣にあるコンポーネントを取得する。
 
-        自身は含めない。集まるエッジは :meth:`getEdges`、触れている面は :meth:`getFaces` で取得する。
+        ``type`` で、取得する種類を選ぶ。:meth:`Face.getConnected <mlib.components.face.Face.getConnected>` と同じく、
+        自身は含めない。頂点を形づくる要素は頂点自身だけなので、集まるエッジ・触れている面はそのまま含める。
+
+        - ``"vertex"``: エッジでつながった隣の頂点(``MItMeshVertex.getConnectedVertices``)。
+        - ``"edge"``: この頂点に集まるエッジ(``MItMeshVertex.getConnectedEdges``。:meth:`getEdges` と同じ)。
+        - ``"face"``: この頂点に触れている面(``MItMeshVertex.getConnectedFaces``。:meth:`getFaces` と同じ)。
+
+        Args:
+            type (str): 取得する種類。``"vertex"``・``"edge"``・``"face"``。既定は ``"vertex"``。
 
         Returns:
-            Vertices: 頂点。番号の小さい順に並び、重なりは無い。
+            Vertices | Edges | Faces: ``type`` に合う集まり。番号の小さい順に並び、重なりは無い。
 
         Raises:
+            TypeError: typeが文字列でない場合。
+            ValueError: typeが ``"vertex"``・``"edge"``・``"face"`` のどれでもない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
+        if not isinstance(type, str):
+            raise TypeError(f"typeは文字列で指定してください: {type.__class__.__name__}")
+        if type not in ("vertex", "edge", "face"):
+            raise ValueError(f'typeは"vertex"・"edge"・"face"のどれかで指定してください: {type!r}')
         iterator = self._iterator()
-        return Vertices(self.shape, sorted(set(iterator.getConnectedVertices())))
+        if type == "vertex":
+            return Vertices(self.shape, sorted(set(iterator.getConnectedVertices())))
+        if type == "face":
+            # face.py が vertex.py を import するため、循環を避けて呼出し時に読む。
+            from .face import Faces
+
+            return Faces(self.shape, sorted(set(iterator.getConnectedFaces())))
+        # edge.py が vertex.py を import するため、循環を避けて呼出し時に読む。
+        from .edge import Edges
+
+        return Edges(self.shape, sorted(set(iterator.getConnectedEdges())))
 
     def getVertexFaces(self):
         """この頂点の頂点フェースを取得する。

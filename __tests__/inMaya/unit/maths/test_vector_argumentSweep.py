@@ -69,7 +69,7 @@ OTHERS = (
     Translate(-1.0, -2.0, -3.0),
     (0.0, 0.0, 0.0),
 )
-#: 相手のベクトルの誤った値。成分の数・成分の型が違う値(ValueError になる)と、並びでない値(TypeError になる)。
+#: 相手のベクトルの誤った値。成分の数が違う値(ValueError になる)と、文字列・並びでない値(TypeError になる)。
 VALUE_BAD = ((1.0, 2.0), (1.0, 2.0, 3.0, 4.0), "abc")
 TYPE_BAD = (None, 1.0, object())
 OTHER_INVALID = VALUE_BAD + TYPE_BAD
@@ -195,39 +195,10 @@ def _invalid_tolerance():
     return {"tolerance": ("a", None, float("nan"), float("inf"), -1.0, True)}
 
 
-def _known(name, values):
-    """相手のベクトルを om2.MVector にできないとき、docstring の Raises に無い例外になる(findings4/sweep-common-json-maths.md の M1)。"""
-    return {f"invalid:{name}={value!r}": "Raises に無い例外(om2.MVector にできない値)" for value in values}
-
-
-#: Raises が無い・TypeError だけ・ValueError だけのメソッドで、書いていない側の例外になる値。
-KNOWN_OTHER = _known("other", OTHER_INVALID)
-KNOWN_OTHER_TYPE = _known("other", TYPE_BAD)
-KNOWN_OTHER_VALUE = _known("other", VALUE_BAD)
-KNOWN_AXIS_TYPE = _known("axis", TYPE_BAD)
-
 METHODS = (
+    Method("dot", _vector, args=((1.0, 0.0, 0.0),), values={"other": OTHERS}, invalid={"other": OTHER_INVALID}, expect=_expect_dot, state=_value, writes=False),
     Method(
-        "dot",
-        _vector,
-        args=((1.0, 0.0, 0.0),),
-        values={"other": OTHERS},
-        invalid={"other": OTHER_INVALID},
-        expect=_expect_dot,
-        state=_value,
-        writes=False,
-        known=KNOWN_OTHER,
-    ),
-    Method(
-        "cross",
-        _vector,
-        args=((1.0, 0.0, 0.0),),
-        values={"other": OTHERS},
-        invalid={"other": OTHER_INVALID},
-        expect=_expect_cross,
-        state=_value,
-        writes=False,
-        known=KNOWN_OTHER,
+        "cross", _vector, args=((1.0, 0.0, 0.0),), values={"other": OTHERS}, invalid={"other": OTHER_INVALID}, expect=_expect_cross, state=_value, writes=False
     ),
     Method(
         "distanceTo",
@@ -238,7 +209,6 @@ METHODS = (
         expect=_expect_distance,
         state=_value,
         writes=False,
-        known=KNOWN_OTHER_VALUE,
     ),
     Method(
         "angleTo",
@@ -249,7 +219,6 @@ METHODS = (
         expect=_expect_angle,
         state=_value,
         writes=False,
-        known=KNOWN_OTHER_TYPE,
     ),
     Method(
         "isEquivalent",
@@ -261,7 +230,6 @@ METHODS = (
         expect=_expect_equivalent,
         state=_value,
         writes=False,
-        known={**KNOWN_OTHER, "invalid:tolerance=*": "tolerance を検査しない(負の値を受け付け、文字列・None は Raises に無い TypeError)"},
     ),
     Method(
         "lerp",
@@ -272,7 +240,6 @@ METHODS = (
         expect=_expect_lerp,
         state=_value,
         writes=False,
-        known={**KNOWN_OTHER, "invalid:t=*": "t を検査しない(NaN・inf をそのまま計算し、文字列・None は例外にならず誤った値を返す)"},
     ),
     Method(
         "projected",
@@ -283,7 +250,6 @@ METHODS = (
         expect=_expect_projected,
         state=_value,
         writes=False,
-        known=KNOWN_AXIS_TYPE,
     ),
     Method(
         "orthogonal",
@@ -294,18 +260,9 @@ METHODS = (
         expect=_expect_orthogonal,
         state=_value,
         writes=False,
-        known=KNOWN_AXIS_TYPE,
     ),
     Method(
-        "cotan",
-        _vector,
-        args=((1.0, 0.0, 0.0),),
-        values={"other": OTHERS},
-        invalid={"other": OTHER_INVALID},
-        expect=_expect_cotan,
-        state=_value,
-        writes=False,
-        known=KNOWN_OTHER_TYPE,
+        "cotan", _vector, args=((1.0, 0.0, 0.0),), values={"other": OTHERS}, invalid={"other": OTHER_INVALID}, expect=_expect_cotan, state=_value, writes=False
     ),
     Method(
         "slerp",

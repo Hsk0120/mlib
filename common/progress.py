@@ -339,7 +339,8 @@ def progressBar(iterable, *, label="", total=None, width=30, stream=None, notify
         Iterator: 元の要素を、元の順に返すジェネレーター。
 
     Raises:
-        TypeError: labelの型が正しくない場合、またはwidth・totalが整数でない場合。boolは整数として受け付けない。
+        TypeError: labelの型が正しくない場合、width・totalが整数でない場合(boolは整数として受け付けない)、
+            streamがwriteを持たない場合、notifyが呼び出せない場合、またはguiがbool・None以外の場合。
         ValueError: widthが1より小さい場合、またはtotalが負の場合。
         RuntimeError: gui=Trueで、メインのプログレスバーが使えない場合(バッチ・ほかで使用中など)。
         ProgressCancelled: ループの途中で、プログレスバーがEscキーで中止された場合。
@@ -372,6 +373,10 @@ def progressBar(iterable, *, label="", total=None, width=30, stream=None, notify
 
     if gui is not None and not isinstance(gui, bool):
         raise TypeError(f"guiはboolかNoneで指定してください: {type(gui).__name__}")
+    if stream is not None and not callable(getattr(stream, "write", None)):
+        raise TypeError(f"streamはwriteを持つ出力先で指定してください: {type(stream).__name__}")
+    if notify is not None and not callable(notify):
+        raise TypeError(f"notifyは呼び出せるものかNoneで指定してください: {type(notify).__name__}")
 
     bar = None
     if gui or (gui is None and stream is None):

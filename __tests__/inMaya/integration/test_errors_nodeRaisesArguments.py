@@ -242,10 +242,10 @@ class CameraTest(_ArgumentCase):
         return value
 
     def test_locked_center_of_interest(self):
-        """setPoint(kind="centerOfInterest") は centerOfInterest がロックされていると RuntimeError。"""
+        """setPoint(kind="centerOfInterest", check=True) は centerOfInterest がロックされていると RuntimeError。"""
         camera = self.camera()
         self.lock(camera, "centerOfInterest")
-        self.assertFails(RuntimeError, camera.setPoint, (0, 0, -3), kind="centerOfInterest", fast=True, state=lambda: self.state(camera))
+        self.assertFails(RuntimeError, camera.setPoint, (0, 0, -3), kind="centerOfInterest", fast=True, check=True, state=lambda: self.state(camera))
 
 
 class DagNodeTest(_ArgumentCase):

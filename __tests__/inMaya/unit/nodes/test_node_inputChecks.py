@@ -3,10 +3,13 @@
 - addAttr の ``is``・型の接頭辞・enumの既定値・compoundの子の数を確かめる。
 - getName・setKey・resetAttrs・setAttrFlags・swapConnections・moveAttrOrder の不正な入力の例外を確かめる。
 - Nodes の ``==``・``Nodes[...]``・``+`` と、無効なノードの追加を確かめる。
+- setLocked・setAttrFlags の check(リファレンスのノード)を確かめる。
 """
 
 import sys
 import unittest
+import uuid
+from pathlib import Path
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -296,13 +299,14 @@ class NodeSelectRejectTest(_Case):
 
     CLEAR_SELECTION = True
 
-    def test_long_and_short_flags(self):
-        """ロング名と短縮名を同時に指定するとTypeErrorで、選択は変わらない。"""
+    def test_invalid_flags(self):
+        """add・deselectの型の誤り・同時の指定・cmds.selectのほかのフラグはTypeErrorで、選択は変わらない。"""
         node = self.node()
-        for label, call in (("Node", lambda: node.select(replace=True, r=True)), ("Nodes", lambda: Nodes([node]).select(replace=True, r=True))):
-            with self.subTest(label), self.assertRaises(TypeError):
-                call()
-            self.assertEqual(cmds.ls(selection=True), [])
+        for flags in ({"add": True, "deselect": True}, {"add": 1}, {"deselect": "yes"}, {"replace": True}, {"hierarchy": True}):
+            for label, target in (("Node", node), ("Nodes", Nodes([node]))):
+                with self.subTest(label, flags=flags), self.assertRaises(TypeError):
+                    target.select(**flags)
+                self.assertEqual(cmds.ls(selection=True), [])
 
     def test_nodes_deleted_member(self):
         """削除したノードを含むNodes.selectはRuntimeErrorで、選択は変わらない。"""
@@ -443,6 +447,71 @@ class NodesRejectTest(_Case):
         with self.assertRaises(RuntimeError):
             Nodes([child]).setParent(md)
         self.assertIsNone(cmds.listRelatives(str(child), parent=True))
+
+
+class LockCheckTest(_Case):
+    """setLocked・setAttrFlagsのcheck。check=Trueだけ、リファレンスのノードを変える前に拒否する。"""
+
+    def test_check_type(self):
+        """checkがboolでなければTypeErrorで、何も変えない。"""
+        node = self.node()
+        for value in (1, "yes", None):
+            with self.subTest(check=value):
+                with self.assertRaises(TypeError):
+                    node.setLocked(True, check=value)
+                self.assertFalse(cmds.lockNode(str(node), query=True, lock=True)[0])
+                with self.assertRaises(TypeError):
+                    node.setAttrFlags("tx", locked=True, check=value)
+                self.assertFalse(cmds.getAttr(f"{node}.tx", lock=True))
+
+    def test_check_on_local_node(self):
+        """リファレンスでないノードでは、check=Trueでも通常どおり変える。"""
+        node = self.node()
+        for fast in (False, True):
+            with self.subTest(fast=fast):
+                node.setLocked(True, fast=fast, check=True)
+                self.assertTrue(cmds.lockNode(str(node), query=True, lock=True)[0])
+                node.setLocked(False, fast=fast, check=True)
+                node.setAttrFlags("tx", keyable=False, fast=fast, check=True)
+                self.assertFalse(cmds.getAttr(f"{node}.tx", keyable=True))
+                node.setAttrFlags("tx", keyable=True, fast=fast, check=True)
+
+    def test_check_on_referenced_node(self):
+        """リファレンスのノードでは、check=Trueのときだけ、変える前にRuntimeErrorにする。"""
+        folder = Path(__file__).resolve().parents[3] / "_output"
+        folder.mkdir(exist_ok=True)
+        path = (folder / f"mlibSpecNodeInputRef_{uuid.uuid4().hex}.ma").as_posix()
+        current = cmds.file(query=True, sceneName=True)
+        modified = cmds.file(query=True, modified=True)
+        source = cmds.createNode("transform", name="mlibSpecNodeInputRef_" + uuid.uuid4().hex)
+        cmds.select(source)
+        cmds.file(path, exportSelected=True, type="mayaAscii", force=True)
+        cmds.delete(source)
+        reference = cmds.file(path, reference=True, namespace=self.ns + "_ref")
+        try:
+            node = mlib.getNode(cmds.ls(self.ns + "_ref:" + source, long=True)[0])
+            for fast in (False, True):
+                with self.subTest(fast=fast):
+                    with self.assertRaisesRegex(RuntimeError, "リファレンスのノード"):
+                        node.setLocked(True, fast=fast, check=True)
+                    self.assertFalse(cmds.lockNode(str(node), query=True, lock=True)[0])
+                    with self.assertRaisesRegex(RuntimeError, "リファレンスのノード"):
+                        node.setAttrFlags(["tx", "ty"], keyable=False, fast=fast, check=True)
+                    self.assertTrue(cmds.getAttr(f"{node}.tx", keyable=True))
+                    # ロックだけの変更はMayaも受け付けるので、checkでも拒否しない。
+                    node.setAttrFlags("tx", locked=True, fast=fast, check=True)
+                    self.assertTrue(cmds.getAttr(f"{node}.tx", lock=True))
+                    node.setAttrFlags("tx", locked=False, fast=fast)
+            # check=Falseなら、Mayaと同じくリファレンスのノードもロックする。
+            node.setLocked(True)
+            self.assertTrue(cmds.lockNode(str(node), query=True, lock=True)[0])
+            node.setLocked(False)
+        finally:
+            cmds.file(reference, removeReference=True)
+            if Path(path).exists():
+                Path(path).unlink()
+            if current and not modified:
+                cmds.file(modified=False)
 
 
 if __name__ == "__main__":

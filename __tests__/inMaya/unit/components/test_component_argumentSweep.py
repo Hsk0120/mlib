@@ -208,15 +208,7 @@ class ComponentsArgumentSweepTest(ArgumentSweepCase):
             invalid={"value": (EDGE, 1.5, None)},
             expect=_indices_after(lambda kwargs: [5, 3]),
         ),
-        Method(
-            "pop",
-            _vertices,
-            values={"index": (-1, 0, 1, 2, 3, -4)},
-            replace=("index",),
-            invalid={"index": ("a", 1.5, None)},
-            expect=_expect_pop,
-            known={f"invalid:index={value}": "整数でない位置で、Raises に無い TypeError になる" for value in ("'a'", "1.5", "None")},
-        ),
+        Method("pop", _vertices, values={"index": (-1, 0, 1, 2, 3, -4)}, replace=("index",), invalid={"index": ("a", 1.5, None)}, expect=_expect_pop),
         Method(
             "index",
             _vertices,
@@ -226,7 +218,6 @@ class ComponentsArgumentSweepTest(ArgumentSweepCase):
             invalid={"start": ("a", 1.5), "stop": ("a", 1.5)},
             writes=False,
             expect=_expect_index,
-            known={f"invalid:{name}={value}": "整数でない位置で、Raises に無い TypeError になる" for name in ("start", "stop") for value in ("'a'", "1.5")},
         ),
         Method(
             "count",

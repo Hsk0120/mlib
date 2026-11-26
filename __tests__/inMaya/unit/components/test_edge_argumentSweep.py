@@ -21,6 +21,8 @@ from mlib.components import Edge, Edges
 
 #: 長い名前と短縮名の組(同時に指定できない)。
 SPACE = ("worldSpace", "ws")
+#: cm から各単位への係数(段1の distanceUnit の候補)。
+DISTANCE_FACTORS = {"cm": 1.0, "mm": 10.0, "m": 0.01}
 
 
 def _mesh(case):
@@ -61,9 +63,17 @@ def _ends(edge, world):
 
 
 def _expect_length(case, call):
-    """両端の頂点の距離。"""
+    """両端の頂点の距離を、distanceUnit の単位にしたもの。"""
     first, second = _ends(call.target, _world(call.kwargs))
-    case.assertAlmostEqual(call.result, math.sqrt(sum((a - b) ** 2 for a, b in zip(first, second))), places=5)
+    unit = call.kwargs.get("distanceUnit", "cm")
+    factor = om2.MDistance(1.0, om2.MDistance.kCentimeters).asUnits(om2.MDistance.uiUnit()) if unit is None else DISTANCE_FACTORS[unit]
+    case.assertAlmostEqual(call.result, math.sqrt(sum((a - b) ** 2 for a, b in zip(first, second))) * factor, places=5)
+
+
+def _expect_connected(case, call):
+    """type の種類の集まりを返す(既定はエッジ)。"""
+    names = {"edge": "Edges", "face": "Faces", "vertex": "Vertices"}
+    case.assertEqual(type(call.result).__name__, names[call.kwargs.get("type", "edge")])
 
 
 def _expect_center(case, call):
@@ -102,10 +112,18 @@ class EdgeArgumentSweepTest(ArgumentSweepCase):
     METHODS = (
         Method("getVertices", _edge),
         Method("getFaces", _edge),
-        Method("getLength", _edge, conflicts=(SPACE,), expect=_expect_length, plural=_edge_pair),
+        Method(
+            "getLength",
+            _edge,
+            values={"distanceUnit": (*DISTANCE_FACTORS, None)},
+            invalid={"distanceUnit": (1.5, "bogus")},
+            conflicts=(SPACE,),
+            expect=_expect_length,
+            plural=_edge_pair,
+        ),
         Method("getCenter", _edge, conflicts=(SPACE,), expect=_expect_center, plural=_edge_pair),
-        Method("getLoop", _edge, expect=_expect_loop, plural=_edge_pair),
-        Method("getConnected", _edge),
+        Method("getLoop", _edge, expect=_expect_loop),
+        Method("getConnected", _edge, invalid={"type": (1.5, "bogus", None)}, expect=_expect_connected),
         Method("isOnBoundary", _edge),
         Method("isSmooth", _edge),
         Method("setSmooth", _edge, state=_smooth_state, expect=_expect_smooth, plural=_edge_pair),

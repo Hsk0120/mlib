@@ -255,10 +255,16 @@ class KeyframeReferenceTest(_KeyCase):
         self.assertEqual(Keyframes([]).getIndices(self.curve), [])
 
     def test_move_keeps_neighbor_order(self):
-        """1つのキーを動かすと隣を越えない(Maya と同じ)。まとめて動かすキー同士は一緒に動く。"""
-        self.curve.getKeyframes(0).move(timeOffset=20)
-        self.assertLess(self.times()[0], 5.0)
-        cmds.undo()
+        """隣のキーと同じか越える移動は、何も変えずに ValueError にする。まとめて動かすキー同士は一緒に動く。"""
+        before = self.times()
+        for offset in (20, before[1] - before[0]):
+            with self.subTest(offset=offset):
+                with self.assertRaises(ValueError):
+                    self.curve.getKeyframes(0).move(timeOffset=offset)
+                self.assertEqual(self.times(), before)
+        with self.assertRaises(ValueError):
+            self.curve.getKeyframes([0, 1]).move(timeOffset=before[2] - before[1])
+        self.assertEqual(self.times(), before)
         self.curve.getKeyframes([1, 2]).move(timeOffset=3, valueOffset=-1)
         self.assertEqual(self.times(), [1.0, 8.0, 13.0])
         self.assertEqual(self.values(), [0.0, 1.0, 3.0])

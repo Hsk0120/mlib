@@ -140,7 +140,7 @@ class ReferenceTest(unittest.TestCase):
 
     def test_remove_deletes_reference_node(self):
         reference = Node(self.ref_node_name)
-        reference.remove()
+        reference.removeReference()
         self.assertFalse(cmds.objExists(self.ref_node_name))
 
     def test_list_references_includes_created_reference(self):

@@ -285,7 +285,7 @@ class RemovedNamesTest(unittest.TestCase):
             (Transform.setPivot, {"kind": "rotate", "translation": False}),
             (Joint.freezeRotate, {"toRotate": False}),
             (SkinCluster.removeInfluences, {"joints": None, "unused": False, "repair": False}),
-            (SkinCluster.normalizeWeights, {"decimals": None, "force": False, "fast": False}),
+            (SkinCluster.normalizeWeights, {"ndigits": None, "force": False, "fast": False}),
             (SkinCluster.getInfluences, {"locked": None, "unused": None}),
             (SkinCluster.getMaxInfluences, {"maintain": False}),
             (SkinCluster.getMode, {"kind": "skinning"}),
@@ -342,11 +342,15 @@ class RemovedNamesTest(unittest.TestCase):
         self.assertEqual(inspect.signature(Plug.getAttributeName).parameters["kind"].default, "long")
 
     def test_connections_do_not_skip_conversion_nodes_by_default(self):
-        """接続照会のskipConversionNodesは既定False(cmds.listConnectionsと同じ直結)。短縮名scnの既定は「指定なし」の番兵。"""
+        """接続照会のskipConversionNodesは既定False(cmds.listConnectionsと同じ直結)。
+
+        短縮名scnと同時の指定を値に関係なく見分けるため、シグネチャの既定は「指定なし」の番兵でもよい(意味の既定はFalse)。
+        """
         for function in (Node.getConnections, Plug.getConnections):
             parameters = inspect.signature(function).parameters
             with self.subTest(function=function.__qualname__):
-                self.assertIs(parameters["skipConversionNodes"].default, False)
+                default = parameters["skipConversionNodes"].default
+                self.assertTrue(default is False or default is mlib.util._UNSET)
                 if "scn" in parameters:
                     self.assertIsNot(parameters["scn"].default, True)
 

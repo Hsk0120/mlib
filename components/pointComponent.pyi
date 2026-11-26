@@ -78,7 +78,7 @@ class PointComponent(Component):
             None: 値を返さない。
 
         Raises:
-            TypeError: worldSpace・relative・fastがboolでない場合、axisが文字列でもNoneでもない場合、座標の型が合わない場合
+            TypeError: worldSpace・relative・fast・checkがboolでない場合、axisが文字列でもNoneでもない場合、座標の型が合わない場合
                 (axisを指定して数値1つでない場合、axisを指定せずに3成分でない場合を含む)、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 座標が有限な数値でない場合、成分が3つでない場合、axisが ``"x"``・``"y"``・``"z"`` のどれでもない場合、
                 またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
@@ -166,7 +166,7 @@ class PointComponents(Components):
             None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
 
         Raises:
-            TypeError: worldSpace・relative・each・fastがboolでない場合、axisが文字列でもNoneでもない場合、
+            TypeError: worldSpace・relative・each・fast・checkがboolでない場合、axisが文字列でもNoneでもない場合、
                 値の形がaxis・eachの指定と合わない場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 値が有限な数値でない場合、成分が3つでない場合、each=Trueで値の数が要素の数と違う場合、
                 axisが ``"x"``・``"y"``・``"z"`` のどれでもない場合、または
@@ -200,7 +200,7 @@ class PointComponents(Components):
             None: 値を返さない。
 
         Raises:
-            TypeError: worldSpaceかfastがboolでない場合、axisが文字列でもintでもない場合、
+            TypeError: worldSpace・fast・checkがboolでない場合、axisが文字列でもintでもない場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: axisかpivotの値が正しくない場合、またはworldSpace=Trueで、変換マトリクスがほぼ特異な(スケールがほぼ0などで、逆マトリクスを求められない)場合。
             IndexError: 持っている番号が、今の範囲の外にある場合。

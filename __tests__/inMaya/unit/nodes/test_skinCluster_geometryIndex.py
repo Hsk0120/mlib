@@ -109,7 +109,7 @@ class GeometryIndexTest(_Case):
         selection = cmds.ls(f"{self.cube}.vtx[5]")
         cmds.select(selection, replace=True)
         before = self.percent(self.plane, 0)
-        self.skin.smoothWeights(tolerance=0.0, iterations=3, vertices=[0], geometryIndex=self.index)
+        self.skin.smoothWeights(threshold=0.0, iterations=3, vertices=[0], geometryIndex=self.index)
         self.assertNotEqual(self.percent(self.plane, 0), before)
         self.assertAlmostEqual(sum(self.percent(self.plane, 0)), 1.0, places=5)
         # 選択は元に戻る。

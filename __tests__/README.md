@@ -222,16 +222,42 @@ class TransformArgumentSweepTest(ArgumentSweepCase):
 
 | テスト | 確かめること |
 |---|---|
-| `test_<メソッド>_values` | 段1: 引数ごとに候補を1つずつ差し替えて呼ぶ。例外は docstring の Raises の型だけ(そのときシーンは変わらない)、`expect` に合う |
+| `test_<メソッド>_values` | 段1: 引数ごとに候補を1つずつ差し替えて呼ぶ(引数の無いメソッドは1回呼ぶ)。例外は docstring の Raises の型だけ(そのときシーンは変わらない)、`expect` に合う |
 | `test_<メソッド>_invalid` | 段2: 違う型の値(bool へ`1`・`"yes"`、数へ`"a"`・NaN・inf、文字列へ数、選べる値へ選べない文字列、ノード・Plug へ削除済み・存在しない名前、並びへ数でない物)で、Raises の型になりシーンが変わらない |
-| `test_<メソッド>_pairs` | 段3: 2つの引数の組(1メソッド200組まで。`limit`で変える)で、Raises の型だけ・同時に指定できない組は TypeError・Undo 1回で戻り redo で同じ・`fast=True`と通常で同じ(fast は Undo なし)・短縮名(docstring の「Xの短縮名」)と長い名前で同じ・`roundTrip`・`plural` |
+| `test_<メソッド>_pairs` | 段3: 2つの引数の組(1メソッド200組まで。`limit`で変える。引数が1つなら候補を1つずつ、無ければ1回。`combos`の組は必ず通す)で、Raises の型だけ・同時に指定できない組は TypeError・Undo 1回で戻り redo で同じ・`fast=True`と通常で同じ(fast は Undo なし)・短縮名(docstring の「Xの短縮名」)と長い名前で同じ・`roundTrip`・`plural` |
+| `test_<メソッド>_errors` | `errors`に書いた状態(削除済み・アンロード中など)で、決めた例外になりシーンが変わらない |
 | `test_<メソッド>_known` | `known`に書いた場合が、まだ食い違っていること(expectedFailure。直ったら known から外す) |
 
 - 候補は docstring の Args の型(bool・int・float・None・``"x"``の選べる値)と既定値から作り、`values`を足します。
   並び・ノードなど型から作れない引数は`values`に書きます(`Lazy(lambda case: ..., "名前")`で呼ぶ直前に作る値も置けます)。
 - 書き込むメソッド(名前が get・is・has・list・find で始まらないもの。`writes=`で変える)は、呼ぶたびに名前空間の中身を作り直します。
   シーンの状態は名前空間のノード・keyable の値・ワールドのマトリクス・接続と全体のノードの数で比べます(`state=`で変える)。
-- Maya を使わない部分(docstring の読み取り・候補・組)は`support/argumentTable.py`にあり、`noMaya/test_argumentTable.py`が確かめます。
+- 段3の「`fast=True`と通常で同じ」は、`fast`を指定した組・`get=True`・`safe=True`・`fast`を足すと`conflicts`になる組では比べず、
+  `fast=True`が docstring の Raises の`NotImplementedError`(fast と同時に使えない引数)になった組も比べません。
+- 書き込むメソッドの戻り値(Node・Plug・Component とその並び)は、呼んだ直後の名前に置き換えて比べます(作り直しで消えても比べられる)。
+- 複数形(`plural`)の書き込みは、作り直した後のノードから値(Lazy)を作り直し、表の`state`で比べます。
+- 並び・辞書の中の`Lazy`も呼ぶ直前に作ります。`Lazy(make, "名前", args=True)`は`make(case, kwargs)`でほかの引数の値も受け取ります(3つの引数がそろって決まる値)。
+- Maya を使わない部分(docstring の読み取り・候補・組・Lazy の作り直し・可変長の引数の展開)は`support/argumentTable.py`にあり、`noMaya/test_argumentTable.py`が確かめます。
+
+`Method`のそのほかの指定と、テストケースの補助:
+
+| 指定 | 使い方 |
+|---|---|
+| `function=` | 対象のメソッドの代わりに呼ぶ関数(`mlib.createNode`・クラスメソッド・静的メソッド)。対象(setup の戻り値)は state・expect にだけ使う。setup がクラス・モジュールを返せば、`function`なしでもそのクラスメソッド・静的メソッド・関数を呼ぶ |
+| `values={"targets": ((a, b),)}`・`"*"`・`"**"` | `*args`・`**kwargs`の候補(`*`は並び、`**`は辞書)。values・invalid に書いた可変長の引数だけを網羅し、呼ぶときに展開する。`args=`の余りの位置引数・`kwargs=`の余りも展開して渡す。docstring の`*targets (Node)`も読む |
+| `variant="vertex"` | 同じメソッドを別の呼び方で2行置くときのテスト名の接尾辞(`test_getWeights_vertex_values`)。省いて重なった行は`_2`・`_3`を付ける |
+| `known={"invalid:members=[<a>]": "理由"}` | `[`はそのままの文字(以前の`[[]`と`[!x]`はそのまま使える)。キーを`(段, 引数の辞書)`を受け取る関数にしてもよい。理由を`Known("理由", versions=(2022,))`にすると、その版だけに当てはめる(当てはまる版が無ければ known のテストは skip) |
+| `undoable=False` | Undo に記録しないメソッド(docstring に「Undoには記録されない」と書いたもの)。段3で Undo の記録が無いことを確かめ、Undo・redo は確かめない |
+| `reset=` | 呼び出しごとの後始末`reset(case, target)`(登録を増やすメソッドの解除など) |
+| `context=True` | 戻り値を with で入って出てから状態を読む(コンテキストマネージャーを返すメソッド) |
+| `combos=({...}, ...)` | 段3で上限によらず必ず通す組(3つ以上の引数でもよい) |
+| `errors=(ErrorState("削除済み", prepare, RuntimeError),)` | 状態で決まる例外。`prepare(case, target)`で対象をその状態にし(値を返せばそれを対象にする)、正しい呼び方で決めた例外になり、シーンが変わらないことを確かめる |
+| クラス属性`STATE` | `state`を省いた行で使う状態の関数`STATE(case, target)`(クラスの表全体の既定) |
+| `case.inNamespace()` | with の中ではテストの名前空間が今の名前空間になる(`cmds.polyCube`などのシェイプも名前空間の中にできる) |
+
+- `expect`に渡す`Call`は`before`(呼ぶ前の状態)も持ちます。
+- docstring の型が`object`・`Any`の引数は、どの値も受け付けるとして段2を作りません(説明にノード・Plug と書いた`object`はノードとして作る)。
+- 既定の状態(`sceneState`)は、読めないアトリビュート(TypeError も)を None として読み、値をノード・アトリビュートの名前の順に並べて比べます。
 
 ## コードの書式を検査する
 

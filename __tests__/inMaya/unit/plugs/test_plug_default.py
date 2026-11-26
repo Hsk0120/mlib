@@ -56,6 +56,14 @@ class PlugDefaultTest(NamespaceCase):
                 distance = self.make_plug("doubleLinear")
                 distance.setDefault(2, fast=fast, uiUnits=True)
                 self.assertAlmostEqual(distance.getDefault(), 200)
+            # UIの角度の単位が度なら、uiUnits=Trueの数値は度として読む。
+            cmds.currentUnit(angle="deg")
+            for fast in (False, True):
+                angle = self.make_plug("doubleAngle")
+                angle.setDefault(15, fast=fast, uiUnits=True)
+                self.assertAlmostEqual(angle.getDefault(), 15)
+                with self.assertRaises(ValueError):
+                    angle.setDefault(15, fast=fast, unit="deg", uiUnits=True)
         finally:
             cmds.currentUnit(angle=old_angle, linear=old_linear)
 

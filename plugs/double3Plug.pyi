@@ -80,7 +80,7 @@ class Double3Plug(CompoundPlug):
                 途中まで変えた値は自動では戻さない。
 
         Raises:
-            TypeError: fastがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
+            TypeError: safe・fast・checkがboolでない場合、またはマルチアトリビュート全体に設定しようとした場合。
                 safe=Trueでも例外にする。safe=Falseなら、値の型が不正な場合にも送出する。
             ValueError: unit・timeUnitが対応していない場合、またはuiUnits=Trueと同時に指定した場合
                 (safe=Trueでは1を返す)。safe=Falseなら、成分の数が違う場合や有限でない値の場合にも送出する。

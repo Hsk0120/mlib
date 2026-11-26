@@ -2,6 +2,7 @@
 """点の並びに近い3次B-splineの制御点を求める(外部の数値計算ライブラリは使わない)。"""
 
 import math
+import numbers
 from typing import Sequence
 
 
@@ -23,6 +24,7 @@ class CurveFit:
             list[float]: CVごとのウェイト。
 
         Raises:
+            TypeError: countがintでない(boolを含む)、またはparameterが数値でない場合。
             ValueError: countが4より小さい場合、またはparameterが0〜1の範囲にない場合。
         """
         ...
@@ -40,6 +42,7 @@ class CurveFit:
             list[list[float]]: CVの座標。pointsと同じ空間・同じ単位。
 
         Raises:
+            TypeError: pointsが点の並びでない場合。
             ValueError: countが4〜32のintでない場合(intでないものも含む)、点が2つより少ないか
                 有限な3次元の点でない場合、または折れ線の長さが0の場合。
 

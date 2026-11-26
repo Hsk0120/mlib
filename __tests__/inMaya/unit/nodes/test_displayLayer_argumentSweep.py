@@ -126,24 +126,11 @@ REMOVE_VALUES = (_node("a"), _node("a", wrap=True), _node("a", 1), _node("free")
 #: 段2のメンバーの誤った値(削除済み・存在しない名前・数・型の違うもの)。
 MEMBER_INVALID = (DELETED_NODE, MISSING_NAME, 1.5, object())
 
-#: 本体との食い違い(findings4/sweep-geometry.md)。
-KNOWN_ADD = {"invalid:members=*": "docstring に Raises が無い"}
-#: removeMembers の本体との食い違い。
-KNOWN_REMOVE = {
-    "invalid:members=<削除済みのノード>": "Raises に無い ValueError になる",
-    "invalid:members='<存在しない名前>'": "Raises に無い ValueError になる",
-}
 
 #: 正しい呼び方の表。
 METHODS = (
     Method(
-        "addMembers",
-        _spread_setup("addMembers"),
-        values={"members": ADD_VALUES},
-        invalid={"members": MEMBER_INVALID},
-        expect=_expect_added,
-        state=_layer_state,
-        known=KNOWN_ADD,
+        "addMembers", _spread_setup("addMembers"), values={"members": ADD_VALUES}, invalid={"members": MEMBER_INVALID}, expect=_expect_added, state=_layer_state
     ),
     Method(
         "removeMembers",
@@ -153,7 +140,6 @@ METHODS = (
         conflicts=(_members_all,),
         expect=_expect_removed,
         state=_layer_state,
-        known=KNOWN_REMOVE,
     ),
 )
 

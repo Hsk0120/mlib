@@ -4,7 +4,8 @@
 from typing import Any, Dict
 import maya.cmds as cmds
 from ..core.object import Object
-from ..decorator import _pick_alias, undoChunk
+from ..core.shapeBuild import require_name
+from ..decorator import _pick_alias, _require_bool, undoChunk
 from ..util import _UNSET
 from typing import Iterable
 from mlib.nodes.dagPose import DagPose
@@ -21,6 +22,7 @@ def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | Non
     Args:
         members (Node | str | Iterable[Node | str]): 保存するTransformまたはJoint。
         name (str | None): 付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
+            DAGパスの区切り ``|`` は含められない(Mayaは黙って置き換えてしまうため、エラーにする)。
         bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
         hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
             Mayaは、元に戻すのに必要な親の情報も保存することがある。
@@ -31,8 +33,9 @@ def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | Non
         DagPose: 作ったポーズ。Mayaが既存のポーズを使い回した場合はそのポーズ。
 
     Raises:
-        TypeError: 長い名前と短縮名を同時に指定した場合。
-        ValueError: 対象が空の場合、Transformでないものを含む場合、または名前が正しくない場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、nameが文字列でもNoneでもない場合、
+            またはbindPose・hierarchyがboolでない場合。
+        ValueError: 対象が空の場合、Transformでないものを含む場合、またはnameが空文字列か ``|`` を含む場合。
         RuntimeError: ノードが見つからない場合、またはMayaが保存を拒否した場合。
 
     Examples:

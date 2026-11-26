@@ -83,7 +83,7 @@ class SkinWeightEditingTest(unittest.TestCase):
         self.assertAlmostEqual(sum(self.weights()[:3]), 1)
         cmds.undo()
         self.assertEqual(self.weights()[:3], [1, 1, 1])
-        self.skin.normalizeWeights(decimals=2)
+        self.skin.normalizeWeights(ndigits=2)
         self.assertEqual(self.weights()[:3], [0.34, 0.33, 0.33])
         self.assertEqual(sum(Decimal(str(v)) for v in self.weights()[:3]), Decimal(1))
         self.assertEqual(cmds.getAttr(self.skin.getName(full=True) + ".normalizeWeights"), 0)
@@ -100,7 +100,7 @@ class SkinWeightEditingTest(unittest.TestCase):
         cmds.setAttr(self.child + ".lockInfluenceWeights", True)
         before = self.weights()
         with self.assertRaises(RuntimeError):
-            self.skin.normalizeWeights(decimals=2)
+            self.skin.normalizeWeights(ndigits=2)
         self.assertEqual(self.weights(), before)
 
     def test_max_setting_preserves_weights_and_prune(self):
@@ -136,11 +136,11 @@ class SkinWeightEditingTest(unittest.TestCase):
 
     def test_invalid_arguments_and_failure_propagation(self):
         before = self.weights()
-        for decimals in (-1, 16, 1.5, True):
-            with self.assertRaises(ValueError):
-                self.skin.normalizeWeights(decimals)
-        for count in (0, -1, 1.5, True):
-            with self.assertRaises(ValueError):
+        for ndigits, error in ((-1, ValueError), (16, ValueError), (1.5, TypeError), (True, TypeError)):
+            with self.subTest(ndigits=ndigits), self.assertRaises(error):
+                self.skin.normalizeWeights(ndigits)
+        for count, error in ((0, ValueError), (-1, ValueError), (1.5, TypeError), (True, TypeError)):
+            with self.subTest(count=count), self.assertRaises(error):
                 self.skin.setMaxInfluences(count)
         self.assertEqual(self.weights(), before)
         with patch.object(type(self.skin), "_write_weight_entries", side_effect=RuntimeError("transfer failed")):

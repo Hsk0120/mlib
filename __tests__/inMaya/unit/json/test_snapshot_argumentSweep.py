@@ -9,7 +9,6 @@ import inspect
 import json as std_json
 import os
 import pathlib
-import re
 import shutil
 import sys
 import unittest
@@ -42,11 +41,6 @@ def _host(owner, **functions):
         return method
 
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
-
-
-def _known(stage, name, values, reason):
-    """場合の名前を、fnmatch の記号([ など)を文字として扱う形にして返す。"""
-    return {f"{stage}:" + re.sub(r"([*?[])", r"[\1]", f"{name}={value!r}"): reason for value in values}
 
 
 class _PathLike:
@@ -165,19 +159,6 @@ def _save_paths():
     )
 
 
-#: 対応づけの値を検査しない validate は、Raises が無いのに NameMapping の TypeError・ValueError になる(findings4 の J1)。
-KNOWN_VALIDATE = {}
-for _name in MAPPING_NAMES:
-    KNOWN_VALIDATE.update(_known("invalid", _name, MAPPING_INVALID[_name], "Raises が無いのに TypeError・ValueError になる(対応づけの値の誤り)"))
-#: apply の Raises は ValueError だけで、対応づけの型の誤りは Raises に無い TypeError になる(findings4 の J1)。
-KNOWN_APPLY = {}
-for _name in MAPPING_NAMES:
-    _values = [value for value in MAPPING_INVALID[_name] if value not in ([("root",)], [("", "x")])]
-    KNOWN_APPLY.update(_known("invalid", _name, _values, "Raises に無い TypeError(対応づけの型の誤り)"))
-#: パスに str・PathLike でない値を渡すと、Raises に無い TypeError になる(findings4 の J2)。
-KNOWN_PATH = _known("invalid", "path", (None, 1.5), "Raises に無い TypeError(パスでない値)")
-
-
 class _TempFolderCase(ArgumentSweepCase):
     """``__tests__/_output/temp/`` に、テストごとの一時フォルダーを作る。"""
 
@@ -192,18 +173,8 @@ class _TempFolderCase(ArgumentSweepCase):
 
 
 METHODS = (
-    Method(
-        "validate",
-        _build,
-        values=MAPPING_VALUES,
-        replace=MAPPING_NAMES,
-        invalid=MAPPING_INVALID,
-        expect=_expect_validate,
-        writes=False,
-        known=KNOWN_VALIDATE,
-        limit=60,
-    ),
-    Method("apply", _build, values=MAPPING_VALUES, replace=MAPPING_NAMES, invalid=MAPPING_INVALID, expect=_expect_apply, known=KNOWN_APPLY, limit=60),
+    Method("validate", _build, values=MAPPING_VALUES, replace=MAPPING_NAMES, invalid=MAPPING_INVALID, expect=_expect_validate, writes=False, limit=60),
+    Method("apply", _build, values=MAPPING_VALUES, replace=MAPPING_NAMES, invalid=MAPPING_INVALID, expect=_expect_apply, limit=60),
     Method(
         "save",
         _build,
@@ -212,7 +183,6 @@ METHODS = (
         replace=("path",),
         invalid={"path": (None, 1.5, Lazy(lambda case: str(case.folder), "'<フォルダー>'"))},
         expect=_expect_save,
-        known=KNOWN_PATH,
     ),
     Method(
         "load",
@@ -238,7 +208,6 @@ METHODS = (
         },
         expect=_expect_load,
         writes=False,
-        known=KNOWN_PATH,
     ),
     Method(
         "warn",
@@ -248,7 +217,6 @@ METHODS = (
         invalid={"label": (None, 1.5)},
         expect=_expect_warn,
         writes=False,
-        known=_known("invalid", "label", (None, 1.5), "文字列でない label を受け付ける(Raises が無い)"),
     ),
 )
 

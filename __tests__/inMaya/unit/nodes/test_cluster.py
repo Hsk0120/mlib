@@ -44,9 +44,10 @@ class ClusterTest(unittest.TestCase):
         self.assertEqual(weightedNode.getName(), self.handle_name)
 
     def test_geometry_returns_affected_shape(self):
-        geometry = self.cluster.getGeometry()
+        geometry = self.cluster.getGeometry(all=True)
         self.assertEqual(len(geometry), 1)
         self.assertTrue(geometry[0].getName().startswith(self.mesh))
+        self.assertEqual(self.cluster.getGeometry(), geometry[0])
 
 
 class _SpecCase(NamespaceCase):
@@ -67,7 +68,7 @@ class DeformerTest(_SpecCase):
         node = Node(cluster)
         self.assertIsInstance(node, Cluster)
         self.assertEqual(node.getWeightedNode(), Node(handle))
-        self.assertEqual(node.getGeometry(), [Node(cube).getShape()])
+        self.assertEqual(node.getGeometry(), Node(cube).getShape())
         cmds.disconnectAttr(handle + ".worldMatrix[0]", cluster + ".matrix")
         self.assertIsNone(node.getWeightedNode())
 

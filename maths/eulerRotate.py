@@ -755,14 +755,24 @@ class EulerRotate(om2.MEulerRotation):
         Args:
             other (om2.MEulerRotation | Iterable[float]): 比べる相手。並びは、回転順序がxyzの
                 ラジアンとして扱う。
-            tolerance (float): それぞれの成分の許容誤差。
+            tolerance (float): それぞれの成分の許容誤差。0以上。
 
         Returns:
             bool: ほぼ等しければ True。
+
+        Raises:
+            TypeError: otherが回転・並びでない(Noneを含む)、またはtoleranceが数値でない場合。
+            ValueError: otherの成分の数が3でない、成分が数値でない、またはtoleranceが負・有限でない場合。
         """
+        limit = _checked_tolerance(tolerance)
         if not isinstance(other, _MEuler):
-            other = EulerRotate(other)
-        return _MEuler.isEquivalent(self, other, tolerance)
+            if other is None or isinstance(other, (str, bytes)) or not hasattr(other, "__iter__"):
+                raise TypeError(f"otherはEulerRotateか3個の数値の並びで指定してください: {other!r}")
+            values = tuple(other)
+            if len(values) != 3:
+                raise ValueError(f"otherは3個の成分で指定してください: {other!r}")
+            other = EulerRotate(values)
+        return _MEuler.isEquivalent(self, other, limit)
 
     def alternateSolution(self, *args):
         """同じ向き・同じ回転順序の、別の解のオイラー回転を返す。

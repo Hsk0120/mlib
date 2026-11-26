@@ -429,40 +429,6 @@ NAMESPACE_VALUES = (None, {}, {"other": "another"})
 #: 全頂点のウェイトの候補。
 FULL_WEIGHTS = [0.5] * VERTEX_COUNT
 
-#: check に bool でない値を渡すと、真偽として読む(findings4/sweep-deform.md の1)。
-KNOWN_CHECK = {f"invalid:check={value}": "check の bool でない値を真偽として読む" for value in ("1", "'yes'")}
-#: base に存在しない名前を渡すと、Raises に無い RuntimeError になる(findings4/sweep-deform.md の6)。
-KNOWN_MISSING_BASE = {"invalid:base='<存在しない名前>'": "Raises に無い RuntimeError になる"}
-#: Raises に TypeError を書いていない(findings4/sweep-deform.md の7)。
-KNOWN_TYPE = {f"invalid:{label}": "Raises に無い TypeError になる" for label in ("target=True", "target=1.5", "target=<object object at *", "base=1.5")}
-#: importTargets の Raises に TypeError を書いていない(findings4/sweep-deform.md の2)。
-KNOWN_IMPORT = {
-    f"invalid:{label}": "Raises に無い TypeError になる"
-    for label in (
-        "path=1.5",
-        "path=None",
-        "nameMap='abc'",
-        "nameMap=1.5",
-        "replace='abc'",
-        "replace=1.5",
-        "namespaceMap='abc'",
-        "namespaceMap=1.5",
-        "mode=1.5",
-        "mode=None",
-    )
-}
-#: addTarget の食い違い(findings4/sweep-deform.md の8・9)。
-KNOWN_ADD = {
-    "invalid:mesh='empty'": "形状の無い Transform を受け付けてターゲットを足す",
-    "invalid:name='bad name'": "別名にできない名前で RuntimeError になったあと、足したターゲットが残る",
-}
-#: targetEdit(state=False)の食い違い(findings4/sweep-deform.md の10)。
-KNOWN_END = {
-    "invalid:target=*": "state=False では target を確かめない",
-    "invalid:fullWeight=*": "state=False では fullWeight を確かめない",
-    "pairs:target='tA',state=True": "編集中のターゲットを指定して始めると、編集が終わる",
-}
-
 METHODS = (
     Method("getWeightCount", _connected, expect=_expect_weight_count),
     Method("getNormalizationGroups", _connected, expect=_expect_groups),
@@ -500,7 +466,6 @@ METHODS = (
             "relative": (1, "yes"),
         },
         conflicts=(_add_conflict,),
-        known=KNOWN_ADD,
         expect=_expect_add_target,
         limit=WRITE_LIMIT,
     ),
@@ -520,7 +485,6 @@ METHODS = (
         args=("tA",),
         values={"target": TARGET_VALUES, "base": BASE_VALUES},
         invalid={"target": TARGET_INVALID, "base": BASE_INVALID},
-        known=KNOWN_MISSING_BASE,
         expect=_expect_in_between,
     ),
     Method(
@@ -529,7 +493,6 @@ METHODS = (
         args=("tA",),
         values={"target": TARGET_VALUES, "base": BASE_VALUES},
         invalid={"target": TARGET_INVALID, "base": BASE_INVALID},
-        known=KNOWN_TYPE,
         expect=_expect_item_indices,
     ),
     Method(
@@ -538,7 +501,6 @@ METHODS = (
         args=("tA",),
         values={"target": TARGET_VALUES, "base": BASE_VALUES},
         invalid={"target": TARGET_INVALID, "base": BASE_INVALID},
-        known=KNOWN_TYPE,
         expect=_expect_target_geometry,
     ),
     Method(
@@ -546,7 +508,6 @@ METHODS = (
         _connected,
         values={"target": (None, *TARGET_VALUES), "base": BASE_VALUES},
         invalid={"target": TARGET_INVALID, "base": BASE_INVALID},
-        known=KNOWN_MISSING_BASE,
         expect=_expect_target_weights,
     ),
     Method(
@@ -560,7 +521,6 @@ METHODS = (
             "weights": ([0.5] * 3, {50: 0.5}, {-1: 0.5}, [float("nan")] * VERTEX_COUNT, ["a"] * VERTEX_COUNT, "abc", 1.5, None, object()),
             "base": BASE_INVALID,
         },
-        known=KNOWN_CHECK,
         expect=_expect_set_target_weights,
         roundTrip=RoundTrip("getTargetWeights", value="weights", shared=("target", "base"), skip=lambda kwargs: isinstance(kwargs.get("weights"), dict)),
         limit=WRITE_LIMIT,
@@ -572,7 +532,6 @@ METHODS = (
         values={"target": TARGET_VALUES, "base": BASE_VALUES, "fullWeight": (1.0, 0.5)},
         replace=("fullWeight",),
         invalid={"target": TARGET_INVALID, "base": BASE_INVALID, "fullWeight": (0.25, "a", float("nan"), True, None)},
-        known=KNOWN_MISSING_BASE,
         expect=_expect_deltas,
     ),
     Method(
@@ -592,7 +551,6 @@ METHODS = (
             "base": BASE_INVALID,
             "fullWeight": (0.25, "a", float("nan"), True, None),
         },
-        known=KNOWN_CHECK,
         expect=_expect_set_deltas,
         limit=WIDE_LIMIT,
     ),
@@ -608,7 +566,6 @@ METHODS = (
             "fullWeight": (0.25, "a", True, None),
             "tolerance": (-0.1, float("nan"), float("inf"), "a", True, None),
         },
-        known=KNOWN_MISSING_BASE,
         expect=_expect_target_vertices,
     ),
     Method(
@@ -638,7 +595,6 @@ METHODS = (
             "fullWeight": (0.25, "a", True),
         },
         conflicts=(_reset_conflict,),
-        known=KNOWN_CHECK,
         expect=_expect_reset,
         limit=2 * WIDE_LIMIT,
     ),
@@ -747,7 +703,6 @@ METHODS = (
             "namespaceMap": ("abc", 1.5),
             "mode": ("bogus", 1.5, None),
         },
-        known=KNOWN_IMPORT,
         expect=_expect_report,
         limit=WRITE_LIMIT,
     ),
@@ -756,14 +711,7 @@ METHODS = (
 #: 編集モードを終える呼び方(state=False)。
 END_METHODS = (
     Method(
-        "targetEdit",
-        _edited,
-        kwargs={"state": False},
-        values={"target": (None, "tA")},
-        replace=("target",),
-        invalid={"state": (1, "yes")},
-        known=KNOWN_END,
-        expect=_expect_edit,
+        "targetEdit", _edited, kwargs={"state": False}, values={"target": (None, "tA")}, replace=("target",), invalid={"state": (1, "yes")}, expect=_expect_edit
     ),
 )
 

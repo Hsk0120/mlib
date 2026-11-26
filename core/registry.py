@@ -1,6 +1,7 @@
 """Mayaの型名とクラスの対応を管理する。登録されていない型には、クラスを自動で作る。"""
 
 import weakref
+from collections.abc import Mapping
 
 import maya.cmds as cmds
 
@@ -304,9 +305,11 @@ class NodeRegistry:
             None: 値を返さない。
 
         Raises:
-            TypeError: キーが文字列以外、または値がクラス以外の場合。
+            TypeError: wrappersがMappingでない場合、キーが文字列以外、または値がクラス以外の場合。
             ValueError: キーが空文字列の場合。
         """
+        if not isinstance(wrappers, Mapping):
+            raise TypeError(f"wrappersは名前とクラスの対応(Mapping)で指定してください: {type(wrappers).__name__}")
         validated = {}
         for node_type, wrapper_class in wrappers.items():
             self._require_entry(node_type, wrapper_class)

@@ -18,7 +18,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
         cmds.undoInfo(state=True)
 
     def test_queries_share_direction_aliases_and_keep_legacy_and_rules(self):
-        """sourceは入力、destinationは出力。短縮名s/dは長い名前と同時に指定できない(既定値のままの長い名前は指定とみなさない)。"""
+        """sourceは入力、destinationは出力。短縮名s/dは、値に関係なく長い名前と同時に指定できない。"""
         source, center, destinations = self._chain("query")
         for method_name in ("getConnections",):
             query = getattr(center, method_name)
@@ -32,9 +32,16 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 with self.subTest(kwargs=kwargs):
                     with self.assertRaises(TypeError):
                         query(**kwargs)
-            # 従来の長名方向引数はbool以外のtruthinessも受け付けている。
-            self.assertEqual(query(source=1, destination=0), [source])
-            self.assertCountEqual(query(source=[], destination="enabled"), destinations)
+            # 長い名前と短縮名は、値に関係なく同時に指定できない。
+            for kwargs in ({"s": True, "source": True}, {"d": True, "destination": True}, {"et": False, "exactType": False}):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(TypeError):
+                        query(**kwargs)
+            # bool の引数は、bool 以外の値を受け付けない。
+            for kwargs in ({"source": 1}, {"destination": "enabled"}, {"asPair": 1}, {"checkChildren": None}):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(TypeError):
+                        query(**kwargs)
 
     def test_query_removed_aliases_reject_without_changing_connections(self):
         """廃止した短縮名src/dst/idxと位置・名前の重複を拒否し、既存接続を変更しない。"""
@@ -90,9 +97,9 @@ class ConnectionDirectionsTest(unittest.TestCase):
             "input",
             "output",
         )
-        # 短縮名の既定は_UNSET(長い名前と同時に指定したかを見分ける)。scn・skipConversionNodesの既定はFalse。
+        # 短縮名と、短縮名を持つ長い名前の既定は_UNSET(同時に指定したかを見分ける。意味の既定はdocstringのとおり)。
         unset = mlib.util._UNSET
-        defaults = (unset, unset, unset, unset, unset, True, True, None, False, False, False, False, True, True, None, False, False)
+        defaults = (unset,) * 10 + (False, False, True, True, None, False, False)
         signature = inspect.signature(mlib.Plug.getConnections)
         self.assertEqual(tuple(signature.parameters), names)
         self.assertEqual(tuple(parameter.default for parameter in list(signature.parameters.values())[1 : len(names)]), defaults)

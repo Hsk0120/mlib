@@ -32,6 +32,34 @@ _UNSET_COLOR_VALUES = (-1.0, -1.0, -1.0, -1.0)
 _UNSET_COLOR = om2.MColor(_UNSET_COLOR_VALUES)
 
 
+def _normal_of(value, check):
+    """面頂点の法線の1つを確かめてVectorにする。
+
+    成分の数は常に、成分が有限な数値かはcheck=Trueのときだけ確かめる。
+
+    Args:
+        value (Sequence[float] | Vector): 法線。
+        check (bool): 成分が有限な数値かも確かめるか。
+
+    Returns:
+        Vector: 法線のベクトル(正規化はしない)。
+
+    Raises:
+        TypeError: 並びでない場合、またはcheck=Trueで成分に数値でないものがある場合。
+        ValueError: 成分の数が3つでない場合、またはcheck=Trueで有限でない成分がある場合。
+    """
+    if check:
+        return Vector(_finite_vector(value, 3, "normal"))
+    if not isinstance(value, (om2.MVector, om2.MFloatVector)):
+        try:
+            count = len(value)
+        except TypeError:
+            raise TypeError("normalは3個の数値の並びで指定してください") from None
+        if count != 3:
+            raise ValueError("normalは3個の成分で指定してください")
+    return Vector(value)
+
+
 class Mesh(_ControlPointShape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
 
@@ -171,6 +199,7 @@ class Mesh(_ControlPointShape):
             VertexFaces: 頂点フェースのコレクション。番号の順はそのままで、同じものは1回だけ含む。
 
         Raises:
+            TypeError: 番号の型が不正な場合(boolを含む)。
             IndexError: 頂点がそのフェースに含まれない場合、または番号が範囲外の場合。
         """
         return VertexFaces(self, indices)
@@ -272,12 +301,13 @@ class Mesh(_ControlPointShape):
                 ``lockedOnly=True`` なら同じ並びのロック状態。
 
         Raises:
-            TypeError: worldSpace・perFace・lockedOnlyがbool以外の場合、worldSpaceとwsを同時に指定した場合、番号の型が不正な場合、
+            TypeError: worldSpace・angleWeighted・perFace・lockedOnlyがbool以外の場合、worldSpaceとwsを同時に指定した場合、番号の型が不正な場合、
                 perFace=FalseでfaceVertices・lockedOnlyを指定した場合、perFace=TrueでangleWeightedを指定した場合、
                 またはlockedOnly=TrueでworldSpace(ws)を指定した場合。
             ValueError: 別のメッシュのコンポーネントの場合。
             IndexError: 番号が範囲外の場合。
         """
+        _require_bool(angleWeighted, "angleWeighted")
         _require_bool(perFace, "perFace")
         _require_bool(lockedOnly, "lockedOnly")
         if not perFace:
@@ -304,28 +334,31 @@ class Mesh(_ControlPointShape):
         normal_ids = fn.getNormalIds()[1]
         return [_vector_of(Vector, values[normal_ids[index]]).normal() for index in components.indices]
 
-    def setNormals(self, normals, worldSpace=_UNSET, *, ws=_UNSET, fast=False):
+    def setNormals(self, normals, worldSpace=_UNSET, *, ws=_UNSET, fast=False, check=False):
         """共有法線番号を保ったままメッシュの法線リストを更新する。
 
         getNormalDataの先頭のリストと同じ法線番号順で指定する。割当番号は維持し、設定した法線はMayaによりロックされる。
-        fast=True専用。通常Undoへは記録せず、Undo設定も変更しない。入力ヒストリ・参照は拒否する。
+        fast=True専用。通常Undoへは記録せず、Undo設定も変更しない。入力ヒストリ・ノードのロック・参照は、checkに関係なく拒否する。
 
         Args:
             normals (Iterable[Iterable[float]]): 現在の法線数と同数の3成分ベクトル。
             worldSpace (bool): Trueはワールド空間。既定False。
             ws (bool): worldSpaceの短縮名。同時指定はできない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、``inMesh`` が書き込めるか(アトリビュートのロックが無いか)を確かめて、
+                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型、または長短名の指定が不正な場合。
+            TypeError: 引数の型、または長短名の指定が不正な場合(fast・checkがbool以外の場合を含む)。
             ValueError: 法線数が違う、非有限値、ゼロベクトル、またはワールド変換が特異な場合。
-            RuntimeError: メッシュが無効、ロック、または参照の場合。
+            RuntimeError: メッシュが無効、ロック、または参照の場合。check=Trueで ``inMesh`` が書き込めない場合。
             NotImplementedError: fast=False、または入力ヒストリがある場合。
         """
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         if not fast:
             raise NotImplementedError("setNormalsはfast=True専用です")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
@@ -335,7 +368,8 @@ class Mesh(_ControlPointShape):
         if len(values) != fn.numNormals or any(value.length() == 0 for value in values):
             raise ValueError("normalsは現在と同数のゼロでない法線で指定してください")
         self._require_face_vertex_edit("setNormals", True)
-        require_writable(self.getPlug("inMesh").mplug())
+        if check:
+            require_writable(self.getPlug("inMesh").mplug())
         # setNormalsのworld指定が反映されない版があるため、法線を明示的に変換する。
         if space == om2.MSpace.kWorld:
             matrix = self.mpath().inclusiveMatrix()
@@ -388,8 +422,8 @@ class Mesh(_ControlPointShape):
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。``normals`` を渡したときだけ指定できる。
             locked (bool | None): Trueはロック、Falseは解除。Noneは ``normals`` を渡したときのロック(Trueと同じ)。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、全法線が有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。
-                ``normals`` を渡したときだけ指定できる。
+            check (bool): Trueなら、全法線が有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる
+                (成分の数はcheckに関係なく確かめる)。``normals`` を渡したときだけ指定できる。
             faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
             ws (bool): worldSpaceの別名。同時指定は不可。
 
@@ -429,7 +463,7 @@ class Mesh(_ControlPointShape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         worldSpace = _world_space(worldSpace)
         components = self._resolve_face_vertices(faceVertices)
-        values = [Vector(_finite_vector(value, 3, "normal") if check else value) for value in normals]
+        values = [_normal_of(value, check) for value in normals]
         if len(values) != len(components):
             raise ValueError("normalsは面頂点と同じ数で指定してください")
         if any(value.length() == 0 for value in values):
@@ -630,6 +664,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、ミラー面 ``"YZ"``・``"XZ"``・``"XY"``、または0・1・2。既定は ``"x"``。
+                面の文字の順や大文字・小文字は問わない(:meth:`mirror` と同じ)。
             tolerance (float): 反転した位置と頂点の距離が、どこまでなら同じとみなすか(cm)。正の有限な数値。既定は0.01。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
@@ -1296,6 +1331,11 @@ class Mesh(_ControlPointShape):
         Raises:
             TypeError: name・newNameが文字列以外の場合、またはkindが文字列でない場合。
             ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、名前が空、nameが無い、またはnewNameがすでにある場合。
+
+        Note:
+            ``kind="color"`` で色を持つカラーセットの名前を変えてUndoすると、名前は戻るが、面頂点の色がすべて未設定になり、
+            セットの並びの順も変わる(``cmds.polyColorSet(rename=True)`` のUndoの性質で、cmdsだけでも同じMayaの制限)。
+            コピーと削除で代わりに行うと、色の表現(RGB・RGBA・A)が保てないため、この形のままにしている。
         """
         color = self._color_kind(kind)
         self._require_set(name, "name", color, exists=True)
@@ -1681,11 +1721,14 @@ class Mesh(_ControlPointShape):
                 cmds.polyColorSet(name, currentColorSet=True, colorSet=current)
 
     def _set_face_vertex_colors_fast(self, fn, color_set, components, values):
-        """面頂点の色をOpenMayaで設定し、現在のカラーセットを戻す。
+        """面頂点の色をOpenMayaで設定する。
+
+        ``MFnMesh.setFaceVertexColors`` は、色の無いカラーセットへ書くと、ほかの面頂点へ今のカラーセットの色を写すため使わない。
+        カラーセットの色の並びの末尾へ新しい色を足し、対象の面頂点だけをその色に割り当てる(ほかの面頂点の割り当ては変えない)。
 
         Args:
             fn (om2.MFnMesh): 対象メッシュ。
-            color_set (str | None): カラーセット。
+            color_set (str | None): カラーセット。Noneなら今のカラーセット。
             components (VertexFaces): 対象。
             values (list[tuple[float, float, float, float]]): RGBA値。
 
@@ -1695,17 +1738,18 @@ class Mesh(_ControlPointShape):
         if not fn.numColorSets:
             color_set = fn.createColorSet("colorSet1", False)
             fn.setCurrentColorSetName(color_set)
-        current = fn.currentColorSetName()
         if color_set is None:
-            color_set = current
-        if current != color_set:
-            fn.setCurrentColorSetName(color_set)
-        try:
-            pairs = VertexFace._multi_indices(self, components.indices)
-            fn.setFaceVertexColors([om2.MColor(value) for value in values], [face for _, face in pairs], [vertex for vertex, _ in pairs])
-        finally:
-            if current != color_set:
-                fn.setCurrentColorSetName(current)
+            color_set = fn.currentColorSetName()
+        colors = fn.getColors(color_set)
+        start = len(colors)
+        for value in values:
+            colors.append(om2.MColor(value))
+        fn.setColors(colors, color_set)
+        face_vertices = {}
+        for offset, (vertex, face) in enumerate(VertexFace._multi_indices(self, components.indices)):
+            if face not in face_vertices:
+                face_vertices[face] = list(fn.getPolygonVertices(face))
+            fn.assignColor(face, face_vertices[face].index(vertex), start + offset, color_set)
 
     def _raw_points(self, worldSpace):
         """全頂点の位置を om2 の点列で返す(Vector へ変換しない照会用)。

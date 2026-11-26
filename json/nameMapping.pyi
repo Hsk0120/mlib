@@ -1,8 +1,23 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """保存したときのノード名を、読み込み先のシーンの名前へ変換する規則。"""
 
-from typing import Iterable
+from collections.abc import Iterable
 
+
+def _replace_pairs(replace: Iterable[tuple[str, str]] | None) -> tuple[tuple[str, str], ...] | None:
+    """名前の置き換え(``replace``)を確かめて、``(旧, 新)`` の組のタプルにする。
+
+    Args:
+        replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
+
+    Returns:
+        tuple[tuple[str, str], ...] | None: 置き換えの組。NoneならNone。
+
+    Raises:
+        TypeError: Noneでも文字列でない並びでもない場合、組が並びでない場合、または組の要素が文字列でない場合。
+        ValueError: 組が2つの要素でない場合、または置き換え前の文字列が空の場合。
+    """
+    ...
 
 
 class NameMapping:
@@ -26,7 +41,7 @@ class NameMapping:
                 先頭の ``":"`` は無視する。入れ子の名前空間では、一致する最も長い親を入れ替える。
 
         Raises:
-            TypeError: どれかの引数の型が正しくない場合。
+            TypeError: どれかの引数の型が正しくない場合(replaceが組の並びでない場合を含む)。
             ValueError: 置き換えの組が2つの要素でない場合、または置き換え前の文字列が空の場合。
         """
         ...

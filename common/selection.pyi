@@ -167,6 +167,9 @@ class Selection:
 
         Returns:
             Nodes: 削除されていないノード。コンポーネントを持つノードは含めない。
+
+        Raises:
+            TypeError: typeが文字列・None以外の場合。
         """
         ...
     def getPlugs(self) -> Plugs:
@@ -210,6 +213,9 @@ class Selection:
 
         Returns:
             Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
+
+        Raises:
+            TypeError: typeが文字列でない場合。
         """
         ...
     def select(self, *, add: bool = ..., deselect: bool = ..., missing: str = ...) -> None:

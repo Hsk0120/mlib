@@ -4,6 +4,7 @@
 import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+from ..core.shapeBuild import require_name
 from ..decorator import _merge_flags, undoChunk
 from ..util import _UNSET
 from typing import Any
@@ -29,7 +30,8 @@ def duplicate(node: object, *, fullPath: bool = ..., f: bool = ..., inputConnect
         ic (bool): inputConnectionsの短縮名。inputConnectionsと同時には指定できない。
         instanceLeaf (bool): Trueなら、末端のノードを複製せず、インスタンスにする。
         ilf (bool): instanceLeafの短縮名。instanceLeafと同時には指定できない。
-        name (str): Mayaへ渡すノード名。
+        name (str): 複製の起点に付ける名前。複製したあとに付ける(``cmds.duplicate`` のnameフラグは、
+            Redoで名前空間を失うため)。shapeの名前もMayaの規則で付け直す(``cmds.duplicate`` と同じ)。
         n (str): nameの短縮名。nameと同時には指定できない。
         parentOnly (bool): Trueなら、指定した対象だけを複製し、子の階層を含めない。
         po (bool): parentOnlyの短縮名。parentOnlyと同時には指定できない。
@@ -65,8 +67,9 @@ def duplicate(node: object, *, fullPath: bool = ..., f: bool = ..., inputConnect
 
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、nodeが対応していない型の場合、
-            または suffix が文字列でもNoneでもない場合。
+            name が文字列でない場合、または suffix が文字列でもNoneでもない場合。
         ValueError: node が空文字列・存在しない名前・複数に一致する名前の場合、または削除済みの対象の場合。
+            name が空文字列か ``|`` を含む場合。
             suffix が空文字列の場合、英数字と ``_`` 以外を含む場合、または renameChildren=True と同時に
             指定した場合。
         RuntimeError: Maya が複製を拒否した場合。
@@ -77,6 +80,22 @@ def duplicate(node: object, *, fullPath: bool = ..., f: bool = ..., inputConnect
         >>> copied = mlib.duplicate(node, name="exampleCopy")
         >>> # 複製したjointチェーンの全ノードへ接尾辞を付ける(L_hip_FK|L_knee_FK|...)。
         >>> fk = mlib.duplicate("L_hip", suffix="_FK")
+    """
+    ...
+
+def _require_single(name: str) -> None:
+    """名前で指定した複製元が、シーンの1つの対象に決まることを確かめる。
+
+    cmds.duplicate はワイルドカードや一意でない名前に一致したものをすべて複製するため、作る前に止める。
+
+    Args:
+        name (str): 複製元の名前。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        ValueError: 名前に一致する対象が無い場合、または複数ある場合。
     """
     ...
 

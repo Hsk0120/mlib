@@ -105,10 +105,6 @@ METHODS = (
         invalid={"type": (1.5, ["transform"])},
         expect=_expect_nodes,
         state=_state,
-        known={
-            "invalid:type=1.5": "文字列でない type を受け付ける(Raises が無い)",
-            "invalid:type=?'transform'?": "文字列でない type を受け付ける(Raises が無い)",
-        },
     ),
     Method(
         "filter",
@@ -120,10 +116,6 @@ METHODS = (
         expect=_expect_filter,
         state=_state,
         writes=False,
-        known={
-            "invalid:type=1.5": "Raises が無いのに ValueError になる(文字列でない type)",
-            "invalid:type=None": "Raises が無いのに ValueError になる(文字列でない type)",
-        },
     ),
 )
 

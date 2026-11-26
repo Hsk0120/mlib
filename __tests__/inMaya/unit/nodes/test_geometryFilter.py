@@ -68,8 +68,10 @@ class GeometryFilterTest(_Case):
         cluster = mlib.createDeformer("cluster", mesh)
         for deformer in (skin, cluster):
             with self.subTest(deformer=deformer.getType()):
-                inputs = deformer.getGeometry(input=True)
+                inputs = deformer.getGeometry(input=True, all=True)
                 self.assertIsInstance(inputs, mlib.Nodes)
+                # 既定では先頭の形状を1つ返す。
+                self.assertEqual(deformer.getGeometry(input=True), inputs[0])
                 self.assertEqual(len(inputs), 1)
                 # MFnGeometryFilter.getInputGeometry と同じ形状を返す。
                 raw = oma2.MFnGeometryFilter(deformer.mnode()).getInputGeometry()
@@ -77,15 +79,22 @@ class GeometryFilterTest(_Case):
                 # geometryIndex を渡すと、その番号の形状を1つ返す(一覧の同じ番号と同じ形状)。
                 index = deformer.getGeometryIndices()[0]
                 self.assertEqual(deformer.getGeometry(input=True, geometryIndex=index), inputs[0])
-                self.assertEqual(deformer.getGeometry(geometryIndex=index), deformer.getGeometry()[0])
-                for flags in ({"input": 1}, {"input": None}, {"input": True, "geometryIndex": "0"}, {"geometryIndex": True}):
+                self.assertEqual(deformer.getGeometry(geometryIndex=index), deformer.getGeometry())
+                for flags in (
+                    {"input": 1},
+                    {"input": None},
+                    {"input": True, "geometryIndex": "0"},
+                    {"geometryIndex": True},
+                    {"all": 1},
+                    {"all": True, "geometryIndex": 0},
+                ):
                     with self.subTest(flags=flags), self.assertRaises(TypeError):
                         deformer.getGeometry(**flags)
                 with self.assertRaises(IndexError):
                     deformer.getGeometry(input=True, geometryIndex=999)
                 self.assertTrue(cmds.getAttr(inputs[0].getName(full=True) + ".intermediateObject"))
                 self.assertEqual(cmds.listRelatives(inputs[0].getName(full=True), parent=True, fullPath=True)[0], mesh)
-                self.assertNotEqual(inputs[0], deformer.getGeometry()[0])
+                self.assertNotEqual(inputs[0], deformer.getGeometry())
 
     def test_deleted_raises(self):
         """削除済みのデフォーマーは RuntimeError。"""
@@ -132,7 +141,7 @@ class GeometryFilterGeometryTest(_CaseMethodAdditions):
         for deformer in (skin, cluster, mush):
             with self.subTest(deformer=deformer.getType()):
                 self.assertIsInstance(deformer, mlib.GeometryFilter)
-                self.assertEqual([node.getName(full=True) for node in deformer.getGeometry()], expected)
+                self.assertEqual([node.getName(full=True) for node in deformer.getGeometry(all=True)], expected)
         for name in cmds.ls(type="dagPose") or []:
             if not cmds.listConnections(name + ".members"):
                 cmds.delete(name)
@@ -192,7 +201,11 @@ class DeformerWeightsFileTest(_RigCase):
         cluster.setDeformerWeights([0.1 * i for i in range(8)], geometryIndex=0)
         cluster.setDeformerWeights([0.5] * 8, geometryIndex=1)
         expected = [cluster.getDeformerWeights(geometryIndex=i) for i in (0, 1)]
+        # 既定は先頭の形状だけを書く。
         cluster.dumpDeformerWeights(self.path)
+        with open(self.path, encoding="utf-8") as file:
+            self.assertEqual([g["index"] for g in json.load(file)["geometries"]], [0])
+        cluster.dumpDeformerWeights(self.path, all=True)
         with open(self.path, encoding="utf-8") as file:
             payload = json.load(file)
         self.assertEqual(payload["version"], 1)
@@ -225,7 +238,7 @@ class DeformerWeightsFileTest(_RigCase):
     def test_load_mismatch(self):
         """番号の無い形状・頂点数の違い・版の違いは ValueError で、何も変えない。"""
         cluster = self.two_cubes()
-        cluster.dumpDeformerWeights(self.path)
+        cluster.dumpDeformerWeights(self.path, all=True)
         sphere = cmds.polySphere(name=self.name("sphere"))[0]
         single = mlib.getNode(cmds.cluster(sphere, name=self.name("cl2"))[0])
         self.assertRaises(ValueError, single.loadDeformerWeights, self.path)

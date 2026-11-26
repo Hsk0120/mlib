@@ -145,7 +145,6 @@ METHODS = (
         invalid={"topLevelOnly": (1, "yes", None), "sortBy": ("Name", "", "loaded", 1.5, None)},
         expect=_expect_list,
         writes=False,
-        known={f"invalid:topLevelOnly={value}": "bool でない topLevelOnly を真偽として読む" for value in ("1", "'yes'", "None")},
     ),
     Method(
         "createReference",
@@ -156,7 +155,6 @@ METHODS = (
         invalid={"path": ("", None, 1.5, Lazy(lambda case: str(case.folder / "none.ma"), "'<無いファイル>'")), "namespace": (1.5, ["x"])},
         expect=_expect_create,
         writes=False,
-        known={"invalid:namespace=?'x'?": "文字列でない namespace で Raises に無い TypeError(Maya の Invalid arguments for flag)"},
     ),
 )
 

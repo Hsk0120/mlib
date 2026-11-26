@@ -4,6 +4,7 @@ from contextlib import nullcontext
 
 import maya.cmds as cmds
 
+from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type
 from ..decorator import _edit_context, _merge_flags, _require_bool
 from ..util import _UNSET
 
@@ -77,6 +78,7 @@ def createNode(
             (Mayaは黙って置き換えてしまうため、エラーにする)。
         n (str): nameの短縮名。nameと同時には指定できない。
         parent (object): 親のノード。Node・Plug・Component・APIのオブジェクトは、持ち主のノードの完全パスに変える。
+            DAGでない型(``multiplyDivide``・``lambert`` など)には指定できない(cmdsは黙って親を無視するため、エラーにする)。
         p (object): parentの短縮名。parentと同時には指定できない。
         shared (bool): Maya標準の共有の指定。同じ名前の共有ノードがある場合に使う。
         s (bool): sharedの短縮名。sharedと同時には指定できない。
@@ -97,7 +99,7 @@ def createNode(
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、fastがboolでない場合、parentが対応していない型の場合、
             cmds.createNodeに無いフラグ(query/editなど)を指定した場合、asShaderなどの指定がboolでない場合、
-            またはasShaderなどを2つ以上Trueにした場合。
+            asShaderなどを2つ以上Trueにした場合、またはDAGでない型にparentを指定した場合。
         ValueError: typeが空文字列か文字列でない場合、nameに ``|`` を含む場合、parent が空文字列の場合、
             または削除済みの対象を指定した場合。
         RuntimeError: Mayaが知らないノード型名の場合(unknownノードは残さない。この版に無い型は
@@ -120,6 +122,7 @@ def createNode(
         asShader=asShader, asTexture=asTexture, asUtility=asUtility, asLight=asLight, asPostProcess=asPostProcess, asRendering=asRendering
     )
     _require_bool(fast, "fast")
+    _require_dag_type_for_parent(type, kwargs)
     if classification is not None and fast:
         raise NotImplementedError(f"fastのcreateNodeは{classification}に対応していません")
     # 親を指定しない作成は1回のcreateNodeなので、チャンクを開かない(親がjointなら inverseScale の接続もまとめる)。
@@ -135,6 +138,33 @@ def createNode(
     if lights_before is not None:
         node = _created_light_shape(node, type, lights_before, Node)
     return node
+
+
+def _require_dag_type_for_parent(node_type, flags):
+    """親を指定したとき、作る型がDAGの型であることを確かめる。
+
+    cmds.createNodeはDAGでない型の親を警告だけで無視し、fastのOpenMayaは英語のTypeErrorにするため、
+    どちらも作る前に同じTypeErrorにする。Mayaが認識しない型名は、作成の処理の例外に任せる。
+
+    Args:
+        node_type (object): 作るノード型名。
+        flags (dict): 形を揃えたフラグ。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: DAGでない型にparentを指定した場合。
+    """
+    if flags.get("parent") is None or not isinstance(node_type, str) or not node_type:
+        return
+    # 遅延公開の__getattr__を通らないよう、実装モジュールから読み込む(commonはcmdsを参照するため関数内)。
+    from ..common.plugin import Plugin
+
+    real = _real_node_type(node_type)
+    Plugin.ensureNodePlugin(real)
+    if _node_type_exists(real) and "dagNode" not in _inherited_node_types(real):
+        raise TypeError(f"DAGでない型({node_type})にはparentを指定できません")
 
 
 def _created_light_shape(node, node_type, before, node_class):

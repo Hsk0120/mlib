@@ -3,7 +3,7 @@
 import maya.cmds as cmds
 
 from ..core.shapeBuild import require_name
-from ..decorator import _pick_alias, undoChunk
+from ..decorator import _edit_context, _pick_alias
 from ..util import _UNSET
 
 
@@ -16,7 +16,8 @@ def createShadingEngine(shader=None, *, name=_UNSET, n=_UNSET):
     shaderを渡すと、:meth:`ShadingEngine.setShader <mlib.nodes.ShadingEngine.setShader>` で ``surfaceShader`` へつなぐ。
     形状への割り当ては :meth:`ShadingEngine.assign <mlib.nodes.ShadingEngine.assign>` で行う。
     現在の選択は変えない。fast引数は無い(``cmds.sets`` に当たるOpenMayaの作成が無いため)。
-    shaderを渡したときは、作成と接続を1回のUndoにまとめる。
+    shaderかnameを渡したときは、作成と接続・名前の変更を1回のUndoにまとめる。
+    名前は作ったあとに付ける(``cmds.sets`` のnameフラグは、Redoで名前空間を失うため)。
     nameは ``cmds.sets`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
@@ -44,14 +45,17 @@ def createShadingEngine(shader=None, *, name=_UNSET, n=_UNSET):
 
     name = require_name(_pick_alias(name, n, "name", "n", default=None))
     flags = {"renderable": True, "noSurfaceShader": True, "empty": True}
-    if name:
-        flags["name"] = name
-    if shader is None:
-        # setsの1回だけなので、チャンクを開かない。
-        return Node(cmds.sets(**flags))
-    # 作ってから見つからないと分かって空のセットを残さないよう、先にシェーダーを解決する。
-    source = Plug._resolve_input(shader) if isinstance(shader, Plug) or (isinstance(shader, str) and "." in shader) else Node._resolve_input(shader)
-    with undoChunk("mlibCreateShadingEngine"):
-        engine = Node(cmds.sets(**flags))
-        engine.setShader(source)
+    source = None
+    if shader is not None:
+        # 作ってから見つからないと分かって空のセットを残さないよう、先にシェーダーを解決する。
+        source = Plug._resolve_input(shader) if isinstance(shader, Plug) or (isinstance(shader, str) and "." in shader) else Node._resolve_input(shader)
+    # setsの1回だけのとき(shaderもnameも無いとき)は、チャンクを開かない。
+    with _edit_context("mlibCreateShadingEngine", False, single=source is None and not name):
+        created = cmds.sets(**flags)
+        if name:
+            # setsのnameフラグはRedo時に名前空間を失うため、renameに任せる。
+            created = cmds.rename(created, name)
+        engine = Node(created)
+        if source is not None:
+            engine.setShader(source)
         return engine

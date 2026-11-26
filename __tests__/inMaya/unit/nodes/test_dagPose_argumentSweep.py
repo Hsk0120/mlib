@@ -240,17 +240,6 @@ def _remove_conflict(kwargs):
     return kwargs.get("all") is True and bool(kwargs.get("members"))
 
 
-#: 自身だけを渡すと、空として ValueError にならず何もしない(findings4/sweep-deform.md の12)。
-#: 子がメンバーのまま残る親は、外すよう指定しても(all=True でも)黙って残る(findings4/sweep-deform.md の13)。
-KNOWN_REMOVE = {
-    "values:members=[[]<root>, <j1>]": "子の j2 が残るので root・j1 が外れない",
-    "pairs:members=[[]<root>, <j1>],all=False": "子の j2 が残るので root・j1 が外れない",
-    "pairs:members=(),all=True": "all=True でも root・j1 が残る",
-}
-#: skinCluster に数を渡すと、Raises に無い TypeError になる(findings4/sweep-deform.md の7)。
-KNOWN_FROM = {"invalid:skinCluster=1.5": "Raises に無い TypeError になる"}
-KNOWN_MERGE = {"invalid:sources='pose'": "自身だけを渡しても ValueError にならない"}
-
 METHODS = (
     Method(
         "fromSkinCluster",
@@ -260,7 +249,6 @@ METHODS = (
         invalid={"skinCluster": (_name("root"), _name("pose"), MISSING_NAME, DELETED_NODE, 1.5)},
         writes=False,
         expect=_expect_from_skin,
-        known=KNOWN_FROM,
     ),
     Method("isBindPose", _pose, expect=_expect_is_bind),
     Method("getMemberIndices", _pose, values={"member": (None, _name("root"), _node("j1"))}, invalid={"member": MEMBER_INVALID}, expect=_expect_member_indices),
@@ -298,11 +286,13 @@ METHODS = (
         "removeMembers",
         _members,
         args=(_names("j2"),),
-        values={"members": (_names("j2"), _nodes("root", "j1"), ())},
-        invalid={"members": (_names("grp"), Lazy(lambda case: [case.name("argumentSweepMissing")], "['<存在しない名前>']"), (1.5,)), "all": (1, "yes")},
+        values={"members": (_names("j2"), _nodes("j2", "j1"), _nodes("root", "j1", "j2"), ())},
+        invalid={
+            "members": (_names("grp"), _nodes("root", "j1"), Lazy(lambda case: [case.name("argumentSweepMissing")], "['<存在しない名前>']"), (1.5,)),
+            "all": (1, "yes"),
+        },
         conflicts=(_remove_conflict,),
         expect=_expect_remove,
-        known=KNOWN_REMOVE,
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -312,7 +302,6 @@ METHODS = (
         values={"sources": (_name("pose2"), _node("pose3"), _names("pose2", "pose3"), _names("pose2", "pose2", "pose"))},
         invalid={"sources": ([], _name("pose"), _name("root"), _node("bindPose1"), MISSING_NAME, DELETED_NODE, 1.5)},
         expect=_expect_merge,
-        known=KNOWN_MERGE,
         limit=WRITE_LIMIT,
     ),
 )

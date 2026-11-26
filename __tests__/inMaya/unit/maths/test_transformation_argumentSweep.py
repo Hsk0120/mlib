@@ -72,7 +72,6 @@ METHODS = (
         expect=_expect_equivalent,
         state=_value,
         writes=False,
-        known={"invalid:tolerance=nan": "有限でない tolerance を受け付ける", "invalid:tolerance=inf": "有限でない tolerance を受け付ける"},
     ),
 )
 

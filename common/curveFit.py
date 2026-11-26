@@ -1,6 +1,7 @@
 """点の並びに近い3次B-splineの制御点を求める(外部の数値計算ライブラリは使わない)。"""
 
 import math
+import numbers
 
 
 class CurveFit:
@@ -21,8 +22,13 @@ class CurveFit:
             list[float]: CVごとのウェイト。
 
         Raises:
+            TypeError: countがintでない(boolを含む)、またはparameterが数値でない場合。
             ValueError: countが4より小さい場合、またはparameterが0〜1の範囲にない場合。
         """
+        if type(count) is not int:
+            raise TypeError(f"countはintで指定してください: {count!r}")
+        if isinstance(parameter, bool) or not isinstance(parameter, numbers.Real):
+            raise TypeError(f"parameterは数値で指定してください: {parameter!r}")
         if count < 4 or not 0 <= parameter <= 1:
             raise ValueError("countは4以上、parameterは0〜1で指定してください")
         if parameter == 1:
@@ -54,6 +60,7 @@ class CurveFit:
             list[list[float]]: CVの座標。pointsと同じ空間・同じ単位。
 
         Raises:
+            TypeError: pointsが点の並びでない場合。
             ValueError: countが4〜32のintでない場合(intでないものも含む)、点が2つより少ないか
                 有限な3次元の点でない場合、または折れ線の長さが0の場合。
 
@@ -61,6 +68,8 @@ class CurveFit:
             点が少ないときは、CVを直線上に並べる方向へ弱く寄せる(正則化する)。
             折れた角や弧の長さが、元の点の並びと完全に一致することは保証しない。
         """
+        if not hasattr(points, "__len__") or isinstance(points, (str, bytes)):
+            raise TypeError(f"pointsは点の並びで指定してください: {points!r}")
         if type(count) is not int or not 4 <= count <= 32 or len(points) < 2:
             raise ValueError("点は2個以上、コントロールは4〜32個で指定してください")
         if any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):

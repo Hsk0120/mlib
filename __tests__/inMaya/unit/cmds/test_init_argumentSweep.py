@@ -83,7 +83,8 @@ def _flag_invalid(name, **extra):
 
 
 #: Maya の redo は、名前空間付きの名前で作った DG ノードを名前空間の外(ルート)に作り直す(cmds でも同じ。findings4 の1)。
-KNOWN_REDO = {"pairs:*='<ns>:made'*": "Maya の redo は名前空間付きの名前の DG ノードをルートに作り直す(cmds でも同じ)"}
+#: 作ったあとに rename で名前を付ける関数は直した。createDeformer はハンドル・ベースの名前が name から決まるため残す。
+KNOWN_REDO = {"pairs:*='<ns>:made'*": "Maya の制限: redo は名前空間付きの名前の DG ノードをルートに作り直す(cmds でも同じ)"}
 
 #: 名前空間のメッシュ(cube)の頂点(Component)と、その並び(Components)。
 VERTEX = Lazy(lambda case: mlib.ls(case.name("cube") + ".vtx[0]")[0], "Vertex(cube.vtx[0])")
@@ -518,7 +519,6 @@ METHODS = (
         invalid={"base": (_named("missing"), 1.5), "name": NAME_INVALID, "origin": ("other", 1.5), "frontOfChain": (1, "yes")},
         conflicts=_short_names("createBlendShape"),
         expect=_expect_blend,
-        known=KNOWN_REDO,
         limit=40,
     ),
     Method(
@@ -555,10 +555,18 @@ METHODS = (
         _containers,
         values={"members": ((), _named("a"), _nodes("a", "b"), _node("a"), [_named("a"), _named("a")]), "name": (NAME,), "n": (NAME,)},
         replace=("members",),
-        invalid={"members": (_named("missing"), _nodes("a", "missing"), _named("c")), "name": (1.5,), "dag": (1, "yes", None)},
+        invalid={
+            "members": (
+                _named("missing"),
+                _nodes("a", "missing"),
+                _named("c"),
+                Lazy(lambda case: [mlib.getNode(case.name("a")), case.name("b")], "[Node(a), '<ns>:b']"),
+            ),
+            "name": NAME_INVALID,
+            "dag": (1, "yes", None),
+        },
         conflicts=_short_names("createContainer"),
         expect=_expect_container,
-        known=KNOWN_REDO,
         limit=30,
     ),
     Method(
@@ -601,14 +609,6 @@ METHODS = (
         invalid={"members": ([], _named("missing"), _nodes("root", "missing")), "name": NAME_INVALID},
         conflicts=_short_names("createDagPose"),
         expect=_expect_dag_pose,
-        known={
-            "invalid:name='a|b'": "name の | を受け付け、Maya が a_b に変える(ほかの作成関数は ValueError。findings4 の2)",
-            **{
-                f"invalid:{name}={value}": "bool でない値を真偽として読む(findings4 の2)"
-                for name in ("bindPose", "bp", "hierarchy")
-                for value in ("1", "'yes'")
-            },
-        },
         limit=40,
     ),
     Method(
@@ -663,7 +663,6 @@ METHODS = (
         invalid={"string": ("", 1.5, "this is not mel ;;("), "name": NAME_INVALID, "alwaysEvaluate": (1, "yes"), "unitConversion": ("other", 1.5)},
         conflicts=_short_names("createExpression"),
         expect=_expect_expression,
-        known=KNOWN_REDO,
         limit=40,
     ),
     Method(
@@ -792,17 +791,6 @@ METHODS = (
             lambda kwargs: sum(bool(kwargs.get(name)) for name in ("asShader", "asTexture", "asUtility", "asLight", "asPostProcess", "asRendering")) > 1,
         ),
         expect=_expect_create_node,
-        known=dict(
-            {
-                f"pairs:type='{kind}',{flag}=*": "DG ノードに parent を付けると、通常は親を無視して作り、fast は Raises の文言でない TypeError('invalid node type')(findings4 の7)"
-                for kind in ("multiplyDivide", "lambert")
-                for flag in ("parent", "p")
-            },
-            **{
-                f"pairs:type='locator',{flag}='<ns>:made'": "Shape の型で親の transform を作るとき、fast は名前空間の外に transform1 を作る(通常は名前空間の中の locator1。findings4 の8)"
-                for flag in ("name", "n")
-            },
-        ),
         limit=500,
     ),
     Method(
@@ -882,7 +870,6 @@ METHODS = (
         invalid={"shader": (_named("missing"), 1.5), "name": NAME_INVALID},
         conflicts=_short_names("createShadingEngine"),
         expect=_expect_shading,
-        known=KNOWN_REDO,
         limit=40,
     ),
     Method(
@@ -917,7 +904,6 @@ METHODS = (
         replace=("node",),
         invalid=_flag_invalid("duplicate", node=("", _named("missing"), _named("*"), 1.5), suffix=("", "a b", 1.5)),
         skip=("query", "q", "edit", "e"),
-        known=dict(KNOWN_REDO, **{"invalid:node='<ns>:*'": "複数に一致する名前を ValueError にせず、最初の1つを複製する(findings4 の3)"}),
         conflicts=(*_short_names("duplicate"), lambda kwargs: kwargs.get("suffix") and (kwargs.get("renameChildren") or kwargs.get("rc"))),
         expect=_expect_duplicate,
         limit=40,

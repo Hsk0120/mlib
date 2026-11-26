@@ -61,14 +61,14 @@ def convertAngle(value: float, fromUnit: str | None = ..., toUnit: str | None = 
     """角度の単位を変換する。
 
     シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
-    (度からUIの単位へは ``convertAngle(degrees, "deg", None)``、UIの単位から度へは ``convertAngle(value, None, "deg")``)。
-    距離・時間と違い、既定は度からラジアンへの変換なので、UIの単位はNoneを明示して指定する。
+    (度からUIの単位へは ``convertAngle(degrees, "deg")``、UIの単位から度へは ``convertAngle(value, toUnit="deg")``)。
+    距離・時間と同じく、どちらの単位も既定はNone(現在のUI角度単位)。度からラジアンへは ``convertAngle(value, "deg", "rad")``。
 
     Args:
         value (float): 変換する角度。
-        fromUnit (str | None): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+        fromUnit (str | None): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。
             ``"degree"`` / ``"radians"`` などの別名も使える。Noneなら現在のUI角度単位。
-        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。既定は ``"rad"``。
+        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。Noneなら現在のUI角度単位。
 
     Returns:
         float: toUnitの単位で表した角度。

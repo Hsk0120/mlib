@@ -22,24 +22,10 @@ from support.namespaceCase import NamespaceCase
 from mlib.core.object import _MEMBER_HINTS
 from mlib.plugs import Plug
 
-#: 案内が出るオブジェクトが無い名前(findings4/sweep-cmds-core.md)。
-UNREACHABLE = {
-    "connect": "Plug が connect(source) を持つため、connectTo を持つクラスでは案内が出ない(向きが逆の同名メソッドが呼ばれる)",
-    "setTransformation": "Transform は setTransformation を持ち、setMatrix を持つほかのクラスも無いため案内が出ない",
-}
-#: 案内が出るが、案内の文に書いた呼び方が例外になる組(findings4/sweep-cmds-core.md)。キーは (名前, 見本のラベル)。
-BROKEN = {
-    ("getAllChildren", "compoundPlug"): "CompoundPlug.getChildren は allDescendents を受けない",
-    ("getAllParents", "plug"): "Plug.getParent は instances を受けない",
-    ("getAllParents", "compoundPlug"): "Plug.getParent は instances を受けない",
-    ("name", "plug"): "Plug.getName は short を受けない",
-    ("name", "compoundPlug"): "Plug.getName は short を受けない",
-    ("nodeName", "plug"): "Plug.getName は short を受けない",
-    ("nodeName", "compoundPlug"): "Plug.getName は short を受けない",
-    ("shortName", "plug"): "Plug.getName は short を受けない",
-    ("shortName", "compoundPlug"): "Plug.getName は short を受けない",
-    ("getTransformation", "dagPose"): "DagPose.getMatrix は member が必須で、getMatrix() は TypeError",
-}
+#: 案内が出るオブジェクトが無い名前。直ったら外す(今は無い)。
+UNREACHABLE = {}
+#: 案内が出るが、案内の文に書いた呼び方が例外になる組。キーは (名前, 見本のラベル)。直ったら外す(今は無い)。
+BROKEN = {}
 
 
 def _entry(cls, hint):
@@ -190,25 +176,24 @@ class ObjectHintTest(NamespaceCase):
 
     def check_lockAndHide(self, obj):
         if isinstance(obj, Plug):
-            obj.setFlags(locked=True, keyable=False, channelBox=False)
+            obj.setFlags(locked=True, keyable=False, channelBox=False, children=True)
             name = str(obj)
         else:
-            obj.setAttrFlags(["hintValue"], locked=True, keyable=False, channelBox=False)
+            obj.setAttrFlags(["hintValue"], locked=True, keyable=False, channelBox=False, children=True)
             name = self._value_plug(obj)
-        # 案内の呼び方は子に掛けない(children=False)ので、指定したアトリビュートだけを比べる。
-        for plug in [name]:
+        # 案内の呼び方は子にも掛ける(children=True)ので、コンパウンドアトリビュートの子も比べる。
+        node, attr = name.split(".", 1)
+        for plug in [name] + [f"{node}.{child}" for child in cmds.attributeQuery(attr, node=node, listChildren=True) or []]:
             self.assertTrue(cmds.getAttr(plug, lock=True), plug)
             self.assertFalse(cmds.getAttr(plug, keyable=True), plug)
             self.assertFalse(cmds.getAttr(plug, channelBox=True), plug)
 
     def check_lockNode(self, obj):
-        obj.setLocked(True)
-        if isinstance(obj, Plug):
-            # Plug の setLocked はアトリビュートのロック(ノードはロックしない)。
-            self.assertTrue(cmds.getAttr(str(obj), lock=True))
-        else:
-            self.assertTrue(cmds.lockNode(str(obj), query=True, lock=True)[0])
-            obj.setLocked(False)
+        # Plug では、案内どおり持ち主のノードをロックする。
+        node = obj.getNode() if isinstance(obj, Plug) else obj
+        node.setLocked(True)
+        self.assertTrue(cmds.lockNode(str(node), query=True, lock=True)[0])
+        node.setLocked(False)
 
     def _connections(self, obj, children=True, **flags):
         """cmds.listConnections の相手(Plug は子の接続も含む。getConnections の checkChildren の既定)。"""
@@ -260,7 +245,9 @@ class ObjectHintTest(NamespaceCase):
 
     def check_getAllChildren(self, obj):
         if isinstance(obj, Plug):
-            obj.getChildren(allDescendents=True)
+            node, attr = str(obj).split(".", 1)
+            expected = cmds.attributeQuery(attr, node=node, listChildren=True) or []
+            self.assertEqual([item.getAttributeName() for item in obj.getDescendants()], expected)
             return
         expected = cmds.listRelatives(str(obj), allDescendents=True, fullPath=True) or []
         self.assertEqual(sorted(_full(item) for item in obj.getChildren(allDescendents=True)), sorted(expected))
@@ -287,7 +274,6 @@ class ObjectHintTest(NamespaceCase):
             node, attr = str(obj).split(".", 1)
             expected = cmds.attributeQuery(attr, node=node, listParent=True) or []
             self.assertEqual([item.getAttributeName() for item in obj.getParent(all=True)], expected)
-            obj.getParent(instances=True)
             return
         path = _full(obj).split("|")[1:-1]
         expected = ["|" + "|".join(path[: index + 1]) for index in reversed(range(len(path)))]
@@ -309,23 +295,41 @@ class ObjectHintTest(NamespaceCase):
     check_type = check_nodeType
 
     def check_name(self, obj):
+        if isinstance(obj, Plug):
+            self.assertEqual(cmds.ls(obj.getName(), long=True), cmds.ls(str(obj), long=True))
+            return
         self.assertEqual(obj.getName(short=True), cmds.ls(str(obj), long=True)[0].split("|")[-1])
         self.assertEqual(obj.getName(), cmds.ls(str(obj))[0])
 
     def check_nodeName(self, obj):
+        if isinstance(obj, Plug):
+            node = str(obj).split(".")[0]
+            self.assertEqual(obj.getNode().getName(), cmds.ls(node)[0])
+            return
         self.assertEqual(obj.getName(short=True), cmds.ls(str(obj), long=True)[0].split("|")[-1])
 
-    check_shortName = check_nodeName
+    def check_shortName(self, obj):
+        if isinstance(obj, Plug):
+            node, attr = str(obj).split(".", 1)
+            self.assertEqual(obj.getAttributeName("short"), cmds.attributeQuery(attr, node=node, shortName=True))
+            return
+        self.check_nodeName(obj)
 
     def check_longName(self, obj):
+        if isinstance(obj, Plug):
+            node, attr = str(obj).split(".", 1)
+            self.assertEqual(obj.getAttributeName(), cmds.attributeQuery(attr, node=node, longName=True))
+            return
+        self.assertEqual(obj.getName(full=True), cmds.ls(str(obj), long=True)[0])
+
+    def check_fullPath(self, obj):
         if isinstance(obj, Plug):
             # Plug の getName(full=True) は cmds で1つに決まる名前(ノードの完全なパスでない)。指す対象が同じことを確かめる。
             self.assertEqual(cmds.ls(obj.getName(full=True), long=True), cmds.ls(str(obj), long=True))
             return
         self.assertEqual(obj.getName(full=True), cmds.ls(str(obj), long=True)[0])
 
-    check_fullPath = check_longName
-    check_fullPathName = check_longName
+    check_fullPathName = check_fullPath
 
     def check_exists(self, obj):
         self.assertTrue(obj.isValid())
@@ -363,7 +367,11 @@ class ObjectHintTest(NamespaceCase):
         self.assertSequenceAlmostEqual(obj.getTranslation(), cmds.getAttr(str(obj) + ".translate")[0])
 
     def check_getTransformation(self, obj):
-        matrix = obj.getMatrix()
+        if hasattr(obj, "getMemberIndices"):
+            member = obj.getMembers()[0]
+            matrix = obj.getMatrix(member)
+        else:
+            matrix = obj.getMatrix()
         self.assertEqual(len(list(matrix)), 16)
 
     def check_orientJoint(self, obj):
@@ -468,11 +476,11 @@ class ObjectHintTest(NamespaceCase):
 
     def check_mesh(self, obj):
         expected = cmds.skinCluster(str(obj), query=True, geometry=True)
-        self.assertEqual(_full(obj.getGeometry()[0]), _full(expected[0]))
+        self.assertEqual(_full(obj.getGeometry()), _full(expected[0]))
 
     def check_mesh_path(self, obj):
         expected = cmds.skinCluster(str(obj), query=True, geometry=True)
-        self.assertEqual(obj.getGeometry()[0].mpath().fullPathName(), _full(expected[0]))
+        self.assertEqual(obj.getGeometry().mpath().fullPathName(), _full(expected[0]))
 
 
 def _hint_test(name):

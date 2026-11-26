@@ -3,7 +3,7 @@
 
 import maya.api.OpenMaya as om2
 from .. import logger
-from ..util import _time_unit
+from ..util import _required_time_unit
 from typing import Callable
 from mlib.nodes.node import Node
 
@@ -113,7 +113,7 @@ class Callbacks:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合。
+            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合(Noneを含む)。
             ValueError: timeUnitが対応していない単位名の場合。
         """
         ...

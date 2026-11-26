@@ -3,7 +3,7 @@
 import maya.cmds as cmds
 
 from ..core.shapeBuild import require_name
-from ..decorator import _pick_alias, _require_bool
+from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..util import _UNSET
 
 #: unitConversionに指定できる値。
@@ -15,7 +15,7 @@ def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversi
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。
     省略した指定はMayaへ渡さず、Mayaの既定のままにする。現在の選択は変えない。
-    Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は無い(OpenMayaに式を解釈して接続する機能が無いため)。
+    Undoが有効なら1回で戻せる。名前は作ったあとに付ける(Mayaのコマンドのnameフラグは、Redoで名前空間を失うため)。fast引数は無い(OpenMayaに式を解釈して接続する機能が無いため)。
     name・alwaysEvaluate・unitConversionは ``cmds.expression`` と同じ短縮名でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
@@ -49,8 +49,6 @@ def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversi
         raise ValueError("stringは空でない式で指定してください")
     name = require_name(_pick_alias(name, n, "name", "n", default=None))
     flags = {"string": string}
-    if name:
-        flags["name"] = name
     always = _pick_alias(alwaysEvaluate, ae, "alwaysEvaluate", "ae", default=None)
     if always is not None:
         _require_bool(always, "alwaysEvaluate")
@@ -60,9 +58,13 @@ def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversi
         if conversion not in _UNIT_CONVERSIONS:
             raise ValueError(f"unitConversionは{'・'.join(_UNIT_CONVERSIONS)}のどれかで指定してください: {conversion!r}")
         flags["unitConversion"] = conversion
-    # expressionの1回だけなので、チャンクを開かない。
-    try:
-        created = cmds.expression(**flags)
-    except RuntimeError as exc:
-        raise RuntimeError(f"Mayaがエクスプレッションの作成を拒否しました: {exc}") from exc
-    return Node(created)
+    # 名前を付けるときは作成と改名の2回になるので、1回のUndoにまとめる。
+    with _edit_context("mlibCreateExpression", False, single=not name):
+        try:
+            created = cmds.expression(**flags)
+        except RuntimeError as exc:
+            raise RuntimeError(f"Mayaがエクスプレッションの作成を拒否しました: {exc}") from exc
+        if name:
+            # expressionのnameフラグはRedo時に名前空間を失うため、renameに任せる。
+            created = cmds.rename(created, name)
+        return Node(created)

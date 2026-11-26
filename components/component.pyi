@@ -588,6 +588,7 @@ class Components:
             Component: 取り除いたコンポーネント。
 
         Raises:
+            TypeError: indexが整数でない場合。
             IndexError: 要素が無い場合、または位置が範囲の外の場合。
         """
         ...
@@ -603,6 +604,7 @@ class Components:
             int: この集まりの中での位置。
 
         Raises:
+            TypeError: start・stopが整数でない場合(stopはNoneも可)。
             ValueError: その範囲に要素が無い場合。
         """
         ...

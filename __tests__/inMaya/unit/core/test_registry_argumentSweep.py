@@ -94,10 +94,6 @@ METHODS = (
         state=_state,
         writes=False,
         expect=_expect_replace,
-        known={
-            "invalid:wrappers=1.5": "Mapping でない値は Raises に無い AttributeError になる(findings4 の4)",
-            "invalid:wrappers=?'joint'?": "Mapping でない値は Raises に無い AttributeError になる(findings4 の4)",
-        },
     ),
     Method(
         "wrapper_class",

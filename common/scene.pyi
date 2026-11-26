@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 import maya.cmds as cmds
-from ..decorator import preservedSelection
+from ..decorator import _require_bool, preservedSelection
 from .references import _file_without_prompt, _require_scene_file, createReference
 from typing import Iterable
 from mlib.nodes.node import Node
@@ -62,6 +62,7 @@ class Scene(type(Path())):
             force (bool): Trueなら、保存していない変更を破棄する。
 
         Raises:
+            TypeError: forceがboolでない場合。
             RuntimeError: 保存していない変更があり、forceがFalseの場合。
         """
         ...
@@ -79,6 +80,7 @@ class Scene(type(Path())):
             force (bool): Trueなら、保存していない変更を破棄する。
 
         Raises:
+            TypeError: forceがboolでない場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
             RuntimeError: 保存していない変更があり、forceがFalseの場合。
         """
@@ -93,6 +95,7 @@ class Scene(type(Path())):
                 今のシーンと同じファイルへの保存は、forceに関係なく上書きする。
 
         Raises:
+            TypeError: forceがboolでない場合。
             ValueError: 拡張子が ``.ma`` でも ``.mb`` でもない場合。
             OSError: 今のシーンとは別のファイルがすでにあり、forceがFalseの場合(``FileExistsError``)。
         """
@@ -107,6 +110,7 @@ class Scene(type(Path())):
             Nodes: インポートで新しくできたノード。
 
         Raises:
+            TypeError: namespaceが文字列・None以外の場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
         """
         ...
@@ -122,6 +126,7 @@ class Scene(type(Path())):
             Reference: 作ったトップレベルのリファレンスノード。
 
         Raises:
+            TypeError: namespaceが文字列・None以外の場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
             RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。
         """
@@ -138,7 +143,7 @@ class Scene(type(Path())):
             force (bool): Trueなら、ファイルがすでにあっても上書きする。
 
         Raises:
-            TypeError: nodesが対応しない型の場合、またはNodeと名前が混ざっている場合。
+            TypeError: nodesが対応しない型の場合、Nodeと名前が混ざっている場合、またはforceがboolでない場合。
             ValueError: 拡張子が ``.ma`` でも ``.mb`` でもない場合、またはnodesが空の場合。
             OSError: ファイルがすでにあり、forceがFalseの場合(``FileExistsError``)。
             RuntimeError: 今のシーンと同じファイルへ書き出そうとした場合。保存は :meth:`save` で行う。

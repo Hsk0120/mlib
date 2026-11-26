@@ -39,6 +39,20 @@ def _type_filter(value: str | Iterable[str] | None) -> tuple[str, ...]:
     """
     ...
 
+def _require_index(index: object) -> None:
+    """getShapeのindexがint(boolを除く)かを確かめる。
+
+    Args:
+        index (object): 確かめる値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: intでない場合。
+    """
+    ...
+
 
 class DagNode(Node):
     """TransformとShapeに共通する、DAGの階層を扱うクラス。
@@ -438,7 +452,7 @@ class DagNode(Node):
                 ノードそのものが無効な場合は空リスト。
 
         Raises:
-            TypeError: allDescendents・leaves・includeSelf・underWorldがboolでない場合、
+            TypeError: shapes・intermediates・allDescendents・leaves・includeSelf・underWorldがboolでない場合、
                 またはtypeが文字列・文字列の並び・Noneのどれでもない場合。
             ValueError: sortByが不正な場合、leavesとshapesを同時に指定した場合、
                 またはtypeに空文字列を指定した場合。
@@ -455,9 +469,9 @@ class DagNode(Node):
 
         ノードの種類によって次のように返す。
 
-        - Shapeなら、``index``・``intermediates`` を無視して自身を返す。
+        - Shapeなら、``index``・``intermediates`` を使わずに自身を返す(型だけは確かめる)。
         - Transformなら、派生クラス(Transform.getShape)が、直下のShapeのうち ``index`` 番目
-          (0 始まり)を返す。範囲外ならNone。
+          (0 始まり)を返す。範囲外(負の数を含む)ならNone。
         - それ以外のDAGノードならNone。
 
         範囲外のindexでもIndexErrorにはしない。
@@ -473,7 +487,7 @@ class DagNode(Node):
                 all=Trueなら集まり(当てはまるものがなければ空)。
 
         Raises:
-            TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
+            TypeError: indexがintでない場合、intermediates・allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
             RuntimeError: ノードが破棄されている場合。
         """
         ...
@@ -601,7 +615,7 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
-                またはoutliner・toShape・fastがbool以外の場合。
+                またはoutliner・toShape・fast・checkがbool以外の場合。
             ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
@@ -654,7 +668,7 @@ class DagNode(Node):
     def setDisplayType(self, kind: str, *, fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで表示の種類を設定する。
 
-        表示の種類は通常・テンプレート・リファレンスの3つ。設定して自身を返す。
+        表示の種類は通常・テンプレート・リファレンスの3つ。
 
         - ``"template"``・``"reference"``: ``overrideEnabled`` を有効にして ``overrideDisplayType`` を設定する。
         - ``"normal"``: ``overrideDisplayType`` を0へ戻すだけで、``overrideEnabled`` は変えない。
@@ -677,15 +691,13 @@ class DagNode(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: kindが文字列以外の場合、またはfastがbool以外の場合。
+            TypeError: kindが文字列以外の場合、またはfast・checkがbool以外の場合。
             ValueError: kindが対応していない名前の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         ...
     def setShadingOverride(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """描画のオーバーライドで、ワイヤーフレーム表示にするかを設定する。
-
-        設定して自身を返す。
 
         - ``state=True``: ``overrideEnabled`` を有効にして、``overrideShading`` をFalse(ワイヤーフレーム)にする。
         - ``state=False``: ``overrideShading`` をTrue(Mayaの既定のシェーディングあり)へ戻すだけで、
@@ -704,14 +716,14 @@ class DagNode(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: stateまたはfastがbool以外の場合。
+            TypeError: state・fast・checkがbool以外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         ...
     def deleteHistory(self, keepDeformers: bool = ...) -> None:
         """ヒストリを削除する。
 
-        削除して自身を返す。消し方はkeepDeformersで選ぶ。
+        消し方はkeepDeformersで選ぶ。
 
         - ``keepDeformers=True``: ``cmds.bakePartialHistory(prePostDeformers=True)`` を使う。
           デフォーマー(skinCluster・blendShape・clusterなど)は残し、それ以外のヒストリ
@@ -782,6 +794,7 @@ class DagNode(Node):
             None: 値を返さない。
 
         Raises:
+            TypeError: checkがboolでない場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のために書き込めない場合。
         """
         ...

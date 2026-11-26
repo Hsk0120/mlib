@@ -5,7 +5,7 @@ import math
 import maya.api.OpenMaya as om2
 
 from ..core.nodeEdit import require_editable
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from ..maths import EulerRotate
 from ..util import _angle_unit, _to_radians
 from .constraint import Constraint
@@ -60,10 +60,11 @@ class AimConstraint(Constraint):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外の場合。
+            TypeError: fast・checkがbool以外の場合。
             ValueError: 値またはunitが不正な場合。
             RuntimeError: ノードがリファレンスされているかロックされている場合、またはアトリビュートがロックされているか入力が接続されている場合。
         """
+        _require_bool(check, "check")
         self._set_angles("restRotate", value, unit=unit, fast=fast, check=check)
 
     def _get_angles(self, attribute):

@@ -331,14 +331,15 @@ class NamespaceTest(_CommonCase):
         cmds.undo()
         self.assertFalse(cmds.namespace(exists=root + ":x"))
 
-    def test_create_sanitized_name(self):
-        """Maya が不正文字を置き換える名前は、置き換え後の名前を作って返す(既存なら番号付き)。"""
+    def test_create_rejects_illegal_name(self):
+        """使えない文字・先頭の数字・空の階層を含む名前は、置き換えずに ValueError にし、何も作らない。"""
         root = ":" + self.ns
-        for name in ("1bad", "a-b", "a#", "1bad"):
+        before = self.namespaces(root)
+        for name in ("1bad", "a-b", "a#", "a b", "a::b"):
             with self.subTest(name=name):
-                actual = Namespace.create(name, parent=root)
-                self.assertTrue(actual.exists())
-        self.assertIn(":bad1", self.namespaces(root))
+                with self.assertRaises(ValueError):
+                    Namespace.create(name, parent=root)
+        self.assertEqual(self.namespaces(root), before)
 
     def test_set_current(self):
         """setCurrent は切り替えて自身を返し、存在しない名前空間は RuntimeError。"""

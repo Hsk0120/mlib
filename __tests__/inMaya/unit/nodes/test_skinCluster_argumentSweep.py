@@ -320,10 +320,10 @@ def _expect_limit(case, call):
 
 
 def _expect_round(case, call):
-    decimals = call.kwargs.get("decimals", 3)
+    ndigits = call.kwargs.get("ndigits", 3)
     for vertex in _indices(call.kwargs.get("vertices")):
         for value in _row(call.target, vertex):
-            case.assertAlmostEqual(value, round(value, decimals), places=min(decimals + 2, 9))
+            case.assertAlmostEqual(value, round(value, ndigits), places=min(ndigits + 2, 9))
 
 
 def _expect_influences(case, call):
@@ -570,8 +570,8 @@ def _remove_conflict(kwargs):
 
 
 def _normalize_conflict(kwargs):
-    """force=True と decimals は同時に指定できない。"""
-    return kwargs.get("force") is True and kwargs.get("decimals") is not None
+    """force=True と ndigits は同時に指定できない。"""
+    return kwargs.get("force") is True and kwargs.get("ndigits") is not None
 
 
 def _get_vertex_conflict(kwargs):
@@ -607,17 +607,6 @@ REPLACE_VALUES = (None, [], [("jL", "jR"), ("jR", "jL")])
 MAP_VALUES = (None, {}, {"jL": "jR", "jR": "jL"})
 #: 名前空間の対応の候補。
 NAMESPACE_VALUES = (None, {}, {"other": "another"})
-
-#: check に bool でない値を渡すと、真偽として読む(findings4/sweep-deform.md の1)。
-KNOWN_CHECK = {f"invalid:check={value}": "check の bool でない値を真偽として読む" for value in ("1", "'yes'")}
-#: path に文字列・パスでない値を渡すと、Raises に無い TypeError になる(findings4/sweep-deform.md の2)。
-KNOWN_PATH = {f"invalid:path={value}": "Raises に無い TypeError になる" for value in ("1.5", "None")}
-#: hasInfluence は Raises を書いていないが、ノードとして扱えない値で TypeError になる(findings4/sweep-deform.md の3)。
-KNOWN_HAS = {f"invalid:influence={value}": "Raises に無い TypeError になる" for value in ("1.5", "None")}
-#: invertShape を Undo してから redo すると、作ったメッシュが戻らない(findings4/sweep-deform.md の4)。
-KNOWN_INVERT = {"pairs:*": "redo で作ったメッシュが戻らない"}
-#: weight>0 で足したインフルエンスを Undo すると、登録されていない番号にウェイトが残る(findings4/sweep-deform.md の5)。
-KNOWN_ADD = {f"pairs:*weight={value}*": "Undo の後、登録されていない番号にウェイトが残る" for value in ("0.5", "1.0")}
 
 METHODS = (
     Method("mfn", _skin, writes=False, expect=_expect_mfn),
@@ -672,23 +661,21 @@ METHODS = (
         expect=_expect_mirror,
         limit=WRITE_LIMIT,
     ),
-    Method("pruneWeights", _skin, args=(0.3,), values={"threshold": (0.3, 0.05)}, known=KNOWN_CHECK, expect=_expect_prune, limit=WRITE_LIMIT),
+    Method("pruneWeights", _skin, args=(0.3,), values={"threshold": (0.3, 0.05)}, expect=_expect_prune, limit=WRITE_LIMIT),
     Method(
         "limitInfluences",
         _skin,
         args=(1,),
         values={"count": (2, 3), "vertices": VERTEX_VALUES},
         invalid={"vertices": VERTEX_INVALID, "count": (1.5, "a", True, 0, -1)},
-        known=KNOWN_CHECK,
         expect=_expect_limit,
         limit=WRITE_LIMIT,
     ),
     Method(
         "roundWeights",
         _skin,
-        values={"decimals": (2, 15), "vertices": VERTEX_VALUES},
-        invalid={"vertices": VERTEX_INVALID, "decimals": (1.5, "a", True, 0, -1)},
-        known=KNOWN_CHECK,
+        values={"ndigits": (2, 15), "vertices": VERTEX_VALUES},
+        invalid={"vertices": VERTEX_INVALID, "ndigits": (1.5, "a", True, 0, -1)},
         expect=_expect_round,
         limit=WRITE_LIMIT,
     ),
@@ -713,10 +700,10 @@ METHODS = (
     Method(
         "smoothWeights",
         _skin,
-        values={"tolerance": (0.5, 0.0, 1.0, 1), "iterations": (2, 1, 5), "vertices": VERTEX_VALUES, "geometryIndex": (0,)},
+        values={"threshold": (0.5, 0.0, 1.0, 1), "iterations": (2, 1, 5), "vertices": VERTEX_VALUES, "geometryIndex": (0,)},
         replace=("iterations",),
         invalid={
-            "tolerance": ("a", float("nan"), float("inf"), True, -0.1, 1.5, None),
+            "threshold": ("a", float("nan"), float("inf"), True, -0.1, 1.5, None),
             "iterations": (0, -1, 1.5, "a", True, None),
             "vertices": VERTEX_INVALID,
             "obeyMaxInfluences": (1, "yes"),
@@ -732,7 +719,6 @@ METHODS = (
         values={"joints": (_name("jFree"), _node("jFree"), _names("jFree", "jFree2"), _nodes("jFree", "jFree2"), []), "weight": (0.5,)},
         invalid={"joints": (MISSING_NAME, DELETED_NODE, _name("mesh"), 1.5, object()), "weight": ("a", float("nan"), float("inf"), True, -0.1, 1.5, None)},
         expect=_expect_add,
-        known=KNOWN_ADD,
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -758,7 +744,6 @@ METHODS = (
         values={"influence": (_name("jL"), _node("root"), _name("jFree"), _node("jFree"), _name("mesh"), MISSING_NAME, DELETED_NODE)},
         invalid={"influence": (1.5, None)},
         expect=_expect_has,
-        known=KNOWN_HAS,
     ),
     Method(
         "getInfluenceVertices",
@@ -774,7 +759,6 @@ METHODS = (
         args=(_name("jL"),),
         values={"joints": JOINT_VALUES},
         invalid={"joints": (*JOINT_INVALID, Lazy(lambda case: [case.name("jL"), mlib.getNode(case.name("jR"))], "['jL', <jR>]"))},
-        known=KNOWN_CHECK,
         expect=_expect_locked,
         plural=None,
         limit=WRITE_LIMIT,
@@ -822,7 +806,6 @@ METHODS = (
             "check": (1, "yes"),
             "geometryIndex": (1, -1, 1.5, "a", True),
         },
-        known=KNOWN_CHECK,
         expect=_expect_set_weights,
         limit=WIDE_LIMIT,
     ),
@@ -836,7 +819,6 @@ METHODS = (
             "weights": ([0.5], [1.5] * VERTEX_COUNT, [-0.5] * VERTEX_COUNT, [float("nan")] * VERTEX_COUNT, ["a"] * VERTEX_COUNT, 1.5, object()),
             "vertices": VERTEX_INVALID,
         },
-        known=KNOWN_CHECK,
         expect=_expect_set_blend,
         limit=WRITE_LIMIT,
     ),
@@ -870,7 +852,6 @@ METHODS = (
         },
         invalid={"path": (Lazy(lambda case: str(OUTPUT / case.ns / "missing" / "dir" / "w.json"), "'<無いフォルダー>'"), 1.5, None)},
         expect=_expect_export,
-        known=KNOWN_PATH,
     ),
     Method(
         "importWeights",
@@ -905,7 +886,6 @@ METHODS = (
         replace=("sculpted",),
         invalid={"sculpted": (_name("root"), _name("dst"), MISSING_NAME, DELETED_NODE, 1.5), "name": ("", 1.5)},
         expect=_expect_invert,
-        known=KNOWN_INVERT,
         limit=SLOW_LIMIT,
     ),
     Method(
@@ -952,8 +932,8 @@ METHODS = (
     Method(
         "normalizeWeights",
         _skin,
-        values={"decimals": (3, 15)},
-        invalid={"decimals": (16, -1, 1.5, "a", True), "force": (1, "yes"), "fast": (1, "yes")},
+        values={"ndigits": (3, 15)},
+        invalid={"ndigits": (16, -1, 1.5, "a", True), "force": (1, "yes"), "fast": (1, "yes")},
         conflicts=(_normalize_conflict,),
         expect=_expect_normalized,
         plural=_skins,
@@ -1008,7 +988,6 @@ VERTEX_METHODS = (
             "normalize": (1, "yes"),
         },
         conflicts=(_set_vertex_conflict,),
-        known=KNOWN_CHECK,
         expect=_expect_set_vertex,
         limit=WRITE_LIMIT,
     ),

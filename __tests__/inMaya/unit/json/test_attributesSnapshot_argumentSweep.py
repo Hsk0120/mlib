@@ -94,7 +94,6 @@ METHODS = (
         },
         expect=_expect_capture,
         writes=False,
-        known={"invalid:nodes=<削除済みのノード>": "削除済みのノードを例外にせず受け付ける(Raises は RuntimeError)"},
     ),
 )
 

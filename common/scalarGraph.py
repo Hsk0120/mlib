@@ -1,10 +1,15 @@
 """Maya標準のノードで、スカラー(1つの数値)の計算を組み立てる。"""
 
+import re
 from typing import Any, Callable, Optional
 
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from ..nodes.container import Container
 from ..plugs.plug import Plug
+from ..util import _finite
+
+#: ノードの名前に使える文字(これが1つも無い名前は、Mayaが名前を付けられない)。
+_NAME_CHARACTER = re.compile(r"[A-Za-z0-9_]")
 
 
 class ScalarGraph:
@@ -59,9 +64,17 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、subtractがboolでない場合、
+                またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                または入力のアトリビュート名が空の場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
+        _require_role(role)
+        left, right = _operand(left, "left"), _operand(right, "right")
+        _require_bool(subtract, "subtract")
         with self._edit("mlibScalarGraphSum", fast):
             node = self._node("plusMinusAverage", role, fast)
             node.getPlug("operation").set(2 if subtract else 1, fast=fast)
@@ -83,9 +96,20 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、operationがintでない(boolを含む)場合、
+                またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                入力のアトリビュート名が空の場合、またはoperationが1〜3でない場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
+        _require_role(role)
+        left, right = _operand(left, "left"), _operand(right, "right")
+        if type(operation) is not int:
+            raise TypeError(f"operationはintで指定してください: {operation!r}")
+        if operation not in (1, 2, 3):
+            raise ValueError(f"operationは1(掛け算)・2(割り算)・3(累乗)のどれかで指定してください: {operation}")
         with self._edit("mlibScalarGraphMultiply", fast):
             node = self._node("multiplyDivide", role, fast)
             node.getPlug("operation").set(operation, fast=fast)
@@ -108,9 +132,15 @@ class ScalarGraph:
             Plug: 出力のプラグ。ノードの名前が変わっても同じアトリビュートを指す。
 
         Raises:
-            TypeError: fastがboolでない場合。
+            TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、またはfastがboolでない場合。
+            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+                または入力のアトリビュート名が空の場合。
+            MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
+            RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
+        _require_role(role)
+        left, right, yes, no = _operand(left, "left"), _operand(right, "right"), _operand(yes, "yes"), _operand(no, "no")
         with self._edit("mlibScalarGraphCondition", fast):
             node = self._node("condition", role, fast)
             node.getPlug("operation").set(2, fast=fast)
@@ -171,3 +201,43 @@ class ScalarGraph:
             Plug._resolve_input(value).connectTo(destination, fast=fast)
         else:
             destination.set(value, fast=fast)
+
+
+def _require_role(role):
+    """計算の名前を確かめる。
+
+    Args:
+        role (str): 計算の名前。
+
+    Raises:
+        TypeError: 文字列でない場合。
+        ValueError: 名前に使える文字(英数字と_)が1つも無い場合。
+    """
+    if not isinstance(role, str):
+        raise TypeError(f"roleはstrで指定してください: {type(role).__name__}")
+    if not _NAME_CHARACTER.search(role):
+        raise ValueError(f"roleには名前に使える文字(英数字と_)を含めてください: {role!r}")
+
+
+def _operand(value, name):
+    """計算の入力を、定数のfloatか、有効なPlugにする。
+
+    Args:
+        value (float | str | Plug): 定数、アトリビュート名、またはPlug。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        float | Plug: 定数か、入力にするPlug。
+
+    Raises:
+        TypeError: 数値・アトリビュート名・Plugのどれでもない場合(boolを含む)。
+        ValueError: 数値が有限でない、またはアトリビュート名が空の場合。
+        MissingAttributeError: アトリビュート(またはノード)が無い場合。
+        RuntimeError: Plugが削除されている、または名前が複数のものに一致する場合。
+    """
+    if isinstance(value, (str, Plug)):
+        plug = Plug._resolve_input(value)
+        if not plug.isValid():
+            raise RuntimeError(f"{name}のPlugは削除されています")
+        return plug
+    return _finite(value, name)

@@ -7,7 +7,6 @@
 """
 
 import inspect
-import re
 import sys
 import unittest
 
@@ -150,7 +149,7 @@ def _expect_axis(case, call):
 def _expect_extract(case, call):
     source = om2.MMatrix(call.target)
     tm = om2.MTransformationMatrix(source)
-    part = call.kwargs["part"]
+    part = call.kwargs["what"]
     if part == "translate":
         expected = om2.MMatrix()
         for column in range(3):
@@ -240,28 +239,6 @@ def _expect_cofactor(case, call):
 TOLERANCE_INVALID = {"tolerance": ("a", None, float("nan"), float("inf"), -1.0, True)}
 
 
-def _known(name, values, reason):
-    """段2の場合の名前を、fnmatch の記号([ など)を文字として扱う形にして返す。"""
-    return {"invalid:" + re.sub(r"([*?[])", r"[\1]", f"{name}={value!r}"): reason for value in values}
-
-
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の M3〜M7)。
-_COMPOSE_TYPE = "Raises に無い TypeError(3成分の並びでない値)"
-_COMPOSE_ACCEPT = "None・NaN・bool の成分を受け付ける"
-KNOWN_COMPOSE = {}
-for _name in ("translate", "rotate", "scale", "shear"):
-    KNOWN_COMPOSE.update(_known(_name, (XYZ_INVALID[4], XYZ_INVALID[7]), _COMPOSE_TYPE))
-    KNOWN_COMPOSE.update(_known(_name, (None, XYZ_INVALID[5], XYZ_INVALID[6]), _COMPOSE_ACCEPT))
-    if _name != "rotate":
-        KNOWN_COMPOSE.update(_known(_name, ("abc",), _COMPOSE_TYPE))
-KNOWN_EQUIVALENT = {
-    **_known("other", (MATRIX_INVALID[0], "abc", 1.0, MATRIX_INVALID[4]), "Raises に無い ValueError(マトリクスにできない値)"),
-    "invalid:other=None": "None を単位マトリクスとして受け付ける",
-    **_known("tolerance", ("a", None), "Raises に無い TypeError(om2 へそのまま渡す)"),
-    "invalid:tolerance=-1.0": "負の tolerance を受け付ける",
-}
-KNOWN_TRANSFORM = _known("value", XYZ_INVALID[:5], "Raises が無いのに TypeError・ValueError になる(3成分にできない値)")
-
 METHODS = (
     Method(
         "compose",
@@ -276,7 +253,6 @@ METHODS = (
         invalid={"translate": XYZ_INVALID, "rotate": (*XYZ_INVALID, om2.MQuaternion(0.0, 0.0, 0.0, 0.0)), "scale": XYZ_INVALID, "shear": XYZ_INVALID},
         expect=_expect_compose,
         writes=False,
-        known=KNOWN_COMPOSE,
     ),
     Method(
         "fromAxes",
@@ -324,9 +300,9 @@ METHODS = (
         "extract",
         _matrix,
         args=("translate",),
-        values={"part": ("translate", "rotate", "scale", "3x3")},
-        replace=("part",),
-        invalid={"part": ("Translate", "shear", "", 1, None)},
+        values={"what": ("translate", "rotate", "scale", "3x3")},
+        replace=("what",),
+        invalid={"what": ("Translate", "shear", "", 1, None)},
         expect=_expect_extract,
         state=_value,
         writes=False,
@@ -341,7 +317,6 @@ METHODS = (
         expect=_expect_equivalent,
         state=_value,
         writes=False,
-        known=KNOWN_EQUIVALENT,
     ),
     Method(
         "isIdentity",
@@ -373,7 +348,6 @@ METHODS = (
         expect=_expect_blend,
         state=_value,
         writes=False,
-        known={"invalid:other=None": "None を単位マトリクスとして受け付ける"},
     ),
     Method(
         "transformPoint",
@@ -385,7 +359,6 @@ METHODS = (
         expect=_expect_point,
         state=_value,
         writes=False,
-        known=KNOWN_TRANSFORM,
     ),
     Method(
         "transformVector",
@@ -397,7 +370,6 @@ METHODS = (
         expect=_expect_vector,
         state=_value,
         writes=False,
-        known=KNOWN_TRANSFORM,
     ),
     Method(
         "mirror",
@@ -419,7 +391,6 @@ METHODS = (
         expect=_expect_cofactor,
         state=_value,
         writes=False,
-        known={"invalid:row=True": "bool を番号として受け付ける", "invalid:column=True": "bool を番号として受け付ける"},
     ),
 )
 

@@ -85,14 +85,6 @@ OPERAND_INVALID = (
 )
 #: 使えない文字だけの名前(``"日本語"``)は、fast だけノードが名前空間の外にでき、テストの外へ残るので候補に入れない(findings4 の G5)。
 ROLES = ("calc", "calc_1", "a b")
-#: 入力の型が違うと、Raises に無い例外になる(findings4 の G1)。
-KNOWN_ROLE = {"invalid:role=''": "空の名前で Raises に無い RuntimeError(Maya の New name has no legal characters)"}
-KNOWN_OPERANDS = {
-    f"invalid:{name}={label}": "Raises に無い例外(入力にできない値)"
-    for name in ("left", "right", "yes", "no")
-    for label in ("None", "'<無いアトリビュート>'", "<削除済みのPlug>", "'abc'", "nan")
-}
-
 METHODS = (
     Method(
         "sum",
@@ -102,12 +94,6 @@ METHODS = (
         replace=("role", "left", "right"),
         invalid={"role": (1.5, None, ""), "left": OPERAND_INVALID, "right": OPERAND_INVALID, "fast": (1, "yes", None)},
         expect=_expect_sum,
-        known={
-            **KNOWN_OPERANDS,
-            **KNOWN_ROLE,
-            "invalid:subtract=1": "bool でない subtract を真偽として読む",
-            "invalid:subtract='yes'": "bool でない subtract を真偽として読む",
-        },
         limit=50,
     ),
     Method(
@@ -118,15 +104,6 @@ METHODS = (
         replace=("role", "left", "right", "operation"),
         invalid={"role": (1.5, None, ""), "left": OPERAND_INVALID, "right": OPERAND_INVALID, "operation": (0, 4, 1.5, "a", None), "fast": (1, "yes", None)},
         expect=_expect_multiply,
-        known={
-            **KNOWN_OPERANDS,
-            **KNOWN_ROLE,
-            "invalid:operation=0": "範囲外の operation(0=計算なし)を受け付ける",
-            "invalid:operation=1.5": "int でない operation を受け付ける",
-            "invalid:operation=4": "範囲外の operation で Raises に無い RuntimeError(Maya の setAttr)",
-            "invalid:operation='a'": "文字列の operation で Raises に無い ValueError(enum の名前として読む)",
-            "invalid:operation=None": "None の operation で Raises に無い RuntimeError(Maya の setAttr)",
-        },
         limit=50,
     ),
     Method(
@@ -144,7 +121,6 @@ METHODS = (
             "fast": (1, "yes", None),
         },
         expect=_expect_condition,
-        known={**KNOWN_OPERANDS, **KNOWN_ROLE},
         limit=50,
     ),
 )

@@ -94,7 +94,14 @@ class PluginPackage:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: message・titleが文字列でない場合。
         """
+        if not isinstance(message, str):
+            raise TypeError(f"messageはstrで指定してください: {type(message).__name__}")
+        if not isinstance(title, str):
+            raise TypeError(f"titleはstrで指定してください: {type(title).__name__}")
         if cmds.about(batch=True):
             return
         cmds.confirmDialog(title=title, message=message, button=["OK"], defaultButton="OK", icon="warning")
@@ -256,7 +263,13 @@ class PluginPackage:
         Returns:
             str: SKIPPED(対象外)、LOADED(成功)、MISSING(入っていない・版が足りない)、
                 OUTDATED(ロードされている版が古い)、LOAD_FAILED(ロードに失敗したものがある)。
+
+        Raises:
+            TypeError: dialogがbool・None・呼び出せるもの以外の場合、またはwarnがboolでない場合。
         """
+        if not (dialog is None or type(dialog) is bool or callable(dialog)):
+            raise TypeError(f"dialogはbool・None・呼び出せるもので指定してください: {type(dialog).__name__}")
+        _require_bool(warn, "warn")
         if not self.isMayaSupported():
             return SKIPPED
         title = f"{self._name} のインストールが必要です"

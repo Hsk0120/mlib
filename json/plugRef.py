@@ -1,5 +1,7 @@
 """Plugを、持ち主のノードの参照とアトリビュートのパスで記録する。"""
 
+import maya.api.OpenMaya as om2
+
 from .nameMapping import NameMapping
 from .nodeRef import NodeRef
 
@@ -75,6 +77,8 @@ class PlugRef:
         from ..cmds import getPlug
         from ..plugs.plug import Plug
 
+        if isinstance(plug, om2.MPlug) and plug.isNull:
+            raise RuntimeError("無効なMPlugは記録できません")
         plug = plug if isinstance(plug, Plug) else getPlug(plug)
         if not plug.isValid():
             raise RuntimeError("削除されたPlugは記録できません")

@@ -63,8 +63,11 @@ class Plugin(_VersionedItem):
             None: 値を返さない。
 
         Raises:
+            TypeError: typeが文字列でない場合。
             RuntimeError: Mayaがプラグインのロードを拒否した場合。
         """
+        if not isinstance(type, str):
+            raise TypeError(f"typeはstrで指定してください: {type.__class__.__name__}")
         if type in cls._HIK_NODE_TYPES:
             cls("mayaHIK").load(skipExisting=True)
 
@@ -215,11 +218,13 @@ class Plugin(_VersionedItem):
             None: 値を返さない。
 
         Raises:
+            TypeError: forceがboolでない場合。
             RuntimeError: Maya がアンロードを拒否した場合(使用中のノードがあり force=False の場合など)。
 
         Note:
             ``cmds.unloadPlugin`` と同じく、Undoに記録されない(Undoで取り消せない)。
         """
+        _require_bool(force, "force")
         cmds.unloadPlugin(self._name, force=force)
         _clear_type_hierarchy_cache()
 

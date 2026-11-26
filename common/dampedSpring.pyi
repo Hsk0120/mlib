@@ -2,6 +2,7 @@
 """減衰のあるばねの動きを、決まった時間の刻みで計算する。"""
 
 import math
+import numbers
 from typing import Sequence
 
 
@@ -23,6 +24,7 @@ class DampedSpring:
             list[tuple[float]]: 各目標へ遅れて追いかけた結果。
 
         Raises:
+            TypeError: samplesが値の並びの並びでない場合、または設定の値が数値でない場合。
             ValueError: samplesが空か、成分の数がそろわないか、有限でない場合。
                 設定の値が有限でないか範囲外の場合。
                 またはsecondsPerSampleが大きすぎて、内部の刻みの数が10000を超える場合。

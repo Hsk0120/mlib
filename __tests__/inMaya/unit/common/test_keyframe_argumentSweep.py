@@ -265,14 +265,6 @@ def _flag_plural_pair(case):
 UNITS = ("deg", "rad")
 TIME_UNITS = ("frame", "sec")
 UNIT_INVALID = ("grad", "", 1.5)
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の K1〜K7)。
-KNOWN_CHECK = {f"invalid:check={value}": "bool でない check を真偽として読む" for value in ("1", "'yes'", "None")}
-KNOWN_UNDOCUMENTED = {"invalid:*": "Raises が無いのに、誤った値で TypeError・ValueError になる(check は bool でない値を受け付ける)"}
-KNOWN_UNIT = {
-    **{f"invalid:unit={value!r}": "Raises に無い ValueError(対応していない単位)" for value in ("grad", "")},
-    **{f"invalid:timeUnit={value!r}": "Raises に無い ValueError(対応していない単位)" for value in ("frames ", "deg", "")},
-}
-KNOWN_TANGENT = {**KNOWN_CHECK, "*flags={'weightLock': False, 'inWeight': 2.0}*": "ウェイト付きでないカーブで Maya が RuntimeError を出し、その前の変更が残る"}
 TIME_UNIT_INVALID = ("frames ", "deg", "", 1.5)
 FLAGS = (
     {"inAngle": 0.5},
@@ -304,7 +296,6 @@ METHODS_SINGLE = (
         invalid={"input": (1, "yes", None), "unit": UNIT_INVALID, "timeUnit": TIME_UNIT_INVALID},
         conflicts=INPUT_UNIT,
         expect=_expect_get_value,
-        known=KNOWN_UNIT,
     ),
     Method(
         "setValue",
@@ -317,7 +308,6 @@ METHODS_SINGLE = (
         roundTrip=RoundTrip("getValue", shared=("unit", "timeUnit"), places=4),
         plural=_plural_pair,
         state=_state,
-        known=KNOWN_CHECK,
         limit=60,
     ),
     Method("getTangent", _single, values={"unit": UNITS}, replace=("unit",), invalid={"unit": (*UNIT_INVALID, True)}, expect=_expect_get_tangent),
@@ -331,7 +321,6 @@ METHODS_SINGLE = (
         expect=_expect_set_tangent,
         plural=_flag_plural_pair,
         state=_state,
-        known=KNOWN_TANGENT,
         limit=60,
     ),
     Method("setBreakdown", _single, invalid={"state": (1, "yes", None)}, expect=_expect_breakdown, plural=_plural_pair, state=_state),
@@ -343,22 +332,12 @@ METHODS_SINGLE = (
         invalid={"timeOffset": ("a", None, float("nan")), "valueOffset": ("a", None, float("inf")), "unit": UNIT_INVALID, "timeUnit": TIME_UNIT_INVALID},
         expect=_expect_move,
         state=_state,
-        known={
-            **KNOWN_UNDOCUMENTED,
-            "pairs:timeOffset=2.5,timeUnit='sec'": "隣のキーを越える移動で、同じ時刻のキーが2つできる",
-            "pairs:timeOffset=-4.0,timeUnit='sec'": "隣のキーを越える移動で、Raises に無い RuntimeError(Maya の Cannot move keys)",
-        },
         limit=60,
     ),
     Method(
-        "delete",
-        _lonely,
-        invalid={"keepCurve": (1, "yes", None), "fast": (1, "yes", None), "check": (1, "yes", None)},
-        expect=_expect_delete,
-        state=_state,
-        known=KNOWN_UNDOCUMENTED,
+        "delete", _lonely, invalid={"keepCurve": (1, "yes", None), "fast": (1, "yes", None), "check": (1, "yes", None)}, expect=_expect_delete, state=_state
     ),
-    Method("select", _single, invalid={"add": (1, "yes", None)}, expect=_expect_select, state=_state, known=KNOWN_UNDOCUMENTED),
+    Method("select", _single, invalid={"add": (1, "yes", None)}, expect=_expect_select, state=_state),
 )
 
 METHODS_PLURAL = (
@@ -376,7 +355,6 @@ METHODS_PLURAL = (
         replace=("curve",),
         invalid={"curve": (None, 1.5, "abc")},
         expect=_expect_indices,
-        known={"invalid:*": "カーブでない値を例外にせず、空のリストを返す(Raises が無い)"},
     ),
     Method(
         "getValues",
@@ -386,7 +364,6 @@ METHODS_PLURAL = (
         invalid={"input": (1, "yes", None), "unit": UNIT_INVALID, "timeUnit": TIME_UNIT_INVALID},
         conflicts=INPUT_UNIT,
         expect=_expect_values,
-        known=KNOWN_UNIT,
     ),
     Method(
         "setValue",
@@ -396,7 +373,6 @@ METHODS_PLURAL = (
         replace=("value", "unit", "timeUnit"),
         invalid={**_bad_values(), "unit": UNIT_INVALID, "timeUnit": TIME_UNIT_INVALID, "fast": (1, "yes", None), "check": (1, "yes", None)},
         state=_state,
-        known=KNOWN_UNDOCUMENTED,
         limit=50,
     ),
     Method(
@@ -407,7 +383,6 @@ METHODS_PLURAL = (
         replace=("flags", "unit"),
         invalid={"flags": FLAG_INVALID, "unit": UNIT_INVALID, "fast": (1, "yes", None), "check": (1, "yes", None)},
         state=_state,
-        known=KNOWN_TANGENT,
         limit=50,
     ),
     Method("setBreakdown", _plural, invalid={"state": (1, "yes", None)}, state=_state),
@@ -418,16 +393,9 @@ METHODS_PLURAL = (
         replace=("timeOffset", "valueOffset", "unit", "timeUnit"),
         invalid={"timeOffset": ("a", None, float("nan")), "valueOffset": ("a", None, float("inf")), "unit": UNIT_INVALID, "timeUnit": TIME_UNIT_INVALID},
         state=_state,
-        known={**KNOWN_UNDOCUMENTED, "pairs:timeOffset=-4.0,timeUnit='sec'": "隣のキーを越える移動で、Raises に無い RuntimeError(Maya の Cannot move keys)"},
         limit=50,
     ),
-    Method(
-        "delete",
-        _plural,
-        invalid={"keepCurve": (1, "yes", None), "fast": (1, "yes", None), "check": (1, "yes", None)},
-        state=_state,
-        known={**KNOWN_UNDOCUMENTED, "pairs:keepCurve=*,check=*": "fast=True だけ、残ったキーの接線のウェイトが通常と違う"},
-    ),
+    Method("delete", _plural, invalid={"keepCurve": (1, "yes", None), "fast": (1, "yes", None), "check": (1, "yes", None)}, state=_state),
     Method("select", _plural, invalid={"add": (1, "yes", None)}, state=_state),
 )
 

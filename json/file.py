@@ -189,6 +189,23 @@ def _current_fps():
     return 1.0 / om2.MTime(1, om2.MTime.uiUnit()).asUnits(om2.MTime.kSeconds)
 
 
+def _require_path(path):
+    """パスがstrかos.PathLikeかを確かめる。
+
+    Args:
+        path (str | os.PathLike): 確かめるパス。
+
+    Returns:
+        pathlib.Path: パス。
+
+    Raises:
+        TypeError: strでもos.PathLikeでもない場合。
+    """
+    if not isinstance(path, (str, os.PathLike)):
+        raise TypeError(f"pathはstrかos.PathLikeで指定してください: {type(path).__name__}")
+    return Path(os.fspath(path))
+
+
 def _dump(data, path, format, version):
     """データにヘッダーを付けて、JSONファイルへ書き出す。
 
@@ -205,19 +222,19 @@ def _dump(data, path, format, version):
         pathlib.Path: 書き出したファイルの絶対パス。
 
     Raises:
-        TypeError: dataが辞書でない場合、またはJSONで書けない値を含む場合。
+        TypeError: dataが辞書でない場合、pathがstr・os.PathLikeでない場合、またはJSONで書けない値を含む場合。
         ValueError: 形式名・版が正しくない場合、またはNaN・無限大を含む場合。
         OSError: 書き出しに失敗した場合。
     """
     if not isinstance(data, dict):
         raise TypeError("dataはdictで指定してください")
+    destination = _require_path(path).resolve()
     # 循環参照の回避: mlib.__version__ はパッケージの初期化の最後に設定される。
     from .. import __version__
 
     header = Header(format, version, __version__, cmds.about(version=True))
     payload = {"header": header._to_data(), "data": _encode(data)}
     text = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
-    destination = Path(os.fspath(path)).resolve()
     descriptor, temporary = tempfile.mkstemp(prefix=".mlib-", suffix=".json", dir=str(destination.parent))
     leftover = Path(temporary)
     try:
@@ -246,11 +263,12 @@ def _load(path, format, version):
         tuple[Header, dict]: ヘッダーとデータ。
 
     Raises:
+        TypeError: pathがstr・os.PathLikeでない場合。
         ValueError: JSONとして読めない場合、ファイルの形が違う場合、形式名・版が期待と違う場合、
             または単位に対応していない場合。
         OSError: 読み込みに失敗した場合。
     """
-    with Path(path).open(encoding="utf-8") as stream:
+    with _require_path(path).open(encoding="utf-8") as stream:
         try:
             payload = json.load(stream)
         except json.JSONDecodeError as error:

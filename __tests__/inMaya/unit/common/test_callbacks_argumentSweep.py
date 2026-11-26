@@ -148,7 +148,6 @@ METHODS = (
         invalid={"callback": CALLABLE_INVALID, "timeUnit": ("frames ", "deg", "", 1.5, None)},
         expect=_then_remove(_expect_time),
         writes=False,
-        known={"invalid:timeUnit=None": "None の timeUnit を例外にせず、フレームとして扱う"},
     ),
     Method(
         "addAttributeChangedCallback",

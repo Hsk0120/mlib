@@ -76,7 +76,12 @@ class ValidationReport:
 
         Args:
             label (str): 警告の先頭に付ける名前(``"PoseSnapshot"`` など)。
+
+        Raises:
+            TypeError: labelが文字列でない場合。
         """
+        if not isinstance(label, str):
+            raise TypeError(f"labelはstrで指定してください: {type(label).__name__}")
         parts = []
         if self._missing:
             parts.append(f"{len(self._missing)}件が見つかりません({_summary(self._missing)})")
@@ -175,6 +180,7 @@ class Snapshot:
             Snapshot: 呼び出したクラスの新しいインスタンス。:attr:`header` を持つ。
 
         Raises:
+            TypeError: pathがstr・os.PathLikeでない場合。
             ValueError: 形式名・版が違う場合、またはデータの形が種類と合わない場合。
             OSError: 読み込みに失敗した場合。
         """
@@ -208,6 +214,7 @@ class Snapshot:
             pathlib.Path: 書き出したファイルの絶対パス。
 
         Raises:
+            TypeError: pathがstr・os.PathLikeでない場合。
             OSError: 書き出しに失敗した場合。
         """
         return file._dump(self._data, path, self.FORMAT, self.VERSION)
@@ -222,6 +229,10 @@ class Snapshot:
 
         Returns:
             ValidationReport: 見つからないもの・書けないもの・適用できない問題。
+
+        Raises:
+            TypeError: nameMap・replace・namespaceMapの型が正しくない場合。
+            ValueError: nameMap・replace・namespaceMapの値が正しくない場合。
         """
         return self._run_validate({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
@@ -241,7 +252,8 @@ class Snapshot:
             ValidationReport: 適用の結果。
 
         Raises:
-            ValueError: 適用できない問題がある場合。
+            TypeError: nameMap・replace・namespaceMapの型が正しくない場合。
+            ValueError: nameMap・replace・namespaceMapの値が正しくない場合、または適用できない問題がある場合。
             NotImplementedError: 基底クラスで呼んだ場合。
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})

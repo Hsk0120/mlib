@@ -154,6 +154,65 @@ def _distance(first, second):
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(first, second)))
 
 
+class ConnectedAndLengthTest(_ComponentCase):
+    """Edge・Vertex.getConnected の type と、Edge.getLength の distanceUnit を固定する。"""
+
+    def mesh_fn(self):
+        """履歴なし立方体のMFnMeshを返す。"""
+        return om2.MFnMesh(om2.MSelectionList().add(self.mesh.getName(full=True)).getDagPath(0))
+
+    def test_edge_connected_types(self):
+        """エッジの隣: 頂点を共有するエッジ・接する面・両端以外の隣の頂点。"""
+        fn = self.mesh_fn()
+        edge = Edge(self.mesh, 0)
+        iterator = om2.MItMeshEdge(om2.MSelectionList().add(self.mesh.getName(full=True)).getDagPath(0))
+        iterator.setIndex(0)
+        self.assertEqual(edge.getConnected().indices, tuple(sorted(set(iterator.getConnectedEdges()))))
+        self.assertEqual(edge.getConnected(type="edge").indices, edge.getConnected().indices)
+        self.assertEqual(edge.getConnected(type="face").indices, edge.getFaces().indices)
+        ends = set(fn.getEdgeVertices(0))
+        expected = set()
+        for other in iterator.getConnectedEdges():
+            expected.update(fn.getEdgeVertices(other))
+        vertices = edge.getConnected(type="vertex")
+        self.assertIs(type(vertices), Vertices)
+        self.assertEqual(vertices.indices, tuple(sorted(expected - ends)))
+        self.assertFalse(ends & set(vertices.indices))
+        with self.assertRaises(TypeError):
+            edge.getConnected(type=1)
+        with self.assertRaises(ValueError):
+            edge.getConnected(type="uv")
+
+    def test_vertex_connected_types(self):
+        """頂点の隣: エッジでつながる頂点・集まるエッジ・触れている面。"""
+        vertex = Vertex(self.mesh, 0)
+        self.assertNotIn(0, vertex.getConnected().indices)
+        self.assertEqual(vertex.getConnected(type="vertex").indices, vertex.getConnected().indices)
+        self.assertIs(type(vertex.getConnected(type="edge")), Edges)
+        self.assertEqual(vertex.getConnected(type="edge").indices, tuple(sorted(vertex.getEdges().indices)))
+        self.assertIs(type(vertex.getConnected(type="face")), Faces)
+        self.assertEqual(vertex.getConnected(type="face").indices, vertex.getFaces().indices)
+        with self.assertRaises(TypeError):
+            vertex.getConnected(type=None)
+        with self.assertRaises(ValueError):
+            vertex.getConnected(type="bogus")
+
+    def test_edge_length_distance_unit(self):
+        """distanceUnit で返す単位を選ぶ(既定はcm、NoneはUIの単位)。"""
+        edge = Edge(self.mesh, 0)
+        length = edge.getLength()
+        self.assertAlmostEqual(length, 1.0, places=6)
+        self.assertAlmostEqual(edge.getLength(distanceUnit="mm"), length * 10.0, places=6)
+        self.assertAlmostEqual(edge.getLength(distanceUnit="m"), length * 0.01, places=6)
+        cmds.currentUnit(linear="mm")
+        self.assertAlmostEqual(edge.getLength(distanceUnit=None), length * 10.0, places=6)
+        self.assertAlmostEqual(edge.getLength(), length, places=6)
+        with self.assertRaises(TypeError):
+            edge.getLength(distanceUnit=1.5)
+        with self.assertRaises(ValueError):
+            edge.getLength(distanceUnit="bogus")
+
+
 class _SkinCase(NamespaceCase):
     """root→mid→tip の chain と、それにバインドした円柱を作る。"""
 

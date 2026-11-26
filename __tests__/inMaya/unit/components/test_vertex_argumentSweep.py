@@ -115,13 +115,19 @@ def _expect_grow(case, call):
     case.assertEqual(list(call.result.indices), indices + added)
 
 
+def _expect_connected(case, call):
+    """type の種類の集まりを返す(既定は頂点)。"""
+    names = {"vertex": "Vertices", "edge": "Edges", "face": "Faces"}
+    case.assertEqual(type(call.result).__name__, names[call.kwargs.get("type", "vertex")])
+
+
 class VertexArgumentSweepTest(ArgumentSweepCase):
     """Vertex の公開メソッドの引数を網羅する。"""
 
     METHODS = (
         Method("getFaces", _vertex),
         Method("getEdges", _vertex),
-        Method("getConnected", _vertex),
+        Method("getConnected", _vertex, invalid={"type": (1.5, "bogus", None)}, expect=_expect_connected),
         Method("getVertexFaces", _vertex),
         Method("getUVs", _vertex),
         Method("isOnBoundary", _vertex),

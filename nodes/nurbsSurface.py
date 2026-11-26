@@ -15,6 +15,24 @@ from .node import Node, Nodes
 from .nurbsCurve import _DEGENERATE, _frame_matrix, _perpendicular, _require_axis
 
 
+def _knot_values(values, name):
+    """ノット列の引数が並びかを確かめ、listにする。
+
+    Args:
+        values (Iterable[float]): 確かめる値。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        list: 並びの要素(数値かは呼び出し側が確かめる)。
+
+    Raises:
+        TypeError: 文字列・None・数値など、並びでない場合。
+    """
+    if isinstance(values, (str, bytes)) or not hasattr(type(values), "__iter__"):
+        raise TypeError(f"{name}は数値の並びで指定してください")
+    return list(values)
+
+
 class NurbsSurface(_ControlPointShape):
     """NURBS曲面のシェイプを扱うクラス。
 
@@ -117,14 +135,15 @@ class NurbsSurface(_ControlPointShape):
             None: 値を返さない。
 
         Raises:
+            TypeError: uKnots・vKnotsが数値の並びでない場合(文字列・Noneなど)、または要素が数値でない場合。
             ValueError: 値が有限値でない、数や順序が不正、またはパラメーター範囲が潰れる場合。
             RuntimeError: 曲面が無効、ロックされている、またはMayaが編集を拒否した場合。
             NotImplementedError: ヒストリ・トリム・明示UV・参照・CVロックや接続がある場合。
         """
         source = self._geometry_fn()
         self._require_knot_edit()
-        u_values = [_finite(value, "uKnots") for value in uKnots]
-        v_values = [_finite(value, "vKnots") for value in vKnots]
+        u_values = [_finite(value, "uKnots") for value in _knot_values(uKnots, "uKnots")]
+        v_values = [_finite(value, "vKnots") for value in _knot_values(vKnots, "vKnots")]
         for values, count, degree in ((u_values, source.numKnotsInU, source.degreeInU), (v_values, source.numKnotsInV, source.degreeInV)):
             if len(values) != count or any(a > b for a, b in zip(values, values[1:])):
                 raise ValueError("ノット列は既存と同じ数の非減少列で指定してください")
@@ -430,6 +449,7 @@ class NurbsSurface(_ControlPointShape):
 
         Raises:
             TypeError: 番号の型が不正な場合(boolを含む)。
+            ValueError: ``(u, v)`` の組の数値が2つでない場合。
             IndexError: CVの番号が範囲外の場合。
         """
         return _component_of(SurfaceCV, SurfaceCVs, self, indices)

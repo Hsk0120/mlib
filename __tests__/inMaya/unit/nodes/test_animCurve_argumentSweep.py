@@ -52,29 +52,16 @@ CURVES = {
     "animCurveTU": (((1.0, 0.0), (5.0, 1.0), (10.0, 0.5)), "scaleX"),
 }
 
-#: check に bool でない値を渡すと、真偽として読む。
-KNOWN_CHECK = {"invalid:check=1": "check が bool でない値を受け付ける", "invalid:check='yes'": "check が bool でない値を受け付ける"}
-#: 部品の制約: 段3の自動の fast=True が、value=None(挿入)と fast を同時に指定できないことを見ない。
-KNOWN_INSERT_FAST = {"pairs:*value=None*": "部品: 自動の fast=True の組が conflicts を見ない(挿入では fast を指定できない)"}
 #: 接線の項目・lock を持つ addKeys の候補(ウェイト付きでないカーブ)。
 TANGENT_KEYS = (
     [{"input": 7.0, "value": 2.0, "inTangentType": "linear", "outTangentType": "flat"}],
     ({"input": 12.0, "value": 1.0, "inAngle": 30.0, "outAngle": -10.0, "inWeight": 2.0, "outWeight": 1.0, "lock": False, "weightLock": False},),
     [{"input": 7.0, "value": 2.0}, {"input": 8.0, "value": 3.0, "lock": True}],
 )
-#: ウェイト付きでないカーブで接線の項目・lock を指定すると、weightLock の変更で Maya が拒否し、途中まで書いたまま例外になる。
-KNOWN_ADD_KEYS = {
-    # known は fnmatch の形なので、並びの repr の「[」は「[[]」で書く。
-    f"{stage}:keys={keys!r}*".replace("[", "[[]"): "ウェイト付きでないカーブで接線・lock を指定すると RuntimeError(途中まで書く)"
-    for stage in ("values", "pairs")
-    for keys in TANGENT_KEYS
-}
-#: keys が空なら、weightedTangents を書かずに戻る。
-KNOWN_EMPTY_WEIGHTED = {"pairs:keys=[[]],weightedTangents=True": "keys が空だと weightedTangents=True を黙って無視する"}
-#: Maya 2022 では、filterCurve(keyReducer)を Undo しても出力先のアトリビュートが更新されない(Maya 側。2023以降は戻る)。
-KNOWN_REDUCE = {"pairs:*unit='rad*": "Maya 2022 で Undo の後に出力先が古い値のまま"} if om2.MGlobal.apiVersion() < 20230000 else {}
-#: time を省くと timeUnit を確かめない。
-KNOWN_KEYFRAMES = {"invalid:timeUnit=*": "time を省くと timeUnit の誤りを例外にしない"}
+#: Maya 2022 では、filterCurve(keyReducer)を Undo しても出力先のアトリビュートが更新されない(Maya の制限。2023以降は戻る。docstring の Note)。
+KNOWN_REDUCE = (
+    {"pairs:*unit='rad*": "Maya の制限: Maya 2022 で Undo の後に出力先が古い値のまま(cmds.filterCurve でも同じ)"} if om2.MGlobal.apiVersion() < 20230000 else {}
+)
 
 
 def _fps():
@@ -424,7 +411,6 @@ def _common(kind):
             conflicts=(_insert_conflict,),
             expect=_expect_add_key,
             state=_curve_state,
-            known={**KNOWN_CHECK, **KNOWN_INSERT_FAST},
             limit=40,
         ),
         Method(
@@ -552,7 +538,6 @@ TL_METHODS = (
         },
         expect=_expect_add_keys,
         state=_curve_state,
-        known={**KNOWN_ADD_KEYS, **KNOWN_EMPTY_WEIGHTED},
         limit=120,
     ),
     Method("getInfinity", _setup(TL), expect=_expect_get_infinity, plural=_plural(TL)),
@@ -564,7 +549,6 @@ TL_METHODS = (
         invalid={"pre": (1.5, "__bad__", "Linear"), "post": (1.5, "__bad__", "Linear")},
         expect=_expect_set_infinity,
         state=_curve_state,
-        known=KNOWN_CHECK,
         limit=30,
     ),
     Method("eulerFilter", _setup(TL), state=_curve_state),
@@ -582,7 +566,6 @@ TL_METHODS = (
         },
         conflicts=(_indices_time,),
         expect=_expect_keyframes,
-        known=KNOWN_KEYFRAMES,
     ),
 )
 

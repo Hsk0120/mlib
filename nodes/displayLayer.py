@@ -46,6 +46,10 @@ class DisplayLayer(Node):
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: 対応していない型を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
+            ValueError: 名前に一致するものが無い場合、または渡したものが無効な(削除された)場合。
         """
         with undoChunk("mlibDisplayLayerAddMembers"):
             if members:
@@ -64,7 +68,9 @@ class DisplayLayer(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            TypeError: allがboolでない場合、membersとall=Trueを同時に指定した場合、対応していない型を渡した場合、
+                または名前とNodeなどのオブジェクトを混ぜて渡した場合。
+            ValueError: 名前に一致するものが無い場合、または渡したものが無効な(削除された)場合。
         """
         _require_bool(all, "all")
         if all and members:

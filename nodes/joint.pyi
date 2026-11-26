@@ -12,7 +12,7 @@ from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Scale, Vector
 from ..plugs.plug import Plugs
-from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _angle_unit, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 from typing import Any, Iterable, Iterator, Sequence
@@ -645,14 +645,18 @@ class Joint(Transform):
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def getTransferTarget(self, skinCluster: SkinCluster) -> Joint | None:
+    def getTransferTarget(self, skinCluster: SkinCluster | str) -> Joint | None:
         """ウェイトを移す先になる、いちばん近い祖先のインフルエンスを探す。
 
         Args:
-            skinCluster (SkinCluster): インフルエンスになっているかを調べるskinCluster。
+            skinCluster (SkinCluster | str): インフルエンスになっているかを調べるskinCluster。名前でもよい。
 
         Returns:
             Joint | None: 移す先の祖先のジョイント。見つからない場合は ``None``。
+
+        Raises:
+            TypeError: skinClusterがskinClusterのノードとして扱えない値の場合(Noneを含む)。
+            RuntimeError: skinClusterの名前のノードが見つからない場合、またはskinClusterが無効な場合。
         """
         ...
     def reparentChildren(self, parentJoint: str | Node | Plug | Component | om2.MObject | om2.MDagPath | om2.MPlug) -> None:
@@ -687,8 +691,9 @@ class Joint(Transform):
             Joints: 自身からtoまで、または最初の枝分かれまでのジョイント。自身を含む。
 
         Raises:
+            TypeError: toがジョイントとして扱えない値の場合(ジョイントでないノードを含む)。
             ValueError: toが自身の子孫でない場合。
-            RuntimeError: 自身が無効な場合。
+            RuntimeError: 自身が無効な場合、またはtoの名前のノードが見つからない場合。
         """
         ...
     def insertJoints(self, count: int) -> Joints:
@@ -1043,7 +1048,7 @@ class Joints(Nodes[Joint]):
     def getBoneSegments(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[list[tuple[Vector, Vector]]]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getBoneSegments` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getTransferTarget(self, skinCluster: SkinCluster) -> list[Joint | None]:
+    def getTransferTarget(self, skinCluster: SkinCluster | str) -> list[Joint | None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getTransferTarget` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def reparentChildren(self, parentJoint: str | Node | Plug | Component | om2.MObject | om2.MDagPath | om2.MPlug) -> list[None]:
@@ -1313,7 +1318,7 @@ class Joints(Nodes[Joint]):
     def isLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
+    def setLocked(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isFromReferencedFile(self) -> list[bool]:
@@ -1370,7 +1375,7 @@ class Joints(Nodes[Joint]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setAttrFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPlugs(self, *, userDefined: bool = ..., children: bool = ..., writable: bool = ..., animatable: bool = ..., **listAttrFlags) -> list[Plugs]:

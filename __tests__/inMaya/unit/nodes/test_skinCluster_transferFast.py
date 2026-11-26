@@ -1,4 +1,4 @@
-"""fastのウェイト転送(skinEdit.transfer_weights)が、通常の経路と同じ結果になることを確かめる。"""
+"""SkinCluster.transferWeights(fast=True)が、通常の経路と同じ結果になることを確かめる。"""
 
 import sys
 import unittest
@@ -14,7 +14,7 @@ from support.namespaceCase import NamespaceCase
 class TransferWeightsTest(NamespaceCase):
     """移し元のウェイトが0の頂点を含むメッシュで、通常とfastを比べる。"""
 
-    PREFIX = "mlibSkinEdit_"
+    PREFIX = "mlibSkinTransferFast_"
     CLEAR_SELECTION = True
 
     def setUp(self):

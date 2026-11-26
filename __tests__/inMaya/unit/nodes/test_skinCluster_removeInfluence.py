@@ -278,7 +278,7 @@ class RemoveInfluencesArgumentsTest(NamespaceCase):
         self.assertEqual(rig.raw(), before)
 
     def test_influence_filters_and_force_normalize_arguments(self):
-        """getInfluences(locked=, unused=) は True・False・None で絞り、normalizeWeights(force=True) は decimals と同時に指定できない。"""
+        """getInfluences(locked=, unused=) は True・False・None で絞り、normalizeWeights(force=True) は ndigits と同時に指定できない。"""
         rig = _Rig(self, "h").configure(normalize=0, locked=True)
         skin = rig.skins[0]
         skin.setWeights(rig.joints, [0.5, 0.25, 0.0, 0.75], broadcast=True)
@@ -295,7 +295,7 @@ class RemoveInfluencesArgumentsTest(NamespaceCase):
         before = rig.raw()
         for call in (
             lambda: skin.normalizeWeights(3, force=True),
-            lambda: skin.normalizeWeights(decimals=0, force=True),
+            lambda: skin.normalizeWeights(ndigits=0, force=True),
             lambda: skin.normalizeWeights(force=1),
         ):
             with self.assertRaises(TypeError):

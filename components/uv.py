@@ -62,7 +62,7 @@ class UV(Component):
             None: 値を返さない。UVセットや割り当ては作らない。
 
         Raises:
-            TypeError: relative・fastがboolでない場合、axisが文字列でもNoneでもない場合、または座標の型が合わない場合
+            TypeError: relative・fast・checkがboolでない場合、axisが文字列でもNoneでもない場合、または座標の型が合わない場合
                 (axisを指定して数値1つでない場合、axisを指定せずに2成分でない場合を含む)。
             ValueError: 座標が有限な数値でない場合、成分が2つでない場合、またはaxisが ``"u"``・``"v"`` のどちらでもない場合。
             IndexError: 番号が、現在のUVセットの範囲の外にある場合。
@@ -72,6 +72,7 @@ class UV(Component):
         """
         _require_bool(relative, "relative")
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         column = None if axis is None else _axis_index(axis, "uv")
         row = _uv_value(value) if column is None else _finite(value, "value")
         if column is not None or relative:
@@ -187,7 +188,7 @@ class UVs(Components):
             None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。UVセットや割り当ては作らない。
 
         Raises:
-            TypeError: relative・each・fastがboolでない場合、axisが文字列でもNoneでもない場合、または値の形がaxis・eachの指定と合わない場合。
+            TypeError: relative・each・fast・checkがboolでない場合、axisが文字列でもNoneでもない場合、または値の形がaxis・eachの指定と合わない場合。
             ValueError: 値が有限な数値でない場合、成分が2つでない場合、each=Trueで値の数が要素の数と違う場合、
                 またはaxisが ``"u"``・``"v"`` のどちらでもない場合。
             IndexError: 持っている番号が、現在のUVセットの範囲の外にある場合。
@@ -198,6 +199,7 @@ class UVs(Components):
         _require_bool(relative, "relative")
         _require_bool(each, "each")
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         count = len(self._indices)
         column = None if axis is None else _axis_index(axis, "uv")
         if column is not None:

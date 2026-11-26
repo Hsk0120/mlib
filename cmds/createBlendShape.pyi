@@ -4,6 +4,7 @@
 from typing import Any, Dict
 import maya.cmds as cmds
 from ..core.object import Object
+from ..core.shapeBuild import require_name
 from ..decorator import _pick_alias, _require_bool, undoChunk
 from ..util import _UNSET
 from typing import Iterable
@@ -17,6 +18,7 @@ def createBlendShape(base: str | Node, targets: str | Node | Iterable[str | Node
     ターゲットは指定した順に、論理番号0から登録する。
     ターゲット名はMayaの規則どおり、ターゲットのtransform名(名前空間を除いた名前)になる。
     ターゲットの形状との接続は、Mayaの既定どおり残す。Undoが有効なら1回で戻せる。
+    名前は作ったあとに付ける(``cmds.blendShape`` のnameフラグは、Redoで名前空間を失うため)。
     name・frontOfChain・originは ``cmds.blendShape`` と同じ短縮名 ``n``・``foc``・``o`` でも指定できる
     (長い名前と短縮名は同時に指定できない)。
 
@@ -39,7 +41,7 @@ def createBlendShape(base: str | Node, targets: str | Node | Iterable[str | Node
     Raises:
         TypeError: 長い名前と短縮名を同時に指定した場合、frontOfChainがboolでない場合、
             nameが文字列でもNoneでもない場合、または対象が対応していない型の場合。
-        ValueError: nameが空文字列の場合、originがlocal・world以外の場合、または対象が空か無効な場合。
+        ValueError: nameが空文字列か ``|`` を含む場合、originがlocal・world以外の場合、または対象が空か無効な場合。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Examples:

@@ -369,7 +369,7 @@ def _expect_topology(case, call):
 
 
 def _axis_component(axis):
-    return {"x": 0, "y": 1, "z": 2, "YZ": 0, "XZ": 1, "XY": 2, 0: 0, 1: 1, 2: 2}[axis]
+    return {"x": 0, "y": 1, "z": 2, "YZ": 0, "XZ": 1, "XY": 2, "xy": 2, "zx": 1, 0: 0, 1: 1, 2: 2}[axis]
 
 
 def _expect_mirror_map(case, call):
@@ -647,16 +647,8 @@ SET_NAMES = ("map1", "extraUV", "colorSet1", "colorB")
 #: セット操作の kind の誤った値。
 KIND_INVALID = ("UV", 1, None)
 
-#: 本体との食い違い(findings: sweep-geometry の Mesh)。
-KNOWN_VERTEX_FACES = {"invalid:indices=<object*": "Raises に無い TypeError になる"}
-#: angleWeighted に bool でない値を渡すと、真偽として読む。
-KNOWN_NORMALS = {"invalid:angleWeighted=1": "angleWeighted が bool でない値を受け付ける"}
-#: 小文字のミラー面の名前を受け付ける。
-KNOWN_MIRROR = {"invalid:axis='xy'": "小文字のミラー面の名前を受け付ける(docstring は大文字だけ)"}
-#: 色を持つカラーセットの名前の変更を Undo すると、色が消える。
-KNOWN_RENAME = {"pairs:name='colorSet1',kind='color'": "色を持つカラーセットの名前の変更を Undo すると、色が消える"}
-#: check=False で2成分の法線を受け付ける。
-KNOWN_FACE_NORMALS = {"invalid:normals=[(1.0, 2.0)*": "2成分の法線を受け付ける(check=False)"}
+#: 色を持つカラーセットの名前の変更を Undo すると、色が消える(Maya の制限。cmds.polyColorSet(rename=True) でも同じ。docstring の Note)。
+KNOWN_RENAME = {"pairs:name='colorSet1',kind='color'": "Maya の制限: 色を持つカラーセットの名前の変更を Undo すると、色が消える"}
 
 #: Meshの公開メソッドの、正しい呼び方の表。
 METHODS = (
@@ -688,7 +680,6 @@ METHODS = (
         values={"indices": (None, [0, (0, 0)], [(1, 0), (2, 0)], range(4))},
         invalid={"indices": ([24], [(0, 1)], [-1], object())},
         expect=_expect_vertex_faces,
-        known=KNOWN_VERTEX_FACES,
     ),
     Method("getShadingEngines", _make_shaded, expect=_expect_shading_engines, plural=_make_cubes),
     Method("mfn", _make_cube, expect=_expect_mfn, writes=False),
@@ -703,7 +694,6 @@ METHODS = (
         conflicts=(SPACE, _normals_conflict),
         expect=_expect_vertex_normals,
         plural=_make_cubes,
-        known=KNOWN_NORMALS,
         limit=80,
     ),
     Method(
@@ -741,7 +731,6 @@ METHODS = (
         conflicts=(SPACE, _face_vertex_normals_conflict),
         expect=_expect_face_vertex_normals,
         state=_geometry_state,
-        known=KNOWN_FACE_NORMALS,
         limit=80,
     ),
     Method("getTangentData", _make_cube, conflicts=(SPACE,), expect=_expect_tangent_data),
@@ -761,12 +750,11 @@ METHODS = (
     Method(
         "getMirrorVertexMap",
         _make_cube,
-        values={"axis": (0, 1, 2), "tolerance": (0.01, 0.5, 5.0)},
-        invalid={"axis": ("w", "xy", 3, -1, 1.5, None), "tolerance": (0, -1.0, "a", float("nan"), float("inf"))},
+        values={"axis": (0, 1, 2, "xy", "zx"), "tolerance": (0.01, 0.5, 5.0)},
+        invalid={"axis": ("w", "xx", 3, -1, 1.5, None), "tolerance": (0, -1.0, "a", float("nan"), float("inf"))},
         conflicts=(SPACE,),
         expect=_expect_mirror_map,
         plural=_make_cubes,
-        known=KNOWN_MIRROR,
         limit=200,
     ),
     Method(

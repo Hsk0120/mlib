@@ -251,7 +251,7 @@ class AnimCurve(Node):
             None: 値を返さない。fixedの接線の角度やウェイトを指定するときは、:meth:`getKeyframes` が返すKeyframeのsetTangentを使う。
 
         Raises:
-            TypeError: fastがbool以外の場合、unit・timeUnitが文字列・None以外の場合、数値へ変換できない型の場合、
+            TypeError: fast・checkがbool以外の場合、unit・timeUnitが文字列・None以外の場合、数値へ変換できない型の場合、
                 またはvalue=None(挿入)で接線の型・fast・checkを指定した場合。
             ValueError: 有限でない値や正しくない数値の場合、unit・timeUnitに対応していない場合、
                 またはfastでfixed・global・知らない接線の型を指定した場合。
@@ -260,6 +260,8 @@ class AnimCurve(Node):
                 value=None(挿入)で、キーの無いカーブの場合、またはMayaが挿入を拒否した場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。編集する前に例外にする。
         """
+        _require_bool(fast, "fast")
+        _require_bool(check, "check")
         if value is None:
             if inTangentType is not None or outTangentType is not None or fast or check:
                 raise TypeError("valueを省いた挿入では、接線の型・fast・checkは指定できません")
@@ -320,6 +322,8 @@ class AnimCurve(Node):
         各辞書はinput・valueと、任意のinTangentType・outTangentType・inAngle・outAngle・
         inWeight・outWeight・lock・weightLockを持つ。接線の単位はKeyframe.getTangentと同じ。
         既存キーは残すが、auto等の隣接接線はMayaが再計算する。weightedTangentsはカーブ全体に影響する。
+        ウェイト付きでないカーブ(weightedTangentsで変えた後の状態)では、inWeight・outWeight・weightLockを使わない(Mayaと同じく無視する)。
+        keysが空でも、weightedTangentsを指定すればカーブ全体の状態だけを変える。
         全入力を検査してから書き、通常Undoの1回にまとめる。途中のMayaの失敗は自動で巻き戻さない。
         fast引数は持たない(接線ロックを含む編集をcmdsで行うため)。
 
@@ -378,24 +382,33 @@ class AnimCurve(Node):
             if not replaceExisting and fn.find(at) is not None:
                 raise ValueError(f"同じ入力のキーがすでに存在します: {values['input']}")
             entries.append(values)
-        if not entries:
+        if not entries and weightedTangents is None:
             return
         if check:
             self._require_curve_writable()
         with undoChunk("mlibAnimCurveAddKeys"):
             if weightedTangents is not None:
                 cmds.keyTangent(self._full_name(), edit=True, weightedTangents=weightedTangents)
+            if not entries:
+                return
+            # ウェイト付きでないカーブへweightLockを渡すとMayaが拒否するため、キーを足す前に状態を読む。
+            weighted = self._curve_fn().isWeighted
             for values in entries:
                 self.addKey(values["input"], values["value"], unit=unit, timeUnit=timeUnit)
-            for values in entries:
+            for entry in entries:
+                values = entry if weighted else {key: value for key, value in entry.items() if key not in ("inWeight", "outWeight", "weightLock")}
                 index = self.findClosestIndex(values["input"], timeUnit=timeUnit)
                 old = self._get_tangent(index)
                 tangents = {key: value for key, value in values.items() if key not in ("input", "value", "lock", "weightLock")}
+                unlock = {"lock": False, "weightLock": False} if weighted else {"lock": False}
                 if tangents:
-                    self._set_tangent(index, lock=False, weightLock=False)
+                    self._set_tangent(index, **unlock)
                     self._set_tangent(index, unit=unit, **tangents)
                 if tangents or "lock" in values or "weightLock" in values:
-                    self._set_tangent(index, lock=values.get("lock", old["lock"]), weightLock=values.get("weightLock", old["weightLock"]))
+                    locks = {"lock": values.get("lock", old["lock"])}
+                    if weighted:
+                        locks["weightLock"] = values.get("weightLock", old["weightLock"])
+                    self._set_tangent(index, **locks)
             cmds.dgdirty(self._full_name())
 
     def replaceKeys(self, keys, *, unit="deg", timeUnit="frame"):
@@ -483,21 +496,21 @@ class AnimCurve(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外の場合。
+            TypeError: fast・checkがbool以外の場合。
             ValueError: 指定した外挿の方法が正しくない場合。両側とも、変える前に確かめる。
             RuntimeError: ノードが無効な場合、または書き込み先がロック・接続などで書き込めない場合。
         """
+        _require_bool(check, "check")
         with _edit_context("mlibAnimCurveSetInfinity", fast):
             allowed = {"constant": 0, "linear": 1, "cycle": 3, "cycleRelative": 4, "oscillate": 5}
             values = {key: value for key, value in (("pre", pre), ("post", post)) if value is not None}
             if any(not isinstance(value, str) or value not in allowed for value in values.values()):
                 raise ValueError("対応していないインフィニティタイプです")
             targets = [(self.getPlug(key + "Infinity"), allowed[value]) for key, value in values.items()]
-            if fast:
+            if check:
                 # 片側を書いた後にもう片側のロック・接続で失敗しないよう先に確認する。
                 for plug, _value in targets:
-                    if check:
-                        plug._require_writable()
+                    plug._require_writable()
             for plug, value in targets:
                 plug.set(value, fast=fast)
 
@@ -590,6 +603,11 @@ class AnimCurve(Node):
             TypeError: 対応するカーブ型でない、または引数の型が違う場合。
             ValueError: 許容値・範囲・単位・接線型が不正な場合。
             RuntimeError: 出力先が無い、キーが編集できない、またはMayaが処理を拒否した場合。
+
+        Note:
+            Maya 2022では、角度のカーブ(TA)の形が変わる許容値で削減してUndoすると、カーブは戻るが、
+            つながった先のアトリビュート(rotateXなど)が古い値のまま残ることがある(``cmds.filterCurve`` を直接呼んでも同じMayaの制限。
+            2027では戻る)。時刻を変えるなどで評価し直すと正しい値になる。
         """
         if self.getType() not in ("animCurveTA", "animCurveTL", "animCurveTU"):
             raise TypeError("reduceKeysはanimCurveTA・animCurveTL・animCurveTUで実行してください")
@@ -669,12 +687,14 @@ class AnimCurve(Node):
                 時刻の範囲にキーが無ければ空の集まり。
 
         Raises:
-            TypeError: indicesとtimeを両方指定した場合、またはtimeが数値でも2つの数値の並びでもない場合。
+            TypeError: indicesとtimeを両方指定した場合、timeが数値でも2つの数値の並びでもない場合、またはtimeUnitが文字列・None以外の場合。
             ValueError: timeが有限でない場合、範囲の開始が終了より大きい場合、またはtimeUnitに対応していない単位名の場合。
             IndexError: 番号がbool・int以外・負の値の場合、またはキーの数以上の場合。
             RuntimeError: ノードが無効(削除済み)の場合。
         """
         self._require_valid("アトリビュートの取得")
+        # timeを省いたときも単位の名前を確かめる(timeを渡したときと同じ例外にする)。
+        _time_unit(timeUnit)
         if time is not None:
             if indices is not None:
                 raise TypeError("indicesとtimeは同時に指定できません")
@@ -730,9 +750,13 @@ class AnimCurve(Node):
                 if check:
                     self._require_curve_writable()
                 fn = self._curve_fn()
-                for start, end in reversed(ranges):
-                    for key in range(end, start - 1, -1):
-                        fn.remove(key)
+                removed = 0
+                for start, end in ranges:
+                    for _ in range(end - start + 1):
+                        # cutKey と同じく前から1つずつ消し、消すたびに前後のキーの接線を計算し直す(消した後のキーは前へ詰まる)。
+                        fn.remove(start - removed)
+                        self._retangent_fast(fn, start - removed)
+                    removed += end - start + 1
                 if emptied and not keepCurve:
                     # 同じ呼出しの中で MDGModifier を直接使って消すと、後の keyTangent 等でMayaが異常終了するため、
                     # mlib.delete(fast=True) と同じ削除の処理に任せる。
@@ -746,6 +770,37 @@ class AnimCurve(Node):
                     cmds.cutKey(self._full_name(), index=ranges, clear=True, animation="objects")
             else:
                 cmds.cutKey(self._full_name(), index=ranges, clear=True, animation="objects")
+
+    @staticmethod
+    def _retangent_fast(fn, removed):
+        """OpenMayaでキーを1つ消した後、その前後に残ったキーの接線を、cutKeyと同じく計算し直す。
+
+        ``MFnAnimCurve.remove`` は残ったキーの接線(auto・spline等)を計算し直さないため、接線の型を一度別の型にしてから戻す。
+        固定(fixed)の接線は変えない。キーが1つだけ残るとき、cutKeyはclampedの接線を計算し直さないので、それも変えない。
+        cutKeyと同じ結果にするため、キーを前から1つ消すたびに呼ぶ。Maya 2023以前のcutKeyは、先頭のキーを消したとき
+        新しく先頭になったキーの接線を計算し直さないので、それに合わせる。
+
+        Args:
+            fn (oma2.MFnAnimCurve): キーを消したカーブ。
+            removed (int): 消したキーの番号(消した後は、その次のキーがこの番号になる)。
+
+        Returns:
+            None: 値を返さない。
+        """
+        indices = (removed - 1, removed) if removed or om2.MGlobal.apiVersion() >= 20240000 else ()
+        count = fn.numKeys
+        skipped = {oma2.MFnAnimCurve.kTangentFixed}
+        if count == 1:
+            skipped.add(oma2.MFnAnimCurve.kTangentClamped)
+        for index in indices:
+            if not 0 <= index < count:
+                continue
+            for get, put in ((fn.inTangentType, fn.setInTangentType), (fn.outTangentType, fn.setOutTangentType)):
+                tangent = get(index)
+                if tangent in skipped:
+                    continue
+                put(index, oma2.MFnAnimCurve.kTangentFlat if tangent == oma2.MFnAnimCurve.kTangentLinear else oma2.MFnAnimCurve.kTangentLinear)
+                put(index, tangent)
 
     def _get_tangent(self, index, *, unit="deg"):
         """指定したキーの接線の情報を取得する。
@@ -1291,6 +1346,7 @@ class AnimCurve(Node):
 
         Returns:
             list[tuple[int, int]]: 昇順で重ならない ``(最初, 最後)`` の並び。両方Noneは全キー、該当なしは空。
+                範囲が2つ以上になるときは、番号1つずつの範囲の並び(Mayaのコマンドが幅のある範囲を混ぜた並びを受け付けないため)。
 
         Raises:
             IndexError: 範囲外の番号を含む場合。
@@ -1310,6 +1366,10 @@ class AnimCurve(Node):
                 ranges[-1] = (ranges[-1][0], number)
             else:
                 ranges.append((number, number))
+        if len(ranges) > 1 and any(start != end for start, end in ranges):
+            # Mayaのコマンドは、幅のある範囲を含む2つ以上の範囲の並びを「Invalid argument for flag '-index'」で拒否するため、
+            # 番号1つずつの範囲に分ける。
+            ranges = [(number, number) for start, end in ranges for number in range(start, end + 1)]
         return ranges
 
     def _index(self, index):

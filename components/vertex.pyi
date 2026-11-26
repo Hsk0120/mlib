@@ -7,7 +7,7 @@ from ..maths.vector import Vector
 from ..util import _UNSET, _world_space
 from .pointComponent import PointComponent, PointComponents
 from .uv import UVs
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator, Literal, Sequence
 from mlib.components.edge import Edges
 from mlib.components.face import Faces
 from mlib.components.vertexFace import VertexFaces
@@ -42,15 +42,32 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def getConnected(self) -> Vertices:
-        """エッジでつながった隣の頂点を取得する。
+    @overload
+    def getConnected(self, *, type: Literal["face"]) -> Faces: ...
+    @overload
+    def getConnected(self, *, type: Literal["edge"]) -> Edges: ...
+    @overload
+    def getConnected(self, *, type: Literal["vertex"] = ...) -> Vertices: ...
+    @overload
+    def getConnected(self, *, type: str = ...) -> Vertices | Edges | Faces:
+        """この頂点の隣にあるコンポーネントを取得する。
 
-        自身は含めない。集まるエッジは :meth:`getEdges`、触れている面は :meth:`getFaces` で取得する。
+        ``type`` で、取得する種類を選ぶ。:meth:`Face.getConnected <mlib.components.face.Face.getConnected>` と同じく、
+        自身は含めない。頂点を形づくる要素は頂点自身だけなので、集まるエッジ・触れている面はそのまま含める。
+
+        - ``"vertex"``: エッジでつながった隣の頂点(``MItMeshVertex.getConnectedVertices``)。
+        - ``"edge"``: この頂点に集まるエッジ(``MItMeshVertex.getConnectedEdges``。:meth:`getEdges` と同じ)。
+        - ``"face"``: この頂点に触れている面(``MItMeshVertex.getConnectedFaces``。:meth:`getFaces` と同じ)。
+
+        Args:
+            type (str): 取得する種類。``"vertex"``・``"edge"``・``"face"``。既定は ``"vertex"``。
 
         Returns:
-            Vertices: 頂点。番号の小さい順に並び、重なりは無い。
+            Vertices | Edges | Faces: ``type`` に合う集まり。番号の小さい順に並び、重なりは無い。
 
         Raises:
+            TypeError: typeが文字列でない場合。
+            ValueError: typeが ``"vertex"``・``"edge"``・``"face"`` のどれでもない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
@@ -231,7 +248,7 @@ class Vertices(PointComponents):
     def getEdges(self) -> list[Edges]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getEdges` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnected(self) -> list[Vertices]:
+    def getConnected(self, *, type: str = ...) -> list[Vertices | Edges | Faces]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getConnected` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getVertexFaces(self) -> list[VertexFaces]:

@@ -91,7 +91,6 @@ METHODS = (
         },
         expect=_expect_capture,
         writes=False,
-        known={"invalid:nodes=<削除済みのノード>": "削除済みのノードで Raises に無い ValueError(Maya の No object matches name)"},
     ),
 )
 

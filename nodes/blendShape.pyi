@@ -32,6 +32,7 @@ _MAX_INDEX: int
 _TARGETS_FORMAT: str
 _TARGETS_VERSION: int
 _TARGETS_MODES: tuple
+_ATTRIBUTE_NAME: Any
 
 
 class BlendShape(GeometryFilter):
@@ -177,9 +178,11 @@ class BlendShape(GeometryFilter):
             Plug: 追加したターゲット(in-betweenでは追加先のターゲット)のウェイト(``weight[i]``)。
 
         Raises:
-            TypeError: name・index・fullWeight・形状の型が不正な場合、relativeがbool以外の場合、in-betweenの形状がメッシュでない場合、
-                inBetweenとname・indexを同時に指定した場合、またはinBetweenを渡さずにrelative=Trueを指定した場合。
-            ValueError: 名前・番号・ウェイトが不正、ベースが未登録、同じベースの番号が使用中の場合。
+            TypeError: name・index・fullWeight・形状の型が不正な場合(形状の無いTransformを含む)、relativeがbool以外の場合、
+                in-betweenの形状がメッシュでない場合、inBetweenとname・indexを同時に指定した場合、
+                またはinBetweenを渡さずにrelative=Trueを指定した場合。
+            ValueError: 名前・番号・ウェイトが不正(アトリビュートの名前に使えない文字・すでにあるアトリビュートと同じ名前を含む)、
+                ベースが未登録、同じベースの番号が使用中の場合。
                 in-betweenでは、ターゲットが無い場合、fullWeightが0か1・すでにある項目・範囲外・0.001刻みでない場合、
                 または頂点数がベースと違う場合。
             RuntimeError: ノードが無効な場合、ベースが無い場合、またはMayaが追加を拒否した場合。
@@ -250,6 +253,7 @@ class BlendShape(GeometryFilter):
             list[int]: 項目の論理番号の昇順。ターゲット本体も含む。
 
         Raises:
+            TypeError: target・baseが使えない型(boolを含む)の場合。
             ValueError: ターゲットまたはベースが存在しない場合。
             RuntimeError: ノードが無効な場合。
         """
@@ -268,6 +272,7 @@ class BlendShape(GeometryFilter):
             dict[int, Node | None]: 項目の論理番号から接続元ノードへの対応。
 
         Raises:
+            TypeError: target・baseが使えない型(boolを含む)の場合。
             ValueError: ターゲットまたはベースが存在しない場合。
             RuntimeError: ノードが無効な場合。
         """
@@ -370,7 +375,7 @@ class BlendShape(GeometryFilter):
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型が不正な場合、disconnect・fastがbool以外の場合、またはベースがメッシュでない場合。
+            TypeError: 引数の型が不正な場合、disconnect・fast・checkがbool以外の場合、またはベースがメッシュでない場合。
             ValueError: ターゲットや項目が無い場合、または変位が3つの有限な数値でない場合。
             IndexError: 頂点番号が範囲外の場合。
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
@@ -421,7 +426,7 @@ class BlendShape(GeometryFilter):
             None: 値を返さない。
 
         Raises:
-            TypeError: 引数の型が不正な場合、verticesとtoleranceを両方指定したか、どちらも指定しない場合、
+            TypeError: 引数の型が不正な場合(fast・check・disconnectがbool以外を含む)、verticesとtoleranceを両方指定したか、どちらも指定しない場合、
                 またはverticesの指定でベースがメッシュでない場合(toleranceの指定では、ベースはメッシュ以外のカーブなどでもよい)。
             ValueError: ターゲットや項目が無い場合、頂点が別の形状のものの場合、またはtoleranceが負の数か有限でない場合。
             IndexError: 頂点番号が範囲外の場合。
@@ -513,17 +518,21 @@ class BlendShape(GeometryFilter):
         ``cmds.sculptTarget`` を使う。編集モードの間は、ベースをスカルプトした結果がターゲットのデルタへ書き込まれる。
         Undoが有効なら、1回のUndoで戻せる。
 
+        すでに同じターゲット・同じ項目を編集しているときに始めると、何もしない(編集を続ける)。
+
         Args:
-            target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定し、終えるときは使わない。
+            target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定する。
+                終えるときは使わない(渡したときは、型とターゲットがあるかだけを確かめる)。
             state (bool): Trueなら編集を始め、FalseならこのblendShapeの編集モードを終える。既定はTrue。
             fullWeight (float): 編集する項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
+                終えるときは使わない(値は確かめる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
             TypeError: targetの型が不正な場合、stateがbool以外の場合、またはfullWeightが数値でない場合。
-            ValueError: 始めるときにtargetが無い場合、またはターゲットや項目が無い場合。
+            ValueError: 始めるときにtargetが無い場合、ターゲットや項目が無い場合、またはfullWeightが有限でない・0.001刻みでない場合。
         """
         ...
     def getTargetsData(self) -> dict:
@@ -588,7 +597,7 @@ class BlendShape(GeometryFilter):
             pathlib.Path: 書き出したファイルの絶対パス。
 
         Raises:
-            TypeError: ベースがメッシュでない場合。
+            TypeError: pathがstr・os.PathLikeでない場合、またはベースがメッシュでない場合。
             OSError: 書き出しに失敗した場合。
         """
         ...
@@ -608,6 +617,7 @@ class BlendShape(GeometryFilter):
             ValidationReport: :meth:`setTargetsData` の結果。
 
         Raises:
+            TypeError: pathがstr・os.PathLikeでない場合、またはnameMap・replace・namespaceMap・modeの型が正しくない場合。
             ValueError: 形式名や版が違う場合、または :meth:`setTargetsData` が拒否した場合。
             OSError: 読み込みに失敗した場合。
         """
@@ -667,6 +677,13 @@ class BlendShape(GeometryFilter):
         Raises:
             TypeError: 対応しない型(boolを含む)の場合。
             ValueError: ターゲットが無い場合、またはtargetがほかのノードや別のアトリビュートのPlugの場合。
+        """
+        ...
+    def _editing_item(self) -> tuple[int, int] | None:
+        """編集モード(sculptTarget)で編集しているターゲットと項目を返す。
+
+        Returns:
+            tuple[int, int] | None: ターゲットの論理番号と ``inputTargetItem`` の論理番号。編集していなければNone。
         """
         ...
     def _base_indices(self) -> list[int]:
@@ -1165,6 +1182,21 @@ def _mesh_shape(value: str | Node) -> Node:
     Raises:
         TypeError: メッシュでない場合。
         ValueError: transformに中間オブジェクトでないメッシュが1つでない場合。
+    """
+    ...
+
+def _target_shape(value: str | Node) -> Node:
+    """ターゲットに使う形状(またはそれを持つTransform)を、形状のノードにする。
+
+    Args:
+        value (str | Node): 形状、またはそれを持つTransform。
+
+    Returns:
+        Node: Transformなら直下の中間オブジェクトでない最初の形状、形状ならそのもの。
+
+    Raises:
+        TypeError: 形状でも、形状を持つTransformでもない場合。
+        RuntimeError: 名前のノードが無い場合。
     """
     ...
 

@@ -2,8 +2,10 @@
 """Mayaの依存ノードとDAGノードを扱う基底クラス。"""
 
 import inspect
+import math
 import numbers
 import re
+from collections.abc import Sequence
 from operator import methodcaller
 from typing import Optional
 import maya.api.OpenMaya as om2
@@ -14,7 +16,7 @@ from ..core.object import Object, _missing_member_message
 from ..core.registry import _inherited_node_types, _node_type_exists, _real_node_type, _unknown_node_type_message
 from ..decorator import _edit_context, _merge_flags, _pick_alias, _require_bool, _validated_flags, undoChunk, undoTransaction
 from ..util import _UNSET, _angle_unit, _ArgumentError, _color_value, _time_unit
-from typing import Any, Callable, Generic, Iterable, Iterator, Literal, Sequence
+from typing import Any, Callable, Generic, Iterable, Iterator, Literal
 from mlib.common.namespace import Namespace
 from mlib.components.component import Component
 from mlib.components.component import Components
@@ -132,6 +134,21 @@ def _require_node_name(name: object) -> None:
 
     Raises:
         ValueError: DAGパスの区切り ``|`` を含む場合。
+    """
+    ...
+
+def _require_name_sequence(value: object, label: str) -> None:
+    """名前の並びの引数(子の名前など)が、文字列の並びかNoneかを確かめる。
+
+    Args:
+        value (object): 確かめる値。
+        label (str): 例外メッセージに使う引数名。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: Noneでも、文字列の並びでもない場合(文字列1つも含む)。
     """
     ...
 
@@ -312,21 +329,18 @@ def _attribute_names(attributes: str | Iterable[str] | None) -> list[str] | None
     """
     ...
 
-def _pick_short(long: object, short: object, default: object, long_name: str, short_name: str) -> Any:
-    """長い名前(既定値あり)と短縮名(既定は ``_UNSET``)から、指定された方の値を選ぶ。
+def _select_flags(add: bool, deselect: bool) -> dict[str, bool]:
+    """Node.select・Nodes.selectのadd・deselectを確かめ、``cmds.select`` へ渡すフラグにする。
 
     Args:
-        long (object): 長い名前の引数の値。
-        short (object): 短縮名の引数の値。指定されていなければ ``_UNSET``。
-        default (object): 長い名前の既定値。これと違えば、長い名前が指定されたとみなす。
-        long_name (str): 長い名前の引数名。例外メッセージに使う。
-        short_name (str): 短縮名の引数名。例外メッセージに使う。
+        add (bool): Trueなら、今の選択に加える。
+        deselect (bool): Trueなら、今の選択から外す。
 
     Returns:
-        object: 指定された値。どちらも指定されていなければ長い名前の既定値。
+        dict[str, bool]: ``cmds.select`` のフラグ。どちらもFalseなら空(Mayaの既定の置き換え)。
 
     Raises:
-        TypeError: 長い名前と短縮名を同時に指定した場合。
+        TypeError: add・deselectがboolでない場合、または両方をTrueにした場合。
     """
     ...
 
@@ -707,7 +721,8 @@ class Node(Object):
             bool: 継承の並びにtypeが含まれていればTrue。
 
         Raises:
-            ValueError: typeが空文字列か、文字列以外の場合。
+            TypeError: typeが文字列以外の場合。
+            ValueError: typeが空文字列の場合。
         """
         ...
     def isLocked(self) -> bool:
@@ -722,7 +737,7 @@ class Node(Object):
             RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合。
         """
         ...
-    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> None:
+    def setLocked(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
         """ノードそのもののロックを設定する。
 
         アトリビュートごとのロックはPlug.setLocked()を使う。
@@ -732,13 +747,17 @@ class Node(Object):
         Args:
             state (bool): Trueならロック、Falseなら解除する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、変える前に、リファレンスから読み込んだノードでないかを確かめ、そうなら何も変えずに例外にする
+                (Mayaはリファレンスのノードのロックも変えるが、fastの変更はリファレンスの編集に残らない)。
+                既定はFalseで、確かめずに変える。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateかfastがbool以外の場合。
-            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合、またはMayaが変更を拒否した場合。
+            TypeError: state・fast・checkがbool以外の場合。
+            RuntimeError: ノードが破棄されている(削除後にUndoの記録から消えた)場合、check=Trueでリファレンスのノードの場合、
+                またはMayaが変更を拒否した場合。
         """
         ...
     def isFromReferencedFile(self) -> bool:
@@ -865,6 +884,7 @@ class Node(Object):
             None: 値を返さない。ネームスペース付きの名前は ``getName(short=True)`` で取得する。
 
         Raises:
+            TypeError: fastがboolでない場合。
             ValueError: namespaceが空文字列か、文字列でない場合。
             RuntimeError: ネームスペースへ移せなかった場合。
         """
@@ -919,7 +939,7 @@ class Node(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外の場合。
+            TypeError: nameが文字列でない場合、またはignoreShape・fastがbool以外の場合。
             ValueError: nameに ``|`` を含む場合。
             RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、名前の変更はできません``。
                 fastも同じ)、このオブジェクトが持つDAGパスのインスタンスが削除された場合、
@@ -945,26 +965,29 @@ class Node(Object):
             Node: 複製した新しいノード(いちばん上のもの)。
 
         Raises:
-            TypeError: フラグのロング名と短縮名を同時に指定した場合、またはsuffixが文字列・None以外の場合。
+            TypeError: フラグのロング名と短縮名を同時に指定した場合、またはname・suffixが文字列・None以外の場合。
             ValueError: suffixが不正な場合、またはrenameChildren=Trueと同時に指定した場合。
             RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、複製はできません``)、
                 またはMayaが複製を拒否した場合。
         """
         ...
-    def select(self, **kwargs: object) -> None:
+    def select(self, *, add: bool = ..., deselect: bool = ...) -> None:
         """このノードを選択する。
 
         既定では、今の選択を置き換える。:func:`mlib.select` (``cmds.select``)で選択し、1回のUndoで戻せる。
+        ``add=True`` は今の選択に加え、``deselect=True`` は今の選択から外す(``cmds.select`` の同じ名前のフラグ、
+        :meth:`Selection.select <mlib.common.selection.Selection.select>` と同じ)。
+        ほかの ``cmds.select`` のフラグは :func:`mlib.select` で指定する。
 
         Args:
-            **kwargs (object): ``cmds.select`` のフラグ(``add``・``deselect``・``toggle``・
-                ``hierarchy`` など。短縮名も使える)。
+            add (bool): Trueなら、今の選択に加える。deselectとは同時に指定できない。既定はFalse。
+            deselect (bool): Trueなら、今の選択から外す。addとは同時に指定できない。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: フラグのロング名と短縮名を同時に指定した場合。
+            TypeError: add・deselectがboolでない場合、または両方をTrueにした場合。
             RuntimeError: ノードが無効(削除済み)の場合(``無効な<クラス名>のため、選択はできません``)、
                 またはMayaが選択を拒否した場合。
         """
@@ -997,7 +1020,7 @@ class Node(Object):
         (unitConversion・unitToTimeConversion・timeToUnitConversion)を飛ばして、その先を返す。
 
         短縮名(``s``・``d``・``t``・``et``・``scn``)は ``cmds.listConnections`` のフラグと同じで、
-        同じフラグの長い名前と同時には指定できない。ペアで返す指定は ``asPair`` だけ
+        同じフラグの長い名前と同時には指定できない(値に関係なく)。ペアで返す指定は ``asPair`` だけ
         (``cmds.listConnections`` の ``connections``・``c`` は受けない)。
 
         Args:
@@ -1008,19 +1031,22 @@ class Node(Object):
             scn (bool): skipConversionNodesの短縮名。
             source (bool): Trueなら入力を含める。既定はTrue。
             destination (bool): Trueなら出力を含める。既定はTrue。
-            type (str | None): 接続先のノードの型で絞る。
-            exactType (bool): Trueなら、型の名前が完全に一致するものだけに絞る。
+            type (str | None): 接続先のノードの型で絞る。既定はNoneで、絞らない。
+            exactType (bool): Trueなら、型の名前が完全に一致するものだけに絞る。既定はFalse。
             skipConversionNodes (bool): 既定はFalseで、直接つながっている相手を返す(``cmds.listConnections`` と同じ)。
                 Trueなら、unitConversionの仲間を飛ばす。
-            asPair (bool): Trueなら、自身の側のPlugと相手の側のペアで返す。
-            asNode (bool): Trueなら、相手の側をNodeで返す。
-            index (int | None): 結果のうち1件だけを返すときの番号。範囲外ならNone。
+            asPair (bool): Trueなら、自身の側のPlugと相手の側のペアで返す。既定はFalse。
+            asNode (bool): Trueなら、相手の側をNodeで返す。既定はFalse。
+            index (int | None): 結果のうち1件だけを返すときの、結果の並びの位置の番号(Mayaの番号ではない)。
+                負の数は末尾から数える(Pythonの並びと同じ)。範囲外ならNone。
 
         Returns:
             Plugs | Nodes | list | Plug | Node | tuple | None: 条件に合う結果。
 
         Raises:
-            TypeError: 同じフラグの長い名前と短縮名を同時に指定した場合。
+            TypeError: boolの引数がboolでない場合、type(t)が文字列でもNoneでもない場合、indexがintでもNoneでもない場合、
+                または同じフラグの長い名前と短縮名を同時に指定した場合(値に関係なく)。
+            ValueError: type(t)が空文字列の場合。
         """
         ...
     def setKey(self, attributes: str | Iterable[str] | None = ..., *, unit: str | None = ..., timeUnit: str = ..., uiUnits: bool = ..., **kwargs) -> None:
@@ -1136,6 +1162,8 @@ class Node(Object):
                 中間オブジェクトでない直下のShapeのヒストリを返す。DAGノードは最初のDAGパスで返す。
 
         Raises:
+            TypeError: typeが文字列でもNoneでもない場合、またはfutureがboolでない場合。
+            ValueError: typeが空文字列の場合。
             RuntimeError: 無効な(削除済みの)ノードの場合。
         """
         ...
@@ -1187,7 +1215,7 @@ class Node(Object):
             RuntimeError: 明示したアトリビュートが、ロックや接続などで書き込めない場合。
         """
         ...
-    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> None:
+    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """アトリビュートのロック・キーを設定できるか・チャンネルボックスへの表示を変更する。
 
         先に状態の型を確かめ、すべてのアトリビュートを解決してから、順に変更する。
@@ -1203,16 +1231,20 @@ class Node(Object):
                 既定はFalseで、指定したアトリビュートだけを変える(Mayaの ``setAttr`` と同じく、親のkeyableと
                 チャンネルボックスの表示は子へ及ばない。ロックは親から子へ受け継がれる)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、変える前に、Mayaが拒否する変更(リファレンスのノードのアトリビュートのkeyable・
+                チャンネルボックスの表示)が無いかを確かめ、あれば何も変えずに例外にする。既定はFalseで、確かめずに変える
+                (途中でMayaが拒否すると、それまでのアトリビュートは変わったまま)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
             AttributeError: 指定したアトリビュートが存在しない場合。
-            TypeError: 必須の引数が足りない場合、fast・childrenや状態の型が不正な場合、
+            TypeError: 必須の引数が足りない場合、fast・children・checkや状態の型が不正な場合、
                 または名前・Plug以外を指定した場合。
             ValueError: 別のノードのPlugを指定した場合。
-            RuntimeError: Mayaが変更を拒否した場合。
+            RuntimeError: check=Trueでリファレンスのノードのkeyable・チャンネルボックスの表示を変えようとした場合、
+                またはMayaが変更を拒否した場合。
         """
         ...
     def getPlugs(self, *, userDefined: bool = ..., children: bool = ..., writable: bool = ..., animatable: bool = ..., **listAttrFlags) -> Plugs:
@@ -1409,12 +1441,17 @@ class Node(Object):
                 getPlug=Falseでも、アトリビュートの追加と既定値などの設定は行う。
 
         Raises:
-            TypeError: ロング名と短縮名を同時に指定した場合、fast・skipExistingがbool以外の場合、
+            TypeError: ロング名と短縮名を同時に指定した場合、fast・skipExisting・getPlug・channelBoxがbool以外の場合、
+                type・subTypeが文字列・None以外の場合、childNames・childShortNames・childSuffixesが文字列の並び・None以外の場合、
                 unitが文字列・None以外の場合、単位のある型の既定値・範囲が数値でも単位付きの値でもない場合、
                 またはskipExisting=Trueで、既存のアトリビュートの型やマルチアトリビュートかどうかが指定と違う場合。
             ValueError: 名前を省いた場合、型の接頭辞が不正な場合、解決した結果attributeTypeとdataTypeを
                 両方指定することになった場合、query/edit=Trueの場合、unitが対応していない単位の名前の場合、
+                min・max・softMin・softMaxの数値が有限でない場合、
                 またはenumのdefaultValueのフィールド名がenumNameに無い場合。
+            AttributeError: proxyの名前のアトリビュートが見つからない場合(``MissingAttributeError``)。
+            RuntimeError: proxyのPlugのノードが削除されている場合、またはMayaが追加を拒否した場合
+                (dataType・parentの名前が正しくない場合や、フラグが型に合わない場合など)。
             NotImplementedError: fastで、対応していない型や定義のフラグを指定した場合。
 
         Note:
@@ -1487,6 +1524,9 @@ class Node(Object):
 
         Returns:
             bool: アトリビュートを取得できれば ``True``。
+
+        Raises:
+            TypeError: nameが文字列でない場合。
         """
         ...
     def getExternalContent(self) -> list[dict[str, str | list[str]]]:
@@ -2119,7 +2159,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
-            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・fastがbool以外の場合。
+            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・fast・checkがbool以外の場合。
             ValueError: 色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
@@ -2139,7 +2179,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
-            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・toShape・fastがbool以外の場合。
+            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・toShape・fast・checkがbool以外の場合。
             ValueError: 色の数がノードの数と違う、または色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
@@ -2157,7 +2197,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             None: 値を返さない。
 
         Raises:
-            TypeError: DAGノード以外を含む、またはstate・fastがbool以外の場合。
+            TypeError: DAGノード以外を含む、またはstate・fast・checkがbool以外の場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
         ...
@@ -2176,10 +2216,12 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             None: 値を返さない。各要素は、親を変えた後のパスを指す。
 
         Raises:
-            TypeError: Transform以外を含む場合。
+            TypeError: Transform以外を含む場合、relative・add・fast・checkがboolでない場合、
+                またはparentがノードとして扱えない値の場合。
             ValueError: :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
             RuntimeError: 無効なノードを含む場合、parentがどれかの要素自身かその子孫の場合、
                 またはMayaが親の変更を拒否した場合。parentは、どの要素も変える前に確かめる。
+            NotImplementedError: fast=Trueとadd=Trueを同時に指定した場合。
         """
         ...
     def getNames(self, *, full: bool = ..., short: bool = ..., removeNamespace: bool = ...) -> list[str]:
@@ -2216,20 +2258,22 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             RuntimeError: :meth:`~mlib.nodes.dagNode.DagNode.getSkinClusters` と同じ。
         """
         ...
-    def select(self, **kwargs: object) -> None:
+    def select(self, *, add: bool = ..., deselect: bool = ...) -> None:
         """すべてのノードを一度に選択する。
 
         既定では今の選択を置き換え、要素の順に選択する。:func:`mlib.select` (``cmds.select``)で選択し、
         1回のUndoで戻せる。要素が無いまま置き換えると、選択が外れる(``cmds.select`` に空の並びを渡したときと同じ)。
+        ``add=True`` は今の選択に加え、``deselect=True`` は今の選択から外す(:meth:`Node.select` と同じ)。
 
         Args:
-            **kwargs (object): ``cmds.select`` のフラグ(``add``・``deselect``・``toggle`` など。短縮名も使える)。
+            add (bool): Trueなら、今の選択に加える。deselectとは同時に指定できない。既定はFalse。
+            deselect (bool): Trueなら、今の選択から外す。addとは同時に指定できない。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: フラグのロング名と短縮名を同時に指定した場合。
+            TypeError: add・deselectがboolでない場合、または両方をTrueにした場合。
             RuntimeError: 無効なノードを含む場合、またはMayaが選択を拒否した場合。
         """
         ...
@@ -2325,7 +2369,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
             list: 要素順の戻り値。
 
         Raises:
-            TypeError: メソッドを持たない要素を含む場合、またはfastがbool以外の場合。
+            TypeError: メソッドを持たない要素を含む場合、またはfast・checkがbool以外の場合。
             RuntimeError: 無効な要素を含む場合、またはwritesの書き込み先に書き込めない場合。
         """
         ...
@@ -2464,7 +2508,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def isLocked(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setLocked(self, state: bool = ..., *, fast: bool = ...) -> list[None]:
+    def setLocked(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setLocked` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isFromReferencedFile(self) -> list[bool]:
@@ -2524,7 +2568,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def findCycles(self) -> list[list[list[Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.findCycles` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
+    def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setAttrFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPlugs(self, *, userDefined: bool = ..., children: bool = ..., writable: bool = ..., animatable: bool = ..., **listAttrFlags) -> list[Plugs]:

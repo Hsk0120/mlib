@@ -112,7 +112,7 @@ class VertexFace(Component):
         Raises:
             TypeError: fast・check・locked・空間指定・法線の型が不正な場合、normalとlockedをどちらも指定しない場合、
                 normalとlocked=Falseを同時に指定した場合、またはnormalを渡さずにworldSpace(ws)・checkを指定した場合。
-            ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
+            ValueError: 法線の成分の数が3でない・成分が不正・長さ0の場合、またはワールド変換が特異な場合。
             RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
@@ -131,6 +131,7 @@ class VertexFace(Component):
 
         Raises:
             TypeError: binormalがboolでない場合、空間指定・uvSetの型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 指定した名前のUVセットが無い場合。
             RuntimeError: UVが未割当・縮退しているか、接線(従法線)を求められない場合。
         """
         ...
@@ -142,6 +143,12 @@ class VertexFace(Component):
 
         Returns:
             tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
+
+        Raises:
+            TypeError: colorSetが文字列でもNoneでもない場合。
+            ValueError: 指定した名前のカラーセットが無い場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合。
         """
         ...
     def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> None:

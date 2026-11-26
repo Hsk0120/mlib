@@ -184,8 +184,10 @@ class UnitsNodePlugAdditionsTest(unittest.TestCase):
                     units.convertTime(*args)
 
     def test_convert_angle(self):
-        """既定は度→ラジアン。None は現在のUI角度単位。"""
-        self.assertAlmostEqual(units.convertAngle(180), math.pi)
+        """既定(None)は現在のUI角度単位。"""
+        cmds.currentUnit(angle="deg")
+        self.assertAlmostEqual(units.convertAngle(180), 180.0)
+        self.assertAlmostEqual(units.convertAngle(180, "deg", "rad"), math.pi)
         self.assertAlmostEqual(units.convertAngle(math.pi, "rad", "deg"), 180.0)
         self.assertAlmostEqual(units.convertAngle(90, "degrees", "radians"), math.pi / 2)
         cmds.currentUnit(angle="rad")

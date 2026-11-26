@@ -24,11 +24,6 @@ INDEX_VALUES = (None, 0, 2, 3, 7, -1, 2147483647, 2147483648)
 START_VALUES = (-1, 0, 2, 3, 100, 2147483647, 2147483648)
 
 
-def _not_bool(*names):
-    """bool の引数に bool でない値(1・"yes")を渡すと、例外にせず真偽として読む場合の known。"""
-    return {f"invalid:{name}={value}": "bool でない値を真偽として読む" for name in names for value in ("1", "'yes'")}
-
-
 class _SweepCase(ArgumentSweepCase):
     """書き込むメソッドの戻り値(Plug・Node)を、呼んだ直後の名前に置き換える基底。
 
@@ -215,34 +210,17 @@ def _expect_connect(case, call):
 
 def _expect_disconnect(case, call):
     """入力元から、マルチアトリビュートのどの要素へもつながっていない(nextAvailable で探した場合)。"""
-    if not call.kwargs.get("nextAvailable", call.kwargs.get("na")) or call.kwargs.get("source") is None:
+    if not call.kwargs.get("nextAvailable", call.kwargs.get("na")) or call.kwargs.get("other") is None:
         return
-    source = _full(mlib.getPlug(call.kwargs["source"]))
+    source = _full(mlib.getPlug(call.kwargs["other"]))
     case.assertFalse([index for index in _indices(call.target) if cmds.isConnected(source, f"{_full(call.target)}[{index}]")])
-
-
-#: 長い名前が既定値なら、短縮名と同時に指定しても例外にならない(findings4/args-support.md の5と同じ)。
-KNOWN_ALIAS = {
-    f"pairs:{long}=False,{short}=*": "長い名前が既定値なら、短縮名と同時に指定しても例外にならない"
-    for long, short in (("force", "f"), ("lock", "l"), ("nextAvailable", "na"))
-}
 
 
 class MultiPlugArgumentSweepTest(_SweepCase):
     """MultiPlug の公開メソッドの引数を網羅する。"""
 
     METHODS = (
-        Method(
-            "get",
-            _attr("lst"),
-            values={"time": (om2.MTime(5.0, om2.MTime.uiUnit()),)},
-            expect=_expect_get,
-            plural=_pair_of("lst"),
-            known=dict.fromkeys(
-                ("values:time=[!N]*", "pairs:*,time=[!N]*"),
-                "その時刻で初めて読むと、値だけを持つ要素が欠けた dict を返す(読む順で欠け方が変わるので、time のある組を全部入れる)",
-            ),
-        ),
+        Method("get", _attr("lst"), values={"time": (om2.MTime(5.0, om2.MTime.uiUnit()),)}, expect=_expect_get, plural=_pair_of("lst")),
         Method("getElementCount", _attr("lst"), expect=_expect_count, plural=_pair_of("lst")),
         Method(
             "getElement",
@@ -301,25 +279,18 @@ class MultiPlugConnectArgumentSweepTest(_SweepCase):
             state=_multi_state,
             expect=_expect_connect,
             limit=60,
-            known={
-                **KNOWN_ALIAS,
-                "invalid:force=1": "bool でない値を真偽として読む",
-                "invalid:f=1": "bool でない値を真偽として読む",
-                **_not_bool("lock", "l", "nextAvailable", "unlock"),
-            },
         ),
         Method(
             "disconnect",
             _attr("lst"),
             args=(_lazy_plug("src1.outA", "<要素2の入力元>"),),
             kwargs={"nextAvailable": True},
-            values={"source": (_lazy_plug("src1.outA", "<要素2の入力元>"), _lazy_plug("src1.outC", "<つないでいない入力元>"), None)},
-            replace=("source",),
+            values={"other": (_lazy_plug("src1.outA", "<要素2の入力元>"), _lazy_plug("src1.outC", "<つないでいない入力元>"), None)},
+            replace=("other",),
             conflicts=(("nextAvailable", "na"),),
             state=_multi_state,
             expect=_expect_disconnect,
             limit=60,
-            known={**KNOWN_ALIAS, **_not_bool("nextAvailable")},
         ),
     )
 

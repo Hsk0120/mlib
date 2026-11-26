@@ -189,10 +189,6 @@ PATH_VALUES = (
 #: 段2の置き換えるファイルの誤った値(空・無いファイル・数・None・削除済みのノード)。
 PATH_INVALID = ("", Lazy(lambda case: _path("argumentSweepMissing.ma"), "<無いファイル>"), 1.5, None, DELETED_NODE)
 
-#: 本体との食い違い(findings: sweep-geometry の Reference)。
-KNOWN_GET_EDITS = {f"invalid:{name}=1": "bool でない値を真偽として読む" for name in ("successful", "failed")}
-#: getFilename の食い違い。
-KNOWN_FILENAME = {f"invalid:{name}=*": "Raises が無く、bool でない値を受け付ける・Raises に無い TypeError になる" for name in ("resolved", "withCopyNumber")}
 
 #: 引数の無いメソッドを確かめるときに、参照を作る表の1行。
 _NO_ARGS = Method("isLoaded", _setup("outer"))
@@ -201,7 +197,7 @@ _NO_ARGS = Method("isLoaded", _setup("outer"))
 METHODS = (
     Method("mfn", _setup("outer"), writes=False),
     Method("isReferenceLocked", _setup("outer")),
-    Method("setReferenceLocked", _setup("outer"), expect=_expect_locked, state=_state),
+    Method("setReferenceLocked", _setup("outer"), expect=_expect_locked, state=_state, undoable=False),
     Method(
         "cleanEdits",
         _setup("outer", unload=True),
@@ -209,15 +205,16 @@ METHODS = (
         invalid={"editCommand": (1.5, "", "lock")},
         expect=_expect_cleaned,
         state=_state,
+        undoable=False,
     ),
-    Method("getFilename", _setup("copy"), expect=_expect_filename, plural=_plural_references, known=KNOWN_FILENAME),
+    Method("getFilename", _setup("copy"), expect=_expect_filename, plural=_plural_references),
     Method("getAssociatedNamespace", _setup("outer")),
     Method("getCopyNumber", _setup("copy")),
     Method("getCopyNumbers", _setup("copy")),
     Method("isUsingNamespaces", _setup("outer")),
     Method("isDeferred", _setup("outer")),
     Method("isLoaded", _setup("outer")),
-    Method("setLoaded", _setup("outer"), expect=_expect_loaded, state=_state),
+    Method("setLoaded", _setup("outer"), expect=_expect_loaded, state=_state, undoable=False),
     Method("getNodes", _setup("outer")),
     Method("getParentReference", _setup("inner"), expect=_expect_parent),
     Method("getChildren", _setup("outer")),
@@ -231,7 +228,6 @@ METHODS = (
             "onReferenceNode": (Lazy(lambda case: case.name("outer:top"), "<outer:top>"), DELETED_NODE, MISSING_NAME, 1.5),
         },
         expect=_expect_edits,
-        known=KNOWN_GET_EDITS,
         limit=100,
     ),
     Method(
@@ -254,9 +250,11 @@ METHODS = (
         invalid={"path": PATH_INVALID},
         expect=_expect_replaced,
         state=_state,
+        undoable=False,
     ),
-    Method("importContents", _setup("copy"), expect=_expect_imported, state=_state),
-    Method("remove", _setup("copy"), state=_state),
+    # ファイルの操作は Undo に記録しない(docstring)。
+    Method("importContents", _setup("copy"), expect=_expect_imported, state=_state, undoable=False),
+    Method("removeReference", _setup("copy"), state=_state, undoable=False),
 )
 
 
@@ -310,8 +308,8 @@ class ReferenceArgumentSweepTest(ArgumentSweepCase):
             copy.getNodes()
         with self.subTest(method="importContents(アンロード)"), self.assertRaises(RuntimeError):
             copy.importContents()
-        with self.subTest(method="remove"):
-            self.assertIsNone(copy.remove())
+        with self.subTest(method="removeReference"):
+            self.assertIsNone(copy.removeReference())
             self.assertFalse(cmds.objExists(names["copy"]))
 
     def fresh(self, method):

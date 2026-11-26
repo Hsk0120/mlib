@@ -207,7 +207,7 @@ class NodeApiTest(unittest.TestCase):
 
         target = self.create_transform("mlibNodeApiComposeTarget")
         result = target.setMatrix(matrix, worldSpace=True)
-        self.assertIs(result, target)
+        self.assertIsNone(result)
         self.assertTrue(target.getMatrix(worldSpace=True).isEquivalent(matrix, tolerance=1e-6))
 
         with self.assertRaises(ValueError):
@@ -217,7 +217,7 @@ class NodeApiTest(unittest.TestCase):
         transform = self.create_transform("mlibNodeApiSetMatrixDirect")
         matrix = Matrix(translate=(1.0, 2.0, 3.0))
         result = transform.setMatrix(matrix)
-        self.assertIs(result, transform)
+        self.assertIsNone(result)
         self.assertEqual(transform.getTranslation(at=4), Translate(1.0, 2.0, 3.0))
 
         # Matrix以外の16要素入力も内部でMatrixへ変換して受け付ける。
@@ -522,7 +522,7 @@ class TransformBasicsTest(unittest.TestCase):
                 cmds.setAttr(reference.getName(full=True) + ".s", 1.2, 2.3, 3.4)
                 cmds.setAttr(reference.getName(full=True) + ".sh", 0.1, -0.2, 0.3)
                 target = self.matrix(reference, world=True)
-                self.assertIs(node.setMatrix(target, worldSpace=True, fast=fast), node)
+                self.assertIsNone(node.setMatrix(target, worldSpace=True, fast=fast))
                 self.assertValuesAlmostEqual(self.matrix(node, world=True), target)
 
     def test_matrix_update_is_one_undo_step_for_all_trs_and_shear(self):
@@ -667,7 +667,7 @@ class TransformBasicsTest(unittest.TestCase):
             node, reference = self.make(parent), self.make()
             cmds.setAttr(reference.getName(full=True) + ".t", 3, 4, 5)
             target = self.matrix(reference)
-            self.assertIs(node.setMatrix(target, worldSpace=True, fast=fast), node)
+            self.assertIsNone(node.setMatrix(target, worldSpace=True, fast=fast))
             self.assertValuesAlmostEqual(self.matrix(node, world=True), target)
 
     def test_flag_conflicts_and_invalid_fast_do_not_record_changes(self):

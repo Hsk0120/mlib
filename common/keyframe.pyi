@@ -21,8 +21,8 @@
 
 import maya.cmds as cmds
 from ..decorator import _require_bool, undoChunk
-from ..util import _UNSET
-from typing import Iterator
+from ..util import _UNSET, _finite
+from typing import Iterator, Sequence
 from mlib.nodes.animCurve import AnimCurve
 from mlib.nodes.node import Nodes
 
@@ -87,7 +87,8 @@ class Keyframe:
             float: 値、または入力の値。
 
         Raises:
-            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、input=Trueとunitを同時に指定した場合、またはunit・timeUnitが文字列でない場合。
+            ValueError: unit・timeUnitに対応していない単位名の場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
@@ -107,10 +108,10 @@ class Keyframe:
             None: 値を返さない。
 
         Raises:
-            TypeError: 数値に変換できない型の場合、またはfastがboolでない場合。
+            TypeError: 数値に変換できない型の場合、またはfast・checkがboolでない場合。
             ValueError: 値が有限でない場合、または単位名に対応していない場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
-            RuntimeError: カーブが無効(削除済み)の場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
         ...
     def getTangent(self, *, unit: str = ...) -> dict:
@@ -148,8 +149,9 @@ class Keyframe:
             None: 値を返さない。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
+            TypeError: unitが文字列・None以外の場合、またはfast・checkがboolでない場合。
             ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
+                ウェイト付きの接線でないカーブにinWeight・outWeightを指定した場合(weightedTangentsと一緒に指定した場合を除く)、
                 またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
@@ -185,7 +187,7 @@ class Keyframe:
     def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーの入力と値をずらす。
 
-        入力は隣のキーを越えない(Mayaの ``keyframe -relative`` と同じ)。番号は変わらない。
+        入力が隣のキーと同じか、越える位置になる場合は、何も変えずに例外にする。番号は変わらない。
 
         Args:
             timeOffset (float): 入力をずらす量。
@@ -195,6 +197,13 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: timeOffset・valueOffsetが数値でない(boolを含む)、またはunit・timeUnitが文字列でない場合。
+            ValueError: timeOffset・valueOffsetが有限でない場合、unit・timeUnitに対応していない単位名の場合、
+                または入力が隣のキーと同じか越える位置になる場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
     def delete(self, *, keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> None:
@@ -210,6 +219,11 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: keepCurve・fast・checkがboolでない場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
         ...
     def select(self, *, add: bool = ...) -> None:
@@ -220,6 +234,10 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: addがboolでない場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
     def _require_valid(self):
@@ -287,6 +305,9 @@ class Keyframes:
 
         Returns:
             list[int]: 番号(小さい順)。このカーブのキーが無ければ空。
+
+        Raises:
+            TypeError: curveがAnimCurveでない場合。
         """
         ...
     def getValues(self, *, input: bool = ..., unit: str = ..., timeUnit: str = ...) -> list[float]:
@@ -301,7 +322,8 @@ class Keyframes:
             list[float]: 値、または入力の値。
 
         Raises:
-            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、input=Trueとunitを同時に指定した場合、またはunit・timeUnitが文字列でない場合。
+            ValueError: unit・timeUnitに対応していない単位名の場合。
         """
         ...
     def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
@@ -317,6 +339,12 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: 数値に変換できない型の場合、またはfast・checkがboolでない場合。
+            ValueError: 値が有限でない場合、または単位名に対応していない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
         ...
     def setTangent(self, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> None:
@@ -335,8 +363,9 @@ class Keyframes:
             None: 値を返さない。
 
         Raises:
-            TypeError: unitが文字列でもNoneでもない場合。
+            TypeError: unitが文字列でもNoneでもない場合、またはfast・checkがboolでない場合。
             ValueError: フラグが空か知らないものの場合、unitに対応していない場合、
+                ウェイト付きの接線でないカーブにinWeight・outWeightを指定した場合(weightedTangentsと一緒に指定した場合を除く)、
                 またはfastで正しくない値や、global・知らない接線の型を指定した場合。
             IndexError: キーの番号が正しくない場合。
             RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが
@@ -366,6 +395,7 @@ class Keyframes:
 
         カーブごとに1回で動かし、全体を1回のUndoで戻せる。
         同じカーブの対象のキーどうしは一緒に動くため、互いを越えられない制限は受けない。
+        動かさない隣のキーと同じか越える位置になる場合は、何も変えずに例外にする。
 
         Args:
             timeOffset (float): 入力をずらす量。
@@ -375,6 +405,13 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: timeOffset・valueOffsetが数値でない(boolを含む)、またはunit・timeUnitが文字列でない場合。
+            ValueError: timeOffset・valueOffsetが有限でない場合、unit・timeUnitに対応していない単位名の場合、
+                または入力が動かさない隣のキーと同じか越える位置になる場合(何も変えない)。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
     def delete(self, *, keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> None:
@@ -390,6 +427,11 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: keepCurve・fast・checkがboolでない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
         ...
     def select(self, *, add: bool = ...) -> None:
@@ -411,4 +453,37 @@ class Keyframes:
 
 def _keyframe(curve, index):
     """確認を省いて :class:`Keyframe` を作る(番号を確認済みの集まりから取り出すときに使う)。"""
+    ...
+
+def _require_weighted(curve: AnimCurve, flags: dict):
+    """ウェイト付きの接線でないカーブへ、接線のウェイトを書こうとしていないか確かめる。
+
+    Mayaは、ウェイト付きでないカーブへのウェイトの指定を例外にするが、同じ呼び出しの先のフラグは書き換えたまま残す。
+    そのため、何かを書き換える前に確かめる。
+
+    Args:
+        curve (AnimCurve): 書き込むカーブ。
+        flags (dict): setTangentのフラグ。
+
+    Raises:
+        ValueError: ウェイト付きでないカーブに、weightedTangentsなしでinWeight・outWeightを指定した場合。
+    """
+    ...
+
+def _require_movable(curve: AnimCurve, indices: Sequence[int], time_offset: float, value_offset: float, time_unit: str):
+    """キーを動かす前に、量の型と、動かさない隣のキーと同じか越える位置にならないかを確かめる。
+
+    Args:
+        curve (AnimCurve): キーを持つカーブ。
+        indices (Sequence[int]): 一緒に動かすキーの番号。
+        time_offset (float): 入力をずらす量。
+        value_offset (float): 値をずらす量。
+        time_unit (str): 入力が時間のカーブでの単位。
+
+    Raises:
+        TypeError: 量が数値でない(boolを含む)、またはtime_unitが文字列でない場合。
+        ValueError: 量が有限でない、time_unitに対応していない、または隣のキーと同じか越える位置になる場合。
+        IndexError: 番号がキーの数の範囲から外れた場合。
+        RuntimeError: カーブが無効(削除済み)の場合。
+    """
     ...

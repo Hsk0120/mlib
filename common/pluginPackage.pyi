@@ -59,6 +59,9 @@ class PluginPackage:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: message・titleが文字列でない場合。
         """
         ...
     @property
@@ -175,6 +178,9 @@ class PluginPackage:
         Returns:
             str: SKIPPED(対象外)、LOADED(成功)、MISSING(入っていない・版が足りない)、
                 OUTDATED(ロードされている版が古い)、LOAD_FAILED(ロードに失敗したものがある)。
+
+        Raises:
+            TypeError: dialogがbool・None・呼び出せるもの以外の場合、またはwarnがboolでない場合。
         """
         ...
     @staticmethod

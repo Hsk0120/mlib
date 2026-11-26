@@ -1,10 +1,10 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Plugを、持ち主のノードの参照とアトリビュートのパスで記録する。"""
 
+import maya.api.OpenMaya as om2
 from .nameMapping import NameMapping
 from .nodeRef import NodeRef
 from mlib.plugs.plug import Plug
-import maya.api.OpenMaya as om2
 
 
 

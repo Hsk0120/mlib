@@ -414,6 +414,8 @@ def _require_nodes(nodes):
             raise TypeError(f"nodesの要素はノードかノード名で指定してください: {type(item).__name__}")
         if isinstance(item, str) and not cmds.objExists(item):
             raise RuntimeError(f"ノードが存在しません: {item}")
+        if isinstance(item, Node) and not item.isValid():
+            raise RuntimeError("削除されたノードは指定できません")
         result.append(item if isinstance(item, Node) else Node(item))
     return result
 

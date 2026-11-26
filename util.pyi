@@ -289,6 +289,22 @@ def _time_unit(unit: str | None, default: str | None = ...) -> str | None:
     """
     ...
 
+def _required_time_unit(unit: str, name: str = ...) -> str:
+    """Noneを受け付けない時間の単位の引数を、``"frame"`` / ``"sec"`` へ正規化する。
+
+    Args:
+        unit (str): ``"frame"``・``"sec"`` とその別名。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        str: ``"frame"`` または ``"sec"``。
+
+    Raises:
+        TypeError: unitが文字列でない場合(Noneを含む)。
+        ValueError: 未対応の単位名の場合。
+    """
+    ...
+
 def _to_radians(value: float, unit: str) -> float:
     """正規化済みの単位の数値をラジアンへ変換する。
 

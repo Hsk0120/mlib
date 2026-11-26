@@ -339,8 +339,28 @@ def undoChunk(name=None):
     Returns:
         contextlib.ContextDecorator: withかデコレーターとして使うコンテキスト。
             withの ``as`` で受け取る値はNone。``open()``・``close()`` も持つ。
+
+    Raises:
+        TypeError: nameが文字列でもNoneでもない場合。
     """
+    _require_chunk_name(name)
     return _UndoChunk(name)
+
+
+def _require_chunk_name(name):
+    """Undoのチャンク名が文字列かNoneかを確かめる。
+
+    Args:
+        name (object): チャンク名。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: 文字列でもNoneでもない場合。
+    """
+    if name is not None and not isinstance(name, str):
+        raise TypeError(f"nameは文字列かNoneで指定してください: {type(name).__name__}")
 
 
 @contextlib.contextmanager
@@ -365,7 +385,11 @@ def undoTransaction(name=None):
 
     Args:
         name (str | None): Undoキューのチャンク名。省略するとMayaの既定の表示になる。
+
+    Raises:
+        TypeError: nameが文字列でもNoneでもない場合(ブロックに入るとき)。
     """
+    _require_chunk_name(name)
     token = None
     outermost = bool(name) and not _chunk_active.get()
     if outermost:
@@ -469,6 +493,10 @@ def preservedSkinShape(joints):
 
     Yields:
         SkinClusters: 保護しているskinClusterのコレクション。
+
+    Raises:
+        TypeError: jointsに対応していない型の値か、Jointでないノードを含む場合。
+        RuntimeError: jointsの名前のノードが見つからない場合。
     """
     # 循環参照の回避: nodes は decorator を参照するので、使うときに読み込む。
     from .nodes.joint import Joints

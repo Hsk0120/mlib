@@ -6,6 +6,7 @@
 """
 
 import itertools
+import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from typing import Iterator, Sequence
@@ -142,6 +143,37 @@ def rename_node(node: om2.MObject, name: str, ignore_shape: bool = ...) -> str:
 
     Returns:
         str: Mayaが決めたノード名。
+    """
+    ...
+
+def _auto_transform_name(shape_name: str, name: str | None) -> str:
+    """Shapeと一緒に自動で作ったTransformの名前を、cmds.createNodeと同じ規則で決める。
+
+    cmds.createNodeは、Shapeの名前が ``<名前>Shape`` ならTransformを ``<名前>`` にし、それ以外は
+    Shapeの既定の名前(``locatorShape1`` など)から ``Shape`` と番号を除いた名前に番号を付ける。
+    名前空間はShapeに付ける名前のものを使う。
+
+    Args:
+        shape_name (str): Mayaが付けたShapeの既定の名前。
+        name (str | None): Shapeに付ける名前。
+
+    Returns:
+        str: Transformに付ける名前。番号は ``#`` で、Mayaが空いている番号にする。
+    """
+    ...
+
+def _set_name_in_namespace(node: om2.MObject, name: str) -> None:
+    """ノードの名前を変え、使えない文字だけの名前でも、cmds.createNodeと同じく指定の名前空間に残す。
+
+    om2のsetNameは、使えない文字だけの名前を名前空間ごと外した既定の名前にする。cmds.createNodeは名前空間を残すため、
+    そのときは既定の名前(番号を除く)へ名前空間を付けて、空いている番号で付け直す。
+
+    Args:
+        node (om2.MObject): 名前を変えるノード。
+        name (str): 新しい名前。``#`` はMayaが空いている番号にする。
+
+    Returns:
+        None: 値を返さない。
     """
     ...
 

@@ -658,29 +658,12 @@ def _constraint_invalid():
 
 SPACE = ("worldSpace", "ws")
 
-#: at に有限でない数を渡すと、例外にならずに読み書きする(findings4/args-support.md の1)。
-KNOWN_AT = {"invalid:at=nan": "at の NaN を受け付ける", "invalid:at=inf": "at の inf を受け付ける"}
-#: safe・get に bool でない値を渡すと、真偽として読む(findings4/args-support.md の2)。
-KNOWN_FLAGS = {f"invalid:{name}={value}": "bool でない値を真偽として読む" for name in ("safe", "get") for value in ("1", "'yes'")}
-#: 部品が、fast と同時に指定できない引数でも fast=True と通常を比べる(findings4/sweep-dag.md の部品への要望)。
-FAST_CONFLICT = "部品: fast と同時に指定できない組でも、fast=True と通常を比べる"
-#: check が bool でない値を受け付ける(findings4/sweep-dag.md の D3)。
-KNOWN_CHECK = _known("D3: check が bool でない値を受け付ける", "invalid:check=*")
 
 AXES = ("x", "y", "z", "YZ", "XZ", "XY", "zy", "X")
 COMPONENT_INVALID = (1.5, "abc", (1.0, 2.0))
 
 METHODS = (
-    Method(
-        "getTranslation",
-        _make_child,
-        values={"at": AT_VALUES},
-        replace=("at",),
-        conflicts=(SPACE,),
-        expect=_expect_translation,
-        plural=_make_children,
-        known=KNOWN_AT,
-    ),
+    Method("getTranslation", _make_child, values={"at": AT_VALUES}, replace=("at",), conflicts=(SPACE,), expect=_expect_translation, plural=_make_children),
     Method(
         "setTranslation",
         _make_child,
@@ -692,7 +675,6 @@ METHODS = (
         expect=_expect_set_translation,
         roundTrip=RoundTrip("getTranslation", shared=("worldSpace", "ws", "at"), skip=_skip_translation_trip, places=5),
         plural=_make_children,
-        known=dict(KNOWN_AT, **KNOWN_FLAGS),
     ),
     Method("getMatrix", _make_child, conflicts=(SPACE,), expect=_expect_matrix, plural=_make_children),
     Method(
@@ -703,7 +685,6 @@ METHODS = (
         invalid={"value": ((1.0, 2.0), "abc", None, object())},
         conflicts=(SPACE, _relative_world),
         plural=_make_children,
-        known=KNOWN_FLAGS,
     ),
     Method("deleteConstraints", _make_constrained, expect=_expect_delete_constraints),
     Method(
@@ -716,7 +697,6 @@ METHODS = (
         conflicts=(SPACE,),
         expect=_expect_scale_geometry,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
     Method(
         "mirrorGeometry",
@@ -726,7 +706,6 @@ METHODS = (
         conflicts=(SPACE,),
         expect=_expect_mirror_geometry,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
     Method("getPivot", _make_child, conflicts=(SPACE,), expect=_expect_get_pivot, plural=_make_children),
     Method(
@@ -738,7 +717,6 @@ METHODS = (
         conflicts=(SPACE, _set_pivot_conflict),
         roundTrip=RoundTrip("getPivot", shared=("worldSpace", "ws", "kind", "translation"), skip=_skip_pivot_trip, places=5),
         plural=_make_children,
-        known={**_known(FAST_CONFLICT, "pairs:*translation=True*"), **KNOWN_CHECK},
         limit=60,
     ),
     Method(
@@ -754,7 +732,6 @@ METHODS = (
         invalid={"components": (1.5, [], Lazy(lambda case: _ls(case, "mesh*")[0] + ".f[0]", "'<mesh.f[0]>'"))},
         expect=_expect_center_pivot,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
     Method("ungroup", _make_group, expect=_expect_ungroup),
     Method(
@@ -764,19 +741,6 @@ METHODS = (
         invalid={"type": ("", 1.5, [1])},
         expect=_expect_children,
         limit=120,
-        known={
-            **_known(
-                "T4: Transform.getChildren の docstring に Raises が無い(DagNode.getChildren と同じ例外を出す)",
-                "invalid:allDescendents=*",
-                "invalid:includeSelf=*",
-                "invalid:leaves=*",
-                "invalid:underWorld=*",
-                "invalid:sortBy=*",
-                "invalid:type=*",
-                "pairs:shapes=True,leaves=True",
-            ),
-            **_known("D1: shapes・intermediates が bool でない値を受け付ける", "invalid:shapes=*", "invalid:intermediates=*"),
-        },
     ),
     Method("deleteUnusedIntermediateShapes", _make_intermediate, expect=_expect_delete_intermediates),
     Method(
@@ -816,7 +780,6 @@ METHODS = (
         replace=("path",),
         invalid={"path": (1.5, None)},
         expect=_expect_export,
-        known=_known("T3: path が文字列・PathLike でないと TypeError だが、Raises に無い", "invalid:path=*"),
     ),
     Method(
         "importCurveShapes",
@@ -826,7 +789,6 @@ METHODS = (
         replace=("path",),
         invalid={"path": (1.5, None, Lazy(lambda case: str(_export_path(case, "_missing.json")), "'<無いファイル>'"))},
         expect=_expect_curve_data,
-        known=_known("T3: path が文字列・PathLike でないと TypeError だが、Raises に無い", "invalid:path=1.5", "invalid:path=None"),
     ),
     Method(
         "getShape",
@@ -836,10 +798,6 @@ METHODS = (
         invalid={"index": ("a", 1.5)},
         conflicts=(_get_shape_conflict,),
         expect=_expect_get_shape,
-        known={
-            **_known("T5: intermediates が bool でない値を受け付ける", "invalid:intermediates=*"),
-            **_known("T10: index の負の値で後ろから数える(docstring は範囲外なら None)", "values:index=-1", "pairs:index=-1,i*", "pairs:index=-1,all=False"),
-        },
     ),
     Method(
         "setParent",
@@ -850,12 +808,6 @@ METHODS = (
         invalid={"parent": (DELETED_NODE, MISSING_NAME, 1.5, SELF)},
         expect=_expect_set_parent,
         plural=_make_plain_children,
-        known={
-            **KNOWN_CHECK,
-            **_known(FAST_CONFLICT + "(add=True は NotImplementedError)", "pairs:parent=*,add=True", "pairs:relative=*,add=True", "pairs:add=True,check=*"),
-            **_known("N17: relative・add が int を受け付ける", "invalid:relative=1", "invalid:add=1"),
-            **_known("T7: 削除済みのノードを渡すと ValueError だが、Raises に無い", "invalid:parent=<削除済みのノード>"),
-        },
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -868,9 +820,6 @@ METHODS = (
         expect=_expect_match,
         plural=_make_plain_children,
         limit=WRITE_LIMIT,
-        known=_known(
-            "T6: position・rotation・scale・pivots が int を受け付ける", "invalid:position=1", "invalid:rotation=1", "invalid:scale=1", "invalid:pivots=1"
-        ),
     ),
     Method(
         "mirrorTransform",
@@ -892,16 +841,6 @@ METHODS = (
         expect=_expect_set_matrix,
         roundTrip=RoundTrip("getMatrix", value="matrix", shared=SPACE, skip=_skip_matrix_trip, places=5),
         plural=_make_children,
-        known={
-            **KNOWN_FLAGS,
-            **_known(
-                "T1: setMatrix が自身を返す(set 系は値を返さない決まり)。短縮名の確かめで戻り値が違う",
-                "pairs:matrix=*,worldSpace=*",
-                *(f"pairs:worldSpace=*,{name}=*" for name in ("safe", "fast", "check")),
-                "pairs:worldSpace=*,get=False",
-            ),
-            **_known("T2: matrix の None・NaN を受け付ける", "invalid:matrix=None", "invalid:matrix=[nan*"),
-        },
         limit=60,
     ),
     Method(
@@ -931,7 +870,6 @@ METHODS = (
         conflicts=(SPACE,),
         expect=_expect_set_rotate,
         plural=_make_children,
-        known={**KNOWN_FLAGS, **_known("T9: relative=False の NaN を受け付ける", "invalid:value=(nan, 0.0, 0.0)")},
         limit=60,
     ),
     Method(
@@ -957,7 +895,6 @@ METHODS = (
         conflicts=(SPACE, _relative_world),
         roundTrip=RoundTrip("getShear", shared=SPACE, skip=lambda kwargs: kwargs.get("relative") or kwargs.get("get") or kwargs.get("safe"), places=5),
         plural=_make_children,
-        known=KNOWN_FLAGS,
         limit=60,
     ),
     Method("getQuaternion", _make_joint_child, conflicts=(SPACE,), expect=_expect_quaternion),
@@ -969,7 +906,6 @@ METHODS = (
         invalid={"value": ((0.0, 0.0, 1.0), "abc", None, (float("nan"), 0.0, 0.0, 1.0))},
         conflicts=(SPACE,),
         expect=_expect_set_quaternion,
-        known=KNOWN_FLAGS,
         limit=120,
     ),
     Method(
@@ -996,7 +932,6 @@ METHODS = (
         roundTrip=RoundTrip("getOffsetParentMatrix", value="matrix"),
         plural=_make_children,
         limit=WRITE_LIMIT,
-        known=_known("T8: matrix の None を受け付ける", "invalid:matrix=None"),
     ),
     Method("eulerFilter", _make_animated, expect=_expect_euler_filter),
     Method(

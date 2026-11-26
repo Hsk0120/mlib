@@ -100,19 +100,8 @@ def _expect_ensure(case, call):
 
 
 METHODS = (
-    Method("load", _unloaded, invalid={"skipExisting": (1, "yes", None)}, expect=_expect_load, state=_state),
-    Method(
-        "unload",
-        _loaded,
-        invalid={"force": (1, "yes", None)},
-        expect=_expect_unload,
-        state=_state,
-        known={
-            "invalid:force=1": "bool でない force を受け付ける",
-            "invalid:force='yes'": "Raises に無い TypeError(Maya の Flag 'force' must be passed a boolean argument)",
-            "invalid:force=None": "Raises に無い TypeError(Maya の Flag 'force' must be passed a boolean argument)",
-        },
-    ),
+    Method("load", _unloaded, invalid={"skipExisting": (1, "yes", None)}, expect=_expect_load, state=_state, undoable=False),
+    Method("unload", _loaded, invalid={"force": (1, "yes", None)}, expect=_expect_unload, state=_state, undoable=False),
     Method("getVersion", _loaded, invalid={"text": (1, "yes", None)}, expect=_expect_version, state=_state),
     Method(
         "removeUnknown",
@@ -122,6 +111,7 @@ METHODS = (
         invalid={"names": ("mlibSweepNotUnknown", [FAKE[0], "mlibSweepNotUnknown"], 1.5, [1.5], {FAKE[0]: 1})},
         expect=_expect_remove,
         state=_state,
+        undoable=False,
     ),
     Method(
         "ensureNodePlugin",
@@ -132,7 +122,6 @@ METHODS = (
         invalid={"type": (1.5, None)},
         expect=_expect_ensure,
         writes=False,
-        known={"invalid:type=1.5": "文字列でない type を受け付け、何もしない", "invalid:type=None": "文字列でない type を受け付け、何もしない"},
     ),
 )
 

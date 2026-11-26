@@ -82,8 +82,6 @@ TEXTURE_VALUES = (_named("file*", wrap=True), _named("file*"), _named("checker*"
 #: 段2のテクスチャの誤った値(Texture2d でないノード・削除済み・存在しない名前・数)。
 TEXTURE_INVALID = (_named("mat*"), _named("place*"), DELETED_NODE, MISSING_NAME, 1.5, None)
 
-#: 本体との食い違い(findings4/sweep-geometry.md)。
-KNOWN = {"invalid:force=1": "force が bool でない値を受け付ける"}
 
 #: 正しい呼び方の表。
 METHODS = (
@@ -95,7 +93,6 @@ METHODS = (
         replace=("texture",),
         invalid={"texture": TEXTURE_INVALID},
         expect=_expect_connected,
-        known=KNOWN,
         limit=30,
     ),
 )

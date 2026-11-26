@@ -25,11 +25,6 @@ RAD = ("rad", "radian", "radians")
 MTIME = (om2.MTime(5.0, om2.MTime.uiUnit()),)
 
 
-def _not_bool(*names):
-    """bool の引数に bool でない値(1・"yes")を渡すと、例外にせず真偽として読む場合の known。"""
-    return {f"invalid:{name}={value}": "bool でない値を真偽として読む" for name in names for value in ("1", "'yes'")}
-
-
 def _full(plug):
     """maya.cmds へ渡す Plug の名前を返す。"""
     return plug.getName(full=True)
@@ -141,7 +136,6 @@ class Double3PlugArgumentSweepTest(ArgumentSweepCase):
             expect=_expect_set_rotate,
             roundTrip=RoundTrip("get", skip=_skip_rotate_trip, places=5),
             plural=_pair_of("rotate"),
-            known=_not_bool("safe"),
             limit=200,
         ),
     )

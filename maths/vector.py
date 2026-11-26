@@ -34,7 +34,7 @@ _OM2_POINT_TYPES = (_MPoint, om2.MFloatVector, om2.MFloatPoint)
 _AXIS_NAMES = {"x": (0, 1.0), "+x": (0, 1.0), "-x": (0, -1.0), "y": (1, 1.0), "+y": (1, 1.0), "-y": (1, -1.0), "z": (2, 1.0), "+z": (2, 1.0), "-z": (2, -1.0)}
 
 
-def _resolve_mvector(value):
+def _resolve_mvector(value, name="other"):
     """値を om2.MVector として扱える形へ変換する。
 
     MVector 系(mlib の Vector 派生を含む)はそのまま返す。MPoint などの om2 の
@@ -43,23 +43,34 @@ def _resolve_mvector(value):
 
     Args:
         value (om2.MVector | om2.MPoint | Iterable[float]): 変換元。
+        name (str): 例外メッセージに使う引数名。
 
     Returns:
         om2.MVector: value 自身、または新しい MVector。
 
     Raises:
-        TypeError: 反復できない値の場合。
+        TypeError: 反復できない値・文字列、または成分が数値でない場合。
         ValueError: 反復可能オブジェクトの要素数が3でない場合。
     """
     if isinstance(value, _MVector):
         return value
     if isinstance(value, _OM2_POINT_TYPES):
         return _MVector(value)
-    x, y, z = value
+    if isinstance(value, (str, bytes)):
+        raise TypeError(f"{name}は3個の数値の並びで指定してください: {value!r}")
+    try:
+        x, y, z = value
+    except TypeError:
+        raise TypeError(f"{name}は3個の数値の並びで指定してください: {value!r}") from None
+    except ValueError:
+        raise ValueError(f"{name}は3個の成分で指定してください: {value!r}") from None
     result = _MVector()
-    result.x = x
-    result.y = y
-    result.z = z
+    try:
+        result.x = x
+        result.y = y
+        result.z = z
+    except TypeError:
+        raise TypeError(f"{name}の成分は数値で指定してください: {value!r}") from None
     return result
 
 
@@ -844,10 +855,10 @@ class Vector(om2.MVector):
             Vector: 呼び出したクラスの新しい値(``Translate.getCenter(...)`` はTranslate)。
 
         Raises:
-            TypeError: 点列が反復できない場合。
-            ValueError: 点列が空の場合。
+            TypeError: 点列が反復できない、または点が3個の数値の並びでない場合。
+            ValueError: 点列が空、または点の成分の数が3でない場合。
         """
-        vectors = [_resolve_mvector(point) for point in _iterable(points, "points")]
+        vectors = [_resolve_mvector(point, "points") for point in _iterable(points, "points")]
         if not vectors:
             raise ValueError("点がないため、中心を計算できません")
         total = _MVector()
@@ -871,11 +882,11 @@ class Vector(om2.MVector):
             bool: 同一平面上ならTrue。
 
         Raises:
-            TypeError: 点列が反復できない、またはtoleranceが数値でない場合。
-            ValueError: toleranceが負・有限でない場合。
+            TypeError: 点列が反復できない、点が3個の数値の並びでない、またはtoleranceが数値でない場合。
+            ValueError: 点の成分の数が3でない、またはtoleranceが負・有限でない場合。
         """
         limit = _checked_tolerance(tolerance)
-        vectors = [_resolve_mvector(point) for point in _iterable(points, "points")]
+        vectors = [_resolve_mvector(point, "points") for point in _iterable(points, "points")]
         if len(vectors) <= 3:
             return True
         origin = vectors[0]
@@ -947,6 +958,9 @@ class Vector(om2.MVector):
 
         Returns:
             float: 内積。
+        Raises:
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         return _MVector.__mul__(self, _resolve_mvector(other))
 
@@ -958,6 +972,9 @@ class Vector(om2.MVector):
 
         Returns:
             Vector: 外積。派生クラスの型は保持しない。
+        Raises:
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         result = _NEW(Vector)
         _INIT(result)
@@ -1064,7 +1081,8 @@ class Vector(om2.MVector):
             float: 距離。``squared=True`` なら距離の2乗。
 
         Raises:
-            TypeError: squaredがboolでない場合。
+            TypeError: otherが3個の数値の並びでない、またはsquaredがboolでない場合。
+            ValueError: otherの成分の数が3でない場合。
         """
         difference = _MVector.__sub__(self, _resolve_mvector(other))
         if squared is True:
@@ -1086,7 +1104,8 @@ class Vector(om2.MVector):
             float: 0からpiまでのラジアンの角度。
 
         Raises:
-            ValueError: 自身またはotherが0のベクトルの場合。
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合、または自身・otherが0のベクトルの場合。
         """
         other = _resolve_mvector(other)
         if _MVector.__mul__(self, self) == 0.0 or _MVector.__mul__(other, other) == 0.0:
@@ -1100,12 +1119,17 @@ class Vector(om2.MVector):
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 比較対象。
-            tolerance (float): 距離の許容誤差。
+            tolerance (float): 距離の許容誤差。0以上。
 
         Returns:
             bool: ほぼ等しければ True。
+
+        Raises:
+            TypeError: otherが3個の数値の並びでない、またはtoleranceが数値でない場合。
+            ValueError: otherの成分の数が3でない場合、またはtoleranceが負・有限でない場合。
         """
-        return _MVector.isEquivalent(self, _resolve_mvector(other), tolerance)
+        limit = _checked_tolerance(tolerance)
+        return _MVector.isEquivalent(self, _resolve_mvector(other), limit)
 
     def lerp(self, other, t):
         """別のベクトルとの線形補間 ``self + (other - self) * t`` を返す。
@@ -1116,12 +1140,17 @@ class Vector(om2.MVector):
 
         Returns:
             Vector: 補間した結果。派生クラスの型は保たない。
+
+        Raises:
+            TypeError: otherが3個の数値の並びでない、またはtが数値でない場合。
+            ValueError: otherの成分の数が3でない場合、またはtが有限でない場合。
         """
+        weight = _finite(t, "t")
         result = _NEW(Vector)
         _INIT(result)
         _MVector.__iadd__(result, _resolve_mvector(other))
         _MVector.__isub__(result, self)
-        _MVector.__imul__(result, t)
+        _MVector.__imul__(result, weight)
         _MVector.__iadd__(result, self)
         return result
 
@@ -1135,9 +1164,10 @@ class Vector(om2.MVector):
             Vector: ``axis`` と平行な成分。派生クラスの型は保持しない。
 
         Raises:
-            ValueError: axisがゼロベクトルの場合。
+            TypeError: axisが3個の数値の並びでない場合。
+            ValueError: axisの成分の数が3でない場合、またはaxisがゼロベクトルの場合。
         """
-        axis = _resolve_mvector(axis)
+        axis = _resolve_mvector(axis, "axis")
         length_sq = _MVector.__mul__(axis, axis)
         if length_sq == 0.0:
             raise ValueError("0のベクトルへは投影できません")
@@ -1159,7 +1189,8 @@ class Vector(om2.MVector):
             Vector: ``axis`` に直交する成分。派生クラスの型は保持しない。自身が軸と平行ならゼロベクトル。
 
         Raises:
-            ValueError: axisがゼロベクトルの場合。
+            TypeError: axisが3個の数値の並びでない場合。
+            ValueError: axisの成分の数が3でない場合、またはaxisがゼロベクトルの場合。
         """
         result = self.projected(axis)
         _MVector.__imul__(result, -1.0)
@@ -1205,7 +1236,8 @@ class Vector(om2.MVector):
             float: コタンジェント。鋭角は正、鈍角は負。
 
         Raises:
-            ValueError: 自身またはotherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
+            TypeError: otherが3個の数値の並びでない場合。
+            ValueError: otherの成分の数が3でない場合、自身・otherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
         """
         other = _resolve_mvector(other)
         if _MVector.__mul__(self, self) == 0.0 or _MVector.__mul__(other, other) == 0.0:
@@ -1231,8 +1263,8 @@ class Vector(om2.MVector):
             Vector: 補間した結果。派生クラスの型は保たない。
 
         Raises:
-            TypeError: tが数値でない場合、またはspinが整数でない場合(boolを含む)。
-            ValueError: tが有限でない場合、または自身・otherが0のベクトルの場合。
+            TypeError: otherが3個の数値の並びでない場合、tが数値でない場合、またはspinが整数でない場合(boolを含む)。
+            ValueError: otherの成分の数が3でない場合、tが有限でない場合、または自身・otherが0のベクトルの場合。
         """
         weight = _finite(t, "t")
         if isinstance(spin, bool) or not isinstance(spin, int):
@@ -1307,12 +1339,12 @@ class Vector(om2.MVector):
             tuple[float, ...]: 点と同じ数のウェイト。
 
         Raises:
-            TypeError: 点の数が2・3以外の場合。
-            ValueError: 線分の長さが0、または三角形の面積が0(3点が一直線上)の場合。
+            TypeError: 点の数が2・3以外の場合、または点が3個の数値の並びでない場合。
+            ValueError: 点の成分の数が3でない場合、線分の長さが0、または三角形の面積が0(3点が一直線上)の場合。
         """
         if len(points) not in (2, 3):
             raise TypeError(f"getBarycentricWeightsには点を2個か3個指定してください: {len(points)}個")
-        vectors = [_resolve_mvector(point) for point in points]
+        vectors = [_resolve_mvector(point, "points") for point in points]
         offset = _MVector.__sub__(self, vectors[0])
         if len(vectors) == 2:
             edge = _MVector.__sub__(vectors[1], vectors[0])

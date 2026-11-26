@@ -345,7 +345,7 @@ class InfluenceNameTest(_SkinCase):
         skin = mlib.getNode(node)
         self.assertIsInstance(skin, mlib.SkinCluster)
         self.assertIsInstance(mlib.SkinCluster(node=node), mlib.SkinCluster)
-        self.assertEqual(len(skin.getGeometry()), 0)
+        self.assertEqual(len(skin.getGeometry(all=True)), 0)
         with self.assertRaises(IndexError):
             skin.getWeights(vertex=0)
 

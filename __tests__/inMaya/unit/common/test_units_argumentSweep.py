@@ -99,7 +99,7 @@ def _expect_distance(case, call):
 
 def _expect_angle(case, call):
     kwargs = call.kwargs
-    expected = A(kwargs["value"], _angle(kwargs.get("fromUnit", "deg"))).asUnits(_angle(kwargs.get("toUnit", "rad")))
+    expected = A(kwargs["value"], _angle(kwargs.get("fromUnit"))).asUnits(_angle(kwargs.get("toUnit")))
     case.assertAlmostEqual(call.result, expected, places=9)
 
 

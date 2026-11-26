@@ -3,6 +3,7 @@
 import maya.cmds as cmds
 import maya.mel as mel
 
+from ..core.shapeBuild import require_name
 from ..decorator import _pick_alias, undoChunk
 from ..util import _UNSET
 
@@ -85,7 +86,7 @@ def createIkHandle(
             ``**kwargs`` で受け付けないフラグを渡した場合、nameが文字列でもNoneでもない場合、
             または対象が対応していない型の場合。
         ValueError: solverが対応していない場合、ikSplineSolver以外でcurveを指定した場合、
-            開始や末端がjointでない場合、endJointがstartJointの子孫でない場合、またはnameが空文字列の場合。
+            開始や末端がjointでない場合、endJointがstartJointの子孫でない場合、またはnameが空文字列か ``|`` を含む場合。
         RuntimeError: 名前からノードが見つからない場合、またはMayaが作成を拒否した場合。
 
     Note:
@@ -113,10 +114,7 @@ def createIkHandle(
         raise TypeError(f"createIkHandleは次の引数を受け付けません: {', '.join(rejected)}")
     if solver not in _SOLVERS:
         raise ValueError(f"solverは{', '.join(_SOLVERS)}のどれかで指定してください: {solver!r}")
-    if name is not None and not isinstance(name, str):
-        raise TypeError("nameは文字列かNoneで指定してください")
-    if name == "":
-        raise ValueError("nameは空でない文字列かNoneで指定してください")
+    name = require_name(name)
     if curve is not None and solver != "ikSplineSolver":
         raise ValueError("curveはikSplineSolverの場合だけ指定できます")
     start = Node._resolve_input(startJoint)

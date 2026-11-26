@@ -3,7 +3,7 @@
 
 import maya.cmds as cmds
 from ..core.shapeBuild import require_name
-from ..decorator import _pick_alias, undoChunk
+from ..decorator import _edit_context, _pick_alias
 from ..util import _UNSET
 from mlib.nodes.node import Node
 from mlib.nodes.shadingEngine import ShadingEngine
@@ -19,7 +19,8 @@ def createShadingEngine(shader: Node | Plug | str | None = ..., *, name: str | N
     shaderを渡すと、:meth:`ShadingEngine.setShader <mlib.nodes.ShadingEngine.setShader>` で ``surfaceShader`` へつなぐ。
     形状への割り当ては :meth:`ShadingEngine.assign <mlib.nodes.ShadingEngine.assign>` で行う。
     現在の選択は変えない。fast引数は無い(``cmds.sets`` に当たるOpenMayaの作成が無いため)。
-    shaderを渡したときは、作成と接続を1回のUndoにまとめる。
+    shaderかnameを渡したときは、作成と接続・名前の変更を1回のUndoにまとめる。
+    名前は作ったあとに付ける(``cmds.sets`` のnameフラグは、Redoで名前空間を失うため)。
     nameは ``cmds.sets`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:

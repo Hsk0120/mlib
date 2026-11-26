@@ -681,52 +681,6 @@ def _known(reason, *patterns):
     return dict.fromkeys(patterns, reason)
 
 
-#: addAttr の食い違い(findings4/sweep-dag.md の N1〜N6)。
-KNOWN_ADD_ATTR = {
-    **_known("N1: type に文字列でない値を渡すと AttributeError", "invalid:type=1.5"),
-    **_known("N2: getPlug・channelBox・cb が bool でない値を受け付ける", "invalid:getPlug=*", "invalid:channelBox=*", "invalid:cb=*"),
-    **_known(
-        "N3: proxy の解決の例外(AttributeError・RuntimeError)が Raises に無い",
-        *(f"invalid:{name}={value}" for name in ("proxy", "pxy") for value in ("<削除済みのPlug>", "'<存在しない名前>'")),
-    ),
-    **_known("N4: Maya が拒否したとき RuntimeError だが、Raises に無い", "invalid:dataType=*", "invalid:dt=*", "invalid:parent=*", "invalid:p=*"),
-    **_known(
-        "N5: 使わない引数(子の名前・subType)の型を確かめない",
-        "invalid:childNames=*",
-        "invalid:childShortNames=*",
-        "invalid:childSuffixes=*",
-        "invalid:subType=*",
-    ),
-    **_known(
-        "N6: 範囲(min・max・softMin・softMax)の NaN・inf を受け付ける",
-        *(
-            f"invalid:{name}={value}"
-            for name in ("maxValue", "max", "minValue", "min", "softMaxValue", "smx", "softMinValue", "smn")
-            for value in ("nan", "inf")
-        ),
-    ),
-    **_known(
-        "部品: fast が対応していないフラグ(docstring の NotImplementedError)でも、fast=True と通常を比べる",
-        *(f"pairs:*{name}=*" for name in ("binaryTag", "bt", "category", "ct", "enforcingUniqueName", "eun", "exists", "ex", "fromPlugin", "fp")),
-    ),
-}
-#: getConnections の食い違い(findings4/sweep-dag.md の N7。Plug.getConnections の args-support.md 3〜5 と同じ)。
-KNOWN_CONNECTIONS = {
-    **_known(
-        "N7: 長い名前・短縮名の bool が bool でない値を受け付ける",
-        *(f"invalid:{name}=*" for name in ("s", "d", "et", "scn", "source", "destination", "exactType", "skipConversionNodes", "asPair", "asNode")),
-    ),
-    **_known("N7: type・t に文字列でない値を渡すと、Raises に無い ValueError", "invalid:type=1.5", "invalid:t=1.5"),
-    **_known(
-        "N7: 長い名前が既定値なら、短縮名と同時に指定しても例外にならない",
-        "pairs:s=*,source=True",
-        "pairs:d=*,destination=True",
-        "pairs:t=*,type=None",
-        "pairs:et=*,exactType=False",
-        "pairs:scn=*,skipConversionNodes=False",
-    ),
-}
-
 METHODS = (
     Method("setDgTimingEnabled", _make_static, expect=None, state=_node_count),
     Method(
@@ -826,7 +780,6 @@ METHODS = (
         invalid={"namespace": ("", 1.5, None)},
         expect=_expect_namespace,
         limit=WRITE_LIMIT,
-        known=_known("N13: fast が bool でないと TypeError だが、Raises に TypeError が無い", "invalid:fast=*"),
     ),
     Method("delete", _make_node, expect=_expect_deleted, limit=WRITE_LIMIT),
     Method(
@@ -839,10 +792,6 @@ METHODS = (
         expect=_expect_rename,
         roundTrip=RoundTrip("getName", value="name", skip=lambda kwargs: True),
         limit=WRITE_LIMIT,
-        known={
-            **_known("N10: ignoreShape が int を受け付ける", "invalid:ignoreShape=1"),
-            **_known("N14: fast=True では ignoreShape=True でも Shape の名前を変える", "pairs:name=*,ignoreShape=True", "pairs:ignoreShape=True,fast=True"),
-        },
     ),
     Method(
         "duplicate",
@@ -851,10 +800,6 @@ METHODS = (
         invalid={"name": (1.5,), "suffix": (1.5, "", "a|b")},
         expect=_expect_duplicate,
         limit=WRITE_LIMIT,
-        known={
-            **_known("N11: name に文字列でない値を受け付ける", "invalid:name=1.5"),
-            **_known("N12: name を名前空間付きで指定すると、redo で名前空間の無い名前になる", "pairs:name='<ns>:dup',*"),
-        },
     ),
     Method(
         "getConnections",
@@ -870,7 +815,6 @@ METHODS = (
         expect=_expect_connections,
         plural=_make_plural,
         limit=120,
-        known=KNOWN_CONNECTIONS,
     ),
     Method(
         "setKey",
@@ -927,7 +871,6 @@ METHODS = (
         invalid={"type": (1.5,)},
         expect=_expect_history,
         plural=_make_plural,
-        known=_known("N8: future が bool でない値を受け付け、type に文字列でない値を渡すと Raises に無い ValueError", "invalid:future=*", "invalid:type=1.5"),
     ),
     Method(
         "resetAttrs",
@@ -957,7 +900,6 @@ METHODS = (
         invalid=_add_attr_invalid(),
         conflicts=(_add_attr_conflict,),
         expect=_expect_add_attr,
-        known=KNOWN_ADD_ATTR,
         limit=WRITE_LIMIT,
     ),
     Method(
@@ -989,7 +931,6 @@ METHODS = (
         invalid={"name": (1.5, None)},
         expect=_expect_has_attr,
         plural=_make_plural,
-        known=_known("N9: name に文字列でない値を渡すと、例外にならず False", "invalid:name=*"),
     ),
     Method("getName", _make_node, conflicts=(_get_name_conflict,), expect=_expect_name, plural=_make_plural),
 )
@@ -1013,7 +954,6 @@ NODES_METHODS = (
         invalid={"color": (32, -1, True, (1.0, 0.5), (2.0, 0.0, 0.0), "red")},
         expect=_expect_nodes_set_color,
         limit=WRITE_LIMIT,
-        known=_known("N16: Nodes.setColor・setColors・setParent の check が bool でない値を受け付ける", "invalid:check=*"),
     ),
     Method(
         "setColors",
@@ -1024,7 +964,6 @@ NODES_METHODS = (
         invalid={"colors": ((13,), (13, 13, 13), (32, 0), 1.5, None)},
         expect=_expect_nodes_set_color,
         limit=WRITE_LIMIT,
-        known=_known("N16: Nodes.setColor・setColors・setParent の check が bool でない値を受け付ける", "invalid:check=*"),
     ),
     Method("setVisibility", _make_nodes, expect=_expect_nodes_visibility, limit=WRITE_LIMIT),
     Method(
@@ -1036,16 +975,6 @@ NODES_METHODS = (
         invalid={"parent": (DELETED_NODE, MISSING_NAME, 1.5, Lazy(lambda case: case.ns + ":item1", "<要素自身>"))},
         expect=_expect_nodes_parent,
         limit=WRITE_LIMIT,
-        known={
-            **_known("N16: Nodes.setColor・setColors・setParent の check が bool でない値を受け付ける", "invalid:check=*"),
-            **_known("N17: Nodes.setParent の relative・add が bool でない値を受け付ける", "invalid:relative=1", "invalid:add=1"),
-            **_known(
-                "N18: fast=True と add=True は NotImplementedError だが、Nodes.setParent の Raises に無い",
-                "pairs:parent=*,add=True",
-                "pairs:relative=*,add=True",
-                "pairs:add=True,check=*",
-            ),
-        },
     ),
     Method("getNames", _make_nodes, conflicts=(_get_name_conflict,), expect=_expect_names),
     Method("getSkinClusters", _make_skinned_nodes, expect=_expect_skin_clusters),
@@ -1113,7 +1042,6 @@ ADD_ATTR_CONTEXT_ROWS = {
         invalid=dict.fromkeys(("parent", "p"), (1.5, "argumentSweepMissing")),
         conflicts=(_add_attr_conflict,),
         expect=_expect_add_attr,
-        known=_known("N4: Maya が拒否したとき RuntimeError だが、Raises に無い", "invalid:parent=*", "invalid:p=*"),
     ),
 }
 

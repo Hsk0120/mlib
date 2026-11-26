@@ -5,6 +5,7 @@
 """
 
 import itertools
+import re
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -249,20 +250,72 @@ def rename_node(node, name, ignore_shape=False):
     fn = om2.MFnDependencyNode(node)
     old = fn.name()
     shapes = []
-    if not ignore_shape and node.hasFn(om2.MFn.kTransform):
+    kept = []
+    if node.hasFn(om2.MFn.kTransform):
         dag = om2.MFnDagNode(node)
         for i in range(dag.childCount()):
             child = dag.child(i)
-            child_fn = om2.MFnDependencyNode(child)
-            # cmds.renameは、別の名前空間にあるShapeの名前は合わせて変えない。
-            short = child_fn.name()
-            if child.hasFn(om2.MFn.kShape) and short.startswith(old):
+            if not child.hasFn(om2.MFn.kShape):
+                continue
+            short = om2.MFnDependencyNode(child).name()
+            if ignore_shape:
+                # om2のsetNameは、名前が元の名前で始まる直下のShapeも合わせて変えるため、変える前の名前を覚えて戻す。
+                kept.append((child, short))
+            elif short.startswith(old):
+                # cmds.renameは、別の名前空間にあるShapeの名前は合わせて変えない。
                 require_editable(child)
                 shapes.append((child, short[len(old) :]))
     result = fn.setName(str(name))
     for shape, suffix in shapes:
         om2.MFnDependencyNode(shape).setName(result + suffix)
+    for shape, short in kept:
+        shape_fn = om2.MFnDependencyNode(shape)
+        if shape_fn.name() != short:
+            shape_fn.setName(short)
     return result
+
+
+def _auto_transform_name(shape_name, name):
+    """Shapeと一緒に自動で作ったTransformの名前を、cmds.createNodeと同じ規則で決める。
+
+    cmds.createNodeは、Shapeの名前が ``<名前>Shape`` ならTransformを ``<名前>`` にし、それ以外は
+    Shapeの既定の名前(``locatorShape1`` など)から ``Shape`` と番号を除いた名前に番号を付ける。
+    名前空間はShapeに付ける名前のものを使う。
+
+    Args:
+        shape_name (str): Mayaが付けたShapeの既定の名前。
+        name (str | None): Shapeに付ける名前。
+
+    Returns:
+        str: Transformに付ける名前。番号は ``#`` で、Mayaが空いている番号にする。
+    """
+    if not name:
+        return re.sub(r"Shape\d*$", "", shape_name) + "#"
+    namespace, _, leaf = str(name).rpartition(":")
+    prefix = namespace + ":" if ":" in str(name) else ""
+    if leaf.endswith("Shape") and len(leaf) > len("Shape"):
+        return prefix + leaf[: -len("Shape")]
+    return prefix + re.sub(r"Shape\d*$", "", shape_name) + "#"
+
+
+def _set_name_in_namespace(node, name):
+    """ノードの名前を変え、使えない文字だけの名前でも、cmds.createNodeと同じく指定の名前空間に残す。
+
+    om2のsetNameは、使えない文字だけの名前を名前空間ごと外した既定の名前にする。cmds.createNodeは名前空間を残すため、
+    そのときは既定の名前(番号を除く)へ名前空間を付けて、空いている番号で付け直す。
+
+    Args:
+        node (om2.MObject): 名前を変えるノード。
+        name (str): 新しい名前。``#`` はMayaが空いている番号にする。
+
+    Returns:
+        None: 値を返さない。
+    """
+    fn = om2.MFnDependencyNode(node)
+    given = fn.setName(name)
+    namespace = name.rpartition(":")[0]
+    if namespace and given.rpartition(":")[0] != namespace.lstrip(":"):
+        fn.setName(namespace + ":" + re.sub(r"\d+$", "", given.rpartition(":")[2]) + "#")
 
 
 def create_node(node_type, flags):
@@ -322,12 +375,17 @@ def create_node(node_type, flags):
         modifier = om2.MDGModifier()
         obj = modifier.createNode(node_type)
     modifier.doIt()
+    transform = None
     if om2.MFnDependencyNode(obj).typeName != node_type and obj.hasFn(om2.MFn.kDagNode):
         # Shapeをワールド直下へ作る場合、MDagModifierは自動作成したTransformを返す。
+        transform = obj
         dag = om2.MFnDagNode(obj)
         obj = next(dag.child(i) for i in range(dag.childCount()) if om2.MFnDependencyNode(dag.child(i)).typeName == node_type)
+    if transform is not None:
+        # MDagModifierはTransformを transform1 と名付けるため、cmds.createNodeと同じ名前・名前空間に付け直す。
+        _set_name_in_namespace(transform, _auto_transform_name(om2.MFnDependencyNode(obj).name(), name))
     if name:
-        om2.MFnDependencyNode(obj).setName(str(name))
+        _set_name_in_namespace(obj, str(name))
     if not flags.get("skipSelect", False):
         selected = om2.MSelectionList()
         selected.add(obj)

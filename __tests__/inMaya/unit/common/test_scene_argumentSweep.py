@@ -184,14 +184,10 @@ EXPORT_NODES = (
     Lazy(lambda case: case.name("a"), "'<名前>'"),
 )
 
-#: 本体との食い違い(findings4/sweep-common-json-maths.md の SC1・SC2)。
-KNOWN_FORCE = {f"invalid:force={value}": "bool でない force を真偽として読む" for value in ("1", "'yes'", "None")}
-KNOWN_NAMESPACE = {"invalid:namespace=?'x'?": "文字列でない namespace で Raises に無い TypeError(Maya の Invalid arguments for flag)"}
-
 METHODS = (
-    Method("newFile", _classes, invalid={"force": (1, "yes", None)}, expect=_expect_new, state=_state, writes=False, known=KNOWN_FORCE),
-    Method("openFile", _opener, invalid={"force": (1, "yes", None)}, expect=_expect_open, state=_state, writes=False, known=KNOWN_FORCE),
-    Method("save", _saver, invalid={"force": (1, "yes", None)}, expect=_expect_save, state=_state, writes=False, known=KNOWN_FORCE),
+    Method("newFile", _classes, invalid={"force": (1, "yes", None)}, expect=_expect_new, state=_state, writes=False),
+    Method("openFile", _opener, invalid={"force": (1, "yes", None)}, expect=_expect_open, state=_state, writes=False),
+    Method("save", _saver, invalid={"force": (1, "yes", None)}, expect=_expect_save, state=_state, writes=False),
     Method(
         "importFile",
         _importer,
@@ -201,7 +197,6 @@ METHODS = (
         expect=_expect_import,
         state=_state,
         writes=False,
-        known={**KNOWN_NAMESPACE, "invalid:namespace=1.5": "数の namespace で Raises に無い RuntimeError(Maya の contains no legal characters)"},
     ),
     Method(
         "reference",
@@ -212,7 +207,6 @@ METHODS = (
         expect=_expect_reference,
         state=_state,
         writes=False,
-        known=KNOWN_NAMESPACE,
     ),
     Method(
         "export",
@@ -231,7 +225,6 @@ METHODS = (
         expect=_expect_export,
         state=_state,
         writes=False,
-        known=KNOWN_FORCE,
     ),
 )
 

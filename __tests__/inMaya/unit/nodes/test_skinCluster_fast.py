@@ -132,7 +132,7 @@ class SetWeightsFastTest(_SkinCase):
                         _, skin = self.skin()
                         cmds.setAttr(skin.getName(full=True) + ".normalizeWeights", mode)
                         cmds.setAttr(self.tip + ".liw", locked)
-                        count = cmds.polyEvaluate(skin.getGeometry()[0], vertex=True)
+                        count = cmds.polyEvaluate(skin.getGeometry(), vertex=True)
                         values = []
                         for vertex in range(count):
                             values += [0.0 if vertex % 2 else 0.3, 0.0 if vertex % 3 else 0.9]

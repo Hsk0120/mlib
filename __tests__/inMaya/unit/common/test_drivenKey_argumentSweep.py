@@ -166,7 +166,6 @@ METHODS = (
         },
         expect=_expect_set_key,
         state=_state,
-        known={f"invalid:check={value}": "bool でない check を真偽として読む" for value in ("1", "'yes'", "None")},
         limit=60,
     ),
     Method(
@@ -194,7 +193,6 @@ METHODS = (
             )
         },
         expect=_expect_find,
-        known={"invalid:driven=<削除済みのPlug>": "削除済みの Plug で Raises に無い RuntimeError"},
     ),
 )
 

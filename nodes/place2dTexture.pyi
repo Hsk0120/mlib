@@ -1,7 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Mayaのplace2dTextureノードを扱う。"""
 
-from ..decorator import _edit_context
+from ..decorator import _edit_context, _require_bool
 from .node import Node
 from .shadingDependNode import ShadingDependNode
 from .texture2d import Texture2d
@@ -24,7 +24,7 @@ class Place2dTexture(ShadingDependNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外、または対象がTexture2dでない場合。
+            TypeError: force・fastがbool以外、または対象がTexture2dでない場合。
             RuntimeError: 接続できない場合。途中までにできた接続は自動では戻さない。
         """
         ...

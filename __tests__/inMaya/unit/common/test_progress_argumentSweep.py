@@ -134,10 +134,6 @@ METHODS = (
         },
         expect=_expect_progress,
         writes=False,
-        known={
-            "invalid:stream=1.5": "write を持たない出力先で Raises に無い AttributeError",
-            "invalid:stream='stdout'": "write を持たない出力先で Raises に無い AttributeError",
-        },
         limit=120,
     ),
 )

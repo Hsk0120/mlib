@@ -21,7 +21,7 @@
 import maya.cmds as cmds
 
 from ..decorator import _require_bool, undoChunk
-from ..util import _UNSET
+from ..util import _UNSET, _finite
 
 
 class Keyframe:
@@ -103,7 +103,8 @@ class Keyframe:
             float: 値、または入力の値。
 
         Raises:
-            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、input=Trueとunitを同時に指定した場合、またはunit・timeUnitが文字列でない場合。
+            ValueError: unit・timeUnitに対応していない単位名の場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
@@ -131,11 +132,12 @@ class Keyframe:
             None: 値を返さない。
 
         Raises:
-            TypeError: 数値に変換できない型の場合、またはfastがboolでない場合。
+            TypeError: 数値に変換できない型の場合、またはfast・checkがboolでない場合。
             ValueError: 値が有限でない場合、または単位名に対応していない場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
-            RuntimeError: カーブが無効(削除済み)の場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
+        _require_bool(check, "check")
         self._curve._set_key_values(self._index, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
 
     def getTangent(self, *, unit="deg"):
@@ -174,13 +176,16 @@ class Keyframe:
             None: 値を返さない。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
+            TypeError: unitが文字列・None以外の場合、またはfast・checkがboolでない場合。
             ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
+                ウェイト付きの接線でないカーブにinWeight・outWeightを指定した場合(weightedTangentsと一緒に指定した場合を除く)、
                 またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで入力側の接線にstepnextを指定した場合。
         """
+        _require_bool(check, "check")
+        _require_weighted(self._curve, kwargs)
         self._curve._set_tangent(self._index, unit=unit, fast=fast, check=check, **kwargs)
 
     def isBreakdown(self):
@@ -215,7 +220,7 @@ class Keyframe:
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """キーの入力と値をずらす。
 
-        入力は隣のキーを越えない(Mayaの ``keyframe -relative`` と同じ)。番号は変わらない。
+        入力が隣のキーと同じか、越える位置になる場合は、何も変えずに例外にする。番号は変わらない。
 
         Args:
             timeOffset (float): 入力をずらす量。
@@ -225,7 +230,15 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: timeOffset・valueOffsetが数値でない(boolを含む)、またはunit・timeUnitが文字列でない場合。
+            ValueError: timeOffset・valueOffsetが有限でない場合、unit・timeUnitに対応していない単位名の場合、
+                または入力が隣のキーと同じか越える位置になる場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
+        _require_movable(self._curve, [self._index], timeOffset, valueOffset, timeUnit)
         self._curve._move_keys(index=self._index, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
 
     def delete(self, *, keepCurve=True, fast=False, check=False):
@@ -241,7 +254,14 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: keepCurve・fast・checkがboolでない場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
+        _require_bool(keepCurve, "keepCurve")
+        _require_bool(check, "check")
         self._curve._remove_keys(index=self._index, keepCurve=keepCurve, fast=fast, check=check)
 
     def select(self, *, add=False):
@@ -252,6 +272,10 @@ class Keyframe:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: addがboolでない場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
         Keyframes([self]).select(add=add)
 
@@ -349,7 +373,15 @@ class Keyframes:
 
         Returns:
             list[int]: 番号(小さい順)。このカーブのキーが無ければ空。
+
+        Raises:
+            TypeError: curveがAnimCurveでない場合。
         """
+        # nodes.animCurve はこのモジュールを読み込むため、循環importを避けて関数内で読み込む。
+        from ..nodes.animCurve import AnimCurve
+
+        if not isinstance(curve, AnimCurve):
+            raise TypeError(f"curveはAnimCurveで指定してください: {type(curve).__name__}")
         for held, indices in self._groups:
             if held == curve:
                 return list(indices)
@@ -367,7 +399,8 @@ class Keyframes:
             list[float]: 値、または入力の値。
 
         Raises:
-            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、input=Trueとunitを同時に指定した場合、またはunit・timeUnitが文字列でない場合。
+            ValueError: unit・timeUnitに対応していない単位名の場合。
         """
         _require_bool(input, "input")
         if input and unit is not _UNSET:
@@ -392,7 +425,14 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: 数値に変換できない型の場合、またはfast・checkがboolでない場合。
+            ValueError: 値が有限でない場合、または単位名に対応していない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
+        _require_bool(check, "check")
         with undoChunk("mlibKeyframesSetValue"):
             for curve, indices in self._groups:
                 curve._set_key_values(indices, value, unit=unit, timeUnit=timeUnit, fast=fast, check=check)
@@ -413,14 +453,18 @@ class Keyframes:
             None: 値を返さない。
 
         Raises:
-            TypeError: unitが文字列でもNoneでもない場合。
+            TypeError: unitが文字列でもNoneでもない場合、またはfast・checkがboolでない場合。
             ValueError: フラグが空か知らないものの場合、unitに対応していない場合、
+                ウェイト付きの接線でないカーブにinWeight・outWeightを指定した場合(weightedTangentsと一緒に指定した場合を除く)、
                 またはfastで正しくない値や、global・知らない接線の型を指定した場合。
             IndexError: キーの番号が正しくない場合。
             RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが
                 ロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで、入力側の接線にstepnextを指定した場合。
         """
+        _require_bool(check, "check")
+        for curve, _indices in self._groups:
+            _require_weighted(curve, kwargs)
         with undoChunk("mlibKeyframesSetTangent"):
             if check:
                 # 途中のカーブで止まって一部だけ変わらないよう、書く前に全部のカーブを確かめる。
@@ -456,6 +500,7 @@ class Keyframes:
 
         カーブごとに1回で動かし、全体を1回のUndoで戻せる。
         同じカーブの対象のキーどうしは一緒に動くため、互いを越えられない制限は受けない。
+        動かさない隣のキーと同じか越える位置になる場合は、何も変えずに例外にする。
 
         Args:
             timeOffset (float): 入力をずらす量。
@@ -465,7 +510,16 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: timeOffset・valueOffsetが数値でない(boolを含む)、またはunit・timeUnitが文字列でない場合。
+            ValueError: timeOffset・valueOffsetが有限でない場合、unit・timeUnitに対応していない単位名の場合、
+                または入力が動かさない隣のキーと同じか越える位置になる場合(何も変えない)。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
+        for curve, indices in self._groups:
+            _require_movable(curve, indices, timeOffset, valueOffset, timeUnit)
         with undoChunk("mlibKeyframesMove"):
             for curve, indices in self._groups:
                 curve._move_keys(index=indices, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
@@ -483,7 +537,14 @@ class Keyframes:
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: keepCurve・fast・checkがboolでない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが書き込めない場合。
         """
+        _require_bool(keepCurve, "keepCurve")
+        _require_bool(check, "check")
         with undoChunk("mlibKeyframesDelete"):
             if check:
                 # 途中のカーブで止まって一部だけ消えないよう、消す前に全部のカーブを確かめる。
@@ -525,3 +586,55 @@ def _keyframe(curve, index):
     keyframe._curve = curve
     keyframe._index = index
     return keyframe
+
+
+def _require_weighted(curve, flags):
+    """ウェイト付きの接線でないカーブへ、接線のウェイトを書こうとしていないか確かめる。
+
+    Mayaは、ウェイト付きでないカーブへのウェイトの指定を例外にするが、同じ呼び出しの先のフラグは書き換えたまま残す。
+    そのため、何かを書き換える前に確かめる。
+
+    Args:
+        curve (AnimCurve): 書き込むカーブ。
+        flags (dict): setTangentのフラグ。
+
+    Raises:
+        ValueError: ウェイト付きでないカーブに、weightedTangentsなしでinWeight・outWeightを指定した場合。
+    """
+    if "weightedTangents" in flags or not ("inWeight" in flags or "outWeight" in flags):
+        return
+    if curve.isValid() and not curve._curve_fn().isWeighted:
+        raise ValueError("ウェイト付きの接線でないカーブには、inWeight・outWeightを指定できません(weightedTangents=Trueで切り替えます)")
+
+
+def _require_movable(curve, indices, time_offset, value_offset, time_unit):
+    """キーを動かす前に、量の型と、動かさない隣のキーと同じか越える位置にならないかを確かめる。
+
+    Args:
+        curve (AnimCurve): キーを持つカーブ。
+        indices (Sequence[int]): 一緒に動かすキーの番号。
+        time_offset (float): 入力をずらす量。
+        value_offset (float): 値をずらす量。
+        time_unit (str): 入力が時間のカーブでの単位。
+
+    Raises:
+        TypeError: 量が数値でない(boolを含む)、またはtime_unitが文字列でない場合。
+        ValueError: 量が有限でない、time_unitに対応していない、または隣のキーと同じか越える位置になる場合。
+        IndexError: 番号がキーの数の範囲から外れた場合。
+        RuntimeError: カーブが無効(削除済み)の場合。
+    """
+    offset = _finite(time_offset, "timeOffset")
+    _finite(value_offset, "valueOffset")
+    curve._require_valid("キーの移動")
+    inputs = curve.getKeyInputs(timeUnit=time_unit)
+    moved = set(indices)
+    for index in moved:
+        curve._index(index)
+    if offset == 0.0:
+        return
+    for index in moved:
+        new = inputs[index] + offset
+        left = next((number for number in range(index - 1, -1, -1) if number not in moved), None)
+        right = next((number for number in range(index + 1, len(inputs)) if number not in moved), None)
+        if (left is not None and new <= inputs[left]) or (right is not None and new >= inputs[right]):
+            raise ValueError(f"キーの入力が隣のキーと同じか越えるため、動かせません: {curve.getName()}[{index}]")

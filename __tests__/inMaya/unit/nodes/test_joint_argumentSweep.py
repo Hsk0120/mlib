@@ -305,8 +305,6 @@ ANGLES = (
     om2.MEulerRotation(0.1, 0.2, 0.3, om2.MEulerRotation.kZYX),
 )
 ANGLES_INVALID = ((1.0, 2.0), "abc", 1.5, (float("nan"), 0.0, 0.0))
-#: check が bool でない値を受け付ける(findings4/sweep-dag.md の D3)。
-KNOWN_CHECK = _known("D3: check が bool でない値を受け付ける", "invalid:check=*")
 
 METHODS = (
     Method(
@@ -356,11 +354,6 @@ METHODS = (
         invalid={"plane": ("w", "xyz", 3, -1, 1.5, None), "searchReplace": (("", "R_"), ("a",), 1.5, ("a", 1))},
         expect=_expect_mirror,
         limit=WRITE_LIMIT,
-        known=_known(
-            "J3: behavior=False と searchReplace を指定すると、redo で同じ結果にならない",
-            "pairs:behavior=False,searchReplace=(*",
-            "pairs:behavior=False,searchReplace=[*",
-        ),
     ),
     Method(
         "connectInverseScale",
@@ -399,7 +392,6 @@ METHODS = (
         expect=_expect_angles("preferredAngle"),
         plural=_make_loose_plural,
         limit=WRITE_LIMIT,
-        known=_known("J4: value=None のとき unit を確かめない", "invalid:unit=*"),
     ),
     Method("assumePreferredAngles", _make_rig, expect=_expect_assume),
     Method(
@@ -412,7 +404,6 @@ METHODS = (
         expect=_expect_dof,
         plural=_make_loose_plural,
         limit=WRITE_LIMIT,
-        known=KNOWN_CHECK,
     ),
     Method(
         "removeInfluence",
@@ -441,7 +432,6 @@ METHODS = (
         replace=("skinCluster",),
         invalid={"skinCluster": (1.5, None)},
         expect=_expect_transfer_target,
-        known=_known("J2: skinCluster に SkinCluster でない値を渡すと AttributeError(docstring に Raises が無い)", "invalid:skinCluster=*"),
     ),
     Method(
         "reparentChildren",
@@ -469,7 +459,6 @@ METHODS = (
         values={"to": (TIP, _node("mid*"), _name("tip*"))},
         invalid={"to": (OTHER, 1.5, DELETED_NODE, MISSING_NAME)},
         expect=_expect_chain,
-        known=_known("J1: to にノードとして扱えない値を渡すと TypeError だが、Raises に無い", "invalid:to=1.5"),
     ),
     Method(
         "insertJoints",

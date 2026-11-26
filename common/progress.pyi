@@ -242,7 +242,8 @@ def progressBar(iterable: Iterable, *, label: str = ..., total: int | None = ...
         Iterator: 元の要素を、元の順に返すジェネレーター。
 
     Raises:
-        TypeError: labelの型が正しくない場合、またはwidth・totalが整数でない場合。boolは整数として受け付けない。
+        TypeError: labelの型が正しくない場合、width・totalが整数でない場合(boolは整数として受け付けない)、
+            streamがwriteを持たない場合、notifyが呼び出せない場合、またはguiがbool・None以外の場合。
         ValueError: widthが1より小さい場合、またはtotalが負の場合。
         RuntimeError: gui=Trueで、メインのプログレスバーが使えない場合(バッチ・ほかで使用中など)。
         ProgressCancelled: ループの途中で、プログレスバーがEscキーで中止された場合。

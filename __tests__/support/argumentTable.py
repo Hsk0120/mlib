@@ -1,7 +1,8 @@
 """引数を網羅するテスト(``support.argumentSweep``)の、Mayaを使わない部分。
 
 docstring の Args・Raises の読み取り、引数の型の分類、値の候補と「違う型の値」の生成、
-2つの引数の組(ペアワイズ)の生成、「正しい呼び方の表」の1行(:class:`Method`)を置く。
+2つの引数の組(ペアワイズ)の生成、「正しい呼び方の表」の1行(:class:`Method`)と、
+値の作り直し(:func:`resolve`)・可変長の引数を展開した呼び出し(:func:`invoke`)を置く。
 Mayaを起動せずに ``noMaya/test_argumentTable.py`` から確かめられるよう、ここでは maya を import しない。
 """
 
@@ -12,13 +13,14 @@ import math
 import re
 
 SECTION = re.compile(r"^(Args|Returns|Yields|Raises|Examples|Note|Notes|Warning|See Also|Attributes):$")
-ARG_LINE = re.compile(r"^(\w+)\s*\(([^)]*(?:\([^)]*\)[^)]*)*)\)\s*:\s*(.*)$")
+ARG_LINE = re.compile(r"^\*{0,2}(\w+)\s*\(([^)]*(?:\([^)]*\)[^)]*)*)\)\s*:\s*(.*)$")
 RAISES_LINE = re.compile(r"^([A-Z]\w*(?:Error|Exception|Exit))\s*:")
 CHOICE = re.compile(r'``"([^"`]+)"``')
 ALIAS = re.compile(r"^(\w+)の短縮名")
 
 #: 引数の型の分類。docstring の型の文字列を ``|`` で分けた部分ごとに1つを決める。
-KINDS = ("bool", "int", "float", "str", "choice", "none", "sequence", "plug", "node", "callable", "other")
+#: ``any`` は ``object``・``Any``(どの値も受け付ける。説明にノード・Plug と書いた ``object`` は ``node``)。
+KINDS = ("bool", "int", "float", "str", "choice", "none", "sequence", "plug", "node", "callable", "any", "other")
 
 #: 数学型・並びとして扱う型の名前(docstring の型の文字列の先頭)。
 SEQUENCE_NAMES = (
@@ -59,18 +61,82 @@ class Lazy:
     """呼ぶ直前に作る値(新しく作ったノード・削除済みのノードなど)。
 
     表の値の候補・違う型の値に置くと、テストの実行時に ``make(case)`` を呼んだ結果に置き換わる。
+    並び(list・tuple)・辞書の中に置いてもよい(中の Lazy も作る)。
 
     Attributes:
-        make (callable): テストケースを受け取り、渡す値を返す関数。
+        make (callable): テストケースを受け取り、渡す値を返す関数。``args=True`` なら
+            ``make(case, kwargs)`` で、ほかの引数(Lazy でない値と ``args=False`` の Lazy を作った値)の辞書も受け取る。
         label (str): subTest と出力に出す名前。
+        args (bool): True なら、ほかの引数の辞書も受け取る(3つ以上の引数がそろって決まる値に使う)。
     """
 
-    def __init__(self, make, label):
+    def __init__(self, make, label, args=False):
         self.make = make
         self.label = label
+        self.args = args
 
     def __repr__(self):
         return self.label
+
+
+class Known:
+    """``Method.known`` の理由に、当てはまる Maya の版を付ける。
+
+    Attributes:
+        reason (str): 理由。
+        versions (tuple[int, ...] | None): 当てはまる Maya の版(``2022`` など)。None ならすべての版。
+    """
+
+    def __init__(self, reason, versions=None):
+        self.reason = reason
+        self.versions = None if versions is None else tuple(versions)
+
+    def __repr__(self):
+        return f"Known({self.reason!r}, versions={self.versions!r})"
+
+    def applies(self, version):
+        """版に当てはまるかを返す。
+
+        Args:
+            version (int | None): Maya の版。None なら版を問わない。
+
+        Returns:
+            bool: 当てはまるなら True。
+        """
+        return self.versions is None or version is None or version in self.versions
+
+
+class ErrorState:
+    """状態で決まる例外(削除済み・アンロード中など)を確かめる指定。``Method.errors`` に置く。
+
+    ``test_<メソッド>_errors`` が、作り直した対象を ``prepare`` でその状態にしてから正しい呼び方で呼び、
+    ``error`` の例外になり、シーンが変わらないことを確かめる。
+
+    Attributes:
+        label (str): subTest と出力に出す名前(``"削除済み"`` など)。
+        prepare (callable): テストケースと対象を受け取り、対象をその状態にする。値を返せば、その値を対象として呼ぶ。
+        error (type | tuple[type, ...] | str): 期待する例外の型(型の名前でもよい。派生も可)。
+        kwargs (dict): 正しい呼び方へ足す・置き換える引数。
+    """
+
+    def __init__(self, label, prepare, error, kwargs=None):
+        self.label = label
+        self.prepare = prepare
+        self.error = error
+        self.kwargs = dict(kwargs or {})
+
+    def matches(self, error):
+        """例外が期待する型かを返す。
+
+        Args:
+            error (BaseException): 起きた例外。
+
+        Returns:
+            bool: 期待する型(またはその派生)なら True。
+        """
+        expected = self.error if isinstance(self.error, tuple) else (self.error,)
+        names = {item if isinstance(item, str) else item.__name__ for item in expected}
+        return isDocumented(error, names)
 
 
 #: 削除済みのノード(テストケースの ``deletedNode()`` で作る)。
@@ -121,14 +187,25 @@ class Method:
         expect (callable | None): 例外にならなかった呼び出しごとに ``expect(case, call)`` を呼ぶ(結果を cmds・om2 で確かめる)。
             ``call`` は :class:`Call`。
         state (callable | None): テストケースと対象を受け取り、比べられるシーンの状態を返す。
-            省略時はテストの名前空間のノード・アトリビュートの値・接続を読む。
+            省略時はテストケースの ``STATE``、それも無ければテストの名前空間のノード・アトリビュートの値・接続を読む。
         roundTrip (RoundTrip | None): set の後の get が同じ値を返すことを確かめる。
         plural (callable | None): テストケースを受け取り、(複数形, 単数の並び) を返す。複数形から呼んだ結果が、
             単数を1つずつ呼んだ結果の並びと同じことを確かめる。
         writes (bool | None): シーンを変えるメソッドか。省略時は名前が get・is・has・list・find で始まらなければ True。
-        known (dict[str, str]): 本体との食い違いとして記録した場合(``"段:引数=値"`` の形。fnmatch の ``*`` が使える)と理由。
-            通常の実行からは外し、expectedFailure のテストで、まだ食い違っていることを確かめる。
+        known (dict): 本体との食い違いとして記録した場合と理由。キーは ``"段:引数=値"`` の形の型紙(fnmatch の ``*`` が使える。
+            ``[`` はそのままの文字としても比べる)か、``(段, 引数の辞書)`` を受け取り当てはまれば True を返す関数。
+            理由は文字列か :class:`Known`(版を限る)。通常の実行からは外し、expectedFailure のテストで、まだ食い違っていることを確かめる。
         limit (int): 段3で作る組の上限。
+        function (callable | None): 対象のメソッドの代わりに呼ぶ関数(モジュールの関数・クラスメソッド・静的メソッド)。
+            対象(setup の戻り値)は状態・expect にだけ使う。省略時は ``getattr(対象, name)`` を呼ぶ
+            (対象がクラス・モジュールなら、そのクラスメソッド・静的メソッド・関数をそのまま呼ぶ)。
+        variant (str | None): テストの名前に足す接尾辞(``test_<name>_<variant>_values``)。同じメソッドを別の呼び方で2行置くとき。
+            省略して同じ名前が重なった行は ``_2``・``_3`` と番号を付ける。
+        undoable (bool): False なら Undo に記録しないメソッド(段3で、Undo の記録が無いことを確かめ、Undo・redo は確かめない)。
+        reset (callable | None): 呼び出しごとに、テストケースと対象を受け取って後始末をする(登録を増やすメソッドの解除など)。
+        context (bool): True なら、戻り値を with で入って出てから状態を読む(コンテキストマネージャーを返すメソッド)。
+        combos (Iterable[dict]): 段3で上限によらず必ず通す組(3つ以上の引数でもよい)。
+        errors (Iterable[ErrorState]): 状態で決まる例外を確かめる指定(``test_<name>_errors``)。
     """
 
     def __init__(
@@ -149,6 +226,13 @@ class Method:
         writes=None,
         known=None,
         limit=DEFAULT_LIMIT,
+        function=None,
+        variant=None,
+        undoable=True,
+        reset=None,
+        context=False,
+        combos=(),
+        errors=(),
     ):
         self.name = name
         self.setup = setup
@@ -166,20 +250,94 @@ class Method:
         self.writes = (not name.startswith(("get", "is", "has", "list", "find"))) if writes is None else writes
         self.known = dict(known or {})
         self.limit = limit
+        self.function = function
+        self.variant = variant
+        self.undoable = undoable
+        self.reset = reset
+        self.context = context
+        self.combos = tuple(dict(combo) for combo in combos)
+        self.errors = tuple(errors)
 
-    def isKnown(self, label):
+    @property
+    def testName(self):
+        """テストの名前に使う名前(``name`` と ``variant``)を返す。
+
+        Returns:
+            str: ``setX`` か ``setX_<variant>``。
+        """
+        return f"{self.name}_{self.variant}" if self.variant else self.name
+
+    def isKnown(self, label, kwargs=None, version=None):
         """食い違いとして記録した場合なら、その理由を返す。
 
         Args:
             label (str): 場合の名前(``"invalid:relative=1"`` など)。
+            kwargs (dict | None): 渡す引数。関数で書いた known に渡す(None なら関数の known は見ない)。
+            version (int | None): Maya の版。:class:`Known` の版と比べる(None なら版を問わない)。
 
         Returns:
             str | None: 理由。記録していなければ None。
         """
+        stage = label.split(":", 1)[0]
         for pattern, reason in self.known.items():
-            if fnmatch.fnmatchcase(label, pattern):
+            if isinstance(reason, Known):
+                if not reason.applies(version):
+                    continue
+                reason = reason.reason
+            if callable(pattern):
+                if kwargs is not None and pattern(stage, kwargs):
+                    return reason
+            elif matchLabel(label, pattern):
                 return reason
         return None
+
+    def hasVersionedKnown(self, version):
+        """この版に当てはまらない :class:`Known` があるかを返す。
+
+        Args:
+            version (int | None): Maya の版。
+
+        Returns:
+            bool: 版で外れた known があるなら True。
+        """
+        return any(isinstance(reason, Known) and not reason.applies(version) for reason in self.known.values())
+
+    def valuesFor(self, param):
+        """引数の、表に書いた値の候補を返す(可変長の引数は ``"*"``・``"**"`` のキーでもよい)。
+
+        Args:
+            param (Parameter): 引数。
+
+        Returns:
+            tuple: 値の候補。
+        """
+        return tuple(self.values.get(param.name, self.values.get(param.variadic, ()) if param.variadic else ()))
+
+    def invalidFor(self, param):
+        """引数の、表に書いた段2の値を返す。書いていなければ None。
+
+        Args:
+            param (Parameter): 引数。
+
+        Returns:
+            tuple | None: 段2の値。
+        """
+        for key in (param.name, param.variadic):
+            if key and key in self.invalid:
+                return tuple(self.invalid[key])
+        return None
+
+    def mentions(self, name, star):
+        """可変長の引数を、表の values・invalid に書いたかを返す。
+
+        Args:
+            name (str): 引数の名前。
+            star (str): ``"*"`` か ``"**"``。
+
+        Returns:
+            bool: 書いたなら True。
+        """
+        return any(key in table for key in (name, star) for table in (self.values, self.invalid))
 
     def conflicting(self, kwargs):
         """引数の辞書が、同時に指定できない組を含むかを返す。
@@ -207,13 +365,15 @@ class Call:
         kwargs (dict): 渡した引数(:class:`Lazy` は作った値)。
         result (object): 戻り値。
         stage (str): ``"values"``・``"pairs"`` のどれか。
+        before (object): 呼ぶ前の状態(``Method.state`` などで読んだもの)。
     """
 
-    def __init__(self, target, kwargs, result, stage):
+    def __init__(self, target, kwargs, result, stage, before=None):
         self.target = target
         self.kwargs = kwargs
         self.result = result
         self.stage = stage
+        self.before = before
 
 
 def sections(doc):
@@ -338,7 +498,10 @@ def kindOf(part, text=""):
         return "callable"
     if "Plug" in head:
         return "plug"
-    if head[:1].isupper() or head in ("node", "object"):
+    if head in ("object", "Any"):
+        # 説明にノード・Plug と書いた object はノードとして段2の値を作る。それ以外は、どの値も受け付ける。
+        return "node" if head == "object" and re.search(r"Node|Plug|ノード", text or "") else "any"
+    if head[:1].isupper() or head == "node":
         return "node"
     return "other"
 
@@ -463,9 +626,10 @@ class Parameter:
         kinds (list[str]): 分類の名前。
         choices (list[str]): 選べる値。
         alias (str | None): 短縮名なら、その長い名前。
+        variadic (str | None): 可変長の引数なら ``"*"``(位置。値は並び)か ``"**"``(キーワード。値は辞書)。
     """
 
-    def __init__(self, name, default, typeText="", text=""):
+    def __init__(self, name, default, typeText="", text="", variadic=None):
         self.name = name
         self.default = default
         self.typeText = typeText
@@ -473,9 +637,12 @@ class Parameter:
         self.kinds = kindsOf(typeText, text) if typeText else []
         self.choices = choices(text) if "choice" in self.kinds else []
         self.alias = aliasOf(text)
+        self.variadic = variadic
 
     def candidates(self, extra=(), replace=False):
         """段1の値の候補を返す。
+
+        可変長の引数は、表に書いた候補(``*`` は並び、``**`` は辞書)だけを使う。
 
         Args:
             extra (Iterable): 表に書いた候補。
@@ -484,7 +651,7 @@ class Parameter:
         Returns:
             list: 値の候補(重複なし)。
         """
-        if replace:
+        if replace or self.variadic:
             return _unique(extra)
         values = list(extra)
         if isPlain(self.default) and self.default is not inspect.Parameter.empty:
@@ -505,9 +672,15 @@ class Parameter:
     def invalidValues(self):
         """段2の「違う型の値」を返す(どの分類でも受け付けない値だけ)。
 
+        可変長の位置引数(``*``)は、要素の型で作った値を1つだけの並びにする。``**`` は作らない。
+
         Returns:
             list: 違う型の値。
         """
+        if self.variadic == "**":
+            return []
+        if self.variadic == "*":
+            return [(value,) for value in Parameter(self.name, inspect.Parameter.empty, self.typeText, self.text).invalidValues()]
         kinds = set(self.kinds)
         values = []
         if "bool" in kinds:
@@ -536,6 +709,8 @@ class Parameter:
             bool: 受け付けられる型なら True。
         """
         kinds = set(self.kinds)
+        if "any" in kinds:
+            return True
         if isinstance(value, Lazy):
             return False
         if isinstance(value, bool):
@@ -555,30 +730,157 @@ class Parameter:
         return "other" in kinds or ("callable" in kinds and callable(value))
 
 
-def parameters(function, doc=None, skip=()):
+def parameters(function, doc=None, skip=(), include=()):
     """関数のシグネチャと docstring から、網羅する引数を作る。
 
-    ``self``・``*args``・``**kwargs`` と ``skip`` に書いた引数は除く。
+    ``self``・``cls`` と ``skip`` に書いた引数は除く。``*args``・``**kwargs`` は ``include`` に名前
+    (または ``"*"``・``"**"``)を書いたときだけ入れる。
 
     Args:
         function (callable): 関数・メソッド。
         doc (str | None): docstring。省略時は ``inspect.getdoc(function)``。
         skip (Iterable[str]): 除く引数の名前。
+        include (Iterable[str]): 入れる可変長の引数の名前(``"*"``・``"**"`` でもよい)。
 
     Returns:
         list[Parameter]: 引数。シグネチャの順。
     """
     doc = inspect.getdoc(function) if doc is None else doc
     docs = argDocs(doc)
+    include = set(include)
     result = []
     for name, parameter in inspect.signature(function).parameters.items():
         if name in ("self", "cls") or name in skip:
             continue
-        if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+        variadic = {parameter.VAR_POSITIONAL: "*", parameter.VAR_KEYWORD: "**"}.get(parameter.kind)
+        if variadic and name not in include and variadic not in include:
             continue
         type_text, text = docs.get(name, ("", ""))
-        result.append(Parameter(name, parameter.default, type_text, text))
+        result.append(Parameter(name, parameter.default, type_text, text, variadic))
     return result
+
+
+def matchLabel(label, pattern):
+    """場合の名前が known の型紙に合うかを返す。
+
+    fnmatch の型紙として比べる。ただし ``[`` はそのままの文字とする(値の repr の ``[0, 1]`` を ``[[]`` と書かなくてよい)。
+    文字の集まりとして読むのは ``[[]``・``[]]``(以前の書き方)と ``[!...]``(否定)だけ。
+
+    Args:
+        label (str): 場合の名前。
+        pattern (str): 型紙。
+
+    Returns:
+        bool: 合うなら True。
+    """
+    if label == pattern:
+        return True
+    parts = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "[" and pattern[index : index + 3] not in ("[[]", "[]]") and pattern[index + 1 : index + 2] != "!":
+            parts.append("[[]")
+        elif char == "[":
+            # 文字の集まりは閉じ括弧までそのまま写す。
+            end = pattern.find("]", index + 2)
+            end = len(pattern) - 1 if end < 0 else end
+            parts.append(pattern[index : end + 1])
+            index = end
+        else:
+            parts.append(char)
+        index += 1
+    return fnmatch.fnmatchcase(label, "".join(parts))
+
+
+def _has_args_lazy(value):
+    """値(並び・辞書の中を含む)に、ほかの引数を受け取る Lazy があるかを返す。"""
+    if isinstance(value, Lazy):
+        return value.args
+    if type(value) in (list, tuple):
+        return any(_has_args_lazy(item) for item in value)
+    if type(value) is dict:
+        return any(_has_args_lazy(item) for item in value.values())
+    return False
+
+
+def _has_lazy(value):
+    """値(並び・辞書の中を含む)に Lazy があるかを返す。"""
+    if isinstance(value, Lazy):
+        return True
+    if type(value) in (list, tuple):
+        return any(_has_lazy(item) for item in value)
+    if type(value) is dict:
+        return any(_has_lazy(item) for item in value.values())
+    return False
+
+
+def _make(value, case, others):
+    """値の中の Lazy を作る(並び・辞書の中も作る。Lazy の無い値は同じオブジェクトのまま返す)。"""
+    if isinstance(value, Lazy):
+        return value.make(case, others) if value.args else value.make(case)
+    if not _has_lazy(value):
+        return value
+    if type(value) in (list, tuple):
+        return type(value)(_make(item, case, others) for item in value)
+    if type(value) is dict:
+        return {key: _make(item, case, others) for key, item in value.items()}
+    return value
+
+
+def resolve(kwargs, case):
+    """引数の辞書の中の :class:`Lazy` を作った値にする(並び・辞書の中も作る)。
+
+    ``args=True`` の Lazy は、ほかの引数を作った後に、その辞書を受け取って作る。
+
+    Args:
+        kwargs (dict): 引数。
+        case (object): Lazy に渡すテストケース。
+
+    Returns:
+        dict: 作った値の引数(同じ順)。
+    """
+    first = {name: _make(value, case, None) for name, value in kwargs.items() if not _has_args_lazy(value)}
+    return {name: first[name] if name in first else _make(value, case, dict(first)) for name, value in kwargs.items()}
+
+
+def invoke(function, kwargs):
+    """引数の辞書で関数を呼ぶ。可変長の引数の値は展開して渡す。
+
+    ``*args`` の名前の値(並び)は位置引数として、その前の引数も位置で渡す。``**kwargs`` の名前の値(辞書)は
+    キーワードとして展開する。
+
+    Args:
+        function (callable): 呼ぶ関数・メソッド。
+        kwargs (dict): 引数の名前と値。
+
+    Returns:
+        object: 戻り値。
+    """
+    try:
+        signature = inspect.signature(function)
+    except (TypeError, ValueError):
+        return function(**kwargs)
+    params = list(signature.parameters.values())
+    var_positional = next((param for param in params if param.kind is param.VAR_POSITIONAL), None)
+    var_keyword = next((param for param in params if param.kind is param.VAR_KEYWORD), None)
+    kwargs = dict(kwargs)
+    args = []
+    if var_positional is not None and var_positional.name in kwargs:
+        extra = kwargs.pop(var_positional.name)
+        for param in params:
+            if param.kind not in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
+                break
+            if param.name in kwargs:
+                args.append(kwargs.pop(param.name))
+            elif param.default is not param.empty:
+                args.append(param.default)
+            else:
+                break
+        args.extend(extra if isinstance(extra, (list, tuple)) else (extra,))
+    if var_keyword is not None and isinstance(kwargs.get(var_keyword.name), dict):
+        kwargs.update(kwargs.pop(var_keyword.name))
+    return function(*args, **kwargs)
 
 
 def label(kwargs, names=None):

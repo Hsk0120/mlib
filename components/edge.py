@@ -3,6 +3,7 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..common.units import convertDistance
 from ..decorator import _pick_alias, _require_bool, preservedSelection, undoChunk
 from ..maths.vector import _vectors_of_points
 from ..util import _UNSET, _world_space
@@ -37,30 +38,36 @@ class Edge(Component):
         """
         return Edges(self.shape, [self.index]).getFaces()
 
-    def getLength(self, worldSpace=_UNSET, *, ws=_UNSET):
-        """エッジの長さを、cmで取得する。
+    def getLength(self, worldSpace=_UNSET, *, distanceUnit="cm", ws=_UNSET):
+        """エッジの長さを取得する。
 
         ``MItMeshEdge.length`` で求める。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+            distanceUnit (str | None): 返す値の距離の単位。既定はcm。Noneなら、今のUIの距離単位。
+                mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する(:meth:`NurbsCurve.getLength
+                <mlib.nodes.nurbsCurve.NurbsCurve.getLength>` と同じ)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            float: 長さ(cm)。ワールド空間では、親のスケールも含む。
+            float: 指定した単位での長さ。単位を省いたときはcm。ワールド空間では、親のスケールも含む。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがboolでない場合、distanceUnitが文字列でもNoneでもない場合、
+                またはworldSpaceとwsを同時に指定した場合。
+            ValueError: distanceUnitの単位の名前が対応していない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
+        factor = convertDistance(1.0, fromUnit="cm", toUnit=distanceUnit)
         self._require_valid()
         it = om2.MItMeshEdge(self.shape.mpath())
         it.setIndex(self.index)
-        return it.length(space)
+        return it.length(space) * factor
 
     def getCenter(self, worldSpace=_UNSET, *, ws=_UNSET):
         """エッジの中点を取得する。
@@ -105,20 +112,44 @@ class Edge(Component):
         """
         return Edges(self.shape, [self.index]).getLoop(ring=ring)
 
-    def getConnected(self):
-        """このエッジと頂点を共有するエッジを取得する。
+    def getConnected(self, *, type="edge"):
+        """このエッジの隣にあるコンポーネントを取得する。
 
-        自身は含めない。``MItMeshEdge.getConnectedEdges`` で求める。
-        接する面は :meth:`getFaces`、両端の頂点は :meth:`getVertices` で取得する。
+        ``type`` で、取得する種類を選ぶ。:meth:`Face.getConnected <mlib.components.face.Face.getConnected>` と同じく、
+        自身と、自身を形づくる要素(両端の頂点)は含めない。
+
+        - ``"edge"``: このエッジと頂点を共有するエッジ(``MItMeshEdge.getConnectedEdges``)。
+        - ``"face"``: このエッジに接する面(``MItMeshEdge.getConnectedFaces``。:meth:`getFaces` と同じ)。
+        - ``"vertex"``: 両端の頂点とエッジでつながる、両端以外の頂点(隣のエッジの向こう側の端)。
+          両端の頂点は :meth:`getVertices` で取得する。
+
+        Args:
+            type (str): 取得する種類。``"edge"``・``"face"``・``"vertex"``。既定は ``"edge"``。
 
         Returns:
-            Edges: エッジ。番号の小さい順に並び、重なりは無い。
+            Edges | Faces | Vertices: ``type`` に合う集まり。番号の小さい順に並び、重なりは無い。
 
         Raises:
+            TypeError: typeが文字列でない場合。
+            ValueError: typeが ``"edge"``・``"face"``・``"vertex"`` のどれでもない場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
-        return Edges(self.shape, sorted(set(self._iterator().getConnectedEdges())))
+        if not isinstance(type, str):
+            raise TypeError(f"typeは文字列で指定してください: {type.__class__.__name__}")
+        if type not in ("edge", "face", "vertex"):
+            raise ValueError(f'typeは"edge"・"face"・"vertex"のどれかで指定してください: {type!r}')
+        iterator = self._iterator()
+        if type == "edge":
+            return Edges(self.shape, sorted(set(iterator.getConnectedEdges())))
+        if type == "face":
+            return Faces(self.shape, sorted(set(iterator.getConnectedFaces())))
+        fn = self.shape._geometry_fn()
+        ends = {iterator.vertexId(0), iterator.vertexId(1)}
+        found = set()
+        for edge in iterator.getConnectedEdges():
+            found.update(fn.getEdgeVertices(edge))
+        return Vertices(self.shape, sorted(found - ends))
 
     def isOnBoundary(self):
         """メッシュの縁のエッジか調べる。

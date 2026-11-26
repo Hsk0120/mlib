@@ -31,8 +31,6 @@ POINT_VALUES = ((1.0, 2.0, 3.0), [0, 0, 0], om2.MPoint(1.0, -2.0, 0.5), om2.MVec
 POINT_INVALID = ((1.0, 2.0), (1.0, 2.0, 3.0, 4.0), "abc", None, (float("nan"), 0.0, 0.0), object())
 #: mirror の軸の候補(軸・面・面の文字の順・番号)。
 MIRROR_AXES = ("x", "y", "z", "YZ", "XZ", "XY", "zy", 0, 1, 2)
-#: check に bool でない値を渡すと、例外にせず真偽として読む(findings4/sweep-plugs-components.md)。
-KNOWN_CHECK = {f"invalid:check={value}": "bool でない値を真偽として読む" for value in ("1", "'yes'")}
 
 
 def _transformed(transform):
@@ -181,7 +179,6 @@ def _set_position(setup, plural=None, limit=120):
         roundTrip=RoundTrip("getPosition", shared=SPACE, skip=_skip_trip, places=4),
         plural=plural,
         limit=limit,
-        known=KNOWN_CHECK,
     )
 
 
@@ -206,7 +203,6 @@ class PointComponentsArgumentSweepTest(ArgumentSweepCase):
             state=_point_state,
             expect=_expect_set_position,
             limit=200,
-            known=KNOWN_CHECK,
         ),
         Method(
             "mirror",
@@ -218,7 +214,6 @@ class PointComponentsArgumentSweepTest(ArgumentSweepCase):
             state=_point_state,
             expect=_expect_mirror,
             limit=60,
-            known=KNOWN_CHECK,
         ),
         Method("getCenter", _vertices, conflicts=(SPACE,), expect=_expect_center),
     )

@@ -2,6 +2,7 @@
 
 import math
 import numbers
+import os
 from contextlib import nullcontext
 from typing import Any, Dict
 
@@ -20,7 +21,7 @@ from ..maths import EulerRotate, Matrix, Quaternion, Scale, Shear, Transformatio
 from ..maths.eulerRotate import orderIndex
 from ..plugs.plug import Plug
 from ..util import _UNSET, _angle_unit, _color_value, _finite, _finite_vector, _from_radians, _to_radians, _world_space, mirrorArguments
-from .dagNode import DagNode
+from .dagNode import DagNode, _require_index
 from .node import Node, Nodes
 
 #: ターゲットの transform の値(位置・回転など)を使うコンストレイント。ターゲットは Transform に限る。
@@ -715,13 +716,14 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: fast・checkや番号の型が正しくない場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 倍率・中心・空間の指定が正しくない場合。
             IndexError: 番号が範囲外の場合。
             RuntimeError: Mayaが変更を拒否した場合。
             NotImplementedError: 対応していないShapeの場合、またはfastで書き換えられる条件に合わない場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        _require_bool(check, "check")
         with _edit_context("mlibTransformScaleGeometry", fast):
             ws = _world_space(worldSpace)
             indices = None if indices is None else tuple(indices)
@@ -758,7 +760,7 @@ class Transform(DagNode):
             None: 値を返さない。Shapeが無ければ何もしない。
 
         Raises:
-            TypeError: worldSpace・fastがboolでない場合、axisが文字列でもintでもない場合、番号の型が正しくない場合、
+            TypeError: worldSpace・fast・checkがboolでない場合、axisが文字列でもintでもない場合、番号の型が正しくない場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: axis・pivotが正しくない場合、Mesh・NurbsCurve以外のShapeがある場合、またはworldSpace=Trueで
                 変換のマトリクスがほぼ特異な場合。
@@ -770,6 +772,7 @@ class Transform(DagNode):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(fast, "fast")
+        _require_bool(check, "check")
         ws = _world_space(worldSpace)
         self._require_valid("ジオメトリのミラー")
         # pivot・indicesに反復子を渡されても、全Shapeへ同じ値を使う。
@@ -855,7 +858,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: preserve・translationがboolでない場合、対象がJointの場合、worldSpaceとwsを同時に指定した場合、
+            TypeError: preserve・translation・fast・checkがboolでない場合、対象がJointの場合、worldSpaceとwsを同時に指定した場合、
                 translation=Trueとpreserve・fastを同時に指定した場合、
                 またはtranslation=Trueでvalueが数値の並びでない(成分に数値以外がある)場合。
             ValueError: kindが正しくない場合、座標の数や値(有限か)が正しくない場合、
@@ -869,6 +872,7 @@ class Transform(DagNode):
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         _require_bool(translation, "translation")
+        _require_bool(check, "check")
         if translation:
             if preserve is not _UNSET:
                 raise TypeError("translationとpreserveは同時に指定できません")
@@ -926,15 +930,15 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fast(componentsを渡したときはcheckも)がboolでない場合、fastで対象がJointの場合、componentsに点以外の対象がある場合、
+            TypeError: fast・checkがboolでない場合、fastで対象がJointの場合、componentsに点以外の対象がある場合、
                 またはcomponentsを渡して対象がJointの場合。
             ValueError: componentsが空の場合、または別のTransformの下のコンポーネントの場合。
             RuntimeError: 無効なオブジェクトの場合、ピボットや補正値の成分がロックされている・入力が接続されている場合
                 (通常でもfastでも書き換える前に確かめる)、またはMayaが書き換えを拒否した場合。
         """
+        _require_bool(fast, "fast")
+        _require_bool(check, "check")
         if components is not None:
-            _require_bool(fast, "fast")
-            _require_bool(check, "check")
             # SelectionもNodeを参照するため、入力の展開時に読み込む。
             from ..common.selection import Selection
 
@@ -1030,6 +1034,13 @@ class Transform(DagNode):
 
         Returns:
             Nodes[DagNode]: DAGの子の順に並んだノード。当てはまるものが無ければ空の集まり。
+
+        Raises:
+            TypeError: shapes・intermediates・allDescendents・leaves・includeSelf・underWorldがboolでない場合、
+                またはtypeが文字列・文字列の並び・Noneのどれでもない場合。
+            ValueError: sortByが不正な場合、leavesとshapesを同時に指定した場合、
+                またはtypeに空文字列を指定した場合。
+            RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         return Nodes._wrap(
             super().getChildren(
@@ -1352,12 +1363,14 @@ class Transform(DagNode):
             pathlib.Path: 書き出したファイルの絶対パス。
 
         Raises:
+            TypeError: pathが文字列・os.PathLikeでない場合。
             RuntimeError: 自身が無効な場合。
             OSError: 書き出しに失敗した場合。
         """
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
         from ..json.file import _dump
 
+        _require_path(path)
         return _dump(self.getCurveShapesData(), path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
 
     def importCurveShapes(self, path):
@@ -1372,6 +1385,7 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
+            TypeError: pathが文字列・os.PathLikeでない場合。
             ValueError: JSONとして読めない場合、形式の名前や版が違う場合、またはデータが正しくない場合(シーンは変えない)。
             RuntimeError: 自身が無効な場合、またはMayaが変更を拒否した場合。
             OSError: 読み込みに失敗した場合。
@@ -1379,6 +1393,7 @@ class Transform(DagNode):
         # 循環参照の回避: mlib.json はノードのクラスより後に読み込まれる。
         from ..json.file import _load
 
+        _require_path(path)
         _header, data = _load(path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
         self.setCurveShapesData(data)
 
@@ -1386,17 +1401,20 @@ class Transform(DagNode):
         """指定した番号のShapeを取得する。``all=True`` なら直下のShapeすべてを取得する。
 
         Args:
-            index (int): Shapeの番号。既定は0。all=Trueとは同時に指定できない。
+            index (int): Shapeの番号(0始まり)。既定は0。負の数は範囲外として扱う(後ろから数えない)。
+                all=Trueとは同時に指定できない。
             intermediates (bool): ``True`` なら中間オブジェクトのShapeも含めて数える。
             all (bool): Trueなら、条件に合う直下のShapeすべてを集まりで返す。既定はFalse。
 
         Returns:
-            Shape | Nodes[Shape] | None: 指定した番号のShape。範囲外ならNone。
+            Shape | Nodes[Shape] | None: 指定した番号のShape。範囲外(負の数を含む)ならNone。
                 all=Trueなら、条件に合うShapeの集まり(無ければ空)。
 
         Raises:
-            TypeError: allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
+            TypeError: indexがintでない場合、intermediates・allがboolでない場合、またはall=Trueとindexを同時に指定した場合。
         """
+        _require_index(index)
+        _require_bool(intermediates, "intermediates")
         # 複数形のオブジェクトを作る分だけ遅くなるので、1つのときは中身のlistを直接使う。
         # Shape以外の子はラッパーを作る前に除く(子の順と中間Shapeの扱いは同じ)。
         shapes = self._direct_children(True, intermediates, shapes_only=True) if self.isValid() else []
@@ -1405,10 +1423,7 @@ class Transform(DagNode):
             if index != 0:
                 raise TypeError("allとindexは同時に指定できません")
             return Nodes._wrap(shapes)
-        try:
-            return shapes[index]
-        except IndexError:
-            return None
+        return shapes[index] if 0 <= index < len(shapes) else None
 
     def getTransform(self):
         """Transform自身を取得する。
@@ -1443,12 +1458,17 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合、またはfastで、parentがTransformでない場合。
-            RuntimeError: 自身が無効な場合、parentが自身か自身の子孫の場合(fastでも同じ)、
+            TypeError: relative・add・fast・checkがboolでない場合、parentがノードとして扱えない値の場合、
+                またはfastで、parentがTransformでない場合。
+            ValueError: parentに削除済みのノード(のPlug・MObject・MDagPath)を渡した場合。
+            RuntimeError: 自身が無効な場合、parentが見つからない名前の場合、parentが自身か自身の子孫の場合(fastでも同じ)、
                 またはfastで、ロック・リファレンスのために変えられない場合。
             NotImplementedError: fastで、Joint・インスタンス・add=Trueを指定した場合。
         """
         with _edit_context("mlibTransformSetParent", fast, single=True):
+            _require_bool(relative, "relative")
+            _require_bool(add, "add")
+            _require_bool(check, "check")
             self._require_valid("親子付け")
             if fast:
                 self._set_parent_fast(parent, relative, add, check=check)
@@ -1488,11 +1508,13 @@ class Transform(DagNode):
             None: 値を返さない。すべてのフラグがFalseなら何も変えない。
 
         Raises:
-            TypeError: targetがTransformではない場合。
+            TypeError: targetがTransformではない場合、またはposition・rotation・scale・pivotsがboolでない場合。
             RuntimeError: 自身かtargetのノードが無効な場合、またはMayaが変更を拒否した場合。
             DeletedAttributeError: targetに、アトリビュートが削除されたPlug・MPlugを渡した場合
                 (ValueErrorの派生クラス)。
         """
+        for value, label in ((position, "position"), (rotation, "rotation"), (scale, "scale"), (pivots, "pivots")):
+            _require_bool(value, label)
         self._require_valid("位置合わせ")
         with undoChunk("mlibTransformMatchTransform"):
             target = Node._resolve_input(target)
@@ -1640,14 +1662,16 @@ class Transform(DagNode):
                 safe・fastに関係なく計算だけを行い、書き込めるかや、safeを当てた後の結果は確かめない。
 
         Raises:
-            TypeError: fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
-                またはworldSpaceとwsを同時に指定した場合。
-            ValueError: マトリクスが正しくない・分解できない場合、またはワールドを指定したときに親側のマトリクスの
+            TypeError: safe・get・checkがboolでない場合、fastがboolでない場合、matrixがマトリクスでも数値の並びでもない場合(Noneを含む)、
+                ``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: マトリクスが正しくない(16個でない・有限でない値がある)・分解できない場合、またはワールドを指定したときに親側のマトリクスの
                 逆が求められない場合。
             RuntimeError: ノードが無効な場合、またはMayaが書き込みを拒否した場合(ロック・入力の接続がある成分と、
                 ``safe=True`` を案内する)。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         with _edit_context("mlibTransformSetMatrix", fast, single=True):
             local_matrix = self._local_matrix(matrix, _world_space(worldSpace))
             if safe or get:
@@ -1657,7 +1681,7 @@ class Transform(DagNode):
                 self._apply_channel_values(values, safe=True, fast=fast, check=check)
             else:
                 self._apply_local_matrix(local_matrix, fast=fast, check=check)
-            return self
+            return None
 
     def getTransformation(self):
         """ローカルのトランスフォームの値を、ピボットや回転順序も含めて取得する。
@@ -1760,10 +1784,11 @@ class Transform(DagNode):
             Translate: cmで表した位置。ノードとは切り離されている。既定のat=2では、translateチャンネルの値ではない。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: worldSpaceがboolでない場合、worldSpaceとwsを同時に指定した場合、またはatがintでない場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
+        _require_at(at)
         if at >= 3:
             matrix = self.getMatrix(worldSpace=ws)
             if at >= 4:
@@ -1821,9 +1846,9 @@ class Transform(DagNode):
                 safeを指定しても、書き込めるかを反映した最終的な結果の予想ではない。
 
         Raises:
-            TypeError: worldSpaceがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
+            TypeError: safe・get・checkがboolでない場合、worldSpaceがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう案内する)、
                 worldSpaceとwsを同時に指定した場合、``setTranslation(1, 2, 3)`` のように
-                成分を分けて渡した場合、relativeがboolでない場合、relative=Trueとatを同時に指定した場合、
+                成分を分けて渡した場合、relativeがboolでない場合、atがintでない場合、relative=Trueとatを同時に指定した場合、
                 またはrelative=Trueでvalueが数値の並びでない場合。
             ValueError: valueの値の数が3でない場合(MPointは除く)。relative=Trueかcheck=Trueで、値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
@@ -1834,7 +1859,10 @@ class Transform(DagNode):
             >>> node.setTranslation((5, 0, 0), ws=True, relative=True)   # ワールドのX方向へ5cm
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         _require_bool(relative, "relative")
+        _require_at(at)
         if relative and at != 2:
             raise TypeError("relativeとatは同時に指定できません")
         with _edit_context("mlibTransformSetTranslation", fast, single=True):
@@ -1950,12 +1978,12 @@ class Transform(DagNode):
                 シーンとは切り離されている)。safeを当てた後の最終的な結果を予想する値ではない。
 
         Raises:
-            TypeError: fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
+            TypeError: safe・get・checkがboolでない場合、fastがboolでない場合、unitが文字列でもNoneでもない場合、``space=`` を指定した場合
                 (``worldSpace=True`` を使うよう案内する)、worldSpaceとwsを同時に指定した場合、
                 成分を分けて渡した場合、relativeがboolでない場合、
-                またはrelative=Trueでvalueが数値の並びでも回転の値でもない場合。
+                またはvalueが数値の並びでも回転の値でもない場合(成分に数値以外がある場合を含む)。
             ValueError: unitが対応していない単位の名前の場合、値が3つでない場合、マトリクスを分解できない場合、
-                必要な親のマトリクスの逆が求められない場合、またはrelative=Trueでvalueが有限でない場合。
+                必要な親のマトリクスの逆が求められない場合、またはvalueの3つの数値が有限でない場合。
             RuntimeError: ノードが無効な場合、またはアトリビュートに書き込めない場合(ロック・入力の接続がある
                 成分と、``safe=True`` を案内する)。
 
@@ -1964,6 +1992,8 @@ class Transform(DagNode):
             >>> node.setRotate((0, 0, 45), ws=True, relative=True)    # ワールドのZ軸の周りに45度
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         _require_bool(relative, "relative")
         with _edit_context("mlibTransformSetRotate", fast, single=True):
             ws = _world_space(worldSpace)
@@ -1984,7 +2014,8 @@ class Transform(DagNode):
                 value = current * delta if ws else delta * current
             if not isinstance(value, (om2.MEulerRotation, om2.MQuaternion)):
                 self._require_valid("値の設定")
-                x, y, z = value
+                # マトリクスを通して計算する入力なので、有限かどうかはcheckに関係なく確かめる(relative=Trueと同じ)。
+                x, y, z = _finite_vector(value, 3, "value")
                 x, y, z = _to_radians(x, angle_unit), _to_radians(y, angle_unit), _to_radians(z, angle_unit)
                 # cmds.xform と同じく、3成分はノードの rotateOrder の値として解釈する。
                 value = EulerRotate(x, y, z, self._rotate_order())
@@ -2092,7 +2123,7 @@ class Transform(DagNode):
             Scale | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のscaleの値(シーンとは切り離されている)。
 
         Raises:
-            TypeError: worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
+            TypeError: safe・get・checkがboolでない場合、worldSpace・fastがboolでない場合、``space=`` を指定した場合(``worldSpace=True`` を使うよう
                 案内する)、worldSpaceとwsを同時に指定した場合、成分を分けて渡した場合、relativeがboolでない場合、
                 relative=TrueとworldSpace=Trueを同時に指定した場合、
                 またはrelative=Trueでvalueが数値でも数値の並びでもない(boolも含む)場合。
@@ -2105,6 +2136,8 @@ class Transform(DagNode):
             >>> node.setScale((1, 0.5, 1), relative=True)    # Yだけ半分
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         _require_bool(fast, "fast")
         _require_bool(relative, "relative")
         if relative:
@@ -2164,13 +2197,15 @@ class Transform(DagNode):
             Shear | None: 通常は値を返さない。get=Trueなら、ローカルで設定する予定のXY・XZ・YZの値(シーンとは切り離されている)。
 
         Raises:
-            TypeError: worldSpace・fast・relativeがboolでない場合、worldSpaceとwsを同時に指定した場合、
+            TypeError: safe・get・checkがboolでない場合、worldSpace・fast・relativeがboolでない場合、worldSpaceとwsを同時に指定した場合、
                 relative=TrueとworldSpace=Trueを同時に指定した場合、またはrelative=Trueでvalueが数値の並びでない場合。
             ValueError: valueが3つの有限の値でない場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続がある成分のために書き込めない場合
                 (原因の成分と ``safe=True`` を案内する)。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         _require_bool(fast, "fast")
         _require_bool(relative, "relative")
         if relative:
@@ -2277,7 +2312,7 @@ class Transform(DagNode):
                 rotateに設定する予定の値はノードのrotateOrderの順、ほかの書き込み先はXYZの順。
 
         Raises:
-            TypeError: valueがクォータニオンでも数値の並びでもない場合、rotateAxis・rotate・jointOrientがboolでない場合、
+            TypeError: safe・get・checkがboolでない場合、valueがクォータニオンでも数値の並びでもない場合、rotateAxis・rotate・jointOrientがboolでない場合、
                 またはworldSpaceとwsを同時に指定した場合。
             ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
                 preserve=TrueでrotateAxis以外を設定する場合、またはsafe=Trueで書き込む場合。
@@ -2286,6 +2321,8 @@ class Transform(DagNode):
         _require_bool(fast, "fast")
         _require_bool(preserve, "preserve")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        for flag, label in ((safe, "safe"), (get, "get"), (check, "check")):
+            _require_bool(flag, label)
         ra, r, jo = _rotation_components(rotateAxis, rotate, jointOrient)
         with _edit_context("mlibTransformSetQuaternion", fast, single=True):
             name, rotation = self._quaternion_channel_values(value, _world_space(worldSpace), ra, r, jo)
@@ -2415,12 +2452,12 @@ class Transform(DagNode):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合。
-            ValueError: matrixをマトリクスへ変換できない場合。
+            TypeError: fastがboolでない場合、またはmatrixがマトリクスでも数値の並びでもない場合(Noneを含む)。
+            ValueError: matrixをマトリクスへ変換できない場合、または有限でない値がある場合。
             RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが設定を拒否した場合。
         """
         with _edit_context("mlibTransformSetOffsetParentMatrix", fast):
-            value = matrix if isinstance(matrix, Matrix) else Matrix(matrix)
+            value = _finite_matrix(matrix)
             self._require_valid("offsetParentMatrixの設定")
             self.getPlug("offsetParentMatrix").set(value, fast=fast, check=check)
 
@@ -2751,11 +2788,11 @@ class Transform(DagNode):
             Matrix: ローカル空間のマトリクス。
 
         Raises:
-            ValueError: マトリクスが不正、またはワールド指定時の親が反転不能な場合。
+            TypeError: マトリクスでも数値の並びでもない場合。
+            ValueError: マトリクスが不正(16個でない・有限でない値がある)、またはワールド指定時の親が反転不能な場合。
             RuntimeError: ノードが無効な場合。
         """
-        if not isinstance(matrix, Matrix):
-            matrix = Matrix(matrix)
+        matrix = _finite_matrix(matrix)
         self._require_valid("値の設定")
         if not ws:
             return matrix
@@ -3493,3 +3530,59 @@ def _vector_of_three(value):
     if len(items) != 3:
         raise ValueError("valueは3個の成分で指定してください")
     return items
+
+
+def _require_path(path):
+    """ファイルのパスの引数が、文字列かos.PathLikeかを確かめる。
+
+    Args:
+        path (object): 確かめる値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: 文字列でもos.PathLikeでもない場合。
+    """
+    if not isinstance(path, (str, os.PathLike)):
+        raise TypeError(f"pathは文字列かos.PathLikeで指定してください: {path!r}")
+
+
+def _finite_matrix(matrix):
+    """マトリクスの引数を確かめて、Matrixにする。
+
+    マトリクスを分解・変換する計算の入力なので、有限かどうかはcheckに関係なく確かめる。
+
+    Args:
+        matrix (object): Matrix・om2.MMatrix・16個の数値の並び。
+
+    Returns:
+        Matrix: 確かめた値。Matrixを渡したときはそのもの。
+
+    Raises:
+        TypeError: マトリクスでも数値の並びでもない場合(Noneを含む)。
+        ValueError: 16個の値でない場合、または有限でない値がある場合。
+    """
+    if matrix is None or isinstance(matrix, (str, bytes)):
+        raise TypeError(f"matrixはマトリクスか16個の数値の並びで指定してください: {matrix!r}")
+    if not isinstance(matrix, Matrix):
+        matrix = Matrix(matrix)
+    if not all(math.isfinite(matrix[row, col]) for row in range(4) for col in range(4)):
+        raise ValueError("matrixに有限でない値があります")
+    return matrix
+
+
+def _require_at(at):
+    """getTranslation・setTranslationのatが、int(boolを除く)かを確かめる。
+
+    Args:
+        at (object): 確かめる値。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        TypeError: intでない場合(有限でない数・小数を含む)。
+    """
+    if isinstance(at, bool) or not isinstance(at, int):
+        raise TypeError(f"atはintで指定してください: {at!r}")

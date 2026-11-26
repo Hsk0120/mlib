@@ -1,5 +1,7 @@
 """選択(ノードとコンポーネント)を選択順のまま保存・復元する。"""
 
+import re
+
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
@@ -9,6 +11,8 @@ from .nodeRef import NodeRef
 from .snapshot import Snapshot, ValidationReport
 
 #: 記録するコンポーネントのMFn型と、Mayaの表記。
+#: 名前の末尾の、コンポーネントの番号(``[3]``・``[0:7]``)。
+_INDEX_PATTERN = re.compile(r"\[([0-9:]+)\]$")
 _COMPONENT_TYPES = (
     (om2.MFn.kMeshVertComponent, "vtx"),
     (om2.MFn.kMeshEdgeComponent, "e"),
@@ -210,22 +214,29 @@ def _capture_item(item):
         selection.add(item)
     except RuntimeError:
         raise RuntimeError(f"ノードが見つかりません: {item}") from None
+    # Maya は範囲の外の番号を最後の要素へ丸めて受け付けるため、書いた番号の最大を後で確かめる。
+    match = _INDEX_PATTERN.search(item)
+    requested = max(int(number) for number in match.group(1).split(":") if number) if match else None
     refs = []
     for index in range(selection.length()):
-        refs.extend(_capture_selection_entry(selection, index, item))
+        refs.extend(_capture_selection_entry(selection, index, item, requested))
     return refs
 
 
-def _capture_selection_entry(selection, index, label):
+def _capture_selection_entry(selection, index, label, requested=None):
     """MSelectionListの1つの項目を参照にする。
 
     Args:
         selection (om2.MSelectionList): 選択の一覧。
         index (int): 項目の番号。
         label (str): 警告に使う名前。
+        requested (int | None): 名前に書いた番号の最大。範囲の外かを確かめる。Noneなら確かめない。
 
     Returns:
         list[NodeRef | ComponentRef]: 参照。保存しない種類のコンポーネントは空list。
+
+    Raises:
+        RuntimeError: コンポーネントの番号が範囲の外の場合。
     """
     try:
         dag_path, component = selection.getComponent(index)
@@ -242,7 +253,10 @@ def _capture_selection_entry(selection, index, label):
     if not shape.node().hasFn(om2.MFn.kShape):
         shape.extendToShape()
     indices = om2.MFnSingleIndexedComponent(component).getElements()
-    return [ComponentRef(NodeRef.capture(shape), kind, list(indices))]
+    ref = ComponentRef(NodeRef.capture(shape), kind, list(indices))
+    if requested is not None and ComponentRef(ref.node, kind, [requested]).resolve() is None:
+        raise RuntimeError(f"コンポーネントの番号が範囲の外です: {label}")
+    return [ref]
 
 
 def _append_ref(groups, ref):

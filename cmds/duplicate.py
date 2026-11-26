@@ -5,6 +5,7 @@ import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
+from ..core.shapeBuild import require_name
 from ..decorator import _merge_flags, undoChunk
 from ..util import _UNSET
 
@@ -59,7 +60,8 @@ def duplicate(
         ic (bool): inputConnectionsの短縮名。inputConnectionsと同時には指定できない。
         instanceLeaf (bool): Trueなら、末端のノードを複製せず、インスタンスにする。
         ilf (bool): instanceLeafの短縮名。instanceLeafと同時には指定できない。
-        name (str): Mayaへ渡すノード名。
+        name (str): 複製の起点に付ける名前。複製したあとに付ける(``cmds.duplicate`` のnameフラグは、
+            Redoで名前空間を失うため)。shapeの名前もMayaの規則で付け直す(``cmds.duplicate`` と同じ)。
         n (str): nameの短縮名。nameと同時には指定できない。
         parentOnly (bool): Trueなら、指定した対象だけを複製し、子の階層を含めない。
         po (bool): parentOnlyの短縮名。parentOnlyと同時には指定できない。
@@ -95,8 +97,9 @@ def duplicate(
 
     Raises:
         TypeError: 長い名前と短い名前を同時に指定した場合、nodeが対応していない型の場合、
-            または suffix が文字列でもNoneでもない場合。
+            name が文字列でない場合、または suffix が文字列でもNoneでもない場合。
         ValueError: node が空文字列・存在しない名前・複数に一致する名前の場合、または削除済みの対象の場合。
+            name が空文字列か ``|`` を含む場合。
             suffix が空文字列の場合、英数字と ``_`` 以外を含む場合、または renameChildren=True と同時に
             指定した場合。
         RuntimeError: Maya が複製を拒否した場合。
@@ -125,6 +128,8 @@ def duplicate(
             (edit, e, "edit", "e"),
         ),
     )
+    if "name" in kwargs:
+        require_name(kwargs["name"])
     if suffix is not None:
         if not isinstance(suffix, str):
             raise TypeError("suffixは文字列かNoneで指定してください")
@@ -140,14 +145,41 @@ def duplicate(
         from ..nodes import Node
 
         name = Object._input_name(node)
+        if isinstance(node, str):
+            _require_single(name)
         source = Node._resolve_input(node) if suffix is not None else None
+        # duplicateのnameフラグはRedo時に名前空間を失うため、複製したあとにrenameで付ける。
+        new_name = kwargs.pop("name", None)
         result = cmds.duplicate(name, **kwargs)
         copied = Node(result[0])
+        if new_name is not None:
+            cmds.rename(copied._full_name(), new_name)
         if suffix is not None:
             # suffixを指定した場合は、複製前に起点を解決済み。
             assert source is not None
-            _apply_suffix(source.mnode(), copied.mnode(), suffix, "name" not in kwargs)
+            _apply_suffix(source.mnode(), copied.mnode(), suffix, new_name is None)
         return copied
+
+
+def _require_single(name):
+    """名前で指定した複製元が、シーンの1つの対象に決まることを確かめる。
+
+    cmds.duplicate はワイルドカードや一意でない名前に一致したものをすべて複製するため、作る前に止める。
+
+    Args:
+        name (str): 複製元の名前。
+
+    Returns:
+        None: 値を返さない。
+
+    Raises:
+        ValueError: 名前に一致する対象が無い場合、または複数ある場合。
+    """
+    found = cmds.ls(name) or []
+    if not found:
+        raise ValueError(f"複製元が見つかりません: {name}")
+    if len(found) > 1:
+        raise ValueError(f"複製元の名前が複数の対象に一致します: {name}({len(found)}個。一意な名前かNodeで指定してください)")
 
 
 def _apply_suffix(source, copied, suffix, rename_root):

@@ -79,7 +79,7 @@ class SkinWeightsCase(NamespaceCase):
         """全頂点を先頭の joint に 1.0 にする。"""
         skin = skin or self.skin
         joints = joints or self.joints
-        rows = [[1.0] + [0.0] * (len(joints) - 1) for _ in range(cmds.polyEvaluate(skin.getGeometry()[0], vertex=True))]
+        rows = [[1.0] + [0.0] * (len(joints) - 1) for _ in range(cmds.polyEvaluate(skin.getGeometry(), vertex=True))]
         skin.setWeights(joints, rows, rows=True)
 
     def assertRowsAlmostEqual(self, actual, expected, places=9):

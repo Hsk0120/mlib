@@ -138,6 +138,20 @@ def _current_fps() -> float:
     """
     ...
 
+def _require_path(path: str | os.PathLike) -> pathlib.Path:
+    """パスがstrかos.PathLikeかを確かめる。
+
+    Args:
+        path (str | os.PathLike): 確かめるパス。
+
+    Returns:
+        pathlib.Path: パス。
+
+    Raises:
+        TypeError: strでもos.PathLikeでもない場合。
+    """
+    ...
+
 def _dump(data: dict, path: str | os.PathLike, format: str, version: int) -> pathlib.Path:
     """データにヘッダーを付けて、JSONファイルへ書き出す。
 
@@ -154,7 +168,7 @@ def _dump(data: dict, path: str | os.PathLike, format: str, version: int) -> pat
         pathlib.Path: 書き出したファイルの絶対パス。
 
     Raises:
-        TypeError: dataが辞書でない場合、またはJSONで書けない値を含む場合。
+        TypeError: dataが辞書でない場合、pathがstr・os.PathLikeでない場合、またはJSONで書けない値を含む場合。
         ValueError: 形式名・版が正しくない場合、またはNaN・無限大を含む場合。
         OSError: 書き出しに失敗した場合。
     """
@@ -175,6 +189,7 @@ def _load(path: str | os.PathLike, format: str, version: int) -> tuple[Header, d
         tuple[Header, dict]: ヘッダーとデータ。
 
     Raises:
+        TypeError: pathがstr・os.PathLikeでない場合。
         ValueError: JSONとして読めない場合、ファイルの形が違う場合、形式名・版が期待と違う場合、
             または単位に対応していない場合。
         OSError: 読み込みに失敗した場合。

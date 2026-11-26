@@ -45,7 +45,7 @@ class SkinClusterStandardOperationsTest(NamespaceCase):
         cmds.skinCluster(reference.getName(full=True), edit=True, smoothWeights=0.5, smoothWeightsMaxIterations=3)
         expected = list(reference.getWeights(reference_joints))
         self.assertNotEqual(expected, before)
-        self.assertIsNone(skin.smoothWeights(tolerance=0.5, iterations=3))
+        self.assertIsNone(skin.smoothWeights(threshold=0.5, iterations=3))
         self.assertSequenceAlmostEqual(skin.getWeights(joints), expected)
         self.assertTrue(cmds.getAttr(joints[1] + ".liw"))
         cmds.undo()
@@ -58,10 +58,10 @@ class SkinClusterStandardOperationsTest(NamespaceCase):
         before = list(skin.getWeights(joints))
         undo_name = cmds.undoInfo(query=True, undoName=True)
         for kwargs, error in (
-            ({"tolerance": True}, TypeError),
-            ({"tolerance": -0.1}, ValueError),
-            ({"tolerance": float("nan")}, ValueError),
-            ({"tolerance": 1.1}, ValueError),
+            ({"threshold": True}, TypeError),
+            ({"threshold": -0.1}, ValueError),
+            ({"threshold": float("nan")}, ValueError),
+            ({"threshold": 1.1}, ValueError),
             ({"iterations": False}, TypeError),
             ({"iterations": 0}, ValueError),
         ):

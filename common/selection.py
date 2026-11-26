@@ -272,7 +272,12 @@ class Selection:
 
         Returns:
             Nodes: 削除されていないノード。コンポーネントを持つノードは含めない。
+
+        Raises:
+            TypeError: typeが文字列・None以外の場合。
         """
+        if type is not None and not isinstance(type, str):
+            raise TypeError(f"typeはstrかNoneで指定してください: {type.__class__.__name__}")
         return Nodes._wrap([item for item in self._items if isinstance(item, Node) and item.isValid() and (type is None or item.isType(type))])
 
     def getPlugs(self):
@@ -330,8 +335,13 @@ class Selection:
 
         Returns:
             Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
+
+        Raises:
+            TypeError: typeが文字列でない場合。
         """
-        component_type = {"vertex": "vtx", "edge": "e", "face": "f", "uv": "map", "controlVertex": "cv"}.get(type, type) if isinstance(type, str) else type
+        if not isinstance(type, str):
+            raise TypeError(f"typeはstrで指定してください: {type.__class__.__name__}")
+        component_type = {"vertex": "vtx", "edge": "e", "face": "f", "uv": "map", "controlVertex": "cv"}.get(type, type)
         result = []
         for item in self._items:
             if not self._valid(item):

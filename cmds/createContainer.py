@@ -2,6 +2,7 @@
 
 import maya.cmds as cmds
 
+from ..core.shapeBuild import require_name
 from ..decorator import _pick_alias, _require_bool, undoTransaction
 from ..util import _UNSET
 
@@ -14,20 +15,24 @@ def createContainer(members=(), *, name=_UNSET, dag=False, n=_UNSET):
     空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
     ``dag=True`` ならDAGコンテナ(``cmds.container(type="dagContainer")``)を作る。
     fast引数は無い(cmds.containerと同じ機能がOpenMayaに無いため)。Undoが有効なら1回で戻せる。
+    名前は作ったあとに付ける(``cmds.container`` のnameフラグは、Redoで名前空間を失うため)。
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
         members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
-        name (str): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
-            既定は ``"container"``(``dag=True`` では ``"dagContainer"``)。
+            同じ並びに名前とNodeは混ぜられない。
+        name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
+            Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。
         dag (bool): True ならDAGコンテナを作る。
-        n (str): nameの短縮名。nameと同時には指定できない。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:
         Container | DagContainer: 作ったcontainer。``dag=True`` ならDagContainer。
 
     Raises:
-        TypeError: nameと短縮名 ``n`` を同時に指定した場合、またはdagがbool以外の場合。
+        TypeError: nameと短縮名 ``n`` を同時に指定した場合、dagがbool以外の場合、
+            nameが文字列でもNoneでもない場合、またはmembersの同じ並びに名前とNodeを混ぜた場合(Nodesと同じ決まり)。
+        ValueError: nameが空文字列か ``|`` を含む場合。
         RuntimeError: membersに見つからないノードやほかのcontainerに入っているノードがある場合(何も作らない)、
             またはMayaが作成・所属を拒否した場合。
 
@@ -37,7 +42,7 @@ def createContainer(members=(), *, name=_UNSET, dag=False, n=_UNSET):
         >>> rig = mlib.createContainer([group], name="arm_rig", dag=True)
     """
     _require_bool(dag, "dag")
-    name = _pick_alias(name, n, "name", "n", default="dagContainer" if dag else "container")
+    name = require_name(_pick_alias(name, n, "name", "n", default=None)) or ("dagContainer" if dag else "container")
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.container import Container
     from ..nodes.node import Node
@@ -46,7 +51,8 @@ def createContainer(members=(), *, name=_UNSET, dag=False, n=_UNSET):
     names = Container._resolve_new_members((members,))
     flags = {"type": "dagContainer"} if dag else {}
     with undoTransaction("mlibCreateDagContainer" if dag else "mlibCreateContainer"):
-        container = Node(cmds.container(name=name, **flags))
+        # containerのnameフラグはRedo時に名前空間を失うため、renameに任せる。
+        container = Node(cmds.rename(cmds.container(**flags), name))
         if names:
             cmds.container(container._full_name(), edit=True, addNode=names)
         return container

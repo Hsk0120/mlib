@@ -112,7 +112,7 @@ class RoundWeightsTest(_Case):
         self.assertRowsAlmostEqual(self.rows([0, 1, 2, 3]), expected)
         self.assertFalse(cmds.undoInfo(query=True, undoName=True))
 
-    def test_invalid_decimals(self):
+    def test_invalid_ndigits(self):
         for value, error in ((True, TypeError), (2.0, TypeError), (0, ValueError)):
             with self.subTest(value=value), self.assertRaises(error):
                 self.skin.roundWeights(value)

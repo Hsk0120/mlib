@@ -120,7 +120,12 @@ class Reference(Node):
 
         Returns:
             str: リファレンスしているファイルのパス。常にフォルダーを含む。
+
+        Raises:
+            TypeError: resolved・withCopyNumberがboolでない場合。
         """
+        _require_bool(resolved, "resolved")
+        _require_bool(withCopyNumber, "withCopyNumber")
         # MFnReference.fileName の2番目はパスを除く指定(Falseでディレクトリを含む)、
         # 3番目がコピー番号を含める指定。
         return self.mfn().fileName(resolved, False, withCopyNumber)
@@ -193,7 +198,7 @@ class Reference(Node):
     def setLoaded(self, state=True):
         """リファレンスをロードする。``state=False`` なら、アンロードする。
 
-        :meth:`isLoaded` と対になる。
+        :meth:`isLoaded` と対になる。ファイルの操作なので、Undoには記録されない。
 
         Args:
             state (bool): Trueならロード、Falseならアンロードする。既定はTrue。
@@ -312,10 +317,12 @@ class Reference(Node):
             list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
 
         Raises:
-            TypeError: what・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            TypeError: successful・failedがboolでない場合、what・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
             ValueError: what・editCommandが未対応の名前の場合。
             RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
+        _require_bool(successful, "successful")
+        _require_bool(failed, "failed")
         what = _require_choice(what, "what", tuple(_EDIT_KINDS))
         flags = self._edit_query_filters(editCommand, onReferenceNode)
         flags[_EDIT_KINDS[what]] = True
@@ -403,7 +410,7 @@ class Reference(Node):
 
         ``cmds.file(importReference=True)`` で読み込む。呼び出した後、このreferenceノードはシーンから無くなる。
         入れ子になった子のリファレンスは、リファレンスのまま残る。
-        ファイルの操作なので、Undoには記録されない。
+        ファイルの操作なので、Undoには記録されない(removeNamespace=Trueの名前空間の削除も記録しない)。
 
         Args:
             removeNamespace (bool): Trueなら、読み込んだ名前空間を削除し、内容を親の名前空間へ移す。
@@ -424,15 +431,23 @@ class Reference(Node):
         nodes = [node for node in self.getNodes() if not node.isType("reference")]
         cmds.file(importReference=True, referenceNode=self.getName())
         if namespace is not None and namespace.name != ":" and namespace.exists():
-            namespace.delete(namespace.getParent())
+            # 読み込みはUndoに記録されないため、名前空間の削除だけがUndoで戻ると、シーンが読み込みの途中の形になる。
+            # 読み込みと同じく記録しない(キューは消さない)。
+            state = cmds.undoInfo(query=True, state=True)
+            cmds.undoInfo(stateWithoutFlush=False)
+            try:
+                namespace.delete(namespace.getParent())
+            finally:
+                cmds.undoInfo(stateWithoutFlush=state)
         return Nodes._wrap([node for node in nodes if node.isValid()])
 
-    @undoChunk("mlibReferenceRemove")
-    def remove(self):
-        """リファレンスを削除する。
+    @undoChunk("mlibReferenceRemoveReference")
+    def removeReference(self):
+        """リファレンスを削除する(``cmds.file(removeReference=True)`` 相当)。
 
         referenceノードと、リファレンスで読み込んだ内容をシーンから取り除く。
         呼び出した後、このオブジェクトが指していたノードはシーンから無くなる。
+        :meth:`~mlib.nodes.node.Node.delete` (referenceノードだけを消す基底の操作)とは別の操作。
 
         Returns:
             None: 値を返さない。

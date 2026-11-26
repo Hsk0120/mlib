@@ -1079,25 +1079,30 @@ def _create_node_overloads(stub, node):
     return variants
 
 
-def _face_get_connected_overloads(stub, node):
-    """``Face.getConnected`` の ``type`` ごとのオーバーロードを返す。
+def _get_connected_overloads(owner, default):
+    """``Face``・``Edge``・``Vertex`` の ``getConnected`` の ``type`` ごとのオーバーロードを作る関数を返す。
 
     Args:
-        stub (ModuleStub): 出力中のモジュール。
-        node (ast.FunctionDef): ``getConnected`` の定義。
+        owner (str): クラス名。
+        default (str): ``type`` の既定値(自身と同じ種類)。
 
     Returns:
-        list[str]: オーバーロードの行。
+        Callable: ``OVERLOADS`` に登録する関数。
     """
-    stub.typing.add("Literal")
-    doc_types = _arg_types(ast.get_docstring(node) or "")
-    qualname = "Face.getConnected"
-    variants = []
-    for name, cls, has_default in (("face", "Faces", True), ("edge", "Edges", False), ("vertex", "Vertices", False)):
-        stub.annotation(cls, qualname)
-        params = stub._params(node.args, doc_types, qualname, {"type": (f'Literal["{name}"]', has_default)})
-        variants.append(f"def getConnected({params}) -> {cls}: ...")
-    return variants
+    qualname = f"{owner}.getConnected"
+
+    def build(stub, node):
+        """オーバーロードの行を返す。"""
+        stub.typing.add("Literal")
+        doc_types = _arg_types(ast.get_docstring(node) or "")
+        variants = []
+        for name, cls in (("face", "Faces"), ("edge", "Edges"), ("vertex", "Vertices")):
+            stub.annotation(cls, qualname)
+            params = stub._params(node.args, doc_types, qualname, {"type": (f'Literal["{name}"]', name == default)})
+            variants.append(f"def getConnected({params}) -> {cls}: ...")
+        return variants
+
+    return build
 
 
 def _vertex_face_get_normal_overloads(stub, node):
@@ -1294,7 +1299,7 @@ OVERLOADS = {
         "SkinCluster.getMaxInfluences", [({"maintain": _TRUE}, "bool"), ({"maintain": _FALSE}, "int")]
     ),
     "mlib.nodes.geometryFilter:GeometryFilter.getGeometry": _flag_overloads(
-        "GeometryFilter.getGeometry", [({"geometryIndex": ("int", False)}, "Node | None"), ({"geometryIndex": _NONE}, "Nodes")]
+        "GeometryFilter.getGeometry", [({"all": _TRUE}, "Nodes"), ({"all": _FALSE}, "Node | None")]
     ),
     "mlib.nodes.geometryFilter:GeometryFilter.getGeometryIndices": _flag_overloads(
         "GeometryFilter.getGeometryIndices", [({"geometry": ("str | Node | om2.MObject | om2.MDagPath", False)}, "int"), ({"geometry": _NONE}, "list[int]")]
@@ -1345,7 +1350,9 @@ OVERLOADS = {
     "mlib.plugs.plug:Plug.getAnimCurve": _plug_get_anim_curve_overloads,
     "mlib.plugs.plug:Plug.getEnumNames": _plug_get_enum_names_overloads,
     "mlib.plugs.multiPlug:MultiPlug.getElement": _multi_get_element_overloads,
-    "mlib.components.face:Face.getConnected": _face_get_connected_overloads,
+    "mlib.components.face:Face.getConnected": _get_connected_overloads("Face", "face"),
+    "mlib.components.edge:Edge.getConnected": _get_connected_overloads("Edge", "edge"),
+    "mlib.components.vertex:Vertex.getConnected": _get_connected_overloads("Vertex", "vertex"),
     "mlib.components.vertexFace:VertexFace.getNormal": _vertex_face_get_normal_overloads,
 }
 

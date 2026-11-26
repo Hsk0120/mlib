@@ -70,6 +70,7 @@ class DagContainer(Transform):
             None: 値を返さない。
 
         Raises:
+            TypeError: 対応していない型(数値など)を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
             RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
         """
         Container.addMembers(self, *members)
@@ -90,8 +91,10 @@ class DagContainer(Transform):
             None: 値を返さない。
 
         Raises:
-            TypeError: all・forceがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            TypeError: all・forceがboolでない場合、membersとall=Trueを同時に指定した場合、対応していない型を渡した場合、
+                または名前とNodeなどのオブジェクトを混ぜて渡した場合。
             ValueError: メンバーでないノードが含まれる場合。
+            RuntimeError: ノードが見つからない(名前に一致しない・削除された)場合。
         """
         Container.removeMembers(self, *members, all=all, force=force)
 
@@ -166,7 +169,10 @@ class DagContainer(Transform):
             Plug: 対応付けた内部アトリビュート。
 
         Raises:
+            TypeError: plugの型が不正な場合、または文字列がアトリビュートを指していない場合。
             ValueError: nameがバインドされていない公開名でない場合、またはplugのノードが直接のメンバーでない場合。
+            MissingAttributeError: plugの文字列のアトリビュート(またはノード)が無い場合(AttributeErrorの派生)。
+            RuntimeError: コンテナが無効な場合、またはplugの文字列が複数に一致する場合。
         """
         return Container.bindAttr(self, name, plug)
 
@@ -181,7 +187,10 @@ class DagContainer(Transform):
             Plug: 対応付けた内部アトリビュート。
 
         Raises:
+            TypeError: plugの型が不正な場合、または文字列がアトリビュートを指していない場合。
             ValueError: nameがすでにある公開名の場合、またはplugのノードが直接のメンバーでない場合。
+            MissingAttributeError: plugの文字列のアトリビュート(またはノード)が無い場合(AttributeErrorの派生)。
+            RuntimeError: コンテナが無効な場合、またはplugの文字列が複数に一致する場合。
         """
         return Container.publishAndBind(self, name, plug)
 

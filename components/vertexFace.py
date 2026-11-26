@@ -124,7 +124,7 @@ class VertexFace(Component):
         Raises:
             TypeError: fast・check・locked・空間指定・法線の型が不正な場合、normalとlockedをどちらも指定しない場合、
                 normalとlocked=Falseを同時に指定した場合、またはnormalを渡さずにworldSpace(ws)・checkを指定した場合。
-            ValueError: 法線の成分が不正、長さ0、またはワールド変換が特異な場合。
+            ValueError: 法線の成分の数が3でない・成分が不正・長さ0の場合、またはワールド変換が特異な場合。
             RuntimeError: メッシュがロックされているか、Mayaが編集を拒否した場合。
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
@@ -142,6 +142,12 @@ class VertexFace(Component):
         if locked is False:
             raise TypeError("normalとlocked=Falseは同時に指定できません(ロックを外すと、設定した法線は計算し直されます)")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
+        try:
+            count = len(normal)
+        except TypeError:
+            raise TypeError(f"normalはXYZの3成分で指定してください: {normal!r}") from None
+        if count != 3:
+            raise ValueError(f"normalはXYZの3成分で指定してください: {normal!r}")
         self.shape.setFaceVertexNormals([normal], worldSpace, fast=fast, check=check, faceVertices=self)
 
     def getTangent(self, worldSpace=_UNSET, *, binormal=False, uvSet=None, ws=_UNSET):
@@ -158,6 +164,7 @@ class VertexFace(Component):
 
         Raises:
             TypeError: binormalがboolでない場合、空間指定・uvSetの型が不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: 指定した名前のUVセットが無い場合。
             RuntimeError: UVが未割当・縮退しているか、接線(従法線)を求められない場合。
         """
         _require_bool(binormal, "binormal")
@@ -172,6 +179,12 @@ class VertexFace(Component):
 
         Returns:
             tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
+
+        Raises:
+            TypeError: colorSetが文字列でもNoneでもない場合。
+            ValueError: 指定した名前のカラーセットが無い場合。
+            IndexError: 番号が今の範囲の外にある場合。
+            RuntimeError: Shapeが無効な場合。
         """
         return self.shape.getVertexColors(perFace=True, colorSet=colorSet, faceVertices=self)[0]
 

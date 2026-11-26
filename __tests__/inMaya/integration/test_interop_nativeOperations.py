@@ -205,7 +205,7 @@ class NativeFollowupTest(NamespaceCase):
         camera.getPlug("focalLength").setLocked(True)
         before = camera.getPoint()
         with self.assertRaises(RuntimeError):
-            camera.setView((8, 9, 10), (0, 0, -1), (0, 1, 0), 60, 1.0, fast=True)
+            camera.setView((8, 9, 10), (0, 0, -1), (0, 1, 0), 60, 1.0, fast=True, check=True)
         self.assertEqual(camera.getPoint(), before)
 
     def test_component_pivots_undo_redo(self):
@@ -318,7 +318,7 @@ class NativeFollowupTest(NamespaceCase):
         mesh = self.cube().getShape()
         mesh.getPlug("inMesh").setLocked(True)
         with self.assertRaises(RuntimeError):
-            mesh.setNormals(mesh.getNormalData()[0], fast=True)
+            mesh.setNormals(mesh.getNormalData()[0], fast=True, check=True)
         surface = mlib.getNode(cmds.nurbsPlane(name=self.name("historySurface"))[0]).getShape()
         with self.assertRaises(NotImplementedError):
             surface.setUVData([(0, 0)], [4], [0, 0, 0, 0], fast=True)

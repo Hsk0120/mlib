@@ -79,6 +79,7 @@ class Container(Node):
             None: 値を返さない。
 
         Raises:
+            TypeError: 対応していない型(数値など)を渡した場合、または名前とNodeなどのオブジェクトを混ぜて渡した場合。
             RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
         """
         names = Container._resolve_new_members(members, self)
@@ -101,8 +102,10 @@ class Container(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: all・forceがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            TypeError: all・forceがboolでない場合、membersとall=Trueを同時に指定した場合、対応していない型を渡した場合、
+                または名前とNodeなどのオブジェクトを混ぜて渡した場合。
             ValueError: メンバーでないノードが含まれる場合。
+            RuntimeError: ノードが見つからない(名前に一致しない・削除された)場合。
         """
         _require_bool(all, "all")
         _require_bool(force, "force")
@@ -177,6 +180,7 @@ class Container(Node):
             ValueError: 同じ公開名がすでにある場合。
             RuntimeError: ノードが無効な場合、またはMayaが公開名の作成を拒否した場合。
         """
+        self._require_valid("公開名の作成")
         if name in self.getPublishedAttrs():
             raise ValueError(f"パブリッシュ名はすでに存在します: {name}")
         result = cmds.container(self._full_name(), edit=True, publishName=name)
@@ -211,8 +215,12 @@ class Container(Node):
             Plug: 対応付けた内部アトリビュート。
 
         Raises:
+            TypeError: plugの型が不正な場合、または文字列がアトリビュートを指していない場合。
             ValueError: nameがバインドされていない公開名でない場合、またはplugのノードが直接のメンバーでない場合。
+            MissingAttributeError: plugの文字列のアトリビュート(またはノード)が無い場合(AttributeErrorの派生)。
+            RuntimeError: コンテナが無効な場合、またはplugの文字列が複数に一致する場合。
         """
+        self._require_valid("アトリビュートのバインド")
         published = self.getPublishedAttrs()
         if name not in published or published[name] is not None:
             raise ValueError(f"バインドされていないパブリッシュ名を指定してください: {name}")
@@ -234,8 +242,12 @@ class Container(Node):
             Plug: 対応付けた内部アトリビュート。
 
         Raises:
+            TypeError: plugの型が不正な場合、または文字列がアトリビュートを指していない場合。
             ValueError: nameがすでにある公開名の場合、またはplugのノードが直接のメンバーでない場合。
+            MissingAttributeError: plugの文字列のアトリビュート(またはノード)が無い場合(AttributeErrorの派生)。
+            RuntimeError: コンテナが無効な場合、またはplugの文字列が複数に一致する場合。
         """
+        self._require_valid("公開名の作成")
         if name in self.getPublishedAttrs():
             raise ValueError(f"パブリッシュ名はすでに存在します: {name}")
         plug = Plug._resolve_input(plug)

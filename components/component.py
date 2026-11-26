@@ -891,8 +891,11 @@ class Components:
             Component: 取り除いたコンポーネント。
 
         Raises:
+            TypeError: indexが整数でない場合。
             IndexError: 要素が無い場合、または位置が範囲の外の場合。
         """
+        if isinstance(index, bool) or not isinstance(index, int):
+            raise TypeError(f"indexはintで指定してください: {index!r}")
         item = self[index]
         del self[index]
         return item
@@ -909,8 +912,12 @@ class Components:
             int: この集まりの中での位置。
 
         Raises:
+            TypeError: start・stopが整数でない場合(stopはNoneも可)。
             ValueError: その範囲に要素が無い場合。
         """
+        for number, name in ((start, "start"), (stop, "stop")):
+            if (number is not None or name == "start") and (isinstance(number, bool) or not isinstance(number, int)):
+                raise TypeError(f"{name}はintで指定してください: {number!r}")
         if value not in self:
             raise ValueError(f"{type(self).__name__}に無い要素です: {value!r}")
         (found,) = self._matching_indices([value])

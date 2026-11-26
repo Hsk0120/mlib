@@ -69,7 +69,10 @@ class ShadingEngine(ObjectSet):
             None: 値を返さない。
 
         Raises:
-            ValueError: kindが対応していない値の場合。
+            TypeError: fastがboolでない場合、またはshader・outputの型が不正な場合。
+            ValueError: kindが対応していない値の場合、またはshaderが無効な(削除された)か名前に一致するものが無い場合。
+            MissingAttributeError: 出力のアトリビュート(outputか、省いたときのoutColor・displacement)がシェーダーに無い場合
+                (AttributeErrorの派生)。
             RuntimeError: 接続元と接続先が同じアトリビュートの場合(fastの指定に関係なく)、
                 またはMayaが接続を拒否した場合。
         """
@@ -110,8 +113,13 @@ class ShadingEngine(ObjectSet):
 
         Raises:
             TypeError: DAGでないノード(DGノード・セットなど)やPlugを渡した場合。何も変えない。
+            ValueError: 名前に一致するものが無い場合、または渡したものが無効な(削除された)場合。何も変えない。
             RuntimeError: Mayaが割り当てなかった対象(頂点・形状の無いTransformなど)がある場合。
                 割り当てた分も戻す。
+
+        Note:
+            一部のフェースへ割り当て済みの形状全体へ割り当てると、使われなくなったgroupIdノードが残る。
+            Undoの後のredoでは、Mayaがそのノードを消す(``cmds.sets(forceElement=...)`` でも同じMayaの制限)。
         """
         names = Object._input_names(targets, allow_plugs=False)
         for name in names:
@@ -119,8 +127,7 @@ class ShadingEngine(ObjectSet):
             try:
                 selection.add(name)
             except RuntimeError:
-                # 見つからない名前は、これまでどおりMayaの例外に任せる。
-                continue
+                raise ValueError(f"名前に一致するものがありません: {name}") from None
             try:
                 selection.getDagPath(0)
             except TypeError:

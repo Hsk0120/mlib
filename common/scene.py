@@ -5,7 +5,7 @@ from pathlib import Path
 
 import maya.cmds as cmds
 
-from ..decorator import preservedSelection
+from ..decorator import _require_bool, preservedSelection
 from .references import _file_without_prompt, _require_scene_file, createReference
 
 # 拡張子とMayaのファイルの形式の対応。保存・書き出しの形式は拡張子で決める。
@@ -65,8 +65,10 @@ class Scene(type(Path())):
             force (bool): Trueなら、保存していない変更を破棄する。
 
         Raises:
+            TypeError: forceがboolでない場合。
             RuntimeError: 保存していない変更があり、forceがFalseの場合。
         """
+        _require_bool(force, "force")
         _require_discardable(force)
         cmds.file(new=True, force=True)
 
@@ -86,9 +88,11 @@ class Scene(type(Path())):
             force (bool): Trueなら、保存していない変更を破棄する。
 
         Raises:
+            TypeError: forceがboolでない場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
             RuntimeError: 保存していない変更があり、forceがFalseの場合。
         """
+        _require_bool(force, "force")
         path = _require_scene_file(self, "開く")
         _require_discardable(force)
         # GUIでも確認のダイアログで止めない(promptの設定は呼ぶ前の値へ戻す)。
@@ -104,9 +108,11 @@ class Scene(type(Path())):
                 今のシーンと同じファイルへの保存は、forceに関係なく上書きする。
 
         Raises:
+            TypeError: forceがboolでない場合。
             ValueError: 拡張子が ``.ma`` でも ``.mb`` でもない場合。
             OSError: 今のシーンとは別のファイルがすでにあり、forceがFalseの場合(``FileExistsError``)。
         """
+        _require_bool(force, "force")
         file_type = _require_file_type(self)
         if not self.isCurrent():
             _require_writable(self, force)
@@ -123,11 +129,14 @@ class Scene(type(Path())):
             Nodes: インポートで新しくできたノード。
 
         Raises:
+            TypeError: namespaceが文字列・None以外の場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
         """
         # commonの初期化時にnodesを読み込まないよう、使用時に読み込む。
         from ..nodes.node import Node, Nodes
 
+        if namespace is not None and not isinstance(namespace, str):
+            raise TypeError(f"namespaceはstrかNoneで指定してください: {type(namespace).__name__}")
         path = _require_scene_file(self, "インポートする")
         kwargs = {"i": True, "returnNewNodes": True}
         if namespace is not None:
@@ -147,6 +156,7 @@ class Scene(type(Path())):
             Reference: 作ったトップレベルのリファレンスノード。
 
         Raises:
+            TypeError: namespaceが文字列・None以外の場合。
             OSError: ファイルが無い場合(``FileNotFoundError``)。
             RuntimeError: Mayaが作成を拒否した場合、または新しいトップレベルのリファレンスが1件に決まらない場合。
         """
@@ -164,7 +174,7 @@ class Scene(type(Path())):
             force (bool): Trueなら、ファイルがすでにあっても上書きする。
 
         Raises:
-            TypeError: nodesが対応しない型の場合、またはNodeと名前が混ざっている場合。
+            TypeError: nodesが対応しない型の場合、Nodeと名前が混ざっている場合、またはforceがboolでない場合。
             ValueError: 拡張子が ``.ma`` でも ``.mb`` でもない場合、またはnodesが空の場合。
             OSError: ファイルがすでにあり、forceがFalseの場合(``FileExistsError``)。
             RuntimeError: 今のシーンと同じファイルへ書き出そうとした場合。保存は :meth:`save` で行う。
@@ -172,6 +182,7 @@ class Scene(type(Path())):
         # commonの初期化時にnodesを読み込まないよう、使用時に読み込む。
         from ..nodes.node import Nodes
 
+        _require_bool(force, "force")
         file_type = _require_file_type(self)
         if self.isCurrent():
             raise RuntimeError(f"今のシーンのファイルへは書き出せません。保存はsaveで行ってください: {self}")

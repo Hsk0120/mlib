@@ -54,6 +54,24 @@ def _unit_copy(value):
     return result
 
 
+def _require_quaternion(value, name):
+    """相手の回転が om2.MQuaternion 系かを確かめる。
+
+    Args:
+        value (om2.MQuaternion): 確かめる値。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        om2.MQuaternion: 確かめた値。
+
+    Raises:
+        TypeError: om2.MQuaternion 系でない場合。
+    """
+    if not isinstance(value, _MQuaternion):
+        raise TypeError(f"{name}はQuaternion(om2.MQuaternion)で指定してください: {type(value).__name__}")
+    return value
+
+
 def _roll_bend_axes(aimAxis, upAxis):
     """ロール・曲げの分解に使う、向ける軸・アップ軸・横の軸(``aim × up``)を返す。
 
@@ -455,18 +473,19 @@ class Quaternion(om2.MQuaternion):
         Args:
             axis (om2.MVector | Iterable[float]): 回転軸。中で正規化してから使う。
             angle (float): 回転の角度。単位はunitで決まる。
-            unit (str): angleの単位。``"rad"`` はラジアン(om2と同じ)、``"deg"`` は度。既定は ``"rad"``。
-                ``"degree"`` / ``"radians"`` などの別名も使える。
+            unit (str | None): angleの単位。``"rad"`` はラジアン(om2と同じ)、``"deg"`` は度。既定は ``"rad"``。
+                ``"degree"`` / ``"radians"`` などの別名も使える。Noneは既定と同じ ``"rad"``。
 
         Returns:
             Quaternion: axisを中心にangleだけ回転する単位クォータニオン。
 
         Raises:
-            TypeError: unitが文字列・None以外の場合。
-            ValueError: axisが0のベクトルの場合(om2はこの場合に単位クォータニオンを返す)、またはunitに対応していない場合。
+            TypeError: axisが3個の数値の並びでない場合、angleが数値でない場合、またはunitが文字列・None以外の場合。
+            ValueError: axisの成分の数が3でない、またはaxisが0のベクトルの場合(om2はこの場合に単位クォータニオンを返す)、
+                angleが有限でない場合、またはunitに対応していない場合。
         """
-        angle = _to_radians(angle, _angle_unit(unit))
-        axis = _resolve_mvector(axis)
+        angle = _to_radians(_finite(angle, "angle"), _angle_unit(unit, "rad"))
+        axis = _resolve_mvector(axis, "axis")
         length = axis.length()
         if length == 0.0:
             raise ValueError("0のベクトルは正規化できません")
@@ -495,7 +514,8 @@ class Quaternion(om2.MQuaternion):
             bendV (float): 横の軸周りの曲げの角度。aimAxisをupAxisの側へ倒す向きが正。
             aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
             upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
-            unit (str): 角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (数学型の生成の決まり)。
+            unit (str | None): 角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (数学型の生成の決まり)。
+                Noneは既定と同じ ``"rad"``。
 
         Returns:
             Quaternion: 呼び出したクラスの新しい単位クォータニオン。
@@ -505,7 +525,7 @@ class Quaternion(om2.MQuaternion):
             ValueError: 角度が有限でない場合、軸の名前が正しくない場合、aimAxisとupAxisが同じ軸の場合、
                 またはunitに対応していない場合。
         """
-        unit = _angle_unit(unit)
+        unit = _angle_unit(unit, "rad")
         roll = _to_radians(_finite(roll, "roll"), unit)
         horizontal = math.tan(_to_radians(_finite(bendH, "bendH"), unit) / 2.0)
         vertical = math.tan(_to_radians(_finite(bendV, "bendV"), unit) / 2.0)
@@ -549,11 +569,15 @@ class Quaternion(om2.MQuaternion):
         """4成分の内積を返す。
 
         Args:
-            other (om2.MQuaternion): 内積の相手。x、y、z、w を持つ値。
+            other (om2.MQuaternion): 内積の相手。
 
         Returns:
             float: 内積。
+
+        Raises:
+            TypeError: otherがom2.MQuaternion系でない場合。
         """
+        _require_quaternion(other, "other")
         return self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
 
     def length(self):
@@ -631,10 +655,11 @@ class Quaternion(om2.MQuaternion):
             Vector: 回転した新しいベクトル。入力の型が派生クラスでも引き継がず、派生クラスで足したPythonの状態も引き継がない。
 
         Raises:
-            ValueError: 自身が0のクォータニオンの場合。
+            TypeError: vectorが3個の数値の並びでない場合。
+            ValueError: vectorの成分の数が3でない場合、または自身が0のクォータニオンの場合。
         """
         result = _zero(Vector)
-        _MVector.__iadd__(result, _resolve_mvector(vector).rotateBy(_unit_copy(self)))
+        _MVector.__iadd__(result, _resolve_mvector(vector, "vector").rotateBy(_unit_copy(self)))
         return result
 
     def angleTo(self, other):
@@ -650,10 +675,11 @@ class Quaternion(om2.MQuaternion):
             float: 0からpiまでのラジアンの角度。
 
         Raises:
+            TypeError: otherがom2.MQuaternion系でない場合。
             ValueError: 自身またはotherが0のクォータニオンの場合。
         """
         p = _unit_copy(self)
-        q = _unit_copy(other)
+        q = _unit_copy(_require_quaternion(other, "other"))
         if p.x * q.x + p.y * q.y + p.z * q.z + p.w * q.w < 0.0:
             q.negateIt()
         dx, dy, dz, dw = p.x - q.x, p.y - q.y, p.z - q.z, p.w - q.w
@@ -676,9 +702,13 @@ class Quaternion(om2.MQuaternion):
             Quaternion: 補間した結果。
 
         Raises:
-            ValueError: 自身またはotherが0のクォータニオンの場合。
+            TypeError: otherがom2.MQuaternion系でない場合、tが数値でない場合、またはspinが整数でない場合(boolを含む)。
+            ValueError: tが有限でない場合、または自身・otherが0のクォータニオンの場合。
         """
-        return Quaternion._wrap(_MQuaternion.slerp(_unit_copy(self), _unit_copy(other), t, spin))
+        weight = _finite(t, "t")
+        if isinstance(spin, bool) or not isinstance(spin, int):
+            raise TypeError("spinはintで指定してください")
+        return Quaternion._wrap(_MQuaternion.slerp(_unit_copy(self), _unit_copy(_require_quaternion(other, "other")), weight, spin))
 
     def asCanonicalAxisAngle(self):
         """軸と角度の組へ分解する。
@@ -722,9 +752,10 @@ class Quaternion(om2.MQuaternion):
             tuple[Quaternion, Quaternion]: (swing, twist)。どちらも正規化してある。
 
         Raises:
-            ValueError: axisが0のベクトルの場合、または自身が0のクォータニオンの場合。
+            TypeError: axisが3個の数値の並びでない場合。
+            ValueError: axisの成分の数が3でない、axisが0のベクトルの場合、または自身が0のクォータニオンの場合。
         """
-        axis = _resolve_mvector(axis)
+        axis = _resolve_mvector(axis, "axis")
         length = axis.length()
         if length == 0.0:
             raise ValueError("0のベクトルは正規化できません")
@@ -763,7 +794,8 @@ class Quaternion(om2.MQuaternion):
         Args:
             aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
             upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
-            unit (str): 戻り値の角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (:meth:`fromRollBend` と同じ)。
+            unit (str | None): 戻り値の角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (:meth:`fromRollBend` と同じ)。
+                Noneは既定と同じ ``"rad"``。
 
         Returns:
             tuple[float, float, float]: (roll, bendH, bendV)。rollも曲げも-π〜π(``unit="deg"`` なら-180〜180度)。
@@ -774,7 +806,7 @@ class Quaternion(om2.MQuaternion):
             ValueError: 軸の名前が正しくない場合、aimAxisとupAxisが同じ軸(符号だけ違う場合を含む)の場合、
                 unitに対応していない場合、または自身が0のクォータニオンの場合。
         """
-        unit = _angle_unit(unit)
+        unit = _angle_unit(unit, "rad")
         aim, up, side = _roll_bend_axes(aimAxis, upAxis)
         rotation = _unit_copy(self)
         bent = aim.rotateBy(rotation)

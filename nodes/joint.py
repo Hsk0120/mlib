@@ -13,7 +13,7 @@ from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Scale, Vector
 from ..plugs.plug import Plugs
-from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _angle_unit, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 
@@ -471,6 +471,13 @@ class Joint(Transform):
                 raise RuntimeError(f"Mayaが{self.getName()}のミラーしたジョイントを作成しませんでした")
             prefix = parent._full_name() if parent is not None else ""
             root = Joint(prefix + "|" + result[0])
+            if not behavior:
+                # behavior=Falseのmirrorは、Undoの後のredoでrotateを0にして作り直す(Mayaの動き)。
+                # 作った値をsetAttrで書き直してUndoに残し、redoでも同じ値になるようにする。
+                created = [root._full_name()] + (cmds.listRelatives(root._full_name(), allDescendents=True, type="joint", fullPath=True) or [])
+                for name in created:
+                    if cmds.getAttr(name + ".rotate", settable=True):
+                        cmds.setAttr(name + ".rotate", *cmds.getAttr(name + ".rotate")[0])
             cmds.select(root._full_name(), replace=True)
             return root
 
@@ -622,6 +629,8 @@ class Joint(Transform):
             RuntimeError: ジョイントが無効な場合、またはpreferredAngleがロック・入力の接続で書き込めない場合。
         """
         with _edit_context("mlibJointSetPreferredAngle", fast, single=True):
+            # valueを省いて今のrotateを使うときも、unitの誤りは同じく例外にする。
+            _angle_unit(unit)
             self._require_valid("優先角度の設定")
             if value is None:
                 value, unit = tuple(self.getPlug("rotate").get(unit="rad")), "rad"
@@ -702,6 +711,7 @@ class Joint(Transform):
         """
         if not isinstance(axes, str):
             raise TypeError(f"axesは'xyz'のような文字列で指定してください: {axes!r}")
+        _require_bool(check, "check")
         lowered = axes.lower()
         if set(lowered) - set("xyz") or len(set(lowered)) != len(lowered):
             raise ValueError(f"axesは'x'・'y'・'z'を重複なく組み合わせて指定してください: {axes!r}")
@@ -887,14 +897,24 @@ class Joint(Transform):
         """ウェイトを移す先になる、いちばん近い祖先のインフルエンスを探す。
 
         Args:
-            skinCluster (SkinCluster): インフルエンスになっているかを調べるskinCluster。
+            skinCluster (SkinCluster | str): インフルエンスになっているかを調べるskinCluster。名前でもよい。
 
         Returns:
             Joint | None: 移す先の祖先のジョイント。見つからない場合は ``None``。
+
+        Raises:
+            TypeError: skinClusterがskinClusterのノードとして扱えない値の場合(Noneを含む)。
+            RuntimeError: skinClusterの名前のノードが見つからない場合、またはskinClusterが無効な場合。
         """
+        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
+        from .skinCluster import SkinCluster
+
+        if skinCluster is None:
+            raise TypeError("skinClusterはSkinClusterかその名前で指定してください")
+        skin = skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster)
         ancestor = self.getParent() if self.isValid() else None
         while isinstance(ancestor, Joint):
-            if skinCluster.hasInfluence(ancestor.getName()):
+            if skin.hasInfluence(ancestor.getName()):
                 return ancestor
             ancestor = ancestor.getParent()
         return None
@@ -935,8 +955,9 @@ class Joint(Transform):
             Joints: 自身からtoまで、または最初の枝分かれまでのジョイント。自身を含む。
 
         Raises:
+            TypeError: toがジョイントとして扱えない値の場合(ジョイントでないノードを含む)。
             ValueError: toが自身の子孫でない場合。
-            RuntimeError: 自身が無効な場合。
+            RuntimeError: 自身が無効な場合、またはtoの名前のノードが見つからない場合。
         """
         self._require_valid("チェーンの作成")
         if to is None:

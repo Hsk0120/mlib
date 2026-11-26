@@ -100,7 +100,6 @@ METHODS = (
         },
         expect=_expect_capture,
         writes=False,
-        known={"invalid:items='<無いコンポーネント>'": "範囲の外のコンポーネントの名前を例外にせず受け付ける(Raises は RuntimeError)"},
     ),
 )
 

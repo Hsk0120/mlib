@@ -62,17 +62,35 @@ def _set_sequence(target: om2.MMatrix, values: list | tuple) -> bool:
     """
     ...
 
-def _xyz(value: om2.MVector | om2.MPoint | Iterable[float]) -> tuple:
+def _xyz(value: om2.MVector | om2.MPoint | Iterable[float], name: str = ...) -> tuple:
     """3成分の値を (x, y, z) の tuple として取り出す。
 
     Args:
         value (om2.MVector | om2.MPoint | Iterable[float]): 取り出し元。MPoint の w は無視する。
+        name (str): 例外メッセージに使う引数名。
 
     Returns:
         tuple: (x, y, z)。
 
     Raises:
+        TypeError: 反復できない値・文字列の場合。
         ValueError: 反復可能オブジェクトの要素数が3でない場合。
+    """
+    ...
+
+def _matrix_operand(value: om2.MMatrix | Iterable[float] | Iterable[Iterable[float]], name: str = ...) -> om2.MMatrix:
+    """相手のマトリクスを om2.MMatrix として扱える形へそろえる。
+
+    Args:
+        value (om2.MMatrix | Iterable[float] | Iterable[Iterable[float]]): 16要素、または4行4列のマトリクス。
+        name (str): 例外メッセージに使う引数名。
+
+    Returns:
+        om2.MMatrix: value 自身、または新しい Matrix。
+
+    Raises:
+        TypeError: None・文字列・並びでない値の場合。
+        ValueError: 16要素の数値として解釈できない場合。
     """
     ...
 
@@ -541,7 +559,8 @@ class Matrix(om2.MMatrix):
             Matrix: 呼び出したクラスの新しいマトリクス。
 
         Raises:
-            ValueError: 成分が3要素でない場合、または回転クォータニオンがゼロの場合。
+            TypeError: 成分が3つの数値の並びでない場合(None・boolを含む)。
+            ValueError: 成分が3要素でない、有限でない成分がある、または回転クォータニオンがゼロの場合。
         """
         ...
     @classmethod
@@ -764,7 +783,7 @@ class Matrix(om2.MMatrix):
             ValueError: axisが軸の名前でない、または番号が0〜2でない場合。
         """
         ...
-    def extract(self, part: str) -> Matrix:
+    def extract(self, what: str) -> Matrix:
         """成分の1つだけを持つマトリクスを返す。
 
         - ``"translate"``: 平行移動(番号12〜14)だけ。3x3部分は単位マトリクス。分解しない。
@@ -778,14 +797,14 @@ class Matrix(om2.MMatrix):
         ``extract("scale") * extract("rotate") * extract("translate")`` が自身(誤差の範囲)になる。
 
         Args:
-            part (str): 取り出す成分。``"translate"``・``"rotate"``・``"scale"``・``"3x3"`` のどれか。
+            what (str): 取り出す成分。``"translate"``・``"rotate"``・``"scale"``・``"3x3"`` のどれか。
 
         Returns:
             Matrix: 自身と同じクラスの新しいマトリクス。
 
         Raises:
-            TypeError: partが文字列でない場合。
-            ValueError: partが上のどれでもない場合、または ``"rotate"``・``"scale"`` で分解できない場合
+            TypeError: whatが文字列でない場合。
+            ValueError: whatが上のどれでもない場合、または ``"rotate"``・``"scale"`` で分解できない場合
                 (いずれかのスケール軸がゼロなど)。
 
         Note:
@@ -801,10 +820,14 @@ class Matrix(om2.MMatrix):
 
         Args:
             other (om2.MMatrix | Iterable[float]): 比較対象。16要素や4行4列も受け付ける。
-            tolerance (float): 各成分の差の許容誤差。
+            tolerance (float): 各成分の差の許容誤差。0以上。
 
         Returns:
             bool: 全16成分の差が tolerance 以内なら True。
+
+        Raises:
+            TypeError: otherをマトリクスとして解釈できない(Noneを含む)、またはtoleranceが数値でない場合。
+            ValueError: otherの要素が不正な場合、またはtoleranceが負・有限でない場合。
         """
         ...
     def isIdentity(self, tolerance: float = ...) -> bool:
@@ -891,7 +914,7 @@ class Matrix(om2.MMatrix):
             Matrix: 自身と同じクラスの新しいマトリクス。
 
         Raises:
-            TypeError: weightが数値でない(boolを含む)、またはotherをマトリクスとして解釈できない場合。
+            TypeError: weightが数値でない(boolを含む)、またはotherをマトリクスとして解釈できない(Noneを含む)場合。
             ValueError: weightが有限でない・0〜1の範囲外、otherの要素が不正、
                 または自身・otherを分解できない(いずれかのスケール軸がゼロなど)場合。
         """
@@ -909,6 +932,10 @@ class Matrix(om2.MMatrix):
 
         Returns:
             Translate: 変換した位置の新しい値。入力の型が派生クラスでも引き継がず、派生クラスで足したPythonの状態も引き継がない。
+
+        Raises:
+            TypeError: valueが3つの数値の並びでない場合。
+            ValueError: valueの成分の数が3でない場合。
         """
         ...
     def transformVector(self, value: om2.MVector | om2.MPoint | Iterable[float]) -> Vector:
@@ -923,6 +950,10 @@ class Matrix(om2.MMatrix):
 
         Returns:
             Vector: 変換した方向の新しい値。入力の型が派生クラスでも引き継がず、派生クラスで足したPythonの状態も引き継がない。
+
+        Raises:
+            TypeError: valueが3つの数値の並びでない場合。
+            ValueError: valueの成分の数が3でない場合。
         """
         ...
     def mirror(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Matrix:
@@ -976,7 +1007,7 @@ class Matrix(om2.MMatrix):
             float: 余因子。
 
         Raises:
-            TypeError: 行・列が整数として扱えない場合。
+            TypeError: 行・列が整数として扱えない場合(boolを含む)。
             IndexError: 行・列が範囲外の場合。
         """
         ...

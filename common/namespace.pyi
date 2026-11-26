@@ -1,6 +1,7 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """Maya の名前空間を取得・作成・移動・削除する。"""
 
+import re
 from contextlib import contextmanager
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
@@ -12,6 +13,7 @@ from mlib.nodes.node import Node
 from mlib.nodes.node import Nodes
 import types
 
+_LEGAL_SEGMENT: Any
 
 
 class Namespace:
@@ -89,12 +91,9 @@ class Namespace:
             Namespace: 作った(またはすでにあった)名前空間の完全名を持つオブジェクト。
 
         Raises:
-            ValueError: nameまたはparentが正しくない場合。
+            TypeError: name・parentが文字列でもNamespaceでもない場合。
+            ValueError: name・parentが空、使えない文字(英数字と_以外・先頭の数字)を含む、または空の階層(``a::b``)を含む場合。
             RuntimeError: Mayaが作成を拒否した場合。
-
-        Note:
-            使えない文字(``-``・空白・先頭の数字・``#`` など)は、Mayaの規則で置き換える。
-            置き換えた名前がすでにあれば、末尾に番号を付ける。戻り値はMayaが実際に作った名前になる。
         """
         ...
     @property
@@ -143,6 +142,7 @@ class Namespace:
             None: 値を返さない。
 
         Raises:
+            TypeError: parentが文字列でもNamespaceでもない場合。
             ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
             RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
         """
@@ -246,7 +246,8 @@ class Namespace:
             None: 値を返さない。
 
         Raises:
-            ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合。
+            TypeError: nameが文字列でもNamespaceでもない場合。
+            ValueError: ルートの名前を変えようとした場合、または名前が正しくない場合(空・使えない文字・空の階層)。
             RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
@@ -338,3 +339,18 @@ class Namespace:
             RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
+
+def _require_name(value: str | Namespace, name: str):
+    """名前空間の名前の引数を確かめる。
+
+    / は : と同じ区切りとして扱い、先頭・末尾の : は絶対名・区切りとして受け付ける。
+
+    Args:
+        value (str | Namespace): 確かめる値。
+        name (str): 例外メッセージに使う引数名。
+
+    Raises:
+        TypeError: 文字列でもNamespaceでもない場合。
+        ValueError: 空、使えない文字を含む、または空の階層を含む場合。
+    """
+    ...

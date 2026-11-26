@@ -3,7 +3,7 @@
 import maya.api.OpenMaya as om2
 
 from .. import logger
-from ..util import _time_unit
+from ..util import _required_time_unit
 
 # MSceneMessage.addCallbackで登録できる(引数なしで呼ばれる)シーンのイベント名。
 # 戻り値を判定に使うCheck系は下の別の表、プラグイン名の配列を受け取るPluginLoad系は扱わない。
@@ -187,11 +187,11 @@ class Callbacks:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合。
+            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合(Noneを含む)。
             ValueError: timeUnitが対応していない単位名の場合。
         """
         _require_callable(callback)
-        unit = _time_unit(timeUnit)
+        unit = _required_time_unit(timeUnit)
 
         def forward(time, client_data):  # noqa: ARG001 引数はMayaのコールバックが決める
             if unit == "frame":

@@ -103,10 +103,6 @@ METHODS = (
         invalid={"dialog": (1, "yes", 1.5), "warn": (1, "yes", None)},
         expect=_expect_try_load,
         writes=False,
-        known={
-            **{f"invalid:dialog={value}": "呼び出せない dialog を検査せず、通知するときに Raises に無い TypeError になる" for value in ("1", "'yes'", "1.5")},
-            **{f"invalid:warn={value}": "bool でない warn を真偽として読む" for value in ("1", "'yes'", "None")},
-        },
     ),
     Method(
         "showDialog",
@@ -117,7 +113,6 @@ METHODS = (
         invalid={"message": (None, 1.5), "title": (None, 1.5)},
         expect=lambda case, call: case.assertIsNone(call.result),
         writes=False,
-        known={f"invalid:{name}={value}": "バッチでは文字列でない値も受け付ける(何もしない)" for name in ("message", "title") for value in ("None", "1.5")},
     ),
 )
 

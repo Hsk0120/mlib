@@ -1,18 +1,20 @@
 # _tools/generate_mlib_stubs.py が mlib の docstring から生成した型スタブ。直接編集しない。
 """選択(ノードとコンポーネント)を選択順のまま保存・復元する。"""
 
+import re
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from .. import logger
 from .componentRef import ComponentRef
 from .nodeRef import NodeRef
 from .snapshot import Snapshot, ValidationReport
-from typing import Iterable
+from typing import Any, Iterable
 from mlib.components.component import Component
 from mlib.components.component import Components
 from mlib.json.nameMapping import NameMapping
 from mlib.nodes.node import Node
 
+_INDEX_PATTERN: Any
 _COMPONENT_TYPES: tuple
 
 
@@ -133,16 +135,20 @@ def _capture_item(item: Node | Component | Components | str | om2.MDagPath | om2
     """
     ...
 
-def _capture_selection_entry(selection: om2.MSelectionList, index: int, label: str) -> list[NodeRef | ComponentRef]:
+def _capture_selection_entry(selection: om2.MSelectionList, index: int, label: str, requested: int | None = ...) -> list[NodeRef | ComponentRef]:
     """MSelectionListの1つの項目を参照にする。
 
     Args:
         selection (om2.MSelectionList): 選択の一覧。
         index (int): 項目の番号。
         label (str): 警告に使う名前。
+        requested (int | None): 名前に書いた番号の最大。範囲の外かを確かめる。Noneなら確かめない。
 
     Returns:
         list[NodeRef | ComponentRef]: 参照。保存しない種類のコンポーネントは空list。
+
+    Raises:
+        RuntimeError: コンポーネントの番号が範囲の外の場合。
     """
     ...
 

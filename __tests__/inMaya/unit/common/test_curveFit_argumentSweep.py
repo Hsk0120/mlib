@@ -97,12 +97,6 @@ METHODS = (
         invalid={"count": (3, 0, -1, 1.5, "a", None), "parameter": (-0.1, 1.1, float("nan"), float("inf"), "a", None)},
         expect=_expect_basis,
         writes=False,
-        known={
-            "invalid:count='a'": "数でない count で Raises に無い TypeError(比較の英語の文)",
-            "invalid:count=None": "数でない count で Raises に無い TypeError(比較の英語の文)",
-            "invalid:parameter='a'": "数でない parameter で Raises に無い TypeError(比較の英語の文)",
-            "invalid:parameter=None": "数でない parameter で Raises に無い TypeError(比較の英語の文)",
-        },
     ),
     Method(
         "fit",
@@ -116,7 +110,6 @@ METHODS = (
         },
         expect=_expect_fit,
         writes=False,
-        known={"invalid:points=None": "並びでない points で Raises に無い TypeError", "invalid:points=1.5": "並びでない points で Raises に無い TypeError"},
     ),
 )
 

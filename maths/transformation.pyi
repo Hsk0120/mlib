@@ -2,6 +2,7 @@
 """ピボットと回転順序まで持つ、トランスフォームの値。"""
 
 import maya.api.OpenMaya as om2
+from ..util import _checked_tolerance
 from .eulerRotate import EulerRotate
 from .matrix import Matrix
 from .quaternion import Quaternion
@@ -242,13 +243,14 @@ class Transformation(om2.MTransformationMatrix):
 
         Args:
             other (om2.MTransformationMatrix): 比べる相手。
-            tolerance (float): 成分ごとの許容差。
+            tolerance (float): 成分ごとの許容差。0以上。
 
         Returns:
             bool: すべての成分の差がtolerance以下ならTrue。
 
         Raises:
-            TypeError: otherがom2.MTransformationMatrix系でない場合。
+            TypeError: otherがom2.MTransformationMatrix系でない、またはtoleranceが数値でない場合。
+            ValueError: toleranceが負・有限でない場合。
         """
         ...
     def _scale_values(self):

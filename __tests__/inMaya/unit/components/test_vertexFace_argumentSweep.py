@@ -30,11 +30,6 @@ COLOR_INVALID = ((1.0, 2.0), (1.0, 2.0, 3.0, 4.0, 5.0), "abc", None, (float("nan
 NORMAL_VALUES = ((0.0, 1.0, 0.0), (1.0, 1.0, 0.0), Vector(0.0, 0.0, 2.0), om2.MVector(0.0, 1.0, 1.0), [0.0, 0.0, 1.0], None)
 #: 法線の段2の誤った値(長さ0・成分の数・型)。有限でない値は check=False では確かめない決まりなので入れない。
 NORMAL_INVALID = ((0.0, 0.0, 0.0), (1.0, 2.0), (1.0, 2.0, 3.0, 4.0), "abc", object())
-#: 色の無いカラーセットへ fast で書くと、今のカラーセットの色をほかの面頂点へ写す(findings4/sweep-plugs-components.md)。
-KNOWN_FAST_COLOR = dict.fromkeys(
-    ("pairs:color=*,colorSet='cs2'", "pairs:colorSet='cs2',check=*"),
-    "色の無いカラーセットへ fast=True で書くと、ほかの面頂点に今のカラーセットの色が入る(通常は色なしのまま)",
-)
 
 
 def _fn(shape):
@@ -204,7 +199,6 @@ class VertexFaceArgumentSweepTest(ArgumentSweepCase):
             values={"normal": NORMAL_VALUES},
             replace=("normal",),
             invalid={"normal": NORMAL_INVALID},
-            known={"invalid:normal=(1.0, 2.0)": "2成分の法線を例外にせず、Z を0として書く"},
             conflicts=(SPACE, _set_normal_conflict),
             state=_normal_state,
             expect=_expect_set_normal,
@@ -218,10 +212,6 @@ class VertexFaceArgumentSweepTest(ArgumentSweepCase):
             invalid={"uvSet": (1.5,), "binormal": (1, "yes")},
             conflicts=(SPACE,),
             expect=_expect_tangent,
-            known={
-                "values:uvSet='nope'": "無い UV セットで、Raises に無い ValueError になる",
-                "pairs:*uvSet='nope'*": "無い UV セットで、Raises に無い ValueError になる",
-            },
             plural=_vertex_face_pair,
         ),
         Method(
@@ -231,11 +221,6 @@ class VertexFaceArgumentSweepTest(ArgumentSweepCase):
             invalid={"colorSet": (1.5, "nope")},
             expect=_expect_color,
             plural=_vertex_face_pair,
-            known={
-                "values:colorSet='nope'": "docstring に Raises が無いのに、無いカラーセットで ValueError になる",
-                "invalid:colorSet=1.5": "docstring に Raises が無いのに、文字列でないカラーセットで TypeError になる",
-                "invalid:colorSet='nope'": "docstring に Raises が無いのに、無いカラーセットで ValueError になる",
-            },
         ),
         Method(
             "setColor",
@@ -247,7 +232,6 @@ class VertexFaceArgumentSweepTest(ArgumentSweepCase):
             state=_color_state,
             expect=_expect_set_color,
             plural=_vertex_face_pair,
-            known=KNOWN_FAST_COLOR,
             limit=60,
         ),
         Method(

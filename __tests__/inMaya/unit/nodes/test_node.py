@@ -650,16 +650,18 @@ class TypeQueryTest(_SpecCase):
             network.hasFn(om2.MFn.kDependencyNode)
 
     def test_is_type(self):
-        """isType は継承を含めて判定し、空・文字列以外は ValueError。"""
+        """isType は継承を含めて判定し、空は ValueError、文字列以外は TypeError。"""
         shape = Node(self.make("mesh", parent=self.make()))
         self.assertTrue(shape.isType("mesh"))
         self.assertTrue(shape.isType("shape"))
         self.assertTrue(shape.isType("dagNode"))
         self.assertFalse(shape.isType("transform"))
         self.assertFalse(shape.isType("mlibNoSuchType"))
-        for value in ("", None, 3):
+        with self.assertRaises(ValueError):
+            shape.isType("")
+        for value in (None, 3):
             with self.subTest(value=value):
-                with self.assertRaises(ValueError):
+                with self.assertRaises(TypeError):
                     shape.isType(value)
 
     def test_locked_and_referenced(self):
@@ -809,12 +811,15 @@ class AttributeQueryTest(_SpecCase):
         self.assertEqual(self.node.getPlug("worldMatrix[5]").getName(full=True), self.node_name + ".worldMatrix[5]")
 
     def test_has_attr(self):
-        """hasAttr は解決できる名前だけ True。不正値も例外にせず False。"""
+        """hasAttr は解決できる名前だけ True。解決できない文字列は False、文字列でない値は TypeError。"""
         self.assertTrue(self.node.hasAttr("tx"))
         self.assertTrue(self.node.hasAttr("translate.translateX"))
-        for value in ("mlibMissing", "", None, 3):
+        for value in ("mlibMissing", ""):
             with self.subTest(value=value):
                 self.assertFalse(self.node.hasAttr(value))
+        for value in (None, 3):
+            with self.subTest(value=value), self.assertRaises(TypeError):
+                self.node.hasAttr(value)
 
     def test_aliases(self):
         """エイリアスが無ければ空、あれば (エイリアス名, 型付き Plug)。getPlug もエイリアスで解決する。"""

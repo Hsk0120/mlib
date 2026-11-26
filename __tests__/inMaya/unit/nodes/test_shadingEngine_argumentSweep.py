@@ -173,18 +173,9 @@ ASSIGN_INVALID = (
     1.5,
 )
 
-#: 本体との食い違い(findings4/sweep-geometry.md)。
-KNOWN_SET = {
-    "invalid:shader=1.5": "Raises に無い TypeError になる",
-    "invalid:shader=None": "Raises に無い TypeError になる",
-    "invalid:fast=*": "Raises に無い TypeError になる",
-    "invalid:output='noSuchAttr'": "Raises に無い MissingAttributeError になる",
-}
-#: assign の本体との食い違い。
-KNOWN_ASSIGN = {
-    "invalid:targets=<削除済みのノード>": "Raises に無い ValueError になる",
-    "invalid:targets='<存在しない名前>'": "Raises に無い ValueError になる",
-}
+
+#: 一部のフェースに割り当て済みの形状全体へ割り当てると、redo で使われなくなった groupId を Maya が消す(cmds.sets(forceElement=) でも同じ)。
+KNOWN_ASSIGN = {"pairs:targets=<cube2の形状>": "Maya の制限: redo で使われなくなった groupId が消え、1回目の結果とノードの数が違う"}
 
 #: 正しい呼び方の表。
 METHODS = (
@@ -197,7 +188,6 @@ METHODS = (
         replace=("shader", "output"),
         invalid={"shader": SHADER_INVALID, "kind": KIND_INVALID, "output": ("noSuchAttr", 1.5)},
         expect=_expect_set_shader,
-        known=KNOWN_SET,
         limit=40,
     ),
     Method(

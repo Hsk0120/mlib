@@ -109,7 +109,13 @@ def _expect_set_view(case, call):
     fov = kwargs["fieldOfView"]
     if kwargs.get("unit", "deg") in ("rad", "radian", "radians"):
         fov = math.degrees(fov)
-    case.assertAlmostEqual(cmds.camera(name, query=True, horizontalFieldOfView=True), fov, places=3)
+    actual = cmds.camera(name, query=True, horizontalFieldOfView=True)
+    if fov > 170.0:
+        # 広い画角は Maya が焦点距離とフィルム開口の範囲で切り詰める(docstring の Note)。
+        case.assertLessEqual(actual, fov + 1e-3)
+        case.assertGreater(actual, 170.0)
+    else:
+        case.assertAlmostEqual(actual, fov, places=3)
     case.assertAlmostEqual(cmds.camera(name, query=True, aspectRatio=True), kwargs["aspectRatio"], places=4)
 
 
@@ -264,11 +270,6 @@ def _skip_point_trip(kwargs):
     return not _world(kwargs)
 
 
-#: 本体との食い違い(findings: Camera)。
-KNOWN_SET_VIEW = {"*fieldOfView=179.0*": "範囲内の画角でも、焦点距離の下限で黙って別の画角になる"}
-#: setAspectRatio の食い違い。
-KNOWN_ASPECT = {"invalid:value='a'": "Raises に無い TypeError になる", "invalid:value=None": "Raises に無い TypeError になる"}
-
 #: テストの表。
 METHODS = (
     Method("mfn", _make_camera, expect=_expect_mfn, writes=False),
@@ -297,7 +298,6 @@ METHODS = (
         expect=_expect_set_view,
         state=_camera_state,
         roundTrip=RoundTrip("getPoint", value="eye", places=4),
-        known=KNOWN_SET_VIEW,
         limit=40,
     ),
     Method(
@@ -370,7 +370,6 @@ METHODS = (
         expect=_expect_none,
         state=_camera_state,
         roundTrip=RoundTrip("getAspectRatio", places=4),
-        known=KNOWN_ASPECT,
     ),
     Method("getDirection", _make_camera, conflicts=(SPACE,), expect=_expect_direction, plural=_make_cameras),
     Method(

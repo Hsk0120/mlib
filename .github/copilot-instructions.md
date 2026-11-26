@@ -54,7 +54,7 @@ NurbsSurface.clearUVDataは同じShapeへの形状データ書き戻しで明示
 | `components/` | Mesh・NurbsCurve・NurbsSurface・Lattice のコンポーネント(単数/複数) |
 | `maths/` | om2 を継承した数学型と `easing`(標準 `math` のみ) |
 | `common/` | 選択・名前空間・参照関係・単位・プラグイン導入状態・イベント・遅延実行・汎用計算の型 |
-| `core/` | 共通基底 `Object`・型登録 `NodeRegistry`・reload・拡張管理・編集基盤(`fastWrite`・`nodeEdit`・`geometryEdit`・`skinEdit`・`attributeEdit` 等) |
+| `core/` | 共通基底 `Object`・型登録 `NodeRegistry`・reload・拡張管理・編集基盤(`fastWrite`・`nodeEdit`・`geometryEdit`・`attributeEdit` 等) |
 | `json/` | シーンのデータの JSON 保存・復元(codec・file・参照・`Snapshot`) |
 | `logger.py` | 横断的な診断ログ・通知 |
 | `decorator.py` | デコレーター・コンテキストマネージャーと、fast/safe・フラグ正規化・Undo 文脈の内部補助 |

@@ -237,14 +237,14 @@ class SkinWeightCleanupTest(unittest.TestCase):
         self.assertNotIn(77, self._indices(skin=skin))
 
     def test_locks_and_input_connections_reject_cleanup_and_force_without_unlocking(self):
-        """親のマルチアトリビュート・leafロック・入力接続はforceでも解除しない。liwはクリーンアップだけが拒否する。"""
+        """親のマルチアトリビュート・leafロック・入力接続はforceでも解除しない(removeInvalidWeightsはcheck=Trueのとき拒否する)。liwはクリーンアップだけが拒否する。"""
         self._inject(77, 0.5)
         paths = (str(self.other) + ".lockInfluenceWeights", str(self.skin) + ".weightList", self._row().elementByLogicalIndex(self._index(self.parent)).name())
         for path in paths:
             is_liw = path.endswith(".lockInfluenceWeights")
             cmds.setAttr(path, True) if is_liw else cmds.setAttr(path, lock=True)
             try:
-                actions = [self.skin.removeInvalidWeights]
+                actions = [lambda: self.skin.removeInvalidWeights(check=True)]
                 if not is_liw:
                     actions.append(lambda: self.skin.removeInfluences(self.child, repair=True, requireAncestor=False))
                 for action in actions:
@@ -259,7 +259,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         weight = self._row().elementByLogicalIndex(self._index(self.parent)).name()
         cmds.connectAttr(driver + ".output", weight)
         with self.assertRaises(RuntimeError):
-            self.skin.removeInvalidWeights()
+            self.skin.removeInvalidWeights(check=True)
         with self.assertRaises(RuntimeError):
             self.skin.removeInfluences(self.child, repair=True, requireAncestor=False)
         self.assertIn(77, self._indices())

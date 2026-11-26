@@ -5,7 +5,8 @@ from typing import Any, Dict
 import maya.cmds as cmds
 
 from ..core.object import Object
-from ..decorator import _pick_alias, undoChunk
+from ..core.shapeBuild import require_name
+from ..decorator import _pick_alias, _require_bool, undoChunk
 from ..util import _UNSET
 
 
@@ -20,6 +21,7 @@ def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_U
     Args:
         members (Node | str | Iterable[Node | str]): 保存するTransformまたはJoint。
         name (str | None): 付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
+            DAGパスの区切り ``|`` は含められない(Mayaは黙って置き換えてしまうため、エラーにする)。
         bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
         hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
             Mayaは、元に戻すのに必要な親の情報も保存することがある。
@@ -30,8 +32,9 @@ def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_U
         DagPose: 作ったポーズ。Mayaが既存のポーズを使い回した場合はそのポーズ。
 
     Raises:
-        TypeError: 長い名前と短縮名を同時に指定した場合。
-        ValueError: 対象が空の場合、Transformでないものを含む場合、または名前が正しくない場合。
+        TypeError: 長い名前と短縮名を同時に指定した場合、nameが文字列でもNoneでもない場合、
+            またはbindPose・hierarchyがboolでない場合。
+        ValueError: 対象が空の場合、Transformでないものを含む場合、またはnameが空文字列か ``|`` を含む場合。
         RuntimeError: ノードが見つからない場合、またはMayaが保存を拒否した場合。
 
     Examples:
@@ -41,6 +44,9 @@ def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_U
     """
     name = _pick_alias(name, n, "name", "n", default=None)
     bindPose = _pick_alias(bindPose, bp, "bindPose", "bp", default=False)
+    name = require_name(name)
+    _require_bool(bindPose, "bindPose")
+    _require_bool(hierarchy, "hierarchy")
     # nodes はcmdsを参照するため、循環importを避けて関数内で読み込む。
     from ..nodes.node import Node
 
@@ -53,8 +59,6 @@ def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_U
             names.append(node._full_name())
     if not names:
         raise ValueError("transformかjointを1つ以上指定してください")
-    if name is not None and (not isinstance(name, str) or not name):
-        raise ValueError("nameは空でない文字列かNoneで指定してください")
     flags: Dict[str, Any] = {"save": True, "bindPose": bindPose, "selection": not hierarchy}
     # dagPoseのnameフラグはRedo時に名前空間を失うため、renameに任せる。
     result = cmds.dagPose(names, **flags)

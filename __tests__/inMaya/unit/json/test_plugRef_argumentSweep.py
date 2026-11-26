@@ -110,7 +110,6 @@ METHODS = (
         },
         expect=_expect_capture,
         writes=False,
-        known={"invalid:plug=<OpenMaya.MPlug object at *>": "null の MPlug で Raises に無い ValueError になる"},
     ),
     Method(
         "resolve",

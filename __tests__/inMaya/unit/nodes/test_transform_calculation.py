@@ -64,12 +64,12 @@ class TransformExecutionTest(unittest.TestCase):
                             self.assertAlmostEqual(actual, value, places=7)
 
     def test_matrix_safe_writes_keep_locked_component_in_both_modes(self):
-        """safe行列設定はロック成分を残し、通常・fastとも自身を返す。"""
+        """safe行列設定はロック成分を残し、通常・fastとも値を返さない。"""
         for fast in (False, True):
             with self.subTest(fast=fast):
                 node = mlib.createNode("transform")
                 node.getPlug("translateY").setLocked(True)
-                self.assertIs(node.setMatrix(Matrix(translate=(4, 5, 6)), safe=True, fast=fast), node)
+                self.assertIsNone(node.setMatrix(Matrix(translate=(4, 5, 6)), safe=True, fast=fast))
                 self.assertEqual(tuple(node.getPlug("translate").get()), (4, 0, 6))
                 self.assertTrue(node.getPlug("translateY").isLocked())
 

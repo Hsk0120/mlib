@@ -2,7 +2,6 @@
 
 import json
 import math
-from pathlib import Path
 
 import maya.api.OpenMaya as om2
 import maya.api.OpenMayaAnim as oma2
@@ -43,44 +42,47 @@ class GeometryFilter(Node):
         self._require_valid("ツールの取得")
         return Nodes(cmds.deformer(self._full_name(), query=True, deformerTools=True) or [])
 
-    def getGeometry(self, *, input=False, geometryIndex=None):
+    def getGeometry(self, *, input=False, geometryIndex=None, all=False):
         """このデフォーマーが変形する形状(出力ジオメトリ)を取得する。``input=True`` なら、変形前の形状(入力ジオメトリ)を取得する。
 
-        - 既定: ``outputGeometry`` の接続先の形状を、``input`` の番号順に返す。
-          ``cmds.deformer(query=True, geometry=True)`` と同じ結果になる。
-        - ``input=True``: ``input[].inputGeometry`` から上流をたどって見つけた形状を、``input`` の番号順に返す。
+        - 既定: 先頭の形状(``outputGeometry`` の物理的な並びの最初)を1つ返す。``geometryIndex`` を渡すと、その論理番号の形状を1つ返す。
+        - ``all=True``: すべての形状を、``input`` の番号順の集まりで返す。``cmds.deformer(query=True, geometry=True)`` と同じ結果になる。
+        - ``input=True``: ``input[].inputGeometry`` から上流をたどって見つけた形状を返す。
           ``MFnGeometryFilter.getInputGeometry`` と同じ結果になる。
           手前に別のデフォーマーがあっても、それを越えた先の形状(``Orig`` の中間形状など)を返す。
-        - ``geometryIndex`` を渡すと、その論理番号の形状を1つだけ返す。
 
         skinCluster・cluster・deltaMushなど、どのデフォーマーでも使える。
 
         Args:
             input (bool): Trueなら、入力側の形状を取得する。既定はFalse(出力側)。
-            geometryIndex (int | None): input/outputGeometryの論理番号。渡すと、その番号の形状を1つ返す。既定はNone(すべて)。
+            geometryIndex (int | None): input/outputGeometryの論理番号。既定はNone(先頭の形状)。
+            all (bool): Trueなら、すべての形状を集まりで返す。既定はFalse。geometryIndexとは同時に指定できない。
 
         Returns:
-            Nodes | Node | None: 形状の集まり。無ければ空の集まり。
-                geometryIndexを渡したときは、Mayaが返すDAGパスを持つShapeを1つ。
-                ``input=True`` で、その番号に入力のShapeが無ければNone。
+            Node | Nodes | None: Mayaが返すDAGパスを持つShapeを1つ。形状が1つも無い場合と、
+                ``input=True`` でその番号に入力のShapeが無い場合はNone。all=Trueなら形状の集まり(無ければ空の集まり)。
 
         Raises:
-            TypeError: inputがboolでない場合、またはgeometryIndexがintでない場合。
+            TypeError: input・allがboolでない場合、geometryIndexがintでない場合、またはall=TrueとgeometryIndexを同時に指定した場合。
             IndexError: geometryIndexの論理番号の出力が無い場合。
             RuntimeError: ノードが無効な(削除された)場合、またはMayaが入力のShapeの取得を拒否した場合。
         """
         _require_bool(input, "input")
-        if geometryIndex is not None:
-            fn = self._deformer_fn()
-            self._require_geometry_index(fn, geometryIndex)
-            if not input:
-                return Node._wrap_dag_path(fn.getPathAtIndex(geometryIndex))
-            shape = fn.inputShapeAtIndex(geometryIndex)
-            return None if shape.isNull() else Node(shape)
-        self._require_valid("形状の取得")
-        if input:
-            return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getInputGeometry()])
-        return Nodes._wrap([Node(mobject) for mobject in oma2.MFnGeometryFilter(self.mnode()).getOutputGeometry()])
+        _require_bool(all, "all")
+        if all:
+            if geometryIndex is not None:
+                raise TypeError("allとgeometryIndexは同時に指定できません")
+            self._require_valid("形状の取得")
+            fn = oma2.MFnGeometryFilter(self.mnode())
+            return Nodes._wrap([Node(mobject) for mobject in (fn.getInputGeometry() if input else fn.getOutputGeometry())])
+        fn = self._deformer_fn()
+        if geometryIndex is None and not fn.numOutputConnections():
+            return None
+        geometryIndex = self._resolve_geometry_index(fn, geometryIndex)
+        if not input:
+            return Node._wrap_dag_path(fn.getPathAtIndex(geometryIndex))
+        shape = fn.inputShapeAtIndex(geometryIndex)
+        return None if shape.isNull() else Node(shape)
 
     def getGeometryIndices(self, geometry=None):
         """接続されている出力の形状の論理番号を取得する。``geometry`` を渡すと、その形状の論理番号を1つ返す。
@@ -112,28 +114,28 @@ class GeometryFilter(Node):
             raise ValueError(f"変形対象のShapeを1つ指定してください: {node._full_name()}")
         return fn.indexForOutputShape(matches[0].mnode())
 
-    def getGeometryComponents(self, *, geometryIndex=0):
+    def getGeometryComponents(self, *, geometryIndex=None):
         """指定した出力形状で変形対象となるコンポーネントを取得する。
 
         セット所属またはコンポーネントタグからMayaが返す対象を読む。必要に応じてDGが評価される。
         セット所属・タグ・選択は変更しない。
 
         Args:
-            geometryIndex (int): input/outputGeometryの論理番号。既定は0。
+            geometryIndex (int | None): input/outputGeometryの論理番号。既定はNone(先頭の形状)。
 
         Returns:
             list[Components]: Shapeと種類ごとのコンポーネント。対象が無ければ空のlist。
 
         Raises:
             TypeError: geometryIndexがintでない場合、または未対応のコンポーネント種別の場合。
-            IndexError: 指定した論理番号の出力が無い場合。
+            IndexError: 指定した論理番号の出力が無い場合、または形状が1つも無い場合。
             RuntimeError: デフォーマーが無効、またはMayaが対象を取得できない場合。
         """
         # Selectionはnodesを読み込むため、循環importを避けて使用時に読み込む。
         from ..common.selection import Selection
 
         fn = self._deformer_fn()
-        self._require_geometry_index(fn, geometryIndex)
+        geometryIndex = self._resolve_geometry_index(fn, geometryIndex)
         component = fn.getComponentAtIndex(geometryIndex)
         if component.isNull():
             return []
@@ -158,29 +160,29 @@ class GeometryFilter(Node):
             return None
         return None if node.isNull() else Node(node)
 
-    def getDeformerWeights(self, *, geometryIndex=0):
+    def getDeformerWeights(self, *, geometryIndex=None):
         """頂点ごとのデフォーマーのウェイトを取得する。
 
         値が書かれていない頂点は、Mayaの既定どおり1.0(全部効く)として返す。
 
         Args:
-            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定は0。
+            geometryIndex (int | None): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定はNone(先頭の形状)。
 
         Returns:
             list[float]: 形状の頂点(CV・ラティスの点)の番号順に並ぶ値。長さは形状の点の数と同じ。
 
         Raises:
             TypeError: geometryIndexがintでない場合、またはデフォーマーのウェイトを持たない型の場合。
-            IndexError: geometryIndexの番号の形状が無い場合。
+            IndexError: geometryIndexの番号の形状が無い場合、または形状が1つも無い場合。
         """
-        plug, count = self._deformer_weight_plug(geometryIndex)
+        plug, count = self._deformer_weight_plug(self._default_geometry_index(geometryIndex))
         values = [1.0] * count
         for index in plug.getExistingArrayAttributeIndices():
             if index < count:
                 values[index] = plug.elementByLogicalIndex(index).asFloat()
         return values
 
-    def setDeformerWeights(self, weights, *, vertices=None, geometryIndex=0, fast=False, check=False):
+    def setDeformerWeights(self, weights, *, vertices=None, geometryIndex=None, fast=False, check=False):
         """頂点ごとのデフォーマーのウェイトを設定する。
 
         通常は ``cmds.setAttr`` で書き込む。番号が1ずつ続く頂点は、範囲を指定した1回のsetAttrにまとめる。
@@ -190,7 +192,7 @@ class GeometryFilter(Node):
                 verticesがNoneなら、形状の点の数だけ渡す。
             vertices (Component | Components | Iterable[int] | None): 書き込む頂点(点)の番号。Noneなら全頂点。
                 同じ番号を2回指定できない。指定した順にweightsと対応する。
-            geometryIndex (int): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定は0。
+            geometryIndex (int | None): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定はNone(先頭の形状)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -199,15 +201,17 @@ class GeometryFilter(Node):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
+            TypeError: fast・checkがbool以外の場合、geometryIndex・値・頂点の型が不正な場合、
                 またはデフォーマーのウェイトを持たない型の場合。
             ValueError: 値の数が頂点の数と合わない場合、有限でない値がある場合、頂点が重なっている場合、
                 または頂点が変形する形状のものでない場合。
-            IndexError: geometryIndexの番号の形状が無い場合、または頂点番号が範囲外の場合。
+            IndexError: geometryIndexの番号の形状が無い場合、形状が1つも無い場合、または頂点番号が範囲外の場合。
             RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
         """
+        _require_bool(check, "check")
         with _edit_context("mlibGeometryFilterSetDeformerWeights", fast):
+            geometryIndex = self._default_geometry_index(geometryIndex)
             plug, count = self._deformer_weight_plug(geometryIndex)
             if vertices is None:
                 indices = list(range(count))
@@ -224,7 +228,7 @@ class GeometryFilter(Node):
                         require_writable(plug.elementByLogicalIndex(index))
                 self._set_deformer_weights_cmds(geometryIndex, indices, values)
 
-    def dumpDeformerWeights(self, path, *, geometryIndex=None):
+    def dumpDeformerWeights(self, path, *, geometryIndex=None, all=False):
         """頂点ごとのデフォーマーのウェイトをJSONファイルへ書き出す。
 
         単純なJSON(UTF-8)で、次の項目を書く。
@@ -236,25 +240,38 @@ class GeometryFilter(Node):
         値が書かれていない頂点は、:meth:`getDeformerWeights` と同じく1.0で書く。
 
         Args:
-            path (str | Path): 書き出し先のファイルパス。
-            geometryIndex (int | None): 書き出す形状の番号。Noneなら変形するすべての形状を番号順に書く。
+            path (str | os.PathLike): 書き出し先のファイルパス。フォルダーは作らない。
+            geometryIndex (int | None): 書き出す形状の番号。既定はNone(先頭の形状)。
+            all (bool): Trueなら、変形するすべての形状を番号順に書く。既定はFalse。geometryIndexとは同時に指定できない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: geometryIndexがint・None以外の場合、またはデフォーマーのウェイトを持たない型の場合。
-            IndexError: geometryIndexの番号の形状が無い場合。
+            TypeError: pathがstr・os.PathLikeでない場合、geometryIndexがint・None以外の場合、allがboolでない場合、
+                all=TrueとgeometryIndexを同時に指定した場合、またはデフォーマーのウェイトを持たない型の場合。
+            IndexError: geometryIndexの番号の形状が無い場合、または形状が1つも無い場合。
+            OSError: 書き出しに失敗した場合。
         """
-        indices = self._geometry_indices() if geometryIndex is None else [geometryIndex]
+        # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
+        from ..json.file import _require_path
+
+        destination = _require_path(path)
+        _require_bool(all, "all")
+        if all:
+            if geometryIndex is not None:
+                raise TypeError("allとgeometryIndexは同時に指定できません")
+            indices = self._geometry_indices()
+        else:
+            indices = [self._default_geometry_index(geometryIndex)]
         geometries = []
         for index in indices:
             values = self.getDeformerWeights(geometryIndex=index)
             geometries.append({"index": index, "numVertices": len(values), "weights": values})
         payload = {"version": _DEFORMER_WEIGHTS_VERSION, "deformer": self.getName(), "geometries": geometries}
-        Path(path).write_text(json.dumps(payload), encoding="utf-8")
+        destination.write_text(json.dumps(payload), encoding="utf-8")
 
-    def loadDeformerWeights(self, path, *, fast=False):
+    def loadDeformerWeights(self, path, *, fast=False, check=False):
         """JSONファイルからデフォーマーのウェイトを読み込んで設定する。
 
         :meth:`dumpDeformerWeights` が書き出したファイルを読む。
@@ -262,27 +279,37 @@ class GeometryFilter(Node):
         デフォーマー名は比べないので、別のデフォーマーへも読み込める。
 
         書き込む前に全部の形状を確かめ、合わないものがあれば何も変えずにValueErrorにする。
-        ロックと入力の接続も、fastでも書き込む前に全部の要素を確かめ、書けないものがあれば何も変えずにRuntimeErrorにする。
         通常は、全部の形状の書き込みを1回のUndoにまとめる。
 
         Args:
-            path (str | Path): 読み込むファイルパス。
+            path (str | os.PathLike): 読み込むファイルパス。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、全部の形状の要素へ書き込めるか(ロック・入力の接続が無いか)を確かめて、
+                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがbool以外の場合、ファイルの値が数値でない場合、
+            TypeError: pathがstr・os.PathLikeでない場合、fast・checkがbool以外の場合、ファイルの値が数値でない場合、
                 またはデフォーマーのウェイトを持たない型の場合。
             ValueError: ファイルの形式や版が違う場合、形状の番号がこのデフォーマーに無い場合、
                 または頂点数が違う場合。
-            RuntimeError: アトリビュートがロックされているか入力が接続されている場合(何も書かない)、
+            RuntimeError: アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
+            OSError: ファイルの読み込みに失敗した場合。
         """
+        # 循環参照の回避: mlib.json はnodesを読み込むため、使う時点で読み込む。
+        from ..json.file import _require_path
+
+        _require_bool(check, "check")
         with _edit_context("mlibGeometryFilterLoadDeformerWeights", fast):
+            source = _require_path(path)
             self._geometry_indices()
-            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            try:
+                payload = json.loads(source.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as error:
+                raise ValueError(f"{path}をJSONとして読み込めません: {error}") from error
             if not isinstance(payload, dict) or payload.get("version") != _DEFORMER_WEIGHTS_VERSION:
                 raise ValueError(f"対応していないデフォーマーのウェイトのファイルです: {path}")
             geometries = payload.get("geometries")
@@ -301,14 +328,15 @@ class GeometryFilter(Node):
                 if entry.get("numVertices") != count or not isinstance(values, list) or len(values) != count:
                     raise ValueError(f"保存された頂点数({entry.get('numVertices')})がジオメトリ{index}の頂点数({count})と合っていません")
                 plans.append((index, plug, self._resolve_weight_values(values, count)))
-            # fastは要素を1つずつ書くので、途中の要素で止まって一部だけ書き換わらないよう、全部を先に確かめる。
-            for _, plug, values in plans:
-                for vertex in range(len(values)):
-                    require_writable(plug.elementByLogicalIndex(vertex))
+            if check:
+                # 形状ごとに分けて書くので、途中で止まって一部だけ書き換わらないよう、全部を先に確かめる。
+                for _, plug, values in plans:
+                    for vertex in range(len(values)):
+                        require_writable(plug.elementByLogicalIndex(vertex))
             for index, _, values in plans:
                 self.setDeformerWeights(values, geometryIndex=index, fast=fast)
 
-    def copyDeformerWeightsTo(self, other, *, geometryIndex=0, otherGeometryIndex=0, fast=False, check=False):
+    def copyDeformerWeightsTo(self, other, *, geometryIndex=None, otherGeometryIndex=None, fast=False, check=False):
         """デフォーマーのウェイトを別のデフォーマーへ写す。
 
         写す先は、頂点数が同じ別のデフォーマーか、同じデフォーマーの別の形状。
@@ -316,8 +344,8 @@ class GeometryFilter(Node):
 
         Args:
             other (GeometryFilter | str): 写す先のデフォーマー。
-            geometryIndex (int): 写す元(自身)の形状の番号。既定は0。
-            otherGeometryIndex (int): 写す先の形状の番号。既定は0。
+            geometryIndex (int | None): 写す元(自身)の形状の番号。既定はNone(先頭の形状)。
+            otherGeometryIndex (int | None): 写す先の形状の番号。既定はNone(先頭の形状)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。:meth:`setDeformerWeights` の ``check`` と同じ。
@@ -326,18 +354,20 @@ class GeometryFilter(Node):
             GeometryFilter: 写す先のデフォーマー。
 
         Raises:
-            TypeError: fastがbool以外の場合、otherがデフォーマーでない場合、geometryIndexがintでない場合、
+            TypeError: fast・checkがbool以外の場合、otherがデフォーマーでない場合、geometryIndexがintでない場合、
                 またはどちらかがデフォーマーのウェイトを持たない型(skinClusterなど)の場合。
             ValueError: 頂点数が違う場合。
-            IndexError: 指定した番号の形状が無い場合。
+            IndexError: 指定した番号の形状が無い場合、または形状が1つも無い場合。
             RuntimeError: otherの名前のノードが無い場合、アトリビュートがロックされているか入力が接続されている場合、
                 またはMayaが書き込みを拒否した場合。
         """
+        _require_bool(check, "check")
         with _edit_context("mlibGeometryFilterCopyDeformerWeightsTo", fast):
             target = other if isinstance(other, GeometryFilter) else Node(Object._input_name(other))
             if not isinstance(target, GeometryFilter):
                 raise TypeError(f"otherはデフォーマーで指定してください: {target.getType()}: {target._full_name()}")
             values = self.getDeformerWeights(geometryIndex=geometryIndex)
+            otherGeometryIndex = target._default_geometry_index(otherGeometryIndex)
             _, count = target._deformer_weight_plug(otherGeometryIndex)
             if count != len(values):
                 raise ValueError(f"頂点数が違います: {len(values)}と{count}")
@@ -366,6 +396,44 @@ class GeometryFilter(Node):
         indices = [fn.indexForOutputConnection(i) for i in range(fn.numOutputConnections())]
         if geometry_index not in indices:
             raise IndexError(f"指定した論理番号のジオメトリがありません: {geometry_index}")
+
+    @classmethod
+    def _resolve_geometry_index(cls, fn, geometry_index):
+        """形状の番号の指定を、出力に実在する論理番号にする。Noneなら先頭の形状の番号にする。
+
+        Args:
+            fn (oma2.MFnGeometryFilter): 有効なデフォーマー。
+            geometry_index (int | None): 出力の論理番号。Noneなら先頭(出力の物理的な並びの最初)の形状。
+
+        Returns:
+            int: 論理番号。
+
+        Raises:
+            TypeError: geometry_indexがint・None以外の場合。
+            IndexError: その番号の出力が無い場合、またはNoneで形状が1つも無い場合。
+        """
+        if geometry_index is None:
+            if not fn.numOutputConnections():
+                raise IndexError("変形する形状がありません")
+            return fn.indexForOutputConnection(0)
+        cls._require_geometry_index(fn, geometry_index)
+        return geometry_index
+
+    def _default_geometry_index(self, geometry_index):
+        """geometryIndexの既定(None)を先頭の形状の論理番号にする。int・それ以外の値はそのまま返す(呼び出し側で確かめる)。
+
+        Args:
+            geometry_index (int | None): 形状の番号の指定。
+
+        Returns:
+            int | object: Noneなら先頭の形状の論理番号、それ以外はそのままの値。
+
+        Raises:
+            IndexError: Noneで、形状が1つも無い場合。
+        """
+        if geometry_index is not None:
+            return geometry_index
+        return self._resolve_geometry_index(self._deformer_fn(), None)
 
     def _geometry_indices(self):
         """変形する形状の番号(``input``・``weightList`` の論理番号)を昇順で返す。
