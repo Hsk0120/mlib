@@ -319,33 +319,33 @@ class LongArgumentNameTest(_Case):
         cmds.setAttr(self.child.getName(full=True) + ".rotateAxis", 3, 6, 9)
 
     def test_get_matrix_long_names(self):
-        """parent・inverse が p・inv と同じ結果になり、同時指定は TypeError。"""
-        for space in (False, True):
-            for long, short in (
-                ({"parent": True}, {"p": True}),
-                ({"inverse": True}, {"inv": True}),
-                ({"parent": True, "inverse": True}, {"p": True, "inv": True}),
-            ):
-                with self.subTest(worldSpace=space, flags=long):
-                    self.assertTrue(self.child.getMatrix(space, **long).isEquivalent(self.child.getMatrix(space, **short), 1e-12))
-        for flags in ({"parent": True, "p": True}, {"inverse": False, "inv": True}):
+        """exclusive・inverse が親・逆のマトリクスを返し、削除した旧名(parent・p・inv)は TypeError。"""
+        name = self.child.getName(full=True)
+        for space, exclusive, inverse, attribute in (
+            (True, False, False, "worldMatrix[0]"),
+            (True, False, True, "worldInverseMatrix[0]"),
+            (True, True, False, "parentMatrix[0]"),
+            (True, True, True, "parentInverseMatrix[0]"),
+        ):
+            with self.subTest(exclusive=exclusive, inverse=inverse):
+                expected = mlib.Matrix(cmds.getAttr(name + "." + attribute))
+                self.assertTrue(self.child.getMatrix(space, exclusive=exclusive, inverse=inverse).isEquivalent(expected, 1e-9))
+        for flags in ({"parent": True}, {"p": True}, {"inv": True}):
             with self.subTest(flags=flags):
                 with self.assertRaises(TypeError):
                     self.child.getMatrix(**flags)
 
     def test_quaternion_long_names(self):
-        """rotateAxis・rotate・jointOrient が ra・r・jo と同じ結果になり、同時指定は TypeError。"""
-        for space in (False, True):
-            with self.subTest(worldSpace=space):
-                self.assertSameRotation(
-                    self.child.getQuaternion(space, rotateAxis=True, rotate=True, jointOrient=True), self.child.getQuaternion(space, ra=True, r=True, jo=True)
-                )
-        self.assertSameRotation(self.child.getQuaternion(rotate=False), self.child.getQuaternion(r=False))
+        """rotateAxis・rotate・jointOrient だけを受け、削除した短縮名(ra・r・jo)は TypeError。"""
+        full = self.child.getQuaternion(True)
+        self.assertSameRotation(self.child.getQuaternion(True, rotateAxis=False, rotate=True, jointOrient=True), full)
         value = mlib.Quaternion(0.1, 0.2, 0.3, 0.9).normal()
-        self.assertSequenceAlmostEqual(self.child.setQuaternion(value, rotate=False, get=True), self.child.setQuaternion(value, r=False, get=True))
-        for call in (lambda: self.child.getQuaternion(rotate=True, r=True), lambda: self.child.setQuaternion(value, jointOrient=True, jo=True)):
-            with self.assertRaises(TypeError):
-                call()
+        for flags in ({"ra": True}, {"r": False}, {"jo": True}):
+            with self.subTest(flags=flags):
+                with self.assertRaises(TypeError):
+                    self.child.getQuaternion(**flags)
+                with self.assertRaises(TypeError):
+                    self.child.setQuaternion(value, **flags)
 
     def test_set_quaternion_value_errors(self):
         """クォータニオンでも数値の列でもない値は TypeError、成分数・有限でない値は ValueError で、rotate は変わらない。"""

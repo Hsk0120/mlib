@@ -308,7 +308,7 @@ class GeometryFilter(Node):
             for index, _, values in plans:
                 self.setDeformerWeights(values, geometryIndex=index, fast=fast)
 
-    def copyDeformerWeightsTo(self, other, *, geometryIndex=0, otherGeometryIndex=0, fast=False):
+    def copyDeformerWeightsTo(self, other, *, geometryIndex=0, otherGeometryIndex=0, fast=False, check=False):
         """デフォーマーのウェイトを別のデフォーマーへ写す。
 
         写す先は、頂点数が同じ別のデフォーマーか、同じデフォーマーの別の形状。
@@ -319,6 +319,8 @@ class GeometryFilter(Node):
             geometryIndex (int): 写す元(自身)の形状の番号。既定は0。
             otherGeometryIndex (int): 写す先の形状の番号。既定は0。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。:meth:`setDeformerWeights` の ``check`` と同じ。
 
         Returns:
             GeometryFilter: 写す先のデフォーマー。
@@ -339,7 +341,7 @@ class GeometryFilter(Node):
             _, count = target._deformer_weight_plug(otherGeometryIndex)
             if count != len(values):
                 raise ValueError(f"頂点数が違います: {len(values)}と{count}")
-            target.setDeformerWeights(values, geometryIndex=otherGeometryIndex, fast=fast)
+            target.setDeformerWeights(values, geometryIndex=otherGeometryIndex, fast=fast, check=check)
             return target
 
     def _deformer_fn(self):

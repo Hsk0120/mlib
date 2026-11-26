@@ -114,7 +114,7 @@ class Vertex(PointComponent):
             RuntimeError: Shapeが無効な場合。
         """
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ...) -> None:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """頂点の色を設定する。
 
         :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` で、この頂点だけを書き込む。
@@ -128,6 +128,8 @@ class Vertex(PointComponent):
             colorSet (str | None): カラーセットの名前。Noneなら現在のカラーセット(無ければMayaが ``colorSet1`` を作る)。
                 名前を指定する場合は、そのカラーセットがすでにある必要がある。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -140,7 +142,7 @@ class Vertex(PointComponent):
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def getNormal(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, ws: bool = ...) -> Vector:
+    def getNormal(self, worldSpace: bool = ..., *, angleWeighted: bool = ..., ws: bool = ...) -> Vector:
         """頂点の法線を、長さ1で取得する。
 
         接する面の法線の平均で、``MFnMesh.getVertexNormal`` で求める。
@@ -244,13 +246,13 @@ class Vertices(PointComponents):
     def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ...) -> list[None]:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.setColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getNormal(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, ws: bool = ...) -> list[Vector]:
+    def getNormal(self, worldSpace: bool = ..., *, angleWeighted: bool = ..., ws: bool = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.components.vertex.Vertex.getNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self, *, full: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:

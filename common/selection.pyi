@@ -15,7 +15,7 @@ from ..components.uv import UV, UVs
 from ..components.vertex import Vertex, Vertices
 from ..components.vertexFace import VertexFace, VertexFaces
 from ..core.object import _exists, _selection_component, _selection_plug
-from ..decorator import undoChunk
+from ..decorator import _require_bool, undoChunk
 from ..nodes.node import Node, Nodes
 from ..plugs.plug import Plug, Plugs
 from .environment import Environment
@@ -212,22 +212,25 @@ class Selection:
             Selection: 当てはまり、削除されていない対象。元の選択は変更しない。
         """
         ...
-    def select(self, *, mode: str = ..., missing: str = ...) -> None:
+    def select(self, *, add: bool = ..., deselect: bool = ..., missing: str = ...) -> None:
         """持っている対象をMayaの選択にする。
 
-        ``cmds.select(noExpand=True)`` で選ぶ。Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。
-        fast引数は持たない。
+        ``cmds.select(noExpand=True)`` で選ぶ。既定は今の選択を置き換える。
+        ``add=True`` は今の選択に加え、``deselect=True`` は今の選択から外す(``cmds.select`` の同じ名前のフラグと同じ)。
+        Undoが有効なら、1回のUndoで戻せるようにまとめて記録する。fast引数は持たない。
 
         Args:
-            mode (str): 選び方。replaceは置き換え、addは追加、removeは選択から外す。既定はreplace。
+            add (bool): Trueなら、今の選択に加える。deselectとは同時に指定できない。既定はFalse。
+            deselect (bool): Trueなら、今の選択から外す。addとは同時に指定できない。既定はFalse。
             missing (str): 削除された対象の扱い。skipは除いて続け、errorは選択を変える前に例外にする。
                 既定はskip。
 
         Returns:
-            None: 値を返さない。中身が空の場合は、replaceのときだけ選択を解除する。
+            None: 値を返さない。中身が空の場合は、置き換えるとき(add・deselectがFalse)だけ選択を解除する。
 
         Raises:
-            ValueError: modeまたはmissingに対応していない値を指定した場合。
+            TypeError: add・deselectがboolでない場合、または両方をTrueにした場合。
+            ValueError: missingに対応していない値を指定した場合。
             RuntimeError: missingがerrorで、削除された対象がある場合。
         """
         ...

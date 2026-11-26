@@ -13,6 +13,10 @@ pathlib への置換は ruff(``ruff.toml``・``_tools/format_mlib.bat``)が担�
 - 例外の文言とUndoチャンク名・fastの受け取り(L060〜L064)
 - docstringの見出し・Raisesの並び・固定文・用語・定数の説明、Args:と引数名の一致、残ったTODO(L070〜L077)
 - Python 3.7(Maya 2022)で動く書き方と、propertyのgetter(L080・L081)
+- 上書きと同じ名前のメソッド(L090・L094〜L096。mlib全体を対象にしたときだけ): 上書きは基底と同じ引数
+  (キーワード専用で既定値つきの引数を足すだけは許す)、親子でないクラスの同じ名前の公開メソッドは同じ引数名、
+  同じ名前の引数は同じ種類の型(L095は情報)、もう違いが無いのに残っている許可(L096)。意図して違うものは
+  ``OVERRIDE_ALLOWED``・``SIBLING_ALLOWED``・``ARGUMENT_ALLOWED`` に理由を書く
 
 ast と tokenize だけを使うため通常の Python で実行でき、mlib や Maya を import しない。
 
@@ -129,7 +133,140 @@ DUNDER_FOLLOWERS = {
     "__reduce_ex__": (("__reduce__",), 1),
 }
 PREFIX_PAIRS = (("disconnect", "connect"), ("unlock", "lock"), ("hide", "show"), ("remove", "add"))
-INFORMATIONAL = {"L023", "L041", "L077"}
+INFORMATIONAL = {"L023", "L041", "L077", "L095"}
+#: 上書きで引数を変えてよいもの(L090)。キーは ``"クラス.メソッド"``、値は理由。
+#: 基底の引数をすべて同じ形で持ち、キーワード専用で既定値つきの引数を足すだけの上書きは、表に書かなくてよい。
+OVERRIDE_ALLOWED = {
+    "AnimationSnapshot.capture": "作り方のクラスメソッド。基底は *args, **kwargs の抽象で、何から取るかは種類ごと",
+    "AttributesSnapshot.capture": "作り方のクラスメソッド。基底は *args, **kwargs の抽象で、何から取るかは種類ごと",
+    "DrivenKeysSnapshot.capture": "作り方のクラスメソッド。基底は *args, **kwargs の抽象で、何から取るかは種類ごと",
+    "PoseSnapshot.capture": "作り方のクラスメソッド。基底は *args, **kwargs の抽象で、何から取るかは種類ごと",
+    "SelectionSnapshot.capture": "作り方のクラスメソッド。基底は *args, **kwargs の抽象で、何から取るかは種類ごと",
+}
+#: 親子でないクラスで、同じ名前の公開メソッドの引数名が違ってよいもの(L094)。キーはメソッド名、値は ``{クラス名: 理由}``。
+#: 表に無いクラスどうしは、引数名の集まりが同じでなければならない。``"*"`` はその名前のメソッドすべて(名前だけが共通のもの)。
+SIBLING_ALLOWED = {
+    "addMembers": {"ObjectSet": "forceElement は sets -forceElement(セットだけの指定)"},
+    "capture": {"*": "クラスメソッドの作り方。何から作るかはクラスごと"},
+    "delete": {
+        "Keyframe": "キーの削除。keepCurve は空になったカーブを残すか(キーだけの指定)",
+        "Keyframes": "キーの削除。keepCurve は空になったカーブを残すか(キーだけの指定)",
+        "Namespace": "名前空間の削除。中身の扱い(deleteContents・destination)は名前空間だけの指定",
+        "Plug": "アトリビュートの削除。unlock はロックを外して消す(アトリビュートだけの指定)",
+    },
+    "eulerFilter": {"Transform": "indirect はつながったカーブまでたどる(Transform だけの指定)"},
+    "evaluate": {"AnimCurve": "カーブの値(MFnAnimCurve.evaluate)。Plug は DG の評価の要求で、入力の値を取らない"},
+    "getArea": {"Face": "uv=True で UV 空間の面積を求める(UV を持つ面だけの指定)"},
+    "getAtParam": {"NurbsSurface": "U・V の2つのパラメーターと、向きを決める軸を持つ"},
+    "getCenter": {"Vector": "点の並びの中心を求める(コンポーネントの中心とは対象が違う)"},
+    "getChildren": {
+        "CompoundPlug": "コンパウンドアトリビュートの子は並びが決まっていて、絞り込みが無い",
+        "Namespace": "子の名前空間。allDescendents だけが DAG と同じ意味で、ほかの絞り込みは無い",
+        "Reference": "子のリファレンス(入れ子のファイル)。絞り込みが無い",
+    },
+    "getClosestPoint": {"Mesh": "what で法線・UV も取れ、uvSet を選べる(メッシュだけ。2026-11-23の共通化)"},
+    "getColor": {"DagNode": "ノードの描画色・アウトライナーの色。頂点カラー(colorSet)とは別の物"},
+    "getConnected": {"Face": "type で隣の種類を選ぶ。頂点・エッジへ広げるかは保留(隣の決まりが1つに決まらない)"},
+    "getConnections": {"Plug": "checkChildren・checkElements・input・output は Plug 自身の接続だけの指定(2026-11-23)"},
+    "getCurrent": {"Time": "時刻の数値の単位(timeUnit)を選ぶ"},
+    "getEdges": {"Mesh": "メッシュ全体から番号で選んで取る。コンポーネントは隣の要素を取るので番号が無い"},
+    "getFaces": {"Mesh": "メッシュ全体から番号で選んで取る。コンポーネントは隣の要素を取るので番号が無い"},
+    "getKeyframes": {"Selection": "選んでいるキーを取る(番号・時刻の指定は無い)"},
+    "getLength": {"NurbsCurve": "途中までの長さ(param)・精度・距離の単位を持つ。Edge の距離の単位は保留"},
+    "getMatrix": {"DagPose": "メンバーを指定して、保存した値を取る(対象が違う)"},
+    "getMembers": {"ObjectSet": "sets の問い合わせの絞り込み(セットだけの指定)"},
+    "getName": {"Node": "short は DAG パスを含まない名前で、ノードだけの指定"},
+    "getNames": {"Components": "compact は番号をまとめた名前(コンポーネントだけの指定)", "Nodes": "short はノードだけの指定(Node.getName と同じ)"},
+    "getNode": {"Namespace": "名前空間の中の名前からノードを取る(Plug は持ち主のノードを返す)"},
+    "getNodes": {"Reference": "リファレンスが読み込んだノード。reference コマンドに絞り込みが無い", "Selection": "選択の中のノード。子の名前空間は無い"},
+    "getNormal": {
+        "Vertex": "angleWeighted は頂点の法線の計算方法(頂点だけの指定)",
+        "VertexFace": "lockedOnly は面頂点の法線のロックを調べる(面頂点だけの指定)",
+    },
+    "getParent": {
+        "Namespace": "名前空間の親。DAG のインスタンス・間接の親・段数は無い",
+        "Plug": "アトリビュートの親。includeMulti はマルチアトリビュートの全体を親に含めるか",
+    },
+    "getPlugs": {"Selection": "チャンネルボックスで選んでいるアトリビュートを取る(絞り込みは無い)"},
+    "getPosition": {"UV": "UV は2次元の座標で、ワールド空間が無い", "UVs": "UV は2次元の座標で、ワールド空間が無い"},
+    "getRange": {"Time": "再生範囲(アニメーションの範囲・選んだ範囲)。Plug の値の範囲とは別の物"},
+    "getSkinClusters": {"DagPose": "このポーズを使う skinCluster(DAG ノードの形状・インフルエンスとは別の物)"},
+    "getTangent": {"VertexFace": "面頂点の接線・従法線(キーの接線とは別の物)"},
+    "getType": {"Node": "inherited はノード型の継承の並び(アトリビュートの型に継承は無い)"},
+    "getUVData": {"NurbsSurface": "NURBS サーフェスは UV セットを1つしか持たない"},
+    "getUVs": {"Mesh": "メッシュ全体から番号で選んで取る。コンポーネントは隣の要素を取るので番号が無い"},
+    "getVersion": {"PluginPackage": "loaded で読み込んだ版か入っている版かを選ぶ。text は無い"},
+    "getVertexFaces": {"Mesh": "メッシュ全体から番号で選んで取る。コンポーネントは隣の要素を取るので番号が無い"},
+    "getVertices": {"Mesh": "メッシュ全体から番号で選んで取る。コンポーネントは隣の要素を取るので番号が無い"},
+    "getWeights": {"SkinCluster": "頂点ごとのスキンウェイト(形状・頂点・インフルエンスで絞る)。コンストレイントのウェイトとは別の物"},
+    "isValid": {"Plug": "elements はマルチアトリビュートの要素があるかまで確かめる(アトリビュートだけの指定)"},
+    "load": {"Snapshot": "ファイルから読む(プラグインの読み込みとは別の物)"},
+    "mirror": {
+        "EulerRotate": "回転は位置を持たないので pivot が無い",
+        "Joint": "ジョイントの複製によるミラー(mirrorJoint)。面・振る舞い・名前の置き換えを持つ",
+        "Quaternion": "回転は位置を持たないので pivot が無い",
+        "_ControlPointShape": "形状の点をミラーする(点の番号・空間・fast・check を持つ)",
+    },
+    "moveKey": {"Plug": "Plug 自身が対象なので、アトリビュートを選ぶ attributes が無い"},
+    "removeKey": {"Plug": "Plug 自身が対象なので、アトリビュートを選ぶ attributes が無い"},
+    "removeKnot": {"NurbsSurface": "方向(U・V)を選び、all でその方向の線をすべて外す"},
+    "removeMembers": {
+        "Container": "force は container -removeNode -force(すべての container から外す。container だけの指定)",
+        "DagContainer": "force は container -removeNode -force(すべての container から外す。container だけの指定)",
+    },
+    "removeTarget": {"BlendShape": "ターゲットの番号と中間の値を選ぶ(コンストレイントのターゲットとは別の物)"},
+    "rename": {"Namespace": "名前空間の名前の変更。シェイプ・fast は無い"},
+    "reorder": {"*": "名前だけが共通(DAG の並びの変更と、回転順序の変更)"},
+    "replace": {"*": "名前だけが共通(登録表の置き換えと、版の値の置き換え)"},
+    "reset": {"DagPose": "メンバーを保存した姿勢へ戻す(Plug は既定値へ戻す)"},
+    "round": {"EulerRotate": "角度を丸める単位(unit)を選ぶ"},
+    "save": {"Snapshot": "ファイルへ書く(シーンの保存とは別の物)"},
+    "select": {
+        "Keyframe": "キーの選択(selectKey)。add は今の選択に加える",
+        "Keyframes": "キーの選択(selectKey)。add は今の選択に加える",
+        "Selection": "保存した選択を戻す。missing は無くなった対象の扱い",
+    },
+    "setColor": {"DagNode": "ノードの描画色・アウトライナーの色。頂点カラー(colorSet)とは別の物"},
+    "setCurrent": {"Time": "時刻を設定する(値・単位・表示の更新を持つ)"},
+    "setKey": {
+        "DrivenKey": "ドライバーと駆動先の値の組にキーを打つ(アトリビュートへ打つ setKey とは対象が違う)",
+        "Plug": "Plug 自身が対象なので、アトリビュートを選ぶ attributes が無い",
+    },
+    "setKeyTangent": {"Plug": "Plug 自身が対象なので、アトリビュートを選ぶ attributes が無い"},
+    "setKnots": {"NurbsSurface": "U・V の2方向のノットを持つ"},
+    "setLocked": {"Plug": "leaves はコンパウンドアトリビュートの末端の子まで掛ける(アトリビュートだけの指定)"},
+    "setParent": {"Namespace": "名前空間の親の変更。DAG の相対・インスタンス・fast は無い"},
+    "setPosition": {"UV": "UV は2次元の座標で、ワールド空間が無い", "UVs": "UV は2次元の座標で、ワールド空間が無い"},
+    "setRange": {"Time": "再生範囲(アニメーションの範囲)。Plug の値の範囲とは別の物"},
+    "setUVData": {"NurbsSurface": "NURBS サーフェスは UV セットを1つしか持たない"},
+}
+#: 同じ名前の引数で型の種類が違ってよいもの(L095)。キーは引数名、値は ``{"クラス.メソッド": 理由}``(``"クラス.*"`` はそのクラスのすべて)。
+ARGUMENT_ALLOWED = {
+    "input": {"AnimCurve.*": "カーブの入力の位置(時刻・ドライバーの値)。位置引数で渡すのが普通"},
+    "relative": {"DagNode.reorder": "cmds.reorder -relative のフラグ名(動かす数)"},
+}
+#: 上書きを比べる dunder(公開メソッドのほかに)。
+COMPARED_DUNDERS = frozenset(("__init__", "__getattr__", "__getitem__", "__contains__", "__iter__", "__len__", "__call__"))
+#: 複数形のクラスの目印になる基底。``item_class``・``component_class`` を持つクラスも複数形とみなす。
+#: 複数形と単数は、同じ名前のメソッドの引数名を比べない(複数形は ``each`` などを足すため)。
+COLLECTION_BASES = frozenset(("_ListMethods", "Components", "Keyframes"))
+#: docstringの型の名前を、L095で比べる大まかな種類へ直す表。ここに無い名前はクラス(``"object"``)として扱う。
+TYPE_CATEGORIES = {
+    "bool": "bool",
+    "int": "number",
+    "float": "number",
+    "str": "str",
+    "list": "sequence",
+    "tuple": "sequence",
+    "set": "sequence",
+    "frozenset": "sequence",
+    "Sequence": "sequence",
+    "Iterable": "sequence",
+    "Collection": "sequence",
+    "dict": "mapping",
+    "Mapping": "mapping",
+    "Callable": "callable",
+}
 DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 IMPORTS = (ast.Import, ast.ImportFrom)
@@ -1508,6 +1645,456 @@ def check_source(src):
     return violations
 
 
+# ---------------------------------------------------------------- 上書きと同じ名前のメソッド(L090〜L096)
+
+
+class ClassInfo:
+    """パッケージ全体で集めた1つのクラス。"""
+
+    def __init__(self, module, node, path):
+        self.module = module
+        self.name = node.name
+        self.node = node
+        self.path = path
+        self.bases = []
+        self.methods = {}
+        for item in node.body:
+            if not isinstance(item, FUNCTIONS):
+                continue
+            decorators = [decorator_name(d) for d in item.decorator_list]
+            if any(name.endswith((".setter", ".deleter")) or name == "overload" for name in decorators):
+                continue
+            if "property" in decorators or "cached_property" in decorators:
+                kind = "property"
+            elif "classmethod" in decorators:
+                kind = "classmethod"
+            elif "staticmethod" in decorators:
+                kind = "staticmethod"
+            else:
+                kind = "method"
+            self.methods[item.name] = (kind, item)
+
+    def __repr__(self):
+        return f"{self.module}:{self.name}"
+
+    def label(self, method):
+        return f"{self.name}.{method}"
+
+    def ancestors(self):
+        """親をたどった全部のクラス(近い順。``X if 条件 else Y`` の親は両方)。"""
+        seen = []
+        queue = list(self.bases)
+        while queue:
+            current = queue.pop(0)
+            if current not in seen and current is not self:
+                seen.append(current)
+                queue.extend(current.bases)
+        return seen
+
+    def nearest_definers(self, method):
+        """``method`` を定義している最も近い祖先(同じ深さに2つあれば両方)。"""
+        level = list(self.bases)
+        seen = set()
+        while level:
+            found = [cls for cls in level if method in cls.methods]
+            if found:
+                return list(dict.fromkeys(found))
+            seen.update(level)
+            level = [base for cls in level for base in cls.bases if base not in seen]
+        return []
+
+
+def module_name(path, root):
+    """パッケージの中のファイルから、``nodes.joint`` の形のモジュール名を作る。"""
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def resolve_relative(module, is_package, level, target):
+    """``from ..x import y`` の ``..x`` を、パッケージの中のモジュール名へ直す。"""
+    parts = module.split(".") if module else []
+    if not is_package:
+        parts = parts[:-1]
+    if level > 1:
+        parts = parts[: len(parts) - (level - 1)]
+    if target:
+        parts += target.split(".")
+    return ".".join(parts)
+
+
+def collect_classes(root, files):
+    """パッケージ全体のモジュール直下のクラスを集め、親を解決する。
+
+    Args:
+        root (Path): パッケージのフォルダー。
+        files (list[Path]): 読むファイル。
+
+    Returns:
+        list[ClassInfo]: 集めたクラス。
+    """
+    modules = {}
+    for path in files:
+        try:
+            path.relative_to(root)
+        except ValueError:
+            continue
+        src = load(path)[0]
+        name = module_name(path, root)
+        bindings = {}
+        assigned = {}
+        classes = {}
+        for stmt in src.tree.body:
+            if isinstance(stmt, ast.ImportFrom) and stmt.level:
+                target = resolve_relative(name, path.name == "__init__.py", stmt.level, stmt.module)
+                for alias in stmt.names:
+                    bindings[alias.asname or alias.name] = (target, alias.name)
+            elif isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
+                value = stmt.value
+                candidates = [value.body, value.orelse] if isinstance(value, ast.IfExp) else [value]
+                names = [c.id for c in candidates if isinstance(c, ast.Name)]
+                if names:
+                    assigned[stmt.targets[0].id] = names
+            elif isinstance(stmt, ast.ClassDef):
+                classes[stmt.name] = ClassInfo(name, stmt, path)
+        modules[name] = (bindings, assigned, classes)
+    by_name = collections.defaultdict(list)
+    for _bindings, _assigned, classes in modules.values():
+        for cls in classes.values():
+            by_name[cls.name].append(cls)
+
+    def find(module, name, depth=0):
+        if depth > 8 or module not in modules:
+            return []
+        bindings, assigned, classes = modules[module]
+        if name in classes:
+            return [classes[name]]
+        if name in assigned:
+            return [found for candidate in assigned[name] for found in find(module, candidate, depth + 1)]
+        if name in bindings:
+            target, original = bindings[name]
+            found = find(target, original, depth + 1)
+            if found:
+                return found
+            return by_name.get(original, [])[:1] if len(by_name.get(original, [])) == 1 else []
+        return []
+
+    result = []
+    for module, (_bindings, _assigned, classes) in modules.items():
+        for cls in classes.values():
+            for base in cls.node.bases:
+                expressions = [base.body, base.orelse] if isinstance(base, ast.IfExp) else [base]
+                for expression in expressions:
+                    if isinstance(expression, ast.Name):
+                        cls.bases.extend(found for found in find(module, expression.id) if found is not cls)
+            cls.bases = list(dict.fromkeys(cls.bases))
+            result.append(cls)
+    return result
+
+
+def signature_of(kind, func):
+    """引数を ``(名前, 種類, 既定値の式)`` の並びにする。``self``・``cls`` は除く。"""
+    arguments = func.args
+    positional = arguments.posonlyargs + arguments.args
+    defaults = [None] * (len(positional) - len(arguments.defaults)) + [ast.unparse(d) for d in arguments.defaults]
+    params = [(arg.arg, "positional", default) for arg, default in zip(positional, defaults)]
+    if kind != "staticmethod" and params and params[0][0] in IMPLICIT_ARGUMENTS:
+        params = params[1:]
+    if arguments.vararg:
+        params.append(("*", "vararg", None))
+    params += [(arg.arg, "keyword", None if default is None else ast.unparse(default)) for arg, default in zip(arguments.kwonlyargs, arguments.kw_defaults)]
+    if arguments.kwarg:
+        params.append(("**", "varkw", None))
+    return params
+
+
+def format_signature(params):
+    text = []
+    keyword = False
+    for name, kind, default in params:
+        if kind == "keyword" and not keyword:
+            keyword = True
+            text.append("*")
+        if kind in ("vararg", "varkw"):
+            keyword = keyword or kind == "vararg"
+            text.append(name + ("args" if kind == "vararg" else "kwargs"))
+            continue
+        text.append(name if default is None else f"{name}={default}")
+    return "(" + ", ".join(text) + ")"
+
+
+def is_extension(base, derived):
+    """派生の引数が、基底の引数をすべて同じ形で持ち、キーワード専用で既定値つきの引数を足しただけかを返す。"""
+    if [p for p in derived if p[1] != "keyword"] != [p for p in base if p[1] != "keyword"]:
+        return False
+    base_keywords = {p[0]: p for p in base if p[1] == "keyword"}
+    derived_keywords = {p[0]: p for p in derived if p[1] == "keyword"}
+    if any(derived_keywords.get(name) != param for name, param in base_keywords.items()):
+        return False
+    return all(param[2] is not None for name, param in derived_keywords.items() if name not in base_keywords)
+
+
+def signature_difference(base, derived):
+    """2つの引数の並びの違いを短く説明する。"""
+    base_names = [p[0] for p in base]
+    derived_names = [p[0] for p in derived]
+    detail = []
+    missing = [n for n in base_names if n not in derived_names]
+    added = [n for n in derived_names if n not in base_names]
+    if missing:
+        detail.append("無い: " + ", ".join(missing))
+    if added:
+        detail.append("足した: " + ", ".join(added))
+    base_map = {p[0]: p for p in base}
+    changed = [p[0] for p in derived if p[0] in base_map and base_map[p[0]] != p]
+    if changed:
+        detail.append("種類・既定値が違う: " + ", ".join(changed))
+    if not detail:
+        detail.append("並びが違う")
+    return "、".join(detail)
+
+
+def is_public_facing(cls, classes):
+    """公開のクラスか、公開のクラスの祖先(``_ListMethods`` など)なら True。内部だけの補助クラスは比べない。"""
+    if not cls.name.startswith("_"):
+        return True
+    return any(cls in other.ancestors() for other in classes if not other.name.startswith("_"))
+
+
+def is_collection(cls):
+    """複数形のクラス(要素を並べて持つクラス)かを返す。"""
+    for current in [cls, *cls.ancestors()]:
+        if current.name in COLLECTION_BASES:
+            return True
+        for item in current.node.body:
+            if isinstance(item, ast.Assign) and any(isinstance(t, ast.Name) and t.id in ("item_class", "component_class") for t in item.targets):
+                return True
+    return False
+
+
+def argument_names(params):
+    """引数名の集まり(短縮名は元の名前に直す。可変長は除く)。"""
+    return frozenset(ARGUMENT_ALIASES.get(p[0], p[0]) for p in params if p[1] in ("positional", "keyword"))
+
+
+def split_union(text):
+    """型の文字列を、括弧の外の ``|`` で分ける。"""
+    parts, depth, current = [], 0, ""
+    for char in text:
+        if char in "[(":
+            depth += 1
+        elif char in "])":
+            depth -= 1
+        if char == "|" and depth == 0:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    parts.append(current)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def type_categories(text):
+    """docstringの型の文字列を、比べるための大まかな種類の集まりにする。何でも受けるならNone。"""
+    categories = set()
+    for part in split_union(text):
+        head = part.split("[")[0].strip().split(".")[-1]
+        if head in ("None", ""):
+            continue
+        if head in ("object", "Any"):
+            return None
+        categories.add(TYPE_CATEGORIES.get(head, "object"))
+    return frozenset(categories)
+
+
+def documented_types(doc):
+    """``Args:`` の ``名前 (型):`` を読み、名前から型の文字列への対応を返す。"""
+    result = {}
+    inside = False
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if stripped == "Args:":
+            inside = True
+            continue
+        if not inside:
+            continue
+        if stripped in DOCSTRING_SECTIONS:
+            break
+        match = re.match(r"^\*{0,2}([A-Za-z_]\w*) \(", stripped)
+        if not match:
+            continue
+        depth, start = 0, match.end() - 1
+        for index in range(start, len(stripped)):
+            if stripped[index] == "(":
+                depth += 1
+            elif stripped[index] == ")":
+                depth -= 1
+                if depth == 0:
+                    if stripped[index + 1 : index + 2] == ":":
+                        result[match.group(1)] = stripped[start + 1 : index]
+                    break
+    return result
+
+
+def allowance_line(key):
+    """許可表の項目が書いてある、このファイルの行番号を返す(見つからなければ1)。"""
+    for number, line in enumerate(Path(__file__).read_text(encoding="utf-8").splitlines(), 1):
+        if line.strip().startswith(f'"{key}"') or line.strip().startswith(f"'{key}'"):
+            return number
+    return 1
+
+
+def check_overrides(classes, violations):
+    """上書きは基底と同じ引数か(足すだけは許す)を調べる(L090)。"""
+    used = set()
+    for cls in classes:
+        if not is_public_facing(cls, classes):
+            continue
+        for method, (kind, func) in cls.methods.items():
+            if method.startswith("_") and method not in COMPARED_DUNDERS:
+                continue
+            for base in cls.nearest_definers(method):
+                base_kind, base_func = base.methods[method]
+                key = cls.label(method)
+                if base_kind != kind:
+                    detail = f"種類が違う({base_kind} → {kind})"
+                else:
+                    base_params = signature_of(base_kind, base_func)
+                    params = signature_of(kind, func)
+                    if params == base_params or is_extension(base_params, params):
+                        continue
+                    detail = signature_difference(base_params, params)
+                if key in OVERRIDE_ALLOWED:
+                    used.add(key)
+                    continue
+                violations.append(
+                    Violation(
+                        cls.path, func.lineno, "L090", f"{key} の引数が基底 {base.label(method)} と違う({detail})。揃えるか、OVERRIDE_ALLOWED に理由を書く"
+                    )
+                )
+    for key in OVERRIDE_ALLOWED:
+        if key not in used:
+            violations.append(
+                Violation(Path(__file__), allowance_line(key), "L096", f"OVERRIDE_ALLOWED の {key} は、もう基底と違いが無い(または無い名前)。表から消す")
+            )
+
+
+def check_siblings(classes, violations):
+    """親子でないクラスどうしで、同じ名前の公開メソッドの引数名が同じかを調べる(L094)。"""
+    definers = collections.defaultdict(list)
+    for cls in classes:
+        if not is_public_facing(cls, classes):
+            continue
+        for method, (kind, _func) in cls.methods.items():
+            if method.startswith("_") or kind == "property":
+                continue
+            definers[method].append(cls)
+    used = collections.defaultdict(set)
+    for method, owners in sorted(definers.items()):
+        roots = [cls for cls in owners if not any(other in cls.ancestors() for other in owners if other is not cls)]
+        allowed = SIBLING_ALLOWED.get(method, {})
+        for group in (False, True):
+            members = [cls for cls in roots if is_collection(cls) == group]
+            if len(members) < 2:
+                continue
+            names = {cls: argument_names(signature_of(*cls.methods[method])) for cls in members}
+            if "*" in allowed:
+                if len(set(names.values())) > 1:
+                    used[method].add("*")
+                continue
+            reference = [cls for cls in members if cls.name not in allowed]
+            reference_sets = {names[cls] for cls in reference}
+            for cls in members:
+                if cls.name in allowed and (any(names[cls] != s for s in reference_sets) or (not reference_sets and len(set(names.values())) > 1)):
+                    used[method].add(cls.name)
+            if len(reference_sets) > 1:
+                groups = collections.defaultdict(list)
+                for cls in reference:
+                    groups[names[cls]].append(cls.name)
+                text = " と ".join(
+                    f"{'・'.join(sorted(owner))}({', '.join(sorted(args)) or 'なし'})"
+                    for args, owner in sorted(groups.items(), key=lambda item: sorted(item[1]))
+                )
+                first = reference[0]
+                violations.append(
+                    Violation(first.path, first.methods[method][1].lineno, "L094", f"{method}: {text} の引数名が違う。揃えるか、SIBLING_ALLOWED に理由を書く")
+                )
+    for method, entries in SIBLING_ALLOWED.items():
+        for owner in entries:
+            if owner not in used.get(method, ()):
+                violations.append(
+                    Violation(
+                        Path(__file__),
+                        allowance_line(method),
+                        "L096",
+                        f"SIBLING_ALLOWED の {method}・{owner} は、もう引数名の違いが無い(または無い名前)。表から消す",
+                    )
+                )
+
+
+def check_argument_types(classes, violations):
+    """同じ名前の引数の型が、メソッドごとに違わないかを調べる(L095。情報)。"""
+    usages = collections.defaultdict(list)
+    for cls in classes:
+        if not is_public_facing(cls, classes):
+            continue
+        for method, (kind, func) in cls.methods.items():
+            if method.startswith("_") or kind == "property":
+                continue
+            for argument, text in documented_types(ast.get_docstring(func) or "").items():
+                categories = type_categories(text)
+                if categories:
+                    usages[argument].append((cls, method, func, categories, text))
+    used = set()
+    for argument, entries in sorted(usages.items()):
+        allowed = ARGUMENT_ALLOWED.get(argument, {})
+
+        def is_allowed(cls, method, allowed=allowed, argument=argument):
+            for key in (f"{cls.name}.{method}", f"{cls.name}.*"):
+                if key in allowed:
+                    used.add((argument, key))
+                    return True
+            return False
+
+        clashes = [
+            (a, b) for index, a in enumerate(entries) for b in entries[index + 1 :] if a[3].isdisjoint(b[3]) and not (is_allowed(*a[:2]) or is_allowed(*b[:2]))
+        ]
+        if clashes:
+            a, b = clashes[0]
+            violations.append(
+                Violation(
+                    a[0].path,
+                    a[2].lineno,
+                    "L095",
+                    f"引数 {argument} の型が {a[0].label(a[1])}({a[4]}) と {b[0].label(b[1])}({b[4]}) で違う(ほか{len(clashes) - 1}組)。"
+                    "名前を分けるか、ARGUMENT_ALLOWED に理由を書く",
+                )
+            )
+    for argument, entries in ARGUMENT_ALLOWED.items():
+        for key in entries:
+            if (argument, key) not in used:
+                violations.append(
+                    Violation(
+                        Path(__file__),
+                        allowance_line(argument),
+                        "L096",
+                        f"ARGUMENT_ALLOWED の {argument}・{key} は、もう型の違いが無い(または無い名前)。表から消す",
+                    )
+                )
+
+
+def check_package(root, files):
+    """パッケージ全体を読んだ後に1回だけ行う検査(L090・L094〜L096)。"""
+    violations = []
+    classes = collect_classes(root, files)
+    check_overrides(classes, violations)
+    check_siblings(classes, violations)
+    check_argument_types(classes, violations)
+    violations.sort(key=lambda v: (relative(v.path), v.line))
+    return violations
+
+
 # ---------------------------------------------------------------- snapshot / compare
 
 
@@ -1676,6 +2263,9 @@ def main(argv=None):
         violations = []
         for path in files:
             violations.extend(check_source(load(path)[0]))
+        if PACKAGE_ROOT in targets:
+            # クラスの親をまたぐ検査は、mlib全体を読んだときだけ行う(一部のファイルでは親が見つからない)。
+            violations.extend(check_package(PACKAGE_ROOT, files))
         for violation in violations:
             print(violation)
         counted = [v for v in violations if v.code not in INFORMATIONAL]

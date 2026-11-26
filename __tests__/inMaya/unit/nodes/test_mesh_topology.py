@@ -1,4 +1,4 @@
-"""``Mesh.getTopology`` と ``Mesh.copySet(replace=True)`` のテスト。"""
+"""``Mesh.getTopology`` と ``Mesh.copySet(overwrite=True)`` のテスト。"""
 
 import sys
 import unittest
@@ -30,7 +30,7 @@ class MeshTopologyTest(NamespaceCase):
 
 
 class CopyUVSetReplaceTest(NamespaceCase):
-    """copySet(replace=True) は既にあるUVセットのUVを置き換える。"""
+    """copySet(overwrite=True) は既にあるUVセットのUVを置き換える。"""
 
     PREFIX = "mlibCopyUVSetReplace_"
 
@@ -56,25 +56,25 @@ class CopyUVSetReplaceTest(NamespaceCase):
         mesh = self.mesh()
         self.assertNotEqual(self.uvs(mesh, "map1"), self.uvs(mesh, "moved"))
         self.flushUndo()
-        mesh.copySet("moved", "map1", replace=True)
+        mesh.copySet("moved", "map1", overwrite=True)
         expected = self.uvs(mesh, "moved")
         self.assertUndoesInOneStep(lambda: self.assertNotEqual(self.uvs(mesh, "map1"), expected), lambda: self.assertEqual(self.uvs(mesh, "map1"), expected))
         self.assertEqual(mesh.getCurrentSet(), "map1")
-        mesh.copySet("moved", "fresh", replace=True)
+        mesh.copySet("moved", "fresh", overwrite=True)
         self.assertIn("fresh", mesh.getSetNames())
         self.assertFalse(mesh.getHistory(type="polyCopyUV"))
 
     def test_errors(self):
-        """replaceを指定しなければ従来どおり拒否し、型と同じ名前を確かめる。"""
+        """overwriteを指定しなければ従来どおり拒否し、型と同じ名前を確かめる。"""
         mesh = self.mesh()
         with self.assertRaises(ValueError):
             mesh.copySet("map1", "moved")
         with self.assertRaises(ValueError):
-            mesh.copySet("map1", "map1", replace=True)
+            mesh.copySet("map1", "map1", overwrite=True)
         with self.assertRaises(TypeError):
-            mesh.copySet("map1", "moved", replace=1)
+            mesh.copySet("map1", "moved", overwrite=1)
         with self.assertRaises(ValueError):
-            mesh.copySet("missing", "moved", replace=True)
+            mesh.copySet("missing", "moved", overwrite=True)
 
 
 if __name__ == "__main__":

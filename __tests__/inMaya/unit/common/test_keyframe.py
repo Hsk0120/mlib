@@ -52,7 +52,7 @@ class _SpecCase(NamespaceCase):
 
 
 class KeyMethodsTest(_SpecCase):
-    """Node.setKey・removeKey、Plug.removeKey、AnimCurve.removeKey(time=)。"""
+    """Node.setKey・removeKey、Plug.removeKey、AnimCurve.getKeyframes(time=).delete()。"""
 
     def test_set_and_remove_keys(self):
         """複数アトリビュートへのキー、範囲の削除、秒での指定、1回のUndoを確かめる。"""
@@ -79,16 +79,14 @@ class KeyMethodsTest(_SpecCase):
         with self.assertRaises(ValueError):
             node.getPlug("tx").removeKey(time=(5, 1))
         curve = mlib.getNode(cmds.listConnections(name + ".tz", source=True)[0])
-        curve.setKey(30, 1)
-        curve.setKey(40, 2)
-        curve.removeKey(time=(25, 35), fast=True)
+        curve.addKey(30, 1)
+        curve.addKey(40, 2)
+        curve.getKeyframes(time=(25, 35)).delete(fast=True)
         self.assertEqual(curve.getKeyInputs(), [10.0, 40.0])
-        curve.removeKey(time=(0.0, 1.0), timeUnit="sec")
+        curve.getKeyframes(time=(0.0, 1.0), timeUnit="sec").delete()
         self.assertEqual(curve.getKeyInputs(), [40.0])
         with self.assertRaises(TypeError):
-            curve.removeKey(index=0, time=40)
-        with self.assertRaises(TypeError):
-            curve.removeKey()
+            curve.getKeyframes(0, time=40)
 
 
 class _KeyCase(NamespaceCase):
@@ -129,12 +127,12 @@ class KeyframeReferenceTest(_KeyCase):
     """Keyframe/Keyframes の取得・読取り・書込み。"""
 
     def test_read_matches_cmds(self):
-        """getValue(time=True は入力)は cmds.keyframe の照会と一致し、repr・等価・ハッシュはカーブと番号で決まる。"""
+        """getValue(input=True は入力)は cmds.keyframe の照会と一致し、repr・等価・ハッシュはカーブと番号で決まる。"""
         keys = self.curve.getKeyframes()
         self.assertIsInstance(keys, Keyframes)
         self.assertEqual(len(keys), 3)
-        self.assertEqual([key.getValue(time=True) for key in keys], self.times())
-        self.assertEqual(keys.getValues(time=True), self.times())
+        self.assertEqual([key.getValue(input=True) for key in keys], self.times())
+        self.assertEqual(keys.getValues(input=True), self.times())
         self.assertEqual(keys.getValues(), self.values())
         key = self.curve.getKeyframes(1)
         self.assertIsInstance(key, Keyframe)
@@ -143,7 +141,7 @@ class KeyframeReferenceTest(_KeyCase):
         self.assertEqual(len({key, Keyframe(self.curve, 1), Keyframe(self.curve, 2)}), 2)
         self.assertIn(key, keys)
         self.assertIn("Keyframe(", repr(key))
-        self.assertEqual(key.getTangent(), self.curve.getTangent(1))
+        self.assertEqual(key.getTangent(), self.curve.getKeyframes(1).getTangent())
         self.assertTrue(key.isValid())
         # getKeyframes は番号1つで Keyframe、並び・None で Keyframes を返す。
         self.assertIs(type(self.curve.getKeyframes(1)), Keyframe)
@@ -156,15 +154,15 @@ class KeyframeReferenceTest(_KeyCase):
         key = self.curve.getKeyframes(1)
         keys = self.curve.getKeyframes()
         fps = {"film": 24.0, "ntsc": 30.0, "pal": 25.0}[cmds.currentUnit(query=True, time=True)]
-        self.assertEqual(key.getValue(time=True), 5.0)
-        self.assertEqual(key.getValue(time=False), 2.0)
+        self.assertEqual(key.getValue(input=True), 5.0)
+        self.assertEqual(key.getValue(input=False), 2.0)
         self.assertEqual(key.getValue(), 2.0)
-        self.assertAlmostEqual(key.getValue(time=True, timeUnit="sec"), 5.0 / fps)
-        self.assertEqual(keys.getValues(time=False), self.values())
-        self.assertSequenceAlmostEqual(keys.getValues(time=True, timeUnit="sec"), [value / fps for value in self.times()])
+        self.assertAlmostEqual(key.getValue(input=True, timeUnit="sec"), 5.0 / fps)
+        self.assertEqual(keys.getValues(input=False), self.values())
+        self.assertSequenceAlmostEqual(keys.getValues(input=True, timeUnit="sec"), [value / fps for value in self.times()])
         rotate = self.node.getPlug("ry").getAnimCurve()
         mixed = Keyframes([self.curve.getKeyframes(2), rotate.getKeyframes(0)])
-        self.assertEqual(mixed.getValues(time=True), [10.0, 1.0])
+        self.assertEqual(mixed.getValues(input=True), [10.0, 1.0])
         self.assertAlmostEqual(rotate.getKeyframes(0).getValue(unit="rad"), math.pi / 2)
         for label, target in (("Keyframe.getValue", key.getValue), ("Keyframes.getValues", keys.getValues), ("mixed", mixed.getValues)):
             for kwargs in ({"time": True, "unit": "deg"}, {"time": True, "unit": "rad"}, {"time": 1}, {"time": None}):
@@ -190,12 +188,12 @@ class KeyframeReferenceTest(_KeyCase):
 
     def test_set_value_keeps_tangents_and_undoes_once(self):
         """setValue は接線型を保って値だけを変え、Undo 1 回で戻る。fast は Undo に残さない。"""
-        self.curve.setTangent(1, inTangentType="linear", outTangentType="step")
+        self.curve.getKeyframes(1).setTangent(inTangentType="linear", outTangentType="step")
         before = self.values()
         self.flushUndo()
         self.curve.getKeyframes(1).setValue(7.5)
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.values(), before), lambda: self.assertEqual(self.values(), [0.0, 7.5, 4.0]))
-        tangent = self.curve.getTangent(1)
+        tangent = self.curve.getKeyframes(1).getTangent()
         self.assertEqual((tangent["inTangentType"], tangent["outTangentType"]), ("linear", "step"))
         self.flushUndo()
         self.curve.getKeyframes(2).setValue(1.0, fast=True)
@@ -214,7 +212,7 @@ class KeyframeReferenceTest(_KeyCase):
         self.assertAlmostEqual(rotate.getKeyframes(0).getValue(unit="rad"), math.pi / 2)
 
     def test_keyframes_across_curves(self):
-        """複数のカーブのキーをカーブごとにまとめ、setValue・move・remove を1回の Undo にする。"""
+        """複数のカーブのキーをカーブごとにまとめ、setValue・move・delete を1回の Undo にする。"""
         rotate = self.node.getPlug("ry").getAnimCurve()
         keys = Keyframes([self.curve.getKeyframes(2), rotate.getKeyframes(0), self.curve.getKeyframes(0), self.curve.getKeyframes(0)])
         self.assertEqual(len(keys), 3)
@@ -228,7 +226,7 @@ class KeyframeReferenceTest(_KeyCase):
         keys.move(timeOffset=0, valueOffset=1)
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.values(rotate), [90.0]), lambda: self.assertEqual(self.values(rotate), [91.0]))
         self.flushUndo()
-        keys.remove()
+        keys.delete()
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.times(), [1.0, 5.0, 10.0]), lambda: self.assertEqual(self.times(), [5.0]))
         # keepCurve=True(既定)なので、全キーを消した rotateY のカーブも残る。
         self.assertTrue(rotate.isValid())
@@ -268,12 +266,12 @@ class KeyframeReferenceTest(_KeyCase):
     def test_driven_key_curve(self):
         """入力が時間でないカーブ(ドリブンキー)でも、時刻は入力値を指す。"""
         driven = mlib.createNode("animCurveUL", name=self.name("driven"))
-        driven.setKey(0.25, 1.0)
-        driven.setKey(0.75, 3.0)
+        driven.addKey(0.25, 1.0)
+        driven.addKey(0.75, 3.0)
         key = driven.getKeyframes(1)
-        self.assertEqual(key.getValue(time=True), 0.75)
+        self.assertEqual(key.getValue(input=True), 0.75)
         key.move(timeOffset=0.1)
-        self.assertAlmostEqual(key.getValue(time=True), 0.85)
+        self.assertAlmostEqual(key.getValue(input=True), 0.85)
         key.setValue(2.0)
         self.assertEqual(driven.getKeyValues(), [1.0, 2.0])
 
@@ -415,6 +413,17 @@ class WritablePlugsTest(_KeyCase):
 class KeyframeErrorsTest(_KeyCase):
     """ブレイクダウン・削除・接線・選択の引数と例外。"""
 
+    def test_keyframes_set_breakdown(self):
+        """Keyframes.setBreakdown はすべてのキーを変え、1回で戻る。stateがboolでなければTypeError。"""
+        keys = self.curve.getKeyframes([0, 2])
+        self.flushUndo()
+        keys.setBreakdown()
+        self.assertTrue(all(key.isBreakdown() for key in keys))
+        cmds.undo()
+        self.assertFalse(any(key.isBreakdown() for key in keys))
+        with self.assertRaises(TypeError):
+            keys.setBreakdown(1)
+
     def test_breakdown_matches_cmds_and_rejects_bad_keys(self):
         """setBreakdown は cmds の照会と一致して1回で戻り、範囲外の番号は IndexError、削除したカーブは RuntimeError。"""
         name = self.curve.getName(full=True)
@@ -439,26 +448,26 @@ class KeyframeErrorsTest(_KeyCase):
         with self.assertRaises(RuntimeError):
             first.setBreakdown(False)
 
-    def test_remove_without_keeping_curve(self):
+    def test_delete_without_keeping_curve(self):
         """keepCurve=False で最後のキーを消すとカーブも消え、keepCurve=True(既定)ならキーの無いカーブが残る。"""
         rotate = self.node.getPlug("ry").getAnimCurve()
         name = rotate.getName(full=True)
         self.flushUndo()
-        rotate.getKeyframes(0).remove(keepCurve=False)
+        rotate.getKeyframes(0).delete(keepCurve=False)
         self.assertFalse(cmds.objExists(name))
         cmds.undo()
         self.assertEqual(cmds.keyframe(name, query=True, keyframeCount=True), 1)
-        rotate.getKeyframes(0).remove()
+        rotate.getKeyframes(0).delete()
         self.assertTrue(cmds.objExists(name))
         self.assertEqual(cmds.keyframe(name, query=True, keyframeCount=True), 0)
 
-    def test_keyframes_remove_without_keeping_curves(self):
-        """Keyframes.remove(keepCurve=False) は両方のカーブを消し、1回のUndoで両方が戻る。"""
+    def test_keyframes_delete_without_keeping_curves(self):
+        """Keyframes.delete(keepCurve=False) は両方のカーブを消し、1回のUndoで両方が戻る。"""
         rotate = self.node.getPlug("ry").getAnimCurve()
         names = [self.curve.getName(full=True), rotate.getName(full=True)]
         keys = Keyframes([*self.curve.getKeyframes(), rotate.getKeyframes(0)])
         self.flushUndo()
-        keys.remove(keepCurve=False)
+        keys.delete(keepCurve=False)
         self.assertEqual([cmds.objExists(name) for name in names], [False, False])
         cmds.undo()
         self.assertEqual([cmds.keyframe(name, query=True, keyframeCount=True) for name in names], [3, 1])

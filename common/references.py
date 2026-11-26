@@ -33,13 +33,13 @@ def _reference_nodes():
     return nodes
 
 
-def listReferences(topLevelOnly=False, *, order="name"):
+def listReferences(topLevelOnly=False, *, sortBy="name"):
     """シーンのリファレンスを、Reference のオブジェクトの一覧として取得する。
 
     Args:
         topLevelOnly (bool): True なら、ほかのリファレンスの中に入っていない(ネストされていない)
             トップレベルのリファレンスだけを返す。
-        order (str): 並び順。``"name"``(既定)は ``cmds.ls(type="reference")`` と同じ名前順。
+        sortBy (str): 並び順。``"name"``(既定)は ``cmds.ls(type="reference")`` と同じ名前順。
             ``"load"`` はシーンに読み込んだ順(``cmds.file(q=True, reference=True)`` と同じ順)で、
             ネストされたリファレンスは親のすぐ後に、親の中で読み込んだ順に並べる。
 
@@ -47,15 +47,15 @@ def listReferences(topLevelOnly=False, *, order="name"):
         Nodes[Reference]: リファレンスのオブジェクトの一覧。リファレンスが無ければ空の集まり。
 
     Raises:
-        ValueError: orderがnameとload以外の場合。
+        ValueError: sortByがnameとload以外の場合。
     """
     # commonの初期化時にnodesを読み込まないよう、使用時にReferenceを読み込む。
     from ..nodes.node import Nodes
     from ..nodes.reference import Reference
 
-    if order not in ("name", "load"):
-        raise ValueError(f"orderはnameかloadで指定してください: {order!r}")
-    if order == "load":
+    if sortBy not in ("name", "load"):
+        raise ValueError(f"sortByはnameかloadで指定してください: {sortBy!r}")
+    if sortBy == "load":
         references = [Reference(name) for name in _reference_nodes_in_load_order(None, topLevelOnly)]
         return Nodes._wrap(references)
     references = [Reference(mobject) for _, mobject in _reference_nodes()]

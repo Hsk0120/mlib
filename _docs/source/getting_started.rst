@@ -59,13 +59,13 @@ mlib入門
 
 :meth:`~mlib.nodes.node.Node.getName` はMayaコマンドへ渡せる最短の一意な名前で、別の階層に同じ短い名前の
 ノードがあると ``grp1|ctrl`` のような部分パスになります。新しい名前を組み立てる(接尾辞を付け替える)ときは、
-DAGパスを含まない ``getName(node=True)`` (:meth:`~mlib.nodes.node.Node.getName`)を使います。ノード名に ``|`` は使えず、
+DAGパスを含まない ``getName(short=True)`` (:meth:`~mlib.nodes.node.Node.getName`)を使います。ノード名に ``|`` は使えず、
 ``createNode(name=...)``・``rename()`` はValueErrorにします(Mayaは黙って別の文字へ置き換えるため)。
 
 .. code-block:: python
 
    joint = mlib.getNode("L_arm_JNT")
-   ctrl = mlib.createNode("transform", name=joint.getName(node=True).replace("_JNT", "_CTRL"))
+   ctrl = mlib.createNode("transform", name=joint.getName(short=True).replace("_JNT", "_CTRL"))
 
 名前の取得は呼び出すたびにMayaへ問い合わせます。保持したノードを削除した場合や、作成をUndoで
 取り消した場合は参照が無効になり、``getName()`` はRuntimeErrorになります
@@ -110,7 +110,7 @@ AttributeErrorになり、ノードへ任意のPython属性は追加できませ
 
 ``time1.outTime`` のような時間アトリビュートの ``get()`` はフレームを返し、秒で扱う場合は
 ``get(timeUnit="sec")``・``set(..., timeUnit="sec")`` を指定します。アニメーションカーブのキー
-(:meth:`~mlib.nodes.animCurve.AnimCurve.setKey`・``getKeyInputs()``・``moveKey()`` 等)と
+(:meth:`~mlib.nodes.animCurve.AnimCurve.addKey`・``getKeyInputs()``・``getKeyframes().move()`` 等)と
 :meth:`~mlib.common.drivenKey.DrivenKey.setKey` の時間も同じ規則で、``timeUnit="sec"`` で秒を指定できます。
 角度は ``unit``、時間は ``timeUnit`` と別の引数にしてあるため、animCurveTA のように両方を持つカーブでも
 それぞれを指定できます。
@@ -264,7 +264,7 @@ Mayaの規則で連番化されます。``name``・``parent``・``shared``・``s
    joints = mlib.ls(type="joint")
    joints.setRadius(1)
    for joint in joints:
-       print(joint.getName(node=True), joint.getDepth())
+       print(joint.getName(short=True), joint.getDepth())
 
 .. _dynamic-node-classes:
 

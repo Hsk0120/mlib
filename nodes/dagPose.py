@@ -254,25 +254,33 @@ class DagPose(Node):
             if names:
                 cmds.dagPose(names, addToPose=True, name=name)
 
-    def removeMembers(self, *members):
-        """メンバーをポーズから外す。
+    def removeMembers(self, *members, all=False):
+        """メンバーをポーズから外す。``all=True`` なら、すべてのメンバーを外す。
 
         シーンのノードそのものは削除しない。
         残るメンバーの親として必要なノードは、Mayaがポーズに残すことがある。
 
         Args:
-            *members (Node | str | Iterable[Node | str]): 外すメンバー。空にはできない。
+            *members (Node | str | Iterable[Node | str]): 外すメンバー。all=Falseでは空にはできない。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、すべてのメンバーを外す(メンバーが無ければ何もしない)。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 使えない型を指定した場合。
-            ValueError: 何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
+            TypeError: 使えない型を指定した場合、allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            ValueError: all=Falseで何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
             RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合。
         """
+        _require_bool(all, "all")
+        if all and members:
+            raise TypeError("membersとall=Trueは同時に指定できません")
         with undoChunk("mlibDagPoseRemoveMembers"):
             name = self._pose_name()
+            if all:
+                members = (self.getMembers(),)
+                if not members[0]:
+                    return
             names = self._transform_names(members)
             for target in names:
                 self.getMemberIndices(target)

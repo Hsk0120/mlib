@@ -13,7 +13,7 @@ from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Scale, Vector
 from ..plugs.plug import Plugs
-from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 
@@ -94,19 +94,19 @@ def _influences_by_skin(joints):
     """
     groups = {}
     for joint in joints:
-        for skin in joint.getSkinClusters():
+        for skin in joint.getSkinClusters(influence=True):
             if skin.hasInfluence(joint._full_name()):
                 groups.setdefault(skin.getUuid(), (skin, []))[1].append(joint)
     return list(groups.values())
 
 
-def _remove_influences(groups, transfer_to_parent, force, fast=False, deleting=False):
+def _remove_influences(groups, transfer_to_parent, repair, fast=False, deleting=False):
     """ウェイトのロックを一時的に外し、全skinClusterを検査してから深いinfluenceから順に解除する。
 
     Args:
         groups (list[tuple[SkinCluster, list[Joint]]]): skinClusterと解除するjoint。
         transfer_to_parent (bool): 祖先influenceへウェイトを移すか。
-        force (bool): 不正ウェイトを修復してから解除するか。
+        repair (bool): 不正ウェイトを修復してから解除するか。
         fast (bool): Trueはウェイトの書込みをOpenMayaで行い、Undoへ記録しない。
         deleting (bool): Trueは直後にjointを削除する。
 
@@ -114,12 +114,12 @@ def _remove_influences(groups, transfer_to_parent, force, fast=False, deleting=F
         None: 値を返さない。
     """
     with _unlocked_influences([skin for skin, _ in groups], fast=fast):
-        checked = [(skin, skin._influence_removal_plans(joints, transfer_to_parent, force=force)) for skin, joints in groups]
+        checked = [(skin, skin._influence_removal_plans(joints, transfer_to_parent, repair=repair)) for skin, joints in groups]
         for skin, (plans, snapshot) in checked:
-            skin._apply_influence_removals(plans, snapshot, force=force, fast=fast, deleting=deleting)
+            skin._apply_influence_removals(plans, snapshot, repair=repair, fast=fast, deleting=deleting)
 
 
-def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_parent, force):
+def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_parent, repair):
     """jointを、消える階層のinfluenceを解除してから一括で削除する。
 
     Args:
@@ -128,19 +128,19 @@ def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_p
         fast (bool): TrueはUndoなしのOpenMaya更新。
         remove_influence (bool): 削除の前にinfluenceを解除するか。
         transfer_to_parent (bool): 解除するウェイトを残る祖先influenceへ移すか。
-        force (bool): 不正ウェイトを修復してから解除するか。
+        repair (bool): 不正ウェイトを修復してから解除するか。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: skip_connected・remove_influence・transfer_to_parent・forceがbool以外の場合。
+        TypeError: skip_connected・remove_influence・transfer_to_parent・repairがbool以外の場合。
         RuntimeError: 対象が無効、削除できない、またはinfluenceを解除できない場合。
     """
     _require_bool(skip_connected, "skip_connected")
     _require_bool(remove_influence, "removeInfluence")
     _require_bool(transfer_to_parent, "transferToParent")
-    _require_bool(force, "force")
+    _require_bool(repair, "repair")
     for joint in joints:
         joint._require_valid("削除")
     if skip_connected:
@@ -156,7 +156,7 @@ def _delete_joints(joints, skip_connected, fast, remove_influence, transfer_to_p
                 doomed[node.getUuid()] = node
         # 全influenceが消えるskinClusterは解除の移送先も再配分先も無いため、Maya標準の削除に任せる。
         groups = [(skin, nodes) for skin, nodes in _influences_by_skin(doomed.values()) if len(nodes) < len(skin.getInfluences())]
-        _remove_influences(groups, transfer_to_parent, force, fast=fast, deleting=True)
+        _remove_influences(groups, transfer_to_parent, repair, fast=fast, deleting=True)
     delete_nodes(joints, fast=fast, checked=checked)
 
 
@@ -404,7 +404,7 @@ class Joint(Transform):
         with undoChunk("mlibJointOrient"):
             self._orient(flags)
 
-    def mirror(self, axis="YZ", behavior=True, searchReplace=None):
+    def mirror(self, plane="YZ", behavior=True, searchReplace=None):
         """ジョイントのチェーンをミラーした、新しいチェーンを作る。
 
         自身と子孫のジョイント(と、子のikEffectorなど)を、Maya標準の ``cmds.mirrorJoint`` で複製してミラーする。
@@ -413,7 +413,8 @@ class Joint(Transform):
         fast引数は無い(OpenMayaに同じ機能が無いため)。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            axis (str | int): ミラーの面か、反転する軸。既定は ``"YZ"``。
+            plane (str | int): ミラーの面。既定は ``"YZ"``。反転する軸でも指定できる
+                (ほかの ``mirror`` の ``axis`` と同じ書き方)。
 
                 - 面: ``"YZ"`` (X方向に左右反転)・``"XZ"``・``"XY"``
                 - 軸: ``"x"``・``"y"``・``"z"`` (xはYZ、yはXZ、zはXYと同じ。文字の順や大文字・小文字は問わない)
@@ -430,16 +431,23 @@ class Joint(Transform):
                 や :meth:`getChainFromHere` で取得する。
 
         Raises:
-            TypeError: axisが文字列・int以外の場合、behaviorがbool以外の場合、
+            TypeError: planeが文字列・int以外の場合、behaviorがbool以外の場合、
                 またはsearchReplaceが2つの文字列の組・None以外の場合。
-            ValueError: axisに使えない値を指定した場合、またはsearchReplaceの検索文字列が空の場合。
+            ValueError: planeに使えない値を指定した場合、またはsearchReplaceの検索文字列が空の場合。
             RuntimeError: ジョイントが無効な場合、またはMayaがミラーを拒否した場合。
 
         Note:
             Mayaの ``mirrorJoint`` は、新しいジョイントを今の名前空間へ置く。
             別の名前空間へ置くには、searchReplaceで名前空間ごと置き換える。
         """
-        flag = "mirror" + _MIRROR_PLANES[_mirror_axis(axis)]
+        # 共通の検査はaxisの名前で伝えるため、この引数の名前で伝え直す。
+        try:
+            index = _mirror_axis(plane)
+        except TypeError:
+            raise TypeError(f"planeはstrかintで指定してください: {type(plane).__name__}") from None
+        except ValueError:
+            raise ValueError(f"planeは{_MIRROR_AXIS_CHOICES}で指定してください: {plane!r}") from None
+        flag = "mirror" + _MIRROR_PLANES[index]
         _require_bool(behavior, "behavior")
         flags: Dict[str, Any] = {flag: True, "mirrorBehavior": behavior}
         if searchReplace is not None:
@@ -731,30 +739,7 @@ class Joint(Transform):
             parent = parent.getParent()
         return depth
 
-    def getSkinClusters(self):
-        """このジョイントに接続しているskinClusterを取得する。
-
-        Returns:
-            SkinClusters: skinClusterのオブジェクト。同じものは1回だけ含む。
-        """
-        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
-        from .skinCluster import SkinCluster, SkinClusters
-
-        if not self.isValid():
-            return SkinClusters._wrap([])
-        seen = set()
-        result = []
-        for plug in self.getConnections(type="skinCluster"):
-            node = plug.getNode()
-            if node.getUuid() in seen:
-                continue
-            seen.add(node.getUuid())
-            mobject = node.mnode()
-            assert mobject is not None
-            result.append(SkinCluster(mobject))
-        return SkinClusters._wrap(result)
-
-    def removeInfluence(self, skinCluster=None, *, transferToParent=True, force=False):
+    def removeInfluence(self, skinCluster=None, *, transferToParent=True, repair=False):
         """skinClusterのインフルエンスから自身を外す。
 
         ジョイントのノードは残す。外す前に、すべての対象でインフルエンスになっているかと、
@@ -770,13 +755,13 @@ class Joint(Transform):
             skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。
             transferToParent (bool): Trueなら、ウェイトをいちばん近い祖先のインフルエンスへ足す。既定はTrue。
                 Falseの場合や、移す先が無い場合は、Maya標準の配り直しに任せる。
-            force (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
 
         Returns:
             None: 値を返さない。skinClusterを省略し、どこにもバインドされていなければ何も変えない。
 
         Raises:
-            TypeError: transferToParent・forceがbool以外の場合。
+            TypeError: transferToParent・repairがbool以外の場合。
             ValueError: インフルエンスになっていない場合、または最後のインフルエンスを外そうとした場合。
             RuntimeError: ジョイントが無効な場合、ウェイトの要素がロック・入力の接続で書き込めない場合、
                 または変更に失敗した場合。
@@ -787,11 +772,15 @@ class Joint(Transform):
 
             self._require_valid("削除")
             _require_bool(transferToParent, "transferToParent")
-            _require_bool(force, "force")
-            skins = self.getSkinClusters() if skinCluster is None else [skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster)]
-            _remove_influences([(skin, [self]) for skin in skins], transferToParent, force)
+            _require_bool(repair, "repair")
+            skins = (
+                self.getSkinClusters(influence=True)
+                if skinCluster is None
+                else [skinCluster if isinstance(skinCluster, SkinCluster) else SkinCluster(skinCluster)]
+            )
+            _remove_influences([(skin, [self]) for skin in skins], transferToParent, repair)
 
-    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
+    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -806,6 +795,7 @@ class Joint(Transform):
 
         変える前にすべての対象を確かめる。Undoが有効なら、1回のUndoで戻せる。
         ``mlib.delete`` はインフルエンスから外す処理をせず、Maya標準の削除のままになる。
+        引数は :meth:`Node.delete <mlib.nodes.node.Node.delete>` と同じ(Joint以外では、インフルエンスの引数に働きは無い)。
 
         Args:
             skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
@@ -814,19 +804,19 @@ class Joint(Transform):
                 OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
             removeInfluence (bool): Falseなら、インフルエンスから外さず、Maya標準の削除だけを行う。既定はTrue。
             transferToParent (bool): Falseなら、ウェイトを祖先へ移さず、Maya標準の配り直しに任せる。既定はTrue。
-            force (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: skipConnected・fast・removeInfluence・transferToParent・forceがbool以外の場合。
+            TypeError: skipConnected・fast・removeInfluence・transferToParent・repairがbool以外の場合。
             ValueError: 移すウェイトに負の値か有限でない値がある場合。このときは何も変えない。
             RuntimeError: 対象が無効な場合、ロックされたノードやリファレンスのノードを含む場合(このときは何も変えない)、
                 ウェイトの要素がロック・入力の接続で書き込めない場合、またはMayaが変更を拒否した場合。
         """
         with _edit_context("mlibJointDelete", fast):
-            _delete_joints([self], skipConnected, fast, removeInfluence, transferToParent, force)
+            _delete_joints([self], skipConnected, fast, removeInfluence, transferToParent, repair)
 
     def isInfluenceLocked(self):
         """スキンのウェイトがロックされているか調べる。
@@ -893,18 +883,18 @@ class Joint(Transform):
         segments = [(Vector(start.x, start.y, start.z), Vector(end.x, end.y, end.z)) for end in ends]
         return segments or [(Vector(start.x, start.y, start.z), Vector(start.x, start.y, start.z))]
 
-    def getTransferTarget(self, skin):
+    def getTransferTarget(self, skinCluster):
         """ウェイトを移す先になる、いちばん近い祖先のインフルエンスを探す。
 
         Args:
-            skin (SkinCluster): インフルエンスになっているかを調べるskinCluster。
+            skinCluster (SkinCluster): インフルエンスになっているかを調べるskinCluster。
 
         Returns:
             Joint | None: 移す先の祖先のジョイント。見つからない場合は ``None``。
         """
         ancestor = self.getParent() if self.isValid() else None
         while isinstance(ancestor, Joint):
-            if skin.hasInfluence(ancestor.getName()):
+            if skinCluster.hasInfluence(ancestor.getName()):
                 return ancestor
             ancestor = ancestor.getParent()
         return None
@@ -1279,7 +1269,7 @@ class Joints(Nodes):
             for joint in self._items:
                 joint._orient(flags)
 
-    def removeInfluence(self, skinCluster=None, *, transferToParent=True, force=False):
+    def removeInfluence(self, skinCluster=None, *, transferToParent=True, repair=False):
         """すべてのジョイントをインフルエンスから外す。
 
         ジョイントのノードは残す。:meth:`Joint.removeInfluence` と同じやり方で、深いジョイントから順に外す。
@@ -1294,13 +1284,13 @@ class Joints(Nodes):
         Args:
             skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。
             transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。
-            force (bool): :meth:`Joint.removeInfluence` と同じ。
+            repair (bool): :meth:`Joint.removeInfluence` と同じ。
 
         Returns:
             None: 値を返さない。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
 
         Raises:
-            TypeError: transferToParent・forceがbool以外の場合。
+            TypeError: transferToParent・repairがbool以外の場合。
             ValueError: インフルエンスになっていないジョイントを含む場合、
                 またはskinClusterのすべてのインフルエンスを外そうとした場合。このときは何も変えない。
             RuntimeError: 無効なジョイントを含む場合、ウェイトの要素がロック・入力の接続で書き込めない場合、
@@ -1311,7 +1301,7 @@ class Joints(Nodes):
 
         with undoChunk("mlibJointsRemoveInfluence"):
             _require_bool(transferToParent, "transferToParent")
-            _require_bool(force, "force")
+            _require_bool(repair, "repair")
             for joint in self._items:
                 joint._require_valid("削除")
             if skinCluster is None:
@@ -1321,9 +1311,9 @@ class Joints(Nodes):
             for skin, joints in groups:
                 if joints and len(joints) >= len(skin.getInfluences()):
                     raise ValueError("すべてのインフルエンスを削除することはできません")
-            _remove_influences(groups, transferToParent, force)
+            _remove_influences(groups, transferToParent, repair)
 
-    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, force=False):
+    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -1336,7 +1326,7 @@ class Joints(Nodes):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
-            force (bool): :meth:`Joint.delete` と同じ。
+            repair (bool): :meth:`Joint.delete` と同じ。
 
         Returns:
             None: 値を返さない。コレクションが空なら何もしない。
@@ -1347,7 +1337,7 @@ class Joints(Nodes):
             RuntimeError: :meth:`Joint.delete` と同じ。
         """
         with _edit_context("mlibJointsDelete", fast):
-            _delete_joints(list(self._items), skipConnected, fast, removeInfluence, transferToParent, force)
+            _delete_joints(list(self._items), skipConnected, fast, removeInfluence, transferToParent, repair)
 
     def setRadius(self, value, *, fast=False, check=False):
         """各ジョイントに、並んでいる順に :meth:`Joint.setRadius` を行う。
@@ -1385,22 +1375,3 @@ class Joints(Nodes):
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
         self._forward("setSegmentScaleCompensate", (state,), fast, check=check, writes=lambda joint: [joint.getPlug("segmentScaleCompensate")])
-
-    def getSkinClusters(self):
-        """すべてのジョイントに接続しているskinClusterを取得する。
-
-        Returns:
-            SkinClusters: skinClusterのコレクション。同じものは1回だけ含む。
-        """
-        # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
-        from .skinCluster import SkinClusters
-
-        skin_clusters = []
-        seen = set()
-        for joint in self._items:
-            for skin in joint.getSkinClusters():
-                if skin.getUuid() in seen:
-                    continue
-                seen.add(skin.getUuid())
-                skin_clusters.append(skin)
-        return SkinClusters(skin_clusters)

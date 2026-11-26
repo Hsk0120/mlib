@@ -189,7 +189,7 @@ class MultiPlug(Plug):
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
         ...
-    def getNextAvailable(self, start: int = ..., checkLocked: bool = ..., checkChildren: bool = ..., *, vacant: bool = ...) -> Plug:
+    def getNextAvailable(self, start: int = ..., *, checkLocked: bool = ..., checkChildren: bool = ..., vacant: bool = ...) -> Plug:
         """次に使える、マルチアトリビュートの要素のPlugを探す。
 
         要素を作ったり、予約したりはしない。論理番号は、戻り値の

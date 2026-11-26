@@ -250,37 +250,37 @@ class DisplayColorTest(NamespaceCase):
         joint = self.curve_joint()
         shapes = [shape.getName(full=True) for shape in joint.getShape(all=True)]
         self.assertEqual(len(shapes), 2)
-        self.assertIsNone(joint.setColor(13, shape=True))
+        self.assertIsNone(joint.setColor(13, toShape=True))
         self.assertEqual([cmds.getAttr(name + ".overrideColor") for name in shapes], [13, 13])
         self.assertFalse(cmds.getAttr(joint.getName(full=True) + ".overrideEnabled"))
-        self.assertEqual(joint.getColor(shape=True), 13)
+        self.assertEqual(joint.getColor(toShape=True), 13)
         self.assertIsNone(joint.getColor())
-        joint.setColor((1, 0, 0), shape=True, outliner=True)
+        joint.setColor((1, 0, 0), toShape=True, outliner=True)
         self.assertTrue(all(cmds.getAttr(name + ".useOutlinerColor") for name in shapes))
         self.assertFalse(cmds.getAttr(joint.getName(full=True) + ".useOutlinerColor"))
-        self.assertRgb(joint.getColor(outliner=True, shape=True), (1, 0, 0))
+        self.assertRgb(joint.getColor(outliner=True, toShape=True), (1, 0, 0))
         self.assertIsNone(joint.getColor(outliner=True))
-        joint.setColor(None, shape=True)
-        self.assertIsNone(joint.getColor(shape=True))
+        joint.setColor(None, toShape=True)
+        self.assertIsNone(joint.getColor(toShape=True))
 
     def test_shape_flag_without_shape_uses_node(self):
-        self.b.setColor(6, shape=True)
+        self.b.setColor(6, toShape=True)
         self.assertEqual(cmds.getAttr(self.b.getName(full=True) + ".overrideColor"), 6)
-        self.assertEqual(self.b.getColor(shape=True), 6)
+        self.assertEqual(self.b.getColor(toShape=True), 6)
         shape = self.a.getShape()
-        shape.setColor(4, shape=True)
-        self.assertEqual(shape.getColor(shape=True), 4)
+        shape.setColor(4, toShape=True)
+        self.assertEqual(shape.getColor(toShape=True), 4)
 
     def test_shape_flag_undo_and_fast(self):
         joint = self.curve_joint()
         cmds.flushUndo()
-        joint.setColor(13, shape=True)
+        joint.setColor(13, toShape=True)
         cmds.undo()
-        self.assertIsNone(joint.getColor(shape=True))
+        self.assertIsNone(joint.getColor(toShape=True))
         cmds.flushUndo()
-        joint.setColor((0, 1, 0), shape=True, fast=True)
+        joint.setColor((0, 1, 0), toShape=True, fast=True)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertRgb(joint.getColor(shape=True), (0, 1, 0))
+        self.assertRgb(joint.getColor(toShape=True), (0, 1, 0))
 
     def test_shape_flag_locked_shape_changes_nothing(self):
         joint = self.curve_joint()
@@ -289,30 +289,30 @@ class DisplayColorTest(NamespaceCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 with self.assertRaises(RuntimeError):
-                    joint.setColor(9, shape=True, fast=fast, check=True)
+                    joint.setColor(9, toShape=True, fast=fast, check=True)
                 self.assertFalse(cmds.getAttr(names[0] + ".overrideEnabled"))
 
     def test_shape_flag_on_nodes(self):
         first, second = self.curve_joint(), self.a
         nodes = Nodes([first, second])
-        nodes.setColor(17, shape=True)
-        self.assertEqual(nodes.getColor(shape=True), [17, 17])
+        nodes.setColor(17, toShape=True)
+        self.assertEqual(nodes.getColor(toShape=True), [17, 17])
         self.assertEqual(nodes.getColor(), [None, None])
-        nodes.setColors([(1, 0, 0), None], shape=True, outliner=True)
-        self.assertRgb(nodes.getColor(outliner=True, shape=True)[0], (1, 0, 0))
-        self.assertIsNone(nodes.getColor(outliner=True, shape=True)[1])
-        nodes.setColors([13, 14], shape=True, fast=True)
-        self.assertEqual(nodes.getColor(shape=True), [13, 14])
+        nodes.setColors([(1, 0, 0), None], toShape=True, outliner=True)
+        self.assertRgb(nodes.getColor(outliner=True, toShape=True)[0], (1, 0, 0))
+        self.assertIsNone(nodes.getColor(outliner=True, toShape=True)[1])
+        nodes.setColors([13, 14], toShape=True, fast=True)
+        self.assertEqual(nodes.getColor(toShape=True), [13, 14])
 
     def test_shape_flag_must_be_bool(self):
         nodes = Nodes([self.a, self.b])
         for call in (
             lambda: self.a.setColor(1, shape="yes"),
-            lambda: self.a.getColor(shape=1),
+            lambda: self.a.getColor(toShape=1),
             lambda: self.a.setColor(1, shape=None, outliner=True),
             lambda: self.a.getColor(outliner=True, shape="x"),
             lambda: nodes.setColor(1, shape="yes"),
-            lambda: nodes.setColors([1, 2], shape=1, outliner=True),
+            lambda: nodes.setColors([1, 2], toShape=1, outliner=True),
         ):
             with self.assertRaises(TypeError):
                 call()

@@ -37,7 +37,7 @@ class NameMapping:
             str: ``NameMapping(nameMap=..., replace=..., namespaceMap=...)`` の形式。
         """
         ...
-    def apply(self, name: str) -> str:
+    def convert(self, name: str) -> str:
         """ノード名(DAGパスの1要素)を変換する。
 
         Args:
@@ -51,7 +51,7 @@ class NameMapping:
         """
         ...
     def _apply_path(self, path: str) -> str:
-        """DAGパスのそれぞれの要素を :meth:`apply` で変換する。
+        """DAGパスのそれぞれの要素を :meth:`convert` で変換する。
 
         Args:
             path (str): ``"|chrA:root|chrA:arm_L_jnt"`` のようなパス。DGノード名もそのまま渡せる。

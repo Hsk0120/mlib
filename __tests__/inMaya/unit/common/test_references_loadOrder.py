@@ -1,4 +1,4 @@
-"""``mlib.common.references.listReferences(order="load")`` のテスト。"""
+"""``mlib.common.references.listReferences(sortBy="load")`` のテスト。"""
 
 import os
 import shutil
@@ -46,10 +46,10 @@ class ListReferencesLoadOrderTest(unittest.TestCase):
     def test_load_order(self):
         """トップレベルは読み込んだ順、ネストは親の直後に並ぶ。名前順の既定は変わらない。"""
         expected_top = [cmds.referenceQuery(path, referenceNode=True) for path in cmds.file(query=True, reference=True)]
-        top = listReferences(topLevelOnly=True, order="load")
+        top = listReferences(topLevelOnly=True, sortBy="load")
         self.assertEqual(top.getNames(), expected_top)
         self.assertEqual(top.getNames(), ["zetaRN", "outerRN", "alphaRN"])
-        everything = listReferences(order="load").getNames()
+        everything = listReferences(sortBy="load").getNames()
         self.assertEqual(len(everything), 4)
         self.assertIn("inner", everything[everything.index("outerRN") + 1])
         self.assertEqual(listReferences().getNames(), sorted(listReferences().getNames()))
@@ -59,7 +59,7 @@ class ListReferencesLoadOrderTest(unittest.TestCase):
     def test_invalid_order(self):
         """name・load以外はValueError。"""
         with self.assertRaises(ValueError):
-            listReferences(order="created")
+            listReferences(sortBy="created")
 
 
 if __name__ == "__main__":

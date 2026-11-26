@@ -19,7 +19,7 @@ class DagContainerEdgeTest(NamespaceCase):
 
     def setUp(self):
         super().setUp()
-        self.owner = mlib.createContainer(self.name("box"), dag=True)
+        self.owner = mlib.createContainer(name=self.name("box"), dag=True)
         self.box = self.owner.getName(full=True)
 
     def tearDown(self):

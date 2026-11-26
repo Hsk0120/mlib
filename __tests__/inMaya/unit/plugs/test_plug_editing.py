@@ -1,6 +1,6 @@
 """アトリビュート編集の仕様テスト。
 
-- ``setFlags/setAttrFlags(children=)``・``setFlags(leaf=)``・``setLocked``: コンパウンドアトリビュートの子への状態の設定。
+- ``setFlags/setAttrFlags(children=)``・``setFlags(leaves=)``・``setLocked``: コンパウンドアトリビュートの子への状態の設定。
 - ``EnumPlug.set("name")``・``addAttr(defaultValue="name")``: enumのフィールド名。
 - ``setRange``(片側だけ・None・soft)・``Transform.setLimits``: 範囲の編集(cmdsとの突き合わせ)。
 - 再実行向けの ``safe=True``(``addAttr``・``connect/connectTo``・``setAlias``)。
@@ -89,35 +89,35 @@ class CompoundFlagsTest(_Case):
         self.assertTrue(self.flags("t")[0] or self.flags("tx")[0])
 
     def test_leaf_only_changes_leaves(self):
-        """setFlags(leaf=True) は末端の子だけを変え、自身(親)は変えない。コンパウンドでなければ自身を変える。"""
+        """setFlags(leaves=True) は末端の子だけを変え、自身(親)は変えない。コンパウンドでなければ自身を変える。"""
         for fast in (False, True):
             with self.subTest(fast=fast):
                 for name in ("s", "sx", "sy", "sz"):
                     cmds.setAttr(self.full + "." + name, lock=False, keyable=True, channelBox=False)
                 scale = self.node.getPlug("s")
-                self.assertIsNone(scale.setFlags(keyable=False, leaf=True, fast=fast))
+                self.assertIsNone(scale.setFlags(keyable=False, leaves=True, fast=fast))
                 self.assertEqual([self.flags(axis)[0] for axis in ("sx", "sy", "sz")], [False] * 3)
                 self.assertTrue(self.flags("s")[0])
-                self.assertIsNone(scale.setFlags(locked=True, channelBox=True, leaf=True, fast=fast))
+                self.assertIsNone(scale.setFlags(locked=True, channelBox=True, leaves=True, fast=fast))
                 self.assertEqual([self.flags(axis) for axis in ("sx", "sy", "sz")], [(False, True, True)] * 3)
                 self.assertEqual(self.flags("s"), (True, False, False))
-                scale.setFlags(locked=False, leaf=True, fast=fast)
+                scale.setFlags(locked=False, leaves=True, fast=fast)
                 single = self.node.getPlug("sx")
-                single.setFlags(keyable=True, leaf=True, fast=fast)
+                single.setFlags(keyable=True, leaves=True, fast=fast)
                 self.assertEqual(self.flags("sx")[:2], (True, False))
                 self.assertEqual(self.flags("sy")[:2], (False, True))
 
     def test_leaf_undo_and_errors(self):
-        """leaf=True の複数の子の変更は1回のUndoで戻る。fastはUndoに積まない。childrenとの同時指定・bool以外はTypeError。"""
+        """leaves=True の複数の子の変更は1回のUndoで戻る。fastはUndoに積まない。childrenとの同時指定・bool以外はTypeError。"""
         translate = self.node.getPlug("t")
         self.flushUndo()
-        translate.setFlags(keyable=False, leaf=True)
+        translate.setFlags(keyable=False, leaves=True)
         self.assertUndoesInOneStep(
             lambda: self.assertTrue(all(self.flags(axis)[0] for axis in ("tx", "ty", "tz"))),
             lambda: self.assertFalse(any(self.flags(axis)[0] for axis in ("tx", "ty", "tz"))),
         )
         self.flushUndo()
-        translate.setFlags(keyable=False, leaf=True, fast=True)
+        translate.setFlags(keyable=False, leaves=True, fast=True)
         self.assertUndoEmpty()
         self.assertFalse(self.flags("tx")[0])
         before = [self.flags(name) for name in ("t", "tx", "ty", "tz")]

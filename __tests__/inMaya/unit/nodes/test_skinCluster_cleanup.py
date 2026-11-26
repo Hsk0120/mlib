@@ -1,4 +1,4 @@
-"""不正な疎ウェイト除去とforce付きinfluence解除を実Mayaで検証する。"""
+"""不正な疎ウェイト除去とrepair付きinfluence解除を実Mayaで検証する。"""
 
 import math
 import sys
@@ -149,7 +149,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         self.assertNotIn(77, self._indices())
 
     def test_force_repairs_before_transfer_and_returns_removed_nodes(self):
-        """forceは不正要素の除去と登録解除を1回のUndoへまとめ、外したノードの Nodes を返す。"""
+        """repairは不正要素の除去と登録解除を1回のUndoへまとめ、外したノードの Nodes を返す。"""
         child = self._index(self.child)
         self._inject(child, math.nan)
         self._inject(77, 0.5)
@@ -157,7 +157,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
             self.skin.removeInfluences(self.child, requireAncestor=False)
         self.assertTrue(self.skin.hasInfluence(str(self.child)))
         self.assertIn(77, self._indices())
-        for flag in ("force",):
+        for flag in ("repair",):
             with self.subTest(flag=flag):
                 cmds.flushUndo()
                 removed = self.skin.removeInfluences(self.child, **{flag: True})
@@ -179,11 +179,11 @@ class SkinWeightCleanupTest(unittest.TestCase):
                 cmds.undo()
 
     def test_joint_force_entry_keeps_its_return(self):
-        """Jointの全skin委譲でforceを引き継ぐ。"""
+        """Jointの全skin委譲でrepairを引き継ぐ。"""
         second = self._skin("cleanupSecond", self.names)
         for skin in (self.skin, second):
             self._inject(77, 0.5, skin=skin)
-        self.assertIsNone(self.child.removeInfluence(force=True))
+        self.assertIsNone(self.child.removeInfluence(repair=True))
         self.assertTrue(self.child.isValid())
         for skin in (self.skin, second):
             self.assertFalse(skin.hasInfluence(str(self.child)))
@@ -193,7 +193,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         """最後の登録や未登録対象の拒否は、他skinの不正除去より前に行う。"""
         self._inject(77, 0.5)
         single = self._skin("cleanupSingle", [str(self.child)])
-        actions = (lambda: self.child.removeInfluence(force=True), lambda: single.removeInfluences(self.child, force=True, requireAncestor=False))
+        actions = (lambda: self.child.removeInfluence(repair=True), lambda: single.removeInfluences(self.child, repair=True, requireAncestor=False))
         for action in actions:
             with self.assertRaises(ValueError):
                 action()
@@ -202,11 +202,11 @@ class SkinWeightCleanupTest(unittest.TestCase):
             self.assertEqual(len(single.getInfluences()), 1)
         outside = mlib.getNode(cmds.createNode("joint", name="cleanupOutside"))
         with self.assertRaises(ValueError):
-            self.skin.removeInfluences(outside, force=True, requireAncestor=False)
+            self.skin.removeInfluences(outside, repair=True, requireAncestor=False)
         self.assertIn(77, self._indices())
 
     def test_flag_type_and_duplicate_alias_errors_have_no_side_effects(self):
-        """不正bool型とforce/f重複を単数・Joint・未使用解除で拒否する。"""
+        """不正bool型と、無い引数(以前のforce)を単数・Joint・未使用解除で拒否する。"""
         self._inject(77, 0.5)
         actions = (
             lambda **flags: self.skin.removeInfluences(self.child, requireAncestor=False, **flags),
@@ -214,7 +214,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
             lambda **flags: self.skin.removeInfluences(unused=True, **flags),
         )
         for action in actions:
-            for flags in ({"force": "True"}, {"force": 1}, {"f": True}):
+            for flags in ({"repair": "True"}, {"repair": 1}, {"force": True}):
                 with self.subTest(flags=flags):
                     with self.assertRaises(TypeError):
                         action(**flags)
@@ -230,7 +230,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         skin = mlib.getNode(cmds.skinCluster(self.names, surface, toSelectedBones=True)[0])
         self._inject(77, 0.5, skin=skin)
         with self.assertRaises(ValueError):
-            skin.removeInfluences(self.child, force=True, requireAncestor=False)
+            skin.removeInfluences(self.child, repair=True, requireAncestor=False)
         self.assertIn(77, self._indices(skin=skin))
         self.assertTrue(skin.hasInfluence(str(self.child)))
         self.assertIsNone(skin.removeInvalidWeights())
@@ -246,7 +246,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
             try:
                 actions = [self.skin.removeInvalidWeights]
                 if not is_liw:
-                    actions.append(lambda: self.skin.removeInfluences(self.child, force=True, requireAncestor=False))
+                    actions.append(lambda: self.skin.removeInfluences(self.child, repair=True, requireAncestor=False))
                 for action in actions:
                     with self.assertRaises(RuntimeError):
                         action()
@@ -261,7 +261,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.skin.removeInvalidWeights()
         with self.assertRaises(RuntimeError):
-            self.skin.removeInfluences(self.child, force=True, requireAncestor=False)
+            self.skin.removeInfluences(self.child, repair=True, requireAncestor=False)
         self.assertIn(77, self._indices())
         self.assertTrue(cmds.isConnected(driver + ".output", weight))
 
@@ -271,7 +271,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         lock = str(self.other) + ".lockInfluenceWeights"
         cmds.setAttr(lock, True)
         try:
-            self.skin.removeInfluences(self.child, force=True, requireAncestor=False)
+            self.skin.removeInfluences(self.child, repair=True, requireAncestor=False)
             self.assertNotIn(77, self._indices())
             self.assertFalse(self.skin.hasInfluence(str(self.child)))
             self.assertTrue(cmds.getAttr(lock))
@@ -284,7 +284,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         layer = mlib.createNode("network", name="cleanup_ngSkinLayerData")
         socket = self.skin.addAttr("cleanupLayer", attributeType="message")
         socket.connect(layer.getPlug("message"))
-        self.skin.removeInfluences(self.child, force=True, requireAncestor=False)
+        self.skin.removeInfluences(self.child, repair=True, requireAncestor=False)
         self.assertNotIn(77, self._indices())
         self.assertFalse(self.skin.hasInfluence(str(self.child)))
         self.assertTrue(socket.isConnected())
@@ -304,7 +304,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.skin.removeInvalidWeights()
         with self.assertRaises(RuntimeError):
-            self.skin.removeInfluences(self.child, force=True, requireAncestor=False)
+            self.skin.removeInfluences(self.child, repair=True, requireAncestor=False)
         self.assertIn(77, self._indices())
         self.assertTrue(cmds.isConnected(invalid.name(), str(sink)))
 
@@ -314,7 +314,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         self._inject(77, 0.5)
         unused = self.skin.getInfluences(unused=True)
         self.assertEqual([node.getUuid() for node in unused], [self.child.getUuid(), self.other.getUuid()])
-        result = self.skin.removeInfluences(unused=True, force=True)
+        result = self.skin.removeInfluences(unused=True, repair=True)
         self.assertEqual([node.getUuid() for node in result], [node.getUuid() for node in unused])
         self.assertTrue(all(joint.isValid() for joint in (self.parent, self.child, self.other)))
         self.assertEqual(len(self.skin.getInfluences()), 1)
@@ -324,7 +324,7 @@ class SkinWeightCleanupTest(unittest.TestCase):
         self.assertIn(77, self._indices())
         self.skin.setWeights(self.names, [0.0, 0.0, 0.0], broadcast=True)
         with self.assertRaises(ValueError):
-            self.skin.removeInfluences(unused=True, force=True)
+            self.skin.removeInfluences(unused=True, repair=True)
         self.assertIn(77, self._indices())
         self.assertEqual(len(self.skin.getInfluences()), 3)
 

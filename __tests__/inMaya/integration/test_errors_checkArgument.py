@@ -442,17 +442,17 @@ class _CheckCase(NamespaceCase):
             state=lambda: _rounded(cmds.polyNormalPerVertex(shape + ".vtxFace[0][0]", query=True, xyz=True)),
         )
 
-    def c_AnimCurve_setKey(self):
-        return self._key_case(lambda curve, value, **kw: curve.setKey(5, value, **kw), 3.0, NAN)
+    def c_AnimCurve_addKey(self):
+        return self._key_case(lambda curve, value, **kw: curve.addKey(5, value, **kw), 3.0, NAN)
 
     def c_AnimCurve_addKeys(self):
         return self._key_case(lambda curve, value, **kw: curve.addKeys([{"input": 7, "value": value}], **kw), 3.0, NAN, modes=(False,))
 
-    def c_AnimCurve_removeKey(self):
-        return self._key_case(lambda curve, value, **kw: curve.removeKey(time=value, **kw), 5, NAN)
+    def c_Keyframe_delete(self):
+        return self._key_case(lambda curve, value, **kw: curve.getKeyframes(value).delete(**kw), 1)
 
-    def c_AnimCurve_setTangent(self):
-        return self._key_case(lambda curve, value, **kw: curve.setTangent(1, **value, **kw), {"inTangentType": "flat", "outTangentType": "flat"})
+    def c_Keyframes_delete(self):
+        return self._key_case(lambda curve, value, **kw: curve.getKeyframes(time=value).delete(**kw), 5, NAN)
 
     def c_Keyframe_setValue(self):
         return self._key_case(lambda curve, value, **kw: curve.getKeyframes(1).setValue(value, **kw), 3.0, NAN)

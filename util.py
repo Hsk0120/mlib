@@ -218,6 +218,22 @@ def _clean_segment(segment):
     return cleaned
 
 
+def _remove_namespaces(name):
+    """Plug・コンポーネントの名前から、ノードの部分のネームスペースを取り除く。
+
+    最初の ``.`` より前(ノードの部分)を ``|`` で区切り、各部分の最後の ``:`` までを取り除く。
+    アトリビュート・コンポーネントの部分は変えない。
+
+    Args:
+        name (str): ``ns:cube.vtx[3]``・``|ns:grp|ns:cube.tx`` のような名前。
+
+    Returns:
+        str: ``cube.vtx[3]``・``|grp|cube.tx`` のような名前。
+    """
+    head, dot, tail = name.partition(".")
+    return "|".join(part.rsplit(":", 1)[-1] for part in head.split("|")) + dot + tail
+
+
 def _checked_index(index, size, name):
     """番号を確かめて、0〜size-1 の範囲の番号に直す。
 

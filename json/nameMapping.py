@@ -51,7 +51,7 @@ class NameMapping:
         """
         return f"NameMapping(nameMap={self._name_map!r}, replace={list(self._replace)!r}, namespaceMap={self._namespace_map!r})"
 
-    def apply(self, name):
+    def convert(self, name):
         """ノード名(DAGパスの1要素)を変換する。
 
         Args:
@@ -76,7 +76,7 @@ class NameMapping:
         return f"{namespace}:{short}" if namespace else short
 
     def _apply_path(self, path):
-        """DAGパスのそれぞれの要素を :meth:`apply` で変換する。
+        """DAGパスのそれぞれの要素を :meth:`convert` で変換する。
 
         Args:
             path (str): ``"|chrA:root|chrA:arm_L_jnt"`` のようなパス。DGノード名もそのまま渡せる。
@@ -89,7 +89,7 @@ class NameMapping:
         """
         if not isinstance(path, str):
             raise TypeError("pathは文字列で指定してください")
-        return "|".join(self.apply(part) if part else part for part in path.split("|"))
+        return "|".join(self.convert(part) if part else part for part in path.split("|"))
 
     def _map_namespace(self, namespace):
         """名前空間を ``namespaceMap`` で入れ替える。

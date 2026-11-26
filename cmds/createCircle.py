@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, nativeUnits, preservedSelection, undoTransa
 from ..util import _UNSET, _finite, _finite_vector
 
 
-def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, name=_UNSET, parent=None, *, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
+def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, *, name=_UNSET, parent=None, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
     """原点を中心とするNURBSの円を作り、そのシェイプを返す。
 
     半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。

@@ -29,7 +29,7 @@ from ..core.listMethods import _ListMethods
 from ..core.nodeEdit import require_editable
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool, _undo_recording, _validated_flags, undoChunk
-from ..util import _UNSET, _angle_unit, _finite, _time_unit
+from ..util import _UNSET, _angle_unit, _finite, _remove_namespaces, _time_unit
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Literal, Optional, Union
@@ -390,6 +390,29 @@ class MissingAttributeError(AttributeError):
     ``node.nope`` のように書いた場合は、近い名前の候補を含む ``AttributeError`` を送出し、
     この例外を ``__cause__`` に入れる。
     """
+
+
+def _short_alias(long, short, default, long_name, short_name):
+    """長い名前(既定値あり)と短縮名(既定は ``_UNSET``)から、指定された方の値を選ぶ。
+
+    Args:
+        long (object): 長い名前の引数の値。
+        short (object): 短縮名の引数の値。指定されていなければ ``_UNSET``。
+        default (object): 長い名前の既定値。これと違えば、長い名前が指定されたとみなす。
+        long_name (str): 長い名前の引数名。例外メッセージに使う。
+        short_name (str): 短縮名の引数名。例外メッセージに使う。
+
+    Returns:
+        object: 指定された値。どちらも指定されていなければ長い名前の既定値。
+
+    Raises:
+        TypeError: 長い名前と短縮名を同時に指定した場合。
+    """
+    if short is _UNSET:
+        return long
+    if long is not default and long != default:
+        raise TypeError(f"'{long_name}'と'{short_name}'は同時に指定できません")
+    return short
 
 
 class Plug(Object):
@@ -796,7 +819,7 @@ class Plug(Object):
         """
         return self._mplug
 
-    def getName(self, *, full=False):
+    def getName(self, *, full=False, removeNamespace=False):
         """Plugの名前を取得する。既定は短い名前、``full=True`` ならmaya.cmdsで1つに決まる名前。
 
         既定は ``<Node.getName()>.<ショート名のパス>`` の形で、ノード名は重ならない範囲で最も短い名前になる。
@@ -806,28 +829,34 @@ class Plug(Object):
 
         ``full=True`` では ``<Node.getName()の名前>.<アトリビュートのパス>`` の形で、アトリビュートの部分は
         ロング名と必要な論理番号を含み、エイリアスがあればそれを使う(``str(plug)`` と同じ)。
+        ``removeNamespace=True`` なら、既定の名前のノードの部分からネームスペースを取り除く(``ns:ctrl.tx`` → ``ctrl.tx``)。
         ほかの名前のメソッドとの違いは :class:`Plug` の表を参照する。
 
         Args:
-            full (bool): Trueなら、maya.cmdsで1つに決まる名前を返す。既定はFalse。
+            full (bool): Trueなら、maya.cmdsで1つに決まる名前を返す。removeNamespaceとは同時に指定できない。既定はFalse。
+            removeNamespace (bool): Trueなら、ノードの部分のネームスペースを取り除く。既定はFalse。
 
         Returns:
             str: Plugの名前。ノードかアトリビュートが削除されている場合は空文字列。
 
         Raises:
-            TypeError: fullがboolでない場合。
+            TypeError: full・removeNamespaceがboolでない場合、または両方をTrueにした場合。
         """
-        if full is not False:
+        if full is not False or removeNamespace is not False:
             _require_bool(full, "full")
+            _require_bool(removeNamespace, "removeNamespace")
+            if full and removeNamespace:
+                raise TypeError("full=TrueはremoveNamespaceと同時に指定できません")
             if full:
                 return self._full_name()
         if not self.isValid():
             return ""
-        return (
+        name = (
             self.getNode().getName()
             + "."
             + self._mplug.partialName(includeNodeName=False, includeNonMandatoryIndices=True, includeInstancedIndices=True, useLongNames=False)
         )
+        return _remove_namespaces(name) if removeNamespace else name
 
     def getAttributeName(self, kind="long"):
         """アトリビュート自身の名前を取得する(``translateX``・``tx``・``Translate X``)。
@@ -1033,7 +1062,7 @@ class Plug(Object):
         siblings = (parent.child(index) for index in range(parent.numChildren()))
         return Plugs._from_plugs([Plug(self._node, mplug) for mplug in siblings if mplug != self._mplug])
 
-    def getDescendants(self, *, levels=None, leavesOnly=False):
+    def getDescendants(self, *, levels=None, leaves=False):
         """子アトリビュートと既存のマルチ要素を再帰的に取得する。
 
         自身を含めず、深さ優先で返す。子は定義順、要素は論理番号順。
@@ -1041,18 +1070,18 @@ class Plug(Object):
 
         Args:
             levels (int | None): たどる深さ。1は直接の子と要素、0は空。Noneは制限なし。
-            leavesOnly (bool): Trueなら子も要素も持たない定義のPlugだけを返す。
+            leaves (bool): Trueなら子も要素も持たない定義のPlugだけを返す。
                 深さの上限で打ち切った親は含めない。既定False。
 
         Returns:
             Plugs: 保持順の新しい参照。値は読み取らない。
 
         Raises:
-            TypeError: levelsが整数・None以外(boolを含む)、またはleavesOnlyがboolでない場合。
+            TypeError: levelsが整数・None以外(boolを含む)、またはleavesがboolでない場合。
             ValueError: levelsが負の場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
-        _require_bool(leavesOnly, "leavesOnly")
+        _require_bool(leaves, "leaves")
         if levels is not None:
             if isinstance(levels, bool) or not isinstance(levels, int):
                 raise TypeError("levelsはintかNoneで指定してください")
@@ -1064,7 +1093,7 @@ class Plug(Object):
         while stack:
             plug, depth = stack.pop()
             branch = plug.isMulti() or plug.isCompound()
-            if depth and (not leavesOnly or not branch):
+            if depth and (not leaves or not branch):
                 result.append(plug)
             if levels is not None and depth >= levels:
                 continue
@@ -1151,14 +1180,14 @@ class Plug(Object):
             "hidden": not any(leaf.isKeyable or leaf.isChannelBox for leaf in leaves),
         }
 
-    def setFlags(self, *, locked=None, keyable=None, channelBox=None, children=False, leaf=False, fast=False):
+    def setFlags(self, *, locked=None, keyable=None, channelBox=None, children=False, leaves=False, fast=False):
         """アトリビュートの状態(ロック・keyable・Channel Box表示)をまとめて変える。
 
         指定しなかった状態は変えない。今の状態は :meth:`getFlags` で取得する。
         Mayaの ``setAttr(keyable=..., channelBox=...)`` は、コンパウンドアトリビュートの親にだけ効く。
         子のkeyableやChannel Box表示は変わらない(ロックだけは、親のロックが子へ引き継がれる)。
         ``children=True`` なら、自身に続けて、コンパウンドアトリビュートの子(孫より下も)へ同じ状態を設定する。
-        ``leaf=True`` なら、自身は変えずに、コンパウンドアトリビュートの末端の子だけへ設定する。
+        ``leaves=True`` なら、自身は変えずに、コンパウンドアトリビュートの末端の子だけへ設定する。
         どちらも、マルチアトリビュートの要素へは広げない。
 
         Mayaでは、keyableとChannel Box表示のフラグは同時にTrueにならない。``keyable=True`` はChannel Box表示のフラグを外し、
@@ -1188,8 +1217,8 @@ class Plug(Object):
             keyable (bool | None): キーを打てるかどうか。
             channelBox (bool | None): Channel Boxに表示するかどうか。キーを打てるアトリビュートは、Falseでも表示される。
             children (bool): Trueなら、コンパウンドアトリビュートの下の子にも同じ状態を設定する。
-                既定はFalseで、自身だけを変える。leafとは同時に指定できない。
-            leaf (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
+                既定はFalseで、自身だけを変える。leavesとは同時に指定できない。
+            leaves (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
                 コンパウンドアトリビュートでなければ自身を変える。既定はFalse。childrenとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -1197,22 +1226,22 @@ class Plug(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: 状態がboolでもNoneでもない場合、children・leaf・fastがboolでない場合、
-                またはchildrenとleafを同時にTrueにした場合。
+            TypeError: 状態がboolでもNoneでもない場合、children・leaves・fastがboolでない場合、
+                またはchildrenとleavesを同時にTrueにした場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
         _require_bool(fast, "fast")
         _require_bool(children, "children")
-        _require_bool(leaf, "leaf")
-        if children and leaf:
-            raise TypeError("childrenとleafは同時に指定できません")
+        _require_bool(leaves, "leaves")
+        if children and leaves:
+            raise TypeError("childrenとleavesは同時に指定できません")
         flags = _validated_flags(locked, keyable, channelBox)
         if flags.get("channelBox") and "keyable" not in flags:
             flags["keyable"] = False
         self._require_valid()
         if not flags:
             return
-        if leaf:
+        if leaves:
             targets = [mplug for mplug in self._compound_descendants() if not mplug.isCompound] or [self._mplug]
         else:
             targets = [self._mplug]
@@ -1381,7 +1410,7 @@ class Plug(Object):
         low, high = (self._plain_range_value(getter(), angle_unit, uiUnits, time_unit) if has() else None for has, getter in sides)
         return (low, high)
 
-    def setRange(self, minimum=_UNSET, maximum=_UNSET, *, soft=False, unit=None, timeUnit=None):
+    def setRange(self, minimum=_UNSET, maximum=_UNSET, *, soft=False, unit="deg", timeUnit="frame"):
         """動的アトリビュートの定義の最小値・最大値を設定する。
 
         ``cmds.addAttr(edit=True, minValue=..., maxValue=...)`` と同じ。現在の値そのものは変えない。
@@ -1405,8 +1434,8 @@ class Plug(Object):
             maximum (float | om2.MAngle | om2.MDistance | om2.MTime | None): 最大値。Noneは制限を外す。省略すると変えない。
             soft (bool): Trueなら、ソフト最小値・ソフト最大値(UIスライダーの下限・上限)を設定する。既定はFalse。
                 Mayaにはソフトリミットを消す手段が無いので、Noneは渡せない。
-            unit (str | None): 角度の数値の単位。既定はNoneで度、``"rad"`` はラジアン。
-            timeUnit (str | None): 時間の数値の単位。既定はNoneで現在のUIの時間単位でのフレーム、
+            unit (str): 角度の数値の単位。既定は ``"deg"`` で度、``"rad"`` はラジアン。
+            timeUnit (str): 時間の数値の単位。既定は ``"frame"`` で現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。
 
         Returns:
@@ -1646,7 +1675,7 @@ class Plug(Object):
 
         ``value`` / ``v`` は、:meth:`get` と同じ決まりの数値(角度は度、距離はcm、時間はフレーム)で受け取る。
         fast引数は無い。時間の大半はキーの確認とカーブの取得にかかり、OpenMayaで書いても速くならないため。
-        カーブへ直接キーを打つときは、:meth:`AnimCurve.setKey` の ``fast`` を使う。
+        カーブへ直接キーを打つときは、:meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>` の ``fast`` を使う。
 
         Args:
             unit (str | None): 角度のvalueの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
@@ -1671,19 +1700,18 @@ class Plug(Object):
         self._require_valid()
         cmds.setKeyframe(self._full_name(), **kwargs)
 
-    def removeKey(self, *, time=None, timeUnit=None):
+    def removeKey(self, *, time=None, timeUnit="frame"):
         """このアトリビュートのキーを削除する。
 
         ``cmds.cutKey(plug, time=..., clear=True)`` と同じ。キーのクリップボードは変えない。
         すべてのキーを削除すると、Mayaと同じく、空になったカーブも削除される(アトリビュートは最後の値のまま)。
-        カーブを直接操作するときは :meth:`AnimCurve.removeKey` を使う。
+        カーブを直接操作するときは ``AnimCurve.getKeyframes(...)`` が返す :meth:`Keyframes.delete <mlib.common.keyframe.Keyframes.delete>` を使う。
         fast引数は無い(OpenMayaでキーを1つずつ消す方が、cmds.cutKeyより遅いため)。
 
         Args:
             time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。
                 Noneは全キー。
-            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
-                ``"sec"`` は秒。
+            timeUnit (str): timeの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
 
         Returns:
             None: 値を返さない。キーが無ければ何もしない。
@@ -1698,20 +1726,20 @@ class Plug(Object):
             self._require_valid()
             cmds.cutKey(self._full_name(), clear=True, **flags)
 
-    def moveKey(self, *, time=None, timeOffset=0, valueOffset=0, unit=None, timeUnit=None):
+    def moveKey(self, *, time=None, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """このアトリビュートのキーの、時刻と値をずらす。
 
         ``cmds.keyframe(plug, edit=True, relative=True)`` と同じ。Mayaと同じく、時刻をずらしたキーは、
         動かさない隣のキーを越えない。カーブを直接操作するときは
-        :meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>` を使う。fast引数は無い。
+        :meth:`Keyframes.move <mlib.common.keyframe.Keyframes.move>`(``AnimCurve.getKeyframes(...)`` の戻り値)を使う。fast引数は無い。
 
         Args:
             time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲 ``(start, end)``。
                 Noneならすべてのキー。
             timeOffset (float): 時刻をずらす量。
             valueOffset (float): 値をずらす量。:meth:`get` と同じ決まりの数値(角度は度、距離はcm)。
-            unit (str | None): 角度のvalueOffsetの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
-            timeUnit (str | None): time・timeOffsetの単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、
+            unit (str): 角度のvalueOffsetの単位。既定の ``"deg"`` は度、``"rad"`` はラジアン。
+            timeUnit (str): time・timeOffsetの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。
 
         Returns:
@@ -1728,19 +1756,19 @@ class Plug(Object):
             self._require_valid()
             _move_plug_keys(self._full_name(), flags)
 
-    def setKeyTangent(self, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
+    def setKeyTangent(self, *, inTangentType=None, outTangentType=None, time=None, timeUnit="frame"):
         """このアトリビュートのキーの、接線の型をまとめて変える。
 
         ``cmds.keyTangent(plug, edit=True, time=..., inTangentType=..., outTangentType=...)`` と同じ。
         時刻か範囲で選んだキーをまとめて変える。カーブの1つのキーの角度・ウェイトまで変えるときは
-        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` を使う。
+        :meth:`Keyframe.setTangent <mlib.common.keyframe.Keyframe.setTangent>`(``AnimCurve.getKeyframes(...)`` の要素)を使う。
         Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は持たない(1回のcmdsで全キーを処理するため)。
 
         Args:
             inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
             outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
             time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
-            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
+            timeUnit (str): timeの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
 
         Returns:
             None: 値を返さない。範囲にキーが無ければ何もしない。
@@ -1756,7 +1784,7 @@ class Plug(Object):
         # keyTangentの1回だけなので、チャンクを開かない。
         cmds.keyTangent(self._full_name(), edit=True, **flags)
 
-    def getAnimLayers(self, selected=False, exact=False):
+    def getAnimLayers(self, *, selected=False, exact=False):
         """このアトリビュートへの入力をさかのぼって、アニメーションレイヤーを取得する。
 
         上のレイヤーから順に並べる。
@@ -1863,12 +1891,12 @@ class Plug(Object):
         self._require_valid()
         return self._mplug.isLocked
 
-    def setLocked(self, state=True, *, leaf=False, fast=False):
+    def setLocked(self, state=True, *, leaves=False, fast=False):
         """ロックを設定する。
 
         Args:
             state (bool): Trueならロックする。既定はTrue。
-            leaf (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
+            leaves (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
                 自身と、その下の子の両方へ設定するには、:meth:`setFlags` の ``children=True`` を使う。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
 
@@ -1879,7 +1907,7 @@ class Plug(Object):
             TypeError: stateがboolでもNoneでもない場合、またはfastがboolでない場合。
             RuntimeError: アトリビュートが無効な場合、またはMayaが更新を拒否した場合。
         """
-        self.setFlags(locked=state, leaf=leaf, fast=fast)
+        self.setFlags(locked=state, leaves=leaves, fast=fast)
 
     def isMuted(self):
         """アトリビュートがミュートされているか判定する。
@@ -1926,15 +1954,15 @@ class Plug(Object):
             else:
                 cmds.mute(self._full_name(), disable=True, force=True)
 
-    def delete(self, *, force=False, fast=False):
+    def delete(self, *, unlock=False, fast=False):
         """このアトリビュートをノードから削除する。
 
         使えるのは、あとから足したアトリビュート(addAttr で足したカスタムアトリビュート)だけ。
         ノードの型に組み込みの静的なアトリビュートを削除しようとすると、Maya が拒否する。
-        接続があれば、force にかかわらず、Maya が自動で接続を切ってから削除する。
+        接続があれば、unlock にかかわらず、Maya が自動で接続を切ってから削除する。
 
         Args:
-            force (bool): True なら、ロックされていても一時的に解除してから削除する。既定はFalse。
+            unlock (bool): True なら、ロックされていても一時的に解除してから削除する。既定はFalse。
                 False のときにロックされたアトリビュートを削除しようとすると、RuntimeError になる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
 
@@ -1942,10 +1970,11 @@ class Plug(Object):
             None: 値を返さない。
 
         Raises:
-            TypeError: fastがboolでない場合。
-            RuntimeError: ノードかアトリビュートが削除されている場合。または、force=False でロックされている場合や、
+            TypeError: unlock・fastがboolでない場合。
+            RuntimeError: ノードかアトリビュートが削除されている場合。または、unlock=False でロックされている場合や、
                 静的なアトリビュートを削除しようとした場合など、Maya が削除を拒否した場合。
         """
+        _require_bool(unlock, "unlock")
         _require_bool(fast, "fast")
         with nullcontext() if fast else undoChunk("mlibPlugDelete"):
             self._require_valid()
@@ -1954,15 +1983,15 @@ class Plug(Object):
                 fn = om2.MFnAttribute(attribute)
                 if not fn.dynamic or not fn.parent.isNull():
                     raise RuntimeError("削除できるのは最上位の動的アトリビュートだけです")
-                if self.isLocked() and not force:
+                if self.isLocked() and not unlock:
                     raise RuntimeError(f"アトリビュートがロックされています: {self._full_name()}")
                 modifier = om2.MDGModifier()
                 modifier.removeAttribute(self.getNode().mnode(), attribute)
-                if force and self.isLocked():
+                if unlock and self.isLocked():
                     self._mplug.isLocked = False
                 modifier.doIt()
             else:
-                if force and self.isLocked():
+                if unlock and self.isLocked():
                     set_attr(self._full_name(), lock=False, fast=False)
                 cmds.deleteAttr(self._full_name())
 
@@ -2187,15 +2216,13 @@ class Plug(Object):
     def getConnections(
         self,
         *,
-        s=True,
-        d=True,
-        c=False,
-        t=None,
-        et=False,
-        scn=False,
+        s=_UNSET,
+        d=_UNSET,
+        t=_UNSET,
+        et=_UNSET,
+        scn=_UNSET,
         source=True,
         destination=True,
-        connections=False,
         type=None,
         exactType=False,
         skipConversionNodes=False,
@@ -2205,7 +2232,7 @@ class Plug(Object):
         checkElements=True,
         index=None,
         input=False,
-        outputs=False,
+        output=False,
     ):
         """接続している相手を取得する。
 
@@ -2217,29 +2244,31 @@ class Plug(Object):
         まず自身の入力・出力を調べ、続けてマルチアトリビュートのすでにある要素か、子を順に下へたどる。
         型で絞り、最初に出てきた順で重複を除いてから、indexを当てはめる。
 
-        このPlug自身の入力元・出力先だけが要るときは、``input=True``・``outputs=True`` を使う
+        このPlug自身の入力元・出力先だけが要るときは、``input=True``・``output=True`` を使う
         (子やマルチアトリビュートの要素に別々につながっている接続までは調べない)。
 
         - ``getConnections(input=True)``: 自身の入力元を1つ返す。無ければ ``None``
           (``source=True, destination=False, checkChildren=False, checkElements=False, index=0`` と同じ)。
           接続が無いかどうかは ``plug.getConnections(input=True) is None`` で判定できる。
-        - ``getConnections(outputs=True)``: 自身の出力先をPlugsで返す。無ければ空
+        - ``getConnections(output=True)``: 自身の出力先をPlugsで返す。無ければ空
           (``source=False, destination=True, checkChildren=False, checkElements=False`` と同じ)。
 
         ``getConnections(destination=False)`` は、これらとは違う。子・要素の接続も集めたPlugsを返すので、
         ``is None`` の判定には使えない。
 
+        短縮名(``s``・``d``・``t``・``et``・``scn``)は ``cmds.listConnections`` のフラグと同じで、
+        同じフラグの長い名前と同時には指定できない。ペアで返す指定は ``asPair`` だけ
+        (``cmds.listConnections`` の ``connections``・``c`` は受けない)。
+
         Args:
-            s (bool): 入力を調べるか。sourceとの両方がTrueのときだけ調べる(AND)。
-            d (bool): 出力を調べるか。destinationとの両方がTrueのときだけ調べる(AND)。
-            c (bool): connections・asPairのどれかがTrueならペアで返す(OR)。
-            t (str | None): 型の条件。typeを指定していない(または偽の)ときに使う。
-            et (bool): exactTypeの短縮名。どちらかがTrueなら有効(OR)。
-            scn (bool): skipConversionNodesの短縮名。どちらかがTrueなら、変換ノードを飛ばす(OR)。
-            source (bool): 入力を含めるか。sとの両方がTrueのときだけ調べる(AND)。
-            destination (bool): 出力を含めるか。dとの両方がTrueのときだけ調べる(AND)。
-            connections (bool): c・asPairのどれかがTrueならペアで返す(OR)。
-            type (str | None): 相手のNodeの型。tより優先する。
+            s (bool): sourceの短縮名。
+            d (bool): destinationの短縮名。
+            t (str | None): typeの短縮名。
+            et (bool): exactTypeの短縮名。
+            scn (bool): skipConversionNodesの短縮名。
+            source (bool): 入力を含めるか。既定はTrue。
+            destination (bool): 出力を含めるか。既定はTrue。
+            type (str | None): 相手のNodeの型。
             exactType (bool): Trueなら型名が完全に一致するものだけ。Falseなら派生した型も含む。
             skipConversionNodes (bool): 既定はFalseで、直接つながっているPlugを返す(``cmds.listConnections`` と同じ)。
                 Trueなら、unitConversion系のノードを飛ばす。
@@ -2249,35 +2278,41 @@ class Plug(Object):
             checkElements (bool): Trueなら、マルチアトリビュートのすでにある要素も調べる。
             index (int | None): 絞り込んだ結果の、Pythonでの位置の番号。負の数も使える。範囲外ならNone。
             input (bool): Trueなら、このPlug自身の入力元を1件(無ければNone)で返す。既定はFalse。
-                outputs・index、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定とは
+                output・index、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定とは
                 同時に指定できない。型・ペア・Nodeで返す指定・変換ノードを飛ばす指定は使える。
-            outputs (bool): Trueなら、このPlug自身の出力先を返す。既定はFalse。
+            output (bool): Trueなら、このPlug自身の出力先を返す。既定はFalse。
                 input、向きとたどり方の指定とは同時に指定できない。indexは使える。
 
         Returns:
             Plugs | Nodes | list | Plug | Node | tuple | None: 既定は相手のPlugs。indexを指定したら1件かNone。
                 ``input=True`` は入力元のPlugかNone(接続が無い場合や、型の条件に合わない場合)。
-                ``outputs=True`` は出力先のPlugs(接続が無ければ空)。
+                ``output=True`` は出力先のPlugs(接続が無ければ空)。
                 asPairなら(自身側のPlug, 相手側)、asNodeなら相手のNode。
                 重複は、通常は相手のPlugごと、asNodeでは相手のNodeごと、asPairでは自身側も含めた組ごとにまとめる。
                 値やノードは複製しない。
 
         Raises:
-            TypeError: input・outputsがboolでない場合、または同時に指定できない引数と一緒に指定した場合。
+            TypeError: input・outputがboolでない場合、同じフラグの長い名前と短縮名を同時に指定した場合、
+                または同時に指定できない引数と一緒に指定した場合。
             RuntimeError: ノードまたはアトリビュートが無効な場合。
         """
+        source = _short_alias(source, s, True, "source", "s")
+        destination = _short_alias(destination, d, True, "destination", "d")
+        type = _short_alias(type, t, None, "type", "t")
+        exactType = _short_alias(exactType, et, False, "exactType", "et")
+        skipConversionNodes = _short_alias(skipConversionNodes, scn, False, "skipConversionNodes", "scn")
         self._require_valid()
-        if input is not False or outputs is not False:
+        if input is not False or output is not False:
             _require_bool(input, "input")
-            _require_bool(outputs, "outputs")
-            if input and outputs:
-                raise TypeError("inputとoutputsは同時に指定できません")
-            if not (s and d and source and destination and checkChildren and checkElements) or (input and index is not None):
+            _require_bool(output, "output")
+            if input and output:
+                raise TypeError("inputとoutputは同時に指定できません")
+            if not (source and destination and checkChildren and checkElements) or (input and index is not None):
                 raise TypeError(
-                    "input・outputsは、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定(inputはindexも)とは同時に指定できません"
+                    "input・outputは、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定(inputはindexも)とは同時に指定できません"
                 )
-            skip = bool(scn or skipConversionNodes)
-            if not (c or t or et or connections or type or exactType or asPair or asNode or index is not None):
+            skip = bool(skipConversionNodes)
+            if not (type or exactType or asPair or asNode or index is not None):
                 # 絞り込みの無い、いちばんよく使う形は、MPlugへ直接問い合わせる。
                 return self._source_plug(skip) if input else Plugs._from_plugs(self._destination_plugs(skip))
             if input:
@@ -2290,10 +2325,10 @@ class Plug(Object):
         def visit(plug):
             """このPlugと、その下の接続を集める(直接の接続か、変換ノードを飛ばした接続)。"""
             mp = plug.mplug()
-            for incoming, enabled in ((True, s and source), (False, d and destination)):
+            for incoming, enabled in ((True, source), (False, destination)):
                 if not enabled:
                     continue
-                if scn or skipConversionNodes:
+                if skipConversionNodes:
                     if incoming:
                         src = mp.source()
                         targets = [] if src.isNull else [src]
@@ -2310,7 +2345,7 @@ class Plug(Object):
                     visit(child)
 
         visit(self)
-        return self._connection_results(pairs, type or t, exactType or et, asPair or c or connections, asNode, index)
+        return self._connection_results(pairs, type, exactType, asPair, asNode, index)
 
     def getAnimCurve(self, layer=None, *, indirect=False, suitableType=False, timeInput=None):
         """このPlugのアニメーションカーブ(animCurve ノード)を取得する。
@@ -2426,7 +2461,7 @@ class Plug(Object):
                 return plug
         return None
 
-    def connect(self, source, *, force=False, f=False, lock=False, l=False, nextAvailable=False, na=False, unlock=True, skipExisting=False, fast=False):
+    def connect(self, source, *, force=False, f=_UNSET, lock=False, l=_UNSET, nextAvailable=False, na=_UNSET, unlock=True, skipExisting=False, fast=False):
         """sourceから自身へ接続する。
 
         接続先を返す。既定では、すでに同じ接続があっても例外にする。
@@ -2438,13 +2473,13 @@ class Plug(Object):
             source (Plug | om2.MPlug | str): 接続元。
             force (bool): Trueなら、すでにある入力を置き換える。unlock=Trueなら、接続先と、その上の
                 コンパウンドアトリビュート・マルチアトリビュートのロックを一時的に外す。接続元のロックは変えない。
-            f (bool): forceの短縮名。どちらかがTrueなら有効(OR)。
+            f (bool): forceの短縮名。forceとは同時に指定できない。
             lock (bool): Trueなら、接続したあとにロックする。Falseでも、もとのロックは戻す。
-            l (bool): lockの短縮名。どちらかがTrueなら有効(OR)。
+            l (bool): lockの短縮名。lockとは同時に指定できない。
             nextAvailable (bool): Trueなら、マルチアトリビュート全体に対して、``cmds.connectAttr(nextAvailable=True)`` と
                 同じ決まりで要素を選ぶ(:meth:`MultiPlug.getNextAvailable` の既定と同じ)。接続のある最後の要素の次から、
                 入力の接続・ロック・子の入力の接続が無い要素を探す。値を持つだけの要素も候補になり、途中の空きは使わない。
-            na (bool): nextAvailableの短縮名。どちらかがTrueなら有効(OR)。
+            na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
             unlock (bool): Falseなら、forceでもロックを外さない。既定はTrue。
             skipExisting (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
                 (unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず
@@ -2458,7 +2493,8 @@ class Plug(Object):
             Plug: 実際の接続先。nextAvailableでは選んだ要素。取得し直すことがあるので、selfと同じオブジェクトとは限らない。
 
         Raises:
-            TypeError: 接続元が指定されていない場合や対応していない型の場合、またはfast・skipExistingがboolでない場合。
+            TypeError: 接続元が指定されていない場合や対応していない型の場合、fast・skipExistingがboolでない場合、
+                または同じフラグの長い名前と短縮名を同時に指定した場合。
             AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
                 forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
@@ -2467,7 +2503,9 @@ class Plug(Object):
         """
         _require_bool(fast, "fast")
         _require_bool(skipExisting, "skipExisting")
-        force, lock = force or f, lock or l
+        force = _short_alias(force, f, False, "force", "f")
+        lock = _short_alias(lock, l, False, "lock", "l")
+        nextAvailable = _short_alias(nextAvailable, na, False, "nextAvailable", "na")
         # 通常の接続は1回のconnectAttrなので、チャンクを開かない。ロックの操作と、マルチアトリビュートの
         # 要素への接続(接続前の値をUndoへ記録する)は、1回のUndoにまとめる。
         chunk = not fast and (lock or (force and unlock) or (self.isValid() and self._under_multi_element(self._mplug)))
@@ -2481,7 +2519,7 @@ class Plug(Object):
                 # cmds.connectAttr は自己接続を拒否するが、MDGModifier は通すため fast でも揃えて拒否する。
                 raise RuntimeError(f"アトリビュートを自分自身へは接続できません: {self._full_name()}")
             if skipExisting:
-                existing = self._existing_connection_target(source, nextAvailable or na)
+                existing = self._existing_connection_target(source, nextAvailable)
                 if existing is not None:
                     return existing
             if self.isLocked() and not (force and unlock):
@@ -2491,7 +2529,7 @@ class Plug(Object):
             # 一時解除しない場合は何もしない区間なので、generatorを作らずnullcontextにする。
             with self._temporarily_unlocked_connection_path(True, fast=fast) if force and unlock else nullcontext():
                 target = self
-                if self.isMulti() and (nextAvailable or na):
+                if self.isMulti() and nextAvailable:
                     # cmds.connectAttr(nextAvailable=True)と同じ規則(MultiPlug.getNextAvailableの既定)。
                     target = self.getNextAvailable()
                 current = target._source_plug(skipConversionNodes=False)
@@ -2521,7 +2559,7 @@ class Plug(Object):
             assert target_name is not None  # 自身を返さない場合は接続前に名前を求めている。
             return Plug._resolve_input(target_name)
 
-    def disconnect(self, source=None, *, force=False, f=False, nextAvailable=False, na=False, fast=False):
+    def disconnect(self, source=None, *, unlock=False, nextAvailable=False, na=_UNSET, fast=False):
         """指定した入力元との、直接の接続を切る。
 
         子の接続まではたどらず、変換ノードも飛ばさない。変換ノードは削除しない。
@@ -2530,11 +2568,12 @@ class Plug(Object):
 
         Args:
             source (Plug | om2.MPlug | str | None): 入力元。省略するかNoneなら、今の直接の入力。
-            force (bool): Trueなら、接続先とその上のロックを一時的に外し、逆の順にロックし直す。入力元のロックは変えない。
-            f (bool): forceの短縮名。どちらかがTrueなら有効(OR)。
+            unlock (bool): Trueなら、接続先とその上のロックを一時的に外し、逆の順にロックし直す。入力元のロックは変えない。
+                既定はFalse。
             nextAvailable (bool): Trueなら、マルチアトリビュートの中で、sourceへ直接つながっている要素の接続をすべて切る。
-                sourceを指定したときだけ効く。
-            na (bool): nextAvailableの短縮名。どちらかがTrueなら有効(OR)。
+                sourceを指定したときだけ効く。``cmds.disconnectAttr(nextAvailable=True)`` は最初に見つかった1つだけを切るが、
+                mlibではつながっている要素をすべて切る(Mayaとの違い)。
+            na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -2548,7 +2587,8 @@ class Plug(Object):
                 マルチアトリビュートの中を探した場合は、接続先の要素のlist。
 
         Raises:
-            TypeError: sourceがboolなど対応していない型の場合、またはfastがboolでない場合。
+            TypeError: sourceがboolなど対応していない型の場合、unlock・fastがboolでない場合、
+                またはnextAvailableとnaを同時に指定した場合。
             AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 入力や指定した接続が無い場合、または切断やロックの復元に失敗した場合。
 
@@ -2556,22 +2596,23 @@ class Plug(Object):
             マルチアトリビュートの中を探した場合は、すでにある順に切る。途中で失敗しても、それまでに切った接続は戻さない。
             接続が無いときに何もしない入力の切断には ``disconnectAll(destination=False)`` を使う。
         """
+        _require_bool(unlock, "unlock")
         _require_bool(fast, "fast")
-        force = force or f
+        nextAvailable = _short_alias(nextAvailable, na, False, "nextAvailable", "na")
         # 1件の切断は1回のdisconnectAttrなので、チャンクを開かない。ロックの一時解除と複数の要素の切断はまとめる。
-        with undoChunk("mlibPlugDisconnect") if not fast and (force or nextAvailable or na) else nullcontext():
+        with undoChunk("mlibPlugDisconnect") if not fast and (unlock or nextAvailable) else nullcontext():
             self._require_valid()
             if isinstance(source, bool):
                 raise TypeError("sourceは入力のPlugの参照で指定してください(boolは指定できません)。方向の指定にはdisconnectAllを使います")
             if source is not None:
                 source = Plug._resolve_input(source)
-            if self.isMulti() and (nextAvailable or na) and source is not None:
+            if self.isMulti() and nextAvailable and source is not None:
                 targets = [p for p in self.getElement() if p._source_plug(False) == source]
                 if not targets:
                     raise RuntimeError(f"入力の接続が見つかりません: {self._full_name()}")
                 names = [target._full_name() for target in targets]
                 for target in targets:
-                    target.disconnect(source, force=force, fast=fast)
+                    target.disconnect(source, unlock=unlock, fast=fast)
                 return [Plug._resolve_input(name) for name in names]
             if source is None:
                 # 現在の直接入力はconnectedTo(True, False)の先頭なので、接続済みの再判定を省く。
@@ -2588,7 +2629,7 @@ class Plug(Object):
             # 返すsrcと自身は、切断前に同じアトリビュートを指す非networkedのMPlugへ持ち替える。
             source._mplug = Plug._unnetworked(source._mplug)
             self._mplug = Plug._unnetworked(self._mplug)
-            with self._temporarily_unlocked_connection_path(True, fast=fast) if force else nullcontext():
+            with self._temporarily_unlocked_connection_path(True, fast=fast) if unlock else nullcontext():
                 if fast:
                     modifier = om2.MDGModifier()
                     modifier.disconnect(source.mplug(), self.mplug())
@@ -2646,7 +2687,7 @@ class Plug(Object):
             destination (Plug | om2.MPlug | str): 接続先。
             skipExisting (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のskipExisting)。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
-            **kwargs: connectのforce/f・lock/l・nextAvailable/na・unlock。
+            **kwargs: connectのforce・f・lock・l・nextAvailable・na・unlock。
 
         Returns:
             Plug: 実際の接続先。skipExistingですでにある接続を見つけた場合も、その接続先。
@@ -2934,7 +2975,7 @@ class Plug(Object):
         return Plug(self._node_from_mplug(sources[0]), sources[0]) if sources and not sources[0].isNull else None
 
     def _destination_plugs(self, skipConversionNodes=True):
-        """このPlug自身の出力先のPlugを返す(``getConnections(outputs=True)`` の絞り込みなしの本体)。
+        """このPlug自身の出力先のPlugを返す(``getConnections(output=True)`` の絞り込みなしの本体)。
 
         有効かどうかは呼び出し側が確かめておく。子・マルチアトリビュートの要素の接続は調べない。
 
@@ -3277,7 +3318,7 @@ class Plug(Object):
         when = om2.MTime(time) if isinstance(time, om2.MTime) else om2.MTime(_finite(time, "time"), om2.MTime.uiUnit())
         _finite(when.asUnits(om2.MTime.kSeconds), "time")
         self._require_valid()
-        leaves = self.getDescendants(leavesOnly=True) if self.isMulti() or self.isCompound() else [self]
+        leaves = self.getDescendants(leaves=True) if self.isMulti() or self.isCompound() else [self]
         for leaf in leaves:
             if type(leaf).get is Plug.get and value_reader(leaf._attribute) is False:
                 raise NotImplementedError(f"指定時刻の取得はOpenMayaで読み取れる型だけに対応しています: {leaf._full_name()}")
@@ -4347,7 +4388,7 @@ class Plugs(_ListMethods):
             return NotImplemented
         return type(self)(list(other) + self._items)
 
-    def sort(self, key=None, reverse=False):
+    def sort(self, *, key=None, reverse=False):
         """持っている並びを、その場で並べ替える。
 
         ``key`` を省略したら、アトリビュートの完全な名前(``Plug.getName(full=True)``)の順にする。
@@ -4369,25 +4410,29 @@ class Plugs(_ListMethods):
             raise TypeError("keyは呼び出せるオブジェクトかNoneで指定してください")
         self._items.sort(key=methodcaller("_full_name") if key is None else key, reverse=reverse)
 
-    def getNames(self, *, full=False):
+    def getNames(self, *, full=False, removeNamespace=False):
         """持っている順に、アトリビュートの名前を返す。
 
         既定は :meth:`Plug.getName` を並べたもの。``full=True`` なら完全なアトリビュート名
         (``Plug.getName(full=True)`` を並べたもの。``maya.cmds`` へ渡すときに使う)。
 
         Args:
-            full (bool): Trueなら、完全なアトリビュート名を返す。既定はFalse。
+            full (bool): Trueなら、完全なアトリビュート名を返す。removeNamespaceとは同時に指定できない。既定はFalse。
+            removeNamespace (bool): Trueなら、ノードの部分のネームスペースを取り除く(:meth:`Plug.getName` と同じ)。既定はFalse。
 
         Returns:
             list[str]: 各Plugの名前。無効なPlugは空文字列。
 
         Raises:
-            TypeError: fullがboolでない場合。
+            TypeError: full・removeNamespaceがboolでない場合、または両方をTrueにした場合。
         """
         _require_bool(full, "full")
+        _require_bool(removeNamespace, "removeNamespace")
+        if full and removeNamespace:
+            raise TypeError("full=TrueはremoveNamespaceと同時に指定できません")
         if full:
             return [plug._full_name() for plug in self._items]
-        return [plug.getName() for plug in self._items]
+        return [plug.getName(removeNamespace=removeNamespace) for plug in self._items]
 
     @classmethod
     def _from_plugs(cls, plugs):

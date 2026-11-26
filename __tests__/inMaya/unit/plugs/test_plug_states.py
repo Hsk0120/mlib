@@ -239,23 +239,23 @@ class PlugFlagSpecTest(_StateSpecCase):
         self.assertUndoEmpty()
 
     def test_leaf_applies_to_children(self):
-        """leaf=Trueはコンパウンドアトリビュートの子へ設定し、親自身は変えない。leaf=Falseは親だけを変える。"""
+        """leaves=Trueはコンパウンドアトリビュートの子へ設定し、親自身は変えない。leaves=Falseは親だけを変える。"""
         translate = self.node.getPlug("translate")
-        translate.setLocked(True, leaf=True)
+        translate.setLocked(True, leaves=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, lock=True) for a in "xyz"], [True] * 3)
         self.assertFalse(cmds.getAttr(self.name + ".t", lock=True))
         translate.setLocked(False)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, lock=True) for a in "xyz"], [True] * 3)
-        translate.setLocked(False, leaf=True)
+        translate.setLocked(False, leaves=True)
         parent_state = self.state("t")
-        translate.setFlags(keyable=False, leaf=True)
+        translate.setFlags(keyable=False, leaves=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, keyable=True) for a in "xyz"], [False] * 3)
         self.assertEqual(self.state("t"), parent_state)
-        translate.setFlags(channelBox=True, leaf=True)
+        translate.setFlags(channelBox=True, leaves=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, channelBox=True) for a in "xyz"], [True] * 3)
         self.assertEqual(self.state("t"), parent_state)
         with self.assertRaises(TypeError):
-            translate.setFlags(keyable=True, children=True, leaf=True)
+            translate.setFlags(keyable=True, children=True, leaves=True)
         self.assertEqual([cmds.getAttr(self.name + ".t" + a, keyable=True) for a in "xyz"], [False] * 3)
 
     def test_set_flags_validation(self):
@@ -422,7 +422,7 @@ class PlugDefinitionQuerySpecTest(_StateSpecCase):
         self.assertFalse(translate.getFlags()["hidden"])
         # 子(末端)だけを隠すと、親のフラグが残っていても隠れている扱い。
         translate.setFlags(keyable=True)
-        translate.setFlags(keyable=False, channelBox=False, leaf=True)
+        translate.setFlags(keyable=False, channelBox=False, leaves=True)
         self.assertTrue(cmds.getAttr(self.name + ".t", keyable=True))
         self.assertTrue(translate.getFlags()["hidden"])
 
@@ -584,7 +584,7 @@ class PlugValiditySpecTest(_StateSpecCase):
             lambda: plug.isConnected(source=False),
             lambda: plug.isConnected(destination=False),
             lambda: plug.getConnections(input=True),
-            lambda: plug.getConnections(outputs=True),
+            lambda: plug.getConnections(output=True),
             lambda: plug.getRange(soft=True),
             lambda: plug.setRange(0.0),
             lambda: plug.setFlags(keyable=True),
@@ -699,7 +699,7 @@ class PlugDeleteSpecTest(_StateSpecCase):
         with self.assertRaises(RuntimeError):
             plug.delete()
         self.assertTrue(cmds.attributeQuery("extra", node=self.name, exists=True))
-        plug.delete(force=True)
+        plug.delete(unlock=True)
         self.assertFalse(plug.isValid())
 
     def test_delete_fast_and_errors(self):
@@ -713,7 +713,7 @@ class PlugDeleteSpecTest(_StateSpecCase):
         self.assertUndoEmpty()
         with self.assertRaises(RuntimeError):
             self.node.getPlug("locked").delete(fast=True)
-        self.node.getPlug("locked").delete(fast=True, force=True)
+        self.node.getPlug("locked").delete(fast=True, unlock=True)
         self.assertFalse(cmds.attributeQuery("locked", node=self.name, exists=True))
         with self.assertRaises(RuntimeError):
             self.node.getPlug("message").delete()

@@ -24,7 +24,7 @@ _MEMBER_HINTS = {
     "connections": ("getConnections", "getConnections()を使います"),
     # 1つ目は、Plugだけにある名前(Plugのときだけ案内する)。
     "inputs": ("getAttributeName", "getConnections(input=True)を使います"),
-    "outputs": ("getAttributeName", "getConnections(outputs=True)を使います"),
+    "outputs": ("getAttributeName", "getConnections(output=True)を使います"),
     "listRelatives": ("getChildren", "getChildren()かgetParent()を使います"),
     "getAllChildren": ("getChildren", "getChildren(allDescendents=True)を使います"),
     "listHistory": ("getHistory", "getHistory()を使います"),
@@ -34,12 +34,12 @@ _MEMBER_HINTS = {
     "parent": ("setParent", "setParent(parent)かgetParent()を使います"),
     "nodeType": ("getType", "getType()を使います"),
     "type": ("getType", "getType()を使います"),
-    "name": ("getName", "getName()を使います。DAGパスを含まない名前はgetName(node=True)です"),
-    "nodeName": ("getName", "getName(node=True)を使います"),
+    "name": ("getName", "getName()を使います。DAGパスを含まない名前はgetName(short=True)です"),
+    "nodeName": ("getName", "getName(short=True)を使います"),
     "longName": ("getName", "getName(full=True)を使います"),
     "fullPath": ("getName", "getName(full=True)を使います"),
     "fullPathName": ("getName", "getName(full=True)を使います"),
-    "shortName": ("getName", "getName(node=True)を使います"),
+    "shortName": ("getName", "getName(short=True)を使います"),
     "exists": ("isValid", "isValid()を使います"),
     "getTranslate": ("getTranslation", "getTranslation()を使います。translateのチャンネルはt.get()です"),
     "setTranslate": ("setTranslation", "setTranslation((x, y, z))を使います。translateのチャンネルはt.set((x, y, z))です"),
@@ -58,6 +58,13 @@ _MEMBER_HINTS = {
     "getAttrName": ("getAttributeName", "アトリビュートのパスはgetName().partition('.')[2]、短い名前はgetAttributeName(\"short\")を使います"),
     "connect": ("connectTo", "connectTo(destination)を使います"),
     "select": (None, "mlib.select(obj)を使います"),
+    # mlibで名前を変えた・まとめたメンバー(2026-11-26の引数の統一)。AnimCurveの番号を取る操作はKeyframe・Keyframesへ寄せた。
+    "getTangent": ("getKeyframes", "getKeyframes(index).getTangent()を使います"),
+    "setTangent": ("getKeyframes", "getKeyframes(index).setTangent(...)を使います"),
+    "isBreakdown": ("getKeyframes", "getKeyframes(index).isBreakdown()を使います"),
+    "setBreakdown": ("getKeyframes", "getKeyframes(index).setBreakdown(state)を使います"),
+    "mesh": ("getGeometry", "getGeometry()[0]を使います"),
+    "mesh_path": ("getGeometry", "getGeometry()[0].mpath()を使います"),
 }
 
 

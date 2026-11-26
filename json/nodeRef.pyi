@@ -15,16 +15,16 @@ class NodeRef:
     同じ名前が複数あれば、変換したDAGパスで絞る。ノード型が違うものは対応させない。
     """
     __hash__: None
-    def __init__(self, name: str, path: str | None = ..., type: str | None = ...) -> None:
+    def __init__(self, name: str, dagPath: str | None = ..., type: str | None = ...) -> None:
         """記録する値を持たせる。
 
         Args:
             name (str): 名前空間付きの短い名前(``"chrA:arm_L_jnt"``)。
-            path (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
+            dagPath (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
             type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。
 
         Raises:
-            TypeError: nameが文字列でない場合、またはpath・typeが文字列でもNoneでもない場合。
+            TypeError: nameが文字列でない場合、またはdagPath・typeが文字列でもNoneでもない場合。
             ValueError: nameが空の場合、または ``"|"`` を含む場合。
         """
         ...
@@ -69,7 +69,7 @@ class NodeRef:
         """
         ...
     @property
-    def path(self) -> str | None:
+    def dagPath(self) -> str | None:
         """記録した完全なDAGパスを返す。
 
         Returns:

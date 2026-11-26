@@ -152,7 +152,7 @@ class _SpecCaseTransformMisc(NamespaceCase):
 
 
 class JointOrientQuaternionTest(_SpecCaseTransformMisc):
-    """getQuaternion(r=False) は jointOrient(とワールドなら親)だけの回転。"""
+    """getQuaternion(rotate=False) は jointOrient(とワールドなら親)だけの回転。"""
 
     def setUp(self):
         super().setUp()
@@ -166,33 +166,33 @@ class JointOrientQuaternionTest(_SpecCaseTransformMisc):
 
     def test_local_joint_is_joint_orient(self):
         """ローカルの Joint は jointOrient だけを Quaternion で返し、rotate を含めない。"""
-        value = self.joint.getQuaternion(r=False)
+        value = self.joint.getQuaternion(rotate=False)
         self.assertIsInstance(value, Quaternion)
         expected = om2.MEulerRotation(0, math.radians(45), 0).asQuaternion()
         self.assertSameRotation(value, expected)
-        self.assertSameRotation(value, self.joint.getQuaternion(r=False))
+        self.assertSameRotation(value, self.joint.getQuaternion(rotate=False))
 
     def test_world_joint_includes_parent(self):
         """ワールドは保持パスから求め、親の回転を含めて rotate だけを除く。"""
         expected = om2.MEulerRotation(0, math.radians(45), 0).asQuaternion() * om2.MEulerRotation(math.radians(30), 0, 0).asQuaternion()
-        self.assertSameRotation(self.joint.getQuaternion(worldSpace=True, r=False), expected)
+        self.assertSameRotation(self.joint.getQuaternion(worldSpace=True, rotate=False), expected)
 
     def test_transform(self):
         """非 Joint のローカルは単位回転、ワールドは親側の回転(ワールド直下なら単位)。"""
-        self.assertSameRotation(self.transform.getQuaternion(r=False), [0, 0, 0, 1])
-        self.assertSameRotation(self.transform.getQuaternion(worldSpace=True, r=False), [0, 0, 0, 1])
+        self.assertSameRotation(self.transform.getQuaternion(rotate=False), [0, 0, 0, 1])
+        self.assertSameRotation(self.transform.getQuaternion(worldSpace=True, rotate=False), [0, 0, 0, 1])
         child = Node(self.make("transform", "child", parent=self.parent))
         cmds.setAttr(child.getName(full=True) + ".rotate", 0, 90, 0)
-        self.assertSameRotation(child.getQuaternion(worldSpace=True, r=False), om2.MEulerRotation(math.radians(30), 0, 0).asQuaternion())
+        self.assertSameRotation(child.getQuaternion(worldSpace=True, rotate=False), om2.MEulerRotation(math.radians(30), 0, 0).asQuaternion())
 
     def test_argument_errors(self):
         """ws と worldSpace の同時指定は TypeError、bool 以外は ValueError。"""
         with self.assertRaises(TypeError):
-            self.joint.getQuaternion(worldSpace=1, r=False)
+            self.joint.getQuaternion(worldSpace=1, rotate=False)
 
     def test_independent_value(self):
         """戻り値を変えてもシーンは変わらない。"""
-        value = self.joint.getQuaternion(r=False)
+        value = self.joint.getQuaternion(rotate=False)
         value.x = 0.9
         self.assertEqual(cmds.getAttr(self.joint_name + ".jointOrient")[0], (0.0, 45.0, 0.0))
 

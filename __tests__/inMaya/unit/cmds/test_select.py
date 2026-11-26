@@ -178,17 +178,17 @@ class SelectTest(_CommonCase):
         self.assertEqual(cmds.ls(selection=True), [self.sphere])
 
     def test_selection_select(self):
-        """Selection.select の各 mode は、cmds.select(noExpand=True) と同じ選択になる。"""
+        """Selection.select の置き換え・add・deselect は、cmds.select(noExpand=True) と同じ選択になる。"""
         names = [self.cube + ".vtx[3]", self.sphere, self.cube + ".vtx[1]", self.cube + ".vtx[2]", self.set]
         selection = Selection(names)
         base = [self.curve, self.cube + ".vtx[2]"]
-        for mode, flag in (("replace", "replace"), ("add", "add"), ("remove", "deselect")):
-            with self.subTest(mode=mode):
+        for mode, flag in (({}, "replace"), ({"add": True}, "add"), ({"deselect": True}, "deselect")):
+            with self.subTest(flag=flag):
                 cmds.select(base)
                 cmds.select([item.getName(full=True) for item in selection], noExpand=True, **{flag: True})
                 expected = self.state()
                 cmds.select(base)
-                self.assertIsNone(selection.select(mode=mode))
+                self.assertIsNone(selection.select(**mode))
                 self.assertEqual(self.state(), expected)
         cmds.select(self.curve)
         Selection().select()

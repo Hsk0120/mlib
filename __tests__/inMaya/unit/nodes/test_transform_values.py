@@ -134,7 +134,7 @@ class TransformSequenceTest(_SpecCase):
         nodes = [Node(name) for name in names]
         self.assertEqual([list(node.getShear()) for node in nodes], [[0.25, 0.0, 0.0]] * 2)
         for node in nodes:
-            self.assertIsInstance(node.getQuaternion(r=False), Quaternion)
+            self.assertIsInstance(node.getQuaternion(rotate=False), Quaternion)
             self.assertIsInstance(node.getRotate(worldSpace=True, order=0), EulerRotate)
             self.assertIsNone(node.setPivot((0, 0, 0), worldSpace=True, kind="rotate"))
         for name in names:

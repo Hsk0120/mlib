@@ -75,7 +75,7 @@ class GetParentAllTest(_Case):
         self.assertEqual(len(leaf.getParent(all=True)), 2)
         group = cmds.createNode("transform", name=self.name("later"))
         cmds.parent(joints[0], group)
-        self.assertEqual([node.getName(node=True) for node in leaf.getParent(all=True)][-1], group.split("|")[-1])
+        self.assertEqual([node.getName(short=True) for node in leaf.getParent(all=True)][-1], group.split("|")[-1])
         self.assertEqual(len(leaf.getParent(all=True)), 3)
 
     def test_shape_ancestors(self):
@@ -84,7 +84,7 @@ class GetParentAllTest(_Case):
         cube = cmds.polyCube(name=self.name("cube"), constructionHistory=False)[0]
         cube = cmds.parent(cube, group)[0]
         shape = mlib.getNode(cmds.listRelatives(cube, shapes=True, fullPath=True)[0])
-        self.assertEqual([node.getName(node=True) for node in shape.getParent(all=True)], [cube.split("|")[-1], group.split("|")[-1]])
+        self.assertEqual([node.getName(short=True) for node in shape.getParent(all=True)], [cube.split("|")[-1], group.split("|")[-1]])
 
     def test_invalid_arguments(self):
         """allとstep・instances・indirectの同時指定と、boolでないallはTypeError。"""

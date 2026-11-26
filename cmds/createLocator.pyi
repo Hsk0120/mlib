@@ -10,7 +10,7 @@ from mlib.nodes.locator import Locator
 from mlib.nodes.node import Node
 
 
-def createLocator(name: str | None = ..., parent: Node | str | None = ..., localPosition: Sequence[float] = ..., localScale: Sequence[float] = ..., *, n: str | None = ...) -> Locator:
+def createLocator(*, name: str | None = ..., parent: Node | str | None = ..., localPosition: Sequence[float] = ..., localScale: Sequence[float] = ..., n: str | None = ...) -> Locator:
     """Transformとlocatorのシェイプを作り、シェイプを返す。
 
     位置はTransformで動かす。localPosition はシェイプの表示だけをずらす(``spaceLocator`` の

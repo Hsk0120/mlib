@@ -9,7 +9,7 @@ from mlib.nodes.node import Node
 
 _UNIT_CONVERSIONS: tuple
 
-def createExpression(string: str, name: str | None = ..., *, alwaysEvaluate: bool = ..., unitConversion: str = ..., n: str | None = ..., ae: bool = ..., uc: str = ...) -> Node:
+def createExpression(string: str, *, name: str | None = ..., alwaysEvaluate: bool = ..., unitConversion: str = ..., n: str | None = ..., ae: bool = ..., uc: str = ...) -> Node:
     """エクスプレッション(expressionノード)を作り、そのノードを返す。
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。

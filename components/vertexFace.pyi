@@ -62,28 +62,28 @@ class VertexFace(Component):
         """
         ...
     @overload
-    def getNormal(self, worldSpace: bool = ..., *, locked: Literal[True], ws: bool = ...) -> bool: ...
+    def getNormal(self, worldSpace: bool = ..., *, lockedOnly: Literal[True], ws: bool = ...) -> bool: ...
     @overload
-    def getNormal(self, worldSpace: bool = ..., *, locked: Literal[False] = ..., ws: bool = ...) -> Vector: ...
+    def getNormal(self, worldSpace: bool = ..., *, lockedOnly: Literal[False] = ..., ws: bool = ...) -> Vector: ...
     @overload
-    def getNormal(self, worldSpace: bool = ..., *, locked: bool = ..., ws: bool = ...) -> Vector | bool:
-        """頂点フェースの法線を、長さ1で取得する。``locked=True`` なら、法線がロックされているかを調べる。
+    def getNormal(self, worldSpace: bool = ..., *, lockedOnly: bool = ..., ws: bool = ...) -> Vector | bool:
+        """頂点フェースの法線を、長さ1で取得する。``lockedOnly=True`` なら、法線がロックされているかを調べる。
 
         法線は ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
         (``polyNormalPerVertex`` で取得した値と同じ)。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``locked=True`` とは同時に指定できない。
-            locked (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``lockedOnly=True`` とは同時に指定できない。
+            lockedOnly (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector | bool: 長さ1の法線。``locked=True`` なら、法線がロックされていればTrue。
+            Vector | bool: 長さ1の法線。``lockedOnly=True`` なら、法線がロックされていればTrue。
 
         Raises:
-            TypeError: worldSpaceかlockedがboolでない場合、worldSpaceとwsを同時に指定した場合、
-                または ``locked=True`` とworldSpace(ws)を同時に指定した場合。
+            TypeError: worldSpaceかlockedOnlyがboolでない場合、worldSpaceとwsを同時に指定した場合、
+                または ``lockedOnly=True`` とworldSpace(ws)を同時に指定した場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
@@ -144,15 +144,17 @@ class VertexFace(Component):
             tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
         """
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, *, fast: bool = ..., colorSet: str | None = ...) -> None:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """この面頂点の色を設定する。
 
         通常はpolyColorPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
 
         Args:
             color (Sequence[float] | om2.MColor): RGBまたはRGBAの有限値。RGBのAは1。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -242,7 +244,7 @@ class VertexFaces(Components):
     def getFace(self) -> list[Face]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getFace` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getNormal(self, worldSpace: bool = ..., *, locked: bool = ..., ws: bool = ...) -> list[Vector | bool]:
+    def getNormal(self, worldSpace: bool = ..., *, lockedOnly: bool = ..., ws: bool = ...) -> list[Vector | bool]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getNormal` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setNormal(self, normal: Sequence[float] | Vector | None = ..., worldSpace: bool = ..., *, locked: bool | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
@@ -254,13 +256,13 @@ class VertexFaces(Components):
     def getColor(self, *, colorSet: str | None = ...) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.getColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setColor(self, color: Sequence[float] | om2.MColor, *, fast: bool = ..., colorSet: str | None = ...) -> list[None]:
+    def setColor(self, color: Sequence[float] | om2.MColor, *, colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.setColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def removeColor(self, *, fast: bool = ..., colorSet: str | None = ...) -> list[None]:
         """各要素の :meth:`~mlib.components.vertexFace.VertexFace.removeColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self, *, full: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:

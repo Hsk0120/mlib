@@ -1,6 +1,6 @@
 """これまで ``fast=True`` の結果を通常と突き合わせていなかった書き込みメソッドを、表でまとめて確かめる。
 
-対象は ``Keyframe.remove``・``Keyframes.remove``・``VertexFace.removeColor``・``Joint.connectInverseScale``・
+対象は ``Keyframe.delete``・``Keyframes.delete``・``VertexFace.removeColor``・``Joint.connectInverseScale``・
 ``Joint.setPreferredAngle``・``Nodes.setColors(outliner=True)``・``SkinCluster.transferWeights``・``Transform.addShape``。
 表の各行について、次を確かめる。
 
@@ -72,13 +72,13 @@ class _FastCase(NamespaceCase):
 
         return curve, state
 
-    def r_Keyframe_remove(self):
+    def r_Keyframe_delete(self):
         curve, state = self.keyed()
-        return (lambda **kw: curve.getKeyframes(1).remove(**kw)), state
+        return (lambda **kw: curve.getKeyframes(1).delete(**kw)), state
 
-    def r_Keyframes_remove(self):
+    def r_Keyframes_delete(self):
         curve, state = self.keyed()
-        return (lambda **kw: curve.getKeyframes([0, 2]).remove(**kw)), state
+        return (lambda **kw: curve.getKeyframes([0, 2]).delete(**kw)), state
 
     def r_VertexFace_removeColor(self):
         transform = cmds.polyCube(name="cube#", constructionHistory=False)[0]

@@ -51,36 +51,53 @@ class _KeyCase(NamespaceCase):
 
 
 class AnimCurveEditTest(_KeyCase):
-    """AnimCurve の moveKey・scaleKey・replaceKeys・removeKey(keepCurve)・setKey の接線の既定。"""
+    """AnimCurve のキーの移動(Keyframes.move)・scaleKey・replaceKeys・キーの削除(keepCurve)・addKey の接線の既定。"""
+
+    def test_get_keyframes_by_time(self):
+        """getKeyframes(time=) は時刻・範囲の中のキーを Keyframes で返す。timeUnit を受け、indices との同時指定は TypeError。"""
+        self.assertEqual(self.curve.getKeyframes(time=(4, 20)).getIndices(self.curve), [1, 2])
+        self.assertEqual(self.curve.getKeyframes(time=5).getIndices(self.curve), [1])
+        self.assertEqual(len(self.curve.getKeyframes(time=(100, 200))), 0)
+        seconds = mlib.common.units.convertTime(5, fromUnit=None, toUnit="sec")
+        self.assertEqual(self.curve.getKeyframes(time=seconds, timeUnit="sec").getIndices(self.curve), [1])
+        with self.assertRaises(TypeError):
+            self.curve.getKeyframes(0, time=5)
+        # AnimCurve の setKey・removeKey は Node と同じ意味(このノード自身のアトリビュート)。番号の操作は AnimCurve に置かない。
+        for name in ("setKey", "removeKey", "moveKey"):
+            with self.subTest(name=name):
+                self.assertIs(getattr(type(self.curve), name), getattr(mlib.Node, name))
+        for name in ("getTangent", "setTangent", "isBreakdown", "setBreakdown"):
+            with self.subTest(name=name):
+                self.assertFalse(hasattr(type(self.curve), name))
 
     def test_move_key_ranges(self):
         """index(単数・並び)・time(時刻・範囲)で絞り、省略は全キー。index と time の同時指定は TypeError。"""
-        self.curve.moveKey(timeOffset=1)
+        self.curve.getKeyframes().move(timeOffset=1)
         self.assertEqual(self.times(), [2.0, 6.0, 11.0])
-        self.curve.moveKey(index=0, valueOffset=1)
+        self.curve.getKeyframes(0).move(valueOffset=1)
         self.assertEqual(self.values(), [1.0, 2.0, 4.0])
-        self.curve.moveKey(index=[1, 2], timeOffset=2)
+        self.curve.getKeyframes([1, 2]).move(timeOffset=2)
         self.assertEqual(self.times(), [2.0, 8.0, 13.0])
-        self.curve.moveKey(time=(7, 20), timeOffset=-1, valueOffset=1)
+        self.curve.getKeyframes(time=(7, 20)).move(timeOffset=-1, valueOffset=1)
         self.assertEqual(self.times(), [2.0, 7.0, 12.0])
         self.assertEqual(self.values(), [1.0, 3.0, 5.0])
-        self.curve.moveKey(time=(100, 200), timeOffset=5)
+        self.curve.getKeyframes(time=(100, 200)).move(timeOffset=5)
         self.assertEqual(self.times(), [2.0, 7.0, 12.0])
         with self.assertRaises(TypeError):
-            self.curve.moveKey(index=0, time=2, timeOffset=1)
+            self.curve.getKeyframes(0, time=2).move(timeOffset=1)
         with self.assertRaises(IndexError):
-            self.curve.moveKey(index=5, timeOffset=1)
+            self.curve.getKeyframes(5).move(timeOffset=1)
         self.flushUndo()
-        self.curve.moveKey(timeOffset=1, valueOffset=1)
+        self.curve.getKeyframes().move(timeOffset=1, valueOffset=1)
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.times(), [2.0, 7.0, 12.0]), lambda: self.assertEqual(self.times(), [3.0, 8.0, 13.0]))
 
     def test_move_key_seconds_and_degrees(self):
         """timeUnit="sec" は秒、角度の valueOffset は度(unit="rad" でラジアン)。"""
         cmds.currentUnit(time="film")
-        self.curve.moveKey(timeOffset=1, timeUnit="sec")
+        self.curve.getKeyframes().move(timeOffset=1, timeUnit="sec")
         self.assertEqual(self.times(), [25.0, 29.0, 34.0])
         rotate = self.node.getPlug("ry").getAnimCurve()
-        rotate.moveKey(valueOffset=math.pi, unit="rad")
+        rotate.getKeyframes().move(valueOffset=math.pi, unit="rad")
         self.assertAlmostEqual(self.values(rotate)[0], 270.0)
 
     def test_scale_key_ranges(self):
@@ -107,7 +124,7 @@ class AnimCurveEditTest(_KeyCase):
         """既定(keepCurve=True)は全キーを消してもカーブと接続が残り、False は Maya と同じく消える。"""
         name = self.curve.getName(full=True)
         self.flushUndo()
-        self.curve.removeKey(index=[0, 1, 2])
+        self.curve.getKeyframes([0, 1, 2]).delete()
         self.assertTrue(cmds.objExists(name))
         self.assertEqual(self.curve.getKeyCount(), 0)
         self.assertEqual(self.node.getPlug("tx").getAnimCurve(), self.curve)
@@ -120,29 +137,29 @@ class AnimCurveEditTest(_KeyCase):
         cmds.undo()
         # すでにロックしていたカーブはロックを保つ。
         cmds.lockNode(name, lock=True)
-        self.curve.removeKey(time=(0, 20))
+        self.curve.getKeyframes(time=(0, 20)).delete()
         self.assertTrue(cmds.objExists(name))
         self.assertTrue(cmds.lockNode(name, query=True, lock=True)[0])
         cmds.undo()
         cmds.lockNode(name, lock=False)
-        self.curve.removeKey(time=(0, 20), keepCurve=False)
+        self.curve.getKeyframes(time=(0, 20)).delete(keepCurve=False)
         self.assertFalse(cmds.objExists(name))
         cmds.undo()
         self.assertTrue(cmds.objExists(name))
         with self.assertRaises(TypeError):
-            self.curve.removeKey(index=0, keepCurve=1)
+            self.curve.getKeyframes(0).delete(keepCurve=1)
 
     def test_remove_key_fast(self):
         """fast は Undo に残さず、keepCurve=False で空になったカーブを削除する。"""
         free = mlib.createNode("animCurveTL", name=self.name("free"))
-        free.setKey(1, 1)
-        free.setKey(2, 2)
+        free.addKey(1, 1)
+        free.addKey(2, 2)
         self.flushUndo()
-        free.removeKey(index=[0, 1], fast=True)
+        free.getKeyframes([0, 1]).delete(fast=True)
         self.assertTrue(free.isValid())
         self.assertEqual(free.getKeyCount(), 0)
-        free.setKey(1, 1, fast=True)
-        free.removeKey(index=0, keepCurve=False, fast=True)
+        free.addKey(1, 1, fast=True)
+        free.getKeyframes(0).delete(keepCurve=False, fast=True)
         self.assertFalse(free.isValid())
         self.assertUndoEmpty()
 
@@ -155,7 +172,7 @@ class AnimCurveEditTest(_KeyCase):
         )
         cmds.redo()
         self.assertEqual(self.node.getPlug("tx").getAnimCurve(), self.curve)
-        self.assertEqual(self.curve.getTangent(1)["inTangentType"], "linear")
+        self.assertEqual(self.curve.getKeyframes(1).getTangent()["inTangentType"], "linear")
         cmds.currentTime(3)
         self.assertAlmostEqual(cmds.getAttr(self.name_ + ".tx"), self.curve.evaluate(3))
         before = (self.times(), self.values())
@@ -174,17 +191,17 @@ class AnimCurveEditTest(_KeyCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 curve = mlib.createNode("animCurveTL", name=self.name("tangent#"))
-                curve.setKey(1, 1, fast=fast)
-                tangent = curve.getTangent(0)
+                curve.addKey(1, 1, fast=fast)
+                tangent = curve.getKeyframes(0).getTangent()
                 self.assertEqual((tangent["inTangentType"], tangent["outTangentType"]), ("flat", "step"))
-                curve.setTangent(0, inTangentType="linear", outTangentType="linear")
-                curve.setKey(1, 5, fast=fast)
-                tangent = curve.getTangent(0)
+                curve.getKeyframes(0).setTangent(inTangentType="linear", outTangentType="linear")
+                curve.addKey(1, 5, fast=fast)
+                tangent = curve.getKeyframes(0).getTangent()
                 self.assertEqual((tangent["inTangentType"], tangent["outTangentType"]), ("linear", "linear"))
                 self.assertEqual(curve.getKeyValues(), [5.0])
-                curve.setKey(2, 1, "spline", fast=fast)
-                self.assertEqual(curve.getTangent(1)["inTangentType"], "spline")
-                self.assertEqual(curve.getTangent(1)["outTangentType"], "step")
+                curve.addKey(2, 1, "spline", fast=fast)
+                self.assertEqual(curve.getKeyframes(1).getTangent()["inTangentType"], "spline")
+                self.assertEqual(curve.getKeyframes(1).getTangent()["outTangentType"], "step")
 
     def test_driven_plugs(self):
         """getDrivenPlugs は unitConversion を飛ばした出力先を返す。つながっていなければ空。"""
@@ -197,21 +214,21 @@ class AnimCurveEditTest(_KeyCase):
         self.assertEqual(mlib.createNode("animCurveTL", name=self.name("lonely")).getDrivenPlugs(), [])
 
     def test_remove_key_outside_keys_does_nothing(self):
-        """キーの無い範囲のremoveKeyは、通常・fastとも何も消さずNoneを返す。"""
+        """キーの無い範囲の getKeyframes(time=...).delete() は、通常・fastとも何も消さずNoneを返す。"""
         for fast in (False, True):
             with self.subTest(fast=fast):
-                self.assertIsNone(self.curve.removeKey(time=(20, 30), fast=fast))
-                self.assertIsNone(self.curve.removeKey(time=3, fast=fast))
+                self.assertIsNone(self.curve.getKeyframes(time=(20, 30)).delete(fast=fast))
+                self.assertIsNone(self.curve.getKeyframes(time=3).delete(fast=fast))
                 self.assertEqual(self.times(), [1.0, 5.0, 10.0])
                 self.assertEqual(self.values(), [0.0, 2.0, 4.0])
 
     def test_time_range_inputs_rejected_before_change(self):
-        """timeの組が2値でない・開始が終了より大きい場合は、removeKey・moveKeyとも何も変えずに例外。"""
+        """timeの組が2値でない・開始が終了より大きい場合は、getKeyframes(time=...) が何も変えずに例外。"""
         for label, operation, error in (
-            ("remove three values", lambda: self.curve.removeKey(time=(1, 2, 3)), TypeError),
-            ("remove reversed", lambda: self.curve.removeKey(time=(10, 1)), ValueError),
-            ("move three values", lambda: self.curve.moveKey(time=[1, 2, 3], timeOffset=1), TypeError),
-            ("move reversed", lambda: self.curve.moveKey(time=(10, 1), timeOffset=1), ValueError),
+            ("remove three values", lambda: self.curve.getKeyframes(time=(1, 2, 3)).delete(), TypeError),
+            ("remove reversed", lambda: self.curve.getKeyframes(time=(10, 1)).delete(), ValueError),
+            ("move three values", lambda: self.curve.getKeyframes(time=[1, 2, 3]).move(timeOffset=1), TypeError),
+            ("move reversed", lambda: self.curve.getKeyframes(time=(10, 1)).move(timeOffset=1), ValueError),
         ):
             with self.subTest(label=label):
                 with self.assertRaises(error):
@@ -224,9 +241,9 @@ class AnimCurveEditTest(_KeyCase):
         for label, operation, error in (
             ("key tuple", lambda: self.curve.addKeys([(2, 1.0)]), TypeError),
             ("key mixed", lambda: self.curve.addKeys([{"input": 2, "value": 1.0}, 3]), TypeError),
-            ("no flags", lambda: self.curve.setTangent(0), ValueError),
-            ("unknown flag", lambda: self.curve.setTangent(0, ott="linear"), ValueError),
-            ("unknown flag fast", lambda: self.curve.setTangent(0, fast=True, itt="linear"), ValueError),
+            ("no flags", lambda: self.curve.getKeyframes(0).setTangent(), ValueError),
+            ("unknown flag", lambda: self.curve.getKeyframes(0).setTangent(ott="linear"), ValueError),
+            ("unknown flag fast", lambda: self.curve.getKeyframes(0).setTangent(fast=True, itt="linear"), ValueError),
         ):
             with self.subTest(label=label):
                 with self.assertRaises(error):

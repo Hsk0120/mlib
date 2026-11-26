@@ -36,7 +36,7 @@ _QUERIES = (
     ("getAlias", lambda plug: plug.getAlias()),
     ("isMuted", lambda plug: plug.isMuted()),
     ("getConnections(input)", lambda plug: plug.getConnections(input=True)),
-    ("getConnections(outputs)", lambda plug: plug.getConnections(outputs=True)),
+    ("getConnections(outputs)", lambda plug: plug.getConnections(output=True)),
 )
 
 #: 範囲の片側だけを設定する書き方。(名前, Plug・値・単位の指定を受けて呼ぶ関数)。
@@ -114,13 +114,13 @@ class InvalidPlugTest(_PlugCase):
                         call(plug)
 
     def test_outputs_with_options_raises(self):
-        """getConnections(outputs=True) に絞り込みの指定(asNode 等)を足しても、無効な Plug は RuntimeError。"""
+        """getConnections(output=True) に絞り込みの指定(asNode 等)を足しても、無効な Plug は RuntimeError。"""
         for label, factory in (("deletedNode", self.dead_node_plug), ("deletedAttribute", self.dead_attr_plug)):
             for flags in ({"asNode": True}, {"skipConversionNodes": True}, {"index": 0}):
                 with self.subTest(case=label, flags=flags):
                     plug = factory()
                     with self.assertRaises(RuntimeError):
-                        plug.getConnections(outputs=True, **flags)
+                        plug.getConnections(output=True, **flags)
 
     def test_setters_raise_runtime_error(self):
         """削除済みの Plug への範囲の設定・ミュートは RuntimeError で、他のノードを作らない。"""
@@ -382,7 +382,7 @@ class NameQueryTest(_PlugCase):
         self.assertIsNone(plug.getProxyMaster())
 
     def test_outputs(self):
-        """getConnections(outputs=True) は cmds.listConnections と同じ出力先を返す。"""
+        """getConnections(output=True) は cmds.listConnections と同じ出力先を返す。"""
         source = self.make("transform", "src")
         target = self.make("transform", "dst")
         cmds.connectAttr(source + ".translateX", target + ".translateY")
@@ -390,7 +390,7 @@ class NameQueryTest(_PlugCase):
         self.assertTrue(plug.isConnected(source=False))
         self.assertFalse(plug.isConnected(destination=False))
         self.assertEqual(
-            [str(item) for item in plug.getConnections(outputs=True)], cmds.listConnections(source + ".translateX", source=False, destination=True, plugs=True)
+            [str(item) for item in plug.getConnections(output=True)], cmds.listConnections(source + ".translateX", source=False, destination=True, plugs=True)
         )
 
 

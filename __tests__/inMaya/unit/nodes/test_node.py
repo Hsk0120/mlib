@@ -161,8 +161,8 @@ class NodeApiTest(unittest.TestCase):
 
         namespaced = transform.setNamespace(self.namespace)
         self.assertIsNone(namespaced)
-        self.assertIn("mlibNodeApiRenamed", transform.getName(node=True))
-        self.assertEqual(transform.getName(node=True, removeNamespace=True), "mlibNodeApiRenamed")
+        self.assertIn("mlibNodeApiRenamed", transform.getName(short=True))
+        self.assertEqual(transform.getName(short=True, removeNamespace=True), "mlibNodeApiRenamed")
         self.assertEqual(transform.getNamespace(), Namespace(self.namespace))
 
         missing_namespace = ":mlibNodeApiMissing:child"
@@ -353,7 +353,7 @@ class NodeApiTest(unittest.TestCase):
         cmds.addAttr(node.getName(full=True), longName="attrCompoundZ", attributeType="double", parent="attrCompound")
         node.addAttr("attrB", attributeType="double", defaultValue=0.0)
 
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrCompound", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrCompound", "attrB"])
 
     def test_unresolvable_node_name_raises_runtime_error(self):
         with self.assertRaises(RuntimeError) as context:
@@ -546,7 +546,7 @@ class DeletedNodeTest(_SpecCase):
         self.assertEqual(repr(node), "<Transform invalid>")
         self.assertEqual(node.getType(), "transform")
         with self.assertRaisesRegex(RuntimeError, "削除されたか、Undoで取り消されました"):
-            node.getName(node=True, removeNamespace=True)
+            node.getName(short=True, removeNamespace=True)
         self.assertFalse(node.hasAttr("tx"))
         self.assertFalse(node.isType("transform"))
         # Undo の記録に残る間は生存中として同じノード扱いになる。
@@ -585,7 +585,7 @@ class DeletedNodeTest(_SpecCase):
         self.assertFalse(node.isAlive())
         self.assertFalse(node.sameNode(node))
         self.assertFalse(node == node)
-        for method, flags in (("getType", {}), ("isLocked", {}), ("isFromReferencedFile", {}), ("mfn", {}), ("getName", {"node": True})):
+        for method, flags in (("getType", {}), ("isLocked", {}), ("isFromReferencedFile", {}), ("mfn", {}), ("getName", {"short": True})):
             with self.subTest(method=method):
                 with self.assertRaises(RuntimeError):
                     getattr(node, method)(**flags)
@@ -691,19 +691,19 @@ class NamePathTest(_SpecCase):
     """名前・パス・namespace の照会と変更。"""
 
     def test_dag_names(self):
-        """同名がある DAG では getName は区別できる部分パス、getName(node=True) は葉の名前。"""
+        """同名がある DAG では getName は区別できる部分パス、getName(short=True) は葉の名前。"""
         parent_a, parent_b = self.make("transform", "pa"), self.make("transform", "pb")
         first = Node(self.make("transform", "leaf", parent=parent_a))
         self.make("transform", "leaf", parent=parent_b)
         self.assertEqual(first.getName(), cmds.ls(first.getName(full=True))[0])
         self.assertIn("|", first.getName())
-        self.assertEqual(first.getName(node=True), self.name("leaf"))
-        self.assertEqual(first.getName(node=True, removeNamespace=True), "leaf")
-        # removeNamespace は node=True のときだけ使える。bool 以外も TypeError。
-        for flags in ({"removeNamespace": True}, {"node": 1}, {"node": True, "removeNamespace": 1}, {"node": None}):
+        self.assertEqual(first.getName(short=True), self.name("leaf"))
+        self.assertEqual(first.getName(short=True, removeNamespace=True), "leaf")
+        # removeNamespace は short=True のときだけ使える。bool 以外も TypeError。
+        for flags in ({"removeNamespace": True}, {"short": 1}, {"short": True, "removeNamespace": 1}, {"short": None}):
             with self.subTest(flags=flags), self.assertRaises(TypeError):
                 first.getName(**flags)
-        self.assertEqual(first.getName(node=False), first.getName())
+        self.assertEqual(first.getName(short=False), first.getName())
         with self.assertRaises(TypeError):
             first.getName(True)
         self.assertEqual(first.getName(full=True), "|" + self.name("pa") + "|" + self.name("leaf"))
@@ -733,13 +733,13 @@ class NamePathTest(_SpecCase):
         self.extra_namespaces.append(target)
         cmds.flushUndo()
         self.assertIsNone(node.setNamespace(target))
-        self.assertEqual(node.getName(node=True), target + ":moved")
+        self.assertEqual(node.getName(short=True), target + ":moved")
         self.assertTrue(cmds.namespace(exists=target))
         cmds.undo()
         self.assertFalse(cmds.namespace(exists=target))
         self.assertEqual(node.getName(), self.name("moved"))
         self.assertIsNone(node.setNamespace(Namespace(self.ns)))
-        self.assertEqual(node.getName(node=True), self.name("moved"))
+        self.assertEqual(node.getName(short=True), self.name("moved"))
         for value in ("", 1, None):
             with self.subTest(value=value):
                 with self.assertRaisesRegex(ValueError, "空でない文字列で指定してください"):
@@ -754,7 +754,7 @@ class NamePathTest(_SpecCase):
         self.extra_namespaces.append(target)
         cmds.flushUndo()
         self.assertIsNone(node.setNamespace(target + ":", fast=True))
-        self.assertEqual(node.getName(node=True), target + ":fastMoved")
+        self.assertEqual(node.getName(short=True), target + ":fastMoved")
         self.assertTrue(cmds.namespace(exists=target))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
         node.setNamespace(self.ns, fast=True)
@@ -763,7 +763,7 @@ class NamePathTest(_SpecCase):
         """rename は自身を返し、不正文字は置換、空の名前は RuntimeError、``|`` は ValueError。"""
         node = Node(self.make("network", "orig"))
         self.assertIsNone(node.rename(self.name("1bad")))
-        self.assertEqual(node.getName(node=True), self.name("bad"))
+        self.assertEqual(node.getName(short=True), self.name("bad"))
         with self.assertRaisesRegex(ValueError, r"に'\|'は使えません"):
             node.rename("grp|child")
         with self.assertRaises(RuntimeError):
@@ -772,7 +772,7 @@ class NamePathTest(_SpecCase):
             node.rename(self.name("x"), fast="yes")
         cmds.flushUndo()
         self.assertIsNone(node.rename(self.name("fastName"), fast=True))
-        self.assertEqual(node.getName(node=True), self.name("fastName"))
+        self.assertEqual(node.getName(short=True), self.name("fastName"))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_rename_ignore_shape(self):
@@ -828,10 +828,10 @@ class AttributeQueryTest(_SpecCase):
         self.assertEqual(self.node.getPlug("aliasA").mplug(), self.node.getPlug("weightA").mplug())
 
     def test_extra_attrs(self):
-        """getPlugs(userDefined=True) は追加順で、子は includeChildren=True のときだけ。aliasAttr の内部領域も含む。"""
+        """getPlugs(userDefined=True) は追加順で、子は children=True のときだけ。aliasAttr の内部領域も含む。"""
 
         def names(include_children):
-            return [plug.getAttributeName() for plug in self.node.getPlugs(userDefined=True, includeChildren=include_children)]
+            return [plug.getAttributeName() for plug in self.node.getPlugs(userDefined=True, children=include_children)]
 
         self.assertFalse(hasattr(self.node, "getExtraAttrs"))
         self.assertEqual(self.node.getPlugs(userDefined=True), [])
@@ -842,14 +842,14 @@ class AttributeQueryTest(_SpecCase):
         cmds.addAttr(self.node_name, longName="text", dataType="string")
         self.assertEqual(names(False), ["first", "vec", "text"])
         self.assertEqual(names(True), ["first", "vec", "vecX", "vecY", "vecZ", "text"])
-        plugs = self.node.getPlugs(userDefined=True, includeChildren=False)
+        plugs = self.node.getPlugs(userDefined=True, children=False)
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
         self.assertEqual([plug.getName(full=True) for plug in plugs], [self.node_name + "." + name for name in ("first", "vec", "text")])
         cmds.aliasAttr("firstAlias", self.node_name + ".first")
         # cmds.listAttr(userDefined=True) と同じく aliasAttr の内部アトリビュートを含む。
         self.assertIn("attributeAliasList", names(False))
         with self.assertRaises(TypeError):
-            self.node.getPlugs(userDefined=True, includeChildren=1)
+            self.node.getPlugs(userDefined=True, children=1)
         with self.assertRaises(TypeError):
             self.node.getPlugs(userDefined=1)
         with self.assertRaises(TypeError):
@@ -1046,7 +1046,7 @@ class DestroyedNodeTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "無効なノードは使えません"):
                     getattr(node, method)()
         # 名前の取得は無効なノードでRuntimeError。str()だけは空文字列を返す。
-        for flags in ({}, {"node": True}, {"node": True, "removeNamespace": True}):
+        for flags in ({}, {"short": True}, {"short": True, "removeNamespace": True}):
             with self.subTest(flags=flags):
                 with self.assertRaisesRegex(RuntimeError, r"削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
                     node.getName(**flags)

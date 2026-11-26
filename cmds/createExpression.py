@@ -10,7 +10,7 @@ from ..util import _UNSET
 _UNIT_CONVERSIONS = ("all", "none", "angularOnly")
 
 
-def createExpression(string, name=_UNSET, *, alwaysEvaluate=_UNSET, unitConversion=_UNSET, n=_UNSET, ae=_UNSET, uc=_UNSET):
+def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversion=_UNSET, n=_UNSET, ae=_UNSET, uc=_UNSET):
     """エクスプレッション(expressionノード)を作り、そのノードを返す。
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。

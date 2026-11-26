@@ -212,6 +212,17 @@ class Snapshot:
             NotImplementedError: 基底クラスで呼んだ場合。
         """
         ...
+    def _run_validate(self, mapping_args: dict, options: dict) -> ValidationReport:
+        """検査だけを行う(それぞれの種類の ``validate`` の中身)。
+
+        Args:
+            mapping_args (dict): ``nameMap``・``replace``・``namespaceMap``。
+            options (dict): 種類ごとに追加する指定。``_validate`` へ渡す。
+
+        Returns:
+            ValidationReport: 見つからないもの・書けないもの・適用できない問題。
+        """
+        ...
     def _run_apply(self, mapping_args: dict, options: dict, fast: bool = ...) -> ValidationReport:
         """検査してから、1回のUndoで適用する(それぞれの種類の ``apply`` の中身)。
 
@@ -235,7 +246,7 @@ class Snapshot:
 
         Args:
             frame (float): 保存したときのフレーム。
-            timing (str): ``"frame"`` か ``"second"``。
+            timing (str): ``"frame"`` か ``"sec"``。
 
         Returns:
             float: 今のシーンのフレーム。取得したばかり(ヘッダーが無い)ならそのまま。

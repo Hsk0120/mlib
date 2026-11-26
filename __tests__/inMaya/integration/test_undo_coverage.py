@@ -1136,7 +1136,7 @@ def r_anim_keys(c):
     values = c.ncurve.getKeyValues()
     keys = []
     for index, key_input in enumerate(c.ncurve.getKeyInputs()):
-        tangent = tuple(sorted(c.ncurve.getTangent(index).items()))
+        tangent = tuple(sorted(c.ncurve.getKeyframes(index).getTangent().items()))
         keys.append((key_input, values[index], tangent))
     return tuple(keys)
 
@@ -1535,7 +1535,7 @@ def a_undo_transaction_anonymous(c, **kwargs):
 
 
 def a_reorder(c, **kwargs):
-    c.ntgt.reorderVertices(c.ref, match="position", **kwargs)
+    c.ntgt.reorderVertices(c.ref, method="position", **kwargs)
 
 
 def _matrix(tx, ty, tz):
@@ -1573,7 +1573,7 @@ CASES = [
     C("NurbsCurve.removeKnot", "NurbsCurve.removeKnot", s_repeated_curve_knots, lambda c, **kw: c.ncrvShape.removeKnot(0.5)),
     C("IkHandle.setChain", "IkHandle.setChain end", s_ik_chain, lambda c, **kw: c.handle.setChain(c.start, c.middle)),
     C("IkHandle.setChain", "IkHandle.setChain", s_ik_chain, lambda c, **kw: c.handle.setChain(c.middle, c.end)),
-    C("Namespace.clear", "Namespace.clear", s_ns, lambda c, **kw: Namespace(c.sub).clear()),
+    C("Namespace.deleteNodes", "Namespace.deleteNodes", s_ns, lambda c, **kw: Namespace(c.sub).deleteNodes()),
     C(
         "NurbsSurface.setKnots",
         "NurbsSurface.setKnots",
@@ -1604,7 +1604,7 @@ CASES = [
     C("cmds.createPoly", "createPoly(sphere) constructionHistory", None, lambda c, **kw: mlib.createPoly("sphere", name="madeBall", constructionHistory=True)),
     C("Node.setKeyTangent", "Node.setKeyTangent", s_keyed, lambda c, **kw: c.na.setKeyTangent(["tx"], inTangentType="linear", outTangentType="step")),
     C("Plug.setKeyTangent", "Plug.setKeyTangent", s_keyed, lambda c, **kw: c.na.getPlug("tx").setKeyTangent(outTangentType="flat", time=(1, 5))),
-    C("Mesh.copySet", "Mesh.copySet(uv) replace", s_uv_sets, lambda c, **kw: c.nshape.copySet("map1", "uv2", replace=True)),
+    C("Mesh.copySet", "Mesh.copySet(uv) replace", s_uv_sets, lambda c, **kw: c.nshape.copySet("map1", "uv2", overwrite=True)),
     C(
         "SkinCluster.smoothWeights",
         "SkinCluster.smoothWeights vertices",
@@ -1649,7 +1649,7 @@ CASES = [
     C("DagNode.setVisibility", "setVisibility show", s_hidden, lambda c, **kw: c.na.setVisibility(True, **kw)),
     C("DagNode.setColor", "setColor index", s_curves, lambda c, **kw: c.ncrv.setColor(13, **kw)),
     C("DagNode.setColor", "setColor rgb", s_one, lambda c, **kw: c.na.setColor((1.0, 0.5, 0.0), **kw)),
-    C("DagNode.setColor", "setColor shape", s_curves, lambda c, **kw: c.ncrv.setColor(13, shape=True, **kw)),
+    C("DagNode.setColor", "setColor shape", s_curves, lambda c, **kw: c.ncrv.setColor(13, toShape=True, **kw)),
     C("DagNode.setColor", "setColor outliner rgb", s_one, lambda c, **kw: c.na.setColor((1.0, 0.5, 0.0), outliner=True, **kw)),
     C("DagNode.reorder", "reorder index", s_siblings, lambda c, **kw: c.na.reorder(index=2)),
     C("DagNode.reorder", "reorder back", s_siblings, lambda c, **kw: c.na.reorder(back=True)),
@@ -1689,7 +1689,7 @@ CASES = [
         "Transform.setQuaternion",
         "setQuaternion jointOrient",
         s_joints,
-        lambda c, **kw: c.nj1.setQuaternion((0.0, 0.0, 0.2588190451, 0.9659258263), r=False, **kw),
+        lambda c, **kw: c.nj1.setQuaternion((0.0, 0.0, 0.2588190451, 0.9659258263), rotate=False, **kw),
     ),
     C("Transform.centerPivot", "centerPivot components", s_cube, lambda c, **kw: c.ncube.centerPivot(c.ncube.getName(full=True) + ".vtx[0:1]", **kw)),
     C("Transform.setPivot", "setPivot", s_one, lambda c, **kw: c.na.setPivot((1.0, 2.0, 3.0), **kw)),
@@ -1987,29 +1987,34 @@ CASES = [
     C("Constraint.setWeight", "Constraint.setWeight", s_constraint, lambda c, **kw: c.ncon.setWeight(0.5, **kw)),
     C("AimConstraint.setRestRotate", "AimConstraint.setRestRotate", s_aim, lambda c, **kw: c.ncon.setRestRotate((0.1, 0.2, 0.3), **kw)),
     # AnimCurve
-    C("AnimCurve.setKey", "AnimCurve.setKey new", s_keyed, lambda c, **kw: c.ncurve.setKey(0.2, 3.0, **kw)),
+    C("AnimCurve.addKey", "AnimCurve.addKey new", s_keyed, lambda c, **kw: c.ncurve.addKey(0.2, 3.0, **kw)),
     C(
-        "AnimCurve.removeKey",
-        "AnimCurve.removeKey",
+        "Keyframe.delete",
+        "Keyframe.delete index",
         s_keyed,
-        lambda c, **kw: c.ncurve.removeKey(index=0, **kw),
+        lambda c, **kw: c.ncurve.getKeyframes(0).delete(**kw),
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
-    C("AnimCurve.setTangent", "AnimCurve.setTangent", s_keyed, lambda c, **kw: c.ncurve.setTangent(0, inTangentType="flat", outTangentType="flat", **kw)),
+    C(
+        "Keyframe.setTangent",
+        "Keyframe.setTangent both",
+        s_keyed,
+        lambda c, **kw: c.ncurve.getKeyframes(0).setTangent(inTangentType="flat", outTangentType="flat", **kw),
+    ),
     C("AnimCurve.setInfinity", "AnimCurve.setInfinity", s_keyed, lambda c, **kw: c.ncurve.setInfinity(pre="cycle", post="linear", **kw)),
-    C("AnimCurve.moveKey", "AnimCurve.moveKey", s_keyed, lambda c, **kw: c.ncurve.moveKey(timeOffset=0.1, valueOffset=1.0, **kw)),
+    C("Keyframes.move", "Keyframes.move all", s_keyed, lambda c, **kw: c.ncurve.getKeyframes().move(timeOffset=0.1, valueOffset=1.0)),
     C("AnimCurve.scaleKey", "AnimCurve.scaleKey", s_keyed, lambda c, **kw: c.ncurve.scaleKey(2.0, 2.0, **kw)),
     C("AnimCurve.scaleKey", "AnimCurve.scaleKey valueScale=-1", s_keyed, lambda c, **kw: c.ncurve.scaleKey(valueScale=-1)),
-    C("AnimCurve.setKey", "AnimCurve.setKey(insert)", s_keyed, lambda c, **kw: c.ncurve.setKey(4), fastSkip="挿入(value を省く形)は fast を受け付けない"),
-    C("AnimCurve.setBreakdown", "AnimCurve.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.setBreakdown([0, 1])),
-    C("AnimCurve.moveKey", "AnimCurve.moveKey index", s_keyed, lambda c, **kw: c.ncurve.moveKey(index=1, timeOffset=2, valueOffset=-1)),
+    C("AnimCurve.addKey", "AnimCurve.addKey(insert)", s_keyed, lambda c, **kw: c.ncurve.addKey(4), fastSkip="挿入(value を省く形)は fast を受け付けない"),
+    C("Keyframes.setBreakdown", "Keyframes.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.getKeyframes([0, 1]).setBreakdown()),
+    C("Keyframe.move", "Keyframe.move index", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(1).move(timeOffset=2, valueOffset=-1)),
     C("AnimCurve.scaleKey", "AnimCurve.scaleKey time", s_keyed, lambda c, **kw: c.ncurve.scaleKey(1, 3, valuePivot=1, time=(5, 15))),
     C(
-        "AnimCurve.removeKey",
-        "AnimCurve.removeKey keepCurve all",
+        "Keyframes.delete",
+        "Keyframes.delete keepCurve all",
         s_keyed,
-        lambda c, **kw: c.ncurve.removeKey(index=[0, 1], **kw),
+        lambda c, **kw: c.ncurve.getKeyframes([0, 1]).delete(**kw),
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
@@ -2036,10 +2041,10 @@ CASES = [
     C("Keyframe.setBreakdown", "Keyframe.setBreakdown", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(1).setBreakdown()),
     C("Keyframe.move", "Keyframe.move", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(0).move(timeOffset=1, valueOffset=1)),
     C(
-        "Keyframe.remove",
-        "Keyframe.remove",
+        "Keyframe.delete",
+        "Keyframe.delete",
         s_keyed,
-        lambda c, **kw: c.ncurve.getKeyframes(0).remove(**kw),
+        lambda c, **kw: c.ncurve.getKeyframes(0).delete(**kw),
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
@@ -2047,10 +2052,10 @@ CASES = [
     C("Keyframes.setTangent", "Keyframes.setTangent", s_keyed, lambda c, **kw: c.ncurve.getKeyframes().setTangent(inTangentType="flat", **kw)),
     C("Keyframes.move", "Keyframes.move", s_keyed, lambda c, **kw: c.ncurve.getKeyframes().move(timeOffset=3)),
     C(
-        "Keyframes.remove",
-        "Keyframes.remove",
+        "Keyframes.delete",
+        "Keyframes.delete",
         s_keyed,
-        lambda c, **kw: c.ncurve.getKeyframes([0]).remove(**kw),
+        lambda c, **kw: c.ncurve.getKeyframes([0]).delete(**kw),
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
@@ -2086,7 +2091,7 @@ CASES = [
     C("DisplayLayer.setCurrent", "DisplayLayer.setCurrent", s_layer, lambda c, **kw: c.nlayer.setCurrent(**kw)),
     # ObjectSet
     C("ObjectSet.addMembers", "ObjectSet.addMembers", s_set, lambda c, **kw: c.nset.addMembers(c.a, **kw)),
-    C("ObjectSet.addMembers", "ObjectSet.addMembers exclusive", s_exclusive_set, lambda c, **kw: c.nset.addMembers(c.a, exclusive=True, **kw)),
+    C("ObjectSet.addMembers", "ObjectSet.addMembers exclusive", s_exclusive_set, lambda c, **kw: c.nset.addMembers(c.a, forceElement=True, **kw)),
     C("ObjectSet.removeMembers", "ObjectSet.removeMembers", s_set_member, lambda c, **kw: c.nset.removeMembers(c.a, **kw)),
     C("ObjectSet.removeMembers", "ObjectSet.removeMembers all", s_set_member, lambda c, **kw: c.nset.removeMembers(all=True, **kw)),
     # Shading
@@ -2155,10 +2160,15 @@ CASES = [
         s_skin,
         lambda c, **kw: c.skin.removeInfluences(c.j1, transferToParent=False),
     ),
-    C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences force", s_skin_locked, lambda c, **kw: c.skin.removeInfluences([c.j1], force=True)),
+    C("SkinCluster.removeInfluences", "SkinCluster.removeInfluences force", s_skin_locked, lambda c, **kw: c.skin.removeInfluences([c.j1], repair=True)),
     C("SkinCluster.normalizeWeights", "SkinCluster.normalizeWeights", s_skin_unnormalized, lambda c, **kw: c.skin.normalizeWeights(**kw)),
-    C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, **kw)),
-    C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences prune", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, prune=True, **kw)),
+    C("SkinCluster.setMaxInfluences", "SkinCluster.setMaxInfluences", s_skin, lambda c, **kw: c.skin.setMaxInfluences(1, maintain=True, **kw)),
+    C(
+        "SkinCluster.setMaxInfluences",
+        "SkinCluster.setMaxInfluences prune",
+        s_skin,
+        lambda c, **kw: c.skin.setMaxInfluences(1, maintain=True, prune=True, **kw),
+    ),
     C(
         "SkinCluster.setWeights",
         "SkinCluster.setWeights rows",
@@ -2237,11 +2247,11 @@ CASES = [
     C("Mesh.renameSet", "Mesh.renameSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.renameSet("uv2", "uvRenamed")),
     C("Mesh.setCurrentSet", "Mesh.setCurrentSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.setCurrentSet("uv2")),
     C("Mesh.deleteSet", "Mesh.deleteSet(uv)", s_uv_sets, lambda c, **kw: c.nshape.deleteSet("uv2")),
-    C("Mesh.createSet", "Mesh.createSet(color)", s_cube, lambda c, **kw: c.nshape.createSet("colNew", color=True)),
-    C("Mesh.copySet", "Mesh.copySet(color)", s_color_sets, lambda c, **kw: c.nshape.copySet("col1", "colCopy", color=True)),
-    C("Mesh.renameSet", "Mesh.renameSet(color)", s_color_sets, lambda c, **kw: c.nshape.renameSet("col2", "colRenamed", color=True)),
-    C("Mesh.setCurrentSet", "Mesh.setCurrentSet(color)", s_color_sets, lambda c, **kw: c.nshape.setCurrentSet("col1", color=True)),
-    C("Mesh.deleteSet", "Mesh.deleteSet(color)", s_color_sets, lambda c, **kw: c.nshape.deleteSet("col2", color=True)),
+    C("Mesh.createSet", "Mesh.createSet(color)", s_cube, lambda c, **kw: c.nshape.createSet("colNew", kind="color")),
+    C("Mesh.copySet", "Mesh.copySet(color)", s_color_sets, lambda c, **kw: c.nshape.copySet("col1", "colCopy", kind="color")),
+    C("Mesh.renameSet", "Mesh.renameSet(color)", s_color_sets, lambda c, **kw: c.nshape.renameSet("col2", "colRenamed", kind="color")),
+    C("Mesh.setCurrentSet", "Mesh.setCurrentSet(color)", s_color_sets, lambda c, **kw: c.nshape.setCurrentSet("col1", kind="color")),
+    C("Mesh.deleteSet", "Mesh.deleteSet(color)", s_color_sets, lambda c, **kw: c.nshape.deleteSet("col2", kind="color")),
     # Plug
     C("Plug.set", "Plug.set double", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").set(4.0, **kw)),
     C("Plug.set", "Plug.set bool", s_one, lambda c, **kw: mlib.getPlug(c.a + ".visibility").set(False, **kw)),
@@ -2281,11 +2291,11 @@ CASES = [
         "Plug.setFlags",
         "Plug.setFlags compound leaf",
         s_one,
-        lambda c, **kw: mlib.getPlug(c.a + ".translate").setFlags(keyable=False, leaf=True, **kw),
+        lambda c, **kw: mlib.getPlug(c.a + ".translate").setFlags(keyable=False, leaves=True, **kw),
         extraState=r_plug_flags,
     ),
     C("Plug.setLocked", "Plug.setLocked", s_one, lambda c, **kw: mlib.getPlug(c.a + ".tx").setLocked(True, **kw)),
-    C("Plug.setLocked", "Plug.setLocked compound leaf", s_one, lambda c, **kw: mlib.getPlug(c.a + ".translate").setLocked(True, leaf=True, **kw)),
+    C("Plug.setLocked", "Plug.setLocked compound leaf", s_one, lambda c, **kw: mlib.getPlug(c.a + ".translate").setLocked(True, leaves=True, **kw)),
     C("Plug.setLocked", "Plug.setLocked False", s_locked, lambda c, **kw: mlib.getPlug(c.a + ".tx").setLocked(False, **kw)),
     C(
         "Plug.setFlags",
@@ -2346,7 +2356,7 @@ CASES = [
         mayaQuirk=_TANGENT_CACHE,
         ignoreAttrs=_TANGENT_ATTRS,
     ),
-    C("AnimCurve.removeKey", "AnimCurve.removeKey range", s_keyed, lambda c, **kw: c.ncurve.removeKey(time=(5, 15), **kw)),
+    C("Keyframes.delete", "Keyframes.delete range", s_keyed, lambda c, **kw: c.ncurve.getKeyframes(time=(5, 15)).delete(**kw)),
     C("Plug.setKey", "Plug.setKey new curve", s_one, lambda c, **kw: mlib.getPlug(c.a + ".ty").setKey(time=3, value=1.0, **kw)),
     C("Plug.setKey", "Plug.setKey existing curve", s_keyed, lambda c, **kw: mlib.getPlug(c.a + ".tx").setKey(time=5, value=2.0, **kw)),
     C("Plug.setEnumNames", "Plug.setEnumNames", s_user, lambda c, **kw: mlib.getPlug(c.a + ".mode").setEnumNames(["x", "y", "z"], **kw)),
@@ -2399,9 +2409,9 @@ CASES = [
     C("Namespace.create", "Namespace.create", s_one, lambda c, **kw: Namespace.create("madeNs", parent=":" + c.ns)),
     C("Namespace.setCurrent", "Namespace.setCurrent", s_ns, lambda c, **kw: Namespace(c.sub).setCurrent()),
     C("Namespace.rename", "Namespace.rename", s_ns, lambda c, **kw: Namespace(c.sub).rename("renamedNs")),
-    C("Namespace.move", "Namespace.move", s_ns, lambda c, **kw: Namespace(c.sub).move(c.dest)),
-    C("Namespace.remove", "Namespace.remove", s_ns, lambda c, **kw: Namespace(c.sub).remove(":" + c.ns)),
-    C("Namespace.remove", "Namespace.remove deleteContents", s_ns, lambda c, **kw: Namespace(c.sub).remove(deleteContents=True)),
+    C("Namespace.setParent", "Namespace.setParent", s_ns, lambda c, **kw: Namespace(c.sub).setParent(c.dest)),
+    C("Namespace.delete", "Namespace.delete", s_ns, lambda c, **kw: Namespace(c.sub).delete(":" + c.ns)),
+    C("Namespace.delete", "Namespace.delete deleteContents", s_ns, lambda c, **kw: Namespace(c.sub).delete(deleteContents=True)),
     C("ScalarGraph.sum", "ScalarGraph.sum container", s_graph, lambda c, **kw: c.graph.sum("add", c.plug, 1.0, **kw), fastSkip=_CONTAINER_FAST),
     C("ScalarGraph.sum", "ScalarGraph.sum createNode", s_graph_factory, lambda c, **kw: c.graph.sum("add", c.plug, 1.0, subtract=True, **kw)),
     C("ScalarGraph.multiply", "ScalarGraph.multiply container", s_graph, lambda c, **kw: c.graph.multiply("mul", c.plug, 2.0, **kw), fastSkip=_CONTAINER_FAST),
@@ -2415,7 +2425,7 @@ CASES = [
     ),
     C("ScalarGraph.condition", "ScalarGraph.condition createNode", s_graph_factory, lambda c, **kw: c.graph.condition("cond", c.plug, 1.0, 2.0, 3.0, **kw)),
     C("Selection.select", "Selection.select replace", s_two, lambda c, **kw: Selection([c.a, c.b]).select()),
-    C("Selection.select", "Selection.select add", s_two_selected, lambda c, **kw: Selection([c.b]).select(mode="add")),
+    C("Selection.select", "Selection.select add", s_two_selected, lambda c, **kw: Selection([c.b]).select(add=True)),
     # 追加writerの専用データも比較する(アトリビュート範囲・UV・法線・カラー等)。
     C(
         "AnimCurve.addKeys",

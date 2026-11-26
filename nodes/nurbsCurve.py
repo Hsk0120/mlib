@@ -407,7 +407,7 @@ class NurbsCurve(_ControlPointShape):
             raise NotImplementedError("コンポーネントタグを持つカーブのノット削除には対応していません")
         for point in self.getPlug("controlPoints").getElement():
             for plug in [point, *point.getChildren()]:
-                if plug.getConnections(outputs=True):
+                if plug.getConnections(output=True):
                     raise NotImplementedError("CVから出力接続があるカーブのノット削除には対応していません")
         # 両端が最大多重度の開いたカーブでは、異なるノット値の順番がEP番号になる。
         ep_index = sorted(set(knots)).index(parameter)
@@ -433,7 +433,7 @@ class NurbsCurve(_ControlPointShape):
         fn.makeMultipleEndKnots()
         self._write_curve_data(fn)
 
-    def getLength(self, param=None, worldSpace=_UNSET, *, tolerance=_UNSET, unit="cm", ws=_UNSET):
+    def getLength(self, param=None, worldSpace=_UNSET, *, tolerance=_UNSET, distanceUnit="cm", ws=_UNSET):
         """カーブの長さを取得する。``param`` を渡すと、カーブの始点からそのパラメーターの位置までの長さを取得する。
 
         計算用のノードをシーンに作らない。``param`` を渡したときの値は ``arcLengthDimension`` の ``arcLength`` にあたる。
@@ -444,7 +444,7 @@ class NurbsCurve(_ControlPointShape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 全長を計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。既定は1e-06。
                 ``param`` を渡したときは指定できない。
-            unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。
+            distanceUnit (str | None): 返す値の距離の単位。既定はcm。Noneなら、今のUIの距離単位。
                 mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する。
 
         Returns:
@@ -460,7 +460,7 @@ class NurbsCurve(_ControlPointShape):
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         ws = _world_space(worldSpace)
         # 単位は毎回照会する。係数を使うためシーンの単位設定は変更しない。
-        factor = self._unit_factor(unit)
+        factor = self._unit_factor(distanceUnit)
         if param is not None:
             if tolerance is not _UNSET:
                 raise TypeError("toleranceは全長(param=None)のときだけ指定できます")
@@ -641,7 +641,7 @@ class NurbsCurve(_ControlPointShape):
         start, end = self._geometry_fn().knotDomain
         return start, end
 
-    def getParam(self, *, point=None, length=None, worldSpace=_UNSET, tolerance=_UNSET, unit=_UNSET, ws=_UNSET):
+    def getParam(self, worldSpace=_UNSET, *, point=None, length=None, tolerance=_UNSET, distanceUnit=_UNSET, ws=_UNSET):
         """カーブ上の点、または始点からの長さにあたるパラメーターを取得する。
 
         ``point`` と ``length`` のどちらか1つを指定する。
@@ -652,12 +652,12 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector | None): 指定空間での位置(cm)。
-            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はunit。
+            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はdistanceUnit。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
                 ワールド空間の長さには、親の非均等スケールも反映する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。既定は1e-7。``point`` のときだけ指定できる。
-            unit (str | None): lengthの単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
+            distanceUnit (str | None): lengthの距離の単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
                 ``length`` のときだけ指定できる。
 
         Returns:
@@ -665,7 +665,7 @@ class NurbsCurve(_ControlPointShape):
 
         Raises:
             TypeError: pointとlengthを両方指定したか、どちらも指定しない場合、点・長さ・空間・許容誤差・単位の型が不正な場合、
-                worldSpaceとwsを同時に指定した場合、lengthとtoleranceを同時に指定した場合、またはpointとunitを同時に指定した場合。
+                worldSpaceとwsを同時に指定した場合、lengthとtoleranceを同時に指定した場合、またはpointとdistanceUnitを同時に指定した場合。
             ValueError: 点が有限の3成分でない場合、許容誤差が負か有限でない場合、lengthが有限でないか0未満か全長を超える場合、
                 または単位の名前が対応していない場合。
             RuntimeError: 点が許容誤差内のカーブ上にない場合、または形状データを持たない空のシェイプの場合。
@@ -674,8 +674,8 @@ class NurbsCurve(_ControlPointShape):
             raise TypeError("pointかlengthのどちらか1つを指定してください")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         if point is not None:
-            if unit is not _UNSET:
-                raise TypeError("unitはlengthを指定したときだけ指定できます")
+            if distanceUnit is not _UNSET:
+                raise TypeError("distanceUnitはlengthを指定したときだけ指定できます")
             x, y, z = geometryEdit.point_list([point])[0]
             tolerance = _checked_tolerance(1e-7 if tolerance is _UNSET else tolerance)
             curve = self._space_curve(worldSpace)
@@ -683,7 +683,7 @@ class NurbsCurve(_ControlPointShape):
         if tolerance is not _UNSET:
             raise TypeError("toleranceはpointを指定したときだけ指定できます")
         curve = self._space_curve(worldSpace)
-        factor = self._unit_factor("cm" if unit is _UNSET else unit)
+        factor = self._unit_factor("cm" if distanceUnit is _UNSET else distanceUnit)
         value = _finite(length, "length") / factor
         return self._param_at_length(curve, value, curve.length(1e-6))
 
@@ -828,7 +828,7 @@ class NurbsCurve(_ControlPointShape):
         curve = self._space_curve(worldSpace)
         return self._params_along(curve, count)
 
-    def getMatricesAlong(self, count, up=None, *, aimAxis="x", upAxis="y", worldSpace=_UNSET, ws=_UNSET):
+    def getMatricesAlong(self, count, up=None, worldSpace=_UNSET, *, aimAxis="x", upAxis="y", ws=_UNSET):
         """カーブに沿って等間隔に並ぶ点の向きを、マトリクスで取得する。
 
         各点で、aimAxisの軸を接線へ向けたマトリクスを返す。点の並びは :meth:`getParamsAlong` と同じ。

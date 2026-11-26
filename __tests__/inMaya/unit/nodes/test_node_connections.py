@@ -1,7 +1,7 @@
 """``Node.getConnections`` のフラグと、通っていなかった照会・削除の経路のテスト。
 
 - getConnections の s・d・scn・connections を cmds.listConnections と比べる。
-- getName(full=False)・getPlugs(includeChildren=False, connectable=True) を cmds と比べる。
+- getName(full=False)・getPlugs(children=False, connectable=True) を cmds と比べる。
 - delete(skipConnected=True) の DGノードと、同じShapeを2つの親に持つ階層を確かめる。
 - インスタンスのShapeのアトリビュートを、Shapeより前に子を持つtransformの名前で取得する。
 """
@@ -62,9 +62,18 @@ class GetConnectionsFlagsTest(_Case):
         self.assertFalse(any(item.getType() == "unitConversion" for item in result))
 
     def test_connections_pairs(self):
-        """connections=Trueは自身の側と相手の側のPlugの組で返し、cmdsのconnections・plugsと同じ組になる。"""
+        """asPair=Trueは自身の側と相手の側のPlugの組で返し、cmdsのconnections・plugsと同じ組になる。connections・cは受けず、短縮名と長い名前の同時指定はTypeError。"""
         _source, node, _target = self.wired()
-        pairs = node.getConnections(connections=True)
+        pairs = node.getConnections(asPair=True)
+        for flags in (
+            {"connections": True},
+            {"c": True},
+            {"s": False, "source": False},
+            {"t": "transform", "type": "transform"},
+            {"et": True, "exactType": True},
+        ):
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                node.getConnections(**flags)
         flat = cmds.listConnections(str(node), connections=True, plugs=True) or []
         # cmdsの名前は短縮名のこともあるため、同じ決まりの名前(ノードの一意名とロング名)へそろえて比べる。
         expected = {(str(mlib.getPlug(flat[index])), str(mlib.getPlug(flat[index + 1]))) for index in range(0, len(flat), 2)}
@@ -88,11 +97,11 @@ class NodeQueriesTest(_Case):
         node = mlib.getNode(self.make(text="node"))
         listed = cmds.listAttr(str(node), connectable=True)
         self.assertTrue(any("." in name for name in listed))
-        names = [plug.getAttributeName() for plug in node.getPlugs(includeChildren=False, connectable=True)]
+        names = [plug.getAttributeName() for plug in node.getPlugs(children=False, connectable=True)]
         # 子のアトリビュートは、cmds.attributeQueryで親を持つもの(``boundingBoxMinX`` などの「.」の無い名前も含む)。
         expected = [name for name in listed if "." not in name and not cmds.attributeQuery(name, node=str(node), listParent=True)]
         self.assertEqual(names, expected)
-        self.assertFalse([plug for plug in node.getPlugs(includeChildren=False, connectable=True) if plug.mplug().isChild])
+        self.assertFalse([plug for plug in node.getPlugs(children=False, connectable=True) if plug.mplug().isChild])
 
 
 class DeleteSkipConnectedTest(_Case):

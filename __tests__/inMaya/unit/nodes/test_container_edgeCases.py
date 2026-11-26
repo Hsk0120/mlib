@@ -19,7 +19,7 @@ class _ContainerCase(NamespaceCase):
 
     def setUp(self):
         super().setUp()
-        self.owner = mlib.createContainer(self.name("box"))
+        self.owner = mlib.createContainer(name=self.name("box"))
 
     def tearDown(self):
         for name in cmds.ls(self.ns + ":*", type="container") or []:

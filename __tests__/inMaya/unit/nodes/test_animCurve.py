@@ -39,8 +39,8 @@ class AnimationNodesTest(unittest.TestCase):
                 self.assertIsInstance(curve, mlib.AnimCurve)
                 for obsolete in ("getDriverPlug", "getOutputPlug", "shiftKeys", "scaleKeys"):
                     self.assertFalse(hasattr(type(curve), obsolete), obsolete)
-                curve.setKey(0, 0, "linear", "linear")
-                curve.setKey(10, 20, "linear", "linear")
+                curve.addKey(0, 0, "linear", "linear")
+                curve.addKey(10, 20, "linear", "linear")
                 self.assertEqual(curve.getKeyInputs(), [0, 10])
                 self.assertAlmostEqual(curve.getKeyValues()[1], 20)
                 self.assertAlmostEqual(curve.evaluate(5), 10)
@@ -49,34 +49,34 @@ class AnimationNodesTest(unittest.TestCase):
                 self.assertEqual(curve.getKeyCount(), 1)
                 cmds.redo()
                 self.assertEqual(curve.getKeyCount(), 2)
-                curve.removeKey(index=1)
+                curve.getKeyframes(1).delete()
                 self.assertEqual(curve.getKeyCount(), 1)
                 cmds.undo()
                 self.assertEqual(curve.getKeyCount(), 2)
 
     def test_tangents_infinity_and_invalid_input(self):
         curve = self.create("animCurveUU")
-        curve.setKey(0, 0, "linear", "linear")
-        curve.setKey(1, 1, "linear", "linear")
-        curve.setTangent(0, outTangentType="flat")
-        self.assertEqual(curve.getTangent(0)["outTangentType"], "flat")
+        curve.addKey(0, 0, "linear", "linear")
+        curve.addKey(1, 1, "linear", "linear")
+        curve.getKeyframes(0).setTangent(outTangentType="flat")
+        self.assertEqual(curve.getKeyframes(0).getTangent()["outTangentType"], "flat")
         cmds.undo()
-        self.assertEqual(curve.getTangent(0)["outTangentType"], "linear")
+        self.assertEqual(curve.getKeyframes(0).getTangent()["outTangentType"], "linear")
         curve.setInfinity(pre="cycle", post="linear")
         self.assertEqual(curve.getInfinity(), {"pre": "cycle", "post": "linear"})
         cmds.undo()
         self.assertEqual(curve.getInfinity()["pre"], "constant")
         with self.assertRaises(ValueError):
-            curve.setKey(float("nan"), 1)
+            curve.addKey(float("nan"), 1)
         with self.assertRaises(IndexError):
-            curve.removeKey(index=5)
+            curve.getKeyframes(5).delete()
 
     def test_infinity_api_reads_and_fast_updates_all_types(self):
         """全8型で照会・fast更新がcmds非依存で、通常更新と同じ外挿になる。"""
         for suffix in ("TA", "TL", "TT", "TU", "UA", "UL", "UT", "UU"):
             curve = self.create("animCurve" + suffix)
-            curve.setKey(0, 0)
-            curve.setKey(1, 2)
+            curve.addKey(0, 0)
+            curve.addKey(1, 2)
             for mode in ("constant", "linear", "cycle", "cycleRelative", "oscillate"):
                 curve.setInfinity(pre=mode, post=mode)
                 expected = [curve.evaluate(t) for t in (-0.5, 1.5)]
@@ -117,8 +117,8 @@ class AnimationNodesTest(unittest.TestCase):
     def test_standard_plug_queries_keep_direct_conversion_connections(self):
         """入出力の直接接続照会は変換ノードを飛ばさず、Undo履歴を変えない。"""
         curve = self.create("animCurveUU")
-        curve.setKey(0, 0)
-        curve.setKey(1, 1)
+        curve.addKey(0, 0)
+        curve.addKey(1, 1)
         driver = self.create("network").addAttr("driver", defaultValue=0.5)
         driven = self.create("network").addAttr("driven")
         incoming = self.create("unitConversion")
@@ -130,7 +130,7 @@ class AnimationNodesTest(unittest.TestCase):
         before = cmds.undoInfo(query=True, undoName=True)
 
         source = curve.getPlug("input").getConnections(input=True)
-        destinations = curve.getPlug("output").getConnections(outputs=True)
+        destinations = curve.getPlug("output").getConnections(output=True)
 
         self.assertEqual(source, incoming.getPlug("output"))
         self.assertEqual(destinations, [outgoing.getPlug("input")])
@@ -141,10 +141,10 @@ class AnimationNodesTest(unittest.TestCase):
     def test_mirror_and_shift_ignore_other_selected_keys(self):
         for kind in ("animCurveTL", "animCurveUU"):
             curve = self.create(kind)
-            curve.setKey(-2, 3)
-            curve.setKey(4, 9)
+            curve.addKey(-2, 3)
+            curve.addKey(4, 9)
             other = self.create("animCurveTU")
-            other.setKey(1, 10)
+            other.addKey(1, 10)
             cmds.selectKey(other.getName(full=True), index=(0, 0))
             curve.scaleKey(-1, -1)
             self.assertEqual(curve.getKeyInputs(), [-4, 2])
@@ -154,7 +154,7 @@ class AnimationNodesTest(unittest.TestCase):
             self.assertEqual(curve.getKeyInputs(), [-2, 4])
             cmds.redo()
             self.assertEqual(curve.getKeyInputs(), [-4, 2])
-            curve.moveKey(timeOffset=1, valueOffset=2)
+            curve.getKeyframes().move(timeOffset=1, valueOffset=2)
             self.assertEqual(curve.getKeyInputs(), [-3, 3])
             self.assertAlmostEqual(curve.evaluate(0), -4)
             cmds.selectKey(clear=True)
@@ -246,11 +246,11 @@ class AnimCurveTest(_Case):
     """AnimCurve と Keyframe の追加メソッド。"""
 
     def test_insert_key_keeps_shape(self):
-        """setKey(input)(value を省いた挿入)は評価値を変えずにキーを足し、Undo 1回で戻る。"""
+        """addKey(input)(value を省いた挿入)は評価値を変えずにキーを足し、Undo 1回で戻る。"""
         curve = self.keyed()
         value = curve.evaluate(4)
         self.flushUndo()
-        self.assertIsNone(curve.setKey(4))
+        self.assertIsNone(curve.addKey(4))
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibAnimCurveInsertKey")
         self.assertUndoesInOneStep(
             lambda: self.assertEqual(curve.getKeyInputs(), [1.0, 10.0]), lambda: self.assertEqual(curve.getKeyInputs(), [1.0, 4.0, 10.0])
@@ -259,14 +259,14 @@ class AnimCurveTest(_Case):
         self.assertAlmostEqual(curve.getKeyValues()[1], value)
         self.assertAlmostEqual(curve.evaluate(4), value)
         # value=None を明示しても挿入。すでにキーのある位置では何も変えない。
-        curve.setKey(7, None)
+        curve.addKey(7, None)
         self.assertEqual(curve.getKeyInputs(), [1.0, 4.0, 7.0, 10.0])
         values = curve.getKeyValues()
-        curve.setKey(4)
+        curve.addKey(4)
         self.assertEqual(curve.getKeyInputs(), [1.0, 4.0, 7.0, 10.0])
         self.assertEqual(curve.getKeyValues(), values)
         # value を渡すと今までどおりの書き込み(挿入と区別される)。
-        curve.setKey(4, 9.0)
+        curve.addKey(4, 9.0)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibAnimCurveSetKey")
         self.assertAlmostEqual(curve.getKeyValues()[1], 9.0)
 
@@ -274,7 +274,7 @@ class AnimCurveTest(_Case):
         """timeUnit="sec" の入力と、不正な入力・空のカーブ。"""
         curve = self.keyed()
         fps = {"film": 24.0, "ntsc": 30.0, "pal": 25.0}[cmds.currentUnit(query=True, time=True)]
-        curve.setKey(7.0 / fps, timeUnit="sec")
+        curve.addKey(7.0 / fps, timeUnit="sec")
         self.assertEqual([round(value, 6) for value in curve.getKeyInputs()], [1.0, 7.0, 10.0])
         for args, kwargs, error in (
             ((float("inf"),), {}, ValueError),
@@ -284,25 +284,23 @@ class AnimCurveTest(_Case):
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
-                    curve.setKey(*args, **kwargs)
-        # 挿入(value を省く)では、接線の型・unit・fast・check を指定できない。
+                    curve.addKey(*args, **kwargs)
+        # 挿入(value を省く)では、接線の型・fast・check を指定できない(unit は使わない)。
         before = (curve.getKeyInputs(), curve.getKeyValues())
         for label, args, kwargs in (
             ("inTangentType", (5, None, "linear"), {}),
             ("outTangentType", (5,), {"outTangentType": "linear"}),
-            ("unit", (5,), {"unit": "deg"}),
-            ("unit rad", (5,), {"unit": "rad"}),
             ("fast", (5,), {"fast": True}),
             ("check", (5,), {"check": True}),
             ("fast+check", (5,), {"fast": True, "check": True}),
         ):
             with self.subTest(label=label):
                 with self.assertRaises(TypeError):
-                    curve.setKey(*args, **kwargs)
+                    curve.addKey(*args, **kwargs)
                 self.assertEqual((curve.getKeyInputs(), curve.getKeyValues()), before)
         empty = mlib.getNode(self.make("animCurveTL", "empty#"))
         with self.assertRaisesRegex(RuntimeError, "空のカーブへはキーを挿入できません"):
-            empty.setKey(3)
+            empty.addKey(3)
         self.assertEqual(empty.getKeyCount(), 0)
 
     def test_find_closest_index(self):
@@ -318,35 +316,39 @@ class AnimCurveTest(_Case):
             curve.findClosestIndex(float("nan"))
 
     def test_breakdown(self):
-        """setBreakdown は keyframe -q -breakdown と一致し、Undo 1回で戻る。Keyframe からも使える。"""
+        """getKeyframes が返す Keyframe の setBreakdown は keyframe -q -breakdown と一致し、Undo 1回で戻る。"""
         curve = self.keyed()
-        curve.setKey(5)
+        curve.addKey(5)
         name = curve.getName(full=True)
 
         def queried():
             return cmds.keyframe(name, query=True, breakdown=True) or []
 
-        self.assertEqual([curve.isBreakdown(i) for i in range(3)], [False, False, False])
+        self.assertEqual([curve.getKeyframes(i).isBreakdown() for i in range(3)], [False, False, False])
         self.flushUndo()
-        self.assertIsNone(curve.setBreakdown(1))
+        self.assertIsNone(curve.getKeyframes(1).setBreakdown())
         self.assertUndoesInOneStep(lambda: self.assertEqual(queried(), []), lambda: self.assertEqual(queried(), [5.0]))
         key = curve.getKeyframes(1)
         self.assertIsNone(key.setBreakdown())
         self.assertTrue(key.isBreakdown())
-        self.assertEqual([curve.isBreakdown(i) for i in range(3)], [False, True, False])
+        self.assertEqual([curve.getKeyframes(i).isBreakdown() for i in range(3)], [False, True, False])
         key.setBreakdown(False)
         self.assertFalse(key.isBreakdown())
-        curve.setBreakdown([0, 2])
+        for index in (0, 2):
+            curve.getKeyframes(index).setBreakdown()
         self.assertEqual(queried(), [1.0, 10.0])
-        for args, error in (((5,), IndexError), ((1, "yes"), TypeError), ((None,), TypeError)):
-            with self.subTest(args=args):
-                with self.assertRaises(error):
-                    curve.setBreakdown(*args)
         with self.assertRaises(IndexError):
-            curve.isBreakdown(3)
+            curve.getKeyframes(5)
+        with self.assertRaises(TypeError):
+            curve.getKeyframes(1).setBreakdown("yes")
+        with self.assertRaises(AttributeError):
+            # 番号を渡す setBreakdown・isBreakdown は AnimCurve に置かない(Keyframe で行う)。
+            curve.setBreakdown(1)
+        with self.assertRaises(IndexError):
+            curve.getKeyframes(3).isBreakdown()
         cmds.delete(name)
         with self.assertRaises(RuntimeError):
-            curve.isBreakdown(0)
+            curve.getKeyframes(0).isBreakdown()
 
 
 if __name__ == "__main__":

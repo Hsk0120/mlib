@@ -105,18 +105,34 @@ class SkinWeightEditingTest(unittest.TestCase):
 
     def test_max_setting_preserves_weights_and_prune(self):
         before, old_max = self.weights(), self.skin.getMaxInfluences()
-        self.skin.setMaxInfluences(2)
+        self.skin.setMaxInfluences(2, maintain=True)
         self.assertEqual(self.skin.getMaxInfluences(), 2)
         self.assertEqual(self.weights(), before)
         cmds.undo()
         self.assertEqual(self.skin.getMaxInfluences(), old_max)
-        self.skin.setMaxInfluences(2, prune=True)
+        self.skin.setMaxInfluences(2, maintain=True, prune=True)
         row = self.weights()[:3]
         self.assertEqual(row[0], 0)
         self.assertAlmostEqual(row[1], 0.625)
         self.assertAlmostEqual(row[2], 0.375)
         cmds.undo()
         self.assertEqual(self.weights(), before)
+
+    def test_max_influences_maintain_default_keeps_setting(self):
+        """setMaxInfluences の maintain は既定 None(変えない)。指定したときだけ maintainMaxInfluences を書く。位置では渡せない。"""
+        name = self.skin.getName(full=True)
+        cmds.setAttr(name + ".maintainMaxInfluences", False)
+        self.skin.setMaxInfluences(3)
+        self.assertFalse(cmds.getAttr(name + ".maintainMaxInfluences"))
+        self.skin.setMaxInfluences(3, maintain=True)
+        self.assertTrue(cmds.getAttr(name + ".maintainMaxInfluences"))
+        self.skin.setMaxInfluences(4)
+        self.assertTrue(cmds.getAttr(name + ".maintainMaxInfluences"))
+        self.assertEqual(self.skin.getMaxInfluences(), 4)
+        with self.assertRaises(TypeError):
+            self.skin.setMaxInfluences(3, True)
+        with self.assertRaises(TypeError):
+            self.skin.setMaxInfluences(3, maintain=1)
 
     def test_invalid_arguments_and_failure_propagation(self):
         before = self.weights()

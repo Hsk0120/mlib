@@ -99,17 +99,17 @@ class ConvenienceTests(unittest.TestCase):
         b = mlib.createNode("transform", name="b", parent=root)
         c = mlib.createNode("transform", name="c", parent=a)
         shape = mlib.createNode("mesh", parent=b)
-        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst")], ["root", "a", "b", "c"])
-        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, order="depthFirst")], ["root", "a", "c", "b"])
-        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
+        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, sortBy="breadthFirst")], ["root", "a", "b", "c"])
+        self.assertEqual([str(n) for n in root.getChildren(allDescendents=True, includeSelf=True, sortBy="depthFirst")], ["root", "a", "c", "b"])
+        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, sortBy="breadthFirst"))), 5)
         shape.getPlug("intermediateObject").set(True)
-        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, order="breadthFirst"))), 4)
+        self.assertEqual(len(list(root.getChildren(shapes=True, allDescendents=True, includeSelf=True, sortBy="breadthFirst"))), 4)
         cmds.parent(str(c), str(b), add=True)
         self.assertEqual(len(c.getInstances()), 2)
-        self.assertEqual(len(c.getInstances(noSelf=True)), 1)
+        self.assertEqual(len(c.getInstances(includeSelf=False)), 1)
         self.assertEqual(len(c.getParent(instances=True)), 2)
         self.assertEqual(len(c.getParent(instances=True, indirect=True)), 2)
-        self.assertEqual(len(list(root.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 5)
+        self.assertEqual(len(list(root.getChildren(allDescendents=True, includeSelf=True, sortBy="breadthFirst"))), 5)
         self.assertNotEqual(c.getInstances()[0].getName(full=True), c.getInstances()[1].getName(full=True))
 
     def test_animation_layers(self):
@@ -132,10 +132,10 @@ class ConvenienceTests(unittest.TestCase):
         shape = cmds.listRelatives(surface, s=True, f=True)[0]
         cmds.curveOnSurface(shape, d=1, uv=[(0.1, 0.1), (0.9, 0.9)])
         node = mlib.getNode(surface)
-        self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order="breadthFirst"))), 1)
+        self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, sortBy="breadthFirst"))), 1)
         for order in ("breadthFirst", "depthFirst"):
-            self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, order=order, underWorld=True))), 2)
-            paths = [n.getName(full=True) for n in node.getChildren(shapes=True, allDescendents=True, includeSelf=True, order=order, underWorld=True)]
+            self.assertEqual(len(list(node.getChildren(allDescendents=True, includeSelf=True, sortBy=order, underWorld=True))), 2)
+            paths = [n.getName(full=True) for n in node.getChildren(shapes=True, allDescendents=True, includeSelf=True, sortBy=order, underWorld=True)]
             self.assertEqual(len(paths), 4)
             self.assertIn("->", paths[-1])
 

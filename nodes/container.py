@@ -3,7 +3,7 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
-from ..decorator import undoTransaction
+from ..decorator import _require_bool, undoTransaction
 from ..plugs.plug import Plug, Plugs
 from .node import Node, Nodes, _resolve_node
 
@@ -69,36 +69,48 @@ class Container(Node):
     def addMembers(self, *members):
         """ノードをメンバーに加える。
 
-        別のcontainerに入っているノードを、無理に移すことはしない。
+        別のcontainerに入っているノードを、無理に移すことはしない。すでにこのcontainerのメンバーなら、何もしない。
+        変える前に、すべてのノードがあり、ほかのcontainerに入っていないかを確かめる。
 
         Args:
             *members (str | Node | Iterable[Node | str]): メンバーに加えるノード。
 
         Returns:
             None: 値を返さない。
-        """
-        nodes = Nodes._resolve_inputs(members)
-        if nodes:
-            cmds.container(self._full_name(), edit=True, addNode=[Node._resolve_input(n)._full_name() for n in nodes])
 
-    def removeMembers(self, *members, force=False):
-        """ノードをメンバーから外す。
+        Raises:
+            RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
+        """
+        names = Container._resolve_new_members(members, self)
+        if names:
+            cmds.container(self._full_name(), edit=True, addNode=names)
+
+    def removeMembers(self, *members, all=False, force=False):
+        """ノードをメンバーから外す。``all=True`` なら、直接入っているメンバーをすべて外す。
 
         変える前に、指定したノードがすべてメンバーかを確かめる。メンバーでないノードがあれば、
         force=Trueでもエラーにする。ノードそのものは削除しない。
         containerが入れ子になっている場合、外したノードはふつう親のcontainerのメンバーになる。
 
         Args:
-            *members (Node | str | Iterable[Node]): 外すメンバー。
-            force (bool): Trueなら、すべてのcontainerから外す。ロックを外すという意味ではない。
+            *members (Node | str | Iterable[Node]): 外すメンバー。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
+            force (bool): Trueなら、すべてのcontainerから外す(``container -removeNode -force``)。ロックを外すという意味ではない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: all・forceがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
             ValueError: メンバーでないノードが含まれる場合。
         """
+        _require_bool(all, "all")
+        _require_bool(force, "force")
+        if all and members:
+            raise TypeError("membersとall=Trueは同時に指定できません")
         with undoTransaction("mlibContainerRemoveMembers"):
+            if all:
+                members = (self.getMembers(),)
             nodes = [Node._resolve_input(node) for node in Nodes._resolve_inputs(members)]
             # Nodeの等価なら__hash__も等しいため、集合での所属判定はリストの`in`と同じ結果になる。
             current = set(self.getMembers())
@@ -269,3 +281,30 @@ class Container(Node):
         if name not in published or published[name] is not None:
             raise ValueError(f"バインドされていないパブリッシュ名を指定してください: {name}")
         cmds.container(self._full_name(), edit=True, unpublishName=name)
+
+    @staticmethod
+    def _resolve_new_members(members, owner=None):
+        """containerへ加えるノードを確かめ、完全な名前の並びにする。
+
+        containerを作る前に呼べるよう、staticmethodにしている(作ってから失敗してUndoで戻すと、
+        今の名前空間がルート以外のときにMayaが壊れることがあるため、作る前に確かめる)。
+
+        Args:
+            members (tuple): ``addMembers`` が受けた値の並び。
+            owner (Container | DagContainer | None): 加える先のcontainer。そのメンバーはほかのcontainerに入っているとみなさない。
+
+        Returns:
+            list[str]: 加えるノードの完全な名前。
+
+        Raises:
+            RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
+        """
+        names = []
+        for item in Nodes._resolve_inputs(members):
+            name = Node._resolve_input(item)._full_name()
+            current = cmds.container(query=True, findContainer=[name])
+            if current and (owner is None or Node(current) != owner):
+                raise RuntimeError(f"ほかのcontainerに入っているノードは加えられません: {name}({current})")
+            if name not in names:
+                names.append(name)
+        return names

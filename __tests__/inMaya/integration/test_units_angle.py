@@ -323,18 +323,18 @@ class AnimCurveAngleTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 curve = mlib.createNode("animCurveTA", name=self.name(f"curve{fast:d}"))
-                curve.setKey(0, 0, fast=fast)
-                curve.setKey(1, 90, fast=fast)
+                curve.addKey(0, 0, fast=fast)
+                curve.addKey(1, 90, fast=fast)
                 self.assertEqual([round(v, 9) for v in curve.getKeyValues()], [0.0, 90.0])
                 self.assertAlmostEqual(curve.getKeyValues(unit="rad")[1], math.pi / 2)
                 self.assertAlmostEqual(curve.evaluate(1), 90.0)
                 self.assertAlmostEqual(curve.evaluate(1, unit="rad"), math.pi / 2)
-                curve.setKey(2, math.pi, unit="rad", fast=fast)
+                curve.addKey(2, math.pi, unit="rad", fast=fast)
                 self.assertAlmostEqual(curve.getKeyValues()[2], 180.0)
-                curve.moveKey(timeOffset=0, valueOffset=10)
+                curve.getKeyframes().move(timeOffset=0, valueOffset=10)
                 self.assertAlmostEqual(curve.getKeyValues()[1], 100.0)
         linear = mlib.createNode("animCurveTL", name=self.name("linear"))
-        linear.setKey(0, 2.5)
+        linear.addKey(0, 2.5)
         self.assertEqual(linear.getKeyValues(), [2.5])
 
     def test_tangent_angles(self):
@@ -342,15 +342,15 @@ class AnimCurveAngleTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 curve = mlib.createNode("animCurveTU", name=self.name(f"tangent{fast:d}"))
-                curve.setKey(0, 0)
-                curve.setKey(1, 1)
-                curve.setTangent(0, inTangentType="fixed", outTangentType="fixed", fast=fast)
-                curve.setTangent(0, outAngle=30, fast=fast)
+                curve.addKey(0, 0)
+                curve.addKey(1, 1)
+                curve.getKeyframes(0).setTangent(inTangentType="fixed", outTangentType="fixed", fast=fast)
+                curve.getKeyframes(0).setTangent(outAngle=30, fast=fast)
                 self.assertAlmostEqual(cmds.keyTangent(str(curve), q=True, index=(0, 0), outAngle=True)[0], 30.0)
-                self.assertAlmostEqual(curve.getTangent(0)["outAngle"], 30.0)
-                self.assertAlmostEqual(curve.getTangent(0, unit="rad")["outAngle"], math.radians(30))
-                curve.setTangent(0, outAngle=math.radians(20), unit="rad", fast=fast)
-                self.assertAlmostEqual(curve.getTangent(0)["outAngle"], 20.0)
+                self.assertAlmostEqual(curve.getKeyframes(0).getTangent()["outAngle"], 30.0)
+                self.assertAlmostEqual(curve.getKeyframes(0).getTangent(unit="rad")["outAngle"], math.radians(30))
+                curve.getKeyframes(0).setTangent(outAngle=math.radians(20), unit="rad", fast=fast)
+                self.assertAlmostEqual(curve.getKeyframes(0).getTangent()["outAngle"], 20.0)
 
 
 if __name__ == "__main__":

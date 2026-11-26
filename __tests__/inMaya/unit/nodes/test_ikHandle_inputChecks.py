@@ -56,16 +56,16 @@ class IkHandleInputTest(_Case):
             mlib.getNode(handle).setChain(joints[0], joints[1])
 
     def test_without_effector(self):
-        """エフェクターの接続を外すと、getJoints(end=True)はNone、snapToEffectorはRuntimeError。"""
+        """エフェクターの接続を外すと、getJoints(tipOnly=True)はNone、snapToEffectorはRuntimeError。"""
         joints, handle, effector = self.chain("c")
         node = mlib.getNode(handle)
-        self.assertEqual(node.getJoints(end=True), Joint(joints[2]))
+        self.assertEqual(node.getJoints(tipOnly=True), Joint(joints[2]))
         source = cmds.listConnections(effector + ".translateX", source=True, destination=False, plugs=True)
         cmds.disconnectAttr(source[0], effector + ".translateX")
-        self.assertIsNone(node.getJoints(end=True))
+        self.assertIsNone(node.getJoints(tipOnly=True))
         plug = cmds.listConnections(handle + ".endEffector", source=True, destination=False, plugs=True)[0]
         cmds.disconnectAttr(plug, handle + ".endEffector")
-        self.assertIsNone(node.getJoints(end=True))
+        self.assertIsNone(node.getJoints(tipOnly=True))
         before = cmds.getAttr(handle + ".translate")[0]
         with self.assertRaises(RuntimeError):
             node.snapToEffector()

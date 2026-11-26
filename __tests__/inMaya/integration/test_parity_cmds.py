@@ -325,7 +325,7 @@ class NamespaceParityTest(unittest.TestCase):
     def test_nodes_recurse_matches_cmds_namespaceInfo_recurse(self):
         expected = {name.lstrip(":") for name in cmds.namespaceInfo(self.root_name, listOnlyDependencyNodes=True, recurse=True, absoluteName=True) or []}
 
-        actual = {node.getName() for node in Namespace(self.root_name).getNodes(recurse=True)}
+        actual = {node.getName() for node in Namespace(self.root_name).getNodes(allDescendents=True)}
         self.assertEqual(actual, expected)
 
 
@@ -1150,7 +1150,7 @@ class IkHandleJointsParityTest(_NewSceneCase):
                 self.assertEqual([joint.getUuid() for joint in node.getJoints()], expected)
                 with_tip = node.getJoints(includeTip=True)
                 self.assertEqual([joint.getUuid() for joint in with_tip[:-1]], expected)
-                self.assertEqual(with_tip[-1], node.getJoints(end=True))
+                self.assertEqual(with_tip[-1], node.getJoints(tipOnly=True))
 
 
 class NodeHistoryParityTest(_NewSceneCase):
@@ -1293,7 +1293,7 @@ class NodeGetPlugsParityTest(_NewSceneCase):
             for flags in flag_sets:
                 for include_children in (True, False):
                     with self.subTest(node=name, flags=flags, includeChildren=include_children):
-                        actual = [(plug.getName(full=True), type(plug).__name__) for plug in node.getPlugs(includeChildren=include_children, **flags)]
+                        actual = [(plug.getName(full=True), type(plug).__name__) for plug in node.getPlugs(children=include_children, **flags)]
                         self.assertEqual(actual, self.expected(node, include_children, **flags))
 
 

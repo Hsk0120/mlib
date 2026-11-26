@@ -102,6 +102,16 @@ class SelectNamesCallEachTest(_Case):
         mlib.Nodes().select()
         self.assertEqual(cmds.ls(selection=True), [])
 
+    def test_nodes_get_names_flags(self):
+        """Nodes.getNamesはNode.getNameと同じ引数(full・short・removeNamespace)を受ける。"""
+        nodes = self.nodes(self.a, self.b)
+        self.assertEqual(nodes.getNames(short=True), [node.getName(short=True) for node in nodes])
+        self.assertEqual(nodes.getNames(short=True, removeNamespace=True), [node.getName(short=True, removeNamespace=True) for node in nodes])
+        self.assertEqual(nodes.getNames(full=True), [node.getName(full=True) for node in nodes])
+        for flags in ({"full": True, "short": True}, {"removeNamespace": True}, {"short": 1}):
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                nodes.getNames(**flags)
+
     def test_select_undo_and_invalid(self):
         cmds.select(self.a, replace=True)
         self.flushUndo()

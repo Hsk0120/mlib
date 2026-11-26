@@ -88,6 +88,17 @@ class DisplayLayerTest(unittest.TestCase):
         with mock.patch.object(display_layer_module, "om2", _WithoutDisplayLayerApi()):
             self.assertEqual(list(self.layer.getMembers()), [])
 
+    def test_remove_all_members(self):
+        """removeMembers(all=True) はすべてのメンバーを defaultLayer へ移す。members との同時指定は TypeError。"""
+        self.layer.addMembers(self.a, self.b)
+        with self.assertRaises(TypeError):
+            self.layer.removeMembers(self.a, all=True)
+        with self.assertRaises(TypeError):
+            self.layer.removeMembers(all=1)
+        self.assertEqual(len(self.layer.getMembers()), 2)
+        self.layer.removeMembers(all=True)
+        self.assertEqual(list(self.layer.getMembers()), [])
+
 
 class ConsolidatedSetsLayersTests(unittest.TestCase):
     """Maya標準の所属表現と通常Undoを確認する。"""

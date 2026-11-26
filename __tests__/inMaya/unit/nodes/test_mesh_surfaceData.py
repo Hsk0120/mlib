@@ -42,7 +42,7 @@ class MeshSurfaceDataTest(NamespaceCase):
     def test_normal_data_custom_locked_world_and_plural(self):
         mesh = self.mesh()
         mesh.setFaceVertexNormals([(1, 2, 3)], faceVertices=[0], fast=True)
-        self.assertTrue(mesh.getVertexFaces([0])[0].getNormal(locked=True))
+        self.assertTrue(mesh.getVertexFaces([0])[0].getNormal(lockedOnly=True))
         parent = mesh.getParent().getName(full=True)
         cmds.setAttr(parent + ".scale", 2, 3, 0.5)
         cmds.setAttr(parent + ".rotate", 20, -30, 10)
@@ -125,41 +125,41 @@ class MeshSurfaceDataTest(NamespaceCase):
 
     def test_color_set_restored_when_command_fails(self):
         mesh = self.mesh()
-        mesh.createSet("first", color=True)
-        mesh.createSet("second", color=True)
+        mesh.createSet("first", kind="color")
+        mesh.createSet("second", kind="color")
         mesh.setVertexColors([(1, 0, 0)], faceVertices=[0], colorSet="first", fast=True, perFace=True)
-        mesh.setCurrentSet("second", color=True)
+        mesh.setCurrentSet("second", kind="color")
         before = mesh.getVertexColors(perFace=True, colorSet="first")
         with mock.patch.object(cmds, "polyColorPerVertex", side_effect=RuntimeError("検証用の失敗")):
             with self.assertRaises(RuntimeError):
                 mesh.removeFaceVertexColors(colorSet="first")
-        self.assertEqual(mesh.getCurrentSet(color=True), "second")
+        self.assertEqual(mesh.getCurrentSet(kind="color"), "second")
         self.assertEqual(mesh.getVertexColors(perFace=True, colorSet="first"), before)
 
     def test_color_set_restore_and_fast_queue(self):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 mesh = self.mesh()
-                mesh.createSet("first", color=True)
-                mesh.createSet("second", color=True)
+                mesh.createSet("first", kind="color")
+                mesh.createSet("second", kind="color")
                 corners = mesh.getVertexFaces([(0, 0), (0, 3)])
                 mesh.setVertexColors([(1, 0, 0), (0, 1, 0)], faceVertices=corners, colorSet="first", fast=True, perFace=True)
                 mesh.setVertexColors([(0, 0, 1), (1, 1, 0)], faceVertices=corners, colorSet="second", fast=True, perFace=True)
-                mesh.setCurrentSet("second", color=True)
+                mesh.setCurrentSet("second", kind="color")
                 first = mesh.getVertexColors(perFace=True, colorSet="first")
                 second = mesh.getVertexColors(perFace=True, colorSet="second")
                 self.flushUndo()
                 mesh.removeFaceVertexColors(fast=fast, colorSet="first", faceVertices=corners)
                 self.assertEqual(corners.getColor(colorSet="first"), [None, None])
                 self.assertEqual(mesh.getVertexColors(perFace=True, colorSet="second"), second)
-                self.assertEqual(mesh.getCurrentSet(color=True), "second")
+                self.assertEqual(mesh.getCurrentSet(kind="color"), "second")
                 self.assertTrue(cmds.undoInfo(query=True, state=True))
                 if fast:
                     self.assertUndoEmpty()
                 else:
                     cmds.undo()
                     self.assertEqual(mesh.getVertexColors(perFace=True, colorSet="first"), first)
-                    self.assertEqual(mesh.getCurrentSet(color=True), "second")
+                    self.assertEqual(mesh.getCurrentSet(kind="color"), "second")
                     self.assertUndoEmpty()
 
     def test_color_removal_validation_and_history_preflight(self):
@@ -193,7 +193,7 @@ class MeshSurfaceDataTest(NamespaceCase):
         mesh = self.mesh()
         self.flushUndo()
         self.assertIsNone(mesh.removeFaceVertexColors())
-        self.assertEqual(mesh.getSetNames(color=True), [])
+        self.assertEqual(mesh.getSetNames(kind="color"), [])
         self.assertUndoEmpty()
         mesh.setVertexColors([(1, 0, 0), (0, 1, 0)], faceVertices=[0, 1], perFace=True)
         corners = mesh.getVertexFaces([0, 1])

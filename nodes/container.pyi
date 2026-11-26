@@ -3,10 +3,11 @@
 
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-from ..decorator import undoTransaction
+from ..decorator import _require_bool, undoTransaction
 from ..plugs.plug import Plug, Plugs
 from .node import Node, Nodes, _resolve_node
 from typing import Iterable
+from mlib.nodes.dagContainer import DagContainer
 
 
 
@@ -63,30 +64,36 @@ class Container(Node):
     def addMembers(self, *members: str | Node | Iterable[Node | str]) -> None:
         """ノードをメンバーに加える。
 
-        別のcontainerに入っているノードを、無理に移すことはしない。
+        別のcontainerに入っているノードを、無理に移すことはしない。すでにこのcontainerのメンバーなら、何もしない。
+        変える前に、すべてのノードがあり、ほかのcontainerに入っていないかを確かめる。
 
         Args:
             *members (str | Node | Iterable[Node | str]): メンバーに加えるノード。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
         """
         ...
-    def removeMembers(self, *members: Node | str | Iterable[Node], force: bool = ...) -> None:
-        """ノードをメンバーから外す。
+    def removeMembers(self, *members: Node | str | Iterable[Node], all: bool = ..., force: bool = ...) -> None:
+        """ノードをメンバーから外す。``all=True`` なら、直接入っているメンバーをすべて外す。
 
         変える前に、指定したノードがすべてメンバーかを確かめる。メンバーでないノードがあれば、
         force=Trueでもエラーにする。ノードそのものは削除しない。
         containerが入れ子になっている場合、外したノードはふつう親のcontainerのメンバーになる。
 
         Args:
-            *members (Node | str | Iterable[Node]): 外すメンバー。
-            force (bool): Trueなら、すべてのcontainerから外す。ロックを外すという意味ではない。
+            *members (Node | str | Iterable[Node]): 外すメンバー。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
+            force (bool): Trueなら、すべてのcontainerから外す(``container -removeNode -force``)。ロックを外すという意味ではない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: all・forceがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
             ValueError: メンバーでないノードが含まれる場合。
         """
         ...
@@ -200,5 +207,23 @@ class Container(Node):
 
         Raises:
             ValueError: nameが公開名でない場合、またはバインドされている場合。このときは何も変えない。
+        """
+        ...
+    @staticmethod
+    def _resolve_new_members(members: tuple, owner: Container | DagContainer | None = ...) -> list[str]:
+        """containerへ加えるノードを確かめ、完全な名前の並びにする。
+
+        containerを作る前に呼べるよう、staticmethodにしている(作ってから失敗してUndoで戻すと、
+        今の名前空間がルート以外のときにMayaが壊れることがあるため、作る前に確かめる)。
+
+        Args:
+            members (tuple): ``addMembers`` が受けた値の並び。
+            owner (Container | DagContainer | None): 加える先のcontainer。そのメンバーはほかのcontainerに入っているとみなさない。
+
+        Returns:
+            list[str]: 加えるノードの完全な名前。
+
+        Raises:
+            RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
         """
         ...

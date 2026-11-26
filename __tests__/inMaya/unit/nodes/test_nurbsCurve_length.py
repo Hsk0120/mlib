@@ -44,9 +44,9 @@ class CurveLengthTest(unittest.TestCase):
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_before)
         cmds.currentUnit(linear="m")
         self.assertAlmostEqual(curve.getLength(worldSpace=True), expected)
-        self.assertAlmostEqual(curve.getLength(worldSpace=True, unit="cm"), expected)
-        self.assertAlmostEqual(curve.getLength(unit="mm"), math.sqrt(2) * 10)
-        self.assertAlmostEqual(curve.getLength(unit="meter"), math.sqrt(2) / 100)
+        self.assertAlmostEqual(curve.getLength(worldSpace=True, distanceUnit="cm"), expected)
+        self.assertAlmostEqual(curve.getLength(distanceUnit="mm"), math.sqrt(2) * 10)
+        self.assertAlmostEqual(curve.getLength(distanceUnit="meter"), math.sqrt(2) / 100)
         self.assertEqual(cmds.currentUnit(query=True, linear=True), "m")
 
     def test_units_conversion(self):
@@ -83,9 +83,9 @@ class CurveLengthTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             curve.getLength(worldSpace=1)
         with self.assertRaises(TypeError):
-            curve.getLength(unit=1)
+            curve.getLength(distanceUnit=1)
         with self.assertRaises(ValueError):
-            curve.getLength(unit="invalid")
+            curve.getLength(distanceUnit="invalid")
 
     def test_rational_curve(self):
         """ウェイト付きCVを持つ曲線も標準curveInfoの評価と一致する。"""

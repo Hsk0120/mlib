@@ -91,19 +91,19 @@ MERGED_PLUG = (
 #: フラグ・引数へまとめて無くしたノードのメソッド(持ち主, 無くした名前の並び, まとめた先, まとめた先のキーワード専用引数)。
 #: 派生クラスが同じ名前の別のメソッドを持つもの(Joint.removeInfluence・SkinCluster.getWeights)があるので、持ち主ごとに確かめる。
 MERGED_NODE = (
-    (Node, ("getNodeName",), "getName", ("node", "removeNamespace")),
+    (Node, ("getNodeName",), "getName", ("short", "removeNamespace")),
     (Node, ("isParentOf",), "isAncestorOf", ("direct",)),
     (Node, ("getAnimatablePlugs",), "getPlugs", ("writable", "animatable")),
     (Node, ("setDgTimerEnabled", "resetDgTimer"), "setDgTimer", ("reset",)),
-    (Node, ("getDgCallbacks", "getDgTimerState"), "getDgTimer", ("timerType", "callbacks", "state")),
+    (Node, ("getDgCallbacks", "getDgTimerState"), "getDgTimer", ("kind", "timerType")),
     (DagNode, ("show", "hide"), "setVisibility", ("fast", "check")),
     (DagNode, ("getParents",), "getParent", ("instances", "indirect")),
     (DagNode, ("getShapes",), "getShape", ("all",)),
     (DagNode, ("getBoundingBoxCorners",), "getBoundingBox", ("includeInvisible", "corners")),
     (DagNode, ("setOutlinerOrder",), "reorder", ("index", "front", "back", "relative")),
-    (DagNode, ("getActiveColor", "getDormantColor", "getHiliteColor", "getDrawOverrideColor"), "getDrawColor", ("mode",)),
-    (DagNode, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "shape")),
-    (DagNode, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "shape", "fast", "check")),
+    (DagNode, ("getActiveColor", "getDormantColor", "getHiliteColor", "getDrawOverrideColor"), "getDrawColor", ("kind",)),
+    (DagNode, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "toShape")),
+    (DagNode, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "toShape", "fast", "check")),
     (Transform, ("translateBy",), "setTranslation", ("relative", "safe", "get", "fast", "check")),
     (Transform, ("rotateBy",), "setRotate", ("relative", "safe", "get", "unit", "fast", "check")),
     (Transform, ("scaleBy",), "setScale", ("relative", "safe", "get", "fast", "check")),
@@ -113,7 +113,7 @@ MERGED_NODE = (
     (Transform, ("setPivotTranslation",), "setPivot", ("kind", "translation", "preserve", "fast", "check")),
     (Joint, ("jointOrientToRotate",), "freezeRotate", ("toRotate",)),
     (Joint, ("getIkHandles",), "getConnections", ()),
-    (SkinCluster, ("removeInfluence", "removeUnusedInfluences"), "removeInfluences", ("unused", "transferToParent", "requireAncestor", "force")),
+    (SkinCluster, ("removeInfluence", "removeUnusedInfluences"), "removeInfluences", ("unused", "transferToParent", "requireAncestor", "repair")),
     (SkinCluster, ("forceNormalizeWeights",), "normalizeWeights", ("force", "fast")),
     (SkinCluster, ("getLockedInfluences", "getUnusedInfluences"), "getInfluences", ("locked", "unused")),
     (SkinCluster, ("isMaintainingMaxInfluences",), "getMaxInfluences", ("maintain",)),
@@ -123,26 +123,26 @@ MERGED_NODE = (
     (SkinCluster, ("setVertexWeights",), "setWeights", ("vertices", "vertex", "normalize", "broadcast", "rows", "fast", "check", "geometryIndex")),
     (GeometryFilter, ("getInputGeometry", "getInputGeometryAtIndex", "getGeometryAtIndex"), "getGeometry", ("input", "geometryIndex")),
     (GeometryFilter, ("getGeometryIndex",), "getGeometryIndices", ()),
-    (ObjectSet, ("addExclusiveMembers",), "addMembers", ("exclusive",)),
+    (ObjectSet, ("addExclusiveMembers",), "addMembers", ("forceElement",)),
     (ObjectSet, ("removeAllMembers",), "removeMembers", ("all",)),
     (ObjectSet, ("getUnion", "getIntersection", "getDifference"), "combine", ()),
     (ObjectSet, ("getMemberDagNodes",), "getMembers", ("flatten", "dagOnly", "shadingOnly")),
-    (ShadingEngine, ("getShaderPlug",), "getShader", ("plug",)),
+    (ShadingEngine, ("getShaderPlug",), "getShader", ("asPlug",)),
     (Constraint, ("getWeight",), "getWeights", ()),
     (Constraint, ("getWeightAliases",), "getWeightPlugs", ("aliases",)),
     (DagPose, ("getMemberIndex",), "getMemberIndices", ()),
     (DagPose, ("isAtPose",), "getNotAtPose", ()),
-    (IkHandle, ("getEndJoint",), "getJoints", ("end",)),
+    (IkHandle, ("getEndJoint",), "getJoints", ("tipOnly",)),
 )
 
 #: フラグ・引数へまとめて無くした複数形のメソッド(複数形, 無くした名前の並び, まとめた先, まとめた先のキーワード専用引数)。
 MERGED_PLURAL = (
     (Nodes, ("show", "hide"), "setVisibility", ("fast", "check")),
-    (Nodes, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "shape")),
-    (Nodes, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "shape", "fast", "check")),
-    (Nodes, ("setOverrideColors", "setOutlinerColors"), "setColors", ("outliner", "shape", "fast", "check")),
+    (Nodes, ("getOverrideColor", "getOutlinerColor"), "getColor", ("outliner", "toShape")),
+    (Nodes, ("setOverrideColor", "setOutlinerColor"), "setColor", ("outliner", "toShape", "fast", "check")),
+    (Nodes, ("setOverrideColors", "setOutlinerColors"), "setColors", ("outliner", "toShape", "fast", "check")),
     (Nodes, ("getFullNames",), "getNames", ("full",)),
-    (Node, ("getFullName",), "getName", ("full", "node", "removeNamespace")),
+    (Node, ("getFullName",), "getName", ("full", "short", "removeNamespace")),
 )
 
 #: 単数クラスと対応する複数形クラス。
@@ -168,7 +168,7 @@ REQUIRED = {
     Joint: ("getJointOrient", "freezeRotate", "getSkinClusters"),
 }
 
-#: 複数形が独自の集約として持つ名前(単数への転送ではない)。Joints.getSkinClusters は重複を除いた SkinClusters を返す。
+#: 複数形が独自の集約として持つ名前(単数への転送ではない)。Nodes.getSkinClusters は重複を除いた SkinClusters を返す(Joints は継承する)。
 PLURAL_OWN = ("getSkinClusters",)
 
 #: Joints だけが持つ、REMOVED_PLURAL と同じ名前(influence解除付きの一括削除)。
@@ -268,14 +268,14 @@ class RemovedNamesTest(unittest.TestCase):
         setWeights の normalize)は既定が番兵なので、ここでは見ない(それぞれのテストが動きで確かめる)。
         """
         expected = (
-            (Node.getName, {"node": False, "removeNamespace": False}),
+            (Node.getName, {"short": False, "removeNamespace": False}),
             (Node.isAncestorOf, {"direct": False}),
             (DagNode.getParent, {"step": 1, "instances": False, "indirect": False}),
             (DagNode.getShape, {"index": 0, "intermediates": False, "all": False}),
             (DagNode.getBoundingBox, {"includeInvisible": False, "corners": False}),
-            (DagNode.getDrawColor, {"mode": "dormant"}),
-            (DagNode.getColor, {"outliner": False, "shape": False}),
-            (DagNode.setColor, {"outliner": False, "shape": False, "fast": False, "check": False}),
+            (DagNode.getDrawColor, {"kind": "dormant"}),
+            (DagNode.getColor, {"outliner": False, "toShape": False}),
+            (DagNode.setColor, {"outliner": False, "toShape": False, "fast": False, "check": False}),
             (Transform.setTranslation, {"relative": False}),
             (Transform.setRotate, {"relative": False}),
             (Transform.setScale, {"relative": False}),
@@ -284,7 +284,7 @@ class RemovedNamesTest(unittest.TestCase):
             (Transform.getPivot, {"kind": "rotate", "translation": False}),
             (Transform.setPivot, {"kind": "rotate", "translation": False}),
             (Joint.freezeRotate, {"toRotate": False}),
-            (SkinCluster.removeInfluences, {"joints": None, "unused": False, "force": False}),
+            (SkinCluster.removeInfluences, {"joints": None, "unused": False, "repair": False}),
             (SkinCluster.normalizeWeights, {"decimals": None, "force": False, "fast": False}),
             (SkinCluster.getInfluences, {"locked": None, "unused": None}),
             (SkinCluster.getMaxInfluences, {"maintain": False}),
@@ -295,15 +295,15 @@ class RemovedNamesTest(unittest.TestCase):
             (GeometryFilter.getGeometry, {"input": False, "geometryIndex": None}),
             (GeometryFilter.getGeometryIndices, {"geometry": None}),
             (ObjectSet.getMembers, {"flatten": False, "dagOnly": False, "shadingOnly": False}),
-            (ObjectSet.addMembers, {"exclusive": False}),
+            (ObjectSet.addMembers, {"forceElement": False}),
             (ObjectSet.removeMembers, {"all": False}),
             (ObjectSet.combine, {"mode": "union"}),
-            (ShadingEngine.getShader, {"kind": "surface", "plug": False}),
+            (ShadingEngine.getShader, {"kind": "surface", "asPlug": False}),
             (Constraint.getWeightPlugs, {"aliases": False}),
             (DagPose.getMemberIndices, {"member": None}),
-            (IkHandle.getJoints, {"includeTip": False, "end": False}),
+            (IkHandle.getJoints, {"includeTip": False, "tipOnly": False}),
             (Nodes.getNames, {"full": False}),
-            (Nodes.setColors, {"outliner": False, "shape": False, "fast": False, "check": False}),
+            (Nodes.setColors, {"outliner": False, "toShape": False, "fast": False, "check": False}),
         )
         for function, defaults in expected:
             parameters = inspect.signature(function).parameters
@@ -318,7 +318,7 @@ class RemovedNamesTest(unittest.TestCase):
             "getRange": ("soft", "unit", "timeUnit", "uiUnits"),
             "setRange": ("soft", "unit", "timeUnit"),
             "isConnected": ("source", "destination"),
-            "setFlags": ("locked", "keyable", "channelBox", "children", "leaf", "fast"),
+            "setFlags": ("locked", "keyable", "channelBox", "children", "leaves", "fast"),
             "disconnectAll": ("source", "destination", "fast"),
             "isMulti": ("element",),
             "isCompound": ("child",),
@@ -326,7 +326,7 @@ class RemovedNamesTest(unittest.TestCase):
             "getAnimCurve": ("indirect", "suitableType", "timeInput"),
             "getEnumNames": ("value", "name", "current"),
             "isValid": ("elements",),
-            "getConnections": ("input", "outputs"),
+            "getConnections": ("input", "output"),
         }
         for method, names in expected.items():
             parameters = inspect.signature(getattr(Plug, method)).parameters
@@ -342,13 +342,13 @@ class RemovedNamesTest(unittest.TestCase):
         self.assertEqual(inspect.signature(Plug.getAttributeName).parameters["kind"].default, "long")
 
     def test_connections_do_not_skip_conversion_nodes_by_default(self):
-        """接続照会のskipConversionNodes・scnは既定False(cmds.listConnectionsと同じ直結)。"""
+        """接続照会のskipConversionNodesは既定False(cmds.listConnectionsと同じ直結)。短縮名scnの既定は「指定なし」の番兵。"""
         for function in (Node.getConnections, Plug.getConnections):
             parameters = inspect.signature(function).parameters
             with self.subTest(function=function.__qualname__):
                 self.assertIs(parameters["skipConversionNodes"].default, False)
                 if "scn" in parameters:
-                    self.assertIs(parameters["scn"].default, False)
+                    self.assertIsNot(parameters["scn"].default, True)
 
     def test_connections_have_no_pcls(self):
         for cls in (Node, Plug):
@@ -425,8 +425,7 @@ class RequiredNamesTest(unittest.TestCase):
                         self.assertFalse(hasattr(plural, name), f"{plural.__name__}.{name} remains")
             for name in PLURAL_OWN:
                 with self.subTest(cls=plural.__name__, own=name):
-                    if plural is Joints:
-                        self.assertIn(name, Joints.__dict__)
+                    self.assertIn(name, Nodes.__dict__)
             for name in REMOVED_PLURAL:
                 if plural is Joints and name in JOINTS_OWN:
                     continue
@@ -457,9 +456,9 @@ class RequiredNamesTest(unittest.TestCase):
     def test_get_plugs_signature(self):
         parameters = inspect.signature(Node.getPlugs).parameters
         self.assertIn("userDefined", parameters)
-        self.assertIn("includeChildren", parameters)
+        self.assertIn("children", parameters)
         self.assertIs(parameters["userDefined"].default, False)
-        self.assertIs(parameters["includeChildren"].default, True)
+        self.assertIs(parameters["children"].default, True)
 
     def test_set_visibility_accepts_fast(self):
         """表示・非表示は setVisibility だけで行い、fast・check はキーワード専用。"""
@@ -514,14 +513,14 @@ class RenamedArgumentsTest(unittest.TestCase):
         from mlib.nodes import AnimCurve, DagPose, IkHandle, Mesh, Reference, SkinCluster
 
         return (
-            ("Node.isType", Node.isType, "node_type", "nodeType"),
+            ("Node.isType", Node.isType, "node_type", "type"),
             ("Node.getName", Node.getName, "remove_namespace", "removeNamespace"),
             ("Transform.getClosestAxisToVector", Transform.getClosestAxisToVector, "ref_vector", "refVector"),
             ("Transform.getClosestAxisToVector", Transform.getClosestAxisToVector, "include_negative", "includeNegative"),
             ("Joint.removeInfluence", Joint.removeInfluence, "transfer_to_parent", "transferToParent"),
             ("Joint.removeInfluence", Joint.removeInfluence, "skin_cluster", "skinCluster"),
             ("Joint.reparentChildren", Joint.reparentChildren, "parent_joint", "parentJoint"),
-            ("SkinCluster.__init__", SkinCluster.__init__, "skin_cluster", "skinCluster"),
+            ("SkinCluster.__init__", SkinCluster.__init__, "skin_cluster", "node"),
             ("SkinCluster.removeInfluences", SkinCluster.removeInfluences, "transfer_to_parent", "transferToParent"),
             ("SkinCluster.transferWeights", SkinCluster.transferWeights, "source_target_pairs", "sourceTargetPairs"),
             ("DagPose.fromSkinCluster", DagPose.fromSkinCluster, "skin_cluster", "skinCluster"),
@@ -529,13 +528,13 @@ class RenamedArgumentsTest(unittest.TestCase):
             ("Mesh.reorderVertices", Mesh.reorderVertices, "uv_set", "uvSet"),
             ("Mesh.getVertexNormals", Mesh.getVertexNormals, "angle_weighted", "angleWeighted"),
             ("Reference.getFilename", Reference.getFilename, "with_copy_number", "withCopyNumber"),
-            ("AnimCurve.moveKey", AnimCurve.moveKey, "time_offset", "timeOffset"),
+            ("Keyframe.move", common.Keyframe.move, "time_offset", "timeOffset"),
             ("AnimCurve.scaleKey", AnimCurve.scaleKey, "value_pivot", "valuePivot"),
             ("AnimCurve.scaleKey", AnimCurve.scaleKey, "input_pivot", "inputPivot"),
             ("CompoundPlug.__getitem__", CompoundPlug.__getitem__, "name_or_index", "nameOrIndex"),
             ("DampedSpring.solve", common.DampedSpring.solve, "seconds_per_sample", "secondsPerSample"),
             ("DrivenKey.setKey", common.DrivenKey.setKey, "driver_value", "driverValue"),
-            ("Plugin.ensureNodePlugin", common.Plugin.ensureNodePlugin, "node_type", "nodeType"),
+            ("Plugin.ensureNodePlugin", common.Plugin.ensureNodePlugin, "node_type", "type"),
             ("PluginPackage.__init__", common.PluginPackage.__init__, "minimum_version", "minimumVersion"),
             ("ScalarGraph.__init__", common.ScalarGraph.__init__, "create_node", "createNode"),
             ("ScriptJob.__init__", common.ScriptJob.__init__, "kill_with_scene", "killWithScene"),

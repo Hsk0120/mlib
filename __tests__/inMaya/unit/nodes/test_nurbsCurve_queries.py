@@ -116,7 +116,7 @@ class ParamTest(_CurveCase):
         self.assertEqual(self.curve.getLength(0.0), 0.0)
         self.assertAlmostEqual(self.curve.getLength(end), self.curve.getLength(), places=4)
         self.assertAlmostEqual(self.curve.getLength(end, True), self.curve.getLength(worldSpace=True), places=4)
-        self.assertAlmostEqual(self.curve.getLength(1.0, unit="mm"), self.curve.getLength(1.0) * 10, places=6)
+        self.assertAlmostEqual(self.curve.getLength(1.0, distanceUnit="mm"), self.curve.getLength(1.0) * 10, places=6)
 
     def test_param_at_length_round_trip(self):
         """弧長→パラメーター→弧長が往復し、両端は範囲の端。"""
@@ -129,7 +129,7 @@ class ParamTest(_CurveCase):
                 for ratio in (0.1, 0.5, 0.9):
                     param = self.curve.getParam(length=total * ratio, worldSpace=world)
                     self.assertAlmostEqual(self.curve.getLength(param, world), total * ratio, places=3)
-        param = self.curve.getParam(length=10.0, unit="mm")
+        param = self.curve.getParam(length=10.0, distanceUnit="mm")
         self.assertAlmostEqual(param, self.curve.getParam(length=1.0), places=6)
 
     def test_params_along_open_and_closed(self):
@@ -196,7 +196,7 @@ class ParamTest(_CurveCase):
             ("param length=None", TypeError, self.curve.getParam, (), {"length": None}),
             ("param point+length", TypeError, self.curve.getParam, (), {"point": point, "length": 1.0}),
             ("param length+tolerance", TypeError, self.curve.getParam, (), {"length": 1.0, "tolerance": 1e-3}),
-            ("param point+unit", TypeError, self.curve.getParam, (), {"point": point, "unit": "mm"}),
+            ("param point+distanceUnit", TypeError, self.curve.getParam, (), {"point": point, "distanceUnit": "mm"}),
             ("param positional", TypeError, self.curve.getParam, (point,), {}),
             ("atParam unknown what", ValueError, self.curve.getAtParam, (1.0,), {"what": "binormal"}),
             ("atParam what type", TypeError, self.curve.getAtParam, (1.0,), {"what": 1}),

@@ -11,7 +11,7 @@ from mlib.nodes.blendShape import BlendShape
 from mlib.nodes.node import Node
 
 
-def createBlendShape(base: str | Node, targets: str | Node | Iterable[str | Node] = ..., name: str | None = ..., frontOfChain: bool = ..., origin: str = ..., *, n: str | None = ..., foc: bool = ..., o: str = ...) -> BlendShape:
+def createBlendShape(base: str | Node, targets: str | Node | Iterable[str | Node] = ..., *, name: str | None = ..., frontOfChain: bool = ..., origin: str = ..., n: str | None = ..., foc: bool = ..., o: str = ...) -> BlendShape:
     """形状にblendShapeを作成し、ターゲットを登録する(``cmds.blendShape`` 相当)。
 
     ターゲットは指定した順に、論理番号0から登録する。

@@ -12,23 +12,24 @@ from typing import overload
 
 
 @overload
-def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: Literal[True], n: str = ...) -> DagContainer: ...
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str = ..., dag: Literal[True], n: str = ...) -> DagContainer: ...
 @overload
-def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: Literal[False] = ..., n: str = ...) -> Container: ...
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str = ..., dag: Literal[False] = ..., n: str = ...) -> Container: ...
 @overload
-def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] = ..., *, dag: bool = ..., n: str = ...) -> Container | DagContainer:
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str = ..., dag: bool = ..., n: str = ...) -> Container | DagContainer:
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
+    membersは作る前に確かめ、見つからないノードやほかのcontainerに入っているノードがあれば、何も作らずに例外にする。
     空のcontainerだけが必要なら ``mlib.createNode("container", name=...)`` でも作れる。
     ``dag=True`` ならDAGコンテナ(``cmds.container(type="dagContainer")``)を作る。
     fast引数は無い(cmds.containerと同じ機能がOpenMayaに無いため)。Undoが有効なら1回で戻せる。
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
+        members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
         name (str): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             既定は ``"container"``(``dag=True`` では ``"dagContainer"``)。
-        members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
         dag (bool): True ならDAGコンテナを作る。
         n (str): nameの短縮名。nameと同時には指定できない。
 
@@ -37,11 +38,12 @@ def createContainer(name: str = ..., members: str | Node | Iterable[Node | str] 
 
     Raises:
         TypeError: nameと短縮名 ``n`` を同時に指定した場合、またはdagがbool以外の場合。
-        RuntimeError: Mayaが作成・所属を拒否した場合。
+        RuntimeError: membersに見つからないノードやほかのcontainerに入っているノードがある場合(何も作らない)、
+            またはMayaが作成・所属を拒否した場合。
 
     Examples:
         >>> import mlib
-        >>> owner = mlib.createContainer("arm_graph", members=[node])
-        >>> rig = mlib.createContainer("arm_rig", members=[group], dag=True)
+        >>> owner = mlib.createContainer([node], name="arm_graph")
+        >>> rig = mlib.createContainer([group], name="arm_rig", dag=True)
     """
     ...

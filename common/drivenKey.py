@@ -260,7 +260,7 @@ class DrivenKey:
 
         ``fast=True`` なら、Undoに記録せずOpenMayaで更新する。
 
-        - この組のカーブがあれば、:meth:`AnimCurve.setKey <mlib.nodes.animCurve.AnimCurve.setKey>` のfastで
+        - この組のカーブがあれば、:meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>` のfastで
           キーを追加または更新する。
         - 無ければ、setDrivenKeyframeと同じ型・名前のカーブを作り、ドライバー→カーブ→駆動先とつなぐ
           (単位の違う接続には、Mayaが自動でunitConversionを挟む)。
@@ -316,7 +316,7 @@ class DrivenKey:
             if len(curves) > 1:
                 raise RuntimeError("このドライバーとドリブンの組に、複数のカーブが一致します")
             if fast:
-                # カーブの横軸はドライバーのUI単位(unitConversion経由の値)。縦軸はAnimCurve.setKeyが換算する。
+                # カーブの横軸はドライバーのUI単位(unitConversion経由の値)。縦軸はAnimCurve.addKeyが換算する。
                 self._set_key_fast(curves, _convert_units(driver.mplug(), x), y, inTangentType, outTangentType, unit, timeUnit, check)
                 return
             y = _convert_times(driven.mplug(), _convert_angles(driven.mplug(), y, angle_unit), time_unit)
@@ -403,4 +403,4 @@ class DrivenKey:
             curve = Node._create_node(kind, {"name": name.rstrip("_"), "skipSelect": True}, fast=True)
             curve.getPlug("input").connect(driver, fast=True)
             driven.connect(curve.getPlug("output"), fast=True)
-        curve.setKey(input, value, inTangentType, outTangentType, unit=unit, timeUnit=timeUnit, fast=True, check=check)
+        curve.addKey(input, value, inTangentType, outTangentType, unit=unit, timeUnit=timeUnit, fast=True, check=check)

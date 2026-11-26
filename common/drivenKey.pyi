@@ -191,7 +191,7 @@ class DrivenKey:
 
         ``fast=True`` なら、Undoに記録せずOpenMayaで更新する。
 
-        - この組のカーブがあれば、:meth:`AnimCurve.setKey <mlib.nodes.animCurve.AnimCurve.setKey>` のfastで
+        - この組のカーブがあれば、:meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>` のfastで
           キーを追加または更新する。
         - 無ければ、setDrivenKeyframeと同じ型・名前のカーブを作り、ドライバー→カーブ→駆動先とつなぐ
           (単位の違う接続には、Mayaが自動でunitConversionを挟む)。

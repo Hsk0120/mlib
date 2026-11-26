@@ -69,32 +69,32 @@ class VertexFace(Component):
         """
         return Face(self.shape, self.getMultiIndex()[1])
 
-    def getNormal(self, worldSpace=_UNSET, *, locked=False, ws=_UNSET):
-        """頂点フェースの法線を、長さ1で取得する。``locked=True`` なら、法線がロックされているかを調べる。
+    def getNormal(self, worldSpace=_UNSET, *, lockedOnly=False, ws=_UNSET):
+        """頂点フェースの法線を、長さ1で取得する。``lockedOnly=True`` なら、法線がロックされているかを調べる。
 
         法線は ``MFnMesh.getFaceVertexNormal`` で求める。ハードエッジやロックした法線を反映した、表示に使う法線になる
         (``polyNormalPerVertex`` で取得した値と同じ)。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
-                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``locked=True`` とは同時に指定できない。
-            locked (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
+                ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``lockedOnly=True`` とは同時に指定できない。
+            lockedOnly (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
-            Vector | bool: 長さ1の法線。``locked=True`` なら、法線がロックされていればTrue。
+            Vector | bool: 長さ1の法線。``lockedOnly=True`` なら、法線がロックされていればTrue。
 
         Raises:
-            TypeError: worldSpaceかlockedがboolでない場合、worldSpaceとwsを同時に指定した場合、
-                または ``locked=True`` とworldSpace(ws)を同時に指定した場合。
+            TypeError: worldSpaceかlockedOnlyがboolでない場合、worldSpaceとwsを同時に指定した場合、
+                または ``lockedOnly=True`` とworldSpace(ws)を同時に指定した場合。
             IndexError: 番号が今の範囲の外にある場合。
             RuntimeError: Shapeが無効な場合。
         """
-        _require_bool(locked, "locked")
-        if locked:
+        _require_bool(lockedOnly, "lockedOnly")
+        if lockedOnly:
             if worldSpace is not _UNSET or ws is not _UNSET:
-                raise TypeError("locked=TrueとworldSpace(ws)は同時に指定できません")
-            return self.shape.getVertexNormals(perFace=True, locked=True, faceVertices=self)[0]
+                raise TypeError("lockedOnly=TrueとworldSpace(ws)は同時に指定できません")
+            return self.shape.getVertexNormals(perFace=True, lockedOnly=True, faceVertices=self)[0]
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
         space = om2.MSpace.kWorld if _world_space(worldSpace) else om2.MSpace.kObject
         vertex, face = self.getMultiIndex()
@@ -175,15 +175,17 @@ class VertexFace(Component):
         """
         return self.shape.getVertexColors(perFace=True, colorSet=colorSet, faceVertices=self)[0]
 
-    def setColor(self, color, *, fast=False, colorSet=None):
+    def setColor(self, color, *, colorSet=None, fast=False, check=False):
         """この面頂点の色を設定する。
 
         通常はpolyColorPerVertexでUndoに記録する。fastは入力ヒストリの無いメッシュに限る。
 
         Args:
             color (Sequence[float] | om2.MColor): RGBまたはRGBAの有限値。RGBのAは1。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -195,7 +197,7 @@ class VertexFace(Component):
             NotImplementedError: fastで入力ヒストリのあるメッシュを編集する場合。
         """
         _require_bool(fast, "fast")
-        self.shape.setVertexColors([color], perFace=True, fast=fast, colorSet=colorSet, faceVertices=self)
+        self.shape.setVertexColors([color], perFace=True, fast=fast, check=check, colorSet=colorSet, faceVertices=self)
 
     def removeColor(self, *, fast=False, colorSet=None):
         """この面頂点のカラー割り当てを解除する。

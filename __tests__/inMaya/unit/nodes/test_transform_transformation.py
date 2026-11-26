@@ -56,7 +56,7 @@ class TransformationTest(NamespaceCase):
                 self.assertIsInstance(value, Transformation)
                 self.assertEqual(value.rotateOrder, 4)
                 self.assertSequenceAlmostEqual(tuple(value.translate), VALUES["t"])
-                self.assertSequenceAlmostEqual(tuple(value.rotatePivot), VALUES["rp"])
+                self.assertSequenceAlmostEqual(tuple(value.rotatePivotValue), VALUES["rp"])
                 self.assertSequenceAlmostEqual(list(value.matrix), cmds.getAttr(name + ".matrix"))
 
     def test_joint_under_scaled_parent_includes_inverse_scale(self):

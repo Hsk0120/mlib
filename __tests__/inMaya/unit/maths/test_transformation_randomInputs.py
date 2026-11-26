@@ -107,8 +107,8 @@ class TransformationRandomTest(unittest.TestCase):
                 value = Transformation(Matrix(matrix))
                 reference = om2.MTransformationMatrix(matrix)
                 self.assertLessEqual(max_diff(value.translate, reference.translation(om2.MSpace.kTransform)), 1e-9)
-                self.assertLessEqual(max_diff(value.scale, reference.scale(om2.MSpace.kTransform)), 1e-9)
-                self.assertLessEqual(max_diff(value.shear, reference.shear(om2.MSpace.kTransform)), 1e-9)
+                self.assertLessEqual(max_diff(value.scaleValue, reference.scale(om2.MSpace.kTransform)), 1e-9)
+                self.assertLessEqual(max_diff(value.shearValue, reference.shear(om2.MSpace.kTransform)), 1e-9)
                 self.assertLessEqual(max_diff(value.rotate, reference.rotation()), 1e-9)
                 self.assertLessEqual(max_diff(value.matrix, matrix), 1e-9)
                 self.assertLessEqual(max_diff(value.asMatrix(), matrix), 1e-9)
@@ -130,7 +130,7 @@ class TransformationRandomTest(unittest.TestCase):
                 self.assertEqual(value.rotateOrder, values["rotateOrder"])
                 self.assertEqual(value.rotate.order, values["rotateOrder"])
                 self.assertLessEqual(max_diff(value.rotate, values["rotate"]), 1e-12)
-                self.assertLessEqual(max_diff(value.rotatePivot, values["rotatePivot"]), 1e-12)
+                self.assertLessEqual(max_diff(value.rotatePivotValue, values["rotatePivot"]), 1e-12)
                 self.assertLessEqual(max_diff(value.scalePivotTranslate, values["scalePivotTranslate"]), 1e-12)
 
 

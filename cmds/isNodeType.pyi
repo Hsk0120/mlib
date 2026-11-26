@@ -4,7 +4,7 @@
 import maya.cmds as cmds
 
 
-def isNodeType(name: str) -> bool:
+def isNodeType(type: str) -> bool:
     """Mayaが知っているノード型の名前かを返す。
 
     プラグインの型は、そのプラグインを読み込んでいる間だけTrueになる。
@@ -12,13 +12,13 @@ def isNodeType(name: str) -> bool:
     知らない型名を :func:`mlib.ls <mlib.cmds.ls.ls>` の ``type`` に渡すと、Mayaが警告を出して空を返すため、先に確かめるときに使う。
 
     Args:
-        name (str): ノード型の名前(``"transform"``・``"joint"`` など)。
+        type (str): ノード型の名前(``"transform"``・``"joint"`` など)。
 
     Returns:
         bool: Mayaが知っている型ならTrue。
 
     Raises:
-        TypeError: nameが文字列でない場合。
+        TypeError: typeが文字列でない場合。
 
     Examples:
         >>> import mlib

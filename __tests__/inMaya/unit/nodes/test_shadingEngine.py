@@ -79,14 +79,14 @@ class ShadingEngineConnectionTest(NamespaceCase):
             ),
         )
         engine.setShader(material, "volume", output="outTransparency")
-        self.assertEqual(engine.getShader("volume", plug=True), material.getPlug("outTransparency"))
+        self.assertEqual(engine.getShader("volume", asPlug=True), material.getPlug("outTransparency"))
         self.assertEqual(engine.getShader("volume"), material)
         engine.setShader(displacement, "displacement")
         self.assertEqual(
             cmds.listConnections(name + ".displacementShader", source=True, destination=False, plugs=True), [displacement.getName() + ".displacement"]
         )
         engine.setShader(material.getPlug("outColor"))
-        self.assertEqual(engine.getShader(plug=True), material.getPlug("outColor"))
+        self.assertEqual(engine.getShader(asPlug=True), material.getPlug("outColor"))
         self.assertEqual(engine.getShader("displacement"), displacement)
 
     def test_shader_inputs_rejected(self):
@@ -96,7 +96,7 @@ class ShadingEngineConnectionTest(NamespaceCase):
         engine.setShader(material)
         for label, operation, error in (
             ("get kind", lambda: engine.getShader("color"), ValueError),
-            ("get plug type", lambda: engine.getShader(plug=1), TypeError),
+            ("get asPlug type", lambda: engine.getShader(asPlug=1), TypeError),
             ("set kind", lambda: engine.setShader(material, "color"), ValueError),
             ("self", lambda: engine.setShader(engine.getPlug("surfaceShader")), RuntimeError),
             ("self fast", lambda: engine.setShader(engine.getPlug("surfaceShader"), fast=True), RuntimeError),
@@ -121,8 +121,10 @@ class ShadingEngineConnectionTest(NamespaceCase):
         engine.assign(cube)
         members = engine.getMembers()
         self.assertEqual(members, [cube.getShape()])
+        # flatten は ObjectSet.getMembers と同じ引数。割り当て先は入れ子を持たないので結果は同じ。bool 以外は TypeError。
+        self.assertEqual(engine.getMembers(flatten=True), members)
         with self.assertRaises(TypeError):
-            engine.getMembers(flatten=True)
+            engine.getMembers(flatten=1)
         if not hasattr(om2.MFnSet, "getMemberPaths"):
             # Maya 2022/2023のAPI2はセットのDAGパス照会を持たない。
             with self.assertRaises(NotImplementedError):

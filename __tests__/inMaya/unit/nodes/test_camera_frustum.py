@@ -32,7 +32,7 @@ class CameraFrustumTest(NamespaceCase):
                     )
         self.assertSequenceAlmostEqual(camera.getFieldOfView(port=(1920, 1080), unit="rad"), fn.getPortFieldOfView(1920, 1080))
         raw = fn.postProjectionMatrix()
-        self.assertSequenceAlmostEqual(list(camera.getProjectionMatrix(post=True)), [raw.getElement(r, c) for r in range(4) for c in range(4)])
+        self.assertSequenceAlmostEqual(list(camera.getProjectionMatrix(kind="post")), [raw.getElement(r, c) for r in range(4) for c in range(4)])
         self.assertUndoEmpty()
         with self.assertRaises(ValueError):
             camera.getFrustum(0)
@@ -60,12 +60,14 @@ class CameraFrustumTest(NamespaceCase):
         with self.assertRaises(TypeError):
             camera.getFrustum(1.7, "rendering")
         raw = fn.projectionMatrix()
-        self.assertSequenceAlmostEqual(list(camera.getProjectionMatrix(post=False)), [raw.getElement(r, c) for r in range(4) for c in range(4)])
-        self.assertIsInstance(camera.getProjectionMatrix(post=True), mlib.Matrix)
+        self.assertSequenceAlmostEqual(list(camera.getProjectionMatrix(kind="projection")), [raw.getElement(r, c) for r in range(4) for c in range(4)])
+        self.assertIsInstance(camera.getProjectionMatrix(kind="post"), mlib.Matrix)
         with self.assertRaises(TypeError):
-            camera.getProjectionMatrix(post=1)
+            camera.getProjectionMatrix(kind=1)
+        with self.assertRaises(ValueError):
+            camera.getProjectionMatrix(kind="pre")
         with self.assertRaises(TypeError):
-            camera.getProjectionMatrix(True)
+            camera.getProjectionMatrix("post")
         radians = fn.getPortFieldOfView(640, 480)
         self.assertSequenceAlmostEqual(camera.getFieldOfView(port=(640, 480)), [om2.MAngle(value).asDegrees() for value in radians], places=6)
         self.assertSequenceAlmostEqual(camera.getFieldOfView(port=[640, 480], unit="rad"), radians)

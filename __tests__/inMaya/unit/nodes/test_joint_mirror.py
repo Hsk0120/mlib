@@ -73,7 +73,7 @@ class JointMirrorTest(_SpecCase):
     def test_matches_cmds(self):
         """全フラグの組み合わせで、新しいルートの名前・親・ワールドマトリクスが cmds と一致する。
 
-        axis はミラー面(``"YZ"``)と反転する軸(``"x"``)のどちらの書き方でも同じ面になる。
+        plane はミラー面(``"YZ"``)と反転する軸(``"x"``)のどちらの書き方でも同じ面になる。
         """
         for axis, plane in (("YZ", "YZ"), ("XY", "XY"), ("xz", "XZ"), ("x", "YZ"), ("ZX", "XZ"), (2, "XY")):
             for behavior in (True, False):
@@ -116,9 +116,9 @@ class JointMirrorTest(_SpecCase):
         """不正な引数は編集前に型付きの例外になる。"""
         joint = Joint(self.joints[0])
         cases = (
-            (ValueError, dict(axis="W")),
-            (ValueError, dict(axis="xyz")),
-            (TypeError, dict(axis=1.5)),
+            (ValueError, dict(plane="W")),
+            (ValueError, dict(plane="xyz")),
+            (TypeError, dict(plane=1.5)),
             (TypeError, dict(behavior=1)),
             (TypeError, dict(searchReplace="L_")),
             (TypeError, dict(searchReplace=("L_",))),

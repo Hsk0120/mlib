@@ -60,7 +60,7 @@ class Namespace:
         """名前空間の名前からハッシュ値を返す。
 
         Returns:
-            int: 今持っている名前のハッシュ。rename/move で変わるため、集合や辞書のキーに入れている間は
+            int: 今持っている名前のハッシュ。rename/setParent で変わるため、集合や辞書のキーに入れている間は
                 名前を変えないこと。
         """
         ...
@@ -112,11 +112,39 @@ class Namespace:
             bool: 持っている名前の名前空間が、今のシーンにあれば True。
         """
         ...
-    def getParent(self) -> Namespace | None:
+    def getParent(self, *, all: bool = ...) -> Namespace | list[Namespace] | None:
         """親の名前空間を返す。ルートの親は ``None``。
 
+        ``all=True`` なら、祖先(親・親の親…ルートまで)を近い順にすべて返す
+        (:meth:`DagNode.getParent(all=True) <mlib.nodes.dagNode.DagNode.getParent>` と同じ考え方)。
+
+        Args:
+            all (bool): Trueなら、祖先を近い順にすべて返す。ルート(``:``)も含む。既定はFalse。
+
         Returns:
-            Namespace | None: 名前から求めた親。ルートでは None。親が存在するかは確かめない。
+            Namespace | list[Namespace] | None: 名前から求めた親。ルートでは None。親が存在するかは確かめない。
+                all=Trueなら祖先を近い順に並べた新しいリスト(ルートでは空リスト)。
+
+        Raises:
+            TypeError: allがboolでない場合。
+        """
+        ...
+    def setParent(self, parent: str | Namespace = ...) -> None:
+        """この名前空間を、指定した親の名前空間の下へ移す(親を変える)。
+
+        :meth:`getParent` と対になる。
+
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
+
+        Args:
+            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
+            RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
         """
         ...
     def getShortName(self) -> str:
@@ -133,27 +161,33 @@ class Namespace:
             list[str]: 上の階層から順に並べた名前。ルートでは空リスト。
         """
         ...
-    def getChildren(self, recurse: bool = ...) -> list[Namespace]:
+    def getChildren(self, *, allDescendents: bool = ...) -> list[Namespace]:
         """子の名前空間を取得する。
 
         Args:
-            recurse (bool): Trueなら、孫より下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
+            allDescendents (bool): Trueなら、孫より下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
+                :meth:`DagNode.getChildren <mlib.nodes.dagNode.DagNode.getChildren>` の同じ名前の引数と同じ意味。
 
         Returns:
-            list[Namespace]: 子(recurse=Trueなら子孫)。自身が存在しない場合は空リスト。
+            list[Namespace]: 子(allDescendents=Trueなら子孫)。自身が存在しない場合は空リスト。
 
         Raises:
-            TypeError: recurse が bool でない場合。
+            TypeError: allDescendents が bool でない場合。
         """
         ...
-    def getNodes(self, recurse: bool = ...) -> Nodes:
+    def getNodes(self, *, allDescendents: bool = ..., type: str | None = ...) -> Nodes:
         """名前空間の中のノードを、mlibのオブジェクトとして返す。
 
         Args:
-            recurse (bool): Trueなら、子の名前空間の中のノードも含める。
+            allDescendents (bool): Trueなら、子孫の名前空間の中のノードも含める。既定はFalse。
+            type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型
+                (:meth:`Selection.getNodes <mlib.common.selection.Selection.getNodes>` と同じ)。
 
         Returns:
             Nodes: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空の集まり。
+
+        Raises:
+            TypeError: allDescendentsがboolでない場合、またはtypeが文字列でもNoneでもない場合。
         """
         ...
     def getNode(self, name: str) -> Node:
@@ -216,23 +250,7 @@ class Namespace:
             RuntimeError: 移動先がすでにある場合、親が存在しない場合、または Maya の操作が失敗した場合。
         """
         ...
-    def move(self, parent: str | Namespace = ...) -> None:
-        """この名前空間を、指定した親の名前空間の下へ移す。
-
-        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
-
-        Args:
-            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
-            RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
-        """
-        ...
-    def clear(self, *, preserveChildren: bool = ...) -> None:
+    def deleteNodes(self, *, preserveChildren: bool = ...) -> None:
         """名前空間を残して、直接所属するノードを削除する。
 
         既定では別の名前空間の子Transformをワールド直下へ退避する。子の名前空間は削除しない。
@@ -253,7 +271,7 @@ class Namespace:
             NotImplementedError: 退避対象がShapeまたはインスタンスの場合。
         """
         ...
-    def remove(self, destination: str | Namespace = ..., *, deleteContents: bool = ...) -> Namespace | None:
+    def delete(self, destination: str | Namespace = ..., *, deleteContents: bool = ...) -> Namespace | None:
         """中身を別の名前空間へ移してから、この名前空間を削除する。
 
         ``deleteContents=True`` なら、中身ごと削除する。

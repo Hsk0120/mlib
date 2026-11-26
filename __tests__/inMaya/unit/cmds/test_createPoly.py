@@ -34,7 +34,7 @@ class CreatePolyKindTest(NamespaceCase):
                 self.flushUndo()
                 shape = mlib.createPoly(kind, name=self.name(kind))
                 self.assertIsInstance(shape, mlib.Mesh)
-                self.assertEqual(shape.getName(node=True), self.name(kind) + "Shape")
+                self.assertEqual(shape.getName(short=True), self.name(kind) + "Shape")
                 self.assertEqual(cmds.undoInfo(query=True, undoName=True), "mlibCreate" + chunk[0].upper() + chunk[1:])
                 self.assertEqual(cmds.ls(selection=True), [])
                 expected = command(constructionHistory=False, name=self.name(kind + "Ref"), **flags)[0]

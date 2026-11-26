@@ -34,7 +34,7 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
             tuple: skins・命令呼出・警告・本体通過の記録。
         """
         skins = [SimpleNamespace(_full_name=lambda: "skinA"), SimpleNamespace(_full_name=lambda: "skinB")]
-        collection = SimpleNamespace(getSkinClusters=lambda: skins)
+        collection = SimpleNamespace(getSkinClusters=lambda *, influence: skins if influence else [])
         entered = []
         calls = []
 
@@ -101,7 +101,7 @@ class SkinProtectionDiagnosticsTest(unittest.TestCase):
 
     def test_bad_formatter_does_not_interrupt_cleanup_or_replace_body_exception(self):
         skins = [SimpleNamespace(_full_name=lambda: "skinA"), SimpleNamespace(_full_name=lambda: "skinB")]
-        collection = SimpleNamespace(getSkinClusters=lambda: skins)
+        collection = SimpleNamespace(getSkinClusters=lambda *, influence: skins if influence else [])
         handler = next(item for item in logger.getLogger().handlers if isinstance(item, logger.MayaHandler))
         formatter = handler.formatter
         handler.setFormatter(logging.Formatter("%(tool)s %(message)s"))

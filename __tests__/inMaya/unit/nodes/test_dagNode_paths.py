@@ -1,7 +1,7 @@
 """DagNode の階層とパス・表示の約束を固定する(担当C)。
 
 対象: getName・getName(full=True)(インスタンスごと)、getParent(instances=True, indirect=)、getParent(step)、
-getInstances(noSelf)、mfn、show・hide・setVisibility(Undo・fast・ロック)、getVisibility と isVisible の違い、
+getInstances(includeSelf)、mfn、show・hide・setVisibility(Undo・fast・ロック)、getVisibility と isVisible の違い、
 getChildren の引数検査、保持インスタンスだけが消えた参照と削除済みノードの扱い。
 """
 
@@ -79,12 +79,12 @@ class InstancedPathTest(_SpecCase):
                 self.assertIsNone(deep.getParent(step))
 
     def test_get_instances(self):
-        """getInstances は全パスで、保持パスは自身。noSelf=True は保持パスを除く。"""
+        """getInstances は全パスで、保持パスは自身。includeSelf=False は保持パスを除く。"""
         instances = self.first.getInstances()
         self.assertEqual([item.getName(full=True) for item in instances], self.paths)
         self.assertIs(instances[0], self.first)
-        self.assertEqual([item.getName(full=True) for item in self.first.getInstances(noSelf=True)], [self.paths[1]])
-        self.assertEqual([item.getName(full=True) for item in self.second.getInstances(noSelf=True)], [self.paths[0]])
+        self.assertEqual([item.getName(full=True) for item in self.first.getInstances(includeSelf=False)], [self.paths[1]])
+        self.assertEqual([item.getName(full=True) for item in self.second.getInstances(includeSelf=False)], [self.paths[0]])
 
     def test_dag_fn(self):
         """mfn は保持インスタンスの MFnDagNode(Transform は MFnTransform)。"""
@@ -252,8 +252,8 @@ class VisibilityTest(_SpecCase):
         """探索フラグは bool、order は2種類、leaves と shapes は併用できない。"""
         with self.assertRaisesRegex(TypeError, "はboolで指定してください"):
             self.node.getChildren(allDescendents=1)
-        with self.assertRaisesRegex(ValueError, "order"):
-            self.node.getChildren(order="random")
+        with self.assertRaisesRegex(ValueError, "sortBy"):
+            self.node.getChildren(sortBy="random")
         with self.assertRaisesRegex(ValueError, "leaves"):
             self.node.getChildren(leaves=True, shapes=True)
 

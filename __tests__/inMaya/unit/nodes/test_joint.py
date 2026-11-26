@@ -327,7 +327,7 @@ class JointTest(unittest.TestCase):
         skin_name = cmds.skinCluster(joint.getName(full=True), mesh_transform)[0]
         self.created.append(skin_name)
 
-        found = joint.getSkinClusters()
+        found = joint.getSkinClusters(influence=True)
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0].getName(), skin_name)
 

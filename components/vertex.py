@@ -129,7 +129,7 @@ class Vertex(PointComponent):
         self._require_valid()
         return self.shape.getVertexColors(colorSet=colorSet)[self.index]
 
-    def setColor(self, color, *, colorSet=None, fast=False):
+    def setColor(self, color, *, colorSet=None, fast=False, check=False):
         """頂点の色を設定する。
 
         :meth:`Mesh.setVertexColors <mlib.nodes.mesh.Mesh.setVertexColors>` で、この頂点だけを書き込む。
@@ -143,6 +143,8 @@ class Vertex(PointComponent):
             colorSet (str | None): カラーセットの名前。Noneなら現在のカラーセット(無ければMayaが ``colorSet1`` を作る)。
                 名前を指定する場合は、そのカラーセットがすでにある必要がある。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -155,9 +157,9 @@ class Vertex(PointComponent):
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
         """
         self._require_valid()
-        self.shape.setVertexColors([color], vertices=[self.index], colorSet=colorSet, fast=fast)
+        self.shape.setVertexColors([color], vertices=[self.index], colorSet=colorSet, fast=fast, check=check)
 
-    def getNormal(self, worldSpace=_UNSET, angleWeighted=False, *, ws=_UNSET):
+    def getNormal(self, worldSpace=_UNSET, *, angleWeighted=False, ws=_UNSET):
         """頂点の法線を、長さ1で取得する。
 
         接する面の法線の平均で、``MFnMesh.getVertexNormal`` で求める。

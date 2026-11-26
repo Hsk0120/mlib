@@ -86,12 +86,12 @@ class SelectionTest(unittest.TestCase):
     def test_add_remove_and_empty(self):
         selection = Selection(self.joint)
         cmds.select(self.mesh)
-        selection.select(mode="add")
+        selection.select(add=True)
         self.assertIn(self.joint, cmds.ls(selection=True))
         cmds.undo()
         self.assertEqual(cmds.ls(selection=True), [self.mesh])
         cmds.redo()
-        selection.select(mode="remove")
+        selection.select(deselect=True)
         self.assertEqual(cmds.ls(selection=True), [self.mesh])
         cmds.undo()
         self.assertIn(self.joint, cmds.ls(selection=True))
@@ -237,24 +237,28 @@ class SelectionSpecTest(unittest.TestCase):
             Selection([self.ns + ":missing"])
 
     def test_select_modes_and_undo(self):
-        """replace/add/removeで選択を変え、1回のUndoで直前の選択へ戻る。"""
+        """置き換え・add・deselectで選択を変え、1回のUndoで直前の選択へ戻る。"""
         cmds.select(self.node, replace=True)
-        Selection(self.mesh).select(mode="add")
+        Selection(self.mesh).select(add=True)
         self.assertEqual(len(cmds.ls(selection=True)), 2)
-        Selection(self.node).select(mode="remove")
+        Selection(self.node).select(deselect=True)
         self.assertEqual(cmds.ls(selection=True), [self.mesh])
         cmds.undo()
         self.assertEqual(len(cmds.ls(selection=True)), 2)
         Selection().select()
         self.assertEqual(cmds.ls(selection=True), [])
-        Selection().select(mode="add")
+        Selection().select(add=True)
         self.assertEqual(cmds.ls(selection=True), [])
 
     def test_select_validation(self):
-        """modeとmissingの不正はValueError。missing=errorは変更前に失敗する。"""
+        """add・deselectの不正(bool以外・同時指定)はTypeError、missingの不正はValueError。missing=errorは変更前に失敗する。"""
         selection = Selection([self.node])
-        with self.assertRaises(ValueError):
-            selection.select(mode="toggle")
+        with self.assertRaises(TypeError):
+            selection.select(add=1)
+        with self.assertRaises(TypeError):
+            selection.select(add=True, deselect=True)
+        with self.assertRaises(TypeError):
+            selection.select(mode="add")
         with self.assertRaises(ValueError):
             Selection().select(missing="ignore")
         cmds.select(self.mesh, replace=True)

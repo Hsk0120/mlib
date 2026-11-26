@@ -14,6 +14,8 @@ from .shape import Shape
 _POINT_KINDS = ("eye", "centerOfInterest")
 #: :meth:`Camera.getDirection`・:meth:`Camera.setDirection` の kind。
 _DIRECTION_KINDS = ("view", "up")
+#: :meth:`Camera.getProjectionMatrix` の kind。
+_PROJECTION_KINDS = ("projection", "post")
 
 
 class Camera(Shape):
@@ -384,8 +386,8 @@ class Camera(Shape):
             raise ValueError("directionは視線と平行でない方向で指定してください")
         cmds.camera(self._full_name(), edit=True, worldUp=list(direction))
 
-    def getProjectionMatrix(self, *, post=False):
-        """投影マトリクスを取得する。``post=True`` なら、フィルム面のロール等に使う後段の投影マトリクスを取得する。
+    def getProjectionMatrix(self, *, kind="projection"):
+        """投影マトリクスを取得する。``kind="post"`` なら、フィルム面のロール等に使う後段の投影マトリクスを取得する。
 
         カメラ空間からクリップ空間へ写すマトリクスで、``MFnCamera.projectionMatrix`` の値を返す。
         焦点距離・フィルムバック・クリップ面から決まる。
@@ -396,20 +398,22 @@ class Camera(Shape):
         2. このマトリクスを掛ける。
         3. w で割る。
 
-        ``post=True`` は ``MFnCamera.postProjectionMatrix`` の値で、通常の投影マトリクスは含めない。
+        ``kind="post"`` は ``MFnCamera.postProjectionMatrix`` の値で、通常の投影マトリクスは含めない。
 
         Args:
-            post (bool): Trueなら、後段の投影マトリクスを返す。既定はFalse。
+            kind (str): 取得するマトリクスの種類。``"projection"`` は投影マトリクス、``"post"`` は後段の投影マトリクス。
+                既定は ``"projection"``。
 
         Returns:
             Matrix: 投影マトリクス(``om2.MFloatMatrix`` の値を倍精度にした、独立した値)。
 
         Raises:
-            TypeError: postがboolでない場合。
+            TypeError: kindが文字列でない場合。
+            ValueError: kindが対応していない名前の場合。
             RuntimeError: ノードが削除済みの場合。
         """
-        _require_bool(post, "post")
-        matrix = self.mfn().postProjectionMatrix() if post else self.mfn().projectionMatrix()
+        kind = _require_choice(kind, "kind", _PROJECTION_KINDS)
+        matrix = self.mfn().postProjectionMatrix() if kind == "post" else self.mfn().projectionMatrix()
         return Matrix([matrix.getElement(row, column) for row in range(4) for column in range(4)])
 
     def getFilmFrustum(self, distance, *, applyPanZoom=False):

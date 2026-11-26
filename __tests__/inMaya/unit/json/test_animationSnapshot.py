@@ -216,7 +216,7 @@ class AnimationSnapshotTest(_AnimCase):
         self.assertAlmostEqual(loaded.header.fps, 24.0)
         loaded.apply(namespaceMap={self.ns: self.other})
         self.assertEqual(self.keyTimes(self.b + ".tx"), [0.0, 10.0, 15.0, 20.0, 30.0])
-        loaded.apply(namespaceMap={self.ns: self.other}, timing="second")
+        loaded.apply(namespaceMap={self.ns: self.other}, timing="sec")
         self.assertSequenceAlmostEqual(self.keyTimes(self.b + ".tx"), [0.0, 12.5, 18.75, 25.0, 37.5], places=6)
         self.assertAlmostEqual(cmds.getAttr(self.b + ".tx", time=12.5), 5.0)
         # 秒を保つ換算では、接線の傾き(値/フレーム)が fps の比で緩やかになる。
@@ -473,12 +473,17 @@ class AnimationSnapshotTest(_AnimCase):
             ({"mode": "add"}, ValueError),
             ({"timeOffset": "1"}, TypeError),
             ({"timeOffset": float("inf")}, ValueError),
-            ({"timing": "sec"}, ValueError),
+            ({"timing": "second"}, ValueError),
             ({"createLayers": 1}, TypeError),
             ({"fast": 1}, TypeError),
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(error):
                 snap.apply(**kwargs)
+            if "fast" not in kwargs:
+                # validate は apply と同じ指定(fastを除く)を受け、同じ決まりで確かめる。
+                with self.subTest(method="validate", kwargs=kwargs), self.assertRaises(error):
+                    snap.validate(**kwargs)
+        self.assertTrue(snap.validate(mode="merge", timeOffset=10, timing="sec", createLayers=False).valid)
         with self.assertRaises(TypeError):
             AnimationSnapshot.capture([1])
         path = os.path.join(self.folder, "keys.json")

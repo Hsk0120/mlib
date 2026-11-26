@@ -12,7 +12,7 @@ from ..core.nodeEdit import check_deletion, delete_nodes
 from ..decorator import _edit_context, _pick_alias, _require_bool, undoChunk
 from ..maths import EulerRotate, Scale, Vector
 from ..plugs.plug import Plugs
-from ..util import _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
+from ..util import _MIRROR_AXIS_CHOICES, _MIRROR_PLANES, _UNSET, _mirror_axis, _world_space
 from .node import Node, Nodes, _writable_plug
 from .transform import Transform, _closest_euler
 from typing import Any, Iterable, Iterator, Sequence
@@ -36,7 +36,6 @@ from mlib.nodes.reference import Reference
 from mlib.nodes.shadingEngine import ShadingEngine
 from mlib.nodes.shape import Shape
 from mlib.nodes.skinCluster import SkinCluster
-from mlib.nodes.skinCluster import SkinClusters
 from mlib.plugs.plug import Plug
 from typing import overload
 import os
@@ -89,13 +88,13 @@ def _influences_by_skin(joints: Iterable[Joint]) -> list[tuple[SkinCluster, list
     """
     ...
 
-def _remove_influences(groups: list[tuple[SkinCluster, list[Joint]]], transfer_to_parent: bool, force: bool, fast: bool = ..., deleting: bool = ...) -> None:
+def _remove_influences(groups: list[tuple[SkinCluster, list[Joint]]], transfer_to_parent: bool, repair: bool, fast: bool = ..., deleting: bool = ...) -> None:
     """ウェイトのロックを一時的に外し、全skinClusterを検査してから深いinfluenceから順に解除する。
 
     Args:
         groups (list[tuple[SkinCluster, list[Joint]]]): skinClusterと解除するjoint。
         transfer_to_parent (bool): 祖先influenceへウェイトを移すか。
-        force (bool): 不正ウェイトを修復してから解除するか。
+        repair (bool): 不正ウェイトを修復してから解除するか。
         fast (bool): Trueはウェイトの書込みをOpenMayaで行い、Undoへ記録しない。
         deleting (bool): Trueは直後にjointを削除する。
 
@@ -104,7 +103,7 @@ def _remove_influences(groups: list[tuple[SkinCluster, list[Joint]]], transfer_t
     """
     ...
 
-def _delete_joints(joints: Sequence[Joint], skip_connected: bool, fast: bool, remove_influence: bool, transfer_to_parent: bool, force: bool) -> None:
+def _delete_joints(joints: Sequence[Joint], skip_connected: bool, fast: bool, remove_influence: bool, transfer_to_parent: bool, repair: bool) -> None:
     """jointを、消える階層のinfluenceを解除してから一括で削除する。
 
     Args:
@@ -113,13 +112,13 @@ def _delete_joints(joints: Sequence[Joint], skip_connected: bool, fast: bool, re
         fast (bool): TrueはUndoなしのOpenMaya更新。
         remove_influence (bool): 削除の前にinfluenceを解除するか。
         transfer_to_parent (bool): 解除するウェイトを残る祖先influenceへ移すか。
-        force (bool): 不正ウェイトを修復してから解除するか。
+        repair (bool): 不正ウェイトを修復してから解除するか。
 
     Returns:
         None: 値を返さない。
 
     Raises:
-        TypeError: skip_connected・remove_influence・transfer_to_parent・forceがbool以外の場合。
+        TypeError: skip_connected・remove_influence・transfer_to_parent・repairがbool以外の場合。
         RuntimeError: 対象が無効、削除できない、またはinfluenceを解除できない場合。
     """
     ...
@@ -310,7 +309,7 @@ class Joint(Transform):
             RuntimeError: ジョイントが無効な場合、またはロック・入力の接続などでMayaが変更を拒否した場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> Joint:
+    def mirror(self, plane: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> Joint:
         """ジョイントのチェーンをミラーした、新しいチェーンを作る。
 
         自身と子孫のジョイント(と、子のikEffectorなど)を、Maya標準の ``cmds.mirrorJoint`` で複製してミラーする。
@@ -319,7 +318,8 @@ class Joint(Transform):
         fast引数は無い(OpenMayaに同じ機能が無いため)。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            axis (str | int): ミラーの面か、反転する軸。既定は ``"YZ"``。
+            plane (str | int): ミラーの面。既定は ``"YZ"``。反転する軸でも指定できる
+                (ほかの ``mirror`` の ``axis`` と同じ書き方)。
 
                 - 面: ``"YZ"`` (X方向に左右反転)・``"XZ"``・``"XY"``
                 - 軸: ``"x"``・``"y"``・``"z"`` (xはYZ、yはXZ、zはXYと同じ。文字の順や大文字・小文字は問わない)
@@ -336,9 +336,9 @@ class Joint(Transform):
                 や :meth:`getChainFromHere` で取得する。
 
         Raises:
-            TypeError: axisが文字列・int以外の場合、behaviorがbool以外の場合、
+            TypeError: planeが文字列・int以外の場合、behaviorがbool以外の場合、
                 またはsearchReplaceが2つの文字列の組・None以外の場合。
-            ValueError: axisに使えない値を指定した場合、またはsearchReplaceの検索文字列が空の場合。
+            ValueError: planeに使えない値を指定した場合、またはsearchReplaceの検索文字列が空の場合。
             RuntimeError: ジョイントが無効な場合、またはMayaがミラーを拒否した場合。
 
         Note:
@@ -534,14 +534,7 @@ class Joint(Transform):
             int: 階層の深さ。ルートのジョイントを0として数える。
         """
         ...
-    def getSkinClusters(self) -> SkinClusters:
-        """このジョイントに接続しているskinClusterを取得する。
-
-        Returns:
-            SkinClusters: skinClusterのオブジェクト。同じものは1回だけ含む。
-        """
-        ...
-    def removeInfluence(self, skinCluster: SkinCluster | str | None = ..., *, transferToParent: bool = ..., force: bool = ...) -> None:
+    def removeInfluence(self, skinCluster: SkinCluster | str | None = ..., *, transferToParent: bool = ..., repair: bool = ...) -> None:
         """skinClusterのインフルエンスから自身を外す。
 
         ジョイントのノードは残す。外す前に、すべての対象でインフルエンスになっているかと、
@@ -557,19 +550,19 @@ class Joint(Transform):
             skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。
             transferToParent (bool): Trueなら、ウェイトをいちばん近い祖先のインフルエンスへ足す。既定はTrue。
                 Falseの場合や、移す先が無い場合は、Maya標準の配り直しに任せる。
-            force (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
 
         Returns:
             None: 値を返さない。skinClusterを省略し、どこにもバインドされていなければ何も変えない。
 
         Raises:
-            TypeError: transferToParent・forceがbool以外の場合。
+            TypeError: transferToParent・repairがbool以外の場合。
             ValueError: インフルエンスになっていない場合、または最後のインフルエンスを外そうとした場合。
             RuntimeError: ジョイントが無効な場合、ウェイトの要素がロック・入力の接続で書き込めない場合、
                 または変更に失敗した場合。
         """
         ...
-    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ...) -> None:
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -584,6 +577,7 @@ class Joint(Transform):
 
         変える前にすべての対象を確かめる。Undoが有効なら、1回のUndoで戻せる。
         ``mlib.delete`` はインフルエンスから外す処理をせず、Maya標準の削除のままになる。
+        引数は :meth:`Node.delete <mlib.nodes.node.Node.delete>` と同じ(Joint以外では、インフルエンスの引数に働きは無い)。
 
         Args:
             skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
@@ -592,13 +586,13 @@ class Joint(Transform):
                 OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
             removeInfluence (bool): Falseなら、インフルエンスから外さず、Maya標準の削除だけを行う。既定はTrue。
             transferToParent (bool): Falseなら、ウェイトを祖先へ移さず、Maya標準の配り直しに任せる。既定はTrue。
-            force (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: skipConnected・fast・removeInfluence・transferToParent・forceがbool以外の場合。
+            TypeError: skipConnected・fast・removeInfluence・transferToParent・repairがbool以外の場合。
             ValueError: 移すウェイトに負の値か有限でない値がある場合。このときは何も変えない。
             RuntimeError: 対象が無効な場合、ロックされたノードやリファレンスのノードを含む場合(このときは何も変えない)、
                 ウェイトの要素がロック・入力の接続で書き込めない場合、またはMayaが変更を拒否した場合。
@@ -651,11 +645,11 @@ class Joint(Transform):
             TypeError: worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
         """
         ...
-    def getTransferTarget(self, skin: SkinCluster) -> Joint | None:
+    def getTransferTarget(self, skinCluster: SkinCluster) -> Joint | None:
         """ウェイトを移す先になる、いちばん近い祖先のインフルエンスを探す。
 
         Args:
-            skin (SkinCluster): インフルエンスになっているかを調べるskinCluster。
+            skinCluster (SkinCluster): インフルエンスになっているかを調べるskinCluster。
 
         Returns:
             Joint | None: 移す先の祖先のジョイント。見つからない場合は ``None``。
@@ -902,7 +896,7 @@ class Joints(Nodes[Joint]):
                 先に済んだジョイントの変更は、自動では戻さない。
         """
         ...
-    def removeInfluence(self, skinCluster: SkinCluster | str | None = ..., *, transferToParent: bool = ..., force: bool = ...) -> None:
+    def removeInfluence(self, skinCluster: SkinCluster | str | None = ..., *, transferToParent: bool = ..., repair: bool = ...) -> None:
         """すべてのジョイントをインフルエンスから外す。
 
         ジョイントのノードは残す。:meth:`Joint.removeInfluence` と同じやり方で、深いジョイントから順に外す。
@@ -917,20 +911,20 @@ class Joints(Nodes[Joint]):
         Args:
             skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。
             transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。
-            force (bool): :meth:`Joint.removeInfluence` と同じ。
+            repair (bool): :meth:`Joint.removeInfluence` と同じ。
 
         Returns:
             None: 値を返さない。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
 
         Raises:
-            TypeError: transferToParent・forceがbool以外の場合。
+            TypeError: transferToParent・repairがbool以外の場合。
             ValueError: インフルエンスになっていないジョイントを含む場合、
                 またはskinClusterのすべてのインフルエンスを外そうとした場合。このときは何も変えない。
             RuntimeError: 無効なジョイントを含む場合、ウェイトの要素がロック・入力の接続で書き込めない場合、
                 またはMayaでの変更が失敗した場合。
         """
         ...
-    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., force: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ...) -> None:
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -943,7 +937,7 @@ class Joints(Nodes[Joint]):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
             removeInfluence (bool): :meth:`Joint.delete` と同じ。
             transferToParent (bool): :meth:`Joint.delete` と同じ。
-            force (bool): :meth:`Joint.delete` と同じ。
+            repair (bool): :meth:`Joint.delete` と同じ。
 
         Returns:
             None: 値を返さない。コレクションが空なら何もしない。
@@ -989,13 +983,6 @@ class Joints(Nodes[Joint]):
             RuntimeError: 無効なジョイントを含む場合、またはMayaが変更を拒否した場合。
         """
         ...
-    def getSkinClusters(self) -> SkinClusters:
-        """すべてのジョイントに接続しているskinClusterを取得する。
-
-        Returns:
-            SkinClusters: skinClusterのコレクション。同じものは1回だけ含む。
-        """
-        ...
     def getSegmentScaleCompensate(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getSegmentScaleCompensate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
@@ -1014,7 +1001,7 @@ class Joints(Nodes[Joint]):
     def getHikJointName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getHikJointName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirror(self, axis: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> list[Joint]:
+    def mirror(self, plane: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> list[Joint]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.mirror` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def connectInverseScale(self, source: object | None = ..., *, force: bool = ..., fast: bool = ...) -> list[None]:
@@ -1056,7 +1043,7 @@ class Joints(Nodes[Joint]):
     def getBoneSegments(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[list[tuple[Vector, Vector]]]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getBoneSegments` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getTransferTarget(self, skin: SkinCluster) -> list[Joint | None]:
+    def getTransferTarget(self, skinCluster: SkinCluster) -> list[Joint | None]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getTransferTarget` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def reparentChildren(self, parentJoint: str | Node | Plug | Component | om2.MObject | om2.MDagPath | om2.MPlug) -> list[None]:
@@ -1101,7 +1088,7 @@ class Joints(Nodes[Joint]):
     def ungroup(self, *, world: bool = ...) -> list[Nodes[Transform]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.ungroup` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getChildren(self, shapes: bool = ..., intermediates: bool = ..., *, allDescendents: bool = ..., order: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> list[Nodes[DagNode]]:
+    def getChildren(self, *, shapes: bool = ..., intermediates: bool = ..., allDescendents: bool = ..., sortBy: str = ..., leaves: bool = ..., includeSelf: bool = ..., underWorld: bool = ..., type: str | Iterable[str] | None = ...) -> list[Nodes[DagNode]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getChildren` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getUnusedIntermediateShapes(self) -> list[Nodes[Shape]]:
@@ -1113,7 +1100,7 @@ class Joints(Nodes[Joint]):
     def addShape(self, shape: Shape | str, *, fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.addShape` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def replaceShapes(self, source: Transform | Shape | str, *, keepSource: bool = ..., worldSpace: bool = ..., ws: bool = ...) -> list[None]:
+    def replaceShapes(self, source: Transform | Shape | str, worldSpace: bool = ..., *, keepSource: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.replaceShapes` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getCurveShapesData(self) -> list[dict]:
@@ -1128,7 +1115,7 @@ class Joints(Nodes[Joint]):
     def importCurveShapes(self, path: str | os.PathLike) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.importCurveShapes` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getShape(self, index: int = ..., intermediates: bool = ..., *, all: bool = ...) -> list[Shape | Nodes[Shape] | None]:
+    def getShape(self, index: int = ..., *, intermediates: bool = ..., all: bool = ...) -> list[Shape | Nodes[Shape] | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getShape` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTransform(self) -> list[Transform]:
@@ -1143,7 +1130,7 @@ class Joints(Nodes[Joint]):
     def getShadingEngines(self) -> list[Nodes[ShadingEngine]]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getShadingEngines` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getMatrix(self, worldSpace: bool = ..., p: bool = ..., inv: bool = ..., *, parent: bool = ..., inverse: bool = ..., ws: bool = ...) -> list[Matrix]:
+    def getMatrix(self, worldSpace: bool = ..., *, exclusive: bool = ..., inverse: bool = ..., ws: bool = ...) -> list[Matrix]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[dict[str, Translate | EulerRotate | Scale | Shear] | None]:
@@ -1170,7 +1157,7 @@ class Joints(Nodes[Joint]):
     def getRotateOrder(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotateOrder(self, order: str | int, preserve: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
+    def setRotateOrder(self, order: str | int, *, preserve: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:
@@ -1185,10 +1172,10 @@ class Joints(Nodes[Joint]):
     def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Shear | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getQuaternion(self, worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
+    def getQuaternion(self, worldSpace: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., ra: bool = ..., r: bool = ..., jo: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ..., preserve: bool = ...) -> list[EulerRotate | None]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., preserve: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> list[None]:
@@ -1218,7 +1205,7 @@ class Joints(Nodes[Joint]):
     def getSetsAndMembers(self, *, renderableOnly: bool = ...) -> list[list[tuple[ObjectSet, list[Components] | None]]]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getSetsAndMembers` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getBindPoses(self) -> list[Nodes[DagPose]]:
+    def getBindPoses(self, *, influence: bool = ...) -> list[Nodes[DagPose]]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getBindPoses` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mpath(self) -> list[om2.MDagPath]:
@@ -1251,7 +1238,7 @@ class Joints(Nodes[Joint]):
     def isIntermediateObject(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isIntermediateObject` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getInstances(self, noSelf: bool = ...) -> list[Nodes[DagNode]]:
+    def getInstances(self, *, includeSelf: bool = ...) -> list[Nodes[DagNode]]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getInstances` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isInstanced(self) -> list[bool]:
@@ -1272,7 +1259,7 @@ class Joints(Nodes[Joint]):
     def getObjectGroupComponents(self, groupId: int) -> list[list[Components]]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getObjectGroupComponents` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getDrawColor(self, *, mode: str = ...) -> list[tuple[float, float, float, float] | None]:
+    def getDrawColor(self, *, kind: str = ...) -> list[tuple[float, float, float, float] | None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getDrawColor` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getVisibility(self) -> list[bool]:
@@ -1302,7 +1289,7 @@ class Joints(Nodes[Joint]):
     def mnode(self) -> list[om2.MObject]:
         """各要素の :meth:`~mlib.nodes.node.Node.mnode` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getDgTimer(self, metric: int | None = ..., *, timerType: int = ..., callbacks: bool = ..., state: bool = ...) -> list[float | list[tuple[str, float]] | int]:
+    def getDgTimer(self, metric: int | None = ..., *, kind: str = ..., timerType: int = ...) -> list[float | list[tuple[str, float]] | int]:
         """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setDgTimer(self, state: bool | None = ..., *, reset: bool = ...) -> list[None]:
@@ -1320,7 +1307,7 @@ class Joints(Nodes[Joint]):
     def isClassified(self, classification: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isClassified` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def isType(self, nodeType: str) -> list[bool]:
+    def isType(self, type: str) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.node.Node.isType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isLocked(self) -> list[bool]:
@@ -1362,19 +1349,19 @@ class Joints(Nodes[Joint]):
     def duplicate(self, name: str | None = ..., *, suffix: str | None = ..., **kwargs: object) -> list[Node]:
         """各要素の :meth:`~mlib.nodes.node.Node.duplicate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnections(self, *, s: bool = ..., d: bool = ..., c: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., connections: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
+    def getConnections(self, *, s: bool = ..., d: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setKey(self, attributes: str | Iterable[str] | None = ..., *, unit: str | None = ..., timeUnit: str | None = ..., uiUnits: bool = ..., **kwargs) -> list[None]:
+    def setKey(self, attributes: str | Iterable[str] | None = ..., *, unit: str | None = ..., timeUnit: str = ..., uiUnits: bool = ..., **kwargs) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def removeKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+    def removeKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeUnit: str = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.removeKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def moveKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str | None = ..., timeUnit: str | None = ...) -> list[None]:
+    def moveKey(self, attributes: str | Iterable[str] | None = ..., *, time: float | Sequence[float] | None = ..., timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.moveKey` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setKeyTangent(self, attributes: str | Iterable[str] | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str | None = ...) -> list[None]:
+    def setKeyTangent(self, attributes: str | Iterable[str] | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., time: float | Sequence[float] | None = ..., timeUnit: str = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setKeyTangent` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getHistory(self, *, type: str | None = ..., future: bool = ...) -> list[Nodes]:
@@ -1386,7 +1373,7 @@ class Joints(Nodes[Joint]):
     def setAttrFlags(self, attributes: str | Plug | Iterable[str | Plug], *, locked: bool | None = ..., keyable: bool | None = ..., channelBox: bool | None = ..., children: bool = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setAttrFlags` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getPlugs(self, userDefined: bool = ..., includeChildren: bool = ..., *, writable: bool = ..., animatable: bool = ..., **listAttrFlags) -> list[Plugs]:
+    def getPlugs(self, *, userDefined: bool = ..., children: bool = ..., writable: bool = ..., animatable: bool = ..., **listAttrFlags) -> list[Plugs]:
         """各要素の :meth:`~mlib.nodes.node.Node.getPlugs` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getAttrNames(self, **listAttrFlags) -> list[list[str]]:
@@ -1413,7 +1400,7 @@ class Joints(Nodes[Joint]):
     def getUuid(self) -> list[str | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getUuid` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getName(self, *, full: bool = ..., node: bool = ..., removeNamespace: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., short: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.nodes.node.Node.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:

@@ -288,7 +288,7 @@ class NurbsCurve(_ControlPointShape):
             NotImplementedError: ヒストリ・参照・CVのロックや接続がある場合。
         """
         ...
-    def getLength(self, param: float | None = ..., worldSpace: bool = ..., *, tolerance: float = ..., unit: str | None = ..., ws: bool = ...) -> float:
+    def getLength(self, param: float | None = ..., worldSpace: bool = ..., *, tolerance: float = ..., distanceUnit: str | None = ..., ws: bool = ...) -> float:
         """カーブの長さを取得する。``param`` を渡すと、カーブの始点からそのパラメーターの位置までの長さを取得する。
 
         計算用のノードをシーンに作らない。``param`` を渡したときの値は ``arcLengthDimension`` の ``arcLength`` にあたる。
@@ -299,7 +299,7 @@ class NurbsCurve(_ControlPointShape):
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 全長を計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。既定は1e-06。
                 ``param`` を渡したときは指定できない。
-            unit (str | None): 返す値の単位。既定はcm。Noneなら、今のUIの距離単位。
+            distanceUnit (str | None): 返す値の距離の単位。既定はcm。Noneなら、今のUIの距離単位。
                 mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する。
 
         Returns:
@@ -403,7 +403,7 @@ class NurbsCurve(_ControlPointShape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def getParam(self, *, point: Sequence[float] | om2.MPoint | om2.MVector | None = ..., length: float | None = ..., worldSpace: bool = ..., tolerance: float = ..., unit: str | None = ..., ws: bool = ...) -> float:
+    def getParam(self, worldSpace: bool = ..., *, point: Sequence[float] | om2.MPoint | om2.MVector | None = ..., length: float | None = ..., tolerance: float = ..., distanceUnit: str | None = ..., ws: bool = ...) -> float:
         """カーブ上の点、または始点からの長さにあたるパラメーターを取得する。
 
         ``point`` と ``length`` のどちらか1つを指定する。
@@ -414,12 +414,12 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector | None): 指定空間での位置(cm)。
-            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はunit。
+            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はdistanceUnit。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
                 ワールド空間の長さには、親の非均等スケールも反映する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。既定は1e-7。``point`` のときだけ指定できる。
-            unit (str | None): lengthの単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
+            distanceUnit (str | None): lengthの距離の単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
                 ``length`` のときだけ指定できる。
 
         Returns:
@@ -427,7 +427,7 @@ class NurbsCurve(_ControlPointShape):
 
         Raises:
             TypeError: pointとlengthを両方指定したか、どちらも指定しない場合、点・長さ・空間・許容誤差・単位の型が不正な場合、
-                worldSpaceとwsを同時に指定した場合、lengthとtoleranceを同時に指定した場合、またはpointとunitを同時に指定した場合。
+                worldSpaceとwsを同時に指定した場合、lengthとtoleranceを同時に指定した場合、またはpointとdistanceUnitを同時に指定した場合。
             ValueError: 点が有限の3成分でない場合、許容誤差が負か有限でない場合、lengthが有限でないか0未満か全長を超える場合、
                 または単位の名前が対応していない場合。
             RuntimeError: 点が許容誤差内のカーブ上にない場合、または形状データを持たない空のシェイプの場合。
@@ -536,7 +536,7 @@ class NurbsCurve(_ControlPointShape):
             RuntimeError: 形状データを持たない空のシェイプの場合。
         """
         ...
-    def getMatricesAlong(self, count: int, up: Sequence[float] | om2.MVector | None = ..., *, aimAxis: str = ..., upAxis: str = ..., worldSpace: bool = ..., ws: bool = ...) -> list[Matrix]:
+    def getMatricesAlong(self, count: int, up: Sequence[float] | om2.MVector | None = ..., worldSpace: bool = ..., *, aimAxis: str = ..., upAxis: str = ..., ws: bool = ...) -> list[Matrix]:
         """カーブに沿って等間隔に並ぶ点の向きを、マトリクスで取得する。
 
         各点で、aimAxisの軸を接線へ向けたマトリクスを返す。点の並びは :meth:`getParamsAlong` と同じ。

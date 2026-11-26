@@ -474,7 +474,7 @@ def preservedSkinShape(joints):
     from .nodes.joint import Joints
     from .nodes.skinCluster import _get_move_joints_mode, _set_move_joints_mode
 
-    skins = Joints(joints).getSkinClusters()
+    skins = Joints(joints).getSkinClusters(influence=True)
     skin_names = [skin._full_name() for skin in skins]
     previous_modes = {}
 

@@ -68,7 +68,7 @@ class Namespace:
         """名前空間の名前からハッシュ値を返す。
 
         Returns:
-            int: 今持っている名前のハッシュ。rename/move で変わるため、集合や辞書のキーに入れている間は
+            int: 今持っている名前のハッシュ。rename/setParent で変わるため、集合や辞書のキーに入れている間は
                 名前を変えないこと。
         """
         return hash(self._name)
@@ -126,16 +126,62 @@ class Namespace:
         """
         return bool(om2.MNamespace.namespaceExists(self._name))
 
-    def getParent(self):
+    def getParent(self, *, all=False):
         """親の名前空間を返す。ルートの親は ``None``。
 
+        ``all=True`` なら、祖先(親・親の親…ルートまで)を近い順にすべて返す
+        (:meth:`DagNode.getParent(all=True) <mlib.nodes.dagNode.DagNode.getParent>` と同じ考え方)。
+
+        Args:
+            all (bool): Trueなら、祖先を近い順にすべて返す。ルート(``:``)も含む。既定はFalse。
+
         Returns:
-            Namespace | None: 名前から求めた親。ルートでは None。親が存在するかは確かめない。
+            Namespace | list[Namespace] | None: 名前から求めた親。ルートでは None。親が存在するかは確かめない。
+                all=Trueなら祖先を近い順に並べた新しいリスト(ルートでは空リスト)。
+
+        Raises:
+            TypeError: allがboolでない場合。
         """
+        _require_bool(all, "all")
+        if all:
+            ancestors = []
+            parent = self.getParent()
+            while parent is not None:
+                ancestors.append(parent)
+                parent = parent.getParent()
+            return ancestors
         if self._name == ":":
             return None
         parent_name = self._name.rsplit(":", 1)[0] or ":"
         return Namespace(parent_name)
+
+    def setParent(self, parent=":"):
+        """この名前空間を、指定した親の名前空間の下へ移す(親を変える)。
+
+        :meth:`getParent` と対になる。
+
+        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
+
+        Args:
+            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
+            RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
+        """
+        with undoChunk("mlibNamespaceSetParent"):
+            if self._name == ":":
+                raise ValueError("ルートの名前空間は移動できません")
+            parent_namespace = Namespace(parent)
+            if not parent_namespace.exists():
+                raise RuntimeError(f"名前空間が存在しません: {parent_namespace.name}")
+            leaf_name = self._name.rsplit(":", 1)[-1]
+            target = Namespace(f"{parent_namespace.name}:{leaf_name}")
+            self._move_contents(target)
+            self._name = target.name
 
     def getShortName(self):
         """末端の名前(``:a:b`` なら ``b``)を返す。
@@ -157,40 +203,49 @@ class Namespace:
             return []
         return self._name[1:].split(":")
 
-    def getChildren(self, recurse=False):
+    def getChildren(self, *, allDescendents=False):
         """子の名前空間を取得する。
 
         Args:
-            recurse (bool): Trueなら、孫より下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
+            allDescendents (bool): Trueなら、孫より下の子孫も含める(親が子より先に並ぶ)。既定は直下だけ。
+                :meth:`DagNode.getChildren <mlib.nodes.dagNode.DagNode.getChildren>` の同じ名前の引数と同じ意味。
 
         Returns:
-            list[Namespace]: 子(recurse=Trueなら子孫)。自身が存在しない場合は空リスト。
+            list[Namespace]: 子(allDescendents=Trueなら子孫)。自身が存在しない場合は空リスト。
 
         Raises:
-            TypeError: recurse が bool でない場合。
+            TypeError: allDescendents が bool でない場合。
         """
-        _require_bool(recurse, "recurse")
+        _require_bool(allDescendents, "allDescendents")
         if not self.exists():
             return []
-        names = om2.MNamespace.getNamespaces(self._name, recurse) or []
+        names = om2.MNamespace.getNamespaces(self._name, allDescendents) or []
         children = []
         prefix = self._name if self._name.endswith(":") else self._name + ":"
         for name in names:
             absolute_name = name if name.startswith(":") else prefix + name
             child = Namespace(absolute_name)
-            if recurse or child.getParent() == self:
+            if allDescendents or child.getParent() == self:
                 children.append(child)
         return children
 
-    def getNodes(self, recurse=False):
+    def getNodes(self, *, allDescendents=False, type=None):
         """名前空間の中のノードを、mlibのオブジェクトとして返す。
 
         Args:
-            recurse (bool): Trueなら、子の名前空間の中のノードも含める。
+            allDescendents (bool): Trueなら、子孫の名前空間の中のノードも含める。既定はFalse。
+            type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型
+                (:meth:`Selection.getNodes <mlib.common.selection.Selection.getNodes>` と同じ)。
 
         Returns:
             Nodes: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空の集まり。
+
+        Raises:
+            TypeError: allDescendentsがboolでない場合、またはtypeが文字列でもNoneでもない場合。
         """
+        _require_bool(allDescendents, "allDescendents")
+        if type is not None and not isinstance(type, str):
+            raise TypeError("typeはstrかNoneで指定してください")
         # nodes.nodeもcommon.namespaceを参照するため、
         # 循環回避のためここで遅延 import する(mlib で意図的な相互依存の一つ)。
         from ..nodes.node import Node, Nodes
@@ -198,9 +253,12 @@ class Namespace:
         if not self.exists():
             return Nodes._wrap([])
 
-        mobjects = om2.MNamespace.getNamespaceObjects(self._name, recurse) or []
+        mobjects = om2.MNamespace.getNamespaceObjects(self._name, allDescendents) or []
         # Node(mobject)と同じ解決(DAGは最初のパス)・型選択を、生成の入口の再判定なしで行う。
-        return Nodes._wrap([Node._from_name(mobject) for mobject in mobjects])
+        nodes = [Node._from_name(mobject) for mobject in mobjects]
+        if type is not None:
+            nodes = [node for node in nodes if node.isType(type)]
+        return Nodes._wrap(nodes)
 
     def getNode(self, name):
         """名前空間を付けた名前で、ノードを取得する。
@@ -293,33 +351,7 @@ class Namespace:
             self._move_contents(target)
             self._name = target.name
 
-    def move(self, parent=":"):
-        """この名前空間を、指定した親の名前空間の下へ移す。
-
-        cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
-
-        Args:
-            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
-
-        Returns:
-            None: 値を返さない。
-
-        Raises:
-            ValueError: ルートを移動しようとした場合、または parent が正しくない場合。
-            RuntimeError: 親が存在しない場合、移動先がすでにある場合、または Maya の操作が失敗した場合。
-        """
-        with undoChunk("mlibNamespaceMove"):
-            if self._name == ":":
-                raise ValueError("ルートの名前空間は移動できません")
-            parent_namespace = Namespace(parent)
-            if not parent_namespace.exists():
-                raise RuntimeError(f"名前空間が存在しません: {parent_namespace.name}")
-            leaf_name = self._name.rsplit(":", 1)[-1]
-            target = Namespace(f"{parent_namespace.name}:{leaf_name}")
-            self._move_contents(target)
-            self._name = target.name
-
-    def clear(self, *, preserveChildren=True):
+    def deleteNodes(self, *, preserveChildren=True):
         """名前空間を残して、直接所属するノードを削除する。
 
         既定では別の名前空間の子Transformをワールド直下へ退避する。子の名前空間は削除しない。
@@ -357,12 +389,12 @@ class Namespace:
                     if not child.mnode().hasFn(om2.MFn.kTransform) or child.isInstanced():
                         raise NotImplementedError("別の名前空間のShapeやインスタンスの退避には対応していません")
                     preserved.append(child)
-        with undoChunk("mlibNamespaceClear"):
+        with undoChunk("mlibNamespaceDeleteNodes"):
             for child in preserved:
                 child.setParent(None)
             nodes.delete()
 
-    def remove(self, destination=":", *, deleteContents=False):
+    def delete(self, destination=":", *, deleteContents=False):
         """中身を別の名前空間へ移してから、この名前空間を削除する。
 
         ``deleteContents=True`` なら、中身ごと削除する。
@@ -389,7 +421,7 @@ class Namespace:
             RuntimeError: 自身か移動先が存在しない場合、または Maya の操作が失敗した場合。
         """
         _require_bool(deleteContents, "deleteContents")
-        with undoChunk("mlibNamespaceRemove"):
+        with undoChunk("mlibNamespaceDelete"):
             if self._name == ":":
                 raise ValueError("ルートの名前空間は削除できません")
             if deleteContents:

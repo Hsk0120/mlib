@@ -72,7 +72,7 @@ class ShapeSetParentTest(_SpecCase):
         target.addShape(first)
         self.assertEqual(target.getShape(all=True), [first])
         other = mlib.createNode("transform", name=self.name("other"), skipSelect=True)
-        twin = mlib.createNode("locator", name=first.getName(node=True), parent=other, skipSelect=True)
+        twin = mlib.createNode("locator", name=first.getName(short=True), parent=other, skipSelect=True)
         with self.assertRaises(NotImplementedError):
             twin.setParent(target, fast=True)
         with self.assertRaises(TypeError):

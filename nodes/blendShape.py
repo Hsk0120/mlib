@@ -463,7 +463,7 @@ class BlendShape(GeometryFilter):
             values = _vertex_values(weights, self._vertex_count(bi))
             self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", values, fast=fast, check=check)
 
-    def getTargetDeltas(self, target, base=None, fullWeight=1.0):
+    def getTargetDeltas(self, target, base=None, *, fullWeight=1.0):
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
         ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
@@ -485,7 +485,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return {vertex: Vector(offset) for vertex, offset in zip(indices, offsets)}
 
-    def setTargetDeltas(self, target, deltas, base=None, fullWeight=1.0, disconnect=False, *, fast=False, check=False):
+    def setTargetDeltas(self, target, deltas, base=None, *, fullWeight=1.0, disconnect=False, fast=False, check=False):
         """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
         指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
@@ -519,7 +519,7 @@ class BlendShape(GeometryFilter):
             self._release_input(path, disconnect, fast=fast)
             self._write_deltas(path, [row[0] for row in rows], [row[1] for row in rows], fast=fast, check=check)
 
-    def getTargetVertices(self, target, base=None, fullWeight=1.0, *, tolerance=0.0):
+    def getTargetVertices(self, target, base=None, *, fullWeight=1.0, tolerance=0.0):
         """デルタの長さがしきい値を超える頂点を取得する。
 
         今の ``weight``・envelope・頂点マスクは判定に使わない。
@@ -542,7 +542,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
-    def resetTargetVertices(self, target, vertices=None, base=None, fullWeight=1.0, disconnect=False, *, tolerance=None, fast=False, check=False):
+    def resetTargetVertices(self, target, vertices=None, base=None, *, fullWeight=1.0, disconnect=False, tolerance=None, fast=False, check=False):
         """指定した頂点の変位を0に戻す。``tolerance`` を渡すと、デルタの長さがしきい値以下の頂点を項目のデータから取り除く。
 
         ``vertices`` と ``tolerance`` のどちらか1つを指定する。
@@ -644,7 +644,7 @@ class BlendShape(GeometryFilter):
                     mirrorDirection=0 if positiveToNegative else 1,
                 )
 
-    def replaceTarget(self, target, geometry, base=None, fullWeight=1.0):
+    def replaceTarget(self, target, geometry, base=None, *, fullWeight=1.0):
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
         別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
@@ -676,7 +676,7 @@ class BlendShape(GeometryFilter):
                 self._write_deltas(path, indices, offsets)
             cmds.connectAttr(source, self._attr(path + ".inputGeomTarget"), force=True)
 
-    def regenerateTarget(self, target, fullWeight=1.0):
+    def regenerateTarget(self, target, *, fullWeight=1.0):
         """保存済みターゲットから、全ベースの編集用メッシュを再生成する。
 
         sculptTarget(regenerate=True)で、形状の接続が無い項目にメッシュとTransformを作り、
@@ -738,7 +738,7 @@ class BlendShape(GeometryFilter):
         # Mayaの返却は新規Transformだけなので、接続から既存・新規の両方のShapeを取り直す。
         return Nodes._wrap([Node(self._mplug(path).source().node()) for path in paths])
 
-    def targetEdit(self, target=None, state=True, fullWeight=1.0):
+    def targetEdit(self, target=None, state=True, *, fullWeight=1.0):
         """ターゲットの編集モード(Shape EditorのEdit)を始める、または終える。
 
         ``cmds.sculptTarget`` を使う。編集モードの間は、ベースをスカルプトした結果がターゲットのデルタへ書き込まれる。

@@ -146,7 +146,7 @@ class SkinClustersBatchTest(unittest.TestCase):
         self.skin.setWeights([self.root, self.mid, self.leaf], [0.0, 1.0, 0.0], broadcast=True)
 
         mid_joints = Joints([self.mid])
-        skin_clusters = mid_joints.getSkinClusters()
+        skin_clusters = mid_joints.getSkinClusters(influence=True)
         self.assertEqual([skin.getName() for skin in skin_clusters], [self.skin.getName()])
 
         cmds.delete(self.mid)
@@ -163,7 +163,7 @@ class SkinClustersBatchTest(unittest.TestCase):
         self.skin.setWeights([self.root, self.mid, self.leaf], [0.0, 1.0, 0.0], broadcast=True)
 
         mid_joints = Joints([self.mid])
-        skin_clusters = mid_joints.getSkinClusters()
+        skin_clusters = mid_joints.getSkinClusters(influence=True)
         self.assertIsInstance(skin_clusters, mlib.SkinClusters)
         for skin in skin_clusters:
             for joint in mid_joints:
@@ -299,7 +299,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
     def test_redistribute_weights_applies_easing_and_keeps_each_vertex_normalized(self):
         self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
 
-        self.skin.redistributeWeights([0, 3], method="cubic")
+        self.skin.redistributeWeights([0, 3], curve="cubic")
 
         eased_root = easing.ease(0.75, "cubic")
         eased_child = easing.ease(0.25, "cubic")
@@ -322,7 +322,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
         self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
         before = list(self.skin.getWeights([self.root, self.child]))
 
-        self.skin.redistributeWeights([0], method="cubic")
+        self.skin.redistributeWeights([0], curve="cubic")
         after = list(self.skin.getWeights([self.root, self.child]))
         self.assertNotEqual(after, before)
 
@@ -335,7 +335,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
         self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
         before = list(self.skin.getWeights([self.root, self.child]))
 
-        self.skin.redistributeWeights([], method="cubic")
+        self.skin.redistributeWeights([], curve="cubic")
 
         self.assertEqual(list(self.skin.getWeights([self.root, self.child])), before)
 
@@ -344,7 +344,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
             with self.subTest(curve=curve):
                 self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
 
-                self.skin.redistributeWeights([0], method=curve)
+                self.skin.redistributeWeights([0], curve=curve)
 
                 weights = list(self.skin.getWeights([self.root, self.child]))
                 self.assertAlmostEqual(weights[0] + weights[1], 1.0, places=9)
@@ -358,17 +358,17 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
         self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
         before = list(self.skin.getWeights([self.root, self.child]))
         with self.assertRaises(ValueError):
-            self.skin.redistributeWeights([0], method="sinusoidal")
+            self.skin.redistributeWeights([0], curve="sinusoidal")
         self.assertEqual(list(self.skin.getWeights([self.root, self.child])), before)
 
     def test_redistribute_weights_raises_for_unsupported_method_and_out_of_range_vertex(self):
         with self.assertRaises(ValueError):
-            self.skin.redistributeWeights([0], method="not_a_method")
+            self.skin.redistributeWeights([0], curve="not_a_method")
         with self.assertRaises(ValueError):
             # 旧 API の関数名接頭辞付きの名前は受け付けない。
-            self.skin.redistributeWeights([0], method="ease_in_out_cubic")
+            self.skin.redistributeWeights([0], curve="ease_in_out_cubic")
         with self.assertRaises(IndexError):
-            self.skin.redistributeWeights([999], method="cubic")
+            self.skin.redistributeWeights([999], curve="cubic")
 
     def test_redistribute_weights_raises_type_error_for_non_string_method(self):
         self.skin.setWeights([self.root, self.child], [0.75, 0.25], broadcast=True)
@@ -377,7 +377,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
         for method in (None, 3, ["cubic"]):
             with self.subTest(method=method):
                 with self.assertRaises(TypeError):
-                    self.skin.redistributeWeights([0], method=method)
+                    self.skin.redistributeWeights([0], curve=method)
 
         self.assertEqual(list(self.skin.getWeights([self.root, self.child])), before)
 
@@ -392,7 +392,7 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
             with self.subTest(curve=curve):
                 self.skin.setWeights(influences, [0.75, 0.25, 0.0], broadcast=True)
 
-                self.skin.redistributeWeights([0], method=curve)
+                self.skin.redistributeWeights([0], curve=curve)
 
                 weights = list(self.skin.getWeights(influences))
                 self.assertEqual(weights[2], 0.0)

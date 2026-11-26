@@ -263,7 +263,7 @@ class NormalizeEdgeTest(_SkinCase):
 class InfluenceRemovalEdgeTest(_SkinCase):
     def test_force_without_transfer(self):
         """transferToParent=False と force=True では、移送先を持たずに外す。"""
-        removed = self.skin.removeInfluences([self.joints[2]], transferToParent=False, force=True)
+        removed = self.skin.removeInfluences([self.joints[2]], transferToParent=False, repair=True)
         self.assertEqual([node.getName(full=True) for node in removed], [self.joints[2]])
         self.assertEqual(len(cmds.skinCluster(self.full, query=True, influence=True)), 2)
         cmds.undo()
@@ -340,10 +340,14 @@ class InfluenceNameTest(_SkinCase):
         self.assertEqual(list(skin.getWeights(self.joints[:2], vertices=shape + ".cv[*]")), list(skin.getWeights(self.joints[:2])))
 
     def test_skin_cluster_without_output(self):
-        """出力ジオメトリの無い skinCluster は取得できない(IndexError)。"""
+        """出力ジオメトリの無い skinCluster も取得できる(Node と同じ)。形状を使うメソッドは IndexError。"""
         node = self.make("skinCluster", "emptySkin")
+        skin = mlib.getNode(node)
+        self.assertIsInstance(skin, mlib.SkinCluster)
+        self.assertIsInstance(mlib.SkinCluster(node=node), mlib.SkinCluster)
+        self.assertEqual(len(skin.getGeometry()), 0)
         with self.assertRaises(IndexError):
-            mlib.getNode(node)
+            skin.getWeights(vertex=0)
 
 
 if __name__ == "__main__":

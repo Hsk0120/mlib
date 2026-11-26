@@ -81,9 +81,9 @@ class AnimCurveTimeTest(_SpecCase):
             for fast in (False, True):
                 with self.subTest(frame=frame, fast=fast):
                     curve = mlib.createNode("animCurveTL", name=self.name("curve#"))
-                    curve.setKey(0, 0, "linear", "linear", fast=fast)
-                    curve.setKey(fps, 10, "linear", "linear", fast=fast)
-                    curve.setKey(3.0, 30, "linear", "linear", timeUnit="seconds", fast=fast)
+                    curve.addKey(0, 0, "linear", "linear", fast=fast)
+                    curve.addKey(fps, 10, "linear", "linear", fast=fast)
+                    curve.addKey(3.0, 30, "linear", "linear", timeUnit="seconds", fast=fast)
                     name = curve.getName(full=True)
                     self.assertEqual(curve.getKeyInputs(), [0.0, float(fps), 3.0 * fps])
                     self.assertEqual(cmds.keyframe(name, query=True, timeChange=True), [0.0, float(fps), 3.0 * fps])
@@ -98,11 +98,11 @@ class AnimCurveTimeTest(_SpecCase):
             cmds.currentUnit(time=frame)
             with self.subTest(frame=frame):
                 curve = mlib.createNode("animCurveTU", name=self.name("shift#"))
-                curve.setKey(0, 0)
-                curve.setKey(10, 1)
-                curve.moveKey(timeOffset=5)
+                curve.addKey(0, 0)
+                curve.addKey(10, 1)
+                curve.getKeyframes().move(timeOffset=5)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5, 15], places=4)
-                curve.moveKey(timeOffset=1, timeUnit="sec")
+                curve.getKeyframes().move(timeOffset=1, timeUnit="sec")
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 15 + fps], places=4)
                 curve.scaleKey(2, 1, 5 + fps)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 25 + fps], places=4)
@@ -117,19 +117,19 @@ class AnimCurveTimeTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(kind="TT", fast=fast):
                 curve = mlib.createNode("animCurveTT", name=self.name("tt#"))
-                curve.setKey(0, 0, fast=fast)
-                curve.setKey(30, 60, fast=fast)
+                curve.addKey(0, 0, fast=fast)
+                curve.addKey(30, 60, fast=fast)
                 self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, valueChange=True), [0.0, 60.0])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(), [0, 60])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(timeUnit="sec"), [0, 2])
                 self.assertAlmostEqual(curve.evaluate(15), 30.0)
                 self.assertAlmostEqual(curve.evaluate(0.5, timeUnit="sec"), 1.0)
-                curve.moveKey(timeOffset=0, valueOffset=30)
+                curve.getKeyframes().move(timeOffset=0, valueOffset=30)
                 self.assertSequenceAlmostEqual(curve.getKeyValues(), [30, 90])
             with self.subTest(kind="UT", fast=fast):
                 curve = mlib.createNode("animCurveUT", name=self.name("ut#"))
-                curve.setKey(0, 0, fast=fast)
-                curve.setKey(1, 2.0, timeUnit="sec", fast=fast)
+                curve.addKey(0, 0, fast=fast)
+                curve.addKey(1, 2.0, timeUnit="sec", fast=fast)
                 # U型の入力は無次元のまま、時間出力だけ換算する。
                 self.assertEqual(curve.getKeyInputs(), [0.0, 1.0])
                 self.assertEqual(curve.getKeyInputs(timeUnit="sec"), [0.0, 1.0])
@@ -139,8 +139,8 @@ class AnimCurveTimeTest(_SpecCase):
     def test_unitless_input_is_not_converted(self):
         """U型入力(ドリブンキー用)はtimeUnitに関係なく無次元。"""
         curve = mlib.createNode("animCurveUL", name=self.name("ul"))
-        curve.setKey(2, 1, timeUnit="sec", fast=True)
-        curve.moveKey(timeOffset=3, timeUnit="sec")
+        curve.addKey(2, 1, timeUnit="sec", fast=True)
+        curve.getKeyframes().move(timeOffset=3, timeUnit="sec")
         self.assertEqual(curve.getKeyInputs(), [5.0])
         self.assertAlmostEqual(curve.evaluate(5, timeUnit="sec"), 1.0)
 
@@ -148,9 +148,9 @@ class AnimCurveTimeTest(_SpecCase):
         """timeUnitの型・名前の誤りは編集前に型付きの例外にする。"""
         curve = mlib.createNode("animCurveTL", name=self.name("bad"))
         with self.assertRaises(TypeError):
-            curve.setKey(1, 1, timeUnit=1)
+            curve.addKey(1, 1, timeUnit=1)
         with self.assertRaises(ValueError):
-            curve.setKey(1, 1, timeUnit="minute")
+            curve.addKey(1, 1, timeUnit="minute")
         with self.assertRaisesRegex(ValueError, "角度の値にはunitを使います"):
             curve.getKeyInputs(timeUnit="rad")
         self.assertEqual(curve.getKeyCount(), 0)
@@ -159,7 +159,7 @@ class AnimCurveTimeTest(_SpecCase):
         """setKeyは1回のUndoでキーの追加を戻す。fastはUndoに記録しない。"""
         curve = mlib.createNode("animCurveTL", name=self.name("undo"))
         cmds.flushUndo()
-        curve.setKey(1.0, 5, timeUnit="sec")
+        curve.addKey(1.0, 5, timeUnit="sec")
         self.assertEqual(curve.getKeyInputs(), [24.0])
         cmds.undo()
         self.assertEqual(curve.getKeyCount(), 0)

@@ -149,11 +149,11 @@ class StateTest(_Case):
         cmds.undo()
         self.assertEqual(cmds.getAttr(self.path + ".tx"), 0.0)
 
-    def test_get_connections_with_connections_flag_returns_pairs(self):
+    def test_get_connections_with_asPair_returns_pairs(self):
         plug = self.node.getPlug("tx")
-        self.assertEqual(list(plug.getConnections(connections=True)), [])
+        self.assertEqual(list(plug.getConnections(asPair=True)), [])
         cmds.connectAttr(self.path + ".ty", self.path + ".tx")
-        pairs = list(plug.getConnections(connections=True))
+        pairs = list(plug.getConnections(asPair=True))
         expected = cmds.listConnections(self.path + ".tx", connections=True, plugs=True, source=True, destination=False)
         self.assertEqual(len(pairs), 1)
         self.assertEqual([str(item) for item in pairs[0]], [cmds.ls(name)[0] for name in expected])

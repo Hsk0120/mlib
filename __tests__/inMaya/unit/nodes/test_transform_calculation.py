@@ -40,13 +40,13 @@ class TransformExecutionTest(unittest.TestCase):
                         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_quaternion_calculation_and_write_use_the_same_target(self):
-        """r/joとノード型が選ぶチャンネルだけを計算値で更新する。"""
+        """rotate/jointOrientとノード型が選ぶチャンネルだけを計算値で更新する。"""
         q = EulerRotate(0.2, -0.3, 0.4).asQuaternion()
         for kind in ("transform", "joint"):
             for flags, target in (
                 ({}, "rotate"),
-                ({"r": False}, "jointOrient" if kind == "joint" else "rotateAxis"),
-                ({"r": False, "jo": False}, "rotateAxis"),
+                ({"rotate": False}, "jointOrient" if kind == "joint" else "rotateAxis"),
+                ({"rotate": False, "jointOrient": False}, "rotateAxis"),
             ):
                 with self.subTest(kind=kind, flags=flags):
                     node = mlib.createNode(kind)

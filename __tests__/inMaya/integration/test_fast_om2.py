@@ -127,7 +127,7 @@ class Om2BackendsTest(unittest.TestCase):
         mesh = cmds.polyCube(ch=False)[0]
         skin = mlib.getNode(cmds.skinCluster(joints, mesh, tsb=True)[0])
         with self.forbidden("getAttr", "setAttr", "undoInfo", "listAttr"):
-            skin.setMaxInfluences(2, fast=True)
+            skin.setMaxInfluences(2, maintain=True, fast=True)
             skin.normalizeWeights(fast=True)
             self.assertEqual(skin.getMaxInfluences(), 2)
 
@@ -283,7 +283,7 @@ class Om2BackendsTest(unittest.TestCase):
             self.assertTrue(node.getHistory())
             self.assertTrue(node.getHistory(future=True))
             self.assertTrue(node.getPlugs())
-            self.assertTrue(node.getPlugs(keyable=True, scalar=True, includeChildren=False))
+            self.assertTrue(node.getPlugs(keyable=True, scalar=True, children=False))
             self.assertEqual(_enum_definition(node.getPlug("choice")), "a=1:b=5")
             self.assertEqual(len(mlib.getNode(handle).getJoints()), 2)
             self.assertEqual(listReferences(), [])

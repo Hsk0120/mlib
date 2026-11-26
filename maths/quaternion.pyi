@@ -367,7 +367,7 @@ class Quaternion(om2.MQuaternion):
             bendV (float): 横の軸周りの曲げの角度。aimAxisをupAxisの側へ倒す向きが正。
             aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
             upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
-            unit (str): 角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            unit (str): 角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (数学型の生成の決まり)。
 
         Returns:
             Quaternion: 呼び出したクラスの新しい単位クォータニオン。
@@ -562,10 +562,10 @@ class Quaternion(om2.MQuaternion):
         Args:
             aimAxis (str): ボーンの向きの軸。``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のどれか。既定は ``"x"``。
             upAxis (str): アップ軸。aimAxisと違う軸にする。既定は ``"y"``。
-            unit (str): 戻り値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
+            unit (str): 戻り値の角度の単位。``"rad"`` はラジアン、``"deg"`` は度。既定は ``"rad"`` (:meth:`fromRollBend` と同じ)。
 
         Returns:
-            tuple[float, float, float]: (roll, bendH, bendV)。rollも曲げも-180〜180度。
+            tuple[float, float, float]: (roll, bendH, bendV)。rollも曲げも-π〜π(``unit="deg"`` なら-180〜180度)。
                 aimAxisが真後ろへ向く180度の曲げでは、曲げの向きが決まらない。
 
         Raises:

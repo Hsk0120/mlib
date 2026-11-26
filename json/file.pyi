@@ -108,18 +108,18 @@ class Header:
         """保存したときのフレームを、今のシーンのフレームへ換算する。
 
         ``timing="frame"`` は、フレーム番号をそのまま返す(何コマ目かを保つ)。
-        ``"second"`` は、保存したときのfpsで秒にしてから、今のfpsのフレームへ直す(実際の時間を保つ)。
+        ``"sec"`` は、保存したときのfpsで秒にしてから、今のfpsのフレームへ直す(実際の時間を保つ)。
         fpsが同じなら、どちらも同じ値になる。
 
         Args:
             frame (float): 保存したときのフレーム。
-            timing (str): ``"frame"`` か ``"second"``。既定は ``"frame"``。
+            timing (str): ``"frame"`` か ``"sec"``。既定は ``"frame"``。
 
         Returns:
             float: 今のシーンのフレーム。
 
         Raises:
-            ValueError: timingが ``"frame"``・``"second"`` 以外の場合。
+            ValueError: timingが ``"frame"``・``"sec"`` 以外の場合。
         """
         ...
     def _to_data(self) -> dict:
@@ -185,7 +185,7 @@ def _require_timing(timing: str):
     """時間の扱いの指定を確かめる。
 
     Args:
-        timing (str): ``"frame"`` または ``"second"``。
+        timing (str): ``"frame"`` または ``"sec"``。
 
     Raises:
         ValueError: それ以外の場合。

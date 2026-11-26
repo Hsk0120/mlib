@@ -295,30 +295,24 @@ def _checked_curve_shapes(data):
     return color, entries
 
 
-def _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient):
-    """getQuaternion・setQuaternionの回転の成分の指定を、(ra, r, jo)にまとめる。
-
-    ロング名と短縮名のどちらで指定されても、1つの値にする。
+def _rotation_components(rotateAxis, rotate, jointOrient):
+    """getQuaternion・setQuaternionの回転の成分の指定を確かめる。
 
     Args:
-        ra (bool): rotateAxisの短縮名の値。指定されていなければ ``_UNSET``。
-        r (bool): rotateの短縮名の値。
-        jo (bool): jointOrientの短縮名の値。
-        rotateAxis (bool): rotateAxisの値。
-        rotate (bool): rotateの値。
-        jointOrient (bool): jointOrientの値。
+        rotateAxis (bool): rotateAxisを含めるか。
+        rotate (bool): rotateを含めるか。
+        jointOrient (bool): jointOrientを含めるか。
 
     Returns:
-        tuple[bool, bool, bool]: (rotateAxis, rotate, jointOrient)。既定は(False, True, True)。
+        tuple[bool, bool, bool]: (rotateAxis, rotate, jointOrient)。
 
     Raises:
-        TypeError: ロング名と短縮名を同時に指定した場合。
+        TypeError: どれかがboolでない場合。
     """
-    return (
-        _pick_alias(rotateAxis, ra, "rotateAxis", "ra", default=False),
-        _pick_alias(rotate, r, "rotate", "r", default=True),
-        _pick_alias(jointOrient, jo, "jointOrient", "jo", default=True),
-    )
+    _require_bool(rotateAxis, "rotateAxis")
+    _require_bool(rotate, "rotate")
+    _require_bool(jointOrient, "jointOrient")
+    return rotateAxis, rotate, jointOrient
 
 
 def _quaternion_value(value):
@@ -1019,7 +1013,7 @@ class Transform(DagNode):
         return Nodes._wrap([Node(child) for child in children])
 
     def getChildren(
-        self, shapes=False, intermediates=False, *, allDescendents=False, order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
+        self, *, shapes=False, intermediates=False, allDescendents=False, sortBy="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
     ):
         """条件に合う子、または子孫を取得する。
 
@@ -1029,7 +1023,7 @@ class Transform(DagNode):
             shapes (bool): TrueならShapeも含める。既定はFalse(Transformだけ)。
             intermediates (bool): Trueなら中間オブジェクトも含める。
             allDescendents (bool): Trueなら子孫すべてを取得する。既定は直接の子だけ。
-            order (str): 並べる順。depthFirstかbreadthFirst。
+            sortBy (str): 並べる順。depthFirstかbreadthFirst。
             leaves (bool): Trueなら、子にTransformを持たないTransform(末端)だけを、下の階層までたどって取得する。
             includeSelf (bool): Trueなら自身も対象にする。自身が末端のときに自身も取得したいときはTrueにする。
             underWorld (bool): Trueなら、Shapeの下のアンダーワールドも調べる。
@@ -1039,7 +1033,14 @@ class Transform(DagNode):
         """
         return Nodes._wrap(
             super().getChildren(
-                shapes, intermediates, allDescendents=allDescendents, order=order, leaves=leaves, includeSelf=includeSelf, underWorld=underWorld, type=type
+                shapes=shapes,
+                intermediates=intermediates,
+                allDescendents=allDescendents,
+                sortBy=sortBy,
+                leaves=leaves,
+                includeSelf=includeSelf,
+                underWorld=underWorld,
+                type=type,
             )
         )
 
@@ -1157,7 +1158,7 @@ class Transform(DagNode):
             raise TypeError(f"addShapeにはシェイプを指定してください: {type(node).__name__}")
         node.setParent(self, fast=fast)
 
-    def replaceShapes(self, source, *, keepSource=False, worldSpace=_UNSET, ws=_UNSET):
+    def replaceShapes(self, source, worldSpace=_UNSET, *, keepSource=False, ws=_UNSET):
         """自身のShapeを、sourceのShape(中間オブジェクトを除く)に置き換える。
 
         コントローラーの形を差し替えるための操作。
@@ -1381,7 +1382,7 @@ class Transform(DagNode):
         _header, data = _load(path, _CURVE_SHAPES_FORMAT, _CURVE_SHAPES_VERSION)
         self.setCurveShapesData(data)
 
-    def getShape(self, index=0, intermediates=False, *, all=False):
+    def getShape(self, index=0, *, intermediates=False, all=False):
         """指定した番号のShapeを取得する。``all=True`` なら直下のShapeすべてを取得する。
 
         Args:
@@ -1568,31 +1569,32 @@ class Transform(DagNode):
         return Nodes._wrap(list(dict.fromkeys(group for shape in self.getShape(all=True) for group in shape.getShadingEngines())))
 
     @_transform_argument_hints
-    def getMatrix(self, worldSpace=_UNSET, p=_UNSET, inv=_UNSET, *, parent=_UNSET, inverse=_UNSET, ws=_UNSET):
+    def getMatrix(self, worldSpace=_UNSET, *, exclusive=False, inverse=False, ws=_UNSET):
         """指定した空間の、評価済みのマトリクスを取得する。
 
-        - p=Falseのローカルの値は、``matrix`` アトリビュートを使う。offsetParentMatrixは含まない。
+        - exclusive=Falseのローカルの値は、``matrix`` アトリビュートを使う。offsetParentMatrixは含まない。
         - ワールドの値は、このオブジェクトが持つDAGパスのinclusiveMatrixを使う。offsetParentMatrixも含む。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            p (bool): parentの短縮名。parentと同時には指定できない(TypeError)。
-            inv (bool): inverseの短縮名。inverseと同時には指定できない(TypeError)。
-            parent (bool): Trueなら、親側のマトリクスを取得する。worldSpace=Trueなら、持っているDAGパスのexclusiveMatrix。
+            exclusive (bool): Trueなら、自身を除いた親側のマトリクスを取得する(OpenMayaのexclusiveMatrix)。
+                worldSpace=Trueなら、持っているDAGパスのexclusiveMatrix。
                 Falseなら、親のパスのinclusiveMatrix * exclusiveMatrixInverseで求める。既定はFalse。
             inverse (bool): Trueなら、選んだマトリクスの逆マトリクスを取得する。既定はFalse。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             Matrix: 呼び出した時点のマトリクスのコピー。シーンとは切り離されている。
 
         Raises:
-            TypeError: ロング名と短縮名(worldSpaceとws、parentとp、inverseとinv)を同時に指定した場合。
+            TypeError: exclusive・inverseがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
             RuntimeError: ノード、または保持するDAGパスが無効な場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        p = _pick_alias(parent, p, "parent", "p", default=False)
-        inv = _pick_alias(inverse, inv, "inverse", "inv", default=False)
+        _require_bool(exclusive, "exclusive")
+        _require_bool(inverse, "inverse")
+        p = exclusive
+        inv = inverse
         ws = _world_space(worldSpace)
         self._require_valid("マトリクスの取得")
         path = self.mpath()
@@ -1710,9 +1712,9 @@ class Transform(DagNode):
             axis = value.rotateAxis.asEulerRotation()
             values = {
                 "rotateAxis": (axis.x, axis.y, axis.z),
-                "rotatePivot": tuple(value.rotatePivot),
+                "rotatePivot": tuple(value.rotatePivotValue),
                 "rotatePivotTranslate": tuple(value.rotatePivotTranslate),
-                "scalePivot": tuple(value.scalePivot),
+                "scalePivot": tuple(value.scalePivotValue),
                 "scalePivotTranslate": tuple(value.scalePivotTranslate),
             }
             if self._require_mnode().hasFn(om2.MFn.kJoint):
@@ -1725,8 +1727,8 @@ class Transform(DagNode):
             rotate = value.rotate
             values["translate"] = tuple(value.translate)
             values["rotate"] = (rotate.x, rotate.y, rotate.z)
-            values["scale"] = tuple(value.scale)
-            values["shear"] = tuple(value.shear)
+            values["scale"] = tuple(value.scaleValue)
+            values["shear"] = tuple(value.shearValue)
             if check:
                 # 回転順序を書いた後で止まらないよう、書く前に回転順序と残りのチャンネルを全部確かめる。
                 if write_order:
@@ -2004,7 +2006,7 @@ class Transform(DagNode):
         """
         return _ROTATE_ORDER_NAMES[self.getPlug("rotateOrder").get()]
 
-    def setRotateOrder(self, order, preserve=True, *, fast=False, check=False):
+    def setRotateOrder(self, order, *, preserve=True, fast=False, check=False):
         """回転順序(``rotateOrder``)を変える。既定では、見た目の向きが変わらないように ``rotate`` も変える。
 
         - ``preserve=True``: ``cmds.xform(rotateOrder=..., preserve=True)`` と同じ。新しい回転順序で同じ向きに
@@ -2182,39 +2184,36 @@ class Transform(DagNode):
         self._set_channel_value("shear", values, safe=safe, fast=fast, check=check)
         return None
 
-    def getQuaternion(self, worldSpace=_UNSET, ra=_UNSET, r=_UNSET, jo=_UNSET, *, rotateAxis=_UNSET, rotate=_UNSET, jointOrient=_UNSET, ws=_UNSET):
+    def getQuaternion(self, worldSpace=_UNSET, *, rotateAxis=False, rotate=True, jointOrient=True, ws=_UNSET):
         """選んだ回転の成分を合わせた回転を、クォータニオンで取得する。既定ではrotateAxisを含めない。
 
         - ローカル空間では、rotateAxis・rotate・(Jointの)jointOrientの順に、選んだ回転を合成する。
         - ワールド空間では、このオブジェクトが持つDAGパスのマトリクスから求め、含めない回転の成分を取り除く。
 
-        ra・r・joで指定できる組み合わせは、setQuaternionと同じではない。
+        rotateAxis・rotate・jointOrientで指定できる組み合わせは、setQuaternionと同じではない。
 
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            ra (bool): rotateAxisの短縮名。
-            r (bool): rotateの短縮名。
-            jo (bool): jointOrientの短縮名。
             rotateAxis (bool): TrueならrotateAxisを含める。既定はFalse。
             rotate (bool): Trueならrotateを含める。既定はTrue。
             jointOrient (bool): TrueならjointOrientを含める。既定はTrue。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             Quaternion: 指定した成分を合成した回転。ノードとは切り離されている。成分の順はXYZW。
 
         Raises:
-            TypeError: ロング名と短縮名(worldSpaceとws、rotateAxisとra、rotateとr、jointOrientとjo)を同時に指定した場合。
+            TypeError: rotateAxis・rotate・jointOrientがboolでない場合、またはworldSpaceとwsを同時に指定した場合。
             ValueError: 回転の成分と空間の指定が、対応していない組み合わせの場合。
         """
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        ra, r, jo = _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient)
+        ra, r, jo = _rotation_components(rotateAxis, rotate, jointOrient)
         ws = _world_space(worldSpace)
         joint = self._require_mnode().hasFn(om2.MFn.kJoint)
         if ws:
             if (ra and not (r and jo)) or (not ra and r and not jo):
                 raise ValueError("対応していない回転成分の組み合わせです")
-            matrix = self.getMatrix(worldSpace=True, p=not (ra or r or (jo and joint)))
+            matrix = self.getMatrix(worldSpace=True, exclusive=not (ra or r or (jo and joint)))
             q = om2.MQuaternion().setValue(om2.MMatrix(matrix).homogenize())
             if not ra and (r or (jo and joint)):
                 q = self._component_quaternion("rotateAxis").inverse() * q
@@ -2233,49 +2232,43 @@ class Transform(DagNode):
         self,
         value,
         worldSpace=_UNSET,
-        ra=_UNSET,
-        r=_UNSET,
-        jo=_UNSET,
         *,
+        rotateAxis=False,
+        rotate=True,
+        jointOrient=True,
+        preserve=False,
         safe=False,
         get=False,
         fast=False,
         check=False,
-        rotateAxis=_UNSET,
-        rotate=_UNSET,
-        jointOrient=_UNSET,
         ws=_UNSET,
-        preserve=False,
     ):
         """回転の成分の指定に従って、rotate・jointOrient・rotateAxisのどれかを設定する。
 
         受け付ける組み合わせでは、書き込む先は次のようになる。
 
-        - r=True: rotate
-        - r=Falseで、Jointでjo=True: jointOrient
-        - それ以外のr=False: rotateAxis
+        - rotate=True: rotate
+        - rotate=Falseで、JointでjointOrient=True: jointOrient
+        - それ以外のrotate=False: rotateAxis
 
-        ra・r・joで指定できる組み合わせは、getQuaternionと同じではない。
+        rotateAxis・rotate・jointOrientで指定できる組み合わせは、getQuaternionと同じではない。
         preserve=TrueではrotateAxisとrotateを同時に変更して、現在時刻の姿勢を保つ。
         アニメーション全体の動きは保たない。補正先も書ける必要があるため、checkに関係なく両方を先に検査する。
 
         Args:
             value (Quaternion | om2.MQuaternion | Iterable[float]): xyzwの回転。
             worldSpace (bool): Trueならワールド空間、Falseならローカル空間。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            ra (bool): rotateAxisの短縮名。
-            r (bool): rotateの短縮名。
-            jo (bool): jointOrientの短縮名。
-            safe (bool): Trueなら、書けない成分は無視する。
-            get (bool): Trueなら書き込まずに、計算したオイラー角の値を返す。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
             rotateAxis (bool): Trueなら、入力にrotateAxisを含むものとして扱う。既定はFalse。
             rotate (bool): Trueならrotateを書き換える。FalseならjointOrientかrotateAxisを書き換える。既定はTrue。
             jointOrient (bool): Trueなら、入力にjointOrientを含むものとして扱う。既定はTrue。
             preserve (bool): rotateAxisを設定するときだけ指定できる姿勢維持。既定はFalse。
                 safe=Trueでの部分更新には対応しない。get=Trueでは従来どおりrotateAxisの値だけ返す。
+            safe (bool): Trueなら、書けない成分は無視する。
+            get (bool): Trueなら書き込まずに、計算したオイラー角の値を返す。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             EulerRotate | None: get=Falseなら値を返さない。get=Trueなら、書き込む先のオイラー角の値を
@@ -2284,8 +2277,8 @@ class Transform(DagNode):
                 rotateに設定する予定の値はノードのrotateOrderの順、ほかの書き込み先はXYZの順。
 
         Raises:
-            TypeError: valueがクォータニオンでも数値の並びでもない場合、
-                またはロング名と短縮名(worldSpaceとws、rotateAxisとra、rotateとr、jointOrientとjo)を同時に指定した場合。
+            TypeError: valueがクォータニオンでも数値の並びでもない場合、rotateAxis・rotate・jointOrientがboolでない場合、
+                またはworldSpaceとwsを同時に指定した場合。
             ValueError: valueの値の数が4でない・有限でない場合、または回転の成分と空間の指定が対応していない組み合わせの場合。
                 preserve=TrueでrotateAxis以外を設定する場合、またはsafe=Trueで書き込む場合。
             RuntimeError: preserve=Trueの補正対象がロック・接続・リファレンス等で編集できない場合。
@@ -2293,7 +2286,7 @@ class Transform(DagNode):
         _require_bool(fast, "fast")
         _require_bool(preserve, "preserve")
         worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=False)
-        ra, r, jo = _rotation_components(ra, r, jo, rotateAxis, rotate, jointOrient)
+        ra, r, jo = _rotation_components(rotateAxis, rotate, jointOrient)
         with _edit_context("mlibTransformSetQuaternion", fast, single=True):
             name, rotation = self._quaternion_channel_values(value, _world_space(worldSpace), ra, r, jo)
             if preserve and name != "rotateAxis":

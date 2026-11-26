@@ -56,12 +56,12 @@ class IkHandle(Transform):
         """
         ...
     @overload
-    def getJoints(self, includeTip: bool = ..., *, end: Literal[True]) -> Joint | None: ...
+    def getJoints(self, *, includeTip: bool = ..., tipOnly: Literal[True]) -> Joint | None: ...
     @overload
-    def getJoints(self, includeTip: bool = ..., *, end: Literal[False] = ...) -> Joints: ...
+    def getJoints(self, *, includeTip: bool = ..., tipOnly: Literal[False] = ...) -> Joints: ...
     @overload
-    def getJoints(self, includeTip: bool = ..., *, end: bool = ...) -> Joints | Joint | None:
-        """IKチェーンのジョイントを、開始ジョイントから順に取得する。``end=True`` なら、末端のジョイントを1つ取得する。
+    def getJoints(self, *, includeTip: bool = ..., tipOnly: bool = ...) -> Joints | Joint | None:
+        """IKチェーンのジョイントを、開始ジョイントから順に取得する。``tipOnly=True`` なら、末端のジョイントを1つ取得する。
 
         ``cmds.ikHandle(query=True, jointList=True)`` と同じジョイントを、OpenMayaで求める。
         ``endEffector`` の接続元(ikEffector)から、DAGの親を ``startJoint`` の接続元までたどる。
@@ -70,14 +70,14 @@ class IkHandle(Transform):
         既定(``includeTip=False``)では、末端のジョイントを含まない。
         末端まで含めたチェーン全体は ``getJoints(includeTip=True)`` で取得する。
 
-        ``end=True`` は、ikEffectorノードのtranslateの接続元をたどって、末端のジョイントを見つける
+        ``tipOnly=True`` は、ikEffectorノードのtranslateの接続元をたどって、末端のジョイントを見つける
         (``jointList`` は末端のジョイントを含まないので、この方法で求める)。
         ``getJoints(includeTip=True)[-1]`` とは違い、末端が見つからないときはNoneになる(途中のジョイントは返さない)。
 
         Args:
             includeTip (bool): Trueなら、末端のジョイントも最後に加える。
                 既定はFalseで、``cmds.ikHandle(query=True, jointList=True)`` と同じく末端のジョイントを含まない。
-            end (bool): Trueなら、末端のジョイントだけを返す。既定はFalse。includeTip=Trueとは同時に指定できない。
+            tipOnly (bool): Trueなら、末端のジョイントだけを返す。既定はFalse。includeTip=Trueとは同時に指定できない。
 
         Returns:
             Joints | Joint | None: 開始ジョイントから順に並んだジョイント。次の場合は空の集まり。
@@ -85,10 +85,10 @@ class IkHandle(Transform):
                 - startJointかendEffectorが接続されていない。
                 - ikEffectorが開始ジョイントの子孫でない。
 
-                end=Trueなら、末端のジョイント。接続が見つからない場合は ``None``。
+                tipOnly=Trueなら、末端のジョイント。接続が見つからない場合は ``None``。
 
         Raises:
-            TypeError: endがboolでない場合、またはend=TrueとincludeTip=Trueを同時に指定した場合。
+            TypeError: includeTip・tipOnlyがboolでない場合、またはtipOnly=TrueとincludeTip=Trueを同時に指定した場合。
             RuntimeError: ノードが無効な場合。
         """
         ...
@@ -151,7 +151,7 @@ class IkHandle(Transform):
         """
         ...
     def _end_joint(self) -> Joint | None:
-        """IKチェーンの末端のジョイントを返す(``getJoints(end=True)`` の本体)。
+        """IKチェーンの末端のジョイントを返す(``getJoints(tipOnly=True)`` の本体)。
 
         Returns:
             Joint | None: 末端のジョイント。接続が見つからない場合は ``None``。

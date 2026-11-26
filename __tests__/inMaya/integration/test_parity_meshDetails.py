@@ -45,7 +45,7 @@ class MeshDetailTest(NamespaceCase):
         vertices = face.getVertexFaces()
         vertices[0].setColor((0.2, 0.4, 0.6, 1))
         it = om2.MItMeshPolygon(shape.mpath())
-        self.assertEqual(face.getColor(), tuple(it.getColor(shape.getCurrentSet(color=True))))
+        self.assertEqual(face.getColor(), tuple(it.getColor(shape.getCurrentSet(kind="color"))))
         vertices[0].removeColor()
         self.assertIsNone(face.getColor())
 

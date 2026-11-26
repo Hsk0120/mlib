@@ -195,6 +195,19 @@ class UVTest(_Case):
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.125, 2.0)])
         uv.setPosition(0.875, axis="V")
         self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.125, 0.875)])
+        # relative=True は今の位置に足す(axisと一緒なら、その成分だけ)。
+        uv.setPosition((0.5, -0.25), relative=True)
+        self.assertPointsAlmostEqual([_uvs(name)[3]], [(0.625, 0.625)])
+        uv.setPosition(1.0, axis="u", relative=True, check=True)
+        self.assertPointsAlmostEqual([_uvs(name)[3]], [(1.625, 0.625)])
+        uvs = shape.getUVs([0, 1])
+        before = _uvs(name)
+        uvs.setPosition((0.5, 0.5), relative=True)
+        self.assertPointsAlmostEqual([_uvs(name)[0], _uvs(name)[1]], [(u + 0.5, v + 0.5) for u, v in before[:2]])
+        uvs.setPosition([(1.0, 0.0), (0.0, 1.0)], relative=True, each=True, check=True)
+        self.assertPointsAlmostEqual([_uvs(name)[0], _uvs(name)[1]], [(before[0][0] + 1.5, before[0][1] + 0.5), (before[1][0] + 0.5, before[1][1] + 1.5)])
+        with self.assertRaises(TypeError):
+            uv.setPosition((0.0, 0.0), relative=1)
 
     def test_collection_setters(self):
         shape = self.cube()

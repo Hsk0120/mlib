@@ -12,6 +12,20 @@ import mlib
 
 
 class PlugQueriesTest(NamespaceCase):
+    def test_get_name_remove_namespace(self):
+        """removeNamespace=True はノードの部分の名前空間を除き、fullとは同時に指定できない。複数形も同じ。"""
+        node = mlib.createNode("transform", name=self.name("nsPlug"))
+        short = node.getName(short=True, removeNamespace=True)
+        plug = node.getPlug("tx")
+        self.assertEqual(plug.getName(removeNamespace=True), short + ".tx")
+        self.assertEqual(mlib.Plugs([plug, node.getPlug("ty")]).getNames(removeNamespace=True), [short + ".tx", short + ".ty"])
+        with self.assertRaises(TypeError):
+            plug.getName(full=True, removeNamespace=True)
+        with self.assertRaises(TypeError):
+            plug.getName(removeNamespace=1)
+        with self.assertRaises(TypeError):
+            mlib.Plugs([plug]).getNames(full=True, removeNamespace=True)
+
     def test_descendants_preserve_order_and_sparse_elements(self):
         node = mlib.Node(self.make())
         cmds.addAttr(str(node), longName="nested", attributeType="compound", numberOfChildren=2, multi=True)
@@ -21,10 +35,10 @@ class PlugQueriesTest(NamespaceCase):
         parent[3].getChildren()[0].set(1)
         parent[9].getChildren()[1].set(2)
         self.flushUndo()
-        self.assertEqual([p.getAttributeName() for p in parent.getDescendants(leavesOnly=True)], ["first", "second", "first", "second"])
+        self.assertEqual([p.getAttributeName() for p in parent.getDescendants(leaves=True)], ["first", "second", "first", "second"])
         self.assertEqual([p.getIndex() for p in parent.getDescendants(levels=1)], [3, 9])
         self.assertEqual(len(parent.getDescendants()), 6)
-        self.assertEqual(len(parent.getDescendants(levels=1, leavesOnly=True)), 0)
+        self.assertEqual(len(parent.getDescendants(levels=1, leaves=True)), 0)
         self.assertEqual(len(parent.getDescendants(levels=0)), 0)
         self.assertEqual(parent.getIndices(), [3, 9])
         self.assertUndoEmpty()
@@ -103,7 +117,7 @@ class PlugQueriesTest(NamespaceCase):
             cmds.addAttr(str(node), longName=name, attributeType="double", parent="items")
         items = node.getPlug("items")
         self.flushUndo()
-        children = items[20].getDescendants(leavesOnly=True)
+        children = items[20].getDescendants(leaves=True)
         self.assertEqual([child.getAttributeName() for child in children], ["itemX", "itemY", "itemZ"])
         self.assertEqual(items.getIndices(), [])
         self.assertUndoEmpty()

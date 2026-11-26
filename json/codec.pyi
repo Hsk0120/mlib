@@ -18,6 +18,7 @@ _VECTOR_TYPES: tuple
 _TYPE_NAMES: Any
 _TRANSFORMATION_VECTORS: dict
 _TRANSFORMATION_ANGLES: frozenset
+_TRANSFORMATION_PROPERTIES: dict
 
 def _encode(value: object) -> Any:
     """値をJSONで書ける値へ変換する。

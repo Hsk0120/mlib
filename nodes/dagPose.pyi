@@ -193,21 +193,22 @@ class DagPose(Node):
             RuntimeError: 無効なノードの場合、またはMayaが追加を拒否した場合。
         """
         ...
-    def removeMembers(self, *members: Node | str | Iterable[Node | str]) -> None:
-        """メンバーをポーズから外す。
+    def removeMembers(self, *members: Node | str | Iterable[Node | str], all: bool = ...) -> None:
+        """メンバーをポーズから外す。``all=True`` なら、すべてのメンバーを外す。
 
         シーンのノードそのものは削除しない。
         残るメンバーの親として必要なノードは、Mayaがポーズに残すことがある。
 
         Args:
-            *members (Node | str | Iterable[Node | str]): 外すメンバー。空にはできない。
+            *members (Node | str | Iterable[Node | str]): 外すメンバー。all=Falseでは空にはできない。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、すべてのメンバーを外す(メンバーが無ければ何もしない)。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: 使えない型を指定した場合。
-            ValueError: 何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
+            TypeError: 使えない型を指定した場合、allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
+            ValueError: all=Falseで何も指定しなかった場合、またはTransform以外かメンバー以外を含む場合。
             RuntimeError: 無効なノードの場合、またはMayaが外すのを拒否した場合。
         """
         ...

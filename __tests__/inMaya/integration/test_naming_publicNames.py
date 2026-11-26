@@ -34,8 +34,8 @@ class ApiNamingTest(unittest.TestCase):
         source = driver.getPlug("driver")
         curve = mlib.createNode("animCurveUU")
         source.connectTo(curve.getPlug("input"))
-        curve.setKey(0, 2)
-        curve.setKey(3, 5)
+        curve.addKey(0, 2)
+        curve.addKey(3, 5)
         blend = mlib.createNode("blendWeighted")
         source.connectTo(blend.getPlug("input")[0])
         for node in (curve, blend):

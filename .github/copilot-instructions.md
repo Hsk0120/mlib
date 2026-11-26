@@ -305,9 +305,10 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 空間指定は `worldSpace=True/False`(True はワールド、False はローカル)。bool 検査は `util._world_space()` に一本化する。
   既定値は各メソッドの仕様を維持する。om2 の `MSpace` 引数は変えない。
 - 内部関数へ渡すときも `fast`・`worldSpace` 等の同じ名前を使い、`world_space` のような別名を増やさない。
-- ミラーの `axis` は反転軸(`"x"`/`"y"`/`"z"`、0/1/2)とミラー面(`"YZ"`/`"XZ"`/`"XY"`)の両方を受け、解釈は `util._mirror_axis` に集約する。
-- キーワード専用にする引数: `fast`・`check`・`safe`・`skipExisting`・`skipConnected`・`get`・`force`・`unit`・`timeUnit`・`type`(絞り込み)・`index`(AnimCurve のキーの番号)・
-  `geometryIndex`・`transferToParent`・`leaf`・`children`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)・
+- ミラーの面を受ける引数は `plane`(`Joint.mirror`・`SkinCluster.mirrorWeights`。ミラー面 `"YZ"`/`"XZ"`/`"XY"` と反転軸 `"x"`/`"y"`/`"z"`・0/1/2 の両方を受ける)、
+  反転軸を受ける引数は `axis`(数学型・形状の `mirror`)。解釈は `util._mirror_axis` に集約する(2026-11-26)。
+- キーワード専用にする引数: `fast`・`check`・`safe`・`skipExisting`・`skipConnected`・`get`・`force`・`unlock`・`repair`・`unit`・`timeUnit`・`distanceUnit`・`type`(絞り込み)・`kind`・`what`・`index`・
+  `geometryIndex`・`transferToParent`・`removeInfluence`・`influence`・`leaves`・`children`・`includeSelf`・`sortBy`・`asPair`・`asPlug`・`asNode`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)・
   `normalize`・`colorSet`・`uvSet`・`vertices`・`relative`・`add`・`mode`・`missing`・`zeroScaleOrient`・`aimAxis`/`upAxis`・
   `tolerance`(ノード・コンポーネントのメソッド。数学型の `isEquivalent(other, tolerance)` などは OpenMaya と同じ位置引数のまま)と、
   `getConnections` のフラグ全部。位置で受けるのは、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
@@ -319,35 +320,58 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   Transform の set 系は書けるチャンネルだけ更新して値は返さない)。「すでに目的の状態なら何もしない」は `skipExisting=True`
   (`addAttr`・`connect`・`connectTo`・`setAlias`)、「接続があるノードは消さない」は `skipConnected=True`(`Node.delete`・`Joint.delete`・`Joints.delete`)。
   別の意味の指定を `safe` という名前で増やさない。
+- 同じ名前の引数は、どのメソッドでも同じ働き・同じ種類の型・同じ受け方(位置かキーワード専用か)・同じ既定値と None の意味にする(2026-11-26)。
+  同じ働きは mlib の中で1つの名前にする(Maya のフラグ名が割れていても1つ)。Maya のフラグをそのまま受ける入口(`cmds/` の作成関数・`addAttr`・
+  `getConnections` の短縮名など)だけは Maya の名前のまま。
+  - `force` は「障害があっても実行」だけ(`Scene`・`Plugin.unload`・`Plug.connect`・`Container.removeMembers`・`normalizeWeights` など Maya の意味)。
+    ロックを外すのは `unlock`(`Plug.connect`・`disconnect`・`delete`)、不正なウェイトを直してから処理するのは `repair`(`Joint.removeInfluence`・`Node.delete`・`SkinCluster.removeInfluences`)。
+  - bool の引数に名詞を使わない: `getName(short=True)`・`ShadingEngine.getShader(asPlug=True)`・`Keyframe.getValue(input=True)`・`getMatrix(exclusive=True)`・
+    `IkHandle.getJoints(tipOnly=True)`・`getColor`/`setColor(toShape=True)`・`getNormal(lockedOnly=True)`。
+  - 末端は `leaves`、自身を含めるかは `includeSelf`(既定 True)、組で返すのは `asPair`(`connections`・`c` は置かない)、接続の向きは `input`/`output`、
+    子孫まで含めるのは `allDescendents`、並べる順は `sortBy`、距離の単位は `distanceUnit`(`unit` は角度)、ミラーの面は `plane`。
+  - `remove`・`clear` は list の意味だけに使う。自身を消すのは `delete`(`Namespace.delete`・`Keyframe(s).delete`)、名前空間の中身を消すのは `Namespace.deleteNodes`、
+    親の変更は `setParent`(`Namespace.setParent`)。
+  - mlib 独自のメソッドに短縮名を置かない(`getMatrix` の `p`・`inv`、`getQuaternion` の `ra`・`r`・`jo` は消した)。短縮名は Maya のフラグを受ける入口と `ws` だけ。
+- 上書き(オーバーライド)で引数・意味・戻り値を変えない(2026-11-26)。基底の引数をすべて同じ形で持ち、その種類だけの引数をキーワード専用・既定値つきで
+  足すだけは許す(`AnimationSnapshot.apply`・`Mesh.getShadingEngines(perFace=)`)。派生クラスだけで要る引数は、基底へ上げて揃える
+  (`Node.delete(removeInfluence=, transferToParent=, repair=)` は Joint 以外では型の確認だけ)。対象を切り替える上書きは、基底の引数で選ぶ形にする
+  (`DagNode.getSkinClusters(influence=True)`)。
+- 親子でないクラスの同じ名前の公開メソッドは引数名を揃える。対象が違って意味の無い引数は置かず、違いは `_tools/check_mlib_layout.py` の許可表に
+  理由を書く: 上書きは `OVERRIDE_ALLOWED`(L090)、同じ名前の公開メソッドは `SIBLING_ALLOWED`(L094)、同じ名前の引数の型は `ARGUMENT_ALLOWED`
+  (L095。情報)。もう違いの無い許可は L096 が報告するので消す。許可表に載せず別の名前にするのが先(同じ名前で意味が違うものを許可表で残さない)。
+- 名前を変えたら互換の別名を残さず、`core/object.py` の `_MEMBER_HINTS`(消した名前の案内)と `_tools/generate_mlib_stubs.py` の `OVERLOADS`(引数で戻り値の型が変わるもの)も合わせる。
 - 似た操作は、違いをキーワード専用の引数で選ぶ1つのメソッドにまとめる(2026-11-23)。既定値は、いちばんふつうの呼び方と同じ動きにする。
-  種類を選ぶ引数で戻り値の型が変わってよい(`Face.getConnected(type="edge")`・`VertexFace.getNormal(locked=True)`。型スタブはオーバーロードで書く)。
+  種類を選ぶ引数で戻り値の型が変わってよい(`Face.getConnected(type="edge")`・`VertexFace.getNormal(lockedOnly=True)`。型スタブはオーバーロードで書く)。
   更新する対象が違う操作も、同じ種類の値ならフラグでまとめてよい(`setPosition(..., axis="x")`・`relative=True`・`each=True`)。
   壊し方(破壊性)・単位が違う操作と、向きが逆の変換(`Face.getPointAtUV`/`getUVAtPoint`)は別のメソッドにする。
 - 基本のノードでの形(2026-11-24): 表示・非表示は `setVisibility(state)` だけ(`show`・`hide` は置かない。2026-10-26 の「両方残す」を改めた)。
   相対の変更は `setTranslation`・`setRotate`・`setScale`・`setShear` の `relative=True`(scale・shear は掛ける)、表示色は `getColor`/`setColor(outliner=)`、
-  描画色は `getDrawColor(mode=)`、1つと全部は `getShape(all=True)`・`getParent(instances=True)`・`IkHandle.getJoints(end=True)`・`getGeometry(geometryIndex=)`、
-  名前は `Node.getName(full=True | node=True, removeNamespace=)`(`full` と `node`・`removeNamespace` の同時指定は TypeError)、スキンは `getInfluences(locked=, unused=)`・
+  描画色は `getDrawColor(kind=)`、1つと全部は `getShape(all=True)`・`getParent(instances=True)`・`IkHandle.getJoints(tipOnly=True)`・`getGeometry(geometryIndex=)`、
+  名前は `Node.getName(full=True | short=True, removeNamespace=)`(`full` と `short`・`removeNamespace` の同時指定は TypeError)、スキンは `getInfluences(locked=, unused=)`・
   `removeInfluences(joints | unused=True, requireAncestor=)`・`normalizeWeights(force=)`・`getMode`/`setMode(kind=)`・`getWeights`/`setWeights` の `vertex=`(頂点1つの辞書の形)。
   2つの形で既定が逆になる引数(`setWeights` の `normalize`)は、後から足した形(`vertex=`)では省けない引数にして、取り違えを TypeError にする。
-  別のクラスで意味が違う同名のメソッドを上書きしているもの(`Joint.getSkinClusters`)は、消すと親クラスの別の意味の結果が黙って返るので残す。
+  上書きで対象を切り替えない: インフルエンスとして使う skinCluster は `DagNode.getSkinClusters(influence=True)`(以前の `Joint.getSkinClusters` をまとめた。2026-11-26)。
   兄弟クラスの同じ本体は、ミックスインでなく間に置く非公開の基底クラスへ上げる(`_InterpCacheConstraint`: `OrientConstraint`・`ParentConstraint` の `createCache`・`deleteCache`)。
   意味が通らない引数の組み合わせは TypeError にし、取り違えても黙って別の結果にならないようにする。
 - 形状・デフォーマー・カメラ・リファレンス・アニメーションカーブでの形(2026-11-24):
   - 番号1つと並びは同じメソッドで受ける(`mesh.getVertices(3)` は Vertex、`getVertices([3])`・`getVertices()` は Vertices。`getEdges`・`getFaces`・`getUVs`・`getCVs`・`AnimCurve.getKeyframes` も同じ。
     `getVertex` のような単数の名前は置かない)。サーフェスの (u, v) は `getCVs([(u, v)])[0]`(`getCVs((u, v))` は通し番号2つのまま)。
-  - 頂点ごとと面頂点ごとは `perFace=`(`getVertexNormals`・`getVertexColors`・`setVertexColors`・`getShadingEngines`)、法線のロックは `locked=`
-    (`getVertexNormals(perFace=True, locked=True)`・`setFaceVertexNormals(locked=)`。`VertexFace.getNormal`・`setNormal` と同じ形)、接線と従法線は `binormal=`。
-  - UV セットとカラーセットは同じ7つのメソッド(`getSetNames`・`getCurrentSet`・`setCurrentSet`・`createSet`・`copySet`・`renameSet`・`deleteSet`)の `color=` で選ぶ(既定は UV セット)。
-  - 取得するものを名前で選ぶ引数は `what=`(`getAtParam(param, what="tangent")`・`Mesh.getClosestPoint(point, what="normal")`)、対象の種類は `kind=`
-    (`Camera.getPoint(kind="eye")`・`getDirection(kind="view")`・`getFrustum(kind="viewing")`・`Reference.getEdits(kind="string")`)、返すコンポーネントの種類は `type=`(`Mesh.getBorder(type="vertex")`)。
+  - 頂点ごとと面頂点ごとは `perFace=`(`getVertexNormals`・`getVertexColors`・`setVertexColors`・`getShadingEngines`)、法線のロックを調べるのは `lockedOnly=`、掛けるのは `locked=`
+    (`getVertexNormals(perFace=True, lockedOnly=True)`・`setFaceVertexNormals(locked=)`。`VertexFace.getNormal(lockedOnly=)`・`setNormal(locked=)` と同じ形)、接線と従法線は `binormal=`。
+  - UV セットとカラーセットは同じ7つのメソッド(`getSetNames`・`getCurrentSet`・`setCurrentSet`・`createSet`・`copySet`・`renameSet`・`deleteSet`)の `kind="uv"|"color"` で選ぶ(既定は UV セット。2026-11-26 に `color=True` から改めた)。
+  - 取得するものを名前で選ぶ引数は `what=`(`getAtParam(param, what="tangent")`・`Mesh.getClosestPoint(point, what="normal")`・`Reference.getEdits(what="string")`)、対象の種類は `kind=`
+    (`Camera.getPoint(kind="eye")`・`getDirection(kind="view")`・`getFrustum(kind="viewing")`・`getProjectionMatrix(kind="post")`・`Mesh.getSetNames(kind="color")`)、返すコンポーネントの種類は `type=`(`Mesh.getBorder(type="vertex")`)。
     その種類でしか使わない引数(`secondOrder`・`aimAxis`・`uvSet`・`apply…`)をほかの種類で渡すと TypeError。名前の検査は `util._require_choice`。
   - 主な値を2通りで受けるものは、どちらか1つだけを必須にする(`NurbsCurve.getParam(point=/length=)`・`Camera.setFocusDistance(near=/far=)`・`BlendShape.resetTargetVertices(vertices | tolerance=)`)。
-    値を省くと別の操作になるもの(`AnimCurve.setKey(input)` は形を変えない挿入、`BlendShape.getTargetWeights()`・`setTargetWeights(None, w)` はベース、`NurbsCurve.getLength(param)` は始点からの長さ)は、その操作で使えない引数を TypeError にする。
+    値を省くと別の操作になるもの(`AnimCurve.addKey(input)` は形を変えない挿入、`BlendShape.getTargetWeights()`・`setTargetWeights(None, w)` はベース、`NurbsCurve.getLength(param)` は始点からの長さ)は、その操作で使えない引数を TypeError にする。
   - 取得と設定で既定の種類が食い違うときは、設定側の種類を省けない引数にする(`Camera.setDirection(direction, kind="up")`)。
   - 点の位置は、メッシュ・カーブ・サーフェスとも `getPoints`・`setPoints`・`mirror`(`getCvPositions` は置かない)。3つは非公開の基底 `_ControlPointShape`(`nodes/controlPointShape.py`)の1つの定義で、
     種類ごとの違いは `_raw_points`・`_set_points`・`_point_components` と `_mirror_chunk` が持つ。Undo チャンク名は、まとめる前の名前を分岐でそのまま使う(値として決めたものなので変えない)。
   - まとめないもの: `NurbsCurve.removeKnot` と `reduceKnotMultiplicity`、`AnimCurve.addKeys` と `replaceKeys`(壊し方が違う)、`Camera.getFilmFrustum`(戻り値の意味が違うのに型が同じ)、
-    `Reference.getCopyNumber` と `getCopyNumbers`(別の情報)、`Mesh.removeFaceVertexColors`、`AnimCurve` の番号を渡す形と `Keyframe`・`Keyframes` の同じ操作(両方残す)。
+    `Reference.getCopyNumber` と `getCopyNumbers`(別の情報)、`Mesh.removeFaceVertexColors`。
+  - カーブのキーの編集は `AnimCurve.addKey` と、`getKeyframes(indices | time=)` が返す `Keyframe`・`Keyframes` の `delete`・`move`・`getTangent`・`setTangent`・
+    `isBreakdown`・`setBreakdown` に寄せる(2026-11-26。`AnimCurve` の番号を渡す `removeKey`・`moveKey`・`getTangent` などは置かない)。`AnimCurve` で呼ぶ `setKey`・`removeKey`・`moveKey` は
+    `Node` と同じ意味(そのカーブのアトリビュートへのキー)。
 - common・cmds・数学型での形(2026-11-24):
   - 同じ種類のものを作る複数の Maya コマンドは、作るものを必須の `kind` で選ぶ1つの作成関数にする(`createPoly("cube"|"sphere"|"cylinder"|"plane", ...)`・
     `createDeformer("cluster"|"lattice"|"wire", targets, ...)`)。`kind` より後(`createDeformer` は targets より後)はキーワード専用、その種類で使えない引数は TypeError、
@@ -443,12 +467,12 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - コンパウンドアトリビュートの子は `compound[index]`・`compound[name]`。
 - `Plug.get/set` は対象アトリビュートだけを扱い、マトリクスアトリビュートから所有ノードの TRS 更新へ暗黙に切り替えない(ノードの変換は `Transform.getMatrix/setMatrix`)。
 - 演算子は `src >> dst`・`dst << src`・`src // dst` の3つだけ。`__len__`・`__add__` 等を足さない。
-- 接続の相手は `getConnections` の1つ。この Plug 自身の入力元(1つか None)は `getConnections(input=True)`、出力先(Plugs)は `getConnections(outputs=True)`
+- 接続の相手は `getConnections` の1つ。この Plug 自身の入力元(1つか None)は `getConnections(input=True)`、出力先(Plugs)は `getConnections(output=True)`
   (子・要素はたどらない。向き・たどり方の指定とは同時に指定できない)。`getConnections(destination=False)` は子・要素もたどる Plugs なので、`is None` の判定に使わない。
   `skipConversionNodes`(`scn`)の既定は False。接続の有無は `isConnected(other=None, *, source=True, destination=True)`
   (入力があるかは `isConnected(destination=False)`、出力があるかは `isConnected(source=False)`。引数は調べる相手の側)。入力だけ切るのは `disconnectAll(destination=False)`。
 - 似たメソッドは引数でまとめてある(単機能の別名を足さない): 範囲は `getRange(*, soft=False)`・`setRange(minimum, maximum, *, soft=False)`(省略した側は変えず、None は制限を外す)、
-  状態は `setFlags(locked=, keyable=, channelBox=, children=, leaf=)` と `getFlags()`(`locked`・`keyable`・`channelBox`・`hidden` の辞書。`isLocked`/`setLocked` は残す)、
+  状態は `setFlags(locked=, keyable=, channelBox=, children=, leaves=)` と `getFlags()`(`locked`・`keyable`・`channelBox`・`hidden` の辞書。`isLocked`/`setLocked` は残す)、
   アトリビュート自身の名前は `getAttributeName(kind="long"|"short"|"nice")`(ノード名・親・番号を含まない。`getName` とは別)、
   親は `getParent(*, all=False, includeMulti=False)`、要素まで実在するかは `isValid(elements=True)`、enum は `getEnumNames(*, value=None, name=None, current=False)`、
   この Plug に合うアニメーションカーブの型は `getAnimCurve(suitableType=True)`(つながっているカーブの型ではない)。
@@ -464,7 +488,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 - 複数形は Python の list と同じ名前の `append`・`extend`・`insert`・`remove`・`pop`・`index`・`count`・`clear`・`reverse`・`sort`・`in`・
   `del`・`+=` を持つ(`Nodes`・`Plugs` は番号への代入も。`core/listMethods.py` の `_ListMethods`、コンポーネントは `Components` に直接)。
   足す値は作るときと同じ決まりで解決して確かめ、同じ要素は2つ持たない(すでにある要素の追加は何もしない)。シーンは変えない。
-  これらの名前は各要素へ転送しない(転送は `callEach`)。`Keyframes` は `remove` がキーの削除なので対象外。
+  これらの名前は各要素へ転送しない(転送は `callEach`)。`Keyframes` は list のメソッドを持たない(キーの削除は `delete`)。
   ノード・アトリビュート・コンポーネントの単数のクラスには、list のメソッドと同じ名前(`clear`・`reverse` など)の公開メソッドを
   置かない(複数形から呼んだときに、シーンではなく集まりを操作してしまうため。`ObjectSet.removeMembers(all=True)`・`NurbsCurve.reverseDirection`)。
 - `Nodes._wrap(items)` と `mlib.ls` は、要素がすべて Joint なら `Joints`、すべて SkinCluster なら `SkinClusters` にする。
@@ -483,7 +507,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   複数形の `each=True` で要素ごとの値(既定は全要素に同じ値)。1成分の読みは `getPosition().x`・`getPosition()[0]`。
 - メッシュのコンポーネントの照会: フェースの形の判定は `Face.isKind(kind)`(`isOnBoundary` は Vertex・Edge・Face に残す)、隣は `getConnected()`
   (Face は `type="face"|"edge"|"vertex"`)、面積は `Face.getArea(uv=True)`、ループとリングは `getLoop(ring=True)`、
-  頂点フェースは `getTangent(binormal=True)`・`setNormal(locked=...)`・`getNormal(locked=True)`。
+  頂点フェースは `getTangent(binormal=True)`・`setNormal(locked=...)`・`getNormal(lockedOnly=True)`。
 - 周期カーブの末尾の重複 CV は先頭の対応 CV へ写す。
 
 ## 数学型(maths)
@@ -498,9 +522,10 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   ゼロ値を拒否する正規化は `unit`、標準のコピー正規化は `normal`。
 - `Transformation` は `om2.MTransformationMatrix` を継承し、translate・rotate(回転順序つき)・scale・shear・rotateAxis・ピボット4種に加えて、
   Joint のための jointOrient と inverseScale を持つ(距離 cm・角度 rad)。値はプロパティで読み書きし、取得した値は複製。
+  om2 と同じ名前のメソッド(`scale(space)`・`shear(space)`・`rotatePivot(space)`・`scalePivot(space)`)は om2 のまま残し、
+  値のプロパティは `scaleValue`・`shearValue`・`rotatePivotValue`・`scalePivotValue` と別の名前にする(2026-11-26。生成のキーワード `scale=` などと JSON のキーはそのまま)。
   `matrix` プロパティは Maya の transform・joint のローカルのマトリクスと同じ決まりで合成する(jointOrient・inverseScale を含む)。
-  継承した `asMatrix()` は om2 の計算のままで、この2つを含まない。基底クラスの `scale()`・`shear()`・`rotatePivot()`・`scalePivot()` は
-  同じ名前のプロパティに置き換えている。ノード側は `Transform.getTransformation()`・`setTransformation(value, *, fast=False)`(ローカルだけ)。
+  継承した `asMatrix()` は om2 の計算のままで、この2つを含まない。ノード側は `Transform.getTransformation()`・`setTransformation(value, *, fast=False)`(ローカルだけ)。
 - 型付きデータ配列の getter は常に list(空は `[]`)。点・ベクトルは 1 要素でも外側の list を省かない。
 
 ## JSON 保存・復元(json)
@@ -592,7 +617,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   モジュール直下の名前の形(L054)・mlib の中の import の別名(L055)・クラスの親は1つ(L056)・例外の文言と Undo チャンク名・
   fast の受け取り(L060〜L064)・docstring の見出し・Raises の並び・1行目・fast の固定文・用語・公開定数の
   説明・`Args:` の名前と位置引数の順・残った `TODO`(L070〜L077。L077 は情報)・
-  Python 3.7 で動く書き方と property の getter(L080・L081)。
+  Python 3.7 で動く書き方と property の getter(L080・L081)・上書きと同じ名前のメソッドの引数(L090・L094〜L096。mlib 全体を対象にしたときだけ。L095 は情報)。
   空白・空行・import 順・encoding・pathlib・未使用名は ruff が見るので、同じ検査を二重に持たない。
   `--fix` が直すのはクラス内メンバーの順だけで、並べ替えた後の空行は `ruff format` が直す。
   入力 assert の修正は `--fix-asserts TypeError|ValueError <ファイル> --line <行>` で対象を明示し、例外型を推測しない。

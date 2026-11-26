@@ -27,7 +27,7 @@ class AnimCurveAddKeysTest(NamespaceCase):
                 self.assertEqual(curve.getKeyInputs(), [1, 5])
                 self.assertSequenceAlmostEqual(curve.getKeyValues(unit="rad"), [0.5, 1.5])
                 for index, expected in enumerate(keys):
-                    tangent = curve.getTangent(index, unit="rad")
+                    tangent = curve.getKeyframes(index).getTangent(unit="rad")
                     self.assertTrue(tangent["weightedTangents"])
                     for field in ("inAngle", "outAngle", "inWeight", "outWeight"):
                         self.assertAlmostEqual(tangent[field], expected[field], places=5)
@@ -36,14 +36,14 @@ class AnimCurveAddKeysTest(NamespaceCase):
                 self.assertFalse(curve.getPlug("weightedTangents").get())
                 cmds.redo()
                 self.assertEqual(curve.getKeyCount(), 2)
-                self.assertTrue(curve.getTangent(0)["weightedTangents"])
-                self.assertAlmostEqual(curve.getTangent(0)["outWeight"], 2.5, places=5)
+                self.assertTrue(curve.getKeyframes(0).getTangent()["weightedTangents"])
+                self.assertAlmostEqual(curve.getKeyframes(0).getTangent()["outWeight"], 2.5, places=5)
 
     def test_values_units_preserve_existing_and_undo_all_types(self):
         for suffix in ("TA", "TL", "TT", "TU", "UA", "UL", "UT", "UU"):
             with self.subTest(suffix=suffix):
                 curve = mlib.createNode("animCurve" + suffix, name=self.name("curve" + suffix))
-                curve.setKey(0, 7, timeUnit="sec", unit="rad")
+                curve.addKey(0, 7, timeUnit="sec", unit="rad")
                 self.flushUndo()
                 self.assertIsNone(curve.addKeys([{"input": 2, "value": 3}, {"input": 1, "value": 2}], timeUnit="sec", unit="rad"))
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(timeUnit="sec"), [0, 1, 2])
@@ -56,8 +56,8 @@ class AnimCurveAddKeysTest(NamespaceCase):
 
     def test_tangents_locks_and_collision(self):
         curve = mlib.createNode("animCurveTA", name=self.name("curve"))
-        curve.setKey(0, 0)
-        curve.setKey(10, 30)
+        curve.addKey(0, 0)
+        curve.addKey(10, 30)
         self.flushUndo()
         curve.addKeys(
             [
@@ -67,7 +67,7 @@ class AnimCurveAddKeysTest(NamespaceCase):
             unit="rad",
             weightedTangents=True,
         )
-        fixed = curve.getTangent(curve.findClosestIndex(3), unit="rad")
+        fixed = curve.getKeyframes(curve.findClosestIndex(3)).getTangent(unit="rad")
         self.assertAlmostEqual(fixed["inAngle"], 0.2, places=5)
         self.assertAlmostEqual(fixed["outAngle"], 0.4, places=5)
         self.assertAlmostEqual(fixed["inWeight"], 1.5, places=5)
@@ -75,10 +75,10 @@ class AnimCurveAddKeysTest(NamespaceCase):
         self.assertFalse(fixed["lock"])
         self.assertFalse(fixed["weightLock"])
         self.assertTrue(fixed["weightedTangents"])
-        self.assertEqual(curve.getTangent(curve.findClosestIndex(7))["outTangentType"], "step")
+        self.assertEqual(curve.getKeyframes(curve.findClosestIndex(7)).getTangent()["outTangentType"], "step")
         cmds.undo()
         self.assertEqual(curve.getKeyInputs(), [0, 10])
-        self.assertFalse(curve.getTangent(0)["weightedTangents"])
+        self.assertFalse(curve.getKeyframes(0).getTangent()["weightedTangents"])
         with self.assertRaises(ValueError):
             curve.addKeys([{"input": 4, "value": 1}, {"input": 10, "value": 2}])
         self.assertEqual(curve.getKeyInputs(), [0, 10])

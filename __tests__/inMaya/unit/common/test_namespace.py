@@ -70,9 +70,19 @@ class NamespaceApiTest(unittest.TestCase):
         self.assertIn(top_node.getName(), direct_names)
         self.assertNotIn(child_node.getName(), direct_names)
 
-        recursive_names = [item.getName() for item in self.root.getNodes(recurse=True)]
+        recursive_names = [item.getName() for item in self.root.getNodes(allDescendents=True)]
         self.assertIn(top_node.getName(), recursive_names)
         self.assertIn(child_node.getName(), recursive_names)
+
+        # typeはノード型で絞る(派生した型も含む)。
+        self.assertNotIn(top_node.getName(), [item.getName() for item in self.root.getNodes(allDescendents=True, type="network")])
+        typed = [item.getName() for item in self.root.getNodes(allDescendents=True, type="transform")]
+        self.assertIn(top_node.getName(), typed)
+        self.assertIn(child_node.getName(), typed)
+        with self.assertRaises(TypeError):
+            self.root.getNodes(type=1)
+        with self.assertRaises(TypeError):
+            self.root.getNodes(allDescendents=1)
 
         cmds.delete(top_node.getName(), child_node.getName())
 
@@ -121,10 +131,10 @@ class NamespaceApiTest(unittest.TestCase):
         try:
             child.rename("renamed")
             self.assertTrue(Namespace(f"{self.root_name}:renamed").exists())
-            child.move(destination)
+            child.setParent(destination)
             moved = Namespace(":mlibNamespaceDestination:renamed")
             self.assertTrue(moved.exists())
-            moved.remove()
+            moved.delete()
             self.assertFalse(moved.exists())
         finally:
             if destination.exists():
@@ -181,6 +191,11 @@ class NamespaceSpecTest(unittest.TestCase):
         self.assertIsNone(Namespace(":").getParent())
         self.assertEqual(Namespace(":a:b:c").getParent(), Namespace(":a:b"))
         self.assertEqual(Namespace(":a").getParent(), Namespace(":"))
+        # all=Trueは祖先を近い順に、ルートまで返す。ルートは空リスト。
+        self.assertEqual(Namespace(":a:b:c").getParent(all=True), [Namespace(":a:b"), Namespace(":a"), Namespace(":")])
+        self.assertEqual(Namespace(":").getParent(all=True), [])
+        with self.assertRaises(TypeError):
+            Namespace(":a").getParent(all=1)
         missing = Namespace(self.root + ":nothing")
         self.assertFalse(missing.exists())
         self.assertEqual(missing.getChildren(), [])
@@ -229,11 +244,11 @@ class NamespaceSpecTest(unittest.TestCase):
         self.assertTrue(cmds.objExists(self.root + ":dst:item"))
         self.assertFalse(cmds.namespace(exists=self.root + ":src"))
         holder = Namespace.create(self.root + ":holder")
-        source.move(holder)
+        source.setParent(holder)
         self.assertEqual(source.name, self.root + ":holder:dst")
         with self.assertRaises(RuntimeError):
-            source.move(self.root + ":missingParent")
-        destination = source.remove(self.root)
+            source.setParent(self.root + ":missingParent")
+        destination = source.delete(self.root)
         self.assertEqual(destination, Namespace(self.root))
         self.assertTrue(cmds.objExists(self.root + ":item"))
         self.assertFalse(cmds.namespace(exists=self.root + ":holder:dst"))
@@ -245,17 +260,17 @@ class NamespaceSpecTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             root.rename("x")
         with self.assertRaises(ValueError):
-            root.move(":")
+            root.setParent(":")
         with self.assertRaises(ValueError):
-            root.remove()
+            root.delete()
         first = Namespace.create(self.root + ":first")
         Namespace.create(self.root + ":second")
         with self.assertRaises(RuntimeError):
             first.rename("second")
         with self.assertRaises(TypeError):
-            first.remove(":", destination=":")
+            first.delete(":", destination=":")
         with self.assertRaises(RuntimeError):
-            first.remove(self.root + ":missing")
+            first.delete(self.root + ":missing")
         self.assertTrue(first.exists())
 
 
@@ -378,9 +393,9 @@ class NamespaceTest(_CommonCase):
         self.assertIsNone(renamed.rename("R"))
         self.assertEqual(renamed.name, mlib_root + ":R")
         moved = renamed
-        self.assertIsNone(moved.move(mlib_root + ":B"))
+        self.assertIsNone(moved.setParent(mlib_root + ":B"))
         self.assertEqual(moved.name, mlib_root + ":B:R")
-        destination = moved.remove(mlib_root + ":B")
+        destination = moved.delete(mlib_root + ":B")
         self.assertEqual(destination, Namespace(mlib_root + ":B"))
         # cmds.namespace の rename/move に相当する手順(作成・内容の移動・元の削除)。
         cmds.namespace(add="R", parent=cmds_root)
@@ -399,7 +414,7 @@ class NamespaceTest(_CommonCase):
         root = ":" + self.ns
         self.build(root)
         with self.assertRaises(RuntimeError):
-            Namespace(root + ":A").remove(root + ":A:C")
+            Namespace(root + ":A").delete(root + ":A:C")
         self.assertTrue(cmds.namespace(exists=root + ":A"))
 
 
@@ -420,14 +435,14 @@ class NamespaceNodePlugAdditionsTest(_Case):
         return Namespace(self.ns)
 
     def test_children_recurse(self):
-        """recurse=False は直下、True は子孫(namespaceInfo の recurse と同じ集合)。"""
+        """allDescendents=False は直下、True は子孫(namespaceInfo の recurse と同じ集合)。"""
         root = self._tree()
         self.assertEqual(sorted(child.name for child in root.getChildren()), [":" + self.ns + ":a", ":" + self.ns + ":c"])
         expected = cmds.namespaceInfo(":" + self.ns, listOnlyNamespaces=True, recurse=True, absoluteName=True)
-        self.assertEqual(sorted(child.name for child in root.getChildren(recurse=True)), sorted(expected))
-        self.assertEqual(Namespace(":" + self.ns + ":missing").getChildren(recurse=True), [])
+        self.assertEqual(sorted(child.name for child in root.getChildren(allDescendents=True)), sorted(expected))
+        self.assertEqual(Namespace(":" + self.ns + ":missing").getChildren(allDescendents=True), [])
         with self.assertRaises(TypeError):
-            root.getChildren(recurse=1)
+            root.getChildren(allDescendents=1)
 
     def test_short_name_and_split(self):
         """末端名・階層の分割。ルートは ':' と空リスト。"""
@@ -455,7 +470,7 @@ class NamespaceNodePlugAdditionsTest(_Case):
         inner = cmds.createNode("transform", name=target + ":b:inner", skipSelect=True)
         node = cmds.createNode("transform", name=target + ":node", skipSelect=True)
         self.flushUndo()
-        self.assertIsNone(Namespace(target).remove(deleteContents=True))
+        self.assertIsNone(Namespace(target).delete(deleteContents=True))
 
         def after():
             self.assertFalse(cmds.namespace(exists=target))
@@ -469,9 +484,9 @@ class NamespaceNodePlugAdditionsTest(_Case):
         for args, flags, error in (((), {"deleteContents": 1}, TypeError), ((), {"deleteContents": True}, RuntimeError)):
             with self.subTest(flags=flags):
                 with self.assertRaises(error):
-                    Namespace(":" + self.ns + ":missing").remove(*args, **flags)
+                    Namespace(":" + self.ns + ":missing").delete(*args, **flags)
         with self.assertRaises(ValueError):
-            Namespace(":").remove(deleteContents=True)
+            Namespace(":").delete(deleteContents=True)
 
 
 if __name__ == "__main__":

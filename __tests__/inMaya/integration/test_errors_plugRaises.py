@@ -34,7 +34,7 @@ _PLUG_CALLS = (
     ("getDescendants", lambda plug, other: plug.getDescendants()),
     ("setFlags(keyable)", lambda plug, other: plug.setFlags(keyable=True)),
     ("setFlags(channelBox)", lambda plug, other: plug.setFlags(channelBox=True)),
-    ("setFlags(leaf)", lambda plug, other: plug.setFlags(keyable=True, leaf=True)),
+    ("setFlags(leaf)", lambda plug, other: plug.setFlags(keyable=True, leaves=True)),
     ("getRange", lambda plug, other: plug.getRange()),
     ("setRange", lambda plug, other: plug.setRange(0.0, 1.0)),
     ("getRange(soft)", lambda plug, other: plug.getRange(soft=True)),

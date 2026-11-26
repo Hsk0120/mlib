@@ -242,6 +242,14 @@ class EditTest(_PoseCase):
         self.assertNotIn(self.free, self.raw_members(pose))
         self.assertTrue(cmds.objExists(self.free))
 
+    def test_remove_all_members(self):
+        """removeMembers(all=True) はすべてのメンバーを外し、Undo 1回で戻る。members との同時指定は TypeError。"""
+        pose = self.save(self.root, self.free)
+        self.assert_rejected(pose, TypeError, lambda: pose.removeMembers(self.free, all=True))
+        self.assert_rejected(pose, TypeError, lambda: pose.removeMembers(all=1))
+        self.assertIsNone(self.assert_one_undo(pose, lambda: pose.removeMembers(all=True)))
+        self.assertFalse({self.root, self.free} & self.raw_members(pose))
+
     def test_remove_members_rejects(self):
         pose = self.save(self.root, self.mid)
         self.assert_rejected(pose, ValueError, lambda: pose.removeMembers())

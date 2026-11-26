@@ -84,8 +84,9 @@ class Transformation(om2.MTransformationMatrix):
     ``[-sp] * S * Sh * [sp] * [spt] * [-rp] * (rotateAxis * rotate * jointOrient) * [rp] * [rpt] * [1/inverseScale] * T``
 
     継承した ``asMatrix()`` は om2 の計算のままで、jointOrient と inverseScale を含まない。
-    基底クラスの ``scale()``・``shear()``・``rotatePivot()``・``scalePivot()`` は、同じ名前のプロパティに置き換えている
-    (om2の関数として呼ぶときは ``om2.MTransformationMatrix.scale(value, space)`` と書く)。
+    基底クラスの ``scale(space)``・``shear(space)``・``rotatePivot(space)``・``scalePivot(space)`` は om2 のメソッドのまま使える。
+    同じ値をmlibの型で読み書きするプロパティは :attr:`scaleValue`・:attr:`shearValue`・:attr:`rotatePivotValue`・
+    :attr:`scalePivotValue` (生成のキーワード引数は ``scale``・``shear``・``rotatePivot``・``scalePivot``)。
 
     ハッシュはできない(dictのキーやsetの要素にできない)。``==`` は、すべての値が完全に一致するかを比べる。
     """
@@ -167,13 +168,13 @@ class Transformation(om2.MTransformationMatrix):
         components = (
             ("translate", translate),
             ("rotate", rotate),
-            ("scale", scale),
-            ("shear", shear),
+            ("scaleValue", scale),
+            ("shearValue", shear),
             ("rotateAxis", rotateAxis),
             ("jointOrient", jointOrient),
-            ("rotatePivot", rotatePivot),
+            ("rotatePivotValue", rotatePivot),
             ("rotatePivotTranslate", rotatePivotTranslate),
-            ("scalePivot", scalePivot),
+            ("scalePivotValue", scalePivot),
             ("scalePivotTranslate", scalePivotTranslate),
             ("inverseScale", inverseScale),
         )
@@ -212,7 +213,7 @@ class Transformation(om2.MTransformationMatrix):
         Returns:
             str: translate・rotate・scaleを並べた文字列。
         """
-        translate, rotate, scale = tuple(self.translate), self.rotate, tuple(self.scale)
+        translate, rotate, scale = tuple(self.translate), self.rotate, tuple(self.scaleValue)
         return f"{type(self).__name__}(translate={translate}, rotate={rotate!r}, scale={scale})"
 
     @property
@@ -262,21 +263,21 @@ class Transformation(om2.MTransformationMatrix):
         self.setRotation(self.rotation().reorder(value))
 
     @property
-    def scale(self):
-        """Scale: スケール。"""
+    def scaleValue(self):
+        """Scale: スケール(om2の ``scale(om2.MSpace.kTransform)`` と同じ値)。"""
         return _vector_of(Scale, self._scale_values())
 
-    @scale.setter
-    def scale(self, value):
+    @scaleValue.setter
+    def scaleValue(self, value):
         self.setScale(_three(value, "scale"), _SPACE)
 
     @property
-    def shear(self):
-        """Shear: シアー(XY・XZ・YZ)。"""
+    def shearValue(self):
+        """Shear: シアー(XY・XZ・YZ。om2の ``shear(om2.MSpace.kTransform)`` と同じ値)。"""
         return _vector_of(Shear, self._shear_values())
 
-    @shear.setter
-    def shear(self, value):
+    @shearValue.setter
+    def shearValue(self, value):
         self.setShear(_three(value, "shear"), _SPACE)
 
     @property
@@ -301,12 +302,12 @@ class Transformation(om2.MTransformationMatrix):
         self._joint_orient = _resolve_quaternion(value, "jointOrient")
 
     @property
-    def rotatePivot(self):
-        """Translate: 回転ピボット(cm)。"""
+    def rotatePivotValue(self):
+        """Translate: 回転ピボット(cm。om2の ``rotatePivot(om2.MSpace.kTransform)`` と同じ値)。"""
         return _vector_of(Translate, _three(_MTransformation.rotatePivot(self, _SPACE), "rotatePivot"))
 
-    @rotatePivot.setter
-    def rotatePivot(self, value):
+    @rotatePivotValue.setter
+    def rotatePivotValue(self, value):
         self.setRotatePivot(om2.MPoint(*_three(value, "rotatePivot")), _SPACE, False)
 
     @property
@@ -319,12 +320,12 @@ class Transformation(om2.MTransformationMatrix):
         self.setRotatePivotTranslation(om2.MVector(*_three(value, "rotatePivotTranslate")), _SPACE)
 
     @property
-    def scalePivot(self):
-        """Translate: スケールピボット(cm)。"""
+    def scalePivotValue(self):
+        """Translate: スケールピボット(cm。om2の ``scalePivot(om2.MSpace.kTransform)`` と同じ値)。"""
         return _vector_of(Translate, _three(_MTransformation.scalePivot(self, _SPACE), "scalePivot"))
 
-    @scalePivot.setter
-    def scalePivot(self, value):
+    @scalePivotValue.setter
+    def scalePivotValue(self, value):
         self.setScalePivot(om2.MPoint(*_three(value, "scalePivot")), _SPACE, False)
 
     @property
@@ -350,7 +351,7 @@ class Transformation(om2.MTransformationMatrix):
         """Matrix: すべての値を合成したローカルのマトリクス。jointOrientとinverseScaleも含む。"""
         if self._joint_orient.isEquivalent(_MQuaternion(), 0.0) and self._inverse_scale == (1.0, 1.0, 1.0):
             return Matrix(self.asMatrix())
-        sp, rp = tuple(self.scalePivot), tuple(self.rotatePivot)
+        sp, rp = tuple(self.scalePivotValue), tuple(self.rotatePivotValue)
         orient = self.rotationOrientation() * self.rotation(asQuaternion=True) * self._joint_orient
         result = (
             Matrix(translate=tuple(-v for v in sp))

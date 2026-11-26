@@ -243,14 +243,14 @@ class JointDeleteTest(NamespaceCase):
         self._link_layer()
         self.tip.delete()
         self.assertColumn(self.mid, 0.5)
-        Joints([self.mid]).removeInfluence(force=True)
+        Joints([self.mid]).removeInfluence(repair=True)
         self.assertColumn(self.root, 0.6)
         self.assertTrue(self.mid.isValid())
 
     def test_layers_are_not_rejected_with_fast(self):
         """fast でもレイヤーでは拒否しない。"""
         self._link_layer()
-        self.tip.delete(fast=True, force=True)
+        self.tip.delete(fast=True, repair=True)
         self.assertFalse(self.tip.isValid())
         self.assertColumn(self.mid, 0.5)
 
@@ -330,7 +330,7 @@ class JointDeleteTest(NamespaceCase):
 
     def test_invalid_flags_are_rejected(self):
         """bool 以外のフラグは変更前に拒否する。"""
-        for flags in ({"skipConnected": 1}, {"fast": 1}, {"removeInfluence": 1}, {"transferToParent": 1}, {"force": 1}):
+        for flags in ({"skipConnected": 1}, {"fast": 1}, {"removeInfluence": 1}, {"transferToParent": 1}, {"repair": 1}):
             with self.subTest(flags=flags), self.assertRaises(TypeError):
                 self.tip.delete(**flags)
             with self.subTest(plural=flags), self.assertRaises(TypeError):

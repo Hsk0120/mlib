@@ -38,7 +38,7 @@ class ReferenceTest(NamespaceCase):
         ref = NodeRef.capture(self.joint)
         self.assertEqual(ref.name, self.name("arm"))
         self.assertEqual(ref.type, "joint")
-        self.assertTrue(ref.path.startswith("|"))
+        self.assertTrue(ref.dagPath.startswith("|"))
         self.assertEqual(NodeRef._from_data(std_json.loads(std_json.dumps(ref._to_data()))), ref)
         self.assertEqual(ref.resolve().getName(full=True), cmds.ls(self.joint, long=True)[0])
         mapped = ref.resolve(NameMapping(namespaceMap={self.ns: self.other}))
@@ -48,7 +48,7 @@ class ReferenceTest(NamespaceCase):
     def test_node_ref_type_and_ambiguity(self):
         ref = NodeRef.capture(self.joint)
         full = cmds.ls(self.joint, long=True)[0]
-        wrong_type = NodeRef(ref.name, ref.path, "transform")
+        wrong_type = NodeRef(ref.name, ref.dagPath, "transform")
         self.assertIsNone(wrong_type.resolve())
         twin = cmds.createNode("joint", name=self.name("arm"), parent=cmds.createNode("transform", name=self.name("g")))
         self.assertEqual(ref.resolve().getName(full=True), full)
@@ -94,7 +94,7 @@ class ReferenceTest(NamespaceCase):
                 self.assertIs(ref.__eq__(1), NotImplemented)
         self.assertNotEqual(plug, PlugRef(node, "translateY"))
         self.assertNotEqual(component, ComponentRef(node, "vtx", [1, 2]))
-        self.assertEqual(NodeRef("a", "", "").path, None)
+        self.assertEqual(NodeRef("a", "", "").dagPath, None)
         self.assertEqual(plug._mapped_name(NameMapping(namespaceMap={"chrA": "chrB"})), "chrB:arm.translateX")
 
     def test_invalid_arguments(self):

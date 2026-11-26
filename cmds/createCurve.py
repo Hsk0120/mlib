@@ -11,7 +11,7 @@ from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelect
 from ..util import _UNSET
 
 
-def createCurve(points, degree=_UNSET, closed=False, knots=None, name=_UNSET, parent=None, *, d=_UNSET, n=_UNSET):
+def createCurve(points, degree=_UNSET, closed=False, knots=None, *, name=_UNSET, parent=None, d=_UNSET, n=_UNSET):
     """点の並びからNURBSカーブを作り、そのシェイプを返す。
 
     点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、

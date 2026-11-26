@@ -53,7 +53,7 @@ class MeshReorderTest(unittest.TestCase):
         u, v = fn.getUVs()
         fn.setUVs([x * 2 + 1 for x in u], [y * 3 - 1 for y in v])
         before = self.snapshot()
-        self.assertIsNone(self.target.reorderVertices(self.reference, match="position", uvSet=None))
+        self.assertIsNone(self.target.reorderVertices(self.reference, method="position", uvSet=None))
         after = self.snapshot()
         self.assertEqual(after[0], [before[0][i] for i in self.permutation])
         self.assertEqual(after[2:], before[2:])
@@ -68,9 +68,9 @@ class MeshReorderTest(unittest.TestCase):
         cmds.setAttr(transform + ".translateX", 5)
         before = self.snapshot()
         with self.assertRaises(ValueError):
-            self.target.reorderVertices(self.reference, match="position")
+            self.target.reorderVertices(self.reference, method="position")
         previous = cmds.undoInfo(q=True, undoName=True)
-        self.target.reorderVertices(self.reference, match="position", worldSpace=True, fast=True)
+        self.target.reorderVertices(self.reference, method="position", worldSpace=True, fast=True)
         self.assertEqual(self.snapshot()[0], [before[0][i] for i in self.permutation])
         self.assertEqual(self.snapshot()[2:], before[2:])
         self.assertEqual(cmds.undoInfo(q=True, undoName=True), previous)
@@ -80,20 +80,20 @@ class MeshReorderTest(unittest.TestCase):
         self.set_matching_positions(offset=0.125)
         before = self.snapshot()
         with self.assertRaises(ValueError):
-            self.target.reorderVertices(self.reference, match="position", tolerance=0.1)
+            self.target.reorderVertices(self.reference, method="position", tolerance=0.1)
         self.assertEqual(self.snapshot(), before)
-        self.target.reorderVertices(self.reference, match="position", tolerance=0.13)
+        self.target.reorderVertices(self.reference, method="position", tolerance=0.13)
         self.assertEqual(self.snapshot()[0], [before[0][i] for i in self.permutation])
         for mesh in (self.reference, self.target):
             mesh.mfn().setPoints([om2.MPoint(0, 0, 0)] * 8)
         before = self.snapshot()
         with self.assertRaises(ValueError):
-            self.target.reorderVertices(self.reference, match="position", tolerance=0)
+            self.target.reorderVertices(self.reference, method="position", tolerance=0)
         self.assertEqual(self.snapshot(), before)
 
     def test_match_flags_validation(self):
         before = self.snapshot()
-        for kwargs in ({"match": "nearest"}, {"match": True}, {"worldSpace": 1}, {"ws": 1}, {"worldSpace": True, "ws": True}):
+        for kwargs in ({"method": "nearest"}, {"method": True}, {"worldSpace": 1}, {"ws": 1}, {"worldSpace": True, "ws": True}):
             with self.assertRaises((ValueError, TypeError)):
                 self.target.reorderVertices(self.reference, **kwargs)
         self.assertEqual(self.snapshot(), before)
@@ -171,13 +171,13 @@ class MeshReorderTest(unittest.TestCase):
                     self.target.reorderVertices(reference, **kwargs)
                 self.assertEqual(self.snapshot(), before)
         with self.assertRaises(ValueError):
-            empty[0].reorderVertices(empty[1], match="position")
+            empty[0].reorderVertices(empty[1], method="position")
 
     def test_uv_set_type_rejected_with_type_error(self):
-        """uvSetにstr以外を渡すとTypeError(match="position"でも)。"""
-        for match in ("uv", "position"):
-            with self.subTest(match=match), self.assertRaises(TypeError):
-                self.target.reorderVertices(self.reference, uvSet=1, match=match)
+        """uvSetにstr以外を渡すとTypeError(method="position"でも)。"""
+        for method in ("uv", "position"):
+            with self.subTest(method=method), self.assertRaises(TypeError):
+                self.target.reorderVertices(self.reference, uvSet=1, method=method)
 
     def test_reversed_winding_and_duplicate_positions_rejected(self):
         """位置は合っても面の巻き方向が逆、または2頂点が同じ基準頂点に当たるならValueError。"""
@@ -186,12 +186,12 @@ class MeshReorderTest(unittest.TestCase):
         reversed_mesh.mfn().setPoints(self.reference.mfn().getPoints())
         cmds.polyNormal(reversed_mesh.getName(full=True), normalMode=0, constructionHistory=False)
         with self.assertRaises(ValueError):
-            reversed_mesh.reorderVertices(self.reference, match="position")
+            reversed_mesh.reorderVertices(self.reference, method="position")
         fn = self.target.mfn()
         fn.setPoint(1, fn.getPoint(0))
         before = self.snapshot()
         with self.assertRaises(ValueError):
-            self.target.reorderVertices(self.reference, match="position")
+            self.target.reorderVertices(self.reference, method="position")
         self.assertEqual(self.snapshot(), before)
 
     def test_missing_and_non_finite_data_rejected(self):
@@ -210,7 +210,7 @@ class MeshReorderTest(unittest.TestCase):
             self.target.reorderVertices(self.reference)
         fn.setPoint(0, om2.MPoint(float("nan"), 0, 0))
         with self.assertRaises(ValueError):
-            self.target.reorderVertices(self.reference, match="position")
+            self.target.reorderVertices(self.reference, method="position")
 
     def test_isolated_vertex_and_blind_data_rejected(self):
         """どの面にも属さない頂点はUVで照らし合わせられず、ブラインドデータのあるメッシュは作り直せないのでValueError。"""
@@ -227,7 +227,7 @@ class MeshReorderTest(unittest.TestCase):
             meshes.append(mesh)
         self.assertEqual(meshes[0].getNumVertices(), source.numVertices + 1)
         with self.assertRaisesRegex(ValueError, "孤立した頂点"):
-            meshes[1].reorderVertices(meshes[0], match="uv")
+            meshes[1].reorderVertices(meshes[0], method="uv")
         type_id = 70000 + int(uuid.uuid4().hex[:4], 16)
         long_name = "mlibReorderBlind" + uuid.uuid4().hex[:6]
         cmds.blindDataType(id=type_id, dataType="int", longDataName=long_name, shortDataName=long_name[-6:])

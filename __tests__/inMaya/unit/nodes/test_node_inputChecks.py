@@ -92,7 +92,7 @@ class NodeArgumentsTest(_Case):
         """full=Trueとnodeを同時に指定するとTypeError。nodeがboolでなければその型のTypeError。"""
         node = self.node()
         with self.assertRaises(TypeError):
-            node.getName(full=True, node=True)
+            node.getName(full=True, short=True)
         with self.assertRaises(TypeError):
             node.getName(full=True, removeNamespace=True)
         with self.assertRaises(TypeError):
@@ -420,7 +420,7 @@ class NodesRejectTest(_Case):
         other = self.node("other")
         Nodes([first]).setParent(other, add=True)
         self.assertEqual(om2.MFnDagNode(first.mnode()).instanceCount(False), 2)
-        self.assertIn(other.getName(full=True) + "|" + first.getName(node=True), cmds.listRelatives(str(other), children=True, fullPath=True))
+        self.assertIn(other.getName(full=True) + "|" + first.getName(short=True), cmds.listRelatives(str(other), children=True, fullPath=True))
 
     def test_set_parent_to_world_and_rejects(self):
         """parent=Noneはワールドへ移す。Transform以外を含むとTypeError、削除したアトリビュートのPlugはValueError、DGノードの親はMayaが拒否する。"""

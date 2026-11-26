@@ -342,10 +342,10 @@ class ConvertedInputTest(_Case):
                             return query(*args, **kwargs)
 
                         with mock.patch.object(cmds, "keyTangent", side_effect=fake):
-                            curve.setKey(1.0, 2.0, fast=True)
+                            curve.addKey(1.0, 2.0, fast=True)
                     else:
                         cmds.keyTangent(g=True, inTangentType=settings[0], outTangentType=settings[1])
-                        curve.setKey(1.0, 2.0, fast=True)
+                        curve.addKey(1.0, 2.0, fast=True)
                     actual = (
                         cmds.keyTangent(curve.getName(full=True), query=True, index=(0, 0), inTangentType=True)[0],
                         cmds.keyTangent(curve.getName(full=True), query=True, index=(0, 0), outTangentType=True)[0],
@@ -432,7 +432,7 @@ class NarrowedExceptionTest(_Case):
         joint = mlib.getNode(self.make("joint", "joint"))
         cmds.setAttr(joint.getName(full=True) + ".jointOrient", 10, 20, 30)
         self.assertSameRotation(joint._component_quaternion("jointOrient"), expected)
-        self.assertSameRotation(joint.getQuaternion(r=False, jo=True), expected)
+        self.assertSameRotation(joint.getQuaternion(rotate=False, jointOrient=True), expected)
 
     def test_set_matrix_round_trip_with_and_without_pivots(self):
         """ピボットの有無で式を分けた所: setMatrixの後のローカルのマトリクスが指定と同じ。"""
@@ -463,11 +463,11 @@ class NarrowedExceptionTest(_Case):
                     fn.setCreaseVertices([0], [1.0])
                 before = [tuple(point) for point in fn.getPoints()]
                 if crease is None:
-                    target.reorderVertices(reference, match="position")
+                    target.reorderVertices(reference, method="position")
                     self.assertEqual(list(om2.MFnMesh(target.mpath()).getVertices()[1]), list(om2.MFnMesh(reference.mpath()).getVertices()[1]))
                     continue
                 with self.assertRaises(ValueError) as context:
-                    target.reorderVertices(reference, match="position")
+                    target.reorderVertices(reference, method="position")
                 self.assertIn("クリース", str(context.exception))
                 self.assertEqual([tuple(point) for point in om2.MFnMesh(target.mpath()).getPoints()], before)
 

@@ -140,15 +140,15 @@ class TransformGetRandomTest(TransformRandomCase):
                 self.assertClose(node.getMatrix(), cmds.getAttr(name + ".matrix"), label="local")
                 self.assertClose(node.getMatrix(ws=True), cmds.getAttr(name + ".worldMatrix[0]"), label="world")
                 self.assertClose(node.getMatrix(ws=True), cmds.xform(name, query=True, matrix=True, worldSpace=True), label="xform")
-                self.assertClose(node.getMatrix(ws=True, parent=True), cmds.getAttr(name + ".parentMatrix[0]"), label="parent")
+                self.assertClose(node.getMatrix(ws=True, exclusive=True), cmds.getAttr(name + ".parentMatrix[0]"), label="parent")
                 self.assertClose(node.getMatrix(ws=True, inverse=True), cmds.getAttr(name + ".worldInverseMatrix[0]"), tol=1e-8, label="inverse")
-                self.assertClose(node.getMatrix(parent=True), cmds.getAttr(parent + ".matrix"), tol=1e-8, label="local parent")
+                self.assertClose(node.getMatrix(exclusive=True), cmds.getAttr(parent + ".matrix"), tol=1e-8, label="local parent")
                 transformation = node.getTransformation()
                 self.assertIsInstance(transformation, Transformation)
                 self.assertEqual(transformation.rotateOrder, values[2]["rotateOrder"])
                 self.assertClose(transformation.matrix, cmds.getAttr(name + ".matrix"), label="transformation")
                 self.assertClose(transformation.rotate, [math.radians(v) for v in values[2]["rotate"]], label="rotate")
-                self.assertClose(transformation.scalePivot, values[2]["scalePivot"], label="sp")
+                self.assertClose(transformation.scalePivotValue, values[2]["scalePivot"], label="sp")
 
     def test_translation_at_each_reference(self):
         rng = random.Random(SEED + 1)

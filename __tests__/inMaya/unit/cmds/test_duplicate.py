@@ -222,7 +222,7 @@ class DuplicateSpecTest(_CmdsCase):
 
 def _short(node):
     """名前空間とDAGパスを除いたノード名を返す。"""
-    return node.getName(node=True).rpartition(":")[2]
+    return node.getName(short=True).rpartition(":")[2]
 
 
 class NodeDuplicateTest(NamespaceCase):

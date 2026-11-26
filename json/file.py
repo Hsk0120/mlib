@@ -19,8 +19,8 @@ from .codec import _decode, _encode
 _LINEAR_UNIT = "cm"
 _ANGLE_UNIT = "deg"
 _TIME_UNIT = "frame"
-#: 読み込むときのfpsの扱い。"frame" はフレーム番号を保ち、"second" は秒を保つ。
-_TIMINGS = ("frame", "second")
+#: 読み込むときのfpsの扱い。"frame" はフレーム番号を保ち、"sec" は秒を保つ。
+_TIMINGS = ("frame", "sec")
 
 
 class Header:
@@ -147,18 +147,18 @@ class Header:
         """保存したときのフレームを、今のシーンのフレームへ換算する。
 
         ``timing="frame"`` は、フレーム番号をそのまま返す(何コマ目かを保つ)。
-        ``"second"`` は、保存したときのfpsで秒にしてから、今のfpsのフレームへ直す(実際の時間を保つ)。
+        ``"sec"`` は、保存したときのfpsで秒にしてから、今のfpsのフレームへ直す(実際の時間を保つ)。
         fpsが同じなら、どちらも同じ値になる。
 
         Args:
             frame (float): 保存したときのフレーム。
-            timing (str): ``"frame"`` か ``"second"``。既定は ``"frame"``。
+            timing (str): ``"frame"`` か ``"sec"``。既定は ``"frame"``。
 
         Returns:
             float: 今のシーンのフレーム。
 
         Raises:
-            ValueError: timingが ``"frame"``・``"second"`` 以外の場合。
+            ValueError: timingが ``"frame"``・``"sec"`` 以外の場合。
         """
         _require_timing(timing)
         if timing == "frame":
@@ -269,10 +269,10 @@ def _require_timing(timing):
     """時間の扱いの指定を確かめる。
 
     Args:
-        timing (str): ``"frame"`` または ``"second"``。
+        timing (str): ``"frame"`` または ``"sec"``。
 
     Raises:
         ValueError: それ以外の場合。
     """
     if timing not in _TIMINGS:
-        raise ValueError(f"timingは'frame'か'second'で指定してください: {timing!r}")
+        raise ValueError(f"timingは'frame'か'sec'で指定してください: {timing!r}")

@@ -48,14 +48,14 @@ class ExtraAttributesTest(unittest.TestCase):
         self.assertIsInstance(message, mlib.MessagePlug)
         self.node.getPlug("message").connectTo(message)
         self.assertEqual(message.getConnections(input=True), self.node.getPlug("message"))
-        self.assertEqual(len(self.node.getPlugs(userDefined=True, includeChildren=False)), len(cases) + 3)
-        self.assertNotIn(self.node.getPlug("translate"), self.node.getPlugs(userDefined=True, includeChildren=False))
+        self.assertEqual(len(self.node.getPlugs(userDefined=True, children=False)), len(cases) + 3)
+        self.assertNotIn(self.node.getPlug("translate"), self.node.getPlugs(userDefined=True, children=False))
 
     def test_compound_multi_and_undo(self):
         compound = self.node.addAttr("vectorValue", attributeType="double3")
         self.assertIsInstance(compound, mlib.Double3Plug)
-        self.assertEqual(len(self.node.getPlugs(userDefined=True, includeChildren=False)), 1)
-        self.assertEqual(len(self.node.getPlugs(userDefined=True, includeChildren=True)), 4)
+        self.assertEqual(len(self.node.getPlugs(userDefined=True, children=False)), 1)
+        self.assertEqual(len(self.node.getPlugs(userDefined=True, children=True)), 4)
         array = self.node.addAttr("weights", attributeType="double", multi=True)
         self.assertIsInstance(array, mlib.MultiPlug)
         self.assertIsInstance(array[0], mlib.DoublePlug)
@@ -72,21 +72,20 @@ class ExtraAttributesTest(unittest.TestCase):
         self.node.addAttr("last", dt="string")
         expected = cmds.listAttr(self.node.getName(full=True), userDefined=True)
         with contextlib.nullcontext():
-            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["first", "vector", "last"])
-            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], expected)
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["first", "vector", "last"])
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=True)], expected)
         cmds.renameAttr(self.node.getName(full=True) + ".first", "renamed")
         cmds.deleteAttr(self.node.getName(full=True) + ".vector")
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["renamed", "last"])
         cmds.undo()
         # Mayaは削除Undoで定義を末尾へ再追加する。元の順序を仮定せず標準照会と比較する。
         restored = cmds.listAttr(self.node.getName(full=True), userDefined=True)
         self.assertEqual(
-            [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)],
-            [p for p in restored if p in {"renamed", "vector", "last"}],
+            [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], [p for p in restored if p in {"renamed", "vector", "last"}]
         )
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=True)], restored)
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=True)], restored)
         cmds.redo()
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["renamed", "last"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["renamed", "last"])
 
     def test_sparse_compound_multi_roots_do_not_expand(self):
         """マルチアトリビュートであるコンパウンドアトリビュートの子を解決せず、空のマルチアトリビュート・疎なマルチアトリビュートを維持する。"""
@@ -97,12 +96,12 @@ class ExtraAttributesTest(unittest.TestCase):
         cmds.setAttr(name + ".items[7].amount", 2)
         undo_name = cmds.undoInfo(query=True, undoName=True)
         with contextlib.nullcontext():
-            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["items", "empty"])
-            roots = self.node.getPlugs(userDefined=True, includeChildren=False)
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["items", "empty"])
+            roots = self.node.getPlugs(userDefined=True, children=False)
             self.assertTrue(all(isinstance(p, mlib.MultiPlug) for p in roots))
             # 番号なしのマルチアトリビュートであるコンパウンドアトリビュートの子は、通常のNode.plugと同じく公開Plugにできない。
             with self.assertRaises(RuntimeError):
-                self.node.getPlugs(userDefined=True, includeChildren=True)
+                self.node.getPlugs(userDefined=True, children=True)
         self.assertEqual(cmds.getAttr(name + ".items", multiIndices=True), [7])
         self.assertIsNone(cmds.getAttr(name + ".empty", multiIndices=True))
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), undo_name)
@@ -116,16 +115,16 @@ class ExtraAttributesTest(unittest.TestCase):
             cmds.addAttr(name, longName="inner" + axis, attributeType="double", parent="inner")
         cmds.addAttr(name, longName="enabled", attributeType="bool", parent="outer")
         expected = [self.node.getPlug(p) for p in cmds.listAttr(name, userDefined=True)]
-        self.assertEqual(self.node.getPlugs(userDefined=True, includeChildren=True), expected)
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["outer"])
+        self.assertEqual(self.node.getPlugs(userDefined=True, children=True), expected)
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["outer"])
 
     def test_invalid_node_and_include_children(self):
         """無効入力をAPIに渡す前に拒否する。"""
         with self.assertRaises(TypeError):
-            self.node.getPlugs(userDefined=True, includeChildren=1)
+            self.node.getPlugs(userDefined=True, children=1)
         deleted = mlib.createNode("network")
         cmds.delete(deleted.getName(full=True))
-        for method in (lambda: deleted.getPlugs(userDefined=True), lambda: deleted.getPlugs(userDefined=True, includeChildren=False)):
+        for method in (lambda: deleted.getPlugs(userDefined=True), lambda: deleted.getPlugs(userDefined=True, children=False)):
             with self.assertRaises(RuntimeError):
                 method()
 

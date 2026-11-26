@@ -88,7 +88,7 @@ class AnimCurveErrorTest(_ErrorCase):
         calls = (
             ("getKeyValues", lambda **kw: self.curve.getKeyValues(**kw)),
             ("evaluate", lambda **kw: self.curve.evaluate(5, **kw)),
-            ("getTangent", lambda **kw: self.curve.getTangent(0, **kw)),
+            ("getTangent", lambda **kw: self.curve.getKeyframes(0).getTangent(**kw)),
         )
         for name, call in calls:
             with self.subTest(method=name, flag="unit"):
@@ -131,8 +131,8 @@ class AnimCurveErrorTest(_ErrorCase):
         for index in (True, False, 1.0, "0", -1, 2, 99):
             with self.subTest(index=index):
                 with self.assertRaises(IndexError):
-                    self.curve.getTangent(index)
-        info = self.curve.getTangent(1)
+                    self.curve.getKeyframes(index).getTangent()
+        info = self.curve.getKeyframes(1).getTangent()
         self.assertEqual(info["inTangentType"], cmds.keyTangent(self.curve.getName(full=True), query=True, index=(1, 1), inTangentType=True)[0])
 
     def test_get_driven_plugs(self):
@@ -308,8 +308,8 @@ class DagNodeInvalidTest(_ErrorCase):
         for value in (1, 0, None, "true"):
             with self.subTest(shape=value):
                 with self.assertRaises(TypeError):
-                    node.getColor(shape=value)
-        self.assertIsNone(node.getColor(shape=True))
+                    node.getColor(toShape=value)
+        self.assertIsNone(node.getColor(toShape=True))
 
     def test_get_bind_poses_with_invalid_connection(self):
         (joint,) = self.joints("bindJoint")
@@ -322,7 +322,7 @@ class DagNodeInvalidTest(_ErrorCase):
         for name in (cube, joint):
             with self.subTest(node=name):
                 with self.assertRaises(RuntimeError):
-                    mlib.getNode(name).getBindPoses()
+                    mlib.getNode(name).getBindPoses(influence=name == joint)
 
 
 class DagPoseErrorTest(_ErrorCase):
@@ -852,16 +852,16 @@ class NurbsCurveErrorTest(_Case):
         self.assertSequenceAlmostEqual(curve.getAtParam(1.5, what="tangent"), (1, 0, 0), places=6)
 
     def test_unit_errors(self):
-        """unit が文字列・None 以外は TypeError、未対応の単位名は ValueError。"""
+        """distanceUnit が文字列・None 以外は TypeError、未対応の単位名は ValueError。"""
         curve = self.curve()
         queries = self.queries(curve)
         for method, value in (("getLength(param)", 0.5), ("getParam(length)", 1.0)):
             call = queries[method]
             with self.subTest(method=method):
-                self.assertRaises(TypeError, call, value, unit=5)
-                self.assertRaises(ValueError, call, value, unit="furlong")
-        self.assertAlmostEqual(curve.getLength(1.0, unit="m"), 0.03, places=6)
-        self.assertAlmostEqual(curve.getParam(length=0.015, unit="m"), 0.5, places=5)
+                self.assertRaises(TypeError, call, value, distanceUnit=5)
+                self.assertRaises(ValueError, call, value, distanceUnit="furlong")
+        self.assertAlmostEqual(curve.getLength(1.0, distanceUnit="m"), 0.03, places=6)
+        self.assertAlmostEqual(curve.getParam(length=0.015, distanceUnit="m"), 0.5, places=5)
 
     def test_get_param_at_length_errors(self):
         """length が数値でないは TypeError、有限でない・負・全長超えは ValueError。"""
@@ -1114,9 +1114,9 @@ class TransformErrorTest(_Case):
         cases = (
             (TypeError, {"unit": "deg"}),
             (TypeError, {"unit": "deg", "get": True}),
-            (ValueError, {"worldSpace": True, "jo": False}),
-            (ValueError, {"worldSpace": True, "r": False}),
-            (ValueError, {"ws": True, "r": False, "ra": True}),
+            (ValueError, {"worldSpace": True, "jointOrient": False}),
+            (ValueError, {"worldSpace": True, "rotate": False}),
+            (ValueError, {"ws": True, "rotate": False, "rotateAxis": True}),
         )
         for error, flags in cases:
             with self.subTest(flags=flags):

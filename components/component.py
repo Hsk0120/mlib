@@ -9,7 +9,7 @@ import maya.cmds as cmds
 
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool
-from ..util import _finite
+from ..util import _finite, _remove_namespaces
 
 if TYPE_CHECKING:
     from ..nodes.shape import Shape
@@ -178,33 +178,39 @@ class Component(Object):
         """
         return self._index
 
-    def getName(self, *, full=False):
+    def getName(self, *, full=False, removeNamespace=False):
         """コンポーネント名を取得する。
 
         既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を返す(:meth:`Components.getNames` の1要素と同じ)。
         シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``)。
         ``full=True`` なら、シェイプの部分を完全パスにした名前を返す(``|cube|cubeShape.vtx[3]``。``str(component)`` と同じ)。
         ``maya.cmds`` へ渡すときは ``full=True`` を使う。
+        ``removeNamespace=True`` なら、最短の名前のシェイプの部分からネームスペースを取り除く(``ns:cube.vtx[3]`` → ``cube.vtx[3]``)。
 
         Args:
-            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
+            full (bool): Trueなら完全パスの名前にする。removeNamespaceとは同時に指定できない。既定はFalse(最短の名前)。
+            removeNamespace (bool): Trueなら、シェイプの部分のネームスペースを取り除く。既定はFalse。
 
         Returns:
             str: ``cube.vtx[3]`` のような名前。番号を複数持つ要素は ``plane.cv[1][2]`` のような名前。
 
         Raises:
-            TypeError: fullがboolでない場合、またはシェイプの種類が合わない場合。
+            TypeError: full・removeNamespaceがboolでない場合、両方をTrueにした場合、またはシェイプの種類が合わない場合。
             IndexError: 番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
         _require_bool(full, "full")
+        _require_bool(removeNamespace, "removeNamespace")
+        if full and removeNamespace:
+            raise TypeError("full=TrueはremoveNamespaceと同時に指定できません")
         name = self._full_name()
         if full:
             return name
         # シェイプの部分の最短の名前の決め方は Components.getNames と同じにする。
         full_prefix = name.rsplit(".", 1)[0]
         short_prefix = cmds.ls(name)[0].rsplit(".", 1)[0]
-        return short_prefix + name[len(full_prefix) :]
+        short_name = short_prefix + name[len(full_prefix) :]
+        return _remove_namespaces(short_name) if removeNamespace else short_name
 
     def getMultiIndex(self):
         """この要素の番号を、今の形状からtupleで取得する。
@@ -780,7 +786,7 @@ class Components:
         """
         return self._indices
 
-    def sort(self, key=None, reverse=False):
+    def sort(self, *, key=None, reverse=False):
         """番号の並びをその場で並べ替える。
 
         ``key`` を省略すると、Mayaでの番号の順にする。
@@ -937,7 +943,7 @@ class Components:
         """
         self._indices = self._indices[::-1]
 
-    def getNames(self, *, full=False, compact=False):
+    def getNames(self, *, full=False, compact=False, removeNamespace=False):
         """持っている順に、コンポーネント名を取得する。
 
         既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を、要素ごとに返す。
@@ -951,8 +957,9 @@ class Components:
           カーブのCVと、番号を複数持つ要素(曲面のCV・ラティスの点・頂点フェース)は範囲にまとめず、要素ごとの名前を返す。
 
         Args:
-            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
+            full (bool): Trueなら完全パスの名前にする。removeNamespaceとは同時に指定できない。既定はFalse(最短の名前)。
             compact (bool): Trueなら、続いている番号を範囲にまとめる。既定はFalse(要素ごとの名前)。
+            removeNamespace (bool): Trueなら、シェイプの部分のネームスペースを取り除く(:meth:`Component.getName` と同じ)。既定はFalse。
 
         Returns:
             list[str]: ``cube.vtx[3]`` のような名前。``full=True`` なら ``|cube|cubeShape.vtx[3]``、
@@ -960,18 +967,24 @@ class Components:
                 空の集まりなら空リスト。
 
         Raises:
-            TypeError: fullかcompactがboolでない場合、または対応しないシェイプ型の場合。
+            TypeError: full・compact・removeNamespaceがboolでない場合、fullとremoveNamespaceを両方Trueにした場合、
+                または対応しないシェイプ型の場合。
             IndexError: いずれかの番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
         _require_bool(full, "full")
         _require_bool(compact, "compact")
+        _require_bool(removeNamespace, "removeNamespace")
+        if full and removeNamespace:
+            raise TypeError("full=TrueはremoveNamespaceと同時に指定できません")
         names = self._full_names(compact)
         if full or not names:
             return names
         # シェイプの部分の最短の名前の決め方はMayaの名前の照会と同じにする(1回だけ問い合わせる)。
         full_prefix = names[0].rsplit(".", 1)[0]
         short_prefix = cmds.ls(names[0])[0].rsplit(".", 1)[0]
+        if removeNamespace:
+            short_prefix = _remove_namespaces(short_prefix)
         return [short_prefix + name[len(full_prefix) :] for name in names]
 
     def isValid(self):

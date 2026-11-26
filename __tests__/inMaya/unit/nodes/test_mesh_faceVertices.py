@@ -30,46 +30,46 @@ class MeshFaceVerticesTest(NamespaceCase):
                 mesh = self.mesh(history)
                 components = mesh.getVertexFaces([0, 5])
                 before = mesh.getVertexNormals(perFace=True)
-                locks = mesh.getVertexNormals(perFace=True, locked=True)
+                locks = mesh.getVertexNormals(perFace=True, lockedOnly=True)
                 self.flushUndo()
                 mesh.setFaceVertexNormals([(1, 2, 3), (2, -1, 0)], faceVertices=components)
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.assertVector(components[1].getNormal(), om2.MVector(2, -1, 0).normal())
-                self.assertTrue(components[0].getNormal(locked=True))
+                self.assertTrue(components[0].getNormal(lockedOnly=True))
                 for index, value in enumerate(mesh.getVertexNormals(perFace=True)):
                     if index not in components.indices:
                         self.assertVector(value, before[index])
                 cmds.undo()
-                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+                self.assertEqual(mesh.getVertexNormals(perFace=True, lockedOnly=True), locks)
                 for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
                     self.assertVector(value, expected)
                 cmds.redo()
                 self.assertVector(components[0].getNormal(), om2.MVector(1, 2, 3).normal())
                 self.flushUndo()
                 components[0].setNormal(locked=False)
-                self.assertFalse(components[0].getNormal(locked=True))
-                self.assertFalse(mesh.getVertexNormals(perFace=True, locked=True, faceVertices=components)[0])
-                self.assertTrue(components[1].getNormal(locked=True))
+                self.assertFalse(components[0].getNormal(lockedOnly=True))
+                self.assertFalse(mesh.getVertexNormals(perFace=True, lockedOnly=True, faceVertices=components)[0])
+                self.assertTrue(components[1].getNormal(lockedOnly=True))
                 cmds.undo()
-                self.assertTrue(components[0].getNormal(locked=True))
+                self.assertTrue(components[0].getNormal(lockedOnly=True))
                 # locked=True は法線の値を書かずにロックだけを掛け、Undo 1回で戻る。
                 components[0].setNormal(locked=False)
                 value = components[0].getNormal()
                 self.flushUndo()
                 self.assertIsNone(components[0].setNormal(locked=True))
-                self.assertIs(components[0].getNormal(locked=True), True)
+                self.assertIs(components[0].getNormal(lockedOnly=True), True)
                 self.assertVector(components[0].getNormal(), value)
                 cmds.undo()
-                self.assertIs(components[0].getNormal(locked=True), False)
+                self.assertIs(components[0].getNormal(lockedOnly=True), False)
                 self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
                 # normal を渡すと設定してロックする(locked は None か True)。
                 for locked in (None, True):
                     components[0].setNormal(locked=False)
                     components[0].setNormal((0, 0, 1), locked=locked)
                     self.assertVector(components[0].getNormal(), (0, 0, 1))
-                    self.assertTrue(components[0].getNormal(locked=True))
+                    self.assertTrue(components[0].getNormal(lockedOnly=True))
                 # 複数形は各要素へ転送する。
-                self.assertEqual(components.getNormal(locked=True), mesh.getVertexNormals(perFace=True, locked=True, faceVertices=components))
+                self.assertEqual(components.getNormal(lockedOnly=True), mesh.getVertexNormals(perFace=True, lockedOnly=True, faceVertices=components))
 
     def test_fast_normals_and_world_space(self):
         for fast in (False, True):
@@ -84,14 +84,14 @@ class MeshFaceVerticesTest(NamespaceCase):
                 self.assertVector(component.getNormal(ws=True), om2.MVector(1, 2, -1).normal())
                 if fast:
                     self.assertUndoEmpty()
-                self.assertTrue(component.getNormal(locked=True))
+                self.assertTrue(component.getNormal(lockedOnly=True))
                 self.flushUndo()
                 component.setNormal(locked=False, fast=fast)
-                self.assertFalse(component.getNormal(locked=True))
+                self.assertFalse(component.getNormal(lockedOnly=True))
                 self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
                 self.flushUndo()
                 component.setNormal(locked=True, fast=fast)
-                self.assertTrue(component.getNormal(locked=True))
+                self.assertTrue(component.getNormal(lockedOnly=True))
                 self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
 
     def test_normal_validation_before_update(self):
@@ -137,7 +137,7 @@ class MeshFaceVerticesTest(NamespaceCase):
                 with self.assertRaises(TypeError):
                     mesh.setFaceVertexNormals(**flags)
         component = mesh.getVertexFaces([0])[0]
-        locks = mesh.getVertexNormals(perFace=True, locked=True)
+        locks = mesh.getVertexNormals(perFace=True, lockedOnly=True)
         for flags in (
             {},
             {"locked": 1},
@@ -153,7 +153,7 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(method="VertexFace.getNormal", flags=flags):
                 with self.assertRaises(TypeError):
                     component.getNormal(**flags)
-        self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+        self.assertEqual(mesh.getVertexNormals(perFace=True, lockedOnly=True), locks)
         for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
             self.assertVector(value, expected)
         # lockedだけを渡すと、法線の値を変えずにロックだけを切り替える(Undo 1回・fastはUndoなし)。
@@ -161,16 +161,16 @@ class MeshFaceVerticesTest(NamespaceCase):
             with self.subTest(method="Mesh.setFaceVertexNormals", locked=True, fast=fast):
                 self.flushUndo()
                 self.assertIsNone(mesh.setFaceVertexNormals(locked=True, fast=fast, faceVertices=[0, 5]))
-                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True, faceVertices=[0, 5, 1]), [True, True, False])
+                self.assertEqual(mesh.getVertexNormals(perFace=True, lockedOnly=True, faceVertices=[0, 5, 1]), [True, True, False])
                 self.assertEqual(cmds.undoInfo(query=True, undoQueueEmpty=True), fast)
                 for value, expected in zip(mesh.getVertexNormals(perFace=True), before):
                     self.assertVector(value, expected)
                 if not fast:
                     cmds.undo()
-                    self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+                    self.assertEqual(mesh.getVertexNormals(perFace=True, lockedOnly=True), locks)
                     cmds.redo()
                 mesh.setFaceVertexNormals(locked=False, fast=fast, faceVertices=[0, 5])
-                self.assertEqual(mesh.getVertexNormals(perFace=True, locked=True), locks)
+                self.assertEqual(mesh.getVertexNormals(perFace=True, lockedOnly=True), locks)
         history = self.mesh(True)
         for operation in (
             lambda: history.setFaceVertexNormals([(1, 0, 0)], fast=True, faceVertices=[0]),
@@ -382,17 +382,17 @@ class MeshFaceVerticesTest(NamespaceCase):
 
     def test_face_colors_named_set_fast_and_validation(self):
         mesh = self.mesh()
-        mesh.createSet("first", color=True)
-        mesh.createSet("second", color=True)
+        mesh.createSet("first", kind="color")
+        mesh.createSet("second", kind="color")
         component = mesh.getVertexFaces([0])[0]
         self.flushUndo()
         component.setColor((0.2, 0.4, 0.6), fast=True, colorSet="first")
         self.assertUndoEmpty()
-        self.assertEqual(mesh.getCurrentSet(color=True), "second")
+        self.assertEqual(mesh.getCurrentSet(kind="color"), "second")
         self.assertVector(component.getColor(colorSet="first"), (0.2, 0.4, 0.6, 1))
         self.assertIsNone(component.getColor(colorSet="second"))
         component.setColor((1, 0, 0), colorSet="first")
-        self.assertEqual(mesh.getCurrentSet(color=True), "second")
+        self.assertEqual(mesh.getCurrentSet(kind="color"), "second")
         with self.assertRaises(ValueError):
             mesh.setVertexColors([(1, 0, 0)], faceVertices=[0, 1], perFace=True)
         # 頂点ごと(perFace=False)はvertices、面頂点ごと(perFace=True)はfaceVerticesだけを受け付ける。
@@ -411,6 +411,29 @@ class MeshFaceVerticesTest(NamespaceCase):
         history = self.mesh(True)
         with self.assertRaises(NotImplementedError):
             history.setVertexColors([(1, 0, 0)], faceVertices=[0], fast=True, perFace=True)
+
+    def test_vertex_colors_check_rejects_locked_color_set(self):
+        """check=True は、カラーセットの値(colorSet[].colorSetPoints)がロックされていれば何も書かずに RuntimeError。既定は確かめない。"""
+        mesh = self.mesh()
+        mesh.createSet("first", kind="color")
+        mesh.setVertexColors([(0.5, 0.5, 0.5)] * mesh.getNumVertices(), colorSet="first")
+        before = mesh.getVertexColors(colorSet="first")
+        name = mesh.getName(full=True)
+        index = next(i for i in cmds.getAttr(name + ".colorSet", multiIndices=True) if cmds.getAttr(f"{name}.colorSet[{i}].colorName") == "first")
+        cmds.setAttr(f"{name}.colorSet[{index}].colorSetPoints", lock=True)
+        try:
+            for perFace, flags in ((False, {"vertices": [0]}), (True, {"faceVertices": [0]})):
+                for fast in (False, True):
+                    with self.subTest(perFace=perFace, fast=fast):
+                        with self.assertRaises(RuntimeError):
+                            mesh.setVertexColors([(1, 0, 0)], perFace=perFace, colorSet="first", fast=fast, check=True, **flags)
+                        self.assertEqual(mesh.getVertexColors(colorSet="first"), before)
+            with self.assertRaises(TypeError):
+                mesh.setVertexColors([(1, 0, 0)], vertices=[0], colorSet="first", check=1)
+        finally:
+            cmds.setAttr(f"{name}.colorSet[{index}].colorSetPoints", lock=False)
+        mesh.setVertexColors([(1, 0, 0)], vertices=[0], colorSet="first", check=True)
+        self.assertEqual(mesh.getVertexColors(colorSet="first")[0], (1, 0, 0, 1))
 
     def test_face_colors_distinguish_missing_from_black_and_negative(self):
         mesh = self.mesh()

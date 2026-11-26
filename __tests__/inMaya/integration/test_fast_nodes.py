@@ -79,10 +79,8 @@ class ConsolidatedNodesTest(unittest.TestCase):
             enum = node.addAttr("mode", "enum", enumName="zero:three=3:four", defaultValue=3, fast=True)
             self.assertEqual(enum.getEnumNames(current=True), "three")
             node.resetAttrs(["amount"], fast=True)
-        self.assertEqual(
-            [p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["amount", "ignored", "offset", "label", "mode"]
-        )
-        self.assertEqual(len(node.getPlugs(userDefined=True, includeChildren=False)), 5)
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["amount", "ignored", "offset", "label", "mode"])
+        self.assertEqual(len(node.getPlugs(userDefined=True, children=False)), 5)
         for obsolete in ("getInputs", "getOutputs", "getExtraAttrNames"):
             self.assertFalse(hasattr(type(node), obsolete))
 
@@ -150,10 +148,10 @@ class ConsolidatedNodesTest(unittest.TestCase):
         matrix = list(transform.getMatrix(worldSpace=True))
         with self.api_only():
             self.assertIsNone(transform.rename("new", fast=True))
-            self.assertEqual(transform.getName(node=True), "new")
-            self.assertEqual(shape.getName(node=True), "newShape")
+            self.assertEqual(transform.getName(short=True), "new")
+            self.assertEqual(shape.getName(short=True), "newShape")
             transform.setNamespace(":direct:children", fast=True)
-            self.assertEqual(transform.getName(node=True), "direct:children:new")
+            self.assertEqual(transform.getName(short=True), "direct:children:new")
         self.assertMatrixEqual(transform.getMatrix(worldSpace=True), matrix)
 
     def test_fast_rename_keeps_foreign_namespace_shape(self):
@@ -164,8 +162,8 @@ class ConsolidatedNodesTest(unittest.TestCase):
         normal = mlib.createNode("mesh", name="oldShape", parent=transform)
         with self.api_only():
             transform.rename("new", fast=True)
-        self.assertEqual(foreign.getName(node=True), "foreign:oldShape")
-        self.assertEqual(normal.getName(node=True), "newShape")
+        self.assertEqual(foreign.getName(short=True), "foreign:oldShape")
+        self.assertEqual(normal.getName(short=True), "newShape")
 
     def skin_fixture(self):
         """単一meshと3influenceの最小スキンを作る。"""

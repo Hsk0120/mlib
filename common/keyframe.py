@@ -91,26 +91,26 @@ class Keyframe:
         """
         return self._curve.isValid() and self._index < self._curve.getKeyCount()
 
-    def getValue(self, *, time=False, unit=_UNSET, timeUnit="frame"):
-        """キーの値を返す。``time=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
+    def getValue(self, *, input=False, unit=_UNSET, timeUnit="frame"):
+        """キーの値を返す。``input=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
 
         Args:
-            time (bool): Trueなら、値でなく入力を返す。既定はFalse。
-            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``time=True`` では指定できない。
+            input (bool): Trueなら、値でなく入力を返す。既定はFalse。
+            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``input=True`` では指定できない。
             timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
             float: 値、または入力の値。
 
         Raises:
-            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
-        _require_bool(time, "time")
-        if time:
+        _require_bool(input, "input")
+        if input:
             if unit is not _UNSET:
-                raise TypeError("unitはtime=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
+                raise TypeError("unitはinput=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
             self._require_valid()
             return self._curve.getKeyInputs(timeUnit=timeUnit)[self._index]
         self._require_valid()
@@ -141,37 +141,50 @@ class Keyframe:
     def getTangent(self, *, unit="deg"):
         """接線の型・角度・ウェイト・ロックを返す。
 
-        :meth:`AnimCurve.getTangent <mlib.nodes.animCurve.AnimCurve.getTangent>` と同じ。
+        角度はunitの単位(既定は度)。接線のウェイトはAPIの値のまま返す(入力が時間のカーブでは、今のUIの時間単位で変わる)。
+        lockとweightLockはキーごとの状態、weightedTangentsはカーブ全体の状態。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
 
         Returns:
-            dict: AnimCurve.getTangent と同じ辞書。
+            dict: inTangentType・outTangentType・inAngle・outAngle・inWeight・outWeight・lock・weightLock・weightedTangents を
+                キーにした新しい辞書。型名はMayaのコマンドでの表記で、名前の登録の無い接線の型は空文字列。
+
+        Raises:
+            TypeError: unitが文字列・None以外の場合。
+            ValueError: unitに対応していない単位名の場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
         """
-        return self._curve.getTangent(self._index, unit=unit)
+        return self._curve._get_tangent(self._index, unit=unit)
 
     def setTangent(self, *, unit="deg", fast=False, check=False, **kwargs):
-        """接線を変える。
+        """接線を変える。接線のロックの扱いはMayaの規則に従う。
 
-        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じ。
+        weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            **kwargs: AnimCurve.setTangent と同じフラグ。
+            **kwargs: :meth:`getTangent` の辞書と同じ9種類のフラグ(長い名前)。角度はunitの単位、接線のウェイトはAPIの値。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: unitが文字列・None以外の場合。
+            ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
+                またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
+            NotImplementedError: fastで入力側の接線にstepnextを指定した場合。
         """
-        self._curve.setTangent(self._index, unit=unit, fast=fast, check=check, **kwargs)
+        self._curve._set_tangent(self._index, unit=unit, fast=fast, check=check, **kwargs)
 
     def isBreakdown(self):
         """ブレイクダウンキーか調べる。
-
-        :meth:`AnimCurve.isBreakdown <mlib.nodes.animCurve.AnimCurve.isBreakdown>` と同じ。
 
         Returns:
             bool: ブレイクダウンキーならTrue。
@@ -181,12 +194,10 @@ class Keyframe:
             RuntimeError: カーブが無効(削除済み)の場合。
         """
         self._require_valid()
-        return self._curve.isBreakdown(self._index)
+        return self._curve._is_breakdown(self._index)
 
     def setBreakdown(self, state=True):
         """ブレイクダウンキーにする、または通常のキーへ戻す。
-
-        :meth:`AnimCurve.setBreakdown <mlib.nodes.animCurve.AnimCurve.setBreakdown>` と同じ。
 
         Args:
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
@@ -199,12 +210,11 @@ class Keyframe:
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
-        self._curve.setBreakdown(self._index, state)
+        self._curve._set_breakdown(self._index, state)
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """キーの入力と値をずらす。
 
-        :meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>` と同じ。
         入力は隣のキーを越えない(Mayaの ``keyframe -relative`` と同じ)。番号は変わらない。
 
         Args:
@@ -216,9 +226,9 @@ class Keyframe:
         Returns:
             None: 値を返さない。
         """
-        self._curve.moveKey(index=self._index, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
+        self._curve._move_keys(index=self._index, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
 
-    def remove(self, *, keepCurve=True, fast=False):
+    def delete(self, *, keepCurve=True, fast=False, check=False):
         """キーを削除する。
 
         削除したあとは、同じカーブでこれより後ろの番号を持つオブジェクトが、別のキーを指すようになる。
@@ -226,11 +236,13 @@ class Keyframe:
         Args:
             keepCurve (bool): Trueなら、最後のキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
         """
-        self._curve.removeKey(index=self._index, keepCurve=keepCurve, fast=fast)
+        self._curve._remove_keys(index=self._index, keepCurve=keepCurve, fast=fast, check=check)
 
     def select(self, *, add=False):
         """Graph Editor・Dope Sheet でこのキーを選択する。
@@ -343,27 +355,27 @@ class Keyframes:
                 return list(indices)
         return []
 
-    def getValues(self, *, time=False, unit=_UNSET, timeUnit="frame"):
-        """各キーの値を返す(並びはforで取り出す順と同じ)。``time=True`` なら、各キーの入力を返す。
+    def getValues(self, *, input=False, unit=_UNSET, timeUnit="frame"):
+        """各キーの値を返す(並びはforで取り出す順と同じ)。``input=True`` なら、各キーの入力を返す。
 
         Args:
-            time (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
-            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``time=True`` では指定できない。
+            input (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
+            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``input=True`` では指定できない。
             timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。
 
         Returns:
             list[float]: 値、または入力の値。
 
         Raises:
-            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
         """
-        _require_bool(time, "time")
-        if time and unit is not _UNSET:
-            raise TypeError("unitはtime=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
+        _require_bool(input, "input")
+        if input and unit is not _UNSET:
+            raise TypeError("unitはinput=Trueと同時に指定できません(入力の単位はtimeUnitで指定します)")
         unit = "deg" if unit is _UNSET else unit
         result = []
         for curve, indices in self._groups:
-            values = curve.getKeyInputs(timeUnit=timeUnit) if time else curve.getKeyValues(unit=unit, timeUnit=timeUnit)
+            values = curve.getKeyInputs(timeUnit=timeUnit) if input else curve.getKeyValues(unit=unit, timeUnit=timeUnit)
             result.extend(values[index] for index in indices)
         return result
 
@@ -395,7 +407,7 @@ class Keyframes:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            **kwargs: :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じフラグ。
+            **kwargs: :meth:`Keyframe.setTangent` と同じフラグ。
 
         Returns:
             None: 値を返さない。
@@ -416,7 +428,28 @@ class Keyframes:
                     curve._require_curve_writable()
             for curve, indices in self._groups:
                 for index in indices:
-                    curve.setTangent(index, unit=unit, fast=fast, check=check, **kwargs)
+                    curve._set_tangent(index, unit=unit, fast=fast, check=check, **kwargs)
+
+    def setBreakdown(self, state=True):
+        """すべてのキーをブレイクダウンキーにする、または通常のキーへ戻す(1回のUndoで戻せる)。
+
+        :meth:`Keyframe.setBreakdown` と同じ。カーブごとに1回で書き換える。
+
+        Args:
+            state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
+        """
+        _require_bool(state, "state")
+        with undoChunk("mlibKeyframesSetBreakdown"):
+            for curve, indices in self._groups:
+                curve._set_breakdown(list(indices), state)
 
     def move(self, *, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """すべてのキーの入力と値をずらす。
@@ -435,9 +468,9 @@ class Keyframes:
         """
         with undoChunk("mlibKeyframesMove"):
             for curve, indices in self._groups:
-                curve.moveKey(index=indices, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
+                curve._move_keys(index=indices, timeOffset=timeOffset, valueOffset=valueOffset, unit=unit, timeUnit=timeUnit)
 
-    def remove(self, *, keepCurve=True, fast=False):
+    def delete(self, *, keepCurve=True, fast=False, check=False):
         """すべてのキーを削除する(1回のUndoで戻せる)。
 
         削除したあとは、この集まりのオブジェクトが別のキーを指すことがある。
@@ -445,13 +478,19 @@ class Keyframes:
         Args:
             keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、すべてのカーブが書き込めるか(ロック・入力の接続が無いか)を確かめて、
+                問題があれば何も消さずに例外にする。既定はFalseで、確かめずに消す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
         """
-        with undoChunk("mlibKeyframesRemove"):
+        with undoChunk("mlibKeyframesDelete"):
+            if check:
+                # 途中のカーブで止まって一部だけ消えないよう、消す前に全部のカーブを確かめる。
+                for curve, _indices in self._groups:
+                    curve._require_curve_writable()
             for curve, indices in self._groups:
-                curve.removeKey(index=indices, keepCurve=keepCurve, fast=fast)
+                curve._remove_keys(index=indices, keepCurve=keepCurve, fast=fast, check=check)
 
     def select(self, *, add=False):
         """Graph Editor・Dope Sheet でこれらのキーを選択する。

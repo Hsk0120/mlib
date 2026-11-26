@@ -41,11 +41,11 @@ class Plugin(_VersionedItem):
         """
         ...
     @classmethod
-    def ensureNodePlugin(cls, nodeType: str) -> None:
+    def ensureNodePlugin(cls, type: str) -> None:
         """指定したノード型に必要な、Maya標準のプラグインをロードする。
 
         Args:
-            nodeType (str): 作るMayaのノード型。HumanIKの型でなければ何もしない。
+            type (str): 作るMayaのノード型。HumanIKの型でなければ何もしない。
 
         Returns:
             None: 値を返さない。

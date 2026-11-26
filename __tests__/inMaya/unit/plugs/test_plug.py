@@ -133,7 +133,7 @@ class NodeApiTest(unittest.TestCase):
             plug.delete()
         self.assertTrue(cmds.attributeQuery("mlibLockedDelete", node=transform.getName(), exists=True))
 
-        plug.delete(force=True)
+        plug.delete(unlock=True)
         self.assertFalse(cmds.attributeQuery("mlibLockedDelete", node=transform.getName(), exists=True))
 
     def test_plug_set_flags_keyable_and_channel_box(self):
@@ -298,14 +298,14 @@ class NodeApiTest(unittest.TestCase):
         self.assertTrue(targetPlug.isConnected(destination=False))
         self.assertFalse(targetPlug.isConnected(source=False))
 
-        destinations = source_plug.getConnections(outputs=True)
+        destinations = source_plug.getConnections(output=True)
         self.assertEqual([plug.getName(full=True) for plug in destinations], [targetPlug.getName(full=True)])
 
         result = source_plug.disconnectAll()
         self.assertIsNone(result)
         self.assertFalse(source_plug.isConnected())
         self.assertFalse(targetPlug.isConnected())
-        self.assertEqual(source_plug.getConnections(outputs=True), [])
+        self.assertEqual(source_plug.getConnections(output=True), [])
 
     def test_plug_paths_reject_indices_beyond_logical_index_range(self):
         # MPlug.elementByLogicalIndex() は範囲外の番号を別の番号へ変換する(4294967296 は 0)。

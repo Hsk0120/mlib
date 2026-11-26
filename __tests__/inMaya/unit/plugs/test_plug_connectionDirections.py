@@ -18,7 +18,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
         cmds.undoInfo(state=True)
 
     def test_queries_share_direction_aliases_and_keep_legacy_and_rules(self):
-        """sourceは入力、destinationは出力とし、旧s/dとのANDを維持する。"""
+        """sourceは入力、destinationは出力。短縮名s/dは長い名前と同時に指定できない(既定値のままの長い名前は指定とみなさない)。"""
         source, center, destinations = self._chain("query")
         for method_name in ("getConnections",):
             query = getattr(center, method_name)
@@ -26,9 +26,12 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 expected = ([source] if src else []) + (destinations if dst else [])
                 with self.subTest(method=method_name, src=src, dst=dst):
                     self.assertCountEqual(query(source=src, destination=dst), expected)
-            self.assertCountEqual(query(s=False, source=True), destinations)
-            self.assertEqual(query(d=False, destination=True), [source])
-            self.assertEqual(query(s=True, source=False, d=True, destination=False), [])
+            self.assertCountEqual(query(s=False), destinations)
+            self.assertEqual(query(d=False), [source])
+            for kwargs in ({"s": True, "source": False}, {"d": False, "destination": False}, {"t": "network", "type": "network"}):
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(TypeError):
+                        query(**kwargs)
             # 従来の長名方向引数はbool以外のtruthinessも受け付けている。
             self.assertEqual(query(source=1, destination=0), [source])
             self.assertCountEqual(query(source=[], destination="enabled"), destinations)
@@ -71,13 +74,11 @@ class ConnectionDirectionsTest(unittest.TestCase):
             "self",
             "s",
             "d",
-            "c",
             "t",
             "et",
             "scn",
             "source",
             "destination",
-            "connections",
             "type",
             "exactType",
             "skipConversionNodes",
@@ -87,10 +88,11 @@ class ConnectionDirectionsTest(unittest.TestCase):
             "checkElements",
             "index",
             "input",
-            "outputs",
+            "output",
         )
-        # scn・skipConversionNodesの既定はFalse(cmds.listConnectionsと同じ直結)。
-        defaults = (True, True, False, None, False, False, True, True, False, None, False, False, False, False, True, True, None, False, False)
+        # 短縮名の既定は_UNSET(長い名前と同時に指定したかを見分ける)。scn・skipConversionNodesの既定はFalse。
+        unset = mlib.util._UNSET
+        defaults = (unset, unset, unset, unset, unset, True, True, None, False, False, False, False, True, True, None, False, False)
         signature = inspect.signature(mlib.Plug.getConnections)
         self.assertEqual(tuple(signature.parameters), names)
         self.assertEqual(tuple(parameter.default for parameter in list(signature.parameters.values())[1 : len(names)]), defaults)
@@ -185,7 +187,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
         self._assert_chain(source, center, destinations)
 
     def test_input_and_outputs_match_explicit_flags(self):
-        """getConnections(input=True)・(outputs=True)は、向きとたどり方を明示した書き方と同じ結果になる。"""
+        """getConnections(input=True)・(output=True)は、向きとたどり方を明示した書き方と同じ結果になる。"""
         source, center, destinations = self._chain("shortcut")
         empty = self._value("shortcutEmpty")
         for target in (source, center, destinations[0], empty):
@@ -196,20 +198,20 @@ class ConnectionDirectionsTest(unittest.TestCase):
                         target.getConnections(source=True, destination=False, checkChildren=False, checkElements=False, index=0, **flags),
                     )
                     self.assertEqual(
-                        target.getConnections(outputs=True, **flags),
+                        target.getConnections(output=True, **flags),
                         target.getConnections(source=False, destination=True, checkChildren=False, checkElements=False, **flags),
                     )
                     for index in (0, -1, 5):
                         self.assertEqual(
-                            target.getConnections(outputs=True, index=index, **flags),
+                            target.getConnections(output=True, index=index, **flags),
                             target.getConnections(source=False, destination=True, checkChildren=False, checkElements=False, index=index, **flags),
                         )
         self.assertEqual(center.getConnections(input=True), source)
         self.assertIsNone(source.getConnections(input=True))
-        self.assertIsInstance(center.getConnections(outputs=True), mlib.Plugs)
-        self.assertEqual(sorted(str(plug) for plug in center.getConnections(outputs=True)), sorted(str(plug) for plug in destinations))
-        self.assertEqual(destinations[0].getConnections(outputs=True), [])
-        self.assertIsInstance(destinations[0].getConnections(outputs=True), mlib.Plugs)
+        self.assertIsInstance(center.getConnections(output=True), mlib.Plugs)
+        self.assertEqual(sorted(str(plug) for plug in center.getConnections(output=True)), sorted(str(plug) for plug in destinations))
+        self.assertEqual(destinations[0].getConnections(output=True), [])
+        self.assertIsInstance(destinations[0].getConnections(output=True), mlib.Plugs)
         # cmds.listConnections(直接の接続)と突き合わせる。
         for target in (source, center, destinations[0], empty):
             with self.subTest(target=str(target), compare="cmds"):
@@ -217,12 +219,12 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 outgoing = cmds.listConnections(str(target), source=False, destination=True, plugs=True) or []
                 found = target.getConnections(input=True)
                 self.assertEqual([] if found is None else [str(found)], incoming)
-                self.assertEqual(sorted(str(plug) for plug in target.getConnections(outputs=True)), sorted(outgoing))
+                self.assertEqual(sorted(str(plug) for plug in target.getConnections(output=True)), sorted(outgoing))
                 self.assertEqual(found is not None, target.isConnected(destination=False))
-                self.assertEqual(bool(target.getConnections(outputs=True)), target.isConnected(source=False))
+                self.assertEqual(bool(target.getConnections(output=True)), target.isConnected(source=False))
 
     def test_input_and_outputs_ignore_children_and_elements(self):
-        """子・要素にだけ接続があるコンパウンド・マルチアトリビュートでは、input=TrueはNone、outputs=Trueは空。"""
+        """子・要素にだけ接続があるコンパウンド・マルチアトリビュートでは、input=TrueはNone、output=Trueは空。"""
         node = mlib.createNode("transform", name="shortcutParent")
         other = mlib.createNode("transform", name="shortcutOther")
         pma = mlib.createNode("plusMinusAverage", name="shortcutMulti")
@@ -236,14 +238,14 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 self.assertIsNone(target.getConnections(destination=False, checkChildren=False, checkElements=False, index=0))
                 # destination=False だけでは子・要素の接続も集めるので、None の判定には使えない。
                 self.assertEqual(len(target.getConnections(destination=False)), 1)
-        self.assertEqual(scale.getConnections(outputs=True), [])
+        self.assertEqual(scale.getConnections(output=True), [])
         self.assertEqual(len(scale.getConnections(source=False)), 1)
         self.assertEqual(node.getPlug("translateY").getConnections(input=True), other.getPlug("translateX"))
         self.assertEqual(multi[3].getConnections(input=True), other.getPlug("translateZ"))
-        self.assertEqual(node.getPlug("scaleX").getConnections(outputs=True), [other.getPlug("scaleY")])
+        self.assertEqual(node.getPlug("scaleX").getConnections(output=True), [other.getPlug("scaleY")])
 
     def test_input_and_outputs_reject_conflicting_arguments(self):
-        """input・outputsは、向き・たどり方の指定(inputはindexも)やお互いとは同時に指定できない(TypeError)。接続は変えない。"""
+        """input・outputは、向き・たどり方の指定(inputはindexも)やお互いとは同時に指定できない(TypeError)。接続は変えない。"""
         source, center, destinations = self._chain("conflict")
         conflicts = (
             {"s": False},
@@ -254,7 +256,7 @@ class ConnectionDirectionsTest(unittest.TestCase):
             {"checkElements": False},
             {"source": False, "destination": False},
         )
-        for shortcut in ("input", "outputs"):
+        for shortcut in ("input", "output"):
             for kwargs in conflicts:
                 with self.subTest(shortcut=shortcut, kwargs=kwargs):
                     with self.assertRaises(TypeError):
@@ -263,16 +265,16 @@ class ConnectionDirectionsTest(unittest.TestCase):
                 with self.subTest(shortcut=shortcut, value=bad):
                     with self.assertRaises(TypeError):
                         center.getConnections(**{shortcut: bad})
-        for kwargs in ({"input": True, "outputs": True}, {"input": True, "index": 0}, {"input": True, "index": -1}):
+        for kwargs in ({"input": True, "output": True}, {"input": True, "index": 0}, {"input": True, "index": -1}):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(TypeError):
                     center.getConnections(**kwargs)
         with self.assertRaises(TypeError):
             center.getConnections(True)
         # 既定値と同じ指定(False)は、指定していない扱い。
-        self.assertEqual(center.getConnections(input=False, outputs=False), center.getConnections())
-        self.assertEqual(center.getConnections(input=True, outputs=False), source)
-        self.assertEqual(center.getConnections(outputs=True, index=0), center.getConnections(outputs=True)[0])
+        self.assertEqual(center.getConnections(input=False, output=False), center.getConnections())
+        self.assertEqual(center.getConnections(input=True, output=False), source)
+        self.assertEqual(center.getConnections(output=True, index=0), center.getConnections(output=True)[0])
         self._assert_chain(source, center, destinations)
 
     def test_disconnect_all_directions_return_self_and_preserve_other_side(self):

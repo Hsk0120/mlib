@@ -43,7 +43,7 @@ class ReplaceKeysFromCurveTest(NamespaceCase):
         """いろいろな接線を持つカーブを作る。"""
         curve = mlib.createNode("animCurveTA", name=self.name("source"), skipSelect=True)
         for time, value in ((1, 0), (5, 30), (9, -10), (14, 45)):
-            curve.setKey(time, value)
+            curve.addKey(time, value)
         name = curve.getName(full=True)
         if weighted:
             cmds.keyTangent(name, edit=True, weightedTangents=True)
@@ -61,7 +61,7 @@ class ReplaceKeysFromCurveTest(NamespaceCase):
             with self.subTest(weighted=weighted):
                 source = self.source(weighted)
                 target = mlib.createNode("animCurveTA", name=self.name("target"), skipSelect=True)
-                target.setKey(3, 7)
+                target.addKey(3, 7)
                 reference = mlib.createNode("animCurveTA", name=self.name("reference"), skipSelect=True)
                 cmds.copyKey(source.getName(full=True))
                 cmds.pasteKey(reference.getName(full=True), option="replaceCompletely")
@@ -77,7 +77,7 @@ class ReplaceKeysFromCurveTest(NamespaceCase):
         """型の違うカーブと自分自身を拒否し、カーブを変えない。"""
         source = self.source(False)
         other = mlib.createNode("animCurveTL", name=self.name("linear"), skipSelect=True)
-        other.setKey(1, 1)
+        other.addKey(1, 1)
         with self.assertRaises(TypeError):
             other.replaceKeys(source)
         with self.assertRaises(ValueError):

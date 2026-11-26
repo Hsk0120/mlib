@@ -56,6 +56,39 @@ class ShapeSetParentInputTest(_Case):
         self.assertUndoEmpty()
         self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), cmds.ls(transform, long=True))
 
+    def test_same_arguments_as_transform(self):
+        """引数はTransform.setParentと同じ。parent=NoneはValueError、bool以外はTypeError、fastのadd=TrueはNotImplementedError。"""
+        _transform, shape = self.cube()
+        target = self.make(text="target")
+        before = cmds.listRelatives(str(shape), parent=True, fullPath=True)
+        for label, call, error in (
+            ("none", lambda: shape.setParent(), ValueError),
+            ("relative int", lambda: shape.setParent(target, relative=1), TypeError),
+            ("add int", lambda: shape.setParent(target, add=1), TypeError),
+            ("check int", lambda: shape.setParent(target, check=1), TypeError),
+            ("fast add", lambda: shape.setParent(target, add=True, fast=True), NotImplementedError),
+        ):
+            with self.subTest(label), self.assertRaises(error):
+                call()
+        self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), before)
+        # relativeの値によらず、ローカルの形のまま移る。
+        cmds.setAttr(str(target) + ".translateX", 5)
+        points = self.points(shape)
+        shape.setParent(target, relative=False, check=True)
+        self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), cmds.ls(str(target), long=True))
+        self.assertEqual(self.points(shape), points)
+
+    def test_add_instances_shape(self):
+        """add=Trueは今の親を残してインスタンスを加え、1回のUndoで戻る。"""
+        transform, shape = self.cube()
+        target = self.make(text="target")
+        self.flushUndo()
+        shape.setParent(target, add=True)
+        parents = cmds.listRelatives(str(shape), allParents=True, fullPath=True)
+        self.assertEqual(sorted(parents), sorted(cmds.ls([transform, str(target)], long=True)))
+        cmds.undo()
+        self.assertEqual(cmds.listRelatives(str(shape), allParents=True, fullPath=True), cmds.ls(transform, long=True))
+
 
 class ScaleGeometryInputTest(_Case):
     """scaleGeometryの拒否する入力。"""

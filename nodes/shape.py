@@ -8,7 +8,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 
 from ..core import geometryEdit
-from ..decorator import _edit_context, _pick_alias
+from ..decorator import _edit_context, _pick_alias, _require_bool
 from ..util import _UNSET, _world_space
 from .dagNode import DagNode
 from .transform import Transform
@@ -17,35 +17,57 @@ from .transform import Transform
 class Shape(DagNode):
     """MayaのDAGのShapeノードに共通する操作を扱うクラス。"""
 
-    def setParent(self, parent, *, fast=False):
-        """このシェイプを別のTransformの下へ移す。
+    def setParent(self, parent=None, *, relative=False, add=False, fast=False, check=False):
+        """このシェイプを別のTransformの下へ移す。``add=True`` なら、今の親はそのままにして親を加える(インスタンス)。
 
-        ``cmds.parent(shape, transform, shape=True, relative=True)`` と同じ。
-        シェイプはローカルの形のまま移る。そのため、ワールドでの位置は新しい親に合わせて変わる。
+        ``cmds.parent(shape, transform, shape=True, relative=True)`` と同じ(``add=True`` は ``add=True`` も付ける)。
+        引数は :meth:`Transform.setParent <mlib.nodes.transform.Transform.setParent>` と同じ。
+        シェイプは常にローカルの形のまま移る(relativeの値によらない)。そのため、ワールドでの位置は新しい親に合わせて変わる。
         シェイプが無くなっても、元のTransformは削除しない。
         :meth:`~mlib.nodes.transform.Transform.addShape` は、同じ操作を受け取る側から行う。
 
         Args:
-            parent (Transform | str): 新しい親のTransform(Jointも指定できる)。
+            parent (Transform | str | None): 新しい親のTransform(Jointも指定できる)。シェイプはワールドの直下へ置けないため、
+                Noneは指定できない(Transform.setParentと引数を揃えるために既定値を持つ)。
+            relative (bool): Transform.setParentと同じ引数。シェイプは常にローカルの形のまま移るため、値によって動きは変わらない。
+                既定はFalse。
+            add (bool): Trueなら、今の親はそのままにして、新しい親の下にもインスタンスを加える。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
+                add=Trueには対応していない(NotImplementedError)。
+            check (bool): Trueなら、親を変える前に、シェイプ・元の親・新しい親がロック・リファレンスで編集できないものでないかを確かめて、
+                問題があれば何も変えずに例外にする。既定はFalse(fastでは常に確かめる)。
 
         Returns:
-            None: 値を返さない。移した後のパスを指す。
+            None: 値を返さない。移した後のパスを指す。add=Trueでは、このオブジェクトは元のパスを指したまま。
 
         Raises:
-            TypeError: parentがTransformでない場合、またはfastがboolでない場合。
-            RuntimeError: 自身か親が無効な場合、シェイプがインスタンス化されている場合、
-                fastで、ロックされたノードやリファレンスのノードを含む場合、
+            TypeError: parentがTransformでない場合、またはrelative・add・fast・checkがboolでない場合。
+            ValueError: parentがNoneの場合。
+            RuntimeError: 自身か親が無効な場合、add=Falseでシェイプがインスタンス化されている場合、
+                checkかfastで、ロックされたノードやリファレンスのノードを含む場合、
                 またはMayaが親の変更を拒否した場合。
-            NotImplementedError: fastで、移す先に同じ名前の子がある場合。Mayaが名前を付け直す規則を再現しないため。
+            NotImplementedError: fastで、add=Trueを指定した場合、または移す先に同じ名前の子がある場合
+                (Mayaが名前を付け直す規則を再現しないため)。
         """
         with _edit_context("mlibShapeSetParent", fast):
+            _require_bool(relative, "relative")
+            _require_bool(add, "add")
+            _require_bool(check, "check")
             self._require_valid("親子付け")
+            if parent is None:
+                raise ValueError("シェイプはワールドの直下へ置けません。parentにTransformを指定してください")
             target = parent if isinstance(parent, DagNode) else DagNode._resolve_input(parent)
             if not target.isValid():
                 raise RuntimeError("parentが有効なノードではありません")
             if not isinstance(target, Transform):
                 raise TypeError(f"parentはtransformで指定してください: {target._full_name()}")
+            if add:
+                if fast:
+                    raise NotImplementedError("fastのsetParentは、add=True(シェイプのインスタンス)に対応していません")
+                if check:
+                    self._require_editable_parents(target)
+                cmds.parent(self._full_name(), target._full_name(), shape=True, relative=True, add=True)
+                return
             if self.mpath().isInstanced():
                 raise RuntimeError(f"インスタンスのシェイプは移動できません: {self._full_name()}")
             current = self.getParent()
@@ -54,6 +76,8 @@ class Shape(DagNode):
             if fast:
                 self._set_parent_fast(target)
             else:
+                if check:
+                    self._require_editable_parents(target)
                 cmds.parent(self._full_name(), target._full_name(), shape=True, relative=True)
 
     def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
@@ -195,6 +219,25 @@ class Shape(DagNode):
         """
         return self.getParent()
 
+    def _require_editable_parents(self, target):
+        """シェイプ・元の親・新しい親が、ロック・リファレンスで編集できないものでないかを確かめる。
+
+        Args:
+            target (Transform): 新しい親。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: どれかが、ロックされているかリファレンスのノードの場合。
+        """
+        # core は nodes を参照するため、循環importを避けて関数内で読み込む。
+        from ..core.nodeEdit import require_editable
+
+        for node in (self, self.getParent(), target):
+            if node is not None:
+                require_editable(node.mnode())
+
     def _set_parent_fast(self, target):
         """編集できるかを先に確かめてから、MDagModifierでシェイプの親を変える。
 
@@ -208,13 +251,7 @@ class Shape(DagNode):
             RuntimeError: シェイプ・元の親・新しい親のどれかが、ロックされているかリファレンスのノードの場合。
             NotImplementedError: 新しい親に同じ名前の子がある場合。
         """
-        # core は nodes を参照するため、循環importを避けて関数内で読み込む。
-        from ..core.nodeEdit import require_editable
-
-        current = self.getParent()
-        for node in (self, current, target):
-            if node is not None:
-                require_editable(node.mnode())
+        self._require_editable_parents(target)
         name = om2.MFnDagNode(self.mnode()).name()
         parent_fn = om2.MFnDagNode(target.mpath())
         if any(om2.MFnDagNode(parent_fn.child(i)).name() == name for i in range(parent_fn.childCount())):

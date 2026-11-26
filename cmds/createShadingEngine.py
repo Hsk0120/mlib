@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, undoChunk
 from ..util import _UNSET
 
 
-def createShadingEngine(shader=None, name=_UNSET, *, n=_UNSET):
+def createShadingEngine(shader=None, *, name=_UNSET, n=_UNSET):
     """描画に使う空のシェーディンググループ(shadingEngine)を作り、そのノードを返す。
 
     Hypershadeでマテリアルを作ったときと同じく、``renderPartition`` へ登録した(描画の対象になる)

@@ -50,7 +50,7 @@ class ShapeGetChildrenTest(_Case):
         everything = shape.getChildren(underWorld=True, allDescendents=True, shapes=True)
         expected = cmds.listRelatives(shape.getName(full=True), allDescendents=True, fullPath=True)
         self.assertEqual(sorted(self.names(everything)), sorted(expected))
-        breadth = shape.getChildren(underWorld=True, allDescendents=True, shapes=True, order="breadthFirst")
+        breadth = shape.getChildren(underWorld=True, allDescendents=True, shapes=True, sortBy="breadthFirst")
         self.assertEqual(sorted(self.names(breadth)), sorted(expected))
 
     def test_leaves_and_include_self(self):
@@ -92,7 +92,7 @@ class ShapeGetChildrenRejectTest(_Case):
         ):
             with self.subTest(label), self.assertRaises(TypeError):
                 shape.getChildren(**flags)
-        for label, flags in (("order", {"order": "random"}), ("leaves and shapes", {"leaves": True, "shapes": True}), ("empty type", {"type": ""})):
+        for label, flags in (("sortBy", {"sortBy": "random"}), ("leaves and shapes", {"leaves": True, "shapes": True}), ("empty type", {"type": ""})):
             with self.subTest(label), self.assertRaises(ValueError):
                 shape.getChildren(**flags)
 

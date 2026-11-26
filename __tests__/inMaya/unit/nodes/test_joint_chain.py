@@ -73,7 +73,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         self.assertEqual(found_handles[0].getName(full=True), handle.getName(full=True))
         self.assertEqual(j2.getConnections(type="ikHandle", asNode=True), [])
 
-        self.assertEqual(handle.getJoints(end=True).getName(full=True), j3.getName(full=True))
+        self.assertEqual(handle.getJoints(tipOnly=True).getName(full=True), j3.getName(full=True))
         joint_list = handle.getJoints()
         self.assertEqual([joint.getName(full=True) for joint in joint_list], [j1.getName(full=True), j2.getName(full=True)])
         joint_list_with_tip = handle.getJoints(includeTip=True)

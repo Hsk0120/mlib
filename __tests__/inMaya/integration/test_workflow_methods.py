@@ -62,11 +62,11 @@ class MethodContractTest(unittest.TestCase):
         from mlib.common.selection import Selection
 
         cmds.select(str(self.node))
-        for mode in ("add", "remove"):
-            Selection().select(mode=mode)
+        for flags in ({"add": True}, {"deselect": True}):
+            Selection().select(**flags)
             self.assertEqual(cmds.ls(selection=True), [str(self.node)])
-        with self.assertRaises(ValueError):
-            Selection().select(mode="invalid")
+        with self.assertRaises(TypeError):
+            Selection().select(add=True, deselect=True)
         self.assertEqual(cmds.ls(selection=True), [str(self.node)])
         Selection().select()
         self.assertEqual(cmds.ls(selection=True), [])

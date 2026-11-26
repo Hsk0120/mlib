@@ -28,16 +28,16 @@ class ReferenceEditFiltersTest(NamespaceCase):
                 cmds.addAttr(referenced, longName="extra", attributeType="double")
                 cmds.setAttr(referenced + ".extra", 3)
                 methods = tuple(
-                    (functools.partial(reference.getEdits, kind=kind), flag)
-                    for kind, flag in (("string", "editStrings"), ("node", "editNodes"), ("attr", "editAttrs"))
+                    (functools.partial(reference.getEdits, what=what), flag)
+                    for what, flag in (("string", "editStrings"), ("node", "editNodes"), ("attr", "editAttrs"))
                 )
-                # kind を省くと "string"。名前違いは ValueError、str 以外は TypeError で、位置引数では渡せない。
-                self.assertEqual(reference.getEdits(), reference.getEdits(kind="string"))
+                # what を省くと "string"。名前違いは ValueError、str 以外は TypeError で、位置引数では渡せない。
+                self.assertEqual(reference.getEdits(), reference.getEdits(what="string"))
                 self.assertEqual(reference.getEdits(), cmds.referenceQuery(ref_name, editStrings=True, successfulEdits=True, failedEdits=False) or [])
                 with self.assertRaises(ValueError):
-                    reference.getEdits(kind="strings")
+                    reference.getEdits(what="strings")
                 with self.assertRaises(TypeError):
-                    reference.getEdits(kind=None)
+                    reference.getEdits(what=None)
                 with self.assertRaises(TypeError):
                     reference.getEdits(True, False, "node")
                 for loaded in (True, False):

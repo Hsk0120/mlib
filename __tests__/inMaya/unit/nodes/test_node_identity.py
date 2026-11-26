@@ -1,7 +1,7 @@
 """Node・Nodes の共通化後の約束を固定する(Phase 2 2A)。
 
 対象: mfn()(最も具体的な function set を毎回新規に返す)、setLocked(state, fast)(cmds.lockNode との
-突き合わせ・Undo 1 回・fast は Undo なし・不正入力)、getPlugs(userDefined, includeChildren, **listAttrFlags)、
+突き合わせ・Undo 1 回・fast は Undo なし・不正入力)、getPlugs(userDefined, children, **listAttrFlags)、
 getConnections の pcls 廃止、廃止した名前(isChildOf・getAttrCount・getPath・sameInstance・
 getAssignedObjects・getMaterials・getExtraAttrs)が Node・Nodes から消えていること。
 """
@@ -147,7 +147,7 @@ class SetLockedTest(_SpecCase):
 
 
 class GetPlugsTest(_SpecCase):
-    """getPlugs(userDefined, includeChildren, **listAttrFlags)。"""
+    """getPlugs(userDefined, children, **listAttrFlags)。"""
 
     def setUp(self):
         super().setUp()
@@ -161,14 +161,14 @@ class GetPlugsTest(_SpecCase):
         self.node = Node(self.node_name)
 
     def test_user_defined_top_level_matches_definition_order(self):
-        """userDefined=True, includeChildren=False はトップレベルの動的アトリビュートを追加順に返す。"""
-        plugs = self.node.getPlugs(userDefined=True, includeChildren=False)
+        """userDefined=True, children=False はトップレベルの動的アトリビュートを追加順に返す。"""
+        plugs = self.node.getPlugs(userDefined=True, children=False)
         self.assertEqual([plug.getAttributeName() for plug in plugs], ["scalar", "vec", "arr", "hiddenAttr"])
         self.assertTrue(all(isinstance(plug, Plug) for plug in plugs))
         self.assertIsInstance(plugs[2], MultiPlug)
 
     def test_user_defined_with_children_matches_list_attr(self):
-        """userDefined=True(既定 includeChildren=True)は子も含み、cmds.listAttr(userDefined=True) と同じ集合。"""
+        """userDefined=True(既定 children=True)は子も含み、cmds.listAttr(userDefined=True) と同じ集合。"""
         names = [plug.getAttributeName() for plug in self.node.getPlugs(userDefined=True)]
         self.assertEqual(sorted(names), sorted(cmds.listAttr(self.node_name, userDefined=True)))
         self.assertEqual(names[:5], ["scalar", "vec", "vecX", "vecY", "vecZ"])
@@ -180,8 +180,8 @@ class GetPlugsTest(_SpecCase):
         self.assertEqual([plug.getAttributeName() for plug in plugs], expected)
 
     def test_include_children_false_filters_list_attr(self):
-        """includeChildren=False は listAttr 経路でもコンパウンドアトリビュートの子(translateX 等)を除く。"""
-        plugs = self.node.getPlugs(includeChildren=False)
+        """children=False は listAttr 経路でもコンパウンドアトリビュートの子(translateX 等)を除く。"""
+        plugs = self.node.getPlugs(children=False)
         names = [plug.getAttributeName() for plug in plugs]
         self.assertIn("translate", names)
         self.assertNotIn("translateX", names)
@@ -192,8 +192,8 @@ class GetPlugsTest(_SpecCase):
         """bool 以外、または userDefined=True と listAttr フラグの併用は TypeError。"""
         with self.assertRaisesRegex(TypeError, "userDefinedはboolで指定してください"):
             self.node.getPlugs(userDefined=1)
-        with self.assertRaisesRegex(TypeError, "includeChildrenはboolで指定してください"):
-            self.node.getPlugs(includeChildren=None)
+        with self.assertRaisesRegex(TypeError, "childrenはboolで指定してください"):
+            self.node.getPlugs(children=None)
         with self.assertRaisesRegex(TypeError, "同時に指定できません"):
             self.node.getPlugs(userDefined=True, keyable=True)
 
@@ -210,7 +210,7 @@ class GetPlugsTest(_SpecCase):
         for attr in ("a1", "a2", "a3"):
             cmds.addAttr(str(node), longName=attr, attributeType="double")
         node.moveAttrOrder("a3", -10)
-        names = [plug.getAttributeName() for plug in node.getPlugs(userDefined=True, includeChildren=False)]
+        names = [plug.getAttributeName() for plug in node.getPlugs(userDefined=True, children=False)]
         self.assertEqual(names, ["a3", "a1", "a2"])
 
 

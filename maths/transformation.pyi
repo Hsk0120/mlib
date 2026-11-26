@@ -69,8 +69,9 @@ class Transformation(om2.MTransformationMatrix):
     ``[-sp] * S * Sh * [sp] * [spt] * [-rp] * (rotateAxis * rotate * jointOrient) * [rp] * [rpt] * [1/inverseScale] * T``
 
     継承した ``asMatrix()`` は om2 の計算のままで、jointOrient と inverseScale を含まない。
-    基底クラスの ``scale()``・``shear()``・``rotatePivot()``・``scalePivot()`` は、同じ名前のプロパティに置き換えている
-    (om2の関数として呼ぶときは ``om2.MTransformationMatrix.scale(value, space)`` と書く)。
+    基底クラスの ``scale(space)``・``shear(space)``・``rotatePivot(space)``・``scalePivot(space)`` は om2 のメソッドのまま使える。
+    同じ値をmlibの型で読み書きするプロパティは :attr:`scaleValue`・:attr:`shearValue`・:attr:`rotatePivotValue`・
+    :attr:`scalePivotValue` (生成のキーワード引数は ``scale``・``shear``・``rotatePivot``・``scalePivot``)。
 
     ハッシュはできない(dictのキーやsetの要素にできない)。``==`` は、すべての値が完全に一致するかを比べる。
     """
@@ -172,17 +173,17 @@ class Transformation(om2.MTransformationMatrix):
     @rotateOrder.setter
     def rotateOrder(self, value): ...
     @property
-    def scale(self) -> Scale:
-        """Scale: スケール。"""
+    def scaleValue(self) -> Scale:
+        """Scale: スケール(om2の ``scale(om2.MSpace.kTransform)`` と同じ値)。"""
         ...
-    @scale.setter
-    def scale(self, value): ...
+    @scaleValue.setter
+    def scaleValue(self, value): ...
     @property
-    def shear(self) -> Shear:
-        """Shear: シアー(XY・XZ・YZ)。"""
+    def shearValue(self) -> Shear:
+        """Shear: シアー(XY・XZ・YZ。om2の ``shear(om2.MSpace.kTransform)`` と同じ値)。"""
         ...
-    @shear.setter
-    def shear(self, value): ...
+    @shearValue.setter
+    def shearValue(self, value): ...
     @property
     def rotateAxis(self) -> Quaternion:
         """Quaternion: rotateAxisの回転。"""
@@ -196,11 +197,11 @@ class Transformation(om2.MTransformationMatrix):
     @jointOrient.setter
     def jointOrient(self, value): ...
     @property
-    def rotatePivot(self) -> Translate:
-        """Translate: 回転ピボット(cm)。"""
+    def rotatePivotValue(self) -> Translate:
+        """Translate: 回転ピボット(cm。om2の ``rotatePivot(om2.MSpace.kTransform)`` と同じ値)。"""
         ...
-    @rotatePivot.setter
-    def rotatePivot(self, value): ...
+    @rotatePivotValue.setter
+    def rotatePivotValue(self, value): ...
     @property
     def rotatePivotTranslate(self) -> Translate:
         """Translate: 回転ピボットの補正の移動(cm)。"""
@@ -208,11 +209,11 @@ class Transformation(om2.MTransformationMatrix):
     @rotatePivotTranslate.setter
     def rotatePivotTranslate(self, value): ...
     @property
-    def scalePivot(self) -> Translate:
-        """Translate: スケールピボット(cm)。"""
+    def scalePivotValue(self) -> Translate:
+        """Translate: スケールピボット(cm。om2の ``scalePivot(om2.MSpace.kTransform)`` と同じ値)。"""
         ...
-    @scalePivot.setter
-    def scalePivot(self, value): ...
+    @scalePivotValue.setter
+    def scalePivotValue(self, value): ...
     @property
     def scalePivotTranslate(self) -> Translate:
         """Translate: スケールピボットの補正の移動(cm)。"""

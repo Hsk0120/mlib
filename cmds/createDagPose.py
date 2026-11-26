@@ -10,7 +10,7 @@ from ..util import _UNSET
 
 
 @undoChunk("mlibCreateDagPose")
-def createDagPose(members, name=_UNSET, bindPose=_UNSET, hierarchy=True, *, n=_UNSET, bp=_UNSET):
+def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_UNSET, bp=_UNSET):
     """現在の姿勢を新しいポーズに保存する。
 
     選択状態は使わない。対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。

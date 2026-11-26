@@ -88,6 +88,18 @@ class MirrorAxisNotationTest(_SpecCase):
                 self.assertSequenceAlmostEqual(actual, wanted, places=6)
         self.assertSequenceAlmostEqual(results[0][0], (-2, 1, 0), places=6)
 
+    def test_joint_mirror_plane_argument(self):
+        """Joint.mirrorの面の引数はplane。axisは受けず、使えない値はplaneの名前で伝える。"""
+        root = self.make("joint", "L_plane")
+        new_root = Joint(root).mirror(plane="XY", searchReplace=("L_", "R_"))
+        cmds.delete(new_root.getName(full=True))
+        with self.assertRaises(TypeError):
+            Joint(root).mirror(axis="YZ")
+        with self.assertRaisesRegex(ValueError, "plane"):
+            Joint(root).mirror(plane="xyz")
+        with self.assertRaisesRegex(TypeError, "plane"):
+            Joint(root).mirror(plane=1.5)
+
     def test_skin_cluster_mirror_weights_accepts_flip_axis(self):
         """SkinCluster.mirrorWeights("x") は "YZ" と同じウェイトになる。"""
         mesh = cmds.polyCube(name=self.name("mesh"), width=4, subdivisionsWidth=4, constructionHistory=False)[0]

@@ -60,34 +60,40 @@ class DagContainer(Transform):
     def addMembers(self, *members):
         """ノードをメンバーに加える。
 
-        別のcontainerに入っているノードを、無理に移すことはしない。
+        別のcontainerに入っているノードを、無理に移すことはしない。すでにこのcontainerのメンバーなら、何もしない。
+        変える前に、すべてのノードがあり、ほかのcontainerに入っていないかを確かめる。
 
         Args:
             *members (str | Node | Iterable[Node | str]): メンバーに加えるノード。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが見つからない場合、またはほかのcontainerに入っているノードを含む場合。
         """
         Container.addMembers(self, *members)
 
-    def removeMembers(self, *members, force=False):
-        """ノードをメンバーから外す。
+    def removeMembers(self, *members, all=False, force=False):
+        """ノードをメンバーから外す。``all=True`` なら、直接入っているメンバーをすべて外す。
 
         変える前に、指定したノードがすべてメンバーかを確かめる。メンバーでないノードがあれば、
         force=Trueでもエラーにする。ノードそのものは削除しない。
         containerが入れ子になっている場合、外したノードはふつう親のcontainerのメンバーになる。
 
         Args:
-            *members (Node | str | Iterable[Node]): 外すメンバー。
-            force (bool): Trueなら、すべてのcontainerから外す。ロックを外すという意味ではない。
+            *members (Node | str | Iterable[Node]): 外すメンバー。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
+            force (bool): Trueなら、すべてのcontainerから外す(``container -removeNode -force``)。ロックを外すという意味ではない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
+            TypeError: all・forceがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
             ValueError: メンバーでないノードが含まれる場合。
         """
-        Container.removeMembers(self, *members, force=force)
+        Container.removeMembers(self, *members, all=all, force=force)
 
     def createNode(self, type, name=None):
         """ノードを作り、このcontainerのメンバーにする。

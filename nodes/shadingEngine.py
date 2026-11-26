@@ -29,25 +29,25 @@ class ShadingEngine(ObjectSet):
         engine.assign(mlib.getNode("pCube1"))  # 形状全体。フェースは Face/Faces や "pCube1.f[0:3]"
     """
 
-    def getShader(self, kind="surface", *, plug=False):
-        """接続しているシェーダーのノードを取得する。``plug=True`` なら、シェーダーの出力アトリビュートを取得する。
+    def getShader(self, kind="surface", *, asPlug=False):
+        """接続しているシェーダーのノードを取得する。``asPlug=True`` なら、シェーダーの出力アトリビュートを取得する。
 
         Args:
             kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
-            plug (bool): Trueなら、ノードの代わりに接続元の出力のPlugを返す。既定はFalse。
+            asPlug (bool): Trueなら、ノードの代わりに接続元の出力のPlugを返す。既定はFalse。
 
         Returns:
             Node | Plug | None: シェーダーのノード。ノード型に合ったクラスのオブジェクトになる。接続されていなければNone。
-                plug=Trueなら、接続元の出力のPlug。
+                asPlug=Trueなら、接続元の出力のPlug。
 
         Raises:
-            TypeError: plugがboolでない場合。
+            TypeError: asPlugがboolでない場合。
             ValueError: kindがsurface/volume/displacement以外の場合。
             RuntimeError: ノードが無効な場合。
         """
-        _require_bool(plug, "plug")
+        _require_bool(asPlug, "asPlug")
         source = self.getPlug(self._shader_attribute(kind)).getConnections(input=True)
-        if plug or source is None:
+        if asPlug or source is None:
             return source
         return source.getNode()
 
@@ -138,7 +138,8 @@ class ShadingEngine(ObjectSet):
         """割り当てている先を取得する。
 
         Args:
-            flatten (bool): 指定できない(割り当て先は入れ子のセットを持たない)。既定False。
+            flatten (bool): :meth:`ObjectSet.getMembers` と同じ引数。割り当て先は入れ子のセットを持たないので、
+                TrueでもFalseでも結果は同じ。既定False。
             dagOnly (bool): Trueなら、:meth:`ObjectSet.getMembers` と同じく、DAGパスだけをNodesで返す。既定False。
             shadingOnly (bool): dagOnly=Trueのときに、Trueならマテリアルの割り当てに関係するDAGパスだけを返す。既定False。
 
@@ -148,12 +149,12 @@ class ShadingEngine(ObjectSet):
                 dagOnly=Trueなら、Mayaの順に並ぶパスごとのノードの集まり。
 
         Raises:
-            TypeError: flattenを指定した場合、dagOnly・shadingOnlyがboolでない場合、
+            TypeError: flatten・dagOnly・shadingOnlyがboolでない場合、
                 またはdagOnly=TrueなしでshadingOnlyを指定した場合。
             NotImplementedError: dagOnly=Trueで、使っているMayaに対応するAPI 2.0のメソッドが無い場合。
         """
-        if flatten is not False:
-            raise TypeError("ShadingEngine.getMembers()にflattenは指定できません")
+        # 割り当て先は入れ子のセットを持たないので、展開しても結果は変わらない(型だけ確かめる)。
+        _require_bool(flatten, "flatten")
         if dagOnly is not False or shadingOnly is not False:
             return super().getMembers(dagOnly=dagOnly, shadingOnly=shadingOnly)
         selection = om2.MFnSet(self.mnode()).getMembers(False)

@@ -9,7 +9,7 @@ from ..decorator import _pick_alias, _require_bool, undoChunk
 from ..util import _UNSET
 
 
-def createBlendShape(base, targets=(), name=_UNSET, frontOfChain=_UNSET, origin=_UNSET, *, n=_UNSET, foc=_UNSET, o=_UNSET):
+def createBlendShape(base, targets=(), *, name=_UNSET, frontOfChain=_UNSET, origin=_UNSET, n=_UNSET, foc=_UNSET, o=_UNSET):
     """形状にblendShapeを作成し、ターゲットを登録する(``cmds.blendShape`` 相当)。
 
     ターゲットは指定した順に、論理番号0から登録する。

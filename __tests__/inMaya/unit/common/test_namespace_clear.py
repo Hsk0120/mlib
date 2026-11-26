@@ -20,7 +20,7 @@ class NamespaceClearTest(NamespaceCase):
         ref = mlib.getNode(child)
         before = list(ref.getMatrix(ws=True))
         cmds.flushUndo()
-        own.clear()
+        own.deleteNodes()
         self.assertTrue(own.exists())
         self.assertFalse(cmds.objExists(parent))
         self.assertIsNone(ref.getParent())
@@ -39,7 +39,7 @@ class NamespaceClearTest(NamespaceCase):
         cmds.createNode("multiplyDivide", name=own.name + ":md")
         keep = cmds.createNode("transform", name=self.name("keep"))
         cmds.flushUndo()
-        own.clear()
+        own.deleteNodes()
         self.assertTrue(cmds.namespace(exists=own.name))
         self.assertEqual(cmds.namespaceInfo(own.name, listOnlyDependencyNodes=True) or [], [])
         self.assertTrue(cmds.objExists(keep))
@@ -54,7 +54,7 @@ class NamespaceClearTest(NamespaceCase):
         other = Namespace.create("other", parent=self.ns)
         parent = cmds.createNode("transform", name=own.name + ":parent")
         child = cmds.createNode("transform", name=other.name + ":child", parent=parent)
-        own.clear(preserveChildren=False)
+        own.deleteNodes(preserveChildren=False)
         self.assertFalse(cmds.objExists(parent))
         self.assertFalse(cmds.objExists(child))
         self.assertTrue(other.exists())
@@ -63,11 +63,11 @@ class NamespaceClearTest(NamespaceCase):
         """既定の名前空間はValueError、無い名前空間はRuntimeError、preserveChildrenがbool以外はTypeError。"""
         for name in (":", ":UI", ":shared"):
             with self.subTest(name=name), self.assertRaises(ValueError):
-                Namespace(name).clear()
+                Namespace(name).deleteNodes()
         with self.assertRaises(RuntimeError):
-            Namespace(self.ns + ":missing").clear()
+            Namespace(self.ns + ":missing").deleteNodes()
         with self.assertRaises(TypeError):
-            Namespace(self.ns).clear(preserveChildren=1)
+            Namespace(self.ns).deleteNodes(preserveChildren=1)
 
     def test_rejects_foreign_shape_before_delete(self):
         own = Namespace.create("own", parent=self.ns)
@@ -75,7 +75,7 @@ class NamespaceClearTest(NamespaceCase):
         shape = cmds.createNode("mesh", name=self.name("foreign"), parent=parent)
         cmds.flushUndo()
         with self.assertRaises(NotImplementedError):
-            own.clear()
+            own.deleteNodes()
         self.assertTrue(cmds.objExists(shape))
         self.assertTrue(cmds.objExists(parent))
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))

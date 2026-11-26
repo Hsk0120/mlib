@@ -129,8 +129,8 @@ class CreateNodeFunctionsTest(_SpecCase):
         j0 = cmds.joint(name=self.name("j0"), position=(0, 0, 0))
         j1 = cmds.joint(name=self.name("j1"), position=(5, 0, 1))
         j2 = cmds.joint(name=self.name("j2"), position=(10, 0, 0))
-        self.assertIsInstance(mlib.createContainer(self.name("own")), mlib.Container)
-        self.assertIsInstance(mlib.createContainer(self.name("dag"), dag=True), mlib.DagContainer)
+        self.assertIsInstance(mlib.createContainer(name=self.name("own")), mlib.Container)
+        self.assertIsInstance(mlib.createContainer(name=self.name("dag"), dag=True), mlib.DagContainer)
         handle = mlib.createIkHandle(j0, j2, name=self.name("ikh"))
         self.assertIsInstance(handle, mlib.IkHandle)
         self.assertIsInstance(mlib.createDagPose(j0, name=self.name("pose")), mlib.DagPose)
@@ -144,7 +144,7 @@ class CreateNodeFunctionsTest(_SpecCase):
             mlib.bindSkin([j0], mlib.createPoly("cube").getParent(), maximumInfluences=2, mi=2)
         base = mlib.createPoly("cube", name=self.name("base")).getParent()
         target = mlib.createPoly("cube", name=self.name("target")).getParent()
-        self.assertEqual(mlib.createBlendShape(base, [target]).getTargetNames(), [target.getName(node=True, removeNamespace=True)])
+        self.assertEqual(mlib.createBlendShape(base, [target]).getTargetNames(), [target.getName(short=True, removeNamespace=True)])
         for wrapper in (mlib.Container, mlib.DagContainer, mlib.DagPose, mlib.IkHandle, mlib.BlendShape, mlib.NurbsCurve):
             with self.subTest(wrapper=wrapper.__name__):
                 self.assertNotIn("create", vars(wrapper))

@@ -330,7 +330,7 @@ class BlendShape(GeometryFilter):
                 入力が接続されている場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getTargetDeltas(self, target: str | int | Plug, base: str | Node | None = ..., fullWeight: float = ...) -> dict[int, Vector]:
+    def getTargetDeltas(self, target: str | int | Plug, base: str | Node | None = ..., *, fullWeight: float = ...) -> dict[int, Vector]:
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
         ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
@@ -349,7 +349,7 @@ class BlendShape(GeometryFilter):
             ValueError: ターゲット、またはそのウェイトの項目が無い場合。
         """
         ...
-    def setTargetDeltas(self, target: str | int | Plug, deltas: dict[int, Sequence[float]], base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def setTargetDeltas(self, target: str | int | Plug, deltas: dict[int, Sequence[float]], base: str | Node | None = ..., *, fullWeight: float = ..., disconnect: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
         指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
@@ -376,7 +376,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getTargetVertices(self, target: str | int | Plug, base: str | Node | None = ..., fullWeight: float = ..., *, tolerance: float = ...) -> Vertices:
+    def getTargetVertices(self, target: str | int | Plug, base: str | Node | None = ..., *, fullWeight: float = ..., tolerance: float = ...) -> Vertices:
         """デルタの長さがしきい値を超える頂点を取得する。
 
         今の ``weight``・envelope・頂点マスクは判定に使わない。
@@ -395,7 +395,7 @@ class BlendShape(GeometryFilter):
             ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
         """
         ...
-    def resetTargetVertices(self, target: str | int | Plug, vertices: int | Vertex | Vertices | Iterable[int | Vertex] | None = ..., base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., *, tolerance: float | None = ..., fast: bool = ..., check: bool = ...) -> None:
+    def resetTargetVertices(self, target: str | int | Plug, vertices: int | Vertex | Vertices | Iterable[int | Vertex] | None = ..., base: str | Node | None = ..., *, fullWeight: float = ..., disconnect: bool = ..., tolerance: float | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """指定した頂点の変位を0に戻す。``tolerance`` を渡すと、デルタの長さがしきい値以下の頂点を項目のデータから取り除く。
 
         ``vertices`` と ``tolerance`` のどちらか1つを指定する。
@@ -458,7 +458,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されている場合(先に複製するなどして、接続の無い形状にしておく)。
         """
         ...
-    def replaceTarget(self, target: str | int | Plug, geometry: str | Node, base: str | Node | None = ..., fullWeight: float = ...) -> None:
+    def replaceTarget(self, target: str | int | Plug, geometry: str | Node, base: str | Node | None = ..., *, fullWeight: float = ...) -> None:
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
         別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
@@ -479,7 +479,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: Mayaが接続を拒否した場合。
         """
         ...
-    def regenerateTarget(self, target: str | int | Plug, fullWeight: float = ...) -> Nodes[Mesh]:
+    def regenerateTarget(self, target: str | int | Plug, *, fullWeight: float = ...) -> Nodes[Mesh]:
         """保存済みターゲットから、全ベースの編集用メッシュを再生成する。
 
         sculptTarget(regenerate=True)で、形状の接続が無い項目にメッシュとTransformを作り、
@@ -507,7 +507,7 @@ class BlendShape(GeometryFilter):
                 または既存の接続元がメッシュでない場合。
         """
         ...
-    def targetEdit(self, target: str | int | Plug | None = ..., state: bool = ..., fullWeight: float = ...) -> None:
+    def targetEdit(self, target: str | int | Plug | None = ..., state: bool = ..., *, fullWeight: float = ...) -> None:
         """ターゲットの編集モード(Shape EditorのEdit)を始める、または終える。
 
         ``cmds.sculptTarget`` を使う。編集モードの間は、ベースをスカルプトした結果がターゲットのデルタへ書き込まれる。

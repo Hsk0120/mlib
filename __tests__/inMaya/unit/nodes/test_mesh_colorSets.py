@@ -88,34 +88,34 @@ class MeshColorSetTest(_Case):
             found = cmds.polyColorSet(name, query=True, currentColorSet=True)
             return found[0] if found else None
 
-        self.assertEqual(shape.getSetNames(color=True), [])
-        self.assertIsNone(shape.getCurrentSet(color=True))
+        self.assertEqual(shape.getSetNames(kind="color"), [])
+        self.assertIsNone(shape.getCurrentSet(kind="color"))
         self.flushUndo()
-        self.assertIsNone(shape.createSet("a", color=True))
+        self.assertIsNone(shape.createSet("a", kind="color"))
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), []), lambda: self.assertEqual(names(), ["a"]))
-        shape.createSet("a", color=True)
-        shape.createSet("b", color=True)
-        self.assertEqual(shape.getSetNames(color=True), names())
-        self.assertEqual(shape.getCurrentSet(color=True), current())
+        shape.createSet("a", kind="color")
+        shape.createSet("b", kind="color")
+        self.assertEqual(shape.getSetNames(kind="color"), names())
+        self.assertEqual(shape.getCurrentSet(kind="color"), current())
         self.assertEqual(current(), "b")
         self.flushUndo()
-        shape.setCurrentSet("a", color=True)
+        shape.setCurrentSet("a", kind="color")
         self.assertUndoesInOneStep(lambda: self.assertEqual(current(), "b"), lambda: self.assertEqual(current(), "a"))
         self.flushUndo()
-        shape.copySet("a", "c", color=True)
+        shape.copySet("a", "c", kind="color")
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a", "b", "c"]))
         self.flushUndo()
-        shape.renameSet("b", "d", color=True)
+        shape.renameSet("b", "d", kind="color")
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a", "d"]))
         self.flushUndo()
-        shape.deleteSet("b", color=True)
+        shape.deleteSet("b", kind="color")
         self.assertUndoesInOneStep(lambda: self.assertEqual(names(), ["a", "b"]), lambda: self.assertEqual(names(), ["a"]))
-        self.assertEqual(shape.getSetNames(color=True), ["a", "b"])
+        self.assertEqual(shape.getSetNames(kind="color"), ["a", "b"])
 
     def test_color_set_errors(self):
         """名前の型・空・有無の誤りは TypeError/ValueError で、シーンを変えない。削除済みは RuntimeError。"""
         shape = self.mesh()
-        shape.createSet("a", color=True)
+        shape.createSet("a", kind="color")
         cases = (
             (shape.createSet, ("a",), ValueError),
             (shape.createSet, ("",), ValueError),
@@ -130,9 +130,9 @@ class MeshColorSetTest(_Case):
         for method, args, error in cases:
             with self.subTest(method=method.__name__, args=args):
                 with self.assertRaises(error):
-                    method(*args, color=True)
-                self.assertEqual(shape.getSetNames(color=True), ["a"])
-        # colorはboolだけを受け付ける。replaceはUVセットの複製だけで使える。
+                    method(*args, kind="color")
+                self.assertEqual(shape.getSetNames(kind="color"), ["a"])
+        # kindは"uv"・"color"の文字列だけを受け付ける。overwriteはUVセットの複製だけで使える。
         calls = (
             ("getSetNames", ()),
             ("getCurrentSet", ()),
@@ -143,20 +143,21 @@ class MeshColorSetTest(_Case):
             ("deleteSet", ("a",)),
         )
         for name, args in calls:
-            with self.subTest(method=name, color=1):
-                with self.assertRaises(TypeError):
-                    getattr(shape, name)(*args, color=1)
-                self.assertEqual(shape.getSetNames(color=True), ["a"])
-        with self.subTest(method="copySet", color=True, replace=True):
+            for kind, error in ((1, TypeError), (True, TypeError), ("colour", ValueError)):
+                with self.subTest(method=name, kind=kind):
+                    with self.assertRaises(error):
+                        getattr(shape, name)(*args, kind=kind)
+                    self.assertEqual(shape.getSetNames(kind="color"), ["a"])
+        with self.subTest(method="copySet", kind="color", overwrite=True):
             with self.assertRaises(TypeError):
-                shape.copySet("a", "b", color=True, replace=True)
-            self.assertEqual(shape.getSetNames(color=True), ["a"])
+                shape.copySet("a", "b", kind="color", overwrite=True)
+            self.assertEqual(shape.getSetNames(kind="color"), ["a"])
         # 同じ名前でも、UVセットとカラーセットは別々に調べる。
         self.assertNotIn("a", shape.getSetNames())
         with self.assertRaises(ValueError):
             shape.setCurrentSet("a")
         self.assertDeletedRaises(
-            shape, (lambda node: node.getSetNames(color=True), lambda node: node.getShells(uv=True), lambda node: node.createSet("z", color=True))
+            shape, (lambda node: node.getSetNames(kind="color"), lambda node: node.getShells(uv=True), lambda node: node.createSet("z", kind="color"))
         )
 
     def test_uv_shells_are_ordered_by_smallest_uv(self):

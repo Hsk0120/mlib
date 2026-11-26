@@ -32,7 +32,7 @@ class ValueTest(unittest.TestCase):
         value = Transformation()
         self.assertIsInstance(value, om2.MTransformationMatrix)
         self.assertEqual(tuple(value.translate), (0.0, 0.0, 0.0))
-        self.assertEqual(tuple(value.scale), (1.0, 1.0, 1.0))
+        self.assertEqual(tuple(value.scaleValue), (1.0, 1.0, 1.0))
         self.assertEqual(value.rotateOrder, 0)
         self.assertEqual(tuple(value.inverseScale), (1.0, 1.0, 1.0))
         self.assertTrue(value.matrix.isEquivalent(om2.MMatrix(), 1e-12))
@@ -44,13 +44,13 @@ class ValueTest(unittest.TestCase):
             "translate": Translate,
             "rotate": EulerRotate,
             "quaternion": Quaternion,
-            "scale": Scale,
-            "shear": Shear,
+            "scaleValue": Scale,
+            "shearValue": Shear,
             "rotateAxis": Quaternion,
             "jointOrient": Quaternion,
-            "rotatePivot": Translate,
+            "rotatePivotValue": Translate,
             "rotatePivotTranslate": Translate,
-            "scalePivot": Translate,
+            "scalePivotValue": Translate,
             "scalePivotTranslate": Translate,
             "inverseScale": Scale,
             "matrix": Matrix,
@@ -67,11 +67,11 @@ class ValueTest(unittest.TestCase):
         value = Transformation()
         cases = {
             "translate": (1.0, 2.0, 3.0),
-            "scale": (2.0, 3.0, 4.0),
-            "shear": (0.1, 0.2, 0.3),
-            "rotatePivot": (0.5, 0.25, -1.0),
+            "scaleValue": (2.0, 3.0, 4.0),
+            "shearValue": (0.1, 0.2, 0.3),
+            "rotatePivotValue": (0.5, 0.25, -1.0),
             "rotatePivotTranslate": (0.1, 0.0, 0.2),
-            "scalePivot": (1.0, -2.0, 3.0),
+            "scalePivotValue": (1.0, -2.0, 3.0),
             "scalePivotTranslate": (0.3, 0.2, 0.1),
             "inverseScale": (2.0, 2.0, 4.0),
         }
@@ -185,7 +185,7 @@ class TransformationBoundaryTest(unittest.TestCase):
         """reprはtranslate・rotate・scaleを表す。"""
         value = Transformation()
         value.translate = (1.0, 2.0, 3.0)
-        value.scale = (2.0, 2.0, 2.0)
+        value.scaleValue = (2.0, 2.0, 2.0)
         text = repr(value)
         self.assertTrue(text.startswith("Transformation(translate=(1.0, 2.0, 3.0), rotate=EulerRotate("))
         self.assertTrue(text.endswith("scale=(2.0, 2.0, 2.0))"))
@@ -199,10 +199,19 @@ class TransformationBoundaryTest(unittest.TestCase):
                 self.assertTrue(value != other)
         self.assertTrue(value == om2.MTransformationMatrix())
 
+    def test_om2_methods_are_not_replaced(self):
+        """scale・shear・rotatePivot・scalePivot は om2 のメソッドのまま呼べ、プロパティの値と同じ。"""
+        value = Transformation(scale=(2, 3, 4), shear=(0.1, 0.2, 0.3), rotatePivot=(1, 2, 3), scalePivot=(-1, 0, 2))
+        space = om2.MSpace.kTransform
+        self.assertEqual(tuple(value.scale(space)), tuple(value.scaleValue))
+        self.assertEqual(tuple(value.shear(space)), tuple(value.shearValue))
+        self.assertEqual(tuple(value.rotatePivot(space))[:3], tuple(value.rotatePivotValue))
+        self.assertEqual(tuple(value.scalePivot(space))[:3], tuple(value.scalePivotValue))
+
     def test_three_values_reject_non_numbers(self):
         """translateなどに数値でない要素・反復できない値を渡すとTypeErrorで、値は変わらない。"""
         value = Transformation()
-        for name in ("translate", "rotate", "scale"):
+        for name in ("translate", "rotate", "scaleValue"):
             for bad in ([1, "a", 3], 5, None):
                 with self.subTest(name=name, bad=bad):
                     with self.assertRaises(TypeError):

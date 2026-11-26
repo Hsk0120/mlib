@@ -120,7 +120,7 @@ class NodeHistoryAndPlugsSpecTest(NamespaceCase):
         with patch.object(cmds, "listAttr", side_effect=AssertionError("listAttr")):
             plugs = node.getPlugs()
             keyable = node.getPlugs(keyable=True)
-            scalar = node.getPlugs(scalar=True, includeChildren=False)
+            scalar = node.getPlugs(scalar=True, children=False)
         self.assertIn("translateX", [plug.getAttributeName() for plug in plugs])
         self.assertEqual([plug.getAttributeName() for plug in keyable][:3], ["visibility", "translateX", "translateY"])
         self.assertNotIn("translateX", [plug.getAttributeName() for plug in scalar])

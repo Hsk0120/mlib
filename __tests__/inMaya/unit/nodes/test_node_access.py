@@ -2,7 +2,7 @@
 
 対象: ``node.tx = 5`` の代入(Plug.setと同じ書込み・Undo 1回・度)、Mayaアトリビュートの無い名前への
 代入のAttributeError、存在しないメソッドの案内付きAttributeError(Node・Plug・Component)、
-無効なノードの getName・getName(node=True) の RuntimeError(str() は空文字列)、``|`` を含む名前の拒否、
+無効なノードの getName・getName(short=True) の RuntimeError(str() は空文字列)、``|`` を含む名前の拒否、
 一意でない名前の候補の表示、rename/setNamespace が自身を返すこと。
 """
 
@@ -127,7 +127,7 @@ class NameTest(_SpecCase):
         node = mlib.createNode("transform", name=self.name("undone"))
         cmds.undo()
         self.assertFalse(node.isValid())
-        for flags in ({}, {"node": True}):
+        for flags in ({}, {"short": True}):
             with self.subTest(flags=flags):
                 with self.assertRaisesRegex(RuntimeError, r"Transformは削除されたか、Undoで取り消されました。使う前にisValid\(\)で確かめてください"):
                     node.getName(**flags)
@@ -150,12 +150,12 @@ class NameTest(_SpecCase):
         for fast in (False, True):
             with self.subTest(fast=fast):
                 self.assertIsNone(node.rename(self.name("renamed"), fast=fast))
-                self.assertEqual(node.getName(node=True), self.name("renamed"))
+                self.assertEqual(node.getName(short=True), self.name("renamed"))
                 self.assertIsNone(node.setNamespace(self.ns, fast=fast))
         self.flushUndo()
         node.rename(self.name("again"))
         self.assertUndoesInOneStep(
-            lambda: self.assertEqual(node.getName(node=True), self.name("renamed")), lambda: self.assertEqual(node.getName(node=True), self.name("again"))
+            lambda: self.assertEqual(node.getName(short=True), self.name("renamed")), lambda: self.assertEqual(node.getName(short=True), self.name("again"))
         )
 
     def test_not_unique_message_lists_paths(self):

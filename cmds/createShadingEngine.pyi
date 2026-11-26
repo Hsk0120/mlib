@@ -10,7 +10,7 @@ from mlib.nodes.shadingEngine import ShadingEngine
 from mlib.plugs.plug import Plug
 
 
-def createShadingEngine(shader: Node | Plug | str | None = ..., name: str | None = ..., *, n: str | None = ...) -> ShadingEngine:
+def createShadingEngine(shader: Node | Plug | str | None = ..., *, name: str | None = ..., n: str | None = ...) -> ShadingEngine:
     """描画に使う空のシェーディンググループ(shadingEngine)を作り、そのノードを返す。
 
     Hypershadeでマテリアルを作ったときと同じく、``renderPartition`` へ登録した(描画の対象になる)

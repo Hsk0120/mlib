@@ -4,7 +4,7 @@
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object
-from ..decorator import undoChunk
+from ..decorator import _require_bool, undoChunk
 from .node import Node, Nodes
 
 
@@ -35,16 +35,20 @@ class DisplayLayer(Node):
             None: 値を返さない。
         """
         ...
-    def removeMembers(self, *members: Node | str) -> None:
-        """ノードをdefaultLayerへ移して、レイヤーから外す。
+    def removeMembers(self, *members: Node | str, all: bool = ...) -> None:
+        """ノードをdefaultLayerへ移して、レイヤーから外す。``all=True`` なら、すべてのメンバーを外す。
 
         子の階層もまとめて移す。
 
         Args:
-            members (Node | str): 外すDAGノード。
+            members (Node | str): 外すDAGノード。all=Trueとは同時に指定できない。
+            all (bool): Trueなら、すべてのメンバーを外す。既定はFalse。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: allがboolでない場合、またはmembersとall=Trueを同時に指定した場合。
         """
         ...
     def setCurrent(self) -> None:

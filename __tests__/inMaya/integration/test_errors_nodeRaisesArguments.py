@@ -105,10 +105,10 @@ class AnimCurveTest(_ArgumentCase):
             (TypeError, "getKeyValues", (), {"timeUnit": 1}),
             (TypeError, "findClosestIndex", (None,), {}),
             (TypeError, "findClosestIndex", (3,), {"timeUnit": 1}),
-            (TypeError, "setKey", (None,), {}),
-            (TypeError, "setKey", (3,), {"timeUnit": 1}),
+            (TypeError, "addKey", (None,), {}),
+            (TypeError, "addKey", (3,), {"timeUnit": 1}),
             (TypeError, "findClosestIndex", ("x",), {}),
-            (TypeError, "setKey", ("x",), {}),
+            (TypeError, "addKey", ("x",), {}),
             (IndexError, "scaleKey", (2,), {"index": 5}),
             (ValueError, "reduceKeys", (-1,), {}),
             (ValueError, "reduceKeys", (float("nan"),), {}),
@@ -400,17 +400,17 @@ class MeshTest(_ArgumentCase):
             (IndexError, "setVertexColors", ([(1, 0, 0)],), {"vertices": [99]}),
             (TypeError, "renameSet", (1, "x"), {}),
             (TypeError, "renameSet", ("map1", 1), {}),
-            (TypeError, "setCurrentSet", (1,), {"color": True}),
-            (ValueError, "setCurrentSet", ("",), {"color": True}),
-            (ValueError, "setCurrentSet", ("nope",), {"color": True}),
-            (TypeError, "createSet", (1,), {"color": True}),
-            (ValueError, "createSet", ("",), {"color": True}),
-            (TypeError, "renameSet", (1, "x"), {"color": True}),
-            (ValueError, "renameSet", ("colorSet1", ""), {"color": True}),
-            (ValueError, "renameSet", ("nope", "x"), {"color": True}),
-            (TypeError, "deleteSet", (1,), {"color": True}),
-            (ValueError, "deleteSet", ("",), {"color": True}),
-            (ValueError, "deleteSet", ("nope",), {"color": True}),
+            (TypeError, "setCurrentSet", (1,), {"kind": "color"}),
+            (ValueError, "setCurrentSet", ("",), {"kind": "color"}),
+            (ValueError, "setCurrentSet", ("nope",), {"kind": "color"}),
+            (TypeError, "createSet", (1,), {"kind": "color"}),
+            (ValueError, "createSet", ("",), {"kind": "color"}),
+            (TypeError, "renameSet", (1, "x"), {"kind": "color"}),
+            (ValueError, "renameSet", ("colorSet1", ""), {"kind": "color"}),
+            (ValueError, "renameSet", ("nope", "x"), {"kind": "color"}),
+            (TypeError, "deleteSet", (1,), {"kind": "color"}),
+            (ValueError, "deleteSet", ("",), {"kind": "color"}),
+            (ValueError, "deleteSet", ("nope",), {"kind": "color"}),
         )
         mesh = self.mesh(colored=True)
         for error, method, args, flags in cases:
@@ -418,13 +418,13 @@ class MeshTest(_ArgumentCase):
                 self.assertFails(error, getattr(mesh, method), *args, state=lambda: self.state(mesh), **flags)
 
     def test_existing_color_set_names(self):
-        """createSet・renameSet(color=True)は、すでにある名前で ValueError。"""
+        """createSet・renameSet(kind="color")は、すでにある名前で ValueError。"""
         mesh = self.mesh(colored=True)
         current = cmds.polyColorSet(mesh.getName(full=True), query=True, currentColorSet=True)[0]
-        mesh.createSet("extra", color=True)
+        mesh.createSet("extra", kind="color")
         for method, args in (("createSet", ("extra",)), ("renameSet", (current, "extra"))):
             with self.subTest(method=method):
-                self.assertFails(ValueError, getattr(mesh, method), *args, color=True, state=lambda: self.state(mesh))
+                self.assertFails(ValueError, getattr(mesh, method), *args, kind="color", state=lambda: self.state(mesh))
 
     def test_locked_mesh(self):
         """法線・面頂点の色の編集は、ロックされたメッシュで RuntimeError。"""
@@ -532,15 +532,15 @@ class ObjectSetTest(_ArgumentCase):
             (TypeError, "getMembers", (), {"dagOnly": True, "shadingOnly": 1}),
             (TypeError, "getMembers", (), {"dagOnly": 1}),
             (TypeError, "getMembers", (), {"dagOnly": True, "flatten": True}),
-            (TypeError, "addMembers", (1.5,), {"exclusive": True}),
-            (TypeError, "addMembers", (transform,), {"exclusive": 1}),
-            (ValueError, "addMembers", (self.ns + ":noSuchObject",), {"exclusive": True}),
+            (TypeError, "addMembers", (1.5,), {"forceElement": True}),
+            (TypeError, "addMembers", (transform,), {"forceElement": 1}),
+            (ValueError, "addMembers", (self.ns + ":noSuchObject",), {"forceElement": True}),
             (TypeError, "removeMembers", (), {"all": 1}),
-            (TypeError, "combine", (transform, "union"), {}),
-            (TypeError, "combine", (transform, "intersection"), {}),
-            (TypeError, "combine", (transform, "difference"), {}),
-            (TypeError, "combine", (object_set, 1), {}),
-            (ValueError, "combine", (object_set, "xor"), {}),
+            (TypeError, "combine", (transform,), {"mode": "union"}),
+            (TypeError, "combine", (transform,), {"mode": "intersection"}),
+            (TypeError, "combine", (transform,), {"mode": "difference"}),
+            (TypeError, "combine", (object_set,), {"mode": 1}),
+            (ValueError, "combine", (object_set,), {"mode": "xor"}),
             (TypeError, "isSubSet", (transform,), {}),
         )
         for error, method, args, flags in cases:
@@ -596,12 +596,12 @@ class ReferenceTest(_ArgumentCase):
             (TypeError, "setReferenceLocked", (1,), {}),
             (TypeError, "cleanEdits", (), {"editCommand": 1}),
             (ValueError, "cleanEdits", (), {"editCommand": "bogus"}),
-            (TypeError, "getEdits", (), {"kind": "node", "editCommand": 1}),
-            (ValueError, "getEdits", (), {"kind": "node", "editCommand": "bogus"}),
-            (TypeError, "getEdits", (), {"kind": "node", "onReferenceNode": transform}),
-            (TypeError, "getEdits", (), {"kind": "attr", "editCommand": 1}),
-            (ValueError, "getEdits", (), {"kind": "attr", "editCommand": "bogus"}),
-            (TypeError, "getEdits", (), {"kind": "attr", "onReferenceNode": transform}),
+            (TypeError, "getEdits", (), {"what": "node", "editCommand": 1}),
+            (ValueError, "getEdits", (), {"what": "node", "editCommand": "bogus"}),
+            (TypeError, "getEdits", (), {"what": "node", "onReferenceNode": transform}),
+            (TypeError, "getEdits", (), {"what": "attr", "editCommand": 1}),
+            (ValueError, "getEdits", (), {"what": "attr", "editCommand": "bogus"}),
+            (TypeError, "getEdits", (), {"what": "attr", "onReferenceNode": transform}),
         )
         for error, method, args, flags in cases:
             with self.subTest(method=method, flags=flags):
@@ -639,7 +639,7 @@ class SkinClusterTest(_ArgumentCase):
             (ValueError, "setDropoffRate", (stranger, 4.0), {}),
             (TypeError, "restoreBindPose", (1,), {}),
             (TypeError, "restoreBindPose", (True,), {"ws": True}),
-            (TypeError, "removeInfluences", (), {"unused": True, "force": 1}),
+            (TypeError, "removeInfluences", (), {"unused": True, "repair": 1}),
             (TypeError, "removeInfluences", (), {"unused": 1}),
             (TypeError, "removeInfluences", (joints[2],), {"requireAncestor": 1}),
             (TypeError, "removeInfluences", (joints[2],), {"transferToParent": 1}),

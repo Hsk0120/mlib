@@ -454,7 +454,7 @@ class DisconnectCreateDeleteTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "locked"):
             plug.disconnect()
         self.assertTrue(cmds.isConnected(self.a + ".sy", self.b + ".sy"))
-        plug.disconnect(f=True)
+        plug.disconnect(unlock=True)
         self.assertFalse(cmds.isConnected(self.a + ".sy", self.b + ".sy"))
         self.assertTrue(cmds.getAttr(self.b + ".sy", lock=True))
         cmds.undo()
@@ -1013,14 +1013,14 @@ class AnimKeyTest(unittest.TestCase):
                         name = "output" if output else "input"
                         expected = _convert_units(node.getPlug(name).mplug(), 1.25, to_ui)
                         self.assertEqual(node._unit_value(1.25, output, to_ui), expected, (kind, name, to_ui))
-                node.setKey(2.0, 0.5)
+                node.addKey(2.0, 0.5)
                 self.assertEqual(node.getKeyCount(), 1)
         node = mlib.getNode(cmds.createNode("animCurveTL", name=self.ns + ":deleted"))
         cmds.delete(str(node))
         with self.assertRaises(RuntimeError) as expected:
             node.getPlug("input")
         with self.assertRaises(RuntimeError) as caught:
-            node.setKey(1.0, 1.0)
+            node.addKey(1.0, 1.0)
         self.assertEqual(str(caught.exception), str(expected.exception))
 
 
@@ -1241,10 +1241,10 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
                 with self.subTest(node=name, flags=flags):
                     self.assertEqual(self._key(node.getConnections(**flags)), self._key(self._reference_connections(node, **dict(flags))))
         node = mlib.getNode(self.ns + ":loc")
-        # 短縮名とペア指定の別名も同じ結果になる。
-        self.assertEqual(
-            self._key(node.getConnections(c=True, skipConversionNodes=True)), self._key(node.getConnections(asPair=True, skipConversionNodes=True))
-        )
+        # 短縮名は長い名前と同じ結果になる(ペアの指定は asPair だけで、旧名 c・connections は TypeError)。
+        for removed in ({"c": True}, {"connections": True}):
+            with self.assertRaises(TypeError):
+                node.getConnections(**removed)
         self.assertEqual(
             self._key(node.getConnections(t="joint", et=True, skipConversionNodes=True)),
             self._key(node.getConnections(type="joint", exactType=True, skipConversionNodes=True)),
@@ -1318,10 +1318,10 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
                 if definition.dynamic and (include_children or definition.parent.isNull()):
                     expected.append(definition.name)
             with self.subTest(include_children=include_children):
-                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
-                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=include_children)], expected)
+                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=include_children)], expected)
+                self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=include_children)], expected)
                 self.assertNotIn(self.extension, expected)
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["dynM", "dynV", "late"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["dynM", "dynV", "late"])
 
     def test_container_membership_and_namespace_nodes(self):
         from mlib.common.namespace import Namespace
@@ -1346,7 +1346,7 @@ class ConnectionHistoryAttrListTest(unittest.TestCase):
         cmds.undo()
         self.assertEqual(len(cont.getMembers()), 3)
         for recurse in (False, True):
-            nodes = Namespace(":" + ns).getNodes(recurse=recurse)
+            nodes = Namespace(":" + ns).getNodes(allDescendents=recurse)
             objects = om2.MNamespace.getNamespaceObjects(":" + ns, recurse)
             with self.subTest(recurse=recurse):
                 self.assertEqual([(type(n), n.getName(full=True)) for n in nodes], [(type(Node(o)), Node(o).getName(full=True)) for o in objects])

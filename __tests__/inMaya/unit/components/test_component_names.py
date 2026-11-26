@@ -40,6 +40,22 @@ class ComponentNamesTest(NamespaceCase):
         pattern = cmds.listRelatives(cube, shapes=True, fullPath=True)[0] + ".vtx[0:1]"
         self.assertEqual(mlib.ls(pattern).getNames(), cmds.ls(pattern, flatten=True))
 
+    def test_remove_namespace(self):
+        """removeNamespace=True はシェイプの部分の名前空間を除き、fullとは同時に指定できない。"""
+        cube = cmds.polyCube(name=self.name("nsCube"), constructionHistory=False)[0]
+        vertices = mlib.ls(cube + ".vtx[0:1]")
+        short = cube.rsplit(":", 1)[-1]
+        self.assertEqual(vertices.getNames(removeNamespace=True), [short + ".vtx[0]", short + ".vtx[1]"])
+        self.assertEqual(vertices.getNames(compact=True, removeNamespace=True), [short + ".vtx[0:1]"])
+        self.assertEqual(vertices[1].getName(removeNamespace=True), short + ".vtx[1]")
+        for target in (vertices, vertices[0]):
+            method = target.getNames if target is vertices else target.getName
+            with self.subTest(target=type(target).__name__):
+                with self.assertRaises(TypeError):
+                    method(full=True, removeNamespace=True)
+                with self.assertRaises(TypeError):
+                    method(removeNamespace=1)
+
 
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

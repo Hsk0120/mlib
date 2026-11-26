@@ -32,6 +32,8 @@ _TRANSFORMATION_VECTORS = {
     "inverseScale": (1.0, 1.0, 1.0),
 }
 _TRANSFORMATION_ANGLES = frozenset(("rotate", "rotateAxis", "jointOrient"))
+#: JSONの成分の名前と違う名前の、Transformationのプロパティ(om2の同じ名前のメソッドを避けた名前)。
+_TRANSFORMATION_PROPERTIES = {"scale": "scaleValue", "shear": "shearValue", "rotatePivot": "rotatePivotValue", "scalePivot": "scalePivotValue"}
 
 
 def _encode(value):
@@ -183,7 +185,7 @@ def _encode_transformation(value):
     rotate = source.rotate
     result = {"rotateOrder": rotate.orderName}
     for name, default in _TRANSFORMATION_VECTORS.items():
-        item = getattr(source, name)
+        item = getattr(source, _TRANSFORMATION_PROPERTIES.get(name, name))
         if name == "rotate":
             items = tuple(rotate.asDegrees())
         elif name in _TRANSFORMATION_ANGLES:

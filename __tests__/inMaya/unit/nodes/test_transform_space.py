@@ -439,7 +439,7 @@ class ReplacementTest(_SpecCase):
         joint = cmds.createNode("joint", name=self.name("joint#"), skipSelect=True)
         cmds.setAttr(joint + ".jointOrient", 10.0, 20.0, 30.0)
         cmds.setAttr(joint + ".rotate", 40.0, 50.0, 60.0)
-        quaternion = Node(joint).getQuaternion(r=False)
+        quaternion = Node(joint).getQuaternion(rotate=False)
         expected = om2.MEulerRotation(*(math.radians(v) for v in (10.0, 20.0, 30.0))).asQuaternion()
         self.assertSequenceAlmostEqual(quaternion, (expected.x, expected.y, expected.z, expected.w))
 

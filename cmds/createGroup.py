@@ -7,11 +7,11 @@ from ..decorator import _pick_alias, _require_bool, preservedSelection, undoTran
 from ..util import _UNSET
 
 
-def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET, w=_UNSET):
+def createGroup(nodes=(), *, name=_UNSET, parent=None, world=_UNSET, n=_UNSET, w=_UNSET):
     """子を入れたグループを作り、グループのTransformを返す。
 
-    - childrenを省略すると、ワールド(またはparent)の直下に空のグループを作る(``cmds.group(empty=True)``)。
-    - childrenを渡し、parentもworldも指定しなければ、Mayaと同じく子に共通する親の下に作る。
+    - nodesを省略すると、ワールド(またはparent)の直下に空のグループを作る(``cmds.group(empty=True)``)。
+    - nodesを渡し、parentもworldも指定しなければ、Mayaと同じく子に共通する親の下に作る。
 
     子はワールドでの姿勢を保ったまま移し、グループのピボットはMayaと同じく、子のバウンディングボックスの中心に置く。
     現在の選択は変えない。fast引数は無い(OpenMayaで作っても効果がほぼ無いため)。Undoが有効なら1回で戻せる。
@@ -19,7 +19,7 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
     parentの短縮名は無い。
 
     Args:
-        children (Iterable[Node | str] | Node | str): グループに入れるtransform。1つならそのまま渡せる。既定は空。
+        nodes (Iterable[Node | str] | Node | str): グループに入れるtransform。1つならそのまま渡せる。既定は空。
         name (str | None): グループに付けたい名前。NoneならMayaの既定の名前(``group1`` など)。既定はNone。
         parent (Node | str | None): グループの親のtransform。Noneなら指定しない。
         world (bool): Trueならワールド直下に作る。parentとは同時に指定できない。既定はFalse。
@@ -31,7 +31,7 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
 
     Raises:
         TypeError: 長い名前と短縮名を同時に指定した場合、nameが文字列でもNoneでもない場合、
-            worldがboolでない場合、childrenの要素やparentがtransformでない場合、または対応していない型の場合。
+            worldがboolでない場合、nodesの要素やparentがtransformでない場合、または対応していない型の場合。
         ValueError: nameが空文字列か ``|`` を含む場合、parentとworld=Trueを同時に指定した場合、
             または同じ子を2回渡した場合。
         RuntimeError: 子や親が名前から見つからないか無効な場合や、親が子の子孫の場合など、
@@ -57,19 +57,19 @@ def createGroup(children=(), name=_UNSET, parent=None, *, world=_UNSET, n=_UNSET
     _require_bool(world, "world")
     if world and parent is not None:
         raise ValueError("parentとworld=Trueは同時に指定できません")
-    if isinstance(children, (str, Node)):
-        children = [children]
-    nodes = []
-    for child in children:
-        node = Node._resolve_input(child)
+    if isinstance(nodes, (str, Node)):
+        nodes = [nodes]
+    members = []
+    for item in nodes:
+        node = Node._resolve_input(item)
         if not node.isValid():
-            raise RuntimeError("childが有効なノードではありません")
+            raise RuntimeError("nodesの要素が有効なノードではありません")
         if not isinstance(node, Transform):
-            raise TypeError(f"childはtransformで指定してください: {node._full_name()}")
-        nodes.append(node)
-    paths = [node._full_name() for node in nodes]
+            raise TypeError(f"nodesの要素はtransformで指定してください: {node._full_name()}")
+        members.append(node)
+    paths = [node._full_name() for node in members]
     if len(set(paths)) != len(paths):
-        raise ValueError("childrenに同じノードを2回指定できません")
+        raise ValueError("nodesに同じノードを2回指定できません")
     parent_node = resolve_parent(parent)
     flags = {}
     if name:

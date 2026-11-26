@@ -11,7 +11,7 @@ from mlib.nodes.dagPose import DagPose
 from mlib.nodes.node import Node
 
 
-def createDagPose(members: Node | str | Iterable[Node | str], name: str | None = ..., bindPose: bool = ..., hierarchy: bool = ..., *, n: str | None = ..., bp: bool = ...) -> DagPose:
+def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | None = ..., bindPose: bool = ..., hierarchy: bool = ..., n: str | None = ..., bp: bool = ...) -> DagPose:
     """現在の姿勢を新しいポーズに保存する。
 
     選択状態は使わない。対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。

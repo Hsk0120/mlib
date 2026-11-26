@@ -71,7 +71,7 @@ class DuplicateShortNameTest(_InteropCase):
 
     def test_plugs_resolve_with_unique_names(self):
         dup1, dup2 = self.duplicates()
-        self.assertEqual(dup1.getName(node=True), dup2.getName(node=True))
+        self.assertEqual(dup1.getName(short=True), dup2.getName(short=True))
         expected = {"tx": ("DoubleLinearPlug", "translateX"), "t": ("Double3Plug", "translate"), "v": ("BoolPlug", "visibility")}
         for attribute, (class_name, longName) in expected.items():
             with self.subTest(attribute=attribute):
@@ -560,7 +560,7 @@ class NodeArgumentRulesTest(_InteropCase):
         other = self.create("transform", "other")
         geometry = other.addConstraint(mesh.getName() + ".vtx[0]", "geometry")
         self.assertEqual([node.getName(full=True) for node in geometry.getTargets()], [mesh.getTransform().getName(full=True)])
-        for source, error in ((dup1.getName(node=True), RuntimeError), (self.ns("missing"), RuntimeError), ("", TypeError), (None, TypeError)):
+        for source, error in ((dup1.getName(short=True), RuntimeError), (self.ns("missing"), RuntimeError), ("", TypeError), (None, TypeError)):
             with self.subTest(source=source):
                 with self.assertRaises(error):
                     mlib.getNode(target).addConstraint(source, type="point")
@@ -580,7 +580,7 @@ class NodeArgumentRulesTest(_InteropCase):
         _, mesh = self.cube()
         self.duplicate_cubes()
         # 同名ノードがあるとプラグ名・コンポーネント名も複数に一致し、最初の一致を黙って返さない。
-        for name in (dup1.getName(node=True) + ".tx", dup1.getName(node=True), self.ns("cbShape.vtx[0]"), self.ns("cb.worldMatrix[0]")):
+        for name in (dup1.getName(short=True) + ".tx", dup1.getName(short=True), self.ns("cbShape.vtx[0]"), self.ns("cb.worldMatrix[0]")):
             with self.subTest(name=name):
                 self.assertEqual(len(cmds.ls(name)), 2)
                 with self.assertRaises(RuntimeError) as context:
@@ -891,7 +891,7 @@ class PlugCreationSideEffectTest(_InteropCase):
 
         cmds.setAttr(source.getPlug("tx"), 5.0)
         before = count()
-        destinations = middle.getPlug("rx").getConnections(outputs=True)
+        destinations = middle.getPlug("rx").getConnections(output=True)
         element = choice.getPlug("input[0]")
         self.assertEqual(count(), before)
         self.assertIs(type(element), Plug)
@@ -1239,7 +1239,7 @@ class PlugValidityTest(_InteropCase):
                     plug.getParent,
                     lambda: plug.getParent(all=True),
                     lambda: plug.getConnections(input=True),
-                    lambda: plug.getConnections(outputs=True),
+                    lambda: plug.getConnections(output=True),
                     plug.get,
                     lambda: plug.connectTo(self.create("transform", "x").getPlug("tx")),
                 ]
@@ -1396,10 +1396,10 @@ class CommandEdgeCaseTest(_InteropCase):
 
     def test_objExists_matches_maya_cmds_for_strings(self):
         dup1, _ = self.duplicates()
-        for name in (dup1.getName(node=True), dup1.getName(node=True) + ".tx", self.ns("missing"), dup1.getName()):
+        for name in (dup1.getName(short=True), dup1.getName(short=True) + ".tx", self.ns("missing"), dup1.getName()):
             with self.subTest(name=name):
                 self.assertEqual(cmds.objExists(name), bool(cmds.objExists(name)))
-        self.assertTrue(cmds.objExists(dup1.getName(node=True)))
+        self.assertTrue(cmds.objExists(dup1.getName(short=True)))
 
     def test_drivenKey_accepts_plug_name_strings(self):
         from mlib.plugs.plug import Plug
@@ -1426,7 +1426,7 @@ class CommandEdgeCaseTest(_InteropCase):
                 relation = mlib.DrivenKey(dup1.getPlug("tx"), driven)
                 self.assertEqual(relation.getDrivenPlug().getName(full=True), Plug._resolve_input(driven).getName(full=True))
         with self.assertRaises(RuntimeError):
-            mlib.DrivenKey(dup1.getName(node=True) + ".tx", dup2.getPlug("tz"))  # 2つの dup に一致する
+            mlib.DrivenKey(dup1.getName(short=True) + ".tx", dup2.getPlug("tz"))  # 2つの dup に一致する
         with self.assertRaises(TypeError):
             mlib.DrivenKey(driver.getName(), dup2.getPlug("tz"))
 

@@ -101,8 +101,14 @@ class GeometrySkinQueriesTest(unittest.TestCase):
         instance = mlib.getNode(cmds.instance(geometry.getName(full=True), name=self.ns + ":instance")[0])
         self.assertEqual(instance.getSkinClusters(), [skin])
         self.assertEqual(instance.getShape().getSkinClusters(), [skin])
-        self.assertEqual(mlib.getNode(self.joint).getSkinClusters(), [skin])
-        self.assertEqual(mlib.getNode(self.joint).getBindPoses(), [skin.getBindPose()])
+        self.assertEqual(mlib.getNode(self.joint).getSkinClusters(influence=True), [skin])
+        self.assertEqual(mlib.getNode(self.joint).getBindPoses(influence=True), [skin.getBindPose()])
+        # 既定(influence=False)は形状を変形しているもの。Shapeの無いジョイントでは空、形状をインフルエンス側で探すと空。
+        self.assertEqual(mlib.getNode(self.joint).getSkinClusters(), [])
+        self.assertEqual(geometry.getSkinClusters(influence=True), [])
+        self.assertEqual(geometry.getShape().getSkinClusters(influence=True), [])
+        with self.assertRaises(TypeError):
+            geometry.getSkinClusters(influence=1)
 
 
 if __name__ == "__main__":

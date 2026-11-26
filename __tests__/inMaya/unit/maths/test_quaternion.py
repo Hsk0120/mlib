@@ -278,35 +278,37 @@ class QuaternionTest(_Case):
 
     def test_roll_bend_single_axis(self):
         rx = Quaternion.fromAxisAngle((1, 0, 0), 40, unit="deg")
-        self.assertSequenceAlmostEqual(rx.asRollBend(), (40.0, 0.0, 0.0))
+        self.assertSequenceAlmostEqual(rx.asRollBend(unit="deg"), (40.0, 0.0, 0.0))
         ry = Quaternion.fromAxisAngle((0, 1, 0), 30, unit="deg")
-        self.assertSequenceAlmostEqual(ry.asRollBend(), (0.0, 30.0, 0.0))
+        self.assertSequenceAlmostEqual(ry.asRollBend(unit="deg"), (0.0, 30.0, 0.0))
         rz = Quaternion.fromAxisAngle((0, 0, 1), -50, unit="deg")
-        self.assertSequenceAlmostEqual(rz.asRollBend(), (0.0, 0.0, -50.0))
-        self.assertSequenceAlmostEqual(rz.asRollBend(unit="rad"), (0.0, 0.0, math.radians(-50)))
+        self.assertSequenceAlmostEqual(rz.asRollBend(unit="deg"), (0.0, 0.0, -50.0))
+        # 既定の単位はラジアン(数学型の生成の決まり)。
+        self.assertSequenceAlmostEqual(rz.asRollBend(), (0.0, 0.0, math.radians(-50)))
+        self.assertSequenceAlmostEqual(Quaternion.fromRollBend(0.0, 0.0, math.radians(-50)).asRollBend(unit="deg"), (0.0, 0.0, -50.0))
         # aimAxis="y"・upAxis="z": 横の軸は x。
-        self.assertSequenceAlmostEqual(rx.asRollBend(aimAxis="y", upAxis="z"), (0.0, 0.0, 40.0))
+        self.assertSequenceAlmostEqual(rx.asRollBend(aimAxis="y", upAxis="z", unit="deg"), (0.0, 0.0, 40.0))
 
     def test_roll_bend_round_trip(self):
         for aim, up in (("x", "y"), ("-y", "x"), ("z", "-x")):
             for angles in ((10.0, 20.0, -30.0), (-170.0, 60.0, 45.0), (0.0, -80.0, 10.0)):
                 with self.subTest(aim=aim, up=up, angles=angles):
-                    q = Quaternion.fromRollBend(*angles, aimAxis=aim, upAxis=up)
+                    q = Quaternion.fromRollBend(*angles, aimAxis=aim, upAxis=up, unit="deg")
                     self.assertAlmostEqual(q.length(), 1.0)
-                    self.assertSequenceAlmostEqual(q.asRollBend(aimAxis=aim, upAxis=up), angles, places=6)
+                    self.assertSequenceAlmostEqual(q.asRollBend(aimAxis=aim, upAxis=up, unit="deg"), angles, places=6)
                     # 捻り(aim周り)を先に適用し、続けて曲げる。aimの行き先は捻りによらない。
                     aim_vector = Vector.fromAxis(aim)
                     bent = aim_vector.rotateBy(q)
-                    no_roll = Quaternion.fromRollBend(0.0, angles[1], angles[2], aimAxis=aim, upAxis=up)
+                    no_roll = Quaternion.fromRollBend(0.0, angles[1], angles[2], aimAxis=aim, upAxis=up, unit="deg")
                     self.assertVectorAlmostEqual(bent, aim_vector.rotateBy(no_roll))
-        self.assertIsInstance(Quaternion.fromRollBend(0, 0, 0), Quaternion)
+        self.assertIsInstance(Quaternion.fromRollBend(0, 0, 0, unit="deg"), Quaternion)
         for call, error in (
-            (lambda: Quaternion().asRollBend(aimAxis="x", upAxis="-x"), ValueError),
-            (lambda: Quaternion().asRollBend(aimAxis="w"), ValueError),
-            (lambda: Quaternion().asRollBend(aimAxis=1), TypeError),
-            (lambda: Quaternion(0, 0, 0, 0).asRollBend(), ValueError),
-            (lambda: Quaternion.fromRollBend("1", 0, 0), TypeError),
-            (lambda: Quaternion.fromRollBend(0, float("inf"), 0), ValueError),
+            (lambda: Quaternion().asRollBend(aimAxis="x", upAxis="-x", unit="deg"), ValueError),
+            (lambda: Quaternion().asRollBend(aimAxis="w", unit="deg"), ValueError),
+            (lambda: Quaternion().asRollBend(aimAxis=1, unit="deg"), TypeError),
+            (lambda: Quaternion(0, 0, 0, 0).asRollBend(unit="deg"), ValueError),
+            (lambda: Quaternion.fromRollBend("1", 0, 0, unit="deg"), TypeError),
+            (lambda: Quaternion.fromRollBend(0, float("inf"), 0, unit="deg"), ValueError),
             (lambda: Quaternion().asRollBend(unit="sec"), ValueError),
         ):
             with self.subTest(error=error):
@@ -350,12 +352,12 @@ class QuaternionBoundaryTest(unittest.TestCase):
             for aim, up, axis in (("x", "y", om2.MVector(1, 0, 0)), ("-z", "x", om2.MVector(0, 0, -1))):
                 with self.subTest(degrees=degrees, aim=aim):
                     value = Quaternion(math.radians(degrees), axis)
-                    roll, bend_h, bend_v = value.asRollBend(aimAxis=aim, upAxis=up)
+                    roll, bend_h, bend_v = value.asRollBend(aimAxis=aim, upAxis=up, unit="deg")
                     expected = math.degrees(math.remainder(math.radians(degrees), 2 * math.pi))
                     self.assertAlmostEqual(roll, expected, places=9)
                     self.assertAlmostEqual(bend_h, 0.0, places=9)
                     self.assertAlmostEqual(bend_v, 0.0, places=9)
-                    back = Quaternion.fromRollBend(roll, bend_h, bend_v, aimAxis=aim, upAxis=up)
+                    back = Quaternion.fromRollBend(roll, bend_h, bend_v, aimAxis=aim, upAxis=up, unit="deg")
                     self.assertTrue(back.asMatrix().isEquivalent(value.asMatrix(), 1e-9))
 
 

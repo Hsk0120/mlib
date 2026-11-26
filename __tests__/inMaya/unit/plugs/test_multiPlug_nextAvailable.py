@@ -1,4 +1,4 @@
-"""MultiPlug.getNextAvailable(start, checkLocked, checkChildren, *, vacant=False) の約束を固定する。
+"""MultiPlug.getNextAvailable(start, *, checkLocked, checkChildren, vacant=False) の約束を固定する。
 
 戻り値は常に要素のPlugで、番号は ``getIndex()`` で取る(``asPlug`` 引数は無い)。
 

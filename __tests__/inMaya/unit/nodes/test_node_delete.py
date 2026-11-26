@@ -87,6 +87,17 @@ class NodeDeleteTest(unittest.TestCase):
         finally:
             cmds.lockNode(node.getName(full=True), lock=False)
 
+    def test_joint_arguments_are_accepted_by_every_node(self):
+        """removeInfluence・transferToParent・repairはNode.deleteにもあり、Joint以外では型だけを確かめて削除する。"""
+        for flags in ({"removeInfluence": 1}, {"transferToParent": None}, {"repair": "yes"}):
+            node = mlib.createNode("transform", skipSelect=True)
+            with self.subTest(flags=flags), self.assertRaises(TypeError):
+                node.delete(**flags)
+            self.assertTrue(node.isValid())
+        node = mlib.createNode("transform", skipSelect=True)
+        node.delete(removeInfluence=False, transferToParent=False, repair=True)
+        self.assertFalse(node.isValid())
+
     def test_joint_command_uses_standard_delete(self):
         joint = mlib.createNode("joint", skipSelect=True)
         child = mlib.createNode("joint", parent=joint, skipSelect=True)

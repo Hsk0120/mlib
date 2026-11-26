@@ -100,9 +100,9 @@ class AnimCurveTest(_RemainingCase):
         def state():
             return (cmds.keyframe(name, query=True, valueChange=True), cmds.keyframe(name, query=True, breakdown=True))
 
-        for args in ((0, 1), (None, True)):
-            with self.subTest(args=args):
-                self.assertFails(TypeError, curve.setBreakdown, *args, state=state)
+        for indices in (0, [0, 1]):
+            with self.subTest(indices=indices):
+                self.assertFails(TypeError, curve.getKeyframes(indices).setBreakdown, 1, state=state)
 
 
 class BlendShapeTest(_RemainingCase):
@@ -273,11 +273,11 @@ class MeshTest(_RemainingCase):
             (TypeError, "getShells", (), {"uv": True, "uvSet": 1}),
             (ValueError, "getShells", (), {"uv": True, "uvSet": ""}),
             (ValueError, "getShells", (), {"uv": True, "uvSet": "nope"}),
-            (TypeError, "copySet", (1, "copied"), {"color": True}),
-            (TypeError, "copySet", (current, 1), {"color": True}),
-            (ValueError, "copySet", (current, ""), {"color": True}),
-            (ValueError, "copySet", ("nope", "copied"), {"color": True}),
-            (ValueError, "copySet", (current, current), {"color": True}),
+            (TypeError, "copySet", (1, "copied"), {"kind": "color"}),
+            (TypeError, "copySet", (current, 1), {"kind": "color"}),
+            (ValueError, "copySet", (current, ""), {"kind": "color"}),
+            (ValueError, "copySet", ("nope", "copied"), {"kind": "color"}),
+            (ValueError, "copySet", (current, current), {"kind": "color"}),
         )
         for error, method, args, flags in cases:
             with self.subTest(method=method, args=args, flags=flags):
@@ -509,13 +509,13 @@ class TransformTest(_RemainingCase):
             (ValueError, "setScale", ((1, 2),), {"relative": True}),
             (ValueError, "setScale", ((1, nan, 1),), {"relative": True}),
             (ValueError, "setScale", (nan,), {"relative": True}),
-            (ValueError, "getQuaternion", (), {"ra": True, "r": False, "jo": True}),
-            (ValueError, "getQuaternion", (), {"worldSpace": True, "ra": True, "r": False}),
+            (ValueError, "getQuaternion", (), {"rotateAxis": True, "rotate": False, "jointOrient": True}),
+            (ValueError, "getQuaternion", (), {"worldSpace": True, "rotateAxis": True, "rotate": False}),
             (ValueError, "setQuaternion", ((0, 0, 0),), {}),
             (ValueError, "setQuaternion", ((0, 0, nan, 1),), {}),
-            (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"worldSpace": True, "jo": False}),
+            (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"worldSpace": True, "jointOrient": False}),
             (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"preserve": True}),
-            (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"rotateAxis": True, "r": False, "preserve": True, "safe": True}),
+            (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"rotateAxis": True, "rotate": False, "preserve": True, "safe": True}),
             (TypeError, "getClosestAxisToVector", ("abc",), {}),
             (TypeError, "getClosestAxisToVector", ((1, 0, 0), 1), {}),
         )

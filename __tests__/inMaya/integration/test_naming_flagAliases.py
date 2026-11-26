@@ -95,8 +95,8 @@ class FlagAliasesTest(unittest.TestCase):
         """False/Noneの重複と必須値欠落も、Undoや書込みを開始する前に拒否する。"""
         node = mlib.createNode("transform")
         curve = mlib.createNode("animCurveTL")
-        curve.setKey(1.0, 2.0)
-        attempts = (lambda: node.addAttr(longName="value", ln="value"), lambda: curve.removeKey())
+        curve.addKey(1.0, 2.0)
+        attempts = (lambda: node.addAttr(longName="value", ln="value"), lambda: curve.addKey())
         with patch.object(cmds, "undoInfo", side_effect=AssertionError("Undo must not start")):
             for operation in attempts:
                 with self.assertRaises(TypeError):
@@ -110,9 +110,9 @@ class FlagAliasesTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             mlib.ls(assemblies=False, **{"as": False})
         curve = mlib.createNode("animCurveTL")
-        curve.setKey(1.0, 2.0)
-        curve.setKey(3.0, 4.0)
-        self.assertIsNone(curve.removeKey(index=0, fast=True))
+        curve.addKey(1.0, 2.0)
+        curve.addKey(3.0, 4.0)
+        self.assertIsNone(curve.getKeyframes(0).delete(fast=True))
         self.assertEqual(curve.getKeyCount(), 1)
 
 

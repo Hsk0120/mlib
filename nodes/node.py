@@ -227,7 +227,7 @@ def _require_node_name(name):
         ValueError: DAGパスの区切り ``|`` を含む場合。
     """
     if isinstance(name, str) and "|" in name:
-        raise ValueError(f"ノード名に'|'は使えません(Mayaが黙って置き換えます): {name!r}。getName(node=True)の結果のように、ノード名だけを渡してください")
+        raise ValueError(f"ノード名に'|'は使えません(Mayaが黙って置き換えます): {name!r}。getName(short=True)の結果のように、ノード名だけを渡してください")
 
 
 def _is_deleted_api_object(value):
@@ -332,7 +332,7 @@ def _dump_movable_attr(plug):
     }
     source = plug.getConnections(input=True)
     info["source"] = _movable_connection_ref(source) if source is not None else None
-    info["destinations"] = [_movable_connection_ref(target) for target in plug.getConnections(outputs=True)]
+    info["destinations"] = [_movable_connection_ref(target) for target in plug.getConnections(output=True)]
     if attr.hasFn(om2.MFn.kNumericAttribute):
         numeric_type = om2.MFnNumericAttribute(attr).numericType()
         type_name = _MOVABLE_NUMERIC_TYPES.get(numeric_type)
@@ -569,6 +569,29 @@ def _attribute_names(attributes):
     return names
 
 
+def _pick_short(long, short, default, long_name, short_name):
+    """長い名前(既定値あり)と短縮名(既定は ``_UNSET``)から、指定された方の値を選ぶ。
+
+    Args:
+        long (object): 長い名前の引数の値。
+        short (object): 短縮名の引数の値。指定されていなければ ``_UNSET``。
+        default (object): 長い名前の既定値。これと違えば、長い名前が指定されたとみなす。
+        long_name (str): 長い名前の引数名。例外メッセージに使う。
+        short_name (str): 短縮名の引数名。例外メッセージに使う。
+
+    Returns:
+        object: 指定された値。どちらも指定されていなければ長い名前の既定値。
+
+    Raises:
+        TypeError: 長い名前と短縮名を同時に指定した場合。
+    """
+    if short is _UNSET:
+        return long
+    if long is not default and long != default:
+        raise _ArgumentError(f"'{long_name}'と'{short_name}'は同時に指定できません")
+    return short
+
+
 class Node(Object):
     """Mayaのノードを扱うクラス。
 
@@ -795,14 +818,14 @@ class Node(Object):
         plug.set(value)
 
     @staticmethod
-    def setDgTimingEnabled(state):
+    def setDgTimingEnabled(state=True):
         """Maya全体のDG時間計測を有効・無効にする。
 
         個々のノードの計測の開始・停止(:meth:`setDgTimer`)とは別の、全体の設定。診断操作のためUndoには記録されない。
         計測結果のリセットやUndo設定の変更は行わない。fast引数は持たない(診断設定のため)。
 
         Args:
-            state (bool): Trueなら全体の計測を有効にする。
+            state (bool): Trueなら全体の計測を有効にする。Falseなら無効にする。既定はTrue。
 
         Returns:
             None: 値を返さない。
@@ -814,12 +837,14 @@ class Node(Object):
         om1.MFnDependencyNode.enableDGTiming(state)
 
     def getShadingEngines(self):
-        """このノードから直接つながっているShadingEngineを取得する。
+        """このノードが使っているShadingEngineを取得する。
 
+        このクラスでは、このノードから直接つながっているShadingEngineを返す。
+        派生クラスは、対象を型に合わせて置き換える(Transformは直下のShape、Meshはフェースの割り当て)。
         同じものは1回だけ含む。
 
         Returns:
-            Nodes[ShadingEngine]: 直接の接続先のShadingEngine。テクスチャからヒストリをたどって探すものではない。
+            Nodes[ShadingEngine]: 使っているShadingEngine。テクスチャからヒストリをたどって探すものではない。
         """
         # 循環参照の回避: 同じパッケージ内で相互に参照するため、使う時点で読み込む。
         from .shadingEngine import ShadingEngine
@@ -877,37 +902,40 @@ class Node(Object):
         """
         return self._mobject
 
-    def getDgTimer(self, metric=None, *, timerType=0, callbacks=False, state=False):
-        """指定したDG処理の計測値を取得する。``callbacks=True`` はコールバックの種類別の値、``state=True`` は計測の状態。
+    def getDgTimer(self, metric=None, *, kind="metric", timerType=0):
+        """指定したDG処理の計測値を取得する。``kind="callbacks"`` はコールバックの種類別の値、``kind="state"`` は計測の状態。
 
         計測は開始せず、Mayaが持っている結果だけを返す。未計測の値は0になり得るため、0を処理が実行されていない証拠にはしない。
 
         Args:
-            metric (int | None): MFnDependencyNodeのkTimerMetric_*定数(0〜8)。callbacks・stateを指定しないときは必須。
-            timerType (int): kTimerType_self(0、既定)、inclusive(1)、count(2)。
-            callbacks (bool): Trueなら、コールバックの種類別の計測値を返す。metric・stateとは同時に指定できない。既定はFalse。
-            state (bool): Trueなら、このノードの計測の状態を返す。metric・callbacksとは同時に指定できない。既定はFalse。
+            metric (int | None): MFnDependencyNodeのkTimerMetric_*定数(0〜8)。``kind="metric"`` のときは必須、
+                ほかのkindでは指定できない。
+            kind (str): 返すものの種類。既定の ``"metric"`` はmetricの計測値、``"callbacks"`` はコールバックの種類別の計測値、
+                ``"state"`` はこのノードの計測の状態。
+            timerType (int): kTimerType_self(0、既定)、inclusive(1)、count(2)。``kind="state"`` では使わない。
 
         Returns:
             float | list[tuple[str, float]] | int: self・inclusiveなら秒、countなら回数を表す値。
-                callbacks=Trueなら、(コールバック名, 計測値)の新しいリスト(Mayaの列挙順)。
-                state=Trueなら、MFnDependencyNodeのkTimerOn・kTimerOff・kTimerUninitialized・kTimerInvalidState。
+                ``kind="callbacks"`` なら、(コールバック名, 計測値)の新しいリスト(Mayaの列挙順)。
+                ``kind="state"`` なら、MFnDependencyNodeのkTimerOn・kTimerOff・kTimerUninitialized・kTimerInvalidState。
 
         Raises:
-            TypeError: metric・timerTypeがintでない場合、callbacks・stateがboolでない場合、
-                metric・callbacks・stateのちょうど1つを指定していない場合。
-            ValueError: 定数が範囲外の場合。
+            TypeError: kindが文字列でない場合、metric・timerTypeがintでない場合、
+                ``kind="metric"`` でmetricを省いた場合、またはほかのkindでmetricを指定した場合。
+            ValueError: kindが対応していない名前の場合、または定数が範囲外の場合。
             RuntimeError: ノードが無効な場合。
         """
-        _require_bool(callbacks, "callbacks")
-        _require_bool(state, "state")
-        if (metric is not None) + callbacks + state != 1:
-            raise TypeError("metric・callbacks=True・state=Trueのどれか1つだけを指定してください")
-        if state:
+        if not isinstance(kind, str):
+            raise TypeError("kindは文字列で指定してください")
+        if kind not in ("metric", "callbacks", "state"):
+            raise ValueError(f"kindは'metric'・'callbacks'・'state'のどれかで指定してください: {kind!r}")
+        if (metric is not None) != (kind == "metric"):
+            raise TypeError("metricはkind='metric'のときだけ、必ず指定してください")
+        if kind == "state":
             self._require_valid("DG計測状態の取得")
             return self._dependency_fn().dgTimerQueryState()
         checks = [(timerType, "timerType", om2.MFnDependencyNode.kTimerTypes)]
-        if not callbacks:
+        if kind == "metric":
             checks.insert(0, (metric, "metric", om2.MFnDependencyNode.kTimerMetrics))
         for value, name, limit in checks:
             if type(value) is not int:
@@ -915,7 +943,7 @@ class Node(Object):
             if not 0 <= value < limit:
                 raise ValueError(f"{name}がDG計測定数の範囲外です")
         self._require_valid("DG計測結果の取得")
-        if callbacks:
+        if kind == "callbacks":
             names, values = self._dependency_fn().dgCallbacks(timerType)
             return list(zip(names, values))
         return self._dependency_fn().dgTimer(metric, timerType)
@@ -1050,7 +1078,7 @@ class Node(Object):
         self._require_valid("分類の照会")
         return bool(cmds.getClassification(self.getType(), satisfies=classification))
 
-    def isType(self, nodeType):
+    def isType(self, type):
         """このノードの型が、指定した型そのものか、その派生の型か調べる。
 
         ``cmds.nodeType(inherited=True)`` が返す継承の並びで判定する。たとえばmeshノードは
@@ -1058,19 +1086,19 @@ class Node(Object):
         (``isType("multDoubleLinear")`` と ``isType("multDL")``)。
 
         Args:
-            nodeType (str): 調べるMayaのノードの型の名前。
+            type (str): 調べるMayaのノードの型の名前。
 
         Returns:
-            bool: 継承の並びにnodeTypeが含まれていればTrue。
+            bool: 継承の並びにtypeが含まれていればTrue。
 
         Raises:
-            ValueError: nodeTypeが空文字列か、文字列以外の場合。
+            ValueError: typeが空文字列か、文字列以外の場合。
         """
-        if not isinstance(nodeType, str) or not nodeType:
-            raise ValueError("nodeTypeは空でない文字列で指定してください")
+        if not isinstance(type, str) or not type:
+            raise ValueError("typeは空でない文字列で指定してください")
         if not self.isValid():
             return False
-        return _real_node_type(nodeType) in _inherited_node_types(self._alive_fn().typeName)
+        return _real_node_type(type) in _inherited_node_types(self._alive_fn().typeName)
 
     def isLocked(self):
         """ノードそのものがロックされているか調べる。
@@ -1267,7 +1295,7 @@ class Node(Object):
         # 循環回避のためここで遅延 import する(mlib で意図的な相互依存の一つ)。
         from ..common import Namespace
 
-        node_name = self.getName(node=True)
+        node_name = self.getName(short=True)
         if ":" not in node_name:
             return Namespace(":")
         return Namespace(node_name.rsplit(":", 1)[0])
@@ -1282,7 +1310,7 @@ class Node(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
-            None: 値を返さない。ネームスペース付きの名前は ``getName(node=True)`` で取得する。
+            None: 値を返さない。ネームスペース付きの名前は ``getName(short=True)`` で取得する。
 
         Raises:
             ValueError: namespaceが空文字列か、文字列でない場合。
@@ -1305,15 +1333,16 @@ class Node(Object):
                 else:
                     target_namespace = Namespace.create(target_namespace)
             namespace_name = target_namespace.name
-            node_name = self.getName(node=True, removeNamespace=True)
+            node_name = self.getName(short=True, removeNamespace=True)
             new_name = f"{namespace_name}:{node_name}" if namespace_name != ":" else node_name
             self.rename(new_name, fast=fast)
 
-    def delete(self, *, skipConnected=False, fast=False):
+    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
         """このノードを、Mayaの標準の決まりで削除する。
 
         DAGの子も削除する。1回のUndoで戻せる。
-        派生クラスは、このメソッドを上書きして専用の削除処理を書ける。
+        removeInfluence・transferToParent・repairは、Jointの削除(:meth:`Joint.delete <mlib.nodes.joint.Joint.delete>`)で
+        スキンのインフルエンスから外す方法を選ぶ引数。Joint以外では型だけを確かめ、働きは無い。
 
         削除の前に、自身とDAGの子孫を調べる。次のノードが含まれていれば、何も削除せずにRuntimeErrorにする。
 
@@ -1330,17 +1359,23 @@ class Node(Object):
                 入力・出力・message・セットやマテリアルの接続をすべて含む。
                 Falseならふつうに削除する。ロックの解除や、例外を抑えることはしない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            removeInfluence (bool): Jointでは、Falseならインフルエンスから外さない。Joint以外では働きは無い。既定はTrue。
+            transferToParent (bool): Jointでは、Falseならウェイトを祖先へ移さない。Joint以外では働きは無い。既定はTrue。
+            repair (bool): Jointでは、Trueなら不正なウェイトを直してから外す。Joint以外では働きは無い。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: skipConnectedがboolでない場合。
+            TypeError: skipConnected・removeInfluence・transferToParent・repairがboolでない場合。
             RuntimeError: 対象が無効な場合、ロック・リファレンス・削除できないノードを含む場合、
                 またはMayaが削除を拒否した場合。
         """
         with _edit_context("mlibNodeDelete", fast):
             _require_bool(skipConnected, "skipConnected")
+            _require_bool(removeInfluence, "removeInfluence")
+            _require_bool(transferToParent, "transferToParent")
+            _require_bool(repair, "repair")
             self._require_valid("削除")
             if skipConnected and self._has_delete_connections():
                 return
@@ -1352,7 +1387,7 @@ class Node(Object):
     def rename(self, name, ignoreShape=False, *, fast=False):
         """ノード名を変更する。
 
-        名前が重なったときの連番など、Mayaが直した後の名前は、戻り値の ``getName(node=True)`` で取得する。
+        名前が重なったときの連番など、Mayaが直した後の名前は、戻り値の ``getName(short=True)`` で取得する。
 
         Args:
             name (str): 新しいノード名。DAGパスの区切りの ``|`` は含められない
@@ -1449,15 +1484,13 @@ class Node(Object):
     def getConnections(
         self,
         *,
-        s=True,
-        d=True,
-        c=False,
-        t=None,
-        et=False,
-        scn=False,
+        s=_UNSET,
+        d=_UNSET,
+        t=_UNSET,
+        et=_UNSET,
+        scn=_UNSET,
         source=True,
         destination=True,
-        connections=False,
         type=None,
         exactType=False,
         skipConversionNodes=False,
@@ -1474,16 +1507,18 @@ class Node(Object):
         と同じく、unitConversionの仲間
         (unitConversion・unitToTimeConversion・timeToUnitConversion)を飛ばして、その先を返す。
 
+        短縮名(``s``・``d``・``t``・``et``・``scn``)は ``cmds.listConnections`` のフラグと同じで、
+        同じフラグの長い名前と同時には指定できない。ペアで返す指定は ``asPair`` だけ
+        (``cmds.listConnections`` の ``connections``・``c`` は受けない)。
+
         Args:
-            s (bool): Trueなら入力を含める。sourceと両方Trueのときだけ含める。
-            d (bool): Trueなら出力を含める。destinationと両方Trueのときだけ含める。
-            c (bool): connectionsの短縮名。
+            s (bool): sourceの短縮名。
+            d (bool): destinationの短縮名。
             t (str | None): typeの短縮名。
             et (bool): exactTypeの短縮名。
-            scn (bool): skipConversionNodesの短縮名。skipConversionNodesとどちらかがTrueなら、変換ノードを飛ばす。
-            source (bool): Trueなら入力を含める。
-            destination (bool): Trueなら出力を含める。
-            connections (bool): Trueなら、自身の側と相手の側のペアで返す。
+            scn (bool): skipConversionNodesの短縮名。
+            source (bool): Trueなら入力を含める。既定はTrue。
+            destination (bool): Trueなら出力を含める。既定はTrue。
             type (str | None): 接続先のノードの型で絞る。
             exactType (bool): Trueなら、型の名前が完全に一致するものだけに絞る。
             skipConversionNodes (bool): 既定はFalseで、直接つながっている相手を返す(``cmds.listConnections`` と同じ)。
@@ -1494,14 +1529,22 @@ class Node(Object):
 
         Returns:
             Plugs | Nodes | list | Plug | Node | tuple | None: 条件に合う結果。
+
+        Raises:
+            TypeError: 同じフラグの長い名前と短縮名を同時に指定した場合。
         """
         # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
         from ..plugs.plug import Plug
 
+        source = _pick_short(source, s, True, "source", "s")
+        destination = _pick_short(destination, d, True, "destination", "d")
+        type = _pick_short(type, t, None, "type", "t")
+        exactType = _pick_short(exactType, et, False, "exactType", "et")
+        skipConversionNodes = _pick_short(skipConversionNodes, scn, False, "skipConversionNodes", "scn")
         pairs = []
-        as_pair = asPair or c or connections
-        skip_conversion = scn or skipConversionNodes
-        directions = [incoming for incoming, enabled in ((True, s and source), (False, d and destination)) if enabled]
+        as_pair = asPair
+        skip_conversion = skipConversionNodes
+        directions = [incoming for incoming, enabled in ((True, source), (False, destination)) if enabled]
 
         def collect(mplug, local):
             """Plug.getConnections(asPair=True, 子・要素の展開なし)と同じ順で直接の接続を集める。
@@ -1538,21 +1581,14 @@ class Node(Object):
                 # 派生クラスが接続の照会を上書きする場合は、その実装を通す(引数typeが組込みを隠すため__class__)。
                 pairs.extend(
                     local.getConnections(
-                        s=s,
-                        d=d,
-                        source=source,
-                        destination=destination,
-                        skipConversionNodes=skip_conversion,
-                        asPair=True,
-                        checkChildren=False,
-                        checkElements=False,
+                        source=source, destination=destination, skipConversionNodes=skip_conversion, asPair=True, checkChildren=False, checkElements=False
                     )
                 )
                 continue
             collect(local.mplug(), local)
-        return Plug._connection_results(pairs, type or t, exactType or et, as_pair, asNode, index)
+        return Plug._connection_results(pairs, type, exactType, as_pair, asNode, index)
 
-    def setKey(self, attributes=None, *, unit=None, timeUnit=None, uiUnits=False, **kwargs):
+    def setKey(self, attributes=None, *, unit=None, timeUnit="frame", uiUnits=False, **kwargs):
         """複数のアトリビュートへ、まとめてキーを設定する(``cmds.setKeyframe(node, attribute=[...])`` にあたる)。
 
         ``value`` / ``v`` は、:meth:`~mlib.plugs.plug.Plug.get` と同じ決まりの数値(角度は度、距離はcm)で受け取り、
@@ -1562,8 +1598,9 @@ class Node(Object):
         Args:
             attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーを設定できるすべてのアトリビュート
                 (``cmds.setKeyframe(node)`` と同じ)。
-            unit (str | None): 角度のvalueの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
-            timeUnit (str | None): ``time`` / ``t`` の数値の単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、
+            unit (str | None): 角度のvalueの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン
+                (uiUnits=Trueと同時に指定したかを見分けるため、既定はNone)。
+            timeUnit (str): ``time`` / ``t`` の数値の単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、
                 ``"sec"`` は秒(数値か、数値の並びだけを受け付ける)。
             uiUnits (bool): Trueなら、valueを今のUIの単位の数値で受け取る。既定はFalse。
             **kwargs: MayaのsetKeyframeのフラグ(``time``・``value``・``inTangentType`` など)。
@@ -1600,7 +1637,7 @@ class Node(Object):
                 flags["attribute"] = names
             cmds.setKeyframe(self._full_name(), **flags)
 
-    def removeKey(self, attributes=None, *, time=None, timeUnit=None):
+    def removeKey(self, attributes=None, *, time=None, timeUnit="frame"):
         """複数のアトリビュートのキーを削除する(``cmds.cutKey(node, attribute=[...], clear=True)`` にあたる)。
 
         キーのクリップボードは変えない。キーをすべて削除すると、Mayaと同じく、空になったカーブも削除される。
@@ -1609,7 +1646,7 @@ class Node(Object):
         Args:
             attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
             time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
-            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
+            timeUnit (str): timeの単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
             None: 値を返さない。キーが無ければ何もしない。
@@ -1632,7 +1669,7 @@ class Node(Object):
                 flags["attribute"] = names
             cmds.cutKey(self._full_name(), clear=True, **flags)
 
-    def moveKey(self, attributes=None, *, time=None, timeOffset=0, valueOffset=0, unit=None, timeUnit=None):
+    def moveKey(self, attributes=None, *, time=None, timeOffset=0, valueOffset=0, unit="deg", timeUnit="frame"):
         """複数のアトリビュートのキーの、時刻と値をずらす。
 
         1回のUndoで戻せる。値の換算はアトリビュートの種類(角度・距離)ごとに違うため、アトリビュートごとに
@@ -1644,8 +1681,8 @@ class Node(Object):
             time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲。Noneならすべてのキー。
             timeOffset (float): 時刻の移動量。
             valueOffset (float): 値の移動量(角度は度、距離はcm)。
-            unit (str | None): 角度のvalueOffsetの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン。
-            timeUnit (str | None): time・timeOffsetの単位。None(既定)と ``"frame"`` はフレーム、``"sec"`` は秒。
+            unit (str): 角度のvalueOffsetの単位。``"deg"`` (既定)は度、``"rad"`` はラジアン。
+            timeUnit (str): time・timeOffsetの単位。``"frame"`` (既定)はフレーム、``"sec"`` は秒。
 
         Returns:
             None: 値を返さない。
@@ -1666,7 +1703,7 @@ class Node(Object):
             for plug, plug_flags in flags:
                 _move_plug_keys(plug._full_name(), plug_flags)
 
-    def setKeyTangent(self, attributes=None, *, inTangentType=None, outTangentType=None, time=None, timeUnit=None):
+    def setKeyTangent(self, attributes=None, *, inTangentType=None, outTangentType=None, time=None, timeUnit="frame"):
         """複数のアトリビュートのキーの、接線の型をまとめて変える(``cmds.keyTangent(node, attribute=[...], edit=True)`` にあたる)。
 
         時刻か範囲で選んだキーをまとめて変える。Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。
@@ -1677,7 +1714,7 @@ class Node(Object):
             inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
             outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
             time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
-            timeUnit (str | None): timeの単位。None(既定)と ``"frame"`` は今のUIの時間単位のフレーム、``"sec"`` は秒。
+            timeUnit (str): timeの単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
             None: 値を返さない。キーが無ければ何もしない。
@@ -1903,7 +1940,7 @@ class Node(Object):
                 for plug in plugs:
                     plug.setFlags(locked=locked, keyable=keyable, channelBox=channelBox, children=children, fast=fast)
 
-    def getPlugs(self, userDefined=False, includeChildren=True, *, writable=False, animatable=False, **listAttrFlags):
+    def getPlugs(self, *, userDefined=False, children=True, writable=False, animatable=False, **listAttrFlags):
         """アトリビュートの一覧を、Plugのオブジェクトで取得する。
 
         - ``userDefined=True``: ユーザーが追加した(動的な)アトリビュートだけを、Mayaの定義から追加した順に、
@@ -1920,12 +1957,13 @@ class Node(Object):
         Args:
             userDefined (bool): Trueなら、ユーザー定義のアトリビュートだけを返す。listAttrのフラグとは同時に指定できない。
                 既定はFalse。
-            includeChildren (bool): Trueなら、コンパウンドアトリビュートの子も含める。Falseならトップレベルだけ。既定はTrue。
+            children (bool): Trueなら、コンパウンドアトリビュートの子も含める。Falseならトップレベルだけ。既定はTrue。
+                ``setAttrFlags(children=)`` と同じく、コンパウンドアトリビュートの子を対象にするかを選ぶ。
             writable (bool): Trueなら、今書き込めるものだけに絞る。書き込めるのは、ロックされておらず、
                 animCurve以外からの入力の接続が無いもの(親・子のロックと入力も見る)。
                 animCurveが直接つながったものは含める。既定はFalse。
             animatable (bool): Trueなら、``cmds.listAnimatable`` が返すアトリビュートを返す。既定はFalse。
-                ほかの引数(userDefined・includeChildren・writable・listAttrのフラグ)とは同時に指定できない。
+                ほかの引数(userDefined・children・writable・listAttrのフラグ)とは同時に指定できない。
             **listAttrFlags: ``userDefined=False`` のときに ``cmds.listAttr`` へ渡すフラグ。
 
         Returns:
@@ -1934,28 +1972,28 @@ class Node(Object):
                 名前が必要なら ``[plug.getAttributeName() for plug in ...]`` を使う。
 
         Raises:
-            TypeError: userDefined・includeChildren・writable・animatableがboolでない場合、
+            TypeError: userDefined・children・writable・animatableがboolでない場合、
                 userDefined=TrueとlistAttrのフラグを同時に指定した場合、
                 またはanimatable=Trueとほかの引数を同時に指定した場合。
             RuntimeError: ノードが無効な場合、listAttr・listAnimatableが失敗した場合、
-                またはuserDefined=TrueかつincludeChildren=Trueで、マルチアトリビュートである
+                またはuserDefined=Trueかつchildren=Trueで、マルチアトリビュートである
                 コンパウンドアトリビュートの子(番号を指定していないもの)が含まれる場合。
         """
         _require_bool(userDefined, "userDefined")
-        _require_bool(includeChildren, "includeChildren")
+        _require_bool(children, "children")
         _require_bool(writable, "writable")
         _require_bool(animatable, "animatable")
         # 循環参照の回避: plugsがnodesを参照するため、使う時点で読み込む。
         from ..plugs.plug import Plug, Plugs
 
         if animatable:
-            if userDefined or not includeChildren or writable or listAttrFlags:
-                raise TypeError("animatableは、ほかの引数(userDefined・includeChildren・writable・listAttrのフラグ)と同時に指定できません")
+            if userDefined or not children or writable or listAttrFlags:
+                raise TypeError("animatableは、ほかの引数(userDefined・children・writable・listAttrのフラグ)と同時に指定できません")
             self._require_valid("アニメーション可能なアトリビュートの取得")
             names = dict.fromkeys(cmds.listAnimatable(self._full_name()) or [])
             return Plugs._from_plugs([Plug._resolve_input(name) for name in names])
         self._require_valid("アトリビュートの一覧の取得")
-        plugs = self._list_plugs(userDefined, includeChildren, listAttrFlags)
+        plugs = self._list_plugs(userDefined, children, listAttrFlags)
         if writable:
             plugs = [plug for plug in plugs if _is_writable(plug.mplug())]
         return Plugs._from_plugs(plugs)
@@ -2424,7 +2462,7 @@ class Node(Object):
             for alias, _ in aliases:
                 cmds.aliasAttr(self._full_name() + "." + alias, remove=True)
             for attr_name in to_remove:
-                self.getPlug(attr_name).delete(force=True)
+                self.getPlug(attr_name).delete(unlock=True)
             for info in infos:
                 _create_movable_attr(self, info)
             for alias, attr_name in aliases:
@@ -2557,8 +2595,8 @@ class Node(Object):
             return None
         return om2.MFnDependencyNode(self._mobject).uuid().asString()
 
-    def getName(self, *, full=False, node=False, removeNamespace=False):
-        """最短の一意な名前を取得する。``full=True`` なら完全な名前、``node=True`` ならDAGパスを付けないノード名を取得する。
+    def getName(self, *, full=False, short=False, removeNamespace=False):
+        """最短の一意な名前を取得する。``full=True`` なら完全な名前、``short=True`` ならDAGパスを付けないノード名を取得する。
 
         既定の名前は、Mayaのコマンドへ渡すと、このオブジェクトが持つインスタンスを指せる名前になる。
 
@@ -2568,39 +2606,39 @@ class Node(Object):
         名前は覚えておかず、呼ぶたびにMayaから取得する。
         別の階層に同じ短い名前のノードがあると、一意にするために親を含む部分的なパス(``grp1|ctrl`` など)になる。
 
-        ``node=True`` では、DAGの別の階層に同じ名前のノードがあっても、親のパスは付けない(DGノードにも使える)。
+        ``short=True`` では、DAGの別の階層に同じ名前のノードがあっても、親のパスは付けない(DGノードにも使える)。
         新しい名前を組み立てる元にするとき(接尾辞の付け替えなど)に使う。Mayaのコマンドへ渡す一意な名前が要るときは、既定のままにする。
 
         ``full=True`` では、DAGノードはこのオブジェクトが持つインスタンスの完全なDAGパス(``|grp1|ctrl``)、DGノードはノード名を返す。
         ノードそのものが無効なら、例外にせず空文字列を返す。
 
         Args:
-            full (bool): Trueなら、完全な名前を返す。node・removeNamespaceと同時には指定できない。既定はFalse。
-            node (bool): Trueなら、DAGパスを付けないノード名(ネームスペースは含む)を返す。既定はFalse。
-            removeNamespace (bool): Trueなら、ネームスペースも取り除く。``node=True`` のときだけ指定できる。既定はFalse。
+            full (bool): Trueなら、完全な名前を返す。short・removeNamespaceと同時には指定できない。既定はFalse。
+            short (bool): Trueなら、DAGパスを付けないノード名(ネームスペースは含む)を返す。既定はFalse。
+            removeNamespace (bool): Trueなら、ネームスペースも取り除く。``short=True`` のときだけ指定できる。既定はFalse。
 
         Returns:
             str: 今の名前。``full=True`` でノードが無効なら空文字列。
 
         Raises:
-            TypeError: full・node・removeNamespaceがboolでない場合、``full=True`` とnode・removeNamespaceを同時に指定した場合、
-                または ``node=True`` なしでremoveNamespaceを指定した場合。
+            TypeError: full・short・removeNamespaceがboolでない場合、``full=True`` とshort・removeNamespaceを同時に指定した場合、
+                または ``short=True`` なしでremoveNamespaceを指定した場合。
             RuntimeError: ノードが削除済みか、Undoで作成が取り消された(無効な)場合(``full=True`` を除く)、
                 またはノードは有効だが、このオブジェクトが持つDAGパスのインスタンスが削除された場合(既定の名前と ``full=True`` のとき)。
         """
         if full is not False:
             # _require_bool を通るので、ここではfullはTrue。
             _require_bool(full, "full")
-            if node is not False or removeNamespace is not False:
-                _require_bool(node, "node")
+            if short is not False or removeNamespace is not False:
+                _require_bool(short, "short")
                 _require_bool(removeNamespace, "removeNamespace")
-                raise TypeError("full=Trueはnode・removeNamespaceと同時に指定できません")
+                raise TypeError("full=Trueはshort・removeNamespaceと同時に指定できません")
             return self._full_name()
-        if node is not False or removeNamespace is not False:
-            _require_bool(node, "node")
+        if short is not False or removeNamespace is not False:
+            _require_bool(short, "short")
             _require_bool(removeNamespace, "removeNamespace")
-            if not node:
-                raise TypeError("removeNamespaceはnode=Trueのときだけ指定できます")
+            if not short:
+                raise TypeError("removeNamespaceはshort=Trueのときだけ指定できます")
             self._require_named()
             node_name = self._alive_fn().name()
             if removeNamespace:
@@ -2636,7 +2674,7 @@ class Node(Object):
             self._current_dag_path()  # 保持するDAGインスタンスが消えた場合は RuntimeError にする。
         return dag_path.fullPathName()
 
-    def _list_plugs(self, userDefined, includeChildren, listAttrFlags):
+    def _list_plugs(self, userDefined, children, listAttrFlags):
         """:meth:`getPlugs` の列挙の本体(writableで絞る前)。"""
         if userDefined:
             if listAttrFlags:
@@ -2644,12 +2682,12 @@ class Node(Object):
             # 名前へ変換して再検索せず、定義から型付きPlugを作る。マルチアトリビュートの要素は展開しない。
             from ..plugs.plug import Plug
 
-            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._user_attributes(includeChildren)]
+            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._user_attributes(children)]
         if all(name in _OM2_LIST_ATTR_FLAGS and value is True for name, value in listAttrFlags.items()):
             # 循環参照の回避: plugs は nodes を参照するため、使う時点で読み込む。
             from ..plugs.plug import Plug
 
-            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._listed_attributes(includeChildren, **listAttrFlags)]
+            return [Plug(self, om2.MPlug(self._mobject, attribute)) for attribute in self._listed_attributes(children, **listAttrFlags)]
         names = cmds.listAttr(self._full_name(), **listAttrFlags) or []
         plugs = []
         for name in names:
@@ -2657,7 +2695,7 @@ class Node(Object):
                 plug = self.getPlug(name)
             except (AttributeError, RuntimeError, ValueError):
                 continue
-            if includeChildren or not plug.mplug().isChild:
+            if children or not plug.mplug().isChild:
                 plugs.append(plug)
         return plugs
 
@@ -3611,7 +3649,7 @@ class Nodes(_ListMethods):
             return Nodes._wrap(Nodes(Nodes._items_of(other) + self._items))
         return type(self)(Nodes._items_of(other) + self._items)
 
-    def sort(self, key=None, reverse=False):
+    def sort(self, *, key=None, reverse=False):
         """要素をその場で並べ替える。
 
         ``key`` を省くと、ノードの完全な名前(``Node.getName(full=True)``)の順にする。
@@ -3669,12 +3707,12 @@ class Nodes(_ListMethods):
 
         return Plugs._from_plugs([plug for plugs in results for plug in plugs])
 
-    def getColor(self, *, outliner=False, shape=False):
+    def getColor(self, *, outliner=False, toShape=False):
         """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getColor` を、要素の順に取得する。
 
         Args:
             outliner (bool): :meth:`~mlib.nodes.dagNode.DagNode.getColor` と同じ。既定False。
-            shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.getColor` と同じ。既定False。
+            toShape (bool): :meth:`~mlib.nodes.dagNode.DagNode.getColor` と同じ。既定False。
 
         Returns:
             list[int | tuple[float, float, float] | None]: 各ノードの表示色。
@@ -3684,15 +3722,15 @@ class Nodes(_ListMethods):
             RuntimeError: 無効なノードを含む場合。
         """
         self._require_method("getColor")
-        return [node.getColor(outliner=outliner, shape=shape) for node in self._items]
+        return [node.getColor(outliner=outliner, toShape=toShape) for node in self._items]
 
-    def setColor(self, color, *, outliner=False, shape=False, fast=False, check=False):
+    def setColor(self, color, *, outliner=False, toShape=False, fast=False, check=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setColor` を呼ぶ。
 
         Args:
             color (object): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。
             outliner (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
-            shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
+            toShape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -3707,16 +3745,16 @@ class Nodes(_ListMethods):
         """
         _require_bool(outliner, "outliner")
         self._forward(
-            "setColor", (color,), fast, outliner=outliner, shape=shape, check=check, writes=lambda node: self._color_plugs(outliner, node, color, shape)
+            "setColor", (color,), fast, outliner=outliner, toShape=toShape, check=check, writes=lambda node: self._color_plugs(outliner, node, color, toShape)
         )
 
-    def setColors(self, colors, *, outliner=False, shape=False, fast=False, check=False):
+    def setColors(self, colors, *, outliner=False, toShape=False, fast=False, check=False):
         """各DAGノードへ、それぞれ違う色で :meth:`~mlib.nodes.dagNode.DagNode.setColor` を呼ぶ。
 
         Args:
             colors (Iterable[object]): ノードと同じ数の色。要素の順に1色ずつ使う。書き込む前に、すべての色を確かめる。
             outliner (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
-            shape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
+            toShape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
@@ -3725,12 +3763,12 @@ class Nodes(_ListMethods):
             None: 値を返さない。通常は全体を1回のUndoにまとめる。
 
         Raises:
-            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・shape・fastがbool以外の場合。
+            TypeError: DAGノード以外を含む、色の指定が不正、またはoutliner・toShape・fastがbool以外の場合。
             ValueError: 色の数がノードの数と違う、または色の指定が不正な場合。
             RuntimeError: 無効なノードを含む、またはMayaが更新を拒否した場合。
         """
         _require_bool(outliner, "outliner")
-        _require_bool(shape, "shape")
+        _require_bool(toShape, "toShape")
         _require_bool(fast, "fast")
         colors = list(colors)
         if len(colors) != len(self._items):
@@ -3741,10 +3779,10 @@ class Nodes(_ListMethods):
         for node in self._items:
             node._require_valid("setColor")
         if check is True:
-            self._require_writable_targets(plug for node, color in zip(self._items, colors) for plug in self._color_plugs(outliner, node, color, shape))
+            self._require_writable_targets(plug for node, color in zip(self._items, colors) for plug in self._color_plugs(outliner, node, color, toShape))
         with _edit_context(f"mlib{type(self).__name__}SetColors", fast):
             for node, color in zip(self._items, colors):
-                node.setColor(color, outliner=outliner, shape=shape, fast=fast, check=check)
+                node.setColor(color, outliner=outliner, toShape=toShape, fast=fast, check=check)
 
     def setVisibility(self, state=True, *, fast=False, check=False):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setVisibility` を呼ぶ。
@@ -3793,31 +3831,65 @@ class Nodes(_ListMethods):
                     require(target)
         self._forward("setParent", (parent,), fast, relative=relative, add=add, check=check)
 
-    def getNames(self, *, full=False):
+    def getNames(self, *, full=False, short=False, removeNamespace=False):
         """各ノードの名前を取得する。
 
-        既定は一意な名前(:meth:`Node.getName` を並べたもの)。``full=True`` なら完全な名前
-        (``Node.getName(full=True)`` を並べたもの)。
+        既定は一意な名前(:meth:`Node.getName` を並べたもの)。引数は :meth:`Node.getName` と同じで、
+        ``full=True`` なら完全な名前、``short=True`` ならDAGパスを付けないノード名を並べる。
 
         Args:
-            full (bool): Trueなら、DAGノードではワールドから始まる完全なパス(DGノードではノード名)を返す。既定はFalse。
+            full (bool): Trueなら、DAGノードではワールドから始まる完全なパス(DGノードではノード名)を返す。
+                short・removeNamespaceと同時には指定できない。既定はFalse。
+            short (bool): Trueなら、DAGパスを付けないノード名(ネームスペースは含む)を返す。既定はFalse。
+            removeNamespace (bool): Trueなら、ネームスペースも取り除く。``short=True`` のときだけ指定できる。既定はFalse。
 
         Returns:
             list[str]: 要素の順のノード名。
 
         Raises:
-            TypeError: fullがboolでない場合。
+            TypeError: full・short・removeNamespaceがboolでない場合、または :meth:`Node.getName` と同じく同時に指定できない組の場合。
             RuntimeError: 無効な(削除済みの)ノードを含む場合。full=Trueでは、文言に要素の番号(0から)を含む。
         """
         _require_bool(full, "full")
         if not full:
-            return [node.getName() for node in self._items]
+            return [node.getName(short=short, removeNamespace=removeNamespace) for node in self._items]
+        if short is not False or removeNamespace is not False:
+            _require_bool(short, "short")
+            _require_bool(removeNamespace, "removeNamespace")
+            raise TypeError("full=Trueはshort・removeNamespaceと同時に指定できません")
         names = []
         for index, node in enumerate(self._items):
             if not node.isValid():
                 raise RuntimeError(f"無効な{type(node).__name__}のため、完全な名前の取得はできません: 要素の番号{index}")
             names.append(node._full_name())
         return names
+
+    def getSkinClusters(self, *, influence=False):
+        """各DAGノードの :meth:`~mlib.nodes.dagNode.DagNode.getSkinClusters` を、要素の順にまとめて取得する。
+
+        Args:
+            influence (bool): :meth:`~mlib.nodes.dagNode.DagNode.getSkinClusters` と同じ。既定はFalse。
+
+        Returns:
+            SkinClusters: 見つかったSkinCluster。要素の順に並べ、同じものは1回だけ含む。
+
+        Raises:
+            TypeError: DAGノード以外を含む場合、またはinfluenceがboolでない場合。
+            RuntimeError: :meth:`~mlib.nodes.dagNode.DagNode.getSkinClusters` と同じ。
+        """
+        _require_bool(influence, "influence")
+        self._require_method("getSkinClusters")
+        # 循環参照の回避: skinClusterがnodeを参照するため、使う時点で読み込む。
+        from .skinCluster import SkinClusters
+
+        result, seen = [], set()
+        for node in self._items:
+            for skin in node.getSkinClusters(influence=influence):
+                key = skin.getUuid()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(skin)
+        return SkinClusters._wrap(result)
 
     def select(self, **kwargs):
         """すべてのノードを一度に選択する。

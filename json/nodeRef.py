@@ -14,27 +14,27 @@ class NodeRef:
 
     __hash__ = None  # type: ignore[assignment]
 
-    def __init__(self, name, path=None, type=None):
+    def __init__(self, name, dagPath=None, type=None):
         """記録する値を持たせる。
 
         Args:
             name (str): 名前空間付きの短い名前(``"chrA:arm_L_jnt"``)。
-            path (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
+            dagPath (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
             type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。
 
         Raises:
-            TypeError: nameが文字列でない場合、またはpath・typeが文字列でもNoneでもない場合。
+            TypeError: nameが文字列でない場合、またはdagPath・typeが文字列でもNoneでもない場合。
             ValueError: nameが空の場合、または ``"|"`` を含む場合。
         """
         if not isinstance(name, str):
             raise TypeError("nameは文字列で指定してください")
         if not name or "|" in name:
             raise ValueError("nameは'|'を含まない空でないノード名で指定してください")
-        for value, label in ((path, "path"), (type, "type")):
+        for value, label in ((dagPath, "dagPath"), (type, "type")):
             if value is not None and not isinstance(value, str):
                 raise TypeError(f"{label}は文字列かNoneで指定してください")
         self._name = name
-        self._path = path or None
+        self._path = dagPath or None
         self._type = type or None
 
     def __repr__(self):
@@ -92,7 +92,7 @@ class NodeRef:
         return self._name
 
     @property
-    def path(self):
+    def dagPath(self):
         """記録した完全なDAGパスを返す。
 
         Returns:
@@ -177,4 +177,4 @@ class NodeRef:
         Returns:
             str: 変換後の名前。警告や報告の表示に使う。
         """
-        return self._name if mapping is None else mapping.apply(self._name)
+        return self._name if mapping is None else mapping.convert(self._name)

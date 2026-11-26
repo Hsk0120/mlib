@@ -21,18 +21,18 @@ class NameMappingTest(unittest.TestCase):
 
     def test_order_and_priority(self):
         mapping = NameMapping(nameMap={"arm_L_jnt": "leftArm"}, replace=[("_L_", "_R_")], namespaceMap={"chrA": "chrB"})
-        self.assertEqual(mapping.apply("chrA:arm_L_jnt"), "chrB:leftArm")
-        self.assertEqual(mapping.apply("chrA:leg_L_jnt"), "chrB:leg_R_jnt")
-        self.assertEqual(mapping.apply("leg_L_jnt"), "leg_R_jnt")
+        self.assertEqual(mapping.convert("chrA:arm_L_jnt"), "chrB:leftArm")
+        self.assertEqual(mapping.convert("chrA:leg_L_jnt"), "chrB:leg_R_jnt")
+        self.assertEqual(mapping.convert("leg_L_jnt"), "leg_R_jnt")
         self.assertEqual(mapping._apply_path("|chrA:root|chrA:arm_L_jnt"), "|chrB:root|chrB:leftArm")
 
     def test_namespaces(self):
         mapping = NameMapping(namespaceMap={"": "chrB", ":chrA:": "", "chrC": "x:y"})
-        self.assertEqual(mapping.apply("root"), "chrB:root")
-        self.assertEqual(mapping.apply("chrA:root"), "root")
-        self.assertEqual(mapping.apply("chrC:sub:root"), "x:y:sub:root")
+        self.assertEqual(mapping.convert("root"), "chrB:root")
+        self.assertEqual(mapping.convert("chrA:root"), "root")
+        self.assertEqual(mapping.convert("chrC:sub:root"), "x:y:sub:root")
         self.assertFalse(hasattr(NameMapping, "isIdentity"))
-        self.assertEqual(NameMapping().apply("a:b"), "a:b")
+        self.assertEqual(NameMapping().convert("a:b"), "a:b")
 
     def test_invalid(self):
         for kwargs, error in (
@@ -47,7 +47,7 @@ class NameMappingTest(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(error):
                 NameMapping(**kwargs)
         with self.assertRaises(TypeError):
-            NameMapping().apply(1)
+            NameMapping().convert(1)
         with self.assertRaises(TypeError):
             NameMapping()._apply_path(None)
 

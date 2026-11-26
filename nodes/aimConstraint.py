@@ -23,11 +23,11 @@ class AimConstraint(Constraint):
             list[tuple[Plug, Plug]]: 接続元と接続先の組。コンパウンドアトリビュートごと接続している場合は、親どうしの組だけを返す。
         """
         root = self.getPlug("constraintRotate")
-        destinations = root.getConnections(outputs=True)
+        destinations = root.getConnections(output=True)
         result = [(root, destination) for destination in destinations]
         for axis in "XYZ":
             source = self.getPlug("constraintRotate" + axis)
-            for destination in source.getConnections(outputs=True):
+            for destination in source.getConnections(output=True):
                 if destination.isCompound(child=True) and destination.getParent() in destinations:
                     continue
                 result.append((source, destination))

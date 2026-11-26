@@ -39,12 +39,12 @@ class TransformRotateAxisTest(NamespaceCase):
             with self.subTest(kind=kind):
                 node = self._node(kind, 4)
                 matrix = list(node.getMatrix(worldSpace=True))
-                node.setQuaternion(self._rotation(), r=False, jo=False, preserve=True)
+                node.setQuaternion(self._rotation(), rotate=False, jointOrient=False, preserve=True)
                 after = self._state(node)
                 cmds.undo()
                 self.flushUndo()
                 state = cmds.undoInfo(query=True, state=True)
-                node.setQuaternion(self._rotation(), r=False, jo=False, preserve=True, fast=True)
+                node.setQuaternion(self._rotation(), rotate=False, jointOrient=False, preserve=True, fast=True)
                 self.assertSequenceAlmostEqual(node.getMatrix(worldSpace=True), matrix)
                 for actual, expected in zip(self._state(node), after):
                     self.assertSequenceAlmostEqual(actual[0], expected[0])
@@ -55,25 +55,25 @@ class TransformRotateAxisTest(NamespaceCase):
         node = self._node()
         cmds.currentUnit(angle="rad")
         before = list(node.getMatrix(worldSpace=True))
-        node.setQuaternion(self._rotation(), r=False, jo=False, preserve=True)
+        node.setQuaternion(self._rotation(), rotate=False, jointOrient=False, preserve=True)
         self.assertSequenceAlmostEqual(node.getMatrix(worldSpace=True), before)
         cmds.undo()
-        node.setQuaternion(self._rotation(), r=False, jo=False)
+        node.setQuaternion(self._rotation(), rotate=False, jointOrient=False)
         self.assertGreater(max(abs(a - b) for a, b in zip(node.getMatrix(worldSpace=True), before)), 0.01)
 
     def test_get_only_and_invalid_options_do_not_write(self):
         node = self._node()
         before = self._state(node)
         self.flushUndo()
-        result = node.setQuaternion(self._rotation(), r=False, jo=False, preserve=True, get=True, safe=True)
+        result = node.setQuaternion(self._rotation(), rotate=False, jointOrient=False, preserve=True, get=True, safe=True)
         self.assertIsInstance(result, mlib.EulerRotate)
         self.assertSameRotation(result.asQuaternion(), self._rotation())
         for flags, error in (
             ({"preserve": 1}, TypeError),
             ({"preserve": True}, ValueError),
-            ({"preserve": True, "r": False, "jo": False, "safe": True}, ValueError),
-            ({"preserve": True, "r": False, "jo": False, "safe": 1}, TypeError),
-            ({"preserve": True, "r": False, "jo": False, "check": 1}, TypeError),
+            ({"preserve": True, "rotate": False, "jointOrient": False, "safe": True}, ValueError),
+            ({"preserve": True, "rotate": False, "jointOrient": False, "safe": 1}, TypeError),
+            ({"preserve": True, "rotate": False, "jointOrient": False, "check": 1}, TypeError),
         ):
             with self.subTest(flags=flags), self.assertRaises(error):
                 node.setQuaternion(self._rotation(), **flags)
@@ -95,7 +95,7 @@ class TransformRotateAxisTest(NamespaceCase):
                         before = self._state(node)
                         self.flushUndo()
                         with self.assertRaises(RuntimeError):
-                            node.setQuaternion(self._rotation(), r=False, jo=False, preserve=True, fast=fast)
+                            node.setQuaternion(self._rotation(), rotate=False, jointOrient=False, preserve=True, fast=fast)
                         self.assertEqual(self._state(node), before)
                         self.assertUndoEmpty()
 

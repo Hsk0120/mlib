@@ -70,29 +70,29 @@ class ObjectSet(Node):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def addMembers(self, *members: Node | str, exclusive: bool = ...) -> None:
+    def addMembers(self, *members: Node | str, forceElement: bool = ...) -> None:
         """ノードやコンポーネントなどを、このセットへ追加する。
 
         入力はほかのメソッドと同じ方法で解決し、cmds.setsへ渡す。何も渡さなければ、何も変えない。
         ノードを複製したり、親子付けしたりはしない。
         fast引数は持たない(MFnSetでの更新はcmds.setsより遅いため)。
 
-        ``exclusive=True`` は、同じpartitionの中の排他の所属を移して追加する(``cmds.sets(forceElement=...)``)。
+        ``forceElement=True`` は、同じpartitionの中の排他の所属を移して追加する(``cmds.sets(forceElement=...)`` と同じ名前)。
         同じpartitionの別のセットから、対象が外れる場合がある。
         partitionの作成や、partitionが違うセットからの除外はしない。
 
         Args:
             *members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
-            exclusive (bool): Trueなら、同じpartitionの別のセットから外して追加する。既定はFalse。
+            forceElement (bool): Trueなら、同じpartitionの別のセットから外して追加する。既定はFalse。
 
         Returns:
             None: 値を返さない。
 
         Raises:
             TypeError: 対応していない型を渡した場合、名前とNodeなどのオブジェクトを混ぜて渡した場合、
-                またはexclusiveがboolでない場合。
+                またはforceElementがboolでない場合。
             ValueError: 名前に一致するものが無い場合。
-            RuntimeError: exclusive=Trueでセットが無効な場合、またはMayaが追加を拒否した場合。
+            RuntimeError: forceElement=Trueでセットが無効な場合、またはMayaが追加を拒否した場合。
         """
         ...
     def removeMembers(self, *members: Node | str, all: bool = ...) -> None:
@@ -139,7 +139,7 @@ class ObjectSet(Node):
             bool: 解決したすべての要素が入っていればTrue。1つでも入っていなければFalse。
         """
         ...
-    def combine(self, other: ObjectSet | str, mode: str = ...) -> list[Node | Plug | Components]:
+    def combine(self, other: ObjectSet | str, *, mode: str = ...) -> list[Node | Plug | Components]:
         """このセットと別のセットのメンバーを、集合の演算で組み合わせて取得する。セットは書き換えない。
 
         どちらも、直接入っているものだけを使う(入れ子になったセットの中身は展開しない)。

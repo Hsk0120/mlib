@@ -20,6 +20,10 @@
 観点は、テストのコードから直接呼んだ(mlibの別の公開メソッドの中からではない)呼び出しだけで数える。
 
 - 引数: キーワード専用の引数で、既定がboolのものは、TrueとFalseの両方で呼んだか。
+- 値: docstring の Args に ``"x"`` の形で並べた選べる値をすべて、型に None がある引数は None でも呼んだか。
+- 数(1種類の値だけ): int の引数を、負・0・1・2以上のうち2種類以上で呼んだか。
+- 型: docstring の Args に書いた型(``Node | str`` なら Node と str)を、それぞれ一度は渡したか(継承元も数える)。
+- 組: キーワード専用の bool の引数どうしの、値の組(2つずつ・4通り)をいくつ試したか。
 - 例外: docstringの ``Raises:`` に書いた型(その派生を含む)が、そのメソッドから実際に出たか。``with`` の中で出た例外も数える。
 - Undo: 書き換えるメソッド(``fast`` を持つか、名前が ``set``・``add`` などで始まる。数学型と、複数形のlistと同じ操作は除く)の後で、同じテストが ``cmds.undo`` を呼んだか。
 - fastのUndoなし: ``fast=True`` で呼んだ後で、同じテストが ``cmds.undoInfo(undoQueueEmpty=True)`` で確かめたか。
@@ -137,6 +141,15 @@ WRITE_PREFIXES = (
 )
 
 
+#: docstring の型の名前と、実際に渡った値の型(継承元を含む)のどれかが一致すればよいもの。
+TYPE_ALIASES = {
+    "Iterable": ("list", "tuple", "Nodes", "Plugs", "Components", "set", "generator"),
+    "Sequence": ("list", "tuple", "Nodes", "Plugs", "Components"),
+    "Collection": ("list", "tuple", "set"),
+    "Mapping": ("dict",),
+    "Callable": ("function", "method", "builtin_function_or_method"),
+    "Any": ("object",),
+}
 #: 複数形がPythonのlistと同じに持つ操作。集まりの中身だけを変え、シーンは書き換えない。
 LIST_METHODS = frozenset(("append", "extend", "insert", "remove", "pop", "index", "count", "clear", "reverse", "sort", "copy"))
 
@@ -181,6 +194,35 @@ def _public_definitions():
 
 
 # --- Mayaの中で動く部分(Python 3.7でも動く書き方にする) ---
+
+
+def _value_kinds(name, value):
+    """1つの引数の値を、網羅を数えるための種類の文字列にする。
+
+    - bool・None: ``name=True`` など。
+    - 識別子の形の短い文字列(選べる値): ``name='x'``。
+    - 数: ``name#neg``・``name#0``・``name#1``・``name#2+``。
+    - 型: 値の型とその継承元の名前ごとに ``name:型の名前``。並びは ``name#empty``・``name#one``・``name#many`` も。
+
+    Args:
+        name (str): 引数の名前。
+        value (object): 渡された値。
+
+    Returns:
+        set[str]: 種類の文字列。
+    """
+    kinds = set()
+    if isinstance(value, bool) or value is None:
+        kinds.add(f"{name}={value!r}")
+        return kinds
+    if isinstance(value, str) and value and len(value) <= 24 and all(char.isalnum() or char in "-_" for char in value):
+        kinds.add(f"{name}={value!r}")
+    if isinstance(value, (int, float)):
+        kinds.add(f"{name}#" + ("neg" if value < 0 else "0" if value == 0 else "1" if value == 1 else "2+"))
+    if isinstance(value, (list, tuple)):
+        kinds.add(f"{name}#" + ("empty" if not value else "one" if len(value) == 1 else "many"))
+    kinds.update(f"{name}:{base.__name__}" for base in type(value).__mro__ if base is not object)
+    return kinds
 
 
 def _exception_names(kind):
@@ -282,12 +324,18 @@ class _Recorder:
         view["calls"] += 1
         code = frame.f_code
         values = frame.f_locals
+        bools = []
         for name in code.co_varnames[: code.co_argcount + code.co_kwonlyargcount]:
             if name in ("self", "cls") or name not in values:
                 continue
             value = values[name]
-            if isinstance(value, bool) or value is None:
-                view["flags"].add(f"{name}={value!r}")
+            view["flags"].update(_value_kinds(name, value))
+            if isinstance(value, bool):
+                bools.append(f"{name}={value!r}")
+        # boolの引数どうしの、値の組(2つずつ)。
+        for index, first in enumerate(bools):
+            for second in bools[index + 1 :]:
+                view["flags"].add(f"{first}&{second}")
         caller = frame.f_back
         for _ in range(8):
             if caller is None:
@@ -734,6 +782,50 @@ def _viewpoint_gaps(name, node, view):
     missing = [f"{keyword}={value}" for keyword in _bool_keywords(node) for value in (True, False) if f"{keyword}={value}" not in flags]
     if missing:
         gaps.append("引数: " + ", ".join(missing))
+    docs = _arg_docs(node)
+    values, types, numbers = [], [], []
+    for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
+        name = argument.arg
+        if name in ("self", "cls") or name not in docs:
+            continue
+        type_text, text = docs[name]
+        if type_text.strip() == "bool":
+            continue
+        choices = sorted(set(re.findall(r'``"([-A-Za-z0-9_]+)"``', text)))
+        if len(choices) >= 2 and re.search(r"\bstr\b", type_text) and not re.search(r"(例|など)", text):
+            values += [f"{name}={choice!r}" for choice in choices if f"{name}={choice!r}" not in flags]
+        if re.search(r"\bNone\b", type_text) and f"{name}=None" not in flags:
+            values.append(f"{name}=None")
+        if re.fullmatch(r"\s*int\s*(\|\s*None\s*)?", type_text) and len({kind for kind in flags if kind.startswith(f"{name}#")}) < 2:
+            numbers.append(name)
+        for alternative in (part.strip() for part in type_text.split("|")):
+            base = re.split(r"[\[(]", alternative)[0].strip().rsplit(".", 1)[-1]
+            if base in TYPE_ALIASES:
+                expected = TYPE_ALIASES[base]
+            elif base and base[0].isupper() and base != "None":
+                expected = (base,)
+            else:
+                continue
+            if not any(f"{name}:{option}" in flags for option in expected):
+                types.append(f"{name}:{base}")
+    if values:
+        gaps.append("値: " + ", ".join(values))
+    if numbers:
+        gaps.append("数(1種類の値だけ): " + ", ".join(numbers))
+    if types:
+        gaps.append("型: " + ", ".join(types))
+    bool_names = list(_bool_keywords(node))
+    pairs = [
+        f"{first}={a}&{second}={b}"
+        for index, first in enumerate(bool_names)
+        for second in bool_names[index + 1 :]
+        for a in (True, False)
+        for b in (True, False)
+    ]
+    if pairs:
+        seen = {pair for pair in pairs if pair in flags or _swap_pair(pair) in flags}
+        if len(seen) < len(pairs):
+            gaps.append(f"組: {len(seen)}/{len(pairs)}")
     raises = sorted(_raises(node) - set(view["raised"]))
     if raises:
         gaps.append("例外: " + ", ".join(raises))
@@ -747,6 +839,46 @@ def _viewpoint_gaps(name, node, view):
     if not view["parity"]:
         gaps.append("突き合わせ")
     return gaps
+
+
+def _swap_pair(pair):
+    """``a=x&b=y`` を ``b=y&a=x`` にする(記録の並びは引数の順なので、どちらでも探せるように)。
+
+    Args:
+        pair (str): 組の文字列。
+
+    Returns:
+        str: 入れ替えた組。
+    """
+    first, second = pair.split("&")
+    return f"{second}&{first}"
+
+
+def _arg_docs(node):
+    """docstringの Args の、引数ごとの (型の文字列, 説明) を返す。
+
+    Args:
+        node (ast.FunctionDef): 定義。
+
+    Returns:
+        dict[str, tuple[str, str]]: 引数の名前と、型の文字列・説明。
+    """
+    doc = ast.get_docstring(node) or ""
+    result, inside, current = {}, False, None
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if re.match(r"^(Args|Returns|Yields|Raises|Examples|Note|Notes|Warning|See Also|Attributes):$", stripped):
+            inside, current = stripped == "Args:", None
+            continue
+        if not inside:
+            continue
+        match = re.match(r"^(\w+)\s*\(([^)]*)\)\s*:\s*(.*)$", stripped)
+        if match:
+            current = match.group(1)
+            result[current] = [match.group(2), match.group(3)]
+        elif current:
+            result[current][1] += " " + stripped
+    return {name: (type_text, text) for name, (type_text, text) in result.items()}
 
 
 def _merge_views(results):
@@ -861,7 +993,7 @@ def _report(results, directory, only):
     cells.append(f"{grand_branch[0]}/{grand_branch[1]} {grand_branch[0] / grand_branch[1]:.1%}" if grand_branch[1] else "-")
     lines_out.append("ALL\t" + "\t".join(cells))
     lines_out.append("")
-    labels = ("テストから直接呼んでいない", "引数", "例外", "Undo", "fastのUndoなし", "突き合わせ")
+    labels = ("テストから直接呼んでいない", "引数", "値", "数(1種類の値だけ)", "型", "組", "例外", "Undo", "fastのUndoなし", "突き合わせ")
     lines_out.append("観点の抜け\tmethods\t" + "\t".join(labels))
     for package in sorted(view_totals):
         counts = view_totals[package]

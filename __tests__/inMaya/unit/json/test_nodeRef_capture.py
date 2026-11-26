@@ -48,7 +48,7 @@ class CaptureRejectTest(NamespaceCase):
         vertices = Vertices(self.mesh, [2, 0])
         ref = ComponentRef.capture(vertices)
         self.assertEqual((ref.type, list(ref.indices)), ("vtx", [2, 0]))
-        self.assertEqual(ref.node.path, self.mesh.getName(full=True))
+        self.assertEqual(ref.node.dagPath, self.mesh.getName(full=True))
         self.assertEqual(ref.resolve(), vertices)
 
     def test_surface_cv_is_rejected_by_capture(self):

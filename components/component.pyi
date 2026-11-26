@@ -8,7 +8,7 @@ import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 from ..core.object import Object, _missing_member_message
 from ..decorator import _edit_context, _require_bool
-from ..util import _finite
+from ..util import _finite, _remove_namespaces
 from ..nodes.shape import Shape
 from typing import Any, Iterable, Iterator, Sequence
 from typing import overload
@@ -135,22 +135,24 @@ class Component(Object):
                 カーブのCVはOpenMayaの番号で、周期カーブの末尾ではcmdsで使う番号と違うことがある。
         """
         ...
-    def getName(self, *, full: bool = ...) -> str:
+    def getName(self, *, full: bool = ..., removeNamespace: bool = ...) -> str:
         """コンポーネント名を取得する。
 
         既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を返す(:meth:`Components.getNames` の1要素と同じ)。
         シェイプの部分は、Mayaが選ぶ最短の一意な名前になる(シェイプが1つだけのTransformなら ``cube.vtx[3]``)。
         ``full=True`` なら、シェイプの部分を完全パスにした名前を返す(``|cube|cubeShape.vtx[3]``。``str(component)`` と同じ)。
         ``maya.cmds`` へ渡すときは ``full=True`` を使う。
+        ``removeNamespace=True`` なら、最短の名前のシェイプの部分からネームスペースを取り除く(``ns:cube.vtx[3]`` → ``cube.vtx[3]``)。
 
         Args:
-            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
+            full (bool): Trueなら完全パスの名前にする。removeNamespaceとは同時に指定できない。既定はFalse(最短の名前)。
+            removeNamespace (bool): Trueなら、シェイプの部分のネームスペースを取り除く。既定はFalse。
 
         Returns:
             str: ``cube.vtx[3]`` のような名前。番号を複数持つ要素は ``plane.cv[1][2]`` のような名前。
 
         Raises:
-            TypeError: fullがboolでない場合、またはシェイプの種類が合わない場合。
+            TypeError: full・removeNamespaceがboolでない場合、両方をTrueにした場合、またはシェイプの種類が合わない場合。
             IndexError: 番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
@@ -501,7 +503,7 @@ class Components:
                 コピーは作らない。今の範囲の中にあるかも調べ直さない。カーブのCVはOpenMayaの番号で持つ。
         """
         ...
-    def sort(self, key: Callable[[Component], object] | None = ..., reverse: bool = ...) -> None:
+    def sort(self, *, key: Callable[[Component], object] | None = ..., reverse: bool = ...) -> None:
         """番号の並びをその場で並べ替える。
 
         ``key`` を省略すると、Mayaでの番号の順にする。
@@ -628,7 +630,7 @@ class Components:
             None: 値を返さない。
         """
         ...
-    def getNames(self, *, full: bool = ..., compact: bool = ...) -> list[str]:
+    def getNames(self, *, full: bool = ..., compact: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """持っている順に、コンポーネント名を取得する。
 
         既定では、``cmds.ls(flatten=True)`` と同じ最短の名前を、要素ごとに返す。
@@ -642,8 +644,9 @@ class Components:
           カーブのCVと、番号を複数持つ要素(曲面のCV・ラティスの点・頂点フェース)は範囲にまとめず、要素ごとの名前を返す。
 
         Args:
-            full (bool): Trueなら完全パスの名前にする。既定はFalse(最短の名前)。
+            full (bool): Trueなら完全パスの名前にする。removeNamespaceとは同時に指定できない。既定はFalse(最短の名前)。
             compact (bool): Trueなら、続いている番号を範囲にまとめる。既定はFalse(要素ごとの名前)。
+            removeNamespace (bool): Trueなら、シェイプの部分のネームスペースを取り除く(:meth:`Component.getName` と同じ)。既定はFalse。
 
         Returns:
             list[str]: ``cube.vtx[3]`` のような名前。``full=True`` なら ``|cube|cubeShape.vtx[3]``、
@@ -651,7 +654,8 @@ class Components:
                 空の集まりなら空リスト。
 
         Raises:
-            TypeError: fullかcompactがboolでない場合、または対応しないシェイプ型の場合。
+            TypeError: full・compact・removeNamespaceがboolでない場合、fullとremoveNamespaceを両方Trueにした場合、
+                または対応しないシェイプ型の場合。
             IndexError: いずれかの番号が範囲外の場合。
             RuntimeError: シェイプが無効な場合。
         """
@@ -809,7 +813,7 @@ class Components:
             str: ``prefix[start]`` または ``prefix[start:end]``。
         """
         ...
-    def getName(self, *, full: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:

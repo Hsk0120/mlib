@@ -87,6 +87,21 @@ class ContainerTest(unittest.TestCase):
         restored.delete()
         self.assertFalse(node.isValid())
 
+    def test_remove_all_members(self):
+        """removeMembers(all=True) は直接のメンバーをすべて外す。members との同時指定・bool 以外は TypeError。"""
+        first = self.owner.createNode("multiplyDivide")
+        second = self.owner.createNode("plusMinusAverage")
+        with self.assertRaises(TypeError):
+            self.owner.removeMembers(first, all=True)
+        with self.assertRaises(TypeError):
+            self.owner.removeMembers(all=1)
+        self.assertEqual(len(self.owner.getMembers()), 2)
+        self.owner.removeMembers(all=True)
+        self.assertFalse(self.owner.getMembers())
+        self.assertTrue(first.isValid() and second.isValid())
+        cmds.undo()
+        self.assertEqual(len(self.owner.getMembers()), 2)
+
     def test_nested_remove(self):
         """ネストからの解除は親へ移り、forceでは全所属を外す。"""
         inner = mlib.createContainer(name="inner")
@@ -128,7 +143,7 @@ class ContainerPublishTest(_SpecCase):
 
     def setUp(self):
         super().setUp()
-        self.container = mlib.createContainer(self.name("box"))
+        self.container = mlib.createContainer(name=self.name("box"))
         self.member = Node(cmds.createNode("multiplyDivide", name=self.name("md"), skipSelect=True))
         self.outside = Node(cmds.createNode("transform", name=self.name("outside"), skipSelect=True))
         self.container.addMembers(self.member)

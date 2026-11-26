@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, preservedSelection, undoTransaction
 from ..util import _UNSET, _finite_vector
 
 
-def createLocator(name=_UNSET, parent=None, localPosition=(0, 0, 0), localScale=(1, 1, 1), *, n=_UNSET):
+def createLocator(*, name=_UNSET, parent=None, localPosition=(0, 0, 0), localScale=(1, 1, 1), n=_UNSET):
     """Transformとlocatorのシェイプを作り、シェイプを返す。
 
     位置はTransformで動かす。localPosition はシェイプの表示だけをずらす(``spaceLocator`` の

@@ -264,7 +264,7 @@ class FlagTest(_CreateCase):
         existing = Node(self.make("transform", "nsShared"))
         normal = mlib.createNode("transform", name=self.name("nsShared"), shared=True, skipSelect=True)
         self.assertNotEqual(normal, existing)
-        self.assertTrue(normal.getName(node=True).startswith(self.name("nsShared")))
+        self.assertTrue(normal.getName(short=True).startswith(self.name("nsShared")))
         self.assertEqual(normal.getType(), "transform")
         before = self.nodes()
         fast = mlib.createNode("transform", name=self.name("nsShared"), shared=True, fast=True, skipSelect=True)
@@ -428,7 +428,7 @@ class MayaNamingTest(_CreateCase):
             with self.subTest(fast=fast):
                 node = mlib.createNode("transform", name=self.name("repeated"), fast=fast, skipSelect=True)
                 self.assertNotEqual(node.getName(), self.name("repeated"))
-                self.assertTrue(node.getName(node=True).startswith(self.name("repeated")))
+                self.assertTrue(node.getName(short=True).startswith(self.name("repeated")))
                 self.assertNotEqual(cmds.ls(node.getName(full=True), uuid=True), cmds.ls(original, uuid=True))
         occupied = self.make("network", "differentType")
         node = mlib.createNode("transform", name=self.name("differentType"), skipSelect=True)
@@ -445,8 +445,8 @@ class MayaNamingTest(_CreateCase):
             for fast in (False, True):
                 with self.subTest(fast=fast):
                     current = mlib.createNode("joint", name="current#", fast=fast, skipSelect=True)
-                    self.assertTrue(current.getName(node=True).startswith(self.ns + ":current"))
-                    self.assertEqual(cmds.ls(current.getName(full=True), long=True), ["|" + current.getName(node=True)])
+                    self.assertTrue(current.getName(short=True).startswith(self.ns + ":current"))
+                    self.assertEqual(cmds.ls(current.getName(full=True), long=True), ["|" + current.getName(short=True)])
         finally:
             cmds.namespace(set=":")
 
@@ -482,10 +482,10 @@ class RemovedCreationPathsTest(_CreateCase):
 
 
 class ContainerBuilderTest(_CreateCase):
-    """mlib.createContainer は name の位置引数と members を受ける作成関数。dag=True なら DagContainer。"""
+    """mlib.createContainer は members の位置引数とキーワード専用の name を受ける作成関数。dag=True なら DagContainer。"""
 
     def test_create_signature(self):
-        """name は位置・キーワードのどちらでも指定でき、members は作成後に所属する。"""
+        """members は位置・キーワードのどちらでも指定でき、作成後に所属する。name はキーワード専用。"""
         member_a, member_b = Node(self.make("network", "a")), Node(self.make("network", "b"))
         for wrapper, dag in ((Container, False), (DagContainer, True)):
             with self.subTest(wrapper=wrapper.__name__):
@@ -495,22 +495,24 @@ class ContainerBuilderTest(_CreateCase):
                     return mlib.createContainer(*args, dag=dag, **kwargs)
 
                 prefix = wrapper.__name__
-                positional = create(self.name(prefix + "Pos"))
+                positional = create(name=self.name(prefix + "Pos"))
                 self.assertIs(type(positional), wrapper)
-                self.assertEqual(positional.getName(node=True), self.name(prefix + "Pos"))
+                self.assertEqual(positional.getName(short=True), self.name(prefix + "Pos"))
                 self.assertEqual(positional.getMembers(), [])
                 keyword = create(name=self.name(prefix + "Kw"), members=[member_a, member_b])
-                self.assertEqual(keyword.getName(node=True), self.name(prefix + "Kw"))
+                self.assertEqual(keyword.getName(short=True), self.name(prefix + "Kw"))
                 self.assertEqual(set(keyword.getMembers()), {member_a, member_b})
                 self.assertEqual(cmds.container(query=True, findContainer=[member_a.getName()]), keyword.getName())
                 keyword.removeMembers(member_a, member_b)
-                single = create(self.name(prefix + "Single"), member_a)
+                single = create(member_a, name=self.name(prefix + "Single"))
+                with self.assertRaises(TypeError):
+                    create([], self.name(prefix + "Bad"))
                 self.assertEqual(single.getMembers(), [member_a])
                 single.removeMembers(member_a)
 
     def test_dag_defaults_to_false(self):
         """dagを省くと、cmds.container と同じ container(DAGでない)を作る。"""
-        node = mlib.createContainer(self.name("defaultKind"))
+        node = mlib.createContainer(name=self.name("defaultKind"))
         self.assertIs(type(node), Container)
         self.assertEqual(cmds.nodeType(node.getName(full=True)), "container")
         self.assertEqual(cmds.nodeType(cmds.container(name=self.name("cmdsKind"))), "container")
@@ -528,7 +530,7 @@ class ContainerBuilderTest(_CreateCase):
                     cmds.flushUndo()
                     node = mlib.createContainer(members=[member], dag=dag)
                     self.assertIs(type(node), wrapper)
-                    self.assertTrue(node.getName(node=True).startswith(self.name(default_name)), node.getName(node=True))
+                    self.assertTrue(node.getName(short=True).startswith(self.name(default_name)), node.getName(short=True))
                     self.assertEqual(cmds.undoInfo(query=True, undoName=True), chunk)
                     self.assertEqual(node.getMembers(), [member])
                     full = node.getName(full=True)
@@ -540,17 +542,17 @@ class ContainerBuilderTest(_CreateCase):
         before = self.nodes()
         for value in (1, "yes", None):
             with self.subTest(dag=value), self.assertRaises(TypeError):
-                mlib.createContainer(self.name("badDag"), dag=value)
+                mlib.createContainer(name=self.name("badDag"), dag=value)
         with self.assertRaises(TypeError):
-            mlib.createContainer(self.name("badDag"), (), True)
+            mlib.createContainer((), self.name("badDag"))
         self.assertEqual(self.nodes(), before)
 
     def test_container_create_node_uses_real_type(self):
         """Container.createNode は実際の型のラッパーを返して所属させ、未知型は拒否する。"""
-        owner = mlib.createContainer(self.name("owner"))
+        owner = mlib.createContainer(name=self.name("owner"))
         node = owner.createNode("multiplyDivide")
         self.assertEqual(node.getType(), "multiplyDivide")
-        self.assertEqual(node.getName(node=True), self.name("owner") + "_multiplyDivide")
+        self.assertEqual(node.getName(short=True), self.name("owner") + "_multiplyDivide")
         self.assertEqual(owner.getMembers(), [node])
         before = self.nodes()
         with self.assertRaises(RuntimeError):

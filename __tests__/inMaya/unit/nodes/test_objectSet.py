@@ -223,10 +223,10 @@ class ObjectSetDeformAdditionsTest(_Case):
         first, second, cube, _a, b = self.sets()
         one = self.flat(cmds.sets(first.getName(full=True), query=True))
         two = self.flat(cmds.sets(second.getName(full=True), query=True))
-        self.assertEqual(self.flat(first.combine(second, "union")), one | two)
-        self.assertEqual(self.flat(first.combine(second, "intersection")), one & two)
-        self.assertEqual(self.flat(first.combine(second, "difference")), one - two)
-        self.assertEqual(self.flat(first.combine(second.getName(), "intersection")), one & two)
+        self.assertEqual(self.flat(first.combine(second, mode="union")), one | two)
+        self.assertEqual(self.flat(first.combine(second, mode="intersection")), one & two)
+        self.assertEqual(self.flat(first.combine(second, mode="difference")), one - two)
+        self.assertEqual(self.flat(first.combine(second.getName(), mode="intersection")), one & two)
         self.assertFalse(first.isSubSet(second))
         sub = mlib.getNode(cmds.sets(cube + ".vtx[2]", b, name=self.name("sub")))
         self.assertTrue(sub.isSubSet(second))
@@ -240,16 +240,16 @@ class ObjectSetDeformAdditionsTest(_Case):
         self.assertIsNone(first.removeMembers(all=True))
         self.assertUndoesInOneStep(lambda: self.assertEqual(self.flat(first.getMembers()), before), lambda: self.assertEqual(first.getMembers(), []))
         with self.assertRaises(TypeError):
-            first.combine(a, "union")
+            first.combine(a, mode="union")
         cmds.delete(second.getName(full=True))
         with self.assertRaises(RuntimeError):
-            first.combine(second, "difference")
+            first.combine(second, mode="difference")
         with self.assertRaises(RuntimeError):
             second.clear()
 
 
 class ObjectSetMergedArgumentsTest(_Case):
-    """フラグ・引数へまとめた ObjectSet のメソッド(getMembers(dagOnly=)・addMembers(exclusive=)・removeMembers(all=)・combine(mode=))。"""
+    """フラグ・引数へまとめた ObjectSet のメソッド(getMembers(dagOnly=)・addMembers(forceElement=)・removeMembers(all=)・combine(mode=))。"""
 
     def members(self, node):
         return sorted(cmds.ls(cmds.sets(node.getName(full=True), query=True) or [], long=True))
@@ -319,20 +319,20 @@ class ObjectSetMergedArgumentsTest(_Case):
                     cmds.undo()
 
     def test_add_members_exclusive_moves_between_partition_sets(self):
-        """addMembers(exclusive=True) は、同じパーティションの別のセットから外して加える(cmds.sets(forceElement) と同じ)。Undo 1回。"""
+        """addMembers(forceElement=True) は、同じパーティションの別のセットから外して加える(cmds.sets(forceElement) と同じ)。Undo 1回。"""
         member = cmds.ls(self.make("transform", "moved#"), long=True)[0]
         first = mlib.getNode(cmds.sets(member, name=self.name("partFirst")))
         second = mlib.getNode(cmds.sets(empty=True, name=self.name("partSecond")))
         cmds.partition(first.getName(full=True), second.getName(full=True), name=self.name("part"))
         self.flushUndo()
-        self.assertIsNone(second.addMembers(member, exclusive=True))
+        self.assertIsNone(second.addMembers(member, forceElement=True))
         self.assertEqual(self.members(second), [member])
         self.assertEqual(self.members(first), [])
         self.assertUndoesInOneStep(
             lambda: self.assertEqual((self.members(first), self.members(second)), ([member], [])),
             lambda: self.assertEqual((self.members(first), self.members(second)), ([], [member])),
         )
-        for call in (lambda: second.addMembers(member, exclusive=1), lambda: second.addMembers(member, exclusive=None)):
+        for call in (lambda: second.addMembers(member, forceElement=1), lambda: second.addMembers(member, forceElement=None)):
             with self.assertRaises(TypeError):
                 call()
 
@@ -348,12 +348,12 @@ class ObjectSetMergedArgumentsTest(_Case):
 
         self.assertEqual(names(first.combine(second)), sorted([a, b, c]))
         self.assertEqual(names(first.combine(second, mode="union")), sorted([a, b, c]))
-        self.assertEqual(names(first.combine(second, "intersection")), [b])
-        self.assertEqual(names(first.combine(second, "difference")), [a])
-        self.assertEqual(names(second.combine(first, "difference")), [c])
+        self.assertEqual(names(first.combine(second, mode="intersection")), [b])
+        self.assertEqual(names(first.combine(second, mode="difference")), [a])
+        self.assertEqual(names(second.combine(first, mode="difference")), [c])
         for mode, error in (("Union", ValueError), ("xor", ValueError), ("", ValueError), (0, TypeError), (None, TypeError)):
             with self.subTest(mode=mode), self.assertRaises(error):
-                first.combine(second, mode)
+                first.combine(second, mode=mode)
         self.assertEqual((self.members(first), self.members(second)), before)
 
 

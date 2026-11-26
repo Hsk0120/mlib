@@ -33,7 +33,7 @@ class ConsolidatedDagTests(unittest.TestCase):
 
         self.assertEqual(names(root.getChildren()), ["queryA", "queryB"])
         self.assertEqual(names(root.getChildren(allDescendents=True)), ["queryA", "queryC", "queryB"])
-        self.assertEqual(names(root.getChildren(allDescendents=True, order="breadthFirst")), ["queryA", "queryB", "queryC"])
+        self.assertEqual(names(root.getChildren(allDescendents=True, sortBy="breadthFirst")), ["queryA", "queryB", "queryC"])
         self.assertEqual(names(root.getChildren(leaves=True, includeSelf=True)), ["queryC", "queryB"])
         self.assertEqual(c.getChildren(leaves=True, includeSelf=True), [c])
         self.assertEqual(c.getChildren(leaves=True), [])
@@ -46,7 +46,7 @@ class ConsolidatedDagTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             root.getChildren(shapes=True, leaves=True)
         with self.assertRaises(ValueError):
-            root.getChildren(order="invalid")
+            root.getChildren(sortBy="invalid")
 
     def test_children_preserve_instance_path(self):
         """同じノードを別親から探索しても各インスタンスのパスを保持する。"""

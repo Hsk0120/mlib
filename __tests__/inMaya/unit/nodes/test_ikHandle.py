@@ -32,7 +32,7 @@ class _SpecCase(NamespaceCase):
 
 
 class IkHandleTest(_SpecCase):
-    """IkHandle.getJoints(includeTip=・end=)。"""
+    """IkHandle.getJoints(includeTip=・tipOnly=)。"""
 
     def setUp(self):
         super().setUp()
@@ -43,34 +43,34 @@ class IkHandleTest(_SpecCase):
     def test_end_joint_and_joints(self):
         """getJoints は jointList(末端を含まない)、includeTip=True で末端を足す。"""
         self.assertIs(type(self.node), IkHandle)
-        self.assertEqual(self.node.getJoints(end=True), Joint(self.j3))
+        self.assertEqual(self.node.getJoints(tipOnly=True), Joint(self.j3))
         self.assertEqual(self.node.getJoints(), [Joint(self.j1), Joint(self.j2)])
         self.assertEqual(self.node.getJoints(includeTip=True), [Joint(self.j1), Joint(self.j2), Joint(self.j3)])
-        self.assertTrue(all(type(item) is Joint for item in self.node.getJoints(True)))
-        # cmds の jointList と一致し、end=True は includeTip=True の最後と同じジョイント。
+        self.assertTrue(all(type(item) is Joint for item in self.node.getJoints(includeTip=True)))
+        # cmds の jointList と一致し、tipOnly=True は includeTip=True の最後と同じジョイント。
         self.assertEqual(
             [item.getName(full=True) for item in self.node.getJoints()], cmds.ls(cmds.ikHandle(self.handle, query=True, jointList=True), long=True)
         )
-        self.assertEqual(self.node.getJoints(end=True), self.node.getJoints(includeTip=True)[-1])
-        self.assertEqual(self.node.getJoints(end=False), self.node.getJoints())
+        self.assertEqual(self.node.getJoints(tipOnly=True), self.node.getJoints(includeTip=True)[-1])
+        self.assertEqual(self.node.getJoints(tipOnly=False), self.node.getJoints())
 
     def test_end_and_include_tip_are_exclusive(self):
-        """end=True と includeTip=True は同時に指定できず、end は bool のキーワード専用(TypeError)。"""
+        """tipOnly=True と includeTip=True は同時に指定できず、どちらも bool のキーワード専用(TypeError)。"""
         for call in (
-            lambda: self.node.getJoints(True, end=True),
-            lambda: self.node.getJoints(includeTip=True, end=True),
-            lambda: self.node.getJoints(end=1),
-            lambda: self.node.getJoints(end=None),
+            lambda: self.node.getJoints(True),
+            lambda: self.node.getJoints(includeTip=True, tipOnly=True),
+            lambda: self.node.getJoints(tipOnly=1),
+            lambda: self.node.getJoints(tipOnly=None),
             lambda: self.node.getJoints(False, True),
         ):
             with self.assertRaises(TypeError):
                 call()
 
     def test_disconnected_effector(self):
-        """effector の translate の入力が無ければ getJoints(end=True) は None、getJoints は末端を足さない。"""
+        """effector の translate の入力が無ければ getJoints(tipOnly=True) は None、getJoints は末端を足さない。"""
         effector = cmds.listConnections(self.handle + ".endEffector")[0]
         cmds.disconnectAttr(self.j3 + ".translateX", effector + ".translateX")
-        self.assertIsNone(self.node.getJoints(end=True))
+        self.assertIsNone(self.node.getJoints(tipOnly=True))
         self.assertEqual(self.node.getJoints(includeTip=True), [Joint(self.j1), Joint(self.j2)])
 
     def test_deleted_handle(self):
@@ -78,7 +78,7 @@ class IkHandleTest(_SpecCase):
         cmds.delete(self.handle)
         with self.assertRaisesRegex(RuntimeError, "無効なIkHandleのため"):
             self.node.getJoints()
-        for flags in ({"end": True}, {"includeTip": True}):
+        for flags in ({"tipOnly": True}, {"includeTip": True}):
             with self.subTest(flags=flags), self.assertRaises(RuntimeError):
                 self.node.getJoints(**flags)
 

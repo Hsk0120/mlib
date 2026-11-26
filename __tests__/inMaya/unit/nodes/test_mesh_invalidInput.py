@@ -81,7 +81,7 @@ class MeshEdgeCaseTest(NamespaceCase):
             with self.subTest(fast=fast):
                 self.assertIsNone(mesh.setVertexColors([], vertices=[], fast=fast))
                 self.assertIsNone(mesh.setVertexColors([], perFace=True, faceVertices=[], fast=fast))
-        self.assertEqual(list(mesh.getSetNames(color=True)), [])
+        self.assertEqual(list(mesh.getSetNames(kind="color")), [])
 
     def test_face_vertex_colors_fast_creates_first_color_set(self):
         """カラーセットの無いメッシュへのperFace・fastの書き込みはcolorSet1を作って書き、om2の値と一致する。"""
@@ -89,8 +89,8 @@ class MeshEdgeCaseTest(NamespaceCase):
         self.flushUndo()
         mesh.setVertexColors([(1, 0, 0), (0, 1, 0, 0.5)], perFace=True, faceVertices=[(0, 0), (1, 0)], fast=True)
         self.assertUndoEmpty()
-        self.assertEqual(list(mesh.getSetNames(color=True)), ["colorSet1"])
-        self.assertEqual(mesh.getCurrentSet(color=True), "colorSet1")
+        self.assertEqual(list(mesh.getSetNames(kind="color")), ["colorSet1"])
+        self.assertEqual(mesh.getCurrentSet(kind="color"), "colorSet1")
         fn = om2.MFnMesh(mesh.mpath())
         self.assertSequenceAlmostEqual(tuple(fn.getFaceVertexColors("colorSet1")[0]), (1, 0, 0, 1), places=6)
         actual = mesh.getVertexColors(perFace=True, faceVertices=[(0, 0), (1, 0)])
@@ -100,7 +100,7 @@ class MeshEdgeCaseTest(NamespaceCase):
     def test_vertex_color_inputs_rejected_before_change(self):
         """色・頂点番号・カラーセットの型や値の誤りは、書き込む前にTypeError・ValueErrorになる。"""
         mesh = self.mesh()
-        mesh.createSet("first", color=True)
+        mesh.createSet("first", kind="color")
         before = mesh.getVertexColors(colorSet="first")
         count = mesh.getNumVertices()
         for label, args, kwargs, error in (

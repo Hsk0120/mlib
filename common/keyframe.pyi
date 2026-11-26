@@ -75,19 +75,19 @@ class Keyframe:
             bool: 有効ならTrue。番号が同じキーを指し続けているかまでは確かめない。
         """
         ...
-    def getValue(self, *, time: bool = ..., unit: str = ..., timeUnit: str = ...) -> float:
-        """キーの値を返す。``time=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
+    def getValue(self, *, input: bool = ..., unit: str = ..., timeUnit: str = ...) -> float:
+        """キーの値を返す。``input=True`` なら、キーの入力(時刻、またはドリブンキーの入力の値)を返す。
 
         Args:
-            time (bool): Trueなら、値でなく入力を返す。既定はFalse。
-            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``time=True`` では指定できない。
+            input (bool): Trueなら、値でなく入力を返す。既定はFalse。
+            unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``input=True`` では指定できない。
             timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
 
         Returns:
             float: 値、または入力の値。
 
         Raises:
-            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
             IndexError: 番号がキーの数の範囲から外れた場合。
             RuntimeError: カーブが無効(削除済み)の場合。
         """
@@ -116,35 +116,48 @@ class Keyframe:
     def getTangent(self, *, unit: str = ...) -> dict:
         """接線の型・角度・ウェイト・ロックを返す。
 
-        :meth:`AnimCurve.getTangent <mlib.nodes.animCurve.AnimCurve.getTangent>` と同じ。
+        角度はunitの単位(既定は度)。接線のウェイトはAPIの値のまま返す(入力が時間のカーブでは、今のUIの時間単位で変わる)。
+        lockとweightLockはキーごとの状態、weightedTangentsはカーブ全体の状態。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
 
         Returns:
-            dict: AnimCurve.getTangent と同じ辞書。
+            dict: inTangentType・outTangentType・inAngle・outAngle・inWeight・outWeight・lock・weightLock・weightedTangents を
+                キーにした新しい辞書。型名はMayaのコマンドでの表記で、名前の登録の無い接線の型は空文字列。
+
+        Raises:
+            TypeError: unitが文字列・None以外の場合。
+            ValueError: unitに対応していない単位名の場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
         """
         ...
     def setTangent(self, *, unit: str = ..., fast: bool = ..., check: bool = ..., **kwargs) -> None:
-        """接線を変える。
+        """接線を変える。接線のロックの扱いはMayaの規則に従う。
 
-        :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じ。
+        weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
 
         Args:
             unit (str): 角度の単位。``"deg"`` / ``"rad"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            **kwargs: AnimCurve.setTangent と同じフラグ。
+            **kwargs: :meth:`getTangent` の辞書と同じ9種類のフラグ(長い名前)。角度はunitの単位、接線のウェイトはAPIの値。
 
         Returns:
             None: 値を返さない。
+
+        Raises:
+            TypeError: unitが文字列・None以外の場合。
+            ValueError: フラグが空か知らない名前の場合、unitに対応していない場合、
+                またはfastで正しくない値やglobal・知らない接線の型を指定した場合。
+            IndexError: 番号がキーの数の範囲から外れた場合。
+            RuntimeError: check=Trueで、キーを格納するアトリビュートがロック・入力の接続などで書き込めない場合。
+            NotImplementedError: fastで入力側の接線にstepnextを指定した場合。
         """
         ...
     def isBreakdown(self) -> bool:
         """ブレイクダウンキーか調べる。
-
-        :meth:`AnimCurve.isBreakdown <mlib.nodes.animCurve.AnimCurve.isBreakdown>` と同じ。
 
         Returns:
             bool: ブレイクダウンキーならTrue。
@@ -156,8 +169,6 @@ class Keyframe:
         ...
     def setBreakdown(self, state: bool = ...) -> None:
         """ブレイクダウンキーにする、または通常のキーへ戻す。
-
-        :meth:`AnimCurve.setBreakdown <mlib.nodes.animCurve.AnimCurve.setBreakdown>` と同じ。
 
         Args:
             state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
@@ -174,7 +185,6 @@ class Keyframe:
     def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーの入力と値をずらす。
 
-        :meth:`AnimCurve.moveKey <mlib.nodes.animCurve.AnimCurve.moveKey>` と同じ。
         入力は隣のキーを越えない(Mayaの ``keyframe -relative`` と同じ)。番号は変わらない。
 
         Args:
@@ -187,7 +197,7 @@ class Keyframe:
             None: 値を返さない。
         """
         ...
-    def remove(self, *, keepCurve: bool = ..., fast: bool = ...) -> None:
+    def delete(self, *, keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """キーを削除する。
 
         削除したあとは、同じカーブでこれより後ろの番号を持つオブジェクトが、別のキーを指すようになる。
@@ -195,6 +205,8 @@ class Keyframe:
         Args:
             keepCurve (bool): Trueなら、最後のキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。
@@ -277,19 +289,19 @@ class Keyframes:
             list[int]: 番号(小さい順)。このカーブのキーが無ければ空。
         """
         ...
-    def getValues(self, *, time: bool = ..., unit: str = ..., timeUnit: str = ...) -> list[float]:
-        """各キーの値を返す(並びはforで取り出す順と同じ)。``time=True`` なら、各キーの入力を返す。
+    def getValues(self, *, input: bool = ..., unit: str = ..., timeUnit: str = ...) -> list[float]:
+        """各キーの値を返す(並びはforで取り出す順と同じ)。``input=True`` なら、各キーの入力を返す。
 
         Args:
-            time (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
-            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``time=True`` では指定できない。
+            input (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
+            unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``input=True`` では指定できない。
             timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。
 
         Returns:
             list[float]: 値、または入力の値。
 
         Raises:
-            TypeError: timeがboolでない場合、またはtime=Trueとunitを同時に指定した場合。
+            TypeError: inputがboolでない場合、またはinput=Trueとunitを同時に指定した場合。
         """
         ...
     def setValue(self, value: float, *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
@@ -317,7 +329,7 @@ class Keyframes:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
                 既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            **kwargs: :meth:`AnimCurve.setTangent <mlib.nodes.animCurve.AnimCurve.setTangent>` と同じフラグ。
+            **kwargs: :meth:`Keyframe.setTangent` と同じフラグ。
 
         Returns:
             None: 値を返さない。
@@ -330,6 +342,23 @@ class Keyframes:
             RuntimeError: カーブが無効(削除済み)の場合。check=Trueで、キーを格納するアトリビュートが
                 ロック・入力の接続などで書き込めない場合。
             NotImplementedError: fastで、入力側の接線にstepnextを指定した場合。
+        """
+        ...
+    def setBreakdown(self, state: bool = ...) -> None:
+        """すべてのキーをブレイクダウンキーにする、または通常のキーへ戻す(1回のUndoで戻せる)。
+
+        :meth:`Keyframe.setBreakdown` と同じ。カーブごとに1回で書き換える。
+
+        Args:
+            state (bool): Trueならブレイクダウンキー、Falseなら通常のキーにする。既定はTrue。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            TypeError: stateがboolでない場合。
+            IndexError: キーの番号がキーの数の範囲から外れた場合。
+            RuntimeError: カーブが無効(削除済み)の場合。
         """
         ...
     def move(self, *, timeOffset: float = ..., valueOffset: float = ..., unit: str = ..., timeUnit: str = ...) -> None:
@@ -348,7 +377,7 @@ class Keyframes:
             None: 値を返さない。
         """
         ...
-    def remove(self, *, keepCurve: bool = ..., fast: bool = ...) -> None:
+    def delete(self, *, keepCurve: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """すべてのキーを削除する(1回のUndoで戻せる)。
 
         削除したあとは、この集まりのオブジェクトが別のキーを指すことがある。
@@ -356,6 +385,8 @@ class Keyframes:
         Args:
             keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、すべてのカーブが書き込めるか(ロック・入力の接続が無いか)を確かめて、
+                問題があれば何も消さずに例外にする。既定はFalseで、確かめずに消す(Mayaが拒否したときだけ例外になる)。
 
         Returns:
             None: 値を返さない。

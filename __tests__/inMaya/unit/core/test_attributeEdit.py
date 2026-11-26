@@ -108,7 +108,7 @@ class AttributeEditsTest(unittest.TestCase):
         Returns:
             list[str]: 表示順を変更するアトリビュート長名。
         """
-        return [name for name in [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)] if name != "attributeAliasList"]
+        return [name for name in [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)] if name != "attributeAliasList"]
 
     def test_move_preserves_short_name_limits_and_flags(self):
         """短名・soft limit・表示状態・定義フラグを再作成とUndoで保つ。"""
@@ -133,11 +133,11 @@ class AttributeEditsTest(unittest.TestCase):
         self.node.addAttr("secondValue")
         before = self._definition("firstValue")
         self.assertIsNone(self.node.moveAttrOrder("firstValue", 1))
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["secondValue", "firstValue"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["secondValue", "firstValue"])
         self.assertEqual(self._definition("firstValue"), before)
         self.assertFalse(first.isValid())
         cmds.undo()
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["firstValue", "secondValue"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["firstValue", "secondValue"])
         self.assertEqual(self._definition("firstValue"), before)
         cmds.redo()
         self.assertEqual(self._definition("firstValue"), before)
@@ -188,10 +188,10 @@ class AttributeEditsTest(unittest.TestCase):
         first = self.node.addAttr("first")
         self.node.addAttr("second")
         om2.MFnAttribute(first.mplug().attribute()).connectable = False
-        before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)]
+        before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)]
         with self.assertRaisesRegex(TypeError, "接続できないアトリビュート"):
             self.node.moveAttrOrder("first", 1)
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], before)
         self.assertTrue(first.isValid())
 
     def test_move_rejects_undo_disabled_before_changes(self):
@@ -200,13 +200,13 @@ class AttributeEditsTest(unittest.TestCase):
         self.node.addAttr("second")
         # stateWithoutFlush=Falseは、Maya 2025/2027のmayapyで以後のcreateNodeの名前空間が外れるため、
         # Undoの切替えはstate=を使う。
-        before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)]
+        before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)]
         cmds.undoInfo(state=False)
         try:
             with self.assertRaisesRegex(RuntimeError, "Undoが必要です"):
                 self.node.moveAttrOrder("first", 1)
             self.assertFalse(cmds.undoInfo(query=True, state=True))
-            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)
+            self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], before)
         finally:
             cmds.undoInfo(state=True)
         self.assertTrue(cmds.undoInfo(query=True, state=True))
@@ -215,9 +215,9 @@ class AttributeEditsTest(unittest.TestCase):
         self.assertEqual(probe, self.namespace + ":probe")
         # fast引数のない操作は外側の呼出しモードに依存せず通常Undoを使う。
         self.node.moveAttrOrder("first", 1)
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], ["second", "first"])
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], ["second", "first"])
         cmds.undo()
-        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)
+        self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], before)
 
     def test_add_preflights_child_names_and_component_counts(self):
         """親追加前に子の重複・既存名・成分数・不正既定値を拒否する。"""
@@ -234,11 +234,11 @@ class AttributeEditsTest(unittest.TestCase):
         for fast in (False, True):
             for index, flags in enumerate(attempts):
                 name = f"attempt_{int(fast)}_{index}"
-                before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)]
+                before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)]
                 with self.subTest(fast=fast, flags=flags):
                     with self.assertRaises((TypeError, ValueError, RuntimeError)):
                         self.node.addAttr(name, "double3", fast=fast, **flags)
-                    self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, includeChildren=False)], before)
+                    self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], before)
 
     def test_add_preflights_typed_defaults_and_keeps_default_return(self):
         """typed既定値を追加前に検証し、既定Plug返却とgetPlug=Falseを保つ。"""
@@ -294,12 +294,12 @@ class NodeApiTest(unittest.TestCase):
         node.getPlug("attrB").setFlags(locked=True)
         source.getPlug("translateX").set(7.0)
         source.getPlug("translateX").connectTo(node.getPlug("attrC"))
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrB", "attrC"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrB", "attrC"])
 
         result = node.moveAttrOrder("attrC", -2)
 
         self.assertIsNone(result)
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrC", "attrA", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrC", "attrA", "attrB"])
         self.assertEqual(node.getPlug("attrA").get(), 1.0)
         self.assertEqual(node.getPlug("attrB").get(), 5.0)
         self.assertTrue(node.getPlug("attrB").isLocked())
@@ -319,7 +319,7 @@ class NodeApiTest(unittest.TestCase):
 
         node.moveAttrOrder("attrMode", 1)
 
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrLabel", "attrMode"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrLabel", "attrMode"])
         self.assertEqual(node.getPlug("attrMode").get(), 2)
         self.assertEqual(node.getPlug("attrMode").getEnumNames(current=True), "Auto")
         self.assertEqual(node.getPlug("attrLabel").get(), "hello world")
@@ -331,13 +331,13 @@ class NodeApiTest(unittest.TestCase):
 
         result = node.moveAttrOrder("attrA", 0)
         self.assertIsNone(result)
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrB"])
 
         node.moveAttrOrder("attrA", 100)
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrB", "attrA"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrB", "attrA"])
 
         node.moveAttrOrder("attrA", -100)
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrB"])
 
     def test_move_attribute_raises_for_unknown_name_and_unsupported_type(self):
         node = self.create_transform("mlibNodeApiMoveAttrErrors")
@@ -354,7 +354,7 @@ class NodeApiTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             node.moveAttrOrder("attrB", -1)
         # 型エラー時は何も削除・変更されていない(ダンプ段階での検証が先に走るため)。
-        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, includeChildren=False)], ["attrA", "attrCompound", "attrB"])
+        self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["attrA", "attrCompound", "attrB"])
 
 
 class EditRefactoringTest(unittest.TestCase):

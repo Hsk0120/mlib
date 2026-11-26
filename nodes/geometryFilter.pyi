@@ -219,7 +219,7 @@ class GeometryFilter(Node):
                 またはMayaが書き込みを拒否した場合。
         """
         ...
-    def copyDeformerWeightsTo(self, other: GeometryFilter | str, *, geometryIndex: int = ..., otherGeometryIndex: int = ..., fast: bool = ...) -> GeometryFilter:
+    def copyDeformerWeightsTo(self, other: GeometryFilter | str, *, geometryIndex: int = ..., otherGeometryIndex: int = ..., fast: bool = ..., check: bool = ...) -> GeometryFilter:
         """デフォーマーのウェイトを別のデフォーマーへ写す。
 
         写す先は、頂点数が同じ別のデフォーマーか、同じデフォーマーの別の形状。
@@ -230,6 +230,8 @@ class GeometryFilter(Node):
             geometryIndex (int): 写す元(自身)の形状の番号。既定は0。
             otherGeometryIndex (int): 写す先の形状の番号。既定は0。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
+                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。:meth:`setDeformerWeights` の ``check`` と同じ。
 
         Returns:
             GeometryFilter: 写す先のデフォーマー。

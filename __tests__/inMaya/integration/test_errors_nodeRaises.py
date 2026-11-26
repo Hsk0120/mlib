@@ -86,7 +86,7 @@ class AnimCurveTest(_RaisesCase):
         cases = (
             ("animCurveTL", "isWeighted", ()),
             ("animCurveTL", "findClosestIndex", (3,)),
-            ("animCurveTL", "setKey", (3,)),
+            ("animCurveTL", "addKey", (3,)),
             ("animCurveTL", "replaceKeys", ([(1, 2)],)),
             ("animCurveTL", "getKeyframes", ()),
             ("animCurveTL", "addKeys", ([{"time": 20, "value": 1}],)),
@@ -98,9 +98,9 @@ class AnimCurveTest(_RaisesCase):
                 self.assertFailsWithoutChange(RuntimeError, getattr(curve, method), *args)
 
     def test_curve_without_keys(self):
-        """findClosestIndex・setKey(value を省く挿入)はキーの無いカーブで RuntimeError。キーは増えない。"""
+        """findClosestIndex・addKey(value を省く挿入)はキーの無いカーブで RuntimeError。キーは増えない。"""
         curve = self.node("animCurveTL")
-        for method in ("findClosestIndex", "setKey"):
+        for method in ("findClosestIndex", "addKey"):
             with self.subTest(method=method):
                 self.assertFailsWithoutChange(RuntimeError, getattr(curve, method), 3)
                 self.assertEqual(cmds.keyframe(curve.getName(full=True), query=True, keyframeCount=True), 0)
@@ -136,7 +136,7 @@ class CameraTest(_RaisesCase):
         ("getFrustum", (1.5,), {}),
         ("getViewParameters", (1.5,), {}),
         ("getFieldOfView", (), {"port": (640, 480)}),
-        ("getProjectionMatrix", (), {"post": True}),
+        ("getProjectionMatrix", (), {"kind": "post"}),
         ("isOrtho", (), {}),
         ("setPoint", ((0, 0, -5),), {"kind": "centerOfInterest", "fast": True}),
         ("copyViewFrom", ("camera",), {"fast": True}),
@@ -258,11 +258,11 @@ class NodeTest(_RaisesCase):
 
     def test_deleted_node(self):
         cases = (
-            ("getDgTimer", (), {"state": True}),
+            ("getDgTimer", (), {"kind": "state"}),
             ("setDgTimer", (True,), {}),
             ("setDgTimer", (), {"reset": True}),
             ("getDgTimer", (0,), {}),
-            ("getDgTimer", (), {"callbacks": True}),
+            ("getDgTimer", (), {"kind": "callbacks"}),
             ("getContainer", (), {}),
             ("getPlugs", (), {"animatable": True}),
             ("hasUniqueName", (), {}),
@@ -345,17 +345,17 @@ class ObjectSetTest(_RaisesCase):
         member = cmds.createNode("transform", skipSelect=True)
         with self.subTest(method="getMembers dagOnly"):
             self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).getMembers, dagOnly=True)
-        with self.subTest(method="addMembers exclusive"):
-            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).addMembers, member, exclusive=True)
+        with self.subTest(method="addMembers forceElement"):
+            self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).addMembers, member, forceElement=True)
             self.assertFalse(cmds.listSets(object=member))
         with self.subTest(method="removeMembers all"):
             self.assertFailsWithoutChange(RuntimeError, self.kill(self.objectSet()).removeMembers, all=True)
-        cases = [("combine", (mode,)) for mode in ("union", "intersection", "difference")] + [("isSubSet", ())]
-        for method, args in cases:
-            with self.subTest(method=method, args=args, case="other"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.objectSet(), method), self.kill(self.objectSet()), *args)
-            with self.subTest(method=method, args=args, case="self"):
-                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.objectSet()), method), self.objectSet(), *args)
+        cases = [("combine", {"mode": mode}) for mode in ("union", "intersection", "difference")] + [("isSubSet", {})]
+        for method, flags in cases:
+            with self.subTest(method=method, flags=flags, case="other"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.objectSet(), method), self.kill(self.objectSet()), **flags)
+            with self.subTest(method=method, flags=flags, case="self"):
+                self.assertFailsWithoutChange(RuntimeError, getattr(self.kill(self.objectSet()), method), self.objectSet(), **flags)
 
 
 class ConstraintCacheTest(_RaisesCase):
@@ -390,14 +390,14 @@ class ReferenceTest(_RaisesCase):
         for kind in ("node", "attr"):
             with self.subTest(method="getEdits", kind=kind, case="onReferenceNode"):
                 live = self.node("reference")
-                self.assertFailsWithoutChange(RuntimeError, live.getEdits, kind=kind, onReferenceNode=self.kill(self.node("reference")))
+                self.assertFailsWithoutChange(RuntimeError, live.getEdits, what=kind, onReferenceNode=self.kill(self.node("reference")))
 
 
 class ShadingEngineTest(_RaisesCase):
     """削除した shadingEngine。"""
 
     def test_deleted_shading_engine(self):
-        for flags in ({"plug": True}, {}):
+        for flags in ({"asPlug": True}, {}):
             with self.subTest(method="getShader", flags=flags):
                 engine = mlib.getNode(cmds.sets(renderable=True, noSurfaceShader=True, empty=True))
                 self.assertFailsWithoutChange(RuntimeError, self.kill(engine).getShader, **flags)

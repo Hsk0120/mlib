@@ -909,8 +909,6 @@ def _ls_return(stub, _node):
 def _connection_variants(stub, node, qualname):
     """``getConnections`` の ``asPair``・``asNode``・``index`` ごとのオーバーロードを返す。
 
-    ``c``・``connections`` によるペア指定は最後の汎用の定義(戻り値は全候補の合併)で受ける。
-
     Args:
         stub (ModuleStub): 出力中のモジュール。
         node (ast.FunctionDef): ``getConnections`` の定義。
@@ -920,7 +918,7 @@ def _connection_variants(stub, node, qualname):
         list[str]: ``def getConnections(...) -> ...: ...`` の行。
     """
     true, false = ("Literal[True]", False), ("Literal[False]", True)
-    no_pair = {"c": false, "connections": false, "asPair": false}
+    no_pair = {"asPair": false}
     cases = [
         ({"asPair": true, "asNode": true, "index": ("int", False)}, "tuple[Plug, Node] | None"),
         ({"asPair": true, "asNode": true, "index": ("None", True)}, "list[tuple[Plug, Node]]"),
@@ -935,8 +933,8 @@ def _connection_variants(stub, node, qualname):
     variants = []
     if any(argument.arg == "input" for argument in node.args.kwonlyargs):
         # Plug: このPlug自身の入力元(1件かNone)・出力先(一覧。indexを渡せば1件かNone)。
-        one = {"input": true, "outputs": false, "index": ("None", True)}
-        many = {"input": false, "outputs": true}
+        one = {"input": true, "output": false, "index": ("None", True)}
+        many = {"input": false, "output": true}
         own = [
             (dict(one, asPair=true, asNode=true), "tuple[Plug, Node] | None"),
             (dict(one, asPair=true, asNode=false), "tuple[Plug, Plug] | None"),
@@ -948,7 +946,7 @@ def _connection_variants(stub, node, qualname):
             stub.annotation(returns, qualname)
             params = stub._params(node.args, doc_types, qualname, overrides, kwonly_from="asPair")
             variants.append(f"def getConnections({params}) -> {returns}: ...")
-        cases = [(dict(overrides, input=false, outputs=false), returns) for overrides, returns in cases]
+        cases = [(dict(overrides, input=false, output=false), returns) for overrides, returns in cases]
     for overrides, returns in cases:
         stub.annotation(returns, qualname)
         params = stub._params(node.args, doc_types, qualname, overrides, kwonly_from="asPair")
@@ -1103,7 +1101,7 @@ def _face_get_connected_overloads(stub, node):
 
 
 def _vertex_face_get_normal_overloads(stub, node):
-    """``VertexFace.getNormal`` の ``locked`` ごとのオーバーロードを返す。
+    """``VertexFace.getNormal`` の ``lockedOnly`` ごとのオーバーロードを返す。
 
     Args:
         stub (ModuleStub): 出力中のモジュール。
@@ -1116,8 +1114,8 @@ def _vertex_face_get_normal_overloads(stub, node):
     doc_types = _arg_types(ast.get_docstring(node) or "")
     qualname = "VertexFace.getNormal"
     stub.annotation("Vector", qualname)
-    state = stub._params(node.args, doc_types, qualname, {"locked": ("Literal[True]", False)})
-    value = stub._params(node.args, doc_types, qualname, {"locked": ("Literal[False]", True)})
+    state = stub._params(node.args, doc_types, qualname, {"lockedOnly": ("Literal[True]", False)})
+    value = stub._params(node.args, doc_types, qualname, {"lockedOnly": ("Literal[False]", True)})
     return [f"def getNormal({state}) -> bool: ...", f"def getNormal({value}) -> Vector: ..."]
 
 
@@ -1268,7 +1266,7 @@ OVERLOADS = {
         "Mesh.getShadingEngines", [({"perFace": _TRUE}, "list[ShadingEngine | None]"), ({"perFace": _FALSE}, "Nodes[ShadingEngine]")]
     ),
     "mlib.nodes.mesh:Mesh.getVertexNormals": _flag_overloads(
-        "Mesh.getVertexNormals", [({"perFace": _TRUE, "locked": _TRUE}, "list[bool]"), ({"locked": _FALSE}, "list[Vector]")]
+        "Mesh.getVertexNormals", [({"perFace": _TRUE, "lockedOnly": _TRUE}, "list[bool]"), ({"lockedOnly": _FALSE}, "list[Vector]")]
     ),
     "mlib.nodes.mesh:Mesh.getShells": _flag_overloads("Mesh.getShells", [({"uv": _TRUE}, "list[list[int]]"), ({"uv": _FALSE}, "list[Vertices]")]),
     "mlib.nodes.mesh:Mesh.getBorder": _choice_overloads("Mesh.getBorder", "type", [("edge", "Edges"), ("vertex", "Vertices")]),
@@ -1319,7 +1317,7 @@ OVERLOADS = {
         "ShadingEngine.getMembers", [({"dagOnly": _TRUE}, "Nodes[DagNode]"), ({"dagOnly": _FALSE, "shadingOnly": _FALSE}, "list[Node | Face]")]
     ),
     "mlib.nodes.shadingEngine:ShadingEngine.getShader": _flag_overloads(
-        "ShadingEngine.getShader", [({"plug": _TRUE}, "Plug | None"), ({"plug": _FALSE}, "Node | None")]
+        "ShadingEngine.getShader", [({"asPlug": _TRUE}, "Plug | None"), ({"asPlug": _FALSE}, "Node | None")]
     ),
     "mlib.nodes.constraint:Constraint.getWeightPlugs": _flag_overloads(
         "Constraint.getWeightPlugs", [({"aliases": _TRUE}, "list[str]"), ({"aliases": _FALSE}, "Plugs")]
@@ -1327,13 +1325,13 @@ OVERLOADS = {
     "mlib.nodes.dagPose:DagPose.getMemberIndices": _flag_overloads(
         "DagPose.getMemberIndices", [({"member": ("Node | str", False)}, "int"), ({"member": _NONE}, "list[int]")]
     ),
-    "mlib.nodes.ikHandle:IkHandle.getJoints": _flag_overloads("IkHandle.getJoints", [({"end": _TRUE}, "Joint | None"), ({"end": _FALSE}, "Joints")]),
+    "mlib.nodes.ikHandle:IkHandle.getJoints": _flag_overloads("IkHandle.getJoints", [({"tipOnly": _TRUE}, "Joint | None"), ({"tipOnly": _FALSE}, "Joints")]),
     "mlib.nodes.node:Node.getDgTimer": _flag_overloads(
         "Node.getDgTimer",
         [
-            ({"metric": _NONE, "callbacks": _TRUE, "state": _FALSE}, "list[tuple[str, float]]"),
-            ({"metric": _NONE, "callbacks": _FALSE, "state": _TRUE}, "int"),
-            ({"metric": ("int", False), "callbacks": _FALSE, "state": _FALSE}, "float"),
+            ({"metric": _NONE, "kind": ('Literal["callbacks"]', False)}, "list[tuple[str, float]]"),
+            ({"metric": _NONE, "kind": ('Literal["state"]', False)}, "int"),
+            ({"metric": ("int", False), "kind": ('Literal["metric"]', True)}, "float"),
         ],
     ),
     "mlib.nodes.node:Node.getType": lambda stub, _node: _get_type_overloads(stub),

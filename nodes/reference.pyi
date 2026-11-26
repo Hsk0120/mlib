@@ -38,7 +38,7 @@ class Reference(Node):
             bool: ファイル参照がロックされているか。
         """
         ...
-    def setReferenceLocked(self, state: bool) -> None:
+    def setReferenceLocked(self, state: bool = ...) -> None:
         """参照ファイルを編集ロック・解除する。
 
         Undo対象外。ロード中は一度アンロードして再ロードするため、保持済みの参照先オブジェクトは無効になる。
@@ -47,7 +47,7 @@ class Reference(Node):
         fast引数は持たない(ファイル参照の状態操作のため)。
 
         Args:
-            state (bool): Trueでロック、Falseで解除する。
+            state (bool): Trueでロック、Falseで解除する。既定はTrue。
 
         Returns:
             None: 値を返さない。
@@ -204,10 +204,10 @@ class Reference(Node):
             bool: 親のリファレンスが無ければTrue。
         """
         ...
-    def getEdits(self, successful: bool = ..., failed: bool = ..., *, kind: str = ..., editCommand: str | None = ..., onReferenceNode: Reference | str | None = ...) -> list[str]:
+    def getEdits(self, successful: bool = ..., failed: bool = ..., *, what: str = ..., editCommand: str | None = ..., onReferenceNode: Reference | str | None = ...) -> list[str]:
         """このリファレンスに対するEditの一覧を取得する。
 
-        ``kind`` で、Editの何を返すかを選ぶ。
+        ``what`` で、Editの何を返すかを選ぶ。
 
         - ``"string"`` (既定): Editを表すMELコマンドの文字列。過去の名前を含む場合がある。
         - ``"node"``: Editに記録されたノード名。過去の名前や重複を含み、現在のDAGパスとは限らない。
@@ -218,7 +218,7 @@ class Reference(Node):
         Args:
             successful (bool): Trueなら、適用に成功したEditを含める。既定はTrue。
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
-            kind (str): 返すもの。``"string"``・``"node"``・``"attr"``。既定は ``"string"``。
+            what (str): 返すもの。``"string"``・``"node"``・``"attr"``。既定は ``"string"``。
             editCommand (str | None): addAttr・connectAttr・deleteAttr・disconnectAttr・parent・setAttr・lock・unlockの1種類。
                 Noneなら種類を絞らない。
             onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
@@ -227,12 +227,12 @@ class Reference(Node):
             list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
 
         Raises:
-            TypeError: kind・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
-            ValueError: kind・editCommandが未対応の名前の場合。
+            TypeError: what・editCommandの型、またはonReferenceNodeのノード型が不正な場合。
+            ValueError: what・editCommandが未対応の名前の場合。
             RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
         ...
-    def removeEdits(self, successful: bool = ..., failed: bool = ..., editCommand: str | None = ...) -> None:
+    def removeEdits(self, successful: bool = ..., failed: bool = ..., *, editCommand: str | None = ...) -> None:
         """このリファレンスに対するEditを削除する。
 
         ``cmds.referenceEdit(removeEdits=True)`` で削除する。
@@ -285,7 +285,7 @@ class Reference(Node):
 
         Args:
             removeNamespace (bool): Trueなら、読み込んだ名前空間を削除し、内容を親の名前空間へ移す。
-                名前がぶつかるノードには、:meth:`Namespace.remove` と同じく末尾に番号を付ける。既定はFalse。
+                名前がぶつかるノードには、:meth:`Namespace.delete` と同じく末尾に番号を付ける。既定はFalse。
 
         Returns:
             Nodes: 読み込んだノード。referenceノードは含まない。

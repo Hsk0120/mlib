@@ -53,7 +53,7 @@ class DisconnectReferenceTest(unittest.TestCase):
                 self.assertIsInstance(result, mlib.Plug)
                 self.assertEqual(result, source)
                 self.assertIsNone(center.getConnections(input=True, skipConversionNodes=True))
-                self.assertCountEqual(center.getConnections(outputs=True, skipConversionNodes=True), destinations)
+                self.assertCountEqual(center.getConnections(output=True, skipConversionNodes=True), destinations)
                 with self.assertRaises(RuntimeError):
                     center.disconnect()
 
@@ -65,7 +65,7 @@ class DisconnectReferenceTest(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     center.disconnect(**flags)
                 self.assertEqual(center.getConnections(input=True, skipConversionNodes=True), source)
-                self.assertCountEqual(center.getConnections(outputs=True, skipConversionNodes=True), destinations)
+                self.assertCountEqual(center.getConnections(output=True, skipConversionNodes=True), destinations)
         for value in (True, False, 1, [], object()):
             with self.assertRaises(TypeError):
                 center.disconnect(value)
@@ -78,11 +78,11 @@ class DisconnectReferenceTest(unittest.TestCase):
             cmds.flushUndo()
             self.assertIsNone(center.disconnectAll(source=src, destination=dst))
             self.assertEqual(center.getConnections(input=True, skipConversionNodes=True), None if src else source)
-            self.assertCountEqual(center.getConnections(outputs=True, skipConversionNodes=True), [] if dst else destinations)
+            self.assertCountEqual(center.getConnections(output=True, skipConversionNodes=True), [] if dst else destinations)
             if src or dst:
                 cmds.undo()
                 self.assertEqual(center.getConnections(input=True, skipConversionNodes=True), source)
-                self.assertCountEqual(center.getConnections(outputs=True, skipConversionNodes=True), destinations)
+                self.assertCountEqual(center.getConnections(output=True, skipConversionNodes=True), destinations)
             else:
                 self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
 
@@ -139,7 +139,7 @@ class DisconnectReferenceTest(unittest.TestCase):
         parent = owner.getPlug("payload")
         parent.setFlags(locked=True)
         cmds.flushUndo()
-        self.assertEqual(destination.disconnect(source, force=False, f=True), source)
+        self.assertEqual(destination.disconnect(source, unlock=True), source)
         self.assertTrue(parent.isLocked())
         self.assertIsNone(destination.getConnections(input=True, skipConversionNodes=True))
         cmds.undo()
@@ -157,10 +157,10 @@ class DisconnectReferenceTest(unittest.TestCase):
             self.assertEqual(center.disconnect(source, fast=True), source)
         self.assertTrue(cmds.undoInfo(q=True, undoQueueEmpty=True))
         self.assertIsNone(center.getConnections(input=True, skipConversionNodes=True))
-        self.assertCountEqual(center.getConnections(outputs=True, skipConversionNodes=True), destinations)
+        self.assertCountEqual(center.getConnections(output=True, skipConversionNodes=True), destinations)
 
     def test_fast_multi_force_restores_locks_and_keeps_other_connections(self):
-        """fastのマルチアトリビュートの検索もf/naを保ち、上位と要素のロックを復元する。"""
+        """fastのマルチアトリビュートの検索もunlock/naを保ち、上位と要素のロックを復元する。"""
         source, other = self._value("fastArraySource"), self._value("fastArrayOther")
         array = mlib.createNode("network").addAttr("values", "double", multi=True)
         first, second, independent = array[3], array[9], array[15]
@@ -171,7 +171,7 @@ class DisconnectReferenceTest(unittest.TestCase):
         array.setFlags(locked=True)
         cmds.flushUndo()
         with patch.object(cmds, "disconnectAttr", side_effect=AssertionError("cmds disconnect")):
-            self.assertCountEqual(array.disconnect(source, f=True, na=True, fast=True), [first, second])
+            self.assertCountEqual(array.disconnect(source, unlock=True, na=True, fast=True), [first, second])
         self.assertTrue(array.isLocked())
         self.assertTrue(first.mplug().isLocked)
         self.assertIsNone(first.getConnections(input=True, skipConversionNodes=True))

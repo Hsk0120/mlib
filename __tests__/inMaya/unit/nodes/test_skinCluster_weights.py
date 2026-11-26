@@ -526,15 +526,15 @@ class MirrorWeightsTest(NamespaceCase):
 
     def test_negative_to_positive(self):
         """positiveToNegative=False は -X 側(中央の joint)を +X 側へ写す。"""
-        self.skin.mirrorWeights("YZ", positiveToNegative=False, influenceAssociation="closestJoint")
+        self.skin.mirrorWeights(plane="YZ", positiveToNegative=False, influenceAssociation="closestJoint")
         for index in self.plus:
             self.assertSequenceAlmostEqual(self.row(index), [1.0, 0.0, 0.0], places=6)
 
     def test_argument_errors(self):
         cases = (
-            ({"axis": "w"}, ValueError),
-            ({"axis": "xyz"}, ValueError),
-            ({"axis": 1.5}, TypeError),
+            ({"plane": "w"}, ValueError),
+            ({"plane": "xyz"}, ValueError),
+            ({"plane": 1.5}, TypeError),
             ({"positiveToNegative": "yes"}, TypeError),
             ({"surfaceAssociation": "nearest"}, ValueError),
             ({"influenceAssociation": ()}, ValueError),

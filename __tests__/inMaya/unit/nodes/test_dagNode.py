@@ -212,7 +212,7 @@ class DagQueryTest(_Case):
 
 
 class MergedDagQueryTest(_Case):
-    """フラグ・引数へまとめた DagNode の照会(getShape(all=)・getParent(instances=)・getBoundingBox(corners=)・getDrawColor(mode=))。"""
+    """フラグ・引数へまとめた DagNode の照会(getShape(all=)・getParent(instances=)・getBoundingBox(corners=)・getDrawColor(kind=))。"""
 
     def test_get_shape_all_by_node_kind(self):
         """getShape(all=True) は、Shape なら自身1つ、Transform なら直下の Shape すべて、それ以外の DAG ノードなら空の Nodes。"""
@@ -336,7 +336,7 @@ class MergedDagQueryTest(_Case):
                 group.getBoundingBox(**flags)
 
     def test_draw_color_modes(self):
-        """getDrawColor(mode=) は MFnDagNode の描画色と同じ値を返す。既定は dormant。知らない名前は ValueError、str 以外は TypeError。"""
+        """getDrawColor(kind=) は MFnDagNode の描画色と同じ値を返す。既定は dormant。知らない名前は ValueError、str 以外は TypeError。"""
         import maya.OpenMaya as om1  # API 1.0 の MFnDagNode と突き合わせるため。
 
         curve = mlib.getNode(cmds.circle(name=self.name("circle#"), constructionHistory=False)[0]).getShape()
@@ -349,15 +349,15 @@ class MergedDagQueryTest(_Case):
         for mode, raw in (("dormant", fn.dormantColor), ("active", fn.activeColor), ("hilite", fn.hiliteColor)):
             with self.subTest(mode=mode):
                 color = raw()
-                self.assertSequenceAlmostEqual(curve.getDrawColor(mode=mode), (color.r, color.g, color.b, color.a))
-        self.assertEqual(curve.getDrawColor(), curve.getDrawColor(mode="dormant"))
-        self.assertIsNone(curve.getDrawColor(mode="override"))
+                self.assertSequenceAlmostEqual(curve.getDrawColor(kind=mode), (color.r, color.g, color.b, color.a))
+        self.assertEqual(curve.getDrawColor(), curve.getDrawColor(kind="dormant"))
+        self.assertIsNone(curve.getDrawColor(kind="override"))
         curve.setColor((1.0, 0.5, 0.25))
-        override = curve.getDrawColor(mode="override")
+        override = curve.getDrawColor(kind="override")
         self.assertSequenceAlmostEqual(override[:3], (1.0, 0.5, 0.25))
         for mode, error in (("Dormant", ValueError), ("", ValueError), ("selected", ValueError), (0, TypeError), (None, TypeError)):
             with self.subTest(mode=mode), self.assertRaises(error):
-                curve.getDrawColor(mode=mode)
+                curve.getDrawColor(kind=mode)
         with self.assertRaises(TypeError):
             curve.getDrawColor("active")
 

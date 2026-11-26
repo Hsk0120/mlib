@@ -100,10 +100,10 @@ class ChildrenTypeTest(_SpecCase):
                 self.assertEqual(sorted(actual), sorted(expected))
         # 探索は型で絞らず、結果だけを絞る(型の違う grp の下の leaf も見つかる)。深さ優先の順。
         self.assertEqual(
-            [item.getName(node=True) for item in node.getChildren(type=["joint", "mesh"], allDescendents=True)],
+            [item.getName(short=True) for item in node.getChildren(type=["joint", "mesh"], allDescendents=True)],
             [self.name("child"), self.name("leaf"), self.name("rootShape")],
         )
-        self.assertEqual(Node(shape).getName(node=True), self.name("rootShape"))
+        self.assertEqual(Node(shape).getName(short=True), self.name("rootShape"))
         self.assertEqual(Node(group).getChildren(type="joint"), [Node(leaf)])
         with self.assertRaises(TypeError):
             node.getChildren(type=1)

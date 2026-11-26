@@ -142,7 +142,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
                 cmds.addAttr(target, longName=attribute, attributeType="time")
             cmds.connectAttr(curve.getName(full=True) + ".output", target + "." + attribute)
         for index, value in enumerate(values if values is not None else range(11)):
-            curve.setKey(index, value, unit="rad", timeUnit="sec", inTangentType="linear", outTangentType="linear")
+            curve.addKey(index, value, unit="rad", timeUnit="sec", inTangentType="linear", outTangentType="linear")
         return curve
 
     @staticmethod
@@ -150,7 +150,7 @@ class AnimCurveReduceKeysTest(NamespaceCase):
         return (
             curve.getKeyInputs(timeUnit="sec"),
             curve.getKeyValues(unit="rad", timeUnit="sec"),
-            [curve.getTangent(index, unit="rad") for index in range(curve.getKeyCount())],
+            [curve.getKeyframes(index).getTangent(unit="rad") for index in range(curve.getKeyCount())],
         )
 
 

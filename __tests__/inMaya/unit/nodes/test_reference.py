@@ -97,16 +97,16 @@ class ReferenceTest(unittest.TestCase):
     def test_edit_strings_nodes_attrs_reflect_applied_edit(self):
         reference = Node(self.ref_node_name)
         self.assertEqual(reference.getEdits(), [])
-        self.assertEqual(reference.getEdits(kind="node"), [])
-        self.assertEqual(reference.getEdits(kind="attr"), [])
+        self.assertEqual(reference.getEdits(what="node"), [])
+        self.assertEqual(reference.getEdits(what="attr"), [])
 
         node_name = f"{self.namespace_name}:mlibReferenceExportHelper"
         cmds.setAttr(node_name + ".translateX", 3.0)
 
         editStrings = reference.getEdits()
         self.assertTrue(any("translate" in edit for edit in editStrings))
-        self.assertIn("|" + node_name, reference.getEdits(kind="node"))
-        self.assertIn("translate", reference.getEdits(kind="attr"))
+        self.assertIn("|" + node_name, reference.getEdits(what="node"))
+        self.assertIn("translate", reference.getEdits(what="attr"))
 
     def test_unload_load_round_trip(self):
         reference = Node(self.ref_node_name)
@@ -273,8 +273,8 @@ class ReferenceSpecTest(unittest.TestCase):
         reference = Node(self.refs[0])
         self.assertEqual(len(reference.getEdits()), 1)
         self.assertEqual(reference.getEdits(successful=False, failed=True), [])
-        self.assertEqual(reference.getEdits(successful=False, kind="attr"), [])
-        self.assertEqual(Node(self.refs[1]).getEdits(kind="node"), [])
+        self.assertEqual(reference.getEdits(successful=False, what="attr"), [])
+        self.assertEqual(Node(self.refs[1]).getEdits(what="node"), [])
 
 
 class _Case(NamespaceCase):
@@ -414,12 +414,12 @@ class ReferenceNodePlugAdditionsTest(_Case):
         name = reference.getName(full=True)
         nodes = reference.importContents()
         self.assertFalse(cmds.objExists(name))
-        self.assertIn(self.ns + "_r1:" + self.asset, [node.getName(node=True) for node in nodes])
+        self.assertIn(self.ns + "_r1:" + self.asset, [node.getName(short=True) for node in nodes])
         self.assertFalse(mlib.getNode(self.ns + "_r1:" + self.asset).isFromReferencedFile())
         second = self._reference(self.path_a, "r2")
         imported = second.importContents(removeNamespace=True)
         self.assertFalse(cmds.namespace(exists=":" + self.ns + "_r2"))
-        names = [node.getName(node=True) for node in imported]
+        names = [node.getName(short=True) for node in imported]
         self.assertIn(self.asset, names)
         defaults = set(cmds.ls(defaultNodes=True))
         for node in imported:

@@ -183,10 +183,10 @@ class QuaternionRandomTest(unittest.TestCase):
             up_axis = rng.choice([axis for axis in AXES if axis[-1] != aim_axis[-1]])
             q = random_quaternion(rng)
             with self.subTest(seed=SEED + 5, index=index, q=fmt(q), aimAxis=aim_axis, upAxis=up_axis):
-                roll, bend_h, bend_v = Quaternion(q).asRollBend(aimAxis=aim_axis, upAxis=up_axis)
+                roll, bend_h, bend_v = Quaternion(q).asRollBend(aimAxis=aim_axis, upAxis=up_axis, unit="deg")
                 for angle in (roll, bend_h, bend_v):
                     self.assertLessEqual(abs(angle), 180.0 + 1e-9)
-                rebuilt = Quaternion.fromRollBend(roll, bend_h, bend_v, aimAxis=aim_axis, upAxis=up_axis)
+                rebuilt = Quaternion.fromRollBend(roll, bend_h, bend_v, aimAxis=aim_axis, upAxis=up_axis, unit="deg")
                 self.assertSameRotation(rebuilt, q, tol=1e-7)
                 radians = Quaternion(q).asRollBend(aimAxis=aim_axis, upAxis=up_axis, unit="rad")
                 self.assertClose(radians, [math.radians(v) for v in (roll, bend_h, bend_v)])
@@ -207,11 +207,11 @@ class QuaternionRandomTest(unittest.TestCase):
             with self.subTest(seed=SEED + 6, index=index, angle=angle, aimAxis=aim_axis, upAxis=up_axis):
                 up = AXIS_VECTORS[up_axis]
                 side = AXIS_VECTORS[aim_axis] ^ up
-                horizontal = Quaternion.fromRollBend(0.0, angle, 0.0, aimAxis=aim_axis, upAxis=up_axis)
+                horizontal = Quaternion.fromRollBend(0.0, angle, 0.0, aimAxis=aim_axis, upAxis=up_axis, unit="deg")
                 self.assertSameRotation(horizontal, om2.MQuaternion(math.radians(angle), up))
-                vertical = Quaternion.fromRollBend(0.0, 0.0, angle, aimAxis=aim_axis, upAxis=up_axis)
+                vertical = Quaternion.fromRollBend(0.0, 0.0, angle, aimAxis=aim_axis, upAxis=up_axis, unit="deg")
                 self.assertSameRotation(vertical, om2.MQuaternion(math.radians(angle), side))
-                roll = Quaternion.fromRollBend(angle, 0.0, 0.0, aimAxis=aim_axis, upAxis=up_axis)
+                roll = Quaternion.fromRollBend(angle, 0.0, 0.0, aimAxis=aim_axis, upAxis=up_axis, unit="deg")
                 self.assertSameRotation(roll, om2.MQuaternion(math.radians(angle), AXIS_VECTORS[aim_axis]))
 
     def test_mirror_matches_matrix_mirror(self):

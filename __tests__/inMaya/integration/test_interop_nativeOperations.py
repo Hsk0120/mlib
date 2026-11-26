@@ -79,10 +79,10 @@ class NativeFollowupTest(NamespaceCase):
         color = om1.MColor()
         enabled = fn.drawOverrideColor(color)
         expected = (color.r, color.g, color.b, color.a) if enabled else None
-        self.assertEqual(shape.getDrawColor(mode="override"), expected)
-        self.assertEqual(len(shape.getDrawColor(mode="active")), 4)
-        self.assertEqual(len(shape.getDrawColor(mode="dormant")), 4)
-        self.assertEqual(len(shape.getDrawColor(mode="hilite")), 4)
+        self.assertEqual(shape.getDrawColor(kind="override"), expected)
+        self.assertEqual(len(shape.getDrawColor(kind="active")), 4)
+        self.assertEqual(len(shape.getDrawColor(kind="dormant")), 4)
+        self.assertEqual(len(shape.getDrawColor(kind="hilite")), 4)
 
     def test_object_group_components_preserve_owner_path(self):
         cube = self.cube()
@@ -136,7 +136,7 @@ class NativeFollowupTest(NamespaceCase):
         mesh.setNormals(values, fast=True)
         after = mesh.getNormalData()
         self.assertEqual(after[1:], (counts, indices))
-        self.assertTrue(all(mesh.getVertexNormals(perFace=True, locked=True)))
+        self.assertTrue(all(mesh.getVertexNormals(perFace=True, lockedOnly=True)))
         for actual, expected in zip(after[0], values):
             for a, b in zip(actual, expected):
                 self.assertAlmostEqual(a, b, places=5)

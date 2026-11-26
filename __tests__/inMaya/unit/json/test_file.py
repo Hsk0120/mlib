@@ -83,7 +83,7 @@ class FileTest(unittest.TestCase):
         self.assertAlmostEqual(header.fps, 30.0)
         cmds.currentUnit(time="film")
         self.assertEqual(header._convert_time(30.0), 30.0)
-        self.assertAlmostEqual(header._convert_time(30.0, timing="second"), 24.0)
+        self.assertAlmostEqual(header._convert_time(30.0, timing="sec"), 24.0)
         with self.assertRaises(ValueError):
             header._convert_time(1.0, timing="seconds")
 

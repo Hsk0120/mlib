@@ -69,7 +69,7 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         """各ノードの getSkinClusters() を、最初に見た順で重複なしの SkinClusters にまとめる。"""
         seen = []
         for node in nodes:
-            for skin in node.getSkinClusters():
+            for skin in node.getSkinClusters(influence=isinstance(node, mlib.Joint)):
                 if skin not in seen:
                     seen.append(skin)
         return mlib.SkinClusters(seen)
@@ -81,10 +81,10 @@ class SkinPlugWorkflowTest(unittest.TestCase):
         self.assertEqual(list(self.collect(nodes)), [self.skin])
         self.assertTrue(all(isinstance(node.getSkinClusters(), mlib.SkinClusters) for node in nodes))
         joints = mlib.Joints([self.first, self.second])
-        self.assertIsInstance(joints.getSkinClusters(), mlib.SkinClusters)
-        self.assertEqual(list(joints.getSkinClusters()), [self.skin])
+        self.assertIsInstance(joints.getSkinClusters(influence=True), mlib.SkinClusters)
+        self.assertEqual(list(joints.getSkinClusters(influence=True)), [self.skin])
         self.assertEqual(len(self.collect([])), 0)
-        self.assertEqual(len(mlib.Joints().getSkinClusters()), 0)
+        self.assertEqual(len(mlib.Joints().getSkinClusters(influence=True)), 0)
 
     def test_collect_preserves_first_seen_order_and_does_not_recurse_groups(self):
         """別skinの保持順と直下shape検索の既存境界を保つ。"""

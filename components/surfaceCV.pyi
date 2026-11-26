@@ -95,7 +95,7 @@ class SurfaceCVs(PointComponents):
     @overload
     def __getitem__(self, index: slice) -> SurfaceCVs: ...
     component_class: Any
-    def getName(self, *, full: bool = ...) -> list[str]:
+    def getName(self, *, full: bool = ..., removeNamespace: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.components.component.Component.getName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getMultiIndex(self) -> list[tuple[int, ...]]:

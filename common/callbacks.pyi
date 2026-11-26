@@ -58,7 +58,7 @@ class Callbacks:
             RuntimeError: 本文は正常に終わったが、解除に失敗した場合。
         """
         ...
-    def addSceneCallback(self, event: str, function: Callable) -> int:
+    def addSceneCallback(self, event: str, callback: Callable) -> int:
         """シーンのイベント(``om2.MSceneMessage``)のコールバックを登録する。
 
         ``…Check`` で終わる確認のイベント(``"beforeSaveCheck"`` など)では、シーンの操作の前に呼び、
@@ -73,51 +73,51 @@ class Callbacks:
                 ``"beforeNewCheck"``・``"beforeSaveCheck"``・``"beforeOpenCheck"``・``"beforeImportCheck"``・
                 ``"beforeExportCheck"``・``"beforeCreateReferenceCheck"``・``"beforeLoadReferenceCheck"``。
                 PluginLoad系は扱わない。
-            function (Callable): 引数なしで呼ぶ処理。確認のイベントでは、真の値を返せば操作を続け、偽の値(Noneを含む)を返せば止める。
+            callback (Callable): 引数なしで呼ぶ処理。確認のイベントでは、真の値を返せば操作を続け、偽の値(Noneを含む)を返せば止める。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
+            TypeError: eventが文字列でない場合、またはcallbackが呼び出せない場合。
             ValueError: 知らないイベント名の場合、またはこの版のMayaに無いイベントの場合。
         """
         ...
-    def addEventCallback(self, eventName: str, function: Callable) -> int:
+    def addEventCallback(self, event: str, callback: Callable) -> int:
         """Mayaのイベント(``om2.MEventMessage``)のコールバックを登録する。
 
         Args:
-            eventName (str): Mayaのイベント名をそのまま書く(``"timeChanged"``・``"SelectionChanged"`` など)。
+            event (str): Mayaのイベント名をそのまま書く(``"timeChanged"``・``"SelectionChanged"`` など)。
                 ``cmds.scriptJob(listEvents=True)`` と同じ一覧にある名前で、大文字と小文字を区別する。
-            function (Callable): 引数なしで呼ぶ処理。
+            callback (Callable): 引数なしで呼ぶ処理。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventNameが文字列でない場合、またはfunctionが呼び出せない場合。
+            TypeError: eventが文字列でない場合、またはcallbackが呼び出せない場合。
             ValueError: Mayaに無いイベント名の場合。
         """
         ...
-    def addTimeChangeCallback(self, function: Callable, *, timeUnit: str = ...) -> int:
+    def addTimeChangeCallback(self, callback: Callable, *, timeUnit: str = ...) -> int:
         """現在時刻が変わったときのコールバックを登録する。
 
-        ``om2.MDGMessage.addTimeChangeCallback`` を使う。``function(time)`` の形で、変わった後の時刻を渡して呼ぶ。
+        ``om2.MDGMessage.addTimeChangeCallback`` を使う。``callback(time)`` の形で、変わった後の時刻を渡して呼ぶ。
         ``addEventCallback("timeChanged", ...)`` と違い、時刻を受け取れる。
 
         Args:
-            function (Callable): ``function(time)`` の形で呼ぶ処理。timeはfloat。
+            callback (Callable): ``callback(time)`` の形で呼ぶ処理。timeはfloat。
             timeUnit (str): timeの単位。``"frame"``(既定。現在のUIの時間単位のフレーム)か ``"sec"``。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: functionが呼び出せない場合、またはtimeUnitが文字列でない場合。
+            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合。
             ValueError: timeUnitが対応していない単位名の場合。
         """
         ...
-    def addAttributeChangedCallback(self, node: Node | str, function: Callable) -> int:
+    def addAttributeChangedCallback(self, node: Node | str, callback: Callable) -> int:
         """ノードのアトリビュートが変わったときのコールバックを登録する。
 
         ``om2.MNodeMessage.addAttributeChangedCallback`` を使う。値を設定したときだけでなく、
@@ -126,7 +126,7 @@ class Callbacks:
 
         Args:
             node (Node | str): 見張るノード。
-            function (Callable): ``function(message, plug)`` の形で呼ぶ処理。messageは
+            callback (Callable): ``callback(message, plug)`` の形で呼ぶ処理。messageは
                 ``om2.MNodeMessage.AttributeMessage`` のビット(int)、plugは変わった
                 アトリビュートの :class:`~mlib.plugs.plug.Plug`。
 
@@ -134,7 +134,7 @@ class Callbacks:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: nodeが対応していない型の場合、またはfunctionが呼び出せない場合。
+            TypeError: nodeが対応していない型の場合、またはcallbackが呼び出せない場合。
             RuntimeError: nodeが見つからない場合。
         """
         ...

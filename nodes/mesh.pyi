@@ -36,7 +36,7 @@ _UNSET_COLOR: Any
 
 class Mesh(_ControlPointShape):
     """Mayaのmeshシェイプノードを扱うクラス。"""
-    def reorderVertices(self, reference: Mesh | Node | str, *, uvSet: str | None = ..., tolerance: float = ..., fast: bool = ..., match: str = ..., worldSpace: bool = ..., ws: bool = ...) -> None:
+    def reorderVertices(self, reference: Mesh | Node | str, worldSpace: bool = ..., *, method: str = ..., uvSet: str | None = ..., tolerance: float = ..., fast: bool = ..., ws: bool = ...) -> None:
         """頂点番号の並びを、基準のメッシュに合わせる。
 
         UVか頂点の位置で、基準のメッシュの頂点と1対1に対応させ、その番号へ並べ替える。
@@ -47,11 +47,12 @@ class Mesh(_ControlPointShape):
 
         Args:
             reference (Mesh | Node | str): 基準のMesh、またはメッシュを1つだけ持つTransform。
-            uvSet (str | None): UVで照らし合わせるときのUVセットの名前。既定は ``"map1"``。位置で照らし合わせるときは使わない(Noneも可)。
+            uvSet (str | None): UVで照らし合わせるときのUVセットの名前(両方のメッシュで同じ名前を使う)。Noneなら、それぞれのメッシュの今のUVセット。既定はNone。
+                位置で照らし合わせるときは使わない。
             tolerance (float): 許す誤差。0以上の有限な数値。UVでは成分の差、位置ではcmの距離。既定は1e-6。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueなら、0でないtweakを今の位置へベイクしてから作り直す。
                 FalseならUndoが有効である必要があり、0でないtweakには対応しない。
-            match (str): 照らし合わせ方。``"uv"`` (既定)か ``"position"``。
+            method (str): 照らし合わせ方。``"uv"`` (既定)か ``"position"``。
             worldSpace (bool): 位置で照らし合わせるとき、Trueならワールド空間、Falseなら各Shapeのオブジェクト空間で比べる。
                 既定はFalse。UVで照らし合わせるときは使わない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
@@ -60,8 +61,8 @@ class Mesh(_ControlPointShape):
             None: 値を返さない。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
 
         Raises:
-            TypeError: 入力の型やfast・worldSpaceが不正な場合、またはworldSpaceとwsを同時に指定した場合。
-            ValueError: 対応があいまいか足りない場合、トポロジーや面の向きが合わない場合、
+            TypeError: 入力の型やfast・worldSpace・methodが不正な場合、またはworldSpaceとwsを同時に指定した場合。
+            ValueError: methodが ``"uv"``・``"position"`` のどちらでもない場合、対応があいまいか足りない場合、トポロジーや面の向きが合わない場合、
                 または作り直すときに、入出力のヒストリ・インスタンス・リファレンス・カラーセット・クリースなどがある場合。
             RuntimeError: 作り直すときにロックされている場合、または通常の処理でUndoが無効な場合。
             NotImplementedError: 通常の処理で、頂点のtweakがあるメッシュの法線を並べ替える場合。
@@ -161,35 +162,35 @@ class Mesh(_ControlPointShape):
         """
         ...
     @overload
-    def getVertexNormals(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, perFace: Literal[True], faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., locked: Literal[True], ws: bool = ...) -> list[bool]: ...
+    def getVertexNormals(self, worldSpace: bool = ..., *, angleWeighted: bool = ..., perFace: Literal[True], faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., lockedOnly: Literal[True], ws: bool = ...) -> list[bool]: ...
     @overload
-    def getVertexNormals(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, perFace: bool = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., locked: Literal[False] = ..., ws: bool = ...) -> list[Vector]: ...
+    def getVertexNormals(self, worldSpace: bool = ..., *, angleWeighted: bool = ..., perFace: bool = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., lockedOnly: Literal[False] = ..., ws: bool = ...) -> list[Vector]: ...
     @overload
-    def getVertexNormals(self, worldSpace: bool = ..., angleWeighted: bool = ..., *, perFace: bool = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., locked: bool = ..., ws: bool = ...) -> list[Vector] | list[bool]:
+    def getVertexNormals(self, worldSpace: bool = ..., *, angleWeighted: bool = ..., perFace: bool = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., lockedOnly: bool = ..., ws: bool = ...) -> list[Vector] | list[bool]:
         """頂点ごとの法線を取得する。``perFace=True`` なら、面頂点(フェースごとの頂点)の法線を取得する。
 
         - 既定: 各頂点に接する面頂点の法線を平均した、頂点ごとの法線(``MFnMesh.getVertexNormals``)。
         - ``perFace=True``: 平均しない、面頂点ごとの法線。``faceVertices`` で対象を絞れる。
-        - ``perFace=True, locked=True``: 法線の値でなく、面頂点の法線がロックされているかを返す。
+        - ``perFace=True, lockedOnly=True``: 法線の値でなく、面頂点の法線がロックされているかだけを返す。
 
         Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で扱う。既定はFalse。``locked=True`` では指定できない。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で扱う。既定はFalse。``lockedOnly=True`` では指定できない。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             angleWeighted (bool): Trueなら、隣り合う面の角度で重み付けした法線を取得する。既定はFalse。頂点ごとの法線だけに使える。
             perFace (bool): Trueなら、面頂点ごとに取得する。既定はFalse。
             faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): ``perFace=True`` のときの対象。
                 通し番号または(頂点, フェース)。Noneは全件。
-            locked (bool): Trueなら、``perFace=True`` のとき、法線のロック状態を返す。既定はFalse。
+            lockedOnly (bool): Trueなら、``perFace=True`` のとき、法線の値でなくロック状態だけを返す。既定はFalse。
 
         Returns:
             list[Vector] | list[bool]: 既定では、頂点番号の順に並ぶ、平均した法線。
                 ``perFace=True`` なら指定順の独立した法線(全件ではフェース番号順、その面の頂点順)。
-                ``locked=True`` なら同じ並びのロック状態。
+                ``lockedOnly=True`` なら同じ並びのロック状態。
 
         Raises:
-            TypeError: worldSpace・perFace・lockedがbool以外の場合、worldSpaceとwsを同時に指定した場合、番号の型が不正な場合、
-                perFace=FalseでfaceVertices・lockedを指定した場合、perFace=TrueでangleWeightedを指定した場合、
-                またはlocked=TrueでworldSpace(ws)を指定した場合。
+            TypeError: worldSpace・perFace・lockedOnlyがbool以外の場合、worldSpaceとwsを同時に指定した場合、番号の型が不正な場合、
+                perFace=FalseでfaceVertices・lockedOnlyを指定した場合、perFace=TrueでangleWeightedを指定した場合、
+                またはlockedOnly=TrueでworldSpace(ws)を指定した場合。
             ValueError: 別のメッシュのコンポーネントの場合。
             IndexError: 番号が範囲外の場合。
         """
@@ -559,7 +560,7 @@ class Mesh(_ControlPointShape):
             メッシュをワールド空間で調べると、``"point"`` と違う面の点になることがある。
         """
         ...
-    def intersect(self, origin: Sequence[float] | om2.MPoint | om2.MVector, direction: Sequence[float] | om2.MVector, *, maxDistance: float | None = ..., worldSpace: bool = ..., ws: bool = ...) -> list[tuple[Vector, int, float]]:
+    def intersect(self, origin: Sequence[float] | om2.MPoint | om2.MVector, direction: Sequence[float] | om2.MVector, worldSpace: bool = ..., *, maxDistance: float | None = ..., ws: bool = ...) -> list[tuple[Vector, int, float]]:
         """半直線とメッシュが交わる点を、近い順に取得する。
 
         ``MFnMesh.allIntersections`` を使い、``origin`` から ``direction`` の向きにだけ調べる(逆向きは調べない)。
@@ -653,7 +654,7 @@ class Mesh(_ControlPointShape):
             IndexError: 番号が範囲外の場合。
         """
         ...
-    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], *, perFace: bool = ..., vertices: Component | Components | Iterable[int] | None = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., colorSet: str | None = ..., fast: bool = ...) -> None:
+    def setVertexColors(self, colors: Iterable[Sequence[float] | om2.MColor], *, perFace: bool = ..., vertices: Component | Components | Iterable[int] | None = ..., faceVertices: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None = ..., colorSet: str | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """頂点ごとの色を設定する。``perFace=True`` なら、面頂点(フェースごとの頂点)の色を設定する。
 
         - 既定: 頂点のすべての面頂点を同じ色にする。通常は ``cmds.polyColorPerVertex`` で、同じ色の頂点をまとめて
@@ -673,70 +674,76 @@ class Mesh(_ControlPointShape):
                 ``colorSet1`` を作る)。名前を指定する場合は、そのカラーセットがすでにある必要がある。
                 今のカラーセットは変えない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら、書き込む前に、書き込むカラーセットの値(``colorSet[].colorSetPoints``)がロック・入力の接続で
+                書き込めないかを確かめて、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
+                カラーセットがまだ無い(Mayaが作る)ときは確かめるものが無い。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: perFace・fastがbool以外の場合、colorSetが文字列・None以外の場合、色や番号の型が不正な場合、
+            TypeError: perFace・fast・checkがbool以外の場合、colorSetが文字列・None以外の場合、色や番号の型が不正な場合、
                 perFace=Trueでverticesを指定した場合、またはperFace=FalseでfaceVerticesを指定した場合。
             ValueError: 色の数が対象の数と合わない場合、成分の数が3・4以外か有限でない場合、頂点が重なっている場合、
                 別のメッシュのコンポーネントを渡した場合、またはカラーセットが無い場合。
             IndexError: 番号が範囲外の場合。
             RuntimeError: シェイプがロックされているかリファレンスの場合(Mayaはロックを見ずに書くため、
-                fastに関係なく書く前に確かめる)、またはMayaが書き込みを拒否した場合。
+                fastに関係なく書く前に確かめる)、check=Trueでカラーセットの値がロック・入力の接続などで書き込めない場合、
+                またはMayaが書き込みを拒否した場合。
             NotImplementedError: fast=Trueで、inMeshへの入力(コンストラクションヒストリ)がある場合。
 
         Note:
             通常の処理では、コンストラクションヒストリのあるメッシュに ``polyColorPerVertex`` ノードをヒストリとして足す。
         """
         ...
-    def getSetNames(self, *, color: bool = ...) -> list[str]:
-        """UVセットの名前を取得する。``color=True`` なら、カラーセットの名前を取得する。
+    def getSetNames(self, *, kind: str = ...) -> list[str]:
+        """UVセットの名前を取得する。``kind="color"`` なら、カラーセットの名前を取得する。
 
         Args:
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             list[str]: セットの名前。Mayaが返す順に並ぶ。UVセットは先頭が既定のUVセット(``uvSet[0]``)。
                 カラーセットが無ければ空リスト。
 
         Raises:
-            TypeError: colorがboolでない場合。
+            TypeError: kindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合。
         """
         ...
-    def getCurrentSet(self, *, color: bool = ...) -> str | None:
-        """今のUVセットの名前を取得する。``color=True`` なら、今のカラーセットの名前を取得する。
+    def getCurrentSet(self, *, kind: str = ...) -> str | None:
+        """今のUVセットの名前を取得する。``kind="color"`` なら、今のカラーセットの名前を取得する。
 
         Args:
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             str | None: 今のセットの名前。UVセットは必ず名前を返す。カラーセットが無ければNone。
 
         Raises:
-            TypeError: colorがboolでない場合。
+            TypeError: kindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合。
         """
         ...
-    def setCurrentSet(self, name: str, *, color: bool = ...) -> None:
-        """今のUVセットを切り替える。``color=True`` なら、今のカラーセットを切り替える。
+    def setCurrentSet(self, name: str, *, kind: str = ...) -> None:
+        """今のUVセットを切り替える。``kind="color"`` なら、今のカラーセットを切り替える。
 
         ``cmds.polyUVSet(currentUVSet=True)``・``cmds.polyColorSet(currentColorSet=True)`` で設定する。1回のUndoで戻せる。
 
         Args:
             name (str): すでにあるセットの名前。
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: nameが文字列以外の場合、またはcolorがboolでない場合。
-            ValueError: nameが空、またはそのセットが無い場合。
+            TypeError: nameが文字列以外の場合、またはkindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、nameが空、またはそのセットが無い場合。
         """
         ...
-    def createSet(self, name: str, *, color: bool = ...) -> None:
-        """空のUVセットを作る。``color=True`` なら、空のRGBAのカラーセットを作る。
+    def createSet(self, name: str, *, kind: str = ...) -> None:
+        """空のUVセットを作る。``kind="color"`` なら、空のRGBAのカラーセットを作る。
 
         ``cmds.polyUVSet(create=True)``・``cmds.polyColorSet(create=True)`` で作る。1回のUndoで戻せる。
 
@@ -746,42 +753,43 @@ class Mesh(_ControlPointShape):
 
         Args:
             name (str): 新しいセットの名前。
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: nameが文字列以外の場合、またはcolorがboolでない場合。
-            ValueError: nameが空、または同じ名前のセットがすでにある場合。
+            TypeError: nameが文字列以外の場合、またはkindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、nameが空、または同じ名前のセットがすでにある場合。
         """
         ...
-    def copySet(self, source: str, target: str, *, color: bool = ..., replace: bool = ...) -> None:
-        """UVセットを新しい名前へ複製する。``color=True`` なら、カラーセットを複製する。
+    def copySet(self, source: str, target: str, *, kind: str = ..., overwrite: bool = ...) -> None:
+        """UVセットを新しい名前へ複製する。``kind="color"`` なら、カラーセットを複製する。
 
         ``cmds.polyUVSet(copy=True)``・``cmds.polyColorSet(copy=True)`` で複製する。
-        UVセットで ``replace=True`` のとき、targetがすでにあれば、
+        UVセットで ``overwrite=True`` のとき、targetがすでにあれば、
         ``cmds.polyCopyUV(uvSetNameInput=source, uvSetName=target, constructionHistory=False)`` で
         targetのUVをsourceの値で置き換える(コンストラクションヒストリは作らない)。
         1回のUndoで戻せる。現在のセットと選択は変えない。fast引数は持たない(Mayaのコマンドの1回で処理するため)。
 
         Args:
             source (str): 複製元のセットの名前。
-            target (str): 複製先のセットの名前。replace=Falseなら、すでにある名前は不可(上書きしない)。
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
-            replace (bool): Trueなら、すでにあるtargetのUVを置き換える。既定はFalse。カラーセットでは指定できない。
+            target (str): 複製先のセットの名前。overwrite=Falseなら、すでにある名前は不可(上書きしない)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
+            overwrite (bool): Trueなら、すでにあるtargetのUVを置き換える。既定はFalse。カラーセットでは指定できない。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: source・targetが文字列以外の場合、color・replaceがboolでない場合、またはcolor=Trueとreplace=Trueを同時に指定した場合。
-            ValueError: 名前が空の場合、sourceが無い場合、sourceとtargetが同じ場合、
-                またはreplace=Falseでtargetがすでにある場合。
+            TypeError: source・targetが文字列以外の場合、kindが文字列でない場合、overwriteがboolでない場合、
+                またはkind="color"とoverwrite=Trueを同時に指定した場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、名前が空の場合、sourceが無い場合、sourceとtargetが同じ場合、
+                またはoverwrite=Falseでtargetがすでにある場合。
         """
         ...
-    def renameSet(self, name: str, newName: str, *, color: bool = ...) -> None:
-        """UVセットの名前を変える。``color=True`` なら、カラーセットの名前を変える。
+    def renameSet(self, name: str, newName: str, *, kind: str = ...) -> None:
+        """UVセットの名前を変える。``kind="color"`` なら、カラーセットの名前を変える。
 
         ``cmds.polyUVSet(rename=True)``・``cmds.polyColorSet(rename=True)`` で変える。1回のUndoで戻せる。
         現在のセットの名前を変えた場合は、新しい名前が現在のセットになる。
@@ -789,18 +797,18 @@ class Mesh(_ControlPointShape):
         Args:
             name (str): すでにあるセットの名前。
             newName (str): 新しい名前。すでにある名前は不可。
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: name・newNameが文字列以外の場合、またはcolorがboolでない場合。
-            ValueError: 名前が空、nameが無い、またはnewNameがすでにある場合。
+            TypeError: name・newNameが文字列以外の場合、またはkindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、名前が空、nameが無い、またはnewNameがすでにある場合。
         """
         ...
-    def deleteSet(self, name: str, *, color: bool = ...) -> None:
-        """UVセットを削除する。``color=True`` なら、カラーセットを削除する。
+    def deleteSet(self, name: str, *, kind: str = ...) -> None:
+        """UVセットを削除する。``kind="color"`` なら、カラーセットを削除する。
 
         ``cmds.polyUVSet(delete=True)``・``cmds.polyColorSet(delete=True)`` で削除する。1回のUndoで戻せる。
 
@@ -811,14 +819,14 @@ class Mesh(_ControlPointShape):
 
         Args:
             name (str): すでにあるセットの名前。
-            color (bool): Trueなら、カラーセットを扱う。既定はFalse(UVセット)。
+            kind (str): 扱うセットの種類。``"uv"`` (既定)はUVセット、``"color"`` はカラーセット。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: nameが文字列以外の場合、またはcolorがboolでない場合。
-            ValueError: nameが空、そのセットが無い、または既定のUVセット(``uvSet[0]``。通常 ``map1``)の場合。
+            TypeError: nameが文字列以外の場合、またはkindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合、nameが空、そのセットが無い、または既定のUVセット(``uvSet[0]``。通常 ``map1``)の場合。
                 Mayaは既定のUVセットを削除できない(名前が ``map1`` でなくても同じ)。
         """
         ...
@@ -855,6 +863,21 @@ class Mesh(_ControlPointShape):
 
         Raises:
             RuntimeError: 形状データが無いか無効なメッシュの場合。
+        """
+        ...
+    @staticmethod
+    def _color_kind(kind: str) -> bool:
+        """セット操作のkindを確かめ、カラーセットかを返す。
+
+        Args:
+            kind (str): ``"uv"`` か ``"color"``。
+
+        Returns:
+            bool: カラーセットならTrue、UVセットならFalse。
+
+        Raises:
+            TypeError: kindが文字列でない場合。
+            ValueError: kindが ``"uv"``・``"color"`` のどちらでもない場合。
         """
         ...
     def _resolve_face_vertices(self, values: VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None) -> VertexFaces:
@@ -1056,7 +1079,7 @@ class Mesh(_ControlPointShape):
         ...
     @staticmethod
     def _uv_vertex_mapping(source, target, uv_set, tolerance):
-        """面頂点UV群が一意に一致する旧対象番号→基準番号を求める。"""
+        """面頂点UV群が一意に一致する旧対象番号→基準番号を求める。uv_setがNoneなら、それぞれのメッシュの今のUVセットを使う。"""
         ...
     @staticmethod
     def _face_cycles(counts, connects):
@@ -1152,6 +1175,19 @@ class Mesh(_ControlPointShape):
 
         Returns:
             str: 既定のUVセットの名前。
+        """
+        ...
+    def _require_color_set_writable(self, name: str | None) -> None:
+        """カラーセットの値のアトリビュート(``colorSet[].colorSetPoints``)へ書き込めるかを確かめる。
+
+        Args:
+            name (str | None): カラーセットの名前。Noneなら確かめない(まだカラーセットが無い)。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ロック・入力の接続などで書き込めない場合。
         """
         ...
     def _resolve_color_set(self, colorSet: str | None, fn: om2.MFnMesh) -> str | None:

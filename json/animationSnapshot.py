@@ -128,7 +128,7 @@ class AnimationSnapshot(Snapshot):
                 insert・mergeでは、すでにあるカーブのウェイト付き接線とインフィニティをそのまま保つ。
             timeOffset (float): キーの時刻へ足す量(今のUIの時間の単位でのフレーム)。
             timing (str): 保存したときとfpsが違うときの扱い。既定は ``"frame"``。
-                ``"frame"`` はフレーム番号を保つ。``"second"`` は秒を保つように、時刻と接線を換算する。
+                ``"frame"`` はフレーム番号を保つ。``"sec"`` は秒を保つように、時刻と接線を換算する。
             createLayers (bool): Trueなら、見つからないレイヤーを保存した設定で作る。同じ名前の
                 レイヤーがあれば、設定を変えずにそれを使う。Falseなら、見つからないレイヤーのカーブを飛ばす。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。キーの書き込みは通常の約4倍速い。
@@ -140,21 +140,64 @@ class AnimationSnapshot(Snapshot):
         Raises:
             TypeError: timeOffsetが数値でない場合、またはcreateLayers・fastがboolでない場合。
             ValueError: modeが対応していない値の場合、timeOffsetが有限な値でない場合、
-                またはtimingが ``"frame"``・``"second"`` 以外の場合。
+                またはtimingが ``"frame"``・``"sec"`` 以外の場合。
+        """
+        return self._run_apply(
+            {"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, self._apply_options(mode, timeOffset, timing, createLayers), fast=fast
+        )
+
+    def validate(self, *, nameMap=None, replace=None, namespaceMap=None, mode="replace", timeOffset=0.0, timing="frame", createLayers=True):
+        """適用する前に、シーンとの対応を確かめる。シーンは変えない。
+
+        :meth:`apply` と同じ指定(``fast`` を除く)を受け、同じ決まりで確かめる。
+
+        Args:
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            mode (str): :meth:`apply` の ``mode``。
+            timeOffset (float): :meth:`apply` の ``timeOffset``。
+            timing (str): :meth:`apply` の ``timing``。
+            createLayers (bool): :meth:`apply` の ``createLayers``。
+
+        Returns:
+            ValidationReport: 見つからないもの・書けないもの・適用できない問題。
+
+        Raises:
+            TypeError: timeOffsetが数値でない場合、またはcreateLayersがboolでない場合。
+            ValueError: modeが対応していない値の場合、timeOffsetが有限な値でない場合、
+                またはtimingが ``"frame"``・``"sec"`` 以外の場合。
+        """
+        return self._run_validate(
+            {"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, self._apply_options(mode, timeOffset, timing, createLayers)
+        )
+
+    def _apply_options(self, mode, time_offset, timing, create_layers):
+        """applyとvalidateの、アニメーションだけの指定を確かめて辞書にする。
+
+        Args:
+            mode (str): すでにあるキーの扱い。
+            time_offset (float): キーの時刻へ足す量。
+            timing (str): fpsが違うときの扱い。
+            create_layers (bool): 見つからないレイヤーを作るか。
+
+        Returns:
+            dict: ``_validate``・``_apply`` へ渡す指定。
+
+        Raises:
+            TypeError: time_offsetが数値でない場合、またはcreate_layersがboolでない場合。
+            ValueError: modeが対応していない値の場合、time_offsetが有限な値でない場合、
+                またはtimingが ``"frame"``・``"sec"`` 以外の場合。
         """
         if mode not in _MODES:
             raise ValueError(f"modeは{_MODES}のどれかで指定してください: {mode!r}")
-        if isinstance(timeOffset, bool) or not isinstance(timeOffset, (int, float)):
+        if isinstance(time_offset, bool) or not isinstance(time_offset, (int, float)):
             raise TypeError("timeOffsetは数値で指定してください")
-        if not math.isfinite(timeOffset):
+        if not math.isfinite(time_offset):
             raise ValueError("timeOffsetは有限な数値で指定してください")
-        _require_bool(createLayers, "createLayers")
+        _require_bool(create_layers, "createLayers")
         self._convert_time(0.0, timing)
-        return self._run_apply(
-            {"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap},
-            {"mode": mode, "timeOffset": float(timeOffset), "timing": timing, "createLayers": createLayers},
-            fast=fast,
-        )
+        return {"mode": mode, "timeOffset": float(time_offset), "timing": timing, "createLayers": create_layers}
 
     def _require_data(self, data):
         """``curves``・``layers`` の形を確かめる。

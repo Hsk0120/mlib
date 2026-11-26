@@ -35,8 +35,8 @@ class AnimCurveEmptyInputTest(_CurveCase):
     """番号が空・カーブが空のときは、キーを変えない。"""
 
     def test_set_breakdown_with_no_index(self):
-        """setBreakdown([]) は何もしない。ブレイクダウンのキーは増えない。"""
-        self.curve.setBreakdown([])
+        """getKeyframes([]) は空の Keyframes を返し、キーを変えない。ブレイクダウンのキーは増えない。"""
+        self.assertEqual(len(self.curve.getKeyframes([])), 0)
         self.assertEqual(cmds.keyframe(self.curve.getName(full=True), query=True, breakdown=True), None)
 
     def test_scale_key_with_no_index(self):
@@ -83,20 +83,20 @@ class AnimCurveErrorTest(_CurveCase):
             self.curve.getKeyInputs(timeUnit=3)
 
     def test_set_tangent_errors(self):
-        """setTangent は範囲外の番号で IndexError、文字列でない unit で TypeError。接線は変わらない。"""
+        """getKeyframes は範囲外の番号で IndexError、Keyframe.setTangent は文字列でない unit で TypeError。接線は変わらない。"""
         name = self.curve.getName(full=True)
         before = cmds.keyTangent(name, query=True, inAngle=True, outAngle=True)
         with self.assertRaises(IndexError):
-            self.curve.setTangent(9, inAngle=10)
+            self.curve.getKeyframes(9).setTangent(inAngle=10)
         with self.assertRaises(TypeError):
-            self.curve.setTangent(0, unit=3, inAngle=10)
+            self.curve.getKeyframes(0).setTangent(unit=3, inAngle=10)
         self.assertEqual(cmds.keyTangent(name, query=True, inAngle=True, outAngle=True), before)
 
     def test_set_breakdown_on_deleted_curve(self):
         """削除済みのカーブへの setBreakdown は RuntimeError。"""
         cmds.delete(self.curve.getName(full=True))
         with self.assertRaises(RuntimeError):
-            self.curve.setBreakdown(0)
+            self.curve.getKeyframes(0).setBreakdown()
 
     def test_unit_value_on_deleted_curve(self):
         """内部の _unit_value は、無効なノードではアトリビュートを取り直そうとして RuntimeError。"""

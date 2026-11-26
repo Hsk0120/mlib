@@ -40,7 +40,7 @@ class ConsolidatedAnimationTest(unittest.TestCase):
         """同じ3キーを持つ検証カーブを作る。"""
         curve = mlib.createNode("animCurve" + suffix)
         for x, y in ((-1, 1), (0.25, 4), (2, 2)):
-            curve.setKey(x, y, fast=fast)
+            curve.addKey(x, y, fast=fast)
         return curve
 
     def assert_curves(self, normal, fast):
@@ -53,7 +53,7 @@ class ConsolidatedAnimationTest(unittest.TestCase):
         for x in (-2, -0.5, 0, 0.5, 1, 2.5, 4):
             self.assertAlmostEqual(fast.evaluate(x), normal.evaluate(x), delta=2e-5)
         for i in range(normal.getKeyCount()):
-            left, right = normal.getTangent(i), fast.getTangent(i)
+            left, right = normal.getKeyframes(i).getTangent(), fast.getKeyframes(i).getTangent()
             for key in left:
                 if isinstance(left[key], float):
                     self.assertAlmostEqual(left[key], right[key], delta=2e-5, msg=key)
@@ -66,18 +66,18 @@ class ConsolidatedAnimationTest(unittest.TestCase):
             with self.subTest(suffix=suffix):
                 normal, fast = self.create(suffix), self.create(suffix, fast=True)
                 self.assert_curves(normal, fast)
-                normal.setKey(0.25, 7)
+                normal.addKey(0.25, 7)
                 before = cmds.undoInfo(q=True, undoName=True)
                 with patch.object(cmds, "setKeyframe", side_effect=AssertionError("cmds key")), patch.object(
                     cmds, "setAttr", side_effect=AssertionError("cmds set")
                 ), patch.object(cmds, "cutKey", side_effect=AssertionError("cmds cut")), patch.object(
                     cmds, "undoInfo", side_effect=AssertionError("cmds undo")
                 ):
-                    fast.setKey(0.25, 7, fast=True)
+                    fast.addKey(0.25, 7, fast=True)
                 self.assertEqual(cmds.undoInfo(q=True, undoName=True), before)
                 self.assert_curves(normal, fast)
-                normal.removeKey(index=2)
-                fast.removeKey(index=2, fast=True)
+                normal.getKeyframes(2).delete()
+                fast.getKeyframes(2).delete(fast=True)
                 self.assert_curves(normal, fast)
 
     def test_readers_are_api_only_and_match_maya_tangent_units(self):
@@ -96,11 +96,11 @@ class ConsolidatedAnimationTest(unittest.TestCase):
                     stack.enter_context(patch.object(cmds, command, side_effect=AssertionError(command)))
                 self.assertEqual(curve.getKeyCount(), 3)
                 self.assertEqual(curve.getKeyInputs(), [-1, 0.25, 2])
-                # setKeyの角度出力の既定は度。
+                # addKeyの角度出力の既定は度。
                 self.assertEqual([round(v, 9) for v in curve.getKeyValues()], [1, 4, 2])
                 self.assertTrue(math.isfinite(curve.evaluate(0)))
-                actual = curve.getTangent(1, unit="rad")
-                in_degrees = curve.getTangent(1)
+                actual = curve.getKeyframes(1).getTangent(unit="rad")
+                in_degrees = curve.getKeyframes(1).getTangent()
             for key, value in expected.items():
                 if isinstance(value, float):
                     self.assertAlmostEqual(actual[key], value, places=6)
@@ -123,9 +123,9 @@ class ConsolidatedAnimationTest(unittest.TestCase):
             normal, fast = self.create(suffix), self.create(suffix)
             for kwargs in options:
                 with self.subTest(suffix=suffix, flags=kwargs):
-                    normal.setTangent(1, **kwargs)
+                    normal.getKeyframes(1).setTangent(**kwargs)
                     with patch.object(cmds, "keyTangent", side_effect=AssertionError("cmds tangent")):
-                        fast.setTangent(1, fast=True, **kwargs)
+                        fast.getKeyframes(1).setTangent(fast=True, **kwargs)
                     self.assert_curves(normal, fast)
 
     def test_tangent_type_names_match_maya_commands(self):
@@ -153,19 +153,19 @@ class ConsolidatedAnimationTest(unittest.TestCase):
                 normal, fast = self.create("UU"), self.create("UU")
                 # step系はMayaが出力接線として扱う。固定接線は既存キーだけで編集する。
                 incoming = "auto" if name in ("step", "stepnext") else name
-                normal.setTangent(1, inTangentType=incoming, outTangentType=name)
+                normal.getKeyframes(1).setTangent(inTangentType=incoming, outTangentType=name)
                 with patch.object(cmds, "keyTangent", side_effect=AssertionError("cmds tangent")):
-                    fast.setTangent(1, inTangentType=incoming, outTangentType=name, fast=True)
+                    fast.getKeyframes(1).setTangent(inTangentType=incoming, outTangentType=name, fast=True)
                 for flag in ("inTangentType", "outTangentType"):
                     expected = cmds.keyTangent(str(normal), q=True, index=(1, 1), **{flag: True})[0]
-                    self.assertEqual(fast.getTangent(1)[flag], expected)
-                    self.assertEqual(normal.getTangent(1)[flag], expected)
+                    self.assertEqual(fast.getKeyframes(1).getTangent()[flag], expected)
+                    self.assertEqual(normal.getKeyframes(1).getTangent()[flag], expected)
                 self.assert_curves(normal, fast)
                 if name == "fixed":
                     continue
-                normal.setKey(4, 5, inTangentType=incoming, outTangentType=name)
+                normal.addKey(4, 5, inTangentType=incoming, outTangentType=name)
                 with patch.object(cmds, "setKeyframe", side_effect=AssertionError("cmds key")):
-                    fast.setKey(4, 5, inTangentType=incoming, outTangentType=name, fast=True)
+                    fast.addKey(4, 5, inTangentType=incoming, outTangentType=name, fast=True)
                 self.assert_curves(normal, fast)
 
     def test_fast_tangent_restrictions_are_checked_before_updates(self):
@@ -174,42 +174,53 @@ class ConsolidatedAnimationTest(unittest.TestCase):
             for side in ("in", "out"):
                 with self.subTest(tangent=name, side=side):
                     curve = self.create("UU")
-                    before = (curve.getKeyInputs(), curve.getKeyValues(), curve.getTangent(1))
+                    before = (curve.getKeyInputs(), curve.getKeyValues(), curve.getKeyframes(1).getTangent())
                     flags = {side + "TangentType": name}
                     for position in (0.25, 4):
                         with self.assertRaises(RuntimeError):
-                            curve.setKey(position, 99, **flags)
+                            curve.addKey(position, 99, **flags)
                         with self.assertRaises(ValueError):
-                            curve.setKey(position, 99, fast=True, **flags)
+                            curve.addKey(position, 99, fast=True, **flags)
                     if name != "fixed":
                         with self.assertRaises(RuntimeError):
-                            curve.setTangent(1, **flags)
+                            curve.getKeyframes(1).setTangent(**flags)
                         with self.assertRaises(ValueError):
-                            curve.setTangent(1, fast=True, lock=False, **flags)
-                    self.assertEqual((curve.getKeyInputs(), curve.getKeyValues(), curve.getTangent(1)), before)
-        for method, args, flags in (("setKey", (4, 99), {}), ("setTangent", (1,), {"lock": False, "weightedTangents": True})):
+                            curve.getKeyframes(1).setTangent(fast=True, lock=False, **flags)
+                    self.assertEqual((curve.getKeyInputs(), curve.getKeyValues(), curve.getKeyframes(1).getTangent()), before)
+
+        def add_key(curve, **flags):
+            curve.addKey(4, 99, **flags)
+
+        def set_tangent(curve, **flags):
+            curve.getKeyframes(1).setTangent(**flags)
+
+        for method, flags in ((add_key, {}), (set_tangent, {"lock": False, "weightedTangents": True})):
             curve = self.create("UU")
-            before = (curve.getKeyInputs(), curve.getKeyValues(), curve.getTangent(1))
+            before = (curve.getKeyInputs(), curve.getKeyValues(), curve.getKeyframes(1).getTangent())
             with self.assertRaises(NotImplementedError):
-                getattr(curve, method)(*args, inTangentType="stepnext", fast=True, **flags)
-            self.assertEqual((curve.getKeyInputs(), curve.getKeyValues(), curve.getTangent(1)), before)
-        for method, args in (("setKey", (4, 99)), ("setTangent", (1,))):
+                method(curve, inTangentType="stepnext", fast=True, **flags)
+            self.assertEqual((curve.getKeyInputs(), curve.getKeyValues(), curve.getKeyframes(1).getTangent()), before)
+        for method in (add_key, set_tangent):
             normal, fast = self.create("UU"), self.create("UU")
-            getattr(normal, method)(*args, inTangentType="step")
-            getattr(fast, method)(*args, inTangentType="step", fast=True)
+            method(normal, inTangentType="step")
+            method(fast, inTangentType="step", fast=True)
             self.assert_curves(normal, fast)
 
     def test_unsupported_or_locked_fast_edit_has_no_partial_change(self):
         """不正値・ロックはキーを変更する前に拒否する。"""
         curve = self.create("TT")
         before = (curve.getKeyInputs(), curve.getKeyValues())
-        for call in (lambda: curve.scaleKey(0), lambda: curve.moveKey(timeOffset=float("inf")), lambda: curve.setTangent(1, inWeight=-1, fast=True)):
+        for call in (
+            lambda: curve.scaleKey(0),
+            lambda: curve.getKeyframes().move(timeOffset=float("inf")),
+            lambda: curve.getKeyframes(1).setTangent(inWeight=-1, fast=True),
+        ):
             with self.assertRaises((NotImplementedError, ValueError)):
                 call()
             self.assertEqual((curve.getKeyInputs(), curve.getKeyValues()), before)
         curve.getPlug("ktv").setLocked(True)
         with self.assertRaises(RuntimeError):
-            curve.setKey(0.25, 10, fast=True)
+            curve.addKey(0.25, 10, fast=True)
         self.assertEqual((curve.getKeyInputs(), curve.getKeyValues()), before)
 
 
@@ -239,19 +250,15 @@ class DeletedAnimCurveTest(_ContractCase):
         cmds.flushUndo()
         self.assertFalse(curve.isValid())
         with self.assertRaises(RuntimeError) as normal:
-            curve.setKey(2, 2.0)
+            curve.addKey(2, 2.0)
         calls = {
-            "setKey fast": lambda: curve.setKey(2, 2.0, fast=True),
-            "removeKey fast": lambda: curve.removeKey(index=0, fast=True),
-            "setTangent fast": lambda: curve.setTangent(0, lock=True, fast=True),
+            "addKey fast": lambda: curve.addKey(2, 2.0, fast=True),
             "setInfinity fast": lambda: curve.setInfinity(pre="linear", fast=True),
-            "removeKey": lambda: curve.removeKey(index=0),
             "isTimeInput": curve.isTimeInput,
             "getKeyCount": curve.getKeyCount,
             "getKeyInputs": curve.getKeyInputs,
             "getKeyValues": curve.getKeyValues,
             "evaluate": lambda: curve.evaluate(1.0),
-            "getTangent": lambda: curve.getTangent(0),
         }
         for label, call in calls.items():
             with self.subTest(label):

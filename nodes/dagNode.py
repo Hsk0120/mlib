@@ -12,6 +12,9 @@ from ..maths import Vector
 from ..util import _UNSET, _color_value, _world_space
 from .node import Node, Nodes
 
+#: :meth:`DagNode.getSkinClusters` の ``influence=True`` で、インフルエンスの接続とみなすskinClusterのアトリビュート。
+_INFLUENCE_ATTRIBUTES = ("matrix", "lockWeights", "influenceColor", "driverPoints", "basePoints")
+
 #: GUIのないMayaで使う、Maya標準のカラー番号のRGB。
 _DEFAULT_COLOR_PALETTE = (
     (0.4699999988079071, 0.4699999988079071, 0.4699999988079071),
@@ -127,24 +130,53 @@ class DagNode(Node):
             result.append((Node(set_object), members))
         return result
 
-    def getSkinClusters(self):
-        """このノードのジオメトリを変形しているSkinClusterを取得する。
+    def getSkinClusters(self, *, influence=False):
+        """このノードに関係するSkinClusterを取得する。``influence=True`` なら、このノードをインフルエンスに持つものを取得する。
 
-        Shapeから呼ぶと自身を、Transformから呼ぶと直下のShape(中間オブジェクトを除く)を調べる。
-        子のTransformより下は調べない。
+        既定(``influence=False``)では、このノードのジオメトリを変形しているSkinClusterを返す。
+        Shapeから呼ぶと自身を、Transform(Jointを含む)から呼ぶと直下のShape(中間オブジェクトを除く)を調べる。
+        子のTransformより下は調べない。ヒストリを上流へたどり、出力先がそのShapeになっているSkinClusterだけを返す。
+        途中でつながっている別の形状のSkinClusterは含まない。メッシュ・NURBSなどShapeの種類を問わず使える。
 
-        ヒストリを上流へたどり、出力先がそのShapeになっているSkinClusterだけを返す。
-        途中でつながっている別の形状のSkinClusterは含まない。
-        メッシュ・NURBSなどShapeの種類を問わず使え、シーンとUndoの記録は変更しない。
-        Jointの同名メソッドは意味が違い、そのジョイントをインフルエンスに持つSkinClusterを返す。
+        ``influence=True`` では、このノードからインフルエンスの入力(``matrix``・``lockWeights``・``influenceColor``・
+        ``driverPoints``・``basePoints`` の要素)へ直接つながっているSkinClusterを返す。
+        ジョイントのほか、インフルエンスにしたTransformやShapeにも使える。
+
+        どちらもシーンとUndoの記録は変更しない。
+
+        Args:
+            influence (bool): Trueなら、このノードをインフルエンスに持つSkinClusterを返す。既定はFalse。
 
         Returns:
-            SkinClusters: 見つかったSkinCluster。Shapeの順に、Shapeごとに近いものから並ぶ。
-                同じものは1回だけ含む。見つからなければ空リスト。
+            SkinClusters: 見つかったSkinCluster。同じものは1回だけ含む。見つからなければ空リスト。
+                ``influence=False`` ではShapeの順に、Shapeごとに近いものから並ぶ。
+                ``influence=True`` では接続の順に並び、無効なノードでは空リスト。
 
         Raises:
-            RuntimeError: 保持するDAGパスが無効な場合、またはMayaの検索が失敗した場合。
+            TypeError: influenceがboolでない場合。
+            RuntimeError: 保持するDAGパスが無効な場合(``influence=False`` のとき)、またはMayaの検索が失敗した場合。
         """
+        _require_bool(influence, "influence")
+        # 循環参照の回避: skinClusterがdagNodeを参照するため、使う時点で読み込む。
+        from .skinCluster import SkinCluster, SkinClusters
+
+        if influence:
+            if not self.isValid():
+                return SkinClusters._wrap([])
+            result, seen = [], set()
+            for mplug in self._dependency_fn().getConnections():
+                for destination in mplug.connectedTo(False, True):
+                    skin = destination.node()
+                    if not skin.hasFn(om2.MFn.kSkinClusterFilter):
+                        continue
+                    attribute = destination.array() if destination.isElement else destination
+                    if om2.MFnAttribute(attribute.attribute()).name not in _INFLUENCE_ATTRIBUTES:
+                        continue
+                    key = om2.MFnDependencyNode(skin).uuid().asString()
+                    if key not in seen:
+                        seen.add(key)
+                        result.append(SkinCluster(skin))
+            return SkinClusters._wrap(result)
         path = self.mpath()
         obj = path.node()
         if obj.hasFn(om2.MFn.kTransform):
@@ -165,28 +197,29 @@ class DagNode(Node):
                     seen.add(key)
                     result.append(Node(skin))
                 iterator.next()
-        # 循環参照の回避: skinClusterがdagNodeを参照するため、使う時点で読み込む。
-        from .skinCluster import SkinClusters
-
         return SkinClusters._wrap(result)
 
-    def getBindPoses(self):
+    def getBindPoses(self, *, influence=False):
         """このノードに関係するSkinClusterのバインドポーズを取得する。
 
-        対象のSkinClusterはgetSkinClusters()と同じ。ShapeとTransformでは自身を変形しているもの、
-        Jointでは自身をインフルエンスに持つものになる。
+        対象のSkinClusterは、同じ引数の :meth:`getSkinClusters` と同じ。既定では自身(のShape)を変形しているもの、
+        ``influence=True`` では自身をインフルエンスに持つものになる。
 
         SkinClusterの順に並べる。複数のSkinClusterが同じポーズを共有していれば1回だけ含め、
         バインドポーズが接続されていないSkinClusterは飛ばす。
+
+        Args:
+            influence (bool): Trueなら、自身をインフルエンスに持つSkinClusterのバインドポーズを返す。既定はFalse。
 
         Returns:
             Nodes[DagPose]: 接続されているバインドポーズ。1つもなければ空の集まり。
 
         Raises:
+            TypeError: influenceがboolでない場合。
             RuntimeError: 対象が無効な場合、またはバインドポーズの接続が不正な場合。
         """
         result, seen = [], set()
-        for skin in self.getSkinClusters():
+        for skin in self.getSkinClusters(influence=influence):
             pose = skin.getBindPose()
             if pose is not None:
                 key = pose.getUuid()
@@ -500,29 +533,31 @@ class DagNode(Node):
         """
         return self.mfn().isIntermediateObject
 
-    def getInstances(self, noSelf=False):
+    def getInstances(self, *, includeSelf=True):
         """同じノードへのDAGパス(インスタンス)をすべて取得する。
 
         すでにあるパスを調べるだけで、ノードを複製したり、インスタンスを新しく作ったりはしない。
         親がインスタンス化されたことで生じたパス(間接的なインスタンス)も含む。
 
         Args:
-            noSelf (bool): Trueなら、このオブジェクトが持つパスを結果から除く。既定はFalse。
+            includeSelf (bool): Falseなら、このオブジェクトが持つパスを結果から除く。既定はTrue。
 
         Returns:
             Nodes[DagNode]: パスごとのオブジェクト。順番はMaya APIが列挙する順。
                 このオブジェクトが持つパスには自身を、ほかのパスには新しいオブジェクトを入れる。
 
         Raises:
+            TypeError: includeSelfがboolでない場合。
             RuntimeError: 保持するDAGパスが無効な場合。
         """
+        _require_bool(includeSelf, "includeSelf")
         original = self.mpath().fullPathName()
         # APIが列挙した有効なパスの複製なので、Node(...) の入力解決を省いて同じ型で包む。
         return Nodes._wrap(
             [
                 self if path.fullPathName() == original else Node._wrap_dag_path(om2.MDagPath(path))
                 for path in om2.MDagPath.getAllPathsTo(self.mnode())
-                if not noSelf or path.fullPathName() != original
+                if includeSelf or path.fullPathName() != original
             ]
         )
 
@@ -619,7 +654,7 @@ class DagNode(Node):
         return Node._wrap_dag_path(path)
 
     def getChildren(
-        self, shapes=False, intermediates=False, *, allDescendents=False, order="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
+        self, *, shapes=False, intermediates=False, allDescendents=False, sortBy="depthFirst", leaves=False, includeSelf=False, underWorld=False, type=None
     ):
         """子、または子孫を取得する。
 
@@ -631,7 +666,7 @@ class DagNode(Node):
             intermediates (bool): Trueなら中間オブジェクトも含める。既定はFalse。
                 含めなかった中間オブジェクトの下は調べない。
             allDescendents (bool): Trueなら子孫すべて、Falseなら直接の子だけを取得する。既定はFalse。
-            order (str): 並べる順。``"depthFirst"`` (深さ優先。既定)か ``"breadthFirst"`` (幅優先)。
+            sortBy (str): 並べる順。``"depthFirst"`` (深さ優先。既定)か ``"breadthFirst"`` (幅優先)。
                 兄弟どうしはDAGの子の順に並ぶ。
             leaves (bool): Trueなら、末端のTransform(子にTransformを持たないもの)を、下の階層まで
                 たどって取得する。Shapeを持っていても末端として扱う。shapes=Trueとは同時に指定できない。
@@ -651,14 +686,14 @@ class DagNode(Node):
         Raises:
             TypeError: allDescendents・leaves・includeSelf・underWorldがboolでない場合、
                 またはtypeが文字列・文字列の並び・Noneのどれでもない場合。
-            ValueError: orderが不正な場合、leavesとshapesを同時に指定した場合、
+            ValueError: sortByが不正な場合、leavesとshapesを同時に指定した場合、
                 またはtypeに空文字列を指定した場合。
             RuntimeError: ノードは有効だが、保持するDAGパスが無効な場合。
         """
         for value, name in ((allDescendents, "allDescendents"), (leaves, "leaves"), (includeSelf, "includeSelf"), (underWorld, "underWorld")):
             _require_bool(value, name)
-        if order not in ("depthFirst", "breadthFirst"):
-            raise ValueError("orderは'depthFirst'か'breadthFirst'で指定してください")
+        if sortBy not in ("depthFirst", "breadthFirst"):
+            raise ValueError("sortByは'depthFirst'か'breadthFirst'で指定してください")
         if leaves and shapes:
             raise ValueError("leavesはトランスフォームを選ぶ指定のため、shapesと同時に指定できません")
         types = _type_filter(type)
@@ -667,12 +702,12 @@ class DagNode(Node):
             shapes = any("shape" in _inherited_node_types(_real_node_type(name)) for name in types)
         if not self.isValid():
             return Nodes._wrap([])
-        result = self._collect_children(shapes, intermediates, allDescendents, order, leaves, includeSelf, underWorld)
+        result = self._collect_children(shapes, intermediates, allDescendents, sortBy, leaves, includeSelf, underWorld)
         if types:
             result = [node for node in result if any(node.isType(name) for name in types)]
         return Nodes._wrap(result)
 
-    def getShape(self, index=0, intermediates=False, *, all=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
+    def getShape(self, index=0, *, intermediates=False, all=False):  # noqa: ARG002  # Shapeでは無視する契約。派生(Transform)が使う。
         """Shapeを取得する。
 
         ノードの種類によって次のように返す。
@@ -763,14 +798,14 @@ class DagNode(Node):
 
         return Selection([self._full_name() + "." + name.split(".", 1)[1] for name in names]).getComponents()
 
-    def getDrawColor(self, *, mode="dormant"):
+    def getDrawColor(self, *, kind="dormant"):
         """DAGノードの描画色を、選択の状態ごとに取得する。
 
         API 1.0のMFnDagNodeが返す色。ビューポートや表示状態によって値が変わり、
         GUIのない環境では黒を返す場合がある。描画更新を強制せず、表示設定は変更しない。
 
         Args:
-            mode (str): どの状態の色か。既定は ``"dormant"``。
+            kind (str): どの状態の色か。既定は ``"dormant"``。
 
                 - ``"dormant"``: 選択していないときの色。
                 - ``"active"``: 選択しているときの色。
@@ -780,33 +815,33 @@ class DagNode(Node):
 
         Returns:
             tuple[float, float, float, float] | None: RGBAの独立した値。
-                ``mode="override"`` で色のオーバーライドが無い場合だけNone。
+                ``kind="override"`` で色のオーバーライドが無い場合だけNone。
 
         Raises:
-            TypeError: modeがstrでない場合。
-            ValueError: modeが対応していない名前の場合。
+            TypeError: kindがstrでない場合。
+            ValueError: kindが対応していない名前の場合。
         """
-        if not isinstance(mode, str):
-            raise TypeError(f"modeはstrで指定してください: {type(mode).__name__}")
-        if mode not in _DRAW_COLOR_MODES:
-            raise ValueError(f"modeは'dormant'・'active'・'hilite'・'override'のどれかで指定してください: {mode!r}")
+        if not isinstance(kind, str):
+            raise TypeError(f"kindはstrで指定してください: {type(kind).__name__}")
+        if kind not in _DRAW_COLOR_MODES:
+            raise ValueError(f"kindは'dormant'・'active'・'hilite'・'override'のどれかで指定してください: {kind!r}")
         fn = om1.MFnDagNode(self._api1_path())
-        if mode == "override":
+        if kind == "override":
             color = om1.MColor()
             if not fn.drawOverrideColor(color):
                 return None
         else:
-            color = getattr(fn, _DRAW_COLOR_MODES[mode])()
+            color = getattr(fn, _DRAW_COLOR_MODES[kind])()
         return color.r, color.g, color.b, color.a
 
-    def getColor(self, *, outliner=False, shape=False):
+    def getColor(self, *, outliner=False, toShape=False):
         """表示色(描画のオーバーライドの色、またはアウトライナーの文字色)を取得する。
 
         既定では、Transformでも直下のShapeは読まず、自身のアトリビュートを読む。
 
         Args:
             outliner (bool): Trueならアウトライナーの文字色、既定のFalseなら描画のオーバーライドの表示色。
-            shape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
+            toShape (bool): Trueなら、直下のShapeのうち中間オブジェクトでない最初のものを読む
                 (Shapeが無ければ自身)。Falseなら自身を読む。既定はFalse。
 
         Returns:
@@ -815,12 +850,12 @@ class DagNode(Node):
                 アウトライナーでは (r, g, b)、``useOutlinerColor`` が無効ならNone。
 
         Raises:
-            TypeError: outliner・shapeがbool以外の場合。
+            TypeError: outliner・toShapeがbool以外の場合。
             RuntimeError: ノードが無効な場合。
         """
         _require_bool(outliner, "outliner")
-        _require_bool(shape, "shape")
-        fn = self._color_targets(shape)[0]._dependency_fn()
+        _require_bool(toShape, "toShape")
+        fn = self._color_targets(toShape)[0]._dependency_fn()
         if outliner:
             if not fn.findPlug("useOutlinerColor", False).asBool():
                 return None
@@ -833,7 +868,7 @@ class DagNode(Node):
             return tuple(plug.child(index).asFloat() for index in range(3))
         return fn.findPlug("overrideColor", False).asInt()
 
-    def setColor(self, color, *, outliner=False, shape=False, fast=False, check=False):
+    def setColor(self, color, *, outliner=False, toShape=False, fast=False, check=False):
         """表示色(描画のオーバーライドの色、またはアウトライナーの文字色)を設定する。
 
         既定(``outliner=False``)は描画のオーバーライドの表示色で、``overrideEnabled`` を有効にしてから、
@@ -848,7 +883,7 @@ class DagNode(Node):
         カラー番号は指定した時点のRGBに直して書き込む。GUIのないMayaでは現在のパレットを読めないため、Maya標準のパレットを使う。
 
         TransformやJointでも、直下のShapeではなく自身へ設定する。Mayaの描画のオーバーライドと同じく、
-        Transformへの設定は子の階層全体に効く。``shape=True`` なら、直下のShape(中間オブジェクトを除く)
+        Transformへの設定は子の階層全体に効く。``toShape=True`` なら、直下のShape(中間オブジェクトを除く)
         すべてへ設定する(Shapeが無ければ自身)。
 
         通常は ``cmds.setAttr`` で書き込み、1回のUndoにまとめる。途中で失敗したら元に戻す。
@@ -859,7 +894,7 @@ class DagNode(Node):
             color (int | Sequence[float] | None): 表示色。カラー番号(0〜31。0は既定色)、
                 0〜1の有限な数値3個の (r, g, b)、または無効にするNone。RGBは表示色の値で、色空間の変換はしない。
             outliner (bool): Trueならアウトライナーの文字色、既定のFalseなら描画のオーバーライドの表示色を設定する。
-            shape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
+            toShape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
@@ -870,17 +905,17 @@ class DagNode(Node):
 
         Raises:
             TypeError: colorがint・3個の数値の列・Noneのどれでもない場合(boolを含む)、
-                またはoutliner・shape・fastがbool以外の場合。
+                またはoutliner・toShape・fastがbool以外の場合。
             ValueError: 番号が0〜31の範囲外の場合、またはRGBの成分が3個でないか、0〜1の範囲外の場合。
             RuntimeError: ノードが無効な場合、またはロックや入力接続のためにMayaが設定を拒否した場合。
         """
         _require_bool(outliner, "outliner")
-        _require_bool(shape, "shape")
+        _require_bool(toShape, "toShape")
         _require_bool(fast, "fast")
         if outliner:
-            self._set_display_values(_outliner_color_writes(color), "mlibDagNodeSetOutlinerColor", fast, shape, check=check)
+            self._set_display_values(_outliner_color_writes(color), "mlibDagNodeSetOutlinerColor", fast, toShape, check=check)
         else:
-            self._set_display_values(_override_color_writes(color), "mlibDagNodeSetOverrideColor", fast, shape, check=check)
+            self._set_display_values(_override_color_writes(color), "mlibDagNodeSetOverrideColor", fast, toShape, check=check)
 
     def getVisibility(self):
         """自身のvisibilityアトリビュートの値を取得する。

@@ -223,9 +223,7 @@ class Snapshot:
         Returns:
             ValidationReport: 見つからないもの・書けないもの・適用できない問題。
         """
-        report = ValidationReport()
-        self._validate(NameMapping(nameMap, replace, namespaceMap), report, {})
-        return report
+        return self._run_validate({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
 
     def apply(self, *, nameMap=None, replace=None, namespaceMap=None):
         """持っているデータを、名前を対応づけたシーンのノードへ適用する。
@@ -247,6 +245,20 @@ class Snapshot:
             NotImplementedError: 基底クラスで呼んだ場合。
         """
         return self._run_apply({"nameMap": nameMap, "replace": replace, "namespaceMap": namespaceMap}, {})
+
+    def _run_validate(self, mapping_args, options):
+        """検査だけを行う(それぞれの種類の ``validate`` の中身)。
+
+        Args:
+            mapping_args (dict): ``nameMap``・``replace``・``namespaceMap``。
+            options (dict): 種類ごとに追加する指定。``_validate`` へ渡す。
+
+        Returns:
+            ValidationReport: 見つからないもの・書けないもの・適用できない問題。
+        """
+        report = ValidationReport()
+        self._validate(NameMapping(**mapping_args), report, options)
+        return report
 
     def _run_apply(self, mapping_args, options, fast=False):
         """検査してから、1回のUndoで適用する(それぞれの種類の ``apply`` の中身)。
@@ -280,7 +292,7 @@ class Snapshot:
 
         Args:
             frame (float): 保存したときのフレーム。
-            timing (str): ``"frame"`` か ``"second"``。
+            timing (str): ``"frame"`` か ``"sec"``。
 
         Returns:
             float: 今のシーンのフレーム。取得したばかり(ヘッダーが無い)ならそのまま。

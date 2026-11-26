@@ -260,7 +260,7 @@ class MultiPlug(Plug):
             raise IndexError("物理番号がマルチアトリビュートの範囲外です")
         return Plug(self._node, self._mplug.elementByPhysicalIndex(index))
 
-    def getNextAvailable(self, start=-1, checkLocked=True, checkChildren=True, *, vacant=False):
+    def getNextAvailable(self, start=-1, *, checkLocked=True, checkChildren=True, vacant=False):
         """次に使える、マルチアトリビュートの要素のPlugを探す。
 
         要素を作ったり、予約したりはしない。論理番号は、戻り値の

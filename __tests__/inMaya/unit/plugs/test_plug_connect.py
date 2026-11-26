@@ -66,7 +66,7 @@ class ConnectionDefaultTest(_SpecCase):
         self.assertEqual(plug.getConnections(input=True, skipConversionNodes=True).getNode(), source)
         self.assertEqual(plug.getConnections(destination=False, asNode=True)[0].getType(), "unitConversion")
         self.assertEqual(plug.getConnections(destination=False, asNode=True, scn=True), [source])
-        self.assertEqual(source.getPlug("tx").getConnections(outputs=True, skipConversionNodes=True), [plug])
+        self.assertEqual(source.getPlug("tx").getConnections(output=True, skipConversionNodes=True), [plug])
 
 
 class _ConnectionSpecCase(unittest.TestCase):
@@ -321,18 +321,18 @@ class DisconnectSpecTest(_ConnectionSpecCase):
         self.assertUndoEmpty()
 
     def test_disconnect_locked_requires_force(self):
-        """ロックされた接続先はforce/fで一時解除して切断し、ロックを戻す。"""
+        """ロックされた接続先はunlockで一時解除して切断し、ロックを戻す。"""
         cmds.connectAttr(self.an + ".tx", self.bn + ".tx")
         cmds.setAttr(self.bn + ".tx", lock=True)
         with self.assertRaises(RuntimeError):
             self.b.getPlug("tx").disconnect()
-        self.b.getPlug("tx").disconnect(f=True)
+        self.b.getPlug("tx").disconnect(unlock=True)
         self.assertFalse(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))
         self.assertTrue(cmds.getAttr(self.bn + ".tx", lock=True))
         cmds.setAttr(self.bn + ".tx", lock=False)
         cmds.connectAttr(self.an + ".tx", self.bn + ".tx")
         cmds.setAttr(self.bn + ".tx", lock=True)
-        self.b.getPlug("tx").disconnect(force=True, fast=True)
+        self.b.getPlug("tx").disconnect(unlock=True, fast=True)
         self.assertFalse(cmds.isConnected(self.an + ".tx", self.bn + ".tx"))
         self.assertTrue(cmds.getAttr(self.bn + ".tx", lock=True))
 
@@ -430,7 +430,7 @@ class DisconnectSpecTest(_ConnectionSpecCase):
 
 
 class ConnectionQuerySpecTest(_ConnectionSpecCase):
-    """getConnections(input=True・outputs=Trueを含む)・isConnectedの照会。"""
+    """getConnections(input=True・output=Trueを含む)・isConnectedの照会。"""
 
     def setUp(self):
         super().setUp()
@@ -459,25 +459,25 @@ class ConnectionQuerySpecTest(_ConnectionSpecCase):
         """getConnections(input=True)は子の独立した接続を展開しない。"""
         self.assertIsNone(self.b.getPlug("translate").getConnections(input=True, skipConversionNodes=True))
         self.assertIsNone(self.b.getPlug("translate").getConnections(input=True))
-        self.assertEqual(self.b.getPlug("translate").getConnections(outputs=True), [])
+        self.assertEqual(self.b.getPlug("translate").getConnections(output=True), [])
 
     def test_get_outputs(self):
-        """getConnections(outputs=True)は出力先のPlugs。未接続は空、asNodeはノード単位で統合、indexは範囲外None。"""
-        destinations = self.a.getPlug("tx").getConnections(outputs=True, skipConversionNodes=True)
+        """getConnections(output=True)は出力先のPlugs。未接続は空、asNodeはノード単位で統合、indexは範囲外None。"""
+        destinations = self.a.getPlug("tx").getConnections(output=True, skipConversionNodes=True)
         self.assertEqual(sorted(p.getName(full=True) for p in destinations), sorted([self.bn + ".rotateX", self.bn + ".translateY", self.bn + ".translateZ"]))
-        direct = self.a.getPlug("tx").getConnections(outputs=True)
+        direct = self.a.getPlug("tx").getConnections(output=True)
         self.assertIn(self.conversion + ".input", [p.getName(full=True) for p in direct])
-        self.assertEqual(self.a.getPlug("tx").getConnections(outputs=True, asNode=True, skipConversionNodes=True), [self.b])
-        self.assertEqual(self.a.getPlug("sx").getConnections(outputs=True, skipConversionNodes=True), [])
-        self.assertIsNone(self.a.getPlug("tx").getConnections(outputs=True, index=99, skipConversionNodes=True))
-        self.assertIsInstance(self.a.getPlug("tx").getConnections(outputs=True, index=-1, skipConversionNodes=True), plugs.Plug)
+        self.assertEqual(self.a.getPlug("tx").getConnections(output=True, asNode=True, skipConversionNodes=True), [self.b])
+        self.assertEqual(self.a.getPlug("sx").getConnections(output=True, skipConversionNodes=True), [])
+        self.assertIsNone(self.a.getPlug("tx").getConnections(output=True, index=99, skipConversionNodes=True))
+        self.assertIsInstance(self.a.getPlug("tx").getConnections(output=True, index=-1, skipConversionNodes=True), plugs.Plug)
 
     def test_get_connections_on_compound_and_flags(self):
         """getConnectionsは子を再帰し、変換ノードは既定で飛ばす。方向・ペア・indexの扱い(pclsは無い)。"""
         translate = self.b.getPlug("translate")
         self.assertEqual(translate.getConnections(skipConversionNodes=True), [self.a.getPlug("tx")])
         self.assertEqual(translate.getConnections(checkChildren=False, skipConversionNodes=True), [])
-        pairs = translate.getConnections(c=True, skipConversionNodes=True)
+        pairs = translate.getConnections(asPair=True, skipConversionNodes=True)
         self.assertEqual(sorted(p[0].getName(full=True) for p in pairs), [self.bn + ".translateY", self.bn + ".translateZ"])
         self.assertTrue(all(p[1] == self.a.getPlug("tx") for p in pairs))
         self.assertEqual(translate.getConnections(d=False, skipConversionNodes=True), translate.getConnections(destination=False, skipConversionNodes=True))

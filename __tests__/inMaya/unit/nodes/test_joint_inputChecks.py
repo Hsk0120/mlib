@@ -102,7 +102,7 @@ class JointInputTest(_Case):
     def test_skin_clusters_of_deleted_joint(self):
         """削除したジョイントのgetSkinClustersは空のSkinClusters。"""
         cmds.delete(str(self.other))
-        result = self.other.getSkinClusters()
+        result = self.other.getSkinClusters(influence=True)
         self.assertIs(type(result), SkinClusters)
         self.assertEqual(len(result), 0)
 
@@ -203,7 +203,7 @@ class JointRejectTest(_Case):
         # mirrorJointは今の名前空間へ作ることがあるため、テストの名前空間の外に残ったときだけ消す。
         mirrored_name = mirrored.getName(full=True)
         self.addCleanup(lambda: cmds.objExists(mirrored_name) and cmds.delete(mirrored_name))
-        self.assertEqual(mirrored.getName(node=True, removeNamespace=True), "R_arm")
+        self.assertEqual(mirrored.getName(short=True, removeNamespace=True), "R_arm")
         self.assertAlmostEqual(cmds.xform(str(mirrored), query=True, worldSpace=True, translation=True)[0], -3)
         self.assertEqual([child.split("|")[-1].split(":")[-1] for child in cmds.listRelatives(str(mirrored), children=True)], ["R_hand"])
 
@@ -236,7 +236,7 @@ class JointSkinRejectTest(_Case):
         return cmds.getAttr(f"{self.skin}.weightList[{vertex}].weights[{self.influence_index(joint)}]")
 
     def test_negative_weight(self):
-        """移すウェイトに負の値があるとValueErrorで何も変えず、force=Trueなら直してから削除する。"""
+        """移すウェイトに負の値があるとValueErrorで何も変えず、repair=Trueなら直してから削除する。"""
         index = self.influence_index(self.tip)
         cmds.setAttr(f"{self.skin}.weightList[0].weights[{index}]", -0.5)
         for label, call in (("Joint", lambda: self.tip.delete()), ("Joints", lambda: Joints([self.tip]).delete())):
@@ -245,7 +245,7 @@ class JointSkinRejectTest(_Case):
             self.assertTrue(cmds.objExists(str(self.tip)))
             self.assertEqual(cmds.getAttr(f"{self.skin}.weightList[0].weights[{index}]"), -0.5)
         self.flushUndo()
-        Joints([self.tip]).delete(force=True)
+        Joints([self.tip]).delete(repair=True)
         self.assertFalse(self.tip.isValid())
         self.assertNotIn(self.tip.getUuid(), self.influences())
         cmds.undo()
@@ -274,7 +274,7 @@ class JointSkinRejectTest(_Case):
         with self.assertRaises(TypeError):
             Joints([self.tip]).removeInfluence(transferToParent=1)
         with self.assertRaises(TypeError):
-            Joints([self.tip]).removeInfluence(force=1)
+            Joints([self.tip]).removeInfluence(repair=1)
 
     def test_set_influence_locked_type(self):
         """stateがboolでないとTypeErrorで、ロックは変わらない。"""
@@ -293,7 +293,7 @@ class JointSkinRejectTest(_Case):
         """skinClusterへほかのアトリビュートでつながるだけのジョイントは、インフルエンスとして扱わない。"""
         extra = self.joint("extra", (0, 0, 3))
         cmds.connectAttr(f"{extra}.translateX", f"{self.skin}.envelope")
-        self.assertEqual(len(extra.getSkinClusters()), 1)
+        self.assertEqual(len(extra.getSkinClusters(influence=True)), 0)
         Joints([self.tip, extra]).removeInfluence()
         self.assertEqual(self.influences(), {joint.getUuid() for joint in (self.root, self.mid, self.other)})
         self.assertEqual(cmds.listConnections(f"{self.skin}.envelope", source=True), [extra.getName()])

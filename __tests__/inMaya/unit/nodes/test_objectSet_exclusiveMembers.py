@@ -19,7 +19,7 @@ class ObjectSetExclusiveMembersTest(NamespaceCase):
         cmds.sets(node, addElement=first)
         cmds.sets(node, addElement=unrelated)
         target = mlib.getNode(second)
-        self.assertIsNone(target.addMembers(node, exclusive=True))
+        self.assertIsNone(target.addMembers(node, forceElement=True))
         self.assertFalse(cmds.sets(node, isMember=first))
         self.assertTrue(cmds.sets(node, isMember=second))
         self.assertTrue(cmds.sets(node, isMember=unrelated))
@@ -28,7 +28,7 @@ class ObjectSetExclusiveMembersTest(NamespaceCase):
         self.assertFalse(cmds.sets(node, isMember=second))
         cmds.redo()
         self.assertTrue(cmds.sets(node, isMember=second))
-        self.assertIsNone(target.addMembers(exclusive=True))
+        self.assertIsNone(target.addMembers(forceElement=True))
 
 
 if __name__ == "__main__":

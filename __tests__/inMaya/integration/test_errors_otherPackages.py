@@ -207,7 +207,7 @@ class CreateContainerErrorTest(_ErrorCase):
         for dag in (False, True):
             with self.subTest(dag=dag):
                 with self.assertRaises(RuntimeError):
-                    mlib.createContainer(self.name("box"), members=[self.name("noSuchMember")], dag=dag)
+                    mlib.createContainer([self.name("noSuchMember")], name=self.name("box"), dag=dag)
                 self.assertSceneUnchanged(before)
 
 
@@ -314,7 +314,7 @@ class EnvironmentErrorTest(_ErrorCase):
 
 
 class KeyframeErrorTest(_ErrorCase):
-    """Keyframe.getValue(time=True)・getValue・setValue の拒否。拒否時はキーの値を変えない。"""
+    """Keyframe.getValue(input=True)・getValue・setValue の拒否。拒否時はキーの値を変えない。"""
 
     def setUp(self):
         super().setUp()
@@ -329,11 +329,11 @@ class KeyframeErrorTest(_ErrorCase):
     def test_index_out_of_range(self):
         """キーを消して番号が範囲外になると IndexError。"""
         key = self.curve.getKeyframes(1)
-        self.assertEqual(key.getValue(time=True), 10.0)
+        self.assertEqual(key.getValue(input=True), 10.0)
         cmds.cutKey(self.curve.getName(full=True), time=(10, 10))
         before = self.values()
         for name, call in (
-            ("getValue time", functools.partial(key.getValue, time=True)),
+            ("getValue input", functools.partial(key.getValue, input=True)),
             ("getValue", key.getValue),
             ("setValue", lambda: key.setValue(1.0)),
             ("setValue fast", lambda: key.setValue(1.0, fast=True)),
@@ -347,7 +347,11 @@ class KeyframeErrorTest(_ErrorCase):
         """カーブを削除すると RuntimeError。"""
         key = self.curve.getKeyframes(0)
         cmds.delete(self.curve.getName(full=True))
-        for name, call in (("getValue time", functools.partial(key.getValue, time=True)), ("getValue", key.getValue), ("setValue", lambda: key.setValue(1.0))):
+        for name, call in (
+            ("getValue input", functools.partial(key.getValue, input=True)),
+            ("getValue", key.getValue),
+            ("setValue", lambda: key.setValue(1.0)),
+        ):
             with self.subTest(name=name):
                 with self.assertRaises(RuntimeError):
                     call()
@@ -433,7 +437,7 @@ class ScalarGraphErrorTest(_ErrorCase):
 
     def test_container_fast(self):
         """container を所有先にして fast=True なら NotImplementedError。"""
-        container = mlib.createContainer(self.name("graph"))
+        container = mlib.createContainer(name=self.name("graph"))
         graph = ScalarGraph(container)
         before = self.nodes()
         for name, call in self._calls(graph):

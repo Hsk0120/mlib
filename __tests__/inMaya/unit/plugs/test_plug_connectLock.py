@@ -71,7 +71,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
         with mock.patch.object(mlib.Plug, "setFlags", autospec=True, side_effect=self._record_flags(events)):
             with mock.patch("maya.cmds.disconnectAttr", side_effect=error):
                 with self.assertRaises(RuntimeError) as caught:
-                    target.disconnect(source, force=True)
+                    target.disconnect(source, unlock=True)
         self.assertIs(caught.exception, error)
         self.assertEqual(events, [("payload", False), ("value", False), ("value", True), ("payload", True)])
         self.assertTrue(target.isLocked())
@@ -97,7 +97,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
                     with mock.patch("maya.cmds." + command) as edit:
                         with self.assertRaises(RuntimeError) as caught:
                             if disconnect:
-                                target.disconnect(source, force=True)
+                                target.disconnect(source, unlock=True)
                             else:
                                 target.connect(source, force=True)
                         edit.assert_not_called()
@@ -127,7 +127,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
                     with mock.patch("maya.cmds." + command, side_effect=edit_error):
                         with self.assertRaises(RuntimeError) as caught:
                             if disconnect:
-                                target.disconnect(source, force=True)
+                                target.disconnect(source, unlock=True)
                             else:
                                 target.connect(source, force=True)
                 self.assertIs(caught.exception, restore_error)

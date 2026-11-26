@@ -78,7 +78,7 @@ class TransformQueriesTest(_Case):
 
 
 class SetQuaternionWorldJointOrientTest(_Case):
-    """setQuaternion(ws=True, r=False)は、子のジョイントのjointOrientへ書いてワールドの回転を合わせる。"""
+    """setQuaternion(ws=True, rotate=False)は、子のジョイントのjointOrientへ書いてワールドの回転を合わせる。"""
 
     def setUp(self):
         super().setUp()
@@ -102,13 +102,13 @@ class SetQuaternionWorldJointOrientTest(_Case):
         """rotateを除いたワールドの回転が指定の値になり、rotateは変えない。Undo1回で戻る。get=Trueは書かない。"""
         before = cmds.getAttr(str(self.child) + ".jointOrient")[0]
         rotate = cmds.getAttr(str(self.child) + ".rotate")[0]
-        preview = self.child.setQuaternion(self.value, ws=True, r=False, get=True)
+        preview = self.child.setQuaternion(self.value, ws=True, rotate=False, get=True)
         self.assertIsInstance(preview, EulerRotate)
         self.assertEqual(cmds.getAttr(str(self.child) + ".jointOrient")[0], before)
         self.flushUndo()
-        self.assertIsNone(self.child.setQuaternion(self.value, ws=True, r=False))
+        self.assertIsNone(self.child.setQuaternion(self.value, ws=True, rotate=False))
         self.assertSameRotation(self.world_quaternion(), self.expected_world())
-        self.assertSameRotation(self.child.getQuaternion(ws=True, r=False), self.value)
+        self.assertSameRotation(self.child.getQuaternion(ws=True, rotate=False), self.value)
         self.assertSequenceAlmostEqual(cmds.getAttr(str(self.child) + ".rotate")[0], rotate)
         self.assertSequenceAlmostEqual(
             [om2.MAngle(value, om2.MAngle.kDegrees).asRadians() for value in cmds.getAttr(str(self.child) + ".jointOrient")[0]], tuple(preview)
@@ -136,21 +136,21 @@ class SetQuaternionComponentsTest(_Case):
         return om2.MTransformationMatrix(matrix).rotation(asQuaternion=True)
 
     def test_rotate_with_rotate_axis(self):
-        """ra=Trueでrotateへ書くと、rotateAxisを含めた回転が指定の値になる。rotateAxisは変えない。"""
+        """rotateAxis=Trueでrotateへ書くと、rotateAxisを含めた回転が指定の値になる。rotateAxisは変えない。"""
         node = mlib.getNode(self.make(text="node"))
         cmds.setAttr(str(node) + ".rotateAxis", 20, 0, 10)
         self.flushUndo()
-        node.setQuaternion(self.value, ra=True)
-        self.assertSameRotation(node.getQuaternion(ra=True), self.value)
+        node.setQuaternion(self.value, rotateAxis=True)
+        self.assertSameRotation(node.getQuaternion(rotateAxis=True), self.value)
         self.assertSameRotation(self.world_quaternion(str(node)), self.value)
         self.assertSequenceAlmostEqual(cmds.getAttr(str(node) + ".rotateAxis")[0], (20, 0, 10))
         self.assertUndoesInOneStep(lambda: self.assertEqual(cmds.getAttr(str(node) + ".rotate")[0], (0.0, 0.0, 0.0)), lambda: None)
 
     def test_rotate_axis_without_rotate_on_joint(self):
-        """Jointのローカルで、ra=True・r=False・jo=TrueはValueErrorで、何も書かない。"""
+        """Jointのローカルで、rotateAxis=True・rotate=False・jointOrient=TrueはValueErrorで、何も書かない。"""
         joint = Joint(self.joint("joint", (0, 0, 0)))
         with self.assertRaises(ValueError):
-            joint.setQuaternion(self.value, ra=True, r=False)
+            joint.setQuaternion(self.value, rotateAxis=True, rotate=False)
         for attribute in ("rotate", "rotateAxis", "jointOrient"):
             self.assertEqual(cmds.getAttr(f"{joint}.{attribute}")[0], (0.0, 0.0, 0.0))
 
@@ -270,8 +270,8 @@ class TransformRejectTest(_Case):
         """fastで、受け取る側に同じ名前の子があるとNotImplementedErrorで、シェイプは動かない。"""
         first, second = self.cube("first"), self.cube("second")
         shape = second.getShape()
-        cmds.rename(str(first.getShape()), shape.getName(node=True))
-        self.assertEqual(first.getShape().getName(node=True), shape.getName(node=True))
+        cmds.rename(str(first.getShape()), shape.getName(short=True))
+        self.assertEqual(first.getShape().getName(short=True), shape.getName(short=True))
         with self.assertRaises(NotImplementedError):
             first.addShape(shape, fast=True)
         self.assertEqual(cmds.listRelatives(str(shape), parent=True, fullPath=True), cmds.ls(str(second), long=True))
@@ -293,12 +293,13 @@ class TransformRejectTest(_Case):
         self.assertEqual(cmds.getAttr(f"{node}.translate")[0], (0.0, 0.0, 0.0))
 
     def test_get_matrix_and_translation_aliases(self):
-        """getMatrix・getTranslationのロング名と短縮名の同時指定はTypeError。"""
+        """getMatrix・getTranslationのロング名と短縮名の同時指定・消した短縮名(p・inv)・bool以外はTypeError。"""
         node = self.cube()
         for label, call in (
             ("ws", lambda: node.getMatrix(worldSpace=True, ws=True)),
-            ("p", lambda: node.getMatrix(parent=True, p=True)),
-            ("inv", lambda: node.getMatrix(inverse=True, inv=True)),
+            ("p removed", lambda: node.getMatrix(p=True)),
+            ("inv removed", lambda: node.getMatrix(inv=True)),
+            ("exclusive type", lambda: node.getMatrix(exclusive=1)),
             ("translation ws", lambda: node.getTranslation(worldSpace=True, ws=True)),
             ("translation type", lambda: node.getTranslation(worldSpace=1)),
         ):

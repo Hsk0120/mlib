@@ -114,7 +114,7 @@ class Callbacks:
             self._context_active = False
         return False
 
-    def addSceneCallback(self, event, function):
+    def addSceneCallback(self, event, callback):
         """シーンのイベント(``om2.MSceneMessage``)のコールバックを登録する。
 
         ``…Check`` で終わる確認のイベント(``"beforeSaveCheck"`` など)では、シーンの操作の前に呼び、
@@ -129,79 +129,79 @@ class Callbacks:
                 ``"beforeNewCheck"``・``"beforeSaveCheck"``・``"beforeOpenCheck"``・``"beforeImportCheck"``・
                 ``"beforeExportCheck"``・``"beforeCreateReferenceCheck"``・``"beforeLoadReferenceCheck"``。
                 PluginLoad系は扱わない。
-            function (Callable): 引数なしで呼ぶ処理。確認のイベントでは、真の値を返せば操作を続け、偽の値(Noneを含む)を返せば止める。
+            callback (Callable): 引数なしで呼ぶ処理。確認のイベントでは、真の値を返せば操作を続け、偽の値(Noneを含む)を返せば止める。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventが文字列でない場合、またはfunctionが呼び出せない場合。
+            TypeError: eventが文字列でない場合、またはcallbackが呼び出せない場合。
             ValueError: 知らないイベント名の場合、またはこの版のMayaに無いイベントの場合。
         """
         if not isinstance(event, str):
             raise TypeError("eventはstrで指定してください")
-        _require_callable(function)
+        _require_callable(callback)
         if event in _SCENE_CHECK_EVENTS + _SCENE_CHECK_FILE_EVENTS:
-            return self._add_scene_check_callback(event, function)
+            return self._add_scene_check_callback(event, callback)
         message = None
         if event in _SCENE_EVENTS:
             message = getattr(om2.MSceneMessage, "k" + event[:1].upper() + event[1:], None)
         if message is None:
             raise ValueError(f"知らないシーンイベントです: {event!r}")
-        return self._register(om2.MSceneMessage.addCallback(message, _guarded(function, event)))
+        return self._register(om2.MSceneMessage.addCallback(message, _guarded(callback, event)))
 
-    def addEventCallback(self, eventName, function):
+    def addEventCallback(self, event, callback):
         """Mayaのイベント(``om2.MEventMessage``)のコールバックを登録する。
 
         Args:
-            eventName (str): Mayaのイベント名をそのまま書く(``"timeChanged"``・``"SelectionChanged"`` など)。
+            event (str): Mayaのイベント名をそのまま書く(``"timeChanged"``・``"SelectionChanged"`` など)。
                 ``cmds.scriptJob(listEvents=True)`` と同じ一覧にある名前で、大文字と小文字を区別する。
-            function (Callable): 引数なしで呼ぶ処理。
+            callback (Callable): 引数なしで呼ぶ処理。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: eventNameが文字列でない場合、またはfunctionが呼び出せない場合。
+            TypeError: eventが文字列でない場合、またはcallbackが呼び出せない場合。
             ValueError: Mayaに無いイベント名の場合。
         """
-        if not isinstance(eventName, str):
-            raise TypeError("eventNameはstrで指定してください")
-        _require_callable(function)
+        if not isinstance(event, str):
+            raise TypeError("eventはstrで指定してください")
+        _require_callable(callback)
         # scriptJob(listEvents=True)はバッチでNoneを返すため、同じ一覧をom2から取得する。
-        if eventName not in om2.MEventMessage.getEventNames():
-            raise ValueError(f"知らないイベント名です: {eventName!r}")
-        return self._register(om2.MEventMessage.addEventCallback(eventName, _guarded(function, eventName)))
+        if event not in om2.MEventMessage.getEventNames():
+            raise ValueError(f"知らないイベント名です: {event!r}")
+        return self._register(om2.MEventMessage.addEventCallback(event, _guarded(callback, event)))
 
-    def addTimeChangeCallback(self, function, *, timeUnit="frame"):
+    def addTimeChangeCallback(self, callback, *, timeUnit="frame"):
         """現在時刻が変わったときのコールバックを登録する。
 
-        ``om2.MDGMessage.addTimeChangeCallback`` を使う。``function(time)`` の形で、変わった後の時刻を渡して呼ぶ。
+        ``om2.MDGMessage.addTimeChangeCallback`` を使う。``callback(time)`` の形で、変わった後の時刻を渡して呼ぶ。
         ``addEventCallback("timeChanged", ...)`` と違い、時刻を受け取れる。
 
         Args:
-            function (Callable): ``function(time)`` の形で呼ぶ処理。timeはfloat。
+            callback (Callable): ``callback(time)`` の形で呼ぶ処理。timeはfloat。
             timeUnit (str): timeの単位。``"frame"``(既定。現在のUIの時間単位のフレーム)か ``"sec"``。
 
         Returns:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: functionが呼び出せない場合、またはtimeUnitが文字列でない場合。
+            TypeError: callbackが呼び出せない場合、またはtimeUnitが文字列でない場合。
             ValueError: timeUnitが対応していない単位名の場合。
         """
-        _require_callable(function)
+        _require_callable(callback)
         unit = _time_unit(timeUnit)
 
         def forward(time, client_data):  # noqa: ARG001 引数はMayaのコールバックが決める
             if unit == "frame":
-                function(time.asUnits(om2.MTime.uiUnit()))
+                callback(time.asUnits(om2.MTime.uiUnit()))
             else:
-                function(time.asUnits(om2.MTime.kSeconds))
+                callback(time.asUnits(om2.MTime.kSeconds))
 
         return self._register(om2.MDGMessage.addTimeChangeCallback(_guarded(forward, "timeChange")))
 
-    def addAttributeChangedCallback(self, node, function):
+    def addAttributeChangedCallback(self, node, callback):
         """ノードのアトリビュートが変わったときのコールバックを登録する。
 
         ``om2.MNodeMessage.addAttributeChangedCallback`` を使う。値を設定したときだけでなく、
@@ -210,7 +210,7 @@ class Callbacks:
 
         Args:
             node (Node | str): 見張るノード。
-            function (Callable): ``function(message, plug)`` の形で呼ぶ処理。messageは
+            callback (Callable): ``callback(message, plug)`` の形で呼ぶ処理。messageは
                 ``om2.MNodeMessage.AttributeMessage`` のビット(int)、plugは変わった
                 アトリビュートの :class:`~mlib.plugs.plug.Plug`。
 
@@ -218,19 +218,19 @@ class Callbacks:
             int: 登録したコールバックの識別子。
 
         Raises:
-            TypeError: nodeが対応していない型の場合、またはfunctionが呼び出せない場合。
+            TypeError: nodeが対応していない型の場合、またはcallbackが呼び出せない場合。
             RuntimeError: nodeが見つからない場合。
         """
         # commonの初期化時にnodes・plugsを読み込まないよう、使用時に読み込む。
         from ..nodes.node import Node
         from ..plugs.plug import Plug
 
-        _require_callable(function)
+        _require_callable(callback)
         target = Node._resolve_input(node)
         label = target.getName()
 
         def forward(message, plug, other_plug, client_data):  # noqa: ARG001 引数はMayaのコールバックが決める
-            function(message, Plug._resolve_input(plug))
+            callback(message, Plug._resolve_input(plug))
 
         return self._register(om2.MNodeMessage.addAttributeChangedCallback(target.mnode(), _guarded(forward, label)))
 
@@ -305,7 +305,7 @@ def _require_callable(function):
         TypeError: 呼び出せない場合。
     """
     if not callable(function):
-        raise TypeError("functionは呼び出せるオブジェクトにしてください")
+        raise TypeError("callbackは呼び出せるオブジェクトにしてください")
 
 
 def _guarded(function, label):
