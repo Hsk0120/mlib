@@ -99,5 +99,37 @@ class ContainerErrorTest(_ContainerCase):
             self.owner.publishConnections()
 
 
+class ContainerAddMembersTest(_ContainerCase):
+    """addMembers は、見つからないノード・ほかのcontainerのメンバーを RuntimeError にして何も変えない。"""
+
+    def members(self):
+        return cmds.container(self.owner.getName(full=True), query=True, nodeList=True) or []
+
+    def test_missing_and_foreign_members_change_nothing(self):
+        """存在しない名前・ほかのcontainerのメンバーを含むと RuntimeError で、ノードもメンバーも変わらない。"""
+        node = mlib.createNode("multiplyDivide", name=self.name("calc"))
+        other = mlib.createContainer([mlib.createNode("network", name=self.name("foreign"))], name=self.name("other"))
+        foreign = other.getMembers()[0]
+        # 名前とNodeは同じ並びに混ぜられない(TypeError)ので、名前だけ・Nodeだけの並びで確かめる。
+        for members in ((self.name("missing"),), (node.getName(), self.name("missing")), (foreign,), ([node, foreign],)):
+            with self.subTest(members=members):
+                before = sorted(cmds.ls(uuid=True))
+                with self.assertRaises(RuntimeError):
+                    self.owner.addMembers(*members)
+                self.assertEqual(sorted(cmds.ls(uuid=True)), before)
+                self.assertEqual(self.members(), [])
+                self.assertEqual(other.getMembers(), [foreign])
+
+    def test_adding_own_member_again_does_nothing(self):
+        """すでにこのcontainerのメンバーなら、もう一度加えても何も変わらない(例外にもならない)。"""
+        node = self.owner.createNode("multiplyDivide", name=self.name("calc"))
+        before = sorted(cmds.ls(uuid=True))
+        self.owner.addMembers(node)
+        self.owner.addMembers(node.getName())
+        self.owner.addMembers([node, node])
+        self.assertEqual(self.members(), [node.getName()])
+        self.assertEqual(sorted(cmds.ls(uuid=True)), before)
+
+
 if __name__ == "__main__":
     unittest.main(argv=[sys.argv[0]])

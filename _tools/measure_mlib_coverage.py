@@ -47,6 +47,7 @@ import json
 import os
 import re
 import runpy
+import shutil
 import subprocess
 import sys
 import threading
@@ -149,6 +150,7 @@ TYPE_ALIASES = {
     "Mapping": ("dict",),
     "Callable": ("function", "method", "builtin_function_or_method"),
     "Any": ("object",),
+    "PathLike": ("PathLike", "PurePath", "Path"),
 }
 #: 複数形がPythonのlistと同じに持つ操作。集まりの中身だけを変え、シーンは書き換えない。
 LIST_METHODS = frozenset(("append", "extend", "insert", "remove", "pop", "index", "count", "clear", "reverse", "sort", "copy"))
@@ -586,6 +588,10 @@ def _run_version(run_maya, version, directory, selected_tests, suite, by_test):
     if not executable.is_file():
         print(f"[NG] Maya {version}: mayapyが見つかりません: {executable}")
         return None
+    if directory.exists():
+        # 前の結果が残っていても止まらないよう、同じ版のフォルダーは作り直す(使用中のファイルは残してよい)。
+        shutil.rmtree(directory, ignore_errors=True)
+        directory = directory.with_name(directory.name + "_" + datetime.datetime.now().strftime("%H%M%S")) if directory.exists() else directory  # noqa: DTZ005 フォルダー名に使う手元の時刻
     directory.mkdir(parents=True)
     output = directory / "hits.json"
     command = [str(executable), str(Path(__file__).resolve()), "--worker", str(output), "--suite", suite]
@@ -798,7 +804,7 @@ def _viewpoint_gaps(name, node, view):
             values.append(f"{name}=None")
         if re.fullmatch(r"\s*int\s*(\|\s*None\s*)?", type_text) and len({kind for kind in flags if kind.startswith(f"{name}#")}) < 2:
             numbers.append(name)
-        for alternative in (part.strip() for part in type_text.split("|")):
+        for alternative in _top_level_types(type_text):
             base = re.split(r"[\[(]", alternative)[0].strip().rsplit(".", 1)[-1]
             if base in TYPE_ALIASES:
                 expected = TYPE_ALIASES[base]
@@ -839,6 +845,30 @@ def _viewpoint_gaps(name, node, view):
     if not view["parity"]:
         gaps.append("突き合わせ")
     return gaps
+
+
+def _top_level_types(type_text):
+    """型の文字列を、括弧の外の ``|`` だけで分ける(``Iterable[Node | str] | None`` なら ``Iterable[Node | str]`` と ``None``)。
+
+    Args:
+        type_text (str): docstring の Args の型の文字列。
+
+    Returns:
+        list[str]: 前後の空白を除いた型の文字列。
+    """
+    parts, depth, current = [], 0, ""
+    for char in type_text:
+        if char in "[(":
+            depth += 1
+        elif char in "])":
+            depth -= 1
+        if char == "|" and depth == 0:
+            parts.append(current.strip())
+            current = ""
+            continue
+        current += char
+    parts.append(current.strip())
+    return [part for part in parts if part]
 
 
 def _swap_pair(pair):

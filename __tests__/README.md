@@ -32,7 +32,7 @@ __tests__/
 │  │  ├─ cmds/ nodes/ plugs/ components/ maths/ common/ core/ json/
 │  │  └─ root/       mlib直下のモジュール(decorator.py・util.py・logger.py・__init__.py 等)
 │  └─ integration/   複数のパッケージにまたがる確認。フォルダーを作らず、名前の先頭に観点を書く
-├─ support/          共通基底(namespaceCase.py)、GUI内の実行・プロセス監視の補助
+├─ support/          共通基底(namespaceCase.py)、引数の網羅(argumentSweep.py・argumentTable.py)、GUI内の実行・プロセス監視の補助
 └─ _output/          結果・ログ・専用Maya設定（Git対象外）
 ```
 
@@ -188,6 +188,50 @@ Mayaの起動・終了の異常や時間切れでは、取得できた例外と�
 `flushUndo()`・`assertUndoesInOneStep()`・`assertUndoEmpty()`等の補助を持ちます。
 ファイルごとの差分は薄い派生クラスのクラス属性(`PREFIX`・`ENABLE_UNDO`・`CLEAR_SELECTION`・
 `UNLOCK_NODES`)と、そのファイルだけで使う作成の補助で表します。
+
+### 引数を表から網羅する
+
+公開メソッドの引数を網羅するときは、クラスごとに「正しい呼び方の表」を書き、
+`support.argumentSweep.ArgumentSweepCase`(`NamespaceCase`の派生)の`METHODS`に置きます。
+ファイル名の話題は`argumentSweep`です(`inMaya/unit/nodes/test_transform_argumentSweep.py`)。
+
+```python
+from support.argumentSweep import ArgumentSweepCase
+from support.argumentTable import Method, RoundTrip
+
+
+class TransformArgumentSweepTest(ArgumentSweepCase):
+    METHODS = (
+        Method(
+            "setTranslation",
+            _make_child,                      # case を受け取り、メソッドを呼ぶ対象を作って返す
+            args=((1.0, 2.0, 3.0),),          # 正しい呼び方(位置引数も名前でキーワードとして渡す)
+            values={"value": POSITIONS, "at": (-1, 0, 1, 2, 3, 4, 5)},  # 引数ごとの値の候補
+            replace=("at",),                  # values だけを候補にする引数
+            invalid={"value": ((1.0, 2.0), "abc")},  # 段2の違う型の値(省略時は型から作る)
+            conflicts=(("worldSpace", "ws"), _relative_at),  # 同時に指定できない組(名前の組か、引数の辞書を受ける関数)
+            expect=_expect,                   # expect(case, call): 結果を cmds・om2 で確かめる(省略可)
+            roundTrip=RoundTrip("getTranslation", shared=("worldSpace", "ws", "at"), skip=_skip),
+            plural=_make_children,            # case → (複数形, 単数の並び)
+            known={"invalid:safe=1": "bool でない値を受け付ける"},  # 本体との食い違い(fnmatch の * が使える)
+        ),
+    )
+```
+
+メソッドごとに次のテストができ、件数・上限で切った数・秒数を`[argumentSweep]`の行でログへ出します。
+
+| テスト | 確かめること |
+|---|---|
+| `test_<メソッド>_values` | 段1: 引数ごとに候補を1つずつ差し替えて呼ぶ。例外は docstring の Raises の型だけ(そのときシーンは変わらない)、`expect` に合う |
+| `test_<メソッド>_invalid` | 段2: 違う型の値(bool へ`1`・`"yes"`、数へ`"a"`・NaN・inf、文字列へ数、選べる値へ選べない文字列、ノード・Plug へ削除済み・存在しない名前、並びへ数でない物)で、Raises の型になりシーンが変わらない |
+| `test_<メソッド>_pairs` | 段3: 2つの引数の組(1メソッド200組まで。`limit`で変える)で、Raises の型だけ・同時に指定できない組は TypeError・Undo 1回で戻り redo で同じ・`fast=True`と通常で同じ(fast は Undo なし)・短縮名(docstring の「Xの短縮名」)と長い名前で同じ・`roundTrip`・`plural` |
+| `test_<メソッド>_known` | `known`に書いた場合が、まだ食い違っていること(expectedFailure。直ったら known から外す) |
+
+- 候補は docstring の Args の型(bool・int・float・None・``"x"``の選べる値)と既定値から作り、`values`を足します。
+  並び・ノードなど型から作れない引数は`values`に書きます(`Lazy(lambda case: ..., "名前")`で呼ぶ直前に作る値も置けます)。
+- 書き込むメソッド(名前が get・is・has・list・find で始まらないもの。`writes=`で変える)は、呼ぶたびに名前空間の中身を作り直します。
+  シーンの状態は名前空間のノード・keyable の値・ワールドのマトリクス・接続と全体のノードの数で比べます(`state=`で変える)。
+- Maya を使わない部分(docstring の読み取り・候補・組)は`support/argumentTable.py`にあり、`noMaya/test_argumentTable.py`が確かめます。
 
 ## コードの書式を検査する
 

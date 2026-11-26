@@ -547,6 +547,31 @@ class ContainerBuilderTest(_CreateCase):
             mlib.createContainer((), self.name("badDag"))
         self.assertEqual(self.nodes(), before)
 
+    def test_rejects_missing_and_foreign_members(self):
+        """存在しない名前・ほかのcontainerのメンバーを含むと RuntimeError で、containerを作らずノードも増えない。"""
+        member = Node(self.make("transform", "freeMember"))
+        for dag in (False, True):
+            other = mlib.createContainer([Node(self.make("transform", "foreign#"))], name=self.name("other#"), dag=dag)
+            foreign = other.getMembers()[0]
+            # 名前とNodeは同じ並びに混ぜられない(TypeError)ので、名前だけ・Nodeだけの並びで確かめる。
+            for members in ([self.name("missing")], [member.getName(), self.name("missing")], [foreign], [member, foreign]):
+                with self.subTest(dag=dag, members=members):
+                    before = sorted(cmds.ls(uuid=True))
+                    with self.assertRaises(RuntimeError):
+                        mlib.createContainer(members, name=self.name("rejected"), dag=dag)
+                    self.assertEqual(sorted(cmds.ls(uuid=True)), before)
+                    self.assertFalse(cmds.container(query=True, findContainer=[member.getName(full=True)]))
+                    self.assertEqual(other.getMembers(), [foreign])
+
+    def test_same_member_twice_is_added_once(self):
+        """同じノードを2回渡しても、1回だけ加える。"""
+        member = Node(self.make("transform", "twice"))
+        for dag in (False, True):
+            with self.subTest(dag=dag):
+                owner = mlib.createContainer([member, member], name=self.name("twice#"), dag=dag)
+                self.assertEqual(owner.getMembers(), [member])
+                owner.removeMembers(member)
+
     def test_container_create_node_uses_real_type(self):
         """Container.createNode は実際の型のラッパーを返して所属させ、未知型は拒否する。"""
         owner = mlib.createContainer(name=self.name("owner"))
