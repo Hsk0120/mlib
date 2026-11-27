@@ -24,7 +24,7 @@ class NodeDgTimerTest(NamespaceCase):
                     self.assertEqual(node.getDgTimer(metric, timerType=kind), fn.dgTimer(metric, kind))
             names, values = fn.dgCallbacks(0)
             self.assertEqual(node.getDgTimer(kind="callbacks"), list(zip(names, values)))
-            self.assertIsNone(node.setDgTimer(reset=True))
+            self.assertIsNone(node.resetDgTimer())
             self.assertEqual(node.getDgTimer(kind="state"), om2.MFnDependencyNode.kTimerOn)
             self.assertIsNone(node.setDgTimer(False))
             self.assertEqual(node.getDgTimer(kind="state"), om2.MFnDependencyNode.kTimerOff)
@@ -75,7 +75,7 @@ class NodeDgTimerTest(NamespaceCase):
                 call()
 
     def test_reset_keeps_state_and_undo_queue(self):
-        """setDgTimer(reset=True) は計測結果だけを消し、開始・停止の状態と Undo の記録を変えない。state と一緒にも指定できる。"""
+        """resetDgTimer は計測結果だけを消し、開始・停止の状態と Undo の記録を変えない。"""
         node = mlib.getNode(cmds.createNode("multiplyDivide", name=self.ns + ":reset"))
         fn = om2.MFnDependencyNode(node.mnode())
         metric, kind = om2.MFnDependencyNode.kTimerMetric_callback, om2.MFnDependencyNode.kTimerType_count
@@ -84,32 +84,35 @@ class NodeDgTimerTest(NamespaceCase):
                 with self.subTest(on=on):
                     node.setDgTimer(on)
                     self.flushUndo()
-                    self.assertIsNone(node.setDgTimer(reset=True))
+                    self.assertIsNone(node.resetDgTimer())
                     self.assertUndoEmpty()
                     self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOn if on else om2.MFnDependencyNode.kTimerOff)
                     self.assertEqual(node.getDgTimer(metric, timerType=kind), fn.dgTimer(metric, kind))
-            # state と reset を一緒に渡すと、消してから開始・停止する。
-            self.flushUndo()
-            self.assertIsNone(node.setDgTimer(False, reset=True))
-            self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOff)
-            self.assertIsNone(node.setDgTimer(True, reset=True))
-            self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOn)
-            self.assertUndoEmpty()
         finally:
             fn.dgTimerOff()
-        before = fn.dgTimerQueryState()
-        cases = (
-            ("nothing", lambda: node.setDgTimer()),
-            ("reset False only", lambda: node.setDgTimer(reset=False)),
-            ("state None only", lambda: node.setDgTimer(None)),
-            ("reset int", lambda: node.setDgTimer(reset=1)),
-            ("state int with reset", lambda: node.setDgTimer(1, reset=True)),
-            ("reset positional", lambda: node.setDgTimer(True, True)),
-        )
-        for label, call in cases:
-            with self.subTest(label), self.assertRaises(TypeError):
-                call()
-            self.assertEqual(fn.dgTimerQueryState(), before)
+
+    def test_state_defaults_to_true(self):
+        """setDgTimer() は state の既定 True で計測を始める。bool 以外と、以前の reset 引数は TypeError で、状態は変わらない。"""
+        node = mlib.getNode(cmds.createNode("multiplyDivide", name=self.ns + ":default"))
+        fn = om2.MFnDependencyNode(node.mnode())
+        try:
+            self.assertIsNone(node.setDgTimer())
+            self.assertEqual(fn.dgTimerQueryState(), om2.MFnDependencyNode.kTimerOn)
+            node.setDgTimer(False)
+            before = fn.dgTimerQueryState()
+            cases = (
+                ("state None", lambda: node.setDgTimer(None)),
+                ("state int", lambda: node.setDgTimer(1)),
+                ("removed reset", lambda: node.setDgTimer(reset=True)),
+                ("reset positional", lambda: node.setDgTimer(True, True)),
+                ("reset with argument", lambda: node.resetDgTimer(True)),
+            )
+            for label, call in cases:
+                with self.subTest(label), self.assertRaises(TypeError):
+                    call()
+                self.assertEqual(fn.dgTimerQueryState(), before)
+        finally:
+            fn.dgTimerOff()
 
     def test_state_is_not_undone(self):
         """setDgTimer・setDgTimingEnabledはUndoに載らず、直前の編集をUndoしても計測の状態は変わらない。"""

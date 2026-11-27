@@ -49,12 +49,12 @@ class FastSettingsTest(NamespaceCase):
                 before = (cmds.getAttr(name + ".rotateOrder"), cmds.getAttr(name + ".rotate"))
                 self.flushUndo()
                 with self.assertRaises(RuntimeError):
-                    mlib.getNode(name).setRotateOrder("zxy", fast=fast, check=True)
+                    mlib.getNode(name).setRotateOrder("zxy", fast=fast, check=True, preserve=True)
                 self.assertEqual((cmds.getAttr(name + ".rotateOrder"), cmds.getAttr(name + ".rotate")), before)
                 self.assertUndoEmpty()
         for flag in ("fast", "check"):
             with self.subTest(flag=flag), self.assertRaises(TypeError):
-                mlib.getNode(self.transform()).setRotateOrder("zxy", **{flag: 1})
+                mlib.getNode(self.transform()).setRotateOrder("zxy", preserve=True, **{flag: 1})
 
     def test_degrees_of_freedom(self):
         for fast in (False, True):

@@ -50,14 +50,14 @@ class Selection:
     - maya.cmdsへ直接渡すとき、コンパウンドアトリビュートとマルチアトリビュートのPlugは文字列にする必要がある。
     """
 
-    def __init__(self, items=()):
+    def __init__(self, items=None):
         """指定した対象を持つ選択を作る。
 
         省略した場合は空になる。
 
         Args:
             items (Iterable[Node | Plug | Component | Components | Selection | str |
-                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList]): 対象。1つだけでも指定できる。
+                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList] | None): 対象。1つだけでも指定できる。Noneは空。
                 文字列には範囲の指定(``pCubeShape1.vtx[0:3]`` など)も使える。
                 MObject・MDagPathはノード、MPlugはアトリビュートとして扱う。
                 MSelectionListとSelectionは、その中の要素を取り出して使う。
@@ -72,7 +72,7 @@ class Selection:
             ただし結果は文字列の順に対応付けるので、並び順と重なりの除き方は、名前を1つずつ調べた場合と同じになる。
         """
         singles = (str, Node, Plug, Component, Components, Selection, om2.MObject, om2.MDagPath, om2.MPlug, om2.MSelectionList)
-        items = [items] if isinstance(items, singles) else list(items)
+        items = [] if items is None else [items] if isinstance(items, singles) else list(items)
         # ノード名(「.」もワイルドカードも含まない文字列)は、名前ごとに選択リストを作らずまとめて解決する。
         # 対応付けられなかった名前とそれ以外の文字列は、従来どおり名前ごとの選択リストで解決する。
         bulk_names = [item for item in items if isinstance(item, str) and _is_plain_node_name(item)]

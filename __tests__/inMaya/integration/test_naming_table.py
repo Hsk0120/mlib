@@ -94,7 +94,7 @@ MERGED_NODE = (
     (Node, ("getNodeName",), "getName", ("short", "removeNamespace")),
     (Node, ("isParentOf",), "isAncestorOf", ("direct",)),
     (Node, ("getAnimatablePlugs",), "getPlugs", ("writable", "animatable")),
-    (Node, ("setDgTimerEnabled", "resetDgTimer"), "setDgTimer", ("reset",)),
+    (Node, ("setDgTimerEnabled",), "setDgTimer", ()),
     (Node, ("getDgCallbacks", "getDgTimerState"), "getDgTimer", ("kind", "timerType")),
     (DagNode, ("show", "hide"), "setVisibility", ("fast", "check")),
     (DagNode, ("getParents",), "getParent", ("instances", "indirect")),

@@ -324,10 +324,10 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   同じ働きは mlib の中で1つの名前にする(Maya のフラグ名が割れていても1つ)。Maya のフラグをそのまま受ける入口(`cmds/` の作成関数・`addAttr`・
   `getConnections` の短縮名など)だけは Maya の名前のまま。
   - `force` は「障害があっても実行」だけ(`Scene`・`Plugin.unload`・`Plug.connect`・`Container.removeMembers`・`normalizeWeights` など Maya の意味)。
-    ロックを外すのは `unlock`(`Plug.connect`・`disconnect`・`delete`)、不正なウェイトを直してから処理するのは `repair`(`Joint.removeInfluence`・`Node.delete`・`SkinCluster.removeInfluences`)。
+    ロックを外すのは `unlock`(`Plug.connect`・`disconnect`・`delete`。どれも既定 False で、`force=True` だけではロックを外さない。2026-11-27)、不正なウェイトを直してから処理するのは `repair`(`Joint.removeInfluence`・`Node.delete`・`SkinCluster.removeInfluences`)。
   - bool の引数に名詞を使わない: `getName(short=True)`・`ShadingEngine.getShader(asPlug=True)`・`Keyframe.getValue(input=True)`・`getMatrix(exclusive=True)`・
     `IkHandle.getJoints(tipOnly=True)`・`getColor`/`setColor(toShape=True)`・`getNormal(lockedOnly=True)`。
-  - 末端は `leaves`、自身を含めるかは `includeSelf`(既定 True)、組で返すのは `asPair`(`connections`・`c` は置かない)、接続の向きは `input`/`output`、
+  - 末端は `leaves`、自身を含めるかは `includeSelf`(`getInstances` は True、`getChildren` は False)、組で返すのは `asPair`(`connections`・`c` は置かない)、接続の向きは `input`/`output`、
     子孫まで含めるのは `allDescendents`、並べる順は `sortBy`、距離の単位は `distanceUnit`(`unit` は角度)、ミラーの面は `plane`。
   - `remove`・`clear` は list の意味だけに使う。自身を消すのは `delete`(`Namespace.delete`・`Keyframe(s).delete`)、名前空間の中身を消すのは `Namespace.deleteNodes`、
     親の変更は `setParent`(`Namespace.setParent`)。
@@ -349,6 +349,11 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   - `--check` を付けない `format_mlib.bat` は、動きを変えずに直せるもの(None の型・既定値の追記・決まり文句・型の書き方・並び)を書き込み、
     引数の一覧のページ(`_docs/source/arguments.rst`。A006 が古くないかを見る)を作り直す。位置引数をキーワード専用へ変える・既定値を変える・名前を変えるのは、
     呼び出し側が壊れるので自動では直さない。引数を足す前に `py -3 _tools/check_mlib_arguments.py --list <引数名>` で、同じ名前の使われ方を確かめる。
+- 既定値の食い違いの決定(2026-11-27): 取得と設定でふつうの空間が分かれるもの・取り違えると結果が大きく違うものは、省けない引数にする
+  (`Camera.getPoint`・`setPoint`・`getDirection` の `worldSpace`、`Transform.setRotateOrder` の `preserve`)。「指定なし」は `None` で書く
+  (`createGroup(nodes=None)`・`createContainer(members=None)`・`Nodes(names=None)`・`Selection(items=None)`。空の並びも受ける)。
+  オン・オフと別の操作は別のメソッドにする(`setDgTimer(state=True)` と `resetDgTimer()`)。理由があって違うまま残す既定値は、
+  `_tools/check_mlib_arguments.py` の表の `defaultAllowed`・`reason` に書いてある。
 - 親子でないクラスの同じ名前の公開メソッドは引数名を揃える。対象が違って意味の無い引数は置かず、違いは `_tools/check_mlib_layout.py` の許可表に
   理由を書く: 上書きは `OVERRIDE_ALLOWED`(L090)、同じ名前の公開メソッドは `SIBLING_ALLOWED`(L094)、同じ名前の引数の型は `ARGUMENT_ALLOWED`
   (L095。情報)。もう違いの無い許可は L096 が報告するので消す。許可表に載せず別の名前にするのが先(同じ名前で意味が違うものを許可表で残さない)。

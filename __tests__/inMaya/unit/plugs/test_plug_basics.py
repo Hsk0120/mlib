@@ -145,13 +145,16 @@ class PlugBasicsTest(unittest.TestCase):
                 self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
 
     def test_force_reconnect_restores_lock_and_undo_restores_old_source(self):
-        """force置換のUndo/redoで入力元を往復し、接続先ロックを維持する。"""
+        """force・unlock の置換のUndo/redoで入力元を往復し、接続先ロックを維持する。force だけではロックを外さない。"""
         source, replacement = self.number(), self.number()
         destination = self.node.getPlug("amount")
         destination.connect(source)
         destination.setLocked(True)
         cmds.flushUndo()
-        self.assertEqual(destination.connect(replacement, force=True), destination)
+        with self.assertRaises(RuntimeError):
+            destination.connect(replacement, force=True)
+        self.assertTrue(cmds.isConnected(source.getName(full=True), destination.getName(full=True)))
+        self.assertEqual(destination.connect(replacement, force=True, unlock=True), destination)
         self.assertTrue(cmds.isConnected(replacement.getName(full=True), destination.getName(full=True)))
         self.assertTrue(cmds.getAttr(destination.getName(full=True), lock=True))
         cmds.undo()

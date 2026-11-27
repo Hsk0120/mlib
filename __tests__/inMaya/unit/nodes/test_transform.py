@@ -730,7 +730,7 @@ class RotateOrderTest(_Case):
         self.assertEqual(node.getRotateOrder(), "xyz")
         cmds.xform(twin, rotateOrder="zxy", preserve=True)
         self.flushUndo()
-        self.assertIsNone(node.setRotateOrder("ZXY"))
+        self.assertIsNone(node.setRotateOrder("ZXY", preserve=True))
         self.assertEqual(node.getRotateOrder(), "zxy")
         self.assertSequenceAlmostEqual(cmds.getAttr(node.getName(full=True) + ".rotate")[0], cmds.getAttr(twin + ".rotate")[0], places=6)
         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(before, 1e-9))
@@ -747,7 +747,12 @@ class RotateOrderTest(_Case):
     def test_set_rotate_order_errors(self):
         """未対応の順序は ValueError、preserve の型違いは TypeError で、rotateOrder は変わらない。"""
         node = mlib.getNode(self.make("transform", "roo#"))
-        for order, flags, error in (("abc", {}, ValueError), (6, {}, ValueError), ("xyz", {"preserve": 1}, TypeError)):
+        for order, flags, error in (
+            ("abc", {"preserve": True}, ValueError),
+            (6, {"preserve": True}, ValueError),
+            ("xyz", {"preserve": 1}, TypeError),
+            ("zxy", {}, TypeError),
+        ):
             with self.subTest(order=order, flags=flags):
                 with self.assertRaises(error):
                     node.setRotateOrder(order, **flags)

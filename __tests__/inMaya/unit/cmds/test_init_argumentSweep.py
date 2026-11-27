@@ -295,7 +295,7 @@ def _expect_chain(case, call):
 
 def _expect_group(case, call):
     _expect_type("transform")(case, call)
-    nodes = call.kwargs.get("nodes", ())
+    nodes = call.kwargs.get("nodes") or ()
     children = cmds.listRelatives(call.result.getName(full=True), children=True, fullPath=True) or []
     case.assertEqual(len(children), len(nodes) if isinstance(nodes, (list, tuple)) else 1)
 
@@ -303,7 +303,7 @@ def _expect_group(case, call):
 def _expect_container(case, call):
     kind = "dagContainer" if call.kwargs.get("dag") else "container"
     case.assertEqual(cmds.nodeType(call.result.getName(full=True)), kind)
-    members = call.kwargs.get("members", ())
+    members = call.kwargs.get("members") or ()
     expected = list(members) if isinstance(members, (list, tuple)) else [members]
     case.assertEqual(len(cmds.container(call.result.getName(full=True), query=True, nodeList=True) or []), len(set(map(str, expected))))
 

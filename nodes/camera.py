@@ -258,7 +258,7 @@ class Camera(Shape):
         ``MFnCamera.eyePoint``・``centerOfInterestPoint`` の値を返す。
 
         Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。省けない(worldSpace か ws のどちらかを指定する)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): 取得する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
 
@@ -266,12 +266,12 @@ class Camera(Shape):
             Vector: 位置(cm)。
 
         Raises:
-            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、worldSpaceとwsを同時に指定した場合、またはどちらも指定していない場合。
             ValueError: kindが対応していない名前の場合。
             RuntimeError: ノードが削除済みの場合。
         """
         kind = _require_choice(kind, "kind", _POINT_KINDS)
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=True)
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws")
         fn = self.mfn()
         space = self._space(worldSpace)
         return _vectors_of_points([fn.eyePoint(space) if kind == "eye" else fn.centerOfInterestPoint(space)])[0]
@@ -287,7 +287,7 @@ class Camera(Shape):
 
         Args:
             point (Iterable[float]): XYZ座標(cm)。注視点は、視点と異なる位置。
-            worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。既定True。
+            worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。省けない(worldSpace か ws のどちらかを指定する)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): 変更する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -304,7 +304,7 @@ class Camera(Shape):
             NotImplementedError: fast=False、または親が通常Transformでないかインスタンスの場合。
         """
         kind = _require_choice(kind, "kind", _POINT_KINDS)
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=True)
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws")
         space = self._space(worldSpace)
         point = om2.MPoint(_finite_vector(point, 3, "point"))
         if kind == "eye":
@@ -353,7 +353,7 @@ class Camera(Shape):
         ``MFnCamera.viewDirection``・``upDirection`` の値を返す。ローカル空間では、視線は -Z、上は +Y の向きになる。
 
         Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。既定はTrue。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル(オブジェクト)空間で取得する。省けない(worldSpace か ws のどちらかを指定する)。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): 取得する向き。``"view"`` は視線、``"up"`` は上。既定は ``"view"``。
 
@@ -361,12 +361,12 @@ class Camera(Shape):
             Vector: 長さ1の向き。
 
         Raises:
-            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、またはworldSpaceとwsを同時に指定した場合。
+            TypeError: kindが文字列でない場合、worldSpaceがbool以外の場合、worldSpaceとwsを同時に指定した場合、またはどちらも指定していない場合。
             ValueError: kindが対応していない名前の場合。
             RuntimeError: ノードが削除済みの場合。
         """
         kind = _require_choice(kind, "kind", _DIRECTION_KINDS)
-        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws", default=True)
+        worldSpace = _pick_alias(worldSpace, ws, "worldSpace", "ws")
         fn = self.mfn()
         space = self._space(worldSpace)
         return Vector(fn.viewDirection(space) if kind == "view" else fn.upDirection(space)).normal()
@@ -397,7 +397,7 @@ class Camera(Shape):
         if kind == "view":
             raise NotImplementedError('視線の向きだけの変更には対応していません。setViewか、setPointのkind="centerOfInterest"を使います')
         direction = Vector(_finite_vector(direction, 3, "direction"))
-        if (direction ^ self.getDirection()).length() < 1e-12:
+        if (direction ^ self.getDirection(worldSpace=True)).length() < 1e-12:
             raise ValueError("directionは視線と平行でない方向で指定してください")
         cmds.camera(self._full_name(), edit=True, worldUp=list(direction))
 

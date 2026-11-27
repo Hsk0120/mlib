@@ -192,21 +192,21 @@ class NativeFollowupTest(NamespaceCase):
             camera.setView((1, 2, 3), (0, 0, -1), (0, 1, 0), 45, 1.5)
         self.flushUndo()
         camera.setView((1, 2, 3), (0, 0, -1), (0, 1, 0), 45, 1.5, fast=True)
-        for a, b in zip(camera.getPoint(), (1, 2, 3)):
+        for a, b in zip(camera.getPoint(worldSpace=True), (1, 2, 3)):
             self.assertAlmostEqual(a, b, places=6)
         self.assertAlmostEqual(camera.getAspectRatio(), 1.5, places=5)
         self.assertEqual(cmds.undoInfo(query=True, undoName=True), "")
-        camera.setPoint((2, 3, -4), kind="centerOfInterest", fast=True)
-        for a, b in zip(camera.getPoint(kind="centerOfInterest"), (2, 3, -4)):
+        camera.setPoint((2, 3, -4), kind="centerOfInterest", fast=True, worldSpace=True)
+        for a, b in zip(camera.getPoint(kind="centerOfInterest", worldSpace=True), (2, 3, -4)):
             self.assertAlmostEqual(a, b, places=5)
         other = self.camera()
         other.copyViewFrom(camera, fast=True)
         self.assertTrue(other.mfn().hasSamePerspective(camera.mpath()))
         camera.getPlug("focalLength").setLocked(True)
-        before = camera.getPoint()
+        before = camera.getPoint(worldSpace=True)
         with self.assertRaises(RuntimeError):
             camera.setView((8, 9, 10), (0, 0, -1), (0, 1, 0), 60, 1.0, fast=True, check=True)
-        self.assertEqual(camera.getPoint(), before)
+        self.assertEqual(camera.getPoint(worldSpace=True), before)
 
     def test_component_pivots_undo_redo(self):
         cube = self.cube()

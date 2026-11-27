@@ -158,14 +158,16 @@ class RoundTrip:
         shared (tuple[str, ...]): get にも同じ値で渡す引数の名前(``worldSpace``・``at`` など)。
         skip (callable | None): 引数の辞書を受け取り、Trueなら確かめない(``relative=True`` など、値が書いた値と違うとき)。
         places (int): 比べる小数の桁。
+        fixed (dict): get へいつも渡す引数(省けない引数など)。``shared`` で渡す値が優先する。
     """
 
-    def __init__(self, getter, value="value", shared=(), skip=None, places=6):
+    def __init__(self, getter, value="value", shared=(), skip=None, places=6, fixed=None):
         self.getter = getter
         self.value = value
         self.shared = tuple(shared)
         self.skip = skip
         self.places = places
+        self.fixed = dict(fixed or {})
 
 
 class Method:

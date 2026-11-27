@@ -216,10 +216,10 @@ def _expect_direction(case, call):
 def _expect_set_direction(case, call):
     """カメラの上の向きが、渡した向きの視線に直交する成分の向きになることを確かめる。"""
     case.assertIsNone(call.result)
-    view = om2.MVector(call.target.getDirection())
+    view = om2.MVector(call.target.getDirection(worldSpace=True))
     direction = om2.MVector(call.kwargs["direction"])
     expected = (direction - view * (direction * view)).normal()
-    case.assertSequenceAlmostEqual(call.target.getDirection(kind="up"), expected, places=4)
+    case.assertSequenceAlmostEqual(call.target.getDirection(kind="up", worldSpace=True), expected, places=4)
 
 
 def _expect_projection(case, call):
@@ -297,7 +297,7 @@ METHODS = (
         },
         expect=_expect_set_view,
         state=_camera_state,
-        roundTrip=RoundTrip("getPoint", value="eye", places=4),
+        roundTrip=RoundTrip("getPoint", value="eye", places=4, fixed={"worldSpace": True}),
         limit=40,
     ),
     Method(
@@ -346,18 +346,18 @@ METHODS = (
         expect=_expect_focus,
         state=_camera_state,
     ),
-    Method("getPoint", _make_camera, conflicts=(SPACE,), expect=_expect_get_point, plural=_make_cameras),
+    Method("getPoint", _make_camera, kwargs={"worldSpace": True}, conflicts=(SPACE,), expect=_expect_get_point, plural=_make_cameras),
     Method(
         "setPoint",
         _make_camera,
         args=((3.0, 4.0, 15.0),),
-        kwargs={"fast": True},
+        kwargs={"worldSpace": True, "fast": True},
         values={"point": POINT_VALUES},
         invalid={"point": POINT_INVALID},
         conflicts=(SPACE,),
         expect=_expect_set_point,
         state=_camera_state,
-        roundTrip=RoundTrip("getPoint", value="point", shared=("worldSpace", "ws", "kind"), skip=_skip_point_trip, places=4),
+        roundTrip=RoundTrip("getPoint", value="point", shared=("worldSpace", "ws", "kind"), skip=_skip_point_trip, places=4, fixed={"worldSpace": True}),
         limit=40,
     ),
     Method("getAspectRatio", _make_camera, expect=_expect_aspect),
@@ -371,7 +371,7 @@ METHODS = (
         state=_camera_state,
         roundTrip=RoundTrip("getAspectRatio", places=4),
     ),
-    Method("getDirection", _make_camera, conflicts=(SPACE,), expect=_expect_direction, plural=_make_cameras),
+    Method("getDirection", _make_camera, kwargs={"worldSpace": True}, conflicts=(SPACE,), expect=_expect_direction, plural=_make_cameras),
     Method(
         "setDirection",
         _make_camera,

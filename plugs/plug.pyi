@@ -1679,8 +1679,7 @@ class Plug(Object):
 
         Args:
             source (Plug | om2.MPlug | str): 接続元。
-            force (bool): Trueなら、すでにある入力を置き換える。unlock=Trueなら、接続先と、その上の
-                コンパウンドアトリビュート・マルチアトリビュートのロックを一時的に外す。接続元のロックは変えない。既定はFalse。
+            force (bool): Trueなら、すでにある入力を置き換える。ロックは外さない(ロックされた接続先へは unlock=True も指定する)。既定はFalse。
             f (bool): forceの短縮名。forceとは同時に指定できない。
             lock (bool): Trueなら、接続したあとにロックする。Falseでも、もとのロックは戻す。既定はFalse。
             l (bool): lockの短縮名。lockとは同時に指定できない。
@@ -1688,7 +1687,8 @@ class Plug(Object):
                 同じ決まりで要素を選ぶ(:meth:`MultiPlug.getNextAvailable` の既定と同じ)。接続のある最後の要素の次から、
                 入力の接続・ロック・子の入力の接続が無い要素を探す。値を持つだけの要素も候補になり、途中の空きは使わない。
             na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
-            unlock (bool): Falseなら、forceでもロックを外さない。既定はTrue。
+            unlock (bool): Trueなら、接続先と、その上のコンパウンドアトリビュート・マルチアトリビュートのロックを一時的に外し、
+                逆の順にロックし直す。接続元のロックは変えない。既定はFalse。
             skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。接続元から接続先への同じ接続(unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず(ロックもlockの指定も変えない)、成功したときと同じく接続先を返す(何度実行してもよい)。nextAvailableでは、接続元がすでにつながっている要素があれば、その要素を返す。ほかの入力がある・ロックされているなどの失敗は、既定と同じく例外にする。Falseでは、同じ接続があってもRuntimeErrorになる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -1700,7 +1700,7 @@ class Plug(Object):
                 skipExisting・fastと短縮名)がboolでない場合、または同じフラグの長い名前と短縮名を同時に指定した場合(値に関係なく)。
             AttributeError: 文字列で渡した名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: 次のどれかの場合。同じ接続がすでにある(skipExisting=Falseのとき)。自分自身へ接続しようとした。
-                forceなしで入力を置き換えようとした。ロックされている。接続やロックの復元に失敗した。
+                forceなしで入力を置き換えようとした。ロックされている(unlock=Falseのとき)。接続やロックの復元に失敗した。
                 接続元・接続先のノードかアトリビュートが削除されている場合も、何も変えずに送出する
                 (接続元については、削除前のアトリビュートのパスを文言に入れる)。
         """

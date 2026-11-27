@@ -167,23 +167,32 @@ class CameraQueryTest(_Case):
         """位置・視線・上方向は Transform の配置(xform)と一致し、ローカルは原点・-Z・+Y。"""
         transform, shape = self.camera()
         cmds.xform(transform.getName(full=True), translation=(1, 2, 3), rotation=(0, 90, 0), worldSpace=True)
-        self.assertSequenceAlmostEqual(shape.getPoint(), (1, 2, 3))
+        self.assertSequenceAlmostEqual(shape.getPoint(worldSpace=True), (1, 2, 3))
+        # worldSpace(ws)は省けない(既定値で取り違えないため)。
+        for call in (shape.getPoint, shape.getDirection, lambda **kwargs: shape.getPoint(kind="centerOfInterest", **kwargs)):
+            with self.assertRaises(TypeError):
+                call()
+        with self.assertRaises(TypeError):
+            shape.setPoint((1, 2, 3), fast=True)
+        self.assertSequenceAlmostEqual(shape.getPoint(True), shape.getPoint(ws=True))
         self.assertSequenceAlmostEqual(shape.getPoint(ws=False), (0, 0, 0))
-        self.assertSequenceAlmostEqual(shape.getDirection(), (-1, 0, 0))
+        self.assertSequenceAlmostEqual(shape.getDirection(worldSpace=True), (-1, 0, 0))
         self.assertSequenceAlmostEqual(shape.getDirection(worldSpace=False), (0, 0, -1))
-        self.assertSequenceAlmostEqual(shape.getDirection(kind="up"), (0, 1, 0))
+        self.assertSequenceAlmostEqual(shape.getDirection(kind="up", worldSpace=True), (0, 1, 0))
         cmds.setAttr(transform.getName(full=True) + ".scale", 2, 2, 2)
-        self.assertAlmostEqual(shape.getDirection().length(), 1.0)
+        self.assertAlmostEqual(shape.getDirection(worldSpace=True).length(), 1.0)
         with self.assertRaises(TypeError):
             shape.getPoint(worldSpace=True, ws=True)
         with self.assertRaises(TypeError):
             shape.getDirection(worldSpace=0, kind="up")
         # kind を明示しても既定と同じ値。注視点は視点から視線の向きへ centerOfInterest だけ進んだ位置。
-        self.assertSequenceAlmostEqual(shape.getPoint(kind="eye"), shape.getPoint())
-        self.assertSequenceAlmostEqual(shape.getDirection(kind="view"), shape.getDirection())
+        self.assertSequenceAlmostEqual(shape.getPoint(kind="eye", worldSpace=True), shape.getPoint(worldSpace=True))
+        self.assertSequenceAlmostEqual(shape.getDirection(kind="view", worldSpace=True), shape.getDirection(worldSpace=True))
         self.assertSequenceAlmostEqual(shape.getDirection(ws=False, kind="up"), (0, 1, 0))
         distance = cmds.getAttr(shape.getName(full=True) + ".centerOfInterest")
-        self.assertSequenceAlmostEqual(shape.getPoint(kind="centerOfInterest"), tuple(shape.mfn().centerOfInterestPoint(om2.MSpace.kWorld))[:3], places=6)
+        self.assertSequenceAlmostEqual(
+            shape.getPoint(kind="centerOfInterest", worldSpace=True), tuple(shape.mfn().centerOfInterestPoint(om2.MSpace.kWorld))[:3], places=6
+        )
         self.assertSequenceAlmostEqual(shape.getPoint(ws=False, kind="centerOfInterest"), (0, 0, -distance), places=6)
         for method in (shape.getPoint, shape.getDirection):
             with self.subTest(method=method.__name__):
@@ -193,9 +202,9 @@ class CameraQueryTest(_Case):
                     method(kind=1)
         # 種類の名前は取得ごとに別(点の名前を向きへ、向きの名前を点へ渡すと ValueError)。
         with self.assertRaises(ValueError):
-            shape.getPoint(kind="up")
+            shape.getPoint(kind="up", worldSpace=True)
         with self.assertRaises(ValueError):
-            shape.getDirection(kind="eye")
+            shape.getDirection(kind="eye", worldSpace=True)
 
     def test_projection_and_ortho(self):
         """投影マトリクスの [0][0] は 1/tan(水平画角/2) で、カメラ前方の点は画面の中央へ写る。正投影の判定。"""
@@ -211,7 +220,13 @@ class CameraQueryTest(_Case):
         ortho = mlib.getNode(cmds.camera(name=self.name("ortho#"), orthographic=True)[1])
         self.assertTrue(ortho.isOrtho())
         self.assertDeletedRaises(
-            shape, (lambda node: node.getFieldOfView(), lambda node: node.getPoint(), lambda node: node.getProjectionMatrix(), lambda node: node.isOrtho())
+            shape,
+            (
+                lambda node: node.getFieldOfView(),
+                lambda node: node.getPoint(worldSpace=True),
+                lambda node: node.getProjectionMatrix(),
+                lambda node: node.isOrtho(),
+            ),
         )
 
 

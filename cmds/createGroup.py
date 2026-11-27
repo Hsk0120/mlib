@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, _require_bool, preservedSelection, undoTran
 from ..util import _UNSET
 
 
-def createGroup(nodes=(), *, name=_UNSET, n=_UNSET, parent=None, world=_UNSET, w=_UNSET):
+def createGroup(nodes=None, *, name=_UNSET, n=_UNSET, parent=None, world=_UNSET, w=_UNSET):
     """子を入れたグループを作り、グループのTransformを返す。
 
     - nodesを省略すると、ワールド(またはparent)の直下に空のグループを作る(``cmds.group(empty=True)``)。
@@ -19,7 +19,7 @@ def createGroup(nodes=(), *, name=_UNSET, n=_UNSET, parent=None, world=_UNSET, w
     parentの短縮名は無い。
 
     Args:
-        nodes (Iterable[Node | str] | Node | str): グループに入れるtransform。1つならそのまま渡せる。既定は空。
+        nodes (Iterable[Node | str] | Node | str | None): グループに入れるtransform。1つならそのまま渡せる。Noneと空の並びは空のグループ。既定はNone。
         name (str | None): グループに付けたい名前。NoneならMayaの既定の名前(``group1`` など)。既定はNone。
         n (str | None): nameの短縮名。nameと同時には指定できない。
         parent (Node | str | None): グループの親のtransform。Noneなら指定しない。既定はNone。
@@ -57,6 +57,8 @@ def createGroup(nodes=(), *, name=_UNSET, n=_UNSET, parent=None, world=_UNSET, w
     _require_bool(world, "world")
     if world and parent is not None:
         raise ValueError("parentとworld=Trueは同時に指定できません")
+    if nodes is None:
+        nodes = ()
     if isinstance(nodes, (str, Node)):
         nodes = [nodes]
     members = []

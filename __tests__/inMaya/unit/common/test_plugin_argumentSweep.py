@@ -106,6 +106,7 @@ METHODS = (
     Method(
         "removeUnknown",
         _unknown,
+        skipCalling={"defaults": "names=None の結果は Maya の未知のプラグインの一覧の順で、シーンを作り直すと順が変わる"},
         values={"names": (None, FAKE[0], [FAKE[0]], FAKE, list(FAKE))},
         replace=("names",),
         invalid={"names": ("mlibSweepNotUnknown", [FAKE[0], "mlibSweepNotUnknown"], 1.5, [1.5], {FAKE[0]: 1})},

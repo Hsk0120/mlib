@@ -218,18 +218,13 @@ def _dg_timer_conflict(kwargs):
 
 
 def _expect_set_dg_timer(case, call):
-    state = call.kwargs.get("state")
+    state = call.kwargs.get("state", True)
     query = om2.MFnDependencyNode(call.target.mnode()).dgTimerQueryState()
     if state is True:
         case.assertEqual(query, om2.MFnDependencyNode.kTimerOn)
     elif state is False:
         # 一度も始めていないノードを止めると、未初期化のまま。
         case.assertIn(query, (om2.MFnDependencyNode.kTimerOff, om2.MFnDependencyNode.kTimerUninitialized))
-
-
-def _set_dg_timer_conflict(kwargs):
-    """state も reset=True も無いときは TypeError。"""
-    return kwargs.get("state") is None and not kwargs.get("reset", False)
 
 
 def _expect_locked(case, call):
@@ -694,7 +689,8 @@ METHODS = (
         expect=_expect_dg_timer,
         limit=READ_LIMIT,
     ),
-    Method("setDgTimer", _make_plain, args=(True,), conflicts=(_set_dg_timer_conflict,), expect=_expect_set_dg_timer, state=_node_count),
+    Method("setDgTimer", _make_plain, args=(True,), expect=_expect_set_dg_timer, state=_node_count),
+    Method("resetDgTimer", _make_plain, state=_node_count),
     Method("getType", _make_node, expect=_expect_get_type, plural=_make_plural),
     Method(
         "hasFn",

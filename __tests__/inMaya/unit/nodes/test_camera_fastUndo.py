@@ -68,12 +68,12 @@ class CameraFastUndoTest(NamespaceCase):
         """setPoint(fast=True) は視点を動かし、Undo に載らない。注視点の変更も同じ。"""
         camera = self.camera()
         self.flushUndo()
-        camera.setPoint((3, 4, 5), fast=True)
+        camera.setPoint((3, 4, 5), fast=True, worldSpace=True)
         self.assertSequenceAlmostEqual(self.world_translation(camera), (3, 4, 5), places=6)
         self.assertUndoKeeps(lambda: self.world_translation(camera))
-        camera.setPoint((0, 0, -10), kind="centerOfInterest", fast=True)
-        self.assertUndoKeeps(lambda: list(camera.getPoint(kind="centerOfInterest")))
-        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest"), (0, 0, -10), places=5)
+        camera.setPoint((0, 0, -10), kind="centerOfInterest", fast=True, worldSpace=True)
+        self.assertUndoKeeps(lambda: list(camera.getPoint(kind="centerOfInterest", worldSpace=True)))
+        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest", worldSpace=True), (0, 0, -10), places=5)
 
 
 if __name__ == "__main__":

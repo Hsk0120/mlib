@@ -167,8 +167,8 @@
      - 中間オブジェクトも含める。
    * - :ref:`items <argument-items>`
      - 位置でも渡せる
-     - メソッドごと
-     - 対象の並び。
+     - ``None``
+     - 対象の並び。None は指定なし。
    * - :ref:`jointOrient <argument-jointOrient>`
      - キーワード専用
      - メソッドごと
@@ -203,8 +203,8 @@
      - 探す距離の上限。None は制限なし。
    * - :ref:`members <argument-members>`
      - 位置でも渡せる
-     - メソッドごと
-     - 対象のメンバーの並び。
+     - ``None``
+     - 対象のメンバーの並び。None は指定なし。
    * - :ref:`method <argument-method>`
      - キーワード専用
      - メソッドごと
@@ -227,8 +227,8 @@
      - 名前空間を除いた名前の対応表。
    * - :ref:`names <argument-names>`
      - 位置でも渡せる
-     - メソッドごと
-     - 名前の並び。
+     - ``None``
+     - 名前の並び。None は指定なし。
    * - :ref:`namespace <argument-namespace>`
      - 位置でも渡せる
      - ``None``
@@ -243,8 +243,8 @@
      - 丸める小数の桁数。None は整数へ丸める(round と同じ)。
    * - :ref:`nodes <argument-nodes>`
      - 位置でも渡せる
-     - メソッドごと
-     - 対象のノードの並び。
+     - ``None``
+     - 対象のノードの並び。None は指定なし。
    * - :ref:`normal <argument-normal>`
      - 位置でも渡せる
      - メソッドごと
@@ -616,8 +616,8 @@ blendShape のベースの形状。None は最初のベース。
 - 受け方: キーワード専用
 - 既定値: ``True``
 - 型: ``bool``
-- 既定値の例外: ``Node.setAttrFlags`` — フラグの設定は、指定したアトリビュートだけが既定
-- 既定値の例外: ``Plug.setFlags`` — フラグの設定は、指定したアトリビュートだけが既定
+- 既定値の例外: ``Node.setAttrFlags`` — フラグの設定は、指定したアトリビュートだけが既定(Maya と同じ)
+- 既定値の例外: ``Plug.setFlags`` — フラグの設定は、指定したアトリビュートだけが既定(Maya と同じ)
 - 使う所(6): :meth:`Joint.assumePreferredAngles <mlib.nodes.joint.Joint.assumePreferredAngles>`、:meth:`Joint.orient <mlib.nodes.joint.Joint.orient>`、:meth:`Joints.orient <mlib.nodes.joint.Joints.orient>`、:meth:`Node.getPlugs <mlib.nodes.node.Node.getPlugs>`、:meth:`Node.setAttrFlags <mlib.nodes.node.Node.setAttrFlags>`、:meth:`Plug.setFlags <mlib.plugs.plug.Plug.setFlags>`
 
 .. _argument-colorSet:
@@ -697,7 +697,7 @@ blendShape のベースの形状。None は最初のベース。
 失敗した Edit を対象にする。
 
 - 受け方: キーワード専用
-- 既定値: メソッドごとに違う(getEdits は False、removeEdits は True)
+- 既定値: メソッドごとに違う(Maya の referenceQuery・referenceEdit の既定と同じ(getEdits は False、removeEdits は True))
 - 使う所(2): :meth:`Reference.getEdits <mlib.nodes.reference.Reference.getEdits>`、:meth:`Reference.removeEdits <mlib.nodes.reference.Reference.removeEdits>`
 
 .. _argument-fast:
@@ -789,7 +789,7 @@ DAG のフルパスの名前にする。
 自身を結果に含める。
 
 - 受け方: キーワード専用
-- 既定値: メソッドごとに違う(getInstances は True、getChildren は False)
+- 既定値: メソッドごとに違う(インスタンスの一覧は自身を含む(getInstances は True)、子の一覧は含まない(getChildren は False)のがふつう)
 - 型: ``bool``
 - 使う所(3): :meth:`DagNode.getChildren <mlib.nodes.dagNode.DagNode.getChildren>`、:meth:`DagNode.getInstances <mlib.nodes.dagNode.DagNode.getInstances>`、:meth:`Transform.getChildren <mlib.nodes.transform.Transform.getChildren>`
 
@@ -846,7 +846,7 @@ DAG のフルパスの名前にする。
 
 - 受け方: 位置でも渡せる
 - 既定値: ``None``
-- 既定値の例外: ``DrivenKey.setKey`` — ドリブンキーは linear が既定
+- 既定値の例外: ``DrivenKey.setKey`` — ドリブンキーは Maya の設定に左右されない linear が既定
 - 使う所(4): :meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>`、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>`、:meth:`Node.setKeyTangent <mlib.nodes.node.Node.setKeyTangent>`、:meth:`Plug.setKeyTangent <mlib.plugs.plug.Plug.setKeyTangent>`
 
 .. _argument-intermediates:
@@ -866,10 +866,10 @@ DAG のフルパスの名前にする。
 ``items``
 ~~~~~~~~~
 
-対象の並び。
+対象の並び。None は指定なし。
 
 - 受け方: 位置でも渡せる
-- 既定値: メソッドごとに違う(「指定なし」が None と () で混ざる)
+- 既定値: ``None``
 - 使う所(2): ``Selection.__init__``、:meth:`SelectionSnapshot.capture <mlib.json.selectionSnapshot.SelectionSnapshot.capture>`
 
 .. _argument-jointOrient:
@@ -966,10 +966,10 @@ jointOrient の値、または jointOrient を対象にする指定。
 ``members``
 ~~~~~~~~~~~
 
-対象のメンバーの並び。
+対象のメンバーの並び。None は指定なし。
 
 - 受け方: 位置でも渡せる
-- 既定値: メソッドごとに違う(「指定なし」が None と () で混ざる)
+- 既定値: ``None``
 - 使う所(3): :meth:`DagPose.reset <mlib.nodes.dagPose.DagPose.reset>`、:func:`createContainer <mlib.cmds.createContainer.createContainer>`、:func:`createDagPose <mlib.cmds.createDagPose.createDagPose>`
 
 .. _argument-method:
@@ -1033,10 +1033,10 @@ jointOrient の値、または jointOrient を対象にする指定。
 ``names``
 ~~~~~~~~~
 
-名前の並び。
+名前の並び。None は指定なし。
 
 - 受け方: 位置でも渡せる
-- 既定値: メソッドごとに違う(「指定なし」が None と () で混ざる)
+- 既定値: ``None``
 - 使う所(4): ``Nodes.__init__``、:meth:`Plug.setEnumNames <mlib.plugs.plug.Plug.setEnumNames>`、:meth:`Plugin.removeUnknown <mlib.common.plugin.Plugin.removeUnknown>`、:func:`createJointChain <mlib.cmds.createJointChain.createJointChain>`
 
 .. _argument-namespace:
@@ -1072,7 +1072,7 @@ jointOrient の値、または jointOrient を対象にする指定。
 
 - 受け方: 位置でも渡せる
 - 既定値: ``None``
-- 既定値の例外: ``SkinCluster.roundWeights`` — ウェイトは小数3桁が既定
+- 既定値の例外: ``SkinCluster.roundWeights`` — ウェイトを整数へ丸める使い方は無いので、小数3桁が既定
 - 使う所(4): :meth:`EulerRotate.round <mlib.maths.eulerRotate.EulerRotate.round>`、:meth:`SkinCluster.normalizeWeights <mlib.nodes.skinCluster.SkinCluster.normalizeWeights>`、:meth:`SkinCluster.roundWeights <mlib.nodes.skinCluster.SkinCluster.roundWeights>`、:meth:`Vector.round <mlib.maths.vector.Vector.round>`
 
 .. _argument-nodes:
@@ -1080,10 +1080,10 @@ jointOrient の値、または jointOrient を対象にする指定。
 ``nodes``
 ~~~~~~~~~
 
-対象のノードの並び。
+対象のノードの並び。None は指定なし。
 
 - 受け方: 位置でも渡せる
-- 既定値: メソッドごとに違う(「指定なし」が None と () で混ざる)
+- 既定値: ``None``
 - 使う所(10): :meth:`AnimationSnapshot.capture <mlib.json.animationSnapshot.AnimationSnapshot.capture>`、:meth:`AttributesSnapshot.capture <mlib.json.attributesSnapshot.AttributesSnapshot.capture>`、:meth:`DrivenKeysSnapshot.capture <mlib.json.drivenKeysSnapshot.DrivenKeysSnapshot.capture>`、:meth:`PoseSnapshot.capture <mlib.json.poseSnapshot.PoseSnapshot.capture>`、:meth:`Scene.export <mlib.common.scene.Scene.export>`、:func:`bakeResults <mlib.cmds.bakeResults.bakeResults>`、:func:`createGroup <mlib.cmds.createGroup.createGroup>`、:func:`delete <mlib.cmds.delete.delete>`、:func:`findCycles <mlib.cmds.findCycles.findCycles>`、:func:`select <mlib.cmds.select.select>`
 
 .. _argument-normal:
@@ -1152,7 +1152,7 @@ jointOrient の値、または jointOrient を対象にする指定。
 
 - 受け方: 位置でも渡せる
 - 既定値: ``None``
-- 既定値の例外: ``DrivenKey.setKey`` — ドリブンキーは linear が既定
+- 既定値の例外: ``DrivenKey.setKey`` — ドリブンキーは Maya の設定に左右されない linear が既定
 - 使う所(4): :meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>`、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>`、:meth:`Node.setKeyTangent <mlib.nodes.node.Node.setKeyTangent>`、:meth:`Plug.setKeyTangent <mlib.plugs.plug.Plug.setKeyTangent>`
 
 .. _argument-parent:
@@ -1207,7 +1207,7 @@ jointOrient の値、または jointOrient を対象にする指定。
 変えたあとも見た目(ワールドの姿勢)を保つ。
 
 - 受け方: キーワード専用
-- 既定値: メソッドごとに違う(setRotateOrder は True、setQuaternion は False)
+- 既定値: メソッドごとに違う(setRotateOrder は省けない(回転順序だけ変えるのか向きを保つのかで結果が大きく違う)、setQuaternion は False)
 - 使う所(3): :meth:`Transform.setPivot <mlib.nodes.transform.Transform.setPivot>`、:meth:`Transform.setQuaternion <mlib.nodes.transform.Transform.setQuaternion>`、:meth:`Transform.setRotateOrder <mlib.nodes.transform.Transform.setRotateOrder>`
 
 .. _argument-radius:
@@ -1403,7 +1403,6 @@ rotateAxis の値、または rotateAxis を対象にする指定。
 
 - 受け方: 位置でも渡せる
 - 既定値: ``True``
-- 既定値の例外: ``Node.setDgTimer`` — None はタイマーのリセット(オン・オフのほかに3つ目の操作がある)
 - 使う所(20): :meth:`BlendShape.targetEdit <mlib.nodes.blendShape.BlendShape.targetEdit>`、:meth:`Camera.setVerticalLocked <mlib.nodes.camera.Camera.setVerticalLocked>`、:meth:`DagNode.setShadingOverride <mlib.nodes.dagNode.DagNode.setShadingOverride>`、:meth:`DagNode.setVisibility <mlib.nodes.dagNode.DagNode.setVisibility>`、:meth:`Edge.setSmooth <mlib.components.edge.Edge.setSmooth>`、:meth:`Joint.setInfluenceLocked <mlib.nodes.joint.Joint.setInfluenceLocked>`、:meth:`Joint.setSegmentScaleCompensate <mlib.nodes.joint.Joint.setSegmentScaleCompensate>`、:meth:`Joints.setSegmentScaleCompensate <mlib.nodes.joint.Joints.setSegmentScaleCompensate>`、:meth:`Keyframe.setBreakdown <mlib.common.keyframe.Keyframe.setBreakdown>`、:meth:`Keyframes.setBreakdown <mlib.common.keyframe.Keyframes.setBreakdown>`、:meth:`Node.setDgTimer <mlib.nodes.node.Node.setDgTimer>`、:meth:`Node.setDgTimingEnabled <mlib.nodes.node.Node.setDgTimingEnabled>`、:meth:`Node.setLocked <mlib.nodes.node.Node.setLocked>`、:meth:`Nodes.setVisibility <mlib.nodes.node.Nodes.setVisibility>`、:meth:`Plug.setLocked <mlib.plugs.plug.Plug.setLocked>`、:meth:`Plug.setMuted <mlib.plugs.plug.Plug.setMuted>`、:meth:`Reference.setLoaded <mlib.nodes.reference.Reference.setLoaded>`、:meth:`Reference.setReferenceLocked <mlib.nodes.reference.Reference.setReferenceLocked>`、:meth:`SkinCluster.setInfluencesLocked <mlib.nodes.skinCluster.SkinCluster.setInfluencesLocked>`、:meth:`SkinCluster.setMoveJointsMode <mlib.nodes.skinCluster.SkinCluster.setMoveJointsMode>`
 
 .. _argument-threshold:
@@ -1450,7 +1449,7 @@ rotateAxis の値、または rotateAxis を対象にする指定。
 - 受け方: キーワード専用
 - 既定値: ``'frame'``
 - 型: ``str``
-- 既定値の例外: ``CompoundPlug.get``・``Double3Plug.get``・``Double3Plug.set``・``MatrixPlug.get``・``MultiPlug.get``・``Plug.get``・``Plug.getDefault``・``Plug.getRange``・``Plug.moveKey``・``Plug.removeKey``・``Plug.set``・``Plug.setKey``・``Plug.setKeyTangent``・``Plug.setRange`` — None はフレーム(アトリビュートが時間のときだけ使う)
+- 既定値の例外: ``CompoundPlug.get``・``Double3Plug.get``・``Double3Plug.set``・``MatrixPlug.get``・``MultiPlug.get``・``Plug.get``・``Plug.getDefault``・``Plug.getRange``・``Plug.moveKey``・``Plug.removeKey``・``Plug.set``・``Plug.setKey``・``Plug.setKeyTangent``・``Plug.setRange`` — None は「指定しない」。アトリビュートが時間ならフレーム(時間でないのに指定したら TypeError にするため)
 - 使う所(42): :meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>`、:meth:`AnimCurve.addKeys <mlib.nodes.animCurve.AnimCurve.addKeys>`、:meth:`AnimCurve.evaluate <mlib.nodes.animCurve.AnimCurve.evaluate>`、:meth:`AnimCurve.findClosestIndex <mlib.nodes.animCurve.AnimCurve.findClosestIndex>`、:meth:`AnimCurve.getKeyInputs <mlib.nodes.animCurve.AnimCurve.getKeyInputs>`、:meth:`AnimCurve.getKeyValues <mlib.nodes.animCurve.AnimCurve.getKeyValues>`、:meth:`AnimCurve.getKeyframes <mlib.nodes.animCurve.AnimCurve.getKeyframes>`、:meth:`AnimCurve.reduceKeys <mlib.nodes.animCurve.AnimCurve.reduceKeys>`、:meth:`AnimCurve.replaceKeys <mlib.nodes.animCurve.AnimCurve.replaceKeys>`、:meth:`AnimCurve.scaleKey <mlib.nodes.animCurve.AnimCurve.scaleKey>`、:meth:`Callbacks.addTimeChangeCallback <mlib.common.callbacks.Callbacks.addTimeChangeCallback>`、:meth:`CompoundPlug.get <mlib.plugs.compoundPlug.CompoundPlug.get>`、:meth:`Double3Plug.get <mlib.plugs.double3Plug.Double3Plug.get>`、:meth:`Double3Plug.set <mlib.plugs.double3Plug.Double3Plug.set>`、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>`、:meth:`Keyframe.getValue <mlib.common.keyframe.Keyframe.getValue>`、:meth:`Keyframe.move <mlib.common.keyframe.Keyframe.move>`、:meth:`Keyframe.setValue <mlib.common.keyframe.Keyframe.setValue>`、:meth:`Keyframes.getValues <mlib.common.keyframe.Keyframes.getValues>`、:meth:`Keyframes.move <mlib.common.keyframe.Keyframes.move>`、:meth:`Keyframes.setValue <mlib.common.keyframe.Keyframes.setValue>`、:meth:`MatrixPlug.get <mlib.plugs.matrixPlug.MatrixPlug.get>`、:meth:`MultiPlug.get <mlib.plugs.multiPlug.MultiPlug.get>`、:meth:`Node.addAttr <mlib.nodes.node.Node.addAttr>`、:meth:`Node.moveKey <mlib.nodes.node.Node.moveKey>`、:meth:`Node.removeKey <mlib.nodes.node.Node.removeKey>`、:meth:`Node.setKey <mlib.nodes.node.Node.setKey>`、:meth:`Node.setKeyTangent <mlib.nodes.node.Node.setKeyTangent>`、:meth:`Plug.get <mlib.plugs.plug.Plug.get>`、:meth:`Plug.getDefault <mlib.plugs.plug.Plug.getDefault>`、:meth:`Plug.getRange <mlib.plugs.plug.Plug.getRange>`、:meth:`Plug.moveKey <mlib.plugs.plug.Plug.moveKey>`、:meth:`Plug.removeKey <mlib.plugs.plug.Plug.removeKey>`、:meth:`Plug.set <mlib.plugs.plug.Plug.set>`、:meth:`Plug.setKey <mlib.plugs.plug.Plug.setKey>`、:meth:`Plug.setKeyTangent <mlib.plugs.plug.Plug.setKeyTangent>`、:meth:`Plug.setRange <mlib.plugs.plug.Plug.setRange>`、:meth:`Time.getCurrent <mlib.common.sceneTime.Time.getCurrent>`、:meth:`Time.getRange <mlib.common.sceneTime.Time.getRange>`、:meth:`Time.setCurrent <mlib.common.sceneTime.Time.setCurrent>`、:meth:`Time.setRange <mlib.common.sceneTime.Time.setRange>`、``_InterpCacheConstraint.createCache``
 
 .. _argument-to:
@@ -1471,7 +1470,7 @@ rotateAxis の値、または rotateAxis を対象にする指定。
 同じとみなす誤差。
 
 - 受け方: キーワード専用
-- 既定値: メソッドごとに違う(1e-10(数学型)・1e-6・1e-7・0.01 が混ざる。None と 0.0 は「誤差で絞らない」)
+- 既定値: メソッドごとに違う(比べるものが違う: 数学の値は 1e-10、Maya の関数へ渡すものは Maya の既定(1e-6・1e-7)、頂点の対応付けは形状の大きさ(0.01)。None と 0.0 は誤差で絞らない)
 - 受け方の例外: ``EulerRotate.isEquivalent``・``EulerRotate.isGimbalLocked``・``Matrix.hasNonUniformScale``・``Matrix.isEquivalent``・``Matrix.isIdentity``・``Transformation.isEquivalent``・``Vector.isEquivalent``・``Vector.isPlanar``・``Vector.isZero`` — 数学型は om2 と同じ位置引数のまま
 - 使う所(22): :meth:`BlendShape.getTargetVertices <mlib.nodes.blendShape.BlendShape.getTargetVertices>`、:meth:`BlendShape.resetTargetVertices <mlib.nodes.blendShape.BlendShape.resetTargetVertices>`、:meth:`EulerRotate.isEquivalent <mlib.maths.eulerRotate.EulerRotate.isEquivalent>`、:meth:`EulerRotate.isGimbalLocked <mlib.maths.eulerRotate.EulerRotate.isGimbalLocked>`、:meth:`Face.getPointAtUV <mlib.components.face.Face.getPointAtUV>`、:meth:`Face.isKind <mlib.components.face.Face.isKind>`、:meth:`Matrix.hasNonUniformScale <mlib.maths.matrix.Matrix.hasNonUniformScale>`、:meth:`Matrix.isEquivalent <mlib.maths.matrix.Matrix.isEquivalent>`、:meth:`Matrix.isIdentity <mlib.maths.matrix.Matrix.isIdentity>`、:meth:`Mesh.getMirrorVertexMap <mlib.nodes.mesh.Mesh.getMirrorVertexMap>`、:meth:`Mesh.getPointsAtUV <mlib.nodes.mesh.Mesh.getPointsAtUV>`、:meth:`Mesh.reorderVertices <mlib.nodes.mesh.Mesh.reorderVertices>`、:meth:`NurbsCurve.getCollocatedCVGroups <mlib.nodes.nurbsCurve.NurbsCurve.getCollocatedCVGroups>`、:meth:`NurbsCurve.getLength <mlib.nodes.nurbsCurve.NurbsCurve.getLength>`、:meth:`NurbsCurve.getParam <mlib.nodes.nurbsCurve.NurbsCurve.getParam>`、:meth:`NurbsCurve.isPointOnCurve <mlib.nodes.nurbsCurve.NurbsCurve.isPointOnCurve>`、:meth:`NurbsSurface.getRayIntersection <mlib.nodes.nurbsSurface.NurbsSurface.getRayIntersection>`、:meth:`NurbsSurface.isPointOnSurface <mlib.nodes.nurbsSurface.NurbsSurface.isPointOnSurface>`、:meth:`Transformation.isEquivalent <mlib.maths.transformation.Transformation.isEquivalent>`、:meth:`Vector.isEquivalent <mlib.maths.vector.Vector.isEquivalent>`、:meth:`Vector.isPlanar <mlib.maths.vector.Vector.isPlanar>`、:meth:`Vector.isZero <mlib.maths.vector.Vector.isZero>`
 
@@ -1545,9 +1544,9 @@ Transform でなく、その Shape の色を扱う。
 - 受け方: キーワード専用
 - 既定値: ``'deg'``
 - 型: ``str``
-- 既定値の例外: ``Quaternion.asRollBend``・``Quaternion.fromAxisAngle``・``Quaternion.fromRollBend`` — クォータニオンの軸と角度は om2 と同じラジアンが既定
-- 既定値の例外: ``Node.setKey`` — None は度(アトリビュートが角度のときだけ使う)
-- 既定値の例外: ``CompoundPlug.get``・``Double3Plug.get``・``Double3Plug.set``・``MatrixPlug.get``・``MultiPlug.get``・``Plug.get``・``Plug.getDefault``・``Plug.getRange``・``Plug.moveKey``・``Plug.set``・``Plug.setDefault``・``Plug.setKey``・``Plug.setRange`` — None は度(アトリビュートが角度のときだけ使う)
+- 既定値の例外: ``Quaternion.asRollBend``・``Quaternion.fromAxisAngle``・``Quaternion.fromRollBend`` — クォータニオンは中身も om2 もラジアン。数学型は om2 に合わせる
+- 既定値の例外: ``Node.setKey`` — None は「指定しない」。アトリビュートが角度なら度(角度でないのに指定したら TypeError にするため)
+- 既定値の例外: ``CompoundPlug.get``・``Double3Plug.get``・``Double3Plug.set``・``MatrixPlug.get``・``MultiPlug.get``・``Plug.get``・``Plug.getDefault``・``Plug.getRange``・``Plug.moveKey``・``Plug.set``・``Plug.setDefault``・``Plug.setKey``・``Plug.setRange`` — None は「指定しない」。アトリビュートが角度なら度(角度でないのに指定したら TypeError にするため)
 - 使う所(46): :meth:`AimConstraint.setRestRotate <mlib.nodes.aimConstraint.AimConstraint.setRestRotate>`、:meth:`AnimCurve.addKey <mlib.nodes.animCurve.AnimCurve.addKey>`、:meth:`AnimCurve.addKeys <mlib.nodes.animCurve.AnimCurve.addKeys>`、:meth:`AnimCurve.evaluate <mlib.nodes.animCurve.AnimCurve.evaluate>`、:meth:`AnimCurve.getKeyValues <mlib.nodes.animCurve.AnimCurve.getKeyValues>`、:meth:`AnimCurve.reduceKeys <mlib.nodes.animCurve.AnimCurve.reduceKeys>`、:meth:`AnimCurve.replaceKeys <mlib.nodes.animCurve.AnimCurve.replaceKeys>`、:meth:`AnimCurve.scaleKey <mlib.nodes.animCurve.AnimCurve.scaleKey>`、:meth:`Camera.getFieldOfView <mlib.nodes.camera.Camera.getFieldOfView>`、:meth:`Camera.setFieldOfView <mlib.nodes.camera.Camera.setFieldOfView>`、:meth:`Camera.setView <mlib.nodes.camera.Camera.setView>`、:meth:`CompoundPlug.get <mlib.plugs.compoundPlug.CompoundPlug.get>`、:meth:`Double3Plug.get <mlib.plugs.double3Plug.Double3Plug.get>`、:meth:`Double3Plug.set <mlib.plugs.double3Plug.Double3Plug.set>`、:meth:`DrivenKey.setKey <mlib.common.drivenKey.DrivenKey.setKey>`、:meth:`EulerRotate.round <mlib.maths.eulerRotate.EulerRotate.round>`、:meth:`Joint.setJointOrient <mlib.nodes.joint.Joint.setJointOrient>`、:meth:`Joint.setPreferredAngle <mlib.nodes.joint.Joint.setPreferredAngle>`、:meth:`Keyframe.getTangent <mlib.common.keyframe.Keyframe.getTangent>`、:meth:`Keyframe.getValue <mlib.common.keyframe.Keyframe.getValue>`、:meth:`Keyframe.move <mlib.common.keyframe.Keyframe.move>`、:meth:`Keyframe.setTangent <mlib.common.keyframe.Keyframe.setTangent>`、:meth:`Keyframe.setValue <mlib.common.keyframe.Keyframe.setValue>`、:meth:`Keyframes.getValues <mlib.common.keyframe.Keyframes.getValues>`、:meth:`Keyframes.move <mlib.common.keyframe.Keyframes.move>`、:meth:`Keyframes.setTangent <mlib.common.keyframe.Keyframes.setTangent>`、:meth:`Keyframes.setValue <mlib.common.keyframe.Keyframes.setValue>`、:meth:`MatrixPlug.get <mlib.plugs.matrixPlug.MatrixPlug.get>`、:meth:`MultiPlug.get <mlib.plugs.multiPlug.MultiPlug.get>`、:meth:`Node.addAttr <mlib.nodes.node.Node.addAttr>`、:meth:`Node.moveKey <mlib.nodes.node.Node.moveKey>`、:meth:`Node.setKey <mlib.nodes.node.Node.setKey>`、:meth:`Plug.get <mlib.plugs.plug.Plug.get>`、:meth:`Plug.getDefault <mlib.plugs.plug.Plug.getDefault>`、:meth:`Plug.getRange <mlib.plugs.plug.Plug.getRange>`、:meth:`Plug.moveKey <mlib.plugs.plug.Plug.moveKey>`、:meth:`Plug.set <mlib.plugs.plug.Plug.set>`、:meth:`Plug.setDefault <mlib.plugs.plug.Plug.setDefault>`、:meth:`Plug.setKey <mlib.plugs.plug.Plug.setKey>`、:meth:`Plug.setRange <mlib.plugs.plug.Plug.setRange>`、:meth:`Quaternion.asRollBend <mlib.maths.quaternion.Quaternion.asRollBend>`、:meth:`Quaternion.fromAxisAngle <mlib.maths.quaternion.Quaternion.fromAxisAngle>`、:meth:`Quaternion.fromRollBend <mlib.maths.quaternion.Quaternion.fromRollBend>`、:meth:`Transform.getLimits <mlib.nodes.transform.Transform.getLimits>`、:meth:`Transform.setLimits <mlib.nodes.transform.Transform.setLimits>`、:meth:`Transform.setRotate <mlib.nodes.transform.Transform.setRotate>`
 
 .. _argument-unlock:
@@ -1560,7 +1559,6 @@ Transform でなく、その Shape の色を扱う。
 - 受け方: キーワード専用
 - 既定値: ``False``
 - 型: ``bool``
-- 既定値の例外: ``Plug.connect`` — force=True のときだけ働き、既定でロックを外す
 - 使う所(4): :meth:`Plug.connect <mlib.plugs.plug.Plug.connect>`、:meth:`Plug.delete <mlib.plugs.plug.Plug.delete>`、:meth:`Plug.disconnect <mlib.plugs.plug.Plug.disconnect>`、:meth:`Plug.setIfChanged <mlib.plugs.plug.Plug.setIfChanged>`
 
 .. _argument-unused:
@@ -1686,10 +1684,7 @@ Trueはワールド空間、Falseはローカル(オブジェクト)空間。
 - 受け方: 位置でも渡せる
 - 既定値: ``False``
 - 型: ``bool``
-- 既定値の例外: ``Camera.getPoint`` — カメラの位置はワールド空間で扱うのがふつう
-- 既定値の例外: ``Camera.setPoint`` — カメラの位置はワールド空間で扱うのがふつう
-- 既定値の例外: ``Camera.getDirection`` — カメラの向きはワールド空間で扱うのがふつう
-- 既定値の例外: ``Joint.getBoneSegments`` — ボーンの線分はワールド空間で使う
+- 既定値の例外: ``Joint.getBoneSegments`` — ボーンの線分はワールドのマトリクスが元の値で、ローカルで使う場面がほぼ無い
 - 既定値の例外: ``SkinCluster.restoreBindPose`` — バインドポーズはワールドのマトリクスで保存してある
 - 使う所(75): :meth:`Camera.getDirection <mlib.nodes.camera.Camera.getDirection>`、:meth:`Camera.getPoint <mlib.nodes.camera.Camera.getPoint>`、:meth:`Camera.setPoint <mlib.nodes.camera.Camera.setPoint>`、:meth:`DagNode.getBoundingBox <mlib.nodes.dagNode.DagNode.getBoundingBox>`、:meth:`DagPose.getMatrix <mlib.nodes.dagPose.DagPose.getMatrix>`、:meth:`DagPose.restore <mlib.nodes.dagPose.DagPose.restore>`、:meth:`Edge.getCenter <mlib.components.edge.Edge.getCenter>`、:meth:`Edge.getLength <mlib.components.edge.Edge.getLength>`、:meth:`Face.getArea <mlib.components.face.Face.getArea>`、:meth:`Face.getCenter <mlib.components.face.Face.getCenter>`、:meth:`Face.getNormal <mlib.components.face.Face.getNormal>`、:meth:`Face.getPointAtUV <mlib.components.face.Face.getPointAtUV>`、:meth:`Face.getUVAtPoint <mlib.components.face.Face.getUVAtPoint>`、:meth:`Joint.getBoneSegments <mlib.nodes.joint.Joint.getBoneSegments>`、:meth:`Mesh.getClosestPoint <mlib.nodes.mesh.Mesh.getClosestPoint>`、:meth:`Mesh.getClosestVertices <mlib.nodes.mesh.Mesh.getClosestVertices>`、:meth:`Mesh.getFaceVertexTangents <mlib.nodes.mesh.Mesh.getFaceVertexTangents>`、:meth:`Mesh.getMirrorVertexMap <mlib.nodes.mesh.Mesh.getMirrorVertexMap>`、:meth:`Mesh.getNormalData <mlib.nodes.mesh.Mesh.getNormalData>`、:meth:`Mesh.getPointsAtUV <mlib.nodes.mesh.Mesh.getPointsAtUV>`、:meth:`Mesh.getTangentData <mlib.nodes.mesh.Mesh.getTangentData>`、:meth:`Mesh.getVertexAdjacency <mlib.nodes.mesh.Mesh.getVertexAdjacency>`、:meth:`Mesh.getVertexNormals <mlib.nodes.mesh.Mesh.getVertexNormals>`、:meth:`Mesh.intersect <mlib.nodes.mesh.Mesh.intersect>`、:meth:`Mesh.reorderVertices <mlib.nodes.mesh.Mesh.reorderVertices>`、:meth:`Mesh.setFaceVertexNormals <mlib.nodes.mesh.Mesh.setFaceVertexNormals>`、:meth:`Mesh.setNormals <mlib.nodes.mesh.Mesh.setNormals>`、:meth:`Node.addAttr <mlib.nodes.node.Node.addAttr>`、:meth:`NurbsCurve.getArea <mlib.nodes.nurbsCurve.NurbsCurve.getArea>`、:meth:`NurbsCurve.getAtParam <mlib.nodes.nurbsCurve.NurbsCurve.getAtParam>`、:meth:`NurbsCurve.getClosestPoint <mlib.nodes.nurbsCurve.NurbsCurve.getClosestPoint>`、:meth:`NurbsCurve.getCollocatedCVGroups <mlib.nodes.nurbsCurve.NurbsCurve.getCollocatedCVGroups>`、:meth:`NurbsCurve.getLength <mlib.nodes.nurbsCurve.NurbsCurve.getLength>`、:meth:`NurbsCurve.getMatricesAlong <mlib.nodes.nurbsCurve.NurbsCurve.getMatricesAlong>`、:meth:`NurbsCurve.getParam <mlib.nodes.nurbsCurve.NurbsCurve.getParam>`、:meth:`NurbsCurve.getParamsAlong <mlib.nodes.nurbsCurve.NurbsCurve.getParamsAlong>`、:meth:`NurbsCurve.isPointOnCurve <mlib.nodes.nurbsCurve.NurbsCurve.isPointOnCurve>`、:meth:`NurbsSurface.getArea <mlib.nodes.nurbsSurface.NurbsSurface.getArea>`、:meth:`NurbsSurface.getAtParam <mlib.nodes.nurbsSurface.NurbsSurface.getAtParam>`、:meth:`NurbsSurface.getClosestPoint <mlib.nodes.nurbsSurface.NurbsSurface.getClosestPoint>`、:meth:`NurbsSurface.getRayIntersection <mlib.nodes.nurbsSurface.NurbsSurface.getRayIntersection>`、:meth:`NurbsSurface.isPointOnSurface <mlib.nodes.nurbsSurface.NurbsSurface.isPointOnSurface>`、:meth:`PointComponent.getPosition <mlib.components.pointComponent.PointComponent.getPosition>`、:meth:`PointComponent.setPosition <mlib.components.pointComponent.PointComponent.setPosition>`、:meth:`PointComponents.getCenter <mlib.components.pointComponent.PointComponents.getCenter>`、:meth:`PointComponents.getPosition <mlib.components.pointComponent.PointComponents.getPosition>`、:meth:`PointComponents.mirror <mlib.components.pointComponent.PointComponents.mirror>`、:meth:`PointComponents.setPosition <mlib.components.pointComponent.PointComponents.setPosition>`、:meth:`Shape.scaleGeometry <mlib.nodes.shape.Shape.scaleGeometry>`、:meth:`SkinCluster.restoreBindPose <mlib.nodes.skinCluster.SkinCluster.restoreBindPose>`、:meth:`Transform.getMatrix <mlib.nodes.transform.Transform.getMatrix>`、:meth:`Transform.getPivot <mlib.nodes.transform.Transform.getPivot>`、:meth:`Transform.getQuaternion <mlib.nodes.transform.Transform.getQuaternion>`、:meth:`Transform.getRotate <mlib.nodes.transform.Transform.getRotate>`、:meth:`Transform.getScale <mlib.nodes.transform.Transform.getScale>`、:meth:`Transform.getShear <mlib.nodes.transform.Transform.getShear>`、:meth:`Transform.getTranslation <mlib.nodes.transform.Transform.getTranslation>`、:meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>`、:meth:`Transform.mirrorTransform <mlib.nodes.transform.Transform.mirrorTransform>`、:meth:`Transform.replaceShapes <mlib.nodes.transform.Transform.replaceShapes>`、:meth:`Transform.scaleGeometry <mlib.nodes.transform.Transform.scaleGeometry>`、:meth:`Transform.setMatrix <mlib.nodes.transform.Transform.setMatrix>`、:meth:`Transform.setPivot <mlib.nodes.transform.Transform.setPivot>`、:meth:`Transform.setQuaternion <mlib.nodes.transform.Transform.setQuaternion>`、:meth:`Transform.setRotate <mlib.nodes.transform.Transform.setRotate>`、:meth:`Transform.setScale <mlib.nodes.transform.Transform.setScale>`、:meth:`Transform.setShear <mlib.nodes.transform.Transform.setShear>`、:meth:`Transform.setTranslation <mlib.nodes.transform.Transform.setTranslation>`、:meth:`Vertex.getNormal <mlib.components.vertex.Vertex.getNormal>`、:meth:`VertexFace.getNormal <mlib.components.vertexFace.VertexFace.getNormal>`、:meth:`VertexFace.getTangent <mlib.components.vertexFace.VertexFace.getTangent>`、:meth:`VertexFace.setNormal <mlib.components.vertexFace.VertexFace.setNormal>`、``_ControlPointShape.getPoints``、``_ControlPointShape.mirror``、``_ControlPointShape.setPoints``
 

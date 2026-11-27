@@ -101,7 +101,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
             destination.setLocked(True, fast=True)
             replacement = self.node.getPlug("ty")
             replacement.set(33, fast=True)
-            destination.connect(replacement, force=True, fast=True)
+            destination.connect(replacement, force=True, unlock=True, fast=True)
             self.assertTrue(destination.isLocked())
             self.assertEqual(destination.getConnections(input=True), replacement)
             destination.setLocked(False, fast=True)

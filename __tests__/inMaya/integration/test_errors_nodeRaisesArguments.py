@@ -214,10 +214,10 @@ class CameraTest(_ArgumentCase):
             (ValueError, "setDirection", ((0, 0, 0),), {"kind": "up"}),
             (ValueError, "setDirection", ((0, 0, -1),), {"kind": "up"}),
             (ValueError, "setDirection", ((0, nan, 0),), {"kind": "up"}),
-            (TypeError, "setPoint", ("abc",), {"kind": "centerOfInterest", "fast": True}),
+            (TypeError, "setPoint", ("abc", True), {"kind": "centerOfInterest", "fast": True}),
             (TypeError, "setPoint", ((0, 0, -5),), {"kind": "centerOfInterest", "worldSpace": True, "ws": True, "fast": True}),
-            (ValueError, "setPoint", ((0, nan, -5),), {"kind": "centerOfInterest", "fast": True}),
-            (ValueError, "setPoint", ((0, 0, 0),), {"kind": "centerOfInterest", "fast": True}),
+            (ValueError, "setPoint", ((0, nan, -5), True), {"kind": "centerOfInterest", "fast": True}),
+            (ValueError, "setPoint", ((0, 0, 0), True), {"kind": "centerOfInterest", "fast": True}),
             (TypeError, "getFrustum", ("a",), {"kind": "rendering"}),
             (ValueError, "getFrustum", (0,), {"kind": "rendering"}),
             (TypeError, "setView", (None, (0, 0, -1), (0, 1, 0), 30, 1.5), {"fast": True}),
@@ -245,7 +245,7 @@ class CameraTest(_ArgumentCase):
         """setPoint(kind="centerOfInterest", check=True) は centerOfInterest がロックされていると RuntimeError。"""
         camera = self.camera()
         self.lock(camera, "centerOfInterest")
-        self.assertFails(RuntimeError, camera.setPoint, (0, 0, -3), kind="centerOfInterest", fast=True, check=True, state=lambda: self.state(camera))
+        self.assertFails(RuntimeError, camera.setPoint, (0, 0, -3), True, kind="centerOfInterest", fast=True, check=True, state=lambda: self.state(camera))
 
 
 class DagNodeTest(_ArgumentCase):

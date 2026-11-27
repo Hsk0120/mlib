@@ -17,7 +17,7 @@ class ConnectionLockTest(unittest.TestCase):
     """既定の挙動とMaya標準互換のロック保持を確認する。"""
 
     def test_force_without_unlock(self):
-        """unlock=Falseは既存入力とロックを保持して失敗する。"""
+        """unlock を省く(既定 False)と、force でもロックを外さずに失敗し、既存入力とロックを保つ。"""
         nodes = [mlib.createNode("multiplyDivide") for _ in range(3)]
         original, replacement, target = nodes
         output = original.getPlug("outputX")
@@ -26,11 +26,11 @@ class ConnectionLockTest(unittest.TestCase):
             output.connectTo(destination)
             destination.setFlags(locked=True)
             with self.assertRaises(RuntimeError):
-                replacement.getPlug("outputX").connectTo(destination, force=True, unlock=False)
+                replacement.getPlug("outputX").connectTo(destination, force=True)
             self.assertEqual(destination.getConnections(input=True), output)
             self.assertTrue(destination.isLocked())
-            # 既定値は従来どおり一時解除して接続し、ロックを戻す。
-            replacement.getPlug("outputX").connectTo(destination, force=True)
+            # unlock=True なら一時解除して接続し、ロックを戻す。
+            replacement.getPlug("outputX").connectTo(destination, force=True, unlock=True)
             self.assertEqual(destination.getConnections(input=True), replacement.getPlug("outputX"))
             self.assertTrue(destination.isLocked())
             cmds.undo()
@@ -56,7 +56,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
         with mock.patch.object(mlib.Plug, "setFlags", autospec=True, side_effect=self._record_flags(events)):
             with mock.patch("maya.cmds.connectAttr", side_effect=error):
                 with self.assertRaises(RuntimeError) as caught:
-                    target.connect(source, force=True)
+                    target.connect(source, force=True, unlock=True)
         self.assertIs(caught.exception, error)
         self.assertEqual(events, [("payload", False), ("value", False), ("value", True), ("payload", True)])
         self.assertTrue(target.isLocked())
@@ -99,7 +99,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
                             if disconnect:
                                 target.disconnect(source, unlock=True)
                             else:
-                                target.connect(source, force=True)
+                                target.connect(source, force=True, unlock=True)
                         edit.assert_not_called()
                 self.assertIs(caught.exception, error)
                 self.assertEqual(events, [("payload", False), ("value", False), ("payload", True)])
@@ -129,7 +129,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
                             if disconnect:
                                 target.disconnect(source, unlock=True)
                             else:
-                                target.connect(source, force=True)
+                                target.connect(source, force=True, unlock=True)
                 self.assertIs(caught.exception, restore_error)
                 self.assertIs(caught.exception.__context__, edit_error)
                 self.assertEqual(events, [("payload", False), ("value", False), ("value", True)])
@@ -142,7 +142,7 @@ class ConnectionLockRefactoringTest(unittest.TestCase):
         source, target, parent = self._locked_pair()
         events = []
         with mock.patch.object(mlib.Plug, "setFlags", autospec=True, side_effect=self._record_flags(events)):
-            result = target.connect(source, f=True)
+            result = target.connect(source, f=True, unlock=True)
         self.assertIs(result, target)
         self.assertEqual(events, [("payload", False), ("value", False), ("value", True), ("payload", True)])
         self.assertTrue(cmds.isConnected(str(source), str(target)))

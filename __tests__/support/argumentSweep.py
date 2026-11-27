@@ -445,7 +445,10 @@ class ArgumentSweepCase(NamespaceCase):
             if not defaults:
                 return
             expected = defaults[0]
-        shared = {name: resolved[name] for name in trip.shared if name in resolved}
+        shared = dict(trip.fixed, **{name: resolved[name] for name in trip.shared if name in resolved})
+        # 短縮名で書いた値は、長い名前の固定値の代わりに渡す(同時に渡すと TypeError になる)。
+        if "ws" in shared and "worldSpace" in shared and "worldSpace" not in resolved:
+            del shared["worldSpace"]
         value = getattr(target, trip.getter)(**shared)
         self.assertTrue(table.same(value, expected, trip.places), f"{trip.getter} が書いた値と違う: {value!r}")
 

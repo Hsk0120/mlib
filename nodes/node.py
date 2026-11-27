@@ -970,43 +970,48 @@ class Node(Object):
             return list(zip(names, values))
         return self._dependency_fn().dgTimer(metric, timerType)
 
-    def setDgTimer(self, state=None, *, reset=False):
-        """このノードのDG計測を開始・停止する。``reset=True`` なら、たまった計測結果を消す。
+    def setDgTimer(self, state=True):
+        """このノードのDG計測を開始・停止する。たまった計測結果を消すのは :meth:`resetDgTimer`。
 
         診断用の計測の状態を変えるだけなので、Undoには記録しない。Undoの設定は変えない。
         計測には実行の負荷があり、全体の計測の設定(:meth:`setDgTimingEnabled`)や評価の方式によって、記録される項目が違う。
         fast引数は持たない(シーンの値の編集ではないため)。
 
         Args:
-            state (bool | None): Trueで開始、Falseで停止。過去の結果は消さない。既定のNoneなら、開始・停止は変えない。
-            reset (bool): Trueなら、このノードにたまった計測結果を消す(stateも指定したときは、消してから開始・停止する)。
-                既定はFalse。
+            state (bool): Trueで開始、Falseで停止。過去の結果は消さない。既定はTrue。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがboolでもNoneでもない場合、resetがboolでない場合、またはstateもresetも指定していない場合。
+            TypeError: stateがboolでない場合。
             RuntimeError: ノードが無効な場合。
 
         Examples:
-            >>> node.setDgTimer(True)                 # 計測を始める
-            >>> node.setDgTimer(reset=True)           # 止めずに結果だけ消す
-            >>> node.setDgTimer(False, reset=True)    # 結果を消して止める
+            >>> node.setDgTimer()          # 計測を始める
+            >>> node.setDgTimer(False)     # 計測を止める
         """
-        if state is not None:
-            _require_bool(state, "state")
-        _require_bool(reset, "reset")
-        if state is None and not reset:
-            raise TypeError("stateかreset=Trueのどちらかを指定してください")
+        _require_bool(state, "state")
         self._require_valid("DG計測状態の変更")
         fn = self._dependency_fn()
-        if reset:
-            fn.dgTimerReset()
-        if state is True:
+        if state:
             fn.dgTimerOn()
-        elif state is False:
+        else:
             fn.dgTimerOff()
+
+    def resetDgTimer(self):
+        """このノードにたまったDG計測の結果を消す。計測の開始・停止の状態は変えない。
+
+        診断用の計測の状態を変えるだけなので、Undoには記録しない。Undoの設定は変えない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
+        """
+        self._require_valid("DG計測結果の消去")
+        self._dependency_fn().dgTimerReset()
 
     def mfn(self):
         """このノードに使えるOpenMayaのfunction setのうち、最も具体的なものを取得する。
@@ -3528,11 +3533,11 @@ class Nodes(_ListMethods):
     item_class = Node
     __hash__ = None  # type: ignore[assignment]
 
-    def __init__(self, names=()):
+    def __init__(self, names=None):
         """入力からノードを解決し、要素の型を確かめてから持つ。
 
         Args:
-            names (object | Iterable[object]): 名前・Node・APIのオブジェクトなど、またはその並び。
+            names (object | Iterable[object] | None): 名前・Node・APIのオブジェクトなど、またはその並び。Noneは空。
                 名前を1つだけ渡してもよい。既定は ``()``。
 
         Raises:
@@ -3540,7 +3545,9 @@ class Nodes(_ListMethods):
             ValueError: 入力を解決するときに、不正なものが見つかった場合。
             RuntimeError: 名前を解決できない場合、または無効なノードの場合。
         """
-        if isinstance(names, (str, Node)):
+        if names is None:
+            names = []
+        elif isinstance(names, (str, Node)):
             names = [names]
         else:
             try:

@@ -13,11 +13,11 @@ from typing import overload
 
 
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[True]) -> DagContainer: ...
+def createContainer(members: str | Node | Iterable[Node | str] | None = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[True]) -> DagContainer: ...
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[False] = ...) -> Container: ...
+def createContainer(members: str | Node | Iterable[Node | str] | None = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[False] = ...) -> Container: ...
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: bool = ...) -> Container | DagContainer:
+def createContainer(members: str | Node | Iterable[Node | str] | None = ..., *, name: str | None = ..., n: str | None = ..., dag: bool = ...) -> Container | DagContainer:
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
@@ -29,7 +29,7 @@ def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: s
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
-        members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
+        members (str | Node | Iterable[Node | str] | None): 作ったあとに所属させるノード。Noneと空の並びは空のまま。既定はNone。
             同じ並びに名前とNodeは混ぜられない。
         name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。

@@ -33,14 +33,14 @@ class CameraEditTest(NamespaceCase):
             cmds.setAttr(group + ".rotate", 12, 23, 34)
             cmds.parent(camera.getParent().getName(full=True), group)
             camera.setDirection((1, 0, 0), kind="up")
-            self.assertAlmostEqual(camera.getDirection(kind="up") * camera.getDirection(), 0, places=5)
+            self.assertAlmostEqual(camera.getDirection(kind="up", worldSpace=True) * camera.getDirection(worldSpace=True), 0, places=5)
         cmds.currentUnit(linear="cm")
 
     def test_set_direction_kind(self):
         """setDirection は kind を省略できず、変えられるのは "up" だけ(Undo 1回で戻る)。"""
         camera = self.camera()
-        before = camera.getDirection(kind="up")
-        view = camera.getDirection()
+        before = camera.getDirection(kind="up", worldSpace=True)
+        view = camera.getDirection(worldSpace=True)
         with self.assertRaises(TypeError):
             camera.setDirection((1, 0, 0))
         with self.assertRaises(TypeError):
@@ -53,72 +53,73 @@ class CameraEditTest(NamespaceCase):
             camera.setDirection((1, 0, 0), kind=None)
         with self.assertRaises(ValueError):
             camera.setDirection(tuple(view), kind="up")
-        self.assertSequenceAlmostEqual(camera.getDirection(kind="up"), before)
+        self.assertSequenceAlmostEqual(camera.getDirection(kind="up", worldSpace=True), before)
         cmds.flushUndo()
         self.assertIsNone(camera.setDirection((1, 0, 0), kind="up"))
-        self.assertSequenceAlmostEqual(camera.getDirection(kind="up"), (1, 0, 0), places=6)
-        self.assertSequenceAlmostEqual(camera.getDirection(), view, places=6)
+        self.assertSequenceAlmostEqual(camera.getDirection(kind="up", worldSpace=True), (1, 0, 0), places=6)
+        self.assertSequenceAlmostEqual(camera.getDirection(worldSpace=True), view, places=6)
         cmds.undo()
-        self.assertSequenceAlmostEqual(camera.getDirection(kind="up"), before, places=6)
+        self.assertSequenceAlmostEqual(camera.getDirection(kind="up", worldSpace=True), before, places=6)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
     def test_set_point_eye_fast(self):
         """setPoint(point, fast=True)(kind="eye")はカメラの位置を変え、Undo に載らない。fast=False は NotImplementedError。"""
         camera, transform = self.parented_camera()
         cmds.flushUndo()
-        self.assertIsNone(camera.setPoint((5, 6, 7), fast=True))
+        self.assertIsNone(camera.setPoint((5, 6, 7), fast=True, worldSpace=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertSequenceAlmostEqual(camera.getPoint(), (5, 6, 7), places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (5, 6, 7), places=6)
         self.assertSequenceAlmostEqual(cmds.xform(transform, query=True, translation=True, worldSpace=True), (5, 6, 7), places=6)
         # kind="eye" を明示しても同じ。ワールド空間の短縮名 ws も受ける。
         camera.setPoint((-1, 0, 2), ws=True, kind="eye", fast=True)
-        self.assertSequenceAlmostEqual(camera.getPoint(), (-1, 0, 2), places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (-1, 0, 2), places=6)
         # カメラ空間(worldSpace=False)の原点は今の位置なので、位置は変わらない。
         camera.setPoint((0, 0, 0), worldSpace=False, fast=True)
-        self.assertSequenceAlmostEqual(camera.getPoint(), (-1, 0, 2), places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (-1, 0, 2), places=6)
         # fast=False(既定)は NotImplementedError で、位置は変わらない。
-        for kwargs in ({}, {"fast": False}, {"kind": "eye"}):
+        for kwargs in ({"worldSpace": True}, {"worldSpace": True, "fast": False}, {"worldSpace": True, "kind": "eye"}):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(NotImplementedError):
                     camera.setPoint((9, 9, 9), **kwargs)
-                self.assertSequenceAlmostEqual(camera.getPoint(), (-1, 0, 2), places=6)
+                self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (-1, 0, 2), places=6)
         for args, kwargs, error in (
-            (((0, 0),), {"fast": True}, ValueError),
-            (((0, 0, float("nan")),), {"fast": True}, ValueError),
-            (((0, 0, 0),), {"fast": True, "kind": "view"}, ValueError),
-            (((0, 0, 0),), {"fast": True, "kind": 1}, TypeError),
+            (((0, 0), True), {"fast": True}, ValueError),
+            (((0, 0, float("nan")), True), {"fast": True}, ValueError),
+            (((0, 0, 0), True), {"fast": True, "kind": "view"}, ValueError),
+            (((0, 0, 0), True), {"fast": True, "kind": 1}, TypeError),
+            (((0, 0, 0),), {"fast": True}, TypeError),
             (((0, 0, 0),), {"fast": True, "worldSpace": True, "ws": True}, TypeError),
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
                     camera.setPoint(*args, **kwargs)
-                self.assertSequenceAlmostEqual(camera.getPoint(), (-1, 0, 2), places=6)
+                self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (-1, 0, 2), places=6)
 
     def test_set_point_eye_keeps_center_of_interest(self):
         """setPoint(point, fast=True)(kind="eye")は、注視点を保ったまま視点を動かす(カメラは注視点を向き続ける)。"""
         camera, _transform = self.parented_camera()
-        target = camera.getPoint(kind="centerOfInterest")
-        camera.setPoint((5, 6, 7), fast=True)
-        self.assertSequenceAlmostEqual(camera.getPoint(), (5, 6, 7), places=6)
-        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest"), target, places=5)
+        target = camera.getPoint(kind="centerOfInterest", worldSpace=True)
+        camera.setPoint((5, 6, 7), fast=True, worldSpace=True)
+        self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), (5, 6, 7), places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest", worldSpace=True), target, places=5)
         expected = (om2.MVector(*target) - om2.MVector(5, 6, 7)).normal()
-        self.assertSequenceAlmostEqual(camera.getDirection(), tuple(expected), places=5)
+        self.assertSequenceAlmostEqual(camera.getDirection(worldSpace=True), tuple(expected), places=5)
 
     def test_set_point_center_of_interest_fast(self):
         """setPoint(kind="centerOfInterest", fast=True) は視点を保って向きと注視点を変え、fast=False は NotImplementedError。"""
         camera = self.camera()
         cmds.setAttr(camera.getParent().getName(full=True) + ".translate", 1, 2, 3)
-        eye = camera.getPoint()
+        eye = camera.getPoint(worldSpace=True)
         with self.assertRaises(NotImplementedError):
-            camera.setPoint((1, 2, -7), kind="centerOfInterest")
+            camera.setPoint((1, 2, -7), kind="centerOfInterest", worldSpace=True)
         with self.assertRaises(ValueError):
-            camera.setPoint(tuple(eye), kind="centerOfInterest", fast=True)
+            camera.setPoint(tuple(eye), kind="centerOfInterest", fast=True, worldSpace=True)
         cmds.flushUndo()
-        self.assertIsNone(camera.setPoint((11, 2, 3), kind="centerOfInterest", fast=True))
+        self.assertIsNone(camera.setPoint((11, 2, 3), kind="centerOfInterest", fast=True, worldSpace=True))
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
-        self.assertSequenceAlmostEqual(camera.getPoint(), eye, places=6)
-        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest"), (11, 2, 3), places=5)
-        self.assertSequenceAlmostEqual(camera.getDirection(), (1, 0, 0), places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(worldSpace=True), eye, places=6)
+        self.assertSequenceAlmostEqual(camera.getPoint(kind="centerOfInterest", worldSpace=True), (11, 2, 3), places=5)
+        self.assertSequenceAlmostEqual(camera.getDirection(worldSpace=True), (1, 0, 0), places=6)
 
     def test_field_of_view_undo(self):
         camera = self.camera()
@@ -222,7 +223,7 @@ class CameraEditTest(NamespaceCase):
         with self.assertRaises(NotImplementedError):
             under_joint.setView(*args, fast=True)
         with self.assertRaises(NotImplementedError):
-            under_joint.setPoint((1, 2, 3), fast=True)
+            under_joint.setPoint((1, 2, 3), fast=True, worldSpace=True)
         camera = self.camera()
         transform = camera.getParent().getName(full=True)
         instance = cmds.instance(transform, name=self.name("instance"))[0]

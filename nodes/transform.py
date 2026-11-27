@@ -2027,7 +2027,7 @@ class Transform(DagNode):
         """
         return _ROTATE_ORDER_NAMES[self.getPlug("rotateOrder").get()]
 
-    def setRotateOrder(self, order, *, preserve=True, fast=False, check=False):
+    def setRotateOrder(self, order, *, preserve, fast=False, check=False):
         """回転順序(``rotateOrder``)を変える。既定では、見た目の向きが変わらないように ``rotate`` も変える。
 
         - ``preserve=True``: ``cmds.xform(rotateOrder=..., preserve=True)`` と同じ。新しい回転順序で同じ向きに
@@ -2038,7 +2038,7 @@ class Transform(DagNode):
 
         Args:
             order (str | int): ``"xyz"`` などの名前(大文字・小文字は問わない)、またはMayaの番号(0〜5)。
-            preserve (bool): Trueなら向きを保つ。既定はTrue。
+            preserve (bool): Trueなら向きを保つ。Falseなら rotateOrder だけを書き換える。省けない(回転順序だけを変えるのか、向きを保つのかで結果が大きく違うため)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 

@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, _require_bool, undoTransaction
 from ..util import _UNSET
 
 
-def createContainer(members=(), *, name=_UNSET, n=_UNSET, dag=False):
+def createContainer(members=None, *, name=_UNSET, n=_UNSET, dag=False):
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
@@ -19,7 +19,7 @@ def createContainer(members=(), *, name=_UNSET, n=_UNSET, dag=False):
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
-        members (str | Node | Iterable[Node | str]): 作ったあとに所属させるノード。省略すると空のまま。
+        members (str | Node | Iterable[Node | str] | None): 作ったあとに所属させるノード。Noneと空の並びは空のまま。既定はNone。
             同じ並びに名前とNodeは混ぜられない。
         name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。
@@ -48,7 +48,7 @@ def createContainer(members=(), *, name=_UNSET, n=_UNSET, dag=False):
     from ..nodes.node import Node
 
     # 作ってから失敗してUndoで戻すと、今の名前空間がルート以外のときにMayaが壊れることがあるため、作る前に確かめる。
-    names = Container._resolve_new_members((members,))
+    names = Container._resolve_new_members((() if members is None else members,))
     flags = {"type": "dagContainer"} if dag else {}
     with undoTransaction("mlibCreateDagContainer" if dag else "mlibCreateContainer"):
         # containerのnameフラグはRedo時に名前空間を失うため、renameに任せる。

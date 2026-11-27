@@ -188,23 +188,35 @@ class ConnectSpecTest(_ConnectionSpecCase):
         self.assertTrue(cmds.undoInfo(query=True, state=True))
 
     def test_locked_destination(self):
-        """ロックされた接続先はforce・unlockの両方が必要で、接続後も元のロックを戻す。"""
+        """ロックされた接続先は unlock=True が必要で(force だけでは外さない)、接続後も元のロックを戻す。"""
         cmds.setAttr(self.bn + ".ty", lock=True)
         ty = self.b.getPlug("ty")
         with self.assertRaises(RuntimeError):
             ty.connect(self.a.getPlug("tx"))
         with self.assertRaises(RuntimeError):
-            ty.connect(self.a.getPlug("tx"), force=True, unlock=False)
+            ty.connect(self.a.getPlug("tx"), force=True)
         self.assertEqual(self.inputs(self.bn + ".ty"), [])
-        ty.connect(self.a.getPlug("tx"), force=True)
+        self.assertTrue(cmds.getAttr(self.bn + ".ty", lock=True))
+        ty.connect(self.a.getPlug("tx"), unlock=True)
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".ty"))
         self.assertTrue(cmds.getAttr(self.bn + ".ty", lock=True))
+        # 入力があるロックされた接続先は、force と unlock の両方で置き換える(通常・fast)。
+        for fast, source in ((False, "ty"), (True, "tz")):
+            with self.subTest(fast=fast):
+                with self.assertRaises(RuntimeError):
+                    ty.connect(self.a.getPlug(source), unlock=True, fast=fast)
+                ty.connect(self.a.getPlug(source), force=True, unlock=True, fast=fast)
+                self.assertTrue(cmds.isConnected(self.an + "." + source, self.bn + ".ty"))
+                self.assertTrue(cmds.getAttr(self.bn + ".ty", lock=True))
 
     def test_locked_parent_is_temporarily_unlocked_with_force(self):
-        """forceは上位のコンパウンドアトリビュートのロックも一時解除し、接続後に再ロックする。"""
+        """unlock=True は上位のコンパウンドアトリビュートのロックも一時解除し、接続後に再ロックする(force だけでは外さない)。"""
         cmds.setAttr(self.bn + ".t", lock=True)
         tz = self.b.getPlug("tz")
-        tz.connect(self.a.getPlug("tx"), force=True)
+        with self.assertRaises(RuntimeError):
+            tz.connect(self.a.getPlug("tx"), force=True)
+        self.assertTrue(cmds.getAttr(self.bn + ".t", lock=True))
+        tz.connect(self.a.getPlug("tx"), unlock=True)
         self.assertTrue(cmds.isConnected(self.an + ".tx", self.bn + ".tz"))
         self.assertTrue(cmds.getAttr(self.bn + ".t", lock=True))
 

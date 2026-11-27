@@ -603,29 +603,38 @@ class Node(Object):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setDgTimer(self, state: bool | None = ..., *, reset: bool = ...) -> None:
-        """このノードのDG計測を開始・停止する。``reset=True`` なら、たまった計測結果を消す。
+    def setDgTimer(self, state: bool = ...) -> None:
+        """このノードのDG計測を開始・停止する。たまった計測結果を消すのは :meth:`resetDgTimer`。
 
         診断用の計測の状態を変えるだけなので、Undoには記録しない。Undoの設定は変えない。
         計測には実行の負荷があり、全体の計測の設定(:meth:`setDgTimingEnabled`)や評価の方式によって、記録される項目が違う。
         fast引数は持たない(シーンの値の編集ではないため)。
 
         Args:
-            state (bool | None): Trueで開始、Falseで停止。過去の結果は消さない。既定のNoneなら、開始・停止は変えない。
-            reset (bool): Trueなら、このノードにたまった計測結果を消す(stateも指定したときは、消してから開始・停止する)。
-                既定はFalse。
+            state (bool): Trueで開始、Falseで停止。過去の結果は消さない。既定はTrue。
 
         Returns:
             None: 値を返さない。
 
         Raises:
-            TypeError: stateがboolでもNoneでもない場合、resetがboolでない場合、またはstateもresetも指定していない場合。
+            TypeError: stateがboolでない場合。
             RuntimeError: ノードが無効な場合。
 
         Examples:
-            >>> node.setDgTimer(True)                 # 計測を始める
-            >>> node.setDgTimer(reset=True)           # 止めずに結果だけ消す
-            >>> node.setDgTimer(False, reset=True)    # 結果を消して止める
+            >>> node.setDgTimer()          # 計測を始める
+            >>> node.setDgTimer(False)     # 計測を止める
+        """
+        ...
+    def resetDgTimer(self) -> None:
+        """このノードにたまったDG計測の結果を消す。計測の開始・停止の状態は変えない。
+
+        診断用の計測の状態を変えるだけなので、Undoには記録しない。Undoの設定は変えない。
+
+        Returns:
+            None: 値を返さない。
+
+        Raises:
+            RuntimeError: ノードが無効な場合。
         """
         ...
     def mfn(self) -> om2.MFnDependencyNode:
@@ -1986,11 +1995,11 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def __getitem__(self, index: slice) -> Nodes[_NodeT]: ...
     item_class: Any
     __hash__: None
-    def __init__(self, names: object | Iterable[object] = ...) -> None:
+    def __init__(self, names: object | Iterable[object] | None = ...) -> None:
         """入力からノードを解決し、要素の型を確かめてから持つ。
 
         Args:
-            names (object | Iterable[object]): 名前・Node・APIのオブジェクトなど、またはその並び。
+            names (object | Iterable[object] | None): 名前・Node・APIのオブジェクトなど、またはその並び。Noneは空。
                 名前を1つだけ渡してもよい。既定は ``()``。
 
         Raises:
@@ -2468,8 +2477,11 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getDgTimer(self, metric: int | None = ..., *, kind: str = ..., timerType: int = ...) -> list[float | list[tuple[str, float]] | int]:
         """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setDgTimer(self, state: bool | None = ..., *, reset: bool = ...) -> list[None]:
+    def setDgTimer(self, state: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def resetDgTimer(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.resetDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mfn(self) -> list[om2.MFnDependencyNode]:
         """各要素の :meth:`~mlib.nodes.node.Node.mfn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
@@ -2756,7 +2768,7 @@ class Nodes(_ListMethods, Generic[_NodeT]):
     def getRotateOrder(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotateOrder(self, order: str | int, *, preserve: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+    def setRotateOrder(self, order: str | int, *, preserve: bool, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:

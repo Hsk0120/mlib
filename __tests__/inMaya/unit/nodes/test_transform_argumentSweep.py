@@ -876,6 +876,7 @@ METHODS = (
         "setRotateOrder",
         _make_child,
         args=("zxy",),
+        kwargs={"preserve": True},
         values={"order": ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx", "ZYX", 0, 5)},
         replace=("order",),
         invalid={"order": ("abc", 6, -1, 1.5, None)},

@@ -46,7 +46,7 @@ class Selection:
 
         Args:
             items (Iterable[Node | Plug | Component | Components | Selection | str |
-                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList]): 対象。1つだけでも指定できる。
+                om2.MObject | om2.MDagPath | om2.MPlug | om2.MSelectionList] | None): 対象。1つだけでも指定できる。Noneは空。
                 文字列には範囲の指定(``pCubeShape1.vtx[0:3]`` など)も使える。
                 MObject・MDagPathはノード、MPlugはアトリビュートとして扱う。
                 MSelectionListとSelectionは、その中の要素を取り出して使う。

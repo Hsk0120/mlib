@@ -1152,7 +1152,7 @@ class Joints(Nodes[Joint]):
     def getRotateOrder(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotateOrder(self, order: str | int, *, preserve: bool = ..., fast: bool = ..., check: bool = ...) -> list[None]:
+    def setRotateOrder(self, order: str | int, *, preserve: bool, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotateOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:
@@ -1287,8 +1287,11 @@ class Joints(Nodes[Joint]):
     def getDgTimer(self, metric: int | None = ..., *, kind: str = ..., timerType: int = ...) -> list[float | list[tuple[str, float]] | int]:
         """各要素の :meth:`~mlib.nodes.node.Node.getDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setDgTimer(self, state: bool | None = ..., *, reset: bool = ...) -> list[None]:
+    def setDgTimer(self, state: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
+        ...
+    def resetDgTimer(self) -> list[None]:
+        """各要素の :meth:`~mlib.nodes.node.Node.resetDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getType(self, *, inherited: bool = ...) -> list[str | list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""

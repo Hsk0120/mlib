@@ -131,7 +131,8 @@ EXCLUDED = {
     "SkinCluster.setMoveJointsMode": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Reference.setReferenceLocked": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
     "Reference.cleanEdits": "2026-11-19承認の限定操作。通常Undo対象外。test_interop_nativeOperationsが対応条件・更新結果・Undo履歴を検証する。",
-    "Node.setDgTimer": "診断用のDG計測状態の切り替えと計測結果の消去(reset=True)。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
+    "Node.setDgTimer": "診断用のDG計測の開始・停止。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
+    "Node.resetDgTimer": "診断用のDG計測結果の消去。通常Undoの対象外で、専用テストがUndo履歴・設定の不変を検証する。",
     "DagContainer.addMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
     "DagContainer.removeMembers": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
     "DagContainer.createNode": "Containerの同名メソッドを呼ぶだけ(クラスの親は1つにする決まりのため、DagContainerはTransformだけを親にする)。Undoは Container のケースで確かめる。",
@@ -1750,7 +1751,7 @@ CASES = [
         ignoreAttrs=("lastTargetRotateX", "lastTargetRotateY", "lastTargetRotateZ"),
         unorderedFields=("userAttrs",),
     ),
-    C("Transform.setRotateOrder", "setRotateOrder preserve", s_one, lambda c, **kw: c.na.setRotateOrder("zxy", **kw)),
+    C("Transform.setRotateOrder", "setRotateOrder preserve", s_one, lambda c, **kw: c.na.setRotateOrder("zxy", preserve=True, **kw)),
     C("Transform.setRotateOrder", "setRotateOrder no preserve", s_one, lambda c, **kw: c.na.setRotateOrder(3, preserve=False, **kw)),
     C(
         "PointComponent.setPosition",
