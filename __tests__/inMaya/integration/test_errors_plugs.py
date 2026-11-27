@@ -23,8 +23,8 @@ from mlib.plugs import MultiPlug, RampPlug
 
 #: 無効な参照で RuntimeError になる照会。(名前, Plug を受けて呼ぶ関数)。
 _QUERIES = (
-    ("getAttributeName(short)", lambda plug: plug.getAttributeName("short")),
-    ("getAttributeName(nice)", lambda plug: plug.getAttributeName("nice")),
+    ("getAttributeName(short)", lambda plug: plug.getAttributeName(kind="short")),
+    ("getAttributeName(nice)", lambda plug: plug.getAttributeName(kind="nice")),
     ("getFlags", lambda plug: plug.getFlags()),
     ("isConnected(source=False)", lambda plug: plug.isConnected(source=False)),
     ("isConnected(destination=False)", lambda plug: plug.isConnected(destination=False)),
@@ -371,8 +371,8 @@ class NameQueryTest(_PlugCase):
         cmds.addAttr(other, longName="weight", attributeType="double")
         cmds.addAttr(node, longName="weightProxy", proxy=other + ".weight")
         plug = mlib.getNode(node).getPlug("translateX")
-        self.assertEqual(plug.getAttributeName("short"), "tx")
-        self.assertEqual(plug.getAttributeName("nice"), cmds.attributeName(node + ".translateX", nice=True))
+        self.assertEqual(plug.getAttributeName(kind="short"), "tx")
+        self.assertEqual(plug.getAttributeName(kind="nice"), cmds.attributeName(node + ".translateX", nice=True))
         self.assertIsNone(plug.getAlias())
         cmds.aliasAttr("slide", node + ".translateX")
         self.assertEqual(plug.getAlias(), "slide")

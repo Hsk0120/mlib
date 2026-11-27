@@ -52,10 +52,10 @@ class NameMapping:
         """対応づけの規則を持たせる。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表(``{"arm_L_jnt": "leftArm_jnt"}``)。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え(``[("_L_", "_R_")]``)。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表(``{"arm_L_jnt": "leftArm_jnt"}``)。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え(``[("_L_", "_R_")]``)。既定はNone。
             namespaceMap (dict[str, str] | None): 名前空間の対応(``{"chrA": "chrB"}``)。
-                先頭の ``":"`` は無視する。入れ子の名前空間では、一致する最も長い親を入れ替える。
+                先頭の ``":"`` は無視する。入れ子の名前空間では、一致する最も長い親を入れ替える。既定はNone。
 
         Raises:
             TypeError: どれかの引数の型が正しくない場合(replaceが組の並びでない場合を含む)。

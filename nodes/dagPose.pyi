@@ -165,7 +165,7 @@ class DagPose(Node):
 
         Args:
             members (Node | str | Iterable[Node | str] | None): 上書きするメンバー。Noneなら全メンバー。
-                Noneでメンバーが1つも無ければ、何も変えない。
+                Noneでメンバーが1つも無ければ、何も変えない。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -203,8 +203,8 @@ class DagPose(Node):
         何も変えずにValueErrorにする。全体を1回のUndoで戻せる。
 
         Args:
-            *members (Node | str | Iterable[Node | str]): 外すメンバー。all=Falseでは空にはできない。all=Trueとは同時に指定できない。
             all (bool): Trueなら、すべてのメンバーを外す(メンバーが無ければ何もしない)。既定はFalse。
+            *members (Node | str | Iterable[Node | str]): 外すメンバー。all=Falseでは空にはできない。all=Trueとは同時に指定できない。
 
         Returns:
             None: 値を返さない。

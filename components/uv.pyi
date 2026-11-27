@@ -55,8 +55,7 @@ class UV(Component):
             axis (str | None): 書き込む成分。``"u"``・``"v"`` (大文字でもよい)。Noneなら両方を書き込む。既定はNone。
             relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。UVセットや割り当ては作らない。
@@ -145,8 +144,7 @@ class UVs(Components):
             relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
             each (bool): Trueなら、valueを要素ごとの値の並びとして使う。既定はFalse(全要素に同じ値)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。UVセットや割り当ては作らない。

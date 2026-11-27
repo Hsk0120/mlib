@@ -16,6 +16,7 @@ def createNurbsPlane(
     degree=_UNSET,
     *,
     name=_UNSET,
+    n=_UNSET,
     parent=None,
     w=_UNSET,
     lr=_UNSET,
@@ -23,7 +24,6 @@ def createNurbsPlane(
     v=_UNSET,
     ax=_UNSET,
     d=_UNSET,
-    n=_UNSET,
 ):
     """原点を中心とするNURBSの平面を作り、そのシェイプを返す。
 
@@ -35,24 +35,24 @@ def createNurbsPlane(
 
     Args:
         width (float): 幅(cm)。正の有限な値。既定は1。
+        w (float): widthの短縮名。widthと同時には指定できない。
         lengthRatio (float): 幅に対する長さの比。正の有限な値。既定は1。
+        lr (float): lengthRatioの短縮名。lengthRatioと同時には指定できない。
         patchesU (int): U方向のパッチ(スパン)の数。1以上。既定は1。
+        u (int): patchesUの短縮名。patchesUと同時には指定できない。
         patchesV (int): V方向のパッチ(スパン)の数。1以上。既定は1。
+        v (int): patchesVの短縮名。patchesVと同時には指定できない。
         axis (Sequence[float]): 面の法線。0でない有限な3成分。既定は(0, 1, 0)。
             ``cmds.nurbsPlane`` の既定とは違い、:func:`createPoly("plane") <mlib.cmds.createPoly.createPoly>`
             と同じ上向きにしている。
+        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
         degree (int): U・V方向の次数。1(直線)または3(曲線)。既定は3。
+        d (int): degreeの短縮名。degreeと同時には指定できない。
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
             NoneならMayaの既定の名前(``nurbsPlane1`` など)。既定はNone。
-        parent (Node | str | None): Transformの親。Noneならワールド直下。
-            親のローカル空間に、単位マトリクスで置く。
-        w (float): widthの短縮名。widthと同時には指定できない。
-        lr (float): lengthRatioの短縮名。lengthRatioと同時には指定できない。
-        u (int): patchesUの短縮名。patchesUと同時には指定できない。
-        v (int): patchesVの短縮名。patchesVと同時には指定できない。
-        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
-        d (int): degreeの短縮名。degreeと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。既定はNone。
 
     Returns:
         NurbsSurface: 作った平面のシェイプ。Transformは ``getTransform()`` で取得する。

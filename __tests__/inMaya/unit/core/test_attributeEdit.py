@@ -55,8 +55,8 @@ class AttributeEditsTest(unittest.TestCase):
             for key in ("readable", "writable", "storable", "connectable", "cached", "usedAsColor", "usedAsFilename", "disconnectBehavior")
         }
         data.update(
-            shortName=plug.getAttributeName("short"),
-            niceName=plug.getAttributeName("nice"),
+            shortName=plug.getAttributeName(kind="short"),
+            niceName=plug.getAttributeName(kind="nice"),
             value=plug.get(),
             default=plug.getDefault(),
             hidden=fn.hidden,
@@ -422,7 +422,7 @@ class FastAddAttrDefinitionTest(NamespaceCase):
         ):
             with self.subTest(kind=kind):
                 plug = self.node.addAttr(name, kind, fast=True)
-                self.assertEqual(plug.getAttributeName("long"), name)
+                self.assertEqual(plug.getAttributeName(kind="long"), name)
                 self.assertEqual(self.query(name, attributeType=True), expected)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
 
@@ -479,7 +479,7 @@ class FastAddAttrDefinitionTest(NamespaceCase):
                 self.node.addAttr("textDefault", kind, defaultValue="abc", fast=fast)
             self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
         plug = self.node.addAttr("prefixedValue", "double3", subType="at:double", defaultValue=(1.0, 2.0, 3.0))
-        self.assertEqual(plug.getAttributeName("long"), "prefixedValue")
+        self.assertEqual(plug.getAttributeName(kind="long"), "prefixedValue")
         self.assertEqual(self.query("prefixedValueX", attributeType=True), "double")
         self.assertEqual(self.query("prefixedValueY", defaultValue=True), 2.0)
 

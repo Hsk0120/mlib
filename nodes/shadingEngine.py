@@ -29,7 +29,7 @@ class ShadingEngine(ObjectSet):
         engine.assign(mlib.getNode("pCube1"))  # 形状全体。フェースは Face/Faces や "pCube1.f[0:3]"
     """
 
-    def getShader(self, kind="surface", *, asPlug=False):
+    def getShader(self, *, kind="surface", asPlug=False):
         """接続しているシェーダーのノードを取得する。``asPlug=True`` なら、シェーダーの出力アトリビュートを取得する。
 
         Args:
@@ -51,7 +51,7 @@ class ShadingEngine(ObjectSet):
             return source
         return source.getNode()
 
-    def setShader(self, shader, kind="surface", output=None, *, fast=False):
+    def setShader(self, shader, *, kind="surface", output=None, fast=False):
         """シェーダーを接続する。
 
         例えば ``engine.setShader(lambert)`` は、``lambert.outColor`` を ``surfaceShader`` へ接続する。
@@ -62,7 +62,7 @@ class ShadingEngine(ObjectSet):
             shader (Node | Plug | str): シェーダーのノード、またはその出力のPlug。
             kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
             output (str | None): shaderにノードを渡したときに使う出力のアトリビュート名。
-                Noneならdisplacementではdisplacement、それ以外ではoutColorを使う。
+                Noneならdisplacementではdisplacement、それ以外ではoutColorを使う。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:

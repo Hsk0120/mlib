@@ -288,10 +288,10 @@ class Matrix(om2.MMatrix):
 
         Args:
             values (om2.MMatrix | om2.MFloatMatrix | Iterable[float] | Iterable[Iterable[float]] | None):
-                16要素、または4行4列のマトリクス。指定すると、ほかの成分の引数はすべて無視する。
-            translate (Iterable[float] | None): XYZの平行移動。Noneは0。
+                16要素、または4行4列のマトリクス。指定すると、ほかの成分の引数はすべて無視する。既定はNone。
+            translate (Iterable[float] | None): XYZの平行移動。Noneは0。既定はNone。
             rotate (Iterable[float] | om2.MEulerRotation | om2.MQuaternion | None): 回転。次のどれかで指定する。
-                Noneは回転なし。
+                Noneは回転なし。既定はNone。
 
                 - XYZ順のラジアンの3成分。
                 - EulerRotate(om2.MEulerRotation)。回転順序も反映する。
@@ -549,11 +549,11 @@ class Matrix(om2.MMatrix):
         """平行移動・回転・スケール・シアーの成分からマトリクスを作る。
 
         Args:
-            translate (Iterable[float]): XYZの平行移動。
+            translate (Iterable[float]): XYZの平行移動。既定は ``(0.0, 0.0, 0.0)``。
             rotate (Iterable[float] | om2.MEulerRotation | om2.MQuaternion): 回転。XYZ順のラジアンの3成分、
-                EulerRotate(回転順序も反映する)、またはクォータニオンで指定する。
-            scale (Iterable[float]): XYZのスケール。
-            shear (Iterable[float]): XY・XZ・YZのシアー。
+                EulerRotate(回転順序も反映する)、またはクォータニオンで指定する。既定は ``(0.0, 0.0, 0.0)``。
+            scale (Iterable[float]): XYZのスケール。既定は ``(1.0, 1.0, 1.0)``。
+            shear (Iterable[float]): XY・XZ・YZのシアー。既定は ``(0.0, 0.0, 0.0)``。
 
         Returns:
             Matrix: 呼び出したクラスの新しいマトリクス。
@@ -773,7 +773,7 @@ class Matrix(om2.MMatrix):
 
         Args:
             axis (str | int): ``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` (:meth:`Vector.fromAxis
-                <mlib.maths.vector.Vector.fromAxis>` と同じ名前)、または行の番号 0〜2。
+                <mlib.maths.vector.Vector.fromAxis>` と同じ名前)、または行の番号 0〜2。既定は ``"x"``。
 
         Returns:
             Vector: 新しい軸のベクトル。正規化しない(長さはその軸のスケール)。
@@ -820,7 +820,7 @@ class Matrix(om2.MMatrix):
 
         Args:
             other (om2.MMatrix | Iterable[float]): 比較対象。16要素や4行4列も受け付ける。
-            tolerance (float): 各成分の差の許容誤差。0以上。
+            tolerance (float): 各成分の差の許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: 全16成分の差が tolerance 以内なら True。
@@ -834,7 +834,7 @@ class Matrix(om2.MMatrix):
         """許容誤差付きで単位マトリクスか判定する。
 
         Args:
-            tolerance (float): 各成分の差の許容誤差。0以上。
+            tolerance (float): 各成分の差の許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: 全16成分と単位マトリクスの差が tolerance 以下ならTrue。
@@ -853,7 +853,7 @@ class Matrix(om2.MMatrix):
         非一様スケールがあると、ジョイントやコンストレイントの計算が崩れる。その検査に使う。
 
         Args:
-            tolerance (float): スケールの差・シアーの許容誤差。0以上。
+            tolerance (float): スケールの差・シアーの許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: 非一様スケールかシアーがあればTrue。
@@ -970,8 +970,8 @@ class Matrix(om2.MMatrix):
 
         Args:
             axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"``・``"XZ"``・``"XY"``、
-                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。
-            pivot (Iterable[float]): ミラーの中心の座標。平行移動と同じ単位・空間で指定する。
+                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。既定は ``"x"``。
+            pivot (Iterable[float]): ミラーの中心の座標。平行移動と同じ単位・空間で指定する。既定は ``(0.0, 0.0, 0.0)``。
 
         Returns:
             Matrix: 呼び出したクラスのミラー後のマトリクス。

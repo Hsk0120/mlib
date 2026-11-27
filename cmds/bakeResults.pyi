@@ -36,11 +36,11 @@ def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequ
         attributes (str | Sequence[str] | None): 焼き込むアトリビュート名。``"translateX"``・``"tx"`` や、
             コンパウンドアトリビュートの ``"translate"`` も指定できる。
             NoneならMayaの既定(キー設定可能なもの)。既定はNone。
+        at (str | Sequence[str] | None): attributesの短縮名(Mayaの ``attribute``)。attributesと同時には指定できない。
         time (tuple[float, float] | None): 焼き込む範囲 (開始, 終了)。現在のUI時間単位のフレームで、両端を含む。
             Noneなら再生範囲。既定はNone。
-        sampleBy (float): キーを作る間隔(フレーム)。正の数。既定は1。
-        at (str | Sequence[str] | None): attributesの短縮名(Mayaの ``attribute``)。attributesと同時には指定できない。
         t (tuple[float, float] | None): timeの短縮名。timeと同時には指定できない。
+        sampleBy (float): キーを作る間隔(フレーム)。正の数。既定は1。
         sb (float): sampleByの短縮名。sampleByと同時には指定できない。
         **kwargs (object): ``cmds.bakeResults`` のそのほかのフラグ。長い名前・短い名前のどちらでもよい。
             ``simulation``・``preserveOutsideKeys``・``sparseAnimCurveBake``・``disableImplicitControl``・

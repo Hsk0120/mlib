@@ -81,7 +81,7 @@ class Keyframe:
         Args:
             input (bool): Trueなら、値でなく入力を返す。既定はFalse。
             unit (str): 出力が角度(A型)のときの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。``input=True`` では指定できない。
-            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。``"frame"`` / ``"sec"``。既定は ``"frame"``。
 
         Returns:
             float: 値、または入力の値。
@@ -98,11 +98,10 @@ class Keyframe:
 
         Args:
             value (float): 新しい値(:meth:`getValue` と同じ単位)。
-            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。
+            unit (str): 出力が角度(A型)のときの単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
+            timeUnit (str): 出力が時間のときの単位。``"frame"`` / ``"sec"``。既定は ``"frame"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -121,7 +120,7 @@ class Keyframe:
         lockとweightLockはキーごとの状態、weightedTangentsはカーブ全体の状態。
 
         Args:
-            unit (str): 角度の単位。``"deg"`` / ``"rad"``。
+            unit (str): 角度の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
 
         Returns:
             dict: inTangentType・outTangentType・inAngle・outAngle・inWeight・outWeight・lock・weightLock・weightedTangents を
@@ -139,10 +138,9 @@ class Keyframe:
         weightedTangentsを指定した場合は、カーブ全体をウェイト付きの接線にするかどうかだけを変える。
 
         Args:
-            unit (str): 角度の単位。``"deg"`` / ``"rad"``。
+            unit (str): 角度の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
             **kwargs: :meth:`getTangent` の辞書と同じ9種類のフラグ(長い名前)。角度はunitの単位、接線のウェイトはAPIの値。
 
         Returns:
@@ -190,10 +188,10 @@ class Keyframe:
         入力が隣のキーと同じか、越える位置になる場合は、何も変えずに例外にする。番号は変わらない。
 
         Args:
-            timeOffset (float): 入力をずらす量。
-            valueOffset (float): 値をずらす量。
-            unit (str): 出力が角度のときの単位。
-            timeUnit (str): 時間の単位。
+            timeOffset (float): 入力をずらす量。既定は0。
+            valueOffset (float): 値をずらす量。既定は0。
+            unit (str): 出力が角度のときの単位。既定は ``"deg"``。
+            timeUnit (str): 時間の単位。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。
@@ -212,10 +210,9 @@ class Keyframe:
         削除したあとは、同じカーブでこれより後ろの番号を持つオブジェクトが、別のキーを指すようになる。
 
         Args:
-            keepCurve (bool): Trueなら、最後のキーを消してもカーブを残す。
+            keepCurve (bool): Trueなら、最後のキーを消してもカーブを残す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -230,7 +227,7 @@ class Keyframe:
         """Graph Editor・Dope Sheet でこのキーを選択する。
 
         Args:
-            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
+            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。既定はFalse。
 
         Returns:
             None: 値を返さない。
@@ -316,7 +313,7 @@ class Keyframes:
         Args:
             input (bool): Trueなら、値でなく入力(時刻、またはドリブンキーの入力の値)を返す。既定はFalse。
             unit (str): 出力が角度のときの値の単位。既定は ``"deg"``。``input=True`` では指定できない。
-            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。
+            timeUnit (str): 値では出力が時間のとき、入力では入力が時間(T型)のときの単位。既定は ``"frame"``。
 
         Returns:
             list[float]: 値、または入力の値。
@@ -331,11 +328,10 @@ class Keyframes:
 
         Args:
             value (float): 新しい値。
-            unit (str): 出力が角度のときの単位。
-            timeUnit (str): 出力が時間のときの単位。
+            unit (str): 出力が角度のときの単位。既定は ``"deg"``。
+            timeUnit (str): 出力が時間のときの単位。既定は ``"frame"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -353,10 +349,9 @@ class Keyframes:
         fast=Trueでも全体を1つのUndoチャンクの中で呼ぶ。ただし、OpenMayaでの更新はUndoに記録されない。
 
         Args:
-            unit (str): 角度の単位。``"deg"`` / ``"rad"``。
+            unit (str): 角度の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
             **kwargs: :meth:`Keyframe.setTangent` と同じフラグ。
 
         Returns:
@@ -398,10 +393,10 @@ class Keyframes:
         動かさない隣のキーと同じか越える位置になる場合は、何も変えずに例外にする。
 
         Args:
-            timeOffset (float): 入力をずらす量。
-            valueOffset (float): 値をずらす量。
-            unit (str): 出力が角度のときの単位。
-            timeUnit (str): 時間の単位。
+            timeOffset (float): 入力をずらす量。既定は0。
+            valueOffset (float): 値をずらす量。既定は0。
+            unit (str): 出力が角度のときの単位。既定は ``"deg"``。
+            timeUnit (str): 時間の単位。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。
@@ -420,10 +415,9 @@ class Keyframes:
         削除したあとは、この集まりのオブジェクトが別のキーを指すことがある。
 
         Args:
-            keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。
+            keepCurve (bool): Trueなら、すべてのキーを消してもカーブを残す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、すべてのカーブが書き込めるか(ロック・入力の接続が無いか)を確かめて、
-                問題があれば何も消さずに例外にする。既定はFalseで、確かめずに消す(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、すべてのカーブが書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -440,7 +434,7 @@ class Keyframes:
         空の集まりで add=False なら、キーの選択を外す。
 
         Args:
-            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。
+            add (bool): Trueなら今のキーの選択に加える。Falseなら置き換える。既定はFalse。
 
         Returns:
             None: 値を返さない。

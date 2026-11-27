@@ -130,11 +130,18 @@ MEMBER_INVALID = (DELETED_NODE, MISSING_NAME, 1.5, object())
 #: 正しい呼び方の表。
 METHODS = (
     Method(
-        "addMembers", _spread_setup("addMembers"), values={"members": ADD_VALUES}, invalid={"members": MEMBER_INVALID}, expect=_expect_added, state=_layer_state
+        "addMembers",
+        _spread_setup("addMembers"),
+        values={"members": ADD_VALUES},
+        invalid={"members": MEMBER_INVALID},
+        expect=_expect_added,
+        state=_layer_state,
+        skipCalling={"defaults": "可変長の members を、補助が既定値つきの引数として見せている"},
     ),
     Method(
         "removeMembers",
         _spread_setup("removeMembers"),
+        skipCalling={"defaults": "可変長の members を、補助が既定値つきの引数として見せている"},
         values={"members": REMOVE_VALUES},
         invalid={"members": MEMBER_INVALID},
         conflicts=(_members_all,),

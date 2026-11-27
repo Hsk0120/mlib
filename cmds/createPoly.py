@@ -21,24 +21,24 @@ def createPoly(
     kind,
     *,
     width=_UNSET,
+    w=_UNSET,
     height=_UNSET,
+    h=_UNSET,
     depth=_UNSET,
+    d=_UNSET,
     radius=_UNSET,
+    r=_UNSET,
     subdivisions=_UNSET,
     axis=_UNSET,
+    ax=_UNSET,
     roundCap=_UNSET,
+    rcp=_UNSET,
     name=_UNSET,
+    n=_UNSET,
     parent=None,
     constructionHistory=_UNSET,
-    createUVs=_UNSET,
-    w=_UNSET,
-    h=_UNSET,
-    d=_UNSET,
-    r=_UNSET,
-    ax=_UNSET,
-    rcp=_UNSET,
-    n=_UNSET,
     ch=_UNSET,
+    createUVs=_UNSET,
     cuv=_UNSET,
 ):
     """原点を中心とするポリゴンの立方体・球・円柱・平面を作り、そのシェイプを返す。
@@ -65,26 +65,26 @@ def createPoly(
     Args:
         kind (str): 作る形。``"cube"``・``"sphere"``・``"cylinder"``・``"plane"`` のどれか。
         width (float): 幅(cm)。cube・planeだけ。
+        w (float): widthの短縮名。widthと同時には指定できない。
         height (float): 高さ(cm)。cube・cylinder・planeだけ。
+        h (float): heightの短縮名。heightと同時には指定できない。
         depth (float): 奥行き(cm)。cubeだけ。
+        d (float): depthの短縮名。depthと同時には指定できない。
         radius (float): 半径(cm)。sphere・cylinderだけ。
+        r (float): radiusの短縮名。radiusと同時には指定できない。
         subdivisions (Sequence[int]): 分割数。数と意味は形ごとに違う(上の一覧)。
         axis (Sequence[float]): 形の向き。0でない有限な3成分。既定は(0, 1, 0)。cube以外。
+        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
         roundCap (bool): Trueなら、ふたを丸くする(丸みの分割数はsubdivisionsの3つ目)。既定はFalse。cylinderだけ。
+        rcp (bool): roundCapの短縮名。roundCapと同時には指定できない。
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
             NoneならMayaの既定の名前。既定はNone。
-        parent (Node | str | None): Transformの親。Noneならワールド直下。
-            親のローカル空間に、単位マトリクスで置く。
-        constructionHistory (bool): Trueなら、コンストラクションヒストリ(作成ノード)を残す。既定はFalse。
-        createUVs (int): UVの作り方。Mayaのコマンドの ``createUVs`` と同じ番号(0はUVを作らない)。省略するとMayaの既定。
-        w (float): widthの短縮名。widthと同時には指定できない。
-        h (float): heightの短縮名。heightと同時には指定できない。
-        d (float): depthの短縮名。depthと同時には指定できない。
-        r (float): radiusの短縮名。radiusと同時には指定できない。
-        ax (Sequence[float]): axisの短縮名。axisと同時には指定できない。
-        rcp (bool): roundCapの短縮名。roundCapと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。既定はNone。
+        constructionHistory (bool): Trueなら、コンストラクションヒストリ(作成ノード)を残す。既定はFalse。
         ch (bool): constructionHistoryの短縮名。constructionHistoryと同時には指定できない。
+        createUVs (int): UVの作り方。Mayaのコマンドの ``createUVs`` と同じ番号(0はUVを作らない)。省略するとMayaの既定。
         cuv (int): createUVsの短縮名。createUVsと同時には指定できない。
 
     Returns:

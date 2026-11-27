@@ -61,10 +61,10 @@ class PlugNameSpecTest(_StateSpecCase):
         tx = self.node.getPlug("tx")
         self.assertEqual(tx.getName(), self.name + ".tx")
         self.assertFalse(hasattr(tx, "getAttrName"))
-        self.assertEqual(tx.getAttributeName("short"), "tx")
+        self.assertEqual(tx.getAttributeName(kind="short"), "tx")
         self.assertEqual(tx.getAttributeName(), "translateX")
-        self.assertEqual(tx.getAttributeName("nice"), "Translate X")
-        self.assertEqual(tx.getAttributeName("long"), "translateX")
+        self.assertEqual(tx.getAttributeName(kind="nice"), "Translate X")
+        self.assertEqual(tx.getAttributeName(kind="long"), "translateX")
         self.assertEqual(tx.getAttributeName(kind="short"), "tx")
         self.assertEqual(tx.getName(full=True), self.name + ".translateX")
 
@@ -82,15 +82,15 @@ class PlugNameSpecTest(_StateSpecCase):
         ):
             with self.subTest(plug=str(plug)):
                 self.assertEqual(plug.getAttributeName(), cmds.attributeQuery(attribute, node=self.name, longName=True))
-                self.assertEqual(plug.getAttributeName("long"), plug.getAttributeName())
-                self.assertEqual(plug.getAttributeName("short"), cmds.attributeQuery(attribute, node=self.name, shortName=True))
-                self.assertEqual(plug.getAttributeName("nice"), cmds.attributeName(str(plug), nice=True))
-        self.assertEqual(self.node.getPlug("myWeight").getAttributeName("nice"), "My Nice Weight")
+                self.assertEqual(plug.getAttributeName(kind="long"), plug.getAttributeName())
+                self.assertEqual(plug.getAttributeName(kind="short"), cmds.attributeQuery(attribute, node=self.name, shortName=True))
+                self.assertEqual(plug.getAttributeName(kind="nice"), cmds.attributeName(str(plug), nice=True))
+        self.assertEqual(self.node.getPlug("myWeight").getAttributeName(kind="nice"), "My Nice Weight")
         tx = self.node.getPlug("tx")
         for kind in ("Long", "niceName", "", "full", None, 1):
             with self.subTest(kind=kind):
                 with self.assertRaises(ValueError):
-                    tx.getAttributeName(kind)
+                    tx.getAttributeName(kind=kind)
         self.assertEqual(str(tx), tx.getName(full=True))
         self.assertEqual(repr(tx), f"DoubleLinearPlug({tx.getName(full=True)!r})")
         self.assertEqual(cmds.getAttr(tx), 0.0)
@@ -108,14 +108,14 @@ class PlugNameSpecTest(_StateSpecCase):
         child = self.node.getPlug("items[3].weight")
         self.assertEqual(child.getName(full=True), self.name + ".items[3].weight")
         self.assertEqual(child.getName(), self.name + ".its[3].wt")
-        self.assertEqual(child.getAttributeName("short"), "wt")
+        self.assertEqual(child.getAttributeName(kind="short"), "wt")
         self.assertEqual(child.getParent().getName(full=True), self.name + ".items[3]")
 
     def test_world_space_element_names_keep_index(self):
         """worldSpaceの要素もgetNameで論理番号を省かない。アトリビュート部分はgetPlugへ戻せる。"""
         element = self.node.getPlug("worldMatrix[0]")
         self.assertEqual(element.getName(), self.name + ".wm[0]")
-        self.assertEqual(element.getAttributeName("short"), "wm")
+        self.assertEqual(element.getAttributeName(kind="short"), "wm")
         self.assertEqual(self.node.getPlug(element.getName().partition(".")[2]), element)
         self.assertEqual(self.node.getPlug("worldMatrix").getName(), self.name + ".wm")
 
@@ -578,8 +578,8 @@ class PlugValiditySpecTest(_StateSpecCase):
         self.assertFalse(plug.isMulti(element=True))
         self.assertFalse(plug.isCompound(child=True))
         for call in (
-            lambda: plug.getAttributeName("short"),
-            lambda: plug.getAttributeName("nice"),
+            lambda: plug.getAttributeName(kind="short"),
+            lambda: plug.getAttributeName(kind="nice"),
             lambda: plug.getParent(all=True),
             lambda: plug.isConnected(source=False),
             lambda: plug.isConnected(destination=False),

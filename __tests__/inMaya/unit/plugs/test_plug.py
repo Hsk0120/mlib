@@ -155,7 +155,7 @@ class NodeApiTest(unittest.TestCase):
         source = self.create_transform("mlibNodeApiNiceNameSource")
         target = self.create_transform("mlibNodeApiNiceNameTarget")
 
-        self.assertEqual(source.getPlug("translateX").getAttributeName("nice"), "Translate X")
+        self.assertEqual(source.getPlug("translateX").getAttributeName(kind="nice"), "Translate X")
 
         source_plug = source.getPlug("translateX")
         targetPlug = target.getPlug("translateX")

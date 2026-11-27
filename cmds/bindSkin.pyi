@@ -15,7 +15,7 @@ _DEFAULT_FLAGS: tuple
 _REJECTED_FLAGS: frozenset
 _FILE_FLAGS: tuple
 
-def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: Node | str, maximumInfluences: int | None = ..., *, mi: int | None = ..., weights: str | os.PathLike | None = ..., nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., method: str = ..., **kwargs: object) -> SkinCluster:
+def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: Node | str, maximumInfluences: int | None = ..., *, weights: str | os.PathLike | None = ..., nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., method: str = ..., mi: int | None = ..., **kwargs: object) -> SkinCluster:
     """形状を指定したインフルエンスへバインドする。
 
     Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
@@ -45,10 +45,10 @@ def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: Node | 
         maximumInfluences (int | None): 1つの頂点に割り当てるインフルエンスの最大数。正の整数。
             Noneなら ``weights`` のファイルの値を使い、ファイルが無ければ4にする。既定はNone。
         mi (int | None): maximumInfluencesの短縮名。maximumInfluencesと同時には指定できない。
-        weights (str | os.PathLike | None): ``mlib.skinWeights`` 形式のファイル。Noneなら読み込まない。
-        nameMap (dict[str, str] | None): ファイルのインフルエンスの名前(名前空間を除いたもの)の対応表。
-        replace (Iterable[tuple[str, str]] | None): ファイルのインフルエンスの名前へ、順に当てる文字列の置換。
-        namespaceMap (dict[str, str] | None): ファイルのインフルエンスの名前空間の対応。
+        weights (str | os.PathLike | None): ``mlib.skinWeights`` 形式のファイル。Noneなら読み込まない。既定はNone。
+        nameMap (dict[str, str] | None): ファイルのインフルエンスの名前(名前空間を除いたもの)の対応表。既定はNone。
+        replace (Iterable[tuple[str, str]] | None): ファイルのインフルエンスの名前へ、順に当てる文字列の置換。既定はNone。
+        namespaceMap (dict[str, str] | None): ファイルのインフルエンスの名前空間の対応。既定はNone。
         method (str): ファイルの頂点をどう対応付けるか。``"index"`` (既定)は頂点番号、
             ``"position"`` は最も近い位置で対応付ける。
         **kwargs (object): ``cmds.skinCluster`` のそのほかのフラグ(``bindMethod``・``dropoffRate``・

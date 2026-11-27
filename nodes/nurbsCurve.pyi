@@ -162,7 +162,7 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             indices (int | Iterable[int] | None): 0から始まるOpenMayaのCVの番号1つ、またはその並び。
-                Noneなら、今あるすべてのCVを小さい順に取得する。空の並びを渡すと、空のまとまりになる。負の数とboolは受け付けない。
+                Noneなら、今あるすべてのCVを小さい順に取得する。空の並びを渡すと、空のまとまりになる。負の数とboolは受け付けない。既定はNone。
 
         Returns:
             CV | CVs: 番号1つなら、シーン上のCVを指すオブジェクト。並び・Noneなら、CVをまとめた新しいオブジェクト
@@ -295,7 +295,7 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             param (float | None): :meth:`getParamRange` の範囲内のパラメーター。Noneなら全長。既定はNone。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 全長を計算するときの許容誤差。内部の距離単位で、正の有限な値を指定する。既定は1e-06。
                 ``param`` を渡したときは指定できない。
@@ -321,7 +321,7 @@ class NurbsCurve(_ControlPointShape):
         自分自身と交差するカーブでは、向きの付いた面積を足し合わせた値になる。
 
         Args:
-            worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -345,8 +345,8 @@ class NurbsCurve(_ControlPointShape):
           (Maya 2027では、次数1・spans=2で4スパンになるなど)。
 
         Args:
-            spans (int | None): 新しいスパンの数。1以上。Noneなら今のスパンの数。
-            degree (int | None): 新しい次数。1・2・3・5・7のいずれか。Noneなら今の次数。
+            spans (int | None): 新しいスパンの数。1以上。Noneなら今のスパンの数。既定はNone。
+            degree (int | None): 新しい次数。1・2・3・5・7のいずれか。Noneなら今の次数。既定はNone。
             keepRange (str): パラメーターの範囲。``"original"`` は元の範囲(既定)、``"unit"`` は0〜1、
                 ``"spans"`` は0〜スパンの数。
             keepTangents (bool): Trueなら、両端の接線の向きを保つ(``cmds.rebuildCurve`` の ``keepTangents``)。既定はFalse。
@@ -380,9 +380,9 @@ class NurbsCurve(_ControlPointShape):
         周期カーブで重なっているCVを調べるときや、整理する前のカーブを確かめるときなどに使う。
 
         Args:
-            tolerance (float): 同じ位置とみなす距離の許容誤差(Maya APIの内部の距離単位)。正の値を指定する。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 同じ位置とみなす距離の許容誤差(Maya APIの内部の距離単位)。正の値を指定する。既定は1e-06。
 
         Returns:
             list[list[int]]: 2個以上のCVが重なっているグループだけを返す。グループの中は番号の小さい順、
@@ -413,11 +413,11 @@ class NurbsCurve(_ControlPointShape):
         - ``length``: カーブの始点からの長さにあたるパラメーター。0は始点、全長は終点のパラメーター。
 
         Args:
-            point (Sequence[float] | om2.MPoint | om2.MVector | None): 指定空間での位置(cm)。
-            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はdistanceUnit。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
-                ワールド空間の長さには、親の非均等スケールも反映する。
+                ワールド空間の長さには、親の非均等スケールも反映する。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            point (Sequence[float] | om2.MPoint | om2.MVector | None): 指定空間での位置(cm)。既定はNone。
+            length (float | None): 始点からの長さ。0から全長(:meth:`getLength`)までで、単位はdistanceUnit。既定はNone。
             tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。既定は1e-7。``point`` のときだけ指定できる。
             distanceUnit (str | None): lengthの距離の単位。既定はcm。Noneなら、今のUIの距離単位。指定のしかたは :meth:`getLength` と同じ。
                 ``length`` のときだけ指定できる。
@@ -438,9 +438,9 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。
+            tolerance (float): 点とカーブの距離の許容誤差(cm)。0以上の有限値。既定は1e-07。
 
         Returns:
             bool: 点が許容誤差内のカーブ上にある場合はTrue。
@@ -459,7 +459,7 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。worldSpaceと同じ空間で指定する。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -523,7 +523,7 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             count (int): 点の数。1以上。
-            worldSpace (bool): Trueならワールド空間での長さで、Falseならローカル(オブジェクト)空間での長さで等分する。
+            worldSpace (bool): Trueならワールド空間での長さで、Falseならローカル(オブジェクト)空間での長さで等分する。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -555,11 +555,11 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             count (int): 点の数。1以上。
-            up (Sequence[float] | om2.MVector | None): upAxisを向ける方向。worldSpaceと同じ空間で指定する。
-            aimAxis (str): 接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。
-            upAxis (str): upへ向ける軸。aimAxisとは別の軸を指定する。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            up (Sequence[float] | om2.MVector | None): upAxisを向ける方向。worldSpaceと同じ空間で指定する。既定はNone。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            aimAxis (str): 接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。既定は ``"x"``。
+            upAxis (str): upへ向ける軸。aimAxisとは別の軸を指定する。既定は ``"y"``。
 
         Returns:
             list[Matrix]: 始点から順のマトリクス。

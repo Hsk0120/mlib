@@ -99,9 +99,9 @@ class MaterialNodesTest(unittest.TestCase):
         cmds.undo()
         self.assertEqual(group.getShader(), material)
         group.setShader(material, kind="volume")
-        self.assertEqual(group.getShader("volume"), material)
+        self.assertEqual(group.getShader(kind="volume"), material)
         with self.assertRaises(ValueError):
-            group.getShader("invalid")
+            group.getShader(kind="invalid")
 
 
 class _SpecCase(NamespaceCase):
@@ -126,23 +126,23 @@ class MaterialTest(_SpecCase):
         """接続元の出力 Plug、未接続は None、不正な種類は ValueError。"""
         group = Node(self.group)
         self.assertEqual(group.getShader(asPlug=True).getName(full=True), self.material + ".outColor")
-        self.assertIsNone(group.getShader("volume", asPlug=True))
-        self.assertIsNone(group.getShader("displacement", asPlug=True))
+        self.assertIsNone(group.getShader(kind="volume", asPlug=True))
+        self.assertIsNone(group.getShader(kind="displacement", asPlug=True))
         with self.assertRaisesRegex(ValueError, "kindは"):
-            group.getShader("light", asPlug=True)
+            group.getShader(kind="light", asPlug=True)
         empty = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name=self.name("emptySG"))
         self.assertIsNone(Node(empty).getShader(asPlug=True))
         # asPlug=False(既定)は接続元のノード、asPlug=True はその出力の Plug。asPlug は bool のキーワード専用。
         self.assertEqual(group.getShader().getName(), self.material)
         self.assertEqual(group.getShader(asPlug=False), group.getShader())
         self.assertEqual(group.getShader(asPlug=True).getNode(), group.getShader())
-        self.assertEqual(group.getShader("surface", asPlug=True), group.getShader(asPlug=True))
+        self.assertEqual(group.getShader(kind="surface", asPlug=True), group.getShader(asPlug=True))
         self.assertIsNone(Node(empty).getShader())
         for call in (lambda: group.getShader(asPlug=1), lambda: group.getShader(asPlug=None), lambda: group.getShader("surface", True)):
             with self.assertRaises(TypeError):
                 call()
         with self.assertRaisesRegex(ValueError, "kindは"):
-            group.getShader("light")
+            group.getShader(kind="light")
 
     def test_members_flags(self):
         """ShadingEngine.getMembers は ObjectSet と同じく flatten を受け(結果は同じ)、dagOnly=True は割り当て先の DAG パスの Nodes を返す。"""

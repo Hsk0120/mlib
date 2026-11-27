@@ -20,9 +20,9 @@ def findCycles(nodes=None, *, dag=False, timeLimit=None, firstOnly=False):
     シーンは変更しない。
 
     Args:
-        nodes (str | Node | Plug | Iterable[str | Node | Plug] | None): 調べる対象。Noneならシーン全体。
+        nodes (str | Node | Plug | Iterable[str | Node | Plug] | None): 調べる対象。Noneならシーン全体。既定はNone。
         dag (bool): Trueなら、DAGの親子による依存も循環に含める(``cycleCheck`` の ``dag``)。既定はFalse。
-        timeLimit (float | None): 探す時間の上限(秒)。Noneなら上限なし。上限に達すると、それまでに見つかった分を返す。
+        timeLimit (float | None): 探す時間の上限(秒)。Noneなら上限なし。上限に達すると、それまでに見つかった分を返す。既定はNone。
         firstOnly (bool): Trueなら、最初に見つかった完全な循環だけを探す(``cycleCheck`` の ``firstCycleOnly``)。既定はFalse。
 
     Returns:

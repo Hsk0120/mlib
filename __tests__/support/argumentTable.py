@@ -206,6 +206,8 @@ class Method:
         context (bool): True なら、戻り値を with で入って出てから状態を読む(コンテキストマネージャーを返すメソッド)。
         combos (Iterable[dict]): 段3で上限によらず必ず通す組(3つ以上の引数でもよい)。
         errors (Iterable[ErrorState]): 状態で決まる例外を確かめる指定(``test_<name>_errors``)。
+        skipCalling (dict[str, str]): 段4(呼び方)で確かめない項目(``"defaults"``・``"positional"``・``"keywordOnly"``)と理由。
+            2回呼ぶと結果の名前が変わる・ファイルが残るなど、呼び方を変えた2回の結果を比べられない行に書く。
     """
 
     def __init__(
@@ -233,6 +235,7 @@ class Method:
         context=False,
         combos=(),
         errors=(),
+        skipCalling=None,
     ):
         self.name = name
         self.setup = setup
@@ -257,6 +260,7 @@ class Method:
         self.context = context
         self.combos = tuple(dict(combo) for combo in combos)
         self.errors = tuple(errors)
+        self.skipCalling = dict(skipCalling or {})
 
     @property
     def testName(self):

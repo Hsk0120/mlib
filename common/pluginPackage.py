@@ -40,12 +40,12 @@ class PluginPackage:
 
         Args:
             name (str): 通知に表示する製品名。
-            plugins (Iterable[str | Plugin]): ロードするプラグイン。ロードする順に並べる。
-            module (str | Module | None): 版を取得するモジュール。版が取れなければversionPluginの版を使う。
+            plugins (Iterable[str | Plugin]): ロードするプラグイン。ロードする順に並べる。既定は ``()``。
+            module (str | Module | None): 版を取得するモジュール。版が取れなければversionPluginの版を使う。既定はNone。
             versionPlugin (str | Plugin | None): 版を調べるプラグイン。既定はpluginsの先頭。
-            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小の版。Noneなら版を問わない。
-            minimumMaya (int | None): 対象とするMayaの、最小の年の版。それより前の版では、tryLoadで何もしない。
-            installHint (str | None): 製品が足りないときの通知に加える説明。
+            minimumVersion (Version | str | int | tuple[int, ...] | None): 最小の版。Noneなら版を問わない。既定はNone。
+            minimumMaya (int | None): 対象とするMayaの、最小の年の版。それより前の版では、tryLoadで何もしない。既定はNone。
+            installHint (str | None): 製品が足りないときの通知に加える説明。既定はNone。
 
         Raises:
             TypeError: 名前やプラグイン名が文字列でない場合、pluginsを順に取り出せない場合、
@@ -90,7 +90,7 @@ class PluginPackage:
 
         Args:
             message (str): 表示する文章。
-            title (str): ダイアログのタイトル。
+            title (str): ダイアログのタイトル。既定は ``"インストールが必要です"``。
 
         Returns:
             None: 値を返さない。
@@ -166,7 +166,7 @@ class PluginPackage:
         無ければ版を調べるプラグインの版を使う。
 
         Args:
-            loaded (bool): True なら、版を調べるプラグインの、ロードされている版を返す。
+            loaded (bool): True なら、版を調べるプラグインの、ロードされている版を返す。既定はFalse。
 
         Returns:
             Version | None: 版。製品が入っていない場合と、版が取れない場合は None。
@@ -244,7 +244,7 @@ class PluginPackage:
                 logger.warning("[mlib] プラグイン%sを読み込めません(%s用): %s", plugin.name, self._name, error)
         return failed
 
-    def tryLoad(self, dialog=True, warn=True):
+    def tryLoad(self, *, dialog=True, warn=True):
         """対象のMayaと必要な版を確かめてからロードし、結果の定数を返す。
 
         - minimumMayaより前の版のMayaでは、何もしない。
@@ -256,9 +256,9 @@ class PluginPackage:
 
         Args:
             dialog (bool | Callable[[str], None]): TrueならshowDialogで表示し、False/Noneなら表示しない。
-                呼び出せるものを渡すと、足りないときの通知の文を渡して呼ぶ。
+                呼び出せるものを渡すと、足りないときの通知の文を渡して呼ぶ。既定はTrue。
             warn (bool): Trueなら、製品が入っていないことや版が足りないことをlogger.warningで知らせる。
-                プラグインごとのロード失敗の警告は、このフラグでは止めない。
+                プラグインごとのロード失敗の警告は、このフラグでは止めない。既定はTrue。
 
         Returns:
             str: SKIPPED(対象外)、LOADED(成功)、MISSING(入っていない・版が足りない)、

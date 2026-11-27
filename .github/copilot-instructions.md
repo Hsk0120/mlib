@@ -336,6 +336,19 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   足すだけは許す(`AnimationSnapshot.apply`・`Mesh.getShadingEngines(perFace=)`)。派生クラスだけで要る引数は、基底へ上げて揃える
   (`Node.delete(removeInfluence=, transferToParent=, repair=)` は Joint 以外では型の確認だけ)。対象を切り替える上書きは、基底の引数で選ぶ形にする
   (`DagNode.getSkinClusters(influence=True)`)。
+- 引数の表(2026-11-27): 2か所以上で使う引数名の決まり(働き・受け方・既定値・docstring の型・説明の決まり文句)は `_tools/check_mlib_arguments.py` の
+  `ARGUMENTS` に1行ずつ書く(正本。上の「キーワード専用にする引数」の一覧もこの表が正)。`format_mlib.bat` の4番目の手順が、署名と docstring を表と比べる:
+  - A001: キーワード専用と決めた名前を、既定値つきの位置引数で受けない(必須の主な値は位置でよい。例外は表の `kindAllowed` に理由)。
+  - A002: 既定値は表と同じにする(種類ごとに違うものは `default=VARIES` と理由、1か所だけ違うものは `defaultAllowed` に理由)。
+  - A003: bool の既定値を持つ引数は、`worldSpace`・`state` を除いてキーワード専用にする(`f(True, False)` と書けて読み違えるため)。
+  - A004: 表に無い名前を、2か所以上で受け方・既定値を変えて使わない(表に足して決める)。A005: 使わなくなった表の行・許可は消す。
+  - A010〜A013: docstring の型は既定値を含む(None・bool・数・str)、既定値つきの引数の説明には「既定は…。」を書く(Maya のフラグを番兵で受ける入口は除く)、
+    `fast`・`check`・`safe`・`skipExisting`・`skipConnected` の説明は決まり文句で始め(その後へそのメソッドだけの説明を足す)、`ws` は決まり文句だけにする。
+  - A014・A015: キーワード専用の引数は「その他 → `fast` → `check` → `safe` → 位置引数の短縮名(`ws` など)」の順(キーワード専用の引数の短縮名は元の名前の直後)、
+    `Args:` は署名の順(短縮名は元の名前の直後、可変長は最後)。
+  - `--check` を付けない `format_mlib.bat` は、動きを変えずに直せるもの(None の型・既定値の追記・決まり文句・型の書き方・並び)を書き込み、
+    引数の一覧のページ(`_docs/source/arguments.rst`。A006 が古くないかを見る)を作り直す。位置引数をキーワード専用へ変える・既定値を変える・名前を変えるのは、
+    呼び出し側が壊れるので自動では直さない。引数を足す前に `py -3 _tools/check_mlib_arguments.py --list <引数名>` で、同じ名前の使われ方を確かめる。
 - 親子でないクラスの同じ名前の公開メソッドは引数名を揃える。対象が違って意味の無い引数は置かず、違いは `_tools/check_mlib_layout.py` の許可表に
   理由を書く: 上書きは `OVERRIDE_ALLOWED`(L090)、同じ名前の公開メソッドは `SIBLING_ALLOWED`(L094)、同じ名前の引数の型は `ARGUMENT_ALLOWED`
   (L095。情報)。もう違いの無い許可は L096 が報告するので消す。許可表に載せず別の名前にするのが先(同じ名前で意味が違うものを許可表で残さない)。
@@ -597,7 +610,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   後ろ2つは ruff の `PTH`・`PLW1514` が見る。Maya の DAG パス・アトリビュート名をファイルパスとして扱わない。
   外部ファイルの文字コードを UTF-8 と推測しない。フレームのファイル名を大小を無視して比べる `logger.py`・`decorator.py` は
   `os.path.normcase` のままにし、テストはパスを Maya のコマンドへ文字列で渡すため `os.path` を使う(どちらも `ruff.toml` で除外)。
-- 書式の入口は `_tools/format_mlib.bat`(`ruff format` → `ruff check --fix` → `check_mlib_layout.py --check` の順)。
+- 書式の入口は `_tools/format_mlib.bat`(`ruff format` → `ruff check --fix` → `check_mlib_layout.py --check` → `check_mlib_arguments.py` → `check_mlib_exports.py` の順)。
   選ぶルールと除外の理由は `ruff.toml` に1行ずつ書く。別の版の ruff は `required-version` で拒否し、preview のルールは
   `explicit-preview-rules` でコードを明示したものだけ有効にする。日本語の文中でも括弧は半角 `()` で書く(`RUF001`〜`003`)。
   `--check` は何も変えずに検査するので、コミット前(必ず。上の「全体の原則」)と workflow で使う。ターミナルからは `--no-pause` を付ける。
@@ -688,6 +701,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
     `--tests test_xxx.py`(同名が別フォルダーにあるときは `json/test_file.py` のようにフォルダー付き)、`--versions 2022 2027` で複数版。結果は `__tests__/_output/`(Git 対象外)。
     `--versions` を省いたときの既定は Maya 2025 の1版だけ(`runMaya.py` の `DEFAULT_VERSIONS`。1回のテストが重くなりすぎないようにする)。対応する全版を確かめるときは年を並べて指定する。
   - GUI 限定の確認: `py -3 __tests__/runGui.py --versions 2027 --suite unit|integration|visual`(使い捨ての専用 Maya GUI。`--versions` の既定は `runMaya.py` と同じ1版)。
+  - 引数の表との突き合わせを個別に使うときは `py -3 _tools/check_mlib_arguments.py --check`(`--fix`・`--list [引数名]`・`--rst <ファイル>` も同じ入口)。
   - ruff に無い検査を個別に使うときは `py -3 _tools/check_mlib_layout.py --check`(`--fix`・`--fix-asserts`・`--template-docstrings`・`--outline` も同じ入口。専用のバッチは置かない)。
 - Windows でコマンドを書くときは `python` でなく `py -3`(Python ランチャー)を使う。`python` は Microsoft Store を開くだけの
   ものが先に見つかることがある。バッチは `py -3.14` から新しい順に探し、3.15 以降は使わない(Sphinx の依存の PyYAML をpipが

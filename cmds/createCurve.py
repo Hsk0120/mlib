@@ -11,7 +11,7 @@ from ..decorator import _pick_alias, _require_bool, nativeUnits, preservedSelect
 from ..util import _UNSET
 
 
-def createCurve(points, degree=_UNSET, closed=False, knots=None, *, name=_UNSET, parent=None, d=_UNSET, n=_UNSET):
+def createCurve(points, degree=_UNSET, *, closed=False, knots=None, name=_UNSET, n=_UNSET, parent=None, d=_UNSET):
     """点の並びからNURBSカーブを作り、そのシェイプを返す。
 
     点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、
@@ -30,15 +30,15 @@ def createCurve(points, degree=_UNSET, closed=False, knots=None, *, name=_UNSET,
             有限な数値(boolは除く)。MPointはwで割らずにXYZを使う。座標はカーブのTransformの
             ローカル座標(作成時は単位マトリクス)で、単位はcm。
         degree (int): 次数。1・2・3のどれか。既定は ``cmds.curve`` と同じ3。
+        d (int): degreeの短縮名。degreeと同時には指定できない。
         closed (bool): Trueなら閉じたカーブにする。既定はFalse。
         knots (Sequence[float] | None): 開いたカーブのノットの並び(``cmds.curve`` の ``knot``)。
             個数は ``CV数 + degree - 1``。Noneなら既定のノット。``closed=True`` とは同時に指定できない。
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
             NoneならMayaの既定の名前(``curve1`` など)。既定はNone。
-        parent (Node | str | None): Transformの親。Noneならワールド直下。親のローカル空間に
-            単位マトリクスで置くため、点は親の空間の座標になる。
-        d (int): degreeの短縮名。degreeと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。親のローカル空間に
+            単位マトリクスで置くため、点は親の空間の座標になる。既定はNone。
 
     Returns:
         NurbsCurve: 作ったカーブのシェイプ。Transformは ``getTransform()`` で取得する。

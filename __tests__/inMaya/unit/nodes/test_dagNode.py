@@ -224,7 +224,7 @@ class MergedDagQueryTest(_Case):
             shapes = cube.getShape(all=True)
             self.assertIsInstance(shapes, mlib.Nodes)
             self.assertEqual([node.getName(full=True) for node in shapes], expected)
-            self.assertEqual(shapes[0], cube.getShape(0))
+            self.assertEqual(shapes[0], cube.getShape(index=0))
         with self.subTest(kind="Transform intermediates"):
             cmds.cluster(cube.getName(full=True))
             cmds.select(clear=True)
@@ -255,7 +255,7 @@ class MergedDagQueryTest(_Case):
         cube = mlib.getNode(cmds.polyCube(name=self.name("cube#"), constructionHistory=False)[0])
         for node in (cube, cube.getShape()):
             for call in (
-                lambda: node.getShape(1, all=True),
+                lambda: node.getShape(index=1, all=True),
                 lambda: node.getShape(index=2, all=True),
                 lambda: node.getShape(all=1),
                 lambda: node.getShape(all=None),
@@ -264,7 +264,7 @@ class MergedDagQueryTest(_Case):
                     call()
             # all=False(既定)は今までどおり1つ(無ければ None)。
             self.assertEqual(node.getShape(all=False), cube.getShape())
-        self.assertIsNone(cube.getShape(5))
+        self.assertIsNone(cube.getShape(index=5))
 
     def test_get_parent_instances_matches_cmds(self):
         """getParent(instances=True) は cmds.listRelatives(allParents=True) と同じ親、indirect=True は全インスタンスのパスの親。"""

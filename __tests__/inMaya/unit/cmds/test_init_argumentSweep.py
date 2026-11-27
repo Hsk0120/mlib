@@ -38,12 +38,14 @@ def _as_method(function):
     params = [param for param in signature.parameters.values() if param.kind is not param.VAR_POSITIONAL]
     variadic = len(params) != len(signature.parameters)
 
-    def method(self, **kwargs):
-        return function(*self.positional, **kwargs) if variadic else function(**kwargs)
+    def method(self, *args, **kwargs):
+        return function(*self.positional, **kwargs) if variadic else function(*args, **kwargs)
 
     method.__signature__ = signature.replace(parameters=[inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD), *params])
     method.__doc__ = function.__doc__
     method.__name__ = function.__name__
+    # ``*args`` を持つ関数は、余った位置引数も受け取る(段4の keywordOnly は確かめない)。
+    method.variadic = variadic
     return method
 
 

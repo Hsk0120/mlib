@@ -59,7 +59,7 @@ class Scene(type(Path())):
         """新しい空のシーンにする。
 
         Args:
-            force (bool): Trueなら、保存していない変更を破棄する。
+            force (bool): Trueなら、保存していない変更を破棄する。既定はFalse。
 
         Raises:
             TypeError: forceがboolでない場合。
@@ -77,7 +77,7 @@ class Scene(type(Path())):
         """このファイルを開き、今のシーンにする。
 
         Args:
-            force (bool): Trueなら、保存していない変更を破棄する。
+            force (bool): Trueなら、保存していない変更を破棄する。既定はFalse。
 
         Raises:
             TypeError: forceがboolでない場合。
@@ -92,7 +92,7 @@ class Scene(type(Path())):
 
         Args:
             force (bool): Trueなら、今のシーンとは別のファイルがすでにあっても上書きする。
-                今のシーンと同じファイルへの保存は、forceに関係なく上書きする。
+                今のシーンと同じファイルへの保存は、forceに関係なく上書きする。既定はFalse。
 
         Raises:
             TypeError: forceがboolでない場合。
@@ -139,8 +139,8 @@ class Scene(type(Path())):
         Args:
             nodes (Node | Nodes | Iterable[Node] | Iterable[str] | None): 書き出すノード。Noneならシーン全体を書き出す。
                 ノードを指定したときは、その選択で書き出し(``exportSelected``)、終わったら選択を元に戻す。
-                並びは、Nodeだけか名前だけにする(``Nodes`` と同じく、混ぜるとTypeError)。
-            force (bool): Trueなら、ファイルがすでにあっても上書きする。
+                並びは、Nodeだけか名前だけにする(``Nodes`` と同じく、混ぜるとTypeError)。既定はNone。
+            force (bool): Trueなら、ファイルがすでにあっても上書きする。既定はFalse。
 
         Raises:
             TypeError: nodesが対応しない型の場合、Nodeと名前が混ざっている場合、またはforceがboolでない場合。

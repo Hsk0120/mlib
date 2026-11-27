@@ -10,7 +10,7 @@ from ..util import _UNSET
 _UNIT_CONVERSIONS = ("all", "none", "angularOnly")
 
 
-def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversion=_UNSET, n=_UNSET, ae=_UNSET, uc=_UNSET):
+def createExpression(string, *, name=_UNSET, n=_UNSET, alwaysEvaluate=_UNSET, ae=_UNSET, unitConversion=_UNSET, uc=_UNSET):
     """エクスプレッション(expressionノード)を作り、そのノードを返す。
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。
@@ -21,10 +21,10 @@ def createExpression(string, *, name=_UNSET, alwaysEvaluate=_UNSET, unitConversi
     Args:
         string (str): 式(MELのエクスプレッションの文)。空でない文字列。
         name (str | None): 付けたい名前。NoneならMayaの既定の名前(``expression1`` など)。既定はNone。
-        alwaysEvaluate (bool): Trueなら、入力が変わらなくても毎回評価する。省略するとMayaの既定(True)。
-        unitConversion (str): 単位の換算。``"all"``・``"none"``・``"angularOnly"`` のどれか。省略するとMayaの既定(``"all"``)。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        alwaysEvaluate (bool | None): Trueなら、入力が変わらなくても毎回評価する。省略するとMayaの既定(True)。
         ae (bool): alwaysEvaluateの短縮名。alwaysEvaluateと同時には指定できない。
+        unitConversion (str | None): 単位の換算。``"all"``・``"none"``・``"angularOnly"`` のどれか。省略するとMayaの既定(``"all"``)。
         uc (str): unitConversionの短縮名。unitConversionと同時には指定できない。
 
     Returns:

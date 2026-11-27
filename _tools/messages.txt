@@ -38,21 +38,24 @@ format.badArgument=      使える引数は --check と --no-pause だけです�
 format.noRuff= [NG] ruff が見つかりません。先に次のバッチを1回実行して入れてください。
 format.noRuff=      "%MLIB_TOOLS_DIR%setup.bat"
 format.step1.fix=
-format.step1.fix==== 1/4 ruff format: 空白・改行・引用符を整形します ===
+format.step1.fix==== 1/5 ruff format: 空白・改行・引用符を整形します ===
 format.step2.fix=
-format.step2.fix==== 2/4 ruff check --fix: 直せるものを直し、残りを表示します ===
+format.step2.fix==== 2/5 ruff check --fix: 直せるものを直し、残りを表示します ===
 format.step1.check=
-format.step1.check==== 1/4 ruff format --check: 整形済みかを調べます(書き換えません) ===
+format.step1.check==== 1/5 ruff format --check: 整形済みかを調べます(書き換えません) ===
 format.step2.check=
-format.step2.check==== 2/4 ruff check: ルール違反を調べます(書き換えません) ===
+format.step2.check==== 2/5 ruff check: ルール違反を調べます(書き換えません) ===
 format.step3=
-format.step3==== 3/4 check_mlib_layout: ruffに無い配置・docstringの検査 ===
+format.step3==== 3/5 check_mlib_layout: ruffに無い配置・docstringの検査 ===
 format.step4=
-format.step4==== 4/4 check_mlib_exports: 公開名と明示した公開の一致 ===
-format.steps= [%MLIB_FORMAT_STEP_FORMAT%] 1/4 ruff format          整形
-format.steps= [%MLIB_FORMAT_STEP_CHECK%] 2/4 ruff check           ルールの検査
-format.steps= [%MLIB_FORMAT_STEP_LAYOUT%] 3/4 check_mlib_layout    配置・docstringの検査
-format.steps= [%MLIB_FORMAT_STEP_EXPORTS%] 4/4 check_mlib_exports   公開名の検査
+format.step4==== 4/5 check_mlib_arguments: 引数の表との一致(--check 以外では説明と並びを直します) ===
+format.step5=
+format.step5==== 5/5 check_mlib_exports: 公開名と明示した公開の一致 ===
+format.steps= [%MLIB_FORMAT_STEP_FORMAT%] 1/5 ruff format           整形
+format.steps= [%MLIB_FORMAT_STEP_CHECK%] 2/5 ruff check            ルールの検査
+format.steps= [%MLIB_FORMAT_STEP_LAYOUT%] 3/5 check_mlib_layout     配置・docstringの検査
+format.steps= [%MLIB_FORMAT_STEP_ARGUMENTS%] 4/5 check_mlib_arguments  引数の検査
+format.steps= [%MLIB_FORMAT_STEP_EXPORTS%] 5/5 check_mlib_exports    公開名の検査
 format.ok= [OK] 整形と検査はすべて通りました。
 format.ng= [NG] 問題が残っています。[NG] の手順の出力を上で確認してください。
 format.notRun= [NG] 実行できませんでした。上のメッセージを確認してください。

@@ -308,36 +308,36 @@ class SkinSettingsTest(_SkinCase):
     def test_settings_by_name(self):
         """名前で読み書きし、cmds の値と一致する。不正な名前は ValueError、型違いは TypeError。"""
         skin = self.skinned()
-        self.assertEqual(skin.getMode("skinning"), "classicLinear")
-        self.assertIsNone(skin.setMode("dualQuaternion", "skinning"))
+        self.assertEqual(skin.getMode(kind="skinning"), "classicLinear")
+        self.assertIsNone(skin.setMode("dualQuaternion", kind="skinning"))
         self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 1)
-        self.assertEqual(skin.getMode("normalize"), "interactive")
-        skin.setMode("post", "normalize")
+        self.assertEqual(skin.getMode(kind="normalize"), "interactive")
+        skin.setMode("post", kind="normalize")
         self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), 2)
         self.assertEqual(skin.getMaxInfluences(maintain=True), bool(cmds.getAttr(skin.getName(full=True) + ".maintainMaxInfluences")))
-        self.assertRaises(ValueError, skin.setMode, "linear", "skinning")
-        self.assertRaises(TypeError, skin.setMode, 1, "normalize")
+        self.assertRaises(ValueError, skin.setMode, "linear", kind="skinning")
+        self.assertRaises(TypeError, skin.setMode, 1, kind="normalize")
         # kind を省くと "skinning"。知らない kind は ValueError、str 以外は TypeError で、設定は変わらない。
-        self.assertEqual(skin.getMode(), skin.getMode("skinning"))
+        self.assertEqual(skin.getMode(), skin.getMode(kind="skinning"))
         skin.setMode("classicLinear")
         self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 0)
         skin.setMode("dualQuaternion")
         for kind, error in (("blend", ValueError), ("", ValueError), (1, TypeError), (None, TypeError)):
             with self.subTest(kind=kind):
-                self.assertRaises(error, skin.getMode, kind)
-                self.assertRaises(error, skin.setMode, "post", kind)
+                self.assertRaises(error, skin.getMode, kind=kind)
+                self.assertRaises(error, skin.setMode, "post", kind=kind)
         # 名前は kind ごとに別で、取り違えは ValueError。
-        self.assertRaises(ValueError, skin.setMode, "post", "skinning")
-        self.assertRaises(ValueError, skin.setMode, "dualQuaternion", "normalize")
+        self.assertRaises(ValueError, skin.setMode, "post", kind="skinning")
+        self.assertRaises(ValueError, skin.setMode, "dualQuaternion", kind="normalize")
         self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".skinningMethod"), 1)
         self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".normalizeWeights"), 2)
         self.assertIs(skin.getMaxInfluences(maintain=True), False)
         self.assertEqual(skin.getMaxInfluences(), cmds.getAttr(skin.getName(full=True) + ".maxInfluences"))
         self.assertRaises(TypeError, skin.getMaxInfluences, maintain=1)
         cmds.flushUndo()
-        skin.setMode("weightBlended", "skinning")
+        skin.setMode("weightBlended", kind="skinning")
         cmds.undo()
-        self.assertEqual(skin.getMode("skinning"), "dualQuaternion")
+        self.assertEqual(skin.getMode(kind="skinning"), "dualQuaternion")
 
 
 if __name__ == "__main__":

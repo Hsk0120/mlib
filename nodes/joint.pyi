@@ -151,10 +151,9 @@ class Joint(Transform):
         親のスケールによっては、姿勢やスキンの見た目が変わる。
 
         Args:
-            state (bool): Trueなら補正をオン、Falseならオフにする。
+            state (bool): Trueなら補正をオン、Falseならオフにする。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -189,8 +188,7 @@ class Joint(Transform):
                 ない場合は、同じ回転になるXYZの値へ直して書く。
             unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、値が有限か・書き込めるか(ロック・入力の接続が無いか)を確かめる。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、値が有限かと、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -211,10 +209,9 @@ class Joint(Transform):
 
         Args:
             attributes (str | Plug | Iterable[str | Plug] | None): :meth:`Node.resetAttrs` と同じ。Noneなら、
-                jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。
+                jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             Plugs: 既定値へ戻したアトリビュート。jointOrientの成分は末尾に並ぶ。すべての変更を1回のUndoにまとめる。
@@ -309,7 +306,7 @@ class Joint(Transform):
             RuntimeError: ジョイントが無効な場合、またはロック・入力の接続などでMayaが変更を拒否した場合。
         """
         ...
-    def mirror(self, plane: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> Joint:
+    def mirror(self, plane: str | int = ..., *, behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> Joint:
         """ジョイントのチェーンをミラーした、新しいチェーンを作る。
 
         自身と子孫のジョイント(と、子のikEffectorなど)を、Maya標準の ``cmds.mirrorJoint`` で複製してミラーする。
@@ -354,7 +351,7 @@ class Joint(Transform):
 
         Args:
             source (object | None): 接続元のノード。Transformとして扱えるものを渡す。Noneなら直接の親を使う。
-                親が無ければ何も変えない。
+                親が無ければ何も変えない。既定はNone。
             force (bool): Trueなら、すでにある入力を置き換え、接続先のロックを一時的に外す。既定はFalse。
                 ロックを戻すやり方は :meth:`~mlib.plugs.plug.Plug.connect` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -408,8 +405,7 @@ class Joint(Transform):
         Args:
             value (float): 0以上の有限な数値。実際の表示の大きさは、Maya全体の表示倍率でも変わる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。Jointsから呼ぶと、どのジョイントにも同じ値を設定する。
@@ -444,11 +440,10 @@ class Joint(Transform):
         Args:
             value (Sequence[float] | EulerRotate | None): XYZの角度。Noneなら今のrotateを使う。EulerRotateの代わりに、
                 元になっているOpenMayaの型も受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく
-                換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。
+                換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。既定はNone。
             unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -502,8 +497,7 @@ class Joint(Transform):
             axes (str): ``"xyz"``・``"xz"`` などの軸名の並び。順番や大文字・小文字は問わない。
                 空文字列ならすべての軸を固定する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -547,7 +541,7 @@ class Joint(Transform):
         途中で失敗しても、それまでに済んだ処理は戻さない。
 
         Args:
-            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。
+            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。既定はNone。
             transferToParent (bool): Trueなら、ウェイトをいちばん近い祖先のインフルエンスへ足す。既定はTrue。
                 Falseの場合や、移す先が無い場合は、Maya標準の配り直しに任せる。
             repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
@@ -562,7 +556,7 @@ class Joint(Transform):
                 または変更に失敗した場合。
         """
         ...
-    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ..., fast: bool = ...) -> None:
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -580,13 +574,12 @@ class Joint(Transform):
         引数は :meth:`Node.delete <mlib.nodes.node.Node.delete>` と同じ(Joint以外では、インフルエンスの引数に働きは無い)。
 
         Args:
-            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
-                既定はFalse。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
-                OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
+            skipConnected (bool): Trueなら、接続があるノードは削除しない。既定はFalse。自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は、何もしない。
             removeInfluence (bool): Falseなら、インフルエンスから外さず、Maya標準の削除だけを行う。既定はTrue。
             transferToParent (bool): Falseなら、ウェイトを祖先へ移さず、Maya標準の配り直しに任せる。既定はTrue。
             repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
+                OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
 
         Returns:
             None: 値を返さない。
@@ -618,8 +611,7 @@ class Joint(Transform):
         Args:
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -729,7 +721,7 @@ class Joint(Transform):
 
         Args:
             distance (float | None): 子の位置から離す距離(cm)。正の有限な数。
-                Noneならチェーンの長さ(自身から子までと、子から孫までの長さの和)を使う。
+                Noneならチェーンの長さ(自身から子までと、子から孫までの長さの和)を使う。既定はNone。
 
         Returns:
             Vector: ワールド空間の位置(cm)。
@@ -886,10 +878,10 @@ class Joints(Nodes[Joint]):
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。
 
         Args:
-            orientation (str): :meth:`Joint.orient` と同じ。
-            secondaryAxisOrient (str): :meth:`Joint.orient` と同じ。
-            children (bool): :meth:`Joint.orient` と同じ。
-            zeroScaleOrient (bool): :meth:`Joint.orient` と同じ。
+            orientation (str): :meth:`Joint.orient` と同じ。既定は ``"xyz"``。
+            secondaryAxisOrient (str): :meth:`Joint.orient` と同じ。既定は ``"yup"``。
+            children (bool): :meth:`Joint.orient` と同じ。既定はTrue。
+            zeroScaleOrient (bool): :meth:`Joint.orient` と同じ。既定はTrue。
 
         Returns:
             None: 値を返さない。
@@ -914,9 +906,9 @@ class Joints(Nodes[Joint]):
         変える前にすべての対象を確かめる。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。
-            transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。
-            repair (bool): :meth:`Joint.removeInfluence` と同じ。
+            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。既定はNone。
+            transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。既定はTrue。
+            repair (bool): :meth:`Joint.removeInfluence` と同じ。既定はFalse。
 
         Returns:
             None: 値を返さない。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
@@ -929,7 +921,7 @@ class Joints(Nodes[Joint]):
                 またはMayaでの変更が失敗した場合。
         """
         ...
-    def delete(self, *, skipConnected: bool = ..., fast: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ...) -> None:
+    def delete(self, *, skipConnected: bool = ..., removeInfluence: bool = ..., transferToParent: bool = ..., repair: bool = ..., fast: bool = ...) -> None:
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -938,11 +930,11 @@ class Joints(Nodes[Joint]):
         インフルエンスから外す必要がなく、ノードの種類を問わずまとめて削除したいときは ``mlib.delete`` を使う。
 
         Args:
-            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
+            skipConnected (bool): Trueなら、接続があるノードは削除しない。既定はFalse。自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。
+            removeInfluence (bool): :meth:`Joint.delete` と同じ。既定はTrue。
+            transferToParent (bool): :meth:`Joint.delete` と同じ。既定はTrue。
+            repair (bool): :meth:`Joint.delete` と同じ。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
-            removeInfluence (bool): :meth:`Joint.delete` と同じ。
-            transferToParent (bool): :meth:`Joint.delete` と同じ。
-            repair (bool): :meth:`Joint.delete` と同じ。
 
         Returns:
             None: 値を返さない。コレクションが空なら何もしない。
@@ -959,8 +951,7 @@ class Joints(Nodes[Joint]):
         Args:
             value (float): :meth:`Joint.setRadius` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は1回のUndoにまとめる。
@@ -975,10 +966,9 @@ class Joints(Nodes[Joint]):
         """各ジョイントに、並んでいる順に :meth:`Joint.setSegmentScaleCompensate` を行う。
 
         Args:
-            state (bool): :meth:`Joint.setSegmentScaleCompensate` と同じ。
+            state (bool): :meth:`Joint.setSegmentScaleCompensate` と同じ。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は1回のUndoにまとめる。
@@ -1006,7 +996,7 @@ class Joints(Nodes[Joint]):
     def getHikJointName(self) -> list[str]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getHikJointName` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirror(self, plane: str | int = ..., behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> list[Joint]:
+    def mirror(self, plane: str | int = ..., *, behavior: bool = ..., searchReplace: tuple[str, str] | None = ...) -> list[Joint]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.mirror` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def connectInverseScale(self, source: object | None = ..., *, force: bool = ..., fast: bool = ...) -> list[None]:
@@ -1063,7 +1053,7 @@ class Joints(Nodes[Joint]):
     def getPolePosition(self, distance: float | None = ...) -> list[Vector]:
         """各要素の :meth:`~mlib.nodes.joint.Joint.getPolePosition` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addConstraint(self, sources: Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug | Iterable, type: str = ..., maintainOffset: bool = ..., *, typ: str = ..., mo: bool = ..., createCache: Sequence[float] = ..., cc: Sequence[float] = ..., decompRotationToChild: bool = ..., dr: bool = ..., deleteCache: bool = ..., dc: bool = ..., edit: bool = ..., e: bool = ..., layer: str = ..., l: str = ..., name: str = ..., n: str = ..., query: bool = ..., q: bool = ..., remove: bool = ..., rm: bool = ..., skipRotate: str | Sequence[str] = ..., sr: str | Sequence[str] = ..., skipTranslate: str | Sequence[str] = ..., st: str | Sequence[str] = ..., targetList: bool = ..., tl: bool = ..., weight: float = ..., w: float = ..., weightAliasList: bool = ..., wal: bool = ..., offset: Sequence[float] = ..., o: Sequence[float] = ..., skip: str | Sequence[str] = ..., sk: str | Sequence[str] = ..., scaleCompensate: bool = ..., sc: bool = ..., aimVector: Sequence[float] = ..., aim: Sequence[float] = ..., upVector: Sequence[float] = ..., u: Sequence[float] = ..., worldUpObject: Node | Plug | Component | str | om2.MObject | om2.MDagPath | om2.MPlug = ..., wuo: Node | Plug | Component | str | om2.MObject | om2.MDagPath | om2.MPlug = ..., worldUpType: str = ..., wut: str = ..., worldUpVector: Sequence[float] = ..., wu: Sequence[float] = ..., **kwargs) -> list[Constraint]:
+    def addConstraint(self, sources: Node | str | Plug | Component | Components | om2.MObject | om2.MDagPath | om2.MPlug | Iterable, *, type: str = ..., typ: str = ..., maintainOffset: bool = ..., mo: bool = ..., createCache: Sequence[float] = ..., cc: Sequence[float] = ..., decompRotationToChild: bool = ..., dr: bool = ..., deleteCache: bool = ..., dc: bool = ..., edit: bool = ..., e: bool = ..., layer: str = ..., l: str = ..., name: str = ..., n: str = ..., query: bool = ..., q: bool = ..., remove: bool = ..., rm: bool = ..., skipRotate: str | Sequence[str] = ..., sr: str | Sequence[str] = ..., skipTranslate: str | Sequence[str] = ..., st: str | Sequence[str] = ..., targetList: bool = ..., tl: bool = ..., weight: float = ..., w: float = ..., weightAliasList: bool = ..., wal: bool = ..., offset: Sequence[float] = ..., o: Sequence[float] = ..., skip: str | Sequence[str] = ..., sk: str | Sequence[str] = ..., scaleCompensate: bool = ..., sc: bool = ..., aimVector: Sequence[float] = ..., aim: Sequence[float] = ..., upVector: Sequence[float] = ..., u: Sequence[float] = ..., worldUpObject: Node | Plug | Component | str | om2.MObject | om2.MDagPath | om2.MPlug = ..., wuo: Node | Plug | Component | str | om2.MObject | om2.MDagPath | om2.MPlug = ..., worldUpType: str = ..., wut: str = ..., worldUpVector: Sequence[float] = ..., wu: Sequence[float] = ..., **kwargs) -> list[Constraint]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.addConstraint` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def deleteConstraints(self, *, fast: bool = ...) -> list[list[str]]:
@@ -1120,13 +1110,13 @@ class Joints(Nodes[Joint]):
     def importCurveShapes(self, path: str | os.PathLike) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.importCurveShapes` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getShape(self, index: int = ..., *, intermediates: bool = ..., all: bool = ...) -> list[Shape | Nodes[Shape] | None]:
+    def getShape(self, *, index: int = ..., intermediates: bool = ..., all: bool = ...) -> list[Shape | Nodes[Shape] | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getShape` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTransform(self) -> list[Transform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTransform` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def matchTransform(self, target: Transform | str | om2.MObject | om2.MDagPath, position: bool = ..., rotation: bool = ..., scale: bool = ..., pivots: bool = ...) -> list[None]:
+    def matchTransform(self, target: Transform | str | om2.MObject | om2.MDagPath, *, position: bool = ..., rotation: bool = ..., scale: bool = ..., pivots: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.matchTransform` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
@@ -1138,7 +1128,7 @@ class Joints(Nodes[Joint]):
     def getMatrix(self, worldSpace: bool = ..., *, exclusive: bool = ..., inverse: bool = ..., ws: bool = ...) -> list[Matrix]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., *, safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[dict[str, Translate | EulerRotate | Scale | Shear] | None]:
+    def setMatrix(self, matrix: Matrix | Iterable[float], worldSpace: bool = ..., *, get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[dict[str, Translate | EulerRotate | Scale | Shear] | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setMatrix` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getTransformation(self) -> list[Transformation]:
@@ -1150,13 +1140,13 @@ class Joints(Nodes[Joint]):
     def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Translate | None]:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[Translate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getRotate(self, worldSpace: bool = ..., *, order: int | str | None = ..., ws: bool = ...) -> list[EulerRotate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
+    def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, relative: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getRotateOrder(self) -> list[str]:
@@ -1168,19 +1158,19 @@ class Joints(Nodes[Joint]):
     def getScale(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Scale]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getScale` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setScale(self, value: Iterable[float] | float, worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Scale | None]:
+    def setScale(self, value: Iterable[float] | float, worldSpace: bool = ..., *, relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[Scale | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setScale` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getShear(self, worldSpace: bool = ..., *, ws: bool = ...) -> list[Shear]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, relative: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[Shear | None]:
+    def setShear(self, value: Iterable[float], worldSpace: bool = ..., *, relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[Shear | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setShear` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getQuaternion(self, worldSpace: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., ws: bool = ...) -> list[Quaternion]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., preserve: bool = ..., safe: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
+    def setQuaternion(self, value: Quaternion | om2.MQuaternion | Iterable[float], worldSpace: bool = ..., *, rotateAxis: bool = ..., rotate: bool = ..., jointOrient: bool = ..., preserve: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setQuaternion` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def makeIdentity(self, *, apply: bool = ..., a: bool = ..., jointOrient: bool = ..., jo: bool = ..., normal: int = ..., n: int = ..., preserveNormals: bool = ..., pn: bool = ..., rotate: bool = ..., r: bool = ..., scale: bool = ..., s: bool = ..., translate: bool = ..., t: bool = ..., query: bool = ..., q: bool = ..., edit: bool = ..., e: bool = ..., **kwargs: object) -> list[None]:
@@ -1198,7 +1188,7 @@ class Joints(Nodes[Joint]):
     def eulerFilter(self, *, indirect: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.eulerFilter` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getClosestAxisToVector(self, refVector: Vector | Iterable[float], includeNegative: bool = ...) -> list[str]:
+    def getClosestAxisToVector(self, refVector: Vector | Iterable[float], *, includeNegative: bool = ...) -> list[str]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getClosestAxisToVector` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getLimits(self, *, unit: str = ...) -> list[dict[str, tuple[float | None, float | None]]]:
@@ -1228,7 +1218,7 @@ class Joints(Nodes[Joint]):
     def getOutlinerOrder(self) -> list[int]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getOutlinerOrder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def reorder(self, *, index: int | None = ..., front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int = ..., r: int = ...) -> list[None]:
+    def reorder(self, *, index: int | None = ..., front: bool = ..., f: bool = ..., back: bool = ..., b: bool = ..., relative: int | None = ..., r: int = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.reorder` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isInUnderworld(self) -> list[bool]:
@@ -1237,7 +1227,7 @@ class Joints(Nodes[Joint]):
     def isInModel(self) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.isInModel` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getBoundingBox(self, worldSpace: bool = ..., *, ws: bool = ..., includeInvisible: bool = ..., corners: bool = ...) -> list[om2.MBoundingBox | list[Vector]]:
+    def getBoundingBox(self, worldSpace: bool = ..., *, includeInvisible: bool = ..., corners: bool = ..., ws: bool = ...) -> list[om2.MBoundingBox | list[Vector]]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.getBoundingBox` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def isIntermediateObject(self) -> list[bool]:
@@ -1279,7 +1269,7 @@ class Joints(Nodes[Joint]):
     def setShadingOverride(self, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.setShadingOverride` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def deleteHistory(self, keepDeformers: bool = ...) -> list[None]:
+    def deleteHistory(self, *, keepDeformers: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.dagNode.DagNode.deleteHistory` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def sameNode(self, other: object) -> list[bool]:
@@ -1300,7 +1290,7 @@ class Joints(Nodes[Joint]):
     def setDgTimer(self, state: bool | None = ..., *, reset: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setDgTimer` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getType(self, inherited: bool = ...) -> list[str | list[str]]:
+    def getType(self, *, inherited: bool = ...) -> list[str | list[str]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getType` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def hasFn(self, fn: int) -> list[bool]:
@@ -1348,13 +1338,13 @@ class Joints(Nodes[Joint]):
     def setNamespace(self, namespace: str | Namespace, *, fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.setNamespace` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def rename(self, name: str, ignoreShape: bool = ..., *, fast: bool = ...) -> list[None]:
+    def rename(self, name: str, *, ignoreShape: bool = ..., fast: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.node.Node.rename` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def duplicate(self, name: str | None = ..., *, suffix: str | None = ..., **kwargs: object) -> list[Node]:
         """各要素の :meth:`~mlib.nodes.node.Node.duplicate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getConnections(self, *, s: bool = ..., d: bool = ..., t: str | None = ..., et: bool = ..., scn: bool = ..., source: bool = ..., destination: bool = ..., type: str | None = ..., exactType: bool = ..., skipConversionNodes: bool = ..., asPair: bool = ..., asNode: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
+    def getConnections(self, *, source: bool = ..., s: bool = ..., destination: bool = ..., d: bool = ..., type: str | None = ..., t: str | None = ..., exactType: bool = ..., et: bool = ..., skipConversionNodes: bool = ..., scn: bool = ..., asPair: bool = ..., asNode: bool = ..., index: int | None = ...) -> list[Plugs | Nodes | list | Plug | Node | tuple | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.getConnections` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setKey(self, attributes: str | Iterable[str] | None = ..., *, unit: str | None = ..., timeUnit: str = ..., uiUnits: bool = ..., **kwargs) -> list[None]:
@@ -1387,7 +1377,7 @@ class Joints(Nodes[Joint]):
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., getPlug: bool = ..., *, skipExisting: bool = ..., fast: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., ln: str = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., pxy: Plug | str | None = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., cb: bool = ..., **kwargs) -> list[Plug | None]:
+    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., *, channelBox: bool = ..., cb: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., pxy: Plug | str | None = ..., getPlug: bool = ..., skipExisting: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., fast: bool = ..., ln: str = ..., **kwargs) -> list[Plug | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.addAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def moveAttrOrder(self, name: str, offset: int) -> list[None]:

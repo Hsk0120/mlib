@@ -189,10 +189,9 @@ class Joint(Transform):
         親のスケールによっては、姿勢やスキンの見た目が変わる。
 
         Args:
-            state (bool): Trueなら補正をオン、Falseならオフにする。
+            state (bool): Trueなら補正をオン、Falseならオフにする。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -232,8 +231,7 @@ class Joint(Transform):
                 ない場合は、同じ回転になるXYZの値へ直して書く。
             unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、値が有限か・書き込めるか(ロック・入力の接続が無いか)を確かめる。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、値が有限かと、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -267,10 +265,9 @@ class Joint(Transform):
 
         Args:
             attributes (str | Plug | Iterable[str | Plug] | None): :meth:`Node.resetAttrs` と同じ。Noneなら、
-                jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。
+                jointOrientのXYZのうち、ロック・入力の接続が無い成分も対象にする。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             Plugs: 既定値へ戻したアトリビュート。jointOrientの成分は末尾に並ぶ。すべての変更を1回のUndoにまとめる。
@@ -404,7 +401,7 @@ class Joint(Transform):
         with undoChunk("mlibJointOrient"):
             self._orient(flags)
 
-    def mirror(self, plane="YZ", behavior=True, searchReplace=None):
+    def mirror(self, plane="YZ", *, behavior=True, searchReplace=None):
         """ジョイントのチェーンをミラーした、新しいチェーンを作る。
 
         自身と子孫のジョイント(と、子のikEffectorなど)を、Maya標準の ``cmds.mirrorJoint`` で複製してミラーする。
@@ -489,7 +486,7 @@ class Joint(Transform):
 
         Args:
             source (object | None): 接続元のノード。Transformとして扱えるものを渡す。Noneなら直接の親を使う。
-                親が無ければ何も変えない。
+                親が無ければ何も変えない。既定はNone。
             force (bool): Trueなら、すでにある入力を置き換え、接続先のロックを一時的に外す。既定はFalse。
                 ロックを戻すやり方は :meth:`~mlib.plugs.plug.Plug.connect` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
@@ -564,8 +561,7 @@ class Joint(Transform):
         Args:
             value (float): 0以上の有限な数値。実際の表示の大きさは、Maya全体の表示倍率でも変わる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。Jointsから呼ぶと、どのジョイントにも同じ値を設定する。
@@ -613,11 +609,10 @@ class Joint(Transform):
         Args:
             value (Sequence[float] | EulerRotate | None): XYZの角度。Noneなら今のrotateを使う。EulerRotateの代わりに、
                 元になっているOpenMayaの型も受け付ける。EulerRotateは自分の単位(rad)を持つので、unitに関係なく
-                換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。
+                換算しない。回転順序がノードのrotateOrderと違う場合は、同じ回転になる値へ直して書く。既定はNone。
             unit (str): 3つの数値の角度の単位。``"deg"`` は度、``"rad"`` はラジアン。既定は ``"deg"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -695,8 +690,7 @@ class Joint(Transform):
             axes (str): ``"xyz"``・``"xz"`` などの軸名の並び。順番や大文字・小文字は問わない。
                 空文字列ならすべての軸を固定する。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -762,7 +756,7 @@ class Joint(Transform):
         途中で失敗しても、それまでに済んだ処理は戻さない。
 
         Args:
-            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。
+            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら接続しているすべてのskinCluster。既定はNone。
             transferToParent (bool): Trueなら、ウェイトをいちばん近い祖先のインフルエンスへ足す。既定はTrue。
                 Falseの場合や、移す先が無い場合は、Maya標準の配り直しに任せる。
             repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
@@ -790,7 +784,7 @@ class Joint(Transform):
             )
             _remove_influences([(skin, [self]) for skin in skins], transferToParent, repair)
 
-    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
+    def delete(self, *, skipConnected=False, removeInfluence=True, transferToParent=True, repair=False, fast=False):
         """インフルエンスから外してから、自身と子孫を削除する。
 
         Maya標準の削除では、消えたジョイントの列にウェイトが残ってしまう。
@@ -808,13 +802,12 @@ class Joint(Transform):
         引数は :meth:`Node.delete <mlib.nodes.node.Node.delete>` と同じ(Joint以外では、インフルエンスの引数に働きは無い)。
 
         Args:
-            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は何もしない。
-                既定はFalse。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
-                OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
+            skipConnected (bool): Trueなら、接続があるノードは削除しない。既定はFalse。自身かDAGの子孫にDGの接続(skinClusterとの接続も含む)がある場合は、何もしない。
             removeInfluence (bool): Falseなら、インフルエンスから外さず、Maya標準の削除だけを行う。既定はTrue。
             transferToParent (bool): Falseなら、ウェイトを祖先へ移さず、Maya標準の配り直しに任せる。既定はTrue。
             repair (bool): Trueなら、不正なウェイトを直してから外す。直すときに正規化はしない。既定はFalse。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。ウェイトの書き込みと削除はOpenMayaで行う。
+                OpenMayaに無い、インフルエンスから外す処理だけは、Undoに記録しないcmdsで行う。結果は通常と同じ。
 
         Returns:
             None: 値を返さない。
@@ -849,8 +842,7 @@ class Joint(Transform):
         Args:
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1045,7 +1037,7 @@ class Joint(Transform):
 
         Args:
             distance (float | None): 子の位置から離す距離(cm)。正の有限な数。
-                Noneならチェーンの長さ(自身から子までと、子から孫までの長さの和)を使う。
+                Noneならチェーンの長さ(自身から子までと、子から孫までの長さの和)を使う。既定はNone。
 
         Returns:
             Vector: ワールド空間の位置(cm)。
@@ -1269,10 +1261,10 @@ class Joints(Nodes):
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。
 
         Args:
-            orientation (str): :meth:`Joint.orient` と同じ。
-            secondaryAxisOrient (str): :meth:`Joint.orient` と同じ。
-            children (bool): :meth:`Joint.orient` と同じ。
-            zeroScaleOrient (bool): :meth:`Joint.orient` と同じ。
+            orientation (str): :meth:`Joint.orient` と同じ。既定は ``"xyz"``。
+            secondaryAxisOrient (str): :meth:`Joint.orient` と同じ。既定は ``"yup"``。
+            children (bool): :meth:`Joint.orient` と同じ。既定はTrue。
+            zeroScaleOrient (bool): :meth:`Joint.orient` と同じ。既定はTrue。
 
         Returns:
             None: 値を返さない。
@@ -1303,9 +1295,9 @@ class Joints(Nodes):
         変える前にすべての対象を確かめる。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。
-            transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。
-            repair (bool): :meth:`Joint.removeInfluence` と同じ。
+            skinCluster (SkinCluster | str | None): 対象のskinCluster。Noneなら、各ジョイントがインフルエンスになっているすべてのskinCluster。既定はNone。
+            transferToParent (bool): :meth:`Joint.removeInfluence` と同じ。既定はTrue。
+            repair (bool): :meth:`Joint.removeInfluence` と同じ。既定はFalse。
 
         Returns:
             None: 値を返さない。skinClusterを省略した場合、どこにもバインドされていないジョイントは変えない。
@@ -1334,7 +1326,7 @@ class Joints(Nodes):
                     raise ValueError("すべてのインフルエンスを削除することはできません")
             _remove_influences(groups, transferToParent, repair)
 
-    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
+    def delete(self, *, skipConnected=False, removeInfluence=True, transferToParent=True, repair=False, fast=False):
         """すべてのジョイントをインフルエンスから外してから、ジョイントと子孫をまとめて削除する。
 
         外し方は :meth:`Joint.delete` と同じ。一緒に消える親子はまとめて外すので、
@@ -1343,11 +1335,11 @@ class Joints(Nodes):
         インフルエンスから外す必要がなく、ノードの種類を問わずまとめて削除したいときは ``mlib.delete`` を使う。
 
         Args:
-            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。既定はFalse。
+            skipConnected (bool): Trueなら、接続があるノードは削除しない。既定はFalse。自身かDAGの子孫にDGの接続があるジョイントだけを除いて削除する。
+            removeInfluence (bool): :meth:`Joint.delete` と同じ。既定はTrue。
+            transferToParent (bool): :meth:`Joint.delete` と同じ。既定はTrue。
+            repair (bool): :meth:`Joint.delete` と同じ。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。詳細は :meth:`Joint.delete` と同じ。
-            removeInfluence (bool): :meth:`Joint.delete` と同じ。
-            transferToParent (bool): :meth:`Joint.delete` と同じ。
-            repair (bool): :meth:`Joint.delete` と同じ。
 
         Returns:
             None: 値を返さない。コレクションが空なら何もしない。
@@ -1366,8 +1358,7 @@ class Joints(Nodes):
         Args:
             value (float): :meth:`Joint.setRadius` と同じ。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は1回のUndoにまとめる。
@@ -1383,10 +1374,9 @@ class Joints(Nodes):
         """各ジョイントに、並んでいる順に :meth:`Joint.setSegmentScaleCompensate` を行う。
 
         Args:
-            state (bool): :meth:`Joint.setSegmentScaleCompensate` と同じ。
+            state (bool): :meth:`Joint.setSegmentScaleCompensate` と同じ。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は1回のUndoにまとめる。

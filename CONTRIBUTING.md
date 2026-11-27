@@ -49,8 +49,13 @@ _tools\test_mlib.bat --no-pause --versions 2027 --suite all
 ### 1. コードの静的解析と修正
 
 `ruff format`(空白・空行・改行位置・引用符) → `ruff check --fix`(importの並び・未使用名・pathlib等)
-→ `check_mlib_layout.py --check`(ruffに無い検査) → `check_mlib_exports.py`(公開名と明示宣言の一致)
+→ `check_mlib_layout.py --check`(ruffに無い検査) → `check_mlib_arguments.py`(引数の表との一致。`--check` を付けないときは、
+docstring の引数の説明・既定値の記述・型・並びを表の形へ直し、引数の一覧のページを作り直す) → `check_mlib_exports.py`(公開名と明示宣言の一致)
 を順に実行します。
+
+引数を足す・変えるときは、同じ名前の引数がほかのメソッドでどう受けているかを
+`py -3 _tools\check_mlib_arguments.py --list <引数名>` で確かめます。2か所以上で使う名前の決まり(受け方・既定値・説明の決まり文句)は
+`_tools/check_mlib_arguments.py` の `ARGUMENTS` が正本で、違うものはその表に理由を書きます。
 
 | 引数 | 動き |
 |---|---|

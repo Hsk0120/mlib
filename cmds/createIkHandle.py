@@ -42,7 +42,7 @@ def _record_chain_angles(start, end):
 
 
 def createIkHandle(
-    startJoint=_UNSET, endJoint=_UNSET, solver=_UNSET, *, name=_UNSET, curve=_UNSET, sj=_UNSET, ee=_UNSET, sol=_UNSET, n=_UNSET, c=_UNSET, **kwargs
+    startJoint=_UNSET, endJoint=_UNSET, solver=_UNSET, *, name=_UNSET, n=_UNSET, curve=_UNSET, c=_UNSET, sj=_UNSET, ee=_UNSET, sol=_UNSET, **kwargs
 ):
     """開始のjointから末端のjointまでのIKハンドルとエフェクターを作る。
 
@@ -61,17 +61,17 @@ def createIkHandle(
 
     Args:
         startJoint (str | Node): チェーンの開始のjoint。必須。
+        sj (str | Node): startJointの短縮名。startJointと同時には指定できない。
         endJoint (str | Node): チェーンの末端のjoint(``cmds.ikHandle`` の ``endEffector``)。
             startJointの子孫であること。必須。
+        ee (str | Node): endJointの短縮名(Mayaの ``endEffector``)。endJointと同時には指定できない。
         solver (str): ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSplineSolver"``・``"ikSpringSolver"`` のどれか。
             既定は ``"ikRPsolver"``。
+        sol (str): solverの短縮名。solverと同時には指定できない。
         name (str | None): ハンドルに付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
         curve (str | Node | None): ikSplineSolverで使う既存のカーブ(transformまたはnurbsCurve)。
             Noneなら自動で作る。ikSplineSolver以外では指定できない。既定はNone。
-        sj (str | Node): startJointの短縮名。startJointと同時には指定できない。
-        ee (str | Node): endJointの短縮名(Mayaの ``endEffector``)。endJointと同時には指定できない。
-        sol (str): solverの短縮名。solverと同時には指定できない。
-        n (str | None): nameの短縮名。nameと同時には指定できない。
         c (str | Node | None): curveの短縮名。curveと同時には指定できない。
         **kwargs (object): ``cmds.ikHandle`` のそのほかのフラグ(``priority``・``numSpans``・
             ``parentCurve`` など)。そのままMayaへ渡す。

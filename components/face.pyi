@@ -64,7 +64,7 @@ class Face(Component):
         全コーナーが未設定ならNoneを返す。
 
         Args:
-            colorSet (str | None): カラーセット。Noneは現在のセット。
+            colorSet (str | None): カラーセット。Noneは現在のセット。既定はNone。
 
         Returns:
             tuple[float, float, float, float] | None: RGBAの平均。カラーが無ければNone。
@@ -123,9 +123,9 @@ class Face(Component):
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``uv=True`` とは同時に指定できない。
-            uv (bool): TrueならUV上の面積を返す。既定はFalse(3Dの面積)。
-            uvSet (str | None): ``uv=True`` のときのUVセット。Noneは現在のセット。``uv=True`` のときだけ指定できる。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            uv (bool): TrueならUV上の面積を返す。既定はFalse(3Dの面積)。
+            uvSet (str | None): ``uv=True`` のときのUVセット。Noneは現在のセット。``uv=True`` のときだけ指定できる。既定はNone。
 
         Returns:
             float: 面積(cm²)。ワールド空間では、親のスケールも含む。``uv=True`` ならUV座標での面積。
@@ -209,9 +209,9 @@ class Face(Component):
             u (float): 有限なU座標。
             v (float): 有限なV座標。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            uvSet (str | None): UVセット。Noneは現在のセット。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
             tolerance (float): UV判定の許容誤差。0以上。既定0。
-            ws (bool): worldSpaceの短縮名。同時指定は不可。
 
         Returns:
             Vector: 対応する位置(cm)の新しい値。
@@ -231,8 +231,8 @@ class Face(Component):
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 入力位置(cm)。worldSpaceと同じ空間。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            ws (bool): worldSpaceの短縮名。同時指定は不可。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
 
         Returns:
             tuple[float, float]: (U, V)の新しい値。
@@ -278,8 +278,8 @@ class Face(Component):
 
         Args:
             kind (str): 調べる種類。上の名前のどれか。
-            uvSet (str | None): UVセット。Noneは現在のセット。``"zeroUVArea"``・``"uvReversed"`` のときだけ指定できる。
-            tolerance (float | None): 面積の許容誤差。0以上の有限値。Noneなら1e-10。``"zeroArea"`` (cm²)・``"zeroUVArea"`` のときだけ指定できる。
+            uvSet (str | None): UVセット。Noneは現在のセット。``"zeroUVArea"``・``"uvReversed"`` のときだけ指定できる。既定はNone。
+            tolerance (float | None): 面積の許容誤差。0以上の有限値。Noneなら1e-10。``"zeroArea"`` (cm²)・``"zeroUVArea"`` のときだけ指定できる。既定はNone。
 
         Returns:
             bool: その種類に当たればTrue。
@@ -345,7 +345,7 @@ class Faces(Components):
         Undoが有効なら1回で戻せる。
 
         Args:
-            curve (str | Node | None): 押し出しに沿わせるNURBSカーブ(Shape、またはShapeを持つTransform)。Noneなら沿わせない。
+            curve (str | Node | None): 押し出しに沿わせるNURBSカーブ(Shape、またはShapeを持つTransform)。Noneなら沿わせない。既定はNone。
             divisions (int): 押し出しの分割数。1以上。既定は1。
             keepFacesTogether (bool): Trueなら、隣り合うフェースを1つにつないだまま押し出す。既定はTrue。
 

@@ -225,6 +225,7 @@ class TransformArgumentSweepTest(ArgumentSweepCase):
 | `test_<メソッド>_values` | 段1: 引数ごとに候補を1つずつ差し替えて呼ぶ(引数の無いメソッドは1回呼ぶ)。例外は docstring の Raises の型だけ(そのときシーンは変わらない)、`expect` に合う |
 | `test_<メソッド>_invalid` | 段2: 違う型の値(bool へ`1`・`"yes"`、数へ`"a"`・NaN・inf、文字列へ数、選べる値へ選べない文字列、ノード・Plug へ削除済み・存在しない名前、並びへ数でない物)で、Raises の型になりシーンが変わらない |
 | `test_<メソッド>_pairs` | 段3: 2つの引数の組(1メソッド200組まで。`limit`で変える。引数が1つなら候補を1つずつ、無ければ1回。`combos`の組は必ず通す)で、Raises の型だけ・同時に指定できない組は TypeError・Undo 1回で戻り redo で同じ・`fast=True`と通常で同じ(fast は Undo なし)・短縮名(docstring の「Xの短縮名」)と長い名前で同じ・`roundTrip`・`plural` |
+| `test_<メソッド>_calling` | 段4(呼び方): 正しい呼び方を、渡し方だけ変えても同じ結果になる。`defaults`=省いた引数へ既定値を明示しても同じ(署名・docstring の既定値が実際の動きと同じ)、`positional`=位置で渡せる引数を位置で渡しても名前で渡したときと同じ、`keywordOnly`=キーワード専用の引数を位置で渡すと TypeError でシーンが変わらない。本体の食い違いは `known={"calling:defaults": "理由"}`、2回の結果を比べられない行(名前の番号が進む・ファイルが残る)は `skipCalling={"defaults": "理由"}` と書く |
 | `test_<メソッド>_errors` | `errors`に書いた状態(削除済み・アンロード中など)で、決めた例外になりシーンが変わらない |
 | `test_<メソッド>_known` | `known`に書いた場合が、まだ食い違っていること(expectedFailure。直ったら known から外す) |
 

@@ -210,13 +210,13 @@ class SkinCluster(GeometryFilter):
 
         Args:
             target (str | Node): 転送先のskinCluster、または形状かその親のTransform。
-            surfaceAssociation (str): closestPoint・rayCast・closestComponentのいずれか。uvSpace指定時はUVで対応付ける。
+            surfaceAssociation (str): closestPoint・rayCast・closestComponentのいずれか。uvSpace指定時はUVで対応付ける。既定は ``"closestPoint"``。
             influenceAssociation (str | Sequence[str]): closestJoint・closestBone・label・name・oneToOneを優先順に指定する。
                 既定はname、次にclosestJoint。未対応のインフルエンスがある場合の扱いはMayaに従う。
             uvSpace (tuple[str, str] | None): コピー元・先のUVセット名。両方が全フェースへUVを割り当てたMeshであることを、バインド前に検査する。
-                重なったUVでの対応先は一意とは限らない。Noneなら表面で対応付ける。
-            sampleSpace (int): Mayaの表面照合空間。0はワールド、1はモデル空間。Transformの位置の差を相殺する指定ではない。
-            normalize (bool): Trueなら転送後にウェイトを正規化する。
+                重なったUVでの対応先は一意とは限らない。Noneなら表面で対応付ける。既定はNone。
+            sampleSpace (int): Mayaの表面照合空間。0はワールド、1はモデル空間。Transformの位置の差を相殺する指定ではない。既定は0。
+            normalize (bool): Trueなら転送後にウェイトを正規化する。既定はTrue。
 
         Returns:
             SkinCluster: ウェイトを書き込んだ転送先。新しくバインドした場合は、そのskinCluster。
@@ -282,7 +282,7 @@ class SkinCluster(GeometryFilter):
         return destination
 
     @undoChunk("mlibSkinClusterMirrorWeights")
-    def mirrorWeights(self, plane="YZ", positiveToNegative=True, *, surfaceAssociation="closestPoint", influenceAssociation=("closestJoint",), normalize=True):
+    def mirrorWeights(self, plane="YZ", *, positiveToNegative=True, surfaceAssociation="closestPoint", influenceAssociation=("closestJoint",), normalize=True):
         """自身の形状の片側のウェイトを、鏡映面の反対側へ写す。
 
         ``cmds.copySkinWeights(sourceSkin=自身, destinationSkin=自身, mirrorMode=plane, ...)`` を実行し、
@@ -361,10 +361,9 @@ class SkinCluster(GeometryFilter):
             normalize (bool): Trueなら、上に書いた0にしない頂点を除くすべての頂点(0にする値が無い頂点も含む)で、
                 ロックしていないインフルエンスの比率を保ったまま、合計を1(ロックした分を除いた残り)へ戻す。
                 ロックしていないインフルエンスがすべて0の頂点は変えない。
-                ロックが無ければ、skinPercentの結果と同じ値になる。Falseなら0にするだけで、ほかの値は変えない。
+                ロックが無ければ、skinPercentの結果と同じ値になる。Falseなら0にするだけで、ほかの値は変えない。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -428,10 +427,9 @@ class SkinCluster(GeometryFilter):
         Args:
             count (int): 1頂点あたりの最大数。1以上の整数で指定する。boolは指定できない。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
-                Noneならすべての頂点。
+                Noneならすべての頂点。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -477,10 +475,9 @@ class SkinCluster(GeometryFilter):
         Args:
             ndigits (int): 残す小数の桁数(Pythonの ``round`` の ``ndigits`` と同じ)。1以上の整数で指定する。boolは指定できない。既定は3。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
-                Noneならすべての頂点。
+                Noneならすべての頂点。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -610,10 +607,10 @@ class SkinCluster(GeometryFilter):
         結果はMayaのスムーズ処理に従う。fast引数は持たない(同等のOpenMaya操作が無いため)。Undoが有効なら1回で戻せる。
 
         Args:
-            threshold (float): 周囲とのウェイト差のしきい値(``cmds.skinCluster`` の ``smoothWeights``)。0以上1以下。
-            iterations (int): 最大反復回数。1以上。
+            threshold (float): 周囲とのウェイト差のしきい値(``cmds.skinCluster`` の ``smoothWeights``)。0以上1以下。既定は0.5。
+            iterations (int): 最大反復回数。1以上。既定は2。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点。Noneなら先頭のMesh全体。
-                指定のしかたは :meth:`getWeights` と同じ。空なら何もしない。
+                指定のしかたは :meth:`getWeights` と同じ。空なら何もしない。既定はNone。
             obeyMaxInfluences (bool | None): Trueなら、ならした後もインフルエンスの最大数(maxInfluences)を守る
                 (``cmds.skinCluster`` の ``obeyMaxInfluences``)。NoneならMayaの既定。
             geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
@@ -744,7 +741,7 @@ class SkinCluster(GeometryFilter):
 
         Args:
             joints (str | Node | Iterable | None): 外す、登録済みのインフルエンス。1つでも複数でもよい。
-                名前かNodeのどちらか一方の形で指定する。unused=Trueとは同時に指定できない。
+                名前かNodeのどちらか一方の形で指定する。unused=Trueとは同時に指定できない。既定はNone。
             unused (bool): Trueなら、ウェイトを持たないインフルエンスをすべて外す。既定はFalse。
                 このときrepairは「正しくないウェイトを直してから、使っていないものを探す」になり、正規化やロックの解除はしない。
                 transferToParent・requireAncestorとは同時に指定できない。
@@ -848,7 +845,7 @@ class SkinCluster(GeometryFilter):
         ロックや入力の接続は外さない。
 
         Args:
-            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で戻す。
+            worldSpace (bool): Trueならワールド空間、Falseならローカル空間で戻す。既定はTrue。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -884,7 +881,7 @@ class SkinCluster(GeometryFilter):
         with undoChunk("mlibSkinClusterRecacheBindMatrices"):
             cmds.skinCluster(self._full_name(), edit=True, recacheBindMatrices=True)
 
-    def unbind(self, keepHistory=False):
+    def unbind(self, *, keepHistory=False):
         """形状からスキンを外す。
 
         ``skinCluster -e -unbind`` (または ``-unbindKeepHistory``)を実行する。Mayaの Unbind Skin と同じく、
@@ -930,8 +927,7 @@ class SkinCluster(GeometryFilter):
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、変える前に ``weightList`` とその要素のロック・入力の接続を確かめて、問題があれば何も変えずに例外にする。
-                既定はFalseで、確かめずに変える(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、``weightList`` とその要素のロック・入力の接続。
 
         Returns:
             None: 値を返さない。正しくない要素が無ければ何もしない。
@@ -1023,8 +1019,7 @@ class SkinCluster(GeometryFilter):
             joints (str | Node | Iterable): 登録済みのインフルエンス。複数指定するときは、名前とオブジェクトを混ぜない。
             state (bool): Trueならロックし、Falseならロックを外す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1068,7 +1063,7 @@ class SkinCluster(GeometryFilter):
 
         Args:
             joints (str | Node | Iterable | None): 対象の、登録済みのインフルエンス。Noneならすべてのインフルエンス。
-                複数指定するときは、名前とオブジェクトを混ぜない(:meth:`setInfluencesLocked` と同じ)。
+                複数指定するときは、名前とオブジェクトを混ぜない(:meth:`setInfluencesLocked` と同じ)。既定はNone。
 
         Yields:
             SkinCluster: 自身。
@@ -1113,13 +1108,13 @@ class SkinCluster(GeometryFilter):
         (``skin.getWeights(vertex=5)``)。この形では ``joints``・``vertices``・``rows`` は指定できない。
 
         Args:
-            joints (str | Node | Iterable): 登録済みのインフルエンス。空・重複を許さず、名前かNodeに揃える。
-                vertexを指定しないときは必須。
+            joints (str | Node | Iterable | None): 登録済みのインフルエンス。空・重複を許さず、名前かNodeに揃える。
+                vertexを指定しないときは必須。既定はNone。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点/CV。Noneなら全点。
                 Meshは頂点番号、カーブはCV番号、曲面はu*numCVsInV+vの通し番号を使う。
                 CV/SurfaceCVやcv[u][v]の名前も指定できる。素の(u, v)は2つの通し番号として扱う。
-                別形状・重複は拒否し、空なら空の結果を返す。
-            vertex (Component | int | str | None): 辞書の形で取得する、対象の形状の頂点/CV1つ。番号・周期CVの規則はverticesと同じ。
+                別形状・重複は拒否し、空なら空の結果を返す。既定はNone。
+            vertex (Component | int | str | None): 辞書の形で取得する、対象の形状の頂点/CV1つ。番号・周期CVの規則はverticesと同じ。既定はNone。
             nonzero (bool): vertexを指定したときに、Trueなら値が0でないインフルエンスだけを返す。既定はFalse。
             rows (bool): Trueなら点ごとの行。既定Falseは1列のMDoubleArray。
             geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
@@ -1171,7 +1166,7 @@ class SkinCluster(GeometryFilter):
         return om2.MDoubleArray([value for row in values for value in row])
 
     def setWeights(
-        self, joints, weights=None, *, vertices=None, vertex=None, normalize=_UNSET, broadcast=False, rows=False, fast=False, check=False, geometryIndex=None
+        self, joints, weights=None, *, vertices=None, vertex=None, normalize=_UNSET, broadcast=False, rows=False, geometryIndex=None, fast=False, check=False
     ):
         """Meshの頂点またはNURBSのCVに、インフルエンスのウェイトを設定する。
 
@@ -1201,19 +1196,18 @@ class SkinCluster(GeometryFilter):
             joints (str | Node | Iterable | Mapping[str | Node, float]): 登録済みのインフルエンス。空・重複を許さず、名前かNodeに揃える。
                 vertexを指定したときは、登録済みのインフルエンスからウェイトへの辞書(空にはできない。
                 ``getWeights(vertex=...)`` の戻り値をそのまま渡せる)。
-            weights (Iterable[float] | Iterable[Iterable[float]]): 点数V×列数Kの有限な値。点の順、各点内はjointsの順。
-                rows=TrueならK列の行をV行、broadcast=Trueなら全点に共通するK個を渡す。vertexを指定しないときは必須。
+            weights (Iterable[float] | Iterable[Iterable[float]] | None): 点数V×列数Kの有限な値。点の順、各点内はjointsの順。
+                rows=TrueならK列の行をV行、broadcast=Trueなら全点に共通するK個を渡す。vertexを指定しないときは必須。既定はNone。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点/CV。番号と周期CVの規則はgetWeightsと同じ。
-                Noneは全点、空は何も変更しない。weightsの行はこの指定順に対応する。
-            vertex (Component | int | str | None): 辞書の形で設定する、対象の形状の頂点/CV1つ。
+                Noneは全点、空は何も変更しない。weightsの行はこの指定順に対応する。既定はNone。
+            vertex (Component | int | str | None): 辞書の形で設定する、対象の形状の頂点/CV1つ。既定はNone。
             normalize (bool): Trueなら上記の規則で合計1へ正規化する。既定False。vertexを指定したときは省けない。
-            broadcast (bool): TrueならK個を全対象点へ書く。rowsと同時に指定できない。
-            rows (bool): Trueならweightsを点ごとの行で受け取る。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に全部の要素のロック・入力の接続などを確かめ、問題があれば何も書かずに例外にする
-                (通常・fastとも)。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            broadcast (bool): TrueならK個を全対象点へ書く。rowsと同時に指定できない。既定はFalse。
+            rows (bool): Trueならweightsを点ごとの行で受け取る。既定はFalse。
             geometryIndex (int | None): 対象の形状の番号(``input``・``outputGeometry`` の論理番号。
                 ``getGeometryIndices(geometry)`` で求める)。Noneなら先頭の形状。既定はNone。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、全部の要素のロック・入力の接続など(通常・fastとも)。
 
         Returns:
             None: 値を返さない。
@@ -1285,7 +1279,7 @@ class SkinCluster(GeometryFilter):
 
         Args:
             vertices (Component | Components | int | str | Iterable | None): 取得する頂点/CV。Noneなら全独立点。
-                指定のしかたは :meth:`getWeights` と同じ。
+                指定のしかたは :meth:`getWeights` と同じ。既定はNone。
 
         Returns:
             list[float]: 指定した順(Noneなら番号順)の値。変えてもシーンには反映されない。
@@ -1318,10 +1312,9 @@ class SkinCluster(GeometryFilter):
         Args:
             weights (Iterable[float]): 0以上1以下の値。対象の頂点と同じ数だけ渡し、verticesの指定の順に対応する。
             vertices (Component | Components | int | str | Iterable | None): 書き込む頂点/CV。Noneなら全独立点(番号順)。
-                指定のしかたは :meth:`setWeights` と同じ。空なら何もしない。
+                指定のしかたは :meth:`setWeights` と同じ。空なら何もしない。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1432,10 +1425,10 @@ class SkinCluster(GeometryFilter):
             "blendWeights": blend,
             "positions": [[point.x, point.y, point.z] for point in self._input_points()],
             "settings": {
-                "skinningMethod": self.getMode("skinning"),
+                "skinningMethod": self.getMode(kind="skinning"),
                 "maxInfluences": int(self.getMaxInfluences()),
                 "maintainMaxInfluences": self.getMaxInfluences(maintain=True),
-                "normalizeWeights": self.getMode("normalize"),
+                "normalizeWeights": self.getMode(kind="normalize"),
             },
             "ngSkinLayers": self._capture_ngskin_layers(paths),
         }
@@ -1473,14 +1466,12 @@ class SkinCluster(GeometryFilter):
 
         Args:
             data (dict): :meth:`getWeightsData` の形の辞書。
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
             method (str): 頂点の対応付けの方法。``"index"`` (既定)か ``"position"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MFnSkinCluster.setWeights`` を使う。
-            check (bool): Trueなら、変える前に、ウェイト(``weightList`` の要素)とDQブレンドウェイトへ書き込めるか
-                (ロック・入力の接続が無いか)を確かめて、問題があれば何も変えずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、ウェイト(``weightList`` の要素)とDQブレンドウェイトへ書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             ValidationReport: 見つからなかったインフルエンス(missing)と、書かなかったもの(skipped)。
@@ -1548,12 +1539,12 @@ class SkinCluster(GeometryFilter):
 
         Args:
             path (str | os.PathLike): ``mlib.skinWeights`` の版1のファイル。
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
             method (str): 頂点の対応付けの方法。``"index"`` (既定)か ``"position"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、変える前に書き込めるかを確かめる(:meth:`setWeightsData` の ``check`` と同じ)。既定はFalse。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。:meth:`setWeightsData` の ``check`` と同じ。
 
         Returns:
             ValidationReport: 見つからなかったインフルエンスと、書かなかったもの。
@@ -1593,7 +1584,7 @@ class SkinCluster(GeometryFilter):
             sculpted (str | Node): 今のポーズで形を整えたメッシュ(transformか、meshのshape)。
                 頂点の番号と数が、先頭のメッシュと同じであること。位置はオブジェクト空間の座標を使うので、
                 横へ動かした複製でもよい。
-            name (str | None): 作るメッシュのtransformの名前。Noneなら ``<sculptedの名前>_inverted``。
+            name (str | None): 作るメッシュのtransformの名前。Noneなら ``<sculptedの名前>_inverted``。既定はNone。
 
         Returns:
             Mesh: 作ったメッシュのshape。
@@ -1752,13 +1743,10 @@ class SkinCluster(GeometryFilter):
             sourceTargetPairs (Iterable[tuple[Node | str, Node | str]]): 登録済みのインフルエンスの組。
                 Maya APIのノードの参照も受け付ける。
             vertices (Component | Components | int | str | Iterable | None): 対象の頂点。番号の規則は :meth:`getWeights` と同じ。
-                Noneならすべての頂点。
+                Noneならすべての頂点。既定はNone。
             add (bool): Trueなら、targetの値にsourceの値を足す(合計は変わらない)。Falseならsourceの値で置き換える。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、ウェイトの要素へ書き込めるか(ロック・入力の接続が無いか)を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-                通常の経路(verticesもadd=Trueも指定しないとき)では、skinPercentがロックされた要素を黙って飛ばすため、
-                checkに関係なく ``weightList`` のロックを確かめる。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、ウェイトの要素へ書き込めるか(ロック・入力の接続が無いか)。通常の経路(verticesもadd=Trueも指定しないとき)では、skinPercentがロックされた要素を黙って飛ばすため、checkに関係なく ``weightList`` のロックを確かめる。
 
         Returns:
             None: 値を返さない。
@@ -1854,11 +1842,10 @@ class SkinCluster(GeometryFilter):
             ndigits (int | None): 小数点以下の桁数(Pythonの ``round`` の ``ndigits`` と同じ)。0〜15で指定する。
                 boolは指定できない。Noneなら丸めない。
                 桁数を指定したときは、最大剰余法で10進数での合計1を保つ。値が並んだときは、influenceObjects()の
-                物理的な順番で前にあるものを優先する。force=Trueとは同時に指定できない。
+                物理的な順番で前にあるものを優先する。force=Trueとは同時に指定できない。既定はNone。
             force (bool): Trueなら、上の決まりで強制的に正規化する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、ウェイト(``weightList`` とその要素)のロック・入力の接続を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、ウェイト(``weightList`` とその要素)のロック・入力の接続。
 
         Returns:
             None: 値を返さない。インフルエンスの登録数とnormalizeWeightsの設定は変えない。
@@ -1942,11 +1929,9 @@ class SkinCluster(GeometryFilter):
             maintain (bool | None): maintainMaxInfluencesへ設定する値。Noneなら変えない。既定はNone。
             prune (bool): Trueなら、各頂点で値の大きいcount個の列だけを残し、ほかの列を0にして正規化する。
                 値が並んだときは物理的な順番で前にあるものを優先する。インフルエンスの登録は削除しない。
-                Falseなら、すでにある値は変えない。
+                Falseなら、すでにある値は変えない。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、設定の2つのPlug(prune=Trueではすべてのウェイトも)へ書き込めるか
-                (ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、設定の2つのPlug(prune=Trueではすべてのウェイトも)へ書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常の書き込みは、Undoが有効なら同じチャンクに記録する。
@@ -1984,7 +1969,7 @@ class SkinCluster(GeometryFilter):
             if computed:
                 self.setWeights(*computed, fast=fast, check=check)
 
-    def getMode(self, kind="skinning"):
+    def getMode(self, *, kind="skinning"):
         """スキニングの方法(skinningMethod)か、ウェイトの正規化の方法(normalizeWeights)を名前で取得する。
 
         Args:
@@ -2001,7 +1986,7 @@ class SkinCluster(GeometryFilter):
         attribute, names = self._mode_table(kind)
         return names[int(self.getPlug(attribute).get())]
 
-    def setMode(self, value, kind="skinning"):
+    def setMode(self, value, *, kind="skinning"):
         """スキニングの方法(skinningMethod)か、ウェイトの正規化の方法(normalizeWeights)を設定する。
 
         正規化の方法を変えても、既存のウェイトは書き換えない(正規化し直すには :meth:`normalizeWeights` を使う)。

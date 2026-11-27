@@ -45,7 +45,7 @@ class Time:
         """現在時刻を取得する。
 
         Args:
-            timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。
+            timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。既定は ``"frame"``。
 
         Returns:
             float: 現在時刻。
@@ -64,7 +64,7 @@ class Time:
 
         Args:
             value (float): 新しい時刻。
-            timeUnit (str): valueの単位。``"frame"`` または ``"sec"``。
+            timeUnit (str): valueの単位。``"frame"`` または ``"sec"``。既定は ``"frame"``。
             update (bool): Trueなら、変えた時刻でシーンを評価し直す。直後に値を読める。既定はTrue。
 
         Returns:
@@ -93,9 +93,9 @@ class Time:
 
         Args:
             animation (bool): True なら、アニメーション範囲(レンジスライダーの両端。
-                ``animationStartTime``・``animationEndTime``)を返す。
-            selected (bool): True なら、タイムスライダーで選んだ範囲を返す。
-            timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。
+                ``animationStartTime``・``animationEndTime``)を返す。既定はFalse。
+            selected (bool): True なら、タイムスライダーで選んだ範囲を返す。既定はFalse。
+            timeUnit (str): 戻り値の単位。``"frame"`` (現在のUI時間単位)または ``"sec"``。既定は ``"frame"``。
 
         Returns:
             tuple[float, float] | None: (開始, 終了)。``selected=True`` では、範囲を選んでいない場合、
@@ -134,8 +134,8 @@ class Time:
         Args:
             start (float): 開始。
             end (float): 終了。startより大きい値(同じ値にすると、Mayaが範囲を1フレーム広げるため)。
-            animation (bool): True なら、アニメーション範囲(レンジスライダーの両端)を変える。
-            timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。
+            animation (bool): True なら、アニメーション範囲(レンジスライダーの両端)を変える。既定はFalse。
+            timeUnit (str): start・endの単位。``"frame"`` または ``"sec"``。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。

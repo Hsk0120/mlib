@@ -241,8 +241,8 @@ class GetShapeContractTest(HierarchyFixture):
                 self.assertIs(shape.getShape(**flags), shape)
 
     def test_transform_out_of_range_is_none(self):
-        self.assertIsNone(Node(self.leaf).getShape(5))
-        self.assertEqual(Node(self.leaf).getShape(0).getName(full=True), self.leaf_shape)
+        self.assertIsNone(Node(self.leaf).getShape(index=5))
+        self.assertEqual(Node(self.leaf).getShape(index=0).getName(full=True), self.leaf_shape)
 
 
 class RemovedNamesTest(HierarchyFixture):

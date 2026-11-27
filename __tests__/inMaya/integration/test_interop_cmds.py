@@ -455,7 +455,7 @@ class MlibCommandInputTest(_InteropCase):
         constraint = mlib.getNode(target.mnode()).addConstraint(source.getPlug("tx"), type="point")
         self.assertEqual([Node(name).getName(full=True) for name in cmds.pointConstraint(constraint, query=True, targetList=True)], [source.getName(full=True)])
         other = self.create("transform", "other")
-        target.addConstraint([other.mpath()], "orient")
+        target.addConstraint([other.mpath()], type="orient")
         self.assertTrue(target.getPlug("rx").isConnected(destination=False))
 
     def test_node_constructor_accepts_wrappers(self):
@@ -558,7 +558,7 @@ class NodeArgumentRulesTest(_InteropCase):
         self.assertAlmostEqual(cmds.getAttr(target.getPlug("tx")), 5.0)
         _, mesh = self.cube()
         other = self.create("transform", "other")
-        geometry = other.addConstraint(mesh.getName() + ".vtx[0]", "geometry")
+        geometry = other.addConstraint(mesh.getName() + ".vtx[0]", type="geometry")
         self.assertEqual([node.getName(full=True) for node in geometry.getTargets()], [mesh.getTransform().getName(full=True)])
         for source, error in ((dup1.getName(short=True), RuntimeError), (self.ns("missing"), RuntimeError), ("", TypeError), (None, TypeError)):
             with self.subTest(source=source):
@@ -1128,7 +1128,7 @@ class PlugValidityTest(_InteropCase):
             "to_node": Node._resolve_input,
             "constraint source": lambda value: mlib.getNode(target).addConstraint(value, type="point"),
             "constraint target": lambda value: mlib.getNode(value).addConstraint(target, type="point"),
-            "addConstraint": lambda value: target.addConstraint(value, "point"),
+            "addConstraint": lambda value: target.addConstraint(value, type="point"),
             "matchTransform": target.matchTransform,
         }
         for value in (plugs["child"], mplugs["child"]):
@@ -1226,8 +1226,8 @@ class PlugValidityTest(_InteropCase):
                 self.assertFalse(cmds.objExists(str(plug)))
                 calls = [
                     plug.getAttributeName,
-                    lambda: plug.getAttributeName("short"),
-                    lambda: plug.getAttributeName("nice"),
+                    lambda: plug.getAttributeName(kind="short"),
+                    lambda: plug.getAttributeName(kind="nice"),
                     plug.isLocked,
                     plug.getFlags,
                     plug.isConnected,

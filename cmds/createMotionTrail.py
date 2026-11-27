@@ -7,7 +7,7 @@ from ..decorator import _pick_alias
 from ..util import _UNSET
 
 
-def createMotionTrail(node, *, startTime=_UNSET, endTime=_UNSET, increment=_UNSET, name=_UNSET, st=_UNSET, et=_UNSET, i=_UNSET, n=_UNSET):
+def createMotionTrail(node, *, startTime=_UNSET, st=_UNSET, endTime=_UNSET, et=_UNSET, increment=_UNSET, i=_UNSET, name=_UNSET, n=_UNSET):
     """ノードの動きの軌跡(モーショントレイル)を作り、そのハンドルのTransformを返す。
 
     ``cmds.snapshot(node, motionTrail=True)`` で、startTimeからendTimeまでincrementごとの位置を結んだ軌跡を作る。
@@ -20,12 +20,12 @@ def createMotionTrail(node, *, startTime=_UNSET, endTime=_UNSET, increment=_UNSE
     Args:
         node (Node | str): 軌跡を作るDAGノード(transformなど)。
         startTime (float | None): 開始のフレーム。Noneなら再生範囲の開始。既定はNone。
-        endTime (float | None): 終了のフレーム。Noneなら再生範囲の終了。既定はNone。
-        increment (float): 位置を取る間隔(フレーム)。0より大きい値。既定は1。
-        name (str | None): 付けたい名前。ハンドルは ``<名前>Handle`` になる。NoneならMayaの既定の名前。既定はNone。
         st (float | None): startTimeの短縮名。startTimeと同時には指定できない。
+        endTime (float | None): 終了のフレーム。Noneなら再生範囲の終了。既定はNone。
         et (float | None): endTimeの短縮名。endTimeと同時には指定できない。
+        increment (float): 位置を取る間隔(フレーム)。0より大きい値。既定は1。
         i (float): incrementの短縮名。incrementと同時には指定できない。
+        name (str | None): 付けたい名前。ハンドルは ``<名前>Handle`` になる。NoneならMayaの既定の名前。既定はNone。
         n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:

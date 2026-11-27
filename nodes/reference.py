@@ -87,7 +87,7 @@ class Reference(Node):
         fast引数は持たない(ファイル参照の履歴操作のため)。
 
         Args:
-            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。
+            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -108,7 +108,7 @@ class Reference(Node):
         else:
             cmds.file(cleanReference=self.getName(), editCommand=editCommand)
 
-    def getFilename(self, resolved=True, withCopyNumber=False):
+    def getFilename(self, *, resolved=True, withCopyNumber=False):
         """リファレンスしているファイルのパスを取得する。
 
         Args:
@@ -294,7 +294,7 @@ class Reference(Node):
         """
         return self.getParentReference() is None
 
-    def getEdits(self, successful=True, failed=False, *, what="string", editCommand=None, onReferenceNode=None):
+    def getEdits(self, *, successful=True, failed=False, what="string", editCommand=None, onReferenceNode=None):
         """このリファレンスに対するEditの一覧を取得する。
 
         ``what`` で、Editの何を返すかを選ぶ。
@@ -310,8 +310,8 @@ class Reference(Node):
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
             what (str): 返すもの。``"string"``・``"node"``・``"attr"``。既定は ``"string"``。
             editCommand (str | None): addAttr・connectAttr・deleteAttr・disconnectAttr・parent・setAttr・lock・unlockの1種類。
-                Noneなら種類を絞らない。
-            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
+                Noneなら種類を絞らない。既定はNone。
+            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。既定はNone。
 
         Returns:
             list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
@@ -329,7 +329,7 @@ class Reference(Node):
         return cmds.referenceQuery(self.getName(), successfulEdits=successful, failedEdits=failed, **flags) or []
 
     @undoChunk("mlibReferenceRemoveEdits")
-    def removeEdits(self, successful=True, failed=True, *, editCommand=None):
+    def removeEdits(self, *, successful=True, failed=True, editCommand=None):
         """このリファレンスに対するEditを削除する。
 
         ``cmds.referenceEdit(removeEdits=True)`` で削除する。
@@ -405,7 +405,7 @@ class Reference(Node):
         # GUIでも「ファイルが見つかりません」の確認ダイアログで止めず、例外にする。
         cmds.file(path.replace("\\", "/"), loadReference=self.getName(), prompt=False)
 
-    def importContents(self, removeNamespace=False):
+    def importContents(self, *, removeNamespace=False):
         """リファレンスの内容をシーンへ読み込み、リファレンスを解除する。
 
         ``cmds.file(importReference=True)`` で読み込む。呼び出した後、このreferenceノードはシーンから無くなる。

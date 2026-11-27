@@ -76,15 +76,15 @@ class Mesh(_ControlPointShape):
 
         Args:
             reference (Mesh | Node | str): 基準のMesh、またはメッシュを1つだけ持つTransform。
+            worldSpace (bool): 位置で照らし合わせるとき、Trueならワールド空間、Falseなら各Shapeのオブジェクト空間で比べる。
+                既定はFalse。UVで照らし合わせるときは使わない。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            method (str): 照らし合わせ方。``"uv"`` (既定)か ``"position"``。
             uvSet (str | None): UVで照らし合わせるときのUVセットの名前(両方のメッシュで同じ名前を使う)。Noneなら、それぞれのメッシュの今のUVセット。既定はNone。
                 位置で照らし合わせるときは使わない。
             tolerance (float): 許す誤差。0以上の有限な数値。UVでは成分の差、位置ではcmの距離。既定は1e-6。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueなら、0でないtweakを今の位置へベイクしてから作り直す。
                 FalseならUndoが有効である必要があり、0でないtweakには対応しない。
-            method (str): 照らし合わせ方。``"uv"`` (既定)か ``"position"``。
-            worldSpace (bool): 位置で照らし合わせるとき、Trueならワールド空間、Falseなら各Shapeのオブジェクト空間で比べる。
-                既定はFalse。UVで照らし合わせるときは使わない。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             None: 値を返さない。番号の対応がすでに同じなら、作り直さずにそのまま返す(作り直すための制限の確認もしない)。
@@ -176,7 +176,7 @@ class Mesh(_ControlPointShape):
         """頂点を取得する。番号を1つ渡すと頂点1つ、番号の並びを渡すと頂点のコレクションを返す。
 
         Args:
-            indices (int | Iterable[int] | None): 0から始まる頂点番号1つ、または頂点番号の並び。Noneなら今あるすべての頂点。
+            indices (int | Iterable[int] | None): 0から始まる頂点番号1つ、または頂点番号の並び。Noneなら今あるすべての頂点。既定はNone。
 
         Returns:
             Vertex | Vertices: 番号1つなら、シーンの頂点を指すオブジェクト。
@@ -193,7 +193,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             indices (Iterable[int | tuple[int, int]] | None): 通しの番号か ``(頂点番号, フェース番号)``。
-                Noneなら今あるすべての頂点フェース。
+                Noneなら今あるすべての頂点フェース。既定はNone。
 
         Returns:
             VertexFaces: 頂点フェースのコレクション。番号の順はそのままで、同じものは1回だけ含む。
@@ -292,7 +292,7 @@ class Mesh(_ControlPointShape):
             angleWeighted (bool): Trueなら、隣り合う面の角度で重み付けした法線を取得する。既定はFalse。頂点ごとの法線だけに使える。
             perFace (bool): Trueなら、面頂点ごとに取得する。既定はFalse。
             faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): ``perFace=True`` のときの対象。
-                通し番号または(頂点, フェース)。Noneは全件。
+                通し番号または(頂点, フェース)。Noneは全件。既定はNone。
             lockedOnly (bool): Trueなら、``perFace=True`` のとき、法線の値でなくロック状態だけを返す。既定はFalse。
 
         Returns:
@@ -334,7 +334,7 @@ class Mesh(_ControlPointShape):
         normal_ids = fn.getNormalIds()[1]
         return [_vector_of(Vector, values[normal_ids[index]]).normal() for index in components.indices]
 
-    def setNormals(self, normals, worldSpace=_UNSET, *, ws=_UNSET, fast=False, check=False):
+    def setNormals(self, normals, worldSpace=_UNSET, *, fast=False, check=False, ws=_UNSET):
         """共有法線番号を保ったままメッシュの法線リストを更新する。
 
         getNormalDataの先頭のリストと同じ法線番号順で指定する。割当番号は維持し、設定した法線はMayaによりロックされる。
@@ -343,10 +343,9 @@ class Mesh(_ControlPointShape):
         Args:
             normals (Iterable[Iterable[float]]): 現在の法線数と同数の3成分ベクトル。
             worldSpace (bool): Trueはワールド空間。既定False。
-            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、``inMesh`` が書き込めるか(アトリビュートのロックが無いか)を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、``inMesh`` が書き込めるか(アトリビュートのロックが無いか)。
 
         Returns:
             None: 値を返さない。
@@ -388,7 +387,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             tuple[list[Vector], list[int], list[int]]: 法線番号順のVector、フェースごとの面頂点数、
@@ -405,7 +404,7 @@ class Mesh(_ControlPointShape):
         counts, indices = fn.getNormalIds()
         return normals, list(counts), list(indices)
 
-    def setFaceVertexNormals(self, normals=None, worldSpace=_UNSET, *, locked=None, fast=False, check=False, faceVertices=None, ws=_UNSET):
+    def setFaceVertexNormals(self, normals=None, worldSpace=_UNSET, *, locked=None, faceVertices=None, fast=False, check=False, ws=_UNSET):
         """フェースごとの頂点の法線を設定し、ロックする。または、法線のロックだけを切り替える。
 
         - ``normals`` を渡すと、法線を設定してロックする(``locked`` はNoneかTrue)。
@@ -420,12 +419,11 @@ class Mesh(_ControlPointShape):
             normals (Iterable[Sequence[float] | Vector] | None): 指定した面頂点と同じ数の、長さが0でないXYZ。正規化して書く。
                 Noneなら値は書かない。既定はNone。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。``normals`` を渡したときだけ指定できる。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             locked (bool | None): Trueはロック、Falseは解除。Noneは ``normals`` を渡したときのロック(Trueと同じ)。既定はNone。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、全法線が有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる
-                (成分の数はcheckに関係なく確かめる)。``normals`` を渡したときだけ指定できる。
-            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、全法線が有限な数値か(成分の数はcheckに関係なく確かめる)。``normals`` を渡したときだけ指定できる。
 
         Returns:
             None: 値を返さない。
@@ -491,7 +489,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             dict[str, Any]: uvSet(名前)、tangents・binormals(Vectorのリスト)、counts(面ごとの頂点数)、
@@ -532,10 +530,10 @@ class Mesh(_ControlPointShape):
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             binormal (bool): Trueなら、接線でなく従法線を返す。既定はFalse。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 対象。Noneは全件。既定はNone。
 
         Returns:
             list[Vector]: 指定順の正規化した接線(``binormal=True`` なら従法線)。全件ではフェース番号順、その面の頂点順。
@@ -586,7 +584,7 @@ class Mesh(_ControlPointShape):
 
         Args:
             uv (bool): Trueなら、UVシェルを返す。既定はFalse。
-            uvSet (str | None): ``uv=True`` のときのUVセットの名前。Noneなら今のUVセットを使う。
+            uvSet (str | None): ``uv=True`` のときのUVセットの名前。Noneなら今のUVセットを使う。既定はNone。
 
         Returns:
             list[Vertices] | list[list[int]]: 既定では、シェルごとの頂点(番号の小さい順)。シェルは、それぞれのいちばん小さい頂点番号の順に並ぶ。
@@ -665,9 +663,9 @@ class Mesh(_ControlPointShape):
         Args:
             axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、ミラー面 ``"YZ"``・``"XZ"``・``"XY"``、または0・1・2。既定は ``"x"``。
                 面の文字の順や大文字・小文字は問わない(:meth:`mirror` と同じ)。
-            tolerance (float): 反転した位置と頂点の距離が、どこまでなら同じとみなすか(cm)。正の有限な数値。既定は0.01。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間で扱う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 反転した位置と頂点の距離が、どこまでなら同じとみなすか(cm)。正の有限な数値。既定は0.01。
 
         Returns:
             dict[int, int]: {頂点番号: 反対側の頂点番号}。反対側が見つからない頂点は含まない。
@@ -726,7 +724,7 @@ class Mesh(_ControlPointShape):
         """エッジを取得する。番号を1つ渡すとエッジ1つ、番号の並びを渡すとエッジのコレクションを返す。
 
         Args:
-            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのエッジ。
+            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのエッジ。既定はNone。
 
         Returns:
             Edge | Edges: 番号1つなら、シーンのエッジを指すオブジェクト。並び・Noneならエッジのコレクション(同じ番号は1回だけ含む)。
@@ -741,7 +739,7 @@ class Mesh(_ControlPointShape):
         """フェースを取得する。番号を1つ渡すとフェース1つ、番号の並びを渡すとフェースのコレクションを返す。
 
         Args:
-            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのフェース。
+            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのフェース。既定はNone。
 
         Returns:
             Face | Faces: 番号1つなら、シーンのフェースを指すオブジェクト。並び・Noneならフェースのコレクション(同じ番号は1回だけ含む)。
@@ -756,7 +754,7 @@ class Mesh(_ControlPointShape):
         """UVを取得する。番号を1つ渡すとUV1つ、番号の並びを渡すとUVのコレクションを返す。
 
         Args:
-            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのUV。
+            indices (int | Iterable[int] | None): 0から始まる番号1つ、または番号の並び。Noneなら今あるすべてのUV。既定はNone。
 
         Returns:
             UV | UVs: 番号1つなら、シーンのUVを指すオブジェクト。並び・NoneならUVのコレクション(同じ番号は1回だけ含む)。
@@ -771,7 +769,7 @@ class Mesh(_ControlPointShape):
         """UV座標と、フェースの各コーナーに割り当てられたUV番号を取得する。
 
         Args:
-            uvSet (str | None): UVセット。Noneは現在のセット。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
 
         Returns:
             tuple[list[tuple[float, float]], list[int], list[int]]: UV番号順の(U, V)、フェースごとのUV数、
@@ -787,7 +785,7 @@ class Mesh(_ControlPointShape):
         counts, indices = fn.getAssignedUVs(name)
         return list(zip(us, vs)), list(counts), list(indices)
 
-    def setUVData(self, uvs, counts, indices, *, fast=False, uvSet=None):
+    def setUVData(self, uvs, counts, indices, *, uvSet=None, fast=False):
         """UVセットの全座標と、フェースの各コーナーへの割り当てを置き換える。
 
         UV番号は渡した座標の順になる。通常は一時形状からpolyTransferでUVを転送し、Undoに記録する。
@@ -799,8 +797,8 @@ class Mesh(_ControlPointShape):
             uvs (Iterable[Sequence[float]]): UV番号順の(U, V)。有限な数値。未使用のUVも指定できる。
             counts (Iterable[int]): フェース番号順のUV数。各値は0(未割当)、またはその面の頂点数。
             indices (Iterable[int]): フェースの頂点順に連結したUV番号。長さはcountsの合計。
+            uvSet (str | None): 既存のUVセット。Noneは現在のセット。現在のセットは変更しない。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            uvSet (str | None): 既存のUVセット。Noneは現在のセット。現在のセットは変更しない。
 
         Returns:
             None: 値を返さない。
@@ -848,7 +846,7 @@ class Mesh(_ControlPointShape):
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。入力と戻り値の両方に使う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             what (str): 取得するもの。``"point"``・``"normal"``・``"uv"``。既定は ``"point"``。
-            uvSet (str | None): ``what="uv"`` のときのUVセットの名前。Noneなら今のUVセットを使う。
+            uvSet (str | None): ``what="uv"`` のときのUVセットの名前。Noneなら今のUVセットを使う。既定はNone。
 
         Returns:
             tuple[Vector, int] | Vector | tuple[float, float]: ``"point"`` は面の上でいちばん近い点(cm)と、その点を含む面の番号。
@@ -909,9 +907,9 @@ class Mesh(_ControlPointShape):
         Args:
             origin (Sequence[float] | om2.MPoint | om2.MVector): 半直線の始点(cm)。
             direction (Sequence[float] | om2.MVector): 向き。長さは問わない(中で長さ1にする)。
-            maxDistance (float | None): 始点からどこまで調べるか(cm)。正の有限な数値。Noneなら制限しない。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。入力と戻り値の両方に使う。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            maxDistance (float | None): 始点からどこまで調べるか(cm)。正の有限な数値。Noneなら制限しない。既定はNone。
 
         Returns:
             list[tuple[Vector, int, float]]: (交点, 面の番号, 始点からの距離(cm))。距離の近い順に並ぶ。
@@ -973,9 +971,9 @@ class Mesh(_ControlPointShape):
             u (float): U座標。
             v (float): V座標。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            tolerance (float): UV座標の許容誤差。0以上の有限値。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
+            tolerance (float): UV座標の許容誤差。0以上の有限値。既定は1e-06。
 
         Returns:
             list[tuple[int, Vector]]: (フェース番号, 位置(cm))。フェース番号の昇順。該当面が無ければ空。
@@ -1011,7 +1009,7 @@ class Mesh(_ControlPointShape):
             result.append((face, _vector_of(Vector, point)))
         return result
 
-    def removeFaceVertexColors(self, *, fast=False, colorSet=None, faceVertices=None):
+    def removeFaceVertexColors(self, *, colorSet=None, faceVertices=None, fast=False):
         """指定した面頂点のカラー割り当てを解除する。
 
         黒や透明を設定せず、getVertexColors(perFace=True)でNoneになる状態へ戻す。カラーセットと他のコーナーの色は残す。
@@ -1020,9 +1018,9 @@ class Mesh(_ControlPointShape):
         現在のカラーセットは復元する。colorSet=Noneでセットが無い場合や対象が空の場合は何もしない。
 
         Args:
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。既定はNone。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。
-            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): 通し番号または(頂点, フェース)。Noneは全件。
 
         Returns:
             None: 値を返さない。
@@ -1057,8 +1055,8 @@ class Mesh(_ControlPointShape):
 
         Args:
             perFace (bool): Trueなら、面頂点ごとに取得する。既定はFalse。
-            colorSet (str | None): カラーセットの名前。Noneなら今のカラーセットを使う。
-            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): ``perFace=True`` のときの対象。Noneは全件。
+            colorSet (str | None): カラーセットの名前。Noneなら今のカラーセットを使う。既定はNone。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): ``perFace=True`` のときの対象。Noneは全件。既定はNone。
 
         Returns:
             list[tuple[float, float, float, float] | None]: (R, G, B, A)。色の無い要素はNone。
@@ -1112,15 +1110,13 @@ class Mesh(_ControlPointShape):
                 有限な数値(Aを省略すると1.0)。対象と同じ数だけ渡す。
             perFace (bool): Trueなら、面頂点ごとに設定する。既定はFalse。
             vertices (Component | Components | Iterable[int] | None): perFace=Falseのときに書き込む頂点の番号。Noneなら全頂点。
-                同じ番号を2回指定できない。指定した順にcolorsと対応する。
-            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): perFace=Trueのときの対象。Noneは全件。
+                同じ番号を2回指定できない。指定した順にcolorsと対応する。既定はNone。
+            faceVertices (VertexFace | VertexFaces | Iterable[int | tuple[int, int]] | None): perFace=Trueのときの対象。Noneは全件。既定はNone。
             colorSet (str | None): カラーセットの名前。Noneなら今のカラーセットを使う(無ければMayaが
                 ``colorSet1`` を作る)。名前を指定する場合は、そのカラーセットがすでにある必要がある。
-                今のカラーセットは変えない。
+                今のカラーセットは変えない。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込むカラーセットの値(``colorSet[].colorSetPoints``)がロック・入力の接続で
-                書き込めないかを確かめて、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
-                カラーセットがまだ無い(Mayaが作る)ときは確かめるものが無い。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込むカラーセットの値(``colorSet[].colorSetPoints``)がロック・入力の接続で書き込めないか。カラーセットがまだ無い(Mayaが作る)ときは確かめるものが無い。
 
         Returns:
             None: 値を返さない。

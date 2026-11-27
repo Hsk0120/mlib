@@ -33,9 +33,9 @@ class Header:
         Args:
             format (str): 形式名(``"mlib.pose"`` など)。
             version (int): 形式の版。
-            mlib (str | None): 書き出したmlibの版。
-            maya (str | None): 書き出したMayaの版。
-            fps (float | None): 書き出したシーンのfps。Noneなら今のシーンのfps。
+            mlib (str | None): 書き出したmlibの版。既定はNone。
+            maya (str | None): 書き出したMayaの版。既定はNone。
+            fps (float | None): 書き出したシーンのfps。Noneなら今のシーンのfps。既定はNone。
 
         Raises:
             TypeError: formatが文字列でない場合、versionがintでない場合(boolも不可)、

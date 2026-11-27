@@ -31,8 +31,8 @@ def _as_method(function):
     """関数を、同じ引数・docstring を持つ :class:`_Functions` のメソッドにする。"""
     signature = inspect.signature(function)
 
-    def method(self, **kwargs):
-        return function(**kwargs)
+    def method(self, *args, **kwargs):
+        return function(*args, **kwargs)
 
     method.__signature__ = signature.replace(parameters=[inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD), *signature.parameters.values()])
     method.__doc__ = function.__doc__

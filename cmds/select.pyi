@@ -18,7 +18,7 @@ def select(nodes: object = ..., *, add: bool = ..., addFirst: bool = ..., af: bo
 
     Args:
         nodes (object): 選択する対象、またはその並び。NoneならフラグだけでMayaを呼ぶ。
-            空の並びは、空の並びのまま渡す。
+            空の並びは、空の並びのまま渡す。既定はNone。
         add (bool): Trueなら、今の選択に追加する。
         addFirst (bool): Trueなら、今の選択の先頭へ追加する。
         af (bool): addFirstの短縮名。addFirstと同時には指定できない。

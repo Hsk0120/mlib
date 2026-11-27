@@ -52,7 +52,7 @@ class _VersionedItem:
 
         Args:
             text (bool): True なら、Mayaが返す版の文字列を手を加えずに返す。
-                数字で始まらない版(``"development"`` など)はVersionとして読めないので、こちらで読む。
+                数字で始まらない版(``"development"`` など)はVersionとして読めないので、こちらで読む。既定はFalse。
 
         Returns:
             Version | str | None: 問い合わせたときの版。``text=True`` なら文字列。

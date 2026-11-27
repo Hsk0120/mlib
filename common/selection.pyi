@@ -163,7 +163,7 @@ class Selection:
         """ノードとして選ばれた対象を取得する。
 
         Args:
-            type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型。
+            type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型。既定はNone。
 
         Returns:
             Nodes: 削除されていないノード。コンポーネントを持つノードは含めない。

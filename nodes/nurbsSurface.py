@@ -411,8 +411,8 @@ class NurbsSurface(_ControlPointShape):
             origin (Sequence[float]): レイの始点(cm)。worldSpaceと同じ空間。
             direction (Sequence[float]): レイの方向。ゼロ以外のベクトル。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             tolerance (float): 正の距離許容誤差(cm)。既定1e-6。
-            ws (bool): worldSpaceの別名。同時指定は不可。
 
         Returns:
             tuple[Vector, float, float] | None: (交点(cm), u, v)。交差しなければNone。
@@ -441,7 +441,7 @@ class NurbsSurface(_ControlPointShape):
 
         Args:
             indices (int | Iterable[int | tuple[int, int]] | None): 通し番号(``u * V方向のCV数 + v``)1つ、または番号の並び。
-                並びの中では、通し番号と ``(u, v)`` を混ぜて指定できる。Noneなら、今あるすべてのCV。
+                並びの中では、通し番号と ``(u, v)`` を混ぜて指定できる。Noneなら、今あるすべてのCV。既定はNone。
 
         Returns:
             SurfaceCV | SurfaceCVs: 通し番号1つなら、シーン上のCV(``cv[u][v]``)を指すオブジェクト。
@@ -460,8 +460,8 @@ class NurbsSurface(_ControlPointShape):
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 指定空間での位置(cm)。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
-            ws (bool): worldSpaceの短縮名。長名と同時指定できない。
-            tolerance (float): 距離の許容誤差(cm)。0以上の有限値。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            tolerance (float): 距離の許容誤差(cm)。0以上の有限値。既定は1e-07。
 
         Returns:
             bool: MFnNurbsSurface.isPointOnSurfaceの結果。
@@ -484,7 +484,7 @@ class NurbsSurface(_ControlPointShape):
 
         Args:
             point (Sequence[float] | om2.MPoint | om2.MVector): 位置(cm)。worldSpaceと同じ空間で指定する。
-            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
@@ -592,7 +592,7 @@ class NurbsSurface(_ControlPointShape):
         計算用のノードをシーンに作らない。
 
         Args:
-            worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。
+            worldSpace (bool): Trueはワールド空間(親のスケールを含む)、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:

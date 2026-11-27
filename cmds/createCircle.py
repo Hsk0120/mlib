@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, nativeUnits, preservedSelection, undoTransa
 from ..util import _UNSET, _finite, _finite_vector
 
 
-def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, *, name=_UNSET, parent=None, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET, n=_UNSET):
+def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, *, name=_UNSET, n=_UNSET, parent=None, r=_UNSET, nr=_UNSET, s=_UNSET, d=_UNSET):
     """原点を中心とするNURBSの円を作り、そのシェイプを返す。
 
     半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。
@@ -17,18 +17,18 @@ def createCircle(radius=_UNSET, normal=_UNSET, sections=_UNSET, degree=_UNSET, *
 
     Args:
         radius (float): 半径(cm)。正の有限な値。既定は1。
+        r (float): radiusの短縮名。radiusと同時には指定できない。
         normal (Sequence[float]): 円の面の法線。0でない有限な3成分。既定は(0, 0, 1)。
+        nr (Sequence[float]): normalの短縮名。normalと同時には指定できない。
         sections (int): 区間の数。degree=1なら3以上、degree=3なら4以上。既定は8。
+        s (int): sectionsの短縮名。sectionsと同時には指定できない。
         degree (int): 1(直線)または3(曲線)。既定は3。
+        d (int): degreeの短縮名。degreeと同時には指定できない。
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
             NoneならMayaの既定の名前(``nurbsCircle1`` など)。既定はNone。
-        parent (Node | str | None): Transformの親。Noneならワールド直下。
-            親のローカル空間に、単位マトリクスで置く。
-        r (float): radiusの短縮名。radiusと同時には指定できない。
-        nr (Sequence[float]): normalの短縮名。normalと同時には指定できない。
-        s (int): sectionsの短縮名。sectionsと同時には指定できない。
-        d (int): degreeの短縮名。degreeと同時には指定できない。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        parent (Node | str | None): Transformの親。Noneならワールド直下。
+            親のローカル空間に、単位マトリクスで置く。既定はNone。
 
     Returns:
         NurbsCurve: 作った円のシェイプ。Transformは ``getTransform()`` で取得する。

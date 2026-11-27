@@ -34,8 +34,7 @@ class Shape(DagNode):
             add (bool): Trueなら、今の親はそのままにして、新しい親の下にもインスタンスを加える。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。``MDagModifier.reparentNode`` を使う。
                 add=Trueには対応していない(NotImplementedError)。
-            check (bool): Trueなら、親を変える前に、シェイプ・元の親・新しい親がロック・リファレンスで編集できないものでないかを確かめて、
-                問題があれば何も変えずに例外にする。既定はFalse(fastでは常に確かめる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、シェイプ・元の親・新しい親がロック・リファレンスで編集できないものでないか(fastでは常に確かめる)。
 
         Returns:
             None: 値を返さない。移した後のパスを指す。add=Trueでは、このオブジェクトは元のパスを指したまま。
@@ -67,11 +66,10 @@ class Shape(DagNode):
                 既定は原点。Transformのピボットは使わない。
             indices (Iterable[int | tuple[int, int]] | None): 対象の頂点またはCVの番号。サーフェスでは(U, V)の組。
                 Noneならすべてが対象。空なら何も書き込まない。ただし、Shapeの種類の確認と、
-                fastでサーフェスを拒否する確認は、その前に行う。
+                fastでサーフェスを拒否する確認は、その前に行う。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Trueで使えるのは、ヒストリの無いメッシュとカーブだけ。
                 Falseなら、Maya標準のコマンドで書き込み、Undoが有効なら1回にまとめる。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。

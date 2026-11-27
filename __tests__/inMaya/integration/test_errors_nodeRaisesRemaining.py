@@ -517,7 +517,7 @@ class TransformTest(_RemainingCase):
             (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"preserve": True}),
             (ValueError, "setQuaternion", ((0, 0, 0, 1),), {"rotateAxis": True, "rotate": False, "preserve": True, "safe": True}),
             (TypeError, "getClosestAxisToVector", ("abc",), {}),
-            (TypeError, "getClosestAxisToVector", ((1, 0, 0), 1), {}),
+            (TypeError, "getClosestAxisToVector", ((1, 0, 0),), {"includeNegative": 1}),
         )
         node = mlib.getNode(self.cube())
         cmds.setAttr(node.getName(full=True) + ".translate", 1, 2, 3)
@@ -667,8 +667,8 @@ class LockedNodeTest(_RemainingCase):
             ("node", "smoothWeights", (), {}),
             ("weightList", "smoothWeights", (), {}),
             ("node", "unbind", (), {}),
-            ("node", "unbind", (True,), {}),
-            ("nodeState", "unbind", (True,), {}),
+            ("node", "unbind", (), {"keepHistory": True}),
+            ("nodeState", "unbind", (), {"keepHistory": True}),
             ("node", "transferWeights", ("pair",), {}),
         )
         for lock, method, args, flags in cases:

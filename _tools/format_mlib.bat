@@ -17,6 +17,8 @@ setlocal
 ::                               文字コード指定など、ruff.toml で選んだルール
 ::   check_mlib_layout.py        ruffに無い検査。定数・__all__・TYPE_CHECKING の位置、
 ::                               クラス内メンバーの順、公開入口の入力assert など
+::   check_mlib_arguments.py     引数の表との一致。同じ名前の引数の受け方・既定値・説明。
+::                               --check 以外では、docstring と並びを表の形へ直す
 ::   check_mlib_exports.py       公開名と、明示した公開(__all__ など)の一致
 ::
 :: これはコードそのもののためのバッチ。テストは test_mlib.bat が受け持ち、
@@ -38,6 +40,7 @@ SET "MLIB_TOOLS_DIR=%~dp0"
 SET "SAY=CALL "%~dp0_message.bat""
 SET "PACKAGE=%~dp0.."
 SET "LAYOUT=%~dp0check_mlib_layout.py"
+SET "ARGUMENTS=%~dp0check_mlib_arguments.py"
 SET "EXPORTS=%~dp0check_mlib_exports.py"
 SET "MLIB_FORMAT_ENV_RUFF=%~dp0.venv\Scripts\ruff.exe"
 SET "MLIB_FORMAT_ENV_PYTHON=%~dp0.venv\Scripts\python.exe"
@@ -49,17 +52,19 @@ SET "MLIB_FORMAT_PYTHON="
 SET "MLIB_FORMAT_RESULT=2"
 SET "MLIB_FORMAT_PAUSE=1"
 SET "MLIB_FORMAT_CHECK="
+SET "MLIB_FORMAT_ARGUMENTS_MODE=--fix"
 rem まとめに出す各手順の結果。OK・NG・--(実行していない)のどれか。
 SET "MLIB_FORMAT_STEP_FORMAT=--"
 SET "MLIB_FORMAT_STEP_CHECK=--"
 SET "MLIB_FORMAT_STEP_LAYOUT=--"
+SET "MLIB_FORMAT_STEP_ARGUMENTS=--"
 SET "MLIB_FORMAT_STEP_EXPORTS=--"
 
 rem 引数から --no-pause と --check を取り出す。
 :parse_args
 IF "%~1"=="" GOTO :args_done
 IF /I "%~1"=="--no-pause" SET "MLIB_FORMAT_PAUSE=" & GOTO :next_arg
-IF /I "%~1"=="--check" SET "MLIB_FORMAT_CHECK=1" & GOTO :next_arg
+IF /I "%~1"=="--check" SET "MLIB_FORMAT_CHECK=1" & SET "MLIB_FORMAT_ARGUMENTS_MODE=--check" & GOTO :next_arg
 SET "MLIB_MESSAGE_VALUE=%~1"
 %SAY% format.badArgument
 GOTO :summary
@@ -134,6 +139,10 @@ SET "MLIB_FORMAT_STEP_LAYOUT=OK"
 %MLIB_FORMAT_PYTHON% "%LAYOUT%" --check
 IF ERRORLEVEL 1 SET "MLIB_FORMAT_STEP_LAYOUT=NG"
 %SAY% format.step4
+SET "MLIB_FORMAT_STEP_ARGUMENTS=OK"
+%MLIB_FORMAT_PYTHON% "%ARGUMENTS%" %MLIB_FORMAT_ARGUMENTS_MODE%
+IF ERRORLEVEL 1 SET "MLIB_FORMAT_STEP_ARGUMENTS=NG"
+%SAY% format.step5
 SET "MLIB_FORMAT_STEP_EXPORTS=OK"
 %MLIB_FORMAT_PYTHON% "%EXPORTS%"
 IF ERRORLEVEL 1 SET "MLIB_FORMAT_STEP_EXPORTS=NG"
@@ -141,6 +150,7 @@ IF ERRORLEVEL 1 SET "MLIB_FORMAT_STEP_EXPORTS=NG"
 IF "%MLIB_FORMAT_STEP_FORMAT%"=="NG" SET "MLIB_FORMAT_RESULT=1"
 IF "%MLIB_FORMAT_STEP_CHECK%"=="NG" SET "MLIB_FORMAT_RESULT=1"
 IF "%MLIB_FORMAT_STEP_LAYOUT%"=="NG" SET "MLIB_FORMAT_RESULT=1"
+IF "%MLIB_FORMAT_STEP_ARGUMENTS%"=="NG" SET "MLIB_FORMAT_RESULT=1"
 IF "%MLIB_FORMAT_STEP_EXPORTS%"=="NG" SET "MLIB_FORMAT_RESULT=1"
 
 :summary

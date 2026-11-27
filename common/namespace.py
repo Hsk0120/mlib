@@ -166,7 +166,7 @@ class Namespace:
         cmdsを使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。
+            parent (str | Namespace): 移動先の、既存の親の名前空間。自身の最後の階層の名前はそのままにする。既定は ``":"``。
 
         Returns:
             None: 値を返さない。
@@ -240,7 +240,7 @@ class Namespace:
         Args:
             allDescendents (bool): Trueなら、子孫の名前空間の中のノードも含める。既定はFalse。
             type (str | None): 絞り込むノード型。その型から派生した型も含む。Noneならすべての型
-                (:meth:`Selection.getNodes <mlib.common.selection.Selection.getNodes>` と同じ)。
+                (:meth:`Selection.getNodes <mlib.common.selection.Selection.getNodes>` と同じ)。既定はNone。
 
         Returns:
             Nodes: 名前空間の中のノードのオブジェクト。自身が存在しない場合は空の集まり。
@@ -367,7 +367,7 @@ class Namespace:
         fast引数は持たない(親子付けと削除をMayaコマンドで行うため)。
 
         Args:
-            preserveChildren (bool): Trueなら別の名前空間の子を退避する。FalseならDAGの子孫も削除する。
+            preserveChildren (bool): Trueなら別の名前空間の子を退避する。FalseならDAGの子孫も削除する。既定はTrue。
 
         Returns:
             None: 値を返さない。

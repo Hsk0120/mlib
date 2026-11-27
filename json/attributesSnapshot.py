@@ -50,7 +50,7 @@ class AttributesSnapshot(Snapshot):
         Args:
             nodes (Iterable[Node | Plug | str]): 対象のノードかPlug。1つだけ渡してもよい。
             attributes (Iterable[str] | None): それぞれのノードで記録するアトリビュートの名前かパス。
-                NoneならPlugだけを記録する。
+                NoneならPlugだけを記録する。既定はNone。
 
         Returns:
             AttributesSnapshot: 取得した値を持つ新しいインスタンス。

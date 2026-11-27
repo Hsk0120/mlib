@@ -408,8 +408,8 @@ class ConstraintSupportTest(_SpecCase):
         for type_name in ("constraint", "bogus", "transform"):
             with self.subTest(type=type_name):
                 with self.assertRaises(ValueError):
-                    target.addConstraint(source, type_name)
-        created = target.addConstraint(source, "parent")
+                    target.addConstraint(source, type=type_name)
+        created = target.addConstraint(source, type="parent")
         self.assertEqual(cmds.nodeType(str(created)), "parentConstraint")
 
 

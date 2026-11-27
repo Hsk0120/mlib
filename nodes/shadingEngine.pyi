@@ -37,11 +37,11 @@ class ShadingEngine(ObjectSet):
         engine.assign(mlib.getNode("pCube1"))  # 形状全体。フェースは Face/Faces や "pCube1.f[0:3]"
     """
     @overload
-    def getShader(self, kind: str = ..., *, asPlug: Literal[True]) -> Plug | None: ...
+    def getShader(self, *, kind: str = ..., asPlug: Literal[True]) -> Plug | None: ...
     @overload
-    def getShader(self, kind: str = ..., *, asPlug: Literal[False] = ...) -> Node | None: ...
+    def getShader(self, *, kind: str = ..., asPlug: Literal[False] = ...) -> Node | None: ...
     @overload
-    def getShader(self, kind: str = ..., *, asPlug: bool = ...) -> Node | Plug | None:
+    def getShader(self, *, kind: str = ..., asPlug: bool = ...) -> Node | Plug | None:
         """接続しているシェーダーのノードを取得する。``asPlug=True`` なら、シェーダーの出力アトリビュートを取得する。
 
         Args:
@@ -58,7 +58,7 @@ class ShadingEngine(ObjectSet):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def setShader(self, shader: Node | Plug | str, kind: str = ..., output: str | None = ..., *, fast: bool = ...) -> None:
+    def setShader(self, shader: Node | Plug | str, *, kind: str = ..., output: str | None = ..., fast: bool = ...) -> None:
         """シェーダーを接続する。
 
         例えば ``engine.setShader(lambert)`` は、``lambert.outColor`` を ``surfaceShader`` へ接続する。
@@ -69,7 +69,7 @@ class ShadingEngine(ObjectSet):
             shader (Node | Plug | str): シェーダーのノード、またはその出力のPlug。
             kind (str): シェーダーの種類。surface・volume・displacementのどれか。既定はsurface。
             output (str | None): shaderにノードを渡したときに使う出力のアトリビュート名。
-                Noneならdisplacementではdisplacement、それ以外ではoutColorを使う。
+                Noneならdisplacementではdisplacement、それ以外ではoutColorを使う。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:

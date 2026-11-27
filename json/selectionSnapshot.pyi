@@ -53,7 +53,7 @@ class SelectionSnapshot(Snapshot):
 
         Args:
             items (Iterable[Node | Component | Components | str] | None): 記録するノード・コンポーネント。
-                文字列では ``"pCube1.vtx[0:3]"`` のようなコンポーネントの書き方も使える。Noneなら今の選択。
+                文字列では ``"pCube1.vtx[0:3]"`` のようなコンポーネントの書き方も使える。Noneなら今の選択。既定はNone。
 
         Returns:
             SelectionSnapshot: 選択した順の項目を持つ新しいインスタンス。

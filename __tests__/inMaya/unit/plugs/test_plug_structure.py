@@ -28,9 +28,9 @@ class PlugStructureTest(_Case):
     def test_siblings_and_parents_all(self):
         """コンパウンドアトリビュートの兄弟と、マルチアトリビュートの要素を経由した祖先。"""
         node = mlib.getNode(self.make("transform"))
-        self.assertEqual([plug.getAttributeName("short") for plug in node.tx.getSiblings()], ["ty", "tz"])
+        self.assertEqual([plug.getAttributeName(kind="short") for plug in node.tx.getSiblings()], ["ty", "tz"])
         self.assertEqual(node.translate.getSiblings(), [])
-        self.assertEqual([plug.getAttributeName("short") for plug in node.tx.getParent(all=True)], ["t"])
+        self.assertEqual([plug.getAttributeName(kind="short") for plug in node.tx.getParent(all=True)], ["t"])
         pma = mlib.getNode(self.make("plusMinusAverage", "pma#"))
         child = pma.getPlug("input3D[2].input3Dx")
         self.assertEqual([plug.getName() for plug in child.getParent(all=True)], [pma.getName() + ".i3[2]"])

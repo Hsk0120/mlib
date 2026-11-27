@@ -18,13 +18,13 @@ _OMITTED: Any
 _KIND_ARGUMENTS: dict
 
 @overload
-def createDeformer(kind: Literal["cluster"], targets: str | Node | Component | Iterable, *, name: str | None = ..., relative: bool = ..., n: str | None = ..., rel: bool = ...) -> Cluster: ...
+def createDeformer(kind: Literal["cluster"], targets: str | Node | Component | Iterable, *, name: str | None = ..., n: str | None = ..., relative: bool = ..., rel: bool = ...) -> Cluster: ...
 @overload
-def createDeformer(kind: Literal["lattice"], targets: str | Node | Component | Iterable, *, name: str | None = ..., divisions: Sequence[int] = ..., ldivisions: Sequence[int] = ..., objectCentered: bool = ..., n: str | None = ..., dv: Sequence[int] = ..., ldv: Sequence[int] = ..., oc: bool = ...) -> GeometryFilter: ...
+def createDeformer(kind: Literal["lattice"], targets: str | Node | Component | Iterable, *, name: str | None = ..., n: str | None = ..., divisions: Sequence[int] = ..., dv: Sequence[int] = ..., ldivisions: Sequence[int] = ..., ldv: Sequence[int] = ..., objectCentered: bool = ..., oc: bool = ...) -> GeometryFilter: ...
 @overload
-def createDeformer(kind: Literal["wire"], targets: str | Node | Component | Iterable, *, curves: str | Node | Iterable[str | Node], name: str | None = ..., dropoffDistance: float | None = ..., n: str | None = ..., dds: float | None = ...) -> GeometryFilter: ...
+def createDeformer(kind: Literal["wire"], targets: str | Node | Component | Iterable, *, curves: str | Node | Iterable[str | Node], name: str | None = ..., n: str | None = ..., dropoffDistance: float | None = ..., dds: float | None = ...) -> GeometryFilter: ...
 @overload
-def createDeformer(kind: str, targets: str | Node | Component | Iterable, *, curves: str | Node | Iterable[str | Node] = ..., name: str | None = ..., relative: bool = ..., divisions: Sequence[int] = ..., ldivisions: Sequence[int] = ..., objectCentered: bool = ..., dropoffDistance: float | None = ..., n: str | None = ..., rel: bool = ..., dv: Sequence[int] = ..., ldv: Sequence[int] = ..., oc: bool = ..., dds: float | None = ...) -> GeometryFilter:
+def createDeformer(kind: str, targets: str | Node | Component | Iterable, *, curves: str | Node | Iterable[str | Node] = ..., name: str | None = ..., n: str | None = ..., relative: bool = ..., rel: bool = ..., divisions: Sequence[int] = ..., dv: Sequence[int] = ..., ldivisions: Sequence[int] = ..., ldv: Sequence[int] = ..., objectCentered: bool = ..., oc: bool = ..., dropoffDistance: float | None = ..., dds: float | None = ...) -> GeometryFilter:
     """形状またはコンポーネントに、cluster・ラティス・wireのデフォーマーを作る。
 
     作るものは ``kind`` で選ぶ。Mayaの専用のコマンド(``cmds.cluster``・``cmds.lattice``・``cmds.wire``)で作るので、
@@ -56,17 +56,17 @@ def createDeformer(kind: str, targets: str | Node | Component | Iterable, *, cur
         curves (str | Node | Iterable[str | Node]): 変形に使うnurbsCurve、またはそのtransform。
             ``cmds.wire`` の ``wire`` フラグに渡す。wireでは必須で、ほかの種類では指定できない。
         name (str | None): デフォーマーに付ける名前。NoneならMayaの既定の名前。既定はNone。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
         relative (bool): Trueなら、ハンドルの親の変換を無視し、ハンドル自身の変換だけで変形する。既定はFalse。clusterだけ。
+        rel (bool): relativeの短縮名。relativeと同時には指定できない。
         divisions (Sequence[int]): ラティスのS・T・U方向の点の数。どれも2以上。既定は(2, 5, 2)。latticeだけ。
+        dv (Sequence[int]): divisionsの短縮名。divisionsと同時には指定できない。
         ldivisions (Sequence[int]): 変形の計算に使う、局所的な分割数。どれも1以上。既定は(2, 2, 2)。latticeだけ。
+        ldv (Sequence[int]): ldivisionsの短縮名。ldivisionsと同時には指定できない。
         objectCentered (bool): Trueなら対象の中心に置く。Falseなら原点に置く。既定はTrue。latticeだけ。
+        oc (bool): objectCenteredの短縮名。objectCenteredと同時には指定できない。
         dropoffDistance (float | None): カーブからの影響が届く距離(cm)。0より大きい有限な値。
             すべてのカーブに同じ値を設定する。NoneならMayaの既定。既定はNone。wireだけ。
-        n (str | None): nameの短縮名。nameと同時には指定できない。
-        rel (bool): relativeの短縮名。relativeと同時には指定できない。
-        dv (Sequence[int]): divisionsの短縮名。divisionsと同時には指定できない。
-        ldv (Sequence[int]): ldivisionsの短縮名。ldivisionsと同時には指定できない。
-        oc (bool): objectCenteredの短縮名。objectCenteredと同時には指定できない。
         dds (float | None): dropoffDistanceの短縮名。dropoffDistanceと同時には指定できない。
 
     Returns:

@@ -106,15 +106,15 @@ class CompoundPlug(Plug):
         各子のgetが返す形のまま入れる。
 
         Args:
-            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
-                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
-                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 角度の子の数値の単位。None(既定)は度、``"rad"`` はラジアン。
                 :meth:`Plug.get` と同じ名前を受け付ける。uiUnits=Trueとは同時に指定できない。
             timeUnit (str | None): 時間の子の数値の単位。None(既定)は現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。:meth:`Plug.get` と同じ名前を受け付ける。uiUnits=Trueとは同時に指定できない。
             uiUnits (bool): 各子のgetへ渡す。TrueならUIの単位。
                 既定はFalseで、角度は度、距離はcm、時間はフレームになる。
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。既定はNone。
 
         Returns:
             tuple: 子の数と同じ長さの新しいtuple。値の型と単位は各子のgetのとおり。

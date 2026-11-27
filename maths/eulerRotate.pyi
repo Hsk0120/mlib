@@ -503,7 +503,7 @@ class EulerRotate(om2.MEulerRotation):
 
         Args:
             axis (str | int): 反転する軸 ``"x"``・``"y"``・``"z"``、ミラーの面 ``"YZ"``・``"XZ"``・``"XY"``
-                (x⇔YZ、y⇔XZ、z⇔XY。文字の順番や大文字・小文字は問わない)、または0/1/2。
+                (x⇔YZ、y⇔XZ、z⇔XY。文字の順番や大文字・小文字は問わない)、または0/1/2。既定は ``"x"``。
 
         Returns:
             EulerRotate: 同じ型の新しい回転。回転順序はそのまま保つ。
@@ -525,7 +525,7 @@ class EulerRotate(om2.MEulerRotation):
         - 組み込みの ``round(value, ndigits)`` は度で丸める。
 
         Args:
-            ndigits (int | None): 小数点以下の桁数。負の値なら整数の部分を丸める。Noneなら整数に丸める。
+            ndigits (int | None): 小数点以下の桁数。負の値なら整数の部分を丸める。Noneなら整数に丸める。既定はNone。
             unit (str): 丸める単位。既定は ``"deg"`` で度、``"rad"`` ならラジアン
                 (``"degree"`` / ``"radians"`` などの別名も使える)。
 
@@ -553,7 +553,7 @@ class EulerRotate(om2.MEulerRotation):
         Args:
             other (om2.MEulerRotation | Iterable[float]): 比べる相手。並びは、回転順序がxyzの
                 ラジアンとして扱う。
-            tolerance (float): それぞれの成分の許容誤差。0以上。
+            tolerance (float): それぞれの成分の許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: ほぼ等しければ True。
@@ -654,7 +654,7 @@ class EulerRotate(om2.MEulerRotation):
         このとき、最初の軸と最後の軸の回転が同じ向きの回転になり、軸1つ分の自由度がなくなる。
 
         Args:
-            tolerance (float): ±90 度からの差の許容誤差(ラジアン)。0以上。
+            tolerance (float): ±90 度からの差の許容誤差(ラジアン)。0以上。既定は1e-10。
 
         Returns:
             bool: 中間の軸の角度を -180〜180 度に収め、その絶対値と 90 度の差が tolerance 以下ならTrue。

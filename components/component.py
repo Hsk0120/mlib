@@ -508,7 +508,7 @@ class Components:
             shape (Shape): このクラスに対応するShapeのオブジェクト。同じオブジェクトをそのまま持つ。
             indices (Iterable[int | Sequence[int]] | None): Mayaでの番号。Noneなら、作った時点の全要素を番号の小さい順に持つ。
                 空の並びなら空の集まりになる。各番号は__index__を持つ値で、boolと負の数は受け付けない。
-                番号を複数持つ要素では、通し番号と複数の番号を混ぜて渡せる(持つのは通し番号)。
+                番号を複数持つ要素では、通し番号と複数の番号を混ぜて渡せる(持つのは通し番号)。既定はNone。
 
         Raises:
             TypeError: シェイプの型、または番号の型が合わない場合。
@@ -906,7 +906,7 @@ class Components:
         Args:
             value (Component): 探すコンポーネント。
             start (int): 探し始める位置。既定は0。
-            stop (int | None): 探し終える位置(この位置は含まない)。Noneなら最後まで。
+            stop (int | None): 探し終える位置(この位置は含まない)。Noneなら最後まで。既定はNone。
 
         Returns:
             int: この集まりの中での位置。

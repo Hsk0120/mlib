@@ -641,6 +641,7 @@ METHODS = (
     Method(
         "regenerateTarget",
         _loose,
+        skipCalling=dict.fromkeys(("defaults", "positional"), "作り直すたびに、できる形状の名前の番号が進む"),
         args=("tA",),
         values={"target": TARGET_VALUES, "fullWeight": (1.0, 0.5)},
         replace=("fullWeight",),

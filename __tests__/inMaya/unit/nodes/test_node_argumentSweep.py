@@ -1006,7 +1006,8 @@ ADD_ATTR_CONTEXT_ROWS = {
     "Compound": Method(
         "addAttr",
         _make_attr_target,
-        args=("sweepAttr", "compound", "double", False, ("cx", "cy", "cz")),
+        args=("sweepAttr", "compound", "double"),
+        kwargs={"channelBox": False, "childNames": ("cx", "cy", "cz")},
         values={"numberOfChildren": (3,), "nc": (3,)},
         replace=("numberOfChildren", "nc"),
         skip=_add_attr_only("numberOfChildren", "nc"),

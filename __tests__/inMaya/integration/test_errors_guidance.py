@@ -227,9 +227,9 @@ class AddConstraintOrderTest(_SpecCaseTranslationMirrorErrors):
         for kind in ("parent", "pointConstraint", "aim"):
             with self.subTest(kind=kind):
                 with self.assertRaisesRegex(TypeError, rf"addConstraint\(target, type='{kind}'\)"):
-                    node.addConstraint(kind, ctrl)
+                    node.addConstraint(kind, type=ctrl)
         with self.assertRaisesRegex(TypeError, r"のような文字列で指定してください.*addConstraint\(target, type=\"parent\"\)"):
-            node.addConstraint(ctrl, 1)
+            node.addConstraint(ctrl, type=1)
         self.assertEqual(cmds.ls(type="constraint"), before)
         constraint = node.addConstraint(ctrl, type="parent")
         self.assertTrue(constraint.isType("parentConstraint"))

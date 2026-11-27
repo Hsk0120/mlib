@@ -138,15 +138,15 @@ class MultiPlug(Plug):
         値を平らにならさない。
 
         Args:
-            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
-                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
-                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 各要素のgetへ渡す角度の単位。None(既定)は度、``"rad"`` はラジアン。
                 uiUnits=Trueとは同時に指定できない。
             timeUnit (str | None): 各要素のgetへ渡す時間の単位。None(既定)は現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。uiUnits=Trueとは同時に指定できない。
             uiUnits (bool): 各要素のgetへ渡す。TrueならUIの単位。
                 既定はFalseで、角度は度、距離はcm、時間はフレームになる。
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。既定はNone。
 
         Returns:
             dict[int, object]: 新しいdict。値の型と単位は各要素のgetのとおり。
@@ -305,10 +305,10 @@ class MultiPlug(Plug):
         Args:
             start (int): 探し始める番号。負の数なら、上に書いた既定の位置から探す。bool は受け付けない。
             checkLocked (bool): Trueなら、ロックされた要素(とマルチアトリビュート全体のロック)を避ける。
-                vacantでは無視する。
+                vacantでは無視する。既定はTrue。
             checkChildren (bool): Trueなら、コンパウンドアトリビュートの子と、そのマルチアトリビュートも調べる。
-                vacantでは無視する。
-            vacant (bool): Trueなら、すでにある番号(値や接続のある要素)に無い、最初の番号を探す。
+                vacantでは無視する。既定はTrue。
+            vacant (bool): Trueなら、すでにある番号(値や接続のある要素)に無い、最初の番号を探す。既定はFalse。
 
         Returns:
             Plug: 空いている番号の要素。まだ無い要素でも作らない。番号は ``getIndex()`` で取得する。
@@ -358,7 +358,7 @@ class MultiPlug(Plug):
             index += 1
         raise IndexError("マルチアトリビュートに空いている論理番号がありません")
 
-    def removeElement(self, index, shift=False, *, fast=False, breakConnections=True):
+    def removeElement(self, index, *, shift=False, breakConnections=True, fast=False):
         """マルチアトリビュートの要素を削除する。
 
         削除できるのは、実際にある要素(OpenMayaが返す、すでにある要素の番号)だけ。
@@ -372,8 +372,8 @@ class MultiPlug(Plug):
         Args:
             index (int): 削除する論理番号。
             shift (bool): Trueなら、後ろの要素を1つずつ前へ詰める。既定はFalse。
+            breakConnections (bool): Trueなら接続を切る。Falseなら削除・移動対象に接続がある場合は更新前に拒否する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            breakConnections (bool): Trueなら接続を切る。Falseなら削除・移動対象に接続がある場合は更新前に拒否する。
 
         Returns:
             None: 値を返さない。

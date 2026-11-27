@@ -1098,9 +1098,9 @@ class TransformErrorTest(_Case):
         for include_negative in (True, False):
             with self.subTest(includeNegative=include_negative):
                 # x の軸は長さ0なので、refVector と同じ向きでも選ばない(内積が同じ0の軸は y・z の順に先のもの)。
-                self.assertEqual(flat.getClosestAxisToVector((1, 0, 0), include_negative), "y")
-                self.assertEqual(flat.getClosestAxisToVector((0, 1, 0), include_negative), "y")
-                self.assertEqual(empty.getClosestAxisToVector((0, 1, 0), include_negative), "x")
+                self.assertEqual(flat.getClosestAxisToVector((1, 0, 0), includeNegative=include_negative), "y")
+                self.assertEqual(flat.getClosestAxisToVector((0, 1, 0), includeNegative=include_negative), "y")
+                self.assertEqual(empty.getClosestAxisToVector((0, 1, 0), includeNegative=include_negative), "x")
         cmds.setAttr(transform.getName(full=True) + ".rotateZ", 90)
         self.assertEqual(transform.getClosestAxisToVector((0, 1, 0)), "x")
         self.assertEqual(transform.getClosestAxisToVector((1, 0, 0)), "-y")

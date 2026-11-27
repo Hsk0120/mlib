@@ -81,7 +81,7 @@ class JointMirrorTest(_SpecCase):
                     flag = "mirror" + plane
                     expected = cmds.mirrorJoint(self.joints[0], mirrorBehavior=behavior, searchReplace=("L_", "E_"), **{flag: True})
                     expected_root = self.group + "|" + expected[0]
-                    root = Joint(self.joints[0]).mirror(axis, behavior, searchReplace=("L_", "R_"))
+                    root = Joint(self.joints[0]).mirror(axis, behavior=behavior, searchReplace=("L_", "R_"))
                     self.assertIs(type(root), Joint)
                     self.assertEqual(root.getParent(), Node(self.group))
                     self.assertEqual(self.leaf(root.getName()), "R_a")

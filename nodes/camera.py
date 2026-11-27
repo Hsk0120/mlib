@@ -51,8 +51,7 @@ class Camera(Shape):
             aspectRatio (float): 正の横幅/高さ比。
             unit (str): 画角の単位。既定deg。radも指定できる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -90,8 +89,7 @@ class Camera(Shape):
         Args:
             camera (str | Camera): コピー元のカメラShape。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、コピー先のカメラと親Transformのアトリビュートが書き込めるか
-                (ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、コピー先のカメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -234,8 +232,8 @@ class Camera(Shape):
         fast引数は持たない(1回のcmdsで更新するため)。
 
         Args:
-            near (float | None): 近側の合焦距離。正の有限距離(cm)。
-            far (float | None): 遠側の合焦距離。正の有限距離(cm)。
+            near (float | None): 近側の合焦距離。正の有限距離(cm)。既定はNone。
+            far (float | None): 遠側の合焦距離。正の有限距離(cm)。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -278,7 +276,7 @@ class Camera(Shape):
         space = self._space(worldSpace)
         return _vectors_of_points([fn.eyePoint(space) if kind == "eye" else fn.centerOfInterestPoint(space)])[0]
 
-    def setPoint(self, point, worldSpace=_UNSET, *, kind="eye", ws=_UNSET, fast=False, check=False):
+    def setPoint(self, point, worldSpace=_UNSET, *, kind="eye", fast=False, check=False, ws=_UNSET):
         """カメラの位置(視点)を変更する。``kind="centerOfInterest"`` なら、視点を保ちながら注視点を変更する。
 
         - ``"eye"``: ``MFnCamera.setEyePoint`` で、注視点を保ったままカメラを動かす(カメラは注視点を向き続けるので、向きは変わる)。
@@ -290,11 +288,10 @@ class Camera(Shape):
         Args:
             point (Iterable[float]): XYZ座標(cm)。注視点は、視点と異なる位置。
             worldSpace (bool): Trueはワールド空間、Falseはカメラ空間。既定True。
-            ws (bool): worldSpaceの短縮名。同時指定はできない。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             kind (str): 変更する点。``"eye"`` はカメラの位置、``"centerOfInterest"`` は注視点。既定は ``"eye"``。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、カメラと親Transformのアトリビュートが書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。

@@ -78,16 +78,16 @@ class ShadingEngineConnectionTest(NamespaceCase):
                 cmds.listConnections(name + ".surfaceShader", source=True, destination=False, plugs=True), [material.getName() + ".outColor"]
             ),
         )
-        engine.setShader(material, "volume", output="outTransparency")
-        self.assertEqual(engine.getShader("volume", asPlug=True), material.getPlug("outTransparency"))
-        self.assertEqual(engine.getShader("volume"), material)
-        engine.setShader(displacement, "displacement")
+        engine.setShader(material, kind="volume", output="outTransparency")
+        self.assertEqual(engine.getShader(kind="volume", asPlug=True), material.getPlug("outTransparency"))
+        self.assertEqual(engine.getShader(kind="volume"), material)
+        engine.setShader(displacement, kind="displacement")
         self.assertEqual(
             cmds.listConnections(name + ".displacementShader", source=True, destination=False, plugs=True), [displacement.getName() + ".displacement"]
         )
         engine.setShader(material.getPlug("outColor"))
         self.assertEqual(engine.getShader(asPlug=True), material.getPlug("outColor"))
-        self.assertEqual(engine.getShader("displacement"), displacement)
+        self.assertEqual(engine.getShader(kind="displacement"), displacement)
 
     def test_shader_inputs_rejected(self):
         """kindの名前違いはValueError、plugがbool以外はTypeError、自分自身への接続はRuntimeErrorで、接続は変わらない。"""
@@ -95,9 +95,9 @@ class ShadingEngineConnectionTest(NamespaceCase):
         material = mlib.createNode("lambert", name=self.name("material#"))
         engine.setShader(material)
         for label, operation, error in (
-            ("get kind", lambda: engine.getShader("color"), ValueError),
+            ("get kind", lambda: engine.getShader(kind="color"), ValueError),
             ("get asPlug type", lambda: engine.getShader(asPlug=1), TypeError),
-            ("set kind", lambda: engine.setShader(material, "color"), ValueError),
+            ("set kind", lambda: engine.setShader(material, kind="color"), ValueError),
             ("self", lambda: engine.setShader(engine.getPlug("surfaceShader")), RuntimeError),
             ("self fast", lambda: engine.setShader(engine.getPlug("surfaceShader"), fast=True), RuntimeError),
         ):

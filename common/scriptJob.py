@@ -36,10 +36,10 @@ class ScriptJob:
         """イベント・アトリビュートの変更・UIの削除のどれかの監視を始める。
 
         Args:
-            event (str | None): Mayaのイベント名。attribute・uiDeletedとは同時に指定できない。
-            attribute (str | Plug | MPlug | None): 監視するアトリビュート。event・uiDeletedとは同時に指定できない。
+            event (str | None): Mayaのイベント名。attribute・uiDeletedとは同時に指定できない。既定はNone。
+            attribute (str | Plug | MPlug | None): 監視するアトリビュート。event・uiDeletedとは同時に指定できない。既定はNone。
             uiDeleted (str | None): 監視するUI(ウィンドウなど)の名前。消えたときにcallbackを呼ぶ。
-                event・attributeとは同時に指定できない。
+                event・attributeとは同時に指定できない。既定はNone。
             callback (Callable): 引数なしで呼ぶ処理。
             killWithScene (bool): Trueなら、シーンをクリアするときに監視を解除する。既定はFalse。
             compressUndo (bool): Trueなら、callbackでの変更を直前の操作のUndoにまとめる。既定はFalse。

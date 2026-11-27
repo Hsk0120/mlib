@@ -17,12 +17,12 @@ class MatrixPlug(Plug):
         """アトリビュートのマトリクスの値を取得する。
 
         Args:
+            unit (str | None): Plug共通の角度の単位の指定。正しい指定か確かめるだけで、マトリクスの成分は換算しない。既定はNone。
+            timeUnit (str | None): Plug共通の時間の単位の指定。正しい指定か確かめるだけ。既定はNone。
+            uiUnits (bool): Plug共通の単位の指定。マトリクスの成分の単位は変換しない。既定はFalse。
             time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
                 現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
-                シミュレーションの順次再生と同じ結果は保証しない。
-            unit (str | None): Plug共通の角度の単位の指定。正しい指定か確かめるだけで、マトリクスの成分は換算しない。
-            timeUnit (str | None): Plug共通の時間の単位の指定。正しい指定か確かめるだけ。
-            uiUnits (bool): Plug共通の単位の指定。マトリクスの成分の単位は変換しない。
+                シミュレーションの順次再生と同じ結果は保証しない。既定はNone。
 
         Returns:
             Matrix | None: アトリビュートのマトリクスのコピー。uiUnitsにかかわらず、内部単位のまま返す。

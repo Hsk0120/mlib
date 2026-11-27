@@ -149,6 +149,7 @@ METHODS = (
     Method(
         "createReference",
         _creator,
+        skipCalling={"positional": "2回目の読み込みは、リファレンスノードの名前が変わる"},
         args=(PATHS[0],),
         values={"path": PATHS, "namespace": (None, "mlibSweepRef", "mlibSweepRef_2", ":mlibSweepRefAbs")},
         replace=("path", "namespace"),

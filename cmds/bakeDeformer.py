@@ -24,8 +24,8 @@ def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, m
         source (Node | str): 変形を測る元の形状(またはその transform)。デフォーマーで変形していること。
         skeleton (Joint | str): 元の形状を動かすスケルトンの、ルートの joint。
         destination (Node | str | None): ウェイトを焼き込む形状。Noneならsourceそのものに焼き込む。
-            このとき元のデフォーマーを取り除き、skinCluster だけで変形する形にする。
-        destinationSkeleton (Joint | str | None): 変形先のスケルトンのルート。Noneならskeletonと同じ。
+            このとき元のデフォーマーを取り除き、skinCluster だけで変形する形にする。既定はNone。
+        destinationSkeleton (Joint | str | None): 変形先のスケルトンのルート。Noneならskeletonと同じ。既定はNone。
         maxInfluences (int): 1つの頂点に影響するインフルエンスの最大数。正の整数。既定は4。
         mi (int): maxInfluencesの短縮名。maxInfluencesと同時には指定できない。
         **kwargs (object): ``cmds.bakeDeformer`` のそのほかのフラグ。長い名前・短い名前のどちらでもよい。

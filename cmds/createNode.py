@@ -12,7 +12,6 @@ from ..util import _UNSET
 def createNode(
     type,
     *,
-    fast=False,
     name=_UNSET,
     n=_UNSET,
     parent=_UNSET,
@@ -27,6 +26,7 @@ def createNode(
     asLight=False,
     asPostProcess=False,
     asRendering=False,
+    fast=False,
     **kwargs,
 ):
     """Mayaのノードを作り、実際の型に合ったオブジェクトを返す。
@@ -73,7 +73,6 @@ def createNode(
 
     Args:
         type (str): Mayaのノード型名。
-        fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
         name (str): Mayaへ渡すノード名。DAGパスの区切り ``|`` は含められない
             (Mayaは黙って置き換えてしまうため、エラーにする)。
         n (str): nameの短縮名。nameと同時には指定できない。
@@ -90,6 +89,7 @@ def createNode(
         asLight (bool): Trueなら、ライトとして作る。既定False。
         asPostProcess (bool): Trueなら、ポストプロセスとして作る。既定False。
         asRendering (bool): Trueなら、レンダリングのノードとして作る。既定False。
+        fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
         **kwargs (object): 通常の処理では、そのほかのMayaのフラグとしてそのまま渡す。
             fast=Trueでは、対応していないフラグを作る前にエラーにする。
 

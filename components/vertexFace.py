@@ -78,8 +78,8 @@ class VertexFace(Component):
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。``lockedOnly=True`` とは同時に指定できない。
-            lockedOnly (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            lockedOnly (bool): Trueなら、法線の値ではなく、法線がロックされているかを返す。既定はFalse。
 
         Returns:
             Vector | bool: 長さ1の法線。``lockedOnly=True`` なら、法線がロックされていればTrue。
@@ -113,10 +113,10 @@ class VertexFace(Component):
         Args:
             normal (Sequence[float] | Vector | None): 長さが0でないXYZ。正規化して設定する。Noneなら値は書かない。既定はNone。
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。``normal`` を渡したときだけ指定できる。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             locked (bool | None): Trueはロック、Falseは解除。Noneは ``normal`` を渡したときのロック(Trueと同じ)。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら有限な数値か書き込み前に確認する。既定FalseはMayaの受理に任せる。``normal`` を渡したときだけ指定できる。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、有限な数値か。``normal`` を渡したときだけ指定できる。
 
         Returns:
             None: 値を返さない。
@@ -155,9 +155,9 @@ class VertexFace(Component):
 
         Args:
             worldSpace (bool): Trueはワールド空間、Falseはオブジェクト空間。既定False。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             binormal (bool): Trueなら、接線でなく従法線を返す。既定はFalse。
-            uvSet (str | None): UVセット。Noneは現在のセット。
-            ws (bool): worldSpaceの別名。同時指定は不可。
+            uvSet (str | None): UVセット。Noneは現在のセット。既定はNone。
 
         Returns:
             Vector: 独立した正規化済みの接線(``binormal=True`` なら従法線)。
@@ -175,7 +175,7 @@ class VertexFace(Component):
         """この面頂点の色を取得する。
 
         Args:
-            colorSet (str | None): カラーセット。Noneは現在のセット。
+            colorSet (str | None): カラーセット。Noneは現在のセット。既定はNone。
 
         Returns:
             tuple[float, float, float, float] | None: RGBA。色が未設定ならNone。
@@ -195,10 +195,9 @@ class VertexFace(Component):
 
         Args:
             color (Sequence[float] | om2.MColor): RGBまたはRGBAの有限値。RGBのAは1。
-            colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット(無ければcolorSet1を作る)。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -212,15 +211,15 @@ class VertexFace(Component):
         _require_bool(fast, "fast")
         self.shape.setVertexColors([color], perFace=True, fast=fast, check=check, colorSet=colorSet, faceVertices=self)
 
-    def removeColor(self, *, fast=False, colorSet=None):
+    def removeColor(self, *, colorSet=None, fast=False):
         """この面頂点のカラー割り当てを解除する。
 
         カラーセットは残し、getColorでNoneになる状態へ戻す。
         ヒストリの制限はMesh.removeFaceVertexColorsと同じ。通常はUndoに記録する。
 
         Args:
+            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            colorSet (str | None): 既存のカラーセット。Noneは現在のセット。
 
         Returns:
             None: 値を返さない。

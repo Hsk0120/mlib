@@ -17,7 +17,7 @@ _REJECTED_FLAGS = frozenset(("query", "q", "edit", "e"))
 _FILE_FLAGS = (("normalizeWeights", "nw", "normalizeWeights"), ("obeyMaxInfluences", "omi", "maintainMaxInfluences"), ("skinMethod", "sm", "skinningMethod"))
 
 
-def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", **kwargs):
+def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", mi=_UNSET, **kwargs):
     """形状を指定したインフルエンスへバインドする。
 
     Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
@@ -47,10 +47,10 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, mi=_UNSET, weights=N
         maximumInfluences (int | None): 1つの頂点に割り当てるインフルエンスの最大数。正の整数。
             Noneなら ``weights`` のファイルの値を使い、ファイルが無ければ4にする。既定はNone。
         mi (int | None): maximumInfluencesの短縮名。maximumInfluencesと同時には指定できない。
-        weights (str | os.PathLike | None): ``mlib.skinWeights`` 形式のファイル。Noneなら読み込まない。
-        nameMap (dict[str, str] | None): ファイルのインフルエンスの名前(名前空間を除いたもの)の対応表。
-        replace (Iterable[tuple[str, str]] | None): ファイルのインフルエンスの名前へ、順に当てる文字列の置換。
-        namespaceMap (dict[str, str] | None): ファイルのインフルエンスの名前空間の対応。
+        weights (str | os.PathLike | None): ``mlib.skinWeights`` 形式のファイル。Noneなら読み込まない。既定はNone。
+        nameMap (dict[str, str] | None): ファイルのインフルエンスの名前(名前空間を除いたもの)の対応表。既定はNone。
+        replace (Iterable[tuple[str, str]] | None): ファイルのインフルエンスの名前へ、順に当てる文字列の置換。既定はNone。
+        namespaceMap (dict[str, str] | None): ファイルのインフルエンスの名前空間の対応。既定はNone。
         method (str): ファイルの頂点をどう対応付けるか。``"index"`` (既定)は頂点番号、
             ``"position"`` は最も近い位置で対応付ける。
         **kwargs (object): ``cmds.skinCluster`` のそのほかのフラグ(``bindMethod``・``dropoffRate``・

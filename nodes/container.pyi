@@ -86,9 +86,9 @@ class Container(Node):
         containerが入れ子になっている場合、外したノードはふつう親のcontainerのメンバーになる。
 
         Args:
-            *members (Node | str | Iterable[Node]): 外すメンバー。all=Trueとは同時に指定できない。
             all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
-            force (bool): Trueなら、すべてのcontainerから外す(``container -removeNode -force``)。ロックを外すという意味ではない。
+            force (bool): Trueなら、すべてのcontainerから外す(``container -removeNode -force``)。ロックを外すという意味ではない。既定はFalse。
+            *members (Node | str | Iterable[Node]): 外すメンバー。all=Trueとは同時に指定できない。
 
         Returns:
             None: 値を返さない。

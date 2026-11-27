@@ -333,8 +333,8 @@ def _dump_movable_attr(plug):
         raise TypeError(f"messageのアトリビュートは並べ替えられません: {plug._full_name()}")
     info = {
         "longName": plug.getAttributeName(),
-        "shortName": plug.getAttributeName("short"),
-        "niceName": plug.getAttributeName("nice"),
+        "shortName": plug.getAttributeName(kind="short"),
+        "niceName": plug.getAttributeName(kind="nice"),
         "hidden": definition.hidden,  # addAttr(hidden=)の定義フラグ。Channel Boxの表示はkeyable/channelBox。
         "keyable": plug.mplug().isKeyable,
         "channelBox": plug.mplug().isChannelBox,
@@ -931,7 +931,7 @@ class Node(Object):
 
         Args:
             metric (int | None): MFnDependencyNodeのkTimerMetric_*定数(0〜8)。``kind="metric"`` のときは必須、
-                ほかのkindでは指定できない。
+                ほかのkindでは指定できない。既定はNone。
             kind (str): 返すものの種類。既定の ``"metric"`` はmetricの計測値、``"callbacks"`` はコールバックの種類別の計測値、
                 ``"state"`` はこのノードの計測の状態。
             timerType (int): kTimerType_self(0、既定)、inclusive(1)、count(2)。``kind="state"`` では使わない。
@@ -1023,7 +1023,7 @@ class Node(Object):
         """
         return self._alive_fn()
 
-    def getType(self, inherited=False):
+    def getType(self, *, inherited=False):
         """Mayaのノードの型の名前、または型の継承の並びを取得する。
 
         動的に作ったクラスも含め、mlibのクラス名ではなく、MayaのnodeTypeの名前をそのまま返す。
@@ -1148,9 +1148,7 @@ class Node(Object):
         Args:
             state (bool): Trueならロック、Falseなら解除する。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、変える前に、リファレンスから読み込んだノードでないかを確かめ、そうなら何も変えずに例外にする
-                (Mayaはリファレンスのノードのロックも変えるが、fastの変更はリファレンスの編集に残らない)。
-                既定はFalseで、確かめずに変える。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、リファレンスから読み込んだノードでないか(Mayaはリファレンスのノードのロックも変えるが、fastの変更はリファレンスの編集に残らない)。
 
         Returns:
             None: 値を返さない。
@@ -1266,7 +1264,7 @@ class Node(Object):
         - Transformでは、Transform自身が入っているセットだけを返す。Shapeのセットは含まない。
 
         Args:
-            type (str | None): セットのノードの型で絞る(``"shadingEngine"`` など)。派生の型も含む。Noneなら絞らない。
+            type (str | None): セットのノードの型で絞る(``"shadingEngine"`` など)。派生の型も含む。Noneなら絞らない。既定はNone。
 
         Returns:
             Nodes[ObjectSet]: セットのオブジェクト(``ShadingEngine`` などの派生の型も含む)。名前の順。無ければ空の集まり。
@@ -1370,7 +1368,7 @@ class Node(Object):
             new_name = f"{namespace_name}:{node_name}" if namespace_name != ":" else node_name
             self.rename(new_name, fast=fast)
 
-    def delete(self, *, skipConnected=False, fast=False, removeInfluence=True, transferToParent=True, repair=False):
+    def delete(self, *, skipConnected=False, removeInfluence=True, transferToParent=True, repair=False, fast=False):
         """このノードを、Mayaの標準の決まりで削除する。
 
         DAGの子も削除する。1回のUndoで戻せる。
@@ -1388,13 +1386,11 @@ class Node(Object):
         fastでのロック・リファレンスの文言は ``ノードがロックされているか、リファレンスです: x``。
 
         Args:
-            skipConnected (bool): Trueなら、自身かDAGの子孫にDGの接続がある場合は削除しない。
-                入力・出力・message・セットやマテリアルの接続をすべて含む。
-                Falseならふつうに削除する。ロックの解除や、例外を抑えることはしない。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            skipConnected (bool): Trueなら、接続があるノードは削除しない。既定はFalse。自身かDAGの子孫にDGの接続がある場合は削除しない。入力・出力・message・セットやマテリアルの接続をすべて含む。Falseならふつうに削除する。ロックの解除や、例外を抑えることはしない。
             removeInfluence (bool): Jointでは、Falseならインフルエンスから外さない。Joint以外では働きは無い。既定はTrue。
             transferToParent (bool): Jointでは、Falseならウェイトを祖先へ移さない。Joint以外では働きは無い。既定はTrue。
             repair (bool): Jointでは、Trueなら不正なウェイトを直してから外す。Joint以外では働きは無い。既定はFalse。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
             None: 値を返さない。
@@ -1417,7 +1413,7 @@ class Node(Object):
 
             delete_nodes([self], fast=fast)
 
-    def rename(self, name, ignoreShape=False, *, fast=False):
+    def rename(self, name, *, ignoreShape=False, fast=False):
         """ノード名を変更する。
 
         名前が重なったときの連番など、Mayaが直した後の名前は、戻り値の ``getName(short=True)`` で取得する。
@@ -1464,7 +1460,7 @@ class Node(Object):
         Args:
             name (str | None): 複製の名前。NoneならMayaの既定の名前(連番)。
             suffix (str | None): 複製したノードとDAGの子孫すべての名前を、「複製元の名前 + suffix」にする
-                (:func:`mlib.duplicate` のsuffixと同じ)。Noneなら名前を変えない。
+                (:func:`mlib.duplicate` のsuffixと同じ)。Noneなら名前を変えない。既定はNone。
             **kwargs (object): ``cmds.duplicate`` のフラグ(``parentOnly``・``inputConnections``・
                 ``upstreamNodes`` など。短縮名も使える)。
 
@@ -1526,16 +1522,16 @@ class Node(Object):
     def getConnections(
         self,
         *,
-        s=_UNSET,
-        d=_UNSET,
-        t=_UNSET,
-        et=_UNSET,
-        scn=_UNSET,
         source=_UNSET,
+        s=_UNSET,
         destination=_UNSET,
+        d=_UNSET,
         type=_UNSET,
+        t=_UNSET,
         exactType=_UNSET,
+        et=_UNSET,
         skipConversionNodes=_UNSET,
+        scn=_UNSET,
         asPair=False,
         asNode=False,
         index=None,
@@ -1554,21 +1550,21 @@ class Node(Object):
         (``cmds.listConnections`` の ``connections``・``c`` は受けない)。
 
         Args:
-            s (bool): sourceの短縮名。
-            d (bool): destinationの短縮名。
-            t (str | None): typeの短縮名。
-            et (bool): exactTypeの短縮名。
-            scn (bool): skipConversionNodesの短縮名。
             source (bool): Trueなら入力を含める。既定はTrue。
+            s (bool): sourceの短縮名。
             destination (bool): Trueなら出力を含める。既定はTrue。
+            d (bool): destinationの短縮名。
             type (str | None): 接続先のノードの型で絞る。既定はNoneで、絞らない。
+            t (str | None): typeの短縮名。
             exactType (bool): Trueなら、型の名前が完全に一致するものだけに絞る。既定はFalse。
+            et (bool): exactTypeの短縮名。
             skipConversionNodes (bool): 既定はFalseで、直接つながっている相手を返す(``cmds.listConnections`` と同じ)。
                 Trueなら、unitConversionの仲間を飛ばす。
+            scn (bool): skipConversionNodesの短縮名。
             asPair (bool): Trueなら、自身の側のPlugと相手の側のペアで返す。既定はFalse。
             asNode (bool): Trueなら、相手の側をNodeで返す。既定はFalse。
             index (int | None): 結果のうち1件だけを返すときの、結果の並びの位置の番号(Mayaの番号ではない)。
-                負の数は末尾から数える(Pythonの並びと同じ)。範囲外ならNone。
+                負の数は末尾から数える(Pythonの並びと同じ)。範囲外ならNone。既定はNone。
 
         Returns:
             Plugs | Nodes | list | Plug | Node | tuple | None: 条件に合う結果。
@@ -1651,7 +1647,7 @@ class Node(Object):
 
         Args:
             attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーを設定できるすべてのアトリビュート
-                (``cmds.setKeyframe(node)`` と同じ)。
+                (``cmds.setKeyframe(node)`` と同じ)。既定はNone。
             unit (str | None): 角度のvalueの単位。None(既定)と ``"deg"`` は度、``"rad"`` はラジアン
                 (uiUnits=Trueと同時に指定したかを見分けるため、既定はNone)。
             timeUnit (str): ``time`` / ``t`` の数値の単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、
@@ -1698,8 +1694,8 @@ class Node(Object):
         fast引数は持たない(OpenMayaでキーを1つずつ消すほうが、cmds.cutKeyより遅いため)。
 
         Args:
-            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
-            time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。既定はNone。
+            time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。既定はNone。
             timeUnit (str): timeの単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
@@ -1731,10 +1727,10 @@ class Node(Object):
 
         Args:
             attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーを設定できるスカラーの
-                アトリビュートのうち、キーのあるもの。
-            time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲。Noneならすべてのキー。
-            timeOffset (float): 時刻の移動量。
-            valueOffset (float): 値の移動量(角度は度、距離はcm)。
+                アトリビュートのうち、キーのあるもの。既定はNone。
+            time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲。Noneならすべてのキー。既定はNone。
+            timeOffset (float): 時刻の移動量。既定は0。
+            valueOffset (float): 値の移動量(角度は度、距離はcm)。既定は0。
             unit (str): 角度のvalueOffsetの単位。``"deg"`` (既定)は度、``"rad"`` はラジアン。
             timeUnit (str): time・timeOffsetの単位。``"frame"`` (既定)はフレーム、``"sec"`` は秒。
 
@@ -1764,10 +1760,10 @@ class Node(Object):
         fast引数は持たない(1回のcmdsで全キーを処理するため)。
 
         Args:
-            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。
-            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
-            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
-            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            attributes (str | Iterable[str] | None): アトリビュート名。Noneなら、キーのあるすべてのアトリビュート。既定はNone。
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。既定はNone。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。既定はNone。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。既定はNone。
             timeUnit (str): timeの単位。``"frame"`` (既定)は今のUIの時間単位のフレーム、``"sec"`` は秒。
 
         Returns:
@@ -1797,7 +1793,7 @@ class Node(Object):
         ``MItDependencyGraph`` でヒストリをたどって探す。
 
         Args:
-            type (str | None): ノードの型で絞る。派生の型も含む。Noneなら絞らない。
+            type (str | None): ノードの型で絞る。派生の型も含む。Noneなら絞らない。既定はNone。
             future (bool): Trueなら下流を、Falseなら上流を探す。既定はFalse。
 
         Returns:
@@ -1929,10 +1925,9 @@ class Node(Object):
             attributes (str | Plug | Iterable[str | Plug] | None): アトリビュート名か、このノードのPlug
                 (名前と混ぜてもよい)。Noneなら、キーを設定できる数値・単位付き・enumのアトリビュートを対象にする。
                 そのうち、マルチアトリビュート・ロック・入力の接続・書込み禁止・対応していない型のものは除く
-                (通常とfastで同じものを選ぶ)。明示したアトリビュートのエラーは、除かずにそのまま例外にする。
+                (通常とfastで同じものを選ぶ)。明示したアトリビュートのエラーは、除かずにそのまま例外にする。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             Plugs: 既定値へ戻したアトリビュート。すべての変更を1回のUndoにまとめる。
@@ -1975,17 +1970,15 @@ class Node(Object):
 
         Args:
             attributes (str | Plug | Iterable[str | Plug]): アトリビュート名か、このノードのPlug(名前と混ぜてもよい)。
-            locked (bool | None): Trueならロック、Falseなら解除する。Noneなら変えない。
-            keyable (bool | None): キーを設定できるようにするか。Noneなら変えない。
+            locked (bool | None): Trueならロック、Falseなら解除する。Noneなら変えない。既定はNone。
+            keyable (bool | None): キーを設定できるようにするか。Noneなら変えない。既定はNone。
             channelBox (bool | None): チャンネルボックスに表示するか。Noneなら変えない。
-                keyable=Trueなら、Mayaによって表示される。
+                keyable=Trueなら、Mayaによって表示される。既定はNone。
             children (bool): Trueなら、コンパウンドアトリビュート(``t`` など)の子(``tx`` など)にも同じ状態を設定する。
                 既定はFalseで、指定したアトリビュートだけを変える(Mayaの ``setAttr`` と同じく、親のkeyableと
                 チャンネルボックスの表示は子へ及ばない。ロックは親から子へ受け継がれる)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、変える前に、Mayaが拒否する変更(リファレンスのノードのアトリビュートのkeyable・
-                チャンネルボックスの表示)が無いかを確かめ、あれば何も変えずに例外にする。既定はFalseで、確かめずに変える
-                (途中でMayaが拒否すると、それまでのアトリビュートは変わったまま)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、Mayaが拒否する変更(リファレンスのノードのアトリビュートのkeyable・チャンネルボックスの表示)が無いか。確かめないときは、途中でMayaが拒否すると、それまでのアトリビュートは変わったままになる。
 
         Returns:
             None: 値を返さない。
@@ -2106,15 +2099,16 @@ class Node(Object):
         longName=_UNSET,
         type=None,
         subType=None,
+        *,
         channelBox=_UNSET,
+        cb=_UNSET,
         childNames=None,
         childShortNames=None,
         childSuffixes=None,
         proxy=_UNSET,
+        pxy=_UNSET,
         getPlug=True,
-        *,
         skipExisting=False,
-        fast=False,
         unit="deg",
         timeUnit="frame",
         attributeType=_UNSET,
@@ -2156,7 +2150,6 @@ class Node(Object):
         internalSet=_UNSET,
         keyable=_UNSET,
         k=_UNSET,
-        ln=_UNSET,
         maxValue=_UNSET,
         max=_UNSET,
         minValue=_UNSET,
@@ -2169,7 +2162,6 @@ class Node(Object):
         nc=_UNSET,
         parent=_UNSET,
         p=_UNSET,
-        pxy=_UNSET,
         query=_UNSET,
         q=_UNSET,
         readable=_UNSET,
@@ -2192,7 +2184,8 @@ class Node(Object):
         ws=_UNSET,
         writable=_UNSET,
         w=_UNSET,
-        cb=_UNSET,
+        fast=False,
+        ln=_UNSET,
         **kwargs,
     ):
         """アトリビュートを追加する。
@@ -2214,21 +2207,19 @@ class Node(Object):
         fastで対応していない型や定義のフラグは、追加する前に拒否する。
 
         Args:
-            longName (str): ロング名。lnかsnだけを指定してもよい。
-            type (str | None): 型の名前。at:/dt:の接頭辞も付けられる。指定すると、attributeType/dataTypeより優先する。
-            subType (str | None): 自動で作る子の、共通の型。
-            channelBox (bool): Trueならチャンネルボックスに表示する。cbでも指定できる。
-            childNames (Sequence[str] | None): 子のロング名。
-            childShortNames (Sequence[str] | None): 子の短縮名。
-            childSuffixes (Sequence[str] | None): 親の名前の後ろに付けて子の名前にする接尾辞。
-            proxy (Plug | str | None): プロキシの元にするアトリビュート。
+            longName (str): ロング名。lnかsnだけを指定してもよい。既定は ``""``。
+            ln (str): longNameの別名。
+            type (str | None): 型の名前。at:/dt:の接頭辞も付けられる。指定すると、attributeType/dataTypeより優先する。既定はNone。
+            subType (str | None): 自動で作る子の、共通の型。既定はNone。
+            channelBox (bool): Trueならチャンネルボックスに表示する。cbでも指定できる。既定はFalse。
+            cb (bool): channelBoxの別名。
+            childNames (Sequence[str] | None): 子のロング名。既定はNone。
+            childShortNames (Sequence[str] | None): 子の短縮名。既定はNone。
+            childSuffixes (Sequence[str] | None): 親の名前の後ろに付けて子の名前にする接尾辞。既定はNone。
+            proxy (Plug | str | None): プロキシの元にするアトリビュート。既定はNone。
+            pxy (Plug | str | None): proxyの別名。
             getPlug (bool): 既定のTrueなら追加したPlugを、FalseならNoneを返す。
-            skipExisting (bool): Trueなら、何度実行しても同じ結果になるようにする。同じ名前のアトリビュートがすでにあれば
-                何も変えずに、そのPlug(getPlug=FalseならNone)を返す。既存の既定値・範囲・表示などは変えない。
-                ただし、既存のアトリビュートの型(getType()で比べる)や、マルチアトリビュートかどうかが
-                指定と違う場合は、skipExistingでもTypeErrorにする。既定のFalseでは、名前が重なるとMayaのエラー
-                (RuntimeError)になる。``Plug.set(safe=True)`` (失敗した数を返す)とは意味が違う。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
+            skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。同じ名前のアトリビュートがすでにあれば何も変えずに、そのPlug(getPlug=FalseならNone)を返す(何度実行しても同じ結果になる)。既存の既定値・範囲・表示などは変えない。ただし、既存のアトリビュートの型(getType()で比べる)や、マルチアトリビュートかどうかが指定と違う場合は、skipExistingでもTypeErrorにする。Falseでは、名前が重なるとMayaのエラー(RuntimeError)になる。``Plug.set(safe=True)`` (失敗した数を返す)とは意味が違う。
             unit (str): 角度のアトリビュートの、数値の既定値・min/max・softMin/softMaxの単位。既定の ``"deg"`` は度、
                 ``"rad"`` はラジアン(``"degree"`` / ``"radians"`` などの別名も使える)。Mayaのフラグではない。
             timeUnit (str): 時間のアトリビュートの、数値の既定値・min/max・softMin/softMaxの単位。既定の ``"frame"`` は
@@ -2274,7 +2265,6 @@ class Node(Object):
             internalSet (bool): MayaのinternalSetフラグ。
             keyable (bool): Mayaのkeyableフラグ。
             k (bool): keyableの別名。
-            ln (str): longNameの別名。
             maxValue (float | om2.MAngle | om2.MDistance | om2.MTime): MayaのmaxValueフラグ。
             max (float | om2.MAngle | om2.MDistance | om2.MTime): maxValueの別名。
             minValue (float | om2.MAngle | om2.MDistance | om2.MTime): MayaのminValueフラグ。
@@ -2287,7 +2277,6 @@ class Node(Object):
             nc (int): numberOfChildrenの別名。
             parent (str): 親にする既存のコンパウンドアトリビュートの名前。ノードの親を指定するものではない。
             p (str): parentの別名。
-            pxy (Plug | str | None): proxyの別名。
             query (bool): Trueは受け付けない(作るためだけのメソッドのため)。
             q (bool): queryの別名。
             readable (bool): Mayaのreadableフラグ。
@@ -2307,10 +2296,10 @@ class Node(Object):
             usedAsProxy (bool): MayaのusedAsProxyフラグ。
             uap (bool): usedAsProxyの別名。
             worldSpace (bool): MayaのworldSpaceフラグ。
-            ws (bool): worldSpaceの別名。worldSpaceと同時には指定できない。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             writable (bool): Mayaのwritableフラグ。
             w (bool): writableの別名。
-            cb (bool): channelBoxの別名。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
             **kwargs: Mayaへ渡すほかのフラグ。Pythonの予約語と同じ短縮名のisは、辞書を展開して渡す。
                 internalSetとは同時に指定できない。
 
@@ -3544,7 +3533,7 @@ class Nodes(_ListMethods):
 
         Args:
             names (object | Iterable[object]): 名前・Node・APIのオブジェクトなど、またはその並び。
-                名前を1つだけ渡してもよい。
+                名前を1つだけ渡してもよい。既定は ``()``。
 
         Raises:
             TypeError: 解決したノードがitem_classの派生でない場合。
@@ -3748,7 +3737,7 @@ class Nodes(_ListMethods):
         別のまとまりの順は変わらない(各要素のNodeのオブジェクトは共有している)。
 
         Args:
-            key (Callable[[Node], object] | None): 各Nodeから、比べるための値を返す関数。Noneなら完全な名前。
+            key (Callable[[Node], object] | None): 各Nodeから、比べるための値を返す関数。Noneなら完全な名前。既定はNone。
             reverse (bool): Trueなら大きい順にする。既定はFalse。
 
         Returns:
@@ -3771,10 +3760,9 @@ class Nodes(_ListMethods):
         """各ノードへ、順に :meth:`Node.resetAttrs` を呼ぶ。
 
         Args:
-            attributes (str | Iterable[str] | None): :meth:`Node.resetAttrs` と同じ。
+            attributes (str | Iterable[str] | None): :meth:`Node.resetAttrs` と同じ。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             Plugs: すべての要素で既定値へ戻したアトリビュート(要素の順)。通常は1回のUndoにまとめる。
@@ -3822,8 +3810,7 @@ class Nodes(_ListMethods):
             outliner (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             toShape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は全体を1回のUndoにまとめる。
@@ -3846,8 +3833,7 @@ class Nodes(_ListMethods):
             outliner (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             toShape (bool): :meth:`~mlib.nodes.dagNode.DagNode.setColor` と同じ。既定False。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は全体を1回のUndoにまとめる。
@@ -3879,10 +3865,9 @@ class Nodes(_ListMethods):
         """各DAGノードへ、順に :meth:`~mlib.nodes.dagNode.DagNode.setVisibility` を呼ぶ。
 
         Args:
-            state (bool): Trueなら表示、Falseなら非表示にする。
+            state (bool): Trueなら表示、Falseなら非表示にする。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -3897,12 +3882,11 @@ class Nodes(_ListMethods):
         """各Transformへ、順に :meth:`~mlib.nodes.transform.Transform.setParent` を呼ぶ。
 
         Args:
-            parent (object | None): 親。Noneならワールド。
-            relative (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
-            add (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。
+            parent (object | None): 親。Noneならワールド。既定はNone。
+            relative (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。既定はFalse。
+            add (bool): :meth:`~mlib.nodes.transform.Transform.setParent` と同じ。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。各要素は、親を変えた後のパスを指す。

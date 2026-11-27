@@ -11,7 +11,7 @@ from ..util import _UNSET
 
 
 @undoChunk("mlibCreateDagPose")
-def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_UNSET, bp=_UNSET):
+def createDagPose(members, *, name=_UNSET, n=_UNSET, bindPose=_UNSET, bp=_UNSET, hierarchy=True):
     """現在の姿勢を新しいポーズに保存する。
 
     選択状態は使わない。対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。
@@ -22,11 +22,11 @@ def createDagPose(members, *, name=_UNSET, bindPose=_UNSET, hierarchy=True, n=_U
         members (Node | str | Iterable[Node | str]): 保存するTransformまたはJoint。
         name (str | None): 付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
             DAGパスの区切り ``|`` は含められない(Mayaは黙って置き換えてしまうため、エラーにする)。
-        bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
-        hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
-            Mayaは、元に戻すのに必要な親の情報も保存することがある。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
         bp (bool): bindPoseの短縮名。bindPoseと同時には指定できない。
+        hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
+            Mayaは、元に戻すのに必要な親の情報も保存することがある。既定はTrue。
 
     Returns:
         DagPose: 作ったポーズ。Mayaが既存のポーズを使い回した場合はそのポーズ。

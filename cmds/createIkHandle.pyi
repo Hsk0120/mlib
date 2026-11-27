@@ -28,7 +28,7 @@ def _record_chain_angles(start: str, end: str) -> None:
     """
     ...
 
-def createIkHandle(startJoint: str | Node = ..., endJoint: str | Node = ..., solver: str = ..., *, name: str | None = ..., curve: str | Node | None = ..., sj: str | Node = ..., ee: str | Node = ..., sol: str = ..., n: str | None = ..., c: str | Node | None = ..., **kwargs: object) -> IkHandle:
+def createIkHandle(startJoint: str | Node = ..., endJoint: str | Node = ..., solver: str = ..., *, name: str | None = ..., n: str | None = ..., curve: str | Node | None = ..., c: str | Node | None = ..., sj: str | Node = ..., ee: str | Node = ..., sol: str = ..., **kwargs: object) -> IkHandle:
     """開始のjointから末端のjointまでのIKハンドルとエフェクターを作る。
 
     - エフェクター(ikEffector)は、Mayaの規則どおり、末端のjointの1つ上のjointの子に作られる。
@@ -46,17 +46,17 @@ def createIkHandle(startJoint: str | Node = ..., endJoint: str | Node = ..., sol
 
     Args:
         startJoint (str | Node): チェーンの開始のjoint。必須。
+        sj (str | Node): startJointの短縮名。startJointと同時には指定できない。
         endJoint (str | Node): チェーンの末端のjoint(``cmds.ikHandle`` の ``endEffector``)。
             startJointの子孫であること。必須。
+        ee (str | Node): endJointの短縮名(Mayaの ``endEffector``)。endJointと同時には指定できない。
         solver (str): ``"ikRPsolver"``・``"ikSCsolver"``・``"ikSplineSolver"``・``"ikSpringSolver"`` のどれか。
             既定は ``"ikRPsolver"``。
+        sol (str): solverの短縮名。solverと同時には指定できない。
         name (str | None): ハンドルに付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
         curve (str | Node | None): ikSplineSolverで使う既存のカーブ(transformまたはnurbsCurve)。
             Noneなら自動で作る。ikSplineSolver以外では指定できない。既定はNone。
-        sj (str | Node): startJointの短縮名。startJointと同時には指定できない。
-        ee (str | Node): endJointの短縮名(Mayaの ``endEffector``)。endJointと同時には指定できない。
-        sol (str): solverの短縮名。solverと同時には指定できない。
-        n (str | None): nameの短縮名。nameと同時には指定できない。
         c (str | Node | None): curveの短縮名。curveと同時には指定できない。
         **kwargs (object): ``cmds.ikHandle`` のそのほかのフラグ(``priority``・``numSpans``・
             ``parentCurve`` など)。そのままMayaへ渡す。

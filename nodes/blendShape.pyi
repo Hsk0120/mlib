@@ -166,9 +166,9 @@ class BlendShape(GeometryFilter):
             mesh (str | Node): ターゲット(in-between)の形状、またはそのTransform。in-betweenはベースと頂点数が同じメッシュ。
             name (str | None): ターゲット名。新しい番号ではNoneならMayaの既定名。共有番号では既存名だけを指定できる。
             base (str | Node | None): 登録済みのベース形状かそのTransform。Noneなら先頭のベース
-                (in-betweenでは論理番号がいちばん小さいベース)。
-            index (int | None): weightの論理番号。Noneなら未使用の番号。boolは不可。
-            fullWeight (float): 完全に変形するウェイト。ターゲットでは0より大きい0.001刻みの値。現在のweight値は変更しない。
+                (in-betweenでは論理番号がいちばん小さいベース)。既定はNone。
+            index (int | None): weightの論理番号。Noneなら未使用の番号。boolは不可。既定はNone。
+            fullWeight (float): 完全に変形するウェイト。ターゲットでは0より大きい0.001刻みの値。現在のweight値は変更しない。既定は1.0。
             inBetween (str | int | Plug | None): in-betweenの追加先のターゲット。ターゲット名・論理番号、
                 またはこのノードの ``weight`` の要素のPlug。Noneならターゲットを追加する。既定はNone。
             relative (bool): Trueならターゲット本体からの相対、Falseなら絶対(Mayaの既定)のin-betweenにする。既定はFalse。
@@ -229,7 +229,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
 
         Returns:
             list[float]: in-betweenの項目のウェイト。小さい順に並ぶ。in-betweenが無ければ空リスト。
@@ -247,7 +247,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
-            base (str | Node | None): ベース形状。Noneは先頭のベース。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。既定はNone。
 
         Returns:
             list[int]: 項目の論理番号の昇順。ターゲット本体も含む。
@@ -266,7 +266,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲットの別名、ウェイトの論理番号、またはPlug。
-            base (str | Node | None): ベース形状。Noneは先頭のベース。
+            base (str | Node | None): ベース形状。Noneは先頭のベース。既定はNone。
 
         Returns:
             dict[int, Node | None]: 項目の論理番号から接続元ノードへの対応。
@@ -291,7 +291,7 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug | None): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
                 Noneならベースのウェイト。既定はNone。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
 
         Returns:
             list[float]: ベースの頂点数と同じ長さの新しいlist。
@@ -319,10 +319,9 @@ class BlendShape(GeometryFilter):
             target (str | int | Plug | None): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
                 Noneならベースのウェイト。
             weights (Sequence[float] | dict[int, float]): 頂点数と同じ数の値、または頂点番号から値への辞書。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。ベースのウェイトでは、有限な値かも確かめる。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。ベースのウェイトでは、有限な値かも確かめる。
 
         Returns:
             None: 値を返さない。
@@ -343,7 +342,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
 
         Returns:
@@ -364,12 +363,11 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             deltas (dict[int, Sequence[float]]): 頂点番号から変位(xyz、cm)への辞書。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -388,7 +386,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             tolerance (float): この長さ(cm)以下の変位の頂点を除く。0以上の有限な数値。既定は0で、変位0の頂点だけを除く。
 
@@ -413,14 +411,13 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
-            vertices (int | Vertex | Vertices | Iterable[int | Vertex] | None): ベースの頂点、または頂点番号。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            vertices (int | Vertex | Vertices | Iterable[int | Vertex] | None): ベースの頂点、または頂点番号。既定はNone。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
             disconnect (bool): Trueなら、ターゲット形状の接続を外してから書き込む。既定はFalse。
-            tolerance (float | None): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。
+            tolerance (float | None): この長さ(cm)以下の変位を取り除く。0以上の有限な数値。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -433,7 +430,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def mirrorTarget(self, target: str | int | Plug, axis: str | int = ..., positiveToNegative: bool = ..., base: str | Node | None = ..., *, flip: bool = ..., symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
+    def mirrorTarget(self, target: str | int | Plug, axis: str | int = ..., *, positiveToNegative: bool = ..., base: str | Node | None = ..., flip: bool = ..., symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
         """ターゲットの片側の変形を、反対側へミラーする。``flip=True`` なら、ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, mirrorTarget=...)``(``flip=True`` では ``flipTarget=...``)を使う。
@@ -449,10 +446,10 @@ class BlendShape(GeometryFilter):
                 ミラー面の ``"YZ"`` など、または0〜2で指定する。
             positiveToNegative (bool): Trueなら正の側を負の側へ、Falseなら負の側を正の側へ写す。既定はTrue。
                 ``flip=True`` では指定できない。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             flip (bool): Trueなら、片側を写すのでなく、左右を入れ替える。既定はFalse。
             symmetrySpace (str): object(既定)またはtopology。UV基準は未対応。
-            symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。
+            symmetryEdge (str | Edge | None): topologyで必須の、ベース上の対称中心エッジ。Shape名は階層なしで一意であること。objectでは指定しない。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -472,7 +469,7 @@ class BlendShape(GeometryFilter):
         Args:
             target (str | int | Plug): ターゲット名・論理番号、またはこのノードの ``weight`` の要素のPlug。
             geometry (str | Node): 新しいターゲット形状。ベースと頂点数が同じメッシュ(かそのTransform)。
-            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。
+            base (str | Node | None): ベースの形状、またはそのTransform。Noneなら論理番号がいちばん小さいベースを使う。既定はNone。
             fullWeight (float): 項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
 
         Returns:
@@ -522,7 +519,7 @@ class BlendShape(GeometryFilter):
 
         Args:
             target (str | int | Plug | None): 編集を始めるターゲット。始めるときは必ず指定する。
-                終えるときは使わない(渡したときは、型とターゲットがあるかだけを確かめる)。
+                終えるときは使わない(渡したときは、型とターゲットがあるかだけを確かめる)。既定はNone。
             state (bool): Trueなら編集を始め、FalseならこのblendShapeの編集モードを終える。既定はTrue。
             fullWeight (float): 編集する項目のウェイト。既定1.0。addTargetで別のfullWeightを指定した本体にも、その値を指定する。
                 終えるときは使わない(値は確かめる)。
@@ -570,9 +567,9 @@ class BlendShape(GeometryFilter):
 
         Args:
             data (dict): :meth:`getTargetsData` の形の辞書。
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
             mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
@@ -608,9 +605,9 @@ class BlendShape(GeometryFilter):
 
         Args:
             path (str | os.PathLike): 読み込むファイル。
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てはめる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
             mode (str): ``"replace"`` または ``"empty"``。既定は ``"replace"``。
 
         Returns:
@@ -1083,7 +1080,7 @@ class _Directories:
         Args:
             index (int): ターゲットの論理番号。
             folder (int): 移動先のフォルダの番号。
-            after (int | None): このターゲットの直後に置く。Noneは末尾。
+            after (int | None): このターゲットの直後に置く。Noneは末尾。既定はNone。
         """
         ...
     def toData(self, targets: Iterable[int]) -> list[dict]:

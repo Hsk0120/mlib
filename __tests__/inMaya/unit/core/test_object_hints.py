@@ -311,7 +311,7 @@ class ObjectHintTest(NamespaceCase):
     def check_shortName(self, obj):
         if isinstance(obj, Plug):
             node, attr = str(obj).split(".", 1)
-            self.assertEqual(obj.getAttributeName("short"), cmds.attributeQuery(attr, node=node, shortName=True))
+            self.assertEqual(obj.getAttributeName(kind="short"), cmds.attributeQuery(attr, node=node, shortName=True))
             return
         self.check_nodeName(obj)
 
@@ -436,7 +436,7 @@ class ObjectHintTest(NamespaceCase):
     def check_getAttrName(self, obj):
         node, attr = str(obj).split(".", 1)
         self.assertEqual(obj.getName().partition(".")[2], cmds.attributeQuery(attr, node=node, shortName=True))
-        self.assertEqual(obj.getAttributeName("short"), cmds.attributeQuery(attr, node=node, shortName=True))
+        self.assertEqual(obj.getAttributeName(kind="short"), cmds.attributeQuery(attr, node=node, shortName=True))
 
     def check_select(self, obj):
         cmds.select(str(obj), replace=True)

@@ -876,7 +876,7 @@ class Vector(om2.MVector):
 
         Args:
             points (Iterable[om2.MVector | om2.MPoint | Iterable[float]]): 点列。
-            tolerance (float): 平面からの距離の許容誤差(点と同じ単位)。0以上。
+            tolerance (float): 平面からの距離の許容誤差(点と同じ単位)。0以上。既定は1e-10。
 
         Returns:
             bool: 同一平面上ならTrue。
@@ -912,8 +912,8 @@ class Vector(om2.MVector):
 
         Args:
             axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"``・``"XZ"``・``"XY"``、
-                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。
-            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。方向のベクトルには原点を使う。
+                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。既定は ``"x"``。
+            pivot (Iterable[float]): ミラーの中心。値と同じ単位で指定する。方向のベクトルには原点を使う。既定は ``(0.0, 0.0, 0.0)``。
 
         Returns:
             Vector: 自身と同じ型の新しい値。
@@ -939,7 +939,7 @@ class Vector(om2.MVector):
 
         Args:
             ndigits (int | None): 小数点以下の桁数。負の値は整数部を丸める。Noneは整数の値へ丸める
-                (成分はfloatのまま)。
+                (成分はfloatのまま)。既定はNone。
 
         Returns:
             Vector: 自身と同じ型の新しい値。
@@ -1075,7 +1075,7 @@ class Vector(om2.MVector):
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 距離を測る相手。
-            squared (bool): True なら距離の2乗を返す。平方根を計算しないため、距離の比較だけが目的なら速い。
+            squared (bool): True なら距離の2乗を返す。平方根を計算しないため、距離の比較だけが目的なら速い。既定はFalse。
 
         Returns:
             float: 距離。``squared=True`` なら距離の2乗。
@@ -1119,7 +1119,7 @@ class Vector(om2.MVector):
 
         Args:
             other (om2.MVector | om2.MPoint | Iterable[float]): 比較対象。
-            tolerance (float): 距離の許容誤差。0以上。
+            tolerance (float): 距離の許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: ほぼ等しければ True。
@@ -1201,7 +1201,7 @@ class Vector(om2.MVector):
         """長さが tolerance 以下(ほぼゼロベクトル)か判定する。
 
         Args:
-            tolerance (float): 長さの許容誤差。0以上。
+            tolerance (float): 長さの許容誤差。0以上。既定は1e-10。
 
         Returns:
             bool: 長さが tolerance 以下ならTrue。
@@ -1293,14 +1293,14 @@ class Vector(om2.MVector):
         _MVector.__iadd__(result, direction * (start_length + (end_length - start_length) * weight))
         return result
 
-    def getClosestAxis(self, includeNegative=True):
+    def getClosestAxis(self, *, includeNegative=True):
         """ベクトルの向きに最も近い座標軸の名前を返す。
 
         :meth:`Transform.getClosestAxisToVector <mlib.nodes.transform.Transform.getClosestAxisToVector>` を
         値だけで行う版。候補の軸のうち、内積が最も大きいものを選ぶ。同じ値ならx・y・zの順で先のものを選ぶ。
 
         Args:
-            includeNegative (bool): Trueなら負の軸(``"-x"`` など)も候補にする。Falseなら ``"x"``・``"y"``・``"z"`` だけ。
+            includeNegative (bool): Trueなら負の軸(``"-x"`` など)も候補にする。Falseなら ``"x"``・``"y"``・``"z"`` だけ。既定はTrue。
 
         Returns:
             str: ``"x"``・``"y"``・``"z"``・``"-x"``・``"-y"``・``"-z"`` のいずれか。:meth:`fromAxis` へ渡せる。

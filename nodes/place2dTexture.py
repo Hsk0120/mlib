@@ -16,7 +16,7 @@ class Place2dTexture(ShadingDependNode):
 
         Args:
             texture (Texture2d | str): 接続先の2Dテクスチャ。
-            force (bool): Trueなら、テクスチャ側にすでにある入力の接続を置き換える。:meth:`Plug.connectTo <mlib.plugs.plug.Plug.connectTo>` の決まりに従う。
+            force (bool): Trueなら、テクスチャ側にすでにある入力の接続を置き換える。:meth:`Plug.connectTo <mlib.plugs.plug.Plug.connectTo>` の決まりに従う。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:

@@ -19,8 +19,8 @@ class NodeRef:
 
         Args:
             name (str): 名前空間付きの短い名前(``"chrA:arm_L_jnt"``)。
-            dagPath (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。
-            type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。
+            dagPath (str | None): DAGノードの完全パス。DGノードやパスが分からないときはNone。既定はNone。
+            type (str | None): ノード型(``"joint"`` など)。Noneなら型を確かめない。既定はNone。
 
         Raises:
             TypeError: nameが文字列でない場合、またはdagPath・typeが文字列でもNoneでもない場合。
@@ -116,7 +116,7 @@ class NodeRef:
         記録した型と違うノードは候補にしない。
 
         Args:
-            mapping (NameMapping | None): 名前の対応づけ。Noneなら保存したときの名前で探す。
+            mapping (NameMapping | None): 名前の対応づけ。Noneなら保存したときの名前で探す。既定はNone。
 
         Returns:
             Node | None: 見つかったノード。見つからない場合と、1つに絞れない場合はNone。

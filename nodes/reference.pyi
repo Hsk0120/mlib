@@ -66,7 +66,7 @@ class Reference(Node):
         fast引数は持たない(ファイル参照の履歴操作のため)。
 
         Args:
-            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。
+            editCommand (str | None): 削除するMaya編集コマンド。Noneなら全種類。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -77,7 +77,7 @@ class Reference(Node):
             RuntimeError: ロード中・ロック中、またはMayaが削除を拒否した場合。
         """
         ...
-    def getFilename(self, resolved: bool = ..., withCopyNumber: bool = ...) -> str:
+    def getFilename(self, *, resolved: bool = ..., withCopyNumber: bool = ...) -> str:
         """リファレンスしているファイルのパスを取得する。
 
         Args:
@@ -207,7 +207,7 @@ class Reference(Node):
             bool: 親のリファレンスが無ければTrue。
         """
         ...
-    def getEdits(self, successful: bool = ..., failed: bool = ..., *, what: str = ..., editCommand: str | None = ..., onReferenceNode: Reference | str | None = ...) -> list[str]:
+    def getEdits(self, *, successful: bool = ..., failed: bool = ..., what: str = ..., editCommand: str | None = ..., onReferenceNode: Reference | str | None = ...) -> list[str]:
         """このリファレンスに対するEditの一覧を取得する。
 
         ``what`` で、Editの何を返すかを選ぶ。
@@ -223,8 +223,8 @@ class Reference(Node):
             failed (bool): Trueなら、適用に失敗したEditを含める。既定はFalse。
             what (str): 返すもの。``"string"``・``"node"``・``"attr"``。既定は ``"string"``。
             editCommand (str | None): addAttr・connectAttr・deleteAttr・disconnectAttr・parent・setAttr・lock・unlockの1種類。
-                Noneなら種類を絞らない。
-            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。
+                Noneなら種類を絞らない。既定はNone。
+            onReferenceNode (Reference | str | None): Editの保存元referenceノード。Noneなら保存元を絞らない。既定はNone。
 
         Returns:
             list[str]: Editの文字列・ノード名・アトリビュート名。無ければ空リスト。
@@ -235,7 +235,7 @@ class Reference(Node):
             RuntimeError: 指定ノードが無効か、Mayaが照会を拒否した場合。
         """
         ...
-    def removeEdits(self, successful: bool = ..., failed: bool = ..., *, editCommand: str | None = ...) -> None:
+    def removeEdits(self, *, successful: bool = ..., failed: bool = ..., editCommand: str | None = ...) -> None:
         """このリファレンスに対するEditを削除する。
 
         ``cmds.referenceEdit(removeEdits=True)`` で削除する。
@@ -279,7 +279,7 @@ class Reference(Node):
             RuntimeError: referenceノードが無効な場合、またはMayaが読み込みを拒否した場合。
         """
         ...
-    def importContents(self, removeNamespace: bool = ...) -> Nodes:
+    def importContents(self, *, removeNamespace: bool = ...) -> Nodes:
         """リファレンスの内容をシーンへ読み込み、リファレンスを解除する。
 
         ``cmds.file(importReference=True)`` で読み込む。呼び出した後、このreferenceノードはシーンから無くなる。

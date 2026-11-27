@@ -24,22 +24,22 @@ class PlugMetadataTest(NamespaceCase):
         source.set(4)
         destination.connect(source)
         original_name = destination.getName(full=True)
-        before = destination.getAttributeName("nice")
+        before = destination.getAttributeName(kind="nice")
         self.flushUndo()
         self.assertIsNone(destination.setNiceName("Weight Display"))
-        self.assertEqual(destination.getAttributeName("nice"), "Weight Display")
+        self.assertEqual(destination.getAttributeName(kind="nice"), "Weight Display")
         self.assertEqual(destination.getName(full=True), original_name)
         self.assertEqual(destination.get(), 4)
         self.assertEqual(destination.getConnections(input=True), source)
         cmds.undo()
-        self.assertEqual(destination.getAttributeName("nice"), before)
+        self.assertEqual(destination.getAttributeName(kind="nice"), before)
         self.assertUndoEmpty()
         cmds.redo()
-        self.assertEqual(destination.getAttributeName("nice"), "Weight Display")
+        self.assertEqual(destination.getAttributeName(kind="nice"), "Weight Display")
         destination.setNiceName("")
-        self.assertEqual(destination.getAttributeName("nice"), before)
+        self.assertEqual(destination.getAttributeName(kind="nice"), before)
         cmds.undo()
-        self.assertEqual(destination.getAttributeName("nice"), "Weight Display")
+        self.assertEqual(destination.getAttributeName(kind="nice"), "Weight Display")
 
     def test_categories_and_uncreated_elements(self):
         plug = self.make_extra(category=["rig", "export"], multi=True)
@@ -52,13 +52,13 @@ class PlugMetadataTest(NamespaceCase):
         self.assertEqual(standard.getCategories(), [])
         self.assertUndoEmpty()
         plug.setNiceName("Samples")
-        self.assertEqual(element.getAttributeName("nice"), "Samples[9]")
+        self.assertEqual(element.getAttributeName(kind="nice"), "Samples[9]")
         with self.assertRaises(TypeError):
             element.setNiceName("One Sample")
 
     def test_rejections_are_before_changes(self):
         plug = self.make_extra()
-        before = plug.getAttributeName("nice")
+        before = plug.getAttributeName(kind="nice")
         for value in (None, 1, False):
             with self.assertRaises(TypeError):
                 plug.setNiceName(value)
@@ -75,7 +75,7 @@ class PlugMetadataTest(NamespaceCase):
         cmds.lockNode(node, lock=False)
         with self.assertRaises(TypeError):
             mlib.getPlug(node + ".tx").setNiceName("standard")
-        self.assertEqual(plug.getAttributeName("nice"), before)
+        self.assertEqual(plug.getAttributeName(kind="nice"), before)
         cmds.delete(node)
         with self.assertRaises(RuntimeError):
             plug.getCategories()
@@ -87,8 +87,8 @@ class PlugMetadataTest(NamespaceCase):
         group, child = mlib.getPlug(node + ".group"), mlib.getPlug(node + ".childValue")
         group.setNiceName("Group Display")
         child.setNiceName("Child Display")
-        self.assertEqual(group.getAttributeName("nice"), "Group Display")
-        self.assertEqual(child.getAttributeName("nice"), "Child Display")
+        self.assertEqual(group.getAttributeName(kind="nice"), "Group Display")
+        self.assertEqual(child.getAttributeName(kind="nice"), "Child Display")
         self.assertEqual(child.getCategories(), ["nested"])
         cmds.addAttr(node, longName="array", attributeType="compound", numberOfChildren=1, multi=True)
         cmds.addAttr(node, longName="arrayChild", attributeType="double", parent="array")
@@ -102,7 +102,7 @@ class PlugMetadataTest(NamespaceCase):
         plug = self.make_extra(category="rig")
         other = self.make_extra()
         mlib.ls(plug.getName(full=True), other.getName(full=True)).setNiceName("Display")
-        self.assertEqual(other.getAttributeName("nice"), "Display")
+        self.assertEqual(other.getAttributeName(kind="nice"), "Display")
         node = plug.getName(full=True).split(".")[0]
         with tempfile.TemporaryDirectory() as directory:
             for extension, file_type in (("ma", "mayaAscii"), ("mb", "mayaBinary")):
@@ -114,7 +114,7 @@ class PlugMetadataTest(NamespaceCase):
                 imported = cmds.file(path, i=True, namespace=namespace, returnNewNodes=True)
                 name = next(name for name in imported if cmds.attributeQuery("extraValue", node=name, exists=True))
                 restored = mlib.getPlug(name + ".extraValue")
-                self.assertEqual(restored.getAttributeName("nice"), "Display")
+                self.assertEqual(restored.getAttributeName(kind="nice"), "Display")
                 self.assertIn("rig", restored.getCategories())
                 cmds.file(path, reference=True, namespace=self.ns + "Ref" + extension)
                 reference = cmds.file(path, query=True, referenceNode=True)

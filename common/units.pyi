@@ -29,9 +29,9 @@ def convertDistance(value: float, fromUnit: str | None = ..., toUnit: str | None
 
     Args:
         value (float): 変換する距離。
-        fromUnit (str | None): valueの単位。Noneなら現在のシーンの単位。
+        fromUnit (str | None): valueの単位。Noneなら現在のシーンの単位。既定はNone。
         toUnit (str | None): 戻り値の単位。Noneなら現在のシーンの単位。
-            fromUnitとtoUnitには、mm/cm/m/km/in/ft/yd/miか、Mayaの長い名前(meterなど)を指定する。
+            fromUnitとtoUnitには、mm/cm/m/km/in/ft/yd/miか、Mayaの長い名前(meterなど)を指定する。既定はNone。
 
     Returns:
         float: toUnitの単位で表した距離。
@@ -67,8 +67,8 @@ def convertAngle(value: float, fromUnit: str | None = ..., toUnit: str | None = 
     Args:
         value (float): 変換する角度。
         fromUnit (str | None): valueの単位。``"deg"`` は度、``"rad"`` はラジアン。
-            ``"degree"`` / ``"radians"`` などの別名も使える。Noneなら現在のUI角度単位。
-        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。Noneなら現在のUI角度単位。
+            ``"degree"`` / ``"radians"`` などの別名も使える。Noneなら現在のUI角度単位。既定はNone。
+        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。Noneなら現在のUI角度単位。既定はNone。
 
     Returns:
         float: toUnitの単位で表した角度。
@@ -106,8 +106,8 @@ def convertTime(value: float, fromUnit: str | None = ..., toUnit: str | None = .
         value (float): 変換する時間。
         fromUnit (str | None): valueの単位。Noneと ``"frame"`` は現在のUI時間単位のフレーム、``"sec"`` は秒。
             ``"frames"`` / ``"seconds"`` などの別名も使える。Mayaの時間単位の名前(``"film"``・``"ntsc"``・
-            ``"pal"``・``"game"``・``"hour"``・``"min"``・``"millisec"``・``"24fps"``・``"29.97df"`` など)も指定できる。
-        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。
+            ``"pal"``・``"game"``・``"hour"``・``"min"``・``"millisec"``・``"24fps"``・``"29.97df"`` など)も指定できる。既定はNone。
+        toUnit (str | None): 戻り値の単位。指定の仕方はfromUnitと同じ。既定はNone。
 
     Returns:
         float: toUnitの単位で表した時間。

@@ -402,12 +402,12 @@ class DagNode(Node):
         OpenMayaには子の順番を変える機能が無いため、fast引数は持たない。Undoが有効なら1回で戻せる。
 
         Args:
-            index (int | None): 移動先の番号(0 始まり。:meth:`getOutlinerOrder` と同じ数え方)。負の値は後ろから数える(-1 は最後)。
-            front (bool): Trueなら先頭へ移動する。
+            index (int | None): 移動先の番号(0 始まり。:meth:`getOutlinerOrder` と同じ数え方)。負の値は後ろから数える(-1 は最後)。既定はNone。
+            front (bool): Trueなら先頭へ移動する。既定はFalse。
             f (bool): frontの別名。frontと同時には指定できない。
-            back (bool): Trueなら最後へ移動する。
+            back (bool): Trueなら最後へ移動する。既定はFalse。
             b (bool): backの別名。backと同時には指定できない。
-            relative (int): 移動する数。正の値は後ろへ、負の値は前へ動かす。
+            relative (int | None): 移動する数。正の値は後ろへ、負の値は前へ動かす。既定はNone。
             r (int): relativeの別名。relativeと同時には指定できない。
 
         Returns:
@@ -478,7 +478,7 @@ class DagNode(Node):
         self._require_valid("モデル所属の照会")
         return om2.MFnDagNode(self.mpath()).inModel
 
-    def getBoundingBox(self, worldSpace=_UNSET, *, ws=_UNSET, includeInvisible=False, corners=False):
+    def getBoundingBox(self, worldSpace=_UNSET, *, includeInvisible=False, corners=False, ws=_UNSET):
         """バウンディングボックスを取得する。
 
         既定では ``MFnDagNode.boundingBox`` の値を返す。これは自身のtranslate・rotate・scale
@@ -685,15 +685,15 @@ class DagNode(Node):
             sortBy (str): 並べる順。``"depthFirst"`` (深さ優先。既定)か ``"breadthFirst"`` (幅優先)。
                 兄弟どうしはDAGの子の順に並ぶ。
             leaves (bool): Trueなら、末端のTransform(子にTransformを持たないもの)を、下の階層まで
-                たどって取得する。Shapeを持っていても末端として扱う。shapes=Trueとは同時に指定できない。
+                たどって取得する。Shapeを持っていても末端として扱う。shapes=Trueとは同時に指定できない。既定はFalse。
             includeSelf (bool): Trueなら自身も対象にする。shapes・leavesの条件に合えば、
-                自身(同じオブジェクト)を結果へ入れる。
-            underWorld (bool): Trueなら、Shapeの下のアンダーワールドも調べる。
+                自身(同じオブジェクト)を結果へ入れる。既定はFalse。
+            underWorld (bool): Trueなら、Shapeの下のアンダーワールドも調べる。既定はFalse。
             type (str | Iterable[str] | None): 結果をMayaのノード型で絞る。``cmds.listRelatives(type=)`` と同じく、
                 指定した型から派生した型も含む(:meth:`~mlib.nodes.node.Node.isType` で判定する)。
                 絞るのは結果だけで、たどる範囲は変わらない。``allDescendents=True`` では、型の違う子の下も調べる。
                 Shapeの型(``"mesh"`` など)を指定した場合は、shapes=FalseでもShapeを含めて調べる。
-                ``multDoubleLinear`` と ``multDL`` のように、Mayaの版で名前が変わった型はどちらの名前でも指定できる。
+                ``multDoubleLinear`` と ``multDL`` のように、Mayaの版で名前が変わった型はどちらの名前でも指定できる。既定はNone。
 
         Returns:
             Nodes[DagNode]: たどった順のオブジェクト。該当するものがない場合と、
@@ -730,7 +730,7 @@ class DagNode(Node):
             result = [node for node in result if any(node.isType(name) for name in types)]
         return Nodes._wrap(result)
 
-    def getShape(self, index=0, *, intermediates=False, all=False):
+    def getShape(self, *, index=0, intermediates=False, all=False):
         """Shapeを取得する。
 
         ノードの種類によって次のように返す。
@@ -745,7 +745,7 @@ class DagNode(Node):
 
         Args:
             index (int): Transformで、何番目のShapeを選ぶか。Shapeでは無視する。既定は0。
-            intermediates (bool): Trueなら、Transformで中間オブジェクトも候補に含める。Shapeでは無視する。
+            intermediates (bool): Trueなら、Transformで中間オブジェクトも候補に含める。Shapeでは無視する。既定はFalse。
             all (bool): Trueなら、Shapeすべてを集まりで返す。既定はFalse。indexとは同時に指定できない。
 
         Returns:
@@ -922,8 +922,7 @@ class DagNode(Node):
             toShape (bool): Trueなら直下のShape(中間オブジェクトを除く)へ設定する(Shapeが無ければ自身)。
                 Falseなら自身へ設定する。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -958,10 +957,9 @@ class DagNode(Node):
         自身のvisibilityだけを変える。親や表示レイヤーの表示設定は変えない。
 
         Args:
-            state (bool): visibilityへ設定する値。
+            state (bool): visibilityへ設定する値。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1015,8 +1013,7 @@ class DagNode(Node):
         Args:
             kind (str): ``"normal"``・``"template"``・``"reference"`` のどれか。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1048,8 +1045,7 @@ class DagNode(Node):
         Args:
             state (bool): Trueならシェーディングを消してワイヤーフレーム表示にする。Falseなら元に戻す。既定はTrue。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -1063,7 +1059,7 @@ class DagNode(Node):
         values = [("overrideEnabled", True), ("overrideShading", False)] if state else [("overrideShading", True)]
         self._set_display_values(values, "mlibDagNodeSetShadingOverride", fast, check=check)
 
-    def deleteHistory(self, keepDeformers=True):
+    def deleteHistory(self, *, keepDeformers=True):
         """ヒストリを削除する。
 
         消し方はkeepDeformersで選ぶ。

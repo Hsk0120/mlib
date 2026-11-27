@@ -101,7 +101,7 @@ class Plugin(_VersionedItem):
         ``cmds.unknownPlugin`` はUndoに記録されないため、この操作はUndoできない。
 
         Args:
-            names (str | list[str] | None): 外すプラグインの名前。Noneなら未知のプラグインすべて。
+            names (str | list[str] | None): 外すプラグインの名前。Noneなら未知のプラグインすべて。既定はNone。
 
         Returns:
             list[str]: 外したプラグインの名前(指定した順)。
@@ -181,8 +181,7 @@ class Plugin(_VersionedItem):
         cmds.loadPluginを直接使ってロードした場合の変化は、ここでは見張らない。
 
         Args:
-            skipExisting (bool): True なら、すでにロードされているときは何もしない(キャッシュも消さない)。
-                何度呼んでも結果は同じになる。
+            skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。すでにロードされているときは、キャッシュも消さない。何度呼んでも結果は同じになる。
             **kwargs (object): ``cmds.loadPlugin`` に渡す、そのほかのキーワード引数(``quiet=True`` など)。
 
         Returns:
@@ -212,7 +211,7 @@ class Plugin(_VersionedItem):
         ロードされていないプラグインでは、Mayaが警告を出すだけで、例外にはならない。
 
         Args:
-            force (bool): True なら、使われていても強制的にアンロードする。
+            force (bool): True なら、使われていても強制的にアンロードする。既定はFalse。
 
         Returns:
             None: 値を返さない。

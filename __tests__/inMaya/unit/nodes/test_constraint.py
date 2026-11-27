@@ -160,7 +160,7 @@ class ShapesConstraintsTest(unittest.TestCase):
             with self.subTest(kind=kind):
                 source, second, driven = self.getTransform(), self.getTransform(), self.getTransform()
                 cmds.setAttr(source.getName(full=True) + ".translateX", 3)
-                result = driven.addConstraint([source, second], kind, maintainOffset=True)
+                result = driven.addConstraint([source, second], type=kind, maintainOffset=True)
                 expected = getattr(mlib.nodes, kind.title() + "Constraint")
                 self.assertIsInstance(result, expected)
                 self.assertIsInstance(mlib.Node(result.getName(full=True)), expected)
@@ -172,7 +172,7 @@ class ShapesConstraintsTest(unittest.TestCase):
 
     def test_constraint_set_weight(self):
         source, second, driven = self.getTransform(), self.getTransform(), self.getTransform()
-        result = driven.addConstraint([source, second], "point", maintainOffset=True)
+        result = driven.addConstraint([source, second], type="point", maintainOffset=True)
         self.assertEqual(result.getWeights(), [1.0, 1.0])
 
         returned = result.setWeight(0.5)
@@ -193,12 +193,12 @@ class ShapesConstraintsTest(unittest.TestCase):
         mesh = mlib.Node(cmds.polyPlane(constructionHistory=False)[0])
         for kind, expected in [("geometry", mlib.GeometryConstraint), ("normal", mlib.NormalConstraint), ("pointOnPoly", mlib.PointOnPolyConstraint)]:
             with self.subTest(kind=kind):
-                result = self.getTransform().addConstraint(mesh, kind)
+                result = self.getTransform().addConstraint(mesh, type=kind)
                 self.assertIsInstance(result, expected)
                 self.assertEqual(len(result.getTargets()), 1)
                 self.assertEqual(result.getWeights(), [1.0])
         curve = mlib.Node(cmds.curve(degree=1, point=[(0, 0, 0), (3, 0, 0)]))
-        result = self.getTransform().addConstraint(curve, "tangent")
+        result = self.getTransform().addConstraint(curve, type="tangent")
         self.assertIsInstance(result, mlib.TangentConstraint)
         self.assertEqual(len(result.getTargets()), 1)
         self.assertEqual(result.getWeights(), [1.0])
@@ -209,7 +209,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         end = cmds.joint(position=(4, 0, 0))
         handle = mlib.Node(cmds.ikHandle(startJoint=start, endEffector=end, solver="ikRPsolver")[0])
         self.assertIsInstance(handle, mlib.IkHandle)
-        result = handle.addConstraint(self.getTransform(), "poleVector")
+        result = handle.addConstraint(self.getTransform(), type="poleVector")
         self.assertIsInstance(result, mlib.PoleVectorConstraint)
         self.assertEqual(len(result.getTargets()), 1)
         self.assertEqual(result.getWeights(), [1.0])
@@ -218,7 +218,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         if not cmds.undoInfo(query=True, state=True):
             self.skipTest("Undo is disabled in this Maya session")
         source, driven = self.getTransform(), self.getTransform()
-        result = driven.addConstraint(source, "pointConstraint")
+        result = driven.addConstraint(source, type="pointConstraint")
         name = result.getName(full=True)
         cmds.undo()
         self.assertFalse(cmds.objExists(name))
@@ -228,7 +228,7 @@ class ShapesConstraintsTest(unittest.TestCase):
     def test_point_evaluation_and_parent_offset(self):
         source, driven = self.getTransform(), self.getTransform()
         cmds.setAttr(source.getName(full=True) + ".translateX", 4)
-        driven.addConstraint(source.getName(full=True), "point")
+        driven.addConstraint(source.getName(full=True), type="point")
         self.assertAlmostEqual(cmds.getAttr(driven.getName(full=True) + ".translateX"), 4)
         cmds.setAttr(source.getName(full=True) + ".translateX", 7)
         self.assertAlmostEqual(cmds.getAttr(driven.getName(full=True) + ".translateX"), 7)
@@ -246,7 +246,7 @@ class ShapesConstraintsTest(unittest.TestCase):
         invalid_requests = [([], "point", ValueError), (source, "unknown", ValueError), ([object()], "point", TypeError)]
         for sources, kind, error in invalid_requests:
             with self.assertRaises(error):
-                driven.addConstraint(sources, kind)
+                driven.addConstraint(sources, type=kind)
         self.assertEqual(before, set(cmds.ls(long=True)))
 
     def mirror_shapes(self):

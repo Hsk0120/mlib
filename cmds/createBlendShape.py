@@ -10,7 +10,7 @@ from ..decorator import _pick_alias, _require_bool, undoChunk
 from ..util import _UNSET
 
 
-def createBlendShape(base, targets=(), *, name=_UNSET, frontOfChain=_UNSET, origin=_UNSET, n=_UNSET, foc=_UNSET, o=_UNSET):
+def createBlendShape(base, targets=(), *, name=_UNSET, n=_UNSET, frontOfChain=_UNSET, foc=_UNSET, origin=_UNSET, o=_UNSET):
     """形状にblendShapeを作成し、ターゲットを登録する(``cmds.blendShape`` 相当)。
 
     ターゲットは指定した順に、論理番号0から登録する。
@@ -25,12 +25,12 @@ def createBlendShape(base, targets=(), *, name=_UNSET, frontOfChain=_UNSET, orig
         targets (str | Node | Iterable[str | Node]): ターゲットの形状、またはそのtransform。
             省略するとターゲットの無いblendShapeを作る(あとから :meth:`~mlib.nodes.BlendShape.addTarget` で追加する)。
         name (str | None): 付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
         frontOfChain (bool): Trueなら、既存のデフォーマー(skinClusterなど)より前、つまり変形の最初に置く。
             リグでよく使う「ブレンドシェイプ → スキン」の順になる。Falseなら最後に置く。既定はTrue。
-        origin (str): ターゲットとの差を測る空間。``"local"`` はオブジェクト空間(Transformの移動・回転・スケールを無視する)、
-            ``"world"`` はワールド空間(Transformの違いも差に含める)。省略するとMayaの既定(``"local"``)。
-        n (str | None): nameの短縮名。nameと同時には指定できない。
         foc (bool): frontOfChainの短縮名。frontOfChainと同時には指定できない。
+        origin (str | None): ターゲットとの差を測る空間。``"local"`` はオブジェクト空間(Transformの移動・回転・スケールを無視する)、
+            ``"world"`` はワールド空間(Transformの違いも差に含める)。省略するとMayaの既定(``"local"``)。
         o (str): originの短縮名。originと同時には指定できない。
 
     Returns:

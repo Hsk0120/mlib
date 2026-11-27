@@ -87,8 +87,8 @@ class ObjectSet(Node):
         partitionの作成や、partitionが違うセットからの除外はしない。
 
         Args:
-            *members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
             forceElement (bool): Trueなら、同じpartitionの別のセットから外して追加する。既定はFalse。
+            *members (Node | str): 追加するもの。ノードやコンポーネントの表記などを渡す。
 
         Returns:
             None: 値を返さない。
@@ -118,8 +118,8 @@ class ObjectSet(Node):
         fast引数は持たない(:meth:`addMembers` と同じ理由)。Undoが有効なら、1回のUndoで戻せる。
 
         Args:
-            *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。all=Trueとは同時に指定できない。
             all (bool): Trueなら、直接入っているメンバーをすべて外す。既定はFalse。
+            *members (Node | str): 外すもの。ノードやコンポーネントの表記などを渡す。all=Trueとは同時に指定できない。
 
         Returns:
             None: 値を返さない。

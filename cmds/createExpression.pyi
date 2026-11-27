@@ -9,7 +9,7 @@ from mlib.nodes.node import Node
 
 _UNIT_CONVERSIONS: tuple
 
-def createExpression(string: str, *, name: str | None = ..., alwaysEvaluate: bool = ..., unitConversion: str = ..., n: str | None = ..., ae: bool = ..., uc: str = ...) -> Node:
+def createExpression(string: str, *, name: str | None = ..., n: str | None = ..., alwaysEvaluate: bool | None = ..., ae: bool = ..., unitConversion: str | None = ..., uc: str = ...) -> Node:
     """エクスプレッション(expressionノード)を作り、そのノードを返す。
 
     ``cmds.expression(string=...)`` で作る。式の中のアトリビュートへの代入は、Mayaがexpressionノードとの接続に変える。
@@ -20,10 +20,10 @@ def createExpression(string: str, *, name: str | None = ..., alwaysEvaluate: boo
     Args:
         string (str): 式(MELのエクスプレッションの文)。空でない文字列。
         name (str | None): 付けたい名前。NoneならMayaの既定の名前(``expression1`` など)。既定はNone。
-        alwaysEvaluate (bool): Trueなら、入力が変わらなくても毎回評価する。省略するとMayaの既定(True)。
-        unitConversion (str): 単位の換算。``"all"``・``"none"``・``"angularOnly"`` のどれか。省略するとMayaの既定(``"all"``)。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        alwaysEvaluate (bool | None): Trueなら、入力が変わらなくても毎回評価する。省略するとMayaの既定(True)。
         ae (bool): alwaysEvaluateの短縮名。alwaysEvaluateと同時には指定できない。
+        unitConversion (str | None): 単位の換算。``"all"``・``"none"``・``"angularOnly"`` のどれか。省略するとMayaの既定(``"all"``)。
         uc (str): unitConversionの短縮名。unitConversionと同時には指定できない。
 
     Returns:

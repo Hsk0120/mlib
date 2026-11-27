@@ -839,7 +839,7 @@ class Plug(Object):
         )
         return _remove_namespaces(name) if removeNamespace else name
 
-    def getAttributeName(self, kind="long"):
+    def getAttributeName(self, *, kind="long"):
         """アトリビュート自身の名前を取得する(``translateX``・``tx``・``Translate X``)。
 
         :meth:`getName` (``full=True`` を含む)と違い、ノード名・親のコンパウンドアトリビュート・要素の論理番号は
@@ -974,7 +974,7 @@ class Plug(Object):
         Args:
             all (bool): Trueなら、上にあるコンパウンドアトリビュートをすべて返す。既定はFalseで、すぐ上の親だけ。
             includeMulti (bool): Trueなら、途中のマルチアトリビュート全体のPlugも含める。``all=True`` のときだけ指定できる。
-                上の例では ``bs.it[0].itg[3].tw``・``bs.it[0].itg[3]``・``bs.it[0].itg``・``bs.it[0]``・``bs.it`` になる。
+                上の例では ``bs.it[0].itg[3].tw``・``bs.it[0].itg[3]``・``bs.it[0].itg``・``bs.it[0]``・``bs.it`` になる。既定はFalse。
 
         Returns:
             Plug | Plugs | None: 親のPlug。子でない場合は ``None``。
@@ -1058,7 +1058,7 @@ class Plug(Object):
         値を評価せず、未作成要素も作らない。空のマルチアトリビュートは末端に含めない。
 
         Args:
-            levels (int | None): たどる深さ。1は直接の子と要素、0は空。Noneは制限なし。
+            levels (int | None): たどる深さ。1は直接の子と要素、0は空。Noneは制限なし。既定はNone。
             leaves (bool): Trueなら子も要素も持たない定義のPlugだけを返す。
                 深さの上限で打ち切った親は含めない。既定False。
 
@@ -1202,9 +1202,9 @@ class Plug(Object):
         ``translate`` のようなコンパウンドアトリビュートを子ごと出す・隠すときは ``children=True`` を足す。
 
         Args:
-            locked (bool | None): ロックするかどうか。
-            keyable (bool | None): キーを打てるかどうか。
-            channelBox (bool | None): Channel Boxに表示するかどうか。キーを打てるアトリビュートは、Falseでも表示される。
+            locked (bool | None): ロックするかどうか。既定はNone。
+            keyable (bool | None): キーを打てるかどうか。既定はNone。
+            channelBox (bool | None): Channel Boxに表示するかどうか。キーを打てるアトリビュートは、Falseでも表示される。既定はNone。
             children (bool): Trueなら、コンパウンドアトリビュートの下の子にも同じ状態を設定する。
                 既定はFalseで、自身だけを変える。leavesとは同時に指定できない。
             leaves (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
@@ -1403,7 +1403,7 @@ class Plug(Object):
         """動的アトリビュートの定義の最小値・最大値を設定する。
 
         ``cmds.addAttr(edit=True, minValue=..., maxValue=...)`` と同じ。現在の値そのものは変えない。
-        **省略した側は変えず、None を渡した側は制限を外す**(もともと制限が無い側へのNoneは何も変えない)
+        **省略した側は変えず、None を渡した側は制限を外す** (もともと制限が無い側へのNoneは何も変えない)
         (``setRange(0)`` は最小値だけを0にし、``setRange(0, None)`` は最小値を0にして最大値の制限を外す。
         最大値だけなら ``setRange(maximum=10)``)。
         値の単位は :meth:`Node.addAttr` の ``minValue`` と同じ。
@@ -1497,7 +1497,7 @@ class Plug(Object):
                 ``"sec"`` は秒(``"frames"`` / ``"seconds"`` などの別名も使える)。時間以外では使わない。
                 uiUnits=Trueとは同時に指定できない。
             uiUnits (bool): Trueは現在のUI単位(UIの角度・距離の単位)の数値で返す
-                (コンパウンドアトリビュートは子ごとに換算したtuple)。
+                (コンパウンドアトリビュートは子ごとに換算したtuple)。既定はFalse。
 
         Returns:
             object | None: 既定値。対応しないアトリビュート型(文字列・message・マトリクス・
@@ -1516,7 +1516,7 @@ class Plug(Object):
             return value
         return self._plain_range_value(value, angle_unit, uiUnits, time_unit)
 
-    def setDefault(self, value, *, fast=False, unit=None, uiUnits=False):
+    def setDefault(self, value, *, unit=None, uiUnits=False, fast=False):
         """追加アトリビュートの既定値を変更する。現在値と接続は変更しない。
 
         非参照ノードの単一の数値・bool・enum・角度・距離に対応する。
@@ -1527,9 +1527,9 @@ class Plug(Object):
         Args:
             value (bool | int | float | om2.MAngle | om2.MDistance): 新しい既定値。
                 角度は度、距離はcm。単位付きの値は自身の単位を使う。
-            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Undo設定は変更しない。
             unit (str | None): 角度の数値の単位(deg/rad)。None(既定)は度。uiUnits=Trueとは同時に指定できない。
-            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位(``currentUnit -angle``・``-linear``)として扱う。
+            uiUnits (bool): Trueなら角度・距離の数値を現在のUI単位(``currentUnit -angle``・``-linear``)として扱う。既定はFalse。
+            fast (bool): TrueはUndoなしのOpenMaya更新。既定False。Undo設定は変更しない。
 
         Returns:
             None: 値を返さない。
@@ -1637,10 +1637,8 @@ class Plug(Object):
         """エイリアス(別名)を設定する。解除もできる。
 
         Args:
-            name (str | None): エイリアス名。Noneか空文字列なら解除する。
-            skipExisting (bool): Trueなら、何度実行してもよいようにする。自身がすでに同じエイリアスを持っていれば、
-                何も変えずに自身を返す。ほかのアトリビュートが使っているエイリアスは、既定と同じく例外にする。
-                既定はFalseで、同じエイリアスを設定し直してもMayaのエラー(RuntimeError)になる。
+            name (str | None): エイリアス名。Noneか空文字列なら解除する。既定はNone。
+            skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。自身がすでに同じエイリアスを持っていれば、何も変えずに自身を返す(何度実行してもよい)。ほかのアトリビュートが使っているエイリアスは、既定と同じく例外にする。Falseでは、同じエイリアスを設定し直してもMayaのエラー(RuntimeError)になる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
 
         Returns:
@@ -1706,7 +1704,7 @@ class Plug(Object):
 
         Args:
             time (float | Sequence[float] | None): 削除する時刻、または両端を含む範囲 ``(start, end)``。
-                Noneは全キー。
+                Noneは全キー。既定はNone。
             timeUnit (str): timeの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
 
         Returns:
@@ -1727,13 +1725,13 @@ class Plug(Object):
 
         ``cmds.keyframe(plug, edit=True, relative=True)`` と同じ。Mayaと同じく、時刻をずらしたキーは、
         動かさない隣のキーを越えない。カーブを直接操作するときは
-        :meth:`Keyframes.move <mlib.common.keyframe.Keyframes.move>`(``AnimCurve.getKeyframes(...)`` の戻り値)を使う。fast引数は無い。
+        :meth:`Keyframes.move <mlib.common.keyframe.Keyframes.move>` (``AnimCurve.getKeyframes(...)`` の戻り値)を使う。fast引数は無い。
 
         Args:
             time (float | Sequence[float] | None): 動かすキーの時刻、または両端を含む範囲 ``(start, end)``。
-                Noneならすべてのキー。
-            timeOffset (float): 時刻をずらす量。
-            valueOffset (float): 値をずらす量。:meth:`get` と同じ決まりの数値(角度は度、距離はcm)。
+                Noneならすべてのキー。既定はNone。
+            timeOffset (float): 時刻をずらす量。既定は0。
+            valueOffset (float): 値をずらす量。:meth:`get` と同じ決まりの数値(角度は度、距離はcm)。既定は0。
             unit (str): 角度のvalueOffsetの単位。既定の ``"deg"`` は度、``"rad"`` はラジアン。
             timeUnit (str): time・timeOffsetの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、
                 ``"sec"`` は秒。
@@ -1757,13 +1755,13 @@ class Plug(Object):
 
         ``cmds.keyTangent(plug, edit=True, time=..., inTangentType=..., outTangentType=...)`` と同じ。
         時刻か範囲で選んだキーをまとめて変える。カーブの1つのキーの角度・ウェイトまで変えるときは
-        :meth:`Keyframe.setTangent <mlib.common.keyframe.Keyframe.setTangent>`(``AnimCurve.getKeyframes(...)`` の要素)を使う。
+        :meth:`Keyframe.setTangent <mlib.common.keyframe.Keyframe.setTangent>` (``AnimCurve.getKeyframes(...)`` の要素)を使う。
         Mayaのコマンドの1回なので、Undoが有効なら1回で戻せる。fast引数は持たない(1回のcmdsで全キーを処理するため)。
 
         Args:
-            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。
-            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。
-            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。
+            inTangentType (str | None): 入力側の接線の型(``"auto"``・``"linear"``・``"flat"`` など。``"fixed"`` は使えない)。Noneなら変えない。既定はNone。
+            outTangentType (str | None): 出力側の接線の型。Noneなら変えない。既定はNone。
+            time (float | Sequence[float] | None): 変えるキーの時刻、または両端を含む範囲 ``(start, end)``。Noneならすべてのキー。既定はNone。
             timeUnit (str): timeの単位。既定の ``"frame"`` は現在のUIの時間単位でのフレーム、``"sec"`` は秒。
 
         Returns:
@@ -1813,8 +1811,8 @@ class Plug(Object):
         - ``name="b"``: その名前のフィールドの値を返す(大文字・小文字を区別して、完全に一致するものを探す)。
 
         Args:
-            value (int | None): 名前を調べる enum の値。bool は受け付けない。
-            name (str | None): 値を調べるフィールド名。
+            value (int | None): 名前を調べる enum の値。bool は受け付けない。既定はNone。
+            name (str | None): 値を調べるフィールド名。既定はNone。
             current (bool): Trueなら、今の値のフィールド名を返す。既定はFalse。
 
         Returns:
@@ -1899,7 +1897,7 @@ class Plug(Object):
         Args:
             state (bool): Trueならロックする。既定はTrue。
             leaves (bool): Trueなら、コンパウンドアトリビュートの末端の子だけを設定し、自身(親)は変えない。
-                自身と、その下の子の両方へ設定するには、:meth:`setFlags` の ``children=True`` を使う。
+                自身と、その下の子の両方へ設定するには、:meth:`setFlags` の ``children=True`` を使う。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
 
         Returns:
@@ -1939,7 +1937,7 @@ class Plug(Object):
         ``cmds.mute`` を使い、Undoが有効なら1つのチャンクに記録する。fast引数は無い。
 
         Args:
-            state (bool): Trueならミュートする。
+            state (bool): Trueならミュートする。既定はTrue。
 
         Returns:
             None: 値を返さない。
@@ -2010,9 +2008,6 @@ class Plug(Object):
         rotateのEulerRotateのように、自分の単位を持つ値は換算しない(中身はrad)。
 
         Args:
-            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
-                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
-                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 数値の角度の単位。None(既定)と ``"deg"`` / ``"degree"`` /
                 ``"degrees"`` は度、``"rad"`` / ``"radian"`` / ``"radians"`` はラジアン。
                 角度以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
@@ -2021,6 +2016,9 @@ class Plug(Object):
                 ``"seconds"`` は秒。時間以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
             uiUnits (bool): Trueなら、単位付きの数値を現在のUIの単位へ換算する。既定はFalseで、
                 角度は度(unitの指定に従う)、距離はcm、時間はフレーム(timeUnitの指定に従う)。
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。既定はNone。
 
         Returns:
             object: 型に合った値。
@@ -2069,7 +2067,7 @@ class Plug(Object):
         value = _convert_angles(self._mplug, value, angle_unit, to_internal=False)
         return _convert_times(self._mplug, value, time_unit, to_internal=False)
 
-    def set(self, value, *, safe=False, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
+    def set(self, value, *, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False, safe=False):
         """値を設定する。
 
         ロックの解除や接続の切断、失敗したときの自動の巻き戻しはしない。
@@ -2082,7 +2080,6 @@ class Plug(Object):
             value (object): 設定する値。角度の数値は既定で度(unitで変えられる)、距離はcm、
                 時間は既定で現在のUIの時間単位でのフレーム(timeUnitで変えられる)。
                 EulerRotate・Quaternion・MAngle・MTimeのように、自分の単位を持つ値は換算しない。
-            safe (bool): Trueなら、失敗を例外にせず数える(数える失敗の種類はRaisesを参照)。既定はFalseで、例外を送出する。
             unit (str | None): 数値の角度の単位。None(既定)と ``"deg"`` / ``"degree"`` /
                 ``"degrees"`` は度、``"rad"`` / ``"radian"`` / ``"radians"`` はラジアン。
                 角度以外のアトリビュートでは使わない。uiUnits=Trueとは同時に指定できない。
@@ -2094,9 +2091,8 @@ class Plug(Object):
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応している型だけを直接更新し、Undoの設定は変えない。
                 値の意味と確かめ方は通常と同じ(整数型・enum・boolへの小数は四捨五入する。
                 数値型への文字列や、文字列型への数値はRuntimeError)。
-            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
-                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、値が有限か(NaN・無限大でないか)と、書き込めるか(ロック・入力の接続・書き込めない定義が無いか)。
+            safe (bool): Trueなら、失敗しても例外にしない。既定はFalse。失敗を数えて返す(数える失敗の種類はRaisesを参照)。Falseでは例外を送出する。
 
         Returns:
             int | None: 通常は値を返さない。safe=Trueなら、成功は0、子ごとにやり直したときは失敗数の合計。
@@ -2133,8 +2129,7 @@ class Plug(Object):
             unlock (bool): Trueなら、このアトリビュート自身のロックを一時的に外す。書き込みが成功しても
                 失敗しても、あとでロックし直す。親のロックや入力の接続は外さない。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。中で呼ぶsetや状態の更新にも同じ値を渡す。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             bool: 書き込んだらTrue。値が同じで書き込まなかったらFalse。
@@ -2178,8 +2173,7 @@ class Plug(Object):
 
         Args:
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。通常は、Undoが有効なら子の変更を同じチャンクに記録する。
@@ -2221,16 +2215,16 @@ class Plug(Object):
     def getConnections(
         self,
         *,
-        s=_UNSET,
-        d=_UNSET,
-        t=_UNSET,
-        et=_UNSET,
-        scn=_UNSET,
         source=_UNSET,
+        s=_UNSET,
         destination=_UNSET,
+        d=_UNSET,
         type=_UNSET,
+        t=_UNSET,
         exactType=_UNSET,
+        et=_UNSET,
         skipConversionNodes=_UNSET,
+        scn=_UNSET,
         asPair=False,
         asNode=False,
         checkChildren=True,
@@ -2266,22 +2260,22 @@ class Plug(Object):
         (``cmds.listConnections`` の ``connections``・``c`` は受けない)。
 
         Args:
-            s (bool): sourceの短縮名。
-            d (bool): destinationの短縮名。
-            t (str | None): typeの短縮名。
-            et (bool): exactTypeの短縮名。
-            scn (bool): skipConversionNodesの短縮名。
             source (bool): 入力を含めるか。既定はTrue。
+            s (bool): sourceの短縮名。
             destination (bool): 出力を含めるか。既定はTrue。
-            type (str | None): 相手のNodeの型。
-            exactType (bool): Trueなら型名が完全に一致するものだけ。Falseなら派生した型も含む。
+            d (bool): destinationの短縮名。
+            type (str | None): 相手のNodeの型。既定はNone。
+            t (str | None): typeの短縮名。
+            exactType (bool): Trueなら型名が完全に一致するものだけ。Falseなら派生した型も含む。既定はFalse。
+            et (bool): exactTypeの短縮名。
             skipConversionNodes (bool): 既定はFalseで、直接つながっているPlugを返す(``cmds.listConnections`` と同じ)。
                 Trueなら、unitConversion系のノードを飛ばす。
-            asPair (bool): Trueなら(自身側のPlug, 相手側)の組で返す。入力の向きでも同じ順番。
-            asNode (bool): Trueなら、相手側をNodeで返す。ペアの自身側はPlugのまま。
-            checkChildren (bool): Trueなら、コンパウンドアトリビュートの子も調べる。
-            checkElements (bool): Trueなら、マルチアトリビュートのすでにある要素も調べる。
-            index (int | None): 絞り込んだ結果の、Pythonでの位置の番号。負の数も使える。範囲外ならNone。
+            scn (bool): skipConversionNodesの短縮名。
+            asPair (bool): Trueなら(自身側のPlug, 相手側)の組で返す。入力の向きでも同じ順番。既定はFalse。
+            asNode (bool): Trueなら、相手側をNodeで返す。ペアの自身側はPlugのまま。既定はFalse。
+            checkChildren (bool): Trueなら、コンパウンドアトリビュートの子も調べる。既定はTrue。
+            checkElements (bool): Trueなら、マルチアトリビュートのすでにある要素も調べる。既定はTrue。
+            index (int | None): 絞り込んだ結果の、Pythonでの位置の番号。負の数も使える。範囲外ならNone。既定はNone。
             input (bool): Trueなら、このPlug自身の入力元を1件(無ければNone)で返す。既定はFalse。
                 output・index、向き(s・d・source・destination)とたどり方(checkChildren・checkElements)の指定とは
                 同時に指定できない。型・ペア・Nodeで返す指定・変換ノードを飛ばす指定は使える。
@@ -2451,7 +2445,7 @@ class Plug(Object):
         :meth:`getAnimLayers` と同じく、プロキシ・mute・pairBlend を通ってブレンドのつながりをたどる。
 
         Args:
-            layer (Node | str | None): アニメーションレイヤー(animLayer ノード)か、その名前。
+            layer (Node | str | None): アニメーションレイヤー(animLayer ノード)か、その名前。既定はNone。
 
                 - None(既定)なら、Plugが入っているいちばん上のレイヤー(どのレイヤーにも入っていなければ自身)。
                 - ベースレイヤー(``cmds.animLayer(q=True, root=True)``)なら、ブレンドのつながりのいちばん手前の入力
@@ -2488,21 +2482,16 @@ class Plug(Object):
         Args:
             source (Plug | om2.MPlug | str): 接続元。
             force (bool): Trueなら、すでにある入力を置き換える。unlock=Trueなら、接続先と、その上の
-                コンパウンドアトリビュート・マルチアトリビュートのロックを一時的に外す。接続元のロックは変えない。
+                コンパウンドアトリビュート・マルチアトリビュートのロックを一時的に外す。接続元のロックは変えない。既定はFalse。
             f (bool): forceの短縮名。forceとは同時に指定できない。
-            lock (bool): Trueなら、接続したあとにロックする。Falseでも、もとのロックは戻す。
+            lock (bool): Trueなら、接続したあとにロックする。Falseでも、もとのロックは戻す。既定はFalse。
             l (bool): lockの短縮名。lockとは同時に指定できない。
             nextAvailable (bool): Trueなら、マルチアトリビュート全体に対して、``cmds.connectAttr(nextAvailable=True)`` と
                 同じ決まりで要素を選ぶ(:meth:`MultiPlug.getNextAvailable` の既定と同じ)。接続のある最後の要素の次から、
                 入力の接続・ロック・子の入力の接続が無い要素を探す。値を持つだけの要素も候補になり、途中の空きは使わない。
             na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
             unlock (bool): Falseなら、forceでもロックを外さない。既定はTrue。
-            skipExisting (bool): Trueなら、何度実行してもよいようにする。接続元から接続先への同じ接続
-                (unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず
-                (ロックもlockの指定も変えない)、成功したときと同じく接続先を返す。
-                nextAvailableでは、接続元がすでにつながっている要素があれば、その要素を返す。
-                ほかの入力がある・ロックされているなどの失敗は、既定と同じく例外にする。
-                既定はFalseで、同じ接続があってもRuntimeErrorになる。
+            skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。接続元から接続先への同じ接続(unitConversionなどの変換ノードを通したものを含む)がすでにあれば、何も変えず(ロックもlockの指定も変えない)、成功したときと同じく接続先を返す(何度実行してもよい)。nextAvailableでは、接続元がすでにつながっている要素があれば、その要素を返す。ほかの入力がある・ロックされているなどの失敗は、既定と同じく例外にする。Falseでは、同じ接続があってもRuntimeErrorになる。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -2589,7 +2578,7 @@ class Plug(Object):
                 既定はFalse。
             nextAvailable (bool): Trueなら、マルチアトリビュートの中で、otherへ直接つながっている要素の接続をすべて切る。
                 otherを指定したときだけ効く。``cmds.disconnectAttr(nextAvailable=True)`` は最初に見つかった1つだけを切るが、
-                mlibではつながっている要素をすべて切る(Mayaとの違い)。
+                mlibではつながっている要素をすべて切る(Mayaとの違い)。既定はFalse。
             na (bool): nextAvailableの短縮名。nextAvailableとは同時に指定できない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
@@ -2703,7 +2692,7 @@ class Plug(Object):
 
         Args:
             destination (Plug | om2.MPlug | str): 接続先。
-            skipExisting (bool): Trueなら、同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のskipExisting)。既定はFalse。
+            skipExisting (bool): Trueなら、すでに目的の状態のときは何もしない。既定はFalse。同じ接続がすでにあれば何もせず接続先を返す(:meth:`connect` のskipExisting)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。対応していない操作は、更新する前に拒否する。
             **kwargs: connectのforce・f・lock・l・nextAvailable・na・unlock。
 
@@ -2825,7 +2814,7 @@ class Plug(Object):
             current = current._source_plug()
             if current is None:
                 return []
-        axis = current.getAttributeName("short")[-1].upper()
+        axis = current.getAttributeName(kind="short")[-1].upper()
         visited.clear()
         while True:
             source = current._source_plug()
@@ -2838,7 +2827,7 @@ class Plug(Object):
                 current = node.getPlug("input")
                 continue
             if kind == "pairBlend":
-                suffix = source.getAttributeName("short")[-2:]
+                suffix = source.getAttributeName(kind="short")[-2:]
                 mode = node.getPlug("rm" if suffix.startswith("r") else suffix + "m").get()
                 driver = mode if mode in (1, 2) else node.getPlug("currentDriver").get()
                 current = node.getPlug("i" + suffix + ("2" if driver == 2 else "1"))
@@ -2900,7 +2889,7 @@ class Plug(Object):
             current = current._source_plug()
             if current is None:
                 return [], self
-        axis = current.getAttributeName("short")[-1].upper()
+        axis = current.getAttributeName(kind="short")[-1].upper()
         visited.clear()
         inputs = []
         base = self
@@ -2915,7 +2904,7 @@ class Plug(Object):
                 current = node.getPlug("input")
                 continue
             if kind == "pairBlend":
-                suffix = source.getAttributeName("short")[-2:]
+                suffix = source.getAttributeName(kind="short")[-2:]
                 mode = node.getPlug("rm" if suffix.startswith("r") else suffix + "m").get()
                 driver = mode if mode in (1, 2) else node.getPlug("currentDriver").get()
                 current = node.getPlug("i" + suffix + ("2" if driver == 2 else "1"))
@@ -4277,7 +4266,7 @@ class Plugs(_ListMethods):
 
         Args:
             plugs (Plug | om2.MPlug | str | Iterable[Plug | om2.MPlug | str]): アトリビュート、
-                または ``"node.attribute"`` の形の名前。その並び(入れ子でもよい)。名前1つでも受け付ける。
+                または ``"node.attribute"`` の形の名前。その並び(入れ子でもよい)。名前1つでも受け付ける。既定は ``()``。
 
         Raises:
             TypeError: アトリビュートを指さない値や、対応していない型を含む場合。
@@ -4427,7 +4416,7 @@ class Plugs(_ListMethods):
         (各要素のPlugは共有している)。
 
         Args:
-            key (Callable[[Plug], object] | None): 各Plugから、比べるための値を返す関数。Noneなら完全な名前で比べる。
+            key (Callable[[Plug], object] | None): 各Plugから、比べるための値を返す関数。Noneなら完全な名前で比べる。既定はNone。
             reverse (bool): Trueなら大きい順。既定はFalse。
 
         Returns:

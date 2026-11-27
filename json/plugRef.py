@@ -109,7 +109,7 @@ class PlugRef:
         名前の対応づけを当てたノードから、記録したアトリビュートのPlugを取得する。
 
         Args:
-            mapping (NameMapping | None): 名前の対応づけ。
+            mapping (NameMapping | None): 名前の対応づけ。既定はNone。
 
         Returns:
             Plug | None: 見つかったPlug。ノードかアトリビュートが無ければNone。

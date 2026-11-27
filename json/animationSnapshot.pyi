@@ -69,7 +69,7 @@ class AnimationSnapshot(Snapshot):
         Args:
             nodes (Iterable[Node | str]): 対象のノード。Nodeや名前を1つだけ渡してもよい。
             time (tuple[float, float] | None): 時刻の範囲。両端を含み、今のUIの時間の単位でのフレームで指定する。
-                範囲の中のキーだけを保存する。Noneならすべてのキー。
+                範囲の中のキーだけを保存する。Noneならすべてのキー。既定はNone。
 
         Returns:
             AnimationSnapshot: 取得したカーブを持つ新しいインスタンス。
@@ -93,9 +93,9 @@ class AnimationSnapshot(Snapshot):
           出力の種類(角度・距離など)が違うカーブ。見つからない、またはロックされたレイヤーのカーブ。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。レイヤー名には当てない。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。レイヤー名には当てない。既定はNone。
             mode (str): すでにあるキーの扱い。既定は ``"replace"``。
 
                 - ``"replace"``: カーブごと入れ替える。ウェイト付き接線とインフィニティも保存した値にする。
@@ -127,13 +127,13 @@ class AnimationSnapshot(Snapshot):
         :meth:`apply` と同じ指定(``fast`` を除く)を受け、同じ決まりで確かめる。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
-            mode (str): :meth:`apply` の ``mode``。
-            timeOffset (float): :meth:`apply` の ``timeOffset``。
-            timing (str): :meth:`apply` の ``timing``。
-            createLayers (bool): :meth:`apply` の ``createLayers``。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
+            mode (str): :meth:`apply` の ``mode``。既定は ``"replace"``。
+            timeOffset (float): :meth:`apply` の ``timeOffset``。既定は0。
+            timing (str): :meth:`apply` の ``timing``。既定は ``"frame"``。
+            createLayers (bool): :meth:`apply` の ``createLayers``。既定はTrue。
 
         Returns:
             ValidationReport: 見つからないもの・書けないもの・適用できない問題。

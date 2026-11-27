@@ -149,11 +149,10 @@ class GeometryFilter(Node):
             weights (Iterable[float]): 書き込む値。有限な数値を、verticesと同じ数だけ渡す。
                 verticesがNoneなら、形状の点の数だけ渡す。
             vertices (Component | Components | Iterable[int] | None): 書き込む頂点(点)の番号。Noneなら全頂点。
-                同じ番号を2回指定できない。指定した順にweightsと対応する。
+                同じ番号を2回指定できない。指定した順にweightsと対応する。既定はNone。
             geometryIndex (int | None): 変形する形状の番号(``input``・``weightList`` の論理番号)。既定はNone(先頭の形状)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -207,8 +206,7 @@ class GeometryFilter(Node):
         Args:
             path (str | os.PathLike): 読み込むファイルパス。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、全部の形状の要素へ書き込めるか(ロック・入力の接続が無いか)を確かめて、
-                問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、全部の形状の要素へ書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -234,8 +232,7 @@ class GeometryFilter(Node):
             geometryIndex (int | None): 写す元(自身)の形状の番号。既定はNone(先頭の形状)。
             otherGeometryIndex (int | None): 写す先の形状の番号。既定はNone(先頭の形状)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。:meth:`setDeformerWeights` の ``check`` と同じ。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。:meth:`setDeformerWeights` の ``check`` と同じ。
 
         Returns:
             GeometryFilter: 写す先のデフォーマー。

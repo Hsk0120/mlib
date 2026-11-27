@@ -46,10 +46,10 @@ class Edge(Component):
         Args:
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             distanceUnit (str | None): 返す値の距離の単位。既定はcm。Noneなら、今のUIの距離単位。
                 mm/cm/m/km/in/ft/yd/mi、またはMayaのロング名で指定する(:meth:`NurbsCurve.getLength
                 <mlib.nodes.nurbsCurve.NurbsCurve.getLength>` と同じ)。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
 
         Returns:
             float: 指定した単位での長さ。単位を省いたときはcm。ワールド空間では、親のスケールも含む。

@@ -13,11 +13,11 @@ from typing import overload
 
 
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., dag: Literal[True], n: str | None = ...) -> DagContainer: ...
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[True]) -> DagContainer: ...
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., dag: Literal[False] = ..., n: str | None = ...) -> Container: ...
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: Literal[False] = ...) -> Container: ...
 @overload
-def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., dag: bool = ..., n: str | None = ...) -> Container | DagContainer:
+def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: str | None = ..., n: str | None = ..., dag: bool = ...) -> Container | DagContainer:
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
@@ -33,8 +33,8 @@ def createContainer(members: str | Node | Iterable[Node | str] = ..., *, name: s
             同じ並びに名前とNodeは混ぜられない。
         name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。
-        dag (bool): True ならDAGコンテナを作る。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        dag (bool): True ならDAGコンテナを作る。既定はFalse。
 
     Returns:
         Container | DagContainer: 作ったcontainer。``dag=True`` ならDagContainer。

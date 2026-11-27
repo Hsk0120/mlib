@@ -1043,7 +1043,7 @@ def _get_type_overloads(stub):
         list[str]: オーバーロードの行。
     """
     stub.typing.add("Literal")
-    return ["def getType(self, inherited: Literal[True]) -> list[str]: ...", "def getType(self, inherited: Literal[False] = ...) -> str: ..."]
+    return ["def getType(self, *, inherited: Literal[True]) -> list[str]: ...", "def getType(self, *, inherited: Literal[False] = ...) -> str: ..."]
 
 
 def _angle_unit_overloads(_stub):

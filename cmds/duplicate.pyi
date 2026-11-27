@@ -52,7 +52,7 @@ def duplicate(node: object, *, fullPath: bool = ..., f: bool = ..., inputConnect
         suffix (str | None): mlib独自の指定。名前の末尾に付ける文字列。Noneなら名前を変えない。
             複製の起点のノードと、複製されたDAGの子孫すべて(shape・intermediateを含む)の名前を、
             「複製元の名前(名前空間を除く) + suffix」にする
-            (例: ``L_hip|L_knee`` を ``"_FK"`` で複製すると ``L_hip_FK|L_knee_FK``)。
+            (例: ``L_hip|L_knee`` を ``"_FK"`` で複製すると ``L_hip_FK|L_knee_FK``)。既定はNone。
 
             - 名前空間は、Mayaが複製を置いた名前空間のまま。
             - name を同時に指定した場合、起点のノードは name のままにし、子孫だけに末尾の文字列を付ける。

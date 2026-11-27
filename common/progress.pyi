@@ -80,14 +80,14 @@ class _ProgressLine:
             None: 値を返さない。
         """
         ...
-    def finish(self, quiet: bool = ...) -> None:
+    def finish(self, *, quiet: bool = ...) -> None:
         """改行を出力して行を閉じる。
 
         Args:
             quiet (bool): True なら、改行の書き込みや ``flush`` で起きた
                 ``Exception`` を送出せずに捨てる。別の例外が伝わっている
                 途中で行を閉じるときに使い、元の例外が後から起きた出力先の
-                失敗で置き換わらないようにする。
+                失敗で置き換わらないようにする。既定はFalse。
 
         Returns:
             None: 値を返さない。
@@ -158,11 +158,11 @@ class _MainProgressBar(_ProgressLine):
             ProgressCancelled: Escキーで中止された場合。
         """
         ...
-    def finish(self, quiet: bool = ...) -> None:
+    def finish(self, *, quiet: bool = ...) -> None:
         """``endProgress`` でバーを閉じる。
 
         Args:
-            quiet (bool): True なら、閉じる処理で起きた ``Exception`` を送出せずに捨てる。
+            quiet (bool): True なら、閉じる処理で起きた ``Exception`` を送出せずに捨てる。既定はFalse。
 
         Returns:
             None: 値を返さない。
@@ -225,15 +225,15 @@ def progressBar(iterable: Iterable, *, label: str = ..., total: int | None = ...
 
     Args:
         iterable (Iterable): ループで回す対象。要素はそのまま返す。
-        label (str): 行の先頭の見出し。末尾の空白は取り除き、空なら表示しない。
+        label (str): 行の先頭の見出し。末尾の空白は取り除き、空なら表示しない。既定は ``""``。
         total (int | None): 全体の件数。0以上。Noneならlen()を試し、TypeErrorなら件数だけを表示する。
-            実際の件数がtotalを超えた場合、バーと百分率は満杯のまま、件数だけを増やす。
-        width (int): バーの幅。1以上。
+            実際の件数がtotalを超えた場合、バーと百分率は満杯のまま、件数だけを増やす。既定はNone。
+        width (int): バーの幅。1以上。既定は30。
         stream (TextIO | None): 出力先。writeを持つもの(flushは任意)。Noneなら、呼び出したときのsys.stdout。
-            行頭復帰を解釈しない出力先では、表示が上書きされないことがある。
+            行頭復帰を解釈しない出力先では、表示が上書きされないことがある。既定はNone。
         notify (Callable[[str], object] | None): 表示するたびに、その文字列をその場で受け取る。
             改行と行頭復帰は含まない。戻り値は使わない。通知を間引くなら、呼び出す側で行う。
-            プログレスバーに表示するときも、同じ文字列を渡す。
+            プログレスバーに表示するときも、同じ文字列を渡す。既定はNone。
         gui (bool | None): 表示先。Noneなら自動(Maya GUIで、streamを省略したときはプログレスバー)。
             Trueならプログレスバーを使い、使えなければRuntimeError。Falseなら常にテキスト。
             表示先は呼び出したときに決める。

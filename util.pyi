@@ -66,8 +66,8 @@ def measure(operation: Callable[..., Any], samples: int = ..., warmup: int = ...
 
     Args:
         operation (callable): 計測する処理。入力の更新と評価を含める。計測の各回で呼ぶ。
-        samples (int): 時間を記録する回数。
-        warmup (int): 記録を始める前に、空で実行する回数。
+        samples (int): 時間を記録する回数。既定は30。
+        warmup (int): 記録を始める前に、空で実行する回数。既定は3。
 
     Returns:
         dict: samples(記録した回数)、median_seconds(中央値)、min_seconds(最小)、max_seconds(最大)。
@@ -485,7 +485,7 @@ class _PointGrid:
 
         Args:
             point (Sequence[float]): 3成分の問い合わせ点。
-            maxDistance (float | None): これより遠い点は探さない。Noneは制限なし。
+            maxDistance (float | None): これより遠い点は探さない。Noneは制限なし。既定はNone。
 
         Returns:
             tuple[int | None, float]: 点の番号と距離。maxDistance内に無ければ ``(None, inf)``。

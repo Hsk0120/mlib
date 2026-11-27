@@ -84,17 +84,17 @@ def info(message: object, *args: object, **kwargs: object) -> None:
     ...
 
 def print(*objects: object, sep: str | None = ..., end: str | None = ..., file: TextIO | None = ..., flush: bool = ...) -> None:
-    """Python標準のprintと同じ決まりで出力する。
+    r"""Python標準のprintと同じ決まりで出力する。
 
     Mayaでは、ふつうはScript Editorに表示される。ログレベルやビューポートへの通知は付けない。
     fileの指定や、改行しない出力もそのまま使える。INFOのログが要るときはinfoを使う。
 
     Args:
+        sep (str | None): 値の区切り。Noneなら標準の空白。既定は ``" "``。
+        end (str | None): 最後に付ける文字。Noneなら標準の改行。既定は ``"\n"``。
+        file (TextIO | None): 書き込み先。Noneなら今のsys.stdout。既定はNone。
+        flush (bool): Trueなら出力先をフラッシュする。既定はFalse。
         *objects (object): 出力する値。
-        sep (str | None): 値の区切り。Noneなら標準の空白。
-        end (str | None): 最後に付ける文字。Noneなら標準の改行。
-        file (TextIO | None): 書き込み先。Noneなら今のsys.stdout。
-        flush (bool): Trueなら出力先をフラッシュする。
 
     Returns:
         None: 値を返さない。
@@ -141,10 +141,10 @@ def raiseWithNotify(exceptionType: type[Exception], message: str, *args: object,
     Args:
         exceptionType (type[Exception]): 作る例外のクラス。
         message (str): 知らせる内容。例外の最初の引数にも使う。
-        *args (object): 例外のコンストラクタへ渡す、追加の位置引数。ログには渡さない。
         fromException (BaseException | None): 指定すると ``raise ... from fromException`` として、
             例外のつながりをはっきり示す(``None`` を渡すと、つながりを示さないようにする)。
             省略すると、通常の ``raise`` と同じく、except 節の中なら自動のつながりを保つ。
+        *args (object): 例外のコンストラクタへ渡す、追加の位置引数。ログには渡さない。
         **kwargs (object): 例外のコンストラクタへ渡すキーワード引数。ログには渡さない。
 
     Returns:

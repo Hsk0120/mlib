@@ -135,22 +135,22 @@ class Transformation(om2.MTransformationMatrix):
         Args:
             value (Transformation | om2.MTransformationMatrix | om2.MMatrix | Iterable[float] | None):
                 コピー元。マトリクスからはピボットなどを復元できないので、translate・rotate・scale・shear
-                だけを分解して入れる。Noneなら何も変換しない値。
-            translate (Iterable[float] | None): XYZの平行移動(cm)。
+                だけを分解して入れる。Noneなら何も変換しない値。既定はNone。
+            translate (Iterable[float] | None): XYZの平行移動(cm)。既定はNone。
             rotate (om2.MEulerRotation | om2.MQuaternion | Iterable[float] | None): 回転。
-                オイラー回転は回転順序も入れる。クォータニオンと3成分(ラジアン)は、今の回転順序の値にする。
-            rotateOrder (int | None): 回転順序。0(xyz)〜5(zyx)。rotateより先に入れる。
-            scale (Iterable[float] | None): XYZのスケール。
-            shear (Iterable[float] | None): XY・XZ・YZのシアー。
+                オイラー回転は回転順序も入れる。クォータニオンと3成分(ラジアン)は、今の回転順序の値にする。既定はNone。
+            rotateOrder (int | None): 回転順序。0(xyz)〜5(zyx)。rotateより先に入れる。既定はNone。
+            scale (Iterable[float] | None): XYZのスケール。既定はNone。
+            shear (Iterable[float] | None): XY・XZ・YZのシアー。既定はNone。
             rotateAxis (om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None): rotateAxisの回転。
-                3成分はXYZ順のラジアン。
+                3成分はXYZ順のラジアン。既定はNone。
             jointOrient (om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None): jointOrientの回転。
-                3成分はXYZ順のラジアン。
-            rotatePivot (Iterable[float] | None): 回転ピボット(cm)。
-            rotatePivotTranslate (Iterable[float] | None): 回転ピボットの補正の移動(cm)。
-            scalePivot (Iterable[float] | None): スケールピボット(cm)。
-            scalePivotTranslate (Iterable[float] | None): スケールピボットの補正の移動(cm)。
-            inverseScale (Iterable[float] | None): 親のスケールを打ち消すための値。そのまま1/値を掛ける。
+                3成分はXYZ順のラジアン。既定はNone。
+            rotatePivot (Iterable[float] | None): 回転ピボット(cm)。既定はNone。
+            rotatePivotTranslate (Iterable[float] | None): 回転ピボットの補正の移動(cm)。既定はNone。
+            scalePivot (Iterable[float] | None): スケールピボット(cm)。既定はNone。
+            scalePivotTranslate (Iterable[float] | None): スケールピボットの補正の移動(cm)。既定はNone。
+            inverseScale (Iterable[float] | None): 親のスケールを打ち消すための値。そのまま1/値を掛ける。既定はNone。
 
         Returns:
             None: 値を返さない。
@@ -382,7 +382,7 @@ class Transformation(om2.MTransformationMatrix):
 
         Args:
             other (om2.MTransformationMatrix): 比べる相手。
-            tolerance (float): 成分ごとの許容差。0以上。
+            tolerance (float): 成分ごとの許容差。0以上。既定は ``_TOLERANCE``。
 
         Returns:
             bool: すべての成分の差がtolerance以下ならTrue。

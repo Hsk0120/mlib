@@ -19,6 +19,7 @@
 """
 
 import contextlib
+import functools
 import inspect
 import time
 import unittest
@@ -31,7 +32,9 @@ import mlib
 import mlib.core.object
 
 #: 表の1行から作る段。
-STAGES = ("values", "invalid", "pairs")
+STAGES = ("values", "invalid", "pairs", "calling")
+#: 段4(呼び方)で確かめる項目。
+CALLING = ("defaults", "positional", "keywordOnly")
 
 
 def _maya_version():
@@ -250,6 +253,8 @@ class ArgumentSweepCase(NamespaceCase):
                 for value in param.candidates(method.valuesFor(param), param.name in method.replace)
             ]
             return cases, 0
+        if stage == "calling":
+            return [(f"calling:{kind}", dict(base)) for kind in CALLING if kind not in method.skipCalling], 0
         if stage == "invalid":
             cases = []
             for param in params:
@@ -271,8 +276,11 @@ class ArgumentSweepCase(NamespaceCase):
         names = {name for name, _ in fixed}
         return fixed + [case for case in cases if case[0] not in names], cut
 
-    def _run_case(self, method, stage, kwargs, params, raises, target):
+    def _run_case(self, method, stage, kwargs, params, raises, target, name=""):
         """1件を確かめる。"""
+        if stage == "calling":
+            self._check_calling(method, name.split(":", 1)[1], kwargs, params, raises, target)
+            return
         if stage == "invalid":
             if method.writes:
                 target = self.fresh(method)
@@ -336,6 +344,79 @@ class ArgumentSweepCase(NamespaceCase):
         self._assert_round_trip(method, kwargs, params, raises, target, resolved)
         if method.plural:
             self._check_plural(method, kwargs, raises, result, after)
+
+    def _check_calling(self, method, kind, kwargs, params, raises, target):
+        """段4の1件: 正しい呼び方を、渡し方だけ変えて呼んでも同じ結果になることを確かめる。
+
+        - ``defaults``: 省いた引数へ既定値を明示しても、省いたときと同じ(docstring と署名の既定値が、実際の動きと同じ)。
+        - ``positional``: 位置で渡せる引数を位置で渡しても、名前で渡したときと同じ。
+        - ``keywordOnly``: キーワード専用の引数を位置で渡すと TypeError になり、シーンは変わらない。
+        """
+        if method.writes:
+            target = self.fresh(method)
+        ok, result, _before, after, _resolved = self._call(method, target, kwargs, raises, "calling", undo=method.writes)
+        if not ok:
+            return
+        signature = inspect.signature(self._function(method, target))
+        parameters = list(signature.parameters.values())
+        # 関数をメソッドに見せる補助(``variadic`` の印を持つ)は、署名から ``*args`` を外してある。
+        variadic = any(param.kind is param.VAR_POSITIONAL for param in parameters) or getattr(self._function(method, target), "variadic", False)
+        positional = [param for param in parameters if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD)]
+        if kind == "defaults":
+            explicit = {
+                param.name: param.default
+                for param in params
+                if param.name not in kwargs and not param.variadic and not param.alias and not _is_omitted(param.default)
+            }
+            if not explicit or method.conflicting(dict(kwargs, **explicit)):
+                return
+            other = self.fresh(method) if method.writes else target
+            other_ok, other_result, _, other_after, _ = self._call(method, other, dict(kwargs, **explicit), raises, "calling")
+            self.assertTrue(other_ok, f"既定値を明示すると例外になった({explicit!r}): {other_result!r}")
+            self.assertTrue(table.same(other_result, result), f"既定値を明示すると戻り値が違う({explicit!r}): {other_result!r} と {result!r}")
+            if method.writes:
+                self.assertTrue(table.same(other_after, after), f"既定値を明示するとシーンの結果が違う({explicit!r})")
+            return
+        if variadic:
+            return
+        other = self.fresh(method) if method.writes else target
+        function = self._function(method, other)
+        resolved = self._resolve(kwargs)
+        if kind == "positional":
+            args = []
+            for param in positional:
+                if param.name not in resolved:
+                    break
+                args.append(resolved.pop(param.name))
+            if not args:
+                return
+            try:
+                other_result = table.invoke(functools.partial(function, *args), resolved)
+                if method.context:
+                    with other_result:
+                        pass
+                other_after = self._state(method, other)
+            finally:
+                if method.reset:
+                    method.reset(self, other)
+            other_result = freeze(other_result) if method.writes else other_result
+            self.assertTrue(table.same(other_result, result), f"位置で渡すと戻り値が違う: {other_result!r} と {result!r}")
+            if method.writes:
+                self.assertTrue(table.same(other_after, after), "位置で渡すとシーンの結果が違う")
+            return
+        keyword = [param for param in parameters if param.kind is param.KEYWORD_ONLY]
+        if not keyword or any(param.name not in resolved and param.default is param.empty for param in positional):
+            return
+        args = [resolved.pop(param.name, param.default) for param in positional]
+        extra = resolved.pop(keyword[0].name, keyword[0].default)
+        before = self._state(method, other)
+        try:
+            with self.assertRaises(TypeError, msg=f"キーワード専用の {keyword[0].name} を位置で渡せた"):
+                function(*args, None if _is_omitted(extra) else extra, **{name: value for name, value in resolved.items() if name in signature.parameters})
+        finally:
+            if method.reset:
+                method.reset(self, other)
+        self.assertTrue(table.same(self._state(method, other), before), "TypeError のあとシーンが変わった")
 
     def _compares_fast(self, method, kwargs, names):
         """段3で fast=True と通常を比べるかを返す。
@@ -433,14 +514,14 @@ class ArgumentSweepCase(NamespaceCase):
             run += 1
             if knownOnly:
                 try:
-                    self._run_case(method, stage, kwargs, params, raises, target)
+                    self._run_case(method, stage, kwargs, params, raises, target, name)
                 except Exception as error:
                     failures.append(f"{name}: {error}")
                 else:
                     print(f"[argumentSweep] 食い違いが直った可能性(known から外す): {method.name} {name}")
                 continue
             with self.subTest(stage=stage, args=name[len(stage) + 1 :]):
-                self._run_case(method, stage, kwargs, params, raises, target)
+                self._run_case(method, stage, kwargs, params, raises, target, name)
         seconds = time.perf_counter() - start
         self._known_run = getattr(self, "_known_run", 0) + (run if knownOnly else 0)
         if knownOnly:
@@ -454,6 +535,11 @@ class ArgumentSweepCase(NamespaceCase):
         if stage == "values" and uncovered:
             print(f"[argumentSweep] {method.name}: 候補が無い引数(表の values に書く): {', '.join(uncovered)}")
         return failures
+
+
+def _is_omitted(default):
+    """既定値が無い(必須)か、省略を見分ける番兵(``...``・``object()``)かを返す。"""
+    return default is inspect.Parameter.empty or default is Ellipsis or type(default) is object
 
 
 def _stage_test(method, stage):

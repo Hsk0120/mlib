@@ -136,6 +136,56 @@ Plugを現在のUI単位で扱う場合は ``get(uiUnits=True)``・``set(..., ui
 Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Mayaと同じ長短の名前を受け付け、長短の一方だけを指定します。
 署名の ``_UNSET``・``Ellipsis`` は省略判定用の内部値です。
 
+引数の渡し方
+------------
+
+同じ名前の引数は、どのメソッドでも同じ働き・同じ渡し方・同じ既定値です。
+名前ごとの決まりと、使えるメソッドの一覧は :doc:`arguments` にまとめています。
+
+位置で渡すのは、そのメソッドの主な値(書き込む値・対象)と ``worldSpace``・``state`` だけです。
+ほかの指定はキーワードで渡します。オン・オフを選ぶ引数を位置で並べると読み違えるため、
+``worldSpace``・``state`` 以外の bool の引数は、位置で渡すと ``TypeError`` になります。
+
+.. code-block:: python
+
+   node.setTranslation((1, 2, 3), worldSpace=True)   # 主な値と worldSpace は位置でも渡せる
+   node.setTranslation((1, 2, 3), ws=True)           # worldSpace の短縮名(同時には指定できない)
+   node.setVisibility(False)                         # オン・オフの値は state(既定 True)
+   node.rename("ctl", ignoreShape=True)              # 指定はキーワードで渡す
+   node.matchTransform(target, rotation=False)       # matchTransform(target, True, False) とは書けない
+   shape = node.getShape(index=1)                    # 番号・種類を選ぶ引数もキーワード
+   node.getType(inherited=True)
+
+値を書き込むメソッドに共通の引数は、次の3つです。どれもキーワード専用で、既定は ``False`` です。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 88
+
+   * - 引数
+     - 働き
+   * - ``fast``
+     - Undoに記録しないOpenMayaの書き込みにします。大量の書き込みを速くしたいときに使います。
+   * - ``check``
+     - 書き込む前に、値が有限か・書き込めるか(ロック・入力の接続)を確かめ、問題があれば何も書かずに例外にします。
+       既定では確かめずに書き、Mayaが拒否したときだけ例外になります。
+   * - ``safe``
+     - 失敗しても例外にしません。Transformの値では書ける成分だけを書き、``Plug.set`` は失敗した数を返します。
+
+「すでに目的の状態なら何もしない」は ``skipExisting=True``、「接続があるノードは消さない」は ``skipConnected=True`` です
+(``safe`` とは別の引数です)。``bool`` の引数に ``0``・``1``・``None`` を渡すと ``TypeError`` になり、
+意味が通らない引数の組み合わせも ``TypeError`` になります。取り違えたときに、黙って別の結果にはなりません。
+
+種類を選ぶ引数は名前で分けてあります。対象の種類は ``kind``、取得するものは ``what``、
+返すコンポーネントやノードの型は ``type`` です。1つでなく全部が欲しいときは ``all=True`` を指定します。
+
+.. code-block:: python
+
+   mesh.getSetNames(kind="color")                    # 対象の種類(UVセットかカラーセットか)
+   curve.getAtParam(0.5, what="tangent")             # 取得するもの
+   mesh.getBorder(type="vertex")                     # 返すコンポーネントの種類
+   node.getShape(all=True)                           # 全部
+
 名前・選択・型から取得する
 --------------------------
 

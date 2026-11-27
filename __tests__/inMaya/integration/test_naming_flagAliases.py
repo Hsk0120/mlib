@@ -62,7 +62,7 @@ class FlagAliasesTest(unittest.TestCase):
         self.assertEqual(cmds.nodeType(result.getName(full=True)), "pointConstraint")
         mlib.delete(result)
         with self.assertRaises(TypeError):
-            joint.addConstraint(source, "point", typ="point")
+            joint.addConstraint(source, type="point", typ="point")
         with self.assertRaises(TypeError):
             joint.addConstraint(source, type="point", typ="point")
 

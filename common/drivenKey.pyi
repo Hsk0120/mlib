@@ -203,15 +203,14 @@ class DrivenKey:
             driverValue (float): ドライバーの値。角度はunitの単位(既定は度)、距離はcm、
                 時間はtimeUnitの単位(既定はフレーム)、それ以外は単位なし。
             value (float): 駆動先の値。単位はdriverValueとは別に、駆動先のアトリビュートの定義で決まる。
-            inTangentType (str): Mayaの入力側の接線の型。
-            outTangentType (str): Mayaの出力側の接線の型。
+            inTangentType (str): Mayaの入力側の接線の型。既定は ``"linear"``。
+            outTangentType (str): Mayaの出力側の接線の型。既定は ``"linear"``。
             unit (str): 角度のアトリビュートの値の単位。既定の ``"deg"`` は度、``"rad"`` はラジアン
                 (``"degree"`` / ``"radians"`` などの別名でもよい)。角度以外のアトリビュートでは使わない。
             timeUnit (str): 時間のアトリビュートの値の単位。既定の ``"frame"`` は現在のUI時間単位のフレーム、
                 ``"sec"`` は秒(``"seconds"`` などの別名でもよい)。時間以外のアトリビュートでは使わない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。

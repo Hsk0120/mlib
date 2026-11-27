@@ -114,7 +114,7 @@ class Snapshot:
 
         Args:
             data (dict): それぞれの種類の形式のデータ。コピーして持つ。
-            header (file.Header | None): 読み込んだファイルのヘッダー。取得したばかりならNone。
+            header (file.Header | None): 読み込んだファイルのヘッダー。取得したばかりならNone。既定はNone。
 
         Raises:
             TypeError: dataが辞書でない場合。
@@ -189,9 +189,9 @@ class Snapshot:
         """適用する前に、シーンとの対応を確かめる。シーンは変えない。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
 
         Returns:
             ValidationReport: 見つからないもの・書けないもの・適用できない問題。
@@ -209,9 +209,9 @@ class Snapshot:
         それぞれの種類のクラスの説明に書く。種類ごとの指定を足す種類は、このメソッドを上書きする。
 
         Args:
-            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。
-            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。
-            namespaceMap (dict[str, str] | None): 名前空間の対応。
+            nameMap (dict[str, str] | None): 名前空間を除いた名前の対応表。既定はNone。
+            replace (Iterable[tuple[str, str]] | None): 順に当てる文字列の置き換え。既定はNone。
+            namespaceMap (dict[str, str] | None): 名前空間の対応。既定はNone。
 
         Returns:
             ValidationReport: 適用の結果。

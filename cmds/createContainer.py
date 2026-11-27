@@ -7,7 +7,7 @@ from ..decorator import _pick_alias, _require_bool, undoTransaction
 from ..util import _UNSET
 
 
-def createContainer(members=(), *, name=_UNSET, dag=False, n=_UNSET):
+def createContainer(members=(), *, name=_UNSET, n=_UNSET, dag=False):
     """containerを作り、指定したノードを所属させる。
 
     作成のあとに ``addMembers`` を行うのと同じ。``cmds.container`` の規則(現在のcontainerへの自動での所属など)に従う。
@@ -23,8 +23,8 @@ def createContainer(members=(), *, name=_UNSET, dag=False, n=_UNSET):
             同じ並びに名前とNodeは混ぜられない。
         name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。
-        dag (bool): True ならDAGコンテナを作る。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        dag (bool): True ならDAGコンテナを作る。既定はFalse。
 
     Returns:
         Container | DagContainer: 作ったcontainer。``dag=True`` ならDagContainer。

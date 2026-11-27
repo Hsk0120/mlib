@@ -10,7 +10,7 @@ from mlib.nodes.locator import Locator
 from mlib.nodes.node import Node
 
 
-def createLocator(*, name: str | None = ..., parent: Node | str | None = ..., localPosition: Sequence[float] = ..., localScale: Sequence[float] = ..., n: str | None = ...) -> Locator:
+def createLocator(*, name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., localPosition: Sequence[float] = ..., localScale: Sequence[float] = ...) -> Locator:
     """Transformとlocatorのシェイプを作り、シェイプを返す。
 
     位置はTransformで動かす。localPosition はシェイプの表示だけをずらす(``spaceLocator`` の
@@ -23,11 +23,11 @@ def createLocator(*, name: str | None = ..., parent: Node | str | None = ..., lo
     Args:
         name (str | None): Transformに付けたい名前。シェイプは ``<名前>Shape`` になる。
             NoneならMayaの既定の名前(``locator1`` など)。既定はNone。
+        n (str | None): nameの短縮名。nameと同時には指定できない。
         parent (Node | str | None): Transformの親。Noneならワールド直下。
-            親のローカル空間に、単位マトリクスで置く。
+            親のローカル空間に、単位マトリクスで置く。既定はNone。
         localPosition (Sequence[float]): シェイプの localPosition(cm)。既定は(0, 0, 0)。
         localScale (Sequence[float]): シェイプの localScale。既定は(1, 1, 1)。
-        n (str | None): nameの短縮名。nameと同時には指定できない。
 
     Returns:
         Locator: 作ったロケーターのシェイプ。Transformは ``getTransform()`` で取得する。

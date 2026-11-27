@@ -660,9 +660,9 @@ class SkinClusterTest(_ArgumentCase):
             (TypeError, "normalizeWeights", (), {"force": True, "fast": 1}),
             (TypeError, "normalizeWeights", (), {"force": 1}),
             (TypeError, "normalizeWeights", (3,), {"force": True}),
-            (TypeError, "getMode", (1,), {}),
-            (ValueError, "getMode", ("blend",), {}),
-            (ValueError, "setMode", ("post", "blend"), {}),
+            (TypeError, "getMode", (), {"kind": 1}),
+            (ValueError, "getMode", (), {"kind": "blend"}),
+            (ValueError, "setMode", ("post",), {"kind": "blend"}),
             (TypeError, "getMaxInfluences", (), {"maintain": 1}),
             (TypeError, "getInfluences", (), {"locked": 1}),
             (TypeError, "getInfluences", (), {"unused": 1}),
@@ -691,8 +691,8 @@ class SkinClusterTest(_ArgumentCase):
     def test_locked_settings(self):
         cases = (
             ("setDropoffRate", ("joint", 4.0), {}, "dropoff"),
-            ("setMode", ("dualQuaternion", "skinning"), {}, "skinningMethod"),
-            ("setMode", ("post", "normalize"), {}, "normalizeWeights"),
+            ("setMode", ("dualQuaternion",), {"kind": "skinning"}, "skinningMethod"),
+            ("setMode", ("post",), {"kind": "normalize"}, "normalizeWeights"),
             ("setWeights", ("weights",), {"vertex": 0, "normalize": True}, "weightList"),
             ("setWeightsData", ("data",), {}, "weightList"),
         )
@@ -826,14 +826,14 @@ class TransformTest(_ArgumentCase):
 
     def test_deleted_attribute_plug(self):
         """matchTransform・addConstraint は、アトリビュートを削除した Plug で DeletedAttributeError。"""
-        for method, args in (("matchTransform", ()), ("addConstraint", ("parent",))):
+        for method, flags in (("matchTransform", {}), ("addConstraint", {"type": "parent"})):
             with self.subTest(method=method):
                 node = self.node("transform")
                 source = cmds.createNode("transform", skipSelect=True)
                 cmds.addAttr(source, longName="extra", attributeType="double")
                 plug = mlib.getPlug(source + ".extra")
                 cmds.deleteAttr(source + ".extra")
-                self.assertFails(DeletedAttributeError, getattr(node, method), plug, *args, state=lambda: self.state(node))
+                self.assertFails(DeletedAttributeError, getattr(node, method), plug, state=lambda: self.state(node), **flags)
 
     def test_import_missing_curve_file(self):
         node = self.node("transform")

@@ -12,7 +12,7 @@ from mlib.nodes.dagPose import DagPose
 from mlib.nodes.node import Node
 
 
-def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | None = ..., bindPose: bool = ..., hierarchy: bool = ..., n: str | None = ..., bp: bool = ...) -> DagPose:
+def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | None = ..., n: str | None = ..., bindPose: bool = ..., bp: bool = ..., hierarchy: bool = ...) -> DagPose:
     """現在の姿勢を新しいポーズに保存する。
 
     選択状態は使わない。対象とnameを確かめてから保存する。指定した名前は、保存したあとに名前を変えて付ける。
@@ -23,11 +23,11 @@ def createDagPose(members: Node | str | Iterable[Node | str], *, name: str | Non
         members (Node | str | Iterable[Node | str]): 保存するTransformまたはJoint。
         name (str | None): 付ける名前。NoneならMayaが自動で名前を付ける。既定はNone。
             DAGパスの区切り ``|`` は含められない(Mayaは黙って置き換えてしまうため、エラーにする)。
-        bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
-        hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
-            Mayaは、元に戻すのに必要な親の情報も保存することがある。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        bindPose (bool): Trueならバインドポーズとして保存する。既定はFalse。
         bp (bool): bindPoseの短縮名。bindPoseと同時には指定できない。
+        hierarchy (bool): TrueならMaya標準のとおり階層ごと保存する。Falseなら指定したものだけを保存する。
+            Mayaは、元に戻すのに必要な親の情報も保存することがある。既定はTrue。
 
     Returns:
         DagPose: 作ったポーズ。Mayaが既存のポーズを使い回した場合はそのポーズ。

@@ -291,8 +291,6 @@ def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool =
     Undoを始める前にエラーにする。その版のMayaに無いフラグは、Mayaがエラーにする。
 
     Args:
-        *args (object): 名前・パターン、Node・Plug・Component・APIのオブジェクト、またはその並び。
-            Noneや空の並びだけを渡した場合は、空の結果を返す。
         absoluteName (bool): Trueなら、名前空間を絶対表記にする。
         an (bool): absoluteNameの短縮名。absoluteNameと同時には指定できない。
         allPaths (bool): Trueなら、DAGのインスタンスのパスをすべて返す。
@@ -418,6 +416,8 @@ def ls(*args: object, absoluteName: bool = ..., an: bool = ..., allPaths: bool =
         q (bool): queryの短縮名。queryと同時には指定できない。
         edit (bool): 編集のモード。コマンドが対応していない場合はMayaがエラーにする。
         e (bool): editの短縮名。editと同時には指定できない。
+        *args (object): 名前・パターン、Node・Plug・Component・APIのオブジェクト、またはその並び。
+            Noneや空の並びだけを渡した場合は、空の結果を返す。
         **kwargs (object): 今後Mayaに追加される、mlibが知らないフラグ。そのままMayaへ渡す。
 
     Returns:

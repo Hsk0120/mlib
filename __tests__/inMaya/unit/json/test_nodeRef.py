@@ -63,7 +63,7 @@ class ReferenceTest(NamespaceCase):
         self.assertEqual(PlugRef._from_data(ref._to_data()), ref)
         plug = ref.resolve(NameMapping(namespaceMap={self.ns: self.other}))
         self.assertEqual(plug.getNode(), mlib.getNode(self.joint_b))
-        self.assertEqual(plug.getAttributeName("short"), "tx")
+        self.assertEqual(plug.getAttributeName(kind="short"), "tx")
         self.assertIsNone(PlugRef(ref.node, "noSuchAttr").resolve())
 
     def test_component_ref(self):

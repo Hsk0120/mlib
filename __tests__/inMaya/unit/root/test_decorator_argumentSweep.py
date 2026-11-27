@@ -42,8 +42,8 @@ def _as_method(function, body):
     """入口を、同じ引数・docstring を持つメソッドにする。body(self, context) が ``with`` の中身と戻り値を決める。"""
     signature = inspect.signature(function)
 
-    def method(self, **kwargs):
-        return body(self, function(**kwargs))
+    def method(self, *args, **kwargs):
+        return body(self, function(*args, **kwargs))
 
     method.__signature__ = signature.replace(parameters=[inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD), *signature.parameters.values()])
     method.__doc__ = function.__doc__

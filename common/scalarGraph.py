@@ -30,10 +30,10 @@ class ScalarGraph:
         """containerか、ノードを作る関数か、どちらか一方を持つ。
 
         Args:
-            container (str | Container | None): 計算ノードの持ち主にするcontainer。
+            container (str | Container | None): 計算ノードの持ち主にするcontainer。既定はNone。
             createNode (Callable | None): ノードを作る関数。(node_type, name=...)を受け取り、Nodeを返すもの。
                 組み立てるメソッドへfast=Trueを渡す場合は、キーワード ``fast=True`` も受け取れる必要がある
-                (例: ``mlib.createNode``)。
+                (例: ``mlib.createNode``)。既定はNone。
 
         Raises:
             TypeError: createNodeが呼び出せない値の場合。
@@ -50,14 +50,14 @@ class ScalarGraph:
             self.container = None
             self._createNode = createNode
 
-    def sum(self, role, left, right, subtract=False, *, fast=False):
+    def sum(self, role, left, right, *, subtract=False, fast=False):
         """足し算・引き算のノードを組み立てる。
 
         Args:
             role (str): 計算の名前。
             left (float | str | Plug): 左辺。
             right (float | str | Plug): 右辺。
-            subtract (bool): Trueなら引き算にする。
+            subtract (bool): Trueなら引き算にする。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -66,7 +66,7 @@ class ScalarGraph:
         Raises:
             TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、subtractがboolでない場合、
                 またはfastがboolでない場合。
-            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+            ValueError: roleに名前に使える文字(英数字と ``_``)が無い場合、入力の数値が有限でない場合、
                 または入力のアトリビュート名が空の場合。
             MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
             RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
@@ -89,7 +89,7 @@ class ScalarGraph:
             role (str): 計算の名前。
             left (float | str | Plug): 左辺。
             right (float | str | Plug): 右辺。
-            operation (int): 1は掛け算、2は割り算、3は累乗。
+            operation (int): 1は掛け算、2は割り算、3は累乗。既定は1。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:
@@ -98,7 +98,7 @@ class ScalarGraph:
         Raises:
             TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、operationがintでない(boolを含む)場合、
                 またはfastがboolでない場合。
-            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+            ValueError: roleに名前に使える文字(英数字と ``_``)が無い場合、入力の数値が有限でない場合、
                 入力のアトリビュート名が空の場合、またはoperationが1〜3でない場合。
             MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
             RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
@@ -133,7 +133,7 @@ class ScalarGraph:
 
         Raises:
             TypeError: roleが文字列でない場合、入力が数値・アトリビュート名・Plugのどれでもない(boolを含む)場合、またはfastがboolでない場合。
-            ValueError: roleに名前に使える文字(英数字と_)が無い場合、入力の数値が有限でない場合、
+            ValueError: roleに名前に使える文字(英数字と ``_``)が無い場合、入力の数値が有限でない場合、
                 または入力のアトリビュート名が空の場合。
             MissingAttributeError: 入力のアトリビュート(またはノード)が無い場合(``AttributeError`` の派生)。
             RuntimeError: 入力のPlugが削除されている場合、または入力の名前が複数のものに一致する場合。
@@ -211,12 +211,12 @@ def _require_role(role):
 
     Raises:
         TypeError: 文字列でない場合。
-        ValueError: 名前に使える文字(英数字と_)が1つも無い場合。
+        ValueError: 名前に使える文字(英数字と ``_``)が1つも無い場合。
     """
     if not isinstance(role, str):
         raise TypeError(f"roleはstrで指定してください: {type(role).__name__}")
     if not _NAME_CHARACTER.search(role):
-        raise ValueError(f"roleには名前に使える文字(英数字と_)を含めてください: {role!r}")
+        raise ValueError(f"roleには名前に使える文字(英数字と ``_``)を含めてください: {role!r}")
 
 
 def _operand(value, name):

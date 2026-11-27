@@ -10,7 +10,7 @@ from mlib.nodes.node import Node
 from mlib.nodes.transform import Transform
 
 
-def createGroup(nodes: Iterable[Node | str] | Node | str = ..., *, name: str | None = ..., parent: Node | str | None = ..., world: bool = ..., n: str | None = ..., w: bool = ...) -> Transform:
+def createGroup(nodes: Iterable[Node | str] | Node | str = ..., *, name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., world: bool = ..., w: bool = ...) -> Transform:
     """子を入れたグループを作り、グループのTransformを返す。
 
     - nodesを省略すると、ワールド(またはparent)の直下に空のグループを作る(``cmds.group(empty=True)``)。
@@ -24,9 +24,9 @@ def createGroup(nodes: Iterable[Node | str] | Node | str = ..., *, name: str | N
     Args:
         nodes (Iterable[Node | str] | Node | str): グループに入れるtransform。1つならそのまま渡せる。既定は空。
         name (str | None): グループに付けたい名前。NoneならMayaの既定の名前(``group1`` など)。既定はNone。
-        parent (Node | str | None): グループの親のtransform。Noneなら指定しない。
-        world (bool): Trueならワールド直下に作る。parentとは同時に指定できない。既定はFalse。
         n (str | None): nameの短縮名。nameと同時には指定できない。
+        parent (Node | str | None): グループの親のtransform。Noneなら指定しない。既定はNone。
+        world (bool): Trueならワールド直下に作る。parentとは同時に指定できない。既定はFalse。
         w (bool): worldの短縮名。worldと同時には指定できない。
 
     Returns:

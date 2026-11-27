@@ -25,14 +25,14 @@ class Double3Plug(CompoundPlug):
         このアトリビュートの値だけを返し、jointOrientなどほかのアトリビュートとは合成しない。
 
         Args:
-            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
-                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
-                シミュレーションの順次再生と同じ結果は保証しない。
             unit (str | None): 角度の子の数値の単位。None(既定)は度(rotateはEulerRotateで返す)。
                 rotateでunitを指定すると、EulerRotateではなく、指定した単位の数値のtupleを返す。
                 ``"deg"`` / ``"rad"`` と、``"degree"`` などの別名を受け付ける。uiUnits=Trueとは同時に指定できない。
-            timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。
+            timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。既定はNone。
             uiUnits (bool): Trueなら、現在のUIの単位の数値のtupleを返す。既定はFalseで、数学の値の型で返す。
+            time (float | om2.MTime | None): 評価する時刻。数値はUI時間単位のフレーム。Noneは現在の評価コンテキスト。
+                現在フレームは動かさない。timeUnitは返す値の換算用で、評価時刻には適用しない。
+                シミュレーションの順次再生と同じ結果は保証しない。既定はNone。
 
         Returns:
             Vector | Translate | EulerRotate | Scale | Shear | tuple[float, float, float]:
@@ -76,7 +76,7 @@ class Double3Plug(CompoundPlug):
             return value_type(*values)  # 角度の子が無ければ換算は要らない。
         return value_type(*_convert_angles(self._mplug, values, angle_unit, to_internal=False))
 
-    def set(self, value, *, safe=False, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False):
+    def set(self, value, *, unit=None, timeUnit=None, uiUnits=False, fast=False, check=False, safe=False):
         """このアトリビュートの3成分だけを書き込む。
 
         マトリクスを通して姿勢を変えることはしない。3成分の値と、書き込めるかどうかを確かめてから
@@ -88,15 +88,13 @@ class Double3Plug(CompoundPlug):
                 rotateでは、OpenMayaの基底の型の回転も受け付け、ノードのrotateOrderへ揃える。
                 数値の並びは、ノードのrotateOrderの回転として読む。角度の子の数値は既定で度。
                 EulerRotate・Quaternionは自分の単位(rad)を持つので、unitにかかわらず換算しない。
-            safe (bool): Trueなら、書き込みの失敗を例外にせず数える(数える失敗の種類はRaisesを参照)。
             unit (str | None): 角度の子(rotate・jointOrient・rotateAxisなど)の数値の単位。
                 None(既定)は度、``"rad"`` はラジアン(``"degree"`` などの別名も使える)。角度以外の子では使わない。
-            timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。
-            uiUnits (bool): Trueなら、UIの単位の数値の並びを指定する。数学の値の型やunitとは同時に指定できない。
+            timeUnit (str | None): Plug共通の時間の単位の指定。3成分の子は時間を持たないので、正しい指定か確かめるだけ。既定はNone。
+            uiUnits (bool): Trueなら、UIの単位の数値の並びを指定する。数学の値の型やunitとは同時に指定できない。既定はFalse。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、値が有限か(NaN・無限大でないか)と、書き込めるか
-                (ロック・入力の接続・書き込めない定義が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずにMayaへ渡す(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、値が有限か(NaN・無限大でないか)と、書き込めるか(ロック・入力の接続・書き込めない定義が無いか)。
+            safe (bool): Trueなら、失敗しても例外にしない。既定はFalse。書き込みの失敗を数えて返す(数える失敗の種類はRaisesを参照)。
 
         Returns:
             int | None: safe=Falseなら値を返さない。safe=Trueなら、成功は0、失敗は子の失敗数、

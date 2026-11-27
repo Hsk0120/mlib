@@ -150,7 +150,7 @@ class SkinClusterCvWeightsTest(NamespaceCase):
                 cmds.setAttr(joints[1] + ".ty", 2.0)
                 actual = cmds.pointPosition(name, world=True)
                 self.assertSequenceAlmostEqual(actual, [original[0], original[1] + 2.0, original[2]], places=7)
-                skin.setMode("interactive", "normalize")
+                skin.setMode("interactive", kind="normalize")
                 for fast in (False, True):
                     skin.setWeights(joints, [2.0, 3.0], vertices=index, fast=fast)
                     self.assertSequenceAlmostEqual(skin.getWeights(joints, vertices=index), [2.0, 3.0])

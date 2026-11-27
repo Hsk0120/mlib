@@ -68,12 +68,11 @@ class PointComponent(Component):
                 ``axis`` を指定したときは、その成分の数値1つ。``relative=True`` のときは移動量。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             axis (str | None): 書き込む成分。``"x"``・``"y"``・``"z"`` (大文字でもよい)。Noneなら3成分とも書き込む。既定はNone。
             relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -168,13 +167,12 @@ class PointComponents(Components):
                 ``relative=True`` のときは移動量。
             worldSpace (bool): Trueならワールド空間、Falseならオブジェクト空間。既定はFalse。
                 ワールド空間は、Shapeのオブジェクトが持つDAGパスで求める。
+            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
             axis (str | None): 書き込む成分。``"x"``・``"y"``・``"z"`` (大文字でもよい)。Noneなら3成分とも書き込む。既定はNone。
             relative (bool): Trueなら、今の位置にvalueを足す。既定はFalse(絶対座標)。
             each (bool): Trueなら、valueを要素ごとの値の並びとして使う。既定はFalse(全要素に同じ値)。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
-            ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。空の集まりでは、入力を確かめるだけで何もしない。
@@ -231,8 +229,7 @@ class PointComponents(Components):
             pivot (Iterable[float]): 反転の中心のXYZ(cm)。指定した空間で表す。既定は原点。
                 Transformのピボットとは関係しない。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。

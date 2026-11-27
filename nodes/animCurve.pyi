@@ -144,7 +144,7 @@ class AnimCurve(Node):
 
         Args:
             input (float): 入力の位置。入力が時間(T)のカーブではtimeUnitの単位(既定はフレーム)、単位なし(U)のカーブでは単位の無い値。
-            timeUnit (str): 入力が時間のカーブでのinputの単位。``"frame"`` / ``"sec"``。
+            timeUnit (str): 入力が時間のカーブでのinputの単位。``"frame"`` / ``"sec"``。既定は ``"frame"``。
 
         Returns:
             int: 0から始まるキーの番号。同じ距離のキーが2つある場合は、Mayaの判定に従う。
@@ -186,8 +186,7 @@ class AnimCurve(Node):
             timeUnit (str): 入力が時間のカーブでのinputの単位と、出力が時間(TT・UT)のカーブでのvalueの単位。
                 ``"frame"`` は現在のUIの時間単位のフレーム、``"sec"`` は秒。既定は ``"frame"``。``"seconds"`` などの別名も使える。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。fixedの接線の角度やウェイトを指定するときは、:meth:`getKeyframes` が返すKeyframeのsetTangentを使う。
@@ -219,8 +218,8 @@ class AnimCurve(Node):
             unit (str): キーの角度値と接線角度の単位。deg(既定)またはrad。
             timeUnit (str): 時間入力・時間出力の単位。frame(既定)またはsec。
             replaceExisting (bool): Trueなら同じ入力の既存キーを更新する。既定Falseは拒否する。
-            weightedTangents (bool | None): カーブ全体のウェイト付き接線。Noneは変更しない。
-            check (bool): Trueなら更新前にカーブの書込み可否を検査する。既定False。
+            weightedTangents (bool | None): カーブ全体のウェイト付き接線。Noneは変更しない。既定はNone。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、カーブへ書き込めるか。
 
         Returns:
             None: 値を返さない。
@@ -253,8 +252,8 @@ class AnimCurve(Node):
         Args:
             keys (AnimCurve | Iterable[Sequence]): 写すキーを持つ同じ型のカーブ、または新しいキーの並び。
                 並びの入力と値の単位は :meth:`addKey` と同じ。
-            unit (str): 出力が角度(A)のカーブでの値の単位。``"deg"`` / ``"rad"``。
-            timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。
+            unit (str): 出力が角度(A)のカーブでの値の単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
+            timeUnit (str): 入力が時間(T)のカーブでの入力の単位と、出力が時間のカーブでの値の単位。``"frame"`` / ``"sec"``。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。
@@ -278,11 +277,10 @@ class AnimCurve(Node):
 
         Args:
             pre (str | None): 最初のキーより前の外挿。constant・linear・cycle・cycleRelative・oscillateのどれか。
-                Noneなら変えない。
-            post (str | None): 最後のキーより後の外挿。preと同じ選択肢。Noneなら変えない。
+                Noneなら変えない。既定はNone。
+            post (str | None): 最後のキーより後の外挿。preと同じ選択肢。Noneなら変えない。既定はNone。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
-            check (bool): Trueなら、書き込む前に、書き込めるか(ロック・入力の接続が無いか)を確かめて、問題があれば何も書かずに例外にする。
-                既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。
+            check (bool): Trueなら書き込む前に確かめ、問題があれば何も書かずに例外にする。既定はFalseで、確かめずに書く(Mayaが拒否したときだけ例外になる)。確かめるのは、書き込めるか(ロック・入力の接続が無いか)。
 
         Returns:
             None: 値を返さない。
@@ -300,16 +298,16 @@ class AnimCurve(Node):
         fast引数は持たない(範囲を1回で処理するcmds.scaleKeyの方が、キーごとにOpenMayaで書くより速い)。
 
         Args:
-            inputScale (float): 横軸の倍率(単位なし)。0はキーが重なるのでValueErrorになる。
-            valueScale (float): 縦軸の倍率(単位なし)。
+            inputScale (float): 横軸の倍率(単位なし)。0はキーが重なるのでValueErrorになる。既定は1。
+            valueScale (float): 縦軸の倍率(単位なし)。既定は1。
             inputPivot (float): 横軸の基準の値。入力が時間(T)のカーブではtimeUnitの単位(既定はフレーム)、単位なし(U)のカーブでは単位の無い値。
             valuePivot (float): 縦軸の基準の値。出力が角度(A)のカーブではunitの単位(既定は度)、出力が時間のカーブではtimeUnitの単位。
-            index (int | Sequence[int] | None): 0から始まるキーの番号、またはその並び。
+            index (int | Sequence[int] | None): 0から始まるキーの番号、またはその並び。既定はNone。
             time (float | Sequence[float] | None): 拡大・縮小するキーの入力の時刻、または両端を含む範囲。
-                indexとは同時に指定できない。
-            unit (str): 出力が角度のカーブでのvaluePivotの単位。``"deg"`` / ``"rad"``。
+                indexとは同時に指定できない。既定はNone。
+            unit (str): 出力が角度のカーブでのvaluePivotの単位。``"deg"`` / ``"rad"``。既定は ``"deg"``。
             timeUnit (str): 入力が時間のカーブでのtime・inputPivotの単位と、出力が時間のカーブでのvaluePivotの単位。
-                ``"frame"`` / ``"sec"``。
+                ``"frame"`` / ``"sec"``。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。
@@ -347,12 +345,12 @@ class AnimCurve(Node):
         Args:
             precision (float): 0以上の許容値。絶対値では角度はunit、距離はcmで指定する。
                 単位なしの出力は数値のまま。割合指定では百分率。
-            precisionMode (int): 0は絶対値、1は百分率。
-            time (tuple[float, float] | None): 処理する開始・終了時刻。timeUnitに従う。Noneは全キー。
+            precisionMode (int): 0は絶対値、1は百分率。既定は0。
+            time (tuple[float, float] | None): 処理する開始・終了時刻。timeUnitに従う。Noneは全キー。既定はNone。
             preserveKeyTangent (str | Sequence[str]): 保持するキーの入/出接線型。
                 fixed・linear・flat・smooth・step・clamped・plateau・stepnext・autoを指定できる。既定は指定なし。
-            unit (str): 角度の許容値の単位。degまたはrad。
-            timeUnit (str): 処理範囲の時間単位。frameまたはsec。
+            unit (str): 角度の許容値の単位。degまたはrad。既定は ``"deg"``。
+            timeUnit (str): 処理範囲の時間単位。frameまたはsec。既定は ``"frame"``。
 
         Returns:
             None: 値を返さない。
@@ -393,9 +391,9 @@ class AnimCurve(Node):
 
         Args:
             indices (int | Iterable[int] | None): 0から始まる、すでにあるキーの番号1つ、またはその並び。
-                indicesとtimeを両方省くと、すべてのキー。
+                indicesとtimeを両方省くと、すべてのキー。既定はNone。
             time (float | Sequence[float] | None): 取るキーの入力の時刻、または両端を含む範囲 ``(start, end)``。
-                入力が時間(T)のカーブではtimeUnitの単位、単位なし(U)のカーブでは単位の無い値。indicesとは同時に指定できない。
+                入力が時間(T)のカーブではtimeUnitの単位、単位なし(U)のカーブでは単位の無い値。indicesとは同時に指定できない。既定はNone。
             timeUnit (str): 入力が時間のカーブでのtimeの単位。``"frame"`` / ``"sec"``。既定は ``"frame"``。
 
         Returns:

@@ -746,7 +746,7 @@ class Quaternion(om2.MQuaternion):
         om2の積の順序で ``twist * swing`` が自身と同じ回転になる(twistを先に、swingを後に適用する)。
 
         Args:
-            axis (om2.MVector | Iterable[float]): 捻りの軸。中で正規化してから使う。
+            axis (om2.MVector | Iterable[float]): 捻りの軸。中で正規化してから使う。既定は ``(1.0, 0.0, 0.0)``。
 
         Returns:
             tuple[Quaternion, Quaternion]: (swing, twist)。どちらも正規化してある。
@@ -832,7 +832,7 @@ class Quaternion(om2.MQuaternion):
 
         Args:
             order (str | int): 回転順序。``"xyz"``/``"yzx"``/``"zxy"``/``"xzy"``/
-                ``"yxz"``/``"zyx"``、またはom2の番号0〜5。
+                ``"yxz"``/``"zyx"``、またはom2の番号0〜5。既定は ``"xyz"``。
 
         Returns:
             EulerRotate: ラジアンのEulerの回転値。
@@ -853,7 +853,7 @@ class Quaternion(om2.MQuaternion):
 
         Args:
             axis (str | int): 反転する軸。``"x"``・``"y"``・``"z"``、ミラー面の ``"YZ"``・``"XZ"``・``"XY"``、
-                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。
+                または0/1/2で指定する。x⇔YZ、y⇔XZ、z⇔XYが同じ意味になる。文字の順序と大文字・小文字は問わない。既定は ``"x"``。
 
         Returns:
             Quaternion: 自身と同じ型の新しい回転。

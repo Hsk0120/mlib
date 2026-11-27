@@ -33,12 +33,12 @@ def _reference_nodes():
     return nodes
 
 
-def listReferences(topLevelOnly=False, *, sortBy="name"):
+def listReferences(*, topLevelOnly=False, sortBy="name"):
     """シーンのリファレンスを、Reference のオブジェクトの一覧として取得する。
 
     Args:
         topLevelOnly (bool): True なら、ほかのリファレンスの中に入っていない(ネストされていない)
-            トップレベルのリファレンスだけを返す。
+            トップレベルのリファレンスだけを返す。既定はFalse。
         sortBy (str): 並び順。``"name"``(既定)は ``cmds.ls(type="reference")`` と同じ名前順。
             ``"load"`` はシーンに読み込んだ順(``cmds.file(q=True, reference=True)`` と同じ順)で、
             ネストされたリファレンスは親のすぐ後に、親の中で読み込んだ順に並べる。
@@ -139,7 +139,7 @@ def createReference(path, namespace=None):
     リファレンスを作ることがあり、その場合もそのリファレンスを返す。
 
     Args:
-        path (str | Path): リファレンスするファイル。``~`` はユーザーのホームに展開する。
+        path (str | os.PathLike): リファレンスするファイル。``~`` はユーザーのホームに展開する。
         namespace (str | None): リファレンスの中身を入れる名前空間。NoneならMayaの既定を使う。
 
     Returns:

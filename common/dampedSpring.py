@@ -14,9 +14,9 @@ class DampedSpring:
         Args:
             samples (Sequence[Sequence[float]]): 同じ時間の間隔で並んだ目標の値。成分ごとに別々に計算する。
             secondsPerSample (float): サンプルの間隔(秒)。
-            frequency (float): 固有振動数(Hz)。0より大きく30以下。
-            damping (float): 減衰比。0〜2。1で臨界減衰になる。
-            limit (float): 目標から離れてよい最大の差。正の値。
+            frequency (float): 固有振動数(Hz)。0より大きく30以下。既定は3.0。
+            damping (float): 減衰比。0〜2。1で臨界減衰になる。既定は0.5。
+            limit (float): 目標から離れてよい最大の差。正の値。既定は45.0。
 
         Returns:
             list[tuple[float]]: 各目標へ遅れて追いかけた結果。

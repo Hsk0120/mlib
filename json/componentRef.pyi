@@ -93,7 +93,7 @@ class ComponentRef:
         名前の対応づけを当てたシェイプから、記録した番号のコンポーネントを取得する。
 
         Args:
-            mapping (NameMapping | None): 名前の対応づけ。
+            mapping (NameMapping | None): 名前の対応づけ。既定はNone。
 
         Returns:
             Components | None: ``Vertices`` などの集まり。シェイプが無い場合、型が合わない場合、
