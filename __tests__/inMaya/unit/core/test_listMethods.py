@@ -278,7 +278,7 @@ class ForwardingTest(NamespaceCase):
         sets.clear()
         self.assertEqual(len(sets), 0)
         self.assertTrue(first.isValid())
-        curve = mlib.createCurve([(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 1, 0)], name=self.name("curve#"))
+        curve = mlib.createCurve([(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 1, 0)], degree=1, name=self.name("curve#"))
         start = cmds.pointPosition(curve.getName(full=True) + ".cv[0]")
         curves = mlib.Nodes([curve])
         curves.reverseDirection()

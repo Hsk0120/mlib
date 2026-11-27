@@ -41,6 +41,7 @@ class _Case(NamespaceCase):
     def curve(self, points=SQUARE, **kwargs):
         """名前空間内にカーブを作成して返す。"""
         kwargs.setdefault("name", self.name("crv#"))
+        kwargs.setdefault("degree", 1)
         return mlib.createCurve(points, **kwargs)
 
     def assertPointsAlmostEqual(self, actual, expected, places=9):

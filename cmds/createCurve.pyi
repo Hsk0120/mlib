@@ -32,7 +32,7 @@ def createCurve(points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], de
         points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの位置。各点は3つの
             有限な数値(boolは除く)。MPointはwで割らずにXYZを使う。座標はカーブのTransformの
             ローカル座標(作成時は単位マトリクス)で、単位はcm。
-        degree (int): 次数。1・2・3のどれか。既定は1。
+        degree (int): 次数。1・2・3のどれか。既定は ``cmds.curve`` と同じ3。
         closed (bool): Trueなら閉じたカーブにする。既定はFalse。
         knots (Sequence[float] | None): 開いたカーブのノットの並び(``cmds.curve`` の ``knot``)。
             個数は ``CV数 + degree - 1``。Noneなら既定のノット。``closed=True`` とは同時に指定できない。

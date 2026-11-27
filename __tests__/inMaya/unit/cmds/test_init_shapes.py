@@ -55,7 +55,7 @@ class CreateShapeFunctionsTest(_SpecCase):
         group = mlib.createNode("transform", name=self.name("grp"), skipSelect=True)
         cmds.select(clear=True)
         cases = (
-            ("nurbsCurve", lambda name: mlib.createCurve([(0, 0, 0), (100, 0, 0)], name=name, parent=group)),
+            ("nurbsCurve", lambda name: mlib.createCurve([(0, 0, 0), (100, 0, 0)], degree=1, name=name, parent=group)),
             ("nurbsCurve", lambda name: mlib.createCircle(radius=50, name=name)),
             ("locator", lambda name: mlib.createLocator(name=name, localScale=(2, 2, 2))),
             ("mesh", lambda name: mlib.createPoly("cube", width=200, name=name)),

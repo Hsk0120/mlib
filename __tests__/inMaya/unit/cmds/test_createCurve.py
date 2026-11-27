@@ -39,6 +39,7 @@ class _Case(NamespaceCase):
     def curve(self, points=SQUARE, **kwargs):
         """名前空間内にカーブを作成して返す。"""
         kwargs.setdefault("name", self.name("crv#"))
+        kwargs.setdefault("degree", 1)
         return mlib.createCurve(points, **kwargs)
 
     def assertPointsAlmostEqual(self, actual, expected, places=9):
@@ -81,7 +82,7 @@ class NurbsCurveCreateTest(_Case):
         parent = self.make("transform", "parent")
         cmds.setAttr(parent + ".translate", 5, 0, 0)
         cmds.currentUnit(linear="mm")
-        shape = mlib.createCurve([(0, 0, 0), (2, 0, 0)], name=self.name("ctl"), parent=parent)
+        shape = mlib.createCurve([(0, 0, 0), (2, 0, 0)], degree=1, name=self.name("ctl"), parent=parent)
         transform = shape.getTransform()
         self.assertEqual(transform.getName().rsplit(":", 1)[-1], "ctl")
         self.assertEqual(shape.getName().rsplit("|", 1)[-1].rsplit(":", 1)[-1], "ctlShape")
@@ -95,6 +96,16 @@ class NurbsCurveCreateTest(_Case):
         """MPoint・MVector・listを受け付け、MPointはwで割らない。"""
         shape = self.curve([om2.MPoint(1, 2, 3, 2), om2.MVector(4, 5, 6), [7, 8, 9]])
         self.assertPointsAlmostEqual(shape.getPoints(), [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
+
+    def test_default_degree(self):
+        """degreeを省くとcmds.curveと同じ3になる。"""
+        points = [(0, 0, 0), (1, 0, 0), (2, 1, 0), (3, 1, 0)]
+        shape = mlib.createCurve(points, name=self.name("crv#"))
+        expected = cmds.curve(point=points, name=self.name("ref#"))
+        self.assertEqual(cmds.getAttr(shape.getName(full=True) + ".degree"), 3)
+        self.assertEqual(cmds.getAttr(shape.getName(full=True) + ".degree"), cmds.getAttr(expected + ".degree"))
+        with self.assertRaises(ValueError):
+            mlib.createCurve([(0, 0, 0), (1, 0, 0)])
 
     def test_undo_once(self):
         """作成はUndo 1回で消える。"""

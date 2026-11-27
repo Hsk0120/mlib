@@ -36,6 +36,7 @@ class _Case(NamespaceCase):
     def curve(self, points=SQUARE, **kwargs):
         """名前空間内にカーブを作成して返す。"""
         kwargs.setdefault("name", self.name("crv#"))
+        kwargs.setdefault("degree", 1)
         return mlib.createCurve(points, **kwargs)
 
     def assertPointsAlmostEqual(self, actual, expected, places=9):
@@ -80,7 +81,7 @@ class ReplaceShapesTest(_Case):
         control = self.make("transform", "grp")
         first = self.curve(name=self.name("src"))
         holder = first.getTransform()
-        second = mlib.createCurve([(0, 0, 0), (1, 1, 1)])
+        second = mlib.createCurve([(0, 0, 0), (1, 1, 1)], degree=1)
         temporary = second.getTransform().getName(full=True)
         cmds.parent(second.getName(full=True), holder.getName(full=True), shape=True, relative=True)
         cmds.delete(temporary)

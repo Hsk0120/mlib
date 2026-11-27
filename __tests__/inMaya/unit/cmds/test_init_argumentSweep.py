@@ -272,7 +272,7 @@ def _expect_deleted(case, call):
 
 def _expect_curve(case, call):
     _expect_type("nurbsCurve", transform=True)(case, call)
-    degree = call.kwargs.get("degree", call.kwargs.get("d", 1))
+    degree = call.kwargs.get("degree", call.kwargs.get("d", 3))
     case.assertEqual(cmds.getAttr(call.result.getName(full=True) + ".degree"), degree)
     closed = call.kwargs.get("closed", False)
     case.assertEqual(cmds.getAttr(call.result.getName(full=True) + ".form") != 0, closed)
@@ -579,18 +579,17 @@ METHODS = (
                 [om2.MPoint(0, 0, 0), om2.MPoint(1, 1, 0, 2.0), om2.MVector(2, 0, 0), [3, 1, 0]],
                 [om2.MPoint(0, 0, 0), om2.MPoint(1, 0, 0), om2.MPoint(2, 1, 0), om2.MPoint(3, 0, 0)],
                 [om2.MVector(0, 0, 0), om2.MVector(1, 0, 0), om2.MVector(2, 1, 0), om2.MVector(3, 0, 0)],
-                [(0, 0, 0), (1, 0, 0)],
             ),
             "degree": (1, 2, 3),
             "d": (1, 3),
-            "knots": (None, [0, 1, 2, 3]),
+            "knots": (None, [0, 0, 0, 1, 1, 1]),
             "name": (NAME,),
             "n": (NAME,),
             "parent": (None, _named("a"), _node("b")),
         },
         replace=("points", "degree", "knots"),
         invalid={
-            "points": ([(0, 0, 0)], [(0, 0)], [(True, 0, 0), (1, 0, 0)], [(float("nan"), 0, 0), (1, 0, 0)], "abc"),
+            "points": ([(0, 0, 0)], [(0, 0)], [(0, 0, 0), (1, 0, 0)], [(True, 0, 0), (1, 0, 0)], [(float("nan"), 0, 0), (1, 0, 0)], "abc"),
             "degree": (0, 4, "a"),
             "knots": ([0, 1], ["a"]),
             "name": NAME_INVALID,

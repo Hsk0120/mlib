@@ -29,7 +29,7 @@ def createCurve(points, degree=_UNSET, closed=False, knots=None, *, name=_UNSET,
         points (Iterable[Sequence[float] | om2.MPoint | om2.MVector]): CVの位置。各点は3つの
             有限な数値(boolは除く)。MPointはwで割らずにXYZを使う。座標はカーブのTransformの
             ローカル座標(作成時は単位マトリクス)で、単位はcm。
-        degree (int): 次数。1・2・3のどれか。既定は1。
+        degree (int): 次数。1・2・3のどれか。既定は ``cmds.curve`` と同じ3。
         closed (bool): Trueなら閉じたカーブにする。既定はFalse。
         knots (Sequence[float] | None): 開いたカーブのノットの並び(``cmds.curve`` の ``knot``)。
             個数は ``CV数 + degree - 1``。Noneなら既定のノット。``closed=True`` とは同時に指定できない。
@@ -57,7 +57,7 @@ def createCurve(points, degree=_UNSET, closed=False, knots=None, *, name=_UNSET,
         >>> transform = shape.getTransform()
         >>> loop = mlib.createCurve([(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0)], degree=3, closed=True)
     """
-    degree = _pick_alias(degree, d, "degree", "d", default=1)
+    degree = _pick_alias(degree, d, "degree", "d", default=3)
     name = _pick_alias(name, n, "name", "n", default=None)
     values = geometryEdit.point_list(points)
     if isinstance(degree, bool) or not isinstance(degree, int):

@@ -95,7 +95,7 @@ class UndoSequenceStressTest(NamespaceCase):
         elif kind == "rename":
             node.rename(self.name(f"r{index:d}"))
         elif kind == "curve":
-            mlib.createCurve([(0, 0, 0), (rng.uniform(1, 3), 0, 0)], name=self.name(f"c{index:d}"), parent=node)
+            mlib.createCurve([(0, 0, 0), (rng.uniform(1, 3), 0, 0)], degree=1, name=self.name(f"c{index:d}"), parent=node)
         elif kind == "delete":
             if node.getChildren(allDescendents=True):
                 return False
