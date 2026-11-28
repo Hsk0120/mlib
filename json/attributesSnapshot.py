@@ -40,7 +40,7 @@ class AttributesSnapshot(Snapshot):
     VERSION = 1
 
     @classmethod
-    def capture(cls, nodes, attributes=None):
+    def capture(cls, nodes, *, attributes=None):
         """指定したアトリビュートの今の値を取得する。
 
         ``nodes`` のそれぞれのノードで、``attributes`` のそれぞれの名前を探す。ノードに無い名前は飛ばす。

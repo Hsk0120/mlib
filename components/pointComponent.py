@@ -212,7 +212,7 @@ class PointComponents(Components):
             rows = [_edited_row(point, item, column, relative) for point, item in zip(_positions(self._shape, self._indices, ws), entered)]
         self._write(rows, ws, fast, "mlibPointComponentsSetPosition", check)
 
-    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), *, fast=False, check=False, ws=_UNSET):
+    def mirror(self, axis="x", worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), fast=False, check=False, ws=_UNSET):
         """持っている頂点/CVを、指定した空間の中心pivotで反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。

@@ -10,8 +10,9 @@
 決まり
 ------
 
-- 位置で渡すのは、そのメソッドの主な値(書き込む値・対象)と ``worldSpace``・``state`` だけです。
-  ほかの指定はキーワードで渡します(``node.rename("a", ignoreShape=True)``)。
+- 位置で渡せるのは、必須の引数・最初の引数(そのメソッドの主な値)・``worldSpace``・``state`` だけです。
+  既定値つきのほかの引数は、maya.cmds のフラグと同じくキーワードで渡します
+  (``node.rename("a", ignoreShape=True)``・``mlib.createCurve(points, degree=1)``・``node.setTranslation(v, at=1)``)。
 - オン・オフを選ぶ bool の引数は、``worldSpace``・``state`` を除いてキーワード専用です。
   bool の引数に ``0``・``1``・``None`` を渡すと TypeError になります。
 - ``fast``・``check``・``safe`` は、キーワード専用の引数の最後にこの順で並びます。
@@ -61,12 +62,16 @@
      - 位置でも渡せる
      - メソッドごと
      - 値を書く・読むアトリビュートの段(``Transform``)、またはアトリビュートの名前(Maya のフラグ)。
+   * - :ref:`attributes <argument-attributes>`
+     - 位置でも渡せる
+     - ``None``
+     - 対象のアトリビュート。None は全部・指定しない。
    * - :ref:`axis <argument-axis>`
      - 位置でも渡せる
      - メソッドごと
      - 軸(``"x"``/``"y"``/``"z"``・0/1/2、またはベクトル)。
    * - :ref:`base <argument-base>`
-     - 位置でも渡せる
+     - キーワード専用
      - ``None``
      - blendShape のベースの形状。None は最初のベース。
    * - :ref:`channelBox <argument-channelBox>`
@@ -145,6 +150,10 @@
      - キーワード専用
      - メソッドごと
      - 番号。
+   * - :ref:`indices <argument-indices>`
+     - 位置でも渡せる
+     - ``None``
+     - 対象の番号。None は全部。
    * - :ref:`influence <argument-influence>`
      - キーワード専用
      - 
@@ -559,6 +568,17 @@ Plug でなくノードで返す。
 - 既定値: メソッドごとに違う(Transform の段の番号と、Maya のフラグの短縮名)
 - 使う所(4): :meth:`Node.addAttr <mlib.nodes.node.Node.addAttr>`、:meth:`Transform.getTranslation <mlib.nodes.transform.Transform.getTranslation>`、:meth:`Transform.setTranslation <mlib.nodes.transform.Transform.setTranslation>`、:func:`bakeResults <mlib.cmds.bakeResults.bakeResults>`
 
+.. _argument-attributes:
+
+``attributes``
+~~~~~~~~~~~~~~
+
+対象のアトリビュート。None は全部・指定しない。
+
+- 受け方: 位置でも渡せる
+- 既定値: ``None``
+- 使う所(10): :meth:`AttributesSnapshot.capture <mlib.json.attributesSnapshot.AttributesSnapshot.capture>`、:meth:`Joint.resetAttrs <mlib.nodes.joint.Joint.resetAttrs>`、:meth:`Node.moveKey <mlib.nodes.node.Node.moveKey>`、:meth:`Node.removeKey <mlib.nodes.node.Node.removeKey>`、:meth:`Node.resetAttrs <mlib.nodes.node.Node.resetAttrs>`、:meth:`Node.setAttrFlags <mlib.nodes.node.Node.setAttrFlags>`、:meth:`Node.setKey <mlib.nodes.node.Node.setKey>`、:meth:`Node.setKeyTangent <mlib.nodes.node.Node.setKeyTangent>`、:meth:`Nodes.resetAttrs <mlib.nodes.node.Nodes.resetAttrs>`、:func:`bakeResults <mlib.cmds.bakeResults.bakeResults>`
+
 .. _argument-axis:
 
 ``axis``
@@ -577,7 +597,7 @@ Plug でなくノードで返す。
 
 blendShape のベースの形状。None は最初のベース。
 
-- 受け方: 位置でも渡せる
+- 受け方: キーワード専用
 - 既定値: ``None``
 - 使う所(13): :meth:`BlendShape.addTarget <mlib.nodes.blendShape.BlendShape.addTarget>`、:meth:`BlendShape.getInBetweenWeights <mlib.nodes.blendShape.BlendShape.getInBetweenWeights>`、:meth:`BlendShape.getTargetDeltas <mlib.nodes.blendShape.BlendShape.getTargetDeltas>`、:meth:`BlendShape.getTargetGeometry <mlib.nodes.blendShape.BlendShape.getTargetGeometry>`、:meth:`BlendShape.getTargetItemIndices <mlib.nodes.blendShape.BlendShape.getTargetItemIndices>`、:meth:`BlendShape.getTargetVertices <mlib.nodes.blendShape.BlendShape.getTargetVertices>`、:meth:`BlendShape.getTargetWeights <mlib.nodes.blendShape.BlendShape.getTargetWeights>`、:meth:`BlendShape.mirrorTarget <mlib.nodes.blendShape.BlendShape.mirrorTarget>`、:meth:`BlendShape.replaceTarget <mlib.nodes.blendShape.BlendShape.replaceTarget>`、:meth:`BlendShape.resetTargetVertices <mlib.nodes.blendShape.BlendShape.resetTargetVertices>`、:meth:`BlendShape.setTargetDeltas <mlib.nodes.blendShape.BlendShape.setTargetDeltas>`、:meth:`BlendShape.setTargetWeights <mlib.nodes.blendShape.BlendShape.setTargetWeights>`、:func:`createBlendShape <mlib.cmds.createBlendShape.createBlendShape>`
 
@@ -805,6 +825,17 @@ DAG のフルパスの名前にする。
 - 受け方の例外: ``Components.pop`` — list.pop と同じ
 - 受け方の例外: ``MultiPlug.getElement`` — 主な値(要素の番号)
 - 使う所(15): :meth:`AnimCurve.scaleKey <mlib.nodes.animCurve.AnimCurve.scaleKey>`、:meth:`BlendShape.addTarget <mlib.nodes.blendShape.BlendShape.addTarget>`、``Component.__init__``、:meth:`Components.insert <mlib.components.component.Components.insert>`、:meth:`Components.pop <mlib.components.component.Components.pop>`、:meth:`DagNode.getShape <mlib.nodes.dagNode.DagNode.getShape>`、:meth:`DagNode.reorder <mlib.nodes.dagNode.DagNode.reorder>`、``Keyframe.__init__``、:meth:`MultiPlug.getElement <mlib.plugs.multiPlug.MultiPlug.getElement>`、:meth:`MultiPlug.removeElement <mlib.plugs.multiPlug.MultiPlug.removeElement>`、:meth:`Node.getConnections <mlib.nodes.node.Node.getConnections>`、:meth:`Plug.getConnections <mlib.plugs.plug.Plug.getConnections>`、:meth:`Transform.getShape <mlib.nodes.transform.Transform.getShape>`、``_Directories.move``、``_Directories.parentOf``
+
+.. _argument-indices:
+
+``indices``
+~~~~~~~~~~~
+
+対象の番号。None は全部。
+
+- 受け方: 位置でも渡せる
+- 既定値: ``None``
+- 使う所(16): :meth:`AnimCurve.getKeyframes <mlib.nodes.animCurve.AnimCurve.getKeyframes>`、``ComponentRef.__init__``、``Components.__init__``、:meth:`Mesh.getEdges <mlib.nodes.mesh.Mesh.getEdges>`、:meth:`Mesh.getFaces <mlib.nodes.mesh.Mesh.getFaces>`、:meth:`Mesh.getUVs <mlib.nodes.mesh.Mesh.getUVs>`、:meth:`Mesh.getVertexFaces <mlib.nodes.mesh.Mesh.getVertexFaces>`、:meth:`Mesh.getVertices <mlib.nodes.mesh.Mesh.getVertices>`、:meth:`Mesh.setUVData <mlib.nodes.mesh.Mesh.setUVData>`、:meth:`NurbsCurve.getCVs <mlib.nodes.nurbsCurve.NurbsCurve.getCVs>`、:meth:`NurbsSurface.getCVs <mlib.nodes.nurbsSurface.NurbsSurface.getCVs>`、:meth:`NurbsSurface.setUVData <mlib.nodes.nurbsSurface.NurbsSurface.setUVData>`、:meth:`Shape.scaleGeometry <mlib.nodes.shape.Shape.scaleGeometry>`、:meth:`Transform.mirrorGeometry <mlib.nodes.transform.Transform.mirrorGeometry>`、:meth:`Transform.scaleGeometry <mlib.nodes.transform.Transform.scaleGeometry>`、``_ControlPointShape.mirror``
 
 .. _argument-influence:
 
@@ -1060,7 +1091,6 @@ jointOrient の値、または jointOrient を対象にする指定。
 - 受け方: キーワード専用
 - 既定値: ``None``
 - 型: ``dict[str, str] | None``
-- 受け方の例外: ``NameMapping.__init__`` — この3つの指定を持つクラスの作り方
 - 使う所(10): :meth:`AnimationSnapshot.apply <mlib.json.animationSnapshot.AnimationSnapshot.apply>`、:meth:`AnimationSnapshot.validate <mlib.json.animationSnapshot.AnimationSnapshot.validate>`、:meth:`BlendShape.importTargets <mlib.nodes.blendShape.BlendShape.importTargets>`、:meth:`BlendShape.setTargetsData <mlib.nodes.blendShape.BlendShape.setTargetsData>`、``NameMapping.__init__``、:meth:`SkinCluster.importWeights <mlib.nodes.skinCluster.SkinCluster.importWeights>`、:meth:`SkinCluster.setWeightsData <mlib.nodes.skinCluster.SkinCluster.setWeightsData>`、:meth:`Snapshot.apply <mlib.json.snapshot.Snapshot.apply>`、:meth:`Snapshot.validate <mlib.json.snapshot.Snapshot.validate>`、:func:`bindSkin <mlib.cmds.bindSkin.bindSkin>`
 
 .. _argument-ndigits:
@@ -1275,7 +1305,6 @@ skinCluster のインフルエンスから外してから削除する。
 
 - 受け方: キーワード専用
 - 既定値: ``None``
-- 受け方の例外: ``NameMapping.__init__`` — この3つの指定を持つクラスの作り方
 - 使う所(11): :meth:`AnimationSnapshot.apply <mlib.json.animationSnapshot.AnimationSnapshot.apply>`、:meth:`AnimationSnapshot.validate <mlib.json.animationSnapshot.AnimationSnapshot.validate>`、:meth:`BlendShape.importTargets <mlib.nodes.blendShape.BlendShape.importTargets>`、:meth:`BlendShape.setTargetsData <mlib.nodes.blendShape.BlendShape.setTargetsData>`、``NameMapping.__init__``、:meth:`SkinCluster.importWeights <mlib.nodes.skinCluster.SkinCluster.importWeights>`、:meth:`SkinCluster.setWeightsData <mlib.nodes.skinCluster.SkinCluster.setWeightsData>`、:meth:`Snapshot.apply <mlib.json.snapshot.Snapshot.apply>`、:meth:`Snapshot.validate <mlib.json.snapshot.Snapshot.validate>`、:func:`bindSkin <mlib.cmds.bindSkin.bindSkin>`、:func:`select <mlib.cmds.select.select>`
 
 .. _argument-rotate:
@@ -1425,7 +1454,6 @@ rotateAxis の値、または rotateAxis を対象にする指定。
 
 - 受け方: キーワード専用
 - 既定値: ``None``
-- 受け方の例外: ``bakeResults`` — cmds.bakeResults の主な値(対象・アトリビュート・範囲)を順に受ける
 - 使う所(16): :meth:`AnimCurve.getKeyframes <mlib.nodes.animCurve.AnimCurve.getKeyframes>`、:meth:`AnimCurve.reduceKeys <mlib.nodes.animCurve.AnimCurve.reduceKeys>`、:meth:`AnimCurve.scaleKey <mlib.nodes.animCurve.AnimCurve.scaleKey>`、:meth:`AnimationSnapshot.capture <mlib.json.animationSnapshot.AnimationSnapshot.capture>`、:meth:`CompoundPlug.get <mlib.plugs.compoundPlug.CompoundPlug.get>`、:meth:`Double3Plug.get <mlib.plugs.double3Plug.Double3Plug.get>`、:meth:`MatrixPlug.get <mlib.plugs.matrixPlug.MatrixPlug.get>`、:meth:`MultiPlug.get <mlib.plugs.multiPlug.MultiPlug.get>`、:meth:`Node.moveKey <mlib.nodes.node.Node.moveKey>`、:meth:`Node.removeKey <mlib.nodes.node.Node.removeKey>`、:meth:`Node.setKeyTangent <mlib.nodes.node.Node.setKeyTangent>`、:meth:`Plug.get <mlib.plugs.plug.Plug.get>`、:meth:`Plug.moveKey <mlib.plugs.plug.Plug.moveKey>`、:meth:`Plug.removeKey <mlib.plugs.plug.Plug.removeKey>`、:meth:`Plug.setKeyTangent <mlib.plugs.plug.Plug.setKeyTangent>`、:func:`bakeResults <mlib.cmds.bakeResults.bakeResults>`
 
 .. _argument-timeOffset:
@@ -1518,8 +1546,6 @@ Transform でなく、その Shape の色を扱う。
 
 - 受け方: キーワード専用
 - 既定値: メソッドごとに違う(絞り込みの None と、返す種類の既定がメソッドごとに違う)
-- 受け方の例外: ``Node.addAttr`` — Maya のフラグをそのまま受ける入口。名前と型を続けて書く
-- 受け方の例外: ``NodeRef.__init__`` — 保存する値を並べる作り方
 - 使う所(24): ``ComponentRef.__init__``、:meth:`Container.createNode <mlib.nodes.container.Container.createNode>`、:meth:`DagContainer.createNode <mlib.nodes.dagContainer.DagContainer.createNode>`、:meth:`DagNode.getChildren <mlib.nodes.dagNode.DagNode.getChildren>`、:meth:`Edge.getConnected <mlib.components.edge.Edge.getConnected>`、:meth:`Face.getConnected <mlib.components.face.Face.getConnected>`、:meth:`Mesh.getBorder <mlib.nodes.mesh.Mesh.getBorder>`、:meth:`Namespace.getNodes <mlib.common.namespace.Namespace.getNodes>`、:meth:`Node.addAttr <mlib.nodes.node.Node.addAttr>`、:meth:`Node.getConnections <mlib.nodes.node.Node.getConnections>`、:meth:`Node.getHistory <mlib.nodes.node.Node.getHistory>`、:meth:`Node.getSets <mlib.nodes.node.Node.getSets>`、:meth:`Node.isType <mlib.nodes.node.Node.isType>`、``NodeRef.__init__``、:meth:`Plug.getConnections <mlib.plugs.plug.Plug.getConnections>`、:meth:`Plugin.ensureNodePlugin <mlib.common.plugin.Plugin.ensureNodePlugin>`、:meth:`Selection.filter <mlib.common.selection.Selection.filter>`、:meth:`Selection.getNodes <mlib.common.selection.Selection.getNodes>`、:meth:`Transform.addConstraint <mlib.nodes.transform.Transform.addConstraint>`、:meth:`Transform.getChildren <mlib.nodes.transform.Transform.getChildren>`、:meth:`Vertex.getConnected <mlib.components.vertex.Vertex.getConnected>`、:func:`createNode <mlib.cmds.createNode.createNode>`、:func:`isNodeType <mlib.cmds.isNodeType.isNodeType>`、:func:`ls <mlib.cmds.ls.ls>`
 
 .. _argument-uiUnits:

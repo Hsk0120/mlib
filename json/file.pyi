@@ -27,7 +27,7 @@ class Header:
     ``_load`` が返し、時間の換算(``_convert_time``)に使う。書き出すときは ``_dump`` が
     今のシーンから作るので、自分で作る必要はない。
     """
-    def __init__(self, format: str, version: int, mlib: str | None = ..., maya: str | None = ..., fps: float | None = ...) -> None:
+    def __init__(self, format: str, version: int, *, mlib: str | None = ..., maya: str | None = ..., fps: float | None = ...) -> None:
         """ヘッダーの値を持たせる。
 
         Args:
@@ -39,8 +39,8 @@ class Header:
 
         Raises:
             TypeError: formatが文字列でない場合、versionがintでない場合(boolも不可)、
-                またはfpsが数値でもNoneでもない場合。
-            ValueError: formatが空の場合、versionが1より小さい場合、またはfpsが正でない場合。
+                fpsが数値でもNoneでもない場合、またはmlib・mayaが文字列でもNoneでもない場合。
+            ValueError: formatが空の場合、versionが1より小さい場合、またはfpsが正の有限な値でない場合。
         """
         ...
     def __repr__(self) -> str:

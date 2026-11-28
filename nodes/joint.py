@@ -362,7 +362,7 @@ class Joint(Transform):
             raise NotImplementedError("このMaya版のOpenMayaはHumanIK名の取得に対応していません")
         return function_set(self.mpath()).hikJointName()
 
-    def orient(self, orientation="xyz", secondaryAxisOrient="yup", *, children=True, zeroScaleOrient=True):
+    def orient(self, orientation="xyz", *, secondaryAxisOrient="yup", children=True, zeroScaleOrient=True):
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。
 
         次のコマンドを実行する(``cmds.joint(edit=True, orientJoint=...)`` と同じ)。
@@ -1255,7 +1255,7 @@ class Joints(Nodes):
         """
         return Joints(sorted(self._items, key=lambda joint: joint.getDepth(), reverse=True))
 
-    def orient(self, orientation="xyz", secondaryAxisOrient="yup", *, children=True, zeroScaleOrient=True):
+    def orient(self, orientation="xyz", *, secondaryAxisOrient="yup", children=True, zeroScaleOrient=True):
         """各ジョイントに、並んでいる順に :meth:`Joint.orient` を行う。
 
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。

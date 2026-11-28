@@ -15,7 +15,7 @@ _DEFAULT_FLAGS: tuple
 _REJECTED_FLAGS: frozenset
 _FILE_FLAGS: tuple
 
-def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: Node | str, maximumInfluences: int | None = ..., *, weights: str | os.PathLike | None = ..., nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., method: str = ..., mi: int | None = ..., **kwargs: object) -> SkinCluster:
+def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: str | Node, *, maximumInfluences: int | None = ..., mi: int | None = ..., weights: str | os.PathLike | None = ..., nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., method: str = ..., **kwargs: object) -> SkinCluster:
     """形状を指定したインフルエンスへバインドする。
 
     Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
@@ -41,7 +41,7 @@ def bindSkin(joints: Node | str | Iterable[Node | str] | None, geometry: Node | 
     Args:
         joints (Node | str | Iterable[Node | str] | None): インフルエンスにするtransform(jointなど)。
             Noneなら ``weights`` のファイルのインフルエンスを使う(``weights`` が必要)。
-        geometry (Node | str): Mayaがバインドできる形状、またはそのtransform。``weights`` を使うときはMesh。
+        geometry (str | Node): Mayaがバインドできる形状、またはそのtransform。``weights`` を使うときはMesh。
         maximumInfluences (int | None): 1つの頂点に割り当てるインフルエンスの最大数。正の整数。
             Noneなら ``weights`` のファイルの値を使い、ファイルが無ければ4にする。既定はNone。
         mi (int | None): maximumInfluencesの短縮名。maximumInfluencesと同時には指定できない。

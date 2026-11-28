@@ -18,7 +18,7 @@ mlib.reload()
 from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Lazy, Method
 
-from mlib.json import NameMapping, PlugRef
+from mlib.json import NameMapping, NodeRef, PlugRef
 
 
 def _host(owner, **functions):
@@ -50,6 +50,19 @@ def _capturer(case):
 def _ref(case):
     _build(case)
     return PlugRef.capture(case.name("child.translateX"))
+
+
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
 
 
 def _mplug(name):
@@ -91,7 +104,32 @@ def _expect_resolve(case, call):
         case.assertIsNone(call.result)
 
 
+def _expect_init(case, call):
+    """渡した参照とパスをそのまま持つ。シーンには問い合わせない。"""
+    case.assertIs(type(call.result), PlugRef)
+    case.assertIs(call.result.node, call.kwargs["node"])
+    case.assertEqual(call.result.attribute, call.kwargs["attribute"])
+    case.assertEqual(call.result, PlugRef(call.kwargs["node"], call.kwargs["attribute"]))
+
+
 METHODS = (
+    Method(
+        "__init__",
+        _ref,
+        function=_constructor(PlugRef),
+        args=(NodeRef("chrA:arm_L_jnt"), "translateX"),
+        values={
+            "node": (NodeRef("chrA:arm_L_jnt"), NodeRef("x", dagPath="|g|x", type="joint")),
+            "attribute": ("translateX", "tx", "worldMatrix[0]", "cmp[1].val", "noSuchAttribute", "日本語"),
+        },
+        replace=("node", "attribute"),
+        invalid={
+            "node": (None, 1.5, "chrA:arm_L_jnt", {"name": "x"}, Lazy(lambda case: mlib.getNode(case.name("child")), "<Node>")),
+            "attribute": (1.5, None, "", b"tx", ["tx"]),
+        },
+        expect=_expect_init,
+        writes=False,
+    ),
     Method(
         "capture",
         _capturer,

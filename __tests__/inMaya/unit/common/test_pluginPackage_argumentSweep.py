@@ -20,6 +20,8 @@ from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Method
 
 from mlib.common import pluginPackage
+from mlib.common.module import Module
+from mlib.common.plugin import Plugin
 from mlib.common.pluginPackage import PluginPackage
 from mlib.common.version import Version
 
@@ -43,6 +45,17 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
+def _constructor(owner):
+    """コンストラクターを、``__init__`` の docstring(Args・Raises)と署名を持つ関数として呼べるようにする。"""
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = inspect.signature(owner)
+    construct.__doc__ = owner.__init__.__doc__
+    return construct
+
+
 def _record(message):
     _messages.append(message)
 
@@ -59,6 +72,71 @@ def _missing(case):
     _package(case)
     _messages.clear()
     return PluginPackage("QuatNodes", plugins=[NAME], minimumVersion="999")
+
+
+def _unloaded(case):
+    """quatNodes をアンロードした状態で、版を問わない製品を返す。"""
+    if cmds.pluginInfo(NAME, query=True, loaded=True):
+        cmds.unloadPlugin(NAME)
+    return PluginPackage("QuatNodes", plugins=[NAME])
+
+
+def _future(case):
+    """今の Maya より後の版だけを対象にする製品。"""
+    return PluginPackage("QuatNodes", plugins=[NAME], minimumMaya=_year() + 1)
+
+
+def _nowhere(case):
+    """Maya が知らないプラグインとモジュールだけの製品。"""
+    return PluginPackage("Nowhere", plugins=["mlibSweepNoSuchPlugin"], module="mlibSweepNoModule")
+
+
+def _year():
+    return int(cmds.about(apiVersion=True)) // 10000
+
+
+def _state(case, target):
+    return [case.sceneState(), bool(cmds.pluginInfo(NAME, query=True, loaded=True))]
+
+
+def _expect_new(case, call):
+    """渡した値を、プロパティがそのまま(名前は Plugin・Module・Version にして)持つ。Maya へは問い合わせない。"""
+    kwargs = call.kwargs
+    package = call.result
+    case.assertIs(type(package), PluginPackage)
+    case.assertEqual(package.name, kwargs["name"])
+    case.assertTrue(all(type(item) is Plugin for item in package.plugins))
+    case.assertEqual([item.name for item in package.plugins], [str(item) for item in kwargs.get("plugins", ())])
+    module = kwargs.get("module")
+    case.assertEqual(None if package.module is None else package.module.name, None if module is None else str(module))
+    minimum = kwargs.get("minimumVersion")
+    case.assertEqual(package.minimumVersion, None if minimum is None else Version.parse(minimum))
+    maya = kwargs.get("minimumMaya")
+    case.assertEqual(package.minimumMaya, None if maya is None else int(maya))
+
+
+def _expect_supported(case, call):
+    minimum = call.target.minimumMaya
+    case.assertIs(call.result, minimum is None or int(str(cmds.about(version=True)).split(".")[0]) >= minimum)
+
+
+def _expect_installed(case, call):
+    """版を問わない製品は、プラグインかモジュールが登録されていれば入っている。"""
+    names = [plugin.name for plugin in call.target.plugins]
+    module = call.target.module
+    registered = any(cmds.pluginInfo(name, query=True, registered=True) for name in names)
+    registered = registered or (module is not None and module.name in (cmds.moduleInfo(listModules=True) or []))
+    case.assertIs(call.result, bool(registered))
+
+
+def _expect_load_plugins(case, call):
+    case.assertEqual(call.result, [])
+    case.assertTrue(cmds.pluginInfo(NAME, query=True, loaded=True))
+
+
+def _expect_load_failed(case, call):
+    case.assertEqual([plugin.name for plugin in call.result], ["mlibSweepNoSuchPlugin"])
+    case.assertFalse(cmds.pluginInfo("mlibSweepNoSuchPlugin", query=True, loaded=True))
 
 
 def _expect_version(case, call):
@@ -85,6 +163,41 @@ def _expect_try_load(case, call):
 
 
 METHODS = (
+    Method(
+        "__init__",
+        _package,
+        function=_constructor(PluginPackage),
+        args=("QuatNodes",),
+        kwargs={"plugins": [NAME]},
+        values={
+            "name": ("QuatNodes", "日本語の製品名", "a b"),
+            # plugins も module も無い組は ValueError(docstring の Raises)。
+            "plugins": ([NAME], (NAME, "matrixNodes"), [Plugin(NAME)], ()),
+            "module": (None, "mlibSweepNoModule", Module("mlibSweepNoModule")),
+            "versionPlugin": (None, NAME, Plugin("matrixNodes")),
+            "minimumVersion": (None, "3.0.0", "2.5.1-beta", 3, (3, 0, 1), Version("1.2")),
+            "minimumMaya": (None, 2022, 2099),
+            "installHint": (None, "入手先の説明", ""),
+        },
+        replace=("name", "plugins", "module", "versionPlugin", "minimumVersion", "minimumMaya", "installHint"),
+        invalid={
+            "name": ("", 1.5, None),
+            "plugins": (1.5, None, [1.5], [""], [None]),
+            "module": (1.5, ""),
+            "versionPlugin": (1.5, ""),
+            "minimumVersion": ("abc", "", ()),
+            "minimumMaya": ("a", [2022], {}),
+        },
+        expect=_expect_new,
+        writes=False,
+        limit=120,
+    ),
+    Method("isMayaSupported", _package, expect=_expect_supported, writes=False),
+    Method("isMayaSupported", _future, variant="future", expect=_expect_supported, writes=False),
+    Method("isInstalled", _package, expect=_expect_installed, writes=False),
+    Method("isInstalled", _nowhere, variant="nowhere", expect=_expect_installed, writes=False),
+    Method("loadPlugins", _unloaded, expect=_expect_load_plugins, state=_state, undoable=False),
+    Method("loadPlugins", _nowhere, variant="failed", expect=_expect_load_failed, state=_state, undoable=False),
     Method("getVersion", _package, invalid={"loaded": (1, "yes", None)}, expect=_expect_version),
     Method(
         "getMessage",

@@ -131,7 +131,7 @@ class Snapshot:
     #: 形式の版。データの形を変えたら上げる(古い版のファイルは読まない)。
     VERSION = None
 
-    def __init__(self, data, header=None):
+    def __init__(self, data, *, header=None):
         """データを持たせる。ふつうは ``capture`` か :meth:`load` で作る。
 
         Args:
@@ -139,13 +139,15 @@ class Snapshot:
             header (file.Header | None): 読み込んだファイルのヘッダー。取得したばかりならNone。既定はNone。
 
         Raises:
-            TypeError: dataが辞書でない場合。
+            TypeError: dataが辞書でない場合、またはheaderがfile.HeaderでもNoneでもない場合。
             ValueError: データの形が種類と合わない場合。
         """
         if not isinstance(data, dict):
             raise TypeError("スナップショットのデータはdictで指定してください")
         self._require_data(data)
         self._data = _copy_data(data)
+        if header is not None and not isinstance(header, file.Header):
+            raise TypeError("headerはfile.HeaderかNoneで指定してください")
         self._header = header
 
     def __repr__(self):
@@ -185,7 +187,7 @@ class Snapshot:
             OSError: 読み込みに失敗した場合。
         """
         header, data = file._load(path, cls.FORMAT, cls.VERSION)
-        return cls(data, header)
+        return cls(data, header=header)
 
     @property
     def header(self):

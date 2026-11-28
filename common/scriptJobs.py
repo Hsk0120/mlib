@@ -33,6 +33,8 @@ class ScriptJobs:
             ScriptJob: すでにある監視か、新しく登録した監視。すでにある場合、optionsは使わない。
 
         Raises:
+            TypeError: keyがハッシュにできない値の場合、または登録の指定の型が正しくない場合(:class:`ScriptJob` と同じ)。
+            ValueError: 登録の指定の値が正しくない場合(:class:`ScriptJob` と同じ)。
             RuntimeError: Mayaが監視を登録できない場合。
         """
         existing = self._jobs.get(key)

@@ -694,7 +694,7 @@ class Transform(DagNode):
         """
         return om2.MFnTransform(self.mpath())
 
-    def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
+    def scaleGeometry(self, scale, worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), indices=None, fast=False, check=False, ws=_UNSET):
         """直下のShape(中間オブジェクトを除く)の頂点やCVを、拡大・縮小する。
 
         Transformのマトリクスは変えない。Shapeごとに確かめて書き換えるため、後のShapeで拒否されても、
@@ -731,7 +731,7 @@ class Transform(DagNode):
             for shape in self.getShape(all=True):
                 shape.scaleGeometry(scale, worldSpace=ws, pivot=pivot, indices=indices, fast=fast, check=check)
 
-    def mirrorGeometry(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
+    def mirrorGeometry(self, axis="x", worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), indices=None, fast=False, check=False, ws=_UNSET):
         """直下のShape(MeshとNurbsCurve。中間オブジェクトを除く)の頂点やCVを、中心pivotに対して反転する。
 
         処理は各Shapeの ``Mesh.mirror()``・``NurbsCurve.mirror()`` と同じ。
@@ -1519,7 +1519,7 @@ class Transform(DagNode):
             if any((position, rotation, scale, pivots)):
                 cmds.matchTransform(self._full_name(), target._full_name(), position=position, rotation=rotation, scale=scale, pivots=pivots)
 
-    def mirrorTransform(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), *, fast=False, check=False, ws=_UNSET):
+    def mirrorTransform(self, axis="x", worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), fast=False, check=False, ws=_UNSET):
         """位置と向きを、指定した空間でビヘイビアミラーする。
 
         回転の決まりはMatrix.mirrorと同じ。マイナスのスケールで形状を反転するのとは違う。
@@ -1571,7 +1571,7 @@ class Transform(DagNode):
                 raise ValueError("mirrorTransformは、0でないピボットとトランスフォームのrotateAxisに対応していません")
             world = self.getMatrix(worldSpace=True)
             source = world if ws else world * parent.inverse()
-            target = source.mirror(axis, center)
+            target = source.mirror(axis, pivot=center)
             target_world = target if ws else target * parent
             local = target_world * effective_parent.inverse()
             self.setMatrix(local, fast=fast, check=check)
@@ -1756,7 +1756,7 @@ class Transform(DagNode):
             self._apply_channel_values(values, fast=fast, check=check)
 
     @_transform_argument_hints
-    def getTranslation(self, worldSpace=_UNSET, at=2, *, ws=_UNSET):
+    def getTranslation(self, worldSpace=_UNSET, *, at=2, ws=_UNSET):
         """基準の位置を取得する。既定は回転ピボットの位置。
 
         既定の ``at=2`` は回転ピボットの位置で、MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -1807,7 +1807,7 @@ class Transform(DagNode):
         return Translate(point.x, point.y, point.z)
 
     @_transform_argument_hints
-    def setTranslation(self, value, worldSpace=_UNSET, at=2, *, relative=False, get=False, fast=False, check=False, safe=False, ws=_UNSET):
+    def setTranslation(self, value, worldSpace=_UNSET, *, at=2, relative=False, get=False, fast=False, check=False, safe=False, ws=_UNSET):
         """指定した基準の位置へ動かす。ピボットと回転は変えない。
 
         既定の ``at=2`` では、回転ピボットの位置(MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -1909,7 +1909,7 @@ class Transform(DagNode):
         Args:
             worldSpace (bool): Trueならワールド、既定のFalseならローカルのマトリクスの回転を取得する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            order (int | str | None): 戻り値の回転順序。``"xyz"`` などの名前か、om2の番号
+            order (str | int | None): 戻り値の回転順序。``"xyz"`` などの名前か、om2の番号
                 (``MEulerRotation.kXYZ`` 〜 ``kZYX``。MayaのrotateOrderと同じ0〜5)で指定する。
                 NoneならノードのrotateOrder。既定はNone。
 

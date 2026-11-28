@@ -93,7 +93,12 @@ def _expect_scale(case, call):
     case.assertSequenceAlmostEqual(point, [-0.5 * scale[0], -0.5 * scale[1], 0.5 * scale[2]], places=5)
 
 
+def _expect_transform(case, call):
+    case.assertEqual(call.result.getName(full=True), cmds.listRelatives(_full(call), parent=True, fullPath=True)[0])
+
+
 METHODS = (
+    Method("getTransform", _make_locator, expect=_expect_transform),
     Method(
         "setParent",
         _make_locator,

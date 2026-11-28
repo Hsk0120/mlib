@@ -47,7 +47,7 @@ def _distance_unit(unit):
     return names[unit]
 
 
-def convertDistance(value, fromUnit=None, toUnit=None):
+def convertDistance(value, *, fromUnit=None, toUnit=None):
     """距離の単位を変換する。
 
     シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
@@ -87,7 +87,7 @@ def _angle_constant(unit):
     return om2.MAngle.kDegrees if _angle_unit(unit) == "deg" else om2.MAngle.kRadians
 
 
-def convertAngle(value, fromUnit=None, toUnit=None):
+def convertAngle(value, *, fromUnit=None, toUnit=None):
     """角度の単位を変換する。
 
     シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
@@ -157,7 +157,7 @@ def _time_constant(unit):
     return om2.MTime.uiUnit() if normalized == "frame" else om2.MTime.kSeconds
 
 
-def convertTime(value, fromUnit=None, toUnit=None):
+def convertTime(value, *, fromUnit=None, toUnit=None):
     """時間の単位を変換する。
 
     シーンの単位の設定は変えない。現在の時間単位での1フレームの秒数は ``convertTime(1.0, toUnit="sec")``、

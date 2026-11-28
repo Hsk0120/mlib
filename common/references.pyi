@@ -85,7 +85,7 @@ def _file_without_prompt(*args, **kwargs) -> Any:
     """
     ...
 
-def createReference(path: str | os.PathLike, namespace: str | None = ...) -> Reference:
+def createReference(path: str | os.PathLike, *, namespace: str | None = ...) -> Reference:
     """ファイルをリファレンスし、新しく作られたトップレベルのReferenceを返す。
 
     リファレンスしたファイルの中にあるリファレンス(子のリファレンス)も作られることがあるが、

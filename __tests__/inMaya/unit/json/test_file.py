@@ -89,7 +89,7 @@ class FileTest(unittest.TestCase):
 
     def test_header_properties_and_invalid_arguments(self):
         """Headerの値・表記と、不正な引数の例外の型を確かめる。"""
-        header = Header("mlib.test", 3, "1.2.3", "2027", 30)
+        header = Header("mlib.test", 3, mlib="1.2.3", maya="2027", fps=30)
         self.assertEqual((header.format, header.version, header.mlib, header.maya, header.fps), ("mlib.test", 3, "1.2.3", "2027", 30.0))
         self.assertEqual(repr(header), "Header('mlib.test', 3, fps=30.0)")
         cmds.currentUnit(time="ntsc")
@@ -108,7 +108,7 @@ class FileTest(unittest.TestCase):
             (("mlib.test", 1, None, None, -24.0), ValueError),
         ):
             with self.subTest(args=args), self.assertRaises(error):
-                Header(*args)
+                Header(*args[:2], **dict(zip(("mlib", "maya", "fps"), args[2:])))
 
     def test_invalid_files(self):
         """壊れたヘッダー・ファイルの形をValueErrorにし、dataがdictでなければTypeErrorにすることを確かめる。"""

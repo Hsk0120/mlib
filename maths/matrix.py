@@ -410,6 +410,7 @@ class Matrix(om2.MMatrix):
             None: 値を返さない。
 
         Raises:
+            TypeError: 成分(translate・rotate・scale・shear)が並びでない場合。
             ValueError: マトリクス入力が16要素として解釈できない場合、成分が3要素でない場合、
                 または回転クォータニオンがゼロの場合。
         """
@@ -779,7 +780,7 @@ class Matrix(om2.MMatrix):
         return _MMatrix.__isub__(self, other)
 
     @classmethod
-    def compose(cls, translate=(0.0, 0.0, 0.0), rotate=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), shear=(0.0, 0.0, 0.0)):
+    def compose(cls, translate=(0.0, 0.0, 0.0), *, rotate=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), shear=(0.0, 0.0, 0.0)):
         """平行移動・回転・スケール・シアーの成分からマトリクスを作る。
 
         Args:
@@ -804,7 +805,7 @@ class Matrix(om2.MMatrix):
         return cls(translate=translate, rotate=rotate, scale=scale, shear=shear)
 
     @classmethod
-    def fromAxes(cls, x, y, z, position=(0.0, 0.0, 0.0)):
+    def fromAxes(cls, x, y, z, *, position=(0.0, 0.0, 0.0)):
         """3つの軸のベクトルと位置を、そのまま各行へ入れたマトリクスを作る。
 
         Mayaの行ベクトルの規約で、次のように書き込む。
@@ -1339,7 +1340,7 @@ class Matrix(om2.MMatrix):
         _MVector.__imul__(result, self)
         return result
 
-    def mirror(self, axis="x", pivot=(0.0, 0.0, 0.0)):
+    def mirror(self, axis="x", *, pivot=(0.0, 0.0, 0.0)):
         """「ビヘイビア」でミラーしたマトリクスを返す。
 
         Mayaの ``mirrorJoint -mirrorBehavior`` と同じ規約で、次のように要素を反転する。

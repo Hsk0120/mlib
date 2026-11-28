@@ -49,6 +49,13 @@ def _single(case):
     return Keyframe(_curve(case), 1)
 
 
+def _breakdown(case):
+    """rotateY の2番目のキーを、ブレイクダウンキーにしたもの。"""
+    keyframe = _single(case)
+    cmds.keyframe(keyframe.getCurve().getName(), index=(1, 1), breakdown=True)
+    return keyframe
+
+
 def _lonely(case):
     """キーが1つだけの translateZ のキー。"""
     _curves(case)
@@ -224,6 +231,62 @@ def _expect_values(case, call):
     case.assertSequenceAlmostEqual(call.result, expected, places=6)
 
 
+def _expect_new(case, call):
+    case.assertIs(type(call.result), Keyframe)
+    case.assertEqual(call.result.getCurve(), call.kwargs["curve"])
+    case.assertEqual(call.result.getIndex(), call.kwargs["index"])
+    case.assertTrue(call.result.isValid())
+
+
+def _expect_curve(case, call):
+    case.assertEqual(cmds.ls(str(call.result), long=True), cmds.listConnections(case.name("a.rotateY"), source=True, destination=False))
+    case.assertTrue(cmds.objectType(str(call.result), isAType="animCurve"))
+
+
+def _expect_index(case, call):
+    case.assertIs(type(call.result), int)
+    case.assertEqual(call.result, 1)
+    case.assertEqual(_key(call.target, "timeChange"), 10.0)
+
+
+def _expect_valid(case, call):
+    curve = cmds.listConnections(case.name("a.rotateY"), source=True, destination=False)[0]
+    case.assertIs(call.result, call.target.getIndex() < cmds.keyframe(curve, query=True, keyframeCount=True))
+
+
+def _expect_is_breakdown(case, call):
+    curve, index = call.target.getCurve().getName(), call.target.getIndex()
+    time = cmds.keyframe(curve, index=(index, index), query=True, timeChange=True)[0]
+    case.assertIs(call.result, time in (cmds.keyframe(curve, query=True, breakdown=True) or []))
+
+
+def _expect_new_plural(case, call):
+    """同じキーは1つにまとめ、カーブは最初に出てきた順、カーブの中は番号の小さい順に並ぶ。"""
+    case.assertIs(type(call.result), Keyframes)
+    given = list(call.kwargs.get("keyframes", ()))
+    curves = []
+    for keyframe in given:
+        if keyframe.getCurve() not in curves:
+            curves.append(keyframe.getCurve())
+    expected = [(curve, index) for curve in curves for index in sorted({item.getIndex() for item in given if item.getCurve() == curve})]
+    case.assertEqual([(item.getCurve(), item.getIndex()) for item in call.result], expected)
+    case.assertEqual(len(call.result), len(expected))
+
+
+def _expect_curves(case, call):
+    expected = [cmds.listConnections(case.name("a." + attr), source=True, destination=False)[0] for attr in ("rotateY", "translateX")]
+    case.assertEqual([curve.getName() for curve in call.result], expected)
+
+
+def _expect_iter_curves(case, call):
+    items = list(call.result)
+    expected = [cmds.listConnections(case.name("a." + attr), source=True, destination=False)[0] for attr in ("rotateY", "translateX")]
+    case.assertEqual([curve.getName() for curve, _ in items], expected)
+    case.assertTrue(all(type(keyframes) is Keyframes for _, keyframes in items))
+    case.assertEqual([[keyframe.getIndex() for keyframe in keyframes] for _, keyframes in items], [[0, 2], [1]])
+    case.assertTrue(all(keyframe.getCurve() == curve for curve, keyframes in items for keyframe in keyframes))
+
+
 def _set_tangent_function(owner_class):
     """setTangent の **kwargs を、flags(辞書)1つの引数で受ける関数にする(部品は **kwargs を網羅できないため)。"""
     original = owner_class.setTangent
@@ -287,7 +350,30 @@ def _bad_values():
     return {"value": ("a", None, float("nan"), float("inf"), (1.0,))}
 
 
+ROTATE_CURVE = Lazy(lambda case: _curve(case), "<rotateY のカーブ>")
+TRANSLATE_CURVE = Lazy(lambda case: _curve(case, "translateX"), "<translateX のカーブ>")
+
 METHODS_SINGLE = (
+    Method(
+        "__init__",
+        _single,
+        function=Keyframe,
+        args=(ROTATE_CURVE, 1),
+        # translateX のカーブはキーが2つなので、番号2は IndexError(docstring の Raises)。
+        values={"curve": (ROTATE_CURVE, TRANSLATE_CURVE), "index": (0, 1, 2)},
+        replace=("curve", "index"),
+        invalid={
+            "curve": (None, 1.5, Lazy(lambda case: _curve(case).getName(), "'<カーブの名前>'"), Lazy(lambda case: mlib.getNode(case.name("a")), "<transform>")),
+            "index": (3, 100, "a", None),
+        },
+        expect=_expect_new,
+        writes=False,
+    ),
+    Method("getCurve", _single, expect=_expect_curve),
+    Method("getIndex", _single, expect=_expect_index),
+    Method("isValid", _single, expect=_expect_valid),
+    Method("isBreakdown", _single, expect=_expect_is_breakdown),
+    Method("isBreakdown", _breakdown, variant="breakdown", expect=_expect_is_breakdown),
     Method(
         "getValue",
         _single,
@@ -341,6 +427,34 @@ METHODS_SINGLE = (
 )
 
 METHODS_PLURAL = (
+    Method(
+        "__init__",
+        _plural,
+        function=Keyframes,
+        values={
+            "keyframes": (
+                (),
+                Lazy(lambda case: [Keyframe(_curve(case), 2), Keyframe(_curve(case, "translateX"), 1), Keyframe(_curve(case), 0)], "[<2つのカーブのキー>]"),
+                Lazy(lambda case: (Keyframe(_curve(case), 1), Keyframe(_curve(case), 1)), "(<同じキーを2つ>)"),
+                Lazy(lambda case: Keyframes([Keyframe(_curve(case), 0), Keyframe(_curve(case), 2)]), "<Keyframes>"),
+            )
+        },
+        replace=("keyframes",),
+        invalid={
+            "keyframes": (
+                None,
+                1.5,
+                [1.5],
+                "ab",
+                Lazy(lambda case: Keyframe(_curve(case), 0), "<単数のKeyframe>"),
+                Lazy(lambda case: [_curve(case)], "[<カーブ>]"),
+            )
+        },
+        expect=_expect_new_plural,
+        writes=False,
+    ),
+    Method("getCurves", _plural, expect=_expect_curves),
+    Method("iterCurves", _plural, expect=_expect_iter_curves, writes=False),
     Method(
         "getIndices",
         _plural,

@@ -267,7 +267,7 @@ class EulerRotateTest(_Case):
         direction = Vector(1.0, 2.0, -3.0)
         for order in ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx"):
             with self.subTest(order=order):
-                rotation = EulerRotate.fromYawPitch(direction, order)
+                rotation = EulerRotate.fromYawPitch(direction, order=order)
                 self.assertEqual(rotation.orderName, order)
                 base = "xyz".index(order[0])
                 self.assertEqual(rotation[base], 0.0)
@@ -278,7 +278,7 @@ class EulerRotateTest(_Case):
         for args, error in ((((0, 0, 0),), ValueError), (((1, 0),), ValueError), (((1, 0, 0), "abc"), ValueError), ((("a", 0, 0),), TypeError)):
             with self.subTest(args=args):
                 with self.assertRaises(error):
-                    EulerRotate.fromYawPitch(*args)
+                    EulerRotate.fromYawPitch(*args[:1], **dict(zip(("order",), args[1:])))
 
 
 VECTOR_TYPES = (Vector, Translate, Scale, Shear)

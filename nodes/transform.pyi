@@ -334,7 +334,7 @@ class Transform(DagNode):
             RuntimeError: 保持していた DAG パスが無効な場合。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """直下のShape(中間オブジェクトを除く)の頂点やCVを、拡大・縮小する。
 
         Transformのマトリクスは変えない。Shapeごとに確かめて書き換えるため、後のShapeで拒否されても、
@@ -362,7 +362,7 @@ class Transform(DagNode):
             NotImplementedError: 対応していないShapeの場合、またはfastで書き換えられる条件に合わない場合。
         """
         ...
-    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """直下のShape(MeshとNurbsCurve。中間オブジェクトを除く)の頂点やCVを、中心pivotに対して反転する。
 
         処理は各Shapeの ``Mesh.mirror()``・``NurbsCurve.mirror()`` と同じ。
@@ -816,7 +816,7 @@ class Transform(DagNode):
                 (ValueErrorの派生クラス)。
         """
         ...
-    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """位置と向きを、指定した空間でビヘイビアミラーする。
 
         回転の決まりはMatrix.mirrorと同じ。マイナスのスケールで形状を反転するのとは違う。
@@ -952,7 +952,7 @@ class Transform(DagNode):
             RuntimeError: ノードが無効な場合、またはロック・入力の接続のためにMayaが書き込みを拒否した場合。
         """
         ...
-    def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> Translate:
+    def getTranslation(self, worldSpace: bool = ..., *, at: int = ..., ws: bool = ...) -> Translate:
         """基準の位置を取得する。既定は回転ピボットの位置。
 
         既定の ``at=2`` は回転ピボットの位置で、MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -975,7 +975,7 @@ class Transform(DagNode):
             TypeError: worldSpaceがboolでない場合、worldSpaceとwsを同時に指定した場合、またはatがintでない場合。
         """
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> Translate | None:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., *, at: int = ..., relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> Translate | None:
         """指定した基準の位置へ動かす。ピボットと回転は変えない。
 
         既定の ``at=2`` では、回転ピボットの位置(MayaのLocal Axisの表示やコンストレイントが、ノードの位置として
@@ -1018,7 +1018,7 @@ class Transform(DagNode):
             >>> node.setTranslation((5, 0, 0), ws=True, relative=True)   # ワールドのX方向へ5cm
         """
         ...
-    def getRotate(self, worldSpace: bool = ..., *, order: int | str | None = ..., ws: bool = ...) -> EulerRotate:
+    def getRotate(self, worldSpace: bool = ..., *, order: str | int | None = ..., ws: bool = ...) -> EulerRotate:
         """指定した空間のマトリクスの回転を、オイラー角の回転として取得する。
 
         rotateAxisと、Jointの場合はjointOrientも含めた回転を返す。スケールの符号は、今のチャンネルの値に合わせる。
@@ -1034,7 +1034,7 @@ class Transform(DagNode):
         Args:
             worldSpace (bool): Trueならワールド、既定のFalseならローカルのマトリクスの回転を取得する。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
-            order (int | str | None): 戻り値の回転順序。``"xyz"`` などの名前か、om2の番号
+            order (str | int | None): 戻り値の回転順序。``"xyz"`` などの名前か、om2の番号
                 (``MEulerRotation.kXYZ`` 〜 ``kZYX``。MayaのrotateOrderと同じ0〜5)で指定する。
                 NoneならノードのrotateOrder。既定はNone。
 

@@ -128,7 +128,7 @@ def _file_without_prompt(*args, **kwargs):
         cmds.file(prompt=bool(previous))
 
 
-def createReference(path, namespace=None):
+def createReference(path, *, namespace=None):
     """ファイルをリファレンスし、新しく作られたトップレベルのReferenceを返す。
 
     リファレンスしたファイルの中にあるリファレンス(子のリファレンス)も作られることがあるが、

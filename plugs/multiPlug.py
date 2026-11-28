@@ -470,7 +470,7 @@ class MultiPlug(Plug):
         いちばん大きい番号の次の要素へ、ノードの ``message`` を接続する。
 
         Args:
-            node (str | Node): つなぐノード。
+            node (Node | str): つなぐノード。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:

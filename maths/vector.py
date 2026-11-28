@@ -904,7 +904,7 @@ class Vector(om2.MVector):
             return True
         return all(abs(_MVector.__mul__(_MVector.__sub__(vector, origin), normal)) <= limit for vector in vectors)
 
-    def mirror(self, axis="x", pivot=(0.0, 0.0, 0.0)):
+    def mirror(self, axis="x", *, pivot=(0.0, 0.0, 0.0)):
         """指定した中心で成分を反転した、新しい値を返す。
 
         Translate・Scale・Shearでも、数値をそのまま反転する用途に使える。
@@ -1247,7 +1247,7 @@ class Vector(om2.MVector):
             raise ValueError("平行なベクトルではコタンジェントを計算できません")
         return _MVector.__mul__(self, other) / sine
 
-    def slerp(self, other, t, spin=0):
+    def slerp(self, other, t, *, spin=0):
         """別のベクトルとの間を補間する。向きは球面線形補間、長さは線形補間にする。
 
         2つのベクトルが作る平面の中で、自身の向きをotherの向きへ、角度のtの割合だけ回す

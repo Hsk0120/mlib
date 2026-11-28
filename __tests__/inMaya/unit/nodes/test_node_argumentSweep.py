@@ -664,6 +664,222 @@ def _make_attr_target(case):
 
 
 # ----------------------------------------------------------------------
+# コンストラクターと、引数の無い読み取りの対象・期待
+
+
+def _constructor(cls):
+    """クラスのコンストラクターを、``__init__`` の docstring と署名で表から呼べる関数にする。
+
+    クラスをそのまま ``function=`` に置くと、docstring がクラスの説明(Args・Raises が無い)になるため。
+    """
+
+    def construct(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    signature = inspect.signature(cls.__init__)
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = cls.__init__.__doc__
+    return construct
+
+
+def _make_shader(case):
+    """shadingEngine へつないだ lambert。"""
+    with _InNamespace(case):
+        shader = cmds.shadingNode("lambert", asShader=True, name="lambert#")
+        group = cmds.sets(renderable=True, noSurfaceShader=True, empty=True, name="sg#")
+        cmds.connectAttr(shader + ".outColor", group + ".surfaceShader")
+        cmds.select(clear=True)
+    return mlib.getNode(shader)
+
+
+def _make_contained(case):
+    """container に入れた Transform(container は、test_container_argumentSweep.py と同じく名前で名前空間へ入れる)。"""
+    node = case.make("transform", "inside#")
+    cmds.container(type="container", name=case.name("box#"), addNode=[node])
+    return mlib.getNode(node)
+
+
+def _make_cycle(case):
+    """互いの translateX をつないで、DG の循環を作った Transform 2つの1つ目。"""
+    first = case.make("transform", "cycleA#")
+    second = case.make("transform", "cycleB#")
+    cmds.connectAttr(first + ".translateX", second + ".translateX")
+    cmds.cycleCheck(evaluation=False)
+    try:
+        cmds.connectAttr(second + ".translateX", first + ".translateX")
+    finally:
+        cmds.cycleCheck(evaluation=True)
+    return mlib.getNode(first)
+
+
+def _make_aliased(case):
+    """foo にエイリアス(fooAlias)を付けた Transform。"""
+    node = _make_node(case)
+    cmds.aliasAttr("fooAlias", node.getName(full=True) + ".foo")
+    return node
+
+
+def _make_file(case):
+    """fileTextureName にパスを入れた file ノード。"""
+    with _InNamespace(case):
+        node = cmds.shadingNode("file", asTexture=True, name="file#")
+        cmds.select(clear=True)
+    cmds.setAttr(node + ".fileTextureName", "mlibSweepMissing/texture.png", type="string")
+    return mlib.getNode(node)
+
+
+def _make_selected(case):
+    """子と自身を選択した Transform(置き換え・追加・解除の違いが選択に出る)。"""
+    node = _make_node(case)
+    cmds.select(_child(case).getName(full=True), node.getName(full=True), replace=True)
+    return node
+
+
+def _make_selected_nodes(case):
+    """別の Transform と1つ目の要素を選択した Nodes。"""
+    nodes = _make_nodes(case)
+    extra = case.make("transform", "extra#")
+    cmds.select(extra, nodes[0].getName(full=True), replace=True)
+    return nodes
+
+
+def _selection_state(case, target):
+    """名前空間の状態に、今の選択を足す。"""
+    return [*case.sceneState(), cmds.ls(selection=True, long=True)]
+
+
+def _select_conflict(kwargs):
+    """add と deselect は同時に True にできない。"""
+    return kwargs.get("add") is True and kwargs.get("deselect") is True
+
+
+def _expect_select(case, call):
+    targets = [node.getName(full=True) for node in call.target] if isinstance(call.target, mlib.Nodes) else [_full(call)]
+    selection = cmds.ls(selection=True, long=True)
+    if call.kwargs.get("deselect"):
+        case.assertFalse(set(targets) & set(selection))
+    elif call.kwargs.get("add"):
+        case.assertTrue(set(targets) <= set(selection))
+        case.assertEqual(set(selection) - set(targets), set(call.before[-1]) - set(targets))
+    else:
+        case.assertEqual(selection, targets)
+
+
+def _expect_construct_node(case, call):
+    case.assertIsInstance(call.result, mlib.Node)
+    value = call.kwargs["node"]
+    if isinstance(value, str):
+        case.assertEqual(call.result.getName(full=True), value)
+    elif isinstance(value, mlib.Node):
+        case.assertEqual(call.result, value)
+    else:
+        case.assertTrue(call.result.isValid())
+
+
+def _expect_construct_nodes(case, call):
+    case.assertIsInstance(call.result, mlib.Nodes)
+    value = call.kwargs.get("names")
+    if value is None:
+        expected = 0
+    elif isinstance(value, (list, tuple)):
+        expected = len(value)
+    else:
+        expected = 1
+    case.assertEqual(len(call.result), expected)
+    for node in call.result:
+        case.assertTrue(node.isValid())
+
+
+def _expect_true(case, call):
+    case.assertIs(call.result, True)
+
+
+def _expect_mnode(case, call):
+    case.assertIsInstance(call.result, om2.MObject)
+    case.assertEqual(om2.MFnDependencyNode(call.result).name(), _full(call).rpartition("|")[2])
+
+
+def _expect_mfn(case, call):
+    case.assertIsInstance(call.result, om2.MFnDependencyNode)
+    case.assertEqual(call.result.object(), call.target.mnode())
+
+
+def _expect_shading_engines(case, call):
+    expected = cmds.listConnections(_full(call), source=False, destination=True, type="shadingEngine")
+    case.assertEqual([str(node) for node in call.result], sorted(set(expected), key=expected.index))
+
+
+def _expect_classification(case, call):
+    case.assertEqual(call.result, cmds.getClassification(cmds.nodeType(_full(call))))
+
+
+def _expect_is_locked(case, call):
+    case.assertEqual(call.result, cmds.lockNode(_full(call), query=True, lock=True)[0])
+
+
+def _expect_is_referenced(case, call):
+    case.assertEqual(call.result, cmds.referenceQuery(_full(call), isNodeReferenced=True))
+
+
+def _expect_container(case, call):
+    case.assertEqual(str(call.result), cmds.container(query=True, findContainer=[_full(call)]))
+
+
+def _expect_none(case, call):
+    case.assertIsNone(call.result)
+
+
+def _expect_unique_name(case, call):
+    case.assertEqual(call.result, len(cmds.ls(_full(call).rpartition("|")[2])) == 1)
+
+
+def _expect_get_namespace(case, call):
+    case.assertIsInstance(call.result, Namespace)
+    case.assertEqual(call.result.name.strip(":"), case.ns)
+
+
+def _expect_cycles(case, call):
+    case.assertTrue(cmds.cycleCheck(_full(call), list=True))
+    case.assertTrue(call.result)
+    for cycle in call.result:
+        # 各循環は、このノードの入力アトリビュートから始まる。
+        case.assertEqual(cmds.ls(str(cycle[0]).rpartition(".")[0], long=True)[0], _full(call))
+
+
+def _expect_attr_names(case, call):
+    case.assertEqual(call.result, cmds.listAttr(_full(call), **call.kwargs.get("listAttrFlags", {})) or [])
+
+
+def _expect_aliases(case, call):
+    pairs = cmds.aliasAttr(_full(call), query=True) or []
+    expected = sorted(zip(pairs[0::2], pairs[1::2]))
+    case.assertEqual(expected, [("fooAlias", "foo")])
+    case.assertEqual(sorted((alias, om2.MFnAttribute(plug.mplug().attribute()).name) for alias, plug in call.result), expected)
+
+
+def _expect_external_content(case, call):
+    case.assertIn("mlibSweepMissing/texture.png", [entry["unresolvedLocation"] for entry in call.result])
+    for entry in call.result:
+        case.assertEqual(sorted(entry), ["contextNodeFullName", "key", "resolvedLocation", "roles", "unresolvedLocation"])
+
+
+def _expect_uuid(case, call):
+    case.assertEqual(call.result, cmds.ls(_full(call), uuid=True)[0])
+
+
+def _expect_copy(case, call):
+    case.assertIs(type(call.result), type(call.target))
+    case.assertIsNot(call.result, call.target)
+    case.assertEqual(len(call.result), len(call.target))
+    for copied, original in zip(call.result, call.target):
+        case.assertIs(copied, original)
+
+
+CHILD_AND_GRAND = Lazy(lambda case: [_child(case), _grand(case)], "[<子>, <孫>]")
+CHILD_NAMES = Lazy(lambda case: (_child(case).getName(full=True), _grand(case).getName(full=True)), "('<子の名前>', '<孫の名前>')")
+
+
+# ----------------------------------------------------------------------
 # 表
 
 
@@ -929,6 +1145,42 @@ METHODS = (
         plural=_make_plural,
     ),
     Method("getName", _make_node, conflicts=(_get_name_conflict,), expect=_expect_name, plural=_make_plural),
+    Method(
+        "__init__",
+        _make_node,
+        function=_constructor(mlib.Node),
+        args=(CHILD,),
+        values={"node": (CHILD, CHILD_NAME, CHILD_PLUG, CHILD_MOBJECT, CHILD_MPATH, CHILD_MPLUG, CHILD_COMPONENT, CHILD_VERTEX, DG_NODE)},
+        replace=("node",),
+        invalid={"node": (MISSING_NAME, 1.5, None, object())},
+        expect=_expect_construct_node,
+        writes=False,
+    ),
+    # 引数の無い読み取り。mnode・mfn は名前が get で始まらないので、読むだけと明示する。
+    Method("getShadingEngines", _make_shader, expect=_expect_shading_engines),
+    Method("isValid", _make_node, expect=_expect_true, plural=_make_plural),
+    Method("isAlive", _make_node, expect=_expect_true, plural=_make_plural),
+    Method("mnode", _make_node, expect=_expect_mnode, writes=False),
+    Method("mfn", _make_dg, expect=_expect_mfn, writes=False),
+    Method("getClassification", _make_shader, expect=_expect_classification),
+    Method("isLocked", _make_plain, expect=_expect_is_locked, plural=_make_plain_plural),
+    Method("isFromReferencedFile", _make_node, expect=_expect_is_referenced, plural=_make_plural),
+    Method("getContainer", _make_contained, expect=_expect_container),
+    Method("getReference", _make_node, expect=_expect_none),
+    Method("hasUniqueName", _make_node, expect=_expect_unique_name, plural=_make_plural),
+    Method("getNamespace", _make_node, expect=_expect_get_namespace),
+    Method("select", _make_selected, conflicts=(_select_conflict,), expect=_expect_select, state=_selection_state, limit=WRITE_LIMIT),
+    Method("findCycles", _make_cycle, expect=_expect_cycles),
+    Method(
+        "getAttrNames",
+        _make_node,
+        values={"listAttrFlags": ({}, {"keyable": True}, {"userDefined": True}, {"string": "f*"}, {"keyable": True, "userDefined": True})},
+        invalid={"listAttrFlags": ({"mlibSweepNoSuchFlag": True},)},
+        expect=_expect_attr_names,
+    ),
+    Method("getAliases", _make_aliased, expect=_expect_aliases),
+    Method("getExternalContent", _make_file, expect=_expect_external_content),
+    Method("getUuid", _make_node, expect=_expect_uuid, plural=_make_plural),
 )
 
 NODES_METHODS = (
@@ -975,6 +1227,17 @@ NODES_METHODS = (
     Method("getNames", _make_nodes, conflicts=(_get_name_conflict,), expect=_expect_names),
     Method("getSkinClusters", _make_skinned_nodes, expect=_expect_skin_clusters),
     Method(
+        "__init__",
+        _make_node,
+        function=_constructor(mlib.Nodes),
+        values={"names": (None, (), CHILD, CHILD_NAME, CHILD_MOBJECT, CHILD_AND_GRAND, CHILD_NAMES)},
+        invalid={"names": (MISSING_NAME, DELETED_NODE, 1.5, Lazy(lambda case: [_child(case), 1.5], "[<子>, 1.5]"))},
+        expect=_expect_construct_nodes,
+        writes=False,
+    ),
+    Method("select", _make_selected_nodes, conflicts=(_select_conflict,), expect=_expect_select, state=_selection_state, limit=WRITE_LIMIT),
+    Method("copy", _make_nodes, expect=_expect_copy, writes=False),
+    Method(
         "callEach",
         _make_nodes,
         args=("getType",),
@@ -1002,8 +1265,8 @@ ADD_ATTR_CONTEXT_ROWS = {
     "Compound": Method(
         "addAttr",
         _make_attr_target,
-        args=("sweepAttr", "compound", "double"),
-        kwargs={"channelBox": False, "childNames": ("cx", "cy", "cz")},
+        args=("sweepAttr",),
+        kwargs={"type": "compound", "subType": "double", "channelBox": False, "childNames": ("cx", "cy", "cz")},
         values={"numberOfChildren": (3,), "nc": (3,)},
         replace=("numberOfChildren", "nc"),
         skip=_add_attr_only("numberOfChildren", "nc"),
@@ -1014,7 +1277,8 @@ ADD_ATTR_CONTEXT_ROWS = {
     "Color": Method(
         "addAttr",
         _make_attr_target,
-        args=("sweepAttr", "float3"),
+        args=("sweepAttr",),
+        kwargs={"type": "float3"},
         skip=_add_attr_only("usedAsColor", "uac"),
         invalid=dict.fromkeys(("usedAsColor", "uac"), ("yes",)),
         conflicts=(_add_attr_conflict,),
@@ -1023,7 +1287,8 @@ ADD_ATTR_CONTEXT_ROWS = {
     "Filename": Method(
         "addAttr",
         _make_attr_target,
-        args=("sweepAttr", "string"),
+        args=("sweepAttr",),
+        kwargs={"type": "string"},
         skip=_add_attr_only("usedAsFilename", "uaf"),
         invalid=dict.fromkeys(("usedAsFilename", "uaf"), ("yes",)),
         conflicts=(_add_attr_conflict,),

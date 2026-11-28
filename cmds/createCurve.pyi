@@ -14,7 +14,7 @@ from mlib.nodes.nurbsCurve import NurbsCurve
 import maya.api.OpenMaya as om2
 
 
-def createCurve(points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], degree: int = ..., *, closed: bool = ..., knots: Sequence[float] | None = ..., name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., d: int = ...) -> NurbsCurve:
+def createCurve(points: Iterable[Sequence[float] | om2.MPoint | om2.MVector], *, degree: int = ..., d: int = ..., closed: bool = ..., knots: Sequence[float] | None = ..., name: str | None = ..., n: str | None = ..., parent: Node | str | None = ...) -> NurbsCurve:
     """点の並びからNURBSカーブを作り、そのシェイプを返す。
 
     点はそのままCVにする(点を通るように補間するのではない)。距離はMaya APIの内部単位(cm)で指定し、

@@ -154,6 +154,7 @@ class DrivenKey:
             TypeError: Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: スカラーでない場合、数値でない場合、または2つが同じアトリビュートの場合。
             AttributeError: アトリビュートが存在しない場合(``MissingAttributeError``)。
+            RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         self._driver, self._driven = _plug(driver), _plug(driven)
         if self._driver.mplug() == self._driven.mplug():
@@ -251,7 +252,7 @@ class DrivenKey:
         """
         return bool(self.getCurves())
 
-    def setKey(self, driverValue, value, inTangentType="linear", outTangentType="linear", *, unit="deg", timeUnit="frame", fast=False, check=False):
+    def setKey(self, driverValue, value, *, inTangentType="linear", outTangentType="linear", unit="deg", timeUnit="frame", fast=False, check=False):
         """ドライバーの値と駆動先の値を指定して、ドリブンキーを追加または更新する。
 
         2つの値はfloat()で数値にし、有限か確かめる。それぞれのPlugの定義に従ってUI単位へ変換し、
@@ -404,4 +405,4 @@ class DrivenKey:
             curve = Node._create_node(kind, {"name": name.rstrip("_"), "skipSelect": True}, fast=True)
             curve.getPlug("input").connect(driver, fast=True)
             driven.connect(curve.getPlug("output"), fast=True)
-        curve.addKey(input, value, inTangentType, outTangentType, unit=unit, timeUnit=timeUnit, fast=True, check=check)
+        curve.addKey(input, value, inTangentType=inTangentType, outTangentType=outTangentType, unit=unit, timeUnit=timeUnit, fast=True, check=check)

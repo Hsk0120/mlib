@@ -37,6 +37,17 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
+def _constructor(owner):
+    """コンストラクターを、``__init__`` の docstring(Args・Raises)と署名を持つ関数として呼べるようにする。"""
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = inspect.signature(owner)
+    construct.__doc__ = owner.__init__.__doc__
+    return construct
+
+
 def _absolute(name):
     return ":" + name.lstrip(":")
 
@@ -60,6 +71,65 @@ def _a(case):
 def _b(case):
     _tree(case)
     return Namespace(case.ns + ":a:b")
+
+
+def _missing(case):
+    """存在しない名前空間を指す Namespace。"""
+    return Namespace(case.ns + ":nowhere")
+
+
+def _current():
+    return cmds.namespaceInfo(currentNamespace=True, absoluteName=True)
+
+
+def _to_root(case=None, target=None):
+    """カレントの名前空間をルートへ戻す(Undo に残さない。カレントのままでは、テストの名前空間を消せない)。"""
+    if _current() == ":":
+        return
+    state = cmds.undoInfo(query=True, state=True)
+    cmds.undoInfo(stateWithoutFlush=False)
+    try:
+        cmds.namespace(setNamespace=":")
+    finally:
+        cmds.undoInfo(stateWithoutFlush=state)
+
+
+def _current_state(case, target):
+    """シーンの状態に、カレントの名前空間を足す。"""
+    return [case.sceneState(), _current()]
+
+
+def _expect_new(case, call):
+    name = call.kwargs.get("name", ":")
+    text = str(name).replace("/", ":").strip(":")
+    case.assertIs(type(call.result), Namespace)
+    case.assertEqual(call.result.name, ":" + text)
+    case.assertEqual(str(call.result), ":" + text)
+
+
+def _expect_current(case, call):
+    case.assertIs(type(call.result), Namespace)
+    case.assertEqual(call.result.name, _current())
+
+
+def _expect_exists(case, call):
+    case.assertIs(call.result, bool(cmds.namespace(exists=call.target.name)))
+
+
+def _expect_short_name(case, call):
+    case.assertEqual(call.result, call.target.name.rpartition(":")[2] or ":")
+    if call.target.name != ":":
+        case.assertEqual(call.result, cmds.namespaceInfo(call.target.name, baseName=True))
+
+
+def _expect_split(case, call):
+    case.assertEqual(call.result, [part for part in call.target.name.split(":") if part])
+    case.assertEqual(":" + ":".join(call.result), call.target.name)
+
+
+def _expect_set_current(case, call):
+    case.assertIsNone(call.result)
+    case.assertEqual(_current(), call.target.name)
 
 
 def _creator(case):
@@ -143,11 +213,50 @@ NS_OBJECT = Lazy(lambda case: Namespace(case.ns), "<Namespace>")
 D_NAME = Lazy(lambda case: case.ns + ":d", "'<名前空間>:d'")
 D_OBJECT = Lazy(lambda case: Namespace(case.ns + ":d"), "<Namespace d>")
 
+#: カレントの名前空間を変える行。行ごとにルートへ戻すので、別のテストケース(CurrentNamespaceArgumentSweepTest)に置く。
+METHODS_CURRENT = (
+    Method("getCurrent", _a, function=Namespace.getCurrent, expect=_expect_current),
+    Method("setCurrent", _b, expect=_expect_set_current, state=_current_state, reset=_to_root),
+    # 入って出ると元のカレントへ戻り、シーンは変わらない(Undo には切り替えと戻しの2回が残る)ので、読むだけの行として確かめる。
+    # with の中でカレントが切り替わることは test_asCurrent_switches が確かめる。
+    Method("asCurrent", _b, context=True, state=_current_state, writes=False),
+)
+
 METHODS = (
+    Method(
+        "__init__",
+        _a,
+        function=_constructor(Namespace),
+        values={
+            "name": (
+                ":",
+                "a",
+                ":a:b",
+                "a/b",
+                "a:b:",
+                "::",
+                Lazy(lambda case: case.ns + ":a", "'<名前空間>:a'"),
+                Lazy(lambda case: Namespace(case.ns + ":a:b"), "<Namespace>"),
+                "存在しない名前",
+            )
+        },
+        replace=("name",),
+        invalid={"name": ("", 1.5, None, ["a"])},
+        expect=_expect_new,
+        writes=False,
+    ),
+    Method("exists", _a, expect=_expect_exists, writes=False),
+    Method("exists", _missing, variant="missing", expect=_expect_exists, writes=False),
+    Method("exists", lambda case: Namespace(), variant="root", expect=_expect_exists, writes=False),
+    Method("getShortName", _b, expect=_expect_short_name),
+    Method("getShortName", lambda case: Namespace(), variant="root", expect=_expect_short_name),
+    Method("split", _b, expect=_expect_split, writes=False),
+    Method("split", lambda case: Namespace(), variant="root", expect=_expect_split, writes=False),
     Method(
         "create",
         _creator,
-        args=("x", NS),
+        args=("x",),
+        kwargs={"parent": NS},
         values={
             "name": (
                 "x",
@@ -218,6 +327,50 @@ class NamespaceArgumentSweepTest(ArgumentSweepCase):
     """Namespace の公開メソッドの引数を網羅する。"""
 
     METHODS = METHODS
+
+
+class CurrentNamespaceArgumentSweepTest(ArgumentSweepCase):
+    """Namespace の、カレントの名前空間を読む・変えるメソッドを網羅する。"""
+
+    METHODS = METHODS_CURRENT
+
+    def fresh(self, method):
+        """カレントをルートへ戻してから、名前空間の中身を作り直す。"""
+        _to_root()
+        return super().fresh(method)
+
+    def tearDown(self):
+        _to_root()
+        super().tearDown()
+
+    def test_getCurrent_inside(self):
+        """カレントを切り替えた後は、その名前空間を返す。"""
+        _tree(self)
+        cmds.namespace(setNamespace=":" + self.ns + ":a:b")
+        self.assertEqual(Namespace.getCurrent(), Namespace(self.ns + ":a:b"))
+        self.assertEqual(Namespace.getCurrent().name, _current())
+
+    def test_setCurrent_missing(self):
+        """存在しない名前空間は RuntimeError で、カレントは変わらない。"""
+        with self.assertRaises(RuntimeError):
+            _missing(self).setCurrent()
+        self.assertEqual(_current(), ":")
+
+    def test_asCurrent_switches(self):
+        """with の中ではカレントがこの名前空間になり、自身を渡し、抜けると(例外でも)元へ戻る。"""
+        target = _b(self)
+        with target.asCurrent() as entered:
+            self.assertIs(entered, target)
+            self.assertEqual(_current(), target.name)
+        self.assertEqual(_current(), ":")
+        with self.assertRaises(KeyError):
+            with target.asCurrent():
+                raise KeyError("本文の例外")
+        self.assertEqual(_current(), ":")
+        with self.assertRaises(RuntimeError):
+            with _missing(self).asCurrent():
+                self.fail("存在しない名前空間へ入れた")
+        self.assertEqual(_current(), ":")
 
 
 if __name__ == "__main__":

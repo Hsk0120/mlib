@@ -99,7 +99,7 @@ class DagContainer(Transform):
             RuntimeError: ノードが見つからない(名前に一致しない・削除された)場合。
         """
         ...
-    def createNode(self, type: str, name: str | None = ...) -> Node:
+    def createNode(self, type: str, *, name: str | None = ...) -> Node:
         """ノードを作り、このcontainerのメンバーにする。
 
         Args:

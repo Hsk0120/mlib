@@ -180,8 +180,8 @@ class ParamTest(_CurveCase):
             (TypeError, self.curve.getMatricesAlong, (3,), {"aimAxis": 0}),
             (ValueError, self.curve.getMatricesAlong, (3,), {"aimAxis": "w"}),
             (ValueError, self.curve.getMatricesAlong, (3,), {"aimAxis": "y", "upAxis": "-y"}),
-            (ValueError, self.curve.getMatricesAlong, (3, (0, 0, 0)), {}),
-            (TypeError, self.curve.getMatricesAlong, (3, "up"), {}),
+            (ValueError, self.curve.getMatricesAlong, (3,), {"up": (0, 0, 0)}),
+            (TypeError, self.curve.getMatricesAlong, (3,), {"up": "up"}),
         ]
         for error, method, args, kwargs in cases:
             with self.subTest(method=method.__name__, args=args, kwargs=kwargs):
@@ -266,7 +266,7 @@ class MatricesAlongTest(_CurveCase):
         params = self.curve.getParamsAlong(6)
         for aim, upAxis in (("x", "y"), ("-x", "z"), ("y", "-z"), ("z", "x")):
             with self.subTest(aim=aim, up=upAxis):
-                matrices = self.curve.getMatricesAlong(6, up, aimAxis=aim, upAxis=upAxis)
+                matrices = self.curve.getMatricesAlong(6, up=up, aimAxis=aim, upAxis=upAxis)
                 aim_index = "xyz".index(aim[-1])
                 aim_sign = -1.0 if aim.startswith("-") else 1.0
                 up_index = "xyz".index(upAxis[-1])
@@ -287,7 +287,7 @@ class MatricesAlongTest(_CurveCase):
         self.assertVector(_row(matrices[2], 1), (0, 1, 0))
         line = cmds.curve(name=self.name("line#"), degree=1, point=[(0, 0, 0), (0, 2, 0)])
         line = mlib.getNode(cmds.listRelatives(line, shapes=True, fullPath=True)[0])
-        self.assertRaises(ValueError, line.getMatricesAlong, 3, (0, 1, 0))
+        self.assertRaises(ValueError, line.getMatricesAlong, 3, up=(0, 1, 0))
         self.assertEqual(len(line.getMatricesAlong(3)), 3)
 
     def test_normal_rejects_nearly_straight_degree_one_curve(self):

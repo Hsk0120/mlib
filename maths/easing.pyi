@@ -139,7 +139,7 @@ def _to_progress(t: float) -> float:
     """
     ...
 
-def ease(t: float, curve: str = ...) -> float:
+def ease(t: float, *, curve: str = ...) -> float:
     """進行度 t を、指定したイージング曲線で変換した値を返す。
 
     t は [0, 1] に切り詰めてから計算するので、範囲の外の値を渡しても、

@@ -315,13 +315,13 @@ class MultiPlug(Plug):
                 接続の無い番号は詰めずに抜けたままにする。
         """
         ...
-    def appendMessage(self, node: str | Node, *, fast: bool = ...) -> int:
+    def appendMessage(self, node: Node | str, *, fast: bool = ...) -> int:
         """messageのマルチアトリビュートへ、ノードをつないで追加する。
 
         いちばん大きい番号の次の要素へ、ノードの ``message`` を接続する。
 
         Args:
-            node (str | Node): つなぐノード。
+            node (Node | str): つなぐノード。
             fast (bool): TrueはUndoなしのOpenMaya更新。既定False。
 
         Returns:

@@ -1791,7 +1791,7 @@ class Plug(Object):
                 ロックされている・接続に失敗した場合、または接続元・接続先が削除されている場合(:meth:`connect` と同じ)。
         """
         ...
-    def insertInput(self, node: str | Node, inputAttribute: str, outputAttribute: str) -> None:
+    def insertInput(self, node: Node | str, inputAttribute: str, outputAttribute: str) -> None:
         """今の入力の接続の間に、ノードを挟む。
 
         ``入力元 → node.inputAttribute`` と ``node.outputAttribute → 自身`` の2つの接続にする。
@@ -1804,7 +1804,7 @@ class Plug(Object):
         cmdsで接続し、1回のUndoで戻せる。
 
         Args:
-            node (str | Node): 挟むノード。
+            node (Node | str): 挟むノード。
             inputAttribute (str): もとの入力元をつなぐ、node のアトリビュート名。
             outputAttribute (str): 自身へつなぐ、node のアトリビュート名。
 
@@ -2905,7 +2905,7 @@ class Plugs(_ListMethods):
     def connectTo(self, destination: Plug | om2.MPlug | str, *, skipExisting: bool = ..., fast: bool = ..., **kwargs) -> list[Plug]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.connectTo` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def insertInput(self, node: str | Node, inputAttribute: str, outputAttribute: str) -> list[None]:
+    def insertInput(self, node: Node | str, inputAttribute: str, outputAttribute: str) -> list[None]:
         """各要素の :meth:`~mlib.plugs.plug.Plug.insertInput` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def asString(self) -> list[str]:

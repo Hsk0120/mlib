@@ -150,7 +150,8 @@ class EulerRotate(om2.MEulerRotation):
         unit = "rad"
         if "unit" in kwargs:
             kwargs = dict(kwargs)
-            unit = _angle_unit(kwargs.pop("unit"))
+            # None は既定の単位(ラジアン)。数値の角度の入口(既定が度)とは違い、数学型の中身は om2 と同じラジアン。
+            unit = _angle_unit(kwargs.pop("unit"), "rad")
         if not kwargs and unit == "rad":
             # よく使う ()、(x, y, z)、(x, y, z, order) は、引数の解析を省く。
             count = len(args)
@@ -529,7 +530,7 @@ class EulerRotate(om2.MEulerRotation):
         return self.round(ndigits)
 
     @classmethod
-    def fromYawPitch(cls, direction, order="xyz"):
+    def fromYawPitch(cls, direction, *, order="xyz"):
         """基準軸を指定した方向へ向ける回転を作る。
 
         基準軸は回転順序の最初の軸。ピッチとヨーの2軸だけで向ける。

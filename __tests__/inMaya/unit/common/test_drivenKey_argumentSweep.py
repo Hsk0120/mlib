@@ -1,7 +1,7 @@
-"""DrivenKey の公開メソッド(find・setKey)の引数を、表から網羅して確かめる(段1〜3)。
+"""DrivenKey の公開メソッド(コンストラクター・find・setKey と、引数の無い取得)の引数を、表から網羅して確かめる(段1〜3)。
 
 setKey の結果は cmds.keyframe・cmds.keyTangent で、駆動元の角度は om2 の ``MAngle`` で換算して突き合わせる。
-find の結果は cmds.listConnections でたどった駆動元と突き合わせる。setKey は通常は Undo 1回で戻り、
+find・getCurves・exists の結果は cmds.listConnections でたどった駆動元・カーブと突き合わせる。setKey は通常は Undo 1回で戻り、
 ``fast=True`` と通常で同じシーンになることを部品の段3で確かめる。
 表の書き方と段の意味は ``support/argumentSweep.py`` と ``__tests__/README.md`` を参照する。
 """
@@ -40,6 +40,17 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
+def _constructor(owner):
+    """コンストラクターを、``__init__`` の docstring(Args・Raises)と署名を持つ関数として呼べるようにする。"""
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = inspect.signature(owner)
+    construct.__doc__ = owner.__init__.__doc__
+    return construct
+
+
 def _nodes(case):
     """ドライバーと駆動先を作る。ドリブンキーのカーブは今の名前空間(ルート)にできるので、前の呼び出しの残りを消す。"""
     case.removeCurves()
@@ -61,6 +72,12 @@ def _finder(case):
             cmds.setDrivenKeyframe(case.name("obj.translateY"), currentDriver=case.name("drv." + driver), driverValue=driver_value, value=value)
     cmds.setDrivenKeyframe(case.name("obj.translateZ"), currentDriver=case.name("drv.translateX"), driverValue=0, value=1)
     return _host("DrivenKey", find=DrivenKey.find)
+
+
+def _pair(case):
+    """_finder と同じシーンで、drv.rotateX と obj.translateY の組(カーブは1つ。translateX のカーブは別の組)。"""
+    _finder(case)
+    return DrivenKey(case.name("drv.rotateX"), case.name("obj.translateY"))
 
 
 def _degrees(value, unit):
@@ -132,6 +149,53 @@ def _expect_find(case, call):
     case.assertEqual(sorted(cmds.ls([str(item.getDriverPlug()) for item in call.result], long=True)), _drivers(name))
 
 
+def _plug_name(value):
+    """Plug・MPlug・名前を、cmds の長い名前にする。"""
+    return cmds.ls(value.name() if isinstance(value, om2.MPlug) else str(value), long=True)
+
+
+def _expect_new(case, call):
+    case.assertIsInstance(call.result, DrivenKey)
+    case.assertEqual(_plug_name(call.result.getDriverPlug()), _plug_name(call.kwargs["driver"]))
+    case.assertEqual(_plug_name(call.result.getDrivenPlug()), _plug_name(call.kwargs["driven"]))
+    # 作るだけで、カーブや接続は作らない。
+    case.assertFalse(call.result.exists())
+
+
+def _expect_driver_plug(case, call):
+    case.assertIsInstance(call.result, mlib.Plug)
+    case.assertEqual(_plug_name(call.result), cmds.ls(case.name("drv.rotateX"), long=True))
+
+
+def _expect_driven_plug(case, call):
+    case.assertIsInstance(call.result, mlib.Plug)
+    case.assertEqual(_plug_name(call.result), cmds.ls(case.name("obj.translateY"), long=True))
+
+
+def _pair_curves(case):
+    """obj.translateY へつながるカーブのうち、入力が drv.rotateX のもの(cmds でたどる)。"""
+    result = []
+    for source in cmds.listConnections(case.name("obj.translateY"), source=True, destination=False, skipConversionNodes=True) or []:
+        curves = [source]
+        if cmds.objectType(source) == "blendWeighted":
+            curves = cmds.listConnections(source + ".input", source=True, destination=False, skipConversionNodes=True) or []
+        for curve in curves:
+            inputs = cmds.listConnections(curve + ".input", source=True, destination=False, plugs=True, skipConversionNodes=True) or []
+            if cmds.ls(inputs, long=True) == cmds.ls(case.name("drv.rotateX"), long=True):
+                result.append(curve)
+    return sorted(result)
+
+
+def _expect_curves(case, call):
+    expected = _pair_curves(case)
+    case.assertEqual(sorted(curve.getName() for curve in call.result), expected)
+    case.assertTrue(all(cmds.objectType(str(curve), isAType="animCurve") for curve in call.result))
+
+
+def _expect_exists(case, call):
+    case.assertIs(call.result, bool(_pair_curves(case)))
+
+
 def _mplug(name):
     selection = om2.MSelectionList()
     selection.add(name)
@@ -139,8 +203,47 @@ def _mplug(name):
 
 
 TANGENTS = ("linear", "flat", "spline", "clamped", "step", "auto", "plateau")
+PLUG_INVALID = (
+    None,
+    1.5,
+    Lazy(lambda case: case.name("obj.translate"), "'<スカラーでない>'"),
+    Lazy(lambda case: case.name("obj.nowhere"), "'<無いアトリビュート>'"),
+    Lazy(lambda case: case.name("obj"), "'<ノードの名前>'"),
+)
 
 METHODS = (
+    Method(
+        "__init__",
+        _key,
+        function=_constructor(DrivenKey),
+        args=(Lazy(lambda case: case.name("drv.rotateX"), "'<drv.rotateX>'"), Lazy(lambda case: case.name("obj.translateY"), "'<obj.translateY>'")),
+        values={
+            "driver": (
+                Lazy(lambda case: case.name("drv.rotateX"), "'<drv.rotateX>'"),
+                Lazy(lambda case: case.name("drv.rx"), "'<短い名前>'"),
+                Lazy(lambda case: mlib.getPlug(case.name("drv.translateX")), "<Plug>"),
+                Lazy(lambda case: _mplug(case.name("drv.scaleZ")), "<MPlug>"),
+                Lazy(lambda case: case.name("obj.translateY"), "'<obj.translateY>'"),
+            ),
+            "driven": (
+                Lazy(lambda case: case.name("obj.translateY"), "'<obj.translateY>'"),
+                Lazy(lambda case: case.name("obj.ty"), "'<短い名前>'"),
+                Lazy(lambda case: mlib.getPlug(case.name("obj.visibility")), "<Plug>"),
+                Lazy(lambda case: _mplug(case.name("obj.rotateZ")), "<MPlug>"),
+                Lazy(lambda case: case.name("drv.rotateX"), "'<drv.rotateX>'"),
+            ),
+        },
+        replace=("driver", "driven"),
+        invalid={"driver": (*PLUG_INVALID, Lazy(lambda case: case.deletedPlug(), "<削除済みのPlug>")), "driven": PLUG_INVALID},
+        expect=_expect_new,
+        writes=False,
+    ),
+    Method("getDriverPlug", _key, expect=_expect_driver_plug),
+    Method("getDrivenPlug", _key, expect=_expect_driven_plug),
+    Method("getCurves", _pair, expect=_expect_curves),
+    Method("getCurves", _key, variant="noCurve", expect=_expect_curves),
+    Method("exists", _pair, expect=_expect_exists, writes=False),
+    Method("exists", _key, variant="noCurve", expect=_expect_exists, writes=False),
     Method(
         "setKey",
         _key,

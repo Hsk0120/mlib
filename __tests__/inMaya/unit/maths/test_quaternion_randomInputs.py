@@ -132,7 +132,7 @@ class QuaternionRandomTest(unittest.TestCase):
             spin = rng.choice((0, 0, 1, -1))
             with self.subTest(seed=SEED + 2, index=index, a=fmt(a), b=fmt(b), t=t, spin=spin):
                 qa = Quaternion(a)
-                self.assertClose(qa.slerp(b, t, spin), om2.MQuaternion.slerp(a, b, t, spin))
+                self.assertClose(qa.slerp(b, t, spin=spin), om2.MQuaternion.slerp(a, b, t, spin))
                 self.assertClose(Quaternion.slerp(a, b, t), om2.MQuaternion.slerp(a, b, t))
                 # 単位でない入力は、正規化してから om2 へ渡す。
                 scaled = om2.MQuaternion(*(v * 2.5 for v in a))

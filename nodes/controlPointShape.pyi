@@ -73,7 +73,7 @@ class _ControlPointShape(Shape):
             NotImplementedError: fast=Trueで、入力(コンストラクションヒストリ)がある場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """点(メッシュは頂点、NURBSはCV)の座標を、pivotを中心に反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。

@@ -262,7 +262,7 @@ class DrivenKeySetKeyFastTest(_SpecCase):
             DrivenKey(driver + ".translateZ", driven + ".translateY").setKey(0, 0, fast=True)
         self.assertEqual(set(cmds.ls(type="animCurve")), before)
         with self.assertRaises(ValueError):
-            DrivenKey(driver + ".translateZ", driven + ".translateX").setKey(0, 0, "fixed", fast=True)
+            DrivenKey(driver + ".translateZ", driven + ".translateX").setKey(0, 0, inTangentType="fixed", fast=True)
         self.assertEqual(set(cmds.ls(type="animCurve")), before)
         with self.assertRaises(TypeError):
             DrivenKey(driver + ".translateZ", driven + ".translateX").setKey(0, 0, fast=0)

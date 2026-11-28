@@ -61,6 +61,55 @@ def _unknown(case):
     return _host("Plugin", removeUnknown=Plugin.removeUnknown, ensureNodePlugin=Plugin.ensureNodePlugin)
 
 
+def _registered(case):
+    """ロード済みのプラグイン(登録されている)。"""
+    return _loaded(case)
+
+
+def _never(case):
+    """Maya が知らない名前のプラグイン。"""
+    return Plugin("mlibSweepNoSuchPlugin")
+
+
+def _unknown_nodes(case):
+    """型が分からないノード(unknown・unknownDag・unknownTransform)を、テストの名前空間に作る。"""
+    for kind in ("unknown", "unknownDag", "unknownTransform"):
+        cmds.createNode(kind, name=case.name("lost_" + kind), skipSelect=True)
+    return Plugin(NAME)
+
+
+def _expect_loaded_list(case, call):
+    case.assertTrue(all(type(item) is Plugin for item in call.result))
+    case.assertEqual([item.name for item in call.result], cmds.pluginInfo(query=True, listPlugins=True) or [])
+    case.assertIn(NAME, [item.name for item in call.result])
+
+
+def _expect_list_unknown(case, call):
+    case.assertIs(type(call.result), list)
+    case.assertEqual(call.result, cmds.unknownPlugin(query=True, list=True) or [])
+    case.assertTrue(set(FAKE) <= set(call.result))
+
+
+def _expect_unknown_nodes(case, call):
+    expected = cmds.ls(type=["unknown", "unknownDag", "unknownTransform"], long=True) or []
+    case.assertEqual([node.getName(full=True) for node in call.result], expected)
+    case.assertGreaterEqual(len(expected), 3)
+
+
+def _expect_is_registered(case, call):
+    case.assertIs(call.result, bool(cmds.pluginInfo(call.target.name, query=True, registered=True)))
+
+
+def _expect_is_loaded(case, call):
+    case.assertIs(call.result, bool(cmds.pluginInfo(call.target.name, query=True, loaded=True)))
+
+
+def _expect_path(case, call):
+    name = call.target.name
+    registered = bool(cmds.pluginInfo(name, query=True, registered=True))
+    case.assertEqual(call.result, cmds.pluginInfo(name, query=True, path=True) if registered else None)
+
+
 def _state(case, target):
     return [case.sceneState(), bool(cmds.pluginInfo(NAME, query=True, loaded=True)), sorted(cmds.unknownPlugin(query=True, list=True) or [])]
 
@@ -100,6 +149,16 @@ def _expect_ensure(case, call):
 
 
 METHODS = (
+    Method("loaded", _loaded, function=Plugin.loaded, expect=_expect_loaded_list, state=_state, writes=False),
+    Method("listUnknown", _unknown, function=Plugin.listUnknown, expect=_expect_list_unknown, state=_state),
+    Method("listUnknownNodes", _unknown_nodes, function=Plugin.listUnknownNodes, expect=_expect_unknown_nodes, state=_state),
+    Method("isRegistered", _registered, expect=_expect_is_registered, state=_state),
+    Method("isRegistered", _never, variant="never", expect=_expect_is_registered, state=_state),
+    Method("isLoaded", _loaded, expect=_expect_is_loaded, state=_state),
+    Method("isLoaded", _unloaded, variant="unloaded", expect=_expect_is_loaded, state=_state),
+    Method("isLoaded", _never, variant="never", expect=_expect_is_loaded, state=_state),
+    Method("getPath", _loaded, expect=_expect_path, state=_state),
+    Method("getPath", _never, variant="never", expect=_expect_path, state=_state),
     Method("load", _unloaded, invalid={"skipExisting": (1, "yes", None)}, expect=_expect_load, state=_state, undoable=False),
     Method("unload", _loaded, invalid={"force": (1, "yes", None)}, expect=_expect_unload, state=_state, undoable=False),
     Method("getVersion", _loaded, invalid={"text": (1, "yes", None)}, expect=_expect_version, state=_state),

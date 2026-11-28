@@ -55,11 +55,11 @@ class CurveLengthTest(unittest.TestCase):
 
         self.assertEqual(cmds.currentUnit(query=True, linear=True), "cm")
         for unit, centimeters in (("mm", 0.1), ("cm", 1), ("m", 100), ("km", 100000), ("in", 2.54), ("ft", 30.48), ("yd", 91.44), ("mi", 160934.4)):
-            self.assertAlmostEqual(units.convertDistance(1, unit, "cm"), centimeters)
-            self.assertAlmostEqual(units.convertDistance(centimeters, "cm", unit), 1)
+            self.assertAlmostEqual(units.convertDistance(1, fromUnit=unit, toUnit="cm"), centimeters)
+            self.assertAlmostEqual(units.convertDistance(centimeters, fromUnit="cm", toUnit=unit), 1)
         cmds.currentUnit(linear="m")
         self.assertEqual(cmds.currentUnit(query=True, linear=True), "m")
-        self.assertAlmostEqual(units.convertDistance(100, "cm"), 1)
+        self.assertAlmostEqual(units.convertDistance(100, fromUnit="cm"), 1)
         self.assertAlmostEqual(units.convertDistance(1, toUnit="cm"), 100)
 
     def test_curved_history_and_updates(self):

@@ -2102,9 +2102,9 @@ class Node(Object):
     def addAttr(
         self,
         longName=_UNSET,
+        *,
         type=None,
         subType=None,
-        *,
         channelBox=_UNSET,
         cb=_UNSET,
         childNames=None,
@@ -3447,7 +3447,7 @@ class Node(Object):
             cmds.addAttr(self._full_name(), **flags)
             for child_name, child_type, child_flags in children:
                 # 角度の子の値は_prepare_extra_attr_definitionでrad換算済み。時間の子は親と同じ単位で渡す。
-                self.addAttr(child_name, child_type, getPlug=False, fast=fast, unit="rad", timeUnit=time_unit, **child_flags)
+                self.addAttr(child_name, type=child_type, getPlug=False, fast=fast, unit="rad", timeUnit=time_unit, **child_flags)
         else:
             cmds.addAttr(self._full_name(), **flags)
         # 通常経路はcmdsが値まで設定するため、呼出し側へ渡すものはない。
@@ -3538,7 +3538,7 @@ class Nodes(_ListMethods):
 
         Args:
             names (object | Iterable[object] | None): 名前・Node・APIのオブジェクトなど、またはその並び。Noneは空。
-                名前を1つだけ渡してもよい。既定は ``()``。
+                名前を1つだけ渡してもよい。既定はNone。
 
         Raises:
             TypeError: 解決したノードがitem_classの派生でない場合。

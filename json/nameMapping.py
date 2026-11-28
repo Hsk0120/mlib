@@ -48,7 +48,7 @@ class NameMapping:
     ``NameMapping()`` は名前を変えない。
     """
 
-    def __init__(self, nameMap=None, replace=None, namespaceMap=None):
+    def __init__(self, nameMap=None, *, replace=None, namespaceMap=None):
         """対応づけの規則を持たせる。
 
         Args:

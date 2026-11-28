@@ -7,6 +7,7 @@
 
 import contextlib
 import functools
+import inspect
 import os
 import pathlib
 import re
@@ -263,6 +264,32 @@ def _influences(skin):
 
 def _row(skin, vertex):
     return [_weight(skin, vertex, joint) for joint in _influences(skin)]
+
+
+def _constructor(cls):
+    """クラスのコンストラクターを、``__init__`` の docstring と署名で表から呼べる関数にする。
+
+    クラスをそのまま ``function=`` に置くと、docstring がクラスの説明(Args・Raises が無い)になるため。
+    """
+
+    def construct(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    signature = inspect.signature(cls.__init__)
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = cls.__init__.__doc__
+    return construct
+
+
+def _expect_construct(case, call):
+    case.assertIs(type(call.result), mlib.SkinCluster)
+    case.assertEqual(str(call.result), str(call.target))
+
+
+#: コンストラクターへ渡す、作った skinCluster(meshSkin)の名前・Node・MObject。
+SKIN_NAME = Lazy(lambda case: case.name("meshSkin"), "'<skinClusterの名前>'")
+SKIN_NODE = Lazy(lambda case: mlib.getNode(case.name("meshSkin")), "<skinCluster>")
+SKIN_MOBJECT = Lazy(lambda case: mlib.getNode(case.name("meshSkin")).mnode(), "<skinClusterのMObject>")
 
 
 def _expect_mfn(case, call):
@@ -609,6 +636,18 @@ MAP_VALUES = (None, {}, {"jL": "jR", "jR": "jL"})
 NAMESPACE_VALUES = (None, {}, {"other": "another"})
 
 METHODS = (
+    Method(
+        "__init__",
+        _skin,
+        function=_constructor(mlib.SkinCluster),
+        args=(SKIN_NAME,),
+        values={"node": (SKIN_NAME, SKIN_NODE, SKIN_MOBJECT)},
+        replace=("node",),
+        # skinCluster でないノード(ジョイント・メッシュ)は、TypeError になる。
+        invalid={"node": (MISSING_NAME, 1.5, None, _name("jL"), _node("mesh"))},
+        expect=_expect_construct,
+        writes=False,
+    ),
     Method("mfn", _skin, writes=False, expect=_expect_mfn),
     Method(
         "deforms",

@@ -92,6 +92,51 @@ FIXED = """
             check (bool): 新しい文。既定はFalse。
         \"\"\"
 """
+#: 最初の引数でない、既定値つきの位置引数(A008)。scale は必須、worldSpace はどこでも位置でよい。
+OPTIONAL_POSITIONAL = """
+    class Item:
+        def scale(self, scale, worldSpace=False, pivot=(0, 0, 0), count=1):
+            \"\"\"拡大する。
+
+            Args:
+                scale (float): 倍率。
+                worldSpace (bool): Trueならワールド空間。既定はFalse。
+                pivot (tuple): 中心。既定は ``(0, 0, 0)``。
+                count (int): 回数。既定は1。
+            \"\"\"
+
+        def first(self, axis="x"):
+            \"\"\"最初の引数は位置でよい。
+
+            Args:
+                axis (str): 軸。既定は ``"x"``。
+            \"\"\"
+"""
+#: 同じ名前の引数で、型の並びだけが違う(A016)。
+UNION_ORDER = """
+    def one(node=None):
+        \"\"\"1つ目。
+
+        Args:
+            node (Node | str | None): 対象。既定はNone。
+        \"\"\"
+
+
+    def two(node=None):
+        \"\"\"2つ目。
+
+        Args:
+            node (Node | str | None): 対象。既定はNone。
+        \"\"\"
+
+
+    def three(node=None):
+        \"\"\"3つ目。
+
+        Args:
+            node (str | Node | None): 対象。既定はNone。
+        \"\"\"
+"""
 #: ``--fix`` の確認に使う表。
 FIX_TABLE = {
     "fast": Argument("fast", kind="keyword", default="False", text="TrueはUndoなしのOpenMaya更新。既定False。"),
@@ -113,6 +158,7 @@ class ArgumentCheckTest(unittest.TestCase):
         self.patch("RST_PATH", self.root / "_docs" / "source" / "arguments.rst")
         self.patch("ARGUMENTS", {})
         self.patch("BOOL_POSITIONAL_ALLOWED", {})
+        self.patch("POSITIONAL_ALLOWED", {})
 
     def patch(self, name, value):
         patcher = mock.patch.object(tool, name, value)
@@ -159,6 +205,25 @@ class ArgumentCheckTest(unittest.TestCase):
         self.assertEqual(self.codes(BOOL_POSITIONAL), [])
         tool.BOOL_POSITIONAL_ALLOWED.clear()
         tool.ARGUMENTS["quiet"] = Argument("表示しない", kind="positional", default="False")
+        self.assertEqual(self.codes(), [])
+
+    def test_optional_positional_after_the_first_is_reported(self):
+        """既定値つきの位置引数は、最初の引数と worldSpace・state だけ(A008)。必須の引数は位置でよい。"""
+        tool.ARGUMENTS["worldSpace"] = Argument("空間", kind="positional", default="False")
+        self.assertEqual(self.codes(OPTIONAL_POSITIONAL), ["A008", "A008"])
+        tool.POSITIONAL_ALLOWED["Item.scale"] = {"pivot": "理由"}
+        self.assertEqual(self.codes(), ["A008"])
+        tool.POSITIONAL_ALLOWED["Item.scale"]["count"] = "理由"
+        self.assertEqual(self.codes(), [])
+        tool.POSITIONAL_ALLOWED["Item.scale"]["gone"] = "もう無い"
+        self.assertEqual(self.codes(), ["A005"])
+
+    def test_union_order_that_differs_is_reported_and_fixed(self):
+        """同じ名前の引数で、型の並びだけが違うものは、多い方へ揃える(A016)。"""
+        path = self.write(UNION_ORDER)
+        self.assertEqual(self.codes(), ["A016"])
+        self.assertEqual(tool.fix(tool.collect(self.root)), 1)
+        self.assertEqual(path.read_text(encoding="utf-8").count("node (Node | str | None)"), 3)
         self.assertEqual(self.codes(), [])
 
     def test_untabled_name_with_two_kinds_or_defaults_is_reported(self):
@@ -278,6 +343,11 @@ class HelperTest(unittest.TestCase):
         self.assertTrue(tool.same_default('"deg"', "'deg'"))
         self.assertTrue(tool.same_default("1", "1.0"))
         self.assertFalse(tool.same_default("True", "False"))
+        self.assertEqual(tool.noted_default("既定は ``(0, 1, 0)``。"), "(0, 1, 0)")
+        self.assertTrue(tool.same_default("(0, 1, 0)", "(0, 1, 0)"))
+        self.assertTrue(tool.same_default("(0, 1, 0)", "(0.0, 1.0, 0.0)"))
+        self.assertFalse(tool.same_default("()", "None"))
+        self.assertIsNone(tool.noted_default("既定は ``cmds.curve`` と同じ。"))
 
     def test_format_default(self):
         self.assertEqual(tool.format_default("None"), "None")

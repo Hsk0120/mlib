@@ -2722,7 +2722,7 @@ class Plug(Object):
         cmdsで接続し、1回のUndoで戻せる。
 
         Args:
-            node (str | Node): 挟むノード。
+            node (Node | str): 挟むノード。
             inputAttribute (str): もとの入力元をつなぐ、node のアトリビュート名。
             outputAttribute (str): 自身へつなぐ、node のアトリビュート名。
 

@@ -123,7 +123,7 @@ class Container(Node):
                 cmds.container(self._full_name(), edit=True, removeNode=[node._full_name() for node in nodes], force=force)
 
     @undoTransaction("mlibContainerCreateNode")
-    def createNode(self, type, name=None):
+    def createNode(self, type, *, name=None):
         """ノードを作り、このcontainerのメンバーにする。
 
         Args:

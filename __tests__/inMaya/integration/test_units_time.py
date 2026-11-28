@@ -81,9 +81,9 @@ class AnimCurveTimeTest(_SpecCase):
             for fast in (False, True):
                 with self.subTest(frame=frame, fast=fast):
                     curve = mlib.createNode("animCurveTL", name=self.name("curve#"))
-                    curve.addKey(0, 0, "linear", "linear", fast=fast)
-                    curve.addKey(fps, 10, "linear", "linear", fast=fast)
-                    curve.addKey(3.0, 30, "linear", "linear", timeUnit="seconds", fast=fast)
+                    curve.addKey(0, 0, inTangentType="linear", outTangentType="linear", fast=fast)
+                    curve.addKey(fps, 10, inTangentType="linear", outTangentType="linear", fast=fast)
+                    curve.addKey(3.0, 30, inTangentType="linear", outTangentType="linear", timeUnit="seconds", fast=fast)
                     name = curve.getName(full=True)
                     self.assertEqual(curve.getKeyInputs(), [0.0, float(fps), 3.0 * fps])
                     self.assertEqual(cmds.keyframe(name, query=True, timeChange=True), [0.0, float(fps), 3.0 * fps])
@@ -104,11 +104,11 @@ class AnimCurveTimeTest(_SpecCase):
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5, 15], places=4)
                 curve.getKeyframes().move(timeOffset=1, timeUnit="sec")
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 15 + fps], places=4)
-                curve.scaleKey(2, 1, 5 + fps)
+                curve.scaleKey(2, valueScale=1, inputPivot=5 + fps)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [5 + fps, 25 + fps], places=4)
-                curve.scaleKey(-1, 1, inputPivot=5 + fps)
+                curve.scaleKey(-1, valueScale=1, inputPivot=5 + fps)
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(), [-15 + fps, 5 + fps], places=4)
-                curve.scaleKey(1, 1, 0, 0, timeUnit="sec")
+                curve.scaleKey(1, valueScale=1, inputPivot=0, valuePivot=0, timeUnit="sec")
                 self.assertSequenceAlmostEqual(curve.getKeyInputs(timeUnit="sec"), [v / fps for v in curve.getKeyInputs()], places=6)
 
     def test_time_output_frames_and_seconds(self):

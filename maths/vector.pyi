@@ -586,7 +586,7 @@ class Vector(om2.MVector):
             ValueError: 点の成分の数が3でない、またはtoleranceが負・有限でない場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Vector:
+    def mirror(self, axis: str | int = ..., *, pivot: Iterable[float] = ...) -> Vector:
         """指定した中心で成分を反転した、新しい値を返す。
 
         Translate・Scale・Shearでも、数値をそのまま反転する用途に使える。
@@ -855,7 +855,7 @@ class Vector(om2.MVector):
             ValueError: otherの成分の数が3でない場合、自身・otherが0のベクトルの場合、または2つが平行(角度が0かpi)な場合。
         """
         ...
-    def slerp(self, other: om2.MVector | om2.MPoint | Iterable[float], t: float, spin: int = ...) -> Vector:
+    def slerp(self, other: om2.MVector | om2.MPoint | Iterable[float], t: float, *, spin: int = ...) -> Vector:
         """別のベクトルとの間を補間する。向きは球面線形補間、長さは線形補間にする。
 
         2つのベクトルが作る平面の中で、自身の向きをotherの向きへ、角度のtの割合だけ回す

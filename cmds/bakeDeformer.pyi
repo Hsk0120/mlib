@@ -11,7 +11,7 @@ from mlib.nodes.skinCluster import SkinCluster
 
 _REJECTED_FLAGS: frozenset
 
-def bakeDeformer(source: Node | str, skeleton: Joint | str, destination: Node | str | None = ..., destinationSkeleton: Joint | str | None = ..., maxInfluences: int = ..., *, mi: int = ..., **kwargs: object) -> SkinCluster:
+def bakeDeformer(source: Node | str, skeleton: Joint | str, *, destination: Node | str | None = ..., destinationSkeleton: Joint | str | None = ..., maxInfluences: int = ..., mi: int = ..., **kwargs: object) -> SkinCluster:
     """元の形状の変形を、変形先の形状の skinCluster のウェイトへ焼き込む。
 
     Mayaの Bake Deformers to Skin Weights と同じく ``cmds.bakeDeformer`` を使い、ジョイントを動かしたときの変形を

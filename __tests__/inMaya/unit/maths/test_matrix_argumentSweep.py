@@ -17,7 +17,7 @@ import mlib
 mlib.reload()
 
 from support.argumentSweep import ArgumentSweepCase
-from support.argumentTable import Method
+from support.argumentTable import Call, ErrorState, Method
 
 from mlib.maths import EulerRotate, Matrix, Quaternion, Translate, Vector
 
@@ -239,6 +239,82 @@ def _expect_cofactor(case, call):
 TOLERANCE_INVALID = {"tolerance": ("a", None, float("nan"), float("inf"), -1.0, True)}
 
 
+def _constructor(cls):
+    """コンストラクターを、``__init__`` の署名と docstring を持つ関数にする。
+
+    クラスをそのまま ``function=`` に渡すと、署名は ``__new__`` の ``*args, **kwargs``、docstring はクラスの説明になり、
+    ``__init__`` の Args・Raises を読めない。
+    """
+
+    def construct(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    signature = inspect.signature(cls.__init__)
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = cls.__init__.__doc__
+    return construct
+
+
+#: コンストラクターの values の候補(なし・16成分の並び・4行4列・om2 の型・mlib の型)。
+INIT_VALUES = (
+    None,
+    list(_om2_matrix()),
+    tuple(_om2_matrix((5.0, 0.0, 0.0))),
+    [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [1, 2, 3, 1]],
+    _om2_matrix((0.0, 0.0, 0.0), (0.4, 0.0, 0.0), (1.0, 1.0, 1.0)),
+    om2.MFloatMatrix(),
+    Matrix(list(_om2_matrix())),
+)
+#: コンストラクターの成分の誤った値。成分の数が違う値(ValueError になる)と、並びでない値(TypeError になる)。
+INIT_COUNT_BAD = ((1.0, 2.0), (1.0, 2.0, 3.0, 4.0))
+INIT_TYPE_BAD = ("abc", 1.0, object())
+
+
+def _known_component_type_error(stage, kwargs):
+    """成分へ並びでない値を渡した場合(docstring の Raises は ValueError だけだが、TypeError になる)。"""
+    names = [name for name in ("translate", "rotate", "scale", "shear") if any(kwargs.get(name) is bad for bad in INIT_TYPE_BAD)]
+    # rotate の文字列は3文字に分かれて om2 へ渡り、ValueError になる(Raises のとおり)。
+    return stage == "invalid" and bool(names) and not (names == ["rotate"] and isinstance(kwargs["rotate"], str))
+
+
+def _expect_init(case, call):
+    """values があれば om2.MMatrix の同じ値、無ければ成分から om2 で合成したマトリクスと同じ。"""
+    kwargs = {name: value for name, value in call.kwargs.items() if value is not None}
+    case.assertIs(type(call.result), Matrix)
+    if "values" in kwargs:
+        _assert_matrix(case, call.result, om2.MMatrix(kwargs["values"]))
+    else:
+        _expect_compose(case, Call(call.target, kwargs, call.result, call.stage))
+
+
+def _same_as(name):
+    """om2.MMatrix の同じ名前のメソッドの結果と同じで、戻り値は Matrix。"""
+
+    def expect(case, call):
+        case.assertIs(type(call.result), Matrix)
+        _assert_matrix(case, call.result, getattr(om2.MMatrix(call.target), name)(), places=9)
+
+    return expect
+
+
+def _expect_decompose(case, call):
+    """om2 の MTransformationMatrix で分解した成分と同じ(平行移動は番号12〜14)。"""
+    tm = om2.MTransformationMatrix(om2.MMatrix(call.target))
+    case.assertEqual(sorted(call.result), ["euler", "quaternion", "scale", "shear", "translate"])
+    case.assertEqual([type(call.result[name]) for name in ("translate", "euler", "quaternion")], [Translate, EulerRotate, Quaternion])
+    case.assertSequenceAlmostEqual(call.result["translate"], list(om2.MMatrix(call.target))[12:15])
+    euler, rotation = call.result["euler"], tm.rotation()
+    case.assertSequenceAlmostEqual([euler.x, euler.y, euler.z, euler.order], [rotation.x, rotation.y, rotation.z, rotation.order])
+    quaternion, expected = call.result["quaternion"], tm.rotation(asQuaternion=True)
+    case.assertSequenceAlmostEqual([quaternion.x, quaternion.y, quaternion.z, quaternion.w], [expected.x, expected.y, expected.z, expected.w])
+    case.assertSequenceAlmostEqual(call.result["scale"], tm.scale(K))
+    case.assertSequenceAlmostEqual(call.result["shear"], tm.shear(K))
+
+
+#: スケールが0の軸があるマトリクスで ValueError になる行の指定。
+SINGULAR = (ErrorState("スケールが0", lambda case, target: Matrix(scale=(0.0, 1.0, 1.0)), ValueError),)
+
+
 METHODS = (
     Method(
         "compose",
@@ -392,6 +468,34 @@ METHODS = (
         state=_value,
         writes=False,
     ),
+    Method(
+        "__init__",
+        _matrix,
+        function=_constructor(Matrix),
+        values={
+            "values": INIT_VALUES,
+            "translate": (None, *XYZ),
+            "rotate": (None, *ROTATES),
+            "scale": (None, (1.0, 1.0, 1.0), (2.0, 0.5, -1.0), om2.MVector(3.0, 3.0, 3.0)),
+            "shear": (None, (0.0, 0.0, 0.0), (0.1, 0.2, 0.3)),
+        },
+        replace=("values", "translate", "rotate", "scale", "shear"),
+        invalid={
+            "values": (list(range(15)), [[1, 2], [3, 4]], "abc", 1.0, object()),
+            "translate": INIT_COUNT_BAD + INIT_TYPE_BAD,
+            "rotate": (*INIT_COUNT_BAD, *INIT_TYPE_BAD, om2.MQuaternion(0.0, 0.0, 0.0, 0.0)),
+            "scale": INIT_COUNT_BAD + INIT_TYPE_BAD,
+            "shear": INIT_COUNT_BAD + INIT_TYPE_BAD,
+        },
+        expect=_expect_init,
+        state=_value,
+        writes=False,
+    ),
+    Method("decompose", _matrix, expect=_expect_decompose, state=_value, writes=False, errors=SINGULAR),
+    Method("inverse", _matrix, expect=_same_as("inverse"), state=_value, writes=False, errors=SINGULAR),
+    Method("transpose", _matrix, expect=_same_as("transpose"), state=_value, writes=False),
+    Method("adjoint", _matrix, expect=_same_as("adjoint"), state=_value, writes=False),
+    Method("homogenize", _matrix, expect=_same_as("homogenize"), state=_value, writes=False),
 )
 
 

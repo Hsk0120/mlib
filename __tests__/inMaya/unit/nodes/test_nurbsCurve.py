@@ -271,7 +271,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
             lambda: (self.assertEqual(shape.mfn().numSpans, 6), self.assertEqual(shape.getParamRange(), (0.0, 1.0))),
         )
         self.assertEqual(cmds.ls(uuid)[0], cmds.ls(shape.getName(full=True))[0])
-        shape.rebuild(3, 1, keepRange="spans")
+        shape.rebuild(3, degree=1, keepRange="spans")
         self.assertEqual(shape.mfn().degree, 1)
         self.assertEqual(shape.mfn().numSpans, 3)
         self.assertSequenceAlmostEqual(shape.getParamRange(), (0.0, 3.0))
@@ -290,7 +290,7 @@ class NurbsCurveAdditionsTest(_CaseShapeAdditions):
         ):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error):
-                    shape.rebuild(*args, **kwargs)
+                    shape.rebuild(*args[:1], **dict(zip(("degree",), args[1:])), **kwargs)
 
     def test_reverse_undo(self):
         """reverse は CV の並びを逆にし、Undo 1回で戻る。"""

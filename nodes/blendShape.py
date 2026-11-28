@@ -170,7 +170,7 @@ class BlendShape(GeometryFilter):
             raise ValueError(f"ベースジオメトリはすでに登録されています: {node.getName()}")
         cmds.blendShape(self._full_name(), edit=True, geometry=node._full_name())
 
-    def addTarget(self, mesh, name=None, *, base=None, index=None, fullWeight=1.0, inBetween=None, relative=False):
+    def addTarget(self, mesh, *, name=None, base=None, index=None, fullWeight=1.0, inBetween=None, relative=False):
         """指定したベースへターゲット形状を追加する。``inBetween`` を渡すと、すでにあるターゲットへin-betweenを追加する。
 
         ターゲットの追加(既定):
@@ -323,7 +323,7 @@ class BlendShape(GeometryFilter):
             if not mel.eval(command):
                 raise RuntimeError(f"Mayaが{self.getName()}のblendShapeのターゲット{target!r}を削除できませんでした")
 
-    def getInBetweenWeights(self, target, base=None):
+    def getInBetweenWeights(self, target, *, base=None):
         """ターゲットのin-betweenの項目のウェイトを取得する。
 
         ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0は除く。
@@ -344,7 +344,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         return [(item - _ITEM_OFFSET) / 1000.0 for item in self._item_indices(bi, index) if item != _FULL_ITEM]
 
-    def getTargetItemIndices(self, target, base=None):
+    def getTargetItemIndices(self, target, *, base=None):
         """ターゲット本体とin-betweenの項目の論理番号を取得する。
 
         未作成要素は作らず、値も評価しない。番号は5000 + ウェイト * 1000に対応する。
@@ -364,7 +364,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         return self._item_indices(bi, index)
 
-    def getTargetGeometry(self, target, base=None):
+    def getTargetGeometry(self, target, *, base=None):
         """ターゲットの各項目へ接続された元形状を取得する。
 
         保存済みデルタだけを持ち、元Shapeへの接続がない項目はNone。
@@ -389,7 +389,7 @@ class BlendShape(GeometryFilter):
             result[item] = source.getNode() if source is not None else None
         return result
 
-    def getTargetWeights(self, target=None, base=None):
+    def getTargetWeights(self, target=None, *, base=None):
         """ターゲットの頂点マスクを、頂点番号の順に取得する。``target=None`` なら、ベースのbaseWeightsを取得する。
 
         - ターゲット: 頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
@@ -419,7 +419,7 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         return self._read_vertex_weights(self._group_path(bi, index) + ".targetWeights", self._vertex_count(bi))
 
-    def setTargetWeights(self, target, weights, base=None, *, fast=False, check=False):
+    def setTargetWeights(self, target, weights, *, base=None, fast=False, check=False):
         """ターゲットの頂点マスクを設定する。``target`` にNoneを渡すと、ベースのbaseWeightsを設定する。
 
         ターゲットの頂点マスクは ``inputTargetGroup[i].targetWeights``、ベースは ``inputTarget[].baseWeights`` の値。
@@ -473,7 +473,7 @@ class BlendShape(GeometryFilter):
             values = _vertex_values(weights, self._vertex_count(bi))
             self._write_vertex_weights(self._group_path(bi, index) + ".targetWeights", values, fast=fast, check=check)
 
-    def getTargetDeltas(self, target, base=None, *, fullWeight=1.0):
+    def getTargetDeltas(self, target, *, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
         ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
@@ -495,7 +495,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return {vertex: Vector(offset) for vertex, offset in zip(indices, offsets)}
 
-    def setTargetDeltas(self, target, deltas, base=None, *, fullWeight=1.0, disconnect=False, fast=False, check=False):
+    def setTargetDeltas(self, target, deltas, *, base=None, fullWeight=1.0, disconnect=False, fast=False, check=False):
         """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
         指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
@@ -529,7 +529,7 @@ class BlendShape(GeometryFilter):
             self._release_input(path, disconnect, fast=fast)
             self._write_deltas(path, [row[0] for row in rows], [row[1] for row in rows], fast=fast, check=check)
 
-    def getTargetVertices(self, target, base=None, *, fullWeight=1.0, tolerance=0.0):
+    def getTargetVertices(self, target, *, base=None, fullWeight=1.0, tolerance=0.0):
         """デルタの長さがしきい値を超える頂点を取得する。
 
         今の ``weight``・envelope・頂点マスクは判定に使わない。
@@ -552,7 +552,7 @@ class BlendShape(GeometryFilter):
         indices, offsets = self._read_deltas(self._item_path(bi, index, item))
         return Vertices(self._base_shape(bi), [vertex for vertex, offset in zip(indices, offsets) if om2.MVector(offset).length() > limit])
 
-    def resetTargetVertices(self, target, vertices=None, base=None, *, fullWeight=1.0, disconnect=False, tolerance=None, fast=False, check=False):
+    def resetTargetVertices(self, target, vertices=None, *, base=None, fullWeight=1.0, disconnect=False, tolerance=None, fast=False, check=False):
         """指定した頂点の変位を0に戻す。``tolerance`` を渡すと、デルタの長さがしきい値以下の頂点を項目のデータから取り除く。
 
         ``vertices`` と ``tolerance`` のどちらか1つを指定する。
@@ -602,7 +602,7 @@ class BlendShape(GeometryFilter):
             remove = set(self._vertex_indices(vertices, bi))
             self._remove_vertices(self._item_path(bi, index, item), remove, disconnect, fast=fast, check=check)
 
-    def mirrorTarget(self, target, axis="x", *, positiveToNegative=_UNSET, base=None, flip=False, symmetrySpace="object", symmetryEdge=None):
+    def mirrorTarget(self, target, *, axis="x", positiveToNegative=_UNSET, base=None, flip=False, symmetrySpace="object", symmetryEdge=None):
         """ターゲットの片側の変形を、反対側へミラーする。``flip=True`` なら、ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, mirrorTarget=...)``(``flip=True`` では ``flipTarget=...``)を使う。
@@ -639,22 +639,35 @@ class BlendShape(GeometryFilter):
         bi, index = self._resolve_group(target, base)
         name = self._mirror_axis_name(bi, index, axis)
         space, edge = self._symmetry_settings(bi, symmetrySpace, symmetryEdge)
-        with undoChunk("mlibBlendShapeFlipTarget" if flip else "mlibBlendShapeMirrorTarget"):
-            if edge is not None:
-                cmds.blendShape(self._full_name(), edit=True, symmetryEdge=edge)
-            if flip:
-                cmds.blendShape(self._full_name(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
-            else:
-                cmds.blendShape(
-                    self._full_name(),
-                    edit=True,
-                    mirrorTarget=(bi, index),
-                    symmetryAxis=name,
-                    symmetrySpace=space,
-                    mirrorDirection=0 if positiveToNegative else 1,
-                )
+        # blendShape のミラーは、シーン全体のシンメトリ(symmetricModelling)をオンにしたまま残す。
+        # 選択やほかのツールの動きが変わるので、呼ぶ前の状態へ戻す。
+        symmetry = cmds.symmetricModelling(query=True, symmetry=True)
+        try:
+            with undoChunk("mlibBlendShapeFlipTarget" if flip else "mlibBlendShapeMirrorTarget"):
+                if edge is not None:
+                    cmds.blendShape(self._full_name(), edit=True, symmetryEdge=edge)
+                if flip:
+                    cmds.blendShape(self._full_name(), edit=True, flipTarget=(bi, index), symmetryAxis=name, symmetrySpace=space)
+                else:
+                    cmds.blendShape(
+                        self._full_name(),
+                        edit=True,
+                        mirrorTarget=(bi, index),
+                        symmetryAxis=name,
+                        symmetrySpace=space,
+                        mirrorDirection=0 if positiveToNegative else 1,
+                    )
+        finally:
+            if cmds.symmetricModelling(query=True, symmetry=True) != symmetry:
+                # 設定を戻す操作は、Undo に残さない(ミラーの Undo を1回に保つ。Undo してもシンメトリは呼ぶ前のまま)。
+                state = cmds.undoInfo(query=True, state=True)
+                cmds.undoInfo(stateWithoutFlush=False)
+                try:
+                    cmds.symmetricModelling(edit=True, symmetry=symmetry)
+                finally:
+                    cmds.undoInfo(stateWithoutFlush=state)
 
-    def replaceTarget(self, target, geometry, base=None, *, fullWeight=1.0):
+    def replaceTarget(self, target, geometry, *, base=None, fullWeight=1.0):
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
         別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
@@ -863,7 +876,7 @@ class BlendShape(GeometryFilter):
             raise ValueError(f"modeは{_TARGETS_MODES}のどれかで指定してください: {mode!r}")
         if not isinstance(data, dict):
             raise TypeError("dataはdictで指定してください")
-        mapping = NameMapping(nameMap, replace, namespaceMap)
+        mapping = NameMapping(nameMap, replace=replace, namespaceMap=namespaceMap)
         self._require_valid("ターゲットの復元")
         if mode == "empty" and self._target_indices():
             raise ValueError(f"blendShape {self.getName()}にはすでにターゲットがあります。mode='empty'はターゲットがない場合だけ使えます")
@@ -925,7 +938,7 @@ class BlendShape(GeometryFilter):
             raise TypeError("modeは文字列で指定してください")
         # 先に確かめて組のタプルにする(並びを2回読むため)。
         replace = _replace_pairs(replace)
-        NameMapping(nameMap, replace, namespaceMap)
+        NameMapping(nameMap, replace=replace, namespaceMap=namespaceMap)
         _header, data = file._load(path, _TARGETS_FORMAT, _TARGETS_VERSION)
         return self.setTargetsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, mode=mode)
 
@@ -1799,7 +1812,7 @@ class _Directories:
         parent = self._parents.get(index, 0)
         return parent if parent in self._folders else 0
 
-    def move(self, index, folder, after=None):
+    def move(self, index, folder, *, after=None):
         """ターゲットをフォルダへ移す。
 
         Args:

@@ -36,6 +36,7 @@ class ScalarGraph:
         Raises:
             TypeError: createNodeが呼び出せない値の場合。
             ValueError: containerとcreateNodeを両方指定した場合、またはどちらも指定しない場合。
+            RuntimeError: containerの名前のノードが見つからない場合、またはノードが無効な場合。
         """
         ...
     def sum(self, role: str, left: float | str | Plug, right: float | str | Plug, *, subtract: bool = ..., fast: bool = ...) -> Plug:
@@ -61,7 +62,7 @@ class ScalarGraph:
             NotImplementedError: containerを持ち主にして、fast=Trueを指定した場合。
         """
         ...
-    def multiply(self, role: str, left: float | str | Plug, right: float | str | Plug, operation: int = ..., *, fast: bool = ...) -> Plug:
+    def multiply(self, role: str, left: float | str | Plug, right: float | str | Plug, *, operation: int = ..., fast: bool = ...) -> Plug:
         """掛け算・割り算・累乗のノードを組み立てる。
 
         Args:

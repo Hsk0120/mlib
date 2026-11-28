@@ -75,7 +75,7 @@ class Namespace:
         """
         ...
     @classmethod
-    def create(cls, name: str | Namespace, parent: str | Namespace = ...) -> Namespace:
+    def create(cls, name: str | Namespace, *, parent: str | Namespace = ...) -> Namespace:
         """指定した名前空間を作る。すでにあれば作らず、そのオブジェクトを返す。
 
         カレントの名前空間は変えない。/ は : と同じ区切りとして扱う。

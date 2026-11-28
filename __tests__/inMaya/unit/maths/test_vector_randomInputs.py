@@ -154,9 +154,9 @@ class VectorRandomTest(unittest.TestCase):
                 self.assertVectorClose(va.slerp(b, 0.0), ma, tol=1e-9)
                 self.assertVectorClose(va.slerp(b, 1.0), mb, tol=1e-8)
                 # spin=-1 は逆回り。t=1 でも b の向きへ着く。
-                self.assertVectorClose(va.slerp(b, 1.0, -1), mb, tol=1e-8)
+                self.assertVectorClose(va.slerp(b, 1.0, spin=-1), mb, tol=1e-8)
                 if 0.0 < t < 1.0:
-                    half = va.slerp(b, t, -1)
+                    half = va.slerp(b, t, spin=-1)
                     turned = ma.normal().rotateBy(om2.MQuaternion((ma.angle(mb) - 2.0 * math.pi) * t, axis))
                     self.assertVectorClose(half, turned * length, tol=1e-7)
 
@@ -185,7 +185,7 @@ class VectorRandomTest(unittest.TestCase):
                 expected = list(a)
                 expected[column] = 2.0 * pivot[column] - a[column]
                 for axis in names[column]:
-                    result = Translate(a).mirror(axis, pivot)
+                    result = Translate(a).mirror(axis, pivot=pivot)
                     self.assertIs(type(result), Translate)
                     self.assertVectorClose(result, expected)
                 absolute = [abs(value) for value in a]

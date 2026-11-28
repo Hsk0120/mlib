@@ -79,6 +79,7 @@ METHODS = (
     Method(
         "call",
         lambda case: _host("Deferred", call=_call),
+        skipCalling={"unknownKeyword": "**kwargs は、遅らせて呼ぶ関数へそのまま渡す引数(知らない名前でも受ける)"},
         args=(_record,),
         values={"callback": (_record, functools.partial(_record, 1, key="value"), _Callable(), lambda: _record("lambda"))},
         replace=("callback",),

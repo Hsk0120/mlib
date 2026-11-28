@@ -99,7 +99,7 @@ class MatrixParityTest(_ParityCase):
         for trial in range(TRIALS):
             t, r, s, sh = _vector(rng), _angles(rng), _scale(rng), _vector(rng, 0.5)
             with self.subTest(trial=trial):
-                self.assert_close(Matrix.compose(t, r, s, sh), _om_matrix(t, r, s, sh), msg="compose")
+                self.assert_close(Matrix.compose(t, rotate=r, scale=s, shear=sh), _om_matrix(t, r, s, sh), msg="compose")
 
     def test_properties_match_om2_decomposition(self):
         """translate・scale・shear・quaternion・euler・decompose は om2 の分解と一致する。"""
@@ -116,7 +116,7 @@ class MatrixParityTest(_ParityCase):
                 parts = matrix.decompose()
                 self.assert_close(parts["translate"], matrix.translate, msg="decompose translate")
                 self.assert_close(parts["scale"], matrix.scale, msg="decompose scale")
-                recomposed = Matrix.compose(parts["translate"], parts["euler"], parts["scale"], parts["shear"])
+                recomposed = Matrix.compose(parts["translate"], rotate=parts["euler"], scale=parts["scale"], shear=parts["shear"])
                 self.assertTrue(recomposed.isEquivalent(matrix, 1e-7), "decompose -> compose")
 
     def test_setters_keep_other_components(self):
@@ -132,9 +132,9 @@ class MatrixParityTest(_ParityCase):
                     ("scale", new_s, (t, r, new_s, sh)),
                     ("shear", new_sh, (t, r, s, new_sh)),
                 ):
-                    matrix = Matrix.compose(t, r, s, sh)
+                    matrix = Matrix.compose(t, rotate=r, scale=s, shear=sh)
                     setattr(matrix, name, value)
-                    self.assertTrue(matrix.isEquivalent(Matrix.compose(*expected), 1e-7), name)
+                    self.assertTrue(matrix.isEquivalent(Matrix.compose(*expected[:1], **dict(zip(("rotate", "scale", "shear"), expected[1:]))), 1e-7), name)
 
     def test_point_vector_inverse_and_transpose(self):
         """transformPoint・transformVector・inverse・transpose・adjoint・homogenize を om2 と比べる。"""
@@ -166,12 +166,12 @@ class MatrixParityTest(_ParityCase):
                 self.assertIsInstance(Matrix(a) * Matrix(b), Matrix)
                 for axis in ("x", "y", "z"):
                     pivot = _vector(rng)
-                    twice = Matrix(a).mirror(axis, pivot).mirror(axis, pivot)
+                    twice = Matrix(a).mirror(axis, pivot=pivot).mirror(axis, pivot=pivot)
                     self.assertTrue(twice.isEquivalent(Matrix(a), 1e-7), axis)
 
     def test_singular_matrix_is_rejected(self):
         """スケール0のマトリクスは逆・分解を ValueError で拒否し、translate は使える。"""
-        matrix = Matrix.compose((1, 2, 3), (0.1, 0.2, 0.3), (0, 1, 1))
+        matrix = Matrix.compose((1, 2, 3), rotate=(0.1, 0.2, 0.3), scale=(0, 1, 1))
         with self.assertRaises(ValueError):
             matrix.inverse()
         with self.assertRaises(ValueError):

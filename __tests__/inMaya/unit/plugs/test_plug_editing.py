@@ -169,7 +169,7 @@ class EnumNameTest(_Case):
 
     def setUp(self):
         super().setUp()
-        self.enum = self.node.addAttr("mode", "enum", enumName="body:head=3:tail")
+        self.enum = self.node.addAttr("mode", type="enum", enumName="body:head=3:tail")
 
     def test_set_by_name_matches_cmds(self):
         """名前で設定した値は、同じ名前のcmdsのenum値と一致する(通常・fast)。整数も従来どおり。"""
@@ -208,11 +208,11 @@ class EnumNameTest(_Case):
         """addAttr(defaultValue="名前") はenumNameから値を求める(通常・fast)。無い名前はValueErrorで追加しない。"""
         for fast in (False, True):
             name = "fastMode" if fast else "slowMode"
-            plug = self.node.addAttr(name, "enum", enumName="a=2:b:c=7", defaultValue="b", fast=fast)
+            plug = self.node.addAttr(name, type="enum", enumName="a=2:b:c=7", defaultValue="b", fast=fast)
             self.assertEqual(plug.getDefault(), 3)
             self.assertEqual(plug.get(), 3)
             with self.assertRaises(ValueError):
-                self.node.addAttr(name + "Bad", "enum", enumName="a:b", defaultValue="z", fast=fast)
+                self.node.addAttr(name + "Bad", type="enum", enumName="a:b", defaultValue="z", fast=fast)
             self.assertFalse(self.node.hasAttr(name + "Bad"))
 
 
@@ -221,7 +221,7 @@ class RangeEditTest(_Case):
 
     def test_double_matches_cmds(self):
         """片側ずつ設定した数値の範囲はcmds.attributeQueryと一致し、Noneを渡した側だけ制限が外れる。"""
-        plug = self.node.addAttr("amount", "double")
+        plug = self.node.addAttr("amount", type="double")
         node = self.full
 
         def query(**flags):
@@ -272,7 +272,7 @@ class RangeEditTest(_Case):
         for index, (label, call, expected) in enumerate(cases):
             with self.subTest(case=label):
                 name = f"ranged{index}"
-                plug = self.node.addAttr(name, "double", minValue=-1.0, maxValue=5.0, softMinValue=0.0, softMaxValue=4.0)
+                plug = self.node.addAttr(name, type="double", minValue=-1.0, maxValue=5.0, softMinValue=0.0, softMaxValue=4.0)
                 before = limits(name)
                 self.assertEqual(before, (-1.0, 5.0, 0.0, 4.0))
                 self.flushUndo()
@@ -285,7 +285,7 @@ class RangeEditTest(_Case):
                 if None not in expected:
                     # 制限を外した側は、素の cmds.addAttr(edit=True, hasMinValue=False) でもUndoで戻らない(Mayaの挙動)ので確かめない。
                     self.assertEqual(limits(name), before)
-        plug = self.node.addAttr("untouched", "double", minValue=-1.0, maxValue=5.0)
+        plug = self.node.addAttr("untouched", type="double", minValue=-1.0, maxValue=5.0)
         for kwargs in ({}, {"soft": True}, {"unit": "deg"}):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(TypeError):
@@ -294,7 +294,7 @@ class RangeEditTest(_Case):
 
     def test_compound_and_multi(self):
         """コンパウンドアトリビュート・マルチアトリビュート全体は、両方を指定するとTypeError。要素からの設定は全要素の定義に効く。"""
-        multi = self.node.addAttr("weights", "double", multi=True)
+        multi = self.node.addAttr("weights", type="double", multi=True)
         multi[2].set(1.0)
         multi[5].set(2.0)
         multi[2].setRange(-1.0, 1.0)
@@ -303,12 +303,12 @@ class RangeEditTest(_Case):
         with self.assertRaises(TypeError):
             multi.setRange(0.0, 2.0)
         with self.assertRaises(TypeError):
-            self.node.addAttr("offset", "double3").setRange(0.0, 2.0)
+            self.node.addAttr("offset", type="double3").setRange(0.0, 2.0)
         self.assertEqual(cmds.attributeQuery("weights", node=self.full, range=True), [-1.0, 1.0])
 
     def test_angle_units(self):
         """角度は既定で度、unit="rad"はラジアン、MAngleはそのまま。getRangeと往復する。"""
-        plug = self.node.addAttr("bend", "doubleAngle")
+        plug = self.node.addAttr("bend", type="doubleAngle")
         plug.setRange(-45)
         plug.setRange(maximum=math.pi, unit="rad")
         plug.setRange(maximum=om2.MAngle(30, om2.MAngle.kDegrees), soft=True)
@@ -319,15 +319,15 @@ class RangeEditTest(_Case):
 
     def test_undo_once(self):
         """1回のUndoで元の範囲へ戻る。"""
-        plug = self.node.addAttr("amount", "double", minValue=0.0)
+        plug = self.node.addAttr("amount", type="double", minValue=0.0)
         self.flushUndo()
         plug.setRange(5.0)
         self.assertUndoesInOneStep(lambda: self.assertEqual(plug.getRange()[0], 0.0), lambda: self.assertEqual(plug.getRange()[0], 5.0))
 
     def test_errors(self):
         """静的アトリビュート・数値以外の型・不正な値・単位はTypeError/ValueError。"""
-        text = self.node.addAttr("label", "string")
-        amount = self.node.addAttr("amount", "double")
+        text = self.node.addAttr("label", type="string")
+        amount = self.node.addAttr("amount", type="double")
         for call, error in (
             (lambda: self.node.getPlug("tx").setRange(0), TypeError),
             (lambda: text.setRange(maximum=1), TypeError),
@@ -399,24 +399,24 @@ class RerunSafeTest(_Case):
 
     def test_add_attr_safe(self):
         """既存のアトリビュートを返し、既定値・範囲を変えない。Undoに積まない。fast・getPlug=Falseも同じ。"""
-        first = self.node.addAttr("amount", "double", defaultValue=1.0, minValue=0.0)
+        first = self.node.addAttr("amount", type="double", defaultValue=1.0, minValue=0.0)
         first.set(5.0)
         self.flushUndo()
         for fast in (False, True):
-            again = self.node.addAttr("amount", "double", defaultValue=2.0, minValue=3.0, skipExisting=True, fast=fast)
+            again = self.node.addAttr("amount", type="double", defaultValue=2.0, minValue=3.0, skipExisting=True, fast=fast)
             self.assertEqual(again, first)
             self.assertEqual((again.get(), again.getDefault(), again.getRange()[0]), (5.0, 1.0, 0.0))
-            self.assertIsNone(self.node.addAttr("amount", "double", getPlug=False, skipExisting=True, fast=fast))
+            self.assertIsNone(self.node.addAttr("amount", type="double", getPlug=False, skipExisting=True, fast=fast))
         self.assertUndoEmpty()
-        created = self.node.addAttr("fresh", "double", skipExisting=True)
+        created = self.node.addAttr("fresh", type="double", skipExisting=True)
         self.assertEqual(created.getType(), "double")
 
     def test_add_attr_safe_type_mismatch(self):
         """型・マルチアトリビュートかどうかが違えばsafeでもTypeError。safe=Falseは従来どおりRuntimeError。"""
-        self.node.addAttr("amount", "double")
-        self.node.addAttr("items", "double", multi=True)
-        self.node.addAttr("vec", "double3")
-        self.node.addAttr("mode", "enum", enumName="a:b")
+        self.node.addAttr("amount", type="double")
+        self.node.addAttr("items", type="double", multi=True)
+        self.node.addAttr("vec", type="double3")
+        self.node.addAttr("mode", type="enum", enumName="a:b")
         for args, kwargs in (
             (("amount", "string"), {}),
             (("amount", "doubleAngle"), {}),
@@ -427,13 +427,13 @@ class RerunSafeTest(_Case):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(TypeError):
                     self.node.addAttr(*args, skipExisting=True, **kwargs)
-        self.assertEqual(self.node.addAttr("vec", "double3", skipExisting=True).getType(), "double3")
-        self.assertEqual(self.node.addAttr("items", "double", multi=True, skipExisting=True).getType(), "double")
-        self.assertEqual(self.node.addAttr("mode", "enum", enumName="x:y", skipExisting=True).getEnumNames(), [("a", 0), ("b", 1)])
+        self.assertEqual(self.node.addAttr("vec", type="double3", skipExisting=True).getType(), "double3")
+        self.assertEqual(self.node.addAttr("items", type="double", multi=True, skipExisting=True).getType(), "double")
+        self.assertEqual(self.node.addAttr("mode", type="enum", enumName="x:y", skipExisting=True).getEnumNames(), [("a", 0), ("b", 1)])
         with self.assertRaises(RuntimeError):
-            self.node.addAttr("amount", "double")
+            self.node.addAttr("amount", type="double")
         with self.assertRaises(TypeError):
-            self.node.addAttr("amount", "double", skipExisting=1)
+            self.node.addAttr("amount", type="double", skipExisting=1)
 
     def test_connect_safe(self):
         """同じ接続があれば何もせず接続先を返す。別の入力・ロックは従来どおりRuntimeError。"""
@@ -493,7 +493,7 @@ class RerunSafeTest(_Case):
         first = self.node.addConstraint(self.other, type="point")
         second = self.node.addConstraint(self.other, type="point")
         self.assertEqual(first, second)
-        driver = self.node.addAttr("drive", "double")
+        driver = self.node.addAttr("drive", type="double")
         key = DrivenKey(driver, self.node.getPlug("sy"))
         key.setKey(1.0, 2.0)
         key.setKey(1.0, 3.0)

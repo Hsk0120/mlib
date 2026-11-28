@@ -686,7 +686,7 @@ class Quaternion(om2.MQuaternion):
         sx, sy, sz, sw = p.x + q.x, p.y + q.y, p.z + q.z, p.w + q.w
         return 4.0 * math.atan2(math.sqrt(dx * dx + dy * dy + dz * dz + dw * dw), math.sqrt(sx * sx + sy * sy + sz * sz + sw * sw))
 
-    def slerp(self, other, t, spin=0):
+    def slerp(self, other, t, *, spin=0):
         """別のクォータニオンとの球面線形補間を返す。
 
         om2の静的メソッド ``MQuaternion.slerp(p, q, t, spin=0)`` を上書きする。

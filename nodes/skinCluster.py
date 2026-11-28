@@ -114,7 +114,7 @@ class SkinCluster(GeometryFilter):
         先頭のジオメトリだけを扱う。Mesh・NURBSカーブ/サーフェスのウェイトを扱う。
 
         Args:
-            node (str | Node | om2.MObject | om2.MDagPath): skinClusterの名前、mlibのオブジェクト、またはAPIのオブジェクト。
+            node (Node | str | om2.MObject | om2.MDagPath): skinClusterの名前、mlibのオブジェクト、またはAPIのオブジェクト。
 
         Returns:
             None: 値を返さない。
@@ -573,7 +573,7 @@ class SkinCluster(GeometryFilter):
         通常Undoに対応する。fast引数は持たない(1回のskinClusterコマンドを使うため)。
 
         Args:
-            influence (Node | str): 登録済みのインフルエンス。
+            influence (str | Node): 登録済みのインフルエンス。
             value (float): 0.1以上10以下の有限な減衰率。
 
         Returns:
@@ -961,7 +961,7 @@ class SkinCluster(GeometryFilter):
             return False
         return any(self._path_uuid(path) == uuid for path in self._skin_fn.influenceObjects())
 
-    def getInfluenceVertices(self, influence, threshold=0.0):
+    def getInfluenceVertices(self, influence, *, threshold=0.0):
         """インフルエンスがウェイトを持っている、先頭のMeshの頂点を取得する。
 
         MayaのSelect Influence Verticesに当たる。``MFnSkinCluster.getPointsAffectedByInfluence`` の結果から、
@@ -1493,7 +1493,7 @@ class SkinCluster(GeometryFilter):
         _require_bool(fast, "fast")
         _require_bool(check, "check")
         self._require_choice(method, "method", ("index", "position"))
-        saved, nodes, report = self._prepare_weights_data(data, NameMapping(nameMap, replace, namespaceMap), method)
+        saved, nodes, report = self._prepare_weights_data(data, NameMapping(nameMap, replace=replace, namespaceMap=namespaceMap), method)
         if check:
             # インフルエンスの追加より前に、全部の頂点の要素を確かめる(何も変えずに止めるため)。
             logical = [self._skin_fn.indexForInfluenceObject(path) for path in self._skin_fn.influenceObjects()]
@@ -1567,7 +1567,7 @@ class SkinCluster(GeometryFilter):
         _, data = file._load(path, self._WEIGHTS_FORMAT, self._WEIGHTS_VERSION)
         return self.setWeightsData(data, nameMap=nameMap, replace=replace, namespaceMap=namespaceMap, method=method, fast=fast, check=check)
 
-    def invertShape(self, sculpted, name=None):
+    def invertShape(self, sculpted, *, name=None):
         """今のポーズで形を整えたメッシュから、スキンの変形を逆にかけた補正の形状を作る。
 
         考え方はcvShapeInverterと同じ。
@@ -1715,7 +1715,7 @@ class SkinCluster(GeometryFilter):
                 if total <= 0.0:
                     raise ValueError(f"頂点{vertex}に再配分するウェイトがありません")
                 normalized = [value / total for value in row]
-                eased = [easing.ease(value, curve) for value in normalized]
+                eased = [easing.ease(value, curve=curve) for value in normalized]
                 eased_total = sum(eased)
                 if eased_total <= 0.0:
                     raise ValueError(f"頂点{vertex}でウェイトの合計が0になりました")

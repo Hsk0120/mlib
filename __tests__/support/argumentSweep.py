@@ -34,7 +34,9 @@ import mlib.core.object
 #: 表の1行から作る段。
 STAGES = ("values", "invalid", "pairs", "calling")
 #: 段4(呼び方)で確かめる項目。
-CALLING = ("defaults", "positional", "keywordOnly")
+CALLING = ("defaults", "positional", "keywordOnly", "unknownKeyword", "aliasConflict")
+#: 段4の unknownKeyword で渡す、どのメソッドも受けない引数の名前。
+UNKNOWN_KEYWORD = "mlibSweepUnknownArgument"
 
 
 def _maya_version():
@@ -351,9 +353,15 @@ class ArgumentSweepCase(NamespaceCase):
         - ``defaults``: 省いた引数へ既定値を明示しても、省いたときと同じ(docstring と署名の既定値が、実際の動きと同じ)。
         - ``positional``: 位置で渡せる引数を位置で渡しても、名前で渡したときと同じ。
         - ``keywordOnly``: キーワード専用の引数を位置で渡すと TypeError になり、シーンは変わらない。
+        - ``unknownKeyword``: どのメソッドも受けない名前のキーワードを足すと TypeError になり、シーンは変わらない
+          (``**kwargs`` で受けて黙って捨てない。打ち間違えた引数名を見逃さない)。
+        - ``aliasConflict``: 長い名前と短縮名を同時に渡すと TypeError になり、シーンは変わらない(短縮名ごとに確かめる)。
         """
         if method.writes:
             target = self.fresh(method)
+        if kind in ("unknownKeyword", "aliasConflict"):
+            self._check_rejected(method, kind, kwargs, params, target)
+            return
         ok, result, _before, after, _resolved = self._call(method, target, kwargs, raises, "calling", undo=method.writes)
         if not ok:
             return
@@ -417,6 +425,41 @@ class ArgumentSweepCase(NamespaceCase):
             if method.reset:
                 method.reset(self, other)
         self.assertTrue(table.same(self._state(method, other), before), "TypeError のあとシーンが変わった")
+
+    def _check_rejected(self, method, kind, kwargs, params, target):
+        """段4の、渡し方の誤りが TypeError になりシーンが変わらないことを確かめる項目。"""
+        if kind == "unknownKeyword":
+            trials = [("知らないキーワード", dict(kwargs, **{UNKNOWN_KEYWORD: 1}))]
+        else:
+            trials = []
+            names = {param.name for param in params}
+            for param in params:
+                if not param.alias or param.alias not in names:
+                    continue
+                long = next(other for other in params if other.name == param.alias)
+                if param.alias in kwargs:
+                    value = kwargs[param.alias]
+                elif param.name in kwargs:
+                    value = kwargs[param.name]
+                else:
+                    candidates = long.candidates(method.valuesFor(long), long.name in method.replace)
+                    if not candidates:
+                        continue
+                    value = candidates[0]
+                trials.append((f"{param.alias} と {param.name}", dict(kwargs, **{param.alias: value, param.name: value})))
+        for label, trial in trials:
+            resolved = self._resolve(trial)
+            before = self._state(method, target)
+            try:
+                with self.assertRaises(TypeError, msg=f"{label} を渡しても TypeError にならない"):
+                    result = table.invoke(self._function(method, target), resolved)
+                    if method.context:
+                        with result:
+                            pass
+            finally:
+                if method.reset:
+                    method.reset(self, target)
+            self.assertTrue(table.same(self._state(method, target), before), f"{label}: TypeError のあとシーンが変わった")
 
     def _compares_fast(self, method, kwargs, names):
         """段3で fast=True と通常を比べるかを返す。

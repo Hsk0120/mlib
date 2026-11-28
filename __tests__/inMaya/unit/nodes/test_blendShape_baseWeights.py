@@ -27,7 +27,7 @@ class BlendShapeBaseWeightsTest(NamespaceCase):
         values[0] = 99
         self.assertEqual(blend.getTargetWeights()[0], 1.0)
         # target=None(省略)がベースのウェイト。位置引数でも同じで、ターゲットのウェイトとは別の値。
-        self.assertEqual(blend.getTargetWeights(None, base), [1.0] * 8)
+        self.assertEqual(blend.getTargetWeights(None, base=base), [1.0] * 8)
         self.assertEqual(blend.getTargetWeights(None), blend.getTargetWeights())
         blend.setTargetWeights(None, {2: 0.5})
         blend.setTargetWeights(0, {2: 0.25})
@@ -107,7 +107,7 @@ class BlendShapeBaseWeightsTest(NamespaceCase):
             blend.setTargetWeights(None, {0: 0.5}, base=target)
         name = blend.getName(full=True)
         cmds.setAttr(name + ".weight[0]", 1)
-        blend.setTargetWeights(None, {0: 0.5}, base)
+        blend.setTargetWeights(None, {0: 0.5}, base=base)
         has_generic = cmds.attributeQuery("weightList", node=name, exists=True)
         if has_generic:
             self.assertAlmostEqual(cmds.pointPosition(base + ".vtx[0]", local=True)[1], 1.5)

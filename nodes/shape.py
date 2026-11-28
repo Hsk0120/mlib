@@ -79,7 +79,7 @@ class Shape(DagNode):
                     self._require_editable_parents(target)
                 cmds.parent(self._full_name(), target._full_name(), shape=True, relative=True)
 
-    def scaleGeometry(self, scale, worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
+    def scaleGeometry(self, scale, worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), indices=None, fast=False, check=False, ws=_UNSET):
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
         Transformのマトリクスと、フェースの頂点の順は変えない。

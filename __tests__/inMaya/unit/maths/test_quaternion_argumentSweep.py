@@ -18,9 +18,9 @@ import mlib
 mlib.reload()
 
 from support.argumentSweep import ArgumentSweepCase
-from support.argumentTable import Method
+from support.argumentTable import ErrorState, Method, same
 
-from mlib.maths import EulerRotate, Quaternion, Vector
+from mlib.maths import EulerRotate, Matrix, Quaternion, Vector
 
 
 def _host(owner, **functions):
@@ -176,6 +176,147 @@ def _expect_mirror(case, call):
     _assert_rotation(case, call.result, expected)
 
 
+def _constructor(cls):
+    """コンストラクターを、``__init__`` の署名と docstring を持つ関数にする。
+
+    クラスをそのまま ``function=`` に渡すと、署名は ``__new__`` の ``*args, **kwargs``、docstring はクラスの説明になり、
+    ``__init__`` の Args・Raises を読めない。
+    """
+
+    def construct(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    signature = inspect.signature(cls.__init__)
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = cls.__init__.__doc__
+    return construct
+
+
+def _is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _scaled(case):
+    """長さが1でないクォータニオン(正規化・長さ・逆の行に使う)。"""
+    return Quaternion(0.2, 0.4, 0.1, 2.0)
+
+
+def _negative(case):
+    """w が負の単位クォータニオン(符号をそろえる行に使う)。"""
+    return Quaternion(om2.MQuaternion(-0.1, -0.2, -0.3, -0.9).normal())
+
+
+def _parts(value):
+    """om2・mlib の値を、比べられる数の並びにする。"""
+    if isinstance(value, om2.MQuaternion):
+        return [value.x, value.y, value.z, value.w]
+    if isinstance(value, om2.MEulerRotation):
+        return [value.x, value.y, value.z, value.order]
+    if isinstance(value, tuple):
+        return [_parts(item) for item in value]
+    return value if isinstance(value, float) else list(value)
+
+
+_SAMPLE_MATRIX = Matrix(translate=(1.0, 2.0, 3.0), rotate=(0.1, 0.2, 0.3), scale=(1.0, 2.0, 3.0))
+#: コンストラクターの位置引数の候補(なし・4成分・並び・コピー・角度と軸・2つの方向・オイラー回転・マトリクス)。
+INIT_ARGS = (
+    (),
+    (0.1, 0.2, 0.3, 0.9),
+    ((0.0, 0.7071, 0.0, 0.7071),),
+    ([0, 0, 0, 1],),
+    (om2.MQuaternion(0.2, 0.4, 0.1, 2.0),),
+    (Quaternion(-0.1, -0.2, -0.3, -0.9),),
+    (0.7, om2.MVector(1.0, 2.0, 0.5)),
+    (om2.MVector(1.0, 0.0, 0.0), om2.MVector(0.0, 1.0, 0.0)),
+    (om2.MVector(1.0, 0.0, 0.0), Vector(0.0, 1.0, 1.0), 0.5),
+    (om2.MEulerRotation(0.1, 0.2, 0.3, om2.MEulerRotation.kYZX),),
+    (EulerRotate(0.3, 0.2, 0.1, order="zxy"),),
+    (om2.MMatrix(_SAMPLE_MATRIX),),
+    (_SAMPLE_MATRIX,),
+)
+#: コンストラクターのキーワード引数の候補。
+INIT_KWARGS = ({}, {"w": 0.5}, {"x": 0.5, "y": -0.5}, {"x": 0, "y": 1, "z": 0, "w": 0})
+#: コンストラクターの誤った位置引数(成分が数でない・成分の数が多い)と、誤ったキーワード引数(知らない名前・数でない成分)。
+INIT_ARGS_INVALID = (("a", 0.0, 0.0, 1.0), ("abc",), (None,), (1.0, 2.0, 3.0, 4.0, 5.0), (object(),))
+INIT_KWARGS_INVALID = ({"v": 1.0}, {"x": "a"})
+#: squad の両端と制御点(単位クォータニオン)。
+_P = om2.MQuaternion()
+_A = om2.MQuaternion(0.3, om2.MVector(1.0, 0.0, 0.0))
+_B = om2.MQuaternion(0.8, om2.MVector(0.0, 1.0, 0.0))
+_Q = om2.MQuaternion(1.2, om2.MVector(0.0, 1.0, 1.0))
+SQUADS = ((_P, _A, _B, _Q, 0.5), (_P, _A, _B, _Q, 0.0), (Quaternion(_P), Quaternion(_A), Quaternion(_B), Quaternion(_Q), 0.25), (_P, _A, _B, _Q, 0.75, 1))
+SQUAD_POINTS = ((_P, _A, _Q), (Quaternion(_A), Quaternion(_B), Quaternion(_Q)), (_Q, _B, _P))
+#: 0のクォータニオンで ValueError になる行の指定。
+ZERO = (ErrorState("0のクォータニオン", lambda case, target: Quaternion(0.0, 0.0, 0.0, 0.0), ValueError),)
+
+
+def _expect_init(case, call):
+    """キーワードが無ければ om2 の同じ計算、あれば位置引数の続きをキーワードで埋めた成分と同じ。"""
+    args, kwargs = call.kwargs.get("args", ()), call.kwargs.get("kwargs", {})
+    case.assertIs(type(call.result), Quaternion)
+    if kwargs:
+        if not all(_is_number(value) for value in args):
+            return
+        filled = dict(zip("xyzw", args), **kwargs)
+        expected = [filled.get(name, default) for name, default in zip("xyzw", (0.0, 0.0, 0.0, 1.0))]
+    elif len(args) == 1 and isinstance(args[0], om2.MEulerRotation):
+        expected = _parts(om2.MEulerRotation.asQuaternion(args[0]))
+    elif len(args) == 1 and isinstance(args[0], om2.MMatrix):
+        expected = _parts(om2.MTransformationMatrix(om2.MMatrix(args[0])).rotation(asQuaternion=True))
+    else:
+        expected = _parts(om2.MQuaternion(*args))
+    case.assertSequenceAlmostEqual(_parts(call.result), expected)
+
+
+def _same_as(name, kind=Quaternion, static=False):
+    """om2.MQuaternion の同じ名前のメソッドを同じ引数で呼んだ結果と同じで、戻り値は kind の型(static は静的メソッド)。"""
+
+    def expect(case, call):
+        args = call.kwargs.get("args", ())
+        function = getattr(om2.MQuaternion, name)
+        expected = function(*args) if static else function(_mq(call.target), *args)
+        if isinstance(kind, tuple):
+            case.assertEqual(tuple(type(item) for item in call.result), kind)
+        else:
+            case.assertIs(type(call.result), kind)
+        case.assertTrue(same(_parts(call.result), _parts(expected), 9), f"om2.MQuaternion.{name} と違う: {call.result!r} と {expected!r}")
+
+    return expect
+
+
+def _expect_length(case, call):
+    q = call.target
+    case.assertAlmostEqual(call.result, math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w), places=12)
+
+
+def _expect_length_sq(case, call):
+    q = call.target
+    case.assertAlmostEqual(call.result, q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w, places=12)
+
+
+def _expect_canonical(case, call):
+    """軸は長さ1・角度は0〜piで、om2 で軸と角度から作り直すと同じ回転になる。"""
+    axis, angle = call.result
+    case.assertIs(type(axis), Vector)
+    case.assertAlmostEqual(om2.MVector(axis).length(), 1.0, places=9)
+    case.assertTrue(0.0 <= angle <= math.pi)
+    _assert_rotation(case, om2.MQuaternion(angle, om2.MVector(axis)), call.target)
+
+
+def _expect_unit_matrix(case, call):
+    case.assertIs(type(call.result), Matrix)
+    case.assertSequenceAlmostEqual(list(call.result), list(_mq(call.target).normal().asMatrix()))
+
+
+def _expect_safe_log(case, call):
+    """w が負なら符号を反転してから、om2 の log を呼んだ値と同じ。"""
+    source = _mq(call.target)
+    if source.w < 0.0:
+        source.negateIt()
+    case.assertIs(type(call.result), Quaternion)
+    case.assertSequenceAlmostEqual(_parts(call.result), _parts(source.log()))
+
+
 METHODS = (
     Method(
         "fromAxisAngle",
@@ -288,6 +429,32 @@ METHODS = (
         state=_value,
         writes=False,
     ),
+    Method(
+        "__init__",
+        _rotation,
+        function=_constructor(Quaternion),
+        values={"*": INIT_ARGS, "**": INIT_KWARGS},
+        invalid={"*": INIT_ARGS_INVALID, "**": INIT_KWARGS_INVALID},
+        expect=_expect_init,
+        state=_value,
+        writes=False,
+    ),
+    Method("squad", _rotation, args=SQUADS[0], values={"*": SQUADS}, expect=_same_as("squad", static=True), state=_value, writes=False),
+    Method("squadPt", _rotation, args=SQUAD_POINTS[0], values={"*": SQUAD_POINTS}, expect=_same_as("squadPt", static=True), state=_value, writes=False),
+    Method("length", _scaled, expect=_expect_length, state=_value, writes=False),
+    Method("lengthSq", _scaled, expect=_expect_length_sq, state=_value, writes=False),
+    Method("unit", _scaled, expect=_same_as("normal"), state=_value, writes=False, errors=ZERO),
+    Method("conjugate", _scaled, expect=_same_as("conjugate"), state=_value, writes=False),
+    Method("inverse", _scaled, expect=_same_as("inverse"), state=_value, writes=False, errors=ZERO),
+    Method("asCanonicalAxisAngle", _negative, expect=_expect_canonical, state=_value, writes=False, errors=ZERO),
+    Method("asUnitMatrix", _scaled, expect=_expect_unit_matrix, state=_value, writes=False, errors=ZERO),
+    Method("normal", _scaled, expect=_same_as("normal"), state=_value, writes=False),
+    Method("exp", _rotation, expect=_same_as("exp"), state=_value, writes=False),
+    Method("log", _rotation, expect=_same_as("log"), state=_value, writes=False),
+    Method("safeLog", _negative, expect=_expect_safe_log, state=_value, writes=False),
+    Method("asMatrix", _rotation, expect=_same_as("asMatrix", Matrix), state=_value, writes=False),
+    Method("asEulerRotation", _rotation, expect=_same_as("asEulerRotation", EulerRotate), state=_value, writes=False),
+    Method("asAxisAngle", _rotation, expect=_same_as("asAxisAngle", (Vector, float)), state=_value, writes=False),
 )
 
 

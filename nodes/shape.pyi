@@ -49,7 +49,7 @@ class Shape(DagNode):
                 (Mayaが名前を付け直す規則を再現しないため)。
         """
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """メッシュの頂点やNURBSのCVを、指定した中心で拡大・縮小する。
 
         Transformのマトリクスと、フェースの頂点の順は変えない。

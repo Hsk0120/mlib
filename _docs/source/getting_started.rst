@@ -142,9 +142,9 @@ Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Maya�
 同じ名前の引数は、どのメソッドでも同じ働き・同じ渡し方・同じ既定値です。
 名前ごとの決まりと、使えるメソッドの一覧は :doc:`arguments` にまとめています。
 
-位置で渡すのは、そのメソッドの主な値(書き込む値・対象)と ``worldSpace``・``state`` だけです。
-ほかの指定はキーワードで渡します。オン・オフを選ぶ引数を位置で並べると読み違えるため、
-``worldSpace``・``state`` 以外の bool の引数は、位置で渡すと ``TypeError`` になります。
+位置で渡せるのは、必須の引数・最初の引数(そのメソッドの主な値)・``worldSpace``・``state`` だけです。
+既定値つきのほかの引数は、``maya.cmds`` のフラグと同じくキーワードで渡します。数や bool を位置で並べると
+読み違えるためで、位置で渡すと ``TypeError`` になります。
 
 .. code-block:: python
 
@@ -155,6 +155,9 @@ Mayaのコマンドのフラグを受け取る入口(``mlib.ls`` 等)は、Maya�
    node.matchTransform(target, rotation=False)       # matchTransform(target, True, False) とは書けない
    shape = node.getShape(index=1)                    # 番号・種類を選ぶ引数もキーワード
    node.getType(inherited=True)
+   curve = mlib.createCurve(points, degree=1)        # 作成関数も、対象のあとはキーワード
+   matrix = mlib.Matrix.compose((1, 2, 3), rotate=(0, 0, 90), scale=(2, 2, 2))
+   node.setTranslation(5.0, at=1)                    # translateY だけ
 
 値を書き込むメソッドに共通の引数は、次の3つです。どれもキーワード専用で、既定は ``False`` です。
 

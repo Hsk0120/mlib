@@ -15,7 +15,7 @@ import mlib
 mlib.reload()
 
 from support.argumentSweep import ArgumentSweepCase
-from support.argumentTable import Method
+from support.argumentTable import DELETED_NODE, MISSING_NAME, Lazy, Method
 
 #: 書き込むメソッドの段3の組の上限。
 WRITE_LIMIT = 40
@@ -71,6 +71,56 @@ def _expect_set_weight(case, call):
         case.assertAlmostEqual(cmds.getAttr(_full(call) + "." + alias), call.kwargs["weight"], places=6)
 
 
+def _target(prefix):
+    return Lazy(lambda case: mlib.getNode(cmds.ls(case.ns + ":" + prefix + "*", long=True, type="transform")[0]), f"<{prefix}>")
+
+
+def _target_name(prefix):
+    return Lazy(lambda case: cmds.ls(case.ns + ":" + prefix + "*", long=True, type="transform")[0], f"'<{prefix}の名前>'")
+
+
+TARGET_A = _target("targetA")
+TARGET_B = _target("targetB")
+#: コンストレイントされる側(ターゲットとして登録されていないノード)。
+DRIVEN = _target("driven")
+
+
+def _make_weighted(case):
+    """ターゲットごとにウェイトが違う parentConstraint。"""
+    constraint = _make_constraint(case)
+    full = constraint.getName(full=True)
+    for alias, value in zip(cmds.parentConstraint(full, query=True, weightAliasList=True), (0.25, 0.75)):
+        cmds.setAttr(full + "." + alias, value)
+    return constraint
+
+
+def _expect_targets(case, call):
+    expected = cmds.parentConstraint(_full(call), query=True, targetList=True)
+    case.assertEqual([cmds.ls(str(node))[0] for node in call.result], expected)
+
+
+def _expect_weights(case, call):
+    full = _full(call)
+    names = [cmds.ls(name, long=True)[0] for name in cmds.parentConstraint(full, query=True, targetList=True)]
+    aliases = cmds.parentConstraint(full, query=True, weightAliasList=True)
+    weights = {name: cmds.getAttr(full + "." + alias) for name, alias in zip(names, aliases)}
+    targets = call.kwargs.get("targets", ())
+    expected = [weights[cmds.ls(str(target), long=True)[0]] for target in targets] if targets else [weights[name] for name in names]
+    case.assertSequenceAlmostEqual(call.result, expected, places=6)
+
+
+def _expect_remove_target(case, call):
+    removed = {cmds.ls(str(target), long=True)[0] for target in call.kwargs["targets"]}
+    constraints = cmds.ls(case.ns + ":pc*", type="parentConstraint", long=True)
+    if len(removed) == 2:
+        # 最後のターゲットまで外すと、Maya がコンストレイントそのものを削除する。
+        case.assertEqual(constraints, [])
+        return
+    remaining = {cmds.ls(name, long=True)[0] for name in cmds.parentConstraint(constraints[0], query=True, targetList=True)}
+    case.assertFalse(remaining & removed)
+    case.assertEqual(len(remaining), 2 - len(removed))
+
+
 METHODS = (
     Method("getWeightPlugs", _make_constraint, expect=_expect_weight_plugs, plural=_make_plural),
     Method(
@@ -83,6 +133,23 @@ METHODS = (
         invalid={"weight": ("a", None)},
         expect=_expect_set_weight,
         plural=_make_plural,
+        limit=WRITE_LIMIT,
+    ),
+    Method("getTargets", _make_constraint, expect=_expect_targets, plural=_make_plural),
+    Method(
+        "getWeights",
+        _make_weighted,
+        values={"targets": ((), (TARGET_A,), (TARGET_B, TARGET_A), (_target_name("targetB"),))},
+        invalid={"targets": ((DRIVEN,), (MISSING_NAME,), (DELETED_NODE,), (1.5,))},
+        expect=_expect_weights,
+    ),
+    Method(
+        "removeTarget",
+        _make_constraint,
+        args=(TARGET_A,),
+        values={"targets": ((TARGET_A,), (TARGET_B,), (_target_name("targetA"),), (TARGET_A, TARGET_B))},
+        invalid={"targets": ((), (DRIVEN,), (MISSING_NAME,), (DELETED_NODE,), (1.5,))},
+        expect=_expect_remove_target,
         limit=WRITE_LIMIT,
     ),
 )

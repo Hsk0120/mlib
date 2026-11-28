@@ -27,7 +27,7 @@ class DisconnectReferenceTest(unittest.TestCase):
 
     def _value(self, name):
         """接続に使う単位なしPlugを作る。"""
-        return mlib.createNode("network", name=name).addAttr("value", "double")
+        return mlib.createNode("network", name=name).addAttr("value", type="double")
 
     def _chain(self, prefix):
         """入力1本・出力2本の接続を作る。"""
@@ -88,7 +88,7 @@ class DisconnectReferenceTest(unittest.TestCase):
 
     def test_multi_search_keeps_specified_targets_and_other_connections(self):
         """naは指定srcに直結したマルチアトリビュートの要素だけを返し、他の入出力を残す。"""
-        array = mlib.createNode("network").addAttr("values", "double", multi=True)
+        array = mlib.createNode("network").addAttr("values", type="double", multi=True)
         source, other = self._value("arraySource"), self._value("arrayOther")
         first, second, independent = array[3], array[9], array[15]
         first.connect(source)
@@ -162,7 +162,7 @@ class DisconnectReferenceTest(unittest.TestCase):
     def test_fast_multi_force_restores_locks_and_keeps_other_connections(self):
         """fastのマルチアトリビュートの検索もunlock/naを保ち、上位と要素のロックを復元する。"""
         source, other = self._value("fastArraySource"), self._value("fastArrayOther")
-        array = mlib.createNode("network").addAttr("values", "double", multi=True)
+        array = mlib.createNode("network").addAttr("values", type="double", multi=True)
         first, second, independent = array[3], array[9], array[15]
         first.connect(source)
         second.connect(source)

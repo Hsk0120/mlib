@@ -10,7 +10,7 @@ from mlib.nodes.node import Node
 from mlib.nodes.nurbsSurface import NurbsSurface
 
 
-def createNurbsPlane(width: float = ..., lengthRatio: float = ..., patchesU: int = ..., patchesV: int = ..., axis: Sequence[float] = ..., degree: int = ..., *, name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., w: float = ..., lr: float = ..., u: int = ..., v: int = ..., ax: Sequence[float] = ..., d: int = ...) -> NurbsSurface:
+def createNurbsPlane(width: float = ..., *, lengthRatio: float = ..., lr: float = ..., patchesU: int = ..., u: int = ..., patchesV: int = ..., v: int = ..., axis: Sequence[float] = ..., ax: Sequence[float] = ..., degree: int = ..., d: int = ..., name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., w: float = ...) -> NurbsSurface:
     """原点を中心とするNURBSの平面を作り、そのシェイプを返す。
 
     幅はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。

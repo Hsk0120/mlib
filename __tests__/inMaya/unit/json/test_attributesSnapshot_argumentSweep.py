@@ -85,7 +85,8 @@ METHODS = (
     Method(
         "capture",
         _capturer,
-        args=(NODES[0], ["translateX"]),
+        args=(NODES[0],),
+        kwargs={"attributes": ["translateX"]},
         values={"nodes": NODES, "attributes": (["translateX"], ("tx", "extra"), ["translate"], ["rotate", "visibility"], "translateY", ["nowhere"], None, [])},
         replace=("nodes", "attributes"),
         invalid={

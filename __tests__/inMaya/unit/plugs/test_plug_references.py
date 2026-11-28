@@ -142,7 +142,7 @@ class PlugSimplificationTest(unittest.TestCase):
         """generic参照は常にPlugで、再取得せず行列・数値・組を読み分ける。"""
         source = mlib.createNode("transform")
         source.setTranslation((2, 3, 4), at=4)
-        number = mlib.createNode("network").addAttr("value", "double", defaultValue=7)
+        number = mlib.createNode("network").addAttr("value", type="double", defaultValue=7)
         choice = mlib.createNode("choice")
         choice.getPlug("input")[0].connect(source.getPlug("worldMatrix")[0])
         choice.getPlug("input")[1].connect(number)
@@ -165,7 +165,7 @@ class PlugSimplificationTest(unittest.TestCase):
 
     def test_reference_and_existing_element_getters_do_not_create(self):
         """不存在参照・既存要素取得・拒否した旧引数は実体もUndoも増やさない。"""
-        array = mlib.createNode("network").addAttr("values", "double", multi=True)
+        array = mlib.createNode("network").addAttr("values", type="double", multi=True)
         cmds.flushUndo()
         with patch.object(cmds, "getAttr", side_effect=AssertionError("reference evaluated")):
             reference = array[9]
@@ -217,7 +217,7 @@ class PlugSimplificationTest(unittest.TestCase):
     def test_message_multi_is_created_by_connection_and_undoable(self):
         """messageの参照取得では作成せず、接続で要素を作ってUndoする。"""
         source = mlib.createNode("network")
-        array = mlib.createNode("network").addAttr("links", "message", multi=True)
+        array = mlib.createNode("network").addAttr("links", type="message", multi=True)
         reference = array[12]
         self.assertEqual(array.getElement(12), reference)
         self.assertNotIn(12, array)
@@ -236,7 +236,7 @@ class PlugSimplificationTest(unittest.TestCase):
 
     def test_logical_indices_remain_strict_without_materialization(self):
         """bool・範囲外の番号を拒否し、上限の未作成参照を別番号へ変換しない。"""
-        array = mlib.createNode("network").addAttr("values", "double", multi=True)
+        array = mlib.createNode("network").addAttr("values", type="double", multi=True)
         for index, error in ((True, TypeError), (1.5, TypeError), (-1, IndexError), (2147483648, IndexError), (4294967296, IndexError)):
             with self.subTest(index=index):
                 with self.assertRaises(error):

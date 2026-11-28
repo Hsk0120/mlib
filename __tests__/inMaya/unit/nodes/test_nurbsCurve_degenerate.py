@@ -51,7 +51,7 @@ class CurveDegenerateTest(NamespaceCase):
         for up in (None, (0, 1, 0)):
             with self.subTest(up=up):
                 with self.assertRaises(ValueError):
-                    shape.getMatricesAlong(3, up)
+                    shape.getMatricesAlong(3, up=up)
 
     def test_single_matrix_matches_openmaya_start(self):
         """count=1・upなしは始点のマトリクス1つで、位置と接線がom2の始点と一致する(ws=Trueはワールド空間)。"""

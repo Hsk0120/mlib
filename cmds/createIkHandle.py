@@ -42,7 +42,7 @@ def _record_chain_angles(start, end):
 
 
 def createIkHandle(
-    startJoint=_UNSET, endJoint=_UNSET, solver=_UNSET, *, name=_UNSET, n=_UNSET, curve=_UNSET, c=_UNSET, sj=_UNSET, ee=_UNSET, sol=_UNSET, **kwargs
+    startJoint=_UNSET, endJoint=_UNSET, *, solver=_UNSET, sol=_UNSET, name=_UNSET, n=_UNSET, curve=_UNSET, c=_UNSET, sj=_UNSET, ee=_UNSET, **kwargs
 ):
     """開始のjointから末端のjointまでのIKハンドルとエフェクターを作る。
 

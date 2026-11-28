@@ -65,6 +65,29 @@ def _expect_rest_rotate(case, call):
     case.assertSequenceAlmostEqual(actual, expected, places=4)
 
 
+def _make_rest(case):
+    """restRotate に値を入れた aimConstraint。"""
+    constraint = _make_aim(case)
+    cmds.setAttr(constraint.getName(full=True) + ".restRotate", 10.0, 20.0, 30.0)
+    return constraint
+
+
+def _expect_rotate_connections(case, call):
+    full = call.target.getName(full=True)
+    expected = cmds.listConnections(full + ".constraintRotate", source=False, destination=True, plugs=True) or []
+    for axis in "XYZ":
+        expected += cmds.listConnections(full + ".constraintRotate" + axis, source=False, destination=True, plugs=True) or []
+    case.assertTrue(expected)
+    case.assertEqual(sorted(cmds.ls(str(destination))[0] for _source, destination in call.result), sorted(expected))
+    for source, _destination in call.result:
+        case.assertTrue(str(source).rpartition(".")[2].startswith("constraintRotate"))
+
+
+def _expect_get_rest_rotate(case, call):
+    actual = cmds.getAttr(call.target.getName(full=True) + ".restRotate")[0]
+    case.assertSequenceAlmostEqual(list(call.result.asDegrees()), actual, places=4)
+
+
 METHODS = (
     Method(
         "setRestRotate",
@@ -85,6 +108,8 @@ METHODS = (
         plural=_make_plural,
         limit=WRITE_LIMIT,
     ),
+    Method("getRotateConnections", _make_aim, expect=_expect_rotate_connections),
+    Method("getRestRotate", _make_rest, expect=_expect_get_rest_rotate),
 )
 
 

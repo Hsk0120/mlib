@@ -16,7 +16,7 @@ from ..util import _UNSET
 _REJECTED_FLAGS = frozenset(("attribute", "query", "q", "edit", "e"))
 
 
-def bakeResults(nodes, attributes=_UNSET, time=_UNSET, sampleBy=_UNSET, *, at=_UNSET, t=_UNSET, sb=_UNSET, **kwargs):
+def bakeResults(nodes, *, attributes=_UNSET, at=_UNSET, time=_UNSET, t=_UNSET, sampleBy=_UNSET, sb=_UNSET, **kwargs):
     """アトリビュートの動きをキーへ焼き込み、そのアニメーションカーブを返す。
 
     コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、

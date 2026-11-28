@@ -7,6 +7,7 @@ import sys
 import unittest
 
 import maya.cmds as cmds
+import maya.mel as mel
 
 import mlib
 
@@ -104,6 +105,34 @@ def _expect_solver(case, call):
     case.assertEqual(cmds.nodeType(solver), call.kwargs["solver"])
 
 
+def _make_moved(case):
+    """FK で根元を回し、ハンドルがエフェクターから離れた IK ハンドル。
+
+    snapEnable をオフにしておく(オンのままだと、Maya が評価のたびにハンドルをエフェクターへ寄せ、呼ぶ前後で状態が変わらない)。
+    """
+    handle = _make_handle(case)
+    cmds.setAttr(handle.getName(full=True) + ".snapEnable", False)
+    cmds.setAttr(handle.getName(full=True) + ".ikBlend", 0.0)
+    cmds.setAttr(_ls(case, "j1_*")[0] + ".rotateX", 30.0)
+    return handle
+
+
+def _expect_effector(case, call):
+    effector = cmds.ikHandle(_full(call), query=True, endEffector=True)
+    case.assertEqual(call.result.getName(short=True), cmds.ls(effector)[0])
+
+
+def _expect_get_solver(case, call):
+    case.assertEqual(call.result, cmds.nodeType(cmds.ikHandle(_full(call), query=True, solver=True)))
+
+
+def _expect_snap(case, call):
+    case.assertNotEqual(call.before, case.sceneState())
+    effector = cmds.ikHandle(_full(call), query=True, endEffector=True)
+    expected = cmds.xform(effector, query=True, worldSpace=True, rotatePivot=True)
+    case.assertSequenceAlmostEqual(cmds.xform(_full(call), query=True, worldSpace=True, rotatePivot=True), expected, places=5)
+
+
 METHODS = (
     Method(
         "setChain",
@@ -135,6 +164,9 @@ METHODS = (
         plural=_make_plural,
         limit=WRITE_LIMIT,
     ),
+    Method("getEffector", _make_handle, expect=_expect_effector, plural=_make_plural),
+    Method("getSolver", _make_rp_handle, expect=_expect_get_solver, plural=_make_plural),
+    Method("snapToEffector", _make_moved, expect=_expect_snap, limit=WRITE_LIMIT),
 )
 
 
@@ -142,6 +174,13 @@ class IkHandleArgumentSweepTest(ArgumentSweepCase):
     """IkHandleの公開メソッドの引数を網羅する。"""
 
     METHODS = METHODS
+
+    def setUp(self):
+        super().setUp()
+        # ikSpringSolver のソルバーノードは、初めて使うときに Maya が名前空間の外へ作り、Undo しても残る(setSolver の docstring のとおり)。
+        # このファイルだけを実行しても Undo の前後を比べられるよう、先に用意しておく。
+        if not cmds.ls(type="ikSpringSolver"):
+            mel.eval("ikSpringSolver")
 
 
 if __name__ == "__main__":

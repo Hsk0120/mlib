@@ -31,7 +31,7 @@ class NameMapping:
 
     ``NameMapping()`` は名前を変えない。
     """
-    def __init__(self, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> None:
+    def __init__(self, nameMap: dict[str, str] | None = ..., *, replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ...) -> None:
         """対応づけの規則を持たせる。
 
         Args:

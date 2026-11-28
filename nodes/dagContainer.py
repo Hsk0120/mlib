@@ -98,7 +98,7 @@ class DagContainer(Transform):
         """
         Container.removeMembers(self, *members, all=all, force=force)
 
-    def createNode(self, type, name=None):
+    def createNode(self, type, *, name=None):
         """ノードを作り、このcontainerのメンバーにする。
 
         Args:
@@ -112,7 +112,7 @@ class DagContainer(Transform):
             ValueError: typeが空文字列、または文字列でない場合。
             RuntimeError: Mayaが知らないtypeの場合。unknownノードは残さない。
         """
-        return Container.createNode(self, type, name)
+        return Container.createNode(self, type, name=name)
 
     def removeContainer(self):
         """containerを解除する。

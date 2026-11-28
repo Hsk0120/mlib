@@ -48,6 +48,24 @@ def _make_orient(case):
     return mlib.getNode(cmds.ls(constraint, long=True)[0])
 
 
+def _make_cached(case):
+    """補間キャッシュを作った orientConstraint。"""
+    constraint = _make_orient(case)
+    with _InNamespace(case):
+        cmds.orientConstraint(constraint.getName(full=True), edit=True, createCache=(1, 10))
+    return constraint
+
+
+def _make_cached_plural(case):
+    singles = [_make_cached(case), _make_cached(case)]
+    return mlib.Nodes(singles), singles
+
+
+def _expect_delete_cache(case, call):
+    # キャッシュを消すと、呼ぶ前と状態(キャッシュの animCurve とその接続)が変わる。
+    case.assertNotEqual(call.before, case.sceneState())
+
+
 def _make_plural(case):
     singles = [_make_orient(case), _make_orient(case)]
     return mlib.Nodes(singles), singles
@@ -64,6 +82,8 @@ METHODS = (
         plural=_make_plural,
         limit=WRITE_LIMIT,
     ),
+    # 基底(_InterpCacheConstraint)のメソッドは、公開の派生クラス(OrientConstraint)で確かめる。
+    Method("deleteCache", _make_cached, expect=_expect_delete_cache, plural=_make_cached_plural, limit=WRITE_LIMIT),
 )
 
 

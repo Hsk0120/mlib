@@ -29,7 +29,7 @@ class BlendShapeAddTargetTest(NamespaceCase):
         cmds.undo()
         self.assertEqual(len(blend.getBaseGeometry()), 1)
         cmds.redo()
-        weight = blend.addTarget(target_a, "shared", index=5, fullWeight=2)
+        weight = blend.addTarget(target_a, name="shared", index=5, fullWeight=2)
         self.assertEqual(blend.getTargetIndex(weight), 5)
         driver = self.make(text="driver")
         cmds.setAttr(driver + ".translateX", 1)
@@ -62,7 +62,7 @@ class BlendShapeAddTargetTest(NamespaceCase):
             self.assertEqual(blend.getTargetNames(), [])
         with self.assertRaises(TypeError):
             blend.addTarget(target, index=True)
-        plug = blend.addTarget(target, "raised", index=7, fullWeight=2)
+        plug = blend.addTarget(target, name="raised", index=7, fullWeight=2)
         plug.set(2)
         self.assertAlmostEqual(cmds.pointPosition(base + ".vtx[0]", local=True)[1], 1.5)
         self.assertEqual(blend.getInBetweenWeights(7), [2.0])

@@ -102,11 +102,11 @@ class AnimCurveEditTest(_KeyCase):
 
     def test_scale_key_ranges(self):
         """scaleKey(倍率 -1 の反転を含む)も index・time で絞れる。"""
-        self.curve.scaleKey(1, 2, valuePivot=0, index=[1, 2])
+        self.curve.scaleKey(1, valueScale=2, valuePivot=0, index=[1, 2])
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
-        self.curve.scaleKey(2, 1, inputPivot=5, time=(5, 10))
+        self.curve.scaleKey(2, valueScale=1, inputPivot=5, time=(5, 10))
         self.assertSequenceAlmostEqual(self.times(), [1.0, 5.0, 15.0], places=5)
-        self.curve.scaleKey(1, -1, valuePivot=4, index=1)
+        self.curve.scaleKey(1, valueScale=-1, valuePivot=4, index=1)
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
         self.curve.scaleKey(valueScale=-1, valuePivot=0, index=0)
         self.assertEqual(self.values(), [0.0, 4.0, 8.0])
@@ -199,7 +199,7 @@ class AnimCurveEditTest(_KeyCase):
                 tangent = curve.getKeyframes(0).getTangent()
                 self.assertEqual((tangent["inTangentType"], tangent["outTangentType"]), ("linear", "linear"))
                 self.assertEqual(curve.getKeyValues(), [5.0])
-                curve.addKey(2, 1, "spline", fast=fast)
+                curve.addKey(2, 1, inTangentType="spline", fast=fast)
                 self.assertEqual(curve.getKeyframes(1).getTangent()["inTangentType"], "spline")
                 self.assertEqual(curve.getKeyframes(1).getTangent()["outTangentType"], "step")
 

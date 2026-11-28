@@ -15,7 +15,7 @@ class NodeRef:
     同じ名前が複数あれば、変換したDAGパスで絞る。ノード型が違うものは対応させない。
     """
     __hash__: None
-    def __init__(self, name: str, dagPath: str | None = ..., type: str | None = ...) -> None:
+    def __init__(self, name: str, *, dagPath: str | None = ..., type: str | None = ...) -> None:
         """記録する値を持たせる。
 
         Args:

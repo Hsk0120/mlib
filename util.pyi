@@ -61,7 +61,7 @@ def legalizeName(name: str) -> str:
     """
     ...
 
-def measure(operation: Callable[..., Any], samples: int = ..., warmup: int = ...) -> dict:
+def measure(operation: Callable[..., Any], *, samples: int = ..., warmup: int = ...) -> dict:
     """処理にかかる時間を、秒で計測する。
 
     Args:
@@ -480,7 +480,7 @@ class _PointGrid:
         points (Sequence[Sequence[float]]): 3成分の点の並び。空でないこと。
     """
     def __init__(self, points) -> None: ...
-    def nearest(self, point: Sequence[float], maxDistance: float | None = ...) -> tuple[int | None, float]:
+    def nearest(self, point: Sequence[float], *, maxDistance: float | None = ...) -> tuple[int | None, float]:
         """最も近い点の番号と距離を返す。
 
         Args:

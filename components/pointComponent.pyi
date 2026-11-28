@@ -174,7 +174,7 @@ class PointComponents(Components):
             NotImplementedError: fast=Trueで、Shapeに入力のヒストリがある場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
+    def mirror(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> None:
         """持っている頂点/CVを、指定した空間の中心pivotで反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。

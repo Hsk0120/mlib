@@ -56,9 +56,38 @@ def _set_times(values):
     cmds.currentTime(current)
 
 
+def _preserved():
+    with Time.preserved() as original:
+        cmds.currentTime(original + 7.0)
+        inside = cmds.currentTime(query=True)
+    return [original, inside, cmds.currentTime(query=True)]
+
+
+# 表は関数の docstring から Args・Raises を読むので、中で時刻を変えてから抜ける入れ物にも、Time.preserved の docstring を持たせる。
+_preserved.__doc__ = Time.preserved.__doc__
+
+
+def _preserved_error():
+    """Time.preserved の中で時刻を変えてから例外で抜け、抜けた後の時刻を返す。"""
+    try:
+        with Time.preserved() as original:
+            cmds.currentTime(original - 3.0)
+            raise KeyError("mlibSweep")
+    except KeyError:
+        return cmds.currentTime(query=True)
+
+
 def _functions(case):
     _set_times([5.0, 1.0, 48.0, -10.0, 100.0])
-    return _host("Time", getCurrent=Time.getCurrent, setCurrent=Time.setCurrent, getRange=Time.getRange, setRange=Time.setRange)
+    return _host(
+        "Time",
+        getCurrent=Time.getCurrent,
+        setCurrent=Time.setCurrent,
+        getRange=Time.getRange,
+        setRange=Time.setRange,
+        isPlaying=Time.isPlaying,
+        preserved=_preserved,
+    )
 
 
 def _state(case, target):
@@ -103,6 +132,19 @@ def _expect_set_range(case, call):
     flags = ("animationStartTime", "animationEndTime") if kwargs.get("animation") else ("minTime", "maxTime")
     actual = [cmds.playbackOptions(query=True, **{flag: True}) for flag in flags]
     case.assertSequenceAlmostEqual(actual, [_frames(kwargs["start"], unit), _frames(kwargs["end"], unit)], places=4)
+
+
+def _expect_is_playing(case, call):
+    case.assertIs(call.result, bool(cmds.play(query=True, state=True)))
+
+
+def _expect_preserved(case, call):
+    """入るときに今の時刻を受け取り、中で変えた時刻は、抜けると元へ戻る(例外で抜けても戻る)。"""
+    original, inside, after = call.result
+    case.assertAlmostEqual(original, 5.0, places=6)
+    case.assertAlmostEqual(inside, 12.0, places=6)
+    case.assertAlmostEqual(after, 5.0, places=6)
+    case.assertAlmostEqual(_preserved_error(), 5.0, places=6)
 
 
 UNITS = ("frame", "sec")
@@ -171,6 +213,9 @@ METHODS = (
         state=_state,
         known=KNOWN_SET_RANGE,
     ),
+    Method("isPlaying", _functions, expect=_expect_is_playing, state=_state),
+    # 表の対象は、with の中で時刻を変えてから抜ける入れ物(_preserved)。抜けた後の時刻は入る前と同じなので、読むだけの行として扱う。
+    Method("preserved", _functions, expect=_expect_preserved, state=_state, writes=False),
 )
 
 

@@ -22,7 +22,7 @@ mlib.reload()
 from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Lazy, Method
 
-from mlib.json import NameMapping, PoseSnapshot, ValidationReport
+from mlib.json import Header, NameMapping, PoseSnapshot, Snapshot, ValidationReport
 
 TEMP = pathlib.Path(__file__).resolve().parents[3] / "_output" / "temp"
 
@@ -41,6 +41,24 @@ def _host(owner, **functions):
         return method
 
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
+
+
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
+
+
+def _base(case):
+    """基底の Snapshot.capture を呼ぶ対象を返す。"""
+    return _host("Snapshot", capture=Snapshot.capture)
 
 
 class _PathLike:
@@ -126,6 +144,56 @@ def _expect_load(case, call):
         case.assertAlmostEqual(attrs[node][attr], value, places=6)
 
 
+def _expect_report(case, call):
+    """作ったばかりの報告は空で、valid。"""
+    case.assertIs(type(call.result), ValidationReport)
+    case.assertEqual((call.result.missing, call.result.skipped, call.result.errors), ([], [], []))
+    case.assertTrue(call.result.valid)
+
+
+def _expect_init(case, call):
+    """データをコピーして持ち(渡した辞書を後で変えても変わらない)、header は渡したものをそのまま持つ。"""
+    data = call.kwargs["data"]
+    case.assertIs(type(call.result), PoseSnapshot)
+    case.assertEqual(call.result.toData(), data)
+    case.assertIs(call.result.header, call.kwargs.get("header"))
+    kept = call.result.toData()
+    data["nodes"].append("changed")
+    try:
+        case.assertEqual(call.result.toData(), kept)
+    finally:
+        data["nodes"].pop()
+
+
+def _expect_to_data(case, call):
+    """取得した値を持つ辞書のコピー(変えても、スナップショットは変わらない)。"""
+    case.assertIsInstance(call.result, dict)
+    attrs = {entry["node"]["name"].split(":")[-1]: entry["attrs"] for entry in call.result["nodes"]}
+    for node, attr, value in VALUES:
+        case.assertAlmostEqual(attrs[node][attr], value, places=6)
+    call.result["nodes"].clear()
+    case.assertEqual(len(call.target.toData()["nodes"]), 2)
+
+
+#: Snapshot を作るときのデータの候補(PoseSnapshot の形)。辞書は呼ぶたびに作る。
+POSE_DATA = (
+    Lazy(lambda case: {"nodes": []}, "{'nodes': []}"),
+    Lazy(lambda case: {"nodes": [{"node": {"name": "chrA:root"}, "attrs": {"translateX": 1.5, "visibility": True}}], "extra": 1}, "<1ノードのポーズ>"),
+    Lazy(lambda case: PoseSnapshot.capture([case.name("root"), case.name("arm")]).toData(), "<取得したポーズ>"),
+)
+POSE_DATA_INVALID = (
+    None,
+    "abc",
+    1.5,
+    Lazy(lambda case: [("nodes", [])], "[('nodes', [])]"),
+    Lazy(lambda case: {}, "{}"),
+    Lazy(lambda case: {"nodes": {}}, "{'nodes': {}}"),
+    Lazy(lambda case: {"nodes": [1]}, "{'nodes': [1]}"),
+    Lazy(lambda case: {"nodes": [{"node": {"name": "x"}, "attrs": {"translateX": "a"}}]}, "<値が文字列のポーズ>"),
+    Lazy(lambda case: {"nodes": [{"node": {"name": "x"}, "attrs": {"": 1.0}}]}, "<名前が空のポーズ>"),
+)
+
+
 def _expect_warn(case, call):
     case.assertIsNone(call.result)
 
@@ -173,6 +241,28 @@ class _TempFolderCase(ArgumentSweepCase):
 
 
 METHODS = (
+    Method("__init__", _report, function=_constructor(ValidationReport), expect=_expect_report, writes=False, variant="report"),
+    Method(
+        "__init__",
+        _build,
+        function=_constructor(PoseSnapshot),
+        args=(POSE_DATA[0],),
+        values={"data": POSE_DATA, "header": (None, Header("mlib.pose", 1), Header("mlib.pose", 1, mlib="0.0.1", maya="2027", fps=24.0))},
+        replace=("data", "header"),
+        invalid={"data": POSE_DATA_INVALID, "header": ("mlib.pose", 1.5, {"format": "mlib.pose", "version": 1})},
+        expect=_expect_init,
+        writes=False,
+    ),
+    Method(
+        "capture",
+        _base,
+        writes=False,
+        skipCalling={
+            "unknownKeyword": "基底の capture は、種類ごとの capture の引数をそのまま受ける形(*args・**kwargs)で、"
+            "どの引数でも NotImplementedError にする(TypeError にはならない)"
+        },
+    ),
+    Method("toData", _build, expect=_expect_to_data, writes=False),
     Method("validate", _build, values=MAPPING_VALUES, replace=MAPPING_NAMES, invalid=MAPPING_INVALID, expect=_expect_validate, writes=False, limit=60),
     Method("apply", _build, values=MAPPING_VALUES, replace=MAPPING_NAMES, invalid=MAPPING_INVALID, expect=_expect_apply, limit=60),
     Method(

@@ -7,6 +7,7 @@ Undo の性質は当てはまらない。newFile・openFile・save は今のシ�
 """
 
 import inspect
+import os
 import pathlib
 import shutil
 import sys
@@ -118,8 +119,68 @@ def _exporter(case):
     return _ScenePath(str(case.folder / "export.ma"))
 
 
+def _queries(case):
+    """名前の無い(一度も保存していない)新しいシーンにして、getCurrent・isModified を呼ぶ対象を返す。"""
+    _current_case[:] = [case]
+    cmds.file(new=True, force=True)
+    _ensure_namespace(case)
+    return _host("Scene", getCurrent=Scene.getCurrent, isModified=Scene.isModified)
+
+
+def _queries_opened(case):
+    """用意した .ma を開いたシーンにして、getCurrent・isModified を呼ぶ対象を返す。"""
+    _current_case[:] = [case]
+    cmds.file(str(_asset(case)), open=True, force=True)
+    _ensure_namespace(case)
+    return _host("Scene", getCurrent=Scene.getCurrent, isModified=Scene.isModified)
+
+
+def _queries_modified(case):
+    """保存していない変更がある状態にして、isModified を呼ぶ対象を返す。"""
+    target = _queries(case)
+    _modified(case)
+    return target
+
+
+def _not_current(case):
+    """今のシーンでないファイルの Scene を返す(今のシーンは名前の無いシーン)。"""
+    _queries(case)
+    return Scene(str(_asset(case)))
+
+
+def _current(case):
+    """開いて今のシーンにしたファイルの Scene を返す(Windows では、大文字にしたパスで作る)。"""
+    _queries_opened(case)
+    path = str(_asset(case))
+    return Scene(path.upper() if sys.platform == "win32" else path)
+
+
 def _state(case, target):
     return [cmds.file(query=True, sceneName=True), len(cmds.ls())]
+
+
+def _same_path(left, right):
+    return os.path.normcase(os.path.normpath(str(left))) == os.path.normcase(os.path.normpath(str(right)))
+
+
+def _expect_get_current(case, call):
+    """cmds.file(query=True, sceneName=True) のパスの Scene。名前の無いシーンなら None。"""
+    name = cmds.file(query=True, sceneName=True)
+    if not name:
+        case.assertIsNone(call.result)
+        return
+    case.assertIs(type(call.result), Scene)
+    case.assertTrue(_same_path(call.result, name))
+    case.assertTrue(call.result.isCurrent())
+
+
+def _expect_is_modified(case, call):
+    case.assertIs(call.result, bool(cmds.file(query=True, modified=True)))
+
+
+def _expect_is_current(case, call):
+    name = cmds.file(query=True, sceneName=True)
+    case.assertIs(call.result, bool(name) and _same_path(call.target, name))
 
 
 def _expect_new(case, call):
@@ -185,6 +246,12 @@ EXPORT_NODES = (
 )
 
 METHODS = (
+    Method("getCurrent", _queries, expect=_expect_get_current, state=_state),
+    Method("getCurrent", _queries_opened, expect=_expect_get_current, state=_state, variant="opened"),
+    Method("isModified", _queries, expect=_expect_is_modified, state=_state),
+    Method("isModified", _queries_modified, expect=_expect_is_modified, state=_state, variant="modified"),
+    Method("isCurrent", _not_current, expect=_expect_is_current, state=_state),
+    Method("isCurrent", _current, expect=_expect_is_current, state=_state, variant="opened"),
     Method("newFile", _classes, invalid={"force": (1, "yes", None)}, expect=_expect_new, state=_state, writes=False),
     Method("openFile", _opener, invalid={"force": (1, "yes", None)}, expect=_expect_open, state=_state, writes=False),
     Method("save", _saver, invalid={"force": (1, "yes", None)}, expect=_expect_save, state=_state, writes=False),

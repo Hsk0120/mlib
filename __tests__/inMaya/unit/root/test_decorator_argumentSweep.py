@@ -1,8 +1,9 @@
-"""``mlib.decorator`` の公開の入口の引数を、表から網羅して確かめる(段1〜3)。
+"""``mlib.decorator`` の公開の入口の引数を、表から網羅して確かめる(段1〜4)。
 
 入口はコンテキストを返すだけなので、入れ物のクラス(:class:`_Decorators`)のメソッドで ``with`` に入り、
 中で決まった操作をしてから抜ける。段3の「Undo 1回で戻る」は、そのままチャンクの性質の確かめになる。
-引数の無い入口(nativeUnits・preservedSelection・viewportOff)は、表の呼び出しが0件なので、別のテストで確かめる。
+引数の無い入口(nativeUnits・preservedSelection・viewportOff)は、表では1回ずつ呼んで中と抜けた後の状態を確かめ、
+例外で抜けたとき・消えた選択の扱いは別のテストで確かめる。
 表の書き方と段の意味は ``support/argumentSweep.py`` と ``__tests__/README.md`` を参照する。
 """
 
@@ -67,7 +68,38 @@ def _rotate_joint(self, context):
     return [len(skins), before, cmds.xform(self.mesh + ".vtx[*]", query=True, worldSpace=True, translation=True)]
 
 
-for _name, _body in (("undoChunk", _two_edits), ("undoTransaction", _two_edits), ("preservedSkinShape", _rotate_joint)):
+def _units_inside(self, context):
+    """単位を切り替えた中で値を1つ変え、[中の距離の単位, 中の角度の単位] (om2 の番号)を返す。"""
+    with context:
+        inside = [om2.MDistance.uiUnit(), om2.MAngle.uiUnit()]
+        cmds.setAttr(self.node + ".translateX", 1.5)
+    return inside
+
+
+def _clear_selection(self, context):
+    """保護の中で値を1つ変えて選択を外し、[中の選択, 抜けたあとの選択] を返す。"""
+    with context:
+        cmds.setAttr(self.node + ".translateX", 1.5)
+        cmds.select(clear=True)
+        inside = cmds.ls(selection=True)
+    return [inside, cmds.ls(selection=True)]
+
+
+def _edit_inside(self, context):
+    """表示を止めた中で値を1つ変え、中で受け取った値を返す。"""
+    with context as value:
+        cmds.setAttr(self.node + ".translateX", 1.5)
+    return value
+
+
+for _name, _body in (
+    ("undoChunk", _two_edits),
+    ("undoTransaction", _two_edits),
+    ("preservedSkinShape", _rotate_joint),
+    ("nativeUnits", _units_inside),
+    ("preservedSelection", _clear_selection),
+    ("viewportOff", _edit_inside),
+):
     setattr(_Decorators, _name, _as_method(getattr(decorator, _name), _body))
 
 
@@ -85,6 +117,41 @@ def _skinned(case):
     cmds.skinCluster(root, case.name("tip"), mesh, toSelectedBones=True, name=case.name("skin"))
     cmds.select(clear=True)
     return _Decorators(case.make("transform", "edited"), root, mesh)
+
+
+def _millimeters(case):
+    """UI の単位を mm・deg にしてから、入れ物を返す。"""
+    cmds.currentUnit(linear="mm", angle="deg")
+    return _node(case)
+
+
+def _selected(case):
+    """値を変えるノードを選んでから、入れ物を返す。"""
+    target = _node(case)
+    cmds.select(target.node, replace=True)
+    return target
+
+
+def _expect_units(case, call):
+    """中は cm・rad で、抜けたら元の mm・deg に戻る。中で変えた値は残る。"""
+    case.assertEqual(call.result, [om2.MDistance.kCentimeters, om2.MAngle.kRadians])
+    case.assertEqual(cmds.currentUnit(query=True, linear=True), "mm")
+    case.assertEqual(cmds.currentUnit(query=True, angle=True), "deg")
+    case.assertAlmostEqual(om2.MDistance(cmds.getAttr(call.target.node + ".translateX"), om2.MDistance.kMillimeters).asCentimeters(), 1.5, places=6)
+
+
+def _expect_selection(case, call):
+    """中で外した選択は、抜けたら元に戻る。中で変えた値は残る。"""
+    inside, after = call.result
+    case.assertEqual(inside, [])
+    case.assertEqual(after, cmds.ls(call.target.node))
+    case.assertAlmostEqual(cmds.getAttr(call.target.node + ".translateX"), 1.5, places=6)
+
+
+def _expect_viewport(case, call):
+    """中の処理は行われ、with は値を渡さない。バッチでは表示を変えない(GUI の表示は unitGui のテストで確かめる)。"""
+    case.assertIsNone(call.result)
+    case.assertAlmostEqual(cmds.getAttr(call.target.node + ".translateX"), 1.5, places=6)
 
 
 def _expect_chunk(case, call):
@@ -119,6 +186,9 @@ METHODS = (
         invalid={"joints": (_joint_names("missing"), _joint_names("geo"), 1.5)},
         expect=_expect_shape,
     ),
+    Method("nativeUnits", _millimeters, expect=_expect_units),
+    Method("preservedSelection", _selected, expect=_expect_selection),
+    Method("viewportOff", _node, expect=_expect_viewport),
 )
 
 

@@ -67,7 +67,9 @@ class Constraint(Transform):
                 渡したときは渡した順に並ぶ(1つ渡しても、要素が1つのリスト)。
 
         Raises:
+            TypeError: targetsがノードとして解釈できない型の場合。
             ValueError: 渡したターゲットが登録されていない場合。
+            RuntimeError: 名前のノードが見つからない場合、またはノードが無効な場合。
         """
         ...
     def setWeight(self, weight: float, *targets: Node | str, fast: bool = ..., check: bool = ...) -> None:

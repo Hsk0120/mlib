@@ -150,7 +150,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
         cmds.addAttr(str(self.node), ln="values", at="double", multi=True)
         array = self.node.getPlug("values")
         array[4].set(12)
-        extra = self.node.addAttr("temporary", "double")
+        extra = self.node.addAttr("temporary", type="double")
         extra.set(3)
         cmds.flushUndo()
         with patch.object(cmds, "removeMultiInstance", side_effect=AssertionError("cmds remove")), patch.object(
@@ -275,7 +275,7 @@ class ConsolidatedPlugsTest(unittest.TestCase):
 
     def test_connection_undo_record_does_not_read_proxy_or_uninitialized_matrix(self):
         """定数のUndo保護がproxyや未初期化matrixの接続を妨げない。"""
-        angle = self.node.addAttr("driverAngle", "doubleAngle", dv=0.5)
+        angle = self.node.addAttr("driverAngle", type="doubleAngle", dv=0.5)
         proxy = self.node.addAttr("proxyAngle", proxy=angle)
         self.assertEqual(proxy.get(), angle.get())
         matrix = mlib.createNode("distanceBetween").getPlug("inMatrix1")

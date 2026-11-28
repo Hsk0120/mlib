@@ -156,7 +156,7 @@ class ObjectHintTest(NamespaceCase):
     check_attributeExists = check_hasAttribute
 
     def check_addAttribute(self, obj):
-        obj.addAttr("hintAdded", "double")
+        obj.addAttr("hintAdded", type="double")
         self.assertTrue(cmds.attributeQuery("hintAdded", node=str(obj), exists=True))
 
     def check_deleteAttr(self, obj):

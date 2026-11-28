@@ -50,7 +50,7 @@ def _expect_ease(case, call):
     elif t >= 1.0:
         case.assertEqual(call.result, 1.0)
     else:
-        case.assertAlmostEqual(call.result, 1.0 - easing.ease(1.0 - t, curve), places=9)
+        case.assertAlmostEqual(call.result, 1.0 - easing.ease(1.0 - t, curve=curve), places=9)
         if curve == "linear":
             case.assertAlmostEqual(call.result, t, places=12)
 

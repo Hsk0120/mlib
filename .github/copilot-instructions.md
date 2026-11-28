@@ -311,7 +311,7 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   `geometryIndex`・`transferToParent`・`removeInfluence`・`influence`・`leaves`・`children`・`includeSelf`・`sortBy`・`asPair`・`asPlug`・`asNode`・`locked`/`keyable`/`channelBox`(`setAttrFlags`・`setFlags`)・
   `normalize`・`colorSet`・`uvSet`・`vertices`・`relative`・`add`・`mode`・`missing`・`zeroScaleOrient`・`aimAxis`/`upAxis`・
   `tolerance`(ノード・コンポーネントのメソッド。数学型の `isEquivalent(other, tolerance)` などは OpenMaya と同じ位置引数のまま)と、
-  `getConnections` のフラグ全部。位置で受けるのは、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
+  `getConnections` のフラグ全部。位置で受けるのは、必須の引数・最初の引数・`worldSpace`・`state` だけ(A008。2026-11-28)。以前の言い方では、そのメソッドの主な値(書き込む値・対象・`worldSpace`・`at`)だけ。
   同じ意味の引数を、メソッドによって位置引数とキーワード専用で分けない。
 - オン・オフを受ける set の引数名は `state`、既定は True(`setLocked`・`setVisibility`・`setMuted`・
   `setShadingOverride`・`setSegmentScaleCompensate`・`setInfluenceLocked`・`Edge.setSmooth`)。
@@ -341,6 +341,12 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
   - A001: キーワード専用と決めた名前を、既定値つきの位置引数で受けない(必須の主な値は位置でよい。例外は表の `kindAllowed` に理由)。
   - A002: 既定値は表と同じにする(種類ごとに違うものは `default=VARIES` と理由、1か所だけ違うものは `defaultAllowed` に理由)。
   - A003: bool の既定値を持つ引数は、`worldSpace`・`state` を除いてキーワード専用にする(`f(True, False)` と書けて読み違えるため)。
+  - A008(2026-11-28): 既定値つきの引数は、maya.cmds のフラグと同じくキーワード専用にする。位置で渡せるのは、必須の引数・最初の引数(主な値)・
+    `worldSpace`・`state` だけ(`createCurve(points, *, degree=3)`・`Matrix.compose(translate, *, rotate=, scale=, shear=)`・`setTranslation(value, worldSpace, *, at=2)`・
+    `addAttr(longName, *, type=)`・`BlendShape.getTargetWeights(target, *, base=)`)。残すものは `POSITIONAL_ALLOWED` に理由を書く
+    (om2 と同じ `isEquivalent(other, tolerance)`、list と同じ `Components.index(value, start, stop)`、主な値の組の `Plug.setRange(minimum, maximum)`・
+    `SkinCluster.setWeights(joints, weights)`・`AnimCurve.addKey(input, value)`・`Components(shape, indices)` など)。
+  - A016: 同じ名前の引数で、型の中身が同じなら並びも同じにする(`Node | str` と `str | Node` を混ぜない。`--fix` が多い方へ揃える)。
   - A004: 表に無い名前を、2か所以上で受け方・既定値を変えて使わない(表に足して決める)。A005: 使わなくなった表の行・許可は消す。
   - A010〜A013: docstring の型は既定値を含む(None・bool・数・str)、既定値つきの引数の説明には「既定は…。」を書く(Maya のフラグを番兵で受ける入口は除く)、
     `fast`・`check`・`safe`・`skipExisting`・`skipConnected` の説明は決まり文句で始め(その後へそのメソッドだけの説明を足す)、`ws` は決まり文句だけにする。
@@ -686,6 +692,9 @@ def getFoo(self, worldSpace=_UNSET, *, ws=_UNSET):
 
 ## テスト
 
+- 公開の関数・メソッドを足したら、引数を網羅するテストの表(`__tests__/inMaya/unit/<パッケージ>/test_<ファイル名>_argumentSweep.py`)に行を足す(2026-11-28)。
+  引数の無いメソッド・コンストラクター(`Method("__init__", …)`)も対象で、`noMaya/test_argumentSweep_coverage.py` が行の無い公開 def を失敗にする。
+  行を書けない内部のクラスだけ、同じテストの `EXCLUDED` に理由を書く。
 - ドライブに依存する書き方をしない。バッチ・ツール・テストは、mlib・作業フォルダー・システムの一時フォルダー・Maya が
   別々のドライブにあっても動くようにする。
   - 作業用の一時ファイルは、システムの一時フォルダー(`%TEMP%`)ではなく手元へ作る: Maya 不要のテストと型スタブの生成は

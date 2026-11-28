@@ -38,6 +38,41 @@ def _callbacks(case):
     return callbacks
 
 
+def _registered(case):
+    """timeChanged へ1つ登録した Callbacks。"""
+    callbacks = _callbacks(case)
+    callbacks.addEventCallback("timeChanged", _record)
+    return callbacks
+
+
+def _poke_time():
+    """現在時刻を動かして戻す(timeChanged を起こす)。"""
+    frame = cmds.currentTime(query=True)
+    cmds.currentTime(frame + 1.0)
+    cmds.currentTime(frame)
+
+
+def _expect_new(case, call):
+    """作った直後は何も登録していない(時刻を変えても呼ばれず、remove も何もせずに終わる)。"""
+    case.assertIsInstance(call.result, Callbacks)
+    _calls.clear()
+    _poke_time()
+    case.assertFalse(_calls)
+    case.assertIsNone(call.result.remove())
+
+
+def _expect_removed(case, call):
+    """解除した後は、時刻を変えても呼ばれない。対象は使い回すので、次の呼び出しのために登録し直す。"""
+    case.assertIsNone(call.result)
+    _calls.clear()
+    _poke_time()
+    case.assertFalse(_calls)
+    call.target.addEventCallback("timeChanged", _record)
+    _poke_time()
+    case.assertTrue(_calls)
+    _calls.clear()
+
+
 def _expect_id(case, call):
     case.assertIsInstance(call.result, int)
     case.assertNotIsInstance(call.result, bool)
@@ -118,10 +153,16 @@ SCENE_EVENTS = (
 CALLABLES = (_record, lambda *args: _record(*args), print)
 CALLABLE_INVALID = ("print", None, 1.5)
 
+#: 登録の戻り値は、呼ぶたびに別の値になるコールバックの ID。2回の戻り値は比べられない。
+SKIP_ID = dict.fromkeys(("defaults", "positional"), "戻り値は登録のたびに変わるコールバックの ID")
+
 METHODS = (
+    Method("__init__", _callbacks, function=Callbacks, expect=_expect_new, writes=False),
+    Method("remove", _registered, expect=_expect_removed, writes=False),
     Method(
         "addSceneCallback",
         _callbacks,
+        skipCalling=SKIP_ID,
         args=("afterNew", _record),
         values={"event": SCENE_EVENTS, "callback": CALLABLES},
         replace=("event", "callback"),
@@ -132,6 +173,7 @@ METHODS = (
     Method(
         "addEventCallback",
         _callbacks,
+        skipCalling=SKIP_ID,
         args=("timeChanged", _record),
         values={"event": ("timeChanged", "SelectionChanged", "idle", "NewSceneOpened"), "callback": CALLABLES},
         replace=("event", "callback"),
@@ -142,6 +184,7 @@ METHODS = (
     Method(
         "addTimeChangeCallback",
         _callbacks,
+        skipCalling=SKIP_ID,
         args=(_record,),
         values={"callback": (_record, lambda *args: _record(*args)), "timeUnit": ("frame", "sec")},
         replace=("callback", "timeUnit"),
@@ -152,6 +195,7 @@ METHODS = (
     Method(
         "addAttributeChangedCallback",
         _callbacks,
+        skipCalling=SKIP_ID,
         args=(Lazy(lambda case: case.name("watched"), "'<名前>'"), _record),
         values={
             "node": (

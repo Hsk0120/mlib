@@ -301,8 +301,8 @@ class SkinClusterRedistributeWeightsTest(unittest.TestCase):
 
         self.skin.redistributeWeights([0, 3], curve="cubic")
 
-        eased_root = easing.ease(0.75, "cubic")
-        eased_child = easing.ease(0.25, "cubic")
+        eased_root = easing.ease(0.75, curve="cubic")
+        eased_child = easing.ease(0.25, curve="cubic")
         eased_total = eased_root + eased_child
         expected_root = eased_root / eased_total
         expected_child = eased_child / eased_total
@@ -442,7 +442,7 @@ class SkinClusterTest(_Case):
             for threshold in (0.0, 0.5):
                 with self.subTest(joint=joint, threshold=threshold):
                     expected = [index for index, row in enumerate(rows) if row[column] > threshold]
-                    vertices = skin.getInfluenceVertices(joint, threshold)
+                    vertices = skin.getInfluenceVertices(joint, threshold=threshold)
                     self.assertEqual(list(vertices.indices), expected)
                     self.assertEqual(vertices.shape.getName(full=True), cmds.listRelatives(mesh, shapes=True, fullPath=True)[0])
 
@@ -459,7 +459,7 @@ class SkinClusterTest(_Case):
         ):
             with self.subTest(args=args):
                 with self.assertRaises(error):
-                    skin.getInfluenceVertices(*args)
+                    skin.getInfluenceVertices(*args[:1], **dict(zip(("threshold",), args[1:])))
 
     def test_blend_weights_match_set_attr(self):
         """getBlendWeights は blendWeights の値と一致し、setBlendWeights は Undo 1回で戻る。"""

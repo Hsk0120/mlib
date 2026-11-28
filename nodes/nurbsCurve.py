@@ -516,7 +516,7 @@ class NurbsCurve(_ControlPointShape):
                     total += (om2.MVector(curve.getPointAtParam(param)) ^ curve.tangent(param)) * (weight * step * 0.5)
         return total.length() * 0.5
 
-    def rebuild(self, spans=None, degree=None, *, keepRange="original", keepTangents=False):
+    def rebuild(self, spans=None, *, degree=None, keepRange="original", keepTangents=False):
         """カーブを均等なスパンで作り直す(``cmds.rebuildCurve`` のuniform)。
 
         ``cmds.rebuildCurve(constructionHistory=False, replaceOriginal=True)`` で、このシェイプの形状を
@@ -828,7 +828,7 @@ class NurbsCurve(_ControlPointShape):
         curve = self._space_curve(worldSpace)
         return self._params_along(curve, count)
 
-    def getMatricesAlong(self, count, up=None, worldSpace=_UNSET, *, aimAxis="x", upAxis="y", ws=_UNSET):
+    def getMatricesAlong(self, count, worldSpace=_UNSET, *, up=None, aimAxis="x", upAxis="y", ws=_UNSET):
         """カーブに沿って等間隔に並ぶ点の向きを、マトリクスで取得する。
 
         各点で、aimAxisの軸を接線へ向けたマトリクスを返す。点の並びは :meth:`getParamsAlong` と同じ。
@@ -847,9 +847,9 @@ class NurbsCurve(_ControlPointShape):
 
         Args:
             count (int): 点の数。1以上。
-            up (Sequence[float] | om2.MVector | None): upAxisを向ける方向。worldSpaceと同じ空間で指定する。既定はNone。
             worldSpace (bool): Trueはワールド空間、Falseはローカル(オブジェクト)空間。既定はFalse。
             ws (bool): worldSpaceの短縮名。worldSpaceと同時には指定できない(TypeError)。
+            up (Sequence[float] | om2.MVector | None): upAxisを向ける方向。worldSpaceと同じ空間で指定する。既定はNone。
             aimAxis (str): 接線へ向ける軸。"x"・"y"・"z"・"-x"・"-y"・"-z"。既定は ``"x"``。
             upAxis (str): upへ向ける軸。aimAxisとは別の軸を指定する。既定は ``"y"``。
 

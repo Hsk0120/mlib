@@ -108,6 +108,7 @@ class DrivenKey:
             TypeError: Plug・MPlug・アトリビュート名のどれでもない場合。
             ValueError: スカラーでない場合、数値でない場合、または2つが同じアトリビュートの場合。
             AttributeError: アトリビュートが存在しない場合(``MissingAttributeError``)。
+            RuntimeError: ノードかアトリビュートが削除されている場合。
         """
         ...
     def __repr__(self) -> str:
@@ -182,7 +183,7 @@ class DrivenKey:
             bool: この組のカーブがつながっていればTrue。キーが無くてもTrue。
         """
         ...
-    def setKey(self, driverValue: float, value: float, inTangentType: str = ..., outTangentType: str = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
+    def setKey(self, driverValue: float, value: float, *, inTangentType: str = ..., outTangentType: str = ..., unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """ドライバーの値と駆動先の値を指定して、ドリブンキーを追加または更新する。
 
         2つの値はfloat()で数値にし、有限か確かめる。それぞれのPlugの定義に従ってUI単位へ変換し、

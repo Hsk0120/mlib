@@ -69,14 +69,14 @@ class ConsolidatedNodesTest(unittest.TestCase):
         """追加アトリビュートの型・既定値・公開統合を確認する。"""
         node = mlib.createNode("network")
         with self.api_only():
-            plug = node.addAttr("amount", "double", defaultValue=0.25, minValue=0, maxValue=1, keyable=True, fast=True)
+            plug = node.addAttr("amount", type="double", defaultValue=0.25, minValue=0, maxValue=1, keyable=True, fast=True)
             self.assertEqual(plug.get(), 0.25)
-            self.assertIsNone(node.addAttr("ignored", "bool", getPlug=False, fast=True))
-            vector = node.addAttr("offset", "double3", defaultValue=(1, 2, 3), childNames=("first", "second", "third"), fast=True)
+            self.assertIsNone(node.addAttr("ignored", type="bool", getPlug=False, fast=True))
+            vector = node.addAttr("offset", type="double3", defaultValue=(1, 2, 3), childNames=("first", "second", "third"), fast=True)
             self.assertEqual(tuple(vector.get()), (1, 2, 3))
-            text = node.addAttr("label", "string", defaultValue="sample", fast=True)
+            text = node.addAttr("label", type="string", defaultValue="sample", fast=True)
             self.assertEqual(text.get(), "sample")
-            enum = node.addAttr("mode", "enum", enumName="zero:three=3:four", defaultValue=3, fast=True)
+            enum = node.addAttr("mode", type="enum", enumName="zero:three=3:four", defaultValue=3, fast=True)
             self.assertEqual(enum.getEnumNames(current=True), "three")
             node.resetAttrs(["amount"], fast=True)
         self.assertEqual([p.getAttributeName() for p in node.getPlugs(userDefined=True, children=False)], ["amount", "ignored", "offset", "label", "mode"])
@@ -90,9 +90,9 @@ class ConsolidatedNodesTest(unittest.TestCase):
         cmds.currentUnit(linear="m", angle="deg", time="film")
         try:
             with self.api_only():
-                angle = node.addAttr("angle", "doubleAngle", defaultValue=0.4, fast=True)
-                length = node.addAttr("length", "doubleLinear", defaultValue=2.5, fast=True)
-                time = node.addAttr("time", "time", defaultValue=0.5, fast=True)
+                angle = node.addAttr("angle", type="doubleAngle", defaultValue=0.4, fast=True)
+                length = node.addAttr("length", type="doubleLinear", defaultValue=2.5, fast=True)
+                time = node.addAttr("time", type="time", defaultValue=0.5, fast=True)
                 self.assertAlmostEqual(angle.get(), 0.4)
                 self.assertAlmostEqual(length.get(), 2.5)
                 self.assertAlmostEqual(time.get(), 0.5)
@@ -117,12 +117,12 @@ class ConsolidatedNodesTest(unittest.TestCase):
         ]
         for name, kind, value, flags, error in attempts:
             with self.subTest(name=name), self.api_only(), self.assertRaises(error):
-                node.addAttr(name, kind, defaultValue=value, fast=True, **flags)
+                node.addAttr(name, type=kind, defaultValue=value, fast=True, **flags)
             self.assertFalse(node.hasAttr(name))
         with self.api_only():
-            numbers = node.addAttr("validNumbers", "doubleArray", defaultValue=[1, 2, 3], fast=True)
-            text = node.addAttr("validText", "string", defaultValue="value", fast=True)
-            matrix = node.addAttr("validMatrix", "matrix", defaultValue=mlib.Matrix(), fast=True)
+            numbers = node.addAttr("validNumbers", type="doubleArray", defaultValue=[1, 2, 3], fast=True)
+            text = node.addAttr("validText", type="string", defaultValue="value", fast=True)
+            matrix = node.addAttr("validMatrix", type="matrix", defaultValue=mlib.Matrix(), fast=True)
         self.assertEqual(list(numbers.get()), [1, 2, 3])
         self.assertEqual(text.get(), "value")
         self.assertMatrixEqual(matrix.get(), mlib.Matrix())

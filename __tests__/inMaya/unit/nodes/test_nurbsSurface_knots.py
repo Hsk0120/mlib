@@ -31,7 +31,7 @@ class SurfaceKnotsTest(NamespaceCase):
                 shape = mlib.getNode(cmds.nurbsPlane(name=self.name("surface"), constructionHistory=False, patchesU=4, patchesV=4)[0]).getShape()
                 before = shape.getKnots()
                 cmds.flushUndo()
-                shape.removeKnot(0.5, direction, all=all_knots)
+                shape.removeKnot(0.5, direction=direction, all=all_knots)
                 after = shape.getKnots()
                 self.assertNotIn(0.5, after[0 if direction == "u" else 1])
                 cmds.undo()
@@ -66,12 +66,12 @@ class SurfaceKnotsTest(NamespaceCase):
         before = [shape.getKnots() for shape in (plane, sphere, trimmed)]
         self.flushUndo()
         for label, operation, error in (
-            ("direction", lambda: plane.removeKnot(0.5, "w"), ValueError),
-            ("direction upper", lambda: plane.removeKnot(0.5, "U"), ValueError),
+            ("direction", lambda: plane.removeKnot(0.5, direction="w"), ValueError),
+            ("direction upper", lambda: plane.removeKnot(0.5, direction="U"), ValueError),
             ("not a knot", lambda: plane.removeKnot(0.3), ValueError),
-            ("end knot", lambda: plane.removeKnot(0.0, "v"), ValueError),
+            ("end knot", lambda: plane.removeKnot(0.0, direction="v"), ValueError),
             ("all type", lambda: plane.removeKnot(0.5, all=1), TypeError),
-            ("periodic v", lambda: sphere.removeKnot(2.0, "v"), NotImplementedError),
+            ("periodic v", lambda: sphere.removeKnot(2.0, direction="v"), NotImplementedError),
             ("trimmed", lambda: trimmed.removeKnot(0.5), NotImplementedError),
         ):
             with self.subTest(label=label):

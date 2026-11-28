@@ -9,21 +9,21 @@ from ..util import _UNSET, _finite_vector
 
 def createNurbsPlane(
     width=_UNSET,
-    lengthRatio=_UNSET,
-    patchesU=_UNSET,
-    patchesV=_UNSET,
-    axis=_UNSET,
-    degree=_UNSET,
     *,
+    lengthRatio=_UNSET,
+    lr=_UNSET,
+    patchesU=_UNSET,
+    u=_UNSET,
+    patchesV=_UNSET,
+    v=_UNSET,
+    axis=_UNSET,
+    ax=_UNSET,
+    degree=_UNSET,
+    d=_UNSET,
     name=_UNSET,
     n=_UNSET,
     parent=None,
     w=_UNSET,
-    lr=_UNSET,
-    u=_UNSET,
-    v=_UNSET,
-    ax=_UNSET,
-    d=_UNSET,
 ):
     """原点を中心とするNURBSの平面を作り、そのシェイプを返す。
 

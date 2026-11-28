@@ -156,7 +156,7 @@ class NurbsSurface(_ControlPointShape):
         copied.setKnotsInV(v_values, 0, len(v_values) - 1)
         self._write_surface_data(copied)
 
-    def removeKnot(self, parameter, direction="u", *, all=False):
+    def removeKnot(self, parameter, *, direction="u", all=False):
         """曲面の内側のノットを削除する。
 
         指定方向が開いた曲面だけを扱う。形状とCV数が変わる場合がある。

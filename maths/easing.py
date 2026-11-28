@@ -193,7 +193,7 @@ def _to_progress(t):
     return value
 
 
-def ease(t, curve="cubic"):
+def ease(t, *, curve="cubic"):
     """進行度 t を、指定したイージング曲線で変換した値を返す。
 
     t は [0, 1] に切り詰めてから計算するので、範囲の外の値を渡しても、

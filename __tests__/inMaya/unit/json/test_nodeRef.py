@@ -48,11 +48,11 @@ class ReferenceTest(NamespaceCase):
     def test_node_ref_type_and_ambiguity(self):
         ref = NodeRef.capture(self.joint)
         full = cmds.ls(self.joint, long=True)[0]
-        wrong_type = NodeRef(ref.name, ref.dagPath, "transform")
+        wrong_type = NodeRef(ref.name, dagPath=ref.dagPath, type="transform")
         self.assertIsNone(wrong_type.resolve())
         twin = cmds.createNode("joint", name=self.name("arm"), parent=cmds.createNode("transform", name=self.name("g")))
         self.assertEqual(ref.resolve().getName(full=True), full)
-        self.assertIsNone(NodeRef(ref.name, None, "joint").resolve())
+        self.assertIsNone(NodeRef(ref.name, dagPath=None, type="joint").resolve())
         self.assertTrue(cmds.objExists(twin))
 
     def test_plug_ref(self):
@@ -82,7 +82,7 @@ class ReferenceTest(NamespaceCase):
 
     def test_repr_and_equality(self):
         """3つの参照の表記と、ほかの型との比較を確かめる。"""
-        node = NodeRef("chrA:arm", "|chrA:arm", "joint")
+        node = NodeRef("chrA:arm", dagPath="|chrA:arm", type="joint")
         plug = PlugRef(node, "translateX")
         component = ComponentRef(node, "vtx", [1, 2, 3])
         self.assertEqual(repr(node), "NodeRef('chrA:arm', type='joint')")
@@ -94,7 +94,7 @@ class ReferenceTest(NamespaceCase):
                 self.assertIs(ref.__eq__(1), NotImplemented)
         self.assertNotEqual(plug, PlugRef(node, "translateY"))
         self.assertNotEqual(component, ComponentRef(node, "vtx", [1, 2]))
-        self.assertEqual(NodeRef("a", "", "").dagPath, None)
+        self.assertEqual(NodeRef("a", dagPath="", type="").dagPath, None)
         self.assertEqual(plug._mapped_name(NameMapping(namespaceMap={"chrA": "chrB"})), "chrB:arm.translateX")
 
     def test_invalid_arguments(self):
@@ -104,8 +104,8 @@ class ReferenceTest(NamespaceCase):
             (lambda: NodeRef(1), TypeError),
             (lambda: NodeRef(""), ValueError),
             (lambda: NodeRef("|a"), ValueError),
-            (lambda: NodeRef("a", 1), TypeError),
-            (lambda: NodeRef("a", None, 1), TypeError),
+            (lambda: NodeRef("a", dagPath=1), TypeError),
+            (lambda: NodeRef("a", dagPath=None, type=1), TypeError),
             (lambda: PlugRef("a", "tx"), TypeError),
             (lambda: PlugRef(node, 1), TypeError),
             (lambda: PlugRef(node, ""), ValueError),

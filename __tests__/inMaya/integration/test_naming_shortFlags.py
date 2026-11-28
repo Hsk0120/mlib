@@ -282,8 +282,11 @@ class RigCreatorShortFlagsTest(_ShortFlagCase):
         def probe(skin):
             return _rounded(skin.getWeights(joints), 3)
 
-        self.assertSameResult(mlib.bakeDeformer, {"maxInfluences": 2}, {"mi": 2}, probe, args=target)
-        self.assertConflict(mlib.bakeDeformer, target(), {"maxInfluences": 2, "mi": 2})
+        def bake(source, skeleton, destination, **flags):
+            return mlib.bakeDeformer(source, skeleton, destination=destination, **flags)
+
+        self.assertSameResult(bake, {"maxInfluences": 2}, {"mi": 2}, probe, args=target)
+        self.assertConflict(bake, target(), {"maxInfluences": 2, "mi": 2})
 
 
 class _Case(NamespaceCase):

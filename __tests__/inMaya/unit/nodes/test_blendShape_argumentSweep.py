@@ -307,7 +307,7 @@ def _expect_deltas(case, call):
 
 def _expect_set_deltas(case, call):
     kwargs = call.kwargs
-    actual = call.target.getTargetDeltas(kwargs["target"], kwargs.get("base"), fullWeight=kwargs.get("fullWeight", 1.0))
+    actual = call.target.getTargetDeltas(kwargs["target"], base=kwargs.get("base"), fullWeight=kwargs.get("fullWeight", 1.0))
     _compare_deltas(case, actual, {vertex: tuple(delta) for vertex, delta in kwargs["deltas"].items()})
 
 
@@ -332,7 +332,7 @@ def _vertex_indices(value):
 
 def _expect_reset(case, call):
     kwargs = call.kwargs
-    actual = call.target.getTargetDeltas(kwargs["target"], kwargs.get("base"), fullWeight=kwargs.get("fullWeight", 1.0))
+    actual = call.target.getTargetDeltas(kwargs["target"], base=kwargs.get("base"), fullWeight=kwargs.get("fullWeight", 1.0))
     if kwargs.get("tolerance") is not None:
         for delta in actual.values():
             case.assertGreater(delta.length(), kwargs["tolerance"])

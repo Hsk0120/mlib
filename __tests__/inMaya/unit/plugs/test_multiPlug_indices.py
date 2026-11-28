@@ -119,7 +119,7 @@ class MaintenanceDelegationTest(unittest.TestCase):
         node = mlib.createNode("network")
         for soft in (False, True):
             self.assertEqual(node.getPlug("message").getRange(soft=soft), (None, None))
-        removed_attribute = node.addAttr("removed", "double")
+        removed_attribute = node.addAttr("removed", type="double")
         removed_node = node.getPlug("message")
         cmds.deleteAttr(removed_attribute.getName(full=True))
         node.delete()

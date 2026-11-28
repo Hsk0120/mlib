@@ -4,6 +4,7 @@
 アトリビュートの型ごとの get・set は、型ごとのクラス(``_typed_case``)で確かめる。
 """
 
+import inspect
 import math
 import sys
 import unittest
@@ -50,6 +51,22 @@ class _SweepCase(ArgumentSweepCase):
         if ok and method.writes and isinstance(result, Object):
             result = str(result)
         return ok, result, before, after, resolved
+
+
+def _constructor(owner, doc=None):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。
+
+    doc を渡すと、その docstring を使う(Raises を ``__new__`` に書いたクラス)。
+    """
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__ if doc is None else doc
+    construct.__name__ = owner.__name__
+    return construct
 
 
 def _full(plug):
@@ -705,7 +722,60 @@ def _expect_reset(case, call):
     case.assertSequenceAlmostEqual(cmds.getAttr(_full(call.target))[0], (0.0, 0.0, 0.0))
 
 
+def _expect_init(case, call):
+    """渡したノードを持ち主にし、渡した MPlug と同じアトリビュートを指す。型はアトリビュートに合ったクラスになる。"""
+    mplug = call.kwargs["mplug"]
+    case.assertIsInstance(call.result, mlib.Plug)
+    case.assertIs(call.result.getNode(), call.kwargs["node"])
+    case.assertEqual(call.result.mplug(), mplug)
+    case.assertEqual(cmds.ls(_full(call.result), long=True), cmds.ls(mplug.name(), long=True))
+    case.assertIs(call.result.isMulti(), mplug.isArray)
+    case.assertEqual(call.result, mlib.getPlug(mplug.name()))
+
+
+def _other_node(case):
+    """持ち主でないノードを作って返す。"""
+    return mlib.getNode(case.make("transform", "other#"))
+
+
+def _other_mplug(case):
+    """持ち主でないノードの MPlug を作って返す。"""
+    selection = om2.MSelectionList()
+    selection.add(case.make("transform", "other#") + ".translateX")
+    return selection.getPlug(0)
+
+
+#: Plug を作るときの MPlug の候補(スカラー・コンパウンド・マルチ・その要素・要素の子)。
+MPLUGS = tuple(_lazy_mplug("holder1." + path, f"<MPlug {path}>") for path in ("free", "translate", "translateX", "lst", "lst[2]", "cmp", "cmp[1].val"))
+
 METHODS = (
+    Method(
+        "__init__",
+        _holder,
+        # 削除されたノードなどの RuntimeError は、クラスを選ぶ __new__ の docstring に書いてある(引数は __init__ と同じ)。
+        function=_constructor(mlib.Plug, doc=mlib.Plug.__new__.__doc__),
+        args=(Lazy(lambda case: mlib.getNode(case.name("holder1")), "<Node>"), MPLUGS[0]),
+        values={"mplug": MPLUGS},
+        replace=("mplug",),
+        invalid={
+            "node": (
+                Lazy(lambda case: case.deletedNode(), "<削除済みのノード>"),
+                Lazy(_other_node, "<ほかのノード>"),
+                Lazy(lambda case: case.name("holder1"), "'<名前>'"),
+                None,
+            ),
+            "mplug": (Lazy(_other_mplug, "<ほかのノードの MPlug>"), _lazy_plug("holder1.free", "<Plug>"), _lazy_name("holder1.free", "'<名前>'"), None),
+        },
+        expect=_expect_init,
+        writes=False,
+        known={
+            "invalid:node='<名前>'": "Node でない node は検査せず、AttributeError になる(Raises に無い)",
+            "invalid:node=None": "Node でない node は検査せず、AttributeError になる(Raises に無い)",
+            "invalid:mplug=<Plug>": "om2.MPlug でない mplug は検査せず、AttributeError・TypeError になる(Raises に無い)",
+            "invalid:mplug='<名前>'": "om2.MPlug でない mplug は検査せず、AttributeError・TypeError になる(Raises に無い)",
+            "invalid:mplug=None": "om2.MPlug でない mplug は検査せず、AttributeError・TypeError になる(Raises に無い)",
+        },
+    ),
     Method(
         "getConnections",
         _make_network,
@@ -995,10 +1065,67 @@ def _expect_names(case, call):
     case.assertEqual(call.result, expected)
 
 
+def _plug_names(value):
+    """Plugs へ渡した値を、cmds の完全名の並びにする(入れ子は平らにする)。"""
+    if isinstance(value, str):
+        return cmds.ls(value, long=True)
+    if isinstance(value, om2.MPlug):
+        return cmds.ls(value.name(), long=True)
+    if isinstance(value, mlib.Plug):
+        return cmds.ls(_full(value), long=True)
+    return [name for item in value for name in _plug_names(item)]
+
+
+def _expect_plugs_init(case, call):
+    """渡した順のまま、同じアトリビュートは最初の1つだけ持つ。"""
+    case.assertIs(type(call.result), mlib.Plugs)
+    expected = list(dict.fromkeys(_plug_names(call.kwargs.get("plugs", ()))))
+    case.assertEqual([name for plug in call.result for name in cmds.ls(_full(plug), long=True)], expected)
+
+
+#: Plugs を作るときの候補(1つ・並び・入れ子・重なり・Plugs)。
+PLUGS_VALUES = (
+    (),
+    [],
+    _lazy_plug("holder1.free", "<Plug>"),
+    _lazy_name("holder1.free", "'<名前>'"),
+    _lazy_mplug("holder1.free", "<MPlug>"),
+    Lazy(
+        lambda case: [mlib.getPlug(case.name("holder1.translateZ")), case.name("holder1.ang"), case.name("holder1.tz")],
+        "[<Plug>, '<名前>', '<同じアトリビュートの短い名前>']",
+    ),
+    Lazy(lambda case: ([case.name("holder1.free")], (case.name("holder1.lst[2]"), [case.name("holder1.cmp[1].val")])), "<入れ子>"),
+    Lazy(lambda case: mlib.Plugs([case.name("holder1.free2"), case.name("holder1.free")]), "<Plugs>"),
+    Lazy(lambda case: {case.name("holder1.free"): 0, case.name("holder1.en"): 0}.keys(), "<dict のキー>"),
+)
+PLUGS_INVALID = (
+    1.5,
+    None,
+    "",
+    [""],
+    Lazy(lambda case: [om2.MPlug()], "[<空の MPlug>]"),
+    _lazy_name("holder1.noSuchAttribute", "'<無いアトリビュート>'"),
+    _lazy_name("holder1", "'<ノードの名前>'"),
+    Lazy(lambda case: mlib.getNode(case.name("holder1")), "<Node>"),
+    Lazy(lambda case: [case.name("holder1.free"), case.deletedPlug()], "['<名前>', <削除済みのPlug>]"),
+    Lazy(lambda case: [case.name("holder1.free"), 1.5], "['<名前>', 1.5]"),
+)
+
+
 class PlugsArgumentSweepTest(ArgumentSweepCase):
     """Plugs の公開メソッドの引数を網羅する。"""
 
     METHODS = (
+        Method(
+            "__init__",
+            _holder,
+            function=_constructor(mlib.Plugs),
+            values={"plugs": PLUGS_VALUES},
+            replace=("plugs",),
+            invalid={"plugs": PLUGS_INVALID},
+            expect=_expect_plugs_init,
+            writes=False,
+        ),
         Method(
             "sort",
             _plugs,

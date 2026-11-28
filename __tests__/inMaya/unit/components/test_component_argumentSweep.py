@@ -4,6 +4,8 @@
 Components の list と同じ名前のメソッドは、シーンでなく集まりの番号を変えるので、``expect`` で番号の並びを確かめる。
 """
 
+import inspect
+import operator
 import sys
 import unittest
 
@@ -17,6 +19,19 @@ from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Lazy, Method
 
 from mlib.components import Edges, Vertex, Vertices
+
+
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
 
 
 def _mesh(case, text="cube#"):
@@ -136,10 +151,78 @@ def _expect_names(case, call):
         case.assertEqual(len(cmds.ls(call.result, flatten=True)), 3)
 
 
+class _Numbers:
+    """list でも tuple でもない、何度でもたどれる番号の並び。"""
+
+    def __init__(self, *values):
+        self.values = values
+
+    def __iter__(self):
+        return iter(self.values)
+
+    def __repr__(self):
+        return f"<反復できる {list(self.values)}>"
+
+
+class _Index:
+    """``__index__`` を持つだけの番号。"""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __index__(self):
+        return self.value
+
+    def __repr__(self):
+        return f"<__index__={self.value}>"
+
+
+#: ``cube1`` の Mesh(呼ぶ直前に取る)。
+MESH = Lazy(_first_mesh, "<Mesh>")
+#: シェイプの誤った値(Transform・カーブのシェイプ・削除済み・名前・None)。
+SHAPE_INVALID = (
+    Lazy(lambda case: mlib.getNode(case.name("cube1")), "<Transform>"),
+    Lazy(lambda case: mlib.getNode(cmds.listRelatives(cmds.circle(name=case.name("circle#"))[0], shapes=True, fullPath=True)[0]), "<NurbsCurve>"),
+    Lazy(lambda case: case.deletedNode(), "<削除済みのノード>"),
+    Lazy(lambda case: cmds.listRelatives(case.name("cube1"), shapes=True, fullPath=True)[0], "'<シェイプの名前>'"),
+    None,
+)
+
+
+def _expect_vertex(case, call):
+    """渡したシェイプをそのまま持ち、番号は ``__index__`` の値。cmds でも同じ頂点を指す。"""
+    index = operator.index(call.kwargs["index"])
+    case.assertIs(type(call.result), Vertex)
+    case.assertIs(call.result.shape, call.kwargs["shape"])
+    case.assertEqual(call.result.index, index)
+    case.assertEqual(cmds.ls(str(call.result), long=True), cmds.ls(f"{call.kwargs['shape']}.vtx[{index}]", long=True))
+
+
+def _expect_vertices(case, call):
+    """番号は渡した順のまま重なりを除いて持つ。None なら全要素を番号の小さい順に持つ。"""
+    indices = call.kwargs.get("indices")
+    expected = list(range(8)) if indices is None else list(dict.fromkeys(operator.index(index) for index in indices))
+    case.assertIs(type(call.result), Vertices)
+    case.assertIs(call.result.shape, call.kwargs["shape"])
+    case.assertEqual(list(call.result.indices), expected)
+    case.assertEqual(len(cmds.ls([str(item) for item in call.result], flatten=True)), len(expected))
+
+
 class ComponentArgumentSweepTest(ArgumentSweepCase):
     """Component の公開メソッドの引数を網羅する(Vertex で確かめる)。"""
 
     METHODS = (
+        Method(
+            "__init__",
+            _mesh,
+            function=_constructor(Vertex),
+            args=(MESH, 3),
+            values={"shape": (MESH,), "index": (0, 3, 7, _Index(5))},
+            replace=("shape", "index"),
+            invalid={"shape": SHAPE_INVALID, "index": (True, 1.5, "3", None, -1, 8, (1, 2))},
+            expect=_expect_vertex,
+            writes=False,
+        ),
         Method("getName", _vertex, conflicts=(_both_true("full", "removeNamespace"),), expect=_expect_name, plural=_vertex_pair),
         Method("getMultiIndex", _vertex),
         Method("isValid", _vertex),
@@ -150,6 +233,17 @@ class ComponentsArgumentSweepTest(ArgumentSweepCase):
     """Components の公開メソッドの引数を網羅する(Vertices で確かめる)。"""
 
     METHODS = (
+        Method(
+            "__init__",
+            _mesh,
+            function=_constructor(Vertices),
+            args=(MESH,),
+            values={"shape": (MESH,), "indices": (None, [], [5, 1, 3], (1, 1, 2, 1), range(2, 5), _Numbers(7, 0, 7), [_Index(4), 0], {6})},
+            replace=("shape", "indices"),
+            invalid={"shape": SHAPE_INVALID, "indices": (1.5, [True], [1.5], ["3"], [None], [-1], [0, 8], [(1, 2)])},
+            expect=_expect_vertices,
+            writes=False,
+        ),
         Method(
             "sort",
             _vertices,

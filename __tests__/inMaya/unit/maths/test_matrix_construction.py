@@ -76,7 +76,7 @@ class FromAxesTest(NamespaceCase):
 
     def test_om2_inputs(self):
         """MVector・MPoint(wは無視)も受け、om2 の行の並びと一致する。"""
-        value = Matrix.fromAxes(om2.MVector(1, 2, 3), om2.MPoint(4, 5, 6, 2.0), Vector(7, 8, 9), om2.MPoint(1, 1, 1))
+        value = Matrix.fromAxes(om2.MVector(1, 2, 3), om2.MPoint(4, 5, 6, 2.0), Vector(7, 8, 9), position=om2.MPoint(1, 1, 1))
         expected = om2.MMatrix([1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 0, 1, 1, 1, 1])
         self.assertTrue(value.isEquivalent(expected, 0.0))
         self.assertSequenceAlmostEqual(Vector(1, 0, 0) * value, (1, 2, 3))

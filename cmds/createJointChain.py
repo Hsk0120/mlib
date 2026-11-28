@@ -54,7 +54,7 @@ def createJointChain(points, *, aimAxis="x", upAxis="y", up=(0, 1, 0), names=Non
         up (Sequence[float]): ワールド空間で、上の向きの目安。既定は ``(0, 1, 0)``。
         names (Sequence[str] | None): jointの名前。points と同じ数だけ指定する。
             Noneなら ``joint#`` (Mayaの連番)。既定はNone。
-        parent (str | Node | None): 1つ目のjointの親のtransform。Noneならワールド。既定はNone。
+        parent (Node | str | None): 1つ目のjointの親のtransform。Noneならワールド。既定はNone。
 
     Returns:
         Joints: 作ったjoint。points の順に並ぶ。

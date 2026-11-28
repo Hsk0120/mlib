@@ -35,7 +35,7 @@ class PluginPackage:
     ロードしたプラグインを自動でアンロードすることはしない。
     """
 
-    def __init__(self, name, plugins=(), module=None, versionPlugin=None, minimumVersion=None, minimumMaya=None, installHint=None):
+    def __init__(self, name, *, plugins=(), module=None, versionPlugin=None, minimumVersion=None, minimumMaya=None, installHint=None):
         """製品名・ロードするもの・必要な版を持つ。Mayaへは問い合わせない。
 
         Args:
@@ -49,7 +49,7 @@ class PluginPackage:
 
         Raises:
             TypeError: 名前やプラグイン名が文字列でない場合、pluginsを順に取り出せない場合、
-                またはminimumMayaを整数に変換できない型の場合。
+                minimumMayaを整数に変換できない型の場合、またはinstallHintが文字列でもNoneでもない場合。
             ValueError: 名前やプラグイン名が空文字列の場合、最小の版が正しくない場合、
                 またはpluginsもmoduleも指定していない場合。
         """
@@ -73,6 +73,8 @@ class PluginPackage:
             if self._minimum_version is None:
                 raise ValueError(f"minimumVersionは'3.0.0'のようなバージョンで指定してください: {minimumVersion!r}")
         self._minimum_maya = None if minimumMaya is None else int(minimumMaya)
+        if installHint is not None and not isinstance(installHint, str):
+            raise TypeError("installHintはstrかNoneで指定してください")
         self._install_hint = installHint
 
     def __repr__(self):
@@ -85,7 +87,7 @@ class PluginPackage:
         return f"PluginPackage({self._name!r}, minimumVersion={minimum})"
 
     @staticmethod
-    def showDialog(message, title="インストールが必要です"):
+    def showDialog(message, *, title="インストールが必要です"):
         """警告のダイアログを表示する。GUI の無いバッチ・スタンドアロンでは何もしない。
 
         Args:
@@ -273,7 +275,7 @@ class PluginPackage:
         if not self.isMayaSupported():
             return SKIPPED
         title = f"{self._name} のインストールが必要です"
-        show = (lambda text: self.showDialog(text, title)) if dialog is True else (dialog or None)
+        show = (lambda text: self.showDialog(text, title=title)) if dialog is True else (dialog or None)
         installed = self.isInstalled()
         if not installed and self._minimum_version is not None:
             self._report(show, warn, self.getMessage(self.getVersion()))

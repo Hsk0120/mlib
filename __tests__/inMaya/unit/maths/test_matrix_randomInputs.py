@@ -129,9 +129,9 @@ class MatrixRandomTest(unittest.TestCase):
             with self.subTest(seed=SEED + 2, index=index, t=fmt(translate), r=fmt(euler), order=euler.order, s=fmt(scale), sh=fmt(shear)):
                 expected = om2_compose(translate, euler, scale, shear)
                 rotate = EulerRotate(euler.x, euler.y, euler.z, euler.order)
-                self.assertClose(Matrix.compose(translate, rotate, scale, shear), expected)
+                self.assertClose(Matrix.compose(translate, rotate=rotate, scale=scale, shear=shear), expected)
                 self.assertClose(Matrix(translate=translate, rotate=rotate, scale=scale, shear=shear), expected)
-                self.assertClose(Matrix.compose(translate, euler.asQuaternion(), scale, shear), expected)
+                self.assertClose(Matrix.compose(translate, rotate=euler.asQuaternion(), scale=scale, shear=shear), expected)
                 value = Matrix(expected)
                 parts = value.decompose()
                 reference = om2.MTransformationMatrix(expected)
@@ -147,7 +147,7 @@ class MatrixRandomTest(unittest.TestCase):
                 self.assertClose(value.shear, reference.shear(om2.MSpace.kTransform))
                 self.assertClose(value.translate, translate)
                 # 分解した値で合成し直すと、元のマトリクスに戻る。
-                rebuilt = Matrix.compose(parts["translate"], parts["quaternion"], parts["scale"], parts["shear"])
+                rebuilt = Matrix.compose(parts["translate"], rotate=parts["quaternion"], scale=parts["scale"], shear=parts["shear"])
                 self.assertClose(rebuilt, expected, tol=1e-8)
                 # extract("scale") * extract("rotate") * extract("translate") が自身になる。
                 joined = value.extract("scale") * value.extract("rotate") * value.extract("translate")
@@ -192,7 +192,7 @@ class MatrixRandomTest(unittest.TestCase):
                         if col != column:
                             expected[row][col] = -expected[row][col]
                 expected[3][column] = 2.0 * pivot[column] - expected[3][column]
-                value = Matrix(matrix).mirror(axis, pivot)
+                value = Matrix(matrix).mirror(axis, pivot=pivot)
                 self.assertClose(value, [v for row in expected for v in row])
                 self.assertAlmostEqual(value.det3x3(), matrix.det3x3(), places=9)
 
@@ -226,7 +226,7 @@ class MatrixRandomTest(unittest.TestCase):
             x, y, z, position = (random_vector(rng) for _ in range(4))
             with self.subTest(seed=SEED + 6, index=index, x=fmt(x), y=fmt(y), z=fmt(z), position=fmt(position)):
                 expected = om2.MMatrix([x[0], x[1], x[2], 0, y[0], y[1], y[2], 0, z[0], z[1], z[2], 0, position[0], position[1], position[2], 1])
-                self.assertEqual(list(Matrix.fromAxes(x, y, z, position)), list(expected))
+                self.assertEqual(list(Matrix.fromAxes(x, y, z, position=position)), list(expected))
 
 
 class MatrixSceneRandomTest(NamespaceCase):
@@ -284,10 +284,10 @@ class MatrixSceneRandomTest(NamespaceCase):
                 cmds.setAttr(node + ".scale", *scale)
                 cmds.setAttr(node + ".shear", *shear)
                 expected = cmds.getAttr(node + ".matrix")
-                value = Matrix.compose(translate, EulerRotate(euler.x, euler.y, euler.z, euler.order), scale, shear)
+                value = Matrix.compose(translate, rotate=EulerRotate(euler.x, euler.y, euler.z, euler.order), scale=scale, shear=shear)
                 self.assertLessEqual(max_diff(value, expected), 1e-9, f"actual={fmt(value)} expected={fmt(expected)}")
                 # Quaternion を渡しても同じ。
-                self.assertLessEqual(max_diff(Matrix.compose(translate, Quaternion(euler.asQuaternion()), scale, shear), expected), 1e-9)
+                self.assertLessEqual(max_diff(Matrix.compose(translate, rotate=Quaternion(euler.asQuaternion()), scale=scale, shear=shear), expected), 1e-9)
 
 
 if __name__ == "__main__":

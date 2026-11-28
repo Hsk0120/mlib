@@ -42,7 +42,7 @@ class AttributesSnapshot(Snapshot):
     FORMAT: str
     VERSION: int
     @classmethod
-    def capture(cls, nodes: Iterable[Node | Plug | str], attributes: Iterable[str] | None = ...) -> AttributesSnapshot:
+    def capture(cls, nodes: Iterable[Node | Plug | str], *, attributes: Iterable[str] | None = ...) -> AttributesSnapshot:
         """指定したアトリビュートの今の値を取得する。
 
         ``nodes`` のそれぞれのノードで、``attributes`` のそれぞれの名前を探す。ノードに無い名前は飛ばす。

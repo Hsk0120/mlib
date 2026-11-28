@@ -347,6 +347,62 @@ def _expect_shading_override(case, call):
     case.assertEqual(cmds.getAttr(_full(call) + ".overrideShading"), not call.kwargs.get("state", True))
 
 
+def _expect_mpath(case, call):
+    case.assertIsInstance(call.result, om2.MDagPath)
+    case.assertEqual(call.result.fullPathName(), cmds.ls(_full(call), long=True)[0])
+
+
+def _expect_mfn(case, call):
+    case.assertIsInstance(call.result, om2.MFnDagNode)
+    case.assertEqual(call.result.fullPathName(), cmds.ls(_full(call), long=True)[0])
+
+
+def _expect_root(case, call):
+    case.assertEqual(call.result.getName(full=True), _ls(case, "root*")[0])
+
+
+def _expect_siblings(case, call):
+    children = cmds.listRelatives(_ls(case, "root*")[0], children=True, fullPath=True)
+    case.assertEqual([node.getName(full=True) for node in call.result], [name for name in children if name != _full(call)])
+
+
+def _expect_outliner_order(case, call):
+    children = cmds.listRelatives(_ls(case, "root*")[0], children=True, fullPath=True)
+    case.assertEqual(call.result, children.index(_full(call)))
+
+
+def _expect_attribute(name):
+    """戻り値が、自身のアトリビュート ``name`` の値と同じことを確かめる関数を返す。"""
+
+    def expect(case, call):
+        case.assertEqual(call.result, cmds.getAttr(_full(call) + "." + name))
+
+    return expect
+
+
+def _expect_path(name):
+    """戻り値が、保持する MDagPath のメソッド ``name`` の結果と同じことを確かめる関数を返す。"""
+
+    def expect(case, call):
+        case.assertEqual(call.result, getattr(call.target.mpath(), name)())
+
+    return expect
+
+
+def _expect_in_model(case, call):
+    case.assertEqual(call.result, om2.MFnDagNode(call.target.mpath()).inModel)
+
+
+def _expect_in_underworld(case, call):
+    case.assertEqual(call.result, om2.MFnDagNode(call.target.mpath()).inUnderWorld)
+
+
+def _expect_get_display_type(case, call):
+    enabled = cmds.getAttr(_full(call) + ".overrideEnabled")
+    index = cmds.getAttr(_full(call) + ".overrideDisplayType") if enabled else 0
+    case.assertEqual(call.result, ["normal", "template", "reference"][index])
+
+
 def _expect_delete_history(case, call):
     history = cmds.listHistory(_full(call)) or []
     if call.kwargs.get("keepDeformers", True):
@@ -454,6 +510,21 @@ METHODS = (
     ),
     Method("setShadingOverride", _make_display, args=(True,), expect=_expect_shading_override, plural=_make_display_plural, limit=WRITE_LIMIT),
     Method("deleteHistory", _make_mesh, expect=_expect_delete_history, limit=WRITE_LIMIT),
+    # 引数の無い読み取り。mpath・mfn は名前が get で始まらないので、読むだけと明示する。
+    Method("mpath", _make_leaf, expect=_expect_mpath, writes=False),
+    Method("mfn", _make_surface, expect=_expect_mfn, writes=False),
+    Method("getRoot", _make_leaf, expect=_expect_root),
+    Method("getSiblings", _make_tree, expect=_expect_siblings),
+    Method("getOutlinerOrder", _make_tree, expect=_expect_outliner_order),
+    Method("isInUnderworld", _make_surface, expect=_expect_in_underworld),
+    Method("isInModel", _make_tree, expect=_expect_in_model),
+    Method("isIntermediateObject", _make_surface, expect=_expect_attribute("intermediateObject")),
+    Method("isInstanced", _make_leaf, expect=_expect_path("isInstanced")),
+    Method("getInstanceIndex", _make_leaf, expect=_expect_path("instanceNumber")),
+    Method("isTemplated", _make_display, expect=_expect_path("isTemplated")),
+    Method("isVisible", _make_display, expect=_expect_path("isVisible"), plural=_make_display_plural),
+    Method("getVisibility", _make_display, expect=_expect_attribute("visibility"), plural=_make_display_plural),
+    Method("getDisplayType", _make_display, expect=_expect_get_display_type, plural=_make_display_plural),
 )
 
 

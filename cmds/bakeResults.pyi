@@ -16,7 +16,7 @@ from mlib.nodes.node import Nodes
 
 _REJECTED_FLAGS: frozenset
 
-def bakeResults(nodes: Node | str | Sequence[Node | str], attributes: str | Sequence[str] | None = ..., time: tuple[float, float] | None = ..., sampleBy: float = ..., *, at: str | Sequence[str] | None = ..., t: tuple[float, float] | None = ..., sb: float = ..., **kwargs: object) -> Nodes[AnimCurve]:
+def bakeResults(nodes: Node | str | Sequence[Node | str], *, attributes: str | Sequence[str] | None = ..., at: str | Sequence[str] | None = ..., time: tuple[float, float] | None = ..., t: tuple[float, float] | None = ..., sampleBy: float = ..., sb: float = ..., **kwargs: object) -> Nodes[AnimCurve]:
     """アトリビュートの動きをキーへ焼き込み、そのアニメーションカーブを返す。
 
     コンストレイント・エクスプレッション・ドリブンキーなどで動いているアトリビュートを、

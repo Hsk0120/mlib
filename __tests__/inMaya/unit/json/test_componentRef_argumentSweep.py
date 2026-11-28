@@ -17,7 +17,7 @@ mlib.reload()
 from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Lazy, Method
 
-from mlib.json import ComponentRef, NameMapping
+from mlib.json import ComponentRef, NameMapping, NodeRef
 
 
 def _host(owner, **functions):
@@ -34,6 +34,19 @@ def _host(owner, **functions):
         return method
 
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
+
+
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
 
 
 def _build(case):
@@ -88,7 +101,35 @@ def _expect_resolve(case, call):
         case.assertIsNone(call.result)
 
 
+def _expect_init(case, call):
+    """渡した参照・種類と、番号を渡した順のままの tuple で持つ(重なりも除かない)。シーンには問い合わせない。"""
+    kwargs = call.kwargs
+    case.assertIs(type(call.result), ComponentRef)
+    case.assertIs(call.result.node, kwargs["node"])
+    case.assertEqual(call.result.type, kwargs["type"])
+    case.assertEqual(call.result.indices, tuple(kwargs["indices"]))
+
+
 METHODS = (
+    Method(
+        "__init__",
+        _ref,
+        function=_constructor(ComponentRef),
+        args=(NodeRef("chrA:bodyShape"), "vtx", [0, 1, 2]),
+        values={
+            "node": (NodeRef("chrA:bodyShape"), NodeRef("x", dagPath="|g|x", type="mesh")),
+            "type": ("vtx", "e", "f", "map", "cv"),
+            "indices": ([0, 1, 2], (), (5, 1, 3, 1), range(3), {7}, [100000]),
+        },
+        replace=("node", "type", "indices"),
+        invalid={
+            "node": (None, 1.5, "chrA:bodyShape", Lazy(lambda case: _shape(case), "<Mesh>")),
+            "type": ("vertex", "Vtx", "", "pt", "vtxFace", 1.5, None),
+            "indices": (None, 1.5, [True], [1.5], ["0"], [-1], [0, None]),
+        },
+        expect=_expect_init,
+        writes=False,
+    ),
     Method(
         "capture",
         _capturer,

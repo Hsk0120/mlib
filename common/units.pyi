@@ -21,7 +21,7 @@ def _distance_unit(unit: str | None) -> int:
     """
     ...
 
-def convertDistance(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
+def convertDistance(value: float, *, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """距離の単位を変換する。
 
     シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
@@ -57,7 +57,7 @@ def _angle_constant(unit: str) -> int:
     """
     ...
 
-def convertAngle(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
+def convertAngle(value: float, *, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """角度の単位を変換する。
 
     シーンの単位の設定は変えない。現在のUIの単位との変換は、片方の単位をNoneにする
@@ -96,7 +96,7 @@ def _time_constant(unit: str | None) -> int:
     """
     ...
 
-def convertTime(value: float, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
+def convertTime(value: float, *, fromUnit: str | None = ..., toUnit: str | None = ...) -> float:
     """時間の単位を変換する。
 
     シーンの単位の設定は変えない。現在の時間単位での1フレームの秒数は ``convertTime(1.0, toUnit="sec")``、

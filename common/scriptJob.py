@@ -54,6 +54,7 @@ class ScriptJob:
             TypeError: callbackが呼び出せない場合、またはkillWithScene・compressUndo・allChildren・runOnce・protectedがboolでない場合。
             ValueError: event・attribute・uiDeletedのどれか1つだけを指定していない場合、
                 attributeを指定せずにallChildren=Trueにした場合、またはparent・uiDeletedが空文字列の場合。
+            AttributeError: attributeの名前のアトリビュート(またはノード)が見つからない場合(``MissingAttributeError``)。
             RuntimeError: バッチ実行中、またはMayaが登録を拒否した場合。
         """
         # commonの初期化時にplugsを読み込まないよう、使用時にPlugを読み込む。

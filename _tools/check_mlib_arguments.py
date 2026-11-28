@@ -8,12 +8,15 @@
 - A002: 既定値が表の ``default`` と違う
 - A003: bool の既定値を持つ位置引数(表で位置と決めた ``worldSpace``・``state`` などを除く)
 - A004: 表に無い名前が、2か所以上で受け方・既定値の食い違う使われ方をしている(表に足して決める)
+- A008: 既定値つきの位置引数(位置で渡せるのは、必須の引数・最初の引数・``worldSpace``・``state`` だけ。
+  maya.cmds と同じく、ほかの指定はキーワードで渡す。残すものは ``POSITIONAL_ALLOWED`` に理由を書く)
 - A005: 表の許可・名前が、もう使われていない(表から消す)
 - A006: 引数の一覧のページ(``_docs/source/arguments.rst``)が表より古い(``--fix`` が作り直す)
 - A010: docstring の型が既定値と合わない(None・bool・数・str)
 - A011: 既定値つきの引数の説明に既定値の記述が無い、または署名と違う(省略を番兵で見分ける、Maya のフラグの入口は見ない)
 - A012: 説明が表の決まり文句と違う
 - A013: docstring の型の書き方が表と違う
+- A016: 同じ名前の引数で、型の中身は同じなのに並びだけが違う(``Node | str`` と ``str | Node``。多い方の並びへ揃える)
 - A014: キーワード専用の引数の並びが決まりと違う(その他 → fast → check → safe → 位置引数の短縮名。
   キーワード専用の引数の短縮名は、元の名前の直後)
 - A015: ``Args:`` の並びが署名の順と違う(短縮名は元の名前の直後)
@@ -21,7 +24,7 @@
 ast だけを使うため通常の Python で実行でき、mlib や Maya を import しない。``core/`` は内部の実装なので見ない。
 
 --check  違反を一覧表示する(違反があれば終了コード1)。
---fix    動きを変えずに直せるもの(A010 の None・A011 の追記・A012・A013・A014・A015)を書き込み、引数の一覧のページを作り直して、残りを表示する。
+--fix    動きを変えずに直せるもの(A010 の None・A011 の追記・A012・A013・A014・A015・A016)を書き込み、引数の一覧のページを作り直して、残りを表示する。
 --list   引数名ごとの使われ方(か所・受け方・既定値・型)を表示する。名前を渡すとその名前だけを、使う def つきで表示する。
 --rst    引数の一覧のページ(reStructuredText)を、指定したファイルへ書く。
 """
@@ -223,20 +226,11 @@ ARGUMENTS = {
         type="dict[str, str] | None",
         kindAllowed={"NameMapping.__init__": "この3つの指定を持つクラスの作り方"},
     ),
-    "namespaceMap": Argument(
-        "名前空間の対応。",
-        kind="keyword",
-        default="None",
-        type="dict[str, str] | None",
-        kindAllowed={"NameMapping.__init__": "この3つの指定を持つクラスの作り方"},
-    ),
-    "replace": Argument(
-        "順に当てる文字列の置き換え(``select`` では今の選択を置き換える指定)。",
-        kind="keyword",
-        default="None",
-        kindAllowed={"NameMapping.__init__": "この3つの指定を持つクラスの作り方"},
-    ),
+    "namespaceMap": Argument("名前空間の対応。", kind="keyword", default="None", type="dict[str, str] | None"),
+    "replace": Argument("順に当てる文字列の置き換え(``select`` では今の選択を置き換える指定)。", kind="keyword", default="None"),
     "path": Argument("ファイルのパス。", type="str | os.PathLike"),
+    "attributes": Argument("対象のアトリビュート。None は全部・指定しない。", kind="positional", default="None"),
+    "indices": Argument("対象の番号。None は全部。", kind="positional", default="None"),
     # 種類を選ぶ引数。選べる値と既定はメソッドごとに違う。
     "kind": Argument("対象の種類を名前で選ぶ。", kind="keyword", default=VARIES, type="str", reason=_KIND),
     "what": Argument("取得するものを名前で選ぶ。", kind="keyword", default=VARIES, type="str", reason=_KIND),
@@ -245,7 +239,6 @@ ARGUMENTS = {
         kind="keyword",
         default=VARIES,
         reason="絞り込みの None と、返す種類の既定がメソッドごとに違う",
-        kindAllowed={"Node.addAttr": _MAYA + "。名前と型を続けて書く", "NodeRef.__init__": "保存する値を並べる作り方"},
     ),
     "method": Argument("処理の方法を名前で選ぶ。", kind="keyword", default=VARIES, reason=_KIND),
     "mode": Argument("書き込み方・合わせ方を名前で選ぶ。", kind="keyword", default=VARIES, reason=_KIND),
@@ -269,12 +262,7 @@ ARGUMENTS = {
         default="None",
         kindAllowed={"BlendShape.resetTargetVertices": "主な値を2通りで受ける(vertices か tolerance=)"},
     ),
-    "time": Argument(
-        "時刻・時刻の範囲。None は絞らない。",
-        kind="keyword",
-        default="None",
-        kindAllowed={"bakeResults": "cmds.bakeResults の主な値(対象・アトリビュート・範囲)を順に受ける"},
-    ),
+    "time": Argument("時刻・時刻の範囲。None は絞らない。", kind="keyword", default="None"),
     # 主な値として位置でも受ける引数。何を指すかはメソッドごとに違う。
     "value": Argument("書き込む値。", kind="positional", default=VARIES, reason=_VALUE),
     "name": Argument("名前。作るものの名前は None で Maya に任せる。", kind="positional", default=VARIES, reason='名前空間は ``":"`` (ルート)が既定'),
@@ -285,7 +273,7 @@ ARGUMENTS = {
         default=VARIES,
         reason="軸の名前を受けるものと、向きのベクトルを受けるものがある",
     ),
-    "base": Argument("blendShape のベースの形状。None は最初のベース。", kind="positional", default="None"),
+    "base": Argument("blendShape のベースの形状。None は最初のベース。", kind="keyword", default="None"),
     "at": Argument(
         "値を書く・読むアトリビュートの段(``Transform``)、またはアトリビュートの名前(Maya のフラグ)。",
         kind="positional",
@@ -383,6 +371,26 @@ ARGUMENTS = {
 
 #: bool の既定値を持つ位置引数として残すもの(A003)。キーは ``"Class.method"`` の形、値は ``{引数名: 理由}``。
 BOOL_POSITIONAL_ALLOWED = {}
+
+#: 既定値つきでも、どこでも位置で渡せる名前(A008)。
+ALWAYS_POSITIONAL = frozenset(("worldSpace", "state"))
+_OM2 = "om2 の同じ名前のメソッドと同じ位置引数"
+#: 最初の引数でないのに、既定値つきの位置引数として残すもの(A008)。キーは ``"Class.method"`` の形、値は ``{引数名: 理由}``。
+POSITIONAL_ALLOWED = {
+    "EulerRotate.isEquivalent": {"tolerance": _OM2},
+    "Matrix.isEquivalent": {"tolerance": _OM2},
+    "Transformation.isEquivalent": {"tolerance": _OM2},
+    "Vector.isEquivalent": {"tolerance": _OM2},
+    "Vector.isPlanar": {"tolerance": "isEquivalent と同じ形(比べる相手の次に誤差)"},
+    "Components.index": {"start": "list.index と同じ", "stop": "list.index と同じ"},
+    "Components.__init__": {"indices": "主な値(形状と番号の組)"},
+    "Plug.setRange": {"maximum": "主な値が2つで1組(最小と最大)"},
+    "SkinCluster.setWeights": {"weights": "主な値(対象と値の組)"},
+    "AnimCurve.addKey": {"value": "主な値(入力の位置と値の組)"},
+    "BlendShape.resetTargetVertices": {"vertices": "主な値を2通りで受ける(vertices か tolerance=)"},
+    "createIkHandle": {"endJoint": "必須の引数(短縮名と見分けるために番兵を既定値にしている)"},
+    "createBlendShape": {"targets": "対象のノード(cmds でも位置で渡す)"},
+}
 
 
 class Param:
@@ -677,7 +685,20 @@ def noted_default(text):
     token = match.group(1).strip("`").strip()
     if literal_kind(token) or (literal_kind(f'"{token}"') and token.startswith(("'", '"'))):
         return token
-    return None
+    # ``(0, 1, 0)``・``()`` のような、値として読める並びも比べる。
+    return token if token.startswith(("(", "[")) and literal_value(token) is not NOT_LITERAL else None
+
+
+#: 値として読めない式の印。
+NOT_LITERAL = object()
+
+
+def literal_value(text):
+    """式の文字列を値として読む。読めなければ :data:`NOT_LITERAL`。"""
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        return NOT_LITERAL
 
 
 def same_default(noted, default):
@@ -685,6 +706,9 @@ def same_default(noted, default):
         return noted[1:-1] == default[1:-1]
     if literal_kind(noted) == "number" and literal_kind(default) == "number":
         return float(noted) == float(default)
+    if noted.startswith(("(", "[")):
+        value = literal_value(default)
+        return value is not NOT_LITERAL and literal_value(noted) == value
     return noted == default
 
 
@@ -749,8 +773,10 @@ def check(functions):
     used = set()
     seen = set()
     usages = collections.defaultdict(list)
+    orders = union_orders(functions)
     for function in functions:
         aliases = function.aliases()
+        positional_index = {param.name: index for index, param in enumerate(p for p in function.params if p.kind == "positional")}
         for param in function.params:
             usages[param.name].append((function, param))
             spec = ARGUMENTS.get(param.name)
@@ -773,6 +799,19 @@ def check(functions):
                     used.add(("bool", function.owner, param.name))
                 else:
                     violations.append(Violation(function, "A003", f"{label} は bool の位置引数。キーワード専用にする(f(True, False) と書けて読み違えるため)"))
+            loose = param.kind == "positional" and not param.required and param.name not in ALWAYS_POSITIONAL and positional_index.get(param.name, 0) > 0
+            if loose and literal_kind(param.default) != "bool":
+                reasons = POSITIONAL_ALLOWED.get(function.owner, {})
+                if param.name in reasons:
+                    used.add(("positional", function.owner, param.name))
+                else:
+                    violations.append(
+                        Violation(
+                            function,
+                            "A008",
+                            f"{label} は既定値つきの位置引数。キーワード専用にする(位置で渡せるのは必須の引数・最初の引数・worldSpace・state だけ)",
+                        )
+                    )
             entry = function.entry(param.name) if function.entries is not None else None
             if entry is None:
                 continue
@@ -784,6 +823,9 @@ def check(functions):
                     violations.append(Violation(function, "A010", f"{label} の型 ({entry.type}) に、既定値 {param.default} の {missing} が無い"))
             if spec and spec.type and entry.type is not None and without_none(entry.type) != without_none(spec.type):
                 violations.append(Violation(function, "A013", f"{label} の型 ({entry.type}) の書き方が表の ({spec.type}) と違う"))
+            elif entry.type is not None and (param.name, without_none(entry.type)) in orders:
+                wanted = orders[(param.name, without_none(entry.type))]
+                violations.append(Violation(function, "A016", f"{label} の型 ({entry.type}) の並びを、ほかの {param.name} と同じ ({wanted}) にする"))
             if spec and spec.text and ((spec.whole and text != spec.text) or (not spec.whole and not text.startswith(spec.text))):
                 violations.append(Violation(function, "A012", f"{label} の説明は決まり文句{'にする' if spec.whole else 'で始める'}: {spec.text}"))
             # 省略を番兵で見分ける引数(Maya のフラグをそのまま受ける入口)は、既定値を Maya に任せるので見ない。
@@ -827,6 +869,12 @@ def check(functions):
                 for pattern in table
                 if ((name, aspect), pattern) not in used
             )
+    for owner, reasons in POSITIONAL_ALLOWED.items():
+        violations.extend(
+            Violation(here, "A005", f"POSITIONAL_ALLOWED の {owner}・{name} は、もう既定値つきの位置引数でない。表から消す", table_line(owner))
+            for name in reasons
+            if ("positional", owner, name) not in used
+        )
     for owner, reasons in BOOL_POSITIONAL_ALLOWED.items():
         violations.extend(
             Violation(here, "A005", f"BOOL_POSITIONAL_ALLOWED の {owner}・{name} は、もう bool の位置引数でない。表から消す", table_line(owner))
@@ -847,7 +895,33 @@ def table_line(key):
 # ---------------------------------------------------------------- 整形
 
 
-def fixed_entry_lines(entry, param, spec, aliases):
+def union_orders(functions):
+    """同じ名前の引数の型のうち、並びだけが違うものを、多い方の並びへ直す対応表を返す。
+
+    Args:
+        functions (list[Function]): 集めた def。
+
+    Returns:
+        dict[tuple[str, str], str]: (引数名, ``None`` を除いた今の型) から、揃える型への対応。
+    """
+    counts = collections.defaultdict(collections.Counter)
+    for function in functions:
+        for entry in function.entries or ():
+            if entry.type is not None and not entry.stars:
+                text = without_none(entry.type)
+                counts[(entry.name, frozenset(union_parts(text)))][text] += 1
+    result = {}
+    for (name, _members), spellings in counts.items():
+        if len(spellings) > 1:
+            # 数が同じなら、文字の順で先のものに決める(実行のたびに変わらないようにする)。
+            best = sorted(spellings.items(), key=lambda item: (-item[1], item[0]))[0][0]
+            for text in spellings:
+                if text != best:
+                    result[(name, text)] = best
+    return result
+
+
+def fixed_entry_lines(entry, param, spec, aliases, orders=None):
     """項目1つを決まりの形へ直した行を返す(直す所が無ければ元の行)。"""
     lines = list(entry.lines)
     indent = " " * indent_of(lines[0])
@@ -858,6 +932,8 @@ def fixed_entry_lines(entry, param, spec, aliases):
         new_type = type_text
         if spec and spec.type and without_none(type_text) != without_none(spec.type):
             new_type = without_none(spec.type) + (" | None" if "None" in union_parts(type_text) else "")
+        elif orders and (entry.name, without_none(type_text)) in orders:
+            new_type = orders[(entry.name, without_none(type_text))] + (" | None" if "None" in union_parts(type_text) else "")
         if not param.required and not param.sentinel and type_problem(new_type, param.default) == "None":
             new_type += " | None"
         if new_type != type_text:
@@ -883,7 +959,7 @@ def fixed_entry_lines(entry, param, spec, aliases):
     return lines, changed
 
 
-def fix_file(path, functions):
+def fix_file(path, functions, orders=None):
     """1ファイルの def を直し、直した数を返す。"""
     raw = path.read_bytes()
     newline = "\r\n" if b"\r\n" in raw else "\n"
@@ -907,7 +983,7 @@ def fix_file(path, functions):
             if param is None:
                 blocks[entry.stars + entry.name] = entry.lines
                 continue
-            new_lines, entry_changed = fixed_entry_lines(entry, param, ARGUMENTS.get(entry.name), aliases)
+            new_lines, entry_changed = fixed_entry_lines(entry, param, ARGUMENTS.get(entry.name), aliases, orders)
             blocks[entry.name] = new_lines
             changed = changed or entry_changed
         order = canonical_entries(function, wanted)
@@ -952,14 +1028,15 @@ def fix(functions):
     for function in functions:
         by_path[function.path].append(function)
     count = 0
+    orders = union_orders(functions)
     for path, items in by_path.items():
         # 区画の列は UTF-8 のバイト数なので、文字の位置へ直してから書き換える。
-        if fix_file_bytes(path, items):
+        if fix_file_bytes(path, items, orders):
             count += 1
     return count
 
 
-def fix_file_bytes(path, functions):
+def fix_file_bytes(path, functions, orders=None):
     """列をバイトから文字へ直す下ごしらえをして :func:`fix_file` を呼ぶ。"""
     lines = path.read_bytes().decode("utf-8").replace("\r\n", "\n").split("\n")
     for function in functions:
@@ -969,7 +1046,7 @@ def fix_file_bytes(path, functions):
                     node.col_offset = byte_column(lines[node.lineno - 1], node.col_offset)
                     node.end_col_offset = byte_column(lines[node.end_lineno - 1], node.end_col_offset)
                     node._columns_fixed = True
-    return fix_file(path, functions)
+    return fix_file(path, functions, orders)
 
 
 # ---------------------------------------------------------------- 一覧
@@ -1050,8 +1127,9 @@ def render_rst(functions):
         "決まり",
         "------",
         "",
-        "- 位置で渡すのは、そのメソッドの主な値(書き込む値・対象)と ``worldSpace``・``state`` だけです。",
-        '  ほかの指定はキーワードで渡します(``node.rename("a", ignoreShape=True)``)。',
+        "- 位置で渡せるのは、必須の引数・最初の引数(そのメソッドの主な値)・``worldSpace``・``state`` だけです。",
+        "  既定値つきのほかの引数は、maya.cmds のフラグと同じくキーワードで渡します",
+        '  (``node.rename("a", ignoreShape=True)``・``mlib.createCurve(points, degree=1)``・``node.setTranslation(v, at=1)``)。',
         "- オン・オフを選ぶ bool の引数は、``worldSpace``・``state`` を除いてキーワード専用です。",
         "  bool の引数に ``0``・``1``・``None`` を渡すと TypeError になります。",
         "- ``fast``・``check``・``safe`` は、キーワード専用の引数の最後にこの順で並びます。",

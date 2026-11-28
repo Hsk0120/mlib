@@ -122,7 +122,7 @@ class NurbsSurface(_ControlPointShape):
             NotImplementedError: ヒストリ・トリム・明示UV・参照・CVロックや接続がある場合。
         """
         ...
-    def removeKnot(self, parameter: float, direction: str = ..., *, all: bool = ...) -> None:
+    def removeKnot(self, parameter: float, *, direction: str = ..., all: bool = ...) -> None:
         """曲面の内側のノットを削除する。
 
         指定方向が開いた曲面だけを扱う。形状とCV数が変わる場合がある。

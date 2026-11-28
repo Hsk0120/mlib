@@ -6,6 +6,7 @@
 表の書き方と段の意味は ``support/argumentSweep.py`` と ``__tests__/README.md`` を参照する。
 """
 
+import inspect
 import sys
 import unittest
 
@@ -19,9 +20,49 @@ from support.argumentSweep import ArgumentSweepCase
 from support.argumentTable import Lazy, Method
 
 from mlib.common.scalarGraph import ScalarGraph
+from mlib.nodes.container import Container
 
 #: 入力にする Plug の値。
 A, B = 2.5, -4.0
+
+
+def _constructor(owner):
+    """コンストラクターを、``__init__`` の docstring(Args・Raises)と署名を持つ関数として呼べるようにする。"""
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = inspect.signature(owner)
+    construct.__doc__ = owner.__init__.__doc__
+    return construct
+
+
+class _Graph(ScalarGraph):
+    """持ち主とノードを作る関数で表示する ScalarGraph(ScalarGraph は比べ方を持たないので、段4で2回作った結果を表示で比べる)。"""
+
+    def __repr__(self):
+        return f"ScalarGraph(container={self.container!r}, createNode={None if self.container is not None else id(self._createNode)})"
+
+
+def _box(case):
+    """持ち主にする container を作り、入力のノードも作る。"""
+    cmds.container(name=case.name("box"))
+    return _graph(case)
+
+
+def _create(kind, name, fast=False):
+    return mlib.createNode(kind, name=name, fast=fast)
+
+
+def _expect_new(case, call):
+    """container か createNode のどちらか一方を持ち、作るだけではシーンを変えない。"""
+    container = call.kwargs.get("container")
+    case.assertIsInstance(call.result, ScalarGraph)
+    if container is None:
+        case.assertIsNone(call.result.container)
+    else:
+        case.assertIsInstance(call.result.container, Container)
+        case.assertEqual(cmds.ls(str(call.result.container), long=True), cmds.ls(case.name("box"), long=True))
 
 
 def _graph(case):
@@ -85,7 +126,41 @@ OPERAND_INVALID = (
 )
 #: 使えない文字だけの名前(``"日本語"``)は、fast だけノードが名前空間の外にでき、テストの外へ残るので候補に入れない(findings4 の G5)。
 ROLES = ("calc", "calc_1", "a b")
+BOX_NAME = Lazy(lambda case: case.name("box"), "'<container の名前>'")
+BOX = Lazy(lambda case: Container(case.name("box")), "<Container>")
+CONTAINER_INVALID = (
+    1.5,
+    Lazy(lambda case: case.name("nowhere"), "'<存在しない名前>'"),
+    Lazy(lambda case: case.name("inputs"), "'<container でないノード>'"),
+    Lazy(lambda case: mlib.getNode(case.name("inputs")), "<container でないNode>"),
+    Lazy(lambda case: case.deletedNode(), "<削除済みのノード>"),
+)
 METHODS = (
+    # container と createNode は、どちらか一方だけを渡す(両方・どちらも無しは docstring の ValueError)。
+    Method(
+        "__init__",
+        _box,
+        function=_constructor(_Graph),
+        kwargs={"createNode": _create},
+        values={"container": (None, BOX_NAME, BOX), "createNode": (None, _create, mlib.createNode, lambda kind, name: mlib.createNode(kind, name=name))},
+        replace=("container", "createNode"),
+        invalid={"createNode": (1.5, "mlib.createNode", [_create])},
+        expect=_expect_new,
+        writes=False,
+    ),
+    Method(
+        "__init__",
+        _box,
+        function=_constructor(_Graph),
+        variant="container",
+        args=(BOX_NAME,),
+        values={"container": (BOX_NAME, BOX)},
+        replace=("container",),
+        skip=("createNode",),
+        invalid={"container": CONTAINER_INVALID},
+        expect=_expect_new,
+        writes=False,
+    ),
     Method(
         "sum",
         _graph,

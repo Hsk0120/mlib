@@ -156,9 +156,9 @@ class UnitsArgumentSweepTest(ArgumentSweepCase):
     def test_uiUnitsUnchanged(self):
         """変換してもシーンの単位の設定は変わらない。"""
         before = (cmds.currentUnit(query=True, linear=True), cmds.currentUnit(query=True, angle=True), cmds.currentUnit(query=True, time=True))
-        units.convertDistance(1.0, "m", "cm")
-        units.convertAngle(1.0, "rad", "deg")
-        units.convertTime(1.0, "sec", "film")
+        units.convertDistance(1.0, fromUnit="m", toUnit="cm")
+        units.convertAngle(1.0, fromUnit="rad", toUnit="deg")
+        units.convertTime(1.0, fromUnit="sec", toUnit="film")
         after = (cmds.currentUnit(query=True, linear=True), cmds.currentUnit(query=True, angle=True), cmds.currentUnit(query=True, time=True))
         self.assertEqual(after, before)
 

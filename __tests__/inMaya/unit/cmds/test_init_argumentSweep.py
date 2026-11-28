@@ -440,7 +440,8 @@ METHODS = (
     Method(
         "bakeDeformer",
         _deformed,
-        args=(_named("geo"), _named("root"), _named("target")),
+        args=(_named("geo"), _named("root")),
+        kwargs={"destination": _named("target")},
         values={
             "source": (_node("geo"),),
             "skeleton": (_node("root"),),

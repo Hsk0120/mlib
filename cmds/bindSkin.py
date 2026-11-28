@@ -17,7 +17,7 @@ _REJECTED_FLAGS = frozenset(("query", "q", "edit", "e"))
 _FILE_FLAGS = (("normalizeWeights", "nw", "normalizeWeights"), ("obeyMaxInfluences", "omi", "maintainMaxInfluences"), ("skinMethod", "sm", "skinningMethod"))
 
 
-def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", mi=_UNSET, **kwargs):
+def bindSkin(joints, geometry, *, maximumInfluences=_UNSET, mi=_UNSET, weights=None, nameMap=None, replace=None, namespaceMap=None, method="index", **kwargs):
     """形状を指定したインフルエンスへバインドする。
 
     Mayaの Bind Skin と同じく ``cmds.skinCluster`` でバインドする。既定では、指定したjointだけを
@@ -43,7 +43,7 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, weights=None, nameMa
     Args:
         joints (Node | str | Iterable[Node | str] | None): インフルエンスにするtransform(jointなど)。
             Noneなら ``weights`` のファイルのインフルエンスを使う(``weights`` が必要)。
-        geometry (Node | str): Mayaがバインドできる形状、またはそのtransform。``weights`` を使うときはMesh。
+        geometry (str | Node): Mayaがバインドできる形状、またはそのtransform。``weights`` を使うときはMesh。
         maximumInfluences (int | None): 1つの頂点に割り当てるインフルエンスの最大数。正の整数。
             Noneなら ``weights`` のファイルの値を使い、ファイルが無ければ4にする。既定はNone。
         mi (int | None): maximumInfluencesの短縮名。maximumInfluencesと同時には指定できない。
@@ -124,7 +124,7 @@ def bindSkin(joints, geometry, maximumInfluences=_UNSET, *, weights=None, nameMa
 
     with undoTransaction("mlibBindSkin"):
         skin = Node(cmds.skinCluster(names, target._full_name(), **flags)[0])
-        data, nodes, report = skin._prepare_weights_data(saved["data"], NameMapping(nameMap, replace, namespaceMap), method)
+        data, nodes, report = skin._prepare_weights_data(saved["data"], NameMapping(nameMap, replace=replace, namespaceMap=namespaceMap), method)
         skin._apply_weights_data(data, nodes, method, report, False)
     report.warn(f"SkinCluster {skin.getName()}")
     return skin
@@ -185,7 +185,7 @@ def _load_weights(path, geometry, nameMap, replace, namespaceMap, method):
     from ..nodes.skinCluster import SkinCluster
 
     SkinCluster._require_choice(method, "method", ("index", "position"))
-    mapping = NameMapping(nameMap, replace, namespaceMap)
+    mapping = NameMapping(nameMap, replace=replace, namespaceMap=namespaceMap)
     _, data = file._load(path, SkinCluster._WEIGHTS_FORMAT, SkinCluster._WEIGHTS_VERSION)
     saved = SkinCluster._parse_weights_data(data)
     shape = Node(Object._input_name(geometry)).mpath()

@@ -8,7 +8,7 @@ class DampedSpring:
     """ベイク用の数値計算。結果は再生の履歴によらず、毎回同じになる。"""
 
     @staticmethod
-    def solve(samples, secondsPerSample, frequency=3.0, damping=0.5, limit=45.0):
+    def solve(samples, secondsPerSample, *, frequency=3.0, damping=0.5, limit=45.0):
         """目標の値の並びを追いかけるばねの動きを、先頭から計算する。
 
         Args:

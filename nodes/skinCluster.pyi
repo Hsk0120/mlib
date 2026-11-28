@@ -100,7 +100,7 @@ class SkinCluster(GeometryFilter):
     - influenceObjects()が返す並びの順番(物理的な順番)。
     - weights[]へ書き込むときに使う論理番号。
     """
-    def __init__(self, node: str | Node | om2.MObject | om2.MDagPath) -> None:
+    def __init__(self, node: Node | str | om2.MObject | om2.MDagPath) -> None:
         """skinClusterの名前、またはMayaのオブジェクトからオブジェクトを作る。
 
         既存のskinClusterを取得するためだけに使う。新しくバインドするときは
@@ -110,7 +110,7 @@ class SkinCluster(GeometryFilter):
         先頭のジオメトリだけを扱う。Mesh・NURBSカーブ/サーフェスのウェイトを扱う。
 
         Args:
-            node (str | Node | om2.MObject | om2.MDagPath): skinClusterの名前、mlibのオブジェクト、またはAPIのオブジェクト。
+            node (Node | str | om2.MObject | om2.MDagPath): skinClusterの名前、mlibのオブジェクト、またはAPIのオブジェクト。
 
         Returns:
             None: 値を返さない。
@@ -367,14 +367,14 @@ class SkinCluster(GeometryFilter):
             RuntimeError: skinClusterが無効な場合。
         """
         ...
-    def setDropoffRate(self, influence: Node | str, value: float) -> None:
+    def setDropoffRate(self, influence: str | Node, value: float) -> None:
         """指定インフルエンスの減衰率を変え、Mayaでスキンウェイトを再計算する。
 
         手で調整したウェイトも変わる。単一Meshを変形する、ロック・入力接続・レイヤーのないスキンに限定する。
         通常Undoに対応する。fast引数は持たない(1回のskinClusterコマンドを使うため)。
 
         Args:
-            influence (Node | str): 登録済みのインフルエンス。
+            influence (str | Node): 登録済みのインフルエンス。
             value (float): 0.1以上10以下の有限な減衰率。
 
         Returns:
@@ -629,7 +629,7 @@ class SkinCluster(GeometryFilter):
             TypeError: influenceがノードとして扱えない型(数値・Noneなど)の場合。
         """
         ...
-    def getInfluenceVertices(self, influence: str | Node, threshold: float = ...) -> Vertices:
+    def getInfluenceVertices(self, influence: str | Node, *, threshold: float = ...) -> Vertices:
         """インフルエンスがウェイトを持っている、先頭のMeshの頂点を取得する。
 
         MayaのSelect Influence Verticesに当たる。``MFnSkinCluster.getPointsAffectedByInfluence`` の結果から、
@@ -996,7 +996,7 @@ class SkinCluster(GeometryFilter):
             RuntimeError: ウェイトが編集できない場合、またはMayaが設定を拒否した場合。
         """
         ...
-    def invertShape(self, sculpted: str | Node, name: str | None = ...) -> Mesh:
+    def invertShape(self, sculpted: str | Node, *, name: str | None = ...) -> Mesh:
         """今のポーズで形を整えたメッシュから、スキンの変形を逆にかけた補正の形状を作る。
 
         考え方はcvShapeInverterと同じ。
@@ -2270,7 +2270,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def getInfluenceIndex(self, influence: str | Node) -> list[int]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getInfluenceIndex` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setDropoffRate(self, influence: Node | str, value: float) -> list[None]:
+    def setDropoffRate(self, influence: str | Node, value: float) -> list[None]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.setDropoffRate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def smoothWeights(self, *, threshold: float = ..., iterations: int = ..., vertices: Component | Components | int | str | Iterable | None = ..., obeyMaxInfluences: bool | None = ..., geometryIndex: int | None = ...) -> list[None]:
@@ -2303,7 +2303,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def hasInfluence(self, influence: str | Node) -> list[bool]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.hasInfluence` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getInfluenceVertices(self, influence: str | Node, threshold: float = ...) -> list[Vertices]:
+    def getInfluenceVertices(self, influence: str | Node, *, threshold: float = ...) -> list[Vertices]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.getInfluenceVertices` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setInfluencesLocked(self, joints: str | Node | Iterable, state: bool = ..., *, fast: bool = ..., check: bool = ...) -> list[None]:
@@ -2333,7 +2333,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def importWeights(self, path: str | os.PathLike, *, nameMap: dict[str, str] | None = ..., replace: Iterable[tuple[str, str]] | None = ..., namespaceMap: dict[str, str] | None = ..., method: str = ..., fast: bool = ..., check: bool = ...) -> list[ValidationReport]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.importWeights` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def invertShape(self, sculpted: str | Node, name: str | None = ...) -> list[Mesh]:
+    def invertShape(self, sculpted: str | Node, *, name: str | None = ...) -> list[Mesh]:
         """各要素の :meth:`~mlib.nodes.skinCluster.SkinCluster.invertShape` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def redistributeWeights(self, vertices: Vertex | Vertices | Iterable[int | Vertex], *, curve: str = ...) -> list[None]:
@@ -2504,7 +2504,7 @@ class SkinClusters(Nodes[SkinCluster]):
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., *, channelBox: bool = ..., cb: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., pxy: Plug | str | None = ..., getPlug: bool = ..., skipExisting: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., fast: bool = ..., ln: str = ..., **kwargs) -> list[Plug | None]:
+    def addAttr(self, longName: str = ..., *, type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., cb: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., pxy: Plug | str | None = ..., getPlug: bool = ..., skipExisting: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., fast: bool = ..., ln: str = ..., **kwargs) -> list[Plug | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.addAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def moveAttrOrder(self, name: str, offset: int) -> list[None]:

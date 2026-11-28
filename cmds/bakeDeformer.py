@@ -11,7 +11,7 @@ from ..util import _UNSET
 _REJECTED_FLAGS = frozenset(("srcMeshName", "sm", "srcSkeletonName", "ss", "dstMeshName", "dm", "dstSkeletonName", "ds", "query", "q", "edit", "e"))
 
 
-def bakeDeformer(source, skeleton, destination=None, destinationSkeleton=None, maxInfluences=_UNSET, *, mi=_UNSET, **kwargs):
+def bakeDeformer(source, skeleton, *, destination=None, destinationSkeleton=None, maxInfluences=_UNSET, mi=_UNSET, **kwargs):
     """元の形状の変形を、変形先の形状の skinCluster のウェイトへ焼き込む。
 
     Mayaの Bake Deformers to Skin Weights と同じく ``cmds.bakeDeformer`` を使い、ジョイントを動かしたときの変形を

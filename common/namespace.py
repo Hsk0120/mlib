@@ -87,7 +87,7 @@ class Namespace:
         return cls(om2.MNamespace.currentNamespace())
 
     @classmethod
-    def create(cls, name, parent=":"):
+    def create(cls, name, *, parent=":"):
         """指定した名前空間を作る。すでにあれば作らず、そのオブジェクトを返す。
 
         カレントの名前空間は変えない。/ は : と同じ区切りとして扱う。

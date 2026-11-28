@@ -56,7 +56,7 @@ class CurveCatalogTest(unittest.TestCase):
 
     def test_default_curve_is_cubic(self):
         for t in (0.1, 0.3, 0.5, 0.8):
-            self.assertEqual(easing.ease(t), easing.ease(t, "cubic"))
+            self.assertEqual(easing.ease(t), easing.ease(t, curve="cubic"))
 
     def test_public_names(self):
         self.assertEqual(sorted(easing.__all__), ["CURVES", "ease"])
@@ -72,7 +72,7 @@ class CurveCatalogTest(unittest.TestCase):
         self.assertIs(reloaded, easing)
         self.assertFalse(hasattr(easing, "ease_in_out_cubic"))
         self.assertFalse(hasattr(easing, "ease_in_out_legacy_shape"))
-        self.assertEqual(easing.ease(0.25, "cubic"), 0.0625)
+        self.assertEqual(easing.ease(0.25, curve="cubic"), 0.0625)
         self.assertEqual(sorted(easing.__all__), ["CURVES", "ease"])
 
 
@@ -82,28 +82,28 @@ class CurvePropertyTest(unittest.TestCase):
     def test_endpoints_are_exact(self):
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
-                self.assertEqual(easing.ease(0.0, curve), 0.0)
-                self.assertEqual(easing.ease(1.0, curve), 1.0)
-                self.assertEqual(easing.ease(0, curve), 0.0)
-                self.assertEqual(easing.ease(1, curve), 1.0)
-                self.assertIsInstance(easing.ease(0, curve), float)
-                self.assertIsInstance(easing.ease(1, curve), float)
+                self.assertEqual(easing.ease(0.0, curve=curve), 0.0)
+                self.assertEqual(easing.ease(1.0, curve=curve), 1.0)
+                self.assertEqual(easing.ease(0, curve=curve), 0.0)
+                self.assertEqual(easing.ease(1, curve=curve), 1.0)
+                self.assertIsInstance(easing.ease(0, curve=curve), float)
+                self.assertIsInstance(easing.ease(1, curve=curve), float)
 
     def test_midpoint_is_exactly_one_half(self):
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
-                self.assertEqual(easing.ease(0.5, curve), 0.5)
+                self.assertEqual(easing.ease(0.5, curve=curve), 0.5)
 
     def test_point_symmetric_about_the_center(self):
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
                 for t in SAMPLES:
-                    self.assertAlmostEqual(easing.ease(t, curve) + easing.ease(1.0 - t, curve), 1.0, places=12)
+                    self.assertAlmostEqual(easing.ease(t, curve=curve) + easing.ease(1.0 - t, curve=curve), 1.0, places=12)
 
     def test_monotonic_and_within_unit_range(self):
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
-                values = [easing.ease(t, curve) for t in SAMPLES]
+                values = [easing.ease(t, curve=curve) for t in SAMPLES]
                 for value in values:
                     self.assertGreaterEqual(value, 0.0)
                     self.assertLessEqual(value, 1.0)
@@ -116,9 +116,9 @@ class CurvePropertyTest(unittest.TestCase):
                 continue
             with self.subTest(curve=curve):
                 for t in (0.05, 0.25, 0.45):
-                    self.assertLess(easing.ease(t, curve), t)
+                    self.assertLess(easing.ease(t, curve=curve), t)
                 for t in (0.55, 0.75, 0.95):
-                    self.assertGreater(easing.ease(t, curve), t)
+                    self.assertGreater(easing.ease(t, curve=curve), t)
 
 
 class CurveShapeTest(unittest.TestCase):
@@ -126,35 +126,35 @@ class CurveShapeTest(unittest.TestCase):
 
     def test_linear_is_identity(self):
         for t in SAMPLES:
-            self.assertEqual(easing.ease(t, "linear"), t)
+            self.assertEqual(easing.ease(t, curve="linear"), t)
 
     def test_polynomial_values_in_the_first_half(self):
         # 前半 [0, 0.5] は (2t)^n / 2 になる。
         for degree, curve in enumerate(("quadratic", "cubic", "quartic", "quintic"), start=2):
             with self.subTest(curve=curve):
                 for t in (0.1, 0.25, 0.4):
-                    self.assertAlmostEqual(easing.ease(t, curve), 0.5 * (2.0 * t) ** degree, places=15)
-        self.assertEqual(easing.ease(0.25, "quadratic"), 0.125)
-        self.assertEqual(easing.ease(0.25, "cubic"), 0.0625)
+                    self.assertAlmostEqual(easing.ease(t, curve=curve), 0.5 * (2.0 * t) ** degree, places=15)
+        self.assertEqual(easing.ease(0.25, curve="quadratic"), 0.125)
+        self.assertEqual(easing.ease(0.25, curve="cubic"), 0.0625)
 
     def test_higher_degree_is_flatter_near_the_ends(self):
         order = ("quadratic", "cubic", "quartic", "quintic")
         for t in (0.1, 0.25, 0.4):
-            values = [easing.ease(t, curve) for curve in order]
+            values = [easing.ease(t, curve=curve) for curve in order]
             self.assertEqual(values, sorted(values, reverse=True))
 
     def test_smoothstep_matches_hermite_polynomial(self):
         for t in (0.1, 0.25, 0.6, 0.9):
-            self.assertAlmostEqual(easing.ease(t, "smoothstep"), 3 * t**2 - 2 * t**3, places=15)
+            self.assertAlmostEqual(easing.ease(t, curve="smoothstep"), 3 * t**2 - 2 * t**3, places=15)
 
     def test_sine_matches_half_cosine_wave(self):
         for t in (0.1, 0.25, 0.6, 0.9):
-            self.assertAlmostEqual(easing.ease(t, "sine"), (1.0 - math.cos(math.pi * t)) / 2.0, places=15)
+            self.assertAlmostEqual(easing.ease(t, curve="sine"), (1.0 - math.cos(math.pi * t)) / 2.0, places=15)
 
     def test_circular_first_half_lies_on_a_circle(self):
         # 前半は中心 (0, 0.5)・半径 0.5 の円周上にある。
         for t in (0.1, 0.25, 0.4):
-            y = easing.ease(t, "circular")
+            y = easing.ease(t, curve="circular")
             self.assertAlmostEqual(t**2 + (y - 0.5) ** 2, 0.25, places=12)
 
     def test_exponential_first_half_is_a_normalized_exponential(self):
@@ -162,7 +162,7 @@ class CurveShapeTest(unittest.TestCase):
         steepness = easing._EXPONENTIAL_STEEPNESS
         for t in (0.1, 0.25, 0.4):
             expected = 0.5 * math.expm1(steepness * 2.0 * t) / math.expm1(steepness)
-            self.assertAlmostEqual(easing.ease(t, "exponential"), expected, places=15)
+            self.assertAlmostEqual(easing.ease(t, curve="exponential"), expected, places=15)
 
 
 class InputHandlingTest(unittest.TestCase):
@@ -171,32 +171,32 @@ class InputHandlingTest(unittest.TestCase):
     def test_clamps_values_outside_the_unit_interval(self):
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
-                self.assertEqual(easing.ease(-0.25, curve), 0.0)
-                self.assertEqual(easing.ease(-1e9, curve), 0.0)
-                self.assertEqual(easing.ease(float("-inf"), curve), 0.0)
-                self.assertEqual(easing.ease(1.25, curve), 1.0)
-                self.assertEqual(easing.ease(1e9, curve), 1.0)
-                self.assertEqual(easing.ease(float("inf"), curve), 1.0)
+                self.assertEqual(easing.ease(-0.25, curve=curve), 0.0)
+                self.assertEqual(easing.ease(-1e9, curve=curve), 0.0)
+                self.assertEqual(easing.ease(float("-inf"), curve=curve), 0.0)
+                self.assertEqual(easing.ease(1.25, curve=curve), 1.0)
+                self.assertEqual(easing.ease(1e9, curve=curve), 1.0)
+                self.assertEqual(easing.ease(float("inf"), curve=curve), 1.0)
 
     def test_integers_too_large_for_float_are_clamped(self):
         """floatにできない大きさの整数(OverflowError)も、符号に合わせて0か1へ切り詰める。"""
         for curve in easing.CURVES:
             with self.subTest(curve=curve):
-                self.assertEqual(easing.ease(10**400, curve), 1.0)
-                self.assertEqual(easing.ease(-(10**400), curve), 0.0)
-                self.assertEqual(easing.ease(fractions.Fraction(10**400, 3), curve), 1.0)
+                self.assertEqual(easing.ease(10**400, curve=curve), 1.0)
+                self.assertEqual(easing.ease(-(10**400), curve=curve), 0.0)
+                self.assertEqual(easing.ease(fractions.Fraction(10**400, 3), curve=curve), 1.0)
 
     def test_unknown_curve_name_raises_value_error(self):
         for curve in ("", "Cubic", "sinusoidal", "ease_in_out_cubic", "bounce"):
             with self.subTest(curve=curve):
                 with self.assertRaises(ValueError):
-                    easing.ease(0.5, curve)
+                    easing.ease(0.5, curve=curve)
 
     def test_non_string_curve_raises_type_error(self):
         for curve in (None, 3, ("cubic",)):
             with self.subTest(curve=curve):
                 with self.assertRaises(TypeError):
-                    easing.ease(0.5, curve)
+                    easing.ease(0.5, curve=curve)
 
     def test_nan_input_raises_value_error(self):
         with self.assertRaises(ValueError):
@@ -210,9 +210,9 @@ class InputHandlingTest(unittest.TestCase):
                     easing.ease(value)
 
     def test_accepts_real_numbers_other_than_float(self):
-        self.assertEqual(easing.ease(fractions.Fraction(1, 4), "quadratic"), 0.125)
-        self.assertEqual(easing.ease(decimal.Decimal("0.25"), "cubic"), 0.0625)
-        self.assertIsInstance(easing.ease(fractions.Fraction(1, 2), "sine"), float)
+        self.assertEqual(easing.ease(fractions.Fraction(1, 4), curve="quadratic"), 0.125)
+        self.assertEqual(easing.ease(decimal.Decimal("0.25"), curve="cubic"), 0.0625)
+        self.assertIsInstance(easing.ease(fractions.Fraction(1, 2), curve="sine"), float)
 
 
 if __name__ == "__main__":

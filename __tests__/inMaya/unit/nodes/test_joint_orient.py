@@ -98,7 +98,7 @@ class JointOrientTest(_SpecCase):
         for orientation, secondary in (("yzx", "zup"), ("zxy", "xdown"), ("none", "yup")):
             with self.subTest(orientation=orientation, secondary=secondary):
                 cmds.joint(self.reference[1], edit=True, orientJoint=orientation, secondaryAxisOrient=secondary, children=False, zeroScaleOrient=True)
-                Joint(self.joints[1]).orient(orientation, secondary, children=False)
+                Joint(self.joints[1]).orient(orientation, secondaryAxisOrient=secondary, children=False)
                 self.assertSequenceAlmostEqual(self.orients(self.joints[1:2])[0], self.orients(self.reference[1:2])[0])
         # children=False では子孫の末端を触らない。
         self.assertSequenceAlmostEqual(self.orients(self.joints[-1:])[0], (10, 20, 30))
@@ -131,7 +131,7 @@ class JointOrientTest(_SpecCase):
         for error, args in ((ValueError, ("abc",)), (ValueError, ("xyz", "up")), (TypeError, (1,)), (TypeError, ("xyz", None))):
             with self.subTest(args=args):
                 with self.assertRaises(error):
-                    joint.orient(*args)
+                    joint.orient(*args[:1], **dict(zip(("secondaryAxisOrient",), args[1:])))
         with self.assertRaisesRegex(TypeError, "childrenはboolで指定してください"):
             joint.orient(children=1)
         with self.assertRaisesRegex(TypeError, "zeroScaleOrientはboolで指定してください"):

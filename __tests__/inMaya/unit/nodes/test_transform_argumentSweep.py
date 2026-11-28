@@ -538,6 +538,76 @@ def _expect_constraint(case, call):
 
 
 #: addConstraint の長い名前と短縮名の組(両方を渡すと TypeError)。
+def _make_offset(case):
+    """rotateOrder と offsetParentMatrix を既定でない値にした子。"""
+    child = _make_child(case)
+    full = child.getName(full=True)
+    cmds.setAttr(full + ".rotateOrder", 3)
+    cmds.setAttr(full + ".offsetParentMatrix", [1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0, 1.0, 2.0, 3.0, 1.0], type="matrix")
+    return child
+
+
+def _world_before(call):
+    """呼ぶ前の状態(sceneState)から、対象のワールドのマトリクスを取り出す。"""
+    return next(value for node, attr, value in call.before[2] if node == _full(call) and attr == "worldMatrix")
+
+
+def _expect_get_mfn(case, call):
+    case.assertIsInstance(call.result, om2.MFnTransform)
+    case.assertEqual(call.result.fullPathName(), _full(call))
+
+
+def _expect_zero_pivots(case, call):
+    full = _full(call)
+    for attr in ("rotatePivot", "scalePivot", "rotatePivotTranslate", "scalePivotTranslate"):
+        case.assertSequenceAlmostEqual(cmds.getAttr(full + "." + attr)[0], (0.0, 0.0, 0.0), places=6)
+    case.assertSequenceAlmostEqual(cmds.getAttr(full + ".worldMatrix[0]"), _world_before(call), places=5)
+
+
+def _expect_unused_intermediates(case, call):
+    case.assertEqual([node.getName(full=True) for node in call.result], cmds.ls(case.ns + ":interOrig*", long=True))
+
+
+def _expect_get_curve_data(case, call):
+    shapes = cmds.listRelatives(_full(call), shapes=True, fullPath=True, type="nurbsCurve")
+    case.assertEqual(len(call.result["shapes"]), len(shapes))
+    for data, shape in zip(call.result["shapes"], shapes):
+        case.assertEqual(data["degree"], cmds.getAttr(shape + ".degree"))
+        # 閉じた(periodic)カーブは、重なる分も含めた spans + degree 個の CV を記録する。
+        case.assertEqual(len(data["points"]), cmds.getAttr(shape + ".spans") + cmds.getAttr(shape + ".degree"))
+
+
+def _expect_self(case, call):
+    case.assertEqual(call.result, call.target)
+
+
+def _expect_mesh_shading_engines(case, call):
+    shape = cmds.listRelatives(_full(call), shapes=True, fullPath=True)[0]
+    expected = cmds.listConnections(shape, source=False, destination=True, type="shadingEngine")
+    case.assertEqual([str(node) for node in call.result], sorted(set(expected), key=expected.index))
+
+
+def _expect_get_transformation(case, call):
+    case.assertSequenceAlmostEqual(list(call.result.translate), cmds.getAttr(_full(call) + ".translate")[0], places=6)
+    case.assertSequenceAlmostEqual(list(call.result.asMatrix()), cmds.getAttr(_full(call) + ".matrix"), places=5)
+
+
+def _expect_get_rotate_order(case, call):
+    case.assertEqual(call.result, ("xyz", "yzx", "zxy", "xzy", "yxz", "zyx")[cmds.getAttr(_full(call) + ".rotateOrder")])
+
+
+def _expect_get_offset_parent(case, call):
+    values = [call.result.getElement(row, column) for row in range(4) for column in range(4)]
+    case.assertSequenceAlmostEqual(values, cmds.getAttr(_full(call) + ".offsetParentMatrix"), places=6)
+
+
+def _expect_freeze_to_offset_parent(case, call):
+    full = _full(call)
+    for attr, value in (("translate", 0.0), ("rotate", 0.0), ("shear", 0.0), ("scale", 1.0)):
+        case.assertSequenceAlmostEqual(cmds.getAttr(full + "." + attr)[0], (value,) * 3, places=6)
+    case.assertSequenceAlmostEqual(cmds.getAttr(full + ".worldMatrix[0]"), _world_before(call), places=5)
+
+
 CONSTRAINT_ALIASES = (
     ("type", "typ"),
     ("maintainOffset", "mo"),
@@ -956,6 +1026,17 @@ METHODS = (
         expect=_expect_constraint,
         limit=WRITE_LIMIT,
     ),
+    # 引数の無い読み取りと、引数の無い書き込み。mfn は名前が get で始まらないので、読むだけと明示する。
+    Method("mfn", _make_child, expect=_expect_get_mfn, writes=False),
+    Method("zeroTransformPivots", _make_child, expect=_expect_zero_pivots, plural=_make_children, limit=WRITE_LIMIT),
+    Method("getUnusedIntermediateShapes", _make_intermediate, expect=_expect_unused_intermediates),
+    Method("getCurveShapesData", _make_curves, expect=_expect_get_curve_data),
+    Method("getTransform", _make_child, expect=_expect_self, plural=_make_children),
+    Method("getShadingEngines", _make_mesh, expect=_expect_mesh_shading_engines),
+    Method("getTransformation", _make_child, expect=_expect_get_transformation),
+    Method("getRotateOrder", _make_offset, expect=_expect_get_rotate_order),
+    Method("getOffsetParentMatrix", _make_offset, expect=_expect_get_offset_parent),
+    Method("freezeToOffsetParent", _make_child, expect=_expect_freeze_to_offset_parent, plural=_make_children, limit=WRITE_LIMIT),
 )
 
 

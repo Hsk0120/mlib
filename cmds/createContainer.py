@@ -19,7 +19,7 @@ def createContainer(members=None, *, name=_UNSET, n=_UNSET, dag=False):
     nameは ``cmds.container`` と同じ短縮名 ``n`` でも指定できる(長い名前と短縮名は同時に指定できない)。
 
     Args:
-        members (str | Node | Iterable[Node | str] | None): 作ったあとに所属させるノード。Noneと空の並びは空のまま。既定はNone。
+        members (Node | str | Iterable[Node | str] | None): 作ったあとに所属させるノード。Noneと空の並びは空のまま。既定はNone。
             同じ並びに名前とNodeは混ぜられない。
         name (str | None): 付けたい名前。ほかのノードと重なる場合は、Mayaが重ならない名前に変える。
             Noneなら ``"container"``(``dag=True`` では ``"dagContainer"``)。既定はNone。

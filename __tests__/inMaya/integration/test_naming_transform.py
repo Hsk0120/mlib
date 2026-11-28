@@ -114,7 +114,7 @@ class TransformNamingTest(unittest.TestCase):
             self.assertTrue(callable(getattr(mlib.Transform, getter_name)))
             self.assertFalse(hasattr(mlib.Transform, short))
         for node in nodes:
-            self.assertEqual(node.setTranslation((4, 5, 6), False, 1, safe=False, get=True), [4, 5, 6])
+            self.assertEqual(node.setTranslation((4, 5, 6), False, at=1, safe=False, get=True), [4, 5, 6])
         self.assertEqual([tuple(node.getTranslation(at=1)) for node in nodes], [(1, 2, 3)] * 2)
 
     def test_renamed_setter_retains_undo_and_fast_behavior(self):

@@ -343,19 +343,19 @@ class PluginPackageSpecTest(unittest.TestCase):
     def test_is_maya_supported_compares_year(self):
         """minimumMayaが未指定または現在の年以下ならTrue、より新しい年ならFalse。"""
         year = _maya_year()
-        self.assertTrue(PluginPackage("Product", [self.missing_plugin]).isMayaSupported())
-        self.assertTrue(PluginPackage("Product", [self.missing_plugin], minimumMaya=year).isMayaSupported())
-        self.assertTrue(PluginPackage("Product", [self.missing_plugin], minimumMaya=year - 1).isMayaSupported())
-        self.assertFalse(PluginPackage("Product", [self.missing_plugin], minimumMaya=year + 1).isMayaSupported())
+        self.assertTrue(PluginPackage("Product", plugins=[self.missing_plugin]).isMayaSupported())
+        self.assertTrue(PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=year).isMayaSupported())
+        self.assertTrue(PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=year - 1).isMayaSupported())
+        self.assertFalse(PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=year + 1).isMayaSupported())
         # minimumMayaはint()で正規化して保持する。
-        package = PluginPackage("Product", [self.missing_plugin], minimumMaya=str(year + 1))
+        package = PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=str(year + 1))
         self.assertEqual(package.minimumMaya, year + 1)
         self.assertFalse(package.isMayaSupported())
 
     def test_unsupported_maya_skips_without_loading_or_notifying(self):
         """対象外のMayaではプラグインを照会・ロードせずSKIPPEDを返し、通知もしない。"""
         notified = []
-        package = PluginPackage("Product", [self.missing_plugin], minimumMaya=_maya_year() + 1)
+        package = PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=_maya_year() + 1)
         with mock.patch.object(PluginPackage, "loadPlugins", side_effect=AssertionError("loaded")):
             self.assertEqual(package.tryLoad(dialog=notified.append, warn=False), SKIPPED)
         self.assertEqual(notified, [])
@@ -363,25 +363,25 @@ class PluginPackageSpecTest(unittest.TestCase):
     def test_constructor_validation(self):
         """名前・プラグイン・最小版・最小Mayaの不正はValueError/TypeError。"""
         with self.assertRaises(ValueError):
-            PluginPackage("", [self.missing_plugin])
+            PluginPackage("", plugins=[self.missing_plugin])
         with self.assertRaises(TypeError):
-            PluginPackage(None, [self.missing_plugin])
+            PluginPackage(None, plugins=[self.missing_plugin])
         with self.assertRaises(ValueError):
             PluginPackage("Product")
         with self.assertRaises(ValueError):
-            PluginPackage("Product", [""])
+            PluginPackage("Product", plugins=[""])
         with self.assertRaises(TypeError):
-            PluginPackage("Product", [5])
+            PluginPackage("Product", plugins=[5])
         with self.assertRaises(TypeError):
-            PluginPackage("Product", 5)
+            PluginPackage("Product", plugins=5)
         with self.assertRaises(ValueError):
-            PluginPackage("Product", [self.missing_plugin], minimumVersion="beta")
+            PluginPackage("Product", plugins=[self.missing_plugin], minimumVersion="beta")
         with self.assertRaises(TypeError):
-            PluginPackage("Product", [self.missing_plugin], minimumMaya=[2025])
+            PluginPackage("Product", plugins=[self.missing_plugin], minimumMaya=[2025])
 
     def test_properties_do_not_query_maya_and_are_copies(self):
         """プロパティは保持値を返し、pluginsは独立したlist。"""
-        package = PluginPackage("Product", ["a", "b"], minimumVersion="3.1", minimumMaya=2024)
+        package = PluginPackage("Product", plugins=["a", "b"], minimumVersion="3.1", minimumMaya=2024)
         self.assertEqual(package.name, "Product")
         plugins = package.plugins
         self.assertEqual([plugin.name for plugin in plugins], ["a", "b"])
@@ -395,7 +395,7 @@ class PluginPackageSpecTest(unittest.TestCase):
     def test_missing_plugin_without_minimum_version_is_missing(self):
         """最小版なしで全プラグインのロードに失敗すればMISSINGとし、通知文を一度渡す。"""
         notified = []
-        package = PluginPackage("Product", [self.missing_plugin])
+        package = PluginPackage("Product", plugins=[self.missing_plugin])
         self.assertEqual([plugin.name for plugin in package.loadPlugins()], [self.missing_plugin])
         self.assertEqual(package.tryLoad(dialog=notified.append, warn=False), MISSING)
         self.assertEqual(len(notified), 1)
@@ -404,7 +404,7 @@ class PluginPackageSpecTest(unittest.TestCase):
 
     def test_missing_minimum_version_skips_loading(self):
         """最小版を満たさない場合はロードせずMISSING。dialog=Falseは通知しない。"""
-        package = PluginPackage("Product", [self.missing_plugin], minimumVersion="1.0")
+        package = PluginPackage("Product", plugins=[self.missing_plugin], minimumVersion="1.0")
         self.assertFalse(package.isInstalled())
         self.assertIsNone(package.getVersion())
         self.assertIsNone(package.getVersion(loaded=True))
@@ -423,7 +423,7 @@ class PluginPackageSpecTest(unittest.TestCase):
         name = "matrixNodes"
         was_loaded = cmds.pluginInfo(name, query=True, loaded=True)
         try:
-            package = PluginPackage("Matrix", [name])
+            package = PluginPackage("Matrix", plugins=[name])
             # 未ロードのプラグインは登録されていない場合があるため、ロード前のisInstalledは問わない。
             self.assertEqual(package.tryLoad(dialog=False, warn=False), LOADED)
             self.assertTrue(cmds.pluginInfo(name, query=True, loaded=True))

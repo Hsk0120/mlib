@@ -237,6 +237,10 @@ class Selection:
         except RuntimeError:
             # 選択が無い等でリッチ選択を作れないときは、通常の選択を使う。
             selection = om2.MGlobal.getActiveSelectionList()
+        active = om2.MGlobal.getActiveSelectionList()
+        if selection.length() < active.length():
+            # シンメトリがオンのときなど、リッチ選択が頂点を含まずに返ることがある(例外にならない)。そのときも通常の選択を使う。
+            selection = active
         iterator = om2.MItSelectionList(selection, om2.MFn.kMeshVertComponent)
         result = {}
         while not iterator.isDone():

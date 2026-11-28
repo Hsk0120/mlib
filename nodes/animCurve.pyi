@@ -155,7 +155,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効(削除済み)の場合、またはキーの無いカーブの場合。
         """
         ...
-    def addKey(self, input: float, value: float | None = ..., inTangentType: str | None = ..., outTangentType: str | None = ..., *, unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
+    def addKey(self, input: float, value: float | None = ..., *, inTangentType: str | None = ..., outTangentType: str | None = ..., unit: str = ..., timeUnit: str = ..., fast: bool = ..., check: bool = ...) -> None:
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
 
         ``value`` を省く(None)と、カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
@@ -291,7 +291,7 @@ class AnimCurve(Node):
             RuntimeError: ノードが無効な場合、または書き込み先がロック・接続などで書き込めない場合。
         """
         ...
-    def scaleKey(self, inputScale: float = ..., valueScale: float = ..., inputPivot: float = ..., valuePivot: float = ..., *, index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> None:
+    def scaleKey(self, inputScale: float = ..., *, valueScale: float = ..., inputPivot: float = ..., valuePivot: float = ..., index: int | Sequence[int] | None = ..., time: float | Sequence[float] | None = ..., unit: str = ..., timeUnit: str = ...) -> None:
         """キーを、基準の値を中心に拡大・縮小する。
 
         indexとtimeを両方省略すると、すべてのキーが対象になる。接線の扱いはMayaのscaleKeyに従う。

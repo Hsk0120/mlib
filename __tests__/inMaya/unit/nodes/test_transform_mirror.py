@@ -38,12 +38,12 @@ class MirrorAxisNotationTest(_SpecCase):
         matrix = Matrix(translate=(1, 2, 3), rotate=rotation, scale=(2, 3, 4))
         for group in _EQUIVALENT_AXES:
             expected_vector = vector.mirror(group[0], pivot=(1, 1, 1))
-            expected_matrix = matrix.mirror(group[0], (1, 1, 1))
+            expected_matrix = matrix.mirror(group[0], pivot=(1, 1, 1))
             expected_rotation = rotation.mirror(group[0])
             for axis in group[1:]:
                 with self.subTest(axis=axis):
                     self.assertEqual(tuple(vector.mirror(axis, pivot=(1, 1, 1))), tuple(expected_vector))
-                    self.assertTrue(matrix.mirror(axis, (1, 1, 1)).isEquivalent(expected_matrix, 1e-12))
+                    self.assertTrue(matrix.mirror(axis, pivot=(1, 1, 1)).isEquivalent(expected_matrix, 1e-12))
                     self.assertTrue(rotation.mirror(axis).isEquivalent(expected_rotation, 1e-12))
                     quaternion = rotation.asQuaternion()
                     self.assertTrue(quaternion.mirror(axis).isEquivalent(quaternion.mirror(group[0]), 1e-12))
@@ -60,7 +60,7 @@ class MirrorAxisNotationTest(_SpecCase):
         node = Node(name)
         original = node.getMatrix(worldSpace=True)
         for group in _EQUIVALENT_AXES:
-            expected = original.mirror(group[0], (4, 5, 6))
+            expected = original.mirror(group[0], pivot=(4, 5, 6))
             for axis in group:
                 with self.subTest(axis=axis):
                     node.setMatrix(original, worldSpace=True)
@@ -146,16 +146,16 @@ class TransformMirrorTest(unittest.TestCase):
                         original = node.getMatrix(worldSpace=True)
                         parent = Node(self.parent).getMatrix(worldSpace=True)
                         source = original if ws else original * parent.inverse()
-                        expected = source.mirror(axis, (4, 5, 6))
+                        expected = source.mirror(axis, pivot=(4, 5, 6))
                         if not ws:
                             expected = expected * parent
-                        self.assertIsNone(node.mirrorTransform(axis, ws, (4, 5, 6), fast=fast))
+                        self.assertIsNone(node.mirrorTransform(axis, ws, pivot=(4, 5, 6), fast=fast))
                         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(expected, 1e-7), (node_type, fast, ws, axis))
                         if not fast:
                             cmds.undo()
                             self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(original, 1e-7))
                             cmds.redo()
-                        node.mirrorTransform(axis, ws, (4, 5, 6), fast=fast)
+                        node.mirrorTransform(axis, ws, pivot=(4, 5, 6), fast=fast)
                         self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(original, 1e-7))
                         cmds.delete(name)
 
@@ -168,7 +168,7 @@ class TransformMirrorTest(unittest.TestCase):
         try:
             cmds.currentUnit(linear="m")
             node.mirrorTransform("x", worldSpace=True, pivot=(1, 0, 0))
-            self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(original.mirror("x", (1, 0, 0)), 1e-7))
+            self.assertTrue(node.getMatrix(worldSpace=True).isEquivalent(original.mirror("x", pivot=(1, 0, 0)), 1e-7))
         finally:
             cmds.currentUnit(linear=unit)
         cmds.xform(name, pivots=(1, 2, 3))

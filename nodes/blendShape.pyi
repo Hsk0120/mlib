@@ -145,7 +145,7 @@ class BlendShape(GeometryFilter):
                 (Mayaはロックを見ずに追加するため、追加する前に確かめる)、またはMayaが追加を拒否した場合。
         """
         ...
-    def addTarget(self, mesh: str | Node, name: str | None = ..., *, base: str | Node | None = ..., index: int | None = ..., fullWeight: float = ..., inBetween: str | int | Plug | None = ..., relative: bool = ...) -> Plug:
+    def addTarget(self, mesh: str | Node, *, name: str | None = ..., base: str | Node | None = ..., index: int | None = ..., fullWeight: float = ..., inBetween: str | int | Plug | None = ..., relative: bool = ...) -> Plug:
         """指定したベースへターゲット形状を追加する。``inBetween`` を渡すと、すでにあるターゲットへin-betweenを追加する。
 
         ターゲットの追加(既定):
@@ -221,7 +221,7 @@ class BlendShape(GeometryFilter):
                 またはMayaが取り除くのを拒否した場合。
         """
         ...
-    def getInBetweenWeights(self, target: str | int | Plug, base: str | Node | None = ...) -> list[float]:
+    def getInBetweenWeights(self, target: str | int | Plug, *, base: str | Node | None = ...) -> list[float]:
         """ターゲットのin-betweenの項目のウェイトを取得する。
 
         ``inputTargetItem`` の論理番号から `` (番号 - 5000) / 1000`` で求め、1.0は除く。
@@ -240,7 +240,7 @@ class BlendShape(GeometryFilter):
                 またはターゲットがそのベースのデータを持たない場合。
         """
         ...
-    def getTargetItemIndices(self, target: str | int | Plug, base: str | Node | None = ...) -> list[int]:
+    def getTargetItemIndices(self, target: str | int | Plug, *, base: str | Node | None = ...) -> list[int]:
         """ターゲット本体とin-betweenの項目の論理番号を取得する。
 
         未作成要素は作らず、値も評価しない。番号は5000 + ウェイト * 1000に対応する。
@@ -258,7 +258,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def getTargetGeometry(self, target: str | int | Plug, base: str | Node | None = ...) -> dict[int, Node | None]:
+    def getTargetGeometry(self, target: str | int | Plug, *, base: str | Node | None = ...) -> dict[int, Node | None]:
         """ターゲットの各項目へ接続された元形状を取得する。
 
         保存済みデルタだけを持ち、元Shapeへの接続がない項目はNone。
@@ -277,7 +277,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ノードが無効な場合。
         """
         ...
-    def getTargetWeights(self, target: str | int | Plug | None = ..., base: str | Node | None = ...) -> list[float]:
+    def getTargetWeights(self, target: str | int | Plug | None = ..., *, base: str | Node | None = ...) -> list[float]:
         """ターゲットの頂点マスクを、頂点番号の順に取得する。``target=None`` なら、ベースのbaseWeightsを取得する。
 
         - ターゲット: 頂点マスクは ``inputTargetGroup[i].targetWeights`` の値。
@@ -302,7 +302,7 @@ class BlendShape(GeometryFilter):
                 またはターゲットがそのベースのデータを持たない場合。
         """
         ...
-    def setTargetWeights(self, target: str | int | Plug | None, weights: Sequence[float] | dict[int, float], base: str | Node | None = ..., *, fast: bool = ..., check: bool = ...) -> None:
+    def setTargetWeights(self, target: str | int | Plug | None, weights: Sequence[float] | dict[int, float], *, base: str | Node | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """ターゲットの頂点マスクを設定する。``target`` にNoneを渡すと、ベースのbaseWeightsを設定する。
 
         ターゲットの頂点マスクは ``inputTargetGroup[i].targetWeights``、ベースは ``inputTarget[].baseWeights`` の値。
@@ -334,7 +334,7 @@ class BlendShape(GeometryFilter):
                 入力が接続されている場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getTargetDeltas(self, target: str | int | Plug, base: str | Node | None = ..., *, fullWeight: float = ...) -> dict[int, Vector]:
+    def getTargetDeltas(self, target: str | int | Plug, *, base: str | Node | None = ..., fullWeight: float = ...) -> dict[int, Vector]:
         """ターゲット(またはin-between)の項目に保存されたデルタを取得する。
 
         ターゲット形状が接続されていれば、Mayaが計算した今のデルタを返す。
@@ -353,7 +353,7 @@ class BlendShape(GeometryFilter):
             ValueError: ターゲット、またはそのウェイトの項目が無い場合。
         """
         ...
-    def setTargetDeltas(self, target: str | int | Plug, deltas: dict[int, Sequence[float]], base: str | Node | None = ..., *, fullWeight: float = ..., disconnect: bool = ..., fast: bool = ..., check: bool = ...) -> None:
+    def setTargetDeltas(self, target: str | int | Plug, deltas: dict[int, Sequence[float]], *, base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., fast: bool = ..., check: bool = ...) -> None:
         """ターゲット(またはin-between)の項目のデルタを、まるごと置き換える。
 
         指定しなかった頂点は変位0になる。ほかの項目のデルタは変えない。
@@ -379,7 +379,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def getTargetVertices(self, target: str | int | Plug, base: str | Node | None = ..., *, fullWeight: float = ..., tolerance: float = ...) -> Vertices:
+    def getTargetVertices(self, target: str | int | Plug, *, base: str | Node | None = ..., fullWeight: float = ..., tolerance: float = ...) -> Vertices:
         """デルタの長さがしきい値を超える頂点を取得する。
 
         今の ``weight``・envelope・頂点マスクは判定に使わない。
@@ -398,7 +398,7 @@ class BlendShape(GeometryFilter):
             ValueError: ターゲットや項目が無い場合、またはtoleranceが負の数か有限でない場合。
         """
         ...
-    def resetTargetVertices(self, target: str | int | Plug, vertices: int | Vertex | Vertices | Iterable[int | Vertex] | None = ..., base: str | Node | None = ..., *, fullWeight: float = ..., disconnect: bool = ..., tolerance: float | None = ..., fast: bool = ..., check: bool = ...) -> None:
+    def resetTargetVertices(self, target: str | int | Plug, vertices: int | Vertex | Vertices | Iterable[int | Vertex] | None = ..., *, base: str | Node | None = ..., fullWeight: float = ..., disconnect: bool = ..., tolerance: float | None = ..., fast: bool = ..., check: bool = ...) -> None:
         """指定した頂点の変位を0に戻す。``tolerance`` を渡すと、デルタの長さがしきい値以下の頂点を項目のデータから取り除く。
 
         ``vertices`` と ``tolerance`` のどちらか1つを指定する。
@@ -430,7 +430,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されていてdisconnect=Falseの場合、またはMayaが書き込みを拒否した場合。
         """
         ...
-    def mirrorTarget(self, target: str | int | Plug, axis: str | int = ..., *, positiveToNegative: bool = ..., base: str | Node | None = ..., flip: bool = ..., symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
+    def mirrorTarget(self, target: str | int | Plug, *, axis: str | int = ..., positiveToNegative: bool = ..., base: str | Node | None = ..., flip: bool = ..., symmetrySpace: str = ..., symmetryEdge: str | Edge | None = ...) -> None:
         """ターゲットの片側の変形を、反対側へミラーする。``flip=True`` なら、ターゲットの変形を左右反転する。
 
         ``cmds.blendShape(edit=True, mirrorTarget=...)``(``flip=True`` では ``flipTarget=...``)を使う。
@@ -460,7 +460,7 @@ class BlendShape(GeometryFilter):
             RuntimeError: ターゲット形状が接続されている場合(先に複製するなどして、接続の無い形状にしておく)。
         """
         ...
-    def replaceTarget(self, target: str | int | Plug, geometry: str | Node, base: str | Node | None = ..., *, fullWeight: float = ...) -> None:
+    def replaceTarget(self, target: str | int | Plug, geometry: str | Node, *, base: str | Node | None = ..., fullWeight: float = ...) -> None:
         """ターゲット(またはin-between)の項目の形状を、別のメッシュに差し替える。
 
         別のメッシュを接続し、以後のデルタはそのメッシュから計算されるようにする。
@@ -1074,7 +1074,7 @@ class _Directories:
             int: フォルダの番号。不明なら0(最上位)。
         """
         ...
-    def move(self, index: int, folder: int, after: int | None = ...):
+    def move(self, index: int, folder: int, *, after: int | None = ...):
         """ターゲットをフォルダへ移す。
 
         Args:

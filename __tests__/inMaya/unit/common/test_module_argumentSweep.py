@@ -1,6 +1,6 @@
-"""Module の公開メソッド(getVersion)の引数を、表から網羅して確かめる(段1〜3)。
+"""Module の公開メソッド(getVersion・isRegistered・getPath)の引数を、表から網羅して確かめる(段1〜3)。
 
-結果は cmds.moduleInfo の版の文字列と突き合わせる。シーンを変えない。登録されているモジュールが1つも無い
+結果は cmds.moduleInfo の版の文字列・モジュールの一覧・場所と突き合わせる。シーンを変えない。登録されているモジュールが1つも無い
 Maya では、登録されていない名前で None になることだけを確かめる。
 表の書き方と段の意味は ``support/argumentSweep.py`` と ``__tests__/README.md`` を参照する。
 """
@@ -42,7 +42,23 @@ def _expect_version(case, call):
         case.assertEqual(call.result, Version.parse(raw))
 
 
-METHODS = (Method("getVersion", _module, invalid={"text": (1, "yes", None)}, expect=_expect_version),)
+def _expect_registered(case, call):
+    case.assertIs(call.result, call.target.name in (cmds.moduleInfo(listModules=True) or []))
+
+
+def _expect_path(case, call):
+    name = call.target.name
+    registered = name in (cmds.moduleInfo(listModules=True) or [])
+    case.assertEqual(call.result, (cmds.moduleInfo(path=True, moduleName=name) or None) if registered else None)
+
+
+METHODS = (
+    Method("getVersion", _module, invalid={"text": (1, "yes", None)}, expect=_expect_version),
+    Method("isRegistered", _module, expect=_expect_registered),
+    Method("isRegistered", lambda case: Module("mlibSweepNoModule"), variant="unregistered", expect=_expect_registered),
+    Method("getPath", _module, expect=_expect_path),
+    Method("getPath", lambda case: Module("mlibSweepNoModule"), variant="unregistered", expect=_expect_path),
+)
 
 
 class ModuleArgumentSweepTest(ArgumentSweepCase):

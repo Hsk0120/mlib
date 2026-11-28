@@ -364,7 +364,7 @@ class EulerRotate(om2.MEulerRotation):
         """
         ...
     @classmethod
-    def fromYawPitch(cls, direction: om2.MVector | om2.MPoint | Iterable[float], order: str | int = ...) -> EulerRotate:
+    def fromYawPitch(cls, direction: om2.MVector | om2.MPoint | Iterable[float], *, order: str | int = ...) -> EulerRotate:
         """基準軸を指定した方向へ向ける回転を作る。
 
         基準軸は回転順序の最初の軸。ピッチとヨーの2軸だけで向ける。

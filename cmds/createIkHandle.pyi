@@ -28,7 +28,7 @@ def _record_chain_angles(start: str, end: str) -> None:
     """
     ...
 
-def createIkHandle(startJoint: str | Node = ..., endJoint: str | Node = ..., solver: str = ..., *, name: str | None = ..., n: str | None = ..., curve: str | Node | None = ..., c: str | Node | None = ..., sj: str | Node = ..., ee: str | Node = ..., sol: str = ..., **kwargs: object) -> IkHandle:
+def createIkHandle(startJoint: str | Node = ..., endJoint: str | Node = ..., *, solver: str = ..., sol: str = ..., name: str | None = ..., n: str | None = ..., curve: str | Node | None = ..., c: str | Node | None = ..., sj: str | Node = ..., ee: str | Node = ..., **kwargs: object) -> IkHandle:
     """開始のjointから末端のjointまでのIKハンドルとエフェクターを作る。
 
     - エフェクター(ikEffector)は、Mayaの規則どおり、末端のjointの1つ上のjointの子に作られる。

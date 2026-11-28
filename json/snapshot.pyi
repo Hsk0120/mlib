@@ -109,7 +109,7 @@ class Snapshot:
     """
     FORMAT: None
     VERSION: None
-    def __init__(self, data: dict, header: file.Header | None = ...) -> None:
+    def __init__(self, data: dict, *, header: file.Header | None = ...) -> None:
         """データを持たせる。ふつうは ``capture`` か :meth:`load` で作る。
 
         Args:
@@ -117,7 +117,7 @@ class Snapshot:
             header (file.Header | None): 読み込んだファイルのヘッダー。取得したばかりならNone。既定はNone。
 
         Raises:
-            TypeError: dataが辞書でない場合。
+            TypeError: dataが辞書でない場合、またはheaderがfile.HeaderでもNoneでもない場合。
             ValueError: データの形が種類と合わない場合。
         """
         ...

@@ -858,7 +858,7 @@ def test_matrix_negative_determinant_decomposes_like_transformation_matrix():
     assert parts["quaternion"].isEquivalent(transformation.rotation(asQuaternion=True), 1e-12)
     assert parts["euler"].isEquivalent(transformation.rotation(), 1e-12)
     assert "rotation" not in parts
-    rebuilt = Matrix.compose(parts["translate"], parts["quaternion"], parts["scale"], parts["shear"])
+    rebuilt = Matrix.compose(parts["translate"], rotate=parts["quaternion"], scale=parts["scale"], shear=parts["shear"])
     assert rebuilt.isEquivalent(matrix, 1e-12)
     # setter も同じ規約で再合成し、行列そのものは変わらない。
     edited = Matrix(matrix)
@@ -1423,7 +1423,7 @@ def test_mirror_value_types():
         assert rotation.mirror(axis).order == rotation.order
         matrix = Matrix(translate=(1, 2, 3), rotate=rotation, scale=(2, 3, 4))
         original = Matrix(matrix)
-        assert matrix.mirror(axis, (3, 4, 5)).mirror(axis, (3, 4, 5)).isEquivalent(original, 1e-9)
+        assert matrix.mirror(axis, pivot=(3, 4, 5)).mirror(axis, pivot=(3, 4, 5)).isEquivalent(original, 1e-9)
         assert matrix.isEquivalent(original, 0.0)
     for axis in ("", "xx", "a", "xyz", True, 3):
         try:

@@ -30,7 +30,7 @@ class Header:
     今のシーンから作るので、自分で作る必要はない。
     """
 
-    def __init__(self, format, version, mlib=None, maya=None, fps=None):
+    def __init__(self, format, version, *, mlib=None, maya=None, fps=None):
         """ヘッダーの値を持たせる。
 
         Args:
@@ -42,8 +42,8 @@ class Header:
 
         Raises:
             TypeError: formatが文字列でない場合、versionがintでない場合(boolも不可)、
-                またはfpsが数値でもNoneでもない場合。
-            ValueError: formatが空の場合、versionが1より小さい場合、またはfpsが正でない場合。
+                fpsが数値でもNoneでもない場合、またはmlib・mayaが文字列でもNoneでもない場合。
+            ValueError: formatが空の場合、versionが1より小さい場合、またはfpsが正の有限な値でない場合。
         """
         if not isinstance(format, str):
             raise TypeError("formatは文字列で指定してください")
@@ -57,8 +57,11 @@ class Header:
             fps = _current_fps()
         if isinstance(fps, bool) or not isinstance(fps, (int, float)):
             raise TypeError("fpsは数値で指定してください")
-        if not fps > 0:
-            raise ValueError("fpsは正の値で指定してください")
+        if not 0 < fps < float("inf"):
+            raise ValueError("fpsは正の有限な値で指定してください")
+        for label, value in (("mlib", mlib), ("maya", maya)):
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"{label}はstrかNoneで指定してください")
         self._format = format
         self._version = version
         self._mlib = mlib
@@ -139,7 +142,7 @@ class Header:
             if units.get(key) != unit:
                 raise ValueError(f"JSONのヘッダーの{key}の単位に対応していません: {units.get(key)!r}({unit!r}が必要です)")
         try:
-            return cls(data["format"], data["version"], data.get("mlib"), data.get("maya"), units.get("fps"))
+            return cls(data["format"], data["version"], mlib=data.get("mlib"), maya=data.get("maya"), fps=units.get("fps"))
         except (KeyError, TypeError) as error:
             raise ValueError(f"JSONのヘッダーが不正です: {error}") from error
 
@@ -232,7 +235,7 @@ def _dump(data, path, format, version):
     # 循環参照の回避: mlib.__version__ はパッケージの初期化の最後に設定される。
     from .. import __version__
 
-    header = Header(format, version, __version__, cmds.about(version=True))
+    header = Header(format, version, mlib=__version__, maya=cmds.about(version=True))
     payload = {"header": header._to_data(), "data": _encode(data)}
     text = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
     descriptor, temporary = tempfile.mkstemp(prefix=".mlib-", suffix=".json", dir=str(destination.parent))

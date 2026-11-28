@@ -37,6 +37,19 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
+
+
 def _build(case):
     root = case.make("transform", "root")
     case.make("transform", "child", parent=root)
@@ -80,7 +93,32 @@ def _expect_resolve(case, call):
         case.assertIsNone(call.result)
 
 
+def _expect_init(case, call):
+    """渡した値をそのまま持つ(空文字列の dagPath・type は None)。シーンには問い合わせない。"""
+    kwargs = call.kwargs
+    case.assertIs(type(call.result), NodeRef)
+    case.assertEqual(call.result.name, kwargs["name"])
+    case.assertEqual(call.result.dagPath, kwargs.get("dagPath") or None)
+    case.assertEqual(call.result.type, kwargs.get("type") or None)
+    case.assertEqual(call.result, NodeRef(kwargs["name"], dagPath=kwargs.get("dagPath"), type=kwargs.get("type")))
+
+
 METHODS = (
+    Method(
+        "__init__",
+        _ref,
+        function=_constructor(NodeRef),
+        args=("chrA:arm_L_jnt",),
+        values={
+            "name": ("chrA:arm_L_jnt", "x", ":root", "a:b:c", "日本語", "nowhere"),
+            "dagPath": (None, "", "|chrA:root|chrA:arm_L_jnt", "nowhere"),
+            "type": (None, "", "joint", "noSuchType"),
+        },
+        replace=("name", "dagPath", "type"),
+        invalid={"name": (1.5, None, "", "a|b", "|a", b"a", ["a"]), "dagPath": (1.5, ["|a"], b"|a"), "type": (1.5, ["joint"], b"joint")},
+        expect=_expect_init,
+        writes=False,
+    ),
     Method(
         "capture",
         _capturer,

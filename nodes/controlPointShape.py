@@ -78,7 +78,7 @@ class _ControlPointShape(Shape):
         ws = _world_space(worldSpace)
         self._set_points(geometryEdit.point_list(points), ws, fast, check)
 
-    def mirror(self, axis="x", worldSpace=_UNSET, pivot=(0.0, 0.0, 0.0), indices=None, *, fast=False, check=False, ws=_UNSET):
+    def mirror(self, axis="x", worldSpace=_UNSET, *, pivot=(0.0, 0.0, 0.0), indices=None, fast=False, check=False, ws=_UNSET):
         """点(メッシュは頂点、NURBSはCV)の座標を、pivotを中心に反転する。
 
         反転後の座標は ``2 * pivot - 今の座標`` になる。

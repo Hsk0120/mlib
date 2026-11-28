@@ -200,7 +200,7 @@ class EulerRotateRandomTest(unittest.TestCase):
             order = index % 6
             direction = tuple(rng.uniform(-10.0, 10.0) for _ in range(3))
             with self.subTest(seed=SEED + 6, index=index, direction=fmt(direction), order=ORDERS[order]):
-                value = EulerRotate.fromYawPitch(direction, ORDERS[order])
+                value = EulerRotate.fromYawPitch(direction, order=ORDERS[order])
                 self.assertEqual(value.order, order)
                 base = "xyz".index(ORDERS[order][0])
                 pitch = "xyz".index(ORDERS[order][1])

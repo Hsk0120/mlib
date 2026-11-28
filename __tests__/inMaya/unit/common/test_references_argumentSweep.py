@@ -63,9 +63,9 @@ def _creator(case):
     return _host("references", createReference=_create, listReferences=references.listReferences)
 
 
-def _create(path, namespace=None):
+def _create(path, *, namespace=None):
     """createReference を呼び、確かめた後に外せるよう、作ったリファレンスを記録する。"""
-    return references.createReference(path, namespace)
+    return references.createReference(path, namespace=namespace)
 
 
 _create.__signature__ = inspect.signature(references.createReference)

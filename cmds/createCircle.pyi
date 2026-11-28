@@ -10,7 +10,7 @@ from mlib.nodes.node import Node
 from mlib.nodes.nurbsCurve import NurbsCurve
 
 
-def createCircle(radius: float = ..., normal: Sequence[float] = ..., sections: int = ..., degree: int = ..., *, name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., r: float = ..., nr: Sequence[float] = ..., s: int = ..., d: int = ...) -> NurbsCurve:
+def createCircle(radius: float = ..., *, normal: Sequence[float] = ..., nr: Sequence[float] = ..., sections: int = ..., s: int = ..., degree: int = ..., d: int = ..., name: str | None = ..., n: str | None = ..., parent: Node | str | None = ..., r: float = ...) -> NurbsCurve:
     """原点を中心とするNURBSの円を作り、そのシェイプを返す。
 
     半径はMaya APIの内部単位(cm)で指定し、現在のUI単位には左右されない。コンストラクションヒストリは作らない。

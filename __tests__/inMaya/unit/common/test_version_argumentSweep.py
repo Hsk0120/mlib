@@ -34,6 +34,19 @@ def _host(owner, **functions):
     return type(owner, (), {name: wrap(function) for name, function in functions.items()})()
 
 
+def _constructor(owner):
+    """クラスを、``__init__`` の引数・docstring を持つ関数にする(表は関数の docstring から Args・Raises を読むため)。"""
+    signature = inspect.signature(owner.__init__)
+
+    def construct(*args, **kwargs):
+        return owner(*args, **kwargs)
+
+    construct.__signature__ = signature.replace(parameters=list(signature.parameters.values())[1:])
+    construct.__doc__ = owner.__init__.__doc__
+    construct.__name__ = owner.__name__
+    return construct
+
+
 def _version(case):
     return Version("3.2-beta")
 
@@ -82,10 +95,35 @@ def _expect_parse(case, call):
         case.assertEqual(call.result.parts, _numbers(value))
 
 
+def _expect_init(case, call):
+    """数字の並びは手で求めた値と同じで、文字列の残りは接尾辞になる(Version を渡すと同じ値の別のオブジェクト)。"""
+    value = call.kwargs["value"]
+    case.assertIs(type(call.result), Version)
+    case.assertEqual(call.result.parts, _numbers(value))
+    if isinstance(value, Version):
+        case.assertIsNot(call.result, value)
+        case.assertEqual(call.result.suffix, value.suffix)
+    elif isinstance(value, str):
+        case.assertEqual(call.result.suffix, value.strip()[len(".".join(str(part) for part in call.result.parts)) :])
+    else:
+        case.assertEqual(call.result.suffix, "")
+
+
 DIGITS = (None, 0, 1, 7, 100, "4")
 DIGIT_INVALID = (-1, 1.5, True, "a", "-1", [1])
 
 METHODS = (
+    Method(
+        "__init__",
+        _version,
+        function=_constructor(Version),
+        args=("3.2-beta",),
+        values={"value": ("3.2-beta", "2027", " 1.2 ", "3.0.0-build", "0", 2027, 0, (1, 2), [3, "4"], (0,), Version("5.6-rc"))},
+        replace=("value",),
+        invalid={"value": (None, 1.5, True, "", "abc", "-1", " ", (), [], (-1,), (1.5,), (True,), ("a",), b"3.2", object())},
+        expect=_expect_init,
+        writes=False,
+    ),
     Method(
         "replace",
         _version,

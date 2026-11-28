@@ -91,7 +91,7 @@ class AttributesSnapshotTest(_SnapshotCase):
 
     def test_round_trip_with_units(self):
         self.set_units("mm", "rad")
-        snap = AttributesSnapshot.capture([self.node], self.names())
+        snap = AttributesSnapshot.capture([self.node], attributes=self.names())
         data = snap.toData()
         attrs = [entry["plug"]["attr"] for entry in data["plugs"]]
         self.assertEqual(attrs, ["label", "offsetMatrix", "choice", "flag", "dist", "translate", "rotate", "visibility"])
@@ -125,10 +125,10 @@ class AttributesSnapshotTest(_SnapshotCase):
         with self.assertRaises(ValueError):
             AttributesSnapshot.capture([self.node])
         with self.assertRaises(TypeError):
-            AttributesSnapshot.capture([self.node], [1])
+            AttributesSnapshot.capture([self.node], attributes=[1])
 
     def test_locked_connected_missing(self):
-        snap = AttributesSnapshot.capture([self.node], self.names())
+        snap = AttributesSnapshot.capture([self.node], attributes=self.names())
         cmds.setAttr(self.node_b + ".label", lock=True)
         cmds.setAttr(self.node_b + ".rz", lock=True)
         driver = cmds.createNode("transform", name=self.other_name("driver"))
@@ -161,8 +161,8 @@ class AttributesSnapshotTest(_SnapshotCase):
             (([self.name("noSuchNode")], ["tx"]), (RuntimeError, ValueError)),
         ):
             with self.subTest(args=args), self.assertRaises(error):
-                AttributesSnapshot.capture(*args)
-        snap = AttributesSnapshot.capture(self.node, "dist")
+                AttributesSnapshot.capture(*args[:1], **dict(zip(("attributes",), args[1:])))
+        snap = AttributesSnapshot.capture(self.node, attributes="dist")
         self.assertEqual([entry["plug"]["attr"] for entry in snap.toData()["plugs"]], ["dist"])
 
     def test_unsupported_values_are_left_out(self):
@@ -174,7 +174,7 @@ class AttributesSnapshotTest(_SnapshotCase):
         cmds.addAttr(self.node, longName="broken", attributeType="double")
         cmds.setAttr(self.node + ".broken", float("nan"))
         with self.assertLogs("mlib", level="WARNING") as logs:
-            snap = AttributesSnapshot.capture([self.node], ["items", "link", "mesh", "broken", "items[0]"])
+            snap = AttributesSnapshot.capture([self.node], attributes=["items", "link", "mesh", "broken", "items[0]"])
         attrs = [entry["plug"]["attr"] for entry in snap.toData()["plugs"]]
         self.assertEqual(attrs, ["items[0]"])
         text = "\n".join(logs.output)
@@ -185,7 +185,7 @@ class AttributesSnapshotTest(_SnapshotCase):
 
     def test_none_value_is_skipped(self):
         """保存した値がNoneの項目は書かずに「値がありません」で報告することを確かめる。"""
-        snap = AttributesSnapshot.capture([self.node], ["dist"])
+        snap = AttributesSnapshot.capture([self.node], attributes=["dist"])
         data = snap.toData()
         data["plugs"][0]["value"] = None
         cmds.setAttr(self.node_b + ".dist", 9.0)

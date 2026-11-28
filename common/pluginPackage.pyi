@@ -23,7 +23,7 @@ class PluginPackage:
     tryLoadで、対象のMayaの版・入っている版・ロードの結果を順に判定する。
     ロードしたプラグインを自動でアンロードすることはしない。
     """
-    def __init__(self, name: str, plugins: Iterable[str | Plugin] = ..., module: str | Module | None = ..., versionPlugin: str | Plugin | None = ..., minimumVersion: Version | str | int | tuple[int, ...] | None = ..., minimumMaya: int | None = ..., installHint: str | None = ...) -> None:
+    def __init__(self, name: str, *, plugins: Iterable[str | Plugin] = ..., module: str | Module | None = ..., versionPlugin: str | Plugin | None = ..., minimumVersion: Version | str | int | tuple[int, ...] | None = ..., minimumMaya: int | None = ..., installHint: str | None = ...) -> None:
         """製品名・ロードするもの・必要な版を持つ。Mayaへは問い合わせない。
 
         Args:
@@ -37,7 +37,7 @@ class PluginPackage:
 
         Raises:
             TypeError: 名前やプラグイン名が文字列でない場合、pluginsを順に取り出せない場合、
-                またはminimumMayaを整数に変換できない型の場合。
+                minimumMayaを整数に変換できない型の場合、またはinstallHintが文字列でもNoneでもない場合。
             ValueError: 名前やプラグイン名が空文字列の場合、最小の版が正しくない場合、
                 またはpluginsもmoduleも指定していない場合。
         """
@@ -50,7 +50,7 @@ class PluginPackage:
         """
         ...
     @staticmethod
-    def showDialog(message: str, title: str = ...) -> None:
+    def showDialog(message: str, *, title: str = ...) -> None:
         """警告のダイアログを表示する。GUI の無いバッチ・スタンドアロンでは何もしない。
 
         Args:

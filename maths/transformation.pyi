@@ -89,7 +89,7 @@ class Transformation(om2.MTransformationMatrix):
             Transformation: clsの、何も変換しない値。
         """
         ...
-    def __init__(self, value: Transformation | om2.MTransformationMatrix | om2.MMatrix | Iterable[float] | None = ..., *, translate: Iterable[float] | None = ..., rotate: om2.MEulerRotation | om2.MQuaternion | Iterable[float] | None = ..., rotateOrder: int | None = ..., scale: Iterable[float] | None = ..., shear: Iterable[float] | None = ..., rotateAxis: om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None = ..., jointOrient: om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None = ..., rotatePivot: Iterable[float] | None = ..., rotatePivotTranslate: Iterable[float] | None = ..., scalePivot: Iterable[float] | None = ..., scalePivotTranslate: Iterable[float] | None = ..., inverseScale: Iterable[float] | None = ...) -> None:
+    def __init__(self, value: Transformation | om2.MTransformationMatrix | om2.MMatrix | Iterable[float] | None = ..., *, translate: Iterable[float] | None = ..., rotate: Iterable[float] | om2.MEulerRotation | om2.MQuaternion | None = ..., rotateOrder: int | None = ..., scale: Iterable[float] | None = ..., shear: Iterable[float] | None = ..., rotateAxis: om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None = ..., jointOrient: om2.MQuaternion | om2.MEulerRotation | Iterable[float] | None = ..., rotatePivot: Iterable[float] | None = ..., rotatePivotTranslate: Iterable[float] | None = ..., scalePivot: Iterable[float] | None = ..., scalePivotTranslate: Iterable[float] | None = ..., inverseScale: Iterable[float] | None = ...) -> None:
         """コピー元の値、またはそれぞれの成分から値を設定する。
 
         valueを写したあとに、指定した成分で上書きする。
@@ -99,7 +99,7 @@ class Transformation(om2.MTransformationMatrix):
                 コピー元。マトリクスからはピボットなどを復元できないので、translate・rotate・scale・shear
                 だけを分解して入れる。Noneなら何も変換しない値。既定はNone。
             translate (Iterable[float] | None): XYZの平行移動(cm)。既定はNone。
-            rotate (om2.MEulerRotation | om2.MQuaternion | Iterable[float] | None): 回転。
+            rotate (Iterable[float] | om2.MEulerRotation | om2.MQuaternion | None): 回転。
                 オイラー回転は回転順序も入れる。クォータニオンと3成分(ラジアン)は、今の回転順序の値にする。既定はNone。
             rotateOrder (int | None): 回転順序。0(xyz)〜5(zyx)。rotateより先に入れる。既定はNone。
             scale (Iterable[float] | None): XYZのスケール。既定はNone。

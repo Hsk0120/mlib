@@ -225,7 +225,7 @@ class TransformArgumentSweepTest(ArgumentSweepCase):
 | `test_<メソッド>_values` | 段1: 引数ごとに候補を1つずつ差し替えて呼ぶ(引数の無いメソッドは1回呼ぶ)。例外は docstring の Raises の型だけ(そのときシーンは変わらない)、`expect` に合う |
 | `test_<メソッド>_invalid` | 段2: 違う型の値(bool へ`1`・`"yes"`、数へ`"a"`・NaN・inf、文字列へ数、選べる値へ選べない文字列、ノード・Plug へ削除済み・存在しない名前、並びへ数でない物)で、Raises の型になりシーンが変わらない |
 | `test_<メソッド>_pairs` | 段3: 2つの引数の組(1メソッド200組まで。`limit`で変える。引数が1つなら候補を1つずつ、無ければ1回。`combos`の組は必ず通す)で、Raises の型だけ・同時に指定できない組は TypeError・Undo 1回で戻り redo で同じ・`fast=True`と通常で同じ(fast は Undo なし)・短縮名(docstring の「Xの短縮名」)と長い名前で同じ・`roundTrip`・`plural` |
-| `test_<メソッド>_calling` | 段4(呼び方): 正しい呼び方を、渡し方だけ変えても同じ結果になる。`defaults`=省いた引数へ既定値を明示しても同じ(署名・docstring の既定値が実際の動きと同じ)、`positional`=位置で渡せる引数を位置で渡しても名前で渡したときと同じ、`keywordOnly`=キーワード専用の引数を位置で渡すと TypeError でシーンが変わらない。本体の食い違いは `known={"calling:defaults": "理由"}`、2回の結果を比べられない行(名前の番号が進む・ファイルが残る)は `skipCalling={"defaults": "理由"}` と書く |
+| `test_<メソッド>_calling` | 段4(呼び方): 正しい呼び方を、渡し方だけ変えても同じ結果になる。`defaults`=省いた引数へ既定値を明示しても同じ(署名・docstring の既定値が実際の動きと同じ)、`positional`=位置で渡せる引数を位置で渡しても名前で渡したときと同じ、`keywordOnly`=キーワード専用の引数を位置で渡すと TypeError でシーンが変わらない、`unknownKeyword`=どのメソッドも受けない名前のキーワードを足すと TypeError(`**kwargs` で黙って捨てない)、`aliasConflict`=長い名前と短縮名を同時に渡すと TypeError。本体の食い違いは `known={"calling:defaults": "理由"}`、2回の結果を比べられない行(名前の番号が進む・ファイルが残る)は `skipCalling={"defaults": "理由"}` と書く |
 | `test_<メソッド>_errors` | `errors`に書いた状態(削除済み・アンロード中など)で、決めた例外になりシーンが変わらない |
 | `test_<メソッド>_known` | `known`に書いた場合が、まだ食い違っていること(expectedFailure。直ったら known から外す) |
 
@@ -238,6 +238,12 @@ class TransformArgumentSweepTest(ArgumentSweepCase):
 - 書き込むメソッドの戻り値(Node・Plug・Component とその並び)は、呼んだ直後の名前に置き換えて比べます(作り直しで消えても比べられる)。
 - 複数形(`plural`)の書き込みは、作り直した後のノードから値(Lazy)を作り直し、表の`state`で比べます。
 - 並び・辞書の中の`Lazy`も呼ぶ直前に作ります。`Lazy(make, "名前", args=True)`は`make(case, kwargs)`でほかの引数の値も受け取ります(3つの引数がそろって決まる値)。
+- 公開の関数・メソッドは、すべて表に行を持ちます(`noMaya/test_argumentSweep_coverage.py` が検査します)。行は、ソースのファイルごとの
+  `inMaya/unit/<パッケージ>/test_<ファイル名>_argumentSweep.py`(cmds の関数は `cmds/test_init_argumentSweep.py`)に置きます。
+  引数の無いメソッドも `Method("isAlive", _make_node)` の1行を書き、コンストラクターは `Method("__init__", setup, function=_constructor(クラス), ...)` と書きます
+  (`_constructor` は、`__init__` の署名と docstring を持たせてクラスを呼ぶ関数。クラスをそのまま渡すと、Args・Raises を読めません)。
+  表を名前の並びから作るファイルは、`SWEPT = ("名前", ...)` に名前を書きます。行を書けない内部のクラスは、同じテストの `EXCLUDED` に理由を書きます。
+- `RoundTrip(..., fixed={"worldSpace": True})` は、get へいつも渡す引数(省けない引数)です。
 - Maya を使わない部分(docstring の読み取り・候補・組・Lazy の作り直し・可変長の引数の展開)は`support/argumentTable.py`にあり、`noMaya/test_argumentTable.py`が確かめます。
 
 `Method`のそのほかの指定と、テストケースの補助:

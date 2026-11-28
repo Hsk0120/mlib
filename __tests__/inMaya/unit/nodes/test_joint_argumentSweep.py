@@ -297,6 +297,67 @@ def _expect_joints_ssc(case, call):
 # ----------------------------------------------------------------------
 # 表
 
+
+def _expect_attribute(name):
+    """戻り値が、自身のアトリビュート ``name`` の値と同じことを確かめる関数を返す(3成分は並びで比べる)。"""
+
+    def expect(case, call):
+        value = cmds.getAttr(_full(call) + "." + name)
+        if isinstance(value, list):
+            case.assertSequenceAlmostEqual(list(call.result), value[0], places=6)
+        else:
+            case.assertEqual(call.result, value)
+
+    return expect
+
+
+def _expect_get_angles(name):
+    """戻り値(EulerRotate。rad)を度にした値が、角度のアトリビュート ``name`` の値と同じことを確かめる関数を返す。"""
+
+    def expect(case, call):
+        case.assertSequenceAlmostEqual(list(call.result.asDegrees()), cmds.getAttr(_full(call) + "." + name)[0], places=4)
+
+    return expect
+
+
+def _expect_get_dof(case, call):
+    case.assertEqual(call.result, "".join(axis for axis in "xyz" if cmds.getAttr(_full(call) + ".jointType" + axis.upper())))
+
+
+def _expect_depth(case, call):
+    # base(ワールド直下)→mid なので、完全名の区切りの数から1を引いた値になる。
+    case.assertEqual(call.result, _full(call).count("|") - 1)
+
+
+def _expect_is_influence_locked(case, call):
+    case.assertEqual(call.result, cmds.getAttr(_full(call) + ".lockInfluenceWeights"))
+
+
+def _expect_sorted_by_depth(case, call):
+    case.assertIsInstance(call.result, mlib.Joints)
+    names = [joint.getName(full=True) for joint in call.result]
+    case.assertEqual(names, sorted((joint.getName(full=True) for joint in call.target), key=lambda name: name.count("|"), reverse=True))
+
+
+def _expect_reset_scale_orientation(case, call):
+    # joint(zeroScaleOrient=True) は、回転軸(rotateAxis)を0にする。
+    case.assertSequenceAlmostEqual(cmds.getAttr(_full(call) + ".rotateAxis")[0], (0.0, 0.0, 0.0), places=6)
+
+
+def _make_axis(case):
+    """rotateAxis が0でない、スキンに使っていないジョイント。"""
+    joint = _make_loose(case)
+    cmds.setAttr(joint.getName(full=True) + ".rotateAxis", 0.0, 0.0, 30.0)
+    return joint
+
+
+def _make_locked_dof(case):
+    """jointTypeY をオフにした mid。"""
+    joint = _make_rig(case)
+    cmds.setAttr(joint.getName(full=True) + ".jointTypeY", False)
+    return joint
+
+
 ANGLES = (
     (10.0, 20.0, 30.0),
     [0, 0, 0],
@@ -477,6 +538,18 @@ METHODS = (
         invalid={"distance": (0.0, -1.0, "a", float("nan"), float("inf"), True)},
         expect=_expect_pole,
     ),
+    # 引数の無い読み取りと、引数の無い書き込み。
+    Method("getSegmentScaleCompensate", _make_rig, expect=_expect_attribute("segmentScaleCompensate"), plural=_make_mid_plural),
+    Method("getJointOrient", _make_rig, expect=_expect_get_angles("jointOrient"), plural=_make_mid_plural),
+    Method("resetScaleOrientation", _make_axis, expect=_expect_reset_scale_orientation, limit=WRITE_LIMIT),
+    # HumanIK に登録していないジョイントなので、docstring の Raises の RuntimeError になることを確かめる行になる。
+    Method("getHikJointName", _make_rig),
+    Method("getRadius", _make_rig, expect=_expect_attribute("radius"), plural=_make_mid_plural),
+    Method("getPreferredAngle", _make_rig, expect=_expect_get_angles("preferredAngle"), plural=_make_mid_plural),
+    Method("getDegreesOfFreedom", _make_locked_dof, expect=_expect_get_dof),
+    Method("getInverseScale", _make_rig, expect=_expect_attribute("inverseScale"), plural=_make_mid_plural),
+    Method("getDepth", _make_rig, expect=_expect_depth, plural=_make_mid_plural),
+    Method("isInfluenceLocked", _make_rig, expect=_expect_is_influence_locked, plural=_make_mid_plural),
 )
 
 JOINTS_METHODS = (
@@ -506,6 +579,8 @@ JOINTS_METHODS = (
         limit=WRITE_LIMIT,
     ),
     Method("setSegmentScaleCompensate", _make_loose_joints, args=(False,), expect=_expect_joints_ssc, limit=WRITE_LIMIT),
+    # 新しいまとまりを返すだけで、シーンは変えない。
+    Method("sortedByDepth", _make_joints, expect=_expect_sorted_by_depth, writes=False),
 )
 
 

@@ -52,7 +52,7 @@ class BakeDeformerTest(_SkinCase):
         target = cmds.duplicate(self.mesh, name=self.name("bake"))[0]
         cmds.deltaMush(self.mesh, name=self.name("mush"))
         cmds.flushUndo()
-        skin = mlib.bakeDeformer(self.mesh, self.root, target, maxInfluences=2)
+        skin = mlib.bakeDeformer(self.mesh, self.root, destination=target, maxInfluences=2)
         self.assertIsInstance(skin, SkinCluster)
         self.assertTrue(skin.deforms(target))
         cmds.undo()
@@ -71,7 +71,7 @@ class BakeDeformerTest(_SkinCase):
         cmds.deltaMush(mesh, name=self.name("mush"))
         for (kwargs, expected), target in zip(cases, targets):
             with self.subTest(kwargs=kwargs):
-                skin = mlib.bakeDeformer(mesh, joints[0], target, **kwargs)
+                skin = mlib.bakeDeformer(mesh, joints[0], destination=target, **kwargs)
                 self.assertEqual(cmds.getAttr(skin.getName(full=True) + ".maxInfluences"), expected)
                 self.assertEqual(cmds.skinCluster(skin.getName(full=True), query=True, maximumInfluences=True), expected)
 

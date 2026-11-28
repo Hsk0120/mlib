@@ -14,7 +14,7 @@ class NodeRef:
 
     __hash__ = None  # type: ignore[assignment]
 
-    def __init__(self, name, dagPath=None, type=None):
+    def __init__(self, name, *, dagPath=None, type=None):
         """記録する値を持たせる。
 
         Args:
@@ -80,7 +80,7 @@ class NodeRef:
         if not full:
             raise RuntimeError("削除されたノードは記録できません")
         path = full if full.startswith("|") else None
-        return cls(full.rpartition("|")[2], path, node.getType())
+        return cls(full.rpartition("|")[2], dagPath=path, type=node.getType())
 
     @property
     def name(self):
@@ -156,7 +156,7 @@ class NodeRef:
         if not isinstance(data, dict) or "name" not in data:
             raise ValueError(f"JSONのノードの参照が不正です: {data!r}")
         try:
-            return cls(data["name"], data.get("path"), data.get("type"))
+            return cls(data["name"], dagPath=data.get("path"), type=data.get("type"))
         except TypeError as error:
             raise ValueError(f"JSONのノードの参照が不正です: {data!r}") from error
 

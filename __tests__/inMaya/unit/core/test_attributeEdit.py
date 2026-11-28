@@ -237,7 +237,7 @@ class AttributeEditsTest(unittest.TestCase):
                 before = [p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)]
                 with self.subTest(fast=fast, flags=flags):
                     with self.assertRaises((TypeError, ValueError, RuntimeError)):
-                        self.node.addAttr(name, "double3", fast=fast, **flags)
+                        self.node.addAttr(name, type="double3", fast=fast, **flags)
                     self.assertEqual([p.getAttributeName() for p in self.node.getPlugs(userDefined=True, children=False)], before)
 
     def test_add_preflights_typed_defaults_and_keeps_default_return(self):
@@ -247,9 +247,9 @@ class AttributeEditsTest(unittest.TestCase):
                 name = f"invalid_{int(fast)}_{kind}"
                 with self.subTest(fast=fast, kind=kind):
                     with self.assertRaises((TypeError, ValueError, RuntimeError)):
-                        self.node.addAttr(name, kind, defaultValue=value, fast=fast)
+                        self.node.addAttr(name, type=kind, defaultValue=value, fast=fast)
                     self.assertFalse(self.node.hasAttr(name))
-        plug = self.node.addAttr("valid", "string", defaultValue="value")
+        plug = self.node.addAttr("valid", type="string", defaultValue="value")
         self.assertIsInstance(plug, mlib.StringPlug)
         self.assertEqual(plug.get(), "value")
         self.assertIsNone(self.node.addAttr("noReturn", getPlug=False))
@@ -385,7 +385,7 @@ class EditRefactoringTest(unittest.TestCase):
         with patch.object(mlib.Node, "addAttr", record_add_attr):
             plug = node.addAttr(
                 "customVector",
-                "double3",
+                type="double3",
                 childNames=["redValue", "greenValue", "blueValue"],
                 childShortNames=["rv", "gv", "bv"],
                 defaultValue=(1, 2, 3),
@@ -421,7 +421,7 @@ class FastAddAttrDefinitionTest(NamespaceCase):
             ("fastFltMatrix", "at:fltMatrix", "fltMatrix"),
         ):
             with self.subTest(kind=kind):
-                plug = self.node.addAttr(name, kind, fast=True)
+                plug = self.node.addAttr(name, type=kind, fast=True)
                 self.assertEqual(plug.getAttributeName(kind="long"), name)
                 self.assertEqual(self.query(name, attributeType=True), expected)
         self.assertTrue(cmds.undoInfo(query=True, undoQueueEmpty=True))
@@ -444,7 +444,7 @@ class FastAddAttrDefinitionTest(NamespaceCase):
 
     def test_compound_with_named_children(self):
         """compoundは子の名前を渡すと、子を持つ親として1回で追加する。"""
-        self.node.addAttr("fastParent", "compound", childNames=["fastA", "fastB"], subType="double", fast=True)
+        self.node.addAttr("fastParent", type="compound", childNames=["fastA", "fastB"], subType="double", fast=True)
         self.assertEqual(cmds.attributeQuery("fastParent", node=self.node.getName(full=True), listChildren=True), ["fastA", "fastB"])
         self.assertEqual(self.query("fastA", attributeType=True), "double")
 
@@ -460,7 +460,7 @@ class FastAddAttrDefinitionTest(NamespaceCase):
         """空の子の名前・マルチへの既定値・書き込めない定義への既定値は、追加する前に例外にする。"""
         before = cmds.listAttr(self.node.getName(full=True))
         with self.assertRaises(ValueError):
-            self.node.addAttr("vectorValue", "double3", childNames=["", "vy", "vz"])
+            self.node.addAttr("vectorValue", type="double3", childNames=["", "vy", "vz"])
         with self.assertRaises(TypeError):
             self.node.addAttr("multiValue", dataType="string", multi=True, defaultValue="x")
         with self.assertRaises(RuntimeError):
@@ -472,13 +472,13 @@ class FastAddAttrDefinitionTest(NamespaceCase):
         before = cmds.listAttr(self.node.getName(full=True))
         for sub_type in ("at:double", "double"):
             with self.subTest(subType=sub_type), self.assertRaisesRegex(TypeError, "defaultValueは数値で指定してください"):
-                self.node.addAttr("prefixedValue", "double3", subType=sub_type, defaultValue="abc")
+                self.node.addAttr("prefixedValue", type="double3", subType=sub_type, defaultValue="abc")
             self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
         for kind, fast in (("double", False), ("double", True), ("double3", True)):
             with self.subTest(type=kind, fast=fast), self.assertRaisesRegex(TypeError, "defaultValueは数値で指定してください"):
-                self.node.addAttr("textDefault", kind, defaultValue="abc", fast=fast)
+                self.node.addAttr("textDefault", type=kind, defaultValue="abc", fast=fast)
             self.assertEqual(cmds.listAttr(self.node.getName(full=True)), before)
-        plug = self.node.addAttr("prefixedValue", "double3", subType="at:double", defaultValue=(1.0, 2.0, 3.0))
+        plug = self.node.addAttr("prefixedValue", type="double3", subType="at:double", defaultValue=(1.0, 2.0, 3.0))
         self.assertEqual(plug.getAttributeName(kind="long"), "prefixedValue")
         self.assertEqual(self.query("prefixedValueX", attributeType=True), "double")
         self.assertEqual(self.query("prefixedValueY", defaultValue=True), 2.0)

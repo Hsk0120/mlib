@@ -303,6 +303,7 @@ class Matrix(om2.MMatrix):
             None: 値を返さない。
 
         Raises:
+            TypeError: 成分(translate・rotate・scale・shear)が並びでない場合。
             ValueError: マトリクス入力が16要素として解釈できない場合、成分が3要素でない場合、
                 または回転クォータニオンがゼロの場合。
         """
@@ -545,7 +546,7 @@ class Matrix(om2.MMatrix):
         """
         ...
     @classmethod
-    def compose(cls, translate: Iterable[float] = ..., rotate: Iterable[float] | om2.MEulerRotation | om2.MQuaternion = ..., scale: Iterable[float] = ..., shear: Iterable[float] = ...) -> Matrix:
+    def compose(cls, translate: Iterable[float] = ..., *, rotate: Iterable[float] | om2.MEulerRotation | om2.MQuaternion = ..., scale: Iterable[float] = ..., shear: Iterable[float] = ...) -> Matrix:
         """平行移動・回転・スケール・シアーの成分からマトリクスを作る。
 
         Args:
@@ -564,7 +565,7 @@ class Matrix(om2.MMatrix):
         """
         ...
     @classmethod
-    def fromAxes(cls, x: om2.MVector | om2.MPoint | Iterable[float], y: om2.MVector | om2.MPoint | Iterable[float], z: om2.MVector | om2.MPoint | Iterable[float], position: om2.MVector | om2.MPoint | Iterable[float] = ...) -> Matrix:
+    def fromAxes(cls, x: om2.MVector | om2.MPoint | Iterable[float], y: om2.MVector | om2.MPoint | Iterable[float], z: om2.MVector | om2.MPoint | Iterable[float], *, position: om2.MVector | om2.MPoint | Iterable[float] = ...) -> Matrix:
         """3つの軸のベクトルと位置を、そのまま各行へ入れたマトリクスを作る。
 
         Mayaの行ベクトルの規約で、次のように書き込む。
@@ -956,7 +957,7 @@ class Matrix(om2.MMatrix):
             ValueError: valueの成分の数が3でない場合。
         """
         ...
-    def mirror(self, axis: str | int = ..., pivot: Iterable[float] = ...) -> Matrix:
+    def mirror(self, axis: str | int = ..., *, pivot: Iterable[float] = ...) -> Matrix:
         """「ビヘイビア」でミラーしたマトリクスを返す。
 
         Mayaの ``mirrorJoint -mirrorBehavior`` と同じ規約で、次のように要素を反転する。

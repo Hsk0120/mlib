@@ -263,6 +263,20 @@ class InBetweenTest(_BlendCase):
 
 
 class MirrorTest(_BlendCase):
+    def test_mirror_keeps_scene_symmetry_setting(self):
+        """mirrorTarget(flip も)は、シーン全体のシンメトリの設定(symmetricModelling)を呼ぶ前のまま残す。"""
+        self.baked()
+        before = cmds.symmetricModelling(query=True, symmetry=True)
+        try:
+            for state in (False, True):
+                for flip in (False, True):
+                    with self.subTest(state=state, flip=flip):
+                        cmds.symmetricModelling(edit=True, symmetry=state)
+                        self.bs.mirrorTarget("smile", axis="x", flip=flip)
+                        self.assertEqual(bool(cmds.symmetricModelling(query=True, symmetry=True)), state)
+        finally:
+            cmds.symmetricModelling(edit=True, symmetry=before)
+
     def test_mirror_and_flip(self):
         self.baked()
         positive, negative = self.positive(), self.negative()

@@ -114,6 +114,11 @@ def _expect_removed(case, call):
         case.assertNotEqual(_layer_of(str(member)), layer.split("|")[-1])
 
 
+def _expect_current(case, call):
+    case.assertIsNone(call.result)
+    case.assertEqual(cmds.editDisplayLayerGlobals(query=True, currentDisplayLayer=True), str(call.target))
+
+
 def _members_all(kwargs):
     """members と all=True は同時に指定できない。"""
     return kwargs.get("all") is True and kwargs.get("members", ()) not in ((), [])
@@ -148,6 +153,7 @@ METHODS = (
         expect=_expect_removed,
         state=_layer_state,
     ),
+    Method("setCurrent", _make_layer, expect=_expect_current, state=_layer_state),
 )
 
 #: 引数の無いメソッドの対象を作る行(test_noArguments で使う)。

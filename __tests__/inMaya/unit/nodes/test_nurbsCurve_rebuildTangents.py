@@ -40,7 +40,7 @@ class RebuildKeepTangentsTest(NamespaceCase):
                 shape = mlib.getNode(curve).getShape()
                 before = cmds.getAttr(curve + ".cv[*]")
                 self.flushUndo()
-                shape.rebuild(8, 3, keepRange="unit", keepTangents=keep)
+                shape.rebuild(8, degree=3, keepRange="unit", keepTangents=keep)
                 expected = cmds.getAttr(reference + ".cv[*]")
                 self.assertUndoesInOneStep(
                     lambda: self.assertEqual(cmds.getAttr(curve + ".cv[*]"), before), lambda: self.assertEqual(cmds.getAttr(curve + ".cv[*]"), expected)

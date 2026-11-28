@@ -271,7 +271,7 @@ class Joint(Transform):
             NotImplementedError: MFnIkJointを持たないMaya版の場合。
         """
         ...
-    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., *, children: bool = ..., zeroScaleOrient: bool = ...) -> None:
+    def orient(self, orientation: str = ..., *, secondaryAxisOrient: str = ..., children: bool = ..., zeroScaleOrient: bool = ...) -> None:
         """ジョイントの向きを、子のジョイントの方へ向けて揃える。
 
         次のコマンドを実行する(``cmds.joint(edit=True, orientJoint=...)`` と同じ)。
@@ -872,7 +872,7 @@ class Joints(Nodes[Joint]):
             Joints: 深さの順に並べたコレクション。子のジョイントを先に処理したいときに使う。
         """
         ...
-    def orient(self, orientation: str = ..., secondaryAxisOrient: str = ..., *, children: bool = ..., zeroScaleOrient: bool = ...) -> None:
+    def orient(self, orientation: str = ..., *, secondaryAxisOrient: str = ..., children: bool = ..., zeroScaleOrient: bool = ...) -> None:
         """各ジョイントに、並んでいる順に :meth:`Joint.orient` を行う。
 
         全体を1つのUndoチャンクに記録する。引数は、処理を始める前に1回だけ確かめる。
@@ -1062,10 +1062,10 @@ class Joints(Nodes[Joint]):
     def mfn(self) -> list[om2.MFnTransform]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mfn` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+    def scaleGeometry(self, scale: float | Iterable[float], worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int | tuple[int, int]] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.scaleGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+    def mirrorGeometry(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., indices: Iterable[int] | None = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mirrorGeometry` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getPivot(self, worldSpace: bool = ..., *, kind: str = ..., translation: bool = ..., ws: bool = ...) -> list[Translate | Vector]:
@@ -1119,7 +1119,7 @@ class Joints(Nodes[Joint]):
     def matchTransform(self, target: Transform | str | om2.MObject | om2.MDagPath, *, position: bool = ..., rotation: bool = ..., scale: bool = ..., pivots: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.matchTransform` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., pivot: Iterable[float] = ..., *, fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
+    def mirrorTransform(self, axis: str | int = ..., worldSpace: bool = ..., *, pivot: Iterable[float] = ..., fast: bool = ..., check: bool = ..., ws: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.mirrorTransform` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def getShadingEngines(self) -> list[Nodes[ShadingEngine]]:
@@ -1137,13 +1137,13 @@ class Joints(Nodes[Joint]):
     def setTransformation(self, value: Transformation, *, fast: bool = ..., check: bool = ...) -> list[None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setTransformation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getTranslation(self, worldSpace: bool = ..., at: int = ..., *, ws: bool = ...) -> list[Translate]:
+    def getTranslation(self, worldSpace: bool = ..., *, at: int = ..., ws: bool = ...) -> list[Translate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., at: int = ..., *, relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[Translate | None]:
+    def setTranslation(self, value: Iterable[float], worldSpace: bool = ..., *, at: int = ..., relative: bool = ..., get: bool = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[Translate | None]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.setTranslation` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def getRotate(self, worldSpace: bool = ..., *, order: int | str | None = ..., ws: bool = ...) -> list[EulerRotate]:
+    def getRotate(self, worldSpace: bool = ..., *, order: str | int | None = ..., ws: bool = ...) -> list[EulerRotate]:
         """各要素の :meth:`~mlib.nodes.transform.Transform.getRotate` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def setRotate(self, value: Iterable[float] | EulerRotate | Quaternion, worldSpace: bool = ..., *, relative: bool = ..., get: bool = ..., unit: str = ..., fast: bool = ..., check: bool = ..., safe: bool = ..., ws: bool = ...) -> list[EulerRotate | None]:
@@ -1380,7 +1380,7 @@ class Joints(Nodes[Joint]):
     def getAliases(self) -> list[list[tuple[str, Plug]]]:
         """各要素の :meth:`~mlib.nodes.node.Node.getAliases` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
-    def addAttr(self, longName: str = ..., type: str | None = ..., subType: str | None = ..., *, channelBox: bool = ..., cb: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., pxy: Plug | str | None = ..., getPlug: bool = ..., skipExisting: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., fast: bool = ..., ln: str = ..., **kwargs) -> list[Plug | None]:
+    def addAttr(self, longName: str = ..., *, type: str | None = ..., subType: str | None = ..., channelBox: bool = ..., cb: bool = ..., childNames: Sequence[str] | None = ..., childShortNames: Sequence[str] | None = ..., childSuffixes: Sequence[str] | None = ..., proxy: Plug | str | None = ..., pxy: Plug | str | None = ..., getPlug: bool = ..., skipExisting: bool = ..., unit: str = ..., timeUnit: str = ..., attributeType: str = ..., at: str = ..., binaryTag: str = ..., bt: str = ..., cachedInternally: bool = ..., ci: bool = ..., category: str | Sequence[str] = ..., ct: str | Sequence[str] = ..., dataType: str | Sequence[str] = ..., dt: str | Sequence[str] = ..., defaultValue: object = ..., dv: object = ..., disconnectBehaviour: int = ..., dcb: int = ..., edit: bool = ..., e: bool = ..., enforcingUniqueName: bool = ..., eun: bool = ..., enumName: str = ..., en: str = ..., exists: bool = ..., ex: bool = ..., fromPlugin: bool = ..., fp: bool = ..., hasMaxValue: bool = ..., hxv: bool = ..., hasMinValue: bool = ..., hnv: bool = ..., hasSoftMaxValue: bool = ..., hsx: bool = ..., hasSoftMinValue: bool = ..., hsn: bool = ..., hidden: bool = ..., h: bool = ..., indexMatters: bool = ..., im: bool = ..., internalSet: bool = ..., keyable: bool = ..., k: bool = ..., maxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., max: float | om2.MAngle | om2.MDistance | om2.MTime = ..., minValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., min: float | om2.MAngle | om2.MDistance | om2.MTime = ..., multi: bool = ..., m: bool = ..., niceName: str = ..., nn: str = ..., numberOfChildren: int = ..., nc: int = ..., parent: str = ..., p: str = ..., query: bool = ..., q: bool = ..., readable: bool = ..., r: bool = ..., shortName: str = ..., sn: str = ..., softMaxValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smx: float | om2.MAngle | om2.MDistance | om2.MTime = ..., softMinValue: float | om2.MAngle | om2.MDistance | om2.MTime = ..., smn: float | om2.MAngle | om2.MDistance | om2.MTime = ..., storable: bool = ..., s: bool = ..., usedAsColor: bool = ..., uac: bool = ..., usedAsFilename: bool = ..., uaf: bool = ..., usedAsProxy: bool = ..., uap: bool = ..., worldSpace: bool = ..., ws: bool = ..., writable: bool = ..., w: bool = ..., fast: bool = ..., ln: str = ..., **kwargs) -> list[Plug | None]:
         """各要素の :meth:`~mlib.nodes.node.Node.addAttr` を同じ引数で保持順に呼び、戻り値を保持順のリストで返す。"""
         ...
     def moveAttrOrder(self, name: str, offset: int) -> list[None]:

@@ -213,7 +213,7 @@ class AnimCurve(Node):
             raise RuntimeError("空のカーブではキーを検索できません")
         return int(fn.findClosest(self._api_input(_to_seconds(self._finite(input), input_unit))))
 
-    def addKey(self, input, value=None, inTangentType=None, outTangentType=None, *, unit="deg", timeUnit="frame", fast=False, check=False):
+    def addKey(self, input, value=None, *, inTangentType=None, outTangentType=None, unit="deg", timeUnit="frame", fast=False, check=False):
         """キーを追加する。同じ入力の位置にキーがあれば、その値と、指定した接線の型を書き換える。
 
         ``value`` を省く(None)と、カーブの形を変えずにキーを挿入する(``setKeyframe -insert``)。
@@ -467,7 +467,7 @@ class AnimCurve(Node):
                 with self._kept_curve():
                     cmds.cutKey(self._full_name(), index=(0, count - 1), clear=True, animation="objects")
             for input, value, tangent_in, tangent_out in entries:
-                self.addKey(input, value, tangent_in, tangent_out, unit=unit, timeUnit=timeUnit)
+                self.addKey(input, value, inTangentType=tangent_in, outTangentType=tangent_out, unit=unit, timeUnit=timeUnit)
             # カーブ名へ直接キーを打つと、Mayaは出力先を再評価しないことがあるため、出力を更新し直させる。
             cmds.dgdirty(self._full_name())
 
@@ -512,7 +512,7 @@ class AnimCurve(Node):
             for plug, value in targets:
                 plug.set(value, fast=fast)
 
-    def scaleKey(self, inputScale=1, valueScale=1, inputPivot=0, valuePivot=0, *, index=None, time=None, unit="deg", timeUnit="frame"):
+    def scaleKey(self, inputScale=1, *, valueScale=1, inputPivot=0, valuePivot=0, index=None, time=None, unit="deg", timeUnit="frame"):
         """キーを、基準の値を中心に拡大・縮小する。
 
         indexとtimeを両方省略すると、すべてのキーが対象になる。接線の扱いはMayaのscaleKeyに従う。
@@ -919,7 +919,7 @@ class AnimCurve(Node):
             kwargs = dict(kwargs)
             for flag in ("inAngle", "outAngle"):
                 if flag in kwargs:
-                    kwargs[flag] = convertAngle(kwargs[flag], angle_unit, None)
+                    kwargs[flag] = convertAngle(kwargs[flag], fromUnit=angle_unit, toUnit=None)
             cmds.keyTangent(self._full_name(), edit=True, index=self._index(index), animation="objects", **kwargs)
 
     def _is_breakdown(self, index):

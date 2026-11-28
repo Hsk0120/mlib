@@ -94,7 +94,7 @@ def legalizeName(name):
     return joined
 
 
-def measure(operation, samples=30, warmup=3):
+def measure(operation, *, samples=30, warmup=3):
     """処理にかかる時間を、秒で計測する。
 
     Args:
@@ -712,7 +712,7 @@ class _PointGrid:
         self.lows = [math.floor(low / self.size) for low in lows]
         self.highs = [math.floor(high / self.size) for high in highs]
 
-    def nearest(self, point, maxDistance=None):
+    def nearest(self, point, *, maxDistance=None):
         """最も近い点の番号と距離を返す。
 
         Args:

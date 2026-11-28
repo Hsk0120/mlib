@@ -520,7 +520,7 @@ class Quaternion(om2.MQuaternion):
             ValueError: 自身またはotherが0のクォータニオンの場合。
         """
         ...
-    def slerp(self, other: om2.MQuaternion, t: float, spin: int = ...) -> Quaternion:
+    def slerp(self, other: om2.MQuaternion, t: float, *, spin: int = ...) -> Quaternion:
         """別のクォータニオンとの球面線形補間を返す。
 
         om2の静的メソッド ``MQuaternion.slerp(p, q, t, spin=0)`` を上書きする。

@@ -327,19 +327,19 @@ class MultiBaseTest(NamespaceCase):
 
     def test_shared_weight_cannot_be_renamed(self):
         """別のベースと共有する番号へ別の名前で追加すると ValueError。同じ名前なら共有する。"""
-        self.bs.addTarget(self.plane_target, "smile", index=0)
+        self.bs.addTarget(self.plane_target, name="smile", index=0)
         with self.assertRaisesRegex(ValueError, "共有するウェイトの名前"):
-            self.bs.addTarget(self.cube_target, "other", base=self.cube, index=0)
+            self.bs.addTarget(self.cube_target, name="other", base=self.cube, index=0)
         self.assertEqual(self.bs.getTargetItemIndices(0), [6000])
         with self.assertRaises(ValueError):
             self.bs.getTargetItemIndices(0, base=self.cube)
-        plug = self.bs.addTarget(self.cube_target, "smile", base=self.cube, index=0)
+        plug = self.bs.addTarget(self.cube_target, name="smile", base=self.cube, index=0)
         self.assertEqual(plug.getName(), self.bs.getPlug("weight")[0].getName())
         self.assertEqual(self.bs.getTargetNames(), ["smile"])
 
     def test_target_only_on_one_base(self):
         """片方のベースだけにあるターゲットは、そのベースでだけ読め、データには持つベースだけを記録する。"""
-        self.bs.addTarget(self.plane_target, "planeOnly")
+        self.bs.addTarget(self.plane_target, name="planeOnly")
         cmds.delete(self.plane_target)
         with self.assertRaisesRegex(ValueError, "データがありません"):
             self.bs.getInBetweenWeights("planeOnly", base=self.cube)
